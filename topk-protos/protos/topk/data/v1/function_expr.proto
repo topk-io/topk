@@ -1,0 +1,18 @@
+syntax = "proto3";
+package topk.data.v1;
+
+import "topk/data/v1/value.proto";
+
+message FunctionExpr {
+  message VectorDistance {
+    string field = 1;
+    Vector query = 2;
+  }
+
+  message Bm25Score {}
+
+  oneof func {
+    VectorDistance vector_distance = 1;
+    Bm25Score bm25_score = 2;
+  }
+}

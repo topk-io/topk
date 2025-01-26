@@ -1,0 +1,21 @@
+syntax = "proto3";
+package topk.management.v1;
+
+service AuthService {
+  rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse);
+  rpc CreateApiKey(CreateApiKeyRequest) returns (CreateApiKeyResponse);
+}
+
+message AuthenticateRequest {
+  string auth0_user_id = 1;
+}
+message AuthenticateResponse {}
+
+message CreateApiKeyRequest {
+  uint64 org_id = 1;
+  uint32 project_id = 2;
+  string name = 3;
+}
+message CreateApiKeyResponse {
+  string raw = 1;
+}

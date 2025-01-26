@@ -1,0 +1,14 @@
+[package]
+name = "topk-py"
+version = "0.1.4"
+edition = "2021"
+
+[dependencies]
+pyo3 = { version = "0.23.3", features = ["py-clone"] }
+topk-protos = { path = "../topk-protos" }
+topk-rs = { path = "../topk-rs" }
+tonic = { version = "0.12.3" }
+tokio = { version = "1.35", features = ["full"] }
+anyhow = { version = "1.0.77" }
+thiserror = { version = "1.0.65" }
+tracing-subscriber = { version = "0.3.19" }

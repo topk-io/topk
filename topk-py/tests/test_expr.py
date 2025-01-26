@@ -1,0 +1,62 @@
+import pytest
+from topk_sdk.query import field, literal
+
+
+def test_query_expr_with_flexible_expr():
+    assert field("a") + 1 == field("a") + literal(1)
+    assert 1 + field("a") == literal(1) + field("a")
+
+    assert field("a") - 1 == field("a") - literal(1)
+    assert 1 - field("a") == literal(1) - field("a")
+
+    assert field("a") * 1 == field("a") * literal(1)
+    assert 1 * field("a") == literal(1) * field("a")
+
+    assert field("a") / 1 == field("a") / literal(1)
+    assert 1 / field("a") == literal(1) / field("a")
+
+    assert field("a") & True == field("a") & literal(True)
+    assert True & field("a") == literal(True) & field("a")
+
+    assert field("a") | False == field("a") | literal(False)
+    assert False | field("a") == literal(False) | field("a")
+
+
+def test_query_expr_eq():
+    assert literal("a") + literal("b") == literal("a") + literal("b")
+    assert literal("a") != literal("b")
+    assert field("a") == field("a")
+    assert field("a") != field("b")
+    assert field("a") != literal("a")
+    assert literal("a") != field("a")
+
+
+def test_query_literal():
+    field("foo").eq(literal(1))
+    field("foo").eq(1)
+
+    field("foo").ne(literal(1))
+    field("foo").ne(1)
+
+
+def test_invalid():
+    with pytest.raises(TypeError):
+        literal(1) + "string"
+
+    with pytest.raises(TypeError):
+        field("a") & 1
+
+    with pytest.raises(TypeError):
+        field("a") | 1
+
+    with pytest.raises(TypeError):
+        field("a") + None
+
+    with pytest.raises(TypeError):
+        field("a") + "string"
+
+    with pytest.raises(TypeError):
+        field("a") + [1, 2, 3]
+
+    with pytest.raises(TypeError):
+        field("a") + {"a": 1}

@@ -1,0 +1,151 @@
+---
+title: 'Quickstart'
+description: 'Build a `topk` search engine in under 5 minutes.'
+---
+
+## Install the SDK
+
+
+
+<CodeGroup>
+
+```shell Python
+pip install topk_sdk
+```
+
+```shell Rust
+cargo add topk-sdk
+```
+
+```shell JavaScript
+# Coming soon. Reach out to us at support@topk.io if this is a blocker for you.
+```
+
+```shell REST
+# Coming soon. Reach out to us at support@topk.io if this is a blocker for you.
+```
+
+```shell gRPC
+# Coming soon. Reach out to us at support@topk.io if this is a blocker for you.
+```
+
+</CodeGroup>
+
+
+## Create an API key
+
+Head down to the <a href="https://console.topk.io" target="_blank">Console</a> to sign up and create your API key.
+
+## Create your first collection
+
+First create a `Client` instance with your API key and <Tooltip tip="TopK region is where your data is stored. It maps to a specific cloud region.">region</Tooltip>. 
+
+```python
+from topk_sdk import Client
+
+client = Client(api_key="YOUR_TOPK_API_KEY", region="aws-us-east-1-thunderbird")
+```
+
+Then create a collection, optionally specifying a schema. 
+
+```python
+from topk_sdk.schema import text, int, vector
+
+client.collections().create(
+    "books",
+    schema={
+        "title": text().required(),
+
+        "title_embedding": vector(1536)
+            .required()
+            .index(vector_index(metric="cosine")),
+
+        "published_year": int().required(),
+    },
+)
+```
+
+## Add documents to the collection
+
+After a collection is created, you can start adding documents to it. TopK will enforce the schema you specified when you create the collection. Document schema is optional by default, so you can write documents with fields which are not specified in the schema.
+
+Next up, let's add some documents to the collection. A **document** is a JSON-style dictionary with one condition: **it must have a `_id` field.**.
+
+```python
+lsn = client.collection("books").upsert(
+    [
+        {"_id": "1", "title": "The Great Gatsby", "title_embedding": [3.1, 6.2, 9.3, ...], "published_year": 1925},
+        {"_id": "2", "title": "1984", "title_embedding": [6.1, 7.2, 8.3, ...], "published_year": 1949},
+        {"_id": "3", "title": "The Catcher in the Rye", "title_embedding": [1.1, 2.2, 3.3, ...], "published_year": 1951},
+    ],
+)
+```
+
+<Warning>Heads up: `topk` is an eventually consistent database.<br /><br />This means that your documents are not guaranteed to be immediately available for querying. The client however can optionally wait for the documents to be available. The `lsn` object returned from the `upsert()` and `delete()` is a "cursor" to the state of the database. By passing it to `client.query()` you can make sure that your writes are available for querying.<br /><br />This is an early limitation of the system which will go away in the future. <a href="https://www.geeksforgeeks.org/read-your-writes-consistency-in-system-design/">Read your writes consistency</a> is the best experience you can get, so that's what we're committing to.</Warning>
+
+## Query your collection
+
+Now, send you first query:
+
+```python
+from topk_sdk.query import select, filter, field, fn, match
+
+results = client.collection("books").query(
+    select(
+        "title",
+        vector_distance=fn.vector_distance("title_embedding"),
+        text_score=fn.keyword_score(),
+    )
+        # Keyword search - filter to books with word "catcher" in the title
+        .filter(field("title").match("catcher"))
+        # Vector search - filter books by 
+        .filter(field("vector_distance") > 0.5),
+        # Metadata search - filter books by published year
+        .filter(field("published_year") > 1920)
+        # Scoring - return top 10 results by calculating score as `text_score + vector_distance * 3`
+        .top_k(field("text_score") + field("vector_distance") * 3, 10)
+
+    # Pass the LSN to make sure the query is consistent with the writes. 
+    lsn=lsn,
+)
+```
+
+```python
+for result in results:
+    # Fields specified in `select` are returned as attributes of the result object. `_id` is always returned.
+    print(f"ID: {result._id}, Title: {result.title}, Vector distance: {result.vector_distance}")
+```
+
+**Nicely done!** You've just created your first collection, added documents to it, and queried it.
+
+## Cleaning up
+
+Let's clean up so you can explore the rest of the documentation. If you want to delete documents, you can do so by passing a list of `_id`s to the `delete` method.
+
+```python
+client.collection("books").delete(
+    ["book-1", "book-2", "book-3"]
+)
+```
+
+To delete the entire collection, you can do so by calling:
+
+```python
+client.collections().delete("books")
+```
+
+## Next steps
+
+Continue exploring the `topk` SDK:
+
+<CardGroup>
+
+<Card title="Managing collections" icon="paintbrush" href="/collections/overview">
+  Learn how to manage collections.
+</Card>
+
+<Card title="Querying" icon="square-code" href="/documents/overview">
+  Learn how to query your collections.
+</Card>
+
+</CardGroup>

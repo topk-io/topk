@@ -1,0 +1,28 @@
+syntax = "proto3";
+package topk.management.v1;
+
+import "topk/control/v1/index_schema.proto";
+
+service OrgService {
+  rpc GetOrg(GetOrgRequest) returns (GetOrgResponse);
+  rpc CreateOrg(CreateOrgRequest) returns (CreateOrgResponse);
+}
+
+message Org {
+  uint64 org_id = 1;
+  string name = 2;
+}
+
+message GetOrgRequest {
+  uint64 org_id = 1;
+}
+message GetOrgResponse {
+  Org org = 1;
+}
+
+message CreateOrgRequest {
+  string name = 1;
+}
+message CreateOrgResponse {
+  Org org = 1;
+}

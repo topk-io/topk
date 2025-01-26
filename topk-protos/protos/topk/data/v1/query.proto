@@ -1,0 +1,66 @@
+syntax = "proto3";
+package topk.data.v1;
+
+import "google/api/annotations.proto";
+import "topk/data/v1/document.proto";
+import "topk/data/v1/function_expr.proto";
+import "topk/data/v1/logical_expr.proto";
+import "topk/data/v1/text_expr.proto";
+import "topk/data/v1/value.proto";
+
+service QueryService {
+  rpc Query(QueryRequest) returns (QueryResponse) {
+    option (google.api.http) = {
+      post: "/v1/query"
+      body: "*"
+    };
+  }
+}
+
+message QueryRequest {
+  string collection = 1;
+  Query query = 2;
+  optional uint64 required_lsn = 3;
+}
+
+message QueryResponse {
+  repeated Document results = 1;
+}
+
+message Query {
+  repeated Stage stages = 1;
+}
+
+message Stage {
+  message SelectStage {
+    message SelectExpr {
+      oneof expr {
+        LogicalExpr logical_expr = 1;
+        FunctionExpr function_expr = 2;
+      }
+    }
+    map<string, SelectExpr> exprs = 1;
+  }
+
+  message FilterStage {
+    message FilterExpr {
+      oneof expr {
+        LogicalExpr logical_expr = 1;
+        TextExpr text_expr = 2;
+      }
+    }
+    FilterExpr expr = 1;
+  }
+
+  message TopKStage {
+    LogicalExpr expr = 1;
+    uint64 k = 2;
+    bool asc = 3;
+  }
+
+  oneof stage {
+    SelectStage select = 1;
+    FilterStage filter = 2;
+    TopKStage top_k = 3;
+  }
+}

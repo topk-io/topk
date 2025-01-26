@@ -1,0 +1,705 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "topk.data.v1"
+  },
+  "paths": {
+    "/v1/docs": {
+      "post": {
+        "tags": [
+          "topk.data.v1.DocumentService"
+        ],
+        "summary": "UpsertDocuments",
+        "description": "Upsert documents",
+        "operationId": "topk.data.v1.DocumentService.UpsertDocuments",
+        "requestBody": {
+          "description": "Upsert documents"
+        },
+        "responses": {
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/topk.data.v1.UpsertDocumentsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/docs/{id}": {
+      "delete": {
+        "tags": [
+          "topk.data.v1.DocumentService"
+        ],
+        "summary": "DeleteDocuments",
+        "description": "Delete documents",
+        "operationId": "topk.data.v1.DocumentService.DeleteDocuments",
+        "parameters": [
+          {
+            "name": "ids",
+            "in": "query",
+            "description": "Delete documents",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "title": "ids"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/topk.data.v1.DeleteDocumentsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "topk.data.v1.DeleteDocumentsRequest": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "title": "ids"
+          }
+        },
+        "title": "DeleteDocumentsRequest",
+        "additionalProperties": false,
+        "description": "Delete"
+      },
+      "topk.data.v1.DeleteDocumentsResponse": {
+        "type": "object",
+        "properties": {
+          "lsn": {
+            "type": [
+              "integer",
+              "string"
+            ],
+            "title": "lsn",
+            "format": "int64"
+          }
+        },
+        "title": "DeleteDocumentsResponse",
+        "additionalProperties": false
+      },
+      "topk.data.v1.Document": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "object",
+            "title": "fields",
+            "additionalProperties": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/topk.data.v1.Value"
+                }
+              ],
+              "title": "value"
+            },
+            "description": "Document fields"
+          }
+        },
+        "title": "Document",
+        "additionalProperties": false
+      },
+      "topk.data.v1.Document.FieldsEntry": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "key"
+          },
+          "value": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/topk.data.v1.Value"
+              }
+            ],
+            "title": "value"
+          }
+        },
+        "title": "FieldsEntry",
+        "additionalProperties": false
+      },
+      "topk.data.v1.Null": {
+        "type": "object",
+        "title": "Null",
+        "additionalProperties": false
+      },
+      "topk.data.v1.UpsertDocumentsRequest": {
+        "type": "object",
+        "properties": {
+          "docs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/topk.data.v1.Document"
+            },
+            "title": "docs"
+          }
+        },
+        "title": "UpsertDocumentsRequest",
+        "additionalProperties": false,
+        "description": "Upsert"
+      },
+      "topk.data.v1.UpsertDocumentsResponse": {
+        "type": "object",
+        "properties": {
+          "lsn": {
+            "type": [
+              "integer",
+              "string"
+            ],
+            "title": "lsn",
+            "format": "int64"
+          }
+        },
+        "title": "UpsertDocumentsResponse",
+        "additionalProperties": false
+      },
+      "topk.data.v1.Value": {
+        "type": "object",
+        "allOf": [
+          {
+            "anyOf": [
+              {
+                "required": [
+                  "binary"
+                ]
+              },
+              {
+                "required": [
+                  "bool"
+                ]
+              },
+              {
+                "required": [
+                  "f32"
+                ]
+              },
+              {
+                "required": [
+                  "f64"
+                ]
+              },
+              {
+                "required": [
+                  "i32"
+                ]
+              },
+              {
+                "required": [
+                  "i64"
+                ]
+              },
+              {
+                "required": [
+                  "null"
+                ]
+              },
+              {
+                "required": [
+                  "string"
+                ]
+              },
+              {
+                "required": [
+                  "u32"
+                ]
+              },
+              {
+                "required": [
+                  "u64"
+                ]
+              },
+              {
+                "required": [
+                  "vector"
+                ]
+              },
+              {
+                "not": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "binary"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "bool"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "f32"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "f64"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "i32"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "i64"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "null"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "string"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "u32"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "u64"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "vector"
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ],
+        "anyOf": [
+          {
+            "required": [
+              "binary"
+            ]
+          },
+          {
+            "required": [
+              "bool"
+            ]
+          },
+          {
+            "required": [
+              "f32"
+            ]
+          },
+          {
+            "required": [
+              "f64"
+            ]
+          },
+          {
+            "required": [
+              "i32"
+            ]
+          },
+          {
+            "required": [
+              "i64"
+            ]
+          },
+          {
+            "required": [
+              "null"
+            ]
+          },
+          {
+            "required": [
+              "string"
+            ]
+          },
+          {
+            "required": [
+              "u32"
+            ]
+          },
+          {
+            "required": [
+              "u64"
+            ]
+          },
+          {
+            "required": [
+              "vector"
+            ]
+          },
+          {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "binary"
+                  ]
+                },
+                {
+                  "required": [
+                    "bool"
+                  ]
+                },
+                {
+                  "required": [
+                    "f32"
+                  ]
+                },
+                {
+                  "required": [
+                    "f64"
+                  ]
+                },
+                {
+                  "required": [
+                    "i32"
+                  ]
+                },
+                {
+                  "required": [
+                    "i64"
+                  ]
+                },
+                {
+                  "required": [
+                    "null"
+                  ]
+                },
+                {
+                  "required": [
+                    "string"
+                  ]
+                },
+                {
+                  "required": [
+                    "u32"
+                  ]
+                },
+                {
+                  "required": [
+                    "u64"
+                  ]
+                },
+                {
+                  "required": [
+                    "vector"
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "properties": {
+          "bool": {
+            "type": "boolean",
+            "title": "bool",
+            "description": "Boolean"
+          },
+          "u32": {
+            "type": "integer",
+            "title": "u32",
+            "description": "Unsigned integer"
+          },
+          "u64": {
+            "type": [
+              "integer",
+              "string"
+            ],
+            "title": "u64",
+            "format": "int64"
+          },
+          "i32": {
+            "type": "integer",
+            "title": "i32",
+            "format": "int32",
+            "description": "Signed integer"
+          },
+          "i64": {
+            "type": [
+              "integer",
+              "string"
+            ],
+            "title": "i64",
+            "format": "int64"
+          },
+          "f32": {
+            "type": "number",
+            "title": "f32",
+            "format": "float",
+            "description": "Floats"
+          },
+          "f64": {
+            "type": "number",
+            "title": "f64",
+            "format": "double"
+          },
+          "string": {
+            "type": "string",
+            "title": "string",
+            "description": "String"
+          },
+          "binary": {
+            "type": "string",
+            "title": "binary",
+            "format": "byte",
+            "description": "Binary"
+          },
+          "vector": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/topk.data.v1.Vector"
+              }
+            ],
+            "title": "vector",
+            "description": "Vector"
+          },
+          "null": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/topk.data.v1.Null"
+              }
+            ],
+            "title": "null",
+            "description": "Null"
+          }
+        },
+        "title": "Value",
+        "additionalProperties": false
+      },
+      "topk.data.v1.Vector": {
+        "type": "object",
+        "allOf": [
+          {
+            "anyOf": [
+              {
+                "required": [
+                  "byte"
+                ]
+              },
+              {
+                "required": [
+                  "float"
+                ]
+              },
+              {
+                "not": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "byte"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "float"
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ],
+        "anyOf": [
+          {
+            "required": [
+              "byte"
+            ]
+          },
+          {
+            "required": [
+              "float"
+            ]
+          },
+          {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "byte"
+                  ]
+                },
+                {
+                  "required": [
+                    "float"
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "properties": {
+          "float": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/topk.data.v1.Vector.Float"
+              }
+            ],
+            "title": "float"
+          },
+          "byte": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/topk.data.v1.Vector.Byte"
+              }
+            ],
+            "title": "byte"
+          }
+        },
+        "title": "Vector",
+        "additionalProperties": false
+      },
+      "topk.data.v1.Vector.Byte": {
+        "type": "object",
+        "properties": {
+          "values": {
+            "type": "string",
+            "title": "values",
+            "format": "byte"
+          }
+        },
+        "title": "Byte",
+        "additionalProperties": false,
+        "description": "Byte vector"
+      },
+      "topk.data.v1.Vector.Float": {
+        "type": "object",
+        "properties": {
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "format": "float"
+            },
+            "title": "values"
+          }
+        },
+        "title": "Float",
+        "additionalProperties": false,
+        "description": "Float vector"
+      },
+      "connect-protocol-version": {
+        "type": "number",
+        "title": "Connect-Protocol-Version",
+        "enum": [
+          1
+        ],
+        "description": "Define the version of the Connect protocol",
+        "const": 1
+      },
+      "connect-timeout-header": {
+        "type": "number",
+        "title": "Connect-Timeout-Ms",
+        "description": "Define the timeout, in ms"
+      },
+      "connect.error": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "examples": [
+              "CodeNotFound"
+            ],
+            "enum": [
+              "CodeCanceled",
+              "CodeUnknown",
+              "CodeInvalidArgument",
+              "CodeDeadlineExceeded",
+              "CodeNotFound",
+              "CodeAlreadyExists",
+              "CodePermissionDenied",
+              "CodeResourceExhausted",
+              "CodeFailedPrecondition",
+              "CodeAborted",
+              "CodeOutOfRange",
+              "CodeInternal",
+              "CodeUnavailable",
+              "CodeDataLoss",
+              "CodeUnauthenticated"
+            ],
+            "description": "The status code, which should be an enum value of [google.rpc.Code][google.rpc.Code]."
+          },
+          "message": {
+            "type": "string",
+            "description": "A developer-facing error message, which should be in English. Any user-facing error message should be localized and sent in the [google.rpc.Status.details][google.rpc.Status.details] field, or localized by the client."
+          },
+          "detail": {
+            "$ref": "#/components/schemas/google.protobuf.Any"
+          }
+        },
+        "title": "Connect Error",
+        "additionalProperties": true,
+        "description": "Error type returned by Connect: https://connectrpc.com/docs/go/errors/#http-representation"
+      },
+      "google.protobuf.Any": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string",
+            "format": "binary"
+          },
+          "debug": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true,
+        "description": "Contains an arbitrary serialized message along with a @type that describes the type of the serialized message."
+      }
+    }
+  },
+  "security": [],
+  "tags": [
+    {
+      "name": "topk.data.v1.DocumentService"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+---
+title: 'Delete documents'
+description: 'Collections are the core data structure in TopK. They are used to store and query documents.'
+---
+
+
+## Delete by `_id`
+
+To delete documents by their `_id`, you can pass a list of `_id`s to the `delete` method:
+
+```python
+client.collection("books").delete(
+    ["book-1", "book-2", "book-3"]
+)
+```
+
+## Delete by query
+
+Right now, the SDK supports only _Delete by `_id`_ method. To delete documents by a filter, make two separate calls:
+
+1. Query the documents that match the filter.
+
+```python
+docs = client.collection("books").query(
+    filter(field("published_year") > 1980)
+)
+```
+
+2. Delete the documents by their `_id`s.
+
+```python
+client.collection("books").delete(
+    [d._id for d in docs]
+)
+```

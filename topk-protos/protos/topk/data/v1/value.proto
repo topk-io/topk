@@ -1,0 +1,45 @@
+syntax = "proto3";
+package topk.data.v1;
+
+message Value {
+  oneof value {
+    // Boolean
+    bool bool = 1;
+    // Unsigned integer
+    uint32 u32 = 4;
+    uint64 u64 = 5;
+    // Signed integer
+    int32 i32 = 8;
+    int64 i64 = 9;
+    // Floats
+    float f32 = 10;
+    double f64 = 11;
+    // String
+    string string = 12;
+    // Binary
+    bytes binary = 13;
+    // Vector
+    Vector vector = 14;
+    // Null
+    Null null = 15;
+  }
+}
+
+message Vector {
+  // Float vector
+  message Float {
+    repeated float values = 1;
+  }
+
+  // Byte vector
+  message Byte {
+    bytes values = 1;
+  }
+
+  oneof vector {
+    Float float = 1;
+    Byte byte = 2;
+  }
+}
+
+message Null {}

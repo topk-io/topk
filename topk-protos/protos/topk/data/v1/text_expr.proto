@@ -1,0 +1,33 @@
+syntax = "proto3";
+package topk.data.v1;
+
+import "topk/data/v1/value.proto";
+
+message TextExpr {
+  message Term {
+    string token = 1;
+    optional string field = 2;
+    float weight = 3;
+  }
+
+  message TextTermsExpr {
+    bool all = 1;
+    repeated Term terms = 2;
+  }
+
+  message TextAndExpr {
+    TextExpr left = 1;
+    TextExpr right = 2;
+  }
+
+  message TextOrExpr {
+    TextExpr left = 1;
+    TextExpr right = 2;
+  }
+
+  oneof expr {
+    TextTermsExpr terms = 1;
+    TextAndExpr and = 2;
+    TextOrExpr or = 3;
+  }
+}

@@ -1,0 +1,67 @@
+syntax = "proto3";
+package topk.control.v1;
+
+message FieldSpec {
+  FieldType data_type = 1;
+  bool required = 2;
+  FieldIndex index = 3;
+}
+
+message FieldIndex {
+  oneof index {
+    KeywordIndex keyword_index = 1;
+    VectorIndex vector_index = 2;
+  }
+}
+
+message FieldType {
+  oneof data_type {
+    FieldTypeText text = 1;
+    FieldTypeInteger integer = 2;
+    FieldTypeFloat float = 3;
+    FieldTypeBoolean boolean = 4;
+    FieldTypeFloatVector float_vector = 5;
+    FieldTypeByteVector byte_vector = 6;
+    FieldTypeBytes bytes = 7;
+  }
+}
+
+message FieldTypeText {}
+message FieldTypeInteger {}
+message FieldTypeFloat {}
+message FieldTypeBoolean {}
+message FieldTypeFloatVector {
+  uint32 dimension = 1;
+}
+message FieldTypeByteVector {
+  uint32 dimension = 1;
+}
+message FieldTypeBytes {}
+
+message KeywordIndex {
+  // Index type
+  KeywordIndexType index_type = 1;
+}
+enum KeywordIndexType {
+  // Unspecified
+  KEYWORD_INDEX_TYPE_UNSPECIFIED = 0;
+  // Keyword index
+  KEYWORD_INDEX_TYPE_TEXT = 1;
+  // KEYWORD_INDEX_TYPE_CODE = 2;
+  // KEYWORD_INDEX_TYPE_LOG = 3;
+}
+
+message VectorIndex {
+  // Distance metric
+  VectorDistanceMetric metric = 1;
+}
+enum VectorDistanceMetric {
+  // Unspecified
+  VECTOR_DISTANCE_METRIC_UNSPECIFIED = 0;
+  // Cosine distance
+  VECTOR_DISTANCE_METRIC_COSINE = 1;
+  // Euclidean distance
+  VECTOR_DISTANCE_METRIC_EUCLIDEAN = 2;
+  // Dot product
+  VECTOR_DISTANCE_METRIC_DOT_PRODUCT = 3;
+}

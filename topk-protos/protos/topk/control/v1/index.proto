@@ -1,0 +1,52 @@
+syntax = "proto3";
+package topk.control.v1;
+
+import "google/api/annotations.proto";
+import "topk/control/v1/index_schema.proto";
+
+service IndexService {
+  rpc ListIndexes(ListIndexesRequest) returns (ListIndexesResponse) {
+    option (google.api.http) = {get: "/v1/indexes"};
+  }
+  rpc GetIndex(GetIndexRequest) returns (GetIndexResponse) {
+    option (google.api.http) = {get: "/v1/indexes/{id}"};
+  }
+  rpc CreateIndex(CreateIndexRequest) returns (CreateIndexResponse) {
+    option (google.api.http) = {post: "/v1/indexes"};
+  }
+  rpc DeleteIndex(DeleteIndexRequest) returns (DeleteIndexResponse) {
+    option (google.api.http) = {delete: "/v1/indexes/{id}"};
+  }
+}
+
+message Index {
+  string name = 1;
+  uint64 org_id = 2;
+  uint32 project_id = 3;
+  map<string, FieldSpec> schema = 4;
+}
+
+message ListIndexesRequest {}
+message ListIndexesResponse {
+  repeated Index indexes = 1;
+}
+
+message GetIndexRequest {
+  string name = 1;
+}
+message GetIndexResponse {
+  Index index = 1;
+}
+
+message CreateIndexRequest {
+  string name = 1;
+  map<string, FieldSpec> schema = 2;
+}
+message CreateIndexResponse {
+  Index index = 1;
+}
+
+message DeleteIndexRequest {
+  string name = 1;
+}
+message DeleteIndexResponse {}

@@ -1,0 +1,34 @@
+---
+title: 'Query documents'
+description: 'Use the `query` method to search for documents.'
+---
+
+TopK allows you to query documents using a SQL-inspired syntax. It comes with text search, vector search, and filtering capabilities out of the box.
+
+
+## Writing queries
+
+TopK's declarative query builder allows you to select fields, chain filters, apply vector/text search in a composable way.
+
+```python
+from topk.query import select, fn
+
+docs = client.collection("books").query(
+    select(
+        "title",
+        # Select supports arbitrary expressions. For example, you can add 10 years to the `published_year` field.
+        published_year_plus_10=field("published_year") + 10,
+        # Compute cosine distance between the vector and the `title_embedding` field.
+        title_similarity=fn.cosine_distance("title_embedding", [0.1, 0.2, 0.3])
+    )
+        # Filtering by metadata
+        .filter(field("published_year") > 1980)
+        # Filter by vector similarity
+        .filter(field("title_similarity") > 0.5)
+        # Filter to documents that have the `"Great"` keyword in the `title` field
+        .filter(field("title").match("Great"))
+        # Return top 10 results order by `published_year` ascending
+        .top_k(field("published_year"), 10, asc=True)
+)
+```
+

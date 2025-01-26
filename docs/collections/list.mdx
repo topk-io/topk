@@ -1,0 +1,27 @@
+---
+title: 'List collections'
+description: 'You can list all collections in a project by calling `client.collections().list()`.'
+---
+
+Listing collections is as easy as:
+
+<CodeGroup>
+
+```python Python
+collections = client.collections().list()
+```
+
+```js JavaScript
+// Comming soon.
+```
+
+</CodeGroup>
+
+The `list` method returns a list of `Collection` objects. You can iterate over the list and print out the name, organization ID, and project ID of each collection.
+
+```python
+for collection in collections:
+    print(f"Collection name: {collection.name}")
+    print(f"Organization ID: {collection.org_id}")
+    print(f"Project ID: {collection.project_id}")
+```

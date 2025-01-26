@@ -1,0 +1,31 @@
+---
+title: 'Create a collection'
+description: 'Collections are the core data structure in TopK. They are used to store and query documents.'
+---
+
+## Creating a collection
+
+The `topk_sdk.schema` module contains the schema definition for the fields in a collection.
+
+```python
+from topk_sdk.schema import int, text, vector, vector_index, keyword_index
+```
+
+To create a collection, you need to pass the collection name and the schema to the `create` method.
+
+```python
+client.collections().create(
+    "books",
+    schema={
+        "title": text().required().index(keyword_index()),
+        "title_embedding": vector(1536)
+        .required()
+        .index(vector_index(metric="euclidean")),
+        "published_year": int().required(),
+    },
+)
+```
+
+## Schema
+
+TODO

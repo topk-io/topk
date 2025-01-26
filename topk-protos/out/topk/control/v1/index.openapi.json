@@ -1,0 +1,857 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "topk.control.v1"
+  },
+  "paths": {
+    "/v1/indexes": {
+      "get": {
+        "tags": [
+          "topk.control.v1.IndexService"
+        ],
+        "summary": "ListIndexes",
+        "operationId": "topk.control.v1.IndexService.ListIndexes",
+        "responses": {
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/topk.control.v1.ListIndexesResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "topk.control.v1.IndexService"
+        ],
+        "summary": "CreateIndex",
+        "operationId": "topk.control.v1.IndexService.CreateIndex",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "title": "name"
+            }
+          },
+          {
+            "name": "schema",
+            "in": "query",
+            "schema": {
+              "type": "object",
+              "title": "schema",
+              "additionalProperties": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/topk.control.v1.FieldSpec"
+                  }
+                ],
+                "title": "value"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/topk.control.v1.CreateIndexResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/indexes/{id}": {
+      "get": {
+        "tags": [
+          "topk.control.v1.IndexService"
+        ],
+        "summary": "GetIndex",
+        "operationId": "topk.control.v1.IndexService.GetIndex",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "title": "name"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/topk.control.v1.GetIndexResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "topk.control.v1.IndexService"
+        ],
+        "summary": "DeleteIndex",
+        "operationId": "topk.control.v1.IndexService.DeleteIndex",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "title": "name"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/topk.control.v1.DeleteIndexResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "topk.control.v1.KeywordIndexType": {
+        "type": "string",
+        "title": "KeywordIndexType",
+        "enum": [
+          "KEYWORD_INDEX_TYPE_UNSPECIFIED",
+          "KEYWORD_INDEX_TYPE_TEXT"
+        ]
+      },
+      "topk.control.v1.VectorDistanceMetric": {
+        "type": "string",
+        "title": "VectorDistanceMetric",
+        "enum": [
+          "VECTOR_DISTANCE_METRIC_UNSPECIFIED",
+          "VECTOR_DISTANCE_METRIC_COSINE",
+          "VECTOR_DISTANCE_METRIC_EUCLIDEAN",
+          "VECTOR_DISTANCE_METRIC_DOT_PRODUCT"
+        ]
+      },
+      "topk.control.v1.CreateIndexRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "name"
+          },
+          "schema": {
+            "type": "object",
+            "title": "schema",
+            "additionalProperties": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/topk.control.v1.FieldSpec"
+                }
+              ],
+              "title": "value"
+            }
+          }
+        },
+        "title": "CreateIndexRequest",
+        "additionalProperties": false
+      },
+      "topk.control.v1.CreateIndexRequest.SchemaEntry": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "key"
+          },
+          "value": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/topk.control.v1.FieldSpec"
+              }
+            ],
+            "title": "value"
+          }
+        },
+        "title": "SchemaEntry",
+        "additionalProperties": false
+      },
+      "topk.control.v1.CreateIndexResponse": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/topk.control.v1.Index"
+              }
+            ],
+            "title": "index"
+          }
+        },
+        "title": "CreateIndexResponse",
+        "additionalProperties": false
+      },
+      "topk.control.v1.DeleteIndexRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "name"
+          }
+        },
+        "title": "DeleteIndexRequest",
+        "additionalProperties": false
+      },
+      "topk.control.v1.DeleteIndexResponse": {
+        "type": "object",
+        "title": "DeleteIndexResponse",
+        "additionalProperties": false
+      },
+      "topk.control.v1.FieldIndex": {
+        "type": "object",
+        "allOf": [
+          {
+            "anyOf": [
+              {
+                "required": [
+                  "keywordIndex"
+                ]
+              },
+              {
+                "required": [
+                  "vectorIndex"
+                ]
+              },
+              {
+                "not": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "keywordIndex"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "vectorIndex"
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ],
+        "anyOf": [
+          {
+            "required": [
+              "keywordIndex"
+            ]
+          },
+          {
+            "required": [
+              "vectorIndex"
+            ]
+          },
+          {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "keywordIndex"
+                  ]
+                },
+                {
+                  "required": [
+                    "vectorIndex"
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "properties": {
+          "keywordIndex": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/topk.control.v1.KeywordIndex"
+              }
+            ],
+            "title": "keyword_index"
+          },
+          "vectorIndex": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/topk.control.v1.VectorIndex"
+              }
+            ],
+            "title": "vector_index"
+          }
+        },
+        "title": "FieldIndex",
+        "additionalProperties": false
+      },
+      "topk.control.v1.FieldSpec": {
+        "type": "object",
+        "properties": {
+          "dataType": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/topk.control.v1.FieldType"
+              }
+            ],
+            "title": "data_type"
+          },
+          "required": {
+            "type": "boolean",
+            "title": "required"
+          },
+          "index": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/topk.control.v1.FieldIndex"
+              }
+            ],
+            "title": "index"
+          }
+        },
+        "title": "FieldSpec",
+        "additionalProperties": false
+      },
+      "topk.control.v1.FieldType": {
+        "type": "object",
+        "allOf": [
+          {
+            "anyOf": [
+              {
+                "required": [
+                  "boolean"
+                ]
+              },
+              {
+                "required": [
+                  "byteVector"
+                ]
+              },
+              {
+                "required": [
+                  "bytes"
+                ]
+              },
+              {
+                "required": [
+                  "float"
+                ]
+              },
+              {
+                "required": [
+                  "floatVector"
+                ]
+              },
+              {
+                "required": [
+                  "integer"
+                ]
+              },
+              {
+                "required": [
+                  "text"
+                ]
+              },
+              {
+                "not": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "boolean"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "byteVector"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "bytes"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "float"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "floatVector"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "integer"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "text"
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ],
+        "anyOf": [
+          {
+            "required": [
+              "boolean"
+            ]
+          },
+          {
+            "required": [
+              "byteVector"
+            ]
+          },
+          {
+            "required": [
+              "bytes"
+            ]
+          },
+          {
+            "required": [
+              "float"
+            ]
+          },
+          {
+            "required": [
+              "floatVector"
+            ]
+          },
+          {
+            "required": [
+              "integer"
+            ]
+          },
+          {
+            "required": [
+              "text"
+            ]
+          },
+          {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "boolean"
+                  ]
+                },
+                {
+                  "required": [
+                    "byteVector"
+                  ]
+                },
+                {
+                  "required": [
+                    "bytes"
+                  ]
+                },
+                {
+                  "required": [
+                    "float"
+                  ]
+                },
+                {
+                  "required": [
+                    "floatVector"
+                  ]
+                },
+                {
+                  "required": [
+                    "integer"
+                  ]
+                },
+                {
+                  "required": [
+                    "text"
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "properties": {
+          "text": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/topk.control.v1.FieldTypeText"
+              }
+            ],
+            "title": "text"
+          },
+          "integer": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/topk.control.v1.FieldTypeInteger"
+              }
+            ],
+            "title": "integer"
+          },
+          "float": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/topk.control.v1.FieldTypeFloat"
+              }
+            ],
+            "title": "float"
+          },
+          "boolean": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/topk.control.v1.FieldTypeBoolean"
+              }
+            ],
+            "title": "boolean"
+          },
+          "floatVector": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/topk.control.v1.FieldTypeFloatVector"
+              }
+            ],
+            "title": "float_vector"
+          },
+          "byteVector": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/topk.control.v1.FieldTypeByteVector"
+              }
+            ],
+            "title": "byte_vector"
+          },
+          "bytes": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/topk.control.v1.FieldTypeBytes"
+              }
+            ],
+            "title": "bytes"
+          }
+        },
+        "title": "FieldType",
+        "additionalProperties": false
+      },
+      "topk.control.v1.FieldTypeBoolean": {
+        "type": "object",
+        "title": "FieldTypeBoolean",
+        "additionalProperties": false
+      },
+      "topk.control.v1.FieldTypeByteVector": {
+        "type": "object",
+        "properties": {
+          "dimension": {
+            "type": "integer",
+            "title": "dimension"
+          }
+        },
+        "title": "FieldTypeByteVector",
+        "additionalProperties": false
+      },
+      "topk.control.v1.FieldTypeBytes": {
+        "type": "object",
+        "title": "FieldTypeBytes",
+        "additionalProperties": false
+      },
+      "topk.control.v1.FieldTypeFloat": {
+        "type": "object",
+        "title": "FieldTypeFloat",
+        "additionalProperties": false
+      },
+      "topk.control.v1.FieldTypeFloatVector": {
+        "type": "object",
+        "properties": {
+          "dimension": {
+            "type": "integer",
+            "title": "dimension"
+          }
+        },
+        "title": "FieldTypeFloatVector",
+        "additionalProperties": false
+      },
+      "topk.control.v1.FieldTypeInteger": {
+        "type": "object",
+        "title": "FieldTypeInteger",
+        "additionalProperties": false
+      },
+      "topk.control.v1.FieldTypeText": {
+        "type": "object",
+        "title": "FieldTypeText",
+        "additionalProperties": false
+      },
+      "topk.control.v1.GetIndexRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "name"
+          }
+        },
+        "title": "GetIndexRequest",
+        "additionalProperties": false
+      },
+      "topk.control.v1.GetIndexResponse": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/topk.control.v1.Index"
+              }
+            ],
+            "title": "index"
+          }
+        },
+        "title": "GetIndexResponse",
+        "additionalProperties": false
+      },
+      "topk.control.v1.Index": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "name"
+          },
+          "orgId": {
+            "type": [
+              "integer",
+              "string"
+            ],
+            "title": "org_id",
+            "format": "int64"
+          },
+          "projectId": {
+            "type": "integer",
+            "title": "project_id"
+          },
+          "schema": {
+            "type": "object",
+            "title": "schema",
+            "additionalProperties": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/topk.control.v1.FieldSpec"
+                }
+              ],
+              "title": "value"
+            }
+          }
+        },
+        "title": "Index",
+        "additionalProperties": false
+      },
+      "topk.control.v1.Index.SchemaEntry": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "key"
+          },
+          "value": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/topk.control.v1.FieldSpec"
+              }
+            ],
+            "title": "value"
+          }
+        },
+        "title": "SchemaEntry",
+        "additionalProperties": false
+      },
+      "topk.control.v1.KeywordIndex": {
+        "type": "object",
+        "properties": {
+          "indexType": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/topk.control.v1.KeywordIndexType"
+              }
+            ],
+            "title": "index_type",
+            "description": "Index type"
+          }
+        },
+        "title": "KeywordIndex",
+        "additionalProperties": false
+      },
+      "topk.control.v1.ListIndexesRequest": {
+        "type": "object",
+        "title": "ListIndexesRequest",
+        "additionalProperties": false
+      },
+      "topk.control.v1.ListIndexesResponse": {
+        "type": "object",
+        "properties": {
+          "indexes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/topk.control.v1.Index"
+            },
+            "title": "indexes"
+          }
+        },
+        "title": "ListIndexesResponse",
+        "additionalProperties": false
+      },
+      "topk.control.v1.VectorIndex": {
+        "type": "object",
+        "properties": {
+          "metric": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/topk.control.v1.VectorDistanceMetric"
+              }
+            ],
+            "title": "metric",
+            "description": "Distance metric"
+          }
+        },
+        "title": "VectorIndex",
+        "additionalProperties": false
+      },
+      "connect-protocol-version": {
+        "type": "number",
+        "title": "Connect-Protocol-Version",
+        "enum": [
+          1
+        ],
+        "description": "Define the version of the Connect protocol",
+        "const": 1
+      },
+      "connect-timeout-header": {
+        "type": "number",
+        "title": "Connect-Timeout-Ms",
+        "description": "Define the timeout, in ms"
+      },
+      "connect.error": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "examples": [
+              "CodeNotFound"
+            ],
+            "enum": [
+              "CodeCanceled",
+              "CodeUnknown",
+              "CodeInvalidArgument",
+              "CodeDeadlineExceeded",
+              "CodeNotFound",
+              "CodeAlreadyExists",
+              "CodePermissionDenied",
+              "CodeResourceExhausted",
+              "CodeFailedPrecondition",
+              "CodeAborted",
+              "CodeOutOfRange",
+              "CodeInternal",
+              "CodeUnavailable",
+              "CodeDataLoss",
+              "CodeUnauthenticated"
+            ],
+            "description": "The status code, which should be an enum value of [google.rpc.Code][google.rpc.Code]."
+          },
+          "message": {
+            "type": "string",
+            "description": "A developer-facing error message, which should be in English. Any user-facing error message should be localized and sent in the [google.rpc.Status.details][google.rpc.Status.details] field, or localized by the client."
+          },
+          "detail": {
+            "$ref": "#/components/schemas/google.protobuf.Any"
+          }
+        },
+        "title": "Connect Error",
+        "additionalProperties": true,
+        "description": "Error type returned by Connect: https://connectrpc.com/docs/go/errors/#http-representation"
+      },
+      "google.protobuf.Any": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string",
+            "format": "binary"
+          },
+          "debug": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true,
+        "description": "Contains an arbitrary serialized message along with a @type that describes the type of the serialized message."
+      }
+    }
+  },
+  "security": [],
+  "tags": [
+    {
+      "name": "topk.control.v1.IndexService"
+    }
+  ]
+}

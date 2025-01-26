@@ -1,0 +1,48 @@
+syntax = "proto3";
+package topk.data.v1;
+
+import "topk/data/v1/value.proto";
+
+message LogicalExpr {
+  message UnaryOp {
+    enum Op {
+      OP_UNSPECIFIED = 0;
+      OP_NOT = 1;
+      OP_IS_NULL = 2;
+      OP_IS_NOT_NULL = 3;
+    }
+    Op op = 1;
+    LogicalExpr expr = 2;
+  }
+
+  message BinaryOp {
+    enum Op {
+      OP_UNSPECIFIED = 0;
+      // Arithmetic
+      OP_ADD = 1;
+      OP_SUB = 2;
+      OP_MUL = 3;
+      OP_DIV = 4;
+      // Comparison
+      OP_GT = 5;
+      OP_LT = 6;
+      OP_GTE = 7;
+      OP_LTE = 8;
+      OP_EQ = 9;
+      OP_NEQ = 10;
+      // Logical
+      OP_AND = 11;
+      OP_OR = 12;
+    }
+    Op op = 1;
+    LogicalExpr left = 2;
+    LogicalExpr right = 3;
+  }
+
+  oneof expr {
+    string field = 1;
+    Value literal = 2;
+    UnaryOp unary_op = 3;
+    BinaryOp binary_op = 4;
+  }
+}
