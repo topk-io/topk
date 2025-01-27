@@ -5,6 +5,7 @@
     "dark": "/logo/topk.svg",
     "light": "/logo/topk.svg"
   },
+  "feedback.thumbsRating": true,
   "favicon": "/favicon.png",
   "colors": {
     "primary": "#FF5000",
