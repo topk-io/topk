@@ -61,6 +61,8 @@
     }
   ],
   "footerSocials": {
-    "github": "https://github.com/fafolabs/topk-sdk"
+    "github": "https://github.com/fafolabs/topk-sdk",
+    "x": "https://twitter.com/fafo_labs",
+    "linkedin": "https://www.linkedin.com/company/106000380/"
   }
 }
