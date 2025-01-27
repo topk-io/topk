@@ -28,7 +28,7 @@ docs = client.collection("books").query(
         # Filter to documents that have the `"Great"` keyword in the `title` field
         .filter(field("title").match("Great"))
         # Return top 10 results order by `published_year` ascending
-        .top_k(field("published_year"), 10, asc=True)
+        .top_k(field("title_similarity"), 10, asc=True)
 )
 ```
 
