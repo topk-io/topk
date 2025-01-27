@@ -64,10 +64,6 @@ fn build_topk_v1() {
         .file_descriptor_set_path(lib_dir.join("out/topk_v1_proto_descriptor_set.bin"))
         .compile_protos(
             &[
-                "protos/topk/management/v1/auth.proto",
-                "protos/topk/management/v1/collection.proto",
-                "protos/topk/management/v1/project.proto",
-                "protos/topk/management/v1/org.proto",
                 "protos/topk/control/v1/index.proto",
                 "protos/topk/data/v1/value.proto",
                 "protos/topk/data/v1/document.proto",

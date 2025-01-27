@@ -4,14 +4,12 @@ pub mod utils;
 
 mod control;
 mod data;
-mod management;
 
 mod macros;
 
 pub mod v1 {
     pub use super::control::v1 as control;
     pub use super::data::v1 as data;
-    pub use super::management::v1 as management;
 }
 
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash)]
