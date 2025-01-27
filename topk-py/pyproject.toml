@@ -4,6 +4,10 @@ build-backend = "maturin"
 
 [project]
 name = "topk_sdk"
+description = "Python SDK for topk.io"
+readme = "README.md"
+keywords = ["topk", "search", "vector", "search", "keyword", "bm25"]
+license = { file = "../LICENSE" }
 requires-python = ">=3.9"
 classifiers = [
     "Programming Language :: Rust",
@@ -11,6 +15,11 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dynamic = ["version"]
+
+[project.urls]
+homepage = "https://topk.io"
+documentation = "https://docs.topk.io"
+repository = "https://github.com/fafolabs/topk-sdk"
 
 [tool.maturin]
 module-name = "topk_sdk"
