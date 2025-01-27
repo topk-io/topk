@@ -35,23 +35,12 @@ pub enum Error {
     #[error("permission denied")]
     PermissionDenied,
 
+    #[error("capacity exceeded")]
+    CapacityExceeded,
+
     #[error("tonic transport error")]
     TransportError(#[from] tonic::transport::Error),
-}
 
-// impl From<tonic::Status> for Error {
-//     fn from(status: tonic::Status) -> Self {
-//         match status.code() {
-//             // tonic::Code::NotFound => Self::NotFound,
-//             // tonic::Code::AlreadyExists => Self::AlreadyExists,
-//             // tonic::Code::Internal => Self::Internal,
-//             // For `InvalidArgument` we opportunistically try to parse the message as `ValidationErrorBag`
-//             tonic::Code::InvalidArgument => match serde_json::from_str(status.message()) {
-//                 Ok(v) => Self::ValidationError(v),
-//                 Err(_) => Self::InvalidArgument(status.message().to_string()),
-//             },
-//             tonic::Code::PermissionDenied => Self::PermissionDenied,
-//             _ => Self::Unexpected(status),
-//         }
-//     }
-// }
+    #[error("channel not initialized")]
+    TransportChannelNotInitialized,
+}

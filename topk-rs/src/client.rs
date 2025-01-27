@@ -2,11 +2,12 @@ use crate::{Error, InternalErrorCode};
 use std::str::FromStr;
 use std::{collections::HashMap, time::Duration};
 use tokio::sync::OnceCell;
-use tonic::transport::{Channel, Endpoint};
+use tonic::transport::{Channel as TonicChannel, Endpoint};
 use topk_protos::utils::{
     DocumentClientWithHeaders, IndexClient, IndexClientWithHeaders, QueryClientWithHeaders,
 };
 use topk_protos::v1::control::doc_validation::ValidationErrorBag;
+use topk_protos::v1::control::GetIndexRequest;
 use topk_protos::{
     utils::{DocumentClient, QueryClient},
     v1::{
@@ -19,20 +20,46 @@ use topk_protos::{
 };
 
 #[derive(Clone)]
+pub enum Channel {
+    Endpoint(String),
+    Tonic(OnceCell<TonicChannel>),
+}
+
+impl Channel {
+    pub fn from_endpoint(endpoint: impl Into<String>) -> Self {
+        Self::Endpoint(endpoint.into())
+    }
+
+    pub fn from_tonic(channel: TonicChannel) -> Self {
+        Self::Tonic(OnceCell::from(channel))
+    }
+
+    async fn get(&self) -> Result<TonicChannel, Error> {
+        match self {
+            Self::Endpoint(endpoint) => Ok(Endpoint::from_str(endpoint)?.connect().await?),
+            Self::Tonic(cell) => match cell.get() {
+                Some(channel) => Ok(channel.clone()),
+                None => Err(Error::TransportChannelNotInitialized),
+            },
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct ClientConfig {
-    api_key: String,
     region: String,
     host: String,
     https: bool,
+    headers: HashMap<&'static str, String>,
 }
 
 impl ClientConfig {
     pub fn new(api_key: impl Into<String>, region: impl Into<String>) -> Self {
         Self {
-            api_key: api_key.into(),
             region: region.into(),
             host: "api.topk.io".to_string(),
             https: true,
+            headers: HashMap::from([("authorization", format!("Bearer {}", api_key.into()))]),
         }
     }
 
@@ -46,8 +73,13 @@ impl ClientConfig {
         self
     }
 
+    pub fn with_headers(mut self, headers: HashMap<&'static str, String>) -> Self {
+        self.headers = headers;
+        self
+    }
+
     pub fn headers(&self) -> HashMap<&'static str, String> {
-        HashMap::from([("authorization", format!("Bearer {}", self.api_key))])
+        self.headers.clone()
     }
 
     pub fn endpoint(&self) -> String {
@@ -60,26 +92,57 @@ impl ClientConfig {
 #[derive(Clone)]
 pub struct Client {
     config: ClientConfig,
-    channel: OnceCell<Channel>,
+    channel: Channel,
 }
 
 impl Client {
     pub fn new(config: ClientConfig) -> Self {
         Self {
+            channel: Channel::from_endpoint(config.endpoint().clone()),
             config,
-            channel: OnceCell::new(),
         }
     }
 
-    // Data plane APIs
+    pub fn from_channel(channel: TonicChannel, config: ClientConfig) -> Self {
+        Self {
+            config,
+            channel: Channel::from_tonic(channel),
+        }
+    }
 
-    pub async fn query(&self, index: &str, query: Query) -> Result<Vec<Document>, Error> {
-        self.query_at_lsn(index, query, None).await
+    pub fn collections(&self) -> CollectionsClient {
+        CollectionsClient::new(self.config.clone(), self.channel.clone())
+    }
+
+    pub fn collection(&self, name: impl Into<String>) -> CollectionClient {
+        CollectionClient::new(self.config.clone(), self.channel.clone(), name.into())
+    }
+}
+
+pub struct CollectionClient {
+    config: ClientConfig,
+    channel: Channel,
+    collection: String,
+}
+
+impl CollectionClient {
+    pub fn new(config: ClientConfig, channel: Channel, collection: String) -> Self {
+        let mut headers = config.headers();
+        headers.insert("x-topk-collection", collection.to_string());
+
+        Self {
+            config: config.with_headers(headers),
+            channel,
+            collection,
+        }
+    }
+
+    pub async fn query(&self, query: Query) -> Result<Vec<Document>, Error> {
+        self.query_at_lsn(query, None).await
     }
 
     pub async fn query_at_lsn(
         &self,
-        index: &str,
         query: Query,
         lsn: Option<u64>,
     ) -> Result<Vec<Document>, Error> {
@@ -93,10 +156,10 @@ impl Client {
             let query = query.clone();
 
             let response = self
-                .query_client(index)
+                .query_client()
                 .await?
                 .query(QueryRequest {
-                    collection: index.to_string(),
+                    collection: self.collection.clone(),
                     query: Some(query),
                     required_lsn: lsn,
                 })
@@ -124,13 +187,32 @@ impl Client {
         }
     }
 
-    pub async fn upsert(&self, index: &str, docs: Vec<Document>) -> Result<u64, Error> {
-        let mut client = self.doc_client(index).await?;
+    pub async fn upsert(&self, docs: Vec<Document>) -> Result<u64, Error> {
+        let mut client = self.doc_client().await?;
 
         let response = client
             .upsert_documents(UpsertDocumentsRequest { docs })
             .await
             .map_err(|e| match e.code() {
+                tonic::Code::InvalidArgument => match ValidationErrorBag::try_from(e.clone()) {
+                    Ok(errors) => Error::DocumentValidationError(errors),
+                    Err(_) => Error::Unexpected(e),
+                },
+                tonic::Code::ResourceExhausted => Error::CapacityExceeded,
+                _ => Error::Unexpected(e),
+            })?;
+
+        Ok(response.into_inner().lsn)
+    }
+
+    pub async fn delete(&self, ids: Vec<String>) -> Result<u64, Error> {
+        let mut client = self.doc_client().await?;
+
+        let response = client
+            .delete_documents(DeleteDocumentsRequest { ids })
+            .await
+            .map_err(|e| match e.code() {
+                tonic::Code::ResourceExhausted => Error::CapacityExceeded,
                 tonic::Code::InvalidArgument => match ValidationErrorBag::try_from(e.clone()) {
                     Ok(errors) => Error::DocumentValidationError(errors),
                     Err(_) => Error::Unexpected(e),
@@ -141,24 +223,34 @@ impl Client {
         Ok(response.into_inner().lsn)
     }
 
-    pub async fn delete(&self, index: &str, ids: Vec<String>) -> Result<u64, Error> {
-        let mut client = self.doc_client(index).await?;
-
-        let response = client
-            .delete_documents(DeleteDocumentsRequest { ids })
-            .await
-            .map_err(|e| match e.code() {
-                _ => Error::Unexpected(e),
-            })?;
-
-        Ok(response.into_inner().lsn)
+    async fn doc_client(&self) -> Result<DocumentClientWithHeaders, Error> {
+        Ok(DocumentClient::with_headers(
+            self.channel.get().await?,
+            self.config.headers(),
+        ))
     }
 
-    // Control plane APIs
+    async fn query_client(&self) -> Result<QueryClientWithHeaders, Error> {
+        Ok(QueryClient::with_headers(
+            self.channel.get().await?,
+            self.config.headers(),
+        ))
+    }
+}
 
-    pub async fn list_indexes(&self) -> Result<Vec<Index>, Error> {
+pub struct CollectionsClient {
+    config: ClientConfig,
+    channel: Channel,
+}
+
+impl CollectionsClient {
+    pub fn new(config: ClientConfig, channel: Channel) -> Self {
+        Self { config, channel }
+    }
+
+    pub async fn list(&self) -> Result<Vec<Index>, Error> {
         let response = self
-            .index_client()
+            .client()
             .await?
             .list_indexes(ListIndexesRequest {})
             .await
@@ -169,13 +261,27 @@ impl Client {
         Ok(response.into_inner().indexes)
     }
 
-    pub async fn create_index(
+    pub async fn get(&self, name: impl Into<String>) -> Result<Index, Error> {
+        let response = self
+            .client()
+            .await?
+            .get_index(GetIndexRequest { name: name.into() })
+            .await
+            .map_err(|e| match e.code() {
+                tonic::Code::NotFound => Error::IndexNotFound,
+                _ => Error::Unexpected(e),
+            })?;
+
+        Ok(response.into_inner().index.expect("invalid proto"))
+    }
+
+    pub async fn create(
         &self,
         name: impl Into<String>,
         schema: IndexSchema,
     ) -> Result<Index, Error> {
         let response = self
-            .index_client()
+            .client()
             .await?
             .create_index(CreateIndexRequest {
                 name: name.into(),
@@ -194,8 +300,8 @@ impl Client {
         Ok(response.into_inner().index.expect("invalid proto"))
     }
 
-    pub async fn delete_index(&self, name: impl Into<String>) -> Result<(), Error> {
-        self.index_client()
+    pub async fn delete(&self, name: impl Into<String>) -> Result<(), Error> {
+        self.client()
             .await?
             .delete_index(DeleteIndexRequest { name: name.into() })
             .await
@@ -207,37 +313,12 @@ impl Client {
         Ok(())
     }
 
-    // Private methods
+    //
 
-    async fn doc_client(&self, index: &str) -> Result<DocumentClientWithHeaders, Error> {
-        let mut headers = self.config.headers();
-        headers.insert("x-topk-collection", index.to_string());
-
-        Ok(DocumentClient::with_headers(self.channel().await?, headers))
-    }
-
-    async fn query_client(&self, index: &str) -> Result<QueryClientWithHeaders, Error> {
-        let mut headers = self.config.headers();
-        headers.insert("x-topk-collection", index.to_string());
-
-        Ok(QueryClient::with_headers(self.channel().await?, headers))
-    }
-
-    async fn index_client(&self) -> Result<IndexClientWithHeaders, Error> {
+    async fn client(&self) -> Result<IndexClientWithHeaders, Error> {
         Ok(IndexClient::with_headers(
-            self.channel().await?,
+            self.channel.get().await?,
             self.config.headers(),
         ))
-    }
-
-    async fn channel(&self) -> Result<Channel, Error> {
-        let channel = self
-            .channel
-            .get_or_try_init(|| async {
-                Endpoint::from_str(&self.config.endpoint())?.connect().await
-            })
-            .await?;
-
-        Ok(channel.clone())
     }
 }

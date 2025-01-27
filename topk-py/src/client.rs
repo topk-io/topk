@@ -59,7 +59,7 @@ impl CollectionsClient {
     pub fn list(&self) -> PyResult<Vec<Collection>> {
         let indexes = self
             .runtime
-            .block_on(self.client.list_indexes())
+            .block_on(self.client.collections().list())
             .map_err(|e| match e {
                 _ => PyException::new_err(format!("failed to list collections: {:?}", e)),
             })?;
@@ -74,7 +74,7 @@ impl CollectionsClient {
     ) -> PyResult<Collection> {
         let index = self
             .runtime
-            .block_on(self.client.create_index(
+            .block_on(self.client.collections().create(
                 &index_name,
                 IndexSchema::new(schema.into_iter().map(|(k, v)| (k, v.into())).collect()),
             ))
@@ -91,7 +91,7 @@ impl CollectionsClient {
     pub fn delete(&self, index_name: String) -> PyResult<()> {
         Ok(self
             .runtime
-            .block_on(self.client.delete_index(&index_name))
+            .block_on(self.client.collections().delete(&index_name))
             .map_err(|e| match e {
                 topk_rs::Error::IndexNotFound => CollectionNotFoundError::new_err(e.to_string()),
                 _ => PyException::new_err(format!("failed to delete collection: {:?}", e)),
@@ -118,7 +118,8 @@ impl CollectionClient {
             .runtime
             .block_on(
                 self.client
-                    .query_at_lsn(&self.collection, query.into(), lsn),
+                    .collection(&self.collection)
+                    .query_at_lsn(query.into(), lsn),
             )
             .map_err(|e| match e {
                 _ => PyException::new_err(format!("failed to query collection: {:?}", e)),
@@ -140,7 +141,7 @@ impl CollectionClient {
 
         Ok(self
             .runtime
-            .block_on(self.client.upsert(&self.collection, documents))
+            .block_on(self.client.collection(&self.collection).upsert(documents))
             .map_err(|e| match e {
                 _ => PyException::new_err(format!("failed to upsert documents: {:?}", e)),
             })?)
@@ -149,7 +150,7 @@ impl CollectionClient {
     pub fn delete(&self, ids: Vec<String>) -> PyResult<u64> {
         Ok(self
             .runtime
-            .block_on(self.client.delete(&self.collection, ids))
+            .block_on(self.client.collection(&self.collection).delete(ids))
             .map_err(|e| match e {
                 _ => PyException::new_err(format!("failed to delete documents: {:?}", e)),
             })?)
