@@ -19,7 +19,7 @@ docs = client.collection("books").query(
         # Select supports arbitrary expressions. For example, you can add 10 years to the `published_year` field.
         published_year_plus_10=field("published_year") + 10,
         # Compute cosine distance between the vector and the `title_embedding` field.
-        title_similarity=fn.cosine_distance("title_embedding", [0.1, 0.2, 0.3])
+        title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3])
     )
         # Filtering by metadata
         .filter(field("published_year") > 1980)
