@@ -5,7 +5,11 @@
     "dark": "/logo/topk.svg",
     "light": "/logo/topk.svg"
   },
-  "feedback.thumbsRating": true,
+  "feedback": {
+    "thumbsRating": true,
+    "suggestEdit": true,
+    "raiseIssue": true
+  },
   "favicon": "/favicon.png",
   "colors": {
     "primary": "#FF5000",
