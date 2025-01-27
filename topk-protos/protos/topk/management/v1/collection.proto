@@ -38,7 +38,8 @@ message CreateCollectionRequest {
   string name = 1;
   uint64 org_id = 2;
   uint32 project_id = 3;
-  map<string, topk.control.v1.FieldSpec> schema = 4;
+  string region = 4;
+  map<string, topk.control.v1.FieldSpec> schema = 5;
 }
 message CreateCollectionResponse {
   Collection collection = 1;
