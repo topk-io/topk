@@ -7,6 +7,7 @@ py:
 
 py-macos:
     ARG --required version
+    ARG mode=test
 
     WAIT
         BUILD +py-macos-3.13
@@ -25,10 +26,15 @@ py-macos:
     COPY topk-py/wheels/topk_sdk-${version}-cp310-cp310-macosx_11_0_arm64.whl .
     COPY topk-py/wheels/topk_sdk-${version}-cp39-cp39-macosx_11_0_arm64.whl .
 
-    RUN --push --secret test_pypi_token MATURIN_PYPI_TOKEN=$test_pypi_token maturin upload -r testpypi $(ls topk_sdk-*.whl)
+    IF $mode == "test"
+        RUN --push --secret test_pypi_token MATURIN_PYPI_TOKEN=$test_pypi_token maturin upload -r testpypi $(ls topk_sdk-*.whl)
+    ELSE
+        RUN --push --secret pypi_token MATURIN_PYPI_TOKEN=$pypi_token maturin upload -r pypi $(ls topk_sdk-*.whl)
+    END
 
 py-linux:
     ARG --required version
+    ARG mode=test
 
     WAIT
         BUILD +py-linux-3.13
@@ -47,7 +53,11 @@ py-linux:
     COPY +py-linux-3.10/topk_sdk-${version}-cp310-cp310-manylinux_2_34_aarch64.whl .
     COPY +py-linux-3.9/topk_sdk-${version}-cp39-cp39-manylinux_2_34_aarch64.whl .
 
-    RUN --push --secret test_pypi_token MATURIN_PYPI_TOKEN=$test_pypi_token maturin upload -r testpypi $(ls topk_sdk-*.whl)
+    IF $mode == "test"
+        RUN --push --secret test_pypi_token MATURIN_PYPI_TOKEN=$test_pypi_token maturin upload -r testpypi $(ls topk_sdk-*.whl)
+    ELSE
+        RUN --push --secret pypi_token MATURIN_PYPI_TOKEN=$pypi_token maturin upload -r pypi $(ls topk_sdk-*.whl)
+    END
 
 py-linux-3.13:
     DO +PYTHON_SDK_LINUX --python 3.13
