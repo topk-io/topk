@@ -1,9 +1,9 @@
 ---
 title: 'Delete documents'
-description: 'Collections are the core data structure in TopK. They are used to store and query documents.'
 icon: 'file-circle-minus'
 ---
 
+While we plan to release more options to delete your documents (e.g. by query), for the starter you can delete documents by their `_id`.
 
 ## Delete by `_id`
 
@@ -22,6 +22,11 @@ client.collection("books").delete(
 ```
 </CodeGroup>
 
+If your document is too large it can take a moment delete it. You can check the status of the deletion by querying the document again.
+
+After the document disappears, you can be sure that it has been permanently deleted. TopK does not store any copies or replicas of this document at this point.
+
+{/*
 ## Delete by query
 
 Right now, the SDK supports only _Delete by `_id`_ method. To delete documents by a filter, make two separate calls:
@@ -55,3 +60,4 @@ client.collection("books").delete(
 // We will help you get started.
 ```
 </CodeGroup>
+*/}
