@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::*;
 
 impl Collection {
@@ -5,28 +7,13 @@ impl Collection {
         name: impl Into<String>,
         org_id: u64,
         project_id: u32,
-        schema: collection_schema::CollectionSchema,
+        schema: impl Into<HashMap<String, FieldSpec>>,
     ) -> Self {
         Collection {
             name: name.into(),
             org_id,
             project_id,
-            schema: schema.into_fields(),
+            schema: schema.into(),
         }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct CollectionName(pub String);
-
-impl From<String> for CollectionName {
-    fn from(name: String) -> Self {
-        CollectionName(name)
-    }
-}
-
-impl From<CollectionName> for String {
-    fn from(name: CollectionName) -> Self {
-        name.0
     }
 }

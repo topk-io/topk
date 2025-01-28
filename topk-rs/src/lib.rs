@@ -1,13 +1,11 @@
 mod client;
+mod errors;
+mod internal_error_code;
 
 pub use client::Client;
 pub use client::ClientConfig;
-
-mod internal_error_code;
+use errors::ValidationErrorBag;
 pub use internal_error_code::InternalErrorCode;
-use topk_protos::v1::control::collection_schema::SchemaValidationError;
-use topk_protos::v1::control::doc_validation::ValidationError;
-use topk_protos::v1::control::doc_validation::ValidationErrorBag;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {

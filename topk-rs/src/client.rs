@@ -8,13 +8,12 @@ use topk_protos::utils::{
     DocumentClientWithHeaders, QueryClientWithHeaders,
 };
 use topk_protos::v1::control::doc_validation::ValidationErrorBag;
-use topk_protos::v1::control::GetCollectionRequest;
+use topk_protos::v1::control::{FieldSpec, GetCollectionRequest};
 use topk_protos::{
     utils::{DocumentClient, QueryClient},
     v1::{
         control::{
-            collection_schema::CollectionSchema, Collection, CreateCollectionRequest,
-            DeleteCollectionRequest, ListCollectionsRequest,
+            Collection, CreateCollectionRequest, DeleteCollectionRequest, ListCollectionsRequest,
         },
         data::{DeleteDocumentsRequest, Document, Query, QueryRequest, UpsertDocumentsRequest},
     },
@@ -279,14 +278,14 @@ impl CollectionsClient {
     pub async fn create(
         &self,
         name: impl Into<String>,
-        schema: CollectionSchema,
+        schema: impl Into<HashMap<String, FieldSpec>>,
     ) -> Result<Collection, Error> {
         let response = self
             .client()
             .await?
             .create_collection(CreateCollectionRequest {
                 name: name.into(),
-                schema: schema.into_fields(),
+                schema: schema.into(),
             })
             .await
             .map_err(|e| match e.code() {
