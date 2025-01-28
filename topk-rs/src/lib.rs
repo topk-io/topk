@@ -4,7 +4,9 @@ mod internal_error_code;
 
 pub use client::Client;
 pub use client::ClientConfig;
-use errors::ValidationErrorBag;
+pub use errors::SchemaValidationError;
+pub use errors::ValidationError;
+pub use errors::ValidationErrorBag;
 pub use internal_error_code::InternalErrorCode;
 
 #[derive(Debug, thiserror::Error)]

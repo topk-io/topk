@@ -1,14 +1,15 @@
-use pyo3::{exceptions::PyException, prelude::*};
 use std::{collections::HashMap, sync::Arc};
-use topk_protos::v1::control::collection_schema::CollectionSchema;
+
+use pyo3::{exceptions::PyException, prelude::*};
+
+use topk_protos::v1::control::FieldSpec as FieldSpecPb;
 use topk_rs::ClientConfig;
 
+use super::error::{CollectionNotFoundError, SchemaValidationError};
 use crate::{
     control::{collection::Collection, field_spec::FieldSpec},
     data::{query::Query, value::ValueUnion},
 };
-
-use super::error::{CollectionNotFoundError, SchemaValidationError};
 
 #[pyclass]
 pub struct Client {
@@ -74,10 +75,15 @@ impl CollectionsClient {
     ) -> PyResult<Collection> {
         let collection = self
             .runtime
-            .block_on(self.client.collections().create(
-                &collection_name,
-                CollectionSchema::new(schema.into_iter().map(|(k, v)| (k, v.into())).collect()),
-            ))
+            .block_on(
+                self.client.collections().create(
+                    &collection_name,
+                    schema
+                        .into_iter()
+                        .map(|(k, v)| (k, v.into()))
+                        .collect::<HashMap<String, FieldSpecPb>>(),
+                ),
+            )
             .map_err(|e| match e {
                 topk_rs::Error::SchemaValidationError(e) => {
                     SchemaValidationError::new_err(format!("{:?}", e))

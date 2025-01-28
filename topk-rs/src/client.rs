@@ -1,3 +1,4 @@
+use crate::errors::ValidationErrorBag;
 use crate::{Error, InternalErrorCode};
 use std::str::FromStr;
 use std::{collections::HashMap, time::Duration};
@@ -7,7 +8,6 @@ use topk_protos::utils::{
     CollectionClient as ProtoCollectionClient, CollectionClientWithHeaders,
     DocumentClientWithHeaders, QueryClientWithHeaders,
 };
-use topk_protos::v1::control::doc_validation::ValidationErrorBag;
 use topk_protos::v1::control::{FieldSpec, GetCollectionRequest};
 use topk_protos::{
     utils::{DocumentClient, QueryClient},

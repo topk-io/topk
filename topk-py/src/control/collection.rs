@@ -1,6 +1,10 @@
-use crate::control::field_spec::FieldSpec;
-use pyo3::prelude::*;
 use std::collections::HashMap;
+
+use pyo3::prelude::*;
+
+use topk_protos::v1::control::FieldSpec as FieldSpecPb;
+
+use crate::control::field_spec::FieldSpec;
 
 #[pyclass]
 #[derive(Debug, Clone)]
@@ -43,12 +47,11 @@ impl Collection {
 
 impl Into<topk_protos::v1::control::Collection> for Collection {
     fn into(self) -> topk_protos::v1::control::Collection {
-        let schema = topk_protos::v1::control::collection_schema::CollectionSchema::new(
-            self.schema
-                .into_iter()
-                .map(|(name, field)| (name, field.into()))
-                .collect(),
-        );
+        let schema = self
+            .schema
+            .into_iter()
+            .map(|(name, field)| (name, field.into()))
+            .collect::<HashMap<String, FieldSpecPb>>();
 
         topk_protos::v1::control::Collection::new(self.name, self.org_id, self.project_id, schema)
     }
