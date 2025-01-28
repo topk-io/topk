@@ -1,6 +1,7 @@
 ---
 title: 'Upsert documents'
 description: 'Use the `upsert` method to update or insert documents.'
+icon: 'file-circle-plus'
 ---
 
 <Note>
@@ -11,7 +12,8 @@ Every document is uniquely identified by its `_id`, which means that upserting a
 
 To upsert documents, you can pass a list of documents to the `upsert` method. The SDK will update the documents that already exist and insert the documents that don't.
 
-```python
+<CodeGroup>
+```python Python
 client.collection("books").upsert(
     [
         {"_id": "book-1", "title": "The Great Gatsby", "published_year": 1925},
@@ -20,3 +22,31 @@ client.collection("books").upsert(
     ]
 )
 ```
+
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+```
+</CodeGroup>
+
+Alternatively, the example below shows how your documents could also be made out of mix of vectors and other fields.
+
+<CodeGroup>
+```python Python
+client.collection("locations").upsert(
+    [
+        {"_id": "point-1", "vector": [0.12, 0.67, 0.82, 0.53], "payload": {"country": "Germany"}},
+        {"_id": "point-2", "vector": [0.42, 0.53, 0.65, 0.33], "payload": {"country": "United Kingdom"}},
+        {"_id": "point-3", "vector": [0.59, 0.33, 0.71, 0.61], "payload": {"country": "Russia"}},
+        {"_id": "point-4", "vector": [0.03, 0.88, 0.79, 0.41], "payload": {"country": "United States"}},
+        {"_id": "point-5", "vector": [0.31, 0.64, 0.29, 0.59], "payload": {"country": "China"}},
+        {"_id": "point-6", "vector": [0.23, 0.14, 0.49, 0.91], "payload": {"country": "India"}},
+    ]
+)
+```
+
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+```
+</CodeGroup>

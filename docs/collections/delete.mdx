@@ -1,8 +1,22 @@
 ---
 title: 'Delete a collection'
 description: 'Collections can be deleted by name.'
+icon: 'square-minus'
 ---
 
-```python
+Once you decide that you no longer need a collection or that you want to start over, you can delete it. Deleting a collection will remove all the documents and indexes associated with it.
+
+<CodeGroup>
+```python Python
 client.collections().delete("my-collection")
 ```
+
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+```
+</CodeGroup>
+
+If your collection is too large it can take some time to delete it. You can check the status of the deletion by listing the collections again.
+
+After the collection disappears from the list, you can be sure that it has been permanently deleted. TopK does not store any copies or replicas of this collection at this point.
