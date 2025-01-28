@@ -4,12 +4,118 @@ description: 'Use the `query` method to search for documents.'
 icon: 'magnifying-glass'
 ---
 
-TopK allows you to query documents using a SQL-inspired syntax. It comes with text search, vector search, and filtering capabilities out of the box.
-
-
-## Writing queries
+TopK allows you to query documents using a SQL-inspired syntax. It comes with **text search**, **vector search**, and **filtering capabilities** out of the box.
 
 TopK's declarative query builder allows you to select fields, chain filters, apply vector/text search in a composable way.
+
+## Text search
+
+To perform a text search on your documents, use the `match` method. The `match` method supports full-text search and can be used to search for keywords in a field.
+
+<CodeGroup>
+```python Python
+from topk.query import select, fn
+
+docs = client.collection("books").query(
+    select("title")
+        # Filter to documents that have the `"Great"` keyword in the `title` field
+        .filter(field("title").match("Great"))
+)
+
+```
+
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+
+```
+</CodeGroup>
+
+The above example takes a collection of books and filters to documents that have the `"Great"` keyword in the `title` field.
+
+## Vector search
+
+To perform a vector search on your documents, use the `vector_distance` method. The `vector_distance` method computes the cosine distance between the vector and the field.
+
+<CodeGroup>
+```python Python
+from topk.query import select, fn
+
+docs = client.collection("books").query(
+    select(
+        "title",
+        # Select supports arbitrary expressions. For example, you can add 10 years to the `published_year` field.
+        published_year_plus_10=field("published_year") + 10,
+        # Compute cosine distance between the vector and the `title_embedding` field.
+        title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3])
+    )
+)
+```
+
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+
+```
+</CodeGroup>
+
+The above example computes the cosine distance between the vector and the `title_embedding` field. The `title_embedding` field is a vector field that represents the title of the book.
+
+## Filtering
+
+You can filter documents based on metadata or vector similarity. The `filter` method allows you to filter documents based on a condition.
+
+### Filtering by metadata
+
+The below example shows filtering by metadata.
+
+<CodeGroup>
+```python Python
+# Filtering by metadata
+.filter(field("published_year") > 1980)
+```
+
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+```
+</CodeGroup>
+
+### Filtering by vector similarity
+
+The below example shows filtering by vector similarity.
+
+<CodeGroup>
+```python Python
+# Filtering by vector similarity
+.filter(field("title_similarity") > 0.5)
+```
+
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+```
+</CodeGroup>
+
+### Top K results
+
+You can use the `top_k` method to return the top `k` results. The `top_k` method takes a field, the number of results to return, and an optional `asc` parameter to sort the results in ascending order.
+
+<CodeGroup>
+```python Python
+# Return top 10 results order by `published_year` ascending
+.top_k(field("title_similarity"), 10, asc=True)
+```
+
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+```
+</CodeGroup>
+
+## Putting it all together
+
+You can combine text search, vector search, and filtering in a single query. Some people refer to this as a hybrid search and we believe it can provide you with the best and most relevant search results.
 
 <CodeGroup>
 ```python Python
