@@ -3,6 +3,7 @@ title: 'Create a collection'
 description: 'Collections are the core data structure in TopK. They are used to store and query documents.'
 icon: 'square-plus'
 ---
+import Support from '/snippets/support.mdx';
 
 ## Creating a collection
 
@@ -43,4 +44,121 @@ client.collections().create(
 
 ## Schema
 
-TODO
+## Data types
+
+TopK supports the following data types. There are more on our roadmap and we are working effortlessly to bring them to you as soon as possible.
+
+### int()
+
+`int()` is used to define an integer field in the schema.
+
+<CodeGroup>
+```python Python
+"published_year": int()
+```
+
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+```
+</CodeGroup>
+
+### text()
+
+`text()` is used to define a text field in the schema.
+
+<CodeGroup>
+```python Python
+"title": text()
+```
+
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+```
+</CodeGroup>
+
+### vector()
+
+`vector()` is used to define a vector field in the schema. As a parameter you can pass the dimension of the vector.
+
+{/* TODO: Is the dimension of the vector required? */}
+{/* TODO: What will happen if no dimension is passed? */}
+
+<CodeGroup>
+```python Python
+"title_embedding": vector(1536)
+```
+
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+```
+</CodeGroup>
+
+## Properties
+
+### required()
+
+`required()` is used to mark a field as required. This property is **optional**.
+
+<Note>However, don't forget that every document has to have an `_id`.</Note>
+
+<CodeGroup>
+```python Python
+"title": text().required()
+```
+
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+```
+</CodeGroup>
+
+The above example shows how to mark a field `title` as required.
+
+## Methods
+
+### index()
+
+`index()` is used to create an index on a field.
+
+#### Keyword index
+
+The `keyword_index()` method is used to create a keyword index on a `text()` field.
+`index(keyword_index())` can only be called over `text()` data type.
+
+<CodeGroup>
+```python Python
+"title": text().index(keyword_index())
+```
+
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+```
+</CodeGroup>
+
+#### Vector index
+
+The `vector_index()` method is used to create a vector index on a `vector()` field.
+`index(vector_index(metric="euclidean"))` can only be called over `vector()` data type.
+
+<CodeGroup>
+```python Python
+"title_embedding": vector(1536).index(vector_index(metric="euclidean"))
+```
+
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+```
+</CodeGroup>
+
+The above example shows how to create a vector index on a field `title_embedding` with the metric `euclidean`.
+However, there are more metrics available:
+- `euclidean`
+- `cosine`
+- `dot_product`
+
+<Support />

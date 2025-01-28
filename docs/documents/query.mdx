@@ -21,8 +21,9 @@ docs = client.collection("books").query(
     select("title")
         # Filter to documents that have the `"Great"` keyword in the `title` field
         .filter(field("title").match("Great"))
+        # Return top 10 results order by `published_year` ascending
+        .top_k(field("title_similarity"), 10, asc=True)
 )
-
 ```
 
 ```js JavaScript
@@ -47,9 +48,11 @@ docs = client.collection("books").query(
         "title",
         # Select supports arbitrary expressions. For example, you can add 10 years to the `published_year` field.
         published_year_plus_10=field("published_year") + 10,
-        # Compute cosine distance between the vector and the `title_embedding` field.
+        # Compute cosine similarity the vector and the `title_embedding` field.
         title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3])
     )
+        # Return top 10 results order by `published_year` ascending
+        .top_k(field("title_similarity"), 10, asc=True)
 )
 ```
 
@@ -60,7 +63,7 @@ docs = client.collection("books").query(
 ```
 </CodeGroup>
 
-The above example computes the cosine distance between the vector and the `title_embedding` field. The `title_embedding` field is a vector field that represents the title of the book.
+The above example computes the cosine similarity between the vector and the `title_embedding` field. The `title_embedding` field is a vector field that represents the title of the book.
 
 ## Filtering
 
@@ -114,6 +117,8 @@ You can use the `top_k` method to return the top `k` results. The `top_k` method
 ```
 </CodeGroup>
 
+<Note>Note that **all** queries are required to end with the `top_k` method.</Note>
+
 ## Putting it all together
 
 You can combine text search, vector search, and filtering in a single query. Some people refer to this as a hybrid search and we believe it can provide you with the best and most relevant search results.
@@ -127,7 +132,7 @@ docs = client.collection("books").query(
         "title",
         # Select supports arbitrary expressions. For example, you can add 10 years to the `published_year` field.
         published_year_plus_10=field("published_year") + 10,
-        # Compute cosine distance between the vector and the `title_embedding` field.
+        # Compute cosine similarity between the vector and the `title_embedding` field.
         title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3])
     )
         # Filtering by metadata
@@ -148,5 +153,11 @@ docs = client.collection("books").query(
 </CodeGroup>
 
 <Check>**Nicely done!** You've just wrote your first query with TopK. It's that simple.</Check>
+
+## Notes on writing queries
+
+When writing queries, remember that they all require the `top_k` method at the end.
+
+## Next steps
 
 <Support />
