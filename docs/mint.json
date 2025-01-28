@@ -22,6 +22,10 @@
   },
   "topbarLinks": [
     {
+      "name": "Community",
+      "url": "https://discord.gg/as4sCYQ8"
+    },
+    {
       "name": "Support",
       "url": "mailto:support@topk.io"
     },
