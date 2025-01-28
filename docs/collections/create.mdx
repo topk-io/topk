@@ -8,13 +8,21 @@ icon: 'square-plus'
 
 The `topk_sdk.schema` module contains the schema definition for the fields in a collection.
 
-```python
+<CodeGroup>
+```python Python
 from topk_sdk.schema import int, text, vector, vector_index, keyword_index
 ```
 
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+```
+</CodeGroup>
+
 To create a collection, you need to pass the collection name and the schema to the `create` method.
 
-```python
+<CodeGroup>
+```python Python
 client.collections().create(
     "books",
     schema={
@@ -26,6 +34,12 @@ client.collections().create(
     },
 )
 ```
+
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+```
+</CodeGroup>
 
 ## Schema
 

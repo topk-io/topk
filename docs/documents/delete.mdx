@@ -9,11 +9,18 @@ icon: 'file-circle-minus'
 
 To delete documents by their `_id`, you can pass a list of `_id`s to the `delete` method:
 
-```python
+<CodeGroup>
+```python Python
 client.collection("books").delete(
     ["book-1", "book-2", "book-3"]
 )
 ```
+
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+```
+</CodeGroup>
 
 ## Delete by query
 
@@ -21,16 +28,30 @@ Right now, the SDK supports only _Delete by `_id`_ method. To delete documents b
 
 1. Query the documents that match the filter.
 
-```python
+<CodeGroup>
+```python Python
 docs = client.collection("books").query(
     filter(field("published_year") > 1980)
 )
 ```
 
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+```
+</CodeGroup>
+
 2. Delete the documents by their `_id`s.
 
-```python
+<CodeGroup>
+```python Python
 client.collection("books").delete(
     [d._id for d in docs]
 )
 ```
+
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+```
+</CodeGroup>

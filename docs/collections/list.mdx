@@ -19,11 +19,21 @@ collections = client.collections().list()
 
 </CodeGroup>
 
-The `list` method returns a list of `Collection` objects. You can iterate over the list and print out the name, organization ID, and project ID of each collection.
+The `list` method returns a list of `Collection` objects.
 
-```python
+<CodeGroup>
+```python Python
 for collection in collections:
     print(f"Collection name: {collection.name}")
     print(f"Organization ID: {collection.org_id}")
     print(f"Project ID: {collection.project_id}")
 ```
+
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+```
+</CodeGroup>
+
+
+You can then iterate over the list and print out the `name`, `organization ID`, and `project ID` of each collection just like in the example above.

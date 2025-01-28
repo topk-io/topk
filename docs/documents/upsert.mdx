@@ -12,7 +12,8 @@ Every document is uniquely identified by its `_id`, which means that upserting a
 
 To upsert documents, you can pass a list of documents to the `upsert` method. The SDK will update the documents that already exist and insert the documents that don't.
 
-```python
+<CodeGroup>
+```python Python
 client.collection("books").upsert(
     [
         {"_id": "book-1", "title": "The Great Gatsby", "published_year": 1925},
@@ -21,3 +22,9 @@ client.collection("books").upsert(
     ]
 )
 ```
+
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+```
+</CodeGroup>
