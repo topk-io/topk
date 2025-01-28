@@ -16,8 +16,8 @@ pub enum SchemaValidationError {
         data_type: String,
     },
 
-    #[error("vector field `{field}` cannot be nullable")]
-    VectorFieldCannotBeNullable { field: String },
+    #[error("vector field `{field}` cannot be have zero dimension")]
+    VectorDimensionCannotBeZero { field: String },
 }
 
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
