@@ -5,22 +5,22 @@ pub use client::ClientConfig;
 
 mod internal_error_code;
 pub use internal_error_code::InternalErrorCode;
+use topk_protos::v1::control::collection_schema::SchemaValidationError;
 use topk_protos::v1::control::doc_validation::ValidationError;
 use topk_protos::v1::control::doc_validation::ValidationErrorBag;
-use topk_protos::v1::control::index_schema::SchemaValidationError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("lsn timeout")]
     QueryLsnTimeout,
 
-    #[error("index already exists")]
-    IndexAlreadyExists,
+    #[error("collection already exists")]
+    CollectionAlreadyExists,
 
-    #[error("index not found")]
-    IndexNotFound,
+    #[error("collection not found")]
+    CollectionNotFound,
 
-    #[error("invalid index")]
+    #[error("invalid collection schema")]
     SchemaValidationError(ValidationErrorBag<SchemaValidationError>),
 
     #[error("invalid argument")]

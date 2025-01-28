@@ -10,10 +10,10 @@ macro_rules! doc {
 #[macro_export]
 macro_rules! schema {
     () => {
-        topk_protos::v1::control::index_schema::IndexSchema::default()
+        topk_protos::v1::control::collection_schema::CollectionSchema::default()
     };
     ($($field:expr => $spec:expr),* $(,)?) => {{
-        let schema = topk_protos::v1::control::index_schema::IndexSchema::try_from([
+        let schema = topk_protos::v1::control::collection_schema::CollectionSchema::try_from([
             $(($field, $spec)),*
         ]);
 

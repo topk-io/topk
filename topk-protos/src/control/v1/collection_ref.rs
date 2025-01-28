@@ -2,15 +2,15 @@ use crate::{OrgId, ProjectId};
 use uuid::Uuid;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub struct IndexRef {
+pub struct CollectionRef {
     pub org_id: OrgId,
     pub project_id: ProjectId,
     pub internal_id: uuid::Uuid,
 }
 
-impl IndexRef {
+impl CollectionRef {
     pub fn new(org_id: OrgId, project_id: ProjectId, internal_id: uuid::Uuid) -> Self {
-        IndexRef {
+        CollectionRef {
             org_id,
             project_id,
             internal_id,
@@ -29,7 +29,7 @@ impl IndexRef {
         self.internal_id
     }
 
-    /// Returns the data path form this index in the following form:
+    /// Returns the data path form this collection in the following form:
     /// `/org/{org_id}/proj/{project_id}/col/{internal_id}`
     pub fn data_path(&self) -> String {
         format!(
@@ -52,9 +52,9 @@ mod tests {
         let internal_id = Uuid::from_bytes([
             20, 255, 54, 90, 79, 15, 77, 115, 140, 74, 204, 117, 40, 34, 91, 173,
         ]);
-        let index = IndexRef::new(123.into(), 456.into(), internal_id);
+        let collection = CollectionRef::new(123.into(), 456.into(), internal_id);
         assert_eq!(
-            index.data_path(),
+            collection.data_path(),
             format!("/org/7b/proj/1c8/col/14ff365a-4f0f-4d73-8c4a-cc7528225bad")
         );
     }

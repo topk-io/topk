@@ -1,13 +1,13 @@
 use super::*;
 
-impl Index {
+impl Collection {
     pub fn new(
         name: impl Into<String>,
         org_id: u64,
         project_id: u32,
-        schema: index_schema::IndexSchema,
+        schema: collection_schema::CollectionSchema,
     ) -> Self {
-        Index {
+        Collection {
             name: name.into(),
             org_id,
             project_id,
@@ -17,16 +17,16 @@ impl Index {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct IndexName(pub String);
+pub struct CollectionName(pub String);
 
-impl From<String> for IndexName {
+impl From<String> for CollectionName {
     fn from(name: String) -> Self {
-        IndexName(name)
+        CollectionName(name)
     }
 }
 
-impl From<IndexName> for String {
-    fn from(name: IndexName) -> Self {
+impl From<CollectionName> for String {
+    fn from(name: CollectionName) -> Self {
         name.0
     }
 }

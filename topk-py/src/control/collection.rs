@@ -41,30 +41,30 @@ impl Collection {
     }
 }
 
-impl Into<topk_protos::v1::control::Index> for Collection {
-    fn into(self) -> topk_protos::v1::control::Index {
-        let schema = topk_protos::v1::control::index_schema::IndexSchema::new(
+impl Into<topk_protos::v1::control::Collection> for Collection {
+    fn into(self) -> topk_protos::v1::control::Collection {
+        let schema = topk_protos::v1::control::collection_schema::CollectionSchema::new(
             self.schema
                 .into_iter()
                 .map(|(name, field)| (name, field.into()))
                 .collect(),
         );
 
-        topk_protos::v1::control::Index::new(self.name, self.org_id, self.project_id, schema)
+        topk_protos::v1::control::Collection::new(self.name, self.org_id, self.project_id, schema)
     }
 }
 
-impl From<topk_protos::v1::control::Index> for Collection {
-    fn from(index: topk_protos::v1::control::Index) -> Self {
+impl From<topk_protos::v1::control::Collection> for Collection {
+    fn from(collection: topk_protos::v1::control::Collection) -> Self {
         let mut schema = HashMap::new();
-        for (name, field) in index.schema {
+        for (name, field) in collection.schema {
             schema.insert(name, field.into());
         }
 
         Self {
-            name: index.name,
-            org_id: index.org_id,
-            project_id: index.project_id,
+            name: collection.name,
+            org_id: collection.org_id,
+            project_id: collection.project_id,
             schema,
         }
     }

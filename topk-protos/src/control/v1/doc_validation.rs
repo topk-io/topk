@@ -1,6 +1,6 @@
 use super::*;
 use crate::v1::data;
-use index_schema::IndexSchema;
+use collection_schema::CollectionSchema;
 use serde::{de::DeserializeOwned, Serialize};
 use tracing::error;
 
@@ -89,7 +89,7 @@ impl<T: Serialize + DeserializeOwned> TryFrom<tonic::Status> for ValidationError
 }
 
 pub fn validate_documents(
-    schema: &IndexSchema,
+    schema: &CollectionSchema,
     documents: &[data::Document],
 ) -> Result<(), ValidationErrorBag<ValidationError>> {
     let mut error_bag = ValidationErrorBag::empty();
@@ -223,7 +223,8 @@ mod tests {
 
     #[test]
     fn test_validate_empty_documents() {
-        let errors = validate_documents(&IndexSchema::default(), &vec![]).expect_err("should fail");
+        let errors =
+            validate_documents(&CollectionSchema::default(), &vec![]).expect_err("should fail");
 
         assert_eq!(
             errors,
@@ -234,7 +235,7 @@ mod tests {
     #[test]
     fn test_validate_documents_missing_id() {
         let errors = validate_documents(
-            &IndexSchema::default(),
+            &CollectionSchema::default(),
             &[data::Document {
                 fields: HashMap::new(),
             }],
@@ -250,7 +251,7 @@ mod tests {
     #[test]
     fn test_validate_documents_wrong_id_type() {
         let errors = validate_documents(
-            &IndexSchema::default(),
+            &CollectionSchema::default(),
             &vec![data::Document::from([
                 ("_id", data::Value::u32(1)),
                 ("data", data::Value::string("x".repeat(1 * 1024))),
@@ -270,7 +271,7 @@ mod tests {
     #[test]
     fn test_validate_documents_reserved_field_name() {
         let errors = validate_documents(
-            &IndexSchema::default(),
+            &CollectionSchema::default(),
             &vec![data::Document::from([
                 ("_id", data::Value::string("1".to_string())),
                 ("_reserved", data::Value::string("foo".to_string())),
@@ -290,7 +291,7 @@ mod tests {
     #[test]
     fn test_validate_documents_missing_field() {
         let errors = validate_documents(
-            &IndexSchema::try_from([(
+            &CollectionSchema::try_from([(
                 "age".to_string(),
                 FieldSpec {
                     data_type: Some(FieldType {
@@ -330,7 +331,7 @@ mod tests {
         #[case] value: data::Value,
     ) {
         let errors = validate_documents(
-            &IndexSchema::try_from([(
+            &CollectionSchema::try_from([(
                 "field".to_string(),
                 FieldSpec {
                     data_type: Some(FieldType {
@@ -362,7 +363,7 @@ mod tests {
     #[test]
     fn test_validate_wrong_vector_dimension() {
         let errors = validate_documents(
-            &IndexSchema::try_from([(
+            &CollectionSchema::try_from([(
                 "field",
                 FieldSpec {
                     data_type: Some(FieldType {

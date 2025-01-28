@@ -49,7 +49,7 @@ fn build_topk_v1() {
         "topk.control.v1.FieldTypeFloat",
         "topk.control.v1.FieldTypeText",
         "topk.control.v1.FieldTypeBytes",
-        // index
+        // indexes
         "topk.control.v1.FieldIndex",
         "topk.control.v1.FieldIndex.index",
         "topk.control.v1.KeywordIndex",
@@ -64,7 +64,7 @@ fn build_topk_v1() {
         .file_descriptor_set_path(lib_dir.join("out/topk_v1_proto_descriptor_set.bin"))
         .compile_protos(
             &[
-                "protos/topk/control/v1/index.proto",
+                "protos/topk/control/v1/collection.proto",
                 "protos/topk/data/v1/value.proto",
                 "protos/topk/data/v1/document.proto",
                 "protos/topk/data/v1/query.proto",
@@ -89,7 +89,7 @@ fn build_openapi_spec() {
         .arg("--proto_path=protos")
         .arg("protos/topk/data/v1/query.proto")
         .arg("protos/topk/data/v1/document.proto")
-        .arg("protos/topk/control/v1/index.proto")
+        .arg("protos/topk/control/v1/collection.proto")
         .output()
         .expect("failed to generate [topk.v1] openapi spec");
 

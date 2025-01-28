@@ -1,5 +1,5 @@
 use crate::{
-    control::v1::index_service_client::IndexServiceClient,
+    control::v1::collection_service_client::CollectionServiceClient,
     data::v1::{
         document_service_client::DocumentServiceClient, query_service_client::QueryServiceClient,
     },
@@ -56,15 +56,15 @@ impl QueryClient {
     }
 }
 
-pub type IndexClient = IndexServiceClient<Channel>;
-pub type IndexClientWithHeaders =
-    IndexServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>;
+pub type CollectionClient = CollectionServiceClient<Channel>;
+pub type CollectionClientWithHeaders =
+    CollectionServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>;
 
-impl IndexClient {
+impl CollectionClient {
     pub fn with_headers(
         channel: Channel,
         headers: HashMap<&'static str, String>,
-    ) -> IndexClientWithHeaders {
+    ) -> CollectionClientWithHeaders {
         Self::with_interceptor(channel, AppendHeadersInterceptor { headers })
     }
 }

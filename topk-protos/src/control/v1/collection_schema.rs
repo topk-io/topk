@@ -23,11 +23,11 @@ pub enum SchemaValidationError {
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, Default)]
-pub struct IndexSchema {
+pub struct CollectionSchema {
     schema: HashMap<String, FieldSpec>,
 }
 
-impl IndexSchema {
+impl CollectionSchema {
     pub fn new(schema: HashMap<String, FieldSpec>) -> Self {
         Self { schema }
     }
@@ -41,7 +41,7 @@ impl IndexSchema {
     }
 }
 
-impl IntoIterator for IndexSchema {
+impl IntoIterator for CollectionSchema {
     type Item = (String, FieldSpec);
     type IntoIter = std::collections::hash_map::IntoIter<String, FieldSpec>;
 
@@ -50,7 +50,7 @@ impl IntoIterator for IndexSchema {
     }
 }
 
-impl<const N: usize, T> TryFrom<[(T, FieldSpec); N]> for IndexSchema
+impl<const N: usize, T> TryFrom<[(T, FieldSpec); N]> for CollectionSchema
 where
     T: Into<String>,
 {
@@ -62,11 +62,11 @@ where
             .map(|(field, spec)| (field.into(), spec.clone()))
             .collect();
 
-        IndexSchema::try_from(entries)
+        CollectionSchema::try_from(entries)
     }
 }
 
-impl TryFrom<HashMap<String, FieldSpec>> for IndexSchema {
+impl TryFrom<HashMap<String, FieldSpec>> for CollectionSchema {
     type Error = ValidationErrorBag<SchemaValidationError>;
 
     fn try_from(entries: HashMap<String, FieldSpec>) -> Result<Self, Self::Error> {
@@ -80,7 +80,7 @@ impl TryFrom<HashMap<String, FieldSpec>> for IndexSchema {
             return Err(errors);
         }
 
-        Ok(IndexSchema {
+        Ok(CollectionSchema {
             schema: entries
                 .iter()
                 .map(|(field, spec)| (field.clone(), spec.clone()))
@@ -159,7 +159,7 @@ mod tests {
 
     #[test]
     fn test_validate_schema_id_field() {
-        let errors = IndexSchema::try_from([(
+        let errors = CollectionSchema::try_from([(
             "_id",
             FieldSpec {
                 data_type: Some(FieldType {
@@ -181,7 +181,7 @@ mod tests {
 
     #[test]
     fn test_validate_schema_reserved_field_name() {
-        let errors = IndexSchema::try_from([(
+        let errors = CollectionSchema::try_from([(
             "_reserved",
             FieldSpec {
                 data_type: Some(FieldType {
@@ -203,7 +203,7 @@ mod tests {
 
     #[test]
     fn test_validate_schema_keyword_index_validation() {
-        assert!(IndexSchema::try_from([(
+        assert!(CollectionSchema::try_from([(
             "int_field",
             FieldSpec {
                 data_type: Some(FieldType {
@@ -220,7 +220,7 @@ mod tests {
         .is_ok());
 
         assert_eq!(
-            IndexSchema::try_from([(
+            CollectionSchema::try_from([(
                 "int_field",
                 FieldSpec {
                     data_type: Some(FieldType {
@@ -245,7 +245,7 @@ mod tests {
 
     #[test]
     fn test_validate_schema_vector_index_validation() {
-        assert!(IndexSchema::try_from([(
+        assert!(CollectionSchema::try_from([(
             "vector_field",
             FieldSpec {
                 data_type: Some(FieldType {
@@ -263,7 +263,7 @@ mod tests {
         )])
         .is_ok());
 
-        assert!(IndexSchema::try_from([(
+        assert!(CollectionSchema::try_from([(
             "vector_field",
             FieldSpec {
                 data_type: Some(FieldType {
@@ -280,7 +280,7 @@ mod tests {
         .is_ok());
 
         assert_eq!(
-            IndexSchema::try_from([(
+            CollectionSchema::try_from([(
                 "vec_field",
                 FieldSpec {
                     data_type: Some(FieldType {
@@ -303,7 +303,7 @@ mod tests {
         );
 
         assert_eq!(
-            IndexSchema::try_from([(
+            CollectionSchema::try_from([(
                 "int_field",
                 FieldSpec {
                     data_type: Some(FieldType {

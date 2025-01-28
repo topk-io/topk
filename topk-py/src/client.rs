@@ -1,6 +1,6 @@
 use pyo3::{exceptions::PyException, prelude::*};
 use std::{collections::HashMap, sync::Arc};
-use topk_protos::v1::control::index_schema::IndexSchema;
+use topk_protos::v1::control::collection_schema::CollectionSchema;
 use topk_rs::ClientConfig;
 
 use crate::{
@@ -57,26 +57,26 @@ pub struct CollectionsClient {
 #[pymethods]
 impl CollectionsClient {
     pub fn list(&self) -> PyResult<Vec<Collection>> {
-        let indexes = self
+        let collections = self
             .runtime
             .block_on(self.client.collections().list())
             .map_err(|e| match e {
                 _ => PyException::new_err(format!("failed to list collections: {:?}", e)),
             })?;
 
-        Ok(indexes.into_iter().map(|i| i.into()).collect())
+        Ok(collections.into_iter().map(|i| i.into()).collect())
     }
 
     pub fn create(
         &self,
-        index_name: String,
+        collection_name: String,
         schema: HashMap<String, FieldSpec>,
     ) -> PyResult<Collection> {
-        let index = self
+        let collection = self
             .runtime
             .block_on(self.client.collections().create(
-                &index_name,
-                IndexSchema::new(schema.into_iter().map(|(k, v)| (k, v.into())).collect()),
+                &collection_name,
+                CollectionSchema::new(schema.into_iter().map(|(k, v)| (k, v.into())).collect()),
             ))
             .map_err(|e| match e {
                 topk_rs::Error::SchemaValidationError(e) => {
@@ -85,15 +85,17 @@ impl CollectionsClient {
                 _ => PyException::new_err(format!("failed to create collection: {:?}", e)),
             })?;
 
-        Ok(index.into())
+        Ok(collection.into())
     }
 
-    pub fn delete(&self, index_name: String) -> PyResult<()> {
+    pub fn delete(&self, collection_name: String) -> PyResult<()> {
         Ok(self
             .runtime
-            .block_on(self.client.collections().delete(&index_name))
+            .block_on(self.client.collections().delete(&collection_name))
             .map_err(|e| match e {
-                topk_rs::Error::IndexNotFound => CollectionNotFoundError::new_err(e.to_string()),
+                topk_rs::Error::CollectionNotFound => {
+                    CollectionNotFoundError::new_err(e.to_string())
+                }
                 _ => PyException::new_err(format!("failed to delete collection: {:?}", e)),
             })?)
     }

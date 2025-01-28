@@ -4,16 +4,17 @@ use std::{collections::HashMap, time::Duration};
 use tokio::sync::OnceCell;
 use tonic::transport::{Channel as TonicChannel, Endpoint};
 use topk_protos::utils::{
-    DocumentClientWithHeaders, IndexClient, IndexClientWithHeaders, QueryClientWithHeaders,
+    CollectionClient as ProtoCollectionClient, CollectionClientWithHeaders,
+    DocumentClientWithHeaders, QueryClientWithHeaders,
 };
 use topk_protos::v1::control::doc_validation::ValidationErrorBag;
-use topk_protos::v1::control::GetIndexRequest;
+use topk_protos::v1::control::GetCollectionRequest;
 use topk_protos::{
     utils::{DocumentClient, QueryClient},
     v1::{
         control::{
-            index_schema::IndexSchema, CreateIndexRequest, DeleteIndexRequest, Index,
-            ListIndexesRequest,
+            collection_schema::CollectionSchema, Collection, CreateCollectionRequest,
+            DeleteCollectionRequest, ListCollectionsRequest,
         },
         data::{DeleteDocumentsRequest, Document, Query, QueryRequest, UpsertDocumentsRequest},
     },
@@ -248,48 +249,48 @@ impl CollectionsClient {
         Self { config, channel }
     }
 
-    pub async fn list(&self) -> Result<Vec<Index>, Error> {
+    pub async fn list(&self) -> Result<Vec<Collection>, Error> {
         let response = self
             .client()
             .await?
-            .list_indexes(ListIndexesRequest {})
+            .list_collections(ListCollectionsRequest {})
             .await
             .map_err(|e| match e.code() {
                 _ => Error::Unexpected(e),
             })?;
 
-        Ok(response.into_inner().indexes)
+        Ok(response.into_inner().collections)
     }
 
-    pub async fn get(&self, name: impl Into<String>) -> Result<Index, Error> {
+    pub async fn get(&self, name: impl Into<String>) -> Result<Collection, Error> {
         let response = self
             .client()
             .await?
-            .get_index(GetIndexRequest { name: name.into() })
+            .get_collection(GetCollectionRequest { name: name.into() })
             .await
             .map_err(|e| match e.code() {
-                tonic::Code::NotFound => Error::IndexNotFound,
+                tonic::Code::NotFound => Error::CollectionNotFound,
                 _ => Error::Unexpected(e),
             })?;
 
-        Ok(response.into_inner().index.expect("invalid proto"))
+        Ok(response.into_inner().collection.expect("invalid proto"))
     }
 
     pub async fn create(
         &self,
         name: impl Into<String>,
-        schema: IndexSchema,
-    ) -> Result<Index, Error> {
+        schema: CollectionSchema,
+    ) -> Result<Collection, Error> {
         let response = self
             .client()
             .await?
-            .create_index(CreateIndexRequest {
+            .create_collection(CreateCollectionRequest {
                 name: name.into(),
                 schema: schema.into_fields(),
             })
             .await
             .map_err(|e| match e.code() {
-                tonic::Code::AlreadyExists => Error::IndexAlreadyExists,
+                tonic::Code::AlreadyExists => Error::CollectionAlreadyExists,
                 tonic::Code::InvalidArgument => match ValidationErrorBag::try_from(e.clone()) {
                     Ok(errors) => Error::SchemaValidationError(errors),
                     Err(_) => Error::Unexpected(e),
@@ -297,16 +298,16 @@ impl CollectionsClient {
                 _ => Error::Unexpected(e),
             })?;
 
-        Ok(response.into_inner().index.expect("invalid proto"))
+        Ok(response.into_inner().collection.expect("invalid proto"))
     }
 
     pub async fn delete(&self, name: impl Into<String>) -> Result<(), Error> {
         self.client()
             .await?
-            .delete_index(DeleteIndexRequest { name: name.into() })
+            .delete_collection(DeleteCollectionRequest { name: name.into() })
             .await
             .map_err(|e| match e.code() {
-                tonic::Code::NotFound => Error::IndexNotFound,
+                tonic::Code::NotFound => Error::CollectionNotFound,
                 _ => Error::Unexpected(e),
             })?;
 
@@ -315,8 +316,8 @@ impl CollectionsClient {
 
     //
 
-    async fn client(&self) -> Result<IndexClientWithHeaders, Error> {
-        Ok(IndexClient::with_headers(
+    async fn client(&self) -> Result<CollectionClientWithHeaders, Error> {
+        Ok(ProtoCollectionClient::with_headers(
             self.channel.get().await?,
             self.config.headers(),
         ))
