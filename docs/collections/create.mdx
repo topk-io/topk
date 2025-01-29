@@ -114,7 +114,7 @@ TopK supports the following data types. There are more on our roadmap and we are
 
 <CodeGroup>
 ```python Python
-"title_embedding": float_vector(1536)
+"title_embedding": float_vector(dimension=1536)
 ```
 
 ```js JavaScript
@@ -129,7 +129,7 @@ TopK supports the following data types. There are more on our roadmap and we are
 
 <CodeGroup>
 ```python Python
-"title_embedding": byte_vector(1536)
+"title_embedding": byte_vector(dimension=1536)
 ```
 
 ```js JavaScript
@@ -207,7 +207,7 @@ The `vector_index()` method is used to create a vector index on a `vector()` fie
 
 <CodeGroup>
 ```python Python
-"title_embedding": vector(1536).index(vector_index(metric="euclidean"))
+"title_embedding": vector(dimension=1536).index(vector_index(metric="euclidean"))
 ```
 
 ```js JavaScript
