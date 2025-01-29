@@ -1,4 +1,3 @@
-
 # TopK SDK
 
 **Full documentation is available on [docs.topk.io](https://docs.topk.io).**

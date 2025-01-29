@@ -3,7 +3,7 @@ use crate::control::data_type::DataType;
 use pyo3::prelude::*;
 
 #[pyclass]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FieldSpec {
     data_type: DataType,
     required: bool,

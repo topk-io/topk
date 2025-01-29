@@ -1,6 +1,6 @@
 import pytest
 from topk_sdk import Collection, error
-from topk_sdk.schema import int, keyword_index, text, vector, vector_index
+from topk_sdk.schema import int, keyword_index, text, vector, vector_index, float_vector, byte_vector, bytes, float, bool
 
 from . import ProjectContext
 
@@ -14,6 +14,32 @@ def test_create_collection(ctx: ProjectContext):
         .required()
         .index(vector_index(metric="euclidean")),
         "published_year": int().required(),
+    }
+
+    collection = ctx.client.collections().create(
+        ctx.scope("books"),
+        schema=schema,
+    )
+
+    assert collection == Collection(
+        name=ctx.scope("books"),
+        org_id=ctx.org_id,
+        project_id=ctx.project_id,
+        schema=schema,
+    )
+
+
+def test_create_collection_all_data_types(ctx: ProjectContext):
+    schema = {
+        "text": text(),
+        "int": int(),
+        "float": float(),
+        "bool": bool(),
+        # `vector` is an alias for `float_vector`
+        "vector": vector(1536),
+        "float_vector": float_vector(1536),
+        "byte_vector": byte_vector(1536),
+        "bytes": bytes(),
     }
 
     collection = ctx.client.collections().create(

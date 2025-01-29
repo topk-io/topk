@@ -97,17 +97,12 @@ py-init:
     RUN uv venv
     RUN uv pip install maturin pytest
 
-py-dev:
+py-test:
     ARG args=""
     LOCALLY
     WORKDIR topk-py
     RUN uv run maturin develop --uv
-    RUN source .venv/bin/activate && TOPK_API_KEY=$(ddb-ctl cps auth create-test-project) python -m pytest $args
-
-py-test:
-    LOCALLY
-    WORKDIR topk-py
-    RUN TOPK_API_KEY=$(ddb-ctl cps auth create-test-project) .venv/bin/python -m pytest
+    RUN TOPK_API_KEY=$(ddb-ctl cps auth create-test-project) .venv/bin/python -m pytest $args
 
 
 py-builder:

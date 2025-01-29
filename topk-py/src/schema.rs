@@ -12,8 +12,13 @@ use pyo3::prelude::*;
 pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // data types
     m.add_wrapped(wrap_pyfunction!(text))?;
-    m.add_wrapped(wrap_pyfunction!(vector))?;
     m.add_wrapped(wrap_pyfunction!(int))?;
+    m.add_wrapped(wrap_pyfunction!(float))?;
+    m.add_wrapped(wrap_pyfunction!(self::bool))?;
+    m.add_wrapped(wrap_pyfunction!(vector))?;
+    m.add_wrapped(wrap_pyfunction!(float_vector))?;
+    m.add_wrapped(wrap_pyfunction!(byte_vector))?;
+    m.add_wrapped(wrap_pyfunction!(bytes))?;
 
     // indexes
     m.add_wrapped(wrap_pyfunction!(vector_index))?;
@@ -28,14 +33,38 @@ pub fn text() -> control::field_spec::FieldSpec {
 }
 
 #[pyfunction]
+pub fn int() -> control::field_spec::FieldSpec {
+    control::field_spec::FieldSpec::new(control::data_type::DataType::Integer())
+}
+
+#[pyfunction]
+pub fn float() -> control::field_spec::FieldSpec {
+    control::field_spec::FieldSpec::new(control::data_type::DataType::Float())
+}
+
+#[pyfunction]
+pub fn bool() -> control::field_spec::FieldSpec {
+    control::field_spec::FieldSpec::new(control::data_type::DataType::Boolean())
+}
+
+#[pyfunction]
 pub fn vector(dimension: u32) -> control::field_spec::FieldSpec {
-    // TODO: why u32?
+    float_vector(dimension)
+}
+
+#[pyfunction]
+pub fn float_vector(dimension: u32) -> control::field_spec::FieldSpec {
     control::field_spec::FieldSpec::new(control::data_type::DataType::FloatVector { dimension })
 }
 
 #[pyfunction]
-pub fn int() -> control::field_spec::FieldSpec {
-    control::field_spec::FieldSpec::new(control::data_type::DataType::Integer())
+pub fn byte_vector(dimension: u32) -> control::field_spec::FieldSpec {
+    control::field_spec::FieldSpec::new(control::data_type::DataType::ByteVector { dimension })
+}
+
+#[pyfunction]
+pub fn bytes() -> control::field_spec::FieldSpec {
+    control::field_spec::FieldSpec::new(control::data_type::DataType::Bytes())
 }
 
 #[pyfunction]

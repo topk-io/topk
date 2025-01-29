@@ -63,6 +63,36 @@ TopK supports the following data types. There are more on our roadmap and we are
 ```
 </CodeGroup>
 
+### float()
+
+`float()` is used to define a float field in the schema.
+
+<CodeGroup>
+```python Python
+"price": float()
+```
+
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+```
+</CodeGroup>
+
+### bool()
+
+`bool()` is used to define a boolean field in the schema.
+
+<CodeGroup>
+```python Python
+"is_published": bool()
+```
+
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+```
+</CodeGroup>
+
 ### text()
 
 `text()` is used to define a text field in the schema.
@@ -78,16 +108,47 @@ TopK supports the following data types. There are more on our roadmap and we are
 ```
 </CodeGroup>
 
-### vector()
+### float_vector()
 
-`vector()` is used to define a vector field in the schema. As a parameter you can pass the dimension of the vector.
-
-{/* TODO: Is the dimension of the vector required? */}
-{/* TODO: What will happen if no dimension is passed? */}
+`float_vector()` is used to define a float vector field in the schema. You can pass vector `dimension` as a parameter (required, greater than 0). It will be validated when upserting documents.
 
 <CodeGroup>
 ```python Python
-"title_embedding": vector(1536)
+"title_embedding": float_vector(1536)
+```
+
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+```
+</CodeGroup>
+
+### byte_vector()
+
+`byte_vector()` is used to define a byte vector field in the schema. You can pass vector `dimension` as a parameter (required, greater than 0). It will be validated when upserting documents.
+
+<CodeGroup>
+```python Python
+"title_embedding": byte_vector(1536)
+```
+
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+```
+</CodeGroup>
+
+### vector()
+
+`vector()` is an alias for `float_vector()`.
+
+### bytes()
+
+`bytes()` is used to define a bytes field in the schema.
+
+<CodeGroup>
+```python Python
+"image": bytes()
 ```
 
 ```js JavaScript
@@ -100,7 +161,7 @@ TopK supports the following data types. There are more on our roadmap and we are
 
 ### required()
 
-`required()` is used to mark a field as required. This property is **optional**.
+`required()` is used to mark a field as required. All fields are `optional` by default.
 
 <Note>However, don't forget that every document has to have an `_id`.</Note>
 
@@ -142,7 +203,7 @@ The `keyword_index()` method is used to create a keyword index on a `text()` fie
 #### Vector index
 
 The `vector_index()` method is used to create a vector index on a `vector()` field.
-`index(vector_index(metric="euclidean"))` can only be called over `vector()` data type.
+`index(vector_index(metric="euclidean"))` can only be called over `vector()` (`float_vector()`, `byte_vector()`) data type.
 
 <CodeGroup>
 ```python Python
