@@ -58,9 +58,12 @@ message Stage {
     bool asc = 3;
   }
 
+  message CountStage {}
+
   oneof stage {
     SelectStage select = 1;
     FilterStage filter = 2;
     TopKStage top_k = 3;
+    CountStage count = 4;
   }
 }

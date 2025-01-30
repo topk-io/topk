@@ -519,6 +519,11 @@
             "anyOf": [
               {
                 "required": [
+                  "count"
+                ]
+              },
+              {
+                "required": [
                   "filter"
                 ]
               },
@@ -535,6 +540,11 @@
               {
                 "not": {
                   "anyOf": [
+                    {
+                      "required": [
+                        "count"
+                      ]
+                    },
                     {
                       "required": [
                         "filter"
@@ -559,6 +569,11 @@
         "anyOf": [
           {
             "required": [
+              "count"
+            ]
+          },
+          {
+            "required": [
               "filter"
             ]
           },
@@ -575,6 +590,11 @@
           {
             "not": {
               "anyOf": [
+                {
+                  "required": [
+                    "count"
+                  ]
+                },
                 {
                   "required": [
                     "filter"
@@ -618,9 +638,22 @@
               }
             ],
             "title": "top_k"
+          },
+          "count": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/topk.data.v1.Stage.CountStage"
+              }
+            ],
+            "title": "count"
           }
         },
         "title": "Stage",
+        "additionalProperties": false
+      },
+      "topk.data.v1.Stage.CountStage": {
+        "type": "object",
+        "title": "CountStage",
         "additionalProperties": false
       },
       "topk.data.v1.Stage.FilterStage": {

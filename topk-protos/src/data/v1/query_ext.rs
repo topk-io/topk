@@ -37,6 +37,12 @@ impl Stage {
             })),
         }
     }
+
+    pub fn count() -> Self {
+        Stage {
+            stage: Some(stage::Stage::Count(stage::CountStage {})),
+        }
+    }
 }
 
 impl stage::select_stage::SelectExpr {
