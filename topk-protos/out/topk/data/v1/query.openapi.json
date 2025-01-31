@@ -63,6 +63,7 @@
           "OP_LTE",
           "OP_EQ",
           "OP_NEQ",
+          "OP_STARTS_WITH",
           "OP_AND",
           "OP_OR"
         ]

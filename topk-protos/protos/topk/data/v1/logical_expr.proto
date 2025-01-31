@@ -30,9 +30,10 @@ message LogicalExpr {
       OP_LTE = 8;
       OP_EQ = 9;
       OP_NEQ = 10;
+      OP_STARTS_WITH = 11;
       // Logical
-      OP_AND = 11;
-      OP_OR = 12;
+      OP_AND = 12;
+      OP_OR = 13;
     }
     Op op = 1;
     LogicalExpr left = 2;
