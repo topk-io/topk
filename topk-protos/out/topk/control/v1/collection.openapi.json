@@ -200,15 +200,11 @@
             "title": "name"
           },
           "orgId": {
-            "type": [
-              "integer",
-              "string"
-            ],
-            "title": "org_id",
-            "format": "int64"
+            "type": "string",
+            "title": "org_id"
           },
           "projectId": {
-            "type": "integer",
+            "type": "string",
             "title": "project_id"
           },
           "schema": {

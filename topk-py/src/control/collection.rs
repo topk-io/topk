@@ -12,9 +12,9 @@ pub struct Collection {
     #[pyo3(get)]
     name: String,
     #[pyo3(get)]
-    org_id: u64,
+    org_id: String,
     #[pyo3(get)]
-    project_id: u32,
+    project_id: String,
     #[pyo3(get)]
     schema: HashMap<String, FieldSpec>,
 }
@@ -24,8 +24,8 @@ impl Collection {
     #[new]
     pub fn new(
         name: String,
-        org_id: u64,
-        project_id: u32,
+        org_id: String,
+        project_id: String,
         schema: HashMap<String, FieldSpec>,
     ) -> Self {
         Self {
@@ -53,7 +53,12 @@ impl Into<topk_protos::v1::control::Collection> for Collection {
             .map(|(name, field)| (name, field.into()))
             .collect::<HashMap<String, FieldSpecPb>>();
 
-        topk_protos::v1::control::Collection::new(self.name, self.org_id, self.project_id, schema)
+        topk_protos::v1::control::Collection::new(
+            self.name,
+            self.org_id.to_string(),
+            self.project_id.to_string(),
+            schema,
+        )
     }
 }
 

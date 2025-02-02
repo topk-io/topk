@@ -21,8 +21,8 @@ service CollectionService {
 
 message Collection {
   string name = 1;
-  uint64 org_id = 2;
-  uint32 project_id = 3;
+  string org_id = 2;
+  string project_id = 3;
   map<string, FieldSpec> schema = 4;
 }
 
