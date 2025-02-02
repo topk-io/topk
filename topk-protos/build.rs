@@ -19,8 +19,9 @@ fn build_topk_v1() {
         // field type
         "topk.control.v1.FieldType",
         "topk.control.v1.FieldType.data_type",
-        "topk.control.v1.FieldTypeFloatVector",
-        "topk.control.v1.FieldTypeByteVector",
+        "topk.control.v1.FieldTypeF32Vector",
+        "topk.control.v1.FieldTypeU8Vector",
+        "topk.control.v1.FieldTypeBinaryVector",
         "topk.control.v1.FieldTypeBoolean",
         "topk.control.v1.FieldTypeInteger",
         "topk.control.v1.FieldTypeFloat",
@@ -42,8 +43,9 @@ fn build_topk_v1() {
         // field type
         "topk.control.v1.FieldType",
         "topk.control.v1.FieldType.data_type",
-        "topk.control.v1.FieldTypeFloatVector",
-        "topk.control.v1.FieldTypeByteVector",
+        "topk.control.v1.FieldTypeF32Vector",
+        "topk.control.v1.FieldTypeU8Vector",
+        "topk.control.v1.FieldTypeBinaryVector",
         "topk.control.v1.FieldTypeBoolean",
         "topk.control.v1.FieldTypeInteger",
         "topk.control.v1.FieldTypeFloat",

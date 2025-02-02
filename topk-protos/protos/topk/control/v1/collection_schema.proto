@@ -14,15 +14,18 @@ message FieldIndex {
   }
 }
 
+// Field data types
+
 message FieldType {
   oneof data_type {
     FieldTypeText text = 1;
     FieldTypeInteger integer = 2;
     FieldTypeFloat float = 3;
     FieldTypeBoolean boolean = 4;
-    FieldTypeFloatVector float_vector = 5;
-    FieldTypeByteVector byte_vector = 6;
-    FieldTypeBytes bytes = 7;
+    FieldTypeF32Vector f32_vector = 5;
+    FieldTypeU8Vector u8_vector = 6;
+    FieldTypeBinaryVector binary_vector = 7;
+    FieldTypeBytes bytes = 8;
   }
 }
 
@@ -30,18 +33,28 @@ message FieldTypeText {}
 message FieldTypeInteger {}
 message FieldTypeFloat {}
 message FieldTypeBoolean {}
-message FieldTypeFloatVector {
+
+message FieldTypeF32Vector {
   uint32 dimension = 1;
 }
-message FieldTypeByteVector {
+
+message FieldTypeU8Vector {
   uint32 dimension = 1;
 }
+
+message FieldTypeBinaryVector {
+  uint32 dimension = 1;
+}
+
 message FieldTypeBytes {}
+
+// Keyword index specification
 
 message KeywordIndex {
   // Index type
   KeywordIndexType index_type = 1;
 }
+
 enum KeywordIndexType {
   // Unspecified
   KEYWORD_INDEX_TYPE_UNSPECIFIED = 0;
@@ -51,10 +64,13 @@ enum KeywordIndexType {
   // KEYWORD_INDEX_TYPE_LOG = 3;
 }
 
+// Vector index specification
+
 message VectorIndex {
   // Distance metric
   VectorDistanceMetric metric = 1;
 }
+
 enum VectorDistanceMetric {
   // Unspecified
   VECTOR_DISTANCE_METRIC_UNSPECIFIED = 0;
@@ -64,4 +80,6 @@ enum VectorDistanceMetric {
   VECTOR_DISTANCE_METRIC_EUCLIDEAN = 2;
   // Dot product
   VECTOR_DISTANCE_METRIC_DOT_PRODUCT = 3;
+  // Hamming distance
+  VECTOR_DISTANCE_METRIC_HAMMING = 4;
 }

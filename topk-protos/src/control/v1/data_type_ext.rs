@@ -17,12 +17,16 @@ impl field_type::DataType {
         field_type::DataType::Boolean(FieldTypeBoolean {})
     }
 
-    pub fn float_vector(dimension: u32) -> Self {
-        field_type::DataType::FloatVector(FieldTypeFloatVector { dimension })
+    pub fn f32_vector(dimension: u32) -> Self {
+        field_type::DataType::F32Vector(FieldTypeF32Vector { dimension })
     }
 
-    pub fn byte_vector(dimension: u32) -> Self {
-        field_type::DataType::ByteVector(FieldTypeByteVector { dimension })
+    pub fn u8_vector(dimension: u32) -> Self {
+        field_type::DataType::U8Vector(FieldTypeU8Vector { dimension })
+    }
+
+    pub fn binary_vector(dimension: u32) -> Self {
+        field_type::DataType::BinaryVector(FieldTypeBinaryVector { dimension })
     }
 
     pub fn bytes() -> Self {

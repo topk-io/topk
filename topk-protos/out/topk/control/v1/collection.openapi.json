@@ -188,7 +188,8 @@
           "VECTOR_DISTANCE_METRIC_UNSPECIFIED",
           "VECTOR_DISTANCE_METRIC_COSINE",
           "VECTOR_DISTANCE_METRIC_EUCLIDEAN",
-          "VECTOR_DISTANCE_METRIC_DOT_PRODUCT"
+          "VECTOR_DISTANCE_METRIC_DOT_PRODUCT",
+          "VECTOR_DISTANCE_METRIC_HAMMING"
         ]
       },
       "topk.control.v1.Collection": {
@@ -435,12 +436,12 @@
             "anyOf": [
               {
                 "required": [
-                  "boolean"
+                  "binaryVector"
                 ]
               },
               {
                 "required": [
-                  "byteVector"
+                  "boolean"
                 ]
               },
               {
@@ -450,12 +451,12 @@
               },
               {
                 "required": [
-                  "float"
+                  "f32Vector"
                 ]
               },
               {
                 "required": [
-                  "floatVector"
+                  "float"
                 ]
               },
               {
@@ -469,16 +470,21 @@
                 ]
               },
               {
+                "required": [
+                  "u8Vector"
+                ]
+              },
+              {
                 "not": {
                   "anyOf": [
                     {
                       "required": [
-                        "boolean"
+                        "binaryVector"
                       ]
                     },
                     {
                       "required": [
-                        "byteVector"
+                        "boolean"
                       ]
                     },
                     {
@@ -488,12 +494,12 @@
                     },
                     {
                       "required": [
-                        "float"
+                        "f32Vector"
                       ]
                     },
                     {
                       "required": [
-                        "floatVector"
+                        "float"
                       ]
                     },
                     {
@@ -505,6 +511,11 @@
                       "required": [
                         "text"
                       ]
+                    },
+                    {
+                      "required": [
+                        "u8Vector"
+                      ]
                     }
                   ]
                 }
@@ -515,12 +526,12 @@
         "anyOf": [
           {
             "required": [
-              "boolean"
+              "binaryVector"
             ]
           },
           {
             "required": [
-              "byteVector"
+              "boolean"
             ]
           },
           {
@@ -530,12 +541,12 @@
           },
           {
             "required": [
-              "float"
+              "f32Vector"
             ]
           },
           {
             "required": [
-              "floatVector"
+              "float"
             ]
           },
           {
@@ -549,16 +560,21 @@
             ]
           },
           {
+            "required": [
+              "u8Vector"
+            ]
+          },
+          {
             "not": {
               "anyOf": [
                 {
                   "required": [
-                    "boolean"
+                    "binaryVector"
                   ]
                 },
                 {
                   "required": [
-                    "byteVector"
+                    "boolean"
                   ]
                 },
                 {
@@ -568,12 +584,12 @@
                 },
                 {
                   "required": [
-                    "float"
+                    "f32Vector"
                   ]
                 },
                 {
                   "required": [
-                    "floatVector"
+                    "float"
                   ]
                 },
                 {
@@ -584,6 +600,11 @@
                 {
                   "required": [
                     "text"
+                  ]
+                },
+                {
+                  "required": [
+                    "u8Vector"
                   ]
                 }
               ]
@@ -623,21 +644,29 @@
             ],
             "title": "boolean"
           },
-          "floatVector": {
+          "f32Vector": {
             "allOf": [
               {
-                "$ref": "#/components/schemas/topk.control.v1.FieldTypeFloatVector"
+                "$ref": "#/components/schemas/topk.control.v1.FieldTypeF32Vector"
               }
             ],
-            "title": "float_vector"
+            "title": "f32_vector"
           },
-          "byteVector": {
+          "u8Vector": {
             "allOf": [
               {
-                "$ref": "#/components/schemas/topk.control.v1.FieldTypeByteVector"
+                "$ref": "#/components/schemas/topk.control.v1.FieldTypeU8Vector"
               }
             ],
-            "title": "byte_vector"
+            "title": "u8_vector"
+          },
+          "binaryVector": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/topk.control.v1.FieldTypeBinaryVector"
+              }
+            ],
+            "title": "binary_vector"
           },
           "bytes": {
             "allOf": [
@@ -651,12 +680,7 @@
         "title": "FieldType",
         "additionalProperties": false
       },
-      "topk.control.v1.FieldTypeBoolean": {
-        "type": "object",
-        "title": "FieldTypeBoolean",
-        "additionalProperties": false
-      },
-      "topk.control.v1.FieldTypeByteVector": {
+      "topk.control.v1.FieldTypeBinaryVector": {
         "type": "object",
         "properties": {
           "dimension": {
@@ -664,7 +688,12 @@
             "title": "dimension"
           }
         },
-        "title": "FieldTypeByteVector",
+        "title": "FieldTypeBinaryVector",
+        "additionalProperties": false
+      },
+      "topk.control.v1.FieldTypeBoolean": {
+        "type": "object",
+        "title": "FieldTypeBoolean",
         "additionalProperties": false
       },
       "topk.control.v1.FieldTypeBytes": {
@@ -672,12 +701,7 @@
         "title": "FieldTypeBytes",
         "additionalProperties": false
       },
-      "topk.control.v1.FieldTypeFloat": {
-        "type": "object",
-        "title": "FieldTypeFloat",
-        "additionalProperties": false
-      },
-      "topk.control.v1.FieldTypeFloatVector": {
+      "topk.control.v1.FieldTypeF32Vector": {
         "type": "object",
         "properties": {
           "dimension": {
@@ -685,7 +709,12 @@
             "title": "dimension"
           }
         },
-        "title": "FieldTypeFloatVector",
+        "title": "FieldTypeF32Vector",
+        "additionalProperties": false
+      },
+      "topk.control.v1.FieldTypeFloat": {
+        "type": "object",
+        "title": "FieldTypeFloat",
         "additionalProperties": false
       },
       "topk.control.v1.FieldTypeInteger": {
@@ -696,6 +725,17 @@
       "topk.control.v1.FieldTypeText": {
         "type": "object",
         "title": "FieldTypeText",
+        "additionalProperties": false
+      },
+      "topk.control.v1.FieldTypeU8Vector": {
+        "type": "object",
+        "properties": {
+          "dimension": {
+            "type": "integer",
+            "title": "dimension"
+          }
+        },
+        "title": "FieldTypeU8Vector",
         "additionalProperties": false
       },
       "topk.control.v1.GetCollectionRequest": {

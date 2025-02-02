@@ -7,8 +7,9 @@ pub enum DataType {
     Integer(),
     Float(),
     Boolean(),
-    FloatVector { dimension: u32 },
-    ByteVector { dimension: u32 },
+    F32Vector { dimension: u32 },
+    U8Vector { dimension: u32 },
+    BinaryVector { dimension: u32 },
     Bytes(),
 }
 
@@ -19,11 +20,14 @@ impl Into<topk_protos::v1::control::field_type::DataType> for DataType {
             DataType::Float() => topk_protos::v1::control::field_type::DataType::float(),
             DataType::Text() => topk_protos::v1::control::field_type::DataType::text(),
             DataType::Boolean() => topk_protos::v1::control::field_type::DataType::bool(),
-            DataType::FloatVector { dimension } => {
-                topk_protos::v1::control::field_type::DataType::float_vector(dimension)
+            DataType::F32Vector { dimension } => {
+                topk_protos::v1::control::field_type::DataType::f32_vector(dimension)
             }
-            DataType::ByteVector { dimension } => {
-                topk_protos::v1::control::field_type::DataType::byte_vector(dimension)
+            DataType::U8Vector { dimension } => {
+                topk_protos::v1::control::field_type::DataType::u8_vector(dimension)
+            }
+            DataType::BinaryVector { dimension } => {
+                topk_protos::v1::control::field_type::DataType::binary_vector(dimension)
             }
             DataType::Bytes() => topk_protos::v1::control::field_type::DataType::bytes(),
         }
@@ -45,13 +49,18 @@ impl From<topk_protos::v1::control::field_type::DataType> for DataType {
             topk_protos::v1::control::field_type::DataType::Float(_) => DataType::Float(),
             topk_protos::v1::control::field_type::DataType::Text(_) => DataType::Text(),
             topk_protos::v1::control::field_type::DataType::Boolean(_) => DataType::Boolean(),
-            topk_protos::v1::control::field_type::DataType::FloatVector(vector) => {
-                DataType::FloatVector {
+            topk_protos::v1::control::field_type::DataType::F32Vector(vector) => {
+                DataType::F32Vector {
                     dimension: vector.dimension,
                 }
             }
-            topk_protos::v1::control::field_type::DataType::ByteVector(vector) => {
-                DataType::ByteVector {
+            topk_protos::v1::control::field_type::DataType::U8Vector(vector) => {
+                DataType::U8Vector {
+                    dimension: vector.dimension,
+                }
+            }
+            topk_protos::v1::control::field_type::DataType::BinaryVector(vector) => {
+                DataType::BinaryVector {
                     dimension: vector.dimension,
                 }
             }

@@ -9,10 +9,17 @@ pub enum SchemaValidationError {
     #[error("field name `{field}` cannot start with an underscore")]
     ReservedFieldName { field: String },
 
-    #[error("invalid index `{index}` for field type `{data_type}`")]
+    #[error("invalid index `{index}` for field `{field}` with type `{data_type}`")]
     InvalidIndex {
         field: String,
         index: String,
+        data_type: String,
+    },
+
+    #[error("invalid vector index metric `{metric}` for field `{field}` with type `{data_type}`")]
+    InvalidVectorIndexMetric {
+        field: String,
+        metric: String,
         data_type: String,
     },
 
