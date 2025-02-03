@@ -84,6 +84,12 @@ impl Query {
             .concat(),
         })
     }
+
+    pub fn count(&self) -> PyResult<Self> {
+        Ok(Self {
+            stages: [self.stages.clone(), vec![Stage::Count {}]].concat(),
+        })
+    }
 }
 
 impl From<Query> for topk_protos::v1::data::Query {

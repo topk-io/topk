@@ -1,6 +1,6 @@
 import pytest
 from topk_sdk import Collection, error
-from topk_sdk.schema import int, keyword_index, text, vector, vector_index, float_vector, byte_vector, bytes, float, bool
+from topk_sdk.schema import int, keyword_index, text, vector_index, f32_vector, u8_vector, binary_vector, bytes, float, bool
 
 from . import ProjectContext
 
@@ -10,7 +10,7 @@ def test_create_collection(ctx: ProjectContext):
 
     schema = {
         "title": text().required().index(keyword_index()),
-        "title_embedding": vector(1536)
+        "title_embedding": f32_vector(1536)
         .required()
         .index(vector_index(metric="euclidean")),
         "published_year": int().required(),
@@ -36,9 +36,10 @@ def test_create_collection_all_data_types(ctx: ProjectContext):
         "float": float(),
         "bool": bool(),
         # `vector` is an alias for `float_vector`
-        "vector": vector(1536),
-        "float_vector": float_vector(1536),
-        "byte_vector": byte_vector(1536),
+        "vector": f32_vector(1536),
+        "float_vector": f32_vector(1536),
+        "byte_vector": u8_vector(1536),
+        "binary_vector": binary_vector(1536),
         "bytes": bytes(),
     }
 

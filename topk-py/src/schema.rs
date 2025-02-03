@@ -14,7 +14,7 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(text))?;
     m.add_wrapped(wrap_pyfunction!(int))?;
     m.add_wrapped(wrap_pyfunction!(float))?;
-    m.add_wrapped(wrap_pyfunction!(boolean))?;
+    m.add_wrapped(wrap_pyfunction!(self::bool))?;
     m.add_wrapped(wrap_pyfunction!(f32_vector))?;
     m.add_wrapped(wrap_pyfunction!(u8_vector))?;
     m.add_wrapped(wrap_pyfunction!(binary_vector))?;
@@ -43,7 +43,7 @@ pub fn float() -> control::field_spec::FieldSpec {
 }
 
 #[pyfunction]
-pub fn boolean() -> control::field_spec::FieldSpec {
+pub fn bool() -> control::field_spec::FieldSpec {
     control::field_spec::FieldSpec::new(control::data_type::DataType::Boolean())
 }
 

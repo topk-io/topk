@@ -1,6 +1,6 @@
 import pytest
 from topk_sdk.query import field, fn, match, select
-from topk_sdk.schema import keyword_index, text, vector, vector_index
+from topk_sdk.schema import keyword_index, text, f32_vector, vector_index
 
 from . import ProjectContext
 
@@ -67,7 +67,7 @@ def test_vector_search(ctx: ProjectContext):
     ctx.client.collections().create(
         ctx.scope("books"),
         schema={
-            "embedding": vector(3).required().index(vector_index(metric="cosine")),
+            "embedding": f32_vector(3).required().index(vector_index(metric="cosine")),
         },
     )
 

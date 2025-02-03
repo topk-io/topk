@@ -18,6 +18,7 @@ pub enum Stage {
         k: u64,
         asc: bool,
     },
+    Count {},
 }
 
 impl Into<topk_protos::v1::data::Stage> for Stage {
@@ -26,6 +27,7 @@ impl Into<topk_protos::v1::data::Stage> for Stage {
             Stage::Select { exprs } => topk_protos::v1::data::Stage::select(exprs),
             Stage::Filter { expr } => topk_protos::v1::data::Stage::filter(expr),
             Stage::TopK { expr, k, asc } => topk_protos::v1::data::Stage::topk(expr.into(), k, asc),
+            Stage::Count {} => topk_protos::v1::data::Stage::count(),
         }
     }
 }
