@@ -73,9 +73,10 @@ pub fn vector_index(metric: String) -> PyResult<control::field_index::FieldIndex
         "cosine" => control::field_index::VectorDistanceMetric::Cosine,
         "euclidean" => control::field_index::VectorDistanceMetric::Euclidean,
         "dot_product" => control::field_index::VectorDistanceMetric::DotProduct,
+        "hamming" => control::field_index::VectorDistanceMetric::Hamming,
         _ => {
             return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                "Invalid vector distance metric: {}. Supported metrics are: cosine, euclidean, dot_product.",
+                "Invalid vector distance metric: {}. Supported metrics are: cosine, euclidean, dot_product, hamming.",
                 metric
             )))
         }
