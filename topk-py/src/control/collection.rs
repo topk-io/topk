@@ -7,7 +7,7 @@ use topk_protos::v1::control::FieldSpec as FieldSpecPb;
 use crate::control::field_spec::FieldSpec;
 
 #[pyclass]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Collection {
     #[pyo3(get)]
     name: String,
@@ -41,7 +41,7 @@ impl Collection {
     }
 
     pub fn __eq__(&self, other: &Collection) -> bool {
-        self.name == other.name
+        self == other
     }
 }
 

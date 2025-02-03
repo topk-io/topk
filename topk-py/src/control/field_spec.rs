@@ -21,6 +21,14 @@ impl FieldSpec {
         }
     }
 
+    pub fn __repr__(&self) -> String {
+        format!("{:?}", self)
+    }
+
+    pub fn __eq__(&self, other: &FieldSpec) -> bool {
+        self == other
+    }
+
     pub fn required(&self) -> Self {
         Self {
             required: true,

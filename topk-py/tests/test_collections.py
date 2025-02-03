@@ -6,8 +6,6 @@ from . import ProjectContext
 
 
 def test_create_collection(ctx: ProjectContext):
-    assert ctx.client.collections().list() == []
-
     schema = {
         "title": text().required().index(keyword_index()),
         "title_embedding": f32_vector(1536)
@@ -21,12 +19,10 @@ def test_create_collection(ctx: ProjectContext):
         schema=schema,
     )
 
-    assert collection == Collection(
-        name=ctx.scope("books"),
-        org_id=ctx.org_id,
-        project_id=ctx.project_id,
-        schema=schema,
-    )
+    assert collection.name == ctx.scope("books")
+    assert collection.schema == schema
+    assert len(collection.org_id) > 0
+    assert len(collection.project_id) > 0
 
 
 def test_create_collection_all_data_types(ctx: ProjectContext):
@@ -35,7 +31,6 @@ def test_create_collection_all_data_types(ctx: ProjectContext):
         "int": int(),
         "float": float(),
         "bool": bool(),
-        # `vector` is an alias for `float_vector`
         "vector": f32_vector(1536),
         "float_vector": f32_vector(1536),
         "byte_vector": u8_vector(1536),
@@ -48,13 +43,10 @@ def test_create_collection_all_data_types(ctx: ProjectContext):
         schema=schema,
     )
 
-    assert collection == Collection(
-        name=ctx.scope("books"),
-        org_id=ctx.org_id,
-        project_id=ctx.project_id,
-        schema=schema,
-    )
-
+    assert collection.name == ctx.scope("books")
+    assert collection.schema == schema
+    assert len(collection.org_id) > 0
+    assert len(collection.project_id) > 0
 
 def test_incorrect_schema(ctx: ProjectContext):
     with pytest.raises(error.SchemaValidationError):

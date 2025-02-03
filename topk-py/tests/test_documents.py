@@ -1,6 +1,6 @@
 import pytest
 from topk_sdk.query import field, fn, match, select
-from topk_sdk.schema import keyword_index, text, f32_vector, vector_index
+from topk_sdk.schema import keyword_index, text, f32_vector, u8_vector, binary_vector, vector_index
 
 from . import ProjectContext
 
@@ -63,32 +63,86 @@ def test_keyword_search(ctx: ProjectContext):
     assert {d["_id"] for d in docs} == {"doc1", "doc10", "doc3", "doc5", "doc8"}
 
 
-def test_vector_search(ctx: ProjectContext):
+def test_vector_search_f32(ctx: ProjectContext):
     ctx.client.collections().create(
         ctx.scope("books"),
         schema={
-            "embedding": f32_vector(3).required().index(vector_index(metric="cosine")),
+            "f32_embedding": f32_vector(3).required().index(vector_index(metric="euclidean")),
         },
     )
 
     lsn = ctx.client.collection(ctx.scope("books")).upsert(
         [
-            {"_id": "doc1", "embedding": [1.0, 2.0, 3.0]},
-            {"_id": "doc2", "embedding": [4.0, 5.0, 6.0]},
-            {"_id": "doc3", "embedding": [7.0, 8.0, 9.0]},
+            {"_id": "doc1", "f32_embedding": [1.0, 2.0, 3.0]},
+            {"_id": "doc2", "f32_embedding": [4.0, 5.0, 6.0]},
+            {"_id": "doc3", "f32_embedding": [7.0, 8.0, 9.0]},
         ],
     )
     assert lsn == 1
 
     docs = ctx.client.collection(ctx.scope("books")).query(
         select(
-            vector_distance=fn.vector_distance("embedding", [1.0, 2.0, 3.0]),
-        ).top_k(field("vector_distance"), k=5, asc=True),
+            vector_distance=fn.vector_distance("f32_embedding", [7.0, 8.0, 9.0]),
+        ).top_k(field("vector_distance"), k=2, asc=True),
         lsn=lsn,
     )
     docs.sort(key=lambda d: d["vector_distance"])
 
-    assert [d["_id"] for d in docs] == ["doc3", "doc2", "doc1"]
+    assert [d["_id"] for d in docs] == ["doc3", "doc2"]
+
+def test_vector_search_u8(ctx: ProjectContext):
+    ctx.client.collections().create(
+        ctx.scope("books"),
+        schema={
+            "u8_embedding": u8_vector(3).required().index(vector_index(metric="euclidean")),
+        },
+    )
+
+    lsn = ctx.client.collection(ctx.scope("books")).upsert(
+        [
+            {"_id": "doc1", "u8_embedding": [1, 2, 3]},
+            {"_id": "doc2", "u8_embedding": [4, 5, 6]},
+            {"_id": "doc3", "u8_embedding": [7, 8, 9]},
+        ],
+    )
+    assert lsn == 1
+
+    docs = ctx.client.collection(ctx.scope("books")).query(
+        select(
+            vector_distance=fn.vector_distance("u8_embedding", [7, 8, 9]),
+        ).top_k(field("vector_distance"), k=2, asc=True),
+        lsn=lsn,
+    )
+    docs.sort(key=lambda d: d["vector_distance"])
+
+    assert [d["_id"] for d in docs] == ["doc3", "doc2"]
+
+def test_vector_search_binary(ctx: ProjectContext):
+    ctx.client.collections().create(
+        ctx.scope("books"),
+        schema={
+            "binary_embedding": binary_vector(20).required().index(vector_index(metric="hamming")),
+        },
+    )
+
+    lsn = ctx.client.collection(ctx.scope("books")).upsert(
+        [
+            {"_id": "doc1", "binary_embedding": [0, 0, 1]},
+            {"_id": "doc2", "binary_embedding": [0, 1, 1]},
+            {"_id": "doc3", "binary_embedding": [1, 1, 1]},
+        ],
+    )
+    assert lsn == 1
+
+    docs = ctx.client.collection(ctx.scope("books")).query(
+        select(
+            vector_distance=fn.vector_distance("binary_embedding", [1, 1, 1]),
+        ).top_k(field("vector_distance"), k=2, asc=True),
+        lsn=lsn,
+    )
+    docs.sort(key=lambda d: d["vector_distance"])
+
+    assert [d["_id"] for d in docs] == ["doc3", "doc2"]
 
 
 def test_delete(ctx: ProjectContext):

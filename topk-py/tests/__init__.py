@@ -18,7 +18,7 @@ class ProjectContext:
 
 def new_project_context():
     TOPK_API_KEY = os.environ["TOPK_API_KEY"].splitlines()[0].strip()
-    client = Client(api_key=TOPK_API_KEY, region="dev", host="ddb:8080")
+    client = Client(api_key=TOPK_API_KEY, region="dev", host="ddb:80")
 
     return ProjectContext(
         org_id=1,
