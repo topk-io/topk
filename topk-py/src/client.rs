@@ -116,6 +116,44 @@ pub struct CollectionClient {
 
 #[pymethods]
 impl CollectionClient {
+    #[pyo3(signature = (lsn=None))]
+    pub fn count(&self, lsn: Option<u64>) -> PyResult<u64> {
+        let query = Query::new().count()?;
+
+        let docs = self
+            .runtime
+            .block_on(
+                self.client
+                    .collection(&self.collection)
+                    .query_at_lsn(query.into(), lsn),
+            )
+            .map_err(|e| match e {
+                _ => PyException::new_err(format!("failed to query collection: {:?}", e)),
+            })?;
+
+        for doc in docs {
+            match doc.fields.get("_count") {
+                Some(value) => match value.as_u64() {
+                    Some(count) => return Ok(count),
+                    None => {
+                        return Err(PyException::new_err(format!(
+                            "Invalid _count field data type in count query response"
+                        )))
+                    }
+                },
+                None => {
+                    return Err(PyException::new_err(format!(
+                        "Missing _count field in count query response"
+                    )))
+                }
+            }
+        }
+
+        Err(PyException::new_err(format!(
+            "No documents received for count query"
+        )))
+    }
+
     #[pyo3(signature = (query, lsn=None))]
     pub fn query(
         &self,
