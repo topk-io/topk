@@ -121,7 +121,7 @@ def test_vector_search_binary(ctx: ProjectContext):
     ctx.client.collections().create(
         ctx.scope("books"),
         schema={
-            "binary_embedding": binary_vector(20).required().index(vector_index(metric="hamming")),
+            "binary_embedding": binary_vector(3).required().index(vector_index(metric="hamming")),
         },
     )
 
