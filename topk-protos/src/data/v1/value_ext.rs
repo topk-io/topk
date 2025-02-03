@@ -225,6 +225,15 @@ impl From<Vec<u8>> for Value {
     }
 }
 
+impl<T: Into<Value>> From<Option<T>> for Value {
+    fn from(value: Option<T>) -> Self {
+        match value {
+            Some(value) => value.into(),
+            None => Value::null(),
+        }
+    }
+}
+
 impl Vector {
     pub fn float(values: Vec<f32>) -> Self {
         Vector {
