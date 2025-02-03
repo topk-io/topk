@@ -14,6 +14,7 @@ pub enum BinaryOperator {
     LtEq,
     Gt,
     GtEq,
+    StartsWith,
     // Arithmetic ops
     Add,
     Sub,
@@ -31,6 +32,9 @@ impl Into<topk_protos::v1::data::logical_expr::binary_op::Op> for BinaryOperator
             BinaryOperator::LtEq => topk_protos::v1::data::logical_expr::binary_op::Op::Lte,
             BinaryOperator::Gt => topk_protos::v1::data::logical_expr::binary_op::Op::Gt,
             BinaryOperator::GtEq => topk_protos::v1::data::logical_expr::binary_op::Op::Gte,
+            BinaryOperator::StartsWith => {
+                topk_protos::v1::data::logical_expr::binary_op::Op::StartsWith
+            }
             BinaryOperator::Add => topk_protos::v1::data::logical_expr::binary_op::Op::Add,
             BinaryOperator::Sub => topk_protos::v1::data::logical_expr::binary_op::Op::Sub,
             BinaryOperator::Mul => topk_protos::v1::data::logical_expr::binary_op::Op::Mul,

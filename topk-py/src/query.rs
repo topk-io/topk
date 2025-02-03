@@ -1,7 +1,10 @@
+use crate::data::function_expr::VectorQuery;
 use crate::data::query::Query;
 use crate::data::select_expr::SelectExpressionUnion;
 use crate::{data, module};
+use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
+use pyo3::types::PyList;
 use std::collections::HashMap;
 
 ////////////////////////////////////////////////////////////
@@ -68,7 +71,50 @@ pub fn keyword_score() -> data::function_expr::FunctionExpression {
     data::function_expr::FunctionExpression::KeywordScore {}
 }
 
+#[derive(Debug, Clone)]
+pub enum VectorQueryArg {
+    // Float32 (raw) query vector
+    F32(Vec<f32>),
+    // U8 (binary or scalar quantized) query vector
+    U8(Vec<u8>),
+}
+
+impl<'py> FromPyObject<'py> for VectorQueryArg {
+    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+        let obj = ob.as_ref();
+
+        match obj.downcast::<PyList>() {
+            Ok(list) => {
+                // Try converting to vector from starting with most restrictive type first.
+                if let Ok(values) = list.extract::<Vec<u8>>() {
+                    Ok(VectorQueryArg::U8(values))
+                } else if let Ok(values) = list.extract::<Vec<f32>>() {
+                    Ok(VectorQueryArg::F32(values))
+                } else {
+                    Err(PyTypeError::new_err(format!(
+                        "Can't convert from {:?} to VectorQuery",
+                        obj.get_type().name()
+                    )))
+                }
+            }
+            _ => Err(PyTypeError::new_err(format!(
+                "Can't convert from {:?} to VectorQuery",
+                obj.get_type().name()
+            ))),
+        }
+    }
+}
+
 #[pyfunction]
-pub fn vector_distance(field: String, query: Vec<f32>) -> data::function_expr::FunctionExpression {
-    data::function_expr::FunctionExpression::VectorScore { field, query }
+pub fn vector_distance(
+    field: String,
+    query: VectorQueryArg,
+) -> data::function_expr::FunctionExpression {
+    data::function_expr::FunctionExpression::VectorScore {
+        field,
+        query: match query {
+            VectorQueryArg::F32(values) => VectorQuery::F32(values),
+            VectorQueryArg::U8(values) => VectorQuery::U8(values),
+        },
+    }
 }

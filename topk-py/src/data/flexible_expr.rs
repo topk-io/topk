@@ -110,3 +110,23 @@ impl Into<LogicalExpression> for Boolish {
         }
     }
 }
+
+#[derive(Debug, Clone, FromPyObject)]
+pub enum Stringy {
+    #[pyo3(transparent)]
+    String(String),
+
+    #[pyo3(transparent)]
+    Expr(LogicalExpression),
+}
+
+impl Into<LogicalExpression> for Stringy {
+    fn into(self) -> LogicalExpression {
+        match self {
+            Stringy::String(s) => LogicalExpression::Literal {
+                value: Scalar::String(s),
+            },
+            Stringy::Expr(e) => e,
+        }
+    }
+}

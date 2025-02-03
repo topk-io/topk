@@ -29,7 +29,17 @@ impl<'py> FromPyObject<'py> for ValueUnion {
         } else if let Ok(b) = obj.downcast::<PyBool>() {
             Ok(ValueUnion::Bool(b.extract()?))
         } else if let Ok(v) = obj.downcast::<PyList>() {
-            Ok(ValueUnion::FloatVector(v.extract()?))
+            // Try converting to vector from starting with most restrictive type first.
+            if let Ok(values) = v.extract::<Vec<u8>>() {
+                Ok(ValueUnion::ByteVector(values))
+            } else if let Ok(values) = v.extract::<Vec<f32>>() {
+                Ok(ValueUnion::FloatVector(values))
+            } else {
+                Err(PyTypeError::new_err(format!(
+                    "Can't convert from {:?} to Value",
+                    obj.get_type().name()
+                )))
+            }
         } else if let Ok(_) = obj.downcast::<PyNone>() {
             Ok(ValueUnion::Null())
         } else {

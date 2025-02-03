@@ -1,7 +1,7 @@
 use super::{
     expr_binary::BinaryOperator,
     expr_unary::UnaryOperator,
-    flexible_expr::{Boolish, FlexibleExpr, Numeric},
+    flexible_expr::{Boolish, FlexibleExpr, Numeric, Stringy},
     scalar::Scalar,
 };
 use pyo3::prelude::*;
@@ -230,6 +230,14 @@ impl LogicalExpression {
 
     fn __eq__(&self, other: &LogicalExpression) -> bool {
         self == other
+    }
+
+    fn starts_with(&self, py: Python<'_>, other: Stringy) -> PyResult<Self> {
+        Ok(Self::Binary {
+            left: Py::new(py, self.clone())?,
+            op: BinaryOperator::StartsWith,
+            right: Py::new(py, Into::<LogicalExpression>::into(other))?,
+        })
     }
 }
 
