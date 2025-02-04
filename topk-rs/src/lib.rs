@@ -2,8 +2,8 @@ mod client;
 mod errors;
 mod internal_error_code;
 
-pub use client::Client;
 pub use client::ClientConfig;
+pub use client::{Client, CollectionClient};
 pub use errors::SchemaValidationError;
 pub use errors::ValidationError;
 pub use errors::ValidationErrorBag;

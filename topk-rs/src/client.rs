@@ -119,6 +119,7 @@ impl Client {
     }
 }
 
+#[derive(Clone)]
 pub struct CollectionClient {
     config: ClientConfig,
     channel: Channel,
