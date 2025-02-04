@@ -26,10 +26,10 @@ pub enum Error {
     #[error("invalid argument")]
     DocumentValidationError(ValidationErrorBag<ValidationError>),
 
-    #[error("invalid argument")]
+    #[error("invalid argument: {0}")]
     InvalidArgument(String),
 
-    #[error("tonic error")]
+    #[error("tonic error: {0}")]
     Unexpected(tonic::Status),
 
     #[error("permission denied")]
