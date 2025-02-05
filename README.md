@@ -12,3 +12,12 @@ This repository contains TopK SDKs for different languages. Python is the only S
    ```bash
    earthly +test
    ```
+
+## Release
+
+You can release a new version by creating [a new GitHub release](https://github.com/fafolabs/topk-sdk/releases) or creating a new tag:
+
+```bash
+git tag -a v1.1.5 -m "Release 1.1.5"
+git push origin v1.1.5
+```
