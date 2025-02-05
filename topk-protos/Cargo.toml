@@ -2,6 +2,15 @@
 name = "topk-protos"
 version = "0.1.0"
 edition = "2021"
+description = "TopK Protocol Buffers"
+license = "MIT"
+repository = "https://github.com/fafolabs/topk-sdk"
+homepage = "https://topk.io"
+documentation = "https://docs.topk.io"
+
+[features]
+default = []
+openapi = []
 
 [dependencies]
 map-macro = { version = "0.3.0" }

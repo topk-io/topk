@@ -3,7 +3,7 @@ use std::{env, path::PathBuf};
 fn main() {
     build_topk_v1();
 
-    #[cfg(target_os = "macos")]
+    #[cfg(feature = "openapi")]
     build_openapi_spec();
 }
 
@@ -77,7 +77,7 @@ fn build_topk_v1() {
         .expect("failed to build [topk.v1] protos");
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(feature = "openapi")]
 fn build_openapi_spec() {
     let out_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).join("out");
 
