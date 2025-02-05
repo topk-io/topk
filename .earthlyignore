@@ -1,0 +1,11 @@
+/target
+/deploy
+/infra
+Earthfile
+docker-compose.yaml
+**/.git
+**/.venv
+**/node_modules
+**/__pycache__
+**/.pytest_cache
+**/.DS_Store

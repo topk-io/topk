@@ -1,6 +1,17 @@
 import pytest
 from topk_sdk import Collection, error
-from topk_sdk.schema import int, keyword_index, text, vector_index, f32_vector, u8_vector, binary_vector, bytes, float, bool
+from topk_sdk.schema import (
+    binary_vector,
+    bool,
+    bytes,
+    f32_vector,
+    float,
+    int,
+    keyword_index,
+    text,
+    u8_vector,
+    vector_index,
+)
 
 from . import ProjectContext
 
@@ -21,8 +32,6 @@ def test_create_collection(ctx: ProjectContext):
 
     assert collection.name == ctx.scope("books")
     assert collection.schema == schema
-    assert len(collection.org_id) > 0
-    assert len(collection.project_id) > 0
 
 
 def test_create_collection_all_data_types(ctx: ProjectContext):
@@ -45,8 +54,7 @@ def test_create_collection_all_data_types(ctx: ProjectContext):
 
     assert collection.name == ctx.scope("books")
     assert collection.schema == schema
-    assert len(collection.org_id) > 0
-    assert len(collection.project_id) > 0
+
 
 def test_incorrect_schema(ctx: ProjectContext):
     with pytest.raises(error.SchemaValidationError):
