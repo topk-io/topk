@@ -19,7 +19,7 @@ use topk_protos::{
     },
 };
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Channel {
     Endpoint(String),
     Tonic(OnceCell<TonicChannel>),
@@ -36,7 +36,10 @@ impl Channel {
 
     async fn get(&self) -> Result<TonicChannel, Error> {
         match self {
-            Self::Endpoint(endpoint) => Ok(Endpoint::from_str(endpoint)?.connect().await?),
+            Self::Endpoint(endpoint) => Ok(Endpoint::from_str(endpoint)?
+                .tls_config(tonic::transport::ClientTlsConfig::new().with_native_roots())?
+                .connect()
+                .await?),
             Self::Tonic(cell) => match cell.get() {
                 Some(channel) => Ok(channel.clone()),
                 None => Err(Error::TransportChannelNotInitialized),
@@ -57,7 +60,7 @@ impl ClientConfig {
     pub fn new(api_key: impl Into<String>, region: impl Into<String>) -> Self {
         Self {
             region: region.into(),
-            host: "api.topk.io".to_string(),
+            host: "topk.io".to_string(),
             https: true,
             headers: HashMap::from([("authorization", format!("Bearer {}", api_key.into()))]),
         }
