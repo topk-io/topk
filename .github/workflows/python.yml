@@ -47,9 +47,9 @@ jobs:
             target: x86_64
           - runner: ubuntu-22.04
             target: x86
-          - runner: ubuntu-22.04
+          - runner: ubuntu-22.04-arm
             target: aarch64
-          - runner: ubuntu-22.04
+          - runner: ubuntu-22.04-arm
             target: armv7
           - runner: ubuntu-22.04
             target: s390x
@@ -68,7 +68,7 @@ jobs:
           sccache: "true"
           manylinux: auto
           working-directory: topk-py
-          before-script-linux: ${{ contains(matrix.platform.target, 'x86') && 'yum' || 'apt-get' }} install -y unzip && curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip && unzip protoc.zip && mv bin/protoc /usr/local/bin/protoc && protoc --version
+          before-script-linux: ${{ (contains(matrix.platform.target, 'x86') || contains(matrix.platform.target, 'aarch64')) && 'yum' || 'apt-get' }} install -y unzip && curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-${{ matrix.platform.runner == 'ubuntu-22.04' && 'x86_64' || 'aarch_64' }}.zip && unzip protoc.zip && mv bin/protoc /usr/local/bin/protoc && protoc --version
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
