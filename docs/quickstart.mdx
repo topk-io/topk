@@ -145,9 +145,9 @@ results = client.collection("books").query(
         vector_distance=fn.vector_distance("title_embedding"),
         text_score=fn.keyword_score(),
     )
-        # Keyword search - filter to books with word "catcher" in the title
+        # Keyword search - filter books with word "catcher" in the title
         .filter(field("title").match("catcher"))
-        # Vector search - filter books by 
+        # Vector search - compute vector distance
         .filter(field("vector_distance") > 0.5),
         # Metadata search - filter books by published year
         .filter(field("published_year") > 1920)
@@ -165,7 +165,8 @@ results = client.collection("books").query(
 ```
 
 </CodeGroup>
-The above example takes a collection of `books`, filters books with the word `"catcher"` in the title, filters books with a vector distance greater than `0.5`, filters books published after 1920, and returns the top 10 results sorted by a **custom score**.
+
+The example filters books with "catcher" in the title and vector distance > 0.5, excludes those published before 1920, and returns 10 most relevant results sorted by custom score expression `text_score * vector_distance * 3`.
 
 <CodeGroup>
 
