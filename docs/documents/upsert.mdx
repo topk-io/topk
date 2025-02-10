@@ -1,14 +1,16 @@
 ---
-title: 'Upsert documents'
-description: 'Use the `upsert` method to update or insert documents.'
-icon: 'file-circle-plus'
+title: "Upsert documents"
+description: "Use the `upsert` method to update or insert documents."
+icon: "file-circle-plus"
 ---
-import Support from '/snippets/support.mdx';
+
+import Support from "/snippets/support.mdx";
 
 <Note>
 **Every document must have a string `_id` field**.
 
 Every document is uniquely identified by its `_id`, which means that upserting a document with an existing `_id` will update the document.
+
 </Note>
 
 To upsert documents, you can pass a list of documents to the `upsert` method. The SDK will update the documents that already exist and insert the documents that don't.
@@ -28,6 +30,7 @@ client.collection("books").upsert(
 // Reach out to us at support@topk.io if this is a blocker for you.
 // We will help you get started.
 ```
+
 </CodeGroup>
 
 Alternatively, the example below shows how your documents could also be made out of mix of vectors and other fields.
@@ -50,8 +53,12 @@ client.collection("locations").upsert(
 // Reach out to us at support@topk.io if this is a blocker for you.
 // We will help you get started.
 ```
+
 </CodeGroup>
 
-<Note>Please note that dicts and lists are currently not supported. The only exception for complex types applies to float vectors, byte vectors, and bytes.</Note>
+<Note>
+  Please note that dicts and lists are currently not supported. The only
+  exception for complex types applies to float vectors, byte vectors, and bytes.
+</Note>
 
 <Support />
