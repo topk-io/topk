@@ -1,9 +1,10 @@
 ---
-title: 'Query documents'
-description: 'Use the `query` method to search for documents.'
-icon: 'magnifying-glass'
+title: "Query documents"
+description: "Use the `query` method to search for documents."
+icon: "magnifying-glass"
 ---
-import Support from '/snippets/support.mdx';
+
+import Support from "/snippets/support.mdx";
 
 TopK allows you to query documents using a SQL-inspired syntax. It comes with **text search**, **vector search**, and **filtering capabilities** out of the box.
 
@@ -15,22 +16,22 @@ To perform a text search on your documents, use the `match` method. The `match` 
 
 <CodeGroup>
 ```python Python
-from topk.query import select, fn
+from topk.query import select, fn, match
 
 docs = client.collection("books").query(
-    select("title")
-        # Filter to documents that have the `"Great"` keyword in the `title` field
-        .filter(field("title").match("Great"))
-        # Return top 10 results order by `published_year` ascending
-        .top_k(field("title_similarity"), 10, asc=True)
+select("title") # Filter to documents that have the `"Great"` keyword in the `title` field
+.filter(match("title", token="Great")) # Return top 10 results order by `published_year` ascending
+.top_k(field("title_similarity"), 10, asc=True)
 )
-```
+
+````
 
 ```js JavaScript
 // Reach out to us at support@topk.io if this is a blocker for you.
 // We will help you get started.
 
-```
+````
+
 </CodeGroup>
 
 The above example takes a collection of books and filters to documents that have the `"Great"` keyword in the `title` field.
@@ -44,23 +45,22 @@ To perform a vector search on your documents, use the `vector_distance` method. 
 from topk.query import select, fn
 
 docs = client.collection("books").query(
-    select(
-        "title",
-        # Select supports arbitrary expressions. For example, you can add 10 years to the `published_year` field.
-        published_year_plus_10=field("published_year") + 10,
-        # Compute cosine similarity the vector and the `title_embedding` field.
-        title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3])
-    )
-        # Return top 10 results order by `published_year` ascending
-        .top_k(field("title_similarity"), 10, asc=True)
+select(
+"title", # Select supports arbitrary expressions. For example, you can add 10 years to the `published_year` field.
+published_year_plus_10=field("published_year") + 10, # Compute cosine similarity the vector and the `title_embedding` field.
+title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3])
+) # Return top 10 results order by `published_year` ascending
+.top_k(field("title_similarity"), 10, asc=True)
 )
-```
+
+````
 
 ```js JavaScript
 // Reach out to us at support@topk.io if this is a blocker for you.
 // We will help you get started.
 
-```
+````
+
 </CodeGroup>
 
 The above example computes the cosine similarity between the vector and the `title_embedding` field. The `title_embedding` field is a vector field that represents the title of the book.
@@ -83,6 +83,7 @@ The below example shows filtering by metadata.
 // Reach out to us at support@topk.io if this is a blocker for you.
 // We will help you get started.
 ```
+
 </CodeGroup>
 
 ### Filtering by vector similarity
@@ -99,6 +100,7 @@ The below example shows filtering by vector similarity.
 // Reach out to us at support@topk.io if this is a blocker for you.
 // We will help you get started.
 ```
+
 </CodeGroup>
 
 ### Top K results
@@ -115,9 +117,12 @@ You can use the `top_k` method to return the top `k` results. The `top_k` method
 // Reach out to us at support@topk.io if this is a blocker for you.
 // We will help you get started.
 ```
+
 </CodeGroup>
 
-<Note>Note that **all** queries are required to end with the `top_k` method.</Note>
+<Note>
+  Note that **all** queries are required to end with the `top_k` method.
+</Note>
 
 ## Putting it all together
 
@@ -125,34 +130,33 @@ You can combine text search, vector search, and filtering in a single query. Som
 
 <CodeGroup>
 ```python Python
-from topk.query import select, fn
+from topk.query import select, fn, match
 
 docs = client.collection("books").query(
-    select(
-        "title",
-        # Select supports arbitrary expressions. For example, you can add 10 years to the `published_year` field.
-        published_year_plus_10=field("published_year") + 10,
-        # Compute cosine similarity between the vector and the `title_embedding` field.
-        title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3])
-    )
-        # Filtering by metadata
-        .filter(field("published_year") > 1980)
-        # Filter by vector similarity
-        .filter(field("title_similarity") > 0.5)
-        # Filter to documents that have the `"Great"` keyword in the `title` field
-        .filter(field("title").match("Great"))
-        # Return top 10 results order by `published_year` ascending
-        .top_k(field("title_similarity"), 10, asc=True)
+select(
+"title", # Select supports arbitrary expressions. For example, you can add 10 years to the `published_year` field.
+published_year_plus_10=field("published_year") + 10, # Compute cosine similarity between the vector and the `title_embedding` field.
+title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3])
+) # Filtering by metadata
+.filter(field("published_year") > 1980) # Filter by vector similarity
+.filter(field("title_similarity") > 0.5) # Filter to documents that have the `"Great"` keyword in the `title` field
+.filter(match("title", token="Great")) # Return top 10 results order by `published_year` ascending
+.top_k(field("title_similarity"), 10, asc=True)
 )
-```
+
+````
 
 ```js JavaScript
 // Reach out to us at support@topk.io if this is a blocker for you.
 // We will help you get started.
-```
+````
+
 </CodeGroup>
 
-<Check>**Nicely done!** You've just wrote your first query with TopK. It's that simple.</Check>
+<Check>
+  **Nicely done!** You've just wrote your first query with TopK. It's that
+  simple.
+</Check>
 
 ## Notes on writing queries
 

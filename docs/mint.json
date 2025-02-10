@@ -47,27 +47,15 @@
   "navigation": [
     {
       "group": "Get Started",
-      "pages": [
-        "introduction",
-        "quickstart",
-        "community"
-      ]
+      "pages": ["introduction", "quickstart", "community"]
     },
     {
       "group": "Collections",
-      "pages": [
-        "collections/create",
-        "collections/list",
-        "collections/delete"
-      ]
+      "pages": ["collections/create", "collections/list", "collections/delete"]
     },
     {
       "group": "Documents",
-      "pages": [
-        "documents/query",
-        "documents/upsert",
-        "documents/delete"
-      ]
+      "pages": ["documents/query", "documents/upsert", "documents/delete"]
     }
   ],
   "footerSocials": {

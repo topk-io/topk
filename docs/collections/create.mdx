@@ -1,9 +1,10 @@
 ---
-title: 'Create a collection'
-description: 'Collections are the core data structure in TopK. They are used to store and query documents.'
-icon: 'square-plus'
+title: "Create a collection"
+description: "Collections are the core data structure in TopK. They are used to store and query documents."
+icon: "square-plus"
 ---
-import Support from '/snippets/support.mdx';
+
+import Support from "/snippets/support.mdx";
 
 ## Creating a collection
 
@@ -18,6 +19,7 @@ from topk_sdk.schema import int, text, vector, vector_index, keyword_index
 // Reach out to us at support@topk.io if this is a blocker for you.
 // We will help you get started.
 ```
+
 </CodeGroup>
 
 To create a collection, you need to pass the collection name and the schema to the `create` method.
@@ -40,6 +42,7 @@ client.collections().create(
 // Reach out to us at support@topk.io if this is a blocker for you.
 // We will help you get started.
 ```
+
 </CodeGroup>
 
 ## Schema
@@ -61,6 +64,7 @@ TopK supports the following data types. There are more on our roadmap and we are
 // Reach out to us at support@topk.io if this is a blocker for you.
 // We will help you get started.
 ```
+
 </CodeGroup>
 
 ### float()
@@ -76,6 +80,7 @@ TopK supports the following data types. There are more on our roadmap and we are
 // Reach out to us at support@topk.io if this is a blocker for you.
 // We will help you get started.
 ```
+
 </CodeGroup>
 
 ### bool()
@@ -91,6 +96,7 @@ TopK supports the following data types. There are more on our roadmap and we are
 // Reach out to us at support@topk.io if this is a blocker for you.
 // We will help you get started.
 ```
+
 </CodeGroup>
 
 ### text()
@@ -106,6 +112,7 @@ TopK supports the following data types. There are more on our roadmap and we are
 // Reach out to us at support@topk.io if this is a blocker for you.
 // We will help you get started.
 ```
+
 </CodeGroup>
 
 ### float_vector()
@@ -121,6 +128,7 @@ TopK supports the following data types. There are more on our roadmap and we are
 // Reach out to us at support@topk.io if this is a blocker for you.
 // We will help you get started.
 ```
+
 </CodeGroup>
 
 ### byte_vector()
@@ -136,6 +144,7 @@ TopK supports the following data types. There are more on our roadmap and we are
 // Reach out to us at support@topk.io if this is a blocker for you.
 // We will help you get started.
 ```
+
 </CodeGroup>
 
 ### vector()
@@ -155,6 +164,7 @@ TopK supports the following data types. There are more on our roadmap and we are
 // Reach out to us at support@topk.io if this is a blocker for you.
 // We will help you get started.
 ```
+
 </CodeGroup>
 
 ## Properties
@@ -174,6 +184,7 @@ TopK supports the following data types. There are more on our roadmap and we are
 // Reach out to us at support@topk.io if this is a blocker for you.
 // We will help you get started.
 ```
+
 </CodeGroup>
 
 The above example shows how to mark a field `title` as required.
@@ -198,6 +209,7 @@ The `keyword_index()` method is used to create a keyword index on a `text()` fie
 // Reach out to us at support@topk.io if this is a blocker for you.
 // We will help you get started.
 ```
+
 </CodeGroup>
 
 #### Vector index
@@ -214,10 +226,12 @@ The `vector_index()` method is used to create a vector index on a `vector()` fie
 // Reach out to us at support@topk.io if this is a blocker for you.
 // We will help you get started.
 ```
+
 </CodeGroup>
 
 The above example shows how to create a vector index on a field `title_embedding` with the metric `euclidean`.
 However, there are more metrics available:
+
 - `euclidean`
 - `cosine`
 - `dot_product`

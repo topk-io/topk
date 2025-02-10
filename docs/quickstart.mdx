@@ -131,11 +131,11 @@ lsn = client.collection("books").upsert(
   Heads up: `topk` is an eventually consistent database.
   <br />
   <br />
-  This means that your documents are not guaranteed to be immediately available for
-  querying. The client however can optionally wait for the documents to be available.
-  The `lsn` object returned from the `upsert()` and `delete()` is a "cursor" to the
-  state of the database. By passing it to `client.query()` you can make sure that
-  your writes are available for querying.
+  This means that your documents are not guaranteed to be immediately available
+  for querying. The client however can optionally wait for the documents to be
+  available. The `lsn` object returned from the `upsert()` and `delete()` is a
+  "cursor" to the state of the database. By passing it to `client.query()` you
+  can make sure that your writes are available for querying.
   <br />
   <br />
   This is an early limitation of the system which will go away in the future.{" "}
