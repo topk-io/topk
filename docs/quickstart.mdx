@@ -1,10 +1,10 @@
 ---
-title: 'Quickstart (5m)'
-description: 'Build a `topk` search engine in under 5 minutes.'
+title: "Quickstart (5m)"
+description: "Build a `topk` search engine in under 5 minutes."
 icon: "rocket"
 ---
 
-import Support from '/snippets/support.mdx';
+import Support from "/snippets/support.mdx";
 
 This guide will get you up and running with `topk` in under 5 minutes. You'll create a collection, add documents to it, and query your collection.
 
@@ -44,13 +44,12 @@ pip install topk-sdk
 
 </CodeGroup>
 
-
 ## 2. Create an API key
 
 To get started with TopK, you need an API key. Here's how you can get one:
 
-1. Head down to the <a href="https://console.topk.io" target="_blank">Console</a>. 
-2. Create your account and generate an API key. 
+1. Head down to the <a href="https://console.topk.io" target="_blank">Console</a>.
+2. Create your account and generate an API key.
 
 You'll need this key to authenticate with the API. Make sure to keep it safe and secure. It's a best practice for us to show you this key only once and for you to store it securely.
 
@@ -58,7 +57,7 @@ You'll need this key to authenticate with the API. Make sure to keep it safe and
 
 Collections are the primary data structure in TopK. They store documents and allow you to query them.
 
-First create a `Client` instance with your API key and <Tooltip tip="TopK region is where your data is stored. It maps to a specific cloud region.">region</Tooltip>. 
+First create a `Client` instance with your API key and <Tooltip tip="TopK region is where your data is stored. It maps to a specific cloud region.">region</Tooltip>.
 
 <CodeGroup>
 
@@ -75,7 +74,7 @@ client = Client(api_key="YOUR_TOPK_API_KEY", region="aws-us-east-1-thunderbird")
 
 </CodeGroup>
 
-Then create a collection, optionally specifying a schema. 
+Then create a collection, optionally specifying a schema.
 
 <CodeGroup>
 
@@ -128,7 +127,23 @@ lsn = client.collection("books").upsert(
 
 </CodeGroup>
 
-<Warning>Heads up: `topk` is an eventually consistent database.<br /><br />This means that your documents are not guaranteed to be immediately available for querying. The client however can optionally wait for the documents to be available. The `lsn` object returned from the `upsert()` and `delete()` is a "cursor" to the state of the database. By passing it to `client.query()` you can make sure that your writes are available for querying.<br /><br />This is an early limitation of the system which will go away in the future. <a href="https://www.geeksforgeeks.org/read-your-writes-consistency-in-system-design/">Read your writes consistency</a> is the best experience you can get, so that's what we're committing to.</Warning>
+<Warning>
+  Heads up: `topk` is an eventually consistent database.
+  <br />
+  <br />
+  This means that your documents are not guaranteed to be immediately available for
+  querying. The client however can optionally wait for the documents to be available.
+  The `lsn` object returned from the `upsert()` and `delete()` is a "cursor" to the
+  state of the database. By passing it to `client.query()` you can make sure that
+  your writes are available for querying.
+  <br />
+  <br />
+  This is an early limitation of the system which will go away in the future.{" "}
+  <a href="https://www.geeksforgeeks.org/read-your-writes-consistency-in-system-design/">
+    Read your writes consistency
+  </a>{" "}
+  is the best experience you can get, so that's what we're committing to.
+</Warning>
 
 ## 5. Query your collection
 
@@ -137,7 +152,7 @@ Now, send your first query:
 <CodeGroup>
 
 ```python Python
-from topk_sdk.query import select, filter, field, fn, match
+from topk_sdk.query import select, field, fn, match
 
 results = client.collection("books").query(
     select(
@@ -146,15 +161,15 @@ results = client.collection("books").query(
         text_score=fn.keyword_score(),
     )
         # Keyword search - filter books with word "catcher" in the title
-        .filter(field("title").match("catcher"))
-        # Vector search - compute vector distance
+        .filter(match("title", token="catcher"))
+        # Vector search - filter books by vector distance
         .filter(field("vector_distance") > 0.5),
         # Metadata search - filter books by published year
         .filter(field("published_year") > 1920)
         # Scoring - return top 10 results by calculating score as `text_score + vector_distance * 3`
         .top_k(field("text_score") + field("vector_distance") * 3, 10)
 
-    # Pass the LSN to make sure the query is consistent with the writes. 
+    # Pass the LSN to make sure the query is consistent with the writes.
     lsn=lsn,
 )
 ```
@@ -185,7 +200,10 @@ for result in results:
 
 Use the above example to print the `ID`, `title`, and `vector_distance` of the top 10 results.
 
-<Check>**Nicely done!** You've just created your first collection, added documents to it, and queried it. It's that simple.</Check>
+<Check>
+  **Nicely done!** You've just created your first collection, added documents to
+  it, and queried it. It's that simple.
+</Check>
 
 ## Cleaning up
 
