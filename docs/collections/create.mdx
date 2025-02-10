@@ -11,6 +11,7 @@ import Support from "/snippets/support.mdx";
 The `topk_sdk.schema` module contains the schema definition for the fields in a collection.
 
 <CodeGroup>
+
 ```python Python
 from topk_sdk.schema import int, text, vector, vector_index, keyword_index
 ```
@@ -25,6 +26,7 @@ from topk_sdk.schema import int, text, vector, vector_index, keyword_index
 To create a collection, you need to pass the collection name and the schema to the `create` method.
 
 <CodeGroup>
+
 ```python Python
 client.collections().create(
     "books",
@@ -56,6 +58,7 @@ TopK supports the following data types. There are more on our roadmap and we are
 `int()` is used to define an integer field in the schema.
 
 <CodeGroup>
+
 ```python Python
 "published_year": int()
 ```
@@ -72,6 +75,7 @@ TopK supports the following data types. There are more on our roadmap and we are
 `float()` is used to define a float field in the schema.
 
 <CodeGroup>
+
 ```python Python
 "price": float()
 ```
@@ -88,6 +92,7 @@ TopK supports the following data types. There are more on our roadmap and we are
 `bool()` is used to define a boolean field in the schema.
 
 <CodeGroup>
+
 ```python Python
 "is_published": bool()
 ```
@@ -104,6 +109,7 @@ TopK supports the following data types. There are more on our roadmap and we are
 `text()` is used to define a text field in the schema.
 
 <CodeGroup>
+
 ```python Python
 "title": text()
 ```
@@ -120,6 +126,7 @@ TopK supports the following data types. There are more on our roadmap and we are
 `float_vector()` is used to define a float vector field in the schema. You can pass vector `dimension` as a parameter (required, greater than 0). It will be validated when upserting documents.
 
 <CodeGroup>
+
 ```python Python
 "title_embedding": float_vector(dimension=1536)
 ```
@@ -136,6 +143,7 @@ TopK supports the following data types. There are more on our roadmap and we are
 `byte_vector()` is used to define a byte vector field in the schema. You can pass vector `dimension` as a parameter (required, greater than 0). It will be validated when upserting documents.
 
 <CodeGroup>
+
 ```python Python
 "title_embedding": byte_vector(dimension=1536)
 ```
@@ -156,6 +164,7 @@ TopK supports the following data types. There are more on our roadmap and we are
 `bytes()` is used to define a bytes field in the schema.
 
 <CodeGroup>
+
 ```python Python
 "image": bytes()
 ```
@@ -176,6 +185,7 @@ TopK supports the following data types. There are more on our roadmap and we are
 <Note>However, don't forget that every document has to have an `_id`.</Note>
 
 <CodeGroup>
+
 ```python Python
 "title": text().required()
 ```
@@ -201,6 +211,7 @@ The `keyword_index()` method is used to create a keyword index on a `text()` fie
 `index(keyword_index())` can only be called over `text()` data type.
 
 <CodeGroup>
+
 ```python Python
 "title": text().index(keyword_index())
 ```
@@ -218,6 +229,7 @@ The `vector_index()` method is used to create a vector index on a `vector()` fie
 `index(vector_index(metric="euclidean"))` can only be called over `vector()` (`float_vector()`, `byte_vector()`) data type.
 
 <CodeGroup>
+
 ```python Python
 "title_embedding": vector(dimension=1536).index(vector_index(metric="euclidean"))
 ```

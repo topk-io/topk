@@ -16,6 +16,7 @@ Every document is uniquely identified by its `_id`, which means that upserting a
 To upsert documents, you can pass a list of documents to the `upsert` method. The SDK will update the documents that already exist and insert the documents that don't.
 
 <CodeGroup>
+
 ```python Python
 client.collection("books").upsert(
     [
@@ -36,6 +37,7 @@ client.collection("books").upsert(
 Alternatively, the example below shows how your documents could also be made out of mix of vectors and other fields.
 
 <CodeGroup>
+
 ```python Python
 client.collection("locations").upsert(
     [

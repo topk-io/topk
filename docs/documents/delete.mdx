@@ -12,6 +12,7 @@ While we plan to release more options to delete your documents (e.g. by query), 
 To delete documents by their `_id`, you can pass a list of `_id`s to the `delete` method:
 
 <CodeGroup>
+
 ```python Python
 client.collection("books").delete(
     ["book-1", "book-2", "book-3"]
@@ -38,6 +39,7 @@ Right now, the SDK supports only _Delete by `_id`_ method. To delete documents b
 1. Query the documents that match the filter.
 
 <CodeGroup>
+
 ```python Python
 docs = client.collection("books").query(
     filter(field("published_year") > 1980)
@@ -54,6 +56,7 @@ docs = client.collection("books").query(
 2. Delete the documents by their `_id`s.
 
 <CodeGroup>
+
 ```python Python
 client.collection("books").delete(
     [d._id for d in docs]
