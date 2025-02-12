@@ -33,8 +33,8 @@ client.collections().create(
     schema={
         "title": text().required().index(keyword_index()),
         "title_embedding": vector(1536)
-        .required()
-        .index(vector_index(metric="euclidean")),
+            .required()
+            .index(vector_index(metric="euclidean")),
         "published_year": int().required(),
     },
 )
@@ -121,14 +121,14 @@ TopK supports the following data types. There are more on our roadmap and we are
 
 </CodeGroup>
 
-### float_vector()
+### f32_vector()
 
-`float_vector()` is used to define a float vector field in the schema. You can pass vector `dimension` as a parameter (required, greater than 0). It will be validated when upserting documents.
+`f32_vector()` is used to define a vector field with `f32` values. You can pass vector `dimension` as a parameter (required, greater than 0) which will be validated when upserting documents.
 
 <CodeGroup>
 
 ```python Python
-"title_embedding": float_vector(dimension=1536)
+"title_embedding": f32_vector(dimension=1536)
 ```
 
 ```js JavaScript
@@ -138,14 +138,14 @@ TopK supports the following data types. There are more on our roadmap and we are
 
 </CodeGroup>
 
-### byte_vector()
+### u8_vector()
 
-`byte_vector()` is used to define a byte vector field in the schema. You can pass vector `dimension` as a parameter (required, greater than 0). It will be validated when upserting documents.
+`u8_vector()` is used to define a vector field with `u8` values. You can pass vector `dimension` as a parameter (required, greater than 0) which will be validated when upserting documents.
 
 <CodeGroup>
 
 ```python Python
-"title_embedding": byte_vector(dimension=1536)
+"title_embedding": u8_vector(dimension=1536)
 ```
 
 ```js JavaScript
@@ -155,9 +155,26 @@ TopK supports the following data types. There are more on our roadmap and we are
 
 </CodeGroup>
 
-### vector()
+### binary_vector()
 
-`vector()` is an alias for `float_vector()`.
+`binary_vector()` is used to define a binary vector packed into `u8` values. You can pass vector `dimension` as a parameter (required, greater than 0) which will be validated when upserting documents.
+
+<Note>
+Binary vector dimension is defined in terms of the number of bytes. This means that for a 1024-bit binary vector, the dimension `topk` expects is **128** (1024 / 8). 
+</Note>
+
+<CodeGroup>
+
+```python Python
+"title_embedding": binary_vector(dimension=128)
+```
+
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+```
+
+</CodeGroup>
 
 ### bytes()
 
@@ -225,13 +242,13 @@ The `keyword_index()` method is used to create a keyword index on a `text()` fie
 
 #### Vector index
 
-The `vector_index()` method is used to create a vector index on a `vector()` field.
-`index(vector_index(metric="euclidean"))` can only be called over `vector()` (`float_vector()`, `byte_vector()`) data type.
+The `vector_index()` method is used to create a vector index. Only fields with `f32_vector()`, `u8_vector()`, or `binary_vector()` data types
+can be indexed with a vector index.
 
 <CodeGroup>
 
 ```python Python
-"title_embedding": vector(dimension=1536).index(vector_index(metric="euclidean"))
+"title_embedding": vector(dimension=1536).index(vector_index(metric="cosine"))
 ```
 
 ```js JavaScript
@@ -241,11 +258,12 @@ The `vector_index()` method is used to create a vector index on a `vector()` fie
 
 </CodeGroup>
 
-The above example shows how to create a vector index on a field `title_embedding` with the metric `euclidean`.
+The above example shows how to create a vector index on a field `title_embedding` with the `cosine` similarity metric.
 However, there are more metrics available:
 
 - `euclidean`
 - `cosine`
 - `dot_product`
+- `hamming` (only supported for `binary_vector()` type)
 
 <Support />

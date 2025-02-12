@@ -13,16 +13,32 @@ Every document is uniquely identified by its `_id`, which means that upserting a
 
 </Note>
 
-To upsert documents, you can pass a list of documents to the `upsert` method. The SDK will update the documents that already exist and insert the documents that don't.
+To upsert documents, you can pass a list of documents to the `upsert` method. `topk` will insert new documents or overwrite existing ones
+if they have the same `_id`.
 
 <CodeGroup>
 
 ```python Python
 client.collection("books").upsert(
     [
-        {"_id": "book-1", "title": "The Great Gatsby", "published_year": 1925},
-        {"_id": "book-2", "title": "To Kill a Mockingbird", "published_year": 1960},
-        {"_id": "book-3", "title": "1984", "published_year": 1949},
+        {
+            "_id": "book-1",
+            "title": "The Great Gatsby", 
+            "published_year": 1925, 
+            "title_embedding": [0.12, 0.67, 0.82, 0.53, ...]
+        },
+        {
+            "_id": "book-2",
+            "title": "To Kill a Mockingbird",
+            "published_year": 1960,
+            "title_embedding": [0.42, 0.53, 0.65, 0.33, ...]
+        },
+        {
+            "_id": "book-3", 
+            "title": "1984", 
+            "published_year": 1949, 
+            "title_embedding": [0.59, 0.33, 0.71, 0.61, ...]
+        }
     ]
 )
 ```
@@ -34,6 +50,7 @@ client.collection("books").upsert(
 
 </CodeGroup>
 
+{/*
 Alternatively, the example below shows how your documents could also be made out of mix of vectors and other fields.
 
 <CodeGroup>
@@ -57,10 +74,11 @@ client.collection("locations").upsert(
 ```
 
 </CodeGroup>
+*/}
 
 <Note>
-  Please note that dicts and lists are currently not supported. The only
-  exception for complex types applies to float vectors, byte vectors, and bytes.
+  Please note that nexted types (e.g. dicts and lists) are currently not supported. The only
+  exception for complex types applies to f32 vectors, u8 vectors, binary vectors, and bytes.
 </Note>
 
 <Support />

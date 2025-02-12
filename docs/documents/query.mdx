@@ -12,7 +12,11 @@ TopK's declarative query builder allows you to select fields, chain filters, app
 
 ## Text search
 
-To perform a text search on your documents, use the `match` method. The `match` method supports full-text search and can be used to search for keywords in a field.
+To perform a text search on your documents, use the `match` function. The `match` function supports full-text search and can be used to search for keywords in a field.
+
+<Warning>
+  To use the `match` predicate, the field must have a `keyword_index` defined on it.
+</Warning>
 
 <CodeGroup>
 
@@ -20,9 +24,15 @@ To perform a text search on your documents, use the `match` method. The `match` 
 from topk.query import select, fn, match
 
 docs = client.collection("books").query(
-    select("title") # Filter to documents that have the `"Great"` keyword in the `title` field
-    .filter(match("title", token="Great")) # Return top 10 results order by `published_year` ascending
-    .top_k(field("title_similarity"), 10, asc=True)
+    select(
+        "title",
+        # Score documents using BM25 algorithm
+        text_score=fn.keyword_score()
+    )
+    # Filter to documents that have the `"Great"` keyword in the `title` field
+    .filter(match("title", token="Great"))
+    # Return top 10 documents with the highest text score
+    .top_k(field("text_score"), 10)
 )
 
 ```
@@ -38,7 +48,8 @@ The above example takes a collection of books and filters to documents that have
 
 ## Vector search
 
-To perform a vector search on your documents, use the `vector_distance` method. The `vector_distance` method computes the cosine distance between the vector and the field.
+To perform a vector search on your documents, use the `vector_distance` method. This computes the distance between the provided query vector and vectors
+stored inside the database according to the metric specified in the `vector_index` definition.
 
 <CodeGroup>
 
@@ -47,11 +58,14 @@ from topk.query import select, fn
 
 docs = client.collection("books").query(
     select(
-        "title", # Select supports arbitrary expressions. For example, you can add 10 years to the `published_year` field.
-        published_year_plus_10=field("published_year") + 10, # Compute cosine similarity the vector and the `title_embedding` field.
-        title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3])
-    ) # Return top 10 results order by `published_year` ascending
-    .top_k(field("title_similarity"), 10, asc=True)
+        "title",
+        # Select supports arbitrary expressions. For example, you can add 10 years to the `published_year` field.
+        published_year_plus_10=field("published_year") + 10,
+        # Compute vector distance between the provided query vector and the `title_embedding` field.
+        title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3, ...])
+    )
+    # Return top 10 results with the highest similarity
+    .top_k(field("title_similarity"), 10)
 )
 
 ```
@@ -95,7 +109,7 @@ The below example shows filtering by vector similarity.
 
 ```python Python
 # Filtering by vector similarity
-.filter(field("title_similarity") > 0.5)
+.filter(field("title_similarity") > 0.8)
 ```
 
 ```js JavaScript
@@ -105,7 +119,11 @@ The below example shows filtering by vector similarity.
 
 </CodeGroup>
 
-### Top K results
+## Results collection
+
+All queries are required to have a collection stage. Currently, we only support `top_k` and `count` collectors.
+
+### top_k
 
 You can use the `top_k` method to return the top `k` results. The `top_k` method takes a field, the number of results to return, and an optional `asc` parameter to sort the results in ascending order.
 
@@ -123,9 +141,23 @@ You can use the `top_k` method to return the top `k` results. The `top_k` method
 
 </CodeGroup>
 
-<Note>
-  Note that **all** queries are required to end with the `top_k` method.
-</Note>
+### count
+
+You can use the `count` method to get the total number of documents matching the query. If there are no filters then `count` will return the total number of documents in the collection.
+
+<CodeGroup>
+
+```python Python
+# Count the total number of documents in the collection
+.count()
+```
+
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+```
+
+</CodeGroup>
 
 ## Putting it all together
 
@@ -138,14 +170,18 @@ from topk.query import select, fn, match
 
 docs = client.collection("books").query(
     select(
-        "title", # Select supports arbitrary expressions. For example, you can add 10 years to the `published_year` field.
-        published_year_plus_10=field("published_year") + 10, # Compute cosine similarity between the vector and the `title_embedding` field.
-        title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3])
-    ) # Filtering by metadata
-    .filter(field("published_year") > 1980) # Filter by vector similarity
-    .filter(field("title_similarity") > 0.5) # Filter to documents that have the `"Great"` keyword in the `title` field
-    .filter(match("title", token="Great")) # Return top 10 results order by `published_year` ascending
-    .top_k(field("title_similarity"), 10, asc=True)
+        "title",
+        # Score documents using BM25 algorithm
+        text_score=fn.keyword_score()
+        # Compute vector distance between the provided query vector and the `title_embedding` field.
+        title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3, ...])
+    )
+    # Filter to documents that have the `"Great"` keyword in the `title` field
+    .filter(match("title", token="Great"))
+    # Filtering by metadata
+    .filter(field("published_year") > 1980)
+    # Return top 10 documents with the highest combined score
+    .top_k(field("text_score") * 0.2 + field("title_similarity") * 0.8, 10)
 )
 
 ```

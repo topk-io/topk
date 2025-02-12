@@ -1,6 +1,6 @@
 ---
 title: "Quickstart (5m)"
-description: "Build a `topk` search engine in under 5 minutes."
+description: "Start using `topk` search database in under 5 minutes."
 icon: "rocket"
 ---
 
@@ -64,7 +64,7 @@ First create a `Client` instance with your API key and <Tooltip tip="TopK region
 ```python Python
 from topk_sdk import Client
 
-client = Client(api_key="YOUR_TOPK_API_KEY", region="aws-us-east-1-thunderbird")
+client = Client(api_key="YOUR_TOPK_API_KEY", region="aws-us-east-1-elastica")
 ```
 
 ```shell JavaScript
@@ -79,18 +79,23 @@ Then create a collection, optionally specifying a schema.
 <CodeGroup>
 
 ```python Python
-from topk_sdk.schema import text, int, vector
+from topk_sdk.schema import text, int, f32_vector, vector_index
 
 client.collections().create(
     "books",
     schema={
+        # `title` field must be present and its value must be a string.
         "title": text().required(),
 
-        "title_embedding": vector(1536)
+        # `title_embedding` field must be present and its value must be
+        # a 1536-dimensional vector of floats.
+        "title_embedding": f32_vector(1536)
             .required()
             .index(vector_index(metric="cosine")),
 
-        "published_year": int().required(),
+        # `published_year` is optional but if it is present, its value
+        # must be an integer.
+        "published_year": int()
     },
 )
 ```
@@ -104,7 +109,7 @@ client.collections().create(
 
 ## 4. Add documents to the collection
 
-After a collection is created, you can start adding documents to it. TopK will enforce the schema you specified when you create the collection. Document schema is optional by default, so you can write documents with fields which are not specified in the schema.
+After a collection is created, you can start adding documents to it. TopK will enforce the schema you specified when you created the collection. Document schema is optional by default, so you can write documents with fields which are not specified in the schema.
 
 Next up, let's add some documents to the collection. A **document** is a JSON-style dictionary with one condition: **it must have an `_id` field**.
 
@@ -128,16 +133,13 @@ lsn = client.collection("books").upsert(
 </CodeGroup>
 
 <Warning>
-  Heads up: `topk` is an eventually consistent database.
-  <br />
-  <br />
-  This means that your documents are not guaranteed to be immediately available
-  for querying. The client however can optionally wait for the documents to be
-  available. The `lsn` object returned from the `upsert()` and `delete()` is a
-  "cursor" to the state of the database. By passing it to `client.query()` you
-  can make sure that your writes are available for querying.
-  <br />
-  <br />
+  Heads up: `topk` is an currently an eventually consistent database.
+
+  In practice, this means that there is a delay between when you write documents and when they are available for querying.
+  If you want to guarantee that your writes are included in the query results, you can pass the `lsn` (log sequence number)
+  object returned from the `upsert()` and `delete()` methods to the `query()` method.
+  This will reject the query execution unless the writes at `lsn` have already been indexed and are available for querying.
+
   This is an early limitation of the system which will go away in the future.{" "}
   <a href="https://www.geeksforgeeks.org/read-your-writes-consistency-in-system-design/">
     Read your writes consistency
@@ -156,18 +158,16 @@ from topk_sdk.query import select, field, fn, match
 
 results = client.collection("books").query(
     select(
-        "title",
-        vector_distance=fn.vector_distance("title_embedding"),
-        text_score=fn.keyword_score(),
+      "title",
+      vector_distance=fn.vector_distance("title_embedding", [6.1, 7.2, 8.3, ...]),
+      text_score=fn.keyword_score(),
     )
-        # Keyword search - filter books with word "catcher" in the title
-        .filter(match("title", token="catcher"))
-        # Vector search - filter books by vector distance
-        .filter(field("vector_distance") > 0.5),
-        # Metadata search - filter books by published year
-        .filter(field("published_year") > 1920)
-        # Scoring - return top 10 results by calculating score as `text_score + vector_distance * 3`
-        .top_k(field("text_score") + field("vector_distance") * 3, 10)
+    # Keyword search - filter books with word "catcher" in the title
+    .filter(match("title", token="catcher"))
+    # Metadata search - filter books by published year
+    .filter(field("published_year") > 1920)
+    # Scoring - return top 10 results by calculating score as `vector_distance * 0.8 + text_score * 0.2`
+    .top_k(field("vector_distance") * 0.8 + field("text_score") * 0.2, 10)
 
     # Pass the LSN to make sure the query is consistent with the writes.
     lsn=lsn,
