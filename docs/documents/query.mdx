@@ -12,7 +12,8 @@ TopK's declarative query builder allows you to select fields, chain filters, app
 
 ## Text search
 
-To perform a text search on your documents, use the `match` function. The `match` function supports full-text search and can be used to search for keywords in a field.
+To perform a text search on your documents, use the `match` function. The `match` function will by default execute against all
+fields with a `keyword_index` defined on them. You can provide `field` parameter to specify a field to match against.
 
 <Warning>
   To use the `match` predicate, the field must have a `keyword_index` defined on it.
