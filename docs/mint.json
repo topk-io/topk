@@ -63,5 +63,11 @@
     "x": "https://x.com/topk_io",
     "linkedin": "https://www.linkedin.com/company/106000380/",
     "discord": "https://discord.gg/as4sCYQ8"
-  }
+  },
+  "integrations": {
+    "posthog": {
+        "apiKey": "phc_g1MJ3n2npWQzia5hSCGxjOqD1Gef7eZw6TuU71aUUIQ",
+        "apiHost": "https://eu.i.posthog.com"
+    }
+}
 }
