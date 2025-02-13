@@ -79,13 +79,15 @@ Then create a collection, optionally specifying a schema.
 <CodeGroup>
 
 ```python Python
-from topk_sdk.schema import text, int, f32_vector, vector_index
+from topk_sdk.schema import text, int, f32_vector, vector_index, keyword_index
 
 client.collections().create(
     "books",
     schema={
         # `title` field must be present and its value must be a string.
-        "title": text().required(),
+        "title": text()
+          .required()
+          .index(keyword_index()),
 
         # `title_embedding` field must be present and its value must be
         # a 1536-dimensional vector of floats.
@@ -160,7 +162,7 @@ results = client.collection("books").query(
     select(
       "title",
       vector_distance=fn.vector_distance("title_embedding", [6.1, 7.2, 8.3, ...]),
-      text_score=fn.keyword_score(),
+      text_score=fn.bm25_score(),
     )
     # Keyword search - filter books that contain keyword "catcher"
     .filter(match("catcher"))

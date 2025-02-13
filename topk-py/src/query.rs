@@ -70,14 +70,14 @@ pub fn r#match(
 #[pymodule]
 #[pyo3(name = "fn")]
 pub fn fn_pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_wrapped(wrap_pyfunction!(keyword_score))?;
+    m.add_wrapped(wrap_pyfunction!(bm25_score))?;
     m.add_wrapped(wrap_pyfunction!(vector_distance))?;
 
     Ok(())
 }
 
 #[pyfunction]
-pub fn keyword_score() -> data::function_expr::FunctionExpression {
+pub fn bm25_score() -> data::function_expr::FunctionExpression {
     data::function_expr::FunctionExpression::KeywordScore {}
 }
 

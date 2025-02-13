@@ -67,7 +67,7 @@ from topk_sdk.query import match, fn, select
 
 results = client.collection("books").query(
     select(
-        text_score=fn.keyword_score(),
+        text_score=fn.bm25_score(),
     ).filter(
         match("rust", field="title", weight=10.0)
     ).top_k(field("text_score"), k=3)

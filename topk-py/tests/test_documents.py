@@ -52,7 +52,7 @@ def test_keyword_search(ctx: ProjectContext):
 
     docs = ctx.client.collection(ctx.scope("books")).query(
         select(
-            text_score=fn.keyword_score(),
+            text_score=fn.bm25_score(),
         )
         .filter(match("red") | match("blue"))
         .top_k(field("text_score"), k=5),
