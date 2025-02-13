@@ -45,7 +45,7 @@ pub fn literal(value: data::scalar::Scalar) -> data::logical_expr::LogicalExpres
 }
 
 #[pyfunction]
-#[pyo3(text_signature = "match(field, token, weight=1.0)")]
+#[pyo3(signature = (field, token, weight=1.0))]
 pub fn r#match(field: String, token: String, weight: f32) -> data::text_expr::TextExpression {
     data::text_expr::TextExpression::Terms {
         all: false,

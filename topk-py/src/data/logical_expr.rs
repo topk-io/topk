@@ -7,7 +7,7 @@ use super::{
 use pyo3::prelude::*;
 
 #[pyclass]
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum LogicalExpression {
     Null(),
     Field {
@@ -25,6 +25,28 @@ pub enum LogicalExpression {
         op: BinaryOperator,
         right: Py<LogicalExpression>,
     },
+}
+
+impl std::fmt::Debug for LogicalExpression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Null() => write!(f, "Null"),
+            Self::Field { name } => write!(f, "field({})", name),
+            Self::Literal { value } => write!(f, "literal({:?})", value),
+            Self::Unary { op, expr } => {
+                write!(f, "Unary(op={:?}, expr={:?})", op, expr.get())
+            }
+            Self::Binary { left, op, right } => {
+                write!(
+                    f,
+                    "Binary(left={:?}, op={:?}, right={:?})",
+                    left.get(),
+                    op,
+                    right.get()
+                )
+            }
+        }
+    }
 }
 
 impl PartialEq for LogicalExpression {
@@ -68,7 +90,115 @@ impl LogicalExpression {
         Ok(format!("{:?}", self))
     }
 
-    fn __add__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+    fn _expr_eq(&self, other: &LogicalExpression) -> bool {
+        self == other
+    }
+
+    // Comparison operators
+
+    fn eq(&self, py: Python<'_>, other: FlexibleExpr) -> PyResult<Self> {
+        let expr: LogicalExpression = other.into();
+
+        Ok(Self::Binary {
+            left: Py::new(py, self.clone())?,
+            op: BinaryOperator::Eq,
+            right: Py::new(py, expr)?,
+        })
+    }
+
+    fn __eq__(&self, py: Python<'_>, other: FlexibleExpr) -> PyResult<Self> {
+        self.eq(py, other)
+    }
+
+    fn ne(&self, py: Python<'_>, other: FlexibleExpr) -> PyResult<Self> {
+        let expr: LogicalExpression = other.into();
+
+        Ok(Self::Binary {
+            left: Py::new(py, self.clone())?,
+            op: BinaryOperator::NotEq,
+            right: Py::new(py, expr)?,
+        })
+    }
+
+    fn __ne__(&self, py: Python<'_>, other: FlexibleExpr) -> PyResult<Self> {
+        self.ne(py, other)
+    }
+
+    fn lt(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+        let expr: LogicalExpression = other.into();
+
+        Ok(Self::Binary {
+            left: Py::new(py, self.clone())?,
+            op: BinaryOperator::Lt,
+            right: Py::new(py, expr)?,
+        })
+    }
+
+    fn __lt__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+        self.lt(py, other)
+    }
+
+    fn __rlt__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+        self.gt(py, other)
+    }
+
+    fn lt_eq(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+        let expr: LogicalExpression = other.into();
+
+        Ok(Self::Binary {
+            left: Py::new(py, self.clone())?,
+            op: BinaryOperator::LtEq,
+            right: Py::new(py, expr)?,
+        })
+    }
+
+    fn __le__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+        self.lt_eq(py, other)
+    }
+
+    fn __rle__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+        self.gt_eq(py, other)
+    }
+
+    fn gt(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+        let expr: LogicalExpression = other.into();
+
+        Ok(Self::Binary {
+            left: Py::new(py, self.clone())?,
+            op: BinaryOperator::Gt,
+            right: Py::new(py, expr)?,
+        })
+    }
+
+    fn __gt__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+        self.gt(py, other)
+    }
+
+    fn __rgt__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+        self.lt(py, other)
+    }
+
+    fn gt_eq(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+        let expr: LogicalExpression = other.into();
+
+        Ok(Self::Binary {
+            left: Py::new(py, self.clone())?,
+            op: BinaryOperator::GtEq,
+            right: Py::new(py, expr)?,
+        })
+    }
+
+    fn __ge__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+        self.gt_eq(py, other)
+    }
+
+    fn __rge__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+        self.lt_eq(py, other)
+    }
+
+    // Arithmetic operators
+
+    fn add(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
         let expr: LogicalExpression = other.into();
 
         Ok(Self::Binary {
@@ -78,17 +208,15 @@ impl LogicalExpression {
         })
     }
 
-    fn __radd__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
-        let expr: LogicalExpression = other.into();
-
-        Ok(Self::Binary {
-            left: Py::new(py, expr)?,
-            op: BinaryOperator::Add,
-            right: Py::new(py, self.clone())?,
-        })
+    fn __add__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+        self.add(py, other)
     }
 
-    fn __sub__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+    fn __radd__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+        self.add(py, other)
+    }
+
+    fn sub(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
         let expr: LogicalExpression = other.into();
 
         Ok(Self::Binary {
@@ -96,6 +224,10 @@ impl LogicalExpression {
             op: BinaryOperator::Sub,
             right: Py::new(py, expr)?,
         })
+    }
+
+    fn __sub__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+        self.sub(py, other)
     }
 
     fn __rsub__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
@@ -108,7 +240,7 @@ impl LogicalExpression {
         })
     }
 
-    fn __mul__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+    fn mul(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
         let expr: LogicalExpression = other.into();
 
         Ok(Self::Binary {
@@ -118,17 +250,15 @@ impl LogicalExpression {
         })
     }
 
-    fn __rmul__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
-        let expr: LogicalExpression = other.into();
-
-        Ok(Self::Binary {
-            left: Py::new(py, expr)?,
-            op: BinaryOperator::Mul,
-            right: Py::new(py, self.clone())?,
-        })
+    fn __mul__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+        self.mul(py, other)
     }
 
-    fn __div__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+    fn __rmul__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+        self.mul(py, other)
+    }
+
+    fn div(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
         let expr: LogicalExpression = other.into();
 
         Ok(Self::Binary {
@@ -136,6 +266,14 @@ impl LogicalExpression {
             op: BinaryOperator::Div,
             right: Py::new(py, expr)?,
         })
+    }
+
+    fn __div__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+        self.div(py, other)
+    }
+
+    fn __truediv__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+        self.div(py, other)
     }
 
     fn __rdiv__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
@@ -145,16 +283,6 @@ impl LogicalExpression {
             left: Py::new(py, expr)?,
             op: BinaryOperator::Div,
             right: Py::new(py, self.clone())?,
-        })
-    }
-
-    fn __truediv__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
-        let expr: LogicalExpression = other.into();
-
-        Ok(Self::Binary {
-            left: Py::new(py, self.clone())?,
-            op: BinaryOperator::Div,
-            right: Py::new(py, expr)?,
         })
     }
 
@@ -168,7 +296,9 @@ impl LogicalExpression {
         })
     }
 
-    fn __and__(&self, py: Python<'_>, other: Boolish) -> PyResult<Self> {
+    // Boolean operators
+
+    fn and(&self, py: Python<'_>, other: Boolish) -> PyResult<Self> {
         let expr: LogicalExpression = other.into();
 
         Ok(Self::Binary {
@@ -178,59 +308,33 @@ impl LogicalExpression {
         })
     }
 
+    fn __and__(&self, py: Python<'_>, other: Boolish) -> PyResult<Self> {
+        self.and(py, other)
+    }
+
     fn __rand__(&self, py: Python<'_>, other: Boolish) -> PyResult<Self> {
+        self.and(py, other)
+    }
+
+    fn or(&self, py: Python<'_>, other: Boolish) -> PyResult<Self> {
         let expr: LogicalExpression = other.into();
 
         Ok(Self::Binary {
-            left: Py::new(py, expr)?,
-            op: BinaryOperator::And,
-            right: Py::new(py, self.clone())?,
+            left: Py::new(py, self.clone())?,
+            op: BinaryOperator::Or,
+            right: Py::new(py, expr)?,
         })
     }
 
     fn __or__(&self, py: Python<'_>, other: Boolish) -> PyResult<Self> {
-        let expr: LogicalExpression = other.into();
-
-        Ok(Self::Binary {
-            left: Py::new(py, self.clone())?,
-            op: BinaryOperator::Or,
-            right: Py::new(py, expr)?,
-        })
+        self.or(py, other)
     }
 
     fn __ror__(&self, py: Python<'_>, other: Boolish) -> PyResult<Self> {
-        let expr: LogicalExpression = other.into();
-
-        Ok(Self::Binary {
-            left: Py::new(py, expr)?,
-            op: BinaryOperator::Or,
-            right: Py::new(py, self.clone())?,
-        })
+        self.or(py, other)
     }
 
-    fn eq(&self, py: Python<'_>, other: FlexibleExpr) -> PyResult<Self> {
-        let expr: LogicalExpression = other.into();
-
-        Ok(Self::Binary {
-            left: Py::new(py, self.clone())?,
-            op: BinaryOperator::Eq,
-            right: Py::new(py, expr)?,
-        })
-    }
-
-    fn ne(&self, py: Python<'_>, other: FlexibleExpr) -> PyResult<Self> {
-        let expr: LogicalExpression = other.into();
-
-        Ok(Self::Binary {
-            left: Py::new(py, self.clone())?,
-            op: BinaryOperator::NotEq,
-            right: Py::new(py, expr)?,
-        })
-    }
-
-    fn __eq__(&self, other: &LogicalExpression) -> bool {
-        self == other
-    }
+    // String operators
 
     fn starts_with(&self, py: Python<'_>, other: Stringy) -> PyResult<Self> {
         Ok(Self::Binary {

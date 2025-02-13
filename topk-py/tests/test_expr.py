@@ -3,23 +3,43 @@ from topk_sdk.query import field, literal
 
 
 def test_query_expr_with_flexible_expr():
-    assert field("a") + 1 == field("a") + literal(1)
-    assert 1 + field("a") == literal(1) + field("a")
+    assert (field("a") + 1)._expr_eq(field("a") + literal(1))
+    assert (1 + field("a"))._expr_eq(field("a") + literal(1))
 
-    assert field("a") - 1 == field("a") - literal(1)
-    assert 1 - field("a") == literal(1) - field("a")
+    assert (field("a") - 1)._expr_eq(field("a") - literal(1))
+    assert (1 - field("a"))._expr_eq(literal(1) - field("a"))
 
-    assert field("a") * 1 == field("a") * literal(1)
-    assert 1 * field("a") == literal(1) * field("a")
+    assert (field("a") * 1)._expr_eq(field("a") * literal(1))
+    assert (1 * field("a"))._expr_eq(field("a") * literal(1))
 
-    assert field("a") / 1 == field("a") / literal(1)
-    assert 1 / field("a") == literal(1) / field("a")
+    assert (field("a") / 1)._expr_eq(field("a") / literal(1))
+    assert (1 / field("a"))._expr_eq(literal(1) / field("a"))
 
-    assert field("a") & True == field("a") & literal(True)
-    assert True & field("a") == literal(True) & field("a")
+    assert (field("a") & True)._expr_eq(field("a") & literal(True))
+    assert (True & field("a"))._expr_eq(field("a") & literal(True))
 
-    assert field("a") | False == field("a") | literal(False)
-    assert False | field("a") == literal(False) | field("a")
+    assert (field("a") | False)._expr_eq(field("a") | literal(False))
+    assert (False | field("a"))._expr_eq(field("a") | literal(False))
+
+
+def test_comparison_operators():
+    assert (field("a") == 1)._expr_eq(field("a") == literal(1))
+    assert (1 == field("a"))._expr_eq(field("a") == literal(1))
+
+    assert (field("a") != 1)._expr_eq(field("a") != literal(1))
+    assert (1 != field("a"))._expr_eq(field("a") != literal(1))
+
+    assert (field("a") < 1)._expr_eq(field("a") < literal(1))
+    assert (1 > field("a"))._expr_eq(field("a") < literal(1))
+
+    assert (field("a") <= 1)._expr_eq(field("a") <= literal(1))
+    assert (1 >= field("a"))._expr_eq(field("a") <= literal(1))
+
+    assert (field("a") > 1)._expr_eq(field("a") > literal(1))
+    assert (1 < field("a"))._expr_eq(field("a") > literal(1))
+
+    assert (field("a") >= 1)._expr_eq(field("a") >= literal(1))
+    assert (1 <= field("a"))._expr_eq(field("a") >= literal(1))
 
 
 def test_query_expr_eq():
