@@ -118,15 +118,31 @@ Next up, let's add some documents to the collection. A **document** is a JSON-st
 <CodeGroup>
 
 ```python Python
+import numpy as np
+
 lsn = client.collection("books").upsert(
     [
-        {"_id": "1", "title": "The Great Gatsby", "title_embedding": [3.1, 6.2, 9.3, ...], "published_year": 1925},
-        {"_id": "2", "title": "1984", "title_embedding": [6.1, 7.2, 8.3, ...], "published_year": 1949},
-        {"_id": "3", "title": "The Catcher in the Rye", "title_embedding": [1.1, 2.2, 3.3, ...], "published_year": 1951},
+        {
+          "_id": "1",
+          "title": "The Great Gatsby",
+          "title_embedding": np.random.rand(1536).tolist(),
+          "published_year": 1925
+        },
+        {
+          "_id": "2",
+          "title": "1984",
+          "title_embedding": np.random.rand(1536).tolist(),
+          "published_year": 1949
+        },
+        {
+          "_id": "3",
+          "title": "The Catcher in the Rye",
+          "title_embedding": np.random.rand(1536).tolist(),
+          "published_year": 1951
+        }
     ],
 )
 ```
-
 ```shell JavaScript
 # Reach out to us at support@topk.io if this is a blocker for you.
 # We will help you get started.
@@ -161,7 +177,7 @@ from topk_sdk.query import select, field, fn, match
 results = client.collection("books").query(
     select(
       "title",
-      vector_distance=fn.vector_distance("title_embedding", [6.1, 7.2, 8.3, ...]),
+      vector_distance=fn.vector_distance("title_embedding", np.random.rand(1536).tolist()),
       text_score=fn.bm25_score(),
     )
     # Keyword search - filter books that contain keyword "catcher"
@@ -169,7 +185,7 @@ results = client.collection("books").query(
     # Metadata search - filter books by published year
     .filter(field("published_year") > 1920)
     # Scoring - return top 10 results by calculating score as `vector_distance * 0.8 + text_score * 0.2`
-    .top_k(field("vector_distance") * 0.8 + field("text_score") * 0.2, 10)
+    .top_k(field("vector_distance") * 0.8 + field("text_score") * 0.2, 10),
 
     # Pass the LSN to make sure the query is consistent with the writes.
     lsn=lsn,
@@ -190,7 +206,7 @@ The example filters books with "catcher" in the title and vector distance > 0.5,
 ```python Python
 for result in results:
     # Fields specified in `select` are returned as attributes of the result object. `_id` is always returned.
-    print(f"ID: {result._id}, Title: {result.title}, Vector distance: {result.vector_distance}")
+    print(f"ID: {result['_id']}, Title: {result['title']}, Vector distance: {result['vector_distance']}")
 ```
 
 ```shell JavaScript

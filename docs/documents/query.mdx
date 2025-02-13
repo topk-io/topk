@@ -83,17 +83,18 @@ The above example computes the cosine similarity between the vector and the `tit
 
 ## Filtering
 
-You can filter documents based on metadata or vector similarity. The `filter` method allows you to filter documents based on a condition.
+You can filter documents based on metadata, keywords, values computed inside `select()` (e.g. vector similarity), and more. Filter expressions
+support all comparison operators: `==`, `!=`, `>`, `>=`, `<`, `<=`, arithmetic operations: `+`, `-`, `*`, `/`, and boolean operators: `|`, `&`.
 
-### Filtering by metadata
-
-The below example shows filtering by metadata.
+### Metadata filtering
+The example below shows filtering by metadata.
 
 <CodeGroup>
 
 ```python Python
-# Filtering by metadata
-.filter(field("published_year") > 1980)
+.filter(
+    field("published_year") > 1980
+)
 ```
 
 ```js JavaScript
@@ -103,15 +104,55 @@ The below example shows filtering by metadata.
 
 </CodeGroup>
 
-### Filtering by vector similarity
-
-The below example shows filtering by vector similarity.
+### Keyword filtering
+The example below shows filtering documents by the keywords they contain. It'll match all documents that
+contain either `"gatsby"` or both `"catcher"` and `"rye"`.
 
 <CodeGroup>
 
 ```python Python
-# Filtering by vector similarity
-.filter(field("title_similarity") > 0.8)
+.filter(
+    match("gatsby") | (match("catcher") & match("rye"))
+)
+```
+
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+```
+
+</CodeGroup>
+
+### Filter expressions
+You can combine multiple filter expressions using boolean operators. For example, the query below will match all
+documents that were published in 1997 or between 1920 and 1980.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    (field("published_year") == 1997) | ((field("published_year") >= 1920) & (field("published_year") <= 1980))
+)
+```
+
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+```
+
+</CodeGroup>
+
+### starts_with
+The `starts_with` operator can be used on string fields to match documents that start with a given prefix. This is especially
+useful in multi-tenant applications where document IDs can be structured as `{tenant_id}/{document_id}` and `starts_with` can
+then be used to scope the query to a specific tenant.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("_id").starts_with("tenant_123/")
+)
 ```
 
 ```js JavaScript
