@@ -151,7 +151,7 @@ impl CollectionClient {
         lsn: Option<u64>,
     ) -> Result<Vec<Document>, Error> {
         let mut tries = 0;
-        let max_tries = 10;
+        let max_tries = 120;
         let retry_after = Duration::from_secs(1);
 
         loop {
