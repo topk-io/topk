@@ -10,14 +10,16 @@ def test_upsert(ctx: ProjectContext):
 
     lsn = ctx.client.collection(ctx.scope("books")).upsert(
         [
-            {"_id": "one", "name": "one"},
-            {"_id": "two", "name": "two", "extra": 1},
+            {"_id": "one", "name": "one", "rank": 1},
+            {"_id": "two", "name": "two", "extra": 1, "rank": 2},
         ],
     )
     assert lsn == 1
 
     docs = ctx.client.collection(ctx.scope("books")).query(
-        select("name").filter(field("name").eq("two")),
+        select("name")
+        .filter(field("name").eq("two"))
+        .top_k(field("rank"), k=10),
         lsn=lsn,
     )
 
@@ -52,10 +54,7 @@ def test_keyword_search(ctx: ProjectContext):
         select(
             text_score=fn.keyword_score(),
         )
-        .filter(
-            match("title", token="blue", weight=10.0)
-            | match("title", token="red", weight=50.0),
-        )
+        .filter(match("red") | match("blue"))
         .top_k(field("text_score"), k=5),
         lsn=lsn,
     )
@@ -159,10 +158,30 @@ def test_delete(ctx: ProjectContext):
     assert lsn == 2
 
     docs = ctx.client.collection(ctx.scope("books")).query(
-        select("name").filter(field("name").eq("one")),
+        select("name").filter(field("name").eq("one")).count(),
         lsn=lsn,
     )
-    assert docs == []
+    assert docs == [{"_count": 0}]
+
+def test_count(ctx: ProjectContext):
+    ctx.client.collections().create(ctx.scope("books"), schema={})
+
+    lsn = ctx.client.collection(ctx.scope("books")).upsert(
+        [
+            {"_id": "doc1", "name": "one"},
+            {"_id": "doc2", "name": "two"},
+        ],
+    )
+    assert lsn == 1
+
+    count = ctx.client.collection(ctx.scope("books")).count(lsn=lsn)
+    assert count == 2
+
+    lsn = ctx.client.collection(ctx.scope("books")).delete(["doc1"])
+    assert lsn == 2
+
+    count = ctx.client.collection(ctx.scope("books")).count(lsn=lsn)
+    assert count == 1
 
 
 @pytest.fixture

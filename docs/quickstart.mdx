@@ -162,8 +162,8 @@ results = client.collection("books").query(
       vector_distance=fn.vector_distance("title_embedding", [6.1, 7.2, 8.3, ...]),
       text_score=fn.keyword_score(),
     )
-    # Keyword search - filter books with word "catcher" in the title
-    .filter(match("title", token="catcher"))
+    # Keyword search - filter books that contain keyword "catcher"
+    .filter(match("catcher"))
     # Metadata search - filter books by published year
     .filter(field("published_year") > 1920)
     # Scoring - return top 10 results by calculating score as `vector_distance * 0.8 + text_score * 0.2`

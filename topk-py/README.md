@@ -69,7 +69,7 @@ results = client.collection("books").query(
     select(
         text_score=fn.keyword_score(),
     ).filter(
-        match("title", token="Rust", weight=10.0)
+        match("rust", field="title", weight=10.0)
     ).top_k(field("text_score"), k=3)
 )
 ```
@@ -82,7 +82,7 @@ Perform a nearest-neighbor search with vector distances.
 results = client.collection("books").query(
     select(
         vector_distance=fn.vector_distance("embedding", [1.0, 2.0, 3.0]),
-    ).top_k(field("vector_distance"), k=3, asc=True)
+    ).top_k(field("vector_distance"), k=3)
 )
 ```
 

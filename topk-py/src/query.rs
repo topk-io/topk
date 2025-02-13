@@ -19,6 +19,7 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     module!(m, "fn", fn_pymodule)?;
 
     m.add_wrapped(wrap_pyfunction!(select))?;
+    m.add_wrapped(wrap_pyfunction!(count))?;
     m.add_wrapped(wrap_pyfunction!(field))?;
     m.add_wrapped(wrap_pyfunction!(literal))?;
     m.add_wrapped(wrap_pyfunction!(r#match))?;
@@ -35,6 +36,11 @@ pub fn select(
 }
 
 #[pyfunction]
+pub fn count() -> PyResult<Query> {
+    Query::new().count()
+}
+
+#[pyfunction]
 pub fn field(name: String) -> data::logical_expr::LogicalExpression {
     data::logical_expr::LogicalExpression::Field { name }
 }
@@ -45,13 +51,17 @@ pub fn literal(value: data::scalar::Scalar) -> data::logical_expr::LogicalExpres
 }
 
 #[pyfunction]
-#[pyo3(signature = (field, token, weight=1.0))]
-pub fn r#match(field: String, token: String, weight: f32) -> data::text_expr::TextExpression {
+#[pyo3(signature = (token, field=None, weight=1.0))]
+pub fn r#match(
+    token: String,
+    field: Option<String>,
+    weight: f32,
+) -> data::text_expr::TextExpression {
     data::text_expr::TextExpression::Terms {
-        all: false,
+        all: true,
         terms: vec![data::text_expr::Term {
             token,
-            field: Some(field),
+            field,
             weight,
         }],
     }
