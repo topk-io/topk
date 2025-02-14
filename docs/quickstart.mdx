@@ -6,7 +6,8 @@ icon: "rocket"
 
 import Support from "/snippets/support.mdx";
 
-This guide will get you up and running with `topk` in under 5 minutes. You'll create a collection, add documents to it, and query your collection.
+This guide will get you up and running with `topk` in under 5 minutes. You'll create a collection, add documents to it, and search using 
+keywords, vectors, and filters in a single query.
 
 ## 1. Install the SDK
 
@@ -46,7 +47,7 @@ pip install topk-sdk
 
 ## 2. Create an API key
 
-To get started with TopK, you need an API key. Here's how you can get one:
+To get started with TopK, you need an API key. Here's how you can get one for free:
 
 1. Head down to the <a href="https://console.topk.io" target="_blank">Console</a>.
 2. Create your account and generate an API key.
@@ -74,7 +75,9 @@ client = Client(api_key="YOUR_TOPK_API_KEY", region="aws-us-east-1-elastica")
 
 </CodeGroup>
 
-Then create a collection, optionally specifying a schema.
+Then create a collection, optionally specifying a schema. The example below creates a `books` collection with a
+schema that includes a required `title` field with keyword index, a required `title_embedding` field with vector index,
+and an optional `published_year` field with integer type.
 
 <CodeGroup>
 
@@ -123,19 +126,19 @@ import numpy as np
 lsn = client.collection("books").upsert(
     [
         {
-          "_id": "1",
+          "_id": "gatsby",
           "title": "The Great Gatsby",
           "title_embedding": np.random.rand(1536).tolist(),
           "published_year": 1925
         },
         {
-          "_id": "2",
+          "_id": "1984",
           "title": "1984",
           "title_embedding": np.random.rand(1536).tolist(),
           "published_year": 1949
         },
         {
-          "_id": "3",
+          "_id": "catcher",
           "title": "The Catcher in the Rye",
           "title_embedding": np.random.rand(1536).tolist(),
           "published_year": 1951
@@ -154,7 +157,7 @@ lsn = client.collection("books").upsert(
   Heads up: `topk` is an currently an eventually consistent database.
 
   In practice, this means that there is a delay between when you write documents and when they are available for querying.
-  If you want to guarantee that your writes are included in the query results, you can pass the `lsn` (log sequence number)
+  If you want to guarantee that your writes are reflected in the query results, you can pass the `lsn` (log sequence number)
   object returned from the `upsert()` and `delete()` methods to the `query()` method.
   This will reject the query execution unless the writes at `lsn` have already been indexed and are available for querying.
 
@@ -199,7 +202,9 @@ results = client.collection("books").query(
 
 </CodeGroup>
 
-The example filters books with "catcher" in the title and vector distance > 0.5, excludes those published before 1920, and returns 10 most relevant results sorted by custom score expression `text_score * vector_distance * 3`.
+The example filters books with "catcher" in the `title`, published after 1920, and returns 10 most relevant results
+sorted by an arithmetic expression of `vector_distance` and `text_score`. You can use arithmetic expressions in the
+`top_k` method to increase or decrease the relative importance of different text/vector scores.
 
 <CodeGroup>
 
@@ -230,9 +235,7 @@ Let's clean up so you can explore the rest of the documentation. If you want to 
 <CodeGroup>
 
 ```python Python
-client.collection("books").delete(
-    ["book-1", "book-2", "book-3"]
-)
+client.collection("books").delete(["1984"])
 ```
 
 ```shell JavaScript
