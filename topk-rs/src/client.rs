@@ -172,19 +172,26 @@ impl CollectionClient {
             match response {
                 Ok(response) => return Ok(response.into_inner().results),
                 Err(e) => {
-                    let code = InternalErrorCode::parse_status(&e);
-
-                    match code {
+                    match InternalErrorCode::parse_status(&e) {
+                        // Custom error
                         Ok(InternalErrorCode::RequiredLsnGreaterThanManifestMaxLsn) => {
                             if tries < max_tries {
                                 tokio::time::sleep(retry_after).await;
-
                                 continue;
                             } else {
                                 return Err(Error::QueryLsnTimeout);
                             }
                         }
-                        _ => return Err(Error::Unexpected(e)),
+                        _ => {
+                            return Err(match e.code() {
+                                tonic::Code::NotFound => Error::CollectionNotFound,
+                                tonic::Code::ResourceExhausted => Error::CapacityExceeded,
+                                tonic::Code::InvalidArgument => {
+                                    Error::InvalidArgument(e.message().into())
+                                }
+                                _ => Error::Unexpected(e),
+                            })
+                        }
                     }
                 }
             }
@@ -198,6 +205,7 @@ impl CollectionClient {
             .upsert_documents(UpsertDocumentsRequest { docs })
             .await
             .map_err(|e| match e.code() {
+                tonic::Code::NotFound => Error::CollectionNotFound,
                 tonic::Code::InvalidArgument => match ValidationErrorBag::try_from(e.clone()) {
                     Ok(errors) => Error::DocumentValidationError(errors),
                     Err(_) => Error::Unexpected(e),
@@ -216,6 +224,7 @@ impl CollectionClient {
             .delete_documents(DeleteDocumentsRequest { ids })
             .await
             .map_err(|e| match e.code() {
+                tonic::Code::NotFound => Error::CollectionNotFound,
                 tonic::Code::ResourceExhausted => Error::CapacityExceeded,
                 tonic::Code::InvalidArgument => match ValidationErrorBag::try_from(e.clone()) {
                     Ok(errors) => Error::DocumentValidationError(errors),

@@ -1,6 +1,6 @@
 [package]
 name = "topk-py"
-version = "0.1.13"
+version = "0.1.14"
 edition = "2021"
 description = "TopK Python SDK"
 license-file = "LICENSE"
