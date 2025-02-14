@@ -24,6 +24,7 @@ message Collection {
   string org_id = 2;
   string project_id = 3;
   map<string, FieldSpec> schema = 4;
+  string region = 5;
 }
 
 message ListCollectionsRequest {}

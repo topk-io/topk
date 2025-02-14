@@ -16,6 +16,8 @@ pub struct Collection {
     #[pyo3(get)]
     project_id: String,
     #[pyo3(get)]
+    region: String,
+    #[pyo3(get)]
     schema: HashMap<String, FieldSpec>,
 }
 
@@ -26,12 +28,14 @@ impl Collection {
         name: String,
         org_id: String,
         project_id: String,
+        region: String,
         schema: HashMap<String, FieldSpec>,
     ) -> Self {
         Self {
             name,
             org_id,
             project_id,
+            region,
             schema,
         }
     }
@@ -58,6 +62,7 @@ impl Into<topk_protos::v1::control::Collection> for Collection {
             self.org_id.to_string(),
             self.project_id.to_string(),
             schema,
+            self.region.to_string(),
         )
     }
 }
@@ -73,6 +78,7 @@ impl From<topk_protos::v1::control::Collection> for Collection {
             name: collection.name,
             org_id: collection.org_id,
             project_id: collection.project_id,
+            region: collection.region,
             schema,
         }
     }
