@@ -9,6 +9,7 @@ use topk_protos::utils::{
     DocumentClientWithHeaders, QueryClientWithHeaders,
 };
 use topk_protos::v1::control::{FieldSpec, GetCollectionRequest};
+use topk_protos::v1::data::ConsistencyLevel;
 use topk_protos::{
     utils::{DocumentClient, QueryClient},
     v1::{
@@ -141,14 +142,11 @@ impl CollectionClient {
         }
     }
 
-    pub async fn query(&self, query: Query) -> Result<Vec<Document>, Error> {
-        self.query_at_lsn(query, None).await
-    }
-
-    pub async fn query_at_lsn(
+    pub async fn query(
         &self,
         query: Query,
         lsn: Option<u64>,
+        consistency: Option<ConsistencyLevel>,
     ) -> Result<Vec<Document>, Error> {
         let mut tries = 0;
         let max_tries = 120;
@@ -166,6 +164,7 @@ impl CollectionClient {
                     collection: self.collection.clone(),
                     query: Some(query),
                     required_lsn: lsn,
+                    consistency_level: consistency.map(|c| c.into()),
                 })
                 .await;
 

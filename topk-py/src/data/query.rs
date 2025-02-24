@@ -4,8 +4,43 @@ use super::{
     select_expr::{SelectExpression, SelectExpressionUnion},
     stage::Stage,
 };
-use pyo3::prelude::*;
+use pyo3::{exceptions::PyTypeError, prelude::*, types::PyString};
 use std::collections::HashMap;
+
+#[derive(Debug, Clone)]
+pub enum ConsistencyLevel {
+    Indexed,
+    Strong,
+}
+
+impl<'py> FromPyObject<'py> for ConsistencyLevel {
+    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+        let obj = ob.as_ref();
+
+        match obj.downcast::<PyString>() {
+            Ok(val) => match val.extract::<&str>()? {
+                "indexed" => Ok(ConsistencyLevel::Indexed),
+                "strong" => Ok(ConsistencyLevel::Strong),
+                val => Err(PyTypeError::new_err(format!(
+                    "Invalid consistency level `{val}`",
+                ))),
+            },
+            _ => Err(PyTypeError::new_err(format!(
+                "Can't convert from {:?} to ConsistencyLevel type",
+                obj.get_type().name()
+            ))),
+        }
+    }
+}
+
+impl From<ConsistencyLevel> for topk_protos::v1::data::ConsistencyLevel {
+    fn from(consistency_level: ConsistencyLevel) -> Self {
+        match consistency_level {
+            ConsistencyLevel::Indexed => topk_protos::v1::data::ConsistencyLevel::Indexed,
+            ConsistencyLevel::Strong => topk_protos::v1::data::ConsistencyLevel::Strong,
+        }
+    }
+}
 
 #[pyclass]
 #[derive(Debug, Clone)]

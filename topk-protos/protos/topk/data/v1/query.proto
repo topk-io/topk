@@ -17,10 +17,17 @@ service QueryService {
   }
 }
 
+enum ConsistencyLevel {
+  CONSISTENCY_LEVEL_UNSPECIFIED = 0;
+  CONSISTENCY_LEVEL_INDEXED = 1;
+  CONSISTENCY_LEVEL_STRONG = 2;
+}
+
 message QueryRequest {
   string collection = 1;
   Query query = 2;
   optional uint64 required_lsn = 3;
+  optional ConsistencyLevel consistency_level = 4;
 }
 
 message QueryResponse {

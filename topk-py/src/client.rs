@@ -8,7 +8,10 @@ use topk_rs::ClientConfig;
 use super::error::{CollectionNotFoundError, SchemaValidationError};
 use crate::{
     control::{collection::Collection, field_spec::FieldSpec},
-    data::{query::Query, value::ValueUnion},
+    data::{
+        query::{ConsistencyLevel, Query},
+        value::ValueUnion,
+    },
 };
 
 #[pyclass]
@@ -116,17 +119,17 @@ pub struct CollectionClient {
 
 #[pymethods]
 impl CollectionClient {
-    #[pyo3(signature = (lsn=None))]
-    pub fn count(&self, lsn: Option<u64>) -> PyResult<u64> {
+    #[pyo3(signature = (lsn=None, consistency=None))]
+    pub fn count(&self, lsn: Option<u64>, consistency: Option<ConsistencyLevel>) -> PyResult<u64> {
         let query = Query::new().count()?;
 
         let docs = self
             .runtime
-            .block_on(
-                self.client
-                    .collection(&self.collection)
-                    .query_at_lsn(query.into(), lsn),
-            )
+            .block_on(self.client.collection(&self.collection).query(
+                query.into(),
+                lsn,
+                consistency.map(|c| c.into()),
+            ))
             .map_err(|e| match e {
                 _ => PyException::new_err(format!("failed to query collection: {:?}", e)),
             })?;
@@ -154,19 +157,20 @@ impl CollectionClient {
         )))
     }
 
-    #[pyo3(signature = (query, lsn=None))]
+    #[pyo3(signature = (query, lsn=None, consistency=None))]
     pub fn query(
         &self,
         query: Query,
         lsn: Option<u64>,
+        consistency: Option<ConsistencyLevel>,
     ) -> PyResult<Vec<HashMap<String, ValueUnion>>> {
         let docs = self
             .runtime
-            .block_on(
-                self.client
-                    .collection(&self.collection)
-                    .query_at_lsn(query.into(), lsn),
-            )
+            .block_on(self.client.collection(&self.collection).query(
+                query.into(),
+                lsn,
+                consistency.map(|c| c.into()),
+            ))
             .map_err(|e| match e {
                 _ => PyException::new_err(format!("failed to query collection: {:?}", e)),
             })?;
