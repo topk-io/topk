@@ -17,10 +17,6 @@
   },
   "topbarLinks": [
     {
-      "name": "Community",
-      "url": "https://discord.gg/as4sCYQ8"
-    },
-    {
       "name": "Support",
       "url": "mailto:support@topk.io"
     },
@@ -56,13 +52,12 @@
   "footerSocials": {
     "github": "https://github.com/fafolabs/topk-sdk",
     "x": "https://x.com/topk_io",
-    "linkedin": "https://www.linkedin.com/company/106000380/",
-    "discord": "https://discord.gg/as4sCYQ8"
+    "linkedin": "https://www.linkedin.com/company/106000380/"
   },
   "integrations": {
     "posthog": {
-        "apiKey": "phc_g1MJ3n2npWQzia5hSCGxjOqD1Gef7eZw6TuU71aUUIQ",
-        "apiHost": "https://eu.i.posthog.com"
+      "apiKey": "phc_g1MJ3n2npWQzia5hSCGxjOqD1Gef7eZw6TuU71aUUIQ",
+      "apiHost": "https://eu.i.posthog.com"
     }
-}
+  }
 }
