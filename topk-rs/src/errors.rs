@@ -9,6 +9,9 @@ pub enum SchemaValidationError {
     #[error("field name `{field}` cannot start with an underscore")]
     ReservedFieldName { field: String },
 
+    #[error("Missing index spec for field `{field}`")]
+    MissingIndexSpec { field: String },
+
     #[error("invalid index `{index}` for field `{field}` with type `{data_type}`")]
     InvalidIndex {
         field: String,
@@ -25,6 +28,9 @@ pub enum SchemaValidationError {
 
     #[error("vector field `{field}` cannot be have zero dimension")]
     VectorDimensionCannotBeZero { field: String },
+
+    #[error("Invalid semantic index for field `{field}. Error: {error}`")]
+    InvalidSemanticIndex { field: String, error: String },
 }
 
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
