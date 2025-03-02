@@ -120,6 +120,26 @@ impl Query {
         })
     }
 
+    #[pyo3(signature = (model=None, query=None, fields=vec![]))]
+    pub fn rerank(
+        &self,
+        model: Option<String>,
+        query: Option<String>,
+        fields: Vec<String>,
+    ) -> PyResult<Self> {
+        Ok(Self {
+            stages: [
+                self.stages.clone(),
+                vec![Stage::Rerank {
+                    model,
+                    query,
+                    fields,
+                }],
+            ]
+            .concat(),
+        })
+    }
+
     pub fn count(&self) -> PyResult<Self> {
         Ok(Self {
             stages: [self.stages.clone(), vec![Stage::Count {}]].concat(),

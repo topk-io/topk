@@ -20,8 +20,8 @@ impl Into<topk_protos::v1::data::Vector> for VectorQuery {
 #[derive(Debug, Clone)]
 pub enum FunctionExpression {
     KeywordScore {},
-
     VectorScore { field: String, query: VectorQuery },
+    SemanticSimilarity { field: String, query: String },
 }
 
 impl Into<topk_protos::v1::data::FunctionExpr> for FunctionExpression {
@@ -32,6 +32,9 @@ impl Into<topk_protos::v1::data::FunctionExpr> for FunctionExpression {
             }
             FunctionExpression::VectorScore { field, query } => {
                 topk_protos::v1::data::FunctionExpr::vector_distance(field, query.into())
+            }
+            FunctionExpression::SemanticSimilarity { field, query } => {
+                topk_protos::v1::data::FunctionExpr::semantic_similarity(field, query)
             }
         }
     }

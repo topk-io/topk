@@ -1,6 +1,14 @@
 import pytest
 from topk_sdk.query import field, fn, match, select
-from topk_sdk.schema import keyword_index, text, f32_vector, u8_vector, binary_vector, vector_index
+from topk_sdk.schema import (
+    binary_vector,
+    f32_vector,
+    keyword_index,
+    semantic_index,
+    text,
+    u8_vector,
+    vector_index,
+)
 
 from . import ProjectContext
 
@@ -17,9 +25,7 @@ def test_upsert(ctx: ProjectContext):
     assert lsn == 1
 
     docs = ctx.client.collection(ctx.scope("books")).query(
-        select("name")
-        .filter(field("name").eq("two"))
-        .top_k(field("rank"), k=10),
+        select("name").filter(field("name").eq("two")).top_k(field("rank"), k=10),
         lsn=lsn,
     )
 
@@ -66,7 +72,9 @@ def test_vector_search_f32(ctx: ProjectContext):
     ctx.client.collections().create(
         ctx.scope("books"),
         schema={
-            "f32_embedding": f32_vector(3).required().index(vector_index(metric="euclidean")),
+            "f32_embedding": f32_vector(3)
+            .required()
+            .index(vector_index(metric="euclidean")),
         },
     )
 
@@ -89,11 +97,14 @@ def test_vector_search_f32(ctx: ProjectContext):
 
     assert [d["_id"] for d in docs] == ["doc3", "doc2"]
 
+
 def test_vector_search_u8(ctx: ProjectContext):
     ctx.client.collections().create(
         ctx.scope("books"),
         schema={
-            "u8_embedding": u8_vector(3).required().index(vector_index(metric="euclidean")),
+            "u8_embedding": u8_vector(3)
+            .required()
+            .index(vector_index(metric="euclidean")),
         },
     )
 
@@ -116,11 +127,14 @@ def test_vector_search_u8(ctx: ProjectContext):
 
     assert [d["_id"] for d in docs] == ["doc3", "doc2"]
 
+
 def test_vector_search_binary(ctx: ProjectContext):
     ctx.client.collections().create(
         ctx.scope("books"),
         schema={
-            "binary_embedding": binary_vector(3).required().index(vector_index(metric="hamming")),
+            "binary_embedding": binary_vector(3)
+            .required()
+            .index(vector_index(metric="hamming")),
         },
     )
 
@@ -144,6 +158,37 @@ def test_vector_search_binary(ctx: ProjectContext):
     assert [d["_id"] for d in docs] == ["doc3", "doc2"]
 
 
+def test_semantic_search(ctx: ProjectContext):
+    ctx.client.collections().create(
+        ctx.scope("books"),
+        schema={
+            "title": text().required().index(semantic_index(model="something-made-up")),
+        },
+    )
+
+    lsn = ctx.client.collection(ctx.scope("books")).upsert(
+        [
+            {"_id": "doc1", "title": "red purple green"},
+            {"_id": "doc2", "title": "yellow purple pink"},
+            {"_id": "doc3", "title": "orange red blue"},
+            {"_id": "doc4", "title": "green yellow purple"},
+            {"_id": "doc5", "title": "pink orange green"},
+            {"_id": "doc6", "title": "black green yellow"},
+            {"_id": "doc7", "title": "purple pink orange"},
+            {"_id": "doc8", "title": "green yello green"},
+            {"_id": "doc9", "title": "yellow purple pink"},
+        ],
+    )
+    assert lsn == 1
+
+    docs = ctx.client.collection(ctx.scope("books")).query(
+        select(sim=fn.semantic_similarity("title", "redish")).top_k(field("sim"), k=2),
+        lsn=lsn,
+    )
+
+    assert {d["_id"] for d in docs} == {"doc1", "doc2"}
+
+
 def test_delete(ctx: ProjectContext):
     ctx.client.collections().create(ctx.scope("books"), schema={})
 
@@ -162,6 +207,7 @@ def test_delete(ctx: ProjectContext):
         lsn=lsn,
     )
     assert docs == [{"_count": 0}]
+
 
 def test_count(ctx: ProjectContext):
     ctx.client.collections().create(ctx.scope("books"), schema={})
@@ -182,6 +228,36 @@ def test_count(ctx: ProjectContext):
 
     count = ctx.client.collection(ctx.scope("books")).count(lsn=lsn)
     assert count == 1
+
+
+def test_rerank(ctx: ProjectContext):
+    ctx.client.collections().create(
+        ctx.scope("books"),
+        schema={
+            "summary": text().required().index(semantic_index()),
+        },
+    )
+
+    lsn = ctx.client.collection(ctx.scope("books")).upsert(
+        [
+            {"_id": "doc1", "summary": "book about a boy that goes to the woods"},
+            {"_id": "doc2", "summary": "capitalism 101"},
+            {"_id": "doc3", "summary": "walking into the sea"},
+            {"_id": "doc4", "summary": "bears like to stay by the bushes"},
+            {"_id": "doc5", "summary": "dad takes his son for a stroll in the nature"},
+        ],
+    )
+
+    docs = ctx.client.collection(ctx.scope("books")).query(
+        select(
+            "name",
+            summary_sim=fn.semantic_similarity("summary", "male walks around trees"),
+        )
+        .top_k(field("summary_sim"), k=2)
+        .rerank(),
+        lsn=lsn,
+    )
+    assert [d["_id"] for d in docs] == ["doc1", "doc4"]
 
 
 @pytest.fixture

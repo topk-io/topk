@@ -19,6 +19,11 @@ pub enum Stage {
         asc: bool,
     },
     Count {},
+    Rerank {
+        model: Option<String>,
+        query: Option<String>,
+        fields: Vec<String>,
+    },
 }
 
 impl Into<topk_protos::v1::data::Stage> for Stage {
@@ -28,6 +33,11 @@ impl Into<topk_protos::v1::data::Stage> for Stage {
             Stage::Filter { expr } => topk_protos::v1::data::Stage::filter(expr),
             Stage::TopK { expr, k, asc } => topk_protos::v1::data::Stage::topk(expr.into(), k, asc),
             Stage::Count {} => topk_protos::v1::data::Stage::count(),
+            Stage::Rerank {
+                model,
+                query,
+                fields,
+            } => topk_protos::v1::data::Stage::rerank(model, query, fields),
         }
     }
 }

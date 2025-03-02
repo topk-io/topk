@@ -23,6 +23,7 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // indexes
     m.add_wrapped(wrap_pyfunction!(vector_index))?;
     m.add_wrapped(wrap_pyfunction!(keyword_index))?;
+    m.add_wrapped(wrap_pyfunction!(semantic_index))?;
 
     Ok(())
 }
@@ -99,4 +100,10 @@ pub fn keyword_index(r#type: String) -> PyResult<control::field_index::FieldInde
     };
 
     Ok(control::field_index::FieldIndex::KeywordIndex { index_type })
+}
+
+#[pyfunction]
+#[pyo3(signature=(model=None))]
+pub fn semantic_index(model: Option<String>) -> PyResult<control::field_index::FieldIndex> {
+    Ok(control::field_index::FieldIndex::SemanticIndex { model })
 }
