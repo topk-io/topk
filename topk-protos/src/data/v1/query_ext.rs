@@ -415,12 +415,12 @@ impl FunctionExpr {
         }
     }
 
-    pub fn semantic_similarity(field: impl Into<String>, query: String) -> Self {
+    pub fn semantic_similarity(field: impl Into<String>, query: impl Into<String>) -> Self {
         FunctionExpr {
             func: Some(function_expr::Func::SemanticSimilarity(
                 function_expr::SemanticSimilarity {
                     field: field.into(),
-                    query,
+                    query: query.into(),
                 },
             )),
         }

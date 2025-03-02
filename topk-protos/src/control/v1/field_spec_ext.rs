@@ -90,4 +90,16 @@ impl FieldSpec {
             }),
         }
     }
+
+    pub fn semantic(required: bool, model: Option<String>) -> FieldSpec {
+        FieldSpec {
+            data_type: Some(FieldType {
+                data_type: Some(field_type::DataType::Text(FieldTypeText {})),
+            }),
+            required,
+            index: Some(FieldIndex {
+                index: Some(field_index::Index::SemanticIndex(SemanticIndex { model })),
+            }),
+        }
+    }
 }
