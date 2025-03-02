@@ -72,6 +72,7 @@ pub fn r#match(
 pub fn fn_pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(bm25_score))?;
     m.add_wrapped(wrap_pyfunction!(vector_distance))?;
+    m.add_wrapped(wrap_pyfunction!(semantic_similarity))?;
 
     Ok(())
 }
@@ -127,4 +128,12 @@ pub fn vector_distance(
             VectorQueryArg::U8(values) => VectorQuery::U8(values),
         },
     }
+}
+
+#[pyfunction]
+pub fn semantic_similarity(
+    field: String,
+    query: String,
+) -> data::function_expr::FunctionExpression {
+    data::function_expr::FunctionExpression::SemanticSimilarity { field, query }
 }

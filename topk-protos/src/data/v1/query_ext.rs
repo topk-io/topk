@@ -43,6 +43,16 @@ impl Stage {
             stage: Some(stage::Stage::Count(stage::CountStage {})),
         }
     }
+
+    pub fn rerank(model: Option<String>, query: Option<String>, fields: Vec<String>) -> Self {
+        Stage {
+            stage: Some(stage::Stage::Rerank(stage::RerankStage {
+                model,
+                query,
+                fields,
+            })),
+        }
+    }
 }
 
 impl stage::select_stage::SelectExpr {
@@ -402,6 +412,17 @@ impl FunctionExpr {
     pub fn bm25_score() -> Self {
         FunctionExpr {
             func: Some(function_expr::Func::Bm25Score(function_expr::Bm25Score {})),
+        }
+    }
+
+    pub fn semantic_similarity(field: impl Into<String>, query: String) -> Self {
+        FunctionExpr {
+            func: Some(function_expr::Func::SemanticSimilarity(
+                function_expr::SemanticSimilarity {
+                    field: field.into(),
+                    query,
+                },
+            )),
         }
     }
 }

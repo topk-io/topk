@@ -8,6 +8,7 @@ from topk_sdk.schema import (
     float,
     int,
     keyword_index,
+    semantic_index,
     text,
     u8_vector,
     vector_index,
@@ -22,6 +23,7 @@ def test_create_collection(ctx: ProjectContext):
         "title_embedding": f32_vector(1536)
         .required()
         .index(vector_index(metric="euclidean")),
+        "summary": text().required().index(semantic_index()),
         "published_year": int().required(),
     }
 

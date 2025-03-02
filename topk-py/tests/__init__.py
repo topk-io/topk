@@ -18,13 +18,13 @@ def new_project_context():
     TOPK_API_KEY = os.environ["TOPK_API_KEY"].splitlines()[0].strip()
     TOPK_HOST = os.environ.get("TOPK_HOST", "topk.io")
     TOPK_REGION = os.environ.get("TOPK_REGION", "elastica")
-    TOPK_HTTPS = os.environ.get("TOPK_HTTPS", "true") == "true"
+    TOPK_HTTPS = os.environ.get("TOPK_HTTPS", "false") == "true"
 
     client = Client(
         api_key=TOPK_API_KEY,
         region=TOPK_REGION,
         host=TOPK_HOST,
-        https=TOPK_HTTPS
+        https=TOPK_HTTPS,
     )
 
     return ProjectContext(
