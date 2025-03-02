@@ -16,4 +16,10 @@ impl FieldIndex {
             })),
         }
     }
+
+    pub fn semantic(model: Option<String>) -> FieldIndex {
+        FieldIndex {
+            index: Some(field_index::Index::SemanticIndex(SemanticIndex { model })),
+        }
+    }
 }

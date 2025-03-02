@@ -5,6 +5,7 @@ use pyo3::prelude::*;
 pub enum FieldIndex {
     KeywordIndex { index_type: KeywordIndexType },
     VectorIndex { metric: VectorDistanceMetric },
+    SemanticIndex { model: Option<String> },
 }
 
 #[pyclass(eq, eq_int)]
@@ -56,6 +57,9 @@ impl Into<topk_protos::v1::control::FieldIndex> for FieldIndex {
             FieldIndex::VectorIndex { metric } => {
                 topk_protos::v1::control::FieldIndex::vector(metric.into())
             }
+            FieldIndex::SemanticIndex { model } => {
+                topk_protos::v1::control::FieldIndex::semantic(model)
+            }
         }
     }
 }
@@ -88,6 +92,11 @@ impl From<topk_protos::v1::control::FieldIndex> for FieldIndex {
                         }
                         m => panic!("unsupported vector metric {:?}", m),
                     },
+                }
+            }
+            topk_protos::v1::control::field_index::Index::SemanticIndex(semantic_index) => {
+                FieldIndex::SemanticIndex {
+                    model: semantic_index.model,
                 }
             }
         }

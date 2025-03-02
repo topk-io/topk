@@ -32,6 +32,7 @@ fn build_topk_v1() {
         "topk.control.v1.FieldIndex.index",
         "topk.control.v1.KeywordIndex",
         "topk.control.v1.VectorIndex",
+        "topk.control.v1.SemanticIndex",
     ] {
         builder = builder.type_attribute(message, "#[derive(Eq, Hash)]");
     }
@@ -56,6 +57,7 @@ fn build_topk_v1() {
         "topk.control.v1.FieldIndex.index",
         "topk.control.v1.KeywordIndex",
         "topk.control.v1.VectorIndex",
+        "topk.control.v1.SemanticIndex",
     ] {
         builder =
             builder.type_attribute(message, "#[derive(serde::Serialize, serde::Deserialize)]");
