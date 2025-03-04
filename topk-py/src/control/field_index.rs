@@ -125,6 +125,7 @@ impl From<topk_protos::v1::control::FieldIndex> for FieldIndex {
             }
             topk_protos::v1::control::field_index::Index::SemanticIndex(semantic_index) => {
                 let embedding_type = match semantic_index.embedding_type() {
+                    topk_protos::v1::control::EmbeddingDataType::Unspecified => None,
                     topk_protos::v1::control::EmbeddingDataType::Binary => {
                         Some(EmbeddingDataType::Binary)
                     }
@@ -134,7 +135,6 @@ impl From<topk_protos::v1::control::FieldIndex> for FieldIndex {
                     topk_protos::v1::control::EmbeddingDataType::U8 => {
                         Some(EmbeddingDataType::UInt8)
                     }
-                    _ => None,
                 };
                 FieldIndex::SemanticIndex {
                     model: semantic_index.model,
