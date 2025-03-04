@@ -44,12 +44,18 @@ impl Stage {
         }
     }
 
-    pub fn rerank(model: Option<String>, query: Option<String>, fields: Vec<String>) -> Self {
+    pub fn rerank(
+        model: Option<String>,
+        query: Option<String>,
+        fields: Vec<String>,
+        topk_multiple: Option<u32>,
+    ) -> Self {
         Stage {
             stage: Some(stage::Stage::Rerank(stage::RerankStage {
                 model,
                 query,
                 fields,
+                topk_multiple,
             })),
         }
     }

@@ -3,9 +3,34 @@ use pyo3::prelude::*;
 #[pyclass(eq)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum FieldIndex {
-    KeywordIndex { index_type: KeywordIndexType },
-    VectorIndex { metric: VectorDistanceMetric },
-    SemanticIndex { model: Option<String> },
+    KeywordIndex {
+        index_type: KeywordIndexType,
+    },
+    VectorIndex {
+        metric: VectorDistanceMetric,
+    },
+    SemanticIndex {
+        model: Option<String>,
+        embedding_type: Option<EmbeddingDataType>,
+    },
+}
+
+#[pyclass(eq, eq_int)]
+#[derive(Debug, Clone, PartialEq)]
+pub enum EmbeddingDataType {
+    Float32,
+    UInt8,
+    Binary,
+}
+
+impl From<EmbeddingDataType> for topk_protos::v1::control::EmbeddingDataType {
+    fn from(dt: EmbeddingDataType) -> Self {
+        match dt {
+            EmbeddingDataType::Float32 => topk_protos::v1::control::EmbeddingDataType::F32,
+            EmbeddingDataType::UInt8 => topk_protos::v1::control::EmbeddingDataType::U8,
+            EmbeddingDataType::Binary => topk_protos::v1::control::EmbeddingDataType::Binary,
+        }
+    }
 }
 
 #[pyclass(eq, eq_int)]
@@ -15,20 +40,6 @@ pub enum VectorDistanceMetric {
     Euclidean,
     DotProduct,
     Hamming,
-}
-
-#[pyclass(eq, eq_int)]
-#[derive(Debug, Clone, PartialEq)]
-pub enum KeywordIndexType {
-    Text,
-}
-
-impl From<KeywordIndexType> for topk_protos::v1::control::KeywordIndexType {
-    fn from(index_type: KeywordIndexType) -> Self {
-        match index_type {
-            KeywordIndexType::Text => topk_protos::v1::control::KeywordIndexType::Text,
-        }
-    }
 }
 
 impl From<VectorDistanceMetric> for topk_protos::v1::control::VectorDistanceMetric {
@@ -48,6 +59,20 @@ impl From<VectorDistanceMetric> for topk_protos::v1::control::VectorDistanceMetr
     }
 }
 
+#[pyclass(eq, eq_int)]
+#[derive(Debug, Clone, PartialEq)]
+pub enum KeywordIndexType {
+    Text,
+}
+
+impl From<KeywordIndexType> for topk_protos::v1::control::KeywordIndexType {
+    fn from(index_type: KeywordIndexType) -> Self {
+        match index_type {
+            KeywordIndexType::Text => topk_protos::v1::control::KeywordIndexType::Text,
+        }
+    }
+}
+
 impl Into<topk_protos::v1::control::FieldIndex> for FieldIndex {
     fn into(self) -> topk_protos::v1::control::FieldIndex {
         match self {
@@ -57,9 +82,13 @@ impl Into<topk_protos::v1::control::FieldIndex> for FieldIndex {
             FieldIndex::VectorIndex { metric } => {
                 topk_protos::v1::control::FieldIndex::vector(metric.into())
             }
-            FieldIndex::SemanticIndex { model } => {
-                topk_protos::v1::control::FieldIndex::semantic(model)
-            }
+            FieldIndex::SemanticIndex {
+                model,
+                embedding_type,
+            } => topk_protos::v1::control::FieldIndex::semantic(
+                model,
+                embedding_type.map(|dt| dt.into()),
+            ),
         }
     }
 }
@@ -95,8 +124,21 @@ impl From<topk_protos::v1::control::FieldIndex> for FieldIndex {
                 }
             }
             topk_protos::v1::control::field_index::Index::SemanticIndex(semantic_index) => {
+                let embedding_type = match semantic_index.embedding_type() {
+                    topk_protos::v1::control::EmbeddingDataType::Binary => {
+                        Some(EmbeddingDataType::Binary)
+                    }
+                    topk_protos::v1::control::EmbeddingDataType::F32 => {
+                        Some(EmbeddingDataType::Float32)
+                    }
+                    topk_protos::v1::control::EmbeddingDataType::U8 => {
+                        Some(EmbeddingDataType::UInt8)
+                    }
+                    _ => None,
+                };
                 FieldIndex::SemanticIndex {
                     model: semantic_index.model,
+                    embedding_type,
                 }
             }
         }

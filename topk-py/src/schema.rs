@@ -1,4 +1,4 @@
-use crate::control;
+use crate::control::{self, field_index::EmbeddingDataType};
 use pyo3::prelude::*;
 
 ////////////////////////////////////////////////////////////
@@ -103,7 +103,13 @@ pub fn keyword_index(r#type: String) -> PyResult<control::field_index::FieldInde
 }
 
 #[pyfunction]
-#[pyo3(signature=(model=None))]
-pub fn semantic_index(model: Option<String>) -> PyResult<control::field_index::FieldIndex> {
-    Ok(control::field_index::FieldIndex::SemanticIndex { model })
+#[pyo3(signature=(model=None, embedding_type=None))]
+pub fn semantic_index(
+    model: Option<String>,
+    embedding_type: Option<EmbeddingDataType>,
+) -> PyResult<control::field_index::FieldIndex> {
+    Ok(control::field_index::FieldIndex::SemanticIndex {
+        model,
+        embedding_type,
+    })
 }

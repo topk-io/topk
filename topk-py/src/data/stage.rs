@@ -23,6 +23,7 @@ pub enum Stage {
         model: Option<String>,
         query: Option<String>,
         fields: Vec<String>,
+        topk_multiple: Option<u32>,
     },
 }
 
@@ -37,7 +38,8 @@ impl Into<topk_protos::v1::data::Stage> for Stage {
                 model,
                 query,
                 fields,
-            } => topk_protos::v1::data::Stage::rerank(model, query, fields),
+                topk_multiple,
+            } => topk_protos::v1::data::Stage::rerank(model, query, fields, topk_multiple),
         }
     }
 }

@@ -74,6 +74,8 @@ message Stage {
     optional string query = 2;
     // Fields to rerank by.
     repeated string fields = 3;
+    // TopK multiple.
+    optional uint32 topk_multiple = 4;
   }
 
   oneof stage {

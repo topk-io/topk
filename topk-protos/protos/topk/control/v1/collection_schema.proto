@@ -87,7 +87,20 @@ enum VectorDistanceMetric {
 
 // Semantic index specification
 
+enum EmbeddingDataType {
+  // Unspecified
+  EMBEDDING_DATA_TYPE_UNSPECIFIED = 0;
+  // Raw float32
+  EMBEDDING_DATA_TYPE_F32 = 1;
+  // Scalar quantized uint8
+  EMBEDDING_DATA_TYPE_U8 = 2;
+  // Binary quantized uint8
+  EMBEDDING_DATA_TYPE_BINARY = 3;
+}
+
 message SemanticIndex {
   // Model to be used for embedding text to vectors.
   optional string model = 1;
+  // Data type of the embedding vectors.
+  optional EmbeddingDataType embedding_type = 2;
 }
