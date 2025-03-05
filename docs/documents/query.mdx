@@ -276,8 +276,8 @@ docs = client.collection("books").query(
         "title",
         # Score documents using BM25 algorithm
         text_score=fn.bm25_score()
-        # Compute vector distance between the provided query vector and the `title_embedding` field.
-        title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3, ...])
+        # Compute semantic similarity between the provided query and the `title` field.
+        title_similarity=fn.semantic_similarity("title", "catcher")
     )
     # Filter to documents that contain the `"great"` keyword
     .filter(match("great"))
@@ -285,6 +285,7 @@ docs = client.collection("books").query(
     .filter(field("published_year") > 1980)
     # Return top 10 documents with the highest combined score
     .top_k(field("text_score") * 0.2 + field("title_similarity") * 0.8, 10)
+    .rerank()
 )
 
 ```
