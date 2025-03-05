@@ -13,7 +13,7 @@ The `topk_sdk.schema` module contains the schema definition for the fields in a 
 <CodeGroup>
 
 ```python Python
-from topk_sdk.schema import int, text, vector, vector_index, keyword_index
+from topk_sdk.schema import int, text, vector, vector_index, keyword_index, semantic_index
 ```
 
 ```js JavaScript
@@ -222,15 +222,14 @@ The above example shows how to mark a field `title` as required.
 
 `index()` is used to create an index on a field.
 
-#### Keyword index
+#### Semantic index
 
-The `keyword_index()` method is used to create a keyword index on a `text()` field.
-`index(keyword_index())` can only be called over `text()` data type.
+The `semantic_index()` method is used to create both a vector and a keyword index on a given field. This allows you to do both semantic search and keyword search over the same field. Note that `semantic_index()` can only be called over `text()` data type.
 
 <CodeGroup>
 
 ```python Python
-"title": text().index(keyword_index())
+"title": text().index(semantic_index())
 ```
 
 ```js JavaScript
@@ -239,6 +238,11 @@ The `keyword_index()` method is used to create a keyword index on a `text()` fie
 ```
 
 </CodeGroup>
+
+Optionally, you can pass a `model` parameter to the `semantic_index()` method. Supported models are:
+
+- `cohere/embed-english-v3` 
+- `cohere/embed-multilingual-v3` (default)
 
 #### Vector index
 
@@ -267,3 +271,21 @@ However, there are more metrics available:
 - `hamming` (only supported for `binary_vector()` type)
 
 <Support />
+
+#### Keyword index
+
+The `keyword_index()` method is used to create a keyword index on a `text()` field.
+`index(keyword_index())` can only be called over `text()` data type.
+
+<CodeGroup>
+
+```python Python
+"title": text().index(keyword_index())
+```
+
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+```
+
+</CodeGroup>

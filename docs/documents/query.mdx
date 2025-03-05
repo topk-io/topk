@@ -6,9 +6,34 @@ icon: "magnifying-glass"
 
 import Support from "/snippets/support.mdx";
 
-TopK allows you to query documents using a SQL-inspired syntax. It comes with **text search**, **vector search**, and **filtering capabilities** out of the box.
+TopK allows you to query documents using a SQL-inspired syntax. It comes with **semantic search**, **text search**, **vector search**, and **filtering capabilities** out of the box.
 
 TopK's declarative query builder allows you to select fields, chain filters, apply vector/text search in a composable way.
+
+## Semantic search
+
+To perform a semantic search on your documents, use the `semantic_similarity` function. Query you want to search for is automatically embedded using the `model` specified in the `semantic_index` definition.
+
+<CodeGroup>
+
+```python Python
+from topk.query import select, fn, match
+
+docs = client.collection("books").query(
+    select(
+        "title",
+        title_similarity=fn.semantic_similarity("title", "catcher")
+    )
+    .top_k(field("title_similarity"), 10)
+)
+```
+
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+```
+
+</CodeGroup>
 
 ## Text search
 
@@ -84,7 +109,7 @@ The above example computes the cosine similarity between the vector and the `tit
 ## Filtering
 
 You can filter documents based on metadata, keywords, values computed inside `select()` (e.g. vector similarity), and more. Filter expressions
-support all comparison operators: `==`, `!=`, `>`, `>=`, `<`, `<=`, arithmetic operations: `+`, `-`, `*`, `/`, and boolean operators: `|`, `&`.
+support all comparison operators: `==`, `!=`, `>`, `>=`, `<`, `<=`, arithmetic operations: `+`, `-`, `*`, `/`, and boolean operators: `|` and `&`.
 
 ### Metadata filtering
 The example below shows filtering by metadata.
@@ -202,6 +227,41 @@ You can use the `count` method to get the total number of documents matching the
 
 </CodeGroup>
 
+## Reranking
+
+You can rerank the results of a query using the `rerank` method. The `rerank` method takes:
+
+- `model` (optional): The model to use for reranking. If not specified, uses the default model.
+- `query` (optional): The query text to rerank against. Uses arguments from `semantic_similarity` if not specified.
+- `fields` (optional): List of fields to use for reranking. Uses fields from `semantic_similarity` if not specified.
+- `topk_multiple` (optional): Multiple of top-k to rerank. For example, if `top_k=10` and `topk_multiple=2`, reranker takes 20 results from the original query and returns the top 10 results.
+
+Supported models:
+- `cohere/rerank-v3.5`
+
+<CodeGroup>
+
+```python Python
+.rerank()
+
+# or 
+
+.rerank(
+    model="cohere/rerank-v3.5",
+    query="catcher",
+    fields=["title", "description"],
+    topk_multiple=2
+)
+
+```
+
+```js JavaScript
+// Reach out to us at support@topk.io if this is a blocker for you.
+// We will help you get started.
+```
+
+</CodeGroup>
+
 ## Putting it all together
 
 You can combine text search, vector search, and filtering in a single query. Some people refer to this as a hybrid search and we believe it can provide you with the best and most relevant search results.
@@ -236,14 +296,9 @@ docs = client.collection("books").query(
 
 </CodeGroup>
 
-<Check>
-  **Nicely done!** You've just wrote your first query with TopK. It's that
-  simple.
-</Check>
-
 ## Notes on writing queries
 
-When writing queries, remember that they all require the `top_k` method at the end.
+When writing queries, remember that they all require the `top_k` or `count` method at the end.
 
 ## Next steps
 

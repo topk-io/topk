@@ -13,7 +13,7 @@ Every document is uniquely identified by its `_id`, which means that upserting a
 
 </Note>
 
-To upsert documents, you can pass a list of documents to the `upsert` method. `topk` will insert new documents or overwrite existing ones
+To upsert documents, you can pass a list of documents to the `upsert` method. TopK will insert new documents or overwrite existing ones
 if they have the same `_id`.
 
 <CodeGroup>
@@ -77,7 +77,7 @@ client.collection("locations").upsert(
 */}
 
 <Note>
-  Please note that nexted types (e.g. dicts and lists) are currently not supported. The only
+  Please note that nested types (eg. dicts and lists) are currently not supported. The only
   exception for complex types applies to f32 vectors, u8 vectors, binary vectors, and bytes.
 </Note>
 
