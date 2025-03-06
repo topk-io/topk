@@ -51,14 +51,15 @@ pub fn literal(value: data::scalar::Scalar) -> data::logical_expr::LogicalExpres
 }
 
 #[pyfunction]
-#[pyo3(signature = (token, field=None, weight=1.0))]
+#[pyo3(signature = (token, field=None, weight=1.0, all=false))]
 pub fn r#match(
     token: String,
     field: Option<String>,
     weight: f32,
+    all: bool,
 ) -> data::text_expr::TextExpression {
     data::text_expr::TextExpression::Terms {
-        all: true,
+        all,
         terms: vec![data::text_expr::Term {
             token,
             field,
