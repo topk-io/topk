@@ -1,0 +1,101 @@
+---
+title: "Consistency"
+icon: "record-vinyl"
+---
+
+TopK supports three different consistency levels, allowing you to choose the right trade-off between consistency, performance, and cost. By default, we provide a **Balanced Consistency Mode**, which offers a great mix of freshness and efficiency for most applications. Below, we explain how TopK handles data writes and reads and how each consistency mode impacts behavior.
+
+## Data flow in TopK
+
+TopK follows a write-ahead log (WAL) and compaction-based architecture:
+
+1. **Writer** appends incoming data to the **WAL**.
+2. **Compactor** processes the WAL and produces optimized, indexed files.
+3. **Router** receives read requests and determines where to fetch the data from.
+4. **Executor** fetches the data, typically from compacted files or from WAL.
+
+Because compaction takes time, there can be a delay before newly written data appears in query results. Different consistency modes determine how recent writes are handled in reads.
+
+---
+
+## Consistency Modes
+
+### **Balanced Consistency (Default)**
+
+Reads in this mode consider both indexed files and the most recent writes. While there may be a small delay of less than a second for some recent writes to appear, this mode offers lower cost compared to strong consistency. It is ideal for most real-world applications where near-real-time updates are sufficient.
+
+<CodeGroup>
+
+```python Python
+client.collection("my_collection").query(
+    ..., # query
+    # no need to specify consistency mode
+)
+```
+
+</CodeGroup>
+
+**How It Works:**
+
+- The **Router** checks both compacted files and a cached view of the **WAL** (refresh rate is less than 1s)
+- This introduces a chance of delay: if a write has just been added to WAL but hasn't been cached yet, it may not show up in a read
+- However, this delay is minimal (less than 1s in most cases), making it a practical and efficient default
+
+---
+
+### **Indexed Consistency**
+
+Reads in this mode only consider fully compacted files and ignore recent WAL writes. This results in the highest query performance but may skip the latest writes. It is best suited for analytical workloads and batch processing where absolute real-time consistency isn't required.
+
+
+<CodeGroup>
+
+```python Python
+client.collection("my_collection").query(
+    ..., # query
+    consistency="indexed"
+)
+```
+
+</CodeGroup>
+
+**How It Works:**
+
+- The **Router** forwards queries only to the **Executor**, which reads from compacted files
+- WAL is ignored, meaning queries are always served from stable, processed data
+- This reduces query latency and load, making it the most cost-efficient option for high-throughput reads
+
+---
+
+### **Strong Consistency**
+
+Reads in this mode always return the latest writes before responding. While this ensures that all queries see the most recent updates, it comes with higher latency and cost due to additional WAL reads. This mode is required when strict guarantees are necessary.
+
+<CodeGroup>
+
+```python Python
+client.collection("my_collection").query(
+    ..., # query
+    consistency="strong"
+)
+```
+
+</CodeGroup>
+
+**How It Works:**
+
+- Before serving a read, the **Router explicitly checks the WAL** to ensure the latest writes are reflected
+- This guarantees that all queries see the most recent updates but adds overhead because it requires an additional lookup
+- Strong consistency ensures that all queries see the most recent updates but is **more expensive** than other modes due to the extra computation
+
+---
+
+## Choosing the Right Mode
+
+| Consistency Mode       | Freshness            | Cost   | Query performance |
+| ---------------------- | -------------------- | ------ | ----------------- |
+| **Balanced (Default)** | Near real-time (less than 1s) | Low    | Good     |
+| **Indexed**            | Only compacted data  | Low    | Fastest           |
+| **Strong**             | All writes are visible | Higher | Slower            |
+
+For most use cases, **Balanced Consistency** offers the best trade-off between performance and correctness. However, if you prioritize low query latency over recency, **Indexed Consistency** is the right choice. When no staleness is allowed, **Strong Consistency** ensures every read reflects the latest write.
