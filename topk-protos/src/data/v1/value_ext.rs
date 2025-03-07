@@ -159,6 +159,30 @@ impl Value {
     }
 }
 
+impl value::Value {
+    pub fn to_user_friendly_type_name(&self) -> String {
+        match self {
+            value::Value::Bool(_) => "bool".to_string(),
+            value::Value::U32(_) => "u32".to_string(),
+            value::Value::U64(_) => "u64".to_string(),
+            value::Value::I32(_) => "i32".to_string(),
+            value::Value::I64(_) => "i64".to_string(),
+            value::Value::F32(_) => "f32".to_string(),
+            value::Value::F64(_) => "f64".to_string(),
+            value::Value::String(_) => "string".to_string(),
+            value::Value::Binary(v) => {
+                format!("binary({})", v.len())
+            }
+            value::Value::Vector(vec) => match &vec.vector {
+                Some(vector::Vector::Float(v)) => format!("f32_vector({})", v.values.len()),
+                Some(vector::Vector::Byte(v)) => format!("u8_vector({})", v.values.len()),
+                _ => "null_vector".to_string(),
+            },
+            value::Value::Null(_) => "null".to_string(),
+        }
+    }
+}
+
 impl From<String> for Value {
     fn from(value: String) -> Self {
         Value::string(value)

@@ -61,6 +61,13 @@ pub enum ValidationError {
         got_value: String,
     },
 
+    InvalidVectorDimension {
+        doc_id: String,
+        field: String,
+        expected_dimension: usize,
+        got_dimension: usize,
+    },
+
     NoDocuments,
 }
 
