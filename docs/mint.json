@@ -42,7 +42,7 @@
     },
     {
       "group": "Concepts",
-      "pages": ["concepts/consistency"]
+      "pages": ["concepts/consistency", "concepts/semantic-search"]
     },
     {
       "group": "Collections",

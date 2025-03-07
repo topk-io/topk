@@ -1,0 +1,124 @@
+---
+title: "Semantic Search"
+icon: "search"
+---
+
+Semantic search enables you to find relevant documents based on **semantic similarity** rather than exact keyword matches. With **TopK**, you can implement powerful semantic search in a few lines of code—without needing third-party embedding models or reranking services. 
+
+TopK comes with **built-in embeddings** and **reranking** via `semantic_index()`, making it incredibly easy to perform high-quality retrieval.
+
+---
+
+## Implementation
+
+### 1. Defining a collection schema
+
+To use semantic search, you first need to define a collection and schema with a **semantic index**. This ensures that TopK automatically generates embeddings for your text fields.
+
+```python
+from topk_sdk.schema import text, semantic_index
+
+client.collections().create(
+    "books",
+    schema={
+        "title": text().required().index(semantic_index()),
+    },
+)
+```
+
+**Explanation**
+
+* The `semantic_index()` on `title` ensures automatic embeddings for semantic search.
+* Other fields do not need to be in the schema to be stored and queried—they can still be upserted as part of a document.
+
+If you want to use your own embeddings instead of TopK's built-in `semantic_index()`, see [Custom Embeddings](#custom-embeddings).
+
+### 2. Running a semantic search query
+
+Once the schema is set up, querying for semantically similar documents is simple:
+
+```python
+from topk.query import select, fn
+
+docs = client.collection("books").query(
+    select(
+        "title",
+        title_similarity=fn.semantic_similarity("title", "catcher in the rye")
+    )
+    .top_k(field("title_similarity"), 10)
+    .rerank()
+)
+```
+
+**What's Happening Here?**
+
+1. The `semantic_similarity` function compares the query "catcher in the rye" with the `title` field.
+2. TopK automatically embeds the query using the model specified in `semantic_index()`.
+3. The results are ranked based on similarity, and the top 10 most relevant documents are returned.
+4. The `.rerank()` call performs a final reranking step to improve relevance of the results.
+
+This works **out of the box**—no need to manage embeddings, external APIs, or reranking models.
+
+### 3. Combining Semantic and Text Search
+
+You may want to combine **keyword search with semantic search** for more precise results.
+
+```python
+from topk.query import select, fn, match
+
+docs = client.collection("books").query(
+    select(
+        "title",
+        title_similarity=fn.semantic_similarity("title", "catcher"),
+        text_score=fn.bm25_score()  # Keyword-based relevance
+    )
+    .filter(match("classic"))  # Ensure the book title contains "classic" keyword
+    .top_k(field("title_similarity") * 0.7 + field("text_score") * 0.3, 10)
+)
+```
+
+This blends **keyword relevance (BM25)** with **semantic similarity**, ensuring your search results capture both exact matches and contextual meaning.
+
+---
+
+## Customization
+
+### Bring your own embeddings
+
+If you want to **bring your own embeddings** instead of using `semantic_index()`, you can store them in a `vector()` field and query using `vector_distance()`.
+
+```python
+from topk_sdk.schema import text, vector, vector_index
+
+client.collections().create(
+    "books",
+    schema={
+        "title": text().required(),
+        "title_embedding": vector(1536).index(vector_index(metric="cosine")),  # Custom embeddings
+    },
+)
+```
+
+To query with custom embeddings, use `vector_distance()` instead of `semantic_similarity()`:
+
+```python
+from topk.query import select, fn
+
+docs = client.collection("books").query(
+    select(
+        "title",
+        title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3, ...])
+    )
+    .top_k(field("title_similarity"), 10)
+)
+```
+
+Using custom embeddings is useful if:
+* You have a **domain-specific embedding model** (e.g., medical, legal, or technical documents).
+* You need embeddings that are **consistent across multiple systems**.
+
+For most use cases, TopK's built-in `semantic_index()` is the easiest and most efficient way to implement semantic search.
+
+### Bring your own reranker
+
+If you want full control over reranking, you can pass the results from TopK to a custom reranker of your choice.
