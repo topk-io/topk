@@ -123,13 +123,13 @@ TopK allows you to **define powerful scoring functions** by combining semantic s
 <CodeGroup>
 
 ```python Python
-from topk_sdk.schema import text, int, semantic_index
+from topk_sdk.schema import text, float, semantic_index
 
 client.collections().create(
     "documents",
     schema={
         "content": text().index(semantic_index()),  # Semantic search
-        "importance": int().required(),  # Precomputed importance score
+        "importance": float().required(),  # Precomputed importance score
     },
 )
 ```
@@ -147,7 +147,7 @@ docs = client.collection("documents").query(
     select(
         content_score=fn.semantic_similarity("content", "machine learning applications"),
     )
-    .top_k(field("content_score") * 0.8 + field("importance") * 0.2, 10)
+    .top_k(field("importance") * field("content_score"), 10)
 )
 ```
 
