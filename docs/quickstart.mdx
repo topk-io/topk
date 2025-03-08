@@ -1,13 +1,12 @@
 ---
 title: "Quickstart (5m)"
-# TODO
 description: "Get started with the `topk` search database in under 5 minutes."
 icon: "rocket"
 ---
 
 import Support from "/snippets/support.mdx";
 
-This quickstart guide will help you set up and use `topk` in less than 5 minutes. You'll learn how to create a collection, add documents, and perform searches using keywords, vectors, and filters.
+This quickstart guide will help you set up and use `topk` in less than 5 minutes. You'll learn how to create a collection, add documents, and perform searches using semantic search, keyword matching, and metadata filtering.
 
 ## 1. Install the SDK
 
@@ -17,28 +16,8 @@ Choose your preferred language to install the SDK:
 
 <CodeGroup>
 
-```shell Python
+```bash Python
 pip install topk-sdk
-```
-
-```shell Rust
-# The Rust SDK is ready for publishing. Coming soon!
-# Contact us at support@topk.io if this is a blocker for you.
-```
-
-```shell JavaScript
-# Reach out to us at support@topk.io if this is a blocker for you.
-# We will help you get started.
-```
-
-```shell REST
-# Reach out to us at support@topk.io if this is a blocker for you.
-# We will help you get started.
-```
-
-```shell gRPC
-# Reach out to us at support@topk.io if this is a blocker for you.
-# We will help you get started.
 ```
 
 </CodeGroup>
@@ -50,13 +29,13 @@ To get started with TopK, you need an API key. Here's how you can get one for fr
 1. Head down to the <a href="https://console.topk.io" target="_blank">Console</a>.
 2. Create your account and generate an API key.
 
-You'll need this key to authenticate with the API. Make sure to keep it safe and secure. It's a best practice for us to show you this key only once and for you to store it securely.
+You'll need this key to authenticate with the API. Make sure to keep it safe and secure.
 
 ## 3. Create your first collection
 
 Collections are the primary data structure in TopK. They store documents and allow you to query them.
 
-First create a `Client` instance with your API key and <Tooltip tip="TopK region is where your data is stored. It maps to a specific cloud region.">region</Tooltip>.
+First, create a `Client` instance with your API key and <Tooltip tip="TopK region is where your data is stored. It maps to a specific cloud region.">region</Tooltip>.
 
 <CodeGroup>
 
@@ -66,194 +45,81 @@ from topk_sdk import Client
 client = Client(api_key="YOUR_TOPK_API_KEY", region="aws-us-east-1-elastica")
 ```
 
-```shell JavaScript
-# Reach out to us at support@topk.io if this is a blocker for you.
-# We will help you get started.
-```
-
 </CodeGroup>
 
-Then create a collection, optionally specifying a schema. The example below creates a `books` collection with a
-schema that includes a required `title` field with keyword index, a required `title_embedding` field with vector index,
-and an optional `published_year` field with integer type.
+Then, create a collection, specifying a schema. The example below creates a `books` collection with a **semantic index** on the `title` field.
 
 <CodeGroup>
 
 ```python Python
-from topk_sdk.schema import text, int, f32_vector, vector_index, keyword_index
+from topk_sdk.schema import text, semantic_index
 
 client.collections().create(
     "books",
     schema={
-        # `title` field must be present and its value must be a string.
-        "title": text()
-          .required()
-          .index(keyword_index()),
-
-        # `title_embedding` field must be present and its value must be
-        # a 1536-dimensional vector of floats.
-        "title_embedding": f32_vector(1536)
-            .required()
-            .index(vector_index(metric="cosine")),
-
-        # `published_year` is optional but if it is present, its value
-        # must be an integer.
-        "published_year": int()
+        # `title` field must be present and will be indexed for semantic search.
+        "title": text().required().index(semantic_index()),
     },
 )
 ```
 
-```shell JavaScript
-# Reach out to us at support@topk.io if this is a blocker for you.
-# We will help you get started.
-```
-
 </CodeGroup>
+
+> **Note:** Other fields can still be upserted even if they are not defined in the schema.
+
 
 ## 4. Add documents to the collection
 
-After a collection is created, you can start adding documents to it. TopK will enforce the schema you specified when you created the collection. Document schema is optional by default, so you can write documents with fields which are not specified in the schema.
+After creating a collection, you can start adding documents to it.
 
-Next up, let's add some documents to the collection. A **document** is a JSON-style dictionary with one condition: **it must have an `_id` field**.
+A **document** is a JSON-style dictionary with one condition: **it must have an `_id` field**.
 
 <CodeGroup>
 
 ```python Python
-import numpy as np
-
-lsn = client.collection("books").upsert(
+client.collection("books").upsert(
     [
-        {
-          "_id": "gatsby",
-          "title": "The Great Gatsby",
-          "title_embedding": np.random.rand(1536).tolist(),
-          "published_year": 1925
-        },
-        {
-          "_id": "1984",
-          "title": "1984",
-          "title_embedding": np.random.rand(1536).tolist(),
-          "published_year": 1949
-        },
-        {
-          "_id": "catcher",
-          "title": "The Catcher in the Rye",
-          "title_embedding": np.random.rand(1536).tolist(),
-          "published_year": 1951
-        }
+        {"_id": "gatsby", "title": "The Great Gatsby"},
+        {"_id": "1984", "title": "1984"},
+        {"_id": "catcher", "title": "The Catcher in the Rye"}
     ],
 )
 ```
-```shell JavaScript
-# Reach out to us at support@topk.io if this is a blocker for you.
-# We will help you get started.
-```
 
 </CodeGroup>
-
-<Warning>
-  Heads up: `topk` is an currently an eventually consistent database.
-
-  In practice, this means that there is a delay between when you write documents and when they are available for querying.
-  If you want to guarantee that your writes are reflected in the query results, you can pass the `lsn` (log sequence number)
-  object returned from the `upsert()` and `delete()` methods to the `query()` method.
-  This will reject the query execution unless the writes at `lsn` have already been indexed and are available for querying.
-
-  This is an early limitation of the system which will go away in the future.{" "}
-  <a href="https://www.geeksforgeeks.org/read-your-writes-consistency-in-system-design/">
-    Read your writes consistency
-  </a>{" "}
-  is the best experience you can get, so that's what we're committing to.
-</Warning>
 
 ## 5. Query your collection
 
-Now, send your first query:
+Now, send your first **semantic search query**:
 
 <CodeGroup>
 
 ```python Python
-from topk_sdk.query import select, field, fn, match
+from topk_sdk.query import select, fn, match, field
 
 results = client.collection("books").query(
     select(
-      "title",
-      vector_distance=fn.vector_distance("title_embedding", np.random.rand(1536).tolist()),
-      text_score=fn.bm25_score(),
+        "title",
+        # Perform semantic search on the `title` field
+        title_similarity=fn.semantic_similarity("title", "classic American novel"),
     )
-    # Keyword search - filter books that contain keyword "catcher"
-    .filter(match("catcher"))
-    # Metadata search - filter books by published year
-    .filter(field("published_year") > 1920)
-    # Scoring - return top 10 results by calculating score as `vector_distance * 0.8 + text_score * 0.2`
-    .top_k(field("vector_distance") * 0.8 + field("text_score") * 0.2, 10),
-
-    # Pass the LSN to make sure the query is consistent with the writes.
-    lsn=lsn,
+    # Sort results by the `title_similarity` field, selecting the top 10 results
+    .top_k(field("title_similarity"), 10)
 )
 ```
 
-```shell JavaScript
-# Reach out to us at support@topk.io if this is a blocker for you.
-# We will help you get started.
-```
-
 </CodeGroup>
 
-The example filters books with "catcher" in the `title`, published after 1920, and returns 10 most relevant results
-sorted by an arithmetic expression of `vector_distance` and `text_score`. You can use arithmetic expressions in the
-`top_k` method to increase or decrease the relative importance of different text/vector scores.
+Optionally, you can call `.rerank()` at the end of your query to automatically improve relevance of the results. See [reranking](/documents/query#reranking) for more details.
 
-<CodeGroup>
+## 6. (Optional) Clean up
 
-```python Python
-for result in results:
-    # Fields specified in `select` are returned as attributes of the result object. `_id` is always returned.
-    print(f"ID: {result['_id']}, Title: {result['title']}, Vector distance: {result['vector_distance']}")
-```
-
-```shell JavaScript
-# Reach out to us at support@topk.io if this is a blocker for you.
-# We will help you get started.
-```
-
-</CodeGroup>
-
-Use the above example to print the `ID`, `title`, and `vector_distance` of the top 10 results.
-
-<Check>
-  **Nicely done!** You've just created your first collection, added documents to
-  it, and queried it. It's that simple.
-</Check>
-
-## Cleaning up
-
-Let's clean up so you can explore the rest of the documentation. If you want to delete documents, you can do so by passing a list of `_id`s to the `delete` method.
-
-<CodeGroup>
-
-```python Python
-client.collection("books").delete(["1984"])
-```
-
-```shell JavaScript
-# Reach out to us at support@topk.io if this is a blocker for you.
-# We will help you get started.
-```
-
-</CodeGroup>
-
-To delete the entire collection, you can do so by calling:
+To delete the entire collection:
 
 <CodeGroup>
 
 ```python Python
 client.collections().delete("books")
-```
-
-```shell JavaScript
-# Reach out to us at support@topk.io if this is a blocker for you.
-# We will help you get started.
 ```
 
 </CodeGroup>
@@ -262,7 +128,7 @@ client.collections().delete("books")
 
 ## Next steps
 
-Continue exploring the `topk` SDK:
+Continue exploring the TopK platform:
 
 <CardGroup>
 

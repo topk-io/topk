@@ -42,7 +42,11 @@
     },
     {
       "group": "Concepts",
-      "pages": ["concepts/consistency", "concepts/semantic-search"]
+      "pages": [
+        "concepts/semantic-search",
+        "concepts/unified-retrieval",
+        "concepts/consistency"
+      ]
     },
     {
       "group": "Collections",
