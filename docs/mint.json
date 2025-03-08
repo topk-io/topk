@@ -49,12 +49,12 @@
       ]
     },
     {
-      "group": "Collections",
-      "pages": ["collections/create", "collections/list", "collections/delete"]
-    },
-    {
       "group": "Documents",
       "pages": ["documents/query", "documents/upsert", "documents/delete"]
+    },
+    {
+      "group": "Collections",
+      "pages": ["collections/create", "collections/list", "collections/delete"]
     }
   ],
   "footerSocials": {
