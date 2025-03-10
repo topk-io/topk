@@ -39,6 +39,10 @@ impl Channel {
         match self {
             Self::Endpoint(endpoint) => Ok(Endpoint::from_str(endpoint)?
                 .tls_config(tonic::transport::ClientTlsConfig::new().with_native_roots())?
+                // Do not close idle connections so they can be reused
+                .keep_alive_while_idle(true)
+                // Set max header list size to 64KB
+                .http2_max_header_list_size(1024 * 64)
                 .connect()
                 .await?),
             Self::Tonic(cell) => match cell.get() {
