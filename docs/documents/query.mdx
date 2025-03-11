@@ -55,8 +55,8 @@ docs = client.collection("books").query(
         # Score documents using BM25 algorithm
         text_score=fn.bm25_score()
     )
-    # Filter to documents that have the `"great"` keyword in the `title` field
-    # or the `"catcher"` in any of the text-indexed fields.
+    # Filter to documents that have the `great` keyword in the `title` field
+    # or the `catcher` in any of the text-indexed fields.
     .filter(match("great", field="title") | match("catcher"))
     # Return top 10 documents with the highest text score
     .top_k(field("text_score"), 10)
@@ -71,7 +71,7 @@ docs = client.collection("books").query(
 
 </CodeGroup>
 
-The above example takes a collection of books and filters to documents that have the `"Great"` keyword in the `title` field.
+The above example takes a collection of books and filters to documents that have the `Great` keyword in the `title` field.
 
 ## Vector search
 
@@ -131,7 +131,7 @@ The example below shows filtering by metadata.
 
 ### Keyword filtering
 The example below shows filtering documents by the keywords they contain. It'll match all documents that
-contain either `"gatsby"` or both `"catcher"` and `"rye"`.
+contain either `gatsby` or both `catcher` and `rye`.
 
 <CodeGroup>
 
@@ -279,12 +279,13 @@ docs = client.collection("books").query(
         # Compute semantic similarity between the provided query and the `title` field.
         title_similarity=fn.semantic_similarity("title", "catcher")
     )
-    # Filter to documents that contain the `"great"` keyword
+    # Filter to documents that contain the `great` keyword
     .filter(match("great"))
     # Filtering by metadata
     .filter(field("published_year") > 1980)
     # Return top 10 documents with the highest combined score
     .top_k(field("text_score") * 0.2 + field("title_similarity") * 0.8, 10)
+    # Rerank the documents
     .rerank()
 )
 
