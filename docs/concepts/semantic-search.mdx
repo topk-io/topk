@@ -61,7 +61,7 @@ docs = client.collection("books").query(
 **What's Happening Here?**
 
 1. The `semantic_similarity` function computes the similarity between the query "catcher in the rye" and values stored in the `title` field.
-2. TopK automatically embeds the query using the model specified in `semantic_index()`.
+2. TopK automatically embeds the query using the model specified in `semantic_index()` (see the available options [here](/collections/create#semantic-index)).
 3. The results are ranked based on similarity, and the top 10 most relevant documents are returned.
 4. The optional `.rerank()` call uses a reranking model to improve relevance of the results.
 
