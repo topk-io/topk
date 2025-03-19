@@ -12,11 +12,14 @@ crate-type = ["cdylib"]
 
 [dependencies]
 # Default enable napi4 feature, see https://nodejs.org/api/n-api.html#node-api-version-matrix
-napi = { version = "2.12.2", default-features = false, features = ["napi4"] }
-napi-derive = "2.12.2"
+napi = { version = "3.0.0-alpha.33", default-features = false, features = ["napi4", "tokio_rt"] }
+napi-derive = { version = "3.0.0-alpha.29" }
+topk-protos = { path = "../topk-protos" }
+topk-rs = { path = "../topk-rs" }
+tokio = { version = "1", features = ["rt-multi-thread"] }
 
 [build-dependencies]
-napi-build = "2.0.1"
+napi-build = "2.1.5"
 
 [profile.release]
 lto = true

@@ -1,52 +1,50 @@
-
 #![deny(clippy::all)]
 
 #[macro_use]
 extern crate napi_derive;
 
-use napi::bindgen_prelude::*;
-use std::collections::HashMap;
+mod client;
 
-#[napi]
-pub fn sum(a: i32, b: i32) -> i32 {
-  a + b
-}
+use client::CollectionsClient;
+use napi::bindgen_prelude::*;
+use std::sync::Arc;
+
+use topk_rs::{Client as RsClient, ClientConfig as RsClientConfig};
 
 #[napi(object)]
-struct Foo {
-	pub name: String,
-	pub version: String,
-	pub dependencies: Option<HashMap<String, String>>,
-	pub dev_dependencies: Option<HashMap<String, String>>,
+pub struct ClientConfig {
+  pub api_key: String,
+  pub region: String,
+  pub host: Option<String>,
+  pub https: Option<bool>,
 }
 
 #[napi]
-pub fn topk() -> Foo {
-  Foo {
-    name: "topk".to_string(),
-    version: "1.0.0".to_string(),
-    dependencies: None,
-    dev_dependencies: None,
+pub struct Client {
+  client: Arc<RsClient>,
+}
+
+#[napi]
+impl Client {
+  #[napi(constructor)]
+  pub fn new(config: ClientConfig) -> Self {
+    let mut rs_config = RsClientConfig::new(config.api_key, config.region);
+
+    if let Some(host_value) = config.host {
+      rs_config = rs_config.with_host(host_value);
+    }
+
+    if let Some(https_value) = config.https {
+      rs_config = rs_config.with_https(https_value);
+    }
+
+    let client = Arc::new(RsClient::new(rs_config));
+
+    Self { client }
   }
-}
 
-#[napi]
-pub enum Kind {
-  Dog,
-  Cat,
-  Duck,
-}
-
-#[napi(constructor)]
-struct Animal {
-  pub name: String,
-  pub kind: u32,
-}
-
-#[napi]
-impl Animal {
   #[napi]
-  pub fn change_name(&mut self, new_name: String) {
-    self.name = new_name;
+  pub fn collections(&self) -> CollectionsClient {
+    CollectionsClient::new(self.client.clone())
   }
 }
