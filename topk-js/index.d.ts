@@ -3,11 +3,17 @@
 export declare class Client {
   constructor(config: ClientConfig)
   collections(): CollectionsClient
+  collection(name: string): CollectionClient
+}
+
+export declare class CollectionClient {
+  query(query: string): string
 }
 
 export declare class CollectionsClient {
   list(): Promise<Array<Collection>>
   create(options: CreateCollectionOptions): Promise<Collection>
+  delete(name: string): Promise<void>
 }
 
 export interface ClientConfig {
@@ -48,10 +54,17 @@ export declare const enum DataType {
   Bytes = 'Bytes'
 }
 
+export declare const enum EmbeddingDataType {
+  F32 = 'F32',
+  U8 = 'U8',
+  /** Binary quantized uint8 */
+  Binary = 'Binary'
+}
+
 export type FieldIndex =
-  | { type: 'Keyword', indexType: number }
-  | { type: 'Vector', metric: number }
-  | { type: 'Semantic', model?: string, embeddingType?: number }
+  | { type: 'Keyword' }
+  | { type: 'Vector', metric: VectorFieldIndexMetric }
+  | { type: 'Semantic', model?: string, embeddingType: EmbeddingDataType }
 
 export interface FieldSpec {
   dataType: DataType
@@ -59,22 +72,9 @@ export interface FieldSpec {
   index?: FieldIndex
 }
 
-export interface KeywordIndex {
-  indexType: number
-}
-
-export interface Schema {
-  schema: Record<string, string>
-}
-
-export interface SemanticIndex {
-  /** Model to be used for embedding text to vectors. */
-  model?: string
-  /** Data type of the embedding vectors. */
-  embeddingType?: number
-}
-
-export interface VectorIndex {
-  /** Distance metric */
-  metric: number
+export declare const enum VectorFieldIndexMetric {
+  Cosine = 'Cosine',
+  Euclidean = 'Euclidean',
+  DotProduct = 'DotProduct',
+  Hamming = 'Hamming'
 }

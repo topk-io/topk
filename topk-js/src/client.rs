@@ -3,7 +3,7 @@ use std::sync::Arc;
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use std::collections::HashMap;
-use topk_protos::v1::control;
+use topk_protos::v1::control::{self, KeywordIndexType};
 
 #[napi(string_enum)]
 pub enum DataType {
@@ -17,36 +17,76 @@ pub enum DataType {
   Bytes,
 }
 
-#[napi(object)]
-pub struct KeywordIndex {
-  pub index_type: i32,
+#[napi(string_enum)]
+pub enum VectorFieldIndexMetric {
+  Cosine,
+  Euclidean,
+  DotProduct,
+  Hamming,
 }
 
-#[napi(object)]
-pub struct VectorIndex {
-  /// Distance metric
-  pub metric: i32,
+impl From<i32> for VectorFieldIndexMetric {
+  fn from(metric: i32) -> Self {
+    match metric {
+      1 => VectorFieldIndexMetric::Cosine,
+      2 => VectorFieldIndexMetric::Euclidean,
+      3 => VectorFieldIndexMetric::DotProduct,
+      4 => VectorFieldIndexMetric::Hamming,
+      _ => VectorFieldIndexMetric::Cosine, // default
+    }
+  }
 }
 
-#[napi(object)]
-pub struct SemanticIndex {
-  /// Model to be used for embedding text to vectors.
-  pub model: ::core::option::Option<String>,
-  /// Data type of the embedding vectors.
-  pub embedding_type: ::core::option::Option<i32>,
+impl From<VectorFieldIndexMetric> for i32 {
+  fn from(metric: VectorFieldIndexMetric) -> Self {
+    match metric {
+      VectorFieldIndexMetric::Cosine => 1,
+      VectorFieldIndexMetric::Euclidean => 2,
+      VectorFieldIndexMetric::DotProduct => 3,
+      VectorFieldIndexMetric::Hamming => 4,
+    }
+  }
+}
+
+#[napi(string_enum)]
+pub enum EmbeddingDataType {
+  F32,
+  U8,
+  /// Binary quantized uint8
+  Binary,
+}
+
+impl From<Option<i32>> for EmbeddingDataType {
+  fn from(embedding_type: Option<i32>) -> Self {
+    match embedding_type {
+      Some(0) => EmbeddingDataType::F32,
+      Some(1) => EmbeddingDataType::U8,
+      Some(2) => EmbeddingDataType::Binary,
+      // Default to F32 for unspecified embedding type
+      _ => EmbeddingDataType::F32,
+    }
+  }
+}
+
+impl From<EmbeddingDataType> for Option<i32> {
+  fn from(embedding_type: EmbeddingDataType) -> Self {
+    match embedding_type {
+      EmbeddingDataType::F32 => Some(0),
+      EmbeddingDataType::U8 => Some(1),
+      EmbeddingDataType::Binary => Some(2),
+    }
+  }
 }
 
 #[napi]
 pub enum FieldIndex {
-  Keyword {
-    index_type: i32,
-  },
+  Keyword,
   Vector {
-    metric: i32,
+    metric: VectorFieldIndexMetric,
   },
   Semantic {
     model: Option<String>,
-    embedding_type: Option<i32>,
+    embedding_type: EmbeddingDataType,
   },
 }
 
@@ -55,13 +95,13 @@ impl From<control::FieldIndex> for FieldIndex {
     match field_index.index.unwrap_or_else(|| {
       control::field_index::Index::KeywordIndex(control::KeywordIndex { index_type: 0 })
     }) {
-      control::field_index::Index::KeywordIndex(k) => FieldIndex::Keyword {
-        index_type: k.index_type,
+      control::field_index::Index::KeywordIndex(_k) => FieldIndex::Keyword {},
+      control::field_index::Index::VectorIndex(v) => FieldIndex::Vector {
+        metric: v.metric.into(),
       },
-      control::field_index::Index::VectorIndex(v) => FieldIndex::Vector { metric: v.metric },
       control::field_index::Index::SemanticIndex(s) => FieldIndex::Semantic {
         model: s.model,
-        embedding_type: s.embedding_type,
+        embedding_type: s.embedding_type.into(),
       },
     }
   }
@@ -71,18 +111,20 @@ impl From<FieldIndex> for control::FieldIndex {
   fn from(field_index: FieldIndex) -> Self {
     Self {
       index: Some(match field_index {
-        FieldIndex::Keyword { index_type } => {
-          control::field_index::Index::KeywordIndex(control::KeywordIndex { index_type })
-        }
+        FieldIndex::Keyword => control::field_index::Index::KeywordIndex(control::KeywordIndex {
+          index_type: KeywordIndexType::Text.into(),
+        }),
         FieldIndex::Vector { metric } => {
-          control::field_index::Index::VectorIndex(control::VectorIndex { metric })
+          control::field_index::Index::VectorIndex(control::VectorIndex {
+            metric: metric.into(),
+          })
         }
         FieldIndex::Semantic {
           model,
           embedding_type,
         } => control::field_index::Index::SemanticIndex(control::SemanticIndex {
           model,
-          embedding_type,
+          embedding_type: embedding_type.into(),
         }),
       }),
     }
@@ -94,11 +136,6 @@ pub struct FieldSpec {
   pub data_type: DataType,
   pub required: bool,
   pub index: Option<FieldIndex>,
-}
-
-#[napi(object)]
-pub struct Schema {
-  pub schema: HashMap<String, String>,
 }
 
 #[napi(object)]
@@ -187,63 +224,4 @@ impl From<control::FieldType> for DataType {
 pub struct CreateCollectionOptions {
   pub name: String,
   pub schema: HashMap<String, FieldSpec>,
-}
-
-pub struct TopkError(topk_rs::Error);
-
-impl From<topk_rs::Error> for TopkError {
-  fn from(error: topk_rs::Error) -> Self {
-    TopkError(error)
-  }
-}
-
-impl From<TopkError> for napi::Error {
-  fn from(error: TopkError) -> Self {
-    napi::Error::new(
-      napi::Status::GenericFailure,
-      format!("failed to create collection: {:?}", error.0),
-    )
-  }
-}
-
-#[napi]
-pub struct CollectionsClient {
-  client: Arc<topk_rs::Client>,
-}
-
-#[napi]
-impl CollectionsClient {
-  pub fn new(client: Arc<topk_rs::Client>) -> Self {
-    Self { client }
-  }
-
-  #[napi]
-  pub async fn list(&self) -> Result<Vec<Collection>> {
-    let collections = self
-      .client
-      .collections()
-      .list()
-      .await
-      .map_err(TopkError::from)?;
-    let collections_napi = collections.into_iter().map(|c| c.into()).collect();
-    Ok(collections_napi)
-  }
-
-  #[napi]
-  pub async fn create(&self, options: CreateCollectionOptions) -> Result<Collection> {
-    let proto_schema: HashMap<String, control::FieldSpec> = options
-      .schema
-      .into_iter()
-      .map(|(k, v)| (k, v.into()))
-      .collect();
-
-    let collection = self
-      .client
-      .collections()
-      .create(options.name, proto_schema)
-      .await
-      .map_err(TopkError::from)?;
-
-    Ok(collection.into())
-  }
 }

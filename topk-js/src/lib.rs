@@ -1,12 +1,16 @@
 #![deny(clippy::all)]
 
-#[macro_use]
-extern crate napi_derive;
-
 mod client;
+mod collection;
+mod collections;
+mod error;
+mod function_expr;
+mod logical_expr;
+mod query;
+mod select_expr;
 
-use client::CollectionsClient;
 use napi::bindgen_prelude::*;
+use napi_derive::napi;
 use std::sync::Arc;
 
 use topk_rs::{Client as RsClient, ClientConfig as RsClientConfig};
@@ -44,7 +48,12 @@ impl Client {
   }
 
   #[napi]
-  pub fn collections(&self) -> CollectionsClient {
-    CollectionsClient::new(self.client.clone())
+  pub fn collections(&self) -> collections::CollectionsClient {
+    collections::CollectionsClient::new(self.client.clone())
+  }
+
+  #[napi]
+  pub fn collection(&self, name: String) -> collection::CollectionClient {
+    collection::CollectionClient::new(self.client.clone(), name)
   }
 }
