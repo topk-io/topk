@@ -3,16 +3,15 @@
 mod client;
 mod collection;
 mod collections;
+mod document;
 mod error;
 mod function_expr;
 mod logical_expr;
 mod query;
 mod select_expr;
 
-use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use std::sync::Arc;
-
 use topk_rs::{Client as RsClient, ClientConfig as RsClientConfig};
 
 #[napi(object)]

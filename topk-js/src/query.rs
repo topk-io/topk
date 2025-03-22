@@ -26,7 +26,7 @@ pub enum Stage {
   },
 }
 
-#[napi]
+#[napi(object)]
 pub struct Query {
   pub stages: Vec<Stage>,
 }
@@ -41,7 +41,40 @@ impl Query {
   }
 }
 
-fn testiek() {
-  let mut query = Query::new();
-  query.select(HashMap::new());
+impl From<Query> for topk_protos::v1::data::Query {
+  fn from(query: Query) -> Self {
+    topk_protos::v1::data::Query {
+      stages: query.stages.into_iter().map(|stage| stage.into()).collect(),
+    }
+  }
+}
+
+impl From<Stage> for topk_protos::v1::data::Stage {
+  fn from(stage: Stage) -> Self {
+    topk_protos::v1::data::Stage {
+      stage: Some(match stage {
+        Stage::Select { exprs } => {
+          topk_protos::v1::data::stage::Stage::Select(topk_protos::v1::data::stage::SelectStage {
+            exprs: exprs.into_iter().map(|(k, v)| (k, v.into())).collect(),
+          })
+        }
+        Stage::Count {} => {
+          topk_protos::v1::data::stage::Stage::Count(topk_protos::v1::data::stage::CountStage {})
+        }
+        Stage::Rerank {
+          model,
+          query,
+          fields,
+          topk_multiple,
+        } => {
+          topk_protos::v1::data::stage::Stage::Rerank(topk_protos::v1::data::stage::RerankStage {
+            model,
+            query,
+            fields,
+            topk_multiple,
+          })
+        }
+      }),
+    }
+  }
 }

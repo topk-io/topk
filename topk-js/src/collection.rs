@@ -1,9 +1,7 @@
-use std::sync::Arc;
-
-use crate::{error::TopkError, query::Query};
-use napi::bindgen_prelude::*;
+use crate::{document::Document, query::Query};
+use napi::{bindgen_prelude::*, CallContext};
 use napi_derive::napi;
-use topk_protos::v1::data::ConsistencyLevel;
+use std::sync::Arc;
 
 #[napi]
 pub struct CollectionClient {
@@ -18,21 +16,14 @@ impl CollectionClient {
   }
 
   #[napi]
-  pub async fn query(&self, query: Query, lsn: Option<u32>) -> Result<String> {
+  pub async fn query(&self, query: Query, lsn: Option<u32>) -> Result<Vec<Document>> {
     let docs = self
       .client
       .collection(&self.collection)
       .query(query.into(), lsn.map(|l| l as u64), None)
       .await
-      .map_err(|e| match e {
-        _ => panic!("failed to query collection: {:?}", e),
-      })?;
+      .map_err(|e| napi::Error::new(napi::Status::GenericFailure, e.to_string()))?;
 
-    Ok(
-      docs
-        .into_iter()
-        .map(|d| d.fields.into_iter().map(|(k, v)| (k, v.into())).collect())
-        .collect(),
-    )
+    Ok(docs.into_iter().map(|d| d.into()).collect())
   }
 }
