@@ -7,7 +7,7 @@ export declare class Client {
 }
 
 export declare class CollectionClient {
-  query(query: string): string
+  query(query: Query, lsn?: number | undefined | null): Promise<Array<Document>>
 }
 
 export declare class CollectionsClient {
@@ -16,11 +16,8 @@ export declare class CollectionsClient {
   delete(name: string): Promise<void>
 }
 
-export interface ClientConfig {
-  apiKey: string
-  region: string
-  host?: string
-  https?: boolean
+export declare class Document {
+
 }
 
 export interface ClientConfig {
@@ -72,9 +69,42 @@ export interface FieldSpec {
   index?: FieldIndex
 }
 
+export type FunctionExpression =
+  | { type: 'KeywordScore' }
+  | { type: 'VectorScore', field: string, query: VectorQuery }
+  | { type: 'SemanticSimilarity', field: string, query: string }
+
+export type LogicalExpression =
+  | { type: 'Null' }
+  | { type: 'Field', name: string }
+  | { type: 'Literal', value: string }
+  | { type: 'And', left: LogicalExpression, right: LogicalExpression }
+  | { type: 'Or', left: LogicalExpression, right: LogicalExpression }
+
+export interface Query {
+  stages: Array<Stage>
+}
+
+export type SelectExpression =
+  | { type: 'Logical', expr: LogicalExpression }
+  | { type: 'Function', expr: FunctionExpression }
+
+export type Stage =
+  | { type: 'Select', exprs: Record<string, SelectExpression> }
+  | { type: 'Count' }
+  | { type: 'Rerank', model?: string, query?: string, fields: Array<string>, topkMultiple?: number }
+
+export type Value =
+  | { type: 'String', field0: string }
+  | { type: 'F64', field0: number }
+
 export declare const enum VectorFieldIndexMetric {
   Cosine = 'Cosine',
   Euclidean = 'Euclidean',
   DotProduct = 'DotProduct',
   Hamming = 'Hamming'
 }
+
+export type VectorQuery =
+  | { type: 'F32', vector: Array<number> }
+  | { type: 'U8', vector: Array<number> }

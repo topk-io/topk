@@ -37,10 +37,26 @@ async function main() {
           metric: 1,
         },
       },
+      name: {
+        dataType: DataType.Text,
+        required: true,
+      },
     },
   });
 
   console.dir(collections2, { depth: null });
+
+  await client.collection('esperanza').query({
+    stages: [
+      {
+        type: 'Select',
+        'exprs': {
+          'bom': {
+          }
+        }
+      },
+    ],
+  });
 }
 
 main();

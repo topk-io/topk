@@ -10,17 +10,10 @@ mod logical_expr;
 mod query;
 mod select_expr;
 
+use crate::client::ClientConfig;
 use napi_derive::napi;
 use std::sync::Arc;
 use topk_rs::{Client as RsClient, ClientConfig as RsClientConfig};
-
-#[napi(object)]
-pub struct ClientConfig {
-  pub api_key: String,
-  pub region: String,
-  pub host: Option<String>,
-  pub https: Option<bool>,
-}
 
 #[napi]
 pub struct Client {

@@ -373,6 +373,7 @@ if (!nativeBinding) {
 module.exports.Client = nativeBinding.Client
 module.exports.CollectionClient = nativeBinding.CollectionClient
 module.exports.CollectionsClient = nativeBinding.CollectionsClient
+module.exports.Document = nativeBinding.Document
 module.exports.DataType = nativeBinding.DataType
 module.exports.EmbeddingDataType = nativeBinding.EmbeddingDataType
 module.exports.VectorFieldIndexMetric = nativeBinding.VectorFieldIndexMetric

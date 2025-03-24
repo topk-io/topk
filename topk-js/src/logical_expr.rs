@@ -11,11 +11,15 @@ pub enum LogicalExpression {
     value: String,
   },
   And {
+    #[napi(ts_type = "LogicalExpression")]
     left: MyBox<LogicalExpression>,
+    #[napi(ts_type = "LogicalExpression")]
     right: MyBox<LogicalExpression>,
   },
   Or {
+    #[napi(ts_type = "LogicalExpression")]
     left: MyBox<LogicalExpression>,
+    #[napi(ts_type = "LogicalExpression")]
     right: MyBox<LogicalExpression>,
   },
 }

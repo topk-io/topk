@@ -6,24 +6,19 @@ use topk_protos::v1::data;
 
 #[napi]
 pub enum SelectExpression {
-  Logical(LogicalExpression),
-  // Function(FunctionExpression),
+  Logical { expr: LogicalExpression },
+  Function { expr: FunctionExpression },
 }
-
-// #[napi]
-// pub enum SelectExpressionUnion {
-//   Logical(LogicalExpression),
-//   Function(FunctionExpression),
-// }
 
 impl Into<data::stage::select_stage::SelectExpr> for SelectExpression {
   fn into(self) -> data::stage::select_stage::SelectExpr {
     match self {
-      SelectExpression::Logical(expr) => {
+      SelectExpression::Logical { expr } => {
         data::stage::select_stage::SelectExpr::logical(expr.into())
-      } // SelectExpression::Function(expr) => {
-        //   data::stage::select_stage::SelectExpr::function(expr.into())
-        // }
+      }
+      SelectExpression::Function { expr } => {
+        data::stage::select_stage::SelectExpr::function(expr.into())
+      }
     }
   }
 }
