@@ -89,6 +89,8 @@ export type SelectExpression =
   | { type: 'Logical', expr: LogicalExpression }
   | { type: 'Function', expr: FunctionExpression }
 
+export declare function semanticSimilarity(field: string, query: string): FunctionExpression
+
 export type Stage =
   | { type: 'Select', exprs: Record<string, SelectExpression> }
   | { type: 'Count' }

@@ -26,6 +26,16 @@ pub enum FunctionExpression {
   SemanticSimilarity { field: String, query: String },
 }
 
+#[napi]
+pub fn semantic_similarity(field: String, query: String) -> FunctionExpression {
+  FunctionExpression::SemanticSimilarity { field, query }
+}
+
+#[napi]
+pub fn bm25_score() -> FunctionExpression {
+  FunctionExpression::KeywordScore {}
+}
+
 impl Into<topk_protos::v1::data::FunctionExpr> for FunctionExpression {
   fn into(self) -> topk_protos::v1::data::FunctionExpr {
     match self {

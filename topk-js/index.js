@@ -376,4 +376,5 @@ module.exports.CollectionsClient = nativeBinding.CollectionsClient
 module.exports.Document = nativeBinding.Document
 module.exports.DataType = nativeBinding.DataType
 module.exports.EmbeddingDataType = nativeBinding.EmbeddingDataType
+module.exports.semanticSimilarity = nativeBinding.semanticSimilarity
 module.exports.VectorFieldIndexMetric = nativeBinding.VectorFieldIndexMetric
