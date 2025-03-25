@@ -8,6 +8,7 @@ export declare class Client {
 
 export declare class CollectionClient {
   query(query: Query, lsn?: number | undefined | null): Promise<Array<Document>>
+  upsert(docs: Array<Record<string, string>>): Promise<number>
 }
 
 export declare class CollectionsClient {
@@ -19,6 +20,8 @@ export declare class CollectionsClient {
 export declare class Document {
 
 }
+
+export declare function bm25Score(): FunctionExpression
 
 export interface ClientConfig {
   apiKey: string

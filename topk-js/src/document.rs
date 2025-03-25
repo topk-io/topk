@@ -1,10 +1,18 @@
+use napi::bindgen_prelude::FromNapiValue;
 use napi_derive::napi;
 use std::collections::HashMap;
 
-#[napi]
 pub enum Value {
   String(String),
   F64(f64),
+}
+
+impl FromNapiValue for Value {
+  unsafe fn from_napi_value(
+    env: napi::sys::napi_env,
+    napi_val: napi::sys::napi_value,
+  ) -> napi::Result<Self> {
+  }
 }
 
 #[napi]
