@@ -12,6 +12,16 @@ impl FromNapiValue for Value {
     env: napi::sys::napi_env,
     napi_val: napi::sys::napi_value,
   ) -> napi::Result<Self> {
+    let mut result = 0;
+    napi::sys::napi_typeof(env, napi_val, &mut result);
+
+    match result {
+      napi::sys::ValueType::napi_string => {
+        Ok(Value::String(String::from_napi_value(env, napi_val)?))
+      }
+      napi::sys::ValueType::napi_number => Ok(Value::F64(f64::from_napi_value(env, napi_val)?)),
+      _ => panic!("unsupported value type: {:?}", result),
+    }
   }
 }
 
