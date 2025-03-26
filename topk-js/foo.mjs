@@ -1,25 +1,35 @@
-import { Client } from "./index.js";
+import { Client, Query } from "./index.js";
 
 const client = new Client({
-  apiKey: "n9adNtTTeDiGf7JDW71wSsHUJrPB1ciYFGg7zFnha5ker",
+  apiKey: process.env.TOPK_API_KEY,
   region: "elastica",
 });
 
 async function main() {
-  const collection = client.collection("testo");
+  // const collection = client.collection("testo");
 
-  const upsert = await collection.upsert([
+  const query = new Query([
     {
-      type: "String",
-      name: "wow",
+      type: "Select",
+      exprs: {
+      },
     },
   ]);
 
-  console.log(upsert);
+  console.dir(query.query, { depth: null });
 
-  const results = await collection.query({ stages: [] });
+  // const upsert = await collection.upsert([
+  //   {
+  //     _id: "1",
+  //     name: "wow",
+  //   },
+  // ]);
 
-  console.dir(results, { depth: null });
+  // console.log(upsert);
+
+  // const results = await collection.query({ stages: [] });
+
+  // console.dir(results, { depth: null });
 
   // const newCollection = await client.collections().create({
   //   name: "test",

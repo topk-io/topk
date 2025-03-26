@@ -1,7 +1,11 @@
-use napi::bindgen_prelude::FromNapiValue;
+use napi::{
+  bindgen_prelude::{FromNapiValue, ToNapiValue},
+  sys,
+};
 use napi_derive::napi;
 use std::collections::HashMap;
 
+#[derive(Debug)]
 pub enum Value {
   String(String),
   F64(f64),
@@ -12,7 +16,7 @@ impl FromNapiValue for Value {
     env: napi::sys::napi_env,
     napi_val: napi::sys::napi_value,
   ) -> napi::Result<Self> {
-    let mut result = 0;
+    let mut result: i32 = 0;
     napi::sys::napi_typeof(env, napi_val, &mut result);
 
     match result {
@@ -25,7 +29,15 @@ impl FromNapiValue for Value {
   }
 }
 
-#[napi]
+impl ToNapiValue for Value {
+  unsafe fn to_napi_value(env: sys::napi_env, val: Self) -> Result<sys::napi_value, napi::Error> {
+    match val {
+      Value::String(s) => String::to_napi_value(env, s),
+      Value::F64(n) => f64::to_napi_value(env, n),
+    }
+  }
+}
+
 pub struct Document {
   fields: HashMap<String, Value>,
 }
@@ -62,5 +74,24 @@ impl From<topk_protos::v1::data::Value> for Value {
       Some(topk_protos::v1::data::value::Value::F64(n)) => Value::F64(n),
       t => panic!("unsupported value type: {:?}", t),
     }
+  }
+}
+
+pub struct DocumentWrapper(pub topk_protos::v1::data::Document);
+
+impl From<topk_protos::v1::data::Document> for DocumentWrapper {
+  fn from(doc: topk_protos::v1::data::Document) -> Self {
+    Self(doc)
+  }
+}
+
+impl From<DocumentWrapper> for HashMap<String, Value> {
+  fn from(wrapper: DocumentWrapper) -> Self {
+    wrapper
+      .0
+      .fields
+      .into_iter()
+      .map(|(k, v)| (k, v.into()))
+      .collect()
   }
 }

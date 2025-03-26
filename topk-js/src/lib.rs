@@ -7,6 +7,8 @@ mod document;
 mod error;
 mod function_expr;
 mod logical_expr;
+mod my_box;
+mod my_vec;
 mod query;
 mod select_expr;
 

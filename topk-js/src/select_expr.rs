@@ -5,6 +5,7 @@ use napi_derive::napi;
 use topk_protos::v1::data;
 
 #[napi]
+#[derive(Debug, Clone)]
 pub enum SelectExpression {
   Logical { expr: LogicalExpression },
   Function { expr: FunctionExpression },

@@ -1,5 +1,5 @@
 use crate::{
-  document::{self, Document, Value},
+  document::{self, Document, DocumentWrapper, Value},
   query::Query,
 };
 use napi::{bindgen_prelude::*, JsString, JsUnknown};
@@ -20,7 +20,7 @@ impl CollectionClient {
   }
 
   #[napi]
-  pub async fn query(&self, query: Query, lsn: Option<u32>) -> Result<Vec<Document>> {
+  pub async fn query(&self, query: Query, lsn: Option<u32>) -> Result<Vec<HashMap<String, Value>>> {
     let docs = self
       .client
       .collection(&self.collection)
@@ -28,46 +28,38 @@ impl CollectionClient {
       .await
       .map_err(|e| napi::Error::new(napi::Status::GenericFailure, e.to_string()))?;
 
-    Ok(docs.into_iter().map(|d| d.into()).collect())
+    Ok(
+      docs
+        .into_iter()
+        .map(|d| DocumentWrapper::from(d).into())
+        .collect(),
+    )
   }
 
   #[napi]
   pub async fn upsert(&self, docs: Vec<HashMap<String, Value>>) -> Result<i32> {
-    // println!("{:?}", docs);
+    println!("{:?}", docs);
 
     let result = self
       .client
       .collection(&self.collection)
-      .upsert(docs)
+      .upsert(
+        docs
+          .into_iter()
+          .map(|d| topk_protos::v1::data::Document {
+            fields: d.into_iter().map(|(k, v)| (k, v.into())).collect(),
+          })
+          .collect(),
+      )
       .await
-      .map_err(|e| napi::Error::new(napi::Status::GenericFailure, e.to_string()))
+      .map_err(|e| {
+        napi::Error::new(
+          napi::Status::GenericFailure,
+          format!("upsert failed: {:?}", e),
+        )
+      })
       .map(|lsn| lsn as i32);
-
-    // println!("{:?}", result);
 
     result
   }
-
-  // #[napi]
-  // pub fn testo(&self, docs: Vec<JsObject>) -> Result<()> {
-  //   for doc in docs {
-  //     let keys = Object::keys(&doc)?;
-  //     println!("{:?}", keys);
-  //     //   for key in keys {
-  //     //     let value = doc.get::<Value>(&key)?;
-  //     //     println!("{}: {:?}", key, value);
-  //     //   }
-  //   }
-  //   Ok(())
-  // }
 }
-
-// impl From<HashMap<String, document::Value>> for topk_protos::v1::data::Document {
-//   fn from(map: HashMap<String, document::Value>) -> Self {
-//     let mut doc = topk_protos::v1::data::Document::default();
-//     for (key, value) in map {
-//       doc.fields.insert(key, value.into());
-//     }
-//     doc
-//   }
-// }

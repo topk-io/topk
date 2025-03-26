@@ -7,8 +7,8 @@ export declare class Client {
 }
 
 export declare class CollectionClient {
-  query(query: Query, lsn?: number | undefined | null): Promise<Array<Document>>
-  upsert(docs: Array<Record<string, string>>): Promise<number>
+  query(query: Query, lsn?: number | undefined | null): Promise<Array<Record<string, any>>>
+  upsert(docs: Array<Record<string, any>>): Promise<number>
 }
 
 export declare class CollectionsClient {
@@ -17,9 +17,13 @@ export declare class CollectionsClient {
   delete(name: string): Promise<void>
 }
 
-export declare class Document {
-
+export declare class Query {
+  constructor(stages: Array<Stage>)
+  select(exprs: Record<string, SelectExpression>): Query
+  top_k(expr: LogicalExpression, k: number, asc: boolean): void
+  get query(): Query
 }
+export type JsQuery = Query
 
 export declare function bm25Score(): FunctionExpression
 
@@ -84,9 +88,7 @@ export type LogicalExpression =
   | { type: 'And', left: LogicalExpression, right: LogicalExpression }
   | { type: 'Or', left: LogicalExpression, right: LogicalExpression }
 
-export interface Query {
-  stages: Array<Stage>
-}
+export declare function select(exprs: Record<string, SelectExpression>): Query
 
 export type SelectExpression =
   | { type: 'Logical', expr: LogicalExpression }
@@ -96,12 +98,9 @@ export declare function semanticSimilarity(field: string, query: string): Functi
 
 export type Stage =
   | { type: 'Select', exprs: Record<string, SelectExpression> }
+  | { type: 'TopK', expr: LogicalExpression, k: number, asc: boolean }
   | { type: 'Count' }
   | { type: 'Rerank', model?: string, query?: string, fields: Array<string>, topkMultiple?: number }
-
-export type Value =
-  | { type: 'String', field0: string }
-  | { type: 'F64', field0: number }
 
 export declare const enum VectorFieldIndexMetric {
   Cosine = 'Cosine',

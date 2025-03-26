@@ -373,9 +373,11 @@ if (!nativeBinding) {
 module.exports.Client = nativeBinding.Client
 module.exports.CollectionClient = nativeBinding.CollectionClient
 module.exports.CollectionsClient = nativeBinding.CollectionsClient
-module.exports.Document = nativeBinding.Document
+module.exports.Query = nativeBinding.Query
+module.exports.JsQuery = nativeBinding.JsQuery
 module.exports.bm25Score = nativeBinding.bm25Score
 module.exports.DataType = nativeBinding.DataType
 module.exports.EmbeddingDataType = nativeBinding.EmbeddingDataType
+module.exports.select = nativeBinding.select
 module.exports.semanticSimilarity = nativeBinding.semanticSimilarity
 module.exports.VectorFieldIndexMetric = nativeBinding.VectorFieldIndexMetric

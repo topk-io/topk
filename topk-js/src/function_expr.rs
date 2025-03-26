@@ -2,6 +2,7 @@ use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
 #[napi]
+#[derive(Debug, Clone)]
 pub enum VectorQuery {
   F32 { vector: Vec<f64> },
   U8 { vector: Vec<u8> },
@@ -20,6 +21,7 @@ impl Into<topk_protos::v1::data::Vector> for VectorQuery {
 }
 
 #[napi]
+#[derive(Debug, Clone)]
 pub enum FunctionExpression {
   KeywordScore,
   VectorScore { field: String, query: VectorQuery },
