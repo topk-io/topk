@@ -20,6 +20,9 @@ pub enum Error {
     #[error("collection not found")]
     CollectionNotFound,
 
+    #[error("document not found")]
+    DocumentNotFound,
+
     #[error("invalid collection schema")]
     SchemaValidationError(ValidationErrorBag<SchemaValidationError>),
 
@@ -31,6 +34,9 @@ pub enum Error {
 
     #[error("tonic error: {0}")]
     Unexpected(tonic::Status),
+
+    #[error("invalid proto")]
+    InvalidProto,
 
     #[error("permission denied")]
     PermissionDenied,

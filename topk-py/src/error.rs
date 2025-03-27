@@ -2,6 +2,7 @@ use pyo3::{create_exception, exceptions::PyException, prelude::*};
 
 create_exception!(error, CollectionNotFoundError, PyException);
 create_exception!(error, SchemaValidationError, PyException);
+create_exception!(error, DocumentNotFoundError, PyException);
 
 ////////////////////////////////////////////////////////////
 /// Error
@@ -15,6 +16,11 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add(
         "CollectionNotFoundError",
         m.py().get_type::<CollectionNotFoundError>(),
+    )?;
+
+    m.add(
+        "DocumentNotFoundError",
+        m.py().get_type::<DocumentNotFoundError>(),
     )?;
 
     m.add(

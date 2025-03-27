@@ -83,6 +83,21 @@ def test_list_collections(ctx: ProjectContext):
     assert c in ctx.client.collections().list()
 
 
+def test_get_collections(ctx: ProjectContext):
+    # get non-existent collection
+    with pytest.raises(error.CollectionNotFoundError):
+        ctx.client.collections().get(ctx.scope("foo"))
+
+    # create collection
+    ctx.client.collections().create(ctx.scope("foo"), schema={})
+
+    # get collection
+    collection = ctx.client.collections().get(ctx.scope("foo"))
+
+    # assert collection
+    assert collection.name == ctx.scope("foo")
+
+
 def test_delete_collection(ctx: ProjectContext):
     assert ctx.scope("books") not in [c.name for c in ctx.client.collections().list()]
 
