@@ -1,5 +1,3 @@
-use std::{env, path::PathBuf};
-
 fn main() {
     build_topk_v1();
 
@@ -8,8 +6,6 @@ fn main() {
 }
 
 fn build_topk_v1() {
-    let lib_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-
     let mut builder = tonic_build::configure();
 
     // #[derive(Eq, Hash)] for messages
@@ -63,9 +59,10 @@ fn build_topk_v1() {
             builder.type_attribute(message, "#[derive(serde::Serialize, serde::Deserialize)]");
     }
 
+    // let lib_dir = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
     builder
         .clone()
-        .file_descriptor_set_path(lib_dir.join("out/topk_v1_proto_descriptor_set.bin"))
+        // .file_descriptor_set_path(lib_dir.join("out/topk_v1_proto_descriptor_set.bin"))
         .compile_protos(
             &[
                 "protos/topk/control/v1/collection.proto",
