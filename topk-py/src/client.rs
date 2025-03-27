@@ -60,6 +60,20 @@ pub struct CollectionsClient {
 
 #[pymethods]
 impl CollectionsClient {
+    pub fn get(&self, collection_name: String) -> PyResult<Collection> {
+        let collection = self
+            .runtime
+            .block_on(self.client.collections().get(&collection_name))
+            .map_err(|e| match e {
+                topk_rs::Error::CollectionNotFound => {
+                    CollectionNotFoundError::new_err(e.to_string())
+                }
+                _ => PyException::new_err(format!("failed to get collection: {:?}", e)),
+            })?;
+
+        Ok(collection.into())
+    }
+
     pub fn list(&self) -> PyResult<Vec<Collection>> {
         let collections = self
             .runtime
@@ -119,6 +133,36 @@ pub struct CollectionClient {
 
 #[pymethods]
 impl CollectionClient {
+    #[pyo3(signature = (id, fields=vec![], lsn=None, consistency=None))]
+    pub fn get(
+        &self,
+        id: String,
+        fields: Vec<String>,
+        lsn: Option<u64>,
+        consistency: Option<ConsistencyLevel>,
+    ) -> PyResult<HashMap<String, ValueUnion>> {
+        let document = self
+            .runtime
+            .block_on(self.client.collection(&self.collection).get(
+                id,
+                fields,
+                lsn,
+                consistency.map(|c| c.into()),
+            ))
+            .map_err(|e| match e {
+                topk_rs::Error::DocumentNotFound => {
+                    PyException::new_err(format!("document not found"))
+                }
+                _ => PyException::new_err(format!("failed to get document: {:?}", e)),
+            })?;
+
+        Ok(document
+            .fields
+            .into_iter()
+            .map(|(k, v)| (k, v.into()))
+            .collect())
+    }
+
     #[pyo3(signature = (lsn=None, consistency=None))]
     pub fn count(&self, lsn: Option<u64>, consistency: Option<ConsistencyLevel>) -> PyResult<u64> {
         let query = Query::new().count()?;

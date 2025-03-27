@@ -9,7 +9,7 @@ use topk_protos::utils::{
     DocumentClientWithHeaders, QueryClientWithHeaders,
 };
 use topk_protos::v1::control::{FieldSpec, GetCollectionRequest};
-use topk_protos::v1::data::ConsistencyLevel;
+use topk_protos::v1::data::{ConsistencyLevel, GetRequest};
 use topk_protos::{
     utils::{DocumentClient, QueryClient},
     v1::{
@@ -143,6 +143,67 @@ impl CollectionClient {
             config: config.with_headers(headers),
             channel,
             collection,
+        }
+    }
+
+    pub async fn get(
+        &self,
+        id: impl Into<String>,
+        fields: Vec<String>,
+        lsn: Option<u64>,
+        consistency: Option<ConsistencyLevel>,
+    ) -> Result<Document, Error> {
+        let mut tries = 0;
+        let max_tries = 120;
+        let retry_after = Duration::from_secs(1);
+
+        let id = id.into();
+
+        loop {
+            tries += 1;
+
+            let fields = fields.clone();
+
+            let response = self
+                .query_client()
+                .await?
+                .get(GetRequest {
+                    id: id.clone(),
+                    fields,
+                    required_lsn: lsn,
+                    consistency_level: consistency.map(|c| c.into()),
+                })
+                .await;
+
+            match response {
+                Ok(response) => match response.into_inner().doc {
+                    Some(doc) => return Ok(doc),
+                    None => return Err(Error::InvalidProto),
+                },
+                Err(e) => {
+                    match InternalErrorCode::parse_status(&e) {
+                        // Custom error
+                        Ok(InternalErrorCode::RequiredLsnGreaterThanManifestMaxLsn) => {
+                            if tries < max_tries {
+                                tokio::time::sleep(retry_after).await;
+                                continue;
+                            } else {
+                                return Err(Error::QueryLsnTimeout);
+                            }
+                        }
+                        _ => {
+                            return Err(match e.code() {
+                                tonic::Code::NotFound => Error::DocumentNotFound,
+                                tonic::Code::ResourceExhausted => Error::CapacityExceeded,
+                                tonic::Code::InvalidArgument => {
+                                    Error::InvalidArgument(e.message().into())
+                                }
+                                _ => Error::Unexpected(e),
+                            })
+                        }
+                    }
+                }
+            }
         }
     }
 

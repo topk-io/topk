@@ -9,11 +9,17 @@ import "topk/data/v1/text_expr.proto";
 import "topk/data/v1/value.proto";
 
 service QueryService {
+  // Query
   rpc Query(QueryRequest) returns (QueryResponse) {
     option (google.api.http) = {
       post: "/v1/query"
       body: "*"
     };
+  }
+
+  // Get document (by ID)
+  rpc Get(GetRequest) returns (GetResponse) {
+    option (google.api.http) = {get: "/v1/docs/{id}"};
   }
 }
 
@@ -32,6 +38,17 @@ message QueryRequest {
 
 message QueryResponse {
   repeated Document results = 1;
+}
+
+// Get document (by ID)
+message GetRequest {
+  string id = 1;
+  repeated string fields = 2;
+  optional uint64 required_lsn = 3;
+  optional ConsistencyLevel consistency_level = 4;
+}
+message GetResponse {
+  Document doc = 1;
 }
 
 message Query {

@@ -1,4 +1,5 @@
 import pytest
+from topk_sdk import error
 from topk_sdk.query import field, fn, match, select
 from topk_sdk.schema import (
     binary_vector,
@@ -11,6 +12,24 @@ from topk_sdk.schema import (
 )
 
 from . import ProjectContext
+
+
+def test_get(ctx: ProjectContext):
+    ctx.client.collections().create(ctx.scope("books"), schema={})
+
+    # get non-existent document
+    with pytest.raises(error.DocumentNotFoundError):
+        ctx.client.collection(ctx.scope("books")).get("one")
+
+    # upsert document
+    lsn = ctx.client.collection(ctx.scope("books")).upsert(
+        [{"_id": "one", "name": "one", "rank": 1}],
+    )
+    assert lsn == 1
+
+    # get document
+    doc = ctx.client.collection(ctx.scope("books")).get("one")
+    assert doc == {"_id": "one", "name": "one", "rank": 1}
 
 
 def test_upsert(ctx: ProjectContext):
