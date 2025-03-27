@@ -6,7 +6,7 @@ use std::sync::Arc;
 use crate::client::Collection;
 use crate::client::CreateCollectionOptions;
 use crate::error::TopkError;
-use topk_protos::v1::control::{self, KeywordIndexType};
+use topk_protos::v1::control::{self};
 
 #[napi]
 pub struct CollectionsClient {

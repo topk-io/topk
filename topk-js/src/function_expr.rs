@@ -1,6 +1,8 @@
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
+use crate::select_expr::SelectExpression;
+
 #[napi]
 #[derive(Debug, Clone)]
 pub enum VectorQuery {
@@ -29,19 +31,30 @@ pub enum FunctionExpression {
 }
 
 #[napi]
-pub fn semantic_similarity(field: String, query: String) -> FunctionExpression {
-  FunctionExpression::SemanticSimilarity { field, query }
+pub fn semantic_similarity(field: String, query: String) -> SelectExpression {
+  SelectExpression::Function {
+    expr: FunctionExpression::SemanticSimilarity { field, query },
+  }
 }
 
 #[napi]
-pub fn bm25_score() -> FunctionExpression {
-  FunctionExpression::KeywordScore {}
+pub fn vector_distance(field: String, query: VectorQuery) -> SelectExpression {
+  SelectExpression::Function {
+    expr: FunctionExpression::VectorScore { field, query },
+  }
+}
+
+#[napi]
+pub fn bm25_score() -> SelectExpression {
+  SelectExpression::Function {
+    expr: FunctionExpression::KeywordScore,
+  }
 }
 
 impl Into<topk_protos::v1::data::FunctionExpr> for FunctionExpression {
   fn into(self) -> topk_protos::v1::data::FunctionExpr {
     match self {
-      FunctionExpression::KeywordScore {} => topk_protos::v1::data::FunctionExpr::bm25_score(),
+      FunctionExpression::KeywordScore => topk_protos::v1::data::FunctionExpr::bm25_score(),
       FunctionExpression::VectorScore { field, query } => {
         topk_protos::v1::data::FunctionExpr::vector_distance(field, query.into())
       }

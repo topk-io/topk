@@ -1,7 +1,9 @@
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
-use crate::my_box::MyBox;
+use crate::{
+  binary_expr::BinaryOperator, document::Value, my_box::MyBox, unary_expr::UnaryOperator,
+};
 
 #[napi]
 #[derive(Debug, Clone)]
@@ -11,17 +13,17 @@ pub enum LogicalExpression {
     name: String,
   },
   Literal {
-    value: String,
+    value: Value,
   },
-  And {
+  Unary {
+    op: UnaryOperator,
+    #[napi(ts_type = "LogicalExpression")]
+    expr: MyBox<LogicalExpression>,
+  },
+  Binary {
     #[napi(ts_type = "LogicalExpression")]
     left: MyBox<LogicalExpression>,
-    #[napi(ts_type = "LogicalExpression")]
-    right: MyBox<LogicalExpression>,
-  },
-  Or {
-    #[napi(ts_type = "LogicalExpression")]
-    left: MyBox<LogicalExpression>,
+    op: BinaryOperator,
     #[napi(ts_type = "LogicalExpression")]
     right: MyBox<LogicalExpression>,
   },

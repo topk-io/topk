@@ -1,17 +1,22 @@
 #![deny(clippy::all)]
 
+mod binary_expr;
 mod client;
 mod collection;
 mod collections;
 mod document;
 mod error;
+mod field;
+mod filter_expr;
 mod function_expr;
 mod logical_expr;
+mod match_;
 mod my_box;
 mod my_vec;
 mod query;
 mod select_expr;
-
+mod text_expr;
+mod unary_expr;
 use crate::client::ClientConfig;
 use napi_derive::napi;
 use std::sync::Arc;

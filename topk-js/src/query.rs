@@ -1,7 +1,10 @@
 use std::collections::HashMap;
 
-use crate::{logical_expr::LogicalExpression, my_vec::MyVec, select_expr::SelectExpression};
-use napi::{bindgen_prelude::*, JsObject, NapiValue};
+use crate::{
+  field::Field, filter_expr::FilterExpression, logical_expr::LogicalExpression,
+  select_expr::SelectExpression,
+};
+use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
 #[napi]
@@ -10,9 +13,9 @@ pub enum Stage {
   Select {
     exprs: HashMap<String, SelectExpression>,
   },
-  // Filter {
-  //   expr: SelectExpression,
-  // },
+  Filter {
+    expr: FilterExpression,
+  },
   TopK {
     expr: LogicalExpression,
     k: i32,
@@ -27,71 +30,97 @@ pub enum Stage {
   },
 }
 
-#[derive(Debug, Clone)]
+#[napi]
+#[derive(Debug)]
 pub struct Query {
-  pub stages: MyVec<Stage>,
-}
-
-// impl Clone for Query {
-//   fn clone(&self) -> Self {
-//     Query {
-//       stages: self.stages.clone(),
-//     }
-//   }
-// }
-
-#[napi(js_name = "Query")]
-pub struct JsQuery {
-  query: Query,
+  stages: Vec<Stage>,
 }
 
 #[napi]
-impl JsQuery {
-  #[napi(constructor)]
-  pub fn new(stages: Vec<Stage>) -> Self {
-    JsQuery {
-      query: Query {
-        stages: MyVec(stages),
-      },
-    }
+impl Query {
+  #[napi(factory)]
+  pub fn create(stages: Vec<Stage>) -> Query {
+    Self { stages }
   }
 
   #[napi]
-  pub fn select(&mut self, exprs: HashMap<String, SelectExpression>) -> &mut JsQuery {
-    self.query.stages.0.push(Stage::Select { exprs });
-    self
+  pub fn filter(&self, expr: FilterExpression) -> Query {
+    let mut new_query = Query {
+      stages: self.stages.clone(),
+    };
+
+    new_query.stages.push(Stage::Filter { expr });
+
+    new_query
   }
 
   #[napi(js_name = "top_k")]
-  pub fn top_k(&mut self, expr: LogicalExpression, k: i32, asc: bool) {
-    // let mut query = Query { stages: MyVec(vec![]) };
-    // query.stages.0.push(Stage::TopK { expr, k, asc });
-    // JsQuery { query }
-    todo!()
+  pub fn top_k(&self, expr: Field, k: i32, asc: Option<bool>) -> Query {
+    let mut new_query = Query {
+      stages: self.stages.clone(),
+    };
+
+    new_query.stages.push(Stage::TopK {
+      expr: expr.get_expr(),
+      k,
+      asc: asc.unwrap_or(false),
+    });
+
+    new_query
+  }
+
+  #[napi]
+  pub fn count(&self) -> Query {
+    let mut new_query = Query {
+      stages: self.stages.clone(),
+    };
+
+    new_query.stages.push(Stage::Count {});
+
+    new_query
   }
 
   #[napi(getter)]
-  pub fn query(&self) -> napi::Result<Query> {
-    Ok(self.query.clone())
+  pub fn get_stages(&self) -> Vec<Stage> {
+    self.stages.clone()
   }
 }
 
 #[napi]
-pub fn select(exprs: HashMap<String, SelectExpression>) -> JsQuery {
-  let mut query = JsQuery::new(vec![]);
-  query.select(exprs);
-  query
+pub fn select(exprs: Vec<Field>) -> Query {
+  let mut field_map: HashMap<String, SelectExpression> = HashMap::new();
+
+  for field in &exprs {
+    let expr = field.get_expr();
+
+    match &expr {
+      LogicalExpression::Field { name } => {
+        field_map.insert(name.clone(), SelectExpression::Logical { expr });
+      }
+      LogicalExpression::Binary {
+        left,
+        op: _,
+        right: _,
+      } => {
+        if let LogicalExpression::Field { name } = left.as_ref() {
+          field_map.insert(name.clone(), SelectExpression::Logical { expr });
+        }
+      }
+      _ => {}
+    }
+  }
+
+  let stage = Stage::Select { exprs: field_map };
+
+  let stages = vec![stage];
+
+  Query::create(stages)
 }
 
 impl From<Query> for topk_protos::v1::data::Query {
   fn from(query: Query) -> Self {
     topk_protos::v1::data::Query {
-      stages: query
-        .stages
-        .0
-        .into_iter()
-        .map(|stage| stage.into())
-        .collect(),
+      stages: query.stages.into_iter().map(|stage| stage.into()).collect(),
     }
   }
 }
@@ -100,11 +129,11 @@ impl From<Stage> for topk_protos::v1::data::Stage {
   fn from(stage: Stage) -> Self {
     topk_protos::v1::data::Stage {
       stage: Some(match stage {
-        // Stage::Filter { expr } => {
-        //   topk_protos::v1::data::stage::Stage::Filter(topk_protos::v1::data::stage::FilterStage {
-        //     expr: Some(expr.into()),
-        //   })
-        // }
+        Stage::Filter { expr } => {
+          topk_protos::v1::data::stage::Stage::Filter(topk_protos::v1::data::stage::FilterStage {
+            expr: Some(expr.into()),
+          })
+        }
         Stage::Select { exprs } => {
           topk_protos::v1::data::stage::Stage::Select(topk_protos::v1::data::stage::SelectStage {
             exprs: exprs.into_iter().map(|(k, v)| (k, v.into())).collect(),
@@ -148,92 +177,14 @@ impl FromNapiValue for Query {
     let stages: Option<Vec<Stage>> = object.get("stages".into())?;
 
     match stages {
-      Some(stages) => {
-        println!("Received stages: {:?}", stages);
-        Ok(Self {
-          stages: MyVec(stages),
-        })
+      Some(stages) => Ok(Self { stages: stages }),
+      None => {
+        println!("Received stages: None");
+        Err(napi::Error::new(
+          napi::Status::GenericFailure,
+          "Received stages: None",
+        ))
       }
-      None => todo!(),
     }
-  }
-}
-
-impl ToNapiValue for Query {
-  unsafe fn to_napi_value(
-    env: napi::sys::napi_env,
-    val: Self,
-  ) -> Result<napi::sys::napi_value, napi::Status> {
-    let mut obj = std::ptr::null_mut();
-    let status = napi::sys::napi_create_object(env, &mut obj);
-    if status != napi::sys::Status::napi_ok {
-      return Err(napi::Error::new(
-        napi::Status::GenericFailure,
-        "Failed to create object",
-      ));
-    }
-    let stages = ToNapiValue::to_napi_value(env, val.stages)?;
-    let status =
-      napi::sys::napi_set_named_property(env, obj, "stages\0".as_ptr() as *const i8, stages);
-    if status != napi::sys::Status::napi_ok {
-      return Err(napi::Error::new(
-        napi::Status::GenericFailure,
-        "Failed to set named property",
-      ));
-    }
-    Ok(obj)
-  }
-}
-
-impl ToNapiValue for MyVec<Stage> {
-  unsafe fn to_napi_value(
-    env: napi::sys::napi_env,
-    val: Self,
-  ) -> Result<napi::sys::napi_value, napi::Status> {
-    let mut obj = std::ptr::null_mut();
-    let status = napi::sys::napi_create_object(env, &mut obj);
-    if status != napi::sys::Status::napi_ok {
-      return Err(napi::Error::new(
-        napi::Status::GenericFailure,
-        "Failed to create object",
-      ));
-    }
-    let stages = ToNapiValue::to_napi_value(env, val.0)?;
-    let status =
-      napi::sys::napi_set_named_property(env, obj, "stages\0".as_ptr() as *const i8, stages);
-    if status != napi::sys::Status::napi_ok {
-      return Err(napi::Error::new(
-        napi::Status::GenericFailure,
-        "Failed to set named property",
-      ));
-    }
-    Ok(obj)
-  }
-}
-
-impl ToNapiValue for &mut MyVec<Stage> {
-  unsafe fn to_napi_value(
-    env: napi::sys::napi_env,
-    val: Self,
-  ) -> Result<napi::sys::napi_value, napi::Status> {
-    todo!()
-  }
-}
-
-impl FromNapiValue for MyVec<Stage> {
-  unsafe fn from_napi_value(
-    env: napi::sys::napi_env,
-    value: napi::sys::napi_value,
-  ) -> Result<Self, napi::Status> {
-    todo!()
-  }
-}
-
-impl ToNapiValue for &mut JsQuery {
-  unsafe fn to_napi_value(
-    env: napi::sys::napi_env,
-    val: Self,
-  ) -> Result<napi::sys::napi_value, napi::Status> {
-    todo!()
   }
 }

@@ -1,4 +1,8 @@
-import { Client, Query } from "./index.js";
+import {
+  Client,
+  select,
+  field,
+} from "./index.js";
 
 const client = new Client({
   apiKey: process.env.TOPK_API_KEY,
@@ -6,85 +10,26 @@ const client = new Client({
 });
 
 async function main() {
-  // const collection = client.collection("testo");
-
-  const query = new Query([
-    {
-      type: "Select",
-      exprs: {
-      },
-    },
-  ]);
-
-  console.dir(query.query, { depth: null });
-
-  // const upsert = await collection.upsert([
+  // const docs = await client.collection("books").upsert([
   //   {
   //     _id: "1",
-  //     name: "wow",
+  //     title: "The Great Gatsby",
+  //     author: "F. Scott Fitzgerald",
+  //     year: 1925,
+  //   },
+  //   {
+  //     _id: "2",
+  //     title: "To Kill a Mockingbird",
+  //     author: "Harper Lee",
+  //     year: 1960,
   //   },
   // ]);
 
-  // console.log(upsert);
+  const res = await client
+    .collection("books")
+    .query(select([field("title")]).count());
 
-  // const results = await collection.query({ stages: [] });
-
-  // console.dir(results, { depth: null });
-
-  // const newCollection = await client.collections().create({
-  //   name: "test",
-  //   schema: {
-  //     name: {
-  //       dataType: DataType.Text,
-  //       required: true,
-  //     },
-  //   },
-  // });
-
-  // console.dir(newCollection, { depth: null });
-
-  // const collections = await client.collections().list();
-
-  // console.dir(collections, { depth: null });
-
-  // await client.collections().delete("test");
-
-  // const collections2 = await client.collections().list();
-
-  // await client.collections().create({
-  //   name: "esperanza",
-  //   schema: {
-  //     bom: {
-  //       dataType: DataType.F32Vector,
-  //       required: true,
-  //       index: {
-  //         type: "Vector",
-  //         metric: 1,
-  //       },
-  //     },
-  //     name: {
-  //       dataType: DataType.Text,
-  //       required: true,
-  //     },
-  //   },
-  // });
-
-  // console.dir(collections2, { depth: null });
-
-  // await client.collection('esperanza').query({
-  //   stages: [
-  //     {
-  //       type: 'Select',
-  //       'exprs': {
-  //         'bom': {
-  //         }
-  //       }
-  //     },
-  //   ],
-  // });
+  console.log(res);
 }
 
 main();
-
-// const collections = await client.collections.list()
-// console.log(collections);

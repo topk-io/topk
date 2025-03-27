@@ -26,3 +26,9 @@ where
     ToNapiValue::to_napi_value(env, *val.0)
   }
 }
+
+impl<T> AsRef<T> for MyBox<T> {
+  fn as_ref(&self) -> &T {
+    &self.0
+  }
+}

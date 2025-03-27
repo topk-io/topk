@@ -1,8 +1,8 @@
 use crate::{
-  document::{self, Document, DocumentWrapper, Value},
+  document::{DocumentWrapper, Value},
   query::Query,
 };
-use napi::{bindgen_prelude::*, JsString, JsUnknown};
+use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -21,6 +21,8 @@ impl CollectionClient {
 
   #[napi]
   pub async fn query(&self, query: Query, lsn: Option<u32>) -> Result<Vec<HashMap<String, Value>>> {
+    // println!("query: {:?}", query);
+
     let docs = self
       .client
       .collection(&self.collection)
@@ -38,7 +40,7 @@ impl CollectionClient {
 
   #[napi]
   pub async fn upsert(&self, docs: Vec<HashMap<String, Value>>) -> Result<i32> {
-    println!("{:?}", docs);
+    println!("upsert: {:?}", docs);
 
     let result = self
       .client

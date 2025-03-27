@@ -17,15 +17,46 @@ export declare class CollectionsClient {
   delete(name: string): Promise<void>
 }
 
-export declare class Query {
-  constructor(stages: Array<Stage>)
-  select(exprs: Record<string, SelectExpression>): Query
-  top_k(expr: LogicalExpression, k: number, asc: boolean): void
-  get query(): Query
+export declare class Field {
+  static create(name: string): Field
+  gt(value: number): Field
+  eq(value: any): Field
+  get expr(): LogicalExpression
 }
-export type JsQuery = Query
 
-export declare function bm25Score(): FunctionExpression
+export declare class Query {
+  static create(stages: Array<Stage>): Query
+  filter(expr: FilterExpression): Query
+  top_k(expr: Field, k: number, asc?: boolean | undefined | null): Query
+  count(): Query
+  get stages(): Array<Stage>
+}
+
+export declare class Term {
+  token: string
+  field?: string
+  weight: number
+}
+
+export declare const enum BinaryOperator {
+  And = 'And',
+  Or = 'Or',
+  Xor = 'Xor',
+  Eq = 'Eq',
+  NotEq = 'NotEq',
+  Lt = 'Lt',
+  LtEq = 'LtEq',
+  Gt = 'Gt',
+  GtEq = 'GtEq',
+  StartsWith = 'StartsWith',
+  Add = 'Add',
+  Sub = 'Sub',
+  Mul = 'Mul',
+  Div = 'Div',
+  Rem = 'Rem'
+}
+
+export declare function bm25Score(): SelectExpression
 
 export interface ClientConfig {
   apiKey: string
@@ -65,6 +96,8 @@ export declare const enum EmbeddingDataType {
   Binary = 'Binary'
 }
 
+export declare function field(name: string): Field
+
 export type FieldIndex =
   | { type: 'Keyword' }
   | { type: 'Vector', metric: VectorFieldIndexMetric }
@@ -76,6 +109,10 @@ export interface FieldSpec {
   index?: FieldIndex
 }
 
+export type FilterExpression =
+  | { type: 'Logical', expr: LogicalExpression }
+  | { type: 'Text', expr: TextExpression }
+
 export type FunctionExpression =
   | { type: 'KeywordScore' }
   | { type: 'VectorScore', field: string, query: VectorQuery }
@@ -84,23 +121,37 @@ export type FunctionExpression =
 export type LogicalExpression =
   | { type: 'Null' }
   | { type: 'Field', name: string }
-  | { type: 'Literal', value: string }
-  | { type: 'And', left: LogicalExpression, right: LogicalExpression }
-  | { type: 'Or', left: LogicalExpression, right: LogicalExpression }
+  | { type: 'Literal', value: any }
+  | { type: 'Unary', op: UnaryOperator, expr: LogicalExpression }
+  | { type: 'Binary', left: LogicalExpression, op: BinaryOperator, right: LogicalExpression }
 
-export declare function select(exprs: Record<string, SelectExpression>): Query
+export declare function select(exprs: Array<Field>): Query
 
 export type SelectExpression =
   | { type: 'Logical', expr: LogicalExpression }
   | { type: 'Function', expr: FunctionExpression }
 
-export declare function semanticSimilarity(field: string, query: string): FunctionExpression
+export declare function semanticSimilarity(field: string, query: string): SelectExpression
 
 export type Stage =
   | { type: 'Select', exprs: Record<string, SelectExpression> }
+  | { type: 'Filter', expr: FilterExpression }
   | { type: 'TopK', expr: LogicalExpression, k: number, asc: boolean }
   | { type: 'Count' }
   | { type: 'Rerank', model?: string, query?: string, fields: Array<string>, topkMultiple?: number }
+
+export type TextExpression =
+  | { type: 'Terms', all: boolean, terms: Array<Term> }
+  | { type: 'And', left: TextExpression, right: TextExpression }
+  | { type: 'Or', left: TextExpression, right: TextExpression }
+
+export declare const enum UnaryOperator {
+  Not = 0,
+  IsNull = 1,
+  IsNotNull = 2
+}
+
+export declare function vectorDistance(field: string, query: VectorQuery): SelectExpression
 
 export declare const enum VectorFieldIndexMetric {
   Cosine = 'Cosine',
