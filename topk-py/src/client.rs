@@ -151,6 +151,7 @@ impl CollectionClient {
             ))
             .map_err(|e| match e {
                 topk_rs::Error::DocumentNotFound => {
+                    // TODO: use pyo3 exception
                     PyException::new_err(format!("document not found"))
                 }
                 _ => PyException::new_err(format!("failed to get document: {:?}", e)),
