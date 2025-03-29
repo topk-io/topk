@@ -2,13 +2,13 @@ name: Test
 
 on:
   pull_request:
-    types: [labeled]
+    types: [synchronize, opened, reopened, labeled, unlabeled]
 
 jobs:
   python:
     name: Python
     runs-on: [earthly-satellite#bob-the-builder-amd64]
-    if: ${{ github.event.label.name == 'ready' }}
+    if: ${{ contains(github.event.pull_request.labels, 'ready') }}
     permissions:
       id-token: write
       contents: read
