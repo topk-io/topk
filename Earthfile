@@ -15,14 +15,18 @@ test-py:
     RUN python3 -m venv .venv \
         && . .venv/bin/activate \
         && pip install --upgrade pip \
-        && pip install pytest
+        && pip install pytest pytest-xdist
 
     # copy source code
     COPY . .
 
     # build
     WORKDIR /sdk/topk-py
-    RUN --mount=type=cache,target=/sdk/topk-py/target --mount=type=cache,target=/root/.cargo maturin develop
+    RUN --mount=type=cache,target=/sdk/topk-py/target \
+        --mount=type=cache,target=/root/.cargo \
+        --mount=type=cache,target=/usr/local/cargo/registry \
+        --mount=type=cache,target=/usr/local/cargo/git \
+        maturin develop
 
     # region
     ARG region=dev
@@ -37,6 +41,6 @@ test-py:
     END
 
     # test
-    RUN --secret TOPK_API_KEY \
+    RUN --no-cache --secret TOPK_API_KEY \
         . /sdk/.venv/bin/activate \
-        && TOPK_API_KEY=$TOPK_API_KEY pytest
+        && TOPK_API_KEY=$TOPK_API_KEY pytest -n auto
