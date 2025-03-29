@@ -38,6 +38,7 @@ test-py:
         LET host_ip=$(getent hosts host.docker.internal | awk '{ print $1 }')
         HOST dev.api.ddb $host_ip
         ENV TOPK_HOST=ddb
+        ENV TOPK_HTTPS=false
     END
 
     # test
