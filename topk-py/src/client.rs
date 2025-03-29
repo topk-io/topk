@@ -12,6 +12,7 @@ use crate::{
         query::{ConsistencyLevel, Query},
         value::ValueUnion,
     },
+    error::DocumentNotFoundError,
 };
 
 #[pyclass]
@@ -150,10 +151,7 @@ impl CollectionClient {
                 consistency.map(|c| c.into()),
             ))
             .map_err(|e| match e {
-                topk_rs::Error::DocumentNotFound => {
-                    // TODO: use pyo3 exception
-                    PyException::new_err(format!("document not found"))
-                }
+                topk_rs::Error::DocumentNotFound => DocumentNotFoundError::new_err(e.to_string()),
                 _ => PyException::new_err(format!("failed to get document: {:?}", e)),
             })?;
 
