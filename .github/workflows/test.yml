@@ -1,4 +1,4 @@
-name: Test SDKs
+name: Test
 
 on:
   pull_request:
@@ -6,6 +6,7 @@ on:
 
 jobs:
   python:
+    name: Python
     runs-on: [earthly-satellite#bob-the-builder-amd64]
     if: ${{ github.event.label.name == 'ready' }}
     permissions:
@@ -20,3 +21,13 @@ jobs:
 
       - name: Python tests
         run: earthly --secret TOPK_API_KEY +test-py
+        env:
+          TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
+
+  success:
+    name: Success
+    needs: [python]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Success
+        run: echo "Success"
