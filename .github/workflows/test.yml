@@ -8,7 +8,7 @@ jobs:
   python:
     name: Python
     runs-on: [earthly-satellite#bob-the-builder-amd64]
-    if: ${{ contains(github.event.pull_request.labels, 'ready') }}
+    if: ${{ contains(github.event.pull_request.labels.*.name, 'ready') }}
     permissions:
       id-token: write
       contents: read
