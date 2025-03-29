@@ -1,0 +1,33 @@
+name: Pull Request
+
+on:
+  pull_request:
+    types: [synchronize, opened, reopened, labeled, unlabeled]
+
+jobs:
+  python:
+    name: Test Python
+    runs-on: [earthly-satellite#bob-the-builder-amd64]
+    if: ${{ contains(github.event.pull_request.labels.*.name, 'ready') }}
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
+    env:
+      FORCE_COLOR: 1
+      EARTHLY_TOKEN: "${{ secrets.EARTHLY_TOKEN }}"
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Python tests
+        run: earthly --secret TOPK_API_KEY +test-py --region elastica
+        env:
+          TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
+
+  ready:
+    name: Ready
+    needs: [python]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ready
+        run: echo "Ready"

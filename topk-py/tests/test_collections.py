@@ -23,7 +23,9 @@ def test_create_collection(ctx: ProjectContext):
         "title_embedding": f32_vector(1536)
         .required()
         .index(vector_index(metric="euclidean")),
-        "summary": text().required().index(semantic_index()),
+        "summary": text()
+        .required()
+        .index(semantic_index(model="dummy", embedding_type="f32")),
         "published_year": int().required(),
     }
 
