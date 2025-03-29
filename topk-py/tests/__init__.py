@@ -20,6 +20,15 @@ def new_project_context():
     TOPK_REGION = os.environ.get("TOPK_REGION", "elastica")
     TOPK_HTTPS = os.environ.get("TOPK_HTTPS", "false") == "true"
 
+    print(
+        dict(
+            api_key=TOPK_API_KEY,
+            region=TOPK_REGION,
+            host=TOPK_HOST,
+            https=TOPK_HTTPS,
+        )
+    )
+
     client = Client(
         api_key=TOPK_API_KEY,
         region=TOPK_REGION,
