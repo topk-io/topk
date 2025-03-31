@@ -17,25 +17,32 @@ export declare class CollectionsClient {
   delete(name: string): Promise<void>
 }
 
-export declare class Field {
-  static create(name: string): Field
-  gt(value: number): Field
-  eq(value: any): Field
-  get expr(): LogicalExpression
+export declare class Expr {
+  static createMatch(field: string): Expr
+  static createField(name: string): Expr
+  static createFunction(expr: FunctionExpression): Expr
+  get expr(): Expression
+  eq(value: any): Expr
+  notEq(value: any): Expr
+  lt(value: number): Expr
+  lte(value: number): Expr
+  gt(value: number): Expr
+  gte(value: number): Expr
+  add(value: number): Expr
+  subtract(value: number): Expr
+  multiply(value: number): Expr
+  divide(value: number): Expr
+  and(other: Expr): Expr
+  or(other: Expr): Expr
+  startsWith(value: string): Expr
 }
 
 export declare class Query {
   static create(stages: Array<Stage>): Query
-  filter(expr: FilterExpression): Query
-  top_k(expr: Field, k: number, asc?: boolean | undefined | null): Query
+  filter(expr: Expr): Query
+  top_k(expr: Expr, k: number, asc?: boolean | undefined | null): Query
   count(): Query
   get stages(): Array<Stage>
-}
-
-export declare class Term {
-  token: string
-  field?: string
-  weight: number
 }
 
 export declare const enum BinaryOperator {
@@ -56,7 +63,7 @@ export declare const enum BinaryOperator {
   Rem = 'Rem'
 }
 
-export declare function bm25Score(): SelectExpression
+export declare function bm25Score(): Expr
 
 export interface ClientConfig {
   apiKey: string
@@ -96,7 +103,13 @@ export declare const enum EmbeddingDataType {
   Binary = 'Binary'
 }
 
-export declare function field(name: string): Field
+export type Expression =
+  | { type: 'SelectExpression', expr: SelectExpression }
+  | { type: 'FilterExpression', expr: FilterExpression }
+  | { type: 'LogicalExpression', expr: LogicalExpression }
+  | { type: 'TextExpression', expr: TextExpression }
+
+export declare function field(name: string): Expr
 
 export type FieldIndex =
   | { type: 'Keyword' }
@@ -125,7 +138,14 @@ export type LogicalExpression =
   | { type: 'Unary', op: UnaryOperator, expr: LogicalExpression }
   | { type: 'Binary', left: LogicalExpression, op: BinaryOperator, right: LogicalExpression }
 
-export declare function select(exprs: Array<Field>): Query
+export declare function match(token: string, options?: MatchOptions | undefined | null): Expr
+
+export interface MatchOptions {
+  field: string
+  weight: number
+}
+
+export declare function select(exprs: Record<string, Expr>): Query
 
 export type SelectExpression =
   | { type: 'Logical', expr: LogicalExpression }
@@ -139,6 +159,12 @@ export type Stage =
   | { type: 'TopK', expr: LogicalExpression, k: number, asc: boolean }
   | { type: 'Count' }
   | { type: 'Rerank', model?: string, query?: string, fields: Array<string>, topkMultiple?: number }
+
+export interface Term {
+  token: string
+  field?: string
+  weight: number
+}
 
 export type TextExpression =
   | { type: 'Terms', all: boolean, terms: Array<Term> }

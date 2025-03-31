@@ -1,7 +1,10 @@
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
-use crate::select_expr::SelectExpression;
+use crate::{
+  expr::{Expr, Expression},
+  select_expr::SelectExpression,
+};
 
 #[napi]
 #[derive(Debug, Clone)]
@@ -45,10 +48,8 @@ pub fn vector_distance(field: String, query: VectorQuery) -> SelectExpression {
 }
 
 #[napi]
-pub fn bm25_score() -> SelectExpression {
-  SelectExpression::Function {
-    expr: FunctionExpression::KeywordScore,
-  }
+pub fn bm25_score() -> Expr {
+  Expr::create_function(FunctionExpression::KeywordScore)
 }
 
 impl Into<topk_protos::v1::data::FunctionExpr> for FunctionExpression {

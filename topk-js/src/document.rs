@@ -5,7 +5,7 @@ use napi::{
 use napi_derive::napi;
 use std::{collections::HashMap, ptr};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
   String(String),
   F64(f64),
@@ -20,7 +20,7 @@ pub enum Value {
   Null,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Vector {
   Float(Vec<f32>),
   Byte(Vec<u8>),

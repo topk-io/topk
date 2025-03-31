@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
 use crate::{
-  field::Field, filter_expr::FilterExpression, logical_expr::LogicalExpression,
+  expr::{Expr, Expression},
+  filter_expr::FilterExpression,
+  logical_expr::LogicalExpression,
   select_expr::SelectExpression,
 };
 use napi::bindgen_prelude::*;
@@ -44,24 +46,26 @@ impl Query {
   }
 
   #[napi]
-  pub fn filter(&self, expr: FilterExpression) -> Query {
+  pub fn filter(&self, expr: Expr) -> Query {
     let mut new_query = Query {
       stages: self.stages.clone(),
     };
 
-    new_query.stages.push(Stage::Filter { expr });
+    new_query.stages.push(Stage::Filter {
+      expr: expr.get_expr().into(),
+    });
 
     new_query
   }
 
   #[napi(js_name = "top_k")]
-  pub fn top_k(&self, expr: Field, k: i32, asc: Option<bool>) -> Query {
+  pub fn top_k(&self, expr: Expr, k: i32, asc: Option<bool>) -> Query {
     let mut new_query = Query {
       stages: self.stages.clone(),
     };
 
     new_query.stages.push(Stage::TopK {
-      expr: expr.get_expr(),
+      expr: expr.get_expr().into(),
       k,
       asc: asc.unwrap_or(false),
     });
@@ -87,27 +91,11 @@ impl Query {
 }
 
 #[napi]
-pub fn select(exprs: Vec<Field>) -> Query {
+pub fn select(exprs: HashMap<String, Expr>) -> Query {
   let mut field_map: HashMap<String, SelectExpression> = HashMap::new();
 
-  for field in &exprs {
-    let expr = field.get_expr();
-
-    match &expr {
-      LogicalExpression::Field { name } => {
-        field_map.insert(name.clone(), SelectExpression::Logical { expr });
-      }
-      LogicalExpression::Binary {
-        left,
-        op: _,
-        right: _,
-      } => {
-        if let LogicalExpression::Field { name } = left.as_ref() {
-          field_map.insert(name.clone(), SelectExpression::Logical { expr });
-        }
-      }
-      _ => {}
-    }
+  for (field, expr) in exprs {
+    field_map.insert(field, expr.into());
   }
 
   let stage = Stage::Select { exprs: field_map };

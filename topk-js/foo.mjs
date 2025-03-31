@@ -2,6 +2,8 @@ import {
   Client,
   select,
   field,
+  match,
+  bm25Score
 } from "./index.js";
 
 const client = new Client({
@@ -25,11 +27,20 @@ async function main() {
   //   },
   // ]);
 
-  const res = await client
-    .collection("books")
-    .query(select([field("title")]).count());
+  const docs = await client.collection("books").query(
+    select({
+        "title": field("title"),
+        // Score documents using BM25 algorithm
+        "text_score": bm25Score()
+    })
+    // Filter to documents that have the `great` keyword in the `title` field
+    // or the `catcher` in any of the text-indexed fields.
+    .filter(match("great", { field: "title", weight: 1 }).or(match("catcher")).or(match("Kill")))
+    // Return top 10 documents with the highest text score
+    .top_k(field("text_score"), 10)
+  )
 
-  console.log(res);
+  console.dir(docs, { depth: null })
 }
 
 main();

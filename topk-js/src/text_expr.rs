@@ -25,6 +25,22 @@ pub enum TextExpression {
   },
 }
 
+impl TextExpression {
+  pub fn and(&self, other: &TextExpression) -> TextExpression {
+    TextExpression::And {
+      left: MyBox(Box::new(self.clone())),
+      right: MyBox(Box::new(other.clone())),
+    }
+  }
+
+  pub fn or(&self, other: &TextExpression) -> TextExpression {
+    TextExpression::Or {
+      left: MyBox(Box::new(self.clone())),
+      right: MyBox(Box::new(other.clone())),
+    }
+  }
+}
+
 impl Into<data::TextExpr> for TextExpression {
   fn into(self) -> data::TextExpr {
     match self {
@@ -45,7 +61,7 @@ impl Into<data::TextExpr> for TextExpression {
   }
 }
 
-#[napi]
+#[napi(object)]
 #[derive(Debug, Clone)]
 pub struct Term {
   pub token: String,
@@ -60,19 +76,5 @@ impl Into<data::text_expr::Term> for Term {
       field: self.field,
       weight: self.weight as f32,
     }
-  }
-}
-
-impl FromNapiValue for Term {
-  unsafe fn from_napi_value(
-    env: napi::sys::napi_env,
-    value: napi::sys::napi_value,
-  ) -> Result<Self, napi::Status> {
-    let object = Object::from_napi_value(env, value)?;
-    Ok(Self {
-      token: object.get("token".into())?.unwrap_or_default(),
-      field: object.get("field".into())?,
-      weight: object.get("weight".into())?.unwrap_or(1.0),
-    })
   }
 }
