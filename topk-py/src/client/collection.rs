@@ -14,7 +14,7 @@ pub struct CollectionClient {
     collection: String,
 }
 
-impl<'py> CollectionClient {
+impl CollectionClient {
     pub fn new(runtime: Arc<Runtime>, client: Arc<topk_rs::Client>, collection: String) -> Self {
         Self {
             runtime,
