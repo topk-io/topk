@@ -21,8 +21,6 @@ impl CollectionClient {
 
   #[napi]
   pub async fn query(&self, query: Query, lsn: Option<u32>) -> Result<Vec<HashMap<String, Value>>> {
-    // println!("query: {:?}", query);
-
     let docs = self
       .client
       .collection(&self.collection)
@@ -40,8 +38,6 @@ impl CollectionClient {
 
   #[napi]
   pub async fn upsert(&self, docs: Vec<HashMap<String, Value>>) -> Result<i32> {
-    println!("upsert: {:?}", docs);
-
     let result = self
       .client
       .collection(&self.collection)
@@ -63,5 +59,17 @@ impl CollectionClient {
       .map(|lsn| lsn as i32);
 
     result
+  }
+
+  #[napi]
+  pub async fn delete(&self, ids: Vec<String>) -> Result<i64> {
+    let result = self
+      .client
+      .collection(&self.collection)
+      .delete(ids)
+      .await
+      .map_err(|e| napi::Error::new(napi::Status::GenericFailure, e.to_string()))?;
+
+    Ok(result as i64)
   }
 }

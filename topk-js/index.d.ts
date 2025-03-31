@@ -9,6 +9,7 @@ export declare class Client {
 export declare class CollectionClient {
   query(query: Query, lsn?: number | undefined | null): Promise<Array<Record<string, any>>>
   upsert(docs: Array<Record<string, any>>): Promise<number>
+  delete(ids: Array<string>): Promise<number>
 }
 
 export declare class CollectionsClient {
