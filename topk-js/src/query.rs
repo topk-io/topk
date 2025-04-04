@@ -13,6 +13,7 @@ use napi_derive::napi;
 #[derive(Debug, Clone)]
 pub enum Stage {
   Select {
+    #[napi(ts_type = "Record<string, LogicalExpression | FunctionExpression>")]
     exprs: HashMap<String, SelectExpression>,
   },
   Filter {

@@ -24,7 +24,6 @@ export declare class FilterExpression {
 }
 
 export declare class LogicalExpression {
-  type: string
   static create(expr: LogicalExpressionUnion): LogicalExpression
   eq(value: any): FilterExpression
   get expr(): LogicalExpressionUnion
@@ -40,10 +39,6 @@ export declare class LogicalExpression {
   and(other: LogicalExpression): LogicalExpression
   or(other: LogicalExpression): LogicalExpression
   startsWith(other: LogicalExpression): FilterExpression
-}
-
-export declare class NapiSelectExpression {
-  expr: SelectExpression
 }
 
 export declare class Query {
@@ -141,16 +136,12 @@ export type LogicalExpressionUnion =
 
 export declare function match(token: string, field: string | undefined | null, weight: number): TextExpression
 
-export declare function select(exprs: Record<string, SelectExpression>): Query
-
-export type SelectExpression =
-  | { type: 'Logical', expr: LogicalExpression }
-  | { type: 'Function', expr: FunctionExpression }
+export declare function select(exprs: Record<string, LogicalExpression | FunctionExpression>): Query
 
 export declare function semanticSimilarity(field: string, query: string): FunctionExpression
 
 export type Stage =
-  | { type: 'Select', exprs: Record<string, SelectExpression> }
+  | { type: 'Select', exprs: Record<string, LogicalExpression | FunctionExpression> }
   | { type: 'Filter', expr: FilterExpression }
   | { type: 'TopK', expr: LogicalExpression, k: number, asc: boolean }
   | { type: 'Count' }

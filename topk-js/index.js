@@ -375,7 +375,6 @@ module.exports.CollectionClient = nativeBinding.CollectionClient
 module.exports.CollectionsClient = nativeBinding.CollectionsClient
 module.exports.FilterExpression = nativeBinding.FilterExpression
 module.exports.LogicalExpression = nativeBinding.LogicalExpression
-module.exports.NapiSelectExpression = nativeBinding.NapiSelectExpression
 module.exports.Query = nativeBinding.Query
 module.exports.BinaryOperator = nativeBinding.BinaryOperator
 module.exports.bm25Score = nativeBinding.bm25Score
