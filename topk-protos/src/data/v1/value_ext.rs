@@ -2,7 +2,9 @@ use super::*;
 
 impl Value {
     pub fn null() -> Self {
-        Value { value: None }
+        Value {
+            value: Some(value::Value::Null(Null {})),
+        }
     }
 
     pub fn bool(value: bool) -> Self {
