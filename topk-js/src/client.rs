@@ -32,7 +32,7 @@ impl From<i32> for VectorFieldIndexMetric {
       2 => VectorFieldIndexMetric::Euclidean,
       3 => VectorFieldIndexMetric::DotProduct,
       4 => VectorFieldIndexMetric::Hamming,
-      _ => VectorFieldIndexMetric::Cosine, // default
+      _ => unreachable!("Unsupported vector field index metric"),
     }
   }
 }
@@ -93,7 +93,9 @@ pub enum FieldIndex {
 impl From<control::FieldIndex> for FieldIndex {
   fn from(field_index: control::FieldIndex) -> Self {
     match field_index.index.unwrap_or_else(|| {
-      control::field_index::Index::KeywordIndex(control::KeywordIndex { index_type: 0 })
+      control::field_index::Index::KeywordIndex(control::KeywordIndex {
+        index_type: KeywordIndexType::Text.into(),
+      })
     }) {
       control::field_index::Index::KeywordIndex(_k) => FieldIndex::Keyword {},
       control::field_index::Index::VectorIndex(v) => FieldIndex::Vector {
@@ -215,7 +217,7 @@ impl From<control::FieldType> for DataType {
         control::field_type::DataType::BinaryVector(_) => DataType::BinaryVector,
         control::field_type::DataType::Bytes(_) => DataType::Bytes,
       },
-      None => DataType::Text, // Default to Text type if none specified
+      None => unreachable!("Unsupported field type None"),
     }
   }
 }

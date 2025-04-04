@@ -1,11 +1,6 @@
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
-use crate::{
-  expr::{Expr, Expression},
-  select_expr::SelectExpression,
-};
-
 #[napi]
 #[derive(Debug, Clone)]
 pub enum VectorQuery {
@@ -34,22 +29,18 @@ pub enum FunctionExpression {
 }
 
 #[napi]
-pub fn semantic_similarity(field: String, query: String) -> SelectExpression {
-  SelectExpression::Function {
-    expr: FunctionExpression::SemanticSimilarity { field, query },
-  }
+pub fn semantic_similarity(field: String, query: String) -> FunctionExpression {
+  FunctionExpression::SemanticSimilarity { field, query }
 }
 
 #[napi]
-pub fn vector_distance(field: String, query: VectorQuery) -> SelectExpression {
-  SelectExpression::Function {
-    expr: FunctionExpression::VectorScore { field, query },
-  }
+pub fn vector_distance(field: String, query: VectorQuery) -> FunctionExpression {
+  FunctionExpression::VectorScore { field, query }
 }
 
 #[napi]
-pub fn bm25_score() -> Expr {
-  Expr::create_function(FunctionExpression::KeywordScore)
+pub fn bm25_score() -> FunctionExpression {
+  FunctionExpression::KeywordScore
 }
 
 impl Into<topk_protos::v1::data::FunctionExpr> for FunctionExpression {

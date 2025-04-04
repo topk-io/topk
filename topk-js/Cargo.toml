@@ -1,8 +1,9 @@
 [package]
-edition = "2021"
 name = "topk-js"
+version = "0.1.15"
+edition = "2021"
 description = "TopK JavaScript SDK with TypeScript support"
-version = "0.0.0"
+license-file = "LICENSE"
 repository = "https://github.com/fafolabs/topk-sdk"
 homepage = "https://topk.io"
 documentation = "https://docs.topk.io"
@@ -12,6 +13,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 # Default enable napi4 feature, see https://nodejs.org/api/n-api.html#node-api-version-matrix
+# TODO: Upgrade to stable version
 napi = { version = "3.0.0-alpha.33", default-features = false, features = ["napi4", "tokio_rt", "serde-json"] }
 napi-derive = { version = "3.0.0-alpha.29" }
 topk-protos = { path = "../topk-protos" }

@@ -51,7 +51,7 @@ impl ToNapiValue for Value {
       Value::F64(n) => f64::to_napi_value(env, n),
       Value::Bool(b) => bool::to_napi_value(env, b),
       Value::U32(n) => u32::to_napi_value(env, n),
-      Value::U64(n) => u32::to_napi_value(env, n as u32),
+      Value::U64(n) => i64::to_napi_value(env, n.try_into().unwrap()),
       Value::I32(n) => i32::to_napi_value(env, n),
       Value::I64(n) => i64::to_napi_value(env, n),
       Value::F32(n) => f32::to_napi_value(env, n),

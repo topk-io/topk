@@ -18,30 +18,38 @@ export declare class CollectionsClient {
   delete(name: string): Promise<void>
 }
 
-export declare class Expr {
-  static createMatch(field: string): Expr
-  static createField(name: string): Expr
-  static createFunction(expr: FunctionExpression): Expr
-  get expr(): Expression
-  eq(value: any): Expr
-  notEq(value: any): Expr
-  lt(value: number): Expr
-  lte(value: number): Expr
-  gt(value: number): Expr
-  gte(value: number): Expr
-  add(value: number): Expr
-  subtract(value: number): Expr
-  multiply(value: number): Expr
-  divide(value: number): Expr
-  and(other: Expr): Expr
-  or(other: Expr): Expr
-  startsWith(value: string): Expr
+export declare class FilterExpression {
+  static create(expr: FilterExpressionUnion): FilterExpression
+  get expr(): FilterExpressionUnion
+}
+
+export declare class LogicalExpression {
+  type: string
+  static create(expr: LogicalExpressionUnion): LogicalExpression
+  eq(value: any): FilterExpression
+  get expr(): LogicalExpressionUnion
+  neq(value: any): FilterExpression
+  lt(value: any): FilterExpression
+  lte(value: any): FilterExpression
+  gt(value: any): FilterExpression
+  gte(value: any): FilterExpression
+  add(other: LogicalExpression): LogicalExpression
+  sub(other: LogicalExpression): LogicalExpression
+  mul(other: LogicalExpression): LogicalExpression
+  div(other: LogicalExpression): LogicalExpression
+  and(other: LogicalExpression): LogicalExpression
+  or(other: LogicalExpression): LogicalExpression
+  startsWith(other: LogicalExpression): FilterExpression
+}
+
+export declare class NapiSelectExpression {
+  expr: SelectExpression
 }
 
 export declare class Query {
   static create(stages: Array<Stage>): Query
-  filter(expr: Expr): Query
-  top_k(expr: Expr, k: number, asc?: boolean | undefined | null): Query
+  filter(expr: FilterExpression): Query
+  top_k(fieldName: string, k: number, asc?: boolean | undefined | null): Query
   count(): Query
   get stages(): Array<Stage>
 }
@@ -49,22 +57,20 @@ export declare class Query {
 export declare const enum BinaryOperator {
   And = 'And',
   Or = 'Or',
-  Xor = 'Xor',
   Eq = 'Eq',
-  NotEq = 'NotEq',
+  Neq = 'Neq',
   Lt = 'Lt',
-  LtEq = 'LtEq',
+  Lte = 'Lte',
   Gt = 'Gt',
-  GtEq = 'GtEq',
+  Gte = 'Gte',
   StartsWith = 'StartsWith',
   Add = 'Add',
   Sub = 'Sub',
   Mul = 'Mul',
-  Div = 'Div',
-  Rem = 'Rem'
+  Div = 'Div'
 }
 
-export declare function bm25Score(): Expr
+export declare function bm25Score(): FunctionExpression
 
 export interface ClientConfig {
   apiKey: string
@@ -104,13 +110,7 @@ export declare const enum EmbeddingDataType {
   Binary = 'Binary'
 }
 
-export type Expression =
-  | { type: 'SelectExpression', expr: SelectExpression }
-  | { type: 'FilterExpression', expr: FilterExpression }
-  | { type: 'LogicalExpression', expr: LogicalExpression }
-  | { type: 'TextExpression', expr: TextExpression }
-
-export declare function field(name: string): Expr
+export declare function field(name: string): LogicalExpression
 
 export type FieldIndex =
   | { type: 'Keyword' }
@@ -123,7 +123,7 @@ export interface FieldSpec {
   index?: FieldIndex
 }
 
-export type FilterExpression =
+export type FilterExpressionUnion =
   | { type: 'Logical', expr: LogicalExpression }
   | { type: 'Text', expr: TextExpression }
 
@@ -132,27 +132,22 @@ export type FunctionExpression =
   | { type: 'VectorScore', field: string, query: VectorQuery }
   | { type: 'SemanticSimilarity', field: string, query: string }
 
-export type LogicalExpression =
+export type LogicalExpressionUnion =
   | { type: 'Null' }
   | { type: 'Field', name: string }
   | { type: 'Literal', value: any }
   | { type: 'Unary', op: UnaryOperator, expr: LogicalExpression }
   | { type: 'Binary', left: LogicalExpression, op: BinaryOperator, right: LogicalExpression }
 
-export declare function match(token: string, options?: MatchOptions | undefined | null): Expr
+export declare function match(token: string, field: string | undefined | null, weight: number): TextExpression
 
-export interface MatchOptions {
-  field: string
-  weight: number
-}
-
-export declare function select(exprs: Record<string, Expr>): Query
+export declare function select(exprs: Record<string, SelectExpression>): Query
 
 export type SelectExpression =
   | { type: 'Logical', expr: LogicalExpression }
   | { type: 'Function', expr: FunctionExpression }
 
-export declare function semanticSimilarity(field: string, query: string): SelectExpression
+export declare function semanticSimilarity(field: string, query: string): FunctionExpression
 
 export type Stage =
   | { type: 'Select', exprs: Record<string, SelectExpression> }
@@ -178,7 +173,7 @@ export declare const enum UnaryOperator {
   IsNotNull = 2
 }
 
-export declare function vectorDistance(field: string, query: VectorQuery): SelectExpression
+export declare function vectorDistance(field: string, query: VectorQuery): FunctionExpression
 
 export declare const enum VectorFieldIndexMetric {
   Cosine = 'Cosine',

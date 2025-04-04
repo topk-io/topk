@@ -1,9 +1,9 @@
 use napi::bindgen_prelude::{FromNapiValue, ToNapiValue};
 
 #[derive(Debug, Clone)]
-pub struct MyBox<T>(pub Box<T>);
+pub struct NapiBox<T>(pub Box<T>);
 
-impl<T> FromNapiValue for MyBox<T>
+impl<T> FromNapiValue for NapiBox<T>
 where
   T: FromNapiValue,
 {
@@ -15,7 +15,7 @@ where
   }
 }
 
-impl<T> ToNapiValue for MyBox<T>
+impl<T> ToNapiValue for NapiBox<T>
 where
   T: ToNapiValue,
 {
@@ -27,7 +27,7 @@ where
   }
 }
 
-impl<T> AsRef<T> for MyBox<T> {
+impl<T> AsRef<T> for NapiBox<T> {
   fn as_ref(&self) -> &T {
     &self.0
   }

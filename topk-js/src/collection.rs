@@ -37,7 +37,7 @@ impl CollectionClient {
   }
 
   #[napi]
-  pub async fn upsert(&self, docs: Vec<HashMap<String, Value>>) -> Result<i32> {
+  pub async fn upsert(&self, docs: Vec<HashMap<String, Value>>) -> Result<i64> {
     let result = self
       .client
       .collection(&self.collection)
@@ -56,7 +56,7 @@ impl CollectionClient {
           format!("upsert failed: {:?}", e),
         )
       })
-      .map(|lsn| lsn as i32);
+      .map(|lsn| lsn as i64);
 
     result
   }

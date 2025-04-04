@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
 use crate::{
-  expr::{Expr, Expression},
   filter_expr::FilterExpression,
-  logical_expr::LogicalExpression,
+  logical_expr::{LogicalExpression, LogicalExpressionUnion},
   select_expr::SelectExpression,
+  text_expr::{Term, TextExpression},
 };
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
@@ -46,26 +46,24 @@ impl Query {
   }
 
   #[napi]
-  pub fn filter(&self, expr: Expr) -> Query {
+  pub fn filter(&self, expr: FilterExpression) -> Query {
     let mut new_query = Query {
       stages: self.stages.clone(),
     };
 
-    new_query.stages.push(Stage::Filter {
-      expr: expr.get_expr().into(),
-    });
+    new_query.stages.push(Stage::Filter { expr });
 
     new_query
   }
 
   #[napi(js_name = "top_k")]
-  pub fn top_k(&self, expr: Expr, k: i32, asc: Option<bool>) -> Query {
+  pub fn top_k(&self, field_name: String, k: i32, asc: Option<bool>) -> Query {
     let mut new_query = Query {
       stages: self.stages.clone(),
     };
 
     new_query.stages.push(Stage::TopK {
-      expr: expr.get_expr().into(),
+      expr: field(field_name),
       k,
       asc: asc.unwrap_or(false),
     });
@@ -84,6 +82,7 @@ impl Query {
     new_query
   }
 
+  // TODO
   #[napi(getter)]
   pub fn get_stages(&self) -> Vec<Stage> {
     self.stages.clone()
@@ -91,18 +90,20 @@ impl Query {
 }
 
 #[napi]
-pub fn select(exprs: HashMap<String, Expr>) -> Query {
-  let mut field_map: HashMap<String, SelectExpression> = HashMap::new();
+pub fn field(name: String) -> LogicalExpression {
+  LogicalExpression::create(LogicalExpressionUnion::Field { name })
+}
 
-  for (field, expr) in exprs {
-    field_map.insert(field, expr.into());
+#[napi(js_name = "match")]
+pub fn match_(token: String, field: Option<String>, weight: f64) -> TextExpression {
+  TextExpression::Terms {
+    all: true,
+    terms: vec![Term {
+      token,
+      field,
+      weight,
+    }],
   }
-
-  let stage = Stage::Select { exprs: field_map };
-
-  let stages = vec![stage];
-
-  Query::create(stages)
 }
 
 impl From<Query> for topk_protos::v1::data::Query {

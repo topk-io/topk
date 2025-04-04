@@ -2,7 +2,7 @@ use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use topk_protos::v1::data;
 
-use crate::my_box::MyBox;
+use crate::napi_box::NapiBox;
 
 #[napi]
 #[derive(Debug, Clone)]
@@ -13,30 +13,30 @@ pub enum TextExpression {
   },
   And {
     #[napi(ts_type = "TextExpression")]
-    left: MyBox<TextExpression>,
+    left: NapiBox<TextExpression>,
     #[napi(ts_type = "TextExpression")]
-    right: MyBox<TextExpression>,
+    right: NapiBox<TextExpression>,
   },
   Or {
     #[napi(ts_type = "TextExpression")]
-    left: MyBox<TextExpression>,
+    left: NapiBox<TextExpression>,
     #[napi(ts_type = "TextExpression")]
-    right: MyBox<TextExpression>,
+    right: NapiBox<TextExpression>,
   },
 }
 
 impl TextExpression {
   pub fn and(&self, other: &TextExpression) -> TextExpression {
     TextExpression::And {
-      left: MyBox(Box::new(self.clone())),
-      right: MyBox(Box::new(other.clone())),
+      left: NapiBox(Box::new(self.clone())),
+      right: NapiBox(Box::new(other.clone())),
     }
   }
 
   pub fn or(&self, other: &TextExpression) -> TextExpression {
     TextExpression::Or {
-      left: MyBox(Box::new(self.clone())),
-      right: MyBox(Box::new(other.clone())),
+      left: NapiBox(Box::new(self.clone())),
+      right: NapiBox(Box::new(other.clone())),
     }
   }
 }

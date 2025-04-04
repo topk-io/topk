@@ -2,12 +2,16 @@ use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
 use crate::{
-  binary_expr::BinaryOperator, document::Value, my_box::MyBox, unary_expr::UnaryOperator,
+  binary_expr::BinaryOperator,
+  document::Value,
+  filter_expr::{FilterExpression, FilterExpressionUnion},
+  napi_box::NapiBox,
+  unary_expr::UnaryOperator,
 };
 
 #[napi]
 #[derive(Debug, Clone)]
-pub enum LogicalExpression {
+pub enum LogicalExpressionUnion {
   Null,
   Field {
     name: String,
@@ -18,169 +22,255 @@ pub enum LogicalExpression {
   Unary {
     op: UnaryOperator,
     #[napi(ts_type = "LogicalExpression")]
-    expr: MyBox<LogicalExpression>,
+    expr: NapiBox<LogicalExpressionUnion>,
   },
   Binary {
     #[napi(ts_type = "LogicalExpression")]
-    left: MyBox<LogicalExpression>,
+    left: NapiBox<LogicalExpressionUnion>,
     op: BinaryOperator,
     #[napi(ts_type = "LogicalExpression")]
-    right: MyBox<LogicalExpression>,
+    right: NapiBox<LogicalExpressionUnion>,
   },
 }
 
+#[napi]
+#[derive(Debug, Clone)]
+pub struct LogicalExpression {
+  pub r#type: String,
+  expr: LogicalExpressionUnion,
+}
+
+#[napi]
 impl LogicalExpression {
-  // pub fn eq(&self, other: &LogicalExpression) -> bool {
-  //   match (self, other) {
-  //     (LogicalExpression::Null, LogicalExpression::Null) => true,
-  //     (LogicalExpression::Field { name: l }, LogicalExpression::Field { name: r }) => l == r,
-  //     (LogicalExpression::Literal { value: l }, LogicalExpression::Literal { value: r }) => l == r,
-  //     (
-  //       LogicalExpression::Unary {
-  //         op: l,
-  //         expr: l_expr,
-  //       },
-  //       LogicalExpression::Unary {
-  //         op: r,
-  //         expr: r_expr,
-  //       },
-  //     ) => l == r && l_expr.as_ref() == r_expr.as_ref(),
-  //     (
-  //       LogicalExpression::Binary {
-  //         left: l,
-  //         op: l_op,
-  //         right: l_right,
-  //       },
-  //       LogicalExpression::Binary {
-  //         left: r,
-  //         op: r_op,
-  //         right: r_right,
-  //       },
-  //     ) => l.get() == r.get() && l_op == r_op && l_right.get() == r_right.get(),
-  //     _ => false,
-  //   }
-  // }
-
-  // pub fn to_string(&self) -> String {
-  //   match self {
-  //     Self::Null => "Null".to_string(),
-  //     Self::Field { name } => format!("field({})", name),
-  //     Self::Literal { value } => format!("literal({:?})", value),
-  //     Self::Unary { op, expr } => {
-  //       format!("Unary(op={:?}, expr={})", op, expr.get().to_string())
-  //     }
-  //     Self::Binary { left, op, right } => {
-  //       format!(
-  //         "Binary(left={}, op={:?}, right={})",
-  //         left.as_ref().get().to_string(),
-  //         op,
-  //         right.get().to_string()
-  //       )
-  //     }
-  //   }
-  // }
-
-  pub fn equals(&self, other: &LogicalExpression) -> LogicalExpression {
-    LogicalExpression::Binary {
-      left: MyBox(Box::new(self.clone())),
-      op: BinaryOperator::Eq,
-      right: MyBox(Box::new(other.clone())),
+  #[napi(factory)]
+  pub fn create(expr: LogicalExpressionUnion) -> LogicalExpression {
+    LogicalExpression {
+      r#type: "Logical".to_string(),
+      expr,
     }
   }
 
-  pub fn not_equals(&self, other: &LogicalExpression) -> LogicalExpression {
-    LogicalExpression::Binary {
-      left: MyBox(Box::new(self.clone())),
-      op: BinaryOperator::NotEq,
-      right: MyBox(Box::new(other.clone())),
-    }
+  #[napi]
+  pub fn eq(&self, value: Value) -> FilterExpression {
+    FilterExpression::create(FilterExpressionUnion::Logical {
+      expr: LogicalExpression {
+        r#type: "Logical".to_string(),
+        expr: LogicalExpressionUnion::Binary {
+          left: NapiBox(Box::new(self.expr.clone())),
+          op: BinaryOperator::Eq,
+          right: NapiBox(Box::new(LogicalExpressionUnion::Literal { value })),
+        },
+      },
+    })
   }
 
-  pub fn less_than(&self, other: &LogicalExpression) -> LogicalExpression {
-    LogicalExpression::Binary {
-      left: MyBox(Box::new(self.clone())),
-      op: BinaryOperator::Lt,
-      right: MyBox(Box::new(other.clone())),
-    }
+  // TODO: Remove this
+  #[napi(getter)]
+  pub fn get_expr(&self) -> LogicalExpressionUnion {
+    self.expr.clone()
   }
 
-  pub fn less_than_or_equal(&self, other: &LogicalExpression) -> LogicalExpression {
-    LogicalExpression::Binary {
-      left: MyBox(Box::new(self.clone())),
-      op: BinaryOperator::LtEq,
-      right: MyBox(Box::new(other.clone())),
-    }
+  #[napi]
+  pub fn neq(&self, value: Value) -> FilterExpression {
+    FilterExpression::create(FilterExpressionUnion::Logical {
+      expr: LogicalExpression {
+        r#type: "Logical".to_string(),
+        expr: LogicalExpressionUnion::Binary {
+          left: NapiBox(Box::new(self.expr.clone())),
+          op: BinaryOperator::Neq,
+          right: NapiBox(Box::new(LogicalExpressionUnion::Literal { value })),
+        },
+      },
+    })
   }
 
-  pub fn greater_than(&self, other: &LogicalExpression) -> LogicalExpression {
-    LogicalExpression::Binary {
-      left: MyBox(Box::new(self.clone())),
-      op: BinaryOperator::Gt,
-      right: MyBox(Box::new(other.clone())),
-    }
+  #[napi]
+  pub fn lt(&self, value: Value) -> FilterExpression {
+    FilterExpression::create(FilterExpressionUnion::Logical {
+      expr: LogicalExpression {
+        r#type: "Logical".to_string(),
+        expr: LogicalExpressionUnion::Binary {
+          left: NapiBox(Box::new(self.expr.clone())),
+          op: BinaryOperator::Lt,
+          right: NapiBox(Box::new(LogicalExpressionUnion::Literal { value })),
+        },
+      },
+    })
   }
 
-  pub fn greater_than_or_equal(&self, other: &LogicalExpression) -> LogicalExpression {
-    LogicalExpression::Binary {
-      left: MyBox(Box::new(self.clone())),
-      op: BinaryOperator::GtEq,
-      right: MyBox(Box::new(other.clone())),
-    }
+  #[napi]
+  pub fn lte(&self, value: Value) -> FilterExpression {
+    FilterExpression::create(FilterExpressionUnion::Logical {
+      expr: LogicalExpression {
+        r#type: "Logical".to_string(),
+        expr: LogicalExpressionUnion::Binary {
+          left: NapiBox(Box::new(self.expr.clone())),
+          op: BinaryOperator::Lte,
+          right: NapiBox(Box::new(LogicalExpressionUnion::Literal { value })),
+        },
+      },
+    })
   }
 
+  #[napi]
+  pub fn gt(&self, value: Value) -> FilterExpression {
+    FilterExpression::create(FilterExpressionUnion::Logical {
+      expr: LogicalExpression {
+        r#type: "Logical".to_string(),
+        expr: LogicalExpressionUnion::Binary {
+          left: NapiBox(Box::new(self.expr.clone())),
+          op: BinaryOperator::Gt,
+          right: NapiBox(Box::new(LogicalExpressionUnion::Literal { value })),
+        },
+      },
+    })
+  }
+
+  #[napi]
+  pub fn gte(&self, value: Value) -> FilterExpression {
+    FilterExpression::create(FilterExpressionUnion::Logical {
+      expr: LogicalExpression {
+        r#type: "Logical".to_string(),
+        expr: LogicalExpressionUnion::Binary {
+          left: NapiBox(Box::new(self.expr.clone())),
+          op: BinaryOperator::Gte,
+          right: NapiBox(Box::new(LogicalExpressionUnion::Literal { value })),
+        },
+      },
+    })
+  }
+
+  #[napi]
   pub fn add(&self, other: &LogicalExpression) -> LogicalExpression {
-    LogicalExpression::Binary {
-      left: MyBox(Box::new(self.clone())),
-      op: BinaryOperator::Add,
-      right: MyBox(Box::new(other.clone())),
+    LogicalExpression {
+      r#type: "Logical".to_string(),
+      expr: LogicalExpressionUnion::Binary {
+        left: NapiBox(Box::new(self.expr.clone())),
+        op: BinaryOperator::Add,
+        right: NapiBox(Box::new(other.expr.clone())),
+      },
     }
   }
 
-  pub fn subtract(&self, other: &LogicalExpression) -> LogicalExpression {
-    LogicalExpression::Binary {
-      left: MyBox(Box::new(self.clone())),
-      op: BinaryOperator::Sub,
-      right: MyBox(Box::new(other.clone())),
+  #[napi]
+  pub fn sub(&self, other: &LogicalExpression) -> LogicalExpression {
+    LogicalExpression {
+      r#type: "Logical".to_string(),
+      expr: LogicalExpressionUnion::Binary {
+        left: NapiBox(Box::new(self.expr.clone())),
+        op: BinaryOperator::Sub,
+        right: NapiBox(Box::new(other.expr.clone())),
+      },
     }
   }
 
-  pub fn multiply(&self, other: &LogicalExpression) -> LogicalExpression {
-    LogicalExpression::Binary {
-      left: MyBox(Box::new(self.clone())),
-      op: BinaryOperator::Mul,
-      right: MyBox(Box::new(other.clone())),
+  #[napi]
+  pub fn mul(&self, other: &LogicalExpression) -> LogicalExpression {
+    LogicalExpression {
+      r#type: "Logical".to_string(),
+      expr: LogicalExpressionUnion::Binary {
+        left: NapiBox(Box::new(self.expr.clone())),
+        op: BinaryOperator::Mul,
+        right: NapiBox(Box::new(other.expr.clone())),
+      },
     }
   }
 
-  pub fn divide(&self, other: &LogicalExpression) -> LogicalExpression {
-    LogicalExpression::Binary {
-      left: MyBox(Box::new(self.clone())),
-      op: BinaryOperator::Div,
-      right: MyBox(Box::new(other.clone())),
+  #[napi]
+  pub fn div(&self, other: &LogicalExpression) -> LogicalExpression {
+    LogicalExpression {
+      r#type: "Logical".to_string(),
+      expr: LogicalExpressionUnion::Binary {
+        left: NapiBox(Box::new(self.expr.clone())),
+        op: BinaryOperator::Div,
+        right: NapiBox(Box::new(other.expr.clone())),
+      },
     }
   }
 
+  #[napi]
   pub fn and(&self, other: &LogicalExpression) -> LogicalExpression {
-    LogicalExpression::Binary {
-      left: MyBox(Box::new(self.clone())),
-      op: BinaryOperator::And,
-      right: MyBox(Box::new(other.clone())),
+    LogicalExpression {
+      r#type: "Logical".to_string(),
+      expr: LogicalExpressionUnion::Binary {
+        left: NapiBox(Box::new(self.expr.clone())),
+        op: BinaryOperator::And,
+        right: NapiBox(Box::new(other.expr.clone())),
+      },
     }
   }
 
+  #[napi]
   pub fn or(&self, other: &LogicalExpression) -> LogicalExpression {
-    LogicalExpression::Binary {
-      left: MyBox(Box::new(self.clone())),
-      op: BinaryOperator::Or,
-      right: MyBox(Box::new(other.clone())),
+    LogicalExpression {
+      r#type: "Logical".to_string(),
+      expr: LogicalExpressionUnion::Binary {
+        left: NapiBox(Box::new(self.expr.clone())),
+        op: BinaryOperator::Or,
+        right: NapiBox(Box::new(other.expr.clone())),
+      },
     }
   }
 
-  pub fn starts_with(&self, other: &LogicalExpression) -> LogicalExpression {
-    LogicalExpression::Binary {
-      left: MyBox(Box::new(self.clone())),
-      op: BinaryOperator::StartsWith,
-      right: MyBox(Box::new(other.clone())),
+  #[napi]
+  pub fn starts_with(&self, other: &LogicalExpression) -> FilterExpression {
+    FilterExpression::create(FilterExpressionUnion::Logical {
+      expr: LogicalExpression {
+        r#type: "Logical".to_string(),
+        expr: LogicalExpressionUnion::Binary {
+          left: NapiBox(Box::new(self.expr.clone())),
+          op: BinaryOperator::StartsWith,
+          right: NapiBox(Box::new(other.expr.clone())),
+        },
+      },
+    })
+  }
+}
+
+impl Into<topk_protos::v1::data::LogicalExpr> for LogicalExpression {
+  fn into(self) -> topk_protos::v1::data::LogicalExpr {
+    self.expr.into()
+  }
+}
+
+impl Into<topk_protos::v1::data::LogicalExpr> for LogicalExpressionUnion {
+  fn into(self) -> topk_protos::v1::data::LogicalExpr {
+    match self {
+      LogicalExpressionUnion::Null => unreachable!(),
+      LogicalExpressionUnion::Field { name } => topk_protos::v1::data::LogicalExpr::field(name),
+      LogicalExpressionUnion::Literal { value } => {
+        topk_protos::v1::data::LogicalExpr::literal(value.into())
+      }
+      LogicalExpressionUnion::Unary { op, expr } => {
+        topk_protos::v1::data::LogicalExpr::unary(op.into(), expr.as_ref().clone().into())
+      }
+      LogicalExpressionUnion::Binary { left, op, right } => {
+        topk_protos::v1::data::LogicalExpr::binary(
+          op.into(),
+          left.as_ref().clone().into(),
+          right.as_ref().clone().into(),
+        )
+      }
     }
+  }
+}
+
+impl FromNapiValue for LogicalExpression {
+  unsafe fn from_napi_value(
+    env: napi::sys::napi_env,
+    value: napi::sys::napi_value,
+  ) -> Result<Self, napi::Status> {
+    let object = Object::from_napi_value(env, value)?;
+    let expr: LogicalExpressionUnion = object.get("expr")?.ok_or_else(|| {
+      napi::Error::new(
+        napi::Status::GenericFailure,
+        "LogicalExpression object missing 'expr' property".to_string(),
+      )
+    })?;
+
+    Ok(Self {
+      r#type: "Logical".to_string(),
+      expr,
+    })
   }
 }
