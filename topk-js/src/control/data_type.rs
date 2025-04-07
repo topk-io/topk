@@ -1,15 +1,15 @@
-use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
-#[napi(string_enum)]
+#[napi]
+#[derive(Clone)]
 pub enum DataType {
     Text,
     Integer,
     Float,
     Boolean,
-    F32Vector,
-    U8Vector,
-    BinaryVector,
+    F32Vector { dimension: u32 },
+    U8Vector { dimension: u32 },
+    BinaryVector { dimension: u32 },
     Bytes,
 }
 
@@ -21,10 +21,20 @@ impl From<topk_protos::v1::control::FieldType> for DataType {
                 topk_protos::v1::control::field_type::DataType::Integer(_) => DataType::Integer,
                 topk_protos::v1::control::field_type::DataType::Float(_) => DataType::Float,
                 topk_protos::v1::control::field_type::DataType::Boolean(_) => DataType::Boolean,
-                topk_protos::v1::control::field_type::DataType::F32Vector(_) => DataType::F32Vector,
-                topk_protos::v1::control::field_type::DataType::U8Vector(_) => DataType::U8Vector,
-                topk_protos::v1::control::field_type::DataType::BinaryVector(_) => {
-                    DataType::BinaryVector
+                topk_protos::v1::control::field_type::DataType::F32Vector(vector) => {
+                    DataType::F32Vector {
+                        dimension: vector.dimension,
+                    }
+                }
+                topk_protos::v1::control::field_type::DataType::U8Vector(vector) => {
+                    DataType::U8Vector {
+                        dimension: vector.dimension,
+                    }
+                }
+                topk_protos::v1::control::field_type::DataType::BinaryVector(vector) => {
+                    DataType::BinaryVector {
+                        dimension: vector.dimension,
+                    }
                 }
                 topk_protos::v1::control::field_type::DataType::Bytes(_) => DataType::Bytes,
             },

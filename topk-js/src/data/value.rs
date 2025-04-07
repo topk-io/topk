@@ -1,7 +1,6 @@
 use std::ptr;
 
 use napi::{bindgen_prelude::*, sys::TypedarrayType};
-use napi_derive::napi;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {

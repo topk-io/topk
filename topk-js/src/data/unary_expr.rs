@@ -1,6 +1,6 @@
 use napi_derive::napi;
 
-#[napi]
+#[napi(string_enum)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum UnaryOperator {
     Not,

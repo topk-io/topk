@@ -5,6 +5,7 @@ mod collections;
 mod control;
 mod data;
 mod error;
+mod schema;
 use crate::client::ClientConfig;
 use napi_derive::napi;
 use std::sync::Arc;

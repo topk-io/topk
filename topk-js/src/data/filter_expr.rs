@@ -1,6 +1,5 @@
 use super::{logical_expr::LogicalExpression, text_expr::TextExpression};
 use napi::bindgen_prelude::*;
-use napi_derive::napi;
 use topk_protos::v1::data;
 
 #[derive(Debug, Clone)]

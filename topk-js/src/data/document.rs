@@ -1,6 +1,4 @@
-use napi::bindgen_prelude::{check_status, FromNapiValue, Null, ToNapiValue};
-use napi_derive::napi;
-use std::{collections::HashMap, ptr};
+use std::collections::HashMap;
 
 use super::value::Value;
 
