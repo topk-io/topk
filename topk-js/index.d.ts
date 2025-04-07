@@ -18,35 +18,37 @@ export declare class CollectionsClient {
   delete(name: string): Promise<void>
 }
 
-export declare class FilterExpression {
-  static create(expr: FilterExpressionUnion): FilterExpression
-  get expr(): FilterExpressionUnion
-}
-
 export declare class LogicalExpression {
   static create(expr: LogicalExpressionUnion): LogicalExpression
-  eq(value: any): FilterExpression
+  eq(value: any): LogicalExpression
   get expr(): LogicalExpressionUnion
-  neq(value: any): FilterExpression
-  lt(value: any): FilterExpression
-  lte(value: any): FilterExpression
-  gt(value: any): FilterExpression
-  gte(value: any): FilterExpression
+  neq(value: any): LogicalExpression
+  lt(value: any): LogicalExpression
+  lte(value: any): LogicalExpression
+  gt(value: any): LogicalExpression
+  gte(value: any): LogicalExpression
   add(other: LogicalExpression): LogicalExpression
   sub(other: LogicalExpression): LogicalExpression
   mul(other: LogicalExpression): LogicalExpression
   div(other: LogicalExpression): LogicalExpression
   and(other: LogicalExpression): LogicalExpression
   or(other: LogicalExpression): LogicalExpression
-  startsWith(other: LogicalExpression): FilterExpression
+  startsWith(other: LogicalExpression): LogicalExpression
 }
 
 export declare class Query {
   static create(stages: Array<Stage>): Query
-  filter(expr: FilterExpression): Query
+  filter(expr: LogicalExpression | TextExpression): Query
   top_k(fieldName: string, k: number, asc?: boolean | undefined | null): Query
   count(): Query
   get stages(): Array<Stage>
+}
+
+export declare class TextExpression {
+  static create(expr: TextExpressionUnion): TextExpression
+  get expr(): TextExpressionUnion
+  and(other: TextExpression): TextExpression
+  or(other: TextExpression): TextExpression
 }
 
 export declare const enum BinaryOperator {
@@ -118,10 +120,6 @@ export interface FieldSpec {
   index?: FieldIndex
 }
 
-export type FilterExpressionUnion =
-  | { type: 'Logical', expr: LogicalExpression }
-  | { type: 'Text', expr: TextExpression }
-
 export type FunctionExpression =
   | { type: 'KeywordScore' }
   | { type: 'VectorScore', field: string, query: VectorQuery }
@@ -134,7 +132,7 @@ export type LogicalExpressionUnion =
   | { type: 'Unary', op: UnaryOperator, expr: LogicalExpression }
   | { type: 'Binary', left: LogicalExpression, op: BinaryOperator, right: LogicalExpression }
 
-export declare function match(token: string, field: string | undefined | null, weight: number): TextExpression
+export declare function match(token: string, field?: string | undefined | null, weight?: number | undefined | null): TextExpression
 
 export declare function select(exprs: Record<string, LogicalExpression | FunctionExpression>): Query
 
@@ -142,7 +140,7 @@ export declare function semanticSimilarity(field: string, query: string): Functi
 
 export type Stage =
   | { type: 'Select', exprs: Record<string, LogicalExpression | FunctionExpression> }
-  | { type: 'Filter', expr: FilterExpression }
+  | { type: 'Filter', expr: LogicalExpression | TextExpression }
   | { type: 'TopK', expr: LogicalExpression, k: number, asc: boolean }
   | { type: 'Count' }
   | { type: 'Rerank', model?: string, query?: string, fields: Array<string>, topkMultiple?: number }
@@ -153,7 +151,7 @@ export interface Term {
   weight: number
 }
 
-export type TextExpression =
+export type TextExpressionUnion =
   | { type: 'Terms', all: boolean, terms: Array<Term> }
   | { type: 'And', left: TextExpression, right: TextExpression }
   | { type: 'Or', left: TextExpression, right: TextExpression }

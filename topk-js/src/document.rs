@@ -39,7 +39,11 @@ impl FromNapiValue for Value {
         Ok(Value::String(String::from_napi_value(env, napi_val)?))
       }
       napi::sys::ValueType::napi_number => Ok(Value::F64(f64::from_napi_value(env, napi_val)?)),
-      _ => panic!("unsupported value type: {:?}", result),
+      napi::sys::ValueType::napi_undefined => Ok(Value::Null),
+      _ => Err(napi::Error::new(
+        napi::Status::GenericFailure,
+        format!("Unsupported value type: {}", result),
+      )),
     }
   }
 }
@@ -55,9 +59,7 @@ impl ToNapiValue for Value {
       Value::I32(n) => i32::to_napi_value(env, n),
       Value::I64(n) => i64::to_napi_value(env, n),
       Value::F32(n) => f32::to_napi_value(env, n),
-      Value::Binary(b) => {
-        todo!()
-      }
+      Value::Binary(b) => Vec::to_napi_value(env, b),
       Value::Vector(v) => match v {
         Vector::Float(values) => {
           // Create a JavaScript array for the float vector
@@ -186,12 +188,12 @@ impl From<topk_protos::v1::data::Value> for Value {
       Some(topk_protos::v1::data::value::Value::String(s)) => Value::String(s),
       Some(topk_protos::v1::data::value::Value::F64(n)) => Value::F64(n),
       Some(topk_protos::v1::data::value::Value::Bool(b)) => Value::String(b.to_string()),
-      Some(topk_protos::v1::data::value::Value::U32(n)) => Value::F64(n as f64),
-      Some(topk_protos::v1::data::value::Value::U64(n)) => Value::F64(n as f64),
-      Some(topk_protos::v1::data::value::Value::I32(n)) => Value::F64(n as f64),
-      Some(topk_protos::v1::data::value::Value::I64(n)) => Value::F64(n as f64),
-      Some(topk_protos::v1::data::value::Value::F32(n)) => Value::F64(n as f64),
-      Some(topk_protos::v1::data::value::Value::Binary(b)) => Value::String(format!("{:?}", b)),
+      Some(topk_protos::v1::data::value::Value::U32(n)) => Value::I32(n.try_into().unwrap()),
+      Some(topk_protos::v1::data::value::Value::U64(n)) => Value::U64(n.try_into().unwrap()),
+      Some(topk_protos::v1::data::value::Value::I32(n)) => Value::I32(n),
+      Some(topk_protos::v1::data::value::Value::I64(n)) => Value::I64(n),
+      Some(topk_protos::v1::data::value::Value::F32(n)) => Value::F32(n),
+      Some(topk_protos::v1::data::value::Value::Binary(b)) => Value::Binary(b),
       Some(topk_protos::v1::data::value::Value::Vector(v)) => match v.vector {
         Some(topk_protos::v1::data::vector::Vector::Float(float_vector)) => {
           Value::Vector(Vector::Float(float_vector.values))
@@ -199,6 +201,7 @@ impl From<topk_protos::v1::data::Value> for Value {
         Some(topk_protos::v1::data::vector::Vector::Byte(byte_vector)) => {
           Value::Vector(Vector::Byte(byte_vector.values))
         }
+        // TODO: should this be unreachable?
         None => Value::Null,
       },
       Some(topk_protos::v1::data::value::Value::Null(_)) => Value::Null,

@@ -6,7 +6,6 @@ mod collection;
 mod collections;
 mod document;
 mod error;
-mod expr;
 mod filter_expr;
 mod function_expr;
 mod logical_expr;

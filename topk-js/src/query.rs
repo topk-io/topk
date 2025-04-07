@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
 use crate::{
-  filter_expr::FilterExpression,
+  filter_expr::FilterExpressionUnion,
   logical_expr::{LogicalExpression, LogicalExpressionUnion},
   select_expr::SelectExpression,
-  text_expr::{Term, TextExpression},
+  text_expr::{Term, TextExpression, TextExpressionUnion},
 };
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
@@ -17,7 +17,8 @@ pub enum Stage {
     exprs: HashMap<String, SelectExpression>,
   },
   Filter {
-    expr: FilterExpression,
+    #[napi(ts_type = "LogicalExpression | TextExpression")]
+    expr: FilterExpressionUnion,
   },
   TopK {
     expr: LogicalExpression,
@@ -47,7 +48,10 @@ impl Query {
   }
 
   #[napi]
-  pub fn filter(&self, expr: FilterExpression) -> Query {
+  pub fn filter(
+    &self,
+    #[napi(ts_arg_type = "LogicalExpression | TextExpression")] expr: FilterExpressionUnion,
+  ) -> Query {
     let mut new_query = Query {
       stages: self.stages.clone(),
     };
@@ -96,15 +100,15 @@ pub fn field(name: String) -> LogicalExpression {
 }
 
 #[napi(js_name = "match")]
-pub fn match_(token: String, field: Option<String>, weight: f64) -> TextExpression {
-  TextExpression::Terms {
+pub fn match_(token: String, field: Option<String>, weight: Option<f64>) -> TextExpression {
+  TextExpression::create(TextExpressionUnion::Terms {
     all: true,
     terms: vec![Term {
       token,
       field,
-      weight,
+      weight: weight.unwrap_or(1.0),
     }],
-  }
+  })
 }
 
 impl From<Query> for topk_protos::v1::data::Query {

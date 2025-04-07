@@ -2,11 +2,7 @@ use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
 use crate::{
-  binary_expr::BinaryOperator,
-  document::Value,
-  filter_expr::{FilterExpression, FilterExpressionUnion},
-  napi_box::NapiBox,
-  unary_expr::UnaryOperator,
+  binary_expr::BinaryOperator, document::Value, napi_box::NapiBox, unary_expr::UnaryOperator,
 };
 
 #[napi]
@@ -42,21 +38,19 @@ pub struct LogicalExpression {
 #[napi]
 impl LogicalExpression {
   #[napi(factory)]
-  pub fn create(expr: LogicalExpressionUnion) -> LogicalExpression {
+  pub fn create(expr: LogicalExpressionUnion) -> Self {
     LogicalExpression { expr }
   }
 
   #[napi]
-  pub fn eq(&self, value: Value) -> FilterExpression {
-    FilterExpression::create(FilterExpressionUnion::Logical {
-      expr: LogicalExpression {
-        expr: LogicalExpressionUnion::Binary {
-          left: NapiBox(Box::new(self.expr.clone())),
-          op: BinaryOperator::Eq,
-          right: NapiBox(Box::new(LogicalExpressionUnion::Literal { value })),
-        },
+  pub fn eq(&self, value: Value) -> Self {
+    Self {
+      expr: LogicalExpressionUnion::Binary {
+        left: NapiBox(Box::new(self.expr.clone())),
+        op: BinaryOperator::Eq,
+        right: NapiBox(Box::new(LogicalExpressionUnion::Literal { value })),
       },
-    })
+    }
   }
 
   // TODO: Remove this
@@ -66,73 +60,63 @@ impl LogicalExpression {
   }
 
   #[napi]
-  pub fn neq(&self, value: Value) -> FilterExpression {
-    FilterExpression::create(FilterExpressionUnion::Logical {
-      expr: LogicalExpression {
-        expr: LogicalExpressionUnion::Binary {
-          left: NapiBox(Box::new(self.expr.clone())),
-          op: BinaryOperator::Neq,
-          right: NapiBox(Box::new(LogicalExpressionUnion::Literal { value })),
-        },
+  pub fn neq(&self, value: Value) -> Self {
+    Self {
+      expr: LogicalExpressionUnion::Binary {
+        left: NapiBox(Box::new(self.expr.clone())),
+        op: BinaryOperator::Neq,
+        right: NapiBox(Box::new(LogicalExpressionUnion::Literal { value })),
       },
-    })
+    }
   }
 
   #[napi]
-  pub fn lt(&self, value: Value) -> FilterExpression {
-    FilterExpression::create(FilterExpressionUnion::Logical {
-      expr: LogicalExpression {
-        expr: LogicalExpressionUnion::Binary {
-          left: NapiBox(Box::new(self.expr.clone())),
-          op: BinaryOperator::Lt,
-          right: NapiBox(Box::new(LogicalExpressionUnion::Literal { value })),
-        },
+  pub fn lt(&self, value: Value) -> Self {
+    Self {
+      expr: LogicalExpressionUnion::Binary {
+        left: NapiBox(Box::new(self.expr.clone())),
+        op: BinaryOperator::Lt,
+        right: NapiBox(Box::new(LogicalExpressionUnion::Literal { value })),
       },
-    })
+    }
   }
 
   #[napi]
-  pub fn lte(&self, value: Value) -> FilterExpression {
-    FilterExpression::create(FilterExpressionUnion::Logical {
-      expr: LogicalExpression {
-        expr: LogicalExpressionUnion::Binary {
-          left: NapiBox(Box::new(self.expr.clone())),
-          op: BinaryOperator::Lte,
-          right: NapiBox(Box::new(LogicalExpressionUnion::Literal { value })),
-        },
+  pub fn lte(&self, value: Value) -> Self {
+    Self {
+      expr: LogicalExpressionUnion::Binary {
+        left: NapiBox(Box::new(self.expr.clone())),
+        op: BinaryOperator::Lte,
+        right: NapiBox(Box::new(LogicalExpressionUnion::Literal { value })),
       },
-    })
+    }
   }
 
   #[napi]
-  pub fn gt(&self, value: Value) -> FilterExpression {
-    FilterExpression::create(FilterExpressionUnion::Logical {
-      expr: LogicalExpression {
-        expr: LogicalExpressionUnion::Binary {
-          left: NapiBox(Box::new(self.expr.clone())),
-          op: BinaryOperator::Gt,
-          right: NapiBox(Box::new(LogicalExpressionUnion::Literal { value })),
-        },
+  pub fn gt(&self, value: Value) -> Self {
+    Self {
+      expr: LogicalExpressionUnion::Binary {
+        left: NapiBox(Box::new(self.expr.clone())),
+        op: BinaryOperator::Gt,
+        right: NapiBox(Box::new(LogicalExpressionUnion::Literal { value })),
       },
-    })
+    }
   }
 
   #[napi]
-  pub fn gte(&self, value: Value) -> FilterExpression {
-    FilterExpression::create(FilterExpressionUnion::Logical {
-      expr: LogicalExpression {
-        expr: LogicalExpressionUnion::Binary {
-          left: NapiBox(Box::new(self.expr.clone())),
-          op: BinaryOperator::Gte,
-          right: NapiBox(Box::new(LogicalExpressionUnion::Literal { value })),
-        },
+  pub fn gte(&self, value: Value) -> Self {
+    Self {
+      expr: LogicalExpressionUnion::Binary {
+        left: NapiBox(Box::new(self.expr.clone())),
+        op: BinaryOperator::Gte,
+        right: NapiBox(Box::new(LogicalExpressionUnion::Literal { value })),
       },
-    })
+    }
   }
 
   #[napi]
-  pub fn add(&self, other: &LogicalExpression) -> LogicalExpression {
-    LogicalExpression {
+  pub fn add(&self, other: &LogicalExpression) -> Self {
+    Self {
       expr: LogicalExpressionUnion::Binary {
         left: NapiBox(Box::new(self.expr.clone())),
         op: BinaryOperator::Add,
@@ -142,8 +126,8 @@ impl LogicalExpression {
   }
 
   #[napi]
-  pub fn sub(&self, other: &LogicalExpression) -> LogicalExpression {
-    LogicalExpression {
+  pub fn sub(&self, other: &LogicalExpression) -> Self {
+    Self {
       expr: LogicalExpressionUnion::Binary {
         left: NapiBox(Box::new(self.expr.clone())),
         op: BinaryOperator::Sub,
@@ -153,8 +137,8 @@ impl LogicalExpression {
   }
 
   #[napi]
-  pub fn mul(&self, other: &LogicalExpression) -> LogicalExpression {
-    LogicalExpression {
+  pub fn mul(&self, other: &LogicalExpression) -> Self {
+    Self {
       expr: LogicalExpressionUnion::Binary {
         left: NapiBox(Box::new(self.expr.clone())),
         op: BinaryOperator::Mul,
@@ -164,8 +148,8 @@ impl LogicalExpression {
   }
 
   #[napi]
-  pub fn div(&self, other: &LogicalExpression) -> LogicalExpression {
-    LogicalExpression {
+  pub fn div(&self, other: &LogicalExpression) -> Self {
+    Self {
       expr: LogicalExpressionUnion::Binary {
         left: NapiBox(Box::new(self.expr.clone())),
         op: BinaryOperator::Div,
@@ -175,8 +159,8 @@ impl LogicalExpression {
   }
 
   #[napi]
-  pub fn and(&self, other: &LogicalExpression) -> LogicalExpression {
-    LogicalExpression {
+  pub fn and(&self, other: &LogicalExpression) -> Self {
+    Self {
       expr: LogicalExpressionUnion::Binary {
         left: NapiBox(Box::new(self.expr.clone())),
         op: BinaryOperator::And,
@@ -186,8 +170,8 @@ impl LogicalExpression {
   }
 
   #[napi]
-  pub fn or(&self, other: &LogicalExpression) -> LogicalExpression {
-    LogicalExpression {
+  pub fn or(&self, other: &LogicalExpression) -> Self {
+    Self {
       expr: LogicalExpressionUnion::Binary {
         left: NapiBox(Box::new(self.expr.clone())),
         op: BinaryOperator::Or,
@@ -197,16 +181,14 @@ impl LogicalExpression {
   }
 
   #[napi]
-  pub fn starts_with(&self, other: &LogicalExpression) -> FilterExpression {
-    FilterExpression::create(FilterExpressionUnion::Logical {
-      expr: LogicalExpression {
-        expr: LogicalExpressionUnion::Binary {
-          left: NapiBox(Box::new(self.expr.clone())),
-          op: BinaryOperator::StartsWith,
-          right: NapiBox(Box::new(other.expr.clone())),
-        },
+  pub fn starts_with(&self, other: &LogicalExpression) -> Self {
+    Self {
+      expr: LogicalExpressionUnion::Binary {
+        left: NapiBox(Box::new(self.expr.clone())),
+        op: BinaryOperator::StartsWith,
+        right: NapiBox(Box::new(other.expr.clone())),
       },
-    })
+    }
   }
 }
 

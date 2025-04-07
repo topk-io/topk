@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use std::collections::HashMap;
