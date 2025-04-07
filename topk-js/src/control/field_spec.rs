@@ -24,6 +24,7 @@ impl FieldSpec {
         }
     }
 
+    #[napi]
     pub fn required(&self) -> Self {
         Self {
             required: true,
@@ -31,6 +32,7 @@ impl FieldSpec {
         }
     }
 
+    #[napi]
     pub fn optional(&self) -> Self {
         Self {
             required: false,
@@ -38,14 +40,17 @@ impl FieldSpec {
         }
     }
 
+    #[napi]
     pub fn keyword_index(&self) -> Self {
         self.index(FieldIndex::KeywordIndex)
     }
 
+    #[napi]
     pub fn vector_index(&self, metric: VectorDistanceMetric) -> Self {
         self.index(FieldIndex::VectorIndex { metric })
     }
 
+    #[napi]
     pub fn semantic_index(&self, model: Option<String>) -> Self {
         self.index(FieldIndex::SemanticIndex {
             model,
