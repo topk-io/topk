@@ -198,3 +198,6 @@ Cargo.lock
 
 # Ignore index.js built by napi
 index.js
+
+# Ignore build directory(for ava tests)
+build/

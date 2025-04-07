@@ -25,11 +25,13 @@
   },
   "license": "MIT",
   "devDependencies": {
+    "@jest/globals": "^29.7.0",
     "@napi-rs/cli": "3.0.0-alpha.75",
-    "ava": "^6.0.1"
-  },
-  "ava": {
-    "timeout": "3m"
+    "@sindresorhus/tsconfig": "^7.0.0",
+    "@types/jest": "^29.5.14",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.3.1",
+    "typescript": "^5.8.3"
   },
   "engines": {
     "node": ">= 10"
@@ -40,7 +42,7 @@
     "dev": "napi build --platform",
     "build:debug": "napi build --platform",
     "prepublishOnly": "napi prepublish -t npm",
-    "test": "ava",
+    "test": "jest",
     "universal": "napi universal",
     "version": "napi version"
   }
