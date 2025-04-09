@@ -147,7 +147,7 @@ docs = client.collection("documents").query(
     select(
         content_score=fn.semantic_similarity("content", "machine learning applications"),
     )
-    .top_k(field("importance") * field("content_score"), 10)
+    .top_k(0.8 * field("importance") + 0.2 * field("content_score"), 10)
 )
 ```
 
