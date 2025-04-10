@@ -2,7 +2,11 @@ use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
 use super::{
-    binary_expr::BinaryOperator, napi_box::NapiBox, unary_expr::UnaryOperator, value::Value,
+    binary_expr::BinaryOperator,
+    flexible_expr::{Boolish, FlexibleExpr, Numeric, Stringy},
+    napi_box::NapiBox,
+    unary_expr::UnaryOperator,
+    value::Value,
 };
 
 #[napi]
@@ -42,17 +46,6 @@ impl LogicalExpression {
         LogicalExpression { expr }
     }
 
-    #[napi]
-    pub fn eq(&self, value: Value) -> Self {
-        Self {
-            expr: LogicalExpressionUnion::Binary {
-                left: NapiBox(Box::new(self.expr.clone())),
-                op: BinaryOperator::Eq,
-                right: NapiBox(Box::new(LogicalExpressionUnion::Literal { value })),
-            },
-        }
-    }
-
     // TODO: Remove this
     #[napi(getter)]
     pub fn get_expr(&self) -> LogicalExpressionUnion {
@@ -60,133 +53,155 @@ impl LogicalExpression {
     }
 
     #[napi]
-    pub fn neq(&self, value: Value) -> Self {
+    pub fn eq(
+        &self,
+        #[napi(ts_arg_type = "LogicalExpression | string | number | boolean | null | undefined")]
+        other: FlexibleExpr,
+    ) -> Self {
+        Self {
+            expr: LogicalExpressionUnion::Binary {
+                left: NapiBox(Box::new(self.expr.clone())),
+                op: BinaryOperator::Eq,
+                right: NapiBox(Box::new(other.into())),
+            },
+        }
+    }
+
+    #[napi]
+    pub fn ne(
+        &self,
+        #[napi(ts_arg_type = "LogicalExpression | string | number | boolean | null | undefined")]
+        other: FlexibleExpr,
+    ) -> Self {
         Self {
             expr: LogicalExpressionUnion::Binary {
                 left: NapiBox(Box::new(self.expr.clone())),
                 op: BinaryOperator::Neq,
-                right: NapiBox(Box::new(LogicalExpressionUnion::Literal { value })),
+                right: NapiBox(Box::new(other.into())),
             },
         }
     }
 
     #[napi]
-    pub fn lt(&self, value: Value) -> Self {
+    pub fn lt(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
         Self {
             expr: LogicalExpressionUnion::Binary {
                 left: NapiBox(Box::new(self.expr.clone())),
                 op: BinaryOperator::Lt,
-                right: NapiBox(Box::new(LogicalExpressionUnion::Literal { value })),
+                right: NapiBox(Box::new(other.into())),
             },
         }
     }
 
     #[napi]
-    pub fn lte(&self, value: Value) -> Self {
+    pub fn lte(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
         Self {
             expr: LogicalExpressionUnion::Binary {
                 left: NapiBox(Box::new(self.expr.clone())),
                 op: BinaryOperator::Lte,
-                right: NapiBox(Box::new(LogicalExpressionUnion::Literal { value })),
+                right: NapiBox(Box::new(other.into())),
             },
         }
     }
 
     #[napi]
-    pub fn gt(&self, value: Value) -> Self {
+    pub fn gt(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
         Self {
             expr: LogicalExpressionUnion::Binary {
                 left: NapiBox(Box::new(self.expr.clone())),
                 op: BinaryOperator::Gt,
-                right: NapiBox(Box::new(LogicalExpressionUnion::Literal { value })),
+                right: NapiBox(Box::new(other.into())),
             },
         }
     }
 
     #[napi]
-    pub fn gte(&self, value: Value) -> Self {
+    pub fn gte(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
         Self {
             expr: LogicalExpressionUnion::Binary {
                 left: NapiBox(Box::new(self.expr.clone())),
                 op: BinaryOperator::Gte,
-                right: NapiBox(Box::new(LogicalExpressionUnion::Literal { value })),
+                right: NapiBox(Box::new(other.into())),
             },
         }
     }
 
     #[napi]
-    pub fn add(&self, other: &LogicalExpression) -> Self {
+    pub fn add(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
         Self {
             expr: LogicalExpressionUnion::Binary {
                 left: NapiBox(Box::new(self.expr.clone())),
                 op: BinaryOperator::Add,
-                right: NapiBox(Box::new(other.expr.clone())),
+                right: NapiBox(Box::new(other.into())),
             },
         }
     }
 
     #[napi]
-    pub fn sub(&self, other: &LogicalExpression) -> Self {
+    pub fn sub(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
         Self {
             expr: LogicalExpressionUnion::Binary {
                 left: NapiBox(Box::new(self.expr.clone())),
                 op: BinaryOperator::Sub,
-                right: NapiBox(Box::new(other.expr.clone())),
+                right: NapiBox(Box::new(other.into())),
             },
         }
     }
 
     #[napi]
-    pub fn mul(&self, other: &LogicalExpression) -> Self {
+    pub fn mul(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
         Self {
             expr: LogicalExpressionUnion::Binary {
                 left: NapiBox(Box::new(self.expr.clone())),
                 op: BinaryOperator::Mul,
-                right: NapiBox(Box::new(other.expr.clone())),
+                right: NapiBox(Box::new(other.into())),
             },
         }
     }
 
     #[napi]
-    pub fn div(&self, other: &LogicalExpression) -> Self {
+    pub fn div(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
         Self {
             expr: LogicalExpressionUnion::Binary {
                 left: NapiBox(Box::new(self.expr.clone())),
                 op: BinaryOperator::Div,
-                right: NapiBox(Box::new(other.expr.clone())),
+                right: NapiBox(Box::new(other.into())),
             },
         }
     }
 
     #[napi]
-    pub fn and(&self, other: &LogicalExpression) -> Self {
+    pub fn and(&self, #[napi(ts_arg_type = "LogicalExpression | boolean")] other: Boolish) -> Self {
         Self {
             expr: LogicalExpressionUnion::Binary {
                 left: NapiBox(Box::new(self.expr.clone())),
                 op: BinaryOperator::And,
-                right: NapiBox(Box::new(other.expr.clone())),
+                right: NapiBox(Box::new(other.into())),
             },
         }
     }
 
     #[napi]
-    pub fn or(&self, other: &LogicalExpression) -> Self {
+    pub fn or(&self, #[napi(ts_arg_type = "LogicalExpression | boolean")] other: Boolish) -> Self {
         Self {
             expr: LogicalExpressionUnion::Binary {
                 left: NapiBox(Box::new(self.expr.clone())),
                 op: BinaryOperator::Or,
-                right: NapiBox(Box::new(other.expr.clone())),
+                right: NapiBox(Box::new(other.into())),
             },
         }
     }
 
     #[napi]
-    pub fn starts_with(&self, other: &LogicalExpression) -> Self {
+    pub fn starts_with(
+        &self,
+        #[napi(ts_arg_type = "LogicalExpression | string")] other: Stringy,
+    ) -> Self {
         Self {
             expr: LogicalExpressionUnion::Binary {
                 left: NapiBox(Box::new(self.expr.clone())),
                 op: BinaryOperator::StartsWith,
-                right: NapiBox(Box::new(other.expr.clone())),
+                right: NapiBox(Box::new(other.into())),
             },
         }
     }

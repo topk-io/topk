@@ -103,6 +103,10 @@ impl FromNapiValue for Value {
             napi::sys::ValueType::napi_number => {
                 Ok(Value::F64(f64::from_napi_value(env, napi_val)?))
             }
+            napi::sys::ValueType::napi_boolean => {
+                Ok(Value::Bool(bool::from_napi_value(env, napi_val)?))
+            }
+            napi::sys::ValueType::napi_null => Ok(Value::Null),
             napi::sys::ValueType::napi_undefined => Ok(Value::Null),
             _ => Err(napi::Error::new(
                 napi::Status::GenericFailure,

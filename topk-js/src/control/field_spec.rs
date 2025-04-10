@@ -1,10 +1,7 @@
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
-use super::{
-    data_type::DataType,
-    field_index::{FieldIndex, VectorDistanceMetric},
-};
+use super::{data_type::DataType, field_index::FieldIndex};
 
 #[napi]
 #[derive(Clone)]
@@ -16,7 +13,8 @@ pub struct FieldSpec {
 
 #[napi]
 impl FieldSpec {
-    pub fn new(data_type: DataType) -> Self {
+    #[napi(factory)]
+    pub fn create(data_type: DataType) -> Self {
         Self {
             data_type,
             required: false,
@@ -41,24 +39,7 @@ impl FieldSpec {
     }
 
     #[napi]
-    pub fn keyword_index(&self) -> Self {
-        self.index(FieldIndex::KeywordIndex)
-    }
-
-    #[napi]
-    pub fn vector_index(&self, metric: VectorDistanceMetric) -> Self {
-        self.index(FieldIndex::VectorIndex { metric })
-    }
-
-    #[napi]
-    pub fn semantic_index(&self, model: Option<String>) -> Self {
-        self.index(FieldIndex::SemanticIndex {
-            model,
-            embedding_type: None,
-        })
-    }
-
-    fn index(&self, index: FieldIndex) -> Self {
+    pub fn index(&self, index: FieldIndex) -> Self {
         Self {
             index: Some(index),
             ..self.clone()
@@ -119,22 +100,27 @@ impl From<FieldSpec> for topk_protos::v1::control::FieldSpec {
     }
 }
 
-impl FromNapiValue for FieldSpec {
-    unsafe fn from_napi_value(
-        env: napi::sys::napi_env,
-        value: napi::sys::napi_value,
-    ) -> Result<Self> {
-        let env_env = Env::from_raw(env);
+// impl FromNapiValue for FieldSpec {
+//     unsafe fn from_napi_value(
+//         env: napi::sys::napi_env,
+//         value: napi::sys::napi_value,
+//     ) -> Result<Self> {
+//         let env_env = Env::from_raw(env);
 
-        let is_field_spec = {
-            let env_value = Unknown::from_napi_value(env, value)?;
-            FieldSpec::instance_of(env_env, env_value)?
-        };
+//         let is_field_spec = {
+//             let env_value = Unknown::from_napi_value(env, value)?;
 
-        if is_field_spec {
-            FieldSpec::from_napi_value(env, value)
-        } else {
-            unreachable!("Value must be a FieldSpec")
-        }
-    }
-}
+//             let env_value = Unknown::from_napi_value(env, value)?;
+//             FieldSpec::instance_of(env_env, env_value)?
+//         };
+
+//         if is_field_spec {
+//         } else {
+//             Err(napi::Error::new(
+//                 napi::Status::InvalidArg,
+//                 "Value must be a FieldSpec".to_string(),
+//             )
+//             .into())
+//         }
+//     }
+// }

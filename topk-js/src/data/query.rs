@@ -6,6 +6,7 @@ use super::{
     logical_expr::{LogicalExpression, LogicalExpressionUnion},
     stage::Stage,
     text_expr::{Term, TextExpression, TextExpressionUnion},
+    value::Value,
 };
 
 #[napi]
@@ -36,13 +37,13 @@ impl Query {
     }
 
     #[napi(js_name = "top_k")]
-    pub fn top_k(&self, field_name: String, k: i32, asc: Option<bool>) -> Query {
+    pub fn top_k(&self, expr: LogicalExpression, k: i32, asc: Option<bool>) -> Query {
         let mut new_query = Query {
             stages: self.stages.clone(),
         };
 
         new_query.stages.push(Stage::TopK {
-            expr: field(field_name),
+            expr,
             k,
             asc: asc.unwrap_or(false),
         });
@@ -61,6 +62,28 @@ impl Query {
         new_query
     }
 
+    #[napi]
+    pub fn rerank(
+        &self,
+        model: Option<String>,
+        query: Option<String>,
+        fields: Option<Vec<String>>,
+        topk_multiple: Option<u32>,
+    ) -> Query {
+        let mut new_query = Query {
+            stages: self.stages.clone(),
+        };
+
+        new_query.stages.push(Stage::Rerank {
+            model,
+            query,
+            fields: fields.unwrap_or_default(),
+            topk_multiple,
+        });
+
+        new_query
+    }
+
     // TODO: Remove this
     #[napi(getter)]
     pub fn get_stages(&self) -> Vec<Stage> {
@@ -71,6 +94,11 @@ impl Query {
 #[napi]
 pub fn field(name: String) -> LogicalExpression {
     LogicalExpression::create(LogicalExpressionUnion::Field { name })
+}
+
+#[napi]
+pub fn literal(value: Value) -> LogicalExpression {
+    LogicalExpression::create(LogicalExpressionUnion::Literal { value })
 }
 
 #[napi(js_name = "match")]

@@ -1,7 +1,7 @@
 pub mod binary_expr;
 pub mod document;
 pub mod filter_expr;
-// pub mod flexible_expr;
+pub mod flexible_expr;
 pub mod function_expr;
 pub mod logical_expr;
 pub mod napi_box;

@@ -1,87 +1,92 @@
-use crate::control::{self, field_index::EmbeddingDataType};
+use std::collections::HashMap;
+
+use crate::control::{
+    self,
+    field_index::{EmbeddingDataType, VectorDistanceMetric},
+    field_spec::FieldSpec,
+};
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
+pub struct Schema(HashMap<String, FieldSpec>);
+
+impl FromNapiValue for Schema {
+    unsafe fn from_napi_value(
+        env: napi::sys::napi_env,
+        value: napi::sys::napi_value,
+    ) -> Result<Self> {
+        let map = HashMap::from_napi_value(env, value)?;
+        Ok(Schema(map))
+    }
+}
+
 #[napi]
 pub fn text() -> control::field_spec::FieldSpec {
-    control::field_spec::FieldSpec::new(control::data_type::DataType::Text {})
+    control::field_spec::FieldSpec::create(control::data_type::DataType::Text {})
 }
 
 #[napi]
 pub fn int() -> control::field_spec::FieldSpec {
-    control::field_spec::FieldSpec::new(control::data_type::DataType::Integer {})
+    control::field_spec::FieldSpec::create(control::data_type::DataType::Integer {})
 }
 
 #[napi]
 pub fn float() -> control::field_spec::FieldSpec {
-    control::field_spec::FieldSpec::new(control::data_type::DataType::Float {})
+    control::field_spec::FieldSpec::create(control::data_type::DataType::Float {})
 }
 
 #[napi]
 pub fn bool() -> control::field_spec::FieldSpec {
-    control::field_spec::FieldSpec::new(control::data_type::DataType::Boolean {})
+    control::field_spec::FieldSpec::create(control::data_type::DataType::Boolean {})
 }
 
 #[napi]
 pub fn f32_vector(dimension: u32) -> control::field_spec::FieldSpec {
-    control::field_spec::FieldSpec::new(control::data_type::DataType::F32Vector { dimension })
+    control::field_spec::FieldSpec::create(control::data_type::DataType::F32Vector { dimension })
 }
 
 #[napi]
 pub fn u8_vector(dimension: u32) -> control::field_spec::FieldSpec {
-    control::field_spec::FieldSpec::new(control::data_type::DataType::U8Vector { dimension })
+    control::field_spec::FieldSpec::create(control::data_type::DataType::U8Vector { dimension })
 }
 
 #[napi]
 pub fn binary_vector(dimension: u32) -> control::field_spec::FieldSpec {
-    control::field_spec::FieldSpec::new(control::data_type::DataType::BinaryVector { dimension })
+    control::field_spec::FieldSpec::create(control::data_type::DataType::BinaryVector { dimension })
 }
 
 #[napi]
 pub fn bytes() -> control::field_spec::FieldSpec {
-    control::field_spec::FieldSpec::new(control::data_type::DataType::Bytes {})
+    control::field_spec::FieldSpec::create(control::data_type::DataType::Bytes {})
+}
+
+#[napi(object)]
+pub struct VectorIndexOptions {
+    pub metric: VectorDistanceMetric,
 }
 
 #[napi]
-pub fn vector_index(metric: String) -> Result<control::field_index::FieldIndex> {
-    let metric = match metric.to_lowercase().as_str() {
-        "cosine" => control::field_index::VectorDistanceMetric::Cosine,
-        "euclidean" => control::field_index::VectorDistanceMetric::Euclidean,
-        "dot_product" => control::field_index::VectorDistanceMetric::DotProduct,
-        "hamming" => control::field_index::VectorDistanceMetric::Hamming,
-        _ => {
-            return Err(napi::Error::new(
-                napi::Status::GenericFailure,
-                format!("Invalid vector distance metric: {}. Supported metrics are: cosine, euclidean, dot_product, hamming.", metric),
-            ))
-        }
-    };
-
-    Ok(control::field_index::FieldIndex::VectorIndex { metric })
+pub fn vector_index(options: VectorIndexOptions) -> Result<control::field_index::FieldIndex> {
+    Ok(control::field_index::FieldIndex::VectorIndex {
+        metric: options.metric,
+    })
 }
 
 #[napi]
-pub fn keyword_index(typ: String) -> Result<control::field_index::FieldIndex> {
-    let index_type = match typ.to_lowercase().as_str() {
-        "text" => control::field_index::KeywordIndexType::Text,
-        _ => {
-            return Err(napi::Error::new(
-                napi::Status::GenericFailure,
-                format!(
-                    "Invalid keyword index type: {}. Supported index types are: text.",
-                    typ
-                ),
-            ))
-        }
-    };
-
+pub fn keyword_index() -> Result<control::field_index::FieldIndex> {
     Ok(control::field_index::FieldIndex::KeywordIndex)
 }
 
+#[napi(object)]
+pub struct SemanticIndexOptions {
+    pub model: Option<String>,
+    pub embedding_type: Option<EmbeddingDataType>,
+}
+
 #[napi]
-pub fn semantic_index(model: Option<String>) -> Result<control::field_index::FieldIndex> {
+pub fn semantic_index(options: SemanticIndexOptions) -> Result<control::field_index::FieldIndex> {
     Ok(control::field_index::FieldIndex::SemanticIndex {
-        model,
-        embedding_type: None,
+        model: options.model,
+        embedding_type: options.embedding_type,
     })
 }

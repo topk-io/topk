@@ -7,6 +7,8 @@ export declare class Client {
 }
 
 export declare class CollectionClient {
+  get(id: string, fields?: Array<string> | undefined | null, lsn?: number | undefined | null, consistency?: ConsistencyLevel | undefined | null): Promise<Record<string, any>>
+  count(lsn?: number | undefined | null, consistency?: ConsistencyLevel | undefined | null): Promise<number>
   query(query: Query, lsn?: number | undefined | null): Promise<Array<Record<string, any>>>
   upsert(docs: Array<Record<string, any>>): Promise<number>
   delete(ids: Array<string>): Promise<number>
@@ -14,41 +16,41 @@ export declare class CollectionClient {
 
 export declare class CollectionsClient {
   list(): Promise<Array<Collection>>
-  create(options: CreateCollectionOptions): Promise<Collection>
+  create(name: string, schema: Record<string, FieldSpec>): Promise<Collection>
+  get(collectionName: string): Promise<Collection>
   delete(name: string): Promise<void>
 }
 
 export declare class FieldSpec {
   required(): FieldSpec
   optional(): FieldSpec
-  keywordIndex(): FieldSpec
-  vectorIndex(metric: VectorDistanceMetric): FieldSpec
-  semanticIndex(model?: string | undefined | null): FieldSpec
+  index(index: FieldIndex): FieldSpec
 }
 
 export declare class LogicalExpression {
   static create(expr: LogicalExpressionUnion): LogicalExpression
-  eq(value: any): LogicalExpression
   get expr(): LogicalExpressionUnion
-  neq(value: any): LogicalExpression
-  lt(value: any): LogicalExpression
-  lte(value: any): LogicalExpression
-  gt(value: any): LogicalExpression
-  gte(value: any): LogicalExpression
-  add(other: LogicalExpression): LogicalExpression
-  sub(other: LogicalExpression): LogicalExpression
-  mul(other: LogicalExpression): LogicalExpression
-  div(other: LogicalExpression): LogicalExpression
-  and(other: LogicalExpression): LogicalExpression
-  or(other: LogicalExpression): LogicalExpression
-  startsWith(other: LogicalExpression): LogicalExpression
+  eq(other: LogicalExpression | string | number | boolean | null | undefined): LogicalExpression
+  ne(other: LogicalExpression | string | number | boolean | null | undefined): LogicalExpression
+  lt(other: LogicalExpression | number): LogicalExpression
+  lte(other: LogicalExpression | number): LogicalExpression
+  gt(other: LogicalExpression | number): LogicalExpression
+  gte(other: LogicalExpression | number): LogicalExpression
+  add(other: LogicalExpression | number): LogicalExpression
+  sub(other: LogicalExpression | number): LogicalExpression
+  mul(other: LogicalExpression | number): LogicalExpression
+  div(other: LogicalExpression | number): LogicalExpression
+  and(other: LogicalExpression | boolean): LogicalExpression
+  or(other: LogicalExpression | boolean): LogicalExpression
+  startsWith(other: LogicalExpression | string): LogicalExpression
 }
 
 export declare class Query {
   static create(stages: Array<Stage>): Query
   filter(expr: LogicalExpression | TextExpression): Query
-  top_k(fieldName: string, k: number, asc?: boolean | undefined | null): Query
+  top_k(expr: LogicalExpression, k: number, asc?: boolean | undefined | null): Query
   count(): Query
+  rerank(model?: string | undefined | null, query?: string | undefined | null, fields?: Array<string> | undefined | null, topkMultiple?: number | undefined | null): Query
   get stages(): Array<Stage>
 }
 
@@ -98,6 +100,11 @@ export interface Collection {
   region: string
 }
 
+export declare const enum ConsistencyLevel {
+  Indexed = 'Indexed',
+  Strong = 'Strong'
+}
+
 export interface CreateCollectionOptions {
   name: string
   schema: Record<string, FieldSpec>
@@ -137,11 +144,13 @@ export type FunctionExpression =
 
 export declare function int(): FieldSpec
 
-export declare function keywordIndex(typ: string): FieldIndex
+export declare function keywordIndex(): FieldIndex
 
 export declare const enum KeywordIndexType {
   Text = 'Text'
 }
+
+export declare function literal(value: any): LogicalExpression
 
 export type LogicalExpressionUnion =
   | { type: 'Null' }
@@ -154,7 +163,12 @@ export declare function match(token: string, field?: string | undefined | null, 
 
 export declare function select(exprs: Record<string, LogicalExpression | FunctionExpression>): Query
 
-export declare function semanticIndex(model?: string | undefined | null): FieldIndex
+export declare function semanticIndex(options: SemanticIndexOptions): FieldIndex
+
+export interface SemanticIndexOptions {
+  model?: string
+  embeddingType?: EmbeddingDataType
+}
 
 export declare function semanticSimilarity(field: string, query: string): FunctionExpression
 
@@ -186,7 +200,7 @@ export declare const enum UnaryOperator {
   IsNotNull = 'IsNotNull'
 }
 
-export declare function vectorDistance(field: string, query: VectorQuery): FunctionExpression
+export declare function vectorDistance(field: string, query: Array<number>): FunctionExpression
 
 export declare const enum VectorDistanceMetric {
   Cosine = 'Cosine',
@@ -195,7 +209,11 @@ export declare const enum VectorDistanceMetric {
   Hamming = 'Hamming'
 }
 
-export declare function vectorIndex(metric: string): FieldIndex
+export declare function vectorIndex(options: VectorIndexOptions): FieldIndex
+
+export interface VectorIndexOptions {
+  metric: VectorDistanceMetric
+}
 
 export type VectorQuery =
   | { type: 'F32', vector: Array<number> }

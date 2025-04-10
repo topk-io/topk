@@ -33,8 +33,12 @@ pub fn semantic_similarity(field: String, query: String) -> FunctionExpression {
 }
 
 #[napi]
-pub fn vector_distance(field: String, query: VectorQuery) -> FunctionExpression {
-    FunctionExpression::VectorScore { field, query }
+pub fn vector_distance(field: String, query: Vec<f64>) -> FunctionExpression {
+    // TODO: how to distinguish between f32 and f64 in javascript?
+    FunctionExpression::VectorScore {
+        field,
+        query: VectorQuery::F32 { vector: query },
+    }
 }
 
 #[napi]

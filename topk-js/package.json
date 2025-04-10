@@ -4,7 +4,7 @@
   "main": "index.js",
   "types": "index.d.ts",
   "napi": {
-    "name": "topk-js",
+    "binaryName": "topk-js",
     "triples": {
       "additional": [
         "aarch64-apple-darwin",

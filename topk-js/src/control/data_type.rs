@@ -1,7 +1,7 @@
 use napi_derive::napi;
 
-#[napi]
-#[derive(Clone)]
+#[napi(string_enum)]
+#[derive(Clone, Debug)]
 pub enum DataType {
     Text,
     Integer,

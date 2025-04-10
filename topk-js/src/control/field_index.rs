@@ -1,7 +1,7 @@
 use napi_derive::napi;
 
 #[napi]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum FieldIndex {
     KeywordIndex,
     VectorIndex {
@@ -20,7 +20,7 @@ pub enum KeywordIndexType {
 }
 
 #[napi(string_enum)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum VectorDistanceMetric {
     Cosine,
     Euclidean,
@@ -60,7 +60,7 @@ impl From<VectorDistanceMetric> for i32 {
 }
 
 #[napi(string_enum)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum EmbeddingDataType {
     Float32,
     UInt8,

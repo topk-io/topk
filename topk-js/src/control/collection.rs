@@ -1,6 +1,7 @@
 use crate::data::document::DocumentWrapper;
 use crate::data::query::Query;
 use crate::data::value::Value;
+use crate::error::TopkError;
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use std::collections::HashMap;
@@ -14,10 +15,98 @@ pub struct CollectionClient {
     client: Arc<topk_rs::Client>,
 }
 
+#[napi(string_enum)]
+#[derive(Debug, Clone)]
+pub enum ConsistencyLevel {
+    Indexed,
+    Strong,
+}
+
+impl From<ConsistencyLevel> for topk_protos::v1::data::ConsistencyLevel {
+    fn from(consistency_level: ConsistencyLevel) -> Self {
+        match consistency_level {
+            ConsistencyLevel::Indexed => topk_protos::v1::data::ConsistencyLevel::Indexed,
+            ConsistencyLevel::Strong => topk_protos::v1::data::ConsistencyLevel::Strong,
+        }
+    }
+}
+
 #[napi]
 impl CollectionClient {
     pub fn new(client: Arc<topk_rs::Client>, collection: String) -> Self {
         Self { client, collection }
+    }
+
+    #[napi]
+    pub async fn get(
+        &self,
+        id: String,
+        fields: Option<Vec<String>>,
+        lsn: Option<i64>,
+        consistency: Option<ConsistencyLevel>,
+    ) -> Result<HashMap<String, Value>> {
+        let document = self
+            .client
+            .collection(&self.collection)
+            .get(
+                id,
+                fields.unwrap_or_default(),
+                lsn.map(|l| l as u64),
+                consistency.map(|c| c.into()),
+            )
+            .await
+            .map_err(TopkError::from)?;
+
+        Ok(document
+            .fields
+            .into_iter()
+            .map(|(k, v)| (k, v.into()))
+            .collect())
+    }
+
+    #[napi]
+    pub async fn count(
+        &self,
+        lsn: Option<i64>,
+        consistency: Option<ConsistencyLevel>,
+    ) -> Result<i64> {
+        let query = Query::create(vec![]).count();
+
+        let docs = self
+            .client
+            .collection(&self.collection)
+            .query(
+                query.into(),
+                lsn.map(|l| l as u64),
+                consistency.map(|c| c.into()),
+            )
+            .await
+            .map_err(TopkError::from)?;
+
+        for doc in docs {
+            match doc.fields.get("_count") {
+                Some(value) => match value.as_u64() {
+                    Some(count) => return Ok(count as i64),
+                    None => {
+                        return Err(napi::Error::new(
+                            napi::Status::GenericFailure,
+                            "Invalid _count field data type in count query response",
+                        ))
+                    }
+                },
+                None => {
+                    return Err(napi::Error::new(
+                        napi::Status::GenericFailure,
+                        "Missing _count field in count query response",
+                    ))
+                }
+            }
+        }
+
+        Err(napi::Error::new(
+            napi::Status::GenericFailure,
+            "No documents received for count query",
+        ))
     }
 
     #[napi]
@@ -31,7 +120,7 @@ impl CollectionClient {
             .collection(&self.collection)
             .query(query.into(), lsn.map(|l| l as u64), None)
             .await
-            .map_err(|e| napi::Error::new(napi::Status::GenericFailure, e.to_string()))?;
+            .map_err(TopkError::from)?;
 
         Ok(docs
             .into_iter()
@@ -52,15 +141,10 @@ impl CollectionClient {
                     .collect(),
             )
             .await
-            .map_err(|e| {
-                napi::Error::new(
-                    napi::Status::GenericFailure,
-                    format!("upsert failed: {:?}", e),
-                )
-            })
-            .map(|lsn| lsn as i64);
+            .map_err(TopkError::from)
+            .map(|lsn| lsn as i64)?;
 
-        result
+        Ok(result)
     }
 
     #[napi]
@@ -70,9 +154,10 @@ impl CollectionClient {
             .collection(&self.collection)
             .delete(ids)
             .await
-            .map_err(|e| napi::Error::new(napi::Status::GenericFailure, e.to_string()))?;
+            .map_err(TopkError::from)
+            .map(|lsn| lsn as i64)?;
 
-        Ok(result as i64)
+        Ok(result)
     }
 }
 

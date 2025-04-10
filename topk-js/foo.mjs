@@ -3,7 +3,10 @@ import {
   select,
   field,
   match,
-  bm25Score
+  bm25Score,
+  text,
+  int,
+  bool
 } from "./index.js";
 
 const client = new Client({
@@ -16,15 +19,23 @@ async function main() {
 
   // console.dir(m.expr, { depth: null })
 
-  const collection = client.collection("books")
+  const schema = {
+    title: bool()
+  }
 
-  const docs = await collection.query(
-    select({
-      "text_score": bm25Score()
-    })
-    .filter(match('el mambo'))
-    .count()
-  )
+  console.dir(schema, { depth: null })
+
+  const collection = await client.collections().create("bookz", schema)
+
+  console.dir(collection, { depth: null })
+
+  // const docs = await collection.query(
+  //   select({
+  //     "text_score": bm25Score()
+  //   })
+  //   .filter(match('el mambo'))
+  //   .count()
+  // )
 
   // console.dir(docs, { depth: null })
 
