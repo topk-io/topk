@@ -132,6 +132,7 @@ impl FromNapiValue for Numeric {
         match result {
             napi::sys::ValueType::napi_number => {
                 // Check if the number is an integer by comparing it with its integer part
+
                 let num = f64::from_napi_value(env, value)?;
                 if num == (num as i64) as f64 {
                     // It's an integer (no fractional part)
@@ -161,8 +162,6 @@ impl ToNapiValue for Numeric {
         }
     }
 }
-
-// required for `flexible_expr::Numeric` to implement `Into<data::logical_expr::LogicalExpressionUnion>`rustcClick for full compiler diagnostic
 
 impl Into<LogicalExpressionUnion> for Numeric {
     fn into(self) -> LogicalExpressionUnion {

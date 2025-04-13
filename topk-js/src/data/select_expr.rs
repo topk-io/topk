@@ -81,7 +81,7 @@ impl ToNapiValue for SelectExpression {
     }
 }
 
-#[napi]
+#[napi(namespace = "query")]
 pub fn select(
     #[napi(ts_arg_type = "Record<string, LogicalExpression | FunctionExpression>")] exprs: HashMap<
         String,

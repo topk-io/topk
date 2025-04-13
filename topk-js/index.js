@@ -370,6 +370,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
+module.exports.BinaryVector = nativeBinding.BinaryVector
 module.exports.Client = nativeBinding.Client
 module.exports.CollectionClient = nativeBinding.CollectionClient
 module.exports.CollectionsClient = nativeBinding.CollectionsClient
@@ -379,25 +380,12 @@ module.exports.Query = nativeBinding.Query
 module.exports.TextExpression = nativeBinding.TextExpression
 module.exports.BinaryOperator = nativeBinding.BinaryOperator
 module.exports.binaryVector = nativeBinding.binaryVector
-module.exports.bm25Score = nativeBinding.bm25Score
-module.exports.bool = nativeBinding.bool
-module.exports.bytes = nativeBinding.bytes
 module.exports.ConsistencyLevel = nativeBinding.ConsistencyLevel
 module.exports.EmbeddingDataType = nativeBinding.EmbeddingDataType
 module.exports.f32Vector = nativeBinding.f32Vector
-module.exports.field = nativeBinding.field
-module.exports.float = nativeBinding.float
-module.exports.int = nativeBinding.int
-module.exports.keywordIndex = nativeBinding.keywordIndex
 module.exports.KeywordIndexType = nativeBinding.KeywordIndexType
-module.exports.literal = nativeBinding.literal
-module.exports.match = nativeBinding.match
-module.exports.select = nativeBinding.select
-module.exports.semanticIndex = nativeBinding.semanticIndex
-module.exports.semanticSimilarity = nativeBinding.semanticSimilarity
-module.exports.text = nativeBinding.text
 module.exports.u8Vector = nativeBinding.u8Vector
 module.exports.UnaryOperator = nativeBinding.UnaryOperator
-module.exports.vectorDistance = nativeBinding.vectorDistance
 module.exports.VectorDistanceMetric = nativeBinding.VectorDistanceMetric
-module.exports.vectorIndex = nativeBinding.vectorIndex
+module.exports.query = nativeBinding.query
+module.exports.schema = nativeBinding.schema

@@ -22,16 +22,16 @@ impl From<topk_protos::v1::data::Document> for Document {
     }
 }
 
-pub struct DocumentWrapper(pub topk_protos::v1::data::Document);
+pub struct NapiDocument(topk_protos::v1::data::Document);
 
-impl From<topk_protos::v1::data::Document> for DocumentWrapper {
+impl From<topk_protos::v1::data::Document> for NapiDocument {
     fn from(doc: topk_protos::v1::data::Document) -> Self {
         Self(doc)
     }
 }
 
-impl From<DocumentWrapper> for HashMap<String, Value> {
-    fn from(wrapper: DocumentWrapper) -> Self {
+impl From<NapiDocument> for HashMap<String, Value> {
+    fn from(wrapper: NapiDocument) -> Self {
         wrapper
             .0
             .fields

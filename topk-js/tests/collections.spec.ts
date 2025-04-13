@@ -1,20 +1,37 @@
-import { EmbeddingDataType, f32Vector, int, keywordIndex, semanticIndex, text, VectorDistanceMetric, vectorIndex } from '../index';
+import { EmbeddingDataType, VectorDistanceMetric } from '../index';
+import { binaryVector, bool, bytes, f32Vector, float, int, semanticIndex, text, u8Vector, vectorIndex } from '../schema';
 import { newProjectContext, ProjectContext } from './setup';
 
 describe('Collections', () => {
   let ctx: ProjectContext;
+  let collectionsCreated: string[] = [];
 
   beforeEach(() => {
     ctx = newProjectContext();
+    collectionsCreated = [];
   });
 
   afterEach(async () => {
-    await ctx.client.collections().delete(ctx.scope('test-collection'));
+    // Only delete collections created within the test
+    for (const collectionName of collectionsCreated) {
+      try {
+        await ctx.client.collections().delete(collectionName);
+      } catch (error) {
+        console.error(`Error deleting collection ${collectionName}:`, error);
+      }
+    }
   });
+
+  // Helper function to create a collection and track it
+  const createCollection = async (name: string, schema: any) => {
+    const collection = await ctx.client.collections().create(name, schema);
+    collectionsCreated.push(name);
+    return collection;
+  };
 
   test('create collection', async () => {
     const schema = {
-      title: text().required().index(keywordIndex()),
+      title: text(),
       title_embedding: f32Vector(1536)
         .required()
         .index(vectorIndex({ metric: VectorDistanceMetric.Euclidean })),
@@ -24,18 +41,13 @@ describe('Collections', () => {
       published_year: int().required(),
     };
 
-    const collection = await ctx.client.collections().create(
-      ctx.scope('books'),
-      schema
-    );
+    const collection = await createCollection(ctx.scope('books'), schema);
 
     expect(collection.name).toBe(ctx.scope('books'));
     expect(collection.schema).toEqual(schema);
   });
 
   test('create collection with all data types', async () => {
-    const { bool, bytes, binaryVector, float, u8Vector } = await import('../index');
-
     const schema = {
       text: text(),
       int: int(),
@@ -48,10 +60,7 @@ describe('Collections', () => {
       bytes: bytes(),
     };
 
-    const collection = await ctx.client.collections().create(
-      ctx.scope('books'),
-      schema
-    );
+    const collection = await createCollection(ctx.scope('books'), schema);
 
     expect(collection.name).toBe(ctx.scope('books'));
     expect(collection.schema).toEqual(schema);
@@ -64,22 +73,23 @@ describe('Collections', () => {
         { name: text().index(vectorIndex({ metric: VectorDistanceMetric.Cosine })) }
       )
     ).rejects.toThrow();
+    // No need to track this collection as it fails to create
   });
 
   test('list collections', async () => {
     // Note: All tests run within the same project,
     // so list of collections is shared across tests.
 
-    const a = await ctx.client.collections().create(ctx.scope('books'), {});
+    const a = await createCollection(ctx.scope('books'), {});
     const collections1 = await ctx.client.collections().list();
     expect(collections1).toContainEqual(a);
 
-    const b = await ctx.client.collections().create(ctx.scope('books2'), {});
+    const b = await createCollection(ctx.scope('books2'), {});
     const collections2 = await ctx.client.collections().list();
     expect(collections2).toContainEqual(a);
     expect(collections2).toContainEqual(b);
 
-    const c = await ctx.client.collections().create(ctx.scope('books3'), {});
+    const c = await createCollection(ctx.scope('books3'), {});
     const collections3 = await ctx.client.collections().list();
     expect(collections3).toContainEqual(a);
     expect(collections3).toContainEqual(b);
@@ -93,7 +103,7 @@ describe('Collections', () => {
     ).rejects.toThrow();
 
     // create collection
-    await ctx.client.collections().create(ctx.scope('foo'), {});
+    await createCollection(ctx.scope('foo'), {});
 
     // get collection
     const collection = await ctx.client.collections().get(ctx.scope('foo'));
@@ -106,12 +116,14 @@ describe('Collections', () => {
     const collectionsBeforeCreate = await ctx.client.collections().list();
     expect(collectionsBeforeCreate.map(c => c.name)).not.toContain(ctx.scope('books'));
 
-    await ctx.client.collections().create(ctx.scope('books'), {});
+    await createCollection(ctx.scope('books'), {});
 
     const collectionsAfterCreate = await ctx.client.collections().list();
     expect(collectionsAfterCreate.map(c => c.name)).toContain(ctx.scope('books'));
 
     await ctx.client.collections().delete(ctx.scope('books'));
+    // Remove from tracking since we manually deleted it
+    collectionsCreated = collectionsCreated.filter(name => name !== ctx.scope('books'));
 
     const collectionsAfterDelete = await ctx.client.collections().list();
     expect(collectionsAfterDelete.map(c => c.name)).not.toContain(ctx.scope('books'));

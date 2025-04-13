@@ -46,7 +46,6 @@ impl LogicalExpression {
         LogicalExpression { expr }
     }
 
-    // TODO: Remove this
     #[napi(getter)]
     pub fn get_expr(&self) -> LogicalExpressionUnion {
         self.expr.clone()

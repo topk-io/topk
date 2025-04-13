@@ -1,30 +1,37 @@
-import {
-  binaryVector,
-  bm25Score,
-  f32Vector,
-  field,
-  keywordIndex,
-  match,
-  select,
-  semanticIndex,
-  semanticSimilarity,
-  text,
-  u8Vector,
-  vectorDistance,
-  VectorDistanceMetric,
-  vectorIndex,
-} from "../index";
+import { bm25Score, field, match, select, semanticSimilarity, vectorDistance } from '../query';
+import { binaryVector, f32Vector, keywordIndex, semanticIndex, text, u8Vector, VectorDistanceMetric, vectorIndex } from '../schema';
+import { binaryVector as binaryVectorValue, u8Vector as u8VectorValue } from '../index';
 import { newProjectContext, ProjectContext } from "./setup";
 
 describe("Documents", () => {
   let ctx: ProjectContext;
+  let collectionsCreated: string[] = [];
 
   beforeEach(async () => {
     ctx = newProjectContext();
+    collectionsCreated = [];
   });
 
+  afterEach(async () => {
+    // Only delete collections created within the test
+    for (const collectionName of collectionsCreated) {
+      try {
+        await ctx.client.collections().delete(collectionName);
+      } catch (error) {
+        console.error(`Error deleting collection ${collectionName}:`, error);
+      }
+    }
+  });
+
+  // Helper function to create a collection and track it
+  const createCollection = async (name: string, schema: any = {}) => {
+    const collection = await ctx.client.collections().create(name, schema);
+    collectionsCreated.push(name);
+    return collection;
+  };
+
   test("get", async () => {
-    await ctx.client.collections().create(ctx.scope("books"), {});
+    await createCollection(ctx.scope("books"));
 
     // get non-existent document
     await expect(
@@ -43,7 +50,7 @@ describe("Documents", () => {
   });
 
   test("upsert", async () => {
-    await ctx.client.collections().create(ctx.scope("books"), {});
+    await createCollection(ctx.scope("books"));
 
     const lsn = await ctx.client.collection(ctx.scope("books")).upsert([
       { _id: "one", name: "one", rank: 1 },
@@ -62,7 +69,7 @@ describe("Documents", () => {
   });
 
   test("keyword_search", async () => {
-    await ctx.client.collections().create(ctx.scope("books"), {
+    await createCollection(ctx.scope("books"), {
       title: text().required().index(keywordIndex()),
     });
 
@@ -94,7 +101,7 @@ describe("Documents", () => {
   });
 
   test("vector_search_f32", async () => {
-    await ctx.client.collections().create(ctx.scope("books"), {
+    await createCollection(ctx.scope("books"), {
       f32_embedding: f32Vector(3)
         .required()
         .index(vectorIndex({ metric: VectorDistanceMetric.Euclidean })),
@@ -119,22 +126,22 @@ describe("Documents", () => {
   });
 
   test("vector_search_u8", async () => {
-    await ctx.client.collections().create(ctx.scope("books"), {
+    await createCollection(ctx.scope("books"), {
       u8_embedding: u8Vector(3)
         .required()
         .index(vectorIndex({ metric: VectorDistanceMetric.Euclidean })),
     });
 
     const lsn = await ctx.client.collection(ctx.scope("books")).upsert([
-      { _id: "doc1", u8_embedding: [1, 2, 3] },
-      { _id: "doc2", u8_embedding: [4, 5, 6] },
-      { _id: "doc3", u8_embedding: [7, 8, 9] },
+      { _id: "doc1", u8_embedding: u8VectorValue([1, 2, 3]) },
+      { _id: "doc2", u8_embedding: u8VectorValue([4, 5, 6]) },
+      { _id: "doc3", u8_embedding: u8VectorValue([7, 8, 9]) },
     ]);
     expect(lsn).toBe(1);
 
     let docs = await ctx.client.collection(ctx.scope("books")).query(
       select({
-        vector_distance: vectorDistance("u8_embedding", [7, 8, 9]),
+        vector_distance: vectorDistance("u8_embedding", u8VectorValue([7, 8, 9])),
       }).top_k(field("vector_distance"), 2, true),
       lsn
     );
@@ -144,22 +151,22 @@ describe("Documents", () => {
   });
 
   test("vector_search_binary", async () => {
-    await ctx.client.collections().create(ctx.scope("books"), {
+    await createCollection(ctx.scope("books"), {
       binary_embedding: binaryVector(3)
         .required()
         .index(vectorIndex({ metric: VectorDistanceMetric.Hamming })),
     });
 
     const lsn = await ctx.client.collection(ctx.scope("books")).upsert([
-      { _id: "doc1", binary_embedding: [0, 0, 1] },
-      { _id: "doc2", binary_embedding: [0, 1, 1] },
-      { _id: "doc3", binary_embedding: [1, 1, 1] },
+      { _id: "doc1", binary_embedding: binaryVectorValue([0, 0, 1]) },
+      { _id: "doc2", binary_embedding: binaryVectorValue([0, 1, 1]) },
+      { _id: "doc3", binary_embedding: binaryVectorValue([1, 1, 1]) },
     ]);
     expect(lsn).toBe(1);
 
     let docs = await ctx.client.collection(ctx.scope("books")).query(
       select({
-        vector_distance: vectorDistance("binary_embedding", [1, 1, 1]),
+        vector_distance: vectorDistance("binary_embedding", binaryVectorValue([1, 1, 1])),
       }).top_k(field("vector_distance"), 2, true),
       lsn
     );
@@ -169,7 +176,7 @@ describe("Documents", () => {
   });
 
   test("semantic_search", async () => {
-    await ctx.client.collections().create(ctx.scope("books"), {
+    await createCollection(ctx.scope("books"), {
       title: text()
         .required()
         .index(semanticIndex({ model: "dummy" })),
@@ -203,7 +210,7 @@ describe("Documents", () => {
   });
 
   test("delete", async () => {
-    await ctx.client.collections().create(ctx.scope("books"), {});
+    await createCollection(ctx.scope("books"));
 
     let lsn = await ctx.client
       .collection(ctx.scope("books"))
@@ -223,7 +230,7 @@ describe("Documents", () => {
   });
 
   test("count", async () => {
-    await ctx.client.collections().create(ctx.scope("books"), {});
+    await createCollection(ctx.scope("books"));
 
     let lsn = await ctx.client.collection(ctx.scope("books")).upsert([
       { _id: "doc1", name: "one" },
@@ -242,7 +249,7 @@ describe("Documents", () => {
   });
 
   test("rerank", async () => {
-    await ctx.client.collections().create(ctx.scope("books"), {
+    await createCollection(ctx.scope("books"), {
       summary: text()
         .required()
         .index(semanticIndex({ model: "dummy" })),

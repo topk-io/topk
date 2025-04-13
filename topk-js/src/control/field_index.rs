@@ -67,36 +67,34 @@ pub enum EmbeddingDataType {
     Binary,
 }
 
-impl From<Option<i32>> for EmbeddingDataType {
-    fn from(embedding_type: Option<i32>) -> Self {
+impl From<topk_protos::v1::control::EmbeddingDataType> for EmbeddingDataType {
+    fn from(embedding_type: topk_protos::v1::control::EmbeddingDataType) -> Self {
         match embedding_type {
-            Some(x) if x == topk_protos::v1::control::EmbeddingDataType::F32 as i32 => {
-                EmbeddingDataType::Float32
-            }
-            Some(x) if x == topk_protos::v1::control::EmbeddingDataType::U8 as i32 => {
-                EmbeddingDataType::UInt8
-            }
-            Some(x) if x == topk_protos::v1::control::EmbeddingDataType::Binary as i32 => {
-                EmbeddingDataType::Binary
-            }
+            topk_protos::v1::control::EmbeddingDataType::F32 => EmbeddingDataType::Float32,
+            topk_protos::v1::control::EmbeddingDataType::U8 => EmbeddingDataType::UInt8,
+            topk_protos::v1::control::EmbeddingDataType::Binary => EmbeddingDataType::Binary,
             _ => unreachable!("Unsupported embedding data type"),
+        }
+    }
+}
+
+impl From<EmbeddingDataType> for topk_protos::v1::control::EmbeddingDataType {
+    fn from(embedding_type: EmbeddingDataType) -> Self {
+        match embedding_type {
+            EmbeddingDataType::Float32 => topk_protos::v1::control::EmbeddingDataType::F32.into(),
+            EmbeddingDataType::UInt8 => topk_protos::v1::control::EmbeddingDataType::U8.into(),
+            EmbeddingDataType::Binary => topk_protos::v1::control::EmbeddingDataType::Binary.into(),
         }
     }
 }
 
 impl From<EmbeddingDataType> for Option<i32> {
     fn from(embedding_type: EmbeddingDataType) -> Self {
-        match embedding_type {
-            EmbeddingDataType::Float32 => {
-                Some(topk_protos::v1::control::EmbeddingDataType::F32.into())
-            }
-            EmbeddingDataType::UInt8 => {
-                Some(topk_protos::v1::control::EmbeddingDataType::U8.into())
-            }
-            EmbeddingDataType::Binary => {
-                Some(topk_protos::v1::control::EmbeddingDataType::Binary.into())
-            }
-        }
+        Some(match embedding_type {
+            EmbeddingDataType::Float32 => topk_protos::v1::control::EmbeddingDataType::F32.into(),
+            EmbeddingDataType::UInt8 => topk_protos::v1::control::EmbeddingDataType::U8.into(),
+            EmbeddingDataType::Binary => topk_protos::v1::control::EmbeddingDataType::Binary.into(),
+        })
     }
 }
 

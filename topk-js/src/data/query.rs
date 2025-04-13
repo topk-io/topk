@@ -91,17 +91,17 @@ impl Query {
     }
 }
 
-#[napi]
+#[napi(namespace = "query")]
 pub fn field(name: String) -> LogicalExpression {
     LogicalExpression::create(LogicalExpressionUnion::Field { name })
 }
 
-#[napi]
+#[napi(namespace = "query")]
 pub fn literal(value: Value) -> LogicalExpression {
     LogicalExpression::create(LogicalExpressionUnion::Literal { value })
 }
 
-#[napi(js_name = "match")]
+#[napi(js_name = "match", namespace = "query")]
 pub fn match_(token: String, field: Option<String>, weight: Option<f64>) -> TextExpression {
     TextExpression::create(TextExpressionUnion::Terms {
         all: true,
@@ -174,13 +174,10 @@ impl FromNapiValue for Query {
 
         match stages {
             Some(stages) => Ok(Self { stages: stages }),
-            None => {
-                println!("Received stages: None");
-                Err(napi::Error::new(
-                    napi::Status::GenericFailure,
-                    "Received stages: None",
-                ))
-            }
+            None => Err(napi::Error::new(
+                napi::Status::GenericFailure,
+                "Received stages: None",
+            )),
         }
     }
 }

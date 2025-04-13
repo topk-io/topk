@@ -6,7 +6,6 @@ use std::sync::Arc;
 use crate::{
     control::{collection::Collection, field_spec::FieldSpec},
     error::TopkError,
-    schema::Schema,
 };
 use topk_protos::v1::control::{self};
 
@@ -35,12 +34,15 @@ impl CollectionsClient {
             .list()
             .await
             .map_err(TopkError::from)?;
-        let collections_napi = collections.into_iter().map(|c| c.into()).collect();
-        Ok(collections_napi)
+        Ok(collections.into_iter().map(|c| c.into()).collect())
     }
 
     #[napi]
-    pub async fn create(&self, name: String, schema: Schema) -> Result<Collection> {
+    pub async fn create(
+        &self,
+        name: String,
+        schema: HashMap<String, FieldSpec>,
+    ) -> Result<Collection> {
         let proto_schema: HashMap<String, control::FieldSpec> =
             schema.into_iter().map(|(k, v)| (k, v.into())).collect();
 

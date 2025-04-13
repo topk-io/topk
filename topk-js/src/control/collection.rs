@@ -1,4 +1,4 @@
-use crate::data::document::DocumentWrapper;
+use crate::data::document::NapiDocument;
 use crate::data::query::Query;
 use crate::data::value::Value;
 use crate::error::TopkError;
@@ -124,7 +124,7 @@ impl CollectionClient {
 
         Ok(docs
             .into_iter()
-            .map(|d| DocumentWrapper::from(d).into())
+            .map(|d| NapiDocument::from(d).into())
             .collect())
     }
 

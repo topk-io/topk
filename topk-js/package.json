@@ -1,8 +1,6 @@
 {
   "name": "topk-js",
   "version": "0.0.0",
-  "main": "index.js",
-  "types": "index.d.ts",
   "napi": {
     "binaryName": "topk-js",
     "triples": {
@@ -21,6 +19,29 @@
         "universal-apple-darwin",
         "riscv64gc-unknown-linux-gnu"
       ]
+    }
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "schema.js",
+    "schema.d.ts"
+  ],
+  "exports": {
+    ".": {
+      "require": "./index.js",
+      "import": "./index.js",
+      "types": "./index.d.ts"
+    },
+    "./schema": {
+      "require": "./schema.js",
+      "import": "./schema.js",
+      "types": "./schema.d.ts"
+    },
+    "./query": {
+      "require": "./query.js",
+      "import": "./query.js",
+      "types": "./query.d.ts"
     }
   },
   "license": "MIT",

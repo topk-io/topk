@@ -75,19 +75,13 @@ impl From<FieldSpec> for topk_protos::v1::control::FieldSpec {
                         topk_protos::v1::control::field_type::DataType::Boolean(Default::default())
                     }
                     DataType::F32Vector { dimension } => {
-                        topk_protos::v1::control::field_type::DataType::F32Vector(
-                            topk_protos::v1::control::FieldTypeF32Vector { dimension },
-                        )
+                        topk_protos::v1::control::field_type::DataType::f32_vector(dimension)
                     }
                     DataType::U8Vector { dimension } => {
-                        topk_protos::v1::control::field_type::DataType::U8Vector(
-                            topk_protos::v1::control::FieldTypeU8Vector { dimension },
-                        )
+                        topk_protos::v1::control::field_type::DataType::u8_vector(dimension)
                     }
                     DataType::BinaryVector { dimension } => {
-                        topk_protos::v1::control::field_type::DataType::BinaryVector(
-                            topk_protos::v1::control::FieldTypeBinaryVector { dimension },
-                        )
+                        topk_protos::v1::control::field_type::DataType::binary_vector(dimension)
                     }
                     DataType::Bytes => {
                         topk_protos::v1::control::field_type::DataType::Bytes(Default::default())
@@ -100,27 +94,17 @@ impl From<FieldSpec> for topk_protos::v1::control::FieldSpec {
     }
 }
 
-// impl FromNapiValue for FieldSpec {
-//     unsafe fn from_napi_value(
-//         env: napi::sys::napi_env,
-//         value: napi::sys::napi_value,
-//     ) -> Result<Self> {
-//         let env_env = Env::from_raw(env);
-
-//         let is_field_spec = {
-//             let env_value = Unknown::from_napi_value(env, value)?;
-
-//             let env_value = Unknown::from_napi_value(env, value)?;
-//             FieldSpec::instance_of(env_env, env_value)?
-//         };
-
-//         if is_field_spec {
-//         } else {
-//             Err(napi::Error::new(
-//                 napi::Status::InvalidArg,
-//                 "Value must be a FieldSpec".to_string(),
-//             )
-//             .into())
-//         }
-//     }
-// }
+impl FromNapiValue for FieldSpec {
+    unsafe fn from_napi_value(
+        env: napi::sys::napi_env,
+        value: napi::sys::napi_value,
+    ) -> Result<Self> {
+        match FieldSpec::from_napi_ref(env, value) {
+            Ok(field_spec) => Ok(field_spec.clone()),
+            Err(_) => Err(napi::Error::new(
+                napi::Status::InvalidArg,
+                "Value must be a FieldSpec".to_string(),
+            )),
+        }
+    }
+}

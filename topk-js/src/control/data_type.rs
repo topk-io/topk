@@ -38,7 +38,7 @@ impl From<topk_protos::v1::control::FieldType> for DataType {
                 }
                 topk_protos::v1::control::field_type::DataType::Bytes(_) => DataType::Bytes,
             },
-            None => unreachable!("Unsupported field type None"),
+            None => unreachable!("Invalid proto"),
         }
     }
 }

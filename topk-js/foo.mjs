@@ -1,13 +1,10 @@
 import {
   Client,
-  select,
-  field,
-  match,
-  bm25Score,
-  text,
-  int,
-  bool
+  u8Vector,
+  f32Vector
 } from "./index.js";
+
+import { schema, query } from "./index.js";
 
 const client = new Client({
   apiKey: process.env.TOPK_API_KEY,
@@ -15,19 +12,31 @@ const client = new Client({
 });
 
 async function main() {
+  // const vec = u8Vector([1, 2, 3])
+  // console.dir(vec, { depth: null })
+
+  const vec = f32Vector([7.0, 8.0, 9.0])
+
+  const heyo = query.vectorDistance("f32_embedding", vec)
+
+  const dis = query.select({
+    dis: heyo
+  })
+
+  // console.dir(dis, { depth: null })
   // const m = match('el mambo').and(match('el mambooo'))
 
   // console.dir(m.expr, { depth: null })
 
-  const schema = {
-    title: bool()
-  }
+  // const schema = {
+  //   title: bool()
+  // }
 
-  console.dir(schema, { depth: null })
+  // console.dir(schema, { depth: null })
 
-  const collection = await client.collections().create("bookz", schema)
+  // const collection = await client.collections().create("bookz", schema)
 
-  console.dir(collection, { depth: null })
+  // console.dir(collection, { depth: null })
 
   // const docs = await collection.query(
   //   select({

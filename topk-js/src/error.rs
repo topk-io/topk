@@ -8,9 +8,6 @@ impl From<topk_rs::Error> for TopkError {
 
 impl From<TopkError> for napi::Error {
     fn from(error: TopkError) -> Self {
-        napi::Error::new(
-            napi::Status::GenericFailure,
-            format!("failed to create collection: {:?}", error.0),
-        )
+        napi::Error::new(napi::Status::GenericFailure, format!("{:?}", error.0))
     }
 }
