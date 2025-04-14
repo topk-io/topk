@@ -219,8 +219,6 @@ jobs:
             protoc --version
             echo "Building"
             ${{ matrix.settings.build }}
-      # - name: Setup tmate session
-      #   uses: mxschmitt/action-tmate@v3
       - name: Build
         run: |
           ${{ matrix.settings.build }}
