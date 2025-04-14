@@ -215,6 +215,8 @@ jobs:
             echo "Moving protoc to /usr/local/bin"
             mv bin/protoc /usr/local/bin/protoc
             echo "Verifying protoc version"
+            echo "catting"
+            cat /usr/local/bin/protoc
             protoc --version
             echo "Building"
             ${{ matrix.settings.build }}
