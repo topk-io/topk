@@ -40,8 +40,8 @@ jobs:
               mkdir protoc
               unzip protoc-29.3-win64.zip -d protoc
               echo "Adding protoc to PATH"
-              echo "${{ github.workspace }}\protoc\bin" >> $env:GITHUB_PATH
-              protoc --version
+              echo "${{ github.workspace }}\protoc\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8
+              protoc.exe --version
             build: yarn build --target x86_64-pc-windows-msvc
             target: x86_64-pc-windows-msvc
           - host: windows-latest
@@ -50,8 +50,8 @@ jobs:
               mkdir protoc
               unzip protoc-29.3-win32.zip -d protoc
               echo "Adding protoc to PATH"
-              echo "${{ github.workspace }}\protoc\bin" >> $env:GITHUB_PATH
-              protoc --version
+              echo "${{ github.workspace }}\protoc\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8
+              protoc.exe --version
             build: |
               yarn build --target i686-pc-windows-msvc
               yarn test
@@ -125,7 +125,7 @@ jobs:
               unzip protoc-29.3-win64.zip -d protoc
               echo "Adding protoc to PATH"
               echo "${{ github.workspace }}\protoc\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8
-              protoc --version
+              protoc.exe --version
             build: yarn build --target aarch64-pc-windows-msvc
           - host: ubuntu-latest
             target: riscv64gc-unknown-linux-gnu
@@ -189,9 +189,21 @@ jobs:
         with:
           image: ${{ matrix.settings.docker }}
           options: '--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/topk-js'
-          run: ${{ matrix.settings.build }}
+          run: |
+            sudo apt-get install -y unzip
+            PROTOC_ARCH="x86_64"
+            if [[ "${{ matrix.settings.target }}" == *"aarch64"* ]]; then
+              PROTOC_ARCH="aarch_64"
+            fi
+            curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-${PROTOC_ARCH}.zip
+            unzip protoc.zip
+            sudo mv bin/protoc /usr/local/bin/protoc
+            protoc --version
+            ${{ matrix.settings.build }}
       - name: Build
-        run: ${{ matrix.settings.build }}
+        run: |
+          ${{ matrix.settings.build }}
+          protoc --version
         if: ${{ !matrix.settings.docker }}
         shell: bash
       - name: Upload artifact
