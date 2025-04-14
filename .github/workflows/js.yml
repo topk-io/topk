@@ -40,7 +40,7 @@ jobs:
               mkdir protoc
               unzip protoc-29.3-win64.zip -d protoc
               echo "Adding protoc to PATH"
-              echo "${{ github.workspace }}\protoc\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8
+              echo "${{ github.workspace }}\protoc\bin" >> $env:GITHUB_PATH
               protoc --version
             build: yarn build --target x86_64-pc-windows-msvc
             target: x86_64-pc-windows-msvc
@@ -50,7 +50,7 @@ jobs:
               mkdir protoc
               unzip protoc-29.3-win32.zip -d protoc
               echo "Adding protoc to PATH"
-              echo "${{ github.workspace }}\protoc\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8
+              echo "${{ github.workspace }}\protoc\bin" >> $env:GITHUB_PATH
               protoc --version
             build: |
               yarn build --target i686-pc-windows-msvc
