@@ -220,10 +220,9 @@ jobs:
             protoc --version
             echo "Building"
             ${{ matrix.settings.build }}
-      - name: Build non-windows
+      - name: Build
         run: |
           ${{ matrix.settings.build }}
-          protoc --version
         if: ${{ !matrix.settings.docker }}
         shell: bash
       - name: Upload artifact
