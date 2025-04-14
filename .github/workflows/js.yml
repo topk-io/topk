@@ -66,6 +66,7 @@ jobs:
             setup: |
               sudo apt-get update
               sudo apt-get install -y unzip && curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip && unzip protoc.zip && sudo mv bin/protoc /usr/local/bin/protoc && protoc --version
+              sudo apt-get install -y gcc-arm-linux-gnueabihf
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
             build: yarn build --target x86_64-unknown-linux-musl
           - host: macos-latest
@@ -84,7 +85,9 @@ jobs:
             target: armv7-unknown-linux-gnueabihf
             setup: |
               sudo apt-get update
-              sudo apt-get install gcc-arm-linux-gnueabihf -y
+              sudo apt-get install -y gcc-arm-linux-gnueabihf
+              sudo apt-get install -y musl-tools
+              sudo ln -s /usr/bin/arm-linux-gnueabihf-gcc /usr/bin/arm-linux-musleabihf-gcc
               sudo apt-get install -y unzip && curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip && unzip protoc.zip && sudo mv bin/protoc /usr/local/bin/protoc && protoc --version
             build: yarn build --target armv7-unknown-linux-gnueabihf
           - host: ubuntu-latest
@@ -92,6 +95,9 @@ jobs:
             setup: |
               sudo apt-get update
               sudo apt-get install -y unzip && curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip && unzip protoc.zip && sudo mv bin/protoc /usr/local/bin/protoc && protoc --version
+              sudo apt-get install -y gcc-arm-linux-gnueabihf
+              sudo apt-get install -y musl-tools
+              sudo ln -s /usr/bin/arm-linux-gnueabihf-gcc /usr/bin/arm-linux-musleabihf-gcc
             build: yarn build --target armv7-unknown-linux-musleabihf
           - host: ubuntu-latest
             target: aarch64-linux-android
@@ -111,6 +117,9 @@ jobs:
             setup: |
               sudo apt-get update
               sudo apt-get install -y unzip && curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip && unzip protoc.zip && sudo mv bin/protoc /usr/local/bin/protoc && protoc --version
+              sudo apt-get install -y gcc-arm-linux-gnueabihf
+              sudo apt-get install -y musl-tools
+              sudo ln -s /usr/bin/arm-linux-gnueabihf-gcc /usr/bin/arm-linux-musleabihf-gcc
             build: |-
               set -e &&
               rustup target add aarch64-unknown-linux-musl &&
@@ -187,22 +196,33 @@ jobs:
           image: ${{ matrix.settings.docker }}
           options: '--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/topk-js'
           run: |
-            sudo apt-get install -y unzip
+            set -e
+            apt-get install -y unzip curl
             PROTOC_ARCH="x86_64"
             if [[ "${{ matrix.settings.target }}" == *"aarch64"* ]]; then
               PROTOC_ARCH="aarch_64"
             fi
+            mkdir -p protoc
+            cd protoc
             curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-${PROTOC_ARCH}.zip
             unzip protoc.zip
-            sudo mv bin/protoc /usr/local/bin/protoc
+            mv bin/protoc /usr/local/bin/protoc
             protoc --version
             ${{ matrix.settings.build }}
-      - name: Build
+      - name: Build non-windows
         run: |
           ${{ matrix.settings.build }}
           protoc --version
-        if: ${{ !matrix.settings.docker }}
+        if: ${{ !matrix.settings.docker && !contains(matrix.settings.host, 'windows') }}
         shell: bash
+      - name: Build windows
+        run: |
+          ${{ matrix.settings.build }}
+          protoc.exe --version
+        if: ${{ !matrix.settings.docker && contains(matrix.settings.host, 'windows') }}
+        shell: bash
+        env:
+          PROTOC: protoc.exe
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
