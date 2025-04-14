@@ -128,14 +128,11 @@ jobs:
           - host: windows-latest
             target: aarch64-pc-windows-msvc
             setup: |
+              mkdir /tmp/protoc
+              cd /tmp/protoc
               curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-win64.zip
-              mkdir protoc
-              unzip protoc-29.3-win64.zip -d protoc
-              echo "Adding protoc to PATH"
-              workspace=$(pwd)
-              echo "$workspace/protoc/bin" >> $GITHUB_PATH
-              mv protoc/bin/protoc.exe protoc/bin/protoc
-            build: yarn build --target aarch64-pc-windows-msvc
+              unzip protoc-29.3-win64.zip -d /tmp/protoc
+            build: PROTOC=/tmp/protoc/bin/protoc.exe yarn build --target aarch64-pc-windows-msvc
           # - host: ubuntu-latest
           #   target: riscv64gc-unknown-linux-gnu
           #   setup: |
@@ -222,8 +219,8 @@ jobs:
             protoc --version
             echo "Building"
             ${{ matrix.settings.build }}
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
+      # - name: Setup tmate session
+      #   uses: mxschmitt/action-tmate@v3
       - name: Build
         run: |
           ${{ matrix.settings.build }}
