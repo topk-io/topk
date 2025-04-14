@@ -132,7 +132,8 @@ jobs:
               mkdir protoc
               unzip protoc-29.3-win64.zip -d protoc
               echo "Adding protoc to PATH"
-              echo "${{ github.workspace }}/protoc/bin" >> $GITHUB_PATH
+              workspace=$(pwd)
+              echo "$workspace/protoc/bin" >> $GITHUB_PATH
               mv protoc/bin/protoc.exe protoc/bin/protoc
             build: yarn build --target aarch64-pc-windows-msvc
           # - host: ubuntu-latest
