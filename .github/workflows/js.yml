@@ -41,6 +41,7 @@ jobs:
               unzip protoc-29.3-win64.zip -d protoc
               echo "Adding protoc to PATH"
               echo "${{ github.workspace }}\protoc\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8
+              protoc --version
             build: yarn build --target x86_64-pc-windows-msvc
             target: x86_64-pc-windows-msvc
           - host: windows-latest
@@ -50,6 +51,7 @@ jobs:
               unzip protoc-29.3-win32.zip -d protoc
               echo "Adding protoc to PATH"
               echo "${{ github.workspace }}\protoc\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8
+              protoc --version
             build: |
               yarn build --target i686-pc-windows-msvc
               yarn test
@@ -118,7 +120,12 @@ jobs:
           - host: windows-latest
             target: aarch64-pc-windows-msvc
             setup: |
-              curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-win64.zip && unzip protoc.zip && mv bin/protoc.exe /usr/local/bin/protoc.exe && protoc --version
+              curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-win64.zip
+              mkdir protoc
+              unzip protoc-29.3-win64.zip -d protoc
+              echo "Adding protoc to PATH"
+              echo "${{ github.workspace }}\protoc\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8
+              protoc --version
             build: yarn build --target aarch64-pc-windows-msvc
           - host: ubuntu-latest
             target: riscv64gc-unknown-linux-gnu
