@@ -31,14 +31,6 @@ impl FieldSpec {
     }
 
     #[napi]
-    pub fn optional(&self) -> Self {
-        Self {
-            required: false,
-            ..self.clone()
-        }
-    }
-
-    #[napi]
     pub fn index(&self, index: FieldIndex) -> Self {
         Self {
             index: Some(index),

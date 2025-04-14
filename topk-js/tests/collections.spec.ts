@@ -34,10 +34,10 @@ describe('Collections', () => {
       title: text(),
       title_embedding: f32Vector(1536)
         .required()
-        .index(vectorIndex({ metric: VectorDistanceMetric.Euclidean })),
+        .index(vectorIndex({ metric: "Euclidean" })),
       summary: text()
         .required()
-        .index(semanticIndex({ model: "dummy", embeddingType: EmbeddingDataType.Float32 })),
+        .index(semanticIndex({ model: "dummy", embeddingType: "Float32" })),
       published_year: int().required(),
     };
 
@@ -70,7 +70,7 @@ describe('Collections', () => {
     await expect(
       ctx.client.collections().create(
         ctx.scope('books'),
-        { name: text().index(vectorIndex({ metric: VectorDistanceMetric.Cosine })) }
+        { name: text().index(vectorIndex({ metric: "Cosine" })) }
       )
     ).rejects.toThrow();
     // No need to track this collection as it fails to create

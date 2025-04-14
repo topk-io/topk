@@ -59,7 +59,9 @@ pub fn vector_index(options: VectorIndexOptions) -> Result<control::field_index:
 
 #[napi(namespace = "schema")]
 pub fn keyword_index() -> Result<control::field_index::FieldIndex> {
-    Ok(control::field_index::FieldIndex::KeywordIndex)
+    Ok(control::field_index::FieldIndex::KeywordIndex {
+        index_type: control::field_index::KeywordIndexType::Text,
+    })
 }
 
 #[napi(object, namespace = "schema")]

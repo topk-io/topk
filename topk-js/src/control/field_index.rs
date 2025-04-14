@@ -3,7 +3,9 @@ use napi_derive::napi;
 #[napi]
 #[derive(Clone, Debug)]
 pub enum FieldIndex {
-    KeywordIndex,
+    KeywordIndex {
+        index_type: KeywordIndexType,
+    },
     VectorIndex {
         metric: VectorDistanceMetric,
     },
@@ -14,9 +16,47 @@ pub enum FieldIndex {
 }
 
 #[napi(string_enum)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum KeywordIndexType {
     Text,
+}
+
+impl From<KeywordIndexType> for topk_protos::v1::control::KeywordIndexType {
+    fn from(index_type: KeywordIndexType) -> Self {
+        match index_type {
+            KeywordIndexType::Text => topk_protos::v1::control::KeywordIndexType::Text.into(),
+        }
+    }
+}
+
+impl From<topk_protos::v1::control::KeywordIndexType> for KeywordIndexType {
+    fn from(index_type: topk_protos::v1::control::KeywordIndexType) -> Self {
+        match index_type {
+            topk_protos::v1::control::KeywordIndexType::Text => KeywordIndexType::Text,
+            topk_protos::v1::control::KeywordIndexType::Unspecified => {
+                unreachable!("Unspecified keyword index type")
+            }
+        }
+    }
+}
+
+impl From<KeywordIndexType> for i32 {
+    fn from(index_type: KeywordIndexType) -> Self {
+        match index_type {
+            KeywordIndexType::Text => topk_protos::v1::control::KeywordIndexType::Text.into(),
+        }
+    }
+}
+
+impl From<i32> for KeywordIndexType {
+    fn from(index_type: i32) -> Self {
+        match index_type {
+            i if i == topk_protos::v1::control::KeywordIndexType::Text as i32 => {
+                KeywordIndexType::Text
+            }
+            _ => unreachable!("Unsupported keyword index type"),
+        }
+    }
 }
 
 #[napi(string_enum)]
@@ -78,6 +118,26 @@ impl From<topk_protos::v1::control::EmbeddingDataType> for EmbeddingDataType {
     }
 }
 
+impl From<i32> for EmbeddingDataType {
+    fn from(embedding_type: i32) -> Self {
+        match embedding_type {
+            t if t == topk_protos::v1::control::EmbeddingDataType::F32 as i32 => {
+                EmbeddingDataType::Float32
+            }
+            t if t == topk_protos::v1::control::EmbeddingDataType::U8 as i32 => {
+                EmbeddingDataType::UInt8
+            }
+            t if t == topk_protos::v1::control::EmbeddingDataType::Binary as i32 => {
+                EmbeddingDataType::Binary
+            }
+            t if t == topk_protos::v1::control::EmbeddingDataType::Unspecified as i32 => {
+                unreachable!("Unspecified embedding data type")
+            }
+            _ => unreachable!("Unsupported embedding data type"),
+        }
+    }
+}
+
 impl From<EmbeddingDataType> for topk_protos::v1::control::EmbeddingDataType {
     fn from(embedding_type: EmbeddingDataType) -> Self {
         match embedding_type {
@@ -102,10 +162,10 @@ impl From<FieldIndex> for topk_protos::v1::control::FieldIndex {
     fn from(field_index: FieldIndex) -> Self {
         Self {
             index: Some(match field_index {
-                FieldIndex::KeywordIndex => {
+                FieldIndex::KeywordIndex { index_type } => {
                     topk_protos::v1::control::field_index::Index::KeywordIndex(
                         topk_protos::v1::control::KeywordIndex {
-                            index_type: topk_protos::v1::control::KeywordIndexType::Text.into(),
+                            index_type: index_type.into(),
                         },
                     )
                 }
@@ -139,8 +199,10 @@ impl From<topk_protos::v1::control::FieldIndex> for FieldIndex {
                 },
             )
         }) {
-            topk_protos::v1::control::field_index::Index::KeywordIndex(_k) => {
-                FieldIndex::KeywordIndex {}
+            topk_protos::v1::control::field_index::Index::KeywordIndex(k) => {
+                FieldIndex::KeywordIndex {
+                    index_type: k.index_type.into(),
+                }
             }
             topk_protos::v1::control::field_index::Index::VectorIndex(v) => {
                 FieldIndex::VectorIndex {
@@ -150,7 +212,10 @@ impl From<topk_protos::v1::control::FieldIndex> for FieldIndex {
             topk_protos::v1::control::field_index::Index::SemanticIndex(s) => {
                 FieldIndex::SemanticIndex {
                     model: s.model,
-                    embedding_type: None,
+                    embedding_type: match s.embedding_type {
+                        Some(t) => Some(t.into()),
+                        None => None,
+                    },
                 }
             }
         }

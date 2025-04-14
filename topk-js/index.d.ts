@@ -28,7 +28,6 @@ export declare class CollectionsClient {
 export declare class FieldSpec {
   static create(dataType: DataType): FieldSpec
   required(): FieldSpec
-  optional(): FieldSpec
   index(index: FieldIndex): FieldSpec
 }
 
@@ -66,21 +65,19 @@ export declare class TextExpression {
   or(other: TextExpression): TextExpression
 }
 
-export declare const enum BinaryOperator {
-  And = 'And',
-  Or = 'Or',
-  Eq = 'Eq',
-  Neq = 'Neq',
-  Lt = 'Lt',
-  Lte = 'Lte',
-  Gt = 'Gt',
-  Gte = 'Gte',
-  StartsWith = 'StartsWith',
-  Add = 'Add',
-  Sub = 'Sub',
-  Mul = 'Mul',
-  Div = 'Div'
-}
+export type BinaryOperator =  'And'|
+'Or'|
+'Eq'|
+'Neq'|
+'Lt'|
+'Lte'|
+'Gt'|
+'Gte'|
+'StartsWith'|
+'Add'|
+'Sub'|
+'Mul'|
+'Div';
 
 export declare function binaryVector(values: Array<number>): BinaryVector
 
@@ -99,10 +96,8 @@ export interface Collection {
   region: string
 }
 
-export declare const enum ConsistencyLevel {
-  Indexed = 'Indexed',
-  Strong = 'Strong'
-}
+export type ConsistencyLevel =  'Indexed'|
+'Strong';
 
 export interface CreateCollectionOptions {
   name: string
@@ -119,16 +114,14 @@ export type DataType =
   | { type: 'BinaryVector', dimension: number }
   | { type: 'Bytes' }
 
-export declare const enum EmbeddingDataType {
-  Float32 = 'Float32',
-  UInt8 = 'UInt8',
-  Binary = 'Binary'
-}
+export type EmbeddingDataType =  'Float32'|
+'UInt8'|
+'Binary';
 
 export declare function f32Vector(values: Array<number>): Vector
 
 export type FieldIndex =
-  | { type: 'KeywordIndex' }
+  | { type: 'KeywordIndex', indexType: KeywordIndexType }
   | { type: 'VectorIndex', metric: VectorDistanceMetric }
   | { type: 'SemanticIndex', model?: string, embeddingType?: EmbeddingDataType }
 
@@ -137,9 +130,7 @@ export type FunctionExpression =
   | { type: 'VectorScore', field: string, query: VectorQuery }
   | { type: 'SemanticSimilarity', field: string, query: string }
 
-export declare const enum KeywordIndexType {
-  Text = 'Text'
-}
+export type KeywordIndexType =  'Text';
 
 export type LogicalExpressionUnion =
   | { type: 'Null' }
@@ -168,22 +159,18 @@ export type TextExpressionUnion =
 
 export declare function u8Vector(values: Array<number>): Vector
 
-export declare const enum UnaryOperator {
-  Not = 'Not',
-  IsNull = 'IsNull',
-  IsNotNull = 'IsNotNull'
-}
+export type UnaryOperator =  'Not'|
+'IsNull'|
+'IsNotNull';
 
 export type Vector =
   | { type: 'Float', values: Array<number> }
   | { type: 'Byte', values: Array<number> }
 
-export declare const enum VectorDistanceMetric {
-  Cosine = 'Cosine',
-  Euclidean = 'Euclidean',
-  DotProduct = 'DotProduct',
-  Hamming = 'Hamming'
-}
+export type VectorDistanceMetric =  'Cosine'|
+'Euclidean'|
+'DotProduct'|
+'Hamming';
 
 export type VectorQuery =
   | { type: 'F32', vector: Array<number> }
