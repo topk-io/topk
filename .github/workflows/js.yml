@@ -377,7 +377,7 @@ jobs:
       - name: Test bindings
         env:
           TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
-        run: docker run -e TOPK_API_KEY --rm -v $(pwd):/build -w /build/topk-js node:${{ matrix.node }}-alpine bash -c 'apt-get update && apt-get install ca-certificates -y && yarn test'
+        run: docker run -e TOPK_API_KEY --rm -v $(pwd):/build -w /build/topk-js node:${{ matrix.node }}-alpine sh -c 'apk add --no-cache ca-certificates && yarn test'
   test-linux-aarch64-gnu-binding:
     name: Test bindings on aarch64-unknown-linux-gnu - node@${{ matrix.node }}
     needs:
