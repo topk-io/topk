@@ -335,6 +335,8 @@ jobs:
         shell: bash
       - name: Tmate
         uses: mxschmitt/action-tmate@v3
+        env:
+          TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
       - name: Test bindings
         env:
           TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
