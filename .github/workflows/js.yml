@@ -89,15 +89,15 @@ jobs:
               sudo ln -s /usr/bin/arm-linux-gnueabihf-gcc /usr/bin/arm-linux-musleabihf-gcc
               sudo apt-get install -y unzip && curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip && unzip protoc.zip && sudo mv bin/protoc /usr/local/bin/protoc && protoc --version
             build: yarn build --target armv7-unknown-linux-gnueabihf
-          # - host: ubuntu-latest
-          #   target: armv7-unknown-linux-musleabihf
-          #   setup: |
-          #     sudo apt-get update
-          #     sudo apt-get install -y unzip && curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip && unzip protoc.zip && sudo mv bin/protoc /usr/local/bin/protoc && protoc --version
-          #     sudo apt-get install -y gcc-arm-linux-gnueabihf
-          #     sudo apt-get install -y musl-tools
-          #     sudo ln -s /usr/bin/arm-linux-gnueabihf-gcc /usr/bin/arm-linux-musleabihf-gcc
-          #   build: yarn build --target armv7-unknown-linux-musleabihf
+          - host: ubuntu-latest
+            target: armv7-unknown-linux-musleabihf
+            setup: |
+              sudo apt-get update
+              sudo apt-get install -y unzip && curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip && unzip protoc.zip && sudo mv bin/protoc /usr/local/bin/protoc && protoc --version
+              sudo apt-get install -y gcc-arm-linux-gnueabihf
+              sudo apt-get install -y musl-tools
+              sudo ln -s /usr/bin/arm-linux-gnueabihf-gcc /usr/bin/arm-linux-musleabihf-gcc
+            build: yarn build --target armv7-unknown-linux-musleabihf
           # - host: ubuntu-latest
           #   target: aarch64-linux-android
           #   setup: |
@@ -221,8 +221,8 @@ jobs:
             protoc --version
             echo "Building"
             ${{ matrix.settings.build }}
-      - name: Tmate
-        uses: mxschmitt/action-tmate@v3
+      # - name: Tmate
+      #   uses: mxschmitt/action-tmate@v3
       - name: Build
         run: |
           ${{ matrix.settings.build }}
