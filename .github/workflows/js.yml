@@ -171,11 +171,11 @@ jobs:
         run: ${{ matrix.settings.setup }}
         if: ${{ matrix.settings.setup }}
         shell: bash
-      - name: Tmate
-        uses: mxschmitt/action-tmate@v3
+      # - name: Tmate
+      #   uses: mxschmitt/action-tmate@v3
       - name: Setup node x86
         if: matrix.settings.target == 'i686-pc-windows-msvc'
-        run: yarn config set supportedArchitectures.cpu "ia32" && yarn set version 3.6.0
+        run: yarn config set supportedArchitectures.cpu "ia32" && yarn set version 3.6.0 && yarn config set -H enableImmutableInstalls false
         shell: bash
       - name: Install dependencies
         run: yarn install
