@@ -1,5 +1,4 @@
 use napi::bindgen_prelude::*;
-use napi_derive::napi;
 use topk_protos::v1::data;
 
 use super::{function_expr::FunctionExpression, logical_expr::LogicalExpression};

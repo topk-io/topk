@@ -15,10 +15,10 @@ export class ProjectContext {
 }
 
 export function newProjectContext() {
-  const TOPK_API_KEY = process.env.TOPK_API_KEY.split('\n')[0].trim();
+  const TOPK_API_KEY = process.env.TOPK_API_KEY;
   const TOPK_HOST = process.env.TOPK_HOST || 'topk.io';
   const TOPK_REGION = process.env.TOPK_REGION || 'elastica';
-  const TOPK_HTTPS = process.env.TOPK_HTTPS === 'true';
+  const TOPK_HTTPS = process.env.TOPK_HTTPS !== 'false';
 
   const client = new Client({
     apiKey: TOPK_API_KEY,

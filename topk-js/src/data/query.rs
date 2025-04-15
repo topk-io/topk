@@ -8,7 +8,6 @@ use super::{
     logical_expr::{LogicalExpression, LogicalExpressionUnion},
     select_expr::SelectExpression,
     stage::Stage,
-    text_expr::{Term, TextExpression, TextExpressionUnion},
     value::Value,
 };
 

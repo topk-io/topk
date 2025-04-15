@@ -336,7 +336,9 @@ jobs:
       # - name: Tmate
       #   uses: mxschmitt/action-tmate@v3
       - name: Test bindings
-        run: docker run --rm -v $(pwd):/build -w /build/topk-js node:${{ matrix.node }}-slim yarn test
+        env:
+          TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
+        run: docker run -e TOPK_API_KEY --rm -v $(pwd):/build -w /build/topk-js node:${{ matrix.node }}-slim yarn test
   # test-linux-x64-musl-binding:
   #   name: Test bindings on x86_64-unknown-linux-musl - node@${{ matrix.node }}
   #   needs:
