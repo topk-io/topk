@@ -17,3 +17,7 @@ thiserror = { version = "1.0.65" }
 tracing = { version = "0.1.40" }
 serde_json = { version = "1.0" }
 serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+test-context = { version = "0.3.0" }
+uuid = { version = "1.10.0", features = ["v4"] }
