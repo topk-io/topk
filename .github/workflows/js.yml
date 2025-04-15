@@ -30,56 +30,56 @@ jobs:
       fail-fast: false
       matrix:
         settings:
-          - host: macos-latest
-            target: x86_64-apple-darwin
-            setup: |
-              curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-osx-x86_64.zip && unzip protoc.zip && mv bin/protoc /usr/local/bin/protoc && protoc --version
-            build: yarn build --target x86_64-apple-darwin
-          - host: windows-latest
-            setup: |
-              mkdir /tmp/protoc
-              cd /tmp/protoc
-              curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-win64.zip
-              unzip protoc-29.3-win64.zip -d /tmp/protoc
-            build: PROTOC=/tmp/protoc/bin/protoc.exe yarn build --target x86_64-pc-windows-msvc
-            target: x86_64-pc-windows-msvc
-          - host: windows-latest
-            setup: |
-              mkdir /tmp/protoc
-              cd /tmp/protoc
-              curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-win32.zip
-              unzip protoc-29.3-win32.zip -d /tmp/protoc
-            build: PROTOC=/tmp/protoc/bin/protoc.exe yarn build --target i686-pc-windows-msvc
-            target: i686-pc-windows-msvc
-          - host: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            setup: |
-              sudo apt-get update
-              sudo apt-get install -y unzip && curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip && unzip protoc.zip && sudo mv bin/protoc /usr/local/bin/protoc && protoc --version
-            docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian
-            build: yarn build --target x86_64-unknown-linux-gnu
-          - host: ubuntu-latest
-            target: x86_64-unknown-linux-musl
-            setup: |
-              sudo apt-get update
-              sudo apt-get install -y unzip && curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip && unzip protoc.zip && sudo mv bin/protoc /usr/local/bin/protoc && protoc --version
-              sudo apt-get install -y gcc-arm-linux-gnueabihf
-            docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
-            build: yarn build --target x86_64-unknown-linux-musl
-          - host: macos-latest
-            target: aarch64-apple-darwin
-            setup: |
-              curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-osx-aarch_64.zip && unzip protoc.zip && mv bin/protoc /usr/local/bin/protoc && protoc --version
-            build: yarn build --target aarch64-apple-darwin
-          - host: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            setup: |
-              sudo apt-get update
-              sudo apt install -y protobuf-compiler
-              cp /usr/bin/protoc /usr/local/bin/protoc
-              protoc --version
-            docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-aarch64
-            build: yarn build --target aarch64-unknown-linux-gnu
+          # - host: macos-latest
+          #   target: x86_64-apple-darwin
+          #   setup: |
+          #     curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-osx-x86_64.zip && unzip protoc.zip && mv bin/protoc /usr/local/bin/protoc && protoc --version
+          #   build: yarn build --target x86_64-apple-darwin
+          # - host: windows-latest
+          #   setup: |
+          #     mkdir /tmp/protoc
+          #     cd /tmp/protoc
+          #     curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-win64.zip
+          #     unzip protoc-29.3-win64.zip -d /tmp/protoc
+          #   build: PROTOC=/tmp/protoc/bin/protoc.exe yarn build --target x86_64-pc-windows-msvc
+          #   target: x86_64-pc-windows-msvc
+          # - host: windows-latest
+          #   setup: |
+          #     mkdir /tmp/protoc
+          #     cd /tmp/protoc
+          #     curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-win32.zip
+          #     unzip protoc-29.3-win32.zip -d /tmp/protoc
+          #   build: PROTOC=/tmp/protoc/bin/protoc.exe yarn build --target i686-pc-windows-msvc
+          #   target: i686-pc-windows-msvc
+          # - host: ubuntu-latest
+          #   target: x86_64-unknown-linux-gnu
+          #   setup: |
+          #     sudo apt-get update
+          #     sudo apt-get install -y unzip && curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip && unzip protoc.zip && sudo mv bin/protoc /usr/local/bin/protoc && protoc --version
+          #   docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian
+          #   build: yarn build --target x86_64-unknown-linux-gnu
+          # - host: ubuntu-latest
+          #   target: x86_64-unknown-linux-musl
+          #   setup: |
+          #     sudo apt-get update
+          #     sudo apt-get install -y unzip && curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip && unzip protoc.zip && sudo mv bin/protoc /usr/local/bin/protoc && protoc --version
+          #     sudo apt-get install -y gcc-arm-linux-gnueabihf
+          #   docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
+          #   build: yarn build --target x86_64-unknown-linux-musl
+          # - host: macos-latest
+          #   target: aarch64-apple-darwin
+          #   setup: |
+          #     curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-osx-aarch_64.zip && unzip protoc.zip && mv bin/protoc /usr/local/bin/protoc && protoc --version
+          #   build: yarn build --target aarch64-apple-darwin
+          # - host: ubuntu-latest
+          #   target: aarch64-unknown-linux-gnu
+          #   setup: |
+          #     sudo apt-get update
+          #     sudo apt install -y protobuf-compiler
+          #     cp /usr/bin/protoc /usr/local/bin/protoc
+          #     protoc --version
+          #   docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-aarch64
+          #   build: yarn build --target aarch64-unknown-linux-gnu
           - host: ubuntu-latest
             target: armv7-unknown-linux-gnueabihf
             setup: |
@@ -89,57 +89,57 @@ jobs:
               sudo ln -s /usr/bin/arm-linux-gnueabihf-gcc /usr/bin/arm-linux-musleabihf-gcc
               sudo apt-get install -y unzip && curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip && unzip protoc.zip && sudo mv bin/protoc /usr/local/bin/protoc && protoc --version
             build: yarn build --target armv7-unknown-linux-gnueabihf
-          - host: ubuntu-latest
-            target: armv7-unknown-linux-musleabihf
-            setup: |
-              sudo apt-get update
-              sudo apt-get install -y unzip && curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip && unzip protoc.zip && sudo mv bin/protoc /usr/local/bin/protoc && protoc --version
-              sudo apt-get install -y gcc-arm-linux-gnueabihf
-              sudo apt-get install -y musl-tools
-              sudo ln -s /usr/bin/arm-linux-gnueabihf-gcc /usr/bin/arm-linux-musleabihf-gcc
-            build: yarn build --target armv7-unknown-linux-musleabihf
-          - host: ubuntu-latest
-            target: aarch64-linux-android
-            setup: |
-              sudo apt-get update
-              sudo apt-get install -y unzip && curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip && unzip protoc.zip && sudo mv bin/protoc /usr/local/bin/protoc && protoc --version
-            build: yarn build --target aarch64-linux-android
-          - host: ubuntu-latest
-            target: armv7-linux-androideabi
-            setup: |
-              sudo apt-get update
-              sudo apt-get install -y unzip && curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip && unzip protoc.zip && sudo mv bin/protoc /usr/local/bin/protoc && protoc --version
-            build: yarn build --target armv7-linux-androideabi
-          - host: ubuntu-latest
-            target: aarch64-unknown-linux-musl
-            docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
-            setup: |
-              sudo apt-get update
-              sudo apt install -y protobuf-compiler
-              cp /usr/bin/protoc /usr/local/bin/protoc
-              protoc --version
-              sudo apt-get install -y gcc-arm-linux-gnueabihf
-              sudo apt-get install -y musl-tools
-              sudo ln -s /usr/bin/arm-linux-gnueabihf-gcc /usr/bin/arm-linux-musleabihf-gcc
-            build: |-
-              set -e &&
-              rustup target add aarch64-unknown-linux-musl &&
-              yarn build --target aarch64-unknown-linux-musl
-          - host: windows-latest
-            target: aarch64-pc-windows-msvc
-            setup: |
-              mkdir /tmp/protoc
-              cd /tmp/protoc
-              curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-win64.zip
-              unzip protoc-29.3-win64.zip -d /tmp/protoc
-            build: PROTOC=/tmp/protoc/bin/protoc.exe yarn build --target aarch64-pc-windows-msvc
-          - host: ubuntu-latest
-            target: riscv64gc-unknown-linux-gnu
-            setup: |
-              sudo apt-get update
-              sudo apt-get install gcc-riscv64-linux-gnu -y
-              sudo apt-get install -y unzip && curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip && unzip protoc.zip && sudo mv bin/protoc /usr/local/bin/protoc && protoc --version
-            build: yarn build --target riscv64gc-unknown-linux-gnu
+          # - host: ubuntu-latest
+          #   target: armv7-unknown-linux-musleabihf
+          #   setup: |
+          #     sudo apt-get update
+          #     sudo apt-get install -y unzip && curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip && unzip protoc.zip && sudo mv bin/protoc /usr/local/bin/protoc && protoc --version
+          #     sudo apt-get install -y gcc-arm-linux-gnueabihf
+          #     sudo apt-get install -y musl-tools
+          #     sudo ln -s /usr/bin/arm-linux-gnueabihf-gcc /usr/bin/arm-linux-musleabihf-gcc
+          #   build: yarn build --target armv7-unknown-linux-musleabihf
+          # - host: ubuntu-latest
+          #   target: aarch64-linux-android
+          #   setup: |
+          #     sudo apt-get update
+          #     sudo apt-get install -y unzip && curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip && unzip protoc.zip && sudo mv bin/protoc /usr/local/bin/protoc && protoc --version
+          #   build: yarn build --target aarch64-linux-android
+          # - host: ubuntu-latest
+          #   target: armv7-linux-androideabi
+          #   setup: |
+          #     sudo apt-get update
+          #     sudo apt-get install -y unzip && curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip && unzip protoc.zip && sudo mv bin/protoc /usr/local/bin/protoc && protoc --version
+          #   build: yarn build --target armv7-linux-androideabi
+          # - host: ubuntu-latest
+          #   target: aarch64-unknown-linux-musl
+          #   docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
+          #   setup: |
+          #     sudo apt-get update
+          #     sudo apt install -y protobuf-compiler
+          #     cp /usr/bin/protoc /usr/local/bin/protoc
+          #     protoc --version
+          #     sudo apt-get install -y gcc-arm-linux-gnueabihf
+          #     sudo apt-get install -y musl-tools
+          #     sudo ln -s /usr/bin/arm-linux-gnueabihf-gcc /usr/bin/arm-linux-musleabihf-gcc
+          #   build: |-
+          #     set -e &&
+          #     rustup target add aarch64-unknown-linux-musl &&
+          #     yarn build --target aarch64-unknown-linux-musl
+          # - host: windows-latest
+          #   target: aarch64-pc-windows-msvc
+          #   setup: |
+          #     mkdir /tmp/protoc
+          #     cd /tmp/protoc
+          #     curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-win64.zip
+          #     unzip protoc-29.3-win64.zip -d /tmp/protoc
+          #   build: PROTOC=/tmp/protoc/bin/protoc.exe yarn build --target aarch64-pc-windows-msvc
+          # - host: ubuntu-latest
+          #   target: riscv64gc-unknown-linux-gnu
+          #   setup: |
+          #     sudo apt-get update
+          #     sudo apt-get install gcc-riscv64-linux-gnu -y
+          #     sudo apt-get install -y unzip && curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip && unzip protoc.zip && sudo mv bin/protoc /usr/local/bin/protoc && protoc --version
+          #   build: yarn build --target riscv64gc-unknown-linux-gnu
     name: stable - ${{ matrix.settings.target }} - node@20
     runs-on: ${{ matrix.settings.host }}
     steps:
@@ -171,8 +171,6 @@ jobs:
         if: ${{ matrix.settings.target == 'armv7-unknown-linux-gnueabihf' }}
         with:
           version: 0.14.0
-      # - name: Tmate
-      #   uses: mxschmitt/action-tmate@v3
       - name: Setup toolchain
         run: ${{ matrix.settings.setup }}
         if: ${{ matrix.settings.setup }}
@@ -223,6 +221,8 @@ jobs:
             protoc --version
             echo "Building"
             ${{ matrix.settings.build }}
+      - name: Tmate
+        uses: mxschmitt/action-tmate@v3
       - name: Build
         run: |
           ${{ matrix.settings.build }}
