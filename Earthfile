@@ -1,4 +1,31 @@
 VERSION 0.8
+IMPORT github.com/earthly/lib/rust:3.0.1 AS rust
+
+test-rs:
+    FROM rust:slim
+
+    # install dependencies
+    RUN apt-get update && apt-get install -y protobuf-compiler
+    RUN cargo install cargo-nextest
+
+    DO rust+INIT --keep_fingerprints=true
+
+    WORKDIR /sdk
+
+    # copy source code
+    COPY . .
+
+    WORKDIR /sdk/topk-rs
+
+    DO rust+CARGO --args="nextest archive -p topk-rs --archive-file e2e.tar.zst" # compile tests
+
+    ARG region=dev
+    DO +SETUP_ENV --region=$region
+
+    # test
+    RUN --no-cache --secret TOPK_API_KEY \
+        TOPK_API_KEY=$TOPK_API_KEY cargo nextest run --archive-file e2e.tar.zst --no-fail-fast -j 16
+
 
 test-py:
     FROM rust:slim
@@ -28,6 +55,19 @@ test-py:
         --mount=type=cache,target=/usr/local/cargo/git \
         maturin develop
 
+    ARG region=dev
+    DO +SETUP_ENV --region=$region
+
+    # test
+    RUN --no-cache --secret TOPK_API_KEY \
+        . /sdk/.venv/bin/activate \
+        && TOPK_API_KEY=$TOPK_API_KEY pytest -n auto
+
+#
+
+SETUP_ENV:
+    FUNCTION
+    
     # region
     ARG region=dev
     ENV TOPK_REGION=$region
@@ -40,8 +80,3 @@ test-py:
         ENV TOPK_HOST=ddb
         ENV TOPK_HTTPS=false
     END
-
-    # test
-    RUN --no-cache --secret TOPK_API_KEY \
-        . /sdk/.venv/bin/activate \
-        && TOPK_API_KEY=$TOPK_API_KEY pytest -n auto
