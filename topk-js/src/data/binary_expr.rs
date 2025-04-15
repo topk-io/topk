@@ -1,6 +1,6 @@
 use napi_derive::napi;
 
-#[napi(string_enum)]
+#[napi(string_enum = "lowercase")]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BinaryOperator {
     // Logical ops

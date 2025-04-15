@@ -2,6 +2,7 @@ use napi::bindgen_prelude::*;
 
 use super::{
     logical_expr::{LogicalExpression, LogicalExpressionUnion},
+    utils::is_napi_integer,
     value::Value,
 };
 
@@ -40,17 +41,10 @@ impl FromNapiValue for FlexibleExpr {
             napi::sys::ValueType::napi_string => {
                 Ok(FlexibleExpr::String(String::from_napi_value(env, value)?))
             }
-            napi::sys::ValueType::napi_number => {
-                // Check if the number is an integer by comparing it with its integer part
-                let num = f64::from_napi_value(env, value)?;
-                if num == (num as i64) as f64 {
-                    // It's an integer (no fractional part)
-                    Ok(FlexibleExpr::Int(num as i64))
-                } else {
-                    // It has a fractional part, so it's a float
-                    Ok(FlexibleExpr::Float(num))
-                }
-            }
+            napi::sys::ValueType::napi_number => match is_napi_integer(env, value) {
+                true => Ok(FlexibleExpr::Int(i64::from_napi_value(env, value)?)),
+                false => Ok(FlexibleExpr::Float(f64::from_napi_value(env, value)?)),
+            },
             napi::sys::ValueType::napi_boolean => {
                 Ok(FlexibleExpr::Bool(bool::from_napi_value(env, value)?))
             }
@@ -130,18 +124,10 @@ impl FromNapiValue for Numeric {
         napi::sys::napi_typeof(env, value, &mut result);
 
         match result {
-            napi::sys::ValueType::napi_number => {
-                // Check if the number is an integer by comparing it with its integer part
-
-                let num = f64::from_napi_value(env, value)?;
-                if num == (num as i64) as f64 {
-                    // It's an integer (no fractional part)
-                    Ok(Numeric::Int(num as i64))
-                } else {
-                    // It has a fractional part, so it's a float
-                    Ok(Numeric::Float(num))
-                }
-            }
+            napi::sys::ValueType::napi_number => match is_napi_integer(env, value) {
+                true => Ok(Numeric::Int(i64::from_napi_value(env, value)?)),
+                false => Ok(Numeric::Float(f64::from_napi_value(env, value)?)),
+            },
             _ => Err(napi::Error::new(
                 napi::Status::GenericFailure,
                 format!("Unsupported numeric type: {}", result),

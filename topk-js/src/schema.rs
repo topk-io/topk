@@ -52,15 +52,19 @@ pub struct VectorIndexOptions {
 
 #[napi(namespace = "schema")]
 pub fn vector_index(options: VectorIndexOptions) -> Result<control::field_index::FieldIndex> {
-    Ok(control::field_index::FieldIndex::VectorIndex {
-        metric: options.metric,
+    Ok(control::field_index::FieldIndex {
+        index: Some(control::field_index::FieldIndexUnion::VectorIndex {
+            metric: options.metric,
+        }),
     })
 }
 
 #[napi(namespace = "schema")]
 pub fn keyword_index() -> Result<control::field_index::FieldIndex> {
-    Ok(control::field_index::FieldIndex::KeywordIndex {
-        index_type: control::field_index::KeywordIndexType::Text,
+    Ok(control::field_index::FieldIndex {
+        index: Some(control::field_index::FieldIndexUnion::KeywordIndex {
+            index_type: control::field_index::KeywordIndexType::Text,
+        }),
     })
 }
 
@@ -72,8 +76,10 @@ pub struct SemanticIndexOptions {
 
 #[napi(namespace = "schema")]
 pub fn semantic_index(options: SemanticIndexOptions) -> Result<control::field_index::FieldIndex> {
-    Ok(control::field_index::FieldIndex::SemanticIndex {
-        model: options.model,
-        embedding_type: options.embedding_type,
+    Ok(control::field_index::FieldIndex {
+        index: Some(control::field_index::FieldIndexUnion::SemanticIndex {
+            model: options.model,
+            embedding_type: options.embedding_type,
+        }),
     })
 }

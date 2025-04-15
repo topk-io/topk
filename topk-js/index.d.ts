@@ -13,7 +13,7 @@ export declare class Client {
 export declare class CollectionClient {
   get(id: string, fields?: Array<string> | undefined | null, lsn?: number | undefined | null, consistency?: ConsistencyLevel | undefined | null): Promise<Record<string, any>>
   count(lsn?: number | undefined | null, consistency?: ConsistencyLevel | undefined | null): Promise<number>
-  query(query: Query, lsn?: number | undefined | null): Promise<Array<Record<string, any>>>
+  query(query: Query, lsn?: number | undefined | null, consistency?: ConsistencyLevel | undefined | null): Promise<Array<Record<string, any>>>
   upsert(docs: Array<Record<string, any>>): Promise<number>
   delete(ids: Array<string>): Promise<number>
 }
@@ -21,7 +21,7 @@ export declare class CollectionClient {
 export declare class CollectionsClient {
   list(): Promise<Array<Collection>>
   create(name: string, schema: Record<string, FieldSpec>): Promise<Collection>
-  get(collectionName: string): Promise<Collection>
+  get(name: string): Promise<Collection>
   delete(name: string): Promise<void>
 }
 
@@ -55,29 +55,26 @@ export declare class Query {
   top_k(expr: LogicalExpression, k: number, asc?: boolean | undefined | null): Query
   count(): Query
   rerank(model?: string | undefined | null, query?: string | undefined | null, fields?: Array<string> | undefined | null, topkMultiple?: number | undefined | null): Query
-  get stages(): Array<Stage>
 }
 
 export declare class TextExpression {
-  static create(expr: TextExpressionUnion): TextExpression
-  get expr(): TextExpressionUnion
   and(other: TextExpression): TextExpression
   or(other: TextExpression): TextExpression
 }
 
-export type BinaryOperator =  'And'|
-'Or'|
-'Eq'|
-'Neq'|
-'Lt'|
-'Lte'|
-'Gt'|
-'Gte'|
-'StartsWith'|
-'Add'|
-'Sub'|
-'Mul'|
-'Div';
+export type BinaryOperator =  'and'|
+'or'|
+'eq'|
+'neq'|
+'lt'|
+'lte'|
+'gt'|
+'gte'|
+'startswith'|
+'add'|
+'sub'|
+'mul'|
+'div';
 
 export declare function binaryVector(values: Array<number>): BinaryVector
 
@@ -96,8 +93,8 @@ export interface Collection {
   region: string
 }
 
-export type ConsistencyLevel =  'Indexed'|
-'Strong';
+export type ConsistencyLevel =  'indexed'|
+'strong';
 
 export interface CreateCollectionOptions {
   name: string
@@ -114,13 +111,17 @@ export type DataType =
   | { type: 'BinaryVector', dimension: number }
   | { type: 'Bytes' }
 
-export type EmbeddingDataType =  'Float32'|
-'UInt8'|
-'Binary';
+export type EmbeddingDataType =  'float32'|
+'uint8'|
+'binary';
 
 export declare function f32Vector(values: Array<number>): Vector
 
-export type FieldIndex =
+export interface FieldIndex {
+  index?: FieldIndexUnion
+}
+
+export type FieldIndexUnion =
   | { type: 'KeywordIndex', indexType: KeywordIndexType }
   | { type: 'VectorIndex', metric: VectorDistanceMetric }
   | { type: 'SemanticIndex', model?: string, embeddingType?: EmbeddingDataType }
@@ -130,7 +131,7 @@ export type FunctionExpression =
   | { type: 'VectorScore', field: string, query: VectorQuery }
   | { type: 'SemanticSimilarity', field: string, query: string }
 
-export type KeywordIndexType =  'Text';
+export type KeywordIndexType =  'text';
 
 export type LogicalExpressionUnion =
   | { type: 'Null' }
@@ -159,18 +160,18 @@ export type TextExpressionUnion =
 
 export declare function u8Vector(values: Array<number>): Vector
 
-export type UnaryOperator =  'Not'|
-'IsNull'|
-'IsNotNull';
+export type UnaryOperator =  'not'|
+'isnull'|
+'isnotnull';
 
 export type Vector =
   | { type: 'Float', values: Array<number> }
   | { type: 'Byte', values: Array<number> }
 
-export type VectorDistanceMetric =  'Cosine'|
-'Euclidean'|
-'DotProduct'|
-'Hamming';
+export type VectorDistanceMetric =  'cosine'|
+'euclidean'|
+'dotproduct'|
+'hamming';
 
 export type VectorQuery =
   | { type: 'F32', vector: Array<number> }

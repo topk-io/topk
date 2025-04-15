@@ -10,5 +10,4 @@ export declare const keywordIndex: typeof schema.keywordIndex;
 export declare const semanticIndex: typeof schema.semanticIndex;
 export declare const text: typeof schema.text;
 export declare const u8Vector: typeof schema.u8Vector;
-export declare const VectorDistanceMetric: typeof VectorDistanceMetricEnum;
 export declare const vectorIndex: typeof schema.vectorIndex;

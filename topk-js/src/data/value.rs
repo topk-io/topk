@@ -110,22 +110,16 @@ impl From<Value> for topk_protos::v1::data::Value {
             Value::Binary(b) => topk_protos::v1::data::Value::binary(b.values),
             Value::Vector(v) => match v {
                 Vector::Float { values } => {
-                    let float_vector = topk_protos::v1::data::vector::Float {
-                        values: values.iter().map(|v| *v as f32).collect(),
-                    };
-                    let vector = topk_protos::v1::data::Vector {
-                        vector: Some(topk_protos::v1::data::vector::Vector::Float(float_vector)),
-                    };
+                    let vector = topk_protos::v1::data::Vector::float(
+                        values.iter().map(|v| *v as f32).collect(),
+                    );
+
                     topk_protos::v1::data::Value {
                         value: Some(topk_protos::v1::data::value::Value::Vector(vector)),
                     }
                 }
                 Vector::Byte { values } => {
-                    let byte_vector = topk_protos::v1::data::vector::Byte { values };
-
-                    let vector = topk_protos::v1::data::Vector {
-                        vector: Some(topk_protos::v1::data::vector::Vector::Byte(byte_vector)),
-                    };
+                    let vector = topk_protos::v1::data::Vector::byte(values);
 
                     topk_protos::v1::data::Value {
                         value: Some(topk_protos::v1::data::value::Value::Vector(vector)),
@@ -162,11 +156,10 @@ impl From<topk_protos::v1::data::Value> for Value {
                         values: byte_vector.values,
                     })
                 }
-                // TODO: should this be unreachable?
-                None => Value::Null,
+                None => unreachable!("Invalid vector proto"),
             },
             Some(topk_protos::v1::data::value::Value::Null(_)) => Value::Null,
-            None => Value::String("undefined".to_string()),
+            None => Value::Null,
         }
     }
 }

@@ -2,7 +2,7 @@ use napi_derive::napi;
 
 #[napi]
 #[derive(Clone, Debug)]
-pub enum FieldIndex {
+pub enum FieldIndexUnion {
     KeywordIndex {
         index_type: KeywordIndexType,
     },
@@ -15,7 +15,13 @@ pub enum FieldIndex {
     },
 }
 
-#[napi(string_enum)]
+#[napi(object)]
+#[derive(Clone, Debug)]
+pub struct FieldIndex {
+    pub index: Option<FieldIndexUnion>,
+}
+
+#[napi(string_enum = "lowercase")]
 #[derive(Clone, Debug)]
 pub enum KeywordIndexType {
     Text,
@@ -40,26 +46,7 @@ impl From<topk_protos::v1::control::KeywordIndexType> for KeywordIndexType {
     }
 }
 
-impl From<KeywordIndexType> for i32 {
-    fn from(index_type: KeywordIndexType) -> Self {
-        match index_type {
-            KeywordIndexType::Text => topk_protos::v1::control::KeywordIndexType::Text.into(),
-        }
-    }
-}
-
-impl From<i32> for KeywordIndexType {
-    fn from(index_type: i32) -> Self {
-        match index_type {
-            i if i == topk_protos::v1::control::KeywordIndexType::Text as i32 => {
-                KeywordIndexType::Text
-            }
-            _ => unreachable!("Unsupported keyword index type"),
-        }
-    }
-}
-
-#[napi(string_enum)]
+#[napi(string_enum = "lowercase")]
 #[derive(Clone, Debug)]
 pub enum VectorDistanceMetric {
     Cosine,
@@ -68,38 +55,44 @@ pub enum VectorDistanceMetric {
     Hamming,
 }
 
-impl From<i32> for VectorDistanceMetric {
-    fn from(metric: i32) -> Self {
+impl From<topk_protos::v1::control::VectorDistanceMetric> for VectorDistanceMetric {
+    fn from(metric: topk_protos::v1::control::VectorDistanceMetric) -> Self {
         match metric {
-            1 => VectorDistanceMetric::Cosine,
-            2 => VectorDistanceMetric::Euclidean,
-            3 => VectorDistanceMetric::DotProduct,
-            4 => VectorDistanceMetric::Hamming,
-            _ => unreachable!("Unsupported vector field index metric"),
+            topk_protos::v1::control::VectorDistanceMetric::Cosine => VectorDistanceMetric::Cosine,
+            topk_protos::v1::control::VectorDistanceMetric::Euclidean => {
+                VectorDistanceMetric::Euclidean
+            }
+            topk_protos::v1::control::VectorDistanceMetric::DotProduct => {
+                VectorDistanceMetric::DotProduct
+            }
+            topk_protos::v1::control::VectorDistanceMetric::Hamming => {
+                VectorDistanceMetric::Hamming
+            }
+            topk_protos::v1::control::VectorDistanceMetric::Unspecified => {
+                unreachable!("Unspecified vector distance metric")
+            }
         }
     }
 }
 
-impl From<VectorDistanceMetric> for i32 {
+impl From<VectorDistanceMetric> for topk_protos::v1::control::VectorDistanceMetric {
     fn from(metric: VectorDistanceMetric) -> Self {
         match metric {
-            VectorDistanceMetric::Cosine => {
-                topk_protos::v1::control::VectorDistanceMetric::Cosine.into()
-            }
+            VectorDistanceMetric::Cosine => topk_protos::v1::control::VectorDistanceMetric::Cosine,
             VectorDistanceMetric::Euclidean => {
-                topk_protos::v1::control::VectorDistanceMetric::Euclidean.into()
+                topk_protos::v1::control::VectorDistanceMetric::Euclidean
             }
             VectorDistanceMetric::DotProduct => {
-                topk_protos::v1::control::VectorDistanceMetric::DotProduct.into()
+                topk_protos::v1::control::VectorDistanceMetric::DotProduct
             }
             VectorDistanceMetric::Hamming => {
-                topk_protos::v1::control::VectorDistanceMetric::Hamming.into()
+                topk_protos::v1::control::VectorDistanceMetric::Hamming
             }
         }
     }
 }
 
-#[napi(string_enum)]
+#[napi(string_enum = "lowercase")]
 #[derive(Clone, Debug)]
 pub enum EmbeddingDataType {
     Float32,
@@ -118,106 +111,106 @@ impl From<topk_protos::v1::control::EmbeddingDataType> for EmbeddingDataType {
     }
 }
 
-impl From<i32> for EmbeddingDataType {
-    fn from(embedding_type: i32) -> Self {
-        match embedding_type {
-            t if t == topk_protos::v1::control::EmbeddingDataType::F32 as i32 => {
-                EmbeddingDataType::Float32
-            }
-            t if t == topk_protos::v1::control::EmbeddingDataType::U8 as i32 => {
-                EmbeddingDataType::UInt8
-            }
-            t if t == topk_protos::v1::control::EmbeddingDataType::Binary as i32 => {
-                EmbeddingDataType::Binary
-            }
-            t if t == topk_protos::v1::control::EmbeddingDataType::Unspecified as i32 => {
-                unreachable!("Unspecified embedding data type")
-            }
-            _ => unreachable!("Unsupported embedding data type"),
-        }
-    }
-}
-
 impl From<EmbeddingDataType> for topk_protos::v1::control::EmbeddingDataType {
     fn from(embedding_type: EmbeddingDataType) -> Self {
         match embedding_type {
-            EmbeddingDataType::Float32 => topk_protos::v1::control::EmbeddingDataType::F32.into(),
-            EmbeddingDataType::UInt8 => topk_protos::v1::control::EmbeddingDataType::U8.into(),
-            EmbeddingDataType::Binary => topk_protos::v1::control::EmbeddingDataType::Binary.into(),
+            EmbeddingDataType::Float32 => topk_protos::v1::control::EmbeddingDataType::F32,
+            EmbeddingDataType::UInt8 => topk_protos::v1::control::EmbeddingDataType::U8,
+            EmbeddingDataType::Binary => topk_protos::v1::control::EmbeddingDataType::Binary,
         }
     }
 }
 
-impl From<EmbeddingDataType> for Option<i32> {
+impl From<EmbeddingDataType> for Option<topk_protos::v1::control::EmbeddingDataType> {
     fn from(embedding_type: EmbeddingDataType) -> Self {
         Some(match embedding_type {
-            EmbeddingDataType::Float32 => topk_protos::v1::control::EmbeddingDataType::F32.into(),
-            EmbeddingDataType::UInt8 => topk_protos::v1::control::EmbeddingDataType::U8.into(),
-            EmbeddingDataType::Binary => topk_protos::v1::control::EmbeddingDataType::Binary.into(),
+            EmbeddingDataType::Float32 => topk_protos::v1::control::EmbeddingDataType::F32,
+            EmbeddingDataType::UInt8 => topk_protos::v1::control::EmbeddingDataType::U8,
+            EmbeddingDataType::Binary => topk_protos::v1::control::EmbeddingDataType::Binary,
         })
     }
 }
 
-impl From<FieldIndex> for topk_protos::v1::control::FieldIndex {
-    fn from(field_index: FieldIndex) -> Self {
-        Self {
-            index: Some(match field_index {
-                FieldIndex::KeywordIndex { index_type } => {
-                    topk_protos::v1::control::field_index::Index::KeywordIndex(
-                        topk_protos::v1::control::KeywordIndex {
-                            index_type: index_type.into(),
-                        },
-                    )
-                }
-                FieldIndex::VectorIndex { metric } => {
-                    topk_protos::v1::control::field_index::Index::VectorIndex(
-                        topk_protos::v1::control::VectorIndex {
-                            metric: metric.into(),
-                        },
-                    )
-                }
-                FieldIndex::SemanticIndex {
-                    model,
-                    embedding_type,
-                } => topk_protos::v1::control::field_index::Index::SemanticIndex(
-                    topk_protos::v1::control::SemanticIndex {
-                        model,
-                        embedding_type: embedding_type.map(|t| t.into()).unwrap_or_default(),
-                    },
-                ),
-            }),
+impl From<FieldIndexUnion> for topk_protos::v1::control::FieldIndex {
+    fn from(field_index: FieldIndexUnion) -> Self {
+        match field_index {
+            FieldIndexUnion::KeywordIndex { index_type } => {
+                topk_protos::v1::control::FieldIndex::keyword(index_type.into())
+            }
+            FieldIndexUnion::VectorIndex { metric } => {
+                topk_protos::v1::control::FieldIndex::vector(metric.into())
+            }
+            FieldIndexUnion::SemanticIndex {
+                model,
+                embedding_type,
+            } => topk_protos::v1::control::FieldIndex::semantic(
+                model,
+                embedding_type.map(|t| t.into()).unwrap_or_default(),
+            ),
         }
     }
 }
 
 impl From<topk_protos::v1::control::FieldIndex> for FieldIndex {
     fn from(field_index: topk_protos::v1::control::FieldIndex) -> Self {
-        match field_index.index.unwrap_or_else(|| {
-            topk_protos::v1::control::field_index::Index::KeywordIndex(
-                topk_protos::v1::control::KeywordIndex {
-                    index_type: topk_protos::v1::control::KeywordIndexType::Text.into(),
+        match field_index.index {
+            Some(i) => match i {
+                topk_protos::v1::control::field_index::Index::KeywordIndex(k) => FieldIndex {
+                    index: Some(FieldIndexUnion::KeywordIndex {
+                        index_type: topk_protos::v1::control::KeywordIndexType::try_from(
+                            k.index_type,
+                        )
+                        .expect("Unsupported keyword index type")
+                        .into(),
+                    }),
                 },
-            )
-        }) {
-            topk_protos::v1::control::field_index::Index::KeywordIndex(k) => {
-                FieldIndex::KeywordIndex {
-                    index_type: k.index_type.into(),
-                }
+                topk_protos::v1::control::field_index::Index::VectorIndex(v) => FieldIndex {
+                    index: Some(FieldIndexUnion::VectorIndex {
+                        metric: topk_protos::v1::control::VectorDistanceMetric::try_from(v.metric)
+                            .expect("Unsupported vector distance metric")
+                            .into(),
+                    }),
+                },
+                topk_protos::v1::control::field_index::Index::SemanticIndex(s) => FieldIndex {
+                    index: Some(FieldIndexUnion::SemanticIndex {
+                        model: s.model,
+                        embedding_type: match s.embedding_type {
+                            Some(t) => Some(
+                                topk_protos::v1::control::EmbeddingDataType::try_from(t)
+                                    .expect("Unsupported embedding data type")
+                                    .into(),
+                            ),
+                            None => None,
+                        },
+                    }),
+                },
+            },
+            None => FieldIndex { index: None },
+        }
+    }
+}
+
+impl From<FieldIndex> for topk_protos::v1::control::FieldIndex {
+    fn from(field_index: FieldIndex) -> Self {
+        match field_index.index {
+            Some(FieldIndexUnion::KeywordIndex { index_type }) => {
+                topk_protos::v1::control::FieldIndex::keyword(
+                    topk_protos::v1::control::KeywordIndexType::from(index_type),
+                )
             }
-            topk_protos::v1::control::field_index::Index::VectorIndex(v) => {
-                FieldIndex::VectorIndex {
-                    metric: v.metric.into(),
-                }
+            Some(FieldIndexUnion::VectorIndex { metric }) => {
+                topk_protos::v1::control::FieldIndex::vector(
+                    topk_protos::v1::control::VectorDistanceMetric::from(metric),
+                )
             }
-            topk_protos::v1::control::field_index::Index::SemanticIndex(s) => {
-                FieldIndex::SemanticIndex {
-                    model: s.model,
-                    embedding_type: match s.embedding_type {
-                        Some(t) => Some(t.into()),
-                        None => None,
-                    },
-                }
-            }
+            Some(FieldIndexUnion::SemanticIndex {
+                model,
+                embedding_type,
+            }) => topk_protos::v1::control::FieldIndex::semantic(
+                model,
+                embedding_type.map(|t| topk_protos::v1::control::EmbeddingDataType::from(t)),
+            ),
+            None => topk_protos::v1::control::FieldIndex { index: None },
         }
     }
 }

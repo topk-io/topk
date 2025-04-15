@@ -1,12 +1,8 @@
-use std::collections::HashMap;
-
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use topk_protos::v1::data;
 
-use super::{
-    function_expr::FunctionExpression, logical_expr::LogicalExpression, query::Query, stage::Stage,
-};
+use super::{function_expr::FunctionExpression, logical_expr::LogicalExpression};
 
 #[derive(Debug, Clone)]
 pub enum SelectExpression {
@@ -79,20 +75,4 @@ impl ToNapiValue for SelectExpression {
             SelectExpression::Function { expr } => ToNapiValue::to_napi_value(env, expr),
         }
     }
-}
-
-#[napi(namespace = "query")]
-pub fn select(
-    #[napi(ts_arg_type = "Record<string, LogicalExpression | FunctionExpression>")] exprs: HashMap<
-        String,
-        SelectExpression,
-    >,
-) -> Result<Query> {
-    let stage = Stage::Select {
-        exprs: exprs.into_iter().map(|(k, v)| (k, v.into())).collect(),
-    };
-
-    let stages = vec![stage];
-
-    Ok(Query::create(stages))
 }

@@ -215,7 +215,9 @@ impl Into<topk_protos::v1::data::LogicalExpr> for LogicalExpression {
 impl Into<topk_protos::v1::data::LogicalExpr> for LogicalExpressionUnion {
     fn into(self) -> topk_protos::v1::data::LogicalExpr {
         match self {
-            LogicalExpressionUnion::Null => unreachable!(),
+            LogicalExpressionUnion::Null => {
+                topk_protos::v1::data::LogicalExpr::literal(topk_protos::v1::data::Value::null())
+            }
             LogicalExpressionUnion::Field { name } => {
                 topk_protos::v1::data::LogicalExpr::field(name)
             }
@@ -241,13 +243,8 @@ impl FromNapiValue for LogicalExpression {
         env: napi::sys::napi_env,
         value: napi::sys::napi_value,
     ) -> Result<Self, napi::Status> {
-        let object = Object::from_napi_value(env, value)?;
-        let expr: LogicalExpressionUnion = object.get("expr")?.ok_or_else(|| {
-            napi::Error::new(
-                napi::Status::GenericFailure,
-                "LogicalExpression object missing 'expr' property".to_string(),
-            )
-        })?;
+        let logical_expression = LogicalExpression::from_napi_ref(env, value)?;
+        let expr = logical_expression.expr.clone();
 
         Ok(Self { expr })
     }

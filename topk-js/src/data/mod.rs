@@ -11,4 +11,5 @@ pub mod select_expr;
 pub mod stage;
 pub mod text_expr;
 pub mod unary_expr;
+pub mod utils;
 pub mod value;

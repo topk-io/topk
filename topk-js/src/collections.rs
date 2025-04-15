@@ -57,11 +57,11 @@ impl CollectionsClient {
     }
 
     #[napi]
-    pub async fn get(&self, collection_name: String) -> Result<Collection> {
+    pub async fn get(&self, name: String) -> Result<Collection> {
         let collection = self
             .client
             .collections()
-            .get(&collection_name)
+            .get(&name)
             .await
             .map_err(TopkError::from)?;
 

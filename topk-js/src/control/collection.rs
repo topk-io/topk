@@ -15,7 +15,7 @@ pub struct CollectionClient {
     client: Arc<topk_rs::Client>,
 }
 
-#[napi(string_enum)]
+#[napi(string_enum = "lowercase")]
 #[derive(Debug, Clone)]
 pub enum ConsistencyLevel {
     Indexed,
@@ -37,6 +37,7 @@ impl CollectionClient {
         Self { client, collection }
     }
 
+    // TODO: Refactor lsn to be a string
     #[napi]
     pub async fn get(
         &self,
@@ -64,6 +65,7 @@ impl CollectionClient {
             .collect())
     }
 
+    // TODO: Refactor lsn to be a string
     #[napi]
     pub async fn count(
         &self,
@@ -114,11 +116,16 @@ impl CollectionClient {
         &self,
         query: Query,
         lsn: Option<u32>,
+        consistency: Option<ConsistencyLevel>,
     ) -> Result<Vec<HashMap<String, Value>>> {
         let docs = self
             .client
             .collection(&self.collection)
-            .query(query.into(), lsn.map(|l| l as u64), None)
+            .query(
+                query.into(),
+                lsn.map(|l| l as u64),
+                consistency.map(|c| c.into()),
+            )
             .await
             .map_err(TopkError::from)?;
 

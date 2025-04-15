@@ -333,8 +333,8 @@ jobs:
       - name: List packages
         run: ls -R .
         shell: bash
-      - name: Tmate
-        uses: mxschmitt/action-tmate@v3
+      # - name: Tmate
+      #   uses: mxschmitt/action-tmate@v3
       - name: Test bindings
         run: docker run --rm -v $(pwd):/build -w /build/topk-js node:${{ matrix.node }}-slim yarn test
   # test-linux-x64-musl-binding:

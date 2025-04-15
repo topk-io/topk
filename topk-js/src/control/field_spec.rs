@@ -42,7 +42,7 @@ impl FieldSpec {
 impl From<topk_protos::v1::control::FieldSpec> for FieldSpec {
     fn from(field_spec: topk_protos::v1::control::FieldSpec) -> Self {
         Self {
-            data_type: DataType::from(field_spec.data_type.unwrap_or_default()),
+            data_type: field_spec.data_type.unwrap().into(),
             required: field_spec.required,
             index: field_spec.index.map(|idx| idx.into()),
         }
@@ -54,18 +54,10 @@ impl From<FieldSpec> for topk_protos::v1::control::FieldSpec {
         Self {
             data_type: Some(topk_protos::v1::control::FieldType {
                 data_type: Some(match field_spec.data_type {
-                    DataType::Text => {
-                        topk_protos::v1::control::field_type::DataType::Text(Default::default())
-                    }
-                    DataType::Integer => {
-                        topk_protos::v1::control::field_type::DataType::Integer(Default::default())
-                    }
-                    DataType::Float => {
-                        topk_protos::v1::control::field_type::DataType::Float(Default::default())
-                    }
-                    DataType::Boolean => {
-                        topk_protos::v1::control::field_type::DataType::Boolean(Default::default())
-                    }
+                    DataType::Text => topk_protos::v1::control::field_type::DataType::text(),
+                    DataType::Integer => topk_protos::v1::control::field_type::DataType::integer(),
+                    DataType::Float => topk_protos::v1::control::field_type::DataType::float(),
+                    DataType::Boolean => topk_protos::v1::control::field_type::DataType::bool(),
                     DataType::F32Vector { dimension } => {
                         topk_protos::v1::control::field_type::DataType::f32_vector(dimension)
                     }
@@ -75,9 +67,7 @@ impl From<FieldSpec> for topk_protos::v1::control::FieldSpec {
                     DataType::BinaryVector { dimension } => {
                         topk_protos::v1::control::field_type::DataType::binary_vector(dimension)
                     }
-                    DataType::Bytes => {
-                        topk_protos::v1::control::field_type::DataType::Bytes(Default::default())
-                    }
+                    DataType::Bytes => topk_protos::v1::control::field_type::DataType::bytes(),
                 }),
             }),
             required: field_spec.required,

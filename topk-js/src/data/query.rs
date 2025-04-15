@@ -1,16 +1,19 @@
+use std::collections::HashMap;
+
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
 use super::{
     filter_expr::FilterExpressionUnion,
     logical_expr::{LogicalExpression, LogicalExpressionUnion},
+    select_expr::SelectExpression,
     stage::Stage,
     text_expr::{Term, TextExpression, TextExpressionUnion},
     value::Value,
 };
 
 #[napi]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Query {
     stages: Vec<Stage>,
 }
@@ -83,12 +86,22 @@ impl Query {
 
         new_query
     }
+}
 
-    // TODO: Remove this
-    #[napi(getter)]
-    pub fn get_stages(&self) -> Vec<Stage> {
-        self.stages.clone()
-    }
+#[napi(namespace = "query")]
+pub fn select(
+    #[napi(ts_arg_type = "Record<string, LogicalExpression | FunctionExpression>")] exprs: HashMap<
+        String,
+        SelectExpression,
+    >,
+) -> Result<Query> {
+    let stage = Stage::Select {
+        exprs: exprs.into_iter().map(|(k, v)| (k, v.into())).collect(),
+    };
+
+    let stages = vec![stage];
+
+    Ok(Query { stages })
 }
 
 #[napi(namespace = "query")]
@@ -99,18 +112,6 @@ pub fn field(name: String) -> LogicalExpression {
 #[napi(namespace = "query")]
 pub fn literal(value: Value) -> LogicalExpression {
     LogicalExpression::create(LogicalExpressionUnion::Literal { value })
-}
-
-#[napi(js_name = "match", namespace = "query")]
-pub fn match_(token: String, field: Option<String>, weight: Option<f64>) -> TextExpression {
-    TextExpression::create(TextExpressionUnion::Terms {
-        all: true,
-        terms: vec![Term {
-            token,
-            field,
-            weight: weight.unwrap_or(1.0),
-        }],
-    })
 }
 
 impl From<Query> for topk_protos::v1::data::Query {
@@ -168,16 +169,10 @@ impl FromNapiValue for Query {
         env: napi::sys::napi_env,
         value: napi::sys::napi_value,
     ) -> Result<Self, napi::Status> {
-        let object = Object::from_napi_value(env, value)?;
+        let query = Query::from_napi_ref(env, value)?;
 
-        let stages: Option<Vec<Stage>> = object.get("stages".into())?;
+        let stages: Vec<Stage> = query.stages.clone();
 
-        match stages {
-            Some(stages) => Ok(Self { stages: stages }),
-            None => Err(napi::Error::new(
-                napi::Status::GenericFailure,
-                "Received stages: None",
-            )),
-        }
+        Ok(Self { stages })
     }
 }

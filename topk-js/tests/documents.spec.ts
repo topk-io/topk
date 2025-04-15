@@ -1,5 +1,5 @@
 import { bm25Score, field, match, select, semanticSimilarity, vectorDistance } from '../query';
-import { binaryVector, f32Vector, keywordIndex, semanticIndex, text, u8Vector, VectorDistanceMetric, vectorIndex } from '../schema';
+import { binaryVector, f32Vector, keywordIndex, semanticIndex, text, u8Vector, vectorIndex } from '../schema';
 import { binaryVector as binaryVectorValue, u8Vector as u8VectorValue } from '../index';
 import { newProjectContext, ProjectContext } from "./setup";
 
@@ -104,7 +104,7 @@ describe("Documents", () => {
     await createCollection(ctx.scope("books"), {
       f32_embedding: f32Vector(3)
         .required()
-        .index(vectorIndex({ metric: VectorDistanceMetric.Euclidean })),
+        .index(vectorIndex({ metric: "euclidean" })),
     });
 
     const lsn = await ctx.client.collection(ctx.scope("books")).upsert([
@@ -129,7 +129,7 @@ describe("Documents", () => {
     await createCollection(ctx.scope("books"), {
       u8_embedding: u8Vector(3)
         .required()
-        .index(vectorIndex({ metric: VectorDistanceMetric.Euclidean })),
+        .index(vectorIndex({ metric: "euclidean" })),
     });
 
     const lsn = await ctx.client.collection(ctx.scope("books")).upsert([
@@ -154,7 +154,7 @@ describe("Documents", () => {
     await createCollection(ctx.scope("books"), {
       binary_embedding: binaryVector(3)
         .required()
-        .index(vectorIndex({ metric: VectorDistanceMetric.Hamming })),
+        .index(vectorIndex({ metric: "hamming" })),
     });
 
     const lsn = await ctx.client.collection(ctx.scope("books")).upsert([

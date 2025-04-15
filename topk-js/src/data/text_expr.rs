@@ -33,16 +33,6 @@ pub struct TextExpression {
 
 #[napi]
 impl TextExpression {
-    #[napi(factory)]
-    pub fn create(expr: TextExpressionUnion) -> Self {
-        TextExpression { expr }
-    }
-
-    #[napi(getter)]
-    pub fn get_expr(&self) -> TextExpressionUnion {
-        self.expr.clone()
-    }
-
     #[napi]
     pub fn and(&self, other: &TextExpression) -> Self {
         TextExpression {
@@ -77,17 +67,10 @@ impl FromNapiValue for TextExpression {
         };
 
         if is_text_expression {
-            let object = Object::from_napi_value(env, value)?;
+            let text_expression = TextExpression::from_napi_ref(env, value)?;
+            let expr = text_expression.expr.clone();
 
-            let expr: Option<TextExpressionUnion> = object.get("expr".into())?;
-
-            match expr {
-                Some(expr) => Ok(TextExpression { expr }),
-                None => Err(napi::Error::new(
-                    napi::Status::GenericFailure,
-                    "expr is required",
-                )),
-            }
+            Ok(TextExpression { expr })
         } else {
             unreachable!("Value must be a TextExpression")
         }
@@ -149,5 +132,19 @@ impl Into<data::text_expr::Term> for Term {
             field: self.field,
             weight: self.weight as f32,
         }
+    }
+}
+
+#[napi(js_name = "match", namespace = "query")]
+pub fn match_(token: String, field: Option<String>, weight: Option<f64>) -> TextExpression {
+    TextExpression {
+        expr: TextExpressionUnion::Terms {
+            all: true,
+            terms: vec![Term {
+                token,
+                field,
+                weight: weight.unwrap_or(1.0),
+            }],
+        },
     }
 }

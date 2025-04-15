@@ -365,7 +365,6 @@ if (!nativeBinding) {
     //  - The package owner could build/publish bindings for this arch
     //  - The user may need to bundle the correct files
     //  - The user may need to re-install node_modules to get new packages
-    console.log(loadErrors)
     throw new Error('Failed to load native binding', { cause: loadErrors })
   }
   throw new Error(`Failed to load native binding`)
