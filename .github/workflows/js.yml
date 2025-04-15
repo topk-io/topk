@@ -206,7 +206,7 @@ jobs:
               apt-get install -y unzip curl
             fi
             PROTOC_ARCH="x86_64"
-            if [[ "${{ matrix.settings.target }}" == *"aarch64"* ]]; then
+            if [[ "${{ matrix.settings.target }}" == *"aarch64"* ]] || [[ "${{ matrix.settings.target }}" == *"aarch64-unknown-linux-musl"* ]]; then
               PROTOC_ARCH="aarch_64"
             fi
             mkdir -p protoc
