@@ -4,7 +4,7 @@ use crate::data::{
     value::ValueUnion,
 };
 use crate::error::RustError;
-use pyo3::{exceptions::PyException, prelude::*};
+use pyo3::prelude::*;
 use std::{collections::HashMap, sync::Arc};
 
 #[pyclass]
@@ -62,41 +62,17 @@ impl CollectionClient {
         lsn: Option<u64>,
         consistency: Option<ConsistencyLevel>,
     ) -> PyResult<u64> {
-        let query = Query::new().count()?;
-
-        let docs = self
+        let count = self
             .runtime
             .block_on(
                 py,
-                self.client.collection(&self.collection).query(
-                    query.into(),
-                    lsn,
-                    consistency.map(|c| c.into()),
-                ),
+                self.client
+                    .collection(&self.collection)
+                    .count(lsn, consistency.map(|c| c.into())),
             )
             .map_err(RustError)?;
 
-        for doc in docs {
-            match doc.fields.get("_count") {
-                Some(value) => match value.as_u64() {
-                    Some(count) => return Ok(count),
-                    None => {
-                        return Err(PyException::new_err(format!(
-                            "Invalid _count field data type in count query response"
-                        )))
-                    }
-                },
-                None => {
-                    return Err(PyException::new_err(format!(
-                        "Missing _count field in count query response"
-                    )))
-                }
-            }
-        }
-
-        Err(PyException::new_err(format!(
-            "No documents received for count query"
-        )))
+        Ok(count)
     }
 
     #[pyo3(signature = (query, lsn=None, consistency=None))]

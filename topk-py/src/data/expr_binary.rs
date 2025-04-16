@@ -23,24 +23,22 @@ pub enum BinaryOperator {
     Rem,
 }
 
-impl Into<topk_protos::v1::data::logical_expr::binary_op::Op> for BinaryOperator {
-    fn into(self) -> topk_protos::v1::data::logical_expr::binary_op::Op {
+impl Into<topk_rs::data::expr_binary::BinaryOperator> for BinaryOperator {
+    fn into(self) -> topk_rs::data::expr_binary::BinaryOperator {
         match self {
-            BinaryOperator::Eq => topk_protos::v1::data::logical_expr::binary_op::Op::Eq,
-            BinaryOperator::NotEq => topk_protos::v1::data::logical_expr::binary_op::Op::Neq,
-            BinaryOperator::Lt => topk_protos::v1::data::logical_expr::binary_op::Op::Lt,
-            BinaryOperator::LtEq => topk_protos::v1::data::logical_expr::binary_op::Op::Lte,
-            BinaryOperator::Gt => topk_protos::v1::data::logical_expr::binary_op::Op::Gt,
-            BinaryOperator::GtEq => topk_protos::v1::data::logical_expr::binary_op::Op::Gte,
-            BinaryOperator::StartsWith => {
-                topk_protos::v1::data::logical_expr::binary_op::Op::StartsWith
-            }
-            BinaryOperator::Add => topk_protos::v1::data::logical_expr::binary_op::Op::Add,
-            BinaryOperator::Sub => topk_protos::v1::data::logical_expr::binary_op::Op::Sub,
-            BinaryOperator::Mul => topk_protos::v1::data::logical_expr::binary_op::Op::Mul,
-            BinaryOperator::Div => topk_protos::v1::data::logical_expr::binary_op::Op::Div,
-            BinaryOperator::And => topk_protos::v1::data::logical_expr::binary_op::Op::And,
-            BinaryOperator::Or => topk_protos::v1::data::logical_expr::binary_op::Op::Or,
+            BinaryOperator::Eq => topk_rs::data::expr_binary::BinaryOperator::Eq,
+            BinaryOperator::NotEq => topk_rs::data::expr_binary::BinaryOperator::NotEq,
+            BinaryOperator::Lt => topk_rs::data::expr_binary::BinaryOperator::Lt,
+            BinaryOperator::LtEq => topk_rs::data::expr_binary::BinaryOperator::LtEq,
+            BinaryOperator::Gt => topk_rs::data::expr_binary::BinaryOperator::Gt,
+            BinaryOperator::GtEq => topk_rs::data::expr_binary::BinaryOperator::GtEq,
+            BinaryOperator::StartsWith => topk_rs::data::expr_binary::BinaryOperator::StartsWith,
+            BinaryOperator::Add => topk_rs::data::expr_binary::BinaryOperator::Add,
+            BinaryOperator::Sub => topk_rs::data::expr_binary::BinaryOperator::Sub,
+            BinaryOperator::Mul => topk_rs::data::expr_binary::BinaryOperator::Mul,
+            BinaryOperator::Div => topk_rs::data::expr_binary::BinaryOperator::Div,
+            BinaryOperator::And => topk_rs::data::expr_binary::BinaryOperator::And,
+            BinaryOperator::Or => topk_rs::data::expr_binary::BinaryOperator::Or,
             BinaryOperator::Xor => unreachable!("Xor is not supported"),
             BinaryOperator::Rem => unreachable!("Rem is not supported"),
         }

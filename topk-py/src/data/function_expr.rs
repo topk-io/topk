@@ -7,34 +7,37 @@ pub enum VectorQuery {
     U8(Vec<u8>),
 }
 
-impl Into<topk_protos::v1::data::Vector> for VectorQuery {
-    fn into(self) -> topk_protos::v1::data::Vector {
+impl Into<topk_rs::data::function_expr::Vector> for VectorQuery {
+    fn into(self) -> topk_rs::data::function_expr::Vector {
         match self {
-            VectorQuery::F32(values) => topk_protos::v1::data::Vector::float(values),
-            VectorQuery::U8(values) => topk_protos::v1::data::Vector::byte(values),
+            VectorQuery::F32(values) => topk_rs::data::function_expr::Vector::float(values),
+            VectorQuery::U8(values) => topk_rs::data::function_expr::Vector::byte(values),
         }
     }
 }
 
 #[pyclass]
 #[derive(Debug, Clone)]
-pub enum FunctionExpression {
+pub enum FunctionExpr {
     KeywordScore {},
     VectorScore { field: String, query: VectorQuery },
     SemanticSimilarity { field: String, query: String },
 }
 
-impl Into<topk_protos::v1::data::FunctionExpr> for FunctionExpression {
-    fn into(self) -> topk_protos::v1::data::FunctionExpr {
+impl Into<topk_rs::data::function_expr::FunctionExpr> for FunctionExpr {
+    fn into(self) -> topk_rs::data::function_expr::FunctionExpr {
         match self {
-            FunctionExpression::KeywordScore {} => {
-                topk_protos::v1::data::FunctionExpr::bm25_score()
+            FunctionExpr::KeywordScore {} => {
+                topk_rs::data::function_expr::FunctionExpr::KeywordScore {}
             }
-            FunctionExpression::VectorScore { field, query } => {
-                topk_protos::v1::data::FunctionExpr::vector_distance(field, query.into())
+            FunctionExpr::VectorScore { field, query } => {
+                topk_rs::data::function_expr::FunctionExpr::VectorScore {
+                    field,
+                    query: query.into(),
+                }
             }
-            FunctionExpression::SemanticSimilarity { field, query } => {
-                topk_protos::v1::data::FunctionExpr::semantic_similarity(field, query)
+            FunctionExpr::SemanticSimilarity { field, query } => {
+                topk_rs::data::function_expr::FunctionExpr::SemanticSimilarity { field, query }
             }
         }
     }

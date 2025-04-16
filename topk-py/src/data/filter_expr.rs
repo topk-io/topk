@@ -1,41 +1,38 @@
-use super::{logical_expr::LogicalExpression, text_expr::TextExpression};
+use super::{logical_expr::LogicalExpr, text_expr::TextExpr};
 use pyo3::prelude::*;
-use topk_protos::v1::data;
 
 #[pyclass]
 #[derive(Debug, Clone)]
-pub enum FilterExpression {
-    Logical(LogicalExpression),
-    Text(TextExpression),
+pub enum FilterExpr {
+    Logical(LogicalExpr),
+    Text(TextExpr),
 }
 
-impl Into<data::stage::filter_stage::FilterExpr> for FilterExpression {
-    fn into(self) -> data::stage::filter_stage::FilterExpr {
+impl Into<topk_rs::data::filter_expr::FilterExpr> for FilterExpr {
+    fn into(self) -> topk_rs::data::filter_expr::FilterExpr {
         match self {
-            FilterExpression::Logical(expr) => {
-                data::stage::filter_stage::FilterExpr::logical(expr.into())
+            FilterExpr::Logical(expr) => {
+                topk_rs::data::filter_expr::FilterExpr::Logical(expr.into())
             }
-            FilterExpression::Text(expr) => {
-                data::stage::filter_stage::FilterExpr::text(expr.into())
-            }
+            FilterExpr::Text(expr) => topk_rs::data::filter_expr::FilterExpr::Text(expr.into()),
         }
     }
 }
 
 #[derive(Debug, Clone, FromPyObject)]
-pub enum FilterExpressionUnion {
+pub enum FilterExprUnion {
     #[pyo3(transparent)]
-    Logical(LogicalExpression),
+    Logical(LogicalExpr),
 
     #[pyo3(transparent)]
-    Text(TextExpression),
+    Text(TextExpr),
 }
 
-impl Into<FilterExpression> for FilterExpressionUnion {
-    fn into(self) -> FilterExpression {
+impl Into<FilterExpr> for FilterExprUnion {
+    fn into(self) -> FilterExpr {
         match self {
-            FilterExpressionUnion::Logical(expr) => FilterExpression::Logical(expr),
-            FilterExpressionUnion::Text(expr) => FilterExpression::Text(expr),
+            FilterExprUnion::Logical(expr) => FilterExpr::Logical(expr),
+            FilterExprUnion::Text(expr) => FilterExpr::Text(expr),
         }
     }
 }

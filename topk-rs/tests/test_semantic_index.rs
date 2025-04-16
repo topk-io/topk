@@ -1,17 +1,9 @@
-use std::collections::HashMap;
 use test_context::test_context;
-use topk_protos::{
-    doc, schema,
-    v1::{
-        control::FieldSpec,
-        data::{
-            stage::{filter_stage::FilterExpr, select_stage::SelectExpr},
-            text_expr::Term,
-            FunctionExpr, LogicalExpr, Query, Stage, TextExpr,
-        },
-    },
+use topk_protos::{schema, v1::control::FieldSpec};
+use topk_rs::{
+    query::{field, fns, r#match, select},
+    Error,
 };
-use topk_rs::Error;
 
 mod utils;
 use utils::dataset;
@@ -56,11 +48,11 @@ async fn test_semantic_index_write_docs(ctx: &mut ProjectTestContext) {
     let result = ctx
         .client
         .collection(&collection.name)
-        .query(Query::new(vec![Stage::count()]), None, None)
+        .count(None, None)
         .await
         .expect("could not query");
 
-    assert_eq!(result, vec![doc!("_count" => 10_u64)]);
+    assert_eq!(result, 10_u64);
 }
 
 #[test_context(ProjectTestContext)]
@@ -72,16 +64,11 @@ async fn test_semantic_index_query(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            Query::new(vec![
-                Stage::select(HashMap::from([(
-                    "sim".to_string(),
-                    SelectExpr::function(FunctionExpr::semantic_similarity(
-                        "title".to_string(),
-                        "dummy".to_string(),
-                    )),
-                )])),
-                Stage::topk(LogicalExpr::field("sim"), 3, true),
-            ]),
+            select([("sim", fns::semantic_similarity("title", "dummy"))]).top_k(
+                field("sim"),
+                3,
+                true,
+            ),
             None,
             None,
         )
@@ -100,24 +87,9 @@ async fn test_semantic_index_query_with_text_filter(ctx: &mut ProjectTestContext
         .client
         .collection(&collection.name)
         .query(
-            Query::new(vec![
-                Stage::select(HashMap::from([(
-                    "sim".to_string(),
-                    SelectExpr::function(FunctionExpr::semantic_similarity(
-                        "title".to_string(),
-                        "dummy".to_string(),
-                    )),
-                )])),
-                Stage::filter(FilterExpr::text(TextExpr::terms(
-                    true,
-                    vec![Term {
-                        token: "love".to_string(),
-                        field: Some("summary".to_string()),
-                        weight: 1.0,
-                    }],
-                ))),
-                Stage::topk(LogicalExpr::field("sim"), 3, true),
-            ]),
+            select([("sim", fns::semantic_similarity("title", "dummy"))])
+                .filter(r#match("love", Some("summary"), None))
+                .top_k(field("sim"), 3, true),
             None,
             None,
         )
@@ -136,16 +108,11 @@ async fn test_semantic_index_query_with_missing_index(ctx: &mut ProjectTestConte
         .client
         .collection(&collection.name)
         .query(
-            Query::new(vec![
-                Stage::select(HashMap::from([(
-                    "sim".to_string(),
-                    SelectExpr::function(FunctionExpr::semantic_similarity(
-                        "published_year".to_string(),
-                        "dummy".to_string(),
-                    )),
-                )])),
-                Stage::topk(LogicalExpr::field("sim"), 3, true),
-            ]),
+            select([("sim", fns::semantic_similarity("published_year", "dummy"))]).top_k(
+                field("sim"),
+                3,
+                true,
+            ),
             None,
             None,
         )
@@ -164,32 +131,11 @@ async fn test_semantic_index_query_multiple_fields(ctx: &mut ProjectTestContext)
         .client
         .collection(&collection.name)
         .query(
-            Query::new(vec![
-                Stage::select(HashMap::from([
-                    (
-                        "title_sim".to_string(),
-                        SelectExpr::function(FunctionExpr::semantic_similarity(
-                            "title".to_string(),
-                            "dummy".to_string(),
-                        )),
-                    ),
-                    (
-                        "summary_sim".to_string(),
-                        SelectExpr::function(FunctionExpr::semantic_similarity(
-                            "summary".to_string(),
-                            "query".to_string(),
-                        )),
-                    ),
-                ])),
-                Stage::topk(
-                    LogicalExpr::add(
-                        LogicalExpr::field("title_sim"),
-                        LogicalExpr::field("summary_sim"),
-                    ),
-                    5,
-                    true,
-                ),
-            ]),
+            select([
+                ("title_sim", fns::semantic_similarity("title", "dummy")),
+                ("summary_sim", fns::semantic_similarity("summary", "query")),
+            ])
+            .top_k(field("title_sim").add(field("summary_sim")), 5, true),
             None,
             None,
         )
@@ -208,17 +154,9 @@ async fn test_semantic_index_query_and_rerank_with_missing_model(ctx: &mut Proje
         .client
         .collection(&collection.name)
         .query(
-            Query::new(vec![
-                Stage::select(HashMap::from([(
-                    "sim".to_string(),
-                    SelectExpr::function(FunctionExpr::semantic_similarity(
-                        "title".to_string(),
-                        "dummy".to_string(),
-                    )),
-                )])),
-                Stage::topk(LogicalExpr::field("sim"), 3, true),
-                Stage::rerank(Some("definitely-does-not-exist".into()), None, vec![], None),
-            ]),
+            select([("sim", fns::semantic_similarity("title", "dummy"))])
+                .top_k(field("sim"), 3, true)
+                .rerank(Some("definitely-does-not-exist".into()), None, vec![], None),
             None,
             None,
         )
@@ -237,17 +175,9 @@ async fn test_semantic_index_query_and_rerank(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            Query::new(vec![
-                Stage::select(HashMap::from([(
-                    "sim".to_string(),
-                    SelectExpr::function(FunctionExpr::semantic_similarity(
-                        "title".to_string(),
-                        "dummy".to_string(),
-                    )),
-                )])),
-                Stage::topk(LogicalExpr::field("sim"), 3, true),
-                Stage::rerank(Some("dummy".into()), None, vec![], None),
-            ]),
+            select([("sim", fns::semantic_similarity("title", "dummy"))])
+                .top_k(field("sim"), 3, true)
+                .rerank(Some("dummy".into()), None, vec![], None),
             None,
             None,
         )
@@ -268,38 +198,17 @@ async fn test_semantic_index_query_and_rerank_multiple_semantic_sim_explicit(
         .client
         .collection(&collection.name)
         .query(
-            Query::new(vec![
-                Stage::select(HashMap::from([
-                    (
-                        "title_sim".to_string(),
-                        SelectExpr::function(FunctionExpr::semantic_similarity(
-                            "title".to_string(),
-                            "dummy".to_string(),
-                        )),
-                    ),
-                    (
-                        "summary_sim".to_string(),
-                        SelectExpr::function(FunctionExpr::semantic_similarity(
-                            "summary".to_string(),
-                            "query".to_string(),
-                        )),
-                    ),
-                ])),
-                Stage::topk(
-                    LogicalExpr::add(
-                        LogicalExpr::field("title_sim"),
-                        LogicalExpr::field("summary_sim"),
-                    ),
-                    5,
-                    true,
-                ),
-                Stage::rerank(
-                    Some("dummy".into()),
-                    Some("query string".into()),
-                    vec!["title".to_string(), "summary".to_string()],
-                    None,
-                ),
-            ]),
+            select([
+                ("title_sim", fns::semantic_similarity("title", "dummy")),
+                ("summary_sim", fns::semantic_similarity("summary", "query")),
+            ])
+            .top_k(field("title_sim").add(field("summary_sim")), 5, true)
+            .rerank(
+                Some("dummy".into()),
+                Some("query string".into()),
+                vec!["title".to_string(), "summary".to_string()],
+                None,
+            ),
             None,
             None,
         )
@@ -320,33 +229,12 @@ async fn test_semantic_index_query_and_rerank_multiple_semantic_sim_implicit(
         .client
         .collection(&collection.name)
         .query(
-            Query::new(vec![
-                Stage::select(HashMap::from([
-                    (
-                        "title_sim".to_string(),
-                        SelectExpr::function(FunctionExpr::semantic_similarity(
-                            "title".to_string(),
-                            "dummy".to_string(),
-                        )),
-                    ),
-                    (
-                        "summary_sim".to_string(),
-                        SelectExpr::function(FunctionExpr::semantic_similarity(
-                            "summary".to_string(),
-                            "query".to_string(),
-                        )),
-                    ),
-                ])),
-                Stage::topk(
-                    LogicalExpr::add(
-                        LogicalExpr::field("title_sim"),
-                        LogicalExpr::field("summary_sim"),
-                    ),
-                    5,
-                    true,
-                ),
-                Stage::rerank(Some("dummy".into()), None, vec![], None),
-            ]),
+            select([
+                ("title_sim", fns::semantic_similarity("title", "dummy")),
+                ("summary_sim", fns::semantic_similarity("summary", "query")),
+            ])
+            .top_k(field("title_sim").add(field("summary_sim")), 5, true)
+            .rerank(Some("dummy".into()), None, vec![], None),
             None,
             None,
         )

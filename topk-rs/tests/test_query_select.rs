@@ -1,13 +1,11 @@
 use std::collections::{HashMap, HashSet};
 use test_context::test_context;
 use topk_protos::doc;
-use topk_protos::v1::data::{
-    stage::{filter_stage::FilterExpr, select_stage::SelectExpr},
-    text_expr, FunctionExpr, Query, Stage, TextExpr,
-};
-use topk_protos::v1::data::{LogicalExpr, Value, Vector};
+use topk_protos::v1::data::Value;
 
 mod utils;
+use topk_rs::data::function_expr::Vector;
+use topk_rs::query::{field, fns, literal, r#match, select, top_k};
 use utils::dataset;
 use utils::ProjectTestContext;
 
@@ -20,27 +18,16 @@ async fn test_query_select_literal(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            Query::new(vec![
-                Stage::select(HashMap::from([(
-                    "literal".to_string(),
-                    SelectExpr::logical(LogicalExpr::literal((1.0 as f32).into())),
-                )])),
-                Stage::filter(FilterExpr::logical(LogicalExpr::eq(
-                    LogicalExpr::field("title"),
-                    LogicalExpr::literal("1984".into()),
-                ))),
-                Stage::topk(LogicalExpr::field("published_year"), 100, true),
-            ]),
+            select([("literal", literal(1.0))])
+                .filter(field("title").eq("1984"))
+                .top_k(field("published_year"), 100, true),
             None,
             None,
         )
         .await
         .expect("could not query");
 
-    assert_eq!(
-        results,
-        vec![doc!("_id" => "1984", "literal" => 1.0 as f32)]
-    );
+    assert_eq!(results, vec![doc!("_id" => "1984", "literal" => 1.0)]);
 }
 
 #[test_context(ProjectTestContext)]
@@ -52,17 +39,9 @@ async fn test_query_select_non_existing_field(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            Query::new(vec![
-                Stage::select(HashMap::from([(
-                    "literal".to_string(),
-                    SelectExpr::logical(LogicalExpr::field("non_existing_field")),
-                )])),
-                Stage::filter(FilterExpr::logical(LogicalExpr::eq(
-                    LogicalExpr::field("title"),
-                    LogicalExpr::literal("1984".into()),
-                ))),
-                Stage::topk(LogicalExpr::field("published_year"), 100, true),
-            ]),
+            select([("literal", field("non_existing_field"))])
+                .filter(field("title").eq("1984"))
+                .top_k(field("published_year"), 100, true),
             None,
             None,
         )
@@ -80,15 +59,7 @@ async fn test_query_topk_limit(ctx: &mut ProjectTestContext) {
     let results = ctx
         .client
         .collection(&collection.name)
-        .query(
-            Query::new(vec![Stage::topk(
-                LogicalExpr::field("published_year"),
-                3,
-                true,
-            )]),
-            None,
-            None,
-        )
+        .query(top_k(field("published_year"), 3, true), None, None)
         .await
         .expect("could not query");
     assert_eq!(results.len(), 3);
@@ -96,15 +67,7 @@ async fn test_query_topk_limit(ctx: &mut ProjectTestContext) {
     let results = ctx
         .client
         .collection(&collection.name)
-        .query(
-            Query::new(vec![Stage::topk(
-                LogicalExpr::field("published_year"),
-                2,
-                true,
-            )]),
-            None,
-            None,
-        )
+        .query(top_k(field("published_year"), 2, true), None, None)
         .await
         .expect("could not query");
     assert_eq!(results.len(), 2);
@@ -112,15 +75,7 @@ async fn test_query_topk_limit(ctx: &mut ProjectTestContext) {
     let results = ctx
         .client
         .collection(&collection.name)
-        .query(
-            Query::new(vec![Stage::topk(
-                LogicalExpr::field("published_year"),
-                1,
-                true,
-            )]),
-            None,
-            None,
-        )
+        .query(top_k(field("published_year"), 1, true), None, None)
         .await
         .expect("could not query");
     assert_eq!(results.len(), 1);
@@ -135,13 +90,11 @@ async fn test_query_topk_asc(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            Query::new(vec![
-                Stage::select(HashMap::from([(
-                    "published_year".to_string(),
-                    SelectExpr::logical(LogicalExpr::field("published_year")),
-                )])),
-                Stage::topk(LogicalExpr::field("published_year"), 3, true),
-            ]),
+            select([("published_year", field("published_year"))]).top_k(
+                field("published_year"),
+                3,
+                true,
+            ),
             None,
             None,
         )
@@ -167,13 +120,11 @@ async fn test_query_topk_desc(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            Query::new(vec![
-                Stage::select(HashMap::from([(
-                    "published_year".to_string(),
-                    SelectExpr::logical(LogicalExpr::field("published_year")),
-                )])),
-                Stage::topk(LogicalExpr::field("published_year"), 3, false),
-            ]),
+            select([("published_year", field("published_year"))]).top_k(
+                field("published_year"),
+                3,
+                false,
+            ),
             None,
             None,
         )
@@ -199,21 +150,9 @@ async fn test_query_select_bm25_score(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            Query::new(vec![
-                Stage::select(HashMap::from([(
-                    "bm25_score".to_string(),
-                    SelectExpr::function(FunctionExpr::bm25_score()),
-                )])),
-                Stage::filter(FilterExpr::text(TextExpr::terms(
-                    true,
-                    vec![text_expr::Term {
-                        token: "pride".to_string(),
-                        field: None,
-                        weight: 1.0,
-                    }],
-                ))),
-                Stage::topk(LogicalExpr::field("bm25_score"), 100, true),
-            ]),
+            select([("bm25_score", fns::bm25_score())])
+                .filter(r#match("pride", None, None))
+                .top_k(field("bm25_score"), 100, true),
             None,
             None,
         )
@@ -235,16 +174,11 @@ async fn test_query_select_vector_distance(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            Query::new(vec![
-                Stage::select(HashMap::from([(
-                    "summary_distance".to_string(),
-                    SelectExpr::function(FunctionExpr::vector_distance(
-                        "summary_embedding".to_string(),
-                        Vector::float(vec![2.0; 16]),
-                    )),
-                )])),
-                Stage::topk(LogicalExpr::field("summary_distance"), 3, true),
-            ]),
+            select([(
+                "summary_distance",
+                fns::vector_distance("summary_embedding", Vector::F32(vec![2.0; 16])),
+            )])
+            .top_k(field("summary_distance"), 3, true),
             None,
             None,
         )
@@ -285,19 +219,7 @@ async fn test_query_select_null_field(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            Query::new(vec![
-                Stage::select(HashMap::from([
-                    (
-                        "a".to_string(),
-                        SelectExpr::logical(LogicalExpr::field("a")),
-                    ),
-                    (
-                        "b".to_string(),
-                        SelectExpr::logical(LogicalExpr::literal(1.into())),
-                    ),
-                ])),
-                Stage::topk(LogicalExpr::field("b"), 100, true),
-            ]),
+            select([("a", field("a")), ("b", literal(1 as u32))]).top_k(field("b"), 100, true),
             None,
             None,
         )

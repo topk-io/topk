@@ -1,6 +1,6 @@
 use crate::data::function_expr::VectorQuery;
 use crate::data::query::Query;
-use crate::data::select_expr::SelectExpressionUnion;
+use crate::data::select_expr::SelectExprUnion;
 use crate::{data, module};
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
@@ -30,7 +30,7 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
 #[pyo3(signature = (*args, **kwargs))]
 pub fn select(
     args: Vec<String>,
-    kwargs: Option<HashMap<String, SelectExpressionUnion>>,
+    kwargs: Option<HashMap<String, SelectExprUnion>>,
 ) -> PyResult<Query> {
     Ok(Query::new().select(args, kwargs)?)
 }
@@ -41,13 +41,13 @@ pub fn count() -> PyResult<Query> {
 }
 
 #[pyfunction]
-pub fn field(name: String) -> data::logical_expr::LogicalExpression {
-    data::logical_expr::LogicalExpression::Field { name }
+pub fn field(name: String) -> data::logical_expr::LogicalExpr {
+    data::logical_expr::LogicalExpr::Field { name }
 }
 
 #[pyfunction]
-pub fn literal(value: data::scalar::Scalar) -> data::logical_expr::LogicalExpression {
-    data::logical_expr::LogicalExpression::Literal { value }
+pub fn literal(value: data::scalar::Scalar) -> data::logical_expr::LogicalExpr {
+    data::logical_expr::LogicalExpr::Literal { value }
 }
 
 #[pyfunction]
@@ -57,8 +57,8 @@ pub fn r#match(
     field: Option<String>,
     weight: f32,
     all: bool,
-) -> data::text_expr::TextExpression {
-    data::text_expr::TextExpression::Terms {
+) -> data::text_expr::TextExpr {
+    data::text_expr::TextExpr::Terms {
         all,
         terms: vec![data::text_expr::Term {
             token,
@@ -79,8 +79,8 @@ pub fn fn_pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
 }
 
 #[pyfunction]
-pub fn bm25_score() -> data::function_expr::FunctionExpression {
-    data::function_expr::FunctionExpression::KeywordScore {}
+pub fn bm25_score() -> data::function_expr::FunctionExpr {
+    data::function_expr::FunctionExpr::KeywordScore {}
 }
 
 #[derive(Debug, Clone)]
@@ -118,11 +118,8 @@ impl<'py> FromPyObject<'py> for VectorQueryArg {
 }
 
 #[pyfunction]
-pub fn vector_distance(
-    field: String,
-    query: VectorQueryArg,
-) -> data::function_expr::FunctionExpression {
-    data::function_expr::FunctionExpression::VectorScore {
+pub fn vector_distance(field: String, query: VectorQueryArg) -> data::function_expr::FunctionExpr {
+    data::function_expr::FunctionExpr::VectorScore {
         field,
         query: match query {
             VectorQueryArg::F32(values) => VectorQuery::F32(values),
@@ -132,9 +129,6 @@ pub fn vector_distance(
 }
 
 #[pyfunction]
-pub fn semantic_similarity(
-    field: String,
-    query: String,
-) -> data::function_expr::FunctionExpression {
-    data::function_expr::FunctionExpression::SemanticSimilarity { field, query }
+pub fn semantic_similarity(field: String, query: String) -> data::function_expr::FunctionExpr {
+    data::function_expr::FunctionExpr::SemanticSimilarity { field, query }
 }

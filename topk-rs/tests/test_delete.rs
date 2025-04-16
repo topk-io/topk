@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use test_context::test_context;
 use topk_protos::doc;
-use topk_protos::v1::data::{LogicalExpr, Query, Stage};
+use topk_rs::query::{field, top_k};
 use topk_rs::Error;
 
 mod utils;
@@ -44,7 +44,7 @@ async fn test_delete_document(ctx: &mut ProjectTestContext) {
     // wait for write to be flushed
     ctx.client
         .collection(&collection.name)
-        .query(Query::new(vec![Stage::count()]), None, None)
+        .count(None, None)
         .await
         .expect("could not query documents");
 
@@ -59,11 +59,7 @@ async fn test_delete_document(ctx: &mut ProjectTestContext) {
     let docs = ctx
         .client
         .collection(&collection.name)
-        .query(
-            Query::new(vec![Stage::topk(LogicalExpr::field("rank"), 100, true)]),
-            Some(lsn),
-            None,
-        )
+        .query(top_k(field("rank"), 100, true), Some(lsn), None)
         .await
         .expect("could not query documents");
 

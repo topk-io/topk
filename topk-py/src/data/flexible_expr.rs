@@ -1,4 +1,4 @@
-use super::{logical_expr::LogicalExpression, scalar::Scalar};
+use super::{logical_expr::LogicalExpr, scalar::Scalar};
 use pyo3::{
     exceptions::PyTypeError,
     prelude::*,
@@ -16,25 +16,25 @@ pub enum FlexibleExpr {
     Float(f64),
     Bool(bool),
     Null(Null),
-    Expr(LogicalExpression),
+    Expr(LogicalExpr),
 }
 
-impl Into<LogicalExpression> for FlexibleExpr {
-    fn into(self) -> LogicalExpression {
+impl Into<LogicalExpr> for FlexibleExpr {
+    fn into(self) -> LogicalExpr {
         match self {
-            FlexibleExpr::String(s) => LogicalExpression::Literal {
+            FlexibleExpr::String(s) => LogicalExpr::Literal {
                 value: Scalar::String(s),
             },
-            FlexibleExpr::Int(i) => LogicalExpression::Literal {
+            FlexibleExpr::Int(i) => LogicalExpr::Literal {
                 value: Scalar::Int(i),
             },
-            FlexibleExpr::Float(f) => LogicalExpression::Literal {
+            FlexibleExpr::Float(f) => LogicalExpr::Literal {
                 value: Scalar::Float(f),
             },
-            FlexibleExpr::Bool(b) => LogicalExpression::Literal {
+            FlexibleExpr::Bool(b) => LogicalExpr::Literal {
                 value: Scalar::Bool(b),
             },
-            FlexibleExpr::Null(_) => LogicalExpression::Null(),
+            FlexibleExpr::Null(_) => LogicalExpr::Null(),
             FlexibleExpr::Expr(e) => e,
         }
     }
@@ -54,7 +54,7 @@ impl<'py> FromPyObject<'py> for FlexibleExpr {
             Ok(FlexibleExpr::Bool(b.extract()?))
         } else if let Ok(_) = obj.downcast::<PyNone>() {
             Ok(FlexibleExpr::Null(Null))
-        } else if let Ok(e) = obj.downcast::<LogicalExpression>() {
+        } else if let Ok(e) = obj.downcast::<LogicalExpr>() {
             Ok(FlexibleExpr::Expr(e.get().clone()))
         } else {
             Err(PyTypeError::new_err(format!(
@@ -74,16 +74,16 @@ pub enum Numeric {
     Float(f64),
 
     #[pyo3(transparent)]
-    Expr(LogicalExpression),
+    Expr(LogicalExpr),
 }
 
-impl Into<LogicalExpression> for Numeric {
-    fn into(self) -> LogicalExpression {
+impl Into<LogicalExpr> for Numeric {
+    fn into(self) -> LogicalExpr {
         match self {
-            Numeric::Int(i) => LogicalExpression::Literal {
+            Numeric::Int(i) => LogicalExpr::Literal {
                 value: Scalar::Int(i),
             },
-            Numeric::Float(f) => LogicalExpression::Literal {
+            Numeric::Float(f) => LogicalExpr::Literal {
                 value: Scalar::Float(f),
             },
             Numeric::Expr(e) => e,
@@ -97,13 +97,13 @@ pub enum Boolish {
     Bool(bool),
 
     #[pyo3(transparent)]
-    Expr(LogicalExpression),
+    Expr(LogicalExpr),
 }
 
-impl Into<LogicalExpression> for Boolish {
-    fn into(self) -> LogicalExpression {
+impl Into<LogicalExpr> for Boolish {
+    fn into(self) -> LogicalExpr {
         match self {
-            Boolish::Bool(b) => LogicalExpression::Literal {
+            Boolish::Bool(b) => LogicalExpr::Literal {
                 value: Scalar::Bool(b),
             },
             Boolish::Expr(e) => e,
@@ -117,13 +117,13 @@ pub enum Stringy {
     String(String),
 
     #[pyo3(transparent)]
-    Expr(LogicalExpression),
+    Expr(LogicalExpr),
 }
 
-impl Into<LogicalExpression> for Stringy {
-    fn into(self) -> LogicalExpression {
+impl Into<LogicalExpr> for Stringy {
+    fn into(self) -> LogicalExpr {
         match self {
-            Stringy::String(s) => LogicalExpression::Literal {
+            Stringy::String(s) => LogicalExpr::Literal {
                 value: Scalar::String(s),
             },
             Stringy::Expr(e) => e,
