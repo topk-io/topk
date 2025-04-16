@@ -2,48 +2,48 @@ use pyo3::prelude::*;
 
 #[pyclass]
 #[derive(Debug, Clone)]
-pub enum TextExpression {
+pub enum TextExpr {
     Terms {
         all: bool,
         terms: Vec<Term>,
     },
     And {
-        left: Py<TextExpression>,
-        right: Py<TextExpression>,
+        left: Py<TextExpr>,
+        right: Py<TextExpr>,
     },
     Or {
-        left: Py<TextExpression>,
-        right: Py<TextExpression>,
+        left: Py<TextExpr>,
+        right: Py<TextExpr>,
     },
 }
 
 #[pymethods]
-impl TextExpression {
+impl TextExpr {
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!("{:?}", self))
     }
-    fn __and__(&self, py: Python<'_>, other: TextExpression) -> PyResult<Self> {
+    fn __and__(&self, py: Python<'_>, other: TextExpr) -> PyResult<Self> {
         Ok(Self::And {
             left: Py::new(py, self.clone())?,
             right: Py::new(py, other)?,
         })
     }
 
-    fn __rand__(&self, py: Python<'_>, other: TextExpression) -> PyResult<Self> {
+    fn __rand__(&self, py: Python<'_>, other: TextExpr) -> PyResult<Self> {
         Ok(Self::And {
             left: Py::new(py, other)?,
             right: Py::new(py, self.clone())?,
         })
     }
 
-    fn __or__(&self, py: Python<'_>, other: TextExpression) -> PyResult<Self> {
+    fn __or__(&self, py: Python<'_>, other: TextExpr) -> PyResult<Self> {
         Ok(Self::Or {
             left: Py::new(py, self.clone())?,
             right: Py::new(py, other)?,
         })
     }
 
-    fn __ror__(&self, py: Python<'_>, other: TextExpression) -> PyResult<Self> {
+    fn __ror__(&self, py: Python<'_>, other: TextExpr) -> PyResult<Self> {
         Ok(Self::Or {
             left: Py::new(py, other)?,
             right: Py::new(py, self.clone())?,
@@ -51,21 +51,21 @@ impl TextExpression {
     }
 }
 
-impl Into<topk_protos::v1::data::TextExpr> for TextExpression {
-    fn into(self) -> topk_protos::v1::data::TextExpr {
+impl Into<topk_rs::data::text_expr::TextExpr> for TextExpr {
+    fn into(self) -> topk_rs::data::text_expr::TextExpr {
         match self {
-            TextExpression::Terms { all, terms } => topk_protos::v1::data::TextExpr::terms(
+            TextExpr::Terms { all, terms } => topk_rs::data::text_expr::TextExpr::Terms {
                 all,
-                terms.into_iter().map(|t| t.into()).collect(),
-            ),
-            TextExpression::And { left, right } => topk_protos::v1::data::TextExpr::and(
-                left.get().clone().into(),
-                right.get().clone().into(),
-            ),
-            TextExpression::Or { left, right } => topk_protos::v1::data::TextExpr::or(
-                left.get().clone().into(),
-                right.get().clone().into(),
-            ),
+                terms: terms.into_iter().map(|t| t.into()).collect(),
+            },
+            TextExpr::And { left, right } => topk_rs::data::text_expr::TextExpr::And {
+                left: Box::new(left.get().clone().into()),
+                right: Box::new(right.get().clone().into()),
+            },
+            TextExpr::Or { left, right } => topk_rs::data::text_expr::TextExpr::Or {
+                left: Box::new(left.get().clone().into()),
+                right: Box::new(right.get().clone().into()),
+            },
         }
     }
 }
@@ -78,9 +78,9 @@ pub struct Term {
     pub weight: f32,
 }
 
-impl Into<topk_protos::v1::data::text_expr::Term> for Term {
-    fn into(self) -> topk_protos::v1::data::text_expr::Term {
-        topk_protos::v1::data::text_expr::Term {
+impl Into<topk_rs::data::text_expr::Term> for Term {
+    fn into(self) -> topk_rs::data::text_expr::Term {
+        topk_rs::data::text_expr::Term {
             token: self.token,
             field: self.field,
             weight: self.weight,

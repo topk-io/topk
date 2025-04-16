@@ -5,6 +5,25 @@ on:
     types: [synchronize, opened, reopened, labeled, unlabeled]
 
 jobs:
+  rust:
+    name: Test Rust
+    runs-on: [earthly-satellite#bob-the-builder-amd64]
+    if: ${{ contains(github.event.pull_request.labels.*.name, 'ready') }}
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
+    env:
+      FORCE_COLOR: 1
+      EARTHLY_TOKEN: "${{ secrets.EARTHLY_TOKEN }}"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust tests
+        run: earthly --secret TOPK_API_KEY +test-rs --region elastica
+        env:
+          TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
+
   python:
     name: Test Python
     runs-on: [earthly-satellite#bob-the-builder-amd64]
@@ -17,7 +36,7 @@ jobs:
       FORCE_COLOR: 1
       EARTHLY_TOKEN: "${{ secrets.EARTHLY_TOKEN }}"
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Python tests
         run: earthly --secret TOPK_API_KEY +test-py --region elastica
@@ -26,7 +45,7 @@ jobs:
 
   ready:
     name: Ready
-    needs: [python]
+    needs: [rust, python]
     runs-on: ubuntu-latest
     steps:
       - name: Ready

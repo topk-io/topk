@@ -8,7 +8,7 @@ use pyo3::prelude::*;
 
 #[pyclass]
 #[derive(Clone)]
-pub enum LogicalExpression {
+pub enum LogicalExpr {
     Null(),
     Field {
         name: String,
@@ -18,16 +18,16 @@ pub enum LogicalExpression {
     },
     Unary {
         op: UnaryOperator,
-        expr: Py<LogicalExpression>,
+        expr: Py<LogicalExpr>,
     },
     Binary {
-        left: Py<LogicalExpression>,
+        left: Py<LogicalExpr>,
         op: BinaryOperator,
-        right: Py<LogicalExpression>,
+        right: Py<LogicalExpr>,
     },
 }
 
-impl std::fmt::Debug for LogicalExpression {
+impl std::fmt::Debug for LogicalExpr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Null() => write!(f, "Null"),
@@ -49,31 +49,29 @@ impl std::fmt::Debug for LogicalExpression {
     }
 }
 
-impl PartialEq for LogicalExpression {
+impl PartialEq for LogicalExpr {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (LogicalExpression::Null(), LogicalExpression::Null()) => true,
-            (LogicalExpression::Field { name: l }, LogicalExpression::Field { name: r }) => l == r,
-            (LogicalExpression::Literal { value: l }, LogicalExpression::Literal { value: r }) => {
-                l == r
-            }
+            (LogicalExpr::Null(), LogicalExpr::Null()) => true,
+            (LogicalExpr::Field { name: l }, LogicalExpr::Field { name: r }) => l == r,
+            (LogicalExpr::Literal { value: l }, LogicalExpr::Literal { value: r }) => l == r,
             (
-                LogicalExpression::Unary {
+                LogicalExpr::Unary {
                     op: l,
                     expr: l_expr,
                 },
-                LogicalExpression::Unary {
+                LogicalExpr::Unary {
                     op: r,
                     expr: r_expr,
                 },
             ) => l == r && l_expr.get() == r_expr.get(),
             (
-                LogicalExpression::Binary {
+                LogicalExpr::Binary {
                     left: l,
                     op: l_op,
                     right: l_right,
                 },
-                LogicalExpression::Binary {
+                LogicalExpr::Binary {
                     left: r,
                     op: r_op,
                     right: r_right,
@@ -85,19 +83,19 @@ impl PartialEq for LogicalExpression {
 }
 
 #[pymethods]
-impl LogicalExpression {
+impl LogicalExpr {
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!("{:?}", self))
     }
 
-    fn _expr_eq(&self, other: &LogicalExpression) -> bool {
+    fn _expr_eq(&self, other: &LogicalExpr) -> bool {
         self == other
     }
 
     // Comparison operators
 
     fn eq(&self, py: Python<'_>, other: FlexibleExpr) -> PyResult<Self> {
-        let expr: LogicalExpression = other.into();
+        let expr: LogicalExpr = other.into();
 
         Ok(Self::Binary {
             left: Py::new(py, self.clone())?,
@@ -111,7 +109,7 @@ impl LogicalExpression {
     }
 
     fn ne(&self, py: Python<'_>, other: FlexibleExpr) -> PyResult<Self> {
-        let expr: LogicalExpression = other.into();
+        let expr: LogicalExpr = other.into();
 
         Ok(Self::Binary {
             left: Py::new(py, self.clone())?,
@@ -125,7 +123,7 @@ impl LogicalExpression {
     }
 
     fn lt(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
-        let expr: LogicalExpression = other.into();
+        let expr: LogicalExpr = other.into();
 
         Ok(Self::Binary {
             left: Py::new(py, self.clone())?,
@@ -143,7 +141,7 @@ impl LogicalExpression {
     }
 
     fn lt_eq(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
-        let expr: LogicalExpression = other.into();
+        let expr: LogicalExpr = other.into();
 
         Ok(Self::Binary {
             left: Py::new(py, self.clone())?,
@@ -161,7 +159,7 @@ impl LogicalExpression {
     }
 
     fn gt(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
-        let expr: LogicalExpression = other.into();
+        let expr: LogicalExpr = other.into();
 
         Ok(Self::Binary {
             left: Py::new(py, self.clone())?,
@@ -179,7 +177,7 @@ impl LogicalExpression {
     }
 
     fn gt_eq(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
-        let expr: LogicalExpression = other.into();
+        let expr: LogicalExpr = other.into();
 
         Ok(Self::Binary {
             left: Py::new(py, self.clone())?,
@@ -199,7 +197,7 @@ impl LogicalExpression {
     // Arithmetic operators
 
     fn add(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
-        let expr: LogicalExpression = other.into();
+        let expr: LogicalExpr = other.into();
 
         Ok(Self::Binary {
             left: Py::new(py, self.clone())?,
@@ -217,7 +215,7 @@ impl LogicalExpression {
     }
 
     fn sub(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
-        let expr: LogicalExpression = other.into();
+        let expr: LogicalExpr = other.into();
 
         Ok(Self::Binary {
             left: Py::new(py, self.clone())?,
@@ -231,7 +229,7 @@ impl LogicalExpression {
     }
 
     fn __rsub__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
-        let expr: LogicalExpression = other.into();
+        let expr: LogicalExpr = other.into();
 
         Ok(Self::Binary {
             left: Py::new(py, expr)?,
@@ -241,7 +239,7 @@ impl LogicalExpression {
     }
 
     fn mul(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
-        let expr: LogicalExpression = other.into();
+        let expr: LogicalExpr = other.into();
 
         Ok(Self::Binary {
             left: Py::new(py, self.clone())?,
@@ -259,7 +257,7 @@ impl LogicalExpression {
     }
 
     fn div(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
-        let expr: LogicalExpression = other.into();
+        let expr: LogicalExpr = other.into();
 
         Ok(Self::Binary {
             left: Py::new(py, self.clone())?,
@@ -277,7 +275,7 @@ impl LogicalExpression {
     }
 
     fn __rdiv__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
-        let expr: LogicalExpression = other.into();
+        let expr: LogicalExpr = other.into();
 
         Ok(Self::Binary {
             left: Py::new(py, expr)?,
@@ -287,7 +285,7 @@ impl LogicalExpression {
     }
 
     fn __rtruediv__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
-        let expr: LogicalExpression = other.into();
+        let expr: LogicalExpr = other.into();
 
         Ok(Self::Binary {
             left: Py::new(py, expr)?,
@@ -299,7 +297,7 @@ impl LogicalExpression {
     // Boolean operators
 
     fn and(&self, py: Python<'_>, other: Boolish) -> PyResult<Self> {
-        let expr: LogicalExpression = other.into();
+        let expr: LogicalExpr = other.into();
 
         Ok(Self::Binary {
             left: Py::new(py, self.clone())?,
@@ -317,7 +315,7 @@ impl LogicalExpression {
     }
 
     fn or(&self, py: Python<'_>, other: Boolish) -> PyResult<Self> {
-        let expr: LogicalExpression = other.into();
+        let expr: LogicalExpr = other.into();
 
         Ok(Self::Binary {
             left: Py::new(py, self.clone())?,
@@ -340,28 +338,29 @@ impl LogicalExpression {
         Ok(Self::Binary {
             left: Py::new(py, self.clone())?,
             op: BinaryOperator::StartsWith,
-            right: Py::new(py, Into::<LogicalExpression>::into(other))?,
+            right: Py::new(py, Into::<LogicalExpr>::into(other))?,
         })
     }
 }
 
-impl Into<topk_protos::v1::data::LogicalExpr> for LogicalExpression {
-    fn into(self) -> topk_protos::v1::data::LogicalExpr {
+impl Into<topk_rs::data::logical_expr::LogicalExpr> for LogicalExpr {
+    fn into(self) -> topk_rs::data::logical_expr::LogicalExpr {
         match self {
-            LogicalExpression::Null() => unreachable!(),
-            LogicalExpression::Field { name } => topk_protos::v1::data::LogicalExpr::field(name),
-            LogicalExpression::Literal { value } => {
-                topk_protos::v1::data::LogicalExpr::literal(value.into())
-            }
-            LogicalExpression::Unary { op, expr } => {
-                topk_protos::v1::data::LogicalExpr::unary(op.into(), expr.get().clone().into())
-            }
-            LogicalExpression::Binary { left, op, right } => {
-                topk_protos::v1::data::LogicalExpr::binary(
-                    op.into(),
-                    left.get().clone().into(),
-                    right.get().clone().into(),
-                )
+            LogicalExpr::Null() => topk_rs::data::logical_expr::LogicalExpr::Null(),
+            LogicalExpr::Field { name } => topk_rs::data::logical_expr::LogicalExpr::Field { name },
+            LogicalExpr::Literal { value } => topk_rs::data::logical_expr::LogicalExpr::Literal {
+                value: value.into(),
+            },
+            LogicalExpr::Unary { op, expr } => topk_rs::data::logical_expr::LogicalExpr::Unary {
+                op: op.into(),
+                expr: Box::new(expr.get().clone().into()),
+            },
+            LogicalExpr::Binary { left, op, right } => {
+                topk_rs::data::logical_expr::LogicalExpr::Binary {
+                    left: Box::new(left.get().clone().into()),
+                    op: op.into(),
+                    right: Box::new(right.get().clone().into()),
+                }
             }
         }
     }

@@ -2,6 +2,9 @@ mod client;
 mod errors;
 mod internal_error_code;
 
+pub mod data;
+pub mod query;
+
 pub use client::ClientConfig;
 pub use client::{Client, CollectionClient};
 pub use errors::SchemaValidationError;
@@ -49,4 +52,7 @@ pub enum Error {
 
     #[error("channel not initialized")]
     TransportChannelNotInitialized,
+
+    #[error("malformed response: {0}")]
+    MalformedResponse(String),
 }
