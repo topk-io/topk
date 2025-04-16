@@ -365,28 +365,18 @@ if (!nativeBinding) {
     //  - The package owner could build/publish bindings for this arch
     //  - The user may need to bundle the correct files
     //  - The user may need to re-install node_modules to get new packages
-    console.error('Failed to load native binding', { cause: loadErrors })
     throw new Error('Failed to load native binding', { cause: loadErrors })
   }
   throw new Error(`Failed to load native binding`)
 }
 
-module.exports.BinaryVector = nativeBinding.BinaryVector
 module.exports.Client = nativeBinding.Client
 module.exports.CollectionClient = nativeBinding.CollectionClient
 module.exports.CollectionsClient = nativeBinding.CollectionsClient
-module.exports.FieldSpec = nativeBinding.FieldSpec
-module.exports.LogicalExpression = nativeBinding.LogicalExpression
-module.exports.Query = nativeBinding.Query
-module.exports.TextExpression = nativeBinding.TextExpression
-module.exports.BinaryOperator = nativeBinding.BinaryOperator
+module.exports.binary = nativeBinding.binary
 module.exports.binaryVector = nativeBinding.binaryVector
 module.exports.ConsistencyLevel = nativeBinding.ConsistencyLevel
-module.exports.EmbeddingDataType = nativeBinding.EmbeddingDataType
 module.exports.f32Vector = nativeBinding.f32Vector
-module.exports.KeywordIndexType = nativeBinding.KeywordIndexType
 module.exports.u8Vector = nativeBinding.u8Vector
-module.exports.UnaryOperator = nativeBinding.UnaryOperator
-module.exports.VectorDistanceMetric = nativeBinding.VectorDistanceMetric
 module.exports.query = nativeBinding.query
 module.exports.schema = nativeBinding.schema

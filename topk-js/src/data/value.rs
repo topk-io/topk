@@ -1,10 +1,14 @@
 use std::ptr;
 
-use napi::{bindgen_prelude::*, sys::napi_is_array};
+use napi::{
+    bindgen_prelude::*,
+    sys::{napi_is_array, napi_is_buffer},
+};
 
 use napi_derive::napi;
 
-// #[napi]
+use super::utils::is_napi_integer;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     String(String),
@@ -15,12 +19,12 @@ pub enum Value {
     I32(i32),
     I64(i64),
     F32(f32),
-    Binary(BinaryVector),
+    Binary(Vec<u8>),
     Vector(Vector),
     Null,
 }
 
-#[napi]
+#[napi(string_enum)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Vector {
     Float {
@@ -31,54 +35,10 @@ pub enum Vector {
         #[napi(ts_type = "Array<number>")]
         values: Vec<u8>,
     },
-}
-
-#[napi]
-#[derive(Debug, Clone, PartialEq)]
-pub struct BinaryVector {
-    values: Vec<u8>,
-}
-
-#[napi]
-impl BinaryVector {
-    #[napi(getter)]
-    pub fn get_values(&self) -> Vec<u8> {
-        self.values.clone()
-    }
-}
-
-impl FromNapiValue for BinaryVector {
-    unsafe fn from_napi_value(
-        env: napi::sys::napi_env,
-        napi_val: napi::sys::napi_value,
-    ) -> napi::Result<Self> {
-        let env_env = Env::from_raw(env);
-
-        // Check if it's a BinaryVector instance
-        let is_binary_vector = {
-            let env_value = Unknown::from_napi_value(env, napi_val)?;
-            BinaryVector::instance_of(env_env, env_value)?
-        };
-
-        if is_binary_vector {
-            let object = Object::from_napi_value(env, napi_val)?;
-            // Get the values property from the JavaScript object
-            let values: Option<Vec<u8>> = object.get("values")?;
-
-            match values {
-                Some(values) => Ok(BinaryVector { values }),
-                None => Err(napi::Error::new(
-                    napi::Status::GenericFailure,
-                    "BinaryVector object missing 'values' property".to_string(),
-                )),
-            }
-        } else {
-            Err(napi::Error::new(
-                napi::Status::GenericFailure,
-                "Value is not a binary vector",
-            ))
-        }
-    }
+    Binary {
+        #[napi(ts_type = "Array<number>")]
+        values: Vec<u8>,
+    },
 }
 
 #[napi]
@@ -92,8 +52,13 @@ pub fn u8_vector(values: Vec<u8>) -> Vector {
 }
 
 #[napi]
-pub fn binary_vector(values: Vec<u8>) -> BinaryVector {
-    BinaryVector { values }
+pub fn binary_vector(values: Vec<u8>) -> Vector {
+    Vector::Binary { values }
+}
+
+#[napi]
+pub fn binary(values: Vec<u8>) -> Value {
+    Value::Binary(values)
 }
 
 impl From<Value> for topk_protos::v1::data::Value {
@@ -107,7 +72,7 @@ impl From<Value> for topk_protos::v1::data::Value {
             Value::I32(n) => topk_protos::v1::data::Value::i32(n),
             Value::I64(n) => topk_protos::v1::data::Value::i64(n),
             Value::F32(n) => topk_protos::v1::data::Value::f32(n),
-            Value::Binary(b) => topk_protos::v1::data::Value::binary(b.values),
+            Value::Binary(b) => topk_protos::v1::data::Value::binary(b),
             Value::Vector(v) => match v {
                 Vector::Float { values } => {
                     let vector = topk_protos::v1::data::Vector::float(
@@ -119,6 +84,13 @@ impl From<Value> for topk_protos::v1::data::Value {
                     }
                 }
                 Vector::Byte { values } => {
+                    let vector = topk_protos::v1::data::Vector::byte(values);
+
+                    topk_protos::v1::data::Value {
+                        value: Some(topk_protos::v1::data::value::Value::Vector(vector)),
+                    }
+                }
+                Vector::Binary { values } => {
                     let vector = topk_protos::v1::data::Vector::byte(values);
 
                     topk_protos::v1::data::Value {
@@ -142,9 +114,7 @@ impl From<topk_protos::v1::data::Value> for Value {
             Some(topk_protos::v1::data::value::Value::I32(n)) => Value::I32(n),
             Some(topk_protos::v1::data::value::Value::I64(n)) => Value::I64(n),
             Some(topk_protos::v1::data::value::Value::F32(n)) => Value::F32(n),
-            Some(topk_protos::v1::data::value::Value::Binary(b)) => {
-                Value::Binary(BinaryVector { values: b })
-            }
+            Some(topk_protos::v1::data::value::Value::Binary(b)) => Value::Binary(b),
             Some(topk_protos::v1::data::value::Value::Vector(v)) => match v.vector {
                 Some(topk_protos::v1::data::vector::Vector::Float(float_vector)) => {
                     Value::Vector(Vector::Float {
@@ -176,39 +146,24 @@ impl FromNapiValue for Value {
             napi::sys::ValueType::napi_string => {
                 Ok(Value::String(String::from_napi_value(env, napi_val)?))
             }
-            napi::sys::ValueType::napi_number => {
-                let f64_value = f64::from_napi_value(env, napi_val)?;
-                if f64_value.fract() == 0.0 {
-                    // integer
-                    if f64_value >= 0.0 {
-                        if f64_value < f64::from(u32::MAX) {
-                            Ok(Value::U32(f64_value as u32))
-                        } else if f64_value < u64::MAX as f64 {
-                            Ok(Value::U64(f64_value as u64))
-                        } else {
-                            Ok(Value::I64(f64_value as i64))
-                        }
-                    } else {
-                        // Negative integers
-                        if f64_value >= f64::from(i32::MIN) {
-                            Ok(Value::I32(f64_value as i32))
-                        } else {
-                            Ok(Value::I64(f64_value as i64))
-                        }
-                    }
-                } else {
-                    // Floating point
-                    if f64_value.abs() < f32::MAX as f64 && (f64_value as f32) as f64 == f64_value {
-                        Ok(Value::F32(f64_value as f32))
-                    } else {
-                        Ok(Value::F64(f64_value))
-                    }
-                }
-            }
+            napi::sys::ValueType::napi_number => match is_napi_integer(env, napi_val) {
+                true => Ok(Value::I32(i32::from_napi_value(env, napi_val)?)),
+                false => Ok(Value::F64(f64::from_napi_value(env, napi_val)?)),
+            },
             napi::sys::ValueType::napi_boolean => {
                 Ok(Value::Bool(bool::from_napi_value(env, napi_val)?))
             }
             napi::sys::ValueType::napi_object => {
+                let mut is_buffer: bool = false;
+                napi_is_buffer(env, napi_val, &mut is_buffer);
+
+                if is_buffer {
+                    let buffer = Buffer::from_napi_value(env, napi_val)?;
+                    let values: Vec<u8> = buffer.into();
+
+                    return Ok(Value::Binary(values));
+                }
+
                 let mut is_array: bool = false;
                 napi_is_array(env, napi_val, &mut is_array);
 
@@ -252,17 +207,6 @@ impl FromNapiValue for Value {
                         }
                     }
                     false => {
-                        let binary_vector = BinaryVector::from_napi_ref(env, napi_val);
-
-                        match binary_vector {
-                            Ok(vector) => {
-                                return Ok(Value::Vector(Vector::Byte {
-                                    values: vector.values.clone(),
-                                }));
-                            }
-                            Err(_) => {}
-                        }
-
                         let vector = Vector::from_napi_value(env, napi_val);
 
                         match vector {
@@ -271,6 +215,9 @@ impl FromNapiValue for Value {
                             }
                             Ok(Vector::Float { values }) => {
                                 return Ok(Value::Vector(Vector::Float { values }));
+                            }
+                            Ok(Vector::Binary { values }) => {
+                                return Ok(Value::Vector(Vector::Binary { values }));
                             }
                             Err(e) => {
                                 return Err(e);
@@ -300,7 +247,23 @@ impl ToNapiValue for Value {
             Value::I32(n) => i32::to_napi_value(env, n),
             Value::I64(n) => i64::to_napi_value(env, n),
             Value::F32(n) => f32::to_napi_value(env, n),
-            Value::Binary(b) => BinaryVector::to_napi_value(env, b),
+            Value::Binary(b) => {
+                let mut js_array = ptr::null_mut();
+                check_status!(
+                    sys::napi_create_array(env, &mut js_array),
+                    "Failed to create JavaScript array"
+                )?;
+
+                for (i, &value) in b.iter().enumerate() {
+                    let js_value = u8::to_napi_value(env, value)?;
+                    check_status!(
+                        sys::napi_set_element(env, js_array, i as u32, js_value),
+                        "Failed to set array element"
+                    )?;
+                }
+
+                Ok(js_array)
+            }
             Value::Vector(v) => match v {
                 Vector::Float { values } => {
                     // Create a JavaScript array for the float vector
@@ -322,6 +285,25 @@ impl ToNapiValue for Value {
                     Ok(js_array)
                 }
                 Vector::Byte { values } => {
+                    let mut js_array = ptr::null_mut();
+
+                    check_status!(
+                        sys::napi_create_array(env, &mut js_array),
+                        "Failed to create JavaScript array"
+                    )?;
+
+                    // Add each u8 value to the array
+                    for (i, &value) in values.iter().enumerate() {
+                        let js_value = u8::to_napi_value(env, value)?;
+                        check_status!(
+                            sys::napi_set_element(env, js_array, i as u32, js_value),
+                            "Failed to set array element"
+                        )?;
+                    }
+
+                    Ok(js_array)
+                }
+                Vector::Binary { values } => {
                     let mut js_array = ptr::null_mut();
 
                     check_status!(

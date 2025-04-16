@@ -3,7 +3,7 @@ use napi_derive::napi;
 
 use super::{data_type::DataType, field_index::FieldIndex};
 
-#[napi]
+#[napi(namespace = "schema")]
 #[derive(Clone)]
 pub struct FieldSpec {
     data_type: DataType,
@@ -11,7 +11,7 @@ pub struct FieldSpec {
     index: Option<FieldIndex>,
 }
 
-#[napi]
+#[napi(namespace = "schema")]
 impl FieldSpec {
     #[napi(factory)]
     pub fn create(data_type: DataType) -> Self {
@@ -35,16 +35,6 @@ impl FieldSpec {
         Self {
             index: Some(index),
             ..self.clone()
-        }
-    }
-}
-
-impl From<topk_protos::v1::control::FieldSpec> for FieldSpec {
-    fn from(field_spec: topk_protos::v1::control::FieldSpec) -> Self {
-        Self {
-            data_type: field_spec.data_type.unwrap().into(),
-            required: field_spec.required,
-            index: field_spec.index.map(|idx| idx.into()),
         }
     }
 }

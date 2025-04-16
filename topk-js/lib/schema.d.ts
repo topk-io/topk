@@ -1,4 +1,4 @@
-import { schema, VectorDistanceMetric as VectorDistanceMetricEnum } from "./index";
+import { schema } from "../index";
 
 export declare const binaryVector: typeof schema.binaryVector;
 export declare const bool: typeof schema.bool;
@@ -11,3 +11,4 @@ export declare const semanticIndex: typeof schema.semanticIndex;
 export declare const text: typeof schema.text;
 export declare const u8Vector: typeof schema.u8Vector;
 export declare const vectorIndex: typeof schema.vectorIndex;
+export declare const FieldSpec: typeof schema.FieldSpec;

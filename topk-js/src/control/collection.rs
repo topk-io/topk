@@ -7,7 +7,10 @@ use napi_derive::napi;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use super::field_spec::FieldSpec;
+use super::data_type::DataType;
+use super::field_index::FieldIndexUnion;
+
+// use super::field_spec::FieldSpec;
 
 #[napi]
 pub struct CollectionClient {
@@ -72,7 +75,7 @@ impl CollectionClient {
         lsn: Option<i64>,
         consistency: Option<ConsistencyLevel>,
     ) -> Result<i64> {
-        let query = Query::create(vec![]).count();
+        let query = Query::new().count();
 
         let docs = self
             .client
@@ -114,7 +117,7 @@ impl CollectionClient {
     #[napi]
     pub async fn query(
         &self,
-        query: Query,
+        #[napi(ts_arg_type = "query.Query")] query: Query,
         lsn: Option<u32>,
         consistency: Option<ConsistencyLevel>,
     ) -> Result<Vec<HashMap<String, Value>>> {
@@ -165,6 +168,25 @@ impl CollectionClient {
             .map(|lsn| lsn as i64)?;
 
         Ok(result)
+    }
+}
+
+#[napi(object)]
+pub struct FieldSpec {
+    #[napi(ts_type = "schema.DataType")]
+    pub data_type: DataType,
+    pub required: bool,
+    #[napi(ts_type = "schema.FieldIndexUnion")]
+    pub index: Option<FieldIndexUnion>,
+}
+
+impl From<topk_protos::v1::control::FieldSpec> for FieldSpec {
+    fn from(field_spec: topk_protos::v1::control::FieldSpec) -> Self {
+        Self {
+            data_type: field_spec.data_type.unwrap().into(),
+            required: field_spec.required,
+            index: field_spec.index.map(|index| index.into()),
+        }
     }
 }
 

@@ -1,4 +1,4 @@
-import { field, literal } from '../query';
+import { field, literal } from '../lib/query';
 
 // Note: JS doesn't support operator overloading, so we can't test 1 + field('a')
 

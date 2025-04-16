@@ -17,6 +17,7 @@ pub struct CollectionsClient {
 #[napi(object)]
 pub struct CreateCollectionOptions {
     pub name: String,
+    #[napi(ts_type = "Record<string, schema.FieldSpec>")]
     pub schema: HashMap<String, FieldSpec>,
 }
 
@@ -41,7 +42,10 @@ impl CollectionsClient {
     pub async fn create(
         &self,
         name: String,
-        schema: HashMap<String, FieldSpec>,
+        #[napi(ts_arg_type = "Record<string, schema.FieldSpec>")] schema: HashMap<
+            String,
+            FieldSpec,
+        >,
     ) -> Result<Collection> {
         let proto_schema: HashMap<String, control::FieldSpec> =
             schema.into_iter().map(|(k, v)| (k, v.into())).collect();

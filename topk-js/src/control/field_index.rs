@@ -1,6 +1,6 @@
 use napi_derive::napi;
 
-#[napi]
+#[napi(namespace = "schema")]
 #[derive(Clone, Debug)]
 pub enum FieldIndexUnion {
     KeywordIndex {
@@ -15,13 +15,13 @@ pub enum FieldIndexUnion {
     },
 }
 
-#[napi(object)]
+#[napi(object, namespace = "schema")]
 #[derive(Clone, Debug)]
 pub struct FieldIndex {
     pub index: Option<FieldIndexUnion>,
 }
 
-#[napi(string_enum = "lowercase")]
+#[napi(string_enum = "lowercase", namespace = "schema")]
 #[derive(Clone, Debug)]
 pub enum KeywordIndexType {
     Text,
@@ -46,7 +46,46 @@ impl From<topk_protos::v1::control::KeywordIndexType> for KeywordIndexType {
     }
 }
 
-#[napi(string_enum = "lowercase")]
+impl From<topk_protos::v1::control::FieldIndex> for FieldIndexUnion {
+    fn from(field_index: topk_protos::v1::control::FieldIndex) -> Self {
+        match field_index.index {
+            Some(i) => match i {
+                topk_protos::v1::control::field_index::Index::KeywordIndex(k) => {
+                    FieldIndexUnion::KeywordIndex {
+                        index_type: topk_protos::v1::control::KeywordIndexType::try_from(
+                            k.index_type,
+                        )
+                        .expect("Unsupported keyword index type")
+                        .into(),
+                    }
+                }
+                topk_protos::v1::control::field_index::Index::VectorIndex(v) => {
+                    FieldIndexUnion::VectorIndex {
+                        metric: topk_protos::v1::control::VectorDistanceMetric::try_from(v.metric)
+                            .expect("Unsupported vector distance metric")
+                            .into(),
+                    }
+                }
+                topk_protos::v1::control::field_index::Index::SemanticIndex(s) => {
+                    FieldIndexUnion::SemanticIndex {
+                        model: s.model,
+                        embedding_type: match s.embedding_type {
+                            Some(t) => Some(
+                                topk_protos::v1::control::EmbeddingDataType::try_from(t)
+                                    .expect("Unsupported embedding data type")
+                                    .into(),
+                            ),
+                            None => None,
+                        },
+                    }
+                }
+            },
+            None => unreachable!("Field index cannot be none"),
+        }
+    }
+}
+
+#[napi(string_enum = "lowercase", namespace = "schema")]
 #[derive(Clone, Debug)]
 pub enum VectorDistanceMetric {
     Cosine,
@@ -92,7 +131,7 @@ impl From<VectorDistanceMetric> for topk_protos::v1::control::VectorDistanceMetr
     }
 }
 
-#[napi(string_enum = "lowercase")]
+#[napi(string_enum = "lowercase", namespace = "schema")]
 #[derive(Clone, Debug)]
 pub enum EmbeddingDataType {
     Float32,

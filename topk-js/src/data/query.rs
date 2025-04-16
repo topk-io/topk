@@ -11,17 +11,36 @@ use super::{
     value::Value,
 };
 
-#[napi]
+#[napi(namespace = "query")]
 #[derive(Debug, Clone)]
 pub struct Query {
     stages: Vec<Stage>,
 }
 
-#[napi]
+#[napi(namespace = "query")]
 impl Query {
+    #[napi(constructor)]
+    pub fn new() -> Self {
+        Self { stages: vec![] }
+    }
+
     #[napi(factory)]
-    pub fn create(stages: Vec<Stage>) -> Query {
-        Self { stages }
+    pub fn select(
+        &self,
+        #[napi(ts_arg_type = "Record<string, LogicalExpression | FunctionExpression>")]
+        exprs: HashMap<String, SelectExpression>,
+    ) -> Self {
+        let mut new_query = Query {
+            stages: self.stages.clone(),
+        };
+
+        let stage = Stage::Select {
+            exprs: exprs.into_iter().map(|(k, v)| (k, v.into())).collect(),
+        };
+
+        new_query.stages.push(stage);
+
+        new_query
     }
 
     #[napi]
@@ -38,7 +57,7 @@ impl Query {
         new_query
     }
 
-    #[napi(js_name = "top_k")]
+    #[napi]
     pub fn top_k(&self, expr: LogicalExpression, k: i32, asc: Option<bool>) -> Query {
         let mut new_query = Query {
             stages: self.stages.clone(),
@@ -93,14 +112,14 @@ pub fn select(
         String,
         SelectExpression,
     >,
-) -> Result<Query> {
+) -> Query {
     let stage = Stage::Select {
         exprs: exprs.into_iter().map(|(k, v)| (k, v.into())).collect(),
     };
 
     let stages = vec![stage];
 
-    Ok(Query { stages })
+    Query { stages }
 }
 
 #[napi(namespace = "query")]

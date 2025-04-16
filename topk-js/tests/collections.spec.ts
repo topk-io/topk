@@ -1,4 +1,4 @@
-import { binaryVector, bool, bytes, f32Vector, float, int, semanticIndex, text, u8Vector, vectorIndex } from '../schema';
+import { binaryVector, bool, bytes, f32Vector, float, int, semanticIndex, text, u8Vector, vectorIndex } from '../lib/schema';
 import { newProjectContext, ProjectContext } from './setup';
 
 describe('Collections', () => {
@@ -31,7 +31,21 @@ describe('Collections', () => {
     const collection = await ctx.createCollection('books', schema);
 
     expect(collection.name).toBe(ctx.scope('books'));
-    expect(collection.schema).toEqual(schema);
+
+    expect(collection.schema.title.dataType.type).toBe('Text');
+    expect(collection.schema.title.required).toBe(false);
+
+    expect(collection.schema.title_embedding.dataType.type).toBe('F32Vector');
+    expect(collection.schema.title_embedding.dataType.type === 'F32Vector' && collection.schema.title_embedding.dataType.dimension).toBe(1536);
+    expect(collection.schema.title_embedding.required).toBe(true);
+    expect(collection.schema.title_embedding.index.type).toBe('VectorIndex');
+    expect(collection.schema.title_embedding.index.type === 'VectorIndex' && collection.schema.title_embedding.index.metric).toBe('euclidean');
+
+    expect(collection.schema.summary.dataType.type).toBe('Text');
+    expect(collection.schema.summary.required).toBe(true);
+
+    expect(collection.schema.published_year.dataType.type).toBe('Integer');
+    expect(collection.schema.published_year.required).toBe(true);
   });
 
   test('create collection with all data types', async () => {
@@ -52,7 +66,37 @@ describe('Collections', () => {
     const collection = await ctx.createCollection('books', schema);
 
     expect(collection.name).toBe(ctx.scope('books'));
-    expect(collection.schema).toEqual(schema);
+
+    expect(collection.schema.text.dataType.type).toBe('Text');
+    expect(collection.schema.text.required).toBe(false);
+
+    expect(collection.schema.int.dataType.type).toBe('Integer');
+    expect(collection.schema.int.required).toBe(false);
+
+    expect(collection.schema.float.dataType.type).toBe('Float');
+    expect(collection.schema.float.required).toBe(false);
+
+    expect(collection.schema.bool.dataType.type).toBe('Boolean');
+    expect(collection.schema.bool.required).toBe(false);
+
+    expect(collection.schema.vector.dataType.type).toBe('F32Vector');
+    expect(collection.schema.vector.dataType.type === 'F32Vector' && collection.schema.vector.dataType.dimension).toBe(1536);
+    expect(collection.schema.vector.required).toBe(false);
+
+    expect(collection.schema.float_vector.dataType.type).toBe('F32Vector');
+    expect(collection.schema.float_vector.dataType.type === 'F32Vector' && collection.schema.float_vector.dataType.dimension).toBe(1536);
+    expect(collection.schema.float_vector.required).toBe(false);
+
+    expect(collection.schema.byte_vector.dataType.type).toBe('U8Vector');
+    expect(collection.schema.byte_vector.dataType.type === 'U8Vector' && collection.schema.byte_vector.dataType.dimension).toBe(1536);
+    expect(collection.schema.byte_vector.required).toBe(false);
+
+    expect(collection.schema.binary_vector.dataType.type).toBe('BinaryVector');
+    expect(collection.schema.binary_vector.dataType.type === 'BinaryVector' && collection.schema.binary_vector.dataType.dimension).toBe(1536);
+    expect(collection.schema.binary_vector.required).toBe(false);
+
+    expect(collection.schema.bytes.dataType.type).toBe('Bytes');
+    expect(collection.schema.bytes.required).toBe(false);
   });
 
   test('incorrect schema', async () => {

@@ -1,7 +1,7 @@
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
-use super::value::{BinaryVector, Vector};
+use super::value::Vector;
 
 #[napi]
 #[derive(Debug, Clone)]
@@ -9,11 +9,6 @@ pub enum FunctionExpression {
     KeywordScore,
     VectorScore { field: String, query: VectorQuery },
     SemanticSimilarity { field: String, query: String },
-}
-
-#[napi(namespace = "query")]
-pub fn semantic_similarity(field: String, query: String) -> FunctionExpression {
-    FunctionExpression::SemanticSimilarity { field, query }
 }
 
 #[napi]
@@ -37,7 +32,6 @@ impl Into<topk_protos::v1::data::Vector> for VectorQuery {
 #[derive(Debug, Clone)]
 pub enum VectorDistanceQuery {
     Vector { vector: Vector },
-    Binary { vector: BinaryVector },
 }
 
 impl FromNapiValue for VectorDistanceQuery {
@@ -57,13 +51,6 @@ impl FromNapiValue for VectorDistanceQuery {
                     vector: Vector::Float { values: arr },
                 });
             } else {
-                // Try to interpret as a BinaryVector first
-                let binary_vector = BinaryVector::from_napi_value(env, value);
-                if let Ok(binary) = binary_vector {
-                    return Ok(VectorDistanceQuery::Binary { vector: binary });
-                }
-
-                // If not a BinaryVector, try as a Vector
                 match Vector::from_napi_value(env, value) {
                     Ok(vector) => Ok(VectorDistanceQuery::Vector { vector }),
                     Err(_) => {
@@ -82,7 +69,7 @@ impl FromNapiValue for VectorDistanceQuery {
 #[napi(namespace = "query")]
 pub fn vector_distance(
     field: String,
-    #[napi(ts_arg_type = "Array<number> | Vector | BinaryVector")] query: VectorDistanceQuery,
+    #[napi(ts_arg_type = "Array<number> | Vector")] query: VectorDistanceQuery,
 ) -> FunctionExpression {
     FunctionExpression::VectorScore {
         field,
@@ -90,9 +77,7 @@ pub fn vector_distance(
             VectorDistanceQuery::Vector { vector } => match vector {
                 Vector::Float { values } => VectorQuery::F32 { vector: values },
                 Vector::Byte { values } => VectorQuery::U8 { vector: values },
-            },
-            VectorDistanceQuery::Binary { vector } => VectorQuery::U8 {
-                vector: vector.get_values(),
+                Vector::Binary { values } => VectorQuery::U8 { vector: values },
             },
         },
     }
@@ -101,6 +86,11 @@ pub fn vector_distance(
 #[napi(namespace = "query")]
 pub fn bm25_score() -> FunctionExpression {
     FunctionExpression::KeywordScore
+}
+
+#[napi(namespace = "query")]
+pub fn semantic_similarity(field: String, query: String) -> FunctionExpression {
+    FunctionExpression::SemanticSimilarity { field, query }
 }
 
 impl Into<topk_protos::v1::data::FunctionExpr> for FunctionExpression {

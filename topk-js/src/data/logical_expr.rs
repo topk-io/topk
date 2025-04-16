@@ -9,7 +9,7 @@ use super::{
     value::Value,
 };
 
-#[napi]
+#[napi(namespace = "query")]
 #[derive(Debug, Clone)]
 pub enum LogicalExpressionUnion {
     Null,
@@ -33,13 +33,13 @@ pub enum LogicalExpressionUnion {
     },
 }
 
-#[napi]
+#[napi(namespace = "query")]
 #[derive(Debug, Clone)]
 pub struct LogicalExpression {
     expr: LogicalExpressionUnion,
 }
 
-#[napi]
+#[napi(namespace = "query")]
 impl LogicalExpression {
     #[napi(factory)]
     pub fn create(expr: LogicalExpressionUnion) -> Self {

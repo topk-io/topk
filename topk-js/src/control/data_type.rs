@@ -1,6 +1,6 @@
 use napi_derive::napi;
 
-#[napi(string_enum)]
+#[napi(string_enum, namespace = "schema")]
 #[derive(Clone, Debug)]
 pub enum DataType {
     Text,

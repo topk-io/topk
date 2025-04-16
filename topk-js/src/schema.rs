@@ -7,7 +7,7 @@ use napi_derive::napi;
 
 #[napi(namespace = "schema")]
 pub fn text() -> control::field_spec::FieldSpec {
-    control::field_spec::FieldSpec::create(control::data_type::DataType::Text {})
+    control::field_spec::FieldSpec::create(control::data_type::DataType::Text)
 }
 
 #[napi(namespace = "schema")]

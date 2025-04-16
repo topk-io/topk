@@ -4,7 +4,7 @@ use topk_protos::v1::data;
 
 use super::napi_box::NapiBox;
 
-#[napi]
+#[napi(namespace = "query")]
 #[derive(Debug, Clone)]
 pub enum TextExpressionUnion {
     Terms {
@@ -25,14 +25,19 @@ pub enum TextExpressionUnion {
     },
 }
 
-#[napi]
+#[napi(namespace = "query")]
 #[derive(Debug, Clone)]
 pub struct TextExpression {
     expr: TextExpressionUnion,
 }
 
-#[napi]
+#[napi(namespace = "query")]
 impl TextExpression {
+    #[napi(factory)]
+    pub fn create(expr: TextExpressionUnion) -> Self {
+        TextExpression { expr }
+    }
+
     #[napi]
     pub fn and(&self, other: &TextExpression) -> Self {
         TextExpression {
@@ -137,14 +142,12 @@ impl Into<data::text_expr::Term> for Term {
 
 #[napi(js_name = "match", namespace = "query")]
 pub fn match_(token: String, field: Option<String>, weight: Option<f64>) -> TextExpression {
-    TextExpression {
-        expr: TextExpressionUnion::Terms {
-            all: true,
-            terms: vec![Term {
-                token,
-                field,
-                weight: weight.unwrap_or(1.0),
-            }],
-        },
-    }
+    TextExpression::create(TextExpressionUnion::Terms {
+        all: true,
+        terms: vec![Term {
+            token,
+            field,
+            weight: weight.unwrap_or(1.0),
+        }],
+    })
 }

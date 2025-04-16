@@ -22,10 +22,9 @@
     }
   },
   "files": [
+    "lib",
     "index.js",
-    "index.d.ts",
-    "schema.js",
-    "schema.d.ts"
+    "index.d.ts"
   ],
   "exports": {
     ".": {
@@ -34,14 +33,14 @@
       "types": "./index.d.ts"
     },
     "./schema": {
-      "require": "./schema.js",
-      "import": "./schema.js",
-      "types": "./schema.d.ts"
+      "require": "./lib/schema.js",
+      "import": "./lib/schema.js",
+      "types": "./lib/schema.d.ts"
     },
     "./query": {
-      "require": "./query.js",
-      "import": "./query.js",
-      "types": "./query.d.ts"
+      "require": "./lib/query.js",
+      "import": "./lib/query.js",
+      "types": "./lib/query.d.ts"
     }
   },
   "license": "MIT",
