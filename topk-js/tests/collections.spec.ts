@@ -19,7 +19,7 @@ describe('Collections', () => {
         console.error(`Error deleting collection ${collectionName}:`, error);
       }
     }
-  });
+  }, 10000);
 
   // Helper function to create a collection and track it
   const createCollection = async (name: string, schema: any) => {

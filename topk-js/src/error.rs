@@ -8,6 +8,9 @@ impl From<topk_rs::Error> for TopkError {
 
 impl From<TopkError> for napi::Error {
     fn from(error: TopkError) -> Self {
-        napi::Error::new(napi::Status::GenericFailure, format!("{:?}", error.0))
+        napi::Error::new(
+            napi::Status::GenericFailure,
+            format!("{:?}", error.0.to_string()),
+        )
     }
 }
