@@ -465,8 +465,8 @@ jobs:
       fail-fast: false
       matrix:
         node:
-          - '18'
           - '20'
+          - '22'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -496,7 +496,7 @@ jobs:
           TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
         uses: addnab/docker-run-action@v3
         with:
-          image: node:${{ matrix.node }}-bullseye-slim
+          image: node:${{ matrix.node }}-bookworm-slim
           options: '--platform linux/arm/v7 -v ${{ github.workspace }}:/build -w /build/topk-js -e TOPK_API_KEY'
           run: |
             set -e
