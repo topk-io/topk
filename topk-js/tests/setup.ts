@@ -1,4 +1,5 @@
 import { Client } from '../index.js';
+import { v4 as uuidv4 } from 'uuid';
 
 export class ProjectContext {
   client: Client;
@@ -46,6 +47,6 @@ export function newProjectContext() {
 
   return new ProjectContext(
     client,
-    `test-${Math.random().toString().replace('.', '')}`
+    `test-${uuidv4()}`
   );
 }
