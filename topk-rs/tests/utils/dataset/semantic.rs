@@ -2,7 +2,7 @@ use crate::utils::ProjectTestContext;
 use std::collections::HashMap;
 use topk_protos::v1::{
     control::{Collection, FieldSpec},
-    data::{Document, Query, Stage},
+    data::Document,
 };
 use topk_protos::{doc, schema};
 
@@ -25,7 +25,7 @@ pub async fn setup(ctx: &mut ProjectTestContext) -> Collection {
     let _ = ctx
         .client
         .collection(&collection.name)
-        .query(Query::new(vec![Stage::count()]), Some(lsn), None)
+        .count(Some(lsn), None)
         .await
         .expect("could not query");
 

@@ -1,6 +1,4 @@
-use super::{
-    filter_expr::FilterExpression, logical_expr::LogicalExpression, select_expr::SelectExpression,
-};
+use super::{filter_expr::FilterExpr, logical_expr::LogicalExpr, select_expr::SelectExpr};
 use pyo3::prelude::*;
 use std::collections::HashMap;
 
@@ -8,13 +6,13 @@ use std::collections::HashMap;
 #[derive(Debug, Clone)]
 pub enum Stage {
     Select {
-        exprs: HashMap<String, SelectExpression>,
+        exprs: HashMap<String, SelectExpr>,
     },
     Filter {
-        expr: FilterExpression,
+        expr: FilterExpr,
     },
     TopK {
-        expr: LogicalExpression,
+        expr: LogicalExpr,
         k: u64,
         asc: bool,
     },
@@ -27,19 +25,30 @@ pub enum Stage {
     },
 }
 
-impl Into<topk_protos::v1::data::Stage> for Stage {
-    fn into(self) -> topk_protos::v1::data::Stage {
+impl Into<topk_rs::query::Stage> for Stage {
+    fn into(self) -> topk_rs::query::Stage {
         match self {
-            Stage::Select { exprs } => topk_protos::v1::data::Stage::select(exprs),
-            Stage::Filter { expr } => topk_protos::v1::data::Stage::filter(expr),
-            Stage::TopK { expr, k, asc } => topk_protos::v1::data::Stage::topk(expr.into(), k, asc),
-            Stage::Count {} => topk_protos::v1::data::Stage::count(),
+            Stage::Select { exprs } => topk_rs::query::Stage::Select {
+                exprs: exprs.into_iter().map(|(k, v)| (k, v.into())).collect(),
+            },
+            Stage::Filter { expr } => topk_rs::query::Stage::Filter { expr: expr.into() },
+            Stage::TopK { expr, k, asc } => topk_rs::query::Stage::TopK {
+                expr: expr.into(),
+                k,
+                asc,
+            },
+            Stage::Count {} => topk_rs::query::Stage::Count {},
             Stage::Rerank {
                 model,
                 query,
                 fields,
                 topk_multiple,
-            } => topk_protos::v1::data::Stage::rerank(model, query, fields, topk_multiple),
+            } => topk_rs::query::Stage::Rerank {
+                model,
+                query,
+                fields,
+                topk_multiple,
+            },
         }
     }
 }

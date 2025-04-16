@@ -1,11 +1,9 @@
 use std::collections::HashMap;
 use test_context::test_context;
-use topk_protos::{
-    doc,
-    v1::data::{stage::select_stage::SelectExpr, LogicalExpr, Query, Stage, Value},
-};
+use topk_protos::{doc, v1::data::Value};
 
 mod utils;
+use topk_rs::query::{field, select};
 use utils::ProjectTestContext;
 
 #[test_context(ProjectTestContext)]
@@ -43,7 +41,7 @@ async fn test_query_select_union(ctx: &mut ProjectTestContext) {
     let _ = ctx
         .client
         .collection(&collection.name)
-        .query(Query::new(vec![Stage::count()]), Some(lsn), None)
+        .count(Some(lsn), None)
         .await
         .expect("could not query");
 
@@ -51,13 +49,7 @@ async fn test_query_select_union(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            Query::new(vec![
-                Stage::select(HashMap::from([(
-                    "mixed".to_string(),
-                    SelectExpr::logical(LogicalExpr::field("mixed")),
-                )])),
-                Stage::topk(LogicalExpr::field("rank"), 100, true),
-            ]),
+            select([("mixed", field("mixed"))]).top_k(field("rank"), 100, true),
             None,
             None,
         )

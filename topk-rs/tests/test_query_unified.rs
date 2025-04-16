@@ -1,10 +1,8 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use test_context::test_context;
-use topk_protos::v1::data::{
-    stage::{filter_stage::FilterExpr, select_stage::SelectExpr},
-    text_expr::Term,
-    FunctionExpr, LogicalExpr, Query, Stage, TextExpr, Vector,
-};
+use topk_rs::data::function_expr::Vector;
+use topk_rs::query::literal;
+use topk_rs::query::{field, fns, r#match, select};
 
 mod utils;
 use utils::dataset;
@@ -19,47 +17,19 @@ async fn test_query_unified(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            Query::new(vec![
-                Stage::select(HashMap::from([
-                    (
-                        "summary_distance".to_string(),
-                        SelectExpr::function(FunctionExpr::vector_distance(
-                            "summary_embedding".to_string(),
-                            Vector::float(vec![2.0; 16]),
-                        )),
-                    ),
-                    (
-                        "bm25_score".to_string(),
-                        SelectExpr::function(FunctionExpr::bm25_score()),
-                    ),
-                ])),
-                Stage::filter(FilterExpr::text(TextExpr::terms(
-                    false,
-                    vec![
-                        Term {
-                            token: "love".to_string(),
-                            field: None,
-                            weight: 30.0,
-                        },
-                        Term {
-                            token: "young".to_string(),
-                            field: None,
-                            weight: 10.0,
-                        },
-                    ],
-                ))),
-                Stage::topk(
-                    LogicalExpr::add(
-                        LogicalExpr::field("bm25_score"),
-                        LogicalExpr::mul(
-                            LogicalExpr::field("summary_distance"),
-                            LogicalExpr::literal((100 as u32).into()),
-                        ),
-                    ),
-                    2,
-                    true,
+            select([
+                (
+                    "summary_distance",
+                    fns::vector_distance("summary_embedding", Vector::F32(vec![2.0; 16])),
                 ),
-            ]),
+                ("bm25_score", fns::bm25_score()),
+            ])
+            .filter(r#match("love", None, Some(30.0)).or(r#match("young", None, Some(10.0))))
+            .top_k(
+                field("bm25_score") + (field("summary_distance") * literal(100)),
+                2,
+                true,
+            ),
             None,
             None,
         )

@@ -1,7 +1,7 @@
 use super::{
-    filter_expr::FilterExpressionUnion,
-    logical_expr::LogicalExpression,
-    select_expr::{SelectExpression, SelectExpressionUnion},
+    filter_expr::FilterExprUnion,
+    logical_expr::LogicalExpr,
+    select_expr::{SelectExpr, SelectExprUnion},
     stage::Stage,
 };
 use pyo3::{exceptions::PyTypeError, prelude::*, types::PyString};
@@ -63,7 +63,7 @@ impl Query {
     pub fn select(
         &self,
         args: Vec<String>,
-        kwargs: Option<HashMap<String, SelectExpressionUnion>>,
+        kwargs: Option<HashMap<String, SelectExprUnion>>,
     ) -> PyResult<Self> {
         let exprs = {
             let mut exprs = HashMap::new();
@@ -72,7 +72,7 @@ impl Query {
             for key in args {
                 exprs.insert(
                     key.clone(),
-                    SelectExpression::Logical(LogicalExpression::Field { name: key }),
+                    SelectExpr::Logical(LogicalExpr::Field { name: key }),
                 );
             }
 
@@ -81,8 +81,8 @@ impl Query {
                 exprs.insert(
                     key.clone(),
                     match value {
-                        SelectExpressionUnion::Logical(expr) => SelectExpression::Logical(expr),
-                        SelectExpressionUnion::Function(expr) => SelectExpression::Function(expr),
+                        SelectExprUnion::Logical(expr) => SelectExpr::Logical(expr),
+                        SelectExprUnion::Function(expr) => SelectExpr::Function(expr),
                     },
                 );
             }
@@ -95,7 +95,7 @@ impl Query {
         })
     }
 
-    pub fn filter(&self, expr: FilterExpressionUnion) -> PyResult<Self> {
+    pub fn filter(&self, expr: FilterExprUnion) -> PyResult<Self> {
         Ok(Self {
             stages: [
                 self.stages.clone(),
@@ -106,7 +106,7 @@ impl Query {
     }
 
     #[pyo3(signature = (expr, k, asc=false))]
-    pub fn top_k(&self, expr: Py<LogicalExpression>, k: u64, asc: bool) -> PyResult<Self> {
+    pub fn top_k(&self, expr: Py<LogicalExpr>, k: u64, asc: bool) -> PyResult<Self> {
         Ok(Self {
             stages: [
                 self.stages.clone(),
@@ -149,10 +149,8 @@ impl Query {
     }
 }
 
-impl From<Query> for topk_protos::v1::data::Query {
+impl From<Query> for topk_rs::query::Query {
     fn from(query: Query) -> Self {
-        Self {
-            stages: query.stages.into_iter().map(|s| s.into()).collect(),
-        }
+        Self::new(query.stages.into_iter().map(|s| s.into()).collect())
     }
 }

@@ -1,5 +1,6 @@
 use test_context::test_context;
-use topk_protos::v1::data::{stage::filter_stage::FilterExpr, LogicalExpr, Query, Stage};
+use topk_rs::query::field;
+use topk_rs::query::filter;
 
 mod utils;
 use utils::dataset;
@@ -14,13 +15,7 @@ async fn test_query_starts_with(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            Query::new(vec![
-                Stage::filter(FilterExpr::logical(LogicalExpr::starts_with(
-                    LogicalExpr::field("_id"),
-                    LogicalExpr::literal("cat".into()),
-                ))),
-                Stage::topk(LogicalExpr::field("published_year"), 100, false),
-            ]),
+            filter(field("_id").starts_with("cat")).top_k(field("published_year"), 100, false),
             None,
             None,
         )
@@ -39,13 +34,7 @@ async fn test_query_starts_with_empty(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            Query::new(vec![
-                Stage::filter(FilterExpr::logical(LogicalExpr::starts_with(
-                    LogicalExpr::field("_id"),
-                    LogicalExpr::literal("".into()),
-                ))),
-                Stage::topk(LogicalExpr::field("published_year"), 100, false),
-            ]),
+            filter(field("_id").starts_with("")).top_k(field("published_year"), 100, false),
             None,
             None,
         )
@@ -78,13 +67,11 @@ async fn test_query_starts_with_non_existent_prefix(ctx: &mut ProjectTestContext
         .client
         .collection(&collection.name)
         .query(
-            Query::new(vec![
-                Stage::filter(FilterExpr::logical(LogicalExpr::starts_with(
-                    LogicalExpr::field("_id"),
-                    LogicalExpr::literal("foobarbaz".into()),
-                ))),
-                Stage::topk(LogicalExpr::field("published_year"), 100, false),
-            ]),
+            filter(field("_id").starts_with("foobarbaz")).top_k(
+                field("published_year"),
+                100,
+                false,
+            ),
             None,
             None,
         )

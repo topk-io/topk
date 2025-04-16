@@ -1,6 +1,7 @@
 use test_context::test_context;
-use topk_protos::v1::data::{LogicalExpr, Query, Stage, Value};
+use topk_protos::v1::data::Value;
 use topk_protos::{doc, schema};
+use topk_rs::query::{field, top_k};
 use topk_rs::Error;
 
 mod utils;
@@ -15,11 +16,7 @@ async fn test_query_topk_by_non_primitive(ctx: &mut ProjectTestContext) {
     let err = ctx
         .client
         .collection(&collection.name)
-        .query(
-            Query::new(vec![Stage::topk(LogicalExpr::field("title"), 3, true)]),
-            None,
-            None,
-        )
+        .query(top_k(field("title"), 3, true), None, None)
         .await
         .expect_err("should have failed");
 
@@ -36,15 +33,7 @@ async fn test_query_topk_by_non_existing(ctx: &mut ProjectTestContext) {
     let err = ctx
         .client
         .collection(&collection.name)
-        .query(
-            Query::new(vec![Stage::topk(
-                LogicalExpr::field("non_existing_field"),
-                3,
-                true,
-            )]),
-            None,
-            None,
-        )
+        .query(top_k(field("non_existing_field"), 3, true), None, None)
         .await
         .expect_err("should have failed");
 
@@ -62,15 +51,7 @@ async fn test_query_topk_limit_zero(ctx: &mut ProjectTestContext) {
     let err = ctx
         .client
         .collection(&collection.name)
-        .query(
-            Query::new(vec![Stage::topk(
-                LogicalExpr::field("published_year"),
-                0,
-                true,
-            )]),
-            None,
-            None,
-        )
+        .query(top_k(field("published_year"), 0, true), None, None)
         .await
         .expect_err("should have failed");
 
@@ -106,18 +87,14 @@ async fn test_union_u32_and_binary(ctx: &mut ProjectTestContext) {
     let _ = ctx
         .client
         .collection(&collection.name)
-        .query(Query::new(vec![Stage::count()]), Some(lsn), None)
+        .count(Some(lsn), None)
         .await
         .expect("could not query");
 
     let err = ctx
         .client
         .collection(&collection.name)
-        .query(
-            Query::new(vec![Stage::topk(LogicalExpr::field("num"), 100, true)]),
-            None,
-            None,
-        )
+        .query(top_k(field("num"), 100, true), None, None)
         .await
         .expect_err("should have failed");
 

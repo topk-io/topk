@@ -107,20 +107,12 @@ impl From<ValueUnion> for topk_protos::v1::data::Value {
                 ValueUnion::Null() => {
                     topk_protos::v1::data::value::Value::Null(topk_protos::v1::data::Null {})
                 }
-                ValueUnion::FloatVector(v) => {
-                    topk_protos::v1::data::value::Value::Vector(topk_protos::v1::data::Vector {
-                        vector: Some(topk_protos::v1::data::vector::Vector::Float(
-                            topk_protos::v1::data::vector::Float { values: v },
-                        )),
-                    })
-                }
-                ValueUnion::ByteVector(v) => {
-                    topk_protos::v1::data::value::Value::Vector(topk_protos::v1::data::Vector {
-                        vector: Some(topk_protos::v1::data::vector::Vector::Byte(
-                            topk_protos::v1::data::vector::Byte { values: v },
-                        )),
-                    })
-                }
+                ValueUnion::FloatVector(v) => topk_protos::v1::data::value::Value::Vector(
+                    topk_protos::v1::data::Vector::float(v),
+                ),
+                ValueUnion::ByteVector(v) => topk_protos::v1::data::value::Value::Vector(
+                    topk_protos::v1::data::Vector::byte(v),
+                ),
             }),
         }
     }

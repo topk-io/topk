@@ -1,4 +1,6 @@
+use crate::data::stage::Stage;
 use crate::errors::ValidationErrorBag;
+use crate::query::Query;
 use crate::{Error, InternalErrorCode};
 use std::str::FromStr;
 use std::{collections::HashMap, time::Duration};
@@ -16,7 +18,7 @@ use topk_protos::{
         control::{
             Collection, CreateCollectionRequest, DeleteCollectionRequest, ListCollectionsRequest,
         },
-        data::{DeleteDocumentsRequest, Document, Query, QueryRequest, UpsertDocumentsRequest},
+        data::{DeleteDocumentsRequest, Document, QueryRequest, UpsertDocumentsRequest},
     },
 };
 
@@ -207,6 +209,38 @@ impl CollectionClient {
         }
     }
 
+    pub async fn count(
+        &self,
+        lsn: Option<u64>,
+        consistency: Option<ConsistencyLevel>,
+    ) -> Result<u64, Error> {
+        let query = Query::new(vec![Stage::Count {}]);
+
+        let docs = self.query(query, lsn, consistency).await?;
+
+        for doc in docs {
+            match doc.fields.get("_count") {
+                Some(value) => match value.as_u64() {
+                    Some(count) => return Ok(count),
+                    None => {
+                        return Err(Error::MalformedResponse(format!(
+                            "Invalid _count field data type in count query response"
+                        )))
+                    }
+                },
+                None => {
+                    return Err(Error::MalformedResponse(format!(
+                        "Missing _count field in count query response"
+                    )))
+                }
+            }
+        }
+
+        Err(Error::MalformedResponse(format!(
+            "No documents received for count query"
+        )))
+    }
+
     pub async fn query(
         &self,
         query: Query,
@@ -227,7 +261,7 @@ impl CollectionClient {
                 .await?
                 .query(QueryRequest {
                     collection: self.collection.clone(),
-                    query: Some(query),
+                    query: Some(query.into()),
                     required_lsn: lsn,
                     consistency_level: consistency.map(|c| c.into()),
                 })

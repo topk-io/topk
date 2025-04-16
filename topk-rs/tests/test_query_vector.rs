@@ -1,8 +1,7 @@
-use std::collections::HashMap;
 use test_context::test_context;
-use topk_protos::v1::data::{
-    stage::select_stage::SelectExpr, Document, FunctionExpr, LogicalExpr, Query, Stage, Vector,
-};
+use topk_protos::v1::data::Document;
+use topk_rs::data::function_expr::Vector;
+use topk_rs::query::{field, fns, select};
 
 mod utils;
 use utils::dataset;
@@ -29,22 +28,12 @@ async fn test_query_vector_distance(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            Query::new(vec![
-                Stage::select(HashMap::from([
-                    (
-                        "title".to_string(),
-                        SelectExpr::logical(LogicalExpr::field("title".to_string())),
-                    ),
-                    (
-                        "summary_distance".to_string(),
-                        SelectExpr::function(FunctionExpr::vector_distance(
-                            "summary_embedding".to_string(),
-                            Vector::float(vec![2.0; 16]),
-                        )),
-                    ),
-                ])),
-                Stage::topk(LogicalExpr::field("summary_distance"), 3, true),
-            ]),
+            select([("title", field("title"))])
+                .select([(
+                    "summary_distance",
+                    fns::vector_distance("summary_embedding", vec![2.0; 16]),
+                )])
+                .top_k(field("summary_distance"), 3, true),
             None,
             None,
         )
@@ -65,16 +54,11 @@ async fn test_query_vector_distance_nullable(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            Query::new(vec![
-                Stage::select(HashMap::from([(
-                    "summary_distance".to_string(),
-                    SelectExpr::function(FunctionExpr::vector_distance(
-                        "nullable_embedding".to_string(),
-                        Vector::float(vec![3.0; 16]),
-                    )),
-                )])),
-                Stage::topk(LogicalExpr::field("summary_distance"), 3, true),
-            ]),
+            select([(
+                "summary_distance",
+                fns::vector_distance("nullable_embedding", Vector::float(vec![3.0; 16])),
+            )])
+            .top_k(field("summary_distance"), 3, true),
             None,
             None,
         )
@@ -94,16 +78,11 @@ async fn test_query_vector_distance_u8_vector(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            Query::new(vec![
-                Stage::select(HashMap::from([(
-                    "summary_distance".to_string(),
-                    SelectExpr::function(FunctionExpr::vector_distance(
-                        "scalar_embedding".to_string(),
-                        Vector::byte(vec![8; 16]),
-                    )),
-                )])),
-                Stage::topk(LogicalExpr::field("summary_distance"), 3, true),
-            ]),
+            select([(
+                "summary_distance",
+                fns::vector_distance("scalar_embedding", Vector::byte(vec![8; 16])),
+            )])
+            .top_k(field("summary_distance"), 3, true),
             None,
             None,
         )
@@ -123,16 +102,11 @@ async fn test_query_vector_distance_binary_vector(ctx: &mut ProjectTestContext) 
         .client
         .collection(&collection.name)
         .query(
-            Query::new(vec![
-                Stage::select(HashMap::from([(
-                    "summary_distance".to_string(),
-                    SelectExpr::function(FunctionExpr::vector_distance(
-                        "binary_embedding".to_string(),
-                        Vector::byte(vec![0, 1]),
-                    )),
-                )])),
-                Stage::topk(LogicalExpr::field("summary_distance"), 2, true),
-            ]),
+            select([(
+                "summary_distance",
+                fns::vector_distance("binary_embedding", Vector::byte(vec![0, 1])),
+            )])
+            .top_k(field("summary_distance"), 2, true),
             None,
             None,
         )
