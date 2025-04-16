@@ -487,8 +487,8 @@ jobs:
         with:
           platforms: arm
       - run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-      - name: Tmate
-        uses: mxschmitt/action-tmate@v3
+      # - name: Tmate
+      #   uses: mxschmitt/action-tmate@v3
         env:
           TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
       - name: Setup and run tests
@@ -500,6 +500,8 @@ jobs:
           options: '--platform linux/arm/v7 -v ${{ github.workspace }}:/build -w /build/topk-js -e TOPK_API_KEY'
           run: |
             set -e
+            apt-get update
+            apt-get install ca-certificates -y
             yarn test
             ls -la
   # universal-macOS:
