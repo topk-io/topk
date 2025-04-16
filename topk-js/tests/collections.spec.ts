@@ -2,33 +2,21 @@ import { binaryVector, bool, bytes, f32Vector, float, int, semanticIndex, text, 
 import { newProjectContext, ProjectContext } from './setup';
 
 describe('Collections', () => {
-  let ctx: ProjectContext;
-  let collectionsCreated: string[] = [];
+  const contexts: ProjectContext[] = [];
 
-  beforeEach(() => {
-    ctx = newProjectContext();
-    collectionsCreated = [];
+  function getContext(): ProjectContext {
+    const ctx = newProjectContext();
+    contexts.push(ctx);
+    return ctx;
+  }
+
+  afterAll(async () => {
+    await Promise.all(contexts.map(ctx => ctx.deleteCollections()));
   });
 
-  afterEach(async () => {
-    // Only delete collections created within the test
-    for (const collectionName of collectionsCreated) {
-      try {
-        await ctx.client.collections().delete(collectionName);
-      } catch (error) {
-        console.error(`Error deleting collection ${collectionName}:`, error);
-      }
-    }
-  }, 10000);
-
-  // Helper function to create a collection and track it
-  const createCollection = async (name: string, schema: any) => {
-    const collection = await ctx.client.collections().create(name, schema);
-    collectionsCreated.push(name);
-    return collection;
-  };
-
   test('create collection', async () => {
+    const ctx = getContext();
+
     const schema = {
       title: text(),
       title_embedding: f32Vector(1536)
@@ -40,13 +28,15 @@ describe('Collections', () => {
       published_year: int().required(),
     };
 
-    const collection = await createCollection(ctx.scope('books'), schema);
+    const collection = await ctx.createCollection('books', schema);
 
     expect(collection.name).toBe(ctx.scope('books'));
     expect(collection.schema).toEqual(schema);
   });
 
   test('create collection with all data types', async () => {
+    const ctx = getContext();
+
     const schema = {
       text: text(),
       int: int(),
@@ -59,13 +49,15 @@ describe('Collections', () => {
       bytes: bytes(),
     };
 
-    const collection = await createCollection(ctx.scope('books'), schema);
+    const collection = await ctx.createCollection('books', schema);
 
     expect(collection.name).toBe(ctx.scope('books'));
     expect(collection.schema).toEqual(schema);
   });
 
   test('incorrect schema', async () => {
+    const ctx = getContext();
+
     await expect(
       ctx.client.collections().create(
         ctx.scope('books'),
@@ -76,19 +68,21 @@ describe('Collections', () => {
   });
 
   test('list collections', async () => {
+    const ctx = getContext();
+
     // Note: All tests run within the same project,
     // so list of collections is shared across tests.
 
-    const a = await createCollection(ctx.scope('books'), {});
+    const a = await ctx.createCollection('books', {});
     const collections1 = await ctx.client.collections().list();
     expect(collections1).toContainEqual(a);
 
-    const b = await createCollection(ctx.scope('books2'), {});
+    const b = await ctx.createCollection('books2', {});
     const collections2 = await ctx.client.collections().list();
     expect(collections2).toContainEqual(a);
     expect(collections2).toContainEqual(b);
 
-    const c = await createCollection(ctx.scope('books3'), {});
+    const c = await ctx.createCollection('books3', {});
     const collections3 = await ctx.client.collections().list();
     expect(collections3).toContainEqual(a);
     expect(collections3).toContainEqual(b);
@@ -96,13 +90,15 @@ describe('Collections', () => {
   });
 
   test('get collections', async () => {
+    const ctx = getContext();
+
     // get non-existent collection
     await expect(
       ctx.client.collections().get(ctx.scope('foo'))
     ).rejects.toThrow();
 
     // create collection
-    await createCollection(ctx.scope('foo'), {});
+    await ctx.createCollection('foo', {});
 
     // get collection
     const collection = await ctx.client.collections().get(ctx.scope('foo'));
@@ -112,23 +108,27 @@ describe('Collections', () => {
   });
 
   test('delete collection', async () => {
+    const ctx = getContext();
+
     const collectionsBeforeCreate = await ctx.client.collections().list();
     expect(collectionsBeforeCreate.map(c => c.name)).not.toContain(ctx.scope('books'));
 
-    await createCollection(ctx.scope('books'), {});
+    await ctx.createCollection('books', {});
 
     const collectionsAfterCreate = await ctx.client.collections().list();
     expect(collectionsAfterCreate.map(c => c.name)).toContain(ctx.scope('books'));
 
     await ctx.client.collections().delete(ctx.scope('books'));
-    // Remove from tracking since we manually deleted it
-    collectionsCreated = collectionsCreated.filter(name => name !== ctx.scope('books'));
+
+    ctx.collectionsCreated = ctx.collectionsCreated.filter(name => name !== ctx.scope('books'));
 
     const collectionsAfterDelete = await ctx.client.collections().list();
     expect(collectionsAfterDelete.map(c => c.name)).not.toContain(ctx.scope('books'));
   });
 
   test('delete non-existent collection', async () => {
+    const ctx = getContext();
+
     await expect(
       ctx.client.collections().delete(ctx.scope('books'))
     ).rejects.toThrow();

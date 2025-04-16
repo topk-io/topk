@@ -3,6 +3,7 @@ import { Client } from '../index.js';
 export class ProjectContext {
   client: Client;
   scopePrefix: string;
+  collectionsCreated: string[] = [];
 
   constructor(client: Client, scopePrefix: string) {
     this.client = client;
@@ -11,6 +12,22 @@ export class ProjectContext {
 
   scope(name: string) {
     return `${this.scopePrefix}-${name}`;
+  }
+
+  async createCollection(name: string, schema: any = {}) {
+    const collection = await this.client.collections().create(this.scope(name), schema);
+    this.collectionsCreated.push(collection.name);
+    return collection;
+  }
+
+  async deleteCollections() {
+    for (const collection of this.collectionsCreated) {
+      try {
+        await this.client.collections().delete(collection);
+      } catch (e) {
+        console.error(`Error deleting collection ${collection}: ${e}`);
+      }
+    }
   }
 }
 

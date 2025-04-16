@@ -252,12 +252,12 @@ impl FromNapiValue for Value {
                         }
                     }
                     false => {
-                        let binary_vector = BinaryVector::from_napi_value(env, napi_val);
+                        let binary_vector = BinaryVector::from_napi_ref(env, napi_val);
 
                         match binary_vector {
                             Ok(vector) => {
                                 return Ok(Value::Vector(Vector::Byte {
-                                    values: vector.values,
+                                    values: vector.values.clone(),
                                 }));
                             }
                             Err(_) => {}
@@ -272,13 +272,10 @@ impl FromNapiValue for Value {
                             Ok(Vector::Float { values }) => {
                                 return Ok(Value::Vector(Vector::Float { values }));
                             }
-                            _ => {}
+                            Err(e) => {
+                                return Err(e);
+                            }
                         }
-
-                        Err(napi::Error::new(
-                            napi::Status::GenericFailure,
-                            "Unsupported nested objects: {}",
-                        ))
                     }
                 }
             }

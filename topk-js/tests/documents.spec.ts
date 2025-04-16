@@ -4,34 +4,22 @@ import { binaryVector as binaryVectorValue, u8Vector as u8VectorValue } from '..
 import { newProjectContext, ProjectContext } from "./setup";
 
 describe("Documents", () => {
-  let ctx: ProjectContext;
-  let collectionsCreated: string[] = [];
+  const contexts: ProjectContext[] = [];
 
-  beforeEach(async () => {
-    ctx = newProjectContext();
-    collectionsCreated = [];
+  function getContext(): ProjectContext {
+    const ctx = newProjectContext();
+    contexts.push(ctx);
+    return ctx;
+  }
+
+  afterAll(async () => {
+    await Promise.all(contexts.map(ctx => ctx.deleteCollections()));
   });
-
-  afterEach(async () => {
-    // Only delete collections created within the test
-    for (const collectionName of collectionsCreated) {
-      try {
-        await ctx.client.collections().delete(collectionName);
-      } catch (error) {
-        console.error(`Error deleting collection ${collectionName}:`, error);
-      }
-    }
-  });
-
-  // Helper function to create a collection and track it
-  const createCollection = async (name: string, schema: any = {}) => {
-    const collection = await ctx.client.collections().create(name, schema);
-    collectionsCreated.push(name);
-    return collection;
-  };
 
   test("get", async () => {
-    await createCollection(ctx.scope("books"));
+    const ctx = getContext();
+
+    await ctx.createCollection("books");
 
     // get non-existent document
     await expect(
@@ -46,11 +34,14 @@ describe("Documents", () => {
 
     // get document
     const doc = await ctx.client.collection(ctx.scope("books")).get("one");
+
     expect(doc).toEqual({ _id: "one", name: "one", rank: 1 });
   });
 
   test("upsert", async () => {
-    await createCollection(ctx.scope("books"));
+    const ctx = getContext();
+
+    await ctx.createCollection("books");
 
     const lsn = await ctx.client.collection(ctx.scope("books")).upsert([
       { _id: "one", name: "one", rank: 1 },
@@ -69,7 +60,9 @@ describe("Documents", () => {
   });
 
   test("keyword_search", async () => {
-    await createCollection(ctx.scope("books"), {
+    const ctx = getContext();
+
+    await ctx.createCollection("books", {
       title: text().required().index(keywordIndex()),
     });
 
@@ -101,7 +94,9 @@ describe("Documents", () => {
   });
 
   test("vector_search_f32", async () => {
-    await createCollection(ctx.scope("books"), {
+    const ctx = getContext();
+
+    await ctx.createCollection("books", {
       f32_embedding: f32Vector(3)
         .required()
         .index(vectorIndex({ metric: "euclidean" })),
@@ -126,7 +121,9 @@ describe("Documents", () => {
   });
 
   test("vector_search_u8", async () => {
-    await createCollection(ctx.scope("books"), {
+    const ctx = getContext();
+
+    await ctx.createCollection("books", {
       u8_embedding: u8Vector(3)
         .required()
         .index(vectorIndex({ metric: "euclidean" })),
@@ -151,7 +148,9 @@ describe("Documents", () => {
   });
 
   test("vector_search_binary", async () => {
-    await createCollection(ctx.scope("books"), {
+    const ctx = getContext();
+
+    await ctx.createCollection("books", {
       binary_embedding: binaryVector(3)
         .required()
         .index(vectorIndex({ metric: "hamming" })),
@@ -176,7 +175,9 @@ describe("Documents", () => {
   });
 
   test("semantic_search", async () => {
-    await createCollection(ctx.scope("books"), {
+    const ctx = getContext();
+
+    await ctx.createCollection("books", {
       title: text()
         .required()
         .index(semanticIndex({ model: "dummy" })),
@@ -210,7 +211,9 @@ describe("Documents", () => {
   });
 
   test("delete", async () => {
-    await createCollection(ctx.scope("books"));
+    const ctx = getContext();
+
+    await ctx.createCollection("books");
 
     let lsn = await ctx.client
       .collection(ctx.scope("books"))
@@ -230,7 +233,9 @@ describe("Documents", () => {
   });
 
   test("count", async () => {
-    await createCollection(ctx.scope("books"));
+    const ctx = getContext();
+
+    await ctx.createCollection("books");
 
     let lsn = await ctx.client.collection(ctx.scope("books")).upsert([
       { _id: "doc1", name: "one" },
@@ -249,7 +254,9 @@ describe("Documents", () => {
   });
 
   test("rerank", async () => {
-    await createCollection(ctx.scope("books"), {
+    const ctx = getContext();
+
+    await ctx.createCollection("books", {
       summary: text()
         .required()
         .index(semanticIndex({ model: "dummy" })),
