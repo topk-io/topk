@@ -1,11 +1,11 @@
-use super::value::ValueUnion;
+use super::value::Value;
 use pyo3::prelude::*;
 use std::collections::HashMap;
 
 #[pyclass]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Document {
-    pub fields: HashMap<String, ValueUnion>,
+    pub fields: HashMap<String, Value>,
 }
 
 #[pymethods]
@@ -18,7 +18,7 @@ impl Document {
 impl std::fmt::Display for Document {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "doc(")?;
-        let mut fields = self.fields.iter().collect::<Vec<(&String, &ValueUnion)>>();
+        let mut fields = self.fields.iter().collect::<Vec<(&String, &Value)>>();
         fields.sort_by(|a, b| a.0.cmp(&b.0));
 
         for (i, (k, v)) in fields.iter().enumerate() {

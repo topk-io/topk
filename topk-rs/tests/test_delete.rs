@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use test_context::test_context;
 use topk_protos::doc;
 use topk_rs::query::{field, top_k};
@@ -63,12 +63,7 @@ async fn test_delete_document(ctx: &mut ProjectTestContext) {
         .await
         .expect("could not query documents");
 
-    assert_eq!(
-        docs.into_iter()
-            .map(|d| d.id().unwrap().to_string())
-            .collect::<HashSet<_>>(),
-        ["two".to_string()].into()
-    );
+    assert_doc_ids!(docs, ["two"]);
 }
 
 #[test_context(ProjectTestContext)]

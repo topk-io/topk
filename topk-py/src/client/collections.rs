@@ -1,6 +1,7 @@
 use crate::client::Runtime;
-use crate::control::{collection::Collection, field_spec::FieldSpec};
+use crate::data::collection::Collection;
 use crate::error::RustError;
+use crate::schema::field_spec::FieldSpec;
 use pyo3::prelude::*;
 use std::{collections::HashMap, sync::Arc};
 use topk_protos::v1::control::FieldSpec as FieldSpecPb;

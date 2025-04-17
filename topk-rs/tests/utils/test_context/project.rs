@@ -15,7 +15,7 @@ impl ProjectTestContext {
 
 impl AsyncTestContext for ProjectTestContext {
     async fn setup() -> Self {
-        let scope = format!("scope-{}", Uuid::new_v4());
+        let scope = format!("topk-rs-{}", Uuid::new_v4());
 
         let host = std::env::var("TOPK_HOST").unwrap_or("topk.io".to_string());
         let region = std::env::var("TOPK_REGION").unwrap_or("elastica".to_string());

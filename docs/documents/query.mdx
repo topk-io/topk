@@ -17,7 +17,7 @@ To perform a semantic search on your documents, use the `semantic_similarity` fu
 <CodeGroup>
 
 ```python Python
-from topk.query import select, fn, match
+from topk_sdk.query import select, fn, match
 
 docs = client.collection("books").query(
     select(
@@ -47,7 +47,7 @@ fields with a `keyword_index` defined on them. You can provide `field` parameter
 <CodeGroup>
 
 ```python Python
-from topk.query import select, fn, match
+from topk_sdk.query import select, fn, match
 
 docs = client.collection("books").query(
     select(
@@ -81,7 +81,7 @@ stored inside the database according to the metric specified in the `vector_inde
 <CodeGroup>
 
 ```python Python
-from topk.query import select, fn
+from topk_sdk.query import select, fn
 
 docs = client.collection("books").query(
     select(
@@ -269,7 +269,7 @@ You can combine text search, vector search, and filtering in a single query. Som
 <CodeGroup>
 
 ```python Python
-from topk.query import select, fn, match
+from topk_sdk.query import select, fn, match
 
 docs = client.collection("books").query(
     select(

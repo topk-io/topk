@@ -98,8 +98,6 @@ async fn test_union_u32_and_binary(ctx: &mut ProjectTestContext) {
         .await
         .expect_err("should have failed");
 
-    println!("err: {:?}", err);
-
     assert!(matches!(
         err,
         Error::InvalidArgument(s) if s == "Input to SortWithLimit must produce primitive type, not Union([Primitive(U32), Binary])"

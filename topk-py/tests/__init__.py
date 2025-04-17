@@ -1,6 +1,6 @@
 import os
-import random
 from dataclasses import dataclass
+from uuid import uuid4
 
 from topk_sdk import Client
 
@@ -12,6 +12,11 @@ class ProjectContext:
 
     def scope(self, name: str):
         return f"{self.scope_prefix}-{name}"
+
+    def cleanup(self):
+        for c in self.client.collections().list():
+            if c.name.startswith(self.scope_prefix):
+                self.client.collections().delete(c.name)
 
 
 def new_project_context():
@@ -28,6 +33,6 @@ def new_project_context():
     )
 
     return ProjectContext(
-        scope_prefix="%s" % str(random.random()).replace(".", ""),
+        scope_prefix=f"topk-py-{uuid4()}",
         client=client,
     )

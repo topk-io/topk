@@ -1,9 +1,9 @@
 use pyo3::prelude::*;
 
 mod client;
-mod control;
 mod data;
 mod error;
+mod expr;
 mod query;
 mod schema;
 
@@ -36,15 +36,13 @@ macro_rules! module {
 #[pyo3(name = "topk_sdk")]
 pub fn topk_sdk(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // sub modules
-    module!(m, "schema", schema::pymodule)?;
     module!(m, "query", query::pymodule)?;
+    module!(m, "schema", schema::pymodule)?;
+    module!(m, "data", data::pymodule)?;
     module!(m, "error", error::pymodule)?;
 
     // client
     m.add_class::<client::Client>()?;
-
-    // models
-    m.add_class::<control::collection::Collection>()?;
 
     Ok(())
 }
