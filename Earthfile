@@ -49,8 +49,7 @@ test-py:
 
     # build
     WORKDIR /sdk/topk-py
-    RUN --mount=type=cache,target=/sdk/topk-py/target \
-        --mount=type=cache,target=/root/.cargo \
+    RUN --mount=type=cache,target=target \
         --mount=type=cache,target=/usr/local/cargo/registry \
         --mount=type=cache,target=/usr/local/cargo/git \
         . /venv/bin/activate && maturin develop

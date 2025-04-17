@@ -219,6 +219,18 @@ impl LogicalExpr {
         }
     }
 
+    pub fn contains(left: LogicalExpr, right: LogicalExpr) -> Self {
+        LogicalExpr {
+            expr: Some(logical_expr::Expr::BinaryOp(Box::new(
+                logical_expr::BinaryOp {
+                    op: logical_expr::binary_op::Op::Contains as i32,
+                    left: Some(Box::new(left)),
+                    right: Some(Box::new(right)),
+                },
+            ))),
+        }
+    }
+
     pub fn add(left: LogicalExpr, right: LogicalExpr) -> Self {
         LogicalExpr {
             expr: Some(logical_expr::Expr::BinaryOp(Box::new(

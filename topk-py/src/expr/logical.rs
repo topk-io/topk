@@ -37,6 +37,7 @@ pub enum BinaryOperator {
     Gt,
     GtEq,
     StartsWith,
+    Contains,
     // Arithmetic ops
     Add,
     Sub,
@@ -55,6 +56,7 @@ impl Into<topk_rs::expr::logical::BinaryOperator> for BinaryOperator {
             BinaryOperator::Gt => topk_rs::expr::logical::BinaryOperator::Gt,
             BinaryOperator::GtEq => topk_rs::expr::logical::BinaryOperator::GtEq,
             BinaryOperator::StartsWith => topk_rs::expr::logical::BinaryOperator::StartsWith,
+            BinaryOperator::Contains => topk_rs::expr::logical::BinaryOperator::Contains,
             BinaryOperator::Add => topk_rs::expr::logical::BinaryOperator::Add,
             BinaryOperator::Sub => topk_rs::expr::logical::BinaryOperator::Sub,
             BinaryOperator::Mul => topk_rs::expr::logical::BinaryOperator::Mul,
@@ -201,7 +203,7 @@ impl LogicalExpr {
         self.gt(py, other)
     }
 
-    fn lt_eq(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+    fn lte(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
         let expr: LogicalExpr = other.into();
 
         Ok(Self::Binary {
@@ -212,11 +214,11 @@ impl LogicalExpr {
     }
 
     fn __le__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
-        self.lt_eq(py, other)
+        self.lte(py, other)
     }
 
     fn __rle__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
-        self.gt_eq(py, other)
+        self.gte(py, other)
     }
 
     fn gt(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
@@ -237,7 +239,7 @@ impl LogicalExpr {
         self.lt(py, other)
     }
 
-    fn gt_eq(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+    fn gte(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
         let expr: LogicalExpr = other.into();
 
         Ok(Self::Binary {
@@ -248,11 +250,11 @@ impl LogicalExpr {
     }
 
     fn __ge__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
-        self.gt_eq(py, other)
+        self.gte(py, other)
     }
 
     fn __rge__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
-        self.lt_eq(py, other)
+        self.lte(py, other)
     }
 
     // Arithmetic operators
@@ -394,11 +396,18 @@ impl LogicalExpr {
     }
 
     // String operators
-
     fn starts_with(&self, py: Python<'_>, other: Stringy) -> PyResult<Self> {
         Ok(Self::Binary {
             left: Py::new(py, self.clone())?,
             op: BinaryOperator::StartsWith,
+            right: Py::new(py, Into::<LogicalExpr>::into(other))?,
+        })
+    }
+
+    fn contains(&self, py: Python<'_>, other: Stringy) -> PyResult<Self> {
+        Ok(Self::Binary {
+            left: Py::new(py, self.clone())?,
+            op: BinaryOperator::Contains,
             right: Py::new(py, Into::<LogicalExpr>::into(other))?,
         })
     }

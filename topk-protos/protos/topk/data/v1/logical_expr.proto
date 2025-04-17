@@ -34,6 +34,8 @@ message LogicalExpr {
       // Logical
       OP_AND = 12;
       OP_OR = 13;
+      //
+      OP_CONTAINS = 14;
     }
     Op op = 1;
     LogicalExpr left = 2;
