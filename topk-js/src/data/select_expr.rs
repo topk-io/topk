@@ -9,14 +9,14 @@ pub enum SelectExpression {
     Function { expr: FunctionExpression },
 }
 
-impl Into<data::stage::select_stage::SelectExpr> for SelectExpression {
-    fn into(self) -> data::stage::select_stage::SelectExpr {
+impl Into<topk_rs::data::select_expr::SelectExpr> for SelectExpression {
+    fn into(self) -> topk_rs::data::select_expr::SelectExpr {
         match self {
             SelectExpression::Logical { expr } => {
-                data::stage::select_stage::SelectExpr::logical(expr.into())
+                topk_rs::data::select_expr::SelectExpr::Logical(expr.into())
             }
             SelectExpression::Function { expr } => {
-                data::stage::select_stage::SelectExpr::function(expr.into())
+                topk_rs::data::select_expr::SelectExpr::Function(expr.into())
             }
         }
     }

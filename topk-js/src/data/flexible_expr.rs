@@ -2,6 +2,7 @@ use napi::bindgen_prelude::*;
 
 use super::{
     logical_expr::{LogicalExpression, LogicalExpressionUnion},
+    scalar::Scalar,
     utils::is_napi_integer,
     value::Value,
 };
@@ -78,16 +79,16 @@ impl Into<LogicalExpressionUnion> for FlexibleExpr {
     fn into(self) -> LogicalExpressionUnion {
         match self {
             FlexibleExpr::String(s) => LogicalExpressionUnion::Literal {
-                value: Value::String(s),
+                value: Scalar::String(s),
             },
             FlexibleExpr::Int(i) => LogicalExpressionUnion::Literal {
-                value: Value::I64(i),
+                value: Scalar::I64(i),
             },
             FlexibleExpr::Float(f) => LogicalExpressionUnion::Literal {
-                value: Value::F64(f),
+                value: Scalar::F64(f),
             },
             FlexibleExpr::Bool(b) => LogicalExpressionUnion::Literal {
-                value: Value::Bool(b),
+                value: Scalar::Bool(b),
             },
             FlexibleExpr::Null(_) => LogicalExpressionUnion::Null,
             FlexibleExpr::Expr(e) => e.get_expr(),
@@ -153,10 +154,10 @@ impl Into<LogicalExpressionUnion> for Numeric {
     fn into(self) -> LogicalExpressionUnion {
         match self {
             Numeric::Int(i) => LogicalExpressionUnion::Literal {
-                value: Value::I64(i),
+                value: Scalar::I64(i),
             },
             Numeric::Float(f) => LogicalExpressionUnion::Literal {
-                value: Value::F64(f),
+                value: Scalar::F64(f),
             },
             Numeric::Expr(e) => e.get_expr(),
         }
@@ -218,7 +219,7 @@ impl Into<LogicalExpressionUnion> for Boolish {
     fn into(self) -> LogicalExpressionUnion {
         match self {
             Boolish::Bool(b) => LogicalExpressionUnion::Literal {
-                value: Value::Bool(b),
+                value: Scalar::Bool(b),
             },
             Boolish::Expr(e) => e.get_expr(),
         }
@@ -277,7 +278,7 @@ impl Into<LogicalExpressionUnion> for Stringy {
     fn into(self) -> LogicalExpressionUnion {
         match self {
             Stringy::String(s) => LogicalExpressionUnion::Literal {
-                value: Value::String(s),
+                value: Scalar::String(s),
             },
             Stringy::Expr(e) => e.get_expr(),
         }

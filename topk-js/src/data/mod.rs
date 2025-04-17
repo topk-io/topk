@@ -6,7 +6,7 @@ pub mod function_expr;
 pub mod logical_expr;
 pub mod napi_box;
 pub mod query;
-// pub mod scalar;
+pub mod scalar;
 pub mod select_expr;
 pub mod stage;
 pub mod text_expr;

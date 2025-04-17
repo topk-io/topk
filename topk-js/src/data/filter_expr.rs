@@ -21,6 +21,19 @@ impl Into<data::stage::filter_stage::FilterExpr> for FilterExpressionUnion {
     }
 }
 
+impl Into<topk_rs::data::filter_expr::FilterExpr> for FilterExpressionUnion {
+    fn into(self) -> topk_rs::data::filter_expr::FilterExpr {
+        match self {
+            FilterExpressionUnion::Logical { expr } => {
+                topk_rs::data::filter_expr::FilterExpr::Logical(expr.into())
+            }
+            FilterExpressionUnion::Text { expr } => {
+                topk_rs::data::filter_expr::FilterExpr::Text(expr.into())
+            }
+        }
+    }
+}
+
 impl FromNapiValue for FilterExpressionUnion {
     unsafe fn from_napi_value(
         env: napi::sys::napi_env,

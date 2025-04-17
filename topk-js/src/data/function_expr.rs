@@ -11,6 +11,25 @@ pub enum FunctionExpression {
     SemanticSimilarity { field: String, query: String },
 }
 
+impl Into<topk_rs::data::function_expr::FunctionExpr> for FunctionExpression {
+    fn into(self) -> topk_rs::data::function_expr::FunctionExpr {
+        match self {
+            FunctionExpression::KeywordScore => {
+                topk_rs::data::function_expr::FunctionExpr::KeywordScore {}
+            }
+            FunctionExpression::VectorScore { field, query } => {
+                topk_rs::data::function_expr::FunctionExpr::VectorScore {
+                    field,
+                    query: query.into(),
+                }
+            }
+            FunctionExpression::SemanticSimilarity { field, query } => {
+                topk_rs::data::function_expr::FunctionExpr::SemanticSimilarity { field, query }
+            }
+        }
+    }
+}
+
 #[napi]
 #[derive(Debug, Clone)]
 pub enum VectorQuery {
@@ -25,6 +44,17 @@ impl Into<topk_protos::v1::data::Vector> for VectorQuery {
                 topk_protos::v1::data::Vector::float(vector.iter().map(|v| *v as f32).collect())
             }
             VectorQuery::U8 { vector } => topk_protos::v1::data::Vector::byte(vector),
+        }
+    }
+}
+
+impl Into<topk_rs::data::function_expr::Vector> for VectorQuery {
+    fn into(self) -> topk_rs::data::function_expr::Vector {
+        match self {
+            VectorQuery::F32 { vector } => topk_rs::data::function_expr::Vector::float(
+                vector.iter().map(|v| *v as f32).collect(),
+            ),
+            VectorQuery::U8 { vector } => topk_rs::data::function_expr::Vector::byte(vector),
         }
     }
 }

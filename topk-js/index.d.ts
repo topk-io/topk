@@ -124,11 +124,11 @@ export declare namespace query {
   'div';
   export function bm25Score(): FunctionExpression
   export function field(name: string): LogicalExpression
-  export function literal(value: any): LogicalExpression
+  export function literal(value: number | string | boolean): LogicalExpression
   export type LogicalExpressionUnion =
     | { type: 'Null' }
     | { type: 'Field', name: string }
-    | { type: 'Literal', value: any }
+    | { type: 'Literal', value: number | string | boolean }
     | { type: 'Unary', op: UnaryOperator, expr: LogicalExpression }
     | { type: 'Binary', left: LogicalExpression, op: BinaryOperator, right: LogicalExpression }
   export function match(token: string, field?: string | undefined | null, weight?: number | undefined | null): TextExpression

@@ -5,8 +5,8 @@ use super::{
     binary_expr::BinaryOperator,
     flexible_expr::{Boolish, FlexibleExpr, Numeric, Stringy},
     napi_box::NapiBox,
+    scalar::Scalar,
     unary_expr::UnaryOperator,
-    value::Value,
 };
 
 #[napi(namespace = "query")]
@@ -17,7 +17,8 @@ pub enum LogicalExpressionUnion {
         name: String,
     },
     Literal {
-        value: Value,
+        #[napi(ts_type = "number | string | boolean")]
+        value: Scalar,
     },
     Unary {
         op: UnaryOperator,
@@ -212,6 +213,12 @@ impl Into<topk_protos::v1::data::LogicalExpr> for LogicalExpression {
     }
 }
 
+impl Into<topk_rs::data::logical_expr::LogicalExpr> for LogicalExpression {
+    fn into(self) -> topk_rs::data::logical_expr::LogicalExpr {
+        self.expr.into()
+    }
+}
+
 impl Into<topk_protos::v1::data::LogicalExpr> for LogicalExpressionUnion {
     fn into(self) -> topk_protos::v1::data::LogicalExpr {
         match self {
@@ -233,6 +240,35 @@ impl Into<topk_protos::v1::data::LogicalExpr> for LogicalExpressionUnion {
                     left.as_ref().clone().into(),
                     right.as_ref().clone().into(),
                 )
+            }
+        }
+    }
+}
+
+impl Into<topk_rs::data::logical_expr::LogicalExpr> for LogicalExpressionUnion {
+    fn into(self) -> topk_rs::data::logical_expr::LogicalExpr {
+        match self {
+            LogicalExpressionUnion::Null => topk_rs::data::logical_expr::LogicalExpr::Null {},
+            LogicalExpressionUnion::Field { name } => {
+                topk_rs::data::logical_expr::LogicalExpr::Field { name }
+            }
+            LogicalExpressionUnion::Literal { value } => {
+                topk_rs::data::logical_expr::LogicalExpr::Literal {
+                    value: value.into(),
+                }
+            }
+            LogicalExpressionUnion::Unary { op, expr } => {
+                topk_rs::data::logical_expr::LogicalExpr::Unary {
+                    op: op.into(),
+                    expr: Box::new(expr.as_ref().clone().into()),
+                }
+            }
+            LogicalExpressionUnion::Binary { left, op, right } => {
+                topk_rs::data::logical_expr::LogicalExpr::Binary {
+                    left: Box::new(left.as_ref().clone().into()),
+                    op: op.into(),
+                    right: Box::new(right.as_ref().clone().into()),
+                }
             }
         }
     }

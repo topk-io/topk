@@ -6,6 +6,7 @@ use napi_derive::napi;
 use super::{
     filter_expr::FilterExpressionUnion,
     logical_expr::{LogicalExpression, LogicalExpressionUnion},
+    scalar::Scalar,
     select_expr::SelectExpression,
     stage::Stage,
     value::Value,
@@ -128,57 +129,15 @@ pub fn field(name: String) -> LogicalExpression {
 }
 
 #[napi(namespace = "query")]
-pub fn literal(value: Value) -> LogicalExpression {
+pub fn literal(
+    #[napi(ts_arg_type = "number | string | boolean")] value: Scalar,
+) -> LogicalExpression {
     LogicalExpression::create(LogicalExpressionUnion::Literal { value })
 }
 
-impl From<Query> for topk_protos::v1::data::Query {
+impl From<Query> for topk_rs::query::Query {
     fn from(query: Query) -> Self {
-        topk_protos::v1::data::Query {
-            stages: query.stages.into_iter().map(|stage| stage.into()).collect(),
-        }
-    }
-}
-
-impl From<Stage> for topk_protos::v1::data::Stage {
-    fn from(stage: Stage) -> Self {
-        topk_protos::v1::data::Stage {
-            stage: Some(match stage {
-                Stage::Filter { expr } => topk_protos::v1::data::stage::Stage::Filter(
-                    topk_protos::v1::data::stage::FilterStage {
-                        expr: Some(expr.into()),
-                    },
-                ),
-                Stage::Select { exprs } => topk_protos::v1::data::stage::Stage::Select(
-                    topk_protos::v1::data::stage::SelectStage {
-                        exprs: exprs.into_iter().map(|(k, v)| (k, v.into())).collect(),
-                    },
-                ),
-                Stage::TopK { expr, k, asc } => topk_protos::v1::data::stage::Stage::TopK(
-                    topk_protos::v1::data::stage::TopKStage {
-                        expr: Some(expr.into()),
-                        k: k as u64,
-                        asc,
-                    },
-                ),
-                Stage::Count => topk_protos::v1::data::stage::Stage::Count(
-                    topk_protos::v1::data::stage::CountStage {},
-                ),
-                Stage::Rerank {
-                    model,
-                    query,
-                    fields,
-                    topk_multiple,
-                } => topk_protos::v1::data::stage::Stage::Rerank(
-                    topk_protos::v1::data::stage::RerankStage {
-                        model,
-                        query,
-                        fields,
-                        topk_multiple,
-                    },
-                ),
-            }),
-        }
+        topk_rs::query::Query::new(query.stages.into_iter().map(|stage| stage.into()).collect())
     }
 }
 

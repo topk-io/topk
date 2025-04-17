@@ -122,6 +122,40 @@ impl Into<data::TextExpr> for TextExpressionUnion {
     }
 }
 
+impl Into<topk_rs::data::text_expr::TextExpr> for TextExpression {
+    fn into(self) -> topk_rs::data::text_expr::TextExpr {
+        self.expr.into()
+    }
+}
+
+impl Into<topk_rs::data::text_expr::TextExpr> for TextExpressionUnion {
+    fn into(self) -> topk_rs::data::text_expr::TextExpr {
+        match self {
+            TextExpressionUnion::Terms { all, terms } => {
+                topk_rs::data::text_expr::TextExpr::Terms {
+                    all,
+                    terms: terms
+                        .into_iter()
+                        .map(|t| topk_rs::data::text_expr::Term {
+                            token: t.token,
+                            field: t.field,
+                            weight: t.weight as f32,
+                        })
+                        .collect(),
+                }
+            }
+            TextExpressionUnion::And { left, right } => topk_rs::data::text_expr::TextExpr::And {
+                left: Box::new(left.as_ref().clone().into()),
+                right: Box::new(right.as_ref().clone().into()),
+            },
+            TextExpressionUnion::Or { left, right } => topk_rs::data::text_expr::TextExpr::Or {
+                left: Box::new(left.as_ref().clone().into()),
+                right: Box::new(right.as_ref().clone().into()),
+            },
+        }
+    }
+}
+
 #[napi(object)]
 #[derive(Debug, Clone)]
 pub struct Term {
