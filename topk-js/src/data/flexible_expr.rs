@@ -4,7 +4,6 @@ use super::{
     logical_expr::{LogicalExpression, LogicalExpressionUnion},
     scalar::Scalar,
     utils::is_napi_integer,
-    value::Value,
 };
 
 #[derive(Debug, Clone)]

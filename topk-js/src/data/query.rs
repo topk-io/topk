@@ -9,7 +9,6 @@ use super::{
     scalar::Scalar,
     select_expr::SelectExpression,
     stage::Stage,
-    value::Value,
 };
 
 #[napi(namespace = "query")]

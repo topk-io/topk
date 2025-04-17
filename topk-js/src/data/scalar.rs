@@ -1,9 +1,4 @@
-use napi::{
-    bindgen_prelude::*,
-    sys::{napi_get_value_bool, napi_typeof},
-};
-
-use crate::error::TopkError;
+use napi::{bindgen_prelude::*, sys::napi_typeof};
 
 use super::utils::is_napi_integer;
 

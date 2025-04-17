@@ -22,13 +22,15 @@ export class ProjectContext {
   }
 
   async deleteCollections() {
-    for (const collection of this.collectionsCreated) {
-      try {
-        await this.client.collections().delete(collection);
-      } catch (e) {
-        console.error(`Error deleting collection ${collection}: ${e}`);
-      }
-    }
+    await Promise.all(
+      this.collectionsCreated.map(async (collection) => {
+        try {
+          await this.client.collections().delete(collection);
+        } catch (e) {
+          console.error(`Error deleting collection ${collection}: ${e}`);
+        }
+      })
+    );
   }
 }
 

@@ -21,11 +21,6 @@ describe("Documents", () => {
 
     await ctx.createCollection("books");
 
-    // get non-existent document
-    await expect(
-      ctx.client.collection(ctx.scope("books")).get("one")
-    ).rejects.toThrow();
-
     // upsert document
     const lsn = await ctx.client
       .collection(ctx.scope("books"))
@@ -36,6 +31,16 @@ describe("Documents", () => {
     const doc = await ctx.client.collection(ctx.scope("books")).get("one");
 
     expect(doc).toEqual({ _id: "one", name: "one", rank: 1 });
+  });
+
+  test("get non-existent document", async () => {
+    const ctx = getContext();
+
+    await ctx.createCollection("books");
+
+    await expect(
+      ctx.client.collection(ctx.scope("books")).get("one")
+    ).rejects.toThrow();
   });
 
   test("upsert", async () => {
