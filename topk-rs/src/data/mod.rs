@@ -1,9 +1,13 @@
-pub mod expr_binary;
-pub mod expr_unary;
-pub mod filter_expr;
-pub mod function_expr;
-pub mod logical_expr;
-pub mod scalar;
-pub mod select_expr;
-pub mod stage;
-pub mod text_expr;
+mod scalar;
+pub use scalar::Scalar;
+
+mod vector;
+pub use vector::Vector;
+
+pub fn float_vector(values: Vec<f32>) -> Vector {
+    Vector::F32(values)
+}
+
+pub fn byte_vector(values: Vec<u8>) -> Vector {
+    Vector::U8(values)
+}

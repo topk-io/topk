@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use test_context::test_context;
-use topk_rs::data::function_expr::Vector;
+use topk_rs::data::Vector;
 use topk_rs::query::literal;
 use topk_rs::query::{field, fns, r#match, select};
 

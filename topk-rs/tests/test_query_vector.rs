@@ -1,6 +1,6 @@
 use test_context::test_context;
 use topk_protos::v1::data::Document;
-use topk_rs::data::function_expr::Vector;
+use topk_rs::data::Vector;
 use topk_rs::query::{field, fns, select};
 
 mod utils;
@@ -56,7 +56,7 @@ async fn test_query_vector_distance_nullable(ctx: &mut ProjectTestContext) {
         .query(
             select([(
                 "summary_distance",
-                fns::vector_distance("nullable_embedding", Vector::float(vec![3.0; 16])),
+                fns::vector_distance("nullable_embedding", Vector::F32(vec![3.0; 16])),
             )])
             .top_k(field("summary_distance"), 3, true),
             None,
@@ -80,7 +80,7 @@ async fn test_query_vector_distance_u8_vector(ctx: &mut ProjectTestContext) {
         .query(
             select([(
                 "summary_distance",
-                fns::vector_distance("scalar_embedding", Vector::byte(vec![8; 16])),
+                fns::vector_distance("scalar_embedding", Vector::U8(vec![8; 16])),
             )])
             .top_k(field("summary_distance"), 3, true),
             None,
@@ -104,7 +104,7 @@ async fn test_query_vector_distance_binary_vector(ctx: &mut ProjectTestContext) 
         .query(
             select([(
                 "summary_distance",
-                fns::vector_distance("binary_embedding", Vector::byte(vec![0, 1])),
+                fns::vector_distance("binary_embedding", Vector::U8(vec![0, 1])),
             )])
             .top_k(field("summary_distance"), 2, true),
             None,

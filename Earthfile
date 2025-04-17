@@ -23,8 +23,9 @@ test-rs:
     DO +SETUP_ENV --region=$region
 
     # test
+    ARG args="--no-fail-fast -j 16"
     RUN --no-cache --secret TOPK_API_KEY \
-        TOPK_API_KEY=$TOPK_API_KEY cargo nextest run --archive-file e2e.tar.zst --no-fail-fast -j 16
+        TOPK_API_KEY=$TOPK_API_KEY cargo nextest run --archive-file e2e.tar.zst $args
 
 
 test-py:
@@ -36,15 +37,14 @@ test-py:
     # setup maturin
     RUN cargo install maturin
 
-    WORKDIR /sdk
-
     # setup python
-    RUN python3 -m venv .venv \
-        && . .venv/bin/activate \
+    RUN python3 -m venv /venv \
+        && . /venv/bin/activate \
         && pip install --upgrade pip \
         && pip install pytest pytest-xdist
 
     # copy source code
+    WORKDIR /sdk
     COPY . .
 
     # build
@@ -53,15 +53,16 @@ test-py:
         --mount=type=cache,target=/root/.cargo \
         --mount=type=cache,target=/usr/local/cargo/registry \
         --mount=type=cache,target=/usr/local/cargo/git \
-        maturin develop
+        . /venv/bin/activate && maturin develop
 
     ARG region=dev
     DO +SETUP_ENV --region=$region
 
     # test
+    ARG args="-n auto"
     RUN --no-cache --secret TOPK_API_KEY \
-        . /sdk/.venv/bin/activate \
-        && TOPK_API_KEY=$TOPK_API_KEY pytest -n auto
+        . /venv/bin/activate \
+        && TOPK_API_KEY=$TOPK_API_KEY pytest $args
 
 #
 

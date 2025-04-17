@@ -44,7 +44,7 @@ Once the schema is set up, querying for semantically similar documents is simple
 <CodeGroup>
 
 ```python Python
-from topk.query import select, fn
+from topk_sdk.query import select, fn
 
 docs = client.collection("books").query(
     select(
@@ -74,7 +74,7 @@ You may want to combine **keyword search with semantic search** for more precise
 <CodeGroup>
 
 ```python Python
-from topk.query import select, fn, match
+from topk_sdk.query import select, fn, match
 
 docs = client.collection("books").query(
     select(
@@ -120,7 +120,7 @@ To query with custom embeddings, use `vector_distance()` instead of `semantic_si
 <CodeGroup>
 
 ```python Python
-from topk.query import select, fn
+from topk_sdk.query import select, fn
 
 docs = client.collection("books").query(
     select(
@@ -144,7 +144,7 @@ You can still use our built-in reranking model by calling `.rerank()` on a query
 <CodeGroup>
 
 ```python Python
-from topk.query import select, fn
+from topk_sdk.query import select, fn
 
 docs = client.collection("books").query(
     select(
@@ -168,7 +168,7 @@ You can also use lexical scoring with reranking. This will score documents based
 <CodeGroup>
 
 ```python Python
-from topk.query import select, fn
+from topk_sdk.query import select, fn
 
 docs = client.collection("books").query(
     select(
