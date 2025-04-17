@@ -37,6 +37,7 @@ pub enum BinaryOperator {
     Gt,
     GtEq,
     StartsWith,
+    Contains,
     // Arithmetic ops
     Add,
     Sub,
@@ -55,6 +56,7 @@ impl Into<topk_rs::expr::logical::BinaryOperator> for BinaryOperator {
             BinaryOperator::Gt => topk_rs::expr::logical::BinaryOperator::Gt,
             BinaryOperator::GtEq => topk_rs::expr::logical::BinaryOperator::GtEq,
             BinaryOperator::StartsWith => topk_rs::expr::logical::BinaryOperator::StartsWith,
+            BinaryOperator::Contains => topk_rs::expr::logical::BinaryOperator::Contains,
             BinaryOperator::Add => topk_rs::expr::logical::BinaryOperator::Add,
             BinaryOperator::Sub => topk_rs::expr::logical::BinaryOperator::Sub,
             BinaryOperator::Mul => topk_rs::expr::logical::BinaryOperator::Mul,
@@ -394,11 +396,18 @@ impl LogicalExpr {
     }
 
     // String operators
-
     fn starts_with(&self, py: Python<'_>, other: Stringy) -> PyResult<Self> {
         Ok(Self::Binary {
             left: Py::new(py, self.clone())?,
             op: BinaryOperator::StartsWith,
+            right: Py::new(py, Into::<LogicalExpr>::into(other))?,
+        })
+    }
+
+    fn contains(&self, py: Python<'_>, other: Stringy) -> PyResult<Self> {
+        Ok(Self::Binary {
+            left: Py::new(py, self.clone())?,
+            op: BinaryOperator::Contains,
             right: Py::new(py, Into::<LogicalExpr>::into(other))?,
         })
     }

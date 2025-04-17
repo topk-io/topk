@@ -33,6 +33,7 @@ pub enum BinaryOperator {
     Gt,
     GtEq,
     StartsWith,
+    Contains,
     // Arithmetic ops
     Add,
     Sub,
@@ -52,6 +53,9 @@ impl Into<topk_protos::v1::data::logical_expr::binary_op::Op> for BinaryOperator
             BinaryOperator::GtEq => topk_protos::v1::data::logical_expr::binary_op::Op::Gte,
             BinaryOperator::StartsWith => {
                 topk_protos::v1::data::logical_expr::binary_op::Op::StartsWith
+            }
+            BinaryOperator::Contains => {
+                topk_protos::v1::data::logical_expr::binary_op::Op::Contains
             }
             BinaryOperator::Add => topk_protos::v1::data::logical_expr::binary_op::Op::Add,
             BinaryOperator::Sub => topk_protos::v1::data::logical_expr::binary_op::Op::Sub,
@@ -190,6 +194,14 @@ impl LogicalExpr {
         Self::Binary {
             left: Box::new(self.clone()),
             op: BinaryOperator::StartsWith,
+            right: Box::new(other.into()),
+        }
+    }
+
+    pub fn contains(&self, other: impl Into<LogicalExpr>) -> Self {
+        Self::Binary {
+            left: Box::new(self.clone()),
+            op: BinaryOperator::Contains,
             right: Box::new(other.into()),
         }
     }
