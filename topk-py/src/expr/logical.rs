@@ -203,7 +203,7 @@ impl LogicalExpr {
         self.gt(py, other)
     }
 
-    fn lt_eq(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+    fn lte(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
         let expr: LogicalExpr = other.into();
 
         Ok(Self::Binary {
@@ -214,11 +214,11 @@ impl LogicalExpr {
     }
 
     fn __le__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
-        self.lt_eq(py, other)
+        self.lte(py, other)
     }
 
     fn __rle__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
-        self.gt_eq(py, other)
+        self.gte(py, other)
     }
 
     fn gt(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
@@ -239,7 +239,7 @@ impl LogicalExpr {
         self.lt(py, other)
     }
 
-    fn gt_eq(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+    fn gte(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
         let expr: LogicalExpr = other.into();
 
         Ok(Self::Binary {
@@ -250,11 +250,11 @@ impl LogicalExpr {
     }
 
     fn __ge__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
-        self.gt_eq(py, other)
+        self.gte(py, other)
     }
 
     fn __rge__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
-        self.lt_eq(py, other)
+        self.lte(py, other)
     }
 
     // Arithmetic operators
