@@ -1,6 +1,6 @@
 use napi::bindgen_prelude::*;
 
-use super::{function_expr::FunctionExpression, logical_expr::LogicalExpression};
+use crate::expr::{function::FunctionExpression, logical::LogicalExpression};
 
 #[derive(Debug, Clone)]
 pub enum SelectExpression {

@@ -1,6 +1,7 @@
-use super::{logical_expr::LogicalExpression, text_expr::TextExpression};
 use napi::bindgen_prelude::*;
 use topk_protos::v1::data;
+
+use super::{logical::LogicalExpression, text::TextExpression};
 
 #[derive(Debug, Clone)]
 pub enum FilterExpressionUnion {

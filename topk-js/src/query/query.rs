@@ -3,13 +3,16 @@ use std::collections::HashMap;
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
-use super::{
-    filter_expr::FilterExpressionUnion,
-    logical_expr::{LogicalExpression, LogicalExpressionUnion},
-    scalar::Scalar,
-    select_expr::SelectExpression,
-    stage::Stage,
+use crate::{
+    data::scalar::Scalar,
+    expr::{
+        filter::FilterExpressionUnion,
+        logical::{LogicalExpression, LogicalExpressionUnion},
+        select::SelectExpression,
+    },
 };
+
+use super::stage::Stage;
 
 #[napi(namespace = "query")]
 #[derive(Debug, Clone)]

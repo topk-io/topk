@@ -21,6 +21,10 @@ export declare class CollectionsClient {
   delete(name: string): Promise<void>
 }
 
+export declare class Vector {
+
+}
+
 export declare function binary(values: Array<number>): any
 
 export declare function binaryVector(values: Array<number>): Vector
@@ -30,6 +34,7 @@ export interface ClientConfig {
   region: string
   host?: string
   https?: boolean
+  headers?: Record<string, string>
 }
 
 export interface Collection {
@@ -58,7 +63,7 @@ export interface FieldSpec {
 
 export type FunctionExpression =
   | { type: 'KeywordScore' }
-  | { type: 'VectorScore', field: string, query: VectorQuery }
+  | { type: 'VectorScore', field: string, query: Vector }
   | { type: 'SemanticSimilarity', field: string, query: string }
 
 export interface Term {
@@ -69,14 +74,10 @@ export interface Term {
 
 export declare function u8Vector(values: Array<number>): Vector
 
-export type Vector =
+export type VectorUnion =
   | { type: 'Float', values: Array<number> }
   | { type: 'Byte', values: Array<number> }
   | { type: 'Binary', values: Array<number> }
-
-export type VectorQuery =
-  | { type: 'F32', vector: Array<number> }
-  | { type: 'U8', vector: Array<number> }
 
 export declare namespace query {
   export class LogicalExpression {

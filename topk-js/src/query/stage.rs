@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 
-use super::{
-    filter_expr::FilterExpressionUnion, logical_expr::LogicalExpression,
-    select_expr::SelectExpression,
+use crate::expr::{
+    filter::FilterExpressionUnion, logical::LogicalExpression, select::SelectExpression,
 };
 
 #[derive(Debug, Clone)]

@@ -7,9 +7,12 @@ use napi::{
 
 use napi_derive::napi;
 
-use super::utils::is_napi_integer;
+use super::{
+    utils::is_napi_integer,
+    vector::{Vector, VectorUnion},
+};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum Value {
     String(String),
     Bool(bool),
@@ -22,38 +25,6 @@ pub enum Value {
     Binary(Vec<u8>),
     Vector(Vector),
     Null,
-}
-
-#[napi(string_enum)]
-#[derive(Debug, Clone, PartialEq)]
-pub enum Vector {
-    Float {
-        #[napi(ts_type = "Array<number>")]
-        values: Vec<f64>,
-    },
-    Byte {
-        #[napi(ts_type = "Array<number>")]
-        values: Vec<u8>,
-    },
-    Binary {
-        #[napi(ts_type = "Array<number>")]
-        values: Vec<u8>,
-    },
-}
-
-#[napi]
-pub fn f32_vector(values: Vec<f64>) -> Vector {
-    Vector::Float { values }
-}
-
-#[napi]
-pub fn u8_vector(values: Vec<u8>) -> Vector {
-    Vector::Byte { values }
-}
-
-#[napi]
-pub fn binary_vector(values: Vec<u8>) -> Vector {
-    Vector::Binary { values }
 }
 
 #[napi]
@@ -73,31 +44,7 @@ impl From<Value> for topk_protos::v1::data::Value {
             Value::I64(n) => topk_protos::v1::data::Value::i64(n),
             Value::F32(n) => topk_protos::v1::data::Value::f32(n),
             Value::Binary(b) => topk_protos::v1::data::Value::binary(b),
-            Value::Vector(v) => match v {
-                Vector::Float { values } => {
-                    let vector = topk_protos::v1::data::Vector::float(
-                        values.iter().map(|v| *v as f32).collect(),
-                    );
-
-                    topk_protos::v1::data::Value {
-                        value: Some(topk_protos::v1::data::value::Value::Vector(vector)),
-                    }
-                }
-                Vector::Byte { values } => {
-                    let vector = topk_protos::v1::data::Vector::byte(values);
-
-                    topk_protos::v1::data::Value {
-                        value: Some(topk_protos::v1::data::value::Value::Vector(vector)),
-                    }
-                }
-                Vector::Binary { values } => {
-                    let vector = topk_protos::v1::data::Vector::byte(values);
-
-                    topk_protos::v1::data::Value {
-                        value: Some(topk_protos::v1::data::value::Value::Vector(vector)),
-                    }
-                }
-            },
+            Value::Vector(v) => v.into(),
             Value::Null => topk_protos::v1::data::Value::null(),
         }
     }
@@ -117,14 +64,14 @@ impl From<topk_protos::v1::data::Value> for Value {
             Some(topk_protos::v1::data::value::Value::Binary(b)) => Value::Binary(b),
             Some(topk_protos::v1::data::value::Value::Vector(v)) => match v.vector {
                 Some(topk_protos::v1::data::vector::Vector::Float(float_vector)) => {
-                    Value::Vector(Vector::Float {
+                    Value::Vector(Vector::new(VectorUnion::Float {
                         values: float_vector.values.iter().map(|v| *v as f64).collect(),
-                    })
+                    }))
                 }
                 Some(topk_protos::v1::data::vector::Vector::Byte(byte_vector)) => {
-                    Value::Vector(Vector::Byte {
+                    Value::Vector(Vector::new(VectorUnion::Byte {
                         values: byte_vector.values,
-                    })
+                    }))
                 }
                 None => unreachable!("Invalid vector proto"),
             },
@@ -201,27 +148,17 @@ impl FromNapiValue for Value {
                                 napi::Status::GenericFailure,
                                 "Vector is empty: {}",
                             )),
-                            false => Ok(Value::Vector(Vector::Float {
+                            false => Ok(Value::Vector(Vector::new(VectorUnion::Float {
                                 values: vec_values_f64,
-                            })),
+                            }))),
                         }
                     }
                     false => {
-                        let vector = Vector::from_napi_value(env, napi_val);
+                        let vector = Vector::from_napi_ref(env, napi_val);
 
                         match vector {
-                            Ok(Vector::Byte { values }) => {
-                                return Ok(Value::Vector(Vector::Byte { values }));
-                            }
-                            Ok(Vector::Float { values }) => {
-                                return Ok(Value::Vector(Vector::Float { values }));
-                            }
-                            Ok(Vector::Binary { values }) => {
-                                return Ok(Value::Vector(Vector::Binary { values }));
-                            }
-                            Err(e) => {
-                                return Err(e);
-                            }
+                            Ok(vector) => Ok(Value::Vector(vector.clone())),
+                            Err(e) => Err(e),
                         }
                     }
                 }
@@ -264,16 +201,14 @@ impl ToNapiValue for Value {
 
                 Ok(js_array)
             }
-            Value::Vector(v) => match v {
-                Vector::Float { values } => {
-                    // Create a JavaScript array for the float vector
+            Value::Vector(v) => match v.value() {
+                VectorUnion::Float { values } => {
                     let mut js_array = ptr::null_mut();
                     check_status!(
                         sys::napi_create_array(env, &mut js_array),
                         "Failed to create JavaScript array"
                     )?;
 
-                    // Add each float value to the array
                     for (i, &value) in values.iter().enumerate() {
                         let js_value = f64::to_napi_value(env, value)?;
                         check_status!(
@@ -284,34 +219,13 @@ impl ToNapiValue for Value {
 
                     Ok(js_array)
                 }
-                Vector::Byte { values } => {
+                VectorUnion::Byte { values } | VectorUnion::Binary { values } => {
                     let mut js_array = ptr::null_mut();
-
                     check_status!(
                         sys::napi_create_array(env, &mut js_array),
                         "Failed to create JavaScript array"
                     )?;
 
-                    // Add each u8 value to the array
-                    for (i, &value) in values.iter().enumerate() {
-                        let js_value = u8::to_napi_value(env, value)?;
-                        check_status!(
-                            sys::napi_set_element(env, js_array, i as u32, js_value),
-                            "Failed to set array element"
-                        )?;
-                    }
-
-                    Ok(js_array)
-                }
-                Vector::Binary { values } => {
-                    let mut js_array = ptr::null_mut();
-
-                    check_status!(
-                        sys::napi_create_array(env, &mut js_array),
-                        "Failed to create JavaScript array"
-                    )?;
-
-                    // Add each u8 value to the array
                     for (i, &value) in values.iter().enumerate() {
                         let js_value = u8::to_napi_value(env, value)?;
                         check_status!(

@@ -1,10 +1,8 @@
 use napi::bindgen_prelude::*;
 
-use super::{
-    logical_expr::{LogicalExpression, LogicalExpressionUnion},
-    scalar::Scalar,
-    utils::is_napi_integer,
-};
+use crate::data::{scalar::Scalar, utils::is_napi_integer};
+
+use super::logical::{LogicalExpression, LogicalExpressionUnion};
 
 #[derive(Debug, Clone)]
 pub enum FlexibleExpr {

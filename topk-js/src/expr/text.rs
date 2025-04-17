@@ -2,7 +2,7 @@ use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use topk_protos::v1::data;
 
-use super::napi_box::NapiBox;
+use crate::data::napi_box::NapiBox;
 
 #[napi(namespace = "query")]
 #[derive(Debug, Clone)]

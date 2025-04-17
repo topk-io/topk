@@ -373,6 +373,7 @@ if (!nativeBinding) {
 module.exports.Client = nativeBinding.Client
 module.exports.CollectionClient = nativeBinding.CollectionClient
 module.exports.CollectionsClient = nativeBinding.CollectionsClient
+module.exports.Vector = nativeBinding.Vector
 module.exports.binary = nativeBinding.binary
 module.exports.binaryVector = nativeBinding.binaryVector
 module.exports.ConsistencyLevel = nativeBinding.ConsistencyLevel

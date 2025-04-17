@@ -3,10 +3,7 @@ use napi_derive::napi;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::{
-    control::{collection::Collection, field_spec::FieldSpec},
-    error::TopkError,
-};
+use crate::{schema::field_spec::FieldSpec, data::collection::Collection, error::TopkError};
 use topk_protos::v1::control::{self};
 
 #[napi]
