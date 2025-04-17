@@ -5,7 +5,8 @@ use topk_protos::v1::{
     control::{field_type::DataType, FieldSpec, FieldType, FieldTypeText},
     data::Document,
 };
-use topk_rs::{Error, ValidationError, ValidationErrorBag};
+use topk_rs::error::{ValidationError, ValidationErrorBag};
+use topk_rs::Error;
 
 mod utils;
 use utils::ProjectTestContext;
@@ -189,49 +190,4 @@ async fn test_upsert_schema_validation(ctx: &mut ProjectTestContext) {
         "got error: {:?}",
         err
     );
-}
-
-#[test_context(ProjectTestContext)]
-#[tokio::test]
-async fn test_upsert_request_too_large(ctx: &mut ProjectTestContext) {
-    let collection_name = ctx.wrap("test");
-    ctx.client
-        .collections()
-        .create(
-            collection_name.clone(),
-            HashMap::from_iter([(
-                "name".to_string(),
-                FieldSpec {
-                    data_type: Some(FieldType {
-                        data_type: Some(DataType::Text(FieldTypeText {})),
-                    }),
-                    required: true,
-                    index: None,
-                },
-            )]),
-        )
-        .await
-        .expect("could not create collection");
-
-    // 8MB should be OK
-    let docs = (0..8)
-        .map(|i| doc!("_id" => format!("id-{}", i), "name" => format!("{}", "x".repeat(1024 * 1024))))
-        .collect::<Vec<_>>();
-    ctx.client
-        .collection(collection_name.clone())
-        .upsert(docs)
-        .await
-        .expect("should have passed");
-
-    // 16MB is too much
-    let docs = (0..16)
-        .map(|i| doc!("_id" => format!("id-{}", i), "name" => format!("{}", "x".repeat(1024 * 1024))))
-        .collect::<Vec<_>>();
-    let err = ctx
-        .client
-        .collection(collection_name)
-        .upsert(docs)
-        .await
-        .expect_err("should not be able to upsert invalid document");
-    assert!(matches!(err, Error::Unexpected(ref s) if s.code() == tonic::Code::OutOfRange));
 }

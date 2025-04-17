@@ -119,6 +119,12 @@ impl Value {
         }
     }
 
+    pub fn bytes(value: Vec<u8>) -> Self {
+        Value {
+            value: Some(value::Value::Binary(value)),
+        }
+    }
+
     pub fn as_float_vector(&self) -> Option<&[f32]> {
         match &self.value {
             Some(value::Value::Vector(vec)) => match &vec.vector {

@@ -4,7 +4,7 @@ use topk_protos::doc;
 use topk_protos::v1::data::Value;
 
 mod utils;
-use topk_rs::data::function_expr::Vector;
+use topk_rs::data::Vector;
 use topk_rs::query::{field, fns, literal, r#match, select, top_k};
 use utils::dataset;
 use utils::ProjectTestContext;

@@ -42,7 +42,7 @@ client.collections().create(
 <CodeGroup>
 
 ```python Python
-from topk.query import select, fn
+from topk_sdk.query import select, fn
 
 docs = client.collection("papers").query(
     select(
@@ -90,7 +90,7 @@ client.collections().create(
 <CodeGroup>
 
 ```python Python
-from topk.query import select, fn, match
+from topk_sdk.query import select, fn, match
 
 docs = client.collection("articles").query(
     select(
@@ -141,7 +141,7 @@ client.collections().create(
 <CodeGroup>
 
 ```python Python
-from topk.query import select, fn
+from topk_sdk.query import select, fn
 
 docs = client.collection("documents").query(
     select(

@@ -1,9 +1,7 @@
 use crate::client::Runtime;
-use crate::data::{
-    query::{ConsistencyLevel, Query},
-    value::ValueUnion,
-};
+use crate::data::value::RawValue;
 use crate::error::RustError;
+use crate::query::{ConsistencyLevel, Query};
 use pyo3::prelude::*;
 use std::{collections::HashMap, sync::Arc};
 
@@ -34,7 +32,7 @@ impl CollectionClient {
         fields: Vec<String>,
         lsn: Option<u64>,
         consistency: Option<ConsistencyLevel>,
-    ) -> PyResult<HashMap<String, ValueUnion>> {
+    ) -> PyResult<HashMap<String, RawValue>> {
         let document = self
             .runtime
             .block_on(
@@ -51,7 +49,7 @@ impl CollectionClient {
         Ok(document
             .fields
             .into_iter()
-            .map(|(k, v)| (k, v.into()))
+            .map(|(k, v)| (k, RawValue(v.into())))
             .collect())
     }
 
@@ -82,7 +80,7 @@ impl CollectionClient {
         query: Query,
         lsn: Option<u64>,
         consistency: Option<ConsistencyLevel>,
-    ) -> PyResult<Vec<HashMap<String, ValueUnion>>> {
+    ) -> PyResult<Vec<HashMap<String, RawValue>>> {
         let docs = self
             .runtime
             .block_on(
@@ -97,14 +95,19 @@ impl CollectionClient {
 
         Ok(docs
             .into_iter()
-            .map(|d| d.fields.into_iter().map(|(k, v)| (k, v.into())).collect())
+            .map(|d| {
+                d.fields
+                    .into_iter()
+                    .map(|(k, v)| (k, RawValue(v.into())))
+                    .collect()
+            })
             .collect())
     }
 
     pub fn upsert(
         &self,
         py: Python<'_>,
-        documents: Vec<HashMap<String, ValueUnion>>,
+        documents: Vec<HashMap<String, RawValue>>,
     ) -> PyResult<u64> {
         let documents = documents
             .into_iter()
