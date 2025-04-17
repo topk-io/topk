@@ -21,14 +21,14 @@ impl Into<data::stage::filter_stage::FilterExpr> for FilterExpressionUnion {
     }
 }
 
-impl Into<topk_rs::data::filter_expr::FilterExpr> for FilterExpressionUnion {
-    fn into(self) -> topk_rs::data::filter_expr::FilterExpr {
+impl Into<topk_rs::expr::filter::FilterExpr> for FilterExpressionUnion {
+    fn into(self) -> topk_rs::expr::filter::FilterExpr {
         match self {
             FilterExpressionUnion::Logical { expr } => {
-                topk_rs::data::filter_expr::FilterExpr::Logical(expr.into())
+                topk_rs::expr::filter::FilterExpr::Logical(expr.into())
             }
             FilterExpressionUnion::Text { expr } => {
-                topk_rs::data::filter_expr::FilterExpr::Text(expr.into())
+                topk_rs::expr::filter::FilterExpr::Text(expr.into())
             }
         }
     }

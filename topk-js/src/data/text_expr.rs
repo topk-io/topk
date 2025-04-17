@@ -122,33 +122,31 @@ impl Into<data::TextExpr> for TextExpressionUnion {
     }
 }
 
-impl Into<topk_rs::data::text_expr::TextExpr> for TextExpression {
-    fn into(self) -> topk_rs::data::text_expr::TextExpr {
+impl Into<topk_rs::expr::text::TextExpr> for TextExpression {
+    fn into(self) -> topk_rs::expr::text::TextExpr {
         self.expr.into()
     }
 }
 
-impl Into<topk_rs::data::text_expr::TextExpr> for TextExpressionUnion {
-    fn into(self) -> topk_rs::data::text_expr::TextExpr {
+impl Into<topk_rs::expr::text::TextExpr> for TextExpressionUnion {
+    fn into(self) -> topk_rs::expr::text::TextExpr {
         match self {
-            TextExpressionUnion::Terms { all, terms } => {
-                topk_rs::data::text_expr::TextExpr::Terms {
-                    all,
-                    terms: terms
-                        .into_iter()
-                        .map(|t| topk_rs::data::text_expr::Term {
-                            token: t.token,
-                            field: t.field,
-                            weight: t.weight as f32,
-                        })
-                        .collect(),
-                }
-            }
-            TextExpressionUnion::And { left, right } => topk_rs::data::text_expr::TextExpr::And {
+            TextExpressionUnion::Terms { all, terms } => topk_rs::expr::text::TextExpr::Terms {
+                all,
+                terms: terms
+                    .into_iter()
+                    .map(|t| topk_rs::expr::text::Term {
+                        token: t.token,
+                        field: t.field,
+                        weight: t.weight as f32,
+                    })
+                    .collect(),
+            },
+            TextExpressionUnion::And { left, right } => topk_rs::expr::text::TextExpr::And {
                 left: Box::new(left.as_ref().clone().into()),
                 right: Box::new(right.as_ref().clone().into()),
             },
-            TextExpressionUnion::Or { left, right } => topk_rs::data::text_expr::TextExpr::Or {
+            TextExpressionUnion::Or { left, right } => topk_rs::expr::text::TextExpr::Or {
                 left: Box::new(left.as_ref().clone().into()),
                 right: Box::new(right.as_ref().clone().into()),
             },

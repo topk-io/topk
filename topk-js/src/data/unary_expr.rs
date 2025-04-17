@@ -20,12 +20,12 @@ impl Into<topk_protos::v1::data::logical_expr::unary_op::Op> for UnaryOperator {
     }
 }
 
-impl Into<topk_rs::data::expr_unary::UnaryOperator> for UnaryOperator {
-    fn into(self) -> topk_rs::data::expr_unary::UnaryOperator {
+impl Into<topk_rs::expr::logical::UnaryOperator> for UnaryOperator {
+    fn into(self) -> topk_rs::expr::logical::UnaryOperator {
         match self {
-            UnaryOperator::Not => topk_rs::data::expr_unary::UnaryOperator::Not,
-            UnaryOperator::IsNull => topk_rs::data::expr_unary::UnaryOperator::IsNull,
-            UnaryOperator::IsNotNull => topk_rs::data::expr_unary::UnaryOperator::IsNotNull,
+            UnaryOperator::Not => topk_rs::expr::logical::UnaryOperator::Not,
+            UnaryOperator::IsNull => topk_rs::expr::logical::UnaryOperator::IsNull,
+            UnaryOperator::IsNotNull => topk_rs::expr::logical::UnaryOperator::IsNotNull,
         }
     }
 }

@@ -11,20 +11,20 @@ pub enum FunctionExpression {
     SemanticSimilarity { field: String, query: String },
 }
 
-impl Into<topk_rs::data::function_expr::FunctionExpr> for FunctionExpression {
-    fn into(self) -> topk_rs::data::function_expr::FunctionExpr {
+impl Into<topk_rs::expr::function::FunctionExpr> for FunctionExpression {
+    fn into(self) -> topk_rs::expr::function::FunctionExpr {
         match self {
             FunctionExpression::KeywordScore => {
-                topk_rs::data::function_expr::FunctionExpr::KeywordScore {}
+                topk_rs::expr::function::FunctionExpr::KeywordScore {}
             }
             FunctionExpression::VectorScore { field, query } => {
-                topk_rs::data::function_expr::FunctionExpr::VectorScore {
+                topk_rs::expr::function::FunctionExpr::VectorScore {
                     field,
                     query: query.into(),
                 }
             }
             FunctionExpression::SemanticSimilarity { field, query } => {
-                topk_rs::data::function_expr::FunctionExpr::SemanticSimilarity { field, query }
+                topk_rs::expr::function::FunctionExpr::SemanticSimilarity { field, query }
             }
         }
     }
@@ -48,13 +48,13 @@ impl Into<topk_protos::v1::data::Vector> for VectorQuery {
     }
 }
 
-impl Into<topk_rs::data::function_expr::Vector> for VectorQuery {
-    fn into(self) -> topk_rs::data::function_expr::Vector {
+impl Into<topk_rs::data::Vector> for VectorQuery {
+    fn into(self) -> topk_rs::data::Vector {
         match self {
-            VectorQuery::F32 { vector } => topk_rs::data::function_expr::Vector::float(
-                vector.iter().map(|v| *v as f32).collect(),
-            ),
-            VectorQuery::U8 { vector } => topk_rs::data::function_expr::Vector::byte(vector),
+            VectorQuery::F32 { vector } => {
+                topk_rs::data::Vector::F32(vector.iter().map(|v| *v as f32).collect())
+            }
+            VectorQuery::U8 { vector } => topk_rs::data::Vector::U8(vector),
         }
     }
 }

@@ -213,8 +213,8 @@ impl Into<topk_protos::v1::data::LogicalExpr> for LogicalExpression {
     }
 }
 
-impl Into<topk_rs::data::logical_expr::LogicalExpr> for LogicalExpression {
-    fn into(self) -> topk_rs::data::logical_expr::LogicalExpr {
+impl Into<topk_rs::expr::logical::LogicalExpr> for LogicalExpression {
+    fn into(self) -> topk_rs::expr::logical::LogicalExpr {
         self.expr.into()
     }
 }
@@ -245,26 +245,26 @@ impl Into<topk_protos::v1::data::LogicalExpr> for LogicalExpressionUnion {
     }
 }
 
-impl Into<topk_rs::data::logical_expr::LogicalExpr> for LogicalExpressionUnion {
-    fn into(self) -> topk_rs::data::logical_expr::LogicalExpr {
+impl Into<topk_rs::expr::logical::LogicalExpr> for LogicalExpressionUnion {
+    fn into(self) -> topk_rs::expr::logical::LogicalExpr {
         match self {
-            LogicalExpressionUnion::Null => topk_rs::data::logical_expr::LogicalExpr::Null {},
+            LogicalExpressionUnion::Null => topk_rs::expr::logical::LogicalExpr::Null {},
             LogicalExpressionUnion::Field { name } => {
-                topk_rs::data::logical_expr::LogicalExpr::Field { name }
+                topk_rs::expr::logical::LogicalExpr::Field { name }
             }
             LogicalExpressionUnion::Literal { value } => {
-                topk_rs::data::logical_expr::LogicalExpr::Literal {
+                topk_rs::expr::logical::LogicalExpr::Literal {
                     value: value.into(),
                 }
             }
             LogicalExpressionUnion::Unary { op, expr } => {
-                topk_rs::data::logical_expr::LogicalExpr::Unary {
+                topk_rs::expr::logical::LogicalExpr::Unary {
                     op: op.into(),
                     expr: Box::new(expr.as_ref().clone().into()),
                 }
             }
             LogicalExpressionUnion::Binary { left, op, right } => {
-                topk_rs::data::logical_expr::LogicalExpr::Binary {
+                topk_rs::expr::logical::LogicalExpr::Binary {
                     left: Box::new(left.as_ref().clone().into()),
                     op: op.into(),
                     right: Box::new(right.as_ref().clone().into()),

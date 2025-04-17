@@ -14,17 +14,17 @@ pub enum Scalar {
     String(String),
 }
 
-impl Into<topk_rs::data::scalar::Scalar> for Scalar {
-    fn into(self) -> topk_rs::data::scalar::Scalar {
+impl Into<topk_rs::data::Scalar> for Scalar {
+    fn into(self) -> topk_rs::data::Scalar {
         match self {
-            Scalar::Bool(b) => topk_rs::data::scalar::Scalar::Bool(b),
-            Scalar::U32(u) => topk_rs::data::scalar::Scalar::U32(u),
-            Scalar::U64(u) => topk_rs::data::scalar::Scalar::U64(u),
-            Scalar::I32(i) => topk_rs::data::scalar::Scalar::I32(i),
-            Scalar::I64(i) => topk_rs::data::scalar::Scalar::I64(i),
-            Scalar::F32(f) => topk_rs::data::scalar::Scalar::F32(f),
-            Scalar::F64(f) => topk_rs::data::scalar::Scalar::F64(f),
-            Scalar::String(s) => topk_rs::data::scalar::Scalar::String(s),
+            Scalar::Bool(b) => topk_rs::data::Scalar::Bool(b),
+            Scalar::U32(u) => topk_rs::data::Scalar::U32(u),
+            Scalar::U64(u) => topk_rs::data::Scalar::U64(u),
+            Scalar::I32(i) => topk_rs::data::Scalar::I32(i),
+            Scalar::I64(i) => topk_rs::data::Scalar::I64(i),
+            Scalar::F32(f) => topk_rs::data::Scalar::F32(f),
+            Scalar::F64(f) => topk_rs::data::Scalar::F64(f),
+            Scalar::String(s) => topk_rs::data::Scalar::String(s),
         }
     }
 }
