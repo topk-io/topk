@@ -3,6 +3,7 @@ from topk_sdk import error
 from topk_sdk.query import field, top_k
 
 from . import ProjectContext
+from .utils import doc_ids
 
 
 def test_delete_from_non_existent_collection(ctx: ProjectContext):
@@ -14,7 +15,10 @@ def test_delete_document(ctx: ProjectContext):
     collection = ctx.client.collections().create(ctx.scope("test"), schema={})
 
     lsn = ctx.client.collection(collection.name).upsert(
-        [{"_id": "one", "rank": 1}, {"_id": "two", "rank": 2}]
+        [
+            {"_id": "one", "rank": 1},
+            {"_id": "two", "rank": 2},
+        ]
     )
     assert lsn == 1
 
@@ -28,8 +32,7 @@ def test_delete_document(ctx: ProjectContext):
         top_k(field("rank"), 100, True), lsn=lsn
     )
 
-    doc_ids = {doc["_id"] for doc in docs}
-    assert doc_ids == {"two"}
+    assert doc_ids(docs) == {"two"}
 
 
 def test_delete_non_existent_document(ctx: ProjectContext):

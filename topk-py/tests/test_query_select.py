@@ -1,8 +1,7 @@
-import pytest
 from topk_sdk.query import field, fn, literal, match, select, top_k
 
 from . import ProjectContext
-from .utils import dataset
+from .utils import dataset, doc_ids
 
 
 def test_query_select_literal(ctx: ProjectContext):
@@ -14,9 +13,7 @@ def test_query_select_literal(ctx: ProjectContext):
         .top_k(field("published_year"), 100, True)
     )
 
-    assert len(results) == 1
-    assert results[0]["_id"] == "1984"
-    assert results[0]["literal"] == 1.0
+    assert results == [{"_id": "1984", "literal": 1.0}]
 
 
 def test_query_select_non_existing_field(ctx: ProjectContext):
@@ -28,9 +25,7 @@ def test_query_select_non_existing_field(ctx: ProjectContext):
         .top_k(field("published_year"), 100, True)
     )
 
-    assert len(results) == 1
-    assert results[0]["_id"] == "1984"
-    assert "literal" not in results[0]
+    assert results == [{"_id": "1984"}]
 
 
 def test_query_topk_limit(ctx: ProjectContext):
@@ -59,12 +54,11 @@ def test_query_topk_asc(ctx: ProjectContext):
         select("published_year").top_k(field("published_year"), 3, True)
     )
 
-    assert len(results) == 3
-    # The results should be sorted by published_year ascending
-    assert results[0]["_id"] == "pride"
-    assert results[0]["published_year"] == 1813
-    assert results[1]["published_year"] > results[0]["published_year"]
-    assert results[2]["published_year"] > results[1]["published_year"]
+    assert results == [
+        {"_id": "pride", "published_year": 1813},
+        {"_id": "moby", "published_year": 1851},
+        {"_id": "gatsby", "published_year": 1925},
+    ]
 
 
 def test_query_topk_desc(ctx: ProjectContext):
@@ -74,12 +68,11 @@ def test_query_topk_desc(ctx: ProjectContext):
         select("published_year").top_k(field("published_year"), 3, False)
     )
 
-    assert len(results) == 3
-    # The results should be sorted by published_year descending
-    assert results[0]["_id"] == "harry"
-    assert results[0]["published_year"] == 1997
-    assert results[1]["published_year"] < results[0]["published_year"]
-    assert results[2]["published_year"] < results[1]["published_year"]
+    assert results == [
+        {"_id": "harry", "published_year": 1997},
+        {"_id": "alchemist", "published_year": 1988},
+        {"_id": "mockingbird", "published_year": 1960},
+    ]
 
 
 def test_query_select_bm25_score(ctx: ProjectContext):
@@ -91,11 +84,7 @@ def test_query_select_bm25_score(ctx: ProjectContext):
         .top_k(field("bm25_score"), 100, True)
     )
 
-    assert len(results) == 1
-    assert results[0]["_id"] == "pride"
-    assert "bm25_score" in results[0]
-    # We can't assert the exact score as it may change
-    assert isinstance(results[0]["bm25_score"], float)
+    assert doc_ids(results) == {"pride"}
 
 
 def test_query_select_vector_distance(ctx: ProjectContext):
@@ -107,10 +96,7 @@ def test_query_select_vector_distance(ctx: ProjectContext):
         ).top_k(field("summary_distance"), 3, True)
     )
 
-    assert len(results) == 3
-    # We expect these specific documents in the result set
-    result_ids = {doc["_id"] for doc in results}
-    assert result_ids == {"1984", "mockingbird", "pride"}
+    assert doc_ids(results) == {"1984", "mockingbird", "pride"}
 
 
 def test_query_select_null_field(ctx: ProjectContext):
@@ -125,5 +111,4 @@ def test_query_select_null_field(ctx: ProjectContext):
     )
 
     # Assert that `a` is null for all documents, even when not specified when upserting
-    for doc in results:
-        assert doc.get("a") is None
+    assert {doc.get("a") for doc in results} == {None, None}

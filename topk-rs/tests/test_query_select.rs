@@ -185,15 +185,7 @@ async fn test_query_select_vector_distance(ctx: &mut ProjectTestContext) {
         .await
         .expect("could not query");
 
-    // note: purposefully not matching on `summary_distance` since the exact value changes over time as we develop the system
-    assert_eq!(results.len(), 3);
-    assert_eq!(
-        results
-            .into_iter()
-            .map(|d| d.id().unwrap().to_string())
-            .collect::<HashSet<_>>(),
-        ["1984".into(), "mockingbird".into(), "pride".into()].into()
-    );
+    assert_doc_ids!(results, ["1984", "mockingbird", "pride"]);
 }
 
 #[test_context(ProjectTestContext)]

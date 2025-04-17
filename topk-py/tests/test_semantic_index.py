@@ -10,8 +10,8 @@ from .utils import dataset
 def test_semantic_index_schema(ctx: ProjectContext):
     collection = dataset.semantic.setup(ctx)
 
-    for field in collection.schema:
-        assert not field.startswith("_"), f"Schema contains reserved field: {field}"
+    for f in collection.schema:
+        assert not f.startswith("_"), f"Schema contains reserved field: {field}"
 
 
 def test_semantic_index_create_with_invalid_model(ctx: ProjectContext):
