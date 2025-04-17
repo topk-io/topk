@@ -108,14 +108,10 @@ describe('Collections', () => {
         { name: text().index(vectorIndex({ metric: "cosine" })) }
       )
     ).rejects.toThrow();
-    // No need to track this collection as it fails to create
   });
 
   test('list collections', async () => {
     const ctx = getContext();
-
-    // Note: All tests run within the same project,
-    // so list of collections is shared across tests.
 
     const a = await ctx.createCollection('books', {});
     const collections1 = await ctx.client.collections().list();

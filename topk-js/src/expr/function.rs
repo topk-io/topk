@@ -6,8 +6,15 @@ use crate::data::vector::Vector;
 #[derive(Debug, Clone)]
 pub enum FunctionExpression {
     KeywordScore,
-    VectorScore { field: String, query: Vector },
-    SemanticSimilarity { field: String, query: String },
+    VectorScore {
+        field: String,
+        #[napi(ts_type = "data.Vector")]
+        query: Vector,
+    },
+    SemanticSimilarity {
+        field: String,
+        query: String,
+    },
 }
 
 impl Into<topk_rs::expr::function::FunctionExpr> for FunctionExpression {

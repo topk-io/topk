@@ -4,7 +4,7 @@ use napi::{
 };
 use napi_derive::napi;
 
-#[napi]
+#[napi(namespace = "data")]
 #[derive(Debug, Clone, PartialEq)]
 pub enum VectorUnion {
     Float {
@@ -21,7 +21,7 @@ pub enum VectorUnion {
     },
 }
 
-#[napi]
+#[napi(namespace = "data")]
 #[derive(Debug, Clone)]
 pub struct Vector(VectorUnion);
 
@@ -35,17 +35,17 @@ impl Vector {
     }
 }
 
-#[napi]
+#[napi(namespace = "data")]
 pub fn f32_vector(values: Vec<f64>) -> Vector {
     Vector(VectorUnion::Float { values })
 }
 
-#[napi]
+#[napi(namespace = "data")]
 pub fn u8_vector(values: Vec<u8>) -> Vector {
     Vector(VectorUnion::Byte { values })
 }
 
-#[napi]
+#[napi(namespace = "data")]
 pub fn binary_vector(values: Vec<u8>) -> Vector {
     Vector(VectorUnion::Binary { values })
 }

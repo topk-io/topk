@@ -173,9 +173,14 @@ impl Into<data::text_expr::Term> for Term {
 }
 
 #[napi(js_name = "match", namespace = "query")]
-pub fn match_(token: String, field: Option<String>, weight: Option<f64>) -> TextExpression {
+pub fn match_(
+    token: String,
+    field: Option<String>,
+    weight: Option<f64>,
+    all: Option<bool>,
+) -> TextExpression {
     TextExpression::create(TextExpressionUnion::Terms {
-        all: true,
+        all: all.unwrap_or(false),
         terms: vec![Term {
             token,
             field,

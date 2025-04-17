@@ -1,6 +1,6 @@
 import { bm25Score, field, match, select, semanticSimilarity, vectorDistance } from '../lib/query';
 import { binaryVector, f32Vector, keywordIndex, semanticIndex, text, u8Vector, vectorIndex } from '../lib/schema';
-import { binaryVector as binaryVectorValue, u8Vector as u8VectorValue } from '../index';
+import { binaryVector as binaryVectorValue, u8Vector as u8VectorValue } from '../lib/data';
 import { newProjectContext, ProjectContext } from "./setup";
 
 describe("Documents", () => {

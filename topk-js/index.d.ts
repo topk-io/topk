@@ -21,14 +21,6 @@ export declare class CollectionsClient {
   delete(name: string): Promise<void>
 }
 
-export declare class Vector {
-
-}
-
-export declare function binary(values: Array<number>): any
-
-export declare function binaryVector(values: Array<number>): Vector
-
 export interface ClientConfig {
   apiKey: string
   region: string
@@ -53,8 +45,6 @@ export interface CreateCollectionOptions {
   schema: Record<string, schema.FieldSpec>
 }
 
-export declare function f32Vector(values: Array<number>): Vector
-
 export interface FieldSpec {
   dataType: schema.DataType
   required: boolean
@@ -63,7 +53,7 @@ export interface FieldSpec {
 
 export type FunctionExpression =
   | { type: 'KeywordScore' }
-  | { type: 'VectorScore', field: string, query: Vector }
+  | { type: 'VectorScore', field: string, query: data.Vector }
   | { type: 'SemanticSimilarity', field: string, query: string }
 
 export interface Term {
@@ -72,12 +62,19 @@ export interface Term {
   weight: number
 }
 
-export declare function u8Vector(values: Array<number>): Vector
+export declare namespace data {
+  export class Vector {
 
-export type VectorUnion =
-  | { type: 'Float', values: Array<number> }
-  | { type: 'Byte', values: Array<number> }
-  | { type: 'Binary', values: Array<number> }
+  }
+  export function binary(values: Array<number>): any
+  export function binaryVector(values: Array<number>): Vector
+  export function f32Vector(values: Array<number>): Vector
+  export function u8Vector(values: Array<number>): Vector
+  export type VectorUnion =
+    | { type: 'Float', values: Array<number> }
+    | { type: 'Byte', values: Array<number> }
+    | { type: 'Binary', values: Array<number> }
+}
 
 export declare namespace query {
   export class LogicalExpression {
@@ -132,7 +129,7 @@ export declare namespace query {
     | { type: 'Literal', value: number | string | boolean }
     | { type: 'Unary', op: UnaryOperator, expr: LogicalExpression }
     | { type: 'Binary', left: LogicalExpression, op: BinaryOperator, right: LogicalExpression }
-  export function match(token: string, field?: string | undefined | null, weight?: number | undefined | null): TextExpression
+  export function match(token: string, field?: string | undefined | null, weight?: number | undefined | null, all?: boolean | undefined | null): TextExpression
   export function select(exprs: Record<string, LogicalExpression | FunctionExpression>): Query
   export function semanticSimilarity(field: string, query: string): FunctionExpression
   export type TextExpressionUnion =
@@ -142,7 +139,7 @@ export declare namespace query {
   export type UnaryOperator =  'not'|
   'isnull'|
   'isnotnull';
-  export function vectorDistance(field: string, query: Array<number> | Vector): FunctionExpression
+  export function vectorDistance(field: string, query: Array<number> | data.Vector): FunctionExpression
 }
 
 export declare namespace schema {

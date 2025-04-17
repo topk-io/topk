@@ -41,6 +41,18 @@
       "require": "./lib/query.js",
       "import": "./lib/query.js",
       "types": "./lib/query.d.ts"
+    },
+    "./data": {
+      "require": "./lib/data.js",
+      "import": "./lib/data.js",
+      "types": "./lib/data.d.ts"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "schema": ["lib/schema.d.ts"],
+      "query": ["lib/query.d.ts"],
+      "data": ["lib/data.d.ts"]
     }
   },
   "license": "MIT",

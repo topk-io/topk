@@ -27,7 +27,7 @@ pub enum Value {
     Null,
 }
 
-#[napi]
+#[napi(namespace = "data")]
 pub fn binary(values: Vec<u8>) -> Value {
     Value::Binary(values)
 }
@@ -55,7 +55,7 @@ impl From<topk_protos::v1::data::Value> for Value {
         match value.value {
             Some(topk_protos::v1::data::value::Value::String(s)) => Value::String(s),
             Some(topk_protos::v1::data::value::Value::F64(n)) => Value::F64(n),
-            Some(topk_protos::v1::data::value::Value::Bool(b)) => Value::String(b.to_string()),
+            Some(topk_protos::v1::data::value::Value::Bool(b)) => Value::Bool(b),
             Some(topk_protos::v1::data::value::Value::U32(n)) => Value::I32(n.try_into().unwrap()),
             Some(topk_protos::v1::data::value::Value::U64(n)) => Value::U64(n.try_into().unwrap()),
             Some(topk_protos::v1::data::value::Value::I32(n)) => Value::I32(n),
@@ -87,6 +87,7 @@ impl FromNapiValue for Value {
         napi_val: napi::sys::napi_value,
     ) -> napi::Result<Self> {
         let mut result: i32 = 0;
+
         napi::sys::napi_typeof(env, napi_val, &mut result);
 
         match result {

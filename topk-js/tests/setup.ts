@@ -49,6 +49,6 @@ export function newProjectContext() {
 
   return new ProjectContext(
     client,
-    `test-${uuidv4()}`
+    `topk-js-${uuidv4()}`
   );
 }
