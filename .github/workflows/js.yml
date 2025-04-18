@@ -560,6 +560,8 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: ./topk-js/artifacts
+      - name: Tmate
+        uses: mxschmitt/action-tmate@v3
       - name: Move artifacts
         run: yarn artifacts
       - name: List packages
