@@ -370,10 +370,6 @@ jobs:
       - name: List packages
         run: ls -R .
         shell: bash
-      # - name: Tmate
-      #   uses: mxschmitt/action-tmate@v3
-      #   env:
-      #     TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
       - name: Test bindings
         env:
           TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
@@ -560,8 +556,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: ./topk-js/artifacts
-      - name: Tmate
-        uses: mxschmitt/action-tmate@v3
       - name: Move artifacts
         run: yarn artifacts
       - name: List packages
