@@ -14,7 +14,6 @@ pub struct ClientConfig {
     pub region: String,
     pub host: Option<String>,
     pub https: Option<bool>,
-    pub headers: Option<HashMap<String, String>>,
 }
 
 #[napi]
@@ -36,7 +35,9 @@ impl Client {
             rs_config = rs_config.with_https(https_value);
         }
 
-        let client = Arc::new(RsClient::new(rs_config));
+        let rs_client = RsClient::new(rs_config);
+
+        let client = Arc::new(rs_client);
 
         Self { client }
     }

@@ -21,7 +21,7 @@ pub struct FieldIndex {
     pub index: Option<FieldIndexUnion>,
 }
 
-#[napi(string_enum = "lowercase", namespace = "schema")]
+#[napi(string_enum = "camelCase", namespace = "schema")]
 #[derive(Clone, Debug)]
 pub enum KeywordIndexType {
     Text,
@@ -69,14 +69,11 @@ impl From<topk_protos::v1::control::FieldIndex> for FieldIndexUnion {
                 topk_protos::v1::control::field_index::Index::SemanticIndex(s) => {
                     FieldIndexUnion::SemanticIndex {
                         model: s.model,
-                        embedding_type: match s.embedding_type {
-                            Some(t) => Some(
-                                topk_protos::v1::control::EmbeddingDataType::try_from(t)
-                                    .expect("Unsupported embedding data type")
-                                    .into(),
-                            ),
-                            None => None,
-                        },
+                        embedding_type: s.embedding_type.map(|t| {
+                            topk_protos::v1::control::EmbeddingDataType::try_from(t)
+                                .expect("Unsupported embedding data type")
+                                .into()
+                        }),
                     }
                 }
             },
@@ -85,7 +82,7 @@ impl From<topk_protos::v1::control::FieldIndex> for FieldIndexUnion {
     }
 }
 
-#[napi(string_enum = "lowercase", namespace = "schema")]
+#[napi(string_enum = "snake_case", namespace = "schema")]
 #[derive(Clone, Debug)]
 pub enum VectorDistanceMetric {
     Cosine,
@@ -213,14 +210,11 @@ impl From<topk_protos::v1::control::FieldIndex> for FieldIndex {
                 topk_protos::v1::control::field_index::Index::SemanticIndex(s) => FieldIndex {
                     index: Some(FieldIndexUnion::SemanticIndex {
                         model: s.model,
-                        embedding_type: match s.embedding_type {
-                            Some(t) => Some(
-                                topk_protos::v1::control::EmbeddingDataType::try_from(t)
-                                    .expect("Unsupported embedding data type")
-                                    .into(),
-                            ),
-                            None => None,
-                        },
+                        embedding_type: s.embedding_type.map(|t| {
+                            topk_protos::v1::control::EmbeddingDataType::try_from(t)
+                                .expect("Unsupported embedding data type")
+                                .into()
+                        }),
                     }),
                 },
             },
@@ -247,7 +241,7 @@ impl From<FieldIndex> for topk_protos::v1::control::FieldIndex {
                 embedding_type,
             }) => topk_protos::v1::control::FieldIndex::semantic(
                 model,
-                embedding_type.map(|t| topk_protos::v1::control::EmbeddingDataType::from(t)),
+                embedding_type.map(topk_protos::v1::control::EmbeddingDataType::from),
             ),
             None => topk_protos::v1::control::FieldIndex { index: None },
         }

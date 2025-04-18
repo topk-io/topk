@@ -50,9 +50,15 @@
   },
   "typesVersions": {
     "*": {
-      "schema": ["lib/schema.d.ts"],
-      "query": ["lib/query.d.ts"],
-      "data": ["lib/data.d.ts"]
+      "schema": [
+        "lib/schema.d.ts"
+      ],
+      "query": [
+        "lib/query.d.ts"
+      ],
+      "data": [
+        "lib/data.d.ts"
+      ]
     }
   },
   "license": "MIT",

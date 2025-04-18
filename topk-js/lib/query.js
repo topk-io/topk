@@ -9,3 +9,6 @@ module.exports.semanticSimilarity = query.semanticSimilarity;
 module.exports.vectorDistance = query.vectorDistance;
 module.exports.Query = query.Query;
 module.exports.LogicalExpression = query.LogicalExpression;
+module.exports.filter = query.filter;
+module.exports.topK = query.topK;
+module.exports.count = query.count;

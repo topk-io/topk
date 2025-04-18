@@ -296,7 +296,7 @@ impl FromNapiValue for LogicalExpression {
     }
 }
 
-#[napi(string_enum = "lowercase", namespace = "query")]
+#[napi(string_enum = "camelCase", namespace = "query")]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BinaryOperator {
     // Logical ops
@@ -364,7 +364,7 @@ impl Into<topk_rs::expr::logical::BinaryOperator> for BinaryOperator {
     }
 }
 
-#[napi(string_enum = "lowercase", namespace = "query")]
+#[napi(string_enum = "camelCase", namespace = "query")]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum UnaryOperator {
     Not,

@@ -26,7 +26,6 @@ export interface ClientConfig {
   region: string
   host?: string
   https?: boolean
-  headers?: Record<string, string>
 }
 
 export interface Collection {
@@ -66,8 +65,8 @@ export declare namespace data {
   export class Vector {
 
   }
-  export function binary(values: Array<number>): any
   export function binaryVector(values: Array<number>): Vector
+  export function bytes(values: Array<number>): any
   export function f32Vector(values: Array<number>): Vector
   export function u8Vector(values: Array<number>): Vector
   export type VectorUnion =
@@ -116,14 +115,16 @@ export declare namespace query {
   'lte'|
   'gt'|
   'gte'|
-  'startswith'|
+  'startsWith'|
   'contains'|
   'add'|
   'sub'|
   'mul'|
   'div';
   export function bm25Score(): FunctionExpression
+  export function count(): Query
   export function field(name: string): LogicalExpression
+  export function filter(expr: LogicalExpression | TextExpression): Query
   export function literal(value: number | string | boolean): LogicalExpression
   export type LogicalExpressionUnion =
     | { type: 'Null' }
@@ -138,9 +139,10 @@ export declare namespace query {
     | { type: 'Terms', all: boolean, terms: Array<Term> }
     | { type: 'And', left: TextExpression, right: TextExpression }
     | { type: 'Or', left: TextExpression, right: TextExpression }
+  export function topK(expr: LogicalExpression | TextExpression, k: number, asc?: boolean | undefined | null): Query
   export type UnaryOperator =  'not'|
-  'isnull'|
-  'isnotnull';
+  'isNull'|
+  'isNotNull';
   export function vectorDistance(field: string, query: Array<number> | data.Vector): FunctionExpression
 }
 
@@ -186,7 +188,7 @@ export declare namespace schema {
   export function u8Vector(dimension: number): FieldSpec
   export type VectorDistanceMetric =  'cosine'|
   'euclidean'|
-  'dotproduct'|
+  'dot_product'|
   'hamming';
   export function vectorIndex(options: VectorIndexOptions): FieldIndex
   export interface VectorIndexOptions {

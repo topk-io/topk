@@ -1,6 +1,6 @@
 use napi::{bindgen_prelude::*, sys::napi_typeof};
 
-use super::utils::is_napi_integer;
+use super::utils::{get_napi_value_type, is_napi_integer};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Scalar {
@@ -52,6 +52,7 @@ impl ToNapiValue for Scalar {
         match val {
             Scalar::Bool(b) => bool::to_napi_value(env, b),
             Scalar::U32(u) => u32::to_napi_value(env, u),
+            // TODO: Handle u64 as u32 can be lossy
             Scalar::U64(u) => u32::to_napi_value(env, u as u32),
             Scalar::I32(i) => i32::to_napi_value(env, i),
             Scalar::I64(i) => i64::to_napi_value(env, i),
@@ -76,11 +77,10 @@ impl FromNapiValue for Scalar {
                 Ok(Scalar::Bool(bool::from_napi_value(env, napi_val)?))
             }
             napi::sys::ValueType::napi_number => {
-                let is_integer = is_napi_integer(env, napi_val);
-
-                match is_integer {
-                    true => Ok(Scalar::I32(i32::from_napi_value(env, napi_val)?)),
-                    false => Ok(Scalar::F64(f64::from_napi_value(env, napi_val)?)),
+                if is_napi_integer(env, napi_val) {
+                    Ok(Scalar::I32(i32::from_napi_value(env, napi_val)?))
+                } else {
+                    Ok(Scalar::F64(f64::from_napi_value(env, napi_val)?))
                 }
             }
             napi::sys::ValueType::napi_string => {
@@ -88,7 +88,7 @@ impl FromNapiValue for Scalar {
             }
             _ => Err(napi::Error::new(
                 napi::Status::GenericFailure,
-                "Invalid scalar type",
+                format!("Invalid scalar type: {}", get_napi_value_type(value_type)),
             )),
         }
     }

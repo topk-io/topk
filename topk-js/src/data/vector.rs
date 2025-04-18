@@ -60,7 +60,6 @@ impl FromNapiValue for Vector {
             napi::sys::napi_is_array(env, value, &mut is_array);
 
             if is_array {
-                // If it's a JS array, convert to Vec<f64> and then to VectorDistanceQuery::Array
                 let arr: Vec<f64> = Vec::from_napi_value(env, value)?;
 
                 return Ok(Vector(VectorUnion::Float { values: arr }));
@@ -124,7 +123,6 @@ impl Into<topk_protos::v1::data::Vector> for Vector {
 
 impl Into<topk_protos::v1::data::Value> for Vector {
     fn into(self) -> topk_protos::v1::data::Value {
-        // let vector: topk_protos::v1::data::vector::Vector = self.into();
         topk_protos::v1::data::Value {
             value: Some(topk_protos::v1::data::value::Value::Vector(self.into())),
         }

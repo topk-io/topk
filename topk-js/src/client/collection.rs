@@ -13,7 +13,7 @@ pub struct CollectionClient {
     client: Arc<topk_rs::Client>,
 }
 
-#[napi(string_enum = "lowercase")]
+#[napi(string_enum = "camelCase")]
 #[derive(Debug, Clone)]
 pub enum ConsistencyLevel {
     Indexed,
@@ -70,43 +70,14 @@ impl CollectionClient {
         lsn: Option<i64>,
         consistency: Option<ConsistencyLevel>,
     ) -> Result<i64> {
-        let query = Query::new().count();
-
-        let docs = self
+        let count = self
             .client
             .collection(&self.collection)
-            .query(
-                query.into(),
-                lsn.map(|l| l as u64),
-                consistency.map(|c| c.into()),
-            )
+            .count(lsn.map(|l| l as u64), consistency.map(|c| c.into()))
             .await
             .map_err(TopkError::from)?;
 
-        for doc in docs {
-            match doc.fields.get("_count") {
-                Some(value) => match value.as_u64() {
-                    Some(count) => return Ok(count as i64),
-                    None => {
-                        return Err(napi::Error::new(
-                            napi::Status::GenericFailure,
-                            "Invalid _count field data type in count query response",
-                        ))
-                    }
-                },
-                None => {
-                    return Err(napi::Error::new(
-                        napi::Status::GenericFailure,
-                        "Missing _count field in count query response",
-                    ))
-                }
-            }
-        }
-
-        Err(napi::Error::new(
-            napi::Status::GenericFailure,
-            "No documents received for count query",
-        ))
+        Ok(count as i64)
     }
 
     #[napi]

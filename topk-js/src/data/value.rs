@@ -22,14 +22,14 @@ pub enum Value {
     I32(i32),
     I64(i64),
     F32(f32),
-    Binary(Vec<u8>),
+    Bytes(Vec<u8>),
     Vector(Vector),
     Null,
 }
 
 #[napi(namespace = "data")]
-pub fn binary(values: Vec<u8>) -> Value {
-    Value::Binary(values)
+pub fn bytes(values: Vec<u8>) -> Value {
+    Value::Bytes(values)
 }
 
 impl From<Value> for topk_protos::v1::data::Value {
@@ -43,7 +43,7 @@ impl From<Value> for topk_protos::v1::data::Value {
             Value::I32(n) => topk_protos::v1::data::Value::i32(n),
             Value::I64(n) => topk_protos::v1::data::Value::i64(n),
             Value::F32(n) => topk_protos::v1::data::Value::f32(n),
-            Value::Binary(b) => topk_protos::v1::data::Value::binary(b),
+            Value::Bytes(b) => topk_protos::v1::data::Value::bytes(b),
             Value::Vector(v) => v.into(),
             Value::Null => topk_protos::v1::data::Value::null(),
         }
@@ -56,12 +56,16 @@ impl From<topk_protos::v1::data::Value> for Value {
             Some(topk_protos::v1::data::value::Value::String(s)) => Value::String(s),
             Some(topk_protos::v1::data::value::Value::F64(n)) => Value::F64(n),
             Some(topk_protos::v1::data::value::Value::Bool(b)) => Value::Bool(b),
-            Some(topk_protos::v1::data::value::Value::U32(n)) => Value::I32(n.try_into().unwrap()),
-            Some(topk_protos::v1::data::value::Value::U64(n)) => Value::U64(n.try_into().unwrap()),
+            Some(topk_protos::v1::data::value::Value::U32(n)) => {
+                Value::I32(n.try_into().expect("U32 is lossy"))
+            }
+            Some(topk_protos::v1::data::value::Value::U64(n)) => {
+                Value::U64(n.try_into().expect("U64 is lossy"))
+            }
             Some(topk_protos::v1::data::value::Value::I32(n)) => Value::I32(n),
             Some(topk_protos::v1::data::value::Value::I64(n)) => Value::I64(n),
             Some(topk_protos::v1::data::value::Value::F32(n)) => Value::F32(n),
-            Some(topk_protos::v1::data::value::Value::Binary(b)) => Value::Binary(b),
+            Some(topk_protos::v1::data::value::Value::Binary(b)) => Value::Bytes(b),
             Some(topk_protos::v1::data::value::Value::Vector(v)) => match v.vector {
                 Some(topk_protos::v1::data::vector::Vector::Float(float_vector)) => {
                     Value::Vector(Vector::new(VectorUnion::Float {
@@ -76,7 +80,7 @@ impl From<topk_protos::v1::data::Value> for Value {
                 None => unreachable!("Invalid vector proto"),
             },
             Some(topk_protos::v1::data::value::Value::Null(_)) => Value::Null,
-            None => Value::Null,
+            None => unreachable!("Invalid proto"),
         }
     }
 }
@@ -109,7 +113,7 @@ impl FromNapiValue for Value {
                     let buffer = Buffer::from_napi_value(env, napi_val)?;
                     let values: Vec<u8> = buffer.into();
 
-                    return Ok(Value::Binary(values));
+                    return Ok(Value::Bytes(values));
                 }
 
                 let mut is_array: bool = false;
@@ -185,7 +189,7 @@ impl ToNapiValue for Value {
             Value::I32(n) => i32::to_napi_value(env, n),
             Value::I64(n) => i64::to_napi_value(env, n),
             Value::F32(n) => f32::to_napi_value(env, n),
-            Value::Binary(b) => {
+            Value::Bytes(b) => {
                 let mut js_array = ptr::null_mut();
                 check_status!(
                     sys::napi_create_array(env, &mut js_array),
