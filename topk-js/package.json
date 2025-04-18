@@ -13,11 +13,13 @@
         "armv7-unknown-linux-gnueabihf",
         "armv7-unknown-linux-musleabihf",
         "x86_64-unknown-linux-musl",
+        "x86_64-unknown-linux-gnu",
         "x86_64-unknown-freebsd",
         "i686-pc-windows-msvc",
         "armv7-linux-androideabi",
         "universal-apple-darwin",
-        "riscv64gc-unknown-linux-gnu"
+        "riscv64gc-unknown-linux-gnu",
+        "x86_64-pc-windows-msvc"
       ]
     }
   },
