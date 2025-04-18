@@ -40,12 +40,11 @@ describe("Filter Queries", () => {
       .query(filter(field("published_year").lte(1950)).topK(field("published_year"), 100, false));
 
     expect(results.map((doc) => doc._id)).toEqual([
-      "catcher",
+      "1984",
+      "hobbit",
+      "gatsby",
       "moby",
-      "mockingbird",
-      "alchemist",
-      "harry",
-      "lotr",
+      "pride",
     ]);
   });
 

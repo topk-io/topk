@@ -521,12 +521,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: bindings-x86_64-apple-darwin
-          path: ./topk-js/artifacts
+          path: ./topk-js
       - name: Download macOS arm64 artifact
         uses: actions/download-artifact@v4
         with:
           name: bindings-aarch64-apple-darwin
-          path: ./topk-js/artifacts
+          path: ./topk-js/
       - name: Combine binaries
         run: yarn universal
       - name: Upload artifact
