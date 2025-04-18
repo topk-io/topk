@@ -1,6 +1,24 @@
-import { bm25Score, field, match, select, semanticSimilarity, vectorDistance } from '../lib/query';
-import { binaryVector, f32Vector, keywordIndex, semanticIndex, text, u8Vector, vectorIndex } from '../lib/schema';
-import { binaryVector as binaryVectorValue, u8Vector as u8VectorValue } from '../lib/data';
+import {
+  bm25Score,
+  field,
+  match,
+  select,
+  semanticSimilarity,
+  vectorDistance,
+} from "../lib/query";
+import {
+  binaryVector,
+  f32Vector,
+  keywordIndex,
+  semanticIndex,
+  text,
+  u8Vector,
+  vectorIndex,
+} from "../lib/schema";
+import {
+  binaryVector as binaryVectorValue,
+  u8Vector as u8VectorValue,
+} from "../lib/data";
 import { newProjectContext, ProjectContext } from "./setup";
 
 describe("Documents", () => {
@@ -13,7 +31,7 @@ describe("Documents", () => {
   }
 
   afterAll(async () => {
-    await Promise.all(contexts.map(ctx => ctx.deleteCollections()));
+    await Promise.all(contexts.map((ctx) => ctx.deleteCollections()));
   });
 
   test("get", async () => {
@@ -143,7 +161,10 @@ describe("Documents", () => {
 
     let docs = await ctx.client.collection(ctx.scope("books")).query(
       select({
-        vector_distance: vectorDistance("u8_embedding", u8VectorValue([7, 8, 9])),
+        vector_distance: vectorDistance(
+          "u8_embedding",
+          u8VectorValue([7, 8, 9])
+        ),
       }).topK(field("vector_distance"), 2, true),
       lsn
     );
@@ -170,7 +191,10 @@ describe("Documents", () => {
 
     let docs = await ctx.client.collection(ctx.scope("books")).query(
       select({
-        vector_distance: vectorDistance("binary_embedding", binaryVectorValue([1, 1, 1])),
+        vector_distance: vectorDistance(
+          "binary_embedding",
+          binaryVectorValue([1, 1, 1])
+        ),
       }).topK(field("vector_distance"), 2, true),
       lsn
     );

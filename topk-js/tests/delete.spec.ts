@@ -1,7 +1,7 @@
-import { newProjectContext, ProjectContext } from './setup';
-import { field, select } from '../lib/query';
+import { newProjectContext, ProjectContext } from "./setup";
+import { field, select } from "../lib/query";
 
-describe('delete', () => {
+describe("delete", () => {
   const contexts: ProjectContext[] = [];
 
   function getContext(): ProjectContext {
@@ -11,39 +11,43 @@ describe('delete', () => {
   }
 
   afterAll(async () => {
-    await Promise.all(contexts.map(ctx => ctx.deleteCollections()));
+    await Promise.all(contexts.map((ctx) => ctx.deleteCollections()));
   });
 
-  it('should throw error when deleting from non-existent collection', async () => {
+  it("should throw error when deleting from non-existent collection", async () => {
     const ctx = getContext();
-    const collection = ctx.client.collection('non-existent');
-    await expect(collection.delete(['doc1'])).rejects.toThrow();
+    const collection = ctx.client.collection("non-existent");
+    await expect(collection.delete(["doc1"])).rejects.toThrow();
   });
 
-  it('should delete existing document', async () => {
+  it("should delete existing document", async () => {
     const ctx = getContext();
 
-    const collection = await ctx.createCollection('books', {});
+    const collection = await ctx.createCollection("books", {});
 
     await ctx.client.collection(collection.name).upsert([
-      { _id: 'doc1', title: 'Book 1', published_year: 1950 },
-      { _id: 'doc2', title: 'Book 2', published_year: 1960 },
+      { _id: "doc1", title: "Book 1", published_year: 1950 },
+      { _id: "doc2", title: "Book 2", published_year: 1960 },
     ]);
 
-    const lsn = await ctx.client.collection(collection.name).delete(['doc1']);
+    const lsn = await ctx.client.collection(collection.name).delete(["doc1"]);
     expect(lsn).toBe(2);
 
-    const remaining = await ctx.client.collection(collection.name).query(
-      select({ _id: field('_id') }).topK(field('published_year'), 100, true),
-    );
+    const remaining = await ctx.client
+      .collection(collection.name)
+      .query(
+        select({ _id: field("_id") }).topK(field("published_year"), 100, true)
+      );
 
-    expect(remaining).toEqual([{ _id: 'doc2' }]);
+    expect(remaining).toEqual([{ _id: "doc2" }]);
   });
 
-  it('should ignore non-existent document', async () => {
+  it("should ignore non-existent document", async () => {
     const ctx = getContext();
-    const collection = await ctx.createCollection('books', {});
-    const lsn = await ctx.client.collection(collection.name).delete(['non-existent']);
+    const collection = await ctx.createCollection("books", {});
+    const lsn = await ctx.client
+      .collection(collection.name)
+      .delete(["non-existent"]);
     expect(lsn).toBe(1);
   });
 });

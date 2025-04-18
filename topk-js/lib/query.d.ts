@@ -8,6 +8,6 @@ export declare const select: typeof query.select;
 export declare const semanticSimilarity: typeof query.semanticSimilarity;
 export declare const vectorDistance: typeof query.vectorDistance;
 export declare const LogicalExpression: typeof query.LogicalExpression;
-export declare type LogicalExpressionUnion = import("../index").query.LogicalExpressionUnion;
+export declare type LogicalExpressionUnion =
+  import("../index").query.LogicalExpressionUnion;
 export declare const TextExpression: typeof query.TextExpression;
-

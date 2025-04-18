@@ -1,8 +1,7 @@
+import { text } from "../lib/schema";
+import { newProjectContext, ProjectContext } from "./setup";
 
-import { text } from '../lib/schema';
-import { newProjectContext, ProjectContext } from './setup';
-
-describe('Upsert', () => {
+describe("Upsert", () => {
   const contexts: ProjectContext[] = [];
 
   function getContext(): ProjectContext {
@@ -12,75 +11,80 @@ describe('Upsert', () => {
   }
 
   afterAll(async () => {
-    await Promise.all(contexts.map(ctx => ctx.deleteCollections()));
+    await Promise.all(contexts.map((ctx) => ctx.deleteCollections()));
   });
 
-  test('upsert to non-existent collection', async () => {
+  test("upsert to non-existent collection", async () => {
     const ctx = getContext();
     await expect(
-      ctx.client.collection('missing').upsert([{ _id: 'one' }])
+      ctx.client.collection("missing").upsert([{ _id: "one" }])
     ).rejects.toThrow(/collection not found/);
   });
 
-  test('upsert basic', async () => {
+  test("upsert basic", async () => {
     const ctx = getContext();
-    const collection = await ctx.createCollection('test', {});
+    const collection = await ctx.createCollection("test", {});
 
-    const lsn = await ctx.client.collection(collection.name).upsert([{ _id: 'one' }]);
+    const lsn = await ctx.client
+      .collection(collection.name)
+      .upsert([{ _id: "one" }]);
     expect(lsn).toBe(1);
   });
 
-  test('upsert batch', async () => {
+  test("upsert batch", async () => {
     const ctx = getContext();
-    const collection = await ctx.createCollection('test', {});
+    const collection = await ctx.createCollection("test", {});
 
-    const lsn = await ctx.client.collection(collection.name).upsert([
-      { _id: 'one' },
-      { _id: 'two' }
-    ]);
+    const lsn = await ctx.client
+      .collection(collection.name)
+      .upsert([{ _id: "one" }, { _id: "two" }]);
     expect(lsn).toBe(1);
   });
 
-  test('upsert sequential', async () => {
+  test("upsert sequential", async () => {
     const ctx = getContext();
-    const collection = await ctx.createCollection('test', {});
+    const collection = await ctx.createCollection("test", {});
 
-    let lsn = await ctx.client.collection(collection.name).upsert([{ _id: 'one' }]);
+    let lsn = await ctx.client
+      .collection(collection.name)
+      .upsert([{ _id: "one" }]);
     expect(lsn).toBe(1);
 
-    lsn = await ctx.client.collection(collection.name).upsert([{ _id: 'two' }]);
+    lsn = await ctx.client.collection(collection.name).upsert([{ _id: "two" }]);
     expect(lsn).toBe(2);
 
-    lsn = await ctx.client.collection(collection.name).upsert([{ _id: 'three' }]);
+    lsn = await ctx.client
+      .collection(collection.name)
+      .upsert([{ _id: "three" }]);
     expect(lsn).toBe(3);
   });
 
-  test('upsert no documents', async () => {
+  test("upsert no documents", async () => {
     const ctx = getContext();
-    const collection = await ctx.createCollection('test', {});
+    const collection = await ctx.createCollection("test", {});
 
     await expect(
       ctx.client.collection(collection.name).upsert([])
     ).rejects.toThrow(/invalid argument/);
   });
 
-  test('upsert invalid document', async () => {
+  test("upsert invalid document", async () => {
     const ctx = getContext();
-    const collection = await ctx.createCollection('test', {});
+    const collection = await ctx.createCollection("test", {});
 
     await expect(
       ctx.client.collection(collection.name).upsert([{}])
     ).rejects.toThrow(/invalid argument/);
   });
 
-  test('upsert schema validation', async () => {
+  test("upsert schema validation", async () => {
     const ctx = getContext();
-    const collection = await ctx.createCollection('test', {
-      name: text().required()
+    const collection = await ctx.createCollection("test", {
+      name: text().required(),
     });
 
     await expect(
-      ctx.client.collection(collection.name).upsert([{ _id: 'one' }])
+      ctx.client.collection(collection.name).upsert([{ _id: "one" }])
     ).rejects.toThrow(/invalid argument/);
   });
 });

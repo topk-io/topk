@@ -1,6 +1,6 @@
-import { newProjectContext, ProjectContext } from './setup';
+import { newProjectContext, ProjectContext } from "./setup";
 
-describe('Collections', () => {
+describe("Collections", () => {
   const contexts: ProjectContext[] = [];
 
   function getContext(): ProjectContext {
@@ -10,62 +10,66 @@ describe('Collections', () => {
   }
 
   afterAll(async () => {
-    await Promise.all(contexts.map(ctx => ctx.deleteCollections()));
+    await Promise.all(contexts.map((ctx) => ctx.deleteCollections()));
   });
 
-  test('list collections', async () => {
+  test("list collections", async () => {
     const ctx = getContext();
-    const collection = await ctx.createCollection('test', {});
+    const collection = await ctx.createCollection("test", {});
     const collections = await ctx.client.collections().list();
     expect(collections).toContainEqual(collection);
   });
 
-  test('create collection', async () => {
+  test("create collection", async () => {
     const ctx = getContext();
-    const collection = await ctx.createCollection('test', {});
+    const collection = await ctx.createCollection("test", {});
     const collections = await ctx.client.collections().list();
     expect(collections).toContainEqual(collection);
   });
 
-  test('create duplicate collection', async () => {
+  test("create duplicate collection", async () => {
     const ctx = getContext();
-    await ctx.createCollection('test', {});
+    await ctx.createCollection("test", {});
 
     await expect(
-      ctx.client.collections().create(ctx.scope('test'), {})
-    ).rejects.toThrow('collection already exists');
+      ctx.client.collections().create(ctx.scope("test"), {})
+    ).rejects.toThrow("collection already exists");
   });
 
-  test('delete non-existent collection', async () => {
+  test("delete non-existent collection", async () => {
     const ctx = getContext();
     await expect(
-      ctx.client.collections().delete(ctx.scope('test'))
-    ).rejects.toThrow('collection not found');
+      ctx.client.collections().delete(ctx.scope("test"))
+    ).rejects.toThrow("collection not found");
   });
 
-  test('delete collection', async () => {
+  test("delete collection", async () => {
     const ctx = getContext();
-    const collection = await ctx.createCollection('test', {});
-    await ctx.client.collections().delete(ctx.scope('test'));
-    ctx.collectionsCreated = ctx.collectionsCreated.filter(name => name !== ctx.scope('test'));
+    const collection = await ctx.createCollection("test", {});
+    await ctx.client.collections().delete(ctx.scope("test"));
+    ctx.collectionsCreated = ctx.collectionsCreated.filter(
+      (name) => name !== ctx.scope("test")
+    );
 
     const collections = await ctx.client.collections().list();
     expect(collections).not.toContainEqual(collection);
   });
 
-  test('get collection', async () => {
+  test("get collection", async () => {
     const ctx = getContext();
 
     // Test getting non-existent collection
     await expect(
-      ctx.client.collections().get(ctx.scope('test'))
-    ).rejects.toThrow('collection not found');
+      ctx.client.collections().get(ctx.scope("test"))
+    ).rejects.toThrow("collection not found");
 
     // Create collection
-    const collection = await ctx.createCollection('test', {});
+    const collection = await ctx.createCollection("test", {});
 
     // Get collection
-    const retrievedCollection = await ctx.client.collections().get(ctx.scope('test'));
+    const retrievedCollection = await ctx.client
+      .collections()
+      .get(ctx.scope("test"));
     expect(retrievedCollection).toEqual(collection);
   });
 });

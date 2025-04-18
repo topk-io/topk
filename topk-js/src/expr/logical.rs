@@ -201,6 +201,20 @@ impl LogicalExpression {
             },
         }
     }
+
+    #[napi]
+    pub fn contains(
+        &self,
+        #[napi(ts_arg_type = "LogicalExpression | string")] other: Stringy,
+    ) -> Self {
+        Self {
+            expr: LogicalExpressionUnion::Binary {
+                left: NapiBox(Box::new(self.expr.clone())),
+                op: BinaryOperator::Contains,
+                right: NapiBox(Box::new(other.into())),
+            },
+        }
+    }
 }
 
 impl Into<topk_protos::v1::data::LogicalExpr> for LogicalExpression {
@@ -296,6 +310,7 @@ pub enum BinaryOperator {
     Gt,
     Gte,
     StartsWith,
+    Contains,
     // Arithmetic ops
     Add,
     Sub,
@@ -317,6 +332,9 @@ impl Into<topk_protos::v1::data::logical_expr::binary_op::Op> for BinaryOperator
             BinaryOperator::StartsWith => {
                 topk_protos::v1::data::logical_expr::binary_op::Op::StartsWith
             }
+            BinaryOperator::Contains => {
+                topk_protos::v1::data::logical_expr::binary_op::Op::Contains
+            }
             BinaryOperator::Add => topk_protos::v1::data::logical_expr::binary_op::Op::Add,
             BinaryOperator::Sub => topk_protos::v1::data::logical_expr::binary_op::Op::Sub,
             BinaryOperator::Mul => topk_protos::v1::data::logical_expr::binary_op::Op::Mul,
@@ -337,6 +355,7 @@ impl Into<topk_rs::expr::logical::BinaryOperator> for BinaryOperator {
             BinaryOperator::Gt => topk_rs::expr::logical::BinaryOperator::Gt,
             BinaryOperator::Gte => topk_rs::expr::logical::BinaryOperator::GtEq,
             BinaryOperator::StartsWith => topk_rs::expr::logical::BinaryOperator::StartsWith,
+            BinaryOperator::Contains => topk_rs::expr::logical::BinaryOperator::Contains,
             BinaryOperator::Add => topk_rs::expr::logical::BinaryOperator::Add,
             BinaryOperator::Sub => topk_rs::expr::logical::BinaryOperator::Sub,
             BinaryOperator::Mul => topk_rs::expr::logical::BinaryOperator::Mul,

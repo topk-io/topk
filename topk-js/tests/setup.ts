@@ -1,5 +1,5 @@
-import { Client } from '../index.js';
-import { v4 as uuidv4 } from 'uuid';
+import { Client } from "../index.js";
+import { v4 as uuidv4 } from "uuid";
 
 export class ProjectContext {
   client: Client;
@@ -16,7 +16,9 @@ export class ProjectContext {
   }
 
   async createCollection(name: string, schema: any = {}) {
-    const collection = await this.client.collections().create(this.scope(name), schema);
+    const collection = await this.client
+      .collections()
+      .create(this.scope(name), schema);
     this.collectionsCreated.push(collection.name);
     return collection;
   }
@@ -36,9 +38,9 @@ export class ProjectContext {
 
 export function newProjectContext() {
   const TOPK_API_KEY = process.env.TOPK_API_KEY;
-  const TOPK_HOST = process.env.TOPK_HOST || 'topk.io';
-  const TOPK_REGION = process.env.TOPK_REGION || 'elastica';
-  const TOPK_HTTPS = process.env.TOPK_HTTPS !== 'false';
+  const TOPK_HOST = process.env.TOPK_HOST || "topk.io";
+  const TOPK_REGION = process.env.TOPK_REGION || "elastica";
+  const TOPK_HTTPS = process.env.TOPK_HTTPS !== "false";
 
   const client = new Client({
     apiKey: TOPK_API_KEY,
@@ -47,8 +49,5 @@ export function newProjectContext() {
     https: TOPK_HTTPS,
   });
 
-  return new ProjectContext(
-    client,
-    `topk-js-${uuidv4()}`
-  );
+  return new ProjectContext(client, `topk-js-${uuidv4()}`);
 }

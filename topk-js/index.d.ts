@@ -93,6 +93,7 @@ export declare namespace query {
     and(other: LogicalExpression | boolean): LogicalExpression
     or(other: LogicalExpression | boolean): LogicalExpression
     startsWith(other: LogicalExpression | string): LogicalExpression
+    contains(other: LogicalExpression | string): LogicalExpression
   }
   export class Query {
     constructor()
@@ -116,6 +117,7 @@ export declare namespace query {
   'gt'|
   'gte'|
   'startswith'|
+  'contains'|
   'add'|
   'sub'|
   'mul'|
