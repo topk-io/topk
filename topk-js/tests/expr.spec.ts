@@ -1,9 +1,4 @@
-import {
-  field,
-  literal,
-  LogicalExpression,
-  LogicalExpressionUnion,
-} from "../lib/query";
+import { field, literal } from "../lib/query";
 
 describe("Expression Tests", () => {
   it("should handle flexible expressions", () => {
@@ -59,23 +54,25 @@ describe("Expression Tests", () => {
 
   it("should throw errors for invalid operations", () => {
     expect(() => literal(1).add("string" as any)).toThrow(
-      "Unsupported numeric type: 4"
+      "Unsupported numeric type: string"
     );
     expect(() => field("a").and(1 as any)).toThrow(
-      "Unsupported boolish type: 3"
+      "Unsupported boolish type: number"
     );
     expect(() => field("a").or(1 as any)).toThrow(
-      "Unsupported boolish type: 3"
+      "Unsupported boolish type: number"
     );
-    expect(() => field("a").add(null)).toThrow("Unsupported numeric type: 1");
+    expect(() => field("a").add(null)).toThrow(
+      "Unsupported numeric type: null"
+    );
     expect(() => field("a").add("string" as any)).toThrow(
-      "Unsupported numeric type: 4"
+      "Unsupported numeric type: string"
     );
     expect(() => field("a").add([1, 2, 3] as any)).toThrow(
-      "Unsupported numeric type: 6"
+      "Unsupported numeric type: object"
     );
     expect(() => field("a").add({ a: 1 } as any)).toThrow(
-      "Unsupported numeric type: 6"
+      "Unsupported numeric type: object"
     );
   });
 });

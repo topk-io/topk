@@ -117,7 +117,7 @@ describe("Logical Queries", () => {
       .collection(collection.name)
       .query(
         select({})
-          .filter(field("title").contains("the"))
+          .filter(field("title").contains("he"))
           .topK(field("published_year"), 100, true)
       );
 

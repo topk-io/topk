@@ -1,6 +1,9 @@
 use napi::bindgen_prelude::*;
 
-use crate::data::{scalar::Scalar, utils::is_napi_integer};
+use crate::data::{
+    scalar::Scalar,
+    utils::{get_napi_value_type, is_napi_integer},
+};
 
 use super::logical::{LogicalExpression, LogicalExpressionUnion};
 
@@ -50,7 +53,10 @@ impl FromNapiValue for FlexibleExpr {
             napi::sys::ValueType::napi_undefined => Ok(FlexibleExpr::Null(Null)),
             _ => Err(napi::Error::new(
                 napi::Status::GenericFailure,
-                format!("Unsupported flexible expression type: {}", result),
+                format!(
+                    "Unsupported flexible expression type: {}",
+                    get_napi_value_type(result)
+                ),
             )),
         }
     }
@@ -128,7 +134,7 @@ impl FromNapiValue for Numeric {
             },
             _ => Err(napi::Error::new(
                 napi::Status::GenericFailure,
-                format!("Unsupported numeric type: {}", result),
+                format!("Unsupported numeric type: {}", get_napi_value_type(result)),
             )),
         }
     }
@@ -194,7 +200,7 @@ impl FromNapiValue for Boolish {
             }
             _ => Err(napi::Error::new(
                 napi::Status::GenericFailure,
-                format!("Unsupported boolish type: {}", result),
+                format!("Unsupported boolish type: {}", get_napi_value_type(result)),
             )),
         }
     }
@@ -254,7 +260,7 @@ impl FromNapiValue for Stringy {
             napi::sys::ValueType::napi_string => {
                 Ok(Stringy::String(String::from_napi_value(env, value)?))
             }
-            _ => unreachable!("Unsupported stringy type: {}", result),
+            _ => unreachable!("Unsupported stringy type: {}", get_napi_value_type(result)),
         }
     }
 }

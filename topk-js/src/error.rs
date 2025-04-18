@@ -8,9 +8,43 @@ impl From<topk_rs::Error> for TopkError {
 
 impl From<TopkError> for napi::Error {
     fn from(error: TopkError) -> Self {
-        napi::Error::new(
-            napi::Status::GenericFailure,
-            format!("{:?}", error.0.to_string()),
-        )
+        match error.0 {
+            topk_rs::Error::QueryLsnTimeout => {
+                napi::Error::new(napi::Status::Cancelled, "lsn timeout")
+            }
+            topk_rs::Error::CollectionAlreadyExists => {
+                napi::Error::new(napi::Status::GenericFailure, "collection already exists")
+            }
+            topk_rs::Error::CollectionNotFound => {
+                napi::Error::new(napi::Status::GenericFailure, "collection not found")
+            }
+            topk_rs::Error::DocumentNotFound => {
+                napi::Error::new(napi::Status::GenericFailure, "document not found")
+            }
+            topk_rs::Error::InvalidArgument(msg) => napi::Error::new(
+                napi::Status::InvalidArg,
+                format!("invalid argument: {}", msg),
+            ),
+            topk_rs::Error::InvalidProto => {
+                napi::Error::new(napi::Status::GenericFailure, "invalid proto")
+            }
+            topk_rs::Error::PermissionDenied => {
+                napi::Error::new(napi::Status::GenericFailure, "permission denied")
+            }
+            topk_rs::Error::CapacityExceeded => {
+                napi::Error::new(napi::Status::GenericFailure, "capacity exceeded")
+            }
+            topk_rs::Error::TransportChannelNotInitialized => {
+                napi::Error::new(napi::Status::GenericFailure, "channel not initialized")
+            }
+            topk_rs::Error::MalformedResponse(msg) => napi::Error::new(
+                napi::Status::GenericFailure,
+                format!("malformed response: {}", msg),
+            ),
+            _ => napi::Error::new(
+                napi::Status::GenericFailure,
+                format!("{:?}", error.0.to_string()),
+            ),
+        }
     }
 }

@@ -132,12 +132,10 @@ describe("Collections", () => {
     const ctx = getContext();
 
     await expect(
-      ctx.client
-        .collections()
-        .create(ctx.scope("books"), {
-          name: text().index(vectorIndex({ metric: "cosine" })),
-        })
-    ).rejects.toThrow();
+      ctx.client.collections().create(ctx.scope("books"), {
+        name: text().index(vectorIndex({ metric: "cosine" })),
+      })
+    ).rejects.toThrow("invalid collection schema");
   });
 
   test("list collections", async () => {
@@ -209,6 +207,6 @@ describe("Collections", () => {
 
     await expect(
       ctx.client.collections().delete(ctx.scope("books"))
-    ).rejects.toThrow();
+    ).rejects.toThrow("collection not found");
   });
 });

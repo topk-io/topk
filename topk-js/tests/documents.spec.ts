@@ -58,7 +58,7 @@ describe("Documents", () => {
 
     await expect(
       ctx.client.collection(ctx.scope("books")).get("one")
-    ).rejects.toThrow();
+    ).rejects.toThrow("document not found");
   });
 
   test("upsert", async () => {

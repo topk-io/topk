@@ -12,3 +12,18 @@ pub unsafe fn is_napi_integer(env: napi::sys::napi_env, napi_val: napi::sys::nap
         false
     }
 }
+
+pub fn get_napi_value_type(value_type: i32) -> String {
+    match value_type {
+        napi::sys::ValueType::napi_undefined => "undefined".to_string(),
+        napi::sys::ValueType::napi_null => "null".to_string(),
+        napi::sys::ValueType::napi_boolean => "boolean".to_string(),
+        napi::sys::ValueType::napi_number => "number".to_string(),
+        napi::sys::ValueType::napi_symbol => "symbol".to_string(),
+        napi::sys::ValueType::napi_string => "string".to_string(),
+        napi::sys::ValueType::napi_object => "object".to_string(),
+        napi::sys::ValueType::napi_function => "function".to_string(),
+        napi::sys::ValueType::napi_external => "external".to_string(),
+        _ => "unknown".to_string(),
+    }
+}

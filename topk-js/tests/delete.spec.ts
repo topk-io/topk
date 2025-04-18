@@ -17,7 +17,9 @@ describe("delete", () => {
   it("should throw error when deleting from non-existent collection", async () => {
     const ctx = getContext();
     const collection = ctx.client.collection("non-existent");
-    await expect(collection.delete(["doc1"])).rejects.toThrow();
+    await expect(collection.delete(["doc1"])).rejects.toThrow(
+      "collection not found"
+    );
   });
 
   it("should delete existing document", async () => {

@@ -8,7 +8,7 @@ use napi::{
 use napi_derive::napi;
 
 use super::{
-    utils::is_napi_integer,
+    utils::{get_napi_value_type, is_napi_integer},
     vector::{Vector, VectorUnion},
 };
 
@@ -168,7 +168,7 @@ impl FromNapiValue for Value {
             napi::sys::ValueType::napi_undefined => Ok(Value::Null),
             _ => Err(napi::Error::new(
                 napi::Status::GenericFailure,
-                format!("Unsupported value type: {}", result),
+                format!("Unsupported value type: {}", get_napi_value_type(result)),
             )),
         }
     }
