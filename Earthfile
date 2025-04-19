@@ -94,7 +94,7 @@ test-js:
     DO +SETUP_ENV --region=$region
     # test
     RUN --no-cache --secret TOPK_API_KEY \
-        TOPK_API_KEY=$TOPK_API_KEY yarn test
+        TOPK_API_KEY=$TOPK_API_KEY yarn test -- --color=yes
 
 #
 
