@@ -63,13 +63,18 @@ test-py:
         . /venv/bin/activate \
         && TOPK_API_KEY=$TOPK_API_KEY pytest $args
 
-#
-
 test-js:
     FROM node:20-slim
 
     # install dependencies
     RUN apt-get update && apt-get install -y protobuf-compiler curl build-essential
+
+    # install Rust
+    RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+    ENV PATH="/root/.cargo/bin:${PATH}"
+
+    # Ensure yarn bins are in the PATH
+    ENV PATH="/sdk/topk-js/node_modules/.bin:${PATH}"
 
     # copy source code
     WORKDIR /sdk
@@ -77,10 +82,13 @@ test-js:
 
     # build
     WORKDIR /sdk/topk-js
-    RUN --mount=type=cache,target=node_modules \
+    RUN --mount=type=cache,target=/usr/local/share/.cache/yarn/v6 \
         yarn install
 
-    RUN yarn build
+    RUN --mount=type=cache,target=target \
+        --mount=type=cache,target=/usr/local/cargo/registry \
+        --mount=type=cache,target=/usr/local/cargo/git \
+        yarn build
 
     ARG region=dev
     DO +SETUP_ENV --region=$region
