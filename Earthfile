@@ -58,10 +58,9 @@ test-py:
     DO +SETUP_ENV --region=$region
 
     # test
-    ARG args="-n auto --tb=short"
     RUN --no-cache --secret TOPK_API_KEY \
         . /venv/bin/activate \
-        && TOPK_API_KEY=$TOPK_API_KEY pytest $args
+        && TOPK_API_KEY=$TOPK_API_KEY pytest -n auto --tb=short
 
 test-js:
     FROM node:20-slim
