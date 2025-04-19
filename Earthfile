@@ -23,6 +23,7 @@ test-rs:
     DO +SETUP_ENV --region=$region
 
     # test
+    ENV FORCE_COLOR=1
     ARG args="--no-fail-fast -j 16"
     RUN --no-cache --secret TOPK_API_KEY \
         TOPK_API_KEY=$TOPK_API_KEY cargo nextest run --archive-file e2e.tar.zst $args
@@ -58,16 +59,48 @@ test-py:
     DO +SETUP_ENV --region=$region
 
     # test
-    ARG args="-n auto"
     RUN --no-cache --secret TOPK_API_KEY \
         . /venv/bin/activate \
-        && TOPK_API_KEY=$TOPK_API_KEY pytest $args
+        && TOPK_API_KEY=$TOPK_API_KEY pytest -n auto --tb=long --durations=50 --color=yes
+
+test-js:
+    FROM node:20-slim
+
+    # install dependencies
+    RUN apt-get update && apt-get install -y protobuf-compiler curl build-essential
+
+    # install Rust
+    RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+    ENV PATH="/root/.cargo/bin:${PATH}"
+
+    # Ensure yarn bins are in the PATH
+    ENV PATH="/sdk/topk-js/node_modules/.bin:${PATH}"
+
+    # copy source code
+    WORKDIR /sdk
+    COPY . .
+
+    # build
+    WORKDIR /sdk/topk-js
+    RUN --mount=type=cache,target=/usr/local/share/.cache/yarn/v6 \
+        yarn install
+
+    RUN --mount=type=cache,target=target \
+        --mount=type=cache,target=/usr/local/cargo/registry \
+        --mount=type=cache,target=/usr/local/cargo/git \
+        yarn build
+
+    ARG region=dev
+    DO +SETUP_ENV --region=$region
+    # test
+    RUN --no-cache --secret TOPK_API_KEY \
+        TOPK_API_KEY=$TOPK_API_KEY yarn test --colors
 
 #
 
 SETUP_ENV:
     FUNCTION
-    
+
     # region
     ARG region=dev
     ENV TOPK_REGION=$region

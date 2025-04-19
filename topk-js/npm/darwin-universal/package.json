@@ -1,0 +1,15 @@
+{
+  "name": "topk-js-darwin-universal",
+  "version": "0.0.0",
+  "os": [
+    "darwin"
+  ],
+  "main": "topk-js.darwin-universal.node",
+  "files": [
+    "topk-js.darwin-universal.node"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">= 10"
+  }
+}

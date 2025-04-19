@@ -1,0 +1,18 @@
+{
+  "name": "topk-js-linux-arm-musleabihf",
+  "version": "0.0.0",
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "arm"
+  ],
+  "main": "topk-js.linux-arm-musleabihf.node",
+  "files": [
+    "topk-js.linux-arm-musleabihf.node"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">= 10"
+  }
+}
