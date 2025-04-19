@@ -23,6 +23,7 @@ test-rs:
     DO +SETUP_ENV --region=$region
 
     # test
+    ENV FORCE_COLOR=1
     ARG args="--no-fail-fast -j 16"
     RUN --no-cache --secret TOPK_API_KEY \
         TOPK_API_KEY=$TOPK_API_KEY cargo nextest run --archive-file e2e.tar.zst $args
