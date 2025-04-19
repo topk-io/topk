@@ -3,7 +3,11 @@ use napi_derive::napi;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::{schema::field_spec::FieldSpec, data::collection::Collection, error::TopkError};
+use crate::{
+    data::collection::{Collection, CollectionFieldSpec},
+    error::TopkError,
+    schema::field_spec::FieldSpec,
+};
 use topk_protos::v1::control::{self};
 
 #[napi]
@@ -15,7 +19,7 @@ pub struct CollectionsClient {
 pub struct CreateCollectionOptions {
     pub name: String,
     #[napi(ts_type = "Record<string, schema.FieldSpec>")]
-    pub schema: HashMap<String, FieldSpec>,
+    pub schema: HashMap<String, CollectionFieldSpec>,
 }
 
 #[napi]

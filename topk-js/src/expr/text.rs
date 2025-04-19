@@ -154,7 +154,7 @@ impl Into<topk_rs::expr::text::TextExpr> for TextExpressionUnion {
     }
 }
 
-#[napi(object)]
+#[napi(object, namespace = "query")]
 #[derive(Debug, Clone)]
 pub struct Term {
     pub token: String,

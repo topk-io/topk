@@ -151,6 +151,7 @@ describe("Collections", () => {
     expect(collections2).toContainEqual(b);
 
     const c = await ctx.createCollection("books3", {});
+
     const collections3 = await ctx.client.collections().list();
     expect(collections3).toContainEqual(a);
     expect(collections3).toContainEqual(b);

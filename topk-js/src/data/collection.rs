@@ -9,7 +9,7 @@ pub struct Collection {
     pub name: String,
     pub org_id: String,
     pub project_id: String,
-    pub schema: HashMap<String, FieldSpec>,
+    pub schema: HashMap<String, CollectionFieldSpec>,
     pub region: String,
 }
 
@@ -30,7 +30,7 @@ impl From<topk_protos::v1::control::Collection> for Collection {
 }
 
 #[napi(object)]
-pub struct FieldSpec {
+pub struct CollectionFieldSpec {
     #[napi(ts_type = "schema.DataType")]
     pub data_type: DataType,
     pub required: bool,
@@ -38,7 +38,7 @@ pub struct FieldSpec {
     pub index: Option<FieldIndexUnion>,
 }
 
-impl From<topk_protos::v1::control::FieldSpec> for FieldSpec {
+impl From<topk_protos::v1::control::FieldSpec> for CollectionFieldSpec {
     fn from(field_spec: topk_protos::v1::control::FieldSpec) -> Self {
         Self {
             data_type: field_spec.data_type.unwrap().into(),

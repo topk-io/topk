@@ -32,8 +32,14 @@ export interface Collection {
   name: string
   orgId: string
   projectId: string
-  schema: Record<string, FieldSpec>
+  schema: Record<string, CollectionFieldSpec>
   region: string
+}
+
+export interface CollectionFieldSpec {
+  dataType: schema.DataType
+  required: boolean
+  index?: schema.FieldIndexUnion
 }
 
 export type ConsistencyLevel =  'indexed'|
@@ -44,26 +50,9 @@ export interface CreateCollectionOptions {
   schema: Record<string, schema.FieldSpec>
 }
 
-export interface FieldSpec {
-  dataType: schema.DataType
-  required: boolean
-  index?: schema.FieldIndexUnion
-}
-
-export type FunctionExpression =
-  | { type: 'KeywordScore' }
-  | { type: 'VectorScore', field: string, query: data.Vector }
-  | { type: 'SemanticSimilarity', field: string, query: string }
-
-export interface Term {
-  token: string
-  field?: string
-  weight: number
-}
-
 export declare namespace data {
   export class Vector {
-
+    get values(): VectorUnion
   }
   export function binaryVector(values: Array<number>): Vector
   export function bytes(values: Array<number>): any
@@ -125,6 +114,10 @@ export declare namespace query {
   export function count(): Query
   export function field(name: string): LogicalExpression
   export function filter(expr: LogicalExpression | TextExpression): Query
+  export type FunctionExpression =
+    | { type: 'KeywordScore' }
+    | { type: 'VectorScore', field: string, query: data.Vector }
+    | { type: 'SemanticSimilarity', field: string, query: string }
   export function literal(value: number | string | boolean): LogicalExpression
   export type LogicalExpressionUnion =
     | { type: 'Null' }
@@ -135,6 +128,11 @@ export declare namespace query {
   export function match(token: string, field?: string | undefined | null, weight?: number | undefined | null, all?: boolean | undefined | null): TextExpression
   export function select(exprs: Record<string, LogicalExpression | FunctionExpression>): Query
   export function semanticSimilarity(field: string, query: string): FunctionExpression
+  export interface Term {
+    token: string
+    field?: string
+    weight: number
+  }
   export type TextExpressionUnion =
     | { type: 'Terms', all: boolean, terms: Array<Term> }
     | { type: 'And', left: TextExpression, right: TextExpression }

@@ -25,6 +25,7 @@ pub enum VectorUnion {
 #[derive(Debug, Clone)]
 pub struct Vector(VectorUnion);
 
+#[napi]
 impl Vector {
     pub fn new(values: VectorUnion) -> Self {
         Vector(values)
@@ -32,6 +33,11 @@ impl Vector {
 
     pub fn value(&self) -> &VectorUnion {
         &self.0
+    }
+
+    #[napi(getter)]
+    pub fn get_values(&self) -> VectorUnion {
+        self.0.clone()
     }
 }
 

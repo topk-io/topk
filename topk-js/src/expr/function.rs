@@ -2,7 +2,7 @@ use napi_derive::napi;
 
 use crate::data::vector::Vector;
 
-#[napi]
+#[napi(namespace = "query")]
 #[derive(Debug, Clone)]
 pub enum FunctionExpression {
     KeywordScore,

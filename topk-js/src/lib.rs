@@ -1,5 +1,3 @@
-#![deny(clippy::all)]
-
 mod client;
 mod data;
 mod error;
