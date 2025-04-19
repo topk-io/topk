@@ -13,5 +13,5 @@ export declare const Query: typeof query.Query;
 export declare const select: typeof query.select;
 export declare const semanticSimilarity: typeof query.semanticSimilarity;
 export declare const TextExpression: typeof query.TextExpression;
-export declare const topK: typeof query.topK;
+export declare const topk: typeof query.topk;
 export declare const vectorDistance: typeof query.vectorDistance;

@@ -61,7 +61,7 @@ impl Query {
     }
 
     #[napi]
-    pub fn top_k(&self, expr: LogicalExpression, k: i32, asc: Option<bool>) -> Query {
+    pub fn topk(&self, expr: LogicalExpression, k: i32, asc: Option<bool>) -> Query {
         let mut new_query = Query {
             stages: self.stages.clone(),
         };
@@ -137,7 +137,7 @@ pub fn filter(
 }
 
 #[napi(namespace = "query")]
-pub fn top_k(
+pub fn topk(
     #[napi(ts_arg_type = "LogicalExpression | TextExpression")] expr: LogicalExpression,
     k: i32,
     asc: Option<bool>,
