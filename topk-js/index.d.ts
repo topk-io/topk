@@ -87,7 +87,7 @@ export declare namespace query {
     constructor()
     static select(exprs: Record<string, LogicalExpression | FunctionExpression>): Query
     filter(expr: LogicalExpression | TextExpression): Query
-    topK(expr: LogicalExpression, k: number, asc?: boolean | undefined | null): Query
+    topk(expr: LogicalExpression, k: number, asc?: boolean | undefined | null): Query
     count(): Query
     rerank(model?: string | undefined | null, query?: string | undefined | null, fields?: Array<string> | undefined | null, topkMultiple?: number | undefined | null): Query
   }
@@ -137,7 +137,7 @@ export declare namespace query {
     | { type: 'Terms', all: boolean, terms: Array<Term> }
     | { type: 'And', left: TextExpression, right: TextExpression }
     | { type: 'Or', left: TextExpression, right: TextExpression }
-  export function topK(expr: LogicalExpression | TextExpression, k: number, asc?: boolean | undefined | null): Query
+  export function topk(expr: LogicalExpression | TextExpression, k: number, asc?: boolean | undefined | null): Query
   export type UnaryOperator =  'not'|
   'isNull'|
   'isNotNull';

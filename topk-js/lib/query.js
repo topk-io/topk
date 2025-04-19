@@ -11,5 +11,5 @@ module.exports.Query = query.Query;
 module.exports.select = query.select;
 module.exports.semanticSimilarity = query.semanticSimilarity;
 module.exports.TextExpression = query.TextExpression;
-module.exports.topK = query.topK;
+module.exports.topk = query.topk;
 module.exports.vectorDistance = query.vectorDistance;

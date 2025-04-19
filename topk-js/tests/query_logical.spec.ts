@@ -44,7 +44,7 @@ describe("Logical Queries", () => {
       .query(
         select({})
           .filter(field("published_year").lte(1950))
-          .topK(field("published_year"), 100, true)
+          .topk(field("published_year"), 100, true)
       );
 
     expect(new Set(results.map((doc) => doc._id))).toEqual(
@@ -83,7 +83,7 @@ describe("Logical Queries", () => {
             .lte(1950)
             .and(field("published_year").gte(1948))
         )
-        .topK(field("published_year"), 100, true)
+        .topk(field("published_year"), 100, true)
     );
 
     expect(new Set(results.map((doc) => doc._id))).toEqual(new Set(["1984"]));
@@ -118,7 +118,7 @@ describe("Logical Queries", () => {
       .query(
         select({})
           .filter(field("title").contains("he"))
-          .topK(field("published_year"), 100, true)
+          .topk(field("published_year"), 100, true)
       );
 
     expect(new Set(results.map((doc) => doc._id))).toEqual(

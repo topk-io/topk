@@ -75,7 +75,7 @@ describe("Documents", () => {
     const docs = await ctx.client.collection(ctx.scope("books")).query(
       select({ name: field("name") })
         .filter(field("name").eq("two"))
-        .topK(field("rank"), 10),
+        .topk(field("rank"), 10),
       lsn
     );
 
@@ -108,7 +108,7 @@ describe("Documents", () => {
         text_score: bm25Score(),
       })
         .filter(match("red").or(match("blue")))
-        .topK(field("text_score"), 5),
+        .topk(field("text_score"), 5),
       lsn
     );
 
@@ -135,7 +135,7 @@ describe("Documents", () => {
     let docs = await ctx.client.collection(ctx.scope("books")).query(
       select({
         vector_distance: vectorDistance("f32_embedding", [7.0, 8.0, 9.0]),
-      }).topK(field("vector_distance"), 2, true),
+      }).topk(field("vector_distance"), 2, true),
       lsn
     );
     docs.sort((a, b) => a.vector_distance - b.vector_distance);
@@ -165,7 +165,7 @@ describe("Documents", () => {
           "u8_embedding",
           u8VectorValue([7, 8, 9])
         ),
-      }).topK(field("vector_distance"), 2, true),
+      }).topk(field("vector_distance"), 2, true),
       lsn
     );
     docs.sort((a, b) => a.vector_distance - b.vector_distance);
@@ -195,7 +195,7 @@ describe("Documents", () => {
           "binary_embedding",
           binaryVectorValue([1, 1, 1])
         ),
-      }).topK(field("vector_distance"), 2, true),
+      }).topk(field("vector_distance"), 2, true),
       lsn
     );
     docs.sort((a, b) => a.vector_distance - b.vector_distance);
@@ -228,7 +228,7 @@ describe("Documents", () => {
     const docs = await ctx.client
       .collection(ctx.scope("books"))
       .query(
-        select({ sim: semanticSimilarity("title", "redish") }).topK(
+        select({ sim: semanticSimilarity("title", "redish") }).topk(
           field("sim"),
           2
         ),
@@ -304,7 +304,7 @@ describe("Documents", () => {
         name: field("name"),
         summary_sim: semanticSimilarity("summary", "male walks around trees"),
       })
-        .topK(field("summary_sim"), 2)
+        .topk(field("summary_sim"), 2)
         .rerank(),
       lsn
     );

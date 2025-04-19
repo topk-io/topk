@@ -41,7 +41,7 @@ describe("Text Queries", () => {
       .query(
         select({})
           .filter(match("love", "summary"))
-          .topK(field("published_year"), 100, true)
+          .topk(field("published_year"), 100, true)
       );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(
@@ -75,7 +75,7 @@ describe("Text Queries", () => {
       .query(
         select({})
           .filter(match("love", "summary"))
-          .topK(field("published_year"), 100, true)
+          .topk(field("published_year"), 100, true)
       );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(
@@ -115,7 +115,7 @@ describe("Text Queries", () => {
     const result = await ctx.client.collection(collection.name).query(
       select({})
         .filter(match("LOVE", "summary").or(match("rings", "title")))
-        .topK(field("published_year"), 100, true)
+        .topk(field("published_year"), 100, true)
     );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(
@@ -147,7 +147,7 @@ describe("Text Queries", () => {
     const result = await ctx.client.collection(collection.name).query(
       select({})
         .filter(match("LOVE", "summary").and(match("class", "summary")))
-        .topK(field("published_year"), 100, true)
+        .topk(field("published_year"), 100, true)
     );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(new Set(["pride"]));
@@ -179,7 +179,7 @@ describe("Text Queries", () => {
       .query(
         select({})
           .filter(match("the", "summary"))
-          .topK(field("published_year"), 100, true)
+          .topk(field("published_year"), 100, true)
       );
 
     expect(result.length).toBe(0);
@@ -201,7 +201,7 @@ describe("Text Queries", () => {
         .query(
           select({ bm25_score: bm25Score() })
             .filter(field("_id").eq("pride"))
-            .topK(field("bm25_score"), 100, true)
+            .topk(field("bm25_score"), 100, true)
         )
     ).rejects.toThrow(
       "invalid argument: Invalid query: Query must have at least one text filter to compute bm25 scores"

@@ -37,7 +37,7 @@ describe("Select Queries", () => {
     const results = await ctx.client.collection(collection.name).query(
       select({ literal: literal(1.0) })
         .filter(field("title").eq("1984"))
-        .topK(field("published_year"), 100, true)
+        .topk(field("published_year"), 100, true)
     );
 
     expect(results).toEqual([{ _id: "1984", literal: 1.0 }]);
@@ -57,7 +57,7 @@ describe("Select Queries", () => {
     const results = await ctx.client.collection(collection.name).query(
       select({ literal: field("non_existing_field") })
         .filter(field("title").eq("1984"))
-        .topK(field("published_year"), 100, true)
+        .topk(field("published_year"), 100, true)
     );
 
     expect(results).toEqual([{ _id: "1984" }]);
@@ -78,17 +78,17 @@ describe("Select Queries", () => {
 
     let results = await ctx.client
       .collection(collection.name)
-      .query(select({}).topK(field("published_year"), 3, true));
+      .query(select({}).topk(field("published_year"), 3, true));
     expect(results.length).toBe(3);
 
     results = await ctx.client
       .collection(collection.name)
-      .query(select({}).topK(field("published_year"), 2, true));
+      .query(select({}).topk(field("published_year"), 2, true));
     expect(results.length).toBe(2);
 
     results = await ctx.client
       .collection(collection.name)
-      .query(select({}).topK(field("published_year"), 1, true));
+      .query(select({}).topk(field("published_year"), 1, true));
     expect(results.length).toBe(1);
   });
 
@@ -108,7 +108,7 @@ describe("Select Queries", () => {
     const results = await ctx.client
       .collection(collection.name)
       .query(
-        select({ published_year: field("published_year") }).topK(
+        select({ published_year: field("published_year") }).topk(
           field("published_year"),
           3,
           true
@@ -138,7 +138,7 @@ describe("Select Queries", () => {
     const results = await ctx.client
       .collection(collection.name)
       .query(
-        select({ published_year: field("published_year") }).topK(
+        select({ published_year: field("published_year") }).topk(
           field("published_year"),
           3,
           false
@@ -168,7 +168,7 @@ describe("Select Queries", () => {
       .query(
         select({ bm25_score: bm25Score() })
           .filter(match("pride"))
-          .topK(field("bm25_score"), 100, true)
+          .topk(field("bm25_score"), 100, true)
       );
 
     expect(new Set(results.map((doc) => doc._id))).toEqual(new Set(["pride"]));
@@ -194,7 +194,7 @@ describe("Select Queries", () => {
           2.0,
           ...Array(15).fill(0),
         ]),
-      }).topK(field("summary_distance"), 3, true)
+      }).topk(field("summary_distance"), 3, true)
     );
 
     expect(new Set(results.map((doc) => doc._id))).toEqual(
@@ -213,7 +213,7 @@ describe("Select Queries", () => {
     const results = await ctx.client
       .collection(collection.name)
       .query(
-        select({ a: field("a"), b: literal(1) }).topK(field("b"), 100, true)
+        select({ a: field("a"), b: literal(1) }).topk(field("b"), 100, true)
       );
 
     // Assert that `a` is null for all documents, even when not specified when upserting

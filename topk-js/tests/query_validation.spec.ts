@@ -31,7 +31,7 @@ describe("Query Validation", () => {
     await expect(
       ctx.client
         .collection(collection.name)
-        .query(select({}).topK(field("title"), 3, true))
+        .query(select({}).topk(field("title"), 3, true))
     ).rejects.toThrow();
   });
 
@@ -51,7 +51,7 @@ describe("Query Validation", () => {
     await expect(
       ctx.client
         .collection(collection.name)
-        .query(select({}).topK(field("non_existing_field"), 3, true))
+        .query(select({}).topk(field("non_existing_field"), 3, true))
     ).rejects.toThrow();
   });
 
@@ -65,7 +65,7 @@ describe("Query Validation", () => {
     await expect(
       ctx.client
         .collection(collection.name)
-        .query(select({}).topK(field("published_year"), 0, true))
+        .query(select({}).topk(field("published_year"), 0, true))
     ).rejects.toThrow();
   });
 
@@ -83,7 +83,7 @@ describe("Query Validation", () => {
     await expect(
       ctx.client
         .collection(collection.name)
-        .query(select({}).topK(field("num"), 100, true))
+        .query(select({}).topk(field("num"), 100, true))
     ).rejects.toThrow();
   });
 });

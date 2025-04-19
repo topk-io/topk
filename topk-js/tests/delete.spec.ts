@@ -38,7 +38,7 @@ describe("delete", () => {
     const remaining = await ctx.client
       .collection(collection.name)
       .query(
-        select({ _id: field("_id") }).topK(field("published_year"), 100, true)
+        select({ _id: field("_id") }).topk(field("published_year"), 100, true)
       );
 
     expect(remaining).toEqual([{ _id: "doc2" }]);

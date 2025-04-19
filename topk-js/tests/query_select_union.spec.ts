@@ -45,7 +45,7 @@ describe("Select Union Queries", () => {
 
     const results = await ctx.client
       .collection(collection.name)
-      .query(select({ mixed: field("mixed") }).topK(field("rank"), 100, true));
+      .query(select({ mixed: field("mixed") }).topk(field("rank"), 100, true));
 
     // Verify we have all the documents
     expect(results).toEqual([
