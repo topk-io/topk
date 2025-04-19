@@ -65,9 +65,34 @@ test-py:
 
 #
 
+test-js:
+    FROM node:20-slim
+
+    # install dependencies
+    RUN apt-get update && apt-get install -y protobuf-compiler curl build-essential
+
+    # copy source code
+    WORKDIR /sdk
+    COPY . .
+
+    # build
+    WORKDIR /sdk/topk-js
+    RUN --mount=type=cache,target=node_modules \
+        yarn install
+
+    RUN yarn build
+
+    ARG region=dev
+    DO +SETUP_ENV --region=$region
+    # test
+    RUN --no-cache --secret TOPK_API_KEY \
+        TOPK_API_KEY=$TOPK_API_KEY yarn test
+
+#
+
 SETUP_ENV:
     FUNCTION
-    
+
     # region
     ARG region=dev
     ENV TOPK_REGION=$region
