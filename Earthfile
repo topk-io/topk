@@ -60,7 +60,7 @@ test-py:
     # test
     RUN --no-cache --secret TOPK_API_KEY \
         . /venv/bin/activate \
-        && TOPK_API_KEY=$TOPK_API_KEY pytest -n auto --tb=short
+        && TOPK_API_KEY=$TOPK_API_KEY pytest -v -n auto --tb=short -r
 
 test-js:
     FROM node:20-slim
