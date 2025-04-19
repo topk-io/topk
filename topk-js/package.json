@@ -83,7 +83,7 @@
     "dev": "napi build --no-const-enum --platform",
     "build:debug": "napi build --no-const-enum --platform",
     "prepublishOnly": "napi prepublish -t npm",
-    "test": "jest",
+    "test": "jest --verbose",
     "universal": "napi universalize",
     "version": "napi version"
   }
