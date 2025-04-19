@@ -58,7 +58,7 @@ test-py:
     DO +SETUP_ENV --region=$region
 
     # test
-    ARG args="-n auto"
+    ARG args="-n auto -v"
     RUN --no-cache --secret TOPK_API_KEY \
         . /venv/bin/activate \
         && TOPK_API_KEY=$TOPK_API_KEY pytest $args
