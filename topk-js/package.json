@@ -81,7 +81,7 @@
     "build": "napi build --no-const-enum --platform --release",
     "dev": "napi build --no-const-enum --platform",
     "build:debug": "napi build --no-const-enum --platform",
-    "prepublishOnly": "napi prepublish -t npm --skip-gh-release",
+    "prepublishOnly": "napi prepublish -t npm --no-gh-release",
     "test": "jest --verbose",
     "universal": "napi universalize",
     "version": "napi version"
