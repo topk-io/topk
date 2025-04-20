@@ -111,17 +111,17 @@ impl Value {
         }
     }
 
+    pub fn bytes(value: Vec<u8>) -> Self {
+        Value {
+            value: Some(value::Value::Binary(value)),
+        }
+    }
+
     pub fn float_vector(values: Vec<f32>) -> Self {
         Value {
             value: Some(value::Value::Vector(Vector {
                 vector: Some(vector::Vector::Float(vector::Float { values })),
             })),
-        }
-    }
-
-    pub fn bytes(value: Vec<u8>) -> Self {
-        Value {
-            value: Some(value::Value::Binary(value)),
         }
     }
 
@@ -147,6 +147,50 @@ impl Value {
         match &self.value {
             Some(value::Value::Vector(vec)) => match &vec.vector {
                 Some(vector::Vector::Byte(vector::Byte { values })) => Some(values),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    pub fn float_matrix(dimension: u32, values: Vec<f32>) -> Self {
+        assert_eq!(values.len() % dimension as usize, 0);
+        Value {
+            value: Some(value::Value::Matrix(Matrix {
+                dimension,
+                matrix: Some(matrix::Matrix::Float(matrix::Float { values })),
+            })),
+        }
+    }
+
+    pub fn as_float_matrix(&self) -> Option<(u32, &[f32])> {
+        match &self.value {
+            Some(value::Value::Matrix(mat)) => match &mat.matrix {
+                Some(matrix::Matrix::Float(matrix::Float { values })) => {
+                    Some((mat.dimension, values))
+                }
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    pub fn byte_matrix(dimension: u32, values: Vec<u8>) -> Self {
+        assert_eq!(values.len() % dimension as usize, 0);
+        Value {
+            value: Some(value::Value::Matrix(Matrix {
+                dimension,
+                matrix: Some(matrix::Matrix::Byte(matrix::Byte { values })),
+            })),
+        }
+    }
+
+    pub fn as_byte_matrix(&self) -> Option<(u32, &[u8])> {
+        match &self.value {
+            Some(value::Value::Matrix(mat)) => match &mat.matrix {
+                Some(matrix::Matrix::Byte(matrix::Byte { values })) => {
+                    Some((mat.dimension, values))
+                }
                 _ => None,
             },
             _ => None,
@@ -185,6 +229,11 @@ impl value::Value {
                 Some(vector::Vector::Float(v)) => format!("f32_vector({})", v.values.len()),
                 Some(vector::Vector::Byte(v)) => format!("u8_vector({})", v.values.len()),
                 _ => "null_vector".to_string(),
+            },
+            value::Value::Matrix(mat) => match &mat.matrix {
+                Some(matrix::Matrix::Float(v)) => format!("f32_matrix({})", v.values.len()),
+                Some(matrix::Matrix::Byte(v)) => format!("u8_matrix({})", v.values.len()),
+                _ => "null_matrix".to_string(),
             },
             value::Value::Null(_) => "null".to_string(),
         }
@@ -283,6 +332,34 @@ impl Vector {
         match &self.vector {
             Some(vector::Vector::Float(vector::Float { values })) => Some(values.len()),
             Some(vector::Vector::Byte(vector::Byte { values })) => Some(values.len()),
+            _ => None,
+        }
+    }
+}
+
+impl Matrix {
+    pub fn float(dimension: u32, values: Vec<f32>) -> Self {
+        Matrix {
+            dimension,
+            matrix: Some(matrix::Matrix::Float(matrix::Float { values })),
+        }
+    }
+
+    pub fn byte(dimension: u32, values: Vec<u8>) -> Self {
+        Matrix {
+            dimension,
+            matrix: Some(matrix::Matrix::Byte(matrix::Byte { values })),
+        }
+    }
+
+    pub fn len(&self) -> Option<usize> {
+        match &self.matrix {
+            Some(matrix::Matrix::Float(matrix::Float { values })) => {
+                Some(values.len() / self.dimension as usize)
+            }
+            Some(matrix::Matrix::Byte(matrix::Byte { values })) => {
+                Some(values.len() / self.dimension as usize)
+            }
             _ => None,
         }
     }

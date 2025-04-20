@@ -2,6 +2,7 @@ use pyo3::prelude::*;
 
 pub mod collection;
 pub mod document;
+pub mod matrix;
 pub mod scalar;
 pub mod value;
 pub mod vector;

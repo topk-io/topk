@@ -27,6 +27,9 @@ message FieldType {
     FieldTypeU8Vector u8_vector = 6;
     FieldTypeBinaryVector binary_vector = 7;
     FieldTypeBytes bytes = 8;
+    FieldTypeF32Matrix f32_matrix = 9;
+    FieldTypeU8Matrix u8_matrix = 10;
+    FieldTypeBinaryMatrix binary_matrix = 11;
   }
 }
 
@@ -34,6 +37,9 @@ message FieldTypeText {}
 message FieldTypeInteger {}
 message FieldTypeFloat {}
 message FieldTypeBoolean {}
+message FieldTypeBytes {}
+
+// Vector types
 
 message FieldTypeF32Vector {
   uint32 dimension = 1;
@@ -47,7 +53,22 @@ message FieldTypeBinaryVector {
   uint32 dimension = 1;
 }
 
-message FieldTypeBytes {}
+// Matrix types
+
+message FieldTypeF32Matrix {
+  // Number of columns
+  uint32 dimension = 1;
+}
+
+message FieldTypeU8Matrix {
+  // Number of columns
+  uint32 dimension = 1;
+}
+
+message FieldTypeBinaryMatrix {
+  // Number of columns
+  uint32 dimension = 1;
+}
 
 // Keyword index specification
 

@@ -15,6 +15,9 @@ impl field_type::DataType {
             field_type::DataType::F32Vector(..) => "f32_vector".to_string(),
             field_type::DataType::U8Vector(..) => "u8_vector".to_string(),
             field_type::DataType::BinaryVector(..) => "binary_vector".to_string(),
+            field_type::DataType::F32Matrix(..) => "f32_matrix".to_string(),
+            field_type::DataType::U8Matrix(..) => "u8_matrix".to_string(),
+            field_type::DataType::BinaryMatrix(..) => "binary_matrix".to_string(),
             field_type::DataType::Bytes(..) => "bytes".to_string(),
         }
     }

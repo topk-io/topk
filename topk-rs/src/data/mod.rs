@@ -4,6 +4,9 @@ pub use scalar::Scalar;
 mod vector;
 pub use vector::Vector;
 
+mod matrix;
+pub use matrix::Matrix;
+
 pub fn float_vector(values: Vec<f32>) -> Vector {
     Vector::F32(values)
 }

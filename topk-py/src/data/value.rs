@@ -1,10 +1,12 @@
-use super::vector::Vector;
 use pyo3::{
     exceptions::PyTypeError,
     prelude::*,
     types::{PyBool, PyBytes, PyFloat, PyInt, PyList, PyNone, PyString},
     IntoPyObjectExt,
 };
+
+use super::matrix::Matrix;
+use super::vector::Vector;
 
 #[pyclass]
 #[derive(Debug, PartialEq, Clone)]
@@ -15,6 +17,7 @@ pub enum Value {
     Float(f64),
     Bool(bool),
     Vector(Vector),
+    Matrix(Matrix),
     Bytes(Vec<u8>),
 }
 
@@ -88,9 +91,13 @@ impl<'py> IntoPyObject<'py> for RawValue {
                     list.into_py_any(py)?.into_bound(py)
                 }
             }),
+            Value::Matrix(_) => {
+                todo!()
+            }
         }
     }
 }
+
 impl From<topk_protos::v1::data::Value> for Value {
     fn from(value: topk_protos::v1::data::Value) -> Self {
         match value.value {
@@ -113,6 +120,9 @@ impl From<topk_protos::v1::data::Value> for Value {
                 }
                 t => unreachable!("Unknown vector type: {:?}", t),
             },
+            Some(topk_protos::v1::data::value::Value::Matrix(_)) => {
+                todo!()
+            }
             None => Value::Null(),
         }
     }
@@ -138,6 +148,7 @@ impl From<Value> for topk_protos::v1::data::Value {
                         topk_protos::v1::data::Vector::byte(v),
                     ),
                 },
+                Value::Matrix(_) => todo!(),
             }),
         }
     }

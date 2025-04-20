@@ -22,9 +22,12 @@ message Value {
     Vector vector = 14;
     // Null
     Null null = 15;
+    // Matrix
+    Matrix matrix = 16;
   }
 }
 
+// Vector value
 message Vector {
   // Float vector
   message Float {
@@ -39,6 +42,28 @@ message Vector {
   oneof vector {
     Float float = 1;
     Byte byte = 2;
+  }
+}
+
+// Matrix value
+message Matrix {
+  // Float matrix
+  message Float {
+    repeated float values = 1;
+  }
+
+  // Byte matrix
+  message Byte {
+    bytes values = 1;
+  }
+
+  // Matrix dimensions
+  uint32 dimension = 1;
+
+  // Matrix data
+  oneof matrix {
+    Float float = 2;
+    Byte byte = 3;
   }
 }
 
