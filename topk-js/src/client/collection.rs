@@ -16,7 +16,7 @@ pub struct CollectionClient {
 #[napi(object)]
 #[derive(Debug, Clone)]
 pub struct ConsistencyOptions {
-    pub lsn: Option<u32>,
+    pub lsn: Option<i64>,
     pub consistency: Option<ConsistencyLevel>,
 }
 
