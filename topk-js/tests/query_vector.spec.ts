@@ -1,4 +1,4 @@
-import { vectorDistance, field, select } from "../lib/query";
+import { fn, field, select } from "../lib/query";
 import {
   f32Vector,
   u8Vector,
@@ -60,7 +60,7 @@ describe("Vector Queries", () => {
     const result = await ctx.client.collection(collection.name).query(
       select({
         title: field("title"),
-        summary_distance: vectorDistance("summary_embedding", [
+        summary_distance: fn.vectorDistance("summary_embedding", [
           2.0,
           ...Array(15).fill(0),
         ]),
@@ -92,7 +92,7 @@ describe("Vector Queries", () => {
 
     const result = await ctx.client.collection(collection.name).query(
       select({
-        summary_distance: vectorDistance("nullable_embedding", [
+        summary_distance: fn.vectorDistance("nullable_embedding", [
           3.0,
           ...Array(15).fill(0),
         ]),
@@ -130,7 +130,7 @@ describe("Vector Queries", () => {
 
     const result = await ctx.client.collection(collection.name).query(
       select({
-        summary_distance: vectorDistance(
+        summary_distance: fn.vectorDistance(
           "scalar_embedding",
           u8VectorData([8, ...Array(15).fill(0)])
         ),
@@ -159,7 +159,7 @@ describe("Vector Queries", () => {
 
     const result = await ctx.client.collection(collection.name).query(
       select({
-        summary_distance: vectorDistance(
+        summary_distance: fn.vectorDistance(
           "binary_embedding",
           binaryVectorData([0, 1])
         ),

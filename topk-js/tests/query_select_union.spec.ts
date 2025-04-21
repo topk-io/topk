@@ -41,7 +41,7 @@ describe("Select Union Queries", () => {
     ]);
 
     // wait for writes to be flushed
-    await ctx.client.collection(collection.name).count(lsn);
+    await ctx.client.collection(collection.name).count({ lsn });
 
     const results = await ctx.client
       .collection(collection.name)

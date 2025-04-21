@@ -7,9 +7,9 @@ export declare class Client {
 }
 
 export declare class CollectionClient {
-  get(id: string, fields?: Array<string> | undefined | null, lsn?: number | undefined | null, consistency?: ConsistencyLevel | undefined | null): Promise<Record<string, any>>
-  count(lsn?: number | undefined | null, consistency?: ConsistencyLevel | undefined | null): Promise<number>
-  query(query: query.Query, lsn?: number | undefined | null, consistency?: ConsistencyLevel | undefined | null): Promise<Array<Record<string, any>>>
+  get(id: string, fields?: Array<string> | undefined | null, options?: ConsistencyOptions | undefined | null): Promise<Record<string, any>>
+  count(options?: ConsistencyOptions | undefined | null): Promise<number>
+  query(query: query.Query, options?: ConsistencyOptions | undefined | null): Promise<Array<Record<string, any>>>
   upsert(docs: Array<Record<string, any>>): Promise<number>
   delete(ids: Array<string>): Promise<number>
 }
@@ -44,6 +44,11 @@ export interface CollectionFieldSpec {
 
 export type ConsistencyLevel =  'indexed'|
 'strong';
+
+export interface ConsistencyOptions {
+  lsn?: number
+  consistency?: ConsistencyLevel
+}
 
 export interface CreateCollectionOptions {
   name: string
