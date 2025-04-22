@@ -82,8 +82,8 @@ test-js:
 
     # build
     WORKDIR /sdk/topk-js
-    RUN --mount=type=cache,target=/root/.yarn YARN_CACHE_FOLDER=/root/.yarn yarn install
-
+    ENV YARN_CACHE_FOLDER=/root/.yarn
+    RUN --mount=type=cache,target=/root/.yarn yarn install
 
     RUN --mount=type=cache,target=/usr/local/cargo/registry \
         --mount=type=cache,target=/usr/local/cargo/git \
