@@ -1,4 +1,4 @@
-import { field, match, select, bm25Score } from "../lib/query";
+import { field, match, select, fn } from "../lib/query";
 import { text, keywordIndex, int } from "../lib/schema";
 import { newProjectContext, ProjectContext } from "./setup";
 
@@ -199,7 +199,7 @@ describe("Text Queries", () => {
       ctx.client
         .collection(collection.name)
         .query(
-          select({ bm25_score: bm25Score() })
+          select({ bm25_score: fn.bm25Score() })
             .filter(field("_id").eq("pride"))
             .topk(field("bm25_score"), 100, true)
         )

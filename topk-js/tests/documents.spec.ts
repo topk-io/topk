@@ -1,10 +1,8 @@
 import {
-  bm25Score,
+  fn,
   field,
   match,
   select,
-  semanticSimilarity,
-  vectorDistance,
 } from "../lib/query";
 import {
   binaryVector,
@@ -76,7 +74,7 @@ describe("Documents", () => {
       select({ name: field("name") })
         .filter(field("name").eq("two"))
         .topk(field("rank"), 10),
-      lsn
+      { lsn }
     );
 
     expect(docs).toEqual([{ _id: "two", name: "two" }]);
@@ -105,11 +103,11 @@ describe("Documents", () => {
 
     const docs = await ctx.client.collection(ctx.scope("books")).query(
       select({
-        text_score: bm25Score(),
+        text_score: fn.bm25Score(),
       })
         .filter(match("red").or(match("blue")))
         .topk(field("text_score"), 5),
-      lsn
+      { lsn }
     );
 
     const docIds = new Set(docs.map((d) => d._id));
@@ -134,9 +132,9 @@ describe("Documents", () => {
 
     let docs = await ctx.client.collection(ctx.scope("books")).query(
       select({
-        vector_distance: vectorDistance("f32_embedding", [7.0, 8.0, 9.0]),
+        vector_distance: fn.vectorDistance("f32_embedding", [7.0, 8.0, 9.0]),
       }).topk(field("vector_distance"), 2, true),
-      lsn
+      { lsn }
     );
     docs.sort((a, b) => a.vector_distance - b.vector_distance);
 
@@ -161,12 +159,12 @@ describe("Documents", () => {
 
     let docs = await ctx.client.collection(ctx.scope("books")).query(
       select({
-        vector_distance: vectorDistance(
+        vector_distance: fn.vectorDistance(
           "u8_embedding",
           u8VectorValue([7, 8, 9])
         ),
       }).topk(field("vector_distance"), 2, true),
-      lsn
+      { lsn }
     );
     docs.sort((a, b) => a.vector_distance - b.vector_distance);
 
@@ -191,12 +189,12 @@ describe("Documents", () => {
 
     let docs = await ctx.client.collection(ctx.scope("books")).query(
       select({
-        vector_distance: vectorDistance(
+        vector_distance: fn.vectorDistance(
           "binary_embedding",
           binaryVectorValue([1, 1, 1])
         ),
       }).topk(field("vector_distance"), 2, true),
-      lsn
+      { lsn }
     );
     docs.sort((a, b) => a.vector_distance - b.vector_distance);
 
@@ -228,11 +226,11 @@ describe("Documents", () => {
     const docs = await ctx.client
       .collection(ctx.scope("books"))
       .query(
-        select({ sim: semanticSimilarity("title", "redish") }).topk(
+        select({ sim: fn.semanticSimilarity("title", "redish") }).topk(
           field("sim"),
           2
         ),
-        lsn
+        { lsn }
       );
 
     // NOTE: since we are using the dummy model, the similarity score is randomized, so we can't check ordering
@@ -256,7 +254,7 @@ describe("Documents", () => {
       select({ name: field("name") })
         .filter(field("name").eq("one"))
         .count(),
-      lsn
+      { lsn }
     );
     expect(docs).toEqual([{ _count: 0 }]);
   });
@@ -272,13 +270,13 @@ describe("Documents", () => {
     ]);
     expect(lsn).toBe(1);
 
-    let count = await ctx.client.collection(ctx.scope("books")).count(lsn);
+    let count = await ctx.client.collection(ctx.scope("books")).count({ lsn });
     expect(count).toBe(2);
 
     lsn = await ctx.client.collection(ctx.scope("books")).delete(["doc1"]);
     expect(lsn).toBe(2);
 
-    count = await ctx.client.collection(ctx.scope("books")).count(lsn);
+    count = await ctx.client.collection(ctx.scope("books")).count({ lsn });
     expect(count).toBe(1);
   });
 
@@ -302,11 +300,11 @@ describe("Documents", () => {
     const docs = await ctx.client.collection(ctx.scope("books")).query(
       select({
         name: field("name"),
-        summary_sim: semanticSimilarity("summary", "male walks around trees"),
+        summary_sim: fn.semanticSimilarity("summary", "male walks around trees"),
       })
         .topk(field("summary_sim"), 2)
         .rerank(),
-      lsn
+      { lsn }
     );
 
     // NOTE: since we are using the dummy model, the similarity score is randomized, so we can't check ordering

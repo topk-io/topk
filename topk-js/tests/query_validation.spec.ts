@@ -78,7 +78,7 @@ describe("Query Validation", () => {
       { _id: "11", num: new Uint8Array([1, 2, 3]) },
     ]);
 
-    await ctx.client.collection(collection.name).count(lsn);
+    await ctx.client.collection(collection.name).count({ lsn });
 
     await expect(
       ctx.client

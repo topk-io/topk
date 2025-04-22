@@ -1,4 +1,4 @@
-import { field, select, semanticSimilarity, match } from "../lib/query";
+import { field, select, fn, match } from "../lib/query";
 import { text, semanticIndex, int } from "../lib/schema";
 import { newProjectContext, ProjectContext } from "./setup";
 
@@ -158,7 +158,7 @@ describe("Semantic Index", () => {
     const result = await ctx.client
       .collection(collection.name)
       .query(
-        select({ sim: semanticSimilarity("title", "dummy") }).topk(
+        select({ sim: fn.semanticSimilarity("title", "dummy") }).topk(
           field("sim"),
           3,
           true
@@ -208,7 +208,7 @@ describe("Semantic Index", () => {
     ]);
 
     const result = await ctx.client.collection(collection.name).query(
-      select({ sim: semanticSimilarity("title", "dummy") })
+      select({ sim: fn.semanticSimilarity("title", "dummy") })
         .filter(match("love", "summary"))
         .topk(field("sim"), 3, true)
     );
@@ -234,7 +234,7 @@ describe("Semantic Index", () => {
       ctx.client
         .collection(collection.name)
         .query(
-          select({ sim: semanticSimilarity("published_year", "dummy") }).topk(
+          select({ sim: fn.semanticSimilarity("published_year", "dummy") }).topk(
             field("sim"),
             3,
             true
@@ -290,8 +290,8 @@ describe("Semantic Index", () => {
 
     const result = await ctx.client.collection(collection.name).query(
       select({
-        title_sim: semanticSimilarity("title", "dummy"),
-        summary_sim: semanticSimilarity("summary", "query"),
+        title_sim: fn.semanticSimilarity("title", "dummy"),
+        summary_sim: fn.semanticSimilarity("summary", "query"),
       }).topk(field("title_sim").add(field("summary_sim")), 5, true)
     );
 
@@ -312,7 +312,7 @@ describe("Semantic Index", () => {
 
     await expect(
       ctx.client.collection(collection.name).query(
-        select({ sim: semanticSimilarity("title", "dummy") })
+        select({ sim: fn.semanticSimilarity("title", "dummy") })
           .topk(field("sim"), 3, true)
           .rerank("definitely-does-not-exist")
       )
@@ -353,7 +353,7 @@ describe("Semantic Index", () => {
     ]);
 
     const result = await ctx.client.collection(collection.name).query(
-      select({ sim: semanticSimilarity("title", "dummy") })
+      select({ sim: fn.semanticSimilarity("title", "dummy") })
         .topk(field("sim"), 3, true)
         .rerank("dummy")
     );
@@ -408,8 +408,8 @@ describe("Semantic Index", () => {
 
     const result = await ctx.client.collection(collection.name).query(
       select({
-        title_sim: semanticSimilarity("title", "dummy"),
-        summary_sim: semanticSimilarity("summary", "query"),
+        title_sim: fn.semanticSimilarity("title", "dummy"),
+        summary_sim: fn.semanticSimilarity("summary", "query"),
       })
         .topk(field("title_sim").add(field("summary_sim")), 5, true)
         .rerank("dummy", "query string", ["title", "summary"])
@@ -433,8 +433,8 @@ describe("Semantic Index", () => {
     await expect(
       ctx.client.collection(collection.name).query(
         select({
-          title_sim: semanticSimilarity("title", "dummy"),
-          summary_sim: semanticSimilarity("summary", "query"),
+          title_sim: fn.semanticSimilarity("title", "dummy"),
+          summary_sim: fn.semanticSimilarity("summary", "query"),
         })
           .topk(field("title_sim").add(field("summary_sim")), 5, true)
           .rerank("dummy")

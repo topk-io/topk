@@ -135,7 +135,7 @@ describe("Count Queries", () => {
 
     const lsn = await ctx.client.collection(collection.name).delete(["lotr"]);
 
-    result = await ctx.client.collection(collection.name).count(lsn);
+    result = await ctx.client.collection(collection.name).count({ lsn });
     expect(result).toBe(9);
   });
 });

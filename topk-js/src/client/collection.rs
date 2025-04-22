@@ -13,8 +13,15 @@ pub struct CollectionClient {
     client: Arc<topk_rs::Client>,
 }
 
-#[napi(string_enum = "camelCase")]
+#[napi(object)]
 #[derive(Debug, Clone)]
+pub struct QueryOptions {
+    pub lsn: Option<i64>,
+    pub consistency: Option<ConsistencyLevel>,
+}
+
+#[napi(string_enum = "camelCase")]
+#[derive(Debug, Clone, Copy)]
 pub enum ConsistencyLevel {
     Indexed,
     Strong,
@@ -41,18 +48,20 @@ impl CollectionClient {
         &self,
         id: String,
         fields: Option<Vec<String>>,
-        lsn: Option<i64>,
-        consistency: Option<ConsistencyLevel>,
+        options: Option<QueryOptions>,
     ) -> Result<HashMap<String, Value>> {
+        let (lsn, consistency) = match &options {
+            Some(o) => (
+                o.lsn.map(|l| l as u64),
+                o.consistency.as_ref().map(|c| (*c).into()),
+            ),
+            None => (None, None),
+        };
+
         let document = self
             .client
             .collection(&self.collection)
-            .get(
-                id,
-                fields.unwrap_or_default(),
-                lsn.map(|l| l as u64),
-                consistency.map(|c| c.into()),
-            )
+            .get(id, fields.unwrap_or_default(), lsn, consistency)
             .await
             .map_err(TopkError::from)?;
 
@@ -65,15 +74,19 @@ impl CollectionClient {
 
     // TODO: Refactor lsn to be a string
     #[napi]
-    pub async fn count(
-        &self,
-        lsn: Option<i64>,
-        consistency: Option<ConsistencyLevel>,
-    ) -> Result<i64> {
+    pub async fn count(&self, options: Option<QueryOptions>) -> Result<i64> {
+        let (lsn, consistency) = match &options {
+            Some(o) => (
+                o.lsn.map(|l| l as u64),
+                o.consistency.as_ref().map(|c| (*c).into()),
+            ),
+            None => (None, None),
+        };
+
         let count = self
             .client
             .collection(&self.collection)
-            .count(lsn.map(|l| l as u64), consistency.map(|c| c.into()))
+            .count(lsn, consistency)
             .await
             .map_err(TopkError::from)?;
 
@@ -84,17 +97,20 @@ impl CollectionClient {
     pub async fn query(
         &self,
         #[napi(ts_arg_type = "query.Query")] query: Query,
-        lsn: Option<u32>,
-        consistency: Option<ConsistencyLevel>,
+        options: Option<QueryOptions>,
     ) -> Result<Vec<HashMap<String, Value>>> {
+        let (lsn, consistency) = match &options {
+            Some(o) => (
+                o.lsn.map(|l| l as u64),
+                o.consistency.as_ref().map(|c| (*c).into()),
+            ),
+            None => (None, None),
+        };
+
         let docs = self
             .client
             .collection(&self.collection)
-            .query(
-                query.into(),
-                lsn.map(|l| l as u64),
-                consistency.map(|c| c.into()),
-            )
+            .query(query.into(), lsn, consistency)
             .await
             .map_err(TopkError::from)?;
 

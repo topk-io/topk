@@ -3,8 +3,7 @@ import {
   literal,
   match,
   select,
-  bm25Score,
-  vectorDistance,
+  fn,
 } from "../lib/query";
 import { text, keywordIndex, f32Vector, vectorIndex, int } from "../lib/schema";
 import { newProjectContext, ProjectContext } from "./setup";
@@ -166,7 +165,7 @@ describe("Select Queries", () => {
     const results = await ctx.client
       .collection(collection.name)
       .query(
-        select({ bm25_score: bm25Score() })
+        select({ bm25_score: fn.bm25Score() })
           .filter(match("pride"))
           .topk(field("bm25_score"), 100, true)
       );
@@ -190,7 +189,7 @@ describe("Select Queries", () => {
 
     const results = await ctx.client.collection(collection.name).query(
       select({
-        summary_distance: vectorDistance("summary_embedding", [
+        summary_distance: fn.vectorDistance("summary_embedding", [
           2.0,
           ...Array(15).fill(0),
         ]),
