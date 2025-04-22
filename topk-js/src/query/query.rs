@@ -149,32 +149,6 @@ pub fn filter(
 }
 
 #[napi(namespace = "query")]
-pub fn topk(
-    #[napi(ts_arg_type = "LogicalExpression | TextExpression")] expr: LogicalExpression,
-    k: i32,
-    asc: Option<bool>,
-) -> Query {
-    let stage = Stage::TopK {
-        expr,
-        k,
-        asc: asc.unwrap_or(false),
-    };
-
-    Query {
-        stages: vec![stage],
-    }
-}
-
-#[napi(namespace = "query")]
-pub fn count() -> Query {
-    let stage = Stage::Count {};
-
-    Query {
-        stages: vec![stage],
-    }
-}
-
-#[napi(namespace = "query")]
 pub fn field(name: String) -> LogicalExpression {
     LogicalExpression::create(LogicalExpressionUnion::Field { name })
 }
