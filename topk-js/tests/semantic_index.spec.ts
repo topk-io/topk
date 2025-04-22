@@ -314,7 +314,7 @@ describe("Semantic Index", () => {
       ctx.client.collection(collection.name).query(
         select({ sim: fn.semanticSimilarity("title", "dummy") })
           .topk(field("sim"), 3, true)
-          .rerank("definitely-does-not-exist")
+          .rerank({ model: "definitely-does-not-exist" })
       )
     ).rejects.toThrow();
   });
@@ -355,7 +355,7 @@ describe("Semantic Index", () => {
     const result = await ctx.client.collection(collection.name).query(
       select({ sim: fn.semanticSimilarity("title", "dummy") })
         .topk(field("sim"), 3, true)
-        .rerank("dummy")
+        .rerank({ model: "dummy" })
     );
 
     expect(result.length).toBe(3);
@@ -412,7 +412,7 @@ describe("Semantic Index", () => {
         summary_sim: fn.semanticSimilarity("summary", "query"),
       })
         .topk(field("title_sim").add(field("summary_sim")), 5, true)
-        .rerank("dummy", "query string", ["title", "summary"])
+        .rerank({ model: "dummy", query: "query string", fields: ["title", "summary"] })
     );
 
     expect(result.length).toBe(5);
@@ -430,6 +430,21 @@ describe("Semantic Index", () => {
       published_year: int(),
     });
 
+    await ctx.client.collection(collection.name).upsert([
+      {
+        _id: "catcher",
+        title: "The Catcher in the Rye",
+        summary: "A story about a young man",
+        published_year: 1951,
+      },
+      {
+        _id: "gatsby",
+        title: "The Great Gatsby",
+        summary: "A story about love and wealth",
+        published_year: 1925,
+      },
+    ]);
+
     await expect(
       ctx.client.collection(collection.name).query(
         select({
@@ -437,7 +452,7 @@ describe("Semantic Index", () => {
           summary_sim: fn.semanticSimilarity("summary", "query"),
         })
           .topk(field("title_sim").add(field("summary_sim")), 5, true)
-          .rerank("dummy")
+          .rerank({ model: "dummy" })
       )
     ).rejects.toThrow();
   });

@@ -87,15 +87,19 @@ impl Query {
     }
 
     #[napi]
-    pub fn rerank(
-        &self,
-        model: Option<String>,
-        query: Option<String>,
-        fields: Option<Vec<String>>,
-        topk_multiple: Option<u32>,
-    ) -> Query {
+    pub fn rerank(&self, options: Option<RerankOptions>) -> Query {
         let mut new_query = Query {
             stages: self.stages.clone(),
+        };
+
+        let (model, query, fields, topk_multiple) = match options {
+            Some(options) => (
+                options.model,
+                options.query,
+                options.fields,
+                options.topk_multiple,
+            ),
+            None => (None, None, None, None),
         };
 
         new_query.stages.push(Stage::Rerank {
@@ -107,6 +111,14 @@ impl Query {
 
         new_query
     }
+}
+
+#[napi(object)]
+pub struct RerankOptions {
+    pub model: Option<String>,
+    pub query: Option<String>,
+    pub fields: Option<Vec<String>>,
+    pub topk_multiple: Option<u32>,
 }
 
 #[napi(namespace = "query")]

@@ -55,6 +55,13 @@ export interface QueryOptions {
   consistency?: ConsistencyLevel
 }
 
+export interface RerankOptions {
+  model?: string
+  query?: string
+  fields?: Array<string>
+  topkMultiple?: number
+}
+
 export declare namespace data {
   export class Vector {
     get values(): VectorUnion
@@ -94,7 +101,7 @@ export declare namespace query {
     filter(expr: LogicalExpression | TextExpression): Query
     topk(expr: LogicalExpression, k: number, asc?: boolean | undefined | null): Query
     count(): Query
-    rerank(model?: string | undefined | null, query?: string | undefined | null, fields?: Array<string> | undefined | null, topkMultiple?: number | undefined | null): Query
+    rerank(options?: RerankOptions | undefined | null): Query
   }
   export class TextExpression {
     static create(expr: TextExpressionUnion): TextExpression
