@@ -1,6 +1,6 @@
 {
   "name": "topk-js",
-  "version": "0.1.19-alpha.4",
+  "version": "0.1.19-alpha.5",
   "napi": {
     "binaryName": "topk-js",
     "triples": {
@@ -83,7 +83,8 @@
     "dev": "napi build --no-const-enum --platform",
     "build:debug": "napi build --no-const-enum --platform",
     "prepublishOnly": "napi prepublish -t npm --no-gh-release",
-    "test": "jest --verbose",
+    "typecheck": "tsc --noEmit",
+    "test": "yarn typecheck && jest --verbose",
     "universal": "napi universalize",
     "version": "napi version"
   }

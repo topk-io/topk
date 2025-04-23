@@ -32,6 +32,33 @@ describe("Semantic Index", () => {
     }
   });
 
+  test("semantic index with default options", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("semantic_default", {
+      title: text().required().index(semanticIndex()),
+      summary: text().required().index(semanticIndex()),
+      published_year: int(),
+    });
+
+    expect(
+      collection.schema.title.index?.type === "SemanticIndex" &&
+        collection.schema.title.index?.model
+    ).toBe("cohere/embed-multilingual-v3");
+    expect(
+      collection.schema.title.index?.type === "SemanticIndex" &&
+        collection.schema.title.index?.embeddingType
+    ).toBe("uint8");
+
+    expect(
+      collection.schema.summary.index?.type === "SemanticIndex" &&
+        collection.schema.summary.index?.model
+    ).toBe("cohere/embed-multilingual-v3");
+    expect(
+      collection.schema.summary.index?.type === "SemanticIndex" &&
+        collection.schema.summary.index?.embeddingType
+    ).toBe("uint8");
+  });
+
   test("semantic index create with invalid model", async () => {
     const ctx = getContext();
     await expect(
@@ -234,11 +261,9 @@ describe("Semantic Index", () => {
       ctx.client
         .collection(collection.name)
         .query(
-          select({ sim: fn.semanticSimilarity("published_year", "dummy") }).topk(
-            field("sim"),
-            3,
-            true
-          )
+          select({
+            sim: fn.semanticSimilarity("published_year", "dummy"),
+          }).topk(field("sim"), 3, true)
         )
     ).rejects.toThrow();
   });
@@ -412,7 +437,11 @@ describe("Semantic Index", () => {
         summary_sim: fn.semanticSimilarity("summary", "query"),
       })
         .topk(field("title_sim").add(field("summary_sim")), 5, true)
-        .rerank({ model: "dummy", query: "query string", fields: ["title", "summary"] })
+        .rerank({
+          model: "dummy",
+          query: "query string",
+          fields: ["title", "summary"],
+        })
     );
 
     expect(result.length).toBe(5);

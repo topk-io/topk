@@ -30,7 +30,7 @@ describe("Collections", () => {
 
     const schema = {
       title: text(),
-      title_embedding: f32Vector(1536)
+      title_embedding: f32Vector({ dimension: 1536 })
         .required()
         .index(vectorIndex({ metric: "euclidean" })),
       summary: text()
@@ -73,10 +73,10 @@ describe("Collections", () => {
       int: int(),
       float: float(),
       bool: bool(),
-      vector: f32Vector(1536),
-      float_vector: f32Vector(1536),
-      byte_vector: u8Vector(1536),
-      binary_vector: binaryVector(1536),
+      vector: f32Vector({ dimension: 1536 }),
+      float_vector: f32Vector({ dimension: 1536 }),
+      byte_vector: u8Vector({ dimension: 1536 }),
+      binary_vector: binaryVector({ dimension: 1536 }),
       bytes: bytes(),
     };
 

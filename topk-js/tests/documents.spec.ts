@@ -118,7 +118,7 @@ describe("Documents", () => {
     const ctx = getContext();
 
     await ctx.createCollection("books", {
-      f32_embedding: f32Vector(3)
+      f32_embedding: f32Vector({ dimension: 3 })
         .required()
         .index(vectorIndex({ metric: "euclidean" })),
     });
@@ -145,7 +145,7 @@ describe("Documents", () => {
     const ctx = getContext();
 
     await ctx.createCollection("books", {
-      u8_embedding: u8Vector(3)
+      u8_embedding: u8Vector({ dimension: 3 })
         .required()
         .index(vectorIndex({ metric: "euclidean" })),
     });
@@ -175,7 +175,7 @@ describe("Documents", () => {
     const ctx = getContext();
 
     await ctx.createCollection("books", {
-      binary_embedding: binaryVector(3)
+      binary_embedding: binaryVector({ dimension: 3 })
         .required()
         .index(vectorIndex({ metric: "hamming" })),
     });
