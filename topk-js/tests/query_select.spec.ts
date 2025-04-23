@@ -176,7 +176,7 @@ describe("Select Queries", () => {
   test("query select vector distance", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("books", {
-      summary_embedding: f32Vector(16)
+      summary_embedding: f32Vector({ dimension: 16 })
         .required()
         .index(vectorIndex({ metric: "euclidean" })),
     });

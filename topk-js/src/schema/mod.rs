@@ -29,19 +29,30 @@ pub fn bool() -> FieldSpec {
     FieldSpec::create(DataType::Boolean {})
 }
 
-#[napi(namespace = "schema")]
-pub fn f32_vector(dimension: u32) -> FieldSpec {
-    FieldSpec::create(DataType::F32Vector { dimension })
+#[napi(object, namespace = "schema")]
+pub struct VectorOptions {
+    pub dimension: u32,
 }
 
 #[napi(namespace = "schema")]
-pub fn u8_vector(dimension: u32) -> FieldSpec {
-    FieldSpec::create(DataType::U8Vector { dimension })
+pub fn f32_vector(options: VectorOptions) -> FieldSpec {
+    FieldSpec::create(DataType::F32Vector {
+        dimension: options.dimension,
+    })
 }
 
 #[napi(namespace = "schema")]
-pub fn binary_vector(dimension: u32) -> FieldSpec {
-    FieldSpec::create(DataType::BinaryVector { dimension })
+pub fn u8_vector(options: VectorOptions) -> FieldSpec {
+    FieldSpec::create(DataType::U8Vector {
+        dimension: options.dimension,
+    })
+}
+
+#[napi(namespace = "schema")]
+pub fn binary_vector(options: VectorOptions) -> FieldSpec {
+    FieldSpec::create(DataType::BinaryVector {
+        dimension: options.dimension,
+    })
 }
 
 #[napi(namespace = "schema")]
@@ -79,11 +90,16 @@ pub struct SemanticIndexOptions {
 }
 
 #[napi(namespace = "schema")]
-pub fn semantic_index(options: SemanticIndexOptions) -> FieldIndex {
+pub fn semantic_index(options: Option<SemanticIndexOptions>) -> FieldIndex {
+    let (model, embedding_type) = match options {
+        Some(options) => (options.model, options.embedding_type),
+        None => (None, None),
+    };
+
     FieldIndex {
         index: Some(FieldIndexUnion::SemanticIndex {
-            model: options.model,
-            embedding_type: options.embedding_type,
+            model,
+            embedding_type,
         }),
     }
 }

@@ -34,7 +34,7 @@ describe("Vector Queries", () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("books", {
       title: text(),
-      summary_embedding: f32Vector(16)
+      summary_embedding: f32Vector({ dimension: 16 })
         .required()
         .index(vectorIndex({ metric: "euclidean" })),
     });
@@ -79,7 +79,7 @@ describe("Vector Queries", () => {
   test("query vector distance nullable", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("books", {
-      nullable_embedding: f32Vector(16).index(
+      nullable_embedding: f32Vector({ dimension: 16 }).index(
         vectorIndex({ metric: "euclidean" })
       ),
     });
@@ -108,7 +108,7 @@ describe("Vector Queries", () => {
   test("query vector distance u8 vector", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("books", {
-      scalar_embedding: u8Vector(16)
+      scalar_embedding: u8Vector({ dimension: 16 })
         .required()
         .index(vectorIndex({ metric: "euclidean" })),
     });
@@ -146,7 +146,7 @@ describe("Vector Queries", () => {
   test("query vector distance binary vector", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("books", {
-      binary_embedding: binaryVector(2)
+      binary_embedding: binaryVector({ dimension: 2 })
         .required()
         .index(vectorIndex({ metric: "hamming" })),
     });

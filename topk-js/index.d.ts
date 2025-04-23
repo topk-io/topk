@@ -162,7 +162,7 @@ export declare namespace schema {
     required(): FieldSpec
     index(index: FieldIndex): FieldSpec
   }
-  export function binaryVector(dimension: number): FieldSpec
+  export function binaryVector(options: VectorOptions): FieldSpec
   export function bool(): FieldSpec
   export function bytes(): FieldSpec
   export type DataType =
@@ -177,7 +177,7 @@ export declare namespace schema {
   export type EmbeddingDataType =  'float32'|
   'uint8'|
   'binary';
-  export function f32Vector(dimension: number): FieldSpec
+  export function f32Vector(options: VectorOptions): FieldSpec
   export interface FieldIndex {
     index?: FieldIndexUnion
   }
@@ -189,13 +189,13 @@ export declare namespace schema {
   export function int(): FieldSpec
   export function keywordIndex(): FieldIndex
   export type KeywordIndexType =  'text';
-  export function semanticIndex(options: SemanticIndexOptions): FieldIndex
+  export function semanticIndex(options?: SemanticIndexOptions | undefined | null): FieldIndex
   export interface SemanticIndexOptions {
     model?: string
     embeddingType?: EmbeddingDataType
   }
   export function text(): FieldSpec
-  export function u8Vector(dimension: number): FieldSpec
+  export function u8Vector(options: VectorOptions): FieldSpec
   export type VectorDistanceMetric =  'cosine'|
   'euclidean'|
   'dot_product'|
@@ -203,5 +203,8 @@ export declare namespace schema {
   export function vectorIndex(options: VectorIndexOptions): FieldIndex
   export interface VectorIndexOptions {
     metric: VectorDistanceMetric
+  }
+  export interface VectorOptions {
+    dimension: number
   }
 }
