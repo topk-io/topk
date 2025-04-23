@@ -84,7 +84,7 @@
     "build:debug": "napi build --no-const-enum --platform",
     "prepublishOnly": "napi prepublish -t npm --no-gh-release",
     "typecheck": "tsc --noEmit",
-    "test": "jest --verbose",
+    "test": "yarn typecheck && jest --verbose",
     "universal": "napi universalize",
     "version": "napi version"
   }
