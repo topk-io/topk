@@ -1,5 +1,5 @@
-import { field, topk, select } from "../lib/query";
-import { text, keywordIndex, int } from "../lib/schema";
+import { field, select } from "../lib/query";
+import { int, keywordIndex, text } from "../lib/schema";
 import { newProjectContext, ProjectContext } from "./setup";
 
 describe("TopK Queries", () => {
@@ -26,7 +26,11 @@ describe("TopK Queries", () => {
       { _id: "catcher", title: "The Catcher in the Rye", published_year: 1951 },
       { _id: "gatsby", title: "The Great Gatsby", published_year: 1925 },
       { _id: "moby", title: "Moby Dick", published_year: 1851 },
-      { _id: "mockingbird", title: "To Kill a Mockingbird", published_year: 1960 },
+      {
+        _id: "mockingbird",
+        title: "To Kill a Mockingbird",
+        published_year: 1960,
+      },
       { _id: "alchemist", title: "The Alchemist", published_year: 1988 },
       { _id: "harry", title: "Harry Potter", published_year: 1997 },
       { _id: "lotr", title: "The Lord of the Rings", published_year: 1954 },
@@ -37,7 +41,9 @@ describe("TopK Queries", () => {
 
     const results = await ctx.client
       .collection(collection.name)
-      .query(topk(field("published_year"), 5, true));
+      .query(
+        select({ title: field("title") }).topk(field("published_year"), 5, true)
+      );
 
     expect(results.map((doc) => doc._id)).toEqual([
       "pride",
@@ -74,10 +80,7 @@ describe("TopK Queries", () => {
 
     const results = await ctx.client
       .collection(collection.name)
-      .query(
-        select({})
-          .topk(field("published_year"), 5, false)
-      );
+      .query(select({}).topk(field("published_year"), 5, false));
 
     expect(results.map((doc) => doc._id)).toEqual([
       "harry",
@@ -114,10 +117,7 @@ describe("TopK Queries", () => {
 
     const results = await ctx.client
       .collection(collection.name)
-      .query(
-        select({})
-          .topk(field("published_year"), 20, true)
-      );
+      .query(select({}).topk(field("published_year"), 20, true));
 
     expect(results.length).toBe(10);
     expect(results[0]._id).toBe("pride");
@@ -133,10 +133,7 @@ describe("TopK Queries", () => {
 
     const results = await ctx.client
       .collection(collection.name)
-      .query(
-        select({})
-          .topk(field("published_year"), 5, true)
-      );
+      .query(select({}).topk(field("published_year"), 5, true));
 
     expect(results.length).toBe(0);
   });

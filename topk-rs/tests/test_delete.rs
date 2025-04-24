@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use test_context::test_context;
 use topk_protos::doc;
-use topk_rs::query::{field, top_k};
+use topk_rs::query::{field, select};
 use topk_rs::Error;
 
 mod utils;
@@ -59,7 +59,11 @@ async fn test_delete_document(ctx: &mut ProjectTestContext) {
     let docs = ctx
         .client
         .collection(&collection.name)
-        .query(top_k(field("rank"), 100, true), Some(lsn), None)
+        .query(
+            select([("title", field("title"))]).top_k(field("published_year"), 100, true),
+            Some(lsn),
+            None,
+        )
         .await
         .expect("could not query documents");
 

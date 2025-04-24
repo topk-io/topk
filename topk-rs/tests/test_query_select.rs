@@ -5,7 +5,7 @@ use topk_protos::v1::data::Value;
 
 mod utils;
 use topk_rs::data::Vector;
-use topk_rs::query::{field, fns, literal, r#match, select, top_k};
+use topk_rs::query::{field, fns, literal, r#match, select};
 use utils::dataset;
 use utils::ProjectTestContext;
 
@@ -59,7 +59,11 @@ async fn test_query_topk_limit(ctx: &mut ProjectTestContext) {
     let results = ctx
         .client
         .collection(&collection.name)
-        .query(top_k(field("published_year"), 3, true), None, None)
+        .query(
+            select([("title", field("title"))]).top_k(field("published_year"), 3, true),
+            None,
+            None,
+        )
         .await
         .expect("could not query");
     assert_eq!(results.len(), 3);
@@ -67,7 +71,11 @@ async fn test_query_topk_limit(ctx: &mut ProjectTestContext) {
     let results = ctx
         .client
         .collection(&collection.name)
-        .query(top_k(field("published_year"), 2, true), None, None)
+        .query(
+            select([("title", field("title"))]).top_k(field("published_year"), 2, true),
+            None,
+            None,
+        )
         .await
         .expect("could not query");
     assert_eq!(results.len(), 2);
@@ -75,7 +83,11 @@ async fn test_query_topk_limit(ctx: &mut ProjectTestContext) {
     let results = ctx
         .client
         .collection(&collection.name)
-        .query(top_k(field("published_year"), 1, true), None, None)
+        .query(
+            select([("title", field("title"))]).top_k(field("published_year"), 1, true),
+            None,
+            None,
+        )
         .await
         .expect("could not query");
     assert_eq!(results.len(), 1);

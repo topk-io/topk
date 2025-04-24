@@ -123,7 +123,6 @@ export declare namespace query {
   'mul'|
   'div';
   export function bm25Score(): FunctionExpression
-  export function count(): Query
   export function field(name: string): LogicalExpression
   export function filter(expr: LogicalExpression | TextExpression): Query
   export type FunctionExpression =
@@ -149,7 +148,6 @@ export declare namespace query {
     | { type: 'Terms', all: boolean, terms: Array<Term> }
     | { type: 'And', left: TextExpression, right: TextExpression }
     | { type: 'Or', left: TextExpression, right: TextExpression }
-  export function topk(expr: LogicalExpression | TextExpression, k: number, asc?: boolean | undefined | null): Query
   export type UnaryOperator =  'not'|
   'isNull'|
   'isNotNull';

@@ -1,6 +1,6 @@
 import pytest
 from topk_sdk import error
-from topk_sdk.query import field, top_k
+from topk_sdk.query import field, select
 
 from . import ProjectContext
 from .utils import doc_ids
@@ -29,7 +29,7 @@ def test_delete_document(ctx: ProjectContext):
     assert lsn == 2
 
     docs = ctx.client.collection(collection.name).query(
-        top_k(field("rank"), 100, True), lsn=lsn
+        select("title").top_k(field("rank"), 100, True), lsn=lsn
     )
 
     assert doc_ids(docs) == {"two"}

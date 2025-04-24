@@ -1,6 +1,5 @@
 const { query } = require("../index");
 
-module.exports.count = query.count;
 module.exports.field = query.field;
 module.exports.filter = query.filter;
 module.exports.fn = {
@@ -14,4 +13,3 @@ module.exports.match = query.match;
 module.exports.Query = query.Query;
 module.exports.select = query.select;
 module.exports.TextExpression = query.TextExpression;
-module.exports.topk = query.topk;
