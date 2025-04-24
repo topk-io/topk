@@ -29,8 +29,6 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     m.add_wrapped(wrap_pyfunction!(select))?;
     m.add_wrapped(wrap_pyfunction!(filter))?;
-    m.add_wrapped(wrap_pyfunction!(top_k))?;
-    m.add_wrapped(wrap_pyfunction!(count))?;
     m.add_wrapped(wrap_pyfunction!(field))?;
     m.add_wrapped(wrap_pyfunction!(literal))?;
     m.add_wrapped(wrap_pyfunction!(r#match))?;
@@ -51,17 +49,6 @@ pub fn select(
 #[pyo3(signature = (expr))]
 pub fn filter(expr: FilterExprUnion) -> PyResult<Query> {
     Ok(Query::new().filter(expr)?)
-}
-
-#[pyfunction]
-#[pyo3(signature = (expr, k, asc=true))]
-pub fn top_k(expr: LogicalExpr, k: u64, asc: bool) -> PyResult<Query> {
-    Ok(Query::new().top_k(expr, k, asc)?)
-}
-
-#[pyfunction]
-pub fn count() -> PyResult<Query> {
-    Query::new().count()
 }
 
 #[pyfunction]

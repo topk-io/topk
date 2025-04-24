@@ -28,13 +28,8 @@ where
     Query::new(vec![]).select(exprs)
 }
 
-// TODO: `filter` and `top_k` are not exported from python
 pub fn filter(expr: impl Into<FilterExpr>) -> Query {
     Query::new(vec![]).filter(expr.into())
-}
-
-pub fn top_k(expr: impl Into<LogicalExpr>, limit: u64, asc: bool) -> Query {
-    Query::new(vec![]).top_k(expr, limit, asc)
 }
 
 pub fn field<S>(name: S) -> LogicalExpr

@@ -1,4 +1,4 @@
-from topk_sdk.query import field, fn, literal, match, select, top_k
+from topk_sdk.query import field, fn, literal, match, select
 
 from . import ProjectContext
 from .utils import dataset, doc_ids
@@ -32,17 +32,17 @@ def test_query_topk_limit(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     results = ctx.client.collection(collection.name).query(
-        top_k(field("published_year"), 3, True)
+        select("title").top_k(field("published_year"), 3, True)
     )
     assert len(results) == 3
 
     results = ctx.client.collection(collection.name).query(
-        top_k(field("published_year"), 2, True)
+        select("title").top_k(field("published_year"), 2, True)
     )
     assert len(results) == 2
 
     results = ctx.client.collection(collection.name).query(
-        top_k(field("published_year"), 1, True)
+        select("title").top_k(field("published_year"), 1, True)
     )
     assert len(results) == 1
 
