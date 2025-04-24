@@ -68,7 +68,7 @@ client.collection("my_collection").query(
 ```typescript Javascript
 await client
   .collection("my_collection")
-  .query(query, { lsn: 2, consistency: "indexed" });
+  .query(query, { consistency: "indexed" });
 ```
 
 </CodeGroup>
@@ -98,7 +98,7 @@ client.collection("my_collection").query(
 ```typescript Javascript
 await client
   .collection("my_collection")
-  .query(query, { lsn, consistency: "strong" });
+  .query(query, { consistency: "strong" });
 ```
 
 </CodeGroup>
