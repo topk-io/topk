@@ -20,13 +20,18 @@ Choose your preferred language to install the SDK:
 pip install topk-sdk
 ```
 
+
+```bash Javascript
+npm install topk-js
+```
+
 </CodeGroup>
 
 ## 2. Create an API key
 
 To get started with TopK, you need an API key. Here's how you can get one for free:
 
-1. Head down to the <a href="https://console.topk.io" target="_blank">Console</a>.
+1. Head down to the Console
 2. Create your account and generate an API key.
 
 You'll need this key to authenticate with the API. Make sure to keep it safe and secure.
@@ -43,6 +48,16 @@ First, create a `Client` instance with your API key and <Tooltip tip="TopK regio
 from topk_sdk import Client
 
 client = Client(api_key="YOUR_TOPK_API_KEY", region="aws-us-east-1-elastica")
+```
+
+
+```typescript Javascript
+import { Client } from "topk-js"
+
+const client = new Client({
+  apiKey: "YOUR_TOPK_API_KEY",
+  region: "aws-us-east-1-elastica"
+})
 ```
 
 </CodeGroup>
@@ -63,16 +78,26 @@ client.collections().create(
 )
 ```
 
+
+```typescript Javascript
+import { text, semanticIndex } from "topk-js/schema"
+
+await client.collections().create("books", {
+  // `title` field must be present and will be
+  // indexed for semantic search.
+  title: text().required().index(semanticIndex()),
+});
+```
+
 </CodeGroup>
 
 > **Note:** Other fields can still be upserted even if they are not defined in the schema.
-
 
 ## 4. Add documents to the collection
 
 After creating a collection, you can start adding documents to it.
 
-A **document** is a JSON-style dictionary with one condition: **it must have an `_id` field**.
+A **document** is a JSON-style dictionary with one condition: **`it must have an _id field`**.
 
 <CodeGroup>
 
@@ -84,6 +109,15 @@ client.collection("books").upsert(
         {"_id": "catcher", "title": "The Catcher in the Rye"}
     ],
 )
+```
+
+
+```typescript Javascript
+await client.collection("books").upsert([
+  { _id: "gatsby", title: "The Great Gatsby" },
+  { _id: "1984", title: "1984" },
+  { _id: "catcher", title: "The Catcher in the Rye" },
+]);
 ```
 
 </CodeGroup>
@@ -108,6 +142,24 @@ results = client.collection("books").query(
 )
 ```
 
+
+```typescript Javascript
+import { select, fn, match, field } from "topk-js/query"
+
+const results = await client.collection("books").query(
+  select({
+    title: field("title"),
+    // Perform semantic search on the `title` field
+    title_similarity: fn.semanticSimilarity(
+      "title",
+      "classic American novel"
+    ),
+  })
+    // Sort results by the `title_similarity` field, selecting the top 10 results
+    .topk(field("title_similarity"), 10)
+);
+```
+
 </CodeGroup>
 
 Optionally, you can call `.rerank()` at the end of your query to automatically improve relevance of the results. See [reranking](/documents/query#reranking) for more details.
@@ -122,6 +174,11 @@ To delete the entire collection:
 client.collections().delete("books")
 ```
 
+
+```typescript Javacript
+await client.collections().delete("books")
+```
+
 </CodeGroup>
 
 <Support />
@@ -130,14 +187,11 @@ client.collections().delete("books")
 
 Continue exploring the TopK platform:
 
-<CardGroup>
-
-<Card title="Managing collections" icon="paintbrush" href="/collections/create">
-  Learn how to manage collections
-</Card>
-
-<Card title="Querying" icon="square-code" href="/documents/query">
-  Learn how to query your collections
-</Card>
-
+<CardGroup cols="2">
+  <Card title="Managing collections" icon="paintbrush" href="/collections/create">
+    Learn how to manage collections
+  </Card>
+  <Card title="Querying" icon="square-code" href="/documents/query">
+    Learn how to query your collections
+  </Card>
 </CardGroup>

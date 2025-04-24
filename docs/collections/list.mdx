@@ -12,9 +12,9 @@ Listing collections is as easy as:
 collections = client.collections().list()
 ```
 
-```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
+
+```typescript Javascript
+const collections = await client.collections().list()
 ```
 
 </CodeGroup>
@@ -30,9 +30,15 @@ for collection in collections:
     print(f"Project ID: {collection.project_id}")
 ```
 
-```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
+
+```js Javascript
+for (const collection of collections) {
+  console.log(`Collection name: ${collection.name}`);
+  console.log(`Organization ID: ${collection.orgId}`);
+  console.log(`Project ID: ${collection.projectId}`);
+  console.log(`Region: ${collection.region}`);
+  console.log(`Schema: ${collection.schema}`);
+}
 ```
 
 </CodeGroup>

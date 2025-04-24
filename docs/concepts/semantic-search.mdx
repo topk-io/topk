@@ -3,7 +3,7 @@ title: "Semantic Search"
 icon: "searchengin"
 ---
 
-Semantic search enables you to find relevant documents based on **semantic similarity** rather than exact keyword matches. With **TopK**, you can implement powerful semantic search in a few lines of code—without needing third-party embedding models or reranking services. 
+Semantic search enables you to find relevant documents based on **semantic similarity** rather than exact keyword matches. With **TopK**, you can implement powerful semantic search in a few lines of code—without needing third-party embedding models or reranking services.
 
 TopK comes with **built-in embeddings** and **reranking**, making it incredibly easy to build high-quality retrieval pipelines.
 
@@ -28,12 +28,21 @@ client.collections().create(
 )
 ```
 
+
+```typescript Javascript
+import { text, semanticIndex } from "topk-js/schema";
+
+await client.collections().create("books", {
+  title: text().required().index(semanticIndex()),
+});
+```
+
 </CodeGroup>
 
 **Explanation**
 
-* The `semantic_index()` on `title` ensures the provided text is automatically embedded.
-* Other fields do not need to be in the schema to be stored and queried—they can still be upserted as part of a document.
+- The `semantic_index()` on `title` ensures the provided text is automatically embedded.
+- Other fields do not need to be in the schema to be stored and queried—they can still be upserted as part of a document.
 
 If you want to use your own embeddings instead of TopK's built-in `semantic_index()`, see [Custom Embeddings](#bring-your-own-embeddings).
 
@@ -54,6 +63,20 @@ docs = client.collection("books").query(
     .top_k(field("title_similarity"), 10)
     .rerank()
 )
+```
+
+
+```typescript Javascript
+import { select, field, fn } from "topk-js/query";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    title_similarity: fn.semanticSimilarity("title", "catcher in the rye"),
+  })
+    .topk(field("title_similarity"), 10)
+    .rerank()
+);
 ```
 
 </CodeGroup>
@@ -87,6 +110,24 @@ docs = client.collection("books").query(
 )
 ```
 
+
+```typescript Javascript
+import { select, field, fn, match } from "topk-js/query";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    title_similarity: fn.semanticSimilarity("title", "catcher"),
+    text_score: fn.bm25Score(), // Keyword-based relevance
+  })
+    .filter(match("classic")) // Ensure the book title contains "classic" keyword
+    .topk(
+      field("title_similarity").mul(0.7).add(field("text_score").mul(0.3)),
+      10
+    )
+);
+```
+
 </CodeGroup>
 
 This blends **keyword relevance (BM25)** with **semantic similarity**, ensuring your search results capture both exact matches and contextual meaning with a custom scoring function that's best suited for your use case.
@@ -108,9 +149,21 @@ client.collections().create(
     "books",
     schema={
         "title": text().required(),
-        "title_embedding": vector(1536).index(vector_index(metric="cosine")),  # Custom embeddings
+        "title_embedding": f32_vector(1536).index(vector_index(metric="cosine")),  # Custom embeddings
     },
 )
+```
+
+
+```typescript Javascript
+import { text, vector, vectorIndex } from "topk-js/schema";
+
+await client.collections().create("books", {
+  title: text().required(),
+  title_embedding: f32Vector({ dimension: 1536 }).index(
+    vectorIndex({ metric: "cosine" })
+  ), // Custom embeddings
+});
 ```
 
 </CodeGroup>
@@ -131,11 +184,24 @@ docs = client.collection("books").query(
 )
 ```
 
+
+```typescript Javascript
+import { select, field, fn } "topk-js/query";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    title_similarity: fn.vectorDistance("title_embedding", [0.1, 0.2, 0.3]),
+  }).topk(field("title_similarity"), 10)
+);
+```
+
 </CodeGroup>
 
 Using custom embeddings is useful if:
-* You have a **domain-specific embedding model** (e.g., medical, legal, or technical documents).
-* You need embeddings that are **consistent across multiple systems**.
+
+- You have a **domain-specific embedding model** (e.g., medical, legal, or technical documents).
+- You need embeddings that are **consistent across multiple systems**.
 
 For most use cases, TopK's built-in `semantic_index()` is the easiest and most efficient way to implement semantic search.
 
@@ -157,6 +223,23 @@ docs = client.collection("books").query(
         fields=["title"]
     )
 )
+```
+
+
+```typescript Javascript
+import { select, field, fn } from "topk-js/query";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    title_similarity: fn.vectorDistance("title_embedding", [0.1, 0.2, 0.3]),
+  })
+    .topk(field("title_similarity"), 10)
+    .rerank({
+      query: "catcher in the rye",
+      fields: ["title"],
+    })
+);
 ```
 
 </CodeGroup>
@@ -182,6 +265,24 @@ docs = client.collection("books").query(
         fields=["title"]
     )
 )
+```
+
+
+```typescript Javascript
+import { select, field, fn } from "topk-js/query";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    text_score: fn.bm25Score(),
+  })
+    .filter(match("catcher in the rye"))
+    .topk(field("text_score"), 10)
+    .rerank({
+      query: "catcher in the rye",
+      fields: ["title"],
+    })
+);
 ```
 
 </CodeGroup>

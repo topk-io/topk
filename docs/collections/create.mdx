@@ -8,31 +8,18 @@ import Support from "/snippets/support.mdx";
 
 ## Creating a collection
 
-The `topk_sdk.schema` module contains the schema definition for the fields in a collection.
+To create a collection, you need to pass the collection name and the schema definition to the `create()` method on the`client.collections()` instance.
 
 <CodeGroup>
 
 ```python Python
 from topk_sdk.schema import int, text, vector, vector_index, keyword_index, semantic_index
-```
 
-```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
-```
-
-</CodeGroup>
-
-To create a collection, you need to pass the collection name and the schema to the `create` method.
-
-<CodeGroup>
-
-```python Python
 client.collections().create(
     "books",
     schema={
         "title": text().required().index(keyword_index()),
-        "title_embedding": vector(1536)
+        "title_embedding": f32Vector(dimension=1536)
             .required()
             .index(vector_index(metric="euclidean")),
         "published_year": int().required(),
@@ -40,9 +27,17 @@ client.collections().create(
 )
 ```
 
-```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
+
+```typescript Javascript
+import { int, text, vector, vectorIndex, keywordIndex, semanticIndex } from "topk-js/schema";
+
+await client.collections().create("books", {
+  title: text().required().index(keywordIndex()),
+  title_embedding: f32Vector({ dimension: 1536 })
+    .required()
+    .index(vectorIndex({ metric: "euclidean" })),
+  published_year: int().required(),
+});
 ```
 
 </CodeGroup>
@@ -63,9 +58,9 @@ TopK supports the following data types. There are more on our roadmap and we are
 "published_year": int()
 ```
 
-```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
+
+```typescript JavaScript
+"published_year": int()
 ```
 
 </CodeGroup>
@@ -80,9 +75,9 @@ TopK supports the following data types. There are more on our roadmap and we are
 "price": float()
 ```
 
+
 ```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
+"price": float()
 ```
 
 </CodeGroup>
@@ -97,9 +92,9 @@ TopK supports the following data types. There are more on our roadmap and we are
 "is_published": bool()
 ```
 
-```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
+
+```typescript JavaScript
+"is_published": bool()
 ```
 
 </CodeGroup>
@@ -114,9 +109,9 @@ TopK supports the following data types. There are more on our roadmap and we are
 "title": text()
 ```
 
+
 ```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
+"title": text()
 ```
 
 </CodeGroup>
@@ -131,9 +126,10 @@ TopK supports the following data types. There are more on our roadmap and we are
 "title_embedding": f32_vector(dimension=1536)
 ```
 
+
 ```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
+title_embedding: f32Vector({ dimension: 1536 })
+// f32Vector takes a number specifying the vector's dimension
 ```
 
 </CodeGroup>
@@ -148,9 +144,10 @@ TopK supports the following data types. There are more on our roadmap and we are
 "title_embedding": u8_vector(dimension=1536)
 ```
 
+
 ```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
+title_embedding: u8Vector({ dimension: 1536 })
+// f32Vector takes a number specifying the vector's dimension
 ```
 
 </CodeGroup>
@@ -160,7 +157,7 @@ TopK supports the following data types. There are more on our roadmap and we are
 `binary_vector()` is used to define a binary vector packed into `u8` values. You can pass vector `dimension` as a parameter (required, greater than 0) which will be validated when upserting documents.
 
 <Note>
-Binary vector dimension is defined in terms of the number of bytes. This means that for a 1024-bit binary vector, the dimension `topk` expects is **128** (1024 / 8). 
+  Binary vector dimension is defined in terms of the number of bytes. This means that for a 1024-bit binary vector, the dimension `topk` expects is **128** (1024 / 8).
 </Note>
 
 <CodeGroup>
@@ -169,9 +166,10 @@ Binary vector dimension is defined in terms of the number of bytes. This means t
 "title_embedding": binary_vector(dimension=128)
 ```
 
+
 ```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
+title_embedding: binaryVector({ dimension: 128 })
+// binaryVector takes a number specifying the vector's dimension
 ```
 
 </CodeGroup>
@@ -186,9 +184,9 @@ Binary vector dimension is defined in terms of the number of bytes. This means t
 "image": bytes()
 ```
 
+
 ```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
+"image": bytes()
 ```
 
 </CodeGroup>
@@ -199,7 +197,9 @@ Binary vector dimension is defined in terms of the number of bytes. This means t
 
 `required()` is used to mark a field as required. All fields are `optional` by default.
 
-<Note>However, don't forget that every document has to have an `_id`.</Note>
+<Note>
+  However, don't forget that every document has to have an `_id`.
+</Note>
 
 <CodeGroup>
 
@@ -207,9 +207,9 @@ Binary vector dimension is defined in terms of the number of bytes. This means t
 "title": text().required()
 ```
 
+
 ```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
+"title": text().required()
 ```
 
 </CodeGroup>
@@ -232,16 +232,16 @@ The `semantic_index()` method is used to create both a vector and a keyword inde
 "title": text().index(semantic_index())
 ```
 
-```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
+
+```typescript JavaScript
+title: text().index(semanticIndex())
 ```
 
 </CodeGroup>
 
 Optionally, you can pass a `model` parameter to the `semantic_index()` method. Supported models are:
 
-- `cohere/embed-english-v3` 
+- `cohere/embed-english-v3`
 - `cohere/embed-multilingual-v3` (default)
 
 #### Vector index
@@ -255,9 +255,10 @@ can be indexed with a vector index.
 "title_embedding": vector(dimension=1536).index(vector_index(metric="cosine"))
 ```
 
+
 ```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
+title_embedding: f32Vector({ dimension: 1536 }).index(vectorIndex({ metric: "cosine" }))
+// vectorIndex takes an enum specifying the vector index metric
 ```
 
 </CodeGroup>
@@ -283,9 +284,9 @@ The `keyword_index()` method is used to create a keyword index on a `text()` fie
 "title": text().index(keyword_index())
 ```
 
+
 ```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
+title: text().index(keywordIndex())
 ```
 
 </CodeGroup>
