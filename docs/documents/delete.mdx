@@ -19,9 +19,9 @@ client.collection("books").delete(
 )
 ```
 
-```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
+
+```typescript Javascript
+await client.collection("books").delete(["book-1", "book-2", "book-3"]);
 ```
 
 </CodeGroup>
@@ -42,7 +42,7 @@ Right now, the SDK supports only _Delete by `_id`_ method. To delete documents b
 
 ```python Python
 docs = client.collection("books").query(
-    filter(field("published_year") > 1980)
+filter(field("published_year") > 1980)
 )
 ```
 
@@ -59,7 +59,7 @@ docs = client.collection("books").query(
 
 ```python Python
 client.collection("books").delete(
-    [d._id for d in docs]
+[d._id for d in docs]
 )
 ```
 

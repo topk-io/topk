@@ -28,9 +28,17 @@ Reads in this mode consider both indexed files and the most recent writes. While
 
 ```python Python
 client.collection("my_collection").query(
-    ..., # query
+    query,
     # no need to specify consistency mode
 )
+```
+
+
+```typescript Javascript
+await client.collection("my_collection").query(
+  query
+  // no need to specify the consistency mode
+);
 ```
 
 </CodeGroup>
@@ -47,7 +55,6 @@ client.collection("my_collection").query(
 
 Reads in this mode only consider fully compacted files and ignore recent WAL writes. This results in the highest query performance but may skip the latest writes. It is best suited for analytical workloads and batch processing where absolute real-time consistency isn't required.
 
-
 <CodeGroup>
 
 ```python Python
@@ -55,6 +62,13 @@ client.collection("my_collection").query(
     ..., # query
     consistency="indexed"
 )
+```
+
+
+```typescript Javascript
+await client
+  .collection("my_collection")
+  .query(query, { lsn: 2, consistency: "indexed" });
 ```
 
 </CodeGroup>
@@ -80,6 +94,13 @@ client.collection("my_collection").query(
 )
 ```
 
+
+```typescript Javascript
+await client
+  .collection("my_collection")
+  .query(query, { lsn, consistency: "strong" });
+```
+
 </CodeGroup>
 
 **How It Works:**
@@ -92,10 +113,10 @@ client.collection("my_collection").query(
 
 ## Choosing the Right Mode
 
-| Consistency Mode       | Freshness            | Cost   | Query performance |
-| ---------------------- | -------------------- | ------ | ----------------- |
-| **Balanced (Default)** | Near real-time (less than 1s) | Low    | Good     |
-| **Indexed**            | Only compacted data  | Low    | Fastest           |
-| **Strong**             | All writes are visible | Higher | Slower            |
+| Consistency Mode       | Freshness                     | Cost   | Query performance |
+| ---------------------- | ----------------------------- | ------ | ----------------- |
+| **Balanced (Default)** | Near real-time (less than 1s) | Low    | Good              |
+| **Indexed**            | Only compacted data           | Low    | Fastest           |
+| **Strong**             | All writes are visible        | Higher | Slower            |
 
 For most use cases, **Balanced Consistency** offers the best trade-off between performance and correctness. However, if you prioritize low query latency over recency, **Indexed Consistency** is the right choice. When no staleness is allowed, **Strong Consistency** ensures every read reflects the latest write.

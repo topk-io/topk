@@ -3,9 +3,10 @@ title: "Unified Retrieval"
 icon: "scale-balanced"
 ---
 
-Unified retrieval allows you to combine multiple retrieval techniques—such as multi-vector search, hybrid (vector + text) search, and custom scoring functions **within a single query**. This flexibility enables more precise and effective ranking of search results.
+Unified retrieval allows you to combine multiple retrieval techniques—such as multi-vector search, hybrid (vector \+ text) search, and custom scoring functions **within a single query**. This flexibility enables more precise and effective ranking of search results.
 
 With **TopK**, you can:
+
 1. Retrieve documents based on multiple embeddings -- **multi-vector retrieval**.
 2. Combine semantic similarity (or vector distance) with keyword search -- **hybrid retrieval**.
 3. Apply custom scoring functions that blend multiple ranking factors -- **custom scoring**.
@@ -15,6 +16,7 @@ With **TopK**, you can:
 ## Multi-Vector Retrieval
 
 In some cases, a single vector representation of a document isn't enough. For example, in a research paper database, you might want to:
+
 - Retrieve documents based on both a summary of the entire paper and a summary of individual paragraphs.
 - Rank results by combining scores from multiple embeddings.
 
@@ -33,6 +35,17 @@ client.collections().create(
         "paragraph_summary": text().index(semantic_index()),  # Embedding of a paragraph
     },
 )
+```
+
+
+```typescript Javascript
+import { text, semanticIndex } from "topk-js/schema";
+
+await client.collections().create("papers", {
+  title: text().required(),
+  paper_summary: text().index(semanticIndex()), // Embedding of full paper
+  paragraph_summary: text().index(semanticIndex()), // Embedding of a paragraph
+});
 ```
 
 </CodeGroup>
@@ -54,16 +67,39 @@ docs = client.collection("papers").query(
 )
 ```
 
+
+```javascript Javascript
+import { select, field, fn } from "topk-js/query";
+
+const docs = await client.collection("papers").query(
+  select({
+    title: field("title"),
+    paper_score: fn.semanticSimilarity(
+      "paper_summary",
+      "deep learning optimization"
+    ),
+    paragraph_score: fn.semanticSimilarity(
+      "paragraph_summary",
+      "stochastic gradient descent"
+    ),
+  }).topk(
+    field("paper_score").mul(0.7).add(field("paragraph_score").mul(0.3)),
+    10
+  )
+);
+```
+
 </CodeGroup>
 
 **Explanation**
+
 - We retrieve documents based on both the full paper summary and the paragraph summary.
 - The `top_k()` function blends the two scores, giving 70% weight to the full paper and 30% weight to the paragraph.
 - This method ensures that entirely relevant papers rank higher while also considering specific paragraph relevance.
 
 ---
 
-## Vector + Text Retrieval (Hybrid Search)
+## Vector \+ Text Retrieval (Hybrid Search)
 
 Hybrid retrieval combines **semantic similarity (vector-based search)** with **exact keyword matching**. This ensures that documents containing **explicit matches** to the query keywords are considered alongside **semantic similarity**.
 
@@ -81,6 +117,16 @@ client.collections().create(
         "content": text().index(semantic_index()),  # Semantic search
     },
 )
+```
+
+
+```typescript Javascript
+import { text, semanticIndex, keywordIndex } from "topk-js/schema";
+
+await client.collections().create("articles", {
+  title: text().required().index(keywordIndex()), // Keyword-based retrieval
+  content: text().index(semanticIndex()), // Semantic search
+});
 ```
 
 </CodeGroup>
@@ -103,9 +149,31 @@ docs = client.collection("articles").query(
 )
 ```
 
+
+```typescript Javascript
+import { select, fn, match } from "topk-js/query";
+
+const docs = await client.collection("articles").query(
+  select({
+    title: field("title"),
+    content_similarity: fn.semanticSimilarity(
+      "content",
+      "climate change policies"
+    ),
+    text_score: fn.bm25Score(),
+  })
+    .filter(match("carbon tax").or(match("renewable energy"))) // Ensure keyword relevance
+    .topk(
+      field("content_similarity").mul(0.6).add(field("text_score").mul(0.4)),
+      10
+    )
+);
+```
+
 </CodeGroup>
 
 **Explanation**
+
 - We retrieve documents based on semantic meaning (`content_score`) and keyword matching (`keyword_match`).
 - The `filter()` ensures that documents must contain at least one relevant keyword.
 - The `top_k()` function weights the scores, prioritizing semantic meaning (60%) while still considering keyword matches (40%).
@@ -134,6 +202,16 @@ client.collections().create(
 )
 ```
 
+
+```typescript Javascript
+import { text, float, semanticIndex } from "topk-js/schema";
+
+await client.collections().create("documents", {
+  content: text().index(semanticIndex()), // Semantic search
+  importance: float().required(), // Precomputed importance score
+});
+```
+
 </CodeGroup>
 
 ### Querying with a Custom Scoring Function
@@ -151,9 +229,30 @@ docs = client.collection("documents").query(
 )
 ```
 
+
+```typescript Javascript
+import { select, fn, literal } from "topk-js/query";
+
+const docs = await client.collection("documents").query(
+  select({
+    content_score: fn.semanticSimilarity(
+      "content",
+      "machine learning applications"
+    ),
+  }).topk(
+    literal(0.8)
+      .mul(field("importance"))
+      .add(0.2)
+      .mul(field("content_score")),
+    10
+  )
+);
+```
+
 </CodeGroup>
 
 **Explanation**
+
 - We retrieve documents based on both semantic similarity (`content_score`) and precomputed importance (`importance_score`).
 - The `top_k()` function gives 80% weight to content relevance and 20% weight to document importance.
 - This method allows you to boost more critical documents, ensuring that highly relevant but less "important" content doesn't dominate.

@@ -7,10 +7,9 @@ icon: "file-circle-plus"
 import Support from "/snippets/support.mdx";
 
 <Note>
-**Every document must have a string `_id` field**.
+  **`Every document must have a string _id field`**.
 
-Every document is uniquely identified by its `_id`, which means that upserting a document with an existing `_id` will update the document.
-
+  Every document is uniquely identified by its `_id`, which means that upserting a document with an existing `_id` will update the document.
 </Note>
 
 To upsert documents, you can pass a list of documents to the `upsert` method. TopK will insert new documents or overwrite existing ones
@@ -43,9 +42,28 @@ client.collection("books").upsert(
 )
 ```
 
-```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
+
+```typescript JavaScript
+await client.collection("books").upsert([
+  {
+    _id: "book-1",
+    title: "The Great Gatsby",
+    published_year: 1925,
+    title_embedding: [0.12, 0.67, 0.82, 0.53],
+  },
+  {
+    _id: "book-2",
+    title: "To Kill a Mockingbird",
+    published_year: 1960,
+    title_embedding: [0.42, 0.53, 0.65, 0.33],
+  },
+  {
+    _id: "book-3",
+    title: "1984",
+    published_year: 1949,
+    title_embedding: [0.59, 0.33, 0.71, 0.61],
+  },
+]);
 ```
 
 </CodeGroup>
@@ -57,14 +75,14 @@ Alternatively, the example below shows how your documents could also be made out
 
 ```python Python
 client.collection("locations").upsert(
-    [
-        {"_id": "point-1", "vector": [0.12, 0.67, 0.82, 0.53]},
-        {"_id": "point-2", "vector": [0.42, 0.53, 0.65, 0.33]},
-        {"_id": "point-3", "vector": [0.59, 0.33, 0.71, 0.61]},
-        {"_id": "point-4", "vector": [0.03, 0.88, 0.79, 0.41]},
-        {"_id": "point-5", "vector": [0.31, 0.64, 0.29, 0.59]},
-        {"_id": "point-6", "vector": [0.23, 0.14, 0.49, 0.91]},
-    ]
+[
+    {"_id": "point-1", "vector": [0.12, 0.67, 0.82, 0.53]},
+    {"_id": "point-2", "vector": [0.42, 0.53, 0.65, 0.33]},
+    {"_id": "point-3", "vector": [0.59, 0.33, 0.71, 0.61]},
+    {"_id": "point-4", "vector": [0.03, 0.88, 0.79, 0.41]},
+    {"_id": "point-5", "vector": [0.31, 0.64, 0.29, 0.59]},
+    {"_id": "point-6", "vector": [0.23, 0.14, 0.49, 0.91]},
+]
 )
 ```
 

@@ -28,9 +28,16 @@ docs = client.collection("books").query(
 )
 ```
 
+
 ```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
+import { select, field, fn, match } from "topk/query";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    title_similarity: fn.semanticSimilarity("title", "catcher"),
+  }).topk(field("title_similarity"), 10)
+);
 ```
 
 </CodeGroup>
@@ -61,12 +68,24 @@ docs = client.collection("books").query(
     # Return top 10 documents with the highest text score
     .top_k(field("text_score"), 10)
 )
-
 ```
 
+
 ```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
+import { select, field, fn, match } from "topk-js/query";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    // Score documents using BM25 algorithm
+    text_score: fn.bm25Score(),
+  })
+    // Filter to documents that have the `great` keyword in the `title` field
+    // or the `catcher` in any of the text-indexed fields.
+    .filter(match("great", "title").or(match("catcher")))
+    // Return top 10 documents with the highest text score
+    .topk(field("text_score"), 10)
+);
 ```
 
 </CodeGroup>
@@ -94,12 +113,22 @@ docs = client.collection("books").query(
     # Return top 10 results with the highest similarity
     .top_k(field("title_similarity"), 10)
 )
-
 ```
 
+
 ```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
+import { select, fn, field } from "topk-js/query";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    published_year_plus_10: field("published_year").add(10),
+    title_similarity: fn.vectorDistance(
+      "title_embedding",
+      [0.1, 0.2, 0.3 /* ... */]
+    ),
+  }).topk(field("title_similarity"), 10)
+);
 ```
 
 </CodeGroup>
@@ -112,6 +141,7 @@ You can filter documents based on metadata, keywords, values computed inside `se
 support all comparison operators: `==`, `!=`, `>`, `>=`, `<`, `<=`, arithmetic operations: `+`, `-`, `*`, `/`, and boolean operators: `|` and `&`.
 
 ### Metadata filtering
+
 The example below shows filtering by metadata.
 
 <CodeGroup>
@@ -122,14 +152,15 @@ The example below shows filtering by metadata.
 )
 ```
 
+
 ```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
+.filter(field("published_year").gt(1980))
 ```
 
 </CodeGroup>
 
 ### Keyword filtering
+
 The example below shows filtering documents by the keywords they contain. It'll match all documents that
 contain either `gatsby` or both `catcher` and `rye`.
 
@@ -141,14 +172,15 @@ contain either `gatsby` or both `catcher` and `rye`.
 )
 ```
 
+
 ```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
+.filter(match("gatsby").or(match("catcher").and(match("rye"))))
 ```
 
 </CodeGroup>
 
 ### Filter expressions
+
 You can combine multiple filter expressions using boolean operators. For example, the query below will match all
 documents that were published in 1997 or between 1920 and 1980.
 
@@ -160,14 +192,21 @@ documents that were published in 1997 or between 1920 and 1980.
 )
 ```
 
-```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
+
+```typescript JavaScript
+.filter(
+  field("published_year").eq(1997).or(
+    field("published_year").gte(1920).and(
+      field("published_year").lte(1980)
+    )
+  )
+)
 ```
 
 </CodeGroup>
 
 ### starts_with
+
 The `starts_with` operator can be used on string fields to match documents that start with a given prefix. This is especially
 useful in multi-tenant applications where document IDs can be structured as `{tenant_id}/{document_id}` and `starts_with` can
 then be used to scope the query to a specific tenant.
@@ -180,9 +219,9 @@ then be used to scope the query to a specific tenant.
 )
 ```
 
+
 ```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
+.filter(field("_id").startsWith("tenant_123/"))
 ```
 
 </CodeGroup>
@@ -202,9 +241,10 @@ You can use the `top_k` method to return the top `k` results. The `top_k` method
 .top_k(field("title_similarity"), 10, asc=True)
 ```
 
-```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
+
+```typescript JavaScript
+// Return top 10 results order by `published_year` and ascending `true`
+.topk(field("title_similarity"), 10, true)
 ```
 
 </CodeGroup>
@@ -220,9 +260,10 @@ You can use the `count` method to get the total number of documents matching the
 .count()
 ```
 
+
 ```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
+// Count the total number of documents in the collection
+.count()
 ```
 
 </CodeGroup>
@@ -237,6 +278,7 @@ You can rerank the results of a query using the `rerank` method. The `rerank` me
 - `topk_multiple` (optional): Multiple of top-k to rerank. For example, if `top_k=10` and `topk_multiple=2`, reranker takes 20 results from the original query and returns the top 10 results.
 
 Supported models:
+
 - `cohere/rerank-v3.5`
 
 <CodeGroup>
@@ -252,12 +294,20 @@ Supported models:
     fields=["title", "description"],
     topk_multiple=2
 )
-
 ```
 
-```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
+
+```typescript JavaScript
+.rerank()
+
+// or 
+
+.rerank({
+  model: "cohere/rerank-v3.5",
+  query: "catcher",
+  fields: ["title", "description"],
+  topkMultiple: 2,
+})
 ```
 
 </CodeGroup>
@@ -288,12 +338,26 @@ docs = client.collection("books").query(
     # Rerank the documents
     .rerank()
 )
-
 ```
 
-```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
+
+```typescript JavaScript
+import { select, fn, field, match } from "topk-js/query";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    text_score: fn.bm25Score(),
+    title_similarity: fn.semanticSimilarity("title", "catcher"),
+  })
+    .filter(match("great"))
+    .filter(field("published_year").gt(1980))
+    .topk(
+      field("text_score").mul(0.2).add(field("title_similarity").mul(0.8)),
+      10
+    )
+    .rerank()
+);
 ```
 
 </CodeGroup>
