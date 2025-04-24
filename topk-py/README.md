@@ -1,4 +1,9 @@
-# TopK SDK
+<p align="center" style="padding: 40px 0;">
+   <img src="../assets/topk-logo-light.svg#gh-light-mode-only">
+   <img src="../assets/topk-logo-dark.svg#gh-dark-mode-only">
+</p>
+
+# TopK Python SDK
 
 **Full documentation is available at [docs.topk.io](https://docs.topk.io).**
 
