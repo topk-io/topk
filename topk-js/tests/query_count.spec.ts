@@ -1,5 +1,5 @@
-import { field, select, count } from "../lib/query";
-import { text, keywordIndex, int } from "../lib/schema";
+import { field, select } from "../lib/query";
+import { int, keywordIndex, text } from "../lib/schema";
 import { newProjectContext, ProjectContext } from "./setup";
 
 describe("Count Queries", () => {
@@ -59,7 +59,11 @@ describe("Count Queries", () => {
       { _id: "catcher", title: "The Catcher in the Rye", published_year: 1951 },
       { _id: "gatsby", title: "The Great Gatsby", published_year: 1925 },
       { _id: "moby", title: "Moby Dick", published_year: 1851 },
-      { _id: "mockingbird", title: "To Kill a Mockingbird", published_year: 1960 },
+      {
+        _id: "mockingbird",
+        title: "To Kill a Mockingbird",
+        published_year: 1960,
+      },
       { _id: "alchemist", title: "The Alchemist", published_year: 1988 },
       { _id: "harry", title: "Harry Potter", published_year: 1997 },
       { _id: "lotr", title: "The Lord of the Rings", published_year: 1954 },
@@ -70,7 +74,7 @@ describe("Count Queries", () => {
 
     const result = await ctx.client
       .collection(collection.name)
-      .query(count().filter(field("published_year").lte(1950)));
+      .query(select({}).filter(field("published_year").lte(1950)).count());
 
     expect(result[0]._count).toBe(5);
   });
