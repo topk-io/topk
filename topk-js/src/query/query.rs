@@ -4,11 +4,12 @@ use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
 use crate::{
-    data::scalar::Scalar,
+    data::{napi_box::NapiBox, scalar::Scalar},
     expr::{
         filter::FilterExpressionUnion,
-        logical::{LogicalExpression, LogicalExpressionUnion},
+        logical::{LogicalExpression, LogicalExpressionUnion, UnaryOperator},
         select::SelectExpression,
+        text::{Term, TextExpression, TextExpressionUnion},
     },
 };
 
@@ -158,6 +159,31 @@ pub fn literal(
     #[napi(ts_arg_type = "number | string | boolean")] value: Scalar,
 ) -> LogicalExpression {
     LogicalExpression::create(LogicalExpressionUnion::Literal { value })
+}
+
+#[napi(js_name = "match", namespace = "query")]
+pub fn match_(
+    token: String,
+    field: Option<String>,
+    weight: Option<f64>,
+    all: Option<bool>,
+) -> TextExpression {
+    TextExpression::create(TextExpressionUnion::Terms {
+        all: all.unwrap_or(false),
+        terms: vec![Term {
+            token,
+            field,
+            weight: weight.unwrap_or(1.0),
+        }],
+    })
+}
+
+#[napi(js_name = "not", namespace = "query")]
+pub fn not(expr: LogicalExpression) -> LogicalExpression {
+    LogicalExpression::create(LogicalExpressionUnion::Unary {
+        op: UnaryOperator::Not,
+        expr: NapiBox(Box::new(expr.get_expr())),
+    })
 }
 
 impl From<Query> for topk_rs::query::Query {

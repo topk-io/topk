@@ -155,6 +155,10 @@ impl LogicalExpr {
         self == other
     }
 
+    // Unary operators
+
+    // TODO: add `is_null()` and `is_not_null()` operators.
+
     // Comparison operators
 
     fn eq(&self, py: Python<'_>, other: FlexibleExpr) -> PyResult<Self> {

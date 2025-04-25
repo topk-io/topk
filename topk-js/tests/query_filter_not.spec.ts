@@ -1,4 +1,4 @@
-import { field, filter } from "../lib/query";
+import { field, not, select } from "../lib/query";
 import { int, keywordIndex, text } from "../lib/schema";
 import { newProjectContext, ProjectContext } from "./setup";
 
@@ -15,7 +15,7 @@ describe("Filter Queries", () => {
     await Promise.all(contexts.map((ctx) => ctx.deleteCollections()));
   });
 
-  test("query filter()", async () => {
+  test("query not", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("books", {
       title: text().required().index(keywordIndex()),
@@ -39,22 +39,24 @@ describe("Filter Queries", () => {
       { _id: "hobbit", title: "The Hobbit", published_year: 1937 },
     ]);
 
-    const results = await ctx.client
-      .collection(collection.name)
-      .query(
-        filter(field("published_year").lte(1950)).topk(
-          field("published_year"),
-          100,
-          false
-        )
-      );
+    const results = await ctx.client.collection(collection.name).query(
+      select({})
+        .filter(not(field("_id").contains("gatsby")))
+        .topk(field("published_year"), 100, false)
+    );
 
-    expect(results.map((doc) => doc._id)).toEqual([
-      "1984",
-      "hobbit",
-      "gatsby",
-      "moby",
-      "pride",
-    ]);
+    expect(new Set(results.map((doc) => doc._id))).toEqual(
+      new Set([
+        "harry",
+        "lotr",
+        "1984",
+        "mockingbird",
+        "moby",
+        "alchemist",
+        "catcher",
+        "hobbit",
+        "pride",
+      ])
+    );
   });
 });

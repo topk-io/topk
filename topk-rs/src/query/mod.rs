@@ -2,7 +2,7 @@ use crate::{
     data::Scalar,
     expr::{
         filter::FilterExpr,
-        logical::LogicalExpr,
+        logical::{LogicalExpr, UnaryOperator},
         select::SelectExpr,
         text::{Term, TextExpr},
     },
@@ -56,6 +56,13 @@ pub fn r#match(value: &str, field: Option<&str>, weight: Option<f32>) -> TextExp
             field: field.map(|f| f.to_string()),
             weight: weight.unwrap_or(1.0),
         }],
+    }
+}
+
+pub fn not(expr: impl Into<LogicalExpr>) -> LogicalExpr {
+    LogicalExpr::Unary {
+        op: UnaryOperator::Not,
+        expr: Box::new(expr.into()),
     }
 }
 

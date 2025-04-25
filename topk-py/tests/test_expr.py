@@ -1,5 +1,5 @@
 import pytest
-from topk_sdk.query import field, literal
+from topk_sdk.query import field, literal, not_
 
 
 def test_query_expr_with_flexible_expr():

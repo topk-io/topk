@@ -137,6 +137,7 @@ export declare namespace query {
     | { type: 'Unary', op: UnaryOperator, expr: LogicalExpression }
     | { type: 'Binary', left: LogicalExpression, op: BinaryOperator, right: LogicalExpression }
   export function match(token: string, field?: string | undefined | null, weight?: number | undefined | null, all?: boolean | undefined | null): TextExpression
+  export function not(expr: LogicalExpression): LogicalExpression
   export function select(exprs: Record<string, LogicalExpression | FunctionExpression>): Query
   export function semanticSimilarity(field: string, query: string): FunctionExpression
   export interface Term {
