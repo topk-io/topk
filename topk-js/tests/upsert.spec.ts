@@ -1,4 +1,4 @@
-import { text } from "../lib/schema";
+import { f32Vector, text, vectorIndex } from "../lib/schema";
 import { newProjectContext, ProjectContext } from "./setup";
 
 describe("Upsert", () => {
@@ -59,25 +59,25 @@ describe("Upsert", () => {
     expect(lsn).toBe("3");
   });
 
-  test("upsert no documents", async () => {
+  test("upsert with no documents", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("test", {});
 
     await expect(
       ctx.client.collection(collection.name).upsert([])
-    ).rejects.toThrow(/invalid argument/);
+    ).rejects.toThrow(/NoDocuments/);
   });
 
-  test("upsert invalid document", async () => {
+  test("upsert with missing id field", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("test", {});
 
     await expect(
       ctx.client.collection(collection.name).upsert([{}])
-    ).rejects.toThrow(/invalid argument/);
+    ).rejects.toThrow(/MissingId { doc_offset: 0 }/);
   });
 
-  test("upsert schema validation", async () => {
+  test("upsert with missing name field", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("test", {
       name: text().required(),
@@ -85,6 +85,61 @@ describe("Upsert", () => {
 
     await expect(
       ctx.client.collection(collection.name).upsert([{ _id: "one" }])
-    ).rejects.toThrow(/invalid argument/);
+    ).rejects.toThrow(/MissingField { doc_id: \"one\", field: \"name\" }/);
+  });
+
+  test("upsert with invalid document - null field value", async () => {
+    const ctx = getContext();
+
+    await ctx.createCollection("books", {
+      title: text().required(),
+      f32_embedding: f32Vector({ dimension: 3 })
+        .required()
+        .index(vectorIndex({ metric: "euclidean" })),
+    });
+
+    await expect(
+      ctx.client
+        .collection(ctx.scope("books"))
+        .upsert([{ _id: "doc1", title: null, f32_embedding: [1, 2, 3] }])
+    ).rejects.toThrow(
+      /InvalidDataType { doc_id: \"doc1\", field: \"title\", expected_type: \"text\", got_value: \"null\" }/
+    );
+  });
+
+  test("upsert with invalid document - missing required field", async () => {
+    const ctx = getContext();
+
+    await ctx.createCollection("books", {
+      title: text().required(),
+      f32_embedding: f32Vector({ dimension: 3 })
+        .required()
+        .index(vectorIndex({ metric: "euclidean" })),
+    });
+
+    await expect(
+      ctx.client
+        .collection(ctx.scope("books"))
+        .upsert([{ _id: "doc1", f32_embedding: [1, 2, 3] }])
+    ).rejects.toThrow(/MissingField { doc_id: \"doc1\", field: \"title\" }/);
+  });
+
+  test("upsert with invalid document - wrong vector dimension", async () => {
+    const ctx = getContext();
+
+    await ctx.createCollection("books", {
+      title: text().required(),
+      f32_embedding: f32Vector({ dimension: 3 })
+        .required()
+        .index(vectorIndex({ metric: "euclidean" })),
+    });
+
+    await expect(
+      ctx.client
+        .collection(ctx.scope("books"))
+        .upsert([{ _id: "doc1", title: "one", f32_embedding: [1, 2] }])
+    ).rejects.toThrow(
+      /InvalidVectorDimension { doc_id: \"doc1\", field: \"f32_embedding\", expected_dimension: 3, got_dimension: 2 }/
+    );
   });
 });

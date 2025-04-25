@@ -18,6 +18,12 @@ impl From<TopkError> for napi::Error {
             topk_rs::Error::CollectionNotFound => {
                 napi::Error::new(napi::Status::GenericFailure, "collection not found")
             }
+            topk_rs::Error::DocumentValidationError(e) => {
+                napi::Error::new(napi::Status::InvalidArg, format!("{:?}", e))
+            }
+            topk_rs::Error::SchemaValidationError(e) => {
+                napi::Error::new(napi::Status::InvalidArg, format!("{:?}", e))
+            }
             topk_rs::Error::InvalidArgument(msg) => napi::Error::new(
                 napi::Status::InvalidArg,
                 format!("invalid argument: {}", msg),
@@ -38,9 +44,13 @@ impl From<TopkError> for napi::Error {
                 napi::Status::GenericFailure,
                 format!("malformed response: {}", msg),
             ),
-            _ => napi::Error::new(
+            topk_rs::Error::Unexpected(status) => napi::Error::new(
                 napi::Status::GenericFailure,
-                format!("{:?}", error.0.to_string()),
+                format!("unexpected error: {:?}", status),
+            ),
+            topk_rs::Error::TransportError(e) => napi::Error::new(
+                napi::Status::GenericFailure,
+                format!("transport error: {:?}", e),
             ),
         }
     }

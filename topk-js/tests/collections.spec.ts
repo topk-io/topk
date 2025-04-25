@@ -135,7 +135,7 @@ describe("Collections", () => {
       ctx.client.collections().create(ctx.scope("books"), {
         name: text().index(vectorIndex({ metric: "cosine" })),
       })
-    ).rejects.toThrow("invalid collection schema");
+    ).rejects.toThrow(/InvalidIndex { field: \"name\", index: \"vector\", data_type: \"text\" }/);
   });
 
   test("list collections", async () => {
