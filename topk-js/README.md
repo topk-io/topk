@@ -1,28 +1,27 @@
 <p align="center" style="padding: 40px 0;">
+  <a href="https://topk.io" target="_blank">
    <img src="../assets/topk-logo-light.svg#gh-light-mode-only">
    <img src="../assets/topk-logo-dark.svg#gh-dark-mode-only">
+  </a>
 </p>
 
 # TopK Javacript SDK
 
 **Full documentation is available at [docs.topk.io](https://docs.topk.io).**
 
-The **TopK SDK** provides a JavaScript API for managing collections, inserting and deleting documents, and running powerful search queries. With **automatic embeddings** via `semanticIndex()`, you can perform **semantic search without needing to manage vector embeddings manually**.
-
-TopK's **query language** is designed to be simple yet expressive, allowing you to search using **semantic similarity, keyword matching, and filters—all in a single query**.
+The TopK SDK is a fully TypeScript-compatible JavaScript client that brings together keyword and vector search, semantic search with automatic or user-defined embeddings, advanced metadata filtering, and built-in reranking.
 
 ## Features
 
-- **Automatic embeddings**—no need for external vector models.
-- **Create and manage collections** with custom schemas.
-- **Perform hybrid search** using **semantic similarity, keyword search, and filters**.
-- **Upsert and delete documents** within collections.
-- **Automatic schema validation** and easy collection management.
-- **Intuitive JavaScript API** for seamless integration.
+- Keyword and vector search
+- Semantic search out of the box
+- Filtering
+- Reranking
+- Collection and document management
 
 ## 1. Install the SDK
 
-Install the TopK SDK via **npm** or **yarn**:
+Install the TopK SDK:
 
 ```bash
 npm install topk-js
@@ -53,7 +52,7 @@ import { Client } from "topk-js"
 const client = new Client({
   apiKey: "YOUR_TOPK_API_KEY",
   region: "aws-us-east-1-elastica"
-})
+});
 ```
 
 ### **Define and Create a Collection**

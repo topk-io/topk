@@ -1,11 +1,13 @@
 <p align="center" style="padding: 40px 0;">
-   <img src="./assets/topk-logo-light.svg#gh-light-mode-only">
-   <img src="./assets/topk-logo-dark.svg#gh-dark-mode-only">
+   <a href="https://topk.io" target="_blank">
+      <img src="./assets/topk-logo-light.svg#gh-light-mode-only">
+      <img src="./assets/topk-logo-dark.svg#gh-dark-mode-only">
+   </a>
 </p>
 
 # TopK
 
-[TopK](https://topk.io) is a high-performance search platform and vector database built in Rust. It offers production-ready APIs for document and vector storage with powerful hybrid search queries (keyword, semantic and vector) and robust filtering.
+[TopK](https://topk.io) is a high-performance search engine designed to power modern product experiences. It supports hybrid search out of the box—combining keyword relevance, semantic understanding, and structured filtering in a single query. With a simple and expressive query language, TopK makes it easy to build fast, flexible, and accurate search experiences without stitching together multiple tools.
 
 TopK's query language is designed to be simple yet expressive, allowing you to search using semantic similarity, keyword matching, and filters—all in a single query. SDKs are available for Python and JavaScript.
 
