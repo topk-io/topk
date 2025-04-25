@@ -1,35 +1,23 @@
-# TopK SDK
+<p align="center" style="padding: 40px 0;">
+   <img src="./assets/topk-logo-light.svg#gh-light-mode-only">
+   <img src="./assets/topk-logo-dark.svg#gh-dark-mode-only">
+</p>
 
-This repository contains TopK SDKs for different languages. Python is the only SDK that is currently supported, with Rust coming soon.
+# TopK
 
-## Running tests
+[TopK](https://topk.io) is a high-performance search engine designed to power modern product experiences. It supports hybrid search out of the box—combining keyword relevance, semantic understanding, and structured filtering in a single query. With a simple and expressive query language, TopK makes it easy to build fast, flexible, and accurate search experiences without stitching together multiple tools.
 
-1. Install [Earthly](https://earthly.dev/get-earthly)
-1. Run `python` tests
-   ```bash
-   earthly --secret TOPK_API_KEY +test-py
-   ```
+TopK's query language is designed to be simple yet expressive, allowing you to search using semantic similarity, keyword matching, and filters—all in a single query. SDKs are available for Python and JavaScript.
 
-## Python development
+## SDKs
 
-1. Install [Python](https://www.python.org/downloads/)
-1. Install [maturin](https://github.com/pyo3/maturin)
-1. Install [pytest](https://github.com/pytest-dev/pytest)
-1. `cd topk-py`
-1. Build the sdk
-   ```bash
-   maturin develop
-   ```
-1. Run tests
-   ```bash
-   pytest
-   ```
+- [Python SDK](./topk-py/README.md) - Python client for TopK
+- [Node.js SDK](./topk-js/README.md) - JavaScript/TypeScript client for Node.js environments
 
-## Release
+## Documentation
 
-You can release a new version by creating [a new GitHub release](https://github.com/fafolabs/topk-sdk/releases) or creating a new tag:
+For full documentation, visit [docs.topk.io](https://docs.topk.io)
 
-```bash
-git tag -a v1.1.5 -m "Release 1.1.5"
-git push origin v1.1.5
-```
+## Support & Feedback
+
+For support and feedback, please email us at support@topk.io
