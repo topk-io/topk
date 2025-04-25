@@ -1,4 +1,3 @@
-import pytest
 from topk_sdk.query import field, filter
 
 from . import ProjectContext

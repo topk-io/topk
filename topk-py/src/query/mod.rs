@@ -4,7 +4,7 @@ use crate::data::vector::Vector;
 use crate::expr::filter::FilterExprUnion;
 use crate::expr::flexible::Vectorish;
 use crate::expr::function::FunctionExpr;
-use crate::expr::logical::LogicalExpr;
+use crate::expr::logical::{LogicalExpr, UnaryOperator};
 use crate::expr::select::SelectExprUnion;
 use crate::expr::text::{Term, TextExpr};
 use crate::module;
@@ -32,7 +32,7 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(field))?;
     m.add_wrapped(wrap_pyfunction!(literal))?;
     m.add_wrapped(wrap_pyfunction!(r#match))?;
-
+    m.add_wrapped(wrap_pyfunction!(not_))?;
     Ok(())
 }
 
@@ -72,6 +72,14 @@ pub fn r#match(token: String, field: Option<String>, weight: f32, all: bool) -> 
             weight,
         }],
     }
+}
+
+#[pyfunction]
+pub fn not_(py: Python<'_>, expr: LogicalExpr) -> PyResult<LogicalExpr> {
+    Ok(LogicalExpr::Unary {
+        op: UnaryOperator::Not,
+        expr: Py::new(py, expr)?,
+    })
 }
 
 #[pymodule]

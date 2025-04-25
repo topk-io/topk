@@ -1,8 +1,8 @@
-import { field, filter } from "../lib/query";
+import { field, select } from "../lib/query";
 import { int, keywordIndex, text } from "../lib/schema";
 import { newProjectContext, ProjectContext } from "./setup";
 
-describe("Filter Queries", () => {
+describe("Logical Queries", () => {
   const contexts: ProjectContext[] = [];
 
   function getContext(): ProjectContext {
@@ -15,7 +15,7 @@ describe("Filter Queries", () => {
     await Promise.all(contexts.map((ctx) => ctx.deleteCollections()));
   });
 
-  test("query filter()", async () => {
+  test("query contains", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("books", {
       title: text().required().index(keywordIndex()),
@@ -42,19 +42,13 @@ describe("Filter Queries", () => {
     const results = await ctx.client
       .collection(collection.name)
       .query(
-        filter(field("published_year").lte(1950)).topk(
-          field("published_year"),
-          100,
-          false
-        )
+        select({})
+          .filter(field("title").contains("he"))
+          .topk(field("published_year"), 100, true)
       );
 
-    expect(results.map((doc) => doc._id)).toEqual([
-      "1984",
-      "hobbit",
-      "gatsby",
-      "moby",
-      "pride",
-    ]);
+    expect(new Set(results.map((doc) => doc._id))).toEqual(
+      new Set(["catcher", "gatsby", "alchemist", "lotr", "hobbit"])
+    );
   });
 });

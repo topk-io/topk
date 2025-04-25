@@ -10,6 +10,7 @@ module.exports.fn = {
 module.exports.literal = query.literal;
 module.exports.LogicalExpression = query.LogicalExpression;
 module.exports.match = query.match;
+module.exports.not = query.not;
 module.exports.Query = query.Query;
 module.exports.select = query.select;
 module.exports.TextExpression = query.TextExpression;

@@ -90,6 +90,13 @@ pub enum LogicalExpr {
 }
 
 impl LogicalExpr {
+    // Unary operators
+
+    // NOTE: we don't expose `.not()` operator on the fluent query builder.
+    // Instead, we use the `not()` query builder from the `query` module.
+
+    // TODO: add `is_null()` and `is_not_null()` operators.
+
     // Comparison operators
     pub fn eq(&self, other: impl Into<LogicalExpr>) -> Self {
         Self::Binary {
