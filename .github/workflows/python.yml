@@ -6,38 +6,18 @@
 name: Build & publish Python SDK
 
 on:
-  push:
-    tags:
-      - "*"
   workflow_dispatch:
     inputs:
-      release_version:
-        type: string
-        description: "The version to release"
-
-env:
-  RELEASE_VERSION: ${{ inputs.release_version || github.ref_name }}
+      publish:
+        type: boolean
+        description: "Whether to publish the release to PyPI"
+        default: false
 
 permissions:
   contents: read
 
 jobs:
-  check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Check version matches tag
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          CRATE_VERSION=$(grep '^version' topk-py/Cargo.toml | sed -E 's/version = "(.*)"/\1/')
-
-          if [ "$CRATE_VERSION" != "$RELEASE_VERSION" ]; then
-            echo "Version in Cargo.toml ($CRATE_VERSION) does not match tag ($RELEASE_VERSION)"
-            exit 1
-          fi
-
   linux:
-    needs: check
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       fail-fast: false
@@ -76,7 +56,6 @@ jobs:
           path: topk-py/dist
 
   musllinux:
-    needs: check
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       fail-fast: false
@@ -111,7 +90,6 @@ jobs:
           path: topk-py/dist
 
   windows:
-    needs: check
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       fail-fast: false
@@ -152,7 +130,6 @@ jobs:
           path: topk-py/dist
 
   macos:
-    needs: check
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       fail-fast: false
@@ -187,7 +164,6 @@ jobs:
           path: topk-py/dist
 
   sdist:
-    needs: check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -205,7 +181,7 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    if: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
+    if: ${{ inputs.publish }}
     needs: [linux, musllinux, windows, macos, sdist]
     permissions:
       # Use to sign the release artifacts

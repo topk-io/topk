@@ -2,7 +2,7 @@ name: Build & publish JS SDK
 env:
   DEBUG: napi:*
   APP_NAME: topk-js
-  MACOSX_DEPLOYMENT_TARGET: '10.13'
+  MACOSX_DEPLOYMENT_TARGET: "10.13"
   DISABLE_V8_COMPILE_CACHE: 1
 permissions:
   contents: write
@@ -10,17 +10,14 @@ permissions:
 defaults:
   run:
     working-directory: ./topk-js
-'on':
-  push:
-    tags:
-      - "*"
-    paths-ignore:
-      - '**/*.md'
-      - LICENSE
-      - '**/*.gitignore'
-      - .editorconfig
-      - docs/**
+"on":
   workflow_dispatch:
+    inputs:
+      publish:
+        type: boolean
+        description: "Whether to publish the release to npm"
+        default: false
+
 jobs:
   build:
     timeout-minutes: 30
@@ -180,7 +177,7 @@ jobs:
         if: ${{ matrix.settings.docker }}
         with:
           image: ${{ matrix.settings.docker }}
-          options: '--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/topk-js'
+          options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/topk-js"
           run: |
             set -e
 
@@ -278,8 +275,8 @@ jobs:
           - host: windows-latest
             target: x86_64-pc-windows-msvc
         node:
-          - '20'
-          - '22'
+          - "20"
+          - "22"
     runs-on: ${{ matrix.settings.host }}
     steps:
       - uses: actions/checkout@v4
@@ -312,8 +309,8 @@ jobs:
       fail-fast: false
       matrix:
         node:
-          - '20'
-          - '22'
+          - "20"
+          - "22"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -345,8 +342,8 @@ jobs:
       fail-fast: false
       matrix:
         node:
-          - '20'
-          - '22'
+          - "20"
+          - "22"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -380,8 +377,8 @@ jobs:
       fail-fast: false
       matrix:
         node:
-          - '20'
-          - '22'
+          - "20"
+          - "22"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -409,7 +406,7 @@ jobs:
         uses: addnab/docker-run-action@v3
         with:
           image: node:${{ matrix.node }}-slim
-          options: '--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build/topk-js -e TOPK_API_KEY'
+          options: "--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build/topk-js -e TOPK_API_KEY"
           run: |
             set -e
             apt-get update && apt-get install ca-certificates -y
@@ -446,7 +443,7 @@ jobs:
         uses: addnab/docker-run-action@v3
         with:
           image: node:lts-alpine
-          options: '--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build/topk-js -e TOPK_API_KEY'
+          options: "--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build/topk-js -e TOPK_API_KEY"
           run: |
             set -e
             apt-get update && apt-get install ca-certificates -y
@@ -459,8 +456,8 @@ jobs:
       fail-fast: false
       matrix:
         node:
-          - '20'
-          - '22'
+          - "20"
+          - "22"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -489,7 +486,7 @@ jobs:
         uses: addnab/docker-run-action@v3
         with:
           image: node:${{ matrix.node }}-bookworm-slim
-          options: '--platform linux/arm/v7 -v ${{ github.workspace }}:/build -w /build/topk-js -e TOPK_API_KEY'
+          options: "--platform linux/arm/v7 -v ${{ github.workspace }}:/build -w /build/topk-js -e TOPK_API_KEY"
           run: |
             set -e
             apt-get update
@@ -532,7 +529,7 @@ jobs:
   publish:
     name: Publish
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    if: ${{ inputs.publish }}
     needs:
       - test-macOS-windows-binding
       - test-linux-x64-gnu-binding
