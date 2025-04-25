@@ -1,8 +1,6 @@
 <p align="center" style="padding: 40px 0;">
-   <a href="https://topk.io" target="_blank">
-    <img src="../assets/topk-logo-light.svg#gh-light-mode-only">
-    <img src="../assets/topk-logo-dark.svg#gh-dark-mode-only">
-   </a>
+  <img src="../assets/topk-logo-light.svg#gh-light-mode-only">
+  <img src="../assets/topk-logo-dark.svg#gh-dark-mode-only">
 </p>
 
 # TopK Python SDK
