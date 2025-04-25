@@ -27,6 +27,44 @@ npm install topk-js
 
 </CodeGroup>
 
+If you're using the TopK **JavaScript SDK** in a server-side rendering (SSR) environment, you may need to follow these steps to ensure compatibility:
+
+<AccordionGroup>
+  <Accordion title="Using with Vite ?" description="Remix, Nuxt, SvetleKit, Astro ...">
+    If you're using `topk-js` in a Vite project with server-side rendering (SSR), you may need to configure Vite to treat it as an external dependency. This ensures compatibility and prevents build-time issues related to SSR or dependency pre-bundling.
+
+    ```typescript
+    // vite.config.ts
+    
+    export default defineConfig({
+      // ...
+      ssr: {
+        external: ["topk-js"],
+      },
+      optimizeDeps: {
+        exclude: ["topk-js"],
+      },
+    });
+    ```
+  </Accordion>
+  <Accordion title="Using with Webpack or Turbopack ?" description="Next.js">
+    If you're using `topk-js` in a Next.js project (especially with the App Router and Server Components), you may need to mark it as an external package to avoid build issues during server-side bundling.
+
+    ```typescript
+    // next.config.ts
+    
+    import type { NextConfig } from "next";
+    
+    const nextConfig: NextConfig = {
+      /* config options here */
+      serverExternalPackages: ["topk-js"],
+    };
+    
+    export default nextConfig;
+    ```
+  </Accordion>
+</AccordionGroup>
+
 ## 2. Create an API key
 
 To get started with TopK, you need an API key. Here's how you can get one for free:
