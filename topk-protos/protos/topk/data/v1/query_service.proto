@@ -1,0 +1,50 @@
+syntax = "proto3";
+package topk.data.v1;
+
+import "google/api/annotations.proto";
+import "topk/data/v1/document.proto";
+import "topk/data/v1/query.proto";
+
+service QueryService {
+  // Query
+  rpc Query(QueryRequest) returns (QueryResponse) {
+    option (google.api.http) = {
+      post: "/v1/query"
+      body: "*"
+    };
+  }
+
+  // Get document (by ID)
+  rpc Get(GetRequest) returns (GetResponse) {
+    option (google.api.http) = {get: "/v1/docs/{id}"};
+  }
+}
+
+enum ConsistencyLevel {
+  CONSISTENCY_LEVEL_UNSPECIFIED = 0;
+  CONSISTENCY_LEVEL_INDEXED = 1;
+  CONSISTENCY_LEVEL_STRONG = 2;
+}
+
+//
+message QueryRequest {
+  string collection = 1;
+  Query query = 2;
+  optional uint64 required_lsn = 3;
+  optional ConsistencyLevel consistency_level = 4;
+}
+
+message QueryResponse {
+  repeated Document results = 1;
+}
+
+// Get documents by IDs
+message GetRequest {
+  string id = 1;
+  repeated string fields = 2;
+  optional uint64 required_lsn = 3;
+  optional ConsistencyLevel consistency_level = 4;
+}
+message GetResponse {
+  Document doc = 1;
+}

@@ -1,0 +1,46 @@
+syntax = "proto3";
+package topk.control.v1;
+
+import "google/api/annotations.proto";
+import "topk/control/v1/collection.proto";
+import "topk/control/v1/schema.proto";
+
+service CollectionService {
+  rpc ListCollections(ListCollectionsRequest) returns (ListCollectionsResponse) {
+    option (google.api.http) = {get: "/v1/collections"};
+  }
+  rpc GetCollection(GetCollectionRequest) returns (GetCollectionResponse) {
+    option (google.api.http) = {get: "/v1/collections/{id}"};
+  }
+  rpc CreateCollection(CreateCollectionRequest) returns (CreateCollectionResponse) {
+    option (google.api.http) = {post: "/v1/collections"};
+  }
+  rpc DeleteCollection(DeleteCollectionRequest) returns (DeleteCollectionResponse) {
+    option (google.api.http) = {delete: "/v1/collections/{id}"};
+  }
+}
+
+message ListCollectionsRequest {}
+message ListCollectionsResponse {
+  repeated Collection collections = 1;
+}
+
+message GetCollectionRequest {
+  string name = 1;
+}
+message GetCollectionResponse {
+  Collection collection = 1;
+}
+
+message CreateCollectionRequest {
+  string name = 1;
+  map<string, FieldSpec> schema = 2;
+}
+message CreateCollectionResponse {
+  Collection collection = 1;
+}
+
+message DeleteCollectionRequest {
+  string name = 1;
+}
+message DeleteCollectionResponse {}

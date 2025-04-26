@@ -1,0 +1,36 @@
+syntax = "proto3";
+package topk.data.v1;
+
+import "google/api/annotations.proto";
+import "topk/data/v1/document.proto";
+
+service DocumentService {
+  // Upsert documents
+  rpc UpsertDocuments(UpsertDocumentsRequest) returns (UpsertDocumentsResponse) {
+    option (google.api.http) = {
+      post: "/v1/docs"
+      body: "docs"
+    };
+  }
+
+  // Delete documents
+  rpc DeleteDocuments(DeleteDocumentsRequest) returns (DeleteDocumentsResponse) {
+    option (google.api.http) = {delete: "/v1/docs/{id}"};
+  }
+}
+
+// Upsert
+message UpsertDocumentsRequest {
+  repeated Document docs = 1;
+}
+message UpsertDocumentsResponse {
+  uint64 lsn = 1;
+}
+
+// Delete
+message DeleteDocumentsRequest {
+  repeated string ids = 1;
+}
+message DeleteDocumentsResponse {
+  uint64 lsn = 1;
+}
