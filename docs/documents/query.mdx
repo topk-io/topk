@@ -226,6 +226,25 @@ then be used to scope the query to a specific tenant.
 
 </CodeGroup>
 
+### contains
+
+The `contains` operator can be used on string fields to match documents that include a specific substring. It is **case-sensitive** and is particularly useful in scenarios where you need to filter results based on a portion of a string.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("title").contains("Catcher")
+)
+```
+
+
+```typescript Javascript
+.filter(field("title").contains("Catcher"))
+```
+
+</CodeGroup>
+
 ## Results collection
 
 All queries are required to have a collection stage. Currently, we only support `top_k` and `count` collectors.
