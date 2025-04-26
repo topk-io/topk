@@ -12,9 +12,6 @@ pub enum Error {
     #[error("collection not found")]
     CollectionNotFound,
 
-    #[error("document not found")]
-    DocumentNotFound,
-
     #[error("invalid collection schema")]
     SchemaValidationError(ValidationErrorBag<SchemaValidationError>),
 

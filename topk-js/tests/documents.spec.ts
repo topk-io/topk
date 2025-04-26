@@ -1,9 +1,8 @@
 import {
-  fn,
-  field,
-  match,
-  select,
-} from "../lib/query";
+  binaryVector as binaryVectorValue,
+  u8Vector as u8VectorValue,
+} from "../lib/data";
+import { field, fn, match, select } from "../lib/query";
 import {
   binaryVector,
   f32Vector,
@@ -13,10 +12,6 @@ import {
   u8Vector,
   vectorIndex,
 } from "../lib/schema";
-import {
-  binaryVector as binaryVectorValue,
-  u8Vector as u8VectorValue,
-} from "../lib/data";
 import { newProjectContext, ProjectContext } from "./setup";
 
 describe("Documents", () => {
@@ -44,9 +39,9 @@ describe("Documents", () => {
     expect(lsn).toBe(1);
 
     // get document
-    const doc = await ctx.client.collection(ctx.scope("books")).get("one");
+    const doc = await ctx.client.collection(ctx.scope("books")).get(["one"]);
 
-    expect(doc).toEqual({ _id: "one", name: "one", rank: 1 });
+    expect(doc).toEqual({ one: { _id: "one", name: "one", rank: 1 } });
   });
 
   test("get non-existent document", async () => {
@@ -54,9 +49,8 @@ describe("Documents", () => {
 
     await ctx.createCollection("books");
 
-    await expect(
-      ctx.client.collection(ctx.scope("books")).get("one")
-    ).rejects.toThrow("document not found");
+    const docs = await ctx.client.collection(ctx.scope("books")).get(["one"]);
+    await expect(docs).toEqual({});
   });
 
   test("upsert", async () => {
@@ -300,7 +294,10 @@ describe("Documents", () => {
     const docs = await ctx.client.collection(ctx.scope("books")).query(
       select({
         name: field("name"),
-        summary_sim: fn.semanticSimilarity("summary", "male walks around trees"),
+        summary_sim: fn.semanticSimilarity(
+          "summary",
+          "male walks around trees"
+        ),
       })
         .topk(field("summary_sim"), 2)
         .rerank(),

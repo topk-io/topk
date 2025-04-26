@@ -18,9 +18,6 @@ impl From<TopkError> for napi::Error {
             topk_rs::Error::CollectionNotFound => {
                 napi::Error::new(napi::Status::GenericFailure, "collection not found")
             }
-            topk_rs::Error::DocumentNotFound => {
-                napi::Error::new(napi::Status::GenericFailure, "document not found")
-            }
             topk_rs::Error::InvalidArgument(msg) => napi::Error::new(
                 napi::Status::InvalidArg,
                 format!("invalid argument: {}", msg),

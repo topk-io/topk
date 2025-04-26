@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use test_context::test_context;
 use topk_protos::doc;
 use topk_rs::Error;
@@ -12,12 +14,11 @@ async fn test_get_from_non_existent_collection(ctx: &mut ProjectTestContext) {
     let err = ctx
         .client
         .collection("missing")
-        .get("doc1", vec![], None, None)
+        .get(["doc1"], None, None, None)
         .await
         .expect_err("should not be able to get document from non-existent collection");
 
-    // TODO: this should return `CollectionNotFound`
-    assert!(matches!(err, Error::DocumentNotFound));
+    assert!(matches!(err, Error::CollectionNotFound));
 }
 
 #[test_context(ProjectTestContext)]
@@ -25,14 +26,14 @@ async fn test_get_from_non_existent_collection(ctx: &mut ProjectTestContext) {
 async fn test_get_non_existent_document(ctx: &mut ProjectTestContext) {
     let collection = dataset::books::setup(ctx).await;
 
-    let err = ctx
+    let docs = ctx
         .client
         .collection(&collection.name)
-        .get("missing", vec![], None, None)
+        .get(["missing"], None, None, None)
         .await
-        .expect_err("should not be able to get non-existent document");
+        .expect("get failed");
 
-    assert!(matches!(err, Error::DocumentNotFound));
+    assert_eq!(docs, HashMap::new());
 }
 
 #[test_context(ProjectTestContext)]
@@ -46,14 +47,44 @@ async fn test_get_document(ctx: &mut ProjectTestContext) {
         .clone()
         .unwrap();
 
-    let doc = ctx
+    let docs = ctx
         .client
         .collection(&collection.name)
-        .get("lotr", vec![], None, None)
+        .get(["lotr"], None, None, None)
         .await
         .expect("could not get document");
 
-    assert_eq!(doc, lotr);
+    assert_eq!(docs, HashMap::from([("lotr".to_string(), lotr.fields)]));
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_get_multiple_documents(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let docs = ctx
+        .client
+        .collection(&collection.name)
+        .get(["lotr", "moby"], None, None, None)
+        .await
+        .expect("could not get documents");
+
+    let lotr = dataset::books::docs()
+        .into_iter()
+        .find(|doc| doc.id().unwrap() == "lotr")
+        .unwrap();
+    let moby = dataset::books::docs()
+        .into_iter()
+        .find(|doc| doc.id().unwrap() == "moby")
+        .unwrap();
+
+    assert_eq!(
+        docs,
+        HashMap::from([
+            ("lotr".to_string(), lotr.fields),
+            ("moby".to_string(), moby.fields)
+        ])
+    );
 }
 
 #[test_context(ProjectTestContext)]
@@ -61,12 +92,12 @@ async fn test_get_document(ctx: &mut ProjectTestContext) {
 async fn test_get_document_fields(ctx: &mut ProjectTestContext) {
     let collection = dataset::books::setup(ctx).await;
 
-    let doc = ctx
+    let docs = ctx
         .client
         .collection(&collection.name)
         .get(
-            "lotr",
-            vec!["title".to_string(), "published_year".to_string()],
+            ["lotr"],
+            Some(vec!["title".to_string(), "published_year".to_string()]),
             None,
             None,
         )
@@ -74,7 +105,15 @@ async fn test_get_document_fields(ctx: &mut ProjectTestContext) {
         .expect("could not get document");
 
     assert_eq!(
-        doc,
-        doc!("_id" => "lotr", "title" => "The Lord of the Rings: The Fellowship of the Ring", "published_year" => 1954 as u32)
+        docs,
+        HashMap::from([(
+            "lotr".to_string(),
+            doc!(
+                "_id" => "lotr",
+                "title" => "The Lord of the Rings: The Fellowship of the Ring",
+                "published_year" => 1954 as u32
+            )
+            .fields
+        )])
     );
 }

@@ -4,12 +4,13 @@ use crate::error::ValidationErrorBag;
 use crate::error::{Error, InternalErrorCode};
 use crate::query::Query;
 use crate::query::Stage;
+use std::collections::HashMap;
 use std::time::Duration;
 use topk_protos::utils::{DocumentClientWithHeaders, QueryClientWithHeaders};
 use topk_protos::v1::data::{ConsistencyLevel, GetRequest};
 use topk_protos::{
     utils::{DocumentClient, QueryClient},
-    v1::data::{DeleteDocumentsRequest, Document, QueryRequest, UpsertDocumentsRequest},
+    v1::data::{DeleteDocumentsRequest, Document, QueryRequest, UpsertDocumentsRequest, Value},
 };
 
 #[derive(Clone)]
@@ -33,16 +34,16 @@ impl CollectionClient {
 
     pub async fn get(
         &self,
-        id: impl Into<String>,
-        fields: Vec<String>,
+        ids: impl IntoIterator<Item = impl Into<String>>,
+        fields: Option<Vec<String>>,
         lsn: Option<u64>,
         consistency: Option<ConsistencyLevel>,
-    ) -> Result<Document, Error> {
+    ) -> Result<HashMap<String, HashMap<String, Value>>, Error> {
         let mut tries = 0;
         let max_tries = 120;
         let retry_after = Duration::from_secs(1);
 
-        let id = id.into();
+        let ids: Vec<String> = ids.into_iter().map(|id| id.into()).collect();
 
         loop {
             tries += 1;
@@ -53,42 +54,44 @@ impl CollectionClient {
                 .query_client()
                 .await?
                 .get(GetRequest {
-                    id: id.clone(),
-                    fields,
+                    ids: ids.clone(),
+                    fields: fields.unwrap_or_default(),
                     required_lsn: lsn,
                     consistency_level: consistency.map(|c| c.into()),
                 })
                 .await;
 
             match response {
-                Ok(response) => match response.into_inner().doc {
-                    Some(doc) => return Ok(doc),
-                    None => return Err(Error::InvalidProto),
-                },
-                Err(e) => {
-                    match InternalErrorCode::parse_status(&e) {
-                        // Custom error
-                        Ok(InternalErrorCode::RequiredLsnGreaterThanManifestMaxLsn) => {
-                            if tries < max_tries {
-                                tokio::time::sleep(retry_after).await;
-                                continue;
-                            } else {
-                                return Err(Error::QueryLsnTimeout);
-                            }
-                        }
-                        _ => {
-                            return Err(match e.code() {
-                                tonic::Code::NotFound => Error::DocumentNotFound,
-                                tonic::Code::ResourceExhausted => Error::CapacityExceeded,
-                                tonic::Code::InvalidArgument => {
-                                    Error::InvalidArgument(e.message().into())
-                                }
-                                _ => Error::Unexpected(e),
-                            })
+                Ok(response) => {
+                    return Ok(response
+                        .into_inner()
+                        .docs
+                        .into_iter()
+                        .map(|(id, doc)| (id, doc.fields))
+                        .collect())
+                }
+                Err(e) => match InternalErrorCode::parse_status(&e) {
+                    // Custom error
+                    Ok(InternalErrorCode::RequiredLsnGreaterThanManifestMaxLsn) => {
+                        if tries < max_tries {
+                            tokio::time::sleep(retry_after).await;
+                            continue;
+                        } else {
+                            return Err(Error::QueryLsnTimeout);
                         }
                     }
-                }
-            }
+                    _ => {
+                        return Err(match e.code() {
+                            tonic::Code::NotFound => Error::CollectionNotFound,
+                            tonic::Code::ResourceExhausted => Error::CapacityExceeded,
+                            tonic::Code::InvalidArgument => {
+                                Error::InvalidArgument(e.message().into())
+                            }
+                            _ => Error::Unexpected(e),
+                        })
+                    }
+                },
+            };
         }
     }
 

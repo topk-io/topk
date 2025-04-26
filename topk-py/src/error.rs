@@ -12,7 +12,6 @@ impl From<RustError> for PyErr {
             topk_rs::Error::CollectionAlreadyExists => {
                 CollectionAlreadyExistsError::new_err(value.0.to_string())
             }
-            topk_rs::Error::DocumentNotFound => DocumentNotFoundError::new_err(value.0.to_string()),
             topk_rs::Error::SchemaValidationError(e) => {
                 SchemaValidationError::new_err(format!("{:?}", e))
             }
@@ -28,7 +27,6 @@ impl From<RustError> for PyErr {
 create_exception!(error, CollectionAlreadyExistsError, PyException);
 create_exception!(error, CollectionNotFoundError, PyException);
 create_exception!(error, SchemaValidationError, PyException);
-create_exception!(error, DocumentNotFoundError, PyException);
 create_exception!(error, DocumentValidationError, PyException);
 create_exception!(error, InvalidArgumentError, PyException);
 
@@ -49,11 +47,6 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add(
         "CollectionNotFoundError",
         m.py().get_type::<CollectionNotFoundError>(),
-    )?;
-
-    m.add(
-        "DocumentNotFoundError",
-        m.py().get_type::<DocumentNotFoundError>(),
     )?;
 
     m.add(

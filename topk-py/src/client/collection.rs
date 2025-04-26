@@ -24,21 +24,21 @@ impl CollectionClient {
 
 #[pymethods]
 impl CollectionClient {
-    #[pyo3(signature = (id, fields=vec![], lsn=None, consistency=None))]
+    #[pyo3(signature = (ids, fields=None, lsn=None, consistency=None))]
     pub fn get(
         &self,
         py: Python<'_>,
-        id: String,
-        fields: Vec<String>,
+        ids: Vec<String>,
+        fields: Option<Vec<String>>,
         lsn: Option<u64>,
         consistency: Option<ConsistencyLevel>,
-    ) -> PyResult<HashMap<String, RawValue>> {
-        let document = self
+    ) -> PyResult<HashMap<String, HashMap<String, RawValue>>> {
+        let docs = self
             .runtime
             .block_on(
                 py,
                 self.client.collection(&self.collection).get(
-                    id,
+                    ids,
                     fields,
                     lsn,
                     consistency.map(|c| c.into()),
@@ -46,10 +46,16 @@ impl CollectionClient {
             )
             .map_err(RustError)?;
 
-        Ok(document
-            .fields
+        Ok(docs
             .into_iter()
-            .map(|(k, v)| (k, RawValue(v.into())))
+            .map(|(id, doc)| {
+                (
+                    id,
+                    doc.into_iter()
+                        .map(|(k, v)| (k, RawValue(v.into())))
+                        .collect(),
+                )
+            })
             .collect())
     }
 
