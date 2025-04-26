@@ -46,10 +46,10 @@ impl CollectionClient {
     #[napi]
     pub async fn get(
         &self,
-        id: String,
+        ids: Vec<String>,
         fields: Option<Vec<String>>,
         options: Option<QueryOptions>,
-    ) -> Result<HashMap<String, Value>> {
+    ) -> Result<HashMap<String, HashMap<String, Value>>> {
         let (lsn, consistency) = match &options {
             Some(o) => (
                 o.lsn.map(|l| l as u64),
@@ -58,17 +58,16 @@ impl CollectionClient {
             None => (None, None),
         };
 
-        let document = self
+        let documents = self
             .client
             .collection(&self.collection)
-            .get(id, fields.unwrap_or_default(), lsn, consistency)
+            .get(ids, fields, lsn, consistency)
             .await
             .map_err(TopkError::from)?;
 
-        Ok(document
-            .fields
+        Ok(documents
             .into_iter()
-            .map(|(k, v)| (k, v.into()))
+            .map(|(id, doc)| (id, doc.into_iter().map(|(k, v)| (k, v.into())).collect()))
             .collect())
     }
 

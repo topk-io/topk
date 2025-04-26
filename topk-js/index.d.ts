@@ -7,7 +7,7 @@ export declare class Client {
 }
 
 export declare class CollectionClient {
-  get(id: string, fields?: Array<string> | undefined | null, options?: QueryOptions | undefined | null): Promise<Record<string, any>>
+  get(ids: Array<string>, fields?: Array<string> | undefined | null, options?: QueryOptions | undefined | null): Promise<Record<string, Record<string, any>>>
   count(options?: QueryOptions | undefined | null): Promise<number>
   query(query: query.Query, options?: QueryOptions | undefined | null): Promise<Array<Record<string, any>>>
   upsert(docs: Array<Record<string, any>>): Promise<number>
