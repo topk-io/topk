@@ -1,7 +1,7 @@
 use crate::{
     control::v1::collection_service_client::CollectionServiceClient,
     data::v1::{
-        document_service_client::DocumentServiceClient, query_service_client::QueryServiceClient,
+        query_service_client::QueryServiceClient, write_service_client::WriteServiceClient,
     },
 };
 use std::collections::HashMap;
@@ -30,15 +30,15 @@ impl Interceptor for AppendHeadersInterceptor {
     }
 }
 
-pub type DocumentClient = DocumentServiceClient<Channel>;
-pub type DocumentClientWithHeaders =
-    DocumentServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>;
+pub type WriteClient = WriteServiceClient<Channel>;
+pub type WriteClientWithHeaders =
+    WriteServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>;
 
-impl DocumentClient {
+impl WriteClient {
     pub fn with_headers(
         channel: Channel,
         headers: HashMap<&'static str, String>,
-    ) -> DocumentClientWithHeaders {
+    ) -> WriteClientWithHeaders {
         Self::with_interceptor(channel, AppendHeadersInterceptor { headers })
     }
 }
