@@ -1,14 +1,13 @@
 syntax = "proto3";
 package topk.data.v1;
 
-import "google/api/annotations.proto";
 import "topk/data/v1/document.proto";
 
 service WriteService {
-  // Upsert documents
+  // Upsert
   rpc UpsertDocuments(UpsertDocumentsRequest) returns (UpsertDocumentsResponse);
 
-  // Delete documents
+  // Delete
   rpc DeleteDocuments(DeleteDocumentsRequest) returns (DeleteDocumentsResponse);
 }
 
