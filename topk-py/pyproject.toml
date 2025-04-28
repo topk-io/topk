@@ -19,7 +19,7 @@ dynamic = ["version"]
 [project.urls]
 homepage = "https://topk.io"
 documentation = "https://docs.topk.io"
-repository = "https://github.com/fafolabs/topk-sdk"
+repository = "https://github.com/topk-io/topk"
 
 [tool.maturin]
 module-name = "topk_sdk"

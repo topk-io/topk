@@ -4,7 +4,7 @@ version = "0.1.22"
 edition = "2021"
 description = "TopK Python SDK"
 license-file = "LICENSE"
-repository = "https://github.com/fafolabs/topk-sdk"
+repository = "https://github.com/topk-io/topk"
 homepage = "https://topk.io"
 documentation = "https://docs.topk.io"
 

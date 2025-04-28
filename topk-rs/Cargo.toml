@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "TopK Rust SDK"
 license = "MIT"
-repository = "https://github.com/fafolabs/topk-sdk"
+repository = "https://github.com/topk-io/topk"
 homepage = "https://topk.io"
 documentation = "https://docs.topk.io"
 
