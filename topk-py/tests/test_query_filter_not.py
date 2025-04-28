@@ -8,7 +8,7 @@ def test_query_not(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        filter(not_(field("_id").contains("gatsby"))).top_k(
+        filter(not_(field("_id").contains("gatsby"))).topk(
             field("published_year"), 100, False
         )
     )

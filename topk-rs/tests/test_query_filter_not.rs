@@ -16,7 +16,7 @@ async fn test_query_not(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(not(field("_id").contains("gatsby"))).top_k(field("published_year"), 100, false),
+            filter(not(field("_id").contains("gatsby"))).topk(field("published_year"), 100, false),
             None,
             None,
         )

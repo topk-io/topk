@@ -247,11 +247,11 @@ The `contains` operator can be used on string fields to match documents that inc
 
 ## Results collection
 
-All queries are required to have a collection stage. Currently, we only support `top_k` and `count` collectors.
+All queries are required to have a collection stage. Currently, we only support `topk` and `count` collectors.
 
-### top_k
+### topk
 
-You can use the `top_k` method to return the top `k` results. The `top_k` method takes a field, the number of results to return, and an optional `asc` parameter to sort the results in ascending order.
+You can use the `topk` method to return the top `k` results. The `topk` method takes a field, the number of results to return, and an optional `asc` parameter to sort the results in ascending order.
 
 <CodeGroup>
 
@@ -294,7 +294,7 @@ You can rerank the results of a query using the `rerank` method. The `rerank` me
 - `model` (optional): The model to use for reranking. If not specified, uses the default model.
 - `query` (optional): The query text to rerank against. Uses arguments from `semantic_similarity` if not specified.
 - `fields` (optional): List of fields to use for reranking. Uses fields from `semantic_similarity` if not specified.
-- `topk_multiple` (optional): Multiple of top-k to rerank. For example, if `top_k=10` and `topk_multiple=2`, reranker takes 20 results from the original query and returns the top 10 results.
+- `topk_multiple` (optional): Multiple of top-k to rerank. For example, if `topk=10` and `topk_multiple=2`, reranker takes 20 results from the original query and returns the top 10 results.
 
 Supported models:
 
@@ -383,7 +383,7 @@ const docs = await client.collection("books").query(
 
 ## Notes on writing queries
 
-When writing queries, remember that they all require the `top_k` or `count` method at the end.
+When writing queries, remember that they all require the `topk` or `count` method at the end.
 
 ## Next steps
 

@@ -28,9 +28,7 @@ impl From<Stage> for topk_protos::v1::data::Stage {
         match stage {
             Stage::Select { exprs } => topk_protos::v1::data::Stage::select(exprs),
             Stage::Filter { expr } => topk_protos::v1::data::Stage::filter(expr),
-            Stage::TopK { expr, k, asc } => {
-                topk_protos::v1::data::Stage::top_k(expr.into(), k, asc)
-            }
+            Stage::TopK { expr, k, asc } => topk_protos::v1::data::Stage::topk(expr.into(), k, asc),
             Stage::Count {} => topk_protos::v1::data::Stage::count(),
             Stage::Rerank {
                 model,

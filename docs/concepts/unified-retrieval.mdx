@@ -94,7 +94,7 @@ const docs = await client.collection("papers").query(
 **Explanation**
 
 - We retrieve documents based on both the full paper summary and the paragraph summary.
-- The `top_k()` function blends the two scores, giving 70% weight to the full paper and 30% weight to the paragraph.
+- The `topk()` function blends the two scores, giving 70% weight to the full paper and 30% weight to the paragraph.
 - This method ensures that entirely relevant papers rank higher while also considering specific paragraph relevance.
 
 ---
@@ -176,7 +176,7 @@ const docs = await client.collection("articles").query(
 
 - We retrieve documents based on semantic meaning (`content_score`) and keyword matching (`keyword_match`).
 - The `filter()` ensures that documents must contain at least one relevant keyword.
-- The `top_k()` function weights the scores, prioritizing semantic meaning (60%) while still considering keyword matches (40%).
+- The `topk()` function weights the scores, prioritizing semantic meaning (60%) while still considering keyword matches (40%).
 
 This **balances precision and recall**, capturing both **exact keyword matches** and **meaningful context**.
 
@@ -254,5 +254,5 @@ const docs = await client.collection("documents").query(
 **Explanation**
 
 - We retrieve documents based on both semantic similarity (`content_score`) and precomputed importance (`importance_score`).
-- The `top_k()` function gives 80% weight to content relevance and 20% weight to document importance.
+- The `topk()` function gives 80% weight to content relevance and 20% weight to document importance.
 - This method allows you to boost more critical documents, ensuring that highly relevant but less "important" content doesn't dominate.
