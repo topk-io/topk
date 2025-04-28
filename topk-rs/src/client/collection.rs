@@ -6,10 +6,10 @@ use crate::query::Query;
 use crate::query::Stage;
 use std::collections::HashMap;
 use std::time::Duration;
-use topk_protos::utils::{DocumentClientWithHeaders, QueryClientWithHeaders};
+use topk_protos::utils::{QueryClientWithHeaders, WriteClientWithHeaders};
 use topk_protos::v1::data::{ConsistencyLevel, GetRequest};
 use topk_protos::{
-    utils::{DocumentClient, QueryClient},
+    utils::{QueryClient, WriteClient},
     v1::data::{DeleteDocumentsRequest, Document, QueryRequest, UpsertDocumentsRequest, Value},
 };
 
@@ -183,7 +183,7 @@ impl CollectionClient {
     }
 
     pub async fn upsert(&self, docs: Vec<Document>) -> Result<u64, Error> {
-        let mut client = self.doc_client().await?;
+        let mut client = self.write_client().await?;
 
         let response = client
             .upsert_documents(UpsertDocumentsRequest { docs })
@@ -202,7 +202,7 @@ impl CollectionClient {
     }
 
     pub async fn delete(&self, ids: Vec<String>) -> Result<u64, Error> {
-        let mut client = self.doc_client().await?;
+        let mut client = self.write_client().await?;
 
         let response = client
             .delete_documents(DeleteDocumentsRequest { ids })
@@ -220,8 +220,8 @@ impl CollectionClient {
         Ok(response.into_inner().lsn)
     }
 
-    async fn doc_client(&self) -> Result<DocumentClientWithHeaders, Error> {
-        Ok(DocumentClient::with_headers(
+    async fn write_client(&self) -> Result<WriteClientWithHeaders, Error> {
+        Ok(WriteClient::with_headers(
             self.channel.get().await?,
             self.config.headers(),
         ))

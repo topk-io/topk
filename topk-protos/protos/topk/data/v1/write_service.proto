@@ -4,19 +4,12 @@ package topk.data.v1;
 import "google/api/annotations.proto";
 import "topk/data/v1/document.proto";
 
-service DocumentService {
+service WriteService {
   // Upsert documents
-  rpc UpsertDocuments(UpsertDocumentsRequest) returns (UpsertDocumentsResponse) {
-    option (google.api.http) = {
-      post: "/v1/docs"
-      body: "docs"
-    };
-  }
+  rpc UpsertDocuments(UpsertDocumentsRequest) returns (UpsertDocumentsResponse);
 
   // Delete documents
-  rpc DeleteDocuments(DeleteDocumentsRequest) returns (DeleteDocumentsResponse) {
-    option (google.api.http) = {delete: "/v1/docs/{id}"};
-  }
+  rpc DeleteDocuments(DeleteDocumentsRequest) returns (DeleteDocumentsResponse);
 }
 
 // Upsert

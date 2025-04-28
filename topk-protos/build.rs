@@ -68,7 +68,7 @@ fn build_topk_v1() {
                 "protos/topk/control/v1/collection_service.proto",
                 "protos/topk/control/v1/collection.proto",
                 "protos/topk/control/v1/schema.proto",
-                "protos/topk/data/v1/document_service.proto",
+                "protos/topk/data/v1/write_service.proto",
                 "protos/topk/data/v1/document.proto",
                 "protos/topk/data/v1/query_service.proto",
                 "protos/topk/data/v1/query.proto",
