@@ -22,7 +22,7 @@
     },
     {
       "name": "GitHub",
-      "url": "https://github.com/fafolabs/topk-sdk"
+      "url": "https://github.com/topk-io/topk"
     }
   ],
   "topbarCtaButton": {
@@ -58,7 +58,7 @@
     }
   ],
   "footerSocials": {
-    "github": "https://github.com/fafolabs/topk-sdk",
+    "github": "https://github.com/topk-io/topk",
     "x": "https://x.com/topk_io",
     "linkedin": "https://www.linkedin.com/company/106000380/"
   },
