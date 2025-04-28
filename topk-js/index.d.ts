@@ -10,8 +10,8 @@ export declare class CollectionClient {
   get(ids: Array<string>, fields?: Array<string> | undefined | null, options?: QueryOptions | undefined | null): Promise<Record<string, Record<string, any>>>
   count(options?: QueryOptions | undefined | null): Promise<number>
   query(query: query.Query, options?: QueryOptions | undefined | null): Promise<Array<Record<string, any>>>
-  upsert(docs: Array<Record<string, any>>): Promise<number>
-  delete(ids: Array<string>): Promise<number>
+  upsert(docs: Array<Record<string, any>>): Promise<string>
+  delete(ids: Array<string>): Promise<string>
 }
 
 export declare class CollectionsClient {
@@ -51,7 +51,7 @@ export interface CreateCollectionOptions {
 }
 
 export interface QueryOptions {
-  lsn?: number
+  lsn?: string
   consistency?: ConsistencyLevel
 }
 

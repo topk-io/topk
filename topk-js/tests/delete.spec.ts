@@ -1,5 +1,5 @@
-import { newProjectContext, ProjectContext } from "./setup";
 import { field, select } from "../lib/query";
+import { newProjectContext, ProjectContext } from "./setup";
 
 describe("delete", () => {
   const contexts: ProjectContext[] = [];
@@ -33,7 +33,7 @@ describe("delete", () => {
     ]);
 
     const lsn = await ctx.client.collection(collection.name).delete(["doc1"]);
-    expect(lsn).toBe(2);
+    expect(lsn).toBe("2");
 
     const remaining = await ctx.client
       .collection(collection.name)
@@ -50,6 +50,6 @@ describe("delete", () => {
     const lsn = await ctx.client
       .collection(collection.name)
       .delete(["non-existent"]);
-    expect(lsn).toBe(1);
+    expect(lsn).toBe("1");
   });
 });

@@ -28,7 +28,7 @@ describe("Upsert", () => {
     const lsn = await ctx.client
       .collection(collection.name)
       .upsert([{ _id: "one" }]);
-    expect(lsn).toBe(1);
+    expect(lsn).toBe("1");
   });
 
   test("upsert batch", async () => {
@@ -38,7 +38,7 @@ describe("Upsert", () => {
     const lsn = await ctx.client
       .collection(collection.name)
       .upsert([{ _id: "one" }, { _id: "two" }]);
-    expect(lsn).toBe(1);
+    expect(lsn).toBe("1");
   });
 
   test("upsert sequential", async () => {
@@ -48,15 +48,15 @@ describe("Upsert", () => {
     let lsn = await ctx.client
       .collection(collection.name)
       .upsert([{ _id: "one" }]);
-    expect(lsn).toBe(1);
+    expect(lsn).toBe("1");
 
     lsn = await ctx.client.collection(collection.name).upsert([{ _id: "two" }]);
-    expect(lsn).toBe(2);
+    expect(lsn).toBe("2");
 
     lsn = await ctx.client
       .collection(collection.name)
       .upsert([{ _id: "three" }]);
-    expect(lsn).toBe(3);
+    expect(lsn).toBe("3");
   });
 
   test("upsert no documents", async () => {

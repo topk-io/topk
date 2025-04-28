@@ -16,7 +16,7 @@ pub struct CollectionClient {
 #[napi(object)]
 #[derive(Debug, Clone)]
 pub struct QueryOptions {
-    pub lsn: Option<i64>,
+    pub lsn: Option<String>,
     pub consistency: Option<ConsistencyLevel>,
 }
 
@@ -42,7 +42,6 @@ impl CollectionClient {
         Self { client, collection }
     }
 
-    // TODO: Refactor lsn to be a string
     #[napi]
     pub async fn get(
         &self,
@@ -51,10 +50,7 @@ impl CollectionClient {
         options: Option<QueryOptions>,
     ) -> Result<HashMap<String, HashMap<String, Value>>> {
         let (lsn, consistency) = match &options {
-            Some(o) => (
-                o.lsn.map(|l| l as u64),
-                o.consistency.as_ref().map(|c| (*c).into()),
-            ),
+            Some(o) => (o.lsn.clone(), o.consistency.as_ref().map(|c| (*c).into())),
             None => (None, None),
         };
 
@@ -71,14 +67,10 @@ impl CollectionClient {
             .collect())
     }
 
-    // TODO: Refactor lsn to be a string
     #[napi]
     pub async fn count(&self, options: Option<QueryOptions>) -> Result<i64> {
         let (lsn, consistency) = match &options {
-            Some(o) => (
-                o.lsn.map(|l| l as u64),
-                o.consistency.as_ref().map(|c| (*c).into()),
-            ),
+            Some(o) => (o.lsn.clone(), o.consistency.as_ref().map(|c| (*c).into())),
             None => (None, None),
         };
 
@@ -99,10 +91,7 @@ impl CollectionClient {
         options: Option<QueryOptions>,
     ) -> Result<Vec<HashMap<String, Value>>> {
         let (lsn, consistency) = match &options {
-            Some(o) => (
-                o.lsn.map(|l| l as u64),
-                o.consistency.as_ref().map(|c| (*c).into()),
-            ),
+            Some(o) => (o.lsn.clone(), o.consistency.as_ref().map(|c| (*c).into())),
             None => (None, None),
         };
 
@@ -120,8 +109,8 @@ impl CollectionClient {
     }
 
     #[napi]
-    pub async fn upsert(&self, docs: Vec<HashMap<String, Value>>) -> Result<i64> {
-        let result = self
+    pub async fn upsert(&self, docs: Vec<HashMap<String, Value>>) -> Result<String> {
+        let lsn = self
             .client
             .collection(&self.collection)
             .upsert(
@@ -132,22 +121,20 @@ impl CollectionClient {
                     .collect(),
             )
             .await
-            .map_err(TopkError::from)
-            .map(|lsn| lsn as i64)?;
+            .map_err(TopkError::from)?;
 
-        Ok(result)
+        Ok(lsn)
     }
 
     #[napi]
-    pub async fn delete(&self, ids: Vec<String>) -> Result<i64> {
-        let result = self
+    pub async fn delete(&self, ids: Vec<String>) -> Result<String> {
+        let lsn = self
             .client
             .collection(&self.collection)
             .delete(ids)
             .await
-            .map_err(TopkError::from)
-            .map(|lsn| lsn as i64)?;
+            .map_err(TopkError::from)?;
 
-        Ok(result)
+        Ok(lsn)
     }
 }

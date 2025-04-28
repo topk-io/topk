@@ -14,7 +14,7 @@ def test_upsert_basic(ctx: ProjectContext):
     collection = ctx.client.collections().create(ctx.scope("test"), schema={})
 
     lsn = ctx.client.collection(collection.name).upsert([{"_id": "one"}])
-    assert lsn == 1
+    assert lsn == "1"
 
 
 def test_upsert_batch(ctx: ProjectContext):
@@ -23,20 +23,20 @@ def test_upsert_batch(ctx: ProjectContext):
     lsn = ctx.client.collection(collection.name).upsert(
         [{"_id": "one"}, {"_id": "two"}]
     )
-    assert lsn == 1
+    assert lsn == "1"
 
 
 def test_upsert_sequential(ctx: ProjectContext):
     collection = ctx.client.collections().create(ctx.scope("test"), schema={})
 
     lsn = ctx.client.collection(collection.name).upsert([{"_id": "one"}])
-    assert lsn == 1
+    assert lsn == "1"
 
     lsn = ctx.client.collection(collection.name).upsert([{"_id": "two"}])
-    assert lsn == 2
+    assert lsn == "2"
 
     lsn = ctx.client.collection(collection.name).upsert([{"_id": "three"}])
-    assert lsn == 3
+    assert lsn == "3"
 
 
 def test_upsert_no_documents(ctx: ProjectContext):

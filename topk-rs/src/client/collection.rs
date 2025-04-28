@@ -36,7 +36,7 @@ impl CollectionClient {
         &self,
         ids: impl IntoIterator<Item = impl Into<String>>,
         fields: Option<Vec<String>>,
-        lsn: Option<u64>,
+        lsn: Option<String>,
         consistency: Option<ConsistencyLevel>,
     ) -> Result<HashMap<String, HashMap<String, Value>>, Error> {
         let mut tries = 0;
@@ -56,7 +56,7 @@ impl CollectionClient {
                 .get(GetRequest {
                     ids: ids.clone(),
                     fields: fields.unwrap_or_default(),
-                    required_lsn: lsn,
+                    required_lsn: lsn.clone(),
                     consistency_level: consistency.map(|c| c.into()),
                 })
                 .await;
@@ -97,7 +97,7 @@ impl CollectionClient {
 
     pub async fn count(
         &self,
-        lsn: Option<u64>,
+        lsn: Option<String>,
         consistency: Option<ConsistencyLevel>,
     ) -> Result<u64, Error> {
         let query = Query::new(vec![Stage::Count {}]);
@@ -130,7 +130,7 @@ impl CollectionClient {
     pub async fn query(
         &self,
         query: Query,
-        lsn: Option<u64>,
+        lsn: Option<String>,
         consistency: Option<ConsistencyLevel>,
     ) -> Result<Vec<Document>, Error> {
         let mut tries = 0;
@@ -148,7 +148,7 @@ impl CollectionClient {
                 .query(QueryRequest {
                     collection: self.collection.clone(),
                     query: Some(query.into()),
-                    required_lsn: lsn,
+                    required_lsn: lsn.clone(),
                     consistency_level: consistency.map(|c| c.into()),
                 })
                 .await;
@@ -182,7 +182,7 @@ impl CollectionClient {
         }
     }
 
-    pub async fn upsert(&self, docs: Vec<Document>) -> Result<u64, Error> {
+    pub async fn upsert(&self, docs: Vec<Document>) -> Result<String, Error> {
         let mut client = self.write_client().await?;
 
         let response = client
@@ -201,7 +201,7 @@ impl CollectionClient {
         Ok(response.into_inner().lsn)
     }
 
-    pub async fn delete(&self, ids: Vec<String>) -> Result<u64, Error> {
+    pub async fn delete(&self, ids: Vec<String>) -> Result<String, Error> {
         let mut client = self.write_client().await?;
 
         let response = client

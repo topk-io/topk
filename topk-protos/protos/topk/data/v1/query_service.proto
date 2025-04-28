@@ -22,7 +22,7 @@ enum ConsistencyLevel {
 message QueryRequest {
   string collection = 1;
   Query query = 2;
-  optional uint64 required_lsn = 3;
+  optional string required_lsn = 3;
   optional ConsistencyLevel consistency_level = 4;
 }
 
@@ -34,7 +34,7 @@ message QueryResponse {
 message GetRequest {
   repeated string ids = 1;
   repeated string fields = 2;
-  optional uint64 required_lsn = 3;
+  optional string required_lsn = 3;
   optional ConsistencyLevel consistency_level = 4;
 }
 message GetResponse {

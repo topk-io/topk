@@ -16,7 +16,7 @@ message UpsertDocumentsRequest {
   repeated Document docs = 1;
 }
 message UpsertDocumentsResponse {
-  uint64 lsn = 1;
+  string lsn = 1;
 }
 
 // Delete
@@ -24,5 +24,5 @@ message DeleteDocumentsRequest {
   repeated string ids = 1;
 }
 message DeleteDocumentsResponse {
-  uint64 lsn = 1;
+  string lsn = 1;
 }
