@@ -1,7 +1,6 @@
 syntax = "proto3";
 package topk.data.v1;
 
-import "google/api/annotations.proto";
 import "topk/data/v1/document.proto";
 import "topk/data/v1/expr/function.proto";
 import "topk/data/v1/expr/logical.proto";

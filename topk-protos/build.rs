@@ -1,8 +1,5 @@
 fn main() {
     build_topk_v1();
-
-    #[cfg(feature = "openapi")]
-    build_openapi_spec();
 }
 
 fn build_topk_v1() {
@@ -59,10 +56,8 @@ fn build_topk_v1() {
             builder.type_attribute(message, "#[derive(serde::Serialize, serde::Deserialize)]");
     }
 
-    // let lib_dir = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
     builder
         .clone()
-        // .file_descriptor_set_path(lib_dir.join("out/topk_v1_proto_descriptor_set.bin"))
         .compile_protos(
             &[
                 "protos/topk/control/v1/collection_service.proto",
@@ -73,35 +68,8 @@ fn build_topk_v1() {
                 "protos/topk/data/v1/query_service.proto",
                 "protos/topk/data/v1/query.proto",
                 "protos/topk/data/v1/value.proto",
-                "protos/google/rpc/error_details.proto",
             ],
             &["protos/"],
         )
         .expect("failed to build [topk.v1] protos");
-}
-
-#[cfg(feature = "openapi")]
-fn build_openapi_spec() {
-    let out_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).join("out");
-
-    // generate openapi spec
-    let output = std::process::Command::new("protoc")
-        .arg("--connect-openapi_opt=format=json")
-        .arg(format!(
-            "--connect-openapi_out={}",
-            out_dir.to_string_lossy()
-        ))
-        .arg("--proto_path=protos")
-        .arg("protos/topk/data/v1/query.proto")
-        .arg("protos/topk/data/v1/document.proto")
-        .arg("protos/topk/control/v1/collection.proto")
-        .output()
-        .expect("failed to generate [topk.v1] openapi spec");
-
-    if !output.status.success() {
-        panic!(
-            "failed to generate [topk.v1] openapi spec: {}",
-            String::from_utf8_lossy(&output.stderr),
-        );
-    }
 }

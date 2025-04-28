@@ -8,10 +8,6 @@ repository = "https://github.com/topk-io/topk"
 homepage = "https://topk.io"
 documentation = "https://docs.topk.io"
 
-[features]
-default = []
-openapi = []
-
 [dependencies]
 map-macro = { version = "0.3.0" }
 prost = { version = "0.13.0" }

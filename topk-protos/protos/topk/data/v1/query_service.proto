@@ -1,23 +1,15 @@
 syntax = "proto3";
 package topk.data.v1;
 
-import "google/api/annotations.proto";
 import "topk/data/v1/document.proto";
 import "topk/data/v1/query.proto";
 
 service QueryService {
   // Query
-  rpc Query(QueryRequest) returns (QueryResponse) {
-    option (google.api.http) = {
-      post: "/v1/query"
-      body: "*"
-    };
-  }
+  rpc Query(QueryRequest) returns (QueryResponse);
 
   // Get document (by ID)
-  rpc Get(GetRequest) returns (GetResponse) {
-    option (google.api.http) = {get: "/v1/docs/{id}"};
-  }
+  rpc Get(GetRequest) returns (GetResponse);
 }
 
 enum ConsistencyLevel {
@@ -26,7 +18,7 @@ enum ConsistencyLevel {
   CONSISTENCY_LEVEL_STRONG = 2;
 }
 
-//
+// Query
 message QueryRequest {
   string collection = 1;
   Query query = 2;

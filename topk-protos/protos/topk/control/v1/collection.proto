@@ -1,7 +1,6 @@
 syntax = "proto3";
 package topk.control.v1;
 
-import "google/api/annotations.proto";
 import "topk/control/v1/schema.proto";
 
 message Collection {
