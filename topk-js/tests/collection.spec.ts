@@ -27,6 +27,16 @@ describe("Collections", () => {
     expect(collections).toContainEqual(collection);
   });
 
+  test("create collection with invalid schema", async () => {
+    const ctx = getContext();
+
+    await expect(
+      ctx.createCollection("books", {
+        title: "invalid",
+      })
+    ).rejects.toThrow("Value must be a FieldSpec");
+  });
+
   test("create duplicate collection", async () => {
     const ctx = getContext();
     await ctx.createCollection("test", {});
