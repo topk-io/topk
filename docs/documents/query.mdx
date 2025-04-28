@@ -24,7 +24,7 @@ docs = client.collection("books").query(
         "title",
         title_similarity=fn.semantic_similarity("title", "catcher")
     )
-    .top_k(field("title_similarity"), 10)
+    .topk(field("title_similarity"), 10)
 )
 ```
 
@@ -66,7 +66,7 @@ docs = client.collection("books").query(
     # or the `catcher` in any of the text-indexed fields.
     .filter(match("great", field="title") | match("catcher"))
     # Return top 10 documents with the highest text score
-    .top_k(field("text_score"), 10)
+    .topk(field("text_score"), 10)
 )
 ```
 
@@ -111,7 +111,7 @@ docs = client.collection("books").query(
         title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3, ...])
     )
     # Return top 10 results with the highest similarity
-    .top_k(field("title_similarity"), 10)
+    .topk(field("title_similarity"), 10)
 )
 ```
 
@@ -257,7 +257,7 @@ You can use the `top_k` method to return the top `k` results. The `top_k` method
 
 ```python Python
 # Return top 10 results order by `published_year` ascending
-.top_k(field("title_similarity"), 10, asc=True)
+.topk(field("title_similarity"), 10, asc=True)
 ```
 
 
@@ -305,7 +305,7 @@ Supported models:
 ```python Python
 .rerank()
 
-# or 
+# or
 
 .rerank(
     model="cohere/rerank-v3.5",
@@ -319,7 +319,7 @@ Supported models:
 ```typescript JavaScript
 .rerank()
 
-// or 
+// or
 
 .rerank({
   model: "cohere/rerank-v3.5",
@@ -353,7 +353,7 @@ docs = client.collection("books").query(
     # Filtering by metadata
     .filter(field("published_year") > 1980)
     # Return top 10 documents with the highest combined score
-    .top_k(field("text_score") * 0.2 + field("title_similarity") * 0.8, 10)
+    .topk(field("text_score") * 0.2 + field("title_similarity") * 0.8, 10)
     # Rerank the documents
     .rerank()
 )

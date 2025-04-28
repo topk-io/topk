@@ -63,7 +63,7 @@ docs = client.collection("papers").query(
         paper_score=fn.semantic_similarity("paper_summary", "deep learning optimization"),
         paragraph_score=fn.semantic_similarity("paragraph_summary", "stochastic gradient descent")
     )
-    .top_k(field("paper_score") * 0.7 + field("paragraph_score") * 0.3, 10)
+    .topk(field("paper_score") * 0.7 + field("paragraph_score") * 0.3, 10)
 )
 ```
 
@@ -145,7 +145,7 @@ docs = client.collection("articles").query(
         text_score=fn.bm25_score()
     )
     .filter(match("carbon tax") | match("renewable energy"))  # Ensure keyword relevance
-    .top_k(field("content_similarity") * 0.6 + field("text_score") * 0.4, 10)
+    .topk(field("content_similarity") * 0.6 + field("text_score") * 0.4, 10)
 )
 ```
 
@@ -225,7 +225,7 @@ docs = client.collection("documents").query(
     select(
         content_score=fn.semantic_similarity("content", "machine learning applications"),
     )
-    .top_k(0.8 * field("importance") + 0.2 * field("content_score"), 10)
+    .topk(0.8 * field("importance") + 0.2 * field("content_score"), 10)
 )
 ```
 

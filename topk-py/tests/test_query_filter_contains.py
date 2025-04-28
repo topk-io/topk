@@ -8,7 +8,7 @@ def test_query_contains(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        filter(field("_id").contains("atch")).top_k(field("published_year"), 100, False)
+        filter(field("_id").contains("atch")).topk(field("published_year"), 100, False)
     )
 
     assert doc_ids(result) == {"catcher"}
@@ -18,7 +18,7 @@ def test_query_contains_empty(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        filter(field("_id").contains("")).top_k(field("published_year"), 100, False)
+        filter(field("_id").contains("")).topk(field("published_year"), 100, False)
     )
 
     assert doc_ids(result) == {
@@ -39,7 +39,7 @@ def test_query_contains_no_match(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        filter(field("_id").contains("rubbish")).top_k(
+        filter(field("_id").contains("rubbish")).topk(
             field("published_year"), 100, False
         )
     )

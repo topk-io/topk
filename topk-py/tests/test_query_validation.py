@@ -11,7 +11,7 @@ def test_query_topk_by_non_primitive(ctx: ProjectContext):
 
     with pytest.raises(error.InvalidArgumentError) as exc_info:
         ctx.client.collection(collection.name).query(
-            select("title").top_k(field("title"), 3, True)
+            select("title").topk(field("title"), 3, True)
         )
     assert "Input to SortWithLimit must produce primitive type, not String" in str(
         exc_info.value
@@ -23,7 +23,7 @@ def test_query_topk_by_non_existing(ctx: ProjectContext):
 
     with pytest.raises(error.InvalidArgumentError) as exc_info:
         ctx.client.collection(collection.name).query(
-            select("title").top_k(field("non_existing_field"), 3, True)
+            select("title").topk(field("non_existing_field"), 3, True)
         )
     assert "Input to SortWithLimit must produce primitive type, not Null" in str(
         exc_info.value
@@ -35,7 +35,7 @@ def test_query_topk_limit_zero(ctx: ProjectContext):
 
     with pytest.raises(error.InvalidArgumentError) as exc_info:
         ctx.client.collection(collection.name).query(
-            select("title").top_k(field("published_year"), 0, True)
+            select("title").topk(field("published_year"), 0, True)
         )
     assert "Invalid argument: TopK k must be > 0" in str(exc_info.value)
 
@@ -54,6 +54,6 @@ def test_union_u32_and_binary(ctx: ProjectContext):
 
     with pytest.raises(error.InvalidArgumentError) as exc_info:
         ctx.client.collection(collection.name).query(
-            select("title").top_k(field("num"), 100, True)
+            select("title").topk(field("num"), 100, True)
         )
     assert "Input to SortWithLimit must produce primitive type" in str(exc_info.value)

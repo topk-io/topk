@@ -9,7 +9,7 @@ def test_query_lte(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        filter(field("published_year") <= 1950).top_k(
+        filter(field("published_year") <= 1950).topk(
             field("published_year"), 100, True
         )
     )
@@ -23,7 +23,7 @@ def test_query_and(ctx: ProjectContext):
     result = ctx.client.collection(collection.name).query(
         filter(
             (field("published_year") <= 1950) & (field("published_year") >= 1948)
-        ).top_k(field("published_year"), 100, True)
+        ).topk(field("published_year"), 100, True)
     )
 
     assert doc_ids(result) == {"1984"}

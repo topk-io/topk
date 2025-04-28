@@ -25,7 +25,7 @@ async fn test_query_unified(ctx: &mut ProjectTestContext) {
                 ("bm25_score", fns::bm25_score()),
             ])
             .filter(r#match("love", None, Some(30.0)).or(r#match("young", None, Some(10.0))))
-            .top_k(
+            .topk(
                 field("bm25_score") + (field("summary_distance") * literal(100)),
                 2,
                 true,

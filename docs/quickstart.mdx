@@ -176,7 +176,7 @@ results = client.collection("books").query(
         title_similarity=fn.semantic_similarity("title", "classic American novel"),
     )
     # Sort results by the `title_similarity` field, selecting the top 10 results
-    .top_k(field("title_similarity"), 10)
+    .topk(field("title_similarity"), 10)
 )
 ```
 

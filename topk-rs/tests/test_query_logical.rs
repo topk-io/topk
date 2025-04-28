@@ -15,7 +15,7 @@ async fn test_query_lte(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(field("published_year").lte(1950 as u32)).top_k(
+            filter(field("published_year").lte(1950 as u32)).topk(
                 field("published_year"),
                 100,
                 true,
@@ -43,7 +43,7 @@ async fn test_query_and(ctx: &mut ProjectTestContext) {
                     .lte(1950 as u32)
                     .and(field("published_year").gte(1948 as u32)),
             )
-            .top_k(field("published_year"), 100, true),
+            .topk(field("published_year"), 100, true),
             None,
             None,
         )

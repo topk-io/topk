@@ -50,7 +50,7 @@ async fn test_query_select_union(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("mixed", field("mixed"))]).top_k(field("rank"), 100, true),
+            select([("mixed", field("mixed"))]).topk(field("rank"), 100, true),
             None,
             None,
         )

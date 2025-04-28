@@ -34,7 +34,7 @@ impl Query {
         query
     }
 
-    pub fn top_k(&self, expr: impl Into<LogicalExpr>, limit: u64, asc: bool) -> Self {
+    pub fn topk(&self, expr: impl Into<LogicalExpr>, limit: u64, asc: bool) -> Self {
         let mut query = self.clone();
         query.stages.push(Stage::TopK {
             expr: expr.into().into(),
