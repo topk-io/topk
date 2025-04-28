@@ -1,6 +1,6 @@
 {
   "name": "topk-js",
-  "version": "0.1.19-alpha.6",
+  "version": "0.1.20",
   "napi": {
     "binaryName": "topk-js",
     "triples": {
