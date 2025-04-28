@@ -60,7 +60,7 @@ docs = client.collection("books").query(
         "title",
         title_similarity=fn.semantic_similarity("title", "catcher in the rye")
     )
-    .top_k(field("title_similarity"), 10)
+    .topk(field("title_similarity"), 10)
     .rerank()
 )
 ```
@@ -106,7 +106,7 @@ docs = client.collection("books").query(
         text_score=fn.bm25_score()  # Keyword-based relevance
     )
     .filter(match("classic"))  # Ensure the book title contains "classic" keyword
-    .top_k(field("title_similarity") * 0.7 + field("text_score") * 0.3, 10)
+    .topk(field("title_similarity") * 0.7 + field("text_score") * 0.3, 10)
 )
 ```
 
@@ -180,7 +180,7 @@ docs = client.collection("books").query(
         "title",
         title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3, ...])
     )
-    .top_k(field("title_similarity"), 10)
+    .topk(field("title_similarity"), 10)
 )
 ```
 
@@ -217,7 +217,7 @@ docs = client.collection("books").query(
         "title",
         title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3, ...])
     )
-    .top_k(field("title_similarity"), 10)
+    .topk(field("title_similarity"), 10)
     .rerank(
         query="catcher in the rye",
         fields=["title"]
@@ -259,7 +259,7 @@ docs = client.collection("books").query(
         text_score=fn.bm25_score(),
     )
     .filter(match("catcher in the rye"))
-    .top_k(field("text_score"), 10)
+    .topk(field("text_score"), 10)
     .rerank(
         query="catcher in the rye",
         fields=["title"]

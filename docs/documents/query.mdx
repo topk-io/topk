@@ -24,7 +24,7 @@ docs = client.collection("books").query(
         "title",
         title_similarity=fn.semantic_similarity("title", "catcher")
     )
-    .top_k(field("title_similarity"), 10)
+    .topk(field("title_similarity"), 10)
 )
 ```
 
@@ -66,7 +66,7 @@ docs = client.collection("books").query(
     # or the `catcher` in any of the text-indexed fields.
     .filter(match("great", field="title") | match("catcher"))
     # Return top 10 documents with the highest text score
-    .top_k(field("text_score"), 10)
+    .topk(field("text_score"), 10)
 )
 ```
 
@@ -111,7 +111,7 @@ docs = client.collection("books").query(
         title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3, ...])
     )
     # Return top 10 results with the highest similarity
-    .top_k(field("title_similarity"), 10)
+    .topk(field("title_similarity"), 10)
 )
 ```
 
@@ -247,17 +247,17 @@ The `contains` operator can be used on string fields to match documents that inc
 
 ## Results collection
 
-All queries are required to have a collection stage. Currently, we only support `top_k` and `count` collectors.
+All queries are required to have a collection stage. Currently, we only support `topk` and `count` collectors.
 
-### top_k
+### topk
 
-You can use the `top_k` method to return the top `k` results. The `top_k` method takes a field, the number of results to return, and an optional `asc` parameter to sort the results in ascending order.
+You can use the `topk` method to return the top `k` results. The `topk` method takes a field, the number of results to return, and an optional `asc` parameter to sort the results in ascending order.
 
 <CodeGroup>
 
 ```python Python
 # Return top 10 results order by `published_year` ascending
-.top_k(field("title_similarity"), 10, asc=True)
+.topk(field("title_similarity"), 10, asc=True)
 ```
 
 
@@ -294,7 +294,7 @@ You can rerank the results of a query using the `rerank` method. The `rerank` me
 - `model` (optional): The model to use for reranking. If not specified, uses the default model.
 - `query` (optional): The query text to rerank against. Uses arguments from `semantic_similarity` if not specified.
 - `fields` (optional): List of fields to use for reranking. Uses fields from `semantic_similarity` if not specified.
-- `topk_multiple` (optional): Multiple of top-k to rerank. For example, if `top_k=10` and `topk_multiple=2`, reranker takes 20 results from the original query and returns the top 10 results.
+- `topk_multiple` (optional): Multiple of top-k to rerank. For example, if `topk=10` and `topk_multiple=2`, reranker takes 20 results from the original query and returns the top 10 results.
 
 Supported models:
 
@@ -305,7 +305,7 @@ Supported models:
 ```python Python
 .rerank()
 
-# or 
+# or
 
 .rerank(
     model="cohere/rerank-v3.5",
@@ -319,7 +319,7 @@ Supported models:
 ```typescript JavaScript
 .rerank()
 
-// or 
+// or
 
 .rerank({
   model: "cohere/rerank-v3.5",
@@ -353,7 +353,7 @@ docs = client.collection("books").query(
     # Filtering by metadata
     .filter(field("published_year") > 1980)
     # Return top 10 documents with the highest combined score
-    .top_k(field("text_score") * 0.2 + field("title_similarity") * 0.8, 10)
+    .topk(field("text_score") * 0.2 + field("title_similarity") * 0.8, 10)
     # Rerank the documents
     .rerank()
 )
@@ -383,7 +383,7 @@ const docs = await client.collection("books").query(
 
 ## Notes on writing queries
 
-When writing queries, remember that they all require the `top_k` or `count` method at the end.
+When writing queries, remember that they all require the `topk` or `count` method at the end.
 
 ## Next steps
 

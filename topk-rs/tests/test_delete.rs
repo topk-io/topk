@@ -60,7 +60,7 @@ async fn test_delete_document(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("title", field("title"))]).top_k(field("rank"), 100, true),
+            select([("title", field("title"))]).topk(field("rank"), 100, true),
             Some(lsn),
             None,
         )

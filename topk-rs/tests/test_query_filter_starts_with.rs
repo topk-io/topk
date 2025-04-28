@@ -15,7 +15,7 @@ async fn test_query_starts_with(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(field("_id").starts_with("cat")).top_k(field("published_year"), 100, false),
+            filter(field("_id").starts_with("cat")).topk(field("published_year"), 100, false),
             None,
             None,
         )
@@ -34,7 +34,7 @@ async fn test_query_starts_with_empty(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(field("_id").starts_with("")).top_k(field("published_year"), 100, false),
+            filter(field("_id").starts_with("")).topk(field("published_year"), 100, false),
             None,
             None,
         )
@@ -67,11 +67,7 @@ async fn test_query_starts_with_non_existent_prefix(ctx: &mut ProjectTestContext
         .client
         .collection(&collection.name)
         .query(
-            filter(field("_id").starts_with("foobarbaz")).top_k(
-                field("published_year"),
-                100,
-                false,
-            ),
+            filter(field("_id").starts_with("foobarbaz")).topk(field("published_year"), 100, false),
             None,
             None,
         )

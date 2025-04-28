@@ -33,7 +33,7 @@ def test_query_select_union(ctx: ProjectContext):
     ctx.client.collection(collection.name).count(lsn=lsn)
 
     results = ctx.client.collection(collection.name).query(
-        select("mixed").top_k(field("rank"), 100, True)
+        select("mixed").topk(field("rank"), 100, True)
     )
 
     # Verify we have all the documents

@@ -105,7 +105,7 @@ impl Query {
     }
 
     #[pyo3(signature = (expr, k, asc=false))]
-    pub fn top_k(&self, expr: LogicalExpr, k: u64, asc: bool) -> PyResult<Self> {
+    pub fn topk(&self, expr: LogicalExpr, k: u64, asc: bool) -> PyResult<Self> {
         Ok(Self {
             stages: [
                 self.stages.clone(),

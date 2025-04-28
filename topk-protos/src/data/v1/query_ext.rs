@@ -28,7 +28,7 @@ impl Stage {
         }
     }
 
-    pub fn top_k(expr: LogicalExpr, k: u64, asc: bool) -> Self {
+    pub fn topk(expr: LogicalExpr, k: u64, asc: bool) -> Self {
         Stage {
             stage: Some(stage::Stage::TopK(stage::TopKStage {
                 expr: Some(expr),

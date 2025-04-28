@@ -20,7 +20,7 @@ async fn test_query_select_literal(ctx: &mut ProjectTestContext) {
         .query(
             select([("literal", literal(1.0))])
                 .filter(field("title").eq("1984"))
-                .top_k(field("published_year"), 100, true),
+                .topk(field("published_year"), 100, true),
             None,
             None,
         )
@@ -41,7 +41,7 @@ async fn test_query_select_non_existing_field(ctx: &mut ProjectTestContext) {
         .query(
             select([("literal", field("non_existing_field"))])
                 .filter(field("title").eq("1984"))
-                .top_k(field("published_year"), 100, true),
+                .topk(field("published_year"), 100, true),
             None,
             None,
         )
@@ -60,7 +60,7 @@ async fn test_query_topk_limit(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("title", field("title"))]).top_k(field("published_year"), 3, true),
+            select([("title", field("title"))]).topk(field("published_year"), 3, true),
             None,
             None,
         )
@@ -72,7 +72,7 @@ async fn test_query_topk_limit(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("title", field("title"))]).top_k(field("published_year"), 2, true),
+            select([("title", field("title"))]).topk(field("published_year"), 2, true),
             None,
             None,
         )
@@ -84,7 +84,7 @@ async fn test_query_topk_limit(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("title", field("title"))]).top_k(field("published_year"), 1, true),
+            select([("title", field("title"))]).topk(field("published_year"), 1, true),
             None,
             None,
         )
@@ -102,7 +102,7 @@ async fn test_query_topk_asc(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("published_year", field("published_year"))]).top_k(
+            select([("published_year", field("published_year"))]).topk(
                 field("published_year"),
                 3,
                 true,
@@ -132,7 +132,7 @@ async fn test_query_topk_desc(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("published_year", field("published_year"))]).top_k(
+            select([("published_year", field("published_year"))]).topk(
                 field("published_year"),
                 3,
                 false,
@@ -164,7 +164,7 @@ async fn test_query_select_bm25_score(ctx: &mut ProjectTestContext) {
         .query(
             select([("bm25_score", fns::bm25_score())])
                 .filter(r#match("pride", None, None))
-                .top_k(field("bm25_score"), 100, true),
+                .topk(field("bm25_score"), 100, true),
             None,
             None,
         )
@@ -190,7 +190,7 @@ async fn test_query_select_vector_distance(ctx: &mut ProjectTestContext) {
                 "summary_distance",
                 fns::vector_distance("summary_embedding", Vector::F32(vec![2.0; 16])),
             )])
-            .top_k(field("summary_distance"), 3, true),
+            .topk(field("summary_distance"), 3, true),
             None,
             None,
         )
@@ -223,7 +223,7 @@ async fn test_query_select_null_field(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("a", field("a")), ("b", literal(1 as u32))]).top_k(field("b"), 100, true),
+            select([("a", field("a")), ("b", literal(1 as u32))]).topk(field("b"), 100, true),
             None,
             None,
         )

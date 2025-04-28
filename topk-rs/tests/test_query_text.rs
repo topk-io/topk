@@ -16,7 +16,7 @@ async fn test_query_text_filter_single_term_disjunctive(ctx: &mut ProjectTestCon
         .client
         .collection(&collection.name)
         .query(
-            filter(r#match("love", Some("summary"), None)).top_k(
+            filter(r#match("love", Some("summary"), None)).topk(
                 field("published_year"),
                 100,
                 true,
@@ -39,7 +39,7 @@ async fn test_query_text_filter_single_term_conjunctive(ctx: &mut ProjectTestCon
         .client
         .collection(&collection.name)
         .query(
-            filter(r#match("love", Some("summary"), None)).top_k(
+            filter(r#match("love", Some("summary"), None)).topk(
                 field("published_year"),
                 100,
                 true,
@@ -63,7 +63,7 @@ async fn test_query_text_filter_two_terms_disjunctive(ctx: &mut ProjectTestConte
         .collection(&collection.name)
         .query(
             filter(r#match("LOVE", Some("summary"), None).or(r#match("ring", Some("title"), None)))
-                .top_k(field("published_year"), 100, true),
+                .topk(field("published_year"), 100, true),
             None,
             None,
         )
@@ -87,7 +87,7 @@ async fn test_query_text_filter_two_terms_conjunctive(ctx: &mut ProjectTestConte
                 Some("summary"),
                 None,
             )))
-            .top_k(field("published_year"), 100, true),
+            .topk(field("published_year"), 100, true),
             None,
             None,
         )
@@ -106,7 +106,7 @@ async fn test_query_text_filter_stop_word(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(r#match("the", Some("summary"), None)).top_k(field("published_year"), 100, true),
+            filter(r#match("the", Some("summary"), None)).topk(field("published_year"), 100, true),
             None,
             None,
         )
@@ -127,7 +127,7 @@ async fn test_query_select_bm25_without_text_queries(ctx: &mut ProjectTestContex
         .query(
             select([("bm25_score", fns::bm25_score())])
                 .filter(field("_id").eq("pride"))
-                .top_k(field("bm25_score"), 100, true),
+                .topk(field("bm25_score"), 100, true),
             None,
             None,
         )

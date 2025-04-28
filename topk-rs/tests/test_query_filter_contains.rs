@@ -15,7 +15,7 @@ async fn test_query_contains(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(field("_id").contains("atch")).top_k(field("published_year"), 100, false),
+            filter(field("_id").contains("atch")).topk(field("published_year"), 100, false),
             None,
             None,
         )
@@ -34,7 +34,7 @@ async fn test_query_contains_no_match(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(field("_id").contains("rubbish")).top_k(field("published_year"), 100, false),
+            filter(field("_id").contains("rubbish")).topk(field("published_year"), 100, false),
             None,
             None,
         )
@@ -53,7 +53,7 @@ async fn test_query_contains_empty(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(field("_id").contains("")).top_k(field("published_year"), 100, false),
+            filter(field("_id").contains("")).topk(field("published_year"), 100, false),
             None,
             None,
         )

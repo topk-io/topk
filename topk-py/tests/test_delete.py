@@ -29,7 +29,7 @@ def test_delete_document(ctx: ProjectContext):
     assert lsn == "2"
 
     docs = ctx.client.collection(collection.name).query(
-        select("title").top_k(field("rank"), 100, True), lsn=lsn
+        select("title").topk(field("rank"), 100, True), lsn=lsn
     )
 
     assert doc_ids(docs) == {"two"}
