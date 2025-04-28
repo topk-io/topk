@@ -30,7 +30,7 @@ impl CollectionClient {
         py: Python<'_>,
         ids: Vec<String>,
         fields: Option<Vec<String>>,
-        lsn: Option<u64>,
+        lsn: Option<String>,
         consistency: Option<ConsistencyLevel>,
     ) -> PyResult<HashMap<String, HashMap<String, RawValue>>> {
         let docs = self
@@ -63,7 +63,7 @@ impl CollectionClient {
     pub fn count(
         &self,
         py: Python<'_>,
-        lsn: Option<u64>,
+        lsn: Option<String>,
         consistency: Option<ConsistencyLevel>,
     ) -> PyResult<u64> {
         let count = self
@@ -84,7 +84,7 @@ impl CollectionClient {
         &self,
         py: Python<'_>,
         query: Query,
-        lsn: Option<u64>,
+        lsn: Option<String>,
         consistency: Option<ConsistencyLevel>,
     ) -> PyResult<Vec<HashMap<String, RawValue>>> {
         let docs = self
@@ -114,7 +114,7 @@ impl CollectionClient {
         &self,
         py: Python<'_>,
         documents: Vec<HashMap<String, RawValue>>,
-    ) -> PyResult<u64> {
+    ) -> PyResult<String> {
         let documents = documents
             .into_iter()
             .map(|d| topk_protos::v1::data::Document {
@@ -131,7 +131,7 @@ impl CollectionClient {
             .map_err(RustError)?)
     }
 
-    pub fn delete(&self, py: Python<'_>, ids: Vec<String>) -> PyResult<u64> {
+    pub fn delete(&self, py: Python<'_>, ids: Vec<String>) -> PyResult<String> {
         Ok(self
             .runtime
             .block_on(py, self.client.collection(&self.collection).delete(ids))

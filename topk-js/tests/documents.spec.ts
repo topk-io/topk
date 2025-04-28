@@ -36,7 +36,7 @@ describe("Documents", () => {
     const lsn = await ctx.client
       .collection(ctx.scope("books"))
       .upsert([{ _id: "one", name: "one", rank: 1 }]);
-    expect(lsn).toBe(1);
+    expect(lsn).toBe("1");
 
     // get document
     const doc = await ctx.client.collection(ctx.scope("books")).get(["one"]);
@@ -62,7 +62,7 @@ describe("Documents", () => {
       { _id: "one", name: "one", rank: 1 },
       { _id: "two", name: "two", extra: 1, rank: 2 },
     ]);
-    expect(lsn).toBe(1);
+    expect(lsn).toBe("1");
 
     const docs = await ctx.client.collection(ctx.scope("books")).query(
       select({ name: field("name") })
@@ -93,7 +93,7 @@ describe("Documents", () => {
       { _id: "doc9", title: "yellow purple pink" },
       { _id: "doc10", title: "orange red blue" },
     ]);
-    expect(lsn).toBe(1);
+    expect(lsn).toBe("1");
 
     const docs = await ctx.client.collection(ctx.scope("books")).query(
       select({
@@ -122,7 +122,7 @@ describe("Documents", () => {
       { _id: "doc2", f32_embedding: [4.0, 5.0, 6.0] },
       { _id: "doc3", f32_embedding: [7.0, 8.0, 9.0] },
     ]);
-    expect(lsn).toBe(1);
+    expect(lsn).toBe("1");
 
     let docs = await ctx.client.collection(ctx.scope("books")).query(
       select({
@@ -149,7 +149,7 @@ describe("Documents", () => {
       { _id: "doc2", u8_embedding: u8VectorValue([4, 5, 6]) },
       { _id: "doc3", u8_embedding: u8VectorValue([7, 8, 9]) },
     ]);
-    expect(lsn).toBe(1);
+    expect(lsn).toBe("1");
 
     let docs = await ctx.client.collection(ctx.scope("books")).query(
       select({
@@ -179,7 +179,7 @@ describe("Documents", () => {
       { _id: "doc2", binary_embedding: binaryVectorValue([0, 1, 1]) },
       { _id: "doc3", binary_embedding: binaryVectorValue([1, 1, 1]) },
     ]);
-    expect(lsn).toBe(1);
+    expect(lsn).toBe("1");
 
     let docs = await ctx.client.collection(ctx.scope("books")).query(
       select({
@@ -215,7 +215,7 @@ describe("Documents", () => {
       { _id: "doc8", title: "green yello green" },
       { _id: "doc9", title: "yellow purple pink" },
     ]);
-    expect(lsn).toBe(1);
+    expect(lsn).toBe("1");
 
     const docs = await ctx.client
       .collection(ctx.scope("books"))
@@ -239,10 +239,10 @@ describe("Documents", () => {
     let lsn = await ctx.client
       .collection(ctx.scope("books"))
       .upsert([{ _id: "doc1", name: "one" }]);
-    expect(lsn).toBe(1);
+    expect(lsn).toBe("1");
 
     lsn = await ctx.client.collection(ctx.scope("books")).delete(["doc1"]);
-    expect(lsn).toBe(2);
+    expect(lsn).toBe("2");
 
     const docs = await ctx.client.collection(ctx.scope("books")).query(
       select({ name: field("name") })
@@ -262,13 +262,13 @@ describe("Documents", () => {
       { _id: "doc1", name: "one" },
       { _id: "doc2", name: "two" },
     ]);
-    expect(lsn).toBe(1);
+    expect(lsn).toBe("1");
 
     let count = await ctx.client.collection(ctx.scope("books")).count({ lsn });
     expect(count).toBe(2);
 
     lsn = await ctx.client.collection(ctx.scope("books")).delete(["doc1"]);
-    expect(lsn).toBe(2);
+    expect(lsn).toBe("2");
 
     count = await ctx.client.collection(ctx.scope("books")).count({ lsn });
     expect(count).toBe(1);

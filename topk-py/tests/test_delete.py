@@ -20,13 +20,13 @@ def test_delete_document(ctx: ProjectContext):
             {"_id": "two", "rank": 2},
         ]
     )
-    assert lsn == 1
+    assert lsn == "1"
 
     # wait for write to be flushed
     ctx.client.collection(collection.name).count()
 
     lsn = ctx.client.collection(collection.name).delete(["one"])
-    assert lsn == 2
+    assert lsn == "2"
 
     docs = ctx.client.collection(collection.name).query(
         select("title").top_k(field("rank"), 100, True), lsn=lsn
@@ -40,4 +40,4 @@ def test_delete_non_existent_document(ctx: ProjectContext):
 
     # we can delete a non-existent document, and it will be ignored
     lsn = ctx.client.collection(collection.name).delete(["one"])
-    assert lsn == 1
+    assert lsn == "1"

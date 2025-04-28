@@ -41,7 +41,7 @@ async fn test_upsert_basic(ctx: &mut ProjectTestContext) {
         .await
         .expect("could not upsert document");
 
-    assert_eq!(lsn, 1);
+    assert_eq!(&lsn, "1");
 }
 
 #[test_context(ProjectTestContext)]
@@ -61,7 +61,7 @@ async fn test_upsert_batch(ctx: &mut ProjectTestContext) {
         .await
         .expect("could not upsert document");
 
-    assert_eq!(lsn, 1);
+    assert_eq!(&lsn, "1");
 }
 
 #[test_context(ProjectTestContext)]
@@ -80,7 +80,7 @@ async fn test_upsert_sequential(ctx: &mut ProjectTestContext) {
         .upsert(vec![doc!("_id" => "one")])
         .await
         .expect("could not upsert document");
-    assert_eq!(lsn, 1);
+    assert_eq!(&lsn, "1");
 
     let lsn = ctx
         .client
@@ -88,7 +88,7 @@ async fn test_upsert_sequential(ctx: &mut ProjectTestContext) {
         .upsert(vec![doc!("_id" => "two")])
         .await
         .expect("could not upsert document");
-    assert_eq!(lsn, 2);
+    assert_eq!(&lsn, "2");
 
     let lsn = ctx
         .client
@@ -96,7 +96,7 @@ async fn test_upsert_sequential(ctx: &mut ProjectTestContext) {
         .upsert(vec![doc!("_id" => "three")])
         .await
         .expect("could not upsert document");
-    assert_eq!(lsn, 3);
+    assert_eq!(&lsn, "3");
 }
 
 #[test_context(ProjectTestContext)]

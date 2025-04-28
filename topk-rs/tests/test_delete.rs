@@ -39,7 +39,7 @@ async fn test_delete_document(ctx: &mut ProjectTestContext) {
         ])
         .await
         .expect("could not upsert document");
-    assert_eq!(lsn, 1);
+    assert_eq!(&lsn, "1");
 
     // wait for write to be flushed
     ctx.client
@@ -54,7 +54,7 @@ async fn test_delete_document(ctx: &mut ProjectTestContext) {
         .delete(vec!["one".to_string()])
         .await
         .expect("could not delete document");
-    assert_eq!(lsn, 2);
+    assert_eq!(&lsn, "2");
 
     let docs = ctx
         .client
@@ -87,5 +87,5 @@ async fn test_delete_non_existent_document(ctx: &mut ProjectTestContext) {
         .delete(vec!["one".to_string()])
         .await
         .expect("could not delete document");
-    assert_eq!(lsn, 1);
+    assert_eq!(&lsn, "1");
 }
