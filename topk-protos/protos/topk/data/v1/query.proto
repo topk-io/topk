@@ -54,7 +54,7 @@ message Stage {
   oneof stage {
     SelectStage select = 1;
     FilterStage filter = 2;
-    TopKStage topk = 3;
+    TopKStage top_k = 3;
     CountStage count = 4;
     RerankStage rerank = 5;
   }
