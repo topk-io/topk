@@ -117,3 +117,55 @@ async fn test_get_document_fields(ctx: &mut ProjectTestContext) {
         )])
     );
 }
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_get_updated_document(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let mut lotr = dataset::books::docs()
+        .into_iter()
+        .find(|doc| doc.id().unwrap() == "lotr")
+        .clone()
+        .unwrap();
+
+    // Update document
+    lotr.fields
+        .insert("published_year".to_string(), 2025.into());
+
+    ctx.client
+        .collection(&collection.name)
+        .upsert(vec![lotr.clone()])
+        .await
+        .expect("could not upsert document");
+
+    let docs = ctx
+        .client
+        .collection(&collection.name)
+        .get(["lotr"], None, None, None)
+        .await
+        .expect("could not get document");
+
+    assert_eq!(docs, HashMap::from([("lotr".to_string(), lotr.fields)]));
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_get_deleted_document(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    ctx.client
+        .collection(&collection.name)
+        .delete(vec!["lotr".to_string()])
+        .await
+        .expect("could not upsert document");
+
+    let docs = ctx
+        .client
+        .collection(&collection.name)
+        .get(["lotr"], None, None, None)
+        .await
+        .expect("could not get document");
+
+    assert_eq!(docs, HashMap::new());
+}
