@@ -30,3 +30,9 @@ impl From<Vec<f32>> for Vector {
         Vector::F32(values)
     }
 }
+
+impl From<Vec<u8>> for Vector {
+    fn from(values: Vec<u8>) -> Self {
+        Vector::U8(values)
+    }
+}
