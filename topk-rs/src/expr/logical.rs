@@ -90,6 +90,25 @@ pub enum LogicalExpr {
 }
 
 impl LogicalExpr {
+    // Constructors
+
+    /// Constructs [`LogicalExpr::Null`] expression.
+    pub fn null() -> Self {
+        Self::Null()
+    }
+
+    /// Constructs [`LogicalExpr::Field`] expression.
+    pub fn field(name: impl Into<String>) -> Self {
+        Self::Field { name: name.into() }
+    }
+
+    /// Constructs [`LogicalExpr::Literal`] expression.
+    pub fn literal(value: impl Into<Scalar>) -> Self {
+        Self::Literal {
+            value: value.into(),
+        }
+    }
+
     // Unary operators
 
     // NOTE: we don't expose `.not()` operator on the fluent query builder.
@@ -98,116 +117,116 @@ impl LogicalExpr {
     // TODO: add `is_null()` and `is_not_null()` operators.
 
     // Comparison operators
-    pub fn eq(&self, other: impl Into<LogicalExpr>) -> Self {
+    pub fn eq(self, other: impl Into<LogicalExpr>) -> Self {
         Self::Binary {
-            left: Box::new(self.clone()),
+            left: Box::new(self),
             op: BinaryOperator::Eq,
             right: Box::new(other.into()),
         }
     }
 
-    pub fn ne(&self, other: impl Into<LogicalExpr>) -> Self {
+    pub fn ne(self, other: impl Into<LogicalExpr>) -> Self {
         Self::Binary {
-            left: Box::new(self.clone()),
+            left: Box::new(self),
             op: BinaryOperator::NotEq,
             right: Box::new(other.into()),
         }
     }
 
-    pub fn lt(&self, other: impl Into<LogicalExpr>) -> Self {
+    pub fn lt(self, other: impl Into<LogicalExpr>) -> Self {
         Self::Binary {
-            left: Box::new(self.clone()),
+            left: Box::new(self),
             op: BinaryOperator::Lt,
             right: Box::new(other.into()),
         }
     }
 
-    pub fn lte(&self, other: impl Into<LogicalExpr>) -> Self {
+    pub fn lte(self, other: impl Into<LogicalExpr>) -> Self {
         Self::Binary {
-            left: Box::new(self.clone()),
+            left: Box::new(self),
             op: BinaryOperator::LtEq,
             right: Box::new(other.into()),
         }
     }
 
-    pub fn gt(&self, other: impl Into<LogicalExpr>) -> Self {
+    pub fn gt(self, other: impl Into<LogicalExpr>) -> Self {
         Self::Binary {
-            left: Box::new(self.clone()),
+            left: Box::new(self),
             op: BinaryOperator::Gt,
             right: Box::new(other.into()),
         }
     }
 
-    pub fn gte(&self, other: impl Into<LogicalExpr>) -> Self {
+    pub fn gte(self, other: impl Into<LogicalExpr>) -> Self {
         Self::Binary {
-            left: Box::new(self.clone()),
+            left: Box::new(self),
             op: BinaryOperator::GtEq,
             right: Box::new(other.into()),
         }
     }
 
     // Arithmetic operators
-    pub fn add(&self, other: impl Into<LogicalExpr>) -> Self {
+    pub fn add(self, other: impl Into<LogicalExpr>) -> Self {
         Self::Binary {
-            left: Box::new(self.clone()),
+            left: Box::new(self),
             op: BinaryOperator::Add,
             right: Box::new(other.into()),
         }
     }
 
-    pub fn sub(&self, other: impl Into<LogicalExpr>) -> Self {
+    pub fn sub(self, other: impl Into<LogicalExpr>) -> Self {
         Self::Binary {
-            left: Box::new(self.clone()),
+            left: Box::new(self),
             op: BinaryOperator::Sub,
             right: Box::new(other.into()),
         }
     }
 
-    pub fn mul(&self, other: impl Into<LogicalExpr>) -> Self {
+    pub fn mul(self, other: impl Into<LogicalExpr>) -> Self {
         Self::Binary {
-            left: Box::new(self.clone()),
+            left: Box::new(self),
             op: BinaryOperator::Mul,
             right: Box::new(other.into()),
         }
     }
 
-    pub fn div(&self, other: impl Into<LogicalExpr>) -> Self {
+    pub fn div(self, other: impl Into<LogicalExpr>) -> Self {
         Self::Binary {
-            left: Box::new(self.clone()),
+            left: Box::new(self),
             op: BinaryOperator::Div,
             right: Box::new(other.into()),
         }
     }
 
     // Boolean operators
-    pub fn and(&self, other: impl Into<LogicalExpr>) -> Self {
+    pub fn and(self, other: impl Into<LogicalExpr>) -> Self {
         Self::Binary {
-            left: Box::new(self.clone()),
+            left: Box::new(self),
             op: BinaryOperator::And,
             right: Box::new(other.into()),
         }
     }
 
-    pub fn or(&self, other: impl Into<LogicalExpr>) -> Self {
+    pub fn or(self, other: impl Into<LogicalExpr>) -> Self {
         Self::Binary {
-            left: Box::new(self.clone()),
+            left: Box::new(self),
             op: BinaryOperator::Or,
             right: Box::new(other.into()),
         }
     }
 
     // String operators
-    pub fn starts_with(&self, other: impl Into<LogicalExpr>) -> Self {
+    pub fn starts_with(self, other: impl Into<LogicalExpr>) -> Self {
         Self::Binary {
-            left: Box::new(self.clone()),
+            left: Box::new(self),
             op: BinaryOperator::StartsWith,
             right: Box::new(other.into()),
         }
     }
 
-    pub fn contains(&self, other: impl Into<LogicalExpr>) -> Self {
+    pub fn contains(self, other: impl Into<LogicalExpr>) -> Self {
         Self::Binary {
-            left: Box::new(self.clone()),
+            left: Box::new(self),
             op: BinaryOperator::Contains,
             right: Box::new(other.into()),
         }
@@ -218,7 +237,7 @@ impl std::ops::Add for LogicalExpr {
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
-        LogicalExpr::add(&self, other)
+        LogicalExpr::add(self, other)
     }
 }
 
@@ -226,7 +245,7 @@ impl std::ops::Sub for LogicalExpr {
     type Output = Self;
 
     fn sub(self, other: Self) -> Self {
-        LogicalExpr::sub(&self, other)
+        LogicalExpr::sub(self, other)
     }
 }
 
@@ -234,7 +253,7 @@ impl std::ops::Mul for LogicalExpr {
     type Output = Self;
 
     fn mul(self, other: Self) -> Self {
-        LogicalExpr::mul(&self, other)
+        LogicalExpr::mul(self, other)
     }
 }
 
@@ -242,14 +261,14 @@ impl std::ops::Div for LogicalExpr {
     type Output = Self;
 
     fn div(self, other: Self) -> Self {
-        LogicalExpr::div(&self, other)
+        LogicalExpr::div(self, other)
     }
 }
 
-impl From<u32> for LogicalExpr {
-    fn from(value: u32) -> Self {
+impl<T: Into<Scalar>> From<T> for LogicalExpr {
+    fn from(value: T) -> Self {
         LogicalExpr::Literal {
-            value: Scalar::U32(value),
+            value: value.into(),
         }
     }
 }
