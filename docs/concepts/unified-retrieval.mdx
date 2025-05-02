@@ -242,8 +242,7 @@ const docs = await client.collection("documents").query(
   }).topk(
     literal(0.8)
       .mul(field("importance"))
-      .add(0.2)
-      .mul(field("content_score")),
+      .add(literal(0.2).mul(field("content_score"))),
     10
   )
 );

@@ -137,12 +137,9 @@ The above example computes the cosine similarity between the vector and the `tit
 
 ## Filtering
 
-You can filter documents based on metadata, keywords, values computed inside `select()` (e.g. vector similarity), and more. Filter expressions
-support all comparison operators: `==`, `!=`, `>`, `>=`, `<`, `<=`, arithmetic operations: `+`, `-`, `*`, `/`, and boolean operators: `|` and `&`.
+You can filter documents by **metadata**, **keywords**, **custom properties** computed inside `select()` (e.g. vector similarity or BM25 score) and more. Filter expressions support all comparison operators: `==`, `!=`, `>`, `>=`, `<`, `<=`, arithmetic operations: `+`, `-`, `*`, `/`, and boolean operators: `|` and `&`.
 
 ### Metadata filtering
-
-The example below shows filtering by metadata.
 
 <CodeGroup>
 
@@ -153,7 +150,7 @@ The example below shows filtering by metadata.
 ```
 
 
-```js JavaScript
+```js Javascript
 .filter(field("published_year").gt(1980))
 ```
 
@@ -173,7 +170,7 @@ contain either `gatsby` or both `catcher` and `rye`.
 ```
 
 
-```js JavaScript
+```js Javascript
 .filter(match("gatsby").or(match("catcher").and(match("rye"))))
 ```
 
@@ -193,7 +190,7 @@ documents that were published in 1997 or between 1920 and 1980.
 ```
 
 
-```typescript JavaScript
+```typescript Javascript
 .filter(
   field("published_year").eq(1997).or(
     field("published_year").gte(1920).and(
@@ -220,7 +217,7 @@ then be used to scope the query to a specific tenant.
 ```
 
 
-```js JavaScript
+```js Javascript
 .filter(field("_id").startsWith("tenant_123/"))
 ```
 
@@ -245,6 +242,31 @@ The `contains` operator can be used on string fields to match documents that inc
 
 </CodeGroup>
 
+### not
+
+The `not` helper can be used to **negate** a filter expression. It takes an expression as an argument and inverts its logic.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import field, not_
+
+.filter(
+    not_(field("title").contains("Catcher"))
+)
+```
+
+
+```typescript Javascript
+import { field, not } from "topk-js/query";
+
+.filter(
+    not(field("title").contains("Catcher"))
+)
+```
+
+</CodeGroup>
+
 ## Results collection
 
 All queries are required to have a collection stage. Currently, we only support `topk` and `count` collectors.
@@ -261,7 +283,7 @@ You can use the `topk` method to return the top `k` results. The `topk` method t
 ```
 
 
-```typescript JavaScript
+```typescript Javascript
 // Return top 10 results order by `published_year` and ascending `true`
 .topk(field("title_similarity"), 10, true)
 ```
@@ -280,7 +302,7 @@ You can use the `count` method to get the total number of documents matching the
 ```
 
 
-```js JavaScript
+```js Javascript
 // Count the total number of documents in the collection
 .count()
 ```
@@ -316,7 +338,7 @@ Supported models:
 ```
 
 
-```typescript JavaScript
+```typescript Javascript
 .rerank()
 
 // or
@@ -360,7 +382,7 @@ docs = client.collection("books").query(
 ```
 
 
-```typescript JavaScript
+```typescript Javascript
 import { select, fn, field, match } from "topk-js/query";
 
 const docs = await client.collection("books").query(

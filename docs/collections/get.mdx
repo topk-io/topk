@@ -1,0 +1,42 @@
+---
+title: "Get a collection"
+description: "You can get a specific collection in a project by calling `client.collections().get(name)`."
+---
+
+Getting a single collection is as easy as:
+
+<CodeGroup>
+
+```python Python
+collection = client.collections().get("books")
+```
+
+
+```typescript Javascript
+const collection = await client.collections().get("books")
+```
+
+</CodeGroup>
+
+The `get` method takes the name of a collection and returns a single `Collection` object.
+
+<CodeGroup>
+
+```python Python
+print(f"Collection name: {collection.name}")
+print(f"Organization ID: {collection.org_id}")
+print(f"Project ID: {collection.project_id}")
+print(f"Region: {collection.region}")
+print(f"Schema: {collection.schema}")
+```
+
+
+```js Javascript
+console.log(`Collection name: ${collection.name}`);
+console.log(`Organization ID: ${collection.orgId}`);
+console.log(`Project ID: ${collection.projectId}`);
+console.log(`Region: ${collection.region}`);
+console.log(`Schema: ${collection.schema}`);
+```
+
+</CodeGroup>
