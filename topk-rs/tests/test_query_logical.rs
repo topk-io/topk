@@ -52,3 +52,48 @@ async fn test_query_and(ctx: &mut ProjectTestContext) {
 
     assert_doc_ids!(result, ["1984"]);
 }
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_is_null(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            filter(field("nullable_embedding").is_null()).topk(field("published_year"), 100, true),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids!(
+        result,
+        ["pride", "gatsby", "moby", "hobbit", "lotr", "alchemist"]
+    );
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_is_not_null(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            filter(field("nullable_embedding").is_not_null()).topk(
+                field("published_year"),
+                100,
+                true,
+            ),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids!(result, ["mockingbird", "1984", "catcher", "harry"]);
+}
