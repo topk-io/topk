@@ -1,0 +1,86 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "TopK",
+  "colors": {
+    "primary": "#FF5000",
+    "light": "#FF5000",
+    "dark": "#FF5000"
+  },
+  "favicon": "/favicon.png",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "community"
+            ]
+          },
+          {
+            "group": "Concepts",
+            "pages": [
+              "concepts/semantic-search",
+              "concepts/unified-retrieval",
+              "concepts/consistency"
+            ]
+          },
+          {
+            "group": "Documents",
+            "pages": [
+              "documents/query",
+              "documents/upsert",
+              "documents/delete"
+            ]
+          },
+          {
+            "group": "Collections",
+            "pages": [
+              "collections/create",
+              "collections/list",
+              "collections/delete"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "logo": {
+    "light": "/logo/topk.svg",
+    "dark": "/logo/topk.svg"
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "Support",
+        "href": "mailto:support@topk.io"
+      },
+      {
+        "label": "GitHub",
+        "href": "https://github.com/topk-io/topk"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Console",
+      "href": "https://console.topk.io"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/topk-io/topk",
+      "x": "https://x.com/topk_io",
+      "linkedin": "https://www.linkedin.com/company/106000380/"
+    }
+  },
+  "integrations": {
+    "posthog": {
+      "apiKey": "phc_FoF1Uhvn09WBG0efZMONifxqehbeqIUGQd4VcKyR2p3",
+      "apiHost": "https://eu.i.posthog.com"
+    }
+  }
+}
