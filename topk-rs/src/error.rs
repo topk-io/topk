@@ -15,8 +15,11 @@ pub enum Error {
     #[error("invalid collection schema")]
     SchemaValidationError(ValidationErrorBag<SchemaValidationError>),
 
-    #[error("invalid argument")]
-    DocumentValidationError(ValidationErrorBag<ValidationError>),
+    #[error("document validation error")]
+    DocumentValidationError(ValidationErrorBag<DocumentValidationError>),
+
+    #[error("collection validation error")]
+    CollectionValidationError(ValidationErrorBag<CollectionValidationError>),
 
     #[error("invalid argument: {0}")]
     InvalidArgument(String),
@@ -76,7 +79,7 @@ pub enum SchemaValidationError {
 }
 
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-pub enum ValidationError {
+pub enum DocumentValidationError {
     MissingId {
         doc_offset: usize,
     },
@@ -111,6 +114,11 @@ pub enum ValidationError {
     },
 
     NoDocuments,
+}
+
+#[derive(PartialEq, Debug, serde::Serialize, serde::Deserialize)]
+pub enum CollectionValidationError {
+    InvalidName(String),
 }
 
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
