@@ -60,10 +60,15 @@ impl CollectionsClient {
             .await
             .map_err(|e| match e.code() {
                 tonic::Code::AlreadyExists => Error::CollectionAlreadyExists,
-                tonic::Code::InvalidArgument => match ValidationErrorBag::try_from(e.clone()) {
-                    Ok(errors) => Error::SchemaValidationError(errors),
-                    Err(_) => Error::Unexpected(e),
-                },
+                tonic::Code::InvalidArgument => {
+                    if let Ok(errors) = ValidationErrorBag::try_from(e.clone()) {
+                        Error::CollectionValidationError(errors)
+                    } else if let Ok(errors) = ValidationErrorBag::try_from(e.clone()) {
+                        Error::SchemaValidationError(errors)
+                    } else {
+                        Error::Unexpected(e)
+                    }
+                }
                 _ => Error::Unexpected(e),
             })?;
 

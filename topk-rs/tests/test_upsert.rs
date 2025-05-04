@@ -5,7 +5,7 @@ use topk_protos::v1::{
     control::{field_type::DataType, FieldSpec, FieldType, FieldTypeText},
     data::Document,
 };
-use topk_rs::error::{ValidationError, ValidationErrorBag};
+use topk_rs::error::{DocumentValidationError, ValidationErrorBag};
 use topk_rs::Error;
 
 mod utils;
@@ -117,7 +117,7 @@ async fn test_upsert_no_documents(ctx: &mut ProjectTestContext) {
         .expect_err("should not be able to upsert invalid document");
 
     assert!(
-        matches!(err, Error::DocumentValidationError(ref s) if s == &ValidationErrorBag::from(vec![ValidationError::NoDocuments {}])),
+        matches!(err, Error::DocumentValidationError(ref s) if s == &ValidationErrorBag::from(vec![DocumentValidationError::NoDocuments {}])),
         "got error: {:?}",
         err
     );
@@ -143,7 +143,7 @@ async fn test_upsert_invalid_document(ctx: &mut ProjectTestContext) {
     assert!(
         matches!(
             err,
-            Error::DocumentValidationError(ref s) if s == &ValidationErrorBag::from(vec![ValidationError::MissingId { doc_offset: 0 } ])
+            Error::DocumentValidationError(ref s) if s == &ValidationErrorBag::from(vec![DocumentValidationError::MissingId { doc_offset: 0 } ])
         ),
         "got error: {:?}",
         err
@@ -182,7 +182,7 @@ async fn test_upsert_schema_validation(ctx: &mut ProjectTestContext) {
     assert!(
         matches!(
             err,
-            Error::DocumentValidationError(ref s) if s == &ValidationErrorBag::from(vec![ValidationError::MissingField {
+            Error::DocumentValidationError(ref s) if s == &ValidationErrorBag::from(vec![DocumentValidationError::MissingField {
                 field: "name".to_string(),
                 doc_id: "one".to_string(),
             }])
