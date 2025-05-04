@@ -24,6 +24,9 @@ impl From<TopkError> for napi::Error {
             topk_rs::Error::SchemaValidationError(e) => {
                 napi::Error::new(napi::Status::InvalidArg, format!("{:?}", e))
             }
+            topk_rs::Error::CollectionValidationError(e) => {
+                napi::Error::new(napi::Status::InvalidArg, format!("{:?}", e))
+            }
             topk_rs::Error::InvalidArgument(msg) => napi::Error::new(
                 napi::Status::InvalidArg,
                 format!("invalid argument: {}", msg),
