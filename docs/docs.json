@@ -34,6 +34,7 @@
             "pages": [
               "documents/query",
               "documents/upsert",
+              "documents/get",
               "documents/delete"
             ]
           },
@@ -42,6 +43,7 @@
             "pages": [
               "collections/create",
               "collections/list",
+              "collections/get",
               "collections/delete"
             ]
           }
