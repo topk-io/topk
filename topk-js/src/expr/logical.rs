@@ -48,6 +48,30 @@ impl LogicalExpression {
         self.expr.clone()
     }
 
+    // Unary operators
+
+    #[napi]
+    pub fn is_null(&self) -> Self {
+        Self {
+            expr: LogicalExpressionUnion::Unary {
+                op: UnaryOperator::IsNull,
+                expr: NapiBox(Box::new(self.expr.clone())),
+            },
+        }
+    }
+
+    #[napi]
+    pub fn is_not_null(&self) -> Self {
+        Self {
+            expr: LogicalExpressionUnion::Unary {
+                op: UnaryOperator::IsNotNull,
+                expr: NapiBox(Box::new(self.expr.clone())),
+            },
+        }
+    }
+
+    // Comparison operators
+
     #[napi]
     pub fn eq(
         &self,

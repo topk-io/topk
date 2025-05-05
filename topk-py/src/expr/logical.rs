@@ -157,7 +157,19 @@ impl LogicalExpr {
 
     // Unary operators
 
-    // TODO: add `is_null()` and `is_not_null()` operators.
+    fn is_null(&self, py: Python<'_>) -> PyResult<Self> {
+        Ok(Self::Unary {
+            op: UnaryOperator::IsNull,
+            expr: Py::new(py, self.clone())?,
+        })
+    }
+
+    fn is_not_null(&self, py: Python<'_>) -> PyResult<Self> {
+        Ok(Self::Unary {
+            op: UnaryOperator::IsNotNull,
+            expr: Py::new(py, self.clone())?,
+        })
+    }
 
     // Comparison operators
 

@@ -109,12 +109,24 @@ impl LogicalExpr {
         }
     }
 
-    // Unary operators
-
     // NOTE: we don't expose `.not()` operator on the fluent query builder.
     // Instead, we use the `not()` query builder from the `query` module.
 
-    // TODO: add `is_null()` and `is_not_null()` operators.
+    // Unary operators
+
+    pub fn is_null(&self) -> Self {
+        Self::Unary {
+            op: UnaryOperator::IsNull,
+            expr: Box::new(self.clone()),
+        }
+    }
+
+    pub fn is_not_null(&self) -> Self {
+        Self::Unary {
+            op: UnaryOperator::IsNotNull,
+            expr: Box::new(self.clone()),
+        }
+    }
 
     // Comparison operators
     pub fn eq(self, other: impl Into<LogicalExpr>) -> Self {

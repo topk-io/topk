@@ -80,6 +80,8 @@ export declare namespace query {
   export class LogicalExpression {
     static create(expr: LogicalExpressionUnion): LogicalExpression
     get expr(): LogicalExpressionUnion
+    isNull(): LogicalExpression
+    isNotNull(): LogicalExpression
     eq(other: LogicalExpression | string | number | boolean | null | undefined): LogicalExpression
     ne(other: LogicalExpression | string | number | boolean | null | undefined): LogicalExpression
     lt(other: LogicalExpression | number): LogicalExpression
