@@ -18,4 +18,45 @@ const docs = await ctx.client.collection("books").get(["lotr", "moby"])
 
 </CodeGroup>
 
-The result is a key-value mapping: each key is a document ID, and each value is the document in the same shape it was upserted.
+The result is a key-value mapping: each key is a document ID, and each value is the document in the same shape it was upserted:
+
+<CodeGroup>
+
+```python Python
+# Example response
+{
+    "lotr": {
+		"_id": "lotr",
+        "title": "The Lord of the Rings",
+        "author": "J.R.R. Tolkien",
+        "published_year": 1954
+    },
+    "moby": {
+		"_id": "moby",
+        "title": "Moby Dick",
+        "author": "Herman Melville",
+        "published_year": 1851
+    }
+}
+```
+
+
+```typescript Javascript
+// Example response
+{
+  lotr: {
+	_id: "lotr",
+    title: "The Lord of the Rings",
+    author: "J.R.R. Tolkien",
+    published_year: 1954
+  },
+  moby: {
+	_id: "moby",
+    title: "Moby Dick",
+    author: "Herman Melville",
+    published_year: 1851
+  }
+}
+```
+
+</CodeGroup>
