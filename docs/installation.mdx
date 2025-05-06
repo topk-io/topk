@@ -1,0 +1,109 @@
+---
+title: Installation
+description: "Install the TopK Python or JavaScript SDK"
+---
+
+import Support from "/snippets/support.mdx";
+
+<CodeGroup>
+
+```bash Python
+pip install topk-sdk
+```
+
+```bash Javascript
+npm install topk
+
+# or
+
+yarn add topk
+```
+</CodeGroup>
+
+## Setup TopK Client
+
+The TopK Client provides the interface to communicate with TopK, handling authentication and featuring all functionality.
+
+To initialize a client, you'll need your API key and region:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk import Client
+
+client = Client(api_key="YOUR_TOPK_API_KEY", region="aws-us-east-1-elastica")
+```
+
+
+```typescript Javascript
+import { Client } from "topk-js";
+
+const client = new Client({
+  apiKey: "YOUR_TOPK_API_KEY",
+  region: "aws-us-east-1-elastica"
+});
+```
+
+</CodeGroup>
+
+To obtain your API key, go to the [TopK Console](https://console.topk.io).
+API key is project-specific, so you'll need to create a new one for each project.
+
+### Using in a `topk-js` server-side rendering (SSR) environment ?
+
+If you're using the TopK **JavaScript SDK** in a server-side rendering (SSR) environment, you may need to follow these steps to ensure compatibility:
+
+<AccordionGroup>
+  <Accordion title="Using with Vite ?" description="Remix, Nuxt, SvetleKit, Astro ...">
+    If you're using `topk-js` in a Vite project with server-side rendering (SSR), you may need to configure Vite to treat it as an external dependency. This ensures compatibility and prevents build-time issues related to SSR or dependency pre-bundling.
+
+    ```typescript
+    // vite.config.ts
+
+    export default defineConfig({
+      // ...
+      ssr: {
+        external: ["topk-js"],
+      },
+      optimizeDeps: {
+        exclude: ["topk-js"],
+      },
+    });
+    ```
+  </Accordion>
+  <Accordion title="Using with Webpack or Turbopack ?" description="Next.js">
+    If you're using `topk-js` in a Next.js project (especially with the App Router and Server Components), you may need to mark it as an external package to avoid build issues during server-side bundling.
+
+    ```typescript
+    // next.config.ts
+
+    import type { NextConfig } from "next";
+
+    const nextConfig: NextConfig = {
+      /* config options here */
+      serverExternalPackages: ["topk-js"],
+    };
+
+    export default nextConfig;
+    ```
+  </Accordion>
+</AccordionGroup>
+
+<Support />
+
+## Next steps
+
+We look forward to having you onboard. Here are some resources to help you get started:
+
+<CardGroup cols={2}>
+  <Card title="Quickstart (5m)" icon="pen-to-square" href="/quickstart">
+    Follow our prepared guide to get started with TopK. It will walk you through
+    the process of creating your first collection, adding documents, and
+    searching them.
+  </Card>
+  <Card title="Community" icon="users" href="/community">
+    Do you want to meet likeminded people and other TopK users? Join our
+    community and share your experience with others.
+  </Card>
+</CardGroup>
+
