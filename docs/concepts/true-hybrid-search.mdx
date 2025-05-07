@@ -1,13 +1,25 @@
 ---
-title: "Unified Retrieval"
+title: "True Hybrid Search"
 ---
 
-Unified retrieval allows you to combine multiple retrieval techniques—such as multi-vector search, hybrid (vector \+ text) search, and custom scoring functions **within a single query**. This flexibility enables more precise and effective ranking of search results.
+True Hybrid Search allows you to combine multiple retrieval techniques—such as multi-vector search, hybrid (vector \+ text) search, and custom scoring functions **within a single query**. This flexibility enables more precise and effective ranking of search results.
 
-With **TopK**, you can:
+## How TopK differs from other "hybrid" search systems
+
+Most databases that claim to offer "hybrid" search maintain separate vector and keyword indexes. When a query is executed:
+
+1. They run the query against both indexes separately
+2. Each index returns its top results (e.g., top 100 candidates)
+3. They use techniques like Reciprocal Rank Fusion (RRF) to merge and re-rank these separate result sets
+
+This approach is fundamentally **probabilistic** - the final "top 100" results are not guaranteed to be the actual best matches because some potential matches might be missed if they don't appear in either index's top results.
+
+**TopK is different.** We scan both vector and keyword indexes simultaneously within a single query, ensuring that our "top 100" results are the **actual** top 100 - not just a probabilistic approximation.
+
+With TopK, you can:
 
 1. Retrieve documents based on multiple embeddings -- **multi-vector retrieval**.
-2. Combine semantic similarity (or vector distance) with keyword search -- **hybrid retrieval**.
+2. Combine semantic similarity (or vector distance) with keyword search -- **true hybrid retrieval**.
 3. Apply custom scoring functions that blend multiple ranking factors -- **custom scoring**.
 
 ---

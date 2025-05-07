@@ -26,7 +26,7 @@
             "group": "Concepts",
             "pages": [
               "concepts/semantic-search",
-              "concepts/unified-retrieval",
+              "concepts/true-hybrid-search",
               "concepts/consistency"
             ]
           },

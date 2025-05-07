@@ -243,6 +243,14 @@ Optionally, you can pass a `model` parameter to the `semantic_index()` method. S
 - `cohere/embed-english-v3`
 - `cohere/embed-multilingual-v3` (default)
 
+You can also pass an optional `embedding_type` parameter to the `semantic_index()` method as well. TopK supports the following embedding types for Cohere models:
+
+- `float32`
+- `uint8`
+- `binary`
+
+
+
 #### Vector index
 
 The `vector_index()` method is used to create a vector index. Only fields with `f32_vector()`, `u8_vector()`, or `binary_vector()` data types

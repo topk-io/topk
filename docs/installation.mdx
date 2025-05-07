@@ -46,8 +46,25 @@ const client = new Client({
 
 </CodeGroup>
 
-To obtain your API key, go to the [TopK Console](https://console.topk.io).
-API key is project-specific, so you'll need to create a new one for each project.
+TopK Client accepts the following parameters:
+
+| Parameter    | Python          | Javacript     | Default Value | Allowed Values                | Required |
+| ------------ | --------------- | -------------- | ------------- | ----------------------------- | -------- |
+| API Key      | `api_key`       | `apiKey`       | `N/A`         | String                        | **Yes**  |
+| Region       | `region`        | `region`       | `N/A`         | `aws-us-east-1-elastica`      | **Yes**  |
+| Host         | `host`          | `host`         | `topk.io`     | String                        | No       |
+| Https        | `https`         | `https`        | `true`        | Boolean                       | No       |
+
+## API Key
+
+TopK API key is **project-specific**, so you'll need to obtain an API key for each individual project.
+
+To obtain your API key:
+
+1. Go to the [TopK Console](https://console.topk.io).
+2. Log in or create your account
+3. Go to a project or create a new one
+4. Generate an API key
 
 ### Using in a `topk-js` server-side rendering (SSR) environment ?
 

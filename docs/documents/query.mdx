@@ -134,6 +134,270 @@ const docs = await client.collection("books").query(
 
 The above example computes the cosine similarity between the vector and the `title_embedding` field. The `title_embedding` field is a vector field that represents the title of the book.
 
+## Select expressions
+
+The `select` method can be used to select fields from documents. It can be used to select specific fields, rename fields, or include computed fields called function expressions.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, field
+
+docs = client.collection("books").query(
+    select(
+        "title",
+        year=field("published_year") # renamed field
+    )
+)
+```
+
+
+```js Javascript
+import { select, field } from "topk-js/query";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    year: field("published_year"), // renamed field
+  })
+);
+```
+
+</CodeGroup>
+
+### Function expressions
+
+Function expressions are computed fields that can be included in your query results. TopK currently supports three main function expressions:
+
+- `bm25_score()`: Calculates relevance scores using the BM25 algorithm for text search
+- `vector_distance(field, vector)`: Computes distance between vectors for vector search
+- `semantic_similarity(field, query)`: Measures semantic similarity between text and embeddings
+
+#### BM25 Score
+
+The BM25 score is a relevance score that can be used to score documents based on their text content.
+
+To use the `fn.bm25_score()` in your query, you **must** include a `match` predicate in your query filter stage.
+
+Also, the collection **must** have a [**keyword index**](http://docs.topk.io/collections/create#keyword-index) typically on the fields you're matching against.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, fn, match
+
+docs = client.collection("books").query(
+    select(
+        "title",
+        text_score=fn.bm25_score()
+    )
+    .filter(match("Good")) # must include a match predicate
+    .topk(field("text_score"), 10)
+)
+
+# Example result:
+# [
+#   {
+#     "_id": "1",
+#     "title": "Good Night, Bat! Good Morning, Squirrel!",
+#     "text_score": 0.2447269707918167
+#   },
+#   {
+#     "_id": "2",
+#     "title": "Good Girl, Bad Blood",
+#     "text_score": 0.20035339891910553
+#   }
+# ]
+```
+
+
+```js Javascript
+import { select, field, fn, match } from "topk-js/query";
+
+const results = await client.collection("books").query(
+  select({
+    title: field("title"),
+    text_score: fn.bm25Score(),
+  })
+    .filter(match("Good"))
+    .topk(field("text_score"), 10)
+);
+
+// Example result:
+// [
+//   {
+//     _id: '1',
+//     title: 'Good Night, Bat! Good Morning, Squirrel!'
+//     text_score: 0.2447269707918167,
+//   },
+//   {
+//     _id: '2',
+//     title: 'Good Girl, Bad Blood',
+//     text_score: 0.20035339891910553
+//   }
+// ]
+```
+
+</CodeGroup>
+
+#### Vector distance
+
+The `vector_distance` function is used to compute the distance between a query vector and a vector field in a collection.
+
+To use the `vector_distance` function, you **must** have a [**vector index**](http://docs.topk.io/collections/create#vector-index) defined on the field you're computing the distance on.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, fn
+
+docs = client.collection("books").query(
+    select(
+        "title",
+        title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3, ...])
+         # embedding for "animal"
+    )
+    .topk(field("title_similarity"), 10)
+)
+
+# Example result:
+# [
+#   {
+#     "_id": "2",
+#     "title": "To Kill a Mockingbird",
+#     "title_similarity": 0.7484796643257141
+#   },
+#   {
+#     "_id": "1",
+#     "title": "The Catcher in the Rye",
+#     "title_similarity": 0.5471329569816589
+#   }
+# ]
+```
+
+```js Javascript
+import { select, field, fn } from "topk-js/query";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    title_similarity: fn.vectorDistance(
+      "title_embedding",
+      [0.1, 0.2, 0.3 /* embedding for "animal" */]
+    ),
+  })
+);
+
+// Example result:
+// [
+//   {
+//     _id: '2',
+//     title: 'To Kill a Mockingbird',
+//     title_similarity: 0.7484796643257141
+//   },
+//   {
+//     _id: '1'
+//     title: 'The Catcher in the Rye',
+//     title_similarity: 0.5471329569816589,
+//   }
+// ]
+```
+
+</CodeGroup>
+
+
+#### Semantic similarity
+
+The `semantic_similarity` function is used to compute the similarity between a **text query** and a **text field** in a collection.
+
+To use the `semantic_similarity` function, you **must** have a [**semantic index**](http://docs.topk.io/collections/create#semantic-index) defined on the field you're computing the similarity on.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, fn
+
+docs = client.collection("books").query(
+    select(
+        "title",
+        title_similarity=fn.semantic_similarity("title", "animal")
+    )
+    .topk(field("title_similarity"), 10)
+)
+
+# Example result:
+# [
+#   {
+#     "_id": "2",
+#     "title": "To Kill a Mockingbird",
+#     "title_similarity": 0.7484796643257141
+#   },
+#   {
+#     "_id": "1",
+#     "title": "The Catcher in the Rye",
+#     "title_similarity": 0.5471329569816589
+#   }
+# ]
+```
+
+```js Javascript
+import { select, field, fn } from "topk-js/query";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    title_similarity: fn.semanticSimilarity("title", "animal"),
+  })
+    .topk(field("title_similarity"), 10)
+);
+
+// Example result:
+// [
+//   {
+//     _id: '2',
+//     title: 'To Kill a Mockingbird',
+//     title_similarity: 0.7484796643257141
+//   },
+//   {
+//     _id: '1',
+//     title: 'The Catcher in the Rye',
+//     title_similarity: 0.5471329569816589
+//   }
+// ]
+```
+
+</CodeGroup>
+
+### Advanced select expressions
+
+TopK doesn't only let you select static fields from your documents or computed fields using function expressions.
+You can also use TopK powerful expression language to select fields by chaining arbitrary logical expressions:
+
+<CodeGroup>
+
+```python Python
+select(
+  weight_in_grams=field("weight").mul(1000),
+  is_adult=field("age").gt(18),
+  published_in_nineteenth_century=field("published_year") >= 1800 && field("published_year") < 1900,
+)
+```
+
+
+```js Javascript
+import { select, field } from "topk-js/query";
+
+select({
+  weight_in_grams: field("weight").mul(1000),
+  is_adult: field("age").gt(18),
+  published_in_nineteenth_century: field("published_year")
+    .gte(1800)
+    .and(field("published_year").lt(1900)),
+});
+```
+
+</CodeGroup>
+
 ## Filtering
 
 You can filter documents by **metadata**, **keywords**, **custom properties** computed inside `select()` (e.g. vector similarity or BM25 score) and more. Filter expressions support all comparison operators: `==`, `!=`, `>`, `>=`, `<`, `<=`, arithmetic operations: `+`, `-`, `*`, `/`, and boolean operators: `|` and `&`.
@@ -156,6 +420,13 @@ You can filter documents by **metadata**, **keywords**, **custom properties** co
 </CodeGroup>
 
 ### Keyword filtering
+
+The `match()` function is the backbone of text search and keyword filtering in TopK.
+
+It allows you to search for documents that contain specific keywords or phrases.
+
+Note that in order to perform keyword filtering, you need to have a
+[**keyword index**](http://docs.topk.io/collections/create#keyword-index) defined in the collection.
 
 The example below shows filtering documents by the keywords they contain. It'll match all documents that
 contain either `gatsby` or both `catcher` and `rye`.
@@ -201,7 +472,215 @@ documents that were published in 1997 or between 1920 and 1980.
 
 </CodeGroup>
 
-### starts_with
+## Operators
+
+When writing queries, you can use the following operators for field selection and filtering:
+
+### Logical operators
+
+#### and
+
+The `and` operator can be used to combine multiple logical expressions.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") == 1997 && field("title") == "The Catcher in the Rye"
+)
+
+# or
+
+.filter(
+    field("published_year").eq(1997).and(field("title").eq("The Catcher in the Rye"))
+)
+```
+
+
+```js Javascript
+.filter(
+  field("published_year").eq(1997).and(field("title").eq("The Catcher in the Rye"))
+)
+```
+
+</CodeGroup>
+
+#### or
+
+The `or` operator can be used to combine multiple logical expressions.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") == 1997 || field("title") == "The Catcher in the Rye"
+)
+
+# or
+
+.filter(
+    field("published_year").eq(1997).or(field("title").eq("The Catcher in the Rye"))
+)
+```
+
+
+```js Javascript
+.filter(
+  field("published_year").eq(1997).or(field("title").eq("The Catcher in the Rye"))
+)
+```
+
+</CodeGroup>
+
+### Comparison operators
+
+#### eq
+
+The `eq` operator can be used to match documents that have a field with a specific value.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") == 1997
+)
+
+# or
+
+.filter(
+    field("published_year").eq(1997)
+)
+```
+
+```js Javascript
+.filter(field("published_year").eq(1997))
+```
+
+</CodeGroup>
+
+#### ne
+
+The `ne` operator can be used to match documents that have a field with a value that is not equal to a specific value.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") != 1997
+)
+
+# or
+
+.filter(
+    field("published_year").ne(1997)
+)
+```
+
+```js Javascript
+.filter(field("published_year").ne(1997))
+```
+
+</CodeGroup>
+
+#### gt
+
+The `gt` operator can be used to match documents that have a field with a value greater than a specific value.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") > 1997
+)
+
+# or
+
+.filter(
+    field("published_year").gt(1997)
+)
+```
+
+```js Javascript
+.filter(field("published_year").gt(1997))
+```
+
+</CodeGroup>
+
+#### gte
+
+The `gte` operator can be used to match documents that have a field with a value greater than or equal to a specific value.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") >= 1997
+)
+
+# or
+
+.filter(
+    field("published_year").gte(1997)
+)
+```
+
+
+```js Javascript
+.filter(field("published_year").gte(1997))
+```
+
+</CodeGroup>
+
+#### lt
+
+The `lt` operator can be used to match documents that have a field with a value less than a specific value.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") < 1997
+)
+
+# or
+
+.filter(
+    field("published_year").lt(1997)
+)
+```
+
+```js Javascript
+.filter(field("published_year").lt(1997))
+```
+
+</CodeGroup>
+
+#### lte
+
+The `lte` operator can be used to match documents that have a field with a value less than or equal to a specific value.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") <= 1997
+)
+
+# or
+
+.filter(
+    field("published_year").lte(1997)
+)
+```
+
+```js Javascript
+.filter(field("published_year").lte(1997))
+```
+
+</CodeGroup>
+
+
+#### starts_with
 
 The `starts_with` operator can be used on string fields to match documents that start with a given prefix. This is especially
 useful in multi-tenant applications where document IDs can be structured as `{tenant_id}/{document_id}` and `starts_with` can
@@ -222,7 +701,7 @@ then be used to scope the query to a specific tenant.
 
 </CodeGroup>
 
-### contains
+#### contains
 
 The `contains` operator can be used on string fields to match documents that include a specific substring. It is **case-sensitive** and is particularly useful in scenarios where you need to filter results based on a portion of a string.
 
@@ -241,9 +720,110 @@ The `contains` operator can be used on string fields to match documents that inc
 
 </CodeGroup>
 
-### not
+### Arithmetic operators
 
-The `not` helper can be used to **negate** a filter expression. It takes an expression as an argument and inverts its logic.
+#### add
+
+The `add` operator can be used to add two numbers.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") + 1997
+)
+
+# or
+
+.filter(
+    field("published_year").add(1997)
+)
+```
+
+```js Javascript
+.filter(field("published_year").add(1997))
+```
+
+</CodeGroup>
+
+#### sub
+
+The `sub` operator can be used to subtract two numbers.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") - 1997
+)
+
+# or
+
+.filter(
+    field("published_year").sub(1997)
+)
+```
+
+
+```js Javascript
+.filter(field("published_year").sub(1997))
+```
+
+</CodeGroup>
+
+#### mul
+
+The `mul` operator can be used to multiply two numbers.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") * 1997
+)
+
+# or
+
+.filter(
+    field("published_year").mul(1997)
+)
+```
+
+```js Javascript
+.filter(field("published_year").mul(1997))
+```
+
+</CodeGroup>
+
+#### div
+
+The `div` operator can be used to divide two numbers.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") / 1997
+)
+
+# or
+
+.filter(
+    field("published_year").div(1997)
+)
+```
+
+```js Javascript
+.filter(field("published_year").div(1997))
+```
+
+</CodeGroup>
+
+### Unary operators
+
+#### not
+
+The `not` helper can be used to **negate** a logical expression. It takes an expression as an argument and inverts its logic.
 
 <CodeGroup>
 
@@ -262,6 +842,43 @@ import { field, not } from "topk-js/query";
 .filter(
     not(field("title").contains("Catcher"))
 )
+```
+
+</CodeGroup>
+#### is_null
+
+The `is_null` operator can be used to match documents that have a field with a value that is `null`.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("title").is_null()
+)
+```
+
+
+```js Javascript
+.filter(field("title").isNull())
+```
+
+</CodeGroup>
+
+#### is_not_null
+
+The `is_not_null` operator can be used to match documents that have a field with a value that is not `null`.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("title").is_not_null()
+)
+```
+
+
+```js Javascript
+.filter(field("title").isNotNull())
 ```
 
 </CodeGroup>
