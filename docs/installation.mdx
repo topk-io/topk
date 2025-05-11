@@ -12,19 +12,21 @@ pip install topk-sdk
 ```
 
 ```bash Javascript
-npm install topk
+npm install topk-js
 
 # or
 
-yarn add topk
+yarn add topk-js
+
+# or
+
+pnpm add topk-js
 ```
 </CodeGroup>
 
-## Setup TopK Client
+## TopK Client
 
-The TopK Client provides the interface to communicate with TopK, handling authentication and featuring all functionality.
-
-To initialize a client, you'll need your API key and region:
+To setup a client, you'll need your API key and region:
 
 <CodeGroup>
 
@@ -33,7 +35,6 @@ from topk_sdk import Client
 
 client = Client(api_key="YOUR_TOPK_API_KEY", region="aws-us-east-1-elastica")
 ```
-
 
 ```typescript Javascript
 import { Client } from "topk-js";
@@ -46,14 +47,23 @@ const client = new Client({
 
 </CodeGroup>
 
-TopK Client accepts the following parameters:
+TopK `Client` accepts the following parameters:
 
-| Parameter    | Python          | Javacript     | Default Value | Allowed Values                | Required |
-| ------------ | --------------- | -------------- | ------------- | ----------------------------- | -------- |
-| API Key      | `api_key`       | `apiKey`       | `N/A`         | String                        | **Yes**  |
-| Region       | `region`        | `region`       | `N/A`         | `aws-us-east-1-elastica`      | **Yes**  |
-| Host         | `host`          | `host`         | `topk.io`     | String                        | No       |
-| Https        | `https`         | `https`        | `true`        | Boolean                       | No       |
+<ParamField body="api_key" type="string" required>
+  The API key for the project.
+</ParamField>
+
+<ParamField body="region" type="string" required default="aws-us-east-1-elastica">
+  The region of the project.
+</ParamField>
+
+<ParamField body="host" type="string" default="topk.io">
+  The host of the project.
+</ParamField>
+
+<ParamField body="https" type="boolean" default={true}>
+  When using a public host this should always be `true`.
+</ParamField>
 
 ## API Key
 
@@ -66,7 +76,7 @@ To obtain your API key:
 3. Go to a project or create a new one
 4. Generate an API key
 
-### Using in a `topk-js` server-side rendering (SSR) environment ?
+## TopK with Vite/Webpack SSR
 
 If you're using the TopK **JavaScript SDK** in a server-side rendering (SSR) environment, you may need to follow these steps to ensure compatibility:
 
@@ -106,7 +116,6 @@ If you're using the TopK **JavaScript SDK** in a server-side rendering (SSR) env
   </Accordion>
 </AccordionGroup>
 
-<Support />
 
 ## Next steps
 

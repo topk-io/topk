@@ -1,0 +1,129 @@
+---
+title: "Vector search"
+---
+
+Vector search is the essential feature of TopK. With that in mind, it is designed to:
+
+* Handle **billion-scale vector search** efficiently, suitable for applications with large datasets
+* Achieve **99% recall** in vector search — retrieving 99% of the true top-K nearest neighbors for every query
+* Provide **low latency** (< 0.5s) for all queries
+
+## Implement vector search
+
+To perform vector search in TopK, use the `vector_distance()` method to compute distance between two vectors:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, fn
+
+docs = client.collection("books").query(
+    select(
+        "title",
+        published_year=field("published_year"),
+        # Compute vector distance between the embedding "epic fantasy adventure" and the `title_embedding` field.
+        title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3, ...])
+    )
+    # Return top 10 results with the highest similarity
+    .topk(field("title_similarity"), 10)
+)
+
+# Example results:
+[
+  {
+    "_id": "2",
+    "title": "Lord of the Rings",
+    "title_similarity": 0.8150404095649719
+  },
+  {
+    "_id": "1",
+    "title": "The Catcher in the Rye",
+    "title_similarity": 0.7825378179550171,
+  }
+]
+```
+
+
+```js Javascript
+import { select, fn, field } from "topk-js/query";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    published_year: field("published_year"),
+    title_similarity: fn.vectorDistance(
+      "title_embedding",
+      [0.1, 0.2, 0.3 /* embedding for "epic fantasy adventure" */]
+    ),
+  }).topk(field("title_similarity"), 10)
+);
+
+// Example results:
+[
+  {
+    _id: '2',
+    title: 'Lord of the Rings',
+    title_similarity: 0.8150404095649719
+  },
+  {
+    _id: '1'
+    title_similarity: 0.7825378179550171,
+    title: 'The Catcher in the Rye',
+  }
+]
+```
+
+</CodeGroup>
+
+Let's break down the above example:
+
+1. First we compute the cosine distance between the query embedding and the `title_embedding` field by using the `vector_distance` method.
+2. Then we store the computed cosine distance in the `title_similarity` field.
+3. Lastly, we return the top 10 results by the `title_similarity` field in descending order.
+
+## Combinding vector search with metadata filtering
+
+While vector search captures semantic similarity, it often retrieves results that may not satisfy all user or system-level constraints.
+
+**Metadata filtering** is used to enforce hard constraints based on structured fields such as
+category, time range, price range, availability, user permissions, language, or geographic region.
+
+In a multi-tenant setting, metadata filtering can be also used to scope the search to a specific tenant by filtering documents based on the tenant ID.
+See our [multi-tenancy guide](/concepts/multi-tenancy) for more details.
+
+In TopK, you can combine vector search with metadata filtering by using the `filter()` method:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, fn
+
+docs = client.collection("books").query(
+    select(
+        "title",
+        title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3, ...]),
+        published_year=field("published_year"),
+    )
+    .filter(field("published_year") > 2000)
+    .topk(field("title_similarity"), 10)
+)
+```
+
+```js Javascript
+import { select, fn, field } from "topk-js/query";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    title_similarity: fn.vectorDistance(
+      "title_embedding",
+      [0.1, 0.2, 0.3 /* ... */]
+    ),
+    published_year: field("published_year"),
+  })
+    .filter(field("published_year").gt(2000))
+    .topk(field("title_similarity"), 10)
+);
+```
+
+</CodeGroup>

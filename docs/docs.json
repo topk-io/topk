@@ -23,18 +23,22 @@
             ]
           },
           {
-            "group": "Concepts",
+            "group": "Guides",
             "pages": [
               "concepts/semantic-search",
+              "concepts/vector-search",
+              "concepts/multi-vector-search",
+              "concepts/keyword-search",
               "concepts/true-hybrid-search",
-              "concepts/consistency"
+              "concepts/consistency",
+              "concepts/multi-tenancy"
             ]
           },
           {
             "group": "Documents",
             "pages": [
-              "documents/query",
               "documents/upsert",
+              "documents/query",
               "documents/get",
               "documents/delete"
             ]
@@ -54,7 +58,7 @@
   },
   "logo": {
     "light": "/logo/topk.svg",
-    "dark": "/logo/topk.svg"
+    "dark": "/logo/dark.svg"
   },
   "navbar": {
     "links": [

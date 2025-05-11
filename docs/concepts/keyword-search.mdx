@@ -1,0 +1,91 @@
+---
+title: "Keyword search"
+---
+
+To perform a keyword search on your documents, use the `match()` function. The `match()` function will by default execute against all
+fields with a [**keyword index**](/collections/create#keyword-index).
+
+Let's create a collection with a `title` and `description` text fields:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.schema import keyword_index, text
+
+client.collections().create(
+    "books",
+    schema={
+        "title": text().index(keyword_index()),
+        "description": text().index(keyword_index()),
+    },
+)
+```
+
+```js Javascript
+import { keywordIndex, text } from "topk-js/schema";
+
+await client.collections().create("books", {
+  title: text().index(keywordIndex()),
+  description: text().index(keywordIndex()),
+});
+```
+
+</CodeGroup>
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, fn, match
+
+docs = client.collection("books").query(
+    select(
+        "title",
+        "description",
+        # Score documents using BM25 algorithm
+        text_score=fn.bm25_score()
+    )
+    # Filter documents that have the `great` keyword in the `title` field
+    # or the `novel` in any of the text-indexed fields.
+    .filter(match("great", "title").or(match("novel")))
+    # Return top 10 documents with the highest text score
+    .topk(field("text_score"), 10)
+)
+```
+
+
+```js Javascript
+import { select, field, fn, match } from "topk-js/query";
+
+const docs = await client.collection(name).query(
+  select({
+    title: field("title"),
+    description: field("description"),
+    // Score documents using BM25 algorithm
+    text_score: fn.bm25Score(),
+  })
+  // Filter documents that have the `great` keyword in the `title` field
+  // or the `novel` in any of the text-indexed fields.
+  .filter(match("great", "title").or(match("novel")))
+  // Return top 10 documents with the highest text score
+  .topk(field("text_score"), 10)
+);
+
+// Example result:
+
+[
+  {
+    _id: '1',
+    title: 'The Great Gatsby',
+    description: 'A novel about a great man who wants to be rich and famous',
+    text_score: 0.864456057548523
+  },
+  {
+    _id: '2',
+    title: 'The Catcher in the Rye',
+    description: 'A novel about a boy who wants to be a writer'
+    text_score: 0.1948474943637848,
+  }
+]
+```
+
+</CodeGroup>

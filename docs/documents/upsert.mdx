@@ -1,18 +1,16 @@
 ---
 title: "Upsert documents"
-description: "Use the `upsert` method to update or insert documents."
 ---
 
-import Support from "/snippets/support.mdx";
+TopK documents are JSON-like objects containing key-value pairs.
 
-<Note>
-  **`Every document must have a string _id field`**.
 
-  Every document is uniquely identified by its `_id`, which means that upserting a document with an existing `_id` will update the document.
-</Note>
 
-To upsert documents, you can pass a list of documents to the `upsert` method. TopK will insert new documents or overwrite existing ones
-if they have the same `_id`.
+## Upsert method
+
+To upsert documents, pass a list of documents to the `upsert()` method:
+
+
 
 <CodeGroup>
 
@@ -21,8 +19,8 @@ client.collection("books").upsert(
     [
         {
             "_id": "book-1",
-            "title": "The Great Gatsby", 
-            "published_year": 1925, 
+            "title": "The Great Gatsby",
+            "published_year": 1925,
             "title_embedding": [0.12, 0.67, 0.82, 0.53, ...]
         },
         {
@@ -32,9 +30,9 @@ client.collection("books").upsert(
             "title_embedding": [0.42, 0.53, 0.65, 0.33, ...]
         },
         {
-            "_id": "book-3", 
-            "title": "1984", 
-            "published_year": 1949, 
+            "_id": "book-3",
+            "title": "1984",
+            "published_year": 1949,
             "title_embedding": [0.59, 0.33, 0.71, 0.61, ...]
         }
     ]
@@ -67,35 +65,204 @@ await client.collection("books").upsert([
 
 </CodeGroup>
 
-{/*
-Alternatively, the example below shows how your documents could also be made out of mix of vectors and other fields.
+- Every document must have a **string** `_id` field.
+- If a document with the specified `_id` doesn't exist, a new document will be **inserted**.
+- If a document with the same `_id` already exists, the existing document will be **replaced** with the new one.
+
+<Note>
+The `upsert()` method does not perform a *partial update* or *merge* - the entire document is being replaced.
+</Note>
+
+## Supported types
+
+TopK documents are a flat structure of key-value pairs.
+
+The following value types are supported:
+
+| Type | Python Type | JavaScript Type | Helper Method |
+|------|-------------|----------------|--------------|
+| **String** | `str` | `string` | - |
+| **Integer** | `int` | `number` | - |
+| **Float** | `float` | `number` | - |
+| **Boolean** | `bool` | `boolean` | - |
+| **Float32 vector** | `List[float]` | `number[]` | `f32_vector()` |
+| **U8 vector** | *use helper* | *use helper* | `u8_vector()` |
+| **Binary vector** | *use helper* | *use helper* | `binary_vector()` |
+| **Bytes** | *use helper* | *use helper* | `bytes()` |
+
+Here's an example of a creating a collection with all supported types and inserting a document:
 
 <CodeGroup>
-
 ```python Python
-client.collection("locations").upsert(
-[
-    {"_id": "point-1", "vector": [0.12, 0.67, 0.82, 0.53]},
-    {"_id": "point-2", "vector": [0.42, 0.53, 0.65, 0.33]},
-    {"_id": "point-3", "vector": [0.59, 0.33, 0.71, 0.61]},
-    {"_id": "point-4", "vector": [0.03, 0.88, 0.79, 0.41]},
-    {"_id": "point-5", "vector": [0.31, 0.64, 0.29, 0.59]},
-    {"_id": "point-6", "vector": [0.23, 0.14, 0.49, 0.91]},
-]
+
+from topk_sdk.schema import (
+    int,
+    text,
+    float,
+    bool,
+    f32Vector,
+    u8Vector,
+    binaryVector,
+    bytes,
+)
+
+client.collections().create(
+    "books",
+    schema={
+        "title": text(),
+        "published_year": int(),
+        "price": float(),
+        "is_published": bool(),
+        "float_embedding": f32Vector(dimension=1536).index(vector_index(metric="cosine")),
+        "u8_embedding": u8Vector(dimension=1536).index(vector_index(metric="euclidean")),
+        "binary_embedding": binaryVector(dimension=1536).index(vector_index(metric="hamming")),
+        "bytes": bytes(),
+    },
 )
 ```
 
-```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
+```typescript Javascript
+import {
+  text,
+  int,
+  float,
+  bool,
+  f32Vector,
+  u8Vector,
+  binaryVector,
+  bytes,
+  vectorIndex,
+} from "topk-js/schema";
+
+await client.collections().create("books", {
+  title: text(),
+  published_year: int(),
+  price: float(),
+  is_published: bool(),
+  float_embedding: f32Vector({ dimension: 1536 }).index(vectorIndex({ metric: "cosine" })),
+  u8_embedding: u8Vector({ dimension: 1536 }).index(vectorIndex({ metric: "euclidean" })),
+  binary_embedding: binaryVector({ dimension: 1536 }).index(vectorIndex({ metric: "hamming" })),
+  bytes: bytes(),
+});
+```
+</CodeGroup>
+
+Insert a document with all supported types:
+
+<CodeGroup>
+```python Python
+import f32_vector, u8_vector, binary_vector, bytes from topk_sdk.data;
+
+client.collection("books").upsert([
+  {
+    "_id": "1",
+    "title": "The Great Gatsby",
+    "published_year": 1925,
+    "price": 10.99,
+    "is_published": true,
+    "float_embedding": f32_vector([0.12, 0.67, 0.82, 0.53]),
+    "u8_embedding": u8_vector([0, 1, 2, 3]),
+    "binary_embedding": binary_vector([0, 1, 1, 0]),
+    "bytes": bytes([0, 1, 1, 0]),
+  },
+]);
+
+
 ```
 
+```typescript Javascript
+import { f32Vector, u8Vector, binaryVector, bytes } from "topk-js/data";
+
+await client.collection("books").upsert([
+  {
+    _id: "1",
+    title: "The Great Gatsby",
+    published_year: 1925,
+    price: 10.99,
+    is_published: true,
+    float_embedding: [0.12, 0.67, 0.82, 0.53],
+    // or use the helper method:
+    // float_embedding: f32Vector([0.12, 0.67, 0.82, 0.53]),
+    u8_embedding: u8Vector([0, 1, 2, 3]),
+    binary_embedding: binaryVector([0, 1, 1, 0]),
+    bytes: bytes([0, 1, 1, 0]),
+  },
+]);
+```
 </CodeGroup>
-*/}
 
-<Note>
-  Please note that nested types (eg. dicts and lists) are currently not supported. The only
-  exception for complex types applies to f32 vectors, u8 vectors, binary vectors, and bytes.
-</Note>
+## Helper methods
 
-<Support />
+### f32_vector()
+
+To pass a float32 vector, use the `f32_vector()` helper method:
+
+<CodeGroup>
+```python Python
+import f32_vector from topk_sdk.data;
+
+f32_vector([0.12, 0.67, 0.82, 0.53])
+```
+
+```typescript Javascript
+import { f32Vector } from "topk-js/data";
+
+f32Vector([0.12, 0.67, 0.82, 0.53])
+```
+</CodeGroup>
+
+### u8_vector()
+
+To pass a u8 vector, use the `u8_vector()` helper method:
+
+<CodeGroup>
+```python Python
+import u8_vector from topk_sdk.data;
+
+u8_vector([0, 1, 2, 3])
+```
+
+```typescript Javascript
+import { u8Vector } from "topk-js/data";
+
+u8Vector([0, 1, 2, 3])
+```
+</CodeGroup>
+
+### binary_vector()
+
+To pass a binary vector, use the `binary_vector()` helper method:
+
+<CodeGroup>
+```python Python
+import binary_vector from topk_sdk.data;
+
+binary_vector([0, 1, 1, 0])
+```
+
+```typescript Javascript
+import { binaryVector } from "topk-js/data";
+
+binaryVector([0, 1, 1, 0])
+```
+</CodeGroup>
+
+### bytes()
+
+To pass a bytes object, use the `bytes()` helper method:
+
+<CodeGroup>
+```python Python
+import bytes from topk_sdk.data;
+
+bytes([0, 1, 1, 0])
+```
+
+```typescript Javascript
+import { bytes } from "topk-js/data";
+
+bytes([0, 1, 1, 0])
+```
+</CodeGroup>
+
+

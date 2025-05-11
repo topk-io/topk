@@ -1,16 +1,35 @@
 ---
-title: "True Hybrid Search"
+title: "True Hybrid search"
 ---
 
-True Hybrid Search allows you to combine multiple retrieval techniques—such as multi-vector search, hybrid (vector \+ text) search, and custom scoring functions **within a single query**. This flexibility enables more precise and effective ranking of search results.
+True Hybrid Search allows you to combine multiple retrieval techniques — such as multi-vector search, hybrid (vector \+ text) search
+sort the results using a custom scoring function **within a single query**.
 
 ## How TopK differs from other "hybrid" search systems
 
-Most databases that claim to offer "hybrid" search maintain separate vector and keyword indexes. When a query is executed:
+Most databases that offer "hybrid" search maintain separate vector and keyword indexes. When a query is executed:
 
 1. They run the query against both indexes separately
-2. Each index returns its top results (e.g., top 100 candidates)
-3. They use techniques like Reciprocal Rank Fusion (RRF) to merge and re-rank these separate result sets
+2. Then each index returns its top results (e.g. first 100 candidates)
+3. Lastly, use techniques like Reciprocal Rank Fusion (RRF) to merge and re-rank these two sets of results
+
+<br />
+
+```mermaid
+flowchart TD
+    A[User Query] --> B[Query Keyword Index]
+    A --> C[Query Vector Index]
+
+  B --> D[Top 100 Keyword search results]
+  C --> E[Top 100 Vector search results]
+
+  D --> F[Merge and re-rank top keyword search results and top vector search results using RRF]
+  E --> F
+
+  F --> G[Final 100 ranked results]
+```
+
+<br />
 
 This approach is fundamentally **probabilistic** - the final "top 100" results are not guaranteed to be the actual best matches because some potential matches might be missed if they don't appear in either index's top results.
 
@@ -18,20 +37,20 @@ This approach is fundamentally **probabilistic** - the final "top 100" results a
 
 With TopK, you can:
 
-1. Retrieve documents based on multiple embeddings -- **multi-vector retrieval**.
-2. Combine semantic similarity (or vector distance) with keyword search -- **true hybrid retrieval**.
-3. Apply custom scoring functions that blend multiple ranking factors -- **custom scoring**.
+- Retrieve documents based on multiple embeddings -- **multi-vector retrieval**.
+- Combine semantic similarity (or vector distance) with keyword search -- **true hybrid retrieval**.
+- Apply custom scoring functions that blend multiple ranking factors -- **custom scoring**.
 
 ---
 
 ## Multi-Vector Retrieval
 
-In some cases, a single vector representation of a document isn't enough. For example, in a research paper database, you might want to:
+In some cases, a single vector representation of your content is not enough. For example, in a research paper database, you might want to:
 
-- Retrieve documents based on both a summary of the entire paper and a summary of individual paragraphs.
+- Retrieve documents based on both the summary of the entire paper and summaries of individual paragraphs.
 - Rank results by combining scores from multiple embeddings.
 
-### Defining a Collection with Multiple Embeddings
+Let's define a collection with two [semantic indexes](/collections/create#semantic-index):
 
 <CodeGroup>
 
@@ -48,6 +67,8 @@ client.collections().create(
 )
 ```
 
+Under the hood, TopK will create two separate vector
+
 
 ```typescript Javascript
 import { text, semanticIndex } from "topk-js/schema";
@@ -61,7 +82,7 @@ await client.collections().create("papers", {
 
 </CodeGroup>
 
-### Querying with Multiple Embeddings
+### Using semantic similarity
 
 <CodeGroup>
 
@@ -114,7 +135,7 @@ const docs = await client.collection("papers").query(
 
 Hybrid retrieval combines **semantic similarity (vector-based search)** with **exact keyword matching**. This ensures that documents containing **explicit matches** to the query keywords are considered alongside **semantic similarity**.
 
-### Defining a Collection for Hybrid Retrieval
+Let's define a collection with one [keyword index](/collections/create#keyword-index) and one [semantic index](/collections/create#semantic-index):
 
 <CodeGroup>
 
@@ -142,7 +163,7 @@ await client.collections().create("articles", {
 
 </CodeGroup>
 
-### Querying with Hybrid Retrieval
+In the following example we'll perform a hybrid retrieval that uses both keyword and semantic(vector) search:
 
 <CodeGroup>
 

@@ -1,0 +1,26 @@
+---
+title: "Multi-tenancy"
+---
+
+TopK does not have a built-in concept of namespaces or tenants. Multi-tenancy is achieved through metadata filtering.
+
+To scope results to a specific tenant or tenants, you would typically use the `starts_with()` method to filter documents based on their tenant ID:
+
+<CodeGroup>
+
+```python Python
+
+```
+
+```js Javascript
+import { select, filter, startsWith } from "topk-js/query";
+
+await client.collection("books").query(
+  select({
+    title: field("title"),
+  })
+  .filter(field("tenant_id").startsWith("1234"))
+);
+```
+
+</CodeGroup>

@@ -49,16 +49,20 @@ TopK supports the following data types. There are more on our roadmap and we are
 
 ### int()
 
-`int()` is used to define an integer field in the schema.
+`int()` function is used to define an integer field in the collection schema.
 
 <CodeGroup>
 
 ```python Python
+from topk_sdk.schema import int
+
 "published_year": int()
 ```
 
 
 ```typescript JavaScript
+import { int } from "topk-js/schema";
+
 "published_year": int()
 ```
 
@@ -66,16 +70,20 @@ TopK supports the following data types. There are more on our roadmap and we are
 
 ### float()
 
-`float()` is used to define a float field in the schema.
+`float()` function is used to define a float field in the collection schema.
 
 <CodeGroup>
 
 ```python Python
+from topk_sdk.schema import float
+
 "price": float()
 ```
 
 
 ```js JavaScript
+import { float } from "topk-js/schema";
+
 "price": float()
 ```
 
@@ -83,16 +91,20 @@ TopK supports the following data types. There are more on our roadmap and we are
 
 ### bool()
 
-`bool()` is used to define a boolean field in the schema.
+`bool()` function is used to define a boolean field in the collection schema.
 
 <CodeGroup>
 
 ```python Python
+from topk_sdk.schema import bool
+
 "is_published": bool()
 ```
 
 
 ```typescript JavaScript
+import { bool } from "topk-js/schema";
+
 "is_published": bool()
 ```
 
@@ -100,16 +112,20 @@ TopK supports the following data types. There are more on our roadmap and we are
 
 ### text()
 
-`text()` is used to define a text field in the schema.
+`text()` function is used to define a text field in the collection schema.
 
 <CodeGroup>
 
 ```python Python
+from topk_sdk.schema import text
+
 "title": text()
 ```
 
 
 ```js JavaScript
+import { text } from "topk-js/schema";
+
 "title": text()
 ```
 
@@ -117,43 +133,55 @@ TopK supports the following data types. There are more on our roadmap and we are
 
 ### f32_vector()
 
-`f32_vector()` is used to define a vector field with `f32` values. You can pass vector `dimension` as a parameter (required, greater than 0) which will be validated when upserting documents.
+`f32_vector()` function is used to define a vector field with 32-bit floating point values. This function takes `dimension` as a parameter (greater than 0).
+
 
 <CodeGroup>
 
 ```python Python
+from topk_sdk.schema import f32_vector
+
 "title_embedding": f32_vector(dimension=1536)
 ```
 
 
 ```js JavaScript
-title_embedding: f32Vector({ dimension: 1536 })
-// f32Vector takes a number specifying the vector's dimension
+import { f32Vector } from "topk-js/schema";
+
+"title_embedding": f32Vector({ dimension: 1536 })
 ```
 
 </CodeGroup>
 
+<Note>
+  The vector dimension will be validated when upserting documents.
+  Passing a vector with a different dimension will result in an error.
+</Note>
+
 ### u8_vector()
 
-`u8_vector()` is used to define a vector field with `u8` values. You can pass vector `dimension` as a parameter (required, greater than 0) which will be validated when upserting documents.
+`u8_vector()` function is used to define a vector field with `u8` values. You can pass vector `dimension` as a parameter (required, greater than 0) which will be validated when upserting documents.
 
 <CodeGroup>
 
 ```python Python
+from topk_sdk.schema import u8_vector
+
 "title_embedding": u8_vector(dimension=1536)
 ```
 
 
 ```js JavaScript
-title_embedding: u8Vector({ dimension: 1536 })
-// f32Vector takes a number specifying the vector's dimension
+import { u8Vector } from "topk-js/schema";
+
+"title_embedding": u8Vector({ dimension: 1536 })
 ```
 
 </CodeGroup>
 
 ### binary_vector()
 
-`binary_vector()` is used to define a binary vector packed into `u8` values. You can pass vector `dimension` as a parameter (required, greater than 0) which will be validated when upserting documents.
+`binary_vector()` function is used to define a binary vector packed into `u8` values. You can pass vector `dimension` as a parameter (required, greater than 0) which will be validated when upserting documents.
 
 <Note>
   Binary vector dimension is defined in terms of the number of bytes. This means that for a 1024-bit binary vector, the dimension `topk` expects is **128** (1024 / 8).
@@ -162,13 +190,16 @@ title_embedding: u8Vector({ dimension: 1536 })
 <CodeGroup>
 
 ```python Python
+from topk_sdk.schema import binary_vector
+
 "title_embedding": binary_vector(dimension=128)
 ```
 
 
 ```js JavaScript
-title_embedding: binaryVector({ dimension: 128 })
-// binaryVector takes a number specifying the vector's dimension
+import { binaryVector } from "topk-js/schema";
+
+"title_embedding": binaryVector({ dimension: 128 })
 ```
 
 </CodeGroup>
@@ -180,11 +211,15 @@ title_embedding: binaryVector({ dimension: 128 })
 <CodeGroup>
 
 ```python Python
+from topk_sdk.schema import bytes
+
 "image": bytes()
 ```
 
 
 ```js JavaScript
+import { bytes } from "topk-js/schema";
+
 "image": bytes()
 ```
 
@@ -195,10 +230,6 @@ title_embedding: binaryVector({ dimension: 128 })
 ### required()
 
 `required()` is used to mark a field as required. All fields are `optional` by default.
-
-<Note>
-  However, don't forget that every document has to have an `_id`.
-</Note>
 
 <CodeGroup>
 
@@ -221,19 +252,23 @@ The above example shows how to mark a field `title` as required.
 
 `index()` is used to create an index on a field.
 
-#### Semantic index
+#### `semantic_index()`
 
-The `semantic_index()` method is used to create both a vector and a keyword index on a given field. This allows you to do both semantic search and keyword search over the same field. Note that `semantic_index()` can only be called over `text()` data type.
+This method is used to create both a vector and a keyword index on a given field. This allows you to do both semantic search and keyword search over the same field. Note that `semantic_index()` can only be called over `text()` data type.
 
 <CodeGroup>
 
 ```python Python
+from topk_sdk.schema import semantic_index
+
 "title": text().index(semantic_index())
 ```
 
 
 ```typescript JavaScript
-title: text().index(semanticIndex())
+import { semanticIndex } from "topk-js/schema";
+
+"title": text().index(semanticIndex())
 ```
 
 </CodeGroup>
@@ -251,21 +286,26 @@ You can also pass an optional `embedding_type` parameter to the `semantic_index(
 
 
 
-#### Vector index
+#### `vector_index()`
 
-The `vector_index()` method is used to create a vector index. Only fields with `f32_vector()`, `u8_vector()`, or `binary_vector()` data types
+This method is used to create a vector index. Only fields with `f32_vector()`, `u8_vector()`, or `binary_vector()` data types
 can be indexed with a vector index.
 
 <CodeGroup>
 
 ```python Python
+from topk_sdk.schema import vector_index
+
 "title_embedding": vector(dimension=1536).index(vector_index(metric="cosine"))
 ```
 
 
 ```js JavaScript
-title_embedding: f32Vector({ dimension: 1536 }).index(vectorIndex({ metric: "cosine" }))
-// vectorIndex takes an enum specifying the vector index metric
+import { vectorIndex } from "topk-js/schema";
+
+"title_embedding": f32Vector({ dimension: 1536 }).index(
+  vectorIndex({ metric: "cosine" })
+),
 ```
 
 </CodeGroup>
@@ -278,22 +318,24 @@ However, there are more metrics available:
 - `dot_product`
 - `hamming` (only supported for `binary_vector()` type)
 
-<Support />
+#### `keyword_index()`
 
-#### Keyword index
-
-The `keyword_index()` method is used to create a keyword index on a `text()` field.
+This method is used to create a keyword index on a `text()` field.
 `index(keyword_index())` can only be called over `text()` data type.
 
 <CodeGroup>
 
 ```python Python
+from topk_sdk.schema import keyword_index
+
 "title": text().index(keyword_index())
 ```
 
 
 ```js JavaScript
-title: text().index(keywordIndex())
+import { keywordIndex } from "topk-js/schema";
+
+"title": text().index(keywordIndex())
 ```
 
 </CodeGroup>

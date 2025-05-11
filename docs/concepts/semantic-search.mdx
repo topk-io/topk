@@ -1,18 +1,21 @@
 ---
-title: "Semantic Search"
+title: "Semantic search"
 ---
 
-Semantic search enables you to find relevant documents based on **semantic similarity** rather than exact keyword matches. With **TopK**, you can implement powerful semantic search in a few lines of code—without needing third-party embedding models or reranking services.
+To find documents based on semantic similarity, use the `semantic_similarity()` function.
 
-TopK comes with **built-in embeddings** and **reranking**, making it incredibly easy to build high-quality retrieval pipelines.
+With TopK, you can implement vector-powered semantic search in just a few lines of code. No need for third-party embedding models or reranking services.
+
+TopK comes with **built-in embeddings** and **reranking**, removing the need to build your own semantic retrieval pipeline.
 
 ---
 
-## Implementation
+## Implement semantic search
 
-### 1. Defining a collection schema
+### 1. Define a collection schema
 
-To use semantic search, you first need to define a collection and schema with a **semantic index**. This enables TopK to automatically generate embeddings for your text fields.
+Adding a [`semantic_index()`](/collections/create#semantic-index) to any [text](/collections/create#text) field in your collection schema enables semantic search capabilities.
+This configuration automatically generates embeddings for the specified text fields:
 
 <CodeGroup>
 
@@ -38,16 +41,11 @@ await client.collections().create("books", {
 
 </CodeGroup>
 
-**Explanation**
+If you want to use your own embeddings instead of TopK's built-in `semantic_index()`, see [Vector Search](/concepts/vector-search).
 
-- The `semantic_index()` on `title` ensures the provided text is automatically embedded.
-- Other fields do not need to be in the schema to be stored and queried—they can still be upserted as part of a document.
+### 2. Perform a semantic search
 
-If you want to use your own embeddings instead of TopK's built-in `semantic_index()`, see [Custom Embeddings](#bring-your-own-embeddings).
-
-### 2. Running a semantic search query
-
-Once the schema is set up, querying for semantically similar documents is simple:
+To perform a semantic search we'll use the `semantic_similarity()` function to compute the similarity between the query `"catcher in the rye"` and the `title` field.
 
 <CodeGroup>
 
@@ -80,18 +78,18 @@ const docs = await client.collection("books").query(
 
 </CodeGroup>
 
-**What's Happening Here?**
+Let's break down the above example:
 
-1. The `semantic_similarity` function computes the similarity between the query "catcher in the rye" and values stored in the `title` field.
-2. TopK automatically embeds the query using the model specified in `semantic_index()` (see the available options [here](/collections/create#semantic-index)).
+1. The `semantic_similarity` function computes the similarity between the query `"catcher in the rye"` and the text value stored in the `title` field for each document.
+2. TopK performs automatic query embedding under the hood using the model specified in [`semantic_index()`](/collections/create#semantic-index) method.
 3. The results are ranked based on similarity, and the top 10 most relevant documents are returned.
 4. The optional `.rerank()` call uses a reranking model to improve relevance of the results.
 
 This works **out of the box**—no need to manage embeddings, external APIs, or reranking models.
 
-### 3. Combining Semantic and Text Search
+## Combining semantic and keyword search
 
-You may want to combine **keyword search with semantic search** for more precise results.
+For certain use cases, you can use a combination of **keyword search** and **semantic search**. After, you can use a custom ranking logic to get the top results.
 
 <CodeGroup>
 
@@ -135,9 +133,11 @@ This blends **keyword relevance (BM25)** with **semantic similarity**, ensuring 
 
 ## Customization
 
-### Bring your own embeddings
+{/* ### Bring your own embeddings
 
-If you want to **bring your own embeddings** instead of using `semantic_index()`, you can store them in a `vector()` field and query using `vector_distance()`.
+Using [`semantic_index()`](/collections/create#semantic-index) is not the only way to enable a semantic search in TopK.
+You can define a vector field in your schema and use the `vector_distance()` function for semantic search by passing
+an embedding to the `vector_distance()` function.
 
 <CodeGroup>
 
@@ -167,7 +167,7 @@ await client.collections().create("books", {
 
 </CodeGroup>
 
-To query with custom embeddings, use `vector_distance()` instead of `semantic_similarity()`:
+To query with custom embeddings, use `vector_distance()` function:
 
 <CodeGroup>
 
@@ -241,7 +241,7 @@ const docs = await client.collection("books").query(
 );
 ```
 
-</CodeGroup>
+</CodeGroup> */}
 
 ### Lexical scoring with reranking
 

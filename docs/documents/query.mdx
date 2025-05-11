@@ -5,138 +5,14 @@ description: "Use the `query` method to search for documents."
 
 import Support from "/snippets/support.mdx";
 
-TopK allows you to query documents using a SQL-inspired syntax. It comes with **semantic search**, **text search**, **vector search**, and **filtering capabilities** out of the box.
+TopK provides a SQL-inspired syntax for querying documents. It features built-in **semantic search**, **text search**, **vector search**, and metadata **filtering** capabilities.
 
-TopK's declarative query builder allows you to select fields, chain filters, apply vector/text search in a composable way.
-
-## Semantic search
-
-To perform a semantic search on your documents, use the `semantic_similarity` function. Query you want to search for is automatically embedded using the `model` specified in the `semantic_index` definition.
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.query import select, fn, match
-
-docs = client.collection("books").query(
-    select(
-        "title",
-        title_similarity=fn.semantic_similarity("title", "catcher")
-    )
-    .topk(field("title_similarity"), 10)
-)
-```
-
-
-```js JavaScript
-import { select, field, fn, match } from "topk/query";
-
-const docs = await client.collection("books").query(
-  select({
-    title: field("title"),
-    title_similarity: fn.semanticSimilarity("title", "catcher"),
-  }).topk(field("title_similarity"), 10)
-);
-```
-
-</CodeGroup>
-
-## Text search
-
-To perform a text search on your documents, use the `match` function. The `match` function will by default execute against all
-fields with a `keyword_index` defined on them. You can provide `field` parameter to specify a field to match against.
-
-<Warning>
-  To use the `match` predicate, the field must have a `keyword_index` defined on it.
-</Warning>
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.query import select, fn, match
-
-docs = client.collection("books").query(
-    select(
-        "title",
-        # Score documents using BM25 algorithm
-        text_score=fn.bm25_score()
-    )
-    # Filter to documents that have the `great` keyword in the `title` field
-    # or the `catcher` in any of the text-indexed fields.
-    .filter(match("great", field="title") | match("catcher"))
-    # Return top 10 documents with the highest text score
-    .topk(field("text_score"), 10)
-)
-```
-
-
-```js JavaScript
-import { select, field, fn, match } from "topk-js/query";
-
-const docs = await client.collection("books").query(
-  select({
-    title: field("title"),
-    // Score documents using BM25 algorithm
-    text_score: fn.bm25Score(),
-  })
-    // Filter to documents that have the `great` keyword in the `title` field
-    // or the `catcher` in any of the text-indexed fields.
-    .filter(match("great", "title").or(match("catcher")))
-    // Return top 10 documents with the highest text score
-    .topk(field("text_score"), 10)
-);
-```
-
-</CodeGroup>
-
-The above example takes a collection of books and filters to documents that have the `Great` keyword in the `title` field.
-
-## Vector search
-
-To perform a vector search on your documents, use the `vector_distance` method. This computes the distance between the provided query vector and vectors
-stored inside the database according to the metric specified in the `vector_index` definition.
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.query import select, fn
-
-docs = client.collection("books").query(
-    select(
-        "title",
-        # Select supports arbitrary expressions. For example, you can add 10 years to the `published_year` field.
-        published_year_plus_10=field("published_year") + 10,
-        # Compute vector distance between the provided query vector and the `title_embedding` field.
-        title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3, ...])
-    )
-    # Return top 10 results with the highest similarity
-    .topk(field("title_similarity"), 10)
-)
-```
-
-
-```js JavaScript
-import { select, fn, field } from "topk-js/query";
-
-const docs = await client.collection("books").query(
-  select({
-    title: field("title"),
-    published_year_plus_10: field("published_year").add(10),
-    title_similarity: fn.vectorDistance(
-      "title_embedding",
-      [0.1, 0.2, 0.3 /* ... */]
-    ),
-  }).topk(field("title_similarity"), 10)
-);
-```
-
-</CodeGroup>
-
-The above example computes the cosine similarity between the vector and the `title_embedding` field. The `title_embedding` field is a vector field that represents the title of the book.
+With TopK's declarative query builder, you can easily select fields, chain filters, and apply vector/text search in a composable manner.
 
 ## Select expressions
 
-The `select` method can be used to select fields from documents. It can be used to select specific fields, rename fields, or include computed fields called function expressions.
+The `select()` method can be used to select fields from documents. It can be used to select specific fields, rename fields,
+or include computed fields using [function expressions](#function-expressions).
 
 <CodeGroup>
 
@@ -179,7 +55,9 @@ The BM25 score is a relevance score that can be used to score documents based on
 
 To use the `fn.bm25_score()` in your query, you **must** include a `match` predicate in your query filter stage.
 
-Also, the collection **must** have a [**keyword index**](http://docs.topk.io/collections/create#keyword-index) typically on the fields you're matching against.
+<Warning>
+  To use the `fn.bm25_score()` function, you **must** have a [**keyword index**](http://docs.topk.io/collections/create#keyword-index) defined in your collection schema.
+</Warning>
 
 <CodeGroup>
 
@@ -419,54 +297,65 @@ You can filter documents by **metadata**, **keywords**, **custom properties** co
 
 </CodeGroup>
 
-### Keyword filtering
+### Keyword search
 
-The `match()` function is the backbone of text search and keyword filtering in TopK.
-
+The `match()` function is the backbone of keyword search in TopK.
 It allows you to search for documents that contain specific keywords or phrases.
 
-Note that in order to perform keyword filtering, you need to have a
-[**keyword index**](http://docs.topk.io/collections/create#keyword-index) defined in the collection.
+You can configure the `match()` function to:
+* Match on multiple terms
+* Match only on specific fields
+* Use weights to prioritize certain terms
 
-The example below shows filtering documents by the keywords they contain. It'll match all documents that
-contain either `gatsby` or both `catcher` and `rye`.
+Searching for a term like `"catcher"` in your documents is as simple as using the `match()` function in the filter stage of your query:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import match
+
+.filter(
+    match("catcher")
+)
+```
+
+```js Javascript
+import { match } from "topk-js/query";
+
+.filter(match("catcher"))
+```
+
+</CodeGroup>
+
+#### Match multiple terms
+
+The `match()` function can also be configured to match on specific fields.
+
+### Multiple filters
+
+You can combine metadata filtering and keyword search in a single query by stacking multiple filtering stages.
+
+In the example below, we're searching for documents that contain the keyword "catcher" and were published in 1997, or documents that were published between 1920 and 1980.
 
 <CodeGroup>
 
 ```python Python
 .filter(
-    match("gatsby") | (match("catcher") & match("rye"))
+    match("catcher") && (field("published_year") == 1997 || (field("published_year") >= 1920 && field("published_year") <= 1980))
 )
 ```
 
 
 ```js Javascript
-.filter(match("gatsby").or(match("catcher").and(match("rye"))))
-```
-
-</CodeGroup>
-
-### Filter expressions
-
-You can combine multiple filter expressions using boolean operators. For example, the query below will match all
-documents that were published in 1997 or between 1920 and 1980.
-
-<CodeGroup>
-
-```python Python
 .filter(
-    (field("published_year") == 1997) | ((field("published_year") >= 1920) & (field("published_year") <= 1980))
-)
-```
-
-
-```typescript Javascript
-.filter(
-  field("published_year").eq(1997).or(
-    field("published_year").gte(1920).and(
-      field("published_year").lte(1980)
+  match("catcher")
+    .and(
+      field("published_year").eq(1997)
+        .or(
+          field("published_year").gte(1920)
+            .and(field("published_year").lte(1980))
+        )
     )
-  )
 )
 ```
 
@@ -986,7 +875,7 @@ docs = client.collection("books").query(
         # Compute semantic similarity between the provided query and the `title` field.
         title_similarity=fn.semantic_similarity("title", "catcher")
     )
-    # Filter to documents that contain the `great` keyword
+    # Filter documents that contain the `great` keyword
     .filter(match("great"))
     # Filtering by metadata
     .filter(field("published_year") > 1980)
@@ -1024,5 +913,3 @@ const docs = await client.collection("books").query(
 When writing queries, remember that they all require the `topk` or `count` method at the end.
 
 ## Next steps
-
-<Support />
