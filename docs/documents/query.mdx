@@ -827,56 +827,6 @@ Use the `count()` method to get the total number of documents matching the query
 
 </CodeGroup>
 
-## Putting it all together
-
-You can combine text search, vector search, and filtering in a single query. Some people refer to this as a hybrid search and we believe it can provide you with the best and most relevant search results.
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.query import select, fn, match
-
-docs = client.collection("books").query(
-    select(
-        "title",
-        # Score documents using BM25 algorithm
-        text_score=fn.bm25_score()
-        # Compute semantic similarity between the provided query and the `title` field.
-        title_similarity=fn.semantic_similarity("title", "catcher")
-    )
-    # Filter documents that contain the `great` keyword
-    .filter(match("great"))
-    # Filtering by metadata
-    .filter(field("published_year") > 1980)
-    # Return top 10 documents with the highest combined score
-    .topk(field("text_score") * 0.2 + field("title_similarity") * 0.8, 10)
-    # Rerank the documents
-    .rerank()
-)
-```
-
-
-```typescript Javascript
-import { select, fn, field, match } from "topk-js/query";
-
-const docs = await client.collection("books").query(
-  select({
-    title: field("title"),
-    text_score: fn.bm25Score(),
-    title_similarity: fn.semanticSimilarity("title", "catcher"),
-  })
-    .filter(match("great"))
-    .filter(field("published_year").gt(1980))
-    .topk(
-      field("text_score").mul(0.2).add(field("title_similarity").mul(0.8)),
-      10
-    )
-    .rerank()
-);
-```
-
-</CodeGroup>
-
 ## Notes on writing queries
 
 When writing queries, remember that they all require the `topk` or `count` method at the end.
