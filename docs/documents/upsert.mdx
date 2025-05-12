@@ -6,9 +6,9 @@ TopK documents are JSON-like objects containing key-value pairs.
 
 
 
-## Upsert method
+## Upsert function
 
-To upsert documents, pass a list of documents to the `upsert()` method:
+To upsert documents, pass a list of documents to the `upsert()` function:
 
 
 
@@ -70,7 +70,7 @@ await client.collection("books").upsert([
 - If a document with the same `_id` already exists, the existing document will be **replaced** with the new one.
 
 <Note>
-The `upsert()` method does not perform a *partial update* or *merge* - the entire document is being replaced.
+The `upsert()` function does not perform a *partial update* or *merge* - the entire document is being replaced.
 </Note>
 
 ## Supported types
@@ -79,7 +79,7 @@ TopK documents are a flat structure of key-value pairs.
 
 The following value types are supported:
 
-| Type | Python Type | JavaScript Type | Helper Method |
+| Type | Python Type | JavaScript Type | Helper Function |
 |------|-------------|----------------|--------------|
 | **String** | `str` | `string` | - |
 | **Integer** | `int` | `number` | - |
@@ -181,7 +181,7 @@ await client.collection("books").upsert([
     price: 10.99,
     is_published: true,
     float_embedding: [0.12, 0.67, 0.82, 0.53],
-    // or use the helper method:
+    // or use the helper function:
     // float_embedding: f32Vector([0.12, 0.67, 0.82, 0.53]),
     u8_embedding: u8Vector([0, 1, 2, 3]),
     binary_embedding: binaryVector([0, 1, 1, 0]),
@@ -191,11 +191,11 @@ await client.collection("books").upsert([
 ```
 </CodeGroup>
 
-## Helper methods
+## Helper functions
 
 ### f32_vector()
 
-To pass a float32 vector, use the `f32_vector()` helper method:
+To pass a float32 vector, use the `f32_vector()` helper function:
 
 <CodeGroup>
 ```python Python
@@ -213,7 +213,7 @@ f32Vector([0.12, 0.67, 0.82, 0.53])
 
 ### u8_vector()
 
-To pass a u8 vector, use the `u8_vector()` helper method:
+To pass a u8 vector, use the `u8_vector()` helper function:
 
 <CodeGroup>
 ```python Python
@@ -231,7 +231,7 @@ u8Vector([0, 1, 2, 3])
 
 ### binary_vector()
 
-To pass a binary vector, use the `binary_vector()` helper method:
+To pass a binary vector, use the `binary_vector()` helper function:
 
 <CodeGroup>
 ```python Python
@@ -249,7 +249,7 @@ binaryVector([0, 1, 1, 0])
 
 ### bytes()
 
-To pass a byte object, use the `bytes()` helper method:
+To pass a byte object, use the `bytes()` helper function:
 
 <CodeGroup>
 ```python Python

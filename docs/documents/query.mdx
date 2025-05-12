@@ -1,6 +1,6 @@
 ---
 title: "Query documents"
-description: "Use the `query` method to search for documents."
+description: "Use the `query` function to search for documents."
 ---
 
 import Support from "/snippets/support.mdx";
@@ -11,8 +11,8 @@ With TopK's declarative query builder, you can easily select fields, chain filte
 
 ## Select expressions
 
-Use the `select()` method with `field()` expression to select fields from a document. It can be used to select named fields, rename existing fields,
-or include computed fields using [function expressions](#function-expressions).
+Use the `select()` function with a `field()` expression to select fields from a document. In the select stage, you can also rename existing fields
+or define computed fields using [function expressions](#function-expressions).
 
 <CodeGroup>
 
@@ -777,7 +777,7 @@ All queries are required to have a collection stage. Currently, we only support 
 
 ### topk
 
-Use the `topk()` method to return the top `k` results. The `topk` method accepts the following arguments:
+Use the `topk()` function to return the top `k` results. The `topk` function accepts the following arguments:
 
 <ParamField path="field" type="LogicalExpression" required={true}>
   The logical expression to sort the results by.
@@ -810,7 +810,7 @@ To get the top 10 results ordered by the `title_similarity` field, you can use t
 
 ### count
 
-Use the `count()` method to get the total number of documents matching the query. If there are no filters then `count` will return the total number of documents in the collection.
+Use the `count()` function to get the total number of documents matching the query. If there are no filters then `count` will return the total number of documents in the collection.
 
 <CodeGroup>
 
@@ -829,4 +829,4 @@ Use the `count()` method to get the total number of documents matching the query
 
 ## Notes on writing queries
 
-When writing queries, remember that they all require the `topk` or `count` method at the end.
+When writing queries, remember that they all require the `topk` or `count` function at the end.

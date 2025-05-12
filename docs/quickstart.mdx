@@ -1,6 +1,6 @@
 ---
 title: "Quickstart (5m)"
-description: "Get started with the `topk` search database in under 5 minutes."
+description: "Get started with the TopK search database in under 5 minutes."
 ---
 
 import Support from "/snippets/support.mdx";
@@ -9,19 +9,20 @@ This quickstart guide will walk you through setting up and using TopK in less th
 
 1. Create a collection that stores your data
 2. Add documents to your collection
-3. Learn how to use different searching methods:
+3. Learn how to use different searching functions:
    - **Semantic search** - finding content by semantic meaning
    - **Keyword search** - finding exact text matches and sort by keyword score
    - **Metadata filtering** - narrowing results by properties
+   - **Reranking**(optional) - use built-in reranking to prioritize relevant results
 
 Follow along to build your first functional search experience with TopK!
 
-Before starting, ensure you have the TopK SDK installed and an API key ready - see the [installation](/installation) docs.
+Before starting, ensure you have the TopK SDK installed and an API key ready - see the [Installation](/installation) docs.
 
 
 ## 1. Create your first collection
 
-Collections are the core data structure in TopK. They store documents and allow you to query them.
+Collections are the core data structure in TopK. They store documents and provide an interface for querying your data.
 
 First, create a TopK `Client` instance with your [API key](/installation#api-key) and
 <Tooltip tip="TopK region is where your data is stored. It maps to a specific cloud region.">region</Tooltip>.
@@ -71,6 +72,8 @@ await client.collections().create("books", {
 ```
 
 </CodeGroup>
+
+Adding a [`semantic_index()`](/collections/create#semantic-index) to the `title` field enables **semantic search** as well as **keyword search** on this field.
 
 <Tip>
   Other fields can still be upserted even if they are not defined in the schema.
@@ -149,7 +152,7 @@ const results = await client.collection("books").query(
 
 </CodeGroup>
 
-Optionally, you can call `.rerank()` at the end of your query to automatically improve relevance of the results. See [reranking](/documents/query#reranking) for more details.
+Optionally, you can call `.rerank()` at the end of your query to automatically improve relevance of the results using a reranking model. See [Reranking](/documents/query#reranking) guide for more details.
 
 ## 4. (Optional) Clean up
 

@@ -17,8 +17,8 @@ In the following example, we'll:
 
 ### Define a collection schema
 
-To implement semantic search, you need to add a [`semantic_index()`](/collections/create#semantic-index) to a text field in the collection schema.
-This configuration automatically generates embeddings for the specified text fields:
+Semantic search is enabled by adding a [`semantic_index()`](/collections/create#semantic-index) to a text field in the collection schema.
+This configuration automatically generates embeddings as well as enables keyword search for the specified text fields:
 
 <CodeGroup>
 
@@ -55,7 +55,7 @@ To find documents based on semantic similarity, use the `semantic_similarity()` 
 <CodeGroup>
 
 ```python Python
-from topk_sdk.query import select, fn
+from topk_sdk.query import select, field, fn
 
 docs = client.collection("books").query(
     select(
@@ -124,12 +124,12 @@ const docs = await client.collection("books").query(
 Let's break down the above example:
 
 1. The `semantic_similarity()` function computes the similarity between the query `"cereal"` and the text value stored in the `title` field for each document.
-2. TopK performs automatic query embedding under the hood using the model specified in [`semantic_index()`](/collections/create#semantic-index) method.
+2. TopK performs automatic query embedding under the hood using the model specified in [`semantic_index()`](/collections/create#semantic-index) function.
 3. The results are ranked based on similarity, and the top 10 most relevant documents are returned.
 4. The optional `.rerank()` call uses a reranking model to improve relevance of the results.
-  For more information, see our [reranking](/concepts/reranking) guide.
+  For more information, see our [Reranking](/concepts/reranking) guide.
 
-This works **out of the box**—no need to manage embeddings, external APIs, or reranking models.
+This works **out of the box**—no need to manage embeddings, external APIs, or third-party reranking models.
 
 ## Combining semantic and keyword search
 

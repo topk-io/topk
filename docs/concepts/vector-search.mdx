@@ -10,9 +10,35 @@ Vector search is the essential feature of TopK. With that in mind, TopK is desig
 
 ## How to perform a vector search
 
-Vector search is enabled by adding a [`vector_index()`](/collections/create#vector-index) on a vector field.
+Vector search is enabled by adding a [`vector_index()`](/collections/create#vector-index) to a vector field in the collection schema:
 
-Then, we can perform vector search in TopK by using the `vector_distance()` method to compute distance between two vectors:
+<CodeGroup>
+
+```python Python
+from topk_sdk.schema import text, f32_vector, vector_index
+
+client.collections().create(
+    "books",
+    schema={
+        "title": text().required(),
+        "title_embedding": f32_vector().required().index(vector_index(dimension=1536))
+    },
+)
+```
+
+
+```typescript Javascript
+import { text, f32Vector, vectorIndex } from "topk-js/schema";
+
+await client.collections().create("books", {
+  title: text().required(),
+  title_embedding: f32Vector().required().index(vectorIndex({ metric: "cosine" }))
+});
+```
+
+</CodeGroup>
+
+Then, we can perform vector search by using the `vector_distance()` function to compute distance between the query vector and vector stored in the document:
 
 <CodeGroup>
 
@@ -79,7 +105,7 @@ const docs = await client.collection("books").query(
 
 Let's break down the above example:
 
-1. First we compute the cosine distance between the query embedding and the `title_embedding` field by using the `vector_distance` method.
+1. First we compute the cosine distance between the query embedding and the `title_embedding` field by using the `vector_distance` function.
 2. Then we store the computed cosine distance in the `title_similarity` field.
 3. Lastly, we return the top 10 results by the `title_similarity` field in descending order.
 
@@ -90,10 +116,10 @@ While vector search captures semantic similarity, it often retrieves results tha
 **Metadata filtering** is used to enforce hard constraints based on crieteria such as
 category, time range, price range, availability, user permissions, language, or geographic region.
 
-In a multi-tenant setting, metadata filtering can be also used to scope the search to a specific tenant by filtering documents based on the given tenant ID.
+In a multi-tenant setting, metadata filtering is used to narrow down the search space for a specific tenant by filtering documents based on the given tenant ID.
 See our [multi-tenancy guide](/concepts/multi-tenancy) for more details.
 
-In TopK, you can combine vector search with metadata filtering by combining `vector_distance()` method with the `filter()` method:
+In TopK, you can combine vector search with metadata filtering by combining `vector_distance()` function with the `filter()` function:
 
 <CodeGroup>
 

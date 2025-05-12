@@ -40,7 +40,8 @@ await client.collections().create("papers", {
 
 </CodeGroup>
 
-After, we query the collection with a multi-vector search using the `fn.semantic_similarity()` function:
+After, we perform a multi-vector search by using the `fn.semantic_similarity()` function for calculating semantic similarity on
+`paper_score` as well as `paragraph_score` fields:
 
 <CodeGroup>
 
@@ -105,14 +106,14 @@ const docs = await client.collection("papers").query(
     title: "On the Importance of Initialization and Momentum in Deep Learning",
     paper_score: 0.9774298071861267,
     paragraph_score: 0.9783554673194885,
-    // "blend_score": 0.9777075052261353,
+    // "blended_score": 0.9777075052261353,
   },
   {
     _id: "1",
     title: "Understanding the Difficulty of Training Deep Feedforward Neural Networks",
     paper_score: 0.9773390889167786,
     paragraph_score: 0.976479709148407,
-    // "blend_score": 0.977081298828125,
+    // "blended_score": 0.977081298828125,
   },
 ];
 ```
@@ -122,5 +123,5 @@ const docs = await client.collection("papers").query(
 Let's break down the above example:
 
 1. First, we calculate semantic similarity between the query and the full paper summary as well as the paragraph summary.
-2. Then, we blend the two scores, giving 70% weight to the full paper and 30% weight to the paragraph.
+2. Then, we blend the two scores by giving 70% weight to the full paper and 30% weight to the paragraph.
 3. Finally, we retrieve the top 10 results ranked by the blended score.

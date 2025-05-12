@@ -7,9 +7,9 @@ import Support from "/snippets/support.mdx";
 
 ## Creating a collection
 
-To create a collection in TopK, call the `create()` method on `client.collections()`.
+To create a collection in TopK, call the `create()` function on `client.collections()`.
 
-The `create()` method takes two parameters:
+The `create()` function takes two parameters:
 
 
 <ParamField body="name" type="string" required={true}>
@@ -277,17 +277,17 @@ import { bytes } from "topk-js/schema";
 
 </CodeGroup>
 
-## Methods
+## Functions
 
 ### index()
 
-`index()` method is used to create an index on a field.
+`index()` function is used to create an index on a field.
 
-This method accepts a single parameter specifying the index type:
+This function accepts a single parameter specifying the index type:
 
 #### `semantic_index()`
 
-This method is used to create both a **keyword** and a **vector** on a given field. This allows you to do both semantic search and keyword search over the same field. Note that `semantic_index()` can only be called over `text()` data type.
+This function is used to create both a **keyword** and a **vector** on a given field. This allows you to do both semantic search and keyword search over the same field. Note that `semantic_index()` can only be called over `text()` data type.
 
 <CodeGroup>
 
@@ -306,7 +306,7 @@ import { semanticIndex } from "topk-js/schema";
 
 </CodeGroup>
 
-Optionally, you can pass a `model` parameter and `embedding_type` parameter to the `semantic_index()` method:
+Optionally, you can pass a `model` parameter and `embedding_type` parameter to the `semantic_index()` function:
 
 <ParamField body="model" type="string" default="cohere/embed-multilingual-v3">
  Embedding model to use for semantic search. Currently, these two models are supported:
@@ -326,19 +326,19 @@ TopK supports the following embedding types for Cohere models:
 
 #### `vector_index()`
 
-This method is used to create vector index on a vector field. You can add a vector index on `f32_vector`, `u8_vector`, or `binary_vector` fields.
+This function is used to create vector index on a vector field. You can add a vector index on `f32_vector`, `u8_vector`, or `binary_vector` fields.
 
 <CodeGroup>
 
 ```python Python
-from topk_sdk.schema import vector_index
+from topk_sdk.schema import vector_index, f32_vector
 
-"title_embedding": vector(dimension=1536).index(vector_index(metric="cosine"))
+"title_embedding": f32_vector(dimension=1536).index(vector_index(metric="cosine"))
 ```
 
 
 ```js JavaScript
-import { vectorIndex } from "topk-js/schema";
+import { vectorIndex, f32Vector } from "topk-js/schema";
 
 "title_embedding": f32Vector({ dimension: 1536 }).index(
   vectorIndex({ metric: "cosine" })
@@ -350,16 +350,16 @@ import { vectorIndex } from "topk-js/schema";
 You must specify a `metric` when calling `vector_index()`. This parameter determines how vector similarity is calculated:
 
 <ParamField body="metric" type="string" required={true}>
-
+Supported vector distance metrics:
 - `euclidean`
 - `cosine`
 - `dot_product`
-- `hamming` (only supported for `binary_vector()` type)
+- `hamming` (only supported for [`binary_vector()`](#binary-vector) type)
 </ParamField>
 
 #### `keyword_index()`
 
-This method is used to create a keyword index on a text field:
+This function is used to create a keyword index on a text field:
 
 <CodeGroup>
 
