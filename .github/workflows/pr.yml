@@ -7,7 +7,7 @@ on:
 jobs:
   rust:
     name: Test Rust
-    runs-on: [earthly-satellite#bob-the-builder-amd64]
+    runs-on: amd64
     if: ${{ contains(github.event.pull_request.labels.*.name, 'ready') }}
     permissions:
       id-token: write
@@ -15,7 +15,6 @@ jobs:
       packages: write
     env:
       FORCE_COLOR: 1
-      EARTHLY_TOKEN: "${{ secrets.EARTHLY_TOKEN }}"
     steps:
       - uses: actions/checkout@v4
 
@@ -26,7 +25,7 @@ jobs:
 
   python:
     name: Test Python
-    runs-on: [earthly-satellite#bob-the-builder-amd64]
+    runs-on: amd64
     if: ${{ contains(github.event.pull_request.labels.*.name, 'ready') }}
     permissions:
       id-token: write
@@ -34,7 +33,6 @@ jobs:
       packages: write
     env:
       FORCE_COLOR: 1
-      EARTHLY_TOKEN: "${{ secrets.EARTHLY_TOKEN }}"
     steps:
       - uses: actions/checkout@v4
 
@@ -44,7 +42,7 @@ jobs:
           TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
   javascript:
     name: Test JavaScript
-    runs-on: [earthly-satellite#bob-the-builder-amd64]
+    runs-on: amd64
     if: ${{ contains(github.event.pull_request.labels.*.name, 'ready') }}
     permissions:
       id-token: write
