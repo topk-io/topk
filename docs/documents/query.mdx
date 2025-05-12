@@ -74,18 +74,18 @@ docs = client.collection("books").query(
 )
 
 # Example result:
-# [
-#   {
-#     "_id": "1",
-#     "title": "Good Night, Bat! Good Morning, Squirrel!",
-#     "text_score": 0.2447269707918167
-#   },
-#   {
-#     "_id": "2",
-#     "title": "Good Girl, Bad Blood",
-#     "text_score": 0.20035339891910553
-#   }
-# ]
+[
+  {
+    "_id": "1",
+    "title": "Good Night, Bat! Good Morning, Squirrel!",
+    "text_score": 0.2447269707918167
+  },
+  {
+    "_id": "2",
+    "title": "Good Girl, Bad Blood",
+    "text_score": 0.20035339891910553
+  }
+]
 ```
 
 
@@ -102,18 +102,18 @@ const results = await client.collection("books").query(
 );
 
 // Example result:
-// [
-//   {
-//     _id: '1',
-//     title: 'Good Night, Bat! Good Morning, Squirrel!'
-//     text_score: 0.2447269707918167,
-//   },
-//   {
-//     _id: '2',
-//     title: 'Good Girl, Bad Blood',
-//     text_score: 0.20035339891910553
-//   }
-// ]
+[
+  {
+    _id: '1',
+    title: 'Good Night, Bat! Good Morning, Squirrel!'
+    text_score: 0.2447269707918167,
+  },
+  {
+    _id: '2',
+    title: 'Good Girl, Bad Blood',
+    text_score: 0.20035339891910553
+  }
+]
 ```
 
 </CodeGroup>
@@ -139,18 +139,18 @@ docs = client.collection("books").query(
 )
 
 # Example result:
-# [
-#   {
-#     "_id": "2",
-#     "title": "To Kill a Mockingbird",
-#     "title_similarity": 0.7484796643257141
-#   },
-#   {
-#     "_id": "1",
-#     "title": "The Catcher in the Rye",
-#     "title_similarity": 0.5471329569816589
-#   }
-# ]
+[
+  {
+    "_id": "2",
+    "title": "To Kill a Mockingbird",
+    "title_similarity": 0.7484796643257141
+  },
+  {
+    "_id": "1",
+    "title": "The Catcher in the Rye",
+    "title_similarity": 0.5471329569816589
+  }
+]
 ```
 
 ```js Javascript
@@ -167,18 +167,18 @@ const docs = await client.collection("books").query(
 );
 
 // Example result:
-// [
-//   {
-//     _id: '2',
-//     title: 'To Kill a Mockingbird',
-//     title_similarity: 0.7484796643257141
-//   },
-//   {
-//     _id: '1'
-//     title: 'The Catcher in the Rye',
-//     title_similarity: 0.5471329569816589,
-//   }
-// ]
+[
+  {
+    _id: '2',
+    title: 'To Kill a Mockingbird',
+    title_similarity: 0.7484796643257141
+  },
+  {
+    _id: '1'
+    title: 'The Catcher in the Rye',
+    title_similarity: 0.5471329569816589,
+  }
+]
 ```
 
 </CodeGroup>
@@ -204,18 +204,18 @@ docs = client.collection("books").query(
 )
 
 # Example result:
-# [
-#   {
-#     "_id": "2",
-#     "title": "To Kill a Mockingbird",
-#     "title_similarity": 0.7484796643257141
-#   },
-#   {
-#     "_id": "1",
-#     "title": "The Catcher in the Rye",
-#     "title_similarity": 0.5471329569816589
-#   }
-# ]
+[
+  {
+    "_id": "2",
+    "title": "To Kill a Mockingbird",
+    "title_similarity": 0.7484796643257141
+  },
+  {
+    "_id": "1",
+    "title": "The Catcher in the Rye",
+    "title_similarity": 0.5471329569816589
+  }
+]
 ```
 
 ```js Javascript
@@ -230,18 +230,18 @@ const docs = await client.collection("books").query(
 );
 
 // Example result:
-// [
-//   {
-//     _id: '2',
-//     title: 'To Kill a Mockingbird',
-//     title_similarity: 0.7484796643257141
-//   },
-//   {
-//     _id: '1',
-//     title: 'The Catcher in the Rye',
-//     title_similarity: 0.5471329569816589
-//   }
-// ]
+[
+  {
+    _id: '2',
+    title: 'To Kill a Mockingbird',
+    title_similarity: 0.7484796643257141
+  },
+  {
+    _id: '1',
+    title: 'The Catcher in the Rye',
+    title_similarity: 0.5471329569816589
+  }
+]
 ```
 
 </CodeGroup>
@@ -341,7 +341,10 @@ In the example below, we're searching for documents that contain the keyword "ca
 
 ```python Python
 .filter(
-    match("catcher") && (field("published_year") == 1997 || (field("published_year") >= 1920 && field("published_year") <= 1980))
+    match("catcher")
+)
+.filter(
+    field("published_year") == 1997 || (field("published_year") >= 1920 && field("published_year") <= 1980)
 )
 ```
 
@@ -349,13 +352,9 @@ In the example below, we're searching for documents that contain the keyword "ca
 ```js Javascript
 .filter(
   match("catcher")
-    .and(
-      field("published_year").eq(1997)
-        .or(
-          field("published_year").gte(1920)
-            .and(field("published_year").lte(1980))
-        )
-    )
+)
+.filter(
+  field("published_year").eq(1997).or(field("published_year").gte(1920).and(field("published_year").lte(1980)))
 )
 ```
 
@@ -881,5 +880,3 @@ const docs = await client.collection("books").query(
 ## Notes on writing queries
 
 When writing queries, remember that they all require the `topk` or `count` method at the end.
-
-## Next steps
