@@ -9,10 +9,10 @@ This quickstart guide will walk you through setting up and using TopK in less th
 
 1. Create a collection that stores your data
 2. Add documents to your collection
-3. Learn how to use different searching techniques:
-   - **Semantic search** (finding content by meaning)
-   - **Keyword matching** (finding exact text)
-   - **Metadata filtering** (narrowing results by properties)
+3. Learn how to use different searching methods:
+   - **Semantic search** - finding content by semantic meaning
+   - **Keyword search** - finding exact text matches and sort by keyword score
+   - **Metadata filtering** - narrowing results by properties
 
 Follow along to build your first functional search experience with TopK!
 
@@ -23,7 +23,7 @@ Before starting, ensure you have the TopK SDK installed and an API key ready - s
 
 Collections are the primary data structure in TopK. They store documents and allow you to query them.
 
-First, create a `Client` instance with your [API key](/installation#api-key) and
+First, create a TopK `Client` instance with your [API key](/installation#api-key) and
 <Tooltip tip="TopK region is where your data is stored. It maps to a specific cloud region.">region</Tooltip>.
 
 <CodeGroup>
@@ -72,7 +72,9 @@ await client.collections().create("books", {
 
 </CodeGroup>
 
-> **Note:** Other fields can still be upserted even if they are not defined in the schema.
+<Tip>
+  Other fields can still be upserted even if they are not defined in the schema.
+</Tip>
 
 ## 2. Add documents
 
@@ -120,6 +122,8 @@ results = client.collection("books").query(
     )
     # Sort results by the `title_similarity` field, selecting the top 10 results
     .topk(field("title_similarity"), 10)
+    # Rerank results using cohere/rerank-v3.5 model
+    .rerank()
 )
 ```
 
@@ -138,6 +142,8 @@ const results = await client.collection("books").query(
   })
     // Sort results by the `title_similarity` field, selecting the top 10 results
     .topk(field("title_similarity"), 10)
+    // Rerank results using cohere/rerank-v3.5 model
+    .rerank()
 );
 ```
 

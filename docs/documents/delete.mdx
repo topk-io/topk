@@ -6,9 +6,7 @@ import Support from "/snippets/support.mdx";
 
 While we plan to release more options to delete your documents (e.g. by query), for the starter you can delete documents by their `_id`.
 
-## Delete by `_id`
-
-To delete documents by their `_id`, you can pass a list of `_id`s to the `delete` method:
+To delete documents by their `_id`, you can pass a list of `_id`s to the `delete()` method:
 
 <CodeGroup>
 
@@ -25,4 +23,4 @@ await client.collection("books").delete(["book-1", "book-2", "book-3"]);
 
 </CodeGroup>
 
-If your document is too large it can take a moment delete it. You can check the status of the deletion by querying the document again.
+If the documents are too large it can take a while until the deletion process is complete. To check the status of the deletion, query the document again.

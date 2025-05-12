@@ -2,24 +2,53 @@
 title: "Multi-tenancy"
 ---
 
-TopK does not have a built-in concept of namespaces or tenants. Multi-tenancy is achieved through metadata filtering.
+TopK does not have a built-in concept of namespaces or tenants. Multi-tenancy is achieved through encoding tenant IDs in documents **`_id`** value.
 
-To scope results to a specific tenant or tenants, you would typically use the `starts_with()` method to filter documents based on their tenant ID:
+This design enables TopK to scale a single collection efficiently without performance degradation.
+
+### Storing documents for a specific tenant
+
+To store documents for a specific tenant, prepend the **tenant ID** to the document **`_id`** value:
 
 <CodeGroup>
 
 ```python Python
-
+client.collection("books").upsert([
+    {"_id": "tenant-1234_1", "title": "The Great Gatsby", "author": "F. Scott Fitzgerald"},
+    {"_id": "tenant-1234_2", "title": "To Kill a Mockingbird", "author": "Harper Lee"},
+])
 ```
 
-```js Javascript
-import { select, filter, startsWith } from "topk-js/query";
+```typescript Javascript
+await client.collection("books").upsert([
+  { _id: "tenant-1234_1", title: "The Great Gatsby", author: "F. Scott Fitzgerald" },
+  { _id: "tenant-1234_2", title: "To Kill a Mockingbird", author: "Harper Lee" },
+]);
+```
 
+</CodeGroup>
+
+### Querying documents for a specific tenant
+
+To query documents for a specific tenant, use the **tenant ID** along with `startsWith()` filter:
+
+<CodeGroup>
+
+```python Python
+client.collection("books").query(
+    select({
+        "title": field("title"),
+    })
+    .filter(field("_id").startsWith("tenant-1234"))
+)
+```
+
+```typescript Javascript
 await client.collection("books").query(
   select({
     title: field("title"),
   })
-  .filter(field("tenant_id").startsWith("1234"))
+  .filter(field("_id").startsWith("tenant-1234"))
 );
 ```
 

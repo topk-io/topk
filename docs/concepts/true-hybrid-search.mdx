@@ -11,127 +11,52 @@ Most databases that offer "hybrid" search maintain separate vector and keyword i
 
 1. They run the query against both indexes separately
 2. Then each index returns its top results (e.g. first 100 candidates)
-3. Lastly, use techniques like Reciprocal Rank Fusion (RRF) to merge and re-rank these two sets of results
+3. Lastly, use techniques like Reciprocal Rank Fusion (RRF) to merge and rerank these two sets of results
 
 <br />
 
 ```mermaid
 flowchart TD
-    A[User Query] --> B[Query Keyword Index]
-    A --> C[Query Vector Index]
+    A[User Query] --> B[(Query Keyword Index)]
+    A --> C[(Query Vector Index)]
 
-  B --> D[Top 100 Keyword search results]
-  C --> E[Top 100 Vector search results]
+  B --> D@{ shape: docs, label: "Top 100 Keyword search results" }
+  C --> E@{ shape: docs, label: "Top 100 Vector search results" }
 
-  D --> F[Merge and re-rank top keyword search results and top vector search results using RRF]
+  D --> F{Merge and rerank top 200 results using RRF}
   E --> F
 
-  F --> G[Final 100 ranked results]
+  F --> G@{ shape: stadium, label: "Final 100 ranked results" }
 ```
 
 <br />
 
 This approach is fundamentally **probabilistic** - the final "top 100" results are not guaranteed to be the actual best matches because some potential matches might be missed if they don't appear in either index's top results.
 
-**TopK is different.** We scan both vector and keyword indexes simultaneously within a single query, ensuring that our "top 100" results are the **actual** top 100 - not just a probabilistic approximation.
+**TopK is different.** We scan both vector and keyword indexes simultaneously within a single query, ensuring that our "top 100" results are the **actual** top 100 - not just a probabilistic approximation:
+
+```mermaid
+flowchart TD
+    A[User Query]
+    A --> B[(Keyword Index)]
+    A --> C[(Vector Index)]
+
+    B --> D{Simultaneously scan both indexes and retrieve top 100 results}
+    C --> D
+    D --> G@{ shape: stadium, label: "Final 100 ranked results" }
+```
+
 
 With TopK, you can:
 
-- Retrieve documents based on multiple embeddings -- **multi-vector retrieval**.
-- Combine semantic similarity (or vector distance) with keyword search -- **true hybrid retrieval**.
-- Apply custom scoring functions that blend multiple ranking factors -- **custom scoring**.
-
----
-
-## Multi-Vector Retrieval
-
-In some cases, a single vector representation of your content is not enough. For example, in a research paper database, you might want to:
-
-- Retrieve documents based on both the summary of the entire paper and summaries of individual paragraphs.
-- Rank results by combining scores from multiple embeddings.
-
-Let's define a collection with two [semantic indexes](/collections/create#semantic-index):
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.schema import text, vector, semantic_index
-
-client.collections().create(
-    "papers",
-    schema={
-        "title": text().required(),
-        "paper_summary": text().index(semantic_index()),  # Embedding of full paper
-        "paragraph_summary": text().index(semantic_index()),  # Embedding of a paragraph
-    },
-)
-```
-
-Under the hood, TopK will create two separate vector
+- Retrieve documents based on multiple embeddings -- **multi-vector retrieval**
+- Combine semantic similarity (or vector distance) with keyword search -- **true hybrid retrieval**
+- Filter documents to enforce hard constraints -- **metadata filtering**
+- Apply custom scoring functions blending multiple ranking factors -- **custom scoring**
 
 
-```typescript Javascript
-import { text, semanticIndex } from "topk-js/schema";
 
-await client.collections().create("papers", {
-  title: text().required(),
-  paper_summary: text().index(semanticIndex()), // Embedding of full paper
-  paragraph_summary: text().index(semanticIndex()), // Embedding of a paragraph
-});
-```
-
-</CodeGroup>
-
-### Using semantic similarity
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.query import select, fn
-
-docs = client.collection("papers").query(
-    select(
-        "title",
-        paper_score=fn.semantic_similarity("paper_summary", "deep learning optimization"),
-        paragraph_score=fn.semantic_similarity("paragraph_summary", "stochastic gradient descent")
-    )
-    .topk(field("paper_score") * 0.7 + field("paragraph_score") * 0.3, 10)
-)
-```
-
-
-```javascript Javascript
-import { select, field, fn } from "topk-js/query";
-
-const docs = await client.collection("papers").query(
-  select({
-    title: field("title"),
-    paper_score: fn.semanticSimilarity(
-      "paper_summary",
-      "deep learning optimization"
-    ),
-    paragraph_score: fn.semanticSimilarity(
-      "paragraph_summary",
-      "stochastic gradient descent"
-    ),
-  }).topk(
-    field("paper_score").mul(0.7).add(field("paragraph_score").mul(0.3)),
-    10
-  )
-);
-```
-
-</CodeGroup>
-
-**Explanation**
-
-- We retrieve documents based on both the full paper summary and the paragraph summary.
-- The `topk()` function blends the two scores, giving 70% weight to the full paper and 30% weight to the paragraph.
-- This method ensures that entirely relevant papers rank higher while also considering specific paragraph relevance.
-
----
-
-## Vector \+ Text Retrieval (Hybrid Search)
+## How to implement hybrid search(vector + keyword)
 
 Hybrid retrieval combines **semantic similarity (vector-based search)** with **exact keyword matching**. This ensures that documents containing **explicit matches** to the query keywords are considered alongside **semantic similarity**.
 
@@ -163,7 +88,7 @@ await client.collections().create("articles", {
 
 </CodeGroup>
 
-In the following example we'll perform a hybrid retrieval that uses both keyword and semantic(vector) search:
+In the following example we'll perform a hybrid search that uses both keyword and semantic(vector) search:
 
 <CodeGroup>
 
@@ -204,7 +129,7 @@ const docs = await client.collection("articles").query(
 
 </CodeGroup>
 
-**Explanation**
+Let's break down the above example:
 
 - We retrieve documents based on semantic meaning (`content_score`) and keyword matching (`keyword_match`).
 - The `filter()` ensures that documents must contain at least one relevant keyword.
@@ -282,8 +207,8 @@ const docs = await client.collection("documents").query(
 
 </CodeGroup>
 
-**Explanation**
+Let's break down the above example:
 
-- We retrieve documents based on both semantic similarity (`content_score`) and precomputed importance (`importance_score`).
-- The `topk()` function gives 80% weight to content relevance and 20% weight to document importance.
-- This method allows you to boost more critical documents, ensuring that highly relevant but less "important" content doesn't dominate.
+1. First, we retrieve documents based on both semantic similarity (`content_score`) and precomputed importance (`importance_score`).
+2. Then, the `topk()` function gives 80% weight to content relevance and 20% weight to document importance.
+3. Sorting by a custom scoring function allows us to boost more critical documents, ensuring that highly relevant but less "important" content doesn't dominate.

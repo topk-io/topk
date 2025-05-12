@@ -772,13 +772,27 @@ The `is_not_null` operator can be used to match documents that have a field with
 
 </CodeGroup>
 
-## Results collection
+## Query collection
 
 All queries are required to have a collection stage. Currently, we only support `topk` and `count` collectors.
 
 ### topk
 
-You can use the `topk` method to return the top `k` results. The `topk` method takes a field, the number of results to return, and an optional `asc` parameter to sort the results in ascending order.
+Use the `topk()` method to return the top `k` results. The `topk` method accepts the following arguments:
+
+<ParamField path="field" type="LogicalExpression" required={true}>
+  The logical expression to sort the results by.
+</ParamField>
+
+<ParamField path="k" type="number" required={true}>
+  The number of results to return.
+</ParamField>
+
+<ParamField path="asc" type="boolean" required={false}>
+  Whether to sort the results in ascending order.
+</ParamField>
+
+To get the top 10 results ordered by the `title_similarity` field, you can use the following query:
 
 <CodeGroup>
 
@@ -797,7 +811,7 @@ You can use the `topk` method to return the top `k` results. The `topk` method t
 
 ### count
 
-You can use the `count` method to get the total number of documents matching the query. If there are no filters then `count` will return the total number of documents in the collection.
+Use the `count()` method to get the total number of documents matching the query. If there are no filters then `count` will return the total number of documents in the collection.
 
 <CodeGroup>
 
@@ -810,50 +824,6 @@ You can use the `count` method to get the total number of documents matching the
 ```js Javascript
 // Count the total number of documents in the collection
 .count()
-```
-
-</CodeGroup>
-
-## Reranking
-
-You can rerank the results of a query using the `rerank` method. The `rerank` method takes:
-
-- `model` (optional): The model to use for reranking. If not specified, uses the default model.
-- `query` (optional): The query text to rerank against. Uses arguments from `semantic_similarity` if not specified.
-- `fields` (optional): List of fields to use for reranking. Uses fields from `semantic_similarity` if not specified.
-- `topk_multiple` (optional): Multiple of top-k to rerank. For example, if `topk=10` and `topk_multiple=2`, reranker takes 20 results from the original query and returns the top 10 results.
-
-Supported models:
-
-- `cohere/rerank-v3.5`
-
-<CodeGroup>
-
-```python Python
-.rerank()
-
-# or
-
-.rerank(
-    model="cohere/rerank-v3.5",
-    query="catcher",
-    fields=["title", "description"],
-    topk_multiple=2
-)
-```
-
-
-```typescript Javascript
-.rerank()
-
-// or
-
-.rerank({
-  model: "cohere/rerank-v3.5",
-  query: "catcher",
-  fields: ["title", "description"],
-  topkMultiple: 2,
-})
 ```
 
 </CodeGroup>

@@ -1,13 +1,26 @@
 ---
 title: "Create a collection"
-description: "Collections are the core data structure in TopK. They are used to store and query documents."
+description: "Collections are the primary data structure in TopK. They store documents and provide the interface for querying them efficiently."
 ---
 
 import Support from "/snippets/support.mdx";
 
 ## Creating a collection
 
-To create a collection, you need to pass the collection name and the schema definition to the `create()` method on the`client.collections()` instance.
+To create a collection in TopK, call the `create()` method on `client.collections()`.
+
+The `create()` method takes two parameters:
+
+
+<ParamField body="name" type="string" required={true}>
+  The name of the collection.
+</ParamField>
+
+<ParamField body="schema" type="HashMap<String, FieldSpec>" required={true}>
+  Schema definition that describes the document structure.
+</ParamField>
+
+Below is an example of creating a collection named `books`:
 
 <CodeGroup>
 
@@ -43,13 +56,14 @@ await client.collections().create("books", {
 
 ## Schema
 
-## Data types
+Collection schema in TopK is a map of field names and field specifications.
 
-TopK supports the following data types. There are more on our roadmap and we are working effortlessly to bring them to you as soon as possible.
+TopK supports the following field data types:
+
 
 ### int()
 
-`int()` function is used to define an integer field in the collection schema.
+`int()` function is used to define an integer:
 
 <CodeGroup>
 
@@ -70,7 +84,7 @@ import { int } from "topk-js/schema";
 
 ### float()
 
-`float()` function is used to define a float field in the collection schema.
+`float()` function is used to define a float:
 
 <CodeGroup>
 
@@ -91,7 +105,7 @@ import { float } from "topk-js/schema";
 
 ### bool()
 
-`bool()` function is used to define a boolean field in the collection schema.
+`bool()` function is used to define a boolean:
 
 <CodeGroup>
 
@@ -112,7 +126,7 @@ import { bool } from "topk-js/schema";
 
 ### text()
 
-`text()` function is used to define a text field in the collection schema.
+`text()` function is used to define a text:
 
 <CodeGroup>
 
@@ -133,7 +147,7 @@ import { text } from "topk-js/schema";
 
 ### f32_vector()
 
-`f32_vector()` function is used to define a vector field with 32-bit floating point values. This function takes `dimension` as a parameter (greater than 0).
+`f32_vector()` function is used to define a vector field with 32-bit floating point values.
 
 
 <CodeGroup>
@@ -153,6 +167,12 @@ import { f32Vector } from "topk-js/schema";
 
 </CodeGroup>
 
+To configure the float vector dimension, pass a `dimension` parameter to the `f32_vector()` function:
+
+<ParamField body="dimension" type="int" required={true} min={1}>
+  The dimension of the vector.
+</ParamField>
+
 <Note>
   The vector dimension will be validated when upserting documents.
   Passing a vector with a different dimension will result in an error.
@@ -160,7 +180,7 @@ import { f32Vector } from "topk-js/schema";
 
 ### u8_vector()
 
-`u8_vector()` function is used to define a vector field with `u8` values. You can pass vector `dimension` as a parameter (required, greater than 0) which will be validated when upserting documents.
+`u8_vector()` function is used to define a vector field with `u8` values.
 
 <CodeGroup>
 
@@ -178,6 +198,13 @@ import { u8Vector } from "topk-js/schema";
 ```
 
 </CodeGroup>
+
+To configure the vector dimension, pass a `dimension` parameter to the `u8_vector()` function:
+
+<ParamField body="dimension" type="int" required={true} min={1}>
+  The dimension of the vector.
+</ParamField>
+
 
 ### binary_vector()
 
@@ -203,6 +230,12 @@ import { binaryVector } from "topk-js/schema";
 ```
 
 </CodeGroup>
+
+To configure the binary vector dimension, pass a `dimension` parameter to the `binary_vector()` function:
+
+<ParamField body="dimension" type="int" required={true} min={1}>
+  The dimension of the vector.
+</ParamField>
 
 ### bytes()
 
@@ -244,13 +277,13 @@ import { bytes } from "topk-js/schema";
 
 </CodeGroup>
 
-The above example shows how to mark a field `title` as required.
-
 ## Methods
 
 ### index()
 
-`index()` is used to create an index on a field.
+`index()` method is used to create an index on a field.
+
+This method accepts a single parameter specifying the index type:
 
 #### `semantic_index()`
 
@@ -273,23 +306,27 @@ import { semanticIndex } from "topk-js/schema";
 
 </CodeGroup>
 
-Optionally, you can pass a `model` parameter to the `semantic_index()` method. Supported models are:
+Optionally, you can pass a `model` parameter and `embedding_type` parameter to the `semantic_index()` method:
+
+<ParamField body="model" type="string" default="cohere/embed-multilingual-v3">
+ Embedding model to use for semantic search. Currently, these two models are supported:
 
 - `cohere/embed-english-v3`
 - `cohere/embed-multilingual-v3` (default)
+</ParamField>
 
-You can also pass an optional `embedding_type` parameter to the `semantic_index()` method as well. TopK supports the following embedding types for Cohere models:
+<ParamField body="embedding_type" type="string" default="float32">
+TopK supports the following embedding types for Cohere models:
 
 - `float32`
 - `uint8`
 - `binary`
-
+</ParamField>
 
 
 #### `vector_index()`
 
-This method is used to create a vector index. Only fields with `f32_vector()`, `u8_vector()`, or `binary_vector()` data types
-can be indexed with a vector index.
+This method is used to create vector index on a vector field. You can add a vector index on `f32_vector`, `u8_vector`, or `binary_vector` fields.
 
 <CodeGroup>
 
@@ -310,18 +347,19 @@ import { vectorIndex } from "topk-js/schema";
 
 </CodeGroup>
 
-The above example shows how to create a vector index on a field `title_embedding` with the `cosine` similarity metric.
-However, there are more metrics available:
+You must specify a `metric` when calling `vector_index()`. This parameter determines how vector similarity is calculated:
+
+<ParamField body="metric" type="string" required={true}>
 
 - `euclidean`
 - `cosine`
 - `dot_product`
 - `hamming` (only supported for `binary_vector()` type)
+</ParamField>
 
 #### `keyword_index()`
 
-This method is used to create a keyword index on a `text()` field.
-`index(keyword_index())` can only be called over `text()` data type.
+This method is used to create a keyword index on a text field:
 
 <CodeGroup>
 
@@ -339,3 +377,5 @@ import { keywordIndex } from "topk-js/schema";
 ```
 
 </CodeGroup>
+
+Adding a keyword index allows you to perform [keyword search](/concepts/keyword-search) on this field.
