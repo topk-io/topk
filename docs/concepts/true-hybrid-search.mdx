@@ -26,7 +26,7 @@ flowchart TD
   D --> F{Merge and rerank top 200 results using RRF}
   E --> F
 
-  F --> G@{ shape: stadium, label: "Final 100 ranked results" }
+  F --> G@{ shape: stadium, label: "Combined 100 top results" }
 ```
 
 <br />
@@ -41,10 +41,9 @@ flowchart TD
     A --> B[(Keyword Index)]
     A --> C[(Vector Index)]
 
-    B --> D{Simultaneously scan both indexes and retrieve top 100 results}
+    B --> D{Scan a single index and retrieve top 100 results}
     C --> D
-    D --> E@{ shape: docs, label: "Combined top 100 Keyword and Vector search results" }
-    E --> F@{ shape: stadium, label: "Final 100 ranked results" }
+    D --> F@{ shape: stadium, label: "True top 100 results" }
 ```
 
 
@@ -57,7 +56,7 @@ With TopK, you can:
 
 
 
-## Implementing Hybrid Search(Vector + Keyword)
+## Implementing Hybrid Search (Vector + Keyword)
 
 Hybrid retrieval combines **semantic similarity (vector-based search)** with **exact keyword matching**. This ensures that documents containing **explicit matches** to the query keywords are considered alongside **semantic similarity**.
 
@@ -102,7 +101,7 @@ docs = client.collection("articles").query(
         content_similarity=fn.semantic_similarity("content", "climate change policies"),
         text_score=fn.bm25_score()
     )
-    .filter(match("carbon tax") | match("renewable energy"))  # Ensure keyword relevance
+    .filter(match("carbon") | match("renewable energy"))  # Ensure keyword relevance
     .topk(field("content_similarity") * 0.6 + field("text_score") * 0.4, 10)
 )
 ```
@@ -120,7 +119,7 @@ const docs = await client.collection("articles").query(
     ),
     text_score: fn.bm25Score(),
   })
-    .filter(match("carbon tax").or(match("renewable energy"))) // Ensure keyword relevance
+    .filter(match("carbon").or(match("renewable energy"))) // Ensure keyword relevance
     .topk(
       field("content_similarity").mul(0.6).add(field("text_score").mul(0.4)),
       10
@@ -130,9 +129,9 @@ const docs = await client.collection("articles").query(
 
 </CodeGroup>
 
-Let's break down the above example:
+Let's break down the example above:
 
-- We retrieve documents based on semantic meaning (`content_score`) and keyword matching (`keyword_match`).
+- We retrieve documents based on semantic meaning (`content_similarity`) and keyword matching (`text_score`).
 - The `filter()` ensures that documents contain at least one relevant keyword.
 - The `topk()` function weights the scores, prioritizing semantic meaning (60%) while still considering keyword matches (40%).
 
@@ -259,7 +258,7 @@ const docs = await client.collection("documents").query(
 
 </CodeGroup>
 
-Let's break down the above example:
+Let's break down the example above:
 
 1. First, we retrieve documents based on both semantic similarity (`content_score`) and precomputed importance (`importance_score`).
 2. Then, the `topk()` function gives 80% weight to content score and 20% weight to document importance.

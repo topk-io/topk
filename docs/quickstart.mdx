@@ -11,9 +11,9 @@ This quickstart guide will walk you through setting up and using TopK in less th
 2. Add documents to your collection
 3. Learn how to use different searching functions:
    - **Semantic search** - finding content by semantic meaning
-   - **Keyword search** - finding exact text matches and sort by keyword score
+   - **Keyword search** - finding exact text matches and sorting by keyword score
    - **Metadata filtering** - narrowing results by properties
-   - **Reranking**(optional) - use built-in reranking to prioritize relevant results
+   - **Reranking** (optional) - use built-in reranking to prioritize relevant results
 
 Follow along to build your first functional search experience with TopK!
 
@@ -26,6 +26,7 @@ Collections are the core data structure in TopK. They store documents and provid
 
 First, create a TopK `Client` instance with your [API key](/installation#api-key) and
 <Tooltip tip="TopK region is where your data is stored. It maps to a specific cloud region.">region</Tooltip>.
+Check out the [Regions](/regions) page for more information.
 
 <CodeGroup>
 
@@ -73,7 +74,8 @@ await client.collections().create("books", {
 
 </CodeGroup>
 
-Adding a [`semantic_index()`](/collections/create#semantic-index) to the `title` field enables **semantic search** as well as **keyword search** on this field.
+Adding a [`semantic_index()`](/collections/create#semantic-index) to the `title` field enables
+[**semantic search**](/concepts/semantic-search) as well as [**keyword search**](/concepts/keyword-search) on this field.
 
 <Tip>
   Other fields can still be upserted even if they are not defined in the schema.
@@ -120,10 +122,11 @@ from topk_sdk.query import select, fn, match, field
 results = client.collection("books").query(
     select(
         "title",
-        # Perform semantic search on the `title` field
+        #
         title_similarity=fn.semantic_similarity("title", "classic American novel"),
     )
-    # Sort results by the `title_similarity` field, selecting the top 10 results
+    # Sort results by the `title_similarity` field which is defined "on the fly",
+    # selecting the top 10 results
     .topk(field("title_similarity"), 10)
     # Rerank results using cohere/rerank-v3.5 model
     .rerank()
@@ -143,7 +146,8 @@ const results = await client.collection("books").query(
       "classic American novel"
     ),
   })
-    // Sort results by the `title_similarity` field, selecting the top 10 results
+    // Sort results by the `title_similarity` field which is defined "on the fly",
+    // selecting the top 10 results
     .topk(field("title_similarity"), 10)
     // Rerank results using cohere/rerank-v3.5 model
     .rerank()
@@ -171,7 +175,7 @@ await client.collections().delete("books")
 
 </CodeGroup>
 
-## Next steps
+### Next steps
 
 Continue exploring the TopK platform:
 

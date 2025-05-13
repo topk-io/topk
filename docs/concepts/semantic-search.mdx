@@ -12,7 +12,8 @@ TopK comes with **built-in embeddings** and **reranking**, removing the need for
 In the following example, we'll:
 
 1. Define a collection schema for semantic search
-2. Perform a semantic search
+2. Add documents to the collection
+3. Perform a semantic search
 
 
 ### Define a collection schema
@@ -48,6 +49,33 @@ await client.collections().create("books", {
   If you want to use your own embeddings instead of TopK's built-in `semantic_index()`, see [Vector Search](/concepts/vector-search).
 </Tip>
 
+### Add documents to the collection
+
+Let's add some documents to the collection:
+
+<CodeGroup>
+
+```python Python
+client.collection("books").upsert(
+    [
+        {"_id": "gatsby", "title": "The Great Gatsby"},
+        {"_id": "1984", "title": "1984"},
+        {"_id": "catcher", "title": "The Catcher in the Rye"}
+    ],
+)
+```
+
+
+```typescript Javascript
+await client.collection("books").upsert([
+  { _id: "gatsby", title: "The Great Gatsby" },
+  { _id: "1984", title: "1984" },
+  { _id: "catcher", title: "The Catcher in the Rye" },
+]);
+```
+
+</CodeGroup>
+
 ### Perform a semantic search
 
 To find documents based on semantic similarity, use the `semantic_similarity()` function:
@@ -60,7 +88,7 @@ from topk_sdk.query import select, field, fn
 docs = client.collection("books").query(
     select(
         "title",
-        title_similarity=fn.semantic_similarity("title", "catcher in the rye")
+        title_similarity=fn.semantic_similarity("title", "classic American novel")
     )
     .topk(field("title_similarity"), 10)
     .rerank()
@@ -70,17 +98,17 @@ docs = client.collection("books").query(
 
 [
   {
-    "_id": '2',
-    "title": 'The Catcher in the Rye',
+    "_id": "2",
+    "title": "The Catcher in the Rye",
     "title_similarity": 0.9497610926628113,
-    "_rank": 0
+    "_rank": 0,
     "_rerank_score": 0.048159245401620865,
   },
   {
-    "_id": '1',
-    "title": 'The Great Gatsby',
+    "_id": "1",
+    "title": "The Great Gatsby",
     "title_similarity": 0.9480283856391907,
-    "_rank": 1
+    "_rank": 1,
     "_rerank_score": 0.02818089909851551,
   }
 ]
@@ -93,7 +121,7 @@ import { select, field, fn } from "topk-js/query";
 const docs = await client.collection("books").query(
   select({
     title: field("title"),
-    title_similarity: fn.semanticSimilarity("title", "cereal"),
+    title_similarity: fn.semanticSimilarity("title", "classic American novel"),
   })
     .topk(field("title_similarity"), 10)
     .rerank()
@@ -121,9 +149,9 @@ const docs = await client.collection("books").query(
 
 </CodeGroup>
 
-Let's break down the above example:
+Let's break down the example above:
 
-1. The `semantic_similarity()` function computes the similarity between the query `"cereal"` and the text value stored in the `title` field for each document.
+1. The `semantic_similarity()` function computes the similarity between the query `"classic American novel"` and the text value stored in the `title` field for each document.
 2. TopK performs automatic query embedding under the hood using the model specified in [`semantic_index()`](/collections/create#semantic-index) function.
 3. The results are ranked based on similarity, and the top 10 most relevant documents are returned.
 4. The optional `.rerank()` call uses a reranking model to improve relevance of the results.
@@ -146,7 +174,7 @@ docs = client.collection("books").query(
         title_similarity=fn.semantic_similarity("title", "catcher"),
         text_score=fn.bm25_score()  # Keyword-based relevance
     )
-    .filter(match("classic"))  # Ensure the book title contains "classic" keyword
+    .filter(match("classic"))  # Ensure the book contains the keyword "classic" in any text-indexed field
     .topk(field("title_similarity") * 0.7 + field("text_score") * 0.3, 10)
     .rerank()
 )
@@ -162,7 +190,7 @@ const docs = await client.collection("books").query(
     title_similarity: fn.semanticSimilarity("title", "catcher"),
     text_score: fn.bm25Score(), // Keyword-based relevance
   })
-    .filter(match("classic")) // Ensure the book title contains "classic" keyword
+    .filter(match("classic")) // Ensure the book contains the keyword "classic" in any text-indexed field
     .topk(
       field("title_similarity").mul(0.7).add(field("text_score").mul(0.3)),
       10

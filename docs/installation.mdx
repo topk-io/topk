@@ -3,8 +3,6 @@ title: Installation
 description: "Install the TopK Python or JavaScript SDK"
 ---
 
-import Support from "/snippets/support.mdx";
-
 <CodeGroup>
 
 ```bash Python
@@ -53,8 +51,11 @@ TopK `Client` accepts the following parameters:
   The API key for the project.
 </ParamField>
 
-<ParamField body="region" type="string" required default="aws-us-east-1-elastica">
-  The region of the project.
+<ParamField body="region" type="string" required>
+  The region of the project. Available regions are:
+  * `aws-us-east-1-elastica`
+
+  Check out the [Regions](/regions) page for more information.
 </ParamField>
 
 <ParamField body="host" type="string" default="topk.io">
@@ -63,6 +64,8 @@ TopK `Client` accepts the following parameters:
 
 <ParamField body="https" type="boolean" default={true}>
   When using a public host this should always be `true`.
+  In most cases it is used for internal purposes.
+
 </ParamField>
 
 ## API Key
@@ -117,19 +120,18 @@ If you're using the TopK **JavaScript SDK** in a server-side rendering (SSR) env
 </AccordionGroup>
 
 
-## Next steps
+### Next steps
 
 We look forward to having you onboard. Here are some resources to help you get started:
 
 <CardGroup cols={2}>
   <Card title="Quickstart (5m)" icon="pen-to-square" href="/quickstart">
     Follow our prepared guide to get started with TopK. It will walk you through
-    the process of creating your first collection, adding documents, and
-    searching them.
+    the process of creating your first collection, adding documents, and implementing
+    semantic search in just a few lines of code.
   </Card>
-  <Card title="Community" icon="users" href="/community">
-    Do you want to meet likeminded people and other TopK users? Join our
-    community and share your experience with others.
+  <Card title="Regions" icon="globe" href="/regions">
+    Check out the regions where TopK is available.
   </Card>
 </CardGroup>
 

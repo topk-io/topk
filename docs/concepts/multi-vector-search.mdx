@@ -16,7 +16,7 @@ Let's define a collection with two [semantic indexes](/collections/create#semant
 from topk_sdk.schema import text, vector, semantic_index
 
 client.collections().create(
-    "papers",
+    "articles",
     schema={
         "title": text().required(),
         "paper_summary": text().index(semantic_index()),  # Embedding of full paper
@@ -31,7 +31,7 @@ Under the hood, TopK will create two separate vectors:
 ```typescript Javascript
 import { text, semanticIndex } from "topk-js/schema";
 
-await client.collections().create("papers", {
+await client.collections().create("articles", {
   title: text().required(),
   paper_summary: text().index(semanticIndex()), // Embedding of full paper
   paragraph_summary: text().index(semanticIndex()), // Embedding of a paragraph
@@ -48,7 +48,7 @@ After, we perform a multi-vector search by using the `fn.semantic_similarity()` 
 ```python Python
 from topk_sdk.query import select, fn
 
-docs = client.collection("papers").query(
+docs = client.collection("articles").query(
     select(
         "title",
         paper_score=fn.semantic_similarity("paper_summary", "deep learning optimization"),
@@ -81,7 +81,7 @@ docs = client.collection("papers").query(
 ```javascript Javascript
 import { select, field, fn } from "topk-js/query";
 
-const docs = await client.collection("papers").query(
+const docs = await client.collection("articles").query(
   select({
     title: field("title"),
     paper_score: fn.semanticSimilarity(
@@ -120,7 +120,7 @@ const docs = await client.collection("papers").query(
 
 </CodeGroup>
 
-Let's break down the above example:
+Let's break down the example above:
 
 1. First, we calculate semantic similarity between the query and the full paper summary as well as the paragraph summary.
 2. Then, we blend the two scores by giving 70% weight to the full paper and 30% weight to the paragraph.

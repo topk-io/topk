@@ -6,7 +6,7 @@ Vector search is the essential feature of TopK. With that in mind, TopK is desig
 
 * Handle **billion-scale vector search** efficiently across massive datasets
 * Achieve **> 95% recall** in vector search — consistently retrieving more than 95% of the true top-K nearest neighbors on practical workloads
-* Provide **low latency** (< 100ms) for any query across any size of dataset
+* Provide **low latency** (\<100ms) for any query across datasets of any size
 
 ## How to perform a vector search
 
@@ -103,7 +103,7 @@ const docs = await client.collection("books").query(
 
 </CodeGroup>
 
-Let's break down the above example:
+Let's break down the example above:
 
 1. First we compute the cosine distance between the query embedding and the `title_embedding` field by using the `vector_distance` function.
 2. Then we store the computed cosine distance in the `title_similarity` field.
@@ -111,13 +111,8 @@ Let's break down the above example:
 
 ## Combinding vector search with metadata filtering
 
-While vector search captures semantic similarity, it often retrieves results that may not satisfy all user or system-level constraints.
-
-**Metadata filtering** is used to enforce hard constraints based on crieteria such as
+While vector search captures semantic similarity, it often needs to be combined with **metadata filtering** to enforce hard constraints based on crieteria such as
 category, time range, price range, availability, user permissions, language, or geographic region.
-
-In a multi-tenant setting, metadata filtering is used to narrow down the search space for a specific tenant by filtering documents based on the given tenant ID.
-See our [multi-tenancy guide](/concepts/multi-tenancy) for more details.
 
 In TopK, you can combine vector search with metadata filtering by combining `vector_distance()` function with the `filter()` function:
 

@@ -25,13 +25,13 @@ Below is an example of creating a collection named `books`:
 <CodeGroup>
 
 ```python Python
-from topk_sdk.schema import int, text, vector, vector_index, keyword_index, semantic_index
+from topk_sdk.schema import int, text, f32_vector, vector_index, keyword_index, semantic_index
 
 client.collections().create(
     "books",
     schema={
         "title": text().required().index(keyword_index()),
-        "title_embedding": f32Vector(dimension=1536)
+        "title_embedding": f32_vector(dimension=1536)
             .required()
             .index(vector_index(metric="euclidean")),
         "published_year": int().required(),
@@ -41,7 +41,7 @@ client.collections().create(
 
 
 ```typescript Javascript
-import { int, text, vector, vectorIndex, keywordIndex, semanticIndex } from "topk-js/schema";
+import { int, text, f32Vector, vectorIndex, keywordIndex, semanticIndex } from "topk-js/schema";
 
 await client.collections().create("books", {
   title: text().required().index(keywordIndex()),

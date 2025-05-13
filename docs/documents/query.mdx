@@ -5,7 +5,7 @@ description: "Use the `query` function to search for documents."
 
 import Support from "/snippets/support.mdx";
 
-TopK provides a SQL-inspired syntax for querying documents. It features built-in **semantic search**, **text search**, **vector search**, metadata **filtering** as well as **reranking** capabilities.
+TopK provides a data frame-like syntax for querying documents. It features built-in **semantic search**, **text search**, **vector search**, metadata **filtering** as well as **reranking** capabilities.
 
 With TopK's declarative query builder, you can easily select fields, chain filters, and apply vector/text search in a composable manner.
 
@@ -24,7 +24,7 @@ In TopK, a query consists of multiple stages:
 All queries **must** have either TopK or Count collection stage.
 
 <Tip>
-  You can stack multiple select, filter, topk and rerank stages in a single query.
+  You can stack multiple select, filter and rerank stages in a single query.
 </Tip>
 
 A typical query in TopK looks as follows:
@@ -40,6 +40,11 @@ flowchart TD
     E --> H@{ shape: stadium, label: "Results count" }
 ```
 
+<style>{`
+.mermaid {
+  text-align: center;
+}
+`}</style>
 
 ## Select
 
@@ -52,8 +57,8 @@ from topk_sdk.query import select, field
 
 client.collection("books").query(
   select(
+    "published_year" # elect the static fields directly
     title=field("title"),
-    "published_year" # you can also select the static fields directly
   )
   ...
 )
@@ -86,6 +91,7 @@ docs = client.collection("books").query(
     select(
         "title", # the actual "title" field from the document
         year=field("published_year") # renamed field
+        year_plus_ten=field("published_year") + 10 # computed field
     )
 )
 ```
@@ -98,6 +104,7 @@ const docs = await client.collection("books").query(
   select({
     title: field("title"), // the actual "title" field from the document
     year: field("published_year"), // renamed field
+    year_plus_ten: field("published_year").add(10), // computed field
   })
 );
 ```
@@ -506,7 +513,7 @@ The `and` operator can be used to combine multiple logical expressions.
 # or
 
 .filter(
-    field("published_year").eq(1997).and(field("title").eq("The Catcher in the Rye"))
+    field("published_year").eq(1997).and_(field("title").eq("The Catcher in the Rye"))
 )
 ```
 
