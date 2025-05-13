@@ -35,7 +35,7 @@ await client.collections().create("books", {
 </CodeGroup>
 
 Now, let's perform a keyword search on the `title` and `description` fields using the `match()` function.
-We'll query the collection to find the term `"great"` in the `title` field or the term `"novel"` in any of the keyword-indexed text fields:
+We'll query the collection to match the term `"great"` in the `title` field or the term `"novel"` in any of the keyword-indexed text fields:
 
 <CodeGroup>
 
@@ -94,3 +94,6 @@ const docs = await client.collection(name).query(
 ```
 
 </CodeGroup>
+
+TopK provides a powerful keyword search API allowing you to customize your search queries.
+Read more about keyword search [here](/documents/query#keyword-search).

@@ -5,13 +5,76 @@ description: "Use the `query` function to search for documents."
 
 import Support from "/snippets/support.mdx";
 
-TopK provides a SQL-inspired syntax for querying documents. It features built-in **semantic search**, **text search**, **vector search**, and metadata **filtering** capabilities.
+TopK provides a SQL-inspired syntax for querying documents. It features built-in **semantic search**, **text search**, **vector search**, metadata **filtering** as well as **reranking** capabilities.
 
 With TopK's declarative query builder, you can easily select fields, chain filters, and apply vector/text search in a composable manner.
 
-## Select expressions
+## Query structure
 
-Use the `select()` function with a `field()` expression to select fields from a document. In the select stage, you can also rename existing fields
+In TopK, a query consists of multiple stages:
+
+* **Select stage** - Select static or computed fields that will be returned in the query results
+  * these fields can be used in stages such as Filter, TopK or Rerank
+* **Filter stage** - Filter the documents that will be returned in the query results
+  * filters can be applied to static fields, computed fields such as `vector_distance()` or `semantic_similarity()` or custom properties computed inside `select()`
+* **TopK stage** - Return the top `k` results based on the provided logical expression
+* **Count stage** - Return the total number of documents matching the query
+* **Rerank stage** - Rerank the results
+
+All queries **must** have either TopK or Count collection stage.
+
+<Tip>
+  You can stack multiple select, filter, topk and rerank stages in a single query.
+</Tip>
+
+A typical query in TopK looks as follows:
+
+```mermaid
+flowchart TD
+    A[Select]
+    A --> B[Filter]
+    B --> C[TopK]
+    B --> E[Count]
+    C -.-> D[Rerank]
+    D --> G@{ shape: stadium, label: "Results collection" }
+    E --> H@{ shape: stadium, label: "Results count" }
+```
+
+
+## Select
+
+The `select()` function is used to initialize the select stage of a query. It accepts a key-value pair of field names and field expressions:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, field
+
+client.collection("books").query(
+  select(
+    title=field("title"),
+    "published_year" # you can also select the static fields directly
+  )
+  ...
+)
+```
+
+```js Javascript
+import { select, field } from "topk-js/query";
+
+await client.collection("books").query(
+  select({
+    title: field("title"),
+  })
+  ...
+)
+```
+
+</CodeGroup>
+
+### Select expressions
+
+Use a `field()` function to select fields from a document. In the select stage, you can also rename existing fields
 or define computed fields using [function expressions](#function-expressions).
 
 <CodeGroup>
@@ -21,7 +84,7 @@ from topk_sdk.query import select, field
 
 docs = client.collection("books").query(
     select(
-        "title",
+        "title", # the actual "title" field from the document
         year=field("published_year") # renamed field
     )
 )
@@ -33,7 +96,7 @@ import { select, field } from "topk-js/query";
 
 const docs = await client.collection("books").query(
   select({
-    title: field("title"),
+    title: field("title"), // the actual "title" field from the document
     year: field("published_year"), // renamed field
   })
 );
@@ -43,17 +106,17 @@ const docs = await client.collection("books").query(
 
 ### Function expressions
 
-Function expressions are computed fields that can be included in your query results. TopK currently supports three main function expressions:
+Function expressions are used to define computed fields that will be included in your query results. TopK currently supports three main function expressions:
 
-- `bm25_score()`: Calculates relevance scores using the BM25 algorithm for text search
+- `bm25_score()`: Calculates relevance scores using the BM25 algorithm for keyword search
 - `vector_distance(field, vector)`: Computes distance between vectors for vector search
-- `semantic_similarity(field, query)`: Measures semantic similarity between text and embeddings
+- `semantic_similarity(field, query)`: Measures semantic similarity between the provided text query and the field's embedding
 
 #### BM25 Score
 
 The BM25 score is a relevance score that can be used to score documents based on their text content.
 
-To use the `fn.bm25_score()` in your query, you **must** include a `match` predicate in your query filter stage.
+To use the `fn.bm25_score()` in your query, you **must** include a `match` predicate in your filter stage.
 
 <Warning>
   To use the `fn.bm25_score()` function, you **must** have a [**keyword index**](http://docs.topk.io/collections/create#keyword-index) defined in your collection schema.
@@ -120,9 +183,9 @@ const results = await client.collection("books").query(
 
 #### Vector distance
 
-The `vector_distance` function is used to compute the distance between a query vector and a vector field in a collection.
+The `vector_distance()` function is used to compute the distance between a query vector and a vector field in a collection.
 
-To use the `vector_distance` function, you **must** have a [**vector index**](http://docs.topk.io/collections/create#vector-index) defined on the field you're computing the distance on.
+To use the `vector_distance()` function, you **must** have a [**vector index**](http://docs.topk.io/collections/create#vector-index) defined on the field you're computing the vector distance against:
 
 <CodeGroup>
 
@@ -186,9 +249,9 @@ const docs = await client.collection("books").query(
 
 #### Semantic similarity
 
-The `semantic_similarity` function is used to compute the similarity between a **text query** and a **text field** in a collection.
+The `semantic_similarity()` function is used to compute the similarity between a **text query** and a **text field** in a collection.
 
-To use the `semantic_similarity` function, you **must** have a [**semantic index**](http://docs.topk.io/collections/create#semantic-index) defined on the field you're computing the similarity on.
+To use the `semantic_similarity()` function, you **must** have a [**semantic index**](http://docs.topk.io/collections/create#semantic-index) defined on the field you're computing the similarity on.
 
 <CodeGroup>
 
@@ -307,6 +370,27 @@ You can configure the `match()` function to:
 * Match only on specific fields
 * Use weights to prioritize certain terms
 
+The `match()` function accepts the following parameters:
+
+<ParamField path="token" type="string" required={true}>
+  String token to match.
+  Can also contain multiple terms separated by a delimiter.
+</ParamField>
+
+<ParamField path="field" type="string" required={false}>
+  Field to match on.
+  If not provided, the function will match on all fields.
+</ParamField>
+
+<ParamField path="weight" type="number" required={false}>
+  Weight to use for matching.
+  If not provided, the function will use the default weight(**1.0**).
+</ParamField>
+
+<ParamField path="all" type="boolean" required={false}>
+  Use `all` parameter when matching on multiple terms.
+</ParamField>
+
 Searching for a term like `"catcher"` in your documents is as simple as using the `match()` function in the filter stage of your query:
 
 <CodeGroup>
@@ -329,13 +413,55 @@ import { match } from "topk-js/query";
 
 #### Match multiple terms
 
-The `match()` function can also be configured to match on specific fields.
+The `match()` function can be configured to match on multiple terms using a **delimiter**.
 
-### Multiple filters
+A term delimiter is any **non-alphanumeric** character:
 
-You can combine metadata filtering and keyword search in a single query by stacking multiple filtering stages.
+<CodeGroup>
 
-In the example below, we're searching for documents that contain the keyword "catcher" and were published in 1997, or documents that were published between 1920 and 1980.
+```python Python
+from topk_sdk.query import match
+
+.filter(match("catcher|rye", field="title", all=True))
+```
+
+
+```js Javascript
+import { match } from "topk-js/query";
+
+.filter(match("catcher|rye", "title", 1, true))
+```
+
+</CodeGroup>
+
+#### Give weight to specific terms
+
+You can give weight to specific terms by using the `weight` parameter:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import match
+
+.filter(match("catcher", weight=2.0))
+```
+
+
+```js Javascript
+import { match } from "topk-js/query";
+
+.filter(match("catcher", null, 2.0))
+```
+
+</CodeGroup>
+
+
+
+### Combine keyword search and metadata filtering
+
+You can combine metadata filtering and keyword search in a single query by stacking multiple filter stages.
+
+In the example below, we're searching for documents that contain the keyword `"catcher"` and were published in `1997`, or documents that were published between `1920` and `1980`.
 
 <CodeGroup>
 
@@ -362,7 +488,7 @@ In the example below, we're searching for documents that contain the keyword "ca
 
 ## Operators
 
-When writing queries, you can use the following operators for field selection and filtering:
+When writing queries, you can use the following operators for field selection or filtering:
 
 ### Logical operators
 
@@ -771,13 +897,13 @@ The `is_not_null` operator can be used to match documents that have a field with
 
 </CodeGroup>
 
-## Query collection
+## Collection
 
-All queries are required to have a collection stage. Currently, we only support `topk` and `count` collectors.
+All queries **must** have a collection stage. Currently, we only support `topk()` and `count()` collectors.
 
 ### topk
 
-Use the `topk()` function to return the top `k` results. The `topk` function accepts the following arguments:
+Use the `topk()` function to return the top `k` results. The `topk()` function accepts the following parameters:
 
 <ParamField path="field" type="LogicalExpression" required={true}>
   The logical expression to sort the results by.
@@ -810,7 +936,7 @@ To get the top 10 results ordered by the `title_similarity` field, you can use t
 
 ### count
 
-Use the `count()` function to get the total number of documents matching the query. If there are no filters then `count` will return the total number of documents in the collection.
+Use the `count()` function to get the total number of documents matching the query. If there are no filters then `count()` will return the total number of documents in the collection.
 
 <CodeGroup>
 
@@ -827,6 +953,22 @@ Use the `count()` function to get the total number of documents matching the que
 
 </CodeGroup>
 
-## Notes on writing queries
+<Info>
+  When writing queries, remember that they all require the `topk` or `count` function at the end.
+</Info>
 
-When writing queries, remember that they all require the `topk` or `count` function at the end.
+## Rerank
+
+The `rerank()` function is used to rerank the results of a query. Read more about it in our [reranking](/concepts/reranking) guide.
+
+<CodeGroup>
+
+```python Python
+.rerank()
+```
+
+```js Javascript
+.rerank()
+```
+
+</CodeGroup>

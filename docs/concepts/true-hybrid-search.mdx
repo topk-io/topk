@@ -10,7 +10,7 @@ sort the results using a custom scoring function **within a single query**.
 Most databases that offer "hybrid" search maintain separate vector and keyword indexes. When a query is executed:
 
 1. They run the query against both indexes separately
-2. Then each index returns its top results (e.g. first 100 candidates)
+2. After, each index returns its top results (e.g. first 100 candidates)
 3. Lastly, use techniques like Reciprocal Rank Fusion (RRF) to merge and rerank these two sets of results
 
 <br />
@@ -43,7 +43,8 @@ flowchart TD
 
     B --> D{Simultaneously scan both indexes and retrieve top 100 results}
     C --> D
-    D --> G@{ shape: stadium, label: "Final 100 ranked results" }
+    D --> E@{ shape: docs, label: "Combined top 100 Keyword and Vector search results" }
+    E --> F@{ shape: stadium, label: "Final 100 ranked results" }
 ```
 
 
@@ -56,11 +57,11 @@ With TopK, you can:
 
 
 
-## Implementing hybrid search(vector + keyword)
+## Implementing Hybrid Search(Vector + Keyword)
 
 Hybrid retrieval combines **semantic similarity (vector-based search)** with **exact keyword matching**. This ensures that documents containing **explicit matches** to the query keywords are considered alongside **semantic similarity**.
 
-Let's define a collection with one [keyword index](/collections/create#keyword-index) and one [semantic index](/collections/create#semantic-index):
+Let's define a collection with one [`keyword_index()`](/collections/create#keyword-index) and one [`semantic_index()`](/collections/create#semantic-index):
 
 <CodeGroup>
 
@@ -88,7 +89,7 @@ await client.collections().create("articles", {
 
 </CodeGroup>
 
-In the following example we'll perform a hybrid search that uses both keyword and semantic(vector) search:
+In the following example we'll perform a hybrid search that scans both keyword and vector(semantic) index:
 
 <CodeGroup>
 
@@ -132,15 +133,16 @@ const docs = await client.collection("articles").query(
 Let's break down the above example:
 
 - We retrieve documents based on semantic meaning (`content_score`) and keyword matching (`keyword_match`).
-- The `filter()` ensures that documents must contain at least one relevant keyword.
+- The `filter()` ensures that documents contain at least one relevant keyword.
 - The `topk()` function weights the scores, prioritizing semantic meaning (60%) while still considering keyword matches (40%).
 
 This **balances precision and recall**, capturing both **exact keyword matches** and **meaningful context**.
 
 
-## Keyword search + vector search + metadata filtering + reranking in a single query
+## Implementing Complex Search(Keyword + Vector + Filtering + Reranking)
 
-You can combine keyword search, vector search, filtering, and reranking in a single query. Some people refer to this as a hybrid search and we believe it can provide you with the best and most relevant search results:
+In TopK, you can combine [keyword search](/concepts/keyword-search), [vector search](/concepts/vector-search), [filtering](/documents/query#filtering) and [reranking](/concepts/reranking) in a single query.
+This allows you to fetch the truly **most relevant results** while maintaining a **steady performance**:
 
 <CodeGroup>
 
@@ -188,9 +190,12 @@ const docs = await client.collection("books").query(
 
 </CodeGroup>
 
+As you might have noticed, we are also sorting the top-k results using a custom scoring function.
+You can read more about custom scoring functions in the following section.
+
 ## Custom Scoring Functions
 
-TopK allows you to **define powerful scoring functions** by combining semantic similarity with additional fields, such as a **precomputed importance score**.
+TopK allows you to **define powerful scoring functions** by combining semantic similarity with keyword score and additional fields, such as "bring-your-own" **precomputed importance score**.
 
 ### Defining a Collection with Custom Scoring Fields
 
@@ -246,9 +251,7 @@ const docs = await client.collection("documents").query(
       "machine learning applications"
     ),
   }).topk(
-    literal(0.8)
-      .mul(field("importance"))
-      .add(field("content_score").mul(0.2)),
+    field("importance").mul(0.8).add(field("content_score").mul(0.2)),
     10
   )
 );
@@ -259,5 +262,5 @@ const docs = await client.collection("documents").query(
 Let's break down the above example:
 
 1. First, we retrieve documents based on both semantic similarity (`content_score`) and precomputed importance (`importance_score`).
-2. Then, the `topk()` function gives 80% weight to content relevance and 20% weight to document importance.
+2. Then, the `topk()` function gives 80% weight to content score and 20% weight to document importance.
 3. Sorting by a custom scoring function allows us to boost more critical documents, ensuring that highly relevant but less "important" content doesn't dominate.
