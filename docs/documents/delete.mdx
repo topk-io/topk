@@ -6,9 +6,7 @@ import Support from "/snippets/support.mdx";
 
 While we plan to release more options to delete your documents (e.g. by query), for the starter you can delete documents by their `_id`.
 
-## Delete by `_id`
-
-To delete documents by their `_id`, you can pass a list of `_id`s to the `delete` method:
+To delete documents by their `_id`, you can pass a list of `_id`s to the `delete()` function:
 
 <CodeGroup>
 
@@ -25,51 +23,4 @@ await client.collection("books").delete(["book-1", "book-2", "book-3"]);
 
 </CodeGroup>
 
-If your document is too large it can take a moment delete it. You can check the status of the deletion by querying the document again.
-
-{/* After the document disappears, you can be sure that it has been permanently deleted. TopK does not store any copies or replicas of this document at this point. */}
-
-{/*
-
-## Delete by query
-
-Right now, the SDK supports only _Delete by `_id`_ method. To delete documents by a filter, make two separate calls:
-
-1. Query the documents that match the filter.
-
-<CodeGroup>
-
-```python Python
-docs = client.collection("books").query(
-filter(field("published_year") > 1980)
-)
-```
-
-```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
-```
-
-</CodeGroup>
-
-2. Delete the documents by their `_id`s.
-
-<CodeGroup>
-
-```python Python
-client.collection("books").delete(
-[d._id for d in docs]
-)
-```
-
-```js JavaScript
-// Reach out to us at support@topk.io if this is a blocker for you.
-// We will help you get started.
-```
-
-</CodeGroup>
-*/}
-
-## Next steps
-
-<Support />
+If the documents are too large it can take a while until the deletion process is complete. To check the status of the deletion, query the document again.

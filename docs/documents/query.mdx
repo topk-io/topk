@@ -1,53 +1,130 @@
 ---
 title: "Query documents"
-description: "Use the `query` method to search for documents."
+description: "Use the `query` function to search for documents."
 ---
 
-import Support from "/snippets/support.mdx";
+TopK provides a data frame-like syntax for querying documents. It features built-in **semantic search**, **text search**, **vector search**, metadata **filtering** as well as **reranking** capabilities.
 
-TopK allows you to query documents using a SQL-inspired syntax. It comes with **semantic search**, **text search**, **vector search**, and **filtering capabilities** out of the box.
+With TopK's declarative query builder, you can easily select fields, chain filters, and apply vector/text search in a composable manner.
 
-TopK's declarative query builder allows you to select fields, chain filters, apply vector/text search in a composable way.
+## Query structure
 
-## Semantic search
+In TopK, a query consists of multiple stages:
 
-To perform a semantic search on your documents, use the `semantic_similarity` function. Query you want to search for is automatically embedded using the `model` specified in the `semantic_index` definition.
+* **Select stage** - Select static or computed fields that will be returned in the query results
+  * these fields can be used in stages such as Filter, TopK or Rerank
+* **Filter stage** - Filter the documents that will be returned in the query results
+  * filters can be applied to static fields, computed fields such as `vector_distance()` or `semantic_similarity()` or custom properties computed inside `select()`
+* **TopK stage** - Return the top `k` results based on the provided logical expression
+* **Count stage** - Return the total number of documents matching the query
+* **Rerank stage** - Rerank the results
+
+All queries **must** have either TopK or Count collection stage.
+
+<Tip>
+  You can stack multiple select, filter and rerank stages in a single query.
+</Tip>
+
+A typical query in TopK looks as follows:
+
+```mermaid
+flowchart TD
+    A[Select]
+    A --> B[Filter]
+    B --> C[TopK]
+    B --> E[Count]
+    C -.-> D[Rerank]
+    D --> G@{ shape: stadium, label: "Results collection" }
+    E --> H@{ shape: stadium, label: "Results count" }
+```
+
+<style>{`
+.mermaid {
+  text-align: center;
+}
+`}</style>
+
+## Select
+
+The `select()` function is used to initialize the select stage of a query. It accepts a key-value pair of field names and field expressions:
 
 <CodeGroup>
 
 ```python Python
-from topk_sdk.query import select, fn, match
+from topk_sdk.query import select, field
+
+client.collection("books").query(
+  select(
+    "published_year" # elect the static fields directly
+    title=field("title"),
+  )
+  ...
+)
+```
+
+```js Javascript
+import { select, field } from "topk-js/query";
+
+await client.collection("books").query(
+  select({
+    title: field("title"),
+  })
+  ...
+)
+```
+
+</CodeGroup>
+
+### Select expressions
+
+Use a `field()` function to select fields from a document. In the select stage, you can also rename existing fields
+or define computed fields using [function expressions](#function-expressions).
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, field
 
 docs = client.collection("books").query(
     select(
-        "title",
-        title_similarity=fn.semantic_similarity("title", "catcher")
+        "title", # the actual "title" field from the document
+        year=field("published_year") # renamed field
+        year_plus_ten=field("published_year") + 10 # computed field
     )
-    .topk(field("title_similarity"), 10)
 )
 ```
 
 
-```js JavaScript
-import { select, field, fn, match } from "topk/query";
+```js Javascript
+import { select, field } from "topk-js/query";
 
 const docs = await client.collection("books").query(
   select({
-    title: field("title"),
-    title_similarity: fn.semanticSimilarity("title", "catcher"),
-  }).topk(field("title_similarity"), 10)
+    title: field("title"), // the actual "title" field from the document
+    year: field("published_year"), // renamed field
+    year_plus_ten: field("published_year").add(10), // computed field
+  })
 );
 ```
 
 </CodeGroup>
 
-## Text search
+### Function expressions
 
-To perform a text search on your documents, use the `match` function. The `match` function will by default execute against all
-fields with a `keyword_index` defined on them. You can provide `field` parameter to specify a field to match against.
+Function expressions are used to define computed fields that will be included in your query results. TopK currently supports three main function expressions:
+
+- `bm25_score()`: Calculates relevance scores using the BM25 algorithm for keyword search
+- `vector_distance(field, vector)`: Computes distance between vectors for vector search
+- `semantic_similarity(field, query)`: Measures semantic similarity between the provided text query and the field's embedding
+
+#### BM25 Score
+
+The BM25 score is a relevance score that can be used to score documents based on their text content.
+
+To use the `fn.bm25_score()` in your query, you **must** include a `match` predicate in your filter stage.
 
 <Warning>
-  To use the `match` predicate, the field must have a `keyword_index` defined on it.
+  To use the `fn.bm25_score()` function, you **must** have a [**keyword index**](http://docs.topk.io/collections/create#keyword-index) defined in your collection schema.
 </Warning>
 
 <CodeGroup>
@@ -58,43 +135,62 @@ from topk_sdk.query import select, fn, match
 docs = client.collection("books").query(
     select(
         "title",
-        # Score documents using BM25 algorithm
         text_score=fn.bm25_score()
     )
-    # Filter to documents that have the `great` keyword in the `title` field
-    # or the `catcher` in any of the text-indexed fields.
-    .filter(match("great", field="title") | match("catcher"))
-    # Return top 10 documents with the highest text score
+    .filter(match("Good")) # must include a match predicate
     .topk(field("text_score"), 10)
 )
+
+# Example result:
+[
+  {
+    "_id": "1",
+    "title": "Good Night, Bat! Good Morning, Squirrel!",
+    "text_score": 0.2447269707918167
+  },
+  {
+    "_id": "2",
+    "title": "Good Girl, Bad Blood",
+    "text_score": 0.20035339891910553
+  }
+]
 ```
 
 
-```js JavaScript
+```js Javascript
 import { select, field, fn, match } from "topk-js/query";
 
-const docs = await client.collection("books").query(
+const results = await client.collection("books").query(
   select({
     title: field("title"),
-    // Score documents using BM25 algorithm
     text_score: fn.bm25Score(),
   })
-    // Filter to documents that have the `great` keyword in the `title` field
-    // or the `catcher` in any of the text-indexed fields.
-    .filter(match("great", "title").or(match("catcher")))
-    // Return top 10 documents with the highest text score
+    .filter(match("Good"))
     .topk(field("text_score"), 10)
 );
+
+// Example result:
+[
+  {
+    _id: '1',
+    title: 'Good Night, Bat! Good Morning, Squirrel!'
+    text_score: 0.2447269707918167,
+  },
+  {
+    _id: '2',
+    title: 'Good Girl, Bad Blood',
+    text_score: 0.20035339891910553
+  }
+]
 ```
 
 </CodeGroup>
 
-The above example takes a collection of books and filters to documents that have the `Great` keyword in the `title` field.
+#### Vector distance
 
-## Vector search
+The `vector_distance()` function is used to compute the distance between a query vector and a vector field in a collection.
 
-To perform a vector search on your documents, use the `vector_distance` method. This computes the distance between the provided query vector and vectors
-stored inside the database according to the metric specified in the `vector_index` definition.
+To use the `vector_distance()` function, you **must** have a [**vector index**](http://docs.topk.io/collections/create#vector-index) defined on the field you're computing the vector distance against:
 
 <CodeGroup>
 
@@ -104,35 +200,149 @@ from topk_sdk.query import select, fn
 docs = client.collection("books").query(
     select(
         "title",
-        # Select supports arbitrary expressions. For example, you can add 10 years to the `published_year` field.
-        published_year_plus_10=field("published_year") + 10,
-        # Compute vector distance between the provided query vector and the `title_embedding` field.
         title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3, ...])
+         # embedding for "animal"
     )
-    # Return top 10 results with the highest similarity
     .topk(field("title_similarity"), 10)
 )
+
+# Example result:
+[
+  {
+    "_id": "2",
+    "title": "To Kill a Mockingbird",
+    "title_similarity": 0.7484796643257141
+  },
+  {
+    "_id": "1",
+    "title": "The Catcher in the Rye",
+    "title_similarity": 0.5471329569816589
+  }
+]
 ```
 
-
-```js JavaScript
-import { select, fn, field } from "topk-js/query";
+```js Javascript
+import { select, field, fn } from "topk-js/query";
 
 const docs = await client.collection("books").query(
   select({
     title: field("title"),
-    published_year_plus_10: field("published_year").add(10),
     title_similarity: fn.vectorDistance(
       "title_embedding",
-      [0.1, 0.2, 0.3 /* ... */]
+      [0.1, 0.2, 0.3 /* embedding for "animal" */]
     ),
-  }).topk(field("title_similarity"), 10)
+  })
 );
+
+// Example result:
+[
+  {
+    _id: '2',
+    title: 'To Kill a Mockingbird',
+    title_similarity: 0.7484796643257141
+  },
+  {
+    _id: '1'
+    title: 'The Catcher in the Rye',
+    title_similarity: 0.5471329569816589,
+  }
+]
 ```
 
 </CodeGroup>
 
-The above example computes the cosine similarity between the vector and the `title_embedding` field. The `title_embedding` field is a vector field that represents the title of the book.
+
+#### Semantic similarity
+
+The `semantic_similarity()` function is used to compute the similarity between a **text query** and a **text field** in a collection.
+
+To use the `semantic_similarity()` function, you **must** have a [**semantic index**](http://docs.topk.io/collections/create#semantic-index) defined on the field you're computing the similarity on.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, fn
+
+docs = client.collection("books").query(
+    select(
+        "title",
+        title_similarity=fn.semantic_similarity("title", "animal")
+    )
+    .topk(field("title_similarity"), 10)
+)
+
+# Example result:
+[
+  {
+    "_id": "2",
+    "title": "To Kill a Mockingbird",
+    "title_similarity": 0.7484796643257141
+  },
+  {
+    "_id": "1",
+    "title": "The Catcher in the Rye",
+    "title_similarity": 0.5471329569816589
+  }
+]
+```
+
+```js Javascript
+import { select, field, fn } from "topk-js/query";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    title_similarity: fn.semanticSimilarity("title", "animal"),
+  })
+    .topk(field("title_similarity"), 10)
+);
+
+// Example result:
+[
+  {
+    _id: '2',
+    title: 'To Kill a Mockingbird',
+    title_similarity: 0.7484796643257141
+  },
+  {
+    _id: '1',
+    title: 'The Catcher in the Rye',
+    title_similarity: 0.5471329569816589
+  }
+]
+```
+
+</CodeGroup>
+
+### Advanced select expressions
+
+TopK doesn't only let you select static fields from your documents or computed fields using function expressions.
+You can also use TopK powerful expression language to select fields by chaining arbitrary logical expressions:
+
+<CodeGroup>
+
+```python Python
+select(
+  weight_in_grams=field("weight").mul(1000),
+  is_adult=field("age").gt(18),
+  published_in_nineteenth_century=field("published_year") >= 1800 && field("published_year") < 1900,
+)
+```
+
+
+```js Javascript
+import { select, field } from "topk-js/query";
+
+select({
+  weight_in_grams: field("weight").mul(1000),
+  is_adult: field("age").gt(18),
+  published_in_nineteenth_century: field("published_year")
+    .gte(1800)
+    .and(field("published_year").lt(1900)),
+});
+```
+
+</CodeGroup>
 
 ## Filtering
 
@@ -155,53 +365,341 @@ You can filter documents by **metadata**, **keywords**, **custom properties** co
 
 </CodeGroup>
 
-### Keyword filtering
+### Keyword search
 
-The example below shows filtering documents by the keywords they contain. It'll match all documents that
-contain either `gatsby` or both `catcher` and `rye`.
+The `match()` function is the backbone of keyword search in TopK.
+It allows you to search for documents that contain specific keywords or phrases.
+
+You can configure the `match()` function to:
+* Match on multiple terms
+* Match only on specific fields
+* Use weights to prioritize certain terms
+
+The `match()` function accepts the following parameters:
+
+<ParamField path="token" type="string" required={true}>
+  String token to match.
+  Can also contain multiple terms separated by a delimiter.
+</ParamField>
+
+<ParamField path="field" type="string" required={false}>
+  Field to match on.
+  If not provided, the function will match on all fields.
+</ParamField>
+
+<ParamField path="weight" type="number" required={false}>
+  Weight to use for matching.
+  If not provided, the function will use the default weight(**1.0**).
+</ParamField>
+
+<ParamField path="all" type="boolean" required={false}>
+  Use `all` parameter when matching on multiple terms.
+</ParamField>
+
+Searching for a term like `"catcher"` in your documents is as simple as using the `match()` function in the filter stage of your query:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import match
+
+.filter(
+    match("catcher")
+)
+```
+
+```js Javascript
+import { match } from "topk-js/query";
+
+.filter(match("catcher"))
+```
+
+</CodeGroup>
+
+#### Match multiple terms
+
+The `match()` function can be configured to match on multiple terms using a **delimiter**.
+
+A term delimiter is any **non-alphanumeric** character:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import match
+
+.filter(match("catcher|rye", field="title", all=True))
+```
+
+
+```js Javascript
+import { match } from "topk-js/query";
+
+.filter(match("catcher|rye", "title", 1, true))
+```
+
+</CodeGroup>
+
+#### Give weight to specific terms
+
+You can give weight to specific terms by using the `weight` parameter:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import match
+
+.filter(match("catcher", weight=2.0))
+```
+
+
+```js Javascript
+import { match } from "topk-js/query";
+
+.filter(match("catcher", null, 2.0))
+```
+
+</CodeGroup>
+
+
+
+### Combine keyword search and metadata filtering
+
+You can combine metadata filtering and keyword search in a single query by stacking multiple filter stages.
+
+In the example below, we're searching for documents that contain the keyword `"catcher"` and were published in `1997`, or documents that were published between `1920` and `1980`.
 
 <CodeGroup>
 
 ```python Python
 .filter(
-    match("gatsby") | (match("catcher") & match("rye"))
+    match("catcher")
+)
+.filter(
+    field("published_year") == 1997 || (field("published_year") >= 1920 && field("published_year") <= 1980)
 )
 ```
 
 
 ```js Javascript
-.filter(match("gatsby").or(match("catcher").and(match("rye"))))
+.filter(
+  match("catcher")
+)
+.filter(
+  field("published_year").eq(1997).or(field("published_year").gte(1920).and(field("published_year").lte(1980)))
+)
 ```
 
 </CodeGroup>
 
-### Filter expressions
+## Operators
 
-You can combine multiple filter expressions using boolean operators. For example, the query below will match all
-documents that were published in 1997 or between 1920 and 1980.
+When writing queries, you can use the following operators for field selection or filtering:
+
+### Logical operators
+
+#### and
+
+The `and` operator can be used to combine multiple logical expressions.
 
 <CodeGroup>
 
 ```python Python
 .filter(
-    (field("published_year") == 1997) | ((field("published_year") >= 1920) & (field("published_year") <= 1980))
+    field("published_year") == 1997 && field("title") == "The Catcher in the Rye"
+)
+
+# or
+
+.filter(
+    field("published_year").eq(1997).and_(field("title").eq("The Catcher in the Rye"))
 )
 ```
 
 
-```typescript Javascript
+```js Javascript
 .filter(
-  field("published_year").eq(1997).or(
-    field("published_year").gte(1920).and(
-      field("published_year").lte(1980)
-    )
-  )
+  field("published_year").eq(1997).and(field("title").eq("The Catcher in the Rye"))
 )
 ```
 
 </CodeGroup>
 
-### starts_with
+#### or
+
+The `or` operator can be used to combine multiple logical expressions.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") == 1997 || field("title") == "The Catcher in the Rye"
+)
+
+# or
+
+.filter(
+    field("published_year").eq(1997).or(field("title").eq("The Catcher in the Rye"))
+)
+```
+
+
+```js Javascript
+.filter(
+  field("published_year").eq(1997).or(field("title").eq("The Catcher in the Rye"))
+)
+```
+
+</CodeGroup>
+
+### Comparison operators
+
+#### eq
+
+The `eq` operator can be used to match documents that have a field with a specific value.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") == 1997
+)
+
+# or
+
+.filter(
+    field("published_year").eq(1997)
+)
+```
+
+```js Javascript
+.filter(field("published_year").eq(1997))
+```
+
+</CodeGroup>
+
+#### ne
+
+The `ne` operator can be used to match documents that have a field with a value that is not equal to a specific value.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") != 1997
+)
+
+# or
+
+.filter(
+    field("published_year").ne(1997)
+)
+```
+
+```js Javascript
+.filter(field("published_year").ne(1997))
+```
+
+</CodeGroup>
+
+#### gt
+
+The `gt` operator can be used to match documents that have a field with a value greater than a specific value.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") > 1997
+)
+
+# or
+
+.filter(
+    field("published_year").gt(1997)
+)
+```
+
+```js Javascript
+.filter(field("published_year").gt(1997))
+```
+
+</CodeGroup>
+
+#### gte
+
+The `gte` operator can be used to match documents that have a field with a value greater than or equal to a specific value.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") >= 1997
+)
+
+# or
+
+.filter(
+    field("published_year").gte(1997)
+)
+```
+
+
+```js Javascript
+.filter(field("published_year").gte(1997))
+```
+
+</CodeGroup>
+
+#### lt
+
+The `lt` operator can be used to match documents that have a field with a value less than a specific value.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") < 1997
+)
+
+# or
+
+.filter(
+    field("published_year").lt(1997)
+)
+```
+
+```js Javascript
+.filter(field("published_year").lt(1997))
+```
+
+</CodeGroup>
+
+#### lte
+
+The `lte` operator can be used to match documents that have a field with a value less than or equal to a specific value.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") <= 1997
+)
+
+# or
+
+.filter(
+    field("published_year").lte(1997)
+)
+```
+
+```js Javascript
+.filter(field("published_year").lte(1997))
+```
+
+</CodeGroup>
+
+
+#### starts_with
 
 The `starts_with` operator can be used on string fields to match documents that start with a given prefix. This is especially
 useful in multi-tenant applications where document IDs can be structured as `{tenant_id}/{document_id}` and `starts_with` can
@@ -222,7 +720,7 @@ then be used to scope the query to a specific tenant.
 
 </CodeGroup>
 
-### contains
+#### contains
 
 The `contains` operator can be used on string fields to match documents that include a specific substring. It is **case-sensitive** and is particularly useful in scenarios where you need to filter results based on a portion of a string.
 
@@ -241,9 +739,110 @@ The `contains` operator can be used on string fields to match documents that inc
 
 </CodeGroup>
 
-### not
+### Arithmetic operators
 
-The `not` helper can be used to **negate** a filter expression. It takes an expression as an argument and inverts its logic.
+#### add
+
+The `add` operator can be used to add two numbers.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") + 1997
+)
+
+# or
+
+.filter(
+    field("published_year").add(1997)
+)
+```
+
+```js Javascript
+.filter(field("published_year").add(1997))
+```
+
+</CodeGroup>
+
+#### sub
+
+The `sub` operator can be used to subtract two numbers.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") - 1997
+)
+
+# or
+
+.filter(
+    field("published_year").sub(1997)
+)
+```
+
+
+```js Javascript
+.filter(field("published_year").sub(1997))
+```
+
+</CodeGroup>
+
+#### mul
+
+The `mul` operator can be used to multiply two numbers.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") * 1997
+)
+
+# or
+
+.filter(
+    field("published_year").mul(1997)
+)
+```
+
+```js Javascript
+.filter(field("published_year").mul(1997))
+```
+
+</CodeGroup>
+
+#### div
+
+The `div` operator can be used to divide two numbers.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") / 1997
+)
+
+# or
+
+.filter(
+    field("published_year").div(1997)
+)
+```
+
+```js Javascript
+.filter(field("published_year").div(1997))
+```
+
+</CodeGroup>
+
+### Unary operators
+
+#### not
+
+The `not` helper can be used to **negate** a logical expression. It takes an expression as an argument and inverts its logic.
 
 <CodeGroup>
 
@@ -265,14 +864,65 @@ import { field, not } from "topk-js/query";
 ```
 
 </CodeGroup>
+#### is_null
 
-## Results collection
+The `is_null` operator can be used to match documents that have a field with a value that is `null`.
 
-All queries are required to have a collection stage. Currently, we only support `topk` and `count` collectors.
+<CodeGroup>
+
+```python Python
+.filter(
+    field("title").is_null()
+)
+```
+
+
+```js Javascript
+.filter(field("title").isNull())
+```
+
+</CodeGroup>
+
+#### is_not_null
+
+The `is_not_null` operator can be used to match documents that have a field with a value that is not `null`.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("title").is_not_null()
+)
+```
+
+
+```js Javascript
+.filter(field("title").isNotNull())
+```
+
+</CodeGroup>
+
+## Collection
+
+All queries **must** have a collection stage. Currently, we only support `topk()` and `count()` collectors.
 
 ### topk
 
-You can use the `topk` method to return the top `k` results. The `topk` method takes a field, the number of results to return, and an optional `asc` parameter to sort the results in ascending order.
+Use the `topk()` function to return the top `k` results. The `topk()` function accepts the following parameters:
+
+<ParamField path="field" type="LogicalExpression" required={true}>
+  The logical expression to sort the results by.
+</ParamField>
+
+<ParamField path="k" type="number" required={true}>
+  The number of results to return.
+</ParamField>
+
+<ParamField path="asc" type="boolean" required={false}>
+  Whether to sort the results in ascending order.
+</ParamField>
+
+To get the top 10 results ordered by the `title_similarity` field, you can use the following query:
 
 <CodeGroup>
 
@@ -291,7 +941,7 @@ You can use the `topk` method to return the top `k` results. The `topk` method t
 
 ### count
 
-You can use the `count` method to get the total number of documents matching the query. If there are no filters then `count` will return the total number of documents in the collection.
+Use the `count()` function to get the total number of documents matching the query. If there are no filters then `count()` will return the total number of documents in the collection.
 
 <CodeGroup>
 
@@ -308,104 +958,22 @@ You can use the `count` method to get the total number of documents matching the
 
 </CodeGroup>
 
-## Reranking
+<Info>
+  When writing queries, remember that they all require the `topk` or `count` function at the end.
+</Info>
 
-You can rerank the results of a query using the `rerank` method. The `rerank` method takes:
+## Rerank
 
-- `model` (optional): The model to use for reranking. If not specified, uses the default model.
-- `query` (optional): The query text to rerank against. Uses arguments from `semantic_similarity` if not specified.
-- `fields` (optional): List of fields to use for reranking. Uses fields from `semantic_similarity` if not specified.
-- `topk_multiple` (optional): Multiple of top-k to rerank. For example, if `topk=10` and `topk_multiple=2`, reranker takes 20 results from the original query and returns the top 10 results.
-
-Supported models:
-
-- `cohere/rerank-v3.5`
+The `rerank()` function is used to rerank the results of a query. Read more about it in our [reranking](/concepts/reranking) guide.
 
 <CodeGroup>
 
 ```python Python
 .rerank()
-
-# or
-
-.rerank(
-    model="cohere/rerank-v3.5",
-    query="catcher",
-    fields=["title", "description"],
-    topk_multiple=2
-)
 ```
 
-
-```typescript Javascript
+```js Javascript
 .rerank()
-
-// or
-
-.rerank({
-  model: "cohere/rerank-v3.5",
-  query: "catcher",
-  fields: ["title", "description"],
-  topkMultiple: 2,
-})
 ```
 
 </CodeGroup>
-
-## Putting it all together
-
-You can combine text search, vector search, and filtering in a single query. Some people refer to this as a hybrid search and we believe it can provide you with the best and most relevant search results.
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.query import select, fn, match
-
-docs = client.collection("books").query(
-    select(
-        "title",
-        # Score documents using BM25 algorithm
-        text_score=fn.bm25_score()
-        # Compute semantic similarity between the provided query and the `title` field.
-        title_similarity=fn.semantic_similarity("title", "catcher")
-    )
-    # Filter to documents that contain the `great` keyword
-    .filter(match("great"))
-    # Filtering by metadata
-    .filter(field("published_year") > 1980)
-    # Return top 10 documents with the highest combined score
-    .topk(field("text_score") * 0.2 + field("title_similarity") * 0.8, 10)
-    # Rerank the documents
-    .rerank()
-)
-```
-
-
-```typescript Javascript
-import { select, fn, field, match } from "topk-js/query";
-
-const docs = await client.collection("books").query(
-  select({
-    title: field("title"),
-    text_score: fn.bm25Score(),
-    title_similarity: fn.semanticSimilarity("title", "catcher"),
-  })
-    .filter(match("great"))
-    .filter(field("published_year").gt(1980))
-    .topk(
-      field("text_score").mul(0.2).add(field("title_similarity").mul(0.8)),
-      10
-    )
-    .rerank()
-);
-```
-
-</CodeGroup>
-
-## Notes on writing queries
-
-When writing queries, remember that they all require the `topk` or `count` method at the end.
-
-## Next steps
-
-<Support />

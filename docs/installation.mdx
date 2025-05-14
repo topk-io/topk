@@ -1,0 +1,140 @@
+---
+title: Installation
+description: "Install the TopK Python or JavaScript SDK"
+---
+
+<CodeGroup>
+
+```bash Python
+pip install topk-sdk
+```
+
+```bash Javascript
+npm install topk-js
+
+# or
+
+yarn add topk-js
+
+# or
+
+pnpm add topk-js
+```
+</CodeGroup>
+
+## Setup a TopK Client
+
+To setup a client, you'll need your [API key](#api-key) and region:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk import Client
+
+client = Client(api_key="YOUR_TOPK_API_KEY", region="aws-us-east-1-elastica")
+```
+
+```typescript Javascript
+import { Client } from "topk-js";
+
+const client = new Client({
+  apiKey: "YOUR_TOPK_API_KEY",
+  region: "aws-us-east-1-elastica"
+});
+```
+
+</CodeGroup>
+
+TopK `Client` accepts the following parameters:
+
+<ParamField body="api_key" type="string" required>
+  The API key for the project.
+</ParamField>
+
+<ParamField body="region" type="string" required>
+  The region of the project. Available regions are:
+  * `aws-us-east-1-elastica`
+
+  Check out the [Regions](/regions) page for more information.
+</ParamField>
+
+<ParamField body="host" type="string" default="topk.io">
+  The host of the project.
+</ParamField>
+
+<ParamField body="https" type="boolean" default={true}>
+  When using a public host this should always be `true`.
+  In most cases it is used for internal purposes.
+
+</ParamField>
+
+## API Key
+
+TopK API key is **project-specific**, so you'll need to obtain an API key for each individual project from the TopK Console.
+
+To obtain your API key:
+
+1. Go to the [TopK Console](https://console.topk.io).
+2. Log in or create your account
+3. Go to a project or create a new one
+4. Generate an API key and store it safely. TopK API Key can be **viewed only once**.
+
+
+TopK follows `Organization > Project > Collection` hierarchical structure.
+
+## TopK with Vite/Webpack SSR
+
+If you're using the TopK **JavaScript SDK** in a server-side rendering (SSR) environment, you may need to follow these steps to ensure compatibility:
+
+<AccordionGroup>
+  <Accordion title="Using with Vite ?" description="Remix, Nuxt, SvetleKit, Astro ...">
+    If you're using `topk-js` in a Vite project with server-side rendering (SSR), you may need to configure Vite to treat it as an external dependency. This ensures compatibility and prevents build-time issues related to SSR or dependency pre-bundling.
+
+    ```typescript
+    // vite.config.ts
+
+    export default defineConfig({
+      // ...
+      ssr: {
+        external: ["topk-js"],
+      },
+      optimizeDeps: {
+        exclude: ["topk-js"],
+      },
+    });
+    ```
+  </Accordion>
+  <Accordion title="Using with Webpack or Turbopack ?" description="Next.js">
+    If you're using `topk-js` in a Next.js project (especially with the App Router and Server Components), you may need to mark it as an external package to avoid build issues during server-side bundling.
+
+    ```typescript
+    // next.config.ts
+
+    import type { NextConfig } from "next";
+
+    const nextConfig: NextConfig = {
+      /* config options here */
+      serverExternalPackages: ["topk-js"],
+    };
+
+    export default nextConfig;
+    ```
+  </Accordion>
+</AccordionGroup>
+
+
+### Next steps
+
+We look forward to having you onboard. Here are some resources to help you get started:
+
+<CardGroup cols={2}>
+  <Card title="Quickstart (5m)" icon="pen-to-square" href="/quickstart">
+    Follow our prepared guide to get started with TopK. It will walk you through
+    the process of creating your first collection, adding documents, and implementing
+    semantic search in just a few lines of code.
+  </Card>
+  <Card title="Regions" icon="globe" href="/regions">
+    Check out the regions where TopK is available.
+  </Card>
+</CardGroup>
+

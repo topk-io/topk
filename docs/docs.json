@@ -17,29 +17,35 @@
             "group": "Get Started",
             "pages": [
               "introduction",
-              "quickstart",
-              "community"
+              "installation",
+              "regions",
+              "quickstart"
             ]
           },
           {
-            "group": "Concepts",
+            "group": "Guides",
             "pages": [
               "concepts/semantic-search",
-              "concepts/unified-retrieval",
-              "concepts/consistency"
+              "concepts/vector-search",
+              "concepts/multi-vector-search",
+              "concepts/keyword-search",
+              "concepts/true-hybrid-search",
+              "concepts/reranking",
+              "concepts/consistency",
+              "concepts/multi-tenancy"
             ]
           },
           {
-            "group": "Documents",
+            "group": "Document API",
             "pages": [
-              "documents/query",
               "documents/upsert",
+              "documents/query",
               "documents/get",
               "documents/delete"
             ]
           },
           {
-            "group": "Collections",
+            "group": "Collection API",
             "pages": [
               "collections/create",
               "collections/list",
@@ -53,13 +59,13 @@
   },
   "logo": {
     "light": "/logo/topk.svg",
-    "dark": "/logo/topk.svg"
+    "dark": "/logo/dark.svg"
   },
   "navbar": {
     "links": [
       {
         "label": "Support",
-        "href": "mailto:support@topk.io"
+        "href": "https://docs.topk.io/support"
       },
       {
         "label": "GitHub",

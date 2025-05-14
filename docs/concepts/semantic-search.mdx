@@ -1,18 +1,25 @@
 ---
-title: "Semantic Search"
+title: "Semantic search"
 ---
 
-Semantic search enables you to find relevant documents based on **semantic similarity** rather than exact keyword matches. With **TopK**, you can implement powerful semantic search in a few lines of code—without needing third-party embedding models or reranking services.
+With TopK, you can implement vector-powered **semantic search** in just a few lines of code.
 
-TopK comes with **built-in embeddings** and **reranking**, making it incredibly easy to build high-quality retrieval pipelines.
+TopK comes with **built-in embeddings** and **reranking**, removing the need for third-party embedding models or custom reranking solutions.
 
----
+## How to perform a semantic search
 
-## Implementation
 
-### 1. Defining a collection schema
+In the following example, we'll:
 
-To use semantic search, you first need to define a collection and schema with a **semantic index**. This enables TopK to automatically generate embeddings for your text fields.
+1. Define a collection schema for semantic search
+2. Add documents to the collection
+3. Perform a semantic search
+
+
+### Define a collection schema
+
+Semantic search is enabled by adding a [`semantic_index()`](/collections/create#semantic-index) to a text field in the collection schema.
+This configuration automatically generates embeddings as well as enables keyword search for the specified text fields:
 
 <CodeGroup>
 
@@ -38,30 +45,73 @@ await client.collections().create("books", {
 
 </CodeGroup>
 
-**Explanation**
+<Tip>
+  If you want to use your own embeddings instead of TopK's built-in `semantic_index()`, see [Vector Search](/concepts/vector-search).
+</Tip>
 
-- The `semantic_index()` on `title` ensures the provided text is automatically embedded.
-- Other fields do not need to be in the schema to be stored and queried—they can still be upserted as part of a document.
+### Add documents to the collection
 
-If you want to use your own embeddings instead of TopK's built-in `semantic_index()`, see [Custom Embeddings](#bring-your-own-embeddings).
-
-### 2. Running a semantic search query
-
-Once the schema is set up, querying for semantically similar documents is simple:
+Let's add some documents to the collection:
 
 <CodeGroup>
 
 ```python Python
-from topk_sdk.query import select, fn
+client.collection("books").upsert(
+    [
+        {"_id": "gatsby", "title": "The Great Gatsby"},
+        {"_id": "1984", "title": "1984"},
+        {"_id": "catcher", "title": "The Catcher in the Rye"}
+    ],
+)
+```
+
+
+```typescript Javascript
+await client.collection("books").upsert([
+  { _id: "gatsby", title: "The Great Gatsby" },
+  { _id: "1984", title: "1984" },
+  { _id: "catcher", title: "The Catcher in the Rye" },
+]);
+```
+
+</CodeGroup>
+
+### Perform a semantic search
+
+To find documents based on semantic similarity, use the `semantic_similarity()` function:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, field, fn
 
 docs = client.collection("books").query(
     select(
         "title",
-        title_similarity=fn.semantic_similarity("title", "catcher in the rye")
+        title_similarity=fn.semantic_similarity("title", "classic American novel")
     )
     .topk(field("title_similarity"), 10)
     .rerank()
 )
+
+# Example results:
+
+[
+  {
+    "_id": "2",
+    "title": "The Catcher in the Rye",
+    "title_similarity": 0.9497610926628113,
+    "_rank": 0,
+    "_rerank_score": 0.048159245401620865,
+  },
+  {
+    "_id": "1",
+    "title": "The Great Gatsby",
+    "title_similarity": 0.9480283856391907,
+    "_rank": 1,
+    "_rerank_score": 0.02818089909851551,
+  }
+]
 ```
 
 
@@ -71,27 +121,47 @@ import { select, field, fn } from "topk-js/query";
 const docs = await client.collection("books").query(
   select({
     title: field("title"),
-    title_similarity: fn.semanticSimilarity("title", "catcher in the rye"),
+    title_similarity: fn.semanticSimilarity("title", "classic American novel"),
   })
     .topk(field("title_similarity"), 10)
     .rerank()
 );
+
+// Example results:
+
+[
+  {
+    _id: '2',
+    title: 'The Catcher in the Rye',
+    title_similarity: 0.9497610926628113,
+    _rank: 0
+    _rerank_score: 0.048159245401620865,
+  },
+  {
+    _id: '1',
+    title: 'The Great Gatsby'
+    title_similarity: 0.9480283856391907,
+    _rank: 1,
+    _rerank_score: 0.02818089909851551,
+  }
+]
 ```
 
 </CodeGroup>
 
-**What's Happening Here?**
+Let's break down the example above:
 
-1. The `semantic_similarity` function computes the similarity between the query "catcher in the rye" and values stored in the `title` field.
-2. TopK automatically embeds the query using the model specified in `semantic_index()` (see the available options [here](/collections/create#semantic-index)).
+1. The `semantic_similarity()` function computes the similarity between the query `"classic American novel"` and the text value stored in the `title` field for each document.
+2. TopK performs automatic query embedding under the hood using the model specified in [`semantic_index()`](/collections/create#semantic-index) function.
 3. The results are ranked based on similarity, and the top 10 most relevant documents are returned.
 4. The optional `.rerank()` call uses a reranking model to improve relevance of the results.
+  For more information, see our [Reranking](/concepts/reranking) guide.
 
-This works **out of the box**—no need to manage embeddings, external APIs, or reranking models.
+This works **out of the box**—no need to manage embeddings, external APIs, or third-party reranking models.
 
-### 3. Combining Semantic and Text Search
+## Combining semantic and keyword search
 
-You may want to combine **keyword search with semantic search** for more precise results.
+For certain use cases, you might want to use a combination of **keyword search** and **semantic search**:
 
 <CodeGroup>
 
@@ -104,8 +174,9 @@ docs = client.collection("books").query(
         title_similarity=fn.semantic_similarity("title", "catcher"),
         text_score=fn.bm25_score()  # Keyword-based relevance
     )
-    .filter(match("classic"))  # Ensure the book title contains "classic" keyword
+    .filter(match("classic"))  # Ensure the book contains the keyword "classic" in any text-indexed field
     .topk(field("title_similarity") * 0.7 + field("text_score") * 0.3, 10)
+    .rerank()
 )
 ```
 
@@ -119,133 +190,25 @@ const docs = await client.collection("books").query(
     title_similarity: fn.semanticSimilarity("title", "catcher"),
     text_score: fn.bm25Score(), // Keyword-based relevance
   })
-    .filter(match("classic")) // Ensure the book title contains "classic" keyword
+    .filter(match("classic")) // Ensure the book contains the keyword "classic" in any text-indexed field
     .topk(
+      // Add 70% weight to semantic similarity and 30% weight to keyword relevance
       field("title_similarity").mul(0.7).add(field("text_score").mul(0.3)),
       10
     )
+    .rerank()
 );
 ```
 
 </CodeGroup>
 
-This blends **keyword relevance (BM25)** with **semantic similarity**, ensuring your search results capture both exact matches and contextual meaning with a custom scoring function that's best suited for your use case.
+This example above combines **keyword relevance (BM25)** with **semantic similarity**,
+ensuring your search results capture both exact matches and contextual meaning with a **custom scoring function** that's best suited for your use case.
 
----
-
-## Customization
-
-### Bring your own embeddings
-
-If you want to **bring your own embeddings** instead of using `semantic_index()`, you can store them in a `vector()` field and query using `vector_distance()`.
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.schema import text, vector, vector_index
-
-client.collections().create(
-    "books",
-    schema={
-        "title": text().required(),
-        "title_embedding": f32_vector(1536).index(vector_index(metric="cosine")),  # Custom embeddings
-    },
-)
-```
-
-
-```typescript Javascript
-import { text, vector, vectorIndex } from "topk-js/schema";
-
-await client.collections().create("books", {
-  title: text().required(),
-  title_embedding: f32Vector({ dimension: 1536 }).index(
-    vectorIndex({ metric: "cosine" })
-  ), // Custom embeddings
-});
-```
-
-</CodeGroup>
-
-To query with custom embeddings, use `vector_distance()` instead of `semantic_similarity()`:
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.query import select, fn
-
-docs = client.collection("books").query(
-    select(
-        "title",
-        title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3, ...])
-    )
-    .topk(field("title_similarity"), 10)
-)
-```
-
-
-```typescript Javascript
-import { select, field, fn } "topk-js/query";
-
-const docs = await client.collection("books").query(
-  select({
-    title: field("title"),
-    title_similarity: fn.vectorDistance("title_embedding", [0.1, 0.2, 0.3]),
-  }).topk(field("title_similarity"), 10)
-);
-```
-
-</CodeGroup>
-
-Using custom embeddings is useful if:
-
-- You have a **domain-specific embedding model** (e.g., medical, legal, or technical documents).
-- You need embeddings that are **consistent across multiple systems**.
-
-For most use cases, TopK's built-in `semantic_index()` is the easiest and most efficient way to implement semantic search.
-
-You can still use our built-in reranking model by calling `.rerank()` on a query with custom embeddings. In this case, you will need to pass the query and fields to `.rerank()` explicitly.
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.query import select, fn
-
-docs = client.collection("books").query(
-    select(
-        "title",
-        title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3, ...])
-    )
-    .topk(field("title_similarity"), 10)
-    .rerank(
-        query="catcher in the rye",
-        fields=["title"]
-    )
-)
-```
-
-
-```typescript Javascript
-import { select, field, fn } from "topk-js/query";
-
-const docs = await client.collection("books").query(
-  select({
-    title: field("title"),
-    title_similarity: fn.vectorDistance("title_embedding", [0.1, 0.2, 0.3]),
-  })
-    .topk(field("title_similarity"), 10)
-    .rerank({
-      query: "catcher in the rye",
-      fields: ["title"],
-    })
-);
-```
-
-</CodeGroup>
 
 ### Lexical scoring with reranking
 
-You can also use lexical scoring with reranking. This will score documents based on the BM25 score and then use the semantic similarity to rerank the results.
+To combine lexical scoring with reranking using a custom query, use the `bm25_score()` function to score documents based on the BM25 score and then use the `rerank()` function to rerank the results using a custom query:
 
 <CodeGroup>
 

@@ -9,9 +9,11 @@ TopK supports three different consistency levels, allowing you to choose the rig
 TopK follows a write-ahead log (WAL) and compaction-based architecture:
 
 1. **Writer** appends incoming data to the **WAL**.
-2. **Compactor** processes the WAL and produces optimized, indexed files.
+2. **Compactor** processes the WAL and produces optimized, indexed files, also known as *compacted files*.
 3. **Router** receives read requests and determines where to fetch the data from.
 4. **Executor** fetches the data, typically from compacted files or from WAL.
+
+<img src="/topk-data-flow.svg" alt="TopK Data Flow" className="dark:invert" />
 
 Because compaction takes time, there can be a delay before newly written data appears in query results. Different consistency modes determine how recent writes are handled in reads.
 

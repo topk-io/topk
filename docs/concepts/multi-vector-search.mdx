@@ -1,0 +1,129 @@
+---
+title: "Multi-vector search"
+---
+
+In some cases, a single vector representation of your content is not enough to retrieve the most relevant results.
+In TopK, you can run **multiple vector searches in a single query** and apply a **different ranking score** to individual vector search results.
+
+For example, in a research paper database, you might want to:
+
+- Retrieve documents based on both the summary of the entire paper and summaries of individual paragraphs.
+- Rank results by combining scores from multiple embeddings.
+
+Let's define a collection with two [semantic indexes](/collections/create#semantic-index):
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.schema import text, vector, semantic_index
+
+client.collections().create(
+    "articles",
+    schema={
+        "title": text().required(),
+        "paper_summary": text().index(semantic_index()),  # Embedding of full paper
+        "paragraph_summary": text().index(semantic_index()),  # Embedding of a paragraph
+    },
+)
+```
+
+Under the hood, TopK will create two separate vectors:
+
+
+```typescript Javascript
+import { text, semanticIndex } from "topk-js/schema";
+
+await client.collections().create("articles", {
+  title: text().required(),
+  paper_summary: text().index(semanticIndex()), // Embedding of full paper
+  paragraph_summary: text().index(semanticIndex()), // Embedding of a paragraph
+});
+```
+
+</CodeGroup>
+
+After, we run a multi-vector search by using the `fn.semantic_similarity()` function for calculating semantic similarity on
+`paper_score` as well as `paragraph_score` fields:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, fn
+
+docs = client.collection("articles").query(
+    select(
+        "title",
+        paper_score=fn.semantic_similarity("paper_summary", "deep learning optimization"),
+        paragraph_score=fn.semantic_similarity("paragraph_summary", "stochastic gradient descent")
+    )
+    .topk(field("paper_score") * 0.7 + field("paragraph_score") * 0.3, 10)
+)
+
+# Example results:
+
+[
+  {
+    "_id": "2",
+    "title": "On the Importance of Initialization and Momentum in Deep Learning",
+    "paper_score": 0.9774298071861267,
+    "paragraph_score": 0.9783554673194885,
+    # "blend_score": 0.9777075052261353,
+  },
+  {
+    "_id": "1",
+    "title": "Understanding the Difficulty of Training Deep Feedforward Neural Networks",
+    "paper_score": 0.9773390889167786,
+    "paragraph_score": 0.976479709148407,
+    # "blend_score": 0.977081298828125,
+  }
+]
+
+```
+
+```javascript Javascript
+import { select, field, fn } from "topk-js/query";
+
+const docs = await client.collection("articles").query(
+  select({
+    title: field("title"),
+    paper_score: fn.semanticSimilarity(
+      "paper_summary",
+      "deep learning optimization"
+    ),
+    paragraph_score: fn.semanticSimilarity(
+      "paragraph_summary",
+      "stochastic gradient descent"
+    ),
+  }).topk(
+    field("paper_score").mul(0.7).add(field("paragraph_score").mul(0.3)),
+    10
+  )
+);
+
+// Example results:
+
+[
+  {
+    _id: "2",
+    title: "On the Importance of Initialization and Momentum in Deep Learning",
+    paper_score: 0.9774298071861267,
+    paragraph_score: 0.9783554673194885,
+    // "blended_score": 0.9777075052261353,
+  },
+  {
+    _id: "1",
+    title: "Understanding the Difficulty of Training Deep Feedforward Neural Networks",
+    paper_score: 0.9773390889167786,
+    paragraph_score: 0.976479709148407,
+    // "blended_score": 0.977081298828125,
+  },
+];
+```
+
+</CodeGroup>
+
+Let's break down the example above:
+
+1. First, we calculate semantic similarity between the query and the full paper summary as well as the paragraph summary.
+2. Then, we blend the two scores by giving 70% weight to the full paper and 30% weight to the paragraph.
+3. Finally, we retrieve the top 10 results ranked by the blended score.
