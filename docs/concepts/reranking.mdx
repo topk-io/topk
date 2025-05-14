@@ -55,3 +55,207 @@ The `rerank()` function is called on the query instance and accepts the followin
 })
 ```
 </CodeGroup>
+
+## Lexical scoring with reranking
+
+Consider the following example for searching documents with the `"how to reset a router"` query:
+
+<CodeGroup>
+
+```python Python
+client.collections().create(
+    "documents",
+    schema={
+        "title": text().index(semantic_index()).required(),
+        "content": text().index(semantic_index()).required()
+    }
+)
+
+client.collection(name).upsert([
+    {
+        "_id": "1",
+        "title": "How to reset router settings to fix intermittent connectivity",
+        "content": "To fix intermittent connectivity issues related to your device, you need to unplug your modem or router for 10 seconds, then plug them back in. This will cause a reset of the network hardware and often resolves temporary disruptions.",
+    },
+    {
+        "_id": "2",
+        "title": "How to reset your device",
+        "content": "Factory reset procedures vary by device. Press and hold the reset button for 10 seconds. This clears all settings, returning the router to default configuration.",
+    },
+])
+
+client.collection(name).query(
+    select(
+        "title",
+        "content",
+        title_score=fn.bm25_score()
+    )
+    .filter(match("how to reset a router", field="title"))
+    .topk(field("title_score"), 10)
+)
+
+# Results:
+
+[
+    {
+        "_id": "1",
+        "title": "How to reset router settings to fix intermittent connectivity",
+        "title_score": 0.942161500453949,
+        "content": "To fix intermittent connectivity issues related to your device, you need to unplug your modem or router for 10 seconds, then plug them back in. This will cause a reset of the network hardware and often resolves temporary disruptions.",
+    },
+    {
+        "_id": "2",
+        "title": "How to reset your device",
+        "title_score": 0.4156554341316223,
+        "content": "Factory reset procedures vary by device. Press and hold the reset button for 10 seconds. This clears all settings, returning the router to default configuration.",
+    }
+]
+```
+
+
+```typescript Javascript
+await client.collections().create("documents", {
+  title: text().index(semanticIndex()).required(),
+  content: text().index(semanticIndex()).required(),
+});
+
+await client.collection(name).upsert([
+  {
+    _id: "1",
+    title: "How to reset router settings to fix intermittent connectivity",
+    content:
+      "To fix intermittent connectivity issues related to your device, you need to unplug your modem or router for 10 seconds, then plug them back in. This will cause a reset of the network hardware and often resolves temporary disruptions.",
+  },
+  {
+    _id: "2",
+    title: "How to reset your device",
+    content:
+      "Factory reset procedures vary by device. Press and hold the reset button for 10 seconds. This clears all settings, returning the router to default configuration.",
+  },
+]);
+
+const docs = await client.collection(name).query(
+  select({
+    title: field("title"),
+    content: field("content"),
+    title_score: fn.bm25Score(),
+  })
+    .filter(match("how to reset a router", "title"))
+    .topk(field("title_score"), 10)
+);
+
+// Results:
+
+[
+  {
+    _id: '1'
+    title: 'How to reset router settings to fix intermittent connectivity',
+    title_score: 0.942161500453949,
+    content: 'To fix intermittent connectivity issues related to your device, you need to unplug your modem or router for 10 seconds, then plug them back in. This will cause a reset of the network hardware and often resolves temporary disruptions.',
+  },
+  {
+    _id: '2',
+    title: 'How to reset your device'
+    title_score: 0.4156554341316223,
+    content: 'Factory reset procedures vary by device. Press and hold the reset button for 10 seconds. This clears all settings, returning the router to default configuration.',
+  }
+]
+```
+</CodeGroup>
+
+
+Lexical scoring methods like BM25 rely on **exact term overlap**. Here's how they score:
+
+Document `"1"` is ranked higher because:
+
+- It contains `"how"`, `"to"`, `"reset"`, `"router"` (some of which match the query directly).
+- Phrases like `"how to reset router"` appear close together.
+
+Document `"2"` is ranked lower because:
+
+- Although it describes a true factory reset, it doesn’t include the exact phrase `"how to reset a router"` but includes `"how to reset your device"`.
+- The term `"router"` might not appear (assume it uses `"device"`).
+
+Lexical scoring is useful for keyword-based search, but it doesn't capture the **true user intent** - a guide on how to reset a router.
+
+### using rerank() to boost relevant results
+
+Let's apply the `rerank()` passing the `"how to reset a router"` query matching against the `"content"` field to rerank the results:
+
+<CodeGroup>
+
+```python Python
+client.collection(name).query(
+    select(
+        "title",
+        "content",
+        title_score=fn.bm25_score()
+    )
+    .filter(match("how to reset a router", "title"))
+    .topk(field("title_score"), 10)
+    .rerank(
+        fields=["content"],
+        query="how to reset a router"
+    )
+)
+
+# Results:
+
+[
+    {
+        "_id": "2",
+        "title": "How to reset your device",
+        "title_score": 0.4156554341316223,
+        "content": "Factory reset procedures vary by device. Press and hold the reset button for 10 seconds. This clears all settings, returning the router to default configuration.",
+        "_rerank_score": 0.8374209403991699
+    },
+    {
+        "_id": "1",
+        "title": "How to reset router settings to fix intermittent connectivity",
+        "title_score": 0.942161500453949,
+        "content": "To fix intermittent connectivity issues related to your device, you need to unplug your modem or router for 10 seconds, then plug them back in. This will cause a reset of the network hardware and often resolves temporary disruptions.",
+        "_rerank_score": 0.6334335207939148
+    }
+]
+
+```
+
+
+```typescript Javascript
+const docs = await client.collection(name).query(
+  select({
+    title: field("title"),
+    content: field("content"),
+    title_score: fn.bm25Score(),
+  })
+    .filter(match("how to reset a router", field="title"))
+    .topk(field("title_score"), 10)
+    .rerank({
+      fields: ["content"],
+      query: "how to reset a router",
+    })
+);
+
+// Results:
+
+[
+  {
+    _id: '2',
+    title: 'How to reset your device',
+    title_score: 0.4156554341316223
+    content: 'Factory reset procedures vary by device. Press and hold the reset button for 10 seconds. This clears all settings, returning the router to default configuration.',
+    _rerank_score: 0.8374209403991699,
+  },
+  {
+    _id: '1',
+    title: 'How to reset router settings to fix intermittent connectivity',
+    title_score: 0.942161500453949,
+    content: 'To fix intermittent connectivity issues related to your device, you need to unplug your modem or router for 10 seconds, then plug them back in. This will cause a reset of the network hardware and often resolves temporary disruptions.',
+    _rerank_score: 0.6334335207939148
+  }
+]
+```
+</CodeGroup>
+
+As you can see, using the `rerank()` function, the relevance of the results is improved - the actual guide on how to reset a router is ranked higher,
+even though keyword `"router"` does not appear in the `"title"` field.
