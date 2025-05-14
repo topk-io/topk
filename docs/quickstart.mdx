@@ -112,7 +112,7 @@ await client.collection("books").upsert([
 
 ## 3. Query your collection
 
-Now, perform your first **semantic search** query:
+Now, run your first **semantic search** query:
 
 <CodeGroup>
 
@@ -122,13 +122,12 @@ from topk_sdk.query import select, fn, match, field
 results = client.collection("books").query(
     select(
         "title",
-        #
+        # fn.semantic_similarity() scores documents by how semantically similar their titles are to "classic American novel"
         title_similarity=fn.semantic_similarity("title", "classic American novel"),
     )
-    # Sort results by the `title_similarity` field which is defined "on the fly",
-    # selecting the top 10 results
+    # Sort results by `title_similarity` (computed in `select()` above), and limit to top 10 results
     .topk(field("title_similarity"), 10)
-    # Rerank results using cohere/rerank-v3.5 model
+    # Rerank results using built-in reranking model
     .rerank()
 )
 ```
@@ -140,16 +139,15 @@ import { select, fn, match, field } from "topk-js/query"
 const results = await client.collection("books").query(
   select({
     title: field("title"),
-    // Perform semantic search on the `title` field
+    // fn.semantic_similarity() scores documents by how semantically similar their titles are to "classic American novel"
     title_similarity: fn.semanticSimilarity(
       "title",
       "classic American novel"
     ),
   })
-    // Sort results by the `title_similarity` field which is defined "on the fly",
-    // selecting the top 10 results
+    // Sort results by `title_similarity` (computed in `select()` above), and limit to top 10 results
     .topk(field("title_similarity"), 10)
-    // Rerank results using cohere/rerank-v3.5 model
+    // Rerank results using TopK's built-in reranking model
     .rerank()
 );
 ```

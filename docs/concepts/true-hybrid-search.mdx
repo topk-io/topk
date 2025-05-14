@@ -9,9 +9,9 @@ sort the results using a custom scoring function **within a single query**.
 
 Most databases that offer "hybrid" search maintain separate vector and keyword indexes. When a query is executed:
 
-1. They run the query against both indexes separately
-2. After, each index returns its top results (e.g. first 100 candidates)
-3. Lastly, use techniques like Reciprocal Rank Fusion (RRF) to merge and rerank these two sets of results
+1. Run two separate queries against respective indexes
+2. Each query returns its top results (e.g. first 100 candidates)
+3. Use techniques like Reciprocal Rank Fusion (RRF) to merge and rerank these two sets of results
 
 <br />
 

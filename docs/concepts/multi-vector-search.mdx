@@ -3,6 +3,8 @@ title: "Multi-vector search"
 ---
 
 In some cases, a single vector representation of your content is not enough to retrieve the most relevant results.
+In TopK, you can run **multiple vector searches in a single query** and apply a **different ranking score** to individual vector search results.
+
 For example, in a research paper database, you might want to:
 
 - Retrieve documents based on both the summary of the entire paper and summaries of individual paragraphs.
@@ -40,7 +42,7 @@ await client.collections().create("articles", {
 
 </CodeGroup>
 
-After, we perform a multi-vector search by using the `fn.semantic_similarity()` function for calculating semantic similarity on
+After, we run a multi-vector search by using the `fn.semantic_similarity()` function for calculating semantic similarity on
 `paper_score` as well as `paragraph_score` fields:
 
 <CodeGroup>

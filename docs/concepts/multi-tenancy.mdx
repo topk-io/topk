@@ -2,9 +2,12 @@
 title: "Multi-tenancy"
 ---
 
-TopK does not have a built-in concept of namespaces or tenants. Multi-tenancy is achieved through encoding tenant IDs in documents **`_id`** value.
+In TopK, multi-tenancy is achieved through prefixing the tenant IDs in documents **`_id`** value.
 
-This design enables TopK to scale a single collection efficiently without performance degradation.
+This design enables TopK to scale a single collection efficiently without performance degradation by leveraging
+smart sharding by document ID.
+
+However, this approach still enables you to query across all tenants if needed.
 
 ### Storing documents for a specific tenant
 

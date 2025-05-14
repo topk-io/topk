@@ -2,19 +2,13 @@
 title: "Reranking"
 ---
 
-Vector search or keyword-based functions (like BM25 or ANN) are optimized for speed, not perfect accuracy.
-They can fetch the right ballpark of results quickly, but the **order might not reflect true relevance**.
+Vector search or keyword-based functions (like BM25 or ANN) can fetch the right ballpark of results quickly, but the **order might not reflect true relevance**.
 
-Both are designed to efficiently retrieve a shortlist of candidate documents from large collections:
+Reranking is used to improve relevance and accuracy. TopK comes with a built-in reranking functionality using the `rerank()` function.
 
-* **BM25**: Uses inverted indexes and term frequencies to quickly score documents based on keyword matches.
-* **ANN (Approximate Nearest Neighbor)**: Uses structures like HNSW, IVF, or PQ to rapidly find vectors that are close to the query vector—but not guaranteed to be the exact top-k closest (hence "approximate").
+## `rerank()`
 
-Reranking is used to improve relevance and accuracy. TopK comes with built in-built reranking functionality.
-
-## `rerank()` function
-
-You can rerank the results of a query using the `rerank()` function which accepts the following parameters:
+The `rerank()` function is called on the query instance and accepts the following parameters:
 
 <ParamField query="model" type="string" default="cohere/rerank-v3.5">
   The model to use for reranking. Currently, only [`cohere/rerank-v3.5`](https://cohere.com/blog/rerank-3pt5) is supported.
@@ -60,5 +54,4 @@ You can rerank the results of a query using the `rerank()` function which accept
   topkMultiple: 2,
 })
 ```
-
 </CodeGroup>

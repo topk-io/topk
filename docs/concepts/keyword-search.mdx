@@ -2,10 +2,20 @@
 title: "Keyword search"
 ---
 
-TopK supports BM25 keyword search for text fields defined in the collection schema.
+TopK supports keyword search with BM25 ranking function.
 
-To perform a keyword search on your documents, use the `match()` function. The `match()` function will by default execute against all
-fields with a [**keyword index**](/collections/create#keyword-index).
+
+
+## How to perform a keyword search
+
+To perform a keyword search on your documents, use the `match()` function.
+
+In the following example we'll:
+
+1. Create a collection with a `title` and `description` text fields and add a keyword index to both of them.
+2. Run a keyword search on the `title` and `description` fields using the `match()` function.
+
+### Define a collection schema
 
 Let's create a collection with a `title` and `description` text fields and add a keyword index to both of them:
 
@@ -34,7 +44,9 @@ await client.collections().create("books", {
 
 </CodeGroup>
 
-Now, let's perform a keyword search on the `title` and `description` fields using the `match()` function.
+### Run a keyword search
+
+Now, let's run a keyword search on the `title` and `description` fields using the `match()` function.
 We'll query the collection to match the term `"great"` in the `title` field or the term `"novel"` in any of the keyword-indexed text fields:
 
 <CodeGroup>
@@ -94,6 +106,11 @@ const docs = await client.collection(name).query(
 ```
 
 </CodeGroup>
+
+<Note>
+  The `match()` function will by default execute against all
+  fields with a [**keyword index**](/collections/create#keyword-index).
+</Note>
 
 TopK provides a powerful keyword search API allowing you to customize your search queries.
 Read more about keyword search [here](/documents/query#keyword-search).

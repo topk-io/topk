@@ -38,7 +38,7 @@ await client.collections().create("books", {
 
 </CodeGroup>
 
-Then, we can perform vector search by using the `vector_distance()` function to compute distance between the query vector and vector stored in the document:
+Then, we can run a vector search by using the `vector_distance()` function to compute distance between the query vector and vector stored in the document:
 
 <CodeGroup>
 
@@ -111,7 +111,8 @@ Let's break down the example above:
 
 ## Combinding vector search with metadata filtering
 
-While vector search captures semantic similarity, it often needs to be combined with **metadata filtering** to enforce hard constraints based on crieteria such as
+While vector search captures semantic similarity, it fails in cases where you need to match on specific data.
+Therefore, it often needs to be combined with **metadata filtering** to enforce hard constraints based on crieteria such as
 category, time range, price range, availability, user permissions, language, or geographic region.
 
 In TopK, you can combine vector search with metadata filtering by combining `vector_distance()` function with the `filter()` function:
