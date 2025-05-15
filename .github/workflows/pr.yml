@@ -9,10 +9,6 @@ jobs:
     name: Test Rust
     runs-on: amd64
     if: ${{ contains(github.event.pull_request.labels.*.name, 'ready') }}
-    permissions:
-      id-token: write
-      contents: read
-      packages: write
     env:
       FORCE_COLOR: 1
     steps:
@@ -30,10 +26,6 @@ jobs:
     name: Test Python
     runs-on: amd64
     if: ${{ contains(github.event.pull_request.labels.*.name, 'ready') }}
-    permissions:
-      id-token: write
-      contents: read
-      packages: write
     env:
       FORCE_COLOR: 1
     steps:
@@ -50,13 +42,8 @@ jobs:
     name: Test JavaScript
     runs-on: amd64
     if: ${{ contains(github.event.pull_request.labels.*.name, 'ready') }}
-    permissions:
-      id-token: write
-      contents: read
-      packages: write
     env:
       FORCE_COLOR: 1
-      EARTHLY_TOKEN: "${{ secrets.EARTHLY_TOKEN }}"
     steps:
       - uses: earthly/actions-setup@v1
         with:
