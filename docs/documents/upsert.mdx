@@ -4,13 +4,9 @@ title: "Upsert documents"
 
 TopK documents are JSON-like objects containing key-value pairs.
 
-
-
 ## Upsert function
 
 To upsert documents, pass a list of documents to the `upsert()` function:
-
-
 
 <CodeGroup>
 
@@ -40,7 +36,7 @@ client.collection("books").upsert(
 ```
 
 
-```typescript JavaScript
+```typescript Javascript
 await client.collection("books").upsert([
   {
     _id: "book-1",
@@ -70,7 +66,7 @@ await client.collection("books").upsert([
 - If a document with the same `_id` already exists, the existing document will be **replaced** with the new one.
 
 <Note>
-The `upsert()` function does not perform a *partial update* or *merge* - the entire document is being replaced.
+  The `upsert()` function does not perform a _partial update_ or _merge_ - the entire document is being replaced.
 </Note>
 
 ## Supported types
@@ -79,20 +75,21 @@ TopK documents are a flat structure of key-value pairs.
 
 The following value types are supported:
 
-| Type | Python Type | JavaScript Type | Helper Function |
-|------|-------------|----------------|--------------|
-| **String** | `str` | `string` | - |
-| **Integer** | `int` | `number` | - |
-| **Float** | `float` | `number` | - |
-| **Boolean** | `bool` | `boolean` | - |
-| **Float32 vector** | `List[float]` | `number[]` | `f32_vector()` |
-| **U8 vector** | *use helper* | *use helper* | `u8_vector()` |
-| **Binary vector** | *use helper* | *use helper* | `binary_vector()` |
-| **Bytes** | *use helper* | *use helper* | `bytes()` |
+| Type               | Python Type   | JavaScript Type | Helper Function   |
+| ------------------ | ------------- | --------------- | ----------------- |
+| **String**         | `str`         | `string`        | -                 |
+| **Integer**        | `int`         | `number`        | -                 |
+| **Float**          | `float`       | `number`        | -                 |
+| **Boolean**        | `bool`        | `boolean`       | -                 |
+| **Float32 vector** | `List[float]` | `number[]`      | `f32_vector()`    |
+| **U8 vector**      | _use helper_  | _use helper_    | `u8_vector()`     |
+| **Binary vector**  | _use helper_  | _use helper_    | `binary_vector()` |
+| **Bytes**          | _use helper_  | _use helper_    | `bytes()`         |
 
 Here's an example of a creating a collection with all supported types and inserting a document:
 
 <CodeGroup>
+
 ```python Python
 
 from topk_sdk.schema import (
@@ -121,6 +118,7 @@ client.collections().create(
 )
 ```
 
+
 ```typescript Javascript
 import {
   text,
@@ -145,11 +143,13 @@ await client.collections().create("books", {
   bytes: bytes(),
 });
 ```
+
 </CodeGroup>
 
 Insert a document with all supported types:
 
 <CodeGroup>
+
 ```python Python
 import f32_vector, u8_vector, binary_vector, bytes from topk_sdk.data;
 
@@ -167,8 +167,8 @@ client.collection("books").upsert([
   },
 ]);
 
-
 ```
+
 
 ```typescript Javascript
 import { f32Vector, u8Vector, binaryVector, bytes } from "topk-js/data";
@@ -189,11 +189,12 @@ await client.collection("books").upsert([
   },
 ]);
 ```
+
 </CodeGroup>
 
 ## Helper functions
 
-In TopK, a vector is represented as a flat array of numbers. To differentiate between different types of vectors, we use helper functions.
+In TopK, a vector is represented as a flat array of numbers. To differentiate between different types of vectors, use provided helper functions.
 
 TopK supports the following types of vectors:
 
@@ -208,17 +209,20 @@ If no helper function is used, the vector is assumed to be a **float32 vector**.
 To pass a float32 vector, use the `f32_vector()` helper function:
 
 <CodeGroup>
+
 ```python Python
 import f32_vector from topk_sdk.data;
 
 f32_vector([0.12, 0.67, 0.82, 0.53])
 ```
 
+
 ```typescript Javascript
 import { f32Vector } from "topk-js/data";
 
 f32Vector([0.12, 0.67, 0.82, 0.53])
 ```
+
 </CodeGroup>
 
 ### u8_vector()
@@ -226,17 +230,20 @@ f32Vector([0.12, 0.67, 0.82, 0.53])
 To pass a u8 vector, use the `u8_vector()` helper function:
 
 <CodeGroup>
+
 ```python Python
 import u8_vector from topk_sdk.data;
 
 u8_vector([0, 1, 2, 3])
 ```
 
+
 ```typescript Javascript
 import { u8Vector } from "topk-js/data";
 
 u8Vector([0, 1, 2, 3])
 ```
+
 </CodeGroup>
 
 ### binary_vector()
@@ -244,17 +251,20 @@ u8Vector([0, 1, 2, 3])
 To pass a binary vector, use the `binary_vector()` helper function:
 
 <CodeGroup>
+
 ```python Python
 import binary_vector from topk_sdk.data;
 
 binary_vector([0, 1, 1, 0])
 ```
 
+
 ```typescript Javascript
 import { binaryVector } from "topk-js/data";
 
 binaryVector([0, 1, 1, 0])
 ```
+
 </CodeGroup>
 
 ### bytes()
@@ -262,17 +272,18 @@ binaryVector([0, 1, 1, 0])
 To pass a byte object, use the `bytes()` helper function:
 
 <CodeGroup>
+
 ```python Python
 import bytes from topk_sdk.data;
 
 bytes([0, 1, 1, 0])
 ```
 
+
 ```typescript Javascript
 import { bytes } from "topk-js/data";
 
 bytes([0, 1, 1, 0])
 ```
+
 </CodeGroup>
-
-
