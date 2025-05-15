@@ -161,19 +161,30 @@ pub fn literal(
     LogicalExpression::create(LogicalExpressionUnion::Literal { value })
 }
 
+#[napi(object)]
+pub struct MatchOptions {
+    pub field: Option<String>,
+    pub weight: Option<f64>,
+    pub all: Option<bool>,
+}
+
 #[napi(js_name = "match", namespace = "query")]
-pub fn match_(
-    token: String,
-    field: Option<String>,
-    weight: Option<f64>,
-    all: Option<bool>,
-) -> TextExpression {
+pub fn match_(token: String, options: Option<MatchOptions>) -> TextExpression {
+    let options = match options {
+        Some(options) => options,
+        None => MatchOptions {
+            field: None,
+            weight: None,
+            all: None,
+        },
+    };
+
     TextExpression::create(TextExpressionUnion::Terms {
-        all: all.unwrap_or(false),
+        all: options.all.unwrap_or(false),
         terms: vec![Term {
             token,
-            field,
-            weight: weight.unwrap_or(1.0),
+            field: options.field,
+            weight: options.weight.unwrap_or(1.0),
         }],
     })
 }

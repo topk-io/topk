@@ -62,7 +62,7 @@ docs = client.collection("books").query(
     )
     # Filter documents that have the `great` keyword in the `title` field
     # or the `novel` in any of the text-indexed fields.
-    .filter(match("great", "title").or(match("novel")))
+    .filter(match("great", field="title").or(match("novel")))
     # Return top 10 documents with the highest text score
     .topk(field("text_score"), 10)
 )
@@ -81,7 +81,7 @@ const docs = await client.collection(name).query(
   })
   // Filter documents that have the `great` keyword in the `title` field
   // or the `novel` in any of the text-indexed fields.
-  .filter(match("great", "title").or(match("novel")))
+  .filter(match("great", { field: "title" }).or(match("novel")))
   // Return top 10 documents with the highest text score
   .topk(field("text_score"), 10)
 );

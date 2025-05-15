@@ -50,6 +50,12 @@ export interface CreateCollectionOptions {
   schema: Record<string, schema.FieldSpec>
 }
 
+export interface MatchOptions {
+  field?: string
+  weight?: number
+  all?: boolean
+}
+
 export interface QueryOptions {
   lsn?: string
   consistency?: ConsistencyLevel
@@ -138,7 +144,7 @@ export declare namespace query {
     | { type: 'Literal', value: number | string | boolean }
     | { type: 'Unary', op: UnaryOperator, expr: LogicalExpression }
     | { type: 'Binary', left: LogicalExpression, op: BinaryOperator, right: LogicalExpression }
-  export function match(token: string, field?: string | undefined | null, weight?: number | undefined | null, all?: boolean | undefined | null): TextExpression
+  export function match(token: string, options?: MatchOptions | undefined | null): TextExpression
   export function not(expr: LogicalExpression): LogicalExpression
   export function select(exprs: Record<string, LogicalExpression | FunctionExpression>): Query
   export function semanticSimilarity(field: string, query: string): FunctionExpression

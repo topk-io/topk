@@ -40,8 +40,8 @@ describe("Text Queries", () => {
       .collection(collection.name)
       .query(
         select({})
-          .filter(match("love", "summary"))
-          .topk(field("published_year"), 100, true)
+          .filter(match("love", { field: "summary" }))
+          .topk(field("published_year"), 100)
       );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(
@@ -74,8 +74,8 @@ describe("Text Queries", () => {
       .collection(collection.name)
       .query(
         select({})
-          .filter(match("love", "summary"))
-          .topk(field("published_year"), 100, true)
+          .filter(match("love", { field: "summary" }))
+          .topk(field("published_year"), 100)
       );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(
@@ -114,8 +114,8 @@ describe("Text Queries", () => {
 
     const result = await ctx.client.collection(collection.name).query(
       select({})
-        .filter(match("LOVE", "summary").or(match("rings", "title")))
-        .topk(field("published_year"), 100, true)
+        .filter(match("LOVE", { field: "summary" }).or(match("rings", { field: "title" })))
+        .topk(field("published_year"), 100)
     );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(
@@ -146,8 +146,37 @@ describe("Text Queries", () => {
 
     const result = await ctx.client.collection(collection.name).query(
       select({})
-        .filter(match("LOVE", "summary").and(match("class", "summary")))
-        .topk(field("published_year"), 100, true)
+        .filter(match("LOVE", { field: "summary" }).and(match("class", { field: "summary" })))
+        .topk(field("published_year"), 100)
+    );
+
+    expect(new Set(result.map((doc) => doc._id))).toEqual(new Set(["pride"]));
+  });
+
+  test("query text filter multiple terms conjunctive with all", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("books", {
+      summary: text().required().index(keywordIndex()),
+      published_year: int(),
+    });
+
+    await ctx.client.collection(collection.name).upsert([
+      {
+        _id: "pride",
+        summary: "A story about love and class",
+        published_year: 1813,
+      },
+      {
+        _id: "gatsby",
+        summary: "A tale of love and wealth",
+        published_year: 1925,
+      },
+    ]);
+
+    const result = await ctx.client.collection(collection.name).query(
+      select({})
+        .filter(match("story love", { field: "summary", all: true }))
+        .topk(field("published_year"), 100)
     );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(new Set(["pride"]));
@@ -178,11 +207,48 @@ describe("Text Queries", () => {
       .collection(collection.name)
       .query(
         select({})
-          .filter(match("the", "summary"))
-          .topk(field("published_year"), 100, true)
+          .filter(match("the", { field: "summary" }))
+          .topk(field("published_year"), 100)
       );
 
     expect(result.length).toBe(0);
+  });
+
+  test("query text filter with weight", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("books", {
+      summary: text().required().index(keywordIndex()),
+      published_year: int(),
+    });
+
+    await ctx.client.collection(collection.name).upsert([
+      {
+        _id: "pride",
+        summary: "A story about love and class or love and wealth",
+        published_year: 1813,
+      },
+      {
+        _id: "gatsby",
+        summary: "A tale of power and wealth",
+        published_year: 1925,
+      },
+      {
+        _id: "lotr",
+        summary: "A fantasy epic",
+        published_year: 1954,
+      },
+    ]);
+
+    const result = await ctx.client.collection(collection.name).query(
+      select({
+        summary: field("summary"),
+        summary_score: fn.bm25Score(),
+      })
+        .filter(match("tale", { field: "summary", weight: 2 }).or(match("love", { field: "summary" })))
+        .topk(field("summary_score"), 100)
+    );
+
+    expect(new Set(result.map((doc) => doc._id))).toEqual(new Set(["gatsby", "pride"]));
   });
 
   test("query select bm25 without text queries", async () => {
@@ -201,7 +267,7 @@ describe("Text Queries", () => {
         .query(
           select({ bm25_score: fn.bm25Score() })
             .filter(field("_id").eq("pride"))
-            .topk(field("bm25_score"), 100, true)
+            .topk(field("bm25_score"), 100)
         )
     ).rejects.toThrow(
       "invalid argument: Invalid query: Query must have at least one text filter to compute bm25 scores"

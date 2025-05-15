@@ -236,7 +236,7 @@ describe("Semantic Index", () => {
 
     const result = await ctx.client.collection(collection.name).query(
       select({ sim: fn.semanticSimilarity("title", "dummy") })
-        .filter(match("love", "summary"))
+        .filter(match("love", { field: "summary" }))
         .topk(field("sim"), 3, true)
     );
 
