@@ -386,17 +386,17 @@ The `match()` function accepts the following parameters:
   String token to match. Can also contain multiple terms separated by a delimiter which is any **non-alphanumeric** character.
 </ParamField>
 
-<ParamField path="field" type="string">
+<ParamField path="options.field" type="string">
   Field to match on.
   If not provided, the function will match on all fields.
 </ParamField>
 
-<ParamField path="weight" type="number">
+<ParamField path="options.weight" type="number">
   Weight to use for matching.
   If not provided, the function will use the default weight(**1.0**).
 </ParamField>
 
-<ParamField path="all" type="boolean">
+<ParamField path="options.all" type="boolean">
   Use `all` parameter when a text **must** contain all terms(separated by a delimeter)
 
   - when `all` is `false` (default) it's an equivalent of `OR` operator
@@ -426,9 +426,11 @@ import { match } from "topk-js/query";
 
 #### Match multiple terms
 
-The `match()` function can be configured to match on multiple terms using a **delimiter**.
+The `match()` function can be configured to match all terms when using a **delimiter**.
 
-A term delimiter is any **non-alphanumeric** character:
+A term delimiter is any **non-alphanumeric** character.
+
+To ensure that all terms are matched, use the `all` parameter:
 
 <CodeGroup>
 
@@ -442,7 +444,7 @@ from topk_sdk.query import match
 ```js Javascript
 import { match } from "topk-js/query";
 
-.filter(match("catcher|rye", "title", 1, true))
+.filter(match("catcher|rye", { field: "title", weight: 1, all: true }))
 ```
 
 </CodeGroup>
@@ -456,14 +458,14 @@ You can give weight to specific terms by using the `weight` parameter:
 ```python Python
 from topk_sdk.query import match
 
-.filter(match("catcher", weight=2.0))
+.filter(match("catcher", weight=2.0).or(match("rye", weight=1.0)))
 ```
 
 
 ```js Javascript
 import { match } from "topk-js/query";
 
-.filter(match("catcher", null, 2.0))
+.filter(match("catcher", { weight: 2.0 }).or(match("rye", { weight: 1.0 })))
 ```
 
 </CodeGroup>

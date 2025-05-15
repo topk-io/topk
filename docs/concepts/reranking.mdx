@@ -140,7 +140,7 @@ const docs = await client.collection(name).query(
     content: field("content"),
     title_score: fn.bm25Score(),
   })
-    .filter(match("how to reset a router", "title"))
+    .filter(match("how to reset a router", { field: "title" }))
     .topk(field("title_score"), 10)
 );
 
@@ -191,7 +191,7 @@ client.collection(name).query(
         "content",
         title_score=fn.bm25_score()
     )
-    .filter(match("how to reset a router", "title"))
+    .filter(match("how to reset a router", field="title"))
     .topk(field("title_score"), 10)
     .rerank(
         fields=["content"],
@@ -228,7 +228,7 @@ const docs = await client.collection(name).query(
     content: field("content"),
     title_score: fn.bm25Score(),
   })
-    .filter(match("how to reset a router", field="title"))
+    .filter(match("how to reset a router", { field: "title" }))
     .topk(field("title_score"), 10)
     .rerank({
       fields: ["content"],
