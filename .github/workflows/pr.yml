@@ -16,6 +16,9 @@ jobs:
     env:
       FORCE_COLOR: 1
     steps:
+      - uses: earthly/actions-setup@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/checkout@v4
 
       - name: Rust tests
@@ -34,6 +37,9 @@ jobs:
     env:
       FORCE_COLOR: 1
     steps:
+      - uses: earthly/actions-setup@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/checkout@v4
 
       - name: Python tests
@@ -52,6 +58,9 @@ jobs:
       FORCE_COLOR: 1
       EARTHLY_TOKEN: "${{ secrets.EARTHLY_TOKEN }}"
     steps:
+      - uses: earthly/actions-setup@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/checkout@v4
 
       - name: JavaScript tests
