@@ -2,8 +2,7 @@
 title: "True Hybrid search"
 ---
 
-True Hybrid Search allows you to combine multiple retrieval techniques — such as multi-vector search, hybrid (vector \+ text) search
-sort the results using a custom scoring function **within a single query**.
+True Hybrid Search allows you to combine multiple retrieval techniques — such as multi-vector search, hybrid (vector \+ text) search and sort the results using a custom scoring function - **within a single query**.
 
 ## How TopK differs from other "hybrid" search systems
 
@@ -33,7 +32,7 @@ flowchart TD
 
 This approach is fundamentally **probabilistic** - the final "top 100" results are not guaranteed to be the actual best matches because some potential matches might be missed if they don't appear in either index's top results.
 
-**TopK is different.** We scan both vector and keyword indexes simultaneously within a single query, ensuring that our "top 100" results are the **actual** top 100 - not just a probabilistic approximation:
+**TopK is different.** We scan just a single index(vector \+ keyword) within a single query, ensuring that our "top 100" results are the **actual** top 100 - not just a probabilistic approximation:
 
 ```mermaid
 flowchart TD
@@ -46,19 +45,16 @@ flowchart TD
     D --> F@{ shape: stadium, label: "True top 100 results" }
 ```
 
-
 With TopK, you can:
 
-- Retrieve documents based on multiple embeddings -- **multi-vector retrieval**
-- Combine semantic similarity (or vector distance) with keyword search -- **true hybrid retrieval**
-- Filter documents to enforce hard constraints -- **metadata filtering**
-- Apply custom scoring functions blending multiple ranking factors -- **custom scoring**
+- Retrieve documents based on multiple embeddings -- **Multi-vector retrieval**
+- Combine semantic similarity (or vector distance) with keyword search -- **True hybrid retrieval**
+- Filter documents to enforce hard constraints -- **Metadata filtering**
+- Apply custom scoring functions blending multiple ranking factors -- **Custom scoring**
 
+## Implementing Hybrid Search (Vector \+ Keyword)
 
-
-## Implementing Hybrid Search (Vector + Keyword)
-
-Hybrid retrieval combines **semantic similarity (vector-based search)** with **exact keyword matching**. This ensures that documents containing **explicit matches** to the query keywords are considered alongside **semantic similarity**.
+Hybrid retrieval combines **semantic similarity (vector-based search)** with **exact keyword matching**. This approach ensures that documents with **direct keyword matches** are considered alongside those that are **semantically similar** to the query.
 
 Let's define a collection with one [`keyword_index()`](/collections/create#keyword-index) and one [`semantic_index()`](/collections/create#semantic-index):
 
@@ -88,7 +84,7 @@ await client.collections().create("articles", {
 
 </CodeGroup>
 
-In the following example we'll perform a hybrid search that scans both keyword and vector(semantic) index:
+In the following example we'll perform a hybrid search that combines keyword and vector(semantic) search in a single query:
 
 <CodeGroup>
 
@@ -137,11 +133,10 @@ Let's break down the example above:
 
 This **balances precision and recall**, capturing both **exact keyword matches** and **meaningful context**.
 
-
-## Implementing Complex Search(Keyword + Vector + Filtering + Reranking)
+## Implementing Complex Search(Keyword \+ Vector \+ Filtering \+ Reranking)
 
 In TopK, you can combine [keyword search](/concepts/keyword-search), [vector search](/concepts/vector-search), [filtering](/documents/query#filtering) and [reranking](/concepts/reranking) in a single query.
-This allows you to fetch the truly **most relevant results** while maintaining a **steady performance**:
+This allows you to fetch the truly **most relevant results** while maintaining a steady performance - no overfetching.
 
 <CodeGroup>
 
@@ -194,7 +189,12 @@ You can read more about custom scoring functions in the following section.
 
 ## Custom Scoring Functions
 
-TopK allows you to **define powerful scoring functions** by combining semantic similarity with keyword score and additional fields, such as "bring-your-own" **precomputed importance score**.
+TopK allows you to **define custom scoring functions** by combining:
+
+- Semantic similarity score 
+- Keyword score(BM25)
+- Vector distance
+- "Bring-your-own" precomputed importance score
 
 ### Defining a Collection with Custom Scoring Fields
 

@@ -8,13 +8,11 @@ TopK comes with **built-in embeddings** and **reranking**, removing the need for
 
 ## How to perform a semantic search
 
-
 In the following example, we'll:
 
 1. Define a collection schema for semantic search
 2. Add documents to the collection
 3. Perform a semantic search
-
 
 ### Define a collection schema
 
@@ -78,7 +76,7 @@ await client.collection("books").upsert([
 
 ### Perform a semantic search
 
-To find documents based on semantic similarity, use the `semantic_similarity()` function:
+To search for documents based on semantic similarity, use the `semantic_similarity()` function:
 
 <CodeGroup>
 
@@ -152,10 +150,10 @@ const docs = await client.collection("books").query(
 Let's break down the example above:
 
 1. The `semantic_similarity()` function computes the similarity between the query `"classic American novel"` and the text value stored in the `title` field for each document.
-2. TopK performs automatic query embedding under the hood using the model specified in [`semantic_index()`](/collections/create#semantic-index) function.
+2. TopK performs automatic query embedding under the hood using the model specified in the `semantic_index()` function.
 3. The results are ranked based on similarity, and the top 10 most relevant documents are returned.
 4. The optional `.rerank()` call uses a reranking model to improve relevance of the results.
-  For more information, see our [Reranking](/concepts/reranking) guide.
+   For more information, see our [Reranking](/concepts/reranking) guide.
 
 This works **out of the box**—no need to manage embeddings, external APIs, or third-party reranking models.
 
@@ -174,8 +172,8 @@ docs = client.collection("books").query(
         title_similarity=fn.semantic_similarity("title", "catcher"),
         text_score=fn.bm25_score()  # Keyword-based relevance
     )
-    .filter(match("classic"))  # Ensure the book contains the keyword "classic" in any text-indexed field
-    .topk(field("title_similarity") * 0.7 + field("text_score") * 0.3, 10)
+    .filter(match("classic"))  # Ensure the book contains the keyword "classic" in any of the text-indexed fields
+    .topk(field("title_similarity") * 0.7 + field("text_score") * 0.3, 10) # Add 70% weight to semantic similarity and 30% weight to keyword relevance
     .rerank()
 )
 ```
@@ -190,7 +188,7 @@ const docs = await client.collection("books").query(
     title_similarity: fn.semanticSimilarity("title", "catcher"),
     text_score: fn.bm25Score(), // Keyword-based relevance
   })
-    .filter(match("classic")) // Ensure the book contains the keyword "classic" in any text-indexed field
+    .filter(match("classic")) // Ensure the book contains the keyword "classic" in any of the text-indexed fields
     .topk(
       // Add 70% weight to semantic similarity and 30% weight to keyword relevance
       field("title_similarity").mul(0.7).add(field("text_score").mul(0.3)),
@@ -202,49 +200,5 @@ const docs = await client.collection("books").query(
 
 </CodeGroup>
 
-This example above combines **keyword relevance (BM25)** with **semantic similarity**,
+This example above combines **keyword relevance (BM25)** with **semantic similarity**,\
 ensuring your search results capture both exact matches and contextual meaning with a **custom scoring function** that's best suited for your use case.
-
-
-### Lexical scoring with reranking
-
-To combine lexical scoring with reranking using a custom query, use the `bm25_score()` function to score documents based on the BM25 score and then use the `rerank()` function to rerank the results using a custom query:
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.query import select, fn
-
-docs = client.collection("books").query(
-    select(
-        "title",
-        text_score=fn.bm25_score(),
-    )
-    .filter(match("catcher in the rye"))
-    .topk(field("text_score"), 10)
-    .rerank(
-        query="catcher in the rye",
-        fields=["title"]
-    )
-)
-```
-
-
-```typescript Javascript
-import { select, field, fn } from "topk-js/query";
-
-const docs = await client.collection("books").query(
-  select({
-    title: field("title"),
-    text_score: fn.bm25Score(),
-  })
-    .filter(match("catcher in the rye"))
-    .topk(field("text_score"), 10)
-    .rerank({
-      query: "catcher in the rye",
-      fields: ["title"],
-    })
-);
-```
-
-</CodeGroup>
