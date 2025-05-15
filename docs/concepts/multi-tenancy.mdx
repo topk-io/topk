@@ -4,10 +4,9 @@ title: "Multi-tenancy"
 
 In TopK, multi-tenancy is achieved through prefixing the tenant IDs in documents **`_id`** value.
 
-This design enables TopK to scale a single collection efficiently without performance degradation by leveraging
-smart sharding by document ID.
+This design enables TopK to scale a single collection efficiently without performance degradation by leveraging smart sharding by document ID.
 
-However, this approach still enables you to query across all tenants if needed.
+This approach still enables you to query across all tenants if needed.
 
 ### Storing documents for a specific tenant
 
@@ -22,6 +21,7 @@ client.collection("books").upsert([
 ])
 ```
 
+
 ```typescript Javascript
 await client.collection("books").upsert([
   { _id: "tenant-1234_1", title: "The Great Gatsby", author: "F. Scott Fitzgerald" },
@@ -33,18 +33,19 @@ await client.collection("books").upsert([
 
 ### Querying documents for a specific tenant
 
-To query documents for a specific tenant, use the **tenant ID** along with `startsWith()` filter:
+To query documents for a specific tenant, use the **tenant ID** along with the `startsWith()` filter:
 
 <CodeGroup>
 
 ```python Python
 client.collection("books").query(
-    select({
-        "title": field("title"),
-    })
+    select(
+        "title"
+    )
     .filter(field("_id").startsWith("tenant-1234"))
 )
 ```
+
 
 ```typescript Javascript
 await client.collection("books").query(

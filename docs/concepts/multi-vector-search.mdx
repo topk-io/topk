@@ -3,12 +3,14 @@ title: "Multi-vector search"
 ---
 
 In some cases, a single vector representation of your content is not enough to retrieve the most relevant results.
-In TopK, you can run **multiple vector searches in a single query** and apply a **different ranking score** to individual vector search results.
+In TopK, you can run **multiple vector searches in a single query** and apply a **different ranking score** to each individual vector distance result.
 
 For example, in a research paper database, you might want to:
 
 - Retrieve documents based on both the summary of the entire paper and summaries of individual paragraphs.
-- Rank results by combining scores from multiple embeddings.
+- Rank results by combining scores from multiple embeddings such as:
+  - 70% weight for entire paper similarity
+  - 30% weight for paragraph summary similarity
 
 Let's define a collection with two [semantic indexes](/collections/create#semantic-index):
 
@@ -27,8 +29,6 @@ client.collections().create(
 )
 ```
 
-Under the hood, TopK will create two separate vectors:
-
 
 ```typescript Javascript
 import { text, semanticIndex } from "topk-js/schema";
@@ -42,8 +42,7 @@ await client.collections().create("articles", {
 
 </CodeGroup>
 
-After, we run a multi-vector search by using the `fn.semantic_similarity()` function for calculating semantic similarity on
-`paper_score` as well as `paragraph_score` fields:
+After, we run a multi-vector search by using the `fn.semantic_similarity()` function for calculating semantic similarity on the `paper_score` field as well as the `paragraph_score` field:
 
 <CodeGroup>
 
@@ -77,8 +76,8 @@ docs = client.collection("articles").query(
     # "blend_score": 0.977081298828125,
   }
 ]
-
 ```
+
 
 ```javascript Javascript
 import { select, field, fn } from "topk-js/query";
@@ -124,6 +123,6 @@ const docs = await client.collection("articles").query(
 
 Let's break down the example above:
 
-1. First, we calculate semantic similarity between the query and the full paper summary as well as the paragraph summary.
-2. Then, we blend the two scores by giving 70% weight to the full paper and 30% weight to the paragraph.
-3. Finally, we retrieve the top 10 results ranked by the blended score.
+1. Calculate semantic similarity between the query and the full paper summary as well as the paragraph summary.
+2. Blend the two scores by giving 70% weight to the full paper and 30% weight to the paragraph summary.
+3. Retrieve the top 10 results ranked by the blended score.

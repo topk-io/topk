@@ -4,9 +4,9 @@ title: "Vector search"
 
 Vector search is the essential feature of TopK. With that in mind, TopK is designed to:
 
-* Handle **billion-scale vector search** efficiently across massive datasets
-* Achieve **> 95% recall** in vector search — consistently retrieving more than 95% of the true top-K nearest neighbors on practical workloads
-* Provide **low latency** (\<100ms) for any query across datasets of any size
+- Handle **billion-scale vector search** efficiently across massive datasets
+- Achieve **\> 95% recall** in vector search — consistently retrieving more than 95% of the true top-K nearest neighbors on practical workloads
+- Provide **low latency** (\<100ms) for any query across datasets of any size
 
 ## How to perform a vector search
 
@@ -38,7 +38,7 @@ await client.collections().create("books", {
 
 </CodeGroup>
 
-Then, we can run a vector search by using the `vector_distance()` function to compute distance between the query vector and vector stored in the document:
+Then, we can run a vector search by using the `vector_distance()` function to compute the distance between the query vector and the vector stored in the document:
 
 <CodeGroup>
 
@@ -105,17 +105,16 @@ const docs = await client.collection("books").query(
 
 Let's break down the example above:
 
-1. First we compute the cosine distance between the query embedding and the `title_embedding` field by using the `vector_distance` function.
-2. Then we store the computed cosine distance in the `title_similarity` field.
-3. Lastly, we return the top 10 results by the `title_similarity` field in descending order.
+1. Compute the cosine distance between the query embedding and the `title_embedding` field using the `vector_distance()` function.
+2. Store the computed cosine distance in the `title_similarity` field.
+3. Return the top 10 results by the `title_similarity` field in a descending order.
 
 ## Combinding vector search with metadata filtering
 
 While vector search captures semantic similarity, it fails in cases where you need to match on specific data.
-Therefore, it often needs to be combined with **metadata filtering** to enforce hard constraints based on crieteria such as
-category, time range, price range, availability, user permissions, language, or geographic region.
+Therefore, it often needs to be combined with **metadata filtering** to enforce hard constraints based on crieteria such as category, time range, price range, availability, user permissions, language, or geographic region.
 
-In TopK, you can combine vector search with metadata filtering by combining `vector_distance()` function with the `filter()` function:
+In TopK, you can combine vector search with metadata filtering by combining `vector_distance()` function with the `filter()` function when performing a query:
 
 <CodeGroup>
 
@@ -132,6 +131,7 @@ docs = client.collection("books").query(
     .topk(field("title_similarity"), 10)
 )
 ```
+
 
 ```js Javascript
 import { select, fn, field } from "topk-js/query";
