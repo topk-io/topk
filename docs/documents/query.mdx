@@ -11,13 +11,13 @@ With TopK's declarative query builder, you can easily select fields, chain filte
 
 In TopK, a query consists of multiple stages:
 
-* **Select stage** - Select static or computed fields that will be returned in the query results
-  * these fields can be used in stages such as Filter, TopK or Rerank
-* **Filter stage** - Filter the documents that will be returned in the query results
-  * filters can be applied to static fields, computed fields such as `vector_distance()` or `semantic_similarity()` or custom properties computed inside `select()`
-* **TopK stage** - Return the top `k` results based on the provided logical expression
-* **Count stage** - Return the total number of documents matching the query
-* **Rerank stage** - Rerank the results
+- **Select stage** - Select static or computed fields that will be returned in the query results
+  - these fields can be used in stages such as Filter, TopK or Rerank
+- **Filter stage** - Filter the documents that will be returned in the query results
+  - filters can be applied to static fields, computed fields such as `vector_distance()` or `semantic_similarity()` or custom properties computed inside `select()`
+- **TopK stage** - Return the top `k` results based on the provided logical expression
+- **Count stage** - Return the total number of documents matching the query
+- **Rerank stage** - Rerank the results
 
 All queries **must** have either TopK or Count collection stage.
 
@@ -38,11 +38,13 @@ flowchart TD
     E --> H@{ shape: stadium, label: "Results count" }
 ```
 
-<style>{`
-.mermaid {
+<style>
+  {`
+  .mermaid {
   text-align: center;
-}
-`}</style>
+  }
+  `}
+</style>
 
 ## Select
 
@@ -61,6 +63,7 @@ client.collection("books").query(
   ...
 )
 ```
+
 
 ```js Javascript
 import { select, field } from "topk-js/query";
@@ -221,6 +224,7 @@ docs = client.collection("books").query(
 ]
 ```
 
+
 ```js Javascript
 import { select, field, fn } from "topk-js/query";
 
@@ -250,7 +254,6 @@ const docs = await client.collection("books").query(
 ```
 
 </CodeGroup>
-
 
 #### Semantic similarity
 
@@ -285,6 +288,7 @@ docs = client.collection("books").query(
   }
 ]
 ```
+
 
 ```js Javascript
 import { select, field, fn } from "topk-js/query";
@@ -371,29 +375,32 @@ The `match()` function is the backbone of keyword search in TopK.
 It allows you to search for documents that contain specific keywords or phrases.
 
 You can configure the `match()` function to:
-* Match on multiple terms
-* Match only on specific fields
-* Use weights to prioritize certain terms
+
+- Match on multiple terms
+- Match only on specific fields
+- Use weights to prioritize certain terms
 
 The `match()` function accepts the following parameters:
 
-<ParamField path="token" type="string" required={true}>
-  String token to match.
-  Can also contain multiple terms separated by a delimiter.
+<ParamField path="token" type="string" required="true">
+  String token to match. Can also contain multiple terms separated by a delimiter which is any **non-alphanumeric** character.
 </ParamField>
 
-<ParamField path="field" type="string" required={false}>
+<ParamField path="field" type="string" required="false">
   Field to match on.
   If not provided, the function will match on all fields.
 </ParamField>
 
-<ParamField path="weight" type="number" required={false}>
+<ParamField path="weight" type="number" required="false">
   Weight to use for matching.
   If not provided, the function will use the default weight(**1.0**).
 </ParamField>
 
-<ParamField path="all" type="boolean" required={false}>
-  Use `all` parameter when matching on multiple terms.
+<ParamField path="all" type="boolean" required="false">
+  Use `all` parameter when a text **must** contain all terms(separated by a delimeter)
+
+  - when `all` is `false` (default) it's an equivalent of `OR` operator
+  - when `all` is `true` it's an equivalent of `AND` operator
 </ParamField>
 
 Searching for a term like `"catcher"` in your documents is as simple as using the `match()` function in the filter stage of your query:
@@ -407,6 +414,7 @@ from topk_sdk.query import match
     match("catcher")
 )
 ```
+
 
 ```js Javascript
 import { match } from "topk-js/query";
@@ -459,8 +467,6 @@ import { match } from "topk-js/query";
 ```
 
 </CodeGroup>
-
-
 
 ### Combine keyword search and metadata filtering
 
@@ -571,6 +577,7 @@ The `eq` operator can be used to match documents that have a field with a specif
 )
 ```
 
+
 ```js Javascript
 .filter(field("published_year").eq(1997))
 ```
@@ -595,6 +602,7 @@ The `ne` operator can be used to match documents that have a field with a value 
 )
 ```
 
+
 ```js Javascript
 .filter(field("published_year").ne(1997))
 ```
@@ -618,6 +626,7 @@ The `gt` operator can be used to match documents that have a field with a value 
     field("published_year").gt(1997)
 )
 ```
+
 
 ```js Javascript
 .filter(field("published_year").gt(1997))
@@ -668,6 +677,7 @@ The `lt` operator can be used to match documents that have a field with a value 
 )
 ```
 
+
 ```js Javascript
 .filter(field("published_year").lt(1997))
 ```
@@ -692,12 +702,12 @@ The `lte` operator can be used to match documents that have a field with a value
 )
 ```
 
+
 ```js Javascript
 .filter(field("published_year").lte(1997))
 ```
 
 </CodeGroup>
-
 
 #### starts_with
 
@@ -759,6 +769,7 @@ The `add` operator can be used to add two numbers.
 )
 ```
 
+
 ```js Javascript
 .filter(field("published_year").add(1997))
 ```
@@ -808,6 +819,7 @@ The `mul` operator can be used to multiply two numbers.
 )
 ```
 
+
 ```js Javascript
 .filter(field("published_year").mul(1997))
 ```
@@ -831,6 +843,7 @@ The `div` operator can be used to divide two numbers.
     field("published_year").div(1997)
 )
 ```
+
 
 ```js Javascript
 .filter(field("published_year").div(1997))
@@ -864,6 +877,7 @@ import { field, not } from "topk-js/query";
 ```
 
 </CodeGroup>
+
 #### is_null
 
 The `is_null` operator can be used to match documents that have a field with a value that is `null`.
@@ -910,15 +924,15 @@ All queries **must** have a collection stage. Currently, we only support `topk()
 
 Use the `topk()` function to return the top `k` results. The `topk()` function accepts the following parameters:
 
-<ParamField path="field" type="LogicalExpression" required={true}>
+<ParamField path="field" type="LogicalExpression" required="true">
   The logical expression to sort the results by.
 </ParamField>
 
-<ParamField path="k" type="number" required={true}>
+<ParamField path="k" type="number" required="true">
   The number of results to return.
 </ParamField>
 
-<ParamField path="asc" type="boolean" required={false}>
+<ParamField path="asc" type="boolean" required="false">
   Whether to sort the results in ascending order.
 </ParamField>
 
@@ -971,6 +985,7 @@ The `rerank()` function is used to rerank the results of a query. Read more abou
 ```python Python
 .rerank()
 ```
+
 
 ```js Javascript
 .rerank()
