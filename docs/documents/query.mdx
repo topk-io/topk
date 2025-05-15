@@ -382,21 +382,21 @@ You can configure the `match()` function to:
 
 The `match()` function accepts the following parameters:
 
-<ParamField path="token" type="string" required="true">
+<ParamField path="token" type="string" required>
   String token to match. Can also contain multiple terms separated by a delimiter which is any **non-alphanumeric** character.
 </ParamField>
 
-<ParamField path="field" type="string" required="false">
+<ParamField path="field" type="string">
   Field to match on.
   If not provided, the function will match on all fields.
 </ParamField>
 
-<ParamField path="weight" type="number" required="false">
+<ParamField path="weight" type="number">
   Weight to use for matching.
   If not provided, the function will use the default weight(**1.0**).
 </ParamField>
 
-<ParamField path="all" type="boolean" required="false">
+<ParamField path="all" type="boolean">
   Use `all` parameter when a text **must** contain all terms(separated by a delimeter)
 
   - when `all` is `false` (default) it's an equivalent of `OR` operator
