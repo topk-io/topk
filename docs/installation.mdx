@@ -1,5 +1,5 @@
 ---
-title: Installation
+title: "Installation"
 description: "Install the TopK Python or JavaScript SDK"
 ---
 
@@ -8,6 +8,7 @@ description: "Install the TopK Python or JavaScript SDK"
 ```bash Python
 pip install topk-sdk
 ```
+
 
 ```bash Javascript
 npm install topk-js
@@ -20,9 +21,10 @@ yarn add topk-js
 
 pnpm add topk-js
 ```
+
 </CodeGroup>
 
-## Setup a TopK Client
+## TopK Client
 
 To setup a client, you'll need your [API key](#api-key) and region:
 
@@ -33,6 +35,7 @@ from topk_sdk import Client
 
 client = Client(api_key="YOUR_TOPK_API_KEY", region="aws-us-east-1-elastica")
 ```
+
 
 ```typescript Javascript
 import { Client } from "topk-js";
@@ -53,20 +56,27 @@ TopK `Client` accepts the following parameters:
 
 <ParamField body="region" type="string" required>
   The region of the project. Available regions are:
-  * `aws-us-east-1-elastica`
 
-  Check out the [Regions](/regions) page for more information.
+  - `aws-us-east-1-elastica`
+  - `aws-eu-central-1-monstera`
+
+  Check out the [Regions](/docs/regions) page for more information.
 </ParamField>
 
-<ParamField body="host" type="string" default="topk.io">
+<ParamField body="host" default="topk.io" type="string">
   The host of the project.
 </ParamField>
 
-<ParamField body="https" type="boolean" default={true}>
+<ParamField body="https" default="true" type="boolean">
   When using a public host this should always be `true`.
   In most cases it is used for internal purposes.
-
 </ParamField>
+
+<Note>
+  TopK Client is **region-specific**.
+
+  Attempting to access collections or documents outside the specified region will result in an error.
+</Note>
 
 ## API Key
 
@@ -78,7 +88,6 @@ To obtain your API key:
 2. Log in or create your account
 3. Go to a project or create a new one
 4. Generate an API key and store it safely. TopK API Key can be **viewed only once**.
-
 
 TopK follows `Organization > Project > Collection` hierarchical structure.
 
@@ -92,7 +101,7 @@ If you're using the TopK **JavaScript SDK** in a server-side rendering (SSR) env
 
     ```typescript
     // vite.config.ts
-
+    
     export default defineConfig({
       // ...
       ssr: {
@@ -109,19 +118,18 @@ If you're using the TopK **JavaScript SDK** in a server-side rendering (SSR) env
 
     ```typescript
     // next.config.ts
-
+    
     import type { NextConfig } from "next";
-
+    
     const nextConfig: NextConfig = {
       /* config options here */
       serverExternalPackages: ["topk-js"],
     };
-
+    
     export default nextConfig;
     ```
   </Accordion>
 </AccordionGroup>
-
 
 ### Next steps
 
@@ -137,4 +145,3 @@ We look forward to having you onboard. Here are some resources to help you get s
     Check out the regions where TopK is available.
   </Card>
 </CardGroup>
-
