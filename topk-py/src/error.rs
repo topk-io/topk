@@ -6,19 +6,28 @@ pub struct RustError(pub topk_rs::Error);
 impl From<RustError> for PyErr {
     fn from(value: RustError) -> Self {
         match value.0 {
+            // Custom errors
+            topk_rs::Error::QueryLsnTimeout => {
+                QueryLsnTimeoutError::new_err(format!("{:?}", value.0))
+            }
+            // Not found errors
             topk_rs::Error::CollectionNotFound => {
                 CollectionNotFoundError::new_err(value.0.to_string())
             }
             topk_rs::Error::CollectionAlreadyExists => {
                 CollectionAlreadyExistsError::new_err(value.0.to_string())
             }
+            // Validation errors
             topk_rs::Error::SchemaValidationError(e) => {
                 SchemaValidationError::new_err(format!("{:?}", e))
             }
             topk_rs::Error::DocumentValidationError(e) => {
                 DocumentValidationError::new_err(format!("{:?}", e))
             }
-            topk_rs::Error::InvalidArgument(e) => InvalidArgumentError::new_err(format!("{:?}", e)),
+            topk_rs::Error::CollectionValidationError(e) => {
+                CollectionValidationError::new_err(format!("{:?}", e))
+            }
+            // Other errors
             _ => PyException::new_err(format!("topk returned error: {:?}", value.0)),
         }
     }
@@ -28,7 +37,9 @@ create_exception!(error, CollectionAlreadyExistsError, PyException);
 create_exception!(error, CollectionNotFoundError, PyException);
 create_exception!(error, SchemaValidationError, PyException);
 create_exception!(error, DocumentValidationError, PyException);
+create_exception!(error, CollectionValidationError, PyException);
 create_exception!(error, InvalidArgumentError, PyException);
+create_exception!(error, QueryLsnTimeoutError, PyException);
 
 ////////////////////////////////////////////////////////////
 /// Error
@@ -62,6 +73,16 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add(
         "InvalidArgumentError",
         m.py().get_type::<InvalidArgumentError>(),
+    )?;
+
+    m.add(
+        "QueryLsnTimeoutError",
+        m.py().get_type::<QueryLsnTimeoutError>(),
+    )?;
+
+    m.add(
+        "CollectionValidationError",
+        m.py().get_type::<CollectionValidationError>(),
     )?;
 
     Ok(())
