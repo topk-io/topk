@@ -1,9 +1,11 @@
 ---
 title: "List collections"
-description: "You can list all collections in a project by calling `client.collections().list()`."
 ---
 
-Listing collections is as easy as:
+You can list all collections in a project by calling `client.collections().list()`.
+
+
+Listing all collections in a project is as easy as:
 
 <CodeGroup>
 
@@ -13,12 +15,12 @@ collections = client.collections().list()
 
 
 ```typescript Javascript
-const collections = await client.collections().list()
+const collections = await client.collections().list();
 ```
 
 </CodeGroup>
 
-The `list` function returns a list of `Collection` objects.
+The `list()` function returns a list of `Collection` objects:
 
 <CodeGroup>
 

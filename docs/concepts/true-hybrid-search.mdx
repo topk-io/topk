@@ -1,15 +1,22 @@
 ---
 title: "True Hybrid search"
+description: "Combine multiple retrieval techniques within a single query"
 ---
 
-True Hybrid Search allows you to combine multiple retrieval techniques — such as multi-vector search, hybrid (vector \+ text) search and sort the results using a custom scoring function - **within a single query**.
+TopK's True Hybrid Search allows you to run a query that combines multiple retrieval techniques such as:
+
+* vector search
+* multi-vector search
+* keyword search
+* metadata filtering
+
 
 ## How TopK differs from other "hybrid" search systems
 
-Most databases that offer "hybrid" search maintain separate vector and keyword indexes. When a query is executed:
+Most databases that offer hybrid search maintain separate vector and keyword indexes. When a query is executed they:
 
-1. Run two separate queries against respective indexes
-2. Each query returns its top results (e.g. first 100 candidates)
+1. Run two separate queries for both indexes
+2. Collect the top results from each query (e.g. first 100 + 100 candidates)
 3. Use techniques like Reciprocal Rank Fusion (RRF) to merge and rerank these two sets of results
 
 <br />
@@ -191,7 +198,7 @@ You can read more about custom scoring functions in the following section.
 
 TopK allows you to **define custom scoring functions** by combining:
 
-- Semantic similarity score 
+- Semantic similarity score
 - Keyword score(BM25)
 - Vector distance
 - "Bring-your-own" precomputed importance score

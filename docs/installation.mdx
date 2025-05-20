@@ -1,6 +1,6 @@
 ---
 title: "Installation"
-description: "Install the TopK Python or JavaScript SDK"
+description: "Install Python or JavaScript SDK"
 ---
 
 <CodeGroup>
@@ -26,7 +26,7 @@ pnpm add topk-js
 
 ## TopK Client
 
-To setup a client, you'll need your [API key](#api-key) and region:
+To setup a TopK client, you'll need your [API key](#api-key) and region:
 
 <CodeGroup>
 
@@ -48,10 +48,10 @@ const client = new Client({
 
 </CodeGroup>
 
-TopK `Client` accepts the following parameters:
+`Client` constructor accepts the following parameters:
 
 <ParamField body="api_key" type="string" required>
-  The API key for the project.
+  The API key for the project. See [below for more details](#api-key).
 </ParamField>
 
 <ParamField body="region" type="string" required>
@@ -72,24 +72,46 @@ TopK `Client` accepts the following parameters:
   In most cases it is used for internal purposes.
 </ParamField>
 
-<Note>
+<Warning>
   TopK Client is **region-specific**.
 
   Attempting to access collections or documents outside the specified region will result in a region mismatch error.
-</Note>
+</Warning>
 
 ## API Key
 
-TopK API key is **project-specific**, so you'll need to obtain an API key for each individual project from the TopK Console.
+TopK API key is **project-specific**, so you'll need to obtain an API key for each individual project.
 
 To obtain your API key:
 
-1. Go to the [TopK Console](https://console.topk.io).
-2. Log in or create your account
-3. Go to a project or create a new one
-4. Generate an API key and store it safely. TopK API Key can be **viewed only once**.
+<Steps>
+  <Step title="Go to the TopK Console">
+    You can visit the console [here](https://console.topk.io).
+  </Step>
+  <Step title="Authenticate">
+    Log in or create your account.
+  </Step>
+  <Step title="Go to a project">
+    Create a project or use an existing one.
+  </Step>
+  <Step title="Generate an API key">
+    Store your API key in a secure location. It can be **viewed only once**.
+  </Step>
+</Steps>
 
-TopK follows `Organization > Project > Collection` hierarchical structure.
+TopK follows `Organization > Project > Collection` hierarchical structure:
+
+```mermaid
+graph TD
+    A[Organization] --> B[Project]
+    A --> C[Project]
+    B --> D[Collection]
+    B --> E[Collection]
+    C --> G[Collection]
+    C --> H[Collection]
+```
+
+
 
 ## TopK with Vite/Webpack SSR
 
@@ -101,7 +123,7 @@ If you're using the TopK **JavaScript SDK** in a server-side rendering (SSR) env
 
     ```typescript
     // vite.config.ts
-    
+
     export default defineConfig({
       // ...
       ssr: {
@@ -118,30 +140,15 @@ If you're using the TopK **JavaScript SDK** in a server-side rendering (SSR) env
 
     ```typescript
     // next.config.ts
-    
+
     import type { NextConfig } from "next";
-    
+
     const nextConfig: NextConfig = {
       /* config options here */
       serverExternalPackages: ["topk-js"],
     };
-    
+
     export default nextConfig;
     ```
   </Accordion>
 </AccordionGroup>
-
-### Next steps
-
-We look forward to having you onboard. Here are some resources to help you get started:
-
-<CardGroup cols={2}>
-  <Card title="Quickstart (5m)" icon="pen-to-square" href="/quickstart">
-    Follow our prepared guide to get started with TopK. It will walk you through
-    the process of creating your first collection, adding documents, and implementing
-    semantic search in just a few lines of code.
-  </Card>
-  <Card title="Regions" icon="globe" href="/regions">
-    Check out the regions where TopK is available.
-  </Card>
-</CardGroup>

@@ -10,14 +10,21 @@ TopK comes with **built-in embeddings** and **reranking**, removing the need for
 
 In the following example, we'll:
 
-1. Define a collection schema for semantic search
-2. Add documents to the collection
-3. Perform a semantic search
-
+<Steps>
+  <Step title="Define a collection schema">
+    Define a collection schema for semantic search.
+  </Step>
+  <Step title="Add documents">
+    Add documents to the collection.
+  </Step>
+  <Step title="Query the collection with semantic search">
+    Perform a semantic search.
+  </Step>
+</Steps>
 ### Define a collection schema
 
-Semantic search is enabled by adding a [`semantic_index()`](/collections/create#semantic-index) to a text field in the collection schema.
-This configuration automatically generates embeddings as well as enables keyword search for the specified text fields:
+Semantic search is enabled by adding a [`semantic_index()`](/collections/create#semantic-index) to a **text** field in the collection schema:
+
 
 <CodeGroup>
 
@@ -42,6 +49,8 @@ await client.collections().create("books", {
 ```
 
 </CodeGroup>
+
+This configuration automatically generates embeddings as well as enables keyword search for the specified text fields.
 
 <Tip>
   If you want to use your own embeddings instead of TopK's built-in `semantic_index()`, see [Vector Search](/concepts/vector-search).
