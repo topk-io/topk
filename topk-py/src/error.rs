@@ -27,6 +27,7 @@ impl From<RustError> for PyErr {
             topk_rs::Error::CollectionValidationError(e) => {
                 CollectionValidationError::new_err(format!("{:?}", e))
             }
+            topk_rs::Error::InvalidArgument(e) => InvalidArgumentError::new_err(e),
             // Other errors
             _ => PyException::new_err(format!("topk returned error: {:?}", value.0)),
         }
