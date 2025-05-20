@@ -1,9 +1,11 @@
 ---
 title: "Delete a collection"
-description: "Collections can be deleted by name."
 ---
 
-Once you decide that you no longer need a collection or that you want to start over, you can delete it. Deleting a collection will remove all the documents and indexes associated with it.
+Once you decide that you no longer need a collection or that you want to start over, you can delete it.
+Deleting a collection will remove all the documents and indexes associated with it.
+
+To delete a collection, call the `delete()` function on `client.collections()` with the name of the collection:
 
 <CodeGroup>
 

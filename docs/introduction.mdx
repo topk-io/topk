@@ -1,52 +1,67 @@
 ---
-title: Introduction
-description: "TopK is a cloud-native database built for search. It comes with native support for vector search, keyword search (with BM25 scoring), flexible filtering, re-ranking, automatic embeddings, and more to help you deliver the best search experience."
+title: Welcome
+description: "TopK is a search engine built for the AI era."
 ---
 
-import Support from "/snippets/support.mdx";
+It offers a robust search API that includes vector search, BM25 keyword search, metadata filtering, reranking, and more.
 
-The team at TopK set themselves on a path to create a performant, batteries-included search engine which provides relevant results
-for datasets of any size.
-We believe that search is a fundamental part of any application and should be straighforward to implement, giving you more freedom to focus on building your product.
+TopK also coined the concept of **True Hybrid Search**, which allows users to combine multiple search techniques in a single query -- delivering the most relevant results while maintaining record-low latency.
 
-## Getting started
+Moreover, it's designed to support massive-scale datasets and provide a headache-free setup for multi-tenant environments.
 
-This is an overview of the steps you need to take and will find in more detail in the [Quickstart](quickstart) guide. It's here to illustrate how simple and fast creating your first search experience with TopK can be.
+## Get Started
 
-<Steps>
-  <Step title="Install the SDK">
-    SDK will allow you to communicate with the TopK API. It's literally just one
-    command.
-  </Step>
-  <Step title="Create an API key">
-    API key is a secret token that you will use to authenticate your requests to
-    the TopK API.
-  </Step>
-  <Step title="Create your first collection">
-    You can imagine collections as your database tables. Each collection can
-    have its own schema and data. An example of a collection could be a collection
-    of movies or users.
-  </Step>
-  <Step title="Add documents to your first collection">
-    These are instructions or content that only pertain to the second step.
-  </Step>
-  <Step title="Search your collection">
-    These are instructions or content that only pertain to the third step.
-  </Step>
-</Steps>
-
-### Next steps
-
-We look forward to having you onboard. Here are some resources to help you get started:
-
-<CardGroup cols={2}>
-  <Card title="Install TopK" icon="pen-to-square" href="/installation">
-    Follow our installation guide to get started with TopK. It will walk you through
-    the process of setting up TopK Python or JavaScript SDK and obtaining an API key.
+<CardGroup>
+  <Card title="Install SDK" icon="terminal" href="/installation">
+    Install TopK Python or Javascript SDK
   </Card>
+    <Card title="Get API Key" icon="key" href="/installation#api-key">
+    Generate your API key in the TopK console.
+  </Card>
+</CardGroup>
+
+
+## Guides
+
+<CardGroup>
   <Card title="Quickstart" icon="rocket" href="/quickstart">
-    Follow our quickstart guide to get started with TopK. It will walk you through
-    the process of setting up your first collection, adding documents to it, and
-    searching for documents.
+    Create your first collection, add documents and run your first search.
+  </Card>
+  <Card title="Semantic Search" icon="searchengin" href="/semantic-search">
+    Learn how to setup and run a semantic search.
+  </Card>
+  <Card title="Vector Search" icon="vector-square" href="/vector-search">
+    Learn how to setup and run a vector search.
+  </Card>
+  <Card title="Multi-Vector Search" icon="bezier-curve" href="/multi-vector-search">
+    Learn how to setup and run a multi-vector search.
+  </Card>
+  <Card title="Keyword Search" icon="text" href="/keyword-search">
+    Learn how to setup and run a BM25 keyword search.
+  </Card>
+    <Card title="True Hybrid Search" icon="wand-magic-sparkles" href="/true-hybrid-search">
+    Learn how to combine multiple search techniques in a single query.
+  </Card>
+</CardGroup>
+
+## APIs
+
+<CardGroup>
+  <Card title="Query API" icon="magnifying-glass" href="/documents/query">
+    Explore the Query API for searching your data.
+  </Card>
+  <Card title="Collection API" icon="folder" href="/collections/create">
+    Explore the Collection API for managing your collections.
+  </Card>
+</CardGroup>
+
+## Digging Deeper
+
+<CardGroup>
+  <Card title="Consistency" icon="sitemap" href="/consistency">
+    Learn about TopK's consistency modes and how to choose the right one.
+  </Card>
+  <Card title="Multi-tenancy" icon="users" href="/multi-tenancy">
+    Learn how to use TopK in a multi-tenant environment.
   </Card>
 </CardGroup>

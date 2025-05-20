@@ -1,19 +1,25 @@
 ---
 title: "Quickstart (5m)"
-description: "Get started with the TopK search database in under 5 minutes."
+description: "Get started with the TopK search engine in under 5 minutes."
 ---
-
-import Support from "/snippets/support.mdx";
 
 This quickstart guide will walk you through setting up and using TopK in less than 5 minutes. By the end, you'll know how to:
 
-1. Create a collection that stores your data
-2. Add documents to your collection
-3. Learn how to use various searching methods:
-   - **Semantic search** - finding content by semantic meaning
-   - **Keyword search** - finding exact text matches and sorting by keyword score
-   - **Metadata filtering** - narrowing down results by document properties
-   - **Reranking** (optional) - use built-in reranking to boost relevant results
+<Steps>
+  <Step title="Create a collection">
+    Create a collection that stores your data.
+  </Step>
+  <Step title="Insert initial data">
+    Add documents to your collection.
+  </Step>
+  <Step title="Search your collection">
+    Learn how to use various searching methods:
+   - **Semantic search** -- finding content by semantic meaning
+   - **Keyword search** -- finding exact text matches and sorting by keyword score
+   - **Metadata filtering** -- narrowing down results by document properties
+   - **Reranking** (optional) -- use built-in reranking to boost relevant results
+  </Step>
+</Steps>
 
 Follow along to build your first functional search experience with TopK\!
 
@@ -171,16 +177,3 @@ await client.collections().delete("books")
 ```
 
 </CodeGroup>
-
-### Next steps
-
-Continue exploring the TopK platform:
-
-<CardGroup cols="2">
-  <Card title="Managing collections" icon="paintbrush" href="/collections/create">
-    Learn how to manage collections
-  </Card>
-  <Card title="Querying" icon="square-code" href="/documents/query">
-    Learn how to query your collections
-  </Card>
-</CardGroup>
