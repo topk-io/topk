@@ -12,6 +12,9 @@ pub enum Error {
     #[error("collection not found")]
     CollectionNotFound,
 
+    #[error("not found")]
+    NotFound,
+
     #[error("invalid collection schema")]
     SchemaValidationError(ValidationErrorBag<SchemaValidationError>),
 
@@ -33,8 +36,11 @@ pub enum Error {
     #[error("permission denied")]
     PermissionDenied,
 
-    #[error("capacity exceeded")]
-    CapacityExceeded,
+    #[error("quota exceeded: {0}")]
+    QuotaExceeded(String),
+
+    #[error("slow down: {0}")]
+    SlowDown(String),
 
     #[error("tonic transport error")]
     TransportError(#[from] tonic::transport::Error),
@@ -44,6 +50,27 @@ pub enum Error {
 
     #[error("malformed response: {0}")]
     MalformedResponse(String),
+}
+
+impl From<Status> for Error {
+    fn from(status: Status) -> Self {
+        match CustomError::try_from(status) {
+            // Custom error
+            Ok(error) => match error.code() {
+                CustomErrorCode::RequiredLsnGreaterThanManifestMaxLsn => Error::QueryLsnTimeout,
+                CustomErrorCode::SlowDown => Error::SlowDown(error.message().to_string()),
+            },
+            Err(e) => match e.code() {
+                tonic::Code::NotFound => Error::NotFound,
+                tonic::Code::ResourceExhausted => Error::QuotaExceeded(e.message().into()),
+                tonic::Code::InvalidArgument => match ValidationErrorBag::try_from(e.clone()) {
+                    Ok(errors) => Error::DocumentValidationError(errors),
+                    Err(_) => Error::InvalidArgument(e.message().into()),
+                },
+                _ => Error::Unexpected(e),
+            },
+        }
+    }
 }
 
 #[derive(Debug, thiserror::Error, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -176,53 +203,89 @@ impl<T: Serialize + DeserializeOwned> TryFrom<tonic::Status> for ValidationError
 
 use tonic::Status;
 
-#[derive(Copy, Clone, PartialEq, Eq)]
-pub enum InternalErrorCode {
-    RequiredLsnGreaterThanManifestMaxLsn = 1000,
+#[derive(Clone, PartialEq, Eq)]
+pub struct CustomError {
+    /// Error message
+    message: String,
+    /// Custom error code
+    code: CustomErrorCode,
 }
 
-impl InternalErrorCode {
-    /// Get the numeric code associated with the enum variant.
-    pub fn code(&self) -> u32 {
-        *self as u32
+impl CustomError {
+    pub fn new(message: String, code: CustomErrorCode) -> Self {
+        Self { message, code }
     }
 
-    pub fn parse_status(e: &Status) -> anyhow::Result<InternalErrorCode> {
-        let ddb_error_code = e
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+
+    pub fn code(&self) -> &CustomErrorCode {
+        &self.code
+    }
+}
+
+impl TryFrom<Status> for CustomError {
+    type Error = Status;
+
+    fn try_from(status: Status) -> Result<Self, Self::Error> {
+        let ddb_error_code = status
             .metadata()
             .get("x-topk-error-code")
-            .ok_or(anyhow::anyhow!("x-topk-error-code not found"))?;
-        let ddb_error_code = ddb_error_code.to_str()?;
-        let ddb_error_code: u32 = ddb_error_code.parse()?;
-        let code = InternalErrorCode::try_from(ddb_error_code)?;
+            .ok_or(anyhow::anyhow!("x-topk-error-code not found"))
+            .map_err(|_| status.clone())?;
+        let ddb_error_code = ddb_error_code.to_str().map_err(|_| status.clone())?;
+        let ddb_error_code: u32 = ddb_error_code.parse().map_err(|_| status.clone())?;
+        let code = CustomErrorCode::try_from(ddb_error_code).map_err(|_| status.clone())?;
 
-        Ok(code)
+        Ok(CustomError {
+            message: status.message().to_string(),
+            code,
+        })
     }
 }
 
-impl From<InternalErrorCode> for Status {
-    fn from(error: InternalErrorCode) -> Self {
-        let mut status = match error {
-            InternalErrorCode::RequiredLsnGreaterThanManifestMaxLsn => {
-                Status::failed_precondition("Lsn is greater than manifest max lsn")
-            }
-        };
+#[derive(Clone, PartialEq, Eq)]
+pub enum CustomErrorCode {
+    RequiredLsnGreaterThanManifestMaxLsn,
+    SlowDown,
+}
 
-        status
-            .metadata_mut()
-            .insert("x-topk-error-code", error.code().into());
-
-        status
+impl Into<u32> for CustomErrorCode {
+    fn into(self) -> u32 {
+        match self {
+            CustomErrorCode::RequiredLsnGreaterThanManifestMaxLsn => 1000,
+            CustomErrorCode::SlowDown => 1429,
+        }
     }
 }
 
-impl TryFrom<u32> for InternalErrorCode {
+impl TryFrom<u32> for CustomErrorCode {
     type Error = anyhow::Error;
 
-    fn try_from(value: u32) -> Result<Self, Self::Error> {
-        match value {
-            1000 => Ok(InternalErrorCode::RequiredLsnGreaterThanManifestMaxLsn),
-            _ => Err(anyhow::anyhow!("unknown internal error code: {}", value)),
+    fn try_from(code: u32) -> Result<Self, Self::Error> {
+        match code {
+            1000 => Ok(CustomErrorCode::RequiredLsnGreaterThanManifestMaxLsn),
+            1429 => Ok(CustomErrorCode::SlowDown),
+            code => Err(anyhow::anyhow!("unknown internal error code: {code}")),
         }
+    }
+}
+
+impl From<CustomError> for Status {
+    fn from(error: CustomError) -> Self {
+        let mut status = match error.code {
+            CustomErrorCode::RequiredLsnGreaterThanManifestMaxLsn => {
+                Status::failed_precondition(error.message)
+            }
+            CustomErrorCode::SlowDown => Status::resource_exhausted(error.message),
+        };
+
+        let error_code: u32 = error.code.into();
+        status
+            .metadata_mut()
+            .insert("x-topk-error-code", error_code.into());
+
+        status
     }
 }

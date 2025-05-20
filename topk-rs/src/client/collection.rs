@@ -1,7 +1,6 @@
 use super::Channel;
 use super::ClientConfig;
-use crate::error::ValidationErrorBag;
-use crate::error::{Error, InternalErrorCode};
+use crate::error::Error;
 use crate::query::Query;
 use crate::query::Stage;
 use std::collections::HashMap;
@@ -70,28 +69,21 @@ impl CollectionClient {
                         .map(|(id, doc)| (id, doc.fields))
                         .collect())
                 }
-                Err(e) => match InternalErrorCode::parse_status(&e) {
-                    // Custom error
-                    Ok(InternalErrorCode::RequiredLsnGreaterThanManifestMaxLsn) => {
-                        if tries < max_tries {
-                            tokio::time::sleep(retry_after).await;
-                            continue;
-                        } else {
-                            return Err(Error::QueryLsnTimeout);
-                        }
-                    }
-                    _ => {
-                        return Err(match e.code() {
-                            tonic::Code::NotFound => Error::CollectionNotFound,
-                            tonic::Code::ResourceExhausted => Error::CapacityExceeded,
-                            tonic::Code::InvalidArgument => {
-                                Error::InvalidArgument(e.message().into())
+                Err(e) => match e.code() {
+                    tonic::Code::NotFound => return Err(Error::CollectionNotFound),
+                    _ => match e.into() {
+                        Error::QueryLsnTimeout => {
+                            if tries < max_tries {
+                                tokio::time::sleep(retry_after).await;
+                                continue;
+                            } else {
+                                return Err(Error::QueryLsnTimeout);
                             }
-                            _ => Error::Unexpected(e),
-                        })
-                    }
+                        }
+                        e => return Err(e),
+                    },
                 },
-            };
+            }
         }
     }
 
@@ -155,10 +147,10 @@ impl CollectionClient {
 
             match response {
                 Ok(response) => return Ok(response.into_inner().results),
-                Err(e) => {
-                    match InternalErrorCode::parse_status(&e) {
-                        // Custom error
-                        Ok(InternalErrorCode::RequiredLsnGreaterThanManifestMaxLsn) => {
+                Err(e) => match e.code() {
+                    tonic::Code::NotFound => return Err(Error::CollectionNotFound),
+                    _ => match e.into() {
+                        Error::QueryLsnTimeout => {
                             if tries < max_tries {
                                 tokio::time::sleep(retry_after).await;
                                 continue;
@@ -166,18 +158,9 @@ impl CollectionClient {
                                 return Err(Error::QueryLsnTimeout);
                             }
                         }
-                        _ => {
-                            return Err(match e.code() {
-                                tonic::Code::NotFound => Error::CollectionNotFound,
-                                tonic::Code::ResourceExhausted => Error::CapacityExceeded,
-                                tonic::Code::InvalidArgument => {
-                                    Error::InvalidArgument(e.message().into())
-                                }
-                                _ => Error::Unexpected(e),
-                            })
-                        }
-                    }
-                }
+                        e => return Err(e),
+                    },
+                },
             }
         }
     }
@@ -190,12 +173,7 @@ impl CollectionClient {
             .await
             .map_err(|e| match e.code() {
                 tonic::Code::NotFound => Error::CollectionNotFound,
-                tonic::Code::InvalidArgument => match ValidationErrorBag::try_from(e.clone()) {
-                    Ok(errors) => Error::DocumentValidationError(errors),
-                    Err(_) => Error::Unexpected(e),
-                },
-                tonic::Code::ResourceExhausted => Error::CapacityExceeded,
-                _ => Error::Unexpected(e),
+                _ => e.into(),
             })?;
 
         Ok(response.into_inner().lsn)
@@ -209,12 +187,7 @@ impl CollectionClient {
             .await
             .map_err(|e| match e.code() {
                 tonic::Code::NotFound => Error::CollectionNotFound,
-                tonic::Code::ResourceExhausted => Error::CapacityExceeded,
-                tonic::Code::InvalidArgument => match ValidationErrorBag::try_from(e.clone()) {
-                    Ok(errors) => Error::DocumentValidationError(errors),
-                    Err(_) => Error::Unexpected(e),
-                },
-                _ => Error::Unexpected(e),
+                _ => e.into(),
             })?;
 
         Ok(response.into_inner().lsn)
