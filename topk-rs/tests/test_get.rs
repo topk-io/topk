@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use test_context::test_context;
 use topk_protos::doc;
+use topk_protos::v1::data::ConsistencyLevel;
 use topk_rs::Error;
 
 mod utils;
@@ -142,7 +143,7 @@ async fn test_get_updated_document(ctx: &mut ProjectTestContext) {
     let docs = ctx
         .client
         .collection(&collection.name)
-        .get(["lotr"], None, None, None)
+        .get(["lotr"], None, None, Some(ConsistencyLevel::Strong))
         .await
         .expect("could not get document");
 
@@ -163,7 +164,7 @@ async fn test_get_deleted_document(ctx: &mut ProjectTestContext) {
     let docs = ctx
         .client
         .collection(&collection.name)
-        .get(["lotr"], None, None, None)
+        .get(["lotr"], None, None, Some(ConsistencyLevel::Strong))
         .await
         .expect("could not get document");
 
