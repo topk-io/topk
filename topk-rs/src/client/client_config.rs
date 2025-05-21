@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 #[derive(Clone)]
 pub struct ClientConfig {
     /// Topk region
@@ -9,8 +11,8 @@ pub struct ClientConfig {
     /// Whether to use HTTPS
     https: bool,
 
-    /// API key
-    api_key: String,
+    /// Headers
+    headers: HashMap<&'static str, String>,
 }
 
 impl ClientConfig {
@@ -19,7 +21,7 @@ impl ClientConfig {
             region: region.into(),
             host: "topk.io".to_string(),
             https: true,
-            api_key: api_key.into(),
+            headers: HashMap::from([("authorization", format!("Bearer {}", api_key.into()))]),
         }
     }
 
@@ -30,8 +32,8 @@ impl ClientConfig {
         format!("{}://{}.api.{}", protocol, self.region, self.host)
     }
 
-    pub fn authorization_header(&self) -> String {
-        format!("Bearer {}", self.api_key)
+    pub fn headers(&self) -> HashMap<&'static str, String> {
+        self.headers.clone()
     }
 
     /// Setters
@@ -42,6 +44,11 @@ impl ClientConfig {
 
     pub fn with_https(mut self, https: bool) -> Self {
         self.https = https;
+        self
+    }
+
+    pub fn with_headers(mut self, headers: impl Into<HashMap<&'static str, String>>) -> Self {
+        self.headers.extend(headers.into());
         self
     }
 }

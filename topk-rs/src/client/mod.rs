@@ -23,46 +23,39 @@ pub use interceptor::AppendHeadersInterceptor;
 pub const GLOBAL_MAX_DECODING_MESSAGE_SIZE: usize = 64 * 1024 * 1024; // 64MB
 pub const GLOBAL_MAX_ENCODING_MESSAGE_SIZE: usize = 64 * 1024 * 1024; // 64MB
 
-/// Channels
-pub type WriterChannel = tokio::sync::OnceCell<tonic::transport::Channel>;
-pub type QueryChannel = tokio::sync::OnceCell<tonic::transport::Channel>;
-pub type ControlChannel = tokio::sync::OnceCell<tonic::transport::Channel>;
-
 #[derive(Clone)]
 pub struct Client {
     // Client config
     config: Arc<ClientConfig>,
 
     // Channels
-    writer_channel: Arc<WriterChannel>,
-    query_channel: Arc<QueryChannel>,
-    control_channel: Arc<ControlChannel>,
+    channel: Arc<OnceCell<Channel>>,
 }
 
 impl Client {
     pub fn new(config: ClientConfig) -> Self {
         Self {
             config: Arc::new(config),
-            // Channels
-            writer_channel: Arc::new(WriterChannel::new()),
-            query_channel: Arc::new(QueryChannel::new()),
-            control_channel: Arc::new(ControlChannel::new()),
+            channel: Arc::new(OnceCell::new()),
+        }
+    }
+
+    #[cfg(feature = "in_memory")]
+    pub fn new_in_memory(config: ClientConfig, channel: Channel) -> Self {
+        Self {
+            config: Arc::new(config),
+            channel: Arc::new(OnceCell::new_with(Some(channel))),
         }
     }
 
     // Collection operations (Control plane)
     pub fn collections(&self) -> CollectionsClient {
-        CollectionsClient::new(&self.config, &self.control_channel)
+        CollectionsClient::new(&self.config, &self.channel)
     }
 
     // Document operations (Data plane)
     pub fn collection(&self, name: impl Into<String>) -> CollectionClient {
-        CollectionClient::new(
-            self.config.clone(),
-            self.writer_channel.clone(),
-            self.query_channel.clone(),
-            name.into(),
-        )
+        CollectionClient::new(self.config.clone(), self.channel.clone(), name.into())
     }
 }
 
@@ -111,14 +104,15 @@ async fn create_query_client<'a>(
     channel: &'a OnceCell<Channel>,
 ) -> Result<QueryServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>, super::Error>
 {
+    let config = config
+        .clone()
+        .with_headers([("x-topk-collection", collection.to_string())]);
+
     create_client!(
         QueryServiceClient,
         channel,
         &config.endpoint(),
-        [
-            ("x-topk-collection", collection.to_string()),
-            ("authorization", config.authorization_header()),
-        ]
+        config.headers()
     )
     .await
 }
@@ -129,14 +123,15 @@ async fn create_write_client<'a>(
     channel: &'a OnceCell<Channel>,
 ) -> Result<WriteServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>, super::Error>
 {
+    let config = config
+        .clone()
+        .with_headers([("x-topk-collection", collection.to_string())]);
+
     create_client!(
         WriteServiceClient,
         channel,
         &config.endpoint(),
-        [
-            ("x-topk-collection", collection.to_string()),
-            ("authorization", config.authorization_header()),
-        ]
+        config.headers()
     )
     .await
 }
@@ -152,7 +147,7 @@ async fn create_collection_client<'a>(
         CollectionServiceClient,
         channel,
         &config.endpoint(),
-        [("authorization", config.authorization_header()),]
+        config.headers()
     )
     .await
 }

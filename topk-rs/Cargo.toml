@@ -8,6 +8,10 @@ repository = "https://github.com/topk-io/topk"
 homepage = "https://topk.io"
 documentation = "https://docs.topk.io"
 
+[features]
+default = []
+in_memory = []
+
 [dependencies]
 topk-protos = { path = "../topk-protos" }
 tonic = { version = "0.12.3", features = ["tls", "tls-native-roots"] }
