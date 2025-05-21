@@ -1,8 +1,11 @@
-use crate::error::Error;
-use std::collections::HashMap;
-use std::str::FromStr;
+use crate::create_client;
+use std::sync::Arc;
 use tokio::sync::OnceCell;
-use tonic::transport::{Channel as TonicChannel, Endpoint};
+use tonic::service::interceptor::InterceptedService;
+use tonic::transport::Channel;
+use topk_protos::v1::control::collection_service_client::CollectionServiceClient;
+use topk_protos::v1::data::query_service_client::QueryServiceClient;
+use topk_protos::v1::data::write_service_client::WriteServiceClient;
 
 mod collections;
 pub use collections::CollectionsClient;
@@ -10,109 +13,146 @@ pub use collections::CollectionsClient;
 mod collection;
 pub use collection::CollectionClient;
 
-#[derive(Debug, Clone)]
-pub enum Channel {
-    Endpoint(String),
-    Tonic(OnceCell<TonicChannel>),
-}
+mod client_config;
+pub use client_config::ClientConfig;
 
-impl Channel {
-    pub fn from_endpoint(endpoint: impl Into<String>) -> Self {
-        Self::Endpoint(endpoint.into())
-    }
+mod interceptor;
+pub use interceptor::AppendHeadersInterceptor;
 
-    pub fn from_tonic(channel: TonicChannel) -> Self {
-        Self::Tonic(OnceCell::from(channel))
-    }
+// Global max message size for all requests
+pub const GLOBAL_MAX_DECODING_MESSAGE_SIZE: usize = 64 * 1024 * 1024; // 64MB
+pub const GLOBAL_MAX_ENCODING_MESSAGE_SIZE: usize = 64 * 1024 * 1024; // 64MB
 
-    async fn get(&self) -> Result<TonicChannel, Error> {
-        match self {
-            Self::Endpoint(endpoint) => Ok(Endpoint::from_str(endpoint)?
-                .tls_config(tonic::transport::ClientTlsConfig::new().with_native_roots())?
-                // Do not close idle connections so they can be reused
-                .keep_alive_while_idle(true)
-                // Set max header list size to 64KB
-                .http2_max_header_list_size(1024 * 64)
-                .connect()
-                .await?),
-            Self::Tonic(cell) => match cell.get() {
-                Some(channel) => Ok(channel.clone()),
-                None => Err(Error::TransportChannelNotInitialized),
-            },
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct ClientConfig {
-    region: String,
-    host: String,
-    https: bool,
-    headers: HashMap<&'static str, String>,
-}
-
-impl ClientConfig {
-    pub fn new(api_key: impl Into<String>, region: impl Into<String>) -> Self {
-        Self {
-            region: region.into(),
-            host: "topk.io".to_string(),
-            https: true,
-            headers: HashMap::from([("authorization", format!("Bearer {}", api_key.into()))]),
-        }
-    }
-
-    pub fn with_host(mut self, host: impl Into<String>) -> Self {
-        self.host = host.into();
-        self
-    }
-
-    pub fn with_https(mut self, https: bool) -> Self {
-        self.https = https;
-        self
-    }
-
-    pub fn with_headers(mut self, headers: HashMap<&'static str, String>) -> Self {
-        self.headers = headers;
-        self
-    }
-
-    pub fn headers(&self) -> HashMap<&'static str, String> {
-        self.headers.clone()
-    }
-
-    pub fn endpoint(&self) -> String {
-        let protocol = if self.https { "https" } else { "http" };
-
-        format!("{}://{}.api.{}", protocol, self.region, self.host)
-    }
-}
+/// Channels
+pub type WriterChannel = tokio::sync::OnceCell<tonic::transport::Channel>;
+pub type QueryChannel = tokio::sync::OnceCell<tonic::transport::Channel>;
+pub type ControlChannel = tokio::sync::OnceCell<tonic::transport::Channel>;
 
 #[derive(Clone)]
 pub struct Client {
-    config: ClientConfig,
-    channel: Channel,
+    // Client config
+    config: Arc<ClientConfig>,
+
+    // Channels
+    writer_channel: Arc<WriterChannel>,
+    query_channel: Arc<QueryChannel>,
+    control_channel: Arc<ControlChannel>,
 }
 
 impl Client {
     pub fn new(config: ClientConfig) -> Self {
         Self {
-            channel: Channel::from_endpoint(config.endpoint().clone()),
-            config,
+            config: Arc::new(config),
+            // Channels
+            writer_channel: Arc::new(WriterChannel::new()),
+            query_channel: Arc::new(QueryChannel::new()),
+            control_channel: Arc::new(ControlChannel::new()),
         }
     }
 
-    pub fn from_channel(channel: TonicChannel, config: ClientConfig) -> Self {
-        Self {
-            config,
-            channel: Channel::from_tonic(channel),
-        }
-    }
-
+    // Collection operations (Control plane)
     pub fn collections(&self) -> CollectionsClient {
-        CollectionsClient::new(self.config.clone(), self.channel.clone())
+        CollectionsClient::new(&self.config, &self.control_channel)
     }
 
+    // Document operations (Data plane)
     pub fn collection(&self, name: impl Into<String>) -> CollectionClient {
-        CollectionClient::new(self.config.clone(), self.channel.clone(), name.into())
+        CollectionClient::new(
+            self.config.clone(),
+            self.writer_channel.clone(),
+            self.query_channel.clone(),
+            name.into(),
+        )
     }
+}
+
+// Macro for instantiating and connecting a client
+#[macro_export]
+macro_rules! create_client {
+    ($client:ident, $channel:expr, $endpoint:expr, $headers:expr) => {
+        async {
+            use std::str::FromStr;
+
+            let channel = $channel
+                .get_or_try_init(|| async {
+                    Ok(tonic::transport::Endpoint::from_str($endpoint)?
+                        .tls_config(tonic::transport::ClientTlsConfig::new().with_native_roots())?
+                        // Do not close idle connections so they can be reused
+                        .keep_alive_while_idle(true)
+                        // Set max header list size to 64KB
+                        .http2_max_header_list_size(1024 * 64)
+                        .connect()
+                        .await?)
+                })
+                .await;
+
+            match channel {
+                Ok(channel) => {
+                    let client = $client::with_interceptor(
+                        channel.clone(),
+                        crate::client::AppendHeadersInterceptor::new($headers),
+                    )
+                    .max_decoding_message_size(crate::client::GLOBAL_MAX_DECODING_MESSAGE_SIZE)
+                    .max_encoding_message_size(crate::client::GLOBAL_MAX_ENCODING_MESSAGE_SIZE);
+
+                    Ok(client)
+                }
+                // If channel fails to connect, return the error immediately
+                Err(e) => Err(e),
+            }
+        }
+    };
+}
+
+// Clients
+async fn create_query_client<'a>(
+    config: &'a ClientConfig,
+    collection: &'a str,
+    channel: &'a OnceCell<Channel>,
+) -> Result<QueryServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>, super::Error>
+{
+    create_client!(
+        QueryServiceClient,
+        channel,
+        &config.endpoint(),
+        [
+            ("x-topk-collection", collection.to_string()),
+            ("authorization", config.authorization_header()),
+        ]
+    )
+    .await
+}
+
+async fn create_write_client<'a>(
+    config: &'a ClientConfig,
+    collection: &'a str,
+    channel: &'a OnceCell<Channel>,
+) -> Result<WriteServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>, super::Error>
+{
+    create_client!(
+        WriteServiceClient,
+        channel,
+        &config.endpoint(),
+        [
+            ("x-topk-collection", collection.to_string()),
+            ("authorization", config.authorization_header()),
+        ]
+    )
+    .await
+}
+
+async fn create_collection_client<'a>(
+    config: &'a ClientConfig,
+    channel: &'a OnceCell<Channel>,
+) -> Result<
+    CollectionServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>,
+    super::Error,
+> {
+    create_client!(
+        CollectionServiceClient,
+        channel,
+        &config.endpoint(),
+        [("authorization", config.authorization_header()),]
+    )
+    .await
 }
