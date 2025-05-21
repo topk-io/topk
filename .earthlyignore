@@ -1,8 +1,5 @@
 /target
-/deploy
-/infra
 Earthfile
-docker-compose.yaml
 **/.git
 **/.venv
 **/node_modules
