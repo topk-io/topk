@@ -1,14 +1,14 @@
 use super::client_config::ClientConfig;
 use super::create_query_client;
 use super::create_write_client;
-use super::QueryChannel;
-use super::WriterChannel;
 use crate::error::Error;
 use crate::query::Query;
 use crate::query::Stage;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::OnceCell;
+use tonic::transport::Channel;
 use topk_protos::v1::data::{ConsistencyLevel, GetRequest};
 use topk_protos::v1::data::{
     DeleteDocumentsRequest, Document, QueryRequest, UpsertDocumentsRequest, Value,
@@ -23,21 +23,18 @@ pub struct CollectionClient {
     collection_name: String,
 
     // Channels
-    writer_channel: Arc<WriterChannel>,
-    query_channel: Arc<QueryChannel>,
+    channel: Arc<OnceCell<Channel>>,
 }
 
 impl CollectionClient {
     pub fn new(
         config: Arc<ClientConfig>,
-        writer_channel: Arc<WriterChannel>,
-        query_channel: Arc<QueryChannel>,
+        channel: Arc<OnceCell<Channel>>,
         collection_name: String,
     ) -> Self {
         Self {
             config,
-            writer_channel,
-            query_channel,
+            channel,
             collection_name,
         }
     }
@@ -50,7 +47,7 @@ impl CollectionClient {
         consistency: Option<ConsistencyLevel>,
     ) -> Result<HashMap<String, HashMap<String, Value>>, Error> {
         let mut client =
-            create_query_client(&self.config, &self.collection_name, &self.query_channel).await?;
+            create_query_client(&self.config, &self.collection_name, &self.channel).await?;
 
         let mut tries = 0;
         let max_tries = 120;
@@ -139,7 +136,7 @@ impl CollectionClient {
     ) -> Result<Vec<Document>, Error> {
         // Initialize the client
         let mut client =
-            create_query_client(&self.config, &self.collection_name, &self.query_channel).await?;
+            create_query_client(&self.config, &self.collection_name, &self.channel).await?;
 
         // Retry logic
         // TODO: refactor to use a retry policy
@@ -185,7 +182,7 @@ impl CollectionClient {
 
     pub async fn upsert(&self, docs: Vec<Document>) -> Result<String, Error> {
         let mut client =
-            create_write_client(&self.config, &self.collection_name, &self.writer_channel).await?;
+            create_write_client(&self.config, &self.collection_name, &self.channel).await?;
 
         let response = client
             .upsert_documents(UpsertDocumentsRequest { docs })
@@ -202,7 +199,7 @@ impl CollectionClient {
 
     pub async fn delete(&self, ids: Vec<String>) -> Result<String, Error> {
         let mut client =
-            create_write_client(&self.config, &self.collection_name, &self.writer_channel).await?;
+            create_write_client(&self.config, &self.collection_name, &self.channel).await?;
 
         let response = client
             .delete_documents(DeleteDocumentsRequest { ids })
