@@ -28,6 +28,8 @@ impl From<RustError> for PyErr {
                 CollectionValidationError::new_err(format!("{:?}", e))
             }
             topk_rs::Error::InvalidArgument(e) => InvalidArgumentError::new_err(e),
+            // Request too large
+            topk_rs::Error::RequestTooLarge(e) => RequestTooLargeError::new_err(e),
             // Other errors
             _ => PyException::new_err(format!("topk returned error: {:?}", value.0)),
         }
@@ -41,6 +43,7 @@ create_exception!(error, DocumentValidationError, PyException);
 create_exception!(error, CollectionValidationError, PyException);
 create_exception!(error, InvalidArgumentError, PyException);
 create_exception!(error, QueryLsnTimeoutError, PyException);
+create_exception!(error, RequestTooLargeError, PyException);
 
 ////////////////////////////////////////////////////////////
 /// Error

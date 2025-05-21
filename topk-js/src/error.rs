@@ -31,9 +31,14 @@ impl From<TopkError> for napi::Error {
             topk_rs::Error::CollectionValidationError(_) => {
                 napi::Error::new(napi::Status::InvalidArg, format!("{:?}", error))
             }
-            topk_rs::Error::InvalidArgument(_) => {
-                napi::Error::new(napi::Status::InvalidArg, format!("{:?}", error))
-            }
+            topk_rs::Error::InvalidArgument(_) => napi::Error::new(
+                napi::Status::InvalidArg,
+                format!("invalid argument: {}", error.0),
+            ),
+            topk_rs::Error::RequestTooLarge(_) => napi::Error::new(
+                napi::Status::InvalidArg,
+                format!("request too large: {}", error.0),
+            ),
             // Other errors
             _ => napi::Error::new(napi::Status::GenericFailure, format!("{:?}", error)),
         }

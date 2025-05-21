@@ -27,9 +27,6 @@ pub enum Error {
     #[error("invalid argument: {0}")]
     InvalidArgument(String),
 
-    #[error("tonic error: {0}")]
-    Unexpected(tonic::Status),
-
     #[error("invalid proto")]
     InvalidProto,
 
@@ -38,6 +35,9 @@ pub enum Error {
 
     #[error("quota exceeded: {0}")]
     QuotaExceeded(String),
+
+    #[error("request too large: {0}")]
+    RequestTooLarge(String),
 
     #[error("slow down: {0}")]
     SlowDown(String),
@@ -67,7 +67,8 @@ impl From<Status> for Error {
                     Ok(errors) => Error::DocumentValidationError(errors),
                     Err(_) => Error::InvalidArgument(e.message().into()),
                 },
-                _ => Error::Unexpected(e),
+                tonic::Code::OutOfRange => Error::RequestTooLarge(e.message().into()),
+                _ => e.into(),
             },
         }
     }

@@ -1,33 +1,44 @@
-use super::Channel;
-use super::ClientConfig;
+use super::client_config::ClientConfig;
+use super::create_query_client;
+use super::create_write_client;
+use super::QueryChannel;
+use super::WriterChannel;
 use crate::error::Error;
 use crate::query::Query;
 use crate::query::Stage;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
-use topk_protos::utils::{QueryClientWithHeaders, WriteClientWithHeaders};
 use topk_protos::v1::data::{ConsistencyLevel, GetRequest};
-use topk_protos::{
-    utils::{QueryClient, WriteClient},
-    v1::data::{DeleteDocumentsRequest, Document, QueryRequest, UpsertDocumentsRequest, Value},
+use topk_protos::v1::data::{
+    DeleteDocumentsRequest, Document, QueryRequest, UpsertDocumentsRequest, Value,
 };
 
 #[derive(Clone)]
 pub struct CollectionClient {
-    config: ClientConfig,
-    channel: Channel,
-    collection: String,
+    // Client config
+    config: Arc<ClientConfig>,
+
+    // Collection name
+    collection_name: String,
+
+    // Channels
+    writer_channel: Arc<WriterChannel>,
+    query_channel: Arc<QueryChannel>,
 }
 
 impl CollectionClient {
-    pub fn new(config: ClientConfig, channel: Channel, collection: String) -> Self {
-        let mut headers = config.headers();
-        headers.insert("x-topk-collection", collection.to_string());
-
+    pub fn new(
+        config: Arc<ClientConfig>,
+        writer_channel: Arc<WriterChannel>,
+        query_channel: Arc<QueryChannel>,
+        collection_name: String,
+    ) -> Self {
         Self {
-            config: config.with_headers(headers),
-            channel,
-            collection,
+            config,
+            writer_channel,
+            query_channel,
+            collection_name,
         }
     }
 
@@ -38,6 +49,9 @@ impl CollectionClient {
         lsn: Option<String>,
         consistency: Option<ConsistencyLevel>,
     ) -> Result<HashMap<String, HashMap<String, Value>>, Error> {
+        let mut client =
+            create_query_client(&self.config, &self.collection_name, &self.query_channel).await?;
+
         let mut tries = 0;
         let max_tries = 120;
         let retry_after = Duration::from_secs(1);
@@ -49,9 +63,7 @@ impl CollectionClient {
 
             let fields = fields.clone();
 
-            let response = self
-                .query_client()
-                .await?
+            let response = client
                 .get(GetRequest {
                     ids: ids.clone(),
                     fields: fields.unwrap_or_default(),
@@ -125,6 +137,12 @@ impl CollectionClient {
         lsn: Option<String>,
         consistency: Option<ConsistencyLevel>,
     ) -> Result<Vec<Document>, Error> {
+        // Initialize the client
+        let mut client =
+            create_query_client(&self.config, &self.collection_name, &self.query_channel).await?;
+
+        // Retry logic
+        // TODO: refactor to use a retry policy
         let mut tries = 0;
         let max_tries = 120;
         let retry_after = Duration::from_secs(1);
@@ -134,11 +152,9 @@ impl CollectionClient {
 
             let query = query.clone();
 
-            let response = self
-                .query_client()
-                .await?
+            let response = client
                 .query(QueryRequest {
-                    collection: self.collection.clone(),
+                    collection: self.collection_name.clone(),
                     query: Some(query.into()),
                     required_lsn: lsn.clone(),
                     consistency_level: consistency.map(|c| c.into()),
@@ -148,7 +164,9 @@ impl CollectionClient {
             match response {
                 Ok(response) => return Ok(response.into_inner().results),
                 Err(e) => match e.code() {
+                    // Explicitly map `NotFound` to `CollectionNotFound` error
                     tonic::Code::NotFound => return Err(Error::CollectionNotFound),
+                    // Delegate other errors
                     _ => match e.into() {
                         Error::QueryLsnTimeout => {
                             if tries < max_tries {
@@ -166,13 +184,16 @@ impl CollectionClient {
     }
 
     pub async fn upsert(&self, docs: Vec<Document>) -> Result<String, Error> {
-        let mut client = self.write_client().await?;
+        let mut client =
+            create_write_client(&self.config, &self.collection_name, &self.writer_channel).await?;
 
         let response = client
             .upsert_documents(UpsertDocumentsRequest { docs })
             .await
             .map_err(|e| match e.code() {
+                // Explicitly map `NotFound` to `CollectionNotFound` error
                 tonic::Code::NotFound => Error::CollectionNotFound,
+                // Delegate other errors
                 _ => e.into(),
             })?;
 
@@ -180,30 +201,19 @@ impl CollectionClient {
     }
 
     pub async fn delete(&self, ids: Vec<String>) -> Result<String, Error> {
-        let mut client = self.write_client().await?;
+        let mut client =
+            create_write_client(&self.config, &self.collection_name, &self.writer_channel).await?;
 
         let response = client
             .delete_documents(DeleteDocumentsRequest { ids })
             .await
             .map_err(|e| match e.code() {
+                // Explicitly map `NotFound` to `CollectionNotFound` error
                 tonic::Code::NotFound => Error::CollectionNotFound,
+                // Delegate other errors
                 _ => e.into(),
             })?;
 
         Ok(response.into_inner().lsn)
-    }
-
-    async fn write_client(&self) -> Result<WriteClientWithHeaders, Error> {
-        Ok(WriteClient::with_headers(
-            self.channel.get().await?,
-            self.config.headers(),
-        ))
-    }
-
-    async fn query_client(&self) -> Result<QueryClientWithHeaders, Error> {
-        Ok(QueryClient::with_headers(
-            self.channel.get().await?,
-            self.config.headers(),
-        ))
     }
 }

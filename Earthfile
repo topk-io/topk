@@ -1,6 +1,12 @@
 VERSION 0.8
 IMPORT github.com/earthly/lib/rust:3.0.1 AS rust
 
+test:
+    ARG region=dev
+    BUILD +test-rs --region=$region
+    BUILD +test-py --region=$region
+    BUILD +test-js --region=$region
+
 test-rs:
     FROM rust:slim
 
