@@ -32,6 +32,7 @@ impl From<RustError> for PyErr {
             topk_rs::Error::RequestTooLarge(e) => RequestTooLargeError::new_err(e),
             topk_rs::Error::QuotaExceeded(e) => QuotaExceededError::new_err(e),
             topk_rs::Error::SlowDown(e) => SlowDownError::new_err(e),
+            topk_rs::Error::PermissionDenied => PermissionDeniedError::new_err(value.0.to_string()),
             // Other errors
             _ => PyException::new_err(format!("topk returned error: {:?}", value.0)),
         }
@@ -48,6 +49,7 @@ create_exception!(error, QueryLsnTimeoutError, PyException);
 create_exception!(error, RequestTooLargeError, PyException);
 create_exception!(error, QuotaExceededError, PyException);
 create_exception!(error, SlowDownError, PyException);
+create_exception!(error, PermissionDeniedError, PyException);
 
 ////////////////////////////////////////////////////////////
 /// Error
