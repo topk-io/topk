@@ -28,12 +28,7 @@ impl CollectionsClient {
     pub async fn list(&self) -> Result<Vec<Collection>, Error> {
         let mut client = create_collection_client(&self.config, &self.control_channel).await?;
 
-        let response = client
-            .list_collections(ListCollectionsRequest {})
-            .await
-            .map_err(|e| match e.code() {
-                _ => Error::Unexpected(e),
-            })?;
+        let response = client.list_collections(ListCollectionsRequest {}).await?;
 
         Ok(response.into_inner().collections)
     }
@@ -46,7 +41,7 @@ impl CollectionsClient {
             .await
             .map_err(|e| match e.code() {
                 tonic::Code::NotFound => Error::CollectionNotFound,
-                _ => Error::Unexpected(e),
+                _ => Error::from(e),
             })?;
 
         Ok(response.into_inner().collection.expect("invalid proto"))
@@ -73,10 +68,10 @@ impl CollectionsClient {
                     } else if let Ok(errors) = ValidationErrorBag::try_from(e.clone()) {
                         Error::SchemaValidationError(errors)
                     } else {
-                        Error::Unexpected(e)
+                        e.into()
                     }
                 }
-                _ => Error::Unexpected(e),
+                _ => e.into(),
             })?;
 
         Ok(response.into_inner().collection.expect("invalid proto"))
@@ -90,7 +85,7 @@ impl CollectionsClient {
             .await
             .map_err(|e| match e.code() {
                 tonic::Code::NotFound => Error::CollectionNotFound,
-                _ => Error::Unexpected(e),
+                _ => e.into(),
             })?;
 
         Ok(())

@@ -35,6 +35,10 @@ impl From<TopkError> for napi::Error {
                 napi::Status::InvalidArg,
                 format!("invalid argument: {}", error.0),
             ),
+            topk_rs::Error::RequestTooLarge(_) => napi::Error::new(
+                napi::Status::InvalidArg,
+                format!("request too large: {}", error.0),
+            ),
             // Other errors
             _ => napi::Error::new(napi::Status::GenericFailure, format!("{:?}", error)),
         }
