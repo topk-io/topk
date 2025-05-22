@@ -1,16 +1,19 @@
 ---
 title: "Vector search"
+description: "TopK Vector Search Guide"
 ---
 
-Vector search is the essential feature of TopK. With that in mind, TopK is designed to:
+Vector search is the essential feature of TopK. With that in mind, it is designed to:
 
-- Handle **billion-scale vector search** efficiently across massive datasets
-- Achieve **\> 95% recall** in vector search — consistently retrieving more than 95% of the true top-K nearest neighbors on practical workloads
-- Provide **low latency** (\<100ms) for any query across datasets of any size
+- Stay above **95% recall** -- your application (e.g. recommendation, image search, semantic search) rarely misses relevant results.
+- Provide consistent **low latency** (\<100ms/p99)
+- Support **large-scale**  as well as **multi-tenant** configurations
 
-## How to perform a vector search
+## How to run a vector search
 
-Vector search is enabled by adding a [`vector_index()`](/collections/create#vector-index) to a vector field in the collection schema:
+### Prerequisites
+
+Define a schema with a vector field e.g. `f32_vector()` and add a `vector_index()` to it:
 
 <CodeGroup>
 
@@ -21,7 +24,7 @@ client.collections().create(
     "books",
     schema={
         "title": text().required(),
-        "title_embedding": f32_vector().required().index(vector_index(dimension=1536))
+        "title_embedding": f32_vector(dimension=1536).required().index(vector_index(distance="cosine"))
     },
 )
 ```
@@ -32,13 +35,22 @@ import { text, f32Vector, vectorIndex } from "topk-js/schema";
 
 await client.collections().create("books", {
   title: text().required(),
-  title_embedding: f32Vector().required().index(vectorIndex({ metric: "cosine" }))
+  title_embedding: f32Vector({ dimension: 1536 }).required().index(vectorIndex({ metric: "cosine" }))
 });
 ```
 
 </CodeGroup>
 
-Then, we can run a vector search by using the `vector_distance()` function to compute the distance between the query vector and the vector stored in the document:
+When defining a vector field, you need to specify the <Tooltip tip="The number of dimensions in the vector space.">dimension</Tooltip> of the vector.
+
+To perform a vector search on this field, index it with a vector index and specify the <Tooltip tip="The distance metric(cosine, euclidean, dot product, hamming) to use for the vector index.">metric</Tooltip> parameter.
+
+### Find the closest neighbors
+
+To find the top-k closest neighbors of the query vector, use the `vector_distance()` function.
+
+It computes a numeric value(depending on the vector distance metric specified in the vector index)
+which you can use to sort the results:
 
 <CodeGroup>
 
@@ -49,10 +61,13 @@ docs = client.collection("books").query(
     select(
         "title",
         published_year=field("published_year"),
-        # Compute vector distance between the embedding "epic fantasy adventure" and the `title_embedding` field.
+        # Compute vector similarity between the vector embedding of the string "epic fantasy adventure"
+        # and the embedding stored in the `title_embedding` field.
         title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3, ...])
     )
-    # Return top 10 results with the highest similarity
+    # Return top 10 results
+    # sort: smaller euclidean distance = closer; larger cosine similarity = closer
+    # if using euclidean distance, sort in ascending order(asc=True)
     .topk(field("title_similarity"), 10)
 )
 
@@ -81,9 +96,13 @@ const docs = await client.collection("books").query(
     published_year: field("published_year"),
     title_similarity: fn.vectorDistance(
       "title_embedding",
-      [0.1, 0.2, 0.3 /* embedding for "epic fantasy adventure" */]
+      // Compute vector similarity between the vector embedding of the string "epic fantasy adventure"
+      // and the embedding stored in the `title_embedding` field.
+      [0.1, 0.2, 0.3 /* ... */]
     ),
   }).topk(field("title_similarity"), 10)
+  // sort: smaller euclidean distance = closer; larger cosine similarity = closer
+  // if using euclidean distance, sort in ascending order(.topk(field("title_similarity"), 10, true))
 );
 
 // Example results:
@@ -105,16 +124,13 @@ const docs = await client.collection("books").query(
 
 Let's break down the example above:
 
-1. Compute the cosine distance between the query embedding and the `title_embedding` field using the `vector_distance()` function.
-2. Store the computed cosine distance in the `title_similarity` field.
-3. Return the top 10 results by the `title_similarity` field in a descending order.
+1. Compute the cosine similarity between the query embedding and the `title_embedding` field using the `vector_distance()` function.
+2. Store the computed cosine similarity in the `title_similarity` field.
+3. Return the top 10 results sorted by the `title_similarity` field in a descending order.
 
-## Combinding vector search with metadata filtering
+### Combine vector search with metadata filtering
 
-While vector search captures semantic similarity, it fails in cases where you need to match on specific data.
-Therefore, it often needs to be combined with **metadata filtering** to enforce hard constraints based on crieteria such as category, time range, price range, availability, user permissions, language, or geographic region.
-
-In TopK, you can combine vector search with metadata filtering by combining `vector_distance()` function with the `filter()` function when performing a query:
+Vector search can be easily combined with metadata filtering by adding a `filter()` stage to the query:
 
 <CodeGroup>
 
