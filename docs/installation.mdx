@@ -105,13 +105,11 @@ TopK follows `Organization > Project > Collection` hierarchical structure:
 graph TD
     A[Organization] --> B[Project]
     A --> C[Project]
-    B --> D[Collection]
-    B --> E[Collection]
-    C --> G[Collection]
-    C --> H[Collection]
+    B --> D["Collection\n(us-east-1)"]
+    B --> E["Collection\n(eu-central-1)"]
+    C --> G["Collection\n(us-east-1)"]
+    C --> H["Collection\n(eu-central-1)"]
 ```
-
-
 
 ## TopK with Vite/Webpack SSR
 

@@ -1,15 +1,16 @@
 ---
 title: "True Hybrid search"
-description: "Combine multiple retrieval techniques within a single query"
+description: "Combine multiple retrieval techniques in a single query."
 ---
 
-TopK's True Hybrid Search allows you to run a query that combines multiple retrieval techniques such as:
+With TopK's true hybrid search, you can combine multiple retrieval techniques such as:
 
 * vector search
 * multi-vector search
 * keyword search
 * metadata filtering
 
+-- all in a single query.
 
 ## How TopK differs from other "hybrid" search systems
 
@@ -32,14 +33,14 @@ flowchart TD
   D --> F{Merge and rerank top 200 results using RRF}
   E --> F
 
-  F --> G@{ shape: stadium, label: "Combined 100 top results" }
+  F --> G@{ shape: stadium, label: "Merged 100 top results" }
 ```
 
 <br />
 
-This approach is fundamentally **probabilistic** - the final "top 100" results are not guaranteed to be the actual best matches because some potential matches might be missed if they don't appear in either index's top results.
+This approach is fundamentally **probabilistic** - the final top-k results are not guaranteed to be the actual best candidates because some potential candidates might be missed if they don't appear in either index's top results.
 
-**TopK is different.** We scan just a single index(vector \+ keyword) within a single query, ensuring that our "top 100" results are the **actual** top 100 - not just a probabilistic approximation:
+**TopK is different.** It runs through a single index(vector \+ keyword), ensuring that our "top 100" results are the **actual** top 100 - not just a probabilistic approximation:
 
 ```mermaid
 flowchart TD
@@ -55,8 +56,8 @@ flowchart TD
 With TopK, you can:
 
 - Retrieve documents based on multiple embeddings -- **Multi-vector retrieval**
-- Combine semantic similarity (or vector distance) with keyword search -- **True hybrid retrieval**
-- Filter documents to enforce hard constraints -- **Metadata filtering**
+- Combine semantic similarity(e.g vector search) with keyword search -- **True Hybrid Retrieval**
+- **Filter documents** by their metadata
 - Apply custom scoring functions blending multiple ranking factors -- **Custom scoring**
 
 ## Implementing Hybrid Search (Vector \+ Keyword)
