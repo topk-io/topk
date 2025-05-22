@@ -13,8 +13,10 @@ pub use collections::CollectionsClient;
 mod collection;
 pub use collection::CollectionClient;
 
-mod client_config;
-pub use client_config::ClientConfig;
+mod config;
+pub use config::ClientConfig;
+
+pub mod retry;
 
 mod interceptor;
 pub use interceptor::AppendHeadersInterceptor;
@@ -74,6 +76,9 @@ macro_rules! create_client {
                         .keep_alive_while_idle(true)
                         // Set max header list size to 64KB
                         .http2_max_header_list_size(1024 * 64)
+                        // Set timeout to 60 seconds
+                        .timeout(std::time::Duration::from_secs(60))
+                        // Connect
                         .connect()
                         .await?)
                 })

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use collection::CollectionClient;
 use collections::CollectionsClient;
@@ -14,6 +14,7 @@ pub struct ClientConfig {
     pub region: String,
     pub host: Option<String>,
     pub https: Option<bool>,
+    pub retry_config: Option<RetryConfig>,
 }
 
 #[napi]
@@ -35,6 +36,10 @@ impl Client {
             rs_config = rs_config.with_https(https_value);
         }
 
+        if let Some(retry_config) = config.retry_config {
+            rs_config = rs_config.with_retry_config(retry_config.into());
+        }
+
         let rs_client = RsClient::new(rs_config);
 
         let client = Arc::new(rs_client);
@@ -50,5 +55,61 @@ impl Client {
     #[napi]
     pub fn collection(&self, name: String) -> CollectionClient {
         CollectionClient::new(self.client.clone(), name)
+    }
+}
+
+#[napi(object)]
+pub struct RetryConfig {
+    /// Maximum number of retries
+    pub max_retries: Option<u32>,
+
+    /// Total timeout for the retry chain (milliseconds)
+    pub timeout: Option<u32>,
+
+    /// Backoff configuration
+    pub backoff: Option<BackoffConfig>,
+}
+
+impl Into<topk_rs::retry::RetryConfig> for RetryConfig {
+    fn into(self) -> topk_rs::retry::RetryConfig {
+        topk_rs::retry::RetryConfig {
+            max_retries: self
+                .max_retries
+                .unwrap_or(topk_rs::retry::DEFAULT_MAX_RETRIES as u32)
+                as usize,
+            timeout: Duration::from_millis(
+                self.timeout
+                    .unwrap_or(topk_rs::retry::DEFAULT_TIMEOUT as u32) as u64,
+            ),
+            backoff: self.backoff.map(|b| b.into()).unwrap_or_default(),
+        }
+    }
+}
+
+#[napi(object)]
+pub struct BackoffConfig {
+    /// Base for the backoff
+    pub base: Option<u32>,
+
+    /// Initial backoff (milliseconds)
+    pub init_backoff: Option<u32>,
+
+    /// Maximum backoff (milliseconds)
+    pub max_backoff: Option<u32>,
+}
+
+impl Into<topk_rs::retry::BackoffConfig> for BackoffConfig {
+    fn into(self) -> topk_rs::retry::BackoffConfig {
+        topk_rs::retry::BackoffConfig {
+            base: self.base.unwrap_or(topk_rs::retry::DEFAULT_BASE),
+            init_backoff: Duration::from_millis(
+                self.init_backoff
+                    .unwrap_or(topk_rs::retry::DEFAULT_INIT_BACKOFF as u32) as u64,
+            ),
+            max_backoff: Duration::from_millis(
+                self.max_backoff
+                    .unwrap_or(topk_rs::retry::DEFAULT_MAX_BACKOFF as u32) as u64,
+            ),
+        }
     }
 }

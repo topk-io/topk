@@ -1,18 +1,23 @@
 use std::collections::HashMap;
 
+use super::retry::RetryConfig;
+
 #[derive(Clone)]
 pub struct ClientConfig {
     /// Topk region
-    region: String,
+    pub(crate) region: String,
 
     /// Topk host (e.g. "topk.io")
-    host: String,
+    pub(crate) host: String,
 
     /// Whether to use HTTPS
-    https: bool,
+    pub(crate) https: bool,
 
     /// Headers
-    headers: HashMap<&'static str, String>,
+    pub(crate) headers: HashMap<&'static str, String>,
+
+    /// Retry config
+    pub(crate) retry_config: RetryConfig,
 }
 
 impl ClientConfig {
@@ -22,6 +27,7 @@ impl ClientConfig {
             host: "topk.io".to_string(),
             https: true,
             headers: HashMap::from([("authorization", format!("Bearer {}", api_key.into()))]),
+            retry_config: RetryConfig::default(),
         }
     }
 
@@ -49,6 +55,11 @@ impl ClientConfig {
 
     pub fn with_headers(mut self, headers: impl Into<HashMap<&'static str, String>>) -> Self {
         self.headers.extend(headers.into());
+        self
+    }
+
+    pub fn with_retry_config(mut self, retry_config: RetryConfig) -> Self {
+        self.retry_config = retry_config;
         self
     }
 }

@@ -6,6 +6,9 @@ pub enum Error {
     #[error("lsn timeout")]
     QueryLsnTimeout,
 
+    #[error("retry timeout")]
+    RetryTimeout,
+
     #[error("collection already exists")]
     CollectionAlreadyExists,
 
@@ -48,11 +51,34 @@ pub enum Error {
     #[error("tonic transport error")]
     TransportError(#[from] tonic::transport::Error),
 
-    #[error("channel not initialized")]
-    TransportChannelNotInitialized,
-
     #[error("malformed response: {0}")]
     MalformedResponse(String),
+}
+
+impl Error {
+    pub fn is_retryable(&self) -> bool {
+        match self {
+            // Retryable
+            Error::QueryLsnTimeout => true,
+            Error::SlowDown(_) => true,
+            // Not retryable
+            Error::RetryTimeout => false,
+            Error::CollectionAlreadyExists => false,
+            Error::CollectionNotFound => false,
+            Error::NotFound => false,
+            Error::SchemaValidationError(_) => false,
+            Error::DocumentValidationError(_) => false,
+            Error::CollectionValidationError(_) => false,
+            Error::InvalidArgument(_) => false,
+            Error::InvalidProto => false,
+            Error::PermissionDenied => false,
+            Error::QuotaExceeded(_) => false,
+            Error::RequestTooLarge(_) => false,
+            Error::TransportError(_) => false,
+            Error::MalformedResponse(_) => false,
+            Error::Unexpected(_) => false,
+        }
+    }
 }
 
 impl From<Status> for Error {
@@ -68,7 +94,10 @@ impl From<Status> for Error {
                 tonic::Code::ResourceExhausted => Error::QuotaExceeded(e.message().into()),
                 tonic::Code::InvalidArgument => match ValidationErrorBag::try_from(e.clone()) {
                     Ok(errors) => Error::DocumentValidationError(errors),
-                    Err(_) => Error::InvalidArgument(e.message().into()),
+                    Err(_) => match ValidationErrorBag::try_from(e.clone()) {
+                        Ok(errors) => Error::SchemaValidationError(errors),
+                        Err(_) => Error::InvalidArgument(e.message().into()),
+                    },
                 },
                 tonic::Code::OutOfRange => Error::RequestTooLarge(e.message().into()),
                 tonic::Code::PermissionDenied => Error::PermissionDenied,

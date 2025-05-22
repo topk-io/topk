@@ -21,11 +21,21 @@ export declare class CollectionsClient {
   delete(name: string): Promise<void>
 }
 
+export interface BackoffConfig {
+  /** Base for the backoff */
+  base?: number
+  /** Initial backoff (milliseconds) */
+  initBackoff?: number
+  /** Maximum backoff (milliseconds) */
+  maxBackoff?: number
+}
+
 export interface ClientConfig {
   apiKey: string
   region: string
   host?: string
   https?: boolean
+  retryConfig?: RetryConfig
 }
 
 export interface Collection {
@@ -66,6 +76,15 @@ export interface RerankOptions {
   query?: string
   fields?: Array<string>
   topkMultiple?: number
+}
+
+export interface RetryConfig {
+  /** Maximum number of retries */
+  maxRetries?: number
+  /** Total timeout for the retry chain (milliseconds) */
+  timeout?: number
+  /** Backoff configuration */
+  backoff?: BackoffConfig
 }
 
 export declare namespace data {
