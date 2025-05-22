@@ -39,6 +39,9 @@ impl From<TopkError> for napi::Error {
                 napi::Status::InvalidArg,
                 format!("request too large: {}", error.0),
             ),
+            topk_rs::Error::PermissionDenied => {
+                napi::Error::new(napi::Status::GenericFailure, "permission denied")
+            }
             // Other errors
             _ => napi::Error::new(napi::Status::GenericFailure, format!("{:?}", error)),
         }

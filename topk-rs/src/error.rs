@@ -39,6 +39,9 @@ pub enum Error {
     #[error("request too large: {0}")]
     RequestTooLarge(String),
 
+    #[error("unexpected error: {0}")]
+    Unexpected(String),
+
     #[error("slow down: {0}")]
     SlowDown(String),
 
@@ -68,7 +71,8 @@ impl From<Status> for Error {
                     Err(_) => Error::InvalidArgument(e.message().into()),
                 },
                 tonic::Code::OutOfRange => Error::RequestTooLarge(e.message().into()),
-                _ => e.into(),
+                tonic::Code::PermissionDenied => Error::PermissionDenied,
+                _ => Error::Unexpected(format!("unexpected error: {:?}", e)),
             },
         }
     }

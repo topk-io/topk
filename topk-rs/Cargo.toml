@@ -1,6 +1,6 @@
 [package]
 name = "topk-rs"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2021"
 description = "TopK Rust SDK"
 license = "MIT"
