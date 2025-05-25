@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 use test_context::test_context;
-use topk_rs::Error;
+use topk_rs::{
+    error::{CollectionValidationError, ValidationErrorBag},
+    Error,
+};
 
 mod utils;
 use utils::ProjectTestContext;
@@ -43,6 +46,23 @@ async fn test_create_collection(ctx: &mut ProjectTestContext) {
         .expect("could not list collections");
 
     assert!(collections.iter().any(|cc| cc == &c));
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_create_collection_with_invalid_name(ctx: &mut ProjectTestContext) {
+    let err = ctx
+        .client
+        .collections()
+        .create(ctx.wrap("test"), HashMap::default())
+        .await
+        .expect_err("could not create collection");
+
+    assert!(
+        matches!(err, Error::CollectionValidationError(e) if e == ValidationErrorBag::new(vec![
+            CollectionValidationError::InvalidName("must start with a letter or underscore and contain only letters, numbers, underscores, and dashes".to_string())
+        ]))
+    );
 }
 
 #[test_context(ProjectTestContext)]
