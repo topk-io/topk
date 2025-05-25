@@ -54,7 +54,7 @@ async fn test_create_collection_with_invalid_name(ctx: &mut ProjectTestContext) 
     let err = ctx
         .client
         .collections()
-        .create(ctx.wrap("test"), HashMap::default())
+        .create(ctx.wrap("books with spaces"), HashMap::default())
         .await
         .expect_err("could not create collection");
 
