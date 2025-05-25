@@ -96,7 +96,10 @@ impl From<Status> for Error {
                     Ok(errors) => Error::DocumentValidationError(errors),
                     Err(_) => match ValidationErrorBag::try_from(e.clone()) {
                         Ok(errors) => Error::SchemaValidationError(errors),
-                        Err(_) => Error::InvalidArgument(e.message().into()),
+                        Err(_) => match ValidationErrorBag::try_from(e.clone()) {
+                            Ok(errors) => Error::CollectionValidationError(errors),
+                            Err(_) => Error::InvalidArgument(e.message().into()),
+                        },
                     },
                 },
                 tonic::Code::OutOfRange => Error::RequestTooLarge(e.message().into()),
