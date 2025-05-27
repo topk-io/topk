@@ -17,6 +17,12 @@ defaults:
         type: boolean
         description: "Whether to publish the release to npm"
         default: false
+  workflow_call:
+    inputs:
+      publish:
+        type: boolean
+        description: "Whether to publish the release to npm"
+        default: false
 
 jobs:
   build:
