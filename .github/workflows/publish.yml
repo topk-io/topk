@@ -6,6 +6,7 @@ on:
 jobs:
   python:
     uses: ./.github/workflows/publish_python.yml
+    secrets: inherit
     permissions:
       contents: read
     with:
@@ -13,6 +14,7 @@ jobs:
 
   js:
     uses: ./.github/workflows/publish_js.yml
+    secrets: inherit
     permissions:
       contents: read
       id-token: write
