@@ -21,9 +21,20 @@ pub mod retry;
 mod interceptor;
 pub use interceptor::AppendHeadersInterceptor;
 
-// Global max message size for all requests
-pub const GLOBAL_MAX_DECODING_MESSAGE_SIZE: usize = 64 * 1024 * 1024; // 64MB
-pub const GLOBAL_MAX_ENCODING_MESSAGE_SIZE: usize = 64 * 1024 * 1024; // 64MB
+// (client) max message size for all requests
+pub const MAX_DECODING_MESSAGE_SIZE: usize = 512 * 1024 * 1024; // 512MB
+pub const MAX_ENCODING_MESSAGE_SIZE: usize = 512 * 1024 * 1024; // 512MB
+
+// request config
+pub const TIMEOUT: u64 = 60_000; // 1 minute
+pub const MAX_HEADER_LIST_SIZE: u32 = 1024 * 64; // 64KB
+
+// (client) retry config
+pub const RETRY_TIMEOUT: u64 = 180_000; // 3 minutes
+pub const RETRY_MAX_RETRIES: usize = 3; // 3 retries
+pub const RETRY_BACKOFF_INIT: u64 = 100; // 100 milliseconds
+pub const RETRY_BACKOFF_MAX: u64 = 10_000; // 10 seconds
+pub const RETRY_BACKOFF_BASE: u32 = 2; // `Base` is the multiplier for the backoff
 
 #[derive(Clone)]
 pub struct Client {
@@ -75,9 +86,9 @@ macro_rules! create_client {
                         // Do not close idle connections so they can be reused
                         .keep_alive_while_idle(true)
                         // Set max header list size to 64KB
-                        .http2_max_header_list_size(1024 * 64)
-                        // Set timeout to 60 seconds
-                        .timeout(std::time::Duration::from_secs(60))
+                        .http2_max_header_list_size(crate::client::MAX_HEADER_LIST_SIZE)
+                        // Request timeout
+                        .timeout(std::time::Duration::from_secs(crate::client::TIMEOUT))
                         // Connect
                         .connect()
                         .await?)
@@ -90,8 +101,8 @@ macro_rules! create_client {
                         channel.clone(),
                         crate::client::AppendHeadersInterceptor::new($headers),
                     )
-                    .max_decoding_message_size(crate::client::GLOBAL_MAX_DECODING_MESSAGE_SIZE)
-                    .max_encoding_message_size(crate::client::GLOBAL_MAX_ENCODING_MESSAGE_SIZE);
+                    .max_decoding_message_size(crate::client::MAX_DECODING_MESSAGE_SIZE)
+                    .max_encoding_message_size(crate::client::MAX_ENCODING_MESSAGE_SIZE);
 
                     Ok(client)
                 }

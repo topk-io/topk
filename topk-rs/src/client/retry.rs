@@ -1,20 +1,6 @@
 use rand::prelude::*;
 use std::{future::Future, time::Duration};
 
-// On the backend, default timeout:
-// - for `Query` or `Get` is 60 seconds
-// - for `Upsert` is 15 seconds
-// - for Control Plane operations is 15 seconds
-//
-// Total timeout is set to 180s to account for additional latency.
-pub const DEFAULT_TIMEOUT: u64 = 180_000; // 3 minutes
-
-// Default retry config
-pub const DEFAULT_MAX_RETRIES: usize = 3; // 3 retries
-pub const DEFAULT_INIT_BACKOFF: u64 = 100; // 100 milliseconds
-pub const DEFAULT_MAX_BACKOFF: u64 = 10_000; // 10 seconds
-pub const DEFAULT_BASE: u32 = 2; // `Base` is the multiplier for the backoff
-
 #[derive(Clone, Debug)]
 pub struct RetryConfig {
     /// Maximum number of retries
@@ -30,8 +16,8 @@ pub struct RetryConfig {
 impl Default for RetryConfig {
     fn default() -> Self {
         Self {
-            max_retries: DEFAULT_MAX_RETRIES,
-            timeout: Duration::from_millis(DEFAULT_TIMEOUT),
+            max_retries: super::RETRY_MAX_RETRIES,
+            timeout: Duration::from_millis(super::RETRY_TIMEOUT),
             backoff: BackoffConfig::default(),
         }
     }
@@ -52,9 +38,9 @@ pub struct BackoffConfig {
 impl Default for BackoffConfig {
     fn default() -> Self {
         Self {
-            base: DEFAULT_BASE,
-            init_backoff: Duration::from_millis(DEFAULT_INIT_BACKOFF),
-            max_backoff: Duration::from_millis(DEFAULT_MAX_BACKOFF),
+            base: super::RETRY_BACKOFF_BASE,
+            init_backoff: Duration::from_millis(super::RETRY_BACKOFF_INIT),
+            max_backoff: Duration::from_millis(super::RETRY_BACKOFF_MAX),
         }
     }
 }
