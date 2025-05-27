@@ -6,10 +6,15 @@ on:
 jobs:
   python:
     uses: ./.github/workflows/publish_python.yml
+    permissions:
+      contents: read
     with:
       publish: true
 
   js:
     uses: ./.github/workflows/publish_js.yml
+    permissions:
+      contents: read
+      id-token: write
     with:
       publish: true

@@ -5,7 +5,7 @@ env:
   MACOSX_DEPLOYMENT_TARGET: "10.13"
   DISABLE_V8_COMPILE_CACHE: 1
 permissions:
-  contents: write
+  contents: read
   id-token: write
 defaults:
   run:
