@@ -110,8 +110,10 @@ impl Into<topk_rs::retry::RetryConfig> for RetryConfig {
         topk_rs::retry::RetryConfig {
             max_retries: self
                 .max_retries
-                .unwrap_or(topk_rs::retry::DEFAULT_MAX_RETRIES) as usize,
-            timeout: Duration::from_millis(self.timeout.unwrap_or(topk_rs::retry::DEFAULT_TIMEOUT)),
+                .unwrap_or(topk_rs::defaults::RETRY_MAX_RETRIES) as usize,
+            timeout: Duration::from_millis(
+                self.timeout.unwrap_or(topk_rs::defaults::RETRY_TIMEOUT),
+            ),
             backoff: self.backoff.map(|b| b.into()).unwrap_or_default(),
         }
     }
@@ -163,14 +165,14 @@ impl<'py> FromPyObject<'py> for BackoffConfig {
 impl Into<topk_rs::retry::BackoffConfig> for BackoffConfig {
     fn into(self) -> topk_rs::retry::BackoffConfig {
         topk_rs::retry::BackoffConfig {
-            base: self.base.unwrap_or(topk_rs::retry::DEFAULT_BASE),
+            base: self.base.unwrap_or(topk_rs::defaults::RETRY_BACKOFF_BASE),
             init_backoff: Duration::from_millis(
                 self.init_backoff
-                    .unwrap_or(topk_rs::retry::DEFAULT_INIT_BACKOFF),
+                    .unwrap_or(topk_rs::defaults::RETRY_BACKOFF_INIT),
             ),
             max_backoff: Duration::from_millis(
                 self.max_backoff
-                    .unwrap_or(topk_rs::retry::DEFAULT_MAX_BACKOFF),
+                    .unwrap_or(topk_rs::defaults::RETRY_BACKOFF_MAX),
             ),
         }
     }
