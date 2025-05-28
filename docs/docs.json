@@ -9,50 +9,45 @@
   },
   "favicon": "/favicon.png",
   "navigation": {
-    "tabs": [
+    "groups": [
       {
-        "tab": "Documentation",
-        "groups": [
-          {
-            "group": "Get Started",
-            "pages": [
-              "introduction",
-              "installation",
-              "regions",
-              "quickstart"
-            ]
-          },
-          {
-            "group": "Guides",
-            "pages": [
-              "concepts/semantic-search",
-              "concepts/vector-search",
-              "concepts/multi-vector-search",
-              "concepts/keyword-search",
-              "concepts/true-hybrid-search",
-              "concepts/reranking",
-              "concepts/consistency",
-              "concepts/multi-tenancy"
-            ]
-          },
-          {
-            "group": "Document API",
-            "pages": [
-              "documents/upsert",
-              "documents/query",
-              "documents/get",
-              "documents/delete"
-            ]
-          },
-          {
-            "group": "Collection API",
-            "pages": [
-              "collections/create",
-              "collections/list",
-              "collections/get",
-              "collections/delete"
-            ]
-          }
+        "group": "Get Started",
+        "pages": [
+          "introduction",
+          "installation",
+          "regions",
+          "quickstart"
+        ]
+      },
+      {
+        "group": "Guides",
+        "pages": [
+          "concepts/semantic-search",
+          "concepts/vector-search",
+          "concepts/multi-vector-search",
+          "concepts/keyword-search",
+          "concepts/true-hybrid-search",
+          "concepts/reranking",
+          "concepts/consistency",
+          "concepts/multi-tenancy"
+        ]
+      },
+      {
+        "group": "Document API",
+        "pages": [
+          "documents/upsert",
+          "documents/query",
+          "documents/get",
+          "documents/delete"
+        ]
+      },
+      {
+        "group": "Collection API",
+        "pages": [
+          "collections/create",
+          "collections/list",
+          "collections/get",
+          "collections/delete"
         ]
       }
     ]
