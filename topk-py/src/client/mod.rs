@@ -74,9 +74,7 @@ pub struct RetryConfig {
 }
 
 impl<'py> FromPyObject<'py> for RetryConfig {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-        let obj = ob.as_ref();
-
+    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
         match obj.downcast::<PyDict>() {
             Ok(dict) => {
                 let max_retries = dict
@@ -132,9 +130,7 @@ pub struct BackoffConfig {
 }
 
 impl<'py> FromPyObject<'py> for BackoffConfig {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-        let obj = ob.as_ref();
-
+    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
         match obj.downcast::<PyDict>() {
             Ok(dict) => {
                 let base = dict
