@@ -42,9 +42,7 @@ impl Into<LogicalExpr> for FlexibleExpr {
 }
 
 impl<'py> FromPyObject<'py> for FlexibleExpr {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-        let obj = ob.as_ref();
-
+    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
         if let Ok(s) = obj.downcast::<PyString>() {
             Ok(FlexibleExpr::String(s.extract()?))
         } else if let Ok(i) = obj.downcast::<PyInt>() {

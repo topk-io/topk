@@ -9,7 +9,7 @@ homepage = "https://topk.io"
 documentation = "https://docs.topk.io"
 
 [dependencies]
-pyo3 = { version = "0.23.3", features = ["py-clone"] }
+pyo3 = { version = "0.25.0", features = ["py-clone"] }
 topk-protos = { path = "../topk-protos" }
 topk-rs = { path = "../topk-rs" }
 tokio = { version = "1.35", features = ["full"] }

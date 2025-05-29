@@ -21,9 +21,7 @@ pub enum Value {
 pub struct RawValue(pub Value);
 
 impl<'py> FromPyObject<'py> for RawValue {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-        let obj = ob.as_ref();
-
+    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
         if let Ok(v) = obj.downcast::<Value>() {
             Ok(RawValue(v.get().clone()))
         } else if let Ok(s) = obj.downcast::<PyString>() {
