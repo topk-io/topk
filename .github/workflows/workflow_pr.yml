@@ -12,10 +12,10 @@ jobs:
     env:
       FORCE_COLOR: 1
     steps:
-      - uses: earthly/actions-setup@v1
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/checkout@v4
+
+      - name: Install earthly
+        run: sudo bash -c "curl -L https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -o /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly"
 
       - name: Rust tests
         run: earthly --secret TOPK_API_KEY +test-rs --region elastica
@@ -29,10 +29,10 @@ jobs:
     env:
       FORCE_COLOR: 1
     steps:
-      - uses: earthly/actions-setup@v1
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/checkout@v4
+
+      - name: Install earthly
+        run: sudo bash -c "curl -L https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -o /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly"
 
       - name: Python tests
         run: earthly --secret TOPK_API_KEY +test-py --region elastica
@@ -45,10 +45,10 @@ jobs:
     env:
       FORCE_COLOR: 1
     steps:
-      - uses: earthly/actions-setup@v1
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/checkout@v4
+
+      - name: Install earthly
+        run: sudo bash -c "curl -L https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -o /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly"
 
       - name: JavaScript tests
         run: earthly --secret TOPK_API_KEY +test-js --region elastica
