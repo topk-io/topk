@@ -50,12 +50,19 @@ test-py:
         && pip install --upgrade pip \
         && pip install pytest pytest-xdist
 
-    # copy source code
+    # install pyright
+    RUN . /venv/bin/activate && pip install pyright[nodejs]
+
+    # source code
     WORKDIR /sdk
     COPY . .
 
-    # build
     WORKDIR /sdk/topk-py
+
+    # type check
+    RUN . /venv/bin/activate && pyright
+
+    # build
     RUN --mount=type=cache,target=target \
         --mount=type=cache,target=/usr/local/cargo/registry \
         --mount=type=cache,target=/usr/local/cargo/git \

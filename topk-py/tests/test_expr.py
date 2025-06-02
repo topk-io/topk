@@ -24,10 +24,10 @@ def test_query_expr_with_flexible_expr():
 
 def test_comparison_operators():
     assert (field("a") == 1)._expr_eq(field("a") == literal(1))
-    assert (1 == field("a"))._expr_eq(field("a") == literal(1))
+    assert (1 == field("a"))._expr_eq(field("a") == literal(1))  # type: ignore
 
     assert (field("a") != 1)._expr_eq(field("a") != literal(1))
-    assert (1 != field("a"))._expr_eq(field("a") != literal(1))
+    assert (1 != field("a"))._expr_eq(field("a") != literal(1))  # type: ignore
 
     assert (field("a") < 1)._expr_eq(field("a") < literal(1))
     assert (1 > field("a"))._expr_eq(field("a") < literal(1))
@@ -61,22 +61,22 @@ def test_query_literal():
 
 def test_invalid():
     with pytest.raises(TypeError):
-        literal(1) + "string"
+        literal(1) + "string"  # type: ignore
 
     with pytest.raises(TypeError):
-        field("a") & 1
+        field("a") & 1  # type: ignore
 
     with pytest.raises(TypeError):
-        field("a") | 1
+        field("a") | 1  # type: ignore
 
     with pytest.raises(TypeError):
-        field("a") + None
+        field("a") + None  # type: ignore
 
     with pytest.raises(TypeError):
-        field("a") + "string"
+        field("a") + "string"  # type: ignore
 
     with pytest.raises(TypeError):
-        field("a") + [1, 2, 3]
+        field("a") + [1, 2, 3]  # type: ignore
 
     with pytest.raises(TypeError):
-        field("a") + {"a": 1}
+        field("a") + {"a": 1}  # type: ignore

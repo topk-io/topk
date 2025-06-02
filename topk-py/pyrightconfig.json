@@ -1,0 +1,9 @@
+{
+  "typeCheckingMode": "strict",
+  "reportMissingModuleSource": false,
+  "reportMissingParameterType": false,
+  "reportUnknownParameterType": false,
+  "reportUnknownLambdaType": false,
+  "reportUnusedImport": false,
+  "reportIncompatibleMethodOverride": false
+}
