@@ -1,1 +1,1 @@
-from topk_sdk.error import *  # noqa
+from .topk_sdk.error import *  # type: ignore # noqa

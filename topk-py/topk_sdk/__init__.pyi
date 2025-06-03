@@ -2,7 +2,7 @@ import builtins
 import typing
 from enum import Enum
 
-from . import error, query, schema  # noqa
+from . import data, error, query, schema  # noqa
 
 class Client:
     def __new__(
