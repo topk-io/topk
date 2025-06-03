@@ -7,7 +7,7 @@ on:
 jobs:
   rust:
     name: Test Rust
-    runs-on: ubuntu-latest-large
+    runs-on: amd64
     if: ${{ contains(github.event.pull_request.labels.*.name, 'ready') }}
     env:
       FORCE_COLOR: 1
@@ -24,7 +24,7 @@ jobs:
 
   python:
     name: Test Python
-    runs-on: ubuntu-latest-large
+    runs-on: amd64
     if: ${{ contains(github.event.pull_request.labels.*.name, 'ready') }}
     env:
       FORCE_COLOR: 1
@@ -40,7 +40,7 @@ jobs:
           TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
   javascript:
     name: Test JavaScript
-    runs-on: ubuntu-latest-large
+    runs-on: amd64
     if: ${{ contains(github.event.pull_request.labels.*.name, 'ready') }}
     env:
       FORCE_COLOR: 1
@@ -57,7 +57,7 @@ jobs:
   ready:
     name: Ready
     needs: [rust, python, javascript]
-    runs-on: ubuntu-latest-large
+    runs-on: amd64
     steps:
       - name: Ready
         run: echo "Ready"
