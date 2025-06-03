@@ -10,10 +10,12 @@ from topk_sdk.schema import (
     vector_index,
 )
 
+from .. import ProjectContext
+
 
 class books:
     @staticmethod
-    def setup(ctx):
+    def setup(ctx: ProjectContext):
         schema = {
             "title": text().required().index(keyword_index()),
             "published_year": int().required(),
@@ -128,7 +130,7 @@ class books:
 
 class semantic:
     @staticmethod
-    def setup(ctx):
+    def setup(ctx: ProjectContext):
         schema = {
             "title": text().required().index(semantic_index(model="dummy")),
             "summary": text().required().index(semantic_index(model="dummy")),
