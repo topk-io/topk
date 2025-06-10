@@ -35,4 +35,4 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Earthly build
-        run: earthly --ci --push +topk-e2e --tag ${{ inputs.tag || 'latest' }}
+        run: earthly --ci --push --platform=linux/amd64 --platform=linux/arm64 +topk-e2e --tag ${{ inputs.tag || 'latest' }}
