@@ -1,0 +1,38 @@
+name: Build e2e image
+
+on:
+  push:
+  workflow_call:
+    inputs:
+      tag:
+        description: The tag for the built images
+        type: string
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
+    env:
+      FORCE_COLOR: 1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: earthly/actions-setup@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          version: "0.8.5"
+          use-cache: false
+
+      - name: Login to ghcr.io
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Earthly build
+        run: earthly --ci --push +topk-e2e --tag ${{ inputs.tag || 'latest' }}

@@ -110,6 +110,33 @@ test-js:
 
 #
 
+topk-e2e-builder:
+    FROM ghcr.io/topk-io/rust-builder:latest
+
+    RUN cargo install cargo-nextest
+
+    COPY --keep-ts --dir . .
+    ENV RUSTFLAGS="-C target-cpu=generic"
+    DO rust+CARGO --args="nextest archive --release -p topk-rs --archive-file e2e.tar.zst" # compile tests
+
+    SAVE ARTIFACT e2e.tar.zst
+
+topk-e2e:
+    FROM rust:slim
+
+    RUN cargo install cargo-nextest
+
+    COPY --keep-ts --dir . .
+    COPY +topk-e2e-builder/e2e.tar.zst .
+
+    ENV RUSTFLAGS="-C target-cpu=generic"
+    CMD ["cargo", "nextest", "run", "--archive-file", "e2e.tar.zst", "--no-fail-fast", "-j", "16"]
+
+    ARG tag=latest
+    SAVE IMAGE --push ghcr.io/topk-io/topk-e2e:$tag
+
+#
+
 SETUP_ENV:
     FUNCTION
 
