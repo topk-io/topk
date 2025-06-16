@@ -53,11 +53,15 @@
     ]
   },
   "logo": {
-    "light": "/logo/topk.svg",
-    "dark": "/logo/dark.svg"
+    "light": "/logo/topk-docs-logo-light.svg",
+    "dark": "/logo/topk-docs-logo-dark.svg"
   },
   "navbar": {
     "links": [
+      {
+        "label": "Homepage",
+        "href": "https://topk.io"
+      },
       {
         "label": "Support",
         "href": "https://docs.topk.io/support"
