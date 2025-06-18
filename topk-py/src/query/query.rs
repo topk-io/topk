@@ -14,7 +14,7 @@ pub enum ConsistencyLevel {
 
 impl<'py> FromPyObject<'py> for ConsistencyLevel {
     fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
-        match obj.downcast::<PyString>() {
+        match obj.downcast_exact::<PyString>() {
             Ok(val) => match val.extract::<&str>()? {
                 "indexed" => Ok(ConsistencyLevel::Indexed),
                 "strong" => Ok(ConsistencyLevel::Strong),
