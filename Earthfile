@@ -128,9 +128,9 @@ test-runner:
 
     CMD ["cargo", "nextest", "run", "--archive-file", "test-runner.tar.zst", "--no-fail-fast", "-j", "16"]
 
-    ARG image
-    ARG tag
-    SAVE IMAGE --push $image:$tag
+    ARG registry
+    ARG tag=latest
+    SAVE IMAGE --push $registry/topk-test-runner:$tag
 
 #
 
