@@ -37,5 +37,4 @@ jobs:
       - name: Test runner
         run: |
           tag=$(sed -nE 's/^version = "([^"]+)"/\1/p' topk-rs/Cargo.toml)
-          # earthly ${{ inputs.publish && '--push' || '' }} +test-runner --tag $tag
-          earthly --push +test-runner --tag $tag
+          earthly ${{ inputs.publish && '--push' || '' }} +test-runner --tag $tag
