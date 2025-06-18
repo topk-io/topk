@@ -1,6 +1,16 @@
 import pytest
 from topk_sdk import error
-from topk_sdk.schema import text
+from topk_sdk import data
+from topk_sdk.schema import (
+    bool,
+    text,
+    int,
+    float,
+    f32_vector,
+    u8_vector,
+    binary_vector,
+    bytes,
+)
 
 from . import ProjectContext
 
@@ -63,3 +73,60 @@ def test_upsert_schema_validation(ctx: ProjectContext):
     with pytest.raises(error.DocumentValidationError) as exc_info:
         ctx.client.collection(collection.name).upsert([{"_id": "one"}])
     assert "MissingField" in str(exc_info.value)
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        (True, bool()),
+        ("hello", text()),
+        (1, int()),
+        (1.0, float()),
+        (b"hello", bytes()),
+    ],
+)
+def test_upsert_primitives(ctx: ProjectContext, params):
+    value, data_type = params  # type: ignore
+
+    collection = ctx.client.collections().create(
+        ctx.scope("test"),
+        schema={"field": data_type},  # type: ignore
+    )
+
+    lsn = ctx.client.collection(collection.name).upsert(
+        [
+            {"_id": "x", "field": value},
+        ]
+    )
+
+    obj = ctx.client.collection(collection.name).get(["x"], lsn=lsn)
+
+    assert obj["x"]["field"] == value
+
+
+def test_upsert_vectors(ctx: ProjectContext):
+    collection = ctx.client.collections().create(
+        ctx.scope("test"),
+        schema={
+            "f32_vector": f32_vector(3),
+            "u8_vector": u8_vector(3),
+            "binary_vector": binary_vector(3),
+        },
+    )
+
+    lsn = ctx.client.collection(collection.name).upsert(
+        [
+            {
+                "_id": "x",
+                "f32_vector": [1, 2, 3],
+                "u8_vector": data.u8_vector([4, 5, 6]),
+                "binary_vector": data.binary_vector([7, 8, 9]),
+            }
+        ]
+    )
+
+    obj = ctx.client.collection(collection.name).get(["x"], lsn=lsn)
+
+    assert obj["x"]["f32_vector"] == [1, 2, 3]
+    assert obj["x"]["u8_vector"] == [4, 5, 6]
+    assert obj["x"]["binary_vector"] == [7, 8, 9]
