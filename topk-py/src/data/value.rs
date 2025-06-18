@@ -22,6 +22,7 @@ pub struct RawValue(pub Value);
 
 impl<'py> FromPyObject<'py> for RawValue {
     fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+        // NOTE: it's safe to use `downcast` for `Value` since it's a custom type
         if let Ok(v) = obj.downcast::<Value>() {
             Ok(RawValue(v.get().clone()))
         } else if let Ok(s) = obj.downcast_exact::<PyString>() {
@@ -44,7 +45,7 @@ impl<'py> FromPyObject<'py> for RawValue {
                     obj.get_type().name()
                 )))
             }
-        } else if let Ok(_) = obj.downcast::<PyNone>() {
+        } else if let Ok(_) = obj.downcast_exact::<PyNone>() {
             Ok(RawValue(Value::Null()))
         } else {
             Err(PyTypeError::new_err(format!(

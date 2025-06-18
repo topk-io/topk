@@ -43,16 +43,17 @@ impl Into<LogicalExpr> for FlexibleExpr {
 
 impl<'py> FromPyObject<'py> for FlexibleExpr {
     fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
-        if let Ok(s) = obj.downcast::<PyString>() {
+        if let Ok(s) = obj.downcast_exact::<PyString>() {
             Ok(FlexibleExpr::String(s.extract()?))
-        } else if let Ok(i) = obj.downcast::<PyInt>() {
+        } else if let Ok(i) = obj.downcast_exact::<PyInt>() {
             Ok(FlexibleExpr::Int(i.extract()?))
-        } else if let Ok(f) = obj.downcast::<PyFloat>() {
+        } else if let Ok(f) = obj.downcast_exact::<PyFloat>() {
             Ok(FlexibleExpr::Float(f.extract()?))
-        } else if let Ok(b) = obj.downcast::<PyBool>() {
+        } else if let Ok(b) = obj.downcast_exact::<PyBool>() {
             Ok(FlexibleExpr::Bool(b.extract()?))
-        } else if let Ok(_) = obj.downcast::<PyNone>() {
+        } else if let Ok(_) = obj.downcast_exact::<PyNone>() {
             Ok(FlexibleExpr::Null(Null))
+        // NOTE: it's safe to use `downcast` for `LogicalExpr` since it's a custom type
         } else if let Ok(e) = obj.downcast::<LogicalExpr>() {
             Ok(FlexibleExpr::Expr(e.get().clone()))
         } else {

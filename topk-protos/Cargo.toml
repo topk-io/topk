@@ -1,6 +1,6 @@
 [package]
 name = "topk-protos"
-version = "0.3.6"
+version = "0.3.7"
 edition = "2021"
 description = "TopK Protocol Buffers"
 license = "MIT"
