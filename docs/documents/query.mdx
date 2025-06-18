@@ -56,7 +56,7 @@ from topk_sdk.query import select, field
 
 client.collection("books").query(
   select(
-    "published_year" # elect the static fields directly
+    "published_year", # elect the static fields directly
     title=field("title"),
   )
   ...
@@ -90,8 +90,8 @@ from topk_sdk.query import select, field
 docs = client.collection("books").query(
     select(
         "title", # the actual "title" field from the document
-        year=field("published_year") # renamed field
-        year_plus_ten=field("published_year") + 10 # computed field
+        year=field("published_year"), # renamed field
+        year_plus_ten=field("published_year") + 10, # computed field
     )
 )
 ```
@@ -132,12 +132,12 @@ To use the `fn.bm25_score()` in your query, you **must** include a `match` predi
 <CodeGroup>
 
 ```python Python
-from topk_sdk.query import select, fn, match
+from topk_sdk.query import select, field, fn, match
 
 docs = client.collection("books").query(
     select(
         "title",
-        text_score=fn.bm25_score()
+        text_score=fn.bm25_score(),
     )
     .filter(match("Good")) # must include a match predicate
     .topk(field("text_score"), 10)
@@ -197,13 +197,12 @@ To use the `vector_distance()` function, you **must** have a [**vector index**](
 <CodeGroup>
 
 ```python Python
-from topk_sdk.query import select, fn
+from topk_sdk.query import select, field, fn
 
 docs = client.collection("books").query(
     select(
         "title",
-        title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3, ...])
-         # embedding for "animal"
+        title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3, ...]), # embedding for "animal"
     )
     .topk(field("title_similarity"), 10)
 )
@@ -263,12 +262,12 @@ To use the `semantic_similarity()` function, you **must** have a [**semantic ind
 <CodeGroup>
 
 ```python Python
-from topk_sdk.query import select, fn
+from topk_sdk.query import select, field, fn
 
 docs = client.collection("books").query(
     select(
         "title",
-        title_similarity=fn.semantic_similarity("title", "animal")
+        title_similarity=fn.semantic_similarity("title", "animal"),
     )
     .topk(field("title_similarity"), 10)
 )
@@ -325,6 +324,8 @@ You can also use TopK powerful expression language to select fields by chaining 
 <CodeGroup>
 
 ```python Python
+from topk_sdk.query import select, field
+
 select(
   weight_in_grams=field("weight").mul(1000),
   is_adult=field("age").gt(18),

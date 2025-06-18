@@ -40,7 +40,7 @@ To query documents for a specific tenant, use the **tenant ID** along with the `
 ```python Python
 client.collection("books").query(
     select(
-        "title"
+        "title",
     )
     .filter(field("_id").startsWith("tenant-1234"))
 )

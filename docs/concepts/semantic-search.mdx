@@ -67,7 +67,7 @@ client.collection("books").upsert(
     [
         {"_id": "gatsby", "title": "The Great Gatsby"},
         {"_id": "1984", "title": "1984"},
-        {"_id": "catcher", "title": "The Catcher in the Rye"}
+        {"_id": "catcher", "title": "The Catcher in the Rye"},
     ],
 )
 ```
@@ -95,7 +95,7 @@ from topk_sdk.query import select, field, fn
 docs = client.collection("books").query(
     select(
         "title",
-        title_similarity=fn.semantic_similarity("title", "classic American novel")
+        title_similarity=fn.semantic_similarity("title", "classic American novel"),
     )
     .topk(field("title_similarity"), 10)
     .rerank()
@@ -173,13 +173,13 @@ For certain use cases, you might want to use a combination of **keyword search**
 <CodeGroup>
 
 ```python Python
-from topk_sdk.query import select, fn, match
+from topk_sdk.query import select, field, fn, match
 
 docs = client.collection("books").query(
     select(
         "title",
         title_similarity=fn.semantic_similarity("title", "catcher"),
-        text_score=fn.bm25_score()  # Keyword-based relevance
+        text_score=fn.bm25_score(),  # Keyword-based relevance
     )
     .filter(match("classic"))  # Ensure the book contains the keyword "classic" in any of the text-indexed fields
     .topk(field("title_similarity") * 0.7 + field("text_score") * 0.3, 10) # Add 70% weight to semantic similarity and 30% weight to keyword relevance

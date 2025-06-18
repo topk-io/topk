@@ -24,7 +24,7 @@ client.collections().create(
     "books",
     schema={
         "title": text().required(),
-        "title_embedding": f32_vector(dimension=1536).required().index(vector_index(distance="cosine"))
+        "title_embedding": f32_vector(dimension=1536).required().index(vector_index(distance="cosine")),
     },
 )
 ```
@@ -35,7 +35,7 @@ import { text, f32Vector, vectorIndex } from "topk-js/schema";
 
 await client.collections().create("books", {
   title: text().required(),
-  title_embedding: f32Vector({ dimension: 1536 }).required().index(vectorIndex({ metric: "cosine" }))
+  title_embedding: f32Vector({ dimension: 1536 }).required().index(vectorIndex({ metric: "cosine" })),
 });
 ```
 
@@ -55,7 +55,7 @@ which you can use to sort the results:
 <CodeGroup>
 
 ```python Python
-from topk_sdk.query import select, fn
+from topk_sdk.query import select, field, fn
 
 docs = client.collection("books").query(
     select(
@@ -63,7 +63,7 @@ docs = client.collection("books").query(
         published_year=field("published_year"),
         # Compute vector similarity between the vector embedding of the string "epic fantasy adventure"
         # and the embedding stored in the `title_embedding` field.
-        title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3, ...])
+        title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3, ...]),
     )
     # Return top 10 results
     # sort: smaller euclidean distance = closer; larger cosine similarity = closer
@@ -88,7 +88,7 @@ docs = client.collection("books").query(
 
 
 ```js Javascript
-import { select, fn, field } from "topk-js/query";
+import { select, field, fn } from "topk-js/query";
 
 const docs = await client.collection("books").query(
   select({
@@ -135,7 +135,7 @@ Vector search can be easily combined with metadata filtering by adding a `filter
 <CodeGroup>
 
 ```python Python
-from topk_sdk.query import select, fn
+from topk_sdk.query import select, field, fn
 
 docs = client.collection("books").query(
     select(
@@ -150,7 +150,7 @@ docs = client.collection("books").query(
 
 
 ```js Javascript
-import { select, fn, field } from "topk-js/query";
+import { select, field, fn } from "topk-js/query";
 
 const docs = await client.collection("books").query(
   select({

@@ -99,7 +99,7 @@ client.collection("books").upsert(
     [
         {"_id": "gatsby", "title": "The Great Gatsby"},
         {"_id": "1984", "title": "1984"},
-        {"_id": "catcher", "title": "The Catcher in the Rye"}
+        {"_id": "catcher", "title": "The Catcher in the Rye"},
     ],
 )
 ```
@@ -122,7 +122,7 @@ Now, run your first **semantic search** query:
 <CodeGroup>
 
 ```python Python
-from topk_sdk.query import select, fn, match, field
+from topk_sdk.query import select, fn, field
 
 results = client.collection("books").query(
     select(
@@ -139,7 +139,7 @@ results = client.collection("books").query(
 
 
 ```typescript Javascript
-import { select, fn, match, field } from "topk-js/query"
+import { select, fn, field } from "topk-js/query"
 
 const results = await client.collection("books").query(
   select({
