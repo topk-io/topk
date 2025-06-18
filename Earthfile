@@ -128,8 +128,9 @@ test-runner:
 
     CMD ["cargo", "nextest", "run", "--archive-file", "test-runner.tar.zst", "--no-fail-fast", "-j", "16"]
 
-    ARG tag=latest
-    SAVE IMAGE --push ghcr.io/topk-io/topk-test-runner:$tag
+    ARG image
+    ARG tag
+    SAVE IMAGE --push $image:$tag
 
 #
 
