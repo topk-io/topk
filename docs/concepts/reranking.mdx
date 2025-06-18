@@ -67,7 +67,7 @@ client.collections().create(
     "documents",
     schema={
         "title": text().index(semantic_index()).required(),
-        "content": text().index(semantic_index()).required()
+        "content": text().index(semantic_index()).required(),
     }
 )
 
@@ -189,7 +189,7 @@ client.collection(name).query(
     select(
         "title",
         "content",
-        title_score=fn.bm25_score()
+        title_score=fn.bm25_score(),
     )
     .filter(match("how to reset a router", field="title"))
     .topk(field("title_score"), 10)

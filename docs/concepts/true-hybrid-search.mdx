@@ -69,7 +69,7 @@ Let's define a collection with one [`keyword_index()`](/collections/create#keywo
 <CodeGroup>
 
 ```python Python
-from topk_sdk.schema import text, semantic_index, keyword_index
+from topk_sdk.schema import text, keyword_index, semantic_index
 
 client.collections().create(
     "articles",
@@ -82,7 +82,7 @@ client.collections().create(
 
 
 ```typescript Javascript
-import { text, semanticIndex, keywordIndex } from "topk-js/schema";
+import { text, keywordIndex, semanticIndex } from "topk-js/schema";
 
 await client.collections().create("articles", {
   title: text().required().index(keywordIndex()), // Keyword-based retrieval
@@ -97,13 +97,13 @@ In the following example we'll perform a hybrid search that combines keyword and
 <CodeGroup>
 
 ```python Python
-from topk_sdk.query import select, fn, match
+from topk_sdk.query import select, field, fn, match
 
 docs = client.collection("articles").query(
     select(
         "title",
         content_similarity=fn.semantic_similarity("content", "climate change policies"),
-        text_score=fn.bm25_score()
+        text_score=fn.bm25_score(),
     )
     .filter(match("carbon") | match("renewable energy"))  # Ensure keyword relevance
     .topk(field("content_similarity") * 0.6 + field("text_score") * 0.4, 10)
@@ -112,7 +112,7 @@ docs = client.collection("articles").query(
 
 
 ```typescript Javascript
-import { select, fn, match } from "topk-js/query";
+import { select, field, fn, match } from "topk-js/query";
 
 const docs = await client.collection("articles").query(
   select({
@@ -149,15 +149,15 @@ This allows you to fetch the truly **most relevant results** while maintaining a
 <CodeGroup>
 
 ```python Python
-from topk_sdk.query import select, fn, match
+from topk_sdk.query import select, field, fn, match
 
 docs = client.collection("books").query(
     select(
         "title",
         # Score documents using BM25 algorithm
-        text_score=fn.bm25_score()
+        text_score=fn.bm25_score(),
         # Compute semantic similarity between the provided query and the `title` field.
-        title_similarity=fn.semantic_similarity("title", "catcher")
+        title_similarity=fn.semantic_similarity("title", "catcher"),
     )
     # Filter documents that contain the `great` keyword
     .filter(match("great"))
@@ -237,7 +237,7 @@ await client.collections().create("documents", {
 <CodeGroup>
 
 ```python Python
-from topk_sdk.query import select, fn
+from topk_sdk.query import select, field, fn
 
 docs = client.collection("documents").query(
     select(
@@ -249,7 +249,7 @@ docs = client.collection("documents").query(
 
 
 ```typescript Javascript
-import { select, fn, literal } from "topk-js/query";
+import { select, field, fn } from "topk-js/query";
 
 const docs = await client.collection("documents").query(
   select({

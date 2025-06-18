@@ -151,7 +151,7 @@ Insert a document with all supported types:
 <CodeGroup>
 
 ```python Python
-import f32_vector, u8_vector, binary_vector, bytes from topk_sdk.data;
+from topk_sdk.data import f32_vector, u8_vector, binary_vector, bytes
 
 client.collection("books").upsert([
   {
@@ -211,7 +211,7 @@ To pass a float32 vector, use the `f32_vector()` helper function:
 <CodeGroup>
 
 ```python Python
-import f32_vector from topk_sdk.data;
+from topk_sdk.data import f32_vector
 
 f32_vector([0.12, 0.67, 0.82, 0.53])
 ```
@@ -232,7 +232,7 @@ To pass a u8 vector, use the `u8_vector()` helper function:
 <CodeGroup>
 
 ```python Python
-import u8_vector from topk_sdk.data;
+from topk_sdk.data import u8_vector
 
 u8_vector([0, 1, 2, 3])
 ```
@@ -253,7 +253,7 @@ To pass a binary vector, use the `binary_vector()` helper function:
 <CodeGroup>
 
 ```python Python
-import binary_vector from topk_sdk.data;
+from topk_sdk.data import binary_vector
 
 binary_vector([0, 1, 1, 0])
 ```
@@ -274,7 +274,7 @@ To pass a byte object, use the `bytes()` helper function:
 <CodeGroup>
 
 ```python Python
-import bytes from topk_sdk.data;
+from topk_sdk.data import bytes
 
 bytes([0, 1, 1, 0])
 ```

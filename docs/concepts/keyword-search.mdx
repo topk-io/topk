@@ -20,7 +20,7 @@ Let's create a collection with a `title` and `description` text fields and add a
 <CodeGroup>
 
 ```python Python
-from topk_sdk.schema import keyword_index, text
+from topk_sdk.schema import text, keyword_index
 
 client.collections().create(
     "books",
@@ -33,7 +33,7 @@ client.collections().create(
 
 
 ```js Javascript
-import { keywordIndex, text } from "topk-js/schema";
+import { text, keywordIndex } from "topk-js/schema";
 
 await client.collections().create("books", {
   title: text().index(keywordIndex()),
@@ -51,18 +51,20 @@ We'll query the collection to match the term `"great"` in the `title` field or t
 <CodeGroup>
 
 ```python Python
-from topk_sdk.query import select, fn, match
+from topk_sdk.query import select, fn, match, field
 
 docs = client.collection("books").query(
     select(
         "title",
         "description",
         # Score documents using BM25 algorithm
-        text_score=fn.bm25_score()
+        text_score=fn.bm25_score(),
     )
     # Filter documents that have the `great` keyword in the `title` field
     # or the `novel` in any of the text-indexed fields.
-    .filter(match("great", field="title").or(match("novel")))
+    .filter(
+        match("great", field="title") | match("novel")
+    )
     # Return top 10 documents with the highest text score
     .topk(field("text_score"), 10)
 )

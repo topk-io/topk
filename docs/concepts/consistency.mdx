@@ -61,7 +61,7 @@ Reads in this mode only consider fully compacted files and ignore recent WAL wri
 ```python Python
 client.collection("my_collection").query(
     ..., # query
-    consistency="indexed"
+    consistency="indexed",
 )
 ```
 
@@ -91,7 +91,7 @@ Reads in this mode always return the latest writes before responding. While this
 ```python Python
 client.collection("my_collection").query(
     ..., # query
-    consistency="strong"
+    consistency="strong",
 )
 ```
 

@@ -19,7 +19,7 @@ Let's define a collection with two [semantic indexes](/collections/create#semant
 <CodeGroup>
 
 ```python Python
-from topk_sdk.schema import text, vector, semantic_index
+from topk_sdk.schema import text, semantic_index
 
 client.collections().create(
     "articles",
@@ -49,13 +49,13 @@ After, we run a multi-vector search by using the `fn.semantic_similarity()` func
 <CodeGroup>
 
 ```python Python
-from topk_sdk.query import select, fn
+from topk_sdk.query import select, field, fn
 
 docs = client.collection("articles").query(
     select(
         "title",
         paper_score=fn.semantic_similarity("paper_summary", "deep learning optimization"),
-        paragraph_score=fn.semantic_similarity("paragraph_summary", "stochastic gradient descent")
+        paragraph_score=fn.semantic_similarity("paragraph_summary", "stochastic gradient descent"),
     )
     .topk(field("paper_score") * 0.7 + field("paragraph_score") * 0.3, 10)
 )

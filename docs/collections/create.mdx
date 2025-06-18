@@ -24,7 +24,7 @@ Below is an example of creating a collection named `books`:
 <CodeGroup>
 
 ```python Python
-from topk_sdk.schema import int, text, f32_vector, vector_index, keyword_index, semantic_index
+from topk_sdk.schema import int, text, f32_vector, vector_index, keyword_index
 
 client.collections().create(
     "books",
@@ -40,7 +40,7 @@ client.collections().create(
 
 
 ```typescript Javascript
-import { int, text, f32Vector, vectorIndex, keywordIndex, semanticIndex } from "topk-js/schema";
+import { int, text, f32Vector, vectorIndex, keywordIndex } from "topk-js/schema";
 
 await client.collections().create("books", {
   title: text().required().index(keywordIndex()),
@@ -330,14 +330,14 @@ This function is used to create vector index on a vector field. You can add a ve
 <CodeGroup>
 
 ```python Python
-from topk_sdk.schema import vector_index, f32_vector
+from topk_sdk.schema import f32_vector, vector_index
 
 "title_embedding": f32_vector(dimension=1536).index(vector_index(metric="cosine"))
 ```
 
 
 ```js JavaScript
-import { vectorIndex, f32Vector } from "topk-js/schema";
+import { f32Vector, vectorIndex } from "topk-js/schema";
 
 "title_embedding": f32Vector({ dimension: 1536 }).index(
   vectorIndex({ metric: "cosine" })
@@ -363,14 +363,14 @@ This function is used to create a keyword index on a text field:
 <CodeGroup>
 
 ```python Python
-from topk_sdk.schema import keyword_index
+from topk_sdk.schema import text, keyword_index
 
 "title": text().index(keyword_index())
 ```
 
 
 ```js JavaScript
-import { keywordIndex } from "topk-js/schema";
+import { text, keywordIndex } from "topk-js/schema";
 
 "title": text().index(keywordIndex())
 ```

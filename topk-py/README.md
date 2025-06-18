@@ -83,7 +83,7 @@ client.collection("books").upsert(
 Now, **retrieve books using semantic search**:
 
 ```python
-from topk_sdk.query import select, fn
+from topk_sdk.query import select, field, fn
 
 results = client.collection("books").query(
   select(
