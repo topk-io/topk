@@ -22,3 +22,12 @@ jobs:
       id-token: write
     with:
       publish: true
+
+  test-runner:
+    uses: ./.github/workflows/publish_test_runner.yml
+    secrets: inherit
+    permissions:
+      id-token: write
+      contents: write
+    with:
+      publish: true

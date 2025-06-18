@@ -15,7 +15,6 @@ test-rs:
     RUN cargo install cargo-nextest
 
     DO rust+INIT --keep_fingerprints=true
-
     WORKDIR /sdk
 
     # copy source code
@@ -107,6 +106,30 @@ test-js:
     # test
     RUN --no-cache --secret TOPK_API_KEY \
         TOPK_API_KEY=$TOPK_API_KEY yarn test --colors
+
+#
+
+test-runner:
+    FROM rust:slim
+
+    # install dependencies
+    RUN apt-get update && apt-get install -y protobuf-compiler
+    RUN cargo install cargo-nextest
+
+    DO rust+INIT --keep_fingerprints=true
+    WORKDIR /sdk
+
+    COPY . .
+
+    WORKDIR /sdk/topk-rs
+
+    ENV RUSTFLAGS="-C target-cpu=generic"
+    DO rust+CARGO --args="nextest archive --release --archive-file test-runner.tar.zst"
+
+    CMD ["cargo", "nextest", "run", "--archive-file", "test-runner.tar.zst", "--no-fail-fast", "-j", "16"]
+
+    ARG tag=latest
+    SAVE IMAGE --push ghcr.io/topk-io/topk-test-runner:$tag
 
 #
 
