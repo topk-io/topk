@@ -132,6 +132,7 @@ test-runner-image:
     SAVE IMAGE --push ghcr.io/topk-io/topk-test-runner:$tag
 
 test-runner:
+    ARG tag=latest
     BUILD --platform linux/amd64 +test-runner-image --tag $tag
     BUILD --platform linux/arm64 +test-runner-image --tag $tag
 
