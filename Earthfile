@@ -124,9 +124,10 @@ test-runner:
     WORKDIR /sdk/topk-rs
 
     ENV RUSTFLAGS="-C target-cpu=generic"
+    ENV FORCE_COLOR=1
     DO rust+CARGO --args="nextest archive --release --archive-file test-runner.tar.zst"
 
-    CMD ["cargo", "nextest", "run", "--archive-file", "test-runner.tar.zst", "--no-fail-fast", "-j", "16"]
+    ENTRYPOINT ["cargo", "nextest", "run", "--archive-file", "test-runner.tar.zst"]
 
     ARG registry
     ARG tag=latest
