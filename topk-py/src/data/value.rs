@@ -24,21 +24,19 @@ impl<'py> FromPyObject<'py> for RawValue {
     fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
         if let Ok(v) = obj.downcast::<Value>() {
             Ok(RawValue(v.get().clone()))
-        } else if let Ok(s) = obj.downcast::<PyString>() {
+        } else if let Ok(s) = obj.downcast_exact::<PyString>() {
             Ok(RawValue(Value::String(s.extract()?)))
-        } else if let Ok(i) = obj.downcast::<PyInt>() {
+        } else if let Ok(i) = obj.downcast_exact::<PyInt>() {
             Ok(RawValue(Value::Int(i.extract()?)))
-        } else if let Ok(b) = obj.downcast::<PyBytes>() {
+        } else if let Ok(b) = obj.downcast_exact::<PyBytes>() {
             Ok(RawValue(Value::Bytes(b.extract()?)))
-        } else if let Ok(f) = obj.downcast::<PyFloat>() {
+        } else if let Ok(f) = obj.downcast_exact::<PyFloat>() {
             Ok(RawValue(Value::Float(f.extract()?)))
-        } else if let Ok(b) = obj.downcast::<PyBool>() {
+        } else if let Ok(b) = obj.downcast_exact::<PyBool>() {
             Ok(RawValue(Value::Bool(b.extract()?)))
-        } else if let Ok(v) = obj.downcast::<PyList>() {
+        } else if let Ok(v) = obj.downcast_exact::<PyList>() {
             // Try converting to vector from starting with most restrictive type first.
-            if let Ok(values) = v.extract::<Vec<u8>>() {
-                Ok(RawValue(Value::Vector(Vector::U8(values))))
-            } else if let Ok(values) = v.extract::<Vec<f32>>() {
+            if let Ok(values) = v.extract::<Vec<f32>>() {
                 Ok(RawValue(Value::Vector(Vector::F32(values))))
             } else {
                 Err(PyTypeError::new_err(format!(
