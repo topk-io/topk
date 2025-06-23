@@ -53,12 +53,15 @@ await client.collections().create("books", {
 
 </CodeGroup>
 
+<Warning>
+  Field names starting with `_` are reserved for internal use.
+</Warning>
+
 ## Schema
 
 Collection schema in TopK is a map of field names and field specifications.
 
 TopK supports the following field data types:
-
 
 ### int()
 
@@ -276,6 +279,7 @@ import { bytes } from "topk-js/schema";
 
 </CodeGroup>
 
+
 ## Functions
 
 ### index()
@@ -355,6 +359,10 @@ Supported vector distance metrics:
 - `dot_product`
 - `hamming` (only supported for [`binary_vector()`](#binary-vector) type)
 </ParamField>
+
+<Note>
+  Vector fields **can be null** (i.e., when the field definition is not marked as `.required()`), in which case no data is stored for that document — null vectors are not substituted with dummy or zero vectors.
+</Note>
 
 #### `keyword_index()`
 
