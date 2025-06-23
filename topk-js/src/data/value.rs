@@ -79,6 +79,7 @@ impl From<topk_protos::v1::data::Value> for Value {
                 }
                 None => unreachable!("Invalid vector proto"),
             },
+            Some(topk_protos::v1::data::value::Value::SparseVector(sparse_vector)) => todo!(),
             Some(topk_protos::v1::data::value::Value::Null(_)) => Value::Null,
             None => unreachable!("Invalid proto"),
         }

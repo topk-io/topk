@@ -4,6 +4,9 @@ pub use scalar::Scalar;
 mod vector;
 pub use vector::Vector;
 
+mod sparse_vector;
+pub use sparse_vector::SparseVector;
+
 pub fn float_vector(values: Vec<f32>) -> Vector {
     Vector::F32(values)
 }

@@ -186,6 +186,15 @@ impl value::Value {
                 Some(vector::Vector::Byte(v)) => format!("u8_vector({})", v.values.len()),
                 _ => "null_vector".to_string(),
             },
+            value::Value::SparseVector(v) => match &v.values {
+                Some(sparse_vector::Values::F32(v)) => {
+                    format!("f32_sparse_vector({})", v.values.len())
+                }
+                Some(sparse_vector::Values::U8(v)) => {
+                    format!("u8_sparse_vector({})", v.values.len())
+                }
+                _ => "null_sparse_vector".to_string(),
+            },
             value::Value::Null(_) => "null".to_string(),
         }
     }
@@ -284,6 +293,26 @@ impl Vector {
             Some(vector::Vector::Float(vector::Float { values })) => Some(values.len()),
             Some(vector::Vector::Byte(vector::Byte { values })) => Some(values.len()),
             _ => None,
+        }
+    }
+}
+
+impl SparseVector {
+    pub fn f32(indices: Vec<u32>, values: Vec<f32>) -> Self {
+        SparseVector {
+            indices,
+            values: Some(sparse_vector::Values::F32(sparse_vector::F32Values {
+                values,
+            })),
+        }
+    }
+
+    pub fn u8(indices: Vec<u32>, values: Vec<u8>) -> Self {
+        SparseVector {
+            indices,
+            values: Some(sparse_vector::Values::U8(sparse_vector::U8Values {
+                values,
+            })),
         }
     }
 }

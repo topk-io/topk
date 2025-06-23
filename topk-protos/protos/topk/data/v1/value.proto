@@ -22,6 +22,8 @@ message Value {
     Vector vector = 14;
     // Null
     Null null = 15;
+    // Sparse vector
+    SparseVector sparse_vector = 16;
   }
 }
 
@@ -39,6 +41,26 @@ message Vector {
   oneof vector {
     Float float = 1;
     Byte byte = 2;
+  }
+}
+
+message SparseVector {
+  // Float32 sparse vector values
+  message F32Values {
+    repeated float values = 1;
+  }
+
+  // U8 sparse vector values
+  message U8Values {
+    bytes values = 1;
+  }
+
+  // Sorted list of value indices
+  repeated uint32 indices = 1;
+  // Vector values
+  oneof values {
+    F32Values f32 = 2;
+    U8Values u8 = 3;
   }
 }
 
