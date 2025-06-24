@@ -1,16 +1,16 @@
-use std::ptr;
-
-use napi::{
-    bindgen_prelude::*,
-    sys::{napi_is_array, napi_is_buffer},
-};
-
-use napi_derive::napi;
-
 use super::{
     utils::{get_napi_value_type, is_napi_integer},
     vector::{Vector, VectorUnion},
 };
+use crate::data::sparse_vector::{
+    SparseVector, SparseVectorF32, SparseVectorU8, SparseVectorUnion,
+};
+use napi::{
+    bindgen_prelude::*,
+    sys::{napi_is_array, napi_is_buffer},
+};
+use napi_derive::napi;
+use std::ptr;
 
 #[derive(Debug, Clone)]
 pub enum Value {
@@ -24,6 +24,7 @@ pub enum Value {
     F32(f32),
     Bytes(Vec<u8>),
     Vector(Vector),
+    SparseVector(SparseVector),
     Null,
 }
 
@@ -45,6 +46,7 @@ impl From<Value> for topk_protos::v1::data::Value {
             Value::F32(n) => topk_protos::v1::data::Value::f32(n),
             Value::Bytes(b) => topk_protos::v1::data::Value::bytes(b),
             Value::Vector(v) => v.into(),
+            Value::SparseVector(v) => v.into(),
             Value::Null => topk_protos::v1::data::Value::null(),
         }
     }
@@ -79,7 +81,27 @@ impl From<topk_protos::v1::data::Value> for Value {
                 }
                 None => unreachable!("Invalid vector proto"),
             },
-            Some(topk_protos::v1::data::value::Value::SparseVector(sparse_vector)) => todo!(),
+            Some(topk_protos::v1::data::value::Value::SparseVector(sparse_vector)) => {
+                Value::SparseVector(match sparse_vector.values {
+                    Some(topk_protos::v1::data::sparse_vector::Values::F32(values)) => {
+                        SparseVector::new(SparseVectorUnion::Float {
+                            vector: SparseVectorF32 {
+                                indices: sparse_vector.indices,
+                                values: values.values,
+                            },
+                        })
+                    }
+                    Some(topk_protos::v1::data::sparse_vector::Values::U8(values)) => {
+                        SparseVector::new(SparseVectorUnion::Byte {
+                            vector: SparseVectorU8 {
+                                indices: sparse_vector.indices,
+                                values: values.values,
+                            },
+                        })
+                    }
+                    _ => unreachable!("Invalid sparse vector proto"),
+                })
+            }
             Some(topk_protos::v1::data::value::Value::Null(_)) => Value::Null,
             None => unreachable!("Invalid proto"),
         }
@@ -243,6 +265,45 @@ impl ToNapiValue for Value {
                     Ok(js_array)
                 }
             },
+            Value::SparseVector(v) => match v.value() {
+                SparseVectorUnion::Float { vector } => {
+                    let mut js_object = ptr::null_mut();
+                    check_status!(
+                        sys::napi_create_object(env, &mut js_object),
+                        "Failed to create JavaScript object"
+                    )?;
+
+                    for (index, value) in vector.indices.iter().zip(vector.values.iter()) {
+                        let js_key = u32::to_napi_value(env, *index)?;
+                        let js_value = f32::to_napi_value(env, *value)?;
+                        check_status!(
+                            sys::napi_set_property(env, js_object, js_key, js_value),
+                            "Failed to set object property"
+                        )?;
+                    }
+
+                    Ok(js_object)
+                }
+                SparseVectorUnion::Byte { vector } => {
+                    let mut js_object = ptr::null_mut();
+                    check_status!(
+                        sys::napi_create_object(env, &mut js_object),
+                        "Failed to create JavaScript object"
+                    )?;
+
+                    for (index, value) in vector.indices.iter().zip(vector.values.iter()) {
+                        let js_key = u32::to_napi_value(env, *index)?;
+                        let js_value = u8::to_napi_value(env, *value)?;
+                        check_status!(
+                            sys::napi_set_property(env, js_object, js_key, js_value),
+                            "Failed to set object property"
+                        )?;
+                    }
+
+                    Ok(js_object)
+                }
+            },
+
             Value::Null => Null::to_napi_value(env, Null),
         }
     }

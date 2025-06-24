@@ -47,31 +47,6 @@ impl<'py> FromPyObject<'py> for RawValue {
                     obj.get_type().name()
                 )))
             }
-        } else if let Ok(d) = obj.downcast_exact::<PyDict>() {
-            if let Ok(indices) = d.keys().extract::<Vec<u32>>() {
-                let values = d.values();
-                if let Ok(values) = values.extract::<Vec<f32>>() {
-                    Ok(RawValue(Value::SparseVector(SparseVector::F32 {
-                        indices,
-                        values,
-                    })))
-                } else if let Ok(values) = values.extract::<Vec<u8>>() {
-                    Ok(RawValue(Value::SparseVector(SparseVector::U8 {
-                        indices,
-                        values,
-                    })))
-                } else {
-                    Err(PyTypeError::new_err(format!(
-                        "Can't convert from {:?} to Value",
-                        obj.get_type().name()
-                    )))
-                }
-            } else {
-                Err(PyTypeError::new_err(format!(
-                    "Can't convert from {:?} to Value",
-                    obj.get_type().name()
-                )))
-            }
         } else if let Ok(_) = obj.downcast_exact::<PyNone>() {
             Ok(RawValue(Value::Null()))
         } else {
@@ -153,15 +128,21 @@ impl From<topk_protos::v1::data::Value> for Value {
                 }
                 t => unreachable!("Unknown vector type: {:?}", t),
             },
-            Some(topk_protos::v1::data::value::Value::SparseVector(v)) => match v.values {
-                Some(topk_protos::v1::data::sparse_vector::Values::F32(v)) => {
-                    Value::Vector(Vector::F32(v.values))
-                }
-                Some(topk_protos::v1::data::sparse_vector::Values::U8(v)) => {
-                    Value::Vector(Vector::U8(v.values))
-                }
-                t => unreachable!("Unknown sparse vector type: {:?}", t),
-            },
+            Some(topk_protos::v1::data::value::Value::SparseVector(sv)) => {
+                Value::SparseVector(match sv.values {
+                    Some(topk_protos::v1::data::sparse_vector::Values::F32(v)) => {
+                        SparseVector::F32 {
+                            indices: sv.indices,
+                            values: v.values,
+                        }
+                    }
+                    Some(topk_protos::v1::data::sparse_vector::Values::U8(v)) => SparseVector::U8 {
+                        indices: sv.indices,
+                        values: v.values,
+                    },
+                    t => unreachable!("Unknown sparse vector type: {:?}", t),
+                })
+            }
             None => Value::Null(),
         }
     }

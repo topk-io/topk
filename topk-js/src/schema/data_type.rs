@@ -10,6 +10,8 @@ pub enum DataType {
     F32Vector { dimension: u32 },
     U8Vector { dimension: u32 },
     BinaryVector { dimension: u32 },
+    F32SparseVector,
+    U8SparseVector,
     Bytes,
 }
 
@@ -35,6 +37,12 @@ impl From<topk_protos::v1::control::FieldType> for DataType {
                     DataType::BinaryVector {
                         dimension: vector.dimension,
                     }
+                }
+                topk_protos::v1::control::field_type::DataType::F32SparseVector(_) => {
+                    DataType::F32SparseVector
+                }
+                topk_protos::v1::control::field_type::DataType::U8SparseVector(_) => {
+                    DataType::U8SparseVector
                 }
                 topk_protos::v1::control::field_type::DataType::Bytes(_) => DataType::Bytes,
             },

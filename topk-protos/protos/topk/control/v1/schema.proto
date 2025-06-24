@@ -27,6 +27,8 @@ message FieldType {
     FieldTypeU8Vector u8_vector = 6;
     FieldTypeBinaryVector binary_vector = 7;
     FieldTypeBytes bytes = 8;
+    FieldTypeF32SparseVector f32_sparse_vector = 9;
+    FieldTypeU8SparseVector u8_sparse_vector = 10;
   }
 }
 
@@ -46,6 +48,9 @@ message FieldTypeU8Vector {
 message FieldTypeBinaryVector {
   uint32 dimension = 1;
 }
+
+message FieldTypeF32SparseVector {}
+message FieldTypeU8SparseVector {}
 
 message FieldTypeBytes {}
 

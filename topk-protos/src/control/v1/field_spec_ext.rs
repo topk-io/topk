@@ -91,6 +91,28 @@ impl FieldSpec {
         }
     }
 
+    pub fn f32_sparse_vector() -> FieldSpec {
+        FieldSpec {
+            data_type: Some(FieldType {
+                data_type: Some(field_type::DataType::F32SparseVector(
+                    FieldTypeF32SparseVector {},
+                )),
+            }),
+            ..Default::default()
+        }
+    }
+
+    pub fn u8_sparse_vector() -> FieldSpec {
+        FieldSpec {
+            data_type: Some(FieldType {
+                data_type: Some(field_type::DataType::U8SparseVector(
+                    FieldTypeU8SparseVector {},
+                )),
+            }),
+            ..Default::default()
+        }
+    }
+
     pub fn semantic(
         required: bool,
         model: Option<String>,

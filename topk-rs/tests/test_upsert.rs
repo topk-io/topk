@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use test_context::test_context;
 use topk_protos::doc;
+use topk_protos::v1::control::VectorDistanceMetric;
+use topk_protos::v1::data::Value;
 use topk_protos::v1::{
     control::{field_type::DataType, FieldSpec, FieldType, FieldTypeText},
     data::Document,
@@ -189,5 +191,114 @@ async fn test_upsert_schema_validation(ctx: &mut ProjectTestContext) {
         ),
         "got error: {:?}",
         err
+    );
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_upsert_vectors(ctx: &mut ProjectTestContext) {
+    let collection = ctx
+        .client
+        .collections()
+        .create(
+            ctx.wrap("test"),
+            HashMap::from([
+                (
+                    "f32_vector".to_string(),
+                    FieldSpec::f32_vector(3, false, VectorDistanceMetric::Cosine),
+                ),
+                (
+                    "u8_vector".to_string(),
+                    FieldSpec::u8_vector(3, false, VectorDistanceMetric::Cosine),
+                ),
+                (
+                    "binary_vector".to_string(),
+                    FieldSpec::binary_vector(3, false, VectorDistanceMetric::Cosine),
+                ),
+            ]),
+        )
+        .await
+        .expect("could not create collection");
+
+    let lsn = ctx
+        .client
+        .collection(&collection.name)
+        .upsert(vec![doc!(
+            "_id" => "x",
+            "f32_vector" => vec![1.0, 2.0, 3.0],
+            "u8_vector" => vec![4u8, 5u8, 6u8],
+            "binary_vector" => vec![7u8, 8u8, 9u8],
+        )])
+        .await
+        .expect("could not upsert document");
+
+    let obj = ctx
+        .client
+        .collection(&collection.name)
+        .get(vec!["x".to_string()], None, Some(lsn), None)
+        .await
+        .expect("could not get document");
+
+    assert_eq!(
+        obj["x"]["f32_vector"],
+        Value::float_vector(vec![1.0, 2.0, 3.0])
+    );
+    assert_eq!(
+        obj["x"]["u8_vector"],
+        Value::byte_vector(vec![4u8, 5u8, 6u8])
+    );
+    assert_eq!(
+        obj["x"]["binary_vector"],
+        Value::byte_vector(vec![7u8, 8u8, 9u8])
+    );
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_upsert_sparse_vectors(ctx: &mut ProjectTestContext) {
+    let collection = ctx
+        .client
+        .collections()
+        .create(
+            ctx.wrap("test"),
+            HashMap::from_iter([
+                (
+                    "f32_sparse_vector".to_string(),
+                    FieldSpec::f32_sparse_vector(),
+                ),
+                (
+                    "u8_sparse_vector".to_string(),
+                    FieldSpec::u8_sparse_vector(),
+                ),
+            ]),
+        )
+        .await
+        .expect("could not create collection");
+
+    let lsn = ctx
+        .client
+        .collection(&collection.name)
+        .upsert(vec![doc!(
+            "_id" => "x",
+            "f32_sparse_vector" => Value::f32_sparse_vector(vec![1, 2, 3], vec![1.2, 2.3, 3.4]),
+            "u8_sparse_vector" => Value::u8_sparse_vector(vec![1, 2, 3], vec![4u8, 5u8, 6u8]),
+        )])
+        .await
+        .expect("could not upsert document");
+
+    let obj = ctx
+        .client
+        .collection(&collection.name)
+        .get(vec!["x".to_string()], None, Some(lsn), None)
+        .await
+        .expect("could not get document");
+
+    assert_eq!(
+        obj["x"]["f32_sparse_vector"],
+        Value::f32_sparse_vector(vec![1, 2, 3], vec![1.2, 2.3, 3.4]),
+    );
+    assert_eq!(
+        obj["x"]["u8_sparse_vector"],
+        Value::u8_sparse_vector(vec![1, 2, 3], vec![4u8, 5u8, 6u8]),
     );
 }
