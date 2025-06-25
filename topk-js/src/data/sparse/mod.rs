@@ -56,23 +56,23 @@ impl Into<topk_rs::data::SparseVector> for SparseVector {
     }
 }
 
-impl Into<topk_protos::v1::data::SparseVector> for SparseVector {
-    fn into(self) -> topk_protos::v1::data::SparseVector {
+impl Into<topk_rs::proto::v1::data::SparseVector> for SparseVector {
+    fn into(self) -> topk_rs::proto::v1::data::SparseVector {
         match self.0 {
             SparseVectorUnion::Float { vector } => {
-                topk_protos::v1::data::SparseVector::f32(vector.indices, vector.values)
+                topk_rs::proto::v1::data::SparseVector::f32(vector.indices, vector.values)
             }
             SparseVectorUnion::Byte { vector } => {
-                topk_protos::v1::data::SparseVector::u8(vector.indices, vector.values)
+                topk_rs::proto::v1::data::SparseVector::u8(vector.indices, vector.values)
             }
         }
     }
 }
 
-impl Into<topk_protos::v1::data::Value> for SparseVector {
-    fn into(self) -> topk_protos::v1::data::Value {
-        topk_protos::v1::data::Value {
-            value: Some(topk_protos::v1::data::value::Value::SparseVector(
+impl Into<topk_rs::proto::v1::data::Value> for SparseVector {
+    fn into(self) -> topk_rs::proto::v1::data::Value {
+        topk_rs::proto::v1::data::Value {
+            value: Some(topk_rs::proto::v1::data::value::Value::SparseVector(
                 self.into(),
             )),
         }

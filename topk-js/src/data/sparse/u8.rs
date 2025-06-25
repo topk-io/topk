@@ -1,5 +1,4 @@
 use napi::{bindgen_prelude::*, Error, Status};
-use napi_derive::napi;
 use std::{ffi::CString, iter::zip, ptr};
 
 #[derive(Debug, Clone, PartialEq)]

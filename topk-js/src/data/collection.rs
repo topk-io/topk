@@ -13,8 +13,8 @@ pub struct Collection {
     pub region: String,
 }
 
-impl From<topk_protos::v1::control::Collection> for Collection {
-    fn from(collection: topk_protos::v1::control::Collection) -> Self {
+impl From<topk_rs::proto::v1::control::Collection> for Collection {
+    fn from(collection: topk_rs::proto::v1::control::Collection) -> Self {
         Self {
             name: collection.name,
             org_id: collection.org_id,
@@ -38,8 +38,8 @@ pub struct CollectionFieldSpec {
     pub index: Option<FieldIndexUnion>,
 }
 
-impl From<topk_protos::v1::control::FieldSpec> for CollectionFieldSpec {
-    fn from(field_spec: topk_protos::v1::control::FieldSpec) -> Self {
+impl From<topk_rs::proto::v1::control::FieldSpec> for CollectionFieldSpec {
+    fn from(field_spec: topk_rs::proto::v1::control::FieldSpec) -> Self {
         Self {
             data_type: field_spec.data_type.unwrap().into(),
             required: field_spec.required,

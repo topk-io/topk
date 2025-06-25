@@ -33,57 +33,57 @@ pub fn bytes(values: Vec<u8>) -> Value {
     Value::Bytes(values)
 }
 
-impl From<Value> for topk_protos::v1::data::Value {
+impl From<Value> for topk_rs::proto::v1::data::Value {
     fn from(value: Value) -> Self {
         match value {
-            Value::String(s) => topk_protos::v1::data::Value::string(s),
-            Value::F64(n) => topk_protos::v1::data::Value::f64(n),
-            Value::Bool(b) => topk_protos::v1::data::Value::bool(b),
-            Value::U32(n) => topk_protos::v1::data::Value::u32(n),
-            Value::U64(n) => topk_protos::v1::data::Value::u64(n),
-            Value::I32(n) => topk_protos::v1::data::Value::i32(n),
-            Value::I64(n) => topk_protos::v1::data::Value::i64(n),
-            Value::F32(n) => topk_protos::v1::data::Value::f32(n),
-            Value::Bytes(b) => topk_protos::v1::data::Value::bytes(b),
+            Value::String(s) => topk_rs::proto::v1::data::Value::string(s),
+            Value::F64(n) => topk_rs::proto::v1::data::Value::f64(n),
+            Value::Bool(b) => topk_rs::proto::v1::data::Value::bool(b),
+            Value::U32(n) => topk_rs::proto::v1::data::Value::u32(n),
+            Value::U64(n) => topk_rs::proto::v1::data::Value::u64(n),
+            Value::I32(n) => topk_rs::proto::v1::data::Value::i32(n),
+            Value::I64(n) => topk_rs::proto::v1::data::Value::i64(n),
+            Value::F32(n) => topk_rs::proto::v1::data::Value::f32(n),
+            Value::Bytes(b) => topk_rs::proto::v1::data::Value::bytes(b),
             Value::Vector(v) => v.into(),
             Value::SparseVector(v) => v.into(),
-            Value::Null => topk_protos::v1::data::Value::null(),
+            Value::Null => topk_rs::proto::v1::data::Value::null(),
         }
     }
 }
 
-impl From<topk_protos::v1::data::Value> for Value {
-    fn from(value: topk_protos::v1::data::Value) -> Self {
+impl From<topk_rs::proto::v1::data::Value> for Value {
+    fn from(value: topk_rs::proto::v1::data::Value) -> Self {
         match value.value {
-            Some(topk_protos::v1::data::value::Value::String(s)) => Value::String(s),
-            Some(topk_protos::v1::data::value::Value::F64(n)) => Value::F64(n),
-            Some(topk_protos::v1::data::value::Value::Bool(b)) => Value::Bool(b),
-            Some(topk_protos::v1::data::value::Value::U32(n)) => {
+            Some(topk_rs::proto::v1::data::value::Value::String(s)) => Value::String(s),
+            Some(topk_rs::proto::v1::data::value::Value::F64(n)) => Value::F64(n),
+            Some(topk_rs::proto::v1::data::value::Value::Bool(b)) => Value::Bool(b),
+            Some(topk_rs::proto::v1::data::value::Value::U32(n)) => {
                 Value::I32(n.try_into().expect("U32 is lossy"))
             }
-            Some(topk_protos::v1::data::value::Value::U64(n)) => {
+            Some(topk_rs::proto::v1::data::value::Value::U64(n)) => {
                 Value::U64(n.try_into().expect("U64 is lossy"))
             }
-            Some(topk_protos::v1::data::value::Value::I32(n)) => Value::I32(n),
-            Some(topk_protos::v1::data::value::Value::I64(n)) => Value::I64(n),
-            Some(topk_protos::v1::data::value::Value::F32(n)) => Value::F32(n),
-            Some(topk_protos::v1::data::value::Value::Binary(b)) => Value::Bytes(b),
-            Some(topk_protos::v1::data::value::Value::Vector(v)) => match v.vector {
-                Some(topk_protos::v1::data::vector::Vector::Float(float_vector)) => {
+            Some(topk_rs::proto::v1::data::value::Value::I32(n)) => Value::I32(n),
+            Some(topk_rs::proto::v1::data::value::Value::I64(n)) => Value::I64(n),
+            Some(topk_rs::proto::v1::data::value::Value::F32(n)) => Value::F32(n),
+            Some(topk_rs::proto::v1::data::value::Value::Binary(b)) => Value::Bytes(b),
+            Some(topk_rs::proto::v1::data::value::Value::Vector(v)) => match v.vector {
+                Some(topk_rs::proto::v1::data::vector::Vector::Float(float_vector)) => {
                     Value::Vector(Vector::new(VectorUnion::Float {
                         values: float_vector.values.iter().map(|v| *v as f64).collect(),
                     }))
                 }
-                Some(topk_protos::v1::data::vector::Vector::Byte(byte_vector)) => {
+                Some(topk_rs::proto::v1::data::vector::Vector::Byte(byte_vector)) => {
                     Value::Vector(Vector::new(VectorUnion::Byte {
                         values: byte_vector.values,
                     }))
                 }
                 None => unreachable!("Invalid vector proto"),
             },
-            Some(topk_protos::v1::data::value::Value::SparseVector(sparse_vector)) => {
+            Some(topk_rs::proto::v1::data::value::Value::SparseVector(sparse_vector)) => {
                 Value::SparseVector(match sparse_vector.values {
-                    Some(topk_protos::v1::data::sparse_vector::Values::F32(values)) => {
+                    Some(topk_rs::proto::v1::data::sparse_vector::Values::F32(values)) => {
                         SparseVector::new(SparseVectorUnion::Float {
                             vector: SparseVectorF32 {
                                 indices: sparse_vector.indices,
@@ -91,7 +91,7 @@ impl From<topk_protos::v1::data::Value> for Value {
                             },
                         })
                     }
-                    Some(topk_protos::v1::data::sparse_vector::Values::U8(values)) => {
+                    Some(topk_rs::proto::v1::data::sparse_vector::Values::U8(values)) => {
                         SparseVector::new(SparseVectorUnion::Byte {
                             vector: SparseVectorU8 {
                                 indices: sparse_vector.indices,
@@ -102,7 +102,7 @@ impl From<topk_protos::v1::data::Value> for Value {
                     _ => unreachable!("Invalid sparse vector proto"),
                 })
             }
-            Some(topk_protos::v1::data::value::Value::Null(_)) => Value::Null,
+            Some(topk_rs::proto::v1::data::value::Value::Null(_)) => Value::Null,
             None => unreachable!("Invalid proto"),
         }
     }

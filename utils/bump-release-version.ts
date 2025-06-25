@@ -13,9 +13,6 @@ const files = {
   rs: {
     cargoToml: Bun.file("./topk-rs/Cargo.toml"),
   },
-  protos: {
-    cargoToml: Bun.file("./topk-protos/Cargo.toml"),
-  },
 };
 
 // Get versions
@@ -30,9 +27,6 @@ async function getVersions() {
     },
     rs: {
       cargoToml: await getCargoTomlVersion(files.rs.cargoToml),
-    },
-    protos: {
-      cargoToml: await getCargoTomlVersion(files.protos.cargoToml),
     },
   };
 
@@ -60,7 +54,6 @@ async function updateVersions(version: string) {
   await updatePackageJsonVersion(files.js.packageJson, version);
   await updateCargoTomlVersion(files.py.cargoToml, version);
   await updateCargoTomlVersion(files.rs.cargoToml, version);
-  await updateCargoTomlVersion(files.protos.cargoToml, version);
 }
 
 async function updateCargoTomlVersion(file: Bun.File, version: string) {
@@ -95,7 +88,6 @@ program.command("check").action(async () => {
   const { versions, consistent } = await getVersions();
 
   console.log(`topk-rs/Cargo.toml\t${versions.rs.cargoToml}`);
-  console.log(`topk-protos/Cargo.toml\t${versions.protos.cargoToml}`);
   console.log(`topk-py/Cargo.toml\t${versions.py.cargoToml}`);
   console.log(`topk-js/Cargo.toml\t${versions.js.cargoToml}`);
   console.log(`topk-js/package.json\t${versions.js.packageJson}`);
@@ -113,7 +105,6 @@ program
     await updateCargoTomlVersion(files.js.cargoToml, version);
     await updateCargoTomlVersion(files.py.cargoToml, version);
     await updateCargoTomlVersion(files.rs.cargoToml, version);
-    await updateCargoTomlVersion(files.protos.cargoToml, version);
 
     console.info(`updated all versions to ${version}`);
   });

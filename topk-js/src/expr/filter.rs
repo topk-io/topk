@@ -1,5 +1,5 @@
 use napi::bindgen_prelude::*;
-use topk_protos::v1::data;
+use topk_rs::proto::v1::data;
 
 use super::{logical::LogicalExpression, text::TextExpression};
 

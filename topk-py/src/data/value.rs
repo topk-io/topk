@@ -131,37 +131,37 @@ impl<'py> IntoPyObject<'py> for RawValue {
         }
     }
 }
-impl From<topk_protos::v1::data::Value> for Value {
-    fn from(value: topk_protos::v1::data::Value) -> Self {
+impl From<topk_rs::proto::v1::data::Value> for Value {
+    fn from(value: topk_rs::proto::v1::data::Value) -> Self {
         match value.value {
-            Some(topk_protos::v1::data::value::Value::String(s)) => Value::String(s),
-            Some(topk_protos::v1::data::value::Value::U32(i)) => Value::Int(i as i64),
-            Some(topk_protos::v1::data::value::Value::U64(i)) => Value::Int(i as i64),
-            Some(topk_protos::v1::data::value::Value::I64(i)) => Value::Int(i as i64),
-            Some(topk_protos::v1::data::value::Value::I32(i)) => Value::Int(i as i64),
-            Some(topk_protos::v1::data::value::Value::F32(f)) => Value::Float(f as f64),
-            Some(topk_protos::v1::data::value::Value::F64(f)) => Value::Float(f),
-            Some(topk_protos::v1::data::value::Value::Bool(b)) => Value::Bool(b),
-            Some(topk_protos::v1::data::value::Value::Null(_)) => Value::Null(),
-            Some(topk_protos::v1::data::value::Value::Binary(b)) => Value::Bytes(b),
-            Some(topk_protos::v1::data::value::Value::Vector(v)) => match v.vector {
-                Some(topk_protos::v1::data::vector::Vector::Float(v)) => {
+            Some(topk_rs::proto::v1::data::value::Value::String(s)) => Value::String(s),
+            Some(topk_rs::proto::v1::data::value::Value::U32(i)) => Value::Int(i as i64),
+            Some(topk_rs::proto::v1::data::value::Value::U64(i)) => Value::Int(i as i64),
+            Some(topk_rs::proto::v1::data::value::Value::I64(i)) => Value::Int(i as i64),
+            Some(topk_rs::proto::v1::data::value::Value::I32(i)) => Value::Int(i as i64),
+            Some(topk_rs::proto::v1::data::value::Value::F32(f)) => Value::Float(f as f64),
+            Some(topk_rs::proto::v1::data::value::Value::F64(f)) => Value::Float(f),
+            Some(topk_rs::proto::v1::data::value::Value::Bool(b)) => Value::Bool(b),
+            Some(topk_rs::proto::v1::data::value::Value::Null(_)) => Value::Null(),
+            Some(topk_rs::proto::v1::data::value::Value::Binary(b)) => Value::Bytes(b),
+            Some(topk_rs::proto::v1::data::value::Value::Vector(v)) => match v.vector {
+                Some(topk_rs::proto::v1::data::vector::Vector::Float(v)) => {
                     Value::Vector(Vector::F32(v.values))
                 }
-                Some(topk_protos::v1::data::vector::Vector::Byte(v)) => {
+                Some(topk_rs::proto::v1::data::vector::Vector::Byte(v)) => {
                     Value::Vector(Vector::U8(v.values))
                 }
                 t => unreachable!("Unknown vector type: {:?}", t),
             },
-            Some(topk_protos::v1::data::value::Value::SparseVector(sv)) => {
+            Some(topk_rs::proto::v1::data::value::Value::SparseVector(sv)) => {
                 Value::SparseVector(match sv.values {
-                    Some(topk_protos::v1::data::sparse_vector::Values::F32(v)) => {
+                    Some(topk_rs::proto::v1::data::sparse_vector::Values::F32(v)) => {
                         SparseVector::F32 {
                             indices: sv.indices,
                             values: v.values,
                         }
                     }
-                    Some(topk_protos::v1::data::sparse_vector::Values::U8(v)) => SparseVector::U8 {
+                    Some(topk_rs::proto::v1::data::sparse_vector::Values::U8(v)) => SparseVector::U8 {
                         indices: sv.indices,
                         values: v.values,
                     },
@@ -173,35 +173,35 @@ impl From<topk_protos::v1::data::Value> for Value {
     }
 }
 
-impl From<Value> for topk_protos::v1::data::Value {
+impl From<Value> for topk_rs::proto::v1::data::Value {
     fn from(value: Value) -> Self {
         Self {
             value: Some(match value {
-                Value::Bool(b) => topk_protos::v1::data::value::Value::Bool(b),
-                Value::Int(i) => topk_protos::v1::data::value::Value::I64(i),
-                Value::Float(f) => topk_protos::v1::data::value::Value::F64(f),
-                Value::String(s) => topk_protos::v1::data::value::Value::String(s),
+                Value::Bool(b) => topk_rs::proto::v1::data::value::Value::Bool(b),
+                Value::Int(i) => topk_rs::proto::v1::data::value::Value::I64(i),
+                Value::Float(f) => topk_rs::proto::v1::data::value::Value::F64(f),
+                Value::String(s) => topk_rs::proto::v1::data::value::Value::String(s),
                 Value::Null() => {
-                    topk_protos::v1::data::value::Value::Null(topk_protos::v1::data::Null {})
+                    topk_rs::proto::v1::data::value::Value::Null(topk_rs::proto::v1::data::Null {})
                 }
-                Value::Bytes(b) => topk_protos::v1::data::value::Value::Binary(b),
+                Value::Bytes(b) => topk_rs::proto::v1::data::value::Value::Binary(b),
                 Value::Vector(v) => match v {
-                    Vector::F32(v) => topk_protos::v1::data::value::Value::Vector(
-                        topk_protos::v1::data::Vector::float(v),
+                    Vector::F32(v) => topk_rs::proto::v1::data::value::Value::Vector(
+                        topk_rs::proto::v1::data::Vector::float(v),
                     ),
-                    Vector::U8(v) => topk_protos::v1::data::value::Value::Vector(
-                        topk_protos::v1::data::Vector::byte(v),
+                    Vector::U8(v) => topk_rs::proto::v1::data::value::Value::Vector(
+                        topk_rs::proto::v1::data::Vector::byte(v),
                     ),
                 },
                 Value::SparseVector(v) => match v {
                     SparseVector::F32 { indices, values } => {
-                        topk_protos::v1::data::value::Value::SparseVector(
-                            topk_protos::v1::data::SparseVector::f32(indices, values),
+                        topk_rs::proto::v1::data::value::Value::SparseVector(
+                            topk_rs::proto::v1::data::SparseVector::f32(indices, values),
                         )
                     }
                     SparseVector::U8 { indices, values } => {
-                        topk_protos::v1::data::value::Value::SparseVector(
-                            topk_protos::v1::data::SparseVector::u8(indices, values),
+                        topk_rs::proto::v1::data::value::Value::SparseVector(
+                            topk_rs::proto::v1::data::SparseVector::u8(indices, values),
                         )
                     }
                 },
@@ -210,7 +210,7 @@ impl From<Value> for topk_protos::v1::data::Value {
     }
 }
 
-impl From<RawValue> for topk_protos::v1::data::Value {
+impl From<RawValue> for topk_rs::proto::v1::data::Value {
     fn from(value: RawValue) -> Self {
         value.0.into()
     }

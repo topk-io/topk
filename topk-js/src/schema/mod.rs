@@ -60,6 +60,16 @@ pub fn bytes() -> FieldSpec {
     FieldSpec::create(DataType::Bytes {})
 }
 
+#[napi(namespace = "schema")]
+pub fn f32_sparse_vector() -> FieldSpec {
+    FieldSpec::create(DataType::F32SparseVector {})
+}
+
+#[napi(namespace = "schema")]
+pub fn u8_sparse_vector() -> FieldSpec {
+    FieldSpec::create(DataType::U8SparseVector {})
+}
+
 #[napi(object, namespace = "schema")]
 pub struct VectorIndexOptions {
     pub metric: VectorDistanceMetric,

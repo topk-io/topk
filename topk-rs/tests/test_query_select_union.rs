@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 use test_context::test_context;
-use topk_protos::{doc, v1::data::Value};
-
-mod utils;
+use topk_rs::doc;
+use topk_rs::proto::v1::data::Value;
 use topk_rs::query::{field, select};
 use utils::ProjectTestContext;
+
+mod utils;
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]

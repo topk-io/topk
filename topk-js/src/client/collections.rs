@@ -8,7 +8,7 @@ use crate::{
     error::TopkError,
     schema::field_spec::FieldSpec,
 };
-use topk_protos::v1::control::{self};
+use topk_rs::proto::v1::control::{self};
 
 #[napi]
 pub struct CollectionsClient {

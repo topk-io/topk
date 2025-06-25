@@ -1,5 +1,5 @@
 use crate::expr::{logical::LogicalExpr, text::TextExpr};
-use topk_protos::v1::data::stage::filter_stage::FilterExpr as FilterExprPb;
+use crate::proto::v1::data::stage::filter_stage::FilterExpr as FilterExprPb;
 
 #[derive(Debug, Clone)]
 pub enum FilterExpr {

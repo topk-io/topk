@@ -29,17 +29,17 @@ impl Into<topk_rs::data::Scalar> for Scalar {
     }
 }
 
-impl Into<topk_protos::v1::data::Value> for Scalar {
-    fn into(self) -> topk_protos::v1::data::Value {
+impl Into<topk_rs::proto::v1::data::Value> for Scalar {
+    fn into(self) -> topk_rs::proto::v1::data::Value {
         match self {
-            Scalar::Bool(b) => topk_protos::v1::data::Value::bool(b),
-            Scalar::U32(u) => topk_protos::v1::data::Value::u32(u),
-            Scalar::U64(u) => topk_protos::v1::data::Value::u64(u),
-            Scalar::I32(i) => topk_protos::v1::data::Value::i32(i),
-            Scalar::I64(i) => topk_protos::v1::data::Value::i64(i),
-            Scalar::F32(f) => topk_protos::v1::data::Value::f32(f),
-            Scalar::F64(f) => topk_protos::v1::data::Value::f64(f),
-            Scalar::String(s) => topk_protos::v1::data::Value::string(s),
+            Scalar::Bool(b) => topk_rs::proto::v1::data::Value::bool(b),
+            Scalar::U32(u) => topk_rs::proto::v1::data::Value::u32(u),
+            Scalar::U64(u) => topk_rs::proto::v1::data::Value::u64(u),
+            Scalar::I32(i) => topk_rs::proto::v1::data::Value::i32(i),
+            Scalar::I64(i) => topk_rs::proto::v1::data::Value::i64(i),
+            Scalar::F32(f) => topk_rs::proto::v1::data::Value::f32(f),
+            Scalar::F64(f) => topk_rs::proto::v1::data::Value::f64(f),
+            Scalar::String(s) => topk_rs::proto::v1::data::Value::string(s),
         }
     }
 }

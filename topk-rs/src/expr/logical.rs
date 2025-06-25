@@ -7,13 +7,13 @@ pub enum UnaryOperator {
     IsNotNull,
 }
 
-impl Into<topk_protos::v1::data::logical_expr::unary_op::Op> for UnaryOperator {
-    fn into(self) -> topk_protos::v1::data::logical_expr::unary_op::Op {
+impl Into<crate::proto::v1::data::logical_expr::unary_op::Op> for UnaryOperator {
+    fn into(self) -> crate::proto::v1::data::logical_expr::unary_op::Op {
         match self {
-            UnaryOperator::Not => topk_protos::v1::data::logical_expr::unary_op::Op::Not,
-            UnaryOperator::IsNull => topk_protos::v1::data::logical_expr::unary_op::Op::IsNull,
+            UnaryOperator::Not => crate::proto::v1::data::logical_expr::unary_op::Op::Not,
+            UnaryOperator::IsNull => crate::proto::v1::data::logical_expr::unary_op::Op::IsNull,
             UnaryOperator::IsNotNull => {
-                topk_protos::v1::data::logical_expr::unary_op::Op::IsNotNull
+                crate::proto::v1::data::logical_expr::unary_op::Op::IsNotNull
             }
         }
     }
@@ -42,27 +42,27 @@ pub enum BinaryOperator {
     Rem,
 }
 
-impl Into<topk_protos::v1::data::logical_expr::binary_op::Op> for BinaryOperator {
-    fn into(self) -> topk_protos::v1::data::logical_expr::binary_op::Op {
+impl Into<crate::proto::v1::data::logical_expr::binary_op::Op> for BinaryOperator {
+    fn into(self) -> crate::proto::v1::data::logical_expr::binary_op::Op {
         match self {
-            BinaryOperator::Eq => topk_protos::v1::data::logical_expr::binary_op::Op::Eq,
-            BinaryOperator::NotEq => topk_protos::v1::data::logical_expr::binary_op::Op::Neq,
-            BinaryOperator::Lt => topk_protos::v1::data::logical_expr::binary_op::Op::Lt,
-            BinaryOperator::LtEq => topk_protos::v1::data::logical_expr::binary_op::Op::Lte,
-            BinaryOperator::Gt => topk_protos::v1::data::logical_expr::binary_op::Op::Gt,
-            BinaryOperator::GtEq => topk_protos::v1::data::logical_expr::binary_op::Op::Gte,
+            BinaryOperator::Eq => crate::proto::v1::data::logical_expr::binary_op::Op::Eq,
+            BinaryOperator::NotEq => crate::proto::v1::data::logical_expr::binary_op::Op::Neq,
+            BinaryOperator::Lt => crate::proto::v1::data::logical_expr::binary_op::Op::Lt,
+            BinaryOperator::LtEq => crate::proto::v1::data::logical_expr::binary_op::Op::Lte,
+            BinaryOperator::Gt => crate::proto::v1::data::logical_expr::binary_op::Op::Gt,
+            BinaryOperator::GtEq => crate::proto::v1::data::logical_expr::binary_op::Op::Gte,
             BinaryOperator::StartsWith => {
-                topk_protos::v1::data::logical_expr::binary_op::Op::StartsWith
+                crate::proto::v1::data::logical_expr::binary_op::Op::StartsWith
             }
             BinaryOperator::Contains => {
-                topk_protos::v1::data::logical_expr::binary_op::Op::Contains
+                crate::proto::v1::data::logical_expr::binary_op::Op::Contains
             }
-            BinaryOperator::Add => topk_protos::v1::data::logical_expr::binary_op::Op::Add,
-            BinaryOperator::Sub => topk_protos::v1::data::logical_expr::binary_op::Op::Sub,
-            BinaryOperator::Mul => topk_protos::v1::data::logical_expr::binary_op::Op::Mul,
-            BinaryOperator::Div => topk_protos::v1::data::logical_expr::binary_op::Op::Div,
-            BinaryOperator::And => topk_protos::v1::data::logical_expr::binary_op::Op::And,
-            BinaryOperator::Or => topk_protos::v1::data::logical_expr::binary_op::Op::Or,
+            BinaryOperator::Add => crate::proto::v1::data::logical_expr::binary_op::Op::Add,
+            BinaryOperator::Sub => crate::proto::v1::data::logical_expr::binary_op::Op::Sub,
+            BinaryOperator::Mul => crate::proto::v1::data::logical_expr::binary_op::Op::Mul,
+            BinaryOperator::Div => crate::proto::v1::data::logical_expr::binary_op::Op::Div,
+            BinaryOperator::And => crate::proto::v1::data::logical_expr::binary_op::Op::And,
+            BinaryOperator::Or => crate::proto::v1::data::logical_expr::binary_op::Op::Or,
             BinaryOperator::Xor => unreachable!("Xor is not supported"),
             BinaryOperator::Rem => unreachable!("Rem is not supported"),
         }
@@ -293,18 +293,18 @@ impl From<&'static str> for LogicalExpr {
     }
 }
 
-impl Into<topk_protos::v1::data::LogicalExpr> for LogicalExpr {
-    fn into(self) -> topk_protos::v1::data::LogicalExpr {
+impl Into<crate::proto::v1::data::LogicalExpr> for LogicalExpr {
+    fn into(self) -> crate::proto::v1::data::LogicalExpr {
         match self {
             LogicalExpr::Null() => unreachable!(),
-            LogicalExpr::Field { name } => topk_protos::v1::data::LogicalExpr::field(name),
+            LogicalExpr::Field { name } => crate::proto::v1::data::LogicalExpr::field(name),
             LogicalExpr::Literal { value } => {
-                topk_protos::v1::data::LogicalExpr::literal(value.into())
+                crate::proto::v1::data::LogicalExpr::literal(value.into())
             }
             LogicalExpr::Unary { op, expr } => {
-                topk_protos::v1::data::LogicalExpr::unary(op.into(), (*expr).into())
+                crate::proto::v1::data::LogicalExpr::unary(op.into(), (*expr).into())
             }
-            LogicalExpr::Binary { left, op, right } => topk_protos::v1::data::LogicalExpr::binary(
+            LogicalExpr::Binary { left, op, right } => crate::proto::v1::data::LogicalExpr::binary(
                 op.into(),
                 (*left).into(),
                 (*right).into(),

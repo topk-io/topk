@@ -6,10 +6,10 @@ use futures_util::TryFutureExt;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::OnceCell;
-use topk_protos::v1::control::{
+use crate::proto::v1::control::{
     Collection, CreateCollectionRequest, DeleteCollectionRequest, ListCollectionsRequest,
 };
-use topk_protos::v1::control::{FieldSpec, GetCollectionRequest};
+use crate::proto::v1::control::{FieldSpec, GetCollectionRequest};
 
 pub struct CollectionsClient {
     // Client config

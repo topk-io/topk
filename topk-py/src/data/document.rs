@@ -32,16 +32,16 @@ impl std::fmt::Display for Document {
     }
 }
 
-impl Into<topk_protos::v1::data::Document> for Document {
-    fn into(self) -> topk_protos::v1::data::Document {
-        topk_protos::v1::data::Document::from(self.fields.into_iter().map(|(k, v)| (k, v.into())))
+impl Into<topk_rs::proto::v1::data::Document> for Document {
+    fn into(self) -> topk_rs::proto::v1::data::Document {
+        topk_rs::proto::v1::data::Document::from(self.fields.into_iter().map(|(k, v)| (k, v.into())))
     }
 }
 
-impl TryFrom<topk_protos::v1::data::Document> for Document {
+impl TryFrom<topk_rs::proto::v1::data::Document> for Document {
     type Error = anyhow::Error;
 
-    fn try_from(proto: topk_protos::v1::data::Document) -> Result<Self, Self::Error> {
+    fn try_from(proto: topk_rs::proto::v1::data::Document) -> Result<Self, Self::Error> {
         let mut fields = HashMap::new();
 
         for (k, v) in proto.fields {

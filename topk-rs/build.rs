@@ -1,8 +1,8 @@
 fn main() {
-    build_topk_v1();
+    build_topk_v1_protos();
 }
 
-fn build_topk_v1() {
+fn build_topk_v1_protos() {
     let mut builder = tonic_build::configure();
 
     // #[derive(Eq, Hash)] for messages
@@ -64,16 +64,16 @@ fn build_topk_v1() {
         .clone()
         .compile_protos(
             &[
-                "protos/topk/control/v1/collection_service.proto",
-                "protos/topk/control/v1/collection.proto",
-                "protos/topk/control/v1/schema.proto",
-                "protos/topk/data/v1/write_service.proto",
-                "protos/topk/data/v1/document.proto",
-                "protos/topk/data/v1/query_service.proto",
-                "protos/topk/data/v1/query.proto",
-                "protos/topk/data/v1/value.proto",
+                "../protos/topk/control/v1/collection_service.proto",
+                "../protos/topk/control/v1/collection.proto",
+                "../protos/topk/control/v1/schema.proto",
+                "../protos/topk/data/v1/write_service.proto",
+                "../protos/topk/data/v1/document.proto",
+                "../protos/topk/data/v1/query_service.proto",
+                "../protos/topk/data/v1/query.proto",
+                "../protos/topk/data/v1/value.proto",
             ],
-            &["protos/"],
+            &["../protos/"],
         )
         .expect("failed to build [topk.v1] protos");
 }

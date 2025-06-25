@@ -27,11 +27,11 @@ pub enum ConsistencyLevel {
     Strong,
 }
 
-impl From<ConsistencyLevel> for topk_protos::v1::data::ConsistencyLevel {
+impl From<ConsistencyLevel> for topk_rs::proto::v1::data::ConsistencyLevel {
     fn from(consistency_level: ConsistencyLevel) -> Self {
         match consistency_level {
-            ConsistencyLevel::Indexed => topk_protos::v1::data::ConsistencyLevel::Indexed,
-            ConsistencyLevel::Strong => topk_protos::v1::data::ConsistencyLevel::Strong,
+            ConsistencyLevel::Indexed => topk_rs::proto::v1::data::ConsistencyLevel::Indexed,
+            ConsistencyLevel::Strong => topk_rs::proto::v1::data::ConsistencyLevel::Strong,
         }
     }
 }
@@ -115,7 +115,7 @@ impl CollectionClient {
             .collection(&self.collection)
             .upsert(
                 docs.into_iter()
-                    .map(|d| topk_protos::v1::data::Document {
+                    .map(|d| topk_rs::proto::v1::data::Document {
                         fields: d.into_iter().map(|(k, v)| (k, v.into())).collect(),
                     })
                     .collect(),

@@ -12,16 +12,24 @@ use napi_derive::napi;
 #[napi(namespace = "query")]
 #[derive(Debug, Clone)]
 pub enum QueryVector {
-    Dense(vector::Vector),
-    Sparse(sparse::SparseVector),
+    Dense {
+        #[napi(ts_type = "data.Vector")]
+        query: vector::Vector,
+    },
+    Sparse {
+        #[napi(ts_type = "data.SparseVector")]
+        query: sparse::SparseVector,
+    },
 }
 
-impl Into<topk_protos::v1::data::QueryVector> for QueryVector {
-    fn into(self) -> topk_protos::v1::data::QueryVector {
+impl Into<topk_rs::proto::v1::data::QueryVector> for QueryVector {
+    fn into(self) -> topk_rs::proto::v1::data::QueryVector {
         match self {
-            QueryVector::Dense(vector) => topk_protos::v1::data::QueryVector::Dense(vector.into()),
-            QueryVector::Sparse(sparse_vector) => {
-                topk_protos::v1::data::QueryVector::Sparse(sparse_vector.into())
+            QueryVector::Dense { query } => {
+                topk_rs::proto::v1::data::QueryVector::Dense(query.into())
+            }
+            QueryVector::Sparse { query } => {
+                topk_rs::proto::v1::data::QueryVector::Sparse(query.into())
             }
         }
     }

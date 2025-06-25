@@ -4,30 +4,30 @@ pub enum Vector {
     U8(Vec<u8>),
 }
 
-impl Into<topk_protos::v1::data::Vector> for Vector {
-    fn into(self) -> topk_protos::v1::data::Vector {
+impl Into<crate::proto::v1::data::Vector> for Vector {
+    fn into(self) -> crate::proto::v1::data::Vector {
         match self {
-            Vector::F32(values) => topk_protos::v1::data::Vector::float(values),
-            Vector::U8(values) => topk_protos::v1::data::Vector::byte(values),
+            Vector::F32(values) => crate::proto::v1::data::Vector::float(values),
+            Vector::U8(values) => crate::proto::v1::data::Vector::byte(values),
         }
     }
 }
 
-impl From<topk_protos::v1::data::Vector> for Vector {
-    fn from(vector: topk_protos::v1::data::Vector) -> Self {
+impl From<crate::proto::v1::data::Vector> for Vector {
+    fn from(vector: crate::proto::v1::data::Vector) -> Self {
         match vector.vector {
-            Some(topk_protos::v1::data::vector::Vector::Float(values)) => {
+            Some(crate::proto::v1::data::vector::Vector::Float(values)) => {
                 Vector::F32(values.values)
             }
-            Some(topk_protos::v1::data::vector::Vector::Byte(values)) => Vector::U8(values.values),
+            Some(crate::proto::v1::data::vector::Vector::Byte(values)) => Vector::U8(values.values),
             t => panic!("Invalid vector type: {:?}", t),
         }
     }
 }
 
-impl From<Vector> for topk_protos::v1::data::QueryVector {
+impl From<Vector> for crate::proto::v1::data::QueryVector {
     fn from(vector: Vector) -> Self {
-        topk_protos::v1::data::QueryVector::Dense(vector.into())
+        crate::proto::v1::data::QueryVector::Dense(vector.into())
     }
 }
 

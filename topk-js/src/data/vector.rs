@@ -97,21 +97,21 @@ impl Into<topk_rs::data::Vector> for Vector {
     }
 }
 
-impl Into<topk_protos::v1::data::vector::Vector> for Vector {
-    fn into(self) -> topk_protos::v1::data::vector::Vector {
+impl Into<topk_rs::proto::v1::data::vector::Vector> for Vector {
+    fn into(self) -> topk_rs::proto::v1::data::vector::Vector {
         match self.0 {
             VectorUnion::Float { values } => {
-                topk_protos::v1::data::vector::Vector::Float(topk_protos::v1::data::vector::Float {
+                topk_rs::proto::v1::data::vector::Vector::Float(topk_rs::proto::v1::data::vector::Float {
                     values: values.iter().map(|v| *v as f32).collect(),
                 })
             }
             VectorUnion::Byte { values } => {
-                topk_protos::v1::data::vector::Vector::Byte(topk_protos::v1::data::vector::Byte {
+                topk_rs::proto::v1::data::vector::Vector::Byte(topk_rs::proto::v1::data::vector::Byte {
                     values,
                 })
             }
             VectorUnion::Binary { values } => {
-                topk_protos::v1::data::vector::Vector::Byte(topk_protos::v1::data::vector::Byte {
+                topk_rs::proto::v1::data::vector::Vector::Byte(topk_rs::proto::v1::data::vector::Byte {
                     values,
                 })
             }
@@ -119,18 +119,18 @@ impl Into<topk_protos::v1::data::vector::Vector> for Vector {
     }
 }
 
-impl Into<topk_protos::v1::data::Vector> for Vector {
-    fn into(self) -> topk_protos::v1::data::Vector {
-        topk_protos::v1::data::Vector {
+impl Into<topk_rs::proto::v1::data::Vector> for Vector {
+    fn into(self) -> topk_rs::proto::v1::data::Vector {
+        topk_rs::proto::v1::data::Vector {
             vector: Some(self.into()),
         }
     }
 }
 
-impl Into<topk_protos::v1::data::Value> for Vector {
-    fn into(self) -> topk_protos::v1::data::Value {
-        topk_protos::v1::data::Value {
-            value: Some(topk_protos::v1::data::value::Value::Vector(self.into())),
+impl Into<topk_rs::proto::v1::data::Value> for Vector {
+    fn into(self) -> topk_rs::proto::v1::data::Value {
+        topk_rs::proto::v1::data::Value {
+            value: Some(topk_rs::proto::v1::data::value::Value::Vector(self.into())),
         }
     }
 }

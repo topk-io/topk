@@ -241,8 +241,8 @@ impl LogicalExpression {
     }
 }
 
-impl Into<topk_protos::v1::data::LogicalExpr> for LogicalExpression {
-    fn into(self) -> topk_protos::v1::data::LogicalExpr {
+impl Into<topk_rs::proto::v1::data::LogicalExpr> for LogicalExpression {
+    fn into(self) -> topk_rs::proto::v1::data::LogicalExpr {
         self.expr.into()
     }
 }
@@ -253,23 +253,23 @@ impl Into<topk_rs::expr::logical::LogicalExpr> for LogicalExpression {
     }
 }
 
-impl Into<topk_protos::v1::data::LogicalExpr> for LogicalExpressionUnion {
-    fn into(self) -> topk_protos::v1::data::LogicalExpr {
+impl Into<topk_rs::proto::v1::data::LogicalExpr> for LogicalExpressionUnion {
+    fn into(self) -> topk_rs::proto::v1::data::LogicalExpr {
         match self {
             LogicalExpressionUnion::Null => {
-                topk_protos::v1::data::LogicalExpr::literal(topk_protos::v1::data::Value::null())
+                topk_rs::proto::v1::data::LogicalExpr::literal(topk_rs::proto::v1::data::Value::null())
             }
             LogicalExpressionUnion::Field { name } => {
-                topk_protos::v1::data::LogicalExpr::field(name)
+                topk_rs::proto::v1::data::LogicalExpr::field(name)
             }
             LogicalExpressionUnion::Literal { value } => {
-                topk_protos::v1::data::LogicalExpr::literal(value.into())
+                topk_rs::proto::v1::data::LogicalExpr::literal(value.into())
             }
             LogicalExpressionUnion::Unary { op, expr } => {
-                topk_protos::v1::data::LogicalExpr::unary(op.into(), expr.as_ref().clone().into())
+                topk_rs::proto::v1::data::LogicalExpr::unary(op.into(), expr.as_ref().clone().into())
             }
             LogicalExpressionUnion::Binary { left, op, right } => {
-                topk_protos::v1::data::LogicalExpr::binary(
+                topk_rs::proto::v1::data::LogicalExpr::binary(
                     op.into(),
                     left.as_ref().clone().into(),
                     right.as_ref().clone().into(),
@@ -342,27 +342,27 @@ pub enum BinaryOperator {
     Div,
 }
 
-impl Into<topk_protos::v1::data::logical_expr::binary_op::Op> for BinaryOperator {
-    fn into(self) -> topk_protos::v1::data::logical_expr::binary_op::Op {
+impl Into<topk_rs::proto::v1::data::logical_expr::binary_op::Op> for BinaryOperator {
+    fn into(self) -> topk_rs::proto::v1::data::logical_expr::binary_op::Op {
         match self {
-            BinaryOperator::And => topk_protos::v1::data::logical_expr::binary_op::Op::And,
-            BinaryOperator::Or => topk_protos::v1::data::logical_expr::binary_op::Op::Or,
-            BinaryOperator::Eq => topk_protos::v1::data::logical_expr::binary_op::Op::Eq,
-            BinaryOperator::Neq => topk_protos::v1::data::logical_expr::binary_op::Op::Neq,
-            BinaryOperator::Lt => topk_protos::v1::data::logical_expr::binary_op::Op::Lt,
-            BinaryOperator::Lte => topk_protos::v1::data::logical_expr::binary_op::Op::Lte,
-            BinaryOperator::Gt => topk_protos::v1::data::logical_expr::binary_op::Op::Gt,
-            BinaryOperator::Gte => topk_protos::v1::data::logical_expr::binary_op::Op::Gte,
+            BinaryOperator::And => topk_rs::proto::v1::data::logical_expr::binary_op::Op::And,
+            BinaryOperator::Or => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Or,
+            BinaryOperator::Eq => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Eq,
+            BinaryOperator::Neq => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Neq,
+            BinaryOperator::Lt => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Lt,
+            BinaryOperator::Lte => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Lte,
+            BinaryOperator::Gt => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Gt,
+            BinaryOperator::Gte => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Gte,
             BinaryOperator::StartsWith => {
-                topk_protos::v1::data::logical_expr::binary_op::Op::StartsWith
+                topk_rs::proto::v1::data::logical_expr::binary_op::Op::StartsWith
             }
             BinaryOperator::Contains => {
-                topk_protos::v1::data::logical_expr::binary_op::Op::Contains
+                topk_rs::proto::v1::data::logical_expr::binary_op::Op::Contains
             }
-            BinaryOperator::Add => topk_protos::v1::data::logical_expr::binary_op::Op::Add,
-            BinaryOperator::Sub => topk_protos::v1::data::logical_expr::binary_op::Op::Sub,
-            BinaryOperator::Mul => topk_protos::v1::data::logical_expr::binary_op::Op::Mul,
-            BinaryOperator::Div => topk_protos::v1::data::logical_expr::binary_op::Op::Div,
+            BinaryOperator::Add => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Add,
+            BinaryOperator::Sub => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Sub,
+            BinaryOperator::Mul => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Mul,
+            BinaryOperator::Div => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Div,
         }
     }
 }
@@ -396,13 +396,13 @@ pub enum UnaryOperator {
     IsNotNull,
 }
 
-impl Into<topk_protos::v1::data::logical_expr::unary_op::Op> for UnaryOperator {
-    fn into(self) -> topk_protos::v1::data::logical_expr::unary_op::Op {
+impl Into<topk_rs::proto::v1::data::logical_expr::unary_op::Op> for UnaryOperator {
+    fn into(self) -> topk_rs::proto::v1::data::logical_expr::unary_op::Op {
         match self {
-            UnaryOperator::Not => topk_protos::v1::data::logical_expr::unary_op::Op::Not,
-            UnaryOperator::IsNull => topk_protos::v1::data::logical_expr::unary_op::Op::IsNull,
+            UnaryOperator::Not => topk_rs::proto::v1::data::logical_expr::unary_op::Op::Not,
+            UnaryOperator::IsNull => topk_rs::proto::v1::data::logical_expr::unary_op::Op::IsNull,
             UnaryOperator::IsNotNull => {
-                topk_protos::v1::data::logical_expr::unary_op::Op::IsNotNull
+                topk_rs::proto::v1::data::logical_expr::unary_op::Op::IsNotNull
             }
         }
     }

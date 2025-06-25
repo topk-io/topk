@@ -1,7 +1,7 @@
 #[macro_export]
 macro_rules! doc {
     ($($field:expr => $value:expr),* $(,)?) => {
-        topk_protos::v1::data::Document::from([
+        topk_rs::proto::v1::data::Document::from([
             $(($field, $value.into())),*
         ])
     };

@@ -1,5 +1,5 @@
 use test_context::test_context;
-use topk_protos::doc;
+use topk_rs::doc;
 use topk_rs::query::{field, filter};
 use topk_rs::Error;
 

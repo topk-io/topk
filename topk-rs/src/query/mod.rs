@@ -67,9 +67,8 @@ pub fn not(expr: impl Into<LogicalExpr>) -> LogicalExpr {
 }
 
 pub mod fns {
-    use topk_protos::v1::data::QueryVector;
-
     use crate::expr::function::FunctionExpr;
+    use crate::proto::v1::data::QueryVector;
 
     pub fn bm25_score() -> FunctionExpr {
         FunctionExpr::KeywordScore {}

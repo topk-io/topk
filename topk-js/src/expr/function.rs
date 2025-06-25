@@ -7,7 +7,7 @@ pub enum FunctionExpression {
     KeywordScore,
     VectorScore {
         field: String,
-        #[napi(ts_type = "data.QueryVector")]
+        #[napi]
         query: QueryVector,
     },
     SemanticSimilarity {
@@ -35,15 +35,17 @@ impl Into<topk_rs::expr::function::FunctionExpr> for FunctionExpression {
     }
 }
 
-impl Into<topk_protos::v1::data::FunctionExpr> for FunctionExpression {
-    fn into(self) -> topk_protos::v1::data::FunctionExpr {
+impl Into<topk_rs::proto::v1::data::FunctionExpr> for FunctionExpression {
+    fn into(self) -> topk_rs::proto::v1::data::FunctionExpr {
         match self {
-            FunctionExpression::KeywordScore => topk_protos::v1::data::FunctionExpr::bm25_score(),
+            FunctionExpression::KeywordScore => {
+                topk_rs::proto::v1::data::FunctionExpr::bm25_score()
+            }
             FunctionExpression::VectorScore { field, query } => {
-                topk_protos::v1::data::FunctionExpr::vector_distance(field, query)
+                topk_rs::proto::v1::data::FunctionExpr::vector_distance(field, query)
             }
             FunctionExpression::SemanticSimilarity { field, query } => {
-                topk_protos::v1::data::FunctionExpr::semantic_similarity(field, query)
+                topk_rs::proto::v1::data::FunctionExpr::semantic_similarity(field, query)
             }
         }
     }

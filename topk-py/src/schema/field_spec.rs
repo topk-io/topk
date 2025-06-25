@@ -61,9 +61,9 @@ impl FieldSpec {
     }
 }
 
-impl Into<topk_protos::v1::control::FieldSpec> for FieldSpec {
-    fn into(self) -> topk_protos::v1::control::FieldSpec {
-        topk_protos::v1::control::FieldSpec {
+impl Into<topk_rs::proto::v1::control::FieldSpec> for FieldSpec {
+    fn into(self) -> topk_rs::proto::v1::control::FieldSpec {
+        topk_rs::proto::v1::control::FieldSpec {
             data_type: Some(self.data_type.into()),
             required: self.required,
             index: self.index.map(|i| i.into()),
@@ -71,8 +71,8 @@ impl Into<topk_protos::v1::control::FieldSpec> for FieldSpec {
     }
 }
 
-impl From<topk_protos::v1::control::FieldSpec> for FieldSpec {
-    fn from(proto: topk_protos::v1::control::FieldSpec) -> Self {
+impl From<topk_rs::proto::v1::control::FieldSpec> for FieldSpec {
+    fn from(proto: topk_rs::proto::v1::control::FieldSpec) -> Self {
         Self {
             data_type: proto
                 .data_type

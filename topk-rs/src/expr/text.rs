@@ -30,18 +30,18 @@ impl TextExpr {
     }
 }
 
-impl Into<topk_protos::v1::data::TextExpr> for TextExpr {
-    fn into(self) -> topk_protos::v1::data::TextExpr {
+impl Into<crate::proto::v1::data::TextExpr> for TextExpr {
+    fn into(self) -> crate::proto::v1::data::TextExpr {
         match self {
-            TextExpr::Terms { all, terms } => topk_protos::v1::data::TextExpr::terms(
+            TextExpr::Terms { all, terms } => crate::proto::v1::data::TextExpr::terms(
                 all,
                 terms.into_iter().map(|t| t.into()).collect(),
             ),
             TextExpr::And { left, right } => {
-                topk_protos::v1::data::TextExpr::and((*left).into(), (*right).into())
+                crate::proto::v1::data::TextExpr::and((*left).into(), (*right).into())
             }
             TextExpr::Or { left, right } => {
-                topk_protos::v1::data::TextExpr::or((*left).into(), (*right).into())
+                crate::proto::v1::data::TextExpr::or((*left).into(), (*right).into())
             }
         }
     }
@@ -54,9 +54,9 @@ pub struct Term {
     pub weight: f32,
 }
 
-impl Into<topk_protos::v1::data::text_expr::Term> for Term {
-    fn into(self) -> topk_protos::v1::data::text_expr::Term {
-        topk_protos::v1::data::text_expr::Term {
+impl Into<crate::proto::v1::data::text_expr::Term> for Term {
+    fn into(self) -> crate::proto::v1::data::text_expr::Term {
+        crate::proto::v1::data::text_expr::Term {
             token: self.token,
             field: self.field,
             weight: self.weight,

@@ -1,4 +1,4 @@
-use topk_protos::v1::data::QueryVector;
+use crate::proto::v1::data::QueryVector;
 
 #[derive(Debug, Clone)]
 pub enum FunctionExpr {
@@ -32,15 +32,15 @@ impl FunctionExpr {
     }
 }
 
-impl Into<topk_protos::v1::data::FunctionExpr> for FunctionExpr {
-    fn into(self) -> topk_protos::v1::data::FunctionExpr {
+impl Into<crate::proto::v1::data::FunctionExpr> for FunctionExpr {
+    fn into(self) -> crate::proto::v1::data::FunctionExpr {
         match self {
-            FunctionExpr::KeywordScore {} => topk_protos::v1::data::FunctionExpr::bm25_score(),
+            FunctionExpr::KeywordScore {} => crate::proto::v1::data::FunctionExpr::bm25_score(),
             FunctionExpr::VectorScore { field, query } => {
-                topk_protos::v1::data::FunctionExpr::vector_distance(field, query)
+                crate::proto::v1::data::FunctionExpr::vector_distance(field, query)
             }
             FunctionExpr::SemanticSimilarity { field, query } => {
-                topk_protos::v1::data::FunctionExpr::semantic_similarity(field, query)
+                crate::proto::v1::data::FunctionExpr::semantic_similarity(field, query)
             }
         }
     }

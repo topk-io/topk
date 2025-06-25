@@ -1,7 +1,7 @@
 use crate::schema::field_spec::FieldSpec;
 use pyo3::prelude::*;
 use std::collections::HashMap;
-use topk_protos::v1::control::FieldSpec as FieldSpecPb;
+use topk_rs::proto::v1::control::FieldSpec as FieldSpecPb;
 
 #[pyclass]
 #[derive(Debug, Clone, PartialEq)]
@@ -46,15 +46,15 @@ impl Collection {
     }
 }
 
-impl Into<topk_protos::v1::control::Collection> for Collection {
-    fn into(self) -> topk_protos::v1::control::Collection {
+impl Into<topk_rs::proto::v1::control::Collection> for Collection {
+    fn into(self) -> topk_rs::proto::v1::control::Collection {
         let schema = self
             .schema
             .into_iter()
             .map(|(name, field)| (name, field.into()))
             .collect::<HashMap<String, FieldSpecPb>>();
 
-        topk_protos::v1::control::Collection::new(
+        topk_rs::proto::v1::control::Collection::new(
             self.name,
             self.org_id.to_string(),
             self.project_id.to_string(),
@@ -64,8 +64,8 @@ impl Into<topk_protos::v1::control::Collection> for Collection {
     }
 }
 
-impl From<topk_protos::v1::control::Collection> for Collection {
-    fn from(collection: topk_protos::v1::control::Collection) -> Self {
+impl From<topk_rs::proto::v1::control::Collection> for Collection {
+    fn from(collection: topk_rs::proto::v1::control::Collection) -> Self {
         Self {
             name: collection.name,
             org_id: collection.org_id,

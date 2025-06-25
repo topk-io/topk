@@ -21,7 +21,6 @@ napi = { version = "=3.0.0-alpha.33", default-features = false, features = [
 ] }
 napi-derive = { version = "=3.0.0-alpha.29" }
 napi-derive-backend = { version = "=2.0.0-alpha.28" }
-topk-protos = { path = "../topk-protos" }
 topk-rs = { path = "../topk-rs" }
 tokio = { version = "1", features = ["rt-multi-thread"] }
 

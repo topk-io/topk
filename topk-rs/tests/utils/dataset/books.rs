@@ -1,10 +1,13 @@
 use crate::utils::ProjectTestContext;
 use std::collections::HashMap;
-use topk_protos::v1::{
-    control::{Collection, FieldSpec, KeywordIndexType, VectorDistanceMetric},
-    data::{Document, Value},
+use topk_rs::proto::v1::control::KeywordIndexType;
+use topk_rs::proto::v1::control::VectorDistanceMetric;
+use topk_rs::proto::v1::data::Value;
+use topk_rs::proto::v1::{
+    control::{Collection, FieldSpec},
+    data::Document,
 };
-use topk_protos::{doc, schema};
+use topk_rs::{doc, schema};
 
 #[allow(dead_code)]
 pub async fn setup(ctx: &mut ProjectTestContext) -> Collection {

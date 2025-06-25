@@ -1,5 +1,5 @@
 use crate::expr::{function::FunctionExpr, logical::LogicalExpr};
-use topk_protos::v1::data;
+use crate::proto::v1::data;
 
 #[derive(Debug, Clone)]
 pub enum SelectExpr {
