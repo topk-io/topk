@@ -99,7 +99,13 @@ class fn:
     @staticmethod
     def vector_distance(
         field: builtins.str,
-        vector: typing.Union[list[int], list[float], topk_sdk.data.Value],
+        vector: typing.Union[
+            list[int],
+            list[float],
+            dict[int, float],
+            dict[int, int],
+            topk_sdk.data.Value,
+        ],
     ) -> FunctionExpr: ...
     @staticmethod
     def semantic_similarity(
