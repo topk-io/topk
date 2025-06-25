@@ -88,12 +88,18 @@ export interface RetryConfig {
 }
 
 export declare namespace data {
+  export class SparseVector {
+
+  }
   export class Vector {
     get values(): VectorUnion
   }
   export function binaryVector(values: Array<number>): Vector
   export function bytes(values: Array<number>): any
   export function f32Vector(values: Array<number>): Vector
+  export type SparseVectorUnion =
+    | { type: 'Float', vector: Record<number, number> }
+    | { type: 'Byte', vector: Record<number, number> }
   export function u8Vector(values: Array<number>): Vector
   export type VectorUnion =
     | { type: 'Float', values: Array<number> }
@@ -154,7 +160,7 @@ export declare namespace query {
   export function filter(expr: LogicalExpression | TextExpression): Query
   export type FunctionExpression =
     | { type: 'KeywordScore' }
-    | { type: 'VectorScore', field: string, query: data.Vector }
+    | { type: 'VectorScore', field: string, query: QueryVector }
     | { type: 'SemanticSimilarity', field: string, query: string }
   export function literal(value: number | string | boolean): LogicalExpression
   export type LogicalExpressionUnion =
@@ -165,6 +171,9 @@ export declare namespace query {
     | { type: 'Binary', left: LogicalExpression, op: BinaryOperator, right: LogicalExpression }
   export function match(token: string, options?: MatchOptions | undefined | null): TextExpression
   export function not(expr: LogicalExpression): LogicalExpression
+  export type QueryVector =
+    | { type: 'Dense', query: data.Vector }
+    | { type: 'Sparse', query: data.SparseVector }
   export function select(exprs: Record<string, LogicalExpression | FunctionExpression>): Query
   export function semanticSimilarity(field: string, query: string): FunctionExpression
   export interface Term {
@@ -199,10 +208,13 @@ export declare namespace schema {
     | { type: 'F32Vector', dimension: number }
     | { type: 'U8Vector', dimension: number }
     | { type: 'BinaryVector', dimension: number }
+    | { type: 'F32SparseVector' }
+    | { type: 'U8SparseVector' }
     | { type: 'Bytes' }
   export type EmbeddingDataType =  'float32'|
   'uint8'|
   'binary';
+  export function f32SparseVector(): FieldSpec
   export function f32Vector(options: VectorOptions): FieldSpec
   export interface FieldIndex {
     index?: FieldIndexUnion
@@ -221,6 +233,7 @@ export declare namespace schema {
     embeddingType?: EmbeddingDataType
   }
   export function text(): FieldSpec
+  export function u8SparseVector(): FieldSpec
   export function u8Vector(options: VectorOptions): FieldSpec
   export type VectorDistanceMetric =  'cosine'|
   'euclidean'|
