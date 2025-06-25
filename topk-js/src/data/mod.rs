@@ -16,12 +16,12 @@ pub enum QueryVector {
     Sparse(sparse::SparseVector),
 }
 
-impl Into<topk_protos::v1::data::QueryVector> for QueryVector {
-    fn into(self) -> topk_protos::v1::data::QueryVector {
+impl Into<topk_rs::proto::v1::data::QueryVector> for QueryVector {
+    fn into(self) -> topk_rs::proto::v1::data::QueryVector {
         match self {
-            QueryVector::Dense(vector) => topk_protos::v1::data::QueryVector::Dense(vector.into()),
+            QueryVector::Dense(vector) => topk_rs::proto::v1::data::QueryVector::Dense(vector.into()),
             QueryVector::Sparse(sparse_vector) => {
-                topk_protos::v1::data::QueryVector::Sparse(sparse_vector.into())
+                topk_rs::proto::v1::data::QueryVector::Sparse(sparse_vector.into())
             }
         }
     }

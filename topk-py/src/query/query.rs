@@ -30,11 +30,11 @@ impl<'py> FromPyObject<'py> for ConsistencyLevel {
     }
 }
 
-impl From<ConsistencyLevel> for topk_protos::v1::data::ConsistencyLevel {
+impl From<ConsistencyLevel> for topk_rs::proto::v1::data::ConsistencyLevel {
     fn from(consistency_level: ConsistencyLevel) -> Self {
         match consistency_level {
-            ConsistencyLevel::Indexed => topk_protos::v1::data::ConsistencyLevel::Indexed,
-            ConsistencyLevel::Strong => topk_protos::v1::data::ConsistencyLevel::Strong,
+            ConsistencyLevel::Indexed => topk_rs::proto::v1::data::ConsistencyLevel::Indexed,
+            ConsistencyLevel::Strong => topk_rs::proto::v1::data::ConsistencyLevel::Strong,
         }
     }
 }

@@ -1,5 +1,6 @@
 pub mod data;
 pub mod error;
+pub mod proto;
 pub use error::Error;
 pub mod expr;
 pub mod query;

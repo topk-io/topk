@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use test_context::test_context;
-use topk_protos::doc;
-use topk_protos::v1::data::Value;
+use topk_rs::doc;
+use topk_rs::proto::v1::data::Value;
 
 mod utils;
 use topk_rs::data::Vector;

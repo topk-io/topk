@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 use test_context::test_context;
-use topk_protos::doc;
-use topk_protos::v1::control::VectorDistanceMetric;
-use topk_protos::v1::data::Value;
-use topk_protos::v1::{
+use topk_rs::doc;
+use topk_rs::error::{DocumentValidationError, ValidationErrorBag};
+use topk_rs::proto::v1::control::VectorDistanceMetric;
+use topk_rs::proto::v1::data::Value;
+use topk_rs::proto::v1::{
     control::{field_type::DataType, FieldSpec, FieldType, FieldTypeText},
     data::Document,
 };
-use topk_rs::error::{DocumentValidationError, ValidationErrorBag};
 use topk_rs::Error;
 
 mod utils;

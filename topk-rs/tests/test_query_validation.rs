@@ -1,6 +1,6 @@
 use test_context::test_context;
-use topk_protos::v1::data::Value;
-use topk_protos::{doc, schema};
+use topk_rs::proto::v1::data::Value;
+use topk_rs::proto::{doc, schema};
 use topk_rs::query::{field, select};
 use topk_rs::Error;
 

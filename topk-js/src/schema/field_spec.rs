@@ -39,31 +39,31 @@ impl FieldSpec {
     }
 }
 
-impl From<FieldSpec> for topk_protos::v1::control::FieldSpec {
+impl From<FieldSpec> for topk_rs::proto::v1::control::FieldSpec {
     fn from(field_spec: FieldSpec) -> Self {
         Self {
-            data_type: Some(topk_protos::v1::control::FieldType {
+            data_type: Some(topk_rs::proto::v1::control::FieldType {
                 data_type: Some(match field_spec.data_type {
-                    DataType::Text => topk_protos::v1::control::field_type::DataType::text(),
-                    DataType::Integer => topk_protos::v1::control::field_type::DataType::integer(),
-                    DataType::Float => topk_protos::v1::control::field_type::DataType::float(),
-                    DataType::Boolean => topk_protos::v1::control::field_type::DataType::bool(),
+                    DataType::Text => topk_rs::proto::v1::control::field_type::DataType::text(),
+                    DataType::Integer => topk_rs::proto::v1::control::field_type::DataType::integer(),
+                    DataType::Float => topk_rs::proto::v1::control::field_type::DataType::float(),
+                    DataType::Boolean => topk_rs::proto::v1::control::field_type::DataType::bool(),
                     DataType::F32Vector { dimension } => {
-                        topk_protos::v1::control::field_type::DataType::f32_vector(dimension)
+                        topk_rs::proto::v1::control::field_type::DataType::f32_vector(dimension)
                     }
                     DataType::U8Vector { dimension } => {
-                        topk_protos::v1::control::field_type::DataType::u8_vector(dimension)
+                        topk_rs::proto::v1::control::field_type::DataType::u8_vector(dimension)
                     }
                     DataType::BinaryVector { dimension } => {
-                        topk_protos::v1::control::field_type::DataType::binary_vector(dimension)
+                        topk_rs::proto::v1::control::field_type::DataType::binary_vector(dimension)
                     }
                     DataType::F32SparseVector => {
-                        topk_protos::v1::control::field_type::DataType::f32_sparse_vector()
+                        topk_rs::proto::v1::control::field_type::DataType::f32_sparse_vector()
                     }
                     DataType::U8SparseVector => {
-                        topk_protos::v1::control::field_type::DataType::u8_sparse_vector()
+                        topk_rs::proto::v1::control::field_type::DataType::u8_sparse_vector()
                     }
-                    DataType::Bytes => topk_protos::v1::control::field_type::DataType::bytes(),
+                    DataType::Bytes => topk_rs::proto::v1::control::field_type::DataType::bytes(),
                 }),
             }),
             required: field_spec.required,

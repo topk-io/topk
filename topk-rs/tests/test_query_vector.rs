@@ -1,5 +1,5 @@
 use test_context::test_context;
-use topk_protos::v1::data::Document;
+use topk_rs::proto::v1::data::Document;
 use topk_rs::data::Vector;
 use topk_rs::query::{field, fns, select};
 

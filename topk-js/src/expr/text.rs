@@ -1,6 +1,6 @@
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
-use topk_protos::v1::data;
+use topk_rs::proto::v1::data;
 
 use crate::data::napi_box::NapiBox;
 

@@ -4,7 +4,7 @@ use crate::error::RustError;
 use crate::schema::field_spec::FieldSpec;
 use pyo3::prelude::*;
 use std::{collections::HashMap, sync::Arc};
-use topk_protos::v1::control::FieldSpec as FieldSpecPb;
+use topk_rs::proto::v1::control::FieldSpec as FieldSpecPb;
 
 #[pyclass]
 pub struct CollectionsClient {

@@ -117,7 +117,7 @@ impl CollectionClient {
     ) -> PyResult<String> {
         let documents = documents
             .into_iter()
-            .map(|d| topk_protos::v1::data::Document {
+            .map(|d| topk_rs::proto::v1::data::Document {
                 fields: d.into_iter().map(|(k, v)| (k, v.into())).collect(),
             })
             .collect();

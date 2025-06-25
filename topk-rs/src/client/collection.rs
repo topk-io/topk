@@ -3,6 +3,10 @@ use super::create_query_client;
 use super::create_write_client;
 use super::retry::call_with_retry;
 use crate::error::Error;
+use crate::proto::v1::data::{ConsistencyLevel, GetRequest};
+use crate::proto::v1::data::{
+    DeleteDocumentsRequest, Document, QueryRequest, UpsertDocumentsRequest, Value,
+};
 use crate::query::Query;
 use crate::query::Stage;
 use futures_util::future::TryFutureExt;
@@ -10,10 +14,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::OnceCell;
 use tonic::transport::Channel;
-use topk_protos::v1::data::{ConsistencyLevel, GetRequest};
-use topk_protos::v1::data::{
-    DeleteDocumentsRequest, Document, QueryRequest, UpsertDocumentsRequest, Value,
-};
 
 #[derive(Clone)]
 pub struct CollectionClient {

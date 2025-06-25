@@ -10,7 +10,6 @@ documentation = "https://docs.topk.io"
 
 [dependencies]
 pyo3 = { version = "0.25.0", features = ["py-clone"] }
-topk-protos = { path = "../topk-protos" }
 topk-rs = { path = "../topk-rs" }
 tokio = { version = "1.35", features = ["full"] }
 anyhow = { version = "1.0.77" }

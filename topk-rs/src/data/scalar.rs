@@ -52,18 +52,18 @@ impl From<f64> for Scalar {
     }
 }
 
-impl Into<topk_protos::v1::data::Value> for Scalar {
-    fn into(self) -> topk_protos::v1::data::Value {
-        topk_protos::v1::data::Value {
+impl Into<crate::proto::v1::data::Value> for Scalar {
+    fn into(self) -> crate::proto::v1::data::Value {
+        crate::proto::v1::data::Value {
             value: Some(match self {
-                Scalar::Bool(b) => topk_protos::v1::data::value::Value::Bool(b),
-                Scalar::I32(i) => topk_protos::v1::data::value::Value::I32(i),
-                Scalar::I64(i) => topk_protos::v1::data::value::Value::I64(i),
-                Scalar::F32(f) => topk_protos::v1::data::value::Value::F32(f),
-                Scalar::F64(f) => topk_protos::v1::data::value::Value::F64(f),
-                Scalar::U32(u) => topk_protos::v1::data::value::Value::U32(u),
-                Scalar::U64(u) => topk_protos::v1::data::value::Value::U64(u),
-                Scalar::String(s) => topk_protos::v1::data::value::Value::String(s),
+                Scalar::Bool(b) => crate::proto::v1::data::value::Value::Bool(b),
+                Scalar::I32(i) => crate::proto::v1::data::value::Value::I32(i),
+                Scalar::I64(i) => crate::proto::v1::data::value::Value::I64(i),
+                Scalar::F32(f) => crate::proto::v1::data::value::Value::F32(f),
+                Scalar::F64(f) => crate::proto::v1::data::value::Value::F64(f),
+                Scalar::U32(u) => crate::proto::v1::data::value::Value::U32(u),
+                Scalar::U64(u) => crate::proto::v1::data::value::Value::U64(u),
+                Scalar::String(s) => crate::proto::v1::data::value::Value::String(s),
             }),
         }
     }

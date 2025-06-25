@@ -3,9 +3,9 @@ use std::sync::Arc;
 use tokio::sync::OnceCell;
 use tonic::service::interceptor::InterceptedService;
 use tonic::transport::Channel;
-use topk_protos::v1::control::collection_service_client::CollectionServiceClient;
-use topk_protos::v1::data::query_service_client::QueryServiceClient;
-use topk_protos::v1::data::write_service_client::WriteServiceClient;
+use crate::proto::v1::control::collection_service_client::CollectionServiceClient;
+use crate::proto::v1::data::query_service_client::QueryServiceClient;
+use crate::proto::v1::data::write_service_client::WriteServiceClient;
 
 mod collections;
 pub use collections::CollectionsClient;

@@ -1,5 +1,5 @@
 use test_context::test_context;
-use topk_protos::{schema, v1::control::FieldSpec};
+use topk_rs::proto::{schema, v1::control::FieldSpec};
 use topk_rs::{
     query::{field, fns, r#match, select},
     Error,
