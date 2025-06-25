@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use super::logical::LogicalExpr;
 use crate::data::{scalar::Scalar, value::Value};
 use pyo3::{
@@ -152,7 +150,10 @@ impl<'py> FromPyObject<'py> for Vectorish {
                 return Ok(Vectorish::SparseF32(vec![], vec![]));
             }
 
-            if let Ok(mut items) = v.items().extract::<Vec<(u32, f32)>>() {
+            let first_value = v.values().get_item(0)?;
+
+            if let Ok(_) = first_value.downcast_exact::<PyFloat>() {
+                let mut items = items.extract::<Vec<(u32, f32)>>()?;
                 items.sort_by_key(|(key, _)| *key);
 
                 return Ok(Vectorish::SparseF32(
@@ -161,7 +162,8 @@ impl<'py> FromPyObject<'py> for Vectorish {
                 ));
             }
 
-            if let Ok(mut items) = v.items().extract::<Vec<(u32, u8)>>() {
+            if let Ok(_) = first_value.downcast_exact::<PyInt>() {
+                let mut items = items.extract::<Vec<(u32, u8)>>()?;
                 items.sort_by_key(|(key, _)| *key);
 
                 return Ok(Vectorish::SparseU8(
@@ -171,7 +173,7 @@ impl<'py> FromPyObject<'py> for Vectorish {
             }
 
             Err(PyTypeError::new_err(format!(
-                "Can't convert from {:?} to Value",
+                "Can't convert from {:?} to a vector",
                 obj.get_type().name()
             )))
         } else if let Ok(v) = obj.downcast::<Value>() {
