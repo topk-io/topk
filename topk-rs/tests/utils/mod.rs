@@ -26,6 +26,25 @@ macro_rules! assert_doc_ids {
 }
 
 #[macro_export]
+macro_rules! assert_doc_ids_ordered {
+    ($docs:expr, $expected:expr) => {{
+        let ids = $docs
+            .into_iter()
+            .map(|d| d.id().unwrap().to_string())
+            .collect::<Vec<_>>();
+
+        let expected = Vec::from($expected);
+
+        assert!(
+            ids == expected,
+            "actual: {:?}, expected: {:?}",
+            ids,
+            expected
+        );
+    }};
+}
+
+#[macro_export]
 macro_rules! assert_fields {
     ($docs:expr, $expected:expr) => {{
         let fields = $docs

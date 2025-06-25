@@ -2,8 +2,8 @@ use super::{
     utils::{get_napi_value_type, is_napi_integer},
     vector::{Vector, VectorUnion},
 };
-use crate::data::sparse_vector::{
-    SparseVector, SparseVectorF32, SparseVectorU8, SparseVectorUnion,
+use crate::data::sparse::{
+    f32::SparseVectorF32, u8::SparseVectorU8, SparseVector, SparseVectorUnion,
 };
 use napi::{
     bindgen_prelude::*,

@@ -1,6 +1,5 @@
+use crate::{data::QueryVector, expr::function::FunctionExpression};
 use napi_derive::napi;
-
-use crate::{data::vector::Vector, expr::function::FunctionExpression};
 
 pub mod query;
 pub mod stage;
@@ -8,7 +7,7 @@ pub mod stage;
 #[napi(namespace = "query")]
 pub fn vector_distance(
     field: String,
-    #[napi(ts_arg_type = "Array<number> | data.Vector")] query: Vector,
+    #[napi(ts_arg_type = "Array<number> | data.Vector")] query: QueryVector,
 ) -> FunctionExpression {
     FunctionExpression::VectorScore {
         field,

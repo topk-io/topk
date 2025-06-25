@@ -17,8 +17,8 @@ impl Into<topk_rs::expr::function::FunctionExpr> for FunctionExpr {
                 topk_rs::expr::function::FunctionExpr::VectorScore {
                     field,
                     query: match query {
-                        Vector::F32(values) => topk_rs::data::Vector::F32(values),
-                        Vector::U8(values) => topk_rs::data::Vector::U8(values),
+                        Vector::F32(values) => topk_rs::data::Vector::F32(values).into(),
+                        Vector::U8(values) => topk_rs::data::Vector::U8(values).into(),
                     },
                 }
             }
