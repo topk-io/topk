@@ -38,3 +38,9 @@ impl From<topk_protos::v1::data::SparseVector> for SparseVector {
         }
     }
 }
+
+impl From<SparseVector> for topk_protos::v1::data::QueryVector {
+    fn from(vector: SparseVector) -> Self {
+        topk_protos::v1::data::QueryVector::Sparse(vector.into())
+    }
+}

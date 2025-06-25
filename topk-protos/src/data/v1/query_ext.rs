@@ -416,14 +416,21 @@ impl stage::filter_stage::FilterExpr {
 }
 
 impl FunctionExpr {
-    pub fn vector_distance(field: impl Into<String>, query: Vector) -> Self {
+    pub fn vector_distance(field: impl Into<String>, query: impl Into<QueryVector>) -> Self {
+        let dist = match query.into() {
+            QueryVector::Dense(query) => function_expr::VectorDistance {
+                field: field.into(),
+                query: Some(query),
+                sparse_query: None,
+            },
+            QueryVector::Sparse(sparse_query) => function_expr::VectorDistance {
+                field: field.into(),
+                query: None,
+                sparse_query: Some(sparse_query),
+            },
+        };
         FunctionExpr {
-            func: Some(function_expr::Func::VectorDistance(
-                function_expr::VectorDistance {
-                    field: field.into(),
-                    query: Some(query),
-                },
-            )),
+            func: Some(function_expr::Func::VectorDistance(dist)),
         }
     }
 
