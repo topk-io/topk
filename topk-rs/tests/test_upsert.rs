@@ -264,11 +264,11 @@ async fn test_upsert_sparse_vectors(ctx: &mut ProjectTestContext) {
             HashMap::from_iter([
                 (
                     "f32_sparse_vector".to_string(),
-                    FieldSpec::f32_sparse_vector(),
+                    FieldSpec::f32_sparse_vector(true, VectorDistanceMetric::DotProduct),
                 ),
                 (
                     "u8_sparse_vector".to_string(),
-                    FieldSpec::u8_sparse_vector(),
+                    FieldSpec::u8_sparse_vector(true, VectorDistanceMetric::DotProduct),
                 ),
             ]),
         )

@@ -91,25 +91,35 @@ impl FieldSpec {
         }
     }
 
-    pub fn f32_sparse_vector() -> FieldSpec {
+    pub fn f32_sparse_vector(required: bool, metric: VectorDistanceMetric) -> FieldSpec {
         FieldSpec {
             data_type: Some(FieldType {
                 data_type: Some(field_type::DataType::F32SparseVector(
                     FieldTypeF32SparseVector {},
                 )),
             }),
-            ..Default::default()
+            required,
+            index: Some(FieldIndex {
+                index: Some(field_index::Index::VectorIndex(VectorIndex {
+                    metric: metric as i32,
+                })),
+            }),
         }
     }
 
-    pub fn u8_sparse_vector() -> FieldSpec {
+    pub fn u8_sparse_vector(required: bool, metric: VectorDistanceMetric) -> FieldSpec {
         FieldSpec {
             data_type: Some(FieldType {
                 data_type: Some(field_type::DataType::U8SparseVector(
                     FieldTypeU8SparseVector {},
                 )),
             }),
-            ..Default::default()
+            required,
+            index: Some(FieldIndex {
+                index: Some(field_index::Index::VectorIndex(VectorIndex {
+                    metric: metric as i32,
+                })),
+            }),
         }
     }
 

@@ -42,6 +42,8 @@ pub fn schema() -> HashMap<String, FieldSpec> {
         "nullable_embedding" => FieldSpec::f32_vector(16, false, VectorDistanceMetric::Euclidean),
         "scalar_embedding" => FieldSpec::u8_vector(16, false, VectorDistanceMetric::Euclidean),
         "binary_embedding" => FieldSpec::binary_vector(2, false, VectorDistanceMetric::Hamming),
+        "sparse_f32_embedding" => FieldSpec::f32_sparse_vector(true, VectorDistanceMetric::DotProduct),
+        "sparse_u8_embedding" => FieldSpec::u8_sparse_vector(false, VectorDistanceMetric::DotProduct),
     )
 }
 
