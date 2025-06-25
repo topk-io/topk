@@ -22,6 +22,8 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(u8_vector))?;
     m.add_wrapped(wrap_pyfunction!(binary_vector))?;
     m.add_wrapped(wrap_pyfunction!(bytes))?;
+    m.add_wrapped(wrap_pyfunction!(f32_sparse_vector))?;
+    m.add_wrapped(wrap_pyfunction!(u8_sparse_vector))?;
 
     // indexes
     m.add_wrapped(wrap_pyfunction!(vector_index))?;
@@ -64,6 +66,16 @@ pub fn u8_vector(dimension: u32) -> field_spec::FieldSpec {
 #[pyfunction]
 pub fn binary_vector(dimension: u32) -> field_spec::FieldSpec {
     field_spec::FieldSpec::new(data_type::DataType::BinaryVector { dimension })
+}
+
+#[pyfunction]
+pub fn f32_sparse_vector() -> field_spec::FieldSpec {
+    field_spec::FieldSpec::new(data_type::DataType::F32SparseVector())
+}
+
+#[pyfunction]
+pub fn u8_sparse_vector() -> field_spec::FieldSpec {
+    field_spec::FieldSpec::new(data_type::DataType::U8SparseVector())
 }
 
 #[pyfunction]

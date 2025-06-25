@@ -1,10 +1,11 @@
-use super::vector::Vector;
 use pyo3::{
     exceptions::PyTypeError,
     prelude::*,
-    types::{PyBool, PyBytes, PyFloat, PyInt, PyList, PyNone, PyString},
+    types::{PyBool, PyBytes, PyDict, PyFloat, PyInt, PyList, PyNone, PyString},
     IntoPyObjectExt,
 };
+
+use super::vector::{SparseVector, Vector};
 
 #[pyclass]
 #[derive(Debug, PartialEq, Clone)]
@@ -15,6 +16,7 @@ pub enum Value {
     Float(f64),
     Bool(bool),
     Vector(Vector),
+    SparseVector(SparseVector),
     Bytes(Vec<u8>),
 }
 
@@ -35,6 +37,31 @@ impl<'py> FromPyObject<'py> for RawValue {
             Ok(RawValue(Value::Float(f.extract()?)))
         } else if let Ok(b) = obj.downcast_exact::<PyBool>() {
             Ok(RawValue(Value::Bool(b.extract()?)))
+        } else if let Ok(d) = obj.downcast_exact::<PyDict>() {
+            if let Ok(indices) = d.keys().extract::<Vec<u32>>() {
+                let values = d.values();
+                if let Ok(values) = values.extract::<Vec<f32>>() {
+                    Ok(RawValue(Value::SparseVector(SparseVector::F32 {
+                        indices,
+                        values,
+                    })))
+                } else if let Ok(values) = values.extract::<Vec<u8>>() {
+                    Ok(RawValue(Value::SparseVector(SparseVector::U8 {
+                        indices,
+                        values,
+                    })))
+                } else {
+                    Err(PyTypeError::new_err(format!(
+                        "Can't convert from {:?} to Value",
+                        obj.get_type().name()
+                    )))
+                }
+            } else {
+                Err(PyTypeError::new_err(format!(
+                    "Can't convert from {:?} to Value",
+                    obj.get_type().name()
+                )))
+            }
         } else if let Ok(v) = obj.downcast_exact::<PyList>() {
             // Try converting to vector from starting with most restrictive type first.
             if let Ok(values) = v.extract::<Vec<f32>>() {
@@ -85,6 +112,22 @@ impl<'py> IntoPyObject<'py> for RawValue {
                     list.into_py_any(py)?.into_bound(py)
                 }
             }),
+            Value::SparseVector(v) => Ok(match v {
+                SparseVector::F32 { indices, values } => {
+                    let dict = PyDict::new(py);
+                    for (i, v) in indices.iter().zip(values.iter()) {
+                        dict.set_item(i.into_py_any(py)?, v.into_py_any(py)?)?;
+                    }
+                    dict.into_py_any(py)?.into_bound(py)
+                }
+                SparseVector::U8 { indices, values } => {
+                    let dict = PyDict::new(py);
+                    for (i, v) in indices.iter().zip(values.iter()) {
+                        dict.set_item(i.into_py_any(py)?, v.into_py_any(py)?)?;
+                    }
+                    dict.into_py_any(py)?.into_bound(py)
+                }
+            }),
         }
     }
 }
@@ -110,6 +153,21 @@ impl From<topk_protos::v1::data::Value> for Value {
                 }
                 t => unreachable!("Unknown vector type: {:?}", t),
             },
+            Some(topk_protos::v1::data::value::Value::SparseVector(sv)) => {
+                Value::SparseVector(match sv.values {
+                    Some(topk_protos::v1::data::sparse_vector::Values::F32(v)) => {
+                        SparseVector::F32 {
+                            indices: sv.indices,
+                            values: v.values,
+                        }
+                    }
+                    Some(topk_protos::v1::data::sparse_vector::Values::U8(v)) => SparseVector::U8 {
+                        indices: sv.indices,
+                        values: v.values,
+                    },
+                    t => unreachable!("Unknown sparse vector type: {:?}", t),
+                })
+            }
             None => Value::Null(),
         }
     }
@@ -134,6 +192,18 @@ impl From<Value> for topk_protos::v1::data::Value {
                     Vector::U8(v) => topk_protos::v1::data::value::Value::Vector(
                         topk_protos::v1::data::Vector::byte(v),
                     ),
+                },
+                Value::SparseVector(v) => match v {
+                    SparseVector::F32 { indices, values } => {
+                        topk_protos::v1::data::value::Value::SparseVector(
+                            topk_protos::v1::data::SparseVector::f32(indices, values),
+                        )
+                    }
+                    SparseVector::U8 { indices, values } => {
+                        topk_protos::v1::data::value::Value::SparseVector(
+                            topk_protos::v1::data::SparseVector::u8(indices, values),
+                        )
+                    }
                 },
             }),
         }

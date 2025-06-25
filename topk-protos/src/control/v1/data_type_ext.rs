@@ -29,6 +29,14 @@ impl field_type::DataType {
         field_type::DataType::BinaryVector(FieldTypeBinaryVector { dimension })
     }
 
+    pub fn f32_sparse_vector() -> Self {
+        field_type::DataType::F32SparseVector(FieldTypeF32SparseVector {})
+    }
+
+    pub fn u8_sparse_vector() -> Self {
+        field_type::DataType::U8SparseVector(FieldTypeU8SparseVector {})
+    }
+
     pub fn bytes() -> Self {
         field_type::DataType::Bytes(FieldTypeBytes {})
     }

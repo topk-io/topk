@@ -153,6 +153,28 @@ impl Value {
         }
     }
 
+    pub fn f32_sparse_vector(indices: Vec<u32>, values: Vec<f32>) -> Self {
+        Value {
+            value: Some(value::Value::SparseVector(SparseVector {
+                indices,
+                values: Some(sparse_vector::Values::F32(sparse_vector::F32Values {
+                    values,
+                })),
+            })),
+        }
+    }
+
+    pub fn u8_sparse_vector(indices: Vec<u32>, values: Vec<u8>) -> Self {
+        Value {
+            value: Some(value::Value::SparseVector(SparseVector {
+                indices,
+                values: Some(sparse_vector::Values::U8(sparse_vector::U8Values {
+                    values,
+                })),
+            })),
+        }
+    }
+
     pub fn binary(value: Vec<u8>) -> Self {
         Value {
             value: Some(value::Value::Binary(value)),
@@ -185,6 +207,11 @@ impl value::Value {
                 Some(vector::Vector::Float(v)) => format!("f32_vector({})", v.values.len()),
                 Some(vector::Vector::Byte(v)) => format!("u8_vector({})", v.values.len()),
                 _ => "null_vector".to_string(),
+            },
+            value::Value::SparseVector(v) => match &v.values {
+                Some(sparse_vector::Values::F32(_)) => "f32_sparse_vector".to_string(),
+                Some(sparse_vector::Values::U8(_)) => "u8_sparse_vector".to_string(),
+                _ => "null_sparse_vector".to_string(),
             },
             value::Value::Null(_) => "null".to_string(),
         }
@@ -284,6 +311,26 @@ impl Vector {
             Some(vector::Vector::Float(vector::Float { values })) => Some(values.len()),
             Some(vector::Vector::Byte(vector::Byte { values })) => Some(values.len()),
             _ => None,
+        }
+    }
+}
+
+impl SparseVector {
+    pub fn f32(indices: Vec<u32>, values: Vec<f32>) -> Self {
+        SparseVector {
+            indices,
+            values: Some(sparse_vector::Values::F32(sparse_vector::F32Values {
+                values,
+            })),
+        }
+    }
+
+    pub fn u8(indices: Vec<u32>, values: Vec<u8>) -> Self {
+        SparseVector {
+            indices,
+            values: Some(sparse_vector::Values::U8(sparse_vector::U8Values {
+                values,
+            })),
         }
     }
 }

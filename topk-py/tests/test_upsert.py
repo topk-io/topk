@@ -1,15 +1,16 @@
 import pytest
-from topk_sdk import error
-from topk_sdk import data
+from topk_sdk import data, error
 from topk_sdk.schema import (
-    bool,
-    text,
-    int,
-    float,
-    f32_vector,
-    u8_vector,
     binary_vector,
+    bool,
     bytes,
+    f32_sparse_vector,
+    f32_vector,
+    float,
+    int,
+    text,
+    u8_sparse_vector,
+    u8_vector,
 )
 
 from . import ProjectContext
@@ -130,3 +131,34 @@ def test_upsert_vectors(ctx: ProjectContext):
     assert obj["x"]["f32_vector"] == [1, 2, 3]
     assert obj["x"]["u8_vector"] == [4, 5, 6]
     assert obj["x"]["binary_vector"] == [7, 8, 9]
+
+
+def test_upsert_sparse_vectors(ctx: ProjectContext):
+    collection = ctx.client.collections().create(
+        ctx.scope("test"),
+        schema={
+            "f32_sparse_vector": f32_sparse_vector(),
+            "u8_sparse_vector": u8_sparse_vector(),
+        },
+    )
+
+    lsn = ctx.client.collection(collection.name).upsert(
+        [
+            {
+                "_id": "x",
+                "f32_sparse_vector": {1: 1.2, 2: 2.3, 3: 3.4},
+                "u8_sparse_vector": data.u8_sparse_vector({1: 4, 2: 5, 3: 6}),
+            }
+        ]
+    )
+
+    obj = ctx.client.collection(collection.name).get(["x"], lsn=lsn)
+
+    assert set(obj["x"]["f32_sparse_vector"].keys()) == {1, 2, 3}
+    assert "{:.2f}".format(obj["x"]["f32_sparse_vector"][1]) == "1.20"
+    assert "{:.2f}".format(obj["x"]["f32_sparse_vector"][2]) == "2.30"
+    assert "{:.2f}".format(obj["x"]["f32_sparse_vector"][3]) == "3.40"
+    assert set(obj["x"]["u8_sparse_vector"].keys()) == {1, 2, 3}
+    assert obj["x"]["u8_sparse_vector"][1] == 4
+    assert obj["x"]["u8_sparse_vector"][2] == 5
+    assert obj["x"]["u8_sparse_vector"][3] == 6

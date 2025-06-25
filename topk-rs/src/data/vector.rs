@@ -25,6 +25,12 @@ impl From<topk_protos::v1::data::Vector> for Vector {
     }
 }
 
+impl From<Vector> for topk_protos::v1::data::QueryVector {
+    fn from(vector: Vector) -> Self {
+        topk_protos::v1::data::QueryVector::Dense(vector.into())
+    }
+}
+
 impl From<Vec<f32>> for Vector {
     fn from(values: Vec<f32>) -> Self {
         Vector::F32(values)

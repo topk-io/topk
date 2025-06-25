@@ -177,6 +177,12 @@ pub enum DocumentValidationError {
         got_dimension: usize,
     },
 
+    InvalidSparseVector {
+        doc_id: String,
+        field: String,
+        reason: String,
+    },
+
     NoDocuments,
 }
 

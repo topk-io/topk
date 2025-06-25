@@ -1,6 +1,5 @@
+use crate::data::QueryVector;
 use napi_derive::napi;
-
-use crate::data::vector::Vector;
 
 #[napi(namespace = "query")]
 #[derive(Debug, Clone)]
@@ -8,8 +7,8 @@ pub enum FunctionExpression {
     KeywordScore,
     VectorScore {
         field: String,
-        #[napi(ts_type = "data.Vector")]
-        query: Vector,
+        #[napi(ts_type = "data.QueryVector")]
+        query: QueryVector,
     },
     SemanticSimilarity {
         field: String,
@@ -41,7 +40,7 @@ impl Into<topk_protos::v1::data::FunctionExpr> for FunctionExpression {
         match self {
             FunctionExpression::KeywordScore => topk_protos::v1::data::FunctionExpr::bm25_score(),
             FunctionExpression::VectorScore { field, query } => {
-                topk_protos::v1::data::FunctionExpr::vector_distance(field, query.into())
+                topk_protos::v1::data::FunctionExpr::vector_distance(field, query)
             }
             FunctionExpression::SemanticSimilarity { field, query } => {
                 topk_protos::v1::data::FunctionExpr::semantic_similarity(field, query)

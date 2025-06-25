@@ -3,7 +3,7 @@ use crate::data::{scalar::Scalar, value::Value};
 use pyo3::{
     exceptions::PyTypeError,
     prelude::*,
-    types::{PyBool, PyFloat, PyInt, PyNone, PyString},
+    types::{PyBool, PyDict, PyFloat, PyInt, PyList, PyNone, PyString},
 };
 
 #[pyclass]
@@ -131,11 +131,58 @@ impl Into<LogicalExpr> for Stringy {
     }
 }
 
-#[derive(Debug, Clone, FromPyObject)]
+#[derive(Debug, Clone)]
 pub enum Vectorish {
-    #[pyo3(transparent)]
-    Raw(Vec<f32>),
-
-    #[pyo3(transparent)]
+    DenseF32(Vec<f32>),
+    SparseF32(Vec<u32>, Vec<f32>),
+    SparseU8(Vec<u32>, Vec<u8>),
     Value(Value),
+}
+
+impl<'py> FromPyObject<'py> for Vectorish {
+    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+        if let Ok(v) = obj.downcast_exact::<PyList>() {
+            Ok(Vectorish::DenseF32(v.extract()?))
+        } else if let Ok(v) = obj.downcast_exact::<PyDict>() {
+            let items = v.items();
+
+            if items.len() == 0 {
+                return Ok(Vectorish::SparseF32(vec![], vec![]));
+            }
+
+            let first_value = v.values().get_item(0)?;
+
+            if let Ok(_) = first_value.downcast_exact::<PyFloat>() {
+                let mut items = items.extract::<Vec<(u32, f32)>>()?;
+                items.sort_by_key(|(key, _)| *key);
+
+                return Ok(Vectorish::SparseF32(
+                    items.iter().map(|(i, _)| *i).collect(),
+                    items.iter().map(|(_, v)| *v).collect(),
+                ));
+            }
+
+            if let Ok(_) = first_value.downcast_exact::<PyInt>() {
+                let mut items = items.extract::<Vec<(u32, u8)>>()?;
+                items.sort_by_key(|(key, _)| *key);
+
+                return Ok(Vectorish::SparseU8(
+                    items.iter().map(|(i, _)| *i).collect(),
+                    items.iter().map(|(_, v)| *v).collect(),
+                ));
+            }
+
+            Err(PyTypeError::new_err(format!(
+                "Can't convert from {:?} to a vector",
+                obj.get_type().name()
+            )))
+        } else if let Ok(v) = obj.downcast::<Value>() {
+            Ok(Vectorish::Value(v.get().clone()))
+        } else {
+            Err(PyTypeError::new_err(format!(
+                "Can't convert from {:?} to Vectorish",
+                obj.get_type().name()
+            )))
+        }
+    }
 }

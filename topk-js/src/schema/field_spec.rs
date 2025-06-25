@@ -57,6 +57,12 @@ impl From<FieldSpec> for topk_protos::v1::control::FieldSpec {
                     DataType::BinaryVector { dimension } => {
                         topk_protos::v1::control::field_type::DataType::binary_vector(dimension)
                     }
+                    DataType::F32SparseVector => {
+                        topk_protos::v1::control::field_type::DataType::f32_sparse_vector()
+                    }
+                    DataType::U8SparseVector => {
+                        topk_protos::v1::control::field_type::DataType::u8_sparse_vector()
+                    }
                     DataType::Bytes => topk_protos::v1::control::field_type::DataType::bytes(),
                 }),
             }),

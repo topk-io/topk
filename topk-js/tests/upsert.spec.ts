@@ -1,4 +1,16 @@
-import { f32Vector, text, vectorIndex } from "../lib/schema";
+import {
+  binaryVector,
+  bool,
+  bytes,
+  f32SparseVector,
+  f32Vector,
+  float,
+  int,
+  text,
+  u8SparseVector,
+  u8Vector,
+  vectorIndex,
+} from "../lib/schema";
 import { newProjectContext, ProjectContext } from "./setup";
 
 describe("Upsert", () => {
@@ -141,5 +153,80 @@ describe("Upsert", () => {
     ).rejects.toThrow(
       /InvalidVectorDimension { doc_id: \"doc1\", field: \"f32_embedding\", expected_dimension: 3, got_dimension: 2 }/
     );
+  });
+
+  test.each([
+    [true, bool()],
+    ["hello", text()],
+    [1, int()],
+    [1.0, float()],
+    [Buffer.from("hello"), bytes()],
+  ])("upsert primitives - %s", async (value, dataType) => {
+    const ctx = getContext();
+
+    await ctx.createCollection("test", {
+      field: dataType,
+    });
+
+    const lsn = await ctx.client
+      .collection(ctx.scope("test"))
+      .upsert([{ _id: "x", field: value }]);
+
+    const obj = await ctx.client
+      .collection(ctx.scope("test"))
+      .get(["x"], null, { lsn });
+
+    expect(obj["x"].field).toEqual(value);
+  });
+
+  test("upsert vectors", async () => {
+    const ctx = getContext();
+
+    await ctx.createCollection("test", {
+      f32_vector: f32Vector({ dimension: 3 }),
+      u8_vector: u8Vector({ dimension: 3 }),
+      binary_vector: binaryVector({ dimension: 3 }),
+    });
+
+    const lsn = await ctx.client.collection(ctx.scope("test")).upsert([
+      {
+        _id: "x",
+        f32_vector: [1, 2, 3],
+        u8_vector: [4, 5, 6],
+        binary_vector: [7, 8, 9],
+      },
+    ]);
+
+    const obj = await ctx.client
+      .collection(ctx.scope("test"))
+      .get(["x"], null, { lsn });
+
+    expect(obj["x"].f32_vector).toEqual([1, 2, 3]);
+    expect(obj["x"].u8_vector).toEqual([4, 5, 6]);
+    expect(obj["x"].binary_vector).toEqual([7, 8, 9]);
+  });
+
+  test("upsert sparse vectors", async () => {
+    const ctx = getContext();
+
+    await ctx.createCollection("test", {
+      f32_sparse_vector: f32SparseVector(),
+      u8_sparse_vector: u8SparseVector(),
+    });
+
+    const lsn = await ctx.client.collection(ctx.scope("test")).upsert([
+      {
+        _id: "x",
+        f32_sparse_vector: { 1: 1.2, 2: 2.3, 3: 3.4 },
+        u8_sparse_vector: { 1: 4, 2: 5, 3: 6 },
+      },
+    ]);
+
+    const obj = await ctx.client
+      .collection(ctx.scope("test"))
+      .get(["x"], null, { lsn });
+
+    expect(obj["x"].f32_sparse_vector).toEqual({ 1: 1.2, 2: 2.3, 3: 3.4 });
+    expect(obj["x"].u8_sparse_vector).toEqual({ 1: 4, 2: 5, 3: 6 });
   });
 });

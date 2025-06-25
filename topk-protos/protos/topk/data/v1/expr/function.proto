@@ -7,6 +7,7 @@ message FunctionExpr {
   message VectorDistance {
     string field = 1;
     Vector query = 2;
+    SparseVector sparse_query = 3;
   }
 
   message Bm25Score {}
