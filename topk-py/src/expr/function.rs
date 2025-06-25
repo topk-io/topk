@@ -1,12 +1,19 @@
-use crate::data::vector::Vector;
+use crate::data::vector::{SparseVector, Vector};
 use pyo3::prelude::*;
 
 #[pyclass]
 #[derive(Debug, Clone)]
 pub enum FunctionExpr {
     KeywordScore {},
-    VectorScore { field: String, query: Vector },
+    VectorScore { field: String, query: QueryVector },
     SemanticSimilarity { field: String, query: String },
+}
+
+#[pyclass]
+#[derive(Debug, Clone)]
+pub enum QueryVector {
+    Dense(Vector),
+    Sparse(SparseVector),
 }
 
 impl Into<topk_rs::expr::function::FunctionExpr> for FunctionExpr {
@@ -17,8 +24,18 @@ impl Into<topk_rs::expr::function::FunctionExpr> for FunctionExpr {
                 topk_rs::expr::function::FunctionExpr::VectorScore {
                     field,
                     query: match query {
-                        Vector::F32(values) => topk_rs::data::Vector::F32(values).into(),
-                        Vector::U8(values) => topk_rs::data::Vector::U8(values).into(),
+                        QueryVector::Dense(vector) => match vector {
+                            Vector::F32(values) => topk_rs::data::Vector::F32(values).into(),
+                            Vector::U8(values) => topk_rs::data::Vector::U8(values).into(),
+                        },
+                        QueryVector::Sparse(sparse_vector) => match sparse_vector {
+                            SparseVector::F32 { indices, values } => {
+                                topk_rs::data::SparseVector::F32 { indices, values }.into()
+                            }
+                            SparseVector::U8 { indices, values } => {
+                                topk_rs::data::SparseVector::U8 { indices, values }.into()
+                            }
+                        },
                     },
                 }
             }

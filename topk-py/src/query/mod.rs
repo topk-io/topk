@@ -1,9 +1,9 @@
 use crate::data::scalar::Scalar;
 use crate::data::value::Value;
-use crate::data::vector::Vector;
+use crate::data::vector::{SparseVector, Vector};
 use crate::expr::filter::FilterExprUnion;
 use crate::expr::flexible::Vectorish;
-use crate::expr::function::FunctionExpr;
+use crate::expr::function::{FunctionExpr, QueryVector};
 use crate::expr::logical::{LogicalExpr, UnaryOperator};
 use crate::expr::select::SelectExprUnion;
 use crate::expr::text::{Term, TextExpr};
@@ -102,9 +102,16 @@ pub fn vector_distance(field: String, query: Vectorish) -> FunctionExpr {
     FunctionExpr::VectorScore {
         field,
         query: match query {
-            Vectorish::Raw(values) => Vector::F32(values),
+            Vectorish::DenseF32(values) => QueryVector::Dense(Vector::F32(values)),
+            Vectorish::SparseF32(indices, values) => {
+                QueryVector::Sparse(SparseVector::F32 { indices, values })
+            }
+            Vectorish::SparseU8(indices, values) => {
+                QueryVector::Sparse(SparseVector::U8 { indices, values })
+            }
             Vectorish::Value(value) => match value {
-                Value::Vector(vector) => vector,
+                Value::Vector(vector) => QueryVector::Dense(vector),
+                Value::SparseVector(sparse_vector) => QueryVector::Sparse(sparse_vector),
                 _ => unreachable!("Invalid vector type: {:?}", value),
             },
         },

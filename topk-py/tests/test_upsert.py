@@ -154,5 +154,11 @@ def test_upsert_sparse_vectors(ctx: ProjectContext):
 
     obj = ctx.client.collection(collection.name).get(["x"], lsn=lsn)
 
-    assert obj["x"]["f32_sparse_vector"] == {1: 1.2, 2: 2.3, 3: 3.4}
-    assert obj["x"]["u8_sparse_vector"] == {1: 4, 2: 5, 3: 6}
+    assert set(obj["x"]["f32_sparse_vector"].keys()) == {1, 2, 3}
+    assert "{:.2f}".format(obj["x"]["f32_sparse_vector"][1]) == "1.20"
+    assert "{:.2f}".format(obj["x"]["f32_sparse_vector"][2]) == "2.30"
+    assert "{:.2f}".format(obj["x"]["f32_sparse_vector"][3]) == "3.40"
+    assert set(obj["x"]["u8_sparse_vector"].keys()) == {1, 2, 3}
+    assert obj["x"]["u8_sparse_vector"][1] == 4
+    assert obj["x"]["u8_sparse_vector"][2] == 5
+    assert obj["x"]["u8_sparse_vector"][3] == 6

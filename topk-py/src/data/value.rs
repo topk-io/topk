@@ -37,6 +37,31 @@ impl<'py> FromPyObject<'py> for RawValue {
             Ok(RawValue(Value::Float(f.extract()?)))
         } else if let Ok(b) = obj.downcast_exact::<PyBool>() {
             Ok(RawValue(Value::Bool(b.extract()?)))
+        } else if let Ok(d) = obj.downcast_exact::<PyDict>() {
+            if let Ok(indices) = d.keys().extract::<Vec<u32>>() {
+                let values = d.values();
+                if let Ok(values) = values.extract::<Vec<f32>>() {
+                    Ok(RawValue(Value::SparseVector(SparseVector::F32 {
+                        indices,
+                        values,
+                    })))
+                } else if let Ok(values) = values.extract::<Vec<u8>>() {
+                    Ok(RawValue(Value::SparseVector(SparseVector::U8 {
+                        indices,
+                        values,
+                    })))
+                } else {
+                    Err(PyTypeError::new_err(format!(
+                        "Can't convert from {:?} to Value",
+                        obj.get_type().name()
+                    )))
+                }
+            } else {
+                Err(PyTypeError::new_err(format!(
+                    "Can't convert from {:?} to Value",
+                    obj.get_type().name()
+                )))
+            }
         } else if let Ok(v) = obj.downcast_exact::<PyList>() {
             // Try converting to vector from starting with most restrictive type first.
             if let Ok(values) = v.extract::<Vec<f32>>() {
