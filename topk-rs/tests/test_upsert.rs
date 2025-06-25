@@ -205,7 +205,7 @@ async fn test_upsert_vectors(ctx: &mut ProjectTestContext) {
             HashMap::from([
                 (
                     "f32_vector".to_string(),
-                    FieldSpec::f32_vector(3, false, VectorDistanceMetric::Cosine),
+                    FieldSpec::f32_vector(4, false, VectorDistanceMetric::Cosine),
                 ),
                 (
                     "u8_vector".to_string(),
@@ -213,7 +213,7 @@ async fn test_upsert_vectors(ctx: &mut ProjectTestContext) {
                 ),
                 (
                     "binary_vector".to_string(),
-                    FieldSpec::binary_vector(3, false, VectorDistanceMetric::Cosine),
+                    FieldSpec::binary_vector(2, false, VectorDistanceMetric::Hamming),
                 ),
             ]),
         )
@@ -225,9 +225,9 @@ async fn test_upsert_vectors(ctx: &mut ProjectTestContext) {
         .collection(&collection.name)
         .upsert(vec![doc!(
             "_id" => "x",
-            "f32_vector" => vec![1.0, 2.0, 3.0],
-            "u8_vector" => vec![4u8, 5u8, 6u8],
-            "binary_vector" => vec![7u8, 8u8, 9u8],
+            "f32_vector" => vec![1.0, 2.0, 3.0, 4.0],
+            "u8_vector" => Value::byte_vector(vec![4u8, 5u8, 6u8]),
+            "binary_vector" => Value::byte_vector(vec![7u8, 8u8]),
         )])
         .await
         .expect("could not upsert document");
@@ -241,7 +241,7 @@ async fn test_upsert_vectors(ctx: &mut ProjectTestContext) {
 
     assert_eq!(
         obj["x"]["f32_vector"],
-        Value::float_vector(vec![1.0, 2.0, 3.0])
+        Value::float_vector(vec![1.0, 2.0, 3.0, 4.0])
     );
     assert_eq!(
         obj["x"]["u8_vector"],
@@ -249,7 +249,7 @@ async fn test_upsert_vectors(ctx: &mut ProjectTestContext) {
     );
     assert_eq!(
         obj["x"]["binary_vector"],
-        Value::byte_vector(vec![7u8, 8u8, 9u8])
+        Value::byte_vector(vec![7u8, 8u8])
     );
 }
 
