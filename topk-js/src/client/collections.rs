@@ -1,13 +1,12 @@
-use napi::bindgen_prelude::*;
-use napi_derive::napi;
-use std::collections::HashMap;
-use std::sync::Arc;
-
 use crate::{
     data::collection::{Collection, CollectionFieldSpec},
     error::TopkError,
     schema::field_spec::FieldSpec,
 };
+use napi::bindgen_prelude::*;
+use napi_derive::napi;
+use std::collections::HashMap;
+use std::sync::Arc;
 use topk_rs::proto::v1::control::{self};
 
 #[napi]
@@ -50,8 +49,10 @@ impl CollectionsClient {
             FieldSpec,
         >,
     ) -> Result<Collection> {
-        let proto_schema: HashMap<String, control::FieldSpec> =
-            schema.into_iter().map(|(k, v)| (k, v.into())).collect();
+        let proto_schema: HashMap<String, control::FieldSpec> = schema
+            .into_iter()
+            .map(|(k, v)| (k, v.clone().into()))
+            .collect();
 
         let collection = self
             .client

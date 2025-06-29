@@ -14,11 +14,6 @@ pub struct Query {
 
 #[napi(namespace = "query")]
 impl Query {
-    #[napi(constructor)]
-    pub fn new() -> Self {
-        Self { stages: vec![] }
-    }
-
     #[napi]
     pub fn filter(
         &self,

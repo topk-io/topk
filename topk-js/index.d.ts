@@ -136,7 +136,6 @@ export declare namespace query {
     contains(other: LogicalExpression | string): LogicalExpression
   }
   export class Query {
-    constructor()
     filter(expr: LogicalExpression | TextExpression): Query
     topk(expr: LogicalExpression, k: number, asc?: boolean | undefined | null): Query
     count(): Query
@@ -180,8 +179,10 @@ export declare namespace query {
 }
 
 export declare namespace schema {
+  export class FieldIndex {
+
+  }
   export class FieldSpec {
-    static create(dataType: DataType): FieldSpec
     required(): FieldSpec
     index(index: FieldIndex): FieldSpec
   }
@@ -204,9 +205,6 @@ export declare namespace schema {
   'binary';
   export function f32SparseVector(): FieldSpec
   export function f32Vector(options: VectorOptions): FieldSpec
-  export interface FieldIndex {
-    index?: FieldIndexUnion
-  }
   export type FieldIndexUnion =
     | { type: 'KeywordIndex', indexType: KeywordIndexType }
     | { type: 'VectorIndex', metric: VectorDistanceMetric }

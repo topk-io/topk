@@ -1,7 +1,6 @@
+use super::{data_type::DataType, field_index::FieldIndex};
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
-
-use super::{data_type::DataType, field_index::FieldIndex};
 
 #[napi(namespace = "schema")]
 #[derive(Clone)]
@@ -11,9 +10,7 @@ pub struct FieldSpec {
     index: Option<FieldIndex>,
 }
 
-#[napi(namespace = "schema")]
 impl FieldSpec {
-    #[napi(factory)]
     pub fn create(data_type: DataType) -> Self {
         Self {
             data_type,
@@ -21,7 +18,10 @@ impl FieldSpec {
             index: None,
         }
     }
+}
 
+#[napi(namespace = "schema")]
+impl FieldSpec {
     #[napi]
     pub fn required(&self) -> Self {
         Self {
@@ -45,7 +45,9 @@ impl From<FieldSpec> for topk_rs::proto::v1::control::FieldSpec {
             data_type: Some(topk_rs::proto::v1::control::FieldType {
                 data_type: Some(match field_spec.data_type {
                     DataType::Text => topk_rs::proto::v1::control::field_type::DataType::text(),
-                    DataType::Integer => topk_rs::proto::v1::control::field_type::DataType::integer(),
+                    DataType::Integer => {
+                        topk_rs::proto::v1::control::field_type::DataType::integer()
+                    }
                     DataType::Float => topk_rs::proto::v1::control::field_type::DataType::float(),
                     DataType::Boolean => topk_rs::proto::v1::control::field_type::DataType::bool(),
                     DataType::F32Vector { dimension } => {
@@ -77,12 +79,10 @@ impl FromNapiValue for FieldSpec {
         env: napi::sys::napi_env,
         value: napi::sys::napi_value,
     ) -> Result<Self> {
-        match FieldSpec::from_napi_ref(env, value) {
-            Ok(field_spec) => Ok(field_spec.clone()),
-            Err(_) => Err(napi::Error::new(
-                napi::Status::InvalidArg,
-                "Value must be a FieldSpec".to_string(),
-            )),
+        if let Ok(field_spec) = crate::try_cast_ref!(env, value, FieldSpec) {
+            return Ok(field_spec.clone());
         }
+
+        Err(napi::Error::from_reason("Value must be a FieldSpec"))
     }
 }

@@ -135,7 +135,9 @@ describe("Collections", () => {
       ctx.client.collections().create(ctx.scope("books"), {
         name: text().index(vectorIndex({ metric: "cosine" })),
       })
-    ).rejects.toThrow(/InvalidIndex { field: \"name\", index: \"vector\", data_type: \"text\" }/);
+    ).rejects.toThrow(
+      /InvalidIndex { field: \"name\", index: \"vector\", data_type: \"text\" }/
+    );
   });
 
   test("list collections", async () => {
