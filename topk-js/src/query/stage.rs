@@ -1,8 +1,5 @@
+use crate::expr::{filter::FilterExpression, logical::LogicalExpression, select::SelectExpression};
 use std::collections::HashMap;
-
-use crate::expr::{
-    filter::FilterExpressionUnion, logical::LogicalExpression, select::SelectExpression,
-};
 
 #[derive(Debug, Clone)]
 pub enum Stage {
@@ -10,7 +7,7 @@ pub enum Stage {
         exprs: HashMap<String, SelectExpression>,
     },
     Filter {
-        expr: FilterExpressionUnion,
+        expr: FilterExpression,
     },
     TopK {
         expr: LogicalExpression,

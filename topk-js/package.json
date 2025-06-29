@@ -79,12 +79,12 @@
   },
   "scripts": {
     "artifacts": "napi artifacts",
-    "build": "napi build --no-const-enum --platform --release",
-    "dev": "napi build --no-const-enum --platform",
+    "build": "napi build --no-const-enum --platform --release && tsc --noEmit",
+    "dev": "napi build --no-const-enum --platform && tsc --noEmit",
     "build:debug": "napi build --no-const-enum --platform",
     "prepublishOnly": "napi prepublish -t npm --no-gh-release",
     "typecheck": "tsc --noEmit",
-    "test": "yarn typecheck && jest --verbose",
+    "test": "jest --verbose",
     "universal": "napi universalize",
     "version": "napi version"
   }

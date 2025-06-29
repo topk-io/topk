@@ -1,36 +1,45 @@
 pub mod collection;
 pub mod document;
-pub mod napi_box;
 pub mod scalar;
-pub mod sparse;
-pub mod utils;
 pub mod value;
 pub mod vector;
 
+use self::{
+    value::Value,
+    vector::{SparseVector, SparseVectorData, Vector},
+};
 use napi_derive::napi;
 
-#[napi(namespace = "query")]
-#[derive(Debug, Clone)]
-pub enum QueryVector {
-    Dense {
-        #[napi(ts_type = "data.Vector")]
-        query: vector::Vector,
-    },
-    Sparse {
-        #[napi(ts_type = "data.SparseVector")]
-        query: sparse::SparseVector,
-    },
+#[napi(namespace = "data")]
+pub fn bytes(values: Vec<u8>) -> Value {
+    Value::Bytes(values)
 }
 
-impl Into<topk_rs::proto::v1::data::QueryVector> for QueryVector {
-    fn into(self) -> topk_rs::proto::v1::data::QueryVector {
-        match self {
-            QueryVector::Dense { query } => {
-                topk_rs::proto::v1::data::QueryVector::Dense(query.into())
-            }
-            QueryVector::Sparse { query } => {
-                topk_rs::proto::v1::data::QueryVector::Sparse(query.into())
-            }
-        }
-    }
+#[napi(namespace = "data")]
+pub fn f32_vector(values: Vec<f64>) -> Vector {
+    Vector::float(values.into_iter().map(|v| v as f32).collect())
+}
+
+#[napi(namespace = "data")]
+pub fn u8_vector(values: Vec<u8>) -> Vector {
+    Vector::byte(values)
+}
+
+#[napi(namespace = "data")]
+pub fn binary_vector(values: Vec<u8>) -> Vector {
+    Vector::byte(values)
+}
+
+#[napi(namespace = "data")]
+pub fn f32_sparse_vector(
+    #[napi(ts_arg_type = "Record<number, number>")] vector: SparseVectorData<f64>,
+) -> SparseVector {
+    SparseVector::float(vector.into_iter().map(|(i, v)| (i, v as f32)).collect())
+}
+
+#[napi(namespace = "data")]
+pub fn u8_sparse_vector(
+    #[napi(ts_arg_type = "Record<number, number>")] vector: SparseVectorData<u8>,
+) -> SparseVector {
+    SparseVector::byte(vector)
 }

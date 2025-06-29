@@ -3,7 +3,6 @@ use std::{sync::Arc, time::Duration};
 use collection::CollectionClient;
 use collections::CollectionsClient;
 use napi_derive::napi;
-use topk_rs::{Client as RsClient, ClientConfig as RsClientConfig};
 
 pub mod collection;
 pub mod collections;
@@ -19,14 +18,14 @@ pub struct ClientConfig {
 
 #[napi]
 pub struct Client {
-    client: Arc<RsClient>,
+    client: Arc<topk_rs::Client>,
 }
 
 #[napi]
 impl Client {
     #[napi(constructor)]
     pub fn new(config: ClientConfig) -> Self {
-        let mut rs_config = RsClientConfig::new(config.api_key, config.region);
+        let mut rs_config = topk_rs::ClientConfig::new(config.api_key, config.region);
 
         if let Some(host_value) = config.host {
             rs_config = rs_config.with_host(host_value);
@@ -40,11 +39,9 @@ impl Client {
             rs_config = rs_config.with_retry_config(retry_config.into());
         }
 
-        let rs_client = RsClient::new(rs_config);
-
-        let client = Arc::new(rs_client);
-
-        Self { client }
+        Self {
+            client: Arc::new(topk_rs::Client::new(rs_config)),
+        }
     }
 
     #[napi]

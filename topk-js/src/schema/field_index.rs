@@ -61,9 +61,11 @@ impl From<topk_rs::proto::v1::control::FieldIndex> for FieldIndexUnion {
                 }
                 topk_rs::proto::v1::control::field_index::Index::VectorIndex(v) => {
                     FieldIndexUnion::VectorIndex {
-                        metric: topk_rs::proto::v1::control::VectorDistanceMetric::try_from(v.metric)
-                            .expect("Unsupported vector distance metric")
-                            .into(),
+                        metric: topk_rs::proto::v1::control::VectorDistanceMetric::try_from(
+                            v.metric,
+                        )
+                        .expect("Unsupported vector distance metric")
+                        .into(),
                     }
                 }
                 topk_rs::proto::v1::control::field_index::Index::SemanticIndex(s) => {
@@ -94,7 +96,9 @@ pub enum VectorDistanceMetric {
 impl From<topk_rs::proto::v1::control::VectorDistanceMetric> for VectorDistanceMetric {
     fn from(metric: topk_rs::proto::v1::control::VectorDistanceMetric) -> Self {
         match metric {
-            topk_rs::proto::v1::control::VectorDistanceMetric::Cosine => VectorDistanceMetric::Cosine,
+            topk_rs::proto::v1::control::VectorDistanceMetric::Cosine => {
+                VectorDistanceMetric::Cosine
+            }
             topk_rs::proto::v1::control::VectorDistanceMetric::Euclidean => {
                 VectorDistanceMetric::Euclidean
             }
@@ -114,7 +118,9 @@ impl From<topk_rs::proto::v1::control::VectorDistanceMetric> for VectorDistanceM
 impl From<VectorDistanceMetric> for topk_rs::proto::v1::control::VectorDistanceMetric {
     fn from(metric: VectorDistanceMetric) -> Self {
         match metric {
-            VectorDistanceMetric::Cosine => topk_rs::proto::v1::control::VectorDistanceMetric::Cosine,
+            VectorDistanceMetric::Cosine => {
+                topk_rs::proto::v1::control::VectorDistanceMetric::Cosine
+            }
             VectorDistanceMetric::Euclidean => {
                 topk_rs::proto::v1::control::VectorDistanceMetric::Euclidean
             }
@@ -202,9 +208,11 @@ impl From<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
                 },
                 topk_rs::proto::v1::control::field_index::Index::VectorIndex(v) => FieldIndex {
                     index: Some(FieldIndexUnion::VectorIndex {
-                        metric: topk_rs::proto::v1::control::VectorDistanceMetric::try_from(v.metric)
-                            .expect("Unsupported vector distance metric")
-                            .into(),
+                        metric: topk_rs::proto::v1::control::VectorDistanceMetric::try_from(
+                            v.metric,
+                        )
+                        .expect("Unsupported vector distance metric")
+                        .into(),
                     }),
                 },
                 topk_rs::proto::v1::control::field_index::Index::SemanticIndex(s) => FieldIndex {

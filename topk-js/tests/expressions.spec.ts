@@ -5,73 +5,93 @@ import { field, literal } from "../lib/query";
 describe("Expression Tests", () => {
   describe("Query expressions with flexible expressions", () => {
     test("addition operations", () => {
-      expect(field("a").add(1).expr).toEqual(field("a").add(literal(1)).expr);
+      expect(field("a").add(1).toString()).toEqual(
+        field("a").add(literal(1)).toString()
+      );
     });
 
     test("subtraction operations", () => {
-      expect(field("a").sub(1).expr).toEqual(field("a").sub(literal(1)).expr);
+      expect(field("a").sub(1).toString()).toEqual(
+        field("a").sub(literal(1)).toString()
+      );
     });
 
     test("multiplication operations", () => {
-      expect(field("a").mul(1).expr).toEqual(field("a").mul(literal(1)).expr);
+      expect(field("a").mul(1).toString()).toEqual(
+        field("a").mul(literal(1)).toString()
+      );
     });
 
     test("division operations", () => {
-      expect(field("a").div(1).expr).toEqual(field("a").div(literal(1)).expr);
+      expect(field("a").div(1).toString()).toEqual(
+        field("a").div(literal(1)).toString()
+      );
     });
 
     test("logical AND operations", () => {
-      expect(field("a").and(true).expr).toEqual(
-        field("a").and(literal(true)).expr
+      expect(field("a").and(true).toString()).toEqual(
+        field("a").and(literal(true)).toString()
       );
     });
 
     test("logical OR operations", () => {
-      expect(field("a").or(false).expr).toEqual(
-        field("a").or(literal(false)).expr
+      expect(field("a").or(false).toString()).toEqual(
+        field("a").or(literal(false)).toString()
       );
     });
   });
 
   describe("Comparison operators", () => {
     test("equality operations", () => {
-      expect(field("a").eq(1).expr).toEqual(field("a").eq(literal(1)).expr);
+      expect(field("a").eq(1).toString()).toEqual(
+        field("a").eq(literal(1)).toString()
+      );
     });
 
     test("inequality operations", () => {
-      expect(field("a").ne(1).expr).toEqual(field("a").ne(literal(1)).expr);
+      expect(field("a").ne(1).toString()).toEqual(
+        field("a").ne(literal(1)).toString()
+      );
     });
 
     test("less than operations", () => {
-      expect(field("a").lt(1).expr).toEqual(field("a").lt(literal(1)).expr);
+      expect(field("a").lt(1).toString()).toEqual(
+        field("a").lt(literal(1)).toString()
+      );
     });
 
     test("less than or equal operations", () => {
-      expect(field("a").lte(1).expr).toEqual(field("a").lte(literal(1)).expr);
+      expect(field("a").lte(1).toString()).toEqual(
+        field("a").lte(literal(1)).toString()
+      );
     });
 
     test("greater than operations", () => {
-      expect(field("a").gt(1).expr).toEqual(field("a").gt(literal(1)).expr);
+      expect(field("a").gt(1).toString()).toEqual(
+        field("a").gt(literal(1)).toString()
+      );
     });
 
     test("greater than or equal operations", () => {
-      expect(field("a").gte(1).expr).toEqual(field("a").gte(literal(1)).expr);
+      expect(field("a").gte(1).toString()).toEqual(
+        field("a").gte(literal(1)).toString()
+      );
     });
   });
 
   describe("Expression equality", () => {
     test("literals equality", () => {
-      expect(literal("a").add(literal("b")).expr).toEqual(
-        literal("a").add(literal("b")).expr
+      expect(literal("a").add(literal("b")).toString()).toEqual(
+        literal("a").add(literal("b")).toString()
       );
-      expect(literal("a").expr).not.toEqual(literal("b").expr);
+      expect(literal("a").toString()).not.toEqual(literal("b").toString());
     });
 
     test("fields equality", () => {
-      expect(field("a").expr).toEqual(field("a").expr);
-      expect(field("a").expr).not.toEqual(field("b").expr);
-      expect(field("a").expr).not.toEqual(literal("a").expr);
-      expect(literal("a").expr).not.toEqual(field("a").expr);
+      expect(field("a").toString()).toEqual(field("a").toString());
+      expect(field("a").toString()).not.toEqual(field("b").toString());
+      expect(field("a").toString()).not.toEqual(literal("a").toString());
+      expect(literal("a").toString()).not.toEqual(field("a").toString());
     });
   });
 

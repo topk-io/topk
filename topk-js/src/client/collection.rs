@@ -9,14 +9,18 @@ use std::sync::Arc;
 
 #[napi]
 pub struct CollectionClient {
+    /// Name of the collection
     collection: String,
+    /// Reference to the topk-rs client
     client: Arc<topk_rs::Client>,
 }
 
 #[napi(object)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct QueryOptions {
+    /// Last sequence number to query at
     pub lsn: Option<String>,
+    /// Consistency level
     pub consistency: Option<ConsistencyLevel>,
 }
 
@@ -49,15 +53,17 @@ impl CollectionClient {
         fields: Option<Vec<String>>,
         options: Option<QueryOptions>,
     ) -> Result<HashMap<String, HashMap<String, Value>>> {
-        let (lsn, consistency) = match &options {
-            Some(o) => (o.lsn.clone(), o.consistency.as_ref().map(|c| (*c).into())),
-            None => (None, None),
-        };
+        let options = options.unwrap_or_default();
 
         let documents = self
             .client
             .collection(&self.collection)
-            .get(ids, fields, lsn, consistency)
+            .get(
+                ids,
+                fields,
+                options.lsn,
+                options.consistency.map(|c| c.into()),
+            )
             .await
             .map_err(TopkError::from)?;
 
@@ -68,37 +74,35 @@ impl CollectionClient {
     }
 
     #[napi]
-    pub async fn count(&self, options: Option<QueryOptions>) -> Result<i64> {
-        let (lsn, consistency) = match &options {
-            Some(o) => (o.lsn.clone(), o.consistency.as_ref().map(|c| (*c).into())),
-            None => (None, None),
-        };
+    pub async fn count(&self, options: Option<QueryOptions>) -> Result<u32> {
+        let options = options.unwrap_or_default();
 
         let count = self
             .client
             .collection(&self.collection)
-            .count(lsn, consistency)
+            .count(options.lsn, options.consistency.map(|c| c.into()))
             .await
             .map_err(TopkError::from)?;
 
-        Ok(count as i64)
+        Ok(count as u32)
     }
 
     #[napi]
     pub async fn query(
         &self,
-        #[napi(ts_arg_type = "query.Query")] query: Query,
+        #[napi(ts_arg_type = "query.Query")] query: &Query,
         options: Option<QueryOptions>,
     ) -> Result<Vec<HashMap<String, Value>>> {
-        let (lsn, consistency) = match &options {
-            Some(o) => (o.lsn.clone(), o.consistency.as_ref().map(|c| (*c).into())),
-            None => (None, None),
-        };
+        let options = options.unwrap_or_default();
 
         let docs = self
             .client
             .collection(&self.collection)
-            .query(query.into(), lsn, consistency)
+            .query(
+                query.clone().into(),
+                options.lsn,
+                options.consistency.map(|c| c.into()),
+            )
             .await
             .map_err(TopkError::from)?;
 

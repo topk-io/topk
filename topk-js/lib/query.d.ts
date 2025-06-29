@@ -8,11 +8,10 @@ export declare const fn: {
   vectorDistance: typeof query.vectorDistance;
 };
 export declare const literal: typeof query.literal;
-export declare const LogicalExpression: typeof query.LogicalExpression;
-export declare type LogicalExpressionUnion =
-  import("../index").query.LogicalExpressionUnion;
 export declare const match: typeof query.match;
 export declare const not: typeof query.not;
-export declare const Query: typeof query.Query;
 export declare const select: typeof query.select;
+
+export declare const Query: typeof query.Query;
+export declare const LogicalExpression: typeof query.LogicalExpression;
 export declare const TextExpression: typeof query.TextExpression;

@@ -1,5 +1,5 @@
-import { Client } from "../index.js";
 import { v4 as uuidv4 } from "uuid";
+import { Client } from "../index.js";
 
 export class ProjectContext {
   client: Client;
@@ -40,7 +40,8 @@ export function newProjectContext() {
   const TOPK_API_KEY = process.env.TOPK_API_KEY;
   const TOPK_HOST = process.env.TOPK_HOST || "topk.io";
   const TOPK_REGION = process.env.TOPK_REGION || "elastica";
-  const TOPK_HTTPS = process.env.TOPK_HTTPS !== "false";
+  const TOPK_HTTPS =
+    process.env.TOPK_HTTPS !== "false" && process.env.TOPK_HTTPS !== "0";
 
   const client = new Client({
     apiKey: TOPK_API_KEY,

@@ -1,7 +1,15 @@
 use napi::bindgen_prelude::{FromNapiValue, ToNapiValue};
 
+// NapiBox
+
 #[derive(Debug, Clone)]
-pub struct NapiBox<T>(pub Box<T>);
+pub struct NapiBox<T>(pub std::boxed::Box<T>);
+
+impl<T> From<T> for NapiBox<T> {
+    fn from(value: T) -> Self {
+        Self(std::boxed::Box::new(value))
+    }
+}
 
 impl<T> FromNapiValue for NapiBox<T>
 where
@@ -11,7 +19,7 @@ where
         env: napi::sys::napi_env,
         napi_val: napi::sys::napi_value,
     ) -> napi::Result<Self> {
-        T::from_napi_value(env, napi_val).map(|v| Self(Box::new(v)))
+        T::from_napi_value(env, napi_val).map(|v| Self(std::boxed::Box::new(v)))
     }
 }
 

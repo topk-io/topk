@@ -1,3 +1,4 @@
+import * as data from "../lib/data";
 import {
   binaryVector,
   bool,
@@ -159,7 +160,7 @@ describe("Upsert", () => {
     [true, bool()],
     ["hello", text()],
     [1, int()],
-    [1.0, float()],
+    [1.1, float()],
     [Buffer.from("hello"), bytes()],
   ])("upsert primitives - %s", async (value, dataType) => {
     const ctx = getContext();
@@ -192,8 +193,8 @@ describe("Upsert", () => {
       {
         _id: "x",
         f32_vector: [1, 2, 3],
-        u8_vector: [4, 5, 6],
-        binary_vector: [7, 8, 9],
+        u8_vector: data.u8Vector([4, 5, 6]),
+        binary_vector: data.binaryVector([7, 8, 9]),
       },
     ]);
 
@@ -218,7 +219,7 @@ describe("Upsert", () => {
       {
         _id: "x",
         f32_sparse_vector: { 1: 1.2, 2: 2.3, 3: 3.4 },
-        u8_sparse_vector: { 1: 4, 2: 5, 3: 6 },
+        u8_sparse_vector: data.u8SparseVector({ 1: 4, 2: 5, 3: 6 }),
       },
     ]);
 
@@ -226,7 +227,18 @@ describe("Upsert", () => {
       .collection(ctx.scope("test"))
       .get(["x"], null, { lsn });
 
-    expect(obj["x"].f32_sparse_vector).toEqual({ 1: 1.2, 2: 2.3, 3: 3.4 });
+    expect(normalizeF32SparseValues(obj["x"].f32_sparse_vector)).toEqual({
+      1: 1.2,
+      2: 2.3,
+      3: 3.4,
+    });
     expect(obj["x"].u8_sparse_vector).toEqual({ 1: 4, 2: 5, 3: 6 });
   });
 });
+
+function normalizeF32SparseValues(obj: Record<string, number>, precision = 5) {
+  const factor = 10 ** precision;
+  return Object.fromEntries(
+    Object.entries(obj).map(([k, v]) => [k, Math.round(v * factor) / factor])
+  );
+}

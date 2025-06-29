@@ -1,29 +1,6 @@
-use napi::bindgen_prelude::*;
+use crate::utils::NapiBox;
 use napi_derive::napi;
 use topk_rs::proto::v1::data;
-
-use crate::data::napi_box::NapiBox;
-
-#[napi(namespace = "query")]
-#[derive(Debug, Clone)]
-pub enum TextExpressionUnion {
-    Terms {
-        all: bool,
-        terms: Vec<Term>,
-    },
-    And {
-        #[napi(ts_type = "TextExpression")]
-        left: NapiBox<TextExpressionUnion>,
-        #[napi(ts_type = "TextExpression")]
-        right: NapiBox<TextExpressionUnion>,
-    },
-    Or {
-        #[napi(ts_type = "TextExpression")]
-        left: NapiBox<TextExpressionUnion>,
-        #[napi(ts_type = "TextExpression")]
-        right: NapiBox<TextExpressionUnion>,
-    },
-}
 
 #[napi(namespace = "query")]
 #[derive(Debug, Clone)]
@@ -31,19 +8,38 @@ pub struct TextExpression {
     expr: TextExpressionUnion,
 }
 
+#[derive(Debug, Clone)]
+pub enum TextExpressionUnion {
+    Terms {
+        all: bool,
+        terms: Vec<Term>,
+    },
+    And {
+        left: NapiBox<TextExpression>,
+        right: NapiBox<TextExpression>,
+    },
+    Or {
+        left: NapiBox<TextExpression>,
+        right: NapiBox<TextExpression>,
+    },
+}
+
+impl TextExpression {
+    pub(crate) fn terms(all: bool, terms: Vec<Term>) -> Self {
+        Self {
+            expr: TextExpressionUnion::Terms { all, terms },
+        }
+    }
+}
+
 #[napi(namespace = "query")]
 impl TextExpression {
-    #[napi(factory)]
-    pub fn create(expr: TextExpressionUnion) -> Self {
-        TextExpression { expr }
-    }
-
     #[napi]
     pub fn and(&self, other: &TextExpression) -> Self {
         TextExpression {
             expr: TextExpressionUnion::And {
-                left: NapiBox(Box::new(self.expr.clone())),
-                right: NapiBox(Box::new(other.expr.clone())),
+                left: NapiBox(Box::new(self.clone())),
+                right: NapiBox(Box::new(other.clone())),
             },
         }
     }
@@ -52,71 +48,29 @@ impl TextExpression {
     pub fn or(&self, other: &TextExpression) -> Self {
         TextExpression {
             expr: TextExpressionUnion::Or {
-                left: NapiBox(Box::new(self.expr.clone())),
-                right: NapiBox(Box::new(other.expr.clone())),
+                left: NapiBox(Box::new(self.clone())),
+                right: NapiBox(Box::new(other.clone())),
             },
         }
     }
 }
 
-impl FromNapiValue for TextExpression {
-    unsafe fn from_napi_value(
-        env: napi::sys::napi_env,
-        value: napi::sys::napi_value,
-    ) -> napi::Result<Self> {
-        let env_env = Env::from_raw(env);
-
-        let is_text_expression = {
-            let env_value = Unknown::from_napi_value(env, value)?;
-            TextExpression::instance_of(env_env, env_value)?
-        };
-
-        if is_text_expression {
-            let text_expression = TextExpression::from_napi_ref(env, value)?;
-            let expr = text_expression.expr.clone();
-
-            Ok(TextExpression { expr })
-        } else {
-            unreachable!("Value must be a TextExpression")
-        }
-    }
-}
-
-impl Into<data::TextExpr> for TextExpression {
-    fn into(self) -> data::TextExpr {
+impl Into<topk_rs::proto::v1::data::TextExpr> for TextExpression {
+    fn into(self) -> topk_rs::proto::v1::data::TextExpr {
         match self.expr {
-            TextExpressionUnion::Terms { all, terms } => {
-                data::TextExpr::terms(all, terms.into_iter().map(|t| t.into()).collect())
-            }
+            TextExpressionUnion::Terms { all, terms } => topk_rs::proto::v1::data::TextExpr::terms(
+                all,
+                terms.into_iter().map(|t| t.into()).collect(),
+            ),
             TextExpressionUnion::And { left, right } => {
-                let left_expr: data::TextExpr = left.as_ref().clone().into();
-                let right_expr: data::TextExpr = right.as_ref().clone().into();
-                data::TextExpr::and(left_expr, right_expr)
+                let left_expr: topk_rs::proto::v1::data::TextExpr = left.as_ref().clone().into();
+                let right_expr: topk_rs::proto::v1::data::TextExpr = right.as_ref().clone().into();
+                topk_rs::proto::v1::data::TextExpr::and(left_expr, right_expr)
             }
             TextExpressionUnion::Or { left, right } => {
-                let left_expr: data::TextExpr = left.as_ref().clone().into();
-                let right_expr: data::TextExpr = right.as_ref().clone().into();
-                data::TextExpr::or(left_expr, right_expr)
-            }
-        }
-    }
-}
-
-impl Into<data::TextExpr> for TextExpressionUnion {
-    fn into(self) -> data::TextExpr {
-        match self {
-            TextExpressionUnion::Terms { all, terms } => {
-                data::TextExpr::terms(all, terms.into_iter().map(|t| t.into()).collect())
-            }
-            TextExpressionUnion::And { left, right } => {
-                let left_expr: data::TextExpr = left.as_ref().clone().into();
-                let right_expr: data::TextExpr = right.as_ref().clone().into();
-                data::TextExpr::and(left_expr, right_expr)
-            }
-            TextExpressionUnion::Or { left, right } => {
-                let left_expr: data::TextExpr = left.as_ref().clone().into();
-                let right_expr: data::TextExpr = right.as_ref().clone().into();
-                data::TextExpr::or(left_expr, right_expr)
+                let left_expr: topk_rs::proto::v1::data::TextExpr = left.as_ref().clone().into();
+                let right_expr: topk_rs::proto::v1::data::TextExpr = right.as_ref().clone().into();
+                topk_rs::proto::v1::data::TextExpr::or(left_expr, right_expr)
             }
         }
     }
@@ -124,13 +78,7 @@ impl Into<data::TextExpr> for TextExpressionUnion {
 
 impl Into<topk_rs::expr::text::TextExpr> for TextExpression {
     fn into(self) -> topk_rs::expr::text::TextExpr {
-        self.expr.into()
-    }
-}
-
-impl Into<topk_rs::expr::text::TextExpr> for TextExpressionUnion {
-    fn into(self) -> topk_rs::expr::text::TextExpr {
-        match self {
+        match self.expr {
             TextExpressionUnion::Terms { all, terms } => topk_rs::expr::text::TextExpr::Terms {
                 all,
                 terms: terms

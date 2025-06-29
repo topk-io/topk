@@ -12,6 +12,7 @@ use topk_rs::proto::v1::control::{self};
 
 #[napi]
 pub struct CollectionsClient {
+    /// Reference to the topk-rs client
     client: Arc<topk_rs::Client>,
 }
 
@@ -36,6 +37,7 @@ impl CollectionsClient {
             .list()
             .await
             .map_err(TopkError::from)?;
+
         Ok(collections.into_iter().map(|c| c.into()).collect())
     }
 
