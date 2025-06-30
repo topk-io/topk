@@ -39,16 +39,24 @@ export interface ClientConfig {
 }
 
 export interface Collection {
+  /** Name of the collection */
   name: string
+  /** Organization ID */
   orgId: string
+  /** Project ID */
   projectId: string
+  /** Schema of the collection */
   schema: Record<string, CollectionFieldSpec>
+  /** Region of the collection */
   region: string
 }
 
 export interface CollectionFieldSpec {
+  /** Data type of the field */
   dataType: schema.DataType
+  /** Whether the field is required */
   required: boolean
+  /** Index configuration for the field */
   index?: schema.FieldIndexUnion
 }
 
@@ -67,7 +75,9 @@ export interface MatchOptions {
 }
 
 export interface QueryOptions {
+  /** Last sequence number to query at */
   lsn?: string
+  /** Consistency level */
   consistency?: ConsistencyLevel
 }
 
@@ -89,28 +99,25 @@ export interface RetryConfig {
 
 export declare namespace data {
   export class SparseVector {
-
+    toString(): string
   }
   export class Vector {
-    get values(): VectorUnion
+    toString(): string
   }
   export function binaryVector(values: Array<number>): Vector
-  export function bytes(values: Array<number>): any
+  export function bytes(buffer: Array<number> | Buffer): any
+  export function f32SparseVector(vector: Record<number, number>): SparseVector
   export function f32Vector(values: Array<number>): Vector
-  export type SparseVectorUnion =
-    | { type: 'Float', vector: Record<number, number> }
-    | { type: 'Byte', vector: Record<number, number> }
+  export function u8SparseVector(vector: Record<number, number>): SparseVector
   export function u8Vector(values: Array<number>): Vector
-  export type VectorUnion =
-    | { type: 'Float', values: Array<number> }
-    | { type: 'Byte', values: Array<number> }
-    | { type: 'Binary', values: Array<number> }
 }
 
 export declare namespace query {
+  export class FunctionExpression {
+
+  }
   export class LogicalExpression {
-    static create(expr: LogicalExpressionUnion): LogicalExpression
-    get expr(): LogicalExpressionUnion
+    toString(): string
     isNull(): LogicalExpression
     isNotNull(): LogicalExpression
     eq(other: LogicalExpression | string | number | boolean | null | undefined): LogicalExpression
@@ -129,15 +136,12 @@ export declare namespace query {
     contains(other: LogicalExpression | string): LogicalExpression
   }
   export class Query {
-    constructor()
-    static select(exprs: Record<string, LogicalExpression | FunctionExpression>): Query
     filter(expr: LogicalExpression | TextExpression): Query
     topk(expr: LogicalExpression, k: number, asc?: boolean | undefined | null): Query
     count(): Query
     rerank(options?: RerankOptions | undefined | null): Query
   }
   export class TextExpression {
-    static create(expr: TextExpressionUnion): TextExpression
     and(other: TextExpression): TextExpression
     or(other: TextExpression): TextExpression
   }
@@ -155,45 +159,33 @@ export declare namespace query {
   'sub'|
   'mul'|
   'div';
-  export function bm25Score(): FunctionExpression
   export function field(name: string): LogicalExpression
   export function filter(expr: LogicalExpression | TextExpression): Query
-  export type FunctionExpression =
-    | { type: 'KeywordScore' }
-    | { type: 'VectorScore', field: string, query: QueryVector }
-    | { type: 'SemanticSimilarity', field: string, query: string }
   export function literal(value: number | string | boolean): LogicalExpression
-  export type LogicalExpressionUnion =
-    | { type: 'Null' }
-    | { type: 'Field', name: string }
-    | { type: 'Literal', value: number | string | boolean }
-    | { type: 'Unary', op: UnaryOperator, expr: LogicalExpression }
-    | { type: 'Binary', left: LogicalExpression, op: BinaryOperator, right: LogicalExpression }
   export function match(token: string, options?: MatchOptions | undefined | null): TextExpression
   export function not(expr: LogicalExpression): LogicalExpression
-  export type QueryVector =
-    | { type: 'Dense', query: data.Vector }
-    | { type: 'Sparse', query: data.SparseVector }
   export function select(exprs: Record<string, LogicalExpression | FunctionExpression>): Query
-  export function semanticSimilarity(field: string, query: string): FunctionExpression
   export interface Term {
     token: string
     field?: string
     weight: number
   }
-  export type TextExpressionUnion =
-    | { type: 'Terms', all: boolean, terms: Array<Term> }
-    | { type: 'And', left: TextExpression, right: TextExpression }
-    | { type: 'Or', left: TextExpression, right: TextExpression }
   export type UnaryOperator =  'not'|
   'isNull'|
   'isNotNull';
-  export function vectorDistance(field: string, query: Array<number> | data.Vector): FunctionExpression
+}
+
+export declare namespace query_fn {
+  export function bm25Score(): query.FunctionExpression
+  export function semanticSimilarity(field: string, query: string): query.FunctionExpression
+  export function vectorDistance(field: string, query: Array<number> | Record<number, number> | data.Vector | data.SparseVector): query.FunctionExpression
 }
 
 export declare namespace schema {
+  export class FieldIndex {
+
+  }
   export class FieldSpec {
-    static create(dataType: DataType): FieldSpec
     required(): FieldSpec
     index(index: FieldIndex): FieldSpec
   }
@@ -216,9 +208,6 @@ export declare namespace schema {
   'binary';
   export function f32SparseVector(): FieldSpec
   export function f32Vector(options: VectorOptions): FieldSpec
-  export interface FieldIndex {
-    index?: FieldIndexUnion
-  }
   export type FieldIndexUnion =
     | { type: 'KeywordIndex', indexType: KeywordIndexType }
     | { type: 'VectorIndex', metric: VectorDistanceMetric }

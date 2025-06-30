@@ -125,6 +125,18 @@ impl Value {
         }
     }
 
+    pub fn vector(vector: impl Into<Vector>) -> Self {
+        Value {
+            value: Some(value::Value::Vector(vector.into())),
+        }
+    }
+
+    pub fn sparse_vector(sparse_vector: impl Into<SparseVector>) -> Self {
+        Value {
+            value: Some(value::Value::SparseVector(sparse_vector.into())),
+        }
+    }
+
     pub fn as_float_vector(&self) -> Option<&[f32]> {
         match &self.value {
             Some(value::Value::Vector(vec)) => match &vec.vector {

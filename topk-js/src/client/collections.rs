@@ -1,17 +1,17 @@
+use crate::{
+    data::{Collection, CollectionFieldSpec},
+    error::TopkError,
+    schema::field_spec::FieldSpec,
+};
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use std::collections::HashMap;
 use std::sync::Arc;
-
-use crate::{
-    data::collection::{Collection, CollectionFieldSpec},
-    error::TopkError,
-    schema::field_spec::FieldSpec,
-};
 use topk_rs::proto::v1::control::{self};
 
 #[napi]
 pub struct CollectionsClient {
+    /// Reference to the topk-rs client
     client: Arc<topk_rs::Client>,
 }
 
@@ -36,6 +36,7 @@ impl CollectionsClient {
             .list()
             .await
             .map_err(TopkError::from)?;
+
         Ok(collections.into_iter().map(|c| c.into()).collect())
     }
 
@@ -48,8 +49,10 @@ impl CollectionsClient {
             FieldSpec,
         >,
     ) -> Result<Collection> {
-        let proto_schema: HashMap<String, control::FieldSpec> =
-            schema.into_iter().map(|(k, v)| (k, v.into())).collect();
+        let proto_schema: HashMap<String, control::FieldSpec> = schema
+            .into_iter()
+            .map(|(k, v)| (k, v.clone().into()))
+            .collect();
 
         let collection = self
             .client

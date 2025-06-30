@@ -1,53 +1,36 @@
-use super::{
-    utils::{get_napi_value_type, is_napi_integer},
-    vector::{Vector, VectorUnion},
-};
-use crate::data::sparse::{
-    f32::SparseVectorF32, u8::SparseVectorU8, SparseVector, SparseVectorUnion,
-};
-use napi::{
-    bindgen_prelude::*,
-    sys::{napi_is_array, napi_is_buffer},
-};
-use napi_derive::napi;
-use std::ptr;
+use super::vector::{SparseVector, Vector};
+use crate::data::vector::{SparseVectorData, SparseVectorUnion, VectorData, VectorUnion};
+use napi::bindgen_prelude::*;
 
 #[derive(Debug, Clone)]
 pub enum Value {
-    String(String),
+    Null,
     Bool(bool),
-    F64(f64),
     U32(u32),
-    U64(u64),
     I32(i32),
     I64(i64),
     F32(f32),
-    Bytes(Vec<u8>),
+    F64(f64),
+    String(String),
     Vector(Vector),
     SparseVector(SparseVector),
-    Null,
-}
-
-#[napi(namespace = "data")]
-pub fn bytes(values: Vec<u8>) -> Value {
-    Value::Bytes(values)
+    Bytes(Vec<u8>),
 }
 
 impl From<Value> for topk_rs::proto::v1::data::Value {
     fn from(value: Value) -> Self {
         match value {
-            Value::String(s) => topk_rs::proto::v1::data::Value::string(s),
-            Value::F64(n) => topk_rs::proto::v1::data::Value::f64(n),
+            Value::Null => topk_rs::proto::v1::data::Value::null(),
             Value::Bool(b) => topk_rs::proto::v1::data::Value::bool(b),
+            Value::String(s) => topk_rs::proto::v1::data::Value::string(s),
             Value::U32(n) => topk_rs::proto::v1::data::Value::u32(n),
-            Value::U64(n) => topk_rs::proto::v1::data::Value::u64(n),
             Value::I32(n) => topk_rs::proto::v1::data::Value::i32(n),
             Value::I64(n) => topk_rs::proto::v1::data::Value::i64(n),
             Value::F32(n) => topk_rs::proto::v1::data::Value::f32(n),
+            Value::F64(n) => topk_rs::proto::v1::data::Value::f64(n),
             Value::Bytes(b) => topk_rs::proto::v1::data::Value::bytes(b),
-            Value::Vector(v) => v.into(),
-            Value::SparseVector(v) => v.into(),
-            Value::Null => topk_rs::proto::v1::data::Value::null(),
+            Value::Vector(v) => topk_rs::proto::v1::data::Value::vector(v),
+            Value::SparseVector(v) => topk_rs::proto::v1::data::Value::sparse_vector(v),
         }
     }
 }
@@ -55,55 +38,54 @@ impl From<Value> for topk_rs::proto::v1::data::Value {
 impl From<topk_rs::proto::v1::data::Value> for Value {
     fn from(value: topk_rs::proto::v1::data::Value) -> Self {
         match value.value {
-            Some(topk_rs::proto::v1::data::value::Value::String(s)) => Value::String(s),
-            Some(topk_rs::proto::v1::data::value::Value::F64(n)) => Value::F64(n),
+            // Null
+            Some(topk_rs::proto::v1::data::value::Value::Null(_)) => Value::Null,
+            // Bool
             Some(topk_rs::proto::v1::data::value::Value::Bool(b)) => Value::Bool(b),
+            // String
+            Some(topk_rs::proto::v1::data::value::Value::String(s)) => Value::String(s),
+            // Numbers
+            Some(topk_rs::proto::v1::data::value::Value::F64(n)) => Value::F64(n),
+            Some(topk_rs::proto::v1::data::value::Value::F32(n)) => Value::F64(n as f64),
             Some(topk_rs::proto::v1::data::value::Value::U32(n)) => {
-                Value::I32(n.try_into().expect("U32 is lossy"))
+                Value::U32(n.try_into().expect("U32 is lossy"))
             }
             Some(topk_rs::proto::v1::data::value::Value::U64(n)) => {
-                Value::U64(n.try_into().expect("U64 is lossy"))
+                Value::U32(n.try_into().expect("U32 is lossy"))
             }
             Some(topk_rs::proto::v1::data::value::Value::I32(n)) => Value::I32(n),
             Some(topk_rs::proto::v1::data::value::Value::I64(n)) => Value::I64(n),
-            Some(topk_rs::proto::v1::data::value::Value::F32(n)) => Value::F32(n),
+            // Bytes
             Some(topk_rs::proto::v1::data::value::Value::Binary(b)) => Value::Bytes(b),
+            // Vectors
             Some(topk_rs::proto::v1::data::value::Value::Vector(v)) => match v.vector {
                 Some(topk_rs::proto::v1::data::vector::Vector::Float(float_vector)) => {
-                    Value::Vector(Vector::new(VectorUnion::Float {
-                        values: float_vector.values.iter().map(|v| *v as f64).collect(),
-                    }))
+                    Value::Vector(Vector::float(float_vector.values))
                 }
                 Some(topk_rs::proto::v1::data::vector::Vector::Byte(byte_vector)) => {
-                    Value::Vector(Vector::new(VectorUnion::Byte {
-                        values: byte_vector.values,
-                    }))
+                    Value::Vector(Vector::byte(byte_vector.values))
                 }
                 None => unreachable!("Invalid vector proto"),
             },
+            // Sparse vectors
             Some(topk_rs::proto::v1::data::value::Value::SparseVector(sparse_vector)) => {
                 Value::SparseVector(match sparse_vector.values {
                     Some(topk_rs::proto::v1::data::sparse_vector::Values::F32(values)) => {
-                        SparseVector::new(SparseVectorUnion::Float {
-                            vector: SparseVectorF32 {
-                                indices: sparse_vector.indices,
-                                values: values.values,
-                            },
+                        SparseVector::float(SparseVectorData::<f32> {
+                            indices: sparse_vector.indices,
+                            values: values.values,
                         })
                     }
                     Some(topk_rs::proto::v1::data::sparse_vector::Values::U8(values)) => {
-                        SparseVector::new(SparseVectorUnion::Byte {
-                            vector: SparseVectorU8 {
-                                indices: sparse_vector.indices,
-                                values: values.values,
-                            },
+                        SparseVector::byte(SparseVectorData::<u8> {
+                            indices: sparse_vector.indices,
+                            values: values.values,
                         })
                     }
-                    _ => unreachable!("Invalid sparse vector proto"),
+                    None => unreachable!("Invalid sparse vector proto"),
                 })
             }
-            Some(topk_rs::proto::v1::data::value::Value::Null(_)) => Value::Null,
-            None => unreachable!("Invalid proto"),
+            None => unreachable!("Invalid value proto"),
         }
     }
 }
@@ -111,92 +93,62 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
 impl FromNapiValue for Value {
     unsafe fn from_napi_value(
         env: napi::sys::napi_env,
-        napi_val: napi::sys::napi_value,
+        value: napi::sys::napi_value,
     ) -> napi::Result<Self> {
+        if let Ok(sparse_vector) = crate::try_cast_ref!(env, value, SparseVector) {
+            return Ok(Value::SparseVector(sparse_vector.clone()));
+        }
+
+        if let Ok(vector) = crate::try_cast_ref!(env, value, Vector) {
+            return Ok(Value::Vector(vector.clone()));
+        }
+
         let mut result: i32 = 0;
-
-        napi::sys::napi_typeof(env, napi_val, &mut result);
-
+        check_status!(napi::sys::napi_typeof(env, value, &mut result))?;
         match result {
+            napi::sys::ValueType::napi_undefined => Ok(Value::Null),
+            napi::sys::ValueType::napi_null => Ok(Value::Null),
             napi::sys::ValueType::napi_string => {
-                Ok(Value::String(String::from_napi_value(env, napi_val)?))
+                Ok(Value::String(String::from_napi_value(env, value)?))
             }
-            napi::sys::ValueType::napi_number => match is_napi_integer(env, napi_val) {
-                true => Ok(Value::I32(i32::from_napi_value(env, napi_val)?)),
-                false => Ok(Value::F64(f64::from_napi_value(env, napi_val)?)),
+            napi::sys::ValueType::napi_number => match is_napi_integer(env, value) {
+                true => Ok(Value::I64(i64::from_napi_value(env, value)?)),
+                false => Ok(Value::F64(f64::from_napi_value(env, value)?)),
             },
             napi::sys::ValueType::napi_boolean => {
-                Ok(Value::Bool(bool::from_napi_value(env, napi_val)?))
+                Ok(Value::Bool(bool::from_napi_value(env, value)?))
             }
             napi::sys::ValueType::napi_object => {
-                let mut is_buffer: bool = false;
-                napi_is_buffer(env, napi_val, &mut is_buffer);
-
-                if is_buffer {
-                    let buffer = Buffer::from_napi_value(env, napi_val)?;
-                    let values: Vec<u8> = buffer.into();
-
-                    return Ok(Value::Bytes(values));
+                // Vectors
+                if let Ok(vector) = VectorData::<f64>::from_napi_value(env, value) {
+                    return Ok(Value::Vector(Vector::float(
+                        vector.into_iter().map(|v| v as f32).collect(),
+                    )));
                 }
 
-                let mut is_array: bool = false;
-                napi_is_array(env, napi_val, &mut is_array);
-
-                match is_array {
-                    true => {
-                        let mut vec_values_f64 = Vec::<f64>::new();
-                        let mut length_result: u32 = 0;
-                        napi::sys::napi_get_array_length(env, napi_val, &mut length_result);
-
-                        for i in 0..length_result {
-                            let mut value_result = ptr::null_mut();
-                            napi::sys::napi_get_element(env, napi_val, i, &mut value_result);
-
-                            let mut value_type_result: i32 = 0;
-                            napi::sys::napi_typeof(env, value_result, &mut value_type_result);
-
-                            match value_type_result {
-                                napi::sys::ValueType::napi_number => {
-                                    vec_values_f64.push(f64::from_napi_value(env, value_result)?);
-                                }
-                                _type => {
-                                    return Err(napi::Error::new(
-                                        napi::Status::GenericFailure,
-                                        format!(
-                                            "Vector elements must be of type `number`, got: `{:?}`",
-                                            _type
-                                        ),
-                                    ));
-                                }
-                            }
-                        }
-
-                        match vec_values_f64.is_empty() {
-                            true => Err(napi::Error::new(
-                                napi::Status::GenericFailure,
-                                "Vector is empty: {}",
-                            )),
-                            false => Ok(Value::Vector(Vector::new(VectorUnion::Float {
-                                values: vec_values_f64,
-                            }))),
-                        }
-                    }
-                    false => {
-                        let vector = Vector::from_napi_ref(env, napi_val);
-
-                        match vector {
-                            Ok(vector) => Ok(Value::Vector(vector.clone())),
-                            Err(e) => Err(e),
-                        }
-                    }
+                // Sparse vectors (all "naked" sparse vectors are interpreted as f32)
+                if let Ok(sparse_vector) = SparseVectorData::<f64>::from_napi_value(env, value) {
+                    return Ok(Value::SparseVector(SparseVector::float(
+                        sparse_vector
+                            .into_iter()
+                            .map(|(i, v)| (i, v as f32))
+                            .collect(),
+                    )));
                 }
+
+                // Bytes/buffers
+                if let Ok(buffer) = Buffer::from_napi_value(env, value) {
+                    return Ok(Value::Bytes(buffer.to_vec()));
+                }
+
+                return Err(napi::Error::from_reason(
+                    "Unsupported object type".to_string(),
+                ));
             }
-            napi::sys::ValueType::napi_null => Ok(Value::Null),
-            napi::sys::ValueType::napi_undefined => Ok(Value::Null),
-            _ => Err(napi::Error::new(
-                napi::Status::GenericFailure,
-                format!("Unsupported value type: {}", get_napi_value_type(result)),
-            )),
+            _ => Err(napi::Error::from_reason(format!(
+                "Unsupported napi value type: {:?}",
+                value
+            ))),
         }
     }
 }
@@ -208,103 +160,72 @@ impl ToNapiValue for Value {
             Value::F64(n) => f64::to_napi_value(env, n),
             Value::Bool(b) => bool::to_napi_value(env, b),
             Value::U32(n) => u32::to_napi_value(env, n),
-            Value::U64(n) => i64::to_napi_value(env, n.try_into().unwrap()),
             Value::I32(n) => i32::to_napi_value(env, n),
             Value::I64(n) => i64::to_napi_value(env, n),
             Value::F32(n) => f32::to_napi_value(env, n),
-            Value::Bytes(b) => {
-                let mut js_array = ptr::null_mut();
-                check_status!(
-                    sys::napi_create_array(env, &mut js_array),
-                    "Failed to create JavaScript array"
-                )?;
-
-                for (i, &value) in b.iter().enumerate() {
-                    let js_value = u8::to_napi_value(env, value)?;
-                    check_status!(
-                        sys::napi_set_element(env, js_array, i as u32, js_value),
-                        "Failed to set array element"
-                    )?;
-                }
-
-                Ok(js_array)
-            }
-            Value::Vector(v) => match v.value() {
-                VectorUnion::Float { values } => {
-                    let mut js_array = ptr::null_mut();
-                    check_status!(
-                        sys::napi_create_array(env, &mut js_array),
-                        "Failed to create JavaScript array"
-                    )?;
-
-                    for (i, &value) in values.iter().enumerate() {
-                        let js_value = f64::to_napi_value(env, value)?;
-                        check_status!(
-                            sys::napi_set_element(env, js_array, i as u32, js_value),
-                            "Failed to set array element"
-                        )?;
-                    }
-
-                    Ok(js_array)
-                }
-                VectorUnion::Byte { values } | VectorUnion::Binary { values } => {
-                    let mut js_array = ptr::null_mut();
-                    check_status!(
-                        sys::napi_create_array(env, &mut js_array),
-                        "Failed to create JavaScript array"
-                    )?;
-
-                    for (i, &value) in values.iter().enumerate() {
-                        let js_value = u8::to_napi_value(env, value)?;
-                        check_status!(
-                            sys::napi_set_element(env, js_array, i as u32, js_value),
-                            "Failed to set array element"
-                        )?;
-                    }
-
-                    Ok(js_array)
-                }
+            Value::Bytes(b) => Buffer::to_napi_value(env, b.into()),
+            Value::Vector(v) => match v.0 {
+                VectorUnion::Float { values } => Vec::<f32>::to_napi_value(env, values),
+                VectorUnion::Byte { values } => Vec::<u8>::to_napi_value(env, values),
             },
-            Value::SparseVector(v) => match v.value() {
+            Value::SparseVector(v) => match v.0 {
                 SparseVectorUnion::Float { vector } => {
-                    let mut js_object = ptr::null_mut();
-                    check_status!(
-                        sys::napi_create_object(env, &mut js_object),
-                        "Failed to create JavaScript object"
-                    )?;
-
-                    for (index, value) in vector.indices.iter().zip(vector.values.iter()) {
-                        let js_key = u32::to_napi_value(env, *index)?;
-                        let js_value = f32::to_napi_value(env, *value)?;
-                        check_status!(
-                            sys::napi_set_property(env, js_object, js_key, js_value),
-                            "Failed to set object property"
-                        )?;
-                    }
-
-                    Ok(js_object)
+                    SparseVectorData::<f32>::to_napi_value(env, vector)
                 }
                 SparseVectorUnion::Byte { vector } => {
-                    let mut js_object = ptr::null_mut();
-                    check_status!(
-                        sys::napi_create_object(env, &mut js_object),
-                        "Failed to create JavaScript object"
-                    )?;
-
-                    for (index, value) in vector.indices.iter().zip(vector.values.iter()) {
-                        let js_key = u32::to_napi_value(env, *index)?;
-                        let js_value = u8::to_napi_value(env, *value)?;
-                        check_status!(
-                            sys::napi_set_property(env, js_object, js_key, js_value),
-                            "Failed to set object property"
-                        )?;
-                    }
-
-                    Ok(js_object)
+                    SparseVectorData::<u8>::to_napi_value(env, vector)
                 }
             },
-
             Value::Null => Null::to_napi_value(env, Null),
         }
+    }
+}
+
+unsafe fn is_napi_integer(env: napi::sys::napi_env, napi_val: napi::sys::napi_value) -> bool {
+    // Check if the number is an integer by comparing it with its integer part
+    let num = f64::from_napi_value(env, napi_val).unwrap();
+    num == (num as i64) as f64
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct BytesData(pub(crate) Vec<u8>);
+
+impl Into<Vec<u8>> for BytesData {
+    fn into(self) -> Vec<u8> {
+        self.0
+    }
+}
+
+impl FromIterator<u8> for BytesData {
+    fn from_iter<I: IntoIterator<Item = u8>>(iter: I) -> Self {
+        BytesData(iter.into_iter().collect())
+    }
+}
+
+impl ToNapiValue for BytesData {
+    unsafe fn to_napi_value(
+        env: napi::sys::napi_env,
+        val: Self,
+    ) -> napi::Result<napi::sys::napi_value> {
+        Vec::<u8>::to_napi_value(env, val.0)
+    }
+}
+
+impl FromNapiValue for BytesData {
+    unsafe fn from_napi_value(
+        env: napi::sys::napi_env,
+        value: napi::sys::napi_value,
+    ) -> napi::Result<Self> {
+        if let Ok(array) = Vec::<u8>::from_napi_value(env, value) {
+            return Ok(BytesData(array));
+        }
+
+        if let Ok(buffer) = Buffer::from_napi_value(env, value) {
+            return Ok(BytesData(buffer.to_vec()));
+        }
+
+        Err(napi::Error::from_reason(
+            "Invalid bytes value, must be `number[]` or `Buffer`",
+        ))
     }
 }

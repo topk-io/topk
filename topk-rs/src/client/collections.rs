@@ -2,14 +2,14 @@ use super::config::ClientConfig;
 use super::create_collection_client;
 use super::retry::call_with_retry;
 use crate::error::Error;
-use futures_util::TryFutureExt;
-use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::OnceCell;
 use crate::proto::v1::control::{
     Collection, CreateCollectionRequest, DeleteCollectionRequest, ListCollectionsRequest,
 };
 use crate::proto::v1::control::{FieldSpec, GetCollectionRequest};
+use futures_util::TryFutureExt;
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::OnceCell;
 
 pub struct CollectionsClient {
     // Client config
@@ -66,7 +66,10 @@ impl CollectionsClient {
         })
         .await?;
 
-        Ok(response.into_inner().collection.expect("invalid proto"))
+        Ok(response
+            .into_inner()
+            .collection
+            .expect("Invalid collection proto"))
     }
 
     pub async fn create(
@@ -97,7 +100,10 @@ impl CollectionsClient {
         })
         .await?;
 
-        Ok(response.into_inner().collection.expect("invalid proto"))
+        Ok(response
+            .into_inner()
+            .collection
+            .expect("Invalid collection proto"))
     }
 
     pub async fn delete(&self, name: impl Into<String>) -> Result<(), Error> {
