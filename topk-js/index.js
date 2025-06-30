@@ -376,4 +376,5 @@ module.exports.CollectionsClient = nativeBinding.CollectionsClient
 module.exports.ConsistencyLevel = nativeBinding.ConsistencyLevel
 module.exports.data = nativeBinding.data
 module.exports.query = nativeBinding.query
+module.exports.query_fn = nativeBinding.query_fn
 module.exports.schema = nativeBinding.schema

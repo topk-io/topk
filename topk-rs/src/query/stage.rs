@@ -1,7 +1,7 @@
 use crate::expr::{filter::FilterExpr, logical::LogicalExpr, select::SelectExpr};
 use std::collections::HashMap;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Stage {
     Select {
         exprs: HashMap<String, SelectExpr>,

@@ -41,13 +41,13 @@ test-py:
     RUN apt-get update && apt-get install -y protobuf-compiler python3.11-venv
 
     # setup maturin
-    RUN cargo install maturin
+    RUN cargo install maturin@1.8.7 --locked
 
     # setup python
     RUN python3 -m venv /venv \
         && . /venv/bin/activate \
         && pip install --upgrade pip \
-        && pip install pytest pytest-xdist
+        && pip install pytest pytest-xdist patchelf
 
     # install pyright
     RUN . /venv/bin/activate && pip install pyright[nodejs]
@@ -62,8 +62,7 @@ test-py:
     RUN . /venv/bin/activate && pyright
 
     # build
-    RUN --mount=type=cache,target=target \
-        --mount=type=cache,target=/usr/local/cargo/registry \
+    RUN --mount=type=cache,target=/usr/local/cargo/registry \
         --mount=type=cache,target=/usr/local/cargo/git \
         . /venv/bin/activate && maturin develop
 

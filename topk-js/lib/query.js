@@ -1,11 +1,11 @@
-const { query } = require("../index");
+const { query, query_fn } = require("../index");
 
 module.exports.field = query.field;
 module.exports.filter = query.filter;
 module.exports.fn = {
-  bm25Score: query.bm25Score,
-  semanticSimilarity: query.semanticSimilarity,
-  vectorDistance: query.vectorDistance,
+  bm25Score: query_fn.bm25Score,
+  semanticSimilarity: query_fn.semanticSimilarity,
+  vectorDistance: query_fn.vectorDistance,
 };
 module.exports.literal = query.literal;
 module.exports.LogicalExpression = query.LogicalExpression;

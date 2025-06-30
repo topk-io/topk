@@ -30,9 +30,6 @@ pub enum Error {
     #[error("invalid argument: {0}")]
     InvalidArgument(String),
 
-    #[error("invalid proto")]
-    InvalidProto,
-
     #[error("permission denied")]
     PermissionDenied,
 
@@ -70,7 +67,6 @@ impl Error {
             Error::DocumentValidationError(_) => false,
             Error::CollectionValidationError(_) => false,
             Error::InvalidArgument(_) => false,
-            Error::InvalidProto => false,
             Error::PermissionDenied => false,
             Error::QuotaExceeded(_) => false,
             Error::RequestTooLarge(_) => false,

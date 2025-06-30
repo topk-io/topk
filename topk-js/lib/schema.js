@@ -10,5 +10,7 @@ exports.keywordIndex = schema.keywordIndex;
 exports.semanticIndex = schema.semanticIndex;
 exports.text = schema.text;
 exports.u8Vector = schema.u8Vector;
+exports.f32SparseVector = schema.f32SparseVector;
+exports.u8SparseVector = schema.u8SparseVector;
 exports.vectorIndex = schema.vectorIndex;
 exports.FieldSpec = schema.FieldSpec;

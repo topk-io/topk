@@ -1,7 +1,7 @@
 use super::Stage;
 use crate::expr::{filter::FilterExpr, logical::LogicalExpr, select::SelectExpr};
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Query {
     stages: Vec<Stage>,
 }

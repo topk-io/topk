@@ -74,12 +74,19 @@ impl Into<topk_rs::proto::v1::control::FieldSpec> for FieldSpec {
 impl From<topk_rs::proto::v1::control::FieldSpec> for FieldSpec {
     fn from(proto: topk_rs::proto::v1::control::FieldSpec) -> Self {
         Self {
-            data_type: proto
-                .data_type
-                .map(|d| d.data_type)
-                .flatten()
-                .map(|d| d.into())
-                .expect("data_type is required"),
+            data_type: {
+                let a = proto
+                    .data_type
+                    .map(|d| d.data_type)
+                    .flatten()
+                    .map(|d| d.into());
+
+                if a.is_none() {
+                    panic!("supposedly invalid proto: {:?}", proto);
+                }
+
+                a.expect("data_type is required")
+            },
             required: proto.required,
             index: proto.index.map(|i| i.into()),
         }

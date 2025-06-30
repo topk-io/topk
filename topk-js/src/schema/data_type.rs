@@ -46,7 +46,7 @@ impl From<topk_rs::proto::v1::control::FieldType> for DataType {
                 }
                 topk_rs::proto::v1::control::field_type::DataType::Bytes(_) => DataType::Bytes,
             },
-            None => unreachable!("Invalid proto"),
+            None => unreachable!("Invalid data type proto"),
         }
     }
 }

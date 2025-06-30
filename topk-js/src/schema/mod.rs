@@ -3,9 +3,7 @@ pub mod field_index;
 pub mod field_spec;
 
 use data_type::DataType;
-use field_index::{
-    EmbeddingDataType, FieldIndex, FieldIndexUnion, KeywordIndexType, VectorDistanceMetric,
-};
+use field_index::{EmbeddingDataType, FieldIndex, KeywordIndexType, VectorDistanceMetric};
 use field_spec::FieldSpec;
 use napi_derive::napi;
 
@@ -77,23 +75,16 @@ pub struct VectorIndexOptions {
 
 #[napi(namespace = "schema")]
 pub fn vector_index(options: VectorIndexOptions) -> FieldIndex {
-    FieldIndex {
-        index: Some(FieldIndexUnion::VectorIndex {
-            metric: options.metric,
-        }),
-    }
+    FieldIndex::vector_index(options.metric)
 }
 
 #[napi(namespace = "schema")]
 pub fn keyword_index() -> FieldIndex {
-    FieldIndex {
-        index: Some(FieldIndexUnion::KeywordIndex {
-            index_type: KeywordIndexType::Text,
-        }),
-    }
+    FieldIndex::keyword_index(KeywordIndexType::Text)
 }
 
 #[napi(object, namespace = "schema")]
+#[derive(Default)]
 pub struct SemanticIndexOptions {
     pub model: Option<String>,
     pub embedding_type: Option<EmbeddingDataType>,
@@ -101,15 +92,7 @@ pub struct SemanticIndexOptions {
 
 #[napi(namespace = "schema")]
 pub fn semantic_index(options: Option<SemanticIndexOptions>) -> FieldIndex {
-    let (model, embedding_type) = match options {
-        Some(options) => (options.model, options.embedding_type),
-        None => (None, None),
-    };
+    let options = options.unwrap_or_default();
 
-    FieldIndex {
-        index: Some(FieldIndexUnion::SemanticIndex {
-            model,
-            embedding_type,
-        }),
-    }
+    FieldIndex::semantic_index(options.model, options.embedding_type)
 }
