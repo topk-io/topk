@@ -1,6 +1,6 @@
-import { field, fn, match, select } from "../../lib/query";
-import { int, semanticIndex, text } from "../../lib/schema";
-import { newProjectContext, ProjectContext } from "../setup";
+import { field, fn, match, select } from "../lib/query";
+import { int, semanticIndex, text } from "../lib/schema";
+import { newProjectContext, ProjectContext } from "./setup";
 
 describe("Semantic Index", () => {
   const contexts: ProjectContext[] = [];

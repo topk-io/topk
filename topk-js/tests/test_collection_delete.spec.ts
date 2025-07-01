@@ -1,5 +1,5 @@
-import { field, select } from "../../../lib/query";
-import { newProjectContext, ProjectContext } from "../../setup";
+import { field, select } from "../lib/query";
+import { newProjectContext, ProjectContext } from "./setup";
 
 describe("delete", () => {
   const contexts: ProjectContext[] = [];

@@ -1,5 +1,5 @@
-import { int, keywordIndex, text } from "../../../lib/schema";
-import { newProjectContext, ProjectContext } from "../../setup";
+import { int, keywordIndex, text } from "../lib/schema";
+import { newProjectContext, ProjectContext } from "./setup";
 
 describe("Get", () => {
   const contexts: ProjectContext[] = [];

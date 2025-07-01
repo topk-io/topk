@@ -1,4 +1,4 @@
-import * as data from "../../../lib/data";
+import * as data from "../lib/data";
 import {
   binaryVector,
   bool,
@@ -11,8 +11,8 @@ import {
   u8SparseVector,
   u8Vector,
   vectorIndex,
-} from "../../../lib/schema";
-import { newProjectContext, ProjectContext } from "../../setup";
+} from "../lib/schema";
+import { newProjectContext, ProjectContext } from "./setup";
 
 describe("Upsert", () => {
   const contexts: ProjectContext[] = [];

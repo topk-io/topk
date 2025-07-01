@@ -1,9 +1,9 @@
 import {
   f32Vector as f32VectorValue,
   u8Vector as u8VectorValue,
-} from "../../lib/data";
-import { field, select } from "../../lib/query";
-import { newProjectContext, ProjectContext } from "../setup";
+} from "../lib/data";
+import { field, select } from "../lib/query";
+import { newProjectContext, ProjectContext } from "./setup";
 
 describe("Select Union Queries", () => {
   const contexts: ProjectContext[] = [];

@@ -1,6 +1,6 @@
-import { field, select } from "../../lib/query";
-import { int, keywordIndex, text } from "../../lib/schema";
-import { newProjectContext, ProjectContext } from "../setup";
+import { field, select } from "../lib/query";
+import { int, keywordIndex, text } from "../lib/schema";
+import { newProjectContext, ProjectContext } from "./setup";
 
 describe("Logical Queries", () => {
   const contexts: ProjectContext[] = [];

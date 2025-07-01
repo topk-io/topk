@@ -1,4 +1,4 @@
-import { f32SparseVector, u8SparseVector } from "../../../lib/data";
+import { f32SparseVector, u8SparseVector } from "../lib/data";
 
 const TYPE_ERROR = "Invalid sparse vector, must be `Record<number, number>`";
 

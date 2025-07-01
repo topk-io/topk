@@ -1,4 +1,4 @@
-import { bytes } from "../../lib/data";
+import { bytes } from "../lib/data";
 
 const TYPE_ERROR = "Invalid bytes value, must be `number[]` or `Buffer`";
 

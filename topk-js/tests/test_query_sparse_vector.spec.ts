@@ -1,7 +1,7 @@
-import * as data from "../../lib/data";
-import { field, fn, select } from "../../lib/query";
-import { f32SparseVector, u8SparseVector, vectorIndex } from "../../lib/schema";
-import { newProjectContext, ProjectContext } from "../setup";
+import * as data from "../lib/data";
+import { field, fn, select } from "../lib/query";
+import { f32SparseVector, u8SparseVector, vectorIndex } from "../lib/schema";
+import { newProjectContext, ProjectContext } from "./setup";
 
 describe("Sparse Vector Queries", () => {
   const contexts: ProjectContext[] = [];

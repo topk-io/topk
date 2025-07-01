@@ -1,4 +1,4 @@
-import { binaryVector, f32Vector, u8Vector } from "../../../lib/data";
+import { binaryVector, f32Vector, u8Vector } from "../lib/data";
 
 const TYPE_ERROR = "Invalid vector value, must be `number[]`";
 

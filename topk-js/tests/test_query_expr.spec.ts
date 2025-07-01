@@ -1,4 +1,4 @@
-import { field, literal } from "../../lib/query";
+import { field, literal } from "../lib/query";
 
 describe("Expression Tests", () => {
   it("should handle flexible expressions", () => {
