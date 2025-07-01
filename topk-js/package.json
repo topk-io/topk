@@ -79,7 +79,7 @@
   },
   "scripts": {
     "artifacts": "napi artifacts",
-    "build": "napi build --no-const-enum --platform --release && tsc --noEmit",
+    "build": "napi build --no-const-enum --platform --release",
     "dev": "napi build --no-const-enum --platform && tsc --noEmit",
     "build:debug": "napi build --no-const-enum --platform",
     "prepublishOnly": "napi prepublish -t npm --no-gh-release",

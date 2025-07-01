@@ -98,7 +98,7 @@ test-js:
 
     RUN --mount=type=cache,target=/usr/local/cargo/registry \
         --mount=type=cache,target=/usr/local/cargo/git \
-        yarn build
+        yarn build && yarn typecheck
 
     ARG region=dev
     DO +SETUP_ENV --region=$region
