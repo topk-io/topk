@@ -1,8 +1,8 @@
-import { field, select } from "../../lib/query";
-import { int, keywordIndex, text } from "../../lib/schema";
-import { newProjectContext, ProjectContext } from "../setup";
+import { field, select } from "../lib/query";
+import { int, keywordIndex, text } from "../lib/schema";
+import { newProjectContext, ProjectContext } from "./setup";
 
-describe("TopK Queries", () => {
+describe("Count Queries", () => {
   const contexts: ProjectContext[] = [];
 
   function getContext(): ProjectContext {
@@ -15,7 +15,12 @@ describe("TopK Queries", () => {
     await Promise.all(contexts.map((ctx) => ctx.deleteCollections()));
   });
 
-  test("query topk()", async () => {
+  test("query non-existent collection", async () => {
+    const ctx = getContext();
+    await expect(ctx.client.collection("missing").count()).rejects.toThrow();
+  });
+
+  test("collection count", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("books", {
       title: text().required().index(keywordIndex()),
@@ -39,22 +44,11 @@ describe("TopK Queries", () => {
       { _id: "hobbit", title: "The Hobbit", published_year: 1937 },
     ]);
 
-    const results = await ctx.client
-      .collection(collection.name)
-      .query(
-        select({ title: field("title") }).topk(field("published_year"), 5, true)
-      );
-
-    expect(results.map((doc) => doc._id)).toEqual([
-      "pride",
-      "moby",
-      "gatsby",
-      "hobbit",
-      "1984",
-    ]);
+    const result = await ctx.client.collection(collection.name).count();
+    expect(result).toBe(10);
   });
 
-  test("query topk with ascending order", async () => {
+  test("query count()", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("books", {
       title: text().required().index(keywordIndex()),
@@ -78,20 +72,14 @@ describe("TopK Queries", () => {
       { _id: "hobbit", title: "The Hobbit", published_year: 1937 },
     ]);
 
-    const results = await ctx.client
+    const result = await ctx.client
       .collection(collection.name)
-      .query(select({}).topk(field("published_year"), 5, false));
+      .query(select({}).filter(field("published_year").lte(1950)).count());
 
-    expect(results.map((doc) => doc._id)).toEqual([
-      "harry",
-      "alchemist",
-      "mockingbird",
-      "lotr",
-      "catcher",
-    ]);
+    expect(result[0]._count).toBe(5);
   });
 
-  test("query topk with limit greater than document count", async () => {
+  test("query count with filter", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("books", {
       title: text().required().index(keywordIndex()),
@@ -115,26 +103,43 @@ describe("TopK Queries", () => {
       { _id: "hobbit", title: "The Hobbit", published_year: 1937 },
     ]);
 
-    const results = await ctx.client
+    const result = await ctx.client
       .collection(collection.name)
-      .query(select({}).topk(field("published_year"), 20, true));
+      .query(select({}).filter(field("published_year").lte(1950)).count());
 
-    expect(results.length).toBe(10);
-    expect(results[0]._id).toBe("pride");
-    expect(results[9]._id).toBe("harry");
+    expect(result[0]._count).toBe(5);
   });
 
-  test("query topk with empty collection", async () => {
+  test("query count with delete", async () => {
     const ctx = getContext();
-    const collection = await ctx.createCollection("empty_books", {
+    const collection = await ctx.createCollection("books", {
       title: text().required().index(keywordIndex()),
       published_year: int(),
     });
 
-    const results = await ctx.client
-      .collection(collection.name)
-      .query(select({}).topk(field("published_year"), 5, true));
+    await ctx.client.collection(collection.name).upsert([
+      { _id: "catcher", title: "The Catcher in the Rye", published_year: 1951 },
+      { _id: "gatsby", title: "The Great Gatsby", published_year: 1925 },
+      { _id: "moby", title: "Moby Dick", published_year: 1851 },
+      {
+        _id: "mockingbird",
+        title: "To Kill a Mockingbird",
+        published_year: 1960,
+      },
+      { _id: "alchemist", title: "The Alchemist", published_year: 1988 },
+      { _id: "harry", title: "Harry Potter", published_year: 1997 },
+      { _id: "lotr", title: "The Lord of the Rings", published_year: 1954 },
+      { _id: "pride", title: "Pride and Prejudice", published_year: 1813 },
+      { _id: "1984", title: "1984", published_year: 1949 },
+      { _id: "hobbit", title: "The Hobbit", published_year: 1937 },
+    ]);
 
-    expect(results.length).toBe(0);
+    let result = await ctx.client.collection(collection.name).count();
+    expect(result).toBe(10);
+
+    const lsn = await ctx.client.collection(collection.name).delete(["lotr"]);
+
+    result = await ctx.client.collection(collection.name).count({ lsn });
+    expect(result).toBe(9);
   });
 });

@@ -1,8 +1,8 @@
-import { field, select } from "../../lib/query";
-import { int, keywordIndex, text } from "../../lib/schema";
-import { newProjectContext, ProjectContext } from "../setup";
+import { field, select } from "../lib/query";
+import { int, keywordIndex, text } from "../lib/schema";
+import { newProjectContext, ProjectContext } from "./setup";
 
-describe("Filter Queries", () => {
+describe("TopK Queries", () => {
   const contexts: ProjectContext[] = [];
 
   function getContext(): ProjectContext {
@@ -15,7 +15,7 @@ describe("Filter Queries", () => {
     await Promise.all(contexts.map((ctx) => ctx.deleteCollections()));
   });
 
-  test("query starts with", async () => {
+  test("query topk()", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("books", {
       title: text().required().index(keywordIndex()),
@@ -42,15 +42,19 @@ describe("Filter Queries", () => {
     const results = await ctx.client
       .collection(collection.name)
       .query(
-        select({})
-          .filter(field("_id").startsWith("cat"))
-          .topk(field("published_year"), 100, false)
+        select({ title: field("title") }).topk(field("published_year"), 5, true)
       );
 
-    expect(results.map((doc) => doc._id)).toEqual(["catcher"]);
+    expect(results.map((doc) => doc._id)).toEqual([
+      "pride",
+      "moby",
+      "gatsby",
+      "hobbit",
+      "1984",
+    ]);
   });
 
-  test("query starts with empty", async () => {
+  test("query topk with ascending order", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("books", {
       title: text().required().index(keywordIndex()),
@@ -76,29 +80,18 @@ describe("Filter Queries", () => {
 
     const results = await ctx.client
       .collection(collection.name)
-      .query(
-        select({})
-          .filter(field("_id").startsWith(""))
-          .topk(field("published_year"), 100, false)
-      );
+      .query(select({}).topk(field("published_year"), 5, false));
 
-    expect(new Set(results.map((doc) => doc._id))).toEqual(
-      new Set([
-        "gatsby",
-        "catcher",
-        "moby",
-        "mockingbird",
-        "alchemist",
-        "harry",
-        "lotr",
-        "pride",
-        "1984",
-        "hobbit",
-      ])
-    );
+    expect(results.map((doc) => doc._id)).toEqual([
+      "harry",
+      "alchemist",
+      "mockingbird",
+      "lotr",
+      "catcher",
+    ]);
   });
 
-  test("query starts with non-existent prefix", async () => {
+  test("query topk with limit greater than document count", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("books", {
       title: text().required().index(keywordIndex()),
@@ -124,11 +117,23 @@ describe("Filter Queries", () => {
 
     const results = await ctx.client
       .collection(collection.name)
-      .query(
-        select({})
-          .filter(field("_id").startsWith("foobarbaz"))
-          .topk(field("published_year"), 100, false)
-      );
+      .query(select({}).topk(field("published_year"), 20, true));
+
+    expect(results.length).toBe(10);
+    expect(results[0]._id).toBe("pride");
+    expect(results[9]._id).toBe("harry");
+  });
+
+  test("query topk with empty collection", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("empty_books", {
+      title: text().required().index(keywordIndex()),
+      published_year: int(),
+    });
+
+    const results = await ctx.client
+      .collection(collection.name)
+      .query(select({}).topk(field("published_year"), 5, true));
 
     expect(results.length).toBe(0);
   });

@@ -1,16 +1,16 @@
 import {
   binaryVector as binaryVectorData,
   u8Vector as u8VectorData,
-} from "../../lib/data";
-import { field, fn, select } from "../../lib/query";
+} from "../lib/data";
+import { field, fn, select } from "../lib/query";
 import {
   binaryVector,
   f32Vector,
   text,
   u8Vector,
   vectorIndex,
-} from "../../lib/schema";
-import { newProjectContext, ProjectContext } from "../setup";
+} from "../lib/schema";
+import { newProjectContext, ProjectContext } from "./setup";
 
 function isSorted(result: any[], fieldName: string): boolean {
   const values = result.map((doc) => doc[fieldName]);

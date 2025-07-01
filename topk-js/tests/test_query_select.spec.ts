@@ -1,12 +1,6 @@
-import { field, fn, literal, match, select } from "../../lib/query";
-import {
-  f32Vector,
-  int,
-  keywordIndex,
-  text,
-  vectorIndex,
-} from "../../lib/schema";
-import { newProjectContext, ProjectContext } from "../setup";
+import { field, fn, literal, match, select } from "../lib/query";
+import { f32Vector, int, keywordIndex, text, vectorIndex } from "../lib/schema";
+import { newProjectContext, ProjectContext } from "./setup";
 
 describe("Select Queries", () => {
   const contexts: ProjectContext[] = [];

@@ -1,6 +1,6 @@
-import { field, not, select } from "../../lib/query";
-import { int, keywordIndex, text } from "../../lib/schema";
-import { newProjectContext, ProjectContext } from "../setup";
+import { field, not, select } from "../lib/query";
+import { int, keywordIndex, text } from "../lib/schema";
+import { newProjectContext, ProjectContext } from "./setup";
 
 describe("Filter Queries", () => {
   const contexts: ProjectContext[] = [];
