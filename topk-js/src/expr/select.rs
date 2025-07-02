@@ -7,19 +7,6 @@ pub enum SelectExpression {
     Function { expr: FunctionExpression },
 }
 
-impl Into<topk_rs::expr::select::SelectExpr> for SelectExpression {
-    fn into(self) -> topk_rs::expr::select::SelectExpr {
-        match self {
-            SelectExpression::Logical { expr } => {
-                topk_rs::expr::select::SelectExpr::Logical(expr.into())
-            }
-            SelectExpression::Function { expr } => {
-                topk_rs::expr::select::SelectExpr::Function(expr.into())
-            }
-        }
-    }
-}
-
 impl FromNapiValue for SelectExpression {
     unsafe fn from_napi_value(
         env: napi::sys::napi_env,
@@ -36,5 +23,18 @@ impl FromNapiValue for SelectExpression {
         Err(napi::Error::from_reason(
             "Value must be either a LogicalExpression or FunctionExpression",
         ))
+    }
+}
+
+impl From<SelectExpression> for topk_rs::proto::v1::data::stage::select_stage::SelectExpr {
+    fn from(expr: SelectExpression) -> Self {
+        match expr {
+            SelectExpression::Logical { expr } => {
+                topk_rs::proto::v1::data::stage::select_stage::SelectExpr::logical(expr)
+            }
+            SelectExpression::Function { expr } => {
+                topk_rs::proto::v1::data::stage::select_stage::SelectExpr::function(expr)
+            }
+        }
     }
 }

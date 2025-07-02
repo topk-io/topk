@@ -52,21 +52,23 @@ impl TextExpr {
     }
 }
 
-impl Into<topk_rs::expr::text::TextExpr> for TextExpr {
-    fn into(self) -> topk_rs::expr::text::TextExpr {
-        match self {
-            TextExpr::Terms { all, terms } => topk_rs::expr::text::TextExpr::Terms {
+impl From<TextExpr> for topk_rs::proto::v1::data::TextExpr {
+    fn from(expr: TextExpr) -> Self {
+        match expr {
+            TextExpr::Terms { all, terms } => topk_rs::proto::v1::data::TextExpr::terms(
                 all,
-                terms: terms.into_iter().map(|t| t.into()).collect(),
-            },
-            TextExpr::And { left, right } => topk_rs::expr::text::TextExpr::And {
-                left: Box::new(left.get().clone().into()),
-                right: Box::new(right.get().clone().into()),
-            },
-            TextExpr::Or { left, right } => topk_rs::expr::text::TextExpr::Or {
-                left: Box::new(left.get().clone().into()),
-                right: Box::new(right.get().clone().into()),
-            },
+                terms.into_iter().map(|term| term.into()).collect(),
+            ),
+            TextExpr::And { left, right } => {
+                let left: topk_rs::proto::v1::data::TextExpr = left.get().clone().into();
+                let right: topk_rs::proto::v1::data::TextExpr = right.get().clone().into();
+                left.and(right)
+            }
+            TextExpr::Or { left, right } => {
+                let left: topk_rs::proto::v1::data::TextExpr = left.get().clone().into();
+                let right: topk_rs::proto::v1::data::TextExpr = right.get().clone().into();
+                left.or(right)
+            }
         }
     }
 }
@@ -79,12 +81,12 @@ pub struct Term {
     pub weight: f32,
 }
 
-impl Into<topk_rs::expr::text::Term> for Term {
-    fn into(self) -> topk_rs::expr::text::Term {
-        topk_rs::expr::text::Term {
-            token: self.token,
-            field: self.field,
-            weight: self.weight,
+impl From<Term> for topk_rs::proto::v1::data::text_expr::Term {
+    fn from(term: Term) -> Self {
+        topk_rs::proto::v1::data::text_expr::Term {
+            token: term.token,
+            field: term.field,
+            weight: term.weight,
         }
     }
 }

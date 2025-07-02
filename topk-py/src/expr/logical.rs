@@ -12,12 +12,14 @@ pub enum UnaryOperator {
     IsNotNull,
 }
 
-impl Into<topk_rs::expr::logical::UnaryOperator> for UnaryOperator {
-    fn into(self) -> topk_rs::expr::logical::UnaryOperator {
-        match self {
-            UnaryOperator::Not => topk_rs::expr::logical::UnaryOperator::Not,
-            UnaryOperator::IsNull => topk_rs::expr::logical::UnaryOperator::IsNull,
-            UnaryOperator::IsNotNull => topk_rs::expr::logical::UnaryOperator::IsNotNull,
+impl From<UnaryOperator> for topk_rs::proto::v1::data::logical_expr::unary_op::Op {
+    fn from(op: UnaryOperator) -> Self {
+        match op {
+            UnaryOperator::Not => topk_rs::proto::v1::data::logical_expr::unary_op::Op::Not,
+            UnaryOperator::IsNull => topk_rs::proto::v1::data::logical_expr::unary_op::Op::IsNull,
+            UnaryOperator::IsNotNull => {
+                topk_rs::proto::v1::data::logical_expr::unary_op::Op::IsNotNull
+            }
         }
     }
 }
@@ -46,25 +48,29 @@ pub enum BinaryOperator {
     Rem,
 }
 
-impl Into<topk_rs::expr::logical::BinaryOperator> for BinaryOperator {
-    fn into(self) -> topk_rs::expr::logical::BinaryOperator {
-        match self {
-            BinaryOperator::Eq => topk_rs::expr::logical::BinaryOperator::Eq,
-            BinaryOperator::NotEq => topk_rs::expr::logical::BinaryOperator::NotEq,
-            BinaryOperator::Lt => topk_rs::expr::logical::BinaryOperator::Lt,
-            BinaryOperator::LtEq => topk_rs::expr::logical::BinaryOperator::LtEq,
-            BinaryOperator::Gt => topk_rs::expr::logical::BinaryOperator::Gt,
-            BinaryOperator::GtEq => topk_rs::expr::logical::BinaryOperator::GtEq,
-            BinaryOperator::StartsWith => topk_rs::expr::logical::BinaryOperator::StartsWith,
-            BinaryOperator::Contains => topk_rs::expr::logical::BinaryOperator::Contains,
-            BinaryOperator::Add => topk_rs::expr::logical::BinaryOperator::Add,
-            BinaryOperator::Sub => topk_rs::expr::logical::BinaryOperator::Sub,
-            BinaryOperator::Mul => topk_rs::expr::logical::BinaryOperator::Mul,
-            BinaryOperator::Div => topk_rs::expr::logical::BinaryOperator::Div,
-            BinaryOperator::And => topk_rs::expr::logical::BinaryOperator::And,
-            BinaryOperator::Or => topk_rs::expr::logical::BinaryOperator::Or,
-            BinaryOperator::Xor => unreachable!("Xor is not supported"),
-            BinaryOperator::Rem => unreachable!("Rem is not supported"),
+impl From<BinaryOperator> for topk_rs::proto::v1::data::logical_expr::binary_op::Op {
+    fn from(op: BinaryOperator) -> Self {
+        match op {
+            BinaryOperator::And => topk_rs::proto::v1::data::logical_expr::binary_op::Op::And,
+            BinaryOperator::Or => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Or,
+            BinaryOperator::Eq => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Eq,
+            BinaryOperator::NotEq => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Neq,
+            BinaryOperator::Lt => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Lt,
+            BinaryOperator::LtEq => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Lte,
+            BinaryOperator::Gt => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Gt,
+            BinaryOperator::GtEq => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Gte,
+            BinaryOperator::StartsWith => {
+                topk_rs::proto::v1::data::logical_expr::binary_op::Op::StartsWith
+            }
+            BinaryOperator::Contains => {
+                topk_rs::proto::v1::data::logical_expr::binary_op::Op::Contains
+            }
+            BinaryOperator::Add => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Add,
+            BinaryOperator::Sub => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Sub,
+            BinaryOperator::Mul => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Mul,
+            BinaryOperator::Div => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Div,
+            BinaryOperator::Rem => unimplemented!("`rem` operator is not supported"),
+            BinaryOperator::Xor => unimplemented!("`xor` operator is not supported"),
         }
     }
 }
@@ -72,7 +78,6 @@ impl Into<topk_rs::expr::logical::BinaryOperator> for BinaryOperator {
 #[pyclass]
 #[derive(Clone)]
 pub enum LogicalExpr {
-    Null(),
     Field {
         name: String,
     },
@@ -93,7 +98,6 @@ pub enum LogicalExpr {
 impl std::fmt::Debug for LogicalExpr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Null() => write!(f, "Null"),
             Self::Field { name } => write!(f, "field({})", name),
             Self::Literal { value } => write!(f, "literal({:?})", value),
             Self::Unary { op, expr } => {
@@ -115,7 +119,6 @@ impl std::fmt::Debug for LogicalExpr {
 impl PartialEq for LogicalExpr {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (LogicalExpr::Null(), LogicalExpr::Null()) => true,
             (LogicalExpr::Field { name: l }, LogicalExpr::Field { name: r }) => l == r,
             (LogicalExpr::Literal { value: l }, LogicalExpr::Literal { value: r }) => l == r,
             (
@@ -429,24 +432,20 @@ impl LogicalExpr {
     }
 }
 
-impl Into<topk_rs::expr::logical::LogicalExpr> for LogicalExpr {
-    fn into(self) -> topk_rs::expr::logical::LogicalExpr {
-        match self {
-            LogicalExpr::Null() => topk_rs::expr::logical::LogicalExpr::Null(),
-            LogicalExpr::Field { name } => topk_rs::expr::logical::LogicalExpr::Field { name },
-            LogicalExpr::Literal { value } => topk_rs::expr::logical::LogicalExpr::Literal {
-                value: value.into(),
-            },
-            LogicalExpr::Unary { op, expr } => topk_rs::expr::logical::LogicalExpr::Unary {
-                op: op.into(),
-                expr: Box::new(expr.get().clone().into()),
-            },
+impl From<LogicalExpr> for topk_rs::proto::v1::data::LogicalExpr {
+    fn from(expr: LogicalExpr) -> Self {
+        match expr {
+            LogicalExpr::Field { name } => topk_rs::proto::v1::data::LogicalExpr::field(name),
+            LogicalExpr::Literal { value } => topk_rs::proto::v1::data::LogicalExpr::literal(value),
+            LogicalExpr::Unary { op, expr } => {
+                topk_rs::proto::v1::data::LogicalExpr::unary(op, expr.get().clone())
+            }
             LogicalExpr::Binary { left, op, right } => {
-                topk_rs::expr::logical::LogicalExpr::Binary {
-                    left: Box::new(left.get().clone().into()),
-                    op: op.into(),
-                    right: Box::new(right.get().clone().into()),
-                }
+                topk_rs::proto::v1::data::LogicalExpr::binary(
+                    op,
+                    left.get().clone(),
+                    right.get().clone(),
+                )
             }
         }
     }

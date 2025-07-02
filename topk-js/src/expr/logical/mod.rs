@@ -216,12 +216,6 @@ impl LogicalExpression {
     }
 }
 
-impl Into<topk_rs::expr::logical::LogicalExpr> for LogicalExpression {
-    fn into(self) -> topk_rs::expr::logical::LogicalExpr {
-        self.expr.into()
-    }
-}
-
 impl Into<topk_rs::proto::v1::data::LogicalExpr> for LogicalExpression {
     fn into(self) -> topk_rs::proto::v1::data::LogicalExpr {
         match self.expr {
@@ -232,49 +226,17 @@ impl Into<topk_rs::proto::v1::data::LogicalExpr> for LogicalExpression {
                 topk_rs::proto::v1::data::LogicalExpr::field(name)
             }
             LogicalExpressionUnion::Literal { value } => {
-                topk_rs::proto::v1::data::LogicalExpr::literal(value.into())
+                topk_rs::proto::v1::data::LogicalExpr::literal(value)
             }
             LogicalExpressionUnion::Unary { op, expr } => {
-                topk_rs::proto::v1::data::LogicalExpr::unary(
-                    op.into(),
-                    expr.as_ref().clone().into(),
-                )
+                topk_rs::proto::v1::data::LogicalExpr::unary(op, expr.as_ref().clone())
             }
             LogicalExpressionUnion::Binary { left, op, right } => {
                 topk_rs::proto::v1::data::LogicalExpr::binary(
-                    op.into(),
-                    left.as_ref().clone().into(),
-                    right.as_ref().clone().into(),
+                    op,
+                    left.as_ref().clone(),
+                    right.as_ref().clone(),
                 )
-            }
-        }
-    }
-}
-
-impl Into<topk_rs::expr::logical::LogicalExpr> for LogicalExpressionUnion {
-    fn into(self) -> topk_rs::expr::logical::LogicalExpr {
-        match self {
-            LogicalExpressionUnion::Null => topk_rs::expr::logical::LogicalExpr::Null {},
-            LogicalExpressionUnion::Field { name } => {
-                topk_rs::expr::logical::LogicalExpr::Field { name }
-            }
-            LogicalExpressionUnion::Literal { value } => {
-                topk_rs::expr::logical::LogicalExpr::Literal {
-                    value: value.into(),
-                }
-            }
-            LogicalExpressionUnion::Unary { op, expr } => {
-                topk_rs::expr::logical::LogicalExpr::Unary {
-                    op: op.into(),
-                    expr: Box::new(expr.as_ref().clone().into()),
-                }
-            }
-            LogicalExpressionUnion::Binary { left, op, right } => {
-                topk_rs::expr::logical::LogicalExpr::Binary {
-                    left: Box::new(left.as_ref().clone().into()),
-                    op: op.into(),
-                    right: Box::new(right.as_ref().clone().into()),
-                }
             }
         }
     }

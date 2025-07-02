@@ -1,4 +1,4 @@
-use super::*;
+use crate::proto::data::v1::{sparse_vector, value, vector, Null, SparseVector, Value, Vector};
 
 impl Value {
     pub fn null() -> Self {
@@ -111,7 +111,7 @@ impl Value {
         }
     }
 
-    pub fn float_vector(values: Vec<f32>) -> Self {
+    pub fn f32_vector(values: Vec<f32>) -> Self {
         Value {
             value: Some(value::Value::Vector(Vector {
                 vector: Some(vector::Vector::Float(vector::Float { values })),
@@ -119,25 +119,7 @@ impl Value {
         }
     }
 
-    pub fn bytes(value: Vec<u8>) -> Self {
-        Value {
-            value: Some(value::Value::Binary(value)),
-        }
-    }
-
-    pub fn vector(vector: impl Into<Vector>) -> Self {
-        Value {
-            value: Some(value::Value::Vector(vector.into())),
-        }
-    }
-
-    pub fn sparse_vector(sparse_vector: impl Into<SparseVector>) -> Self {
-        Value {
-            value: Some(value::Value::SparseVector(sparse_vector.into())),
-        }
-    }
-
-    pub fn as_float_vector(&self) -> Option<&[f32]> {
+    pub fn as_f32_vector(&self) -> Option<&[f32]> {
         match &self.value {
             Some(value::Value::Vector(vec)) => match &vec.vector {
                 Some(vector::Vector::Float(vector::Float { values })) => Some(values),
@@ -147,7 +129,7 @@ impl Value {
         }
     }
 
-    pub fn byte_vector(values: Vec<u8>) -> Self {
+    pub fn u8_vector(values: Vec<u8>) -> Self {
         Value {
             value: Some(value::Value::Vector(Vector {
                 vector: Some(vector::Vector::Byte(vector::Byte { values })),
@@ -155,7 +137,7 @@ impl Value {
         }
     }
 
-    pub fn as_byte_vector(&self) -> Option<&[u8]> {
+    pub fn as_u8_vector(&self) -> Option<&[u8]> {
         match &self.value {
             Some(value::Value::Vector(vec)) => match &vec.vector {
                 Some(vector::Vector::Byte(vector::Byte { values })) => Some(values),
@@ -185,6 +167,11 @@ impl Value {
                 })),
             })),
         }
+    }
+
+    /// Alias for `binary`
+    pub fn bytes(value: Vec<u8>) -> Self {
+        Value::binary(value)
     }
 
     pub fn binary(value: Vec<u8>) -> Self {
@@ -280,7 +267,7 @@ impl From<f64> for Value {
 
 impl From<Vec<f32>> for Value {
     fn from(value: Vec<f32>) -> Self {
-        Value::float_vector(value)
+        Value::f32_vector(value)
     }
 }
 
@@ -301,48 +288,6 @@ impl<T: Into<Value>> From<Option<T>> for Value {
         match value {
             Some(value) => value.into(),
             None => Value::null(),
-        }
-    }
-}
-
-impl Vector {
-    pub fn float(values: Vec<f32>) -> Self {
-        Vector {
-            vector: Some(vector::Vector::Float(vector::Float { values })),
-        }
-    }
-
-    pub fn byte(values: Vec<u8>) -> Self {
-        Vector {
-            vector: Some(vector::Vector::Byte(vector::Byte { values })),
-        }
-    }
-
-    pub fn len(&self) -> Option<usize> {
-        match &self.vector {
-            Some(vector::Vector::Float(vector::Float { values })) => Some(values.len()),
-            Some(vector::Vector::Byte(vector::Byte { values })) => Some(values.len()),
-            _ => None,
-        }
-    }
-}
-
-impl SparseVector {
-    pub fn f32(indices: Vec<u32>, values: Vec<f32>) -> Self {
-        SparseVector {
-            indices,
-            values: Some(sparse_vector::Values::F32(sparse_vector::F32Values {
-                values,
-            })),
-        }
-    }
-
-    pub fn u8(indices: Vec<u32>, values: Vec<u8>) -> Self {
-        SparseVector {
-            indices,
-            values: Some(sparse_vector::Values::U8(sparse_vector::U8Values {
-                values,
-            })),
         }
     }
 }

@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 use test_context::test_context;
+use topk_rs::data::f32_vector;
 use topk_rs::doc;
 use topk_rs::proto::v1::data::Value;
 
 mod utils;
-use topk_rs::data::Vector;
-use topk_rs::query::{field, fns, literal, r#match, select};
+use topk_rs::data::literal;
+use topk_rs::query::{field, fns, r#match, select};
 use utils::dataset;
 use utils::ProjectTestContext;
 
@@ -163,7 +164,7 @@ async fn test_query_select_bm25_score(ctx: &mut ProjectTestContext) {
         .collection(&collection.name)
         .query(
             select([("bm25_score", fns::bm25_score())])
-                .filter(r#match("pride", None, None))
+                .filter(r#match("pride", None, None, false))
                 .topk(field("bm25_score"), 100, true),
             None,
             None,
@@ -188,7 +189,7 @@ async fn test_query_select_vector_distance(ctx: &mut ProjectTestContext) {
         .query(
             select([(
                 "summary_distance",
-                fns::vector_distance("summary_embedding", Vector::F32(vec![2.0; 16])),
+                fns::vector_distance("summary_embedding", f32_vector(vec![2.0; 16])),
             )])
             .topk(field("summary_distance"), 3, true),
             None,
@@ -223,7 +224,11 @@ async fn test_query_select_null_field(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("a", field("a")), ("b", literal(1 as u32))]).topk(field("b"), 100, true),
+            select([("a", field("a")), ("b", literal(1 as u32).into())]).topk(
+                field("b"),
+                100,
+                true,
+            ),
             None,
             None,
         )

@@ -18,11 +18,15 @@ pub enum SelectExprUnion {
     Function(FunctionExpr),
 }
 
-impl Into<topk_rs::expr::select::SelectExpr> for SelectExpr {
-    fn into(self) -> topk_rs::expr::select::SelectExpr {
-        match self {
-            SelectExpr::Logical(expr) => topk_rs::expr::select::SelectExpr::Logical(expr.into()),
-            SelectExpr::Function(expr) => topk_rs::expr::select::SelectExpr::Function(expr.into()),
+impl From<SelectExpr> for topk_rs::proto::v1::data::stage::select_stage::SelectExpr {
+    fn from(expr: SelectExpr) -> Self {
+        match expr {
+            SelectExpr::Logical(expr) => {
+                topk_rs::proto::v1::data::stage::select_stage::SelectExpr::logical(expr)
+            }
+            SelectExpr::Function(expr) => {
+                topk_rs::proto::v1::data::stage::select_stage::SelectExpr::function(expr)
+            }
         }
     }
 }

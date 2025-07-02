@@ -104,8 +104,10 @@ pub fn match_(token: String, options: Option<MatchOptions>) -> TextExpression {
     )
 }
 
-impl From<Query> for topk_rs::query::Query {
+impl From<Query> for topk_rs::proto::v1::data::Query {
     fn from(query: Query) -> Self {
-        topk_rs::query::Query::new(query.stages.into_iter().map(|stage| stage.into()).collect())
+        topk_rs::proto::v1::data::Query::new(
+            query.stages.into_iter().map(|stage| stage.into()).collect(),
+        )
     }
 }

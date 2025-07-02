@@ -8,13 +8,13 @@ pub enum Scalar {
     String(String),
 }
 
-impl Into<topk_rs::data::Scalar> for Scalar {
-    fn into(self) -> topk_rs::data::Scalar {
-        match self {
-            Scalar::Bool(b) => topk_rs::data::Scalar::Bool(b),
-            Scalar::Int(i) => topk_rs::data::Scalar::I64(i),
-            Scalar::Float(f) => topk_rs::data::Scalar::F64(f),
-            Scalar::String(s) => topk_rs::data::Scalar::String(s),
+impl From<Scalar> for topk_rs::proto::v1::data::Value {
+    fn from(scalar: Scalar) -> Self {
+        match scalar {
+            Scalar::Bool(b) => topk_rs::proto::v1::data::Value::bool(b),
+            Scalar::Int(i) => topk_rs::proto::v1::data::Value::i64(i),
+            Scalar::Float(f) => topk_rs::proto::v1::data::Value::f64(f),
+            Scalar::String(s) => topk_rs::proto::v1::data::Value::string(s),
         }
     }
 }

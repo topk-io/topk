@@ -27,30 +27,21 @@ pub enum Stage {
     },
 }
 
-impl Into<topk_rs::query::Stage> for Stage {
-    fn into(self) -> topk_rs::query::Stage {
-        match self {
-            Stage::Select { exprs } => topk_rs::query::Stage::Select {
-                exprs: exprs.into_iter().map(|(k, v)| (k, v.into())).collect(),
-            },
-            Stage::Filter { expr } => topk_rs::query::Stage::Filter { expr: expr.into() },
-            Stage::TopK { expr, k, asc } => topk_rs::query::Stage::TopK {
-                expr: expr.into(),
-                k,
-                asc,
-            },
-            Stage::Count {} => topk_rs::query::Stage::Count {},
+impl From<Stage> for topk_rs::proto::v1::data::Stage {
+    fn from(stage: Stage) -> Self {
+        match stage {
+            Stage::Select { exprs } => topk_rs::proto::v1::data::Stage::select(exprs),
+            Stage::Filter { expr } => topk_rs::proto::v1::data::Stage::filter(expr),
+            Stage::TopK { expr, k, asc } => {
+                topk_rs::proto::v1::data::Stage::topk(expr.into(), k, asc)
+            }
+            Stage::Count {} => topk_rs::proto::v1::data::Stage::count(),
             Stage::Rerank {
                 model,
                 query,
                 fields,
                 topk_multiple,
-            } => topk_rs::query::Stage::Rerank {
-                model,
-                query,
-                fields,
-                topk_multiple,
-            },
+            } => topk_rs::proto::v1::data::Stage::rerank(model, query, fields, topk_multiple),
         }
     }
 }

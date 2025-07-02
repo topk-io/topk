@@ -89,7 +89,7 @@ async fn test_semantic_index_query_with_text_filter(ctx: &mut ProjectTestContext
         .collection(&collection.name)
         .query(
             select([("sim", fns::semantic_similarity("title", "dummy"))])
-                .filter(r#match("love", Some("summary"), None))
+                .filter(r#match("love", Some("summary"), None, false))
                 .topk(field("sim"), 3, true),
             None,
             None,

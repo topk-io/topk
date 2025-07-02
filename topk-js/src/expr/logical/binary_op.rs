@@ -46,24 +46,3 @@ impl Into<topk_rs::proto::v1::data::logical_expr::binary_op::Op> for BinaryOpera
         }
     }
 }
-
-impl Into<topk_rs::expr::logical::BinaryOperator> for BinaryOperator {
-    fn into(self) -> topk_rs::expr::logical::BinaryOperator {
-        match self {
-            BinaryOperator::And => topk_rs::expr::logical::BinaryOperator::And,
-            BinaryOperator::Or => topk_rs::expr::logical::BinaryOperator::Or,
-            BinaryOperator::Eq => topk_rs::expr::logical::BinaryOperator::Eq,
-            BinaryOperator::Neq => topk_rs::expr::logical::BinaryOperator::NotEq,
-            BinaryOperator::Lt => topk_rs::expr::logical::BinaryOperator::Lt,
-            BinaryOperator::Lte => topk_rs::expr::logical::BinaryOperator::LtEq,
-            BinaryOperator::Gt => topk_rs::expr::logical::BinaryOperator::Gt,
-            BinaryOperator::Gte => topk_rs::expr::logical::BinaryOperator::GtEq,
-            BinaryOperator::StartsWith => topk_rs::expr::logical::BinaryOperator::StartsWith,
-            BinaryOperator::Contains => topk_rs::expr::logical::BinaryOperator::Contains,
-            BinaryOperator::Add => topk_rs::expr::logical::BinaryOperator::Add,
-            BinaryOperator::Sub => topk_rs::expr::logical::BinaryOperator::Sub,
-            BinaryOperator::Mul => topk_rs::expr::logical::BinaryOperator::Mul,
-            BinaryOperator::Div => topk_rs::expr::logical::BinaryOperator::Div,
-        }
-    }
-}

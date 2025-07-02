@@ -1,4 +1,4 @@
-use super::*;
+use crate::proto::data::v1::{value, Document, Value};
 
 #[derive(Debug, thiserror::Error)]
 pub enum DocumentError {

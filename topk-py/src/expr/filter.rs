@@ -8,11 +8,15 @@ pub enum FilterExpr {
     Text(TextExpr),
 }
 
-impl Into<topk_rs::expr::filter::FilterExpr> for FilterExpr {
-    fn into(self) -> topk_rs::expr::filter::FilterExpr {
-        match self {
-            FilterExpr::Logical(expr) => topk_rs::expr::filter::FilterExpr::Logical(expr.into()),
-            FilterExpr::Text(expr) => topk_rs::expr::filter::FilterExpr::Text(expr.into()),
+impl From<FilterExpr> for topk_rs::proto::v1::data::stage::filter_stage::FilterExpr {
+    fn from(expr: FilterExpr) -> Self {
+        match expr {
+            FilterExpr::Logical(expr) => {
+                topk_rs::proto::v1::data::stage::filter_stage::FilterExpr::logical(expr)
+            }
+            FilterExpr::Text(expr) => {
+                topk_rs::proto::v1::data::stage::filter_stage::FilterExpr::text(expr)
+            }
         }
     }
 }
@@ -26,9 +30,9 @@ pub enum FilterExprUnion {
     Text(TextExpr),
 }
 
-impl Into<FilterExpr> for FilterExprUnion {
-    fn into(self) -> FilterExpr {
-        match self {
+impl From<FilterExprUnion> for FilterExpr {
+    fn from(expr: FilterExprUnion) -> Self {
+        match expr {
             FilterExprUnion::Logical(expr) => FilterExpr::Logical(expr),
             FilterExprUnion::Text(expr) => FilterExpr::Text(expr),
         }

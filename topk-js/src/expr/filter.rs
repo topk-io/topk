@@ -35,14 +35,14 @@ impl FromNapiValue for FilterExpression {
     }
 }
 
-impl Into<topk_rs::expr::filter::FilterExpr> for FilterExpression {
-    fn into(self) -> topk_rs::expr::filter::FilterExpr {
-        match self.expr {
+impl From<FilterExpression> for topk_rs::proto::v1::data::stage::filter_stage::FilterExpr {
+    fn from(expr: FilterExpression) -> Self {
+        match expr.expr {
             FilterExpressionUnion::Logical { expr } => {
-                topk_rs::expr::filter::FilterExpr::Logical(expr.into())
+                topk_rs::proto::v1::data::stage::filter_stage::FilterExpr::logical(expr)
             }
             FilterExpressionUnion::Text { expr } => {
-                topk_rs::expr::filter::FilterExpr::Text(expr.into())
+                topk_rs::proto::v1::data::stage::filter_stage::FilterExpr::text(expr)
             }
         }
     }
