@@ -15,7 +15,7 @@ The `create()` function takes two parameters:
   The name of the collection.
 </ParamField>
 
-<ParamField body="schema" type="HashMap<String, FieldSpec>" required={true}>
+<ParamField body="schema" type="Map<String, FieldSpec>" required={true}>
   Schema definition that describes the document structure.
 </ParamField>
 
@@ -381,7 +381,8 @@ TopK supports the following embedding types for Cohere models:
 
 #### `vector_index()`
 
-This function is used to create vector index on a vector field. You can add a vector index on `f32_vector`, `u8_vector`, or `binary_vector` fields.
+This function is used to create vector index on a vector field.
+You can add a vector index on `f32_vector`, `u8_vector`, `binary_vector`, `f32_sparse_vector`, or `u8_sparse_vector` fields.
 
 <CodeGroup>
 
@@ -406,9 +407,9 @@ You must specify a `metric` when calling `vector_index()`. This parameter determ
 
 <ParamField body="metric" type="string" required={true}>
 Supported vector distance metrics:
-- `euclidean`
-- `cosine`
-- `dot_product`
+- `euclidean` (not supported for sparse vectors)
+- `cosine` (not supported for sparse vectors)
+- `dot_product` (supported for dense and sparse vectors)
 - `hamming` (only supported for [`binary_vector()`](#binary-vector) type)
 </ParamField>
 

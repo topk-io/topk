@@ -24,6 +24,7 @@
         "pages": [
           "concepts/semantic-search",
           "concepts/vector-search",
+          "concepts/sparse-vector-search",
           "concepts/multi-vector-search",
           "concepts/keyword-search",
           "concepts/true-hybrid-search",

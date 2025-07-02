@@ -21,7 +21,7 @@ In TopK, a query consists of multiple stages:
 All queries **must** have either TopK or Count collection stage.
 
 <Tip>
-  You can stack multiple select, filter and rerank stages in a single query.
+  You can stack multiple select and filter stages in a single query.
 </Tip>
 
 A typical query in TopK looks as follows:
@@ -115,9 +115,77 @@ const docs = await client.collection("books").query(
 
 Function expressions are used to define computed fields that will be included in your query results. TopK currently supports three main function expressions:
 
+- `vector_distance(field, vector)`: Computes distance between vectors for vector search. This function is available for all dense and sparse vector types.
 - `bm25_score()`: Calculates relevance scores using the BM25 algorithm for keyword search
-- `vector_distance(field, vector)`: Computes distance between vectors for vector search
 - `semantic_similarity(field, query)`: Measures semantic similarity between the provided text query and the field's embedding
+
+
+#### Vector distance
+
+The `vector_distance()` function is used to compute the distance between a query vector and a vector field in a collection.
+
+<Warning>
+  To use the `vector_distance()` function, you **must** have a [**vector index**](http://docs.topk.io/collections/create#vector-index) defined on the field you're computing the vector distance against:
+</Warning>
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, field, fn
+
+docs = client.collection("books").query(
+    select(
+        "title",
+        title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3, ...]), # embedding for "animal"
+    )
+    .topk(field("title_similarity"), 10)
+)
+
+# Example result:
+[
+  {
+    "_id": "2",
+    "title": "To Kill a Mockingbird",
+    "title_similarity": 0.7484796643257141
+  },
+  {
+    "_id": "1",
+    "title": "The Catcher in the Rye",
+    "title_similarity": 0.5471329569816589
+  }
+]
+```
+
+
+```js Javascript
+import { select, field, fn } from "topk-js/query";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    title_similarity: fn.vectorDistance(
+      "title_embedding",
+      [0.1, 0.2, 0.3 /* embedding for "animal" */]
+    ),
+  })
+);
+
+// Example result:
+[
+  {
+    _id: '2',
+    title: 'To Kill a Mockingbird',
+    title_similarity: 0.7484796643257141
+  },
+  {
+    _id: '1'
+    title: 'The Catcher in the Rye',
+    title_similarity: 0.5471329569816589,
+  }
+]
+```
+
+</CodeGroup>
 
 #### BM25 Score
 
@@ -182,71 +250,6 @@ const results = await client.collection("books").query(
     _id: '2',
     title: 'Good Girl, Bad Blood',
     text_score: 0.20035339891910553
-  }
-]
-```
-
-</CodeGroup>
-
-#### Vector distance
-
-The `vector_distance()` function is used to compute the distance between a query vector and a vector field in a collection.
-
-To use the `vector_distance()` function, you **must** have a [**vector index**](http://docs.topk.io/collections/create#vector-index) defined on the field you're computing the vector distance against:
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.query import select, field, fn
-
-docs = client.collection("books").query(
-    select(
-        "title",
-        title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3, ...]), # embedding for "animal"
-    )
-    .topk(field("title_similarity"), 10)
-)
-
-# Example result:
-[
-  {
-    "_id": "2",
-    "title": "To Kill a Mockingbird",
-    "title_similarity": 0.7484796643257141
-  },
-  {
-    "_id": "1",
-    "title": "The Catcher in the Rye",
-    "title_similarity": 0.5471329569816589
-  }
-]
-```
-
-
-```js Javascript
-import { select, field, fn } from "topk-js/query";
-
-const docs = await client.collection("books").query(
-  select({
-    title: field("title"),
-    title_similarity: fn.vectorDistance(
-      "title_embedding",
-      [0.1, 0.2, 0.3 /* embedding for "animal" */]
-    ),
-  })
-);
-
-// Example result:
-[
-  {
-    _id: '2',
-    title: 'To Kill a Mockingbird',
-    title_similarity: 0.7484796643257141
-  },
-  {
-    _id: '1'
-    title: 'The Catcher in the Rye',
-    title_similarity: 0.5471329569816589,
   }
 ]
 ```
