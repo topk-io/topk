@@ -1,0 +1,185 @@
+---
+title: "Sparse vector search"
+description: "TopK Sparse Vector Search Guide"
+---
+
+Similar to dense vector search, sparse vector search is an essential feature of TopK. With that in mind, it is designed to:
+
+- Provide **100% recall**.
+- Support learned sparse vector representations, for example [SPLADE](https://github.com/naver/splade).
+- Provide consistent **low latency** (\<20ms p99). Check out our [benchmarks](https://www.topk.io/benchmarks).
+- Support **large-scale** single-collection as well as **multi-tenant** use cases.
+
+## How to run a sparse vector search
+
+### Prerequisites
+
+Define a schema with a sparse vector field, either `f32_sparse_vector()` or `u8_sparse_vector()`, and add a `vector_index()` to it:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.schema import text, f32_sparse_vector, vector_index
+
+client.collections().create(
+    "books",
+    schema={
+        "title": text().required(),
+        "title_embedding": f32_sparse_vector()
+          .required()
+          .index(vector_index(metric = "dot_product")),
+    },
+)
+```
+
+
+```typescript Javascript
+import { text, f32SparseVector, vectorIndex } from "topk-js/schema";
+
+await client.collections().create("books", {
+  title: text().required(),
+  title_embedding: f32SparseVector()
+    .required()
+    .index(vectorIndex({ metric: "dot_product" })),
+});
+```
+
+</CodeGroup>
+
+<Note>
+  Sparse vectors do not have a fixed dimension, so you don't need to specify the vector dimension when defining the field.
+</Note>
+
+<Note>
+  TopK only supports `dot_product` metric for sparse vectors which is compatible with both fixed and learned sparse
+  vector representations.
+</Note>
+
+### Find the most relevant documents
+
+To find the top-k most relevant results for the query, use the `vector_distance()` function.
+
+This function computes a score between the provided sparse query and indexed sparse vectors which
+can then be used to sort the results.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, field, fn
+from topk_sdk.data import f32_sparse_vector
+
+docs = client.collection("books").query(
+    select(
+        "title",
+        published_year=field("published_year"),
+        # Compute relevance score between the sparse vector embedding of the string "epic fantasy adventure"
+        # and the embedding stored in the `title_embedding` field.
+        title_score=fn.vector_distance(
+          "title_embedding",
+          f32_sparse_vector({0: 0.12, 6: 0.67, ...}),
+        )
+    )
+    # Return top 10 results
+    .topk(field("title_score"), 10)
+)
+
+# Example results:
+[
+  {
+    "_id": "2",
+    "title": "Lord of the Rings",
+    "title_score": 0.8150404095649719
+  },
+  {
+    "_id": "1",
+    "title": "The Catcher in the Rye",
+    "title_score": 0.7825378179550171,
+  }
+]
+```
+
+
+```js Javascript
+import { select, field, fn } from "topk-js/query";
+import { f32SparseVector } from "topk-js/data";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    published_year: field("published_year"),
+    title_score: fn.vectorDistance(
+      "title_embedding",
+      // Compute relevance score between the sparse vector embedding of the string "epic fantasy adventure"
+      // and the embedding stored in the `title_embedding` field.
+      f32SparseVector({0: 0.12, 6: 0.67, ...})
+    ),
+  }).topk(field("title_score"), 10)
+);
+
+// Example results:
+[
+  {
+    _id: '2',
+    title: 'Lord of the Rings',
+    title_score: 0.8150404095649719
+  },
+  {
+    _id: '1'
+    title_score: 0.7825378179550171,
+    title: 'The Catcher in the Rye',
+  }
+]
+```
+
+</CodeGroup>
+
+Let's break down the example above:
+
+1. Compute the sparse dot product between the query embedding and the `title_embedding` field using the `vector_distance()` function.
+2. Store the computed dot product score in the `title_score` field.
+3. Return the top 10 results sorted by the `title_score` field in a descending order.
+
+### Combine sparse vector search with metadata filtering
+
+Sparse vector search can be easily combined with metadata filtering by adding a `filter()` stage to the query:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, field, fn
+from topk_sdk.data import f32_sparse_vector
+
+docs = client.collection("books").query(
+    select(
+        "title",
+        title_score=fn.vector_distance(
+          "title_embedding",
+          f32_sparse_vector({0: 0.12, 6: 0.67, ...}),
+        )
+        published_year=field("published_year"),
+    )
+    .filter(field("published_year") > 2000)
+    .topk(field("title_score"), 10)
+)
+```
+
+
+```js Javascript
+import { select, field, fn } from "topk-js/query";
+import { f32SparseVector } from "topk-js/data";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    title_score: fn.vectorDistance(
+      "title_embedding",
+      f32SparseVector({0: 0.12, 6: 0.67, ...})
+    ),
+    published_year: field("published_year"),
+  })
+    .filter(field("published_year").gt(2000))
+    .topk(field("title_score"), 10)
+);
+```
+
+</CodeGroup>
