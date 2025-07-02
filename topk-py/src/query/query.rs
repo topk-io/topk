@@ -146,8 +146,8 @@ impl Query {
     }
 }
 
-impl From<Query> for topk_rs::query::Query {
+impl From<Query> for topk_rs::proto::v1::data::Query {
     fn from(query: Query) -> Self {
-        Self::new(query.stages.into_iter().map(|s| s.into()).collect())
+        topk_rs::proto::v1::data::Query::new(query.stages.into_iter().map(|s| s.into()).collect())
     }
 }

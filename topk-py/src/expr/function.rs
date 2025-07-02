@@ -9,6 +9,20 @@ pub enum FunctionExpr {
     SemanticSimilarity { field: String, query: String },
 }
 
+impl From<FunctionExpr> for topk_rs::proto::v1::data::FunctionExpr {
+    fn from(expr: FunctionExpr) -> Self {
+        match expr {
+            FunctionExpr::KeywordScore {} => topk_rs::proto::v1::data::FunctionExpr::bm25_score(),
+            FunctionExpr::VectorScore { field, query } => {
+                topk_rs::proto::v1::data::FunctionExpr::vector_distance(field, query)
+            }
+            FunctionExpr::SemanticSimilarity { field, query } => {
+                topk_rs::proto::v1::data::FunctionExpr::semantic_similarity(field, query)
+            }
+        }
+    }
+}
+
 #[pyclass]
 #[derive(Debug, Clone)]
 pub enum QueryVector {
@@ -16,31 +30,14 @@ pub enum QueryVector {
     Sparse(SparseVector),
 }
 
-impl Into<topk_rs::expr::function::FunctionExpr> for FunctionExpr {
-    fn into(self) -> topk_rs::expr::function::FunctionExpr {
-        match self {
-            FunctionExpr::KeywordScore {} => topk_rs::expr::function::FunctionExpr::KeywordScore {},
-            FunctionExpr::VectorScore { field, query } => {
-                topk_rs::expr::function::FunctionExpr::VectorScore {
-                    field,
-                    query: match query {
-                        QueryVector::Dense(vector) => match vector {
-                            Vector::F32(values) => topk_rs::data::Vector::F32(values).into(),
-                            Vector::U8(values) => topk_rs::data::Vector::U8(values).into(),
-                        },
-                        QueryVector::Sparse(sparse_vector) => match sparse_vector {
-                            SparseVector::F32 { indices, values } => {
-                                topk_rs::data::SparseVector::F32 { indices, values }.into()
-                            }
-                            SparseVector::U8 { indices, values } => {
-                                topk_rs::data::SparseVector::U8 { indices, values }.into()
-                            }
-                        },
-                    },
-                }
+impl From<QueryVector> for topk_rs::proto::v1::data::QueryVector {
+    fn from(query: QueryVector) -> Self {
+        match query {
+            QueryVector::Dense(vector) => {
+                topk_rs::proto::v1::data::QueryVector::Dense(vector.into())
             }
-            FunctionExpr::SemanticSimilarity { field, query } => {
-                topk_rs::expr::function::FunctionExpr::SemanticSimilarity { field, query }
+            QueryVector::Sparse(sparse) => {
+                topk_rs::proto::v1::data::QueryVector::Sparse(sparse.into())
             }
         }
     }

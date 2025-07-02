@@ -7,11 +7,11 @@ pub enum Vector {
     U8(Vec<u8>),
 }
 
-impl Into<topk_rs::data::Vector> for Vector {
-    fn into(self) -> topk_rs::data::Vector {
-        match self {
-            Vector::F32(values) => topk_rs::data::Vector::F32(values),
-            Vector::U8(values) => topk_rs::data::Vector::U8(values),
+impl From<Vector> for topk_rs::proto::v1::data::Vector {
+    fn from(vector: Vector) -> Self {
+        match vector {
+            Vector::F32(values) => topk_rs::proto::v1::data::Vector::f32(values),
+            Vector::U8(values) => topk_rs::proto::v1::data::Vector::u8(values),
         }
     }
 }

@@ -25,28 +25,9 @@ pub enum FunctionExpressionUnion {
     SemanticSimilarity { field: String, query: String },
 }
 
-impl Into<topk_rs::expr::function::FunctionExpr> for FunctionExpression {
-    fn into(self) -> topk_rs::expr::function::FunctionExpr {
-        match self.0 {
-            FunctionExpressionUnion::KeywordScore => {
-                topk_rs::expr::function::FunctionExpr::KeywordScore {}
-            }
-            FunctionExpressionUnion::VectorScore { field, query } => {
-                topk_rs::expr::function::FunctionExpr::VectorScore {
-                    field,
-                    query: query.into(),
-                }
-            }
-            FunctionExpressionUnion::SemanticSimilarity { field, query } => {
-                topk_rs::expr::function::FunctionExpr::SemanticSimilarity { field, query }
-            }
-        }
-    }
-}
-
-impl Into<topk_rs::proto::v1::data::FunctionExpr> for FunctionExpressionUnion {
-    fn into(self) -> topk_rs::proto::v1::data::FunctionExpr {
-        match self {
+impl From<FunctionExpression> for topk_rs::proto::v1::data::FunctionExpr {
+    fn from(expr: FunctionExpression) -> Self {
+        match expr.0 {
             FunctionExpressionUnion::KeywordScore => {
                 topk_rs::proto::v1::data::FunctionExpr::bm25_score()
             }
@@ -66,9 +47,9 @@ pub enum QueryVector {
     Sparse { query: crate::data::SparseVector },
 }
 
-impl Into<topk_rs::proto::v1::data::QueryVector> for QueryVector {
-    fn into(self) -> topk_rs::proto::v1::data::QueryVector {
-        match self {
+impl From<QueryVector> for topk_rs::proto::v1::data::QueryVector {
+    fn from(query: QueryVector) -> Self {
+        match query {
             QueryVector::Dense { query } => {
                 topk_rs::proto::v1::data::QueryVector::Dense(query.into())
             }

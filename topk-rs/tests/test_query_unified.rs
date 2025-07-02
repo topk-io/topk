@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 use test_context::test_context;
-use topk_rs::data::Vector;
-use topk_rs::query::literal;
+use topk_rs::data::{f32_vector, literal};
 use topk_rs::query::{field, fns, r#match, select};
 
 mod utils;
@@ -20,13 +19,18 @@ async fn test_query_unified(ctx: &mut ProjectTestContext) {
             select([
                 (
                     "summary_distance",
-                    fns::vector_distance("summary_embedding", Vector::F32(vec![2.0; 16])),
+                    fns::vector_distance("summary_embedding", f32_vector(vec![2.0; 16])),
                 ),
                 ("bm25_score", fns::bm25_score()),
             ])
-            .filter(r#match("love", None, Some(30.0)).or(r#match("young", None, Some(10.0))))
+            .filter(r#match("love", None, Some(30.0), false).or(r#match(
+                "young",
+                None,
+                Some(10.0),
+                false,
+            )))
             .topk(
-                field("bm25_score") + (field("summary_distance") * literal(100)),
+                field("bm25_score") + (field("summary_distance").mul(literal(100))),
                 2,
                 true,
             ),

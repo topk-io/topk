@@ -16,7 +16,7 @@ async fn test_query_text_filter_single_term_disjunctive(ctx: &mut ProjectTestCon
         .client
         .collection(&collection.name)
         .query(
-            filter(r#match("love", Some("summary"), None)).topk(
+            filter(r#match("love", Some("summary"), None, false)).topk(
                 field("published_year"),
                 100,
                 true,
@@ -39,7 +39,7 @@ async fn test_query_text_filter_single_term_conjunctive(ctx: &mut ProjectTestCon
         .client
         .collection(&collection.name)
         .query(
-            filter(r#match("love", Some("summary"), None)).topk(
+            filter(r#match("love", Some("summary"), None, false)).topk(
                 field("published_year"),
                 100,
                 true,
@@ -62,8 +62,13 @@ async fn test_query_text_filter_two_terms_disjunctive(ctx: &mut ProjectTestConte
         .client
         .collection(&collection.name)
         .query(
-            filter(r#match("LOVE", Some("summary"), None).or(r#match("ring", Some("title"), None)))
-                .topk(field("published_year"), 100, true),
+            filter(r#match("LOVE", Some("summary"), None, false).or(r#match(
+                "ring",
+                Some("title"),
+                None,
+                false,
+            )))
+            .topk(field("published_year"), 100, true),
             None,
             None,
         )
@@ -82,10 +87,11 @@ async fn test_query_text_filter_two_terms_conjunctive(ctx: &mut ProjectTestConte
         .client
         .collection(&collection.name)
         .query(
-            filter(r#match("LOVE", Some("summary"), None).and(r#match(
+            filter(r#match("LOVE", Some("summary"), None, false).and(r#match(
                 "class",
                 Some("summary"),
                 None,
+                false,
             )))
             .topk(field("published_year"), 100, true),
             None,
@@ -106,7 +112,11 @@ async fn test_query_text_filter_stop_word(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(r#match("the", Some("summary"), None)).topk(field("published_year"), 100, true),
+            filter(r#match("the", Some("summary"), None, false)).topk(
+                field("published_year"),
+                100,
+                true,
+            ),
             None,
             None,
         )

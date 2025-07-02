@@ -60,44 +60,18 @@ impl Into<topk_rs::proto::v1::data::TextExpr> for TextExpression {
         match self.expr {
             TextExpressionUnion::Terms { all, terms } => topk_rs::proto::v1::data::TextExpr::terms(
                 all,
-                terms.into_iter().map(|t| t.into()).collect(),
+                terms.into_iter().map(|term| term.into()).collect(),
             ),
             TextExpressionUnion::And { left, right } => {
-                let left_expr: topk_rs::proto::v1::data::TextExpr = left.as_ref().clone().into();
-                let right_expr: topk_rs::proto::v1::data::TextExpr = right.as_ref().clone().into();
-                topk_rs::proto::v1::data::TextExpr::and(left_expr, right_expr)
+                let left: topk_rs::proto::v1::data::TextExpr = left.as_ref().clone().into();
+                let right: topk_rs::proto::v1::data::TextExpr = right.as_ref().clone().into();
+                left.and(right)
             }
             TextExpressionUnion::Or { left, right } => {
-                let left_expr: topk_rs::proto::v1::data::TextExpr = left.as_ref().clone().into();
-                let right_expr: topk_rs::proto::v1::data::TextExpr = right.as_ref().clone().into();
-                topk_rs::proto::v1::data::TextExpr::or(left_expr, right_expr)
+                let left: topk_rs::proto::v1::data::TextExpr = left.as_ref().clone().into();
+                let right: topk_rs::proto::v1::data::TextExpr = right.as_ref().clone().into();
+                left.or(right)
             }
-        }
-    }
-}
-
-impl Into<topk_rs::expr::text::TextExpr> for TextExpression {
-    fn into(self) -> topk_rs::expr::text::TextExpr {
-        match self.expr {
-            TextExpressionUnion::Terms { all, terms } => topk_rs::expr::text::TextExpr::Terms {
-                all,
-                terms: terms
-                    .into_iter()
-                    .map(|t| topk_rs::expr::text::Term {
-                        token: t.token,
-                        field: t.field,
-                        weight: t.weight as f32,
-                    })
-                    .collect(),
-            },
-            TextExpressionUnion::And { left, right } => topk_rs::expr::text::TextExpr::And {
-                left: Box::new(left.as_ref().clone().into()),
-                right: Box::new(right.as_ref().clone().into()),
-            },
-            TextExpressionUnion::Or { left, right } => topk_rs::expr::text::TextExpr::Or {
-                left: Box::new(left.as_ref().clone().into()),
-                right: Box::new(right.as_ref().clone().into()),
-            },
         }
     }
 }

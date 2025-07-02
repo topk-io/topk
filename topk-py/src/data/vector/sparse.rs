@@ -7,14 +7,14 @@ pub enum SparseVector {
     U8 { indices: Vec<u32>, values: Vec<u8> },
 }
 
-impl Into<topk_rs::data::SparseVector> for SparseVector {
-    fn into(self) -> topk_rs::data::SparseVector {
-        match self {
+impl From<SparseVector> for topk_rs::proto::v1::data::SparseVector {
+    fn from(sparse: SparseVector) -> Self {
+        match sparse {
             SparseVector::F32 { indices, values } => {
-                topk_rs::data::SparseVector::F32 { indices, values }
+                topk_rs::proto::v1::data::SparseVector::f32(indices, values)
             }
             SparseVector::U8 { indices, values } => {
-                topk_rs::data::SparseVector::U8 { indices, values }
+                topk_rs::proto::v1::data::SparseVector::u8(indices, values)
             }
         }
     }

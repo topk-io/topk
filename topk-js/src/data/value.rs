@@ -28,9 +28,9 @@ impl From<Value> for topk_rs::proto::v1::data::Value {
             Value::I64(n) => topk_rs::proto::v1::data::Value::i64(n),
             Value::F32(n) => topk_rs::proto::v1::data::Value::f32(n),
             Value::F64(n) => topk_rs::proto::v1::data::Value::f64(n),
-            Value::Bytes(b) => topk_rs::proto::v1::data::Value::bytes(b),
-            Value::Vector(v) => topk_rs::proto::v1::data::Value::vector(v),
-            Value::SparseVector(v) => topk_rs::proto::v1::data::Value::sparse_vector(v),
+            Value::Bytes(b) => topk_rs::proto::v1::data::Value::binary(b),
+            Value::Vector(v) => v.into(),
+            Value::SparseVector(v) => v.into(),
         }
     }
 }

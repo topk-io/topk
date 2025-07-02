@@ -226,8 +226,8 @@ async fn test_upsert_vectors(ctx: &mut ProjectTestContext) {
         .upsert(vec![doc!(
             "_id" => "x",
             "f32_vector" => vec![1.0, 2.0, 3.0, 4.0],
-            "u8_vector" => Value::byte_vector(vec![4u8, 5u8, 6u8]),
-            "binary_vector" => Value::byte_vector(vec![7u8, 8u8]),
+            "u8_vector" => Value::u8_vector(vec![4u8, 5u8, 6u8]),
+            "binary_vector" => Value::u8_vector(vec![7u8, 8u8]),
         )])
         .await
         .expect("could not upsert document");
@@ -241,16 +241,10 @@ async fn test_upsert_vectors(ctx: &mut ProjectTestContext) {
 
     assert_eq!(
         obj["x"]["f32_vector"],
-        Value::float_vector(vec![1.0, 2.0, 3.0, 4.0])
+        Value::f32_vector(vec![1.0, 2.0, 3.0, 4.0])
     );
-    assert_eq!(
-        obj["x"]["u8_vector"],
-        Value::byte_vector(vec![4u8, 5u8, 6u8])
-    );
-    assert_eq!(
-        obj["x"]["binary_vector"],
-        Value::byte_vector(vec![7u8, 8u8])
-    );
+    assert_eq!(obj["x"]["u8_vector"], Value::u8_vector(vec![4u8, 5u8, 6u8]));
+    assert_eq!(obj["x"]["binary_vector"], Value::u8_vector(vec![7u8, 8u8]));
 }
 
 #[test_context(ProjectTestContext)]

@@ -32,8 +32,8 @@ async fn test_query_select_union(ctx: &mut ProjectTestContext) {
             doc!("_id" => "6", "rank" => 6, "mixed" => (6 as f64)),
             doc!("_id" => "7", "rank" => 7, "mixed" => true),
             doc!("_id" => "8", "rank" => 8, "mixed" => "hello"),
-            doc!("_id" => "9", "rank" => 9, "mixed" => Value::byte_vector(vec![1, 2, 3])),
-            doc!("_id" => "10", "rank" => 10, "mixed" => Value::float_vector(vec![1.0, 2.0, 3.0])),
+            doc!("_id" => "9", "rank" => 9, "mixed" => Value::u8_vector(vec![1, 2, 3])),
+            doc!("_id" => "10", "rank" => 10, "mixed" => Value::f32_vector(vec![1.0, 2.0, 3.0])),
             doc!("_id" => "11", "rank" => 11, "mixed" => Value::bytes(vec![1, 2, 3])),
         ])
         .await
@@ -70,8 +70,8 @@ async fn test_query_select_union(ctx: &mut ProjectTestContext) {
             doc!("_id" => "6", "mixed" => (6.0 as f64)),
             doc!("_id" => "7", "mixed" => true),
             doc!("_id" => "8", "mixed" => "hello"),
-            doc!("_id" => "9", "mixed" => Value::byte_vector(vec![1, 2, 3])),
-            doc!("_id" => "10", "mixed" => Value::float_vector(vec![1.0, 2.0, 3.0])),
+            doc!("_id" => "9", "mixed" => Value::u8_vector(vec![1, 2, 3])),
+            doc!("_id" => "10", "mixed" => Value::f32_vector(vec![1.0, 2.0, 3.0])),
             doc!("_id" => "11", "mixed" => Value::bytes(vec![1, 2, 3])),
         ]
     );

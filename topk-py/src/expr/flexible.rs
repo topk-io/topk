@@ -3,7 +3,7 @@ use crate::data::{scalar::Scalar, value::Value};
 use pyo3::{
     exceptions::PyTypeError,
     prelude::*,
-    types::{PyBool, PyDict, PyFloat, PyInt, PyList, PyNone, PyString},
+    types::{PyBool, PyDict, PyFloat, PyInt, PyList, PyString},
 };
 
 #[pyclass]
@@ -16,7 +16,6 @@ pub enum FlexibleExpr {
     Int(i64),
     Float(f64),
     Bool(bool),
-    Null(Null),
     Expr(LogicalExpr),
 }
 
@@ -35,7 +34,6 @@ impl Into<LogicalExpr> for FlexibleExpr {
             FlexibleExpr::Bool(b) => LogicalExpr::Literal {
                 value: Scalar::Bool(b),
             },
-            FlexibleExpr::Null(_) => LogicalExpr::Null(),
             FlexibleExpr::Expr(e) => e,
         }
     }
@@ -51,8 +49,6 @@ impl<'py> FromPyObject<'py> for FlexibleExpr {
             Ok(FlexibleExpr::Float(f.extract()?))
         } else if let Ok(b) = obj.downcast_exact::<PyBool>() {
             Ok(FlexibleExpr::Bool(b.extract()?))
-        } else if let Ok(_) = obj.downcast_exact::<PyNone>() {
-            Ok(FlexibleExpr::Null(Null))
         // NOTE: it's safe to use `downcast` for `LogicalExpr` since it's a custom type
         } else if let Ok(e) = obj.downcast::<LogicalExpr>() {
             Ok(FlexibleExpr::Expr(e.get().clone()))

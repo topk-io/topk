@@ -29,24 +29,22 @@ pub enum VectorUnion {
     Byte { values: Vec<u8> },
 }
 
-impl Into<topk_rs::data::Vector> for Vector {
-    fn into(self) -> topk_rs::data::Vector {
-        match self.0 {
-            VectorUnion::Float { values } => {
-                topk_rs::data::Vector::F32(values.iter().map(|v| *v as f32).collect())
-            }
-            VectorUnion::Byte { values } => topk_rs::data::Vector::U8(values),
-        }
-    }
-}
-
 impl Into<topk_rs::proto::v1::data::Vector> for Vector {
     fn into(self) -> topk_rs::proto::v1::data::Vector {
         match self.0 {
             VectorUnion::Float { values } => {
-                topk_rs::proto::v1::data::Vector::float(values.iter().map(|v| *v as f32).collect())
+                topk_rs::proto::v1::data::Vector::f32(values.iter().map(|v| *v as f32).collect())
             }
-            VectorUnion::Byte { values } => topk_rs::proto::v1::data::Vector::byte(values),
+            VectorUnion::Byte { values } => topk_rs::proto::v1::data::Vector::u8(values),
+        }
+    }
+}
+
+impl Into<topk_rs::proto::v1::data::Value> for Vector {
+    fn into(self) -> topk_rs::proto::v1::data::Value {
+        match self.0 {
+            VectorUnion::Float { values } => topk_rs::proto::v1::data::Value::f32_vector(values),
+            VectorUnion::Byte { values } => topk_rs::proto::v1::data::Value::u8_vector(values),
         }
     }
 }

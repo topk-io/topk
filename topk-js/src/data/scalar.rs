@@ -30,17 +30,6 @@ impl From<String> for Scalar {
     }
 }
 
-impl Into<topk_rs::data::Scalar> for Scalar {
-    fn into(self) -> topk_rs::data::Scalar {
-        match self {
-            Scalar::Bool(b) => topk_rs::data::Scalar::Bool(b),
-            Scalar::I64(i) => topk_rs::data::Scalar::I64(i),
-            Scalar::F64(f) => topk_rs::data::Scalar::F64(f),
-            Scalar::String(s) => topk_rs::data::Scalar::String(s),
-        }
-    }
-}
-
 impl Into<topk_rs::proto::v1::data::Value> for Scalar {
     fn into(self) -> topk_rs::proto::v1::data::Value {
         match self {
