@@ -1,10 +1,56 @@
-use pyo3::prelude::*;
+use pyo3::{exceptions::PyTypeError, prelude::*};
 
 #[pyclass]
 #[derive(Debug, PartialEq, Clone)]
 pub enum Vector {
     F32(Vec<f32>),
     U8(Vec<u8>),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct F32Vector {
+    values: Vec<f32>,
+}
+
+impl From<F32Vector> for Vector {
+    fn from(vector: F32Vector) -> Self {
+        Vector::F32(vector.values)
+    }
+}
+
+impl<'py> FromPyObject<'py> for F32Vector {
+    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+        if let Ok(values) = Vec::<f32>::extract_bound(obj) {
+            return Ok(F32Vector { values });
+        }
+
+        Err(PyTypeError::new_err(
+            "Invalid vector value, must be `list[float]`",
+        ))
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct U8Vector {
+    values: Vec<u8>,
+}
+
+impl From<U8Vector> for Vector {
+    fn from(vector: U8Vector) -> Self {
+        Vector::U8(vector.values)
+    }
+}
+
+impl<'py> FromPyObject<'py> for U8Vector {
+    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+        if let Ok(values) = Vec::<u8>::extract_bound(obj) {
+            return Ok(U8Vector { values });
+        }
+
+        Err(PyTypeError::new_err(
+            "Invalid vector value, must be `list[int]`",
+        ))
+    }
 }
 
 impl From<Vector> for topk_rs::proto::v1::data::Vector {

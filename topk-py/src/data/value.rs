@@ -20,6 +20,22 @@ pub enum Value {
     Bytes(Vec<u8>),
 }
 
+#[pymethods]
+impl Value {
+    fn __str__(&self) -> String {
+        match self {
+            Value::Null() => "Null".to_string(),
+            Value::String(s) => s.to_string(),
+            Value::Int(i) => i.to_string(),
+            Value::Float(f) => f.to_string(),
+            Value::Bool(b) => b.to_string(),
+            Value::Vector(v) => format!("Vector({:?})", v),
+            Value::SparseVector(v) => format!("SparseVector({:?})", v),
+            Value::Bytes(b) => format!("Bytes({:?})", b),
+        }
+    }
+}
+
 pub struct RawValue(pub Value);
 
 impl<'py> FromPyObject<'py> for RawValue {
