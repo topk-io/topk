@@ -39,7 +39,8 @@
           "documents/upsert",
           "documents/query",
           "documents/get",
-          "documents/delete"
+          "documents/delete",
+          "documents/helper-functions"
         ]
       },
       {

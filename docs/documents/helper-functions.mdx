@@ -1,0 +1,140 @@
+---
+title: "Helper functions"
+---
+
+In TopK, a vector is represented as a flat array of numbers. To differentiate between various types of vectors, use provided helper functions when inserting or querying vectors:
+TopK supports the following types of vectors:
+
+- Float32 vectors
+- U8 vectors
+- Binary vectors
+- Sparse f32 vectors
+- Sparse u8 vectors
+
+If no helper function is used, the vector is assumed to be a **float32 vector**.
+
+### f32_vector()
+
+To pass a float32 vector, use the `f32_vector()` helper function:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.data import f32_vector
+
+f32_vector([0.12, 0.67, 0.82, 0.53])
+```
+
+
+```typescript Javascript
+import { f32Vector } from "topk-js/data";
+
+f32Vector([0.12, 0.67, 0.82, 0.53])
+```
+
+</CodeGroup>
+
+### u8_vector()
+
+To pass a u8 vector, use the `u8_vector()` helper function:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.data import u8_vector
+
+u8_vector([0, 1, 2, 3])
+```
+
+
+```typescript Javascript
+import { u8Vector } from "topk-js/data";
+
+u8Vector([0, 1, 2, 3])
+```
+
+</CodeGroup>
+
+### binary_vector()
+
+To pass a binary vector, use the `binary_vector()` helper function:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.data import binary_vector
+
+binary_vector([0, 1, 1, 0])
+```
+
+
+```typescript Javascript
+import { binaryVector } from "topk-js/data";
+
+binaryVector([0, 1, 1, 0])
+```
+
+</CodeGroup>
+
+### f32_sparse_vector()
+
+To pass a sparse vector with float32 values, use the `f32_sparse_vector()` helper function:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.data import f32_sparse_vector
+
+f32_sparse_vector({0: 0.12, 6: 0.67, 17: 0.82, 97: 0.53})
+```
+
+
+```typescript Javascript
+import { f32SparseVector } from "topk-js/data";
+
+f32SparseVector({0: 0.12, 6: 0.67, 17: 0.82, 97: 0.53})
+```
+
+</CodeGroup>
+
+### u8_sparse_vector()
+
+To pass a sparse vector with 8-bit unsigned integer values, use the `u8_sparse_vector()` helper function:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.data import u8_sparse_vector
+
+u8_sparse_vector({0: 12, 6: 67, 17: 82, 97: 53})
+```
+
+
+```typescript Javascript
+import { u8SparseVector } from "topk-js/data";
+
+u8SparseVector({0: 12, 6: 67, 17: 82, 97: 53})
+```
+
+</CodeGroup>
+
+### bytes()
+
+To pass a byte object, use the `bytes()` helper function:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.data import bytes
+
+bytes([0, 1, 1, 0])
+```
+
+
+```typescript Javascript
+import { bytes } from "topk-js/data";
+
+bytes([0, 1, 1, 0]) # or pass a Buffer object
+```
+
+</CodeGroup>
