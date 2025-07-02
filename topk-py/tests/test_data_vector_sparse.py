@@ -13,10 +13,7 @@ class TestF32SparseVector:
         f32_sparse_vector({})
 
     def test_to_string(self):
-        assert (
-            str(f32_sparse_vector({1: 1.1}))
-            == "SparseVector(F32 { indices: [1], values: [1.1] })"
-        )
+        assert str(f32_sparse_vector({1: 1.1})) == "SparseVector(F32([1], [1.1]))"
 
     def test_invalid_key(self):
         with pytest.raises(TypeError, match=TYPE_ERROR):
@@ -52,10 +49,7 @@ class TestU8SparseVector:
         u8_sparse_vector({})
 
     def test_to_string(self):
-        assert (
-            str(u8_sparse_vector({1: 1}))
-            == "SparseVector(U8 { indices: [1], values: [1] })"
-        )
+        assert str(u8_sparse_vector({1: 1})) == "SparseVector(U8([1], [1]))"
 
     def test_invalid_key(self):
         with pytest.raises(TypeError, match=TYPE_ERROR):

@@ -5,7 +5,9 @@ use pyo3::{
     IntoPyObjectExt,
 };
 
-use super::vector::{SparseVector, Vector};
+use crate::data::vector::F32Vector;
+
+use super::vector::{F32SparseVector, SparseVector, Vector};
 
 #[pyclass]
 #[derive(Debug, PartialEq, Clone)]
@@ -40,9 +42,13 @@ pub struct RawValue(pub Value);
 
 impl<'py> FromPyObject<'py> for RawValue {
     fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
-        // NOTE: it's safe to use `downcast` for `Value` since it's a custom type
+        // NOTE: it's safe to use `downcast` for custom types
         if let Ok(v) = obj.downcast::<Value>() {
             Ok(RawValue(v.get().clone()))
+        } else if let Ok(v) = obj.downcast::<Vector>() {
+            Ok(RawValue(Value::Vector(v.get().clone())))
+        } else if let Ok(v) = obj.downcast::<SparseVector>() {
+            Ok(RawValue(Value::SparseVector(v.get().clone())))
         } else if let Ok(s) = obj.downcast_exact::<PyString>() {
             Ok(RawValue(Value::String(s.extract()?)))
         } else if let Ok(i) = obj.downcast_exact::<PyInt>() {
@@ -53,41 +59,13 @@ impl<'py> FromPyObject<'py> for RawValue {
             Ok(RawValue(Value::Float(f.extract()?)))
         } else if let Ok(b) = obj.downcast_exact::<PyBool>() {
             Ok(RawValue(Value::Bool(b.extract()?)))
-        } else if let Ok(d) = obj.downcast_exact::<PyDict>() {
-            if let Ok(indices) = d.keys().extract::<Vec<u32>>() {
-                let values = d.values();
-                if let Ok(values) = values.extract::<Vec<f32>>() {
-                    Ok(RawValue(Value::SparseVector(SparseVector::F32 {
-                        indices,
-                        values,
-                    })))
-                } else if let Ok(values) = values.extract::<Vec<u8>>() {
-                    Ok(RawValue(Value::SparseVector(SparseVector::U8 {
-                        indices,
-                        values,
-                    })))
-                } else {
-                    Err(PyTypeError::new_err(format!(
-                        "Can't convert from {:?} to Value",
-                        obj.get_type().name()
-                    )))
-                }
-            } else {
-                Err(PyTypeError::new_err(format!(
-                    "Can't convert from {:?} to Value",
-                    obj.get_type().name()
-                )))
-            }
-        } else if let Ok(v) = obj.downcast_exact::<PyList>() {
-            // Try converting to vector from starting with most restrictive type first.
-            if let Ok(values) = v.extract::<Vec<f32>>() {
-                Ok(RawValue(Value::Vector(Vector::F32(values))))
-            } else {
-                Err(PyTypeError::new_err(format!(
-                    "Can't convert from {:?} to Value",
-                    obj.get_type().name()
-                )))
-            }
+        } else if let Ok(v) = F32SparseVector::extract_bound(obj) {
+            Ok(RawValue(Value::SparseVector(SparseVector::F32 {
+                indices: v.indices,
+                values: v.values,
+            })))
+        } else if let Ok(v) = F32Vector::extract_bound(obj) {
+            Ok(RawValue(Value::Vector(Vector::F32(v.values))))
         } else if let Ok(_) = obj.downcast_exact::<PyNone>() {
             Ok(RawValue(Value::Null()))
         } else {

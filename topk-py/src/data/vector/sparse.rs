@@ -13,8 +13,22 @@ pub enum SparseVector {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct F32SparseVector {
-    indices: Vec<u32>,
-    values: Vec<f32>,
+    pub(crate) indices: Vec<u32>,
+    pub(crate) values: Vec<f32>,
+}
+
+#[pymethods]
+impl SparseVector {
+    fn __str__(&self) -> String {
+        match self {
+            SparseVector::F32 { indices, values } => {
+                format!("SparseVector(F32({:?}, {:?}))", indices, values)
+            }
+            SparseVector::U8 { indices, values } => {
+                format!("SparseVector(U8({:?}, {:?}))", indices, values)
+            }
+        }
+    }
 }
 
 impl From<F32SparseVector> for SparseVector {
@@ -28,8 +42,8 @@ impl From<F32SparseVector> for SparseVector {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct U8SparseVector {
-    indices: Vec<u32>,
-    values: Vec<u8>,
+    pub(crate) indices: Vec<u32>,
+    pub(crate) values: Vec<u8>,
 }
 
 impl From<U8SparseVector> for SparseVector {

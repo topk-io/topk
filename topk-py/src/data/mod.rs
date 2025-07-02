@@ -1,4 +1,6 @@
-use crate::data::vector::{F32SparseVector, F32Vector, U8SparseVector, U8Vector};
+use crate::data::vector::{
+    F32SparseVector, F32Vector, SparseVector, U8SparseVector, U8Vector, Vector,
+};
 use pyo3::prelude::*;
 
 pub mod collection;
@@ -28,31 +30,31 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
 }
 
 #[pyfunction]
-#[pyo3(signature = (values))]
-pub fn f32_vector(values: F32Vector) -> PyResult<value::Value> {
-    Ok(value::Value::Vector(values.into()))
-}
-
-#[pyfunction]
-#[pyo3(signature = (values))]
-pub fn u8_vector(values: U8Vector) -> PyResult<value::Value> {
-    Ok(value::Value::Vector(values.into()))
-}
-
-#[pyfunction]
-#[pyo3(signature = (values))]
-pub fn binary_vector(values: U8Vector) -> PyResult<value::Value> {
-    Ok(value::Value::Vector(values.into()))
+#[pyo3(signature = (vector))]
+pub fn f32_vector(vector: F32Vector) -> Vector {
+    vector.into()
 }
 
 #[pyfunction]
 #[pyo3(signature = (vector))]
-pub fn f32_sparse_vector(vector: F32SparseVector) -> PyResult<value::Value> {
-    Ok(value::Value::SparseVector(vector.into()))
+pub fn u8_vector(vector: U8Vector) -> Vector {
+    vector.into()
 }
 
 #[pyfunction]
 #[pyo3(signature = (vector))]
-pub fn u8_sparse_vector(vector: U8SparseVector) -> PyResult<value::Value> {
-    Ok(value::Value::SparseVector(vector.into()))
+pub fn binary_vector(vector: U8Vector) -> Vector {
+    vector.into()
+}
+
+#[pyfunction]
+#[pyo3(signature = (vector))]
+pub fn f32_sparse_vector(vector: F32SparseVector) -> SparseVector {
+    vector.into()
+}
+
+#[pyfunction]
+#[pyo3(signature = (vector))]
+pub fn u8_sparse_vector(vector: U8SparseVector) -> SparseVector {
+    vector.into()
 }

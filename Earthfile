@@ -29,9 +29,9 @@ test-rs:
 
     # test
     ENV FORCE_COLOR=1
-    ARG args="--no-fail-fast -j 16"
+    ARG args=""
     RUN --no-cache --secret TOPK_API_KEY \
-        TOPK_API_KEY=$TOPK_API_KEY cargo nextest run --archive-file e2e.tar.zst $args
+        TOPK_API_KEY=$TOPK_API_KEY cargo nextest run --archive-file e2e.tar.zst --no-fail-fast -j 16 $args
 
 
 test-py:
@@ -70,9 +70,10 @@ test-py:
     DO +SETUP_ENV --region=$region
 
     # test
+    ARG args=""
     RUN --no-cache --secret TOPK_API_KEY \
         . /venv/bin/activate \
-        && TOPK_API_KEY=$TOPK_API_KEY pytest -n auto --tb=long --durations=50 --color=yes
+        && TOPK_API_KEY=$TOPK_API_KEY pytest -n auto --tb=long --durations=50 --color=yes $args
 
 test-js:
     FROM node:20-slim
@@ -103,8 +104,9 @@ test-js:
     ARG region=dev
     DO +SETUP_ENV --region=$region
     # test
+    ARG args=""
     RUN --no-cache --secret TOPK_API_KEY \
-        TOPK_API_KEY=$TOPK_API_KEY yarn test --colors
+        TOPK_API_KEY=$TOPK_API_KEY yarn test --colors $args
 
 #
 

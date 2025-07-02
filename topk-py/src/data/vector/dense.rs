@@ -7,9 +7,19 @@ pub enum Vector {
     U8(Vec<u8>),
 }
 
+#[pymethods]
+impl Vector {
+    fn __str__(&self) -> String {
+        match self {
+            Vector::F32(values) => format!("Vector(F32({:?}))", values),
+            Vector::U8(values) => format!("Vector(U8({:?}))", values),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct F32Vector {
-    values: Vec<f32>,
+    pub(crate) values: Vec<f32>,
 }
 
 impl From<F32Vector> for Vector {
@@ -32,7 +42,7 @@ impl<'py> FromPyObject<'py> for F32Vector {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct U8Vector {
-    values: Vec<u8>,
+    pub(crate) values: Vec<u8>,
 }
 
 impl From<U8Vector> for Vector {
