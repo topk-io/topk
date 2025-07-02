@@ -1,9 +1,12 @@
 use super::logical::LogicalExpr;
-use crate::data::{scalar::Scalar, value::Value};
+use crate::data::{
+    scalar::Scalar,
+    vector::{F32SparseVector, F32Vector, SparseVector, Vector},
+};
 use pyo3::{
     exceptions::PyTypeError,
     prelude::*,
-    types::{PyBool, PyDict, PyFloat, PyInt, PyList, PyString},
+    types::{PyBool, PyFloat, PyInt, PyString},
 };
 
 #[pyclass]
@@ -129,51 +132,28 @@ impl Into<LogicalExpr> for Stringy {
 
 #[derive(Debug, Clone)]
 pub enum Vectorish {
+    DenseU8(Vec<u8>),
     DenseF32(Vec<f32>),
-    SparseF32(Vec<u32>, Vec<f32>),
     SparseU8(Vec<u32>, Vec<u8>),
-    Value(Value),
+    SparseF32(Vec<u32>, Vec<f32>),
 }
 
 impl<'py> FromPyObject<'py> for Vectorish {
     fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
-        if let Ok(v) = obj.downcast_exact::<PyList>() {
-            Ok(Vectorish::DenseF32(v.extract()?))
-        } else if let Ok(v) = obj.downcast_exact::<PyDict>() {
-            let items = v.items();
-
-            if items.len() == 0 {
-                return Ok(Vectorish::SparseF32(vec![], vec![]));
+        if let Ok(v) = obj.downcast::<Vector>() {
+            match v.get().clone() {
+                Vector::F32(values) => Ok(Vectorish::DenseF32(values)),
+                Vector::U8(values) => Ok(Vectorish::DenseU8(values)),
             }
-
-            let first_value = v.values().get_item(0)?;
-
-            if let Ok(_) = first_value.downcast_exact::<PyFloat>() {
-                let mut items = items.extract::<Vec<(u32, f32)>>()?;
-                items.sort_by_key(|(key, _)| *key);
-
-                return Ok(Vectorish::SparseF32(
-                    items.iter().map(|(i, _)| *i).collect(),
-                    items.iter().map(|(_, v)| *v).collect(),
-                ));
+        } else if let Ok(v) = obj.downcast::<SparseVector>() {
+            match v.get().clone() {
+                SparseVector::F32 { indices, values } => Ok(Vectorish::SparseF32(indices, values)),
+                SparseVector::U8 { indices, values } => Ok(Vectorish::SparseU8(indices, values)),
             }
-
-            if let Ok(_) = first_value.downcast_exact::<PyInt>() {
-                let mut items = items.extract::<Vec<(u32, u8)>>()?;
-                items.sort_by_key(|(key, _)| *key);
-
-                return Ok(Vectorish::SparseU8(
-                    items.iter().map(|(i, _)| *i).collect(),
-                    items.iter().map(|(_, v)| *v).collect(),
-                ));
-            }
-
-            Err(PyTypeError::new_err(format!(
-                "Can't convert from {:?} to a vector",
-                obj.get_type().name()
-            )))
-        } else if let Ok(v) = obj.downcast::<Value>() {
-            Ok(Vectorish::Value(v.get().clone()))
+        } else if let Ok(v) = F32Vector::extract_bound(obj) {
+            Ok(Vectorish::DenseF32(v.values))
+        } else if let Ok(v) = F32SparseVector::extract_bound(obj) {
+            Ok(Vectorish::SparseF32(v.indices, v.values))
         } else {
             Err(PyTypeError::new_err(format!(
                 "Can't convert from {:?} to Vectorish",

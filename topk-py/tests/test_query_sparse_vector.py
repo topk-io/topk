@@ -30,7 +30,9 @@ def test_query_sparse_vector_distance_u8_vector(ctx: ProjectContext):
 
     result = ctx.client.collection(collection.name).query(
         select(
-            score=fn.vector_distance("sparse_u8_embedding", {0: 1, 1: 2, 2: 3})
+            score=fn.vector_distance(
+                "sparse_u8_embedding", data.u8_sparse_vector({0: 1, 1: 2, 2: 3})
+            )
         ).topk(field("score"), 3, False)
     )
 
@@ -44,7 +46,7 @@ def test_query_sparse_vector_distance_nullable(ctx: ProjectContext):
         select(
             "title",
             sparse_u8_distance=fn.vector_distance(
-                "sparse_u8_embedding", {0: 1, 1: 2, 2: 3}
+                "sparse_u8_embedding", data.u8_sparse_vector({0: 1, 1: 2, 2: 3})
             ),
         ).topk(field("sparse_u8_distance"), 3, False)
     )
@@ -71,7 +73,7 @@ def test_query_sparse_vector_distance_nullable(ctx: ProjectContext):
         select(
             "title",
             sparse_u8_distance=fn.vector_distance(
-                "sparse_u8_embedding", {0: 1, 1: 2, 2: 3}
+                "sparse_u8_embedding", data.u8_sparse_vector({0: 1, 1: 2, 2: 3})
             ),
         ).topk(field("sparse_u8_distance"), 3, False),
         lsn=lsn,

@@ -1,4 +1,7 @@
-use pyo3::{prelude::*, types::PyDict};
+use crate::data::vector::{
+    F32SparseVector, F32Vector, SparseVector, U8SparseVector, U8Vector, Vector,
+};
+use pyo3::prelude::*;
 
 pub mod collection;
 pub mod document;
@@ -27,37 +30,31 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
 }
 
 #[pyfunction]
-#[pyo3(signature = (values))]
-pub fn f32_vector(values: Vec<f32>) -> PyResult<value::Value> {
-    Ok(value::Value::Vector(vector::Vector::F32(values)))
-}
-
-#[pyfunction]
-#[pyo3(signature = (values))]
-pub fn u8_vector(values: Vec<u8>) -> PyResult<value::Value> {
-    Ok(value::Value::Vector(vector::Vector::U8(values)))
-}
-
-#[pyfunction]
-#[pyo3(signature = (values))]
-pub fn binary_vector(values: Vec<u8>) -> PyResult<value::Value> {
-    Ok(value::Value::Vector(vector::Vector::U8(values)))
+#[pyo3(signature = (vector))]
+pub fn f32_vector(vector: F32Vector) -> Vector {
+    vector.into()
 }
 
 #[pyfunction]
 #[pyo3(signature = (vector))]
-pub fn f32_sparse_vector(vector: &Bound<'_, PyDict>) -> PyResult<value::Value> {
-    Ok(value::Value::SparseVector(vector::SparseVector::F32 {
-        indices: vector.keys().extract::<Vec<u32>>()?,
-        values: vector.values().extract::<Vec<f32>>()?,
-    }))
+pub fn u8_vector(vector: U8Vector) -> Vector {
+    vector.into()
 }
 
 #[pyfunction]
 #[pyo3(signature = (vector))]
-pub fn u8_sparse_vector(vector: &Bound<'_, PyDict>) -> PyResult<value::Value> {
-    Ok(value::Value::SparseVector(vector::SparseVector::U8 {
-        indices: vector.keys().extract::<Vec<u32>>()?,
-        values: vector.values().extract::<Vec<u8>>()?,
-    }))
+pub fn binary_vector(vector: U8Vector) -> Vector {
+    vector.into()
+}
+
+#[pyfunction]
+#[pyo3(signature = (vector))]
+pub fn f32_sparse_vector(vector: F32SparseVector) -> SparseVector {
+    vector.into()
+}
+
+#[pyfunction]
+#[pyo3(signature = (vector))]
+pub fn u8_sparse_vector(vector: U8SparseVector) -> SparseVector {
+    vector.into()
 }
