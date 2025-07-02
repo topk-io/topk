@@ -147,6 +147,27 @@ import { text } from "topk-js/schema";
 
 </CodeGroup>
 
+### bytes()
+
+`bytes()` is used to define a bytes field in the schema.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.schema import bytes
+
+"image": bytes()
+```
+
+
+```js JavaScript
+import { bytes } from "topk-js/schema";
+
+"image": bytes()
+```
+
+</CodeGroup>
+
 ### f32_vector()
 
 `f32_vector()` function is used to define a vector field with 32-bit floating point values.
@@ -239,26 +260,57 @@ To configure the binary vector dimension, pass a `dimension` parameter to the `b
   The dimension of the vector.
 </ParamField>
 
-### bytes()
+### f32_sparse_vector()
 
-`bytes()` is used to define a bytes field in the schema.
+`f32_sparse_vector()` function is used to define a sparse vector field with 32-bit floating point values.
+
 
 <CodeGroup>
 
 ```python Python
-from topk_sdk.schema import bytes
+from topk_sdk.schema import f32_sparse_vector
 
-"image": bytes()
+"sparse_field": f32_sparse_vector()
 ```
 
 
 ```js JavaScript
-import { bytes } from "topk-js/schema";
+import { f32SparseVector } from "topk-js/schema";
 
-"image": bytes()
+"sparse_field": f32SparseVector()
 ```
 
 </CodeGroup>
+
+<Note>
+  Sparse vectors use u32 dimension indices to support dictionaries of up to 2^32 - 1 terms.
+</Note>
+
+### u8_sparse_vector()
+
+`u8_sparse_vector()` function is used to define a sparse vector field with 8-bit unsigned integer values.
+
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.schema import u8_sparse_vector
+
+"sparse_field": u8_sparse_vector()
+```
+
+
+```js JavaScript
+import { u8SparseVector } from "topk-js/schema";
+
+"sparse_field": u8SparseVector()
+```
+
+</CodeGroup>
+
+<Note>
+  Sparse vectors use u32 dimension indices to support dictionaries of up to 2^32 - 1 terms.
+</Note>
 
 ## Properties
 

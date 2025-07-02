@@ -81,9 +81,11 @@ The following value types are supported:
 | **Integer**        | `int`         | `number`        | -                 |
 | **Float**          | `float`       | `number`        | -                 |
 | **Boolean**        | `bool`        | `boolean`       | -                 |
-| **Float32 vector** | `List[float]` | `number[]`      | `f32_vector()`    |
+| **F32 vector**     | `List[float]` | `number[]`      | `f32_vector()`    |
 | **U8 vector**      | _use helper_  | _use helper_    | `u8_vector()`     |
 | **Binary vector**  | _use helper_  | _use helper_    | `binary_vector()` |
+| **F32 sparse vector**     | _use helper_ | _use helper_    | `f32_sparse_vector()`    |
+| **U8 sparse vector**      | _use helper_  | _use helper_    | `u8_sparse_vector()`     |
 | **Bytes**          | _use helper_  | _use helper_    | `bytes()`         |
 
 Here's an example of a creating a collection with all supported types and inserting a document:
@@ -97,9 +99,11 @@ from topk_sdk.schema import (
     text,
     float,
     bool,
-    f32Vector,
-    u8Vector,
-    binaryVector,
+    f32_vector,
+    u8_vector,
+    binary_vector,
+    f32_sparse_vector,
+    u8_sparse_vector,
     bytes,
 )
 
@@ -110,9 +114,11 @@ client.collections().create(
         "published_year": int(),
         "price": float(),
         "is_published": bool(),
-        "float_embedding": f32Vector(dimension=1536).index(vector_index(metric="cosine")),
-        "u8_embedding": u8Vector(dimension=1536).index(vector_index(metric="euclidean")),
-        "binary_embedding": binaryVector(dimension=1536).index(vector_index(metric="hamming")),
+        "f32_embedding": f32_vector(dimension=1536).index(vector_index(metric="cosine")),
+        "u8_embedding": u8_vector(dimension=1536).index(vector_index(metric="euclidean")),
+        "binary_embedding": binary_vector(dimension=1536).index(vector_index(metric="hamming")),
+        "f32_sparse_embedding": f32_sparse_vector().index(vector_index(metric="dot_product")),
+        "u8_sparse_embedding": u8_sparse_vector().index(vector_index(metric="dot_product")),
         "bytes": bytes(),
     },
 )
@@ -128,6 +134,8 @@ import {
   f32Vector,
   u8Vector,
   binaryVector,
+  f32SparseVector,
+  u8SparseVector,
   bytes,
   vectorIndex,
 } from "topk-js/schema";
@@ -137,9 +145,11 @@ await client.collections().create("books", {
   published_year: int(),
   price: float(),
   is_published: bool(),
-  float_embedding: f32Vector({ dimension: 1536 }).index(vectorIndex({ metric: "cosine" })),
+  f32_embedding: f32Vector({ dimension: 1536 }).index(vectorIndex({ metric: "cosine" })),
   u8_embedding: u8Vector({ dimension: 1536 }).index(vectorIndex({ metric: "euclidean" })),
   binary_embedding: binaryVector({ dimension: 1536 }).index(vectorIndex({ metric: "hamming" })),
+  f32_sparse_embedding: f32SparseVector().index(vectorIndex({ metric: "dot_product" })),
+  u8_sparse_embedding: u8SparseVector().index(vectorIndex({ metric: "dot_product" })),
   bytes: bytes(),
 });
 ```
@@ -151,7 +161,7 @@ Insert a document with all supported types:
 <CodeGroup>
 
 ```python Python
-from topk_sdk.data import f32_vector, u8_vector, binary_vector, bytes
+from topk_sdk.data import f32_vector, u8_vector, binary_vector, f32_sparse_vector, u8_sparse_vector, bytes
 
 client.collection("books").upsert([
   {
@@ -160,18 +170,20 @@ client.collection("books").upsert([
     "published_year": 1925,
     "price": 10.99,
     "is_published": true,
-    "float_embedding": f32_vector([0.12, 0.67, 0.82, 0.53]),
+    "f32_embedding": f32_vector([0.12, 0.67, 0.82, 0.53]),
     "u8_embedding": u8_vector([0, 1, 2, 3]),
     "binary_embedding": binary_vector([0, 1, 1, 0]),
+    "f32_sparse_embedding": f32_sparse_vector({0: 0.12, 6: 0.67, 17: 0.82, 97: 0.53}),
+    "u8_sparse_embedding": u8_sparse_vector({0: 12, 6: 67, 17: 82, 97: 53}),
     "bytes": bytes([0, 1, 1, 0]),
-  },
-]);
+  }
+])
 
 ```
 
 
 ```typescript Javascript
-import { f32Vector, u8Vector, binaryVector, bytes } from "topk-js/data";
+import { f32Vector, u8Vector, binaryVector, f32SparseVector, u8SparseVector, bytes } from "topk-js/data";
 
 await client.collection("books").upsert([
   {
@@ -180,11 +192,13 @@ await client.collection("books").upsert([
     published_year: 1925,
     price: 10.99,
     is_published: true,
-    float_embedding: [0.12, 0.67, 0.82, 0.53],
+    f32_embedding: [0.12, 0.67, 0.82, 0.53],
     // or use the helper function:
-    // float_embedding: f32Vector([0.12, 0.67, 0.82, 0.53]),
+    // f32_embedding: f32Vector([0.12, 0.67, 0.82, 0.53]),
     u8_embedding: u8Vector([0, 1, 2, 3]),
     binary_embedding: binaryVector([0, 1, 1, 0]),
+    f32_sparse_embedding: f32SparseVector({0: 0.12, 6: 0.67, 17: 0.82, 97: 0.53}),
+    u8_sparse_embedding: u8SparseVector({0: 12, 6: 67, 17: 82, 97: 53}),
     bytes: bytes([0, 1, 1, 0]),
   },
 ]);
@@ -201,6 +215,8 @@ TopK supports the following types of vectors:
 - Float32 vectors
 - U8 vectors
 - Binary vectors
+- Sparse f32 vectors
+- Sparse u8 vectors
 
 If no helper function is used, the vector is assumed to be a **float32 vector**.
 
@@ -263,6 +279,48 @@ binary_vector([0, 1, 1, 0])
 import { binaryVector } from "topk-js/data";
 
 binaryVector([0, 1, 1, 0])
+```
+
+</CodeGroup>
+
+### f32_sparse_vector()
+
+To pass a sparse vector with float32 values, use the `f32_sparse_vector()` helper function:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.data import f32_sparse_vector
+
+f32_sparse_vector({0: 0.12, 6: 0.67, 17: 0.82, 97: 0.53})
+```
+
+
+```typescript Javascript
+import { f32SparseVector } from "topk-js/data";
+
+f32SparseVector({0: 0.12, 6: 0.67, 17: 0.82, 97: 0.53})
+```
+
+</CodeGroup>
+
+### u8_sparse_vector()
+
+To pass a sparse vector with 8-bit unsigned integer values, use the `u8_sparse_vector()` helper function:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.data import u8_sparse_vector
+
+u8_sparse_vector({0: 12, 6: 67, 17: 82, 97: 53})
+```
+
+
+```typescript Javascript
+import { u8SparseVector } from "topk-js/data";
+
+u8SparseVector({0: 12, 6: 67, 17: 82, 97: 53})
 ```
 
 </CodeGroup>
