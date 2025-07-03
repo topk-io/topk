@@ -1,0 +1,29 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run All topk-rs Tests",
+            "type": "shell",
+            "command": "source ${workspaceFolder}/.envrc && cargo nextest run --no-fail-fast -p topk-rs",
+            "options": {
+                "cwd": "${workspaceFolder}/topk-rs",
+            },
+        },
+        {
+            "label": "Build Test Binaries",
+            "type": "shell",
+            "command": "cargo test --no-run --package topk-rs",
+            "options": {
+                "cwd": "${workspaceFolder}/topk-rs"
+            },
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "silent",
+                "focus": true,
+                "panel": "shared"
+            },
+            "problemMatcher": "$rustc"
+        }
+    ]
+}

@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug A Test",
+            // Change this to the specific test binary you want to debug:
+            "program": "${workspaceFolder}/topk-rs/target/debug/deps/test_query_logical-b89ea09c3153da36",
+            "args": ["--test-threads=1"],
+            "cwd": "${workspaceFolder}/topk-rs",
+            "envFile": "${workspaceFolder}/.env",
+            "preLaunchTask": "Build Test Binaries"
+        }
+    ]
+}

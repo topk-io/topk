@@ -3,3 +3,4 @@ __pycache__
 uv.lock
 target
 *.so
+Cargo.lock
