@@ -11,6 +11,7 @@ from topk_sdk.schema import (
     text,
     u8_sparse_vector,
     u8_vector,
+    vector_index,
 )
 
 from . import ProjectContext
@@ -53,17 +54,15 @@ def test_upsert_sequential(ctx: ProjectContext):
 def test_upsert_no_documents(ctx: ProjectContext):
     collection = ctx.client.collections().create(ctx.scope("test"), schema={})
 
-    with pytest.raises(error.DocumentValidationError) as exc_info:
+    with pytest.raises(error.DocumentValidationError, match="NoDocuments"):
         ctx.client.collection(collection.name).upsert([])
-    assert "NoDocuments" in str(exc_info.value)
 
 
 def test_upsert_invalid_document(ctx: ProjectContext):
     collection = ctx.client.collections().create(ctx.scope("test"), schema={})
 
-    with pytest.raises(error.DocumentValidationError) as exc_info:
+    with pytest.raises(error.DocumentValidationError, match="MissingId"):
         ctx.client.collection(collection.name).upsert([{}])
-    assert "MissingId" in str(exc_info.value)
 
 
 def test_upsert_schema_validation(ctx: ProjectContext):
@@ -71,9 +70,64 @@ def test_upsert_schema_validation(ctx: ProjectContext):
         ctx.scope("test"), schema={"name": text().required()}
     )
 
-    with pytest.raises(error.DocumentValidationError) as exc_info:
+    with pytest.raises(error.DocumentValidationError, match="MissingField"):
         ctx.client.collection(collection.name).upsert([{"_id": "one"}])
-    assert "MissingField" in str(exc_info.value)
+
+
+def test_upsert_with_invalid_document_null_field_value(ctx: ProjectContext):
+    collection = ctx.client.collections().create(
+        ctx.scope("books"),
+        schema={
+            "title": text().required(),
+            "f32_embedding": f32_vector(3)
+            .required()
+            .index(vector_index(metric="euclidean")),
+        },
+    )
+
+    with pytest.raises(
+        error.DocumentValidationError, match="InvalidDataType.*title.*null"
+    ):
+        ctx.client.collection(collection.name).upsert(
+            [{"_id": "doc1", "title": None, "f32_embedding": [1, 2, 3]}]
+        )
+
+
+def test_upsert_with_invalid_document_missing_required_field(ctx: ProjectContext):
+    collection = ctx.client.collections().create(
+        ctx.scope("books"),
+        schema={
+            "title": text().required(),
+            "f32_embedding": f32_vector(3)
+            .required()
+            .index(vector_index(metric="euclidean")),
+        },
+    )
+
+    with pytest.raises(error.DocumentValidationError, match="MissingField.*title"):
+        ctx.client.collection(collection.name).upsert(
+            [{"_id": "doc1", "f32_embedding": [1, 2, 3]}]
+        )
+
+
+def test_upsert_with_invalid_document_wrong_vector_dimension(ctx: ProjectContext):
+    collection = ctx.client.collections().create(
+        ctx.scope("books"),
+        schema={
+            "title": text().required(),
+            "f32_embedding": f32_vector(3)
+            .required()
+            .index(vector_index(metric="euclidean")),
+        },
+    )
+
+    with pytest.raises(
+        error.DocumentValidationError,
+        match="InvalidVectorDimension.*f32_embedding.*expected_dimension: 3.*got_dimension: 2",
+    ):
+        ctx.client.collection(collection.name).upsert(
+            [{"_id": "doc1", "title": "one", "f32_embedding": [1, 2]}]
+        )
 
 
 @pytest.mark.parametrize(

@@ -11,6 +11,13 @@ def test_query_non_existent_collection(ctx: ProjectContext):
         ctx.client.collection("missing").count()
 
 
+def test_collection_count(ctx: ProjectContext):
+    collection = dataset.books.setup(ctx)
+
+    result = ctx.client.collection(collection.name).count()
+    assert result == 10
+
+
 def test_query_count(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
@@ -23,6 +30,16 @@ def test_query_count_with_filter(ctx: ProjectContext):
 
     result = ctx.client.collection(collection.name).query(
         filter(field("published_year") <= 1950).count()
+    )
+
+    assert result[0]["_count"] == 5
+
+
+def test_query_count_with_filter_alternative_syntax(ctx: ProjectContext):
+    collection = dataset.books.setup(ctx)
+
+    result = ctx.client.collection(collection.name).query(
+        filter(field("published_year").lte(1950)).count()
     )
 
     assert result[0]["_count"] == 5

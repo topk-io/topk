@@ -1,5 +1,5 @@
 import pytest
-from topk_sdk import error
+from topk_sdk import data, error
 
 from . import ProjectContext
 from .utils import dataset
@@ -75,5 +75,47 @@ def test_get_document_fields(ctx: ProjectContext):
             "_id": "lotr",
             "title": "The Lord of the Rings: The Fellowship of the Ring",
             "published_year": 1954,
+        }
+    }
+
+
+def test_get_empty_document_list(ctx: ProjectContext):
+    collection = dataset.books.setup(ctx)
+
+    # Empty document list should raise an error
+    with pytest.raises(error.InvalidArgumentError):
+        ctx.client.collection(collection.name).get([])
+
+
+def test_get_document_with_lsn(ctx: ProjectContext):
+    collection = dataset.books.setup(ctx)
+
+    # First upsert to get an LSN - use a document that matches the schema
+    lsn = ctx.client.collection(collection.name).upsert(
+        [
+            {
+                "_id": "test_doc",
+                "title": "Test Document",
+                "published_year": 2023,
+                "summary": "A test document for LSN testing",
+                "summary_embedding": [1.0] * 16,
+                "sparse_f32_embedding": {1: 1.0},
+                "sparse_u8_embedding": data.u8_sparse_vector({1: 1}),
+            }
+        ]
+    )
+
+    # Get the document with the LSN
+    docs = ctx.client.collection(collection.name).get(["test_doc"], lsn=lsn)
+
+    assert docs == {
+        "test_doc": {
+            "_id": "test_doc",
+            "title": "Test Document",
+            "published_year": 2023,
+            "summary": "A test document for LSN testing",
+            "summary_embedding": [1.0] * 16,
+            "sparse_f32_embedding": {1: 1.0},
+            "sparse_u8_embedding": {1: 1},
         }
     }
