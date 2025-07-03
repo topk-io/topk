@@ -6,6 +6,8 @@ mod utils;
 use utils::dataset;
 use utils::ProjectTestContext;
 
+use topk_rs::Error;
+
 #[test_context(ProjectTestContext)]
 #[tokio::test]
 async fn test_query_lte(ctx: &mut ProjectTestContext) {
@@ -51,6 +53,30 @@ async fn test_query_and(ctx: &mut ProjectTestContext) {
         .expect("could not query");
 
     assert_doc_ids!(result, ["1984"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_abs(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let err = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            filter(field("published_year").sub(1949 as u32).abs().lte(1 as u32)).topk(
+                field("published_year"),
+                100,
+                true,
+            ),
+            None,
+            None,
+        )
+        .await
+        .expect_err("abs not implemented yet");
+
+    assert!(matches!(err, Error::InvalidArgument(_)));
+    // assert_doc_ids!(result, ["1984"]);
 }
 
 #[test_context(ProjectTestContext)]

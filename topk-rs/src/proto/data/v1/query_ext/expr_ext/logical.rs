@@ -39,6 +39,22 @@ impl LogicalExpr {
         LogicalExpr::unary(unary_op::Op::IsNotNull, self.clone())
     }
 
+    pub fn abs(&self) -> Self {
+        LogicalExpr::unary(unary_op::Op::Abs, self.clone())
+    }
+
+    pub fn ln(&self) -> Self {
+        LogicalExpr::unary(unary_op::Op::Ln, self.clone())
+    }
+
+    pub fn exp(&self) -> Self {
+        LogicalExpr::unary(unary_op::Op::Exp, self.clone())
+    }
+
+    pub fn sqrt(&self) -> Self {
+        LogicalExpr::unary(unary_op::Op::Sqrt, self.clone())
+    }
+
     pub fn binary(
         op: impl Into<binary_op::Op>,
         left: impl Into<LogicalExpr>,
@@ -222,6 +238,42 @@ impl LogicalExpr {
             ))),
         }
     }
+
+    pub fn min(&self, right: impl Into<LogicalExpr>) -> Self {
+        LogicalExpr {
+            expr: Some(logical_expr::Expr::BinaryOp(Box::new(
+                logical_expr::BinaryOp {
+                    op: logical_expr::binary_op::Op::Min as i32,
+                    left: Some(Box::new(self.clone())),
+                    right: Some(Box::new(right.into())),
+                },
+            ))),
+        }
+    }
+
+    pub fn max(&self, right: impl Into<LogicalExpr>) -> Self {
+        LogicalExpr {
+            expr: Some(logical_expr::Expr::BinaryOp(Box::new(
+                logical_expr::BinaryOp {
+                    op: logical_expr::binary_op::Op::Max as i32,
+                    left: Some(Box::new(self.clone())),
+                    right: Some(Box::new(right.into())),
+                },
+            ))),
+        }
+    }
+
+    pub fn pow(&self, right: impl Into<LogicalExpr>) -> Self {
+        LogicalExpr {
+            expr: Some(logical_expr::Expr::BinaryOp(Box::new(
+                logical_expr::BinaryOp {
+                    op: logical_expr::binary_op::Op::Pow as i32,
+                    left: Some(Box::new(self.clone())),
+                    right: Some(Box::new(right.into())),
+                },
+            ))),
+        }
+    }
 }
 
 impl From<Value> for LogicalExpr {
@@ -302,6 +354,34 @@ impl UnaryOp {
     pub fn is_not_null(expr: LogicalExpr) -> Self {
         UnaryOp {
             op: logical_expr::unary_op::Op::IsNotNull as i32,
+            expr: Some(Box::new(expr)),
+        }
+    }
+
+    pub fn abs(expr: LogicalExpr) -> Self {
+        UnaryOp {
+            op: logical_expr::unary_op::Op::Abs as i32,
+            expr: Some(Box::new(expr)),
+        }
+    }
+
+    pub fn ln(expr: LogicalExpr) -> Self {
+        UnaryOp {
+            op: logical_expr::unary_op::Op::Ln as i32,
+            expr: Some(Box::new(expr)),
+        }
+    }
+
+    pub fn exp(expr: LogicalExpr) -> Self {
+        UnaryOp {
+            op: logical_expr::unary_op::Op::Exp as i32,
+            expr: Some(Box::new(expr)),
+        }
+    }
+
+    pub fn sqrt(expr: LogicalExpr) -> Self {
+        UnaryOp {
+            op: logical_expr::unary_op::Op::Sqrt as i32,
             expr: Some(Box::new(expr)),
         }
     }
@@ -407,6 +487,30 @@ impl BinaryOp {
     pub fn gte(left: LogicalExpr, right: LogicalExpr) -> Self {
         BinaryOp {
             op: logical_expr::binary_op::Op::Gte as i32,
+            left: Some(Box::new(left)),
+            right: Some(Box::new(right)),
+        }
+    }
+
+    pub fn min(left: LogicalExpr, right: LogicalExpr) -> Self {
+        BinaryOp {
+            op: logical_expr::binary_op::Op::Min as i32,
+            left: Some(Box::new(left)),
+            right: Some(Box::new(right)),
+        }
+    }
+
+    pub fn max(left: LogicalExpr, right: LogicalExpr) -> Self {
+        BinaryOp {
+            op: logical_expr::binary_op::Op::Max as i32,
+            left: Some(Box::new(left)),
+            right: Some(Box::new(right)),
+        }
+    }
+
+    pub fn pow(left: LogicalExpr, right: LogicalExpr) -> Self {
+        BinaryOp {
+            op: logical_expr::binary_op::Op::Pow as i32,
             left: Some(Box::new(left)),
             right: Some(Box::new(right)),
         }
