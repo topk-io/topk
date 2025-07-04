@@ -40,7 +40,7 @@
           "documents/query",
           "documents/get",
           "documents/delete",
-          "documents/helper-functions"
+          "documents/data-constructors"
         ]
       },
       {
