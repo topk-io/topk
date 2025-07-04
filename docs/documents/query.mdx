@@ -122,7 +122,25 @@ Function expressions are used to define computed fields that will be included in
 
 #### Vector distance
 
-The `vector_distance()` function is used to compute the distance between a query vector and a vector field in a collection.
+The `vector_distance()` function is used to compute the vector score between a query vector and a vector field in a collection.
+
+There are **multiple ways** to represent a query vector:
+
+- Dense vectors:
+  - `[0.1, 0.2, 0.3, ...]` - Array of numbers resolved as a **dense float32 vector**
+  - `f32_vector([...])` - Helper function returning a **dense float32 vector**
+  - `u8_vector([...])` - Helper function returning a **dense u8 vector**
+  - `binary_vector([...])` - Helper function returning a **binary vector**
+
+- Sparse vectors:
+  - `{ 0: 0.1, 1: 0.2, 2: 0.3, ... }` - Mapping from index → value resolved as a **sparse float32 vector**
+  - `f32_sparse_vector({ ... })` - Helper function returning a **sparse float32 vector**
+  - `u8_sparse_vector({ ... })` - Helper function returning a **sparse u8 vector**
+
+<Tip>
+  See the [Helper functions](./helper-functions) page for details on how to use vector helper functions.
+</Tip>
+
 
 <Warning>
   To use the `vector_distance()` function, you **must** have a [**vector index**](http://docs.topk.io/collections/create#vector-index) defined on the field you're computing the vector distance against:

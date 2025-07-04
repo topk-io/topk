@@ -50,10 +50,10 @@ await client.collections().create("books", {
   Sparse vectors do not have a fixed dimension, so you don't need to specify the vector dimension when defining the field.
 </Note>
 
-<Note>
+<Warning>
   TopK only supports `dot_product` metric for sparse vectors which is compatible with both fixed and learned sparse
   vector representations.
-</Note>
+</Warning>
 
 ### Find the most relevant documents
 
