@@ -125,8 +125,11 @@ program
     let [major, minor, patch] = version.split(".").map(Number);
     if (options.major) {
       major++;
+      minor = 0;
+      patch = 0;
     } else if (options.minor) {
       minor++;
+      patch = 0;
     } else if (options.patch) {
       patch++;
     }
