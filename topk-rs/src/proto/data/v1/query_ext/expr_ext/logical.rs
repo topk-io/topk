@@ -101,8 +101,14 @@ impl LogicalExpr {
         Self::binary(binary_op::Op::Contains, self, right)
     }
 
-    pub fn matches(self, right: impl Into<LogicalExpr>) -> Self {
-        Self::binary(binary_op::Op::Matches, self, right)
+    /// Matches all terms against the field with keyword index.
+    pub fn match_all(self, right: impl Into<LogicalExpr>) -> Self {
+        Self::binary(binary_op::Op::MatchAll, self, right)
+    }
+
+    /// Matches any term against the field with keyword index.
+    pub fn match_any(self, right: impl Into<LogicalExpr>) -> Self {
+        Self::binary(binary_op::Op::MatchAny, self, right)
     }
 
     pub fn add(self, right: impl Into<LogicalExpr>) -> Self {
