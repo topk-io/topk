@@ -4,6 +4,7 @@ package topk.data.v1;
 import "topk/data/v1/value.proto";
 
 message LogicalExpr {
+  // Unary operator
   message UnaryOp {
     enum Op {
       OP_UNSPECIFIED = 0;
@@ -15,6 +16,7 @@ message LogicalExpr {
     LogicalExpr expr = 2;
   }
 
+  // Binary operator
   message BinaryOp {
     enum Op {
       OP_UNSPECIFIED = 0;
@@ -36,10 +38,23 @@ message LogicalExpr {
       OP_OR = 13;
       //
       OP_CONTAINS = 14;
+      OP_MATCHES = 15;
     }
     Op op = 1;
     LogicalExpr left = 2;
     LogicalExpr right = 3;
+  }
+
+  // Ternary operator
+  message TernaryOp {
+    enum Op {
+      OP_UNSPECIFIED = 0;
+      OP_WHERE = 1;
+    }
+    Op op = 1;
+    LogicalExpr x = 2;
+    LogicalExpr y = 3;
+    LogicalExpr z = 4;
   }
 
   oneof expr {
@@ -47,5 +62,6 @@ message LogicalExpr {
     Value literal = 2;
     UnaryOp unary_op = 3;
     BinaryOp binary_op = 4;
+    TernaryOp ternary_op = 5;
   }
 }

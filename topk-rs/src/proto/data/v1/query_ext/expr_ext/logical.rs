@@ -1,5 +1,5 @@
 use crate::proto::{
-    data::v1::logical_expr::{self, binary_op, unary_op, BinaryOp, UnaryOp},
+    data::v1::logical_expr::{self, binary_op, ternary_op, unary_op, BinaryOp, UnaryOp},
     v1::data::{LogicalExpr, Value},
 };
 
@@ -16,6 +16,9 @@ impl LogicalExpr {
         }
     }
 
+    // Unary operators
+
+    #[inline(always)]
     pub fn unary(op: impl Into<unary_op::Op>, expr: impl Into<LogicalExpr>) -> Self {
         LogicalExpr {
             expr: Some(logical_expr::Expr::UnaryOp(Box::new(
@@ -31,14 +34,17 @@ impl LogicalExpr {
         LogicalExpr::unary(unary_op::Op::Not, expr)
     }
 
-    pub fn is_null(&self) -> Self {
-        LogicalExpr::unary(unary_op::Op::IsNull, self.clone())
+    pub fn is_null(self) -> Self {
+        LogicalExpr::unary(unary_op::Op::IsNull, self)
     }
 
-    pub fn is_not_null(&self) -> Self {
-        LogicalExpr::unary(unary_op::Op::IsNotNull, self.clone())
+    pub fn is_not_null(self) -> Self {
+        LogicalExpr::unary(unary_op::Op::IsNotNull, self)
     }
 
+    // Binary operators
+
+    #[inline(always)]
     pub fn binary(
         op: impl Into<binary_op::Op>,
         left: impl Into<LogicalExpr>,
@@ -55,172 +61,96 @@ impl LogicalExpr {
         }
     }
 
-    pub fn and(&self, right: impl Into<LogicalExpr>) -> Self {
+    pub fn and(self, right: impl Into<LogicalExpr>) -> Self {
+        Self::binary(binary_op::Op::And, self, right)
+    }
+
+    pub fn or(self, right: impl Into<LogicalExpr>) -> Self {
+        Self::binary(binary_op::Op::Or, self, right)
+    }
+
+    pub fn eq(self, right: impl Into<LogicalExpr>) -> Self {
+        Self::binary(binary_op::Op::Eq, self, right)
+    }
+
+    pub fn neq(self, right: impl Into<LogicalExpr>) -> Self {
+        Self::binary(binary_op::Op::Neq, self, right)
+    }
+
+    pub fn lt(self, right: impl Into<LogicalExpr>) -> Self {
+        Self::binary(binary_op::Op::Lt, self, right)
+    }
+
+    pub fn lte(self, right: impl Into<LogicalExpr>) -> Self {
+        Self::binary(binary_op::Op::Lte, self, right)
+    }
+
+    pub fn gt(self, right: impl Into<LogicalExpr>) -> Self {
+        Self::binary(binary_op::Op::Gt, self, right)
+    }
+
+    pub fn gte(self, right: impl Into<LogicalExpr>) -> Self {
+        Self::binary(binary_op::Op::Gte, self, right)
+    }
+
+    pub fn starts_with(self, right: impl Into<LogicalExpr>) -> Self {
+        Self::binary(binary_op::Op::StartsWith, self, right)
+    }
+
+    pub fn contains(self, right: impl Into<LogicalExpr>) -> Self {
+        Self::binary(binary_op::Op::Contains, self, right)
+    }
+
+    pub fn matches(self, right: impl Into<LogicalExpr>) -> Self {
+        Self::binary(binary_op::Op::Matches, self, right)
+    }
+
+    pub fn add(self, right: impl Into<LogicalExpr>) -> Self {
+        Self::binary(binary_op::Op::Add, self, right)
+    }
+
+    pub fn mul(self, right: impl Into<LogicalExpr>) -> Self {
+        Self::binary(binary_op::Op::Mul, self, right)
+    }
+
+    pub fn div(self, right: impl Into<LogicalExpr>) -> Self {
+        Self::binary(binary_op::Op::Div, self, right)
+    }
+
+    pub fn sub(self, right: impl Into<LogicalExpr>) -> Self {
+        Self::binary(binary_op::Op::Sub, self, right)
+    }
+
+    // Ternary operators
+
+    #[inline(always)]
+    pub fn ternary(
+        op: impl Into<ternary_op::Op>,
+        x: impl Into<LogicalExpr>,
+        y: impl Into<LogicalExpr>,
+        z: impl Into<LogicalExpr>,
+    ) -> Self {
         LogicalExpr {
-            expr: Some(logical_expr::Expr::BinaryOp(Box::new(
-                logical_expr::BinaryOp {
-                    op: logical_expr::binary_op::Op::And as i32,
-                    left: Some(Box::new(self.clone())),
-                    right: Some(Box::new(right.into())),
+            expr: Some(logical_expr::Expr::TernaryOp(Box::new(
+                logical_expr::TernaryOp {
+                    op: op.into() as i32,
+                    x: Some(Box::new(x.into())),
+                    y: Some(Box::new(y.into())),
+                    z: Some(Box::new(z.into())),
                 },
             ))),
         }
     }
 
-    pub fn or(&self, right: impl Into<LogicalExpr>) -> Self {
-        LogicalExpr {
-            expr: Some(logical_expr::Expr::BinaryOp(Box::new(
-                logical_expr::BinaryOp {
-                    op: logical_expr::binary_op::Op::Or as i32,
-                    left: Some(Box::new(self.clone())),
-                    right: Some(Box::new(right.into())),
-                },
-            ))),
-        }
-    }
-
-    pub fn eq(&self, right: impl Into<LogicalExpr>) -> Self {
-        LogicalExpr {
-            expr: Some(logical_expr::Expr::BinaryOp(Box::new(
-                logical_expr::BinaryOp {
-                    op: logical_expr::binary_op::Op::Eq as i32,
-                    left: Some(Box::new(self.clone())),
-                    right: Some(Box::new(right.into())),
-                },
-            ))),
-        }
-    }
-
-    pub fn neq(&self, right: impl Into<LogicalExpr>) -> Self {
-        LogicalExpr {
-            expr: Some(logical_expr::Expr::BinaryOp(Box::new(
-                logical_expr::BinaryOp {
-                    op: logical_expr::binary_op::Op::Neq as i32,
-                    left: Some(Box::new(self.clone())),
-                    right: Some(Box::new(right.into())),
-                },
-            ))),
-        }
-    }
-
-    pub fn lt(&self, right: impl Into<LogicalExpr>) -> Self {
-        LogicalExpr {
-            expr: Some(logical_expr::Expr::BinaryOp(Box::new(
-                logical_expr::BinaryOp {
-                    op: logical_expr::binary_op::Op::Lt as i32,
-                    left: Some(Box::new(self.clone())),
-                    right: Some(Box::new(right.into())),
-                },
-            ))),
-        }
-    }
-
-    pub fn lte(&self, right: impl Into<LogicalExpr>) -> Self {
-        LogicalExpr {
-            expr: Some(logical_expr::Expr::BinaryOp(Box::new(
-                logical_expr::BinaryOp {
-                    op: logical_expr::binary_op::Op::Lte as i32,
-                    left: Some(Box::new(self.clone())),
-                    right: Some(Box::new(right.into())),
-                },
-            ))),
-        }
-    }
-
-    pub fn gt(&self, right: impl Into<LogicalExpr>) -> Self {
-        LogicalExpr {
-            expr: Some(logical_expr::Expr::BinaryOp(Box::new(
-                logical_expr::BinaryOp {
-                    op: logical_expr::binary_op::Op::Gt as i32,
-                    left: Some(Box::new(self.clone())),
-                    right: Some(Box::new(right.into())),
-                },
-            ))),
-        }
-    }
-
-    pub fn gte(&self, right: impl Into<LogicalExpr>) -> Self {
-        LogicalExpr {
-            expr: Some(logical_expr::Expr::BinaryOp(Box::new(
-                logical_expr::BinaryOp {
-                    op: logical_expr::binary_op::Op::Gte as i32,
-                    left: Some(Box::new(self.clone())),
-                    right: Some(Box::new(right.into())),
-                },
-            ))),
-        }
-    }
-
-    pub fn starts_with(&self, right: impl Into<LogicalExpr>) -> Self {
-        LogicalExpr {
-            expr: Some(logical_expr::Expr::BinaryOp(Box::new(
-                logical_expr::BinaryOp {
-                    op: logical_expr::binary_op::Op::StartsWith as i32,
-                    left: Some(Box::new(self.clone())),
-                    right: Some(Box::new(right.into())),
-                },
-            ))),
-        }
-    }
-
-    pub fn contains(&self, right: impl Into<LogicalExpr>) -> Self {
-        LogicalExpr {
-            expr: Some(logical_expr::Expr::BinaryOp(Box::new(
-                logical_expr::BinaryOp {
-                    op: logical_expr::binary_op::Op::Contains as i32,
-                    left: Some(Box::new(self.clone())),
-                    right: Some(Box::new(right.into())),
-                },
-            ))),
-        }
-    }
-
-    pub fn add(&self, right: impl Into<LogicalExpr>) -> Self {
-        LogicalExpr {
-            expr: Some(logical_expr::Expr::BinaryOp(Box::new(
-                logical_expr::BinaryOp {
-                    op: logical_expr::binary_op::Op::Add as i32,
-                    left: Some(Box::new(self.clone())),
-                    right: Some(Box::new(right.into())),
-                },
-            ))),
-        }
-    }
-
-    pub fn mul(&self, right: impl Into<LogicalExpr>) -> Self {
-        LogicalExpr {
-            expr: Some(logical_expr::Expr::BinaryOp(Box::new(
-                logical_expr::BinaryOp {
-                    op: logical_expr::binary_op::Op::Mul as i32,
-                    left: Some(Box::new(self.clone())),
-                    right: Some(Box::new(right.into())),
-                },
-            ))),
-        }
-    }
-
-    pub fn div(&self, right: impl Into<LogicalExpr>) -> Self {
-        LogicalExpr {
-            expr: Some(logical_expr::Expr::BinaryOp(Box::new(
-                logical_expr::BinaryOp {
-                    op: logical_expr::binary_op::Op::Div as i32,
-                    left: Some(Box::new(self.clone())),
-                    right: Some(Box::new(right.into())),
-                },
-            ))),
-        }
-    }
-
-    pub fn sub(&self, right: impl Into<LogicalExpr>) -> Self {
-        LogicalExpr {
-            expr: Some(logical_expr::Expr::BinaryOp(Box::new(
-                logical_expr::BinaryOp {
-                    op: logical_expr::binary_op::Op::Sub as i32,
-                    left: Some(Box::new(self.clone())),
-                    right: Some(Box::new(right.into())),
-                },
-            ))),
-        }
+    /// Condition operator that returns `x` if `cond` is true, otherwise `y`. The
+    /// condition operator must evaluate to a boolean value. `x` and `y` must be
+    /// of the same type or return types that can be converted to the same type.
+    pub fn choose(
+        cond: impl Into<LogicalExpr>,
+        x: impl Into<LogicalExpr>,
+        y: impl Into<LogicalExpr>,
+    ) -> Self {
+        Self::ternary(ternary_op::Op::Where, cond, x, y)
     }
 }
 
