@@ -146,3 +146,41 @@ async fn test_query_select_bm25_without_text_queries(ctx: &mut ProjectTestContex
 
     assert!(matches!(err, Error::InvalidArgument(_)));
 }
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_text_matches_single_term(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            filter(field("summary").matches("love")).topk(field("published_year"), 100, true),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids!(result, ["pride", "gatsby"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_text_matches_two_terms(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            filter(field("summary").matches("love class")).topk(field("published_year"), 100, true),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids!(result, ["pride"]);
+}
