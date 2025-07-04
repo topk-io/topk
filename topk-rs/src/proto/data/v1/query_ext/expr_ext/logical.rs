@@ -148,15 +148,12 @@ impl LogicalExpr {
         }
     }
 
-    /// Condition operator that returns `x` if `cond` is true, otherwise `y`. The
-    /// condition operator must evaluate to a boolean value. `x` and `y` must be
-    /// of the same type or return types that can be converted to the same type.
-    pub fn choose(
-        cond: impl Into<LogicalExpr>,
-        x: impl Into<LogicalExpr>,
-        y: impl Into<LogicalExpr>,
-    ) -> Self {
-        Self::ternary(ternary_op::Op::Where, cond, x, y)
+    /// Condition operator that returns `x` if `self` is true, otherwise `y`.
+    /// This operator can only be applied to boolean expressions.
+    /// Arguments `x` and `y` must be of the same type or return types that
+    /// can be converted to the same type.
+    pub fn choose(self, x: impl Into<LogicalExpr>, y: impl Into<LogicalExpr>) -> Self {
+        Self::ternary(ternary_op::Op::Where, self, x, y)
     }
 }
 
@@ -243,35 +240,55 @@ impl UnaryOp {
     }
 }
 
-impl std::ops::Add<LogicalExpr> for LogicalExpr {
+// Arithmetic operator overloads
+
+impl<T: Into<LogicalExpr>> std::ops::Add<T> for LogicalExpr {
     type Output = LogicalExpr;
 
-    fn add(self, rhs: LogicalExpr) -> Self::Output {
-        LogicalExpr::binary(binary_op::Op::Add, self, rhs)
+    fn add(self, rhs: T) -> Self::Output {
+        LogicalExpr::add(self, rhs)
     }
 }
 
-impl std::ops::Sub<LogicalExpr> for LogicalExpr {
+impl<T: Into<LogicalExpr>> std::ops::Sub<T> for LogicalExpr {
     type Output = LogicalExpr;
 
-    fn sub(self, rhs: LogicalExpr) -> Self::Output {
-        LogicalExpr::binary(binary_op::Op::Sub, self, rhs)
+    fn sub(self, rhs: T) -> Self::Output {
+        LogicalExpr::sub(self, rhs)
     }
 }
 
-impl std::ops::Mul<LogicalExpr> for LogicalExpr {
+impl<T: Into<LogicalExpr>> std::ops::Mul<T> for LogicalExpr {
     type Output = LogicalExpr;
 
-    fn mul(self, rhs: LogicalExpr) -> Self::Output {
-        LogicalExpr::binary(binary_op::Op::Mul, self, rhs)
+    fn mul(self, rhs: T) -> Self::Output {
+        LogicalExpr::mul(self, rhs)
     }
 }
 
-impl std::ops::Div<LogicalExpr> for LogicalExpr {
+impl<T: Into<LogicalExpr>> std::ops::Div<T> for LogicalExpr {
     type Output = LogicalExpr;
 
-    fn div(self, rhs: LogicalExpr) -> Self::Output {
-        LogicalExpr::binary(binary_op::Op::Div, self, rhs)
+    fn div(self, rhs: T) -> Self::Output {
+        LogicalExpr::div(self, rhs)
+    }
+}
+
+// Logical operator overloads
+
+impl<T: Into<LogicalExpr>> std::ops::BitAnd<T> for LogicalExpr {
+    type Output = LogicalExpr;
+
+    fn bitand(self, rhs: T) -> Self::Output {
+        LogicalExpr::and(self, rhs)
+    }
+}
+
+impl<T: Into<LogicalExpr>> std::ops::BitOr<T> for LogicalExpr {
+    type Output = LogicalExpr;
+
+    fn bitor(self, rhs: T) -> Self::Output {
+        LogicalExpr::or(self, rhs)
     }
 }
 
@@ -279,7 +296,7 @@ impl std::ops::Neg for LogicalExpr {
     type Output = LogicalExpr;
 
     fn neg(self) -> Self::Output {
-        LogicalExpr::unary(unary_op::Op::Not, self)
+        LogicalExpr::not(self)
     }
 }
 

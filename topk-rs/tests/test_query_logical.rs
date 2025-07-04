@@ -1,8 +1,11 @@
 use test_context::test_context;
+use topk_rs::doc;
 use topk_rs::query::field;
 use topk_rs::query::filter;
 
 mod utils;
+use topk_rs::query::not;
+use topk_rs::query::select;
 use utils::dataset;
 use utils::ProjectTestContext;
 
@@ -96,4 +99,123 @@ async fn test_query_is_not_null(ctx: &mut ProjectTestContext) {
         .expect("could not query");
 
     assert_doc_ids!(result, ["mockingbird", "1984", "catcher", "harry"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_not(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            filter(not(field("_id").contains("gatsby"))).topk(field("published_year"), 100, false),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids!(
+        result,
+        [
+            "harry",
+            "lotr",
+            "1984",
+            "mockingbird",
+            "moby",
+            "alchemist",
+            "catcher",
+            "hobbit",
+            "pride"
+        ]
+    );
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_choose_literal(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([(
+                "love_score",
+                field("summary").match_all("love").choose(2.0, 0.1),
+            )])
+            .filter(field("love_score").gt(1.0))
+            .topk(field("love_score"), 10, false),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids!(result, ["pride", "gatsby"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_choose_literal_and_field(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([(
+                "love_score",
+                field("summary")
+                    .match_all("love")
+                    .choose(field("published_year"), 10u32),
+            )])
+            .topk(field("love_score"), 2, false),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_eq!(
+        result,
+        vec![
+            doc!("_id" => "gatsby", "love_score" => 1925u32),
+            doc!("_id" => "pride", "love_score" => 1813u32),
+        ]
+    );
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_choose_field(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([(
+                "love_score",
+                field("summary")
+                    .match_all("love")
+                    .choose(field("published_year"), field("published_year").div(10)),
+            )])
+            .topk(field("love_score"), 3, false),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_eq!(
+        result,
+        vec![
+            doc!("_id" => "gatsby", "love_score" => 1925u32),
+            doc!("_id" => "pride", "love_score" => 1813u32),
+            doc!("_id" => "harry", "love_score" => 199u32),
+        ]
+    );
 }

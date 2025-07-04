@@ -1,7 +1,22 @@
+use topk_rs::proto::v1::data::Document;
+
 pub mod dataset;
 
 mod test_context;
 pub use test_context::project::ProjectTestContext;
+
+#[allow(dead_code)]
+pub fn is_sorted(result: &[Document], field: &str) -> bool {
+    result
+        .iter()
+        .map(|d| {
+            d.fields
+                .get(field)
+                .and_then(|v| v.as_f32())
+                .expect("missing sorting field")
+        })
+        .is_sorted()
+}
 
 #[macro_export]
 macro_rules! assert_doc_ids {

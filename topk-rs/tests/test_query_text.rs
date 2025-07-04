@@ -226,12 +226,8 @@ async fn test_query_text_matches_with_logical_expr(ctx: &mut ProjectTestContext)
         .client
         .collection(&collection.name)
         .query(
-            filter(
-                field("summary")
-                    .match_all("love class")
-                    .or(field("published_year").eq(1925)),
-            )
-            .topk(field("published_year"), 10, true),
+            filter(field("summary").match_all("love class") | field("published_year").eq(1925))
+                .topk(field("published_year"), 10, true),
             None,
             None,
         )
