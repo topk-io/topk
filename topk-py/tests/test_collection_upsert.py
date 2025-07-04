@@ -1,5 +1,5 @@
 import pytest
-from topk_sdk import data, error
+from topk_sdk import data, error, query
 from topk_sdk.schema import (
     binary_vector,
     bool,
@@ -104,6 +104,58 @@ def test_upsert_primitives(ctx: ProjectContext, params):
 
     assert obj["x"]["field"] == value
 
+def test_upsert_with_bytes_helper(ctx: ProjectContext):
+    collection = ctx.client.collections().create(
+        ctx.scope("test-bytes"),
+        schema={
+            "title": text().required(),
+            "thumbnail": bytes(),
+        }
+    )
+
+    test_bytes_list = [0, 1, 255, 128]
+    test_bytes_obj = b'\x00\x01\xff\x80'
+
+    lsn = ctx.client.collection(collection.name).upsert([
+        {
+            "_id": "doc1",
+            "title": "Document with bytes from list",
+            "thumbnail": data.bytes(test_bytes_list)
+        },
+        {
+            "_id": "doc2",
+            "title": "Document with bytes from bytes object",
+            "thumbnail": data.bytes(test_bytes_obj)
+        },
+        {
+            "_id": "doc3",
+            "title": "Document with empty bytes",
+            "thumbnail": data.bytes([])
+        },
+        {
+            "_id": "doc4",
+            "title": "Document with native bytes",
+            "thumbnail": bytes([10, 20, 30]) # Test native Python bytes still work
+        }
+    ])
+
+    ctx.client.collection(collection.name).count(lsn=lsn)
+
+    results = ctx.client.collection(collection.name).query(
+        query.select("title", "thumbnail").topk(query.field("_id"), 10, True)
+    )
+
+    assert len(results) == 4
+
+    for doc in results:
+        if doc["_id"] == "doc1":
+            assert doc["thumbnail"] == bytes([0, 1, 255, 128])
+        elif doc["_id"] == "doc2":
+            assert doc["thumbnail"] == bytes([0, 1, 255, 128])
+        elif doc["_id"] == "doc3":
+            assert doc["thumbnail"] == bytes([])
+        elif doc["_id"] == "doc4":
+            assert doc["thumbnail"] == bytes([10, 20, 30])
 
 def test_upsert_vectors(ctx: ProjectContext):
     collection = ctx.client.collections().create(
