@@ -9,7 +9,7 @@ jobs:
     secrets: inherit
     permissions:
       id-token: write
-      contents: read
+      contents: write
       attestations: write
     with:
       publish: true
