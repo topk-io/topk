@@ -1,0 +1,35 @@
+name: PR External Build
+on:
+  pull_request:
+    types: [synchronize, opened, reopened]
+
+jobs:
+  compile-rust:
+    name: Compile Rust
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install earthly
+        run: sudo bash -c "curl -L https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -o /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly"
+      - name: Compile Rust (no tests)
+        run: earthly +compile-rs
+
+  compile-python:
+    name: Compile Python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install earthly
+        run: sudo bash -c "curl -L https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -o /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly"
+      - name: Build Python SDK
+        run: earthly +build-py
+
+  compile-javascript:
+    name: Compile JavaScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install earthly
+        run: sudo bash -c "curl -L https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -o /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly"
+      - name: Build JavaScript SDK
+        run: earthly +build-js
