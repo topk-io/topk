@@ -1,4 +1,4 @@
-name: Build test runner
+name: Build & publish test runner
 
 on:
   workflow_dispatch:
