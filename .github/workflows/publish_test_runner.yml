@@ -1,0 +1,115 @@
+name: Build & publish test runner
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish image to ghcr.io"
+        type: boolean
+        default: false
+
+  workflow_call:
+    inputs:
+      publish:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Set version
+        id: version
+        run: |
+          tag=$(sed -nE 's/^version = "([^"]+)"/\1/p' topk-rs/Cargo.toml)
+          echo "version=$tag" >> $GITHUB_OUTPUT
+
+  build:
+    name: "test-runner (${{ matrix.arch }})"
+    runs-on: "public-${{ matrix.arch }}"
+    needs: [version]
+    strategy:
+      fail-fast: true
+      matrix:
+        arch: [amd64, arm64]
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
+    env:
+      FORCE_COLOR: 1
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: earthly/actions-setup@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          version: "0.8.5"
+          use-cache: false
+
+      - name: Login to ghcr.io
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Earthly build
+        run: earthly --ci ${{ inputs.publish && '--push' || '' }} +test-runner --registry ghcr.io/topk-io --tag ${{ needs.version.outputs.version }}-${{ matrix.arch }}
+
+  publish:
+    name: "test-runner (publish)"
+    runs-on: ubuntu-latest
+    if: ${{ inputs.publish }}
+    needs:
+      - version
+      - build
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
+    steps:
+      - name: Login to ghcr.io
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish [topk-test-runner:${{ needs.version.outputs.version }}] manifest
+        run: |
+          tag="ghcr.io/topk-io/topk-test-runner:${{ needs.version.outputs.version }}"
+
+          if ! docker manifest create $tag ${tag}-amd64 ${tag}-arm64; then
+            echo "Failed to create manifest for $tag"
+            exit 1
+          fi
+
+          if ! docker manifest push $tag; then
+            echo "Failed to push manifest for $tag"
+            exit 1
+          fi
+
+      - name: Publish [topk-test-runner:latest] manifest
+        run: |
+          arch_tag="ghcr.io/topk-io/topk-test-runner:${{ needs.version.outputs.version }}"
+          latest_tag="ghcr.io/topk-io/topk-test-runner:latest"
+
+          if ! docker manifest create $latest_tag ${arch_tag}-amd64 ${arch_tag}-arm64; then
+            echo "Failed to create manifest for $latest_tag"
+            exit 1
+          fi
+
+          if ! docker manifest push $latest_tag; then
+            echo "Failed to push manifest for $latest_tag"
+            exit 1
+          fi

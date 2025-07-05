@@ -1,23 +1,12 @@
 use test_context::test_context;
 use topk_rs::data::{f32_vector, u8_vector};
-use topk_rs::proto::v1::data::Document;
 use topk_rs::query::{field, fns, select};
 
 mod utils;
 use utils::dataset;
 use utils::ProjectTestContext;
 
-fn is_sorted(result: &[Document], field: &str) -> bool {
-    result
-        .iter()
-        .map(|d| {
-            d.fields
-                .get(field)
-                .and_then(|v| v.as_f32())
-                .expect("missing sorting field")
-        })
-        .is_sorted()
-}
+use crate::utils::is_sorted;
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
