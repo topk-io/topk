@@ -59,7 +59,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Earthly build
-        run: earthly --ci ${{ inputs.push && '--push' || '' }} +test-runner --registry ghcr.io --tag ${{ needs.version.outputs.version }}-${{ matrix.arch }}
+        run: earthly --ci ${{ (inputs.push || true) && '--push' || '' }} +test-runner --registry ghcr.io --tag ${{ needs.version.outputs.version }}-${{ matrix.arch }}
 
   publish:
     name: "test-runner (publish)"
