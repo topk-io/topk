@@ -1,7 +1,7 @@
+use crate::data::value::Value;
 use crate::data::vector::{
     F32SparseVector, F32Vector, SparseVector, U8SparseVector, U8Vector, Vector,
 };
-use crate::data::value::Value;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyList};
 
@@ -70,11 +70,15 @@ pub fn bytes(data: &Bound<'_, PyAny>) -> PyResult<Value> {
         let bytes_vec = py_bytes.as_bytes().to_vec();
         Ok(Value::Bytes(bytes_vec))
     } else if let Ok(py_list) = data.downcast::<PyList>() {
-        let bytes_vec: Vec<u8> = py_list.extract()?;
+        let bytes_vec: Vec<u8> = py_list.extract().map_err(|_| {
+            PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
+                "Expected list[int] with values in range [0, 255]",
+            ))
+        })?;
         Ok(Value::Bytes(bytes_vec))
     } else {
         Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-            "Expected bytes or list[int] for bytes() function"
+            "Expected bytes or list[int] for bytes() function",
         ))
     }
 }

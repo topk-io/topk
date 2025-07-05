@@ -32,11 +32,20 @@ def test_bytes_empty():
 
 
 def test_bytes_with_invalid_list_values():
-    with pytest.raises(TypeError):
-        bytes([0, 1, "invalid", 3])
+    with pytest.raises(
+        TypeError,
+        match="Expected list\\[int\\] with values in range \\[0, 255\\]",
+    ):
+        bytes([0, 1, "invalid", 3])  # type: ignore
 
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        TypeError,
+        match="Expected list\\[int\\] with values in range \\[0, 255\\]",
+    ):
         bytes([0, 1, 256, 3])
 
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        TypeError,
+        match="Expected list\\[int\\] with values in range \\[0, 255\\]",
+    ):
         bytes([0, -1, 2, 3])
