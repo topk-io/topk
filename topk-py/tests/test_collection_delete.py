@@ -41,3 +41,36 @@ def test_delete_non_existent_document(ctx: ProjectContext):
     # we can delete a non-existent document, and it will be ignored
     lsn = ctx.client.collection(collection.name).delete(["one"])
     assert lsn == "1"
+
+
+def test_delete_empty_document_list(ctx: ProjectContext):
+    collection = ctx.client.collections().create(ctx.scope("test"), schema={})
+
+    # Delete with empty list should raise an error
+    with pytest.raises(error.DocumentValidationError):
+        ctx.client.collection(collection.name).delete([])
+
+
+def test_delete_multiple_documents(ctx: ProjectContext):
+    collection = ctx.client.collections().create(ctx.scope("test"), schema={})
+
+    lsn = ctx.client.collection(collection.name).upsert(
+        [
+            {"_id": "one", "rank": 1},
+            {"_id": "two", "rank": 2},
+            {"_id": "three", "rank": 3},
+        ]
+    )
+    assert lsn == "1"
+
+    # wait for write to be flushed
+    ctx.client.collection(collection.name).count()
+
+    lsn = ctx.client.collection(collection.name).delete(["one", "three"])
+    assert lsn == "2"
+
+    docs = ctx.client.collection(collection.name).query(
+        select("title").topk(field("rank"), 100, True), lsn=lsn
+    )
+
+    assert doc_ids(docs) == {"two"}
