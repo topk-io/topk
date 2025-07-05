@@ -106,21 +106,25 @@ def test_upsert_with_bytes_helper(ctx: ProjectContext):
         [
             {
                 "_id": "doc1",
+                "rank": 1,
                 "title": "Document with bytes from list",
                 "thumbnail": data.bytes([0, 1, 255, 128]),
             },
             {
                 "_id": "doc2",
+                "rank": 2,
                 "title": "Document with bytes from bytes object",
                 "thumbnail": data.bytes(b"\x00\x01\xff\x80"),
             },
             {
                 "_id": "doc3",
+                "rank": 3,
                 "title": "Document with empty bytes",
                 "thumbnail": data.bytes([]),
             },
             {
                 "_id": "doc4",
+                "rank": 4,
                 "title": "Document with native bytes",
                 "thumbnail": bytes([10, 20, 30]),  # Test native Python bytes still work
             },
@@ -130,7 +134,7 @@ def test_upsert_with_bytes_helper(ctx: ProjectContext):
     ctx.client.collection(collection.name).count(lsn=lsn)
 
     results = ctx.client.collection(collection.name).query(
-        query.select("title", "thumbnail").topk(query.field("_id"), 10, True)
+        query.select("title", "thumbnail").topk(query.field("rank"), 10, True)
     )
 
     assert len(results) == 4
