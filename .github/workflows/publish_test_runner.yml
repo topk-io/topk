@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: "Whether to push the test runner to ghcr.io"
+        description: "Publish image to ghcr.io"
         type: boolean
         default: false
 
