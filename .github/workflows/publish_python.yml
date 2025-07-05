@@ -10,13 +10,13 @@ on:
     inputs:
       publish:
         type: boolean
-        description: "Whether to publish the release to PyPI"
+        description: "Publish release to PyPI"
         default: false
   workflow_call:
     inputs:
       publish:
         type: boolean
-        description: "Whether to publish the release to PyPI"
+        description: "Publish release to PyPI"
         default: false
 
 permissions:

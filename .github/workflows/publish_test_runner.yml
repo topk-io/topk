@@ -1,16 +1,16 @@
-name: Build test runner
+name: Build & publish test runner
 
 on:
   workflow_dispatch:
     inputs:
-      push:
-        description: "Whether to push the test runner to ghcr.io"
+      publish:
+        description: "Publish image to ghcr.io"
         type: boolean
         default: false
 
   workflow_call:
     inputs:
-      push:
+      publish:
         required: false
         type: boolean
         default: false
@@ -64,12 +64,12 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Earthly build
-        run: earthly --ci ${{ inputs.push && '--push' || '' }} +test-runner --registry ghcr.io/topk-io --tag ${{ needs.version.outputs.version }}-${{ matrix.arch }}
+        run: earthly --ci ${{ inputs.publish && '--push' || '' }} +test-runner --registry ghcr.io/topk-io --tag ${{ needs.version.outputs.version }}-${{ matrix.arch }}
 
   publish:
     name: "test-runner (publish)"
     runs-on: ubuntu-latest
-    if: ${{ inputs.push }}
+    if: ${{ inputs.publish }}
     needs:
       - version
       - build
@@ -85,7 +85,7 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish manifest
+      - name: Publish [topk-test-runner:${{ needs.version.outputs.version }}] manifest
         run: |
           tag="ghcr.io/topk-io/topk-test-runner:${{ needs.version.outputs.version }}"
 
@@ -96,5 +96,20 @@ jobs:
 
           if ! docker manifest push $tag; then
             echo "Failed to push manifest for $tag"
+            exit 1
+          fi
+
+      - name: Publish [topk-test-runner:latest] manifest
+        run: |
+          arch_tag="ghcr.io/topk-io/topk-test-runner:${{ needs.version.outputs.version }}"
+          latest_tag="ghcr.io/topk-io/topk-test-runner:latest"
+
+          if ! docker manifest create $latest_tag ${arch_tag}-amd64 ${arch_tag}-arm64; then
+            echo "Failed to create manifest for $latest_tag"
+            exit 1
+          fi
+
+          if ! docker manifest push $latest_tag; then
+            echo "Failed to push manifest for $latest_tag"
             exit 1
           fi
