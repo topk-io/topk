@@ -9,7 +9,7 @@ jobs:
     secrets: inherit
     permissions:
       id-token: write
-      contents: write
+      contents: read
       attestations: write
     with:
       publish: true
@@ -18,7 +18,7 @@ jobs:
     uses: ./.github/workflows/publish_js.yml
     secrets: inherit
     permissions:
-      contents: write
+      contents: read
       id-token: write
     with:
       publish: true
@@ -31,4 +31,4 @@ jobs:
       contents: read
       packages: write
     with:
-      push: true
+      publish: true
