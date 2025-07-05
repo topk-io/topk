@@ -7,6 +7,66 @@ test:
     BUILD +test-py --region=$region
     BUILD +test-js --region=$region
 
+# NEW BUILD-ONLY TARGETS START HERE
+
+compile-rs:
+    FROM rust:slim
+    # install dependencies
+    RUN apt-get update && apt-get install -y protobuf-compiler
+    DO rust+INIT --keep_fingerprints=true
+    WORKDIR /sdk
+    # copy source code
+    COPY . .
+    WORKDIR /sdk/topk-rs
+    # Only compile, don't run tests
+    DO rust+CARGO --args="build --release"
+    # Also compile the tests to catch compilation errors
+    DO rust+CARGO --args="test --no-run"
+
+build-py:
+    FROM rust:slim
+    # install dependencies
+    RUN apt-get update && apt-get install -y protobuf-compiler python3.11-venv
+    # setup maturin
+    RUN cargo install maturin@1.8.7 --locked
+    # setup python
+    RUN python3 -m venv /venv \
+        && . /venv/bin/activate \
+        && pip install --upgrade pip \
+        && pip install pytest pytest-xdist patchelf pyright
+    # source code
+    WORKDIR /sdk
+    COPY . .
+    WORKDIR /sdk/topk-py
+    # type check
+    RUN . /venv/bin/activate && pyright
+    # build only, no tests
+    RUN --mount=type=cache,target=/usr/local/cargo/registry \
+        --mount=type=cache,target=/usr/local/cargo/git \
+        . /venv/bin/activate && maturin build
+
+build-js:
+    FROM node:20-slim
+    # install dependencies
+    RUN apt-get update && apt-get install -y protobuf-compiler curl build-essential
+    # install Rust
+    RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+    ENV PATH="/root/.cargo/bin:${PATH}"
+    # Ensure yarn bins are in the PATH
+    ENV PATH="/sdk/topk-js/node_modules/.bin:${PATH}"
+    # copy source code
+    WORKDIR /sdk
+    COPY . .
+    # build
+    WORKDIR /sdk/topk-js
+    ENV YARN_CACHE_FOLDER=/root/.yarn
+    RUN --mount=type=cache,target=/root/.yarn yarn install
+    RUN --mount=type=cache,target=/usr/local/cargo/registry \
+        --mount=type=cache,target=/usr/local/cargo/git \
+        yarn build && yarn typecheck
+
+# NEW BUILD-ONLY TARGETS END HERE
+
 test-rs:
     FROM rust:slim
 
