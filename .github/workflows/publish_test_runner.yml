@@ -66,6 +66,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ inputs.push || true }}
     needs:
+      - version
       - build
     permissions:
       id-token: write
@@ -81,7 +82,7 @@ jobs:
 
       - name: Publish manifest
         run: |
-          tag="ghcr.io/topk-io/topk-test-runner:${{ inputs.tag || 'abc'}}"
+          tag="ghcr.io/topk-io/topk-test-runner:${{ needs.version.outputs.version }}"
 
           if ! docker manifest create $tag ${tag}-amd64 ${tag}-arm64; then
             echo "Failed to create manifest for $tag"
