@@ -101,14 +101,15 @@ jobs:
 
       - name: Publish [topk-test-runner:latest] manifest
         run: |
-          tag="ghcr.io/topk-io/topk-test-runner:latest"
+          arch_tag="ghcr.io/topk-io/topk-test-runner:${{ needs.version.outputs.version }}"
+          latest_tag="ghcr.io/topk-io/topk-test-runner:latest"
 
-          if ! docker manifest create $tag ${tag}-amd64 ${tag}-arm64; then
-            echo "Failed to create manifest for $tag"
+          if ! docker manifest create $latest_tag ${arch_tag}-amd64 ${arch_tag}-arm64; then
+            echo "Failed to create manifest for $latest_tag"
             exit 1
           fi
 
-          if ! docker manifest push $tag; then
-            echo "Failed to push manifest for $tag"
+          if ! docker manifest push $latest_tag; then
+            echo "Failed to push manifest for $latest_tag"
             exit 1
           fi
