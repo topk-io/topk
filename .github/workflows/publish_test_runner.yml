@@ -1,6 +1,13 @@
 name: Build test runner
 
 on:
+  workflow_dispatch:
+    inputs:
+      push:
+        description: "Whether to push the test runner to ghcr.io"
+        type: boolean
+        default: false
+
   workflow_call:
     inputs:
       push:
