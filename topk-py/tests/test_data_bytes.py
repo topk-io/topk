@@ -16,10 +16,10 @@ def test_bytes_from_bytes():
 
 def test_bytes_invalid_input():
     with pytest.raises(TypeError, match="Expected bytes or list\\[int\\]"):
-        bytes("not a valid input")
+        bytes("not a valid input")  # type: ignore
 
     with pytest.raises(TypeError, match="Expected bytes or list\\[int\\]"):
-        bytes(123)
+        bytes(123)  # type: ignore
 
 
 def test_bytes_empty():
