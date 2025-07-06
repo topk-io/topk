@@ -111,6 +111,11 @@ impl LogicalExpr {
         Self::binary(binary_op::Op::MatchAny, self, right)
     }
 
+    /// Coalesce nulls in the left expression with the provided value.
+    pub fn coalesce(self, right: impl Into<LogicalExpr>) -> Self {
+        Self::binary(binary_op::Op::Coalesce, self, right)
+    }
+
     pub fn add(self, right: impl Into<LogicalExpr>) -> Self {
         Self::binary(binary_op::Op::Add, self, right)
     }
