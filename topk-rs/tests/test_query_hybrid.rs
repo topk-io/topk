@@ -88,3 +88,38 @@ async fn test_query_hybrid_keyword_boost(ctx: &mut ProjectTestContext) {
     // We use a modified scoring expression so the results are not sorted by summary_distance.
     assert!(!is_sorted(&result, "summary_distance"));
 }
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_hybrid_coalesce_score(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([
+                (
+                    "summary_score",
+                    fns::vector_distance("summary_embedding", f32_vector(vec![4.1; 16])),
+                ),
+                (
+                    "nullable_score",
+                    fns::vector_distance("nullable_embedding", f32_vector(vec![4.1; 16])),
+                ),
+            ])
+            .topk(
+                field("summary_score") + field("nullable_score").coalesce(0.0),
+                3,
+                true,
+            ),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    // Adding the nullable_score without coalescing would exclude "pride" and "gatsby" from
+    // the result set, even though they are the closest candidates based on summary_score.
+    assert_doc_ids_ordered!(&result, ["gatsby", "pride", "catcher"]);
+}

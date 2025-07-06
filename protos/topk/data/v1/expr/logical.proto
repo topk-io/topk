@@ -40,6 +40,7 @@ message LogicalExpr {
       OP_CONTAINS = 14;
       OP_MATCH_ALL = 15;
       OP_MATCH_ANY = 16;
+      OP_COALESCE = 17;
     }
     Op op = 1;
     LogicalExpr left = 2;
