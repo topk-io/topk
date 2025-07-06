@@ -219,3 +219,84 @@ async fn test_query_choose_field(ctx: &mut ProjectTestContext) {
         ]
     );
 }
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_coalesce_nullable(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([("importance", field("nullable_importance").coalesce(1.0_f32))])
+                .filter(field("published_year").lt(1900))
+                .topk(field("published_year"), 3, false),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_eq!(
+        result,
+        vec![
+            doc!("_id" => "moby", "importance" => 5.0_f32),
+            doc!("_id" => "pride", "importance" => 1.0_f32),
+        ]
+    );
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_coalesce_missing(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([("importance", field("missing_field").coalesce(1.0_f32))])
+                .filter(field("published_year").lt(1900))
+                .topk(field("published_year"), 3, false),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_eq!(
+        result,
+        vec![
+            doc!("_id" => "moby", "importance" => 1.0_f32),
+            doc!("_id" => "pride", "importance" => 1.0_f32),
+        ]
+    );
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_coalesce_non_nullable(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([("coalesced_year", field("published_year").coalesce(0u32))])
+                .filter(field("published_year").lt(1900))
+                .topk(field("published_year"), 3, false),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_eq!(
+        result,
+        vec![
+            doc!("_id" => "moby", "coalesced_year" => 1851u32),
+            doc!("_id" => "pride", "coalesced_year" => 1813u32),
+        ]
+    );
+}

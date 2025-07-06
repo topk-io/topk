@@ -52,6 +52,9 @@ pub fn schema() -> HashMap<String, FieldSpec> {
 
 #[allow(dead_code)]
 pub fn docs() -> Vec<Document> {
+    // !!! IMPORTANT !!!
+    // Do not change the values of existing fields.
+    // If you need to test new behavior which is not already covered by existing fields, add a new field.
     vec![
         doc!(
             "_id" => "mockingbird",
@@ -64,6 +67,7 @@ pub fn docs() -> Vec<Document> {
             "binary_embedding" => Value::u8_vector(vec![0, 1]),
             "sparse_f32_embedding" => Value::f32_sparse_vector(vec![0, 1, 2], vec![1.0, 2.0, 3.0]),
             "sparse_u8_embedding" => Value::u8_sparse_vector(vec![0, 1, 2], vec![1, 2, 3]),
+            "nullable_importance" => 2.0_f32
         ),
         doc!(
             "_id" => "1984",
@@ -115,6 +119,7 @@ pub fn docs() -> Vec<Document> {
             "summary_embedding" => vec![6.0; 16],
             "sparse_f32_embedding" => Value::f32_sparse_vector(vec![6,7,8], vec![1.0, 2.0, 3.0]),
             "sparse_u8_embedding" => Value::u8_sparse_vector(vec![6,7,8], vec![1, 2, 3]),
+            "nullable_importance" => 5.0_f32
         ),
         doc!(
             "_id" => "hobbit",
