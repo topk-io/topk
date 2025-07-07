@@ -57,36 +57,37 @@ async fn test_query_hybrid_vector_bm25(ctx: &mut ProjectTestContext) {
 async fn test_query_hybrid_keyword_boost(ctx: &mut ProjectTestContext) {
     let collection = dataset::books::setup(ctx).await;
 
-    let result = ctx
-        .client
-        .collection(&collection.name)
-        .query(
-            select([(
-                "summary_distance",
-                fns::vector_distance("summary_embedding", f32_vector(vec![2.3; 16])),
-            )])
-            .topk(
-                // Multiply summary_distance by 0.1 if the summary matches "racial injustice", otherwise
-                // multiply by 1.0 (leave unchanged).
-                field("summary_distance")
-                    * (field("summary")
-                        .match_all("racial injustice")
-                        .choose(0.1, 1.0)),
-                3,
-                true,
-            ),
-            None,
-            None,
-        )
-        .await
-        .expect("could not query");
+    // Multiply summary_distance by 0.1 if the summary matches "racial injustice", otherwise
+    // multiply by 1.0 (leave unchanged).
+    for score_expr in [
+        field("summary_distance")
+            * (field("summary")
+                .match_all("racial injustice")
+                .choose(0.1, 1.0)),
+        field("summary_distance").boost(field("summary").match_all("racial injustice"), 0.1),
+    ] {
+        let result = ctx
+            .client
+            .collection(&collection.name)
+            .query(
+                select([(
+                    "summary_distance",
+                    fns::vector_distance("summary_embedding", f32_vector(vec![2.3; 16])),
+                )])
+                .topk(score_expr, 3, true),
+                None,
+                None,
+            )
+            .await
+            .expect("could not query");
 
-    // Keyword boosting swaps the order of results so we expect [1984, mockingbird, pride]
-    // instead of [1984, pride, mockingbird].
-    assert_doc_ids_ordered!(&result, ["1984", "mockingbird", "pride"]);
+        // Keyword boosting swaps the order of results so we expect [1984, mockingbird, pride]
+        // instead of [1984, pride, mockingbird].
+        assert_doc_ids_ordered!(&result, ["1984", "mockingbird", "pride"]);
 
-    // We use a modified scoring expression so the results are not sorted by summary_distance.
-    assert!(!is_sorted(&result, "summary_distance"));
+        // We use a modified scoring expression so the results are not sorted by summary_distance.
+        assert!(!is_sorted(&result, "summary_distance"));
+    }
 }
 
 #[test_context(ProjectTestContext)]
