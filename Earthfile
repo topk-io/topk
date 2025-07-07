@@ -41,7 +41,7 @@ test-py:
     RUN apt-get update && apt-get install -y protobuf-compiler python3.11-venv
 
     # setup maturin
-    RUN cargo install maturin@1.8.7 --locked
+    RUN cargo install maturin@1.9.0 --locked
 
     # setup python
     RUN python3 -m venv /venv \
