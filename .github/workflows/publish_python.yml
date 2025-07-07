@@ -49,6 +49,7 @@ jobs:
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
+          maturin-version: 1.8.7
           target: ${{ matrix.platform.target }}
           args: --release --out dist -i python3.9 -i python3.10 -i python3.11 -i python3.12 -i python3.13
           sccache: "true"
@@ -83,6 +84,7 @@ jobs:
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
+          maturin-version: 1.8.7
           target: ${{ matrix.platform.target }}
           args: --release --out dist -i python3.9 -i python3.10 -i python3.11 -i python3.12 -i python3.13
           sccache: "true"
@@ -125,6 +127,7 @@ jobs:
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
+          maturin-version: 1.8.7
           target: ${{ matrix.platform.target }}
           args: --release --out dist -i python3.9 -i python3.10 -i python3.11 -i python3.12 -i python3.13
           sccache: "true"
@@ -159,6 +162,7 @@ jobs:
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
+          maturin-version: 1.8.7
           target: ${{ matrix.platform.target }}
           args: --release --out dist -i python3.9 -i python3.10 -i python3.11 -i python3.12 -i python3.13
           sccache: "true"
@@ -176,6 +180,7 @@ jobs:
       - name: Build sdist
         uses: PyO3/maturin-action@v1
         with:
+          maturin-version: 1.8.7
           command: sdist
           args: -m topk-py/Cargo.toml --out dist
       - name: Upload sdist
@@ -207,5 +212,6 @@ jobs:
         env:
           MATURIN_PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
         with:
+          maturin-version: 1.8.7
           command: upload
           args: --non-interactive --skip-existing wheels-*/*
