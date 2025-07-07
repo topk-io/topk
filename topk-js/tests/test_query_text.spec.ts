@@ -357,17 +357,17 @@ describe("Text Queries", () => {
     await ctx.client.collection(collection.name).upsert([
       {
         _id: "pride",
-        summary: "A story about love and class",
+        summary: "A witty exploration of love, social class, and marriage in 19th-century England.",
         published_year: 1813,
       },
       {
         _id: "gatsby",
-        summary: "A tale of love and wealth",
+        summary: "A mysterious millionaire navigates love and wealth in the Roaring Twenties.",
         published_year: 1925,
       },
       {
         _id: "lotr",
-        summary: "A fantasy epic with rings",
+        summary: "A group of unlikely heroes sets out to destroy a powerful, evil ring.",
         published_year: 1954,
       },
     ]);

@@ -118,7 +118,7 @@ describe("Hybrid Queries", () => {
         summary_distance: fn.vectorDistance("summary_embedding", Array(16).fill(2.0)),
         bm25_score: fn.bm25Score(),
       })
-        .filter(field("summary").match("love", undefined, 30.0, false).or(field("summary").match("young", undefined, 10.0, false)))
+        .filter(match("love", { weight: 30.0, all: false }).or(match("young", { weight: 10.0, all: false })))
         .topk(field("bm25_score").add(field("summary_distance").mul(100)), 2, true)
     );
 
@@ -133,7 +133,9 @@ describe("Hybrid Queries", () => {
     // Multiply summary_distance by 0.1 if the summary matches "racial injustice", otherwise
     // multiply by 1.0 (leave unchanged).
     for (const scoreExpr of [
-      field("summary_distance").mul(field("summary").matchAll("racial injustice").choose(0.1, 1.0)),
+      field("summary_distance").mul(
+        field("summary").matchAll("racial injustice").choose(0.1, 1.0)
+      ),
       field("summary_distance").boost(field("summary").matchAll("racial injustice"), 0.1),
     ]) {
       const result = await ctx.client.collection(collection.name).query(

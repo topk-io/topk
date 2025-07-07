@@ -20,6 +20,10 @@ pub enum BinaryOperator {
     Sub,
     Mul,
     Div,
+    // Other
+    MatchAll,
+    MatchAny,
+    Coalesce,
 }
 
 impl Into<topk_rs::proto::v1::data::logical_expr::binary_op::Op> for BinaryOperator {
@@ -43,6 +47,15 @@ impl Into<topk_rs::proto::v1::data::logical_expr::binary_op::Op> for BinaryOpera
             BinaryOperator::Sub => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Sub,
             BinaryOperator::Mul => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Mul,
             BinaryOperator::Div => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Div,
+            BinaryOperator::MatchAll => {
+                topk_rs::proto::v1::data::logical_expr::binary_op::Op::MatchAll
+            }
+            BinaryOperator::MatchAny => {
+                topk_rs::proto::v1::data::logical_expr::binary_op::Op::MatchAny
+            }
+            BinaryOperator::Coalesce => {
+                topk_rs::proto::v1::data::logical_expr::binary_op::Op::Coalesce
+            }
         }
     }
 }

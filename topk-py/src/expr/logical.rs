@@ -514,12 +514,12 @@ impl LogicalExpr {
 
     // Ternary operators
 
-    fn choose(&self, py: Python<'_>, x: FlexibleExpr, y: FlexibleExpr) -> PyResult<Self> {
+    fn choose(&self, py: Python<'_>, y: FlexibleExpr, z: FlexibleExpr) -> PyResult<Self> {
         Ok(Self::Ternary {
             op: TernaryOperator::Choose,
             x: Py::new(py, self.clone())?,
-            y: Py::new(py, Into::<LogicalExpr>::into(x))?,
-            z: Py::new(py, Into::<LogicalExpr>::into(y))?,
+            y: Py::new(py, Into::<LogicalExpr>::into(y))?,
+            z: Py::new(py, Into::<LogicalExpr>::into(z))?,
         })
     }
 
