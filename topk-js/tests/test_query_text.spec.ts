@@ -281,4 +281,159 @@ describe("Text Queries", () => {
       "invalid argument: Invalid query: Query must have at least one text filter to compute bm25 scores"
     );
   });
+
+  test("query text matches single term", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("books", {
+      summary: text().required().index(keywordIndex()),
+      published_year: int(),
+    });
+
+    await ctx.client.collection(collection.name).upsert([
+      {
+        _id: "pride",
+        summary: "A story about love and class",
+        published_year: 1813,
+      },
+      {
+        _id: "gatsby",
+        summary: "A tale of love and wealth",
+        published_year: 1925,
+      },
+    ]);
+
+    for (const matchExpr of [
+      field("summary").matchAny("love"),
+      field("summary").matchAll("love"),
+    ]) {
+      const result = await ctx.client.collection(collection.name).query(
+        select({})
+          .filter(matchExpr)
+          .topk(field("published_year"), 100)
+      );
+
+      expect(new Set(result.map((doc) => doc._id))).toEqual(
+        new Set(["pride", "gatsby"])
+      );
+    }
+  });
+
+  test("query text match all two terms", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("books", {
+      summary: text().required().index(keywordIndex()),
+      published_year: int(),
+    });
+
+    await ctx.client.collection(collection.name).upsert([
+      {
+        _id: "pride",
+        summary: "A story about love and class",
+        published_year: 1813,
+      },
+      {
+        _id: "gatsby",
+        summary: "A tale of love and wealth",
+        published_year: 1925,
+      },
+    ]);
+
+    const result = await ctx.client.collection(collection.name).query(
+      select({})
+        .filter(field("summary").matchAll("love class"))
+        .topk(field("published_year"), 100)
+    );
+
+    expect(new Set(result.map((doc) => doc._id))).toEqual(new Set(["pride"]));
+  });
+
+  test("query text match any two terms", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("books", {
+      summary: text().required().index(keywordIndex()),
+      published_year: int(),
+    });
+
+    await ctx.client.collection(collection.name).upsert([
+      {
+        _id: "pride",
+        summary: "A story about love and class",
+        published_year: 1813,
+      },
+      {
+        _id: "gatsby",
+        summary: "A tale of love and wealth",
+        published_year: 1925,
+      },
+      {
+        _id: "lotr",
+        summary: "A fantasy epic with rings",
+        published_year: 1954,
+      },
+    ]);
+
+    const result = await ctx.client.collection(collection.name).query(
+      select({})
+        .filter(field("summary").matchAny("love ring"))
+        .topk(field("published_year"), 100)
+    );
+
+    expect(new Set(result.map((doc) => doc._id))).toEqual(
+      new Set(["pride", "gatsby", "lotr"])
+    );
+  });
+
+  test("query text matches with logical expr", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("books", {
+      summary: text().required().index(keywordIndex()),
+      published_year: int(),
+    });
+
+    await ctx.client.collection(collection.name).upsert([
+      {
+        _id: "pride",
+        summary: "A story about love and class",
+        published_year: 1813,
+      },
+      {
+        _id: "gatsby",
+        summary: "A tale of love and wealth",
+        published_year: 1925,
+      },
+    ]);
+
+    const result = await ctx.client.collection(collection.name).query(
+      select({})
+        .filter(
+          field("summary").matchAll("love class").or(field("published_year").eq(1925))
+        )
+        .topk(field("published_year"), 10)
+    );
+
+    expect(new Set(result.map((doc) => doc._id))).toEqual(
+      new Set(["pride", "gatsby"])
+    );
+  });
+
+  test("query text matches on invalid field", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("books", {
+      published_year: int(),
+    });
+
+    await ctx.client.collection(collection.name).upsert([
+      { _id: "pride", published_year: 1813 },
+    ]);
+
+    await expect(
+      ctx.client
+        .collection(collection.name)
+        .query(
+          select({})
+            .filter(field("published_year").matchAll("love class"))
+            .count()
+        )
+    ).rejects.toThrow("invalid argument");
+  });
 });
