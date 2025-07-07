@@ -160,6 +160,12 @@ impl LogicalExpr {
     pub fn choose(self, x: impl Into<LogicalExpr>, y: impl Into<LogicalExpr>) -> Self {
         Self::ternary(ternary_op::Op::Where, self, x, y)
     }
+
+    /// Multiplies the scoring expression by the provided `boost` value if the `condition` is true.
+    /// Otherwise, the scoring expression is unchanged (multiplied by 1).
+    pub fn boost(self, condition: impl Into<LogicalExpr>, boost: impl Into<Value>) -> Self {
+        self.mul(condition.into().choose(boost.into(), 1))
+    }
 }
 
 impl From<Value> for LogicalExpr {
