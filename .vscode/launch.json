@@ -1,0 +1,30 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "[topk-rs] Debug A Test",
+            // Change this to the specific test binary you want to debug:
+            "program": "${workspaceFolder}/topk-rs/target/debug/deps/test_query_topk_formulas-336f882e343e30e0",
+            "args": ["--test-threads=1"],
+            "cwd": "${workspaceFolder}/topk-rs",
+            "envFile": "${workspaceFolder}/.env",
+            "preLaunchTask": "[topk-rs] Build Test Binaries"
+        },
+        {
+            "name": "[topk-py] Debug Tests",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "-v",
+                "--tb=long"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/topk-py",
+            "envFile": "${workspaceFolder}/.env",
+            "python": "${workspaceFolder}/topk-py/.venv/bin/python"
+        }
+    ]
+}
