@@ -49,12 +49,30 @@ jobs:
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
+          maturin-version: 1.8.7
           target: ${{ matrix.platform.target }}
           args: --release --out dist -i python3.9 -i python3.10 -i python3.11 -i python3.12 -i python3.13
           sccache: "true"
           manylinux: auto
           working-directory: topk-py
           before-script-linux: ${{ (contains(matrix.platform.target, 'x86') || contains(matrix.platform.target, 'aarch64')) && 'yum' || 'apt-get' }} install -y unzip && curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-${{ matrix.platform.runner == 'ubuntu-22.04' && 'x86_64' || 'aarch_64' }}.zip && unzip protoc.zip && mv bin/protoc /usr/local/bin/protoc && protoc --version
+      - name: Test wheels
+        run: |
+          # create venv
+          python -m venv venv
+          source venv/bin/activate
+
+          # install pytest
+          pip install pytest
+
+          # import wheels
+          for wheel in topk-py/dist/*.whl; do
+            pip install $wheel
+          done
+
+          # run tests
+          pytest -v
+
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
@@ -83,6 +101,7 @@ jobs:
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
+          maturin-version: 1.8.7
           target: ${{ matrix.platform.target }}
           args: --release --out dist -i python3.9 -i python3.10 -i python3.11 -i python3.12 -i python3.13
           sccache: "true"
@@ -125,6 +144,7 @@ jobs:
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
+          maturin-version: 1.8.7
           target: ${{ matrix.platform.target }}
           args: --release --out dist -i python3.9 -i python3.10 -i python3.11 -i python3.12 -i python3.13
           sccache: "true"
@@ -159,6 +179,7 @@ jobs:
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
+          maturin-version: 1.8.7
           target: ${{ matrix.platform.target }}
           args: --release --out dist -i python3.9 -i python3.10 -i python3.11 -i python3.12 -i python3.13
           sccache: "true"
@@ -176,6 +197,7 @@ jobs:
       - name: Build sdist
         uses: PyO3/maturin-action@v1
         with:
+          maturin-version: 1.8.7
           command: sdist
           args: -m topk-py/Cargo.toml --out dist
       - name: Upload sdist
@@ -207,5 +229,6 @@ jobs:
         env:
           MATURIN_PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
         with:
+          maturin-version: 1.8.7
           command: upload
           args: --non-interactive --skip-existing wheels-*/*
