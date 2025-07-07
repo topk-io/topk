@@ -49,6 +49,8 @@ flowchart TD
 
 The `select()` function is used to initialize the select stage of a query. It accepts a key-value pair of field names and field expressions:
 
+// TODO write that it supports all of the expressions, also that the fields can be bools
+
 <CodeGroup>
 
 ```python Python
@@ -371,7 +373,12 @@ select({
 
 ## Filtering
 
-You can filter documents by **metadata**, **keywords**, **custom properties** computed inside `select()` (e.g. vector similarity or BM25 score) and more. Filter expressions support all comparison operators: `==`, `!=`, `>`, `>=`, `<`, `<=`, arithmetic operations: `+`, `-`, `*`, `/`, and boolean operators: `|` and `&`.
+You can filter documents by **metadata**, **keywords**, **custom properties** computed inside `select()` (e.g. vector similarity or BM25 score) and more.
+
+Filter expressions support all
+- [comparison operators](#comparison-operators),
+- [mathematical operators](#mathematical-operators),
+- [logical operators](#logical-operators).
 
 ### Metadata filtering
 
@@ -522,7 +529,10 @@ In the example below, we're searching for documents that contain the keyword `"c
 
 ## Operators
 
-When writing queries, you can use the following operators for field selection or filtering:
+When writing queries, you can use the following operators for
+- field selection
+- filtering
+- topk operator
 
 ### Logical operators
 
@@ -579,6 +589,32 @@ The `or` operator can be used to combine multiple logical expressions.
 ```
 
 </CodeGroup>
+
+#### not
+
+The `not` helper can be used to **negate** a logical expression. It takes an expression as an argument and inverts its logic.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import field, not_
+
+.filter(
+    not_(field("title").contains("Catcher"))
+)
+```
+
+
+```typescript Javascript
+import { field, not } from "topk-js/query";
+
+.filter(
+    not(field("title").contains("Catcher"))
+)
+```
+
+</CodeGroup>
+
 
 ### Comparison operators
 
@@ -772,7 +808,45 @@ The `contains` operator can be used on string fields to match documents that inc
 
 </CodeGroup>
 
-### Arithmetic operators
+#### is_null
+
+The `is_null` operator can be used to match documents that have a field with a value that is `null`.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("title").is_null()
+)
+```
+
+
+```js Javascript
+.filter(field("title").isNull())
+```
+
+</CodeGroup>
+
+#### is_not_null
+
+The `is_not_null` operator can be used to match documents that have a field with a value that is not `null`.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("title").is_not_null()
+)
+```
+
+
+```js Javascript
+.filter(field("title").isNotNull())
+```
+
+</CodeGroup>
+
+### Mathematical operators
 
 #### add
 
@@ -874,74 +948,10 @@ The `div` operator can be used to divide two numbers.
 
 </CodeGroup>
 
-### Unary operators
 
-#### not
+## Collect
 
-The `not` helper can be used to **negate** a logical expression. It takes an expression as an argument and inverts its logic.
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.query import field, not_
-
-.filter(
-    not_(field("title").contains("Catcher"))
-)
-```
-
-
-```typescript Javascript
-import { field, not } from "topk-js/query";
-
-.filter(
-    not(field("title").contains("Catcher"))
-)
-```
-
-</CodeGroup>
-
-#### is_null
-
-The `is_null` operator can be used to match documents that have a field with a value that is `null`.
-
-<CodeGroup>
-
-```python Python
-.filter(
-    field("title").is_null()
-)
-```
-
-
-```js Javascript
-.filter(field("title").isNull())
-```
-
-</CodeGroup>
-
-#### is_not_null
-
-The `is_not_null` operator can be used to match documents that have a field with a value that is not `null`.
-
-<CodeGroup>
-
-```python Python
-.filter(
-    field("title").is_not_null()
-)
-```
-
-
-```js Javascript
-.filter(field("title").isNotNull())
-```
-
-</CodeGroup>
-
-## Collection
-
-All queries **must** have a collection stage. Currently, we only support `topk()` and `count()` collectors.
+All queries **must** have a "collect" stage. Currently, we support the `topk()` and `count()` collectors.
 
 ### topk
 
@@ -949,6 +959,8 @@ Use the `topk()` function to return the top `k` results. The `topk()` function a
 
 <ParamField path="field" type="LogicalExpression" required="true">
   The logical expression to sort the results by.
+
+  // TODO clarify which expression/operators are support
 </ParamField>
 
 <ParamField path="k" type="number" required="true">
