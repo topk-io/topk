@@ -142,4 +142,13 @@ describe("Count Queries", () => {
     result = await ctx.client.collection(collection.name).count({ lsn });
     expect(result).toBe(9);
   });
+
+  test("query count empty collection", async () => {
+    const ctx = getContext();
+    const collection = await ctx.client.collections().create(ctx.scope("empty"), {});
+
+    const count = await ctx.client.collection(collection.name).count();
+
+    expect(count).toBe(0);
+  });
 });

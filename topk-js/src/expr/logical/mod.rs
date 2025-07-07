@@ -129,6 +129,26 @@ impl LogicalExpression {
         Self::unary(UnaryOperator::IsNotNull, self.clone())
     }
 
+    #[napi]
+    pub fn abs(&self) -> Self {
+        Self::unary(UnaryOperator::Abs, self.clone())
+    }
+
+    #[napi]
+    pub fn ln(&self) -> Self {
+        Self::unary(UnaryOperator::Ln, self.clone())
+    }
+
+    #[napi]
+    pub fn exp(&self) -> Self {
+        Self::unary(UnaryOperator::Exp, self.clone())
+    }
+
+    #[napi]
+    pub fn sqrt(&self) -> Self {
+        Self::unary(UnaryOperator::Sqrt, self.clone())
+    }
+
     // Comparison operators
 
     #[napi]
@@ -187,6 +207,21 @@ impl LogicalExpression {
     #[napi]
     pub fn div(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
         Self::binary(BinaryOperator::Div, self.clone(), other.into())
+    }
+
+    #[napi]
+    pub fn min(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
+        Self::binary(BinaryOperator::Min, self.clone(), other.into())
+    }
+
+    #[napi]
+    pub fn max(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
+        Self::binary(BinaryOperator::Max, self.clone(), other.into())
+    }
+
+    #[napi]
+    pub fn pow(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
+        Self::binary(BinaryOperator::Pow, self.clone(), other.into())
     }
 
     #[napi]

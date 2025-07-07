@@ -20,6 +20,9 @@ pub enum BinaryOperator {
     Sub,
     Mul,
     Div,
+    Pow,
+    Min,
+    Max,
 }
 
 impl Into<topk_rs::proto::v1::data::logical_expr::binary_op::Op> for BinaryOperator {
@@ -43,6 +46,9 @@ impl Into<topk_rs::proto::v1::data::logical_expr::binary_op::Op> for BinaryOpera
             BinaryOperator::Sub => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Sub,
             BinaryOperator::Mul => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Mul,
             BinaryOperator::Div => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Div,
+            BinaryOperator::Pow => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Pow,
+            BinaryOperator::Min => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Min,
+            BinaryOperator::Max => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Max,
         }
     }
 }

@@ -29,16 +29,6 @@ def test_query_and(ctx: ProjectContext):
 
     assert doc_ids(result) == {"1984"}
 
-def test_query_abs(ctx: ProjectContext):
-    collection = dataset.books.setup(ctx)
-
-    with pytest.raises(error.InvalidArgumentError):
-        ctx.client.collection(collection.name).query(
-            filter(
-                abs(field("published_year")-1949) <= 1
-            ).topk(field("published_year"), 100, True)
-        )
-
 def test_query_is_null(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
@@ -56,3 +46,13 @@ def test_query_is_not_null(ctx: ProjectContext):
     )
 
     assert doc_ids(result) == {"mockingbird", "1984", "catcher", "harry"}
+
+def test_query_abs(ctx: ProjectContext):
+    collection = dataset.books.setup(ctx)
+
+    with pytest.raises(error.InvalidArgumentError):
+        ctx.client.collection(collection.name).query(
+            filter(
+                abs(field("published_year")-1949) <= 1
+            ).topk(field("published_year"), 100, True)
+        )

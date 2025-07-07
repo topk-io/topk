@@ -120,6 +120,10 @@ export declare namespace query {
     toString(): string
     isNull(): LogicalExpression
     isNotNull(): LogicalExpression
+    abs(): LogicalExpression
+    ln(): LogicalExpression
+    exp(): LogicalExpression
+    sqrt(): LogicalExpression
     eq(other: LogicalExpression | string | number | boolean | null | undefined): LogicalExpression
     ne(other: LogicalExpression | string | number | boolean | null | undefined): LogicalExpression
     lt(other: LogicalExpression | number): LogicalExpression
@@ -130,6 +134,9 @@ export declare namespace query {
     sub(other: LogicalExpression | number): LogicalExpression
     mul(other: LogicalExpression | number): LogicalExpression
     div(other: LogicalExpression | number): LogicalExpression
+    min(other: LogicalExpression | number): LogicalExpression
+    max(other: LogicalExpression | number): LogicalExpression
+    pow(other: LogicalExpression | number): LogicalExpression
     and(other: LogicalExpression | boolean): LogicalExpression
     or(other: LogicalExpression | boolean): LogicalExpression
     startsWith(other: LogicalExpression | string): LogicalExpression
@@ -158,7 +165,10 @@ export declare namespace query {
   'add'|
   'sub'|
   'mul'|
-  'div';
+  'div'|
+  'pow'|
+  'min'|
+  'max';
   export function field(name: string): LogicalExpression
   export function filter(expr: LogicalExpression | TextExpression): Query
   export function literal(value: number | string | boolean): LogicalExpression
@@ -172,7 +182,11 @@ export declare namespace query {
   }
   export type UnaryOperator =  'not'|
   'isNull'|
-  'isNotNull';
+  'isNotNull'|
+  'abs'|
+  'ln'|
+  'exp'|
+  'sqrt';
 }
 
 export declare namespace query_fn {

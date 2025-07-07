@@ -11,7 +11,7 @@ def test_query_topk_clamping(ctx: ProjectContext):
     with pytest.raises(error.InvalidArgumentError):
         ctx.client.collection(collection.name).query(
             select(
-                summary_distance=fn.vector_distance("summary_embedding", [2.0, 16]),
+                summary_distance=fn.vector_distance("summary_embedding", [2.0] * 16),
                 bm25_score=fn.bm25_score()
             ).topk(
                 (field("bm25_score").max(3).min(10)) 
@@ -30,7 +30,7 @@ def test_query_topk_pow_sqrt(ctx: ProjectContext):
     with pytest.raises(error.InvalidArgumentError):
         ctx.client.collection(collection.name).query(
         select(
-            summary_distance=fn.vector_distance("summary_embedding", [2.0, 16]),
+            summary_distance=fn.vector_distance("summary_embedding", [2.0] * 16),
             bm25_score=fn.bm25_score()
         ).topk(
             (
