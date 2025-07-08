@@ -98,7 +98,7 @@ impl From<TernaryOperator> for topk_rs::proto::v1::data::logical_expr::ternary_o
     fn from(op: TernaryOperator) -> Self {
         match op {
             TernaryOperator::Choose => {
-                topk_rs::proto::v1::data::logical_expr::ternary_op::Op::Choose
+                topk_rs::proto::v1::data::logical_expr::ternary_op::Op::Where
             }
         }
     }

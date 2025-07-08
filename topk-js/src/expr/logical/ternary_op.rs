@@ -10,7 +10,7 @@ impl Into<topk_rs::proto::v1::data::logical_expr::ternary_op::Op> for TernaryOpe
     fn into(self) -> topk_rs::proto::v1::data::logical_expr::ternary_op::Op {
         match self {
             TernaryOperator::Choose => {
-                topk_rs::proto::v1::data::logical_expr::ternary_op::Op::Choose
+                topk_rs::proto::v1::data::logical_expr::ternary_op::Op::Where
             }
         }
     }
