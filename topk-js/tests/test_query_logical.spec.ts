@@ -1,4 +1,4 @@
-import { field, select, not } from "../lib/query";
+import { field, select, not, filter } from "../lib/query";
 import { int, keywordIndex, text } from "../lib/schema";
 import { newProjectContext, ProjectContext } from "./setup";
 
@@ -42,8 +42,7 @@ describe("Logical Queries", () => {
     const results = await ctx.client
       .collection(collection.name)
       .query(
-        select({})
-          .filter(field("published_year").lte(1950))
+        filter(field("published_year").lte(1950))
           .topk(field("published_year"), 100, true)
       );
 
@@ -77,8 +76,7 @@ describe("Logical Queries", () => {
     ]);
 
     const results = await ctx.client.collection(collection.name).query(
-      select({})
-        .filter(
+        filter(
           field("published_year")
             .lte(1950)
             .and(field("published_year").gte(1948))
@@ -116,8 +114,7 @@ describe("Logical Queries", () => {
     const results = await ctx.client
       .collection(collection.name)
       .query(
-        select({})
-          .filter(field("title").isNull())
+        filter(field("title").isNull())
           .topk(field("published_year"), 100, true)
       );
 
@@ -153,8 +150,7 @@ describe("Logical Queries", () => {
     const results = await ctx.client
       .collection(collection.name)
       .query(
-        select({})
-          .filter(field("title").isNotNull())
+        filter(field("title").isNotNull())
           .topk(field("published_year"), 100, true)
       );
 
@@ -180,37 +176,22 @@ describe("Logical Queries", () => {
     });
 
     await ctx.client.collection(collection.name).upsert([
-      { _id: "mockingbird", title: "To Kill a Mockingbird", published_year: 1960 },
-      { _id: "1984", title: "1984", published_year: 1949 },
       { _id: "pride", title: "Pride and Prejudice", published_year: 1813 },
       { _id: "gatsby", title: "The Great Gatsby", published_year: 1925 },
       { _id: "catcher", title: "The Catcher in the Rye", published_year: 1951 },
-      { _id: "moby", title: "Moby-Dick", published_year: 1851 },
-      { _id: "hobbit", title: "The Hobbit", published_year: 1937 },
-      { _id: "harry", title: "Harry Potter and the Sorcerer's Stone", published_year: 1997 },
-      { _id: "lotr", title: "The Lord of the Rings: The Fellowship of the Ring", published_year: 1954 },
-      { _id: "alchemist", title: "The Alchemist", published_year: 1988 },
     ]);
 
     const results = await ctx.client
       .collection(collection.name)
       .query(
-        select({})
-          .filter(not(field("_id").contains("gatsby")))
+        filter(not(field("_id").contains("gatsby")))
           .topk(field("published_year"), 100, false)
       );
 
     expect(new Set(results.map((doc) => doc._id))).toEqual(
       new Set([
-        "harry",
-        "lotr",
-        "1984",
-        "mockingbird",
-        "moby",
-        "alchemist",
+        "pride",
         "catcher",
-        "hobbit",
-        "pride"
       ])
     );
   });
@@ -222,16 +203,10 @@ describe("Logical Queries", () => {
     });
 
     await ctx.client.collection(collection.name).upsert([
-      { _id: "mockingbird", summary: "A young girl confronts racial injustice in the Deep South through the eyes of her lawyer father." },
       { _id: "1984", summary: "A totalitarian regime uses surveillance and mind control to oppress its citizens." },
       { _id: "pride", summary: "A witty exploration of love, social class, and marriage in 19th-century England." },
       { _id: "gatsby", summary: "A mysterious millionaire navigates love and wealth in the Roaring Twenties." },
       { _id: "catcher", summary: "A rebellious teenager struggles with alienation and identity in mid-20th-century America." },
-      { _id: "moby", summary: "A sailor's obsessive quest to hunt a great white whale leads to tragic consequences." },
-      { _id: "hobbit", summary: "A reluctant hobbit embarks on a quest to help a group of dwarves reclaim their mountain home." },
-      { _id: "harry", summary: "A young wizard discovers his magical heritage and attends a school for witchcraft and wizardry." },
-      { _id: "lotr", summary: "A group of unlikely heroes sets out to destroy a powerful, evil ring." },
-      { _id: "alchemist", summary: "A shepherd boy journeys to fulfill his destiny and discover the meaning of life." },
     ]);
 
     const results = await ctx.client

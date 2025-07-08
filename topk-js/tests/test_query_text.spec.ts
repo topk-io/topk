@@ -1,4 +1,4 @@
-import { field, fn, match, select } from "../lib/query";
+import { field, fn, match, select, filter } from "../lib/query";
 import { int, keywordIndex, text } from "../lib/schema";
 import { newProjectContext, ProjectContext } from "./setup";
 
@@ -37,8 +37,7 @@ describe("Text Queries", () => {
     ]);
 
     const result = await ctx.client.collection(collection.name).query(
-      select({})
-        .filter(match("love", { field: "summary" }))
+      filter(match("love", { field: "summary" }))
         .topk(field("published_year"), 100)
     );
 
@@ -69,8 +68,7 @@ describe("Text Queries", () => {
     ]);
 
     const result = await ctx.client.collection(collection.name).query(
-      select({})
-        .filter(match("love", { field: "summary" }))
+      filter(match("love", { field: "summary" }))
         .topk(field("published_year"), 100)
     );
 
@@ -109,12 +107,11 @@ describe("Text Queries", () => {
     ]);
 
     const result = await ctx.client.collection(collection.name).query(
-      select({})
-        .filter(
-          match("LOVE", { field: "summary" }).or(
-            match("rings", { field: "title" })
-          )
+      filter(
+        match("LOVE", { field: "summary" }).or(
+          match("rings", { field: "title" })
         )
+      )
         .topk(field("published_year"), 100)
     );
 
@@ -145,12 +142,11 @@ describe("Text Queries", () => {
     ]);
 
     const result = await ctx.client.collection(collection.name).query(
-      select({})
-        .filter(
-          match("LOVE", { field: "summary" }).and(
-            match("class", { field: "summary" })
-          )
+      filter(
+        match("LOVE", { field: "summary" }).and(
+          match("class", { field: "summary" })
         )
+      )
         .topk(field("published_year"), 100)
     );
 
@@ -178,8 +174,7 @@ describe("Text Queries", () => {
     ]);
 
     const result = await ctx.client.collection(collection.name).query(
-      select({})
-        .filter(match("story love", { field: "summary", all: true }))
+      filter(match("story love", { field: "summary", all: true }))
         .topk(field("published_year"), 100)
     );
 
@@ -208,8 +203,7 @@ describe("Text Queries", () => {
     ]);
 
     const result = await ctx.client.collection(collection.name).query(
-      select({})
-        .filter(match("the", { field: "summary" }))
+      filter(match("the", { field: "summary" }))
         .topk(field("published_year"), 100)
     );
 
@@ -307,8 +301,7 @@ describe("Text Queries", () => {
       field("summary").matchAll("love"),
     ]) {
       const result = await ctx.client.collection(collection.name).query(
-        select({})
-          .filter(matchExpr)
+        filter(matchExpr)
           .topk(field("published_year"), 100)
       );
 
@@ -339,8 +332,7 @@ describe("Text Queries", () => {
     ]);
 
     const result = await ctx.client.collection(collection.name).query(
-      select({})
-        .filter(field("summary").matchAll("love class"))
+      filter(field("summary").matchAll("love class"))
         .topk(field("published_year"), 100)
     );
 
@@ -373,8 +365,7 @@ describe("Text Queries", () => {
     ]);
 
     const result = await ctx.client.collection(collection.name).query(
-      select({})
-        .filter(field("summary").matchAny("love ring"))
+      filter(field("summary").matchAny("love ring"))
         .topk(field("published_year"), 100)
     );
 
@@ -404,10 +395,9 @@ describe("Text Queries", () => {
     ]);
 
     const result = await ctx.client.collection(collection.name).query(
-      select({})
-        .filter(
-          field("summary").matchAll("love class").or(field("published_year").eq(1925))
-        )
+      filter(
+        field("summary").matchAll("love class").or(field("published_year").eq(1925))
+      )
         .topk(field("published_year"), 10)
     );
 
@@ -430,8 +420,7 @@ describe("Text Queries", () => {
       ctx.client
         .collection(collection.name)
         .query(
-          select({})
-            .filter(field("published_year").matchAll("love class"))
+          filter(field("published_year").matchAll("love class"))
             .count()
         )
     ).rejects.toThrow("invalid argument");
