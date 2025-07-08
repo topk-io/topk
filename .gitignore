@@ -1,3 +1,5 @@
 target/
 .envrc
+.env
 .DS_Store
+.vscode/

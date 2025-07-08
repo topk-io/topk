@@ -212,4 +212,37 @@ describe("Select Queries", () => {
     // Assert that `a` is null for all documents, even when not specified when upserting
     expect(new Set(results.map((doc) => doc.a))).toEqual(new Set([null, null]));
   });
+
+  test("query select text match", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("books", {
+      title: text().required().index(keywordIndex()),
+      summary: text().required().index(keywordIndex()),
+      published_year: int(),
+    });
+
+    await ctx.client.collection(collection.name).upsert([
+      { _id: "1984", title: "1984", summary: "A totalitarian regime uses surveillance and mind control to oppress its citizens.", published_year: 1949 },
+      { _id: "pride", title: "Pride and Prejudice", summary: "A witty exploration of love, social class, and marriage in 19th-century England.", published_year: 1813 },
+    ]);
+
+    const results = await ctx.client
+      .collection(collection.name)
+      .query(
+        select({
+          match_surveillance: field("summary").matchAll("surveillance control mind"),
+          match_love: field("summary").matchAny("love class marriage"),
+        })
+          .filter(field("title").eq("1984").or(field("_id").eq("pride")))
+          .topk(field("published_year"), 100, true)
+      );
+
+    // Sort results by _id to match the Rust test behavior
+    results.sort((a, b) => a._id.localeCompare(b._id));
+
+    expect(results).toEqual([
+      { _id: "1984", match_surveillance: true, match_love: false },
+      { _id: "pride", match_surveillance: false, match_love: true },
+    ]);
+  });
 });

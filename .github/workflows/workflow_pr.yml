@@ -57,7 +57,7 @@ jobs:
   ready:
     name: Ready
     needs: [rust, python, javascript]
-    runs-on: amd64
+    runs-on: public-amd64
     steps:
       - name: Ready
         run: echo "Ready"

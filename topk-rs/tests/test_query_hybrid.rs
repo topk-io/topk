@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use test_context::test_context;
 use topk_rs::data::{f32_vector, literal};
 use topk_rs::query::{field, fns, r#match, select};
@@ -43,13 +42,7 @@ async fn test_query_hybrid_vector_bm25(ctx: &mut ProjectTestContext) {
         .expect("could not query");
 
     assert!(result.len() == 2);
-    assert_eq!(
-        result
-            .into_iter()
-            .map(|d| d.id().unwrap().to_string())
-            .collect::<HashSet<_>>(),
-        ["mockingbird".into(), "pride".into()].into()
-    );
+    assert_doc_ids_ordered!(&result, ["mockingbird", "pride"]);
 }
 
 #[test_context(ProjectTestContext)]

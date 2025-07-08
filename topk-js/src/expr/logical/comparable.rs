@@ -1,5 +1,5 @@
 use super::LogicalExpression;
-use crate::data::Scalar;
+use crate::data::{Scalar, Value};
 use napi::bindgen_prelude::*;
 
 #[derive(Debug, Clone)]
@@ -21,29 +21,17 @@ impl FromNapiValue for Comparable {
             return Ok(Comparable::Expr(expr.clone()));
         }
 
-        if let Ok(string) = String::from_napi_value(env, value) {
-            return Ok(Comparable::String(string));
+        match Value::from_napi_value(env, value)? {
+            Value::String(s) => Ok(Comparable::String(s)),
+            Value::I64(i) => Ok(Comparable::Int(i)),
+            Value::F64(f) => Ok(Comparable::Float(f)),
+            Value::Bool(b) => Ok(Comparable::Bool(b)),
+            Value::Null => Ok(Comparable::Null(Null {})),
+            v => Err(napi::Error::from_reason(format!(
+                "Unsupported comparable expression type: {:?}",
+                v
+            ))),
         }
-
-        if let Ok(int) = i64::from_napi_value(env, value) {
-            return Ok(Comparable::Int(int));
-        }
-
-        if let Ok(float) = f64::from_napi_value(env, value) {
-            return Ok(Comparable::Float(float));
-        }
-
-        if let Ok(bool) = bool::from_napi_value(env, value) {
-            return Ok(Comparable::Bool(bool));
-        }
-
-        if let Ok(null) = Null::from_napi_value(env, value) {
-            return Ok(Comparable::Null(null));
-        }
-
-        Err(napi::Error::from_reason(
-            "Unsupported comparable expression type",
-        ))
     }
 }
 

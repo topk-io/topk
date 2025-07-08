@@ -1,4 +1,4 @@
-import { field, select } from "../lib/query";
+import { field, filter } from "../lib/query";
 import { int, keywordIndex, text } from "../lib/schema";
 import { newProjectContext, ProjectContext } from "./setup";
 
@@ -42,8 +42,7 @@ describe("Filter Queries", () => {
     const results = await ctx.client
       .collection(collection.name)
       .query(
-        select({})
-          .filter(field("_id").startsWith("cat"))
+        filter(field("_id").startsWith("cat"))
           .topk(field("published_year"), 100, false)
       );
 
@@ -77,8 +76,7 @@ describe("Filter Queries", () => {
     const results = await ctx.client
       .collection(collection.name)
       .query(
-        select({})
-          .filter(field("_id").startsWith(""))
+        filter(field("_id").startsWith(""))
           .topk(field("published_year"), 100, false)
       );
 
@@ -125,8 +123,7 @@ describe("Filter Queries", () => {
     const results = await ctx.client
       .collection(collection.name)
       .query(
-        select({})
-          .filter(field("_id").startsWith("foobarbaz"))
+        filter(field("_id").startsWith("foobarbaz"))
           .topk(field("published_year"), 100, false)
       );
 

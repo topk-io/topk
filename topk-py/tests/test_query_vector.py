@@ -4,12 +4,7 @@ from topk_sdk.data import binary_vector, f32_vector, u8_vector
 from topk_sdk.query import field, fn, select
 
 from . import ProjectContext
-from .utils import dataset, doc_ids
-
-
-def is_sorted(result: list[dict[str, Any]], field_name: str) -> bool:
-    values = [doc[field_name] for doc in result]
-    return all(values[i] <= values[i + 1] for i in range(len(values) - 1))
+from .utils import dataset, doc_ids, is_sorted
 
 
 def test_query_vector_distance(ctx: ProjectContext):
