@@ -51,7 +51,7 @@ message LogicalExpr {
   message TernaryOp {
     enum Op {
       OP_UNSPECIFIED = 0;
-      OP_CHOOSE = 1;
+      OP_WHERE = 1;
     }
     Op op = 1;
     LogicalExpr x = 2;

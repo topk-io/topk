@@ -158,7 +158,7 @@ impl LogicalExpr {
     /// Arguments `x` and `y` must be of the same type or return types that
     /// can be converted to the same type.
     pub fn choose(self, x: impl Into<LogicalExpr>, y: impl Into<LogicalExpr>) -> Self {
-        Self::ternary(ternary_op::Op::Choose, self, x, y)
+        Self::ternary(ternary_op::Op::Where, self, x, y)
     }
 
     /// Multiplies the scoring expression by the provided `boost` value if the `condition` is true.
