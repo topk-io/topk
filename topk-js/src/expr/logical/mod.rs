@@ -267,11 +267,11 @@ impl LogicalExpression {
     pub fn choose(
         &self,
         #[napi(ts_arg_type = "LogicalExpression | string | number | boolean | null | undefined")]
-        y: Comparable,
+        x: Comparable,
         #[napi(ts_arg_type = "LogicalExpression | string | number | boolean | null | undefined")]
-        z: Comparable,
+        y: Comparable,
     ) -> Self {
-        Self::ternary(TernaryOperator::Choose, self.clone(), y.into(), z.into())
+        Self::ternary(TernaryOperator::Choose, self.clone(), x.into(), y.into())
     }
 
     /// Multiplies the scoring expression by the provided `boost` value if the `condition` is true.
