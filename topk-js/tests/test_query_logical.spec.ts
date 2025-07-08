@@ -1,4 +1,4 @@
-import { field, select, not } from "../lib/query";
+import { field, select, not, filter } from "../lib/query";
 import { int, keywordIndex, text } from "../lib/schema";
 import { newProjectContext, ProjectContext } from "./setup";
 
@@ -42,8 +42,7 @@ describe("Logical Queries", () => {
     const results = await ctx.client
       .collection(collection.name)
       .query(
-        select({})
-          .filter(field("published_year").lte(1950))
+        filter(field("published_year").lte(1950))
           .topk(field("published_year"), 100, true)
       );
 
@@ -77,8 +76,7 @@ describe("Logical Queries", () => {
     ]);
 
     const results = await ctx.client.collection(collection.name).query(
-      select({})
-        .filter(
+        filter(
           field("published_year")
             .lte(1950)
             .and(field("published_year").gte(1948))
@@ -116,8 +114,7 @@ describe("Logical Queries", () => {
     const results = await ctx.client
       .collection(collection.name)
       .query(
-        select({})
-          .filter(field("title").isNull())
+        filter(field("title").isNull())
           .topk(field("published_year"), 100, true)
       );
 
@@ -153,8 +150,7 @@ describe("Logical Queries", () => {
     const results = await ctx.client
       .collection(collection.name)
       .query(
-        select({})
-          .filter(field("title").isNotNull())
+        filter(field("title").isNotNull())
           .topk(field("published_year"), 100, true)
       );
 
@@ -195,8 +191,7 @@ describe("Logical Queries", () => {
     const results = await ctx.client
       .collection(collection.name)
       .query(
-        select({})
-          .filter(not(field("_id").contains("gatsby")))
+        filter(not(field("_id").contains("gatsby")))
           .topk(field("published_year"), 100, false)
       );
 

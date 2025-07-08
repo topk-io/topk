@@ -1,4 +1,4 @@
-import { field, select } from "../lib/query";
+import { field, filter } from "../lib/query";
 import { int, keywordIndex, text } from "../lib/schema";
 import { newProjectContext, ProjectContext } from "./setup";
 
@@ -74,7 +74,7 @@ describe("Count Queries", () => {
 
     const result = await ctx.client
       .collection(collection.name)
-      .query(select({}).filter(field("published_year").lte(1950)).count());
+      .query(filter(field("published_year").lte(1950)).count());
 
     expect(result[0]._count).toBe(5);
   });
@@ -105,7 +105,7 @@ describe("Count Queries", () => {
 
     const result = await ctx.client
       .collection(collection.name)
-      .query(select({}).filter(field("published_year").lte(1950)).count());
+      .query(filter(field("published_year").lte(1950)).count());
 
     expect(result[0]._count).toBe(5);
   });

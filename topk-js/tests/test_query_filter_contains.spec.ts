@@ -1,4 +1,4 @@
-import { field, select } from "../lib/query";
+import { field, filter } from "../lib/query";
 import { int, keywordIndex, text } from "../lib/schema";
 import { newProjectContext, ProjectContext } from "./setup";
 
@@ -42,8 +42,7 @@ describe("Logical Queries", () => {
     const results = await ctx.client
       .collection(collection.name)
       .query(
-        select({})
-          .filter(field("title").contains("he"))
+        filter(field("title").contains("he"))
           .topk(field("published_year"), 100, true)
       );
 
