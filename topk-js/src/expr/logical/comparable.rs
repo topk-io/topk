@@ -1,5 +1,5 @@
 use super::LogicalExpression;
-use crate::data::{is_napi_integer, Scalar};
+use crate::data::{Scalar, Value};
 use napi::bindgen_prelude::*;
 
 #[derive(Debug, Clone)]
@@ -21,23 +21,16 @@ impl FromNapiValue for Comparable {
             return Ok(Comparable::Expr(expr.clone()));
         }
 
-        let mut result: i32 = 0;
-        check_status!(napi::sys::napi_typeof(env, value, &mut result))?;
-        match result {
-            napi::sys::ValueType::napi_undefined | napi::sys::ValueType::napi_null => Ok(Comparable::Null(Null{})),
-            napi::sys::ValueType::napi_string => {
-                Ok(Comparable::String(String::from_napi_value(env, value)?))
-            }
-            napi::sys::ValueType::napi_number => match is_napi_integer(env, value) {
-                true => Ok(Comparable::Int(i64::from_napi_value(env, value)?)),
-                false => Ok(Comparable::Float(f64::from_napi_value(env, value)?)),
-            },
-            napi::sys::ValueType::napi_boolean => {
-                Ok(Comparable::Bool(bool::from_napi_value(env, value)?))
-            }
-            _ => Err(napi::Error::from_reason(
-                "Unsupported comparable expression type",
-            )),
+        match Value::from_napi_value(env, value)? {
+            Value::String(s) => Ok(Comparable::String(s)),
+            Value::I64(i) => Ok(Comparable::Int(i)),
+            Value::F64(f) => Ok(Comparable::Float(f)),
+            Value::Bool(b) => Ok(Comparable::Bool(b)),
+            Value::Null => Ok(Comparable::Null(Null {})),
+            v => Err(napi::Error::from_reason(format!(
+                "Unsupported comparable expression type: {:?}",
+                v
+            ))),
         }
     }
 }
