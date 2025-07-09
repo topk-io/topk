@@ -1,6 +1,11 @@
 name: Build & publish all SDKs
 
 on:
+  push:
+    # TODO(jergus): we need to check that the GH tag matches
+    # the version(s) in the Cargo.toml to avoid running unhealthy builds
+    tags:
+      - "*"
   workflow_dispatch:
 
 jobs:

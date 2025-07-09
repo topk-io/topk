@@ -112,3 +112,21 @@ def test_query_select_null_field(ctx: ProjectContext):
 
     # Assert that `a` is null for all documents, even when not specified when upserting
     assert {doc.get("a") for doc in results} == {None, None}
+
+
+def test_query_select_text_match(ctx: ProjectContext):
+    collection = dataset.books.setup(ctx)
+
+    results = ctx.client.collection(collection.name).query(
+        select(
+            match_surveillance=field("summary").match_all("surveillance control mind"),
+            match_love=field("summary").match_any("love class marriage"),
+        )
+        .filter((field("title") == "1984") | (field("_id") == "pride"))
+        .topk(field("published_year"), 100, True)
+    )
+
+    assert results == [
+        {"_id": "pride", "match_surveillance": False, "match_love": True},
+        {"_id": "1984", "match_surveillance": True, "match_love": False},
+    ]

@@ -111,6 +111,11 @@ impl LogicalExpr {
         Self::binary(binary_op::Op::MatchAny, self, right)
     }
 
+    /// Coalesce nulls in the left expression with the provided value.
+    pub fn coalesce(self, right: impl Into<LogicalExpr>) -> Self {
+        Self::binary(binary_op::Op::Coalesce, self, right)
+    }
+
     pub fn add(self, right: impl Into<LogicalExpr>) -> Self {
         Self::binary(binary_op::Op::Add, self, right)
     }
@@ -154,6 +159,12 @@ impl LogicalExpr {
     /// can be converted to the same type.
     pub fn choose(self, x: impl Into<LogicalExpr>, y: impl Into<LogicalExpr>) -> Self {
         Self::ternary(ternary_op::Op::Where, self, x, y)
+    }
+
+    /// Multiplies the scoring expression by the provided `boost` value if the `condition` is true.
+    /// Otherwise, the scoring expression is unchanged (multiplied by 1).
+    pub fn boost(self, condition: impl Into<LogicalExpr>, boost: impl Into<Value>) -> Self {
+        self.mul(condition.into().choose(boost.into(), 1))
     }
 }
 
