@@ -623,18 +623,20 @@ The `choose` operator evaluates a condition and returns the first argument if th
 
 ```python Python
 select(
-    love_score=field("summary")
-    .match_all("love")
-    .choose(field("published_year"), 10)
+  summary=(field("book_type") == "fiction").choose(
+      field("plot_summary"),
+      field("technical_summary")
+  )
 )
 ```
 
 
 ```js Javascript
 select({
-  love_score: field("summary")
-    .match_all("love")
-    .choose(field("published_year"), 10),
+  summary: field("book_type").eq("fiction").choose(
+    field("plot_summary"),
+    field("technical_summary")
+  ),
 })
 ```
 
@@ -651,12 +653,12 @@ Otherwise, the scoring expression is unchanged (multiplied by 1).
 select(
   summary_distance=fn.vector_distance("summary_embedding", [2.3] * 16)
 ).topk(
-  field("summary_distance").boost(field("summary").match_all("racial injustice"), 0.1),
+  field("summary_distance").boost(field("summary").match_all("racial injustice"), 1.5),
   10,
-  true
+  false
 )
 # this boost expression is equivalent to
-# field("summary_distance") * (field("summary").match_all("racial injustice").choose(0.1, 1.0)),
+# field("summary_distance") * (field("summary").match_all("racial injustice").choose(1.5, 1.0)),
 ```
 
 
@@ -664,12 +666,12 @@ select(
 select({
   summary_distance: fn.vectorDistance("summary_embedding", Array(16).fill(2.3)),
 }).topk(
-  field("summary_distance").boost(field("summary").matchAll("racial injustice"), 0.1),
+  field("summary_distance").boost(field("summary").matchAll("racial injustice"), 1.5),
   10,
-  true
+  false
 )
 // this boost expression is equivalent to
-// field("summary_distance").mul(field("summary").matchAll("racial injustice").choose(0.1, 1.0)),
+// field("summary_distance").mul(field("summary").matchAll("racial injustice").choose(1.5, 1.0)),
 ```
 
 </CodeGroup>
@@ -1073,7 +1075,7 @@ All queries **must** have a collection stage. Currently, we only support `topk()
 
 Use the `topk()` function to return the top `k` results. The `topk()` function accepts the following parameters:
 
-<ParamField path="field" type="LogicalExpression" required="true">
+<ParamField path="expr" type="LogicalExpression" required="true">
   The logical expression to sort the results by.
 </ParamField>
 
@@ -1082,22 +1084,21 @@ Use the `topk()` function to return the top `k` results. The `topk()` function a
 </ParamField>
 
 <ParamField path="asc" type="boolean" required="false">
-  Whether to sort the results in ascending order.
+  If true, results with the k lowest values of `expr` will be returned in ascending order.
+  If false, results with the k highest values of `expr` will be returned in descending order.
 </ParamField>
 
-To get the top 10 results ordered by the `title_similarity` field, you can use the following query:
+To get the top 10 results with the highest `title_similarity`, you can use the following query:
 
 <CodeGroup>
 
 ```python Python
-# Return top 10 results order by `published_year` ascending
-.topk(field("title_similarity"), 10, asc=True)
+.topk(field("title_similarity"), 10, asc=False)
 ```
 
 
 ```typescript Javascript
-// Return top 10 results order by `published_year` and ascending `true`
-.topk(field("title_similarity"), 10, true)
+.topk(field("title_similarity"), 10, false)
 ```
 
 </CodeGroup>
