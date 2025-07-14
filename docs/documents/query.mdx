@@ -527,10 +527,10 @@ In the example below, we're searching for documents that contain the keyword `"c
 
 ## Operators
 
-When writing queries, you can use the following operators for
+When writing queries, you can use the following operators for:
 - field selection
 - filtering
-- topk collection.
+- topk collection
 
 ### Logical operators
 
@@ -653,12 +653,12 @@ Otherwise, the scoring expression is unchanged (multiplied by 1).
 select(
   summary_distance=fn.vector_distance("summary_embedding", [2.3] * 16)
 ).topk(
-  field("summary_distance").boost(field("summary").match_all("racial injustice"), 1.5),
+  field("summary_distance").boost(field("summary").match_all("deep learning"), 1.5),
   10,
   false
 )
 # this boost expression is equivalent to
-# field("summary_distance") * (field("summary").match_all("racial injustice").choose(1.5, 1.0)),
+# field("summary_distance") * (field("summary").match_all("deep learning").choose(1.5, 1.0)),
 ```
 
 
@@ -666,12 +666,12 @@ select(
 select({
   summary_distance: fn.vectorDistance("summary_embedding", Array(16).fill(2.3)),
 }).topk(
-  field("summary_distance").boost(field("summary").matchAll("racial injustice"), 1.5),
+  field("summary_distance").boost(field("summary").matchAll("deep learning"), 1.5),
   10,
   false
 )
 // this boost expression is equivalent to
-// field("summary_distance").mul(field("summary").matchAll("racial injustice").choose(1.5, 1.0)),
+// field("summary_distance").mul(field("summary").matchAll("deep learning").choose(1.5, 1.0)),
 ```
 
 </CodeGroup>
@@ -934,12 +934,12 @@ The `match_all` operator returns `true` if all terms in the query are present in
 
 ```python Python
 .filter(
-  field("summary").match_all("love class")
+  field("summary").match_all("love marriage england")
 )
 ```
 
 ```js Javascript
-.filter(field("summary").matchAll("love class"))
+.filter(field("summary").matchAll("love marriage england"))
 ```
 
 </CodeGroup>
@@ -1084,8 +1084,7 @@ Use the `topk()` function to return the top `k` results. The `topk()` function a
 </ParamField>
 
 <ParamField path="asc" type="boolean" required="false">
-  If true, results with the k lowest values of `expr` will be returned in ascending order.
-  If false, results with the k highest values of `expr` will be returned in descending order.
+  Whether to sort the results in ascending order.
 </ParamField>
 
 To get the top 10 results with the highest `title_similarity`, you can use the following query:
