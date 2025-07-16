@@ -3,10 +3,8 @@ use napi_derive::napi;
 #[napi(string_enum = "camelCase", namespace = "query")]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BinaryOperator {
-    // Logical ops
     And,
     Or,
-    // Comparison ops
     Eq,
     Neq,
     Lt,
@@ -15,11 +13,13 @@ pub enum BinaryOperator {
     Gte,
     StartsWith,
     Contains,
-    // Arithmetic ops
     Add,
     Sub,
     Mul,
     Div,
+    MatchAll,
+    MatchAny,
+    Coalesce,
     Pow,
     Min,
     Max,
@@ -46,6 +46,15 @@ impl Into<topk_rs::proto::v1::data::logical_expr::binary_op::Op> for BinaryOpera
             BinaryOperator::Sub => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Sub,
             BinaryOperator::Mul => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Mul,
             BinaryOperator::Div => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Div,
+            BinaryOperator::MatchAll => {
+                topk_rs::proto::v1::data::logical_expr::binary_op::Op::MatchAll
+            }
+            BinaryOperator::MatchAny => {
+                topk_rs::proto::v1::data::logical_expr::binary_op::Op::MatchAny
+            }
+            BinaryOperator::Coalesce => {
+                topk_rs::proto::v1::data::logical_expr::binary_op::Op::Coalesce
+            }
             BinaryOperator::Pow => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Pow,
             BinaryOperator::Min => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Min,
             BinaryOperator::Max => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Max,

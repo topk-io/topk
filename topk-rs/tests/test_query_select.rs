@@ -244,3 +244,41 @@ async fn test_query_select_null_field(ctx: &mut ProjectTestContext) {
         vec![Value::null(), Value::null()]
     );
 }
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_select_text_match(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let mut results = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([
+                (
+                    "match_surveillance",
+                    field("summary").match_all("surveillance control mind"),
+                ),
+                (
+                    "match_love",
+                    field("summary").match_any("love class marriage"),
+                ),
+            ])
+            .filter(field("title").eq("1984").or(field("_id").eq("pride")))
+            .topk(field("published_year"), 100, true),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    results.sort_by(|d1, d2| d1.id().unwrap().cmp(d2.id().unwrap()));
+
+    assert_eq!(
+        results,
+        vec![
+            doc!("_id" => "1984", "match_surveillance" => true, "match_love" => false),
+            doc!("_id" => "pride", "match_surveillance" => false, "match_love" => true),
+        ]
+    );
+}

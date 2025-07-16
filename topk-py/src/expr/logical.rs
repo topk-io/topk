@@ -35,11 +35,9 @@ impl From<UnaryOperator> for topk_rs::proto::v1::data::logical_expr::unary_op::O
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[pyclass(eq, eq_int)]
 pub enum BinaryOperator {
-    // Logical ops
     And,
     Or,
     Xor,
-    // Comparison ops
     Eq,
     NotEq,
     Lt,
@@ -48,12 +46,14 @@ pub enum BinaryOperator {
     GtEq,
     StartsWith,
     Contains,
-    // Arithmetic ops
     Add,
     Sub,
     Mul,
     Div,
     Rem,
+    MatchAll,
+    MatchAny,
+    Coalesce,
     Pow,
     Min,
     Max,
@@ -76,15 +76,40 @@ impl From<BinaryOperator> for topk_rs::proto::v1::data::logical_expr::binary_op:
             BinaryOperator::Contains => {
                 topk_rs::proto::v1::data::logical_expr::binary_op::Op::Contains
             }
+            BinaryOperator::MatchAll => {
+                topk_rs::proto::v1::data::logical_expr::binary_op::Op::MatchAll
+            }
+            BinaryOperator::MatchAny => {
+                topk_rs::proto::v1::data::logical_expr::binary_op::Op::MatchAny
+            }
             BinaryOperator::Add => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Add,
             BinaryOperator::Sub => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Sub,
             BinaryOperator::Mul => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Mul,
             BinaryOperator::Div => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Div,
+            BinaryOperator::Coalesce => {
+                topk_rs::proto::v1::data::logical_expr::binary_op::Op::Coalesce
+            }
             BinaryOperator::Rem => unimplemented!("`rem` operator is not supported"),
             BinaryOperator::Xor => unimplemented!("`xor` operator is not supported"),
             BinaryOperator::Pow => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Pow,
             BinaryOperator::Min => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Min,
             BinaryOperator::Max => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Max,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[pyclass(eq, eq_int)]
+pub enum TernaryOperator {
+    Choose,
+}
+
+impl From<TernaryOperator> for topk_rs::proto::v1::data::logical_expr::ternary_op::Op {
+    fn from(op: TernaryOperator) -> Self {
+        match op {
+            TernaryOperator::Choose => {
+                topk_rs::proto::v1::data::logical_expr::ternary_op::Op::Choose
+            }
         }
     }
 }
@@ -107,6 +132,12 @@ pub enum LogicalExpr {
         op: BinaryOperator,
         right: Py<LogicalExpr>,
     },
+    Ternary {
+        op: TernaryOperator,
+        x: Py<LogicalExpr>,
+        y: Py<LogicalExpr>,
+        z: Py<LogicalExpr>,
+    },
 }
 
 impl std::fmt::Debug for LogicalExpr {
@@ -126,6 +157,16 @@ impl std::fmt::Debug for LogicalExpr {
                     right.get()
                 )
             }
+            Self::Ternary { op, x, y, z } => {
+                write!(
+                    f,
+                    "Ternary(op={:?}, x={:?}, y={:?}, z={:?})",
+                    op,
+                    x.get(),
+                    y.get(),
+                    z.get()
+                )
+            }
         }
     }
 }
@@ -137,26 +178,45 @@ impl PartialEq for LogicalExpr {
             (LogicalExpr::Literal { value: l }, LogicalExpr::Literal { value: r }) => l == r,
             (
                 LogicalExpr::Unary {
-                    op: l,
+                    op: l_op,
                     expr: l_expr,
                 },
                 LogicalExpr::Unary {
-                    op: r,
+                    op: r_op,
                     expr: r_expr,
                 },
-            ) => l == r && l_expr.get() == r_expr.get(),
+            ) => l_op == r_op && l_expr.get() == r_expr.get(),
             (
                 LogicalExpr::Binary {
-                    left: l,
+                    left: l_left,
                     op: l_op,
                     right: l_right,
                 },
                 LogicalExpr::Binary {
-                    left: r,
+                    left: r_left,
                     op: r_op,
                     right: r_right,
                 },
-            ) => l.get() == r.get() && l_op == r_op && l_right.get() == r_right.get(),
+            ) => l_op == r_op && l_left.get() == r_left.get() && l_right.get() == r_right.get(),
+            (
+                LogicalExpr::Ternary {
+                    op: l_op,
+                    x: l_x,
+                    y: l_y,
+                    z: l_z,
+                },
+                LogicalExpr::Ternary {
+                    op: r_op,
+                    x: r_x,
+                    y: r_y,
+                    z: r_z,
+                },
+            ) => {
+                l_op == r_op
+                    && l_x.get() == r_x.get()
+                    && l_y.get() == r_y.get()
+                    && l_z.get() == r_z.get()
+            }
             _ => false,
         }
     }
@@ -171,8 +231,6 @@ impl LogicalExpr {
     fn _expr_eq(&self, other: &LogicalExpr) -> bool {
         self == other
     }
-
-    // Unary operators
 
     fn is_null(&self, py: Python<'_>) -> PyResult<Self> {
         Ok(Self::Unary {
@@ -219,8 +277,6 @@ impl LogicalExpr {
             expr: Py::new(py, self.clone())?,
         })
     }
-
-    // Comparison operators
 
     fn eq(&self, py: Python<'_>, other: FlexibleExpr) -> PyResult<Self> {
         let expr: LogicalExpr = other.into();
@@ -322,8 +378,6 @@ impl LogicalExpr {
         self.lte(py, other)
     }
 
-    // Arithmetic operators
-
     fn add(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
         let expr: LogicalExpr = other.into();
 
@@ -422,8 +476,6 @@ impl LogicalExpr {
         })
     }
 
-    // Boolean operators
-
     fn and(&self, py: Python<'_>, other: Boolish) -> PyResult<Self> {
         let expr: LogicalExpr = other.into();
 
@@ -460,7 +512,6 @@ impl LogicalExpr {
         self.or(py, other)
     }
 
-    // String operators
     fn starts_with(&self, py: Python<'_>, other: Stringy) -> PyResult<Self> {
         Ok(Self::Binary {
             left: Py::new(py, self.clone())?,
@@ -475,6 +526,51 @@ impl LogicalExpr {
             op: BinaryOperator::Contains,
             right: Py::new(py, Into::<LogicalExpr>::into(other))?,
         })
+    }
+
+    fn match_all(&self, py: Python<'_>, other: Stringy) -> PyResult<Self> {
+        Ok(Self::Binary {
+            left: Py::new(py, self.clone())?,
+            op: BinaryOperator::MatchAll,
+            right: Py::new(py, Into::<LogicalExpr>::into(other))?,
+        })
+    }
+
+    fn match_any(&self, py: Python<'_>, other: Stringy) -> PyResult<Self> {
+        Ok(Self::Binary {
+            left: Py::new(py, self.clone())?,
+            op: BinaryOperator::MatchAny,
+            right: Py::new(py, Into::<LogicalExpr>::into(other))?,
+        })
+    }
+
+    fn coalesce(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+        Ok(Self::Binary {
+            left: Py::new(py, self.clone())?,
+            op: BinaryOperator::Coalesce,
+            right: Py::new(py, Into::<LogicalExpr>::into(other))?,
+        })
+    }
+
+    // Ternary operators
+
+    fn choose(&self, py: Python<'_>, x: FlexibleExpr, y: FlexibleExpr) -> PyResult<Self> {
+        Ok(Self::Ternary {
+            op: TernaryOperator::Choose,
+            x: Py::new(py, self.clone())?,
+            y: Py::new(py, Into::<LogicalExpr>::into(x))?,
+            z: Py::new(py, Into::<LogicalExpr>::into(y))?,
+        })
+    }
+
+    /// Multiplies the scoring expression by the provided `boost` value if the `condition` is true.
+    /// Otherwise, the scoring expression is unchanged (multiplied by 1).
+    fn boost(&self, py: Python<'_>, condition: FlexibleExpr, boost: Numeric) -> PyResult<Self> {
+        let condition_expr = Into::<LogicalExpr>::into(condition);
+        let choose_expr =
+            condition_expr.choose(py, FlexibleExpr::Expr(boost.into()), FlexibleExpr::Int(1))?;
+        let choose_numeric = Numeric::Expr(choose_expr);
+        self.mul(py, choose_numeric)
     }
 
     fn min(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
@@ -535,6 +631,12 @@ impl From<LogicalExpr> for topk_rs::proto::v1::data::LogicalExpr {
                     right.get().clone(),
                 )
             }
+            LogicalExpr::Ternary { op, x, y, z } => topk_rs::proto::v1::data::LogicalExpr::ternary(
+                op,
+                x.get().clone(),
+                y.get().clone(),
+                z.get().clone(),
+            ),
         }
     }
 }

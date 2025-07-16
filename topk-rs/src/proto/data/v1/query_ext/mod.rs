@@ -9,7 +9,7 @@ impl Query {
     }
 
     pub fn select(
-        &self,
+        mut self,
         exprs: impl IntoIterator<
             Item = (
                 impl Into<String>,
@@ -17,38 +17,34 @@ impl Query {
             ),
         >,
     ) -> Self {
-        let mut stages = self.stages.clone();
-        stages.push(Stage::select(exprs));
-        Query { stages }
+        self.stages.push(Stage::select(exprs));
+        self
     }
 
-    pub fn filter(&self, expr: impl Into<stage::filter_stage::FilterExpr>) -> Self {
-        let mut stages = self.stages.clone();
-        stages.push(Stage::filter(expr));
-        Query { stages }
+    pub fn filter(mut self, expr: impl Into<stage::filter_stage::FilterExpr>) -> Self {
+        self.stages.push(Stage::filter(expr));
+        self
     }
 
-    pub fn topk(&self, expr: LogicalExpr, k: u64, asc: bool) -> Self {
-        let mut stages = self.stages.clone();
-        stages.push(Stage::topk(expr, k, asc));
-        Query { stages }
+    pub fn topk(mut self, expr: LogicalExpr, k: u64, asc: bool) -> Self {
+        self.stages.push(Stage::topk(expr, k, asc));
+        self
     }
 
-    pub fn count(&self) -> Self {
-        let mut stages = self.stages.clone();
-        stages.push(Stage::count());
-        Query { stages }
+    pub fn count(mut self) -> Self {
+        self.stages.push(Stage::count());
+        self
     }
 
     pub fn rerank(
-        &self,
+        mut self,
         model: Option<String>,
         query: Option<String>,
         fields: Vec<String>,
         topk_multiple: Option<u32>,
     ) -> Self {
-        let mut stages = self.stages.clone();
-        stages.push(Stage::rerank(model, query, fields, topk_multiple));
-        Query { stages }
+        self.stages
+            .push(Stage::rerank(model, query, fields, topk_multiple));
+        self
     }
 }

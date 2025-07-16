@@ -52,3 +52,8 @@ export function newProjectContext() {
 
   return new ProjectContext(client, `topk-js-${uuidv4()}`);
 }
+
+export function isSorted(result: any[], fieldName: string): boolean {
+  const values = result.map((doc) => doc[fieldName]);
+  return values.every((value, i) => i === 0 || value >= values[i - 1]);
+}

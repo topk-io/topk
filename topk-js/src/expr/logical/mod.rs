@@ -3,9 +3,11 @@ mod boolish;
 mod comparable;
 mod numeric;
 mod stringy;
+mod ternary_op;
 mod unary_op;
 
 pub use binary_op::BinaryOperator;
+pub use ternary_op::TernaryOperator;
 pub use unary_op::UnaryOperator;
 
 use crate::{data::Scalar, utils::NapiBox};
@@ -64,6 +66,22 @@ impl LogicalExpression {
             },
         }
     }
+
+    pub(crate) fn ternary(
+        op: TernaryOperator,
+        x: LogicalExpression,
+        y: LogicalExpression,
+        z: LogicalExpression,
+    ) -> Self {
+        Self {
+            expr: LogicalExpressionUnion::Ternary {
+                op,
+                x: NapiBox(Box::new(x)),
+                y: NapiBox(Box::new(y)),
+                z: NapiBox(Box::new(z)),
+            },
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -83,6 +101,12 @@ pub enum LogicalExpressionUnion {
         left: NapiBox<LogicalExpression>,
         op: BinaryOperator,
         right: NapiBox<LogicalExpression>,
+    },
+    Ternary {
+        op: TernaryOperator,
+        x: NapiBox<LogicalExpression>,
+        y: NapiBox<LogicalExpression>,
+        z: NapiBox<LogicalExpression>,
     },
 }
 
@@ -249,6 +273,59 @@ impl LogicalExpression {
     ) -> Self {
         Self::binary(BinaryOperator::Contains, self.clone(), other.into())
     }
+
+    #[napi]
+    pub fn match_all(
+        &self,
+        #[napi(ts_arg_type = "LogicalExpression | string")] other: Stringy,
+    ) -> Self {
+        Self::binary(BinaryOperator::MatchAll, self.clone(), other.into())
+    }
+
+    #[napi]
+    pub fn match_any(
+        &self,
+        #[napi(ts_arg_type = "LogicalExpression | string")] other: Stringy,
+    ) -> Self {
+        Self::binary(BinaryOperator::MatchAny, self.clone(), other.into())
+    }
+
+    #[napi]
+    pub fn coalesce(
+        &self,
+        #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric,
+    ) -> Self {
+        Self::binary(BinaryOperator::Coalesce, self.clone(), other.into())
+    }
+
+    #[napi]
+    pub fn choose(
+        &self,
+        #[napi(ts_arg_type = "LogicalExpression | string | number | boolean | null | undefined")]
+        x: Comparable,
+        #[napi(ts_arg_type = "LogicalExpression | string | number | boolean | null | undefined")]
+        y: Comparable,
+    ) -> Self {
+        Self::ternary(TernaryOperator::Choose, self.clone(), x.into(), y.into())
+    }
+
+    /// Multiplies the scoring expression by the provided `boost` value if the `condition` is true.
+    /// Otherwise, the scoring expression is unchanged (multiplied by 1).
+    #[napi]
+    pub fn boost(
+        &self,
+        #[napi(ts_arg_type = "LogicalExpression | boolean")] condition: Boolish,
+        #[napi(ts_arg_type = "LogicalExpression | number")] boost: Numeric,
+    ) -> Self {
+        let condition_expr: LogicalExpression = condition.into();
+        let boost_expr: LogicalExpression = boost.into();
+        let one_expr: LogicalExpression = LogicalExpression::literal(1);
+        let choose_expr: LogicalExpression = condition_expr.choose(
+            comparable::Comparable::Expr(boost_expr),
+            comparable::Comparable::Expr(one_expr)
+        );
+        Self::binary(BinaryOperator::Mul, self.clone(), choose_expr)
+    }
 }
 
 impl Into<topk_rs::proto::v1::data::LogicalExpr> for LogicalExpression {
@@ -271,6 +348,14 @@ impl Into<topk_rs::proto::v1::data::LogicalExpr> for LogicalExpression {
                     op,
                     left.as_ref().clone(),
                     right.as_ref().clone(),
+                )
+            }
+            LogicalExpressionUnion::Ternary { op, x, y, z } => {
+                topk_rs::proto::v1::data::LogicalExpr::ternary(
+                    op,
+                    x.as_ref().clone(),
+                    y.as_ref().clone(),
+                    z.as_ref().clone(),
                 )
             }
         }

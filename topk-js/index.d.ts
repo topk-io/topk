@@ -141,6 +141,15 @@ export declare namespace query {
     or(other: LogicalExpression | boolean): LogicalExpression
     startsWith(other: LogicalExpression | string): LogicalExpression
     contains(other: LogicalExpression | string): LogicalExpression
+    matchAll(other: LogicalExpression | string): LogicalExpression
+    matchAny(other: LogicalExpression | string): LogicalExpression
+    coalesce(other: LogicalExpression | number): LogicalExpression
+    choose(x: LogicalExpression | string | number | boolean | null | undefined, y: LogicalExpression | string | number | boolean | null | undefined): LogicalExpression
+    /**
+     * Multiplies the scoring expression by the provided `boost` value if the `condition` is true.
+     * Otherwise, the scoring expression is unchanged (multiplied by 1).
+     */
+    boost(condition: LogicalExpression | boolean, boost: LogicalExpression | number): LogicalExpression
   }
   export class Query {
     filter(expr: LogicalExpression | TextExpression): Query
@@ -166,6 +175,9 @@ export declare namespace query {
   'sub'|
   'mul'|
   'div'|
+  'matchAll'|
+  'matchAny'|
+  'coalesce'|
   'pow'|
   'min'|
   'max';
@@ -180,6 +192,7 @@ export declare namespace query {
     field?: string
     weight: number
   }
+  export type TernaryOperator =  'choose';
   export type UnaryOperator =  'not'|
   'isNull'|
   'isNotNull'|

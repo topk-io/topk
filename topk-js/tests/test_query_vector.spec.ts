@@ -10,12 +10,7 @@ import {
   u8Vector,
   vectorIndex,
 } from "../lib/schema";
-import { newProjectContext, ProjectContext } from "./setup";
-
-function isSorted(result: any[], fieldName: string): boolean {
-  const values = result.map((doc) => doc[fieldName]);
-  return values.every((value, i) => i === 0 || value >= values[i - 1]);
-}
+import { isSorted, newProjectContext, ProjectContext } from "./setup";
 
 describe("Vector Queries", () => {
   const contexts: ProjectContext[] = [];

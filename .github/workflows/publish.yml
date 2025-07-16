@@ -1,6 +1,11 @@
 name: Build & publish all SDKs
 
 on:
+  push:
+    # TODO(jergus): we need to check that the GH tag matches
+    # the version(s) in the Cargo.toml to avoid running unhealthy builds
+    tags:
+      - "*"
   workflow_dispatch:
 
 jobs:
@@ -20,5 +25,15 @@ jobs:
     permissions:
       contents: write
       id-token: write
+    with:
+      publish: true
+
+  test-runner:
+    uses: ./.github/workflows/publish_test_runner.yml
+    secrets: inherit
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
     with:
       publish: true

@@ -58,6 +58,7 @@ def test_get_multiple_documents(ctx: ProjectContext):
             "summary_embedding": [6.0] * 16,
             "sparse_f32_embedding": {6: 1.0, 7: 2.0, 8: 3.0},
             "sparse_u8_embedding": {6: 1, 7: 2, 8: 3},
+            "nullable_importance": 5.0,
         },
     }
 
