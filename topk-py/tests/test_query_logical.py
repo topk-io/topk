@@ -1,4 +1,5 @@
 import pytest
+from topk_sdk import error
 from topk_sdk.query import field, filter, not_, select, literal
 
 from . import ProjectContext
@@ -158,3 +159,13 @@ def test_query_coalesce_non_nullable(ctx: ProjectContext):
         {"_id": "moby", "coalesced_year": 1851},
         {"_id": "pride", "coalesced_year": 1813},
     ]
+
+def test_query_abs(ctx: ProjectContext):
+    collection = dataset.books.setup(ctx)
+
+    with pytest.raises(error.InvalidArgumentError):
+        ctx.client.collection(collection.name).query(
+            filter(
+                abs(field("published_year")-1949) <= 1
+            ).topk(field("published_year"), 100, True)
+        )
