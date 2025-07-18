@@ -371,7 +371,12 @@ select({
 
 ## Filtering
 
-You can filter documents by **metadata**, **keywords**, **custom properties** computed inside `select()` (e.g. vector similarity or BM25 score) and more. Filter expressions support all comparison operators: `==`, `!=`, `>`, `>=`, `<`, `<=`, arithmetic operations: `+`, `-`, `*`, `/`, and boolean operators: `|` and `&`.
+You can filter documents by **metadata**, **keywords**, **custom properties** computed inside `select()` (e.g. vector similarity or BM25 score) and more.
+
+Filter expressions support all
+- [logical operators](#logical-operators),
+- [comparison operators](#comparison-operators),
+- [mathematical operators](#mathematical-operators).
 
 ### Metadata filtering
 
@@ -522,9 +527,14 @@ In the example below, we're searching for documents that contain the keyword `"c
 
 ## Operators
 
-When writing queries, you can use the following operators for field selection or filtering:
+When writing queries, you can use the following operators for:
+- field selection
+- filtering
+- topk collection
 
 ### Logical operators
+
+Logical operators combine multiple expressions by applying boolean logic and conditions.
 
 #### and
 
@@ -580,7 +590,114 @@ The `or` operator can be used to combine multiple logical expressions.
 
 </CodeGroup>
 
+#### not
+
+The `not` helper can be used to **negate** a logical expression. It takes an expression as an argument and inverts its logic.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import field, not_
+
+.filter(
+    not_(field("title").contains("Catcher"))
+)
+```
+
+
+```typescript Javascript
+import { field, not } from "topk-js/query";
+
+.filter(
+    not(field("title").contains("Catcher"))
+)
+```
+
+</CodeGroup>
+
+#### choose
+
+The `choose` operator evaluates a condition and returns the first argument if the condition is true, else the second argument.
+
+<CodeGroup>
+
+```python Python
+select(
+  summary=(field("book_type") == "fiction").choose(
+      field("plot_summary"),
+      field("technical_summary")
+  )
+)
+```
+
+
+```js Javascript
+select({
+  summary: field("book_type").eq("fiction").choose(
+    field("plot_summary"),
+    field("technical_summary")
+  ),
+})
+```
+
+</CodeGroup>
+
+#### boost
+
+The `boost` operator multiplies the scoring expression by the provided `boost` value if the `condition` is true.
+Otherwise, the scoring expression is unchanged (multiplied by 1).
+
+<CodeGroup>
+
+```python Python
+select(
+  summary_distance=fn.vector_distance("summary_embedding", [2.3] * 16)
+).topk(
+  field("summary_distance").boost(field("summary").match_all("deep learning"), 1.5),
+  10,
+  false
+)
+# this boost expression is equivalent to
+# field("summary_distance") * (field("summary").match_all("deep learning").choose(1.5, 1.0)),
+```
+
+
+```js Javascript
+select({
+  summary_distance: fn.vectorDistance("summary_embedding", Array(16).fill(2.3)),
+}).topk(
+  field("summary_distance").boost(field("summary").matchAll("deep learning"), 1.5),
+  10,
+  false
+)
+// this boost expression is equivalent to
+// field("summary_distance").mul(field("summary").matchAll("deep learning").choose(1.5, 1.0)),
+```
+
+</CodeGroup>
+
+#### coalesce
+
+The `coalesce` operator replaces `null` values with a provided value.
+
+<CodeGroup>
+
+```python Python
+select(importance=field("nullable_importance").coalesce(1.0))
+```
+
+
+```js Javascript
+select({
+  importance: field("nullable_importance").coalesce(1.0)
+})
+```
+
+</CodeGroup>
+
 ### Comparison operators
+
+Comparison operators provide various logical, numerical and string functions that evaluate to true or false.
 
 #### eq
 
@@ -628,6 +745,43 @@ The `ne` operator can be used to match documents that have a field with a value 
 
 ```js Javascript
 .filter(field("published_year").ne(1997))
+```
+
+</CodeGroup>
+
+#### is_null
+
+The `is_null` operator can be used to match documents that have a field with a value that is `null`.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("title").is_null()
+)
+```
+
+
+```js Javascript
+.filter(field("title").isNull())
+```
+
+</CodeGroup>
+
+#### is_not_null
+
+The `is_not_null` operator can be used to match documents that have a field with a value that is not `null`.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("title").is_not_null()
+)
+```
+
+```js Javascript
+.filter(field("title").isNotNull())
 ```
 
 </CodeGroup>
@@ -772,7 +926,46 @@ The `contains` operator can be used on string fields to match documents that inc
 
 </CodeGroup>
 
-### Arithmetic operators
+#### match_all
+
+The `match_all` operator returns `true` if all terms in the query are present in the field with a keyword index.
+
+<CodeGroup>
+
+```python Python
+.filter(
+  field("summary").match_all("love marriage england")
+)
+```
+
+```js Javascript
+.filter(field("summary").matchAll("love marriage england"))
+```
+
+</CodeGroup>
+
+#### match_any
+
+The `match_any` operator returns `true` if any term in the query is present in the field with a keyword index.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("summary").match_any("love ring")
+)
+```
+
+```js Javascript
+.filter(field("summary").matchAny("love ring"))
+```
+
+</CodeGroup>
+
+
+### Mathematical operators
+
+Mathematical operators perform computations on numbers.
 
 #### add
 
@@ -874,71 +1067,6 @@ The `div` operator can be used to divide two numbers.
 
 </CodeGroup>
 
-### Unary operators
-
-#### not
-
-The `not` helper can be used to **negate** a logical expression. It takes an expression as an argument and inverts its logic.
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.query import field, not_
-
-.filter(
-    not_(field("title").contains("Catcher"))
-)
-```
-
-
-```typescript Javascript
-import { field, not } from "topk-js/query";
-
-.filter(
-    not(field("title").contains("Catcher"))
-)
-```
-
-</CodeGroup>
-
-#### is_null
-
-The `is_null` operator can be used to match documents that have a field with a value that is `null`.
-
-<CodeGroup>
-
-```python Python
-.filter(
-    field("title").is_null()
-)
-```
-
-
-```js Javascript
-.filter(field("title").isNull())
-```
-
-</CodeGroup>
-
-#### is_not_null
-
-The `is_not_null` operator can be used to match documents that have a field with a value that is not `null`.
-
-<CodeGroup>
-
-```python Python
-.filter(
-    field("title").is_not_null()
-)
-```
-
-
-```js Javascript
-.filter(field("title").isNotNull())
-```
-
-</CodeGroup>
-
 ## Collection
 
 All queries **must** have a collection stage. Currently, we only support `topk()` and `count()` collectors.
@@ -947,7 +1075,7 @@ All queries **must** have a collection stage. Currently, we only support `topk()
 
 Use the `topk()` function to return the top `k` results. The `topk()` function accepts the following parameters:
 
-<ParamField path="field" type="LogicalExpression" required="true">
+<ParamField path="expr" type="LogicalExpression" required="true">
   The logical expression to sort the results by.
 </ParamField>
 
@@ -959,19 +1087,17 @@ Use the `topk()` function to return the top `k` results. The `topk()` function a
   Whether to sort the results in ascending order.
 </ParamField>
 
-To get the top 10 results ordered by the `title_similarity` field, you can use the following query:
+To get the top 10 results with the highest `title_similarity`, you can use the following query:
 
 <CodeGroup>
 
 ```python Python
-# Return top 10 results order by `published_year` ascending
-.topk(field("title_similarity"), 10, asc=True)
+.topk(field("title_similarity"), 10, asc=False)
 ```
 
 
 ```typescript Javascript
-// Return top 10 results order by `published_year` and ascending `true`
-.topk(field("title_similarity"), 10, true)
+.topk(field("title_similarity"), 10, false)
 ```
 
 </CodeGroup>
