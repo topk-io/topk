@@ -353,8 +353,6 @@ async fn test_query_topk_min_max(ctx: &mut ProjectTestContext) {
         .await
         .expect("could not query");
 
-    println!("{:?}", &result);
-
     assert_eq!(result.len(), 4);
 
     // Check document IDs and clamped scores
