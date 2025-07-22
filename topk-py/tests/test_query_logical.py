@@ -1,5 +1,6 @@
 import pytest
-from topk_sdk.query import field, filter, not_, select, literal
+from topk_sdk import error
+from topk_sdk.query import field, filter, fn, not_, select, literal
 
 from . import ProjectContext
 from .utils import dataset, doc_ids
@@ -158,3 +159,31 @@ def test_query_coalesce_non_nullable(ctx: ProjectContext):
         {"_id": "moby", "coalesced_year": 1851},
         {"_id": "pride", "coalesced_year": 1813},
     ]
+
+def test_query_abs(ctx: ProjectContext):
+    collection = dataset.books.setup(ctx)
+
+    with pytest.raises(error.InvalidArgumentError):
+        ctx.client.collection(collection.name).query(
+            filter(
+                abs(field("published_year")-1949) <= 1
+            ).topk(field("published_year"), 100, True)
+        )
+
+def test_query_topk_clamping(ctx: ProjectContext):
+    collection = dataset.books.setup(ctx)
+
+    with pytest.raises(error.InvalidArgumentError):
+        ctx.client.collection(collection.name).query(
+            select(
+                summary_distance=fn.vector_distance("summary_embedding", [2.0] * 16),
+                bm25_score=fn.bm25_score()
+            ).topk(
+                (field("bm25_score").max(3).min(10)) 
+                + (field("summary_distance") * 0.5),
+                2,
+                True,
+            ),
+            None,
+            None
+        )

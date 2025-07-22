@@ -11,6 +11,13 @@ def test_query_non_existent_collection(ctx: ProjectContext):
         ctx.client.collection("missing").count()
 
 
+def test_query_count_empty_collection(ctx: ProjectContext):
+    collection = ctx.client.collections().create(ctx.scope("empty"), schema={})
+
+    count = ctx.client.collection(collection.name).count()
+
+    assert count == 0
+
 def test_query_count(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 

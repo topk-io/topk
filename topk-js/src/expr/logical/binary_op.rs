@@ -3,10 +3,8 @@ use napi_derive::napi;
 #[napi(string_enum = "camelCase", namespace = "query")]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BinaryOperator {
-    // Logical ops
     And,
     Or,
-    // Comparison ops
     Eq,
     Neq,
     Lt,
@@ -15,15 +13,15 @@ pub enum BinaryOperator {
     Gte,
     StartsWith,
     Contains,
-    // Arithmetic ops
     Add,
     Sub,
     Mul,
     Div,
-    // Other
     MatchAll,
     MatchAny,
     Coalesce,
+    Min,
+    Max,
 }
 
 impl Into<topk_rs::proto::v1::data::logical_expr::binary_op::Op> for BinaryOperator {
@@ -56,6 +54,8 @@ impl Into<topk_rs::proto::v1::data::logical_expr::binary_op::Op> for BinaryOpera
             BinaryOperator::Coalesce => {
                 topk_rs::proto::v1::data::logical_expr::binary_op::Op::Coalesce
             }
+            BinaryOperator::Min => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Min,
+            BinaryOperator::Max => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Max,
         }
     }
 }

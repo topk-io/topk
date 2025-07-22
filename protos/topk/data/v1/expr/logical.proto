@@ -11,6 +11,7 @@ message LogicalExpr {
       OP_NOT = 1;
       OP_IS_NULL = 2;
       OP_IS_NOT_NULL = 3;
+      OP_ABS = 4;
     }
     Op op = 1;
     LogicalExpr expr = 2;
@@ -38,9 +39,12 @@ message LogicalExpr {
       OP_OR = 13;
       // Text
       OP_CONTAINS = 14;
+      //
       OP_MATCH_ALL = 15;
       OP_MATCH_ANY = 16;
       OP_COALESCE = 17;
+      OP_MIN = 18;
+      OP_MAX = 19;
     }
     Op op = 1;
     LogicalExpr left = 2;

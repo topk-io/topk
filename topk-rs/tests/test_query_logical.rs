@@ -300,3 +300,110 @@ async fn test_query_coalesce_non_nullable(ctx: &mut ProjectTestContext) {
         ]
     );
 }
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_abs(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([("abs_year", field("published_year").abs())])
+            .topk(
+                field("abs_year"),
+                1,
+                false,
+            ),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids!(result, ["harry"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_abs_nullable_field(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([("abs", field("nullable_score").abs())]).topk(
+                field("abs"),
+                2,
+                true,
+            ),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    println!("{:?}", result);
+    assert_doc_ids!(result, ["1984"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_topk_clamping(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([
+                (
+                    "summary_distance",
+                    fns::vector_distance("summary_embedding", f32_vector(vec![2.0; 16])),
+                ),
+                ("bm25_score", fns::bm25_score()),
+            ])
+            .filter(r#match("citizens", None, Some(1.0), false))
+            .topk(
+                field("bm25_score")
+                    .max(3)
+                    .min(10)
+                    .add(field("summary_distance").mul(0.5)),
+                2,
+                true,
+            ),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    println!("{:?}", &result);
+    assert_doc_ids!(result, ["1984"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_select_max(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    for max_expr in [
+        field("published_year").max(3000.5),
+        field("nullable_importance").max(1),
+    ] {
+        let result = ctx
+            .client
+            .collection(&collection.name)
+            .query(
+                select([("max_expr", max_expr)]).topk(field("max_expr"), 10, true),
+                None,
+                None,
+            )
+            .await
+            .expect("could not query");
+
+        println!("{:?}", result);
+    }
+}

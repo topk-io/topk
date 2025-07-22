@@ -1,4 +1,4 @@
-import { field, select, not, filter } from "../lib/query";
+import { field, select, not, filter, fn } from "../lib/query";
 import { int, keywordIndex, text } from "../lib/schema";
 import { newProjectContext, ProjectContext } from "./setup";
 
@@ -76,11 +76,11 @@ describe("Logical Queries", () => {
     ]);
 
     const results = await ctx.client.collection(collection.name).query(
-        filter(
-          field("published_year")
-            .lte(1950)
-            .and(field("published_year").gte(1948))
-        )
+      filter(
+        field("published_year")
+          .lte(1950)
+          .and(field("published_year").gte(1948))
+      )
         .topk(field("published_year"), 100, true)
     );
 
@@ -400,4 +400,58 @@ describe("Logical Queries", () => {
       { _id: "pride", coalesced_year: 1813 },
     ]);
   });
-});
+
+  test("query abs", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("books", {
+      title: text().required().index(keywordIndex()),
+      published_year: int().required(),
+    });
+
+    await ctx.client.collection(collection.name).upsert([
+      { _id: "catcher", title: "The Catcher in the Rye", published_year: 1951 },
+      { _id: "gatsby", title: "The Great Gatsby", published_year: 1925 },
+      { _id: "moby", title: "Moby Dick", published_year: 1851 },
+      {
+        _id: "mockingbird",
+        title: "To Kill a Mockingbird",
+        published_year: 1960,
+      },
+      { _id: "alchemist", title: "The Alchemist", published_year: 1988 },
+      { _id: "harry", title: "Harry Potter", published_year: 1997 },
+      { _id: "lotr", title: "The Lord of the Rings", published_year: 1954 },
+      { _id: "pride", title: "Pride and Prejudice", published_year: 1813 },
+      { _id: "1984", title: "1984", published_year: 1949 },
+      { _id: "hobbit", title: "The Hobbit", published_year: 1937 },
+    ]);
+
+    await expect(
+      ctx.client.collection(collection.name).query(
+        select({})
+          .filter(field("published_year").sub(1949).abs().lte(1))
+          .topk(field("published_year"), 100, true)
+      )
+    ).rejects.toThrow(/invalid argument/);
+  });
+
+  test("query topk clamping", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("books", {
+      title: text().required().index(keywordIndex()),
+      published_year: int().required(),
+    });
+    await expect(
+      ctx.client.collection(collection.name).query(
+        select({
+          summary_distance: fn.vectorDistance("summary_embedding", Array(16).fill(2)),
+          bm25_score: fn.bm25Score(),
+        })
+        .topk(
+            field("bm25_score").max(3).min(10).add(field("summary_distance").mul(0.5)),
+            2,
+            true
+          )
+        )
+      ).rejects.toThrow(/invalid argument/);
+  });
+})
