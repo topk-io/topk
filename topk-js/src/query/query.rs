@@ -1,7 +1,10 @@
+use std::collections::HashMap;
+
 use super::stage::Stage;
 use crate::expr::{
     filter::FilterExpression,
     logical::LogicalExpression,
+    select::SelectExpression,
     text::{Term, TextExpression},
 };
 use napi_derive::napi;
@@ -24,6 +27,23 @@ impl Query {
         };
 
         new_query.stages.push(Stage::Filter { expr });
+
+        new_query
+    }
+
+    #[napi]
+    pub fn select(
+        &self,
+        #[napi(ts_arg_type = "Record<string, LogicalExpression | FunctionExpression>")]
+        exprs: HashMap<String, SelectExpression>,
+    ) -> Query {
+        let mut new_query = Query {
+            stages: self.stages.clone(),
+        };
+
+        new_query.stages.push(Stage::Select {
+            exprs: exprs.into_iter().map(|(k, v)| (k, v.into())).collect(),
+        });
 
         new_query
     }

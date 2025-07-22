@@ -149,6 +149,7 @@ export declare namespace query {
   }
   export class Query {
     filter(expr: LogicalExpression | TextExpression): Query
+    select(exprs: Record<string, LogicalExpression | FunctionExpression>): Query
     topk(expr: LogicalExpression, k: number, asc?: boolean | undefined | null): Query
     count(): Query
     rerank(options?: RerankOptions | undefined | null): Query

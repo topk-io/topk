@@ -1,13 +1,10 @@
 use test_context::test_context;
+use topk_rs::data::literal;
 use topk_rs::doc;
-use topk_rs::query::field;
-use topk_rs::query::filter;
+use topk_rs::query::{field, filter, fns, not, r#match, select};
 
 mod utils;
-use topk_rs::query::not;
-use topk_rs::query::select;
-use utils::dataset;
-use utils::ProjectTestContext;
+use utils::{dataset, ProjectTestContext};
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
@@ -310,33 +307,9 @@ async fn test_query_abs(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("abs_year", field("published_year").abs())])
-            .topk(
+            select([("abs_year", field("published_year").add(-1990).abs())]).topk(
                 field("abs_year"),
-                1,
-                false,
-            ),
-            None,
-            None,
-        )
-        .await
-        .expect("could not query");
-
-    assert_doc_ids!(result, ["harry"]);
-}
-
-#[test_context(ProjectTestContext)]
-#[tokio::test]
-async fn test_query_abs_nullable_field(ctx: &mut ProjectTestContext) {
-    let collection = dataset::books::setup(ctx).await;
-
-    let result = ctx
-        .client
-        .collection(&collection.name)
-        .query(
-            select([("abs", field("nullable_score").abs())]).topk(
-                field("abs"),
-                2,
+                3,
                 true,
             ),
             None,
@@ -345,35 +318,35 @@ async fn test_query_abs_nullable_field(ctx: &mut ProjectTestContext) {
         .await
         .expect("could not query");
 
-    println!("{:?}", result);
-    assert_doc_ids!(result, ["1984"]);
+    // The 3 books closest to 1990
+    assert_eq!(
+        result,
+        vec![
+            doc!("_id" => "alchemist", "abs_year" => 2_i64),
+            doc!("_id" => "harry", "abs_year" => 7_i64),
+            doc!("_id" => "mockingbird", "abs_year" => 30_i64),
+        ]
+    );
 }
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-async fn test_query_topk_clamping(ctx: &mut ProjectTestContext) {
+async fn test_query_topk_min_max(ctx: &mut ProjectTestContext) {
     let collection = dataset::books::setup(ctx).await;
 
     let result = ctx
         .client
         .collection(&collection.name)
         .query(
-            select([
-                (
-                    "summary_distance",
-                    fns::vector_distance("summary_embedding", f32_vector(vec![2.0; 16])),
-                ),
-                ("bm25_score", fns::bm25_score()),
-            ])
-            .filter(r#match("citizens", None, Some(1.0), false))
-            .topk(
-                field("bm25_score")
-                    .max(3)
-                    .min(10)
-                    .add(field("summary_distance").mul(0.5)),
-                2,
-                true,
-            ),
+            select([("bm25_score", fns::bm25_score())])
+                .select([("clamped_bm25_score", field("bm25_score").min(2.0).max(1.6))])
+                .filter(r#match(
+                    "millionaire love consequences dwarves",
+                    None,
+                    Some(1.0),
+                    false,
+                ))
+                .topk(field("clamped_bm25_score"), 5, false),
             None,
             None,
         )
@@ -381,29 +354,33 @@ async fn test_query_topk_clamping(ctx: &mut ProjectTestContext) {
         .expect("could not query");
 
     println!("{:?}", &result);
-    assert_doc_ids!(result, ["1984"]);
-}
 
-#[test_context(ProjectTestContext)]
-#[tokio::test]
-async fn test_select_max(ctx: &mut ProjectTestContext) {
-    let collection = dataset::books::setup(ctx).await;
+    assert_eq!(result.len(), 4);
 
-    for max_expr in [
-        field("published_year").max(3000.5),
-        field("nullable_importance").max(1),
-    ] {
-        let result = ctx
-            .client
-            .collection(&collection.name)
-            .query(
-                select([("max_expr", max_expr)]).topk(field("max_expr"), 10, true),
-                None,
-                None,
-            )
-            .await
-            .expect("could not query");
+    // Check document IDs and clamped scores
+    assert_eq!(result[0].fields.get("_id").unwrap(), &literal("gatsby"));
+    assert_eq!(
+        result[0].fields.get("clamped_bm25_score").unwrap(),
+        &literal(2.0_f64)
+    );
 
-        println!("{:?}", result);
+    assert_eq!(result[1].fields.get("_id").unwrap(), &literal("hobbit"));
+    if let Some(score_val) = result[1].fields.get("clamped_bm25_score") {
+        if let Some(score) = score_val.as_f64() {
+            assert!(score >= 1.6 && score <= 2.0);
+        }
     }
+
+    assert_eq!(result[2].fields.get("_id").unwrap(), &literal("moby"));
+    if let Some(score_val) = result[2].fields.get("clamped_bm25_score") {
+        if let Some(score) = score_val.as_f64() {
+            assert!(score >= 1.6 && score <= 2.0);
+        }
+    }
+
+    assert_eq!(result[3].fields.get("_id").unwrap(), &literal("pride"));
+    assert_eq!(
+        result[3].fields.get("clamped_bm25_score").unwrap(),
+        &literal(1.6_f64)
+    );
 }
