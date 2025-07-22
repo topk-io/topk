@@ -121,6 +121,10 @@ export declare namespace query {
     isNull(): LogicalExpression
     isNotNull(): LogicalExpression
     abs(): LogicalExpression
+    ln(): LogicalExpression
+    exp(): LogicalExpression
+    sqrt(): LogicalExpression
+    square(): LogicalExpression
     eq(other: LogicalExpression | string | number | boolean | null | undefined): LogicalExpression
     ne(other: LogicalExpression | string | number | boolean | null | undefined): LogicalExpression
     lt(other: LogicalExpression | number): LogicalExpression
@@ -192,7 +196,11 @@ export declare namespace query {
   export type UnaryOperator =  'not'|
   'isNull'|
   'isNotNull'|
-  'abs';
+  'abs'|
+  'ln'|
+  'exp'|
+  'sqrt'|
+  'square';
 }
 
 export declare namespace query_fn {
