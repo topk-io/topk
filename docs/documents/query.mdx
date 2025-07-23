@@ -1074,16 +1074,20 @@ The `abs` operator returns the absolute value of a number, which is useful for c
 <CodeGroup>
 
 ```python Python
+from topk_sdk.query import abs
+
 # Find books published closest to 1990
 select(
-    delta=field("published_year").sub(1990).abs()
+    delta=abs(field("published_year").sub(1990))
 )
 ```
 
 ```js Javascript
+import { abs } from "topk-js/query";
+
 // Find books published closest to 1990
 select({
-  delta: field("published_year").sub(1990).abs()
+  delta: abs(field("published_year").sub(1990))
 })
 ```
 
@@ -1096,26 +1100,30 @@ The `min` operator returns the smaller of two values, commonly used for clamping
 <CodeGroup>
 
 ```python Python
+from topk_sdk.query import min
+
 # Clamp BM25 scores to a maximum of 2.0
 select(
-    clamped_score=field("bm25_score").min(2.0)
+    clamped_score=min(field("bm25_score"), 2.0)
 )
 
 # Take the lower of critic score vs user rating
 select(
-    conservative_score=field("critic_score").min(field("user_rating"))
+    conservative_score=min(field("critic_score"), field("user_rating"))
 )
 ```
 
 ```js Javascript
+import { min } from "topk-js/query";
+
 // Clamp BM25 scores to a maximum of 2.0
 select({
-  clamped_score: field("bm25_score").min(2.0)
+  clamped_score: min(field("bm25_score"), 2.0)
 })
 
 // Take the lower of critic score vs user rating
 select({
-  conservative_score: field("critic_score").min(field("user_rating"))
+  conservative_score: min(field("critic_score"), field("user_rating"))
 })
 ```
 
@@ -1128,26 +1136,30 @@ The `max` operator returns the larger of two values, commonly used for clamping 
 <CodeGroup>
 
 ```python Python
+from topk_sdk.query import max
+
 # Ensure minimum relevance score of 1.5
 select(
-    boosted_score=field("relevance_score").max(1.5)
+    boosted_score=max(field("relevance_score"), 1.5)
 )
 
 # Take the higher of critic score vs user rating
 select(
-    best_score=field("critic_score").max(field("user_rating"))
+    best_score=max(field("critic_score"), field("user_rating"))
 )
 ```
 
 ```js Javascript
+import { max } from "topk-js/query";
+
 // Ensure minimum relevance score of 1.5
 select({
-  boosted_score: field("relevance_score").max(1.5)
+  boosted_score: max(field("relevance_score"), 1.5)
 })
 
 // Take the higher of critic score vs user rating
 select({
-  best_score: field("critic_score").max(field("user_rating"))
+  best_score: max(field("critic_score"), field("user_rating"))
 })
 ```
 
