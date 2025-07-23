@@ -1,4 +1,4 @@
-import { field, select, not, filter, fn, match } from "../lib/query";
+import { field, select, not, filter, fn, match, min, max, abs } from "../lib/query";
 import { int, keywordIndex, text } from "../lib/schema";
 import { newProjectContext, ProjectContext } from "./setup";
 
@@ -427,7 +427,7 @@ describe("Logical Queries", () => {
 
     const results = await ctx.client.collection(collection.name).query(
       select({
-        abs_year: field("published_year").sub(1990).abs()
+        abs_year: abs(field("published_year").sub(1990))
       })
         .topk(field("abs_year"), 3, true)
     );
@@ -466,7 +466,7 @@ describe("Logical Queries", () => {
         bm25_score: fn.bm25Score()
       })
       .select({
-        clamped_bm25_score: field("bm25_score").min(2.0).max(1.6)
+        clamped_bm25_score: max(min(field("bm25_score"), 2.0), 1.6)
       })
       .filter(match("millionaire love consequences dwarves"))
       .topk(field("clamped_bm25_score"), 5, false)

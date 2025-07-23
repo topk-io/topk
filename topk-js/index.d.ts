@@ -158,6 +158,7 @@ export declare namespace query {
     and(other: TextExpression): TextExpression
     or(other: TextExpression): TextExpression
   }
+  export function abs(expr: LogicalExpression): LogicalExpression
   export type BinaryOperator =  'and'|
   'or'|
   'eq'|
@@ -181,6 +182,8 @@ export declare namespace query {
   export function filter(expr: LogicalExpression | TextExpression): Query
   export function literal(value: number | string | boolean): LogicalExpression
   export function match(token: string, options?: MatchOptions | undefined | null): TextExpression
+  export function max(left: LogicalExpression | number, right: LogicalExpression | number): LogicalExpression
+  export function min(left: LogicalExpression | number, right: LogicalExpression | number): LogicalExpression
   export function not(expr: LogicalExpression): LogicalExpression
   export function select(exprs: Record<string, LogicalExpression | FunctionExpression>): Query
   export interface Term {

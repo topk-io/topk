@@ -3,7 +3,8 @@ use crate::data::vector::{SparseVector, Vector};
 use crate::expr::filter::FilterExprUnion;
 use crate::expr::flexible::Vectorish;
 use crate::expr::function::{FunctionExpr, QueryVector};
-use crate::expr::logical::{LogicalExpr, UnaryOperator};
+use crate::expr::logical::{LogicalExpr, UnaryOperator, BinaryOperator};
+use crate::expr::flexible::Numeric;
 use crate::expr::select::SelectExprUnion;
 use crate::expr::text::{Term, TextExpr};
 use crate::module;
@@ -32,6 +33,9 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(literal))?;
     m.add_wrapped(wrap_pyfunction!(r#match))?;
     m.add_wrapped(wrap_pyfunction!(not_))?;
+    m.add_wrapped(wrap_pyfunction!(min))?;
+    m.add_wrapped(wrap_pyfunction!(max))?;
+    m.add_wrapped(wrap_pyfunction!(abs))?;
     Ok(())
 }
 
@@ -77,6 +81,32 @@ pub fn r#match(token: String, field: Option<String>, weight: f32, all: bool) -> 
 pub fn not_(py: Python<'_>, expr: LogicalExpr) -> PyResult<LogicalExpr> {
     Ok(LogicalExpr::Unary {
         op: UnaryOperator::Not,
+        expr: Py::new(py, expr)?,
+    })
+}
+
+#[pyfunction]
+pub fn min(py: Python<'_>, left: Numeric, right: Numeric) -> PyResult<LogicalExpr> {
+    Ok(LogicalExpr::Binary {
+        left: Py::new(py, Into::<LogicalExpr>::into(left))?,
+        op: BinaryOperator::Min,
+        right: Py::new(py, Into::<LogicalExpr>::into(right))?,
+    })
+}
+
+#[pyfunction]
+pub fn max(py: Python<'_>, left: Numeric, right: Numeric) -> PyResult<LogicalExpr> {
+    Ok(LogicalExpr::Binary {
+        left: Py::new(py, Into::<LogicalExpr>::into(left))?,
+        op: BinaryOperator::Max,
+        right: Py::new(py, Into::<LogicalExpr>::into(right))?,
+    })
+}
+
+#[pyfunction]
+pub fn abs(py: Python<'_>, expr: LogicalExpr) -> PyResult<LogicalExpr> {
+    Ok(LogicalExpr::Unary {
+        op: UnaryOperator::Abs,
         expr: Py::new(py, expr)?,
     })
 }
