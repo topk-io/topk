@@ -44,20 +44,20 @@ impl LogicalExpr {
         LogicalExpr::unary(unary_op::Op::Abs, self)
     }
 
-    pub fn ln(&self) -> Self {
-        LogicalExpr::unary(unary_op::Op::Ln, self.clone())
+    pub fn ln(self) -> Self {
+        LogicalExpr::unary(unary_op::Op::Ln, self)
     }
 
-    pub fn exp(&self) -> Self {
-        LogicalExpr::unary(unary_op::Op::Exp, self.clone())
+    pub fn exp(self) -> Self {
+        LogicalExpr::unary(unary_op::Op::Exp, self)
     }
 
-    pub fn sqrt(&self) -> Self {
-        LogicalExpr::unary(unary_op::Op::Sqrt, self.clone())
+    pub fn sqrt(self) -> Self {
+        LogicalExpr::unary(unary_op::Op::Sqrt, self)
     }
 
-    pub fn square(&self) -> Self {
-        LogicalExpr::unary(unary_op::Op::Square, self.clone())
+    pub fn square(self) -> Self {
+        LogicalExpr::unary(unary_op::Op::Square, self)
     }
 
     #[inline(always)]
