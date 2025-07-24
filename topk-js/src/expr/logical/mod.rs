@@ -7,6 +7,7 @@ mod ternary_op;
 mod unary_op;
 
 pub use binary_op::BinaryOperator;
+pub use numeric::Numeric;
 pub use ternary_op::TernaryOperator;
 pub use unary_op::UnaryOperator;
 
@@ -14,7 +15,6 @@ use crate::{data::Scalar, utils::NapiBox};
 use boolish::Boolish;
 use comparable::Comparable;
 use napi_derive::napi;
-use numeric::Numeric;
 use stringy::Stringy;
 
 #[napi(namespace = "query")]
@@ -153,6 +153,11 @@ impl LogicalExpression {
         Self::unary(UnaryOperator::IsNotNull, self.clone())
     }
 
+    #[napi]
+    pub fn abs(&self) -> Self {
+        Self::unary(UnaryOperator::Abs, self.clone())
+    }
+
     // Comparison operators
 
     #[napi]
@@ -211,6 +216,16 @@ impl LogicalExpression {
     #[napi]
     pub fn div(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
         Self::binary(BinaryOperator::Div, self.clone(), other.into())
+    }
+
+    #[napi]
+    pub fn min(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
+        Self::binary(BinaryOperator::Min, self.clone(), other.into())
+    }
+
+    #[napi]
+    pub fn max(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
+        Self::binary(BinaryOperator::Max, self.clone(), other.into())
     }
 
     #[napi]
@@ -287,7 +302,7 @@ impl LogicalExpression {
         let one_expr: LogicalExpression = LogicalExpression::literal(1);
         let choose_expr: LogicalExpression = condition_expr.choose(
             comparable::Comparable::Expr(boost_expr),
-            comparable::Comparable::Expr(one_expr)
+            comparable::Comparable::Expr(one_expr),
         );
         Self::binary(BinaryOperator::Mul, self.clone(), choose_expr)
     }

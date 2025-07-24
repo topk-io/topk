@@ -1,5 +1,6 @@
 import pytest
-from topk_sdk.query import field, filter, not_, select, literal
+from topk_sdk import error
+from topk_sdk.query import field, filter, fn, not_, select, literal, match, min, max, abs
 
 from . import ProjectContext
 from .utils import dataset, doc_ids
@@ -158,3 +159,45 @@ def test_query_coalesce_non_nullable(ctx: ProjectContext):
         {"_id": "moby", "coalesced_year": 1851},
         {"_id": "pride", "coalesced_year": 1813},
     ]
+
+def test_query_abs(ctx: ProjectContext):
+    collection = dataset.books.setup(ctx)
+
+    result = ctx.client.collection(collection.name).query(
+        select(abs_year=abs(field("published_year") - 1990)).topk(
+            field("abs_year"), 3, True
+        )
+    )
+
+    # The 3 books closest to 1990
+    assert result == [
+        {"_id": "alchemist", "abs_year": 2},
+        {"_id": "harry", "abs_year": 7},
+        {"_id": "mockingbird", "abs_year": 30},
+    ]
+
+def test_query_topk_min_max(ctx: ProjectContext):
+    collection = dataset.books.setup(ctx)
+
+    result = ctx.client.collection(collection.name).query(
+        select(bm25_score=fn.bm25_score())
+        .select(clamped_bm25_score=max(min(field("bm25_score"), 2.0), 1.6))
+        .filter(match("millionaire love consequences dwarves"))
+        .topk(field("clamped_bm25_score"), 5, False)
+    )
+
+    assert len(result) == 4
+
+    assert result[0]["_id"] == "gatsby"
+    assert result[0]["clamped_bm25_score"] == 2.0
+
+    assert result[1]["_id"] == "hobbit"
+    clamped_score_1 = result[1]["clamped_bm25_score"]
+    assert 1.6 <= clamped_score_1 <= 2.0
+
+    assert result[2]["_id"] == "moby"
+    clamped_score_2 = result[2]["clamped_bm25_score"]
+    assert 1.6 <= clamped_score_2 <= 2.0
+
+    assert result[3]["_id"] == "pride"
+    assert result[3]["clamped_bm25_score"] == 1.6

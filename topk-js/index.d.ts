@@ -120,6 +120,7 @@ export declare namespace query {
     toString(): string
     isNull(): LogicalExpression
     isNotNull(): LogicalExpression
+    abs(): LogicalExpression
     eq(other: LogicalExpression | string | number | boolean | null | undefined): LogicalExpression
     ne(other: LogicalExpression | string | number | boolean | null | undefined): LogicalExpression
     lt(other: LogicalExpression | number): LogicalExpression
@@ -130,6 +131,8 @@ export declare namespace query {
     sub(other: LogicalExpression | number): LogicalExpression
     mul(other: LogicalExpression | number): LogicalExpression
     div(other: LogicalExpression | number): LogicalExpression
+    min(other: LogicalExpression | number): LogicalExpression
+    max(other: LogicalExpression | number): LogicalExpression
     and(other: LogicalExpression | boolean): LogicalExpression
     or(other: LogicalExpression | boolean): LogicalExpression
     startsWith(other: LogicalExpression | string): LogicalExpression
@@ -146,6 +149,7 @@ export declare namespace query {
   }
   export class Query {
     filter(expr: LogicalExpression | TextExpression): Query
+    select(exprs: Record<string, LogicalExpression | FunctionExpression>): Query
     topk(expr: LogicalExpression, k: number, asc?: boolean | undefined | null): Query
     count(): Query
     rerank(options?: RerankOptions | undefined | null): Query
@@ -154,6 +158,7 @@ export declare namespace query {
     and(other: TextExpression): TextExpression
     or(other: TextExpression): TextExpression
   }
+  export function abs(expr: LogicalExpression): LogicalExpression
   export type BinaryOperator =  'and'|
   'or'|
   'eq'|
@@ -170,11 +175,15 @@ export declare namespace query {
   'div'|
   'matchAll'|
   'matchAny'|
-  'coalesce';
+  'coalesce'|
+  'min'|
+  'max';
   export function field(name: string): LogicalExpression
   export function filter(expr: LogicalExpression | TextExpression): Query
   export function literal(value: number | string | boolean): LogicalExpression
   export function match(token: string, options?: MatchOptions | undefined | null): TextExpression
+  export function max(left: LogicalExpression | number, right: LogicalExpression | number): LogicalExpression
+  export function min(left: LogicalExpression | number, right: LogicalExpression | number): LogicalExpression
   export function not(expr: LogicalExpression): LogicalExpression
   export function select(exprs: Record<string, LogicalExpression | FunctionExpression>): Query
   export interface Term {
@@ -185,7 +194,8 @@ export declare namespace query {
   export type TernaryOperator =  'choose';
   export type UnaryOperator =  'not'|
   'isNull'|
-  'isNotNull';
+  'isNotNull'|
+  'abs';
 }
 
 export declare namespace query_fn {
