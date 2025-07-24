@@ -6,6 +6,8 @@ mod utils;
 use utils::dataset;
 use utils::ProjectTestContext;
 
+use assert_approx_eq::assert_approx_eq;
+
 #[test_context(ProjectTestContext)]
 #[tokio::test]
 async fn test_query_exp_ln(ctx: &mut ProjectTestContext) {
@@ -43,9 +45,14 @@ async fn test_query_exp_ln(ctx: &mut ProjectTestContext) {
             .unwrap()
             .as_f32()
             .unwrap();
-        let bm25_score_smooth = doc.fields.get("bm25_score_smooth").unwrap().as_f32().unwrap();
-        assert!(((bm25_score * 1.5).exp() - bm25_score_scale).abs() < 1e-4);
-        assert!(((bm25_score + 1.0).ln() - bm25_score_smooth).abs() < 1e-4);
+        let bm25_score_smooth = doc
+            .fields
+            .get("bm25_score_smooth")
+            .unwrap()
+            .as_f32()
+            .unwrap();
+        assert_approx_eq!(bm25_score_scale, (bm25_score * 1.5).exp(), 1e-4);
+        assert_approx_eq!(bm25_score_smooth, (bm25_score + 1.0).ln(), 1e-4);
     }
 }
 

@@ -6,7 +6,7 @@ use crate::{
     data::{Scalar, Value},
     expr::{
         filter::FilterExpression,
-        logical::{LogicalExpression, UnaryOperator},
+        logical::{LogicalExpression, UnaryOperator, BinaryOperator, Numeric},
         select::SelectExpression,
     },
     query::{query::Query, stage::Stage},
@@ -61,4 +61,25 @@ pub fn literal(
 #[napi(js_name = "not", namespace = "query")]
 pub fn not(expr: &'static LogicalExpression) -> LogicalExpression {
     LogicalExpression::unary(UnaryOperator::Not, expr.clone())
+}
+
+#[napi(js_name = "min", namespace = "query")]
+pub fn min(
+    #[napi(ts_arg_type = "LogicalExpression | number")] left: Numeric,
+    #[napi(ts_arg_type = "LogicalExpression | number")] right: Numeric,
+) -> LogicalExpression {
+    LogicalExpression::binary(BinaryOperator::Min, left.into(), right.into())
+}
+
+#[napi(js_name = "max", namespace = "query")]
+pub fn max(
+    #[napi(ts_arg_type = "LogicalExpression | number")] left: Numeric,
+    #[napi(ts_arg_type = "LogicalExpression | number")] right: Numeric,
+) -> LogicalExpression {
+    LogicalExpression::binary(BinaryOperator::Max, left.into(), right.into())
+}
+
+#[napi(js_name = "abs", namespace = "query")]
+pub fn abs(expr: &'static LogicalExpression) -> LogicalExpression {
+    LogicalExpression::unary(UnaryOperator::Abs, expr.clone())
 }

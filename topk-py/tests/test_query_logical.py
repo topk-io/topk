@@ -1,6 +1,6 @@
 import pytest
 from topk_sdk import error
-from topk_sdk.query import field, filter, fn, not_, select, literal, match
+from topk_sdk.query import field, filter, fn, not_, select, literal, match, min, max, abs
 
 from . import ProjectContext
 from .utils import dataset, doc_ids
@@ -164,7 +164,7 @@ def test_query_abs(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        select(abs_year=(field("published_year") - 1990).abs()).topk(
+        select(abs_year=abs(field("published_year") - 1990)).topk(
             field("abs_year"), 3, True
         )
     )
@@ -181,7 +181,7 @@ def test_query_topk_min_max(ctx: ProjectContext):
 
     result = ctx.client.collection(collection.name).query(
         select(bm25_score=fn.bm25_score())
-        .select(clamped_bm25_score=field("bm25_score").min(2.0).max(1.6))
+        .select(clamped_bm25_score=max(min(field("bm25_score"), 2.0), 1.6))
         .filter(match("millionaire love consequences dwarves"))
         .topk(field("clamped_bm25_score"), 5, False)
     )
