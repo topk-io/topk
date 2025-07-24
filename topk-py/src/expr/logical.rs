@@ -11,6 +11,10 @@ pub enum UnaryOperator {
     IsNull,
     IsNotNull,
     Abs,
+    Ln,
+    Exp,
+    Sqrt,
+    Square,
 }
 
 impl From<UnaryOperator> for topk_rs::proto::v1::data::logical_expr::unary_op::Op {
@@ -22,6 +26,10 @@ impl From<UnaryOperator> for topk_rs::proto::v1::data::logical_expr::unary_op::O
                 topk_rs::proto::v1::data::logical_expr::unary_op::Op::IsNotNull
             }
             UnaryOperator::Abs => topk_rs::proto::v1::data::logical_expr::unary_op::Op::Abs,
+            UnaryOperator::Ln => topk_rs::proto::v1::data::logical_expr::unary_op::Op::Ln,
+            UnaryOperator::Exp => topk_rs::proto::v1::data::logical_expr::unary_op::Op::Exp,
+            UnaryOperator::Sqrt => topk_rs::proto::v1::data::logical_expr::unary_op::Op::Sqrt,
+            UnaryOperator::Square => topk_rs::proto::v1::data::logical_expr::unary_op::Op::Square,
         }
     }
 }
@@ -247,6 +255,34 @@ impl LogicalExpr {
 
     fn __abs__(&self, py: Python<'_>) -> PyResult<Self> {
         self.abs(py)
+    }
+
+    fn ln(&self, py: Python<'_>) -> PyResult<Self> {
+        Ok(Self::Unary {
+            op: UnaryOperator::Ln,
+            expr: Py::new(py, self.clone())?,
+        })
+    }
+
+    fn exp(&self, py: Python<'_>) -> PyResult<Self> {
+        Ok(Self::Unary {
+            op: UnaryOperator::Exp,
+            expr: Py::new(py, self.clone())?,
+        })
+    }
+
+    fn sqrt(&self, py: Python<'_>) -> PyResult<Self> {
+        Ok(Self::Unary {
+            op: UnaryOperator::Sqrt,
+            expr: Py::new(py, self.clone())?,
+        })
+    }
+
+    fn square(&self, py: Python<'_>) -> PyResult<Self> {
+        Ok(Self::Unary {
+            op: UnaryOperator::Square,
+            expr: Py::new(py, self.clone())?,
+        })
     }
 
     fn eq(&self, py: Python<'_>, other: FlexibleExpr) -> PyResult<Self> {

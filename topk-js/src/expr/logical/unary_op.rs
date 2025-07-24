@@ -7,6 +7,10 @@ pub enum UnaryOperator {
     IsNull,
     IsNotNull,
     Abs,
+    Ln,
+    Exp,
+    Sqrt,
+    Square,
 }
 
 impl Into<topk_rs::proto::v1::data::logical_expr::unary_op::Op> for UnaryOperator {
@@ -18,6 +22,10 @@ impl Into<topk_rs::proto::v1::data::logical_expr::unary_op::Op> for UnaryOperato
                 topk_rs::proto::v1::data::logical_expr::unary_op::Op::IsNotNull
             }
             UnaryOperator::Abs => topk_rs::proto::v1::data::logical_expr::unary_op::Op::Abs,
+            UnaryOperator::Ln => topk_rs::proto::v1::data::logical_expr::unary_op::Op::Ln,
+            UnaryOperator::Exp => topk_rs::proto::v1::data::logical_expr::unary_op::Op::Exp,
+            UnaryOperator::Sqrt => topk_rs::proto::v1::data::logical_expr::unary_op::Op::Sqrt,
+            UnaryOperator::Square => topk_rs::proto::v1::data::logical_expr::unary_op::Op::Square,
         }
     }
 }

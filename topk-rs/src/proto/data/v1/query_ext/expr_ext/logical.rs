@@ -44,6 +44,22 @@ impl LogicalExpr {
         LogicalExpr::unary(unary_op::Op::Abs, self)
     }
 
+    pub fn ln(self) -> Self {
+        LogicalExpr::unary(unary_op::Op::Ln, self)
+    }
+
+    pub fn exp(self) -> Self {
+        LogicalExpr::unary(unary_op::Op::Exp, self)
+    }
+
+    pub fn sqrt(self) -> Self {
+        LogicalExpr::unary(unary_op::Op::Sqrt, self)
+    }
+
+    pub fn square(self) -> Self {
+        LogicalExpr::unary(unary_op::Op::Square, self)
+    }
+
     #[inline(always)]
     pub fn binary(
         op: impl Into<binary_op::Op>,
@@ -277,6 +293,34 @@ impl UnaryOp {
     pub fn abs(expr: LogicalExpr) -> Self {
         UnaryOp {
             op: logical_expr::unary_op::Op::Abs as i32,
+            expr: Some(Box::new(expr)),
+        }
+    }
+
+    pub fn ln(expr: LogicalExpr) -> Self {
+        UnaryOp {
+            op: logical_expr::unary_op::Op::Ln as i32,
+            expr: Some(Box::new(expr)),
+        }
+    }
+
+    pub fn exp(expr: LogicalExpr) -> Self {
+        UnaryOp {
+            op: logical_expr::unary_op::Op::Exp as i32,
+            expr: Some(Box::new(expr)),
+        }
+    }
+
+    pub fn sqrt(expr: LogicalExpr) -> Self {
+        UnaryOp {
+            op: logical_expr::unary_op::Op::Sqrt as i32,
+            expr: Some(Box::new(expr)),
+        }
+    }
+
+    pub fn square(expr: LogicalExpr) -> Self {
+        UnaryOp {
+            op: logical_expr::unary_op::Op::Square as i32,
             expr: Some(Box::new(expr)),
         }
     }

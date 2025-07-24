@@ -158,6 +158,26 @@ impl LogicalExpression {
         Self::unary(UnaryOperator::Abs, self.clone())
     }
 
+    #[napi]
+    pub fn ln(&self) -> Self {
+        Self::unary(UnaryOperator::Ln, self.clone())
+    }
+
+    #[napi]
+    pub fn exp(&self) -> Self {
+        Self::unary(UnaryOperator::Exp, self.clone())
+    }
+
+    #[napi]
+    pub fn sqrt(&self) -> Self {
+        Self::unary(UnaryOperator::Sqrt, self.clone())
+    }
+
+    #[napi]
+    pub fn square(&self) -> Self {
+        Self::unary(UnaryOperator::Square, self.clone())
+    }
+
     // Comparison operators
 
     #[napi]
