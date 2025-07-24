@@ -40,8 +40,8 @@ impl LogicalExpr {
         LogicalExpr::unary(unary_op::Op::IsNotNull, self)
     }
 
-    pub fn abs(&self) -> Self {
-        LogicalExpr::unary(unary_op::Op::Abs, self.clone())
+    pub fn abs(self) -> Self {
+        LogicalExpr::unary(unary_op::Op::Abs, self)
     }
 
     pub fn ln(&self) -> Self {
@@ -183,24 +183,24 @@ impl LogicalExpr {
         self.mul(condition.into().choose(boost.into(), 1))
     }
 
-    pub fn min(&self, right: impl Into<LogicalExpr>) -> Self {
+    pub fn min(self, right: impl Into<LogicalExpr>) -> Self {
         LogicalExpr {
             expr: Some(logical_expr::Expr::BinaryOp(Box::new(
                 logical_expr::BinaryOp {
                     op: logical_expr::binary_op::Op::Min as i32,
-                    left: Some(Box::new(self.clone())),
+                    left: Some(Box::new(self)),
                     right: Some(Box::new(right.into())),
                 },
             ))),
         }
     }
 
-    pub fn max(&self, right: impl Into<LogicalExpr>) -> Self {
+    pub fn max(self, right: impl Into<LogicalExpr>) -> Self {
         LogicalExpr {
             expr: Some(logical_expr::Expr::BinaryOp(Box::new(
                 logical_expr::BinaryOp {
                     op: logical_expr::binary_op::Op::Max as i32,
-                    left: Some(Box::new(self.clone())),
+                    left: Some(Box::new(self)),
                     right: Some(Box::new(right.into())),
                 },
             ))),
