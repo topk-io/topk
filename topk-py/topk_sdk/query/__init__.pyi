@@ -75,6 +75,11 @@ class TextExpr(Enum):
     def __ror__(self, other: TextExpr) -> TextExpr: ...
 
 class Query:
+    def select(
+        self,
+        *args: builtins.str,
+        **kwargs: typing.Union[LogicalExpr, FunctionExpr],
+    ) -> Query: ...
     def filter(self, expr: LogicalExpr | TextExpr) -> Query: ...
     def topk(
         self, expr: LogicalExpr, k: builtins.int, asc: builtins.bool = False
