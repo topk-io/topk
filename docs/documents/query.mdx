@@ -1067,6 +1067,192 @@ The `div` operator can be used to divide two numbers.
 
 </CodeGroup>
 
+#### abs
+
+The `abs` operator returns the absolute value of a number, which is useful for calculating distances or differences.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import abs
+
+# Find books published closest to 1990
+select(
+    delta=abs(field("published_year").sub(1990))
+)
+```
+
+```js Javascript
+import { abs } from "topk-js/query";
+
+// Find books published closest to 1990
+select({
+  delta: abs(field("published_year").sub(1990))
+})
+```
+
+</CodeGroup>
+
+#### min
+
+The `min` operator returns the smaller of two values, commonly used for clamping or setting upper bounds. It can work with both scalar values and other fields or expressions.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import min
+
+# Clamp BM25 scores to a maximum of 2.0
+select(
+    clamped_score=min(field("bm25_score"), 2.0)
+)
+
+# Take the lower of critic score vs user rating
+select(
+    conservative_score=min(field("critic_score"), field("user_rating"))
+)
+```
+
+```js Javascript
+import { min } from "topk-js/query";
+
+// Clamp BM25 scores to a maximum of 2.0
+select({
+  clamped_score: min(field("bm25_score"), 2.0)
+})
+
+// Take the lower of critic score vs user rating
+select({
+  conservative_score: min(field("critic_score"), field("user_rating"))
+})
+```
+
+</CodeGroup>
+
+#### max
+
+The `max` operator returns the larger of two values, commonly used for clamping or setting lower bounds. It can work with both scalar values and other fields or expressions.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import max
+
+# Ensure minimum relevance score of 1.5
+select(
+    boosted_score=max(field("relevance_score"), 1.5)
+)
+
+# Take the higher of critic score vs user rating
+select(
+    best_score=max(field("critic_score"), field("user_rating"))
+)
+```
+
+```js Javascript
+import { max } from "topk-js/query";
+
+// Ensure minimum relevance score of 1.5
+select({
+  boosted_score: max(field("relevance_score"), 1.5)
+})
+
+// Take the higher of critic score vs user rating
+select({
+  best_score: max(field("critic_score"), field("user_rating"))
+})
+```
+
+</CodeGroup>
+
+#### ln
+
+The `ln` operator calculates the natural logarithm, useful for logarithmic scaling and dampening large values.
+
+<CodeGroup>
+
+```python Python
+# Apply logarithmic dampening to scores
+select(
+    log_score=(field("raw_score") + 1).ln()
+)
+```
+
+```js Javascript
+// Apply logarithmic dampening to scores
+select({
+  log_score: field("raw_score").add(1).ln()
+})
+```
+
+</CodeGroup>
+
+#### exp
+
+The `exp` operator calculates the exponential function (e^x), useful for exponential scaling and boosting.
+
+<CodeGroup>
+
+```python Python
+# Apply exponential boosting to BM25 scores
+select(
+    boosted_score=(field("bm25_score") * 1.5).exp()
+)
+```
+
+```js Javascript
+// Apply exponential boosting to BM25 scores
+select({
+  boosted_score: field("bm25_score").mul(1.5).exp()
+})
+```
+
+</CodeGroup>
+
+#### sqrt
+
+The `sqrt` operator calculates the square root, useful for dampening values and creating non-linear transformations.
+
+<CodeGroup>
+
+```python Python
+# Dampen large distance values
+select(
+    dampened_distance=field("vector_distance").sqrt()
+)
+```
+
+```js Javascript
+// Dampen large distance values
+select({
+  dampened_distance: field("vector_distance").sqrt()
+})
+```
+
+</CodeGroup>
+
+#### square
+
+The `square` operator multiplies a number by itself (x²), useful for amplifying differences and creating quadratic transformations.
+
+<CodeGroup>
+
+```python Python
+# Create quadratic penalty for age differences
+select(
+    age_penalty=(field("user_age") - 50).square()
+)
+```
+
+```js Javascript
+// Create quadratic penalty for age differences
+select({
+  age_penalty: field("user_age").sub(50).square()
+})
+```
+
+</CodeGroup>
+
 ## Collection
 
 All queries **must** have a collection stage. Currently, we only support `topk()` and `count()` collectors.
