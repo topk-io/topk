@@ -24,6 +24,41 @@ message Value {
     Null null = 15;
     // Sparse vector
     SparseVector sparse_vector = 16;
+    // List
+    List list = 17;
+  }
+}
+
+message List {
+  message U32 {
+    repeated uint32 values = 1;
+  }
+  message U64 {
+    repeated uint64 values = 1;
+  }
+  message I32 {
+    repeated int32 values = 1;
+  }
+  message I64 {
+    repeated int64 values = 1;
+  }
+  message F32 {
+    repeated float values = 1;
+  }
+  message F64 {
+    repeated double values = 1;
+  }
+  message String {
+    repeated string values = 1;
+  }
+  oneof values {
+    U32 u32 = 1;
+    U64 u64 = 2;
+    I32 i32 = 3;
+    I64 i64 = 4;
+    F32 f32 = 5;
+    F64 f64 = 6;
+    String string = 7;
   }
 }
 

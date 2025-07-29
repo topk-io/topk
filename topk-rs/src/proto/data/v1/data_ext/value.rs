@@ -1,4 +1,7 @@
-use crate::proto::data::v1::{sparse_vector, value, vector, Null, SparseVector, Value, Vector};
+use crate::proto::data::v1::{
+    data_ext::IntoListValues, list, sparse_vector, value, vector, List, Null, SparseVector, Value,
+    Vector,
+};
 
 impl Value {
     pub fn null() -> Self {
@@ -186,6 +189,15 @@ impl Value {
             _ => None,
         }
     }
+
+    /// Create a list value from a vector of values.
+    pub fn list<T: IntoListValues>(values: T) -> Self {
+        Value {
+            value: Some(value::Value::List(List {
+                values: Some(values.into_list_values()),
+            })),
+        }
+    }
 }
 
 impl value::Value {
@@ -211,6 +223,16 @@ impl value::Value {
                 Some(sparse_vector::Values::F32(_)) => "f32_sparse_vector".to_string(),
                 Some(sparse_vector::Values::U8(_)) => "u8_sparse_vector".to_string(),
                 _ => "null_sparse_vector".to_string(),
+            },
+            value::Value::List(v) => match &v.values {
+                Some(list::Values::U32(_)) => "[u32]".to_string(),
+                Some(list::Values::U64(_)) => "[u64]".to_string(),
+                Some(list::Values::I32(_)) => "[i32]".to_string(),
+                Some(list::Values::I64(_)) => "[i64]".to_string(),
+                Some(list::Values::F32(_)) => "[f32]".to_string(),
+                Some(list::Values::F64(_)) => "[f64]".to_string(),
+                Some(list::Values::String(_)) => "[string]".to_string(),
+                _ => "null_list".to_string(),
             },
             value::Value::Null(_) => "null".to_string(),
         }
@@ -268,6 +290,12 @@ impl From<f64> for Value {
 impl From<Vec<f32>> for Value {
     fn from(value: Vec<f32>) -> Self {
         Value::f32_vector(value)
+    }
+}
+
+impl From<Vec<String>> for Value {
+    fn from(value: Vec<String>) -> Self {
+        Value::list(value)
     }
 }
 
