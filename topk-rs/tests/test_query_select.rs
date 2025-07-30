@@ -409,7 +409,5 @@ async fn test_query_select_list(ctx: &mut ProjectTestContext) {
         doc!("_id" => "4", "list" => Value::list(vec!["baz".to_string()])),
     ];
 
-    for (a, b) in results.iter().zip(expected.iter()) {
-        assert_eq!(a, b);
-    }
+    assert_eq!(results, expected);
 }
