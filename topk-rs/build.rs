@@ -22,6 +22,7 @@ fn build_topk_v1_protos() {
         "topk.control.v1.FieldTypeFloat",
         "topk.control.v1.FieldTypeText",
         "topk.control.v1.FieldTypeBytes",
+        "topk.control.v1.FieldTypeList",
         // index
         "topk.control.v1.FieldIndex",
         "topk.control.v1.FieldIndex.index",
@@ -49,6 +50,7 @@ fn build_topk_v1_protos() {
         "topk.control.v1.FieldTypeFloat",
         "topk.control.v1.FieldTypeText",
         "topk.control.v1.FieldTypeBytes",
+        "topk.control.v1.FieldTypeList",
         // indexes
         "topk.control.v1.FieldIndex",
         "topk.control.v1.FieldIndex.index",

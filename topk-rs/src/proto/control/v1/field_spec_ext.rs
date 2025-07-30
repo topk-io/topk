@@ -1,6 +1,14 @@
+use crate::proto::control::v1::field_type_list::ListValueType;
+
 use super::*;
 
 impl FieldSpec {
+    pub fn with_index(mut self, index: FieldIndex) -> Self {
+        assert!(self.index.is_none(), "Field index is already set");
+        self.index = Some(index);
+        self
+    }
+
     pub fn text(required: bool, index_type: Option<KeywordIndexType>) -> FieldSpec {
         FieldSpec {
             data_type: Some(FieldType {
@@ -39,6 +47,18 @@ impl FieldSpec {
         FieldSpec {
             data_type: Some(FieldType {
                 data_type: Some(field_type::DataType::Boolean(FieldTypeBoolean {})),
+            }),
+            required,
+            index: None,
+        }
+    }
+
+    pub fn list(required: bool, value_type: ListValueType) -> FieldSpec {
+        FieldSpec {
+            data_type: Some(FieldType {
+                data_type: Some(field_type::DataType::List(FieldTypeList {
+                    value_type: value_type.into(),
+                })),
             }),
             required,
             index: None,

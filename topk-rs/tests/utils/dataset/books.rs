@@ -1,5 +1,7 @@
 use crate::utils::ProjectTestContext;
 use std::collections::HashMap;
+use topk_rs::proto::v1::control::field_type_list::ListValueType;
+use topk_rs::proto::v1::control::FieldIndex;
 use topk_rs::proto::v1::control::KeywordIndexType;
 use topk_rs::proto::v1::control::VectorDistanceMetric;
 use topk_rs::proto::v1::data::Value;
@@ -47,6 +49,7 @@ pub fn schema() -> HashMap<String, FieldSpec> {
         "binary_embedding" => FieldSpec::binary_vector(2, false, VectorDistanceMetric::Hamming),
         "sparse_f32_embedding" => FieldSpec::f32_sparse_vector(true, VectorDistanceMetric::DotProduct),
         "sparse_u8_embedding" => FieldSpec::u8_sparse_vector(false, VectorDistanceMetric::DotProduct),
+        "tags" => FieldSpec::list(true, ListValueType::String).with_index(FieldIndex::keyword(KeywordIndexType::Text))
     )
 }
 
