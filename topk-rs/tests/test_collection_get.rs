@@ -9,6 +9,8 @@ mod utils;
 use utils::dataset;
 use utils::ProjectTestContext;
 
+use crate::utils::dataset::Dataset;
+
 #[test_context(ProjectTestContext)]
 #[tokio::test]
 async fn test_get_from_non_existent_collection(ctx: &mut ProjectTestContext) {
@@ -42,11 +44,8 @@ async fn test_get_non_existent_document(ctx: &mut ProjectTestContext) {
 async fn test_get_document(ctx: &mut ProjectTestContext) {
     let collection = dataset::books::setup(ctx).await;
 
-    let lotr = dataset::books::docs()
-        .into_iter()
-        .find(|doc| doc.id().unwrap() == "lotr")
-        .clone()
-        .unwrap();
+    let docs = dataset::books::docs();
+    let lotr = docs.find_by_id("lotr").unwrap().clone();
 
     let docs = ctx
         .client
@@ -70,14 +69,9 @@ async fn test_get_multiple_documents(ctx: &mut ProjectTestContext) {
         .await
         .expect("could not get documents");
 
-    let lotr = dataset::books::docs()
-        .into_iter()
-        .find(|doc| doc.id().unwrap() == "lotr")
-        .unwrap();
-    let moby = dataset::books::docs()
-        .into_iter()
-        .find(|doc| doc.id().unwrap() == "moby")
-        .unwrap();
+    let books = dataset::books::docs();
+    let lotr = books.find_by_id("lotr").unwrap().clone();
+    let moby = books.find_by_id("moby").unwrap().clone();
 
     assert_eq!(
         docs,
@@ -124,11 +118,7 @@ async fn test_get_document_fields(ctx: &mut ProjectTestContext) {
 async fn test_get_updated_document(ctx: &mut ProjectTestContext) {
     let collection = dataset::books::setup(ctx).await;
 
-    let mut lotr = dataset::books::docs()
-        .into_iter()
-        .find(|doc| doc.id().unwrap() == "lotr")
-        .clone()
-        .unwrap();
+    let mut lotr = dataset::books::docs().find_by_id("lotr").unwrap().clone();
 
     // Update document
     lotr.fields
