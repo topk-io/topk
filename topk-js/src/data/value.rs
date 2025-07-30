@@ -85,6 +85,7 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                     None => unreachable!("Invalid sparse vector proto"),
                 })
             }
+            Some(topk_rs::proto::v1::data::value::Value::List(_)) => todo!(),
             None => unreachable!("Invalid value proto"),
         }
     }

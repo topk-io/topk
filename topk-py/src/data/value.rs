@@ -164,6 +164,7 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                     t => unreachable!("Unknown sparse vector type: {:?}", t),
                 })
             }
+            Some(topk_rs::proto::v1::data::value::Value::List(_)) => todo!(),
             None => Value::Null(),
         }
     }
