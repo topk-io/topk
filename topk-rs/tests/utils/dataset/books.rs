@@ -67,7 +67,8 @@ pub fn docs() -> Vec<Document> {
             "binary_embedding" => Value::u8_vector(vec![0, 1]),
             "sparse_f32_embedding" => Value::f32_sparse_vector(vec![0, 1, 2], vec![1.0, 2.0, 3.0]),
             "sparse_u8_embedding" => Value::u8_sparse_vector(vec![0, 1, 2], vec![1, 2, 3]),
-            "nullable_importance" => 2.0_f32
+            "nullable_importance" => 2.0_f32,
+            "tags" => Value::list(vec!["racism".to_string(), "injustice".to_string(), "girl".to_string(), "father".to_string(), "lawyer".to_string()]),
         ),
         doc!(
             "_id" => "1984",
@@ -80,6 +81,7 @@ pub fn docs() -> Vec<Document> {
             "binary_embedding" => Value::u8_vector(vec![0, 3]),
             "sparse_f32_embedding" => Value::f32_sparse_vector(vec![2,3,4], vec![1.0, 2.0, 3.0]),
             "sparse_u8_embedding" => Value::u8_sparse_vector(vec![2,3,4], vec![1, 2, 3]),
+            "tags" => Value::list(vec!["dystopia".to_string(), "surveillance".to_string(), "totalitarianism".to_string(), "mind control".to_string(), "oppression".to_string()]),
         ),
         doc!(
             "_id" => "pride",
@@ -89,6 +91,7 @@ pub fn docs() -> Vec<Document> {
             "summary_embedding" => vec![3.0; 16],
             "sparse_f32_embedding" => Value::f32_sparse_vector(vec![3, 4, 5], vec![1.0, 2.0, 3.0]),
             "sparse_u8_embedding" => Value::u8_sparse_vector(vec![3, 4, 5], vec![1, 2, 3]),
+            "tags" => Value::list(vec!["love".to_string(), "romance".to_string(), "class".to_string(), "marriage".to_string(), "prejudice".to_string()]),
         ),
         doc!(
             "_id" => "gatsby",
@@ -98,6 +101,7 @@ pub fn docs() -> Vec<Document> {
             "summary_embedding" => vec![4.0; 16],
             "sparse_f32_embedding" => Value::f32_sparse_vector(vec![4, 5, 6], vec![1.0, 2.0, 3.0]),
             "sparse_u8_embedding" => Value::u8_sparse_vector(vec![4, 5, 6], vec![1, 2, 3]),
+            "tags" => Value::list(vec!["love".to_string(), "romance".to_string(), "class".to_string(), "marriage".to_string(), "prejudice".to_string()]),
         ),
         doc!(
             "_id" => "catcher",
@@ -110,6 +114,7 @@ pub fn docs() -> Vec<Document> {
             "binary_embedding" => Value::u8_vector(vec![0, 7]),
             "sparse_f32_embedding" => Value::f32_sparse_vector(vec![5, 6, 7], vec![1.0, 2.0, 3.0]),
             "sparse_u8_embedding" => Value::u8_sparse_vector(vec![5, 6, 7], vec![1, 2, 3]),
+            "tags" => Value::list(vec!["alienation".to_string(), "identity".to_string(), "rebellion".to_string(), "mid-20th-century".to_string(), "america".to_string()]),
         ),
         doc!(
             "_id" => "moby",
@@ -119,7 +124,8 @@ pub fn docs() -> Vec<Document> {
             "summary_embedding" => vec![6.0; 16],
             "sparse_f32_embedding" => Value::f32_sparse_vector(vec![6,7,8], vec![1.0, 2.0, 3.0]),
             "sparse_u8_embedding" => Value::u8_sparse_vector(vec![6,7,8], vec![1, 2, 3]),
-            "nullable_importance" => 5.0_f32
+            "nullable_importance" => 5.0_f32,
+            "tags" => Value::list(vec!["whale".to_string(), "obsession".to_string(), "tragedy".to_string(), "sailing".to_string(), "ocean".to_string()]),
         ),
         doc!(
             "_id" => "hobbit",
@@ -129,6 +135,7 @@ pub fn docs() -> Vec<Document> {
             "summary_embedding" => vec![7.0; 16],
             "sparse_f32_embedding" => Value::f32_sparse_vector(vec![7,8,9], vec![1.0, 2.0, 3.0]),
             "sparse_u8_embedding" => Value::u8_sparse_vector(vec![7,8,9], vec![1, 2, 3]),
+            "tags" => Value::list(vec!["hobbit".to_string(), "dwarf".to_string(), "quest".to_string(), "home".to_string(), "adventure".to_string()]),
         ),
         doc!(
             "_id" => "harry",
@@ -141,6 +148,7 @@ pub fn docs() -> Vec<Document> {
             "binary_embedding" => Value::u8_vector(vec![0, 15]),
             "sparse_f32_embedding" => Value::f32_sparse_vector(vec![8,9,10], vec![1.0, 2.0, 3.0]),
             "sparse_u8_embedding" => Value::u8_sparse_vector(vec![8,9,10], vec![1, 2, 3]),
+            "tags" => Value::list(vec!["wizard".to_string(), "magic".to_string(), "sorcerer".to_string(), "school".to_string(), "witchcraft".to_string()]),
         ),
         doc!(
             "_id" => "lotr",
@@ -150,6 +158,7 @@ pub fn docs() -> Vec<Document> {
             "summary_embedding" => vec![9.0; 16],
             "sparse_f32_embedding" => Value::f32_sparse_vector(vec![9,10,11], vec![1.0, 2.0, 3.0]),
             "sparse_u8_embedding" => Value::u8_sparse_vector(vec![9,10,11], vec![1, 2, 3]),
+            "tags" => Value::list(vec!["lord of the rings".to_string(), "fellowship".to_string(), "magic".to_string(), "wizard".to_string(), "elves".to_string()]),
         ),
         doc!(
             "_id" => "alchemist",
@@ -159,6 +168,7 @@ pub fn docs() -> Vec<Document> {
             "summary_embedding" => vec![10.0; 16],
             "sparse_f32_embedding" => Value::f32_sparse_vector(vec![10,11,12], vec![1.0, 2.0, 3.0]),
             "sparse_u8_embedding" => Value::u8_sparse_vector(vec![10,11,12], vec![1, 2, 3]),
+            "tags" => Value::list(vec!["journey".to_string(), "destiny".to_string(), "meaning of life".to_string(), "alchemy".to_string(), "soul".to_string()]),
         ),
     ]
 }
