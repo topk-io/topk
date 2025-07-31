@@ -1,5 +1,7 @@
 use crate::utils::ProjectTestContext;
 use std::collections::HashMap;
+use topk_rs::proto::v1::control::field_type_list::ListValueType;
+use topk_rs::proto::v1::control::FieldIndex;
 use topk_rs::proto::v1::control::KeywordIndexType;
 use topk_rs::proto::v1::control::VectorDistanceMetric;
 use topk_rs::proto::v1::data::Value;
@@ -47,6 +49,7 @@ pub fn schema() -> HashMap<String, FieldSpec> {
         "binary_embedding" => FieldSpec::binary_vector(2, false, VectorDistanceMetric::Hamming),
         "sparse_f32_embedding" => FieldSpec::f32_sparse_vector(true, VectorDistanceMetric::DotProduct),
         "sparse_u8_embedding" => FieldSpec::u8_sparse_vector(false, VectorDistanceMetric::DotProduct),
+        "tags" => FieldSpec::list(true, ListValueType::String).with_index(FieldIndex::keyword(KeywordIndexType::Text))
     )
 }
 
@@ -101,7 +104,7 @@ pub fn docs() -> Vec<Document> {
             "summary_embedding" => vec![4.0; 16],
             "sparse_f32_embedding" => Value::f32_sparse_vector(vec![4, 5, 6], vec![1.0, 2.0, 3.0]),
             "sparse_u8_embedding" => Value::u8_sparse_vector(vec![4, 5, 6], vec![1, 2, 3]),
-            "tags" => Value::list(vec!["love".to_string(), "romance".to_string(), "class".to_string(), "marriage".to_string(), "prejudice".to_string()]),
+            "tags" => Value::list(vec!["love".to_string(), "romance".to_string(), "wealth".to_string(), "marriage".to_string()]),
         ),
         doc!(
             "_id" => "catcher",

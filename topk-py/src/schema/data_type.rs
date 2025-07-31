@@ -79,6 +79,7 @@ impl From<topk_rs::proto::v1::control::field_type::DataType> for DataType {
                 DataType::U8SparseVector()
             }
             topk_rs::proto::v1::control::field_type::DataType::Bytes(_) => DataType::Bytes(),
+            topk_rs::proto::v1::control::field_type::DataType::List(_) => todo!(),
         }
     }
 }

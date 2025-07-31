@@ -342,7 +342,7 @@ async fn test_query_topk_min_max(ctx: &mut ProjectTestContext) {
                 .select([("clamped_bm25_score", field("bm25_score").min(2.0).max(1.6))])
                 .filter(r#match(
                     "millionaire love consequences dwarves",
-                    None,
+                    Some("summary"),
                     Some(1.0),
                     false,
                 ))

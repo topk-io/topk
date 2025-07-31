@@ -18,6 +18,12 @@ impl field_type::DataType {
             field_type::DataType::F32SparseVector(..) => "f32_sparse_vector".to_string(),
             field_type::DataType::U8SparseVector(..) => "u8_sparse_vector".to_string(),
             field_type::DataType::Bytes(..) => "bytes".to_string(),
+            field_type::DataType::List(list) => match list.value_type() {
+                field_type_list::ListValueType::Integer => "list<integer>".to_string(),
+                field_type_list::ListValueType::Float => "list<float>".to_string(),
+                field_type_list::ListValueType::String => "list<string>".to_string(),
+                field_type_list::ListValueType::Unspecified => "list<_>".to_string(),
+            },
         }
     }
 }

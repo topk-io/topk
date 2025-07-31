@@ -29,6 +29,7 @@ message FieldType {
     FieldTypeBytes bytes = 8;
     FieldTypeF32SparseVector f32_sparse_vector = 9;
     FieldTypeU8SparseVector u8_sparse_vector = 10;
+    FieldTypeList list = 11;
   }
 }
 
@@ -53,6 +54,16 @@ message FieldTypeF32SparseVector {}
 message FieldTypeU8SparseVector {}
 
 message FieldTypeBytes {}
+
+message FieldTypeList {
+  enum ListValueType {
+    LIST_VALUE_TYPE_UNSPECIFIED = 0;
+    LIST_VALUE_TYPE_INTEGER = 1;
+    LIST_VALUE_TYPE_FLOAT = 2;
+    LIST_VALUE_TYPE_STRING = 3;
+  }
+  ListValueType value_type = 1;
+}
 
 // Keyword index specification
 

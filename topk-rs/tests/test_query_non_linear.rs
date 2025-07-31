@@ -24,7 +24,7 @@ async fn test_query_exp_ln(ctx: &mut ProjectTestContext) {
                 ])
                 .filter(r#match(
                     "millionaire love consequences dwarves",
-                    None,
+                    Some("summary"),
                     Some(1.0),
                     false,
                 ))
