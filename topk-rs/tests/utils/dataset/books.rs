@@ -104,7 +104,7 @@ pub fn docs() -> Vec<Document> {
             "summary_embedding" => vec![4.0; 16],
             "sparse_f32_embedding" => Value::f32_sparse_vector(vec![4, 5, 6], vec![1.0, 2.0, 3.0]),
             "sparse_u8_embedding" => Value::u8_sparse_vector(vec![4, 5, 6], vec![1, 2, 3]),
-            "tags" => Value::list(vec!["love".to_string(), "romance".to_string(), "class".to_string(), "marriage".to_string(), "prejudice".to_string()]),
+            "tags" => Value::list(vec!["love".to_string(), "romance".to_string(), "wealth".to_string(), "marriage".to_string()]),
         ),
         doc!(
             "_id" => "catcher",

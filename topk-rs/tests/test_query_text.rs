@@ -196,6 +196,29 @@ async fn test_query_text_match_all_two_terms(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
+async fn test_query_text_match_all_two_terms_tokenized(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            filter(field("tags").match_all(vec!["love", "class"])).topk(
+                field("published_year"),
+                100,
+                true,
+            ),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids!(result, ["pride"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
 async fn test_query_text_match_any_two_terms(ctx: &mut ProjectTestContext) {
     let collection = dataset::books::setup(ctx).await;
 
@@ -204,6 +227,29 @@ async fn test_query_text_match_any_two_terms(ctx: &mut ProjectTestContext) {
         .collection(&collection.name)
         .query(
             filter(field("summary").match_any("love ring")).topk(
+                field("published_year"),
+                100,
+                true,
+            ),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids!(result, ["pride", "gatsby", "lotr"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_text_match_any_two_terms_tokenized(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            filter(field("tags").match_any(vec!["love", "elves"])).topk(
                 field("published_year"),
                 100,
                 true,

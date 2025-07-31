@@ -268,6 +268,23 @@ impl From<&str> for LogicalExpr {
     }
 }
 
+impl From<Vec<String>> for LogicalExpr {
+    fn from(value: Vec<String>) -> Self {
+        LogicalExpr::literal(value)
+    }
+}
+
+impl From<Vec<&str>> for LogicalExpr {
+    fn from(value: Vec<&str>) -> Self {
+        LogicalExpr::literal(
+            value
+                .into_iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>(),
+        )
+    }
+}
+
 impl UnaryOp {
     pub fn not(expr: LogicalExpr) -> Self {
         UnaryOp {
