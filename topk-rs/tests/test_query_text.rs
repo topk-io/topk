@@ -1,8 +1,11 @@
 use test_context::test_context;
 mod utils;
 use topk_rs::{
+    data::literal,
+    doc,
+    proto::v1::control::{FieldSpec, KeywordIndexType},
     query::{field, filter, fns, r#match, select},
-    Error,
+    schema, Error,
 };
 use utils::dataset;
 use utils::ProjectTestContext;
@@ -300,4 +303,69 @@ async fn test_query_text_matches_on_invalid_field(ctx: &mut ProjectTestContext) 
         .expect_err("should have failed");
 
     assert!(matches!(err, Error::InvalidArgument(_)));
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_text_with_updates(ctx: &mut ProjectTestContext) {
+    let collection = ctx
+        .client
+        .collections()
+        .create(
+            ctx.wrap("text_updates"),
+            schema!(
+                "text" => FieldSpec::text(true, Some(KeywordIndexType::Text)),
+            ),
+        )
+        .await
+        .expect("could not create collection");
+
+    let lsn = ctx
+        .client
+        .collection(&collection.name)
+        .upsert(vec![
+            doc!("_id" => "1", "text" => "totalitarian regime uses surveillance"),
+            doc!("_id" => "2", "text" => "millionaire navigates love and wealth"),
+        ])
+        .await
+        .expect("upsert failed");
+
+    let res = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([("bm25", fns::bm25_score())])
+                .filter(r#match("surveillance", None, None, true))
+                .topk(literal(1u32).into(), 10, true),
+            Some(lsn),
+            None,
+        )
+        .await
+        .expect("query returned error");
+
+    assert_doc_ids!(res, ["1"]);
+
+    let lsn = ctx
+        .client
+        .collection(&collection.name)
+        .upsert(vec![
+            doc!("_id" => "1", "text" => "totalitarian regime uses love"),
+        ])
+        .await
+        .expect("upsert failed");
+
+    let res = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([("bm25", fns::bm25_score())])
+                .filter(r#match("love", None, None, true))
+                .topk(literal(1u32).into(), 10, true),
+            Some(lsn),
+            None,
+        )
+        .await
+        .expect("query returned error");
+
+    assert_doc_ids!(res, ["1", "2"]);
 }
