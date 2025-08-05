@@ -198,6 +198,36 @@ impl Value {
             })),
         }
     }
+
+    pub fn as_u8_list(&self) -> Option<&[u8]> {
+        match &self.value {
+            Some(value::Value::List(list)) => match &list.values {
+                Some(list::Values::U8(v)) => Some(&v.values),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    pub fn as_f32_list(&self) -> Option<&[f32]> {
+        match &self.value {
+            Some(value::Value::List(list)) => match &list.values {
+                Some(list::Values::F32(v)) => Some(&v.values),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    pub fn as_string_list(&self) -> Option<&[String]> {
+        match &self.value {
+            Some(value::Value::List(list)) => match &list.values {
+                Some(list::Values::String(v)) => Some(&v.values),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
 }
 
 impl value::Value {
