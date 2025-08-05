@@ -20,19 +20,25 @@ pub async fn setup(ctx: &mut ProjectTestContext) -> Collection {
         .await
         .expect("could not create collection");
 
-    let lsn = ctx
-        .client
-        .collection(&collection.name)
-        .upsert(docs())
-        .await
-        .expect("upsert failed");
+    let mut lsn = "".to_string();
+    let docs = docs();
+    for chunk in docs.chunks(4) {
+        lsn = ctx
+            .client
+            .collection(&collection.name)
+            .upsert(chunk.to_vec())
+            .await
+            .expect("upsert failed");
+    }
 
-    let _ = ctx
+    let count = ctx
         .client
         .collection(&collection.name)
         .count(Some(lsn), None)
         .await
         .expect("could not query");
+
+    assert_eq!(count, docs.len() as u64);
 
     collection
 }

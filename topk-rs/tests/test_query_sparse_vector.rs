@@ -75,7 +75,10 @@ async fn test_query_sparse_vector_distance_nullable(ctx: &mut ProjectTestContext
                     "sparse_u8_distance",
                     fns::vector_distance(
                         "sparse_u8_embedding",
-                        QueryVector::Sparse(SparseVector::u8(vec![0, 1, 2], vec![1, 2, 3])),
+                        QueryVector::Sparse(SparseVector::u8(
+                            vec![0, 1, 2, 3, 4],
+                            vec![1, 2, 3, 1, 3],
+                        )),
                     ),
                 )])
                 .topk(field("sparse_u8_distance"), 3, false),
@@ -84,7 +87,7 @@ async fn test_query_sparse_vector_distance_nullable(ctx: &mut ProjectTestContext
         )
         .await
         .expect("could not query");
-    assert_doc_ids_ordered!(result, ["mockingbird", "1984", "alchemist"]);
+    assert_doc_ids_ordered!(result, ["1984", "mockingbird", "pride"]);
 
     let mut mockingbird = ctx
         .client
@@ -114,7 +117,10 @@ async fn test_query_sparse_vector_distance_nullable(ctx: &mut ProjectTestContext
                     "sparse_u8_distance",
                     fns::vector_distance(
                         "sparse_u8_embedding",
-                        QueryVector::Sparse(SparseVector::u8(vec![0, 1, 2], vec![1, 2, 3])),
+                        QueryVector::Sparse(SparseVector::u8(
+                            vec![0, 1, 2, 3, 4],
+                            vec![1, 2, 3, 1, 3],
+                        )),
                     ),
                 )])
                 .topk(field("sparse_u8_distance"), 3, false),
@@ -123,5 +129,5 @@ async fn test_query_sparse_vector_distance_nullable(ctx: &mut ProjectTestContext
         )
         .await
         .expect("could not query");
-    assert_doc_ids_ordered!(result, ["1984", "alchemist", "catcher"]);
+    assert_doc_ids_ordered!(result, ["1984", "pride", "gatsby"]);
 }
