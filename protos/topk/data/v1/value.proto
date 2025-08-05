@@ -18,8 +18,8 @@ message Value {
     string string = 12;
     // Binary
     bytes binary = 13;
-    // Vector
-    Vector vector = 14;
+    // Vector value. Deprecated in favor of `list<f32>` or `list<u8>`.
+    Vector vector = 14 [deprecated = true];
     // Null
     Null null = 15;
     // Sparse vector
@@ -30,6 +30,9 @@ message Value {
 }
 
 message List {
+  message U8 {
+    bytes values = 1;
+  }
   message U32 {
     repeated uint32 values = 1;
   }
@@ -59,23 +62,24 @@ message List {
     F32 f32 = 5;
     F64 f64 = 6;
     String string = 7;
+    U8 u8 = 8;
   }
 }
 
 message Vector {
   // Float vector
   message Float {
-    repeated float values = 1;
+    repeated float values = 1 [deprecated = true];
   }
 
   // Byte vector
   message Byte {
-    bytes values = 1;
+    bytes values = 1 [deprecated = true];
   }
 
   oneof vector {
-    Float float = 1;
-    Byte byte = 2;
+    Float float = 1 [deprecated = true];
+    Byte byte = 2 [deprecated = true];
   }
 }
 
