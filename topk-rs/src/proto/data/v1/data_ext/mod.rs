@@ -9,6 +9,12 @@ pub trait IntoListValues {
     fn into_list_values(self) -> list::Values;
 }
 
+impl IntoListValues for Vec<u8> {
+    fn into_list_values(self) -> list::Values {
+        list::Values::U8(list::U8 { values: self })
+    }
+}
+
 impl IntoListValues for Vec<u32> {
     fn into_list_values(self) -> list::Values {
         list::Values::U32(list::U32 { values: self })
