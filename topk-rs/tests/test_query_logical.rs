@@ -1,7 +1,7 @@
 use test_context::test_context;
 use topk_rs::data::literal;
 use topk_rs::doc;
-use topk_rs::query::{field, filter, fns, not, r#match, select};
+use topk_rs::query::{field, filter, not, r#match, select};
 
 mod utils;
 use utils::{dataset, ProjectTestContext};
@@ -338,47 +338,31 @@ async fn test_query_topk_min_max(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("bm25_score", fns::bm25_score())])
-                .select([("clamped_bm25_score", field("bm25_score").min(2.0).max(1.6))])
-                .filter(r#match(
-                    "millionaire love consequences dwarves",
-                    Some("summary"),
-                    Some(1.0),
-                    false,
-                ))
-                .topk(field("clamped_bm25_score"), 5, false),
+            select([(
+                "clamped_year",
+                field("published_year").max(1890u32).min(1910u32),
+            )])
+            .filter(r#match(
+                "millionaire love consequences dwarves",
+                Some("summary"),
+                None,
+                false,
+            ))
+            .topk(field("published_year"), 3, true),
             None,
             None,
         )
         .await
         .expect("could not query");
 
-    assert_eq!(result.len(), 4);
-
-    // Check document IDs and clamped scores
-    assert_eq!(result[0].fields.get("_id").unwrap(), &literal("gatsby"));
-    assert_eq!(
-        result[0].fields.get("clamped_bm25_score").unwrap(),
-        &literal(2.0_f64)
-    );
-
-    assert_eq!(result[1].fields.get("_id").unwrap(), &literal("hobbit"));
-    if let Some(score_val) = result[1].fields.get("clamped_bm25_score") {
-        if let Some(score) = score_val.as_f64() {
-            assert!(score >= 1.6 && score <= 2.0);
-        }
+    for (i, (id, year)) in [("pride", 1890u32), ("moby", 1890), ("gatsby", 1910)]
+        .iter()
+        .enumerate()
+    {
+        assert_eq!(result[i].id().unwrap(), *id);
+        assert_eq!(
+            result[i].fields.get("clamped_year").unwrap(),
+            &literal(*year)
+        );
     }
-
-    assert_eq!(result[2].fields.get("_id").unwrap(), &literal("moby"));
-    if let Some(score_val) = result[2].fields.get("clamped_bm25_score") {
-        if let Some(score) = score_val.as_f64() {
-            assert!(score >= 1.6 && score <= 2.0);
-        }
-    }
-
-    assert_eq!(result[3].fields.get("_id").unwrap(), &literal("pride"));
-    assert_eq!(
-        result[3].fields.get("clamped_bm25_score").unwrap(),
-        &literal(1.6_f64)
-    );
 }
