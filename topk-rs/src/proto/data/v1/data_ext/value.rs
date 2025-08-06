@@ -118,6 +118,7 @@ impl Value {
     pub fn f32_vector(values: Vec<f32>) -> Self {
         Value {
             value: Some(value::Value::Vector(Vector {
+                #[allow(deprecated)]
                 vector: Some(vector::Vector::Float(vector::Float { values })),
             })),
         }
@@ -127,6 +128,7 @@ impl Value {
     pub fn as_f32_vector(&self) -> Option<&[f32]> {
         match &self.value {
             Some(value::Value::Vector(vec)) => match &vec.vector {
+                #[allow(deprecated)]
                 Some(vector::Vector::Float(vector::Float { values })) => Some(values),
                 _ => None,
             },
@@ -138,6 +140,7 @@ impl Value {
     pub fn u8_vector(values: Vec<u8>) -> Self {
         Value {
             value: Some(value::Value::Vector(Vector {
+                #[allow(deprecated)]
                 vector: Some(vector::Vector::Byte(vector::Byte { values })),
             })),
         }
@@ -147,6 +150,7 @@ impl Value {
     pub fn as_u8_vector(&self) -> Option<&[u8]> {
         match &self.value {
             Some(value::Value::Vector(vec)) => match &vec.vector {
+                #[allow(deprecated)]
                 Some(vector::Vector::Byte(vector::Byte { values })) => Some(values),
                 _ => None,
             },
@@ -248,6 +252,7 @@ impl value::Value {
             value::Value::Binary(v) => {
                 format!("binary({})", v.len())
             }
+            #[allow(deprecated)]
             value::Value::Vector(vec) => match &vec.vector {
                 Some(vector::Vector::Float(v)) => format!("f32_vector({})", v.values.len()),
                 Some(vector::Vector::Byte(v)) => format!("u8_vector({})", v.values.len()),
@@ -323,7 +328,7 @@ impl From<f64> for Value {
 
 impl From<Vec<f32>> for Value {
     fn from(value: Vec<f32>) -> Self {
-        Value::f32_vector(value)
+        Value::list(value)
     }
 }
 

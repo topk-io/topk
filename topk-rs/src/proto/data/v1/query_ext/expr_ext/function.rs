@@ -60,12 +60,14 @@ impl From<SparseVector> for QueryVector {
 
 impl From<Vec<f32>> for QueryVector {
     fn from(values: Vec<f32>) -> Self {
+        #[allow(deprecated)]
         QueryVector::Dense(Vector::f32(values))
     }
 }
 
 impl From<Vec<u8>> for QueryVector {
     fn from(values: Vec<u8>) -> Self {
+        #[allow(deprecated)]
         QueryVector::Dense(Vector::u8(values))
     }
 }

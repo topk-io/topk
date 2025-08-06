@@ -27,15 +27,21 @@ pub mod data {
         value.into()
     }
 
+    #[deprecated(note = "Use `list<f32>` instead")]
     pub fn f32_vector(values: Vec<f32>) -> Vector {
+        #[allow(deprecated)]
         Vector::f32(values)
     }
 
+    #[deprecated(note = "Use `list<u8>` instead")]
     pub fn u8_vector(values: Vec<u8>) -> Vector {
+        #[allow(deprecated)]
         Vector::u8(values)
     }
 
+    #[deprecated(note = "Use `list<u8>` instead")]
     pub fn binary_vector(values: Vec<u8>) -> Vector {
+        #[allow(deprecated)]
         Vector::u8(values)
     }
 
@@ -45,6 +51,10 @@ pub mod data {
 
     pub fn u8_sparse_vector(indices: Vec<u32>, values: Vec<u8>) -> SparseVector {
         SparseVector::u8(indices, values)
+    }
+
+    pub fn list<T: crate::proto::v1::data::IntoListValues>(values: T) -> Value {
+        Value::list(values)
     }
 }
 

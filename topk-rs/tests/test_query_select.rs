@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 use test_context::test_context;
-use topk_rs::data::f32_vector;
+
+use topk_rs::data::literal;
 use topk_rs::doc;
 use topk_rs::proto::v1::data::Value;
+use topk_rs::query::{field, fns, r#match, select};
 
 mod utils;
-use topk_rs::data::literal;
-use topk_rs::query::{field, fns, r#match, select};
 use utils::dataset;
 use utils::ProjectTestContext;
 
@@ -190,7 +190,7 @@ async fn test_query_select_vector_distance(ctx: &mut ProjectTestContext) {
         .query(
             select([(
                 "summary_distance",
-                fns::vector_distance("summary_embedding", f32_vector(vec![2.0; 16])),
+                fns::vector_distance("summary_embedding", vec![2.0f32; 16]),
             )])
             .topk(field("summary_distance"), 3, true),
             None,
@@ -309,8 +309,8 @@ async fn test_query_select_union(ctx: &mut ProjectTestContext) {
             doc!("_id" => "6", "rank" => 6, "mixed" => (6 as f64)),
             doc!("_id" => "7", "rank" => 7, "mixed" => true),
             doc!("_id" => "8", "rank" => 8, "mixed" => "hello"),
-            doc!("_id" => "9", "rank" => 9, "mixed" => Value::u8_vector(vec![1, 2, 3])),
-            doc!("_id" => "10", "rank" => 10, "mixed" => Value::f32_vector(vec![1.0, 2.0, 3.0])),
+            doc!("_id" => "9", "rank" => 9, "mixed" => Value::list(vec![1u8, 2, 3])),
+            doc!("_id" => "10", "rank" => 10, "mixed" => Value::list(vec![1.0f32, 2.0, 3.0])),
             doc!("_id" => "11", "rank" => 11, "mixed" => Value::bytes(vec![1, 2, 3])),
             doc!("_id" => "12", "rank" => 12, "mixed" => Value::list(vec![17u32, 6, 1997])),
             doc!("_id" => "13", "rank" => 13, "mixed" => Value::list(vec!["foo".to_string(), "bar".to_string()])),
@@ -349,8 +349,8 @@ async fn test_query_select_union(ctx: &mut ProjectTestContext) {
             doc!("_id" => "6", "mixed" => (6.0 as f64)),
             doc!("_id" => "7", "mixed" => true),
             doc!("_id" => "8", "mixed" => "hello"),
-            doc!("_id" => "9", "mixed" => Value::u8_vector(vec![1, 2, 3])),
-            doc!("_id" => "10", "mixed" => Value::f32_vector(vec![1.0, 2.0, 3.0])),
+            doc!("_id" => "9", "mixed" => Value::list(vec![1u8, 2, 3])),
+            doc!("_id" => "10", "mixed" => Value::list(vec![1.0f32, 2.0, 3.0])),
             doc!("_id" => "11", "mixed" => Value::bytes(vec![1, 2, 3])),
             doc!("_id" => "12", "mixed" => Value::list(vec![17u32, 6, 1997])),
             doc!("_id" => "13", "mixed" => Value::list(vec!["foo".to_string(), "bar".to_string()])),

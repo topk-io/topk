@@ -1,5 +1,5 @@
 use test_context::test_context;
-use topk_rs::data::{f32_vector, literal};
+use topk_rs::data::literal;
 use topk_rs::query::{field, fns, r#match, select};
 
 mod utils;
@@ -20,7 +20,7 @@ async fn test_query_hybrid_vector_bm25(ctx: &mut ProjectTestContext) {
             select([
                 (
                     "summary_distance",
-                    fns::vector_distance("summary_embedding", f32_vector(vec![2.0; 16])),
+                    fns::vector_distance("summary_embedding", vec![2.0f32; 16]),
                 ),
                 ("bm25_score", fns::bm25_score()),
             ])
@@ -65,7 +65,7 @@ async fn test_query_hybrid_keyword_boost(ctx: &mut ProjectTestContext) {
             .query(
                 select([(
                     "summary_distance",
-                    fns::vector_distance("summary_embedding", f32_vector(vec![2.3; 16])),
+                    fns::vector_distance("summary_embedding", vec![2.3f32; 16]),
                 )])
                 .topk(score_expr, 3, true),
                 None,
@@ -95,11 +95,11 @@ async fn test_query_hybrid_coalesce_score(ctx: &mut ProjectTestContext) {
             select([
                 (
                     "summary_score",
-                    fns::vector_distance("summary_embedding", f32_vector(vec![4.1; 16])),
+                    fns::vector_distance("summary_embedding", vec![4.1; 16]),
                 ),
                 (
                     "nullable_score",
-                    fns::vector_distance("nullable_embedding", f32_vector(vec![4.1; 16])),
+                    fns::vector_distance("nullable_embedding", vec![4.1; 16]),
                 ),
             ])
             .topk(
