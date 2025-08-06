@@ -139,13 +139,13 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
             Some(topk_rs::proto::v1::data::value::Value::Null(_)) => Value::Null(),
             Some(topk_rs::proto::v1::data::value::Value::Binary(b)) => Value::Bytes(b),
             Some(topk_rs::proto::v1::data::value::Value::Vector(v)) => match v.vector {
-                Some(topk_rs::proto::v1::data::vector::Vector::Float(v)) => {
-                    // TODO: convert to list<f32>
+                Some(topk_rs::proto::v1::data::vector::Vector::Float(v)) =>
+                {
                     #[allow(deprecated)]
                     Value::Vector(Vector::F32(v.values))
                 }
-                Some(topk_rs::proto::v1::data::vector::Vector::Byte(v)) => {
-                    // TODO: convert to list<u8>
+                Some(topk_rs::proto::v1::data::vector::Vector::Byte(v)) =>
+                {
                     #[allow(deprecated)]
                     Value::Vector(Vector::U8(v.values))
                 }

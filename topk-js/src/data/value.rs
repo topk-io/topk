@@ -59,10 +59,14 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
             Some(topk_rs::proto::v1::data::value::Value::Binary(b)) => Value::Bytes(b),
             // Vectors
             Some(topk_rs::proto::v1::data::value::Value::Vector(v)) => match v.vector {
-                Some(topk_rs::proto::v1::data::vector::Vector::Float(float_vector)) => {
+                Some(topk_rs::proto::v1::data::vector::Vector::Float(float_vector)) =>
+                {
+                    #[allow(deprecated)]
                     Value::Vector(Vector::float(float_vector.values))
                 }
-                Some(topk_rs::proto::v1::data::vector::Vector::Byte(byte_vector)) => {
+                Some(topk_rs::proto::v1::data::vector::Vector::Byte(byte_vector)) =>
+                {
+                    #[allow(deprecated)]
                     Value::Vector(Vector::byte(byte_vector.values))
                 }
                 None => unreachable!("Invalid vector proto"),
