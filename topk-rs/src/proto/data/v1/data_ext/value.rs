@@ -278,6 +278,12 @@ impl value::Value {
     }
 }
 
+impl From<bool> for Value {
+    fn from(value: bool) -> Self {
+        Value::bool(value)
+    }
+}
+
 impl From<String> for Value {
     fn from(value: String) -> Self {
         Value::string(value)
@@ -332,21 +338,23 @@ impl From<Vec<f32>> for Value {
     }
 }
 
+impl From<Vec<u8>> for Value {
+    fn from(value: Vec<u8>) -> Self {
+        Value::list(value)
+    }
+}
+
 impl From<Vec<String>> for Value {
     fn from(value: Vec<String>) -> Self {
         Value::list(value)
     }
 }
 
-impl From<bool> for Value {
-    fn from(value: bool) -> Self {
-        Value::bool(value)
-    }
-}
-
-impl From<Vec<u8>> for Value {
-    fn from(value: Vec<u8>) -> Self {
-        Value::binary(value)
+impl From<SparseVector> for Value {
+    fn from(value: SparseVector) -> Self {
+        Value {
+            value: Some(value::Value::SparseVector(value)),
+        }
     }
 }
 
