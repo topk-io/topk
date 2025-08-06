@@ -25,13 +25,14 @@ test-rs:
     DO rust+CARGO --args="nextest archive -p topk-rs --archive-file e2e.tar.zst" # compile tests
 
     ARG region=dev
-    DO +SETUP_ENV --region=$region
+    ARG host
+    DO +SETUP_ENV --region=$region --host=$host
 
     # test
     ENV FORCE_COLOR=1
-    ARG args=""
+    ARG args="--no-fail-fast -j 16"
     RUN --no-cache --secret TOPK_API_KEY \
-        TOPK_API_KEY=$TOPK_API_KEY cargo nextest run --archive-file e2e.tar.zst --no-fail-fast -j 16 $args
+        TOPK_API_KEY=$TOPK_API_KEY cargo nextest run --archive-file e2e.tar.zst $args
 
 
 test-py:
@@ -140,14 +141,18 @@ SETUP_ENV:
     FUNCTION
 
     # region
+    ARG host
     ARG region=dev
     ENV TOPK_REGION=$region
 
     # setup dev environment
     IF [ "$region" = "dev" ]
+        IF [ -z "$host" ]
+            LET host=$(getent hosts host.docker.internal | awk '{ print $1 }')
+        END
+
         # forward traffic to dev cluster running on host
-        LET host_ip=$(getent hosts host.docker.internal | awk '{ print $1 }')
-        HOST dev.api.ddb $host_ip
+        HOST dev.api.ddb $host
         ENV TOPK_HOST=ddb
         ENV TOPK_HTTPS=false
     END
