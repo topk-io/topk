@@ -44,7 +44,7 @@ macro_rules! assert_doc_ids {
 macro_rules! assert_doc_ids_ordered {
     ($docs:expr, $expected:expr) => {{
         let ids = $docs
-            .into_iter()
+            .iter()
             .map(|d| d.id().unwrap().to_string())
             .collect::<Vec<_>>();
 
@@ -52,9 +52,10 @@ macro_rules! assert_doc_ids_ordered {
 
         assert!(
             ids == expected,
-            "actual: {:?}, expected: {:?}",
+            "actual: {:?}, expected: {:?}. response: {:?}",
             ids,
-            expected
+            expected,
+            $docs
         );
     }};
 }
