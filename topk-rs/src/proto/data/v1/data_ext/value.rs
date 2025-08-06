@@ -114,6 +114,7 @@ impl Value {
         }
     }
 
+    #[deprecated(note = "Use `list<f32>` instead")]
     pub fn f32_vector(values: Vec<f32>) -> Self {
         Value {
             value: Some(value::Value::Vector(Vector {
@@ -122,6 +123,7 @@ impl Value {
         }
     }
 
+    #[deprecated(note = "Use `as_f32_list` instead")]
     pub fn as_f32_vector(&self) -> Option<&[f32]> {
         match &self.value {
             Some(value::Value::Vector(vec)) => match &vec.vector {
@@ -132,6 +134,7 @@ impl Value {
         }
     }
 
+    #[deprecated(note = "Use `list<u8>` instead")]
     pub fn u8_vector(values: Vec<u8>) -> Self {
         Value {
             value: Some(value::Value::Vector(Vector {
@@ -140,6 +143,7 @@ impl Value {
         }
     }
 
+    #[deprecated(note = "Use `as_u8_list` instead")]
     pub fn as_u8_vector(&self) -> Option<&[u8]> {
         match &self.value {
             Some(value::Value::Vector(vec)) => match &vec.vector {
