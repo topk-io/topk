@@ -140,9 +140,13 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
             Some(topk_rs::proto::v1::data::value::Value::Binary(b)) => Value::Bytes(b),
             Some(topk_rs::proto::v1::data::value::Value::Vector(v)) => match v.vector {
                 Some(topk_rs::proto::v1::data::vector::Vector::Float(v)) => {
+                    // TODO: convert to list<f32>
+                    #[allow(deprecated)]
                     Value::Vector(Vector::F32(v.values))
                 }
                 Some(topk_rs::proto::v1::data::vector::Vector::Byte(v)) => {
+                    // TODO: convert to list<u8>
+                    #[allow(deprecated)]
                     Value::Vector(Vector::U8(v.values))
                 }
                 t => unreachable!("Unknown vector type: {:?}", t),
@@ -179,10 +183,7 @@ impl From<Value> for topk_rs::proto::v1::data::Value {
             Value::String(s) => topk_rs::proto::v1::data::Value::string(s),
             Value::Null() => topk_rs::proto::v1::data::Value::null(),
             Value::Bytes(b) => topk_rs::proto::v1::data::Value::binary(b),
-            Value::Vector(v) => match v {
-                Vector::F32(v) => topk_rs::proto::v1::data::Value::f32_vector(v),
-                Vector::U8(v) => topk_rs::proto::v1::data::Value::u8_vector(v),
-            },
+            Value::Vector(v) => v.into(),
             Value::SparseVector(v) => match v {
                 SparseVector::F32 { indices, values } => {
                     topk_rs::proto::v1::data::Value::f32_sparse_vector(indices, values)
