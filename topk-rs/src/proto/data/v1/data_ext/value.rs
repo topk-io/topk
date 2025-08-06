@@ -1,6 +1,5 @@
 use crate::proto::data::v1::{
     data_ext::IntoListValues, list, sparse_vector, value, vector, List, Null, SparseVector, Value,
-    Vector,
 };
 
 impl Value {
@@ -114,42 +113,6 @@ impl Value {
         }
     }
 
-    pub fn f32_vector(values: Vec<f32>) -> Self {
-        Value {
-            value: Some(value::Value::Vector(Vector {
-                vector: Some(vector::Vector::Float(vector::Float { values })),
-            })),
-        }
-    }
-
-    pub fn as_f32_vector(&self) -> Option<&[f32]> {
-        match &self.value {
-            Some(value::Value::Vector(vec)) => match &vec.vector {
-                Some(vector::Vector::Float(vector::Float { values })) => Some(values),
-                _ => None,
-            },
-            _ => None,
-        }
-    }
-
-    pub fn u8_vector(values: Vec<u8>) -> Self {
-        Value {
-            value: Some(value::Value::Vector(Vector {
-                vector: Some(vector::Vector::Byte(vector::Byte { values })),
-            })),
-        }
-    }
-
-    pub fn as_u8_vector(&self) -> Option<&[u8]> {
-        match &self.value {
-            Some(value::Value::Vector(vec)) => match &vec.vector {
-                Some(vector::Vector::Byte(vector::Byte { values })) => Some(values),
-                _ => None,
-            },
-            _ => None,
-        }
-    }
-
     pub fn f32_sparse_vector(indices: Vec<u32>, values: Vec<f32>) -> Self {
         Value {
             value: Some(value::Value::SparseVector(SparseVector {
@@ -198,6 +161,36 @@ impl Value {
             })),
         }
     }
+
+    pub fn as_u8_list(&self) -> Option<&[u8]> {
+        match &self.value {
+            Some(value::Value::List(list)) => match &list.values {
+                Some(list::Values::U8(v)) => Some(&v.values),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    pub fn as_f32_list(&self) -> Option<&[f32]> {
+        match &self.value {
+            Some(value::Value::List(list)) => match &list.values {
+                Some(list::Values::F32(v)) => Some(&v.values),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    pub fn as_string_list(&self) -> Option<&[String]> {
+        match &self.value {
+            Some(value::Value::List(list)) => match &list.values {
+                Some(list::Values::String(v)) => Some(&v.values),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
 }
 
 impl value::Value {
@@ -214,6 +207,7 @@ impl value::Value {
             value::Value::Binary(v) => {
                 format!("binary({})", v.len())
             }
+            #[allow(deprecated)]
             value::Value::Vector(vec) => match &vec.vector {
                 Some(vector::Vector::Float(v)) => format!("f32_vector({})", v.values.len()),
                 Some(vector::Vector::Byte(v)) => format!("u8_vector({})", v.values.len()),
@@ -236,6 +230,12 @@ impl value::Value {
             },
             value::Value::Null(_) => "null".to_string(),
         }
+    }
+}
+
+impl From<bool> for Value {
+    fn from(value: bool) -> Self {
+        Value::bool(value)
     }
 }
 
@@ -289,7 +289,13 @@ impl From<f64> for Value {
 
 impl From<Vec<f32>> for Value {
     fn from(value: Vec<f32>) -> Self {
-        Value::f32_vector(value)
+        Value::list(value)
+    }
+}
+
+impl From<Vec<u8>> for Value {
+    fn from(value: Vec<u8>) -> Self {
+        Value::list(value)
     }
 }
 
@@ -299,15 +305,11 @@ impl From<Vec<String>> for Value {
     }
 }
 
-impl From<bool> for Value {
-    fn from(value: bool) -> Self {
-        Value::bool(value)
-    }
-}
-
-impl From<Vec<u8>> for Value {
-    fn from(value: Vec<u8>) -> Self {
-        Value::binary(value)
+impl From<SparseVector> for Value {
+    fn from(value: SparseVector) -> Self {
+        Value {
+            value: Some(value::Value::SparseVector(value)),
+        }
     }
 }
 

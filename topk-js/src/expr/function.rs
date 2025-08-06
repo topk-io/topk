@@ -47,15 +47,15 @@ pub enum QueryVector {
     Sparse { query: crate::data::SparseVector },
 }
 
-impl From<QueryVector> for topk_rs::proto::v1::data::QueryVector {
+impl From<QueryVector> for topk_rs::proto::v1::data::Value {
     fn from(query: QueryVector) -> Self {
         match query {
-            QueryVector::Dense { query } => {
-                topk_rs::proto::v1::data::QueryVector::Dense(query.into())
-            }
-            QueryVector::Sparse { query } => {
-                topk_rs::proto::v1::data::QueryVector::Sparse(query.into())
-            }
+            QueryVector::Dense { query } => query.into(),
+            QueryVector::Sparse { query } => topk_rs::proto::v1::data::Value {
+                value: Some(topk_rs::proto::v1::data::value::Value::SparseVector(
+                    query.into(),
+                )),
+            },
         }
     }
 }

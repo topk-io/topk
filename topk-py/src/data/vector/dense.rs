@@ -63,11 +63,11 @@ impl<'py> FromPyObject<'py> for U8Vector {
     }
 }
 
-impl From<Vector> for topk_rs::proto::v1::data::Vector {
+impl From<Vector> for topk_rs::proto::v1::data::Value {
     fn from(vector: Vector) -> Self {
         match vector {
-            Vector::F32(values) => topk_rs::proto::v1::data::Vector::f32(values),
-            Vector::U8(values) => topk_rs::proto::v1::data::Vector::u8(values),
+            Vector::F32(values) => topk_rs::proto::v1::data::Value::list(values),
+            Vector::U8(values) => topk_rs::proto::v1::data::Value::list(values),
         }
     }
 }

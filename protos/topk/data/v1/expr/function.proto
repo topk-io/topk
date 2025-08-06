@@ -6,8 +6,12 @@ import "topk/data/v1/value.proto";
 message FunctionExpr {
   message VectorDistance {
     string field = 1;
-    Vector query = 2;
-    SparseVector sparse_query = 3;
+    // Deprecated in favor of `query`.
+    Vector dense_query = 2 [deprecated = true];
+    // Deprecated in favor of `query`.
+    SparseVector sparse_query = 3 [deprecated = true];
+    // Query value to compute distance against.
+    Value query = 4;
   }
 
   message Bm25Score {}

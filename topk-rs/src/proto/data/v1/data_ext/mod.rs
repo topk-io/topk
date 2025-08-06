@@ -3,10 +3,15 @@ use crate::proto::data::v1::list;
 mod document;
 mod sparse_vector;
 mod value;
-mod vector;
 
 pub trait IntoListValues {
     fn into_list_values(self) -> list::Values;
+}
+
+impl IntoListValues for Vec<u8> {
+    fn into_list_values(self) -> list::Values {
+        list::Values::U8(list::U8 { values: self })
+    }
 }
 
 impl IntoListValues for Vec<u32> {

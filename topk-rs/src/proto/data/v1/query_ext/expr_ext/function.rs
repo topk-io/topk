@@ -1,24 +1,21 @@
 use crate::proto::{
-    data::v1::{SparseVector, Vector},
+    data::v1::Value,
     v1::data::{function_expr, FunctionExpr},
 };
 
 impl FunctionExpr {
-    pub fn vector_distance(field: impl Into<String>, query: impl Into<QueryVector>) -> Self {
-        let dist = match query.into() {
-            QueryVector::Dense(query) => function_expr::VectorDistance {
-                field: field.into(),
-                query: Some(query),
-                sparse_query: None,
-            },
-            QueryVector::Sparse(sparse_query) => function_expr::VectorDistance {
-                field: field.into(),
-                query: None,
-                sparse_query: Some(sparse_query),
-            },
-        };
+    pub fn vector_distance(field: impl Into<String>, query: impl Into<Value>) -> Self {
         FunctionExpr {
-            func: Some(function_expr::Func::VectorDistance(dist)),
+            func: Some(function_expr::Func::VectorDistance(
+                function_expr::VectorDistance {
+                    field: field.into(),
+                    query: Some(query.into()),
+                    #[allow(deprecated)]
+                    dense_query: None,
+                    #[allow(deprecated)]
+                    sparse_query: None,
+                },
+            )),
         }
     }
 
@@ -37,35 +34,5 @@ impl FunctionExpr {
                 },
             )),
         }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum QueryVector {
-    Dense(Vector),
-    Sparse(SparseVector),
-}
-
-impl From<Vector> for QueryVector {
-    fn from(vector: Vector) -> Self {
-        QueryVector::Dense(vector)
-    }
-}
-
-impl From<SparseVector> for QueryVector {
-    fn from(sparse_vector: SparseVector) -> Self {
-        QueryVector::Sparse(sparse_vector)
-    }
-}
-
-impl From<Vec<f32>> for QueryVector {
-    fn from(values: Vec<f32>) -> Self {
-        QueryVector::Dense(Vector::f32(values))
-    }
-}
-
-impl From<Vec<u8>> for QueryVector {
-    fn from(values: Vec<u8>) -> Self {
-        QueryVector::Dense(Vector::u8(values))
     }
 }

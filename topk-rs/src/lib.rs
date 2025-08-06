@@ -21,22 +21,14 @@ pub use client::retry;
 
 // Public API
 pub mod data {
-    use crate::proto::v1::data::{SparseVector, Value, Vector};
+    use crate::proto::v1::data::{SparseVector, Value};
 
     pub fn literal(value: impl Into<Value>) -> Value {
         value.into()
     }
 
-    pub fn f32_vector(values: Vec<f32>) -> Vector {
-        Vector::f32(values)
-    }
-
-    pub fn u8_vector(values: Vec<u8>) -> Vector {
-        Vector::u8(values)
-    }
-
-    pub fn binary_vector(values: Vec<u8>) -> Vector {
-        Vector::u8(values)
+    pub fn list<T: crate::proto::v1::data::IntoListValues>(values: T) -> Value {
+        Value::list(values)
     }
 
     pub fn f32_sparse_vector(indices: Vec<u32>, values: Vec<f32>) -> SparseVector {
@@ -56,12 +48,9 @@ pub mod query {
     };
 
     pub mod fns {
-        use crate::proto::v1::data::{FunctionExpr, QueryVector};
+        use crate::proto::v1::data::{FunctionExpr, Value};
 
-        pub fn vector_distance(
-            field: impl Into<String>,
-            query: impl Into<QueryVector>,
-        ) -> FunctionExpr {
+        pub fn vector_distance(field: impl Into<String>, query: impl Into<Value>) -> FunctionExpr {
             FunctionExpr::vector_distance(field, query)
         }
 
