@@ -1,7 +1,4 @@
-use crate::{
-    data::Value,
-    expr::function::{FunctionExpression, QueryVector},
-};
+use crate::{data::Value, expr::function::FunctionExpression};
 use napi_derive::napi;
 
 #[napi(namespace = "query_fn", ts_return_type = "query.FunctionExpression")]
@@ -12,17 +9,7 @@ pub fn vector_distance(
     )]
     query: Value,
 ) -> napi::Result<FunctionExpression> {
-    match query {
-        Value::Vector(query) => Ok(FunctionExpression::vector_score(
-            field,
-            QueryVector::Dense { query },
-        )),
-        Value::SparseVector(query) => Ok(FunctionExpression::vector_score(
-            field,
-            QueryVector::Sparse { query },
-        )),
-        v => Err(napi::Error::from_reason(format!("Unsupported vector query: {:?}", v)).into()),
-    }
+    Ok(FunctionExpression::vector_score(field, query))
 }
 
 #[napi(namespace = "query_fn", ts_return_type = "query.FunctionExpression")]

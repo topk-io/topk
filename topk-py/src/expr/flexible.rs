@@ -1,8 +1,5 @@
 use super::logical::LogicalExpr;
-use crate::data::{
-    scalar::Scalar,
-    vector::{F32SparseVector, F32Vector, SparseVector, Vector},
-};
+use crate::data::scalar::Scalar;
 use pyo3::{
     exceptions::PyTypeError,
     prelude::*,
@@ -126,39 +123,6 @@ impl Into<LogicalExpr> for Stringy {
                 value: Scalar::String(s),
             },
             Stringy::Expr(e) => e,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum Vectorish {
-    DenseU8(Vec<u8>),
-    DenseF32(Vec<f32>),
-    SparseU8(Vec<u32>, Vec<u8>),
-    SparseF32(Vec<u32>, Vec<f32>),
-}
-
-impl<'py> FromPyObject<'py> for Vectorish {
-    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
-        if let Ok(v) = obj.downcast::<Vector>() {
-            match v.get().clone() {
-                Vector::F32(values) => Ok(Vectorish::DenseF32(values)),
-                Vector::U8(values) => Ok(Vectorish::DenseU8(values)),
-            }
-        } else if let Ok(v) = obj.downcast::<SparseVector>() {
-            match v.get().clone() {
-                SparseVector::F32 { indices, values } => Ok(Vectorish::SparseF32(indices, values)),
-                SparseVector::U8 { indices, values } => Ok(Vectorish::SparseU8(indices, values)),
-            }
-        } else if let Ok(v) = F32Vector::extract_bound(obj) {
-            Ok(Vectorish::DenseF32(v.values))
-        } else if let Ok(v) = F32SparseVector::extract_bound(obj) {
-            Ok(Vectorish::SparseF32(v.indices, v.values))
-        } else {
-            Err(PyTypeError::new_err(format!(
-                "Can't convert from {:?} to Vectorish",
-                obj.get_type().name()
-            )))
         }
     }
 }

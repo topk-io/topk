@@ -1,5 +1,7 @@
 use napi_derive::napi;
 
+use crate::data::Value;
+
 #[napi(namespace = "query")]
 #[derive(Debug, Clone)]
 pub struct FunctionExpression(FunctionExpressionUnion);
@@ -9,7 +11,7 @@ impl FunctionExpression {
         FunctionExpression(FunctionExpressionUnion::KeywordScore)
     }
 
-    pub(crate) fn vector_score(field: String, query: QueryVector) -> Self {
+    pub(crate) fn vector_score(field: String, query: Value) -> Self {
         FunctionExpression(FunctionExpressionUnion::VectorScore { field, query })
     }
 
@@ -21,7 +23,7 @@ impl FunctionExpression {
 #[derive(Debug, Clone)]
 pub enum FunctionExpressionUnion {
     KeywordScore,
-    VectorScore { field: String, query: QueryVector },
+    VectorScore { field: String, query: Value },
     SemanticSimilarity { field: String, query: String },
 }
 
@@ -37,25 +39,6 @@ impl From<FunctionExpression> for topk_rs::proto::v1::data::FunctionExpr {
             FunctionExpressionUnion::SemanticSimilarity { field, query } => {
                 topk_rs::proto::v1::data::FunctionExpr::semantic_similarity(field, query)
             }
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum QueryVector {
-    Dense { query: crate::data::Vector },
-    Sparse { query: crate::data::SparseVector },
-}
-
-impl From<QueryVector> for topk_rs::proto::v1::data::Value {
-    fn from(query: QueryVector) -> Self {
-        match query {
-            QueryVector::Dense { query } => query.into(),
-            QueryVector::Sparse { query } => topk_rs::proto::v1::data::Value {
-                value: Some(topk_rs::proto::v1::data::value::Value::SparseVector(
-                    query.into(),
-                )),
-            },
         }
     }
 }

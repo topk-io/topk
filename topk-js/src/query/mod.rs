@@ -6,7 +6,7 @@ use crate::{
     data::{Scalar, Value},
     expr::{
         filter::FilterExpression,
-        logical::{LogicalExpression, UnaryOperator, BinaryOperator, Numeric},
+        logical::{BinaryOperator, LogicalExpression, Numeric, UnaryOperator},
         select::SelectExpression,
     },
     query::{query::Query, stage::Stage},

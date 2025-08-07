@@ -1,10 +1,9 @@
 use crate::data::scalar::Scalar;
-use crate::data::vector::{SparseVector, Vector};
+use crate::data::value::Value;
 use crate::expr::filter::FilterExprUnion;
-use crate::expr::flexible::Vectorish;
-use crate::expr::function::{FunctionExpr, QueryVector};
-use crate::expr::logical::{LogicalExpr, UnaryOperator, BinaryOperator};
 use crate::expr::flexible::Numeric;
+use crate::expr::function::FunctionExpr;
+use crate::expr::logical::{BinaryOperator, LogicalExpr, UnaryOperator};
 use crate::expr::select::SelectExprUnion;
 use crate::expr::text::{Term, TextExpr};
 use crate::module;
@@ -127,20 +126,8 @@ pub fn bm25_score() -> FunctionExpr {
 }
 
 #[pyfunction]
-pub fn vector_distance(field: String, query: Vectorish) -> FunctionExpr {
-    FunctionExpr::VectorScore {
-        field,
-        query: match query {
-            Vectorish::DenseF32(values) => QueryVector::Dense(Vector::F32(values)),
-            Vectorish::DenseU8(values) => QueryVector::Dense(Vector::U8(values)),
-            Vectorish::SparseF32(indices, values) => {
-                QueryVector::Sparse(SparseVector::F32 { indices, values })
-            }
-            Vectorish::SparseU8(indices, values) => {
-                QueryVector::Sparse(SparseVector::U8 { indices, values })
-            }
-        },
-    }
+pub fn vector_distance(field: String, query: Value) -> FunctionExpr {
+    FunctionExpr::VectorScore { field, query }
 }
 
 #[pyfunction]
