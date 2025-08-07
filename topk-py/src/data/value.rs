@@ -5,7 +5,7 @@ use pyo3::{
     IntoPyObjectExt,
 };
 
-use crate::data::vector::{F32SparseVector, Vector};
+use crate::data::vector::{F32SparseVector, F32Vector, Vector};
 
 use super::vector::SparseVector;
 
@@ -25,27 +25,27 @@ pub enum Value {
 impl<'py> FromPyObject<'py> for Value {
     fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
         // NOTE: it's safe to use `downcast` for custom types
-        if let Ok(v) = obj.downcast::<SparseVector>() {
+        if let Ok(v) = obj.downcast::<Vector>() {
+            Ok(Value::Vector(v.get().clone()))
+        } else if let Ok(v) = obj.downcast::<SparseVector>() {
             Ok(Value::SparseVector(v.get().clone()))
+        } else if let Ok(s) = obj.downcast_exact::<PyString>() {
+            Ok(Value::String(s.extract()?))
+        } else if let Ok(i) = obj.downcast_exact::<PyInt>() {
+            Ok(Value::Int(i.extract()?))
+        } else if let Ok(b) = obj.downcast_exact::<PyBytes>() {
+            Ok(Value::Bytes(b.extract()?))
+        } else if let Ok(f) = obj.downcast_exact::<PyFloat>() {
+            Ok(Value::Float(f.extract()?))
+        } else if let Ok(b) = obj.downcast_exact::<PyBool>() {
+            Ok(Value::Bool(b.extract()?))
         } else if let Ok(v) = F32SparseVector::extract_bound(obj) {
             Ok(Value::SparseVector(SparseVector::F32 {
                 indices: v.indices,
                 values: v.values,
             }))
-        } else if let Ok(v) = obj.downcast::<Vector>() {
-            Ok(Value::Vector(v.get().clone()))
-        } else if let Ok(b) = obj.downcast_exact::<PyBytes>() {
-            Ok(Value::Bytes(b.extract()?))
-        } else if let Ok(v) = obj.extract::<Vec<f32>>() {
-            Ok(Value::Vector(Vector::F32(v)))
-        } else if let Ok(s) = obj.downcast_exact::<PyString>() {
-            Ok(Value::String(s.extract()?))
-        } else if let Ok(i) = obj.downcast_exact::<PyInt>() {
-            Ok(Value::Int(i.extract()?))
-        } else if let Ok(f) = obj.downcast_exact::<PyFloat>() {
-            Ok(Value::Float(f.extract()?))
-        } else if let Ok(b) = obj.downcast_exact::<PyBool>() {
-            Ok(Value::Bool(b.extract()?))
+        } else if let Ok(v) = F32Vector::extract_bound(obj) {
+            Ok(Value::Vector(Vector::F32(v.values)))
         } else if let Ok(_) = obj.downcast_exact::<PyNone>() {
             Ok(Value::Null())
         } else {
