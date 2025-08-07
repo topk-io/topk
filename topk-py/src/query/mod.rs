@@ -7,6 +7,7 @@ use crate::expr::logical::{BinaryOperator, LogicalExpr, UnaryOperator};
 use crate::expr::select::SelectExprUnion;
 use crate::expr::text::{Term, TextExpr};
 use crate::module;
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use std::collections::HashMap;
 
@@ -126,8 +127,20 @@ pub fn bm25_score() -> FunctionExpr {
 }
 
 #[pyfunction]
-pub fn vector_distance(field: String, query: Value) -> FunctionExpr {
-    FunctionExpr::VectorScore { field, query }
+pub fn vector_distance(field: String, query: Value) -> PyResult<FunctionExpr> {
+    match query {
+        Value::Vector(vector) => Ok(FunctionExpr::VectorScore {
+            field,
+            query: Value::Vector(vector),
+        }),
+        Value::SparseVector(vector) => Ok(FunctionExpr::VectorScore {
+            field,
+            query: Value::SparseVector(vector),
+        }),
+        _ => Err(PyValueError::new_err(
+            "Vector query must be a vector or sparse vector",
+        )),
+    }
 }
 
 #[pyfunction]

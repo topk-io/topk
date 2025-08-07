@@ -9,7 +9,20 @@ pub fn vector_distance(
     )]
     query: Value,
 ) -> napi::Result<FunctionExpression> {
-    Ok(FunctionExpression::vector_score(field, query))
+    match query {
+        Value::Vector(vector) => Ok(FunctionExpression::vector_score(
+            field,
+            Value::Vector(vector),
+        )),
+        Value::SparseVector(vector) => Ok(FunctionExpression::vector_score(
+            field,
+            Value::SparseVector(vector),
+        )),
+        _ => Err(napi::Error::new(
+            napi::Status::InvalidArg,
+            "Vector query must be a vector or sparse vector",
+        )),
+    }
 }
 
 #[napi(namespace = "query_fn", ts_return_type = "query.FunctionExpression")]
