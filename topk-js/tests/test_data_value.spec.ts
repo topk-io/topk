@@ -1,6 +1,11 @@
 import { bytes, listI32, listU32, listI64, listF64 } from "../lib/data";
 
 const TYPE_ERROR_BYTES = "Invalid bytes value, must be `number[]` or `Buffer`";
+const TYPE_ERROR_LIST = "Given napi value is not an array";
+const TYPE_ERROR_STRING_TO_INT32 = "Failed to convert napi value String into rust type `i32`";
+const TYPE_ERROR_STRING_TO_INT64 = "Failed to convert napi value String into rust type `i64`";
+const TYPE_ERROR_STRING_TO_UINT32 = "Failed to convert napi value String into rust type `u32`";
+const TYPE_ERROR_STRING_TO_FLOAT = "Failed to convert napi value String into rust type `f64`";
 
 describe("bytes", () => {
   test("valid", () => {
@@ -33,7 +38,6 @@ describe("bytes", () => {
   });
 });
 
-const TYPE_ERROR_LIST = "Given napi value is not an array";
 
 describe("list", () => {
   test("valid", () => {
@@ -62,7 +66,7 @@ describe("list", () => {
     expect(() => listI32(BigInt(1) as any)).toThrow(TYPE_ERROR_LIST);
     expect(() => listI32({ 1: 256 } as any)).toThrow(TYPE_ERROR_LIST);
     expect(() => listI32({ 1: -1 } as any)).toThrow(TYPE_ERROR_LIST);
-    expect(() => listI32(["1", "2", "3"] as any)).toThrow("Failed to convert napi value String into rust type `i32`");
+    expect(() => listI32(["1", "2", "3"] as any)).toThrow(TYPE_ERROR_STRING_TO_INT32);
     expect(() => listU32(0 as any)).toThrow(TYPE_ERROR_LIST);
     expect(() => listU32(null as any)).toThrow(TYPE_ERROR_LIST);
     expect(() => listU32(undefined as any)).toThrow(TYPE_ERROR_LIST);
@@ -74,7 +78,7 @@ describe("list", () => {
     expect(() => listU32(BigInt(1) as any)).toThrow(TYPE_ERROR_LIST);
     expect(() => listU32({ 1: 256 } as any)).toThrow(TYPE_ERROR_LIST);
     expect(() => listU32({ 1: -1 } as any)).toThrow(TYPE_ERROR_LIST);
-    expect(() => listU32(["1", "2", "3"] as any)).toThrow("Failed to convert napi value String into rust type `u32`");
+    expect(() => listU32(["1", "2", "3"] as any)).toThrow(TYPE_ERROR_STRING_TO_UINT32);
     expect(() => listI64(0 as any)).toThrow(TYPE_ERROR_LIST);
     expect(() => listI64(null as any)).toThrow(TYPE_ERROR_LIST);
     expect(() => listI64(undefined as any)).toThrow(TYPE_ERROR_LIST);
@@ -86,7 +90,7 @@ describe("list", () => {
     expect(() => listI64(BigInt(1) as any)).toThrow(TYPE_ERROR_LIST);
     expect(() => listI64({ 1: 256 } as any)).toThrow(TYPE_ERROR_LIST);
     expect(() => listI64({ 1: -1 } as any)).toThrow(TYPE_ERROR_LIST);
-    expect(() => listI64(["1", "2", "3"] as any)).toThrow("Failed to convert napi value String into rust type `i64`");
+    expect(() => listI64(["1", "2", "3"] as any)).toThrow(TYPE_ERROR_STRING_TO_INT64);
     expect(() => listF64(0 as any)).toThrow(TYPE_ERROR_LIST);
     expect(() => listF64(null as any)).toThrow(TYPE_ERROR_LIST);
     expect(() => listF64(undefined as any)).toThrow(TYPE_ERROR_LIST);
@@ -98,6 +102,6 @@ describe("list", () => {
     expect(() => listF64(BigInt(1) as any)).toThrow(TYPE_ERROR_LIST);
     expect(() => listF64({ 1: 256 } as any)).toThrow(TYPE_ERROR_LIST);
     expect(() => listF64({ 1: -1 } as any)).toThrow(TYPE_ERROR_LIST);
-    expect(() => listF64(["1", "2", "3"] as any)).toThrow("Failed to convert napi value String into rust type `f64`");
+    expect(() => listF64(["1", "2", "3"] as any)).toThrow(TYPE_ERROR_STRING_TO_FLOAT);
   });
 });

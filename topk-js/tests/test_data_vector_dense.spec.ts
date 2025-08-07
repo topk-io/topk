@@ -1,7 +1,7 @@
 import { binaryVector, f32Vector, u8Vector } from "../lib/data";
 
-const TYPE_ERROR = "Invalid vector value, must be `number[]`";
-const NAPI_ERROR = "Given napi value is not an array";
+const TYPE_ERROR = "Given napi value is not an array";
+const TYPE_ERROR_U32_TO_U8 = "Failed to convert u32 to u8";
 
 describe("f32Vector", () => {
   test("valid", () => {
@@ -19,17 +19,17 @@ describe("f32Vector", () => {
   });
 
   test("invalid arguments", () => {
-    expect(() => f32Vector(0 as any)).toThrow(NAPI_ERROR);
-    expect(() => f32Vector(null as any)).toThrow(NAPI_ERROR);
-    expect(() => f32Vector(undefined as any)).toThrow(NAPI_ERROR);
-    expect(() => f32Vector(false as any)).toThrow(NAPI_ERROR);
-    expect(() => f32Vector(NaN as any)).toThrow(NAPI_ERROR);
-    expect(() => f32Vector(Infinity as any)).toThrow(NAPI_ERROR);
-    expect(() => f32Vector(-Infinity as any)).toThrow(NAPI_ERROR);
-    expect(() => f32Vector(Symbol("foo") as any)).toThrow(NAPI_ERROR);
-    expect(() => f32Vector(BigInt(1) as any)).toThrow(NAPI_ERROR);
-    expect(() => f32Vector({ 1: 256 } as any)).toThrow(NAPI_ERROR);
-    expect(() => f32Vector({ 1: -1 } as any)).toThrow(NAPI_ERROR);
+    expect(() => f32Vector(0 as any)).toThrow(TYPE_ERROR);
+    expect(() => f32Vector(null as any)).toThrow(TYPE_ERROR);
+    expect(() => f32Vector(undefined as any)).toThrow(TYPE_ERROR);
+    expect(() => f32Vector(false as any)).toThrow(TYPE_ERROR);
+    expect(() => f32Vector(NaN as any)).toThrow(TYPE_ERROR);
+    expect(() => f32Vector(Infinity as any)).toThrow(TYPE_ERROR);
+    expect(() => f32Vector(-Infinity as any)).toThrow(TYPE_ERROR);
+    expect(() => f32Vector(Symbol("foo") as any)).toThrow(TYPE_ERROR);
+    expect(() => f32Vector(BigInt(1) as any)).toThrow(TYPE_ERROR);
+    expect(() => f32Vector({ 1: 256 } as any)).toThrow(TYPE_ERROR);
+    expect(() => f32Vector({ 1: -1 } as any)).toThrow(TYPE_ERROR);
   });
 });
 
@@ -49,22 +49,22 @@ describe("u8Vector", () => {
   });
 
   test("invalid number range", () => {
-    expect(() => u8Vector([256] as any)).toThrow("Failed to convert u32 to u8");
-    expect(() => u8Vector([-1] as any)).toThrow("Failed to convert u32 to u8");
+    expect(() => u8Vector([256] as any)).toThrow(TYPE_ERROR_U32_TO_U8);
+    expect(() => u8Vector([-1] as any)).toThrow(TYPE_ERROR_U32_TO_U8);
   });
 
   test("invalid arguments", () => {
-    expect(() => u8Vector(0 as any)).toThrow(NAPI_ERROR);
-    expect(() => u8Vector(null as any)).toThrow(NAPI_ERROR);
-    expect(() => u8Vector(undefined as any)).toThrow(NAPI_ERROR);
-    expect(() => u8Vector(false as any)).toThrow(NAPI_ERROR);
-    expect(() => u8Vector(NaN as any)).toThrow(NAPI_ERROR);
-    expect(() => u8Vector(Infinity as any)).toThrow(NAPI_ERROR);
-    expect(() => u8Vector(-Infinity as any)).toThrow(NAPI_ERROR);
-    expect(() => u8Vector(Symbol("foo") as any)).toThrow(NAPI_ERROR);
-    expect(() => u8Vector(BigInt(1) as any)).toThrow(NAPI_ERROR);
-    expect(() => u8Vector({ 1: 256 } as any)).toThrow(NAPI_ERROR);
-    expect(() => u8Vector({ 1: -1 } as any)).toThrow(NAPI_ERROR);
+    expect(() => u8Vector(0 as any)).toThrow(TYPE_ERROR);
+    expect(() => u8Vector(null as any)).toThrow(TYPE_ERROR);
+    expect(() => u8Vector(undefined as any)).toThrow(TYPE_ERROR);
+    expect(() => u8Vector(false as any)).toThrow(TYPE_ERROR);
+    expect(() => u8Vector(NaN as any)).toThrow(TYPE_ERROR);
+    expect(() => u8Vector(Infinity as any)).toThrow(TYPE_ERROR);
+    expect(() => u8Vector(-Infinity as any)).toThrow(TYPE_ERROR);
+    expect(() => u8Vector(Symbol("foo") as any)).toThrow(TYPE_ERROR);
+    expect(() => u8Vector(BigInt(1) as any)).toThrow(TYPE_ERROR);
+    expect(() => u8Vector({ 1: 256 } as any)).toThrow(TYPE_ERROR);
+    expect(() => u8Vector({ 1: -1 } as any)).toThrow(TYPE_ERROR);
   });
 });
 
@@ -84,21 +84,21 @@ describe("binaryVector", () => {
   });
 
   test("invalid number range", () => {
-    expect(() => binaryVector([256] as any)).toThrow("Failed to convert u32 to u8");
-    expect(() => binaryVector([-1] as any)).toThrow("Failed to convert u32 to u8");
+    expect(() => binaryVector([256] as any)).toThrow(TYPE_ERROR_U32_TO_U8);
+    expect(() => binaryVector([-1] as any)).toThrow(TYPE_ERROR_U32_TO_U8);
   });
 
   test("invalid arguments", () => {
-    expect(() => binaryVector(0 as any)).toThrow(NAPI_ERROR);
-    expect(() => binaryVector(null as any)).toThrow(NAPI_ERROR);
-    expect(() => binaryVector(undefined as any)).toThrow(NAPI_ERROR);
-    expect(() => binaryVector(false as any)).toThrow(NAPI_ERROR);
-    expect(() => binaryVector(NaN as any)).toThrow(NAPI_ERROR);
-    expect(() => binaryVector(Infinity as any)).toThrow(NAPI_ERROR);
-    expect(() => binaryVector(-Infinity as any)).toThrow(NAPI_ERROR);
-    expect(() => binaryVector(Symbol("foo") as any)).toThrow(NAPI_ERROR);
-    expect(() => binaryVector(BigInt(1) as any)).toThrow(NAPI_ERROR);
-    expect(() => binaryVector({ 1: 256 } as any)).toThrow(NAPI_ERROR);
-    expect(() => binaryVector({ 1: -1 } as any)).toThrow(NAPI_ERROR);
+    expect(() => binaryVector(0 as any)).toThrow(TYPE_ERROR);
+    expect(() => binaryVector(null as any)).toThrow(TYPE_ERROR);
+    expect(() => binaryVector(undefined as any)).toThrow(TYPE_ERROR);
+    expect(() => binaryVector(false as any)).toThrow(TYPE_ERROR);
+    expect(() => binaryVector(NaN as any)).toThrow(TYPE_ERROR);
+    expect(() => binaryVector(Infinity as any)).toThrow(TYPE_ERROR);
+    expect(() => binaryVector(-Infinity as any)).toThrow(TYPE_ERROR);
+    expect(() => binaryVector(Symbol("foo") as any)).toThrow(TYPE_ERROR);
+    expect(() => binaryVector(BigInt(1) as any)).toThrow(TYPE_ERROR);
+    expect(() => binaryVector({ 1: 256 } as any)).toThrow(TYPE_ERROR);
+    expect(() => binaryVector({ 1: -1 } as any)).toThrow(TYPE_ERROR);
   });
 });
