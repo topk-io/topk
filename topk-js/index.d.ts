@@ -108,10 +108,10 @@ export declare namespace data {
   export function bytes(buffer: Array<number> | Buffer): any
   export function f32SparseVector(vector: Record<number, number>): SparseVector
   export function f32Vector(values: Array<number>): List
-  export function listF64(values: Array<number>): List
-  export function listI32(values: Array<number>): List
-  export function listI64(values: Array<number>): List
-  export function listU32(values: Array<number>): List
+  export function f64List(values: Array<number>): List
+  export function i32List(values: Array<number>): List
+  export function i64List(values: Array<number>): List
+  export function u32List(values: Array<number>): List
   export function u8SparseVector(vector: Record<number, number>): SparseVector
   export function u8Vector(values: Array<number>): List
 }
