@@ -1,4 +1,4 @@
-import { bytes, listU32, u8Vector } from "../lib/data";
+import { bytes, u32List, u8Vector } from "../lib/data";
 import { field, fn, literal, match, select } from "../lib/query";
 import { f32Vector, int, keywordIndex, text, vectorIndex } from "../lib/schema";
 import { newProjectContext, ProjectContext } from "./setup";
@@ -276,7 +276,7 @@ describe("Select Queries", () => {
       { _id: "9", rank: 9, mixed: u8Vector([1, 2, 3]) },
       { _id: "10", rank: 10, mixed: [1.0, 2.0, 3.0] },
       { _id: "11", rank: 11, mixed: bytes([1, 2, 3]) },
-      { _id: "12", rank: 12, mixed: listU32([17, 6, 1997]) },
+      { _id: "12", rank: 12, mixed: u32List([17, 6, 1997]) },
       { _id: "13", rank: 13, mixed: ["foo", "bar"] },
     ]);
 

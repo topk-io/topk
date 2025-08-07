@@ -48,28 +48,28 @@ pub fn binary_vector(values: Vec<u8>) -> List {
 }
 
 #[napi(namespace = "data")]
-pub fn list_u32(values: Vec<u32>) -> List {
+pub fn u32_list(values: Vec<u32>) -> List {
     List {
         values: Values::U32(values),
     }
 }
 
 #[napi(namespace = "data")]
-pub fn list_i32(values: Vec<i32>) -> List {
+pub fn i32_list(values: Vec<i32>) -> List {
     List {
         values: Values::I32(values),
     }
 }
 
 #[napi(namespace = "data")]
-pub fn list_i64(values: Vec<i64>) -> List {
+pub fn i64_list(values: Vec<i64>) -> List {
     List {
         values: Values::I64(values),
     }
 }
 
 #[napi(namespace = "data")]
-pub fn list_f64(values: Vec<f64>) -> List {
+pub fn f64_list(values: Vec<f64>) -> List {
     List {
         values: Values::F64(values),
     }

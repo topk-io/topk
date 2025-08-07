@@ -1,5 +1,5 @@
+from topk_sdk.data import f32_vector, u8_vector, u32_list
 from topk_sdk.query import field, fn, literal, match, select
-from topk_sdk.data import f32_vector, list_u32, u8_vector
 
 from . import ProjectContext
 from .utils import dataset, doc_ids
@@ -132,6 +132,7 @@ def test_query_select_text_match(ctx: ProjectContext):
         {"_id": "1984", "match_surveillance": True, "match_love": False},
     ]
 
+
 def test_query_select_union(ctx: ProjectContext):
     # create collection
     collection = ctx.client.collections().create(ctx.scope("test"), schema={})
@@ -151,7 +152,7 @@ def test_query_select_union(ctx: ProjectContext):
             {"_id": "9", "rank": 9, "mixed": u8_vector([1, 2, 3])},
             {"_id": "10", "rank": 10, "mixed": f32_vector([1.0, 2.0, 3.0])},
             {"_id": "11", "rank": 11, "mixed": bytes([1, 2, 3])},
-            {"_id": "12", "rank": 12, "mixed": list_u32([17, 6, 199])},
+            {"_id": "12", "rank": 12, "mixed": u32_list([17, 6, 199])},
             {"_id": "13", "rank": 13, "mixed": ["foo", "bar"]},
         ]
     )

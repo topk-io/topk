@@ -1,82 +1,98 @@
 import pytest
-from topk_sdk.data import list_u32, list_i32, list_i64, list_f64
+from topk_sdk.data import f64_list, i32_list, i64_list, u32_list
 
-def test_list_u32():
-    result = list_u32([0, 1, 255, 4294967295])
+
+def test_u32_list():
+    result = u32_list([0, 1, 255, 4294967295])
     assert result is not None
     assert str(result) == "[0, 1, 255, 4294967295]"
 
 
-def test_list_u32_empty():
-    result = list_u32([])
+def test_u32_list_empty():
+    result = u32_list([])
     assert result is not None
     assert str(result) == "[]"
 
 
-def test_list_u32_invalid_input():
-    with pytest.raises(TypeError, match="Expected list\\[int\\] for list\\(\\) function"):
-        list_u32("not a list")  # type: ignore
+def test_u32_list_invalid_input():
+    with pytest.raises(
+        TypeError, match="Expected list\\[int\\] for list\\(\\) function"
+    ):
+        u32_list("not a list")  # type: ignore
 
-    with pytest.raises(TypeError, match="Expected list\\[int\\] for list\\(\\) function"):
-        list_u32(123)  # type: ignore
+    with pytest.raises(
+        TypeError, match="Expected list\\[int\\] for list\\(\\) function"
+    ):
+        u32_list(123)  # type: ignore
 
 
-def test_list_i32():
-    result = list_i32([-2147483648, -1, 0, 1, 2147483647])
+def test_i32_list():
+    result = i32_list([-2147483648, -1, 0, 1, 2147483647])
     assert result is not None
     assert str(result) == "[-2147483648, -1, 0, 1, 2147483647]"
 
 
-def test_list_i32_empty():
-    result = list_i32([])
+def test_i32_list_empty():
+    result = i32_list([])
     assert result is not None
     assert str(result) == "[]"
 
 
-def test_list_i32_invalid_input():
-    with pytest.raises(TypeError, match="Expected list\\[int\\] for list\\(\\) function"):
-        list_i32("not a list")  # type: ignore
+def test_i32_list_invalid_input():
+    with pytest.raises(
+        TypeError, match="Expected list\\[int\\] for list\\(\\) function"
+    ):
+        i32_list("not a list")  # type: ignore
 
-    with pytest.raises(TypeError, match="Expected list\\[int\\] for list\\(\\) function"):
-        list_i32(123)  # type: ignore
+    with pytest.raises(
+        TypeError, match="Expected list\\[int\\] for list\\(\\) function"
+    ):
+        i32_list(123)  # type: ignore
 
 
-def test_list_i64():
-    result = list_i64([-9223372036854775808, -1, 0, 1, 9223372036854775807])
+def test_i64_list():
+    result = i64_list([-9223372036854775808, -1, 0, 1, 9223372036854775807])
     assert result is not None
     assert str(result) == "[-9223372036854775808, -1, 0, 1, 9223372036854775807]"
 
 
-def test_list_i64_empty():
-    result = list_i64([])
+def test_i64_list_empty():
+    result = i64_list([])
     assert result is not None
     assert str(result) == "[]"
 
 
-def test_list_i64_invalid_input():
-    with pytest.raises(TypeError, match="Expected list\\[int\\] for list\\(\\) function"):
-        list_i64("not a list")  # type: ignore
+def test_i64_list_invalid_input():
+    with pytest.raises(
+        TypeError, match="Expected list\\[int\\] for list\\(\\) function"
+    ):
+        i64_list("not a list")  # type: ignore
 
-    with pytest.raises(TypeError, match="Expected list\\[int\\] for list\\(\\) function"):
-        list_i64(123)  # type: ignore
+    with pytest.raises(
+        TypeError, match="Expected list\\[int\\] for list\\(\\) function"
+    ):
+        i64_list(123)  # type: ignore
 
 
-def test_list_f64():
-    result = list_f64([1.0, 2.5, -3.14, 0.0])
+def test_f64_list():
+    result = f64_list([1.0, 2.5, -3.14, 0.0])
     assert result is not None
     assert str(result) == "[1.0, 2.5, -3.14, 0.0]"
 
 
-def test_list_f64_empty():
-    result = list_f64([])
+def test_f64_list_empty():
+    result = f64_list([])
     assert result is not None
     assert str(result) == "[]"
 
 
-def test_list_f64_invalid_input():
-    with pytest.raises(TypeError, match="Expected list\\[int\\] for list\\(\\) function"):
-        list_f64("not a list")  # type: ignore
+def test_f64_list_invalid_input():
+    with pytest.raises(
+        TypeError, match="Expected list\\[int\\] for list\\(\\) function"
+    ):
+        f64_list("not a list")  # type: ignore
 
-    with pytest.raises(TypeError, match="Expected list\\[int\\] for list\\(\\) function"):
-        list_f64(123)  # type: ignore
-
+    with pytest.raises(
+        TypeError, match="Expected list\\[int\\] for list\\(\\) function"
+    ):
+        f64_list(123)  # type: ignore

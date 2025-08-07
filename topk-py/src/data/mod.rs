@@ -30,10 +30,10 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Bytes
     m.add_wrapped(wrap_pyfunction!(bytes))?;
     // List
-    m.add_wrapped(wrap_pyfunction!(list_u32))?;
-    m.add_wrapped(wrap_pyfunction!(list_i32))?;
-    m.add_wrapped(wrap_pyfunction!(list_i64))?;
-    m.add_wrapped(wrap_pyfunction!(list_f64))?;
+    m.add_wrapped(wrap_pyfunction!(u32_list))?;
+    m.add_wrapped(wrap_pyfunction!(i32_list))?;
+    m.add_wrapped(wrap_pyfunction!(i64_list))?;
+    m.add_wrapped(wrap_pyfunction!(f64_list))?;
 
     Ok(())
 }
@@ -96,7 +96,7 @@ pub fn bytes(data: &Bound<'_, PyAny>) -> PyResult<Value> {
 
 #[pyfunction]
 #[pyo3(signature = (data))]
-pub fn list_u32(data: &Bound<'_, PyAny>) -> PyResult<Value> {
+pub fn u32_list(data: &Bound<'_, PyAny>) -> PyResult<Value> {
     if let Ok(s) = data.extract::<Vec<u32>>() {
         return Ok(Value::List(list::List {
             values: list::Values::U32(s),
@@ -110,7 +110,7 @@ pub fn list_u32(data: &Bound<'_, PyAny>) -> PyResult<Value> {
 
 #[pyfunction]
 #[pyo3(signature = (data))]
-pub fn list_i32(data: &Bound<'_, PyAny>) -> PyResult<Value> {
+pub fn i32_list(data: &Bound<'_, PyAny>) -> PyResult<Value> {
     if let Ok(s) = data.extract::<Vec<i32>>() {
         return Ok(Value::List(list::List {
             values: list::Values::I32(s),
@@ -124,7 +124,7 @@ pub fn list_i32(data: &Bound<'_, PyAny>) -> PyResult<Value> {
 
 #[pyfunction]
 #[pyo3(signature = (data))]
-pub fn list_i64(data: &Bound<'_, PyAny>) -> PyResult<Value> {
+pub fn i64_list(data: &Bound<'_, PyAny>) -> PyResult<Value> {
     if let Ok(s) = data.extract::<Vec<i64>>() {
         return Ok(Value::List(list::List {
             values: list::Values::I64(s),
@@ -138,7 +138,7 @@ pub fn list_i64(data: &Bound<'_, PyAny>) -> PyResult<Value> {
 
 #[pyfunction]
 #[pyo3(signature = (data))]
-pub fn list_f64(data: &Bound<'_, PyAny>) -> PyResult<Value> {
+pub fn f64_list(data: &Bound<'_, PyAny>) -> PyResult<Value> {
     if let Ok(s) = data.extract::<Vec<f64>>() {
         return Ok(Value::List(list::List {
             values: list::Values::F64(s),
