@@ -182,7 +182,7 @@ def test_query_topk_min_max(ctx: ProjectContext):
     result = ctx.client.collection(collection.name).query(
         select(bm25_score=fn.bm25_score())
         .select(clamped_bm25_score=max(min(field("bm25_score"), 2.0), 1.6))
-        .filter(match("millionaire love consequences dwarves", field="summary", weight=1.0, all=False))
+        .filter(match("millionaire love consequences dwarves"))
         .topk(field("clamped_bm25_score"), 5, False)
     )
 
