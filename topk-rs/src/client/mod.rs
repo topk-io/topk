@@ -1,11 +1,11 @@
 use crate::create_client;
+use crate::proto::v1::control::collection_service_client::CollectionServiceClient;
+use crate::proto::v1::data::query_service_client::QueryServiceClient;
+use crate::proto::v1::data::write_service_client::WriteServiceClient;
 use std::sync::Arc;
 use tokio::sync::OnceCell;
 use tonic::service::interceptor::InterceptedService;
 use tonic::transport::Channel;
-use crate::proto::v1::control::collection_service_client::CollectionServiceClient;
-use crate::proto::v1::data::query_service_client::QueryServiceClient;
-use crate::proto::v1::data::write_service_client::WriteServiceClient;
 
 mod collections;
 pub use collections::CollectionsClient;
@@ -99,7 +99,14 @@ macro_rules! create_client {
                 Ok(channel) => {
                     let client = $client::with_interceptor(
                         channel.clone(),
-                        crate::client::AppendHeadersInterceptor::new($headers),
+                        crate::client::AppendHeadersInterceptor::new({
+                            let mut headers = $headers.clone();
+                            headers.insert(
+                                "x-topk-sdk-version",
+                                env!("CARGO_PKG_VERSION").to_string(),
+                            );
+                            headers
+                        }),
                     )
                     .max_decoding_message_size(crate::client::MAX_DECODING_MESSAGE_SIZE)
                     .max_encoding_message_size(crate::client::MAX_ENCODING_MESSAGE_SIZE);
