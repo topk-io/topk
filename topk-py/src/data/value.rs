@@ -9,7 +9,6 @@ use crate::data::vector::{F32SparseVector, F32Vector, Vector};
 
 use super::vector::SparseVector;
 
-// #[pyclass]
 #[derive(Debug, PartialEq, Clone)]
 pub enum Value {
     Null(),
