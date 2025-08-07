@@ -5,11 +5,10 @@ use pyo3::{
     IntoPyObjectExt,
 };
 
-use crate::data::vector::F32Vector;
+use crate::data::vector::{F32SparseVector, F32Vector, Vector};
 
-use super::vector::{F32SparseVector, SparseVector, Vector};
+use super::vector::SparseVector;
 
-#[pyclass]
 #[derive(Debug, PartialEq, Clone)]
 pub enum Value {
     Null(),
@@ -22,52 +21,32 @@ pub enum Value {
     Bytes(Vec<u8>),
 }
 
-#[pymethods]
-impl Value {
-    fn __str__(&self) -> String {
-        match self {
-            Value::Null() => "Null".to_string(),
-            Value::String(s) => s.to_string(),
-            Value::Int(i) => i.to_string(),
-            Value::Float(f) => f.to_string(),
-            Value::Bool(b) => b.to_string(),
-            Value::Vector(v) => format!("Vector({:?})", v),
-            Value::SparseVector(v) => format!("SparseVector({:?})", v),
-            Value::Bytes(b) => format!("Bytes({:?})", b),
-        }
-    }
-}
-
-pub struct RawValue(pub Value);
-
-impl<'py> FromPyObject<'py> for RawValue {
+impl<'py> FromPyObject<'py> for Value {
     fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
         // NOTE: it's safe to use `downcast` for custom types
-        if let Ok(v) = obj.downcast::<Value>() {
-            Ok(RawValue(v.get().clone()))
-        } else if let Ok(v) = obj.downcast::<Vector>() {
-            Ok(RawValue(Value::Vector(v.get().clone())))
+        if let Ok(v) = obj.downcast::<Vector>() {
+            Ok(Value::Vector(v.get().clone()))
         } else if let Ok(v) = obj.downcast::<SparseVector>() {
-            Ok(RawValue(Value::SparseVector(v.get().clone())))
+            Ok(Value::SparseVector(v.get().clone()))
         } else if let Ok(s) = obj.downcast_exact::<PyString>() {
-            Ok(RawValue(Value::String(s.extract()?)))
+            Ok(Value::String(s.extract()?))
         } else if let Ok(i) = obj.downcast_exact::<PyInt>() {
-            Ok(RawValue(Value::Int(i.extract()?)))
+            Ok(Value::Int(i.extract()?))
         } else if let Ok(b) = obj.downcast_exact::<PyBytes>() {
-            Ok(RawValue(Value::Bytes(b.extract()?)))
+            Ok(Value::Bytes(b.extract()?))
         } else if let Ok(f) = obj.downcast_exact::<PyFloat>() {
-            Ok(RawValue(Value::Float(f.extract()?)))
+            Ok(Value::Float(f.extract()?))
         } else if let Ok(b) = obj.downcast_exact::<PyBool>() {
-            Ok(RawValue(Value::Bool(b.extract()?)))
+            Ok(Value::Bool(b.extract()?))
         } else if let Ok(v) = F32SparseVector::extract_bound(obj) {
-            Ok(RawValue(Value::SparseVector(SparseVector::F32 {
+            Ok(Value::SparseVector(SparseVector::F32 {
                 indices: v.indices,
                 values: v.values,
-            })))
+            }))
         } else if let Ok(v) = F32Vector::extract_bound(obj) {
-            Ok(RawValue(Value::Vector(Vector::F32(v.values))))
+            Ok(Value::Vector(Vector::F32(v.values)))
         } else if let Ok(_) = obj.downcast_exact::<PyNone>() {
-            Ok(RawValue(Value::Null()))
+            Ok(Value::Null())
         } else {
             Err(PyTypeError::new_err(format!(
                 "Can't convert from {:?} to Value",
@@ -77,13 +56,13 @@ impl<'py> FromPyObject<'py> for RawValue {
     }
 }
 
-impl<'py> IntoPyObject<'py> for RawValue {
+impl<'py> IntoPyObject<'py> for Value {
     type Target = PyAny;
     type Output = Bound<'py, Self::Target>;
     type Error = PyErr;
 
     fn into_pyobject(self, py: Python<'py>) -> PyResult<Self::Output> {
-        match self.0 {
+        match self {
             Value::Null() => Ok(py.None().into_bound(py)),
             Value::String(s) => Ok(s.into_py_any(py)?.into_bound(py)),
             Value::Int(i) => Ok(i.into_py_any(py)?.into_bound(py)),
@@ -193,11 +172,5 @@ impl From<Value> for topk_rs::proto::v1::data::Value {
                 }
             },
         }
-    }
-}
-
-impl From<RawValue> for topk_rs::proto::v1::data::Value {
-    fn from(value: RawValue) -> Self {
-        value.0.into()
     }
 }
