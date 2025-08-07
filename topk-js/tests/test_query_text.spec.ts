@@ -1,5 +1,5 @@
 import { field, fn, match, select, filter } from "../lib/query";
-import { int, keywordIndex, text } from "../lib/schema";
+import { int, keywordIndex, list, text } from "../lib/schema";
 import { newProjectContext, ProjectContext } from "./setup";
 
 describe("Text Queries", () => {
@@ -337,6 +337,78 @@ describe("Text Queries", () => {
     );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(new Set(["pride"]));
+  });
+
+  test("query text match all two terms tokenized", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("books", {
+      tags: list({ valueType: "text" }).required().index(keywordIndex()),
+      published_year: int(),
+    });
+
+    await ctx.client.collection(collection.name).upsert([
+      {
+        _id: "pride",
+        tags: ["love", "romance", "class", "marriage", "prejudice"],
+        published_year: 1813,
+      },
+      {
+        _id: "gatsby",
+        tags: ["love", "romance", "wealth", "marriage"],
+        published_year: 1925,
+      },
+      {
+        _id: "lotr",
+        tags: ["lord of the rings", "fellowship", "magic", "wizard", "elves"],
+        published_year: 1954,
+      },
+    ]);
+
+    const result = await ctx.client.collection(collection.name).query(
+      filter(field("tags").matchAll(["love", "class"])).topk(
+        field("published_year"),
+        100
+      )
+    );
+
+    expect(new Set(result.map((doc) => doc._id))).toEqual(new Set(["pride"]));
+  });
+
+  test("query text match any two terms tokenized", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("books", {
+      tags: list({ valueType: "text" }).required().index(keywordIndex()),
+      published_year: int(),
+    });
+
+    await ctx.client.collection(collection.name).upsert([
+      {
+        _id: "pride",
+        tags: ["love", "romance", "class", "marriage", "prejudice"],
+        published_year: 1813,
+      },
+      {
+        _id: "gatsby",
+        tags: ["love", "romance", "wealth", "marriage"],
+        published_year: 1925,
+      },
+      {
+        _id: "lotr",
+        tags: ["lord of the rings", "fellowship", "magic", "wizard", "elves"],
+        published_year: 1954,
+      },
+    ]);
+
+    const result = await ctx.client
+      .collection(collection.name)
+      .query(
+        filter(field("tags").matchAny(["love", "elves"])).topk(
+          field("published_year"),
+          100
+        )
+      );
+
+    expect(new Set(result.map((doc) => doc._id))).toEqual(new Set(["pride", "gatsby", "lotr"]));
   });
 
   test("query text match any two terms", async () => {

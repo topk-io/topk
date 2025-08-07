@@ -1,12 +1,12 @@
+use crate::data::list::List;
 use crate::data::value::Value;
-use crate::data::vector::{
-    F32SparseVector, F32Vector, SparseVector, U8SparseVector, U8Vector, Vector,
-};
+use crate::data::vector::{F32SparseVector, SparseVector, U8SparseVector};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyList};
 
 pub mod collection;
 pub mod document;
+pub mod list;
 pub mod scalar;
 pub mod value;
 pub mod vector;
@@ -29,26 +29,37 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(u8_sparse_vector))?;
     // Bytes
     m.add_wrapped(wrap_pyfunction!(bytes))?;
+    // List
+    m.add_wrapped(wrap_pyfunction!(list_u32))?;
+    m.add_wrapped(wrap_pyfunction!(list_i32))?;
+    m.add_wrapped(wrap_pyfunction!(list_i64))?;
+    m.add_wrapped(wrap_pyfunction!(list_f64))?;
 
     Ok(())
 }
 
 #[pyfunction]
 #[pyo3(signature = (vector))]
-pub fn f32_vector(vector: F32Vector) -> Vector {
-    vector.into()
+pub fn f32_vector(vector: Vec<f32>) -> List {
+    List {
+        values: list::Values::F32(vector),
+    }
 }
 
 #[pyfunction]
 #[pyo3(signature = (vector))]
-pub fn u8_vector(vector: U8Vector) -> Vector {
-    vector.into()
+pub fn u8_vector(vector: Vec<u8>) -> List {
+    List {
+        values: list::Values::U8(vector),
+    }
 }
 
 #[pyfunction]
 #[pyo3(signature = (vector))]
-pub fn binary_vector(vector: U8Vector) -> Vector {
-    vector.into()
+pub fn binary_vector(vector: Vec<u8>) -> List {
+    List {
+        values: list::Values::U8(vector),
+    }
 }
 
 #[pyfunction]
@@ -79,6 +90,62 @@ pub fn bytes(data: &Bound<'_, PyAny>) -> PyResult<Value> {
     } else {
         Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
             "Expected bytes or list[int] for bytes() function",
+        ))
+    }
+}
+
+#[pyfunction]
+#[pyo3(signature = (data))]
+pub fn list_u32(data: &Bound<'_, PyAny>) -> PyResult<Value> {
+    if let Ok(s) = data.extract::<Vec<u32>>() {
+        return Ok(Value::List(list::List {
+            values: list::Values::U32(s),
+        }));
+    } else {
+        Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+            "Expected list[int] for list() function",
+        ))
+    }
+}
+
+#[pyfunction]
+#[pyo3(signature = (data))]
+pub fn list_i32(data: &Bound<'_, PyAny>) -> PyResult<Value> {
+    if let Ok(s) = data.extract::<Vec<i32>>() {
+        return Ok(Value::List(list::List {
+            values: list::Values::I32(s),
+        }));
+    } else {
+        Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+            "Expected list[int] for list() function",
+        ))
+    }
+}
+
+#[pyfunction]
+#[pyo3(signature = (data))]
+pub fn list_i64(data: &Bound<'_, PyAny>) -> PyResult<Value> {
+    if let Ok(s) = data.extract::<Vec<i64>>() {
+        return Ok(Value::List(list::List {
+            values: list::Values::I64(s),
+        }));
+    } else {
+        Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+            "Expected list[int] for list() function",
+        ))
+    }
+}
+
+#[pyfunction]
+#[pyo3(signature = (data))]
+pub fn list_f64(data: &Bound<'_, PyAny>) -> PyResult<Value> {
+    if let Ok(s) = data.extract::<Vec<f64>>() {
+        return Ok(Value::List(list::List {
+            values: list::Values::F64(s),
+        }));
+    } else {
+        Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+            "Expected list[int] for list() function",
         ))
     }
 }

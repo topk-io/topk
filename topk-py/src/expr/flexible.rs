@@ -1,5 +1,8 @@
 use super::logical::LogicalExpr;
-use crate::data::scalar::Scalar;
+use crate::data::{
+    list::{List, Values},
+    scalar::Scalar,
+};
 use pyo3::{
     exceptions::PyTypeError,
     prelude::*,
@@ -123,6 +126,25 @@ impl Into<LogicalExpr> for Stringy {
                 value: Scalar::String(s),
             },
             Stringy::Expr(e) => e,
+        }
+    }
+}
+
+#[derive(Debug, Clone, FromPyObject)]
+pub enum StringyWithList {
+    Stringy(Stringy),
+    List(Vec<String>),
+}
+
+impl Into<LogicalExpr> for StringyWithList {
+    fn into(self) -> LogicalExpr {
+        match self {
+            StringyWithList::Stringy(s) => s.into(),
+            StringyWithList::List(values) => LogicalExpr::Literal {
+                value: Scalar::List(List {
+                    values: Values::String(values),
+                }),
+            },
         }
     }
 }

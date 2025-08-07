@@ -1,5 +1,5 @@
-use crate::data::scalar::Scalar;
 use crate::expr::flexible::FlexibleExpr;
+use crate::{data::scalar::Scalar, expr::flexible::StringyWithList};
 use pyo3::prelude::*;
 
 use super::flexible::{Boolish, Numeric, Stringy};
@@ -535,7 +535,7 @@ impl LogicalExpr {
         })
     }
 
-    fn match_all(&self, py: Python<'_>, other: Stringy) -> PyResult<Self> {
+    fn match_all(&self, py: Python<'_>, other: StringyWithList) -> PyResult<Self> {
         Ok(Self::Binary {
             left: Py::new(py, self.clone())?,
             op: BinaryOperator::MatchAll,
@@ -543,7 +543,7 @@ impl LogicalExpr {
         })
     }
 
-    fn match_any(&self, py: Python<'_>, other: Stringy) -> PyResult<Self> {
+    fn match_any(&self, py: Python<'_>, other: StringyWithList) -> PyResult<Self> {
         Ok(Self::Binary {
             left: Py::new(py, self.clone())?,
             op: BinaryOperator::MatchAny,

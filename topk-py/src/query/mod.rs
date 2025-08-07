@@ -129,9 +129,9 @@ pub fn bm25_score() -> FunctionExpr {
 #[pyfunction]
 pub fn vector_distance(field: String, query: Value) -> PyResult<FunctionExpr> {
     match query {
-        Value::Vector(vector) => Ok(FunctionExpr::VectorScore {
+        Value::List(list) => Ok(FunctionExpr::VectorScore {
             field,
-            query: Value::Vector(vector),
+            query: Value::List(list),
         }),
         Value::SparseVector(vector) => Ok(FunctionExpr::VectorScore {
             field,

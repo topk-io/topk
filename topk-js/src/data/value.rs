@@ -1,6 +1,9 @@
-use super::vector::{SparseVector, Vector};
-use crate::data::vector::{SparseVectorData, SparseVectorUnion, VectorData, VectorUnion};
-use napi::bindgen_prelude::*;
+use super::vector::SparseVector;
+use crate::data::{
+    list::{List, Values},
+    vector::{SparseVectorData, SparseVectorUnion},
+};
+use napi::{bindgen_prelude::*, sys::napi_is_buffer};
 
 #[derive(Debug, Clone)]
 pub enum Value {
@@ -12,9 +15,9 @@ pub enum Value {
     F32(f32),
     F64(f64),
     String(String),
-    Vector(Vector),
     SparseVector(SparseVector),
     Bytes(Vec<u8>),
+    List(List),
 }
 
 impl From<Value> for topk_rs::proto::v1::data::Value {
@@ -29,8 +32,17 @@ impl From<Value> for topk_rs::proto::v1::data::Value {
             Value::F32(n) => topk_rs::proto::v1::data::Value::f32(n),
             Value::F64(n) => topk_rs::proto::v1::data::Value::f64(n),
             Value::Bytes(b) => topk_rs::proto::v1::data::Value::binary(b),
-            Value::Vector(v) => v.into(),
             Value::SparseVector(v) => v.into(),
+            Value::List(v) => match v.values {
+                Values::U8(v) => topk_rs::proto::v1::data::Value::list(v),
+                Values::U32(v) => topk_rs::proto::v1::data::Value::list(v),
+                Values::U64(v) => topk_rs::proto::v1::data::Value::list(v),
+                Values::I32(v) => topk_rs::proto::v1::data::Value::list(v),
+                Values::I64(v) => topk_rs::proto::v1::data::Value::list(v),
+                Values::F32(v) => topk_rs::proto::v1::data::Value::list(v),
+                Values::F64(v) => topk_rs::proto::v1::data::Value::list(v),
+                Values::String(v) => topk_rs::proto::v1::data::Value::list(v),
+            },
         }
     }
 }
@@ -57,17 +69,23 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
             Some(topk_rs::proto::v1::data::value::Value::I64(n)) => Value::I64(n),
             // Bytes
             Some(topk_rs::proto::v1::data::value::Value::Binary(b)) => Value::Bytes(b),
-            // Vectors
+            // Vectors(deprecated)
             Some(topk_rs::proto::v1::data::value::Value::Vector(v)) => match v.vector {
-                Some(topk_rs::proto::v1::data::vector::Vector::Float(float_vector)) =>
-                {
-                    #[allow(deprecated)]
-                    Value::Vector(Vector::float(float_vector.values))
+                Some(topk_rs::proto::v1::data::vector::Vector::Float(float_vector)) => {
+                    Value::List(List {
+                        values: Values::F32(
+                            #[allow(deprecated)]
+                            float_vector.values,
+                        ),
+                    })
                 }
-                Some(topk_rs::proto::v1::data::vector::Vector::Byte(byte_vector)) =>
-                {
-                    #[allow(deprecated)]
-                    Value::Vector(Vector::byte(byte_vector.values))
+                Some(topk_rs::proto::v1::data::vector::Vector::Byte(byte_vector)) => {
+                    Value::List(List {
+                        values: Values::U8(
+                            #[allow(deprecated)]
+                            byte_vector.values,
+                        ),
+                    })
                 }
                 None => unreachable!("Invalid vector proto"),
             },
@@ -89,7 +107,21 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                     None => unreachable!("Invalid sparse vector proto"),
                 })
             }
-            Some(topk_rs::proto::v1::data::value::Value::List(_)) => todo!(),
+            Some(topk_rs::proto::v1::data::value::Value::List(list)) => Value::List(List {
+                values: match list.values {
+                    Some(topk_rs::proto::v1::data::list::Values::U8(v)) => Values::U8(v.values),
+                    Some(topk_rs::proto::v1::data::list::Values::U32(v)) => Values::U32(v.values),
+                    Some(topk_rs::proto::v1::data::list::Values::U64(v)) => Values::U64(v.values),
+                    Some(topk_rs::proto::v1::data::list::Values::I32(v)) => Values::I32(v.values),
+                    Some(topk_rs::proto::v1::data::list::Values::I64(v)) => Values::I64(v.values),
+                    Some(topk_rs::proto::v1::data::list::Values::F32(v)) => Values::F32(v.values),
+                    Some(topk_rs::proto::v1::data::list::Values::F64(v)) => Values::F64(v.values),
+                    Some(topk_rs::proto::v1::data::list::Values::String(v)) => {
+                        Values::String(v.values)
+                    }
+                    None => unreachable!("Invalid list proto"),
+                },
+            }),
             None => unreachable!("Invalid value proto"),
         }
     }
@@ -100,12 +132,12 @@ impl FromNapiValue for Value {
         env: napi::sys::napi_env,
         value: napi::sys::napi_value,
     ) -> napi::Result<Self> {
-        if let Ok(sparse_vector) = crate::try_cast_ref!(env, value, SparseVector) {
-            return Ok(Value::SparseVector(sparse_vector.clone()));
+        if let Ok(list) = crate::try_cast_ref!(env, value, List) {
+            return Ok(Value::List(list.clone()));
         }
 
-        if let Ok(vector) = crate::try_cast_ref!(env, value, Vector) {
-            return Ok(Value::Vector(vector.clone()));
+        if let Ok(sparse_vector) = crate::try_cast_ref!(env, value, SparseVector) {
+            return Ok(Value::SparseVector(sparse_vector.clone()));
         }
 
         let mut result: i32 = 0;
@@ -124,11 +156,11 @@ impl FromNapiValue for Value {
                 Ok(Value::Bool(bool::from_napi_value(env, value)?))
             }
             napi::sys::ValueType::napi_object => {
-                // Vectors
-                if let Ok(vector) = VectorData::<f64>::from_napi_value(env, value) {
-                    return Ok(Value::Vector(Vector::float(
-                        vector.into_iter().map(|v| v as f32).collect(),
-                    )));
+                // Number lists (all "naked" number lists are interpreted as f32 lists (casting from f64))
+                if let Ok(list) = Vec::<f64>::from_napi_value(env, value) {
+                    return Ok(Value::List(List {
+                        values: Values::F32(list.into_iter().map(|v| v as f32).collect()),
+                    }));
                 }
 
                 // Sparse vectors (all "naked" sparse vectors are interpreted as f32)
@@ -141,9 +173,21 @@ impl FromNapiValue for Value {
                     )));
                 }
 
+                // List of strings
+                if let Ok(list) = Vec::<String>::from_napi_value(env, value) {
+                    return Ok(Value::List(List {
+                        values: Values::String(list),
+                    }));
+                }
+
                 // Bytes/buffers
-                if let Ok(buffer) = Buffer::from_napi_value(env, value) {
-                    return Ok(Value::Bytes(buffer.to_vec()));
+                let mut is_js_buffer: bool = false;
+                napi_is_buffer(env, value, &mut is_js_buffer);
+
+                if is_js_buffer {
+                    if let Ok(buffer) = Buffer::from_napi_value(env, value) {
+                        return Ok(Value::Bytes(buffer.to_vec()));
+                    }
                 }
 
                 return Err(napi::Error::from_reason(
@@ -169,10 +213,6 @@ impl ToNapiValue for Value {
             Value::I64(n) => i64::to_napi_value(env, n),
             Value::F32(n) => f32::to_napi_value(env, n),
             Value::Bytes(b) => Buffer::to_napi_value(env, b.into()),
-            Value::Vector(v) => match v.0 {
-                VectorUnion::Float { values } => Vec::<f32>::to_napi_value(env, values),
-                VectorUnion::Byte { values } => Vec::<u8>::to_napi_value(env, values),
-            },
             Value::SparseVector(v) => match v.0 {
                 SparseVectorUnion::Float { vector } => {
                     SparseVectorData::<f32>::to_napi_value(env, vector)
@@ -182,6 +222,18 @@ impl ToNapiValue for Value {
                 }
             },
             Value::Null => Null::to_napi_value(env, Null),
+            Value::List(v) => match v.values {
+                Values::U8(v) => Vec::<u8>::to_napi_value(env, v),
+                Values::U32(v) => Vec::<u32>::to_napi_value(env, v),
+                Values::U64(v) => {
+                    Vec::<u32>::to_napi_value(env, v.iter().map(|v| *v as u32).collect())
+                }
+                Values::I32(v) => Vec::<i32>::to_napi_value(env, v),
+                Values::I64(v) => Vec::<i64>::to_napi_value(env, v),
+                Values::F32(v) => Vec::<f32>::to_napi_value(env, v),
+                Values::F64(v) => Vec::<f64>::to_napi_value(env, v),
+                Values::String(v) => Vec::<String>::to_napi_value(env, v),
+            },
         }
     }
 }
@@ -225,8 +277,15 @@ impl FromNapiValue for BytesData {
             return Ok(BytesData(array));
         }
 
-        if let Ok(buffer) = Buffer::from_napi_value(env, value) {
-            return Ok(BytesData(buffer.to_vec()));
+        // To prevent panics on invalid buffer values such as bytes([-1])
+        // we check if the value is a JS buffer
+        let mut is_js_buffer: bool = false;
+        napi_is_buffer(env, value, &mut is_js_buffer);
+
+        if is_js_buffer {
+            if let Ok(buffer) = Buffer::from_napi_value(env, value) {
+                return Ok(BytesData(buffer.to_vec()));
+            }
         }
 
         Err(napi::Error::from_reason(
