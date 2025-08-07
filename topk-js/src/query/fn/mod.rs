@@ -1,4 +1,7 @@
-use crate::{data::Value, expr::function::FunctionExpression};
+use crate::{
+    data::Value,
+    expr::function::{FunctionExpression, FunctionExpressionUnion},
+};
 use napi_derive::napi;
 
 #[napi(namespace = "query_fn", ts_return_type = "query.FunctionExpression")]
@@ -10,14 +13,16 @@ pub fn vector_distance(
     query: Value,
 ) -> napi::Result<FunctionExpression> {
     match query {
-        Value::Vector(vector) => Ok(FunctionExpression::vector_score(
+        Value::Vector(vector) => Ok(FunctionExpression(FunctionExpressionUnion::VectorScore {
             field,
-            Value::Vector(vector),
-        )),
-        Value::SparseVector(vector) => Ok(FunctionExpression::vector_score(
-            field,
-            Value::SparseVector(vector),
-        )),
+            query: Value::Vector(vector),
+        })),
+        Value::SparseVector(vector) => {
+            Ok(FunctionExpression(FunctionExpressionUnion::VectorScore {
+                field,
+                query: Value::SparseVector(vector),
+            }))
+        }
         _ => Err(napi::Error::new(
             napi::Status::InvalidArg,
             "Vector query must be a vector or sparse vector",
@@ -27,10 +32,10 @@ pub fn vector_distance(
 
 #[napi(namespace = "query_fn", ts_return_type = "query.FunctionExpression")]
 pub fn bm25_score() -> FunctionExpression {
-    FunctionExpression::keyword_score()
+    FunctionExpression(FunctionExpressionUnion::KeywordScore)
 }
 
 #[napi(namespace = "query_fn", ts_return_type = "query.FunctionExpression")]
 pub fn semantic_similarity(field: String, query: String) -> FunctionExpression {
-    FunctionExpression::semantic_similarity(field, query)
+    FunctionExpression(FunctionExpressionUnion::SemanticSimilarity { field, query })
 }

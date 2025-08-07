@@ -4,21 +4,7 @@ use crate::data::Value;
 
 #[napi(namespace = "query")]
 #[derive(Debug, Clone)]
-pub struct FunctionExpression(FunctionExpressionUnion);
-
-impl FunctionExpression {
-    pub(crate) fn keyword_score() -> Self {
-        FunctionExpression(FunctionExpressionUnion::KeywordScore)
-    }
-
-    pub(crate) fn vector_score(field: String, query: Value) -> Self {
-        FunctionExpression(FunctionExpressionUnion::VectorScore { field, query })
-    }
-
-    pub(crate) fn semantic_similarity(field: String, query: String) -> Self {
-        FunctionExpression(FunctionExpressionUnion::SemanticSimilarity { field, query })
-    }
-}
+pub struct FunctionExpression(pub(crate) FunctionExpressionUnion);
 
 #[derive(Debug, Clone)]
 pub enum FunctionExpressionUnion {
