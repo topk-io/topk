@@ -369,3 +369,31 @@ async fn test_query_text_with_updates(ctx: &mut ProjectTestContext) {
 
     assert_doc_ids!(res, ["1", "2"]);
 }
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_text_deep_recursion_limit(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    // Build a deeply nested OR expression that should trigger recursion limit
+    // Start with a simple text match
+    let mut deep_expr = r#match("love", Some("summary"), None, false);
+
+    // Add nested OR expressions to exceed router depth (16) but stay below protobuf decode limit
+    for i in 0..20 {
+        deep_expr = deep_expr.or(r#match(&format!("term{}", i), Some("summary"), None, false));
+    }
+
+    let err = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            filter(deep_expr).topk(field("published_year"), 100, true),
+            None,
+            None,
+        )
+        .await
+        .expect_err("should have failed due to recursion limit");
+
+    assert!(matches!(err, Error::InvalidArgument(_) if err.to_string().contains("too deep")));
+}

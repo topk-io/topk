@@ -1,7 +1,7 @@
 use test_context::test_context;
 use topk_rs::data::literal;
-use topk_rs::doc;
 use topk_rs::query::{field, filter, not, r#match, select};
+use topk_rs::{doc, Error};
 
 mod utils;
 use utils::{dataset, ProjectTestContext};
@@ -365,4 +365,32 @@ async fn test_query_topk_min_max(ctx: &mut ProjectTestContext) {
             &literal(*year)
         );
     }
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_logical_deep_recursion_limit(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    // Build a deeply nested OR expression that should trigger recursion limit
+    // Start with a simple logical filter
+    let mut deep_expr = field("published_year").eq(1990u32);
+
+    // Add nested OR expressions to exceed router depth (16) but stay below protobuf decode limit
+    for i in 0..20 {
+        deep_expr = deep_expr.or(field("published_year").eq(1990u32 + i));
+    }
+
+    let err = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            filter(deep_expr).topk(field("published_year"), 100, true),
+            None,
+            None,
+        )
+        .await
+        .expect_err("should have failed due to recursion limit");
+
+    assert!(matches!(err, Error::InvalidArgument(_) if err.to_string().contains("too deep")));
 }
