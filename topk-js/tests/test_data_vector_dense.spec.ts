@@ -1,6 +1,7 @@
 import { binaryVector, f32Vector, u8Vector } from "../lib/data";
 
-const TYPE_ERROR = "Invalid vector value, must be `number[]`";
+const TYPE_ERROR = "Given napi value is not an array";
+const TYPE_ERROR_U32_TO_U8 = "Failed to convert u32 to u8";
 
 describe("f32Vector", () => {
   test("valid", () => {
@@ -13,7 +14,7 @@ describe("f32Vector", () => {
 
   test("toString", () => {
     expect(f32Vector([1, 2, 3]).toString()).toEqual(
-      "Vector(Float { values: [1.0, 2.0, 3.0] })"
+      "List(F32([1.0, 2.0, 3.0]))"
     );
   });
 
@@ -43,13 +44,13 @@ describe("u8Vector", () => {
 
   test("toString", () => {
     expect(u8Vector([1, 2, 3]).toString()).toEqual(
-      "Vector(Byte { values: [1, 2, 3] })"
+      "List(U8([1, 2, 3]))"
     );
   });
 
   test("invalid number range", () => {
-    expect(() => u8Vector([256] as any)).toThrow(TYPE_ERROR);
-    expect(() => u8Vector([-1] as any)).toThrow(TYPE_ERROR);
+    expect(() => u8Vector([256] as any)).toThrow(TYPE_ERROR_U32_TO_U8);
+    expect(() => u8Vector([-1] as any)).toThrow(TYPE_ERROR_U32_TO_U8);
   });
 
   test("invalid arguments", () => {
@@ -78,13 +79,13 @@ describe("binaryVector", () => {
 
   test("toString", () => {
     expect(binaryVector([1, 2, 3]).toString()).toEqual(
-      "Vector(Byte { values: [1, 2, 3] })"
+      "List(U8([1, 2, 3]))"
     );
   });
 
   test("invalid number range", () => {
-    expect(() => binaryVector([256] as any)).toThrow(TYPE_ERROR);
-    expect(() => binaryVector([-1] as any)).toThrow(TYPE_ERROR);
+    expect(() => binaryVector([256] as any)).toThrow(TYPE_ERROR_U32_TO_U8);
+    expect(() => binaryVector([-1] as any)).toThrow(TYPE_ERROR_U32_TO_U8);
   });
 
   test("invalid arguments", () => {

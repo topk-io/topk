@@ -16,7 +16,7 @@ def test_query_exp_ln(ctx: ProjectContext):
             bm25_score_scale=(field("bm25_score") * 1.5).exp(),
             bm25_score_smooth=(field("bm25_score") + 1).ln(),
         )
-        .filter(match("millionaire love consequences dwarves", weight=1.0))
+        .filter(match("millionaire love consequences dwarves", field="summary", weight=1.0, all=False))
         .topk(field("bm25_score_scale"), 2, False)
     )
 

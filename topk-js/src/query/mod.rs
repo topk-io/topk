@@ -44,13 +44,15 @@ pub fn field(name: String) -> LogicalExpression {
 
 #[napi(namespace = "query")]
 pub fn literal(
-    #[napi(ts_arg_type = "number | string | boolean")] value: Value,
+    #[napi(ts_arg_type = "number | string | string[] | number[] | boolean | data.List")]
+    value: Value,
 ) -> napi::Result<LogicalExpression> {
     match value {
         Value::String(s) => Ok(LogicalExpression::literal(Scalar::String(s))),
         Value::Bool(b) => Ok(LogicalExpression::literal(Scalar::Bool(b))),
         Value::I64(i) => Ok(LogicalExpression::literal(Scalar::I64(i))),
         Value::F64(f) => Ok(LogicalExpression::literal(Scalar::F64(f))),
+        Value::List(l) => Ok(LogicalExpression::literal(Scalar::List(l))),
         v => Err(napi::Error::from_reason(format!(
             "Unsupported scalar type: {:?}",
             v

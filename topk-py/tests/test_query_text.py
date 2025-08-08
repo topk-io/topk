@@ -96,12 +96,34 @@ def test_query_text_match_all_two_terms(ctx: ProjectContext):
 
     assert doc_ids(result) == {"pride"}
 
+def test_query_text_match_all_two_terms_tokenized(ctx: ProjectContext):
+    collection = dataset.books.setup(ctx)
+
+    result = ctx.client.collection(collection.name).query(
+        filter(field("tags").match_all(["love", "class"])).topk(
+            field("published_year"), 100, True
+        )
+    )
+
+    assert doc_ids(result) == {"pride"}
+
 
 def test_query_text_match_any_two_terms(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
         filter(field("summary").match_any("love ring")).topk(
+            field("published_year"), 100, True
+        )
+    )
+
+    assert doc_ids(result) == {"pride", "gatsby", "lotr"}
+
+def test_query_text_match_any_two_terms_tokenized(ctx: ProjectContext):
+    collection = dataset.books.setup(ctx)
+
+    result = ctx.client.collection(collection.name).query(
+        filter(field("tags").match_any(["love", "elves"])).topk(
             field("published_year"), 100, True
         )
     )

@@ -13,6 +13,53 @@ pub enum DataType {
     F32SparseVector(),
     U8SparseVector(),
     Bytes(),
+    List { value_type: ListValueType },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[pyclass(eq, eq_int)]
+pub enum ListValueType {
+    Text,
+    Integer,
+    Float,
+}
+
+impl From<ListValueType> for topk_rs::proto::v1::control::FieldTypeList {
+    fn from(value: ListValueType) -> Self {
+        match value {
+            ListValueType::Integer => topk_rs::proto::v1::control::FieldTypeList {
+                value_type: topk_rs::proto::v1::control::field_type_list::ListValueType::Integer
+                    as i32,
+            },
+            ListValueType::Float => topk_rs::proto::v1::control::FieldTypeList {
+                value_type: topk_rs::proto::v1::control::field_type_list::ListValueType::Float
+                    as i32,
+            },
+            ListValueType::Text => topk_rs::proto::v1::control::FieldTypeList {
+                value_type: topk_rs::proto::v1::control::field_type_list::ListValueType::String
+                    as i32,
+            },
+        }
+    }
+}
+
+impl From<topk_rs::proto::v1::control::field_type_list::ListValueType> for ListValueType {
+    fn from(value: topk_rs::proto::v1::control::field_type_list::ListValueType) -> Self {
+        match value {
+            topk_rs::proto::v1::control::field_type_list::ListValueType::Integer => {
+                ListValueType::Integer
+            }
+            topk_rs::proto::v1::control::field_type_list::ListValueType::Float => {
+                ListValueType::Float
+            }
+            topk_rs::proto::v1::control::field_type_list::ListValueType::String => {
+                ListValueType::Text
+            }
+            topk_rs::proto::v1::control::field_type_list::ListValueType::Unspecified => {
+                unreachable!("Invalid list value type")
+            }
+        }
+    }
 }
 
 impl Into<topk_rs::proto::v1::control::field_type::DataType> for DataType {
@@ -38,6 +85,9 @@ impl Into<topk_rs::proto::v1::control::field_type::DataType> for DataType {
                 topk_rs::proto::v1::control::field_type::DataType::u8_sparse_vector()
             }
             DataType::Bytes() => topk_rs::proto::v1::control::field_type::DataType::bytes(),
+            DataType::List { value_type } => {
+                topk_rs::proto::v1::control::field_type::DataType::List(value_type.into())
+            }
         }
     }
 }
@@ -79,7 +129,9 @@ impl From<topk_rs::proto::v1::control::field_type::DataType> for DataType {
                 DataType::U8SparseVector()
             }
             topk_rs::proto::v1::control::field_type::DataType::Bytes(_) => DataType::Bytes(),
-            topk_rs::proto::v1::control::field_type::DataType::List(_) => todo!(),
+            topk_rs::proto::v1::control::field_type::DataType::List(list) => DataType::List {
+                value_type: list.value_type().into(),
+            },
         }
     }
 }

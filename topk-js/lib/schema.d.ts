@@ -7,6 +7,7 @@ export declare const f32Vector: typeof schema.f32Vector;
 export declare const float: typeof schema.float;
 export declare const int: typeof schema.int;
 export declare const keywordIndex: typeof schema.keywordIndex;
+export declare const list: typeof schema.list;
 export declare const semanticIndex: typeof schema.semanticIndex;
 export declare const text: typeof schema.text;
 export declare const u8Vector: typeof schema.u8Vector;

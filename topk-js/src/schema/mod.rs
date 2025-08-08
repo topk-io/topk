@@ -7,6 +7,8 @@ use field_index::{EmbeddingDataType, FieldIndex, KeywordIndexType, VectorDistanc
 use field_spec::FieldSpec;
 use napi_derive::napi;
 
+use crate::schema::data_type::ListValueType;
+
 #[napi(namespace = "schema")]
 pub fn text() -> FieldSpec {
     FieldSpec::create(DataType::Text)
@@ -95,4 +97,16 @@ pub fn semantic_index(options: Option<SemanticIndexOptions>) -> FieldIndex {
     let options = options.unwrap_or_default();
 
     FieldIndex::semantic_index(options.model, options.embedding_type)
+}
+
+#[napi(object, namespace = "schema")]
+pub struct ListOptions {
+    pub value_type: ListValueType,
+}
+
+#[napi(namespace = "schema")]
+pub fn list(options: ListOptions) -> FieldSpec {
+    FieldSpec::create(DataType::List {
+        value_type: options.value_type,
+    })
 }

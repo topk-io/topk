@@ -98,18 +98,22 @@ export interface RetryConfig {
 }
 
 export declare namespace data {
+  export class List {
+    toString(): string
+  }
   export class SparseVector {
     toString(): string
   }
-  export class Vector {
-    toString(): string
-  }
-  export function binaryVector(values: Array<number>): Vector
+  export function binaryVector(values: Array<number>): List
   export function bytes(buffer: Array<number> | Buffer): any
   export function f32SparseVector(vector: Record<number, number>): SparseVector
-  export function f32Vector(values: Array<number>): Vector
+  export function f32Vector(values: Array<number>): List
+  export function f64List(values: Array<number>): List
+  export function i32List(values: Array<number>): List
+  export function i64List(values: Array<number>): List
+  export function u32List(values: Array<number>): List
   export function u8SparseVector(vector: Record<number, number>): SparseVector
-  export function u8Vector(values: Array<number>): Vector
+  export function u8Vector(values: Array<number>): List
 }
 
 export declare namespace query {
@@ -141,8 +145,8 @@ export declare namespace query {
     or(other: LogicalExpression | boolean): LogicalExpression
     startsWith(other: LogicalExpression | string): LogicalExpression
     contains(other: LogicalExpression | string): LogicalExpression
-    matchAll(other: LogicalExpression | string): LogicalExpression
-    matchAny(other: LogicalExpression | string): LogicalExpression
+    matchAll(other: LogicalExpression | string | string[]): LogicalExpression
+    matchAny(other: LogicalExpression | string | string[]): LogicalExpression
     coalesce(other: LogicalExpression | number): LogicalExpression
     choose(x: LogicalExpression | string | number | boolean | null | undefined, y: LogicalExpression | string | number | boolean | null | undefined): LogicalExpression
     /**
@@ -184,7 +188,7 @@ export declare namespace query {
   'max';
   export function field(name: string): LogicalExpression
   export function filter(expr: LogicalExpression | TextExpression): Query
-  export function literal(value: number | string | boolean): LogicalExpression
+  export function literal(value: number | string | string[] | number[] | boolean | data.List): LogicalExpression
   export function match(token: string, options?: MatchOptions | undefined | null): TextExpression
   export function max(left: LogicalExpression | number, right: LogicalExpression | number): LogicalExpression
   export function min(left: LogicalExpression | number, right: LogicalExpression | number): LogicalExpression
@@ -209,7 +213,7 @@ export declare namespace query {
 export declare namespace query_fn {
   export function bm25Score(): query.FunctionExpression
   export function semanticSimilarity(field: string, query: string): query.FunctionExpression
-  export function vectorDistance(field: string, query: Array<number> | Record<number, number> | data.Vector | data.SparseVector): query.FunctionExpression
+  export function vectorDistance(field: string, query: Array<number> | Record<number, number> | data.List | data.SparseVector): query.FunctionExpression
 }
 
 export declare namespace schema {
@@ -234,6 +238,7 @@ export declare namespace schema {
     | { type: 'F32SparseVector' }
     | { type: 'U8SparseVector' }
     | { type: 'Bytes' }
+    | { type: 'List', valueType: ListValueType }
   export type EmbeddingDataType =  'float32'|
   'uint8'|
   'binary';
@@ -247,6 +252,13 @@ export declare namespace schema {
   export function int(): FieldSpec
   export function keywordIndex(): FieldIndex
   export type KeywordIndexType =  'text';
+  export function list(options: ListOptions): FieldSpec
+  export interface ListOptions {
+    valueType: ListValueType
+  }
+  export type ListValueType =  'text'|
+  'integer'|
+  'float';
   export function semanticIndex(options?: SemanticIndexOptions | undefined | null): FieldIndex
   export interface SemanticIndexOptions {
     model?: string
