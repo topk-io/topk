@@ -1,4 +1,5 @@
 use napi_derive::napi;
+use topk_rs::proto::v1::data::IntoListValues;
 
 #[derive(Debug, Clone, PartialEq)]
 #[napi(namespace = "data")]
@@ -30,44 +31,28 @@ impl From<List> for topk_rs::proto::v1::data::List {
     fn from(list: List) -> Self {
         match list.values {
             Values::U8(values) => topk_rs::proto::v1::data::List {
-                values: Some(topk_rs::proto::v1::data::list::Values::U8(
-                    topk_rs::proto::v1::data::list::U8 { values },
-                )),
+                values: Some(values.into_list_values()),
             },
             Values::U32(values) => topk_rs::proto::v1::data::List {
-                values: Some(topk_rs::proto::v1::data::list::Values::U32(
-                    topk_rs::proto::v1::data::list::U32 { values },
-                )),
+                values: Some(values.into_list_values()),
             },
             Values::U64(values) => topk_rs::proto::v1::data::List {
-                values: Some(topk_rs::proto::v1::data::list::Values::U64(
-                    topk_rs::proto::v1::data::list::U64 { values },
-                )),
+                values: Some(values.into_list_values()),
             },
             Values::I32(values) => topk_rs::proto::v1::data::List {
-                values: Some(topk_rs::proto::v1::data::list::Values::I32(
-                    topk_rs::proto::v1::data::list::I32 { values },
-                )),
+                values: Some(values.into_list_values()),
             },
             Values::I64(values) => topk_rs::proto::v1::data::List {
-                values: Some(topk_rs::proto::v1::data::list::Values::I64(
-                    topk_rs::proto::v1::data::list::I64 { values },
-                )),
+                values: Some(values.into_list_values()),
             },
             Values::F32(values) => topk_rs::proto::v1::data::List {
-                values: Some(topk_rs::proto::v1::data::list::Values::F32(
-                    topk_rs::proto::v1::data::list::F32 { values },
-                )),
+                values: Some(values.into_list_values()),
             },
             Values::F64(values) => topk_rs::proto::v1::data::List {
-                values: Some(topk_rs::proto::v1::data::list::Values::F64(
-                    topk_rs::proto::v1::data::list::F64 { values },
-                )),
+                values: Some(values.into_list_values()),
             },
             Values::String(values) => topk_rs::proto::v1::data::List {
-                values: Some(topk_rs::proto::v1::data::list::Values::String(
-                    topk_rs::proto::v1::data::list::String { values },
-                )),
+                values: Some(values.into_list_values()),
             },
         }
     }

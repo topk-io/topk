@@ -16,12 +16,12 @@ def test_u32_list_empty():
 
 def test_u32_list_invalid_input():
     with pytest.raises(
-        TypeError, match="Expected list\\[int\\] for list\\(\\) function"
+        TypeError, match="Expected list\\[int\\] for u32_list\\(\\) function"
     ):
         u32_list("not a list")  # type: ignore
 
     with pytest.raises(
-        TypeError, match="Expected list\\[int\\] for list\\(\\) function"
+        TypeError, match="Expected list\\[int\\] for u32_list\\(\\) function"
     ):
         u32_list(123)  # type: ignore
 
@@ -40,12 +40,12 @@ def test_i32_list_empty():
 
 def test_i32_list_invalid_input():
     with pytest.raises(
-        TypeError, match="Expected list\\[int\\] for list\\(\\) function"
+        TypeError, match="Expected list\\[int\\] for i32_list\\(\\) function"
     ):
         i32_list("not a list")  # type: ignore
 
     with pytest.raises(
-        TypeError, match="Expected list\\[int\\] for list\\(\\) function"
+        TypeError, match="Expected list\\[int\\] for i32_list\\(\\) function"
     ):
         i32_list(123)  # type: ignore
 
@@ -64,12 +64,12 @@ def test_i64_list_empty():
 
 def test_i64_list_invalid_input():
     with pytest.raises(
-        TypeError, match="Expected list\\[int\\] for list\\(\\) function"
+        TypeError, match="Expected list\\[int\\] for i64_list\\(\\) function"
     ):
         i64_list("not a list")  # type: ignore
 
     with pytest.raises(
-        TypeError, match="Expected list\\[int\\] for list\\(\\) function"
+        TypeError, match="Expected list\\[int\\] for i64_list\\(\\) function"
     ):
         i64_list(123)  # type: ignore
 
@@ -88,11 +88,11 @@ def test_f64_list_empty():
 
 def test_f64_list_invalid_input():
     with pytest.raises(
-        TypeError, match="Expected list\\[int\\] for list\\(\\) function"
+        TypeError, match="Expected list\\[float\\] for f64_list\\(\\) function"
     ):
         f64_list("not a list")  # type: ignore
 
     with pytest.raises(
-        TypeError, match="Expected list\\[int\\] for list\\(\\) function"
+        TypeError, match="Expected list\\[float\\] for f64_list\\(\\) function"
     ):
         f64_list(123)  # type: ignore

@@ -1,4 +1,4 @@
-import { bytes, u32List, u8Vector } from "../lib/data";
+import { bytes, f64List, i32List, i64List, u32List, u8Vector } from "../lib/data";
 import { field, fn, literal, match, select } from "../lib/query";
 import { f32Vector, int, keywordIndex, text, vectorIndex } from "../lib/schema";
 import { newProjectContext, ProjectContext } from "./setup";
@@ -277,7 +277,10 @@ describe("Select Queries", () => {
       { _id: "10", rank: 10, mixed: [1.0, 2.0, 3.0] },
       { _id: "11", rank: 11, mixed: bytes([1, 2, 3]) },
       { _id: "12", rank: 12, mixed: u32List([17, 6, 1997]) },
-      { _id: "13", rank: 13, mixed: ["foo", "bar"] },
+      { _id: "13", rank: 13, mixed: i32List([17, 6, 1997]) },
+      { _id: "14", rank: 14, mixed: i64List([17, 6, 1997]) },
+      { _id: "15", rank: 15, mixed: f64List([17.5, 6.5, 1997.5]) },
+      { _id: "16", rank: 16, mixed: ["foo", "bar"] },
     ]);
 
     const _ = await ctx.client.collection(collection.name).count({ lsn });
@@ -300,7 +303,10 @@ describe("Select Queries", () => {
       { _id: "10", mixed: [1.0, 2.0, 3.0] },
       { _id: "11", mixed: Buffer.from([1, 2, 3]) },
       { _id: "12", mixed: [17, 6, 1997] },
-      { _id: "13", mixed: ["foo", "bar"] },
+      { _id: "13", mixed: [17, 6, 1997] },
+      { _id: "14", mixed: [17, 6, 1997] },
+      { _id: "15", mixed: [17.5, 6.5, 1997.5] },
+      { _id: "16", mixed: ["foo", "bar"] },
     ]);
   });
 

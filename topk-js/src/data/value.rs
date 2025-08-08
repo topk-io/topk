@@ -181,13 +181,8 @@ impl FromNapiValue for Value {
                 }
 
                 // Bytes/buffers
-                let mut is_js_buffer: bool = false;
-                napi_is_buffer(env, value, &mut is_js_buffer);
-
-                if is_js_buffer {
-                    if let Ok(buffer) = Buffer::from_napi_value(env, value) {
-                        return Ok(Value::Bytes(buffer.to_vec()));
-                    }
+                if let Ok(bytes) = from_napi_buffer(env, value) {
+                    return Ok(Value::Bytes(bytes.into()));
                 }
 
                 return Err(napi::Error::from_reason(
@@ -277,19 +272,30 @@ impl FromNapiValue for BytesData {
             return Ok(BytesData(array));
         }
 
-        // To prevent panics on invalid buffer values such as bytes([-1])
-        // we check if the value is a JS buffer
-        let mut is_js_buffer: bool = false;
-        napi_is_buffer(env, value, &mut is_js_buffer);
-
-        if is_js_buffer {
-            if let Ok(buffer) = Buffer::from_napi_value(env, value) {
-                return Ok(BytesData(buffer.to_vec()));
-            }
+        if let Ok(bytes) = from_napi_buffer(env, value) {
+            return Ok(bytes);
         }
 
         Err(napi::Error::from_reason(
             "Invalid bytes value, must be `number[]` or `Buffer`",
         ))
     }
+}
+
+unsafe fn from_napi_buffer(
+    env: napi::sys::napi_env,
+    value: napi::sys::napi_value,
+) -> napi::Result<BytesData> {
+    // To prevent panics on invalid buffer values such as bytes([-1])
+    // we check if the value is a JS buffer
+    let mut is_js_buffer: bool = false;
+    napi_is_buffer(env, value, &mut is_js_buffer);
+
+    if is_js_buffer {
+        if let Ok(buffer) = Buffer::from_napi_value(env, value) {
+            return Ok(BytesData(buffer.to_vec()));
+        }
+    }
+
+    Err(napi::Error::from_reason("Could not parse buffer object"))
 }

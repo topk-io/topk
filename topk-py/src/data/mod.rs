@@ -75,7 +75,6 @@ pub fn u8_sparse_vector(vector: U8SparseVector) -> SparseVector {
 }
 
 #[pyfunction]
-#[pyo3(signature = (data))]
 pub fn bytes(data: &Bound<'_, PyAny>) -> PyResult<Value> {
     if let Ok(py_bytes) = data.downcast::<PyBytes>() {
         let bytes_vec = py_bytes.as_bytes().to_vec();
@@ -95,7 +94,6 @@ pub fn bytes(data: &Bound<'_, PyAny>) -> PyResult<Value> {
 }
 
 #[pyfunction]
-#[pyo3(signature = (data))]
 pub fn u32_list(data: &Bound<'_, PyAny>) -> PyResult<Value> {
     if let Ok(s) = data.extract::<Vec<u32>>() {
         return Ok(Value::List(list::List {
@@ -103,13 +101,12 @@ pub fn u32_list(data: &Bound<'_, PyAny>) -> PyResult<Value> {
         }));
     } else {
         Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-            "Expected list[int] for list() function",
+            "Expected list[int] for u32_list() function",
         ))
     }
 }
 
 #[pyfunction]
-#[pyo3(signature = (data))]
 pub fn i32_list(data: &Bound<'_, PyAny>) -> PyResult<Value> {
     if let Ok(s) = data.extract::<Vec<i32>>() {
         return Ok(Value::List(list::List {
@@ -117,13 +114,12 @@ pub fn i32_list(data: &Bound<'_, PyAny>) -> PyResult<Value> {
         }));
     } else {
         Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-            "Expected list[int] for list() function",
+            "Expected list[int] for i32_list() function",
         ))
     }
 }
 
 #[pyfunction]
-#[pyo3(signature = (data))]
 pub fn i64_list(data: &Bound<'_, PyAny>) -> PyResult<Value> {
     if let Ok(s) = data.extract::<Vec<i64>>() {
         return Ok(Value::List(list::List {
@@ -131,13 +127,12 @@ pub fn i64_list(data: &Bound<'_, PyAny>) -> PyResult<Value> {
         }));
     } else {
         Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-            "Expected list[int] for list() function",
+            "Expected list[int] for i64_list() function",
         ))
     }
 }
 
 #[pyfunction]
-#[pyo3(signature = (data))]
 pub fn f64_list(data: &Bound<'_, PyAny>) -> PyResult<Value> {
     if let Ok(s) = data.extract::<Vec<f64>>() {
         return Ok(Value::List(list::List {
@@ -145,7 +140,7 @@ pub fn f64_list(data: &Bound<'_, PyAny>) -> PyResult<Value> {
         }));
     } else {
         Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-            "Expected list[int] for list() function",
+            "Expected list[float] for f64_list() function",
         ))
     }
 }

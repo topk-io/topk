@@ -12,7 +12,6 @@ use crate::data::{
 
 use super::vector::SparseVector;
 
-// #[pyclass]
 #[derive(Debug, PartialEq, Clone)]
 pub enum Value {
     Null(),
