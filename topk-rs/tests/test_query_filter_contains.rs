@@ -274,7 +274,7 @@ async fn test_list_contains_literal(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-async fn test_list_contains_integer_literal(ctx: &mut ProjectTestContext) {
+async fn test_list_contains_int_literal(ctx: &mut ProjectTestContext) {
     let collection = dataset::books::setup(ctx).await;
 
     // books that were reprinted in 1999
@@ -300,7 +300,33 @@ async fn test_list_contains_integer_literal(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-async fn test_list_contains_integer_field(ctx: &mut ProjectTestContext) {
+async fn test_list_contains_int_literal_different_type(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    // books that were reprinted in 1999
+    let results = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([
+                ("_id", field("_id")),
+                ("title", field("title")),
+                ("reprint_years", field("reprint_years")),
+            ])
+            .filter(field("reprint_years").contains(1999i32))
+            .topk(field("published_year"), 100, true),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids!(results, ["mockingbird", "harry"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_list_contains_int_field(ctx: &mut ProjectTestContext) {
     let collection = dataset::books::setup(ctx).await;
 
     // books which were reprinted one year after they were published
