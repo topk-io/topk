@@ -936,13 +936,22 @@ The `match_all` operator returns `true` if all terms in the query are present in
 .filter(
   field("summary").match_all("love marriage england")
 )
+# you can also pass a list of strings:
+.filter(
+  field("summary").match_all(["love", "marriage", "england"])
+)
 ```
 
 ```js Javascript
 .filter(field("summary").matchAll("love marriage england"))
+// you can also pass an array of strings:
+.filter(field("summary").matchAll(["love", "marriage", "england"]))
 ```
-
 </CodeGroup>
+
+<Info>
+When using a `match_all` operator against a text field, it must be used in conjunction with a [**keyword index**](/collections/create#keyword-index) defined in your collection schema.
+</Info>
 
 #### match_any
 
@@ -954,14 +963,23 @@ The `match_any` operator returns `true` if any term in the query is present in t
 .filter(
     field("summary").match_any("love ring")
 )
+# you can also pass a list of strings:
+.filter(
+  field("summary").match_any(["love", "ring"])
+)
 ```
 
 ```js Javascript
 .filter(field("summary").matchAny("love ring"))
+// you can also pass an array of strings:
+.filter(field("summary").matchAny(["love", "ring"]))
 ```
 
 </CodeGroup>
 
+<Info>
+When using a `match_any` operator against a text field, it must be used in conjunction with a [**keyword index**](/collections/create#keyword-index) defined in your collection schema.
+</Info>
 
 ### Mathematical operators
 

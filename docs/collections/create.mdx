@@ -312,6 +312,32 @@ import { u8SparseVector } from "topk-js/schema";
   Sparse vectors use u32 dimension indices to support dictionaries of up to 2^32 - 1 terms.
 </Note>
 
+### list()
+
+`list()` function is used to define a list field. List can define a list of **strings**, **integers** and **floats**.
+
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.schema import list
+
+"tags": list("text")
+```
+
+
+```js JavaScript
+import { list } from "topk-js/schema";
+
+"tags": list({ valueType: "text" })
+```
+
+</CodeGroup>
+
+<ParamField body="value_type" type={`"text" | "integer" | "float"`} required={true}>
+  The type of the list elements. Supported types: `text`, `integer`, `float`.
+</ParamField>
+
 ## Properties
 
 ### required()

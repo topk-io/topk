@@ -2,16 +2,20 @@
 title: "Data constructors"
 ---
 
-In TopK, a vector is represented as a flat array of numbers. To differentiate between various types of vectors, use provided data constructors when inserting or querying vectors:
-TopK supports the following types of vectors:
+To pass a specific complex data type, use provided data constructors when inserting or querying your documents.
 
-- Float32 vectors
-- U8 vectors
-- Binary vectors
-- Sparse f32 vectors
-- Sparse u8 vectors
+TopK provides constructors for the following complex types:
 
-If no helper function is used, the vector is assumed to be a **float32 vector**.
+  {/* export function binaryVector(values: Array<number>): List
+  export function bytes(buffer: Array<number> | Buffer): any
+  export function f32SparseVector(vector: Record<number, number>): SparseVector
+  export function f32Vector(values: Array<number>): List
+  export function f64List(values: Array<number>): List
+  export function i32List(values: Array<number>): List
+  export function i64List(values: Array<number>): List
+  export function u32List(values: Array<number>): List
+  export function u8SparseVector(vector: Record<number, number>): SparseVector
+  export function u8Vector(values: Array<number>): List */}
 
 ### f32_vector()
 
@@ -33,6 +37,10 @@ f32Vector([0.12, 0.67, 0.82, 0.53])
 ```
 
 </CodeGroup>
+
+<Info>
+  When passing an array of numbers, it is by default considered a list of float32 values.
+</Info>
 
 ### u8_vector()
 
@@ -60,7 +68,6 @@ u8Vector([0, 1, 2, 3])
 To pass a binary vector, use the `binary_vector()` helper function:
 
 <CodeGroup>
-
 ```python Python
 from topk_sdk.data import binary_vector
 
@@ -114,6 +121,95 @@ u8_sparse_vector({0: 12, 6: 67, 17: 82, 97: 53})
 import { u8SparseVector } from "topk-js/data";
 
 u8SparseVector({0: 12, 6: 67, 17: 82, 97: 53})
+```
+
+</CodeGroup>
+
+
+### f64_list()
+
+To pass a list of 64-bit floating-point numbers, use the `f64_list()` helper function:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.data import f64_list
+
+f64_list([0.12, 0.67, 0.82, 0.53])
+```
+
+
+```typescript Javascript
+import { f64List } from "topk-js/data";
+
+f64List([0.12, 0.67, 0.82, 0.53])
+```
+
+</CodeGroup>
+
+### i32_list()
+
+To pass a list of 32-bit signed integers, use the `i32_list()` helper function:
+
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.data import i32_list
+
+i32_list([0, 1, 2, 3])
+```
+
+
+```typescript Javascript
+import { i32List } from "topk-js/data";
+
+i32List([0, 1, 2, 3])
+```
+
+</CodeGroup>
+
+### i64_list()
+
+To pass a list of 64-bit signed integers, use the `i64_list()` helper function:
+
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.data import i64_list
+
+i64_list([0, 1, 2, 3])
+```
+
+
+
+```typescript Javascript
+import { i64List } from "topk-js/data";
+
+i64List([0, 1, 2, 3])
+```
+
+</CodeGroup>
+
+### u32_list()
+
+To pass a list of 32-bit unsigned integers, use the `u32_list()` helper function:
+
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.data import u32_list
+
+u32_list([0, 1, 2, 3])
+```
+
+
+```typescript Javascript
+import { u32List } from "topk-js/data";
+
+u32List([0, 1, 2, 3])
 ```
 
 </CodeGroup>
