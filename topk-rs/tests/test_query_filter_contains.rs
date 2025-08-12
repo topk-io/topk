@@ -124,6 +124,26 @@ async fn test_string_contains_field(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
+async fn test_string_in_field(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    // find books where the id is a substring of the title
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            filter(field("_id").in_(field("title"))).topk(field("published_year"), 100, false),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids!(result, ["1984"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
 async fn test_string_contains_field_self(ctx: &mut ProjectTestContext) {
     let collection = dataset::books::setup(ctx).await;
 
@@ -352,6 +372,32 @@ async fn test_list_contains_int_field(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
+async fn test_list_in_int_field(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    // books which were reprinted one year after they were published
+    let results = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([
+                ("_id", field("_id")),
+                ("title", field("title")),
+                ("reprint_years", field("reprint_years")),
+            ])
+            .filter(field("published_year").add(1).in_(field("reprint_years")))
+            .topk(field("published_year"), 100, true),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids!(results, ["harry", "1984"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
 async fn test_list_contains_string_field_with_keyword_index(ctx: &mut ProjectTestContext) {
     let collection = dataset::books::setup(ctx).await;
 
@@ -366,6 +412,32 @@ async fn test_list_contains_string_field_with_keyword_index(ctx: &mut ProjectTes
                 ("reprint_years", field("reprint_years")),
             ])
             .filter(field("tags").contains(field("_id")))
+            .topk(field("published_year"), 100, true),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids!(results, ["pride", "hobbit"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_list_in_string_field_with_keyword_index(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    // books which have a tag that is the same as the book's id
+    let results = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([
+                ("_id", field("_id")),
+                ("title", field("title")),
+                ("reprint_years", field("reprint_years")),
+            ])
+            .filter(field("_id").in_(field("tags")))
             .topk(field("published_year"), 100, true),
             None,
             None,

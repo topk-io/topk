@@ -118,7 +118,7 @@ impl LogicalExpr {
     }
 
     pub fn in_(self, right: impl Into<LogicalExpr>) -> Self {
-        Self::binary(binary_op::Op::Contains, right, self )
+        Self::binary(binary_op::Op::In, self, right)
     }
 
     /// Matches all terms against the field with keyword index.
