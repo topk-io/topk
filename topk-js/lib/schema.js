@@ -7,6 +7,7 @@ exports.f32Vector = schema.f32Vector;
 exports.float = schema.float;
 exports.int = schema.int;
 exports.keywordIndex = schema.keywordIndex;
+exports.list = schema.list;
 exports.semanticIndex = schema.semanticIndex;
 exports.text = schema.text;
 exports.u8Vector = schema.u8Vector;

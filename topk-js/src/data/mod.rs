@@ -4,6 +4,10 @@ pub use collection::{Collection, CollectionFieldSpec};
 mod document;
 pub use document::Document;
 
+mod list;
+pub use list::List;
+pub use list::Values;
+
 mod scalar;
 pub use scalar::Scalar;
 
@@ -11,10 +15,9 @@ mod value;
 pub use value::Value;
 
 mod vector;
+pub use vector::SparseVector;
 use vector::SparseVectorData;
-pub use vector::{SparseVector, Vector};
 
-use crate::data::vector::VectorData;
 use napi_derive::napi;
 use value::BytesData;
 
@@ -24,18 +27,52 @@ pub fn bytes(#[napi(ts_arg_type = "Array<number> | Buffer")] buffer: BytesData) 
 }
 
 #[napi(namespace = "data")]
-pub fn f32_vector(#[napi(ts_arg_type = "Array<number>")] values: VectorData<f64>) -> Vector {
-    Vector::float(values.into_iter().map(|v| v as f32).collect())
+pub fn f32_vector(values: Vec<f64>) -> List {
+    List {
+        values: Values::F32(values.into_iter().map(|v| v as f32).collect()),
+    }
 }
 
 #[napi(namespace = "data")]
-pub fn u8_vector(#[napi(ts_arg_type = "Array<number>")] values: VectorData<u8>) -> Vector {
-    Vector::byte(values.into())
+pub fn u8_vector(values: Vec<u8>) -> List {
+    List {
+        values: Values::U8(values),
+    }
 }
 
 #[napi(namespace = "data")]
-pub fn binary_vector(#[napi(ts_arg_type = "Array<number>")] values: VectorData<u8>) -> Vector {
-    Vector::byte(values.into())
+pub fn binary_vector(values: Vec<u8>) -> List {
+    List {
+        values: Values::U8(values),
+    }
+}
+
+#[napi(namespace = "data")]
+pub fn u32_list(values: Vec<u32>) -> List {
+    List {
+        values: Values::U32(values),
+    }
+}
+
+#[napi(namespace = "data")]
+pub fn i32_list(values: Vec<i32>) -> List {
+    List {
+        values: Values::I32(values),
+    }
+}
+
+#[napi(namespace = "data")]
+pub fn i64_list(values: Vec<i64>) -> List {
+    List {
+        values: Values::I64(values),
+    }
+}
+
+#[napi(namespace = "data")]
+pub fn f64_list(values: Vec<f64>) -> List {
+    List {
+        values: Values::F64(values),
+    }
 }
 
 #[napi(namespace = "data")]

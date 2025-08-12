@@ -24,6 +24,7 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(bytes))?;
     m.add_wrapped(wrap_pyfunction!(f32_sparse_vector))?;
     m.add_wrapped(wrap_pyfunction!(u8_sparse_vector))?;
+    m.add_wrapped(wrap_pyfunction!(list))?;
 
     // indexes
     m.add_wrapped(wrap_pyfunction!(vector_index))?;
@@ -81,6 +82,25 @@ pub fn u8_sparse_vector() -> field_spec::FieldSpec {
 #[pyfunction]
 pub fn bytes() -> field_spec::FieldSpec {
     field_spec::FieldSpec::new(data_type::DataType::Bytes())
+}
+
+#[pyfunction]
+pub fn list(value_type: String) -> PyResult<field_spec::FieldSpec> {
+    let value_type = match value_type.to_lowercase().as_str() {
+        "text" => data_type::ListValueType::Text,
+        "integer" => data_type::ListValueType::Integer,
+        "float" => data_type::ListValueType::Float,
+        _ => {
+            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "Invalid list value type: {}. Supported value types are: text, integer, float.",
+                value_type
+            )))
+        }
+    };
+
+    Ok(field_spec::FieldSpec::new(data_type::DataType::List {
+        value_type,
+    }))
 }
 
 #[pyfunction]

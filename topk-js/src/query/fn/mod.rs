@@ -7,26 +7,21 @@ use napi_derive::napi;
 #[napi(namespace = "query_fn", ts_return_type = "query.FunctionExpression")]
 pub fn vector_distance(
     field: String,
-    #[napi(
-        ts_arg_type = "Array<number> | Record<number, number> | data.Vector | data.SparseVector"
-    )]
+    #[napi(ts_arg_type = "Array<number> | Record<number, number> | data.List | data.SparseVector")]
     query: Value,
 ) -> napi::Result<FunctionExpression> {
     match query {
-        Value::Vector(vector) => Ok(FunctionExpression(FunctionExpressionUnion::VectorScore {
+        Value::List(list) => Ok(FunctionExpression(FunctionExpressionUnion::VectorScore {
             field,
-            query: Value::Vector(vector),
+            query: Value::List(list),
         })),
-        Value::SparseVector(vector) => {
+        Value::SparseVector(query) => {
             Ok(FunctionExpression(FunctionExpressionUnion::VectorScore {
                 field,
-                query: Value::SparseVector(vector),
+                query: Value::SparseVector(query),
             }))
         }
-        _ => Err(napi::Error::new(
-            napi::Status::InvalidArg,
-            "Vector query must be a vector or sparse vector",
-        )),
+        v => Err(napi::Error::from_reason(format!("Unsupported vector query: {:?}", v)).into()),
     }
 }
 

@@ -11,7 +11,7 @@ pub use numeric::Numeric;
 pub use ternary_op::TernaryOperator;
 pub use unary_op::UnaryOperator;
 
-use crate::{data::Scalar, utils::NapiBox};
+use crate::{data::Scalar, expr::logical::stringy::StringyWithList, utils::NapiBox};
 use boolish::Boolish;
 use comparable::Comparable;
 use napi_derive::napi;
@@ -277,7 +277,7 @@ impl LogicalExpression {
     #[napi]
     pub fn match_all(
         &self,
-        #[napi(ts_arg_type = "LogicalExpression | string")] other: Stringy,
+        #[napi(ts_arg_type = "LogicalExpression | string | string[]")] other: StringyWithList,
     ) -> Self {
         Self::binary(BinaryOperator::MatchAll, self.clone(), other.into())
     }
@@ -285,7 +285,7 @@ impl LogicalExpression {
     #[napi]
     pub fn match_any(
         &self,
-        #[napi(ts_arg_type = "LogicalExpression | string")] other: Stringy,
+        #[napi(ts_arg_type = "LogicalExpression | string | string[]")] other: StringyWithList,
     ) -> Self {
         Self::binary(BinaryOperator::MatchAny, self.clone(), other.into())
     }

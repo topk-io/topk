@@ -66,6 +66,9 @@ impl From<FieldSpec> for topk_rs::proto::v1::control::FieldSpec {
                         topk_rs::proto::v1::control::field_type::DataType::u8_sparse_vector()
                     }
                     DataType::Bytes => topk_rs::proto::v1::control::field_type::DataType::bytes(),
+                    DataType::List { value_type } => {
+                        topk_rs::proto::v1::control::field_type::DataType::List(value_type.into())
+                    }
                 }),
             }),
             required: field_spec.required,
