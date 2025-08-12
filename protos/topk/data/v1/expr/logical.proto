@@ -49,6 +49,8 @@ message LogicalExpr {
       // Clamping
       OP_MIN = 18;
       OP_MAX = 19;
+      //
+      OP_IN = 20;
     }
     Op op = 1;
     LogicalExpr left = 2;
