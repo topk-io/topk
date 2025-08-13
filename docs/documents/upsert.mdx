@@ -127,7 +127,7 @@ client.collections().create(
         "f32_sparse_embedding": f32_sparse_vector().index(vector_index(metric="dot_product")),
         "u8_sparse_embedding": u8_sparse_vector().index(vector_index(metric="dot_product")),
         "bytes": bytes(),
-        "tags": list("text").index(keyword_index()),
+        "tags": list(value_type="text").index(keyword_index()),
     },
 )
 ```
