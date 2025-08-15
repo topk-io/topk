@@ -55,7 +55,7 @@ pub fn schema() -> HashMap<String, FieldSpec> {
         "binary_embedding" => FieldSpec::binary_vector(2, false, VectorDistanceMetric::Hamming),
         "sparse_f32_embedding" => FieldSpec::f32_sparse_vector(true, VectorDistanceMetric::DotProduct),
         "sparse_u8_embedding" => FieldSpec::u8_sparse_vector(false, VectorDistanceMetric::DotProduct),
-        "tags" => FieldSpec::list(true, ListValueType::String).with_index(FieldIndex::keyword(KeywordIndexType::Text))
+        "tags" => FieldSpec::list(true, ListValueType::String).with_index(FieldIndex::keyword(KeywordIndexType::Text)),
     )
 }
 
@@ -78,6 +78,8 @@ pub fn docs() -> Vec<Document> {
             "sparse_u8_embedding" => Value::u8_sparse_vector(vec![0, 1, 2], vec![1, 2, 3]),
             "nullable_importance" => 2.0_f32,
             "tags" => Value::list(vec!["racism".to_string(), "injustice".to_string(), "girl".to_string(), "father".to_string(), "lawyer".to_string()]),
+            "codes" => Value::list(vec!["ISBN 978-0-06-093546-7".to_string(), "ISBN 0-06-093546-4".to_string(), "LCCN 60007854".to_string(), "UPC 025192354670".to_string()]),
+            "reprint_years" => Value::list(vec![1966u32, 1988, 1999, 2002, 2015]),
         ),
         doc!(
             "_id" => "1984",
@@ -91,6 +93,8 @@ pub fn docs() -> Vec<Document> {
             "sparse_f32_embedding" => Value::f32_sparse_vector(vec![2,3,4], vec![1.0, 2.0, 3.0]),
             "sparse_u8_embedding" => Value::u8_sparse_vector(vec![2,3,4], vec![1, 2, 3]),
             "tags" => Value::list(vec!["dystopia".to_string(), "surveillance".to_string(), "totalitarianism".to_string(), "mind control".to_string(), "oppression".to_string()]),
+            "codes" => Value::list(vec!["1984".to_string(), "ISBN 978-0-452-28423-4".to_string(), "ISBN 0-452-28423-6".to_string(), "OCLC 70775700".to_string(), "DOI 10.1000/182".to_string(), "EAN 9780452284234".to_string()]),
+            "reprint_years" => Value::list(vec![1950u32, 1954, 1956, 1961, 1984, 1990, 2003]),
         ),
         doc!(
             "_id" => "pride",
@@ -100,7 +104,9 @@ pub fn docs() -> Vec<Document> {
             "summary_embedding" => vec![3.0; 16],
             "sparse_f32_embedding" => Value::f32_sparse_vector(vec![3, 4, 5], vec![1.0, 2.0, 3.0]),
             "sparse_u8_embedding" => Value::u8_sparse_vector(vec![3, 4, 5], vec![1, 2, 3]),
-            "tags" => Value::list(vec!["love".to_string(), "romance".to_string(), "class".to_string(), "marriage".to_string(), "prejudice".to_string()]),
+            "tags" => Value::list(vec!["pride".to_string(), "love".to_string(), "romance".to_string(), "class".to_string(), "marriage".to_string(), "prejudice".to_string()]),
+            "codes" => Value::list(vec!["ISBN 978-0-14-143951-8".to_string(), "OCLC 934546789".to_string()]),
+            "reprint_years" => Value::list(vec![1966u32, 1972, 1985]),
         ),
         doc!(
             "_id" => "gatsby",
@@ -111,6 +117,8 @@ pub fn docs() -> Vec<Document> {
             "sparse_f32_embedding" => Value::f32_sparse_vector(vec![4, 5, 6], vec![1.0, 2.0, 3.0]),
             "sparse_u8_embedding" => Value::u8_sparse_vector(vec![4, 5, 6], vec![1, 2, 3]),
             "tags" => Value::list(vec!["love".to_string(), "romance".to_string(), "wealth".to_string(), "marriage".to_string()]),
+            "codes" => Value::list(vec!["ISBN 978-0-7432-7356-5".to_string(), "ISBN 0-7432-7356-7".to_string(), "OCLC 60393320".to_string(), "ASIN B000FC0SIS".to_string(), "UPC 074327356709".to_string(), "LCCN 2002114274".to_string()]),
+            "reprint_years" => Value::list(vec![1953u32, 1996, 2004]),
         ),
         doc!(
             "_id" => "catcher",
@@ -124,6 +132,8 @@ pub fn docs() -> Vec<Document> {
             "sparse_f32_embedding" => Value::f32_sparse_vector(vec![5, 6, 7], vec![1.0, 2.0, 3.0]),
             "sparse_u8_embedding" => Value::u8_sparse_vector(vec![5, 6, 7], vec![1, 2, 3]),
             "tags" => Value::list(vec!["alienation".to_string(), "identity".to_string(), "rebellion".to_string(), "mid-20th-century".to_string(), "america".to_string()]),
+            "codes" => Value::list(vec!["ISBN 978-0-316-76917-4".to_string(), "LCCN 51011564".to_string(), "OCLC 287628".to_string()]),
+            "reprint_years" => Value::list(vec![1964u32, 1979, 1991, 2001, 2010]),
         ),
         doc!(
             "_id" => "moby",
@@ -135,6 +145,8 @@ pub fn docs() -> Vec<Document> {
             "sparse_u8_embedding" => Value::u8_sparse_vector(vec![6,7,8], vec![1, 2, 3]),
             "nullable_importance" => 5.0_f32,
             "tags" => Value::list(vec!["whale".to_string(), "obsession".to_string(), "tragedy".to_string(), "sailing".to_string(), "ocean".to_string()]),
+            "codes" => Value::list(Vec::<String>::new()),
+            "reprint_years" => Value::list(Vec::<u32>::new()),
         ),
         doc!(
             "_id" => "hobbit",
@@ -158,6 +170,8 @@ pub fn docs() -> Vec<Document> {
             "sparse_f32_embedding" => Value::f32_sparse_vector(vec![8,9,10], vec![1.0, 2.0, 3.0]),
             "sparse_u8_embedding" => Value::u8_sparse_vector(vec![8,9,10], vec![1, 2, 3]),
             "tags" => Value::list(vec!["wizard".to_string(), "magic".to_string(), "sorcerer".to_string(), "school".to_string(), "witchcraft".to_string()]),
+            "codes" => Value::list(vec!["ISBN 978-0-439-70818-0".to_string(), "UPC 043970818909".to_string()]),
+            "reprint_years" => Value::list(vec![1998u32, 1999, 2001, 2004, 2013, 2020]),
         ),
         doc!(
             "_id" => "lotr",
@@ -168,6 +182,7 @@ pub fn docs() -> Vec<Document> {
             "sparse_f32_embedding" => Value::f32_sparse_vector(vec![9,10,11], vec![1.0, 2.0, 3.0]),
             "sparse_u8_embedding" => Value::u8_sparse_vector(vec![9,10,11], vec![1, 2, 3]),
             "tags" => Value::list(vec!["lord of the rings".to_string(), "fellowship".to_string(), "magic".to_string(), "wizard".to_string(), "elves".to_string()]),
+            "codes" => Value::list(vec!["ISBN 978-0-547-92821-0".to_string(), "ISBN 0-547-92821-2".to_string(), "OCLC 434394005".to_string(), "LCCN 2004558654".to_string(), "Barcode 0618346252".to_string()]),
         ),
         doc!(
             "_id" => "alchemist",
@@ -178,6 +193,8 @@ pub fn docs() -> Vec<Document> {
             "sparse_f32_embedding" => Value::f32_sparse_vector(vec![10,11,12], vec![1.0, 2.0, 3.0]),
             "sparse_u8_embedding" => Value::u8_sparse_vector(vec![10,11,12], vec![1, 2, 3]),
             "tags" => Value::list(vec!["journey".to_string(), "destiny".to_string(), "meaning of life".to_string(), "alchemy".to_string(), "soul".to_string()]),
+            "codes" => Value::list(vec!["ISBN 978-0-06-231500-7".to_string(), "ASIN 0062315005".to_string(), "OCLC 804616251".to_string(), "DOI 10.1234/alchemist".to_string(), "EAN 9780062315007".to_string(), "UPC 006231500719".to_string(), "LCCN 88675123".to_string()]),
+            "reprint_years" => Value::list(vec![1993u32, 2005, 2014]),
         ),
     ]
 }

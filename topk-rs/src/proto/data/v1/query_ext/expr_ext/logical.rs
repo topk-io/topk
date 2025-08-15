@@ -117,6 +117,13 @@ impl LogicalExpr {
         Self::binary(binary_op::Op::Contains, self, right)
     }
 
+    /// If right is a list, evaluates to true if self is equal to one of the elements of right.
+    /// If right is a string, evaluates to true if self is a substring of right.
+    /// Equivalent to right.contains(self).
+    pub fn in_(self, right: impl Into<LogicalExpr>) -> Self {
+        Self::binary(binary_op::Op::In, self, right)
+    }
+
     /// Matches all terms against the field with keyword index.
     pub fn match_all(self, right: impl Into<LogicalExpr>) -> Self {
         Self::binary(binary_op::Op::MatchAll, self, right)
