@@ -535,11 +535,10 @@ async fn test_string_in(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-async fn test_list_in(ctx: &mut ProjectTestContext) {
+async fn test_in_list_literal_int(ctx: &mut ProjectTestContext) {
     let collection = dataset::books::setup(ctx).await;
 
-    // books published in specific years NOT IMPLMENTED YET
-    let err = ctx
+    let result = ctx
         .client
         .collection(&collection.name)
         .query(
@@ -550,8 +549,35 @@ async fn test_list_in(ctx: &mut ProjectTestContext) {
             None,
         )
         .await
-        .expect_err("could not query");
+        .expect("could not query");
 
-    assert!(matches!(err, Error::InvalidArgument(_)));
-    // assert_doc_ids!(results, ["alchemist", "harry"]);
+    assert_doc_ids!(result, ["alchemist", "harry"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_in_list_literal_string(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    // books published in specific years NOT IMPLMENTED YET
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([("_id", field("_id")), ("title", field("title"))])
+                .filter(field("title").in_(Value::list(vec![
+                    "The Great Gatsby".to_string(),
+                    "The Catcher in the Rye".to_string(),
+                    "The Lord of the Rings: NOT THIS ONE".to_string(),
+                    "The".to_string(),
+                    "something 123".to_string(),
+                ])))
+                .topk(field("published_year"), 100, true),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids!(result, ["gatsby", "catcher"]);
 }
