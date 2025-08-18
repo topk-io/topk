@@ -95,10 +95,12 @@ pub mod query {
         )
     }
 
+    /// Evaluates to true if each `expr` is true.
     pub fn all(exprs: impl IntoIterator<Item = impl Into<LogicalExpr>>) -> LogicalExpr {
         LogicalExpr::all(exprs)
     }
 
+    /// Evaluates to true if at least one `expr` is true.
     pub fn any(exprs: impl IntoIterator<Item = impl Into<LogicalExpr>>) -> LogicalExpr {
         LogicalExpr::any(exprs)
     }

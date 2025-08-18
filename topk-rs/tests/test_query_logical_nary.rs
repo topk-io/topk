@@ -1,7 +1,7 @@
 use test_context::test_context;
-use topk_rs::doc;
 use topk_rs::proto::v1::data::Value;
 use topk_rs::query::{all, any, field, filter, not, select};
+use topk_rs::{doc, Error};
 
 mod utils;
 use utils::dataset;
@@ -69,9 +69,9 @@ async fn test_all_codes_vec(ctx: &mut ProjectTestContext) {
         .collection(&collection.name)
         .query(
             filter(all(vec![
-                field("codes").contains("UPC 074327356709"),
-                field("codes").contains("ASIN B000FC0SIS"),
-                field("codes").contains("LCCN 2002114274"),
+                field("tags").contains("wizard"),
+                field("tags").contains("school"),
+                field("tags").contains("magic"),
             ]))
             .topk(field("published_year"), 100, true),
             None,
@@ -80,7 +80,7 @@ async fn test_all_codes_vec(ctx: &mut ProjectTestContext) {
         .await
         .expect("could not query");
 
-    assert_doc_ids!(result, ["gatsby"]);
+    assert_doc_ids!(result, ["harry"]);
 }
 
 #[test_context(ProjectTestContext)]
@@ -263,4 +263,46 @@ async fn test_all_mixed_exprs(ctx: &mut ProjectTestContext) {
         .expect("could not query");
 
     assert_doc_ids!(result, ["catcher", "hobbit", "lotr", "alchemist"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_all_large_arity(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let expr = all(vec![field("tags").contains("wizard"); 32]);
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            filter(expr).topk(field("published_year"), 100, true),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids!(result, ["harry", "lotr"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_all_max_arity(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let expr = all(vec![field("tags").contains("wizard"); 33]);
+
+    let err = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            filter(expr).topk(field("published_year"), 100, true),
+            None,
+            None,
+        )
+        .await
+        .expect_err("should have failed due to max arity");
+
+    assert!(matches!(err, Error::InvalidArgument(_)));
 }
