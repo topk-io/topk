@@ -1,5 +1,5 @@
 use crate::proto::{
-    data::v1::logical_expr::{self, binary_op, ternary_op, unary_op, BinaryOp, UnaryOp},
+    data::v1::logical_expr::{self, binary_op, nary_op, ternary_op, unary_op, BinaryOp, UnaryOp},
     v1::data::{LogicalExpr, Value},
 };
 
@@ -191,27 +191,31 @@ impl LogicalExpr {
     }
 
     pub fn min(self, right: impl Into<LogicalExpr>) -> Self {
-        LogicalExpr {
-            expr: Some(logical_expr::Expr::BinaryOp(Box::new(
-                logical_expr::BinaryOp {
-                    op: logical_expr::binary_op::Op::Min as i32,
-                    left: Some(Box::new(self)),
-                    right: Some(Box::new(right.into())),
-                },
-            ))),
-        }
+        Self::binary(binary_op::Op::Min, self, right)
     }
 
     pub fn max(self, right: impl Into<LogicalExpr>) -> Self {
+        Self::binary(binary_op::Op::Max, self, right)
+    }
+
+    pub fn nary(
+        op: impl Into<nary_op::Op>,
+        exprs: impl IntoIterator<Item = impl Into<LogicalExpr>>,
+    ) -> Self {
         LogicalExpr {
-            expr: Some(logical_expr::Expr::BinaryOp(Box::new(
-                logical_expr::BinaryOp {
-                    op: logical_expr::binary_op::Op::Max as i32,
-                    left: Some(Box::new(self)),
-                    right: Some(Box::new(right.into())),
-                },
-            ))),
+            expr: Some(logical_expr::Expr::NaryOp(logical_expr::NaryOp {
+                op: op.into() as i32,
+                exprs: exprs.into_iter().map(|e| e.into()).collect(),
+            })),
         }
+    }
+
+    pub fn all(exprs: impl IntoIterator<Item = impl Into<LogicalExpr>>) -> Self {
+        Self::nary(nary_op::Op::All, exprs)
+    }
+
+    pub fn any(exprs: impl IntoIterator<Item = impl Into<LogicalExpr>>) -> Self {
+        Self::nary(nary_op::Op::Any, exprs)
     }
 }
 

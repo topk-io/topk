@@ -559,7 +559,6 @@ async fn test_in_list_literal_int(ctx: &mut ProjectTestContext) {
 async fn test_in_list_literal_string(ctx: &mut ProjectTestContext) {
     let collection = dataset::books::setup(ctx).await;
 
-    // books published in specific years NOT IMPLMENTED YET
     let result = ctx
         .client
         .collection(&collection.name)

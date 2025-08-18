@@ -94,4 +94,12 @@ pub mod query {
             }],
         )
     }
+
+    pub fn all(exprs: impl IntoIterator<Item = impl Into<LogicalExpr>>) -> LogicalExpr {
+        LogicalExpr::all(exprs)
+    }
+
+    pub fn any(exprs: impl IntoIterator<Item = impl Into<LogicalExpr>>) -> LogicalExpr {
+        LogicalExpr::any(exprs)
+    }
 }
