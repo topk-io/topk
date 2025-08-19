@@ -12,6 +12,9 @@ use crate::data::{
 
 use super::vector::SparseVector;
 
+/// Value is the "user facing type"
+/// Can be created from native Python types and outputs of data constructors.
+/// It is always extracted into native Python types, losing primitive (list int size) and complex (SparseVector) type information.
 #[derive(Debug, PartialEq, Clone)]
 pub enum Value {
     Null(),
@@ -28,11 +31,24 @@ impl<'py> FromPyObject<'py> for Value {
     fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
         // NOTE: it's safe to use `downcast` for custom types
 
+        // Non native types, created by data constructors
         if let Ok(v) = obj.downcast::<List>() {
             Ok(Value::List(v.borrow().clone()))
+        } else if let Ok(v) = obj.downcast::<SparseVector>() {
+            Ok(Value::SparseVector(v.get().clone()))
+        } else if let Ok(v) = F32SparseVector::extract_bound(obj) {
+            Ok(Value::SparseVector(SparseVector::F32 {
+                indices: v.indices,
+                values: v.values,
+            }))
         // PyBytes can be extracted as Vec<f32> so it needs to be handled before list(f32)
         } else if let Ok(b) = obj.downcast_exact::<PyBytes>() {
             Ok(Value::Bytes(b.extract()?))
+        // Native list types
+        } else if let Ok(v) = obj.extract::<Vec<i64>>() {
+            Ok(Value::List(List {
+                values: Values::I64(v),
+            }))
         } else if let Ok(v) = obj.extract::<Vec<f32>>() {
             Ok(Value::List(List {
                 values: Values::F32(v),
@@ -41,8 +57,7 @@ impl<'py> FromPyObject<'py> for Value {
             Ok(Value::List(List {
                 values: Values::String(v),
             }))
-        } else if let Ok(v) = obj.downcast::<SparseVector>() {
-            Ok(Value::SparseVector(v.get().clone()))
+        // Native primitive types
         } else if let Ok(s) = obj.downcast_exact::<PyString>() {
             Ok(Value::String(s.extract()?))
         } else if let Ok(i) = obj.downcast_exact::<PyInt>() {
@@ -51,11 +66,6 @@ impl<'py> FromPyObject<'py> for Value {
             Ok(Value::Float(f.extract()?))
         } else if let Ok(b) = obj.downcast_exact::<PyBool>() {
             Ok(Value::Bool(b.extract()?))
-        } else if let Ok(v) = F32SparseVector::extract_bound(obj) {
-            Ok(Value::SparseVector(SparseVector::F32 {
-                indices: v.indices,
-                values: v.values,
-            }))
         } else if let Ok(_) = obj.downcast_exact::<PyNone>() {
             Ok(Value::Null())
         } else {

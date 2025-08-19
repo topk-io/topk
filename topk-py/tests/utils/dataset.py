@@ -66,6 +66,7 @@ class books:
                     {0: 1.0, 1: 2.0, 2: 3.0}
                 ),
                 "sparse_u8_embedding": data.u8_sparse_vector({0: 1, 1: 2, 2: 3}),
+                "nullable_importance": 2.0,
                 "tags": ["racism", "injustice", "girl", "father", "lawyer"],
             },
             {
@@ -215,7 +216,6 @@ class semantic:
                 "title": "To Kill a Mockingbird",
                 "published_year": 1960,
                 "summary": "A young girl confronts racial injustice in the Deep South through the eyes of her lawyer father.",
-                "nullable_importance": 2.0,
             },
             {
                 "_id": "1984",

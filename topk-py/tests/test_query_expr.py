@@ -1,4 +1,5 @@
 import pytest
+from topk_sdk import data
 from topk_sdk.query import field, literal, not_
 
 
@@ -40,6 +41,16 @@ def test_comparison_operators():
 
     assert (field("a") >= 1)._expr_eq(field("a") >= literal(1))
     assert (1 <= field("a"))._expr_eq(field("a") >= literal(1))
+
+    assert (field("a").eq(data.u32_list([1, 2, 3])))._expr_eq(
+        field("a").eq(literal(data.u32_list([1, 2, 3])))
+    )
+
+    assert (field("a").eq([1, 2, 3]))._expr_eq(field("a").eq(literal([1, 2, 3])))
+    assert (field("a").eq([1, 2, 3]))._expr_eq(field("a").eq(data.i64_list([1, 2, 3])))
+
+    assert (field("a").eq([1.1, 2, 3]))._expr_eq(field("a").eq(data.f32_list([1.1, 2, 3])))
+
 
 
 def test_query_expr_eq():

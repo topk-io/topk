@@ -164,7 +164,7 @@ def test_upsert_vectors(ctx: ProjectContext):
         [
             {
                 "_id": "x",
-                "f32_vector": [1, 2, 3],
+                "f32_vector": data.f32_vector([1, 2, 3]),
                 "u8_vector": data.u8_vector([4, 5, 6]),
                 "binary_vector": data.binary_vector([7, 8, 9]),
             }

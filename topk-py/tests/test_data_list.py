@@ -1,17 +1,23 @@
 import pytest
-from topk_sdk.data import f64_list, i32_list, i64_list, u32_list
+from topk_sdk.data import f64_list, i32_list, i64_list, u32_list, string_list, f32_list
+
+
+def test_string_list_empty():
+    result = string_list([])
+    assert result is not None
+    assert str(result) == "List(String([]))"
 
 
 def test_u32_list():
     result = u32_list([0, 1, 255, 4294967295])
     assert result is not None
-    assert str(result) == "[0, 1, 255, 4294967295]"
+    assert str(result) == "List(U32([0, 1, 255, 4294967295]))"
 
 
 def test_u32_list_empty():
     result = u32_list([])
     assert result is not None
-    assert str(result) == "[]"
+    assert str(result) == "List(U32([]))"
 
 
 def test_u32_list_invalid_input():
@@ -29,13 +35,13 @@ def test_u32_list_invalid_input():
 def test_i32_list():
     result = i32_list([-2147483648, -1, 0, 1, 2147483647])
     assert result is not None
-    assert str(result) == "[-2147483648, -1, 0, 1, 2147483647]"
+    assert str(result) == "List(I32([-2147483648, -1, 0, 1, 2147483647]))"
 
 
 def test_i32_list_empty():
     result = i32_list([])
     assert result is not None
-    assert str(result) == "[]"
+    assert str(result) == "List(I32([]))"
 
 
 def test_i32_list_invalid_input():
@@ -53,13 +59,13 @@ def test_i32_list_invalid_input():
 def test_i64_list():
     result = i64_list([-9223372036854775808, -1, 0, 1, 9223372036854775807])
     assert result is not None
-    assert str(result) == "[-9223372036854775808, -1, 0, 1, 9223372036854775807]"
+    assert str(result) == "List(I64([-9223372036854775808, -1, 0, 1, 9223372036854775807]))"
 
 
 def test_i64_list_empty():
     result = i64_list([])
     assert result is not None
-    assert str(result) == "[]"
+    assert str(result) == "List(I64([]))"
 
 
 def test_i64_list_invalid_input():
@@ -73,17 +79,21 @@ def test_i64_list_invalid_input():
     ):
         i64_list(123)  # type: ignore
 
+def test_f32_list_empty():
+    result = f32_list([])
+    assert result is not None
+    assert str(result) == "List(F32([]))"
 
 def test_f64_list():
     result = f64_list([1.0, 2.5, -3.14, 0.0])
     assert result is not None
-    assert str(result) == "[1.0, 2.5, -3.14, 0.0]"
+    assert str(result) == "List(F64([1.0, 2.5, -3.14, 0.0]))"
 
 
 def test_f64_list_empty():
     result = f64_list([])
     assert result is not None
-    assert str(result) == "[]"
+    assert str(result) == "List(F64([]))"
 
 
 def test_f64_list_invalid_input():

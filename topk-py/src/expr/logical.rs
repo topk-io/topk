@@ -1,8 +1,6 @@
-use crate::expr::flexible::FlexibleExpr;
-use crate::{data::scalar::Scalar, expr::flexible::StringyWithList};
+use crate::data::scalar::Scalar;
+use crate::expr::flexible::{Boolish, FlexibleExpr, Iterable, StringyWithList, Numeric, Stringy};
 use pyo3::prelude::*;
-
-use super::flexible::{Boolish, Numeric, Stringy};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[pyclass(eq, eq_int)]
@@ -572,10 +570,10 @@ impl LogicalExpr {
 
     /// Multiplies the scoring expression by the provided `boost` value if the `condition` is true.
     /// Otherwise, the scoring expression is unchanged (multiplied by 1).
-    fn boost(&self, py: Python<'_>, condition: FlexibleExpr, boost: Numeric) -> PyResult<Self> {
+    fn boost(&self, py: Python<'_>, condition: Boolish, boost: Numeric) -> PyResult<Self> {
         let condition_expr = Into::<LogicalExpr>::into(condition);
         let choose_expr =
-            condition_expr.choose(py, FlexibleExpr::Expr(boost.into()), FlexibleExpr::Int(1))?;
+            condition_expr.choose(py, FlexibleExpr::Expr(boost.into()), FlexibleExpr::Scalar(Scalar::Int(1)))?;
         let choose_numeric = Numeric::Expr(choose_expr);
         self.mul(py, choose_numeric)
     }
