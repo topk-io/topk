@@ -36,11 +36,6 @@ impl<'py> FromPyObject<'py> for Value {
             Ok(Value::List(v.borrow().clone()))
         } else if let Ok(v) = obj.downcast::<SparseVector>() {
             Ok(Value::SparseVector(v.get().clone()))
-        } else if let Ok(v) = F32SparseVector::extract_bound(obj) {
-            Ok(Value::SparseVector(SparseVector::F32 {
-                indices: v.indices,
-                values: v.values,
-            }))
         // PyBytes can be extracted as Vec<f32> so it needs to be handled before list(f32)
         } else if let Ok(b) = obj.downcast_exact::<PyBytes>() {
             Ok(Value::Bytes(b.extract()?))
@@ -56,6 +51,12 @@ impl<'py> FromPyObject<'py> for Value {
         } else if let Ok(v) = obj.extract::<Vec<String>>() {
             Ok(Value::List(List {
                 values: Values::String(v),
+            }))
+        // Sparse vector dict
+        } else if let Ok(v) = F32SparseVector::extract_bound(obj) {
+            Ok(Value::SparseVector(SparseVector::F32 {
+                indices: v.indices,
+                values: v.values,
             }))
         // Native primitive types
         } else if let Ok(s) = obj.downcast_exact::<PyString>() {

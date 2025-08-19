@@ -1,12 +1,11 @@
 use super::logical::LogicalExpr;
 use crate::data::{
     list::{List, Values},
-    scalar::Scalar,
+    scalar::Scalar, vector::{F32SparseVector, SparseVector},
 };
 use pyo3::{
     exceptions::PyTypeError,
     prelude::*,
-    types::{PyBool, PyFloat, PyInt, PyString},
 };
 
 #[pyclass]
@@ -28,6 +27,37 @@ impl Into<LogicalExpr> for FlexibleExpr {
     }
 }
 
+
+
+#[derive(Debug, Clone)]
+pub enum Vectorish {
+    List(List),
+    SparseVector(SparseVector),
+    FloatList(Vec<f32>),
+}
+
+
+impl<'py> FromPyObject<'py> for Vectorish {
+    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+        if let Ok(v) = obj.downcast::<List>() {
+            Ok(Vectorish::List(v.borrow().clone()))
+        } else if let Ok(v) = obj.downcast::<SparseVector>() {
+            Ok(Vectorish::SparseVector(v.get().clone()))
+        } else if let Ok(v) = F32SparseVector::extract_bound(obj) {
+            Ok(Vectorish::SparseVector(SparseVector::F32 {
+                indices: v.indices,
+                values: v.values,
+            }))
+        } else if let Ok(v) = obj.extract::<Vec<f32>>() {
+            Ok(Vectorish::FloatList(v))
+        } else {
+            Err(PyTypeError::new_err(format!(
+                "Can't convert from {:?} to Vector",
+                obj.get_type().name()
+            )))
+        }
+    }
+}
 
 #[derive(Debug, Clone, FromPyObject)]
 pub enum Numeric {
@@ -98,14 +128,14 @@ impl Into<LogicalExpr> for Stringy {
 #[derive(Debug, Clone, FromPyObject)]
 pub enum StringyWithList {
     Stringy(Stringy),
-    List(Vec<String>),
+    StringList(Vec<String>),
 }
 
 impl Into<LogicalExpr> for StringyWithList {
     fn into(self) -> LogicalExpr {
         match self {
             StringyWithList::Stringy(s) => s.into(),
-            StringyWithList::List(values) => LogicalExpr::Literal {
+            StringyWithList::StringList(values) => LogicalExpr::Literal {
                 value: Scalar::List(List {
                     values: Values::String(values),
                 }),

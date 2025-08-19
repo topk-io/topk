@@ -4,7 +4,7 @@ from enum import Enum
 
 import topk_sdk.data
 
-FlexibleExpr = typing.Union[str, int, float, bool, builtins.list[int], builtins.list[float], builtins.list[str], None, LogicalExpr]
+FlexibleExpr = typing.Union[str, int, float, bool, builtins.list[int], builtins.list[float], builtins.list[str], None, topk_sdk.data.List, LogicalExpr]
 Numeric = typing.Union[int, float, LogicalExpr]
 Boolish = typing.Union[bool, LogicalExpr]
 Stringy = typing.Union[str, LogicalExpr]
@@ -122,7 +122,8 @@ class fn:
             list[float],
             dict[int, float],
             dict[int, int],
-            topk_sdk.data.Value,
+            topk_sdk.data.SparseVector,
+            topk_sdk.data.List,
         ],
     ) -> FunctionExpr: ...
     @staticmethod

@@ -1,5 +1,5 @@
 use crate::data::scalar::Scalar;
-use crate::expr::flexible::{Boolish, FlexibleExpr, Iterable, StringyWithList, Numeric, Stringy};
+use crate::expr::flexible::{Boolish, FlexibleExpr, StringyWithList, Numeric, Stringy};
 use pyo3::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
