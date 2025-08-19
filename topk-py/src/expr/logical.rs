@@ -1,5 +1,5 @@
 use crate::data::scalar::Scalar;
-use crate::expr::flexible::{Boolish, FlexibleExpr, StringyWithList, Numeric, Stringy};
+use crate::expr::flexible::{Boolish, FlexibleExpr, Iterable, Numeric, Stringy, StringyWithList};
 use pyo3::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -46,6 +46,7 @@ pub enum BinaryOperator {
     GtEq,
     StartsWith,
     Contains,
+    In,
     Add,
     Sub,
     Mul,
@@ -75,6 +76,7 @@ impl From<BinaryOperator> for topk_rs::proto::v1::data::logical_expr::binary_op:
             BinaryOperator::Contains => {
                 topk_rs::proto::v1::data::logical_expr::binary_op::Op::Contains
             }
+            BinaryOperator::In => topk_rs::proto::v1::data::logical_expr::binary_op::Op::In,
             BinaryOperator::MatchAll => {
                 topk_rs::proto::v1::data::logical_expr::binary_op::Op::MatchAll
             }
@@ -525,10 +527,18 @@ impl LogicalExpr {
         })
     }
 
-    fn contains(&self, py: Python<'_>, other: Stringy) -> PyResult<Self> {
+    fn contains(&self, py: Python<'_>, other: FlexibleExpr) -> PyResult<Self> {
         Ok(Self::Binary {
             left: Py::new(py, self.clone())?,
             op: BinaryOperator::Contains,
+            right: Py::new(py, Into::<LogicalExpr>::into(other))?,
+        })
+    }
+
+    fn in_(&self, py: Python<'_>, other: Iterable) -> PyResult<Self> {
+        Ok(Self::Binary {
+            left: Py::new(py, self.clone())?,
+            op: BinaryOperator::In,
             right: Py::new(py, Into::<LogicalExpr>::into(other))?,
         })
     }
