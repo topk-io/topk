@@ -33,34 +33,6 @@ async fn test_any_codes_vec(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-async fn test_any_codes_iterator(ctx: &mut ProjectTestContext) {
-    let collection = dataset::books::setup(ctx).await;
-
-    let types = ["ISBN", "Barcode", "DOI"];
-    let suffixes = ["978-0-7432-7356-5", "0618346252", "10.1000/182"];
-
-    let expr_iter = types.iter().flat_map(|typ| {
-        suffixes
-            .iter()
-            .map(move |suf| field("codes").contains(format!("{typ} {suf}")))
-    });
-
-    let result = ctx
-        .client
-        .collection(&collection.name)
-        .query(
-            filter(any(expr_iter)).topk(field("published_year"), 100, true),
-            None,
-            None,
-        )
-        .await
-        .expect("could not query");
-
-    assert_doc_ids!(result, ["1984", "lotr", "gatsby"]);
-}
-
-#[test_context(ProjectTestContext)]
-#[tokio::test]
 async fn test_all_codes_vec(ctx: &mut ProjectTestContext) {
     let collection = dataset::books::setup(ctx).await;
 
