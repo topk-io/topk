@@ -39,7 +39,7 @@ test-py:
     FROM rust:slim
 
     # install dependencies
-    RUN apt-get update && apt-get install -y protobuf-compiler python3.11-venv
+    RUN apt-get update && apt-get install -y protobuf-compiler python3-venv
 
     # setup maturin
     RUN cargo install maturin@1.9.0 --locked
