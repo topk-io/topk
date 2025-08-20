@@ -1,10 +1,18 @@
 import pytest
-from topk_sdk import error
+from topk_sdk import data, error
 from topk_sdk.query import field, filter, fn, not_, select, literal, match, min, max, abs
-
 from . import ProjectContext
 from .utils import dataset, doc_ids
 
+
+def test_query_eq(ctx: ProjectContext):
+    collection = dataset.books.setup(ctx)
+
+    result = ctx.client.collection(collection.name).query(
+        filter(field("published_year") == 1949).topk(field("published_year"), 100, True)
+    )
+
+    assert doc_ids(result) == {"1984"}
 
 def test_query_lte(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)

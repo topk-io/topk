@@ -4,11 +4,12 @@ from enum import Enum
 
 import topk_sdk.data
 
-FlexibleExpr = typing.Union[str, int, float, bool, None, LogicalExpr]
+FlexibleExpr = typing.Union[str, int, float, bool, builtins.list[int], builtins.list[float], builtins.list[str], None, topk_sdk.data.List, LogicalExpr]
 Numeric = typing.Union[int, float, LogicalExpr]
 Boolish = typing.Union[bool, LogicalExpr]
 Stringy = typing.Union[str, LogicalExpr]
 StringyWithList = typing.Union[str, builtins.list[str], LogicalExpr]
+Iterable = typing.Union[str, builtins.list[int], builtins.list[float], builtins.list[str], LogicalExpr]
 
 class LogicalExpr(Enum):
     def __repr__(self) -> builtins.str: ...
@@ -65,7 +66,7 @@ class LogicalExpr(Enum):
     def match_any(self, other: StringyWithList) -> LogicalExpr: ...
     def coalesce(self, other: Numeric) -> LogicalExpr: ...
     def choose(self, x: FlexibleExpr, y: FlexibleExpr) -> LogicalExpr: ...
-    def boost(self, condition: FlexibleExpr, boost: Numeric) -> LogicalExpr: ...
+    def boost(self, condition: Boolish, boost: Numeric) -> LogicalExpr: ...
 
 class FunctionExpr: ...
 
@@ -121,7 +122,8 @@ class fn:
             list[float],
             dict[int, float],
             dict[int, int],
-            topk_sdk.data.Value,
+            topk_sdk.data.SparseVector,
+            topk_sdk.data.List,
         ],
     ) -> FunctionExpr: ...
     @staticmethod
