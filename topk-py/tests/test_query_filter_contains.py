@@ -101,7 +101,7 @@ def test_list_match_any_with_keyword_index(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        select(title=field("title"), tags=field("tags"))
+        select("title", "tags")
         .filter(field("tags").match_any("love"))
         .topk(field("published_year"), 100, True)
     )
@@ -125,7 +125,7 @@ def test_list_match_any_all_without_keyword_index(ctx: ProjectContext):
     ]:
         with pytest.raises(error.InvalidArgumentError):
             ctx.client.collection(collection.name).query(
-                select(title=field("title"), codes=field("codes"))
+                select("title", "codes")
                 .filter(filter_expr)
                 .topk(field("published_year"), 100, True)
             )
@@ -135,7 +135,7 @@ def test_list_contains_with_keyword_index(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        select(title=field("title"), tags=field("tags"))
+        select("title", "tags")
         .filter(field("tags").contains("love"))
         .topk(field("published_year"), 100, True)
     )
@@ -154,7 +154,7 @@ def test_list_contains_literal(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        select(title=field("title"), codes=field("codes"))
+        select("title", "codes")
         .filter(field("codes").contains("ISBN 0-547-92821-2"))
         .topk(field("published_year"), 100, True)
     )
@@ -178,19 +178,7 @@ def test_list_contains_int_literal(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        select(title=field("title"), reprint_years=field("reprint_years"))
-        .filter(field("reprint_years").contains(literal(1999)))
-        .topk(field("published_year"), 100, True)
-    )
-
-    assert doc_ids(result) == {"mockingbird", "harry"}
-
-
-def test_list_contains_int_literal_different_type(ctx: ProjectContext):
-    collection = dataset.books.setup(ctx)
-
-    result = ctx.client.collection(collection.name).query(
-        select(title=field("title"), reprint_years=field("reprint_years"))
+        select("title", "reprint_years")
         .filter(field("reprint_years").contains(literal(1999)))
         .topk(field("published_year"), 100, True)
     )
@@ -202,7 +190,6 @@ def test_list_contains_int_field(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        # select(title=field("title"), reprint_years=field("reprint_years"))  # TODO
         select("_id", "title", "reprint_years")
         .filter(field("reprint_years").contains(field("published_year") + 1))
         .topk(field("published_year"), 100, True)
@@ -215,7 +202,7 @@ def test_list_in_int_field(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        select(title=field("title"), reprint_years=field("reprint_years"))
+        select("title", "reprint_years")
         .filter((field("published_year") + 1).in_(field("reprint_years")))
         .topk(field("published_year"), 100, True)
     )
@@ -227,7 +214,7 @@ def test_list_contains_string_field_with_keyword_index(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        select(title=field("title"), tags=field("tags"))
+        select("title", "tags")
         .filter(field("tags").contains(field("_id")))
         .topk(field("published_year"), 100, True)
     )
@@ -239,7 +226,7 @@ def test_list_in_string_field_with_keyword_index(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        select(title=field("title"), tags=field("tags"))
+        select("title", "tags")
         .filter(field("_id").in_(field("tags")))
         .topk(field("published_year"), 100, True)
     )
@@ -251,7 +238,7 @@ def test_list_contains_string_field_without_keyword_index(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        select(title=field("title"), codes=field("codes"))
+        select("title", "codes")
         .filter(field("codes").contains(field("_id")))
         .topk(field("published_year"), 100, True)
     )
@@ -276,7 +263,7 @@ def test_list_contains_invalid_types(ctx: ProjectContext):
     ]:
         with pytest.raises(error.InvalidArgumentError):
             ctx.client.collection(collection.name).query(
-                select(title=field("title"), codes=field("codes"))
+                select("title", "codes")
                 .filter(filter_expr)
                 .topk(field("published_year"), 100, True)
             )
@@ -298,7 +285,7 @@ def test_in_list_literal_int(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        select(title=field("title"))
+        select("title")
         .filter(field("published_year").in_([1999, 1988, 1997]))
         .topk(field("published_year"), 100, True)
     )
@@ -310,7 +297,7 @@ def test_in_list_literal_int_u32(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        select(title=field("title"))
+        select("title")
         .filter(field("published_year").in_(data.u32_list([1999, 1988, 1997])))
         .topk(field("published_year"), 100, True)
     )
@@ -322,7 +309,7 @@ def test_in_list_literal_string(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        select(title=field("title"))
+        select("title")
         .filter(
             field("title").in_(
                 [
