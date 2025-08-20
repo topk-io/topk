@@ -69,11 +69,24 @@ message LogicalExpr {
     LogicalExpr z = 4;
   }
 
+  // Nary operator
+  message NaryOp {
+    enum Op {
+      OP_UNSPECIFIED = 0;
+      OP_ALL = 1;
+      OP_ANY = 2;
+    }
+
+    Op op = 1;
+    repeated LogicalExpr exprs = 2;
+  }
+
   oneof expr {
     string field = 1;
     Value literal = 2;
     UnaryOp unary_op = 3;
     BinaryOp binary_op = 4;
     TernaryOp ternary_op = 5;
+    NaryOp nary_op = 6;
   }
 }
