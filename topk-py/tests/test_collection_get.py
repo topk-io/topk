@@ -32,6 +32,7 @@ def test_get_document(ctx: ProjectContext):
             "sparse_f32_embedding": {9: 1.0, 10: 2.0, 11: 3.0},
             "sparse_u8_embedding": {9: 1, 10: 2, 11: 3},
             "tags": ["lord of the rings", "fellowship", "magic", "wizard", "elves"],
+            "codes": ["ISBN 978-0-547-92821-0", "ISBN 0-547-92821-2", "OCLC 434394005", "LCCN 2004558654", "Barcode 0618346252"],
         }
     }
 
@@ -51,6 +52,8 @@ def test_get_multiple_documents(ctx: ProjectContext):
             "sparse_f32_embedding": {9: 1.0, 10: 2.0, 11: 3.0},
             "sparse_u8_embedding": {9: 1, 10: 2, 11: 3},
             "tags": ["lord of the rings", "fellowship", "magic", "wizard", "elves"],
+            "codes": ["ISBN 978-0-547-92821-0", "ISBN 0-547-92821-2", "OCLC 434394005", "LCCN 2004558654", "Barcode 0618346252"],
+
         },
         "moby": {
             "_id": "moby",
@@ -62,6 +65,8 @@ def test_get_multiple_documents(ctx: ProjectContext):
             "sparse_u8_embedding": {6: 1, 7: 2, 8: 3},
             "nullable_importance": 5.0,
             "tags": ["whale", "obsession", "tragedy", "sailing", "ocean"],
+            "codes": [],
+            "reprint_years": [],
         },
     }
 
