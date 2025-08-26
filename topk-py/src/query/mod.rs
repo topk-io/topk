@@ -127,15 +127,18 @@ pub fn bm25_score() -> FunctionExpr {
 }
 
 #[pyfunction]
-pub fn vector_distance(field: String, query: Value) -> PyResult<FunctionExpr> {
+#[pyo3(signature = (field, query, skip_refine=false))]
+pub fn vector_distance(field: String, query: Value, skip_refine: bool) -> PyResult<FunctionExpr> {
     match query {
         Value::List(list) => Ok(FunctionExpr::VectorScore {
             field,
             query: Value::List(list),
+            skip_refine,
         }),
         Value::SparseVector(vector) => Ok(FunctionExpr::VectorScore {
             field,
             query: Value::SparseVector(vector),
+            skip_refine,
         }),
         _ => Err(PyValueError::new_err(
             "Vector query must be a vector or sparse vector",

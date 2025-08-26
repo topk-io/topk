@@ -4,12 +4,17 @@ use crate::proto::{
 };
 
 impl FunctionExpr {
-    pub fn vector_distance(field: impl Into<String>, query: impl Into<Value>) -> Self {
+    pub fn vector_distance(
+        field: impl Into<String>,
+        query: impl Into<Value>,
+        skip_refine: bool,
+    ) -> Self {
         FunctionExpr {
             func: Some(function_expr::Func::VectorDistance(
                 function_expr::VectorDistance {
                     field: field.into(),
                     query: Some(query.into()),
+                    skip_refine,
                     #[allow(deprecated)]
                     dense_query: None,
                     #[allow(deprecated)]
@@ -34,5 +39,12 @@ impl FunctionExpr {
                 },
             )),
         }
+    }
+
+    pub fn skip_refine(mut self, skip_refine: bool) -> Self {
+        if let Some(function_expr::Func::VectorDistance(vector_distance)) = &mut self.func {
+            vector_distance.skip_refine = skip_refine;
+        }
+        self
     }
 }

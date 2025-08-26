@@ -51,7 +51,7 @@ pub mod query {
         use crate::proto::v1::data::{FunctionExpr, Value};
 
         pub fn vector_distance(field: impl Into<String>, query: impl Into<Value>) -> FunctionExpr {
-            FunctionExpr::vector_distance(field, query)
+            FunctionExpr::vector_distance(field, query, false)
         }
 
         pub fn semantic_similarity(
