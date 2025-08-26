@@ -46,13 +46,13 @@ impl CollectionClient {
         Self { client, collection }
     }
 
-    #[napi]
+    #[napi(ts_return_type = "Promise<Record<string, Record<string, any>>>")]
     pub async fn get(
         &self,
         ids: Vec<String>,
         fields: Option<Vec<String>>,
         options: Option<QueryOptions>,
-    ) -> Result<HashMap<String, HashMap<String, Value>>> {
+    ) -> Result<HashMap<String, HashMap<String, NativeValue>>> {
         let options = options.unwrap_or_default();
 
         let documents = self

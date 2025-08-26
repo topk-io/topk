@@ -32,7 +32,7 @@ impl CollectionClient {
         fields: Option<Vec<String>>,
         lsn: Option<String>,
         consistency: Option<ConsistencyLevel>,
-    ) -> PyResult<HashMap<String, HashMap<String, Value>>> {
+    ) -> PyResult<HashMap<String, HashMap<String, NativeValue>>> {
         let docs = self
             .runtime
             .block_on(
