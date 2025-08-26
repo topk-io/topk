@@ -228,6 +228,25 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct NativeValue(pub(crate) Value);
+
+impl<'py> IntoPyObject<'py> for NativeValue {
+    type Target = PyAny;
+    type Output = Bound<'py, Self::Target>;
+    type Error = PyErr;
+
+    fn into_pyobject(self, py: Python<'py>) -> PyResult<Self::Output> {
+        self.0.into_pyobject(py)
+    }
+}
+
+impl From<topk_rs::proto::v1::data::Value> for NativeValue {
+    fn from(value: topk_rs::proto::v1::data::Value) -> Self {
+        NativeValue(Value::from(value))
+    }
+}
+
 impl From<Value> for topk_rs::proto::v1::data::Value {
     fn from(value: Value) -> Self {
         match value {

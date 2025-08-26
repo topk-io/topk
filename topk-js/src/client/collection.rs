@@ -1,4 +1,4 @@
-use crate::data::Document;
+use crate::data::NativeValue;
 use crate::data::Value;
 use crate::error::TopkError;
 use crate::query::query::Query;
@@ -87,12 +87,12 @@ impl CollectionClient {
         Ok(count as u32)
     }
 
-    #[napi]
+    #[napi(ts_return_type = "Promise<Array<Record<string, any>>>")]
     pub async fn query(
         &self,
         #[napi(ts_arg_type = "query.Query")] query: &Query,
         options: Option<QueryOptions>,
-    ) -> Result<Vec<HashMap<String, Value>>> {
+    ) -> Result<Vec<HashMap<String, NativeValue>>> {
         let options = options.unwrap_or_default();
 
         let docs = self
@@ -106,19 +106,25 @@ impl CollectionClient {
             .await
             .map_err(TopkError::from)?;
 
-        Ok(docs.into_iter().map(|d| Document::from(d).into()).collect())
+        Ok(docs
+            .into_iter()
+            .map(|d| d.fields.into_iter().map(|(k, v)| (k, v.into())).collect())
+            .collect())
     }
 
     #[napi]
     pub async fn upsert(&self, docs: Vec<HashMap<String, Value>>) -> Result<String> {
+        let documents = docs
+            .into_iter()
+            .map(|d| topk_rs::proto::v1::data::Document {
+                fields: d.into_iter().map(|(k, v)| (k, v.into())).collect(),
+            })
+            .collect();
+
         let lsn = self
             .client
             .collection(&self.collection)
-            .upsert(
-                docs.into_iter()
-                    .map(|d| Document::new(d).into())
-                    .collect::<Vec<_>>(),
-            )
+            .upsert(documents)
             .await
             .map_err(TopkError::from)?;
 

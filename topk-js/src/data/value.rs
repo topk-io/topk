@@ -233,6 +233,20 @@ impl ToNapiValue for Value {
     }
 }
 
+pub struct NativeValue(pub(crate) Value);
+
+impl ToNapiValue for NativeValue {
+    unsafe fn to_napi_value(env: sys::napi_env, val: Self) -> Result<sys::napi_value> {
+        Value::to_napi_value(env, val.0)
+    }
+}
+
+impl From<topk_rs::proto::v1::data::Value> for NativeValue {
+    fn from(value: topk_rs::proto::v1::data::Value) -> Self {
+        NativeValue(Value::from(value))
+    }
+}
+
 unsafe fn is_napi_integer(env: napi::sys::napi_env, napi_val: napi::sys::napi_value) -> bool {
     // Check if the number is an integer by comparing it with its integer part
     let num = f64::from_napi_value(env, napi_val).unwrap();

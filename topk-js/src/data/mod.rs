@@ -1,9 +1,6 @@
 mod collection;
 pub use collection::{Collection, CollectionFieldSpec};
 
-mod document;
-pub use document::Document;
-
 mod list;
 pub use list::List;
 pub use list::Values;
@@ -12,6 +9,7 @@ mod scalar;
 pub use scalar::Scalar;
 
 mod value;
+pub use value::NativeValue;
 pub use value::Value;
 
 mod vector;

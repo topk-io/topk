@@ -1,5 +1,5 @@
 use crate::client::Runtime;
-use crate::data::value::Value;
+use crate::data::value::{NativeValue, Value};
 use crate::error::RustError;
 use crate::query::{ConsistencyLevel, Query};
 use pyo3::prelude::*;
@@ -79,7 +79,7 @@ impl CollectionClient {
         query: Query,
         lsn: Option<String>,
         consistency: Option<ConsistencyLevel>,
-    ) -> PyResult<Vec<HashMap<String, Value>>> {
+    ) -> PyResult<Vec<HashMap<String, NativeValue>>> {
         let docs = self
             .runtime
             .block_on(
