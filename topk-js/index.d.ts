@@ -111,6 +111,7 @@ export declare namespace data {
   export function f64List(values: Array<number>): List
   export function i32List(values: Array<number>): List
   export function i64List(values: Array<number>): List
+  export function stringList(values: Array<string>): List
   export function u32List(values: Array<number>): List
   export function u8SparseVector(vector: Record<number, number>): SparseVector
   export function u8Vector(values: Array<number>): List

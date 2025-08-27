@@ -1,4 +1,4 @@
-import { bytes, f64List, i32List, i64List, u32List } from "../lib/data";
+import { bytes, f64List, i32List, i64List, stringList, u32List } from "../lib/data";
 
 const TYPE_ERROR_BYTES = "Invalid bytes value, must be `number[]` or `Buffer`";
 const TYPE_ERROR_LIST = "Given napi value is not an array";
@@ -48,6 +48,7 @@ describe("list", () => {
     u32List([1, 2, 3]);
     i64List([1, 2, 3]);
     f64List([1.0, 2.0, 3.0]);
+    stringList(["1", "2", "3"]);
   });
 
   test("empty case", () => {
@@ -55,6 +56,7 @@ describe("list", () => {
     u32List([]);
     i64List([]);
     f64List([]);
+    stringList([]);
   });
 
   test("invalid arguments", () => {
@@ -114,5 +116,16 @@ describe("list", () => {
     expect(() => f64List(["1", "2", "3"] as any)).toThrow(
       TYPE_ERROR_STRING_TO_FLOAT
     );
+    expect(() => stringList(0 as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => stringList(null as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => stringList(undefined as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => stringList(false as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => stringList(NaN as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => stringList(Infinity as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => stringList(-Infinity as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => stringList(Symbol("foo") as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => stringList(BigInt(1) as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => stringList({ 1: 256 } as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => stringList({ 1: -1 } as any)).toThrow(TYPE_ERROR_LIST);
   });
 });

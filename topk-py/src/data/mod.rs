@@ -33,6 +33,7 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(i32_list))?;
     m.add_wrapped(wrap_pyfunction!(i64_list))?;
     m.add_wrapped(wrap_pyfunction!(f64_list))?;
+    m.add_wrapped(wrap_pyfunction!(string_list))?;
 
     Ok(())
 }
@@ -140,6 +141,19 @@ pub fn f64_list(data: &Bound<'_, PyAny>) -> PyResult<Value> {
     } else {
         Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
             "Expected list[float] for f64_list() function",
+        ))
+    }
+}
+
+#[pyfunction]
+pub fn string_list(data: &Bound<'_, PyAny>) -> PyResult<Value> {
+    if let Ok(s) = data.extract::<Vec<String>>() {
+        return Ok(Value::List(list::List {
+            values: list::Values::String(s),
+        }));
+    } else {
+        Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+            "Expected list[str] for string_list() function",
         ))
     }
 }

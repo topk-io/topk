@@ -74,6 +74,13 @@ pub fn f64_list(values: Vec<f64>) -> List {
 }
 
 #[napi(namespace = "data")]
+pub fn string_list(values: Vec<String>) -> List {
+    List {
+        values: Values::String(values),
+    }
+}
+
+#[napi(namespace = "data")]
 pub fn f32_sparse_vector(
     #[napi(ts_arg_type = "Record<number, number>")] vector: SparseVectorData<f64>,
 ) -> SparseVector {
