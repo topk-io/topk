@@ -35,6 +35,53 @@ async fn test_query_vector_distance(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
+async fn test_query_vector_distance_without_refine(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let raw = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([("title", field("title"))])
+                .select([(
+                    "summary_distance",
+                    fns::vector_distance("summary_embedding", vec![2.0; 16]).skip_refine(true),
+                )])
+                .topk(field("summary_distance"), 3, true),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert!(is_sorted(&raw, "summary_distance"));
+    assert_doc_ids!(&raw, ["1984", "pride", "mockingbird"]);
+
+    let refined = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([("title", field("title"))])
+                .select([(
+                    "summary_distance",
+                    fns::vector_distance("summary_embedding", vec![2.34; 16]),
+                )])
+                .topk(field("summary_distance"), 3, true),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert!(is_sorted(&refined, "summary_distance"));
+    assert_doc_ids!(&refined, ["1984", "pride", "mockingbird"]);
+
+    // The refined result should be different from the raw result.
+    assert_ne!(raw, refined);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
 async fn test_query_vector_distance_nullable(ctx: &mut ProjectTestContext) {
     let collection = dataset::books::setup(ctx).await;
 

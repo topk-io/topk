@@ -9,8 +9,15 @@ pub struct FunctionExpression(pub(crate) FunctionExpressionUnion);
 #[derive(Debug, Clone)]
 pub enum FunctionExpressionUnion {
     KeywordScore,
-    VectorScore { field: String, query: Value },
-    SemanticSimilarity { field: String, query: String },
+    VectorScore {
+        field: String,
+        query: Value,
+        skip_refine: bool,
+    },
+    SemanticSimilarity {
+        field: String,
+        query: String,
+    },
 }
 
 impl From<FunctionExpression> for topk_rs::proto::v1::data::FunctionExpr {
@@ -19,9 +26,11 @@ impl From<FunctionExpression> for topk_rs::proto::v1::data::FunctionExpr {
             FunctionExpressionUnion::KeywordScore => {
                 topk_rs::proto::v1::data::FunctionExpr::bm25_score()
             }
-            FunctionExpressionUnion::VectorScore { field, query } => {
-                topk_rs::proto::v1::data::FunctionExpr::vector_distance(field, query)
-            }
+            FunctionExpressionUnion::VectorScore {
+                field,
+                query,
+                skip_refine,
+            } => topk_rs::proto::v1::data::FunctionExpr::vector_distance(field, query, skip_refine),
             FunctionExpressionUnion::SemanticSimilarity { field, query } => {
                 topk_rs::proto::v1::data::FunctionExpr::semantic_similarity(field, query)
             }

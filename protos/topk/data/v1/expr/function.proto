@@ -12,6 +12,10 @@ message FunctionExpr {
     SparseVector sparse_query = 3 [deprecated = true];
     // Query value to compute distance against.
     Value query = 4;
+    // Skip vector score refinement if set to `true`.
+    // This will improve performance for large top_k values at the cost of lower quality.
+    // Intended to be used in conjunction with a custom reranker on top of the returned candidates.
+    bool skip_refine = 5;
   }
 
   message Bm25Score {}
