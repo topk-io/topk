@@ -123,6 +123,7 @@ class fn:
             dict[int, int],
             topk_sdk.data.Value,
         ],
+        skip_refine: builtins.bool = False,
     ) -> FunctionExpr: ...
     @staticmethod
     def semantic_similarity(
