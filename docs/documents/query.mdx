@@ -141,6 +141,11 @@ There are **multiple ways** to represent a query vector:
   See the [Helper functions](./helper-functions) page for details on how to use vector helper functions.
 </Tip>
 
+Optionally, uses can provide `skip_refine=True` to bypass the internal distance refinement step. This will improve performance for queries with larget `top_k` at the cost of lower accuracy.
+
+<Warning>
+  We don't recommend using `skip_refine=True` unless you're using large `top_k` and a custom reranking model to get the final ranking.
+</Warning>
 
 <Warning>
   To use the `vector_distance()` function, you **must** have a [**vector index**](http://docs.topk.io/collections/create#vector-index) defined on the field you're computing the vector distance against:
@@ -154,7 +159,10 @@ from topk_sdk.query import select, field, fn
 docs = client.collection("books").query(
     select(
         "title",
-        title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3, ...]), # embedding for "animal"
+        title_similarity=fn.vector_distance(
+          "title_embedding",
+          [0.1, 0.2, 0.3, ...] # embedding for "animal"
+        )
     )
     .topk(field("title_similarity"), 10)
 )
