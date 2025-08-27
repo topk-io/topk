@@ -5,7 +5,6 @@ use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyList};
 
 pub mod collection;
-pub mod document;
 pub mod list;
 pub mod scalar;
 pub mod value;
