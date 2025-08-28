@@ -2,6 +2,7 @@ import { data } from "../index";
 
 export declare const binaryVector: typeof data.binaryVector;
 export declare const bytes: typeof data.bytes;
+export declare const f32List: typeof data.f32List;
 export declare const f32Vector: typeof data.f32Vector;
 export declare const f64List: typeof data.f64List;
 export declare const i32List: typeof data.i32List;

@@ -67,6 +67,13 @@ pub fn i64_list(values: Vec<i64>) -> List {
 }
 
 #[napi(namespace = "data")]
+pub fn f32_list(values: Vec<f64>) -> List {
+    List {
+        values: Values::F32(values.into_iter().map(|v| v as f32).collect()),
+    }
+}
+
+#[napi(namespace = "data")]
 pub fn f64_list(values: Vec<f64>) -> List {
     List {
         values: Values::F64(values),

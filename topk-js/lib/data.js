@@ -2,6 +2,7 @@ const { data } = require("../index");
 
 exports.binaryVector = data.binaryVector;
 exports.bytes = data.bytes;
+exports.f32List = data.f32List;
 exports.f32Vector = data.f32Vector;
 exports.f64List = data.f64List;
 exports.i32List = data.i32List;

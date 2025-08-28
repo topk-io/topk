@@ -106,6 +106,7 @@ export declare namespace data {
   }
   export function binaryVector(values: Array<number>): List
   export function bytes(buffer: Array<number> | Buffer): any
+  export function f32List(values: Array<number>): List
   export function f32SparseVector(vector: Record<number, number>): SparseVector
   export function f32Vector(values: Array<number>): List
   export function f64List(values: Array<number>): List

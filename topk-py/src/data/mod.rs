@@ -32,6 +32,7 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(u32_list))?;
     m.add_wrapped(wrap_pyfunction!(i32_list))?;
     m.add_wrapped(wrap_pyfunction!(i64_list))?;
+    m.add_wrapped(wrap_pyfunction!(f32_list))?;
     m.add_wrapped(wrap_pyfunction!(f64_list))?;
     m.add_wrapped(wrap_pyfunction!(string_list))?;
 
@@ -128,6 +129,19 @@ pub fn i64_list(data: &Bound<'_, PyAny>) -> PyResult<Value> {
     } else {
         Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
             "Expected list[int] for i64_list() function",
+        ))
+    }
+}
+
+#[pyfunction]
+pub fn f32_list(data: &Bound<'_, PyAny>) -> PyResult<Value> {
+    if let Ok(s) = data.extract::<Vec<f32>>() {
+        return Ok(Value::List(list::List {
+            values: list::Values::F32(s),
+        }));
+    } else {
+        Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+            "Expected list[float] for f32_list() function",
         ))
     }
 }
