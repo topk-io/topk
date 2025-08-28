@@ -54,9 +54,37 @@ jobs:
         run: earthly --secret TOPK_API_KEY +test-js --region elastica
         env:
           TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
+
+  all_sdks_same_version:
+    name: Verify all SDKs are on the same version
+    needs: [rust, python, javascript]
+    runs-on: public-amd64
+    steps:
+      - name: Check all SDKs versions
+        run: |
+          # Extract versions from each SDK
+          RUST_VERSION=$(grep '^version = ' topk-rs/Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+          PYTHON_VERSION=$(grep '^version = ' topk-py/Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+          JS_VERSION=$(grep -E '^[[:space:]]*"version":' topk-js/package.json | head -1 | sed 's/.*"version":[[:space:]]*"\([^"]*\)".*/\1/')
+
+          echo "Rust version: $RUST_VERSION"
+          echo "Python version: $PYTHON_VERSION"
+          echo "JavaScript version: $JS_VERSION"
+
+          # Check if all versions are the same
+          if [ "$RUST_VERSION" = "$PYTHON_VERSION" ] && [ "$PYTHON_VERSION" = "$JS_VERSION" ]; then
+            echo "✅ All SDKs have the same version: $RUST_VERSION"
+          else
+            echo "❌ SDK versions do not match!"
+            echo "Rust: $RUST_VERSION"
+            echo "Python: $PYTHON_VERSION"
+            echo "JavaScript: $JS_VERSION"
+            exit 1
+          fi
+
   ready:
     name: Ready
-    needs: [rust, python, javascript]
+    needs: [all_sdks_same_version]
     runs-on: public-amd64
     steps:
       - name: Ready
