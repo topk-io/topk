@@ -93,8 +93,8 @@ test-js:
     WORKDIR /sdk
     COPY . .
 
-    # save contents of typescript definition file in a variable
-    RUN D_TS_FILE_CONTENTS=$(cat /sdk/topk-js/lib/data.d.ts)
+    # save contents of typescript index.d.ts file in a variable
+    RUN D_TS_FILE_CONTENTS=$(cat /sdk/topk-js/index.d.ts)
 
     # build
     WORKDIR /sdk/topk-js
@@ -105,11 +105,11 @@ test-js:
         --mount=type=cache,target=/usr/local/cargo/git \
         yarn build && yarn typecheck
 
-    # validate that the typescript definition file remains the same after the build
-    RUN if [ "$D_TS_FILE_CONTENTS" != "$(cat /sdk/topk-js/lib/data.d.ts)" ]; then \
+    # validate that the typescript definition index.d.ts file remains the same after the build
+    RUN if [ "$D_TS_FILE_CONTENTS" != "$(cat /sdk/topk-js/index.d.ts)" ]; then \
         echo "❌ Typescript definition file changed after build" && \
         echo "Diff:"; \
-        echo "$D_TS_FILE_CONTENTS" | diff - /sdk/topk-js/lib/data.d.ts || true; \
+        echo "$D_TS_FILE_CONTENTS" | diff - /sdk/topk-js/index.d.ts || true; \
         exit 1; \
     fi
 
