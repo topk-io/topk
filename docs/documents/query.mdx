@@ -1353,3 +1353,55 @@ The `rerank()` function is used to rerank the results of a query. Read more abou
 ```
 
 </CodeGroup>
+
+## LSN-based Consistency
+
+TopK supports **LSN (Log Sequence Number)** based consistency for ensuring read-after-write consistency. When you perform a write operation (like `upsert`), you receive an LSN as a **string** that represents the sequence number of that write in the system's log.
+
+You can use this LSN in subsequent queries to ensure that the query only returns results that are at least as recent as that write operation.
+
+### How it works
+
+1. **Write operation**: When you call `lsn = client.collection().upsert()`, you receive an LSN
+2. **Query with LSN**: Pass that LSN to `client.collection().query(..., lsn=lsn)`
+3. **Consistency guarantee**: If the write is not yet available in the read path, the query will be rejected and the client will automatically retry
+
+This approach ensures that your queries always see the results of your recent writes, providing strong consistency guarantees when needed.
+
+<CodeGroup>
+
+```python Python
+# Upsert a document and get the LSN
+lsn = client.collection("books").upsert([
+    {"_id": "1984", "title": "1984", "author": "George Orwell", "year": 1949}
+])
+
+# Query with LSN to ensure consistency
+results = client.collection("books").query(
+    select("title", "author", "year")
+    .filter(field("author") == "George Orwell")
+    .topk(field("year"), 10),
+    lsn=lsn
+)
+```
+
+```js Javascript
+// Upsert a document and get the LSN
+const lsn = await client.collection("books").upsert([
+  { _id: "1984", title: "1984", author: "George Orwell", "year": 1949 }
+]);
+
+// Query with LSN to ensure consistency
+const results = await client.collection("books").query(
+  select({ title: field("title"), author: field("author"), year: field("year") })
+  .filter(field("author").eq("George Orwell"))
+  .topk(field("title"), 10),
+  { lsn: lsn }
+)
+```
+
+</CodeGroup>
+
+<Warning>
+  Using LSN-based consistency may increase query latency as the system needs to verify that the specified LSN has been processed before returning results.
+</Warning>
