@@ -122,6 +122,7 @@ class fn:
             dict[int, float],
             dict[int, int],
             topk_sdk.data.Value,
+            topk_sdk.data.List,
         ],
         skip_refine: builtins.bool = False,
     ) -> FunctionExpr: ...

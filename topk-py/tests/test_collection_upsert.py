@@ -207,3 +207,90 @@ def test_upsert_sparse_vectors(ctx: ProjectContext):
     assert obj["x"]["u8_sparse_vector"][1] == 4
     assert obj["x"]["u8_sparse_vector"][2] == 5
     assert obj["x"]["u8_sparse_vector"][3] == 6
+
+def test_upsert_empty_float_list(ctx: ProjectContext):
+    collection = ctx.client.collections().create(
+        ctx.scope("test"),
+        schema={"f32_list": schema.list(value_type="float")},
+    )
+
+    lsn = ctx.client.collection(collection.name).upsert(
+        [{"_id": "x", "f32_list": []}]
+    )
+
+    obj = ctx.client.collection(collection.name).get(["x"], lsn=lsn)
+
+    assert obj["x"]["f32_list"] == []
+
+
+def test_upsert_empty_float_list_with_helper(ctx: ProjectContext):
+    collection = ctx.client.collections().create(
+        ctx.scope("test"),
+        schema={"f32_list": schema.list(value_type="float")},
+    )
+
+    lsn = ctx.client.collection(collection.name).upsert(
+        [{"_id": "x", "f32_list": data.f32_list([])}]
+    )
+
+    obj = ctx.client.collection(collection.name).get(["x"], lsn=lsn)
+
+    assert obj["x"]["f32_list"] == []
+
+
+def test_upsert_empty_integer_list_raises_error(ctx: ProjectContext):
+    collection = ctx.client.collections().create(
+        ctx.scope("test"),
+        schema={"i32_list": schema.list(value_type="integer")},
+    )
+
+    with pytest.raises(error.DocumentValidationError) as exc_info:
+        ctx.client.collection(collection.name).upsert(
+            [{"_id": "x", "i32_list": []}]
+        )
+    assert "field: \"i32_list\", expected_type: \"list<integer>\", got_value: \"list<f32>\"" in str(exc_info.value)
+
+
+def test_upsert_empty_integer_list_with_helper(ctx: ProjectContext):
+
+    collection = ctx.client.collections().create(
+        ctx.scope("test"),
+        schema={"i32_list": schema.list(value_type="integer")},
+    )
+
+    lsn = ctx.client.collection(collection.name).upsert(
+        [{"_id": "x", "i32_list": data.i32_list([])}]
+    )
+
+    obj = ctx.client.collection(collection.name).get(["x"], lsn=lsn)
+
+    assert obj["x"]["i32_list"] == []
+
+
+def test_upsert_empty_string_list_raises_error(ctx: ProjectContext):
+    collection = ctx.client.collections().create(
+        ctx.scope("test"),
+        schema={"string_list": schema.list(value_type="text")},
+    )
+
+    with pytest.raises(error.DocumentValidationError) as exc_info:
+        ctx.client.collection(collection.name).upsert(
+        [{"_id": "x", "string_list": []}]
+    )
+
+    assert "field: \"string_list\", expected_type: \"list<string>\", got_value: \"list<f32>\"" in str(exc_info.value)
+
+
+def test_upsert_empty_string_list_with_helper(ctx: ProjectContext):
+    collection = ctx.client.collections().create(
+        ctx.scope("test"),
+        schema={"string_list": schema.list(value_type="text")},
+    )
+
+    lsn = ctx.client.collection(collection.name).upsert(
+        [{"_id": "x", "string_list": data.string_list([])}]
+    )
+
+    obj = ctx.client.collection(collection.name).get(["x"], lsn=lsn)
+
+    assert obj["x"]["string_list"] == []
