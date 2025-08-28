@@ -60,6 +60,8 @@ jobs:
     needs: [rust, python, javascript]
     runs-on: public-amd64
     steps:
+      - uses: actions/checkout@v4
+
       - name: Check all SDKs versions
         run: |
           # Extract versions from each SDK
