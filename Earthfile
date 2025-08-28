@@ -93,6 +93,9 @@ test-js:
     WORKDIR /sdk
     COPY . .
 
+    # save contents of typescript definition file in a variable
+    RUN D_TS_FILE_CONTENTS=$(cat /sdk/topk-js/lib/data.d.ts)
+
     # build
     WORKDIR /sdk/topk-js
     ENV YARN_CACHE_FOLDER=/root/.yarn
@@ -101,6 +104,12 @@ test-js:
     RUN --mount=type=cache,target=/usr/local/cargo/registry \
         --mount=type=cache,target=/usr/local/cargo/git \
         yarn build && yarn typecheck
+
+    # validate that the typescript definition file remains the same after the build
+    RUN if [ "$D_TS_FILE_CONTENTS" != "$(cat /sdk/topk-js/lib/data.d.ts)" ]; then \
+        echo "❌ Typescript definition file changed after build" && \
+        exit 1; \
+    fi
 
     ARG region=dev
     DO +SETUP_ENV --region=$region
