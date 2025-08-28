@@ -108,6 +108,8 @@ test-js:
     # validate that the typescript definition file remains the same after the build
     RUN if [ "$D_TS_FILE_CONTENTS" != "$(cat /sdk/topk-js/lib/data.d.ts)" ]; then \
         echo "❌ Typescript definition file changed after build" && \
+        echo "Diff:"; \
+        echo "$D_TS_FILE_CONTENTS" | diff - /sdk/topk-js/lib/data.d.ts || true; \
         exit 1; \
     fi
 
