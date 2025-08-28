@@ -56,7 +56,7 @@ jobs:
           TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
 
   all_sdks_same_version:
-    name: Verify all SDKs are on the same version
+    name: Verify all SDKs on the same version
     needs: [rust, python, javascript]
     runs-on: public-amd64
     steps:
