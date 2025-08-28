@@ -1,6 +1,6 @@
 [package]
 name = "topk-py"
-version = "0.4.9"
+version = "0.4.10"
 edition = "2021"
 description = "TopK Python SDK"
 repository = "https://github.com/topk-io/topk"
