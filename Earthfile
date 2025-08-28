@@ -93,8 +93,8 @@ test-js:
     WORKDIR /sdk
     COPY . .
 
-    # save contents of typescript index.d.ts file in a variable
-    RUN D_TS_FILE_CONTENTS=$(cat /sdk/topk-js/index.d.ts)
+    # save contents of typescript index.d.ts file in an env variable before build
+    ENV D_TS_FILE_CONTENTS=$(cat /sdk/topk-js/index.d.ts)
 
     # build
     WORKDIR /sdk/topk-js
