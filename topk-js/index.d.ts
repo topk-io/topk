@@ -213,7 +213,10 @@ export declare namespace query {
 export declare namespace query_fn {
   export function bm25Score(): query.FunctionExpression
   export function semanticSimilarity(field: string, query: string): query.FunctionExpression
-  export function vectorDistance(field: string, query: Array<number> | Record<number, number> | data.List | data.SparseVector): query.FunctionExpression
+  export function vectorDistance(field: string, query: Array<number> | Record<number, number> | data.List | data.SparseVector, options?: VectorDistanceOptions | undefined | null): query.FunctionExpression
+  export interface VectorDistanceOptions {
+    skipRefine?: boolean
+  }
 }
 
 export declare namespace schema {
