@@ -1,4 +1,4 @@
-import { bytes, f64List, i32List, i64List, u32List } from "../lib/data";
+import { bytes, f32List, f64List, i32List, i64List, stringList, u32List } from "../lib/data";
 
 const TYPE_ERROR_BYTES = "Invalid bytes value, must be `number[]` or `Buffer`";
 const TYPE_ERROR_LIST = "Given napi value is not an array";
@@ -47,14 +47,18 @@ describe("list", () => {
     i32List([1, 2, 3]);
     u32List([1, 2, 3]);
     i64List([1, 2, 3]);
+    f32List([1.0, 2.0, 3.0]);
     f64List([1.0, 2.0, 3.0]);
+    stringList(["1", "2", "3"]);
   });
 
   test("empty case", () => {
     i32List([]);
     u32List([]);
     i64List([]);
+    f32List([]);
     f64List([]);
+    stringList([]);
   });
 
   test("invalid arguments", () => {
@@ -100,6 +104,20 @@ describe("list", () => {
     expect(() => i64List(["1", "2", "3"] as any)).toThrow(
       TYPE_ERROR_STRING_TO_INT64
     );
+    expect(() => f32List(0 as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => f32List(null as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => f32List(undefined as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => f32List(false as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => f32List(NaN as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => f32List(Infinity as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => f32List(-Infinity as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => f32List(Symbol("foo") as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => f32List(BigInt(1) as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => f32List({ 1: 256 } as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => f32List({ 1: -1 } as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => f32List(["1", "2", "3"] as any)).toThrow(
+      TYPE_ERROR_STRING_TO_FLOAT
+    );
     expect(() => f64List(0 as any)).toThrow(TYPE_ERROR_LIST);
     expect(() => f64List(null as any)).toThrow(TYPE_ERROR_LIST);
     expect(() => f64List(undefined as any)).toThrow(TYPE_ERROR_LIST);
@@ -114,5 +132,16 @@ describe("list", () => {
     expect(() => f64List(["1", "2", "3"] as any)).toThrow(
       TYPE_ERROR_STRING_TO_FLOAT
     );
+    expect(() => stringList(0 as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => stringList(null as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => stringList(undefined as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => stringList(false as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => stringList(NaN as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => stringList(Infinity as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => stringList(-Infinity as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => stringList(Symbol("foo") as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => stringList(BigInt(1) as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => stringList({ 1: 256 } as any)).toThrow(TYPE_ERROR_LIST);
+    expect(() => stringList({ 1: -1 } as any)).toThrow(TYPE_ERROR_LIST);
   });
 });

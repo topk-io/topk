@@ -114,6 +114,31 @@ u8SparseVector({0: 12, 6: 67, 17: 82, 97: 53})
 
 </CodeGroup>
 
+### f32_list()
+
+To pass a list of 32-bit floating-point numbers, use the `f32_list()` helper function:
+
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.data import f32_list
+
+f32_list([0.12, 0.67, 0.82, 0.53])
+```
+
+
+```typescript Javascript
+import { f32List } from "topk-js/data";
+
+f32List([0.12, 0.67, 0.82, 0.53])
+```
+
+</CodeGroup>
+
+<Info>
+  When passing an empty list or a list of numbers such as `my_list = [0.12, 0.67, 0.82]` or `my_list = []`, it is by default considered a list of float32 values.
+</Info>
 
 ### f64_list()
 
@@ -202,6 +227,29 @@ u32List([0, 1, 2, 3])
 ```
 
 </CodeGroup>
+
+### string_list()
+
+To pass a list of strings, use the `string_list()` helper function:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.data import string_list
+
+string_list(["foo", "bar", "baz"])
+```
+
+
+```typescript Javascript
+import { stringList } from "topk-js/data";
+
+stringList(["foo", "bar", "baz"])
+```
+
+</CodeGroup>
+
+<Tip>This is specifically useful when you need to pass an empty list of strings `string_list([])` as lists are assumed to be of type `float32` by default.</Tip>
 
 ### bytes()
 
