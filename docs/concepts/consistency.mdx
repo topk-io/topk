@@ -121,3 +121,13 @@ await client
 | **Strong**             | All writes are visible        | Higher | Slower            |
 
 For most use cases, **Balanced Consistency** offers the best trade-off between performance and correctness. However, if you prioritize low query latency over recency, **Indexed Consistency** is the right choice. When no staleness is allowed, **Strong Consistency** ensures every read reflects the latest write.
+
+---
+
+## LSN-based Consistency
+
+For even more precise control over consistency, TopK also supports **LSN (Log Sequence Number)** based consistency. This approach allows you to ensure read-after-write consistency by specifying the exact sequence number of a write operation in your queries.
+
+<Info>
+  For detailed information about using LSNs in queries, see our [LSN-based Consistency](/documents/query#lsn-based-consistency) guide in the Query documentation.
+</Info>
