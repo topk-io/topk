@@ -65,6 +65,9 @@ def test_query_sparse_vector_distance_nullable(ctx: ProjectContext):
     # u8 embeddings need to use `data.u8_vector` constructor
     mockingbird["scalar_embedding"] = data.u8_vector(mockingbird["scalar_embedding"])
 
+    # native value (empty list string) needs to be converted to an empty string list instance
+    mockingbird["tags"] = data.string_list(mockingbird["tags"])
+
     # Upsert the modified document
     lsn = ctx.client.collection(collection.name).upsert([mockingbird])
 
