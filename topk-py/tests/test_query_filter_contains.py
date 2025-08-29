@@ -263,12 +263,7 @@ def test_list_contains_invalid_types(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     for filter_expr in [
-        field("codes").contains([
-            "ISBN 978-0-547-92821-0",
-            "ISBN 0-547-92821-2",
-        ]),
         field("codes").contains(978),
-        field("codes").contains([978]),
         field("codes").contains(True),
         field("codes").contains(field("published_year")),
         field("reprint_years").contains(field("title")),
@@ -280,6 +275,13 @@ def test_list_contains_invalid_types(ctx: ProjectContext):
                 .filter(filter_expr)
                 .topk(field("published_year"), 100, True)
             )
+
+    with pytest.raises(TypeError):
+        field("codes").contains([978]),  # type: ignore
+        field("codes").contains([  # type: ignore
+            "ISBN 978-0-547-92821-0",
+            "ISBN 0-547-92821-2",
+        ])
 
 
 def test_string_in(ctx: ProjectContext):
