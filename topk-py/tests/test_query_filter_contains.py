@@ -179,7 +179,7 @@ def test_list_contains_int_literal(ctx: ProjectContext):
 
     result = ctx.client.collection(collection.name).query(
         select(title=field("title"), reprint_years=field("reprint_years"))
-        .filter(field("reprint_years").contains(literal(1999)))
+        .filter(field("reprint_years").contains(1999))
         .topk(field("published_year"), 100, True)
     )
 
@@ -202,8 +202,7 @@ def test_list_contains_int_field(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        # select(title=field("title"), reprint_years=field("reprint_years"))  # TODO
-        select("_id", "title", "reprint_years")
+        select(title=field("title"), reprint_years=field("reprint_years"))
         .filter(field("reprint_years").contains(field("published_year") + 1))
         .topk(field("published_year"), 100, True)
     )

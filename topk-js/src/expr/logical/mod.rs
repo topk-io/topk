@@ -1,6 +1,7 @@
 mod binary_op;
 mod boolish;
 mod comparable;
+mod flexible;
 mod numeric;
 mod stringy;
 mod ternary_op;
@@ -11,7 +12,14 @@ pub use numeric::Numeric;
 pub use ternary_op::TernaryOperator;
 pub use unary_op::UnaryOperator;
 
-use crate::{data::Scalar, expr::logical::stringy::StringyWithList, utils::NapiBox};
+use crate::{
+    data::Scalar,
+    expr::logical::{
+        flexible::{FlexibleExpression, Iterable},
+        stringy::StringyWithList,
+    },
+    utils::NapiBox,
+};
 use boolish::Boolish;
 use comparable::Comparable;
 use napi_derive::napi;
@@ -269,9 +277,20 @@ impl LogicalExpression {
     #[napi]
     pub fn contains(
         &self,
-        #[napi(ts_arg_type = "LogicalExpression | string")] other: Stringy,
+        #[napi(ts_arg_type = "LogicalExpression | string | number")] other: FlexibleExpression,
     ) -> Self {
         Self::binary(BinaryOperator::Contains, self.clone(), other.into())
+    }
+
+    #[napi(js_name = "in")]
+    pub fn in_(
+        &self,
+        #[napi(
+            ts_arg_type = "LogicalExpression | string | Array<string> | Array<number> | data.List"
+        )]
+        other: Iterable,
+    ) -> Self {
+        Self::binary(BinaryOperator::In, self.clone(), other.into())
     }
 
     #[napi]
