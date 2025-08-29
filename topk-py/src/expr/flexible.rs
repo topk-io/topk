@@ -9,10 +9,6 @@ use pyo3::{
     types::{PyBool, PyFloat, PyInt, PyString},
 };
 
-#[pyclass]
-#[derive(Debug, Clone)]
-pub struct Null;
-
 #[derive(Debug, Clone)]
 pub enum FlexibleExpr {
     String(String),
