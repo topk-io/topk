@@ -170,6 +170,10 @@ export declare namespace query {
     or(other: TextExpression): TextExpression
   }
   export function abs(expr: LogicalExpression): LogicalExpression
+  /** Evaluates to true if each `expr` is true. */
+  export function all(exprs: Array<LogicalExpression>): LogicalExpression
+  /** Evaluates to true if at least one `expr` is true. */
+  export function any(exprs: Array<LogicalExpression>): LogicalExpression
   export type BinaryOperator =  'and'|
   'or'|
   'eq'|

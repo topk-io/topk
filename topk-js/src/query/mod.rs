@@ -6,7 +6,7 @@ use crate::{
     data::{Scalar, Value},
     expr::{
         filter::FilterExpression,
-        logical::{BinaryOperator, LogicalExpression, Numeric, UnaryOperator},
+        logical::{BinaryOperator, LogicalExpression, NaryOp, Numeric, UnaryOperator},
         select::SelectExpression,
     },
     query::{query::Query, stage::Stage},
@@ -63,6 +63,18 @@ pub fn literal(
 #[napi(js_name = "not", namespace = "query")]
 pub fn not(expr: &'static LogicalExpression) -> LogicalExpression {
     LogicalExpression::unary(UnaryOperator::Not, expr.clone())
+}
+
+/// Evaluates to true if each `expr` is true.
+#[napi(js_name = "all", namespace = "query")]
+pub fn all(exprs: Vec<&'static LogicalExpression>) -> LogicalExpression {
+    LogicalExpression::nary(NaryOp::All, exprs.into_iter().map(|e| e.clone()).collect())
+}
+
+/// Evaluates to true if at least one `expr` is true.
+#[napi(js_name = "any", namespace = "query")]
+pub fn any(exprs: Vec<&'static LogicalExpression>) -> LogicalExpression {
+    LogicalExpression::nary(NaryOp::Any, exprs.into_iter().map(|e| e.clone()).collect())
 }
 
 #[napi(js_name = "min", namespace = "query")]

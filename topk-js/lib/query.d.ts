@@ -13,6 +13,8 @@ export declare const not: typeof query.not;
 export declare const min: typeof query.min;
 export declare const max: typeof query.max;
 export declare const abs: typeof query.abs;
+export declare const all: typeof query.all;
+export declare const any: typeof query.any;
 export declare const select: typeof query.select;
 
 export declare const Query: typeof query.Query;
