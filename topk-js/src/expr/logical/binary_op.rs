@@ -13,6 +13,7 @@ pub enum BinaryOperator {
     Gte,
     StartsWith,
     Contains,
+    In,
     Add,
     Sub,
     Mul,
@@ -41,6 +42,7 @@ impl Into<topk_rs::proto::v1::data::logical_expr::binary_op::Op> for BinaryOpera
             BinaryOperator::Contains => {
                 topk_rs::proto::v1::data::logical_expr::binary_op::Op::Contains
             }
+            BinaryOperator::In => topk_rs::proto::v1::data::logical_expr::binary_op::Op::In,
             BinaryOperator::Add => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Add,
             BinaryOperator::Sub => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Sub,
             BinaryOperator::Mul => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Mul,
