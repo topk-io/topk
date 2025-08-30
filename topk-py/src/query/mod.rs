@@ -3,7 +3,7 @@ use crate::data::value::Value;
 use crate::expr::filter::FilterExprUnion;
 use crate::expr::flexible::Numeric;
 use crate::expr::function::FunctionExpr;
-use crate::expr::logical::{BinaryOperator, LogicalExpr, UnaryOperator};
+use crate::expr::logical::{BinaryOperator, LogicalExpr, NaryOperator, UnaryOperator};
 use crate::expr::select::SelectExprUnion;
 use crate::expr::text::{Term, TextExpr};
 use crate::module;
@@ -36,6 +36,8 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(min))?;
     m.add_wrapped(wrap_pyfunction!(max))?;
     m.add_wrapped(wrap_pyfunction!(abs))?;
+    m.add_wrapped(wrap_pyfunction!(all))?;
+    m.add_wrapped(wrap_pyfunction!(any))?;
     Ok(())
 }
 
@@ -82,6 +84,28 @@ pub fn not_(py: Python<'_>, expr: LogicalExpr) -> PyResult<LogicalExpr> {
     Ok(LogicalExpr::Unary {
         op: UnaryOperator::Not,
         expr: Py::new(py, expr)?,
+    })
+}
+
+#[pyfunction]
+pub fn all(py: Python<'_>, exprs: Vec<LogicalExpr>) -> PyResult<LogicalExpr> {
+    Ok(LogicalExpr::Nary {
+        op: NaryOperator::All,
+        exprs: exprs
+            .into_iter()
+            .map(|e| Py::new(py, e))
+            .collect::<Result<Vec<Py<LogicalExpr>>, PyErr>>()?,
+    })
+}
+
+#[pyfunction]
+pub fn any(py: Python<'_>, exprs: Vec<LogicalExpr>) -> PyResult<LogicalExpr> {
+    Ok(LogicalExpr::Nary {
+        op: NaryOperator::Any,
+        exprs: exprs
+            .into_iter()
+            .map(|e| Py::new(py, e))
+            .collect::<Result<Vec<Py<LogicalExpr>>, PyErr>>()?,
     })
 }
 

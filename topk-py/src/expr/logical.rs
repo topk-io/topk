@@ -115,6 +115,22 @@ impl From<TernaryOperator> for topk_rs::proto::v1::data::logical_expr::ternary_o
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[pyclass(eq, eq_int)]
+pub enum NaryOperator {
+    All,
+    Any,
+}
+
+impl From<NaryOperator> for topk_rs::proto::v1::data::logical_expr::nary_op::Op {
+    fn from(op: NaryOperator) -> Self {
+        match op {
+            NaryOperator::All => topk_rs::proto::v1::data::logical_expr::nary_op::Op::All,
+            NaryOperator::Any => topk_rs::proto::v1::data::logical_expr::nary_op::Op::Any,
+        }
+    }
+}
+
 #[pyclass]
 #[derive(Clone)]
 pub enum LogicalExpr {
@@ -138,6 +154,10 @@ pub enum LogicalExpr {
         x: Py<LogicalExpr>,
         y: Py<LogicalExpr>,
         z: Py<LogicalExpr>,
+    },
+    Nary {
+        op: NaryOperator,
+        exprs: Vec<Py<LogicalExpr>>,
     },
 }
 
@@ -167,6 +187,9 @@ impl std::fmt::Debug for LogicalExpr {
                     y.get(),
                     z.get()
                 )
+            }
+            Self::Nary { op, exprs } => {
+                write!(f, "Nary(op={:?}, exprs={:?})", op, exprs)
             }
         }
     }
@@ -217,6 +240,23 @@ impl PartialEq for LogicalExpr {
                     && l_x.get() == r_x.get()
                     && l_y.get() == r_y.get()
                     && l_z.get() == r_z.get()
+            }
+            (
+                LogicalExpr::Nary {
+                    op: l_op,
+                    exprs: l_exprs,
+                },
+                LogicalExpr::Nary {
+                    op: r_op,
+                    exprs: r_exprs,
+                },
+            ) => {
+                l_op == r_op
+                    && l_exprs.len() == r_exprs.len()
+                    && l_exprs
+                        .iter()
+                        .zip(r_exprs.iter())
+                        .all(|(l, r)| l.get() == r.get())
             }
             _ => false,
         }
@@ -626,6 +666,10 @@ impl From<LogicalExpr> for topk_rs::proto::v1::data::LogicalExpr {
                 x.get().clone(),
                 y.get().clone(),
                 z.get().clone(),
+            ),
+            LogicalExpr::Nary { op, exprs } => topk_rs::proto::v1::data::LogicalExpr::nary(
+                op,
+                exprs.into_iter().map(|e| e.get().clone()),
             ),
         }
     }

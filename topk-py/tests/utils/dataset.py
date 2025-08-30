@@ -37,7 +37,8 @@ class books:
             "sparse_u8_embedding": u8_sparse_vector().index(
                 vector_index(metric="dot_product")
             ),
-            "tags": list("text").index(keyword_index()),
+            "tags": list(value_type="text").index(keyword_index()),
+            "codes": list(value_type="text"),
         }
 
         collection = ctx.client.collections().create(
@@ -158,6 +159,7 @@ class books:
                 ),
                 "sparse_u8_embedding": data.u8_sparse_vector({7: 1, 8: 2, 9: 3}),
                 "tags": ["hobbit", "dwarf", "quest", "home", "adventure"],
+                "codes": data.string_list([]),
             },
             {
                 "_id": "harry",
