@@ -2,12 +2,14 @@ mod binary_op;
 mod boolish;
 mod comparable;
 mod flexible;
+mod nary_op;
 mod numeric;
 mod stringy;
 mod ternary_op;
 mod unary_op;
 
 pub use binary_op::BinaryOperator;
+pub use nary_op::NaryOp;
 pub use numeric::Numeric;
 pub use ternary_op::TernaryOperator;
 pub use unary_op::UnaryOperator;
@@ -57,6 +59,15 @@ impl LogicalExpression {
             expr: LogicalExpressionUnion::Unary {
                 op,
                 expr: NapiBox(Box::new(expr)),
+            },
+        }
+    }
+
+    pub(crate) fn nary(op: NaryOp, exprs: Vec<LogicalExpression>) -> Self {
+        Self {
+            expr: LogicalExpressionUnion::Nary {
+                op,
+                exprs: exprs.into_iter().map(|e| NapiBox(Box::new(e))).collect(),
             },
         }
     }
@@ -115,6 +126,10 @@ pub enum LogicalExpressionUnion {
         x: NapiBox<LogicalExpression>,
         y: NapiBox<LogicalExpression>,
         z: NapiBox<LogicalExpression>,
+    },
+    Nary {
+        op: NaryOp,
+        exprs: Vec<NapiBox<LogicalExpression>>,
     },
 }
 
@@ -375,6 +390,12 @@ impl Into<topk_rs::proto::v1::data::LogicalExpr> for LogicalExpression {
                     x.as_ref().clone(),
                     y.as_ref().clone(),
                     z.as_ref().clone(),
+                )
+            }
+            LogicalExpressionUnion::Nary { op, exprs } => {
+                topk_rs::proto::v1::data::LogicalExpr::nary(
+                    op,
+                    exprs.into_iter().map(|e| e.as_ref().clone()),
                 )
             }
         }
