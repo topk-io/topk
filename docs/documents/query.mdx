@@ -660,7 +660,7 @@ This is equivalent to:
 <CodeGroup>
 
 ```python Python
-field("published_year") >= 1900 && field("published_year") <= 2000 && field("title").is_not_null()
+field("published_year") >= 1900 & field("published_year") <= 2000 & field("title").is_not_null()
 ```
 
 ```typescript Javascript
@@ -706,7 +706,7 @@ This is equivalent to:
 <CodeGroup>
 
 ```python Python
-field("genre") == "fiction" || field("genre") == "mystery" || field("genre") == "thriller"
+field("genre") == "fiction" | field("genre") == "mystery" | field("genre") == "thriller"
 ```
 
 ```typescript Javascript
