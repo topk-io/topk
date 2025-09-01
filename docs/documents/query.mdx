@@ -1010,22 +1010,93 @@ then be used to scope the query to a specific tenant.
 
 #### contains
 
-The `contains` operator can be used on string fields to match documents that include a specific substring. It is **case-sensitive** and is particularly useful in scenarios where you need to filter results based on a portion of a string.
+The `contains` operator can be used on both text fields and list fields to match documents that include a specific value. For text fields, it matches documents that include a specific substring (case-sensitive). For list fields, it matches documents where the field of type list contains the specified value.
+
+* [**Text fields**](/collections/create#text): Matches documents that include a specific substring. It is **case-sensitive** and avoids the text processing pipeline (tokenization and stemming) used by the [`match()`](#keyword-search) function. This makes it particularly useful when you need exact substring matching or want to provide your own pre-processed tokens. Unlike `match()`, the `contains` operator can be used without requiring a keyword index.
+* [**List fields**](/collections/create#list): Matches documents where the list field contains the specified value. The value can be a literal or a field reference. You can also use a list of strings with a keyword index if you want to provide your own tokens instead of using the text processing pipeline.
 
 <CodeGroup>
 
 ```python Python
+# String contains
 .filter(
     field("title").contains("Catcher")
+)
+
+# List contains
+.filter(
+    # Tags is a text list field: ["novel", "fiction", "science-fiction"]
+    field("tags").contains("novel")
+)
+
+# List contains combined with a field reference
+.filter(
+    field("codes").contains(field("slug"))
 )
 ```
 
 
 ```typescript Javascript
+// String contains
 .filter(field("title").contains("Catcher"))
+
+// List contains
+.filter(field("tags").contains("novel"))
+
+// List contains combined with a field reference
+.filter(field("codes").contains(field("slug")))
 ```
 
 </CodeGroup>
+
+<Info>
+  The `contains` operator works exactly the same as the `in` operator, but with reversed operands: `x CONTAINS y` is equivalent to `y IN x`. Both operators are provided for convenience and to make queries more readable.
+</Info>
+
+#### in
+
+The `in` (or `in_` in Python) operator checks if a field value is present in a list of values, string literal or another field. It can be used in several ways:
+
+* **Field in list**: Checks if a field value is present in a list of literal values.
+* **Field in string**: Checks if a string field is a substring of another string. Unlike the [`match()`](#keyword-search), this avoids the text processing pipeline (tokenization and stemming) and performs exact substring matching.
+* **Field in field**: Checks if a field value is present in another field.
+
+<CodeGroup>
+
+```python Python
+# Field in list of literals
+.filter(
+    field("published_year").in_([1999, 1988, 1997])
+)
+
+# Field in string
+.filter(
+    field("slug").in_("harry-potter lord-of-the-rings")
+)
+
+# Field in another field (list)
+.filter(
+    field("_id").in_(field("tags"))
+)
+```
+
+
+```typescript Javascript
+// Field in list of literals
+.filter(field("published_year").in([1999, 1988, 1997]))
+
+// Field in string
+.filter(field("slug").in("harry-potter lord-of-the-rings"))
+
+// Field in another field (list)
+.filter(field("_id").in(field("tags")))
+```
+
+</CodeGroup>
+
+<Info>
+  The `in` operator works exactly the same as the `contains` operator, but with reversed operands: `y IN x` is equivalent to `x CONTAINS y`. Both operators are provided for convenience and to make queries more readable.
+</Info>
 
 #### match_all
 
