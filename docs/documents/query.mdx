@@ -623,6 +623,99 @@ import { field, not } from "topk-js/query";
 
 </CodeGroup>
 
+#### all
+
+The `all()` helper evaluates to `true` if each expression in the array is true. It's equivalent to applying the logical AND operator across all expressions.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import all, field
+
+.filter(
+    all([
+        field("published_year") >= 1900,
+        field("published_year") <= 2000,
+        field("title").is_not_null()
+    ])
+)
+```
+
+```typescript Javascript
+import { all, field } from "topk-js/query";
+
+.filter(
+  all([
+    field("published_year").gte(1900),
+    field("published_year").lte(2000),
+    field("title").isNotNull()
+  ])
+)
+```
+
+</CodeGroup>
+
+This is equivalent to:
+
+<CodeGroup>
+
+```python Python
+field("published_year") >= 1900 & field("published_year") <= 2000 & field("title").is_not_null()
+```
+
+```typescript Javascript
+field("published_year").gte(1900).and(field("published_year").lte(2000)).and(field("title").isNotNull())
+```
+
+</CodeGroup>
+
+#### any
+
+The `any()` helper evaluates to `true` if at least one expression in the array is true. It's equivalent to applying the logical OR operator across all expressions.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import any, field
+
+.filter(
+    any([
+        field("genre") == "fiction",
+        field("genre") == "mystery",
+        field("genre") == "thriller"
+    ])
+)
+```
+
+```typescript Javascript
+import { any, field } from "topk-js/query";
+
+.filter(
+  any([
+    field("genre").eq("fiction"),
+    field("genre").eq("mystery"),
+    field("genre").eq("thriller")
+  ])
+)
+```
+
+</CodeGroup>
+
+This is equivalent to:
+
+<CodeGroup>
+
+```python Python
+field("genre") == "fiction" | field("genre") == "mystery" | field("genre") == "thriller"
+```
+
+```typescript Javascript
+field("genre").eq("fiction").or(field("genre").eq("mystery")).or(field("genre").eq("thriller"))
+```
+
+</CodeGroup>
+
+
 #### choose
 
 The `choose` operator evaluates a condition and returns the first argument if the condition is true, else the second argument.
