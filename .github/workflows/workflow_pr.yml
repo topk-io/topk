@@ -54,9 +54,25 @@ jobs:
         run: earthly --secret TOPK_API_KEY +test-js --region elastica
         env:
           TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
+
+  all_sdks_same_version:
+    name: Verify all SDKs on the same version
+    needs: [rust, python, javascript]
+    runs-on: public-amd64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun add commander
+
+      - name: Check all SDKs versions
+        run: |
+          bun run utils/bump-release-version.ts check
+
   ready:
     name: Ready
-    needs: [rust, python, javascript]
+    needs: [all_sdks_same_version]
     runs-on: public-amd64
     steps:
       - name: Ready
