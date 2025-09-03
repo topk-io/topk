@@ -133,10 +133,10 @@ export declare namespace query {
     square(): LogicalExpression
     eq(other: LogicalExpression | string | number | boolean | null | undefined): LogicalExpression
     ne(other: LogicalExpression | string | number | boolean | null | undefined): LogicalExpression
-    lt(other: LogicalExpression | number): LogicalExpression
-    lte(other: LogicalExpression | number): LogicalExpression
-    gt(other: LogicalExpression | number): LogicalExpression
-    gte(other: LogicalExpression | number): LogicalExpression
+    lt(other: LogicalExpression | number | string): LogicalExpression
+    lte(other: LogicalExpression | number | string): LogicalExpression
+    gt(other: LogicalExpression | number | string): LogicalExpression
+    gte(other: LogicalExpression | number | string): LogicalExpression
     add(other: LogicalExpression | number): LogicalExpression
     sub(other: LogicalExpression | number): LogicalExpression
     mul(other: LogicalExpression | number): LogicalExpression

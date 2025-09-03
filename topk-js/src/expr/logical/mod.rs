@@ -7,6 +7,7 @@ mod numeric;
 mod stringy;
 mod ternary_op;
 mod unary_op;
+mod ordered;
 
 pub use binary_op::BinaryOperator;
 pub use nary_op::NaryOp;
@@ -19,6 +20,7 @@ use crate::{
     expr::logical::{
         flexible::{FlexibleExpression, Iterable},
         stringy::StringyWithList,
+        ordered::Ordered,
     },
     utils::NapiBox,
 };
@@ -222,22 +224,22 @@ impl LogicalExpression {
     }
 
     #[napi]
-    pub fn lt(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
+    pub fn lt(&self, #[napi(ts_arg_type = "LogicalExpression | number | string")] other: Ordered) -> Self {
         Self::binary(BinaryOperator::Lt, self.clone(), other.into())
     }
 
     #[napi]
-    pub fn lte(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
+    pub fn lte(&self, #[napi(ts_arg_type = "LogicalExpression | number | string")] other: Ordered) -> Self {
         Self::binary(BinaryOperator::Lte, self.clone(), other.into())
     }
 
     #[napi]
-    pub fn gt(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
+    pub fn gt(&self, #[napi(ts_arg_type = "LogicalExpression | number | string")] other: Ordered) -> Self {
         Self::binary(BinaryOperator::Gt, self.clone(), other.into())
     }
 
     #[napi]
-    pub fn gte(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
+    pub fn gte(&self, #[napi(ts_arg_type = "LogicalExpression | number | string")] other: Ordered) -> Self {
         Self::binary(BinaryOperator::Gte, self.clone(), other.into())
     }
 
