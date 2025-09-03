@@ -39,6 +39,9 @@ pub enum Error {
     #[error("request too large: {0}")]
     RequestTooLarge(String),
 
+    #[error("internal error: {0}")]
+    Internal(String),
+
     #[error("unexpected error: {0}")]
     Unexpected(String),
 
@@ -73,6 +76,7 @@ impl Error {
             Error::TransportError(_) => false,
             Error::MalformedResponse(_) => false,
             Error::Unexpected(_) => false,
+            Error::Internal(_) => false,
         }
     }
 }
@@ -100,6 +104,7 @@ impl From<Status> for Error {
                 },
                 tonic::Code::OutOfRange => Error::RequestTooLarge(e.message().into()),
                 tonic::Code::PermissionDenied => Error::PermissionDenied,
+                tonic::Code::Internal => Error::Internal(e.message().into()),
                 _ => Error::Unexpected(format!("unexpected error: {:?}", e)),
             },
         }
