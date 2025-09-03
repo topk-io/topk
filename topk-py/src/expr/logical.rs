@@ -629,7 +629,7 @@ impl LogicalExpr {
         self.mul(py, choose_numeric)
     }
 
-    fn min(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+    fn min(&self, py: Python<'_>, other: Ordered) -> PyResult<Self> {
         Ok(Self::Binary {
             left: Py::new(py, self.clone())?,
             op: BinaryOperator::Min,
@@ -637,7 +637,7 @@ impl LogicalExpr {
         })
     }
 
-    fn max(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+    fn max(&self, py: Python<'_>, other: Ordered) -> PyResult<Self> {
         Ok(Self::Binary {
             left: Py::new(py, self.clone())?,
             op: BinaryOperator::Max,

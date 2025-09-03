@@ -465,11 +465,11 @@ describe("Logical Queries", () => {
       select({
         bm25_score: fn.bm25Score()
       })
-      .select({
-        clamped_bm25_score: max(min(field("bm25_score"), 2.0), 1.6)
-      })
-      .filter(match("millionaire love consequences dwarves"))
-      .topk(field("clamped_bm25_score"), 5, false)
+        .select({
+          clamped_bm25_score: max(min(field("bm25_score"), 2.0), 1.6)
+        })
+        .filter(match("millionaire love consequences dwarves"))
+        .topk(field("clamped_bm25_score"), 5, false)
     );
 
     expect(results.length).toBe(4);
@@ -524,4 +524,28 @@ describe("Logical Queries", () => {
     );
   });
 
+  test("query min string", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("books", {
+      published_year: int().required(),
+    });
+
+    await ctx.client.collection(collection.name).upsert([
+      { _id: "pride", title: "Pride and Prejudice", published_year: 1813 },
+      { _id: "moby", title: "Moby-Dick", published_year: 1851 },
+    ]);
+
+    const results = await ctx.client.collection(collection.name).query(
+      select({
+        title: field("title"),
+        min_string: field("title").min("Oz")
+      })
+        .topk(field("published_year"), 2, true)
+    );
+
+    expect(results).toEqual([
+      { _id: "pride", title: "Pride and Prejudice", min_string: "Oz" },
+      { _id: "moby", title: "Moby-Dick", min_string: "Moby-Dick" },
+    ]);
+  });
 })

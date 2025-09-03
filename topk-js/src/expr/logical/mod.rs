@@ -12,6 +12,7 @@ mod ordered;
 pub use binary_op::BinaryOperator;
 pub use nary_op::NaryOp;
 pub use numeric::Numeric;
+pub use ordered::Ordered;
 pub use ternary_op::TernaryOperator;
 pub use unary_op::UnaryOperator;
 
@@ -20,7 +21,6 @@ use crate::{
     expr::logical::{
         flexible::{FlexibleExpression, Iterable},
         stringy::StringyWithList,
-        ordered::Ordered,
     },
     utils::NapiBox,
 };
@@ -264,12 +264,12 @@ impl LogicalExpression {
     }
 
     #[napi]
-    pub fn min(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
+    pub fn min(&self, #[napi(ts_arg_type = "LogicalExpression | number | string")] other: Ordered) -> Self {
         Self::binary(BinaryOperator::Min, self.clone(), other.into())
     }
 
     #[napi]
-    pub fn max(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
+    pub fn max(&self, #[napi(ts_arg_type = "LogicalExpression | number | string")] other: Ordered) -> Self {
         Self::binary(BinaryOperator::Max, self.clone(), other.into())
     }
 

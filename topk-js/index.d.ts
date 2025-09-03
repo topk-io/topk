@@ -141,8 +141,8 @@ export declare namespace query {
     sub(other: LogicalExpression | number): LogicalExpression
     mul(other: LogicalExpression | number): LogicalExpression
     div(other: LogicalExpression | number): LogicalExpression
-    min(other: LogicalExpression | number): LogicalExpression
-    max(other: LogicalExpression | number): LogicalExpression
+    min(other: LogicalExpression | number | string): LogicalExpression
+    max(other: LogicalExpression | number | string): LogicalExpression
     and(other: LogicalExpression | boolean): LogicalExpression
     or(other: LogicalExpression | boolean): LogicalExpression
     startsWith(other: LogicalExpression | string): LogicalExpression
@@ -198,8 +198,8 @@ export declare namespace query {
   export function filter(expr: LogicalExpression | TextExpression): Query
   export function literal(value: number | string | string[] | number[] | boolean | data.List): LogicalExpression
   export function match(token: string, options?: MatchOptions | undefined | null): TextExpression
-  export function max(left: LogicalExpression | number, right: LogicalExpression | number): LogicalExpression
-  export function min(left: LogicalExpression | number, right: LogicalExpression | number): LogicalExpression
+  export function max(left: LogicalExpression | number | string, right: LogicalExpression | number | string): LogicalExpression
+  export function min(left: LogicalExpression | number | string, right: LogicalExpression | number | string): LogicalExpression
   export function not(expr: LogicalExpression): LogicalExpression
   export function select(exprs: Record<string, LogicalExpression | FunctionExpression>): Query
   export interface Term {

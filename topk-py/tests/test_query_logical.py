@@ -212,3 +212,16 @@ def test_query_gt_and_lte_string(ctx: ProjectContext):
     )
 
     assert doc_ids(result) == {"mockingbird", "pride"}
+
+def test_query_min_string(ctx: ProjectContext):
+    collection = dataset.books.setup(ctx)
+
+    result = ctx.client.collection(collection.name).query(
+        select("title", min_string=field("title").min("Oz"))
+        .topk(field("published_year"), 2, True)
+    )
+
+    assert result == [
+        {"_id": "pride", "title": "Pride and Prejudice", "min_string": "Oz"},
+        {"_id": "moby", "title": "Moby-Dick", "min_string": "Moby-Dick"},
+    ]

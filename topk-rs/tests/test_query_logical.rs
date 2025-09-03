@@ -417,3 +417,33 @@ async fn test_query_gt_and_lte_string(ctx: &mut ProjectTestContext) {
 
     assert_doc_ids!(result, ["mockingbird", "pride"]);
 }
+
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_min_string(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([
+                ("title", field("title")),
+                ("min_string", field("title").min("Oz")),
+            ])
+            .topk(field("published_year"), 2, true),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_eq!(
+        result,
+        vec![
+            doc!("_id" => "pride", "title" => "Pride and Prejudice", "min_string" => "Oz"),
+            doc!("_id" => "moby", "title" => "Moby-Dick", "min_string" => "Moby-Dick"),
+        ]
+    );
+}
