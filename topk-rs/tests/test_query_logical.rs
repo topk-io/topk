@@ -394,3 +394,26 @@ async fn test_query_logical_deep_recursion_limit(ctx: &mut ProjectTestContext) {
 
     assert!(matches!(err, Error::InvalidArgument(_) if err.to_string().contains("too deep")));
 }
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_gt_and_lte_string(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            filter(field("_id").gt("moby").and(field("_id").lte("pride"))).topk(
+                field("published_year"),
+                100,
+                true,
+            ),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids!(result, ["mockingbird", "pride"]);
+}
