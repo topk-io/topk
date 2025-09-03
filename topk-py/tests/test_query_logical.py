@@ -201,3 +201,14 @@ def test_query_topk_min_max(ctx: ProjectContext):
 
     assert result[3]["_id"] == "pride"
     assert result[3]["clamped_bm25_score"] == 1.6
+
+def test_query_gt_and_lte_string(ctx: ProjectContext):
+    collection = dataset.books.setup(ctx)
+
+    result = ctx.client.collection(collection.name).query(
+        filter(field("_id").gt("moby") & (field("_id").lte("pride"))).topk(
+            field("published_year"), 100, True
+        )
+    )
+
+    assert doc_ids(result) == {"mockingbird", "pride"}
