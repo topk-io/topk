@@ -524,7 +524,7 @@ impl LogicalExpr {
         })
     }
 
-    fn and(&self, py: Python<'_>, other: Boolish) -> PyResult<Self> {
+    fn and_(&self, py: Python<'_>, other: Boolish) -> PyResult<Self> {
         let expr: LogicalExpr = other.into();
 
         Ok(Self::Binary {
@@ -535,14 +535,14 @@ impl LogicalExpr {
     }
 
     fn __and__(&self, py: Python<'_>, other: Boolish) -> PyResult<Self> {
-        self.and(py, other)
+        self.and_(py, other)
     }
 
     fn __rand__(&self, py: Python<'_>, other: Boolish) -> PyResult<Self> {
-        self.and(py, other)
+        self.and_(py, other)
     }
 
-    fn or(&self, py: Python<'_>, other: Boolish) -> PyResult<Self> {
+    fn or_(&self, py: Python<'_>, other: Boolish) -> PyResult<Self> {
         let expr: LogicalExpr = other.into();
 
         Ok(Self::Binary {
@@ -553,11 +553,11 @@ impl LogicalExpr {
     }
 
     fn __or__(&self, py: Python<'_>, other: Boolish) -> PyResult<Self> {
-        self.or(py, other)
+        self.or_(py, other)
     }
 
     fn __ror__(&self, py: Python<'_>, other: Boolish) -> PyResult<Self> {
-        self.or(py, other)
+        self.or_(py, other)
     }
 
     fn starts_with(&self, py: Python<'_>, other: Stringy) -> PyResult<Self> {

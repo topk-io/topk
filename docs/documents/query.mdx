@@ -358,7 +358,7 @@ from topk_sdk.query import select, field
 select(
   weight_in_grams=field("weight").mul(1000),
   is_adult=field("age").gt(18),
-  published_in_nineteenth_century=field("published_year") >= 1800 && field("published_year") < 1900,
+  published_in_nineteenth_century=field("published_year") >= 1800 & field("published_year") < 1900,
 )
 ```
 
@@ -492,7 +492,7 @@ You can give weight to specific terms by using the `weight` parameter:
 ```python Python
 from topk_sdk.query import match
 
-.filter(match("catcher", weight=2.0).or(match("rye", weight=1.0)))
+.filter(match("catcher", weight=2.0) | match("rye", weight=1.0))
 ```
 
 
@@ -508,7 +508,7 @@ import { match } from "topk-js/query";
 
 You can combine metadata filtering and keyword search in a single query by stacking multiple filter stages.
 
-In the example below, we're searching for documents that contain the keyword `"catcher"` and were published in `1997`, or documents that were published between `1920` and `1980`.
+In the example below, we're searching for documents that contain the keyword `"catcher"` and were published in `1997`, or between `1920` and `1980`.
 
 <CodeGroup>
 
@@ -517,7 +517,7 @@ In the example below, we're searching for documents that contain the keyword `"c
     match("catcher")
 )
 .filter(
-    field("published_year") == 1997 || (field("published_year") >= 1920 && field("published_year") <= 1980)
+    field("published_year") == 1997 | ((field("published_year") >= 1920 & field("published_year") <= 1980))
 )
 ```
 
@@ -552,7 +552,7 @@ The `and` operator can be used to combine multiple logical expressions.
 
 ```python Python
 .filter(
-    field("published_year") == 1997 && field("title") == "The Catcher in the Rye"
+    field("published_year") == 1997 & field("title") == "The Catcher in the Rye"
 )
 
 # or
@@ -579,13 +579,13 @@ The `or` operator can be used to combine multiple logical expressions.
 
 ```python Python
 .filter(
-    field("published_year") == 1997 || field("title") == "The Catcher in the Rye"
+    field("published_year") == 1997 | field("title") == "The Catcher in the Rye"
 )
 
 # or
 
 .filter(
-    field("published_year").eq(1997).or(field("title").eq("The Catcher in the Rye"))
+    field("published_year").eq(1997).or_(field("title").eq("The Catcher in the Rye"))
 )
 ```
 
