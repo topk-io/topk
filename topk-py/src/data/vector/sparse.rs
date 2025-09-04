@@ -57,55 +57,121 @@ impl From<U8SparseVector> for SparseVector {
 
 impl<'py> FromPyObject<'py> for F32SparseVector {
     fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
-        let dict = obj.downcast_exact::<PyDict>().map_err(|_| {
-            PyTypeError::new_err("Invalid sparse vector, must be `dict[int, float]`")
-        })?;
-        let mut indices = Vec::new();
-        let mut values = Vec::new();
-
-        for item in dict.items() {
-            let (key, value) = item
-                .downcast_exact::<PyTuple>()
-                .map_err(|_| {
-                    PyTypeError::new_err("Invalid sparse vector, must be `dict[int, float]`")
-                })?
-                .extract::<(u32, f32)>()
-                .map_err(|_| {
-                    PyTypeError::new_err("Invalid sparse vector, must be `dict[int, float]`")
+        // First try to extract as a dict with indices and values keys
+        if let Ok(dict) = obj.downcast::<PyDict>() {
+            // Check if it's the new format with indices and values keys
+            if dict.contains("indices")? && dict.contains("values")? {
+                let indices_obj = dict.get_item("indices")?.ok_or_else(|| {
+                    PyTypeError::new_err("Invalid sparse vector, 'indices' key not found")
+                })?;
+                let values_obj = dict.get_item("values")?.ok_or_else(|| {
+                    PyTypeError::new_err("Invalid sparse vector, 'values' key not found")
                 })?;
 
-            indices.push(key);
-            values.push(value);
+                let indices: Vec<u32> = indices_obj.extract()?;
+                let values: Vec<f32> = values_obj.extract()?;
+                
+                if indices.len() != values.len() {
+                    return Err(PyTypeError::new_err(
+                        "Invalid sparse vector, indices and values must have the same length",
+                    ));
+                }
+                
+                // Validate that indices are sorted
+                for i in 1..indices.len() {
+                    if indices[i] <= indices[i - 1] {
+                        return Err(PyTypeError::new_err(
+                            "Invalid sparse vector, indices must be sorted in ascending order and unique",
+                        ));
+                    }
+                }
+
+                return Ok(F32SparseVector { indices, values });
+            }
+            
+            // Otherwise, treat it as the old format {index: value}
+            let mut indices = Vec::new();
+            let mut values = Vec::new();
+
+            for item in dict.items() {
+                let (key, value) = item
+                    .downcast_exact::<PyTuple>()
+                    .map_err(|_| {
+                        PyTypeError::new_err("Invalid sparse vector, must be `dict[int, float]` or `dict with 'indices' and 'values' keys`")
+                    })?
+                    .extract::<(u32, f32)>()
+                    .map_err(|_| {
+                        PyTypeError::new_err("Invalid sparse vector, must be `dict[int, float]` or `dict with 'indices' and 'values' keys`")
+                    })?;
+
+                indices.push(key);
+                values.push(value);
+            }
+
+            return Ok(F32SparseVector { indices, values });
         }
 
-        Ok(F32SparseVector { indices, values })
+        Err(PyTypeError::new_err("Invalid sparse vector, must be `dict[int, float]` or `dict with 'indices' and 'values' keys`"))
     }
 }
 
 impl<'py> FromPyObject<'py> for U8SparseVector {
     fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
-        let dict = obj
-            .downcast_exact::<PyDict>()
-            .map_err(|_| PyTypeError::new_err("Invalid sparse vector, must be `dict[int, int]`"))?;
-        let mut indices = Vec::new();
-        let mut values = Vec::new();
-
-        for item in dict.items() {
-            let (key, value) = item
-                .downcast_exact::<PyTuple>()
-                .map_err(|_| {
-                    PyTypeError::new_err("Invalid sparse vector, must be `dict[int, int]`")
-                })?
-                .extract::<(u32, u8)>()
-                .map_err(|_| {
-                    PyTypeError::new_err("Invalid sparse vector, must be `dict[int, int]`")
+        // First try to extract as a dict with indices and values keys
+        if let Ok(dict) = obj.downcast::<PyDict>() {
+            // Check if it's the new format with indices and values keys
+            if dict.contains("indices")? && dict.contains("values")? {
+                let indices_obj = dict.get_item("indices")?.ok_or_else(|| {
+                    PyTypeError::new_err("Invalid sparse vector, 'indices' key not found")
+                })?;
+                let values_obj = dict.get_item("values")?.ok_or_else(|| {
+                    PyTypeError::new_err("Invalid sparse vector, 'values' key not found")
                 })?;
 
-            indices.push(key);
-            values.push(value);
+                let indices: Vec<u32> = indices_obj.extract()?;
+                let values: Vec<u8> = values_obj.extract()?;
+                
+                if indices.len() != values.len() {
+                    return Err(PyTypeError::new_err(
+                        "Invalid sparse vector, indices and values must have the same length",
+                    ));
+                }
+                
+                // Validate that indices are sorted
+                for i in 1..indices.len() {
+                    if indices[i] <= indices[i - 1] {
+                        return Err(PyTypeError::new_err(
+                            "Invalid sparse vector, indices must be sorted in ascending order and unique",
+                        ));
+                    }
+                }
+
+                return Ok(U8SparseVector { indices, values });
+            }
+            
+            // Otherwise, treat it as the old format {index: value}
+            let mut indices = Vec::new();
+            let mut values = Vec::new();
+
+            for item in dict.items() {
+                let (key, value) = item
+                    .downcast_exact::<PyTuple>()
+                    .map_err(|_| {
+                        PyTypeError::new_err("Invalid sparse vector, must be `dict[int, int]` or `dict with 'indices' and 'values' keys`")
+                    })?
+                    .extract::<(u32, u8)>()
+                    .map_err(|_| {
+                        PyTypeError::new_err("Invalid sparse vector, must be `dict[int, int]` or `dict with 'indices' and 'values' keys`")
+                    })?;
+
+                indices.push(key);
+                values.push(value);
+            }
+
+            return Ok(U8SparseVector { indices, values });
         }
 
-        Ok(U8SparseVector { indices, values })
+        Err(PyTypeError::new_err("Invalid sparse vector, must be `dict[int, int]` or `dict with 'indices' and 'values' keys`"))
     }
 }
 

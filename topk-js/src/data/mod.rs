@@ -89,14 +89,14 @@ pub fn string_list(values: Vec<String>) -> List {
 
 #[napi(namespace = "data")]
 pub fn f32_sparse_vector(
-    #[napi(ts_arg_type = "Record<number, number>")] vector: SparseVectorData<f64>,
+    #[napi(ts_arg_type = "Record<number, number> | { indices: number[], values: number[] }")] vector: SparseVectorData<f64>,
 ) -> SparseVector {
     SparseVector::float(vector.into_iter().map(|(i, v)| (i, v as f32)).collect())
 }
 
 #[napi(namespace = "data")]
 pub fn u8_sparse_vector(
-    #[napi(ts_arg_type = "Record<number, number>")] vector: SparseVectorData<u8>,
+    #[napi(ts_arg_type = "Record<number, number> | { indices: number[], values: number[] }")] vector: SparseVectorData<u8>,
 ) -> SparseVector {
     SparseVector::byte(vector)
 }

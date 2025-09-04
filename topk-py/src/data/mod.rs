@@ -64,15 +64,73 @@ pub fn binary_vector(vector: Vec<u8>) -> List {
 }
 
 #[pyfunction]
-#[pyo3(signature = (vector))]
-pub fn f32_sparse_vector(vector: F32SparseVector) -> SparseVector {
-    vector.into()
+#[pyo3(signature = (vector=None, *, indices=None, values=None))]
+pub fn f32_sparse_vector(
+    vector: Option<F32SparseVector>,
+    indices: Option<Vec<u32>>,
+    values: Option<Vec<f32>>,
+) -> PyResult<SparseVector> {
+    if let (Some(indices), Some(values)) = (indices, values) {
+        // New format with indices and values
+        if indices.len() != values.len() {
+            return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                "Invalid sparse vector, indices and values must have the same length",
+            ));
+        }
+        
+        // Validate that indices are sorted
+        for i in 1..indices.len() {
+            if indices[i] <= indices[i - 1] {
+                return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                    "Invalid sparse vector, indices must be sorted in ascending order and unique",
+                ));
+            }
+        }
+        
+        Ok(SparseVector::F32 { indices, values })
+    } else if let Some(vector) = vector {
+        // Old format with dict
+        Ok(vector.into())
+    } else {
+        Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+            "f32_sparse_vector() requires either a dict argument or both indices and values keyword arguments",
+        ))
+    }
 }
 
 #[pyfunction]
-#[pyo3(signature = (vector))]
-pub fn u8_sparse_vector(vector: U8SparseVector) -> SparseVector {
-    vector.into()
+#[pyo3(signature = (vector=None, *, indices=None, values=None))]
+pub fn u8_sparse_vector(
+    vector: Option<U8SparseVector>,
+    indices: Option<Vec<u32>>,
+    values: Option<Vec<u8>>,
+) -> PyResult<SparseVector> {
+    if let (Some(indices), Some(values)) = (indices, values) {
+        // New format with indices and values
+        if indices.len() != values.len() {
+            return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                "Invalid sparse vector, indices and values must have the same length",
+            ));
+        }
+        
+        // Validate that indices are sorted
+        for i in 1..indices.len() {
+            if indices[i] <= indices[i - 1] {
+                return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                    "Invalid sparse vector, indices must be sorted in ascending order and unique",
+                ));
+            }
+        }
+        
+        Ok(SparseVector::U8 { indices, values })
+    } else if let Some(vector) = vector {
+        // Old format with dict
+        Ok(vector.into())
+    } else {
+        Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+            "u8_sparse_vector() requires either a dict argument or both indices and values keyword arguments",
+        ))
+    }
 }
 
 #[pyfunction]
