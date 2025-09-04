@@ -42,9 +42,11 @@ impl FromNapiValue for StringyWithList {
             return Ok(StringyWithList::List(list));
         }
 
-        Ok(StringyWithList::Stringy(Stringy::from_napi_value(
-            env, value,
-        )?))
+        if let Ok(stringy) = Stringy::from_napi_value(env, value) {
+            return Ok(StringyWithList::Stringy(stringy));
+        }
+
+        Err(napi::Error::from_reason("Unsupported string or string list type"))
     }
 }
 

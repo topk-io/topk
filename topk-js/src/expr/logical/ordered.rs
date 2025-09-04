@@ -16,7 +16,11 @@ impl FromNapiValue for Ordered {
             return Ok(Ordered::String(string));
         }
 
-        Ok(Ordered::Numeric(Numeric::from_napi_value(env, value)?))
+        if let Ok(numeric) = Numeric::from_napi_value(env, value) {
+            return Ok(Ordered::Numeric(numeric));
+        }
+
+        Err(napi::Error::from_reason("Unsupported ordered type"))
     }
 }
 
