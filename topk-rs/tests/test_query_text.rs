@@ -13,7 +13,7 @@ use utils::ProjectTestContext;
 #[test_context(ProjectTestContext)]
 #[tokio::test]
 async fn test_query_text_filter_single_term_disjunctive(ctx: &mut ProjectTestContext) {
-    let collection = dataset::books::setup(ctx).await; 
+    let collection = dataset::books::setup(ctx).await;
 
     let result = ctx
         .client
