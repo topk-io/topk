@@ -6,16 +6,6 @@ from topk_sdk.query import select, field, literal
 from . import ProjectContext
 from .utils import dataset, doc_ids
 
-test_documents = [
-    {
-        "_id": "test_doc",
-        "title": "Test Document",
-        "published_year": 2023,
-        "summary": "A test document for async collection operations.",
-        "summary_embedding": [0.5] * 16,
-    }
-]
-
 
 @pytest.mark.asyncio
 async def test_async_upsert_to_non_existent_collection(ctx: ProjectContext):
@@ -518,6 +508,16 @@ async def test_async_collection_all_operations(ctx: ProjectContext):
     assert isinstance(delete_lsn, str)
     assert len(delete_lsn) > 0
 
+
+test_documents = [
+    {
+        "_id": "test_doc",
+        "title": "Test Document",
+        "published_year": 2023,
+        "summary": "A test document for async collection operations.",
+        "summary_embedding": [0.5] * 16,
+    }
+]
 
 @pytest.mark.asyncio
 async def test_async_collection_all_operations_with_consistency(ctx: ProjectContext):
