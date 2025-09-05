@@ -11,6 +11,36 @@ describe("f32SparseVector", () => {
   test("empty case", () => {
     f32SparseVector({});
   });
+  
+  test("new format with indices and values", () => {
+    const vec = f32SparseVector({ indices: [1, 5, 10], values: [1.1, 2.2, 3.3] });
+    expect(vec.toString()).toContain("indices: [1, 5, 10]");
+    expect(vec.toString()).toContain("values: [1.1, 2.2, 3.3]");
+  });
+  
+  test("new format empty", () => {
+    const vec = f32SparseVector({ indices: [], values: [] });
+    expect(vec.toString()).toContain("indices: []");
+    expect(vec.toString()).toContain("values: []");
+  });
+  
+  test("new format single element", () => {
+    const vec = f32SparseVector({ indices: [42], values: [3.14] });
+    expect(vec.toString()).toContain("indices: [42]");
+    expect(vec.toString()).toContain("values: [3.14]");
+  });
+  
+  test("new format mismatched length", () => {
+    expect(() => f32SparseVector({ indices: [1, 2], values: [1.0] })).toThrow("indices and values must have the same length");
+  });
+  
+  test("new format unsorted indices", () => {
+    expect(() => f32SparseVector({ indices: [5, 1, 10], values: [1.0, 2.0, 3.0] })).toThrow("indices must be sorted");
+  });
+  
+  test("new format duplicate indices", () => {
+    expect(() => f32SparseVector({ indices: [1, 5, 5, 10], values: [1.0, 2.0, 3.0, 4.0] })).toThrow("indices must be sorted");
+  });
 
   test("toString", () => {
     expect(f32SparseVector({ 1: 1.1 }).toString()).toEqual(
@@ -48,6 +78,36 @@ describe("u8SparseVector", () => {
 
   test("empty case", () => {
     u8SparseVector({});
+  });
+  
+  test("new format with indices and values", () => {
+    const vec = u8SparseVector({ indices: [1, 5, 10], values: [10, 20, 30] });
+    expect(vec.toString()).toContain("indices: [1, 5, 10]");
+    expect(vec.toString()).toContain("values: [10, 20, 30]");
+  });
+  
+  test("new format empty", () => {
+    const vec = u8SparseVector({ indices: [], values: [] });
+    expect(vec.toString()).toContain("indices: []");
+    expect(vec.toString()).toContain("values: []");
+  });
+  
+  test("new format single element", () => {
+    const vec = u8SparseVector({ indices: [42], values: [255] });
+    expect(vec.toString()).toContain("indices: [42]");
+    expect(vec.toString()).toContain("values: [255]");
+  });
+  
+  test("new format mismatched length", () => {
+    expect(() => u8SparseVector({ indices: [1, 2], values: [10] })).toThrow("indices and values must have the same length");
+  });
+  
+  test("new format unsorted indices", () => {
+    expect(() => u8SparseVector({ indices: [5, 1, 10], values: [10, 20, 30] })).toThrow("indices must be sorted");
+  });
+  
+  test("new format duplicate indices", () => {
+    expect(() => u8SparseVector({ indices: [1, 5, 5, 10], values: [10, 20, 30, 40] })).toThrow("indices must be sorted");
   });
 
   test("toString", () => {

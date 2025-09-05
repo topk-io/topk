@@ -131,6 +131,31 @@ impl<T: FromNapiValue + ValidateNapiValue + std::fmt::Debug> FromNapiValue for S
         match data_type {
             napi::sys::ValueType::napi_object => {
                 let object = Object::from_napi_value(env, value)?;
+                
+                // Check if this is the new format with 'indices' and 'values' keys
+                if object.has_named_property("indices")? && object.has_named_property("values")? {
+                    let indices: Vec<u32> = object.get_named_property("indices")
+                        .map_err(|_| Error::new(Status::InvalidArg, "Invalid sparse vector, 'indices' must be an array of numbers"))?;
+                    let values: Vec<T> = object.get_named_property("values")
+                        .map_err(|_| Error::new(Status::InvalidArg, "Invalid sparse vector, 'values' must be an array"))?;
+                    
+                    if indices.len() != values.len() {
+                        return Err(Error::new(Status::InvalidArg, 
+                            "Invalid sparse vector, indices and values must have the same length"));
+                    }
+                    
+                    // Validate that indices are sorted
+                    for i in 1..indices.len() {
+                        if indices[i] <= indices[i - 1] {
+                            return Err(Error::new(Status::InvalidArg,
+                                "Invalid sparse vector, indices must be sorted in ascending order and unique"));
+                        }
+                    }
+                    
+                    return Ok(SparseVectorData { indices, values });
+                }
+                
+                // Otherwise treat as the old format {index: value}
                 let mut indices = Vec::new();
                 let mut values = Vec::new();
 

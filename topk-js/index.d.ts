@@ -107,14 +107,14 @@ export declare namespace data {
   export function binaryVector(values: Array<number>): List
   export function bytes(buffer: Array<number> | Buffer): any
   export function f32List(values: Array<number>): List
-  export function f32SparseVector(vector: Record<number, number>): SparseVector
+  export function f32SparseVector(vector: Record<number, number> | { indices: number[], values: number[] }): SparseVector
   export function f32Vector(values: Array<number>): List
   export function f64List(values: Array<number>): List
   export function i32List(values: Array<number>): List
   export function i64List(values: Array<number>): List
   export function stringList(values: Array<string>): List
   export function u32List(values: Array<number>): List
-  export function u8SparseVector(vector: Record<number, number>): SparseVector
+  export function u8SparseVector(vector: Record<number, number> | { indices: number[], values: number[] }): SparseVector
   export function u8Vector(values: Array<number>): List
 }
 
