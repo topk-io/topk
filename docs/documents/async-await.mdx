@@ -1,0 +1,107 @@
+---
+title: "Async/Await"
+---
+
+TopK SDK provides async/await support for all operations in the Javascript SDK and Document API operations in the Python SDK.
+
+## Python SDK
+
+The Python SDK provides async support only for the Document API through the `async_collection`. You need to use `client.async_collection()` instead of `client.collection()` for async operations:
+
+```python
+import asyncio
+from topk_sdk import Client
+from topk_sdk.schema import text, semantic_index
+from topk_sdk.query import select, field
+
+client = Client(
+    api_key="YOUR_API_KEY",
+    region="aws-us-east-1-elastica"
+)
+
+async def main():
+    # Create a collection (sync operation)
+    collection = client.collections().create("books", {
+        "title": text().required().index(semantic_index())
+    })
+
+    # Get async collection for Document API operations
+    async_collection = client.async_collection("books")
+
+    # Upsert documents
+    lsn = await async_collection.upsert([
+        {"_id": "1", "title": "The Great Gatsby", "rating": 5},
+        {"_id": "2", "title": "1984", "rating": 4}
+    ])
+
+    # Query documents
+    results = await async_collection.query(
+        select("title", "rating").topk(field("rating"), 10)
+    )
+
+    print(results)
+
+# Run the async function
+asyncio.run(main())
+```
+
+## JavaScript SDK
+
+The JavaScript SDK supports async/await **for all operations**. All collection operations return Promises and can be used with the `async`/`await` syntax:
+
+```javascript
+import { Client } from "topk-js";
+import { select, field } from "topk-js/query";
+import { semanticIndex, text } from "topk-js/schema";
+
+const client = new Client({
+  apiKey: "YOUR_API_KEY",
+  region: "aws-us-east-1-elastica"
+});
+
+async function main() {
+  // All operations are async by default
+  const collections = await client.collections().list();
+
+  // Create a collection
+  await client.collections().create("books", {
+    title: text().required().index(semanticIndex())
+  });
+
+  // Upsert documents
+  const lsn = await client.collection("books").upsert([
+    { _id: "1", title: "The Great Gatsby", rating: 5 },
+    { _id: "2", title: "1984", rating: 4 }
+  ]);
+
+  // Query documents
+  const results = await client.collection("books").query(
+    select({ title: field("title"), rating: field("rating") }).topk(field("rating"), 10)
+  );
+
+  console.log(results);
+}
+
+main().catch(console.error);
+```
+
+## Migration from Sync to Async
+
+### Python
+Replace `client.collection()` with `client.async_collection()` and refactor to use the `async`/`await` syntax:
+
+```python
+# Before (sync)
+results = client.collection("books").query(query)
+print(results)
+
+# After (async)
+async def main():
+    results = await client.async_collection("books").query(query)
+    print(results)
+
+asyncio.run(main())
+```
+
+### JavaScript
+No migration needed - all operations are already async by default.
