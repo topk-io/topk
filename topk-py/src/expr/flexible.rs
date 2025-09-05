@@ -87,6 +87,26 @@ impl Into<LogicalExpr> for Numeric {
 }
 
 #[derive(Debug, Clone, FromPyObject)]
+pub enum Ordered {
+    #[pyo3(transparent)]
+    String(String),
+
+    #[pyo3(transparent)]
+    Numeric(Numeric),
+}
+
+impl Into<LogicalExpr> for Ordered {
+    fn into(self) -> LogicalExpr {
+        match self {
+            Ordered::Numeric(n) => n.into(),
+            Ordered::String(s) => LogicalExpr::Literal {
+                value: Scalar::String(s),
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, FromPyObject)]
 pub enum Boolish {
     #[pyo3(transparent)]
     Bool(bool),

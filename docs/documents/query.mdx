@@ -891,6 +891,8 @@ The `is_not_null` operator can be used to match documents that have a field with
 
 The `gt` operator can be used to match documents that have a field with a value greater than a specific value.
 
+For strings, it uses lexicographic order.
+
 <CodeGroup>
 
 ```python Python
@@ -915,6 +917,8 @@ The `gt` operator can be used to match documents that have a field with a value 
 #### gte
 
 The `gte` operator can be used to match documents that have a field with a value greater than or equal to a specific value.
+
+For strings, it uses lexicographic order.
 
 <CodeGroup>
 
@@ -941,6 +945,8 @@ The `gte` operator can be used to match documents that have a field with a value
 
 The `lt` operator can be used to match documents that have a field with a value less than a specific value.
 
+For strings, it uses lexicographic order.
+
 <CodeGroup>
 
 ```python Python
@@ -965,6 +971,8 @@ The `lt` operator can be used to match documents that have a field with a value 
 #### lte
 
 The `lte` operator can be used to match documents that have a field with a value less than or equal to a specific value.
+
+For strings, it uses lexicographic order.
 
 <CodeGroup>
 
@@ -1287,6 +1295,8 @@ select({
 
 The `min` operator returns the smaller of two values, commonly used for clamping or setting upper bounds. It can work with both scalar values and other fields or expressions.
 
+For strings, it uses lexicographic order.
+
 <CodeGroup>
 
 ```python Python
@@ -1322,6 +1332,8 @@ select({
 #### max
 
 The `max` operator returns the larger of two values, commonly used for clamping or setting lower bounds. It can work with both scalar values and other fields or expressions.
+
+For strings, it uses lexicographic order.
 
 <CodeGroup>
 

@@ -1,7 +1,7 @@
 use crate::data::scalar::Scalar;
 use crate::data::value::Value;
 use crate::expr::filter::FilterExprUnion;
-use crate::expr::flexible::Numeric;
+use crate::expr::flexible::Ordered;
 use crate::expr::function::FunctionExpr;
 use crate::expr::logical::{BinaryOperator, LogicalExpr, NaryOperator, UnaryOperator};
 use crate::expr::select::SelectExprUnion;
@@ -110,7 +110,7 @@ pub fn any(py: Python<'_>, exprs: Vec<LogicalExpr>) -> PyResult<LogicalExpr> {
 }
 
 #[pyfunction]
-pub fn min(py: Python<'_>, left: Numeric, right: Numeric) -> PyResult<LogicalExpr> {
+pub fn min(py: Python<'_>, left: Ordered, right: Ordered) -> PyResult<LogicalExpr> {
     Ok(LogicalExpr::Binary {
         left: Py::new(py, Into::<LogicalExpr>::into(left))?,
         op: BinaryOperator::Min,
@@ -119,7 +119,7 @@ pub fn min(py: Python<'_>, left: Numeric, right: Numeric) -> PyResult<LogicalExp
 }
 
 #[pyfunction]
-pub fn max(py: Python<'_>, left: Numeric, right: Numeric) -> PyResult<LogicalExpr> {
+pub fn max(py: Python<'_>, left: Ordered, right: Ordered) -> PyResult<LogicalExpr> {
     Ok(LogicalExpr::Binary {
         left: Py::new(py, Into::<LogicalExpr>::into(left))?,
         op: BinaryOperator::Max,
