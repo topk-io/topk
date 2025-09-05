@@ -170,4 +170,4 @@ describe("Hybrid Queries", () => {
     // the result set, even though they are the closest candidates based on summary_score.
     expect(result.map((doc) => doc._id)).toEqual(["gatsby", "pride", "catcher"]);
   });
-}); 
+});

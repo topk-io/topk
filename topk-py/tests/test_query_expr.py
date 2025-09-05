@@ -21,6 +21,14 @@ def test_query_expr_with_flexible_expr():
     assert (field("a") | False)._expr_eq(field("a") | literal(False))
     assert (False | field("a"))._expr_eq(field("a") | literal(False))
 
+    assert (field("a") & True)._expr_eq(field("a").and_(True))
+    assert (True & field("a"))._expr_eq(field("a").and_(True))
+
+    assert (field("a") | False)._expr_eq(field("a").or_(False))
+    assert (False | field("a"))._expr_eq(field("a").or_(False))
+
+    assert (field("a") & field("b"))._expr_eq(field("a").and_(field("b")))
+    assert (field("a") | field("b"))._expr_eq(field("a").or_(field("b")))
 
 def test_comparison_operators():
     assert (field("a") == 1)._expr_eq(field("a") == literal(1))
