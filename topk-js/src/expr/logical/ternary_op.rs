@@ -14,4 +14,4 @@ impl Into<topk_rs::proto::v1::data::logical_expr::ternary_op::Op> for TernaryOpe
             }
         }
     }
-} 
+}

@@ -74,4 +74,3 @@ def test_query_sqrt_filter(ctx: ProjectContext):
     )
 
     assert result == [{"_id": "harry", "title": "Harry Potter and the Sorcerer's Stone"}]
-
