@@ -517,7 +517,7 @@ In the example below, we're searching for documents that contain the keyword `"c
     match("catcher")
 )
 .filter(
-    field("published_year") == 1997 | ((field("published_year") >= 1920 & field("published_year") <= 1980))
+    field("published_year") == 1997 | (field("published_year") >= 1920 & field("published_year") <= 1980)
 )
 ```
 
