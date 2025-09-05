@@ -45,6 +45,40 @@ async def main():
 asyncio.run(main())
 ```
 
+### Parallel Queries
+
+You can run multiple queries concurrently using `asyncio.gather()`:
+
+```python
+async def parallel_queries():
+    async_collection = client.async_collection("books")
+
+    # Run multiple queries in parallel
+    recent_books, popular_books, all_books = await asyncio.gather(
+        async_collection.query(
+            select("title", "rating").filter(field("year").gt(2020)).topk(field("rating"), 10)
+        ),
+        async_collection.query(
+            select("title", "rating").filter(field("rating").gte(4)).topk(field("rating"), 10)
+        ),
+        async_collection.query(
+            select("title", "rating").topk(field("rating"), 10)
+        )
+    )
+
+    return {
+        "recent_books": recent_books,
+        "popular_books": popular_books,
+        "all_books": all_books
+    }
+
+# Run parallel queries
+results = asyncio.run(parallel_queries())
+print(f"Found {len(results['recent_books'])} recent books")
+print(f"Found {len(results['popular_books'])} popular books")
+print(f"Found {len(results['all_books'])} total books")
+```
+
 ## JavaScript SDK
 
 The JavaScript SDK supports async/await **for all operations**. All collection operations return Promises and can be used with the `async`/`await` syntax:
@@ -83,6 +117,46 @@ async function main() {
 }
 
 main().catch(console.error);
+```
+
+### Parallel Queries
+
+You can run multiple queries concurrently using `Promise.all()`:
+
+```javascript
+async function parallelQueries() {
+  const collection = client.collection("books");
+
+  // Run multiple queries in parallel
+  const [recentBooks, popularBooks, allBooks] = await Promise.all([
+    collection.query(
+      select({ title: field("title"), rating: field("rating") })
+        .filter(field("year").gt(2020))
+        .topk(field("rating"), 10)
+    ),
+    collection.query(
+      select({ title: field("title"), rating: field("rating") })
+        .filter(field("rating").gte(4))
+        .topk(field("rating"), 10)
+    ),
+    collection.query(
+      select({ title: field("title"), rating: field("rating") }).topk(field("rating"), 10)
+    )
+  ]);
+
+  return {
+    recentBooks,
+    popularBooks,
+    allBooks
+  };
+}
+
+// Run parallel queries
+parallelQueries().then(results => {
+  console.log(`Found ${results.recentBooks.length} recent books`);
+  console.log(`Found ${results.popularBooks.length} popular books`);
+  console.log(`Found ${results.allBooks.length} total books`);
+}).catch(console.error);
 ```
 
 ## Migration from Sync to Async

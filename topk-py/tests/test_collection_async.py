@@ -540,6 +540,39 @@ async def test_async_collection_all_operations_with_consistency(ctx: ProjectCont
     results = await async_collection.query(query, lsn=lsn)
     assert len(results) >= 1
 
+@pytest.mark.asyncio
+async def test_async_collection_parallel_queries(ctx: ProjectContext):
+    collection = dataset.books.setup(ctx)
+    async_collection = ctx.client.async_collection(collection.name)
+
+    # Upsert test documents
+    lsn = await async_collection.upsert(test_documents)
+
+    # Define multiple queries
+    query1 = select("title", "published_year").topk(field("published_year"), 5)
+    query2 = select("title", "summary").topk(field("published_year"), 3)
+    query3 = select("published_year").topk(field("published_year"), 10)
+
+    # Execute queries in parallel
+    results = await asyncio.gather(
+        async_collection.query(query1, lsn=lsn),
+        async_collection.query(query2, lsn=lsn),
+        async_collection.query(query3, lsn=lsn)
+    )
+
+    # Verify all queries returned results
+    assert len(results) == 3
+    assert all(len(result) >= 1 for result in results)
+
+    # Verify query-specific fields are present
+    assert "title" in results[0][0]
+    assert "published_year" in results[0][0]
+
+    assert "title" in results[1][0]
+    assert "summary" in results[1][0]
+
+    assert "published_year" in results[2][0]
+
 
 def test_async_collection_sync_usage(ctx: ProjectContext):
     async def async_operations():
