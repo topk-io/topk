@@ -40,7 +40,8 @@
           "documents/query",
           "documents/get",
           "documents/delete",
-          "documents/data-constructors"
+          "documents/data-constructors",
+          "documents/async-await"
         ]
       },
       {

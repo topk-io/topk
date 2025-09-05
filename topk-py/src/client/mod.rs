@@ -5,6 +5,9 @@ use topk_rs::ClientConfig;
 mod collection;
 pub use collection::CollectionClient;
 
+mod async_collection;
+pub use async_collection::AsyncCollectionClient;
+
 mod collections;
 pub use collections::CollectionsClient;
 
@@ -51,6 +54,10 @@ impl Client {
             self.client.clone(),
             collection,
         ))
+    }
+
+    pub fn async_collection(&self, collection: String) -> PyResult<AsyncCollectionClient> {
+        Ok(AsyncCollectionClient::new(self.client.clone(), collection))
     }
 
     pub fn collections(&self) -> PyResult<CollectionsClient> {
