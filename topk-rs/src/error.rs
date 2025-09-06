@@ -83,6 +83,20 @@ impl Error {
 
 impl From<Status> for Error {
     fn from(status: Status) -> Self {
+        let request_id = status
+            .metadata()
+            .get("x-request-id")
+            .and_then(|v| v.to_str().ok())
+            .map(|v| v.to_string());
+
+        let append_request_id = |message: &str| {
+            if let Some(request_id) = request_id {
+                format!("{message} (x-request-id: {request_id})")
+            } else {
+                message.to_string()
+            }
+        };
+
         match CustomError::try_from(status) {
             // Custom error
             Ok(error) => match error.code() {
@@ -104,8 +118,8 @@ impl From<Status> for Error {
                 },
                 tonic::Code::OutOfRange => Error::RequestTooLarge(e.message().into()),
                 tonic::Code::PermissionDenied => Error::PermissionDenied,
-                tonic::Code::Internal => Error::Internal(e.message().into()),
-                _ => Error::Unexpected(format!("unexpected error: {:?}", e)),
+                tonic::Code::Internal => Error::Internal(append_request_id(e.message())),
+                _ => Error::Unexpected(append_request_id(&format!("{:?}", e))),
             },
         }
     }
