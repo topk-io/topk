@@ -13,7 +13,7 @@ default = []
 in_memory = []
 
 [dependencies]
-tonic = { version = "0.14.2", features = ["tls-native-roots"] }
+tonic = { version = "0.14.2", features = ["tls-ring", "tls-native-roots"] }
 tokio = { version = "1.35", features = ["full"] }
 anyhow = { version = "1.0.77" }
 thiserror = { version = "1.0.65" }
