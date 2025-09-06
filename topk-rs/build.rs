@@ -35,6 +35,7 @@ fn build_topk_v1_protos() {
     }
 
     builder
+        .codec_path("crate::proto::codec::ProstCodec")
         .compile_protos(
             &[
                 "../protos/topk/control/v1/collection_service.proto",
