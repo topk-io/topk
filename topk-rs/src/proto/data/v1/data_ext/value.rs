@@ -1,3 +1,5 @@
+use bytes::Bytes;
+
 use crate::proto::data::v1::{
     data_ext::IntoListValues, list, sparse_vector, value, vector, List, Null, SparseVector, Value,
 };
@@ -136,13 +138,13 @@ impl Value {
     }
 
     /// Alias for `binary`
-    pub fn bytes(value: Vec<u8>) -> Self {
+    pub fn bytes(value: impl Into<Bytes>) -> Self {
         Value::binary(value)
     }
 
-    pub fn binary(value: Vec<u8>) -> Self {
+    pub fn binary(value: impl Into<Bytes>) -> Self {
         Value {
-            value: Some(value::Value::Binary(value)),
+            value: Some(value::Value::Binary(value.into())),
         }
     }
 
