@@ -164,7 +164,7 @@ impl Value {
     }
 
     /// Create a struct value from a map of values.
-    pub fn r#struct(values: HashMap<impl Into<String>, Value>) -> Self {
+    pub fn r#struct<K: Into<String>>(values: impl IntoIterator<Item = (K, Value)>) -> Self {
         Value {
             value: Some(value::Value::Struct(Struct {
                 fields: values.into_iter().map(|(k, v)| (k.into(), v)).collect(),
