@@ -63,11 +63,6 @@ export interface CollectionFieldSpec {
 export type ConsistencyLevel =  'indexed'|
 'strong';
 
-export interface CreateCollectionOptions {
-  name: string
-  schema: Record<string, schema.FieldSpec>
-}
-
 export interface MatchOptions {
   field?: string
   weight?: number

@@ -122,6 +122,9 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                     None => unreachable!("Invalid list proto"),
                 },
             }),
+            Some(topk_rs::proto::v1::data::value::Value::Struct(..)) => {
+                todo!()
+            }
             None => unreachable!("Invalid value proto"),
         }
     }

@@ -1,5 +1,5 @@
 mod collection;
-pub use collection::{Collection, CollectionFieldSpec};
+pub use collection::Collection;
 
 mod list;
 pub use list::List;

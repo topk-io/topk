@@ -26,6 +26,8 @@ message Value {
     SparseVector sparse_vector = 16;
     // List
     List list = 17;
+    // Struct
+    Struct struct = 18;
   }
 }
 
@@ -64,6 +66,10 @@ message List {
     String string = 7;
     U8 u8 = 8;
   }
+}
+
+message Struct {
+  map<string, Value> fields = 1;
 }
 
 message Vector {
