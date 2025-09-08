@@ -38,6 +38,7 @@ jobs:
         run: earthly --secret TOPK_API_KEY +test-py --region elastica
         env:
           TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
+
   javascript:
     name: Test JavaScript
     runs-on: public-amd64
@@ -61,6 +62,7 @@ jobs:
     runs-on: public-amd64
     steps:
       - uses: actions/checkout@v4
+
       - uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
@@ -70,9 +72,22 @@ jobs:
         run: |
           bun run utils/bump-release-version.ts check
 
+  pre_commit:
+    name: Verify pre-commit hooks pass
+    runs-on: public-amd64
+    if: ${{ contains(github.event.pull_request.labels.*.name, 'ready') }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Run pre-commit
+        run: uvx pre-commit run --all-files --show-diff-on-failure --color always
+
   ready:
     name: Ready
-    needs: [all_sdks_same_version]
+    needs: [all_sdks_same_version, pre_commit]
     runs-on: public-amd64
     steps:
       - name: Ready
