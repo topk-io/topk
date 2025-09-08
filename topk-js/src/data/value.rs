@@ -68,7 +68,7 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
             Some(topk_rs::proto::v1::data::value::Value::I32(n)) => Value::I32(n),
             Some(topk_rs::proto::v1::data::value::Value::I64(n)) => Value::I64(n),
             // Bytes
-            Some(topk_rs::proto::v1::data::value::Value::Binary(b)) => Value::Bytes(b),
+            Some(topk_rs::proto::v1::data::value::Value::Binary(b)) => Value::Bytes(b.into()),
             // Vectors(deprecated)
             Some(topk_rs::proto::v1::data::value::Value::Vector(v)) => match v.vector {
                 Some(topk_rs::proto::v1::data::vector::Vector::Float(float_vector)) => {
