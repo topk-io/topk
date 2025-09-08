@@ -58,7 +58,6 @@ jobs:
 
   all_sdks_same_version:
     name: Verify all SDKs on the same version
-    needs: [rust, python, javascript]
     runs-on: public-amd64
     steps:
       - uses: actions/checkout@v4
@@ -87,7 +86,7 @@ jobs:
 
   ready:
     name: Ready
-    needs: [all_sdks_same_version, pre_commit]
+    needs: [rust, python, javascript, all_sdks_same_version, pre_commit]
     runs-on: public-amd64
     steps:
       - name: Ready
