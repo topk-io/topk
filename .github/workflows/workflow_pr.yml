@@ -84,6 +84,7 @@ jobs:
 
       - name: Run pre-commit
         run: uvx pre-commit run --all-files --show-diff-on-failure --color always
+
   ready:
     name: Ready
     needs: [all_sdks_same_version, pre_commit]
@@ -91,4 +92,3 @@ jobs:
     steps:
       - name: Ready
         run: echo "Ready"
-
