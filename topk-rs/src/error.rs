@@ -199,8 +199,8 @@ pub enum DocumentValidationError {
 
     DocumentTooLarge {
         doc_id: String,
-        max_size_bytes: usize,
-        got_size_bytes: usize,
+        max_size_bytes: u64,
+        got_size_bytes: u64,
     },
 }
 
