@@ -1,8 +1,4 @@
-use crate::{
-    data::{Collection, CollectionFieldSpec},
-    error::TopkError,
-    schema::field_spec::FieldSpec,
-};
+use crate::{data::Collection, error::TopkError, schema::field_spec::FieldSpec};
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use std::collections::HashMap;
@@ -13,13 +9,6 @@ use topk_rs::proto::v1::control::{self};
 pub struct CollectionsClient {
     /// Reference to the topk-rs client
     client: Arc<topk_rs::Client>,
-}
-
-#[napi(object)]
-pub struct CreateCollectionOptions {
-    pub name: String,
-    #[napi(ts_type = "Record<string, schema.FieldSpec>")]
-    pub schema: HashMap<String, CollectionFieldSpec>,
 }
 
 #[napi]

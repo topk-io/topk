@@ -1,13 +1,22 @@
 use bytes::Bytes;
+use std::collections::HashMap;
 
 use crate::proto::data::v1::{
-    data_ext::IntoListValues, list, sparse_vector, value, vector, List, Null, SparseVector, Value,
+    data_ext::IntoListValues, list, sparse_vector, value, vector, List, Null, SparseVector, Struct,
+    Value,
 };
 
 impl Value {
     pub fn null() -> Self {
         Value {
             value: Some(value::Value::Null(Null {})),
+        }
+    }
+
+    pub fn as_null(&self) -> Option<()> {
+        match &self.value {
+            Some(value::Value::Null(_)) => Some(()),
+            _ => None,
         }
     }
 
@@ -155,6 +164,22 @@ impl Value {
         }
     }
 
+    /// Create a struct value from a map of values.
+    pub fn r#struct<K: Into<String>>(values: impl IntoIterator<Item = (K, Value)>) -> Self {
+        Value {
+            value: Some(value::Value::Struct(Struct {
+                fields: values.into_iter().map(|(k, v)| (k.into(), v)).collect(),
+            })),
+        }
+    }
+
+    pub fn as_struct(&self) -> Option<&HashMap<String, Value>> {
+        match &self.value {
+            Some(value::Value::Struct(s)) => Some(&s.fields),
+            _ => None,
+        }
+    }
+
     /// Create a list value from a vector of values.
     pub fn list<T: IntoListValues>(values: T) -> Self {
         Value {
@@ -230,6 +255,7 @@ impl value::Value {
                 Some(list::Values::String(_)) => "list<string>".to_string(),
                 _ => "null_list".to_string(),
             },
+            value::Value::Struct(_) => "struct<string, Value>".to_string(),
             value::Value::Null(_) => "null".to_string(),
         }
     }
@@ -244,6 +270,12 @@ impl From<bool> for Value {
 impl From<String> for Value {
     fn from(value: String) -> Self {
         Value::string(value)
+    }
+}
+
+impl From<()> for Value {
+    fn from(_: ()) -> Self {
+        Value::null()
     }
 }
 
@@ -289,6 +321,18 @@ impl From<f64> for Value {
     }
 }
 
+impl From<Vec<u32>> for Value {
+    fn from(value: Vec<u32>) -> Self {
+        Value::list(value)
+    }
+}
+
+impl From<Vec<u64>> for Value {
+    fn from(value: Vec<u64>) -> Self {
+        Value::list(value)
+    }
+}
+
 impl From<Vec<f32>> for Value {
     fn from(value: Vec<f32>) -> Self {
         Value::list(value)
@@ -298,6 +342,17 @@ impl From<Vec<f32>> for Value {
 impl From<Vec<u8>> for Value {
     fn from(value: Vec<u8>) -> Self {
         Value::list(value)
+    }
+}
+
+impl From<Vec<&str>> for Value {
+    fn from(value: Vec<&str>) -> Self {
+        Value::list(
+            value
+                .into_iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>(),
+        )
     }
 }
 
@@ -315,11 +370,29 @@ impl From<SparseVector> for Value {
     }
 }
 
+impl From<HashMap<String, Value>> for Value {
+    fn from(value: HashMap<String, Value>) -> Self {
+        Value::r#struct(value)
+    }
+}
+
 impl<T: Into<Value>> From<Option<T>> for Value {
     fn from(value: Option<T>) -> Self {
         match value {
             Some(value) => value.into(),
             None => Value::null(),
         }
+    }
+}
+
+impl Struct {
+    pub fn depth(&self) -> usize {
+        let mut depth = 1;
+        for (_, value) in &self.fields {
+            if let Some(value::Value::Struct(s)) = &value.value {
+                depth = s.depth() + 1;
+            }
+        }
+        depth
     }
 }
