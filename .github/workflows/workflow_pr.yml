@@ -38,6 +38,7 @@ jobs:
         run: earthly --secret TOPK_API_KEY +test-py --region elastica
         env:
           TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
+
   javascript:
     name: Test JavaScript
     runs-on: public-amd64
@@ -61,6 +62,7 @@ jobs:
     runs-on: public-amd64
     steps:
       - uses: actions/checkout@v4
+
       - uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
@@ -76,6 +78,7 @@ jobs:
     if: ${{ contains(github.event.pull_request.labels.*.name, 'ready') }}
     steps:
       - uses: actions/checkout@v4
+
       - name: Setup uv
         uses: astral-sh/setup-uv@v6
 
@@ -88,3 +91,4 @@ jobs:
     steps:
       - name: Ready
         run: echo "Ready"
+
