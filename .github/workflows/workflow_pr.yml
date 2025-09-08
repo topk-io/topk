@@ -76,21 +76,11 @@ jobs:
     if: ${{ contains(github.event.pull_request.labels.*.name, 'ready') }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: 3.x
-
-      - uses: actions/cache@v4
-        with:
-          path: ~/.cache/pre-commit
-          key: pre-commit|${{ runner.os }}|${{ env.pythonLocation }}|${{ hashFiles('.pre-commit-config.yaml') }}
-
-      - name: Install pre-commit
-        run: python -m pip install pre-commit
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
 
       - name: Run pre-commit
-        run: pre-commit run --all-files --show-diff-on-failure --color always
-
+        uses: uvx pre-commit run --all-files --show-diff-on-failure --color always
   ready:
     name: Ready
     needs: [all_sdks_same_version, pre_commit]
