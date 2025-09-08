@@ -196,6 +196,80 @@ async fn test_upsert_schema_validation(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
+async fn test_upsert_max_doc_size(ctx: &mut ProjectTestContext) {
+    let collection = ctx
+        .client
+        .collections()
+        .create(ctx.wrap("test"), HashMap::default())
+        .await
+        .expect("could not create collection");
+
+    let err = ctx
+        .client
+        .collection(collection.name)
+        .upsert(vec![
+            doc!("_id" => "one", "payload" => "x".repeat(500 * 1024)), // 500KB, too large
+            doc!("_id" => "two", "payload" => "xxx"),                  // ok
+            doc!("_id" => "three", "payload" => "x".repeat(130 * 1024)), // 130KB, too large
+            doc!("_id" => "four", "payload" => "x".repeat(126 * 1024)), // 126KB (plus overhead), ok
+        ])
+        .await
+        .expect_err("should not be able to upsert a batch containing oversized documents");
+
+    match err {
+        Error::DocumentValidationError(ref s) => {
+            let mut by_id: HashMap<&str, &DocumentValidationError> = HashMap::new();
+            for err in s.iter() {
+                if let DocumentValidationError::DocumentTooLarge { doc_id, .. } = err {
+                    by_id.insert(doc_id.as_str(), err);
+                }
+            }
+
+            assert_eq!(
+                by_id.len(),
+                2,
+                "expected two DocumentTooLarge errors, got: {:?}",
+                s
+            );
+
+            match by_id.get("one").unwrap() {
+                DocumentValidationError::DocumentTooLarge {
+                    doc_id,
+                    max_size_bytes,
+                    got_size_bytes,
+                } => {
+                    assert_eq!(doc_id, "one");
+                    assert_eq!(*max_size_bytes, 128 * 1024);
+                    assert!(
+                        *got_size_bytes > *max_size_bytes,
+                        "expected got_size_bytes > max_size_bytes"
+                    );
+                }
+                other => panic!("unexpected error variant for 'one': {:?}", other),
+            }
+
+            match by_id.get("three").unwrap() {
+                DocumentValidationError::DocumentTooLarge {
+                    doc_id,
+                    max_size_bytes,
+                    got_size_bytes,
+                } => {
+                    assert_eq!(doc_id, "three");
+                    assert_eq!(*max_size_bytes, 128 * 1024);
+                    assert!(
+                        *got_size_bytes > *max_size_bytes,
+                        "expected got_size_bytes > max_size_bytes"
+                    );
+                }
+                other => panic!("unexpected error variant for 'three': {:?}", other),
+            }
+        }
+        _ => panic!("expected DocumentValidationError, got {:?}", err),
+    }
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
 async fn test_upsert_vectors(ctx: &mut ProjectTestContext) {
     let collection = ctx
         .client

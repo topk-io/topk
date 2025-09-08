@@ -240,6 +240,10 @@ impl<T: Serialize + DeserializeOwned> ValidationErrorBag<T> {
     pub fn len(&self) -> usize {
         self.0.len()
     }
+
+    pub fn iter(&self) -> std::slice::Iter<'_, T> {
+        self.0.iter()
+    }
 }
 
 impl<T: Serialize> From<ValidationErrorBag<T>> for tonic::Status {
