@@ -164,6 +164,11 @@ pub enum DocumentValidationError {
         field: String,
     },
 
+    InvalidFieldName {
+        doc_id: String,
+        field: String,
+    },
+
     InvalidDataType {
         doc_id: String,
         field: String,
@@ -179,6 +184,12 @@ pub enum DocumentValidationError {
     },
 
     InvalidSparseVector {
+        doc_id: String,
+        field: String,
+        reason: String,
+    },
+
+    InvalidStructDepth {
         doc_id: String,
         field: String,
         reason: String,

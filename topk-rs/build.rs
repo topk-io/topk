@@ -3,35 +3,7 @@ fn main() {
 }
 
 fn build_topk_v1_protos() {
-    let mut builder = tonic_build::configure();
-
-    // #[derive(Eq, Hash)] for messages
-    for message in vec![
-        // field spec
-        "topk.control.v1.FieldSpec",
-        // field type
-        "topk.control.v1.FieldType",
-        "topk.control.v1.FieldType.data_type",
-        "topk.control.v1.FieldTypeF32Vector",
-        "topk.control.v1.FieldTypeU8Vector",
-        "topk.control.v1.FieldTypeBinaryVector",
-        "topk.control.v1.FieldTypeF32SparseVector",
-        "topk.control.v1.FieldTypeU8SparseVector",
-        "topk.control.v1.FieldTypeBoolean",
-        "topk.control.v1.FieldTypeInteger",
-        "topk.control.v1.FieldTypeFloat",
-        "topk.control.v1.FieldTypeText",
-        "topk.control.v1.FieldTypeBytes",
-        "topk.control.v1.FieldTypeList",
-        // index
-        "topk.control.v1.FieldIndex",
-        "topk.control.v1.FieldIndex.index",
-        "topk.control.v1.KeywordIndex",
-        "topk.control.v1.VectorIndex",
-        "topk.control.v1.SemanticIndex",
-    ] {
-        builder = builder.type_attribute(message, "#[derive(Eq, Hash)]");
-    }
+    let mut builder = tonic_prost_build::configure();
 
     // #[derive(serde::Serialize, serde::Deserialize)]
     for message in vec![
@@ -63,7 +35,8 @@ fn build_topk_v1_protos() {
     }
 
     builder
-        .clone()
+        .codec_path("crate::proto::codec::ProstCodec")
+        .bytes(".topk.data.v1.Value")
         .compile_protos(
             &[
                 "../protos/topk/control/v1/collection_service.proto",
