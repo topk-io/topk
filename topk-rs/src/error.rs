@@ -196,6 +196,12 @@ pub enum DocumentValidationError {
     },
 
     NoDocuments,
+
+    DocumentTooLarge {
+        doc_id: String,
+        max_size_bytes: usize,
+        got_size_bytes: usize,
+    },
 }
 
 #[derive(PartialEq, Debug, serde::Serialize, serde::Deserialize)]
