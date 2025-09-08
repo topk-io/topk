@@ -80,7 +80,7 @@ jobs:
         uses: astral-sh/setup-uv@v6
 
       - name: Run pre-commit
-        uses: uvx pre-commit run --all-files --show-diff-on-failure --color always
+        run: uvx pre-commit run --all-files --show-diff-on-failure --color always
   ready:
     name: Ready
     needs: [all_sdks_same_version, pre_commit]
