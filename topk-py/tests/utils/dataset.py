@@ -67,6 +67,7 @@ class books:
                 ),
                 "sparse_u8_embedding": data.u8_sparse_vector({0: 1, 1: 2, 2: 3}),
                 "tags": ["racism", "injustice", "girl", "father", "lawyer"],
+                "user_ratings": data.u32_list([9, 7, 10, 8]),
             },
             {
                 "_id": "1984",
@@ -82,6 +83,7 @@ class books:
                 ),
                 "sparse_u8_embedding": data.u8_sparse_vector({2: 1, 3: 2, 4: 3}),
                 "tags": ["dystopia", "surveillance", "totalitarianism", "mind control", "oppression"],
+                "user_ratings": data.f32_list([5.0, 3.5, 4.5, 4.0, -1.0]),
             },
             {
                 "_id": "pride",
@@ -94,6 +96,7 @@ class books:
                 ),
                 "sparse_u8_embedding": data.u8_sparse_vector({3: 1, 4: 2, 5: 3}),
                 "tags": ["love", "romance", "class", "marriage", "prejudice"],
+                "user_ratings": ["romantic", "classic", "good"],
             },
             {
                 "_id": "gatsby",
@@ -106,6 +109,7 @@ class books:
                 ),
                 "sparse_u8_embedding": data.u8_sparse_vector({4: 1, 5: 2, 6: 3}),
                 "tags": ["love", "romance", "wealth", "marriage"],
+                "user_ratings": "good book",
             },
             {
                 "_id": "catcher",
@@ -121,6 +125,7 @@ class books:
                 ),
                 "sparse_u8_embedding": data.u8_sparse_vector({5: 1, 6: 2, 7: 3}),
                 "tags": ["alienation", "identity", "rebellion", "mid-20th-century", "america"],
+                "user_ratings": data.f32_list([4.5, 3.0, 3.5, 4.0, -1.0]),
             },
             {
                 "_id": "moby",
@@ -134,6 +139,7 @@ class books:
                 "sparse_u8_embedding": data.u8_sparse_vector({6: 1, 7: 2, 8: 3}),
                 "nullable_importance": 5.0,
                 "tags": ["whale", "obsession", "tragedy", "sailing", "ocean"],
+                "user_ratings": data.i32_list([-5, 2, -1, 1]),
             },
             {
                 "_id": "hobbit",
@@ -146,6 +152,7 @@ class books:
                 ),
                 "sparse_u8_embedding": data.u8_sparse_vector({7: 1, 8: 2, 9: 3}),
                 "tags": ["hobbit", "dwarf", "quest", "home", "adventure"],
+                "user_ratings": data.u32_list([5, 3, 4, 5, 2]),
             },
             {
                 "_id": "harry",
@@ -161,6 +168,7 @@ class books:
                 ),
                 "sparse_u8_embedding": data.u8_sparse_vector({8: 1, 9: 2, 10: 3}),
                 "tags": ["wizard", "magic", "sorcerer", "school", "witchcraft"],
+                "user_ratings": 10,
             },
             {
                 "_id": "lotr",
@@ -173,6 +181,7 @@ class books:
                 ),
                 "sparse_u8_embedding": data.u8_sparse_vector({9: 1, 10: 2, 11: 3}),
                 "tags": ["lord of the rings", "fellowship", "magic", "wizard", "elves"],
+                "user_ratings": ["epic", "legendary", "good"],
             },
             {
                 "_id": "alchemist",
@@ -185,6 +194,7 @@ class books:
                 ),
                 "sparse_u8_embedding": data.u8_sparse_vector({10: 1, 11: 2, 12: 3}),
                 "tags": ["journey", "destiny", "meaning of life", "alchemy", "soul"],
+                "user_ratings": data.u32_list([8, 10, 9, 7]),
             },
         ]
 
