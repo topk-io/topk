@@ -1,0 +1,142 @@
+// Scalar
+
+table Bool {
+    value: bool;
+}
+
+table U32 {
+    value: uint32;
+}
+
+table U64 {
+    value: uint64;
+}
+
+table I32 {
+    value: int32;
+}
+
+table I64 {
+    value: int64;
+}
+
+table F32 {
+    value: float32;
+}
+
+table F64 {
+    value: float64;
+}
+
+// String
+
+table String {
+    value: string (required);
+}
+
+// Bytes
+
+table Bytes {
+    value: [ubyte] (required);
+}
+
+// List
+
+table U8Values {
+    values: [uint8] (required);
+}
+
+table U32Values {
+    values: [uint32] (required);
+}
+
+table U64Values {
+    values: [uint64] (required);
+}
+
+table I8Values {
+    values: [int8] (required);
+}
+
+table I32Values {
+    values: [int32] (required);
+}
+
+table I64Values {
+    values: [int64] (required);
+}
+
+table F32Values {
+    values: [float32] (required);
+}
+
+table F64Values {
+    values: [float64] (required);
+}
+
+table StringValues {
+    values: [string] (required);
+}
+
+union ListValues {
+    U8Values,
+    U32Values,
+    U64Values,
+    I8Values,
+    I32Values,
+    I64Values,
+    F32Values,
+    F64Values,
+    StringValues,
+}
+
+table List {
+    values: ListValues (required);
+}
+
+// Struct
+
+table Struct {
+    fields: [string] (required);
+    values: [Value] (required);
+}
+
+// Sparse Vector
+
+union SparseVectorValues {
+    U8Values,
+    F32Values,
+}
+
+table SparseVector {
+    indices: [uint32] (required);
+    values: SparseVectorValues (required);
+}
+
+// Value
+
+union ValueUnion {
+    Bool,
+    U32,
+    U64,
+    I32,
+    I64,
+    F32,
+    F64,
+    String,
+    Bytes,
+    List,
+    Struct,
+}
+
+table Value {
+    value: ValueUnion;
+}
+
+table Document {
+    fields: [string] (required);
+    values: [Value] (required);
+}
+
+root_type Document;
+root_type Value;

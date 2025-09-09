@@ -26,6 +26,7 @@ rand = { version = "0.8.5" }
 futures-util = { version = "0.3.31" }
 bytes = { version = "1.8.0" }
 tonic-prost = { version = "0.14.2" }
+flatbuffers = { version = "24.12.23" }
 
 [dev-dependencies]
 test-context = { version = "0.3.0" }

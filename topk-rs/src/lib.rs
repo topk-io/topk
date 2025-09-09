@@ -1,3 +1,4 @@
+pub mod flatbuffers;
 pub mod proto;
 
 pub mod error;

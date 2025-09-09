@@ -1,5 +1,8 @@
+use std::process::Command;
+
 fn main() {
     build_topk_v1_protos();
+    build_topk_v1_flatbuffers();
 }
 
 fn build_topk_v1_protos() {
@@ -51,4 +54,47 @@ fn build_topk_v1_protos() {
             &["../protos/"],
         )
         .expect("failed to build [topk.v1] protos");
+}
+
+fn build_topk_v1_flatbuffers() {
+    // Compile all .fbs files with:
+    // flatc -o ./bob-flatbuffers/src --filename-suffix '' --rust ./bob-flatbuffers/flatbuffers/*.fbs
+
+    // Check flatbuffers compiler is installed
+    let code = Command::new("which")
+        .arg("flatc")
+        .status()
+        .expect("flatc not installed");
+    if !code.success() {
+        panic!("flatc not installed");
+    }
+
+    // List of flatbuffers specs to compile
+    let fbs_files = ["../flatbuffers/v1/document.fbs"];
+
+    // Compile specs that have changed
+    for fbs_path in fbs_files {
+        println!("cargo:rerun-if-changed={fbs_path}");
+        let res = Command::new("flatc")
+            .arg("-o")
+            .arg("./src/flatbuffers/v1")
+            .arg("--filename-suffix")
+            .arg("")
+            .arg("--rust")
+            .arg(fbs_path)
+            .output()
+            .expect("failed to comile flatbuffers spec");
+
+        if !res.status.success() {
+            panic!(
+                "failed to compile flatbuffers spec. {}",
+                std::str::from_utf8(&res.stderr).unwrap()
+            );
+        }
+    }
+
+    Command::new("cargo")
+        .arg("fmt")
+        .output()
+        .expect("failed to format code");
 }

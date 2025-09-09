@@ -418,7 +418,6 @@ async fn test_query_gt_and_lte_string(ctx: &mut ProjectTestContext) {
     assert_doc_ids!(result, ["mockingbird", "pride"]);
 }
 
-
 #[test_context(ProjectTestContext)]
 #[tokio::test]
 async fn test_query_min_string(ctx: &mut ProjectTestContext) {
