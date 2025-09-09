@@ -13,13 +13,39 @@ from topk_sdk.schema import (
     list,
 )
 
-from .. import ProjectContext
+from .. import ProjectContext, AsyncProjectContext
 
 
 class books:
     @staticmethod
     def setup(ctx: ProjectContext):
-        schema = {
+
+        collection = ctx.client.collections().create(
+            ctx.scope("books"),
+            schema=books.schema(),
+        )
+
+        # Upsert sample books
+        ctx.client.collection(collection.name).upsert(books.docs())
+
+        return collection
+
+    @staticmethod
+    async def setup_async(ctx: AsyncProjectContext):
+
+        collection = await ctx.client.collections().create(
+            ctx.scope("books"),
+            schema=books.schema(),
+        )
+
+        await ctx.client.collection(collection.name).upsert(books.docs())
+
+        return collection
+
+
+    @staticmethod
+    def schema():
+        return {
             "title": text().required().index(keyword_index()),
             "published_year": int().required(),
             "summary": text().required().index(keyword_index()),
@@ -41,15 +67,6 @@ class books:
             "codes": list(value_type="text"),
         }
 
-        collection = ctx.client.collections().create(
-            ctx.scope("books"),
-            schema=schema,
-        )
-
-        # Upsert sample books
-        ctx.client.collection(collection.name).upsert(books.docs())
-
-        return collection
 
     @staticmethod
     def docs():

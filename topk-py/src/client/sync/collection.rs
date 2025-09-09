@@ -1,4 +1,4 @@
-use crate::client::Runtime;
+use crate::client::sync::runtime::Runtime;
 use crate::data::value::{NativeValue, Value};
 use crate::error::RustError;
 use crate::query::{ConsistencyLevel, Query};

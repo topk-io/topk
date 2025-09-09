@@ -48,7 +48,7 @@ test-py:
     RUN python3 -m venv /venv \
         && . /venv/bin/activate \
         && pip install --upgrade pip \
-        && pip install pytest pytest-xdist patchelf
+        && pip install pytest pytest-xdist pytest-asyncio patchelf
 
     # install pyright
     RUN . /venv/bin/activate && pip install pyright[nodejs]

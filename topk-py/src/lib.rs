@@ -41,8 +41,9 @@ pub fn topk_sdk(m: &Bound<'_, PyModule>) -> PyResult<()> {
     module!(m, "data", data::pymodule)?;
     module!(m, "error", error::pymodule)?;
 
-    // client
-    m.add_class::<client::Client>()?;
+    // clients
+    m.add_class::<client::sync::Client>()?;
+    m.add_class::<client::r#async::AsyncClient>()?;
 
     Ok(())
 }

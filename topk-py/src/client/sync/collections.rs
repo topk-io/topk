@@ -1,4 +1,4 @@
-use crate::client::Runtime;
+use crate::client::sync::runtime::Runtime;
 use crate::data::collection::Collection;
 use crate::error::RustError;
 use crate::schema::field_spec::FieldSpec;

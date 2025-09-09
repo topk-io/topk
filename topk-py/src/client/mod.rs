@@ -1,65 +1,9 @@
 use pyo3::{exceptions::PyTypeError, prelude::*, types::PyDict};
-use std::{sync::Arc, time::Duration};
-use topk_rs::ClientConfig;
+use std::time::Duration;
 
-mod collection;
-pub use collection::CollectionClient;
+pub mod sync;
 
-mod collections;
-pub use collections::CollectionsClient;
-
-mod runtime;
-pub use runtime::Runtime;
-
-#[pyclass]
-pub struct Client {
-    runtime: Arc<Runtime>,
-    client: Arc<topk_rs::Client>,
-}
-
-#[pymethods]
-impl Client {
-    #[new]
-    #[pyo3(signature = (api_key, region, host="topk.io".into(), https=true, retry_config=None))]
-    pub fn new(
-        api_key: String,
-        region: String,
-        host: String,
-        https: bool,
-        retry_config: Option<RetryConfig>,
-    ) -> Self {
-        let runtime = Arc::new(Runtime::new().expect("failed to create runtime"));
-
-        let client = Arc::new(topk_rs::Client::new({
-            let mut client = ClientConfig::new(api_key, region)
-                .with_https(https)
-                .with_host(host);
-
-            if let Some(retry_config) = retry_config {
-                client = client.with_retry_config(retry_config.into());
-            }
-
-            client
-        }));
-
-        Self { runtime, client }
-    }
-
-    pub fn collection(&self, collection: String) -> PyResult<CollectionClient> {
-        Ok(CollectionClient::new(
-            self.runtime.clone(),
-            self.client.clone(),
-            collection,
-        ))
-    }
-
-    pub fn collections(&self) -> PyResult<CollectionsClient> {
-        Ok(CollectionsClient::new(
-            self.runtime.clone(),
-            self.client.clone(),
-        ))
-    }
-}
+pub mod r#async;
 
 #[derive(Debug, Clone)]
 pub struct RetryConfig {

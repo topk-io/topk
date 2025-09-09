@@ -1,0 +1,65 @@
+mod collection;
+mod collections;
+mod runtime;
+
+use std::sync::Arc;
+
+pub use collection::CollectionClient;
+use topk_rs::ClientConfig;
+
+use crate::client::{
+    sync::{collections::CollectionsClient, runtime::Runtime},
+    RetryConfig,
+};
+
+use pyo3::{pyclass, pymethods, PyResult};
+
+#[pyclass]
+pub struct Client {
+    runtime: Arc<Runtime>,
+    client: Arc<topk_rs::Client>,
+}
+
+#[pymethods]
+impl Client {
+    #[new]
+    #[pyo3(signature = (api_key, region, host="topk.io".into(), https=true, retry_config=None))]
+    pub fn new(
+        api_key: String,
+        region: String,
+        host: String,
+        https: bool,
+        retry_config: Option<RetryConfig>,
+    ) -> Self {
+        let runtime = Arc::new(Runtime::new().expect("failed to create runtime"));
+
+        let client = Arc::new(topk_rs::Client::new({
+            let mut client = ClientConfig::new(api_key, region)
+                .with_https(https)
+                .with_host(host);
+
+            if let Some(retry_config) = retry_config {
+                client = client.with_retry_config(retry_config.into());
+            }
+
+            client
+        }));
+
+        Self { runtime, client }
+    }
+
+    pub fn collection(&self, collection: String) -> PyResult<CollectionClient> {
+        Ok(CollectionClient::new(
+            self.runtime.clone(),
+            self.client.clone(),
+            collection,
+        ))
+    }
+
+    pub fn collections(&self) -> PyResult<CollectionsClient> {
+        Ok(CollectionsClient::new(
+            self.runtime.clone(),
+            self.client.clone(),
+        ))
+    }
+}

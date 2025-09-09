@@ -2,7 +2,7 @@ import os
 from dataclasses import dataclass
 from uuid import uuid4
 
-from topk_sdk import Client
+from topk_sdk import AsyncClient, Client
 
 
 @dataclass
@@ -19,6 +19,20 @@ class ProjectContext:
                 self.client.collections().delete(c.name)
 
 
+@dataclass
+class AsyncProjectContext:
+    client: AsyncClient
+    scope_prefix: str
+
+    def scope(self, name: str):
+        return f"{self.scope_prefix}-{name}"
+
+    async def cleanup(self):
+        for c in await self.client.collections().list():
+            if c.name.startswith(self.scope_prefix):
+                await self.client.collections().delete(c.name)
+
+
 def new_project_context():
     TOPK_API_KEY = os.environ["TOPK_API_KEY"].splitlines()[0].strip()
     TOPK_HOST = os.environ.get("TOPK_HOST", "topk.io")
@@ -33,6 +47,24 @@ def new_project_context():
     )
 
     return ProjectContext(
+        scope_prefix=f"topk-py-{uuid4()}",
+        client=client,
+    )
+
+def new_async_project_context():
+    TOPK_API_KEY = os.environ["TOPK_API_KEY"].splitlines()[0].strip()
+    TOPK_HOST = os.environ.get("TOPK_HOST", "topk.io")
+    TOPK_REGION = os.environ.get("TOPK_REGION", "elastica")
+    TOPK_HTTPS = os.environ.get("TOPK_HTTPS", "true") == "true"
+
+    client = AsyncClient(
+        api_key=TOPK_API_KEY,
+        region=TOPK_REGION,
+        host=TOPK_HOST,
+        https=TOPK_HTTPS,
+    )
+
+    return AsyncProjectContext(
         scope_prefix=f"topk-py-{uuid4()}",
         client=client,
     )
