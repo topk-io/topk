@@ -1,9 +1,9 @@
 use crate::data::scalar::Scalar;
 use crate::data::value::Value;
 use crate::expr::filter::FilterExprUnion;
-use crate::expr::flexible::Numeric;
+use crate::expr::flexible::Ordered;
 use crate::expr::function::FunctionExpr;
-use crate::expr::logical::{BinaryOperator, LogicalExpr, UnaryOperator};
+use crate::expr::logical::{BinaryOperator, LogicalExpr, NaryOperator, UnaryOperator};
 use crate::expr::select::SelectExprUnion;
 use crate::expr::text::{Term, TextExpr};
 use crate::module;
@@ -36,6 +36,8 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(min))?;
     m.add_wrapped(wrap_pyfunction!(max))?;
     m.add_wrapped(wrap_pyfunction!(abs))?;
+    m.add_wrapped(wrap_pyfunction!(all))?;
+    m.add_wrapped(wrap_pyfunction!(any))?;
     Ok(())
 }
 
@@ -86,7 +88,29 @@ pub fn not_(py: Python<'_>, expr: LogicalExpr) -> PyResult<LogicalExpr> {
 }
 
 #[pyfunction]
-pub fn min(py: Python<'_>, left: Numeric, right: Numeric) -> PyResult<LogicalExpr> {
+pub fn all(py: Python<'_>, exprs: Vec<LogicalExpr>) -> PyResult<LogicalExpr> {
+    Ok(LogicalExpr::Nary {
+        op: NaryOperator::All,
+        exprs: exprs
+            .into_iter()
+            .map(|e| Py::new(py, e))
+            .collect::<Result<Vec<Py<LogicalExpr>>, PyErr>>()?,
+    })
+}
+
+#[pyfunction]
+pub fn any(py: Python<'_>, exprs: Vec<LogicalExpr>) -> PyResult<LogicalExpr> {
+    Ok(LogicalExpr::Nary {
+        op: NaryOperator::Any,
+        exprs: exprs
+            .into_iter()
+            .map(|e| Py::new(py, e))
+            .collect::<Result<Vec<Py<LogicalExpr>>, PyErr>>()?,
+    })
+}
+
+#[pyfunction]
+pub fn min(py: Python<'_>, left: Ordered, right: Ordered) -> PyResult<LogicalExpr> {
     Ok(LogicalExpr::Binary {
         left: Py::new(py, Into::<LogicalExpr>::into(left))?,
         op: BinaryOperator::Min,
@@ -95,7 +119,7 @@ pub fn min(py: Python<'_>, left: Numeric, right: Numeric) -> PyResult<LogicalExp
 }
 
 #[pyfunction]
-pub fn max(py: Python<'_>, left: Numeric, right: Numeric) -> PyResult<LogicalExpr> {
+pub fn max(py: Python<'_>, left: Ordered, right: Ordered) -> PyResult<LogicalExpr> {
     Ok(LogicalExpr::Binary {
         left: Py::new(py, Into::<LogicalExpr>::into(left))?,
         op: BinaryOperator::Max,

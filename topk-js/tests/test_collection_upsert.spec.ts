@@ -7,6 +7,7 @@ import {
   f32Vector,
   float,
   int,
+  list,
   text,
   u8SparseVector,
   u8Vector,
@@ -99,6 +100,29 @@ describe("Upsert", () => {
     await expect(
       ctx.client.collection(collection.name).upsert([{ _id: "one" }])
     ).rejects.toThrow(/MissingField { doc_id: \"one\", field: \"name\" }/);
+  });
+
+  test("upsert max doc size", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("test", {});
+
+    try {
+      await ctx.client.collection(collection.name).upsert([
+        { _id: "one", payload: "x".repeat(500 * 1024) }, // 500KB, too large
+        { _id: "two", payload: "xxx" }, // ok
+        { _id: "three", payload: "x".repeat(130 * 1024) }, // 130KB, too large
+        { _id: "four", payload: "x".repeat(126 * 1024) }, // 126KB (plus overhead), ok
+      ]);
+      fail("expected DocumentValidationError");
+    } catch (e: any) {
+      const s = String(e);
+      expect((s.match(/DocumentTooLarge/g) || []).length).toBe(2);
+      expect(s).toMatch(/doc_id: \"one\"/);
+      expect(s).toMatch(/doc_id: \"three\"/);
+      expect(s).not.toMatch(/doc_id: \"two\"/);
+      expect(s).not.toMatch(/doc_id: \"four\"/);
+      expect(s).toMatch(/max_size_bytes: 131072/);
+    }
   });
 
   test("upsert with invalid document - null field value", async () => {
@@ -233,6 +257,106 @@ describe("Upsert", () => {
       3: 3.4,
     });
     expect(obj["x"].u8_sparse_vector).toEqual({ 1: 4, 2: 5, 3: 6 });
+  });
+
+  test("upsert empty float list", async () => {
+    const ctx = getContext();
+
+    await ctx.createCollection("test", {
+      f32_list: list({ valueType: "float" }),
+    });
+
+    const lsn = await ctx.client.collection(ctx.scope("test")).upsert([
+      { _id: "x", f32_list: [] },
+    ]);
+
+    const obj = await ctx.client
+      .collection(ctx.scope("test"))
+      .get(["x"], null, { lsn });
+
+    expect(obj["x"].f32_list).toEqual([]);
+  });
+
+  test("upsert empty float list with helper", async () => {
+    const ctx = getContext();
+
+    await ctx.createCollection("test", {
+      f32_list: list({ valueType: "float" }),
+    });
+
+    const lsn = await ctx.client.collection(ctx.scope("test")).upsert([
+      { _id: "x", f32_list: data.f32List([]) },
+    ]);
+
+    const obj = await ctx.client
+      .collection(ctx.scope("test"))
+      .get(["x"], null, { lsn });
+
+    expect(obj["x"].f32_list).toEqual([]);
+  });
+
+  test("upsert empty integer list raises error", async () => {
+    const ctx = getContext();
+
+    await ctx.createCollection("test", {
+      i32_list: list({ valueType: "integer" }),
+    });
+
+    await expect(
+      ctx.client.collection(ctx.scope("test")).upsert([
+        { _id: "x", i32_list: [] },
+      ])
+    ).rejects.toThrow(/field: "i32_list", expected_type: "list<integer>", got_value: "list<f32>"/);
+  });
+
+  test("upsert empty integer list with helper", async () => {
+    const ctx = getContext();
+
+    await ctx.createCollection("test", {
+      i32_list: list({ valueType: "integer" }),
+    });
+
+    const lsn = await ctx.client.collection(ctx.scope("test")).upsert([
+      { _id: "x", i32_list: data.i32List([]) },
+    ]);
+
+    const obj = await ctx.client
+      .collection(ctx.scope("test"))
+      .get(["x"], null, { lsn });
+
+    expect(obj["x"].i32_list).toEqual([]);
+  });
+
+  test("upsert empty string list raises error", async () => {
+    const ctx = getContext();
+
+    await ctx.createCollection("test", {
+      string_list: list({ valueType: "text" }),
+    });
+
+    await expect(
+      ctx.client.collection(ctx.scope("test")).upsert([
+        { _id: "x", string_list: [] },
+      ])
+    ).rejects.toThrow(/field: "string_list", expected_type: "list<string>", got_value: "list<f32>"/);
+  });
+
+  test("upsert empty string list with helper", async () => {
+    const ctx = getContext();
+
+    await ctx.createCollection("test", {
+      string_list: list({ valueType: "text" }),
+    });
+
+    const lsn = await ctx.client.collection(ctx.scope("test")).upsert([
+      { _id: "x", string_list: data.stringList([]) },
+    ]);
+
+    const obj = await ctx.client
+      .collection(ctx.scope("test"))
+      .get(["x"], null, { lsn });
+
+    expect(obj["x"].string_list).toEqual([]);
   });
 });
 

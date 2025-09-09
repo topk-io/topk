@@ -93,6 +93,9 @@ test-js:
     WORKDIR /sdk
     COPY . .
 
+    # save contents of typescript index.d.ts file in an env variable before build
+    ENV D_TS_FILE_CONTENTS=$(cat /sdk/topk-js/index.d.ts)
+
     # build
     WORKDIR /sdk/topk-js
     ENV YARN_CACHE_FOLDER=/root/.yarn
@@ -101,6 +104,14 @@ test-js:
     RUN --mount=type=cache,target=/usr/local/cargo/registry \
         --mount=type=cache,target=/usr/local/cargo/git \
         yarn build && yarn typecheck
+
+    # validate that the typescript definition index.d.ts file remains the same after the build
+    RUN if [ "$D_TS_FILE_CONTENTS" != "$(cat /sdk/topk-js/index.d.ts)" ]; then \
+        echo "❌ Typescript definition file changed after build" && \
+        echo "Diff:"; \
+        echo "$D_TS_FILE_CONTENTS" | diff - /sdk/topk-js/index.d.ts || true; \
+        exit 1; \
+    fi
 
     ARG region=dev
     DO +SETUP_ENV --region=$region

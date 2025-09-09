@@ -63,11 +63,6 @@ export interface CollectionFieldSpec {
 export type ConsistencyLevel =  'indexed'|
 'strong';
 
-export interface CreateCollectionOptions {
-  name: string
-  schema: Record<string, schema.FieldSpec>
-}
-
 export interface MatchOptions {
   field?: string
   weight?: number
@@ -106,11 +101,13 @@ export declare namespace data {
   }
   export function binaryVector(values: Array<number>): List
   export function bytes(buffer: Array<number> | Buffer): any
+  export function f32List(values: Array<number>): List
   export function f32SparseVector(vector: Record<number, number>): SparseVector
   export function f32Vector(values: Array<number>): List
   export function f64List(values: Array<number>): List
   export function i32List(values: Array<number>): List
   export function i64List(values: Array<number>): List
+  export function stringList(values: Array<string>): List
   export function u32List(values: Array<number>): List
   export function u8SparseVector(vector: Record<number, number>): SparseVector
   export function u8Vector(values: Array<number>): List
@@ -131,20 +128,21 @@ export declare namespace query {
     square(): LogicalExpression
     eq(other: LogicalExpression | string | number | boolean | null | undefined): LogicalExpression
     ne(other: LogicalExpression | string | number | boolean | null | undefined): LogicalExpression
-    lt(other: LogicalExpression | number): LogicalExpression
-    lte(other: LogicalExpression | number): LogicalExpression
-    gt(other: LogicalExpression | number): LogicalExpression
-    gte(other: LogicalExpression | number): LogicalExpression
+    lt(other: LogicalExpression | number | string): LogicalExpression
+    lte(other: LogicalExpression | number | string): LogicalExpression
+    gt(other: LogicalExpression | number | string): LogicalExpression
+    gte(other: LogicalExpression | number | string): LogicalExpression
     add(other: LogicalExpression | number): LogicalExpression
     sub(other: LogicalExpression | number): LogicalExpression
     mul(other: LogicalExpression | number): LogicalExpression
     div(other: LogicalExpression | number): LogicalExpression
-    min(other: LogicalExpression | number): LogicalExpression
-    max(other: LogicalExpression | number): LogicalExpression
+    min(other: LogicalExpression | number | string): LogicalExpression
+    max(other: LogicalExpression | number | string): LogicalExpression
     and(other: LogicalExpression | boolean): LogicalExpression
     or(other: LogicalExpression | boolean): LogicalExpression
     startsWith(other: LogicalExpression | string): LogicalExpression
-    contains(other: LogicalExpression | string): LogicalExpression
+    contains(other: LogicalExpression | string | number): LogicalExpression
+    in(other: LogicalExpression | string | Array<string> | Array<number> | data.List): LogicalExpression
     matchAll(other: LogicalExpression | string | string[]): LogicalExpression
     matchAny(other: LogicalExpression | string | string[]): LogicalExpression
     coalesce(other: LogicalExpression | number): LogicalExpression
@@ -167,6 +165,10 @@ export declare namespace query {
     or(other: TextExpression): TextExpression
   }
   export function abs(expr: LogicalExpression): LogicalExpression
+  /** Evaluates to true if each `expr` is true. */
+  export function all(exprs: Array<LogicalExpression>): LogicalExpression
+  /** Evaluates to true if at least one `expr` is true. */
+  export function any(exprs: Array<LogicalExpression>): LogicalExpression
   export type BinaryOperator =  'and'|
   'or'|
   'eq'|
@@ -177,6 +179,7 @@ export declare namespace query {
   'gte'|
   'startsWith'|
   'contains'|
+  'in'|
   'add'|
   'sub'|
   'mul'|
@@ -190,8 +193,8 @@ export declare namespace query {
   export function filter(expr: LogicalExpression | TextExpression): Query
   export function literal(value: number | string | string[] | number[] | boolean | data.List): LogicalExpression
   export function match(token: string, options?: MatchOptions | undefined | null): TextExpression
-  export function max(left: LogicalExpression | number, right: LogicalExpression | number): LogicalExpression
-  export function min(left: LogicalExpression | number, right: LogicalExpression | number): LogicalExpression
+  export function max(left: LogicalExpression | number | string, right: LogicalExpression | number | string): LogicalExpression
+  export function min(left: LogicalExpression | number | string, right: LogicalExpression | number | string): LogicalExpression
   export function not(expr: LogicalExpression): LogicalExpression
   export function select(exprs: Record<string, LogicalExpression | FunctionExpression>): Query
   export interface Term {
@@ -213,7 +216,10 @@ export declare namespace query {
 export declare namespace query_fn {
   export function bm25Score(): query.FunctionExpression
   export function semanticSimilarity(field: string, query: string): query.FunctionExpression
-  export function vectorDistance(field: string, query: Array<number> | Record<number, number> | data.List | data.SparseVector): query.FunctionExpression
+  export function vectorDistance(field: string, query: Array<number> | Record<number, number> | data.List | data.SparseVector, options?: VectorDistanceOptions | undefined | null): query.FunctionExpression
+  export interface VectorDistanceOptions {
+    skipRefine?: boolean
+  }
 }
 
 export declare namespace schema {

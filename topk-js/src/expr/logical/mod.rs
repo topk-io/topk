@@ -1,17 +1,29 @@
 mod binary_op;
 mod boolish;
 mod comparable;
+mod flexible;
+mod nary_op;
 mod numeric;
 mod stringy;
 mod ternary_op;
 mod unary_op;
+mod ordered;
 
 pub use binary_op::BinaryOperator;
+pub use nary_op::NaryOp;
 pub use numeric::Numeric;
+pub use ordered::Ordered;
 pub use ternary_op::TernaryOperator;
 pub use unary_op::UnaryOperator;
 
-use crate::{data::Scalar, expr::logical::stringy::StringyWithList, utils::NapiBox};
+use crate::{
+    data::Scalar,
+    expr::logical::{
+        flexible::{FlexibleExpression, Iterable},
+        stringy::StringyWithList,
+    },
+    utils::NapiBox,
+};
 use boolish::Boolish;
 use comparable::Comparable;
 use napi_derive::napi;
@@ -49,6 +61,15 @@ impl LogicalExpression {
             expr: LogicalExpressionUnion::Unary {
                 op,
                 expr: NapiBox(Box::new(expr)),
+            },
+        }
+    }
+
+    pub(crate) fn nary(op: NaryOp, exprs: Vec<LogicalExpression>) -> Self {
+        Self {
+            expr: LogicalExpressionUnion::Nary {
+                op,
+                exprs: exprs.into_iter().map(|e| NapiBox(Box::new(e))).collect(),
             },
         }
     }
@@ -107,6 +128,10 @@ pub enum LogicalExpressionUnion {
         x: NapiBox<LogicalExpression>,
         y: NapiBox<LogicalExpression>,
         z: NapiBox<LogicalExpression>,
+    },
+    Nary {
+        op: NaryOp,
+        exprs: Vec<NapiBox<LogicalExpression>>,
     },
 }
 
@@ -199,22 +224,22 @@ impl LogicalExpression {
     }
 
     #[napi]
-    pub fn lt(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
+    pub fn lt(&self, #[napi(ts_arg_type = "LogicalExpression | number | string")] other: Ordered) -> Self {
         Self::binary(BinaryOperator::Lt, self.clone(), other.into())
     }
 
     #[napi]
-    pub fn lte(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
+    pub fn lte(&self, #[napi(ts_arg_type = "LogicalExpression | number | string")] other: Ordered) -> Self {
         Self::binary(BinaryOperator::Lte, self.clone(), other.into())
     }
 
     #[napi]
-    pub fn gt(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
+    pub fn gt(&self, #[napi(ts_arg_type = "LogicalExpression | number | string")] other: Ordered) -> Self {
         Self::binary(BinaryOperator::Gt, self.clone(), other.into())
     }
 
     #[napi]
-    pub fn gte(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
+    pub fn gte(&self, #[napi(ts_arg_type = "LogicalExpression | number | string")] other: Ordered) -> Self {
         Self::binary(BinaryOperator::Gte, self.clone(), other.into())
     }
 
@@ -239,12 +264,12 @@ impl LogicalExpression {
     }
 
     #[napi]
-    pub fn min(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
+    pub fn min(&self, #[napi(ts_arg_type = "LogicalExpression | number | string")] other: Ordered) -> Self {
         Self::binary(BinaryOperator::Min, self.clone(), other.into())
     }
 
     #[napi]
-    pub fn max(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
+    pub fn max(&self, #[napi(ts_arg_type = "LogicalExpression | number | string")] other: Ordered) -> Self {
         Self::binary(BinaryOperator::Max, self.clone(), other.into())
     }
 
@@ -269,9 +294,20 @@ impl LogicalExpression {
     #[napi]
     pub fn contains(
         &self,
-        #[napi(ts_arg_type = "LogicalExpression | string")] other: Stringy,
+        #[napi(ts_arg_type = "LogicalExpression | string | number")] other: FlexibleExpression,
     ) -> Self {
         Self::binary(BinaryOperator::Contains, self.clone(), other.into())
+    }
+
+    #[napi(js_name = "in")]
+    pub fn in_(
+        &self,
+        #[napi(
+            ts_arg_type = "LogicalExpression | string | Array<string> | Array<number> | data.List"
+        )]
+        other: Iterable,
+    ) -> Self {
+        Self::binary(BinaryOperator::In, self.clone(), other.into())
     }
 
     #[napi]
@@ -356,6 +392,12 @@ impl Into<topk_rs::proto::v1::data::LogicalExpr> for LogicalExpression {
                     x.as_ref().clone(),
                     y.as_ref().clone(),
                     z.as_ref().clone(),
+                )
+            }
+            LogicalExpressionUnion::Nary { op, exprs } => {
+                topk_rs::proto::v1::data::LogicalExpr::nary(
+                    op,
+                    exprs.into_iter().map(|e| e.as_ref().clone()),
                 )
             }
         }

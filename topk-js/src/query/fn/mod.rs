@@ -4,7 +4,7 @@ use crate::{
 };
 use napi_derive::napi;
 
-#[napi(object)]
+#[napi(object, namespace = "query_fn")]
 #[derive(Default)]
 pub struct VectorDistanceOptions {
     pub skip_refine: Option<bool>,

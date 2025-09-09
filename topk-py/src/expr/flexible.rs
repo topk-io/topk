@@ -9,10 +9,6 @@ use pyo3::{
     types::{PyBool, PyFloat, PyInt, PyString},
 };
 
-#[pyclass]
-#[derive(Debug, Clone)]
-pub struct Null;
-
 #[derive(Debug, Clone)]
 pub enum FlexibleExpr {
     String(String),
@@ -91,6 +87,26 @@ impl Into<LogicalExpr> for Numeric {
 }
 
 #[derive(Debug, Clone, FromPyObject)]
+pub enum Ordered {
+    #[pyo3(transparent)]
+    String(String),
+
+    #[pyo3(transparent)]
+    Numeric(Numeric),
+}
+
+impl Into<LogicalExpr> for Ordered {
+    fn into(self) -> LogicalExpr {
+        match self {
+            Ordered::Numeric(n) => n.into(),
+            Ordered::String(s) => LogicalExpr::Literal {
+                value: Scalar::String(s),
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, FromPyObject)]
 pub enum Boolish {
     #[pyo3(transparent)]
     Bool(bool),
@@ -145,6 +161,56 @@ impl Into<LogicalExpr> for StringyWithList {
                     values: Values::String(values),
                 }),
             },
+        }
+    }
+}
+
+#[derive(Debug, Clone, FromPyObject)]
+pub enum Iterable {
+    #[pyo3(transparent)]
+    String(String),
+
+    #[pyo3(transparent)]
+    List(List),
+
+    #[pyo3(transparent)]
+    StringList(Vec<String>),
+
+    #[pyo3(transparent)]
+    IntList(Vec<i64>),
+
+    #[pyo3(transparent)]
+    FloatList(Vec<f32>),
+
+    #[pyo3(transparent)]
+    Expr(LogicalExpr),
+}
+
+impl Into<LogicalExpr> for Iterable {
+    fn into(self) -> LogicalExpr {
+        match self {
+            Iterable::String(s) => LogicalExpr::Literal {
+                value: Scalar::String(s),
+            },
+            Iterable::List(l) => LogicalExpr::Literal {
+                value: Scalar::List(l),
+            },
+            Iterable::StringList(l) => LogicalExpr::Literal {
+                value: Scalar::List(List {
+                    values: Values::String(l),
+                }),
+            },
+            Iterable::IntList(l) => LogicalExpr::Literal {
+                value: Scalar::List(List {
+                    values: Values::I64(l),
+                }),
+            },
+            Iterable::FloatList(l) => LogicalExpr::Literal {
+                value: Scalar::List(List {
+                    values: Values::F32(l),
+                }),
+            },
+            Iterable::Expr(e) => e,
         }
     }
 }

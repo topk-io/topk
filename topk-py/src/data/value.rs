@@ -157,7 +157,7 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
             Some(topk_rs::proto::v1::data::value::Value::F64(f)) => Value::Float(f),
             Some(topk_rs::proto::v1::data::value::Value::Bool(b)) => Value::Bool(b),
             Some(topk_rs::proto::v1::data::value::Value::Null(_)) => Value::Null(),
-            Some(topk_rs::proto::v1::data::value::Value::Binary(b)) => Value::Bytes(b),
+            Some(topk_rs::proto::v1::data::value::Value::Binary(b)) => Value::Bytes(b.into()),
             Some(topk_rs::proto::v1::data::value::Value::Vector(v)) => match v.vector {
                 Some(topk_rs::proto::v1::data::vector::Vector::Float(v)) =>
                 {
@@ -223,6 +223,9 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                     }
                 },
             }),
+            Some(topk_rs::proto::v1::data::value::Value::Struct(..)) => {
+                todo!()
+            }
             None => Value::Null(),
         }
     }

@@ -69,30 +69,34 @@ await client.collection("books").upsert([
   The `upsert()` function does not perform a _partial update_ or _merge_ - the entire document is being replaced.
 </Note>
 
+<Warning>
+  Each document you send is serialized as a Protocol Buffers (protobuf) message. The encoded size of that message must be **128KB or smaller**.
+</Warning>
+
 ## Supported types
 
 TopK documents are a flat structure of key-value pairs.
 
 The following value types are supported:
 
-| Type                  | Python Type   | JavaScript Type | Helper Function        |
-| --------------------- | ------------- | --------------- | ---------------------- |
-| **String**            | `str`         | `string`        | -                      |
-| **Integer**           | `int`         | `number`        | -                      |
-| **Float**             | `float`       | `number`        | -                      |
-| **Boolean**           | `bool`        | `boolean`       | -                      |
-| **String list**       | `list[str]`   | `string[]`      | -                      |
-| **F32 list**          | `list[float]` | `number[]`      | -                      |
-| **F64 list**          | _use helper_  | _use helper_    | [`f64_list()`](./data-constructors#f64-list)           |
-| **I32 list**          | _use helper_  | _use helper_    | [`i32_list()`](./data-constructors#i32-list)           |
-| **I64 list**          | _use helper_  | _use helper_    | [`i64_list()`](./data-constructors#i64-list)           |
-| **U32 list**          | _use helper_  | _use helper_    | [`u32_list()`](./data-constructors#u32-list)           |
-| **F32 vector**        | `list[float]` | `number[]`      | [`f32_vector()`](./data-constructors#f32-vector)         |
-| **U8 vector**         | _use helper_  | _use helper_    | [`u8_vector()`](./data-constructors#u8-vector)          |
-| **Binary vector**     | _use helper_  | _use helper_    | [`binary_vector()`](./data-constructors#binary-vector)      |
-| **F32 sparse vector** | _use helper_  | _use helper_    | [`f32_sparse_vector()`](./data-constructors#f32-sparse-vector)  |
+| Type                  | Python Type   | JavaScript Type | Helper Function                                                |
+| --------------------- | ------------- | --------------- | -------------------------------------------------------------- |
+| **String**            | `str`         | `string`        | -                                                              |
+| **Integer**           | `int`         | `number`        | -                                                              |
+| **Float**             | `float`       | `number`        | -                                                              |
+| **Boolean**           | `bool`        | `boolean`       | -                                                              |
+| **String list**       | `list[str]`   | `string[]`      | [`string_list()`](./data-constructors#string-list)             |
+| **F32 list**          | `list[float]` | `number[]`      | [`f32_list()`](./data-constructors#f32-list)                   |
+| **F64 list**          | _use helper_  | _use helper_    | [`f64_list()`](./data-constructors#f64-list)                   |
+| **I32 list**          | _use helper_  | _use helper_    | [`i32_list()`](./data-constructors#i32-list)                   |
+| **I64 list**          | _use helper_  | _use helper_    | [`i64_list()`](./data-constructors#i64-list)                   |
+| **U32 list**          | _use helper_  | _use helper_    | [`u32_list()`](./data-constructors#u32-list)                   |
+| **F32 vector**        | `list[float]` | `number[]`      | [`f32_vector()`](./data-constructors#f32-vector)               |
+| **U8 vector**         | _use helper_  | _use helper_    | [`u8_vector()`](./data-constructors#u8-vector)                 |
+| **Binary vector**     | _use helper_  | _use helper_    | [`binary_vector()`](./data-constructors#binary-vector)         |
+| **F32 sparse vector** | _use helper_  | _use helper_    | [`f32_sparse_vector()`](./data-constructors#f32-sparse-vector) |
 | **U8 sparse vector**  | _use helper_  | _use helper_    | [`u8_sparse_vector()`](./data-constructors#u8-sparse-vector)   |
-| **Bytes**             | _use helper_  | _use helper_    | [`bytes()`](./data-constructors#bytes)              |
+| **Bytes**             | _use helper_  | _use helper_    | [`bytes()`](./data-constructors#bytes)                         |
 
 Here's an example of a creating a collection with all supported types and inserting a document:
 
@@ -189,7 +193,6 @@ client.collection("books").upsert([
     "tags": ["dream", "illusion", "desire"],
   }
 ])
-
 ```
 
 

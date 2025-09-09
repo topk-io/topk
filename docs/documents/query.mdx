@@ -358,7 +358,7 @@ from topk_sdk.query import select, field
 select(
   weight_in_grams=field("weight").mul(1000),
   is_adult=field("age").gt(18),
-  published_in_nineteenth_century=field("published_year") >= 1800 && field("published_year") < 1900,
+  published_in_nineteenth_century=field("published_year") >= 1800 & field("published_year") < 1900,
 )
 ```
 
@@ -492,7 +492,7 @@ You can give weight to specific terms by using the `weight` parameter:
 ```python Python
 from topk_sdk.query import match
 
-.filter(match("catcher", weight=2.0).or(match("rye", weight=1.0)))
+.filter(match("catcher", weight=2.0) | match("rye", weight=1.0))
 ```
 
 
@@ -508,7 +508,7 @@ import { match } from "topk-js/query";
 
 You can combine metadata filtering and keyword search in a single query by stacking multiple filter stages.
 
-In the example below, we're searching for documents that contain the keyword `"catcher"` and were published in `1997`, or documents that were published between `1920` and `1980`.
+In the example below, we're searching for documents that contain the keyword `"catcher"` and were published in `1997`, or between `1920` and `1980`.
 
 <CodeGroup>
 
@@ -517,7 +517,7 @@ In the example below, we're searching for documents that contain the keyword `"c
     match("catcher")
 )
 .filter(
-    field("published_year") == 1997 || (field("published_year") >= 1920 && field("published_year") <= 1980)
+    field("published_year") == 1997 | (field("published_year") >= 1920 & field("published_year") <= 1980)
 )
 ```
 
@@ -552,7 +552,7 @@ The `and` operator can be used to combine multiple logical expressions.
 
 ```python Python
 .filter(
-    field("published_year") == 1997 && field("title") == "The Catcher in the Rye"
+    field("published_year") == 1997 & field("title") == "The Catcher in the Rye"
 )
 
 # or
@@ -579,13 +579,13 @@ The `or` operator can be used to combine multiple logical expressions.
 
 ```python Python
 .filter(
-    field("published_year") == 1997 || field("title") == "The Catcher in the Rye"
+    field("published_year") == 1997 | field("title") == "The Catcher in the Rye"
 )
 
 # or
 
 .filter(
-    field("published_year").eq(1997).or(field("title").eq("The Catcher in the Rye"))
+    field("published_year").eq(1997).or_(field("title").eq("The Catcher in the Rye"))
 )
 ```
 
@@ -622,6 +622,99 @@ import { field, not } from "topk-js/query";
 ```
 
 </CodeGroup>
+
+#### all
+
+The `all()` helper evaluates to `true` if each expression in the array is true. It's equivalent to applying the logical AND operator across all expressions.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import all, field
+
+.filter(
+    all([
+        field("published_year") >= 1900,
+        field("published_year") <= 2000,
+        field("title").is_not_null()
+    ])
+)
+```
+
+```typescript Javascript
+import { all, field } from "topk-js/query";
+
+.filter(
+  all([
+    field("published_year").gte(1900),
+    field("published_year").lte(2000),
+    field("title").isNotNull()
+  ])
+)
+```
+
+</CodeGroup>
+
+This is equivalent to:
+
+<CodeGroup>
+
+```python Python
+field("published_year") >= 1900 & field("published_year") <= 2000 & field("title").is_not_null()
+```
+
+```typescript Javascript
+field("published_year").gte(1900).and(field("published_year").lte(2000)).and(field("title").isNotNull())
+```
+
+</CodeGroup>
+
+#### any
+
+The `any()` helper evaluates to `true` if at least one expression in the array is true. It's equivalent to applying the logical OR operator across all expressions.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import any, field
+
+.filter(
+    any([
+        field("genre") == "fiction",
+        field("genre") == "mystery",
+        field("genre") == "thriller"
+    ])
+)
+```
+
+```typescript Javascript
+import { any, field } from "topk-js/query";
+
+.filter(
+  any([
+    field("genre").eq("fiction"),
+    field("genre").eq("mystery"),
+    field("genre").eq("thriller")
+  ])
+)
+```
+
+</CodeGroup>
+
+This is equivalent to:
+
+<CodeGroup>
+
+```python Python
+field("genre") == "fiction" | field("genre") == "mystery" | field("genre") == "thriller"
+```
+
+```typescript Javascript
+field("genre").eq("fiction").or(field("genre").eq("mystery")).or(field("genre").eq("thriller"))
+```
+
+</CodeGroup>
+
 
 #### choose
 
@@ -798,6 +891,8 @@ The `is_not_null` operator can be used to match documents that have a field with
 
 The `gt` operator can be used to match documents that have a field with a value greater than a specific value.
 
+For strings, it uses lexicographic order.
+
 <CodeGroup>
 
 ```python Python
@@ -822,6 +917,8 @@ The `gt` operator can be used to match documents that have a field with a value 
 #### gte
 
 The `gte` operator can be used to match documents that have a field with a value greater than or equal to a specific value.
+
+For strings, it uses lexicographic order.
 
 <CodeGroup>
 
@@ -848,6 +945,8 @@ The `gte` operator can be used to match documents that have a field with a value
 
 The `lt` operator can be used to match documents that have a field with a value less than a specific value.
 
+For strings, it uses lexicographic order.
+
 <CodeGroup>
 
 ```python Python
@@ -872,6 +971,8 @@ The `lt` operator can be used to match documents that have a field with a value 
 #### lte
 
 The `lte` operator can be used to match documents that have a field with a value less than or equal to a specific value.
+
+For strings, it uses lexicographic order.
 
 <CodeGroup>
 
@@ -917,22 +1018,93 @@ then be used to scope the query to a specific tenant.
 
 #### contains
 
-The `contains` operator can be used on string fields to match documents that include a specific substring. It is **case-sensitive** and is particularly useful in scenarios where you need to filter results based on a portion of a string.
+The `contains` operator can be used on both text fields and list fields to match documents that include a specific value. For text fields, it matches documents that include a specific substring (case-sensitive). For list fields, it matches documents where the field of type list contains the specified value.
+
+* [**Text fields**](/collections/create#text): Matches documents that include a specific substring. It is **case-sensitive** and avoids the text processing pipeline (tokenization and stemming) used by the [`match()`](#keyword-search) function. This makes it particularly useful when you need exact substring matching or want to provide your own pre-processed tokens. Unlike `match()`, the `contains` operator can be used without requiring a keyword index.
+* [**List fields**](/collections/create#list): Matches documents where the list field contains the specified value. The value can be a literal or a field reference. You can also use a list of strings with a keyword index if you want to provide your own tokens instead of using the text processing pipeline.
 
 <CodeGroup>
 
 ```python Python
+# String contains
 .filter(
     field("title").contains("Catcher")
+)
+
+# List contains
+.filter(
+    # Tags is a text list field: ["novel", "fiction", "science-fiction"]
+    field("tags").contains("novel")
+)
+
+# List contains combined with a field reference
+.filter(
+    field("codes").contains(field("slug"))
 )
 ```
 
 
 ```typescript Javascript
+// String contains
 .filter(field("title").contains("Catcher"))
+
+// List contains
+.filter(field("tags").contains("novel"))
+
+// List contains combined with a field reference
+.filter(field("codes").contains(field("slug")))
 ```
 
 </CodeGroup>
+
+<Info>
+  The `contains` operator works exactly the same as the `in` operator, but with reversed operands: `x CONTAINS y` is equivalent to `y IN x`. Both operators are provided for convenience and to make queries more readable.
+</Info>
+
+#### in
+
+The `in` (or `in_` in Python) operator checks if a field value is present in a list of values, string literal or another field. It can be used in several ways:
+
+* **Field in list**: Checks if a field value is present in a list of literal values.
+* **Field in string**: Checks if a string field is a substring of another string. Unlike the [`match()`](#keyword-search), this avoids the text processing pipeline (tokenization and stemming) and performs exact substring matching.
+* **Field in field**: Checks if a field value is present in another field.
+
+<CodeGroup>
+
+```python Python
+# Field in list of literals
+.filter(
+    field("published_year").in_([1999, 1988, 1997])
+)
+
+# Field in string
+.filter(
+    field("slug").in_("harry-potter lord-of-the-rings")
+)
+
+# Field in another field (list)
+.filter(
+    field("_id").in_(field("tags"))
+)
+```
+
+
+```typescript Javascript
+// Field in list of literals
+.filter(field("published_year").in([1999, 1988, 1997]))
+
+// Field in string
+.filter(field("slug").in("harry-potter lord-of-the-rings"))
+
+// Field in another field (list)
+.filter(field("_id").in(field("tags")))
+```
+
+</CodeGroup>
+
+<Info>
+  The `in` operator works exactly the same as the `contains` operator, but with reversed operands: `y IN x` is equivalent to `x CONTAINS y`. Both operators are provided for convenience and to make queries more readable.
+</Info>
 
 #### match_all
 
@@ -1123,6 +1295,8 @@ select({
 
 The `min` operator returns the smaller of two values, commonly used for clamping or setting upper bounds. It can work with both scalar values and other fields or expressions.
 
+For strings, it uses lexicographic order.
+
 <CodeGroup>
 
 ```python Python
@@ -1158,6 +1332,8 @@ select({
 #### max
 
 The `max` operator returns the larger of two values, commonly used for clamping or setting lower bounds. It can work with both scalar values and other fields or expressions.
+
+For strings, it uses lexicographic order.
 
 <CodeGroup>
 
@@ -1353,3 +1529,55 @@ The `rerank()` function is used to rerank the results of a query. Read more abou
 ```
 
 </CodeGroup>
+
+## LSN-based Consistency
+
+TopK supports **LSN (Log Sequence Number)** based consistency for ensuring read-after-write consistency. When you perform a write operation (like `upsert`), you receive an LSN as a **string** that represents the sequence number of that write in the system's log.
+
+You can use this LSN in subsequent queries to ensure that the query only returns results that are at least as recent as that write operation.
+
+### How it works
+
+1. **Write operation**: When you call `lsn = client.collection().upsert()`, you receive an LSN
+2. **Query with LSN**: Pass that LSN to `client.collection().query(..., lsn=lsn)`
+3. **Consistency guarantee**: If the write is not yet available in the read path, the query will be rejected and the client will automatically retry
+
+This approach ensures that your queries always see the results of your recent writes, providing strong consistency guarantees when needed.
+
+<CodeGroup>
+
+```python Python
+# Upsert a document and get the LSN
+lsn = client.collection("books").upsert([
+    {"_id": "1984", "title": "1984", "author": "George Orwell", "year": 1949}
+])
+
+# Query with LSN to ensure consistency
+results = client.collection("books").query(
+    select("title", "author", "year")
+    .filter(field("author") == "George Orwell")
+    .topk(field("year"), 10),
+    lsn=lsn
+)
+```
+
+```js Javascript
+// Upsert a document and get the LSN
+const lsn = await client.collection("books").upsert([
+  { _id: "1984", title: "1984", author: "George Orwell", "year": 1949 }
+]);
+
+// Query with LSN to ensure consistency
+const results = await client.collection("books").query(
+  select({ title: field("title"), author: field("author"), year: field("year") })
+  .filter(field("author").eq("George Orwell"))
+  .topk(field("title"), 10),
+  { lsn: lsn }
+)
+```
+
+</CodeGroup>
+
+<Warning>
+  Using LSN-based consistency may increase query latency as the system needs to verify that the specified LSN has been processed before returning results.
+</Warning>

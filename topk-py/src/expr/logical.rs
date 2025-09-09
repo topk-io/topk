@@ -1,8 +1,7 @@
+use crate::data::scalar::Scalar;
 use crate::expr::flexible::FlexibleExpr;
-use crate::{data::scalar::Scalar, expr::flexible::StringyWithList};
+use crate::expr::flexible::{Boolish, Iterable, Numeric, Stringy, StringyWithList, Ordered};
 use pyo3::prelude::*;
-
-use super::flexible::{Boolish, Numeric, Stringy};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[pyclass(eq, eq_int)]
@@ -48,6 +47,7 @@ pub enum BinaryOperator {
     GtEq,
     StartsWith,
     Contains,
+    In,
     Add,
     Sub,
     Mul,
@@ -77,6 +77,7 @@ impl From<BinaryOperator> for topk_rs::proto::v1::data::logical_expr::binary_op:
             BinaryOperator::Contains => {
                 topk_rs::proto::v1::data::logical_expr::binary_op::Op::Contains
             }
+            BinaryOperator::In => topk_rs::proto::v1::data::logical_expr::binary_op::Op::In,
             BinaryOperator::MatchAll => {
                 topk_rs::proto::v1::data::logical_expr::binary_op::Op::MatchAll
             }
@@ -114,6 +115,22 @@ impl From<TernaryOperator> for topk_rs::proto::v1::data::logical_expr::ternary_o
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[pyclass(eq, eq_int)]
+pub enum NaryOperator {
+    All,
+    Any,
+}
+
+impl From<NaryOperator> for topk_rs::proto::v1::data::logical_expr::nary_op::Op {
+    fn from(op: NaryOperator) -> Self {
+        match op {
+            NaryOperator::All => topk_rs::proto::v1::data::logical_expr::nary_op::Op::All,
+            NaryOperator::Any => topk_rs::proto::v1::data::logical_expr::nary_op::Op::Any,
+        }
+    }
+}
+
 #[pyclass]
 #[derive(Clone)]
 pub enum LogicalExpr {
@@ -137,6 +154,10 @@ pub enum LogicalExpr {
         x: Py<LogicalExpr>,
         y: Py<LogicalExpr>,
         z: Py<LogicalExpr>,
+    },
+    Nary {
+        op: NaryOperator,
+        exprs: Vec<Py<LogicalExpr>>,
     },
 }
 
@@ -166,6 +187,9 @@ impl std::fmt::Debug for LogicalExpr {
                     y.get(),
                     z.get()
                 )
+            }
+            Self::Nary { op, exprs } => {
+                write!(f, "Nary(op={:?}, exprs={:?})", op, exprs)
             }
         }
     }
@@ -216,6 +240,23 @@ impl PartialEq for LogicalExpr {
                     && l_x.get() == r_x.get()
                     && l_y.get() == r_y.get()
                     && l_z.get() == r_z.get()
+            }
+            (
+                LogicalExpr::Nary {
+                    op: l_op,
+                    exprs: l_exprs,
+                },
+                LogicalExpr::Nary {
+                    op: r_op,
+                    exprs: r_exprs,
+                },
+            ) => {
+                l_op == r_op
+                    && l_exprs.len() == r_exprs.len()
+                    && l_exprs
+                        .iter()
+                        .zip(r_exprs.iter())
+                        .all(|(l, r)| l.get() == r.get())
             }
             _ => false,
         }
@@ -313,7 +354,7 @@ impl LogicalExpr {
         self.ne(py, other)
     }
 
-    fn lt(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+    fn lt(&self, py: Python<'_>, other: Ordered) -> PyResult<Self> {
         let expr: LogicalExpr = other.into();
 
         Ok(Self::Binary {
@@ -323,15 +364,15 @@ impl LogicalExpr {
         })
     }
 
-    fn __lt__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+    fn __lt__(&self, py: Python<'_>, other: Ordered) -> PyResult<Self> {
         self.lt(py, other)
     }
 
-    fn __rlt__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+    fn __rlt__(&self, py: Python<'_>, other: Ordered) -> PyResult<Self> {
         self.gt(py, other)
     }
 
-    fn lte(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+    fn lte(&self, py: Python<'_>, other: Ordered) -> PyResult<Self> {
         let expr: LogicalExpr = other.into();
 
         Ok(Self::Binary {
@@ -341,15 +382,15 @@ impl LogicalExpr {
         })
     }
 
-    fn __le__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+    fn __le__(&self, py: Python<'_>, other: Ordered) -> PyResult<Self> {
         self.lte(py, other)
     }
 
-    fn __rle__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+    fn __rle__(&self, py: Python<'_>, other: Ordered) -> PyResult<Self> {
         self.gte(py, other)
     }
 
-    fn gt(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+    fn gt(&self, py: Python<'_>, other: Ordered) -> PyResult<Self> {
         let expr: LogicalExpr = other.into();
 
         Ok(Self::Binary {
@@ -359,15 +400,15 @@ impl LogicalExpr {
         })
     }
 
-    fn __gt__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+    fn __gt__(&self, py: Python<'_>, other: Ordered) -> PyResult<Self> {
         self.gt(py, other)
     }
 
-    fn __rgt__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+    fn __rgt__(&self, py: Python<'_>, other: Ordered) -> PyResult<Self> {
         self.lt(py, other)
     }
 
-    fn gte(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+    fn gte(&self, py: Python<'_>, other: Ordered) -> PyResult<Self> {
         let expr: LogicalExpr = other.into();
 
         Ok(Self::Binary {
@@ -377,11 +418,11 @@ impl LogicalExpr {
         })
     }
 
-    fn __ge__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+    fn __ge__(&self, py: Python<'_>, other: Ordered) -> PyResult<Self> {
         self.gte(py, other)
     }
 
-    fn __rge__(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+    fn __rge__(&self, py: Python<'_>, other: Ordered) -> PyResult<Self> {
         self.lte(py, other)
     }
 
@@ -483,7 +524,7 @@ impl LogicalExpr {
         })
     }
 
-    fn and(&self, py: Python<'_>, other: Boolish) -> PyResult<Self> {
+    fn and_(&self, py: Python<'_>, other: Boolish) -> PyResult<Self> {
         let expr: LogicalExpr = other.into();
 
         Ok(Self::Binary {
@@ -494,14 +535,14 @@ impl LogicalExpr {
     }
 
     fn __and__(&self, py: Python<'_>, other: Boolish) -> PyResult<Self> {
-        self.and(py, other)
+        self.and_(py, other)
     }
 
     fn __rand__(&self, py: Python<'_>, other: Boolish) -> PyResult<Self> {
-        self.and(py, other)
+        self.and_(py, other)
     }
 
-    fn or(&self, py: Python<'_>, other: Boolish) -> PyResult<Self> {
+    fn or_(&self, py: Python<'_>, other: Boolish) -> PyResult<Self> {
         let expr: LogicalExpr = other.into();
 
         Ok(Self::Binary {
@@ -512,11 +553,11 @@ impl LogicalExpr {
     }
 
     fn __or__(&self, py: Python<'_>, other: Boolish) -> PyResult<Self> {
-        self.or(py, other)
+        self.or_(py, other)
     }
 
     fn __ror__(&self, py: Python<'_>, other: Boolish) -> PyResult<Self> {
-        self.or(py, other)
+        self.or_(py, other)
     }
 
     fn starts_with(&self, py: Python<'_>, other: Stringy) -> PyResult<Self> {
@@ -527,10 +568,18 @@ impl LogicalExpr {
         })
     }
 
-    fn contains(&self, py: Python<'_>, other: Stringy) -> PyResult<Self> {
+    fn contains(&self, py: Python<'_>, other: FlexibleExpr) -> PyResult<Self> {
         Ok(Self::Binary {
             left: Py::new(py, self.clone())?,
             op: BinaryOperator::Contains,
+            right: Py::new(py, Into::<LogicalExpr>::into(other))?,
+        })
+    }
+
+    fn in_(&self, py: Python<'_>, other: Iterable) -> PyResult<Self> {
+        Ok(Self::Binary {
+            left: Py::new(py, self.clone())?,
+            op: BinaryOperator::In,
             right: Py::new(py, Into::<LogicalExpr>::into(other))?,
         })
     }
@@ -580,7 +629,7 @@ impl LogicalExpr {
         self.mul(py, choose_numeric)
     }
 
-    fn min(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+    fn min(&self, py: Python<'_>, other: Ordered) -> PyResult<Self> {
         Ok(Self::Binary {
             left: Py::new(py, self.clone())?,
             op: BinaryOperator::Min,
@@ -588,7 +637,7 @@ impl LogicalExpr {
         })
     }
 
-    fn max(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+    fn max(&self, py: Python<'_>, other: Ordered) -> PyResult<Self> {
         Ok(Self::Binary {
             left: Py::new(py, self.clone())?,
             op: BinaryOperator::Max,
@@ -617,6 +666,10 @@ impl From<LogicalExpr> for topk_rs::proto::v1::data::LogicalExpr {
                 x.get().clone(),
                 y.get().clone(),
                 z.get().clone(),
+            ),
+            LogicalExpr::Nary { op, exprs } => topk_rs::proto::v1::data::LogicalExpr::nary(
+                op,
+                exprs.into_iter().map(|e| e.get().clone()),
             ),
         }
     }

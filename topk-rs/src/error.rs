@@ -39,6 +39,9 @@ pub enum Error {
     #[error("request too large: {0}")]
     RequestTooLarge(String),
 
+    #[error("internal error: {0}")]
+    Internal(String),
+
     #[error("unexpected error: {0}")]
     Unexpected(String),
 
@@ -73,12 +76,27 @@ impl Error {
             Error::TransportError(_) => false,
             Error::MalformedResponse(_) => false,
             Error::Unexpected(_) => false,
+            Error::Internal(_) => false,
         }
     }
 }
 
 impl From<Status> for Error {
     fn from(status: Status) -> Self {
+        let request_id = status
+            .metadata()
+            .get("x-request-id")
+            .and_then(|v| v.to_str().ok())
+            .map(|v| v.to_string());
+
+        let append_request_id = |message: &str| {
+            if let Some(request_id) = request_id {
+                format!("{message} (x-request-id: {request_id})")
+            } else {
+                message.to_string()
+            }
+        };
+
         match CustomError::try_from(status) {
             // Custom error
             Ok(error) => match error.code() {
@@ -100,7 +118,8 @@ impl From<Status> for Error {
                 },
                 tonic::Code::OutOfRange => Error::RequestTooLarge(e.message().into()),
                 tonic::Code::PermissionDenied => Error::PermissionDenied,
-                _ => Error::Unexpected(format!("unexpected error: {:?}", e)),
+                tonic::Code::Internal => Error::Internal(append_request_id(e.message())),
+                _ => Error::Unexpected(append_request_id(&format!("{:?}", e))),
             },
         }
     }
@@ -159,6 +178,11 @@ pub enum DocumentValidationError {
         field: String,
     },
 
+    InvalidFieldName {
+        doc_id: String,
+        field: String,
+    },
+
     InvalidDataType {
         doc_id: String,
         field: String,
@@ -179,7 +203,19 @@ pub enum DocumentValidationError {
         reason: String,
     },
 
+    InvalidStructDepth {
+        doc_id: String,
+        field: String,
+        reason: String,
+    },
+
     NoDocuments,
+
+    DocumentTooLarge {
+        doc_id: String,
+        max_size_bytes: u64,
+        got_size_bytes: u64,
+    },
 }
 
 #[derive(PartialEq, Debug, serde::Serialize, serde::Deserialize)]
@@ -217,6 +253,10 @@ impl<T: Serialize + DeserializeOwned> ValidationErrorBag<T> {
 
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+
+    pub fn iter(&self) -> std::slice::Iter<'_, T> {
+        self.0.iter()
     }
 }
 

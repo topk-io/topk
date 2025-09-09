@@ -6,7 +6,7 @@ use crate::{
     data::{Scalar, Value},
     expr::{
         filter::FilterExpression,
-        logical::{BinaryOperator, LogicalExpression, Numeric, UnaryOperator},
+        logical::{BinaryOperator, LogicalExpression, NaryOp, Ordered, UnaryOperator},
         select::SelectExpression,
     },
     query::{query::Query, stage::Stage},
@@ -65,18 +65,30 @@ pub fn not(expr: &'static LogicalExpression) -> LogicalExpression {
     LogicalExpression::unary(UnaryOperator::Not, expr.clone())
 }
 
+/// Evaluates to true if each `expr` is true.
+#[napi(js_name = "all", namespace = "query")]
+pub fn all(exprs: Vec<&'static LogicalExpression>) -> LogicalExpression {
+    LogicalExpression::nary(NaryOp::All, exprs.into_iter().map(|e| e.clone()).collect())
+}
+
+/// Evaluates to true if at least one `expr` is true.
+#[napi(js_name = "any", namespace = "query")]
+pub fn any(exprs: Vec<&'static LogicalExpression>) -> LogicalExpression {
+    LogicalExpression::nary(NaryOp::Any, exprs.into_iter().map(|e| e.clone()).collect())
+}
+
 #[napi(js_name = "min", namespace = "query")]
 pub fn min(
-    #[napi(ts_arg_type = "LogicalExpression | number")] left: Numeric,
-    #[napi(ts_arg_type = "LogicalExpression | number")] right: Numeric,
+    #[napi(ts_arg_type = "LogicalExpression | number | string")] left: Ordered,
+    #[napi(ts_arg_type = "LogicalExpression | number | string")] right: Ordered,
 ) -> LogicalExpression {
     LogicalExpression::binary(BinaryOperator::Min, left.into(), right.into())
 }
 
 #[napi(js_name = "max", namespace = "query")]
 pub fn max(
-    #[napi(ts_arg_type = "LogicalExpression | number")] left: Numeric,
-    #[napi(ts_arg_type = "LogicalExpression | number")] right: Numeric,
+    #[napi(ts_arg_type = "LogicalExpression | number | string")] left: Ordered,
+    #[napi(ts_arg_type = "LogicalExpression | number | string")] right: Ordered,
 ) -> LogicalExpression {
     LogicalExpression::binary(BinaryOperator::Max, left.into(), right.into())
 }

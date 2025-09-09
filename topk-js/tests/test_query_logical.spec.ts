@@ -465,11 +465,11 @@ describe("Logical Queries", () => {
       select({
         bm25_score: fn.bm25Score()
       })
-      .select({
-        clamped_bm25_score: max(min(field("bm25_score"), 2.0), 1.6)
-      })
-      .filter(match("millionaire love consequences dwarves"))
-      .topk(field("clamped_bm25_score"), 5, false)
+        .select({
+          clamped_bm25_score: max(min(field("bm25_score"), 2.0), 1.6)
+        })
+        .filter(match("millionaire love consequences dwarves"))
+        .topk(field("clamped_bm25_score"), 5, false)
     );
 
     expect(results.length).toBe(4);
@@ -490,5 +490,62 @@ describe("Logical Queries", () => {
 
     expect(results[3]._id).toBe("pride");
     expect(results[3].clamped_bm25_score).toBe(1.6);
+  });
+
+  test("query gt and lte string", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("books", {
+      published_year: int().required(),
+    });
+
+    await ctx.client.collection(collection.name).upsert([
+      { _id: "mockingbird", published_year: 1960 },
+      { _id: "1984", published_year: 1949 },
+      { _id: "pride", published_year: 1813 },
+      { _id: "gatsby", published_year: 1925 },
+      { _id: "catcher", published_year: 1951 },
+      { _id: "moby", published_year: 1851 },
+      { _id: "hobbit", published_year: 1937 },
+      { _id: "harry", published_year: 1997 },
+      { _id: "lotr", published_year: 1954 },
+      { _id: "alchemist", published_year: 1988 },
+    ]);
+
+    const results = await ctx.client.collection(collection.name).query(
+      filter(field("_id").gt("moby").and(field("_id").lte("pride")))
+        .topk(field("published_year"), 100, true)
+    );
+
+    expect(new Set(results.map((doc) => doc._id))).toEqual(
+      new Set([
+        "mockingbird",
+        "pride",
+      ])
+    );
+  });
+
+  test("query min string", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("books", {
+      published_year: int().required(),
+    });
+
+    await ctx.client.collection(collection.name).upsert([
+      { _id: "pride", title: "Pride and Prejudice", published_year: 1813 },
+      { _id: "moby", title: "Moby-Dick", published_year: 1851 },
+    ]);
+
+    const results = await ctx.client.collection(collection.name).query(
+      select({
+        title: field("title"),
+        min_string: field("title").min("Oz")
+      })
+        .topk(field("published_year"), 2, true)
+    );
+
+    expect(results).toEqual([
+      { _id: "pride", title: "Pride and Prejudice", min_string: "Oz" },
+      { _id: "moby", title: "Moby-Dick", min_string: "Moby-Dick" },
+    ]);
   });
 })
