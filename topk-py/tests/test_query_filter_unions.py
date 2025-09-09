@@ -52,5 +52,3 @@ def test_query_union_contains_both_string_and_list(ctx: ProjectContext):
     )
 
     assert doc_ids(results) == {"gatsby", "lotr", "pride"}
-
-
