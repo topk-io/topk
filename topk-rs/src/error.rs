@@ -210,6 +210,12 @@ pub enum DocumentValidationError {
     },
 
     NoDocuments,
+
+    DocumentTooLarge {
+        doc_id: String,
+        max_size_bytes: u64,
+        got_size_bytes: u64,
+    },
 }
 
 #[derive(PartialEq, Debug, serde::Serialize, serde::Deserialize)]
@@ -247,6 +253,10 @@ impl<T: Serialize + DeserializeOwned> ValidationErrorBag<T> {
 
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+
+    pub fn iter(&self) -> std::slice::Iter<'_, T> {
+        self.0.iter()
     }
 }
 
