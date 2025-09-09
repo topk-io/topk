@@ -33,6 +33,7 @@ def test_get_document(ctx: ProjectContext):
             "sparse_u8_embedding": {9: 1, 10: 2, 11: 3},
             "tags": ["lord of the rings", "fellowship", "magic", "wizard", "elves"],
             "codes": ["ISBN 978-0-547-92821-0", "ISBN 0-547-92821-2", "OCLC 434394005", "LCCN 2004558654", "Barcode 0618346252"],
+            "user_ratings": ["epic", "legendary", "good"],
         }
     }
 
@@ -53,7 +54,7 @@ def test_get_multiple_documents(ctx: ProjectContext):
             "sparse_u8_embedding": {9: 1, 10: 2, 11: 3},
             "tags": ["lord of the rings", "fellowship", "magic", "wizard", "elves"],
             "codes": ["ISBN 978-0-547-92821-0", "ISBN 0-547-92821-2", "OCLC 434394005", "LCCN 2004558654", "Barcode 0618346252"],
-
+            "user_ratings": ["epic", "legendary", "good"],
         },
         "moby": {
             "_id": "moby",
@@ -67,6 +68,7 @@ def test_get_multiple_documents(ctx: ProjectContext):
             "tags": ["whale", "obsession", "tragedy", "sailing", "ocean"],
             "codes": [],
             "reprint_years": [],
+            "user_ratings": [-5, 2, -1, 1],
         },
     }
 
