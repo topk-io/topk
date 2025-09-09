@@ -64,6 +64,28 @@ def test_upsert_schema_validation(ctx: ProjectContext):
     assert "MissingField" in str(exc_info.value)
 
 
+def test_upsert_max_doc_size(ctx: ProjectContext):
+    collection = ctx.client.collections().create(ctx.scope("test"), schema={})
+
+    with pytest.raises(error.DocumentValidationError) as exc_info:
+        ctx.client.collection(collection.name).upsert(
+            [
+                {"_id": "one", "payload": "x" * (500 * 1024)},  # 500KB, too large
+                {"_id": "two", "payload": "xxx"},               # ok
+                {"_id": "three", "payload": "x" * (130 * 1024)},  # 130KB, too large
+                {"_id": "four", "payload": "x" * (126 * 1024)},  # 126KB (plus overhead), ok
+            ]
+        )
+
+    s = str(exc_info.value)
+    assert s.count("DocumentTooLarge") == 2
+    assert 'doc_id: "one"' in s
+    assert 'doc_id: "three"' in s
+    assert 'doc_id: "two"' not in s
+    assert 'doc_id: "four"' not in s
+    assert "max_size_bytes: 131072" in s
+
+
 @pytest.mark.parametrize(
     "params",
     [
