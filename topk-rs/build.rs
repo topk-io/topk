@@ -1,5 +1,53 @@
+use std::path::PathBuf;
+
+use pb_rs::types::FileDescriptor;
+
 fn main() {
     build_topk_v1_protos();
+    build_topk_v1_quick_proto();
+}
+
+fn build_topk_v1_quick_proto() {
+    let in_dir = PathBuf::from("/Users/marek/projects/fafolabs/ddb/sdk/protos");
+    let out_dir = PathBuf::from("./src/qpb/topk/data/v1");
+
+    println!("cargo:rerun-if-changed=build.rs");
+    let proto_paths = [
+        // "../protos/topk/control/v1/collection.proto",
+        // "../protos/topk/control/v1/collection_service.proto",
+        // "../protos/topk/control/v1/schema.proto",
+        // "../protos/topk/data/v1/write_service.proto",
+        "topk/data/v1/document.proto",
+        // "../protos/topk/data/v1/query_service.proto",
+        // "../protos/topk/data/v1/query.proto",
+        "topk/data/v1/value.proto",
+    ];
+
+    for path in proto_paths {
+        println!("cargo:rerun-if-changed={}", in_dir.join(path).display());
+    }
+
+    if out_dir.exists() {
+        std::fs::remove_dir_all(&out_dir).unwrap();
+    }
+    std::fs::create_dir_all(&out_dir).unwrap();
+
+    let cfg = pb_rs::ConfigBuilder::new(
+        &proto_paths
+            .iter()
+            .map(|f| in_dir.join(f))
+            .collect::<Vec<_>>(),
+        None,
+        Some(&out_dir),
+        &[in_dir],
+    )
+    .unwrap()
+    .single_module(true)
+    .add_deprecated_fields(true)
+    .gen_info(true)
+    .build();
+
+    FileDescriptor::run(&cfg).unwrap();
 }
 
 fn build_topk_v1_protos() {

@@ -26,6 +26,7 @@ rand = { version = "0.8.5" }
 futures-util = { version = "0.3.31" }
 bytes = { version = "1.8.0" }
 tonic-prost = { version = "0.14.2" }
+quick-protobuf = { version = "0.8.0" }
 
 [dev-dependencies]
 test-context = { version = "0.3.0" }
@@ -34,3 +35,4 @@ assert_approx_eq = "1.1.0"
 
 [build-dependencies]
 tonic-prost-build = { version = "0.14.2" }
+pb-rs = { version = "0.10.0" }

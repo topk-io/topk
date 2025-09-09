@@ -1,4 +1,5 @@
 pub mod proto;
+pub mod qpb;
 
 pub mod error;
 pub use error::Error;
