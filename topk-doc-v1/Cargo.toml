@@ -1,0 +1,21 @@
+[package]
+name = "topk-doc-v1"
+version = "0.1.0"
+edition = "2024"
+description = "TopK Document V1"
+license = "MIT"
+repository = "https://github.com/topk-io/topk"
+homepage = "https://topk.io"
+documentation = "https://docs.topk.io"
+
+[dependencies]
+# !! IMPORTANT !!
+# Do not change the rkyv version or features
+rkyv = { version = "0.8.11", default-features = false, features = [
+    "std",
+    "alloc",
+    "bytecheck",
+    "little_endian",
+    "pointer_width_32",
+    "unaligned",
+] }
