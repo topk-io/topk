@@ -160,3 +160,53 @@ async fn test_get_deleted_document(ctx: &mut ProjectTestContext) {
 
     assert_eq!(docs, HashMap::new());
 }
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_get_struct(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let docs = ctx
+        .client
+        .collection(&collection.name)
+        .get(["mockingbird"], None, None, None)
+        .await
+        .expect("could not query");
+
+    assert_eq!(docs.len(), 1);
+    assert_eq!(
+        docs.get("mockingbird").unwrap().get("meta").unwrap(),
+        &topk_rs::r#struct!(
+            "author" => "Harper Lee",
+            "pages" => vec![192u32, 193u32],
+            "deleted" => false,
+            "tags" => vec!["foo", "bar"],
+            "score" => 4.5f32,
+        ),
+    );
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_get_struct_explicit_fields(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let docs = ctx
+        .client
+        .collection(&collection.name)
+        .get(["mockingbird"], Some(vec!["meta".to_string()]), None, None)
+        .await
+        .expect("could not query");
+
+    assert_eq!(docs.len(), 1);
+    assert_eq!(
+        docs.get("mockingbird").unwrap().get("meta").unwrap(),
+        &topk_rs::r#struct!(
+            "author" => "Harper Lee",
+            "pages" => vec![192u32, 193u32],
+            "deleted" => false,
+            "tags" => vec!["foo", "bar"],
+            "score" => 4.5f32,
+        ),
+    );
+}

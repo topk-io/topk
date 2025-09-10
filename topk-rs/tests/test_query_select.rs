@@ -314,6 +314,7 @@ async fn test_query_select_union(ctx: &mut ProjectTestContext) {
             doc!("_id" => "11", "rank" => 11, "mixed" => Value::bytes(vec![1, 2, 3])),
             doc!("_id" => "12", "rank" => 12, "mixed" => Value::list(vec![17u32, 6, 1997])),
             doc!("_id" => "13", "rank" => 13, "mixed" => Value::list(vec!["foo".to_string(), "bar".to_string()])),
+            doc!("_id" => "14", "rank" => 14, "mixed" => Value::r#struct([("a", Value::u32(1)), ("b", Value::u32(2))])),
         ])
         .await
         .expect("upsert failed");
@@ -354,6 +355,7 @@ async fn test_query_select_union(ctx: &mut ProjectTestContext) {
             doc!("_id" => "11", "mixed" => Value::bytes(vec![1, 2, 3])),
             doc!("_id" => "12", "mixed" => Value::list(vec![17u32, 6, 1997])),
             doc!("_id" => "13", "mixed" => Value::list(vec!["foo".to_string(), "bar".to_string()])),
+            doc!("_id" => "14", "mixed" => Value::r#struct([("a", Value::u32(1)), ("b", Value::u32(2))])),
         ]
     );
 }
@@ -411,4 +413,70 @@ async fn test_query_select_list(ctx: &mut ProjectTestContext) {
     ];
 
     assert_eq!(results, expected);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_select_struct(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let results = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([("meta", field("meta"))])
+                .filter(field("_id").eq("hobbit"))
+                .topk(1.into(), 1, true),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_eq!(results.len(), 1);
+    assert_eq!(
+        results[0].fields.get("meta").unwrap(),
+        &topk_rs::r#struct!(
+            "author" => "J.R.R. Tolkien",
+            "score" => 4.5f32,
+            "foo" => "bar",
+        ),
+    );
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_select_struct_nested_field(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([("author", field("meta.author"))]).topk(field("published_year"), 100, true),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    let actual = result
+        .into_iter()
+        .map(|d| d.fields.get("author").unwrap().clone())
+        .map(|f| f.as_string().map(|s| s.to_string()))
+        .collect::<std::collections::HashSet<_>>();
+
+    assert_eq!(
+        std::collections::HashSet::from([
+            Some("F. Scott Fitzgerald".into()),
+            Some("J.R.R. Tolkien".into()),
+            Some("George Orwell".into()),
+            Some("Jane Austen".into()),
+            None, // Explicitly missing field
+            Some("Harper Lee".into()),
+            Some("Herman Melville".into()),
+            Some("J.D. Salinger".into()),
+        ]),
+        actual
+    );
 }

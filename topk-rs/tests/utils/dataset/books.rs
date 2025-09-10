@@ -80,7 +80,14 @@ pub fn docs() -> Vec<Document> {
             "tags" => Value::list(vec!["racism".to_string(), "injustice".to_string(), "girl".to_string(), "father".to_string(), "lawyer".to_string()]),
             "codes" => Value::list(vec!["ISBN 978-0-06-093546-7".to_string(), "ISBN 0-06-093546-4".to_string(), "LCCN 60007854".to_string(), "UPC 025192354670".to_string()]),
             "reprint_years" => Value::list(vec![1966u32, 1988, 1999, 2002, 2015]),
-            "user_ratings" => Value::list(vec![9u32, 7, 10, 8])
+            "user_ratings" => Value::list(vec![9u32, 7, 10, 8]),
+            "meta" => Value::r#struct(HashMap::from([
+                ("author".to_string(), Value::string("Harper Lee".to_string())),
+                ("pages".to_string(), Value::list(vec![192u32, 193])),
+                ("tags".to_string(), Value::list(vec!["foo".to_string(), "bar".to_string()])),
+                ("score".to_string(), Value::f32(4.5)),
+                ("deleted".to_string(), Value::bool(false)),
+            ])),
         ),
         doc!(
             "_id" => "1984",
@@ -96,7 +103,12 @@ pub fn docs() -> Vec<Document> {
             "tags" => Value::list(vec!["dystopia".to_string(), "surveillance".to_string(), "totalitarianism".to_string(), "mind control".to_string(), "oppression".to_string()]),
             "codes" => Value::list(vec!["1984".to_string(), "ISBN 978-0-452-28423-4".to_string(), "ISBN 0-452-28423-6".to_string(), "OCLC 70775700".to_string(), "DOI 10.1000/182".to_string(), "EAN 9780452284234".to_string()]),
             "reprint_years" => Value::list(vec![1950u32, 1954, 1956, 1961, 1984, 1990, 2003]),
-            "user_ratings" => Value::list(vec![5.0f32, 3.5, 4.5, 4.0, -1.0])
+            "user_ratings" => Value::list(vec![5.0f32, 3.5, 4.5, 4.0, -1.0]),
+            "meta" => Value::r#struct(HashMap::from([
+                ("author".to_string(), Value::string("George Orwell".to_string())),
+                ("tags".to_string(), Value::list::<Vec<String>>(vec![])),
+                ("score".to_string(), Value::null()),
+            ])),
         ),
         doc!(
             "_id" => "pride",
@@ -110,6 +122,10 @@ pub fn docs() -> Vec<Document> {
             "codes" => Value::list(vec!["ISBN 978-0-14-143951-8".to_string(), "OCLC 934546789".to_string()]),
             "reprint_years" => Value::list(vec![1966u32, 1972, 1985]),
             "user_ratings" => Value::list(vec!["romantic".to_string(), "classic".to_string(), "good".to_string()]),
+            "meta" => Value::r#struct(HashMap::from([
+                ("author".to_string(), Value::string("Jane Austen".to_string())),
+                ("score".to_string(), Value::f32(4.5)),
+            ])),
         ),
         doc!(
             "_id" => "gatsby",
@@ -123,6 +139,10 @@ pub fn docs() -> Vec<Document> {
             "codes" => Value::list(vec!["ISBN 978-0-7432-7356-5".to_string(), "ISBN 0-7432-7356-7".to_string(), "OCLC 60393320".to_string(), "ASIN B000FC0SIS".to_string(), "UPC 074327356709".to_string(), "LCCN 2002114274".to_string()]),
             "reprint_years" => Value::list(vec![1953u32, 1996, 2004]),
             "user_ratings" => "good book",
+            "meta" => Value::r#struct(HashMap::from([
+                ("author".to_string(), Value::string("F. Scott Fitzgerald".to_string())),
+                ("score".to_string(), Value::f32(4.5)),
+            ])),
         ),
         doc!(
             "_id" => "catcher",
@@ -139,6 +159,10 @@ pub fn docs() -> Vec<Document> {
             "codes" => Value::list(vec!["ISBN 978-0-316-76917-4".to_string(), "LCCN 51011564".to_string(), "OCLC 287628".to_string()]),
             "reprint_years" => Value::list(vec![1964u32, 1979, 1991, 2001, 2010]),
             "user_ratings" => Value::list(vec![4.5f32, 3.0, 3.5, 4.0, -1.0]),
+            "meta" => Value::r#struct(HashMap::from([
+                ("author".to_string(), Value::string("J.D. Salinger".to_string())),
+                ("score".to_string(), Value::f32(4.5)),
+            ])),
         ),
         doc!(
             "_id" => "moby",
@@ -153,6 +177,10 @@ pub fn docs() -> Vec<Document> {
             "codes" => Value::list(Vec::<String>::new()),
             "reprint_years" => Value::list(Vec::<u32>::new()),
             "user_ratings" => Value::list(vec![-5i64, 2, -1, 1]),
+            "meta" => Value::r#struct(HashMap::from([
+                ("author".to_string(), Value::string("Herman Melville".to_string())),
+                ("score".to_string(), Value::f32(4.5)),
+            ])),
         ),
         doc!(
             "_id" => "hobbit",
@@ -164,6 +192,11 @@ pub fn docs() -> Vec<Document> {
             "sparse_u8_embedding" => Value::u8_sparse_vector(vec![7,8,9], vec![1, 2, 3]),
             "tags" => Value::list(vec!["hobbit".to_string(), "dwarf".to_string(), "quest".to_string(), "home".to_string(), "adventure".to_string()]),
             "user_ratings" => Value::list(vec![5u32, 3, 4, 5, 2]),
+            "meta" => Value::r#struct(HashMap::from([
+                ("author".to_string(), Value::string("J.R.R. Tolkien".to_string())),
+                ("score".to_string(), Value::f32(4.5)),
+                ("foo".to_string(), Value::string("bar".to_string())),
+            ])),
         ),
         doc!(
             "_id" => "harry",

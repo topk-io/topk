@@ -11,9 +11,7 @@ macro_rules! doc {
 macro_rules! r#struct {
     ($($field:expr => $value:expr),* $(,)?) => {
         topk_rs::proto::v1::data::Value::r#struct(
-            std::collections::HashMap::from_iter(
-                [$(($field.to_string(), $value.into())),*]
-            )
+            [$(($field.to_string(), $value.into())),*]
         )
     };
 }
