@@ -1,0 +1,203 @@
+---
+title: "Async/Await"
+---
+
+TopK SDK provides full async/await support for the Python SDK as well as the Javascript SDK.
+
+## Python SDK
+
+`AsyncClient` is an async version of the TopK client that allows you to use async/await syntax in Python:
+
+```python
+import asyncio
+from topk_sdk import AsyncClient
+from topk_sdk.schema import text, semantic_index
+from topk_sdk.query import select, field
+
+client = AsyncClient(
+    api_key="YOUR_API_KEY",
+    region="aws-us-east-1-elastica"
+)
+
+async def main():
+    # Create a collection
+    await client.collections().create("books", {
+        "title": text().required().index(semantic_index())
+    })
+
+    # Upsert documents
+    lsn = await client.collection("books").upsert([
+        {"_id": "1", "title": "The Great Gatsby", "rating": 5},
+        {"_id": "2", "title": "1984", "rating": 4}
+    ])
+
+    # Query documents
+    results = await client.collection("books").query(
+        select("title", "rating").topk(field("rating"), 10)
+    )
+
+    print(results)
+
+# Run the async function
+asyncio.run(main())
+```
+
+### Parallel Queries
+
+You can run multiple queries concurrently using `asyncio.gather()`:
+
+```python
+import asyncio
+from topk_sdk import AsyncClient
+from topk_sdk.query import select, field
+
+client = AsyncClient(
+    api_key="YOUR_API_KEY",
+    region="aws-us-east-1-elastica"
+)
+
+async def parallel_queries():
+    # Run multiple queries in parallel
+    recent_books, popular_books, all_books = await asyncio.gather(
+        client.collection("books").query(
+            select("title", "rating").filter(field("year").gt(2020)).topk(field("rating"), 10)
+        ),
+        client.collection("books").query(
+            select("title", "rating").filter(field("rating").gte(4)).topk(field("rating"), 10)
+        ),
+        client.collection("books").query(
+            select("title", "rating").topk(field("rating"), 10)
+        )
+    )
+
+    return {
+        "recent_books": recent_books,
+        "popular_books": popular_books,
+        "all_books": all_books
+    }
+
+# Run parallel queries
+results = asyncio.run(parallel_queries())
+print(f"Found {len(results['recent_books'])} recent books")
+print(f"Found {len(results['popular_books'])} popular books")
+print(f"Found {len(results['all_books'])} total books")
+```
+
+## JavaScript SDK
+
+The JavaScript SDK supports async/await **for all operations**. All collection operations return Promises and can be used with the `async`/`await` syntax:
+
+```javascript
+import { Client } from "topk-js";
+import { select, field } from "topk-js/query";
+import { semanticIndex, text } from "topk-js/schema";
+
+const client = new Client({
+  apiKey: "YOUR_API_KEY",
+  region: "aws-us-east-1-elastica"
+});
+
+async function main() {
+  // All operations are async by default
+  const collections = await client.collections().list();
+
+  // Create a collection
+  await client.collections().create("books", {
+    title: text().required().index(semanticIndex())
+  });
+
+  // Upsert documents
+  const lsn = await client.collection("books").upsert([
+    { _id: "1", title: "The Great Gatsby", rating: 5 },
+    { _id: "2", title: "1984", rating: 4 }
+  ]);
+
+  // Query documents
+  const results = await client.collection("books").query(
+    select({ title: field("title"), rating: field("rating") }).topk(field("rating"), 10)
+  );
+
+  console.log(results);
+}
+
+main().catch(console.error);
+```
+
+### Parallel Queries
+
+You can run multiple queries concurrently using `Promise.all()`:
+
+```javascript
+async function parallelQueries() {
+  const collection = client.collection("books");
+
+  // Run multiple queries in parallel
+  const [recentBooks, popularBooks, allBooks] = await Promise.all([
+    collection.query(
+      select({ title: field("title"), rating: field("rating") })
+        .filter(field("year").gt(2020))
+        .topk(field("rating"), 10)
+    ),
+    collection.query(
+      select({ title: field("title"), rating: field("rating") })
+        .filter(field("rating").gte(4))
+        .topk(field("rating"), 10)
+    ),
+    collection.query(
+      select({ title: field("title"), rating: field("rating") }).topk(field("rating"), 10)
+    )
+  ]);
+
+  return {
+    recentBooks,
+    popularBooks,
+    allBooks
+  };
+}
+
+// Run parallel queries
+parallelQueries().then(results => {
+  console.log(`Found ${results.recentBooks.length} recent books`);
+  console.log(`Found ${results.popularBooks.length} popular books`);
+  console.log(`Found ${results.allBooks.length} total books`);
+}).catch(console.error);
+```
+
+## Migration from Sync to Async
+
+### Python
+
+Import the `AsyncClient` instead of the `Client` from `topk_sdk`:
+
+```python
+# After:
+import asyncio
+from topk_sdk import AsyncClient
+
+client = AsyncClient(
+    api_key="YOUR_API_KEY",
+    region="aws-us-east-1-elastica"
+)
+
+async def main():
+    results = await client.collection("books").query(query)
+    print(results)
+
+asyncio.run(main())
+```
+
+```python
+# Before:
+from topk_sdk import Client
+
+client = Client(
+    api_key="YOUR_API_KEY",
+    region="aws-us-east-1-elastica"
+)
+
+results = client.collection("books").query(query)
+print(results)
+```
+
+### JavaScript
+No migration needed - all operations are already async by default.

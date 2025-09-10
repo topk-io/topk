@@ -1,63 +1,45 @@
-use pyo3::{exceptions::PyTypeError, prelude::*, types::PyDict};
-use std::{sync::Arc, time::Duration};
+use pyo3::{exceptions::PyTypeError, prelude::*, types::PyDict, IntoPyObject};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 use topk_rs::ClientConfig;
 
-mod collection;
-pub use collection::CollectionClient;
+use crate::data::value::NativeValue;
 
-mod collections;
-pub use collections::CollectionsClient;
+pub mod sync;
 
-mod runtime;
-pub use runtime::Runtime;
+pub mod r#async;
 
-#[pyclass]
-pub struct Client {
-    runtime: Arc<Runtime>,
-    client: Arc<topk_rs::Client>,
+pub fn topk_client(
+    api_key: String,
+    region: String,
+    host: String,
+    https: bool,
+    retry_config: Option<RetryConfig>,
+) -> Arc<topk_rs::Client> {
+    Arc::new(topk_rs::Client::new({
+        let mut client = ClientConfig::new(api_key, region)
+            .with_https(https)
+            .with_host(host);
+
+        if let Some(retry_config) = retry_config {
+            client = client.with_retry_config(retry_config.into());
+        }
+
+        client
+    }))
 }
 
-#[pymethods]
-impl Client {
-    #[new]
-    #[pyo3(signature = (api_key, region, host="topk.io".into(), https=true, retry_config=None))]
-    pub fn new(
-        api_key: String,
-        region: String,
-        host: String,
-        https: bool,
-        retry_config: Option<RetryConfig>,
-    ) -> Self {
-        let runtime = Arc::new(Runtime::new().expect("failed to create runtime"));
+#[derive(IntoPyObject)]
+pub struct Document(pub(crate) HashMap<String, NativeValue>);
 
-        let client = Arc::new(topk_rs::Client::new({
-            let mut client = ClientConfig::new(api_key, region)
-                .with_https(https)
-                .with_host(host);
-
-            if let Some(retry_config) = retry_config {
-                client = client.with_retry_config(retry_config.into());
-            }
-
-            client
-        }));
-
-        Self { runtime, client }
+impl From<topk_rs::proto::v1::data::Document> for Document {
+    fn from(doc: topk_rs::proto::v1::data::Document) -> Self {
+        Document(doc.fields.into_iter().map(|(k, v)| (k, v.into())).collect())
     }
+}
 
-    pub fn collection(&self, collection: String) -> PyResult<CollectionClient> {
-        Ok(CollectionClient::new(
-            self.runtime.clone(),
-            self.client.clone(),
-            collection,
-        ))
-    }
-
-    pub fn collections(&self) -> PyResult<CollectionsClient> {
-        Ok(CollectionsClient::new(
-            self.runtime.clone(),
-            self.client.clone(),
-        ))
+impl From<HashMap<String, topk_rs::proto::v1::data::Value>> for Document {
+    fn from(doc: HashMap<String, topk_rs::proto::v1::data::Value>) -> Self {
+        Document(doc.into_iter().map(|(k, v)| (k, v.into())).collect())
     }
 }
 

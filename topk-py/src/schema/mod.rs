@@ -1,4 +1,9 @@
+use std::collections::HashMap;
+
 use pyo3::prelude::*;
+use topk_rs::proto::v1::control::FieldSpec as FieldSpecPb;
+
+use crate::schema::field_spec::FieldSpec;
 
 pub mod data_type;
 pub mod field_index;
@@ -162,4 +167,12 @@ pub fn semantic_index(
         model,
         embedding_type: embedding_type.into(),
     })
+}
+
+pub struct Schema(pub(crate) HashMap<String, FieldSpec>);
+
+impl Into<HashMap<String, FieldSpecPb>> for Schema {
+    fn into(self) -> HashMap<String, FieldSpecPb> {
+        self.0.into_iter().map(|(k, v)| (k, v.into())).collect()
+    }
 }

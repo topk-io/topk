@@ -30,7 +30,8 @@
           "concepts/true-hybrid-search",
           "concepts/reranking",
           "concepts/consistency",
-          "concepts/multi-tenancy"
+          "concepts/multi-tenancy",
+          "concepts/async-await"
         ]
       },
       {

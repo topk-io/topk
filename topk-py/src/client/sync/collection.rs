@@ -1,5 +1,6 @@
-use crate::client::Runtime;
-use crate::data::value::{NativeValue, Value};
+use crate::client::sync::runtime::Runtime;
+use crate::client::Document;
+use crate::data::value::Value;
 use crate::error::RustError;
 use crate::query::{ConsistencyLevel, Query};
 use pyo3::prelude::*;
@@ -32,7 +33,7 @@ impl CollectionClient {
         fields: Option<Vec<String>>,
         lsn: Option<String>,
         consistency: Option<ConsistencyLevel>,
-    ) -> PyResult<HashMap<String, HashMap<String, NativeValue>>> {
+    ) -> PyResult<HashMap<String, Document>> {
         let docs = self
             .runtime
             .block_on(
@@ -48,7 +49,7 @@ impl CollectionClient {
 
         Ok(docs
             .into_iter()
-            .map(|(id, doc)| (id, doc.into_iter().map(|(k, v)| (k, v.into())).collect()))
+            .map(|(id, doc)| (id, Document::from(doc)))
             .collect())
     }
 
@@ -79,7 +80,7 @@ impl CollectionClient {
         query: Query,
         lsn: Option<String>,
         consistency: Option<ConsistencyLevel>,
-    ) -> PyResult<Vec<HashMap<String, NativeValue>>> {
+    ) -> PyResult<Vec<Document>> {
         let docs = self
             .runtime
             .block_on(
@@ -92,10 +93,9 @@ impl CollectionClient {
             )
             .map_err(RustError)?;
 
-        Ok(docs
-            .into_iter()
-            .map(|d| d.fields.into_iter().map(|(k, v)| (k, v.into())).collect())
-            .collect())
+        let docs: Vec<Document> = docs.into_iter().map(|d| d.into()).collect();
+
+        Ok(docs)
     }
 
     pub fn upsert(
