@@ -3,6 +3,8 @@ fn main() {
 }
 
 fn build_topk_v1_protos() {
+    println!("cargo::rerun-if-changed=build.rs");
+
     let mut builder = tonic_prost_build::configure();
 
     // #[derive(serde::Serialize, serde::Deserialize)]
@@ -34,21 +36,24 @@ fn build_topk_v1_protos() {
             builder.type_attribute(message, "#[derive(serde::Serialize, serde::Deserialize)]");
     }
 
+    let src_paths = [
+        "../protos/topk/control/v1/collection_service.proto",
+        "../protos/topk/control/v1/collection.proto",
+        "../protos/topk/control/v1/schema.proto",
+        "../protos/topk/data/v1/write_service.proto",
+        "../protos/topk/data/v1/document.proto",
+        "../protos/topk/data/v1/query_service.proto",
+        "../protos/topk/data/v1/query.proto",
+        "../protos/topk/data/v1/value.proto",
+    ];
+
+    for path in src_paths {
+        println!("cargo::rerun-if-changed={}", path);
+    }
+
     builder
         .codec_path("crate::proto::codec::ProstCodec")
         .bytes(".topk.data.v1.Value")
-        .compile_protos(
-            &[
-                "../protos/topk/control/v1/collection_service.proto",
-                "../protos/topk/control/v1/collection.proto",
-                "../protos/topk/control/v1/schema.proto",
-                "../protos/topk/data/v1/write_service.proto",
-                "../protos/topk/data/v1/document.proto",
-                "../protos/topk/data/v1/query_service.proto",
-                "../protos/topk/data/v1/query.proto",
-                "../protos/topk/data/v1/value.proto",
-            ],
-            &["../protos/"],
-        )
+        .compile_protos(&src_paths, &["../protos/"])
         .expect("failed to build [topk.v1] protos");
 }

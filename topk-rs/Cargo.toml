@@ -26,6 +26,16 @@ rand = { version = "0.8.5" }
 futures-util = { version = "0.3.31" }
 bytes = { version = "1.8.0" }
 tonic-prost = { version = "0.14.2" }
+# !! IMPORTANT !!
+# Do not change the rkyv version or features
+rkyv = { version = "0.8.11", default-features = false, features = [
+    "std",
+    "alloc",
+    "bytecheck",
+    "little_endian",
+    "pointer_width_32",
+    "unaligned",
+] }
 
 [dev-dependencies]
 test-context = { version = "0.3.0" }

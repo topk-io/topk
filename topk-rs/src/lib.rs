@@ -1,5 +1,6 @@
 pub mod proto;
 
+pub mod doc;
 pub mod error;
 pub use error::Error;
 
@@ -18,6 +19,9 @@ pub mod defaults {
 }
 
 pub use client::retry;
+
+// Re-export rkyv
+pub use rkyv;
 
 // Public API
 pub mod data {
