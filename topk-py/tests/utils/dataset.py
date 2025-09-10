@@ -87,6 +87,7 @@ class books:
                 "tags": ["racism", "injustice", "girl", "father", "lawyer"],
                 "codes": ["ISBN 978-0-06-093546-7", "ISBN 0-06-093546-4", "LCCN 60007854", "UPC 025192354670"],
                 "reprint_years": data.u32_list([1966, 1988, 1999, 2002, 2015]),
+                "user_ratings": data.u32_list([9, 7, 10, 8]),
             },
             {
                 "_id": "1984",
@@ -104,6 +105,7 @@ class books:
                 "tags": ["dystopia", "surveillance", "totalitarianism", "mind control", "oppression"],
                 "codes": ["1984", "ISBN 978-0-452-28423-4", "ISBN 0-452-28423-6", "OCLC 70775700", "DOI 10.1000/182", "EAN 9780452284234"],
                 "reprint_years": data.u32_list([1950, 1954, 1956, 1961, 1984, 1990, 2003]),
+                "user_ratings": data.f32_list([5.0, 3.5, 4.5, 4.0, -1.0]),
             },
             {
                 "_id": "pride",
@@ -118,6 +120,7 @@ class books:
                 "tags": ["pride", "love", "romance", "class", "marriage", "prejudice"],
                 "codes": ["ISBN 978-0-14-143951-8", "OCLC 934546789"],
                 "reprint_years": data.u32_list([1966, 1972, 1985]),
+                "user_ratings": ["romantic", "classic", "good"],
             },
             {
                 "_id": "gatsby",
@@ -132,6 +135,7 @@ class books:
                 "tags": ["love", "romance", "wealth", "marriage"],
                 "codes": ["ISBN 978-0-7432-7356-5", "ISBN 0-7432-7356-7", "OCLC 60393320", "ASIN B000FC0SIS", "UPC 074327356709", "LCCN 2002114274"],
                 "reprint_years": data.u32_list([1953, 1996, 2004]),
+                "user_ratings": "good book",
             },
             {
                 "_id": "catcher",
@@ -149,6 +153,7 @@ class books:
                 "tags": ["alienation", "identity", "rebellion", "mid-20th-century", "america"],
                 "codes": ["ISBN 978-0-316-76917-4", "LCCN 51011564", "OCLC 287628"],
                 "reprint_years": data.u32_list([1964, 1979, 1991, 2001, 2010]),
+                "user_ratings": data.f32_list([4.5, 3.0, 3.5, 4.0, -1.0]),
             },
             {
                 "_id": "moby",
@@ -164,6 +169,7 @@ class books:
                 "tags": ["whale", "obsession", "tragedy", "sailing", "ocean"],
                 "codes": data.string_list([]),
                 "reprint_years": data.u32_list([]),
+                "user_ratings": data.i32_list([-5, 2, -1, 1]),
             },
             {
                 "_id": "hobbit",
@@ -177,6 +183,7 @@ class books:
                 "sparse_u8_embedding": data.u8_sparse_vector({7: 1, 8: 2, 9: 3}),
                 "tags": ["hobbit", "dwarf", "quest", "home", "adventure"],
                 "codes": data.string_list([]),
+                "user_ratings": data.u32_list([5, 3, 4, 5, 2]),
             },
             {
                 "_id": "harry",
@@ -194,6 +201,7 @@ class books:
                 "tags": ["wizard", "magic", "sorcerer", "school", "witchcraft"],
                 "codes": ["ISBN 978-0-439-70818-0", "UPC 043970818909"],
                 "reprint_years": data.u32_list([1998, 1999, 2001, 2004, 2013, 2020]),
+                "user_ratings": 10,
             },
             {
                 "_id": "lotr",
@@ -207,6 +215,7 @@ class books:
                 "sparse_u8_embedding": data.u8_sparse_vector({9: 1, 10: 2, 11: 3}),
                 "tags": ["lord of the rings", "fellowship", "magic", "wizard", "elves"],
                 "codes": ["ISBN 978-0-547-92821-0", "ISBN 0-547-92821-2", "OCLC 434394005", "LCCN 2004558654", "Barcode 0618346252"],
+                "user_ratings": ["epic", "legendary", "good"],
             },
             {
                 "_id": "alchemist",
@@ -221,6 +230,7 @@ class books:
                 "tags": ["journey", "destiny", "meaning of life", "alchemy", "soul"],
                 "codes": ["ISBN 978-0-06-231500-7", "ASIN 0062315005", "OCLC 804616251", "DOI 10.1234/alchemist", "EAN 9780062315007", "UPC 006231500719", "LCCN 88675123"],
                 "reprint_years": data.u32_list([1993, 2005, 2014]),
+                "user_ratings": data.u32_list([8, 10, 9, 7]),
             },
         ]
 
