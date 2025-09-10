@@ -1,6 +1,5 @@
 import asyncio
 import pytest
-from topk_sdk import data, error, query, schema
 from topk_sdk.query import select, field, literal
 
 from . import AsyncProjectContext
@@ -77,7 +76,6 @@ async def test_async_query(async_ctx: AsyncProjectContext):
     assert results == [{"_id": "1984", "title": "1984", "published_year": 1949, "literal": 1.0}]
 
 
-
 test_documents = [
     {
         "_id": "test_doc",
@@ -87,6 +85,7 @@ test_documents = [
         "summary_embedding": [0.5] * 16,
     }
 ]
+
 
 @pytest.mark.asyncio
 async def test_async_collection_parallel_queries(async_ctx: AsyncProjectContext):

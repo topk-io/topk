@@ -1,6 +1,8 @@
-use pyo3::{exceptions::PyTypeError, prelude::*, types::PyDict};
-use std::{sync::Arc, time::Duration};
+use pyo3::{exceptions::PyTypeError, prelude::*, types::PyDict, IntoPyObject};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 use topk_rs::ClientConfig;
+
+use crate::data::value::NativeValue;
 
 pub mod sync;
 
@@ -24,6 +26,21 @@ pub fn topk_client(
 
         client
     }))
+}
+
+#[derive(IntoPyObject)]
+pub struct Document(pub(crate) HashMap<String, NativeValue>);
+
+impl From<topk_rs::proto::v1::data::Document> for Document {
+    fn from(doc: topk_rs::proto::v1::data::Document) -> Self {
+        Document(doc.fields.into_iter().map(|(k, v)| (k, v.into())).collect())
+    }
+}
+
+impl From<HashMap<String, topk_rs::proto::v1::data::Value>> for Document {
+    fn from(doc: HashMap<String, topk_rs::proto::v1::data::Value>) -> Self {
+        Document(doc.into_iter().map(|(k, v)| (k, v.into())).collect())
+    }
 }
 
 #[derive(Debug, Clone)]

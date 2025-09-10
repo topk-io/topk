@@ -1,4 +1,5 @@
-use crate::data::value::{NativeValue, Value};
+use crate::client::Document;
+use crate::data::value::Value;
 use crate::error::RustError;
 use crate::query::{ConsistencyLevel, Query};
 use pyo3::prelude::*;
@@ -38,10 +39,12 @@ impl AsyncCollectionClient {
                 .await
                 .map_err(RustError)?;
 
-            Ok(docs
+            let docs: HashMap<String, Document> = docs
                 .into_iter()
-                .map(|(id, doc)| (id, doc.into_iter().map(|(k, v)| (k, v.into())).collect()))
-                .collect::<HashMap<String, HashMap<String, NativeValue>>>())
+                .map(|(id, doc)| (id, Document::from(doc)))
+                .collect();
+
+            Ok(docs)
         })
         .map(|result| result.into())
     }
@@ -86,10 +89,9 @@ impl AsyncCollectionClient {
                 .await
                 .map_err(RustError)?;
 
-            Ok(docs
-                .into_iter()
-                .map(|d| d.fields.into_iter().map(|(k, v)| (k, v.into())).collect())
-                .collect::<Vec<HashMap<String, NativeValue>>>())
+            let docs: Vec<Document> = docs.into_iter().map(|d| d.into()).collect();
+
+            Ok(docs)
         })
         .map(|result| result.into())
     }
