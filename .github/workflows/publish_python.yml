@@ -106,7 +106,7 @@ jobs:
           - runner: windows-latest
             target: x64
             protoc_arch: win64
-          - runner: windows-latest
+          - runner: windows-2022 # todo: make it work for x86 windows-latest(Windows-2025)
             target: x86
             protoc_arch: win32
     steps:
