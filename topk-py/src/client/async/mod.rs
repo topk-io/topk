@@ -1,11 +1,10 @@
 use std::sync::Arc;
 
 use pyo3::{prelude::*, PyResult};
-use topk_rs::ClientConfig;
 
 use crate::client::{
     r#async::{collection::AsyncCollectionClient, collections::AsyncCollectionsClient},
-    RetryConfig,
+    topk_client, RetryConfig,
 };
 
 mod collection;
@@ -27,23 +26,16 @@ impl AsyncClient {
         https: bool,
         retry_config: Option<RetryConfig>,
     ) -> Self {
-        let client = Arc::new(topk_rs::Client::new({
-            let mut client = ClientConfig::new(api_key, region)
-                .with_https(https)
-                .with_host(host);
-
-            if let Some(retry_config) = retry_config {
-                client = client.with_retry_config(retry_config.into());
-            }
-
-            client
-        }));
+        let client = topk_client(api_key, region, host, https, retry_config);
 
         Self { client }
     }
 
     pub fn collection(&self, collection: String) -> PyResult<AsyncCollectionClient> {
-        Ok(AsyncCollectionClient::new(self.client.clone(), collection))
+        Ok(AsyncCollectionClient::new(
+            self.client.clone(),
+            Arc::new(collection),
+        ))
     }
 
     pub fn collections(&self) -> PyResult<AsyncCollectionsClient> {

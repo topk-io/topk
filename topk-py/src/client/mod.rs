@@ -1,9 +1,30 @@
 use pyo3::{exceptions::PyTypeError, prelude::*, types::PyDict};
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
+use topk_rs::ClientConfig;
 
 pub mod sync;
 
 pub mod r#async;
+
+pub fn topk_client(
+    api_key: String,
+    region: String,
+    host: String,
+    https: bool,
+    retry_config: Option<RetryConfig>,
+) -> Arc<topk_rs::Client> {
+    Arc::new(topk_rs::Client::new({
+        let mut client = ClientConfig::new(api_key, region)
+            .with_https(https)
+            .with_host(host);
+
+        if let Some(retry_config) = retry_config {
+            client = client.with_retry_config(retry_config.into());
+        }
+
+        client
+    }))
+}
 
 #[derive(Debug, Clone)]
 pub struct RetryConfig {

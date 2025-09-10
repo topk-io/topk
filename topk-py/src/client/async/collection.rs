@@ -8,11 +8,11 @@ use std::{collections::HashMap, sync::Arc};
 #[pyclass]
 pub struct AsyncCollectionClient {
     client: Arc<topk_rs::Client>,
-    collection: String,
+    collection: Arc<String>,
 }
 
 impl AsyncCollectionClient {
-    pub fn new(client: Arc<topk_rs::Client>, collection: String) -> Self {
+    pub fn new(client: Arc<topk_rs::Client>, collection: Arc<String>) -> Self {
         Self { client, collection }
     }
 }
@@ -33,7 +33,7 @@ impl AsyncCollectionClient {
 
         future_into_py(py, async move {
             let docs = client
-                .collection(&collection)
+                .collection(collection.as_str())
                 .get(ids, fields, lsn, consistency.map(|c| c.into()))
                 .await
                 .map_err(RustError)?;
@@ -58,7 +58,7 @@ impl AsyncCollectionClient {
 
         future_into_py(py, async move {
             let count = client
-                .collection(&collection)
+                .collection(collection.as_str())
                 .count(lsn, consistency.map(|c| c.into()))
                 .await
                 .map_err(RustError)?;
@@ -81,7 +81,7 @@ impl AsyncCollectionClient {
 
         future_into_py(py, async move {
             let docs = client
-                .collection(&collection)
+                .collection(collection.as_str())
                 .query(query.into(), lsn, consistency.map(|c| c.into()))
                 .await
                 .map_err(RustError)?;
@@ -111,7 +111,7 @@ impl AsyncCollectionClient {
                 .collect();
 
             let lsn = client
-                .collection(&collection)
+                .collection(collection.as_str())
                 .upsert(documents)
                 .await
                 .map_err(RustError)?;
@@ -127,7 +127,7 @@ impl AsyncCollectionClient {
 
         future_into_py(py, async move {
             let lsn = client
-                .collection(&collection)
+                .collection(collection.as_str())
                 .delete(ids)
                 .await
                 .map_err(RustError)?;

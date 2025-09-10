@@ -1,10 +1,9 @@
-use crate::data::collection::Collection;
 use crate::error::RustError;
 use crate::schema::field_spec::FieldSpec;
+use crate::{data::collection::Collection, schema::Schema};
 use pyo3::prelude::*;
 use pyo3_async_runtimes::tokio::future_into_py;
 use std::{collections::HashMap, sync::Arc};
-use topk_rs::proto::v1::control::FieldSpec as FieldSpecPb;
 
 #[pyclass]
 pub struct AsyncCollectionsClient {
@@ -59,15 +58,11 @@ impl AsyncCollectionsClient {
         let client = self.client.clone();
 
         future_into_py(py, async move {
+            let schema = Schema(schema);
+
             let collection = client
                 .collections()
-                .create(
-                    &collection_name,
-                    schema
-                        .into_iter()
-                        .map(|(k, v)| (k, v.into()))
-                        .collect::<HashMap<String, FieldSpecPb>>(),
-                )
+                .create(&collection_name, schema)
                 .await
                 .map_err(RustError)?;
 

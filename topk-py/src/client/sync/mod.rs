@@ -5,11 +5,10 @@ mod runtime;
 use std::sync::Arc;
 
 pub use collection::CollectionClient;
-use topk_rs::ClientConfig;
 
 use crate::client::{
     sync::{collections::CollectionsClient, runtime::Runtime},
-    RetryConfig,
+    topk_client, RetryConfig,
 };
 
 use pyo3::{pyclass, pymethods, PyResult};
@@ -33,17 +32,7 @@ impl Client {
     ) -> Self {
         let runtime = Arc::new(Runtime::new().expect("failed to create runtime"));
 
-        let client = Arc::new(topk_rs::Client::new({
-            let mut client = ClientConfig::new(api_key, region)
-                .with_https(https)
-                .with_host(host);
-
-            if let Some(retry_config) = retry_config {
-                client = client.with_retry_config(retry_config.into());
-            }
-
-            client
-        }));
+        let client = topk_client(api_key, region, host, https, retry_config);
 
         Self { runtime, client }
     }

@@ -1,10 +1,9 @@
-use crate::client::sync::runtime::Runtime;
 use crate::data::collection::Collection;
 use crate::error::RustError;
 use crate::schema::field_spec::FieldSpec;
+use crate::{client::sync::runtime::Runtime, schema::Schema};
 use pyo3::prelude::*;
 use std::{collections::HashMap, sync::Arc};
-use topk_rs::proto::v1::control::FieldSpec as FieldSpecPb;
 
 #[pyclass]
 pub struct CollectionsClient {
@@ -44,17 +43,13 @@ impl CollectionsClient {
         collection_name: String,
         schema: HashMap<String, FieldSpec>,
     ) -> PyResult<Collection> {
+        let schema = Schema(schema);
+
         let collection = self
             .runtime
             .block_on(
                 py,
-                self.client.collections().create(
-                    &collection_name,
-                    schema
-                        .into_iter()
-                        .map(|(k, v)| (k, v.into()))
-                        .collect::<HashMap<String, FieldSpecPb>>(),
-                ),
+                self.client.collections().create(&collection_name, schema),
             )
             .map_err(RustError)?;
 
