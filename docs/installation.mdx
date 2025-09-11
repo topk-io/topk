@@ -24,6 +24,10 @@ pnpm add topk-js
 
 </CodeGroup>
 
+<Info>
+  test PR
+</Info>
+
 ## TopK Client
 
 To setup a TopK client, you'll need your [API key](#api-key) and region:
@@ -87,27 +91,23 @@ Client constructor accepts the following parameters:
   2. When using the `query(..., lsn=N)` code path.
 
   <Expandable title="properties">
-    <ParamField body="max_retries" type="number" default="3">
+    <ParamField body="max_retries" default="3" type="number">
       The maximum number of retries to attempt. Default is 3 retries.
     </ParamField>
-
-    <ParamField body="timeout" type="number" default="30000">
+    <ParamField body="timeout" default="30000" type="number">
       The total timeout for the retry chain in milliseconds. Default is 30,000 milliseconds (30 seconds).
     </ParamField>
-
     <ParamField body="backoff" type="BackoffConfig">
       The backoff configuration for the client.
 
       <Expandable title="properties">
-        <ParamField body="base" type="number" default="2">
+        <ParamField body="base" default="2" type="number">
           The base for the backoff. Default is 2x backoff.
         </ParamField>
-
-        <ParamField body="init_backoff" type="number" default="100">
+        <ParamField body="init_backoff" default="100" type="number">
           The initial backoff in milliseconds. Default is 100 milliseconds.
         </ParamField>
-
-        <ParamField body="max_backoff" type="number" default="10000">
+        <ParamField body="max_backoff" default="10000" type="number">
           The maximum backoff in milliseconds. Default is 10,000 milliseconds (10 seconds).
         </ParamField>
       </Expandable>
@@ -164,7 +164,7 @@ If you're using the TopK **JavaScript SDK** in a server-side rendering (SSR) env
 
     ```typescript
     // vite.config.ts
-
+    
     export default defineConfig({
       // ...
       ssr: {
@@ -181,14 +181,14 @@ If you're using the TopK **JavaScript SDK** in a server-side rendering (SSR) env
 
     ```typescript
     // next.config.ts
-
+    
     import type { NextConfig } from "next";
-
+    
     const nextConfig: NextConfig = {
       /* config options here */
       serverExternalPackages: ["topk-js"],
     };
-
+    
     export default nextConfig;
     ```
   </Accordion>
