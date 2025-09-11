@@ -42,6 +42,8 @@ where
     fn to_value(value: Self) -> Value;
 
     fn to_list(values: Vec<Self>) -> ListValue;
+
+    fn as_slice(list: &ListValue) -> Option<&[Self]>;
 }
 
 macro_rules! impl_scalar_type {
@@ -55,6 +57,14 @@ macro_rules! impl_scalar_type {
             #[inline(always)]
             fn to_list(values: Vec<Self>) -> ListValue {
                 ListValue::$enum_variant(values)
+            }
+
+            #[inline(always)]
+            fn as_slice(list: &ListValue) -> Option<&[Self]> {
+                match list {
+                    ListValue::$enum_variant(value) => Some(value),
+                    _ => None,
+                }
             }
         }
     };

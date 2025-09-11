@@ -22,6 +22,12 @@ pub enum ListValue {
     String(Vec<String>),
 }
 
+impl ListValue {
+    pub fn as_slice<T: ScalarType>(&self) -> Option<&[T]> {
+        T::as_slice(self)
+    }
+}
+
 impl<T> From<Vec<T>> for ListValue
 where
     T: ScalarType,

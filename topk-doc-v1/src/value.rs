@@ -232,6 +232,13 @@ impl Value {
         Value::List(value.into().into())
     }
 
+    pub fn as_list<T: ScalarType>(&self) -> Option<&[T]> {
+        match self {
+            Value::List(value) => value.as_slice(),
+            _ => None,
+        }
+    }
+
     pub fn r#struct<K: Into<String>>(values: impl IntoIterator<Item = (K, Value)>) -> Self {
         Value::Struct(StructValue {
             fields: values.into_iter().map(|(k, v)| (k.into(), v)).collect(),
@@ -266,6 +273,27 @@ where
 {
     fn from(value: T) -> Self {
         T::to_value(value)
+    }
+}
+
+impl<T> From<Option<T>> for Value
+where
+    T: ScalarType,
+{
+    fn from(value: Option<T>) -> Self {
+        match value {
+            Some(value) => T::to_value(value),
+            None => Value::Null,
+        }
+    }
+}
+
+impl From<Option<Value>> for Value {
+    fn from(value: Option<Value>) -> Self {
+        match value {
+            Some(value) => value,
+            None => Value::Null,
+        }
     }
 }
 
