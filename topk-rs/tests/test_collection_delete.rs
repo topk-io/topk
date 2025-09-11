@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use test_context::test_context;
-use topk_rs::doc;
+use topk_rs::doc::doc;
 use topk_rs::query::{field, select};
 use topk_rs::Error;
 

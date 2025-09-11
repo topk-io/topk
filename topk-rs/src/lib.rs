@@ -1,5 +1,7 @@
 pub mod proto;
-pub use topk_doc_v1 as doc_v1;
+pub mod doc {
+    pub use topk_doc_v1::*;
+}
 
 pub mod error;
 pub use error::Error;

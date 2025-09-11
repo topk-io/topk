@@ -2,7 +2,7 @@ use test_context::test_context;
 mod utils;
 use topk_rs::{
     data::literal,
-    doc,
+    doc::doc,
     proto::v1::control::{FieldSpec, KeywordIndexType},
     query::{field, filter, fns, r#match, select},
     schema, Error,

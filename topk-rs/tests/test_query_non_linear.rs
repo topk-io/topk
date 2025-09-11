@@ -1,5 +1,5 @@
 use test_context::test_context;
-use topk_rs::doc;
+use topk_rs::doc::doc;
 use topk_rs::query::{field, fns, r#match, select};
 
 mod utils;

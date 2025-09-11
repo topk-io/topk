@@ -1,13 +1,9 @@
 use std::collections::HashMap;
 use test_context::test_context;
-use topk_rs::doc;
+use topk_rs::doc::{doc, Document, Value};
 use topk_rs::error::{DocumentValidationError, ValidationErrorBag};
 use topk_rs::proto::v1::control::VectorDistanceMetric;
-use topk_rs::proto::v1::data::Value;
-use topk_rs::proto::v1::{
-    control::{field_type::DataType, FieldSpec, FieldType, FieldTypeText},
-    data::Document,
-};
+use topk_rs::proto::v1::control::{field_type::DataType, FieldSpec, FieldType, FieldTypeText};
 use topk_rs::Error;
 
 mod utils;
@@ -348,8 +344,8 @@ async fn test_upsert_sparse_vectors(ctx: &mut ProjectTestContext) {
         .collection(&collection.name)
         .upsert(vec![doc!(
             "_id" => "x",
-            "f32_sparse_vector" => Value::f32_sparse_vector(vec![1, 2, 3], vec![1.2, 2.3, 3.4]),
-            "u8_sparse_vector" => Value::u8_sparse_vector(vec![1, 2, 3], vec![4u8, 5u8, 6u8]),
+            "f32_sparse_vector" => Value::sparse_vector(vec![1, 2, 3], vec![1.2f32, 2.3, 3.4]),
+            "u8_sparse_vector" => Value::sparse_vector(vec![1, 2, 3], vec![4u8, 5u8, 6u8]),
         )])
         .await
         .expect("could not upsert document");
@@ -363,10 +359,10 @@ async fn test_upsert_sparse_vectors(ctx: &mut ProjectTestContext) {
 
     assert_eq!(
         obj["x"]["f32_sparse_vector"],
-        Value::f32_sparse_vector(vec![1, 2, 3], vec![1.2, 2.3, 3.4]),
+        Value::sparse_vector(vec![1, 2, 3], vec![1.2f32, 2.3, 3.4]),
     );
     assert_eq!(
         obj["x"]["u8_sparse_vector"],
-        Value::u8_sparse_vector(vec![1, 2, 3], vec![4u8, 5u8, 6u8]),
+        Value::sparse_vector(vec![1, 2, 3], vec![4u8, 5u8, 6u8]),
     );
 }

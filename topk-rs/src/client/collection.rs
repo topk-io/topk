@@ -2,12 +2,13 @@ use super::config::ClientConfig;
 use super::create_query_client;
 use super::create_write_client;
 use super::retry::call_with_retry;
+use crate::doc::{Document, Value};
 use crate::error::Error;
 use crate::proto::v1::data::Query;
 use crate::proto::v1::data::Stage;
 use crate::proto::v1::data::{ConsistencyLevel, GetRequest};
 use crate::proto::v1::data::{
-    DeleteDocumentsRequest, Document, QueryRequest, UpsertDocumentsRequest, Value,
+    DeleteDocumentsRequest, Document as DocumentPb, QueryRequest, UpsertDocumentsRequest,
 };
 use futures_util::future::TryFutureExt;
 use std::collections::HashMap;
@@ -81,7 +82,7 @@ impl CollectionClient {
             .into_inner()
             .docs
             .into_iter()
-            .map(|(id, doc)| (id, doc.fields))
+            .map(|(id, doc)| (id, doc.into_fields()))
             .collect())
     }
 
@@ -157,20 +158,25 @@ impl CollectionClient {
         })
         .await?;
 
-        Ok(response.into_inner().results)
+        let results = response.into_inner().results;
+        Ok(results.into_iter().map(|r| r.into()).collect())
     }
 
     pub async fn upsert(&self, docs: Vec<Document>) -> Result<String, Error> {
         let client =
             create_write_client(&self.config, &self.collection_name, &self.channel).await?;
 
+        let req = UpsertDocumentsRequest {
+            docs: docs.into_iter().map(DocumentPb::encode).collect(),
+        };
+
         let response = call_with_retry(&self.config.retry_config, || {
             let mut client = client.clone();
-            let docs = docs.clone();
+            let req = req.clone();
 
             async move {
                 client
-                    .upsert_documents(UpsertDocumentsRequest { docs })
+                    .upsert_documents(req)
                     .await
                     .map_err(|e| match e.code() {
                         // Explicitly map `NotFound` to `CollectionNotFound` error

@@ -1,5 +1,6 @@
 use test_context::test_context;
-use topk_rs::proto::v1::data::{SparseVector, Value};
+use topk_rs::doc::Value;
+use topk_rs::proto::v1::data::SparseVector;
 use topk_rs::query::{field, fns, select};
 
 mod utils;
@@ -103,7 +104,7 @@ async fn test_query_sparse_vector_distance_nullable(ctx: &mut ProjectTestContext
     let lsn = ctx
         .client
         .collection(&collection.name)
-        .upsert(vec![topk_rs::proto::v1::data::Document::from(mockingbird)])
+        .upsert(vec![topk_rs::doc::Document::from(mockingbird)])
         .await
         .expect("could not upsert mockingbird");
 

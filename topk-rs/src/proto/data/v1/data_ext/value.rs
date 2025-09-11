@@ -220,6 +220,59 @@ impl Value {
     }
 }
 
+impl From<Value> for crate::doc::Value {
+    fn from(value: Value) -> Self {
+        match value.value {
+            Some(value::Value::Null(_)) => crate::doc::Value::Null,
+            Some(value::Value::Bool(v)) => crate::doc::Value::Bool(v),
+            Some(value::Value::U32(v)) => crate::doc::Value::U32(v),
+            Some(value::Value::U64(v)) => crate::doc::Value::U64(v),
+            Some(value::Value::I32(v)) => crate::doc::Value::I32(v),
+            Some(value::Value::I64(v)) => crate::doc::Value::I64(v),
+            Some(value::Value::F32(v)) => crate::doc::Value::F32(v),
+            Some(value::Value::F64(v)) => crate::doc::Value::F64(v),
+            Some(value::Value::String(v)) => crate::doc::Value::String(v),
+            Some(value::Value::Binary(v)) => crate::doc::Value::Binary(v.to_vec()),
+            #[allow(deprecated)]
+            Some(value::Value::Vector(v)) => match v.vector {
+                Some(vector::Vector::Float(v)) => v.values.into(),
+                Some(vector::Vector::Byte(v)) => v.values.into(),
+                _ => panic!("Missing vector values"),
+            },
+            Some(value::Value::SparseVector(v)) => match v.values {
+                Some(sparse_vector::Values::F32(vals)) => {
+                    crate::doc::Value::sparse_vector(v.indices, vals.values)
+                }
+                Some(sparse_vector::Values::U8(vals)) => {
+                    crate::doc::Value::sparse_vector(v.indices, vals.values)
+                }
+                _ => panic!("Missing sparse vector values"),
+            },
+            Some(value::Value::List(v)) => crate::doc::Value::List(v.into()),
+            Some(value::Value::Struct(v)) => {
+                crate::doc::Value::r#struct(v.fields.into_iter().map(|(k, v)| (k, v.into())))
+            }
+            None => panic!("Missing value"),
+        }
+    }
+}
+
+impl From<List> for crate::doc::ListValue {
+    fn from(list: List) -> Self {
+        match list.values {
+            Some(list::Values::U8(v)) => crate::doc::ListValue::U8(v.values),
+            Some(list::Values::U32(v)) => crate::doc::ListValue::U32(v.values),
+            Some(list::Values::U64(v)) => crate::doc::ListValue::U64(v.values),
+            Some(list::Values::I32(v)) => crate::doc::ListValue::I32(v.values),
+            Some(list::Values::I64(v)) => crate::doc::ListValue::I64(v.values),
+            Some(list::Values::F32(v)) => crate::doc::ListValue::F32(v.values),
+            Some(list::Values::F64(v)) => crate::doc::ListValue::F64(v.values),
+            Some(list::Values::String(v)) => crate::doc::ListValue::String(v.values),
+            _ => panic!("Missing list values"),
+        }
+    }
+}
+
 impl value::Value {
     pub fn to_user_friendly_type_name(&self) -> String {
         match self {

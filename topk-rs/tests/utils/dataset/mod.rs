@@ -1,4 +1,4 @@
-use topk_rs::proto::v1::data::Document;
+use topk_rs::doc::Document;
 
 pub mod books;
 pub mod semantic;

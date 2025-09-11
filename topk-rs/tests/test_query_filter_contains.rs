@@ -1,7 +1,7 @@
 use test_context::test_context;
 use topk_rs::proto::v1::data::Value;
 use topk_rs::query::{field, filter, not, select};
-use topk_rs::{doc, Error};
+use topk_rs::{doc::doc, Error};
 
 mod utils;
 use utils::dataset;

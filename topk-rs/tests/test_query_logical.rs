@@ -1,7 +1,6 @@
 use test_context::test_context;
-use topk_rs::data::literal;
 use topk_rs::query::{field, filter, not, r#match, select};
-use topk_rs::{doc, Error};
+use topk_rs::{doc::doc, Error};
 
 mod utils;
 use utils::{dataset, ProjectTestContext};
@@ -362,7 +361,7 @@ async fn test_query_topk_min_max(ctx: &mut ProjectTestContext) {
         assert_eq!(result[i].id().unwrap(), *id);
         assert_eq!(
             result[i].fields.get("clamped_year").unwrap(),
-            &literal(*year)
+            &(*year).into()
         );
     }
 }
@@ -417,7 +416,6 @@ async fn test_query_gt_and_lte_string(ctx: &mut ProjectTestContext) {
 
     assert_doc_ids!(result, ["mockingbird", "pride"]);
 }
-
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]

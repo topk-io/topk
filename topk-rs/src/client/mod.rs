@@ -105,6 +105,7 @@ macro_rules! create_client {
                                 "x-topk-sdk-version",
                                 env!("CARGO_PKG_VERSION").to_string(),
                             );
+                            headers.insert("x-topk-sdk-rkyv", "true".to_string());
                             headers
                         }),
                     )

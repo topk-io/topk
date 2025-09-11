@@ -6,4 +6,8 @@ import "topk/data/v1/value.proto";
 message Document {
   // Document fields
   map<string, Value> fields = 1;
+  // Encoded document data
+  oneof data {
+    bytes v1 = 2;
+  }
 }

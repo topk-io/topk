@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use test_context::test_context;
-use topk_rs::doc;
+use topk_rs::doc::doc;
 use topk_rs::proto::v1::data::ConsistencyLevel;
 use topk_rs::Error;
 
