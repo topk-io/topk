@@ -1,10 +1,13 @@
 use std::collections::HashMap;
 
+use deepsize::DeepSizeOf;
 use rkyv::{Archive, Deserialize, Serialize, rancor::Error as RkyvError};
+
+use crate::HEADER;
 
 use super::{DocumentError, Value};
 
-#[derive(Archive, Deserialize, Serialize, Clone, Debug, Default, PartialEq)]
+#[derive(Archive, Deserialize, Serialize, Clone, Debug, Default, PartialEq, DeepSizeOf)]
 pub struct Document {
     pub fields: HashMap<String, Value>,
 }
@@ -23,8 +26,16 @@ impl Document {
     }
 
     #[inline(always)]
+    pub fn size(&self) -> usize {
+        self.deep_size_of()
+    }
+
+    #[inline(always)]
     pub fn encode(&self) -> anyhow::Result<Vec<u8>> {
-        Ok(rkyv::to_bytes::<RkyvError>(self)?.to_vec())
+        let mut buf = Vec::new();
+        buf.extend_from_slice(&HEADER);
+        rkyv::api::high::to_bytes_in::<_, RkyvError>(self, &mut buf)?;
+        Ok(buf)
     }
 
     #[inline(always)]

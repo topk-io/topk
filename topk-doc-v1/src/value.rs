@@ -1,16 +1,17 @@
 use std::collections::HashMap;
 
+use deepsize::DeepSizeOf;
 use rkyv::{Archive, Deserialize, Serialize, rancor::Error as RkyvError};
 
 use crate::{ListValue, ScalarType};
 
-#[derive(Archive, Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[derive(Archive, Deserialize, Serialize, Clone, Debug, PartialEq, DeepSizeOf)]
 #[repr(C)]
 pub struct StructValue {
     pub fields: HashMap<String, Value>,
 }
 
-#[derive(Archive, Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[derive(Archive, Deserialize, Serialize, Clone, Debug, PartialEq, DeepSizeOf)]
 #[repr(C)]
 pub struct SparseVector {
     pub indices: Vec<u32>,
@@ -33,7 +34,7 @@ impl SparseVector {
     }
 }
 
-#[derive(Archive, Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[derive(Archive, Deserialize, Serialize, Clone, Debug, PartialEq, DeepSizeOf)]
 #[rkyv(serialize_bounds(
     __S: rkyv::ser::Writer + rkyv::ser::Allocator,
     __S::Error: rkyv::rancor::Source,
@@ -84,6 +85,55 @@ impl Value {
     #[inline(always)]
     pub fn access<'a>(data: &'a [u8]) -> anyhow::Result<&'a ArchivedValue> {
         Ok(rkyv::access::<ArchivedValue, RkyvError>(data)?)
+    }
+
+    pub fn to_user_friendly_type_name(&self) -> String {
+        match self {
+            Value::Null => "null".to_string(),
+            Value::Bool(_) => "bool".to_string(),
+            // Unsigned integer
+            Value::U8(_) => "u8".to_string(),
+            Value::U16(_) => "u16".to_string(),
+            Value::U32(_) => "u32".to_string(),
+            Value::U64(_) => "u64".to_string(),
+            // Signed integer
+            Value::I8(_) => "i8".to_string(),
+            Value::I16(_) => "i16".to_string(),
+            Value::I32(_) => "i32".to_string(),
+            Value::I64(_) => "i64".to_string(),
+            // Floating point
+            Value::F32(_) => "f32".to_string(),
+            Value::F64(_) => "f64".to_string(),
+            // String
+            Value::String(_) => "string".to_string(),
+            // Binary
+            Value::Binary(v) => {
+                format!("binary({})", v.len())
+            }
+            Value::SparseVector(v) => match &v.values {
+                ListValue::F32(_) => "sparse_vector<f32>".to_string(),
+                ListValue::U8(_) => "sparse_vector<u8>".to_string(),
+                _ => "invalid_sparse_vector".to_string(),
+            },
+            Value::List(v) => match v {
+                // Unsigned integer
+                ListValue::U8(_) => "list<u8>".to_string(),
+                ListValue::U16(_) => "list<u16>".to_string(),
+                ListValue::U32(_) => "list<u32>".to_string(),
+                ListValue::U64(_) => "list<u64>".to_string(),
+                // Signed integer
+                ListValue::I8(_) => "list<i8>".to_string(),
+                ListValue::I16(_) => "list<i16>".to_string(),
+                ListValue::I32(_) => "list<i32>".to_string(),
+                ListValue::I64(_) => "list<i64>".to_string(),
+                // Floating point
+                ListValue::F32(_) => "list<f32>".to_string(),
+                ListValue::F64(_) => "list<f64>".to_string(),
+                // String
+                ListValue::String(_) => "list<string>".to_string(),
+            },
+            Value::Struct(_) => "struct<string, Value>".to_string(),
+        }
     }
 
     // Constructors

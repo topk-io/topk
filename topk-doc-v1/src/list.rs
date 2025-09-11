@@ -1,8 +1,9 @@
+use deepsize::DeepSizeOf;
 use rkyv::{Archive, Deserialize, Serialize};
 
 use crate::ScalarType;
 
-#[derive(Archive, Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[derive(Archive, Deserialize, Serialize, Clone, Debug, PartialEq, DeepSizeOf)]
 #[repr(C, u8)]
 pub enum ListValue {
     // Unsigned

@@ -11,6 +11,7 @@ documentation = "https://docs.topk.io"
 [dependencies]
 thiserror = { version = "1.0.65" }
 anyhow = { version = "1.0.99" }
+deepsize = { version = "0.2.0" }
 # !! IMPORTANT !!
 # Do not change the rkyv version or features
 rkyv = { version = "0.8.11", default-features = false, features = [

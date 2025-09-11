@@ -6,6 +6,8 @@ pub use document::*;
 pub use list::*;
 pub use value::*;
 
+pub const HEADER: [u8; 4] = [b'T', b'K', b'D', 1u8];
+
 #[derive(Debug, thiserror::Error)]
 pub enum DocumentError {
     #[error("Missing document _id field")]
