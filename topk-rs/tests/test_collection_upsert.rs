@@ -295,7 +295,7 @@ async fn test_upsert_vectors(ctx: &mut ProjectTestContext) {
         .collection(&collection.name)
         .upsert(vec![doc!(
             "_id" => "x",
-            "f32_vector" => vec![1.0, 2.0, 3.0, 4.0],
+            "f32_vector" => vec![1.0f32, 2.0, 3.0, 4.0],
             "u8_vector" => Value::list(vec![4u8, 5u8, 6u8]),
             "binary_vector" => Value::list(vec![7u8, 8u8]),
         )])
