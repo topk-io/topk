@@ -14,6 +14,7 @@ pub struct ClientConfig {
     pub host: Option<String>,
     pub https: Option<bool>,
     pub retry_config: Option<RetryConfig>,
+    pub foo: Option<String>,
 }
 
 #[napi]

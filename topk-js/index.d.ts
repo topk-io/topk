@@ -36,6 +36,7 @@ export interface ClientConfig {
   host?: string
   https?: boolean
   retryConfig?: RetryConfig
+  foo?: string
 }
 
 export interface Collection {
