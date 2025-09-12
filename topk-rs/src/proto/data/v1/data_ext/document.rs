@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use crate::proto::data::v1::{document, value, Document, Value};
+use bytes::Bytes;
+
+use crate::proto::data::v1::{value, Document, Value};
 
 #[derive(Debug, thiserror::Error)]
 pub enum DocumentError {
@@ -27,21 +29,20 @@ impl Document {
     /// Returns document fields.
     #[inline]
     pub(crate) fn into_fields(self) -> HashMap<String, crate::doc::Value> {
-        match self.data {
-            Some(document::Data::V1(data)) => {
-                assert!(
-                    self.fields.is_empty(),
-                    "Document fields must be empty when data is present"
-                );
-                let doc = crate::doc::Document::decode(&data).expect("Failed to decode document");
-                doc.fields
-            }
-            None => self
+        if self.data.is_empty() {
+            return self
                 .fields
                 .into_iter()
                 .map(|(k, v)| (k, v.into()))
-                .collect(),
+                .collect();
         }
+
+        assert!(
+            self.fields.is_empty(),
+            "Document fields must be empty when data is present"
+        );
+        let doc = crate::doc::Document::decode(&self.data).expect("Failed to decode document");
+        doc.fields
     }
 
     pub(crate) fn encode(doc: crate::doc::Document) -> Document {
@@ -49,7 +50,7 @@ impl Document {
 
         Document {
             fields: Default::default(),
-            data: Some(document::Data::V1(data)),
+            data: data.into(),
         }
     }
 }
@@ -66,7 +67,7 @@ impl<T: IntoIterator<Item = (K, Value)>, K: Into<String>> From<T> for Document {
     fn from(entries: T) -> Self {
         Document {
             fields: entries.into_iter().map(|(k, v)| (k.into(), v)).collect(),
-            data: None,
+            data: Bytes::new(),
         }
     }
 }

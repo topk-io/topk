@@ -7,7 +7,5 @@ message Document {
   // Document fields
   map<string, Value> fields = 1;
   // Encoded document data
-  oneof data {
-    bytes v1 = 2;
-  }
+  bytes data = 2;
 }
