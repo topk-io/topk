@@ -89,6 +89,12 @@ macro_rules! create_client {
                         .http2_max_header_list_size(crate::client::MAX_HEADER_LIST_SIZE)
                         // Request timeout
                         .timeout(std::time::Duration::from_secs(crate::client::TIMEOUT))
+                        // Disable Nagle's algorithm
+                        .tcp_nodelay(true)
+                        // Disable adaptive window
+                        .http2_adaptive_window(false)
+                        .initial_stream_window_size(8 * 1024 * 1024) // 8MB
+                        .initial_connection_window_size(32 * 1024 * 1024) // 32MB
                         // Connect
                         .connect()
                         .await?)
