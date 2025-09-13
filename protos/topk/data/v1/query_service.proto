@@ -7,9 +7,11 @@ import "topk/data/v1/query.proto";
 service QueryService {
   // Query
   rpc Query(QueryRequest) returns (QueryResponse);
+  rpc QueryStream(QueryRequest) returns (stream Document);
 
   // Get document (by ID)
   rpc Get(GetRequest) returns (GetResponse);
+  rpc GetStream(GetRequest) returns (stream Document);
 }
 
 enum ConsistencyLevel {
