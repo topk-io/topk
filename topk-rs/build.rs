@@ -23,6 +23,22 @@ fn build_topk_v1_protos() {
 
     let mut builder = tonic_prost_build::configure();
 
+    let proto_paths = [
+        "../protos/topk/control/v1/collection_service.proto",
+        "../protos/topk/control/v1/collection.proto",
+        "../protos/topk/control/v1/schema.proto",
+        "../protos/topk/data/v1/write_service.proto",
+        "../protos/topk/data/v1/document.proto",
+        "../protos/topk/data/v1/query_service.proto",
+        "../protos/topk/data/v1/query.proto",
+        "../protos/topk/data/v1/value.proto",
+    ];
+
+    // Rerun if any proto file changes
+    for path in proto_paths {
+        println!("cargo::rerun-if-changed={}", path);
+    }
+
     // #[derive(serde::Serialize, serde::Deserialize)]
     for message in [
         // field spec
