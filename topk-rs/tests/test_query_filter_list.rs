@@ -580,3 +580,80 @@ async fn test_in_list_literal_string(ctx: &mut ProjectTestContext) {
 
     assert_doc_ids!(result, ["gatsby", "catcher"]);
 }
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_lt_list(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let int_list = Value::list(vec![1993u32, 2005, 2014]);
+    let string_list = Value::list(vec!["a".to_string(), "b".to_string(), "c".to_string()]);
+
+    for filter_expr in vec![
+        field("reprint_years").lt(int_list.clone()),
+        field("reprint_years").lte(int_list.clone()),
+        field("reprint_years").lt(string_list.clone()),
+        field("codes").lt(string_list.clone()),
+        field("codes").lte(string_list.clone()),
+        field("codes").lt(int_list.clone()),
+    ] {
+        let err = ctx
+            .client
+            .collection(&collection.name)
+            .query(
+                filter(filter_expr).topk(field("published_year"), 100, true),
+                None,
+                None,
+            )
+            .await
+            .expect_err("should have failed");
+
+        assert!(matches!(err, Error::InvalidArgument(_)));
+    }
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_eq_list_primitive(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            filter(field("reprint_years").eq(Value::list(vec![1993i32, 2005, 2014]))).topk(
+                field("published_year"),
+                100,
+                true,
+            ),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids!(result, ["alchemist"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_eq_list_string(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            filter(field("codes").eq(Value::list(vec![
+                "ISBN 978-0-439-70818-0".to_string(),
+                "UPC 043970818909".to_string(),
+            ])))
+            .topk(field("published_year"), 100, true),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids!(result, ["harry"]);
+}
