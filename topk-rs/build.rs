@@ -71,6 +71,7 @@ fn build_topk_v1_protos() {
     builder
         .codec_path("crate::proto::codec::ProstCodec")
         .bytes(".topk.data.v1.Value")
+        .bytes(".topk.data.v1.DocumentData")
         .compile_protos(&proto_paths, &["../protos/"])
         .expect("failed to build [topk.v1] protos");
 }

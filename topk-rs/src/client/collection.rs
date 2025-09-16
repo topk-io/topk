@@ -11,6 +11,7 @@ use crate::proto::v1::data::{
 };
 use futures_util::future::TryFutureExt;
 use futures_util::StreamExt;
+use prost::Message;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::OnceCell;
@@ -82,7 +83,10 @@ impl CollectionClient {
         let mut stream = response.into_inner();
         let mut docs = HashMap::new();
         while let Some(result) = stream.next().await {
-            let doc = result?;
+            // Decode document
+            let doc = Document::decode(result?.data)
+                .map_err(|e| Error::MalformedResponse(e.to_string()))?;
+
             docs.insert(
                 doc.id().expect("Missing document id").to_string(),
                 doc.fields,
@@ -167,7 +171,9 @@ impl CollectionClient {
         let mut stream = response.into_inner();
         let mut results = Vec::new();
         while let Some(result) = stream.next().await {
-            results.push(result?);
+            let doc = Document::decode(result?.data)
+                .map_err(|e| Error::MalformedResponse(e.to_string()))?;
+            results.push(doc);
         }
         Ok(results)
     }
