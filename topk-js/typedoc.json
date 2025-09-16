@@ -1,8 +1,24 @@
 {
-  "entryPoints": ["."],
+  "entryPoints": ["index.d.ts"],
   "entryPointStrategy": "resolve",
   "tsconfig": "tsconfig.json",
-  "plugin": ["typedoc-plugin-markdown"],
+  "plugin": ["typedoc-plugin-markdown", "typedoc-plugin-frontmatter", "./typedoc/custom-frontmatter-plugin.mjs"],
   "readme": "none",
-  "out": "./docs/reference/sdk/typescript"
+  "out": "../docs/api",
+  "router": "module",
+  "groupOrder": [
+    "Variables", "Functions", "*"
+  ],
+  "entryFileName": "index",
+  "fileExtension": ".mdx",
+  "hidePageHeader": true,
+  "hidePageTitle": true,
+  "parametersFormat": "table",
+  "propertyMembersFormat": "table",
+  "interfacePropertiesFormat": "table",
+  "classPropertiesFormat": "table",
+  "frontmatterCommentTags": ["title"],
+  "indexFrontmatter": {
+    "title": "topk-js"
+  }
 }

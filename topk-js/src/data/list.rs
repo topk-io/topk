@@ -1,6 +1,8 @@
 use napi_derive::napi;
 use topk_rs::proto::v1::data::IntoListValues;
 
+/// @internal
+/// @hideconstructor
 #[derive(Debug, Clone, PartialEq)]
 #[napi(namespace = "data")]
 pub struct List {
@@ -19,8 +21,10 @@ pub enum Values {
     String(Vec<String>),
 }
 
+/// @internal
 #[napi(namespace = "data")]
 impl List {
+    /// @ignore
     #[napi]
     pub fn to_string(&self) -> String {
         format!("List({:?})", self.values)

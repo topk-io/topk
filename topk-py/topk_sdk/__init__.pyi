@@ -2,7 +2,7 @@ import builtins
 import typing
 from enum import Enum
 
-from . import data, error, query, schema  # noqa
+from . import query, schema
 
 class Client:
     def __new__(
@@ -114,7 +114,27 @@ class AsyncCollectionsClient:
     def delete(self, collection_name: builtins.str) -> typing.Awaitable[None]: ...
 
 
-class RetryConfig: ...
+class RetryConfig:
+    max_retries: typing.Optional[builtins.int]
+    timeout: typing.Optional[builtins.int]
+    backoff: typing.Optional[BackoffConfig]
+    def __new__(
+        cls,
+        max_retries: typing.Optional[builtins.int] = None,
+        timeout: typing.Optional[builtins.int] = None,
+        backoff: typing.Optional[BackoffConfig] = None,
+    ) -> RetryConfig: ...
+
+class BackoffConfig:
+    base: typing.Optional[builtins.int]
+    init_backoff: typing.Optional[builtins.int]
+    max_backoff: typing.Optional[builtins.int]
+    def __new__(
+        cls,
+        base: typing.Optional[builtins.int] = None,
+        init_backoff: typing.Optional[builtins.int] = None,
+        max_backoff: typing.Optional[builtins.int] = None,
+    ) -> BackoffConfig: ...
 
 class ConsistencyLevel(Enum):
     Indexed = ...

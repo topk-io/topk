@@ -9,48 +9,70 @@
   },
   "favicon": "/favicon.png",
   "navigation": {
-    "groups": [
+    "dropdowns": [
       {
-        "group": "Get Started",
+        "dropdown": "Documentation",
+        "icon": "book-open",
         "pages": [
-          "introduction",
-          "installation",
-          "regions",
-          "quickstart"
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "regions",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "concepts/semantic-search",
+              "concepts/vector-search",
+              "concepts/sparse-vector-search",
+              "concepts/multi-vector-search",
+              "concepts/keyword-search",
+              "concepts/true-hybrid-search",
+              "concepts/reranking",
+              "concepts/consistency",
+              "concepts/multi-tenancy",
+              "concepts/async-await"
+            ]
+          },
+          {
+            "group": "Document API",
+            "pages": [
+              "documents/upsert",
+              "documents/query",
+              "documents/get",
+              "documents/delete",
+              "documents/data-constructors"
+            ]
+          },
+          {
+            "group": "Collection API",
+            "pages": [
+              "collections/create",
+              "collections/list",
+              "collections/get",
+              "collections/delete"
+            ]
+          }
         ]
       },
       {
-        "group": "Guides",
+        "dropdown": "API Reference",
+        "icon": "square-terminal",
         "pages": [
-          "concepts/semantic-search",
-          "concepts/vector-search",
-          "concepts/sparse-vector-search",
-          "concepts/multi-vector-search",
-          "concepts/keyword-search",
-          "concepts/true-hybrid-search",
-          "concepts/reranking",
-          "concepts/consistency",
-          "concepts/multi-tenancy",
-          "concepts/async-await"
-        ]
-      },
-      {
-        "group": "Document API",
-        "pages": [
-          "documents/upsert",
-          "documents/query",
-          "documents/get",
-          "documents/delete",
-          "documents/data-constructors"
-        ]
-      },
-      {
-        "group": "Collection API",
-        "pages": [
-          "collections/create",
-          "collections/list",
-          "collections/get",
-          "collections/delete"
+          {
+            "group": "JavaScript",
+            "pages": [
+              "api/index",
+              "api/topk-js/namespaces/data",
+              "api/topk-js/namespaces/query_fn",
+              "api/topk-js/namespaces/query",
+              "api/topk-js/namespaces/schema"
+            ]
+          }
         ]
       }
     ]

@@ -29,6 +29,8 @@ use comparable::Comparable;
 use napi_derive::napi;
 use stringy::Stringy;
 
+/// @internal
+/// @hideconstructor
 #[napi(namespace = "query")]
 #[derive(Debug, Clone)]
 pub struct LogicalExpression {
@@ -161,6 +163,7 @@ impl From<f64> for LogicalExpressionUnion {
 
 #[napi(namespace = "query")]
 impl LogicalExpression {
+    /// Returns a string representation of the logical expression.
     #[napi]
     pub fn to_string(&self) -> String {
         format!("LogicalExpression({:?})", self.expr)
@@ -168,16 +171,19 @@ impl LogicalExpression {
 
     // Unary operators
 
+    /// Checks if the expression evaluates to null.
     #[napi]
     pub fn is_null(&self) -> Self {
         Self::unary(UnaryOperator::IsNull, self.clone())
     }
 
+    /// Checks if the expression evaluates to a non-null value.
     #[napi]
     pub fn is_not_null(&self) -> Self {
         Self::unary(UnaryOperator::IsNotNull, self.clone())
     }
 
+    /// Computes the absolute value of the expression.
     #[napi]
     pub fn abs(&self) -> Self {
         Self::unary(UnaryOperator::Abs, self.clone())
@@ -205,6 +211,7 @@ impl LogicalExpression {
 
     // Comparison operators
 
+    /// Checks if the expression equals another value.
     #[napi]
     pub fn eq(
         &self,
@@ -214,6 +221,7 @@ impl LogicalExpression {
         Self::binary(BinaryOperator::Eq, self.clone(), other.into())
     }
 
+    /// Checks if the expression does not equal another value.
     #[napi]
     pub fn ne(
         &self,

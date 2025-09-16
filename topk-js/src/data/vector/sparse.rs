@@ -4,6 +4,8 @@ use std::{ffi::CString, iter::zip, ptr};
 
 pub(crate) const TYPE_ERROR: &str = "Invalid sparse vector, must be `Record<number, number>`";
 
+/// @internal
+/// @hideconstructor
 #[napi(namespace = "data")]
 #[derive(Debug, Clone)]
 pub struct SparseVector(pub(crate) SparseVectorUnion);
@@ -20,6 +22,7 @@ impl SparseVector {
 
 #[napi(namespace = "data")]
 impl SparseVector {
+    /// @ignore
     #[napi]
     pub fn to_string(&self) -> String {
         format!("SparseVector({:?})", self.0)
