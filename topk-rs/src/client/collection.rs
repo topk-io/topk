@@ -88,7 +88,9 @@ impl CollectionClient {
                 .map_err(|e| Error::MalformedResponse(e.to_string()))?;
 
             docs.insert(
-                doc.id().expect("Missing document id").to_string(),
+                doc.id()
+                    .map_err(|e| Error::MalformedResponse(e.to_string()))?
+                    .to_string(),
                 doc.fields,
             );
         }
