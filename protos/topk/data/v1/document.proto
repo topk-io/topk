@@ -7,3 +7,8 @@ message Document {
   // Document fields
   map<string, Value> fields = 1;
 }
+
+message DocumentData {
+  // Encoded Document data.
+  bytes data = 1;
+}

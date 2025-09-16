@@ -10,6 +10,8 @@ use crate::proto::v1::data::{
     DeleteDocumentsRequest, Document, QueryRequest, UpsertDocumentsRequest, Value,
 };
 use futures_util::future::TryFutureExt;
+use futures_util::StreamExt;
+use prost::Message;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::OnceCell;
@@ -60,7 +62,7 @@ impl CollectionClient {
 
             async move {
                 client
-                    .get(GetRequest {
+                    .get_stream(GetRequest {
                         ids: ids,
                         fields: fields.unwrap_or_default(),
                         required_lsn: lsn,
@@ -77,12 +79,22 @@ impl CollectionClient {
         })
         .await?;
 
-        Ok(response
-            .into_inner()
-            .docs
-            .into_iter()
-            .map(|(id, doc)| (id, doc.fields))
-            .collect())
+        // Collect results from stream
+        let mut stream = response.into_inner();
+        let mut docs = HashMap::new();
+        while let Some(result) = stream.next().await {
+            // Decode document
+            let doc = Document::decode(result?.data)
+                .map_err(|e| Error::MalformedResponse(e.to_string()))?;
+
+            docs.insert(
+                doc.id()
+                    .map_err(|e| Error::MalformedResponse(e.to_string()))?
+                    .to_string(),
+                doc.fields,
+            );
+        }
+        Ok(docs)
     }
 
     pub async fn count(
@@ -140,7 +152,7 @@ impl CollectionClient {
 
             async move {
                 client
-                    .query(QueryRequest {
+                    .query_stream(QueryRequest {
                         collection: self.collection_name.clone(),
                         query: Some(query.into()),
                         required_lsn: lsn.clone(),
@@ -157,7 +169,15 @@ impl CollectionClient {
         })
         .await?;
 
-        Ok(response.into_inner().results)
+        // Collect results from stream
+        let mut stream = response.into_inner();
+        let mut results = Vec::new();
+        while let Some(result) = stream.next().await {
+            let doc = Document::decode(result?.data)
+                .map_err(|e| Error::MalformedResponse(e.to_string()))?;
+            results.push(doc);
+        }
+        Ok(results)
     }
 
     pub async fn upsert(&self, docs: Vec<Document>) -> Result<String, Error> {
