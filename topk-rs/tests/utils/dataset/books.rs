@@ -52,6 +52,7 @@ pub fn schema() -> HashMap<String, FieldSpec> {
         "summary_embedding" => FieldSpec::f32_vector(16, true, VectorDistanceMetric::Euclidean),
         "nullable_embedding" => FieldSpec::f32_vector(16, false, VectorDistanceMetric::Euclidean),
         "scalar_embedding" => FieldSpec::u8_vector(16, false, VectorDistanceMetric::Euclidean),
+        "scalar_i8_embedding" => FieldSpec::i8_vector(16, false, VectorDistanceMetric::Euclidean),
         "binary_embedding" => FieldSpec::binary_vector(2, false, VectorDistanceMetric::Hamming),
         "sparse_f32_embedding" => FieldSpec::f32_sparse_vector(true, VectorDistanceMetric::DotProduct),
         "sparse_u8_embedding" => FieldSpec::u8_sparse_vector(false, VectorDistanceMetric::DotProduct),
