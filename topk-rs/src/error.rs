@@ -1,4 +1,6 @@
 use serde::{de::DeserializeOwned, Serialize};
+use std::time::Duration;
+use tonic::Status;
 use tracing::error;
 
 #[derive(Debug, thiserror::Error)]
@@ -77,6 +79,18 @@ impl Error {
             Error::MalformedResponse(_) => false,
             Error::Unexpected(_) => false,
             Error::Internal(_) => false,
+        }
+    }
+
+    /// Returns how long the client should keep retrying this error, if applicable.
+    /// Returns `Some(duration)` for errors that require retrying for a minimum time,
+    /// or `None` if no specific retry duration is required.
+    pub fn retry_duration(&self) -> Option<Duration> {
+        match self {
+            // When quering using `lsn=N`, the client should retry for at least 2 seconds,
+            // since the guarantee for "default" consistency mode is ~1 second.
+            Error::QueryLsnTimeout => Some(Duration::from_millis(2_000)),
+            _ => None,
         }
     }
 }
@@ -279,8 +293,6 @@ impl<T: Serialize + DeserializeOwned> TryFrom<tonic::Status> for ValidationError
         serde_json::from_str(status.message())
     }
 }
-
-use tonic::Status;
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct CustomError {
