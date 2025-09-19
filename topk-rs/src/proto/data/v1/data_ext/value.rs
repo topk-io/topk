@@ -2,8 +2,8 @@ use bytes::Bytes;
 use std::collections::HashMap;
 
 use crate::proto::data::v1::{
-    data_ext::IntoListValues, list, sparse_vector, value, vector, List, Null, SparseVector, Struct,
-    Value,
+    data_ext::{transmute_vec_u8_to_i8, IntoListValues},
+    list, sparse_vector, value, vector, List, Null, SparseVector, Struct, Value,
 };
 
 impl Value {
@@ -253,6 +253,8 @@ impl value::Value {
                 Some(list::Values::F32(_)) => "list<f32>".to_string(),
                 Some(list::Values::F64(_)) => "list<f64>".to_string(),
                 Some(list::Values::String(_)) => "list<string>".to_string(),
+                Some(list::Values::U8(_)) => "list<u8>".to_string(),
+                Some(list::Values::I8(_)) => "list<i8>".to_string(),
                 _ => "null_list".to_string(),
             },
             value::Value::Struct(_) => "struct<string, Value>".to_string(),
@@ -345,6 +347,12 @@ impl From<Vec<u8>> for Value {
     }
 }
 
+impl From<Vec<i8>> for Value {
+    fn from(value: Vec<i8>) -> Self {
+        Value::list(value)
+    }
+}
+
 impl From<Vec<&str>> for Value {
     fn from(value: Vec<&str>) -> Self {
         Value::list(
@@ -382,6 +390,13 @@ impl<T: Into<Value>> From<Option<T>> for Value {
             Some(value) => value.into(),
             None => Value::null(),
         }
+    }
+}
+
+impl Into<Vec<i8>> for list::I8 {
+    // Transmute back to i8 from the u8 represented as `bytes` in proto
+    fn into(self) -> Vec<i8> {
+        transmute_vec_u8_to_i8(self.values)
     }
 }
 
