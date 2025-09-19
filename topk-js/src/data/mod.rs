@@ -19,8 +19,6 @@ use vector::SparseVectorData;
 use napi_derive::napi;
 use value::BytesData;
 
-/// @title Heyos
-
 /// Creates a bytes value from a buffer or array of numbers.
 #[napi(namespace = "data")]
 pub fn bytes(#[napi(ts_arg_type = "Array<number> | Buffer")] buffer: BytesData) -> Value {

@@ -18,6 +18,7 @@
   "interfacePropertiesFormat": "table",
   "classPropertiesFormat": "table",
   "frontmatterCommentTags": ["title"],
+  "useCodeBlocks": true,
   "indexFrontmatter": {
     "title": "topk-js"
   }

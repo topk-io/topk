@@ -145,12 +145,6 @@ export type ConsistencyLevel = /** Indexed consistency - faster| eventual consis
 /** Strong consistency - slower| waits for all replicas */
 'strong';
 
-export interface MatchOptions {
-  field?: string
-  weight?: number
-  all?: boolean
-}
-
 /**
  * Options for creating a new collection.
  *
@@ -209,14 +203,12 @@ export interface RetryConfig {
   backoff?: BackoffConfig
 }
 
-export interface VectorDistanceOptions {
-  skipRefine?: boolean
-}
-
 export declare namespace data {
   /**
    * @internal
    * @hideconstructor
+   * Instances of the `List` class are used to represent lists of values in TopK.
+   * Usually created using data constructors such as [`f32_list()`](#f32list), [`i32_list()`](#i32list), etc.
    */
   export class List {
     /** @ignore */
@@ -225,6 +217,8 @@ export declare namespace data {
   /**
    * @internal
    * @hideconstructor
+   * Instances of the `SparseVector` class are used to represent sparse vectors in TopK.
+   * Usually created using data constructors such as [`f32_sparse_vector()`](#f32sparsevector) or [`u8_sparse_vector()`](#u8sparsevector).
    */
   export class SparseVector {
     /** @ignore */
@@ -232,23 +226,21 @@ export declare namespace data {
   }
   /** Creates a binary vector from an array of bytes. */
   export function binaryVector(values: Array<number>): List
-  /**
-   * @title Heyos
-   * Creates a bytes value from a buffer or array of numbers.
-   */
+  /** Creates a bytes value from a buffer or array of numbers. */
   export function bytes(buffer: Array<number> | Buffer): any
+  /** Creates a list of 64-bit floating point numbers. */
   export function f32List(values: Array<number>): List
-  /** Creates a sparse vector of 32-bit floats. */
   export function f32SparseVector(vector: Record<number, number>): SparseVector
   /** Creates a 32-bit float vector from an array of numbers. */
   export function f32Vector(values: Array<number>): List
-  /** Creates a list of 64-bit floating point numbers. */
   export function f64List(values: Array<number>): List
   /** Creates a list of 32-bit signed integers. */
   export function i32List(values: Array<number>): List
   /** Creates a list of 64-bit signed integers. */
   export function i64List(values: Array<number>): List
+  /** Creates a sparse vector of 32-bit floats. */
   export function stringList(values: Array<string>): List
+  /** Creates a list of 32-bit unsigned integers. */
   export function u32List(values: Array<number>): List
   /** Creates a sparse vector of 8-bit unsigned integers. */
   export function u8SparseVector(vector: Record<number, number>): SparseVector
@@ -340,6 +332,7 @@ export declare namespace query {
   export function all(exprs: Array<LogicalExpression>): LogicalExpression
   /** Evaluates to true if at least one `expr` is true. */
   export function any(exprs: Array<LogicalExpression>): LogicalExpression
+  /** @ignore */
   export type BinaryOperator =  'and'|
   'or'|
   'eq'|
@@ -368,8 +361,6 @@ export declare namespace query {
   export function literal(value: number | string | string[] | number[] | boolean | data.List): LogicalExpression
   /** Creates a text match expression. */
   export function match(token: string, options?: MatchOptions | undefined | null): TextExpression
-  export function max(left: LogicalExpression | number | string, right: LogicalExpression | number | string): LogicalExpression
-  export function min(left: LogicalExpression | number | string, right: LogicalExpression | number | string): LogicalExpression
   /**
    * Options for text matching.
    *
@@ -385,9 +376,9 @@ export declare namespace query {
     all?: boolean
   }
   /** Creates a MAX expression that returns the larger of two values. */
-  export function max(left: LogicalExpression | number, right: LogicalExpression | number): LogicalExpression
+  export function max(left: LogicalExpression | number | string, right: LogicalExpression | number | string): LogicalExpression
   /** Creates a MIN expression that returns the smaller of two values. */
-  export function min(left: LogicalExpression | number, right: LogicalExpression | number): LogicalExpression
+  export function min(left: LogicalExpression | number | string, right: LogicalExpression | number | string): LogicalExpression
   /** Creates a logical NOT expression. */
   export function not(expr: LogicalExpression): LogicalExpression
   /** Creates a select query stage. */

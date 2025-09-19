@@ -4,128 +4,17 @@ from enum import Enum
 
 from . import query, schema
 
-class Client:
-    def __new__(
-        cls,
-        api_key: builtins.str,
-        region: builtins.str,
-        host: builtins.str = "topk.io",
-        https: builtins.bool = True,
-        retry_config: typing.Optional[RetryConfig] = None,
-    ) -> Client: ...
-    def collection(self, collection: builtins.str) -> CollectionClient: ...
-    def collections(self) -> CollectionsClient: ...
 
-class AsyncClient:
-    def __new__(
-        cls,
-        api_key: builtins.str,
-        region: builtins.str,
-        host: builtins.str = "topk.io",
-        https: builtins.bool = True,
-        retry_config: typing.Optional[RetryConfig] = None,
-    ) -> AsyncClient: ...
-    def collection(self, collection: builtins.str) -> AsyncCollectionClient: ...
-    def collections(self) -> AsyncCollectionsClient: ...
+class ConsistencyLevel(Enum):
+    """Enumeration of consistency levels for operations."""
 
-class Collection:
-    name: builtins.str
-    org_id: builtins.str
-    project_id: builtins.str
-    region: builtins.str
-    schema: builtins.dict[builtins.str, schema.FieldSpec]
-    def __new__(
-        cls,
-        name: builtins.str,
-        org_id: builtins.str,
-        project_id: builtins.str,
-        region: builtins.str,
-        schema: typing.Mapping[builtins.str, schema.FieldSpec],
-    ) -> Collection: ...
-    def __repr__(self) -> builtins.str: ...
-    def __eq__(self, other: Collection) -> builtins.bool: ...
+    Indexed = "indexed"
+    Strong = "strong"
 
-class CollectionClient:
-    def get(
-        self,
-        ids: typing.Sequence[builtins.str],
-        fields: typing.Optional[typing.Sequence[builtins.str]] = None,
-        lsn: typing.Optional[builtins.str] = None,
-        consistency: typing.Optional[ConsistencyLevel] = None,
-    ) -> builtins.dict[builtins.str, builtins.dict[builtins.str, typing.Any]]: ...
-    def count(
-        self,
-        lsn: typing.Optional[builtins.str] = None,
-        consistency: typing.Optional[ConsistencyLevel] = None,
-    ) -> builtins.int: ...
-    def query(
-        self,
-        query: query.Query,
-        lsn: typing.Optional[builtins.str] = None,
-        consistency: typing.Optional[ConsistencyLevel] = None,
-    ) -> builtins.list[builtins.dict[builtins.str, typing.Any]]: ...
-    def upsert(
-        self, documents: typing.Sequence[typing.Mapping[builtins.str, typing.Any]]
-    ) -> builtins.str: ...
-    def delete(self, ids: typing.Sequence[builtins.str]) -> builtins.str: ...
-
-class AsyncCollectionClient:
-    def get(
-        self,
-        ids: typing.Sequence[builtins.str],
-        fields: typing.Optional[typing.Sequence[builtins.str]] = None,
-        lsn: typing.Optional[builtins.str] = None,
-        consistency: typing.Optional[ConsistencyLevel] = None,
-    ) -> typing.Awaitable[builtins.dict[builtins.str, builtins.dict[builtins.str, typing.Any]]]: ...
-    def count(
-        self,
-        lsn: typing.Optional[builtins.str] = None,
-        consistency: typing.Optional[ConsistencyLevel] = None,
-    ) -> typing.Awaitable[builtins.int]: ...
-    def query(
-        self,
-        query: query.Query,
-        lsn: typing.Optional[builtins.str] = None,
-        consistency: typing.Optional[ConsistencyLevel] = None,
-    ) -> typing.Awaitable[builtins.list[builtins.dict[builtins.str, typing.Any]]]: ...
-    def upsert(
-        self, documents: typing.Sequence[typing.Mapping[builtins.str, typing.Any]]
-    ) -> typing.Awaitable[builtins.str]: ...
-    def delete(self, ids: typing.Sequence[builtins.str]) -> typing.Awaitable[builtins.str]: ...
-
-class CollectionsClient:
-    def get(self, collection_name: builtins.str) -> Collection: ...
-    def list(self) -> builtins.list[Collection]: ...
-    def create(
-        self,
-        collection_name: builtins.str,
-        schema: typing.Mapping[builtins.str, schema.FieldSpec],
-    ) -> Collection: ...
-    def delete(self, collection_name: builtins.str) -> None: ...
-
-class AsyncCollectionsClient:
-    def get(self, collection_name: builtins.str) -> typing.Awaitable[Collection]: ...
-    def list(self) -> typing.Awaitable[builtins.list[Collection]]: ...
-    def create(
-        self,
-        collection_name: builtins.str,
-        schema: typing.Mapping[builtins.str, schema.FieldSpec],
-    ) -> typing.Awaitable[Collection]: ...
-    def delete(self, collection_name: builtins.str) -> typing.Awaitable[None]: ...
-
-
-class RetryConfig:
-    max_retries: typing.Optional[builtins.int]
-    timeout: typing.Optional[builtins.int]
-    backoff: typing.Optional[BackoffConfig]
-    def __new__(
-        cls,
-        max_retries: typing.Optional[builtins.int] = None,
-        timeout: typing.Optional[builtins.int] = None,
-        backoff: typing.Optional[BackoffConfig] = None,
-    ) -> RetryConfig: ...
 
 class BackoffConfig:
+    """Configuration for backoff behavior in retries."""
+
     base: typing.Optional[builtins.int]
     init_backoff: typing.Optional[builtins.int]
     max_backoff: typing.Optional[builtins.int]
@@ -134,8 +23,214 @@ class BackoffConfig:
         base: typing.Optional[builtins.int] = None,
         init_backoff: typing.Optional[builtins.int] = None,
         max_backoff: typing.Optional[builtins.int] = None,
-    ) -> BackoffConfig: ...
+    ) -> "BackoffConfig": ...
 
-class ConsistencyLevel(Enum):
-    Indexed = ...
-    Strong = ...
+
+class RetryConfig:
+    """Configuration for retry behavior."""
+
+    max_retries: typing.Optional[builtins.int]
+    timeout: typing.Optional[builtins.int]
+    backoff: typing.Optional[BackoffConfig]
+    def __new__(
+        cls,
+        max_retries: typing.Optional[builtins.int] = None,
+        timeout: typing.Optional[builtins.int] = None,
+        backoff: typing.Optional[BackoffConfig] = None,
+    ) -> "RetryConfig": ...
+
+
+class Collection:
+    """Represents a collection in the TopK system."""
+    name: builtins.str
+    org_id: builtins.str
+    project_id: builtins.str
+    region: builtins.str
+    schema: builtins.dict[builtins.str, schema.FieldSpec]
+
+
+class CollectionClient:
+    """Synchronous client for collection operations."""
+
+    def get(
+        self,
+        ids: typing.Sequence[builtins.str],
+        fields: typing.Optional[typing.Sequence[builtins.str]] = None,
+        lsn: typing.Optional[builtins.str] = None,
+        consistency: typing.Optional[ConsistencyLevel] = None,
+    ) -> builtins.dict[builtins.str, builtins.dict[builtins.str, typing.Any]]:
+        """Get documents by their IDs.
+        """
+        ...
+    def count(
+        self,
+        lsn: typing.Optional[builtins.str] = None,
+        consistency: typing.Optional[ConsistencyLevel] = None,
+    ) -> builtins.int:
+        """Get the count of documents in the collection.
+        """
+        ...
+    def query(
+        self,
+        query: query.Query,
+        lsn: typing.Optional[builtins.str] = None,
+        consistency: typing.Optional[ConsistencyLevel] = None,
+    ) -> builtins.list[builtins.dict[builtins.str, typing.Any]]:
+        """Execute a query against the collection.
+        """
+        ...
+    def upsert(
+        self, documents: typing.Sequence[typing.Mapping[builtins.str, typing.Any]]
+    ) -> builtins.str:
+        """Insert or update documents in the collection.
+        """
+        ...
+    def delete(self, ids: typing.Sequence[builtins.str]) -> builtins.str:
+        """Delete documents by their IDs.
+        """
+        ...
+
+
+class AsyncCollectionClient:
+    """Asynchronous client for collection operations."""
+
+    def get(
+        self,
+        ids: typing.Sequence[builtins.str],
+        fields: typing.Optional[typing.Sequence[builtins.str]] = None,
+        lsn: typing.Optional[builtins.str] = None,
+        consistency: typing.Optional[ConsistencyLevel] = None,
+    ) -> typing.Awaitable[builtins.dict[builtins.str, builtins.dict[builtins.str, typing.Any]]]:
+        """Get documents by their IDs asynchronously.
+        """
+        ...
+    def count(
+        self,
+        lsn: typing.Optional[builtins.str] = None,
+        consistency: typing.Optional[ConsistencyLevel] = None,
+    ) -> typing.Awaitable[builtins.int]:
+        """Get the count of documents in the collection asynchronously.
+        """
+        ...
+    def query(
+        self,
+        query: query.Query,
+        lsn: typing.Optional[builtins.str] = None,
+        consistency: typing.Optional[ConsistencyLevel] = None,
+    ) -> typing.Awaitable[builtins.list[builtins.dict[builtins.str, typing.Any]]]:
+        """Execute a query against the collection asynchronously.
+        """
+        ...
+    def upsert(
+        self, documents: typing.Sequence[typing.Mapping[builtins.str, typing.Any]]
+    ) -> typing.Awaitable[builtins.str]:
+        """Insert or update documents in the collection asynchronously.
+        """
+        ...
+    def delete(self, ids: typing.Sequence[builtins.str]) -> typing.Awaitable[builtins.str]:
+        """Delete documents by their IDs asynchronously.
+        """
+        ...
+
+
+class CollectionsClient:
+    """Synchronous client for managing collections."""
+
+    def get(self, collection_name: builtins.str) -> Collection:
+        """Get information about a specific collection.
+        """
+        ...
+    def list(self) -> builtins.list[Collection]:
+        """List all collections.
+        """
+        ...
+    def create(
+        self,
+        collection_name: builtins.str,
+        schema: typing.Mapping[builtins.str, schema.FieldSpec],
+    ) -> Collection:
+        """Create a new collection with the specified schema.
+        """
+        ...
+    def delete(self, collection_name: builtins.str) -> None:
+        """Delete a collection.
+        """
+        ...
+
+
+class AsyncCollectionsClient:
+    """Asynchronous client for managing collections."""
+
+    def get(self, collection_name: builtins.str) -> typing.Awaitable[Collection]:
+        """Get information about a specific collection asynchronously.
+        """
+        ...
+    def list(self) -> typing.Awaitable[builtins.list[Collection]]:
+        """List all collections asynchronously.
+        """
+        ...
+    def create(
+        self,
+        collection_name: builtins.str,
+        schema: typing.Mapping[builtins.str, schema.FieldSpec],
+    ) -> typing.Awaitable[Collection]:
+        """Create a new collection with the specified schema asynchronously.
+        """
+        ...
+    def delete(self, collection_name: builtins.str) -> typing.Awaitable[None]:
+        """Delete a collection asynchronously.
+        """
+        ...
+
+
+class Client:
+    """Synchronous client for interacting with the TopK API."""
+
+    """
+    The constructor.
+    """
+    def __init__(
+        self,
+        api_key: builtins.str,
+        region: builtins.str,
+        host: builtins.str = "topk.io",
+        https: builtins.bool = True,
+        retry_config: typing.Optional[RetryConfig] = None,
+    ) -> None: ...
+
+    def collection(self, collection: builtins.str) -> CollectionClient:
+        """Get a client for a specific collection.
+
+        :param collection: The collection.
+        :return: A client for the specific collection.
+        :rtype: CollectionClient
+        """
+        ...
+    def collections(self) -> CollectionsClient:
+        """Get a client for managing collections.
+
+        :return: A client for managing collections
+        :rtype: CollectionsClient
+        """
+        ...
+
+
+class AsyncClient:
+    """Asynchronous client for interacting with the TopK API."""
+
+    def __init__(
+        self,
+        api_key: builtins.str,
+        region: builtins.str,
+        host: builtins.str = "topk.io",
+        https: builtins.bool = True,
+        retry_config: typing.Optional[RetryConfig] = None,
+    ) -> None: ...
+    def collection(self, collection: builtins.str) -> AsyncCollectionClient:
+        """Get an async client for a specific collection.
+        """
+        ...
+    def collections(self) -> AsyncCollectionsClient:
+        """Get an async client for managing collections.
+        """
+        ...

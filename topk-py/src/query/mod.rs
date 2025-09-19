@@ -17,8 +17,6 @@ pub use query::{ConsistencyLevel, Query};
 mod stage;
 
 ////////////////////////////////////////////////////////////
-/// Query
-///
 /// This module contains the query definition for the TopK SDK.
 ////////////////////////////////////////////////////////////
 
@@ -26,6 +24,10 @@ mod stage;
 #[pyo3(name = "query")]
 pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     module!(m, "fn", fn_pymodule)?;
+
+    m.add_class::<Query>()?;
+    m.add_class::<LogicalExpr>()?;
+    m.add_class::<FunctionExpr>()?;
 
     m.add_wrapped(wrap_pyfunction!(select))?;
     m.add_wrapped(wrap_pyfunction!(filter))?;
@@ -38,6 +40,9 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(abs))?;
     m.add_wrapped(wrap_pyfunction!(all))?;
     m.add_wrapped(wrap_pyfunction!(any))?;
+
+    m.add("__path__", [""])?;
+
     Ok(())
 }
 
@@ -141,6 +146,8 @@ pub fn fn_pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(bm25_score))?;
     m.add_wrapped(wrap_pyfunction!(vector_distance))?;
     m.add_wrapped(wrap_pyfunction!(semantic_similarity))?;
+
+    m.add("__path__", vec![""])?;
 
     Ok(())
 }

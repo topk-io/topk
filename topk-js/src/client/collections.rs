@@ -26,7 +26,7 @@ pub struct CreateCollectionOptions {
     pub name: String,
     /// Schema definition for the collection fields
     #[napi(ts_type = "Record<string, schema.FieldSpec>")]
-    pub schema: HashMap<String, CollectionFieldSpec>,
+    pub schema: HashMap<String, FieldSpec>,
 }
 
 #[napi]

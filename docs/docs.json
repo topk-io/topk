@@ -9,9 +9,9 @@
   },
   "favicon": "/favicon.png",
   "navigation": {
-    "dropdowns": [
+    "tabs": [
       {
-        "dropdown": "Documentation",
+        "tab": "Documentation",
         "icon": "book-open",
         "pages": [
           {
@@ -60,7 +60,7 @@
         ]
       },
       {
-        "dropdown": "API Reference",
+        "tab": "API Reference",
         "icon": "square-terminal",
         "pages": [
           {

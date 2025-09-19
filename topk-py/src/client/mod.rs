@@ -43,7 +43,7 @@ impl From<HashMap<String, topk_rs::proto::v1::data::Value>> for Document {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(IntoPyObject, Debug, Clone)]
 pub struct RetryConfig {
     /// Maximum number of retries
     pub max_retries: Option<usize>,
@@ -99,7 +99,7 @@ impl Into<topk_rs::retry::RetryConfig> for RetryConfig {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(IntoPyObject, Debug, Clone)]
 pub struct BackoffConfig {
     /// Base for the backoff
     pub base: Option<u32>,
