@@ -4,6 +4,10 @@ use std::{ffi::CString, iter::zip, ptr};
 
 pub(crate) const TYPE_ERROR: &str = "Invalid sparse vector, must be `Record<number, number>`";
 
+/// @internal
+/// @hideconstructor
+/// Instances of the `SparseVector` class are used to represent sparse vectors in TopK.
+/// Usually created using data constructors such as [`f32_sparse_vector()`](#f32sparsevector) or [`u8_sparse_vector()`](#u8sparsevector).
 #[napi(namespace = "data")]
 #[derive(Debug, Clone)]
 pub struct SparseVector(pub(crate) SparseVectorUnion);
@@ -20,6 +24,7 @@ impl SparseVector {
 
 #[napi(namespace = "data")]
 impl SparseVector {
+    /// @ignore
     #[napi]
     pub fn to_string(&self) -> String {
         format!("SparseVector({:?})", self.0)

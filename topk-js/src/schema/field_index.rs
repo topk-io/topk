@@ -1,10 +1,13 @@
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
+/// @internal
+/// @hideconstructor
 #[napi(namespace = "schema")]
 #[derive(Clone, Debug)]
 pub struct FieldIndex(pub(crate) FieldIndexUnion);
 
+/// @ignore
 #[napi(namespace = "schema")]
 #[derive(Clone, Debug)]
 pub enum FieldIndexUnion {

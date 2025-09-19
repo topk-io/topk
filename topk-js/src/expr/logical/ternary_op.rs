@@ -1,5 +1,6 @@
 use napi_derive::napi;
 
+/// @ignore
 #[napi(string_enum = "camelCase", namespace = "query")]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TernaryOperator {

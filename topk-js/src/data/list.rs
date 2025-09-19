@@ -1,6 +1,10 @@
 use napi_derive::napi;
 use topk_rs::proto::v1::data::IntoListValues;
 
+/// @internal
+/// @hideconstructor
+/// Instances of the `List` class are used to represent lists of values in TopK.
+/// Usually created using data constructors such as [`f32_list()`](#f32list), [`i32_list()`](#i32list), etc.
 #[derive(Debug, Clone, PartialEq)]
 #[napi(namespace = "data")]
 pub struct List {
@@ -19,8 +23,10 @@ pub enum Values {
     String(Vec<String>),
 }
 
+/// @internal
 #[napi(namespace = "data")]
 impl List {
+    /// @ignore
     #[napi]
     pub fn to_string(&self) -> String {
         format!("List({:?})", self.values)
