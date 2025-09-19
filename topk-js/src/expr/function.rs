@@ -2,6 +2,8 @@ use napi_derive::napi;
 
 use crate::data::Value;
 
+/// @internal
+/// @hideconstructor
 #[napi(namespace = "query")]
 #[derive(Debug, Clone)]
 pub struct FunctionExpression(pub(crate) FunctionExpressionUnion);

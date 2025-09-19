@@ -10,6 +10,7 @@ pub struct VectorDistanceOptions {
     pub skip_refine: Option<bool>,
 }
 
+/// Computes the vector distance between a field and a query vector.
 #[napi(namespace = "query_fn", ts_return_type = "query.FunctionExpression")]
 pub fn vector_distance(
     field: String,
@@ -35,11 +36,13 @@ pub fn vector_distance(
     }
 }
 
+/// Computes the BM25 score for a keyword search.
 #[napi(namespace = "query_fn", ts_return_type = "query.FunctionExpression")]
 pub fn bm25_score() -> FunctionExpression {
     FunctionExpression(FunctionExpressionUnion::KeywordScore)
 }
 
+/// Computes the semantic similarity between a field and a query string.
 #[napi(namespace = "query_fn", ts_return_type = "query.FunctionExpression")]
 pub fn semantic_similarity(field: String, query: String) -> FunctionExpression {
     FunctionExpression(FunctionExpressionUnion::SemanticSimilarity { field, query })

@@ -7,6 +7,12 @@ use napi_derive::napi;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+/// Client for interacting with a specific collection.
+///
+/// This client provides methods to perform operations on a specific collection,
+/// including querying, upserting, and deleting documents.
+/// @internal
+/// @hideconstructor
 #[napi]
 pub struct CollectionClient {
     /// Name of the collection
@@ -15,19 +21,29 @@ pub struct CollectionClient {
     client: Arc<topk_rs::Client>,
 }
 
+/// Options for query operations.
+///
+/// These options control the behavior of query operations, including consistency
+/// guarantees and sequence number constraints.
 #[napi(object)]
 #[derive(Debug, Clone, Default)]
 pub struct QueryOptions {
-    /// Last sequence number to query at
+    /// Last sequence number to query at (for consistency)
     pub lsn: Option<String>,
-    /// Consistency level
+    /// Consistency level for the query
     pub consistency: Option<ConsistencyLevel>,
 }
 
+/// Consistency levels for query operations.
+///
+/// - `Indexed`: Query returns results as soon as they are indexed (faster, eventual consistency)
+/// - `Strong`: Query waits for all replicas to be consistent (slower, strong consistency)
 #[napi(string_enum = "camelCase")]
 #[derive(Debug, Clone, Copy)]
 pub enum ConsistencyLevel {
+    /// Indexed consistency - faster, eventual consistency
     Indexed,
+    /// Strong consistency - slower, waits for all replicas
     Strong,
 }
 
@@ -46,6 +62,7 @@ impl CollectionClient {
         Self { client, collection }
     }
 
+    /// Retrieves documents by their IDs.
     #[napi(ts_return_type = "Promise<Record<string, Record<string, any>>>")]
     pub async fn get(
         &self,
@@ -73,6 +90,7 @@ impl CollectionClient {
             .collect())
     }
 
+    /// Counts the number of documents in the collection.
     #[napi]
     pub async fn count(&self, options: Option<QueryOptions>) -> Result<u32> {
         let options = options.unwrap_or_default();
@@ -87,6 +105,7 @@ impl CollectionClient {
         Ok(count as u32)
     }
 
+    /// Executes a query against the collection.
     #[napi(ts_return_type = "Promise<Array<Record<string, any>>>")]
     pub async fn query(
         &self,
@@ -112,6 +131,7 @@ impl CollectionClient {
             .collect())
     }
 
+    /// Inserts or updates documents in the collection.
     #[napi]
     pub async fn upsert(&self, docs: Vec<HashMap<String, Value>>) -> Result<String> {
         let documents = docs
@@ -131,6 +151,7 @@ impl CollectionClient {
         Ok(lsn)
     }
 
+    /// Deletes documents from the collection by their IDs.
     #[napi]
     pub async fn delete(&self, ids: Vec<String>) -> Result<String> {
         let lsn = self

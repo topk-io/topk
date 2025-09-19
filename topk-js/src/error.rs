@@ -1,3 +1,7 @@
+/// Represents an error that occurred in the TopK SDK.
+///
+/// This struct wraps errors from the underlying topk-rs library and provides
+/// appropriate error handling for the JavaScript/TypeScript interface.
 #[derive(Debug)]
 pub struct TopkError(topk_rs::Error);
 

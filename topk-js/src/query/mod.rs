@@ -14,6 +14,7 @@ use crate::{
 use napi_derive::napi;
 use std::collections::HashMap;
 
+/// Creates a select query stage.
 #[napi(namespace = "query")]
 pub fn select(
     #[napi(ts_arg_type = "Record<string, LogicalExpression | FunctionExpression>")] exprs: HashMap<
@@ -28,6 +29,7 @@ pub fn select(
     }
 }
 
+/// Creates a filter query stage.
 #[napi(namespace = "query")]
 pub fn filter(
     #[napi(ts_arg_type = "LogicalExpression | TextExpression")] expr: FilterExpression,
@@ -37,11 +39,13 @@ pub fn filter(
     }
 }
 
+/// Creates a field reference expression.
 #[napi(namespace = "query")]
 pub fn field(name: String) -> LogicalExpression {
     LogicalExpression::field(name)
 }
 
+/// Creates a literal value expression.
 #[napi(namespace = "query")]
 pub fn literal(
     #[napi(ts_arg_type = "number | string | string[] | number[] | boolean | data.List")]
@@ -60,6 +64,7 @@ pub fn literal(
     }
 }
 
+/// Creates a logical NOT expression.
 #[napi(js_name = "not", namespace = "query")]
 pub fn not(expr: &'static LogicalExpression) -> LogicalExpression {
     LogicalExpression::unary(UnaryOperator::Not, expr.clone())
@@ -77,6 +82,7 @@ pub fn any(exprs: Vec<&'static LogicalExpression>) -> LogicalExpression {
     LogicalExpression::nary(NaryOp::Any, exprs.into_iter().map(|e| e.clone()).collect())
 }
 
+/// Creates a MIN expression that returns the smaller of two values.
 #[napi(js_name = "min", namespace = "query")]
 pub fn min(
     #[napi(ts_arg_type = "LogicalExpression | number | string")] left: Ordered,
@@ -85,6 +91,7 @@ pub fn min(
     LogicalExpression::binary(BinaryOperator::Min, left.into(), right.into())
 }
 
+/// Creates a MAX expression that returns the larger of two values.
 #[napi(js_name = "max", namespace = "query")]
 pub fn max(
     #[napi(ts_arg_type = "LogicalExpression | number | string")] left: Ordered,
@@ -93,6 +100,7 @@ pub fn max(
     LogicalExpression::binary(BinaryOperator::Max, left.into(), right.into())
 }
 
+/// Creates an absolute value expression.
 #[napi(js_name = "abs", namespace = "query")]
 pub fn abs(expr: &'static LogicalExpression) -> LogicalExpression {
     LogicalExpression::unary(UnaryOperator::Abs, expr.clone())
