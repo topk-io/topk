@@ -4,7 +4,7 @@
   "tsconfig": "tsconfig.json",
   "plugin": ["typedoc-plugin-markdown", "typedoc-plugin-frontmatter", "./typedoc/custom-frontmatter-plugin.mjs"],
   "readme": "none",
-  "out": "../docs/api",
+  "out": "../docs/sdk/topk-js",
   "router": "module",
   "groupOrder": [
     "Variables", "Functions", "*"

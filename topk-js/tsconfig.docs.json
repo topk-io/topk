@@ -2,9 +2,9 @@
   "compilerOptions": {
     "strict": true,
     "skipLibCheck": true,
-    "types": [],                // <- opt out of auto-included @types/*
+    "types": [],
     "moduleResolution": "bundler",
     "module": "es2015"
   },
-  "include": ["index.d.ts"]     // <- only your entry file
+  "include": ["index.d.ts"]
 }

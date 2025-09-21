@@ -9,48 +9,80 @@
   },
   "favicon": "/favicon.png",
   "navigation": {
-    "groups": [
+    "tabs": [
       {
-        "group": "Get Started",
+        "tab": "Documentation",
+        "icon": "book-open",
         "pages": [
-          "introduction",
-          "installation",
-          "regions",
-          "quickstart"
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "regions",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "concepts/semantic-search",
+              "concepts/vector-search",
+              "concepts/sparse-vector-search",
+              "concepts/multi-vector-search",
+              "concepts/keyword-search",
+              "concepts/true-hybrid-search",
+              "concepts/reranking",
+              "concepts/consistency",
+              "concepts/multi-tenancy",
+              "concepts/async-await"
+            ]
+          },
+          {
+            "group": "Document API",
+            "pages": [
+              "documents/upsert",
+              "documents/query",
+              "documents/get",
+              "documents/delete",
+              "documents/data-constructors"
+            ]
+          },
+          {
+            "group": "Collection API",
+            "pages": [
+              "collections/create",
+              "collections/list",
+              "collections/get",
+              "collections/delete"
+            ]
+          }
         ]
       },
       {
-        "group": "Guides",
+        "tab": "SDK Reference",
+        "icon": "square-terminal",
         "pages": [
-          "concepts/semantic-search",
-          "concepts/vector-search",
-          "concepts/sparse-vector-search",
-          "concepts/multi-vector-search",
-          "concepts/keyword-search",
-          "concepts/true-hybrid-search",
-          "concepts/reranking",
-          "concepts/consistency",
-          "concepts/multi-tenancy",
-          "concepts/async-await"
-        ]
-      },
-      {
-        "group": "Document API",
-        "pages": [
-          "documents/upsert",
-          "documents/query",
-          "documents/get",
-          "documents/delete",
-          "documents/data-constructors"
-        ]
-      },
-      {
-        "group": "Collection API",
-        "pages": [
-          "collections/create",
-          "collections/list",
-          "collections/get",
-          "collections/delete"
+          {
+            "group": "Python",
+            "pages": [
+              "sdk/topk-py/index",
+              "sdk/topk-py/data",
+              "sdk/topk-py/error",
+              "sdk/topk-py/query",
+              "sdk/topk-py/schema"
+            ]
+          },
+          {
+            "group": "JavaScript",
+            "pages": [
+              "sdk/topk-js/index",
+              "sdk/topk-js/topk-js/namespaces/data",
+              "sdk/topk-js/topk-js/namespaces/query_fn",
+              "sdk/topk-js/topk-js/namespaces/query",
+              "sdk/topk-js/topk-js/namespaces/schema"
+            ]
+          }
         ]
       }
     ]
