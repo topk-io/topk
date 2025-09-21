@@ -27,6 +27,10 @@ mod stage;
 pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     module!(m, "fn", fn_pymodule)?;
 
+    m.add_class::<Query>()?;
+    m.add_class::<LogicalExpr>()?;
+    m.add_class::<FunctionExpr>()?;
+
     m.add_wrapped(wrap_pyfunction!(select))?;
     m.add_wrapped(wrap_pyfunction!(filter))?;
     m.add_wrapped(wrap_pyfunction!(field))?;
@@ -38,6 +42,7 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(abs))?;
     m.add_wrapped(wrap_pyfunction!(all))?;
     m.add_wrapped(wrap_pyfunction!(any))?;
+
     Ok(())
 }
 

@@ -6,7 +6,7 @@ build-backend = "maturin"
 name = "topk_sdk"
 description = "Python SDK for topk.io"
 readme = "README.md"
-keywords = ["topk", "search", "vector", "search", "keyword", "bm25"]
+keywords = ["topk", "search", "vector", "keyword", "bm25"]
 license = { file = "LICENSE" }
 requires-python = ">=3.9"
 classifiers = [

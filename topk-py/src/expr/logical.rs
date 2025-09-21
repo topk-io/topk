@@ -1,6 +1,6 @@
 use crate::data::scalar::Scalar;
 use crate::expr::flexible::FlexibleExpr;
-use crate::expr::flexible::{Boolish, Iterable, Numeric, Stringy, StringyWithList, Ordered};
+use crate::expr::flexible::{Boolish, Iterable, Numeric, Ordered, Stringy, StringyWithList};
 use pyo3::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
