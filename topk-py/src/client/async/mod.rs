@@ -2,13 +2,13 @@ use std::sync::Arc;
 
 use pyo3::{prelude::*, PyResult};
 
-use crate::client::{
-    r#async::{collection::AsyncCollectionClient, collections::AsyncCollectionsClient},
-    topk_client, RetryConfig,
-};
+use crate::client::{topk_client, RetryConfig};
 
 mod collection;
 mod collections;
+
+pub use collection::AsyncCollectionClient;
+pub use collections::AsyncCollectionsClient;
 
 #[pyclass]
 pub struct AsyncClient {

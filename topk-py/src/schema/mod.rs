@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use pyo3::prelude::*;
 use topk_rs::proto::v1::control::FieldSpec as FieldSpecPb;
 
-use crate::schema::field_spec::FieldSpec;
+use crate::schema::{field_index::FieldIndex, field_spec::FieldSpec};
 
 pub mod data_type;
 pub mod field_index;
@@ -18,6 +18,10 @@ pub mod field_spec;
 #[pymodule]
 #[pyo3(name = "schema")]
 pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    // classes
+    m.add_class::<FieldSpec>()?;
+    m.add_class::<FieldIndex>()?;
+
     // data types
     m.add_wrapped(wrap_pyfunction!(text))?;
     m.add_wrapped(wrap_pyfunction!(int))?;
