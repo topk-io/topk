@@ -11,6 +11,7 @@
   ],
   "entryFileName": "index",
   "fileExtension": ".mdx",
+  "flattenOutputFiles": true,
   "hidePageHeader": true,
   "hidePageTitle": true,
   "parametersFormat": "table",

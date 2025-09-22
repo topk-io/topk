@@ -1,0 +1,1175 @@
+---
+title: topk_sdk.query
+---
+
+## Classes
+
+### LogicalExpr
+
+*Internal*
+
+    Instances of the `LogicalExpr` class are used to represent logical expressions in TopK.
+    Usually created using logical constructors such as [`field()`](#field), [`literal()`](#literal), etc.
+
+**Methods**
+
+#### is\_null()
+
+```python
+is_null(self) -> LogicalExpr
+```
+
+Check if the expression is null.
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### is\_not\_null()
+
+```python
+is_not_null(self) -> LogicalExpr
+```
+
+Check if the expression is not null.
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### abs()
+
+```python
+abs(self) -> LogicalExpr
+```
+
+Compute the absolute value of the expression.
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### ln()
+
+```python
+ln(self) -> LogicalExpr
+```
+
+Compute the natural logarithm of the expression.
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### exp()
+
+```python
+exp(self) -> LogicalExpr
+```
+
+Compute the exponential of the expression.
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### sqrt()
+
+```python
+sqrt(self) -> LogicalExpr
+```
+
+Compute the square root of the expression.
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### square()
+
+```python
+square(self) -> LogicalExpr
+```
+
+Compute the square of the expression.
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### eq()
+
+```python
+eq(self, other: FlexibleExpr) -> LogicalExpr
+```
+
+Check if the expression is equal to another expression.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`FlexibleExpr`](#flexibleexpr) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### ne()
+
+```python
+ne(self, other: FlexibleExpr) -> LogicalExpr
+```
+
+Check if the expression is not equal to another expression.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`FlexibleExpr`](#flexibleexpr) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### lt()
+
+```python
+lt(self, other: Ordered) -> LogicalExpr
+```
+
+Check if the expression is less than another expression.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Ordered`](#ordered) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### lte()
+
+```python
+lte(self, other: Ordered) -> LogicalExpr
+```
+
+Check if the expression is less than or equal to another expression.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Ordered`](#ordered) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### gt()
+
+```python
+gt(self, other: Ordered) -> LogicalExpr
+```
+
+Check if the expression is greater than another expression.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Ordered`](#ordered) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### gte()
+
+```python
+gte(self, other: Ordered) -> LogicalExpr
+```
+
+Check if the expression is greater than or equal to another expression.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Ordered`](#ordered) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### add()
+
+```python
+add(self, other: Numeric) -> LogicalExpr
+```
+
+Add another value to the expression.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Numeric`](#numeric) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### sub()
+
+```python
+sub(self, other: Numeric) -> LogicalExpr
+```
+
+Subtract another value from the expression.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Numeric`](#numeric) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### mul()
+
+```python
+mul(self, other: Numeric) -> LogicalExpr
+```
+
+Multiply the expression by another value.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Numeric`](#numeric) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### div()
+
+```python
+div(self, other: Numeric) -> LogicalExpr
+```
+
+Divide the expression by another value.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Numeric`](#numeric) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### min()
+
+```python
+min(self, other: Ordered) -> LogicalExpr
+```
+
+Compute the minimum of the expression and another value.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Ordered`](#ordered) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### max()
+
+```python
+max(self, other: Ordered) -> LogicalExpr
+```
+
+Compute the maximum of the expression and another value.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Ordered`](#ordered) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### and\_()
+
+```python
+and_(self, other: Boolish) -> LogicalExpr
+```
+
+Compute the logical AND of the expression and another expression.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Boolish`](#boolish) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### or\_()
+
+```python
+or_(self, other: Boolish) -> LogicalExpr
+```
+
+Compute the logical OR of the expression and another expression.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Boolish`](#boolish) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### starts\_with()
+
+```python
+starts_with(self, other: Stringy) -> LogicalExpr
+```
+
+Check if the expression starts with the provided string expression.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Stringy`](#stringy) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### contains()
+
+```python
+contains(self, other: FlexibleExpr) -> LogicalExpr
+```
+
+Check if the expression contains another value.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`FlexibleExpr`](#flexibleexpr) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### in\_()
+
+```python
+in_(self, other: Iterable) -> LogicalExpr
+```
+
+Check if the expression is in the provided iterable expression.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Iterable`](#iterable) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### match\_all()
+
+```python
+match_all(self, other: StringyWithList) -> LogicalExpr
+```
+
+Check if the expression matches all terms against the field with keyword index.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`StringyWithList`](#stringywithlist) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### match\_any()
+
+```python
+match_any(self, other: StringyWithList) -> LogicalExpr
+```
+
+Check if the expression matches any term against the field with keyword index.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`StringyWithList`](#stringywithlist) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### coalesce()
+
+```python
+coalesce(self, other: Numeric) -> LogicalExpr
+```
+
+Coalesce nulls in the expression with another value.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Numeric`](#numeric) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### choose()
+
+```python
+choose(self, x: FlexibleExpr, y: FlexibleExpr) -> LogicalExpr
+```
+
+Choose between two values based on the expression.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `x` | [`FlexibleExpr`](#flexibleexpr) |
+| `y` | [`FlexibleExpr`](#flexibleexpr) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### boost()
+
+```python
+boost(self, condition: FlexibleExpr, boost: Numeric) -> LogicalExpr
+```
+
+Multiply the scoring expression by the provided `boost` value if the `condition` is true.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `condition` | [`FlexibleExpr`](#flexibleexpr) |
+| `boost` | [`Numeric`](#numeric) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+### FunctionExpr
+
+*Internal*
+
+    Instances of the `FunctionExpr` class are used to represent function expressions in TopK.
+    Usually created using function constructors such as [`fn.vector_distance()`](#vector_distance), [`fn.semantic_similarity()`](#semantic_similarity) or [`fn.bm25_score()`](#bm25_score).
+
+### TextExpr
+
+*Internal*
+
+    Instances of the `TextExpr` class are used to represent text expressions in TopK.
+
+### Query
+
+**Methods**
+
+#### select()
+
+```python
+select(self) -> Query
+```
+
+**Returns**
+
+[`Query`](#query)
+
+***
+
+#### filter()
+
+```python
+filter(self, expr: LogicalExpr | TextExpr) -> Query
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `expr` | [`LogicalExpr`](#logicalexpr) | [`TextExpr`](#textexpr) |
+
+**Returns**
+
+[`Query`](#query)
+
+***
+
+#### topk()
+
+```python
+topk(self, expr: LogicalExpr, k: int, asc: bool = False) -> Query
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `expr` | [`LogicalExpr`](#logicalexpr) |
+| `k` | int |
+| `asc` | bool |
+
+**Returns**
+
+[`Query`](#query)
+
+***
+
+#### rerank()
+
+```python
+rerank(
+   self,
+   model: Optional[str] = None,
+   query: Optional[str] = None,
+   fields: Sequence[str] = ...,
+   topk_multiple: Optional[int] = None
+)
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `model` | Optional[str] |
+| `query` | Optional[str] |
+| `fields` | Sequence[str] |
+| `topk_multiple` | Optional[int] |
+
+**Returns**
+
+[`Query`](#query)
+
+***
+
+#### count()
+
+```python
+count(self) -> Query
+```
+
+**Returns**
+
+[`Query`](#query)
+
+***
+
+### fn
+
+The `query.fn` submodule exposes functions for creating function expressions such as [`fn.vector_distance()`](#vector_distance), [`fn.semantic_similarity()`](#semantic_similarity) or [`fn.bm25_score()`](#bm25_score).
+
+**Methods**
+
+#### vector\_distance()
+
+```python
+vector_distance(
+   field: str,
+   vector: list[int] | list[float] | dict[int, float] | dict[int, int] | topk_sdk.data.SparseVector | topk_sdk.data.List,
+   skip_refine: bool = False
+)
+```
+
+Calculate the vector distance between a field and a query vector.
+
+        ```python
+        # Example:
+
+        from topk_sdk.query import field, fn, select
+
+        client.collection("books").query(
+          select(
+            "title",
+            title_similarity=fn.vector_distance(
+              "title_embedding",
+              [0.1, 0.2, 0.3, ...] # embedding for "animal"
+            )
+          )
+          .topk(field("title_similarity"), 10)
+        )
+        ```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `field` | str |
+| `vector` | list[int] | list[float] | dict[int, float] | dict[int, int] | [`topk_sdk.data.SparseVector`](/sdk/topk-py/data#sparsevector) | [`topk_sdk.data.List`](/sdk/topk-py/data#list) |
+| `skip_refine` | bool |
+
+**Returns**
+
+[`FunctionExpr`](#functionexpr)
+
+***
+
+#### semantic\_similarity()
+
+```python
+semantic_similarity(field: str, query: str) -> FunctionExpr
+```
+
+Calculate the semantic similarity between a field and a query string.
+
+        ```python
+        # Example:
+
+        from topk_sdk.query import field, fn, select
+
+        client.collection("books").query(
+          select(
+            "title",
+            title_similarity=fn.semantic_similarity("title", "animal")
+          )
+          .topk(field("title_similarity"), 10)
+        )
+        ```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `field` | str |
+| `query` | str |
+
+**Returns**
+
+[`FunctionExpr`](#functionexpr)
+
+***
+
+#### bm25\_score()
+
+```python
+bm25_score() -> FunctionExpr
+```
+
+Calculate the BM25 score for a keyword search.
+
+        ```python
+        # Example:
+
+        from topk_sdk.query import field, fn, select
+
+        client.collection("books").query(
+          select(
+            "title",
+            text_score=fn.bm25_score()
+          )
+          .filter(match("animal"))
+          .topk(field("text_score"), 10)
+        )
+        ```
+
+**Returns**
+
+[`FunctionExpr`](#functionexpr)
+
+***
+
+## Functions
+
+### field()
+
+```python
+field(name: str) -> LogicalExpr
+```
+
+Select a field from the document.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `name` | str |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+### select()
+
+```python
+select() -> Query
+```
+
+# Example:
+
+    Create a select stage of a query.
+
+    ```python
+    # Example:
+
+    from topk_sdk.query import select, field
+
+    client.collection("books").query(
+      select("title", year=field("published_year"))
+    )
+    ```
+
+**Returns**
+
+[`Query`](#query)
+
+***
+
+### filter()
+
+```python
+filter(expr: LogicalExpr | TextExpr) -> Query
+```
+
+Create a filter stage of a query.
+
+    ```python
+    # Example:
+
+    from topk_sdk.query import filter, field
+
+    client.collection("books").query(
+      filter(field("published_year") > 1980)
+    )
+    ```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `expr` | [`LogicalExpr`](#logicalexpr) | [`TextExpr`](#textexpr) |
+
+**Returns**
+
+[`Query`](#query)
+
+***
+
+### literal()
+
+```python
+literal(value: Any) -> LogicalExpr
+```
+
+Create a literal expression.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `value` | Any |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+### match()
+
+```python
+match(token: str, field: str | None = None, weight: float = 1.0, all: bool = False) -> LogicalExpr
+```
+
+Perform a keyword search for documents that contain specific keywords or phrases.
+
+    This function should be used in the filter stage of a query. You can configure
+    the match() function to:
+    - Match on multiple terms
+    - Match only on specific fields
+    - Use weights to prioritize certain terms
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `token` | str |
+| `field` | str | None |
+| `weight` | float |
+| `all` | bool |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+### not_()
+
+```python
+not_(expr: LogicalExpr) -> LogicalExpr
+```
+
+Negate a logical expression.
+
+    ```python
+    # Example:
+
+    from topk_sdk.query import field, not_
+
+    .filter(
+        not_(field("title").contains("Catcher"))
+    )
+    ```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `expr` | [`LogicalExpr`](#logicalexpr) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+### abs()
+
+```python
+abs(expr: LogicalExpr) -> LogicalExpr
+```
+
+Compute the absolute value of a logical expression.
+
+    ```python
+    # Example:
+
+    from topk_sdk.query import field, abs
+
+    client.collection("books").query(
+      filter(abs(field("rating")) > 4.5)
+    )
+    ```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `expr` | [`LogicalExpr`](#logicalexpr) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+### all()
+
+```python
+all(exprs: Sequence[LogicalExpr]) -> LogicalExpr
+```
+
+Create a logical AND expression.
+
+    ```python
+    # Example:
+
+    from topk_sdk.query import field, all
+
+    client.collection("books").query(
+      filter(all([
+        field("published_year") >= 1900,
+        field("published_year") <= 2000,
+        field("title").is_not_null()
+      ]))
+    )
+    ```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `exprs` | Sequence[[`LogicalExpr`](#logicalexpr)] |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+### any()
+
+```python
+any(exprs: Sequence[LogicalExpr]) -> LogicalExpr
+```
+
+Create a logical OR expression.
+
+    ```python
+    # Example:
+
+    from topk_sdk.query import field, any
+
+    client.collection("books").query(
+      filter(any([
+        field("genre") == "fiction",
+        field("genre") == "mystery",
+        field("genre") == "thriller"
+      ]))
+    )
+    ```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `exprs` | Sequence[[`LogicalExpr`](#logicalexpr)] |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+### min()
+
+```python
+min(left: Ordered, right: Ordered) -> LogicalExpr
+```
+
+Create a logical MIN expression.
+
+    ```python
+    # Example:
+
+    from topk_sdk.query import field, min
+
+    client.collection("books").query(
+      filter(min(field("rating"), field("published_year")))
+    )
+    ```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `left` | [`Ordered`](#ordered) |
+| `right` | [`Ordered`](#ordered) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+### max()
+
+```python
+max(left: Ordered, right: Ordered) -> LogicalExpr
+```
+
+Create a logical MAX expression.
+
+    ```python
+    from topk_sdk.query import field, max
+
+    client.collection("books").query(
+      filter(max(field("rating"), field("published_year")))
+    )
+    ```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `left` | [`Ordered`](#ordered) |
+| `right` | [`Ordered`](#ordered) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+## Type Aliases
+
+### FlexibleExpr
+
+```python
+FlexibleExpr = str | int | float | bool | None | LogicalExpr
+```
+
+**Type**
+
+str | int | float | bool | None | [`LogicalExpr`](#logicalexpr)
+
+***
+
+### Numeric
+
+```python
+Numeric = int | float | LogicalExpr
+```
+
+**Type**
+
+int | float | [`LogicalExpr`](#logicalexpr)
+
+***
+
+### Ordered
+
+```python
+Ordered = int | float | str | LogicalExpr
+```
+
+**Type**
+
+int | float | str | [`LogicalExpr`](#logicalexpr)
+
+***
+
+### Boolish
+
+```python
+Boolish = bool | LogicalExpr
+```
+
+**Type**
+
+bool | [`LogicalExpr`](#logicalexpr)
+
+***
+
+### Stringy
+
+```python
+Stringy = str | LogicalExpr
+```
+
+**Type**
+
+str | [`LogicalExpr`](#logicalexpr)
+
+***
+
+### StringyWithList
+
+```python
+StringyWithList = str | list[str] | LogicalExpr
+```
+
+**Type**
+
+str | list[str] | [`LogicalExpr`](#logicalexpr)
+
+***
+
+### Iterable
+
+```python
+Iterable = str | list[int] | list[float] | list[str] | topk_sdk.data.List | LogicalExpr
+```
+
+**Type**
+
+str | list[int] | list[float] | list[str] | [`topk_sdk.data.List`](/sdk/topk-py/data#list) | [`LogicalExpr`](#logicalexpr)
+
+***
+

@@ -77,10 +77,10 @@
             "group": "JavaScript",
             "pages": [
               "sdk/topk-js/index",
-              "sdk/topk-js/topk-js/namespaces/data",
-              "sdk/topk-js/topk-js/namespaces/query_fn",
-              "sdk/topk-js/topk-js/namespaces/query",
-              "sdk/topk-js/topk-js/namespaces/schema"
+              "sdk/topk-js/Namespace.data",
+              "sdk/topk-js/Namespace.query_fn",
+              "sdk/topk-js/Namespace.query",
+              "sdk/topk-js/Namespace.schema"
             ]
           }
         ]

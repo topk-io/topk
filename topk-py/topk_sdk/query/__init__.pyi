@@ -305,6 +305,12 @@ class FunctionExpr:
     ...
 
 class TextExpr(Enum):
+    """
+    *Internal*
+
+    Instances of the `TextExpr` class are used to represent text expressions in TopK.
+    """
+
     def __and__(self, other: TextExpr) -> TextExpr:
         """
         Combine the expression with another text expression using the `&` operator.
@@ -378,8 +384,6 @@ def select(
 
 def filter(expr: LogicalExpr | TextExpr) -> Query:
     """
-    # Example:
-
     Create a filter stage of a query.
 
     ```python

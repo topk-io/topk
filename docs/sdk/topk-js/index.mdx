@@ -1,0 +1,449 @@
+---
+title: topk-js
+---
+
+## Classes
+
+### Client
+
+Defined in: [index.d.ts:9](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L9)
+
+The main TopK client for interacting with the TopK service.
+
+This client provides access to collections and allows you to perform various operations
+like creating collections, querying data, and managing documents.
+
+**Constructors**
+
+**Constructor**
+
+```ts
+new Client(config): Client;
+```
+
+Defined in: [index.d.ts:11](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L11)
+
+Creates a new TopK client with the provided configuration.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `config` | [`ClientConfig`](#clientconfig) |
+
+**Returns**
+
+[`Client`](#client)
+
+**Methods**
+
+##### collection()
+
+```ts
+collection(name): CollectionClient;
+```
+
+Defined in: [index.d.ts:20](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L20)
+
+Returns a client for interacting with a specific collection.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `name` | `string` |
+
+**Returns**
+
+[`CollectionClient`](#collectionclient)
+
+##### collections()
+
+```ts
+collections(): CollectionsClient;
+```
+
+Defined in: [index.d.ts:18](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L18)
+
+Returns a client for managing collections.
+
+This method provides access to collection management operations like creating,
+listing, and deleting collections.
+
+**Returns**
+
+[`CollectionsClient`](#collectionsclient)
+
+***
+
+### CollectionClient
+
+Defined in: [index.d.ts:31](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L31)
+
+**`Internal`**
+
+Client for interacting with a specific collection.
+
+This client provides methods to perform operations on a specific collection,
+including querying, upserting, and deleting documents.
+
+**Methods**
+
+##### count()
+
+```ts
+count(options?): Promise<number>;
+```
+
+Defined in: [index.d.ts:35](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L35)
+
+Counts the number of documents in the collection.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `options?` | [`QueryOptions`](#queryoptions) |
+
+**Returns**
+
+`Promise`\<`number`\>
+
+##### delete()
+
+```ts
+delete(ids): Promise<string>;
+```
+
+Defined in: [index.d.ts:41](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L41)
+
+Deletes documents from the collection by their IDs.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `ids` | `string`[] |
+
+**Returns**
+
+`Promise`\<`string`\>
+
+##### get()
+
+```ts
+get(
+   ids, 
+   fields?, 
+options?): Promise<Record<string, Record<string, any>>>;
+```
+
+Defined in: [index.d.ts:33](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L33)
+
+Retrieves documents by their IDs.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `ids` | `string`[] |
+| `fields?` | `string`[] |
+| `options?` | [`QueryOptions`](#queryoptions) |
+
+**Returns**
+
+`Promise`\<`Record`\<`string`, `Record`\<`string`, `any`\>\>\>
+
+##### query()
+
+```ts
+query(query, options?): Promise<Record<string, any>[]>;
+```
+
+Defined in: [index.d.ts:37](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L37)
+
+Executes a query against the collection.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `query` | [`Query`](Namespace.query#query) |
+| `options?` | [`QueryOptions`](#queryoptions) |
+
+**Returns**
+
+`Promise`\<`Record`\<`string`, `any`\>[]\>
+
+##### upsert()
+
+```ts
+upsert(docs): Promise<string>;
+```
+
+Defined in: [index.d.ts:39](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L39)
+
+Inserts or updates documents in the collection.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `docs` | `Record`\<`string`, `any`\>[] |
+
+**Returns**
+
+`Promise`\<`string`\>
+
+***
+
+### CollectionsClient
+
+Defined in: [index.d.ts:51](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L51)
+
+**`Internal`**
+
+Client for managing collections.
+
+This client provides methods to create, list, get, and delete collections.
+
+**Methods**
+
+##### create()
+
+```ts
+create(name, schema): Promise<Collection>;
+```
+
+Defined in: [index.d.ts:55](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L55)
+
+Creates a new collection with the specified schema.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `name` | `string` |
+| `schema` | `Record`\<`string`, [`FieldSpec`](Namespace.schema#fieldspec)\> |
+
+**Returns**
+
+`Promise`\<[`Collection`](#collection-2)\>
+
+##### delete()
+
+```ts
+delete(name): Promise<void>;
+```
+
+Defined in: [index.d.ts:65](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L65)
+
+Deletes a collection and all its data.
+
+<Warning>
+  This operation is irreversible and will permanently delete all data in the collection.
+</Warning>
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `name` | `string` |
+
+**Returns**
+
+`Promise`\<`void`\>
+
+##### get()
+
+```ts
+get(name): Promise<Collection>;
+```
+
+Defined in: [index.d.ts:57](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L57)
+
+Retrieves information about a specific collection.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `name` | `string` |
+
+**Returns**
+
+`Promise`\<[`Collection`](#collection-2)\>
+
+##### list()
+
+```ts
+list(): Promise<Collection[]>;
+```
+
+Defined in: [index.d.ts:53](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L53)
+
+Lists all collections in the current project.
+
+**Returns**
+
+`Promise`\<[`Collection`](#collection-2)[]\>
+
+## Interfaces
+
+### BackoffConfig
+
+Defined in: [index.d.ts:74](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L74)
+
+Configuration for exponential backoff between retry attempts.
+
+This struct controls how the delay between retry attempts increases over time.
+All fields are optional and will use sensible defaults if not provided.
+
+**Properties**
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="base"></a> `base?` | `number` | Base multiplier for exponential backoff (default: 2.0) | [index.d.ts:76](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L76) |
+| <a id="initbackoff"></a> `initBackoff?` | `number` | Initial delay before the first retry in milliseconds | [index.d.ts:78](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L78) |
+| <a id="maxbackoff"></a> `maxBackoff?` | `number` | Maximum delay between retries in milliseconds | [index.d.ts:80](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L80) |
+
+***
+
+### ClientConfig
+
+Defined in: [index.d.ts:89](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L89)
+
+Configuration for the TopK client.
+
+This struct contains all the necessary configuration options to connect to the TopK API.
+The `api_key` and `region` are required, while other options have sensible defaults.
+
+**Properties**
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="apikey"></a> `apiKey` | `string` | Your TopK API key for authentication | [index.d.ts:91](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L91) |
+| <a id="host"></a> `host?` | `string` | Custom host URL (optional, defaults to the standard TopK endpoint) | [index.d.ts:95](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L95) |
+| <a id="https"></a> `https?` | `boolean` | Whether to use HTTPS (optional, defaults to true) | [index.d.ts:97](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L97) |
+| <a id="region"></a> `region` | `string` | The region where your data is stored (e.g., "us-east-1", "eu-west-1") | [index.d.ts:93](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L93) |
+| <a id="retryconfig"></a> `retryConfig?` | [`RetryConfig`](#retryconfig-1) | Retry configuration for failed requests (optional) | [index.d.ts:99](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L99) |
+
+***
+
+### Collection
+
+Defined in: [index.d.ts:109](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L109)
+
+Represents a collection in the TopK service.
+
+A collection is a container for documents with a defined schema.
+This struct contains metadata about the collection including its name,
+organization, project, schema, and region.
+
+**Properties**
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="name"></a> `name` | `string` | Name of the collection | [index.d.ts:111](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L111) |
+| <a id="orgid"></a> `orgId` | `string` | Organization ID that owns the collection | [index.d.ts:113](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L113) |
+| <a id="projectid"></a> `projectId` | `string` | Project ID that contains the collection | [index.d.ts:115](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L115) |
+| <a id="region-1"></a> `region` | `string` | Region where the collection is stored | [index.d.ts:119](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L119) |
+| <a id="schema"></a> `schema` | `Record`\<`string`, [`CollectionFieldSpec`](#collectionfieldspec)\> | Schema definition for the collection fields | [index.d.ts:117](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L117) |
+
+***
+
+### CollectionFieldSpec
+
+Defined in: [index.d.ts:128](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L128)
+
+Represents a field specification within a collection schema.
+
+This struct defines the properties of a field in a collection,
+including its data type, whether it's required, and any index configuration.
+
+**Properties**
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="datatype"></a> `dataType` | `DataType` | Data type of the field | [index.d.ts:130](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L130) |
+| <a id="index"></a> `index?` | `FieldIndexUnion` | Index configuration for the field (optional) | [index.d.ts:134](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L134) |
+| <a id="required"></a> `required` | `boolean` | Whether the field is required (must be present in all documents) | [index.d.ts:132](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L132) |
+
+***
+
+### QueryOptions
+
+Defined in: [index.d.ts:154](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L154)
+
+Options for query operations.
+
+These options control the behavior of query operations, including consistency
+guarantees and sequence number constraints.
+
+**Properties**
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="consistency"></a> `consistency?` | [`ConsistencyLevel`](#consistencylevel) | Consistency level for the query | [index.d.ts:158](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L158) |
+| <a id="lsn"></a> `lsn?` | `string` | Last sequence number to query at (for consistency) | [index.d.ts:156](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L156) |
+
+***
+
+### RerankOptions
+
+Defined in: [index.d.ts:167](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L167)
+
+Options for rerank stages.
+
+This struct contains configuration options for reranking results,
+including the model, query, and fields to use.
+
+**Properties**
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="fields"></a> `fields?` | `string`[] | Fields to include in reranking | [index.d.ts:173](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L173) |
+| <a id="model"></a> `model?` | `string` | The reranking model to use | [index.d.ts:169](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L169) |
+| <a id="query-2"></a> `query?` | `string` | The query text for reranking | [index.d.ts:171](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L171) |
+| <a id="topkmultiple"></a> `topkMultiple?` | `number` | Multiple of top-k to consider for reranking | [index.d.ts:175](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L175) |
+
+***
+
+### RetryConfig
+
+Defined in: [index.d.ts:184](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L184)
+
+Configuration for retry behavior when requests fail.
+
+This struct allows you to customize how the client handles retries for failed requests.
+All fields are optional and will use sensible defaults if not provided.
+
+**Properties**
+
+| Property | Type | Description | Defined in |
+| ------ | ------ | ------ | ------ |
+| <a id="backoff"></a> `backoff?` | [`BackoffConfig`](#backoffconfig) | Backoff configuration for spacing out retry attempts | [index.d.ts:190](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L190) |
+| <a id="maxretries"></a> `maxRetries?` | `number` | Maximum number of retries to attempt before giving up | [index.d.ts:186](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L186) |
+| <a id="timeout"></a> `timeout?` | `number` | Total timeout for the entire retry chain in milliseconds | [index.d.ts:188](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L188) |
+
+## Namespaces
+
+- [data](Namespace.data)
+- [query](Namespace.query)
+- [query\_fn](Namespace.query_fn)
+- [schema](Namespace.schema)
+
+## Type Aliases
+
+### ConsistencyLevel
+
+```ts
+type ConsistencyLevel = "indexed" | "strong";
+```
+
+Defined in: [index.d.ts:143](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L143)
+
+Consistency levels for query operations.
+
+- `Indexed`: Query returns results as soon as they are indexed (faster, eventual consistency)
+- `Strong`: Query waits for all replicas to be consistent (slower, strong consistency)
