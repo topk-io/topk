@@ -200,6 +200,16 @@ impl Value {
         }
     }
 
+    pub fn as_i8_list(&self) -> Option<&[i8]> {
+        match &self.value {
+            Some(value::Value::List(list)) => match &list.values {
+                Some(list::Values::I8(v)) => Some(&v.as_ref()),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
     pub fn as_f32_list(&self) -> Option<&[f32]> {
         match &self.value {
             Some(value::Value::List(list)) => match &list.values {
