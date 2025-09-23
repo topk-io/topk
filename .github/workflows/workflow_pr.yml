@@ -64,7 +64,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
 
-      - name: Install dependencies
+      - name: Install bun dependencies
         run: bun add commander
 
       - name: Check all SDKs versions
@@ -77,11 +77,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v2
-
       - uses: actions/setup-python@v6
 
+      - uses: actions/setup-node@v4
+        with:
+          cache: 'yarn'
+          cache-dependency-path: |
+            **/yarn.lock
+
+      - uses: oven-sh/setup-bun@v2
+
       - name: Install dependencies
+        run: yarn install
+
+      - name: Install bun dependencies
         run: bun add commander
 
       - name: Check all SDKs reference docs are in sync
