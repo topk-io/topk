@@ -1,4 +1,4 @@
-use bytemuck::cast_vec;
+use bytemuck::{cast_slice, cast_vec};
 use bytes::Bytes;
 use std::collections::HashMap;
 
@@ -394,10 +394,15 @@ impl<T: Into<Value>> From<Option<T>> for Value {
     }
 }
 
-impl Into<Vec<i8>> for list::I8 {
-    // Transmute back to i8 from the u8 represented as `bytes` in proto
-    fn into(self) -> Vec<i8> {
-        cast_vec(self.values)
+impl From<list::I8> for Vec<i8> {
+    fn from(v: list::I8) -> Self {
+        cast_vec(v.values)
+    }
+}
+
+impl AsRef<[i8]> for list::I8 {
+    fn as_ref(&self) -> &[i8] {
+        cast_slice(&self.values)
     }
 }
 
