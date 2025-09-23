@@ -12,8 +12,6 @@ title: topk-js/data
 function binaryVector(values: number[]): List;
 ```
 
-Defined in: [index.d.ts:215](https://github.com/topk-io/topk/blob/f11e2c0d3a95a96ae9ad68aae5c02524e2e88522/topk-js/index.d.ts#L215)
-
 Creates a binary vector from an array of bytes.
 
 **Parameters**
@@ -33,8 +31,6 @@ Creates a binary vector from an array of bytes.
 ```ts
 function bytes(buffer: number[] | Buffer<ArrayBufferLike>): Buffer;
 ```
-
-Defined in: [index.d.ts:217](https://github.com/topk-io/topk/blob/f11e2c0d3a95a96ae9ad68aae5c02524e2e88522/topk-js/index.d.ts#L217)
 
 Creates a bytes value from a buffer or array of numbers.
 
@@ -56,8 +52,6 @@ Creates a bytes value from a buffer or array of numbers.
 function f32List(values: number[]): List;
 ```
 
-Defined in: [index.d.ts:219](https://github.com/topk-io/topk/blob/f11e2c0d3a95a96ae9ad68aae5c02524e2e88522/topk-js/index.d.ts#L219)
-
 Creates a list of 64-bit floating point numbers.
 
 **Parameters**
@@ -78,8 +72,6 @@ Creates a list of 64-bit floating point numbers.
 function f32SparseVector(vector: Record<number, number>): SparseVector;
 ```
 
-Defined in: [index.d.ts:220](https://github.com/topk-io/topk/blob/f11e2c0d3a95a96ae9ad68aae5c02524e2e88522/topk-js/index.d.ts#L220)
-
 **Parameters**
 
 | Parameter | Type |
@@ -97,8 +89,6 @@ Defined in: [index.d.ts:220](https://github.com/topk-io/topk/blob/f11e2c0d3a95a9
 ```ts
 function f32Vector(values: number[]): List;
 ```
-
-Defined in: [index.d.ts:222](https://github.com/topk-io/topk/blob/f11e2c0d3a95a96ae9ad68aae5c02524e2e88522/topk-js/index.d.ts#L222)
 
 Creates a 32-bit float vector from an array of numbers.
 
@@ -120,8 +110,6 @@ Creates a 32-bit float vector from an array of numbers.
 function f64List(values: number[]): List;
 ```
 
-Defined in: [index.d.ts:223](https://github.com/topk-io/topk/blob/f11e2c0d3a95a96ae9ad68aae5c02524e2e88522/topk-js/index.d.ts#L223)
-
 **Parameters**
 
 | Parameter | Type |
@@ -139,8 +127,6 @@ Defined in: [index.d.ts:223](https://github.com/topk-io/topk/blob/f11e2c0d3a95a9
 ```ts
 function i32List(values: number[]): List;
 ```
-
-Defined in: [index.d.ts:225](https://github.com/topk-io/topk/blob/f11e2c0d3a95a96ae9ad68aae5c02524e2e88522/topk-js/index.d.ts#L225)
 
 Creates a list of 32-bit signed integers.
 
@@ -162,8 +148,6 @@ Creates a list of 32-bit signed integers.
 function i64List(values: number[]): List;
 ```
 
-Defined in: [index.d.ts:227](https://github.com/topk-io/topk/blob/f11e2c0d3a95a96ae9ad68aae5c02524e2e88522/topk-js/index.d.ts#L227)
-
 Creates a list of 64-bit signed integers.
 
 **Parameters**
@@ -183,8 +167,6 @@ Creates a list of 64-bit signed integers.
 ```ts
 function stringList(values: string[]): List;
 ```
-
-Defined in: [index.d.ts:229](https://github.com/topk-io/topk/blob/f11e2c0d3a95a96ae9ad68aae5c02524e2e88522/topk-js/index.d.ts#L229)
 
 Creates a sparse vector of 32-bit floats.
 
@@ -206,8 +188,6 @@ Creates a sparse vector of 32-bit floats.
 function u32List(values: number[]): List;
 ```
 
-Defined in: [index.d.ts:231](https://github.com/topk-io/topk/blob/f11e2c0d3a95a96ae9ad68aae5c02524e2e88522/topk-js/index.d.ts#L231)
-
 Creates a list of 32-bit unsigned integers.
 
 **Parameters**
@@ -227,8 +207,6 @@ Creates a list of 32-bit unsigned integers.
 ```ts
 function u8SparseVector(vector: Record<number, number>): SparseVector;
 ```
-
-Defined in: [index.d.ts:233](https://github.com/topk-io/topk/blob/f11e2c0d3a95a96ae9ad68aae5c02524e2e88522/topk-js/index.d.ts#L233)
 
 Creates a sparse vector of 8-bit unsigned integers.
 
@@ -250,8 +228,6 @@ Creates a sparse vector of 8-bit unsigned integers.
 function u8Vector(values: number[]): List;
 ```
 
-Defined in: [index.d.ts:235](https://github.com/topk-io/topk/blob/f11e2c0d3a95a96ae9ad68aae5c02524e2e88522/topk-js/index.d.ts#L235)
-
 Creates an 8-bit unsigned integer vector from an array of numbers.
 
 **Parameters**
@@ -268,8 +244,6 @@ Creates an 8-bit unsigned integer vector from an array of numbers.
 
 ### List
 
-Defined in: [index.d.ts:200](https://github.com/topk-io/topk/blob/f11e2c0d3a95a96ae9ad68aae5c02524e2e88522/topk-js/index.d.ts#L200)
-
 **`Internal`**
 
 Instances of the `List` class are used to represent lists of values in TopK.
@@ -278,8 +252,6 @@ Usually created using data constructors such as [`f32_list()`](#f32list), [`i32_
 ***
 
 ### SparseVector
-
-Defined in: [index.d.ts:210](https://github.com/topk-io/topk/blob/f11e2c0d3a95a96ae9ad68aae5c02524e2e88522/topk-js/index.d.ts#L210)
 
 **`Internal`**
 

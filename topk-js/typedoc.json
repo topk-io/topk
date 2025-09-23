@@ -21,6 +21,7 @@
   "frontmatterCommentTags": ["title"],
   "useCodeBlocks": true,
   "expandParameters": true,
+  "disableSources": true,
   "indexFrontmatter": {
     "title": "topk-js"
   },
