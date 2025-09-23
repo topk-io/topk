@@ -89,6 +89,7 @@ jobs:
 
       - name: Install dependencies
         run: yarn install
+        working-directory: ./topk-js
 
       - name: Install bun dependencies
         run: bun add commander
