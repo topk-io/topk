@@ -76,17 +76,6 @@ async function checkPrerequisites() {
 
 // Build topk-js documentation
 async function buildTopkJSDocs(): Promise<{ success: boolean; error?: string }> {
-  console.log("🔨 Building topk-js .d.ts files...");
-
-  // First, build the .d.ts files
-  const buildResult = await runCommand("yarn", ["run", "dev"], paths.topkJs.root);
-  if (!buildResult.success) {
-    return {
-      success: false,
-      error: `Failed to build topk-js .d.ts files: ${buildResult.error}`,
-    };
-  }
-
   console.log("📚 Generating topk-js documentation with typedoc...");
 
   // Then run typedoc
