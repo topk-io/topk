@@ -97,7 +97,7 @@ Creates a field reference expression.
 ### filter()
 
 ```ts
-function filter(expr: 
+function filter(expr:
   | LogicalExpression
   | TextExpression): Query;
 ```
@@ -121,7 +121,7 @@ Creates a filter query stage.
 ### literal()
 
 ```ts
-function literal(value: 
+function literal(value:
   | string
   | number
   | boolean
@@ -172,10 +172,10 @@ Creates a text match expression.
 ### max()
 
 ```ts
-function max(left: 
+function max(left:
   | string
   | number
-  | LogicalExpression, right: 
+  | LogicalExpression, right:
   | string
   | number
   | LogicalExpression): LogicalExpression;
@@ -201,10 +201,10 @@ Creates a MAX expression that returns the larger of two values.
 ### min()
 
 ```ts
-function min(left: 
+function min(left:
   | string
   | number
-  | LogicalExpression, right: 
+  | LogicalExpression, right:
   | string
   | number
   | LogicalExpression): LogicalExpression;
@@ -252,7 +252,7 @@ Creates a logical NOT expression.
 ### select()
 
 ```ts
-function select(exprs: Record<string, 
+function select(exprs: Record<string,
   | LogicalExpression
   | FunctionExpression>): Query;
 ```
@@ -306,7 +306,7 @@ Computes the absolute value of the expression.
 ##### add()
 
 ```ts
-add(other: 
+add(other:
   | number
   | LogicalExpression): LogicalExpression;
 ```
@@ -328,7 +328,7 @@ Adds another value to the expression.
 ##### and()
 
 ```ts
-and(other: 
+and(other:
   | boolean
   | LogicalExpression): LogicalExpression;
 ```
@@ -350,9 +350,9 @@ Computes the logical AND of the expression and another expression.
 ##### boost()
 
 ```ts
-boost(condition: 
+boost(condition:
   | boolean
-  | LogicalExpression, boost: 
+  | LogicalExpression, boost:
   | number
   | LogicalExpression): LogicalExpression;
 ```
@@ -376,11 +376,11 @@ Otherwise, the scoring expression is unchanged (multiplied by 1).
 ##### choose()
 
 ```ts
-choose(x: 
+choose(x:
   | string
   | number
   | boolean
-  | LogicalExpression, y: 
+  | LogicalExpression, y:
   | string
   | number
   | boolean
@@ -405,7 +405,7 @@ Chooses between two values based on the expression.
 ##### coalesce()
 
 ```ts
-coalesce(other: 
+coalesce(other:
   | number
   | LogicalExpression): LogicalExpression;
 ```
@@ -427,7 +427,7 @@ Coalesces nulls in the expression with another value.
 ##### contains()
 
 ```ts
-contains(other: 
+contains(other:
   | string
   | number
   | LogicalExpression): LogicalExpression;
@@ -450,7 +450,7 @@ Checks if the expression contains another value.
 ##### div()
 
 ```ts
-div(other: 
+div(other:
   | number
   | LogicalExpression): LogicalExpression;
 ```
@@ -472,7 +472,7 @@ Divides the expression by another value.
 ##### eq()
 
 ```ts
-eq(other: 
+eq(other:
   | string
   | number
   | boolean
@@ -510,7 +510,7 @@ Computes the exponential of the expression.
 ##### gt()
 
 ```ts
-gt(other: 
+gt(other:
   | string
   | number
   | LogicalExpression): LogicalExpression;
@@ -533,7 +533,7 @@ Checks if the expression is greater than another value.
 ##### gte()
 
 ```ts
-gte(other: 
+gte(other:
   | string
   | number
   | LogicalExpression): LogicalExpression;
@@ -556,7 +556,7 @@ Checks if the expression is greater than or equal to another value.
 ##### in()
 
 ```ts
-in(other: 
+in(other:
   | string
   | string[]
   | number[]
@@ -623,7 +623,7 @@ Computes the natural logarithm of the expression.
 ##### lt()
 
 ```ts
-lt(other: 
+lt(other:
   | string
   | number
   | LogicalExpression): LogicalExpression;
@@ -646,7 +646,7 @@ Checks if the expression is less than another value.
 ##### lte()
 
 ```ts
-lte(other: 
+lte(other:
   | string
   | number
   | LogicalExpression): LogicalExpression;
@@ -669,7 +669,7 @@ Checks if the expression is less than or equal to another value.
 ##### matchAll()
 
 ```ts
-matchAll(other: 
+matchAll(other:
   | string
   | string[]
   | LogicalExpression): LogicalExpression;
@@ -692,7 +692,7 @@ Checks if the expression matches all terms against the field with keyword index.
 ##### matchAny()
 
 ```ts
-matchAny(other: 
+matchAny(other:
   | string
   | string[]
   | LogicalExpression): LogicalExpression;
@@ -715,7 +715,7 @@ Checks if the expression matches any term against the field with keyword index.
 ##### max()
 
 ```ts
-max(other: 
+max(other:
   | string
   | number
   | LogicalExpression): LogicalExpression;
@@ -738,7 +738,7 @@ Computes the maximum of the expression and another value.
 ##### min()
 
 ```ts
-min(other: 
+min(other:
   | string
   | number
   | LogicalExpression): LogicalExpression;
@@ -761,7 +761,7 @@ Computes the minimum of the expression and another value.
 ##### mul()
 
 ```ts
-mul(other: 
+mul(other:
   | number
   | LogicalExpression): LogicalExpression;
 ```
@@ -783,7 +783,7 @@ Multiplies the expression by another value.
 ##### ne()
 
 ```ts
-ne(other: 
+ne(other:
   | string
   | number
   | boolean
@@ -807,7 +807,7 @@ Checks if the expression does not equal another value.
 ##### or()
 
 ```ts
-or(other: 
+or(other:
   | boolean
   | LogicalExpression): LogicalExpression;
 ```
@@ -857,7 +857,7 @@ Computes the square of the expression.
 ##### startsWith()
 
 ```ts
-startsWith(other: 
+startsWith(other:
   | string
   | LogicalExpression): LogicalExpression;
 ```
@@ -879,7 +879,7 @@ Checks if the expression starts with another value.
 ##### sub()
 
 ```ts
-sub(other: 
+sub(other:
   | number
   | LogicalExpression): LogicalExpression;
 ```
@@ -944,7 +944,7 @@ Adds a count stage to the query.
 ##### filter()
 
 ```ts
-filter(expr: 
+filter(expr:
   | LogicalExpression
   | TextExpression): Query;
 ```
@@ -986,7 +986,7 @@ Adds a rerank stage to the query.
 ##### select()
 
 ```ts
-select(exprs: Record<string, 
+select(exprs: Record<string,
   | LogicalExpression
   | FunctionExpression>): Query;
 ```
@@ -1009,8 +1009,8 @@ Adds a select stage to the query.
 
 ```ts
 topk(
-   expr: LogicalExpression, 
-   k: number, 
+   expr: LogicalExpression,
+   k: number,
    asc?: boolean): Query;
 ```
 
