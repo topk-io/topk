@@ -12,7 +12,7 @@ title: topk-js/query_fn
 function bm25Score(): FunctionExpression;
 ```
 
-Defined in: [index.d.ts:421](https://github.com/topk-io/topk/blob/646fe7da5b8a91dc6895c0f3c1c4ae2dcbe25385/topk-js/index.d.ts#L421)
+Defined in: [index.d.ts:421](https://github.com/topk-io/topk/blob/f11e2c0d3a95a96ae9ad68aae5c02524e2e88522/topk-js/index.d.ts#L421)
 
 Computes the BM25 score for a keyword search.
 
@@ -25,10 +25,10 @@ Computes the BM25 score for a keyword search.
 ### semanticSimilarity()
 
 ```ts
-function semanticSimilarity(field, query): FunctionExpression;
+function semanticSimilarity(field: string, query: string): FunctionExpression;
 ```
 
-Defined in: [index.d.ts:423](https://github.com/topk-io/topk/blob/646fe7da5b8a91dc6895c0f3c1c4ae2dcbe25385/topk-js/index.d.ts#L423)
+Defined in: [index.d.ts:423](https://github.com/topk-io/topk/blob/f11e2c0d3a95a96ae9ad68aae5c02524e2e88522/topk-js/index.d.ts#L423)
 
 Computes the semantic similarity between a field and a query string.
 
@@ -49,12 +49,16 @@ Computes the semantic similarity between a field and a query string.
 
 ```ts
 function vectorDistance(
-   field,
-   query,
-   options?): FunctionExpression;
+   field: string, 
+   query: 
+  | number[]
+  | List
+  | SparseVector
+  | Record<number, number>, 
+   options?: VectorDistanceOptions): FunctionExpression;
 ```
 
-Defined in: [index.d.ts:425](https://github.com/topk-io/topk/blob/646fe7da5b8a91dc6895c0f3c1c4ae2dcbe25385/topk-js/index.d.ts#L425)
+Defined in: [index.d.ts:425](https://github.com/topk-io/topk/blob/f11e2c0d3a95a96ae9ad68aae5c02524e2e88522/topk-js/index.d.ts#L425)
 
 Computes the vector distance between a field and a query vector.
 
@@ -74,10 +78,10 @@ Computes the vector distance between a field and a query vector.
 
 ### VectorDistanceOptions
 
-Defined in: [index.d.ts:426](https://github.com/topk-io/topk/blob/646fe7da5b8a91dc6895c0f3c1c4ae2dcbe25385/topk-js/index.d.ts#L426)
+Defined in: [index.d.ts:426](https://github.com/topk-io/topk/blob/f11e2c0d3a95a96ae9ad68aae5c02524e2e88522/topk-js/index.d.ts#L426)
 
 **Properties**
 
 | Property | Type | Defined in |
 | ------ | ------ | ------ |
-| <a id="skiprefine"></a> `skipRefine?` | `boolean` | [index.d.ts:427](https://github.com/topk-io/topk/blob/646fe7da5b8a91dc6895c0f3c1c4ae2dcbe25385/topk-js/index.d.ts#L427) |
+| <a id="skiprefine"></a> `skipRefine?` | `boolean` | [index.d.ts:427](https://github.com/topk-io/topk/blob/f11e2c0d3a95a96ae9ad68aae5c02524e2e88522/topk-js/index.d.ts#L427) |
