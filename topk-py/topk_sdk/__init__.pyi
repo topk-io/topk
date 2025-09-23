@@ -21,7 +21,7 @@ class Client:
         ...
     def collection(self, collection: builtins.str) -> CollectionClient:
         """
-        Get a client for a specific collection.
+        Get a client for managing data operations on a specific collection such as querying, upserting, and deleting documents.
         """
         ...
     def collections(self) -> CollectionsClient:

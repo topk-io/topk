@@ -300,7 +300,7 @@ class FunctionExpr:
     *Internal*
 
     Instances of the `FunctionExpr` class are used to represent function expressions in TopK.
-    Usually created using function constructors such as [`fn.vector_distance()`](#vector_distance), [`fn.semantic_similarity()`](#semantic_similarity) or [`fn.bm25_score()`](#bm25_score).
+    Usually created using function constructors such as [`fn.vector_distance()`](#vector-distance), [`fn.semantic_similarity()`](#semantic-similarity) or [`fn.bm25_score()`](#bm25-score).
     """
     ...
 
@@ -532,7 +532,7 @@ def max(left: Ordered, right: Ordered) -> LogicalExpr:
 
 class fn:
     """
-    The `query.fn` submodule exposes functions for creating function expressions such as [`fn.vector_distance()`](#vector_distance), [`fn.semantic_similarity()`](#semantic_similarity) or [`fn.bm25_score()`](#bm25_score).
+    The `query.fn` submodule exposes functions for creating function expressions such as [`fn.vector_distance()`](#vector-distance), [`fn.semantic_similarity()`](#semantic-similarity) or [`fn.bm25_score()`](#bm25-score).
     """
     ...
 

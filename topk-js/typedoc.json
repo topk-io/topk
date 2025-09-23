@@ -22,5 +22,6 @@
   "useCodeBlocks": true,
   "indexFrontmatter": {
     "title": "topk-js"
-  }
+  },
+  "publicPath": "/sdk/topk-js"
 }

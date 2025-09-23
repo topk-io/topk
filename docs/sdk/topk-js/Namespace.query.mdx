@@ -2,7 +2,7 @@
 title: topk-js/query
 ---
 
-[topk-js](index) / query
+[topk-js](/sdk/topk-js/index) / query
 
 ## Functions
 
@@ -12,7 +12,7 @@ title: topk-js/query
 function abs(expr): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:342](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L342)
+Defined in: [index.d.ts:342](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L342)
 
 Creates an absolute value expression.
 
@@ -20,11 +20,11 @@ Creates an absolute value expression.
 
 | Parameter | Type |
 | ------ | ------ |
-| `expr` | [`LogicalExpression`](#logicalexpression) |
+| `expr` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ***
 
@@ -34,7 +34,7 @@ Creates an absolute value expression.
 function all(exprs): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:344](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L344)
+Defined in: [index.d.ts:344](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L344)
 
 Evaluates to true if each `expr` is true.
 
@@ -42,11 +42,11 @@ Evaluates to true if each `expr` is true.
 
 | Parameter | Type |
 | ------ | ------ |
-| `exprs` | [`LogicalExpression`](#logicalexpression)[] |
+| `exprs` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)[] |
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ***
 
@@ -56,7 +56,7 @@ Evaluates to true if each `expr` is true.
 function any(exprs): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:346](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L346)
+Defined in: [index.d.ts:346](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L346)
 
 Evaluates to true if at least one `expr` is true.
 
@@ -64,11 +64,11 @@ Evaluates to true if at least one `expr` is true.
 
 | Parameter | Type |
 | ------ | ------ |
-| `exprs` | [`LogicalExpression`](#logicalexpression)[] |
+| `exprs` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)[] |
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ***
 
@@ -78,7 +78,7 @@ Evaluates to true if at least one `expr` is true.
 function field(name): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:369](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L369)
+Defined in: [index.d.ts:369](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L369)
 
 Creates a field reference expression.
 
@@ -90,7 +90,7 @@ Creates a field reference expression.
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ***
 
@@ -100,7 +100,7 @@ Creates a field reference expression.
 function filter(expr): Query;
 ```
 
-Defined in: [index.d.ts:371](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L371)
+Defined in: [index.d.ts:371](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L371)
 
 Creates a filter query stage.
 
@@ -108,11 +108,11 @@ Creates a filter query stage.
 
 | Parameter | Type |
 | ------ | ------ |
-| `expr` | \| [`LogicalExpression`](#logicalexpression) \| [`TextExpression`](#textexpression) |
+| `expr` | \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`TextExpression`](/sdk/topk-js/Namespace.query#textexpression) |
 
 **Returns**
 
-[`Query`](#query)
+[`Query`](/sdk/topk-js/Namespace.query#query)
 
 ***
 
@@ -122,7 +122,7 @@ Creates a filter query stage.
 function literal(value): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:373](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L373)
+Defined in: [index.d.ts:373](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L373)
 
 Creates a literal value expression.
 
@@ -130,11 +130,11 @@ Creates a literal value expression.
 
 | Parameter | Type |
 | ------ | ------ |
-| `value` | \| `string` \| `number` \| `boolean` \| `string`[] \| `number`[] \| [`List`](Namespace.data#list) |
+| `value` | \| `string` \| `number` \| `boolean` \| `string`[] \| `number`[] \| [`List`](/sdk/topk-js/Namespace.data#list) |
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ***
 
@@ -144,7 +144,7 @@ Creates a literal value expression.
 function match(token, options?): TextExpression;
 ```
 
-Defined in: [index.d.ts:375](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L375)
+Defined in: [index.d.ts:375](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L375)
 
 Creates a text match expression.
 
@@ -153,11 +153,11 @@ Creates a text match expression.
 | Parameter | Type |
 | ------ | ------ |
 | `token` | `string` |
-| `options?` | [`MatchOptions`](#matchoptions) |
+| `options?` | [`MatchOptions`](/sdk/topk-js/Namespace.query#matchoptions) |
 
 **Returns**
 
-[`TextExpression`](#textexpression)
+[`TextExpression`](/sdk/topk-js/Namespace.query#textexpression)
 
 ***
 
@@ -167,7 +167,7 @@ Creates a text match expression.
 function max(left, right): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:391](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L391)
+Defined in: [index.d.ts:391](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L391)
 
 Creates a MAX expression that returns the larger of two values.
 
@@ -175,12 +175,12 @@ Creates a MAX expression that returns the larger of two values.
 
 | Parameter | Type |
 | ------ | ------ |
-| `left` | `string` \| `number` \| [`LogicalExpression`](#logicalexpression) |
-| `right` | `string` \| `number` \| [`LogicalExpression`](#logicalexpression) |
+| `left` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `right` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ***
 
@@ -190,7 +190,7 @@ Creates a MAX expression that returns the larger of two values.
 function min(left, right): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:393](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L393)
+Defined in: [index.d.ts:393](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L393)
 
 Creates a MIN expression that returns the smaller of two values.
 
@@ -198,12 +198,12 @@ Creates a MIN expression that returns the smaller of two values.
 
 | Parameter | Type |
 | ------ | ------ |
-| `left` | `string` \| `number` \| [`LogicalExpression`](#logicalexpression) |
-| `right` | `string` \| `number` \| [`LogicalExpression`](#logicalexpression) |
+| `left` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `right` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ***
 
@@ -213,7 +213,7 @@ Creates a MIN expression that returns the smaller of two values.
 function not(expr): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:395](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L395)
+Defined in: [index.d.ts:395](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L395)
 
 Creates a logical NOT expression.
 
@@ -221,11 +221,11 @@ Creates a logical NOT expression.
 
 | Parameter | Type |
 | ------ | ------ |
-| `expr` | [`LogicalExpression`](#logicalexpression) |
+| `expr` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ***
 
@@ -235,7 +235,7 @@ Creates a logical NOT expression.
 function select(exprs): Query;
 ```
 
-Defined in: [index.d.ts:397](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L397)
+Defined in: [index.d.ts:397](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L397)
 
 Creates a select query stage.
 
@@ -243,17 +243,17 @@ Creates a select query stage.
 
 | Parameter | Type |
 | ------ | ------ |
-| `exprs` | `Record`\<`string`, \| [`LogicalExpression`](#logicalexpression) \| [`FunctionExpression`](#functionexpression)\> |
+| `exprs` | `Record`\<`string`, \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`FunctionExpression`](/sdk/topk-js/Namespace.query#functionexpression)\> |
 
 **Returns**
 
-[`Query`](#query)
+[`Query`](/sdk/topk-js/Namespace.query#query)
 
 ## Classes
 
 ### FunctionExpression
 
-Defined in: [index.d.ts:243](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L243)
+Defined in: [index.d.ts:243](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L243)
 
 **`Internal`**
 
@@ -261,7 +261,7 @@ Defined in: [index.d.ts:243](https://github.com/topk-io/topk/blob/b66d07f721a08b
 
 ### LogicalExpression
 
-Defined in: [index.d.ts:250](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L250)
+Defined in: [index.d.ts:250](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L250)
 
 **`Internal`**
 
@@ -273,13 +273,13 @@ Defined in: [index.d.ts:250](https://github.com/topk-io/topk/blob/b66d07f721a08b
 abs(): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:258](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L258)
+Defined in: [index.d.ts:258](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L258)
 
 Computes the absolute value of the expression.
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ##### add()
 
@@ -287,7 +287,7 @@ Computes the absolute value of the expression.
 add(other): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:280](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L280)
+Defined in: [index.d.ts:280](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L280)
 
 Adds another value to the expression.
 
@@ -295,11 +295,11 @@ Adds another value to the expression.
 
 | Parameter | Type |
 | ------ | ------ |
-| `other` | `number` \| [`LogicalExpression`](#logicalexpression) |
+| `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ##### and()
 
@@ -307,7 +307,7 @@ Adds another value to the expression.
 and(other): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:292](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L292)
+Defined in: [index.d.ts:292](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L292)
 
 Computes the logical AND of the expression and another expression.
 
@@ -315,11 +315,11 @@ Computes the logical AND of the expression and another expression.
 
 | Parameter | Type |
 | ------ | ------ |
-| `other` | `boolean` \| [`LogicalExpression`](#logicalexpression) |
+| `other` | \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ##### boost()
 
@@ -327,7 +327,7 @@ Computes the logical AND of the expression and another expression.
 boost(condition, boost): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:313](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L313)
+Defined in: [index.d.ts:313](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L313)
 
 Multiplies the scoring expression by the provided `boost` value if the `condition` is true.
 Otherwise, the scoring expression is unchanged (multiplied by 1).
@@ -336,12 +336,12 @@ Otherwise, the scoring expression is unchanged (multiplied by 1).
 
 | Parameter | Type |
 | ------ | ------ |
-| `condition` | `boolean` \| [`LogicalExpression`](#logicalexpression) |
-| `boost` | `number` \| [`LogicalExpression`](#logicalexpression) |
+| `condition` | \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `boost` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ##### choose()
 
@@ -349,7 +349,7 @@ Otherwise, the scoring expression is unchanged (multiplied by 1).
 choose(x, y): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:308](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L308)
+Defined in: [index.d.ts:308](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L308)
 
 Chooses between two values based on the expression.
 
@@ -357,12 +357,12 @@ Chooses between two values based on the expression.
 
 | Parameter | Type |
 | ------ | ------ |
-| `x` | `string` \| `number` \| `boolean` \| [`LogicalExpression`](#logicalexpression) |
-| `y` | `string` \| `number` \| `boolean` \| [`LogicalExpression`](#logicalexpression) |
+| `x` | \| `string` \| `number` \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `y` | \| `string` \| `number` \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ##### coalesce()
 
@@ -370,7 +370,7 @@ Chooses between two values based on the expression.
 coalesce(other): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:306](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L306)
+Defined in: [index.d.ts:306](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L306)
 
 Coalesces nulls in the expression with another value.
 
@@ -378,11 +378,11 @@ Coalesces nulls in the expression with another value.
 
 | Parameter | Type |
 | ------ | ------ |
-| `other` | `number` \| [`LogicalExpression`](#logicalexpression) |
+| `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ##### contains()
 
@@ -390,7 +390,7 @@ Coalesces nulls in the expression with another value.
 contains(other): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:298](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L298)
+Defined in: [index.d.ts:298](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L298)
 
 Checks if the expression contains another value.
 
@@ -398,11 +398,11 @@ Checks if the expression contains another value.
 
 | Parameter | Type |
 | ------ | ------ |
-| `other` | `string` \| `number` \| [`LogicalExpression`](#logicalexpression) |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ##### div()
 
@@ -410,7 +410,7 @@ Checks if the expression contains another value.
 div(other): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:286](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L286)
+Defined in: [index.d.ts:286](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L286)
 
 Divides the expression by another value.
 
@@ -418,11 +418,11 @@ Divides the expression by another value.
 
 | Parameter | Type |
 | ------ | ------ |
-| `other` | `number` \| [`LogicalExpression`](#logicalexpression) |
+| `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ##### eq()
 
@@ -430,7 +430,7 @@ Divides the expression by another value.
 eq(other): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:268](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L268)
+Defined in: [index.d.ts:268](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L268)
 
 Checks if the expression equals another value.
 
@@ -438,11 +438,11 @@ Checks if the expression equals another value.
 
 | Parameter | Type |
 | ------ | ------ |
-| `other` | `string` \| `number` \| `boolean` \| [`LogicalExpression`](#logicalexpression) |
+| `other` | \| `string` \| `number` \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ##### exp()
 
@@ -450,13 +450,13 @@ Checks if the expression equals another value.
 exp(): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:262](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L262)
+Defined in: [index.d.ts:262](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L262)
 
 Computes the exponential of the expression.
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ##### gt()
 
@@ -464,7 +464,7 @@ Computes the exponential of the expression.
 gt(other): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:276](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L276)
+Defined in: [index.d.ts:276](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L276)
 
 Checks if the expression is greater than another value.
 
@@ -472,11 +472,11 @@ Checks if the expression is greater than another value.
 
 | Parameter | Type |
 | ------ | ------ |
-| `other` | `string` \| `number` \| [`LogicalExpression`](#logicalexpression) |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ##### gte()
 
@@ -484,7 +484,7 @@ Checks if the expression is greater than another value.
 gte(other): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:278](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L278)
+Defined in: [index.d.ts:278](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L278)
 
 Checks if the expression is greater than or equal to another value.
 
@@ -492,11 +492,11 @@ Checks if the expression is greater than or equal to another value.
 
 | Parameter | Type |
 | ------ | ------ |
-| `other` | `string` \| `number` \| [`LogicalExpression`](#logicalexpression) |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ##### in()
 
@@ -504,7 +504,7 @@ Checks if the expression is greater than or equal to another value.
 in(other): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:300](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L300)
+Defined in: [index.d.ts:300](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L300)
 
 Checks if the expression is in another value.
 
@@ -512,11 +512,11 @@ Checks if the expression is in another value.
 
 | Parameter | Type |
 | ------ | ------ |
-| `other` | \| `string` \| `string`[] \| `number`[] \| [`List`](Namespace.data#list) \| [`LogicalExpression`](#logicalexpression) |
+| `other` | \| `string` \| `string`[] \| `number`[] \| [`List`](/sdk/topk-js/Namespace.data#list) \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ##### isNotNull()
 
@@ -524,13 +524,13 @@ Checks if the expression is in another value.
 isNotNull(): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:256](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L256)
+Defined in: [index.d.ts:256](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L256)
 
 Checks if the expression evaluates to a non-null value.
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ##### isNull()
 
@@ -538,13 +538,13 @@ Checks if the expression evaluates to a non-null value.
 isNull(): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:254](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L254)
+Defined in: [index.d.ts:254](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L254)
 
 Checks if the expression evaluates to null.
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ##### ln()
 
@@ -552,13 +552,13 @@ Checks if the expression evaluates to null.
 ln(): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:260](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L260)
+Defined in: [index.d.ts:260](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L260)
 
 Computes the natural logarithm of the expression.
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ##### lt()
 
@@ -566,7 +566,7 @@ Computes the natural logarithm of the expression.
 lt(other): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:272](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L272)
+Defined in: [index.d.ts:272](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L272)
 
 Checks if the expression is less than another value.
 
@@ -574,11 +574,11 @@ Checks if the expression is less than another value.
 
 | Parameter | Type |
 | ------ | ------ |
-| `other` | `string` \| `number` \| [`LogicalExpression`](#logicalexpression) |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ##### lte()
 
@@ -586,7 +586,7 @@ Checks if the expression is less than another value.
 lte(other): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:274](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L274)
+Defined in: [index.d.ts:274](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L274)
 
 Checks if the expression is less than or equal to another value.
 
@@ -594,11 +594,11 @@ Checks if the expression is less than or equal to another value.
 
 | Parameter | Type |
 | ------ | ------ |
-| `other` | `string` \| `number` \| [`LogicalExpression`](#logicalexpression) |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ##### matchAll()
 
@@ -606,7 +606,7 @@ Checks if the expression is less than or equal to another value.
 matchAll(other): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:302](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L302)
+Defined in: [index.d.ts:302](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L302)
 
 Checks if the expression matches all terms against the field with keyword index.
 
@@ -614,11 +614,11 @@ Checks if the expression matches all terms against the field with keyword index.
 
 | Parameter | Type |
 | ------ | ------ |
-| `other` | `string` \| `string`[] \| [`LogicalExpression`](#logicalexpression) |
+| `other` | \| `string` \| `string`[] \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ##### matchAny()
 
@@ -626,7 +626,7 @@ Checks if the expression matches all terms against the field with keyword index.
 matchAny(other): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:304](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L304)
+Defined in: [index.d.ts:304](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L304)
 
 Checks if the expression matches any term against the field with keyword index.
 
@@ -634,11 +634,11 @@ Checks if the expression matches any term against the field with keyword index.
 
 | Parameter | Type |
 | ------ | ------ |
-| `other` | `string` \| `string`[] \| [`LogicalExpression`](#logicalexpression) |
+| `other` | \| `string` \| `string`[] \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ##### max()
 
@@ -646,7 +646,7 @@ Checks if the expression matches any term against the field with keyword index.
 max(other): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:290](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L290)
+Defined in: [index.d.ts:290](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L290)
 
 Computes the maximum of the expression and another value.
 
@@ -654,11 +654,11 @@ Computes the maximum of the expression and another value.
 
 | Parameter | Type |
 | ------ | ------ |
-| `other` | `string` \| `number` \| [`LogicalExpression`](#logicalexpression) |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ##### min()
 
@@ -666,7 +666,7 @@ Computes the maximum of the expression and another value.
 min(other): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:288](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L288)
+Defined in: [index.d.ts:288](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L288)
 
 Computes the minimum of the expression and another value.
 
@@ -674,11 +674,11 @@ Computes the minimum of the expression and another value.
 
 | Parameter | Type |
 | ------ | ------ |
-| `other` | `string` \| `number` \| [`LogicalExpression`](#logicalexpression) |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ##### mul()
 
@@ -686,7 +686,7 @@ Computes the minimum of the expression and another value.
 mul(other): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:284](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L284)
+Defined in: [index.d.ts:284](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L284)
 
 Multiplies the expression by another value.
 
@@ -694,11 +694,11 @@ Multiplies the expression by another value.
 
 | Parameter | Type |
 | ------ | ------ |
-| `other` | `number` \| [`LogicalExpression`](#logicalexpression) |
+| `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ##### ne()
 
@@ -706,7 +706,7 @@ Multiplies the expression by another value.
 ne(other): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:270](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L270)
+Defined in: [index.d.ts:270](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L270)
 
 Checks if the expression does not equal another value.
 
@@ -714,11 +714,11 @@ Checks if the expression does not equal another value.
 
 | Parameter | Type |
 | ------ | ------ |
-| `other` | `string` \| `number` \| `boolean` \| [`LogicalExpression`](#logicalexpression) |
+| `other` | \| `string` \| `number` \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ##### or()
 
@@ -726,7 +726,7 @@ Checks if the expression does not equal another value.
 or(other): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:294](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L294)
+Defined in: [index.d.ts:294](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L294)
 
 Computes the logical OR of the expression and another expression.
 
@@ -734,11 +734,11 @@ Computes the logical OR of the expression and another expression.
 
 | Parameter | Type |
 | ------ | ------ |
-| `other` | `boolean` \| [`LogicalExpression`](#logicalexpression) |
+| `other` | \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ##### sqrt()
 
@@ -746,13 +746,13 @@ Computes the logical OR of the expression and another expression.
 sqrt(): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:264](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L264)
+Defined in: [index.d.ts:264](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L264)
 
 Computes the square root of the expression.
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ##### square()
 
@@ -760,13 +760,13 @@ Computes the square root of the expression.
 square(): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:266](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L266)
+Defined in: [index.d.ts:266](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L266)
 
 Computes the square of the expression.
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ##### startsWith()
 
@@ -774,7 +774,7 @@ Computes the square of the expression.
 startsWith(other): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:296](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L296)
+Defined in: [index.d.ts:296](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L296)
 
 Checks if the expression starts with another value.
 
@@ -782,11 +782,11 @@ Checks if the expression starts with another value.
 
 | Parameter | Type |
 | ------ | ------ |
-| `other` | `string` \| [`LogicalExpression`](#logicalexpression) |
+| `other` | \| `string` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ##### sub()
 
@@ -794,7 +794,7 @@ Checks if the expression starts with another value.
 sub(other): LogicalExpression;
 ```
 
-Defined in: [index.d.ts:282](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L282)
+Defined in: [index.d.ts:282](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L282)
 
 Subtracts another value from the expression.
 
@@ -802,11 +802,11 @@ Subtracts another value from the expression.
 
 | Parameter | Type |
 | ------ | ------ |
-| `other` | `number` \| [`LogicalExpression`](#logicalexpression) |
+| `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
 
 **Returns**
 
-[`LogicalExpression`](#logicalexpression)
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ##### toString()
 
@@ -814,7 +814,7 @@ Subtracts another value from the expression.
 toString(): string;
 ```
 
-Defined in: [index.d.ts:252](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L252)
+Defined in: [index.d.ts:252](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L252)
 
 Returns a string representation of the logical expression.
 
@@ -826,7 +826,7 @@ Returns a string representation of the logical expression.
 
 ### Query
 
-Defined in: [index.d.ts:323](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L323)
+Defined in: [index.d.ts:323](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L323)
 
 **`Internal`**
 
@@ -843,13 +843,13 @@ Each stage performs a specific operation on the data.
 count(): Query;
 ```
 
-Defined in: [index.d.ts:331](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L331)
+Defined in: [index.d.ts:331](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L331)
 
 Adds a count stage to the query.
 
 **Returns**
 
-[`Query`](#query)
+[`Query`](/sdk/topk-js/Namespace.query#query)
 
 ##### filter()
 
@@ -857,7 +857,7 @@ Adds a count stage to the query.
 filter(expr): Query;
 ```
 
-Defined in: [index.d.ts:325](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L325)
+Defined in: [index.d.ts:325](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L325)
 
 Adds a filter stage to the query.
 
@@ -865,11 +865,11 @@ Adds a filter stage to the query.
 
 | Parameter | Type |
 | ------ | ------ |
-| `expr` | \| [`LogicalExpression`](#logicalexpression) \| [`TextExpression`](#textexpression) |
+| `expr` | \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`TextExpression`](/sdk/topk-js/Namespace.query#textexpression) |
 
 **Returns**
 
-[`Query`](#query)
+[`Query`](/sdk/topk-js/Namespace.query#query)
 
 ##### rerank()
 
@@ -877,7 +877,7 @@ Adds a filter stage to the query.
 rerank(options?): Query;
 ```
 
-Defined in: [index.d.ts:333](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L333)
+Defined in: [index.d.ts:333](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L333)
 
 Adds a rerank stage to the query.
 
@@ -885,11 +885,11 @@ Adds a rerank stage to the query.
 
 | Parameter | Type |
 | ------ | ------ |
-| `options?` | [`RerankOptions`](index#rerankoptions) |
+| `options?` | [`RerankOptions`](/sdk/topk-js/index#rerankoptions) |
 
 **Returns**
 
-[`Query`](#query)
+[`Query`](/sdk/topk-js/Namespace.query#query)
 
 ##### select()
 
@@ -897,7 +897,7 @@ Adds a rerank stage to the query.
 select(exprs): Query;
 ```
 
-Defined in: [index.d.ts:327](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L327)
+Defined in: [index.d.ts:327](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L327)
 
 Adds a select stage to the query.
 
@@ -905,11 +905,11 @@ Adds a select stage to the query.
 
 | Parameter | Type |
 | ------ | ------ |
-| `exprs` | `Record`\<`string`, \| [`LogicalExpression`](#logicalexpression) \| [`FunctionExpression`](#functionexpression)\> |
+| `exprs` | `Record`\<`string`, \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`FunctionExpression`](/sdk/topk-js/Namespace.query#functionexpression)\> |
 
 **Returns**
 
-[`Query`](#query)
+[`Query`](/sdk/topk-js/Namespace.query#query)
 
 ##### topk()
 
@@ -920,7 +920,7 @@ topk(
    asc?): Query;
 ```
 
-Defined in: [index.d.ts:329](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L329)
+Defined in: [index.d.ts:329](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L329)
 
 Adds a top-k stage to the query.
 
@@ -928,19 +928,19 @@ Adds a top-k stage to the query.
 
 | Parameter | Type |
 | ------ | ------ |
-| `expr` | [`LogicalExpression`](#logicalexpression) |
+| `expr` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
 | `k` | `number` |
 | `asc?` | `boolean` |
 
 **Returns**
 
-[`Query`](#query)
+[`Query`](/sdk/topk-js/Namespace.query#query)
 
 ***
 
 ### TextExpression
 
-Defined in: [index.d.ts:335](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L335)
+Defined in: [index.d.ts:335](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L335)
 
 **Constructors**
 
@@ -952,7 +952,7 @@ new TextExpression(): TextExpression;
 
 **Returns**
 
-[`TextExpression`](#textexpression)
+[`TextExpression`](/sdk/topk-js/Namespace.query#textexpression)
 
 **Methods**
 
@@ -962,7 +962,7 @@ new TextExpression(): TextExpression;
 and(other): TextExpression;
 ```
 
-Defined in: [index.d.ts:337](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L337)
+Defined in: [index.d.ts:337](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L337)
 
 Computes the logical AND of the expression and another text expression.
 
@@ -970,11 +970,11 @@ Computes the logical AND of the expression and another text expression.
 
 | Parameter | Type |
 | ------ | ------ |
-| `other` | [`TextExpression`](#textexpression) |
+| `other` | [`TextExpression`](/sdk/topk-js/Namespace.query#textexpression) |
 
 **Returns**
 
-[`TextExpression`](#textexpression)
+[`TextExpression`](/sdk/topk-js/Namespace.query#textexpression)
 
 ##### or()
 
@@ -982,7 +982,7 @@ Computes the logical AND of the expression and another text expression.
 or(other): TextExpression;
 ```
 
-Defined in: [index.d.ts:339](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L339)
+Defined in: [index.d.ts:339](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L339)
 
 Computes the logical OR of the expression and another text expression.
 
@@ -990,17 +990,17 @@ Computes the logical OR of the expression and another text expression.
 
 | Parameter | Type |
 | ------ | ------ |
-| `other` | [`TextExpression`](#textexpression) |
+| `other` | [`TextExpression`](/sdk/topk-js/Namespace.query#textexpression) |
 
 **Returns**
 
-[`TextExpression`](#textexpression)
+[`TextExpression`](/sdk/topk-js/Namespace.query#textexpression)
 
 ## Interfaces
 
 ### MatchOptions
 
-Defined in: [index.d.ts:382](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L382)
+Defined in: [index.d.ts:382](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L382)
 
 Options for text matching.
 
@@ -1011,20 +1011,20 @@ including field specification, weight, and matching behavior.
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="all"></a> `all?` | `boolean` | Whether to match all terms | [index.d.ts:388](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L388) |
-| <a id="field"></a> `field?` | `string` | Field to match against | [index.d.ts:384](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L384) |
-| <a id="weight"></a> `weight?` | `number` | Weight for the match | [index.d.ts:386](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L386) |
+| <a id="all"></a> `all?` | `boolean` | Whether to match all terms | [index.d.ts:388](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L388) |
+| <a id="field"></a> `field?` | `string` | Field to match against | [index.d.ts:384](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L384) |
+| <a id="weight"></a> `weight?` | `number` | Weight for the match | [index.d.ts:386](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L386) |
 
 ***
 
 ### Term
 
-Defined in: [index.d.ts:398](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L398)
+Defined in: [index.d.ts:398](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L398)
 
 **Properties**
 
 | Property | Type | Description | Defined in |
 | ------ | ------ | ------ | ------ |
-| <a id="field-1"></a> `field?` | `string` | The field to match against. | [index.d.ts:402](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L402) |
-| <a id="token"></a> `token` | `string` | The token to match. | [index.d.ts:400](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L400) |
-| <a id="weight-1"></a> `weight` | `number` | The weight of the term. | [index.d.ts:404](https://github.com/topk-io/topk/blob/b66d07f721a08b565f024445bc8ca67be77b20fe/topk-js/index.d.ts#L404) |
+| <a id="field-1"></a> `field?` | `string` | The field to match against. | [index.d.ts:402](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L402) |
+| <a id="token"></a> `token` | `string` | The token to match. | [index.d.ts:400](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L400) |
+| <a id="weight-1"></a> `weight` | `number` | The weight of the term. | [index.d.ts:404](https://github.com/topk-io/topk/blob/775593234b10220dd78cc5460d1b589f3c877b99/topk-js/index.d.ts#L404) |
