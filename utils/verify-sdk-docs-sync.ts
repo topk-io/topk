@@ -79,7 +79,7 @@ async function buildTopkJSDocs(): Promise<{ success: boolean; error?: string }> 
   console.log("🔨 Building topk-js .d.ts files...");
 
   // First, build the .d.ts files
-  const buildResult = await runCommand("bun", ["run", "dev"], paths.topkJs.root);
+  const buildResult = await runCommand("yarn", ["run", "dev"], paths.topkJs.root);
   if (!buildResult.success) {
     return {
       success: false,
