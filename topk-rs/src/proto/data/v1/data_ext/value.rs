@@ -1,9 +1,10 @@
+use bytemuck::cast_vec;
 use bytes::Bytes;
 use std::collections::HashMap;
 
 use crate::proto::data::v1::{
-    data_ext::{transmute_vec_u8_to_i8, IntoListValues},
-    list, sparse_vector, value, vector, List, Null, SparseVector, Struct, Value,
+    data_ext::IntoListValues, list, sparse_vector, value, vector, List, Null, SparseVector, Struct,
+    Value,
 };
 
 impl Value {
@@ -396,7 +397,7 @@ impl<T: Into<Value>> From<Option<T>> for Value {
 impl Into<Vec<i8>> for list::I8 {
     // Transmute back to i8 from the u8 represented as `bytes` in proto
     fn into(self) -> Vec<i8> {
-        transmute_vec_u8_to_i8(self.values)
+        cast_vec(self.values)
     }
 }
 
