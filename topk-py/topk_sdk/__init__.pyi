@@ -21,7 +21,7 @@ class Client:
         ...
     def collection(self, collection: builtins.str) -> CollectionClient:
         """
-        Get a client for a specific collection.
+        Get a client for managing data operations on a specific collection such as querying, upserting, and deleting documents.
         """
         ...
     def collections(self) -> CollectionsClient:
@@ -235,16 +235,6 @@ class ConsistencyLevel(Enum):
     Strong = "strong"
 
 
-class BackoffConfig:
-    """
-    Configuration for backoff behavior in retries.
-    """
-
-    base: typing.Optional[builtins.int]
-    init_backoff: typing.Optional[builtins.int]
-    max_backoff: typing.Optional[builtins.int]
-
-
 class RetryConfig:
     """
     Configuration for retry behavior.
@@ -253,3 +243,13 @@ class RetryConfig:
     max_retries: typing.Optional[builtins.int]
     timeout: typing.Optional[builtins.int]
     backoff: typing.Optional[BackoffConfig]
+
+
+class BackoffConfig:
+    """
+    Configuration for backoff behavior in retries.
+    """
+
+    base: typing.Optional[builtins.int]
+    init_backoff: typing.Optional[builtins.int]
+    max_backoff: typing.Optional[builtins.int]

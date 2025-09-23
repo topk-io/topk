@@ -20,7 +20,7 @@ use napi_derive::napi;
 use value::BytesData;
 
 /// Creates a bytes value from a buffer or array of numbers.
-#[napi(namespace = "data")]
+#[napi(namespace = "data", ts_return_type = "Buffer")]
 pub fn bytes(#[napi(ts_arg_type = "Array<number> | Buffer")] buffer: BytesData) -> Value {
     Value::Bytes(buffer.into())
 }

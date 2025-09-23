@@ -300,11 +300,17 @@ class FunctionExpr:
     *Internal*
 
     Instances of the `FunctionExpr` class are used to represent function expressions in TopK.
-    Usually created using function constructors such as [`fn.vector_distance()`](#vector_distance), [`fn.semantic_similarity()`](#semantic_similarity) or [`fn.bm25_score()`](#bm25_score).
+    Usually created using function constructors such as [`fn.vector_distance()`](#vector-distance), [`fn.semantic_similarity()`](#semantic-similarity) or [`fn.bm25_score()`](#bm25-score).
     """
     ...
 
 class TextExpr(Enum):
+    """
+    *Internal*
+
+    Instances of the `TextExpr` class are used to represent text expressions in TopK.
+    """
+
     def __and__(self, other: TextExpr) -> TextExpr:
         """
         Combine the expression with another text expression using the `&` operator.
@@ -378,8 +384,6 @@ def select(
 
 def filter(expr: LogicalExpr | TextExpr) -> Query:
     """
-    # Example:
-
     Create a filter stage of a query.
 
     ```python
@@ -528,7 +532,7 @@ def max(left: Ordered, right: Ordered) -> LogicalExpr:
 
 class fn:
     """
-    The `query.fn` submodule exposes functions for creating function expressions such as [`fn.vector_distance()`](#vector_distance), [`fn.semantic_similarity()`](#semantic_similarity) or [`fn.bm25_score()`](#bm25_score).
+    The `query.fn` submodule exposes functions for creating function expressions such as [`fn.vector_distance()`](#vector-distance), [`fn.semantic_similarity()`](#semantic-similarity) or [`fn.bm25_score()`](#bm25-score).
     """
     ...
 

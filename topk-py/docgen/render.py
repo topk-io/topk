@@ -21,11 +21,19 @@ def format_type_annotation_str(
     """Format a TypeAnnotation to a string."""
     if type_annotation.is_generic:
         if type_annotation.generic_args:
-            args_str = ", ".join(
-                format_type_annotation_str(arg, with_links)
-                for arg in type_annotation.generic_args
-            )
-            base = f"{type_annotation.name}[{args_str}]"
+            if type_annotation.name == "Union":
+                # Format union types as A | B instead of Union[A, B]
+                args_str = " | ".join(
+                    format_type_annotation_str(arg, with_links)
+                    for arg in type_annotation.generic_args
+                )
+                return args_str
+            else:
+                args_str = ", ".join(
+                    format_type_annotation_str(arg, with_links)
+                    for arg in type_annotation.generic_args
+                )
+                base = f"{type_annotation.name}[{args_str}]"
         else:
             base = type_annotation.name
     else:
@@ -71,8 +79,12 @@ def should_link_type(type_str: str) -> bool:
     if type_str in builtin_types:
         return False
 
-    # Link topk_sdk module references
+    # Link topk_sdk module references (both full and shortened paths)
     if type_str.startswith("topk_sdk."):
+        return True
+
+    # Link shortened module references (data., query., schema., error.)
+    if any(type_str.startswith(prefix) for prefix in ["data.", "query.", "schema.", "error."]):
         return True
 
     # Only link if it looks like a class name (starts with capital letter)
@@ -82,15 +94,23 @@ def should_link_type(type_str: str) -> bool:
 def create_type_link(type_str: str) -> str:
     """Create a markdown link for a type."""
     # Handle cross-module references
-    if "." in type_str and type_str.startswith("topk_sdk."):
-        # Extract module and class name
+    if "." in type_str:
         parts = type_str.split(".")
-        if len(parts) >= 3:  # topk_sdk.module.Class
+
+        # Handle full module path: topk_sdk.module.Class
+        if type_str.startswith("topk_sdk.") and len(parts) >= 3:
             module_name = parts[1]  # e.g., "data"
             class_name = parts[-1]  # e.g., "SparseVector"
-            # Create link to the module's documentation page
             return f"[`{type_str}`](/sdk/topk-py/{module_name}#{class_name.lower()})"
-        elif len(parts) == 2:  # topk_sdk.Class (main module)
+
+        # Handle shortened module path: module.Class (data.SparseVector, query.Expr, etc.)
+        elif len(parts) == 2 and parts[0] in ["data", "query", "schema", "error"]:
+            module_name = parts[0]  # e.g., "data"
+            class_name = parts[1]  # e.g., "SparseVector"
+            return f"[`{type_str}`](/sdk/topk-py/{module_name}#{class_name.lower()})"
+
+        # Handle main module: topk_sdk.Class
+        elif type_str.startswith("topk_sdk.") and len(parts) == 2:
             class_name = parts[1]
             return f"[`{type_str}`](/sdk/topk-py/index#{class_name.lower()})"
 

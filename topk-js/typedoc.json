@@ -4,13 +4,14 @@
   "tsconfig": "tsconfig.json",
   "plugin": ["typedoc-plugin-markdown", "typedoc-plugin-frontmatter", "./typedoc/custom-frontmatter-plugin.mjs"],
   "readme": "none",
-  "out": "../docs/api",
+  "out": "../docs/sdk/topk-js",
   "router": "module",
   "groupOrder": [
     "Variables", "Functions", "*"
   ],
   "entryFileName": "index",
   "fileExtension": ".mdx",
+  "flattenOutputFiles": true,
   "hidePageHeader": true,
   "hidePageTitle": true,
   "parametersFormat": "table",
@@ -19,7 +20,10 @@
   "classPropertiesFormat": "table",
   "frontmatterCommentTags": ["title"],
   "useCodeBlocks": true,
+  "expandParameters": true,
+  "disableSources": true,
   "indexFrontmatter": {
     "title": "topk-js"
-  }
+  },
+  "publicPath": "/sdk/topk-js"
 }

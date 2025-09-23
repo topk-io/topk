@@ -64,12 +64,39 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
 
-      - name: Install dependencies
+      - name: Install bun dependencies
         run: bun add commander
 
       - name: Check all SDKs versions
         run: |
           bun run utils/bump-release-version.ts check
+
+  all_sdks_sdk_reference_docs_sync:
+    name: Verify SDKs reference docs are in sync
+    runs-on: public-amd64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          cache: 'yarn'
+          cache-dependency-path: |
+            **/yarn.lock
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: yarn install
+        working-directory: ./topk-js
+
+      - name: Install bun dependencies
+        run: bun add commander
+
+      - name: Check all SDKs reference docs are in sync
+        run: |
+          bun run utils/verify-sdk-docs-sync.ts check
 
   pre_commit:
     name: Verify pre-commit hooks pass
@@ -86,7 +113,7 @@ jobs:
 
   ready:
     name: Ready
-    needs: [rust, python, javascript, all_sdks_same_version, pre_commit]
+    needs: [rust, python, javascript, all_sdks_same_version, all_sdks_sdk_reference_docs_sync, pre_commit]
     runs-on: public-amd64
     steps:
       - name: Ready

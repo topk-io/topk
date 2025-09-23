@@ -1,0 +1,403 @@
+---
+title: topk-js
+---
+
+## Classes
+
+### Client
+
+The main TopK client for interacting with the TopK service.
+
+This client provides access to collections and allows you to perform various operations
+like creating collections, querying data, and managing documents.
+
+**Constructors**
+
+**Constructor**
+
+```ts
+new Client(config: ClientConfig): Client;
+```
+
+Creates a new TopK client with the provided configuration.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `config` | [`ClientConfig`](/sdk/topk-js/index#clientconfig) |
+
+**Returns**
+
+[`Client`](/sdk/topk-js/index#client)
+
+**Methods**
+
+##### collection()
+
+```ts
+collection(name: string): CollectionClient;
+```
+
+Returns a client for interacting with a specific collection.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `name` | `string` |
+
+**Returns**
+
+[`CollectionClient`](/sdk/topk-js/index#collectionclient)
+
+##### collections()
+
+```ts
+collections(): CollectionsClient;
+```
+
+Returns a client for managing collections.
+
+This method provides access to collection management operations like creating,
+listing, and deleting collections.
+
+**Returns**
+
+[`CollectionsClient`](/sdk/topk-js/index#collectionsclient)
+
+***
+
+### CollectionClient
+
+**`Internal`**
+
+Client for interacting with a specific collection.
+
+This client provides methods to perform operations on a specific collection,
+including querying, upserting, and deleting documents.
+
+**Methods**
+
+##### count()
+
+```ts
+count(options?: QueryOptions): Promise<number>;
+```
+
+Counts the number of documents in the collection.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `options?` | [`QueryOptions`](/sdk/topk-js/index#queryoptions) |
+
+**Returns**
+
+`Promise`\<`number`\>
+
+##### delete()
+
+```ts
+delete(ids: string[]): Promise<string>;
+```
+
+Deletes documents from the collection by their IDs.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `ids` | `string`[] |
+
+**Returns**
+
+`Promise`\<`string`\>
+
+##### get()
+
+```ts
+get(
+   ids: string[], 
+   fields?: string[], 
+options?: QueryOptions): Promise<Record<string, Record<string, any>>>;
+```
+
+Retrieves documents by their IDs.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `ids` | `string`[] |
+| `fields?` | `string`[] |
+| `options?` | [`QueryOptions`](/sdk/topk-js/index#queryoptions) |
+
+**Returns**
+
+`Promise`\<`Record`\<`string`, `Record`\<`string`, `any`\>\>\>
+
+##### query()
+
+```ts
+query(query: Query, options?: QueryOptions): Promise<Record<string, any>[]>;
+```
+
+Executes a query against the collection.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `query` | [`Query`](/sdk/topk-js/Namespace.query#query) |
+| `options?` | [`QueryOptions`](/sdk/topk-js/index#queryoptions) |
+
+**Returns**
+
+`Promise`\<`Record`\<`string`, `any`\>[]\>
+
+##### upsert()
+
+```ts
+upsert(docs: Record<string, any>[]): Promise<string>;
+```
+
+Inserts or updates documents in the collection.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `docs` | `Record`\<`string`, `any`\>[] |
+
+**Returns**
+
+`Promise`\<`string`\>
+
+***
+
+### CollectionsClient
+
+**`Internal`**
+
+Client for managing collections.
+
+This client provides methods to create, list, get, and delete collections.
+
+**Methods**
+
+##### create()
+
+```ts
+create(name: string, schema: Record<string, FieldSpec>): Promise<Collection>;
+```
+
+Creates a new collection with the specified schema.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `name` | `string` |
+| `schema` | `Record`\<`string`, [`FieldSpec`](/sdk/topk-js/Namespace.schema#fieldspec)\> |
+
+**Returns**
+
+`Promise`\<[`Collection`](/sdk/topk-js/index#collection-2)\>
+
+##### delete()
+
+```ts
+delete(name: string): Promise<void>;
+```
+
+Deletes a collection and all its data.
+
+<Warning>
+  This operation is irreversible and will permanently delete all data in the collection.
+</Warning>
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `name` | `string` |
+
+**Returns**
+
+`Promise`\<`void`\>
+
+##### get()
+
+```ts
+get(name: string): Promise<Collection>;
+```
+
+Retrieves information about a specific collection.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `name` | `string` |
+
+**Returns**
+
+`Promise`\<[`Collection`](/sdk/topk-js/index#collection-2)\>
+
+##### list()
+
+```ts
+list(): Promise<Collection[]>;
+```
+
+Lists all collections in the current project.
+
+**Returns**
+
+`Promise`\<[`Collection`](/sdk/topk-js/index#collection-2)[]\>
+
+## Interfaces
+
+### BackoffConfig
+
+Configuration for exponential backoff between retry attempts.
+
+This struct controls how the delay between retry attempts increases over time.
+All fields are optional and will use sensible defaults if not provided.
+
+**Properties**
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="base"></a> `base?` | `number` | Base multiplier for exponential backoff (default: 2.0) |
+| <a id="initbackoff"></a> `initBackoff?` | `number` | Initial delay before the first retry in milliseconds |
+| <a id="maxbackoff"></a> `maxBackoff?` | `number` | Maximum delay between retries in milliseconds |
+
+***
+
+### ClientConfig
+
+Configuration for the TopK client.
+
+This struct contains all the necessary configuration options to connect to the TopK API.
+The `api_key` and `region` are required, while other options have sensible defaults.
+
+**Properties**
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="apikey"></a> `apiKey` | `string` | Your TopK API key for authentication |
+| <a id="host"></a> `host?` | `string` | Custom host URL (optional, defaults to the standard TopK endpoint) |
+| <a id="https"></a> `https?` | `boolean` | Whether to use HTTPS (optional, defaults to true) |
+| <a id="region"></a> `region` | `string` | The region where your data is stored (e.g., "us-east-1", "eu-west-1") |
+| <a id="retryconfig"></a> `retryConfig?` | [`RetryConfig`](/sdk/topk-js/index#retryconfig-1) | Retry configuration for failed requests (optional) |
+
+***
+
+### Collection
+
+Represents a collection in the TopK service.
+
+A collection is a container for documents with a defined schema.
+This struct contains metadata about the collection including its name,
+organization, project, schema, and region.
+
+**Properties**
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="name"></a> `name` | `string` | Name of the collection |
+| <a id="orgid"></a> `orgId` | `string` | Organization ID that owns the collection |
+| <a id="projectid"></a> `projectId` | `string` | Project ID that contains the collection |
+| <a id="region-1"></a> `region` | `string` | Region where the collection is stored |
+| <a id="schema"></a> `schema` | `Record`\<`string`, [`CollectionFieldSpec`](/sdk/topk-js/index#collectionfieldspec)\> | Schema definition for the collection fields |
+
+***
+
+### CollectionFieldSpec
+
+Represents a field specification within a collection schema.
+
+This struct defines the properties of a field in a collection,
+including its data type, whether it's required, and any index configuration.
+
+**Properties**
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="datatype"></a> `dataType` | `DataType` | Data type of the field |
+| <a id="index"></a> `index?` | `FieldIndexUnion` | Index configuration for the field (optional) |
+| <a id="required"></a> `required` | `boolean` | Whether the field is required (must be present in all documents) |
+
+***
+
+### QueryOptions
+
+Options for query operations.
+
+These options control the behavior of query operations, including consistency
+guarantees and sequence number constraints.
+
+**Properties**
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="consistency"></a> `consistency?` | [`ConsistencyLevel`](/sdk/topk-js/index#consistencylevel) | Consistency level for the query |
+| <a id="lsn"></a> `lsn?` | `string` | Last sequence number to query at (for consistency) |
+
+***
+
+### RerankOptions
+
+Options for rerank stages.
+
+This struct contains configuration options for reranking results,
+including the model, query, and fields to use.
+
+**Properties**
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="fields"></a> `fields?` | `string`[] | Fields to include in reranking |
+| <a id="model"></a> `model?` | `string` | The reranking model to use |
+| <a id="query-2"></a> `query?` | `string` | The query text for reranking |
+| <a id="topkmultiple"></a> `topkMultiple?` | `number` | Multiple of top-k to consider for reranking |
+
+***
+
+### RetryConfig
+
+Configuration for retry behavior when requests fail.
+
+This struct allows you to customize how the client handles retries for failed requests.
+All fields are optional and will use sensible defaults if not provided.
+
+**Properties**
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="backoff"></a> `backoff?` | [`BackoffConfig`](/sdk/topk-js/index#backoffconfig) | Backoff configuration for spacing out retry attempts |
+| <a id="maxretries"></a> `maxRetries?` | `number` | Maximum number of retries to attempt before giving up |
+| <a id="timeout"></a> `timeout?` | `number` | Total timeout for the entire retry chain in milliseconds |
+
+## Namespaces
+
+- [data](/sdk/topk-js/Namespace.data)
+- [query](/sdk/topk-js/Namespace.query)
+- [query\_fn](/sdk/topk-js/Namespace.query_fn)
+- [schema](/sdk/topk-js/Namespace.schema)
+
+## Type Aliases
+
+### ConsistencyLevel
+
+```ts
+type ConsistencyLevel = "indexed" | "strong";
+```
+
+Consistency levels for query operations.
+
+- `Indexed`: Query returns results as soon as they are indexed (faster, eventual consistency)
+- `Strong`: Query waits for all replicas to be consistent (slower, strong consistency)

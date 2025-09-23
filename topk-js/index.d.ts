@@ -214,7 +214,7 @@ export declare namespace data {
   /** Creates a binary vector from an array of bytes. */
   export function binaryVector(values: Array<number>): List
   /** Creates a bytes value from a buffer or array of numbers. */
-  export function bytes(buffer: Array<number> | Buffer): any
+  export function bytes(buffer: Array<number> | Buffer): Buffer
   /** Creates a list of 64-bit floating point numbers. */
   export function f32List(values: Array<number>): List
   export function f32SparseVector(vector: Record<number, number>): SparseVector

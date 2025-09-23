@@ -5,7 +5,7 @@ class FieldIndex:
     """
     *Internal*
 
-    Instances of the `FieldIndex` class represents a field index created by [`vector_index`](#vector_index), [`keyword_index`](#keyword_index), or [`semantic_index`](#semantic_index) functions.
+    Instances of the `FieldIndex` class represents a field index created by [`vector_index`](#vector-index), [`keyword_index`](#keyword-index), or [`semantic_index`](#semantic-index) functions.
     """
     ...
 
@@ -13,7 +13,7 @@ class FieldSpec:
     """
     *Internal*
 
-    Instances of the `FieldSpec` class represents a field specification created by [`text`](#text), [`int`](#int), [`float`](#float), [`bool`](#bool), [`f32_vector`](#f32_vector), [`u8_vector`](#u8_vector), [`binary_vector`](#binary_vector), [`f32_sparse_vector`](#f32_sparse_vector), [`u8_sparse_vector`](#u8_sparse_vector), [`bytes`](#bytes), or [`list`](#list) functions.
+    Instances of the `FieldSpec` class represents a field specification created by [`text`](#text), [`int`](#int), [`float`](#float), [`bool`](#bool), [`f32_vector`](#f32-vector), [`u8_vector`](#u8-vector), [`binary_vector`](#binary-vector), [`f32_sparse_vector`](#f32-sparse-vector), [`u8_sparse_vector`](#u8-sparse-vector), [`bytes`](#bytes), or [`list`](#list) functions.
     """
 
     def required(self) -> FieldSpec: ...

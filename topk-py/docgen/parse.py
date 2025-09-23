@@ -174,6 +174,14 @@ def format_type_annotation(annotation) -> TypeAnnotation:
                 base, is_optional=is_optional, is_generic=True, generic_args=[arg]
             )
 
+    elif isinstance(annotation, ast.BinOp) and isinstance(annotation.op, ast.BitOr):
+        # Handle union types like A | B (Python 3.10+)
+        left = format_type_annotation(annotation.left)
+        right = format_type_annotation(annotation.right)
+        return TypeAnnotation(
+            "Union", is_generic=True, generic_args=[left, right]
+        )
+
     else:
         return TypeAnnotation("Unknown")
 
@@ -216,6 +224,10 @@ def parse_method(method_node: ast.FunctionDef) -> Method | None:
     # default_args = method_node.args.args[-len(defaults) :] if defaults else []
 
     if method_node.name.startswith("__") and not method_node.name == "__init__":
+        return None
+
+    # skip _expr_eq method
+    if method_node.name == "_expr_eq":
         return None
 
     for i, arg in enumerate(method_node.args.args):
