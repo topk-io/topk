@@ -189,7 +189,7 @@ async function compareDirectories(dir1: string, dir2: string): Promise<{
 }
 
 // Main check function
-async function checkDocsSync(): Promise<void> {
+async function checkDocsSync(): Promise<boolean> {
   try {
     console.log("🔍 Checking prerequisites...");
     await checkPrerequisites();
@@ -260,6 +260,8 @@ async function checkDocsSync(): Promise<void> {
       } else {
         console.log("\n⚠️  Some SDK docs are out of sync. Please regenerate the docs.");
       }
+
+      return allInSync;
     } finally {
       // Clean up temp directory
       console.log("🧹 Cleaning up temporary files...");

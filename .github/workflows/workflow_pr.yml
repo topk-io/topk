@@ -113,7 +113,7 @@ jobs:
 
   ready:
     name: Ready
-    needs: [rust, python, javascript, all_sdks_same_version, pre_commit]
+    needs: [rust, python, javascript, all_sdks_same_version, all_sdks_sdk_reference_docs_sync, pre_commit]
     runs-on: public-amd64
     steps:
       - name: Ready
