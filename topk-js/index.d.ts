@@ -225,6 +225,8 @@ export declare namespace data {
   export function i32List(values: Array<number>): List
   /** Creates a list of 64-bit signed integers. */
   export function i64List(values: Array<number>): List
+  /** Creates an 8-bit signed integer vector from an array of numbers. */
+  export function i8Vector(values: Array<number>): List
   /** Creates a sparse vector of 32-bit floats. */
   export function stringList(values: Array<string>): List
   /** Creates a list of 32-bit unsigned integers. */
@@ -460,6 +462,7 @@ export declare namespace schema {
     | { type: 'Boolean' }
     | { type: 'F32Vector', dimension: number }
     | { type: 'U8Vector', dimension: number }
+    | { type: 'I8Vector', dimension: number }
     | { type: 'BinaryVector', dimension: number }
     | { type: 'F32SparseVector' }
     | { type: 'U8SparseVector' }
@@ -479,6 +482,8 @@ export declare namespace schema {
     | { type: 'SemanticIndex', model?: string, embeddingType?: EmbeddingDataType }
   /** Creates a float field specification. */
   export function float(): FieldSpec
+  /** Creates an 8-bit signed integer vector field specification. */
+  export function i8Vector(options: VectorOptions): FieldSpec
   /** Creates an integer field specification. */
   export function int(): FieldSpec
   /** Creates a keyword index specification. */

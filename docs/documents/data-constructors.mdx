@@ -40,14 +40,14 @@ To pass a u8 vector, use the `u8_vector()` helper function:
 ```python Python
 from topk_sdk.data import u8_vector
 
-u8_vector([0, 1, 2, 3])
+u8_vector([0, 255, 1, 2, 3])
 ```
 
 
 ```typescript Javascript
 import { u8Vector } from "topk-js/data";
 
-u8Vector([0, 1, 2, 3])
+u8Vector([0, 255, 1, 2, 3])
 ```
 
 </CodeGroup>
@@ -61,14 +61,14 @@ To pass a i8 vector, use the `i8_vector()` helper function:
 ```python Python
 from topk_sdk.data import i8_vector
 
-i8_vector([100, -100, 0, -50])
+i8_vector([-128, 127, -1, 0, 1])
 ```
 
 
 ```typescript Javascript
 import { i8Vector } from "topk-js/data";
 
-i8Vector([100, -100, 0, -50])
+i8Vector([-128, 127, -1, 0, 1])
 ```
 
 </CodeGroup>
