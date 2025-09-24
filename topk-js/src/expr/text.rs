@@ -35,6 +35,7 @@ impl TextExpression {
 #[napi(namespace = "query")]
 impl TextExpression {
     #[napi]
+    /// Computes the logical AND of the expression and another text expression.
     pub fn and(&self, other: &TextExpression) -> Self {
         TextExpression {
             expr: TextExpressionUnion::And {
@@ -45,6 +46,7 @@ impl TextExpression {
     }
 
     #[napi]
+    /// Computes the logical OR of the expression and another text expression.
     pub fn or(&self, other: &TextExpression) -> Self {
         TextExpression {
             expr: TextExpressionUnion::Or {
@@ -79,8 +81,11 @@ impl Into<topk_rs::proto::v1::data::TextExpr> for TextExpression {
 #[napi(object, namespace = "query")]
 #[derive(Debug, Clone)]
 pub struct Term {
+    /// The token to match.
     pub token: String,
+    /// The field to match against.
     pub field: Option<String>,
+    /// The weight of the term.
     pub weight: f64,
 }
 

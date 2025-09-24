@@ -2,17 +2,22 @@ use crate::schema::{data_type::DataType, field_index::FieldIndexUnion};
 use napi_derive::napi;
 use std::collections::HashMap;
 
+/// Represents a collection in the TopK service.
+///
+/// A collection is a container for documents with a defined schema.
+/// This struct contains metadata about the collection including its name,
+/// organization, project, schema, and region.
 #[napi(object)]
 pub struct Collection {
     /// Name of the collection
     pub name: String,
-    /// Organization ID
+    /// Organization ID that owns the collection
     pub org_id: String,
-    /// Project ID
+    /// Project ID that contains the collection
     pub project_id: String,
-    /// Schema of the collection
+    /// Schema definition for the collection fields
     pub schema: HashMap<String, CollectionFieldSpec>,
-    /// Region of the collection
+    /// Region where the collection is stored
     pub region: String,
 }
 
@@ -32,14 +37,18 @@ impl From<topk_rs::proto::v1::control::Collection> for Collection {
     }
 }
 
+/// Represents a field specification within a collection schema.
+///
+/// This struct defines the properties of a field in a collection,
+/// including its data type, whether it's required, and any index configuration.
 #[napi(object)]
 pub struct CollectionFieldSpec {
     /// Data type of the field
     #[napi(ts_type = "schema.DataType")]
     pub data_type: DataType,
-    /// Whether the field is required
+    /// Whether the field is required (must be present in all documents)
     pub required: bool,
-    /// Index configuration for the field
+    /// Index configuration for the field (optional)
     #[napi(ts_type = "schema.FieldIndexUnion")]
     pub index: Option<FieldIndexUnion>,
 }

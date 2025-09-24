@@ -19,11 +19,13 @@ use vector::SparseVectorData;
 use napi_derive::napi;
 use value::BytesData;
 
-#[napi(namespace = "data")]
+/// Creates a bytes value from a buffer or array of numbers.
+#[napi(namespace = "data", ts_return_type = "Buffer")]
 pub fn bytes(#[napi(ts_arg_type = "Array<number> | Buffer")] buffer: BytesData) -> Value {
     Value::Bytes(buffer.into())
 }
 
+/// Creates a 32-bit float vector from an array of numbers.
 #[napi(namespace = "data")]
 pub fn f32_vector(values: Vec<f64>) -> List {
     List {
@@ -31,6 +33,7 @@ pub fn f32_vector(values: Vec<f64>) -> List {
     }
 }
 
+/// Creates an 8-bit unsigned integer vector from an array of numbers.
 #[napi(namespace = "data")]
 pub fn u8_vector(values: Vec<u8>) -> List {
     List {
@@ -38,6 +41,7 @@ pub fn u8_vector(values: Vec<u8>) -> List {
     }
 }
 
+/// Creates a binary vector from an array of bytes.
 #[napi(namespace = "data")]
 pub fn binary_vector(values: Vec<u8>) -> List {
     List {
@@ -45,6 +49,7 @@ pub fn binary_vector(values: Vec<u8>) -> List {
     }
 }
 
+/// Creates a list of 32-bit unsigned integers.
 #[napi(namespace = "data")]
 pub fn u32_list(values: Vec<u32>) -> List {
     List {
@@ -52,6 +57,7 @@ pub fn u32_list(values: Vec<u32>) -> List {
     }
 }
 
+/// Creates a list of 32-bit signed integers.
 #[napi(namespace = "data")]
 pub fn i32_list(values: Vec<i32>) -> List {
     List {
@@ -59,6 +65,7 @@ pub fn i32_list(values: Vec<i32>) -> List {
     }
 }
 
+/// Creates a list of 64-bit signed integers.
 #[napi(namespace = "data")]
 pub fn i64_list(values: Vec<i64>) -> List {
     List {
@@ -66,6 +73,7 @@ pub fn i64_list(values: Vec<i64>) -> List {
     }
 }
 
+/// Creates a list of 64-bit floating point numbers.
 #[napi(namespace = "data")]
 pub fn f32_list(values: Vec<f64>) -> List {
     List {
@@ -80,6 +88,7 @@ pub fn f64_list(values: Vec<f64>) -> List {
     }
 }
 
+/// Creates a sparse vector of 32-bit floats.
 #[napi(namespace = "data")]
 pub fn string_list(values: Vec<String>) -> List {
     List {
@@ -94,6 +103,7 @@ pub fn f32_sparse_vector(
     SparseVector::float(vector.into_iter().map(|(i, v)| (i, v as f32)).collect())
 }
 
+/// Creates a sparse vector of 8-bit unsigned integers.
 #[napi(namespace = "data")]
 pub fn u8_sparse_vector(
     #[napi(ts_arg_type = "Record<number, number>")] vector: SparseVectorData<u8>,

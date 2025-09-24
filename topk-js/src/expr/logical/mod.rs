@@ -4,10 +4,10 @@ mod comparable;
 mod flexible;
 mod nary_op;
 mod numeric;
+mod ordered;
 mod stringy;
 mod ternary_op;
 mod unary_op;
-mod ordered;
 
 pub use binary_op::BinaryOperator;
 pub use nary_op::NaryOp;
@@ -29,6 +29,8 @@ use comparable::Comparable;
 use napi_derive::napi;
 use stringy::Stringy;
 
+/// @internal
+/// @hideconstructor
 #[napi(namespace = "query")]
 #[derive(Debug, Clone)]
 pub struct LogicalExpression {
@@ -161,6 +163,7 @@ impl From<f64> for LogicalExpressionUnion {
 
 #[napi(namespace = "query")]
 impl LogicalExpression {
+    /// Returns a string representation of the logical expression.
     #[napi]
     pub fn to_string(&self) -> String {
         format!("LogicalExpression({:?})", self.expr)
@@ -168,36 +171,43 @@ impl LogicalExpression {
 
     // Unary operators
 
+    /// Checks if the expression evaluates to null.
     #[napi]
     pub fn is_null(&self) -> Self {
         Self::unary(UnaryOperator::IsNull, self.clone())
     }
 
+    /// Checks if the expression evaluates to a non-null value.
     #[napi]
     pub fn is_not_null(&self) -> Self {
         Self::unary(UnaryOperator::IsNotNull, self.clone())
     }
 
+    /// Computes the absolute value of the expression.
     #[napi]
     pub fn abs(&self) -> Self {
         Self::unary(UnaryOperator::Abs, self.clone())
     }
 
+    /// Computes the natural logarithm of the expression.
     #[napi]
     pub fn ln(&self) -> Self {
         Self::unary(UnaryOperator::Ln, self.clone())
     }
 
+    /// Computes the exponential of the expression.
     #[napi]
     pub fn exp(&self) -> Self {
         Self::unary(UnaryOperator::Exp, self.clone())
     }
 
+    /// Computes the square root of the expression.
     #[napi]
     pub fn sqrt(&self) -> Self {
         Self::unary(UnaryOperator::Sqrt, self.clone())
     }
 
+    /// Computes the square of the expression.
     #[napi]
     pub fn square(&self) -> Self {
         Self::unary(UnaryOperator::Square, self.clone())
@@ -205,6 +215,7 @@ impl LogicalExpression {
 
     // Comparison operators
 
+    /// Checks if the expression equals another value.
     #[napi]
     pub fn eq(
         &self,
@@ -214,6 +225,7 @@ impl LogicalExpression {
         Self::binary(BinaryOperator::Eq, self.clone(), other.into())
     }
 
+    /// Checks if the expression does not equal another value.
     #[napi]
     pub fn ne(
         &self,
@@ -223,66 +235,97 @@ impl LogicalExpression {
         Self::binary(BinaryOperator::Neq, self.clone(), other.into())
     }
 
+    /// Checks if the expression is less than another value.
     #[napi]
-    pub fn lt(&self, #[napi(ts_arg_type = "LogicalExpression | number | string")] other: Ordered) -> Self {
+    pub fn lt(
+        &self,
+        #[napi(ts_arg_type = "LogicalExpression | number | string")] other: Ordered,
+    ) -> Self {
         Self::binary(BinaryOperator::Lt, self.clone(), other.into())
     }
 
+    /// Checks if the expression is less than or equal to another value.
     #[napi]
-    pub fn lte(&self, #[napi(ts_arg_type = "LogicalExpression | number | string")] other: Ordered) -> Self {
+    pub fn lte(
+        &self,
+        #[napi(ts_arg_type = "LogicalExpression | number | string")] other: Ordered,
+    ) -> Self {
         Self::binary(BinaryOperator::Lte, self.clone(), other.into())
     }
 
+    /// Checks if the expression is greater than another value.
     #[napi]
-    pub fn gt(&self, #[napi(ts_arg_type = "LogicalExpression | number | string")] other: Ordered) -> Self {
+    pub fn gt(
+        &self,
+        #[napi(ts_arg_type = "LogicalExpression | number | string")] other: Ordered,
+    ) -> Self {
         Self::binary(BinaryOperator::Gt, self.clone(), other.into())
     }
 
+    /// Checks if the expression is greater than or equal to another value.
     #[napi]
-    pub fn gte(&self, #[napi(ts_arg_type = "LogicalExpression | number | string")] other: Ordered) -> Self {
+    pub fn gte(
+        &self,
+        #[napi(ts_arg_type = "LogicalExpression | number | string")] other: Ordered,
+    ) -> Self {
         Self::binary(BinaryOperator::Gte, self.clone(), other.into())
     }
 
+    /// Adds another value to the expression.
     #[napi]
     pub fn add(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
         Self::binary(BinaryOperator::Add, self.clone(), other.into())
     }
 
+    /// Subtracts another value from the expression.
     #[napi]
     pub fn sub(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
         Self::binary(BinaryOperator::Sub, self.clone(), other.into())
     }
 
+    /// Multiplies the expression by another value.
     #[napi]
     pub fn mul(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
         Self::binary(BinaryOperator::Mul, self.clone(), other.into())
     }
 
+    /// Divides the expression by another value.
     #[napi]
     pub fn div(&self, #[napi(ts_arg_type = "LogicalExpression | number")] other: Numeric) -> Self {
         Self::binary(BinaryOperator::Div, self.clone(), other.into())
     }
 
+    /// Computes the minimum of the expression and another value.
     #[napi]
-    pub fn min(&self, #[napi(ts_arg_type = "LogicalExpression | number | string")] other: Ordered) -> Self {
+    pub fn min(
+        &self,
+        #[napi(ts_arg_type = "LogicalExpression | number | string")] other: Ordered,
+    ) -> Self {
         Self::binary(BinaryOperator::Min, self.clone(), other.into())
     }
 
+    /// Computes the maximum of the expression and another value.
     #[napi]
-    pub fn max(&self, #[napi(ts_arg_type = "LogicalExpression | number | string")] other: Ordered) -> Self {
+    pub fn max(
+        &self,
+        #[napi(ts_arg_type = "LogicalExpression | number | string")] other: Ordered,
+    ) -> Self {
         Self::binary(BinaryOperator::Max, self.clone(), other.into())
     }
 
+    /// Computes the logical AND of the expression and another expression.
     #[napi]
     pub fn and(&self, #[napi(ts_arg_type = "LogicalExpression | boolean")] other: Boolish) -> Self {
         Self::binary(BinaryOperator::And, self.clone(), other.into())
     }
 
+    /// Computes the logical OR of the expression and another expression.
     #[napi]
     pub fn or(&self, #[napi(ts_arg_type = "LogicalExpression | boolean")] other: Boolish) -> Self {
         Self::binary(BinaryOperator::Or, self.clone(), other.into())
     }
 
+    /// Checks if the expression starts with another value.
     #[napi]
     pub fn starts_with(
         &self,
@@ -291,6 +334,7 @@ impl LogicalExpression {
         Self::binary(BinaryOperator::StartsWith, self.clone(), other.into())
     }
 
+    /// Checks if the expression contains another value.
     #[napi]
     pub fn contains(
         &self,
@@ -299,6 +343,7 @@ impl LogicalExpression {
         Self::binary(BinaryOperator::Contains, self.clone(), other.into())
     }
 
+    /// Checks if the expression is in another value.
     #[napi(js_name = "in")]
     pub fn in_(
         &self,
@@ -310,6 +355,7 @@ impl LogicalExpression {
         Self::binary(BinaryOperator::In, self.clone(), other.into())
     }
 
+    /// Checks if the expression matches all terms against the field with keyword index.
     #[napi]
     pub fn match_all(
         &self,
@@ -318,6 +364,7 @@ impl LogicalExpression {
         Self::binary(BinaryOperator::MatchAll, self.clone(), other.into())
     }
 
+    /// Checks if the expression matches any term against the field with keyword index.
     #[napi]
     pub fn match_any(
         &self,
@@ -326,6 +373,7 @@ impl LogicalExpression {
         Self::binary(BinaryOperator::MatchAny, self.clone(), other.into())
     }
 
+    /// Coalesces nulls in the expression with another value.
     #[napi]
     pub fn coalesce(
         &self,
@@ -334,6 +382,7 @@ impl LogicalExpression {
         Self::binary(BinaryOperator::Coalesce, self.clone(), other.into())
     }
 
+    /// Chooses between two values based on the expression.
     #[napi]
     pub fn choose(
         &self,

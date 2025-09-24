@@ -1,0 +1,262 @@
+---
+title: topk_sdk.data
+---
+
+## Classes
+
+### List
+
+*Internal*
+
+    Instances of the `List` class are used to represent lists of values in TopK.
+    Usually created using data constructors such as [`f32_list()`](#f32-list), [`i32_list()`](#i32-list), etc.
+
+### SparseVector
+
+*Internal*
+
+    Instances of the `SparseVector` class are used to represent sparse vectors in TopK.
+    Usually created using data constructors such as [`f32_sparse_vector()`](#f32-sparse-vector) or [`u8_sparse_vector()`](#u8-sparse-vector).
+
+## Functions
+
+### f32_vector()
+
+```python
+f32_vector(data: list[float]) -> List
+```
+
+Create a 32-bit float vector.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `data` | list[float] |
+
+**Returns**
+
+[`List`](#list)
+
+***
+
+### u8_vector()
+
+```python
+u8_vector(data: list[int]) -> List
+```
+
+Create an 8-bit unsigned integer vector.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `data` | list[int] |
+
+**Returns**
+
+[`List`](#list)
+
+***
+
+### binary_vector()
+
+```python
+binary_vector(data: list[int]) -> List
+```
+
+Create a binary vector.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `data` | list[int] |
+
+**Returns**
+
+[`List`](#list)
+
+***
+
+### f32_sparse_vector()
+
+```python
+f32_sparse_vector(data: dict[int, float]) -> SparseVector
+```
+
+Create a 32-bit float sparse vector.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `data` | dict[int, float] |
+
+**Returns**
+
+[`SparseVector`](#sparsevector)
+
+***
+
+### u8_sparse_vector()
+
+```python
+u8_sparse_vector(data: dict[int, int]) -> SparseVector
+```
+
+Create an 8-bit unsigned integer sparse vector.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `data` | dict[int, int] |
+
+**Returns**
+
+[`SparseVector`](#sparsevector)
+
+***
+
+### bytes()
+
+```python
+bytes(data: list[int] | bytes) -> List
+```
+
+Create a bytes data structure.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `data` | list[int] | bytes |
+
+**Returns**
+
+[`List`](#list)
+
+***
+
+### u32_list()
+
+```python
+u32_list(data: list[int]) -> List
+```
+
+Create a list of 32-bit unsigned integers.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `data` | list[int] |
+
+**Returns**
+
+[`List`](#list)
+
+***
+
+### i32_list()
+
+```python
+i32_list(data: list[int]) -> List
+```
+
+Create a list of 32-bit signed integers.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `data` | list[int] |
+
+**Returns**
+
+[`List`](#list)
+
+***
+
+### i64_list()
+
+```python
+i64_list(data: list[int]) -> List
+```
+
+Create a list of 64-bit signed integers.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `data` | list[int] |
+
+**Returns**
+
+[`List`](#list)
+
+***
+
+### f32_list()
+
+```python
+f32_list(data: list[float]) -> List
+```
+
+Create a list of 32-bit floating point numbers.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `data` | list[float] |
+
+**Returns**
+
+[`List`](#list)
+
+***
+
+### f64_list()
+
+```python
+f64_list(data: list[float]) -> List
+```
+
+Create a list of 64-bit floating point numbers.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `data` | list[float] |
+
+**Returns**
+
+[`List`](#list)
+
+***
+
+### string_list()
+
+```python
+string_list(data: list[str]) -> List
+```
+
+Create a list of strings.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `data` | list[str] |
+
+**Returns**
+
+[`List`](#list)
+
+***
+

@@ -1,0 +1,1016 @@
+---
+title: topk-js/query
+---
+
+[topk-js](/sdk/topk-js/index) / query
+
+## Functions
+
+### abs()
+
+```ts
+function abs(expr: LogicalExpression): LogicalExpression;
+```
+
+Creates an absolute value expression.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `expr` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+***
+
+### all()
+
+```ts
+function all(exprs: LogicalExpression[]): LogicalExpression;
+```
+
+Evaluates to true if each `expr` is true.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `exprs` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)[] |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+***
+
+### any()
+
+```ts
+function any(exprs: LogicalExpression[]): LogicalExpression;
+```
+
+Evaluates to true if at least one `expr` is true.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `exprs` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)[] |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+***
+
+### field()
+
+```ts
+function field(name: string): LogicalExpression;
+```
+
+Creates a field reference expression.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `name` | `string` |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+***
+
+### filter()
+
+```ts
+function filter(expr: 
+  | LogicalExpression
+  | TextExpression): Query;
+```
+
+Creates a filter query stage.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `expr` | \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`TextExpression`](/sdk/topk-js/Namespace.query#textexpression) |
+
+**Returns**
+
+[`Query`](/sdk/topk-js/Namespace.query#query)
+
+***
+
+### literal()
+
+```ts
+function literal(value: 
+  | string
+  | number
+  | boolean
+  | string[]
+  | number[]
+  | List): LogicalExpression;
+```
+
+Creates a literal value expression.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `value` | \| `string` \| `number` \| `boolean` \| `string`[] \| `number`[] \| [`List`](/sdk/topk-js/Namespace.data#list) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+***
+
+### match()
+
+```ts
+function match(token: string, options?: MatchOptions): TextExpression;
+```
+
+Creates a text match expression.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `token` | `string` |
+| `options?` | [`MatchOptions`](/sdk/topk-js/Namespace.query#matchoptions) |
+
+**Returns**
+
+[`TextExpression`](/sdk/topk-js/Namespace.query#textexpression)
+
+***
+
+### max()
+
+```ts
+function max(left: 
+  | string
+  | number
+  | LogicalExpression, right: 
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+Creates a MAX expression that returns the larger of two values.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `left` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `right` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+***
+
+### min()
+
+```ts
+function min(left: 
+  | string
+  | number
+  | LogicalExpression, right: 
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+Creates a MIN expression that returns the smaller of two values.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `left` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `right` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+***
+
+### not()
+
+```ts
+function not(expr: LogicalExpression): LogicalExpression;
+```
+
+Creates a logical NOT expression.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `expr` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+***
+
+### select()
+
+```ts
+function select(exprs: Record<string, 
+  | LogicalExpression
+  | FunctionExpression>): Query;
+```
+
+Creates a select query stage.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `exprs` | `Record`\<`string`, \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`FunctionExpression`](/sdk/topk-js/Namespace.query#functionexpression)\> |
+
+**Returns**
+
+[`Query`](/sdk/topk-js/Namespace.query#query)
+
+## Classes
+
+### FunctionExpression
+
+**`Internal`**
+
+***
+
+### LogicalExpression
+
+**`Internal`**
+
+**Methods**
+
+##### abs()
+
+```ts
+abs(): LogicalExpression;
+```
+
+Computes the absolute value of the expression.
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### add()
+
+```ts
+add(other: 
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+Adds another value to the expression.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### and()
+
+```ts
+and(other: 
+  | boolean
+  | LogicalExpression): LogicalExpression;
+```
+
+Computes the logical AND of the expression and another expression.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### boost()
+
+```ts
+boost(condition: 
+  | boolean
+  | LogicalExpression, boost: 
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+Multiplies the scoring expression by the provided `boost` value if the `condition` is true.
+Otherwise, the scoring expression is unchanged (multiplied by 1).
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `condition` | \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `boost` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### choose()
+
+```ts
+choose(x: 
+  | string
+  | number
+  | boolean
+  | LogicalExpression, y: 
+  | string
+  | number
+  | boolean
+  | LogicalExpression): LogicalExpression;
+```
+
+Chooses between two values based on the expression.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `x` | \| `string` \| `number` \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `y` | \| `string` \| `number` \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### coalesce()
+
+```ts
+coalesce(other: 
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+Coalesces nulls in the expression with another value.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### contains()
+
+```ts
+contains(other: 
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+Checks if the expression contains another value.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### div()
+
+```ts
+div(other: 
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+Divides the expression by another value.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### eq()
+
+```ts
+eq(other: 
+  | string
+  | number
+  | boolean
+  | LogicalExpression): LogicalExpression;
+```
+
+Checks if the expression equals another value.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### exp()
+
+```ts
+exp(): LogicalExpression;
+```
+
+Computes the exponential of the expression.
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### gt()
+
+```ts
+gt(other: 
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+Checks if the expression is greater than another value.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### gte()
+
+```ts
+gte(other: 
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+Checks if the expression is greater than or equal to another value.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### in()
+
+```ts
+in(other: 
+  | string
+  | string[]
+  | number[]
+  | List
+  | LogicalExpression): LogicalExpression;
+```
+
+Checks if the expression is in another value.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `string`[] \| `number`[] \| [`List`](/sdk/topk-js/Namespace.data#list) \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### isNotNull()
+
+```ts
+isNotNull(): LogicalExpression;
+```
+
+Checks if the expression evaluates to a non-null value.
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### isNull()
+
+```ts
+isNull(): LogicalExpression;
+```
+
+Checks if the expression evaluates to null.
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### ln()
+
+```ts
+ln(): LogicalExpression;
+```
+
+Computes the natural logarithm of the expression.
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### lt()
+
+```ts
+lt(other: 
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+Checks if the expression is less than another value.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### lte()
+
+```ts
+lte(other: 
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+Checks if the expression is less than or equal to another value.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### matchAll()
+
+```ts
+matchAll(other: 
+  | string
+  | string[]
+  | LogicalExpression): LogicalExpression;
+```
+
+Checks if the expression matches all terms against the field with keyword index.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `string`[] \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### matchAny()
+
+```ts
+matchAny(other: 
+  | string
+  | string[]
+  | LogicalExpression): LogicalExpression;
+```
+
+Checks if the expression matches any term against the field with keyword index.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `string`[] \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### max()
+
+```ts
+max(other: 
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+Computes the maximum of the expression and another value.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### min()
+
+```ts
+min(other: 
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+Computes the minimum of the expression and another value.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### mul()
+
+```ts
+mul(other: 
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+Multiplies the expression by another value.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### ne()
+
+```ts
+ne(other: 
+  | string
+  | number
+  | boolean
+  | LogicalExpression): LogicalExpression;
+```
+
+Checks if the expression does not equal another value.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### or()
+
+```ts
+or(other: 
+  | boolean
+  | LogicalExpression): LogicalExpression;
+```
+
+Computes the logical OR of the expression and another expression.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### sqrt()
+
+```ts
+sqrt(): LogicalExpression;
+```
+
+Computes the square root of the expression.
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### square()
+
+```ts
+square(): LogicalExpression;
+```
+
+Computes the square of the expression.
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### startsWith()
+
+```ts
+startsWith(other: 
+  | string
+  | LogicalExpression): LogicalExpression;
+```
+
+Checks if the expression starts with another value.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### sub()
+
+```ts
+sub(other: 
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+Subtracts another value from the expression.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### toString()
+
+```ts
+toString(): string;
+```
+
+Returns a string representation of the logical expression.
+
+**Returns**
+
+`string`
+
+***
+
+### Query
+
+**`Internal`**
+
+A query object that represents a sequence of query stages.
+
+Queries are built by chaining together different stages like select, filter, topk, etc.
+Each stage performs a specific operation on the data.
+
+**Methods**
+
+##### count()
+
+```ts
+count(): Query;
+```
+
+Adds a count stage to the query.
+
+**Returns**
+
+[`Query`](/sdk/topk-js/Namespace.query#query)
+
+##### filter()
+
+```ts
+filter(expr: 
+  | LogicalExpression
+  | TextExpression): Query;
+```
+
+Adds a filter stage to the query.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `expr` | \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`TextExpression`](/sdk/topk-js/Namespace.query#textexpression) |
+
+**Returns**
+
+[`Query`](/sdk/topk-js/Namespace.query#query)
+
+##### rerank()
+
+```ts
+rerank(options?: RerankOptions): Query;
+```
+
+Adds a rerank stage to the query.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `options?` | [`RerankOptions`](/sdk/topk-js/index#rerankoptions) |
+
+**Returns**
+
+[`Query`](/sdk/topk-js/Namespace.query#query)
+
+##### select()
+
+```ts
+select(exprs: Record<string, 
+  | LogicalExpression
+  | FunctionExpression>): Query;
+```
+
+Adds a select stage to the query.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `exprs` | `Record`\<`string`, \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`FunctionExpression`](/sdk/topk-js/Namespace.query#functionexpression)\> |
+
+**Returns**
+
+[`Query`](/sdk/topk-js/Namespace.query#query)
+
+##### topk()
+
+```ts
+topk(
+   expr: LogicalExpression, 
+   k: number, 
+   asc?: boolean): Query;
+```
+
+Adds a top-k stage to the query.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `expr` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `k` | `number` |
+| `asc?` | `boolean` |
+
+**Returns**
+
+[`Query`](/sdk/topk-js/Namespace.query#query)
+
+***
+
+### TextExpression
+
+**Constructors**
+
+**Constructor**
+
+```ts
+new TextExpression(): TextExpression;
+```
+
+**Returns**
+
+[`TextExpression`](/sdk/topk-js/Namespace.query#textexpression)
+
+**Methods**
+
+##### and()
+
+```ts
+and(other: TextExpression): TextExpression;
+```
+
+Computes the logical AND of the expression and another text expression.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | [`TextExpression`](/sdk/topk-js/Namespace.query#textexpression) |
+
+**Returns**
+
+[`TextExpression`](/sdk/topk-js/Namespace.query#textexpression)
+
+##### or()
+
+```ts
+or(other: TextExpression): TextExpression;
+```
+
+Computes the logical OR of the expression and another text expression.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | [`TextExpression`](/sdk/topk-js/Namespace.query#textexpression) |
+
+**Returns**
+
+[`TextExpression`](/sdk/topk-js/Namespace.query#textexpression)
+
+## Interfaces
+
+### MatchOptions
+
+Options for text matching.
+
+This struct contains configuration options for text matching operations,
+including field specification, weight, and matching behavior.
+
+**Properties**
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="all"></a> `all?` | `boolean` | Whether to match all terms |
+| <a id="field"></a> `field?` | `string` | Field to match against |
+| <a id="weight"></a> `weight?` | `number` | Weight for the match |
+
+***
+
+### Term
+
+**Properties**
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="field-1"></a> `field?` | `string` | The field to match against. |
+| <a id="token"></a> `token` | `string` | The token to match. |
+| <a id="weight-1"></a> `weight` | `number` | The weight of the term. |

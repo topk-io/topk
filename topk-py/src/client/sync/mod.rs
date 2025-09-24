@@ -5,11 +5,9 @@ mod runtime;
 use std::sync::Arc;
 
 pub use collection::CollectionClient;
+pub use collections::CollectionsClient;
 
-use crate::client::{
-    sync::{collections::CollectionsClient, runtime::Runtime},
-    topk_client, RetryConfig,
-};
+use crate::client::{sync::runtime::Runtime, topk_client, RetryConfig};
 
 use pyo3::{pyclass, pymethods, PyResult};
 

@@ -1,0 +1,79 @@
+---
+title: topk-js/query_fn
+---
+
+[topk-js](/sdk/topk-js/index) / query\_fn
+
+## Functions
+
+### bm25Score()
+
+```ts
+function bm25Score(): FunctionExpression;
+```
+
+Computes the BM25 score for a keyword search.
+
+**Returns**
+
+[`FunctionExpression`](/sdk/topk-js/Namespace.query#functionexpression)
+
+***
+
+### semanticSimilarity()
+
+```ts
+function semanticSimilarity(field: string, query: string): FunctionExpression;
+```
+
+Computes the semantic similarity between a field and a query string.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `field` | `string` |
+| `query` | `string` |
+
+**Returns**
+
+[`FunctionExpression`](/sdk/topk-js/Namespace.query#functionexpression)
+
+***
+
+### vectorDistance()
+
+```ts
+function vectorDistance(
+   field: string, 
+   query: 
+  | number[]
+  | List
+  | SparseVector
+  | Record<number, number>, 
+   options?: VectorDistanceOptions): FunctionExpression;
+```
+
+Computes the vector distance between a field and a query vector.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `field` | `string` |
+| `query` | \| `number`[] \| [`List`](/sdk/topk-js/Namespace.data#list) \| [`SparseVector`](/sdk/topk-js/Namespace.data#sparsevector) \| `Record`\<`number`, `number`\> |
+| `options?` | [`VectorDistanceOptions`](/sdk/topk-js/Namespace.query_fn#vectordistanceoptions) |
+
+**Returns**
+
+[`FunctionExpression`](/sdk/topk-js/Namespace.query#functionexpression)
+
+## Interfaces
+
+### VectorDistanceOptions
+
+**Properties**
+
+| Property | Type |
+| ------ | ------ |
+| <a id="skiprefine"></a> `skipRefine?` | `boolean` |
