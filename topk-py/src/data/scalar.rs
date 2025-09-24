@@ -22,6 +22,7 @@ impl From<Scalar> for topk_rs::proto::v1::data::Value {
                 Values::U8(values) => topk_rs::proto::v1::data::Value::list(values),
                 Values::U32(values) => topk_rs::proto::v1::data::Value::list(values),
                 Values::U64(values) => topk_rs::proto::v1::data::Value::list(values),
+                Values::I8(values) => topk_rs::proto::v1::data::Value::list(values),
                 Values::I32(values) => topk_rs::proto::v1::data::Value::list(values),
                 Values::I64(values) => topk_rs::proto::v1::data::Value::list(values),
                 Values::F32(values) => topk_rs::proto::v1::data::Value::list(values),

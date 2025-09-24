@@ -13,7 +13,7 @@ class FieldSpec:
     """
     *Internal*
 
-    Instances of the `FieldSpec` class represents a field specification created by [`text`](#text), [`int`](#int), [`float`](#float), [`bool`](#bool), [`f32_vector`](#f32-vector), [`u8_vector`](#u8-vector), [`binary_vector`](#binary-vector), [`f32_sparse_vector`](#f32-sparse-vector), [`u8_sparse_vector`](#u8-sparse-vector), [`bytes`](#bytes), or [`list`](#list) functions.
+    Instances of the `FieldSpec` class represents a field specification created by [`text`](#text), [`int`](#int), [`float`](#float), [`bool`](#bool), [`f32_vector`](#f32-vector), [`u8_vector`](#u8-vector), [`i8_vector`](#i8-vector), [`binary_vector`](#binary-vector), [`f32_sparse_vector`](#f32-sparse-vector), [`u8_sparse_vector`](#u8-sparse-vector), [`bytes`](#bytes), or [`list`](#list) functions.
     """
 
     def required(self) -> FieldSpec: ...
@@ -54,6 +54,12 @@ def f32_vector(dimension: builtins.int) -> FieldSpec:
 def u8_vector(dimension: builtins.int) -> FieldSpec:
     """
     Create an 8-bit unsigned integer vector field specification.
+    """
+    ...
+
+def i8_vector(dimension: builtins.int) -> FieldSpec:
+    """
+    Create an 8-bit signed integer vector field specification.
     """
     ...
 
