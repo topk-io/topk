@@ -59,6 +59,14 @@ pub fn u8_vector(options: VectorOptions) -> FieldSpec {
     })
 }
 
+/// Creates an 8-bit signed integer vector field specification.
+#[napi(namespace = "schema")]
+pub fn i8_vector(options: VectorOptions) -> FieldSpec {
+    FieldSpec::create(DataType::I8Vector {
+        dimension: options.dimension,
+    })
+}
+
 /// Creates a binary vector field specification.
 #[napi(namespace = "schema")]
 pub fn binary_vector(options: VectorOptions) -> FieldSpec {

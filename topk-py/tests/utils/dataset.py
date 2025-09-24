@@ -3,6 +3,7 @@ from topk_sdk.schema import (
     binary_vector,
     f32_sparse_vector,
     f32_vector,
+    i8_vector,
     int,
     keyword_index,
     semantic_index,
@@ -56,6 +57,9 @@ class books:
                 vector_index(metric="euclidean")
             ),
             "scalar_embedding": u8_vector(16).index(vector_index(metric="euclidean")),
+            "scalar_i8_embedding": i8_vector(16).index(
+                vector_index(metric="euclidean")
+            ),
             "binary_embedding": binary_vector(2).index(vector_index(metric="hamming")),
             "sparse_f32_embedding": f32_sparse_vector().index(
                 vector_index(metric="dot_product")
@@ -79,6 +83,7 @@ class books:
                 "summary_embedding": [1.0] * 16,
                 "nullable_embedding": [1.0] * 16,
                 "scalar_embedding": data.u8_vector([1] * 16),
+                "scalar_i8_embedding": data.i8_vector([-100] * 16),
                 "binary_embedding": data.binary_vector([0, 1]),
                 "sparse_f32_embedding": data.f32_sparse_vector(
                     {0: 1.0, 1: 2.0, 2: 3.0}
@@ -97,6 +102,7 @@ class books:
                 "summary_embedding": [2.0] * 16,
                 "nullable_embedding": [2.0] * 16,
                 "scalar_embedding": data.u8_vector([2] * 16),
+                "scalar_i8_embedding": data.i8_vector([-50] * 16),
                 "binary_embedding": data.binary_vector([0, 3]),
                 "sparse_f32_embedding": data.f32_sparse_vector(
                     {2: 1.0, 3: 2.0, 4: 3.0}
@@ -113,6 +119,7 @@ class books:
                 "published_year": 1813,
                 "summary": "A witty exploration of love, social class, and marriage in 19th-century England.",
                 "summary_embedding": [3.0] * 16,
+                "scalar_i8_embedding": data.i8_vector([0] * 16),
                 "sparse_f32_embedding": data.f32_sparse_vector(
                     {3: 1.0, 4: 2.0, 5: 3.0}
                 ),
@@ -128,6 +135,7 @@ class books:
                 "published_year": 1925,
                 "summary": "A mysterious millionaire navigates love and wealth in the Roaring Twenties.",
                 "summary_embedding": [4.0] * 16,
+                "scalar_i8_embedding": data.i8_vector([50] * 16),
                 "sparse_f32_embedding": data.f32_sparse_vector(
                     {4: 1.0, 5: 2.0, 6: 3.0}
                 ),
@@ -145,6 +153,7 @@ class books:
                 "summary_embedding": [5.0] * 16,
                 "nullable_embedding": [5.0] * 16,
                 "scalar_embedding": data.u8_vector([5] * 16),
+                "scalar_i8_embedding": data.i8_vector([100] * 16),
                 "binary_embedding": data.binary_vector([0, 7]),
                 "sparse_f32_embedding": data.f32_sparse_vector(
                     {5: 1.0, 6: 2.0, 7: 3.0}
@@ -209,6 +218,7 @@ class books:
                 "published_year": 1954,
                 "summary": "A group of unlikely heroes sets out to destroy a powerful, evil ring.",
                 "summary_embedding": [9.0] * 16,
+                "scalar_i8_embedding": data.i8_vector([-100] * 16),
                 "sparse_f32_embedding": data.f32_sparse_vector(
                     {9: 1.0, 10: 2.0, 11: 3.0}
                 ),

@@ -10,6 +10,7 @@ pub enum DataType {
     Boolean,
     F32Vector { dimension: u32 },
     U8Vector { dimension: u32 },
+    I8Vector { dimension: u32 },
     BinaryVector { dimension: u32 },
     F32SparseVector,
     U8SparseVector,
@@ -77,6 +78,11 @@ impl From<topk_rs::proto::v1::control::FieldType> for DataType {
                 }
                 topk_rs::proto::v1::control::field_type::DataType::U8Vector(vector) => {
                     DataType::U8Vector {
+                        dimension: vector.dimension,
+                    }
+                }
+                topk_rs::proto::v1::control::field_type::DataType::I8Vector(vector) => {
+                    DataType::I8Vector {
                         dimension: vector.dimension,
                     }
                 }

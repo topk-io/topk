@@ -1,11 +1,13 @@
 import {
   binaryVector as binaryVectorData,
+  i8Vector as i8VectorData,
   u8Vector as u8VectorData,
 } from "../lib/data";
 import { field, fn, select } from "../lib/query";
 import {
   binaryVector,
   f32Vector,
+  i8Vector,
   text,
   u8Vector,
   vectorIndex,
@@ -164,6 +166,44 @@ describe("Vector Queries", () => {
     expect(isSorted(result, "summary_distance")).toBe(true);
     expect(new Set(result.map((doc) => doc._id))).toEqual(
       new Set(["1984", "mockingbird"])
+    );
+  });
+
+  test("query vector distance i8 vector", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("books", {
+      scalar_i8_embedding: i8Vector({ dimension: 16 }).index(
+        vectorIndex({ metric: "euclidean" })
+      ),
+    });
+
+    await ctx.client.collection(collection.name).upsert([
+      {
+        _id: "pride",
+        scalar_i8_embedding: i8VectorData([-50, ...Array(15).fill(0)]),
+      },
+      {
+        _id: "1984",
+        scalar_i8_embedding: i8VectorData([0, ...Array(15).fill(0)]),
+      },
+      {
+        _id: "gatsby",
+        scalar_i8_embedding: i8VectorData([50, ...Array(15).fill(0)]),
+      },
+    ]);
+
+    const result = await ctx.client.collection(collection.name).query(
+      select({
+        summary_distance: fn.vectorDistance(
+          "scalar_i8_embedding",
+          i8VectorData([-10, ...Array(15).fill(0)])
+        ),
+      }).topk(field("summary_distance"), 3, true)
+    );
+
+    expect(isSorted(result, "summary_distance")).toBe(true);
+    expect(new Set(result.map((doc) => doc._id))).toEqual(
+      new Set(["1984", "pride", "gatsby"])
     );
   });
 });
