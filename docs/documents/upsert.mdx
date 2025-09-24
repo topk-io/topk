@@ -93,6 +93,7 @@ The following value types are supported:
 | **U32 list**          | _use helper_  | _use helper_    | [`u32_list()`](./data-constructors#u32-list)                   |
 | **F32 vector**        | `list[float]` | `number[]`      | [`f32_vector()`](./data-constructors#f32-vector)               |
 | **U8 vector**         | _use helper_  | _use helper_    | [`u8_vector()`](./data-constructors#u8-vector)                 |
+| **I8 vector**         | _use helper_  | _use helper_    | [`i8_vector()`](./data-constructors#i8-vector)                 |
 | **Binary vector**     | _use helper_  | _use helper_    | [`binary_vector()`](./data-constructors#binary-vector)         |
 | **F32 sparse vector** | _use helper_  | _use helper_    | [`f32_sparse_vector()`](./data-constructors#f32-sparse-vector) |
 | **U8 sparse vector**  | _use helper_  | _use helper_    | [`u8_sparse_vector()`](./data-constructors#u8-sparse-vector)   |
@@ -111,6 +112,7 @@ from topk_sdk.schema import (
     bool,
     f32_vector,
     u8_vector,
+    i8_vector,
     binary_vector,
     f32_sparse_vector,
     u8_sparse_vector,
@@ -127,6 +129,7 @@ client.collections().create(
         "is_published": bool(),
         "f32_embedding": f32_vector(dimension=1536).index(vector_index(metric="cosine")),
         "u8_embedding": u8_vector(dimension=1536).index(vector_index(metric="euclidean")),
+        "i8_embedding": i8_vector(dimension=1536).index(vector_index(metric="euclidean")),
         "binary_embedding": binary_vector(dimension=1536).index(vector_index(metric="hamming")),
         "f32_sparse_embedding": f32_sparse_vector().index(vector_index(metric="dot_product")),
         "u8_sparse_embedding": u8_sparse_vector().index(vector_index(metric="dot_product")),
@@ -145,6 +148,7 @@ import {
   bool,
   f32Vector,
   u8Vector,
+  i8Vector,
   binaryVector,
   f32SparseVector,
   u8SparseVector,
@@ -160,6 +164,7 @@ await client.collections().create("books", {
   is_published: bool(),
   f32_embedding: f32Vector({ dimension: 1536 }).index(vectorIndex({ metric: "cosine" })),
   u8_embedding: u8Vector({ dimension: 1536 }).index(vectorIndex({ metric: "euclidean" })),
+  i8_embedding: i8Vector({ dimension: 1536 }).index(vectorIndex({ metric: "euclidean" })),
   binary_embedding: binaryVector({ dimension: 1536 }).index(vectorIndex({ metric: "hamming" })),
   f32_sparse_embedding: f32SparseVector().index(vectorIndex({ metric: "dot_product" })),
   u8_sparse_embedding: u8SparseVector().index(vectorIndex({ metric: "dot_product" })),
@@ -175,7 +180,7 @@ Insert a document with all supported types:
 <CodeGroup>
 
 ```python Python
-from topk_sdk.data import f32_vector, u8_vector, binary_vector, f32_sparse_vector, u8_sparse_vector, bytes
+from topk_sdk.data import f32_vector, u8_vector, i8_vector, binary_vector, f32_sparse_vector, u8_sparse_vector, bytes
 
 client.collection("books").upsert([
   {
@@ -186,6 +191,7 @@ client.collection("books").upsert([
     "is_published": true,
     "f32_embedding": f32_vector([0.12, 0.67, 0.82, 0.53]),
     "u8_embedding": u8_vector([0, 1, 2, 3]),
+    "i8_embedding": i8_vector([100, -100, 0, -50]),
     "binary_embedding": binary_vector([0, 1, 1, 0]),
     "f32_sparse_embedding": f32_sparse_vector({0: 0.12, 6: 0.67, 17: 0.82, 97: 0.53}),
     "u8_sparse_embedding": u8_sparse_vector({0: 12, 6: 67, 17: 82, 97: 53}),
@@ -197,7 +203,7 @@ client.collection("books").upsert([
 
 
 ```typescript Javascript
-import { f32Vector, u8Vector, binaryVector, f32SparseVector, u8SparseVector, bytes } from "topk-js/data";
+import { f32Vector, u8Vector, i8Vector, binaryVector, f32SparseVector, u8SparseVector, bytes } from "topk-js/data";
 
 await client.collection("books").upsert([
   {
@@ -210,6 +216,7 @@ await client.collection("books").upsert([
     // or use the helper function:
     // f32_embedding: f32Vector([0.12, 0.67, 0.82, 0.53]),
     u8_embedding: u8Vector([0, 1, 2, 3]),
+    i8_embedding: i8Vector([100, -100, 0, -50]),
     binary_embedding: binaryVector([0, 1, 1, 0]),
     f32_sparse_embedding: f32SparseVector({0: 0.12, 6: 0.67, 17: 0.82, 97: 0.53}),
     u8_sparse_embedding: u8SparseVector({0: 12, 6: 67, 17: 82, 97: 53}),
