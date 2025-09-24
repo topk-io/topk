@@ -1,7 +1,4 @@
-<p align="center" style="padding: 40px 0;">
-  <img src="../assets/topk-logo-light.svg#gh-light-mode-only">
-  <img src="../assets/topk-logo-dark.svg#gh-dark-mode-only">
-</p>
+![TopK](https://qdmy0nqdjsamgtso.public.blob.vercel-storage.com/topk-logo-light.svg)
 
 # TopK Python SDK
 
