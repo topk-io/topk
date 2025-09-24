@@ -35,6 +35,13 @@ def u8_vector(data: builtins.list[int]) -> List:
     ...
 
 
+def i8_vector(data: builtins.list[int]) -> List:
+    """
+    Create an 8-bit signed integer vector.
+    """
+    ...
+
+
 def binary_vector(data: builtins.list[int]) -> List:
     """
     Create a binary vector.

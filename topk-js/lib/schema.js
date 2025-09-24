@@ -11,6 +11,7 @@ exports.list = schema.list;
 exports.semanticIndex = schema.semanticIndex;
 exports.text = schema.text;
 exports.u8Vector = schema.u8Vector;
+exports.i8Vector = schema.i8Vector;
 exports.f32SparseVector = schema.f32SparseVector;
 exports.u8SparseVector = schema.u8SparseVector;
 exports.vectorIndex = schema.vectorIndex;

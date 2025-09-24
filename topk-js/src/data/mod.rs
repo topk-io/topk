@@ -41,6 +41,14 @@ pub fn u8_vector(values: Vec<u8>) -> List {
     }
 }
 
+/// Creates an 8-bit signed integer vector from an array of numbers.
+#[napi(namespace = "data")]
+pub fn i8_vector(values: Vec<i8>) -> List {
+    List {
+        values: Values::I8(values),
+    }
+}
+
 /// Creates a binary vector from an array of bytes.
 #[napi(namespace = "data")]
 pub fn binary_vector(values: Vec<u8>) -> List {

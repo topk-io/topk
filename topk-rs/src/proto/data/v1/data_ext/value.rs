@@ -1,3 +1,4 @@
+use bytemuck::{cast_slice, cast_vec};
 use bytes::Bytes;
 use std::collections::HashMap;
 
@@ -199,6 +200,16 @@ impl Value {
         }
     }
 
+    pub fn as_i8_list(&self) -> Option<&[i8]> {
+        match &self.value {
+            Some(value::Value::List(list)) => match &list.values {
+                Some(list::Values::I8(v)) => Some(&v.as_ref()),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
     pub fn as_f32_list(&self) -> Option<&[f32]> {
         match &self.value {
             Some(value::Value::List(list)) => match &list.values {
@@ -253,6 +264,8 @@ impl value::Value {
                 Some(list::Values::F32(_)) => "list<f32>".to_string(),
                 Some(list::Values::F64(_)) => "list<f64>".to_string(),
                 Some(list::Values::String(_)) => "list<string>".to_string(),
+                Some(list::Values::U8(_)) => "list<u8>".to_string(),
+                Some(list::Values::I8(_)) => "list<i8>".to_string(),
                 _ => "null_list".to_string(),
             },
             value::Value::Struct(_) => "struct<string, Value>".to_string(),
@@ -345,6 +358,12 @@ impl From<Vec<u8>> for Value {
     }
 }
 
+impl From<Vec<i8>> for Value {
+    fn from(value: Vec<i8>) -> Self {
+        Value::list(value)
+    }
+}
+
 impl From<Vec<&str>> for Value {
     fn from(value: Vec<&str>) -> Self {
         Value::list(
@@ -382,6 +401,18 @@ impl<T: Into<Value>> From<Option<T>> for Value {
             Some(value) => value.into(),
             None => Value::null(),
         }
+    }
+}
+
+impl From<list::I8> for Vec<i8> {
+    fn from(v: list::I8) -> Self {
+        cast_vec(v.values)
+    }
+}
+
+impl AsRef<[i8]> for list::I8 {
+    fn as_ref(&self) -> &[i8] {
+        cast_slice(&self.values)
     }
 }
 

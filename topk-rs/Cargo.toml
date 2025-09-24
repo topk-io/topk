@@ -26,6 +26,7 @@ rand = { version = "0.8.5" }
 futures-util = { version = "0.3.31" }
 bytes = { version = "1.8.0" }
 tonic-prost = { version = "0.14.2" }
+bytemuck = { version = "1.23.2", features = ["extern_crate_alloc"]}
 
 [dev-dependencies]
 test-context = { version = "0.3.0" }

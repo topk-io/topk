@@ -61,6 +61,9 @@ impl From<FieldSpec> for topk_rs::proto::v1::control::FieldSpec {
                     DataType::U8Vector { dimension } => {
                         topk_rs::proto::v1::control::field_type::DataType::u8_vector(dimension)
                     }
+                    DataType::I8Vector { dimension } => {
+                        topk_rs::proto::v1::control::field_type::DataType::i8_vector(dimension)
+                    }
                     DataType::BinaryVector { dimension } => {
                         topk_rs::proto::v1::control::field_type::DataType::binary_vector(dimension)
                     }

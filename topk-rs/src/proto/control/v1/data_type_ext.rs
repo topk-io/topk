@@ -25,6 +25,10 @@ impl field_type::DataType {
         field_type::DataType::U8Vector(FieldTypeU8Vector { dimension })
     }
 
+    pub fn i8_vector(dimension: u32) -> Self {
+        field_type::DataType::I8Vector(FieldTypeI8Vector { dimension })
+    }
+
     pub fn binary_vector(dimension: u32) -> Self {
         field_type::DataType::BinaryVector(FieldTypeBinaryVector { dimension })
     }

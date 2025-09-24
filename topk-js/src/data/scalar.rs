@@ -57,6 +57,14 @@ impl From<Vec<u64>> for Scalar {
     }
 }
 
+impl From<Vec<i8>> for Scalar {
+    fn from(values: Vec<i8>) -> Self {
+        Scalar::List(List {
+            values: Values::I8(values),
+        })
+    }
+}
+
 impl From<Vec<i32>> for Scalar {
     fn from(values: Vec<i32>) -> Self {
         Scalar::List(List {
@@ -106,12 +114,13 @@ impl Into<topk_rs::proto::v1::data::Value> for Scalar {
             Scalar::String(s) => topk_rs::proto::v1::data::Value::string(s),
             Scalar::List(l) => match l.values {
                 Values::U8(values) => topk_rs::proto::v1::data::Value::list(values),
-                Values::F32(values) => topk_rs::proto::v1::data::Value::list(values),
-                Values::F64(values) => topk_rs::proto::v1::data::Value::list(values),
-                Values::I32(values) => topk_rs::proto::v1::data::Value::list(values),
-                Values::I64(values) => topk_rs::proto::v1::data::Value::list(values),
                 Values::U32(values) => topk_rs::proto::v1::data::Value::list(values),
                 Values::U64(values) => topk_rs::proto::v1::data::Value::list(values),
+                Values::I8(values) => topk_rs::proto::v1::data::Value::list(values),
+                Values::I32(values) => topk_rs::proto::v1::data::Value::list(values),
+                Values::I64(values) => topk_rs::proto::v1::data::Value::list(values),
+                Values::F32(values) => topk_rs::proto::v1::data::Value::list(values),
+                Values::F64(values) => topk_rs::proto::v1::data::Value::list(values),
                 Values::String(values) => topk_rs::proto::v1::data::Value::list(values),
             },
         }

@@ -24,6 +24,7 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // (Dense) Vectors
     m.add_wrapped(wrap_pyfunction!(f32_vector))?;
     m.add_wrapped(wrap_pyfunction!(u8_vector))?;
+    m.add_wrapped(wrap_pyfunction!(i8_vector))?;
     m.add_wrapped(wrap_pyfunction!(binary_vector))?;
     // Sparse vectors
     m.add_wrapped(wrap_pyfunction!(f32_sparse_vector))?;
@@ -54,6 +55,14 @@ pub fn f32_vector(vector: Vec<f32>) -> List {
 pub fn u8_vector(vector: Vec<u8>) -> List {
     List {
         values: list::Values::U8(vector),
+    }
+}
+
+#[pyfunction]
+#[pyo3(signature = (vector))]
+pub fn i8_vector(vector: Vec<i8>) -> List {
+    List {
+        values: list::Values::I8(vector),
     }
 }
 
