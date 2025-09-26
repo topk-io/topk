@@ -114,6 +114,11 @@ impl<'py> IntoPyObject<'py> for Value {
                             list.append(value.into_py_any(py)?)?;
                         }
                     }
+                    Values::I8(values) => {
+                        for value in values {
+                            list.append(value.into_py_any(py)?)?;
+                        }
+                    }
                     Values::I32(values) => {
                         for value in values {
                             list.append(value.into_py_any(py)?)?;
@@ -203,6 +208,10 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                     Some(topk_rs::proto::v1::data::list::Values::U64(values)) => {
                         Values::U64(values.values)
                     }
+                    Some(topk_rs::proto::v1::data::list::Values::I8(values)) => {
+                        // Transmuting to i8 from the `bytes` u8 representation in proto
+                        Values::I8(values.into())
+                    }
                     Some(topk_rs::proto::v1::data::list::Values::I32(values)) => {
                         Values::I32(values.values)
                     }
@@ -271,6 +280,7 @@ impl From<Value> for topk_rs::proto::v1::data::Value {
                 Values::U8(values) => topk_rs::proto::v1::data::Value::list(values),
                 Values::U32(values) => topk_rs::proto::v1::data::Value::list(values),
                 Values::U64(values) => topk_rs::proto::v1::data::Value::list(values),
+                Values::I8(values) => topk_rs::proto::v1::data::Value::list(values),
                 Values::I32(values) => topk_rs::proto::v1::data::Value::list(values),
                 Values::I64(values) => topk_rs::proto::v1::data::Value::list(values),
                 Values::F32(values) => topk_rs::proto::v1::data::Value::list(values),

@@ -11,17 +11,20 @@ pub mod value;
 pub mod vector;
 
 ////////////////////////////////////////////////////////////
-/// Query
-///
-/// This module contains the query definition for the TopK SDK.
+/// This module contains the data constructors for the TopK SDK.
 ////////////////////////////////////////////////////////////
 
 #[pymodule]
 #[pyo3(name = "data")]
 pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    // classes
+    m.add_class::<List>()?;
+    m.add_class::<SparseVector>()?;
+
     // (Dense) Vectors
     m.add_wrapped(wrap_pyfunction!(f32_vector))?;
     m.add_wrapped(wrap_pyfunction!(u8_vector))?;
+    m.add_wrapped(wrap_pyfunction!(i8_vector))?;
     m.add_wrapped(wrap_pyfunction!(binary_vector))?;
     // Sparse vectors
     m.add_wrapped(wrap_pyfunction!(f32_sparse_vector))?;
@@ -52,6 +55,14 @@ pub fn f32_vector(vector: Vec<f32>) -> List {
 pub fn u8_vector(vector: Vec<u8>) -> List {
     List {
         values: list::Values::U8(vector),
+    }
+}
+
+#[pyfunction]
+#[pyo3(signature = (vector))]
+pub fn i8_vector(vector: Vec<i8>) -> List {
+    List {
+        values: list::Values::I8(vector),
     }
 }
 

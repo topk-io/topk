@@ -11,6 +11,7 @@ export declare const list: typeof schema.list;
 export declare const semanticIndex: typeof schema.semanticIndex;
 export declare const text: typeof schema.text;
 export declare const u8Vector: typeof schema.u8Vector;
+export declare const i8Vector: typeof schema.i8Vector;
 export declare const vectorIndex: typeof schema.vectorIndex;
 export declare const f32SparseVector: typeof schema.f32SparseVector;
 export declare const u8SparseVector: typeof schema.u8SparseVector;

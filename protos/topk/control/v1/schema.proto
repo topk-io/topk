@@ -30,6 +30,7 @@ message FieldType {
     FieldTypeF32SparseVector f32_sparse_vector = 9;
     FieldTypeU8SparseVector u8_sparse_vector = 10;
     FieldTypeList list = 11;
+    FieldTypeI8Vector i8_vector = 12;
   }
 }
 
@@ -43,6 +44,10 @@ message FieldTypeF32Vector {
 }
 
 message FieldTypeU8Vector {
+  uint32 dimension = 1;
+}
+
+message FieldTypeI8Vector {
   uint32 dimension = 1;
 }
 

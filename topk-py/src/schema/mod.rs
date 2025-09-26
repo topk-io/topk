@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use pyo3::prelude::*;
 use topk_rs::proto::v1::control::FieldSpec as FieldSpecPb;
 
-use crate::schema::field_spec::FieldSpec;
+use crate::schema::{field_index::FieldIndex, field_spec::FieldSpec};
 
 pub mod data_type;
 pub mod field_index;
@@ -18,6 +18,10 @@ pub mod field_spec;
 #[pymodule]
 #[pyo3(name = "schema")]
 pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    // classes
+    m.add_class::<FieldSpec>()?;
+    m.add_class::<FieldIndex>()?;
+
     // data types
     m.add_wrapped(wrap_pyfunction!(text))?;
     m.add_wrapped(wrap_pyfunction!(int))?;
@@ -25,6 +29,7 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(self::bool))?;
     m.add_wrapped(wrap_pyfunction!(f32_vector))?;
     m.add_wrapped(wrap_pyfunction!(u8_vector))?;
+    m.add_wrapped(wrap_pyfunction!(i8_vector))?;
     m.add_wrapped(wrap_pyfunction!(binary_vector))?;
     m.add_wrapped(wrap_pyfunction!(bytes))?;
     m.add_wrapped(wrap_pyfunction!(f32_sparse_vector))?;
@@ -67,6 +72,11 @@ pub fn f32_vector(dimension: u32) -> field_spec::FieldSpec {
 #[pyfunction]
 pub fn u8_vector(dimension: u32) -> field_spec::FieldSpec {
     field_spec::FieldSpec::new(data_type::DataType::U8Vector { dimension })
+}
+
+#[pyfunction]
+pub fn i8_vector(dimension: u32) -> field_spec::FieldSpec {
+    field_spec::FieldSpec::new(data_type::DataType::I8Vector { dimension })
 }
 
 #[pyfunction]

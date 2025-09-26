@@ -1,0 +1,316 @@
+---
+title: topk_sdk.schema
+---
+
+## Classes
+
+### FieldIndex
+
+*Internal*
+
+    Instances of the `FieldIndex` class represents a field index created by [`vector_index`](#vector-index), [`keyword_index`](#keyword-index), or [`semantic_index`](#semantic-index) functions.
+
+### FieldSpec
+
+*Internal*
+
+    Instances of the `FieldSpec` class represents a field specification created by [`text`](#text), [`int`](#int), [`float`](#float), [`bool`](#bool), [`f32_vector`](#f32-vector), [`u8_vector`](#u8-vector), [`i8_vector`](#i8-vector), [`binary_vector`](#binary-vector), [`f32_sparse_vector`](#f32-sparse-vector), [`u8_sparse_vector`](#u8-sparse-vector), [`bytes`](#bytes), or [`list`](#list) functions.
+
+**Methods**
+
+#### required()
+
+```python
+required(self) -> FieldSpec
+```
+
+**Returns**
+
+[`FieldSpec`](#fieldspec)
+
+***
+
+#### optional()
+
+```python
+optional(self) -> FieldSpec
+```
+
+**Returns**
+
+[`FieldSpec`](#fieldspec)
+
+***
+
+#### index()
+
+```python
+index(self, index: FieldIndex) -> FieldSpec
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `index` | [`FieldIndex`](#fieldindex) |
+
+**Returns**
+
+[`FieldSpec`](#fieldspec)
+
+***
+
+## Functions
+
+### text()
+
+```python
+text() -> FieldSpec
+```
+
+Create a text field specification.
+
+**Returns**
+
+[`FieldSpec`](#fieldspec)
+
+***
+
+### int()
+
+```python
+int() -> FieldSpec
+```
+
+Create an integer field specification.
+
+**Returns**
+
+[`FieldSpec`](#fieldspec)
+
+***
+
+### float()
+
+```python
+float() -> FieldSpec
+```
+
+Create a float field specification.
+
+**Returns**
+
+[`FieldSpec`](#fieldspec)
+
+***
+
+### bool()
+
+```python
+bool() -> FieldSpec
+```
+
+Create a boolean field specification.
+
+**Returns**
+
+[`FieldSpec`](#fieldspec)
+
+***
+
+### f32_vector()
+
+```python
+f32_vector(dimension: int) -> FieldSpec
+```
+
+Create a 32-bit float vector field specification.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `dimension` | int |
+
+**Returns**
+
+[`FieldSpec`](#fieldspec)
+
+***
+
+### u8_vector()
+
+```python
+u8_vector(dimension: int) -> FieldSpec
+```
+
+Create an 8-bit unsigned integer vector field specification.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `dimension` | int |
+
+**Returns**
+
+[`FieldSpec`](#fieldspec)
+
+***
+
+### i8_vector()
+
+```python
+i8_vector(dimension: int) -> FieldSpec
+```
+
+Create an 8-bit signed integer vector field specification.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `dimension` | int |
+
+**Returns**
+
+[`FieldSpec`](#fieldspec)
+
+***
+
+### binary_vector()
+
+```python
+binary_vector(dimension: int) -> FieldSpec
+```
+
+Create a binary vector field specification.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `dimension` | int |
+
+**Returns**
+
+[`FieldSpec`](#fieldspec)
+
+***
+
+### f32_sparse_vector()
+
+```python
+f32_sparse_vector() -> FieldSpec
+```
+
+Create a f32 sparse vector field specification.
+
+**Returns**
+
+[`FieldSpec`](#fieldspec)
+
+***
+
+### u8_sparse_vector()
+
+```python
+u8_sparse_vector() -> FieldSpec
+```
+
+Create a u8 sparse vector field specification.
+
+**Returns**
+
+[`FieldSpec`](#fieldspec)
+
+***
+
+### bytes()
+
+```python
+bytes() -> FieldSpec
+```
+
+Create a bytes field specification.
+
+**Returns**
+
+[`FieldSpec`](#fieldspec)
+
+***
+
+### list()
+
+```python
+list(value_type: Literal['text', 'integer', 'float']) -> FieldSpec
+```
+
+Create a list field specification.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `value_type` | Literal['text', 'integer', 'float'] |
+
+**Returns**
+
+[`FieldSpec`](#fieldspec)
+
+***
+
+### vector_index()
+
+```python
+vector_index(metric: Literal['cosine', 'euclidean', 'dot_product', 'hamming']) -> FieldIndex
+```
+
+Create a vector index on a vector field.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `metric` | Literal['cosine', 'euclidean', 'dot_product', 'hamming'] |
+
+**Returns**
+
+[`FieldIndex`](#fieldindex)
+
+***
+
+### keyword_index()
+
+```python
+keyword_index() -> FieldIndex
+```
+
+Create a keyword index on a text field.
+
+**Returns**
+
+[`FieldIndex`](#fieldindex)
+
+***
+
+### semantic_index()
+
+```python
+semantic_index(model: str) -> FieldIndex
+```
+
+Create a semantic index on a text field.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `model` | str |
+
+**Returns**
+
+[`FieldIndex`](#fieldindex)
+
+***
+

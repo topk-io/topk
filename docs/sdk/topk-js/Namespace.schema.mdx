@@ -1,0 +1,394 @@
+---
+title: topk-js/schema
+---
+
+[topk-js](/sdk/topk-js/index) / schema
+
+## Functions
+
+### binaryVector()
+
+```ts
+function binaryVector(options: VectorOptions): FieldSpec;
+```
+
+Creates a binary vector field specification.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `options` | [`VectorOptions`](/sdk/topk-js/Namespace.schema#vectoroptions) |
+
+**Returns**
+
+[`FieldSpec`](/sdk/topk-js/Namespace.schema#fieldspec)
+
+***
+
+### bool()
+
+```ts
+function bool(): FieldSpec;
+```
+
+Creates a boolean field specification.
+
+**Returns**
+
+[`FieldSpec`](/sdk/topk-js/Namespace.schema#fieldspec)
+
+***
+
+### bytes()
+
+```ts
+function bytes(): FieldSpec;
+```
+
+Creates a bytes field specification.
+
+**Returns**
+
+[`FieldSpec`](/sdk/topk-js/Namespace.schema#fieldspec)
+
+***
+
+### f32SparseVector()
+
+```ts
+function f32SparseVector(): FieldSpec;
+```
+
+Creates a 32-bit float sparse vector field specification.
+
+**Returns**
+
+[`FieldSpec`](/sdk/topk-js/Namespace.schema#fieldspec)
+
+***
+
+### f32Vector()
+
+```ts
+function f32Vector(options: VectorOptions): FieldSpec;
+```
+
+Creates a 32-bit float vector field specification.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `options` | [`VectorOptions`](/sdk/topk-js/Namespace.schema#vectoroptions) |
+
+**Returns**
+
+[`FieldSpec`](/sdk/topk-js/Namespace.schema#fieldspec)
+
+***
+
+### float()
+
+```ts
+function float(): FieldSpec;
+```
+
+Creates a float field specification.
+
+**Returns**
+
+[`FieldSpec`](/sdk/topk-js/Namespace.schema#fieldspec)
+
+***
+
+### i8Vector()
+
+```ts
+function i8Vector(options: VectorOptions): FieldSpec;
+```
+
+Creates an 8-bit signed integer vector field specification.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `options` | [`VectorOptions`](/sdk/topk-js/Namespace.schema#vectoroptions) |
+
+**Returns**
+
+[`FieldSpec`](/sdk/topk-js/Namespace.schema#fieldspec)
+
+***
+
+### int()
+
+```ts
+function int(): FieldSpec;
+```
+
+Creates an integer field specification.
+
+**Returns**
+
+[`FieldSpec`](/sdk/topk-js/Namespace.schema#fieldspec)
+
+***
+
+### keywordIndex()
+
+```ts
+function keywordIndex(): FieldIndex;
+```
+
+Creates a keyword index specification.
+
+**Returns**
+
+[`FieldIndex`](/sdk/topk-js/Namespace.schema#fieldindex)
+
+***
+
+### list()
+
+```ts
+function list(options: ListOptions): FieldSpec;
+```
+
+Creates a list field specification.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `options` | [`ListOptions`](/sdk/topk-js/Namespace.schema#listoptions) |
+
+**Returns**
+
+[`FieldSpec`](/sdk/topk-js/Namespace.schema#fieldspec)
+
+***
+
+### semanticIndex()
+
+```ts
+function semanticIndex(options?: SemanticIndexOptions): FieldIndex;
+```
+
+Creates a semantic index specification.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `options?` | [`SemanticIndexOptions`](/sdk/topk-js/Namespace.schema#semanticindexoptions) |
+
+**Returns**
+
+[`FieldIndex`](/sdk/topk-js/Namespace.schema#fieldindex)
+
+***
+
+### text()
+
+```ts
+function text(): FieldSpec;
+```
+
+Creates a text field specification.
+
+**Returns**
+
+[`FieldSpec`](/sdk/topk-js/Namespace.schema#fieldspec)
+
+***
+
+### u8SparseVector()
+
+```ts
+function u8SparseVector(): FieldSpec;
+```
+
+Creates an 8-bit unsigned integer sparse vector field specification.
+
+**Returns**
+
+[`FieldSpec`](/sdk/topk-js/Namespace.schema#fieldspec)
+
+***
+
+### u8Vector()
+
+```ts
+function u8Vector(options: VectorOptions): FieldSpec;
+```
+
+Creates an 8-bit unsigned integer vector field specification.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `options` | [`VectorOptions`](/sdk/topk-js/Namespace.schema#vectoroptions) |
+
+**Returns**
+
+[`FieldSpec`](/sdk/topk-js/Namespace.schema#fieldspec)
+
+***
+
+### vectorIndex()
+
+```ts
+function vectorIndex(options: VectorIndexOptions): FieldIndex;
+```
+
+Creates a vector index specification.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `options` | [`VectorIndexOptions`](/sdk/topk-js/Namespace.schema#vectorindexoptions) |
+
+**Returns**
+
+[`FieldIndex`](/sdk/topk-js/Namespace.schema#fieldindex)
+
+## Classes
+
+### FieldIndex
+
+**`Internal`**
+
+***
+
+### FieldSpec
+
+**`Internal`**
+
+**Methods**
+
+##### index()
+
+```ts
+index(index: FieldIndex): FieldSpec;
+```
+
+Adds an index configuration to the field.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `index` | [`FieldIndex`](/sdk/topk-js/Namespace.schema#fieldindex) |
+
+**Returns**
+
+[`FieldSpec`](/sdk/topk-js/Namespace.schema#fieldspec)
+
+##### required()
+
+```ts
+required(): FieldSpec;
+```
+
+Marks the field as required.
+
+**Returns**
+
+[`FieldSpec`](/sdk/topk-js/Namespace.schema#fieldspec)
+
+## Interfaces
+
+### ListOptions
+
+Options for list field specifications.
+
+This struct contains configuration options for list fields,
+including the type of values the list can contain.
+
+**Properties**
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="valuetype"></a> `valueType` | [`ListValueType`](/sdk/topk-js/Namespace.schema#listvaluetype) | The type of values the list can contain |
+
+***
+
+### SemanticIndexOptions
+
+Options for semantic index specifications.
+
+This struct contains configuration options for semantic indexes,
+including the model and embedding type to use.
+
+**Properties**
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="embeddingtype"></a> `embeddingType?` | [`EmbeddingDataType`](/sdk/topk-js/Namespace.schema#embeddingdatatype) | The type of embedding data |
+| <a id="model"></a> `model?` | `string` | The embedding model to use |
+
+***
+
+### VectorIndexOptions
+
+Options for vector index specifications.
+
+This struct contains configuration options for vector indexes,
+including the distance metric to use.
+
+**Properties**
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="metric"></a> `metric` | [`VectorDistanceMetric`](/sdk/topk-js/Namespace.schema#vectordistancemetric) | The distance metric to use for vector similarity |
+
+***
+
+### VectorOptions
+
+Options for vector field specifications.
+
+This struct contains configuration options for vector fields,
+including the required dimension parameter.
+
+**Properties**
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="dimension"></a> `dimension` | `number` | The dimension of the vector |
+
+## Type Aliases
+
+### EmbeddingDataType
+
+```ts
+type EmbeddingDataType = "float32" | "uint8" | "binary";
+```
+
+***
+
+### KeywordIndexType
+
+```ts
+type KeywordIndexType = "text";
+```
+
+***
+
+### ListValueType
+
+```ts
+type ListValueType = "text" | "integer" | "float";
+```
+
+***
+
+### VectorDistanceMetric
+
+```ts
+type VectorDistanceMetric = "cosine" | "euclidean" | "dot_product" | "hamming";
+```

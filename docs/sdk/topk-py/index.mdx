@@ -1,0 +1,567 @@
+---
+title: topk_sdk
+---
+
+## Classes
+
+### Client
+
+Synchronous client for interacting with the TopK API.
+
+**Methods**
+
+**Constructor**
+
+```python
+Client(
+   api_key: str,
+   region: str,
+   host: str = "topk.io",
+   https: bool = True,
+   retry_config: Optional[RetryConfig] = None
+)
+```
+
+#### collection()
+
+```python
+collection(self, collection: str) -> CollectionClient
+```
+
+Get a client for managing data operations on a specific collection such as querying, upserting, and deleting documents.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `collection` | str |
+
+**Returns**
+
+[`CollectionClient`](#collectionclient)
+
+***
+
+#### collections()
+
+```python
+collections(self) -> CollectionsClient
+```
+
+Get a client for managing collections.
+
+**Returns**
+
+[`CollectionsClient`](#collectionsclient)
+
+***
+
+### AsyncClient
+
+Asynchronous client for interacting with the TopK API.
+
+**Methods**
+
+**Constructor**
+
+```python
+AsyncClient(
+   api_key: str,
+   region: str,
+   host: str = "topk.io",
+   https: bool = True,
+   retry_config: Optional[RetryConfig] = None
+)
+```
+
+#### collection()
+
+```python
+collection(self, collection: str) -> AsyncCollectionClient
+```
+
+Get an async client for a specific collection.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `collection` | str |
+
+**Returns**
+
+[`AsyncCollectionClient`](#asynccollectionclient)
+
+***
+
+#### collections()
+
+```python
+collections(self) -> AsyncCollectionsClient
+```
+
+Get an async client for managing collections.
+
+**Returns**
+
+[`AsyncCollectionsClient`](#asynccollectionsclient)
+
+***
+
+### CollectionClient
+
+Synchronous client for collection operations.
+
+**Methods**
+
+#### get()
+
+```python
+get(
+   self,
+   ids: Sequence[str],
+   fields: Optional[Sequence[str]] = None,
+   lsn: Optional[str] = None,
+   consistency: Optional[ConsistencyLevel] = None
+)
+```
+
+Get documents by their IDs.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `ids` | Sequence[str] |
+| `fields` | Optional[Sequence[str]] |
+| `lsn` | Optional[str] |
+| `consistency` | Optional[[`ConsistencyLevel`](#consistencylevel)] |
+
+**Returns**
+
+dict[str, dict[str, Any]]
+
+***
+
+#### count()
+
+```python
+count(self, lsn: Optional[str] = None, consistency: Optional[ConsistencyLevel] = None) -> int
+```
+
+Get the count of documents in the collection.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `lsn` | Optional[str] |
+| `consistency` | Optional[[`ConsistencyLevel`](#consistencylevel)] |
+
+**Returns**
+
+int
+
+***
+
+#### query()
+
+```python
+query(
+   self,
+   query: query.Query,
+   lsn: Optional[str] = None,
+   consistency: Optional[ConsistencyLevel] = None
+)
+```
+
+Execute a query against the collection.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `query` | [`query.Query`](/sdk/topk-py/query#query) |
+| `lsn` | Optional[str] |
+| `consistency` | Optional[[`ConsistencyLevel`](#consistencylevel)] |
+
+**Returns**
+
+list[dict[str, Any]]
+
+***
+
+#### upsert()
+
+```python
+upsert(self, documents: Sequence[Mapping[str, Any]]) -> str
+```
+
+Insert or update documents in the collection.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `documents` | Sequence[Mapping[str, Any]] |
+
+**Returns**
+
+str
+
+***
+
+#### delete()
+
+```python
+delete(self, ids: Sequence[str]) -> str
+```
+
+Delete documents by their IDs.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `ids` | Sequence[str] |
+
+**Returns**
+
+str
+
+***
+
+### AsyncCollectionClient
+
+Asynchronous client for collection operations.
+
+**Methods**
+
+#### get()
+
+```python
+get(
+   self,
+   ids: Sequence[str],
+   fields: Optional[Sequence[str]] = None,
+   lsn: Optional[str] = None,
+   consistency: Optional[ConsistencyLevel] = None
+)
+```
+
+Get documents by their IDs asynchronously.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `ids` | Sequence[str] |
+| `fields` | Optional[Sequence[str]] |
+| `lsn` | Optional[str] |
+| `consistency` | Optional[[`ConsistencyLevel`](#consistencylevel)] |
+
+**Returns**
+
+Awaitable[dict[str, dict[str, Any]]]
+
+***
+
+#### count()
+
+```python
+count(
+   self,
+   lsn: Optional[str] = None,
+   consistency: Optional[ConsistencyLevel] = None
+)
+```
+
+Get the count of documents in the collection asynchronously.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `lsn` | Optional[str] |
+| `consistency` | Optional[[`ConsistencyLevel`](#consistencylevel)] |
+
+**Returns**
+
+Awaitable[int]
+
+***
+
+#### query()
+
+```python
+query(
+   self,
+   query: query.Query,
+   lsn: Optional[str] = None,
+   consistency: Optional[ConsistencyLevel] = None
+)
+```
+
+Execute a query against the collection asynchronously.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `query` | [`query.Query`](/sdk/topk-py/query#query) |
+| `lsn` | Optional[str] |
+| `consistency` | Optional[[`ConsistencyLevel`](#consistencylevel)] |
+
+**Returns**
+
+Awaitable[list[dict[str, Any]]]
+
+***
+
+#### upsert()
+
+```python
+upsert(self, documents: Sequence[Mapping[str, Any]]) -> Awaitable[str]
+```
+
+Insert or update documents in the collection asynchronously.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `documents` | Sequence[Mapping[str, Any]] |
+
+**Returns**
+
+Awaitable[str]
+
+***
+
+#### delete()
+
+```python
+delete(self, ids: Sequence[str]) -> Awaitable[str]
+```
+
+Delete documents by their IDs asynchronously.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `ids` | Sequence[str] |
+
+**Returns**
+
+Awaitable[str]
+
+***
+
+### Collection
+
+Represents a collection in the TopK system.
+
+**Properties**
+
+| Property | Type |
+| -------- | ---- |
+| `name` | str |
+| `org_id` | str |
+| `project_id` | str |
+| `region` | str |
+| `schema` | dict[str, [`schema.FieldSpec`](/sdk/topk-py/schema#fieldspec)] |
+### CollectionsClient
+
+Synchronous client for managing collections.
+
+**Methods**
+
+#### get()
+
+```python
+get(self, collection_name: str) -> Collection
+```
+
+Get information about a specific collection.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `collection_name` | str |
+
+**Returns**
+
+[`Collection`](#collection)
+
+***
+
+#### list()
+
+```python
+list(self) -> list[Collection]
+```
+
+List all collections.
+
+**Returns**
+
+list[[`Collection`](#collection)]
+
+***
+
+#### create()
+
+```python
+create(self, collection_name: str, schema: Mapping[str, schema.FieldSpec]) -> Collection
+```
+
+Create a new collection with the specified schema.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `collection_name` | str |
+| `schema` | Mapping[str, [`schema.FieldSpec`](/sdk/topk-py/schema#fieldspec)] |
+
+**Returns**
+
+[`Collection`](#collection)
+
+***
+
+#### delete()
+
+```python
+delete(self, collection_name: str) -> None
+```
+
+Delete a collection.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `collection_name` | str |
+
+**Returns**
+
+None
+
+***
+
+### AsyncCollectionsClient
+
+Asynchronous client for managing collections.
+
+**Methods**
+
+#### get()
+
+```python
+get(self, collection_name: str) -> Awaitable[Collection]
+```
+
+Get information about a specific collection asynchronously.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `collection_name` | str |
+
+**Returns**
+
+Awaitable[[`Collection`](#collection)]
+
+***
+
+#### list()
+
+```python
+list(self) -> Awaitable[list[Collection]]
+```
+
+List all collections asynchronously.
+
+**Returns**
+
+Awaitable[list[[`Collection`](#collection)]]
+
+***
+
+#### create()
+
+```python
+create(self, collection_name: str, schema: Mapping[str, schema.FieldSpec]) -> Awaitable[Collection]
+```
+
+Create a new collection with the specified schema asynchronously.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `collection_name` | str |
+| `schema` | Mapping[str, [`schema.FieldSpec`](/sdk/topk-py/schema#fieldspec)] |
+
+**Returns**
+
+Awaitable[[`Collection`](#collection)]
+
+***
+
+#### delete()
+
+```python
+delete(self, collection_name: str) -> Awaitable[None]
+```
+
+Delete a collection asynchronously.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `collection_name` | str |
+
+**Returns**
+
+Awaitable[None]
+
+***
+
+### ConsistencyLevel
+
+Enumeration of consistency levels for operations.
+
+**Values**
+
+| Value | Description |
+| ----- | ----------- |
+| `Indexed` | `indexed` |
+| `Strong` | `strong` |
+### RetryConfig
+
+Configuration for retry behavior.
+
+**Properties**
+
+| Property | Type |
+| -------- | ---- |
+| `max_retries` | Optional[int] |
+| `timeout` | Optional[int] |
+| `backoff` | Optional[[`BackoffConfig`](#backoffconfig)] |
+### BackoffConfig
+
+Configuration for backoff behavior in retries.
+
+**Properties**
+
+| Property | Type |
+| -------- | ---- |
+| `base` | Optional[int] |
+| `init_backoff` | Optional[int] |
+| `max_backoff` | Optional[int] |

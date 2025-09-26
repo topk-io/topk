@@ -93,6 +93,20 @@ impl FieldSpec {
         }
     }
 
+    pub fn i8_vector(dimension: u32, required: bool, metric: VectorDistanceMetric) -> FieldSpec {
+        FieldSpec {
+            data_type: Some(FieldType {
+                data_type: Some(field_type::DataType::i8_vector(dimension)),
+            }),
+            required,
+            index: Some(FieldIndex {
+                index: Some(field_index::Index::VectorIndex(VectorIndex {
+                    metric: metric as i32,
+                })),
+            }),
+        }
+    }
+
     pub fn binary_vector(
         dimension: u32,
         required: bool,

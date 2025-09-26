@@ -10,6 +10,7 @@ exports.i64List = data.i64List;
 exports.u32List = data.u32List;
 exports.stringList = data.stringList;
 exports.u8Vector = data.u8Vector;
+exports.i8Vector = data.i8Vector;
 exports.u8SparseVector = data.u8SparseVector;
 exports.f32SparseVector = data.f32SparseVector;
 exports.SparseVector = data.SparseVector;

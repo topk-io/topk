@@ -2,6 +2,8 @@ use super::{data_type::DataType, field_index::FieldIndex};
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
+/// @internal
+/// @hideconstructor
 #[napi(namespace = "schema")]
 #[derive(Clone)]
 pub struct FieldSpec {
@@ -10,6 +12,7 @@ pub struct FieldSpec {
     index: Option<FieldIndex>,
 }
 
+/// @ignore
 impl FieldSpec {
     pub fn create(data_type: DataType) -> Self {
         Self {
@@ -22,6 +25,7 @@ impl FieldSpec {
 
 #[napi(namespace = "schema")]
 impl FieldSpec {
+    /// Marks the field as required.
     #[napi]
     pub fn required(&self) -> Self {
         Self {
@@ -30,6 +34,7 @@ impl FieldSpec {
         }
     }
 
+    /// Adds an index configuration to the field.
     #[napi]
     pub fn index(&self, index: FieldIndex) -> Self {
         Self {
@@ -55,6 +60,9 @@ impl From<FieldSpec> for topk_rs::proto::v1::control::FieldSpec {
                     }
                     DataType::U8Vector { dimension } => {
                         topk_rs::proto::v1::control::field_type::DataType::u8_vector(dimension)
+                    }
+                    DataType::I8Vector { dimension } => {
+                        topk_rs::proto::v1::control::field_type::DataType::i8_vector(dimension)
                     }
                     DataType::BinaryVector { dimension } => {
                         topk_rs::proto::v1::control::field_type::DataType::binary_vector(dimension)

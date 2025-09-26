@@ -1,5 +1,5 @@
 use crate::schema::data_type::DataType;
-use crate::schema::field_index::{FieldIndex, KeywordIndexType, VectorDistanceMetric};
+use crate::schema::field_index::FieldIndex;
 use pyo3::prelude::*;
 
 #[pyclass]
@@ -41,16 +41,6 @@ impl FieldSpec {
             required: false,
             ..self.clone()
         }
-    }
-
-    pub fn keyword_index(&self) -> Self {
-        self.index(FieldIndex::KeywordIndex {
-            index_type: KeywordIndexType::Text,
-        })
-    }
-
-    pub fn vector_index(&self, metric: VectorDistanceMetric) -> Self {
-        self.index(FieldIndex::VectorIndex { metric })
     }
 
     fn index(&self, index: FieldIndex) -> Self {

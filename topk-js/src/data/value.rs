@@ -37,6 +37,7 @@ impl From<Value> for topk_rs::proto::v1::data::Value {
                 Values::U8(v) => topk_rs::proto::v1::data::Value::list(v),
                 Values::U32(v) => topk_rs::proto::v1::data::Value::list(v),
                 Values::U64(v) => topk_rs::proto::v1::data::Value::list(v),
+                Values::I8(v) => topk_rs::proto::v1::data::Value::list(v),
                 Values::I32(v) => topk_rs::proto::v1::data::Value::list(v),
                 Values::I64(v) => topk_rs::proto::v1::data::Value::list(v),
                 Values::F32(v) => topk_rs::proto::v1::data::Value::list(v),
@@ -112,6 +113,8 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                     Some(topk_rs::proto::v1::data::list::Values::U8(v)) => Values::U8(v.values),
                     Some(topk_rs::proto::v1::data::list::Values::U32(v)) => Values::U32(v.values),
                     Some(topk_rs::proto::v1::data::list::Values::U64(v)) => Values::U64(v.values),
+                    // Transmuting to i8 from the `bytes` u8 representation in proto
+                    Some(topk_rs::proto::v1::data::list::Values::I8(v)) => Values::I8(v.into()),
                     Some(topk_rs::proto::v1::data::list::Values::I32(v)) => Values::I32(v.values),
                     Some(topk_rs::proto::v1::data::list::Values::I64(v)) => Values::I64(v.values),
                     Some(topk_rs::proto::v1::data::list::Values::F32(v)) => Values::F32(v.values),
@@ -226,6 +229,7 @@ impl ToNapiValue for Value {
                 Values::U64(v) => {
                     Vec::<u32>::to_napi_value(env, v.iter().map(|v| *v as u32).collect())
                 }
+                Values::I8(v) => Vec::<i8>::to_napi_value(env, v),
                 Values::I32(v) => Vec::<i32>::to_napi_value(env, v),
                 Values::I64(v) => Vec::<i64>::to_napi_value(env, v),
                 Values::F32(v) => Vec::<f32>::to_napi_value(env, v),

@@ -1,0 +1,279 @@
+---
+title: topk-js/data
+---
+
+[topk-js](/sdk/topk-js/index) / data
+
+## Functions
+
+### binaryVector()
+
+```ts
+function binaryVector(values: number[]): List;
+```
+
+Creates a binary vector from an array of bytes.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `values` | `number`[] |
+
+**Returns**
+
+[`List`](/sdk/topk-js/Namespace.data#list)
+
+***
+
+### bytes()
+
+```ts
+function bytes(buffer: number[] | Buffer<ArrayBufferLike>): Buffer;
+```
+
+Creates a bytes value from a buffer or array of numbers.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `buffer` | `number`[] \| `Buffer`\<`ArrayBufferLike`\> |
+
+**Returns**
+
+`Buffer`
+
+***
+
+### f32List()
+
+```ts
+function f32List(values: number[]): List;
+```
+
+Creates a list of 64-bit floating point numbers.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `values` | `number`[] |
+
+**Returns**
+
+[`List`](/sdk/topk-js/Namespace.data#list)
+
+***
+
+### f32SparseVector()
+
+```ts
+function f32SparseVector(vector: Record<number, number>): SparseVector;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `vector` | `Record`\<`number`, `number`\> |
+
+**Returns**
+
+[`SparseVector`](/sdk/topk-js/Namespace.data#sparsevector)
+
+***
+
+### f32Vector()
+
+```ts
+function f32Vector(values: number[]): List;
+```
+
+Creates a 32-bit float vector from an array of numbers.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `values` | `number`[] |
+
+**Returns**
+
+[`List`](/sdk/topk-js/Namespace.data#list)
+
+***
+
+### f64List()
+
+```ts
+function f64List(values: number[]): List;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `values` | `number`[] |
+
+**Returns**
+
+[`List`](/sdk/topk-js/Namespace.data#list)
+
+***
+
+### i32List()
+
+```ts
+function i32List(values: number[]): List;
+```
+
+Creates a list of 32-bit signed integers.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `values` | `number`[] |
+
+**Returns**
+
+[`List`](/sdk/topk-js/Namespace.data#list)
+
+***
+
+### i64List()
+
+```ts
+function i64List(values: number[]): List;
+```
+
+Creates a list of 64-bit signed integers.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `values` | `number`[] |
+
+**Returns**
+
+[`List`](/sdk/topk-js/Namespace.data#list)
+
+***
+
+### i8Vector()
+
+```ts
+function i8Vector(values: number[]): List;
+```
+
+Creates an 8-bit signed integer vector from an array of numbers.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `values` | `number`[] |
+
+**Returns**
+
+[`List`](/sdk/topk-js/Namespace.data#list)
+
+***
+
+### stringList()
+
+```ts
+function stringList(values: string[]): List;
+```
+
+Creates a sparse vector of 32-bit floats.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `values` | `string`[] |
+
+**Returns**
+
+[`List`](/sdk/topk-js/Namespace.data#list)
+
+***
+
+### u32List()
+
+```ts
+function u32List(values: number[]): List;
+```
+
+Creates a list of 32-bit unsigned integers.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `values` | `number`[] |
+
+**Returns**
+
+[`List`](/sdk/topk-js/Namespace.data#list)
+
+***
+
+### u8SparseVector()
+
+```ts
+function u8SparseVector(vector: Record<number, number>): SparseVector;
+```
+
+Creates a sparse vector of 8-bit unsigned integers.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `vector` | `Record`\<`number`, `number`\> |
+
+**Returns**
+
+[`SparseVector`](/sdk/topk-js/Namespace.data#sparsevector)
+
+***
+
+### u8Vector()
+
+```ts
+function u8Vector(values: number[]): List;
+```
+
+Creates an 8-bit unsigned integer vector from an array of numbers.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `values` | `number`[] |
+
+**Returns**
+
+[`List`](/sdk/topk-js/Namespace.data#list)
+
+## Classes
+
+### List
+
+**`Internal`**
+
+Instances of the `List` class are used to represent lists of values in TopK.
+Usually created using data constructors such as [`f32_list()`](#f32list), [`i32_list()`](#i32list), etc.
+
+***
+
+### SparseVector
+
+**`Internal`**
+
+Instances of the `SparseVector` class are used to represent sparse vectors in TopK.
+Usually created using data constructors such as [`f32_sparse_vector()`](#f32sparsevector) or [`u8_sparse_vector()`](#u8sparsevector).

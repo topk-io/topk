@@ -1,0 +1,25 @@
+---
+title: "Changelog"
+---
+
+### September
+
+- **Docs & SDKs**: Published SDK reference for **Python** and **JavaScript** clients, and added detailed docstrings for a smoother developer experience in both SDKs
+- **Python SDK**: Released `AsyncClient` for easier async workflows.
+- **String Operators**: Added `lt`, `lte`, `gt`, `gte`, `min`, and `max`.
+- **Query Helpers**: Introduced `any` and `all` helpers.
+- **List Support**: Added `contains` and `in` operators for list fields.
+- **Observability**: Added Query Latency and Write Latency charts to the Usage Metrics in console.
+- **New Data Type**: Added `int8` vector support
+
+### August
+
+- **Lists Data Type**: Native support for list fields.
+- **Performance**: Added `skip_refine` query option to improve speed when reranking isn’t needed.
+- **Monitoring**: Usage Metrics now available directly in the [console](https://console.topk.io/).
+
+### July
+
+- **Math Operators**: Added `ln`, `exp`, `sqrt`, `square`, `min`, `max`, and `abs`.
+- **Advanced Querying**: Introduced `choose`, `match_all`, `match_any`, `coalesce`, and `boost` (with null coalescing).
+- **Binary Data**: Added `bytes()` constructor to the Python SDK.

@@ -9,6 +9,12 @@ use crate::expr::{
 };
 use napi_derive::napi;
 
+/// @internal
+/// @hideconstructor
+/// A query object that represents a sequence of query stages.
+///
+/// Queries are built by chaining together different stages like select, filter, topk, etc.
+/// Each stage performs a specific operation on the data.
 #[napi(namespace = "query")]
 #[derive(Debug, Clone)]
 pub struct Query {
@@ -17,6 +23,7 @@ pub struct Query {
 
 #[napi(namespace = "query")]
 impl Query {
+    /// Adds a filter stage to the query.
     #[napi]
     pub fn filter(
         &self,
@@ -31,6 +38,7 @@ impl Query {
         new_query
     }
 
+    /// Adds a select stage to the query.
     #[napi]
     pub fn select(
         &self,
@@ -48,6 +56,7 @@ impl Query {
         new_query
     }
 
+    /// Adds a top-k stage to the query.
     #[napi]
     pub fn topk(&self, expr: &LogicalExpression, k: i32, asc: Option<bool>) -> Query {
         let mut new_query = Query {
@@ -63,6 +72,7 @@ impl Query {
         new_query
     }
 
+    /// Adds a count stage to the query.
     #[napi]
     pub fn count(&self) -> Query {
         let mut new_query = Query {
@@ -74,6 +84,7 @@ impl Query {
         new_query
     }
 
+    /// Adds a rerank stage to the query.
     #[napi]
     pub fn rerank(&self, options: Option<RerankOptions>) -> Query {
         let options = options.unwrap_or_default();
@@ -93,23 +104,39 @@ impl Query {
     }
 }
 
+/// Options for rerank stages.
+///
+/// This struct contains configuration options for reranking results,
+/// including the model, query, and fields to use.
 #[napi(object)]
 #[derive(Default)]
 pub struct RerankOptions {
+    /// The reranking model to use
     pub model: Option<String>,
+    /// The query text for reranking
     pub query: Option<String>,
+    /// Fields to include in reranking
     pub fields: Option<Vec<String>>,
+    /// Multiple of top-k to consider for reranking
     pub topk_multiple: Option<u32>,
 }
 
-#[napi(object)]
+/// Options for text matching.
+///
+/// This struct contains configuration options for text matching operations,
+/// including field specification, weight, and matching behavior.
+#[napi(object, namespace = "query")]
 #[derive(Default)]
 pub struct MatchOptions {
+    /// Field to match against
     pub field: Option<String>,
+    /// Weight for the match
     pub weight: Option<f64>,
+    /// Whether to match all terms
     pub all: Option<bool>,
 }
 
+/// Creates a text match expression.
 #[napi(js_name = "match", namespace = "query")]
 pub fn match_(token: String, options: Option<MatchOptions>) -> TextExpression {
     let options = options.unwrap_or_default();
