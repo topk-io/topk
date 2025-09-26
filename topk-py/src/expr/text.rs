@@ -1,3 +1,4 @@
+use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 
 #[pyclass]
@@ -21,6 +22,15 @@ pub enum TextExpr {
 impl TextExpr {
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!("{:?}", self))
+    }
+
+    /// since `and` and `or` keywords cannot be overridden via magic methods.
+    ///
+    /// Example: `match("foo") and match("bar")` evaluates to `match("bar")`.
+    fn __bool__(&self) -> PyResult<bool> {
+        Err(PyTypeError::new_err(
+            "Using `and` or `or` keywords with Text expressions is not supported. Please use `&` or `|` instead.",
+        ))
     }
 
     fn __and__(&self, py: Python<'_>, other: TextExpr) -> PyResult<Self> {

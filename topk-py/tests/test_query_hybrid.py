@@ -51,7 +51,7 @@ def test_query_hybrid_keyword_boost(ctx: ProjectContext):
 def test_boost_helper_same_expression():
     no_helper = field("summary_distance") * (field("summary").match_all("racial injustice").choose(0.1, 1.0))
     with_helper = field("summary_distance").boost(field("summary").match_all("racial injustice"), 0.1)
-    assert no_helper == with_helper
+    assert no_helper._expr_eq(with_helper)
 
 def test_query_hybrid_coalesce_score(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)

@@ -1,6 +1,7 @@
 use crate::data::scalar::Scalar;
 use crate::expr::flexible::FlexibleExpr;
 use crate::expr::flexible::{Boolish, Iterable, Numeric, Ordered, Stringy, StringyWithList};
+use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -267,6 +268,16 @@ impl PartialEq for LogicalExpr {
 impl LogicalExpr {
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!("{:?}", self))
+    }
+
+    /// Logical expressions cannot be used in python boolean expressions,
+    /// since `and` and `or` keywords cannot be overridden via magic methods.
+    ///
+    /// Example: `field("a") and field("b")` evaluates to `field("b")`.
+    fn __bool__(&self) -> PyResult<bool> {
+        Err(PyTypeError::new_err(
+            "Using `and` or `or` keywords with Logical expressions is not supported. Please use `&` or `|` instead.",
+        ))
     }
 
     fn _expr_eq(&self, other: &LogicalExpr) -> bool {
@@ -623,8 +634,11 @@ impl LogicalExpr {
     /// Otherwise, the scoring expression is unchanged (multiplied by 1).
     fn boost(&self, py: Python<'_>, condition: FlexibleExpr, boost: Numeric) -> PyResult<Self> {
         let condition_expr = Into::<LogicalExpr>::into(condition);
-        let choose_expr =
-            condition_expr.choose(py, FlexibleExpr::Expr(boost.into()), FlexibleExpr::Int(1))?;
+        let choose_expr = condition_expr.choose(
+            py,
+            FlexibleExpr::Expr(boost.into()),
+            FlexibleExpr::Float(1.0),
+        )?;
         let choose_numeric = Numeric::Expr(choose_expr);
         self.mul(py, choose_numeric)
     }

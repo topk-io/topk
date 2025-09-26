@@ -149,3 +149,17 @@ def test_query_text_matches_on_invalid_field(ctx: ProjectContext):
         ctx.client.collection(collection.name).query(
             filter(field("published_year").match_all("love class")).count()
         )
+
+
+def test_invalid_truthiness():
+    error_msg = "Using `and` or `or` keywords with Text expressions is not supported. Please use `&` or `|` instead."
+
+    # `and`
+    with pytest.raises(TypeError) as e:
+        match("foo") and match("bar")
+    assert error_msg in str(e.value)
+
+    # `or`
+    with pytest.raises(TypeError) as e:
+        match("foo") or match("bar")
+    assert error_msg in str(e.value)
