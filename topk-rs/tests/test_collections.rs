@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use test_context::test_context;
 use topk_rs::{
-    error::{CollectionValidationError, ValidationErrorBag},
+    error::{CollectionValidationError, SchemaValidationError, ValidationErrorBag},
+    proto::v1::control::{FieldSpec, VectorDistanceMetric},
     Error,
 };
 
@@ -153,4 +154,30 @@ async fn test_get_collection(ctx: &mut ProjectTestContext) {
         .expect("could not get collection");
 
     assert_eq!(collection, c);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_create_collection_with_invalid_vector_dimension(ctx: &mut ProjectTestContext) {
+    let err = ctx
+        .client
+        .collections()
+        .create(
+            ctx.wrap("test"),
+            HashMap::from([(
+                "high_dim_vector".to_string(),
+                FieldSpec::f32_vector(20_000, false, VectorDistanceMetric::Cosine),
+            )]),
+        )
+        .await
+        .expect_err("should fail");
+
+    assert!(
+        matches!(err, Error::SchemaValidationError(e) if e == ValidationErrorBag::new(vec![
+            SchemaValidationError::VectorDimensionTooLarge {
+                field: "high_dim_vector".to_string(),
+                dimension: 20_000,
+            }
+        ]))
+    );
 }
