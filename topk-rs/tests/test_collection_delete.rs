@@ -93,7 +93,7 @@ async fn test_delete_non_existent_document(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-async fn test_delete_filter(ctx: &mut ProjectTestContext) {
+async fn test_delete_with_filter(ctx: &mut ProjectTestContext) {
     let collection = ctx
         .client
         .collections()
@@ -170,4 +170,47 @@ async fn test_delete_filter(ctx: &mut ProjectTestContext) {
         .map(|i| format!("{i}"))
         .collect();
     assert_doc_ids!(doc_ids, expected_doc_ids);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_delete_with_invalid_filter(ctx: &mut ProjectTestContext) {
+    let collection = ctx
+        .client
+        .collections()
+        .create(ctx.wrap("test"), HashMap::default())
+        .await
+        .expect("could not create collection");
+
+    let collection = ctx.client.collection(&collection.name);
+
+    let mut lsn = String::new();
+    for batch_idx in 0..3 {
+        lsn = collection
+            .upsert(
+                (0..5)
+                    .map(|i| {
+                        let idx = batch_idx * 5 + i;
+                        doc!("_id" => format!("{}", idx), "batch_idx" => batch_idx)
+                    })
+                    .collect(),
+            )
+            .await
+            .expect("could not upsert document");
+
+        assert_eq!(lsn, format!("{}", batch_idx + 1));
+    }
+
+    collection
+        .delete(field("batch_idx").gte(literal(1)).or(field("batch_idx")))
+        .await
+        .expect_err("delete should fail with invalid filter");
+
+    assert_eq!(
+        collection
+            .count(Some(lsn), None)
+            .await
+            .expect("could not count documents"),
+        15
+    );
 }
