@@ -97,7 +97,15 @@ pub fn u32_list(values: Vec<u32>) -> List {
     }
 }
 
-/// Creates a list of 32-bit signed integers.
+/// Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a list of 32-bit signed integers.
+///
+/// Example:
+///
+/// ```javascript
+/// import { i32List } from "topk-js/data";
+///
+/// i32List([0, 1, 2, 3])
+/// ```
 #[napi(namespace = "data")]
 pub fn i32_list(values: Vec<i32>) -> List {
     List {
