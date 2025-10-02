@@ -298,7 +298,17 @@ Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for
 u8_sparse_vector() -> FieldSpec
 ```
 
-Create a u8 sparse vector field specification.
+Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `u8_sparse_vector` values.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import u8_sparse_vector
+
+    client.collections().create("books", schema={
+        "sparse_field": u8_sparse_vector()
+    })
+    ```
 
 **Returns**
 

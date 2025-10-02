@@ -93,31 +93,6 @@ import { int } from "topk-js/schema";
 
 
 
-### u8_sparse_vector()
-
-`u8_sparse_vector()` function is used to define a sparse vector field with 8-bit unsigned integer values.
-
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.schema import u8_sparse_vector
-
-"sparse_field": u8_sparse_vector()
-```
-
-
-```js JavaScript
-import { u8SparseVector } from "topk-js/schema";
-
-"sparse_field": u8SparseVector()
-```
-
-</CodeGroup>
-
-<Note>
-  Sparse vectors use u32 dimension indices to support dictionaries of up to 2^32 - 1 terms.
-</Note>
 
 ### list()
 

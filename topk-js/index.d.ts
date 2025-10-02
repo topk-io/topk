@@ -748,7 +748,19 @@ export declare namespace schema {
    * ```
    */
   export function text(): FieldSpec
-  /** Creates an 8-bit unsigned integer sparse vector field specification. */
+  /**
+   * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `u8_sparse_vector` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { u8SparseVector } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   sparse_field: u8SparseVector()
+   * });
+   * ```
+   */
   export function u8SparseVector(): FieldSpec
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `u8_vector` values.

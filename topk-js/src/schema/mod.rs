@@ -177,7 +177,17 @@ pub fn f32_sparse_vector() -> FieldSpec {
     FieldSpec::create(DataType::F32SparseVector {})
 }
 
-/// Creates an 8-bit unsigned integer sparse vector field specification.
+/// Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `u8_sparse_vector` values.
+///
+/// Example:
+///
+/// ```javascript
+/// import { u8SparseVector } from "topk-js/schema";
+///
+/// await client.collections().create("books", {
+///   sparse_field: u8SparseVector()
+/// });
+/// ```
 #[napi(namespace = "schema")]
 pub fn u8_sparse_vector() -> FieldSpec {
     FieldSpec::create(DataType::U8SparseVector {})
