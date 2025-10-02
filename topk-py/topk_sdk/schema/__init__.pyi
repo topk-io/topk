@@ -190,7 +190,17 @@ def bytes() -> FieldSpec:
 
 def list(value_type: typing.Literal["text", "integer", "float"]) -> FieldSpec:
     """
-    Create a list field specification.
+    Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `list` values.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import list
+
+    client.collections().create("books", schema={
+        "tags": list(value_type="text")
+    })
+    ```
     """
     ...
 

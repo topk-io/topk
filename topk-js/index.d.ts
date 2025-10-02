@@ -705,7 +705,19 @@ export declare namespace schema {
   /** Creates a keyword index specification. */
   export function keywordIndex(): FieldIndex
   export type KeywordIndexType =  'text';
-  /** Creates a list field specification. */
+  /**
+   * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `list` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { list } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   tags: list({ valueType: "text" })
+   * });
+   * ```
+   */
   export function list(options: ListOptions): FieldSpec
   /**
    * Options for list field specifications.

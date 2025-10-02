@@ -246,7 +246,17 @@ pub struct ListOptions {
     pub value_type: ListValueType,
 }
 
-/// Creates a list field specification.
+/// Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `list` values.
+///
+/// Example:
+///
+/// ```javascript
+/// import { list } from "topk-js/schema";
+///
+/// await client.collections().create("books", {
+///   tags: list({ valueType: "text" })
+/// });
+/// ```
 #[napi(namespace = "schema")]
 pub fn list(options: ListOptions) -> FieldSpec {
     FieldSpec::create(DataType::List {
