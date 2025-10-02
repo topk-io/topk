@@ -44,8 +44,7 @@
               "documents/upsert",
               "documents/query",
               "documents/get",
-              "documents/delete",
-              "documents/data-constructors"
+              "documents/delete"
             ]
           },
           {
