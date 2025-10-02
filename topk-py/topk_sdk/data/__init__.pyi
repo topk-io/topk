@@ -93,7 +93,15 @@ def f32_sparse_vector(data: builtins.dict[int, float]) -> SparseVector:
 
 def u8_sparse_vector(data: builtins.dict[int, int]) -> SparseVector:
     """
-    Create an 8-bit unsigned integer sparse vector.
+    Create a [SparseVector](https://docs.topk.io/sdk/topk-py/data#SparseVector) type containing an 8-bit unsigned integer sparse vector. This function is an alias for [u8_sparse_list()](https://docs.topk.io/sdk/topk-py/data#u8-sparse-list).
+
+    Example:
+
+    ```python
+    from topk_sdk.data import u8_sparse_vector
+
+    u8_sparse_vector({0: 12, 6: 67, 17: 82, 97: 53})
+    ```
     """
     ...
 
