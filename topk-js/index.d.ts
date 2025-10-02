@@ -596,7 +596,19 @@ export declare namespace schema {
    * ```
    */
   export function bool(): FieldSpec
-  /** Creates a bytes field specification. */
+  /**
+   * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `bytes` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { bytes } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   image: bytes()
+   * });
+   * ```
+   */
   export function bytes(): FieldSpec
   /** @ignore */
   export type DataType =

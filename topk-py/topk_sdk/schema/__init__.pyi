@@ -114,7 +114,17 @@ def u8_sparse_vector() -> FieldSpec:
 
 def bytes() -> FieldSpec:
     """
-    Create a bytes field specification.
+    Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `bytes` values.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import bytes
+
+    client.collections().create("books", schema={
+        "image": bytes()
+    })
+    ```
     """
     ...
 

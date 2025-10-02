@@ -105,7 +105,17 @@ pub fn binary_vector(options: VectorOptions) -> FieldSpec {
     })
 }
 
-/// Creates a bytes field specification.
+/// Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `bytes` values.
+///
+/// Example:
+///
+/// ```javascript
+/// import { bytes } from "topk-js/schema";
+///
+/// await client.collections().create("books", {
+///   image: bytes()
+/// });
+/// ```
 #[napi(namespace = "schema")]
 pub fn bytes() -> FieldSpec {
     FieldSpec::create(DataType::Bytes {})
