@@ -792,7 +792,21 @@ export declare namespace schema {
   'euclidean'|
   'dot_product'|
   'hamming';
-  /** Creates a vector index specification. */
+  /**
+   * Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `vector_index` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { f32Vector, vectorIndex } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   title_embedding: f32Vector({ dimension: 1536 }).index(
+   *     vectorIndex({ metric: "cosine" })
+   *   )
+   * });
+   * ```
+   */
   export function vectorIndex(options: VectorIndexOptions): FieldIndex
   /**
    * Options for vector index specifications.

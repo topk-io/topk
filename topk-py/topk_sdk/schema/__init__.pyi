@@ -209,7 +209,17 @@ def vector_index(
     metric: typing.Literal["cosine", "euclidean", "dot_product", "hamming"],
 ) -> FieldIndex:
     """
-    Create a vector index on a vector field.
+    Create a [FieldIndex](https://docs.topk.io/sdk/topk-py/schema#FieldIndex) type for `vector_index` values.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import f32_vector, vector_index
+
+    client.collections().create("books", schema={
+        "title_embedding": f32_vector(dimension=1536).index(vector_index(metric="cosine"))
+    })
+    ```
     """
     ...
 

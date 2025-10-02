@@ -162,43 +162,6 @@ TopK supports the following embedding types for Cohere models:
 </ParamField>
 
 
-#### `vector_index()`
-
-This function is used to create vector index on a vector field.
-You can add a vector index on `f32_vector`, `u8_vector`, `binary_vector`, `f32_sparse_vector`, or `u8_sparse_vector` fields.
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.schema import f32_vector, vector_index
-
-"title_embedding": f32_vector(dimension=1536).index(vector_index(metric="cosine"))
-```
-
-
-```js JavaScript
-import { f32Vector, vectorIndex } from "topk-js/schema";
-
-"title_embedding": f32Vector({ dimension: 1536 }).index(
-  vectorIndex({ metric: "cosine" })
-),
-```
-
-</CodeGroup>
-
-You must specify a `metric` when calling `vector_index()`. This parameter determines how vector similarity is calculated:
-
-<ParamField body="metric" type="string" required={true}>
-Supported vector distance metrics:
-- `euclidean` (not supported for sparse vectors)
-- `cosine` (not supported for sparse vectors)
-- `dot_product` (supported for dense and sparse vectors)
-- `hamming` (only supported for [`binary_vector()`](#binary-vector) type)
-</ParamField>
-
-<Note>
-  Vector fields **can be null** (i.e., when the field definition is not marked as `.required()`), in which case no data is stored for that document — null vectors are not substituted with dummy or zero vectors.
-</Note>
 
 #### `keyword_index()`
 
