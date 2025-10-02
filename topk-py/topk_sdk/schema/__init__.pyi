@@ -225,7 +225,17 @@ def vector_index(
 
 def keyword_index() -> FieldIndex:
     """
-    Create a keyword index on a text field.
+    Create a [FieldIndex](https://docs.topk.io/sdk/topk-py/schema#FieldIndex) type for `keyword_index` values.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import text, keyword_index
+
+    client.collections().create("books", schema={
+        "title": text().index(keyword_index())
+    })
+    ```
     """
     ...
 

@@ -221,7 +221,17 @@ pub fn vector_index(options: VectorIndexOptions) -> FieldIndex {
     FieldIndex::vector_index(options.metric)
 }
 
-/// Creates a keyword index specification.
+/// Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `keyword_index` values.
+///
+/// Example:
+///
+/// ```javascript
+/// import { text, keywordIndex } from "topk-js/schema";
+///
+/// await client.collections().create("books", {
+///   title: text().index(keywordIndex())
+/// });
+/// ```
 #[napi(namespace = "schema")]
 pub fn keyword_index() -> FieldIndex {
     FieldIndex::keyword_index(KeywordIndexType::Text)

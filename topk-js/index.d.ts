@@ -702,7 +702,19 @@ export declare namespace schema {
   export function i8Vector(options: VectorOptions): FieldSpec
   /** Creates an integer field specification. */
   export function int(): FieldSpec
-  /** Creates a keyword index specification. */
+  /**
+   * Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `keyword_index` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { text, keywordIndex } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   title: text().index(keywordIndex())
+   * });
+   * ```
+   */
   export function keywordIndex(): FieldIndex
   export type KeywordIndexType =  'text';
   /**

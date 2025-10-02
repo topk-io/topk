@@ -163,25 +163,3 @@ TopK supports the following embedding types for Cohere models:
 
 
 
-#### `keyword_index()`
-
-This function is used to create a keyword index on a text field:
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.schema import text, keyword_index
-
-"title": text().index(keyword_index())
-```
-
-
-```js JavaScript
-import { text, keywordIndex } from "topk-js/schema";
-
-"title": text().index(keywordIndex())
-```
-
-</CodeGroup>
-
-Adding a keyword index allows you to perform [keyword search](/concepts/keyword-search) on this field.
