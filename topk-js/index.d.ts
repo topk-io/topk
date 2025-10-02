@@ -662,7 +662,19 @@ export declare namespace schema {
    * ```
    */
   export function float(): FieldSpec
-  /** Creates an 8-bit signed integer vector field specification. */
+  /**
+   * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `i8_vector` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { i8Vector } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   title_embedding: i8Vector({ dimension: 1536 })
+   * });
+   * ```
+   */
   export function i8Vector(options: VectorOptions): FieldSpec
   /** Creates an integer field specification. */
   export function int(): FieldSpec

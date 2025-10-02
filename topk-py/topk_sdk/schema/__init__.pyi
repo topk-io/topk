@@ -110,7 +110,17 @@ def u8_vector(dimension: builtins.int) -> FieldSpec:
 
 def i8_vector(dimension: builtins.int) -> FieldSpec:
     """
-    Create an 8-bit signed integer vector field specification.
+    Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `i8_vector` values.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import i8_vector
+
+    client.collections().create("books", schema={
+        "title_embedding": i8_vector(dimension=1536)
+    })
+    ```
     """
     ...
 

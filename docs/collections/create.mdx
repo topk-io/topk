@@ -90,32 +90,6 @@ import { int } from "topk-js/schema";
 
 
 
-### i8_vector()
-
-`i8_vector()` function is used to define a vector field with `i8` values.
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.schema import i8_vector
-
-"title_embedding": i8_vector(dimension=1536)
-```
-
-
-```js JavaScript
-import { i8Vector } from "topk-js/schema";
-
-"title_embedding": i8Vector({ dimension: 1536 })
-```
-
-</CodeGroup>
-
-To configure the vector dimension, pass a `dimension` parameter to the `i8_vector()` function:
-
-<ParamField body="dimension" type="int" required={true} min={1}>
-  The dimension of the vector.
-</ParamField>
 
 ### binary_vector()
 
