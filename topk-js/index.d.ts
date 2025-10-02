@@ -744,7 +744,19 @@ export declare namespace schema {
   export type ListValueType =  'text'|
   'integer'|
   'float';
-  /** Creates a semantic index specification. */
+  /**
+   * Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `semantic_index` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { text, semanticIndex } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   title: text().index(semanticIndex({ model: "cohere/embed-multilingual-v3" }))
+   * });
+   * ```
+   */
   export function semanticIndex(options?: SemanticIndexOptions | undefined | null): FieldIndex
   /**
    * Options for semantic index specifications.

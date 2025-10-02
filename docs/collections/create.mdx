@@ -123,43 +123,6 @@ import { int } from "topk-js/schema";
 
 This function accepts a single parameter specifying the index type:
 
-#### `semantic_index()`
-
-This function is used to create both a **keyword** and a **vector** on a given field. This allows you to do both semantic search and keyword search over the same field. Note that `semantic_index()` can only be called over `text()` data type.
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.schema import semantic_index
-
-"title": text().index(semantic_index())
-```
-
-
-```typescript JavaScript
-import { semanticIndex } from "topk-js/schema";
-
-"title": text().index(semanticIndex())
-```
-
-</CodeGroup>
-
-Optionally, you can pass a `model` parameter and `embedding_type` parameter to the `semantic_index()` function:
-
-<ParamField body="model" type="string" default="cohere/embed-multilingual-v3">
- Embedding model to use for semantic search. Currently, these two models are supported:
-
-- `cohere/embed-english-v3`
-- `cohere/embed-multilingual-v3` (default)
-</ParamField>
-
-<ParamField body="embedding_type" type="string" default="float32">
-TopK supports the following embedding types for Cohere models:
-
-- `float32`
-- `uint8`
-- `binary`
-</ParamField>
 
 
 

@@ -241,6 +241,16 @@ def keyword_index() -> FieldIndex:
 
 def semantic_index(model: str) -> FieldIndex:
     """
-    Create a semantic index on a text field.
+    Create a [FieldIndex](https://docs.topk.io/sdk/topk-py/schema#FieldIndex) type for `semantic_index` values.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import text, semantic_index
+
+    client.collections().create("books", schema={
+        "title": text().index(semantic_index(model="cohere/embed-multilingual-v3"))
+    })
+    ```
     """
     ...

@@ -250,7 +250,17 @@ pub struct SemanticIndexOptions {
     pub embedding_type: Option<EmbeddingDataType>,
 }
 
-/// Creates a semantic index specification.
+/// Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `semantic_index` values.
+///
+/// Example:
+///
+/// ```javascript
+/// import { text, semanticIndex } from "topk-js/schema";
+///
+/// await client.collections().create("books", {
+///   title: text().index(semanticIndex({ model: "cohere/embed-multilingual-v3" }))
+/// });
+/// ```
 #[napi(namespace = "schema")]
 pub fn semantic_index(options: Option<SemanticIndexOptions>) -> FieldIndex {
     let options = options.unwrap_or_default();
