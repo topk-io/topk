@@ -133,7 +133,15 @@ def i32_list(data: builtins.list[int]) -> List:
 
 def i64_list(data: builtins.list[int]) -> List:
     """
-    Create a list of 64-bit signed integers.
+    Create a [List](https://docs.topk.io/sdk/topk-py/data#List) type containing a list of 64-bit signed integers.
+
+    Example:
+
+    ```python
+    from topk_sdk.data import i64_list
+
+    i64_list([0, 1, 2, 3])
+    ```
     """
     ...
 
