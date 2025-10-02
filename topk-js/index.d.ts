@@ -575,9 +575,33 @@ export declare namespace schema {
    * @hideconstructor
    */
   export class FieldSpec {
-    /** Marks the field as required. */
+    /**
+     * Marks the field as required. All fields are optional by default.
+     *
+     * Example:
+     *
+     * ```javascript
+     * import { text } from "topk-js/schema";
+     *
+     * await client.collections().create("books", {
+     *   title: text().required()
+     * });
+     * ```
+     */
     required(): FieldSpec
-    /** Adds an index configuration to the field. */
+    /**
+     * Creates an index on a field.
+     *
+     * Example:
+     *
+     * ```javascript
+     * import { text, keywordIndex } from "topk-js/schema";
+     *
+     * await client.collections().create("books", {
+     *   title: text().index(keywordIndex())
+     * });
+     * ```
+     */
     index(index: FieldIndex): FieldSpec
   }
   /**

@@ -24,6 +24,18 @@ title: topk_sdk.schema
 required(self) -> FieldSpec
 ```
 
+Mark a field as required. All fields are optional by default.
+
+        Example:
+
+        ```python
+        from topk_sdk.schema import text
+
+        client.collections().create("books", schema={
+            "title": text().required()
+        })
+        ```
+
 **Returns**
 
 [`FieldSpec`](#fieldspec)
@@ -47,6 +59,18 @@ optional(self) -> FieldSpec
 ```python
 index(self, index: FieldIndex) -> FieldSpec
 ```
+
+Create an index on a field.
+
+        Example:
+
+        ```python
+        from topk_sdk.schema import text, keyword_index
+
+        client.collections().create("books", schema={
+            "title": text().index(keyword_index())
+        })
+        ```
 
 **Parameters**
 

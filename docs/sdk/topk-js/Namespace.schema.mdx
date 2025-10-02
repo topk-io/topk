@@ -418,7 +418,17 @@ await client.collections().create("books", {
 index(index: FieldIndex): FieldSpec;
 ```
 
-Adds an index configuration to the field.
+Creates an index on a field.
+
+Example:
+
+```javascript
+import { text, keywordIndex } from "topk-js/schema";
+
+await client.collections().create("books", {
+  title: text().index(keywordIndex())
+});
+```
 
 **Parameters**
 
@@ -436,7 +446,17 @@ Adds an index configuration to the field.
 required(): FieldSpec;
 ```
 
-Marks the field as required.
+Marks the field as required. All fields are optional by default.
+
+Example:
+
+```javascript
+import { text } from "topk-js/schema";
+
+await client.collections().create("books", {
+  title: text().required()
+});
+```
 
 **Returns**
 

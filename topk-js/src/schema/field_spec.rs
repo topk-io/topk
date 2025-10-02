@@ -25,7 +25,17 @@ impl FieldSpec {
 
 #[napi(namespace = "schema")]
 impl FieldSpec {
-    /// Marks the field as required.
+    /// Marks the field as required. All fields are optional by default.
+    ///
+    /// Example:
+    ///
+    /// ```javascript
+    /// import { text } from "topk-js/schema";
+    ///
+    /// await client.collections().create("books", {
+    ///   title: text().required()
+    /// });
+    /// ```
     #[napi]
     pub fn required(&self) -> Self {
         Self {
@@ -34,7 +44,17 @@ impl FieldSpec {
         }
     }
 
-    /// Adds an index configuration to the field.
+    /// Creates an index on a field.
+    ///
+    /// Example:
+    ///
+    /// ```javascript
+    /// import { text, keywordIndex } from "topk-js/schema";
+    ///
+    /// await client.collections().create("books", {
+    ///   title: text().index(keywordIndex())
+    /// });
+    /// ```
     #[napi]
     pub fn index(&self, index: FieldIndex) -> Self {
         Self {

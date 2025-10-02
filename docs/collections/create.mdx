@@ -63,26 +63,6 @@ Collection schema in TopK is a map of field names and field specifications.
 
 TopK supports the following field data types:
 
-### int()
-
-`int()` function is used to define an integer:
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.schema import int
-
-"published_year": int()
-```
-
-
-```typescript JavaScript
-import { int } from "topk-js/schema";
-
-"published_year": int()
-```
-
-</CodeGroup>
 
 
 
@@ -95,33 +75,6 @@ import { int } from "topk-js/schema";
 
 
 
-## Properties
-
-### required()
-
-`required()` is used to mark a field as required. All fields are `optional` by default.
-
-<CodeGroup>
-
-```python Python
-"title": text().required()
-```
-
-
-```js JavaScript
-"title": text().required()
-```
-
-</CodeGroup>
-
-
-## Functions
-
-### index()
-
-`index()` function is used to create an index on a field.
-
-This function accepts a single parameter specifying the index type:
 
 
 

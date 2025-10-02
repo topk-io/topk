@@ -17,9 +17,37 @@ class FieldSpec:
     Instances of the `FieldSpec` class represents a field specification created by [`text`](#text), [`int`](#int), [`float`](#float), [`bool`](#bool), [`f32_vector`](#f32-vector), [`u8_vector`](#u8-vector), [`i8_vector`](#i8-vector), [`binary_vector`](#binary-vector), [`f32_sparse_vector`](#f32-sparse-vector), [`u8_sparse_vector`](#u8-sparse-vector), [`bytes`](#bytes), or [`list`](#list) functions.
     """
 
-    def required(self) -> FieldSpec: ...
+    def required(self) -> FieldSpec:
+        """
+        Mark a field as required. All fields are optional by default.
+
+        Example:
+
+        ```python
+        from topk_sdk.schema import text
+
+        client.collections().create("books", schema={
+            "title": text().required()
+        })
+        ```
+        """
+        ...
     def optional(self) -> FieldSpec: ...
-    def index(self, index: FieldIndex) -> FieldSpec: ...
+    def index(self, index: FieldIndex) -> FieldSpec:
+        """
+        Create an index on a field.
+
+        Example:
+
+        ```python
+        from topk_sdk.schema import text, keyword_index
+
+        client.collections().create("books", schema={
+            "title": text().index(keyword_index())
+        })
+        ```
+        """
+        ...
 
 # data types
 def text() -> FieldSpec:
