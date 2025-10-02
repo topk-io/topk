@@ -9,7 +9,17 @@ use napi_derive::napi;
 
 use crate::schema::data_type::ListValueType;
 
-/// Creates a text field specification.
+/// Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `text` values.
+///
+/// Example:
+///
+/// ```javascript
+/// import { text } from "topk-js/schema";
+///
+/// await client.collections().create("books", {
+///   title: text()
+/// });
+/// ```
 #[napi(namespace = "schema")]
 pub fn text() -> FieldSpec {
     FieldSpec::create(DataType::Text)

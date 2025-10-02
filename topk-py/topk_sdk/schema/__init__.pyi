@@ -24,7 +24,17 @@ class FieldSpec:
 # data types
 def text() -> FieldSpec:
     """
-    Create a text field specification.
+    Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `text` values.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import text
+
+    client.collections().create("books", schema={
+        "title": text()
+    })
+    ```
     """
     ...
 

@@ -674,7 +674,19 @@ export declare namespace schema {
     /** The type of embedding data */
     embeddingType?: EmbeddingDataType
   }
-  /** Creates a text field specification. */
+  /**
+   * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `text` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { text } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   title: text()
+   * });
+   * ```
+   */
   export function text(): FieldSpec
   /** Creates an 8-bit unsigned integer sparse vector field specification. */
   export function u8SparseVector(): FieldSpec
