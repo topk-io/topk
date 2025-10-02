@@ -91,36 +91,6 @@ import { int } from "topk-js/schema";
 
 
 
-### binary_vector()
-
-`binary_vector()` function is used to define a binary vector packed into `u8` values. You can pass vector `dimension` as a parameter (required, greater than 0) which will be validated when upserting documents.
-
-<Note>
-  Binary vector dimension is defined in terms of the number of bytes. This means that for a 1024-bit binary vector, the dimension `topk` expects is **128** (1024 / 8).
-</Note>
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.schema import binary_vector
-
-"title_embedding": binary_vector(dimension=128)
-```
-
-
-```js JavaScript
-import { binaryVector } from "topk-js/schema";
-
-"title_embedding": binaryVector({ dimension: 128 })
-```
-
-</CodeGroup>
-
-To configure the binary vector dimension, pass a `dimension` parameter to the `binary_vector()` function:
-
-<ParamField body="dimension" type="int" required={true} min={1}>
-  The dimension of the vector.
-</ParamField>
 
 ### f32_sparse_vector()
 

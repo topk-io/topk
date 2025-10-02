@@ -580,7 +580,19 @@ export declare namespace schema {
     /** Adds an index configuration to the field. */
     index(index: FieldIndex): FieldSpec
   }
-  /** Creates a binary vector field specification. */
+  /**
+   * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `binary_vector` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { binaryVector } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   title_embedding: binaryVector({ dimension: 128 })
+   * });
+   * ```
+   */
   export function binaryVector(options: VectorOptions): FieldSpec
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `bool` values.

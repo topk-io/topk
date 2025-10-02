@@ -127,7 +127,17 @@ pub fn i8_vector(options: VectorOptions) -> FieldSpec {
     })
 }
 
-/// Creates a binary vector field specification.
+/// Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `binary_vector` values.
+///
+/// Example:
+///
+/// ```javascript
+/// import { binaryVector } from "topk-js/schema";
+///
+/// await client.collections().create("books", {
+///   title_embedding: binaryVector({ dimension: 128 })
+/// });
+/// ```
 #[napi(namespace = "schema")]
 pub fn binary_vector(options: VectorOptions) -> FieldSpec {
     FieldSpec::create(DataType::BinaryVector {

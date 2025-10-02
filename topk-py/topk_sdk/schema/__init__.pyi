@@ -126,7 +126,17 @@ def i8_vector(dimension: builtins.int) -> FieldSpec:
 
 def binary_vector(dimension: builtins.int) -> FieldSpec:
     """
-    Create a binary vector field specification.
+    Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `binary_vector` values.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import binary_vector
+
+    client.collections().create("books", schema={
+        "title_embedding": binary_vector(dimension=128)
+    })
+    ```
     """
     ...
 
