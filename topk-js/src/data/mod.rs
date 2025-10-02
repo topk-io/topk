@@ -136,6 +136,15 @@ pub fn string_list(values: Vec<String>) -> List {
     }
 }
 
+/// Creates a [SparseVector](https://docs.topk.io/sdk/topk-js/data#SparseVector) type containing a sparse vector of 32-bit floats. This function is an alias for [f32SparseList()](https://docs.topk.io/sdk/topk-js/data#f32sparselist).
+///
+/// Example:
+///
+/// ```javascript
+/// import { f32SparseVector } from "topk-js/data";
+///
+/// f32SparseVector({0: 0.12, 6: 0.67, 17: 0.82, 97: 0.53})
+/// ```
 #[napi(namespace = "data")]
 pub fn f32_sparse_vector(
     #[napi(ts_arg_type = "Record<number, number>")] vector: SparseVectorData<f64>,

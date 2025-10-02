@@ -80,6 +80,16 @@ Creates a list of 64-bit floating point numbers.
 function f32SparseVector(vector: Record<number, number>): SparseVector;
 ```
 
+Creates a [SparseVector](https://docs.topk.io/sdk/topk-js/data#SparseVector) type containing a sparse vector of 32-bit floats. This function is an alias for [f32SparseList()](https://docs.topk.io/sdk/topk-js/data#f32sparselist).
+
+Example:
+
+```javascript
+import { f32SparseVector } from "topk-js/data";
+
+f32SparseVector({0: 0.12, 6: 0.67, 17: 0.82, 97: 0.53})
+```
+
 **Parameters**
 
 | Parameter | Type |

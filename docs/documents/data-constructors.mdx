@@ -6,27 +6,6 @@ To pass a specific complex data type, use provided data constructors when insert
 
 TopK provides constructors for the following complex types:
 
-### f32_sparse_vector()
-
-To pass a sparse vector with float32 values, use the `f32_sparse_vector()` helper function:
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.data import f32_sparse_vector
-
-f32_sparse_vector({0: 0.12, 6: 0.67, 17: 0.82, 97: 0.53})
-```
-
-
-```typescript Javascript
-import { f32SparseVector } from "topk-js/data";
-
-f32SparseVector({0: 0.12, 6: 0.67, 17: 0.82, 97: 0.53})
-```
-
-</CodeGroup>
-
 ### u8_sparse_vector()
 
 To pass a sparse vector with 8-bit unsigned integer values, use the `u8_sparse_vector()` helper function:
