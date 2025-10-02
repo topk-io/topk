@@ -113,7 +113,15 @@ def bytes(data: typing.Union[builtins.list[int], builtins.bytes]) -> List:
 
 def u32_list(data: builtins.list[int]) -> List:
     """
-    Create a list of 32-bit unsigned integers.
+    Create a [List](https://docs.topk.io/sdk/topk-py/data#List) type containing a list of 32-bit unsigned integers.
+
+    Example:
+
+    ```python
+    from topk_sdk.data import u32_list
+
+    u32_list([0, 1, 2, 3])
+    ```
     """
     ...
 
