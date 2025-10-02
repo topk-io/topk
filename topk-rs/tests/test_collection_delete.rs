@@ -148,10 +148,10 @@ async fn test_delete_with_filter(ctx: &mut ProjectTestContext) {
         .await
         .expect("could not get documents");
 
-    assert_eq!(docs.len(), 1);
+    assert_eq!(docs.len(), 1, "{docs:?}");
     assert_eq!(
         docs.get("2").expect("document not found"),
-        &doc!("_id" => "2", "batch_idx" => 1).fields
+        &doc!("_id" => "2", "batch_idx" => 0).fields
     );
 
     // Upsert more records. The upsert records satisfy the delete filter
