@@ -25,7 +25,17 @@ pub fn text() -> FieldSpec {
     FieldSpec::create(DataType::Text)
 }
 
-/// Creates an integer field specification.
+/// Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `int` values.
+///
+/// Example:
+///
+/// ```javascript
+/// import { int } from "topk-js/schema";
+///
+/// await client.collections().create("books", {
+///   published_year: int()
+/// });
+/// ```
 #[napi(namespace = "schema")]
 pub fn int() -> FieldSpec {
     FieldSpec::create(DataType::Integer {})

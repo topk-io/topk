@@ -724,7 +724,19 @@ export declare namespace schema {
    * ```
    */
   export function i8Vector(options: VectorOptions): FieldSpec
-  /** Creates an integer field specification. */
+  /**
+   * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `int` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { int } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   published_year: int()
+   * });
+   * ```
+   */
   export function int(): FieldSpec
   /**
    * Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `keyword_index` values.
