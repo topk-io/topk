@@ -7,6 +7,7 @@ class FieldIndex:
 
     Instances of the `FieldIndex` class represents a field index created by [`vector_index`](#vector-index), [`keyword_index`](#keyword-index), or [`semantic_index`](#semantic-index) functions.
     """
+
     ...
 
 class FieldSpec:

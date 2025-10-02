@@ -16,7 +16,14 @@ def test_query_exp_ln(ctx: ProjectContext):
             bm25_score_scale=(field("bm25_score") * 1.5).exp(),
             bm25_score_smooth=(field("bm25_score") + 1).ln(),
         )
-        .filter(match("millionaire love consequences dwarves", field="summary", weight=1.0, all=False))
+        .filter(
+            match(
+                "millionaire love consequences dwarves",
+                field="summary",
+                weight=1.0,
+                all=False,
+            )
+        )
         .topk(field("bm25_score_scale"), 2, False)
     )
 
@@ -73,4 +80,6 @@ def test_query_sqrt_filter(ctx: ProjectContext):
         .topk(field("published_year"), 2, True)
     )
 
-    assert result == [{"_id": "harry", "title": "Harry Potter and the Sorcerer's Stone"}]
+    assert result == [
+        {"_id": "harry", "title": "Harry Potter and the Sorcerer's Stone"}
+    ]

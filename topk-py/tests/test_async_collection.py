@@ -8,7 +8,9 @@ from .utils import dataset, doc_ids
 
 @pytest.mark.asyncio
 async def test_async_upsert(async_ctx: AsyncProjectContext):
-    collection = await async_ctx.client.collections().create(async_ctx.scope("test"), schema={})
+    collection = await async_ctx.client.collections().create(
+        async_ctx.scope("test"), schema={}
+    )
     async_collection = async_ctx.client.collection(collection.name)
 
     lsn = await async_collection.upsert([{"_id": "one"}])
@@ -33,7 +35,13 @@ async def test_async_get(async_ctx: AsyncProjectContext):
             "sparse_f32_embedding": {9: 1.0, 10: 2.0, 11: 3.0},
             "sparse_u8_embedding": {9: 1, 10: 2, 11: 3},
             "tags": ["lord of the rings", "fellowship", "magic", "wizard", "elves"],
-            "codes": ["ISBN 978-0-547-92821-0", "ISBN 0-547-92821-2", "OCLC 434394005", "LCCN 2004558654", "Barcode 0618346252"],
+            "codes": [
+                "ISBN 978-0-547-92821-0",
+                "ISBN 0-547-92821-2",
+                "OCLC 434394005",
+                "LCCN 2004558654",
+                "Barcode 0618346252",
+            ],
             "user_ratings": ["epic", "legendary", "good"],
         }
     }
@@ -41,7 +49,9 @@ async def test_async_get(async_ctx: AsyncProjectContext):
 
 @pytest.mark.asyncio
 async def test_async_delete(async_ctx: AsyncProjectContext):
-    collection = await async_ctx.client.collections().create(async_ctx.scope("test"), schema={})
+    collection = await async_ctx.client.collections().create(
+        async_ctx.scope("test"), schema={}
+    )
     async_collection = async_ctx.client.collection(collection.name)
 
     lsn = await async_collection.upsert(
@@ -75,7 +85,9 @@ async def test_async_query(async_ctx: AsyncProjectContext):
         .topk(field("published_year"), 100, True)
     )
 
-    assert results == [{"_id": "1984", "title": "1984", "published_year": 1949, "literal": 1.0}]
+    assert results == [
+        {"_id": "1984", "title": "1984", "published_year": 1949, "literal": 1.0}
+    ]
 
 
 test_documents = [
@@ -106,7 +118,7 @@ async def test_async_collection_parallel_queries(async_ctx: AsyncProjectContext)
     results = await asyncio.gather(
         async_collection.query(query1, lsn=lsn),
         async_collection.query(query2, lsn=lsn),
-        async_collection.query(query3, lsn=lsn)
+        async_collection.query(query3, lsn=lsn),
     )
 
     # Verify all queries returned results

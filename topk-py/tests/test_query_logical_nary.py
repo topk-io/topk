@@ -9,11 +9,13 @@ def test_any_codes_vec(ctx: ProjectContext):
 
     result = ctx.client.collection(collection.name).query(
         filter(
-            any([
-                field("codes").contains("DOI 10.1000/182"),
-                field("codes").contains("Barcode 0618346252"),
-                field("codes").contains("UPC 025192354670"),
-            ])
+            any(
+                [
+                    field("codes").contains("DOI 10.1000/182"),
+                    field("codes").contains("Barcode 0618346252"),
+                    field("codes").contains("UPC 025192354670"),
+                ]
+            )
         ).topk(field("published_year"), 100, True)
     )
 
@@ -25,11 +27,13 @@ def test_all_codes_vec(ctx: ProjectContext):
 
     result = ctx.client.collection(collection.name).query(
         filter(
-            all([
-                field("tags").contains("wizard"),
-                field("tags").contains("school"),
-                field("tags").contains("magic"),
-            ])
+            all(
+                [
+                    field("tags").contains("wizard"),
+                    field("tags").contains("school"),
+                    field("tags").contains("magic"),
+                ]
+            )
         ).topk(field("published_year"), 100, True)
     )
 
@@ -41,13 +45,17 @@ def test_select_any_flag(ctx: ProjectContext):
 
     results = ctx.client.collection(collection.name).query(
         select(
-            has_code=any([
-                field("codes").contains("DOI 10.1000/182"),
-                field("codes").contains("OCLC 934546789"),
-            ])
+            has_code=any(
+                [
+                    field("codes").contains("DOI 10.1000/182"),
+                    field("codes").contains("OCLC 934546789"),
+                ]
+            )
         )
         .filter(
-            (field("_id") == "1984") | (field("_id") == "pride") | (field("_id") == "lotr")
+            (field("_id") == "1984")
+            | (field("_id") == "pride")
+            | (field("_id") == "lotr")
         )
         .topk(field("published_year"), 100, True)
     )
@@ -66,10 +74,12 @@ def test_select_all_flag(ctx: ProjectContext):
 
     results = ctx.client.collection(collection.name).query(
         select(
-            all_match=all([
-                field("codes").contains("UPC 074327356709"),
-                field("codes").contains("ASIN B000FC0SIS"),
-            ])
+            all_match=all(
+                [
+                    field("codes").contains("UPC 074327356709"),
+                    field("codes").contains("ASIN B000FC0SIS"),
+                ]
+            )
         )
         .filter(field("_id").in_(["gatsby", "pride"]))
         .topk(field("published_year"), 100, True)
@@ -87,16 +97,22 @@ def test_select_all_flag(ctx: ProjectContext):
 def test_nested_any_all(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
-    expr = any([
-        all([
-            field("tags").contains("wizard"),
-            field("tags").contains("magic"),
-        ]),
-        all([
-            field("codes").contains("UPC 074327356709"),
-            field("codes").contains("ASIN B000FC0SIS"),
-        ]),
-    ])
+    expr = any(
+        [
+            all(
+                [
+                    field("tags").contains("wizard"),
+                    field("tags").contains("magic"),
+                ]
+            ),
+            all(
+                [
+                    field("codes").contains("UPC 074327356709"),
+                    field("codes").contains("ASIN B000FC0SIS"),
+                ]
+            ),
+        ]
+    )
 
     result = ctx.client.collection(collection.name).query(
         filter(expr).topk(field("published_year"), 100, True)
@@ -108,15 +124,19 @@ def test_nested_any_all(ctx: ProjectContext):
 def test_non_nested_any_and_all(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
-    codes_any = any([
-        field("codes").contains("Barcode 0618346252"),
-        field("codes").contains("UPC 043970818909"),
-    ])
+    codes_any = any(
+        [
+            field("codes").contains("Barcode 0618346252"),
+            field("codes").contains("UPC 043970818909"),
+        ]
+    )
 
-    tags_all = all([
-        field("tags").contains("wizard"),
-        field("tags").contains("magic"),
-    ])
+    tags_all = all(
+        [
+            field("tags").contains("wizard"),
+            field("tags").contains("magic"),
+        ]
+    )
 
     result = ctx.client.collection(collection.name).query(
         filter(codes_any & tags_all).topk(field("published_year"), 100, True)
@@ -130,11 +150,13 @@ def test_any_mixed_exprs(ctx: ProjectContext):
 
     result = ctx.client.collection(collection.name).query(
         filter(
-            any([
-                field("title").starts_with("The Great"),
-                field("tags").contains("romance"),
-                field("published_year") < 1900,
-            ])
+            any(
+                [
+                    field("title").starts_with("The Great"),
+                    field("tags").contains("romance"),
+                    field("published_year") < 1900,
+                ]
+            )
         ).topk(field("published_year"), 100, True)
     )
 
@@ -146,11 +168,13 @@ def test_all_mixed_exprs(ctx: ProjectContext):
 
     result = ctx.client.collection(collection.name).query(
         filter(
-            all([
-                field("published_year") > 1900,
-                field("title").contains("The"),
-                not_(field("tags").contains("romance")),
-            ])
+            all(
+                [
+                    field("published_year") > 1900,
+                    field("title").contains("The"),
+                    not_(field("tags").contains("romance")),
+                ]
+            )
         ).topk(field("published_year"), 100, True)
     )
 

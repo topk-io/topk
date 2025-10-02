@@ -84,7 +84,10 @@ def should_link_type(type_str: str) -> bool:
         return True
 
     # Link shortened module references (data., query., schema., error.)
-    if any(type_str.startswith(prefix) for prefix in ["data.", "query.", "schema.", "error."]):
+    if any(
+        type_str.startswith(prefix)
+        for prefix in ["data.", "query.", "schema.", "error."]
+    ):
         return True
 
     # Only link if it looks like a class name (starts with capital letter)
@@ -204,7 +207,7 @@ def render_constructor(method: Method, class_name: str):
 def render_method(method: Method):
     """Render a regular method."""
 
-    escaped_name = method.name.replace('_', r'\_')
+    escaped_name = method.name.replace("_", r"\_")
     print(f"#### {escaped_name}()")
     print()
 
@@ -217,7 +220,6 @@ def render_method(method: Method):
     if method.docstring:
         print(method.docstring)
         print()
-
 
     # Add Parameters section
     if method.parameters and not (
@@ -350,7 +352,9 @@ def render_type_alias(type_alias: TypeAlias, file_path):
 
     print("**Type**")
     print()
-    type_str_with_links = format_type_annotation_str(type_alias.type_annotation, with_links=True)
+    type_str_with_links = format_type_annotation_str(
+        type_alias.type_annotation, with_links=True
+    )
     print(type_str_with_links)
     print()
 
@@ -376,14 +380,14 @@ def render_module(module: Module):
     for cls in module.classes:
         render_class(cls, module.file_path)
 
-    if (module.functions.__len__() > 0):
+    if module.functions.__len__() > 0:
         print("## Functions")
         print()
 
         for func in module.functions:
             render_function(func, module.file_path)
 
-    if (module.type_aliases and module.type_aliases.__len__() > 0):
+    if module.type_aliases and module.type_aliases.__len__() > 0:
         print("## Type Aliases")
         print()
 

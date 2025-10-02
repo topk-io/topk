@@ -30,6 +30,7 @@ def test_query_expr_with_flexible_expr():
     assert (field("a") & field("b"))._expr_eq(field("a").and_(field("b")))
     assert (field("a") | field("b"))._expr_eq(field("a").or_(field("b")))
 
+
 def test_comparison_operators():
     assert (field("a") == 1)._expr_eq(field("a") == literal(1))
     assert (1 == field("a"))._expr_eq(field("a") == literal(1))  # type: ignore
