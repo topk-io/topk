@@ -5,24 +5,3 @@ title: "Data constructors"
 To pass a specific complex data type, use provided data constructors when inserting or querying your documents.
 
 TopK provides constructors for the following complex types:
-
-### bytes()
-
-To pass a byte object, use the `bytes()` helper function:
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.data import bytes
-
-bytes([0, 1, 1, 0])
-```
-
-
-```typescript Javascript
-import { bytes } from "topk-js/data";
-
-bytes([0, 1, 1, 0]) # or pass a Buffer object
-```
-
-</CodeGroup>

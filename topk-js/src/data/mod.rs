@@ -19,7 +19,15 @@ use vector::SparseVectorData;
 use napi_derive::napi;
 use value::BytesData;
 
-/// Creates a bytes value from a buffer or array of numbers.
+/// Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing bytes data.
+///
+/// Example:
+///
+/// ```javascript
+/// import { bytes } from "topk-js/data";
+///
+/// bytes([0, 1, 1, 0])
+/// ```
 #[napi(namespace = "data", ts_return_type = "Buffer")]
 pub fn bytes(#[napi(ts_arg_type = "Array<number> | Buffer")] buffer: BytesData) -> Value {
     Value::Bytes(buffer.into())

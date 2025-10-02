@@ -223,7 +223,17 @@ export declare namespace data {
    * ```
    */
   export function binaryVector(values: Array<number>): List
-  /** Creates a bytes value from a buffer or array of numbers. */
+  /**
+   * Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing bytes data.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { bytes } from "topk-js/data";
+   *
+   * bytes([0, 1, 1, 0])
+   * ```
+   */
   export function bytes(buffer: Array<number> | Buffer): Buffer
   /**
    * Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a list of 32-bit floating point numbers.

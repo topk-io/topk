@@ -107,7 +107,15 @@ def u8_sparse_vector(data: builtins.dict[int, int]) -> SparseVector:
 
 def bytes(data: typing.Union[builtins.list[int], builtins.bytes]) -> List:
     """
-    Create a bytes data structure.
+    Create a [List](https://docs.topk.io/sdk/topk-py/data#List) type containing bytes data.
+
+    Example:
+
+    ```python
+    from topk_sdk.data import bytes
+
+    bytes([0, 1, 1, 0])
+    ```
     """
     ...
 

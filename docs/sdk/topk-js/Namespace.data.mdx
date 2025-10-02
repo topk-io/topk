@@ -40,7 +40,15 @@ binaryVector([0, 1, 1, 0])
 function bytes(buffer: number[] | Buffer<ArrayBufferLike>): Buffer;
 ```
 
-Creates a bytes value from a buffer or array of numbers.
+Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing bytes data.
+
+Example:
+
+```javascript
+import { bytes } from "topk-js/data";
+
+bytes([0, 1, 1, 0])
+```
 
 **Parameters**
 
