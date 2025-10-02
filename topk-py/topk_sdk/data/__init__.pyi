@@ -131,7 +131,15 @@ def i64_list(data: builtins.list[int]) -> List:
 
 def f32_list(data: builtins.list[float]) -> List:
     """
-    Create a list of 32-bit floating point numbers.
+    Create a [List](https://docs.topk.io/sdk/topk-py/data#List) type containing a list of 32-bit floating point numbers.
+
+    Example:
+
+    ```python
+    from topk_sdk.data import f32_list
+
+    f32_list([0.12, 0.67, 0.82, 0.53])
+    ```
     """
     ...
 
