@@ -73,7 +73,15 @@ pub fn i8_vector(values: Vec<i8>) -> List {
     }
 }
 
-/// Creates a binary vector from an array of bytes.
+/// Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a binary vector. This function is an alias for [binaryList()](https://docs.topk.io/sdk/topk-js/data#binarylist).
+///
+/// Example:
+///
+/// ```javascript
+/// import { binaryVector } from "topk-js/data";
+///
+/// binaryVector([0, 1, 1, 0])
+/// ```
 #[napi(namespace = "data")]
 pub fn binary_vector(values: Vec<u8>) -> List {
     List {
