@@ -639,7 +639,19 @@ export declare namespace schema {
   export type EmbeddingDataType =  'float32'|
   'uint8'|
   'binary';
-  /** Creates a 32-bit float sparse vector field specification. */
+  /**
+   * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `f32_sparse_vector` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { f32SparseVector } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   sparse_field: f32SparseVector()
+   * });
+   * ```
+   */
   export function f32SparseVector(): FieldSpec
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `f32_vector` values.

@@ -161,7 +161,17 @@ pub fn bytes() -> FieldSpec {
     FieldSpec::create(DataType::Bytes {})
 }
 
-/// Creates a 32-bit float sparse vector field specification.
+/// Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `f32_sparse_vector` values.
+///
+/// Example:
+///
+/// ```javascript
+/// import { f32SparseVector } from "topk-js/schema";
+///
+/// await client.collections().create("books", {
+///   sparse_field: f32SparseVector()
+/// });
+/// ```
 #[napi(namespace = "schema")]
 pub fn f32_sparse_vector() -> FieldSpec {
     FieldSpec::create(DataType::F32SparseVector {})

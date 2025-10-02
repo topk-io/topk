@@ -142,7 +142,17 @@ def binary_vector(dimension: builtins.int) -> FieldSpec:
 
 def f32_sparse_vector() -> FieldSpec:
     """
-    Create a f32 sparse vector field specification.
+    Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `f32_sparse_vector` values.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import f32_sparse_vector
+
+    client.collections().create("books", schema={
+        "sparse_field": f32_sparse_vector()
+    })
+    ```
     """
     ...
 

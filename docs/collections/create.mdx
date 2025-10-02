@@ -92,31 +92,6 @@ import { int } from "topk-js/schema";
 
 
 
-### f32_sparse_vector()
-
-`f32_sparse_vector()` function is used to define a sparse vector field with 32-bit floating point values.
-
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.schema import f32_sparse_vector
-
-"sparse_field": f32_sparse_vector()
-```
-
-
-```js JavaScript
-import { f32SparseVector } from "topk-js/schema";
-
-"sparse_field": f32SparseVector()
-```
-
-</CodeGroup>
-
-<Note>
-  Sparse vectors use u32 dimension indices to support dictionaries of up to 2^32 - 1 terms.
-</Note>
 
 ### u8_sparse_vector()
 
