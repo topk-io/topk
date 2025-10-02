@@ -152,7 +152,15 @@ pub fn f32_sparse_vector(
     SparseVector::float(vector.into_iter().map(|(i, v)| (i, v as f32)).collect())
 }
 
-/// Creates a sparse vector of 8-bit unsigned integers.
+/// Creates a [SparseVector](https://docs.topk.io/sdk/topk-js/data#SparseVector) type containing a sparse vector of 8-bit unsigned integers. This function is an alias for [u8SparseList()](https://docs.topk.io/sdk/topk-js/data#u8sparselist).
+///
+/// Example:
+///
+/// ```javascript
+/// import { u8SparseVector } from "topk-js/data";
+///
+/// u8SparseVector({0: 12, 6: 67, 17: 82, 97: 53})
+/// ```
 #[napi(namespace = "data")]
 pub fn u8_sparse_vector(
     #[napi(ts_arg_type = "Record<number, number>")] vector: SparseVectorData<u8>,
