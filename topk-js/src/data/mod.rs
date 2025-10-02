@@ -169,7 +169,15 @@ pub fn f64_list(values: Vec<f64>) -> List {
     }
 }
 
-/// Creates a sparse vector of 32-bit floats.
+/// Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a list of strings.
+///
+/// Example:
+///
+/// ```javascript
+/// import { stringList } from "topk-js/data";
+///
+/// stringList(["foo", "bar", "baz"])
+/// ```
 #[napi(namespace = "data")]
 pub fn string_list(values: Vec<String>) -> List {
     List {

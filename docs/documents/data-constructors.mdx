@@ -6,29 +6,6 @@ To pass a specific complex data type, use provided data constructors when insert
 
 TopK provides constructors for the following complex types:
 
-### string_list()
-
-To pass a list of strings, use the `string_list()` helper function:
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.data import string_list
-
-string_list(["foo", "bar", "baz"])
-```
-
-
-```typescript Javascript
-import { stringList } from "topk-js/data";
-
-stringList(["foo", "bar", "baz"])
-```
-
-</CodeGroup>
-
-<Tip>This is specifically useful when you need to pass an empty list of strings `string_list([])` as lists are assumed to be of type `float32` by default.</Tip>
-
 ### bytes()
 
 To pass a byte object, use the `bytes()` helper function:

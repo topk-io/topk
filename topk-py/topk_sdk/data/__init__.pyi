@@ -183,6 +183,14 @@ def f64_list(data: builtins.list[float]) -> List:
 
 def string_list(data: builtins.list[str]) -> List:
     """
-    Create a list of strings.
+    Create a [List](https://docs.topk.io/sdk/topk-py/data#List) type containing a list of strings.
+
+    Example:
+
+    ```python
+    from topk_sdk.data import string_list
+
+    string_list(["foo", "bar", "baz"])
+    ```
     """
     ...

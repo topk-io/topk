@@ -256,7 +256,15 @@ i8Vector([-128, 127, -1, 0, 1])
 function stringList(values: string[]): List;
 ```
 
-Creates a sparse vector of 32-bit floats.
+Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a list of strings.
+
+Example:
+
+```javascript
+import { stringList } from "topk-js/data";
+
+stringList(["foo", "bar", "baz"])
+```
 
 **Parameters**
 
