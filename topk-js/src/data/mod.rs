@@ -113,7 +113,15 @@ pub fn i32_list(values: Vec<i32>) -> List {
     }
 }
 
-/// Creates a list of 64-bit signed integers.
+/// Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a list of 64-bit signed integers.
+///
+/// Example:
+///
+/// ```javascript
+/// import { i64List } from "topk-js/data";
+///
+/// i64List([0, 1, 2, 3])
+/// ```
 #[napi(namespace = "data")]
 pub fn i64_list(values: Vec<i64>) -> List {
     List {
