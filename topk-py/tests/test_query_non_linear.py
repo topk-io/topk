@@ -1,10 +1,8 @@
 import math
-import pytest
-from topk_sdk import error
-from topk_sdk.query import field, filter, select, fn, match
+from topk_sdk.query import field, select, fn, match
 
 from . import ProjectContext
-from .utils import dataset, doc_ids, doc_ids_ordered
+from .utils import dataset, doc_ids_ordered
 
 
 def test_query_exp_ln(ctx: ProjectContext):

@@ -3,7 +3,7 @@
 import ast
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Optional
 
 
 @dataclass

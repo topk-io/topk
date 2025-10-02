@@ -8,7 +8,6 @@ from parse import (
     Function,
     Method,
     Module,
-    Parameter,
     Property,
     TypeAlias,
     TypeAnnotation,
@@ -367,7 +366,7 @@ def render_module(module: Module):
     print("---")
 
     if module.file_path.parent.name == "topk_sdk":
-        print(f"title: topk_sdk")
+        print("title: topk_sdk")
     else:
         print(f"title: topk_sdk.{module.file_path.parent.name}")
 

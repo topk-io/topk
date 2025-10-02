@@ -1,5 +1,3 @@
-import pytest
-from topk_sdk import error
 from topk_sdk.query import (
     field,
     filter,
