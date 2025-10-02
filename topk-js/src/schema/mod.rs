@@ -37,7 +37,17 @@ pub fn float() -> FieldSpec {
     FieldSpec::create(DataType::Float {})
 }
 
-/// Creates a boolean field specification.
+/// Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `bool` values.
+///
+/// Example:
+///
+/// ```javascript
+/// import { bool } from "topk-js/schema";
+///
+/// await client.collections().create("books", {
+///   is_published: bool()
+/// });
+/// ```
 #[napi(namespace = "schema")]
 pub fn bool() -> FieldSpec {
     FieldSpec::create(DataType::Boolean {})

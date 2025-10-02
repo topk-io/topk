@@ -582,7 +582,19 @@ export declare namespace schema {
   }
   /** Creates a binary vector field specification. */
   export function binaryVector(options: VectorOptions): FieldSpec
-  /** Creates a boolean field specification. */
+  /**
+   * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `bool` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { bool } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   is_published: bool()
+   * });
+   * ```
+   */
   export function bool(): FieldSpec
   /** Creates a bytes field specification. */
   export function bytes(): FieldSpec

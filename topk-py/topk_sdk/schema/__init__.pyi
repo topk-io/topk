@@ -52,7 +52,17 @@ def float() -> FieldSpec:
 
 def bool() -> FieldSpec:
     """
-    Create a boolean field specification.
+    Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `bool` values.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import bool
+
+    client.collections().create("books", schema={
+        "is_published": bool()
+    })
+    ```
     """
     ...
 
