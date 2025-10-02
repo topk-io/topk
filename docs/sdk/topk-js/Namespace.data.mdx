@@ -90,7 +90,15 @@ function f32SparseVector(vector: Record<number, number>): SparseVector;
 function f32Vector(values: number[]): List;
 ```
 
-Creates a 32-bit float vector from an array of numbers.
+Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a 32-bit float vector. This function is an alias for [f32List()](https://docs.topk.io/sdk/topk-js/data#f32list).
+
+Example:
+
+```javascript
+import { f32Vector } from "topk-js/data";
+
+f32Vector([0.12, 0.67, 0.82, 0.53])
+```
 
 **Parameters**
 

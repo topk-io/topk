@@ -23,7 +23,15 @@ class SparseVector:
 
 def f32_vector(data: builtins.list[float]) -> List:
     """
-    Create a 32-bit float vector.
+    Create a [List](https://docs.topk.io/sdk/topk-py/data#List) type containing a 32-bit float vector. This function is an alias for [f32_list()](https://docs.topk.io/sdk/topk-py/data#f32-list).
+
+    Example:
+
+    ```python
+    from topk_sdk.data import f32_vector
+
+    f32_vector([0.12, 0.67, 0.82, 0.53])
+    ```
     """
     ...
 

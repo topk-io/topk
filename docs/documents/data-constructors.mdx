@@ -6,31 +6,6 @@ To pass a specific complex data type, use provided data constructors when insert
 
 TopK provides constructors for the following complex types:
 
-### f32_vector()
-
-To pass a float32 vector, use the `f32_vector()` helper function:
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.data import f32_vector
-
-f32_vector([0.12, 0.67, 0.82, 0.53])
-```
-
-
-```typescript Javascript
-import { f32Vector } from "topk-js/data";
-
-f32Vector([0.12, 0.67, 0.82, 0.53])
-```
-
-</CodeGroup>
-
-<Info>
-  When passing an array of numbers, it is by default considered a list of float32 values.
-</Info>
-
 ### u8_vector()
 
 To pass a u8 vector, use the `u8_vector()` helper function:

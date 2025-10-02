@@ -25,7 +25,15 @@ pub fn bytes(#[napi(ts_arg_type = "Array<number> | Buffer")] buffer: BytesData) 
     Value::Bytes(buffer.into())
 }
 
-/// Creates a 32-bit float vector from an array of numbers.
+/// Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a 32-bit float vector. This function is an alias for [f32List()](https://docs.topk.io/sdk/topk-js/data#f32list).
+///
+/// Example:
+///
+/// ```javascript
+/// import { f32Vector } from "topk-js/data";
+///
+/// f32Vector([0.12, 0.67, 0.82, 0.53])
+/// ```
 #[napi(namespace = "data")]
 pub fn f32_vector(values: Vec<f64>) -> List {
     List {

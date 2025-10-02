@@ -218,7 +218,17 @@ export declare namespace data {
   /** Creates a list of 64-bit floating point numbers. */
   export function f32List(values: Array<number>): List
   export function f32SparseVector(vector: Record<number, number>): SparseVector
-  /** Creates a 32-bit float vector from an array of numbers. */
+  /**
+   * Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a 32-bit float vector. This function is an alias for [f32List()](https://docs.topk.io/sdk/topk-js/data#f32list).
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { f32Vector } from "topk-js/data";
+   *
+   * f32Vector([0.12, 0.67, 0.82, 0.53])
+   * ```
+   */
   export function f32Vector(values: Array<number>): List
   export function f64List(values: Array<number>): List
   /** Creates a list of 32-bit signed integers. */
