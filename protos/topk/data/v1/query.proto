@@ -50,6 +50,14 @@ message Stage {
     // TopK multiple.
     optional uint32 topk_multiple = 4;
   }
+  message LimitStage {
+    uint64 k = 1;
+  }
+
+  message SortStage {
+    LogicalExpr expr = 1;
+    bool asc = 2;
+  }
 
   oneof stage {
     SelectStage select = 1;
@@ -57,5 +65,7 @@ message Stage {
     TopKStage top_k = 3;
     CountStage count = 4;
     RerankStage rerank = 5;
+    LimitStage limit = 6;
+    SortStage sort = 7;
   }
 }
