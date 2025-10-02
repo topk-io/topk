@@ -612,7 +612,19 @@ export declare namespace schema {
     | { type: 'KeywordIndex', indexType: KeywordIndexType }
     | { type: 'VectorIndex', metric: VectorDistanceMetric }
     | { type: 'SemanticIndex', model?: string, embeddingType?: EmbeddingDataType }
-  /** Creates a float field specification. */
+  /**
+   * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `float` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { float } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   price: float()
+   * });
+   * ```
+   */
   export function float(): FieldSpec
   /** Creates an 8-bit signed integer vector field specification. */
   export function i8Vector(options: VectorOptions): FieldSpec

@@ -36,7 +36,17 @@ def int() -> FieldSpec:
 
 def float() -> FieldSpec:
     """
-    Create a float field specification.
+    Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `float` values.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import float
+
+    client.collections().create("books", schema={
+        "price": float()
+    })
+    ```
     """
     ...
 

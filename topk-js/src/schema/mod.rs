@@ -21,7 +21,17 @@ pub fn int() -> FieldSpec {
     FieldSpec::create(DataType::Integer {})
 }
 
-/// Creates a float field specification.
+/// Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `float` values.
+///
+/// Example:
+///
+/// ```javascript
+/// import { float } from "topk-js/schema";
+///
+/// await client.collections().create("books", {
+///   price: float()
+/// });
+/// ```
 #[napi(namespace = "schema")]
 pub fn float() -> FieldSpec {
     FieldSpec::create(DataType::Float {})
