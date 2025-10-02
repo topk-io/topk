@@ -138,7 +138,15 @@ Create a [List](https://docs.topk.io/sdk/topk-py/data#List) type containing a bi
 f32_sparse_vector(data: dict[int, float]) -> SparseVector
 ```
 
-Create a 32-bit float sparse vector.
+Create a [SparseVector](https://docs.topk.io/sdk/topk-py/data#SparseVector) type containing a 32-bit float sparse vector. This function is an alias for [f32_sparse_list()](https://docs.topk.io/sdk/topk-py/data#f32-sparse-list).
+
+    Example:
+
+    ```python
+    from topk_sdk.data import f32_sparse_vector
+
+    f32_sparse_vector({0: 0.12, 6: 0.67, 17: 0.82, 97: 0.53})
+    ```
 
 **Parameters**
 
