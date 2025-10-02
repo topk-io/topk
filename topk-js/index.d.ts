@@ -226,7 +226,6 @@ export declare namespace data {
   /** Creates a bytes value from a buffer or array of numbers. */
   export function bytes(buffer: Array<number> | Buffer): Buffer
   /**
-   * Creates a list of 64-bit floating point numbers.
    * Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a list of 32-bit floating point numbers.
    *
    * Example:
@@ -262,6 +261,17 @@ export declare namespace data {
    * ```
    */
   export function f32Vector(values: Array<number>): List
+  /**
+   * Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a list of 64-bit floating point numbers.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { f64List } from "topk-js/data";
+   *
+   * f64List([0.12, 0.67, 0.82, 0.53])
+   * ```
+   */
   export function f64List(values: Array<number>): List
   /** Creates a list of 32-bit signed integers. */
   export function i32List(values: Array<number>): List
