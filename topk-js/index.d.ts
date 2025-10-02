@@ -629,7 +629,19 @@ export declare namespace schema {
   'binary';
   /** Creates a 32-bit float sparse vector field specification. */
   export function f32SparseVector(): FieldSpec
-  /** Creates a 32-bit float vector field specification. */
+  /**
+   * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `f32_vector` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { f32Vector } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   title_embedding: f32Vector({ dimension: 1536 })
+   * });
+   * ```
+   */
   export function f32Vector(options: VectorOptions): FieldSpec
   /** @ignore */
   export type FieldIndexUnion =

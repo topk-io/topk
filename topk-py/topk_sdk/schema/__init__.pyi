@@ -78,7 +78,17 @@ def bool() -> FieldSpec:
 
 def f32_vector(dimension: builtins.int) -> FieldSpec:
     """
-    Create a 32-bit float vector field specification.
+    Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `f32_vector` values.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import f32_vector
+
+    client.collections().create("books", schema={
+        "title_embedding": f32_vector(dimension=1536)
+    })
+    ```
     """
     ...
 

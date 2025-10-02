@@ -73,7 +73,17 @@ pub struct VectorOptions {
     pub dimension: u32,
 }
 
-/// Creates a 32-bit float vector field specification.
+/// Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `f32_vector` values.
+///
+/// Example:
+///
+/// ```javascript
+/// import { f32Vector } from "topk-js/schema";
+///
+/// await client.collections().create("books", {
+///   title_embedding: f32Vector({ dimension: 1536 })
+/// });
+/// ```
 #[napi(namespace = "schema")]
 pub fn f32_vector(options: VectorOptions) -> FieldSpec {
     FieldSpec::create(DataType::F32Vector {

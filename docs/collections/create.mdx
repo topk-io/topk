@@ -88,38 +88,6 @@ import { int } from "topk-js/schema";
 
 
 
-### f32_vector()
-
-`f32_vector()` function is used to define a vector field with 32-bit floating point values.
-
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.schema import f32_vector
-
-"title_embedding": f32_vector(dimension=1536)
-```
-
-
-```js JavaScript
-import { f32Vector } from "topk-js/schema";
-
-"title_embedding": f32Vector({ dimension: 1536 })
-```
-
-</CodeGroup>
-
-To configure the float vector dimension, pass a `dimension` parameter to the `f32_vector()` function:
-
-<ParamField body="dimension" type="int" required={true} min={1}>
-  The dimension of the vector.
-</ParamField>
-
-<Note>
-  The vector dimension will be validated when upserting documents.
-  Passing a vector with a different dimension will result in an error.
-</Note>
 
 ### u8_vector()
 
