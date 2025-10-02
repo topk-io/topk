@@ -235,7 +235,17 @@ export declare namespace data {
   export function i32List(values: Array<number>): List
   /** Creates a list of 64-bit signed integers. */
   export function i64List(values: Array<number>): List
-  /** Creates an 8-bit signed integer vector from an array of numbers. */
+  /**
+   * Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing an 8-bit signed integer vector. This function is an alias for [i8List()](https://docs.topk.io/sdk/topk-js/data#i8list).
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { i8Vector } from "topk-js/data";
+   *
+   * i8Vector([-128, 127, -1, 0, 1])
+   * ```
+   */
   export function i8Vector(values: Array<number>): List
   /** Creates a sparse vector of 32-bit floats. */
   export function stringList(values: Array<string>): List

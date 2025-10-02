@@ -57,7 +57,15 @@ pub fn u8_vector(values: Vec<u8>) -> List {
     }
 }
 
-/// Creates an 8-bit signed integer vector from an array of numbers.
+/// Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing an 8-bit signed integer vector. This function is an alias for [i8List()](https://docs.topk.io/sdk/topk-js/data#i8list).
+///
+/// Example:
+///
+/// ```javascript
+/// import { i8Vector } from "topk-js/data";
+///
+/// i8Vector([-128, 127, -1, 0, 1])
+/// ```
 #[napi(namespace = "data")]
 pub fn i8_vector(values: Vec<i8>) -> List {
     List {

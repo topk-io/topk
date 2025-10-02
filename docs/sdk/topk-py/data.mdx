@@ -82,7 +82,15 @@ Create a [List](https://docs.topk.io/sdk/topk-py/data#List) type containing an 8
 i8_vector(data: list[int]) -> List
 ```
 
-Create an 8-bit signed integer vector.
+Create a [List](https://docs.topk.io/sdk/topk-py/data#List) type containing an 8-bit signed integer vector. This function is an alias for [i8_list()](https://docs.topk.io/sdk/topk-py/data#i8-list).
+
+    Example:
+
+    ```python
+    from topk_sdk.data import i8_vector
+
+    i8_vector([-128, 127, -1, 0, 1])
+    ```
 
 **Parameters**
 
