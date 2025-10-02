@@ -89,7 +89,15 @@ pub fn binary_vector(values: Vec<u8>) -> List {
     }
 }
 
-/// Creates a list of 32-bit unsigned integers.
+/// Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a list of 32-bit unsigned integers.
+///
+/// Example:
+///
+/// ```javascript
+/// import { u32List } from "topk-js/data";
+///
+/// u32List([0, 1, 2, 3])
+/// ```
 #[napi(namespace = "data")]
 pub fn u32_list(values: Vec<u32>) -> List {
     List {
