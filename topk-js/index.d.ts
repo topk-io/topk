@@ -714,7 +714,19 @@ export declare namespace schema {
   export function text(): FieldSpec
   /** Creates an 8-bit unsigned integer sparse vector field specification. */
   export function u8SparseVector(): FieldSpec
-  /** Creates an 8-bit unsigned integer vector field specification. */
+  /**
+   * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `u8_vector` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { u8Vector } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   title_embedding: u8Vector({ dimension: 1536 })
+   * });
+   * ```
+   */
   export function u8Vector(options: VectorOptions): FieldSpec
   export type VectorDistanceMetric =  'cosine'|
   'euclidean'|

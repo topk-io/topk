@@ -91,7 +91,17 @@ pub fn f32_vector(options: VectorOptions) -> FieldSpec {
     })
 }
 
-/// Creates an 8-bit unsigned integer vector field specification.
+/// Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `u8_vector` values.
+///
+/// Example:
+///
+/// ```javascript
+/// import { u8Vector } from "topk-js/schema";
+///
+/// await client.collections().create("books", {
+///   title_embedding: u8Vector({ dimension: 1536 })
+/// });
+/// ```
 #[napi(namespace = "schema")]
 pub fn u8_vector(options: VectorOptions) -> FieldSpec {
     FieldSpec::create(DataType::U8Vector {

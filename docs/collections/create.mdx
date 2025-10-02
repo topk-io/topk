@@ -89,32 +89,6 @@ import { int } from "topk-js/schema";
 
 
 
-### u8_vector()
-
-`u8_vector()` function is used to define a vector field with `u8` values.
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.schema import u8_vector
-
-"title_embedding": u8_vector(dimension=1536)
-```
-
-
-```js JavaScript
-import { u8Vector } from "topk-js/schema";
-
-"title_embedding": u8Vector({ dimension: 1536 })
-```
-
-</CodeGroup>
-
-To configure the vector dimension, pass a `dimension` parameter to the `u8_vector()` function:
-
-<ParamField body="dimension" type="int" required={true} min={1}>
-  The dimension of the vector.
-</ParamField>
 
 ### i8_vector()
 

@@ -184,7 +184,17 @@ Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for
 u8_vector(dimension: int) -> FieldSpec
 ```
 
-Create an 8-bit unsigned integer vector field specification.
+Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `u8_vector` values.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import u8_vector
+
+    client.collections().create("books", schema={
+        "title_embedding": u8_vector(dimension=1536)
+    })
+    ```
 
 **Parameters**
 

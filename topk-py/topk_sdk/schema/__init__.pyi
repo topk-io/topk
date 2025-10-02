@@ -94,7 +94,17 @@ def f32_vector(dimension: builtins.int) -> FieldSpec:
 
 def u8_vector(dimension: builtins.int) -> FieldSpec:
     """
-    Create an 8-bit unsigned integer vector field specification.
+    Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `u8_vector` values.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import u8_vector
+
+    client.collections().create("books", schema={
+        "title_embedding": u8_vector(dimension=1536)
+    })
+    ```
     """
     ...
 
