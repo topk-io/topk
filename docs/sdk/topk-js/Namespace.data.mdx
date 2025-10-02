@@ -60,7 +60,6 @@ Creates a bytes value from a buffer or array of numbers.
 function f32List(values: number[]): List;
 ```
 
-Creates a list of 64-bit floating point numbers.
 Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a list of 32-bit floating point numbers.
 
 Example:
@@ -143,6 +142,16 @@ f32Vector([0.12, 0.67, 0.82, 0.53])
 
 ```ts
 function f64List(values: number[]): List;
+```
+
+Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a list of 64-bit floating point numbers.
+
+Example:
+
+```javascript
+import { f64List } from "topk-js/data";
+
+f64List([0.12, 0.67, 0.82, 0.53])
 ```
 
 **Parameters**

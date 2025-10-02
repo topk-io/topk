@@ -113,7 +113,6 @@ pub fn i64_list(values: Vec<i64>) -> List {
     }
 }
 
-/// Creates a list of 64-bit floating point numbers.
 /// Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a list of 32-bit floating point numbers.
 ///
 /// Example:
@@ -130,6 +129,15 @@ pub fn f32_list(values: Vec<f64>) -> List {
     }
 }
 
+/// Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a list of 64-bit floating point numbers.
+///
+/// Example:
+///
+/// ```javascript
+/// import { f64List } from "topk-js/data";
+///
+/// f64List([0.12, 0.67, 0.82, 0.53])
+/// ```
 #[napi(namespace = "data")]
 pub fn f64_list(values: Vec<f64>) -> List {
     List {
