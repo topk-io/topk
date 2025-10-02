@@ -65,7 +65,15 @@ def i8_vector(data: builtins.list[int]) -> List:
 
 def binary_vector(data: builtins.list[int]) -> List:
     """
-    Create a binary vector.
+    Create a [List](https://docs.topk.io/sdk/topk-py/data#List) type containing a binary vector. This function is an alias for [binary_list()](https://docs.topk.io/sdk/topk-py/data#binary-list).
+
+    Example:
+
+    ```python
+    from topk_sdk.data import binary_vector
+
+    binary_vector([0, 1, 1, 0])
+    ```
     """
     ...
 
