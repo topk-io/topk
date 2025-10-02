@@ -41,7 +41,15 @@ pub fn f32_vector(values: Vec<f64>) -> List {
     }
 }
 
-/// Creates an 8-bit unsigned integer vector from an array of numbers.
+/// Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing an 8-bit unsigned integer vector. This function is an alias for [u8List()](https://docs.topk.io/sdk/topk-js/data#u8list).
+///
+/// Example:
+///
+/// ```javascript
+/// import { u8Vector } from "topk-js/data";
+///
+/// u8Vector([0, 255, 1, 2, 3])
+/// ```
 #[napi(namespace = "data")]
 pub fn u8_vector(values: Vec<u8>) -> List {
     List {

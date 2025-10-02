@@ -37,7 +37,15 @@ def f32_vector(data: builtins.list[float]) -> List:
 
 def u8_vector(data: builtins.list[int]) -> List:
     """
-    Create an 8-bit unsigned integer vector.
+    Create a [List](https://docs.topk.io/sdk/topk-py/data#List) type containing an 8-bit unsigned integer vector. This function is an alias for [u8_list()](https://docs.topk.io/sdk/topk-py/data#u8-list).
+
+    Example:
+
+    ```python
+    from topk_sdk.data import u8_vector
+
+    u8_vector([0, 255, 1, 2, 3])
+    ```
     """
     ...
 
