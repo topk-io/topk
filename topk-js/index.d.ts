@@ -225,7 +225,18 @@ export declare namespace data {
   export function binaryVector(values: Array<number>): List
   /** Creates a bytes value from a buffer or array of numbers. */
   export function bytes(buffer: Array<number> | Buffer): Buffer
-  /** Creates a list of 64-bit floating point numbers. */
+  /**
+   * Creates a list of 64-bit floating point numbers.
+   * Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a list of 32-bit floating point numbers.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { f32List } from "topk-js/data";
+   *
+   * f32List([0.12, 0.67, 0.82, 0.53])
+   * ```
+   */
   export function f32List(values: Array<number>): List
   /**
    * Creates a [SparseVector](https://docs.topk.io/sdk/topk-js/data#SparseVector) type containing a sparse vector of 32-bit floats. This function is an alias for [f32SparseList()](https://docs.topk.io/sdk/topk-js/data#f32sparselist).

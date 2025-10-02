@@ -6,32 +6,6 @@ To pass a specific complex data type, use provided data constructors when insert
 
 TopK provides constructors for the following complex types:
 
-### f32_list()
-
-To pass a list of 32-bit floating-point numbers, use the `f32_list()` helper function:
-
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.data import f32_list
-
-f32_list([0.12, 0.67, 0.82, 0.53])
-```
-
-
-```typescript Javascript
-import { f32List } from "topk-js/data";
-
-f32List([0.12, 0.67, 0.82, 0.53])
-```
-
-</CodeGroup>
-
-<Info>
-  When passing an empty list or a list of numbers such as `my_list = [0.12, 0.67, 0.82]` or `my_list = []`, it is by default considered a list of float32 values.
-</Info>
-
 ### f64_list()
 
 To pass a list of 64-bit floating-point numbers, use the `f64_list()` helper function:
