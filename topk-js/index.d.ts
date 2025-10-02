@@ -243,7 +243,17 @@ export declare namespace data {
   export function u32List(values: Array<number>): List
   /** Creates a sparse vector of 8-bit unsigned integers. */
   export function u8SparseVector(vector: Record<number, number>): SparseVector
-  /** Creates an 8-bit unsigned integer vector from an array of numbers. */
+  /**
+   * Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing an 8-bit unsigned integer vector. This function is an alias for [u8List()](https://docs.topk.io/sdk/topk-js/data#u8list).
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { u8Vector } from "topk-js/data";
+   *
+   * u8Vector([0, 255, 1, 2, 3])
+   * ```
+   */
   export function u8Vector(values: Array<number>): List
 }
 
