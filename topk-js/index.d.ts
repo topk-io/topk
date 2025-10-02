@@ -273,7 +273,17 @@ export declare namespace data {
    * ```
    */
   export function f64List(values: Array<number>): List
-  /** Creates a list of 32-bit signed integers. */
+  /**
+   * Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a list of 32-bit signed integers.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { i32List } from "topk-js/data";
+   *
+   * i32List([0, 1, 2, 3])
+   * ```
+   */
   export function i32List(values: Array<number>): List
   /** Creates a list of 64-bit signed integers. */
   export function i64List(values: Array<number>): List
