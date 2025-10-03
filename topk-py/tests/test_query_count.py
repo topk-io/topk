@@ -18,6 +18,7 @@ def test_query_count_empty_collection(ctx: ProjectContext):
 
     assert count == 0
 
+
 def test_query_count(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 

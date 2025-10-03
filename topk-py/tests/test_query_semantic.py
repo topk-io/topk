@@ -36,9 +36,7 @@ def test_semantic_index_query(ctx: ProjectContext):
     collection = dataset.semantic.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        select(sim=fn.semantic_similarity("title", "dummy")).topk(
-            field("sim"), 3, True
-        )
+        select(sim=fn.semantic_similarity("title", "dummy")).topk(field("sim"), 3, True)
     )
 
     assert len(result) == 3

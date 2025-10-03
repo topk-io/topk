@@ -12,10 +12,8 @@ class LogicalExpr(Enum):
     Usually created using logical constructors such as [`field()`](#field), [`literal()`](#literal), etc.
     """
 
-    def __repr__(self) -> builtins.str:
-        ...
-    def _expr_eq(self, other: LogicalExpr) -> LogicalExpr:
-        ...
+    def __repr__(self) -> builtins.str: ...
+    def _expr_eq(self, other: LogicalExpr) -> LogicalExpr: ...
     def is_null(self) -> LogicalExpr:
         """
         Check if the expression is null.
@@ -293,7 +291,14 @@ Ordered = typing.Union[int, float, str, LogicalExpr]
 Boolish = typing.Union[bool, LogicalExpr]
 Stringy = typing.Union[str, LogicalExpr]
 StringyWithList = typing.Union[str, builtins.list[str], LogicalExpr]
-Iterable = typing.Union[str, builtins.list[int], builtins.list[float], builtins.list[str], topk_sdk.data.List, LogicalExpr]
+Iterable = typing.Union[
+    str,
+    builtins.list[int],
+    builtins.list[float],
+    builtins.list[str],
+    topk_sdk.data.List,
+    LogicalExpr,
+]
 
 class FunctionExpr:
     """
@@ -302,6 +307,7 @@ class FunctionExpr:
     Instances of the `FunctionExpr` class are used to represent function expressions in TopK.
     Usually created using function constructors such as [`fn.vector_distance()`](#vector-distance), [`fn.semantic_similarity()`](#semantic-similarity) or [`fn.bm25_score()`](#bm25-score).
     """
+
     ...
 
 class TextExpr(Enum):
@@ -332,7 +338,6 @@ class TextExpr(Enum):
         """
         ...
 
-
 class Query:
     def select(
         self,
@@ -352,13 +357,11 @@ class Query:
     ) -> Query: ...
     def count(self) -> Query: ...
 
-
 def field(name: builtins.str) -> LogicalExpr:
     """
     Select a field from the document.
     """
     ...
-
 
 def select(
     *args: builtins.str,
@@ -379,8 +382,8 @@ def select(
     )
     ```
     """
-...
 
+...
 
 def filter(expr: LogicalExpr | TextExpr) -> Query:
     """
@@ -398,13 +401,11 @@ def filter(expr: LogicalExpr | TextExpr) -> Query:
     """
     ...
 
-
 def literal(value: typing.Any) -> LogicalExpr:
     """
     Create a literal expression.
     """
     ...
-
 
 def match(
     token: builtins.str,
@@ -421,8 +422,8 @@ def match(
     - Match only on specific fields
     - Use weights to prioritize certain terms
     """
-...
 
+...
 
 def not_(expr: LogicalExpr) -> LogicalExpr:
     """
@@ -440,7 +441,6 @@ def not_(expr: LogicalExpr) -> LogicalExpr:
     """
     ...
 
-
 def abs(expr: LogicalExpr) -> LogicalExpr:
     """
     Compute the absolute value of a logical expression.
@@ -455,7 +455,6 @@ def abs(expr: LogicalExpr) -> LogicalExpr:
     )
     ```
     """
-
 
 def all(exprs: typing.Sequence[LogicalExpr]) -> LogicalExpr:
     """
@@ -475,7 +474,6 @@ def all(exprs: typing.Sequence[LogicalExpr]) -> LogicalExpr:
     )
     ```
     """
-
 
 def any(exprs: typing.Sequence[LogicalExpr]) -> LogicalExpr:
     """
@@ -497,7 +495,6 @@ def any(exprs: typing.Sequence[LogicalExpr]) -> LogicalExpr:
     """
     ...
 
-
 def min(left: Ordered, right: Ordered) -> LogicalExpr:
     """
     Create a logical MIN expression.
@@ -514,7 +511,6 @@ def min(left: Ordered, right: Ordered) -> LogicalExpr:
     """
     ...
 
-
 def max(left: Ordered, right: Ordered) -> LogicalExpr:
     """
     Create a logical MAX expression.
@@ -529,11 +525,11 @@ def max(left: Ordered, right: Ordered) -> LogicalExpr:
     """
     ...
 
-
 class fn:
     """
     The `query.fn` submodule exposes functions for creating function expressions such as [`fn.vector_distance()`](#vector-distance), [`fn.semantic_similarity()`](#semantic-similarity) or [`fn.bm25_score()`](#bm25-score).
     """
+
     ...
 
     @staticmethod

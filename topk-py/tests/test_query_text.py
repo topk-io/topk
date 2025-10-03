@@ -96,6 +96,7 @@ def test_query_text_match_all_two_terms(ctx: ProjectContext):
 
     assert doc_ids(result) == {"pride"}
 
+
 def test_query_text_match_all_two_terms_tokenized(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
@@ -119,6 +120,7 @@ def test_query_text_match_any_two_terms(ctx: ProjectContext):
 
     assert doc_ids(result) == {"pride", "gatsby", "lotr"}
 
+
 def test_query_text_match_any_two_terms_tokenized(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
@@ -135,8 +137,10 @@ def test_query_text_matches_with_logical_expr(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        filter((field("summary").match_all("love class")) | (field("published_year") == 1925))
-        .topk(field("published_year"), 10, True)
+        filter(
+            (field("summary").match_all("love class"))
+            | (field("published_year") == 1925)
+        ).topk(field("published_year"), 10, True)
     )
 
     assert doc_ids(result) == {"pride", "gatsby"}
