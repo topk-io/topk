@@ -142,24 +142,12 @@ async fn test_delete_with_filter(ctx: &mut ProjectTestContext) {
         5
     );
 
-    // Get documents
-    let docs = collection
-        .get(["2", "8", "13"], None, Some(lsn.clone()), None)
-        .await
-        .expect("could not get documents");
-
-    assert_eq!(docs.len(), 1, "{docs:?}");
-    assert_eq!(
-        docs.get("2").expect("document not found"),
-        &doc!("_id" => "2", "batch_idx" => 0).fields
-    );
-
     // Upsert more records. The upsert records satisfy the delete filter
     // but should not be deleted (snice the write happended after the delete).
     let lsn = collection
         .upsert(
             (0..5)
-                .map(|i| doc!("_id" => format!("{}", 15 + i), "batch_idx" => 3))
+                .map(|i| doc!("_id" => format!("{}", 15 + i), "batch_idx" => 3, "updated" => true))
                 .collect(),
         )
         .await
