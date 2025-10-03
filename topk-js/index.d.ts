@@ -575,16 +575,76 @@ export declare namespace schema {
    * @hideconstructor
    */
   export class FieldSpec {
-    /** Marks the field as required. */
+    /**
+     * Marks the field as required. All fields are optional by default.
+     *
+     * Example:
+     *
+     * ```javascript
+     * import { text } from "topk-js/schema";
+     *
+     * await client.collections().create("books", {
+     *   title: text().required()
+     * });
+     * ```
+     */
     required(): FieldSpec
-    /** Adds an index configuration to the field. */
+    /**
+     * Creates an index on a field.
+     *
+     * Example:
+     *
+     * ```javascript
+     * import { text, keywordIndex } from "topk-js/schema";
+     *
+     * await client.collections().create("books", {
+     *   title: text().index(keywordIndex())
+     * });
+     * ```
+     */
     index(index: FieldIndex): FieldSpec
   }
-  /** Creates a binary vector field specification. */
+  /**
+   * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `binary_vector` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { binaryVector } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   title_embedding: binaryVector({ dimension: 128 })
+   * });
+   * ```
+   */
   export function binaryVector(options: VectorOptions): FieldSpec
-  /** Creates a boolean field specification. */
+  /**
+   * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `bool` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { bool } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   is_published: bool()
+   * });
+   * ```
+   */
   export function bool(): FieldSpec
-  /** Creates a bytes field specification. */
+  /**
+   * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `bytes` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { bytes } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   image: bytes()
+   * });
+   * ```
+   */
   export function bytes(): FieldSpec
   /** @ignore */
   export type DataType =
@@ -603,25 +663,113 @@ export declare namespace schema {
   export type EmbeddingDataType =  'float32'|
   'uint8'|
   'binary';
-  /** Creates a 32-bit float sparse vector field specification. */
+  /**
+   * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `f32_sparse_vector` values.
+   *
+   * Note: Sparse vectors use u32 dimension indices to support dictionaries of up to 2^32 - 1 terms.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { f32SparseVector } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   sparse_field: f32SparseVector()
+   * });
+   * ```
+   */
   export function f32SparseVector(): FieldSpec
-  /** Creates a 32-bit float vector field specification. */
+  /**
+   * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `f32_vector` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { f32Vector } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   title_embedding: f32Vector({ dimension: 1536 })
+   * });
+   * ```
+   */
   export function f32Vector(options: VectorOptions): FieldSpec
   /** @ignore */
   export type FieldIndexUnion =
     | { type: 'KeywordIndex', indexType: KeywordIndexType }
     | { type: 'VectorIndex', metric: VectorDistanceMetric }
     | { type: 'SemanticIndex', model?: string, embeddingType?: EmbeddingDataType }
-  /** Creates a float field specification. */
+  /**
+   * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `float` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { float } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   price: float()
+   * });
+   * ```
+   */
   export function float(): FieldSpec
-  /** Creates an 8-bit signed integer vector field specification. */
+  /**
+   * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `i8_vector` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { i8Vector } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   title_embedding: i8Vector({ dimension: 1536 })
+   * });
+   * ```
+   */
   export function i8Vector(options: VectorOptions): FieldSpec
-  /** Creates an integer field specification. */
+  /**
+   * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `int` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { int } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   published_year: int()
+   * });
+   * ```
+   */
   export function int(): FieldSpec
-  /** Creates a keyword index specification. */
+  /**
+   * Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `keyword_index` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { text, keywordIndex } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   title: text().index(keywordIndex())
+   * });
+   * ```
+   *
+   * Adding a keyword index allows you to perform keyword search on this field.
+   */
   export function keywordIndex(): FieldIndex
   export type KeywordIndexType =  'text';
-  /** Creates a list field specification. */
+  /**
+   * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `list` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { list } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   tags: list({ valueType: "text" })
+   * });
+   * ```
+   */
   export function list(options: ListOptions): FieldSpec
   /**
    * Options for list field specifications.
@@ -636,7 +784,28 @@ export declare namespace schema {
   export type ListValueType =  'text'|
   'integer'|
   'float';
-  /** Creates a semantic index specification. */
+  /**
+   * Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `semantic_index` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { text, semanticIndex } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   title: text().index(semanticIndex({ model: "cohere/embed-multilingual-v3" }))
+   * });
+   * ```
+   *
+   * Parameters:
+   * - model: Embedding model to use for semantic search. Currently supported:
+   *   - `cohere/embed-english-v3`
+   *   - `cohere/embed-multilingual-v3` (default)
+   * - embeddingType: TopK supports the following embedding types for Cohere models:
+   *   - `float32`
+   *   - `uint8`
+   *   - `binary`
+   */
   export function semanticIndex(options?: SemanticIndexOptions | undefined | null): FieldIndex
   /**
    * Options for semantic index specifications.
@@ -650,17 +819,75 @@ export declare namespace schema {
     /** The type of embedding data */
     embeddingType?: EmbeddingDataType
   }
-  /** Creates a text field specification. */
+  /**
+   * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `text` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { text } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   title: text()
+   * });
+   * ```
+   */
   export function text(): FieldSpec
-  /** Creates an 8-bit unsigned integer sparse vector field specification. */
+  /**
+   * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `u8_sparse_vector` values.
+   *
+   * Note: Sparse vectors use u32 dimension indices to support dictionaries of up to 2^32 - 1 terms.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { u8SparseVector } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   sparse_field: u8SparseVector()
+   * });
+   * ```
+   */
   export function u8SparseVector(): FieldSpec
-  /** Creates an 8-bit unsigned integer vector field specification. */
+  /**
+   * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `u8_vector` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { u8Vector } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   title_embedding: u8Vector({ dimension: 1536 })
+   * });
+   * ```
+   */
   export function u8Vector(options: VectorOptions): FieldSpec
   export type VectorDistanceMetric =  'cosine'|
   'euclidean'|
   'dot_product'|
   'hamming';
-  /** Creates a vector index specification. */
+  /**
+   * Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `vector_index` values.
+   *
+   * Supported `metric`s:
+   * - `euclidean` (not supported for sparse vectors)
+   * - `cosine` (not supported for sparse vectors)
+   * - `dot_product` (supported for dense and sparse vectors)
+   * - `hamming` (only supported for binary_vector type)
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { f32Vector, vectorIndex } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   title_embedding: f32Vector({ dimension: 1536 }).index(
+   *     vectorIndex({ metric: "cosine" })
+   *   )
+   * });
+   * ```
+   */
   export function vectorIndex(options: VectorIndexOptions): FieldIndex
   /**
    * Options for vector index specifications.
