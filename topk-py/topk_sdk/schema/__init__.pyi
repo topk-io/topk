@@ -172,6 +172,8 @@ def f32_sparse_vector() -> FieldSpec:
     """
     Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `f32_sparse_vector` values.
 
+    Note: Sparse vectors use u32 dimension indices to support dictionaries of up to 2^32 - 1 terms.
+
     Example:
 
     ```python
@@ -187,6 +189,8 @@ def f32_sparse_vector() -> FieldSpec:
 def u8_sparse_vector() -> FieldSpec:
     """
     Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `u8_sparse_vector` values.
+
+    Note: Sparse vectors use u32 dimension indices to support dictionaries of up to 2^32 - 1 terms.
 
     Example:
 
@@ -237,7 +241,13 @@ def vector_index(
     metric: typing.Literal["cosine", "euclidean", "dot_product", "hamming"],
 ) -> FieldIndex:
     """
-    Create a [FieldIndex](https://docs.topk.io/sdk/topk-py/schema#FieldIndex) type for `vector_index` values.
+    Create a [FieldIndex](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `vector_index` values.
+
+    Supported `metric`s:
+        - `euclidean` (only dense vectors)
+        - `cosine` (only dense vectors)
+        - `dot_product` (dense and sparse vectors)
+        - `hamming` (only binary vectors)
 
     Example:
 
@@ -270,6 +280,15 @@ def keyword_index() -> FieldIndex:
 def semantic_index(model: str) -> FieldIndex:
     """
     Create a [FieldIndex](https://docs.topk.io/sdk/topk-py/schema#FieldIndex) type for `semantic_index` values.
+
+    Supported `model`s:
+        - `cohere/embed-english-v3`
+        - `cohere/embed-multilingual-v3` (default)
+
+    TopK supports the following embedding types for Cohere models:
+        - `float32`
+        - `uint8`
+        - `binary`
 
     Example:
 

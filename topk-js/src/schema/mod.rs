@@ -173,6 +173,8 @@ pub fn bytes() -> FieldSpec {
 
 /// Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `f32_sparse_vector` values.
 ///
+/// Note: Sparse vectors use u32 dimension indices to support dictionaries of up to 2^32 - 1 terms.
+///
 /// Example:
 ///
 /// ```javascript
@@ -188,6 +190,8 @@ pub fn f32_sparse_vector() -> FieldSpec {
 }
 
 /// Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `u8_sparse_vector` values.
+///
+/// Note: Sparse vectors use u32 dimension indices to support dictionaries of up to 2^32 - 1 terms.
 ///
 /// Example:
 ///
@@ -214,6 +218,12 @@ pub struct VectorIndexOptions {
 }
 
 /// Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `vector_index` values.
+///
+/// Supported `metric`s:
+/// - `euclidean` (not supported for sparse vectors)
+/// - `cosine` (not supported for sparse vectors)
+/// - `dot_product` (supported for dense and sparse vectors)
+/// - `hamming` (only supported for binary_vector type)
 ///
 /// Example:
 ///
@@ -242,6 +252,8 @@ pub fn vector_index(options: VectorIndexOptions) -> FieldIndex {
 ///   title: text().index(keywordIndex())
 /// });
 /// ```
+///
+/// Adding a keyword index allows you to perform keyword search on this field.
 #[napi(namespace = "schema")]
 pub fn keyword_index() -> FieldIndex {
     FieldIndex::keyword_index(KeywordIndexType::Text)
@@ -271,6 +283,15 @@ pub struct SemanticIndexOptions {
 ///   title: text().index(semanticIndex({ model: "cohere/embed-multilingual-v3" }))
 /// });
 /// ```
+///
+/// Parameters:
+/// - model: Embedding model to use for semantic search. Currently supported:
+///   - `cohere/embed-english-v3`
+///   - `cohere/embed-multilingual-v3` (default)
+/// - embeddingType: TopK supports the following embedding types for Cohere models:
+///   - `float32`
+///   - `uint8`
+///   - `binary`
 #[napi(namespace = "schema")]
 pub fn semantic_index(options: Option<SemanticIndexOptions>) -> FieldIndex {
     let options = options.unwrap_or_default();

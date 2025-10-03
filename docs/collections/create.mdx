@@ -2,51 +2,39 @@
 title: "Create a collection"
 ---
 
-Collections are the core data structure in TopK. They store documents and provide the interface for querying them efficiently.
+Collections store documents and provide the interface for querying them efficiently.
 
 ## Creating a collection
 
-To create a collection in TopK, call the `create()` function on `client.collections()`.
-
-The `create()` function takes two parameters:
-
+Call `create()` on `client.collections()`:
 
 <ParamField body="name" type="string" required={true}>
-  The name of the collection.
+  Collection name (unique within account)
 </ParamField>
 
 <ParamField body="schema" type="Map<String, FieldSpec>" required={true}>
-  Schema definition that describes the document structure.
+  Document structure and search capabilities
 </ParamField>
-
-Below is an example of creating a collection named `books`:
 
 <CodeGroup>
 
 ```python Python
-from topk_sdk.schema import int, text, f32_vector, vector_index, keyword_index
+from topk_sdk.schema import int, text, semantic_index
 
 client.collections().create(
     "books",
     schema={
-        "title": text().required().index(keyword_index()),
-        "title_embedding": f32_vector(dimension=1536)
-            .required()
-            .index(vector_index(metric="euclidean")),
+        "title": text().required().index(semantic_index()),
         "published_year": int().required(),
     },
 )
 ```
 
-
 ```typescript Javascript
-import { int, text, f32Vector, vectorIndex, keywordIndex } from "topk-js/schema";
+import { int, text, semanticIndex } from "topk-js/schema";
 
 await client.collections().create("books", {
-  title: text().required().index(keywordIndex()),
-  title_embedding: f32Vector({ dimension: 1536 })
-    .required()
-    .index(vectorIndex({ metric: "euclidean" })),
+  title: text().required().index(semanticIndex()),
   published_year: int().required(),
 });
 ```
@@ -59,23 +47,101 @@ await client.collections().create("books", {
 
 ## Schema
 
-Collection schema in TopK is a map of field names and field specifications.
+### Opt-in schema
 
-TopK supports the following field data types:
+TopK is schemaless-by-default. Fields without types can store any value. When types are specified, data is validated during upsert.
 
+**Indexed fields require explicit types.**
 
+### Field types
 
+| Type | Use case |
+|------|----------|
+| `text()` | Strings, descriptions, content |
+| `bytes()` | Binary data, images, files |
+| `int()` | Integers, counts, IDs |
+| `float()` | Decimal numbers, prices |
+| `bool()` | True/false values |
+| `list(value_type)` | Arrays (text, integer, float) |
+| `f32_vector(dim)` | Dense embeddings (most common) |
+| `u8_vector(dim)` | Quantized embeddings |
+| `i8_vector(dim)` | Signed quantized embeddings |
+| `binary_vector(dim)` | Binary embeddings |
+| `f32_sparse_vector()` | Sparse embeddings |
+| `u8_sparse_vector()` | Quantized sparse embeddings |
 
+### Required fields
 
+Fields are optional by default. Add `.required()` to make them mandatory:
 
+```python
+"name": text().required()  # Must be present
+"price": int()            # Can be null
+```
 
+## Indexes
 
+Indexes enable search capabilities. Without indexes, only exact filtering is possible.
 
+### Index types
 
+#### Vector Index
 
+Used for vector search. Supports dimensions up to 2^14.
 
+<CodeGroup>
 
+```python Python
+"embedding": f32_vector(dimension=1536).index(vector_index(metric="cosine"))
+```
 
+```typescript Javascript
+embedding: f32Vector({ dimension: 1536 }).index(vectorIndex({ metric: "cosine" }))
+```
 
+</CodeGroup>
 
+**Similarity metrics compatibility:**
 
+| Vector Type | `cosine` | `euclidean` | `dot_product` | `hamming` |
+|-------------|----------|-------------|---------------|-----------|
+| `f32_vector` | ✅ | ✅ | ✅ | — |
+| `u8_vector` | ✅ | ✅ | ✅ | — |
+| `i8_vector` | ✅ | ✅ | ✅ | — |
+| `f32_sparse_vector` | — | — | ✅ | — |
+| `u8_sparse_vector` | — | — | ✅ | — |
+| `binary_vector` | — | — | — | ✅ |
+
+#### Keyword Index  
+
+Traditional text search with BM25 relevance scoring. Fast keyword matching with no embedding overhead.
+
+<CodeGroup>
+
+```python Python
+"title": text().index(keyword_index())
+```
+
+```typescript Javascript
+title: text().index(keywordIndex())
+```
+
+</CodeGroup>
+
+#### Semantic Index
+
+Convenience method for automatic embeddings.
+
+<CodeGroup>
+
+```python Python
+"title": text().index(semantic_index())
+```
+
+```typescript Javascript
+title: text().index(semanticIndex())
+```
+
+</CodeGroup>
+
+See [semantic_index()](../sdk/topk-py/schema#semantic-index) for model details.
