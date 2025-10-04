@@ -205,17 +205,19 @@ impl CollectionClient {
         Ok(response.into_inner().lsn)
     }
 
-    pub async fn delete(&self, ids: Vec<String>) -> Result<String, Error> {
+    pub async fn delete(&self, req: impl Into<DeleteDocumentsRequest>) -> Result<String, Error> {
         let client =
             create_write_client(&self.config, &self.collection_name, &self.channel).await?;
 
+        let req = req.into();
+
         let response = call_with_retry(&self.config.retry_config, || {
             let mut client = client.clone();
-            let ids = ids.clone();
+            let req = req.clone();
 
             async move {
                 client
-                    .delete_documents(DeleteDocumentsRequest { ids })
+                    .delete_documents(req)
                     .await
                     .map_err(|e| match e.code() {
                         // Explicitly map `NotFound` to `CollectionNotFound` error

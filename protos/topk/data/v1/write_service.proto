@@ -2,6 +2,7 @@ syntax = "proto3";
 package topk.data.v1;
 
 import "topk/data/v1/document.proto";
+import "topk/data/v1/expr/logical.proto";
 
 service WriteService {
   // Upsert
@@ -21,7 +22,11 @@ message UpsertDocumentsResponse {
 
 // Delete
 message DeleteDocumentsRequest {
+  // Document IDs to delete
   repeated string ids = 1;
+  // Filter expression to delete.
+  // Documents matching this expression will be deleted.
+  LogicalExpr expr = 2;
 }
 message DeleteDocumentsResponse {
   string lsn = 1;
