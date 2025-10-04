@@ -170,6 +170,25 @@ async fn test_delete_with_filter(ctx: &mut ProjectTestContext) {
         .map(|i| format!("{i}"))
         .collect();
     assert_doc_ids!(doc_ids, expected_doc_ids);
+
+    // Delete updated documents
+    let lsn = collection
+        .delete(field("updated").eq(literal(true)))
+        .await
+        .expect("could not delete document");
+    assert_eq!(lsn, "6");
+
+    // Verify expected documents
+    let doc_ids = collection
+        .query(
+            select([("_id", field("_id"))]).topk(field("batch_idx"), 100, true),
+            Some(lsn),
+            None,
+        )
+        .await
+        .expect("could not query documents");
+
+    assert_doc_ids!(doc_ids, (0..5).map(|i| format!("{i}")));
 }
 
 #[test_context(ProjectTestContext)]
