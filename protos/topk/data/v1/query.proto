@@ -62,7 +62,8 @@ message Stage {
   oneof stage {
     SelectStage select = 1;
     FilterStage filter = 2;
-    TopKStage top_k = 3;
+    // Deprecated in favor of LimitStage + SortStage.
+    TopKStage top_k = 3 [deprecated = true];
     CountStage count = 4;
     RerankStage rerank = 5;
     LimitStage limit = 6;

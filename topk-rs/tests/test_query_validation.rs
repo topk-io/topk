@@ -69,7 +69,7 @@ async fn test_query_topk_limit_zero(ctx: &mut ProjectTestContext) {
 
     assert!(matches!(
         err,
-        Error::InvalidArgument(s) if s == "Invalid argument: TopK k must be > 0"
+        Error::InvalidArgument(s) if s == "Invalid argument: Limit k must be > 0"
     ));
 }
 
