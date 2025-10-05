@@ -47,4 +47,14 @@ impl Query {
             .push(Stage::rerank(model, query, fields, topk_multiple));
         self
     }
+
+    pub fn limit(mut self, k: u64) -> Self {
+        self.stages.push(Stage::limit(k));
+        self
+    }
+
+    pub fn sort(mut self, expr: LogicalExpr, asc: bool) -> Self {
+        self.stages.push(Stage::sort(expr, asc));
+        self
+    }
 }

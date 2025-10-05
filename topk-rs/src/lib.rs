@@ -80,6 +80,10 @@ pub mod query {
         Query::new(vec![Stage::filter(expr.into())])
     }
 
+    pub fn limit(k: u64) -> Query {
+        Query::new(vec![Stage::limit(k)])
+    }
+
     pub fn not(expr: impl Into<LogicalExpr>) -> LogicalExpr {
         LogicalExpr::not(expr)
     }
