@@ -348,6 +348,8 @@ class Query:
     def topk(
         self, expr: LogicalExpr, k: builtins.int, asc: builtins.bool = False
     ) -> Query: ...
+    def limit(self, k: builtins.int) -> Query: ...
+    def sort(self, expr: LogicalExpr, asc: builtins.bool = False) -> Query: ...
     def rerank(
         self,
         model: typing.Optional[builtins.str] = None,
@@ -400,6 +402,8 @@ def filter(expr: LogicalExpr | TextExpr) -> Query:
     ```
     """
     ...
+
+def limit(k: builtins.int) -> Query: ...
 
 def literal(value: typing.Any) -> LogicalExpr:
     """

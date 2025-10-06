@@ -12,7 +12,7 @@ def test_query_bare_limit(ctx: ProjectContext):
     result = ctx.client.collection(collection.name).query(limit(100))
 
     assert len(result) == 10
-    expected_ids = {doc["_id"] for doc in dataset.books.docs()}
+    expected_ids = {str(doc["_id"]) for doc in dataset.books.docs()}
     assert doc_ids(result) == expected_ids
 
 
