@@ -57,3 +57,13 @@ export function isSorted(result: any[], fieldName: string): boolean {
   const values = result.map((doc) => doc[fieldName]);
   return values.every((value, i) => i === 0 || value >= values[i - 1]);
 }
+
+export function docFields(result: Array<Record<string, any>>): Set<string> {
+  const fields = new Set<string>();
+  for (const doc of result) {
+    for (const key of Object.keys(doc)) {
+      fields.add(key);
+    }
+  }
+  return fields;
+}

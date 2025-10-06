@@ -72,6 +72,33 @@ impl Query {
         new_query
     }
 
+    /// Adds a limit stage to the query.
+    #[napi]
+    pub fn limit(&self, k: i32) -> Query {
+        let mut new_query = Query {
+            stages: self.stages.clone(),
+        };
+
+        new_query.stages.push(Stage::Limit { k });
+
+        new_query
+    }
+
+    /// Adds a sort stage to the query.
+    #[napi]
+    pub fn sort(&self, expr: &LogicalExpression, asc: Option<bool>) -> Query {
+        let mut new_query = Query {
+            stages: self.stages.clone(),
+        };
+
+        new_query.stages.push(Stage::Sort {
+            expr: expr.clone(),
+            asc: asc.unwrap_or(false),
+        });
+
+        new_query
+    }
+
     /// Adds a count stage to the query.
     #[napi]
     pub fn count(&self) -> Query {
