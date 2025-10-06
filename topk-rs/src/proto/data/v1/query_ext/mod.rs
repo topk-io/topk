@@ -27,7 +27,7 @@ impl Query {
     }
 
     pub fn topk(mut self, expr: LogicalExpr, k: u64, asc: bool) -> Self {
-        self.stages.push(Stage::topk(expr, k, asc));
+        self = self.sort(expr, asc).limit(k);
         self
     }
 
