@@ -18,6 +18,13 @@ pub enum Stage {
         k: u64,
         asc: bool,
     },
+    Limit {
+        k: u64,
+    },
+    Sort {
+        expr: LogicalExpr,
+        asc: bool,
+    },
     Count {},
     Rerank {
         model: Option<String>,
@@ -35,6 +42,8 @@ impl From<Stage> for topk_rs::proto::v1::data::Stage {
             Stage::TopK { expr, k, asc } => {
                 topk_rs::proto::v1::data::Stage::topk(expr.into(), k, asc)
             }
+            Stage::Limit { k } => topk_rs::proto::v1::data::Stage::limit(k),
+            Stage::Sort { expr, asc } => topk_rs::proto::v1::data::Stage::sort(expr.into(), asc),
             Stage::Count {} => topk_rs::proto::v1::data::Stage::count(),
             Stage::Rerank {
                 model,

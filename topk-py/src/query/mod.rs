@@ -33,6 +33,7 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     m.add_wrapped(wrap_pyfunction!(select))?;
     m.add_wrapped(wrap_pyfunction!(filter))?;
+    m.add_wrapped(wrap_pyfunction!(limit))?;
     m.add_wrapped(wrap_pyfunction!(field))?;
     m.add_wrapped(wrap_pyfunction!(literal))?;
     m.add_wrapped(wrap_pyfunction!(r#match))?;
@@ -59,6 +60,12 @@ pub fn select(
 #[pyo3(signature = (expr))]
 pub fn filter(expr: FilterExprUnion) -> PyResult<Query> {
     Ok(Query::new().filter(expr)?)
+}
+
+#[pyfunction]
+#[pyo3(signature = (k))]
+pub fn limit(k: u64) -> PyResult<Query> {
+    Ok(Query::new().limit(k)?)
 }
 
 #[pyfunction]

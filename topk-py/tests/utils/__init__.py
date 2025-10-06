@@ -10,3 +10,10 @@ def doc_ids_ordered(result: list[dict[str, Any]]) -> list[str]:
 def is_sorted(result: list[dict[str, Any]], field_name: str) -> bool:
     values = [doc[field_name] for doc in result]
     return all(values[i] <= values[i + 1] for i in range(len(values) - 1))
+
+
+def doc_fields(result: list[dict[str, Any]]) -> set[str]:
+    fields: set[str] = set()
+    for doc in result:
+        fields.update(doc.keys())
+    return fields

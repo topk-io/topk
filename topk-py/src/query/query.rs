@@ -117,6 +117,27 @@ impl Query {
         })
     }
 
+    #[pyo3(signature = (k))]
+    pub fn limit(&self, k: u64) -> PyResult<Self> {
+        Ok(Self {
+            stages: [self.stages.clone(), vec![Stage::Limit { k }]].concat(),
+        })
+    }
+
+    #[pyo3(signature = (expr, asc=false))]
+    pub fn sort(&self, expr: LogicalExpr, asc: bool) -> PyResult<Self> {
+        Ok(Self {
+            stages: [
+                self.stages.clone(),
+                vec![Stage::Sort {
+                    expr: expr.into(),
+                    asc,
+                }],
+            ]
+            .concat(),
+        })
+    }
+
     #[pyo3(signature = (model=None, query=None, fields=vec![], topk_multiple=None))]
     pub fn rerank(
         &self,
