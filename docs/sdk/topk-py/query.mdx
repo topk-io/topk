@@ -620,6 +620,43 @@ topk(self, expr: LogicalExpr, k: int, asc: bool = False) -> Query
 
 ***
 
+#### limit()
+
+```python
+limit(self, k: int) -> Query
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `k` | int |
+
+**Returns**
+
+[`Query`](#query)
+
+***
+
+#### sort()
+
+```python
+sort(self, expr: LogicalExpr, asc: bool = False) -> Query
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `expr` | [`LogicalExpr`](#logicalexpr) |
+| `asc` | bool |
+
+**Returns**
+
+[`Query`](#query)
+
+***
+
 #### rerank()
 
 ```python
@@ -802,7 +839,7 @@ select() -> Query
 
 # Example:
 
-    Create a select stage of a query.
+    Creates a new query with a select stage.
 
     ```python
     # Example:
@@ -826,7 +863,7 @@ select() -> Query
 filter(expr: LogicalExpr | TextExpr) -> Query
 ```
 
-Create a filter stage of a query.
+Creates a new query with a filter stage.
 
     ```python
     # Example:

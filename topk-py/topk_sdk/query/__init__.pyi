@@ -372,7 +372,7 @@ def select(
     """
     # Example:
 
-    Create a select stage of a query.
+    Creates a new query with a select stage.
 
     ```python
     # Example:
@@ -389,7 +389,7 @@ def select(
 
 def filter(expr: LogicalExpr | TextExpr) -> Query:
     """
-    Create a filter stage of a query.
+    Creates a new query with a filter stage.
 
     ```python
     # Example:

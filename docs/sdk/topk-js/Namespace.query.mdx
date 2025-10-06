@@ -94,7 +94,7 @@ function filter(expr:
   | TextExpression): Query;
 ```
 
-Creates a filter query stage.
+Creates a new query with a filter stage.
 
 **Parameters**
 
@@ -237,7 +237,7 @@ function select(exprs: Record<string,
   | FunctionExpression>): Query;
 ```
 
-Creates a select query stage.
+Creates a new query with a select stage.
 
 **Parameters**
 
@@ -871,6 +871,24 @@ Adds a filter stage to the query.
 
 [`Query`](/sdk/topk-js/Namespace.query#query)
 
+##### limit()
+
+```ts
+limit(k: number): Query;
+```
+
+Adds a limit stage to the query.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `k` | `number` |
+
+**Returns**
+
+[`Query`](/sdk/topk-js/Namespace.query#query)
+
 ##### rerank()
 
 ```ts
@@ -904,6 +922,25 @@ Adds a select stage to the query.
 | Parameter | Type |
 | ------ | ------ |
 | `exprs` | `Record`\<`string`, \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`FunctionExpression`](/sdk/topk-js/Namespace.query#functionexpression)\> |
+
+**Returns**
+
+[`Query`](/sdk/topk-js/Namespace.query#query)
+
+##### sort()
+
+```ts
+sort(expr: LogicalExpression, asc?: boolean): Query;
+```
+
+Adds a sort stage to the query.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `expr` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `asc?` | `boolean` |
 
 **Returns**
 
