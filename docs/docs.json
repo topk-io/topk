@@ -20,6 +20,7 @@
               "introduction",
               "installation",
               "regions",
+              "changelog",
               "quickstart"
             ]
           },
@@ -34,8 +35,7 @@
               "concepts/true-hybrid-search",
               "concepts/reranking",
               "concepts/consistency",
-              "concepts/multi-tenancy",
-              "concepts/async-await"
+              "concepts/multi-tenancy"
             ]
           },
           {
@@ -44,8 +44,7 @@
               "documents/upsert",
               "documents/query",
               "documents/get",
-              "documents/delete",
-              "documents/data-constructors"
+              "documents/delete"
             ]
           },
           {

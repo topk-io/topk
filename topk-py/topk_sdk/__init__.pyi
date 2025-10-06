@@ -4,7 +4,6 @@ from enum import Enum
 
 from . import query, schema
 
-
 class Client:
     """
     Synchronous client for interacting with the TopK API.
@@ -17,8 +16,7 @@ class Client:
         host: builtins.str = "topk.io",
         https: builtins.bool = True,
         retry_config: typing.Optional[RetryConfig] = None,
-    ) -> None:
-        ...
+    ) -> None: ...
     def collection(self, collection: builtins.str) -> CollectionClient:
         """
         Get a client for managing data operations on a specific collection such as querying, upserting, and deleting documents.
@@ -29,7 +27,6 @@ class Client:
         Get a client for managing collections.
         """
         ...
-
 
 class AsyncClient:
     """
@@ -43,17 +40,13 @@ class AsyncClient:
         host: builtins.str = "topk.io",
         https: builtins.bool = True,
         retry_config: typing.Optional[RetryConfig] = None,
-    ) -> None:
-        ...
+    ) -> None: ...
     def collection(self, collection: builtins.str) -> AsyncCollectionClient:
-        """Get an async client for a specific collection.
-        """
+        """Get an async client for a specific collection."""
         ...
     def collections(self) -> AsyncCollectionsClient:
-        """Get an async client for managing collections.
-        """
+        """Get an async client for managing collections."""
         ...
-
 
 class CollectionClient:
     """
@@ -103,7 +96,6 @@ class CollectionClient:
         """
         ...
 
-
 class AsyncCollectionClient:
     """
     Asynchronous client for collection operations.
@@ -115,7 +107,9 @@ class AsyncCollectionClient:
         fields: typing.Optional[typing.Sequence[builtins.str]] = None,
         lsn: typing.Optional[builtins.str] = None,
         consistency: typing.Optional[ConsistencyLevel] = None,
-    ) -> typing.Awaitable[builtins.dict[builtins.str, builtins.dict[builtins.str, typing.Any]]]:
+    ) -> typing.Awaitable[
+        builtins.dict[builtins.str, builtins.dict[builtins.str, typing.Any]]
+    ]:
         """
         Get documents by their IDs asynchronously.
         """
@@ -146,23 +140,24 @@ class AsyncCollectionClient:
         Insert or update documents in the collection asynchronously.
         """
         ...
-    def delete(self, ids: typing.Sequence[builtins.str]) -> typing.Awaitable[builtins.str]:
+    def delete(
+        self, ids: typing.Sequence[builtins.str]
+    ) -> typing.Awaitable[builtins.str]:
         """
         Delete documents by their IDs asynchronously.
         """
         ...
 
-
 class Collection:
     """
     Represents a collection in the TopK system.
     """
+
     name: builtins.str
     org_id: builtins.str
     project_id: builtins.str
     region: builtins.str
     schema: builtins.dict[builtins.str, schema.FieldSpec]
-
 
 class CollectionsClient:
     """
@@ -194,7 +189,6 @@ class CollectionsClient:
         """
         ...
 
-
 class AsyncCollectionsClient:
     """
     Asynchronous client for managing collections.
@@ -225,7 +219,6 @@ class AsyncCollectionsClient:
         """
         ...
 
-
 class ConsistencyLevel(Enum):
     """
     Enumeration of consistency levels for operations.
@@ -233,7 +226,6 @@ class ConsistencyLevel(Enum):
 
     Indexed = "indexed"
     Strong = "strong"
-
 
 class RetryConfig:
     """
@@ -243,7 +235,6 @@ class RetryConfig:
     max_retries: typing.Optional[builtins.int]
     timeout: typing.Optional[builtins.int]
     backoff: typing.Optional[BackoffConfig]
-
 
 class BackoffConfig:
     """

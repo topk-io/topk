@@ -1,5 +1,5 @@
 import pytest
-from topk_sdk.query import field, literal, not_
+from topk_sdk.query import field, literal
 
 
 def test_query_expr_with_flexible_expr():
@@ -29,6 +29,7 @@ def test_query_expr_with_flexible_expr():
 
     assert (field("a") & field("b"))._expr_eq(field("a").and_(field("b")))
     assert (field("a") | field("b"))._expr_eq(field("a").or_(field("b")))
+
 
 def test_comparison_operators():
     assert (field("a") == 1)._expr_eq(field("a") == literal(1))

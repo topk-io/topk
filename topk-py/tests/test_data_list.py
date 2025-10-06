@@ -53,7 +53,10 @@ def test_i32_list_invalid_input():
 def test_i64_list():
     result = i64_list([-9223372036854775808, -1, 0, 1, 9223372036854775807])
     assert result is not None
-    assert str(result) == "List(I64([-9223372036854775808, -1, 0, 1, 9223372036854775807]))"
+    assert (
+        str(result)
+        == "List(I64([-9223372036854775808, -1, 0, 1, 9223372036854775807]))"
+    )
 
 
 def test_i64_list_empty():
@@ -78,7 +81,6 @@ def test_f32_list():
     result = f32_list([1.0, 2.5, -3.5, 0.0])
     assert result is not None
     assert str(result) == "List(F32([1.0, 2.5, -3.5, 0.0]))"
-
 
 
 def test_f32_list_empty():
@@ -126,13 +128,14 @@ def test_f64_list_invalid_input():
 def test_string_list():
     result = string_list(["1", "2", "3"])
     assert result is not None
-    assert str(result) == "List(String([\"1\", \"2\", \"3\"]))"
+    assert str(result) == 'List(String(["1", "2", "3"]))'
 
 
 def test_string_list_empty():
     result = string_list([])
     assert result is not None
     assert str(result) == "List(String([]))"
+
 
 def test_string_list_invalid_input():
     with pytest.raises(
