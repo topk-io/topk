@@ -403,8 +403,6 @@ def filter(expr: LogicalExpr | TextExpr) -> Query:
     """
     ...
 
-def limit(k: builtins.int) -> Query: ...
-
 def literal(value: typing.Any) -> LogicalExpr:
     """
     Create a literal expression.

@@ -1,6 +1,6 @@
 import pytest
 from topk_sdk import error
-from topk_sdk.query import field, fn, limit, match, select
+from topk_sdk.query import field, fn, match, select
 
 from . import ProjectContext
 from .utils import dataset, doc_ids, doc_fields
@@ -9,7 +9,7 @@ from .utils import dataset, doc_ids, doc_fields
 def test_query_bare_limit(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
-    result = ctx.client.collection(collection.name).query(limit(100))
+    result = ctx.client.collection(collection.name).query(select().limit(100))
 
     assert len(result) == 10
     expected_ids = {str(doc["_id"]) for doc in dataset.books.docs()}

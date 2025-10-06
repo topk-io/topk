@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use test_context::test_context;
 use topk_rs::data::literal;
 use topk_rs::proto::v1::data::Document;
-use topk_rs::query::{field, fns, limit, r#match, select};
+use topk_rs::query::{field, fns, r#match, select};
 
 mod utils;
 use topk_rs::Error;
@@ -20,7 +20,7 @@ async fn test_query_bare_limit(ctx: &mut ProjectTestContext) {
     let result = ctx
         .client
         .collection(&collection.name)
-        .query(limit(100), None, None)
+        .query(select([("_id", field("_id"))]).limit(100), None, None)
         .await
         .expect("could not query");
 

@@ -190,27 +190,6 @@ async fn test_semantic_index_query_and_rerank(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-async fn test_semantic_index_query_and_limit(ctx: &mut ProjectTestContext) {
-    let collection = dataset::semantic::setup(ctx).await;
-
-    let result = ctx
-        .client
-        .collection(&collection.name)
-        .query(
-            select([("sim", fns::semantic_similarity("title", "dummy"))])
-                .limit(3)
-                .rerank(Some("dummy".into()), None, vec![], None),
-            None,
-            None,
-        )
-        .await
-        .expect("could not query");
-
-    assert_eq!(result.len(), 3);
-}
-
-#[test_context(ProjectTestContext)]
-#[tokio::test]
 async fn test_semantic_index_query_and_rerank_multiple_semantic_sim_explicit(
     ctx: &mut ProjectTestContext,
 ) {

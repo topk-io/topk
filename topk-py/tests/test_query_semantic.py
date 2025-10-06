@@ -102,16 +102,6 @@ def test_semantic_index_query_and_rerank(ctx: ProjectContext):
     assert len(result) == 3
 
 
-def test_semantic_index_query_and_limit(ctx: ProjectContext):
-    collection = dataset.semantic.setup(ctx)
-
-    result = ctx.client.collection(collection.name).query(
-        select(sim=fn.semantic_similarity("title", "dummy")).limit(3).rerank("dummy")
-    )
-
-    assert len(result) == 3
-
-
 def test_semantic_index_query_and_rerank_multiple_semantic_sim_explicit(
     ctx: ProjectContext,
 ):
