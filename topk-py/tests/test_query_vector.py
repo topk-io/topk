@@ -1,5 +1,3 @@
-from typing import Any
-
 from topk_sdk.data import binary_vector, f32_vector, u8_vector, i8_vector
 from topk_sdk.query import field, fn, select
 

@@ -20,7 +20,6 @@ from .. import ProjectContext, AsyncProjectContext
 class books:
     @staticmethod
     def setup(ctx: ProjectContext):
-
         collection = ctx.client.collections().create(
             ctx.scope("books"),
             schema=books.schema(),
@@ -33,7 +32,6 @@ class books:
 
     @staticmethod
     async def setup_async(ctx: AsyncProjectContext):
-
         collection = await ctx.client.collections().create(
             ctx.scope("books"),
             schema=books.schema(),
@@ -42,7 +40,6 @@ class books:
         await ctx.client.collection(collection.name).upsert(books.docs())
 
         return collection
-
 
     @staticmethod
     def schema():
@@ -71,7 +68,6 @@ class books:
             "codes": list(value_type="text"),
         }
 
-
     @staticmethod
     def docs():
         return [
@@ -90,7 +86,12 @@ class books:
                 ),
                 "sparse_u8_embedding": data.u8_sparse_vector({0: 1, 1: 2, 2: 3}),
                 "tags": ["racism", "injustice", "girl", "father", "lawyer"],
-                "codes": ["ISBN 978-0-06-093546-7", "ISBN 0-06-093546-4", "LCCN 60007854", "UPC 025192354670"],
+                "codes": [
+                    "ISBN 978-0-06-093546-7",
+                    "ISBN 0-06-093546-4",
+                    "LCCN 60007854",
+                    "UPC 025192354670",
+                ],
                 "reprint_years": data.u32_list([1966, 1988, 1999, 2002, 2015]),
                 "user_ratings": data.u32_list([9, 7, 10, 8]),
             },
@@ -108,9 +109,24 @@ class books:
                     {2: 1.0, 3: 2.0, 4: 3.0}
                 ),
                 "sparse_u8_embedding": data.u8_sparse_vector({2: 1, 3: 2, 4: 3}),
-                "tags": ["dystopia", "surveillance", "totalitarianism", "mind control", "oppression"],
-                "codes": ["1984", "ISBN 978-0-452-28423-4", "ISBN 0-452-28423-6", "OCLC 70775700", "DOI 10.1000/182", "EAN 9780452284234"],
-                "reprint_years": data.u32_list([1950, 1954, 1956, 1961, 1984, 1990, 2003]),
+                "tags": [
+                    "dystopia",
+                    "surveillance",
+                    "totalitarianism",
+                    "mind control",
+                    "oppression",
+                ],
+                "codes": [
+                    "1984",
+                    "ISBN 978-0-452-28423-4",
+                    "ISBN 0-452-28423-6",
+                    "OCLC 70775700",
+                    "DOI 10.1000/182",
+                    "EAN 9780452284234",
+                ],
+                "reprint_years": data.u32_list(
+                    [1950, 1954, 1956, 1961, 1984, 1990, 2003]
+                ),
                 "user_ratings": data.f32_list([5.0, 3.5, 4.5, 4.0, -1.0]),
             },
             {
@@ -141,7 +157,14 @@ class books:
                 ),
                 "sparse_u8_embedding": data.u8_sparse_vector({4: 1, 5: 2, 6: 3}),
                 "tags": ["love", "romance", "wealth", "marriage"],
-                "codes": ["ISBN 978-0-7432-7356-5", "ISBN 0-7432-7356-7", "OCLC 60393320", "ASIN B000FC0SIS", "UPC 074327356709", "LCCN 2002114274"],
+                "codes": [
+                    "ISBN 978-0-7432-7356-5",
+                    "ISBN 0-7432-7356-7",
+                    "OCLC 60393320",
+                    "ASIN B000FC0SIS",
+                    "UPC 074327356709",
+                    "LCCN 2002114274",
+                ],
                 "reprint_years": data.u32_list([1953, 1996, 2004]),
                 "user_ratings": "good book",
             },
@@ -159,7 +182,13 @@ class books:
                     {5: 1.0, 6: 2.0, 7: 3.0}
                 ),
                 "sparse_u8_embedding": data.u8_sparse_vector({5: 1, 6: 2, 7: 3}),
-                "tags": ["alienation", "identity", "rebellion", "mid-20th-century", "america"],
+                "tags": [
+                    "alienation",
+                    "identity",
+                    "rebellion",
+                    "mid-20th-century",
+                    "america",
+                ],
                 "codes": ["ISBN 978-0-316-76917-4", "LCCN 51011564", "OCLC 287628"],
                 "reprint_years": data.u32_list([1964, 1979, 1991, 2001, 2010]),
                 "user_ratings": data.f32_list([4.5, 3.0, 3.5, 4.0, -1.0]),
@@ -224,7 +253,13 @@ class books:
                 ),
                 "sparse_u8_embedding": data.u8_sparse_vector({9: 1, 10: 2, 11: 3}),
                 "tags": ["lord of the rings", "fellowship", "magic", "wizard", "elves"],
-                "codes": ["ISBN 978-0-547-92821-0", "ISBN 0-547-92821-2", "OCLC 434394005", "LCCN 2004558654", "Barcode 0618346252"],
+                "codes": [
+                    "ISBN 978-0-547-92821-0",
+                    "ISBN 0-547-92821-2",
+                    "OCLC 434394005",
+                    "LCCN 2004558654",
+                    "Barcode 0618346252",
+                ],
                 "user_ratings": ["epic", "legendary", "good"],
             },
             {
@@ -238,7 +273,15 @@ class books:
                 ),
                 "sparse_u8_embedding": data.u8_sparse_vector({10: 1, 11: 2, 12: 3}),
                 "tags": ["journey", "destiny", "meaning of life", "alchemy", "soul"],
-                "codes": ["ISBN 978-0-06-231500-7", "ASIN 0062315005", "OCLC 804616251", "DOI 10.1234/alchemist", "EAN 9780062315007", "UPC 006231500719", "LCCN 88675123"],
+                "codes": [
+                    "ISBN 978-0-06-231500-7",
+                    "ASIN 0062315005",
+                    "OCLC 804616251",
+                    "DOI 10.1234/alchemist",
+                    "EAN 9780062315007",
+                    "UPC 006231500719",
+                    "LCCN 88675123",
+                ],
                 "reprint_years": data.u32_list([1993, 2005, 2014]),
                 "user_ratings": data.u32_list([8, 10, 9, 7]),
             },

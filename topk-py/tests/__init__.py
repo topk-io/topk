@@ -51,6 +51,7 @@ def new_project_context():
         client=client,
     )
 
+
 def new_async_project_context():
     TOPK_API_KEY = os.environ["TOPK_API_KEY"].splitlines()[0].strip()
     TOPK_HOST = os.environ.get("TOPK_HOST", "topk.io")

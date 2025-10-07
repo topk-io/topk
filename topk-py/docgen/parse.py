@@ -3,7 +3,7 @@
 import ast
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Optional
 
 
 @dataclass
@@ -13,10 +13,10 @@ class TypeAnnotation:
     name: str
     is_optional: bool = False
     is_generic: bool = False
-    generic_args: List["TypeAnnotation"] = None # type: ignore
+    generic_args: List["TypeAnnotation"] = None  # type: ignore
 
     def __post_init__(self):
-        if self.generic_args is None: # type: ignore
+        if self.generic_args is None:  # type: ignore
             self.generic_args = []
 
 
@@ -157,7 +157,7 @@ def format_type_annotation(annotation) -> TypeAnnotation:
                     base = f"{annotation.value.value.id}.{annotation.value.attr}"
             else:
                 # Handle deeper nesting like typing.Union
-                base = f"{annotation.value.value.id}.{annotation.value.attr}" # type: ignore
+                base = f"{annotation.value.value.id}.{annotation.value.attr}"  # type: ignore
         else:
             base = "Unknown"
 
@@ -178,9 +178,7 @@ def format_type_annotation(annotation) -> TypeAnnotation:
         # Handle union types like A | B (Python 3.10+)
         left = format_type_annotation(annotation.left)
         right = format_type_annotation(annotation.right)
-        return TypeAnnotation(
-            "Union", is_generic=True, generic_args=[left, right]
-        )
+        return TypeAnnotation("Union", is_generic=True, generic_args=[left, right])
 
     else:
         return TypeAnnotation("Unknown")
@@ -212,7 +210,7 @@ def parse_parameter(arg: ast.arg, default_value=None) -> Parameter:
     return Parameter(
         name=param_name,
         type_annotation=type_annotation,
-        default_value=default_value, # type: ignore
+        default_value=default_value,  # type: ignore
         is_required=is_required,
     )
 
@@ -244,7 +242,7 @@ def parse_method(method_node: ast.FunctionDef) -> Method | None:
                 elif isinstance(default, ast.Constant):
                     default_val = repr(default.value)
                 elif isinstance(default, ast.Str):  # type: ignore Python 3.7 compatibility
-                    default_val = f'"{default.s}"' # type: ignore
+                    default_val = f'"{default.s}"'  # type: ignore
                 elif isinstance(default, ast.Name):
                     default_val = default.id
                 else:
@@ -290,7 +288,8 @@ def parse_class(class_node: ast.ClassDef) -> Class:
                 ):
                     enum_values.append(
                         EnumValue(
-                            name=sub_node.targets[0].id, value=sub_node.value.value # type: ignore
+                            name=sub_node.targets[0].id,
+                            value=sub_node.value.value,  # type: ignore
                         )
                     )
         return Class(
@@ -329,7 +328,6 @@ def parse_class(class_node: ast.ClassDef) -> Class:
         if parsed_method:
             parsed_methods.append(parsed_method)
 
-
     return Class(name=name, docstring=docstring, methods=parsed_methods)
 
 
@@ -350,10 +348,10 @@ def parse_function(func_node: ast.FunctionDef) -> Function:
                         default_val = f'"{default.value}"'
                     else:
                         default_val = repr(default.value)
-                elif isinstance(default, ast.NameConstant): # type: ignore
+                elif isinstance(default, ast.NameConstant):  # type: ignore
                     default_val = repr(default.value)
                 elif isinstance(default, ast.Str):  # type: ignore Python 3.7 compatibility
-                    default_val = f'"{default.s}"' # type: ignore
+                    default_val = f'"{default.s}"'  # type: ignore
                 elif isinstance(default, ast.Name):
                     default_val = default.id
                 else:
@@ -399,11 +397,7 @@ def parse_type_alias(assign_node: ast.Assign) -> Optional[TypeAlias]:
     # Note: Type aliases typically don't have docstrings, but we could check
     # for comments or string literals that follow
 
-    return TypeAlias(
-        name=name,
-        type_annotation=type_annotation,
-        docstring=docstring
-    )
+    return TypeAlias(name=name, type_annotation=type_annotation, docstring=docstring)
 
 
 def parse_module(file_path: Path) -> Module:
@@ -426,4 +420,9 @@ def parse_module(file_path: Path) -> Module:
             if type_alias:
                 type_aliases.append(type_alias)
 
-    return Module(file_path=file_path, classes=classes, functions=functions, type_aliases=type_aliases)
+    return Module(
+        file_path=file_path,
+        classes=classes,
+        functions=functions,
+        type_aliases=type_aliases,
+    )

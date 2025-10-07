@@ -24,6 +24,18 @@ title: topk_sdk.schema
 required(self) -> FieldSpec
 ```
 
+Mark a field as required. All fields are optional by default.
+
+        Example:
+
+        ```python
+        from topk_sdk.schema import text
+
+        client.collections().create("books", schema={
+            "title": text().required()
+        })
+        ```
+
 **Returns**
 
 [`FieldSpec`](#fieldspec)
@@ -48,6 +60,18 @@ optional(self) -> FieldSpec
 index(self, index: FieldIndex) -> FieldSpec
 ```
 
+Create an index on a field.
+
+        Example:
+
+        ```python
+        from topk_sdk.schema import text, keyword_index
+
+        client.collections().create("books", schema={
+            "title": text().index(keyword_index())
+        })
+        ```
+
 **Parameters**
 
 | Parameter | Type |
@@ -68,7 +92,17 @@ index(self, index: FieldIndex) -> FieldSpec
 text() -> FieldSpec
 ```
 
-Create a text field specification.
+Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `text` values.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import text
+
+    client.collections().create("books", schema={
+        "title": text()
+    })
+    ```
 
 **Returns**
 
@@ -96,7 +130,17 @@ Create an integer field specification.
 float() -> FieldSpec
 ```
 
-Create a float field specification.
+Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `float` values.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import float
+
+    client.collections().create("books", schema={
+        "price": float()
+    })
+    ```
 
 **Returns**
 
@@ -110,7 +154,17 @@ Create a float field specification.
 bool() -> FieldSpec
 ```
 
-Create a boolean field specification.
+Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `bool` values.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import bool
+
+    client.collections().create("books", schema={
+        "is_published": bool()
+    })
+    ```
 
 **Returns**
 
@@ -124,7 +178,17 @@ Create a boolean field specification.
 f32_vector(dimension: int) -> FieldSpec
 ```
 
-Create a 32-bit float vector field specification.
+Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `f32_vector` values.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import f32_vector
+
+    client.collections().create("books", schema={
+        "title_embedding": f32_vector(dimension=1536)
+    })
+    ```
 
 **Parameters**
 
@@ -144,7 +208,17 @@ Create a 32-bit float vector field specification.
 u8_vector(dimension: int) -> FieldSpec
 ```
 
-Create an 8-bit unsigned integer vector field specification.
+Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `u8_vector` values.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import u8_vector
+
+    client.collections().create("books", schema={
+        "title_embedding": u8_vector(dimension=1536)
+    })
+    ```
 
 **Parameters**
 
@@ -164,7 +238,17 @@ Create an 8-bit unsigned integer vector field specification.
 i8_vector(dimension: int) -> FieldSpec
 ```
 
-Create an 8-bit signed integer vector field specification.
+Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `i8_vector` values.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import i8_vector
+
+    client.collections().create("books", schema={
+        "title_embedding": i8_vector(dimension=1536)
+    })
+    ```
 
 **Parameters**
 
@@ -184,7 +268,17 @@ Create an 8-bit signed integer vector field specification.
 binary_vector(dimension: int) -> FieldSpec
 ```
 
-Create a binary vector field specification.
+Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `binary_vector` values.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import binary_vector
+
+    client.collections().create("books", schema={
+        "title_embedding": binary_vector(dimension=128)
+    })
+    ```
 
 **Parameters**
 
@@ -204,7 +298,19 @@ Create a binary vector field specification.
 f32_sparse_vector() -> FieldSpec
 ```
 
-Create a f32 sparse vector field specification.
+Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `f32_sparse_vector` values.
+
+    Note: Sparse vectors use u32 dimension indices to support dictionaries of up to 2^32 - 1 terms.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import f32_sparse_vector
+
+    client.collections().create("books", schema={
+        "sparse_field": f32_sparse_vector()
+    })
+    ```
 
 **Returns**
 
@@ -218,7 +324,19 @@ Create a f32 sparse vector field specification.
 u8_sparse_vector() -> FieldSpec
 ```
 
-Create a u8 sparse vector field specification.
+Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `u8_sparse_vector` values.
+
+    Note: Sparse vectors use u32 dimension indices to support dictionaries of up to 2^32 - 1 terms.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import u8_sparse_vector
+
+    client.collections().create("books", schema={
+        "sparse_field": u8_sparse_vector()
+    })
+    ```
 
 **Returns**
 
@@ -232,7 +350,17 @@ Create a u8 sparse vector field specification.
 bytes() -> FieldSpec
 ```
 
-Create a bytes field specification.
+Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `bytes` values.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import bytes
+
+    client.collections().create("books", schema={
+        "image": bytes()
+    })
+    ```
 
 **Returns**
 
@@ -246,7 +374,17 @@ Create a bytes field specification.
 list(value_type: Literal['text', 'integer', 'float']) -> FieldSpec
 ```
 
-Create a list field specification.
+Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `list` values.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import list
+
+    client.collections().create("books", schema={
+        "tags": list(value_type="text")
+    })
+    ```
 
 **Parameters**
 
@@ -266,7 +404,23 @@ Create a list field specification.
 vector_index(metric: Literal['cosine', 'euclidean', 'dot_product', 'hamming']) -> FieldIndex
 ```
 
-Create a vector index on a vector field.
+Create a [FieldIndex](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `vector_index` values.
+
+    Supported `metric`s:
+        - `euclidean` (only dense vectors)
+        - `cosine` (only dense vectors)
+        - `dot_product` (dense and sparse vectors)
+        - `hamming` (only binary vectors)
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import f32_vector, vector_index
+
+    client.collections().create("books", schema={
+        "title_embedding": f32_vector(dimension=1536).index(vector_index(metric="cosine"))
+    })
+    ```
 
 **Parameters**
 
@@ -286,7 +440,17 @@ Create a vector index on a vector field.
 keyword_index() -> FieldIndex
 ```
 
-Create a keyword index on a text field.
+Create a [FieldIndex](https://docs.topk.io/sdk/topk-py/schema#FieldIndex) type for `keyword_index` values.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import text, keyword_index
+
+    client.collections().create("books", schema={
+        "title": text().index(keyword_index())
+    })
+    ```
 
 **Returns**
 
@@ -300,7 +464,26 @@ Create a keyword index on a text field.
 semantic_index(model: str) -> FieldIndex
 ```
 
-Create a semantic index on a text field.
+Create a [FieldIndex](https://docs.topk.io/sdk/topk-py/schema#FieldIndex) type for `semantic_index` values.
+
+    Supported `model`s:
+        - `cohere/embed-english-v3`
+        - `cohere/embed-multilingual-v3` (default)
+
+    TopK supports the following embedding types for Cohere models:
+        - `float32`
+        - `uint8`
+        - `binary`
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import text, semantic_index
+
+    client.collections().create("books", schema={
+        "title": text().index(semantic_index(model="cohere/embed-multilingual-v3"))
+    })
+    ```
 
 **Parameters**
 
