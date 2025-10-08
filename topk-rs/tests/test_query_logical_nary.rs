@@ -21,7 +21,7 @@ async fn test_any_codes_vec(ctx: &mut ProjectTestContext) {
                 field("codes").contains("Barcode 0618346252"),
                 field("codes").contains("UPC 025192354670"),
             ]))
-            .topk(field("published_year"), 100, true),
+            .limit(100),
             None,
             None,
         )
@@ -45,7 +45,7 @@ async fn test_all_codes_vec(ctx: &mut ProjectTestContext) {
                 field("tags").contains("school"),
                 field("tags").contains("magic"),
             ]))
-            .topk(field("published_year"), 100, true),
+            .limit(100),
             None,
             None,
         )
@@ -76,7 +76,7 @@ async fn test_select_any_flag(ctx: &mut ProjectTestContext) {
                 "pride".to_string(),
                 "lotr".to_string(),
             ])))
-            .topk(field("published_year"), 100, true),
+            .limit(100),
             None,
             None,
         )
@@ -112,7 +112,7 @@ async fn test_select_all_flag(ctx: &mut ProjectTestContext) {
                 ]),
             )])
             .filter(field("_id").in_(Value::list(vec!["gatsby".to_string(), "pride".to_string()])))
-            .topk(field("published_year"), 100, true),
+            .limit(100),
             None,
             None,
         )
@@ -150,7 +150,7 @@ async fn test_nested_any_all(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(expr).topk(field("published_year"), 100, true),
+            filter(expr).sort(field("published_year"), true).limit(100),
             None,
             None,
         )
@@ -178,11 +178,7 @@ async fn test_non_nested_any_and_all(ctx: &mut ProjectTestContext) {
     let result = ctx
         .client
         .collection(&collection.name)
-        .query(
-            filter(codes_any.and(tags_all)).topk(field("published_year"), 100, true),
-            None,
-            None,
-        )
+        .query(filter(codes_any.and(tags_all)).limit(100), None, None)
         .await
         .expect("could not query");
 
@@ -203,7 +199,7 @@ async fn test_any_mixed_exprs(ctx: &mut ProjectTestContext) {
                 field("tags").contains("romance"),
                 field("published_year").lt(1900u32),
             ]))
-            .topk(field("published_year"), 100, true),
+            .limit(100),
             None,
             None,
         )
@@ -227,7 +223,7 @@ async fn test_all_mixed_exprs(ctx: &mut ProjectTestContext) {
                 field("title").contains("The"),
                 not(field("tags").contains("romance")),
             ]))
-            .topk(field("published_year"), 100, true),
+            .limit(100),
             None,
             None,
         )
@@ -247,11 +243,7 @@ async fn test_all_large_arity(ctx: &mut ProjectTestContext) {
     let result = ctx
         .client
         .collection(&collection.name)
-        .query(
-            filter(expr).topk(field("published_year"), 100, true),
-            None,
-            None,
-        )
+        .query(filter(expr).limit(100), None, None)
         .await
         .expect("could not query");
 
@@ -268,11 +260,7 @@ async fn test_all_max_arity(ctx: &mut ProjectTestContext) {
     let err = ctx
         .client
         .collection(&collection.name)
-        .query(
-            filter(expr).topk(field("published_year"), 100, true),
-            None,
-            None,
-        )
+        .query(filter(expr).limit(100), None, None)
         .await
         .expect_err("should have failed due to max arity");
 

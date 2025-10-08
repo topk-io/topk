@@ -65,11 +65,9 @@ async fn test_semantic_index_query(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("sim", fns::semantic_similarity("title", "dummy"))]).topk(
-                field("sim"),
-                3,
-                true,
-            ),
+            select([("sim", fns::semantic_similarity("title", "dummy"))])
+                .sort(field("sim"), true)
+                .limit(3),
             None,
             None,
         )
@@ -90,7 +88,8 @@ async fn test_semantic_index_query_with_text_filter(ctx: &mut ProjectTestContext
         .query(
             select([("sim", fns::semantic_similarity("title", "dummy"))])
                 .filter(r#match("love", Some("summary"), None, false))
-                .topk(field("sim"), 3, true),
+                .sort(field("sim"), true)
+                .limit(3),
             None,
             None,
         )
@@ -109,11 +108,9 @@ async fn test_semantic_index_query_with_missing_index(ctx: &mut ProjectTestConte
         .client
         .collection(&collection.name)
         .query(
-            select([("sim", fns::semantic_similarity("published_year", "dummy"))]).topk(
-                field("sim"),
-                3,
-                true,
-            ),
+            select([("sim", fns::semantic_similarity("published_year", "dummy"))])
+                .sort(field("sim"), true)
+                .limit(3),
             None,
             None,
         )
@@ -136,7 +133,8 @@ async fn test_semantic_index_query_multiple_fields(ctx: &mut ProjectTestContext)
                 ("title_sim", fns::semantic_similarity("title", "dummy")),
                 ("summary_sim", fns::semantic_similarity("summary", "query")),
             ])
-            .topk(field("title_sim").add(field("summary_sim")), 5, true),
+            .sort(field("title_sim").add(field("summary_sim")), true)
+            .limit(5),
             None,
             None,
         )
@@ -156,7 +154,8 @@ async fn test_semantic_index_query_and_rerank_with_missing_model(ctx: &mut Proje
         .collection(&collection.name)
         .query(
             select([("sim", fns::semantic_similarity("title", "dummy"))])
-                .topk(field("sim"), 3, true)
+                .sort(field("sim"), true)
+                .limit(3)
                 .rerank(Some("definitely-does-not-exist".into()), None, vec![], None),
             None,
             None,
@@ -177,7 +176,8 @@ async fn test_semantic_index_query_and_rerank(ctx: &mut ProjectTestContext) {
         .collection(&collection.name)
         .query(
             select([("sim", fns::semantic_similarity("title", "dummy"))])
-                .topk(field("sim"), 3, true)
+                .sort(field("sim"), true)
+                .limit(3)
                 .rerank(Some("dummy".into()), None, vec![], None),
             None,
             None,
@@ -203,7 +203,8 @@ async fn test_semantic_index_query_and_rerank_multiple_semantic_sim_explicit(
                 ("title_sim", fns::semantic_similarity("title", "dummy")),
                 ("summary_sim", fns::semantic_similarity("summary", "query")),
             ])
-            .topk(field("title_sim").add(field("summary_sim")), 5, true)
+            .sort(field("title_sim").add(field("summary_sim")), true)
+            .limit(5)
             .rerank(
                 Some("dummy".into()),
                 Some("query string".into()),
@@ -234,7 +235,8 @@ async fn test_semantic_index_query_and_rerank_multiple_semantic_sim_implicit(
                 ("title_sim", fns::semantic_similarity("title", "dummy")),
                 ("summary_sim", fns::semantic_similarity("summary", "query")),
             ])
-            .topk(field("title_sim").add(field("summary_sim")), 5, true)
+            .sort(field("title_sim").add(field("summary_sim")), true)
+            .limit(5)
             .rerank(Some("dummy".into()), None, vec![], None),
             None,
             None,

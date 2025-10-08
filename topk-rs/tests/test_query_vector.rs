@@ -21,7 +21,8 @@ async fn test_query_vector_distance(ctx: &mut ProjectTestContext) {
                     "summary_distance",
                     fns::vector_distance("summary_embedding", vec![2.0; 16]),
                 )])
-                .topk(field("summary_distance"), 3, true),
+                .sort(field("summary_distance"), true)
+                .limit(3),
             None,
             None,
         )
@@ -47,7 +48,8 @@ async fn test_query_vector_distance_without_refine(ctx: &mut ProjectTestContext)
                     "summary_distance",
                     fns::vector_distance("summary_embedding", vec![2.0; 16]).skip_refine(true),
                 )])
-                .topk(field("summary_distance"), 3, true),
+                .sort(field("summary_distance"), true)
+                .limit(3),
             None,
             None,
         )
@@ -66,7 +68,8 @@ async fn test_query_vector_distance_without_refine(ctx: &mut ProjectTestContext)
                     "summary_distance",
                     fns::vector_distance("summary_embedding", vec![2.34; 16]),
                 )])
-                .topk(field("summary_distance"), 3, true),
+                .sort(field("summary_distance"), true)
+                .limit(3),
             None,
             None,
         )
@@ -93,7 +96,8 @@ async fn test_query_vector_distance_nullable(ctx: &mut ProjectTestContext) {
                 "summary_distance",
                 fns::vector_distance("nullable_embedding", vec![3.0f32; 16]),
             )])
-            .topk(field("summary_distance"), 3, true),
+            .sort(field("summary_distance"), true)
+            .limit(3),
             None,
             None,
         )
@@ -117,7 +121,8 @@ async fn test_query_vector_distance_u8_vector(ctx: &mut ProjectTestContext) {
                 "summary_distance",
                 fns::vector_distance("scalar_embedding", vec![8u8; 16]),
             )])
-            .topk(field("summary_distance"), 3, true),
+            .sort(field("summary_distance"), true)
+            .limit(3),
             None,
             None,
         )
@@ -141,7 +146,8 @@ async fn test_query_vector_distance_i8_vector(ctx: &mut ProjectTestContext) {
                 "summary_distance",
                 fns::vector_distance("scalar_i8_embedding", vec![-10i8; 16]),
             )])
-            .topk(field("summary_distance"), 3, true),
+            .sort(field("summary_distance"), true)
+            .limit(3),
             None,
             None,
         )
@@ -165,7 +171,8 @@ async fn test_query_vector_distance_binary_vector(ctx: &mut ProjectTestContext) 
                 "summary_distance",
                 fns::vector_distance("binary_embedding", vec![0u8, 1]),
             )])
-            .topk(field("summary_distance"), 2, true),
+            .sort(field("summary_distance"), true)
+            .limit(2),
             None,
             None,
         )
