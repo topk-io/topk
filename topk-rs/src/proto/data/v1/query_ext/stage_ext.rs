@@ -58,4 +58,19 @@ impl Stage {
             })),
         }
     }
+
+    pub fn limit(k: u64) -> Self {
+        Stage {
+            stage: Some(stage::Stage::Limit(stage::LimitStage { k })),
+        }
+    }
+
+    pub fn sort(expr: LogicalExpr, asc: bool) -> Self {
+        Stage {
+            stage: Some(stage::Stage::Sort(stage::SortStage {
+                expr: Some(expr),
+                asc,
+            })),
+        }
+    }
 }
