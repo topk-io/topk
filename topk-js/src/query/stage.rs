@@ -9,11 +9,6 @@ pub enum Stage {
     Filter {
         expr: FilterExpression,
     },
-    TopK {
-        expr: LogicalExpression,
-        k: i32,
-        asc: bool,
-    },
     Limit {
         k: i32,
     },
@@ -35,9 +30,6 @@ impl From<Stage> for topk_rs::proto::v1::data::Stage {
         match stage {
             Stage::Select { exprs } => topk_rs::proto::v1::data::Stage::select(exprs),
             Stage::Filter { expr } => topk_rs::proto::v1::data::Stage::filter(expr),
-            Stage::TopK { expr, k, asc } => {
-                topk_rs::proto::v1::data::Stage::topk(expr.into(), k.try_into().unwrap(), asc)
-            }
             Stage::Limit { k } => topk_rs::proto::v1::data::Stage::limit(k.try_into().unwrap()),
             Stage::Sort { expr, asc } => topk_rs::proto::v1::data::Stage::sort(expr.into(), asc),
             Stage::Count {} => topk_rs::proto::v1::data::Stage::count(),

@@ -59,17 +59,7 @@ impl Query {
     /// Adds a top-k stage to the query.
     #[napi]
     pub fn topk(&self, expr: &LogicalExpression, k: i32, asc: Option<bool>) -> Query {
-        let mut new_query = Query {
-            stages: self.stages.clone(),
-        };
-
-        new_query.stages.push(Stage::TopK {
-            expr: expr.clone(),
-            k,
-            asc: asc.unwrap_or(false),
-        });
-
-        new_query
+        self.sort(expr, asc).limit(k)
     }
 
     /// Adds a limit stage to the query.

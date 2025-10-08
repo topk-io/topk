@@ -104,17 +104,7 @@ impl Query {
 
     #[pyo3(signature = (expr, k, asc=false))]
     pub fn topk(&self, expr: LogicalExpr, k: u64, asc: bool) -> PyResult<Self> {
-        Ok(Self {
-            stages: [
-                self.stages.clone(),
-                vec![Stage::TopK {
-                    expr: expr.into(),
-                    k,
-                    asc,
-                }],
-            ]
-            .concat(),
-        })
+        self.sort(expr, asc)?.limit(k)
     }
 
     #[pyo3(signature = (k))]
