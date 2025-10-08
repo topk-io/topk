@@ -89,7 +89,7 @@ export interface BackoffConfig {
 export interface ClientConfig {
   /** Your TopK API key for authentication */
   apiKey: string
-  /** The region where your data is stored (e.g., "us-east-1", "eu-west-1") */
+  /** The region where your data is stored. For available regions see: https://docs.topk.io/regions. */
   region: string
   /** Custom host URL (optional, defaults to the standard TopK endpoint) */
   host?: string
