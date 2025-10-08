@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 
 use test_context::test_context;
+use topk_rs::data::literal;
 use topk_rs::doc;
 use topk_rs::proto::v1::data::ConsistencyLevel;
+use topk_rs::query::field;
 use topk_rs::Error;
 
 mod utils;
@@ -159,4 +161,81 @@ async fn test_get_deleted_document(ctx: &mut ProjectTestContext) {
         .expect("could not get document");
 
     assert_eq!(docs, HashMap::new());
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_get_with_delete_filter(ctx: &mut ProjectTestContext) {
+    let collection = ctx
+        .client
+        .collections()
+        .create(ctx.wrap("test"), HashMap::default())
+        .await
+        .expect("could not create collection");
+
+    let collection = ctx.client.collection(&collection.name);
+
+    for batch_idx in 0..3 {
+        let lsn = collection
+            .upsert(
+                (0..5)
+                    .map(|i| {
+                        let idx = batch_idx * 5 + i;
+                        doc!("_id" => format!("{}", idx), "batch_idx" => batch_idx)
+                    })
+                    .collect(),
+            )
+            .await
+            .expect("could not upsert document");
+
+        assert_eq!(lsn, format!("{}", batch_idx + 1));
+    }
+
+    // Delete using filter
+    let lsn = collection
+        .delete(field("batch_idx").gte(literal(1)))
+        .await
+        .expect("could not delete document");
+    assert_eq!(lsn, "4");
+
+    // Get documents
+    let docs = collection
+        .get(["2", "8", "13"], None, Some(lsn.clone()), None)
+        .await
+        .expect("could not get documents");
+
+    assert_eq!(docs.len(), 1, "{docs:?}");
+    assert_eq!(
+        docs.get("2").expect("document not found"),
+        &doc!("_id" => "2", "batch_idx" => 0).fields
+    );
+
+    // Upsert more records. The upsert records satisfy the delete filter
+    // but should not be deleted (snice the write happended after the delete).
+    let lsn = collection
+        .upsert(
+            (10..15)
+                .map(|i| doc!("_id" => format!("{}", i), "batch_idx" => 2, "updated" => true))
+                .collect(),
+        )
+        .await
+        .expect("could not upsert document");
+    assert_eq!(lsn, "5");
+
+    // Get documents
+    let docs = collection
+        .get(["2", "8", "13"], None, Some(lsn.clone()), None)
+        .await
+        .expect("could not get documents");
+
+    assert_eq!(docs.len(), 2, "{docs:?}");
+    assert!(docs.get("8").is_none());
+    assert_eq!(
+        docs.get("2").expect("document not found"),
+        &doc!("_id" => "2", "batch_idx" => 0).fields
+    );
+    assert_eq!(
+        docs.get("13").expect("document not found"),
+        &doc!("_id" => "13", "batch_idx" => 2, "updated" => true).fields
+    );
 }
