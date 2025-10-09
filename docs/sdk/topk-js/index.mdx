@@ -100,16 +100,31 @@ Counts the number of documents in the collection.
 ##### delete()
 
 ```ts
-delete(ids: string[]): Promise<string>;
+delete(expr: 
+  | string[]
+| LogicalExpression): Promise<string>;
 ```
 
-Deletes documents from the collection by their IDs.
+Deletes documents from the collection by their IDs or using a filter expression.
+
+Example:
+Delete documents by their IDs:
+```javascript
+await client.collection("books").delete(["id_1", "id_2"])
+```
+
+Delete documents by a filter expression:
+```javascript
+import { field } from "topk-js/query";
+
+await client.collection("books").delete(field("published_year").gt(1997))
+```
 
 **Parameters**
 
 | Parameter | Type |
 | ------ | ------ |
-| `ids` | `string`[] |
+| `expr` | \| `string`[] \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
 
 **Returns**
 

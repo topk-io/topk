@@ -152,11 +152,24 @@ impl CollectionClient {
         Ok(lsn)
     }
 
-    /// Deletes documents from the collection by their IDs.
+    /// Deletes documents from the collection by their IDs or using a filter expression.
+    ///
+    /// Example:
+    /// Delete documents by their IDs:
+    /// ```javascript
+    /// await client.collection("books").delete(["id_1", "id_2"])
+    /// ```
+    ///
+    /// Delete documents by a filter expression:
+    /// ```javascript
+    /// import { field } from "topk-js/query";
+    ///
+    /// await client.collection("books").delete(field("published_year").gt(1997))
+    /// ```
     #[napi]
     pub async fn delete(
         &self,
-        #[napi(ts_arg_type = "Array<string> | LogicalExpression")] expr: DeleteExpression,
+        #[napi(ts_arg_type = "Array<string> | query.LogicalExpression")] expr: DeleteExpression,
     ) -> Result<String> {
         let lsn = self
             .client
