@@ -2,6 +2,7 @@ use crate::client::sync::runtime::Runtime;
 use crate::client::Document;
 use crate::data::value::Value;
 use crate::error::RustError;
+use crate::expr::delete::DeleteExprUnion;
 use crate::query::{ConsistencyLevel, Query};
 use pyo3::prelude::*;
 use std::{collections::HashMap, sync::Arc};
@@ -119,10 +120,10 @@ impl CollectionClient {
             .map_err(RustError)?)
     }
 
-    pub fn delete(&self, py: Python<'_>, ids: Vec<String>) -> PyResult<String> {
+    pub fn delete(&self, py: Python<'_>, spec: DeleteExprUnion) -> PyResult<String> {
         Ok(self
             .runtime
-            .block_on(py, self.client.collection(&self.collection).delete(ids))
+            .block_on(py, self.client.collection(&self.collection).delete(spec))
             .map_err(RustError)?)
     }
 }

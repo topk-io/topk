@@ -2,6 +2,7 @@ use crate::client::Document;
 use crate::data::value::Value;
 use crate::error::RustError;
 use crate::query::{ConsistencyLevel, Query};
+use crate::expr::delete::DeleteExprUnion;
 use pyo3::prelude::*;
 use pyo3_async_runtimes::tokio::future_into_py;
 use std::{collections::HashMap, sync::Arc};
@@ -123,14 +124,14 @@ impl AsyncCollectionClient {
         .map(|result| result.into())
     }
 
-    pub fn delete(&self, py: Python<'_>, ids: Vec<String>) -> PyResult<PyObject> {
+    pub fn delete(&self, py: Python<'_>, spec: DeleteExprUnion) -> PyResult<PyObject> {
         let client = self.client.clone();
         let collection = self.collection.clone();
 
         future_into_py(py, async move {
             let lsn = client
                 .collection(collection.as_str())
-                .delete(ids)
+                .delete(spec)
                 .await
                 .map_err(RustError)?;
 
