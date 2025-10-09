@@ -10,14 +10,16 @@ use utils::ProjectTestContext;
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-async fn test_query_topk_by_non_primitive(ctx: &mut ProjectTestContext) {
+async fn test_query_sort_limit_by_non_primitive(ctx: &mut ProjectTestContext) {
     let collection = dataset::books::setup(ctx).await;
 
     let err = ctx
         .client
         .collection(&collection.name)
         .query(
-            select([("title", field("title"))]).topk(field("title"), 3, true),
+            select([("title", field("title"))])
+                .sort(field("title"), true)
+                .limit(3),
             None,
             None,
         )
@@ -31,14 +33,16 @@ async fn test_query_topk_by_non_primitive(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-async fn test_query_topk_by_non_existing(ctx: &mut ProjectTestContext) {
+async fn test_query_sort_limit_by_non_existing(ctx: &mut ProjectTestContext) {
     let collection = dataset::books::setup(ctx).await;
 
     let err = ctx
         .client
         .collection(&collection.name)
         .query(
-            select([("title", field("title"))]).topk(field("non_existing_field"), 3, true),
+            select([("title", field("title"))])
+                .sort(field("non_existing_field"), true)
+                .limit(3),
             None,
             None,
         )
@@ -53,14 +57,16 @@ async fn test_query_topk_by_non_existing(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-async fn test_query_topk_limit_zero(ctx: &mut ProjectTestContext) {
+async fn test_query_sort_limit_zero(ctx: &mut ProjectTestContext) {
     let collection = dataset::books::setup(ctx).await;
 
     let err = ctx
         .client
         .collection(&collection.name)
         .query(
-            select([("title", field("title"))]).topk(field("published_year"), 0, true),
+            select([("title", field("title"))])
+                .sort(field("published_year"), true)
+                .limit(0),
             None,
             None,
         )
@@ -107,7 +113,9 @@ async fn test_union_u32_and_binary(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("title", field("title"))]).topk(field("num"), 100, true),
+            select([("title", field("title"))])
+                .sort(field("num"), true)
+                .limit(100),
             None,
             None,
         )

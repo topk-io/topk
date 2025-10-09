@@ -63,9 +63,7 @@ async fn test_query_starts_with_non_existent_prefix(ctx: &mut ProjectTestContext
         .client
         .collection(&collection.name)
         .query(
-            filter(field("_id").starts_with("foobarbaz"))
-                .sort(field("published_year"), false)
-                .limit(100),
+            filter(field("_id").starts_with("foobarbaz")).limit(100),
             None,
             None,
         )
