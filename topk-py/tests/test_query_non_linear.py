@@ -22,7 +22,8 @@ def test_query_exp_ln(ctx: ProjectContext):
                 all=False,
             )
         )
-        .topk(field("bm25_score_scale"), 2, False)
+        .sort(field("bm25_score_scale"), False)
+        .limit(2)
     )
 
     assert doc_ids_ordered(result) == ["gatsby", "hobbit"]
@@ -39,9 +40,7 @@ def test_query_float_inf(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        select(to_infinity=field("published_year").exp()).topk(
-            field("published_year"), 2, True
-        )
+        select(to_infinity=field("published_year").exp()).limit(2)
     )
 
     assert len(result) == 2
@@ -58,7 +57,9 @@ def test_query_sqrt_square(ctx: ProjectContext):
         select(
             published_year=field("published_year"),
             published_year_2=field("published_year").sqrt().square(),
-        ).topk(field("published_year_2"), 2, True)
+        )
+        .sort(field("published_year_2"), True)
+        .limit(2)
     )
 
     assert doc_ids_ordered(result) == ["pride", "moby"]
@@ -75,7 +76,8 @@ def test_query_sqrt_filter(ctx: ProjectContext):
     result = ctx.client.collection(collection.name).query(
         select(title=field("title"))
         .filter(field("published_year").sqrt() > math.sqrt(1990))
-        .topk(field("published_year"), 2, True)
+        .sort(field("published_year"), True)
+        .limit(2)
     )
 
     assert result == [

@@ -29,7 +29,7 @@ def test_delete_document(ctx: ProjectContext):
     assert lsn == "2"
 
     docs = ctx.client.collection(collection.name).query(
-        select("title").topk(field("rank"), 100, True), lsn=lsn
+        select("title").limit(100), lsn=lsn
     )
 
     assert doc_ids(docs) == {"two"}
@@ -54,7 +54,7 @@ def test_delete_with_filter(ctx: ProjectContext):
     assert lsn == "2"
 
     docs = ctx.client.collection(collection.name).query(
-        select("title").topk(field("rank"), 100, True), lsn=lsn
+        select("title").limit(100), lsn=lsn
     )
 
     assert doc_ids(docs) == {"two"}

@@ -12,7 +12,9 @@ def test_query_vector_distance(ctx: ProjectContext):
         select(
             "title",
             summary_distance=fn.vector_distance("summary_embedding", [2.0] * 16),
-        ).topk(field("summary_distance"), 3, True)
+        )
+        .sort(field("summary_distance"), True)
+        .limit(3)
     )
 
     assert is_sorted(result, "summary_distance")
@@ -28,7 +30,9 @@ def test_query_vector_distance_nullable(ctx: ProjectContext):
             summary_distance=fn.vector_distance(
                 "nullable_embedding", f32_vector([3.0] * 16)
             )
-        ).topk(field("summary_distance"), 3, True)
+        )
+        .sort(field("summary_distance"), True)
+        .limit(3)
     )
 
     assert is_sorted(result, "summary_distance")
@@ -41,7 +45,9 @@ def test_query_vector_distance_u8_vector(ctx: ProjectContext):
     result = ctx.client.collection(collection.name).query(
         select(
             summary_distance=fn.vector_distance("scalar_embedding", u8_vector([8] * 16))
-        ).topk(field("summary_distance"), 3, True)
+        )
+        .sort(field("summary_distance"), True)
+        .limit(3)
     )
 
     assert is_sorted(result, "summary_distance")
@@ -56,7 +62,9 @@ def test_query_vector_distance_i8_vector(ctx: ProjectContext):
             summary_distance=fn.vector_distance(
                 "scalar_i8_embedding", i8_vector([-10] * 16)
             )
-        ).topk(field("summary_distance"), 3, True)
+        )
+        .sort(field("summary_distance"), True)
+        .limit(3)
     )
 
     assert is_sorted(result, "summary_distance")
@@ -71,7 +79,9 @@ def test_query_vector_distance_binary_vector(ctx: ProjectContext):
             summary_distance=fn.vector_distance(
                 "binary_embedding", binary_vector([0, 1])
             )
-        ).topk(field("summary_distance"), 2, True)
+        )
+        .sort(field("summary_distance"), True)
+        .limit(2)
     )
 
     assert is_sorted(result, "summary_distance")

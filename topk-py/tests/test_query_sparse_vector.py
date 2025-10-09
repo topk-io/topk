@@ -19,7 +19,9 @@ def test_query_sparse_vector_distance_f32(ctx: ProjectContext):
         select(
             "title",
             score=fn.vector_distance("sparse_f32_embedding", {0: 1.0, 1: 2.0, 2: 3.0}),
-        ).topk(field("score"), 3, False)
+        )
+        .sort(field("score"), False)
+        .limit(3)
     )
 
     assert doc_ids_ordered(result) == ["mockingbird", "1984", "alchemist"]
@@ -33,7 +35,9 @@ def test_query_sparse_vector_distance_u8_vector(ctx: ProjectContext):
             score=fn.vector_distance(
                 "sparse_u8_embedding", data.u8_sparse_vector({0: 1, 1: 2, 2: 3})
             )
-        ).topk(field("score"), 3, False)
+        )
+        .sort(field("score"), False)
+        .limit(3)
     )
 
     assert doc_ids_ordered(result) == ["mockingbird", "1984", "alchemist"]
@@ -48,7 +52,9 @@ def test_query_sparse_vector_distance_nullable(ctx: ProjectContext):
             sparse_u8_distance=fn.vector_distance(
                 "sparse_u8_embedding", data.u8_sparse_vector({0: 1, 1: 2, 2: 3})
             ),
-        ).topk(field("sparse_u8_distance"), 3, False)
+        )
+        .sort(field("sparse_u8_distance"), False)
+        .limit(3)
     )
 
     assert doc_ids_ordered(result) == ["mockingbird", "1984", "alchemist"]
@@ -83,7 +89,9 @@ def test_query_sparse_vector_distance_nullable(ctx: ProjectContext):
             sparse_u8_distance=fn.vector_distance(
                 "sparse_u8_embedding", data.u8_sparse_vector({0: 1, 1: 2, 2: 3})
             ),
-        ).topk(field("sparse_u8_distance"), 3, False),
+        )
+        .sort(field("sparse_u8_distance"), False)
+        .limit(3),
         lsn=lsn,
     )
 

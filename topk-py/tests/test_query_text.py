@@ -10,7 +10,7 @@ def test_query_text_filter_single_term_disjunctive(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        filter(match("love", field="summary")).topk(field("published_year"), 100, True)
+        filter(match("love", field="summary")).limit(100)
     )
 
     assert doc_ids(result) == {"pride", "gatsby"}
@@ -20,7 +20,7 @@ def test_query_text_filter_single_term_conjunctive(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        filter(match("love", field="summary")).topk(field("published_year"), 100, True)
+        filter(match("love", field="summary")).limit(100)
     )
 
     assert doc_ids(result) == {"gatsby", "pride"}
@@ -30,9 +30,7 @@ def test_query_text_filter_two_terms_disjunctive(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        filter(match("LOVE", "summary") | match("ring", "title")).topk(
-            field("published_year"), 100, True
-        )
+        filter(match("LOVE", "summary") | match("ring", "title")).limit(100)
     )
 
     assert doc_ids(result) == {"pride", "gatsby", "lotr"}
@@ -42,8 +40,8 @@ def test_query_text_filter_two_terms_conjunctive(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        filter(match("LOVE", field="summary") & match("class", field="summary")).topk(
-            field("published_year"), 100, True
+        filter(match("LOVE", field="summary") & match("class", field="summary")).limit(
+            100
         )
     )
 
@@ -54,7 +52,7 @@ def test_query_text_filter_stop_word(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        filter(match("the", field="summary")).topk(field("published_year"), 100, True)
+        filter(match("the", field="summary")).limit(100)
     )
 
     assert len(result) == 0
@@ -67,7 +65,8 @@ def test_query_select_bm25_without_text_queries(ctx: ProjectContext):
         ctx.client.collection(collection.name).query(
             select(bm25_score=fn.bm25_score())
             .filter(field("_id") == "pride")
-            .topk(field("bm25_score"), 100, True)
+            .sort(field("bm25_score"), True)
+            .limit(100)
         )
 
 
@@ -78,9 +77,7 @@ def test_query_text_matches_single_term(ctx: ProjectContext):
         filter(field("summary").match_any("love")),
         filter(field("summary").match_all("love")),
     ]:
-        result = ctx.client.collection(collection.name).query(
-            match_expr.topk(field("published_year"), 100, True)
-        )
+        result = ctx.client.collection(collection.name).query(match_expr.limit(100))
 
         assert doc_ids(result) == {"pride", "gatsby"}
 
@@ -89,9 +86,7 @@ def test_query_text_match_all_two_terms(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        filter(field("summary").match_all("love class")).topk(
-            field("published_year"), 100, True
-        )
+        filter(field("summary").match_all("love class")).limit(100)
     )
 
     assert doc_ids(result) == {"pride"}
@@ -101,9 +96,7 @@ def test_query_text_match_all_two_terms_tokenized(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        filter(field("tags").match_all(["love", "class"])).topk(
-            field("published_year"), 100, True
-        )
+        filter(field("tags").match_all(["love", "class"])).limit(100)
     )
 
     assert doc_ids(result) == {"pride"}
@@ -113,9 +106,7 @@ def test_query_text_match_any_two_terms(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        filter(field("summary").match_any("love ring")).topk(
-            field("published_year"), 100, True
-        )
+        filter(field("summary").match_any("love ring")).limit(100)
     )
 
     assert doc_ids(result) == {"pride", "gatsby", "lotr"}
@@ -125,9 +116,7 @@ def test_query_text_match_any_two_terms_tokenized(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        filter(field("tags").match_any(["love", "elves"])).topk(
-            field("published_year"), 100, True
-        )
+        filter(field("tags").match_any(["love", "elves"])).limit(100)
     )
 
     assert doc_ids(result) == {"pride", "gatsby", "lotr"}
@@ -140,7 +129,7 @@ def test_query_text_matches_with_logical_expr(ctx: ProjectContext):
         filter(
             (field("summary").match_all("love class"))
             | (field("published_year") == 1925)
-        ).topk(field("published_year"), 10, True)
+        ).limit(10)
     )
 
     assert doc_ids(result) == {"pride", "gatsby"}

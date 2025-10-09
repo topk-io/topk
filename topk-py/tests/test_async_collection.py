@@ -68,9 +68,7 @@ async def test_async_delete(async_ctx: AsyncProjectContext):
     lsn = await async_collection.delete(["one"])
     assert lsn == "2"
 
-    docs = await async_collection.query(
-        select("title").topk(field("rank"), 100, True), lsn=lsn
-    )
+    docs = await async_collection.query(select("title").limit(100), lsn=lsn)
 
     assert doc_ids(docs) == {"two"}
 
@@ -97,9 +95,7 @@ async def test_async_delete_filter(async_ctx: AsyncProjectContext):
     lsn = await async_collection.delete(field("rank") != 2)
     assert lsn == "2"
 
-    docs = await async_collection.query(
-        select("title").topk(field("rank"), 100, True), lsn=lsn
-    )
+    docs = await async_collection.query(select("title").limit(100), lsn=lsn)
 
     assert doc_ids(docs) == {"two"}
 
@@ -111,7 +107,7 @@ async def test_async_query(async_ctx: AsyncProjectContext):
     results = await async_ctx.client.collection(collection.name).query(
         select("title", "published_year", literal=literal(1.0))
         .filter(field("title") == "1984")
-        .topk(field("published_year"), 100, True)
+        .limit(100)
     )
 
     assert results == [
@@ -139,9 +135,12 @@ async def test_async_collection_parallel_queries(async_ctx: AsyncProjectContext)
     lsn = await async_collection.upsert(test_documents)
 
     # Define multiple queries
-    query1 = select("title", "published_year").topk(field("published_year"), 5)
-    query2 = select("title", "summary").topk(field("published_year"), 3)
-    query3 = select("published_year").topk(field("published_year"), 10)
+    # Mirror Rust test_query_sort_limit_k: use sort+limit for k variants
+    query1 = (
+        select("title", "published_year").sort(field("published_year"), False).limit(5)
+    )
+    query2 = select("title", "summary").sort(field("published_year"), False).limit(3)
+    query3 = select("published_year").sort(field("published_year"), False).limit(10)
 
     # Execute queries in parallel
     results = await asyncio.gather(

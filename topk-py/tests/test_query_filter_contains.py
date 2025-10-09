@@ -10,7 +10,7 @@ def test_string_contains_literal(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        filter(field("_id").contains("ob")).topk(field("published_year"), 100, False)
+        filter(field("_id").contains("ob")).limit(100)
     )
 
     assert doc_ids(result) == {"moby", "hobbit"}
@@ -20,9 +20,7 @@ def test_string_contains_literal_no_match(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        filter(field("_id").contains("rubbish")).topk(
-            field("published_year"), 100, False
-        )
+        filter(field("_id").contains("rubbish")).limit(100)
     )
 
     assert len(result) == 0
@@ -32,7 +30,7 @@ def test_string_contains_literal_empty(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        filter(field("_id").contains("")).topk(field("published_year"), 100, False)
+        filter(field("_id").contains("")).limit(100)
     )
 
     assert doc_ids(result) == {
@@ -53,9 +51,7 @@ def test_string_contains_literal_with_keyword_index(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        filter(field("summary").contains("to h")).topk(
-            field("published_year"), 100, False
-        )
+        filter(field("summary").contains("to h")).limit(100)
     )
 
     assert doc_ids(result) == {"moby", "hobbit"}
@@ -65,9 +61,7 @@ def test_string_contains_field(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        filter(field("title").contains(field("_id"))).topk(
-            field("published_year"), 100, False
-        )
+        filter(field("title").contains(field("_id"))).limit(100)
     )
 
     assert doc_ids(result) == {"1984"}
@@ -77,9 +71,7 @@ def test_string_in_field(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        filter(field("_id").in_(field("title"))).topk(
-            field("published_year"), 100, False
-        )
+        filter(field("_id").in_(field("title"))).limit(100)
     )
 
     assert doc_ids(result) == {"1984"}
@@ -89,9 +81,7 @@ def test_string_contains_field_self(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        filter(not_(field("title").contains(field("title")))).topk(
-            field("published_year"), 100, False
-        )
+        filter(not_(field("title").contains(field("title")))).limit(100)
     )
 
     assert result == []
@@ -103,7 +93,8 @@ def test_list_match_any_with_keyword_index(ctx: ProjectContext):
     result = ctx.client.collection(collection.name).query(
         select(title=field("title"), tags=field("tags"))
         .filter(field("tags").match_any("love"))
-        .topk(field("published_year"), 100, True)
+        .sort(field("published_year"), True)
+        .limit(100)
     )
 
     assert result == [
@@ -131,7 +122,8 @@ def test_list_match_any_all_without_keyword_index(ctx: ProjectContext):
             ctx.client.collection(collection.name).query(
                 select(title=field("title"), codes=field("codes"))
                 .filter(filter_expr)
-                .topk(field("published_year"), 100, True)
+                .sort(field("published_year"), True)
+                .limit(100)
             )
 
 
@@ -141,7 +133,8 @@ def test_list_contains_with_keyword_index(ctx: ProjectContext):
     result = ctx.client.collection(collection.name).query(
         select(title=field("title"), tags=field("tags"))
         .filter(field("tags").contains("love"))
-        .topk(field("published_year"), 100, True)
+        .sort(field("published_year"), True)
+        .limit(100)
     )
 
     assert result == [
@@ -164,7 +157,8 @@ def test_list_contains_literal(ctx: ProjectContext):
     result = ctx.client.collection(collection.name).query(
         select(title=field("title"), codes=field("codes"))
         .filter(field("codes").contains("ISBN 0-547-92821-2"))
-        .topk(field("published_year"), 100, True)
+        .sort(field("published_year"), True)
+        .limit(100)
     )
 
     assert result == [
@@ -188,7 +182,7 @@ def test_list_contains_int_literal(ctx: ProjectContext):
     result = ctx.client.collection(collection.name).query(
         select(title=field("title"), reprint_years=field("reprint_years"))
         .filter(field("reprint_years").contains(1999))
-        .topk(field("published_year"), 100, True)
+        .limit(100)
     )
 
     assert doc_ids(result) == {"mockingbird", "harry"}
@@ -200,7 +194,7 @@ def test_list_contains_int_literal_different_type(ctx: ProjectContext):
     result = ctx.client.collection(collection.name).query(
         select(title=field("title"), reprint_years=field("reprint_years"))
         .filter(field("reprint_years").contains(literal(1999)))
-        .topk(field("published_year"), 100, True)
+        .limit(100)
     )
 
     assert doc_ids(result) == {"mockingbird", "harry"}
@@ -212,7 +206,7 @@ def test_list_contains_int_field(ctx: ProjectContext):
     result = ctx.client.collection(collection.name).query(
         select(title=field("title"), reprint_years=field("reprint_years"))
         .filter(field("reprint_years").contains(field("published_year") + 1))
-        .topk(field("published_year"), 100, True)
+        .limit(100)
     )
 
     assert doc_ids(result) == {"harry", "1984"}
@@ -224,7 +218,7 @@ def test_list_in_int_field(ctx: ProjectContext):
     result = ctx.client.collection(collection.name).query(
         select(title=field("title"), reprint_years=field("reprint_years"))
         .filter((field("published_year") + 1).in_(field("reprint_years")))
-        .topk(field("published_year"), 100, True)
+        .limit(100)
     )
 
     assert doc_ids(result) == {"harry", "1984"}
@@ -236,7 +230,7 @@ def test_list_contains_string_field_with_keyword_index(ctx: ProjectContext):
     result = ctx.client.collection(collection.name).query(
         select(title=field("title"), tags=field("tags"))
         .filter(field("tags").contains(field("_id")))
-        .topk(field("published_year"), 100, True)
+        .limit(100)
     )
 
     assert doc_ids(result) == {"pride", "hobbit"}
@@ -248,7 +242,7 @@ def test_list_in_string_field_with_keyword_index(ctx: ProjectContext):
     result = ctx.client.collection(collection.name).query(
         select(title=field("title"), tags=field("tags"))
         .filter(field("_id").in_(field("tags")))
-        .topk(field("published_year"), 100, True)
+        .limit(100)
     )
 
     assert doc_ids(result) == {"pride", "hobbit"}
@@ -260,7 +254,7 @@ def test_list_contains_string_field_without_keyword_index(ctx: ProjectContext):
     result = ctx.client.collection(collection.name).query(
         select(title=field("title"), codes=field("codes"))
         .filter(field("codes").contains(field("_id")))
-        .topk(field("published_year"), 100, True)
+        .limit(100)
     )
 
     assert doc_ids(result) == {"1984"}
@@ -280,7 +274,8 @@ def test_list_contains_invalid_types(ctx: ProjectContext):
             ctx.client.collection(collection.name).query(
                 select(title=field("title"), codes=field("codes"))
                 .filter(filter_expr)
-                .topk(field("published_year"), 100, True)
+                .sort(field("published_year"), True)
+                .limit(100)
             )
 
     with pytest.raises(TypeError):
@@ -297,9 +292,7 @@ def test_string_in(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        filter(field("_id").in_("harryhobbitlotr")).topk(
-            field("published_year"), 100, False
-        )
+        filter(field("_id").in_("harryhobbitlotr")).limit(100)
     )
 
     assert doc_ids(result) == {"harry", "hobbit", "lotr"}
@@ -311,7 +304,7 @@ def test_in_list_literal_int(ctx: ProjectContext):
     result = ctx.client.collection(collection.name).query(
         select(title=field("title"))
         .filter(field("published_year").in_([1999, 1988, 1997]))
-        .topk(field("published_year"), 100, True)
+        .limit(100)
     )
 
     assert doc_ids(result) == {"alchemist", "harry"}
@@ -323,7 +316,7 @@ def test_in_list_literal_int_u32(ctx: ProjectContext):
     result = ctx.client.collection(collection.name).query(
         select(title=field("title"))
         .filter(field("published_year").in_(data.u32_list([1999, 1988, 1997])))
-        .topk(field("published_year"), 100, True)
+        .limit(100)
     )
 
     assert doc_ids(result) == {"alchemist", "harry"}
@@ -345,7 +338,7 @@ def test_in_list_literal_string(ctx: ProjectContext):
                 ]
             )
         )
-        .topk(field("published_year"), 100, True)
+        .limit(100)
     )
 
     assert doc_ids(result) == {"gatsby", "catcher"}

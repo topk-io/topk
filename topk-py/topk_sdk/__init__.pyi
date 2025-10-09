@@ -90,7 +90,9 @@ class CollectionClient:
         Insert or update documents in the collection.
         """
         ...
-    def delete(self, expr: typing.Union[typing.Sequence[builtins.str], query.LogicalExpr]) -> builtins.str:
+    def delete(
+        self, expr: typing.Union[typing.Sequence[builtins.str], query.LogicalExpr]
+    ) -> builtins.str:
         """
         Delete documents by their IDs or using a filter expression.
 

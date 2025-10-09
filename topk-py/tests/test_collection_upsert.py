@@ -159,7 +159,7 @@ def test_upsert_with_bytes_helper(ctx: ProjectContext):
     ctx.client.collection(collection.name).count(lsn=lsn)
 
     results = ctx.client.collection(collection.name).query(
-        query.select("title", "thumbnail").topk(query.field("rank"), 10, True)
+        query.select("title", "thumbnail").limit(10)
     )
 
     assert len(results) == 4
