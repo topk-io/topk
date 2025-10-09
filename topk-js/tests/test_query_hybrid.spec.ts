@@ -119,7 +119,7 @@ describe("Hybrid Queries", () => {
         bm25_score: fn.bm25Score(),
       })
         .filter(match("love", { weight: 30.0, all: false }).or(match("young", { weight: 10.0, all: false })))
-        .topk(field("bm25_score").add(field("summary_distance").mul(100)), 2, true)
+        .sort(field("bm25_score").add(field("summary_distance").mul(100)), true).limit(2)
     );
 
     expect(result.length).toBe(2);
@@ -142,7 +142,8 @@ describe("Hybrid Queries", () => {
         select({
           summary_distance: fn.vectorDistance("summary_embedding", Array(16).fill(2.3)),
         })
-          .topk(scoreExpr, 3, true)
+          .sort(scoreExpr, true)
+          .limit(3)
       );
 
       // Keyword boosting swaps the order of results so we expect [1984, mockingbird, pride]
@@ -163,7 +164,8 @@ describe("Hybrid Queries", () => {
         summary_score: fn.vectorDistance("summary_embedding", Array(16).fill(4.1)),
         nullable_score: fn.vectorDistance("nullable_embedding", Array(16).fill(4.1)),
       })
-        .topk(field("summary_score").add(field("nullable_score").coalesce(0.0)), 3, true)
+        .sort(field("summary_score").add(field("nullable_score").coalesce(0.0)), true)
+        .limit(3)
     );
 
     // Adding the nullable_score without coalescing would exclude "pride" and "gatsby" from

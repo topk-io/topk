@@ -37,7 +37,7 @@ describe("Logical N-ary Queries", () => {
           field("codes").contains("Barcode 0618346252"),
           field("codes").contains("UPC 025192354670"),
         ])
-      ).topk(field("published_year"), 100, true)
+      ).limit(100)
     );
 
     const ids = result.map((doc) => doc._id).sort();
@@ -65,7 +65,7 @@ describe("Logical N-ary Queries", () => {
           field("tags").contains("school"),
           field("tags").contains("magic"),
         ])
-      ).topk(field("published_year"), 100, true)
+      ).limit(100)
     );
 
     const ids = result.map((doc) => doc._id).sort();
@@ -94,7 +94,7 @@ describe("Logical N-ary Queries", () => {
         ]),
       })
         .filter(field("_id").eq("1984").or(field("_id").eq("pride")).or(field("_id").eq("lotr")))
-        .topk(field("published_year"), 100, true)
+        .limit(100)
     );
 
     results.sort((d1, d2) => d1._id.localeCompare(d2._id));
@@ -125,7 +125,7 @@ describe("Logical N-ary Queries", () => {
           field("codes").contains("UPC 074327356709"),
           field("codes").contains("ASIN B000FC0SIS"),
         ]),
-      }).topk(field("published_year"), 100, true)
+      }).limit(100)
     );
 
     results.sort((d1, d2) => d1._id.localeCompare(d2._id));
@@ -161,7 +161,7 @@ describe("Logical N-ary Queries", () => {
     ]);
 
     const result = await ctx.client.collection(collection.name).query(
-      filter(expr).topk(field("published_year"), 100, true)
+      filter(expr).limit(100)
     );
 
     const ids = result.map((doc) => doc._id).sort();
@@ -194,7 +194,7 @@ describe("Logical N-ary Queries", () => {
     ]);
 
     const result = await ctx.client.collection(collection.name).query(
-      filter(codesAny.and(tagsAll)).topk(field("published_year"), 100, true)
+      filter(codesAny.and(tagsAll)).limit(100)
     );
 
     const ids = result.map((doc) => doc._id).sort();
@@ -223,7 +223,7 @@ describe("Logical N-ary Queries", () => {
           field("tags").contains("romance"),
           field("published_year").lt(1900),
         ])
-      ).topk(field("published_year"), 100, true)
+      ).limit(100)
     );
 
     const ids = result.map((doc) => doc._id).sort();
@@ -253,7 +253,7 @@ describe("Logical N-ary Queries", () => {
           field("title").contains("The"),
           not(field("tags").contains("romance")),
         ])
-      ).topk(field("published_year"), 100, true)
+      ).limit(100)
     );
 
     const ids = result.map((doc) => doc._id).sort();
@@ -277,7 +277,7 @@ describe("Logical N-ary Queries", () => {
     const expr = all(Array(32).fill(field("tags").contains("wizard")));
 
     const result = await ctx.client.collection(collection.name).query(
-      filter(expr).topk(field("published_year"), 100, true)
+      filter(expr).limit(100)
     );
 
     const ids = result.map((doc) => doc._id).sort();
@@ -300,7 +300,7 @@ describe("Logical N-ary Queries", () => {
 
     await expect(
       ctx.client.collection(collection.name).query(
-        filter(expr).topk(field("published_year"), 100, true)
+        filter(expr).limit(100)
       )
     ).rejects.toThrow(/N-ary expression has too many operands/);
   });

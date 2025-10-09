@@ -2,7 +2,7 @@ import { field, select } from "../lib/query";
 import { int, keywordIndex, text } from "../lib/schema";
 import { newProjectContext, ProjectContext } from "./setup";
 
-describe("TopK Queries", () => {
+describe("Sort Limit Queries", () => {
   const contexts: ProjectContext[] = [];
 
   function getContext(): ProjectContext {
@@ -15,7 +15,7 @@ describe("TopK Queries", () => {
     await Promise.all(contexts.map((ctx) => ctx.deleteCollections()));
   });
 
-  test("query topk()", async () => {
+  test("query sort limit()", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("books", {
       title: text().required().index(keywordIndex()),
@@ -42,7 +42,7 @@ describe("TopK Queries", () => {
     const results = await ctx.client
       .collection(collection.name)
       .query(
-        select({ title: field("title") }).topk(field("published_year"), 5, true)
+        select({ title: field("title") }).sort(field("published_year"), true).limit(5)
       );
 
     expect(results.map((doc) => doc._id)).toEqual([
@@ -54,7 +54,7 @@ describe("TopK Queries", () => {
     ]);
   });
 
-  test("query topk with ascending order", async () => {
+  test("query sort limit with ascending order", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("books", {
       title: text().required().index(keywordIndex()),
@@ -80,7 +80,7 @@ describe("TopK Queries", () => {
 
     const results = await ctx.client
       .collection(collection.name)
-      .query(select({}).topk(field("published_year"), 5, false));
+      .query(select({}).sort(field("published_year"), false).limit(5));
 
     expect(results.map((doc) => doc._id)).toEqual([
       "harry",
@@ -91,7 +91,7 @@ describe("TopK Queries", () => {
     ]);
   });
 
-  test("query topk with limit greater than document count", async () => {
+  test("query sort limit with limit greater than document count", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("books", {
       title: text().required().index(keywordIndex()),
@@ -117,14 +117,14 @@ describe("TopK Queries", () => {
 
     const results = await ctx.client
       .collection(collection.name)
-      .query(select({}).topk(field("published_year"), 20, true));
+      .query(select({}).sort(field("published_year"), true).limit(20));
 
     expect(results.length).toBe(10);
     expect(results[0]._id).toBe("pride");
     expect(results[9]._id).toBe("harry");
   });
 
-  test("query topk with empty collection", async () => {
+  test("query sort limit with empty collection", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("empty_books", {
       title: text().required().index(keywordIndex()),
@@ -133,7 +133,7 @@ describe("TopK Queries", () => {
 
     const results = await ctx.client
       .collection(collection.name)
-      .query(select({}).topk(field("published_year"), 5, true));
+      .query(select({}).sort(field("published_year"), true).limit(5));
 
     expect(results.length).toBe(0);
   });

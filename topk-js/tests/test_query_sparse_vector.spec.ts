@@ -33,7 +33,9 @@ describe("Sparse Vector Queries", () => {
     const result = await ctx.client.collection(collection.name).query(
       select({
         score: fn.vectorDistance("f32_sparse", { 0: 1.0, 1: 2.0, 2: 3.0 }),
-      }).topk(field("score"), 3, false)
+      })
+        .sort(field("score"), false)
+        .limit(3)
     );
 
     expect(result.map((doc) => doc._id)).toEqual([
@@ -63,7 +65,9 @@ describe("Sparse Vector Queries", () => {
           "sparse_u8",
           data.u8SparseVector({ 0: 1, 1: 2, 2: 3 })
         ),
-      }).topk(field("score"), 3)
+      })
+        .sort(field("score"), false)
+        .limit(3)
     );
 
     expect(result.map((doc) => doc._id)).toEqual(["pride", "1984", "moby"]);
@@ -91,7 +95,9 @@ describe("Sparse Vector Queries", () => {
             2: 3,
           })
         ),
-      }).topk(field("distance"), 3, false)
+      })
+        .sort(field("distance"), false)
+        .limit(3)
     );
 
     expect(result.map((doc) => doc._id)).toEqual(["catcher", "1984", "moby"]);
@@ -116,7 +122,9 @@ describe("Sparse Vector Queries", () => {
             2: 3,
           })
         ),
-      }).topk(field("distance"), 3, false),
+      })
+        .sort(field("distance"), false)
+        .limit(3),
       { lsn }
     );
 

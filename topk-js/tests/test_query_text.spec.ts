@@ -38,7 +38,7 @@ describe("Text Queries", () => {
 
     const result = await ctx.client.collection(collection.name).query(
       filter(match("love", { field: "summary" }))
-        .topk(field("published_year"), 100)
+        .limit(100)
     );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(
@@ -69,7 +69,7 @@ describe("Text Queries", () => {
 
     const result = await ctx.client.collection(collection.name).query(
       filter(match("love", { field: "summary" }))
-        .topk(field("published_year"), 100)
+        .limit(100)
     );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(
@@ -112,7 +112,7 @@ describe("Text Queries", () => {
           match("rings", { field: "title" })
         )
       )
-        .topk(field("published_year"), 100)
+        .limit(100)
     );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(
@@ -147,7 +147,7 @@ describe("Text Queries", () => {
           match("class", { field: "summary" })
         )
       )
-        .topk(field("published_year"), 100)
+        .limit(100)
     );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(new Set(["pride"]));
@@ -175,7 +175,7 @@ describe("Text Queries", () => {
 
     const result = await ctx.client.collection(collection.name).query(
       filter(match("story love", { field: "summary", all: true }))
-        .topk(field("published_year"), 100)
+        .limit(100)
     );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(new Set(["pride"]));
@@ -204,7 +204,7 @@ describe("Text Queries", () => {
 
     const result = await ctx.client.collection(collection.name).query(
       filter(match("the", { field: "summary" }))
-        .topk(field("published_year"), 100)
+        .limit(100)
     );
 
     expect(result.length).toBe(0);
@@ -245,7 +245,8 @@ describe("Text Queries", () => {
             match("love", { field: "summary" })
           )
         )
-        .topk(field("summary_score"), 100)
+        .sort(field("summary_score"), false)
+        .limit(100)
     );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(
@@ -269,7 +270,8 @@ describe("Text Queries", () => {
         .query(
           select({ bm25_score: fn.bm25Score() })
             .filter(field("_id").eq("pride"))
-            .topk(field("bm25_score"), 100)
+            .sort(field("bm25_score"), false)
+            .limit(100)
         )
     ).rejects.toThrow(
       "invalid argument: Invalid query: Query must have at least one text filter to compute bm25 scores"
@@ -301,8 +303,7 @@ describe("Text Queries", () => {
       field("summary").matchAll("love"),
     ]) {
       const result = await ctx.client.collection(collection.name).query(
-        filter(matchExpr)
-          .topk(field("published_year"), 100)
+        filter(matchExpr).limit(100)
       );
 
       expect(new Set(result.map((doc) => doc._id))).toEqual(
@@ -332,8 +333,7 @@ describe("Text Queries", () => {
     ]);
 
     const result = await ctx.client.collection(collection.name).query(
-      filter(field("summary").matchAll("love class"))
-        .topk(field("published_year"), 100)
+      filter(field("summary").matchAll("love class")).limit(100)
     );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(new Set(["pride"]));
@@ -365,10 +365,7 @@ describe("Text Queries", () => {
     ]);
 
     const result = await ctx.client.collection(collection.name).query(
-      filter(field("tags").matchAll(["love", "class"])).topk(
-        field("published_year"),
-        100
-      )
+      filter(field("tags").matchAll(["love", "class"])).limit(100)
     );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(new Set(["pride"]));
@@ -402,10 +399,7 @@ describe("Text Queries", () => {
     const result = await ctx.client
       .collection(collection.name)
       .query(
-        filter(field("tags").matchAny(["love", "elves"])).topk(
-          field("published_year"),
-          100
-        )
+        filter(field("tags").matchAny(["love", "elves"])).limit(100)
       );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(new Set(["pride", "gatsby", "lotr"]));
@@ -437,8 +431,7 @@ describe("Text Queries", () => {
     ]);
 
     const result = await ctx.client.collection(collection.name).query(
-      filter(field("summary").matchAny("love ring"))
-        .topk(field("published_year"), 100)
+      filter(field("summary").matchAny("love ring")).limit(100)
     );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(
@@ -470,7 +463,7 @@ describe("Text Queries", () => {
       filter(
         field("summary").matchAll("love class").or(field("published_year").eq(1925))
       )
-        .topk(field("published_year"), 10)
+        .limit(10)
     );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(

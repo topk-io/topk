@@ -31,7 +31,8 @@ describe("Select Queries", () => {
     const results = await ctx.client.collection(collection.name).query(
       select({ literal: literal(1.0) })
         .filter(field("title").eq("1984"))
-        .topk(field("published_year"), 100, true)
+        .sort(field("published_year"), true)
+        .limit(100)
     );
 
     expect(results).toEqual([{ _id: "1984", literal: 1.0 }]);
@@ -51,7 +52,8 @@ describe("Select Queries", () => {
     const results = await ctx.client.collection(collection.name).query(
       select({ literal: field("non_existing_field") })
         .filter(field("title").eq("1984"))
-        .topk(field("published_year"), 100, true)
+        .sort(field("published_year"), true)
+        .limit(100)
     );
 
     expect(results).toEqual([{ _id: "1984" }]);
@@ -146,6 +148,91 @@ describe("Select Queries", () => {
     ]);
   });
 
+  test("query sort limit k", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("books", {
+      published_year: int(),
+    });
+
+    await ctx.client.collection(collection.name).upsert([
+      { _id: "pride", published_year: 1813 },
+      { _id: "moby", published_year: 1851 },
+      { _id: "gatsby", published_year: 1925 },
+      { _id: "1984", published_year: 1949 },
+    ]);
+
+    let results = await ctx.client
+      .collection(collection.name)
+      .query(select({}).sort(field("published_year"), true).limit(3));
+    expect(results.length).toBe(3);
+
+    results = await ctx.client
+      .collection(collection.name)
+      .query(select({}).sort(field("published_year"), true).limit(2));
+    expect(results.length).toBe(2);
+
+    results = await ctx.client
+      .collection(collection.name)
+      .query(select({}).sort(field("published_year"), true).limit(1));
+    expect(results.length).toBe(1);
+  });
+
+  test("query sort limit asc", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("books", {
+      published_year: int(),
+    });
+
+    await ctx.client.collection(collection.name).upsert([
+      { _id: "pride", published_year: 1813 },
+      { _id: "moby", published_year: 1851 },
+      { _id: "gatsby", published_year: 1925 },
+      { _id: "1984", published_year: 1949 },
+    ]);
+
+    const results = await ctx.client
+      .collection(collection.name)
+      .query(
+        select({ published_year: field("published_year") })
+          .sort(field("published_year"), true)
+          .limit(3)
+      );
+
+    expect(results).toEqual([
+      { _id: "pride", published_year: 1813 },
+      { _id: "moby", published_year: 1851 },
+      { _id: "gatsby", published_year: 1925 },
+    ]);
+  });
+
+  test("query sort limit desc", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("books", {
+      published_year: int(),
+    });
+
+    await ctx.client.collection(collection.name).upsert([
+      { _id: "harry", published_year: 1997 },
+      { _id: "alchemist", published_year: 1988 },
+      { _id: "mockingbird", published_year: 1960 },
+      { _id: "1984", published_year: 1949 },
+    ]);
+
+    const results = await ctx.client
+      .collection(collection.name)
+      .query(
+        select({ published_year: field("published_year") })
+          .sort(field("published_year"), false)
+          .limit(3)
+      );
+
+    expect(results).toEqual([
+      { _id: "harry", published_year: 1997 },
+      { _id: "alchemist", published_year: 1988 },
+      { _id: "mockingbird", published_year: 1960 },
+    ]);
+  });
+
   test("query select bm25 score", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("books", {
@@ -162,7 +249,8 @@ describe("Select Queries", () => {
       .query(
         select({ bm25_score: fn.bm25Score() })
           .filter(match("pride"))
-          .topk(field("bm25_score"), 100, true)
+          .sort(field("bm25_score"), true)
+          .limit(100)
       );
 
     expect(new Set(results.map((doc) => doc._id))).toEqual(new Set(["pride"]));
@@ -188,7 +276,9 @@ describe("Select Queries", () => {
           2.0,
           ...Array(15).fill(0),
         ]),
-      }).topk(field("summary_distance"), 3, true)
+      })
+        .sort(field("summary_distance"), true)
+        .limit(3)
     );
 
     expect(new Set(results.map((doc) => doc._id))).toEqual(
@@ -207,7 +297,9 @@ describe("Select Queries", () => {
     const results = await ctx.client
       .collection(collection.name)
       .query(
-        select({ a: field("a"), b: literal(1) }).topk(field("b"), 100, true)
+        select({ a: field("a"), b: literal(1) })
+          .sort(field("b"), true)
+          .limit(100)
       );
 
     // Assert that `a` is null for all documents, even when not specified when upserting
@@ -247,7 +339,8 @@ describe("Select Queries", () => {
         match_love: field("summary").matchAny("love class marriage"),
       })
         .filter(field("title").eq("1984").or(field("_id").eq("pride")))
-        .topk(field("published_year"), 100, true)
+        .sort(field("published_year"), true)
+        .limit(100)
     );
 
     // Sort results by _id to match the Rust test behavior
@@ -287,7 +380,9 @@ describe("Select Queries", () => {
 
     const results = await ctx.client
       .collection(collection.name)
-      .query(select({ mixed: field("mixed") }).topk(field("rank"), 100, true));
+      .query(select({ mixed: field("mixed") })
+        .sort(field("rank"), true)
+        .limit(100));
 
     expect(results).toEqual([
       { _id: "0", mixed: null },
@@ -326,7 +421,9 @@ describe("Select Queries", () => {
 
     const results = await ctx.client
       .collection(collection.name)
-      .query(select({ list: field("list") }).topk(field("rank"), 100, true));
+      .query(select({ list: field("list") })
+        .sort(field("rank"), true)
+        .limit(100));
 
     expect(results).toEqual([
       { _id: "0", list: null },

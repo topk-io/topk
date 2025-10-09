@@ -43,7 +43,8 @@ describe("Filter Queries", () => {
       .collection(collection.name)
       .query(
         filter(field("_id").startsWith("cat"))
-          .topk(field("published_year"), 100, false)
+          .sort(field("published_year"), true)
+          .limit(100)
       );
 
     expect(results.map((doc) => doc._id)).toEqual(["catcher"]);
@@ -77,7 +78,7 @@ describe("Filter Queries", () => {
       .collection(collection.name)
       .query(
         filter(field("_id").startsWith(""))
-          .topk(field("published_year"), 100, false)
+          .limit(100)
       );
 
     expect(new Set(results.map((doc) => doc._id))).toEqual(
@@ -123,8 +124,7 @@ describe("Filter Queries", () => {
     const results = await ctx.client
       .collection(collection.name)
       .query(
-        filter(field("_id").startsWith("foobarbaz"))
-          .topk(field("published_year"), 100, false)
+        filter(field("_id").startsWith("foobarbaz")).limit(100)
       );
 
     expect(results.length).toBe(0);

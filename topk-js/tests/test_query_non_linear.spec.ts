@@ -38,7 +38,8 @@ describe("Non-Linear Math Queries", () => {
           bm25_score_smooth: field("bm25_score").add(1).ln()
         })
         .filter(match("millionaire love consequences dwarves"))
-        .topk(field("bm25_score_scale"), 2, false)
+        .sort(field("bm25_score_scale"), false)
+        .limit(2)
     );
 
     expect(results.map(doc => doc._id)).toEqual(["gatsby", "hobbit"]);
@@ -70,7 +71,8 @@ describe("Non-Linear Math Queries", () => {
       select({
         to_infinity: field("published_year").exp()
       })
-        .topk(field("published_year"), 2, true)
+        .sort(field("published_year"), true)
+        .limit(2)
     );
 
     expect(results.length).toBe(2);
@@ -100,7 +102,8 @@ describe("Non-Linear Math Queries", () => {
         published_year: field("published_year"),
         published_year_2: field("published_year").sqrt().square()
       })
-        .topk(field("published_year_2"), 2, true)
+        .sort(field("published_year_2"), true)
+        .limit(2)
     );
 
     expect(results.map(doc => doc._id)).toEqual(["pride", "moby"]);
@@ -132,7 +135,8 @@ describe("Non-Linear Math Queries", () => {
         title: field("title")
       })
         .filter(field("published_year").sqrt().gt(Math.sqrt(1990)))
-        .topk(field("published_year"), 2, true)
+        .sort(field("published_year"), true)
+        .limit(2)
     );
 
     expect(results).toEqual([

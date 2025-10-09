@@ -327,7 +327,7 @@ async fn test_query_abs(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-async fn test_query_topk_min_max(ctx: &mut ProjectTestContext) {
+async fn test_query_sort_limit_min_max(ctx: &mut ProjectTestContext) {
     let collection = dataset::books::setup(ctx).await;
 
     let result = ctx

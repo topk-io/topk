@@ -42,9 +42,7 @@ describe("test_query_filter_unions", () => {
 
         const result = await ctx.client
             .collection(collection.name)
-            .query(
-                filter(field("user_ratings").eq(10)).topk(field("published_year"), 100, true)
-            );
+            .query(filter(field("user_ratings").eq(10)).limit(100));
 
         expect(new Set(result.map((doc) => doc._id))).toEqual(new Set(["harry"]));
     });
@@ -58,7 +56,7 @@ describe("test_query_filter_unions", () => {
             .query(
                 select({ _id: field("_id"), user_ratings: field("user_ratings") })
                     .filter(field("user_ratings").startsWith("good"))
-                    .topk(field("published_year"), 100, true)
+                    .limit(100)
             );
 
         expect(new Set(results.map((doc) => doc._id))).toEqual(new Set(["gatsby"]));
@@ -77,7 +75,7 @@ describe("test_query_filter_unions", () => {
                 .query(
                     select({ user_ratings: field("user_ratings") })
                         .filter(filterExpr)
-                        .topk(field("published_year"), 100, true)
+                        .limit(100)
                 );
 
             expect(new Set(results.map((doc) => doc._id))).toEqual(
@@ -95,7 +93,7 @@ describe("test_query_filter_unions", () => {
             .query(
                 select({ _id: field("_id"), user_ratings: field("user_ratings") })
                     .filter(field("user_ratings").contains("good"))
-                    .topk(field("published_year"), 100, true)
+                    .limit(100)
             );
 
         expect(new Set(results.map((doc) => doc._id))).toEqual(
