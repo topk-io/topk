@@ -44,6 +44,28 @@ describe("delete", () => {
     expect(remaining).toEqual([{ _id: "doc2" }]);
   });
 
+  it("should delete existing document with filter", async () => {
+    const ctx = getContext();
+
+    const collection = await ctx.createCollection("books", {});
+
+    await ctx.client.collection(collection.name).upsert([
+      { _id: "doc1", title: "Book 1", published_year: 1950 },
+      { _id: "doc2", title: "Book 2", published_year: 1960 },
+    ]);
+
+    const lsn = await ctx.client.collection(collection.name).delete(field("published_year").lt(1955));
+    expect(lsn).toBe("2");
+
+    const remaining = await ctx.client
+      .collection(collection.name)
+      .query(
+        select({ _id: field("_id") }).topk(field("published_year"), 100, true)
+      );
+
+    expect(remaining).toEqual([{ _id: "doc2" }]);
+  });
+
   it("should ignore non-existent document", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("books", {});
