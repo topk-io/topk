@@ -97,7 +97,8 @@ docs = client.collection("books").query(
         "title",
         title_similarity=fn.semantic_similarity("title", "classic American novel"),
     )
-    .topk(field("title_similarity"), 10)
+    .sort(field("title_similarity"), False)
+    .limit(10)
     .rerank()
 )
 
@@ -130,7 +131,8 @@ const docs = await client.collection("books").query(
     title: field("title"),
     title_similarity: fn.semanticSimilarity("title", "classic American novel"),
   })
-    .topk(field("title_similarity"), 10)
+    .sort(field("title_similarity"), false)
+    .limit(10)
     .rerank()
 );
 
@@ -182,7 +184,8 @@ docs = client.collection("books").query(
         text_score=fn.bm25_score(),  # Keyword-based relevance
     )
     .filter(match("classic"))  # Ensure the book contains the keyword "classic" in any of the text-indexed fields
-    .topk(field("title_similarity") * 0.7 + field("text_score") * 0.3, 10) # Add 70% weight to semantic similarity and 30% weight to keyword relevance
+    .sort(field("title_similarity") * 0.7 + field("text_score") * 0.3, False) # Add 70% weight to semantic similarity and 30% weight to keyword relevance
+    .limit(10)
     .rerank()
 )
 ```
@@ -198,11 +201,12 @@ const docs = await client.collection("books").query(
     text_score: fn.bm25Score(), // Keyword-based relevance
   })
     .filter(match("classic")) // Ensure the book contains the keyword "classic" in any of the text-indexed fields
-    .topk(
+    .sort(
       // Add 70% weight to semantic similarity and 30% weight to keyword relevance
       field("title_similarity").mul(0.7).add(field("text_score").mul(0.3)),
-      10
+      false
     )
+    .limit(10)
     .rerank()
 );
 ```

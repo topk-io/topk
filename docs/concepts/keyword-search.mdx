@@ -66,7 +66,8 @@ docs = client.collection("books").query(
         match("great", field="title") | match("novel")
     )
     # Return top 10 documents with the highest text score
-    .topk(field("text_score"), 10)
+    .sort(field("text_score"), False)
+    .limit(10)
 )
 ```
 
@@ -85,7 +86,8 @@ const docs = await client.collection(name).query(
   // or the `novel` in any of the text-indexed fields.
   .filter(match("great", { field: "title" }).or(match("novel")))
   // Return top 10 documents with the highest text score
-  .topk(field("text_score"), 10)
+  .sort(field("text_score"), false)
+  .limit(10)
 );
 
 // Example result:

@@ -57,7 +57,8 @@ docs = client.collection("articles").query(
         paper_score=fn.semantic_similarity("paper_summary", "deep learning optimization"),
         paragraph_score=fn.semantic_similarity("paragraph_summary", "stochastic gradient descent"),
     )
-    .topk(field("paper_score") * 0.7 + field("paragraph_score") * 0.3, 10)
+    .sort(field("paper_score") * 0.7 + field("paragraph_score") * 0.3, False)
+    .limit(10)
 )
 
 # Example results:
@@ -95,9 +96,10 @@ const docs = await client.collection("articles").query(
       "paragraph_summary",
       "stochastic gradient descent"
     ),
-  }).topk(
+  }).sort(
     field("paper_score").mul(0.7).add(field("paragraph_score").mul(0.3)),
-    10
+    false
+  ).limit(10)
   )
 );
 

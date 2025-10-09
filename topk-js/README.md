@@ -91,7 +91,8 @@ const results = await client.collection("books").query(
     ),
   })
     // Sort results by the `title_similarity` field, selecting the top 10 results
-    .topk(field("title_similarity"), 10)
+    .sort(field("title_similarity"), 10, false)
+    .limit(10)
 );
 ```
 
