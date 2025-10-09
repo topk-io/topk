@@ -461,6 +461,10 @@ export declare namespace query {
     select(exprs: Record<string, LogicalExpression | FunctionExpression>): Query
     /** Adds a top-k stage to the query. */
     topk(expr: LogicalExpression, k: number, asc?: boolean | undefined | null): Query
+    /** Adds a limit stage to the query. */
+    limit(k: number): Query
+    /** Adds a sort stage to the query. */
+    sort(expr: LogicalExpression, asc?: boolean | undefined | null): Query
     /** Adds a count stage to the query. */
     count(): Query
     /** Adds a rerank stage to the query. */
@@ -501,7 +505,7 @@ export declare namespace query {
   'max';
   /** Creates a field reference expression. */
   export function field(name: string): LogicalExpression
-  /** Creates a filter query stage. */
+  /** Creates a new query with a filter stage. */
   export function filter(expr: LogicalExpression | TextExpression): Query
   /** Creates a literal value expression. */
   export function literal(value: number | string | string[] | number[] | boolean | data.List): LogicalExpression
@@ -527,7 +531,7 @@ export declare namespace query {
   export function min(left: LogicalExpression | number | string, right: LogicalExpression | number | string): LogicalExpression
   /** Creates a logical NOT expression. */
   export function not(expr: LogicalExpression): LogicalExpression
-  /** Creates a select query stage. */
+  /** Creates a new query with a select stage. */
   export function select(exprs: Record<string, LogicalExpression | FunctionExpression>): Query
   export interface Term {
     /** The token to match. */

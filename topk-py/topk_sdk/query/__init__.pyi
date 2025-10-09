@@ -343,19 +343,49 @@ class Query:
         self,
         *args: builtins.str,
         **kwargs: typing.Union[LogicalExpr, FunctionExpr],
-    ) -> Query: ...
-    def filter(self, expr: LogicalExpr | TextExpr) -> Query: ...
-    def topk(
-        self, expr: LogicalExpr, k: builtins.int, asc: builtins.bool = False
-    ) -> Query: ...
+    ) -> Query:
+        """
+        Adds a select stage to the query.
+        """
+        ...
+    def filter(self, expr: LogicalExpr | TextExpr) -> Query:
+        """
+        Adds a filter stage to the query.
+        """
+        ...
+    def sort(self, expr: LogicalExpr, asc: builtins.bool = True) -> Query:
+        """
+        Adds a sort stage to the query.
+        """
+        ...
+    def limit(self, k: builtins.int) -> Query:
+        """
+        Adds a limit stage to the query.
+        """
+        ...
     def rerank(
         self,
         model: typing.Optional[builtins.str] = None,
         query: typing.Optional[builtins.str] = None,
         fields: typing.Sequence[builtins.str] = [],
         topk_multiple: typing.Optional[builtins.int] = None,
-    ) -> Query: ...
-    def count(self) -> Query: ...
+    ) -> Query:
+        """
+        Adds a rerank stage to the query.
+        """
+        ...
+    def count(self) -> Query:
+        """
+        Adds a count stage to the query.
+        """
+        ...
+    def topk(
+        self, expr: LogicalExpr, k: builtins.int, asc: builtins.bool = False
+    ) -> Query:
+        """
+        Adds a top-k stage to the query.
+        """
+        ...
 
 def field(name: builtins.str) -> LogicalExpr:
     """
@@ -370,7 +400,7 @@ def select(
     """
     # Example:
 
-    Create a select stage of a query.
+    Creates a new query with a select stage.
 
     ```python
     # Example:
@@ -387,7 +417,7 @@ def select(
 
 def filter(expr: LogicalExpr | TextExpr) -> Query:
     """
-    Create a filter stage of a query.
+    Creates a new query with a filter stage.
 
     ```python
     # Example:

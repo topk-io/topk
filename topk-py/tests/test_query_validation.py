@@ -37,7 +37,7 @@ def test_query_topk_limit_zero(ctx: ProjectContext):
         ctx.client.collection(collection.name).query(
             select("title").topk(field("published_year"), 0, True)
         )
-    assert "Invalid argument: TopK k must be > 0" in str(exc_info.value)
+    assert "Invalid argument: Limit k must be > 0" in str(exc_info.value)
 
 
 def test_union_u32_and_binary(ctx: ProjectContext):

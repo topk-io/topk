@@ -576,6 +576,8 @@ Multiply the scoring expression by the provided `boost` value if the `condition`
 select(self) -> Query
 ```
 
+Adds a select stage to the query.
+
 **Returns**
 
 [`Query`](#query)
@@ -587,6 +589,8 @@ select(self) -> Query
 ```python
 filter(self, expr: LogicalExpr | TextExpr) -> Query
 ```
+
+Adds a filter stage to the query.
 
 **Parameters**
 
@@ -600,19 +604,40 @@ filter(self, expr: LogicalExpr | TextExpr) -> Query
 
 ***
 
-#### topk()
+#### sort()
 
 ```python
-topk(self, expr: LogicalExpr, k: int, asc: bool = False) -> Query
+sort(self, expr: LogicalExpr, asc: bool = True) -> Query
 ```
+
+Adds a sort stage to the query.
 
 **Parameters**
 
 | Parameter | Type |
 | --------- | ---- |
 | `expr` | [`LogicalExpr`](#logicalexpr) |
-| `k` | int |
 | `asc` | bool |
+
+**Returns**
+
+[`Query`](#query)
+
+***
+
+#### limit()
+
+```python
+limit(self, k: int) -> Query
+```
+
+Adds a limit stage to the query.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `k` | int |
 
 **Returns**
 
@@ -631,6 +656,8 @@ rerank(
    topk_multiple: Optional[int] = None
 )
 ```
+
+Adds a rerank stage to the query.
 
 **Parameters**
 
@@ -652,6 +679,30 @@ rerank(
 ```python
 count(self) -> Query
 ```
+
+Adds a count stage to the query.
+
+**Returns**
+
+[`Query`](#query)
+
+***
+
+#### topk()
+
+```python
+topk(self, expr: LogicalExpr, k: int, asc: bool = False) -> Query
+```
+
+Adds a top-k stage to the query.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `expr` | [`LogicalExpr`](#logicalexpr) |
+| `k` | int |
+| `asc` | bool |
 
 **Returns**
 
@@ -802,7 +853,7 @@ select() -> Query
 
 # Example:
 
-    Create a select stage of a query.
+    Creates a new query with a select stage.
 
     ```python
     # Example:
@@ -826,7 +877,7 @@ select() -> Query
 filter(expr: LogicalExpr | TextExpr) -> Query
 ```
 
-Create a filter stage of a query.
+Creates a new query with a filter stage.
 
     ```python
     # Example:

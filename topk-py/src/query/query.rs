@@ -107,9 +107,32 @@ impl Query {
         Ok(Self {
             stages: [
                 self.stages.clone(),
-                vec![Stage::TopK {
+                vec![
+                    Stage::Sort {
+                        expr: expr.into(),
+                        asc,
+                    },
+                    Stage::Limit { k },
+                ],
+            ]
+            .concat(),
+        })
+    }
+
+    #[pyo3(signature = (k))]
+    pub fn limit(&self, k: u64) -> PyResult<Self> {
+        Ok(Self {
+            stages: [self.stages.clone(), vec![Stage::Limit { k }]].concat(),
+        })
+    }
+
+    #[pyo3(signature = (expr, asc=true))]
+    pub fn sort(&self, expr: LogicalExpr, asc: bool) -> PyResult<Self> {
+        Ok(Self {
+            stages: [
+                self.stages.clone(),
+                vec![Stage::Sort {
                     expr: expr.into(),
-                    k,
                     asc,
                 }],
             ]

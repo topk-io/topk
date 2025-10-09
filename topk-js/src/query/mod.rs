@@ -14,7 +14,7 @@ use crate::{
 use napi_derive::napi;
 use std::collections::HashMap;
 
-/// Creates a select query stage.
+/// Creates a new query with a select stage.
 #[napi(namespace = "query")]
 pub fn select(
     #[napi(ts_arg_type = "Record<string, LogicalExpression | FunctionExpression>")] exprs: HashMap<
@@ -29,7 +29,7 @@ pub fn select(
     }
 }
 
-/// Creates a filter query stage.
+/// Creates a new query with a filter stage.
 #[napi(namespace = "query")]
 pub fn filter(
     #[napi(ts_arg_type = "LogicalExpression | TextExpression")] expr: FilterExpression,
