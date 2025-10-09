@@ -1,6 +1,7 @@
 use crate::data::NativeValue;
 use crate::data::Value;
 use crate::error::TopkError;
+use crate::expr::delete::DeleteExpression;
 use crate::query::query::Query;
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
@@ -151,13 +152,29 @@ impl CollectionClient {
         Ok(lsn)
     }
 
-    /// Deletes documents from the collection by their IDs.
+    /// Deletes documents from the collection by their IDs or using a filter expression.
+    ///
+    /// Example:
+    /// Delete documents by their IDs:
+    /// ```javascript
+    /// await client.collection("books").delete(["id_1", "id_2"])
+    /// ```
+    ///
+    /// Delete documents by a filter expression:
+    /// ```javascript
+    /// import { field } from "topk-js/query";
+    ///
+    /// await client.collection("books").delete(field("published_year").gt(1997))
+    /// ```
     #[napi]
-    pub async fn delete(&self, ids: Vec<String>) -> Result<String> {
+    pub async fn delete(
+        &self,
+        #[napi(ts_arg_type = "Array<string> | query.LogicalExpression")] expr: DeleteExpression,
+    ) -> Result<String> {
         let lsn = self
             .client
             .collection(&self.collection)
-            .delete(ids)
+            .delete(expr)
             .await
             .map_err(TopkError::from)?;
 

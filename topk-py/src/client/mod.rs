@@ -4,9 +4,8 @@ use topk_rs::ClientConfig;
 
 use crate::data::value::NativeValue;
 
-pub mod sync;
-
 pub mod r#async;
+pub mod sync;
 
 pub fn topk_client(
     api_key: String,

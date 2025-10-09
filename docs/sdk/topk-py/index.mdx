@@ -6,7 +6,7 @@ title: topk_sdk
 
 ### Client
 
-Synchronous client for interacting with the TopK API.
+Client for interacting with the TopK API. For available regions see: https://docs.topk.io/regions.
 
 **Methods**
 
@@ -58,7 +58,7 @@ Get a client for managing collections.
 
 ### AsyncClient
 
-Asynchronous client for interacting with the TopK API.
+Async client for interacting with the TopK API. For available regions see: https://docs.topk.io/regions.
 
 **Methods**
 
@@ -214,16 +214,30 @@ str
 #### delete()
 
 ```python
-delete(self, ids: Sequence[str]) -> str
+delete(self, expr: Sequence[str] | query.LogicalExpr) -> str
 ```
 
-Delete documents by their IDs.
+Delete documents by their IDs or using a filter expression.
+
+        **Example:**
+
+        Delete documents by their IDs:
+        ```python
+        client.collection("books").delete(["id_1", "id_2"])
+        ```
+
+        Delete documents by a filter expression:
+        ```python
+        from topk_sdk.query import field
+
+        client.collection("books").delete(field("published_year").gt(1997))
+        ```
 
 **Parameters**
 
 | Parameter | Type |
 | --------- | ---- |
-| `ids` | Sequence[str] |
+| `expr` | Sequence[str] | [`query.LogicalExpr`](/sdk/topk-py/query#logicalexpr) |
 
 **Returns**
 
@@ -341,16 +355,30 @@ Awaitable[str]
 #### delete()
 
 ```python
-delete(self, ids: Sequence[str]) -> Awaitable[str]
+delete(self, expr: Sequence[str] | query.LogicalExpr) -> Awaitable[str]
 ```
 
-Delete documents by their IDs asynchronously.
+Delete documents by their IDs or using a filter expression asynchronously.
+
+        **Example:**
+
+        Delete documents by their IDs:
+        ```python
+        await client.collection("books").delete(["id_1", "id_2"])
+        ```
+
+        Delete documents by a filter expression:
+        ```python
+        from topk_sdk.query import field
+
+        await client.collection("books").delete(field("published_year").gt(1997))
+        ```
 
 **Parameters**
 
 | Parameter | Type |
 | --------- | ---- |
-| `ids` | Sequence[str] |
+| `expr` | Sequence[str] | [`query.LogicalExpr`](/sdk/topk-py/query#logicalexpr) |
 
 **Returns**
 

@@ -1,3 +1,4 @@
+pub mod delete;
 pub mod filter;
 pub mod flexible;
 pub mod function;

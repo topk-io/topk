@@ -2,7 +2,8 @@
 title: "Delete documents"
 ---
 
-While we plan to release more options to delete your documents (e.g. by query), for the starter you can delete documents by their `_id`.
+You can delete documents by their `_id` or using an [expression](https://docs.topk.io/documents/query#filtering). Both methods provide
+the same consistency guarantees and will be reflected in query/get results according to your [consistency level](https://docs.topk.io/concepts/consistency).
 
 To delete documents by their `_id`, you can pass a list of `_id`s to the `delete()` function:
 
@@ -14,11 +15,26 @@ client.collection("books").delete(
 )
 ```
 
-
 ```typescript Javascript
 await client.collection("books").delete(["book-1", "book-2", "book-3"]);
 ```
 
 </CodeGroup>
 
-If the documents are too large it can take a while until the deletion process is complete. To check the status of the deletion, query the document again.
+To delete documents that match a predicate, you can pass a [filter expression](https://docs.topk.io/documents/query#filtering) to the `delete()` function.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import field
+
+client.collection("books").delete(field("published_year").lt(1997))
+```
+
+```typescript Javascript
+import { field } from "topk-js/query";
+
+await client.collection("books").delete(field("published_year").lt(1997));
+```
+
+</CodeGroup>

@@ -6,7 +6,7 @@ from . import query, schema
 
 class Client:
     """
-    Synchronous client for interacting with the TopK API.
+    Client for interacting with the TopK API. For available regions see: https://docs.topk.io/regions.
     """
 
     def __init__(
@@ -30,7 +30,7 @@ class Client:
 
 class AsyncClient:
     """
-    Asynchronous client for interacting with the TopK API.
+    Async client for interacting with the TopK API. For available regions see: https://docs.topk.io/regions.
     """
 
     def __init__(
@@ -90,9 +90,23 @@ class CollectionClient:
         Insert or update documents in the collection.
         """
         ...
-    def delete(self, ids: typing.Sequence[builtins.str]) -> builtins.str:
+    def delete(self, expr: typing.Union[typing.Sequence[builtins.str], query.LogicalExpr]) -> builtins.str:
         """
-        Delete documents by their IDs.
+        Delete documents by their IDs or using a filter expression.
+
+        **Example:**
+
+        Delete documents by their IDs:
+        ```python
+        client.collection("books").delete(["id_1", "id_2"])
+        ```
+
+        Delete documents by a filter expression:
+        ```python
+        from topk_sdk.query import field
+
+        client.collection("books").delete(field("published_year").gt(1997))
+        ```
         """
         ...
 
@@ -141,10 +155,24 @@ class AsyncCollectionClient:
         """
         ...
     def delete(
-        self, ids: typing.Sequence[builtins.str]
+        self, expr: typing.Union[typing.Sequence[builtins.str], query.LogicalExpr]
     ) -> typing.Awaitable[builtins.str]:
         """
-        Delete documents by their IDs asynchronously.
+        Delete documents by their IDs or using a filter expression asynchronously.
+
+        **Example:**
+
+        Delete documents by their IDs:
+        ```python
+        await client.collection("books").delete(["id_1", "id_2"])
+        ```
+
+        Delete documents by a filter expression:
+        ```python
+        from topk_sdk.query import field
+
+        await client.collection("books").delete(field("published_year").gt(1997))
+        ```
         """
         ...
 

@@ -353,7 +353,7 @@ class Query:
         Adds a filter stage to the query.
         """
         ...
-    def sort(self, expr: LogicalExpr, asc: builtins.bool = False) -> Query:
+    def sort(self, expr: LogicalExpr, asc: builtins.bool = True) -> Query:
         """
         Adds a sort stage to the query.
         """

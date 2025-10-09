@@ -37,8 +37,23 @@ export declare class CollectionClient {
   query(query: query.Query, options?: QueryOptions | undefined | null): Promise<Array<Record<string, any>>>
   /** Inserts or updates documents in the collection. */
   upsert(docs: Array<Record<string, any>>): Promise<string>
-  /** Deletes documents from the collection by their IDs. */
-  delete(ids: Array<string>): Promise<string>
+  /**
+   * Deletes documents from the collection by their IDs or using a filter expression.
+   *
+   * Example:
+   * Delete documents by their IDs:
+   * ```javascript
+   * await client.collection("books").delete(["id_1", "id_2"])
+   * ```
+   *
+   * Delete documents by a filter expression:
+   * ```javascript
+   * import { field } from "topk-js/query";
+   *
+   * await client.collection("books").delete(field("published_year").gt(1997))
+   * ```
+   */
+  delete(expr: Array<string> | query.LogicalExpression): Promise<string>
 }
 
 /**
@@ -89,7 +104,7 @@ export interface BackoffConfig {
 export interface ClientConfig {
   /** Your TopK API key for authentication */
   apiKey: string
-  /** The region where your data is stored (e.g., "us-east-1", "eu-west-1") */
+  /** The region where your data is stored. For available regions see: https://docs.topk.io/regions. */
   region: string
   /** Custom host URL (optional, defaults to the standard TopK endpoint) */
   host?: string
