@@ -1,6 +1,7 @@
 use crate::data::NativeValue;
 use crate::data::Value;
 use crate::error::TopkError;
+use crate::expr::delete::DeleteExpression;
 use crate::query::query::Query;
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
@@ -153,11 +154,14 @@ impl CollectionClient {
 
     /// Deletes documents from the collection by their IDs.
     #[napi]
-    pub async fn delete(&self, ids: Vec<String>) -> Result<String> {
+    pub async fn delete(
+        &self,
+        #[napi(ts_arg_type = "Array<string> | LogicalExpression")] expr: DeleteExpression,
+    ) -> Result<String> {
         let lsn = self
             .client
             .collection(&self.collection)
-            .delete(ids)
+            .delete(expr)
             .await
             .map_err(TopkError::from)?;
 
