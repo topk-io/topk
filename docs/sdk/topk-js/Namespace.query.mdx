@@ -510,8 +510,8 @@ in(other:
   | string
   | string[]
   | number[]
-  | List
-  | LogicalExpression): LogicalExpression;
+  | LogicalExpression
+  | List): LogicalExpression;
 ```
 
 Checks if the expression is in another value.
@@ -520,7 +520,7 @@ Checks if the expression is in another value.
 
 | Parameter | Type |
 | ------ | ------ |
-| `other` | \| `string` \| `string`[] \| `number`[] \| [`List`](/sdk/topk-js/Namespace.data#list) \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `other` | \| `string` \| `string`[] \| `number`[] \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`List`](/sdk/topk-js/Namespace.data#list) |
 
 **Returns**
 
