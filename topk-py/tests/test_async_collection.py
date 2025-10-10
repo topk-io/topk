@@ -103,6 +103,33 @@ async def test_async_delete_filter(async_ctx: AsyncProjectContext):
 
     assert doc_ids(docs) == {"two"}
 
+@pytest.mark.asyncio
+async def test_async_delete_filter_complex(async_ctx: AsyncProjectContext):
+    collection = await async_ctx.client.collections().create(
+        async_ctx.scope("test"), schema={}
+    )
+    async_collection = async_ctx.client.collection(collection.name)
+
+    lsn = await async_collection.upsert(
+        [
+            {"_id": "one", "rank": 1},
+            {"_id": "two", "rank": 2},
+            {"_id": "three", "rank": 3},
+        ]
+    )
+    assert lsn == "1"
+
+    # wait for write to be flushed
+    await async_collection.count()
+
+    lsn = await async_collection.delete((field("rank") != 2) & (field("rank") != 999) & (field("rank") != -20))
+    assert lsn == "2"
+
+    docs = await async_collection.query(
+        select("title").topk(field("rank"), 100, True), lsn=lsn
+    )
+
+    assert doc_ids(docs) == {"two"}
 
 @pytest.mark.asyncio
 async def test_async_query(async_ctx: AsyncProjectContext):
@@ -118,6 +145,19 @@ async def test_async_query(async_ctx: AsyncProjectContext):
         {"_id": "1984", "title": "1984", "published_year": 1949, "literal": 1.0}
     ]
 
+@pytest.mark.asyncio
+async def test_async_query_complex(async_ctx: AsyncProjectContext):
+    collection = await dataset.books.setup_async(async_ctx)
+
+    results = await async_ctx.client.collection(collection.name).query(
+        select("title", "published_year", literal=literal(1.0))
+        .filter(field("title") == "1984")
+        .topk(field("published_year") * field("published_year") * field("published_year"), 100, True)
+    )
+
+    assert results == [
+        {"_id": "1984", "title": "1984", "published_year": 1949, "literal": 1.0}
+    ]
 
 test_documents = [
     {

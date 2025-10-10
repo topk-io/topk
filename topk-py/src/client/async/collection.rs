@@ -1,8 +1,8 @@
 use crate::client::Document;
 use crate::data::value::Value;
 use crate::error::RustError;
-use crate::query::{ConsistencyLevel, Query};
 use crate::expr::delete::DeleteExprUnion;
+use crate::query::{ConsistencyLevel, Query};
 use pyo3::prelude::*;
 use pyo3_async_runtimes::tokio::future_into_py;
 use std::{collections::HashMap, sync::Arc};
@@ -83,10 +83,13 @@ impl AsyncCollectionClient {
         let client = self.client.clone();
         let collection = self.collection.clone();
 
+        // Convert query to proto while GIL is held
+        let query = query.into();
+
         future_into_py(py, async move {
             let docs = client
                 .collection(collection.as_str())
-                .query(query.into(), lsn, consistency.map(|c| c.into()))
+                .query(query, lsn, consistency.map(|c| c.into()))
                 .await
                 .map_err(RustError)?;
 
@@ -127,6 +130,9 @@ impl AsyncCollectionClient {
     pub fn delete(&self, py: Python<'_>, spec: DeleteExprUnion) -> PyResult<PyObject> {
         let client = self.client.clone();
         let collection = self.collection.clone();
+
+        // Convert spec to proto while GIL is held
+        let spec: topk_rs::proto::v1::data::DeleteDocumentsRequest = spec.into();
 
         future_into_py(py, async move {
             let lsn = client
