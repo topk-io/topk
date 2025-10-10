@@ -124,7 +124,8 @@ describe("test_query_limit", () => {
       .query(
         select({ title: field("title") })
           .select({ summary_distance: fn.vectorDistance("summary_embedding", Array(16).fill(2.0), { skipRefine: true }) })
-          .topk(field("summary_distance"), 100, true)
+          .sort(field("summary_distance"), true)
+          .limit(100)
       );
 
     const byId = (arr: any[]) => new Map(arr.map((d) => [d._id, d]));

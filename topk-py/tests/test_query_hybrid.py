@@ -13,7 +13,8 @@ def test_query_hybrid_vector_bm25(ctx: ProjectContext):
             bm25_score=fn.bm25_score(),
         )
         .filter(match("love", None, 30.0, False) | (match("young", None, 10.0, False)))
-        .topk(field("bm25_score") + (field("summary_distance") * 100), 2, True)
+        .sort(field("bm25_score") + (field("summary_distance") * 100), True)
+        .limit(2)
     )
 
     assert len(result) == 2
@@ -33,9 +34,9 @@ def test_query_hybrid_keyword_boost(ctx: ProjectContext):
         ),
     ]:
         result = ctx.client.collection(collection.name).query(
-            select(
-                summary_distance=fn.vector_distance("summary_embedding", [2.3] * 16)
-            ).topk(score_expr, 3, True)
+            select(summary_distance=fn.vector_distance("summary_embedding", [2.3] * 16))
+            .sort(score_expr, True)
+            .limit(3)
         )
 
         # Keyword boosting swaps the order of results so we expect [1984, mockingbird, pride]
@@ -63,7 +64,9 @@ def test_query_hybrid_coalesce_score(ctx: ProjectContext):
         select(
             summary_score=fn.vector_distance("summary_embedding", [4.1] * 16),
             nullable_score=fn.vector_distance("nullable_embedding", [4.1] * 16),
-        ).topk(field("summary_score") + field("nullable_score").coalesce(0.0), 3, True)
+        )
+        .sort(field("summary_score") + field("nullable_score").coalesce(0.0), True)
+        .limit(3)
     )
 
     # Adding the nullable_score without coalescing would exclude "pride" and "gatsby" from

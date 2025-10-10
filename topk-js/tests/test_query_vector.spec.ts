@@ -61,7 +61,9 @@ describe("Vector Queries", () => {
           2.0,
           ...Array(15).fill(0),
         ]),
-      }).topk(field("summary_distance"), 3, true)
+      })
+        .sort(field("summary_distance"), true)
+        .limit(3)
     );
 
     expect(isSorted(result, "summary_distance")).toBe(true);
@@ -93,7 +95,9 @@ describe("Vector Queries", () => {
           3.0,
           ...Array(15).fill(0),
         ]),
-      }).topk(field("summary_distance"), 3, true)
+      })
+        .sort(field("summary_distance"), true)
+        .limit(3)
     );
 
     expect(isSorted(result, "summary_distance")).toBe(true);
@@ -131,7 +135,9 @@ describe("Vector Queries", () => {
           "scalar_embedding",
           u8VectorData([8, ...Array(15).fill(0)])
         ),
-      }).topk(field("summary_distance"), 3, true)
+      })
+        .sort(field("summary_distance"), true)
+        .limit(3)
     );
 
     expect(isSorted(result, "summary_distance")).toBe(true);
@@ -160,7 +166,9 @@ describe("Vector Queries", () => {
           "binary_embedding",
           binaryVectorData([0, 1])
         ),
-      }).topk(field("summary_distance"), 2, true)
+      })
+        .sort(field("summary_distance"), true)
+        .limit(2)
     );
 
     expect(isSorted(result, "summary_distance")).toBe(true);
@@ -198,7 +206,9 @@ describe("Vector Queries", () => {
           "scalar_i8_embedding",
           i8VectorData([-10, ...Array(15).fill(0)])
         ),
-      }).topk(field("summary_distance"), 3, true)
+      })
+        .sort(field("summary_distance"), true)
+        .limit(3)
     );
 
     expect(isSorted(result, "summary_distance")).toBe(true);

@@ -15,7 +15,7 @@ describe("Query Validation", () => {
     await Promise.all(contexts.map((ctx) => ctx.deleteCollections()));
   });
 
-  test("query topk by non primitive", async () => {
+  test("query sort limit by non primitive", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("books", {
       title: text().required().index(keywordIndex()),
@@ -31,11 +31,11 @@ describe("Query Validation", () => {
     await expect(
       ctx.client
         .collection(collection.name)
-        .query(select({}).topk(field("title"), 3, true))
+        .query(select({}).sort(field("title"), true).limit(3))
     ).rejects.toThrow();
   });
 
-  test("query topk by non existing", async () => {
+  test("query sort limit by non existing", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("books", {
       title: text().required().index(keywordIndex()),
@@ -51,11 +51,11 @@ describe("Query Validation", () => {
     await expect(
       ctx.client
         .collection(collection.name)
-        .query(select({}).topk(field("non_existing_field"), 3, true))
+        .query(select({}).sort(field("non_existing_field"), true).limit(3))
     ).rejects.toThrow();
   });
 
-  test("query topk limit zero", async () => {
+  test("query sort limit zero", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("books", {
       title: text().required().index(keywordIndex()),
@@ -65,7 +65,7 @@ describe("Query Validation", () => {
     await expect(
       ctx.client
         .collection(collection.name)
-        .query(select({}).topk(field("published_year"), 0, true))
+        .query(select({}).sort(field("published_year"), true).limit(0))
     ).rejects.toThrow();
   });
 
@@ -83,7 +83,7 @@ describe("Query Validation", () => {
     await expect(
       ctx.client
         .collection(collection.name)
-        .query(select({}).topk(field("num"), 100, true))
+        .query(select({}).sort(field("num"), true).limit(100))
     ).rejects.toThrow();
   });
 });

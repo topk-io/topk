@@ -38,7 +38,11 @@ async fn test_protobuf_recursion_limit_returns_invalid_argument(ctx: &mut Projec
     let err = ctx
         .client
         .collection("test")
-        .query(filter(deep_expr).topk(field("id"), 10, true), None, None)
+        .query(
+            filter(deep_expr).sort(field("id"), true).limit(10),
+            None,
+            None,
+        )
         .await
         .expect_err("Query should fail due to protobuf recursion limit");
 

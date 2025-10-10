@@ -65,7 +65,8 @@ def test_query_limit_vector_distance(ctx: ProjectContext):
         .select(
             summary_distance=fn.vector_distance("summary_embedding", [2.0] * 16, True)
         )
-        .topk(field("summary_distance"), 100, True)
+        .sort(field("summary_distance"), True)
+        .limit(100)
     )
 
     docs_limit = {doc["_id"]: doc for doc in result_limit}

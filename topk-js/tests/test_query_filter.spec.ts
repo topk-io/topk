@@ -42,11 +42,10 @@ describe("Filter Queries", () => {
     const results = await ctx.client
       .collection(collection.name)
       .query(
-        filter(field("published_year").lte(1950)).topk(
+        filter(field("published_year").lte(1950)).sort(
           field("published_year"),
-          100,
           false
-        )
+        ).limit(100)
       );
 
     expect(results.map((doc) => doc._id)).toEqual([

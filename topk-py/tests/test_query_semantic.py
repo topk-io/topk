@@ -36,7 +36,9 @@ def test_semantic_index_query(ctx: ProjectContext):
     collection = dataset.semantic.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        select(sim=fn.semantic_similarity("title", "dummy")).topk(field("sim"), 3, True)
+        select(sim=fn.semantic_similarity("title", "dummy"))
+        .sort(field("sim"), True)
+        .limit(3)
     )
 
     assert len(result) == 3
@@ -48,7 +50,8 @@ def test_semantic_index_query_with_text_filter(ctx: ProjectContext):
     result = ctx.client.collection(collection.name).query(
         select(sim=fn.semantic_similarity("title", "dummy"))
         .filter(match("love", "summary"))
-        .topk(field("sim"), 3, True)
+        .sort(field("sim"), True)
+        .limit(3)
     )
 
     # order is not guaranteed, since we're using a "dummy" embedder
@@ -60,9 +63,9 @@ def test_semantic_index_query_with_missing_index(ctx: ProjectContext):
 
     with pytest.raises(error.InvalidArgumentError):
         ctx.client.collection(collection.name).query(
-            select(sim=fn.semantic_similarity("published_year", "dummy")).topk(
-                field("sim"), 3, True
-            )
+            select(sim=fn.semantic_similarity("published_year", "dummy"))
+            .sort(field("sim"), True)
+            .limit(3)
         )
 
 
@@ -73,7 +76,9 @@ def test_semantic_index_query_multiple_fields(ctx: ProjectContext):
         select(
             title_sim=fn.semantic_similarity("title", "dummy"),
             summary_sim=fn.semantic_similarity("summary", "query"),
-        ).topk(field("title_sim") + field("summary_sim"), 5, True)
+        )
+        .sort(field("title_sim") + field("summary_sim"), True)
+        .limit(5)
     )
 
     assert len(result) == 5
@@ -85,7 +90,8 @@ def test_semantic_index_query_and_rerank_with_missing_model(ctx: ProjectContext)
     with pytest.raises(error.InvalidArgumentError):
         ctx.client.collection(collection.name).query(
             select(sim=fn.semantic_similarity("title", "dummy"))
-            .topk(field("sim"), 3, True)
+            .sort(field("sim"), True)
+            .limit(3)
             .rerank("definitely-does-not-exist")
         )
 
@@ -95,7 +101,8 @@ def test_semantic_index_query_and_rerank(ctx: ProjectContext):
 
     result = ctx.client.collection(collection.name).query(
         select(sim=fn.semantic_similarity("title", "dummy"))
-        .topk(field("sim"), 3, True)
+        .sort(field("sim"), True)
+        .limit(3)
         .rerank("dummy")
     )
 
@@ -112,7 +119,8 @@ def test_semantic_index_query_and_rerank_multiple_semantic_sim_explicit(
             title_sim=fn.semantic_similarity("title", "dummy"),
             summary_sim=fn.semantic_similarity("summary", "query"),
         )
-        .topk(field("title_sim") + field("summary_sim"), 5, True)
+        .sort(field("title_sim") + field("summary_sim"), True)
+        .limit(5)
         .rerank("dummy", "query string", ["title", "summary"])
     )
 
@@ -130,6 +138,7 @@ def test_semantic_index_query_and_rerank_multiple_semantic_sim_implicit(
                 title_sim=fn.semantic_similarity("title", "dummy"),
                 summary_sim=fn.semantic_similarity("summary", "query"),
             )
-            .topk(field("title_sim") + field("summary_sim"), 5, True)
+            .sort(field("title_sim") + field("summary_sim"), True)
+            .limit(5)
             .rerank("dummy")
         )

@@ -8,9 +8,7 @@ def test_query_starts_with(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        filter(field("_id").starts_with("cat")).topk(
-            field("published_year"), 100, False
-        )
+        filter(field("_id").starts_with("cat")).limit(100)
     )
 
     assert [doc["_id"] for doc in result] == ["catcher"]
@@ -20,7 +18,7 @@ def test_query_starts_with_empty(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        filter(field("_id").starts_with("")).topk(field("published_year"), 100, False)
+        filter(field("_id").starts_with("")).limit(100)
     )
 
     assert doc_ids(result) == {
@@ -41,9 +39,7 @@ def test_query_starts_with_non_existent_prefix(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     result = ctx.client.collection(collection.name).query(
-        filter(field("_id").starts_with("foobarbaz")).topk(
-            field("published_year"), 100, False
-        )
+        filter(field("_id").starts_with("foobarbaz")).limit(100)
     )
 
     assert len(result) == 0

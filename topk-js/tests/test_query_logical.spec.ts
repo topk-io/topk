@@ -42,8 +42,7 @@ describe("Logical Queries", () => {
     const results = await ctx.client
       .collection(collection.name)
       .query(
-        filter(field("published_year").lte(1950))
-          .topk(field("published_year"), 100, true)
+        filter(field("published_year").lte(1950)).limit(100)
       );
 
     expect(new Set(results.map((doc) => doc._id))).toEqual(
@@ -80,8 +79,7 @@ describe("Logical Queries", () => {
         field("published_year")
           .lte(1950)
           .and(field("published_year").gte(1948))
-      )
-        .topk(field("published_year"), 100, true)
+      ).limit(100)
     );
 
     expect(new Set(results.map((doc) => doc._id))).toEqual(new Set(["1984"]));
@@ -114,8 +112,7 @@ describe("Logical Queries", () => {
     const results = await ctx.client
       .collection(collection.name)
       .query(
-        filter(field("title").isNull())
-          .topk(field("published_year"), 100, true)
+        filter(field("title").isNull()).limit(100)
       );
 
     expect(new Set(results.map((doc) => doc._id))).toEqual(
@@ -150,8 +147,7 @@ describe("Logical Queries", () => {
     const results = await ctx.client
       .collection(collection.name)
       .query(
-        filter(field("title").isNotNull())
-          .topk(field("published_year"), 100, true)
+        filter(field("title").isNotNull()).limit(100)
       );
 
     expect(new Set(results.map((doc) => doc._id))).toEqual(
@@ -184,8 +180,7 @@ describe("Logical Queries", () => {
     const results = await ctx.client
       .collection(collection.name)
       .query(
-        filter(not(field("_id").contains("gatsby")))
-          .topk(field("published_year"), 100, false)
+        filter(not(field("_id").contains("gatsby"))).limit(100)
       );
 
     expect(new Set(results.map((doc) => doc._id))).toEqual(
@@ -216,7 +211,8 @@ describe("Logical Queries", () => {
           love_score: field("summary").matchAll("love").choose(2.0, 0.1)
         })
           .filter(field("love_score").gt(1.0))
-          .topk(field("love_score"), 10, false)
+          .sort(field("love_score"), false)
+          .limit(10)
       );
 
     expect(new Set(results.map((doc) => doc._id))).toEqual(
@@ -250,7 +246,8 @@ describe("Logical Queries", () => {
         select({
           love_score: field("summary").matchAll("love").choose(field("published_year"), 10)
         })
-          .topk(field("love_score"), 2, false)
+          .sort(field("love_score"), false)
+          .limit(2)
       );
 
     expect(results).toEqual([
@@ -285,7 +282,8 @@ describe("Logical Queries", () => {
         select({
           love_score: field("summary").matchAll("love").choose(field("published_year"), field("published_year").div(10))
         })
-          .topk(field("love_score"), 3, false)
+          .sort(field("love_score"), false)
+          .limit(3)
       );
 
     expect(results).toEqual([
@@ -322,7 +320,8 @@ describe("Logical Queries", () => {
           importance: field("nullable_importance").coalesce(1.0)
         })
           .filter(field("published_year").lt(1900))
-          .topk(field("published_year"), 3, false)
+          .sort(field("published_year"), false)
+          .limit(3)
       );
 
     expect(results).toEqual([
@@ -357,7 +356,8 @@ describe("Logical Queries", () => {
           importance: field("missing_field").coalesce(1.0)
         })
           .filter(field("published_year").lt(1900))
-          .topk(field("published_year"), 3, false)
+          .sort(field("published_year"), false)
+          .limit(3)
       );
 
     expect(results).toEqual([
@@ -392,7 +392,8 @@ describe("Logical Queries", () => {
           coalesced_year: field("published_year").coalesce(0)
         })
           .filter(field("published_year").lt(1900))
-          .topk(field("published_year"), 3, false)
+          .sort(field("published_year"), false)
+          .limit(3)
       );
 
     expect(results).toEqual([
@@ -429,7 +430,8 @@ describe("Logical Queries", () => {
       select({
         abs_year: abs(field("published_year").sub(1990))
       })
-        .topk(field("abs_year"), 3, true)
+        .sort(field("abs_year"), true)
+        .limit(3)
     );
 
     // The 3 books closest to 1990
@@ -469,7 +471,8 @@ describe("Logical Queries", () => {
           clamped_bm25_score: max(min(field("bm25_score"), 2.0), 1.6)
         })
         .filter(match("millionaire love consequences dwarves"))
-        .topk(field("clamped_bm25_score"), 5, false)
+        .sort(field("clamped_bm25_score"), false)
+        .limit(5)
     );
 
     expect(results.length).toBe(4);
@@ -512,8 +515,7 @@ describe("Logical Queries", () => {
     ]);
 
     const results = await ctx.client.collection(collection.name).query(
-      filter(field("_id").gt("moby").and(field("_id").lte("pride")))
-        .topk(field("published_year"), 100, true)
+      filter(field("_id").gt("moby").and(field("_id").lte("pride"))).limit(100)
     );
 
     expect(new Set(results.map((doc) => doc._id))).toEqual(
@@ -540,7 +542,8 @@ describe("Logical Queries", () => {
         title: field("title"),
         min_string: field("title").min("Oz")
       })
-        .topk(field("published_year"), 2, true)
+        .sort(field("published_year"), true)
+        .limit(2)
     );
 
     expect(results).toEqual([

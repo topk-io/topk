@@ -37,9 +37,7 @@ describe("delete", () => {
 
     const remaining = await ctx.client
       .collection(collection.name)
-      .query(
-        select({ _id: field("_id") }).topk(field("published_year"), 100, true)
-      );
+      .query(select({ _id: field("_id") }).limit(100));
 
     expect(remaining).toEqual([{ _id: "doc2" }]);
   });
@@ -59,9 +57,7 @@ describe("delete", () => {
 
     const remaining = await ctx.client
       .collection(collection.name)
-      .query(
-        select({ _id: field("_id") }).topk(field("published_year"), 100, true)
-      );
+      .query(select({ _id: field("_id") }).limit(100));
 
     expect(remaining).toEqual([{ _id: "doc2" }]);
   });

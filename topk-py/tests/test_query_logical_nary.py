@@ -16,7 +16,7 @@ def test_any_codes_vec(ctx: ProjectContext):
                     field("codes").contains("UPC 025192354670"),
                 ]
             )
-        ).topk(field("published_year"), 100, True)
+        ).limit(100)
     )
 
     assert doc_ids(result) == {"1984", "lotr", "mockingbird"}
@@ -34,7 +34,7 @@ def test_all_codes_vec(ctx: ProjectContext):
                     field("tags").contains("magic"),
                 ]
             )
-        ).topk(field("published_year"), 100, True)
+        ).limit(100)
     )
 
     assert doc_ids(result) == {"harry"}
@@ -57,7 +57,7 @@ def test_select_any_flag(ctx: ProjectContext):
             | (field("_id") == "pride")
             | (field("_id") == "lotr")
         )
-        .topk(field("published_year"), 100, True)
+        .limit(100)
     )
 
     results.sort(key=lambda d: d["_id"])
@@ -82,7 +82,7 @@ def test_select_all_flag(ctx: ProjectContext):
             )
         )
         .filter(field("_id").in_(["gatsby", "pride"]))
-        .topk(field("published_year"), 100, True)
+        .limit(100)
     )
 
     results.sort(key=lambda d: d["_id"])
@@ -114,9 +114,7 @@ def test_nested_any_all(ctx: ProjectContext):
         ]
     )
 
-    result = ctx.client.collection(collection.name).query(
-        filter(expr).topk(field("published_year"), 100, True)
-    )
+    result = ctx.client.collection(collection.name).query(filter(expr).limit(100))
 
     assert doc_ids(result) == {"gatsby", "harry", "lotr"}
 
@@ -139,7 +137,7 @@ def test_non_nested_any_and_all(ctx: ProjectContext):
     )
 
     result = ctx.client.collection(collection.name).query(
-        filter(codes_any & tags_all).topk(field("published_year"), 100, True)
+        filter(codes_any & tags_all).limit(100)
     )
 
     assert doc_ids(result) == {"harry", "lotr"}
@@ -157,7 +155,7 @@ def test_any_mixed_exprs(ctx: ProjectContext):
                     field("published_year") < 1900,
                 ]
             )
-        ).topk(field("published_year"), 100, True)
+        ).limit(100)
     )
 
     assert doc_ids(result) == {"pride", "moby", "gatsby"}
@@ -175,7 +173,7 @@ def test_all_mixed_exprs(ctx: ProjectContext):
                     not_(field("tags").contains("romance")),
                 ]
             )
-        ).topk(field("published_year"), 100, True)
+        ).limit(100)
     )
 
     assert doc_ids(result) == {"alchemist", "catcher", "hobbit", "lotr"}
@@ -186,9 +184,7 @@ def test_all_large_arity(ctx: ProjectContext):
 
     expr = all([field("tags").contains("wizard") for _ in range(32)])
 
-    result = ctx.client.collection(collection.name).query(
-        filter(expr).topk(field("published_year"), 100, True)
-    )
+    result = ctx.client.collection(collection.name).query(filter(expr).limit(100))
 
     assert doc_ids(result) == {"harry", "lotr"}
 
@@ -200,9 +196,7 @@ def test_all_max_arity(ctx: ProjectContext):
 
     # This should fail due to max arity
     try:
-        ctx.client.collection(collection.name).query(
-            filter(expr).topk(field("published_year"), 100, True)
-        )
+        ctx.client.collection(collection.name).query(filter(expr).limit(100))
         assert False, "Should have failed due to max arity"
     except Exception as e:
         assert "N-ary expression has too many operands" in str(e)

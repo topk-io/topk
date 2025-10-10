@@ -30,11 +30,11 @@ async fn test_query_hybrid_vector_bm25(ctx: &mut ProjectTestContext) {
                 Some(10.0),
                 false,
             )))
-            .topk(
+            .sort(
                 field("bm25_score") + (field("summary_distance").mul(literal(100))),
-                2,
                 true,
-            ),
+            )
+            .limit(2),
             None,
             None,
         )
@@ -67,7 +67,8 @@ async fn test_query_hybrid_keyword_boost(ctx: &mut ProjectTestContext) {
                     "summary_distance",
                     fns::vector_distance("summary_embedding", vec![2.3f32; 16]),
                 )])
-                .topk(score_expr, 3, true),
+                .sort(score_expr, true)
+                .limit(3),
                 None,
                 None,
             )
@@ -102,11 +103,11 @@ async fn test_query_hybrid_coalesce_score(ctx: &mut ProjectTestContext) {
                     fns::vector_distance("nullable_embedding", vec![4.1; 16]),
                 ),
             ])
-            .topk(
+            .sort(
                 field("summary_score") + field("nullable_score").coalesce(0.0),
-                3,
                 true,
-            ),
+            )
+            .limit(3),
             None,
             None,
         )

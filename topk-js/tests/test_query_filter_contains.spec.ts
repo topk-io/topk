@@ -44,7 +44,7 @@ describe("Logical Queries Contains", () => {
       .collection(collection.name)
       .query(
         filter(field("title").contains("he"))
-          .topk(field("published_year"), 100, true)
+          .limit(100)
       );
 
     expect(new Set(results.map((doc) => doc._id))).toEqual(
@@ -78,10 +78,7 @@ describe("Logical Queries Contains", () => {
 
     const result = await ctx.client
       .collection(collection.name)
-      .query(
-        filter(field("_id").contains("rubbish"))
-          .topk(field("published_year"), 100, false)
-      );
+      .query(filter(field("_id").contains("rubbish")).limit(100));
 
     expect(result.length).toBe(0);
   });
@@ -114,7 +111,7 @@ describe("Logical Queries Contains", () => {
       .collection(collection.name)
       .query(
         filter(field("_id").contains(""))
-          .topk(field("published_year"), 100, false)
+          .limit(100)
       );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(
@@ -158,7 +155,7 @@ describe("Logical Queries Contains", () => {
       .collection(collection.name)
       .query(
         filter(field("summary").contains("to h"))
-          .topk(field("published_year"), 100, false)
+          .limit(100)
       );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(
@@ -194,7 +191,7 @@ describe("Logical Queries Contains", () => {
       .collection(collection.name)
       .query(
         filter(field("title").contains(field("_id")))
-          .topk(field("published_year"), 100, false)
+          .limit(100)
       );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(
@@ -230,7 +227,7 @@ describe("Logical Queries Contains", () => {
       .collection(collection.name)
       .query(
         filter(field("_id").in(field("title")))
-          .topk(field("published_year"), 100, false)
+          .limit(100)
       );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(
@@ -266,7 +263,7 @@ describe("Logical Queries Contains", () => {
       .collection(collection.name)
       .query(
         filter(not(field("title").in(field("title"))))
-          .topk(field("published_year"), 100, false)
+          .limit(100)
       );
 
     expect(result.length).toBe(0);
@@ -306,7 +303,8 @@ describe("Logical Queries Contains", () => {
           tags: field("tags")
         })
           .filter(field("tags").matchAny("love"))
-          .topk(field("published_year"), 100, true)
+          .sort(field("published_year"), true)
+          .limit(100)
       );
 
     expect(result).toEqual([
@@ -348,7 +346,8 @@ describe("Logical Queries Contains", () => {
             codes: field("codes")
           })
             .filter(filterExpr)
-            .topk(field("published_year"), 100, true)
+            .sort(field("published_year"), true)
+            .limit(100)
         )
       ).rejects.toThrow();
     }
@@ -385,7 +384,8 @@ describe("Logical Queries Contains", () => {
           tags: field("tags")
         })
           .filter(field("tags").contains("love"))
-          .topk(field("published_year"), 100, true)
+          .sort(field("published_year"), true)
+          .limit(100)
       );
 
     expect(result).toEqual([
@@ -433,7 +433,8 @@ describe("Logical Queries Contains", () => {
           codes: field("codes")
         })
           .filter(field("codes").contains("ISBN 0-547-92821-2"))
-          .topk(field("published_year"), 100, true)
+          .sort(field("published_year"), true)
+          .limit(100)
       );
 
     expect(result).toEqual([
@@ -488,7 +489,7 @@ describe("Logical Queries Contains", () => {
           reprint_years: field("reprint_years")
         })
           .filter(field("reprint_years").contains(1999))
-          .topk(field("published_year"), 100, true)
+          .limit(100)
       );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(
@@ -533,7 +534,7 @@ describe("Logical Queries Contains", () => {
           reprint_years: field("reprint_years")
         })
           .filter(field("reprint_years").contains(literal(1999)))
-          .topk(field("published_year"), 100, true)
+          .limit(100)
       );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(
@@ -584,7 +585,7 @@ describe("Logical Queries Contains", () => {
           reprint_years: field("reprint_years")
         })
           .filter(field("reprint_years").contains(field("published_year").add(1)))
-          .topk(field("published_year"), 100, true)
+          .limit(100)
       );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(
@@ -635,7 +636,7 @@ describe("Logical Queries Contains", () => {
           reprint_years: field("reprint_years")
         })
           .filter(field("published_year").add(1).in(field("reprint_years")))
-          .topk(field("published_year"), 100, true)
+          .limit(100)
       );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(
@@ -677,7 +678,7 @@ describe("Logical Queries Contains", () => {
           tags: field("tags")
         })
           .filter(field("tags").contains(field("_id")))
-          .topk(field("published_year"), 100, true)
+          .limit(100)
       );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(
@@ -719,7 +720,7 @@ describe("Logical Queries Contains", () => {
           codes: field("codes")
         })
           .filter(field("codes").contains(field("_id")))
-          .topk(field("published_year"), 100, true)
+          .limit(100)
       );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(
@@ -755,7 +756,7 @@ describe("Logical Queries Contains", () => {
             codes: field("codes")
           })
             .filter(filterExpr)
-            .topk(field("published_year"), 100, true)
+            .limit(100)
         )
       ).rejects.toThrow();
     }
@@ -801,7 +802,7 @@ describe("Logical Queries Contains", () => {
       .collection(collection.name)
       .query(
         filter(field("_id").in("harryhobbitlotr"))
-          .topk(field("published_year"), 100, false)
+          .limit(100)
       );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(
@@ -840,7 +841,7 @@ describe("Logical Queries Contains", () => {
           title: field("title")
         })
           .filter(field("published_year").in(u32List([1999, 1988, 1997])))
-          .topk(field("published_year"), 100, true)
+          .limit(100)
       );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(
@@ -885,7 +886,7 @@ describe("Logical Queries Contains", () => {
             "The",
             "something 123",
           ]))
-          .topk(field("published_year"), 100, true)
+          .limit(100)
       );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(
