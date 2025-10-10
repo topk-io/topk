@@ -87,7 +87,8 @@ results = client.collection("books").query(
     "title",
     title_similarity=fn.semantic_similarity("title", "classic American novel"), # Semantic search
   )
-  .topk(field("title_similarity"), 10) # Return top 10 most relevant results
+  .sort(field("title_similarity"), false)
+  .limit(10) # Return top 10 most relevant results
 )
 ```
 

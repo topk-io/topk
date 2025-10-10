@@ -591,7 +591,8 @@ class fn:
               [0.1, 0.2, 0.3, ...] # embedding for "animal"
             )
           )
-          .topk(field("title_similarity"), 10)
+          .sort(field("title_similarity"), false)
+          .limit(10)
         )
         ```
         """
@@ -614,7 +615,8 @@ class fn:
             "title",
             title_similarity=fn.semantic_similarity("title", "animal")
           )
-          .topk(field("title_similarity"), 10)
+          .sort(field("title_similarity"), false)
+          .limit(10)
         )
         ```
         """
@@ -635,7 +637,8 @@ class fn:
             text_score=fn.bm25_score()
           )
           .filter(match("animal"))
-          .topk(field("text_score"), 10)
+          .sort(field("text_score"), false)
+          .limit(10)
         )
         ```
         """
