@@ -1,6 +1,6 @@
 [package]
 name = "topk-js"
-version = "0.6.7"
+version = "0.6.8"
 edition = "2021"
 description = "TopK JavaScript SDK with TypeScript support"
 license-file = "LICENSE"
