@@ -14,11 +14,11 @@ In TopK, a query consists of multiple stages:
   - these fields can be used in stages such as Filter, TopK or Rerank
 - **Filter stage** - Filter the documents that will be returned in the query results
   - filters can be applied to static fields, computed fields such as `vector_distance()` or `semantic_similarity()` or custom properties computed inside `select()`
-- **TopK stage** - Return the top `k` results based on the provided logical expression
+- **Sort and Limit stages** - Return the top `k` results based on the provided logical expression
 - **Count stage** - Return the total number of documents matching the query
 - **Rerank stage** - Rerank the results
 
-All queries **must** have either TopK or Count collection stage.
+All queries **must** have either the Limit or Count collection stage.
 
 <Tip>
   You can stack multiple select and filter stages in a single query.
@@ -30,11 +30,14 @@ A typical query in TopK looks as follows:
 flowchart TD
     A[Select]
     A --> B[Filter]
-    B --> C[TopK]
-    B --> E[Count]
-    C -.-> D[Rerank]
-    D --> G@{ shape: stadium, label: "Results collection" }
-    E --> H@{ shape: stadium, label: "Results count" }
+    B --> C[Sort]
+    C --> D[Limit]
+    D -.-> E[Rerank]
+    E --> F@{ shape: stadium, label: "Results collection" }
+    B --> G[Limit]
+    G --> H@{ shape: stadium, label: "Results collection" }
+    B --> I[Count]
+    I --> J@{ shape: stadium, label: "Results count" }
 ```
 
 <style>
@@ -161,7 +164,8 @@ docs = client.collection("books").query(
           [0.1, 0.2, 0.3, ...] # embedding for "animal"
         )
     )
-    .topk(field("title_similarity"), 10)
+    .sort(field("title_similarity"), False)
+    .limit(10)
 )
 
 # Example result:
@@ -231,7 +235,8 @@ docs = client.collection("books").query(
         text_score=fn.bm25_score(),
     )
     .filter(match("Good")) # must include a match predicate
-    .topk(field("text_score"), 10)
+    .sort(field("text_score"), False)
+    .limit(10)
 )
 
 # Example result:
@@ -259,7 +264,8 @@ const results = await client.collection("books").query(
     text_score: fn.bm25Score(),
   })
     .filter(match("Good"))
-    .topk(field("text_score"), 10)
+    .sort(field("text_score"), false)
+    .limit(10)
 );
 
 // Example result:
@@ -295,7 +301,8 @@ docs = client.collection("books").query(
         "title",
         title_similarity=fn.semantic_similarity("title", "animal"),
     )
-    .topk(field("title_similarity"), 10)
+    .sort(field("title_similarity"), False)
+    .limit(10)
 )
 
 # Example result:
@@ -322,7 +329,8 @@ const docs = await client.collection("books").query(
     title: field("title"),
     title_similarity: fn.semanticSimilarity("title", "animal"),
   })
-    .topk(field("title_similarity"), 10)
+    .sort(field("title_similarity"), false)
+    .limit(10)
 );
 
 // Example result:
@@ -750,11 +758,10 @@ Otherwise, the scoring expression is unchanged (multiplied by 1).
 ```python Python
 select(
   summary_distance=fn.vector_distance("summary_embedding", [2.3] * 16)
-).topk(
+).sort(
   field("summary_distance").boost(field("summary").match_all("deep learning"), 1.5),
-  10,
-  false
-)
+  False
+).limit(10)
 # this boost expression is equivalent to
 # field("summary_distance") * (field("summary").match_all("deep learning").choose(1.5, 1.0)),
 ```
@@ -763,11 +770,10 @@ select(
 ```js Javascript
 select({
   summary_distance: fn.vectorDistance("summary_embedding", Array(16).fill(2.3)),
-}).topk(
+}).sort(
   field("summary_distance").boost(field("summary").matchAll("deep learning"), 1.5),
-  10,
   false
-)
+).limit(10)
 // this boost expression is equivalent to
 // field("summary_distance").mul(field("summary").matchAll("deep learning").choose(1.5, 1.0)),
 ```
@@ -1454,22 +1460,28 @@ select({
 
 ## Collection
 
-All queries **must** have a collection stage. Currently, we only support `topk()` and `count()` collectors.
+All queries **must** have a collection stage. Currently, we only support the `limit()` and `count()` collectors.
 
-### topk
+### sort and limit
 
-Use the `topk()` function to return the top `k` results. The `topk()` function accepts the following parameters:
+The `limit()` collector is typically used in conjunction with `sort()`.
+
+Use the `sort()` function to specify the sorting order and then use the `limit()` function to specify the number of results to return.
+
+The `sort()` function accepts the following parameters:
 
 <ParamField path="expr" type="LogicalExpression" required="true">
   The logical expression to sort the results by.
 </ParamField>
 
-<ParamField path="k" type="number" required="true">
-  The number of results to return.
-</ParamField>
-
 <ParamField path="asc" type="boolean" required="false">
   Whether to sort the results in ascending order.
+</ParamField>
+
+The `limit()` function accepts the following parameter:
+
+<ParamField path="k" type="number" required="true">
+  The number of results to return.
 </ParamField>
 
 To get the top 10 results with the highest `title_similarity`, you can use the following query:
@@ -1477,12 +1489,34 @@ To get the top 10 results with the highest `title_similarity`, you can use the f
 <CodeGroup>
 
 ```python Python
-.topk(field("title_similarity"), 10, asc=False)
+.sort(field("title_similarity"), asc=False)
+.limit(10)
 ```
 
 
 ```typescript Javascript
-.topk(field("title_similarity"), 10, false)
+.sort(field("title_similarity"), false)
+.limit(10)
+```
+
+</CodeGroup>
+
+### limit
+
+Using `limit()` without `sort()` will return results in an undefined order.
+
+This is typically useful to debug queries during development.
+
+<CodeGroup>
+
+```python Python
+select("title", "title_similarity")
+.limit(10)
+```
+
+```js Javascript
+select({ title: field("title"), title_similarity: field("title_similarity") })
+.limit(10)
 ```
 
 </CodeGroup>
@@ -1553,7 +1587,8 @@ lsn = client.collection("books").upsert([
 results = client.collection("books").query(
     select("title", "author", "year")
     .filter(field("author") == "George Orwell")
-    .topk(field("year"), 10),
+    .sort(field("year"), False),
+    .limit(10),
     lsn=lsn
 )
 ```
@@ -1568,7 +1603,8 @@ const lsn = await client.collection("books").upsert([
 const results = await client.collection("books").query(
   select({ title: field("title"), author: field("author"), year: field("year") })
   .filter(field("author").eq("George Orwell"))
-  .topk(field("title"), 10),
+  .sort(field("title"), false),
+  .limit(10)
   { lsn: lsn }
 )
 ```

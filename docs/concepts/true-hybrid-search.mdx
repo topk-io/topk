@@ -106,7 +106,8 @@ docs = client.collection("articles").query(
         text_score=fn.bm25_score(),
     )
     .filter(match("carbon") | match("renewable energy"))  # Ensure keyword relevance
-    .topk(field("content_similarity") * 0.6 + field("text_score") * 0.4, 10)
+    .sort(field("content_similarity") * 0.6 + field("text_score") * 0.4, False)
+    .limit(10)
 )
 ```
 
@@ -124,10 +125,11 @@ const docs = await client.collection("articles").query(
     text_score: fn.bm25Score(),
   })
     .filter(match("carbon").or(match("renewable energy"))) // Ensure keyword relevance
-    .topk(
+    .sort(
       field("content_similarity").mul(0.6).add(field("text_score").mul(0.4)),
-      10
+      false
     )
+    .limit(10)
 );
 ```
 
@@ -137,7 +139,7 @@ Let's break down the example above:
 
 - We retrieve documents based on semantic meaning (`content_similarity`) and keyword matching (`text_score`).
 - The `filter()` ensures that documents contain at least one relevant keyword.
-- The `topk()` function weights the scores, prioritizing semantic meaning (60%) while still considering keyword matches (40%).
+- The `sort()` function weights the scores, prioritizing semantic meaning (60%) while still considering keyword matches (40%).
 
 This **balances precision and recall**, capturing both **exact keyword matches** and **meaningful context**.
 
@@ -164,7 +166,8 @@ docs = client.collection("books").query(
     # Filtering by metadata
     .filter(field("published_year") > 1980)
     # Return top 10 documents with the highest combined score
-    .topk(field("text_score") * 0.2 + field("title_similarity") * 0.8, 10)
+    .sort(field("text_score") * 0.2 + field("title_similarity") * 0.8, False)
+    .limit(10)
     # Rerank the documents
     .rerank()
 )
@@ -182,10 +185,11 @@ const docs = await client.collection("books").query(
   })
     .filter(match("great"))
     .filter(field("published_year").gt(1980))
-    .topk(
+    .sort(
       field("text_score").mul(0.2).add(field("title_similarity").mul(0.8)),
-      10
+      false
     )
+    .limit(10)
     .rerank()
 );
 ```
@@ -243,7 +247,8 @@ docs = client.collection("documents").query(
     select(
         content_score=fn.semantic_similarity("content", "machine learning applications"),
     )
-    .topk(0.8 * field("importance") + 0.2 * field("content_score"), 10)
+    .sort(0.8 * field("importance") + 0.2 * field("content_score"), False)
+    .limit(10)
 )
 ```
 
@@ -257,10 +262,10 @@ const docs = await client.collection("documents").query(
       "content",
       "machine learning applications"
     ),
-  }).topk(
+  }).sort(
     field("importance").mul(0.8).add(field("content_score").mul(0.2)),
-    10
-  )
+    false
+  ).limit(10)
 );
 ```
 
@@ -269,5 +274,5 @@ const docs = await client.collection("documents").query(
 Let's break down the example above:
 
 1. First, we retrieve documents based on both semantic similarity (`content_score`) and precomputed importance (`importance_score`).
-2. Then, the `topk()` function gives 80% weight to content score and 20% weight to document importance.
+2. Then, the `sort()` function gives 80% weight to content score and 20% weight to document importance.
 3. Sorting by a custom scoring function allows us to boost more critical documents, ensuring that highly relevant but less "important" content doesn't dominate.

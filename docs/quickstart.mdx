@@ -132,7 +132,8 @@ results = client.collection("books").query(
         title_similarity=fn.semantic_similarity("title", "classic American novel"),
     )
     # Sort results by `title_similarity` (computed in the `select()` function above), and limit to top 10 results
-    .topk(field("title_similarity"), 10)
+    .sort(field("title_similarity"), False)
+    .limit(10)
     # Rerank results using the built-in reranking model
     .rerank()
 )
@@ -152,7 +153,8 @@ const results = await client.collection("books").query(
     ),
   })
     // Sort results by `title_similarity` (computed in `select()` above), and limit to top 10 results
-    .topk(field("title_similarity"), 10)
+    .sort(field("title_similarity"), false)
+    .limit(10)
     // Rerank results using TopK's built-in reranking model
     .rerank()
 );
