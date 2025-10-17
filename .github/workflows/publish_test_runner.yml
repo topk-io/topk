@@ -22,8 +22,6 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: true
 
       - name: Set version
         id: version
@@ -47,8 +45,6 @@ jobs:
       FORCE_COLOR: 1
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: true
 
       - uses: earthly/actions-setup@v1
         with:
