@@ -30,9 +30,7 @@ impl Client {
     ) -> Self {
         let runtime = Arc::new(Runtime::new().expect("failed to create runtime"));
 
-        let retry_config = retry_config.map(|c| c.config.unwrap());
-
-        let client = topk_client(api_key, region, host, https, retry_config);
+        let client = topk_client(api_key, region, host, https, retry_config.map(|c| c.config));
 
         Self { runtime, client }
     }

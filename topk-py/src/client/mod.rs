@@ -72,14 +72,14 @@ impl RetryConfig {
 }
 
 pub struct NativeRetryConfig {
-    pub(crate) config: Option<RetryConfig>,
+    pub(crate) config: RetryConfig,
 }
 
 impl<'py> FromPyObject<'py> for NativeRetryConfig {
     fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
         if obj.downcast_exact::<RetryConfig>().is_ok() {
             return Ok(NativeRetryConfig {
-                config: Some(obj.extract::<RetryConfig>()?),
+                config: obj.extract::<RetryConfig>()?,
             });
         }
 
@@ -100,14 +100,12 @@ impl<'py> FromPyObject<'py> for NativeRetryConfig {
                     .map(|v| v.extract::<NativeBackoffConfig>())
                     .transpose()?;
 
-                let backoff = backoff.map(|b| b.config.unwrap());
-
                 Ok(NativeRetryConfig {
-                    config: Some(RetryConfig {
+                    config: RetryConfig {
                         max_retries,
                         timeout,
-                        backoff,
-                    }),
+                        backoff: backoff.map(|b| b.config),
+                    },
                 })
             }
             _ => Err(PyTypeError::new_err(
@@ -157,14 +155,14 @@ impl BackoffConfig {
 }
 
 pub struct NativeBackoffConfig {
-    pub(crate) config: Option<BackoffConfig>,
+    pub(crate) config: BackoffConfig,
 }
 
 impl<'py> FromPyObject<'py> for NativeBackoffConfig {
     fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
         if obj.downcast_exact::<BackoffConfig>().is_ok() {
             return Ok(NativeBackoffConfig {
-                config: Some(obj.extract::<BackoffConfig>()?),
+                config: obj.extract::<BackoffConfig>()?,
             });
         }
 
@@ -186,11 +184,11 @@ impl<'py> FromPyObject<'py> for NativeBackoffConfig {
                     .transpose()?;
 
                 Ok(NativeBackoffConfig {
-                    config: Some(BackoffConfig {
+                    config: BackoffConfig {
                         base,
                         init_backoff,
                         max_backoff,
-                    }),
+                    },
                 })
             }
             _ => Err(PyTypeError::new_err(

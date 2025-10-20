@@ -26,9 +26,7 @@ impl AsyncClient {
         https: bool,
         retry_config: Option<NativeRetryConfig>,
     ) -> Self {
-        let retry_config = retry_config.map(|c| c.config.unwrap());
-
-        let client = topk_client(api_key, region, host, https, retry_config);
+        let client = topk_client(api_key, region, host, https, retry_config.map(|c| c.config));
 
         Self { client }
     }
