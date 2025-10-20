@@ -218,7 +218,9 @@ async fn test_query_select_f32_vector(ctx: &mut ProjectTestContext) {
         .await
         .expect_err("expected query to fail");
 
-    assert!(matches!(err, Error::InvalidArgument(_)));
+    assert!(
+        matches!(err, Error::InvalidArgument(_) if err.to_string().contains("Selecting indexed vector fields in query is not supported.")),
+    );
 }
 
 #[test_context(ProjectTestContext)]
@@ -237,7 +239,9 @@ async fn test_query_select_u8_vector(ctx: &mut ProjectTestContext) {
         .await
         .expect_err("expected query to fail");
 
-    assert!(matches!(err, Error::InvalidArgument(_)));
+    assert!(
+        matches!(err, Error::InvalidArgument(_) if err.to_string().contains("Selecting indexed vector fields in query is not supported.")),
+    );
 }
 
 #[test_context(ProjectTestContext)]
