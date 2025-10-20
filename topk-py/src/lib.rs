@@ -50,6 +50,9 @@ pub fn topk_sdk(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<client::r#async::AsyncCollectionsClient>()?;
     m.add_class::<client::r#async::AsyncCollectionClient>()?;
 
+    m.add_class::<client::RetryConfig>()?;
+    m.add_class::<client::BackoffConfig>()?;
+
     // classes
     m.add_class::<data::collection::Collection>()?;
 

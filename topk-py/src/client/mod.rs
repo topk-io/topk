@@ -42,6 +42,7 @@ impl From<HashMap<String, topk_rs::proto::v1::data::Value>> for Document {
     }
 }
 
+#[pyclass]
 #[derive(Debug, Clone)]
 pub struct RetryConfig {
     /// Maximum number of retries
@@ -54,8 +55,34 @@ pub struct RetryConfig {
     pub backoff: Option<BackoffConfig>,
 }
 
-impl<'py> FromPyObject<'py> for RetryConfig {
+#[pymethods]
+impl RetryConfig {
+    #[new]
+    pub fn new(
+        max_retries: Option<usize>,
+        timeout: Option<u64>,
+        backoff: Option<BackoffConfig>,
+    ) -> Self {
+        Self {
+            max_retries,
+            timeout,
+            backoff,
+        }
+    }
+}
+
+pub struct NativeRetryConfig {
+    pub(crate) config: Option<RetryConfig>,
+}
+
+impl<'py> FromPyObject<'py> for NativeRetryConfig {
     fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+        if obj.downcast_exact::<RetryConfig>().is_ok() {
+            return Ok(NativeRetryConfig {
+                config: Some(obj.extract::<RetryConfig>()?),
+            });
+        }
+
         match obj.downcast_exact::<PyDict>() {
             Ok(dict) => {
                 let max_retries = dict
@@ -70,16 +97,22 @@ impl<'py> FromPyObject<'py> for RetryConfig {
 
                 let backoff = dict
                     .get_item("backoff")?
-                    .map(|v| v.extract::<BackoffConfig>())
+                    .map(|v| v.extract::<NativeBackoffConfig>())
                     .transpose()?;
 
-                Ok(RetryConfig {
-                    max_retries,
-                    timeout,
-                    backoff,
+                let backoff = backoff.map(|b| b.config.unwrap());
+
+                Ok(NativeRetryConfig {
+                    config: Some(RetryConfig {
+                        max_retries,
+                        timeout,
+                        backoff,
+                    }),
                 })
             }
-            _ => Err(PyTypeError::new_err("`RetryConfig` must be a dict")),
+            _ => Err(PyTypeError::new_err(
+                "`RetryConfig` must be a dict or a `RetryConfig` instance",
+            )),
         }
     }
 }
@@ -98,6 +131,7 @@ impl Into<topk_rs::retry::RetryConfig> for RetryConfig {
     }
 }
 
+#[pyclass]
 #[derive(Debug, Clone)]
 pub struct BackoffConfig {
     /// Base for the backoff
@@ -110,8 +144,30 @@ pub struct BackoffConfig {
     pub max_backoff: Option<u64>,
 }
 
-impl<'py> FromPyObject<'py> for BackoffConfig {
+#[pymethods]
+impl BackoffConfig {
+    #[new]
+    pub fn new(base: Option<u32>, init_backoff: Option<u64>, max_backoff: Option<u64>) -> Self {
+        Self {
+            base,
+            init_backoff,
+            max_backoff,
+        }
+    }
+}
+
+pub struct NativeBackoffConfig {
+    pub(crate) config: Option<BackoffConfig>,
+}
+
+impl<'py> FromPyObject<'py> for NativeBackoffConfig {
     fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+        if obj.downcast_exact::<BackoffConfig>().is_ok() {
+            return Ok(NativeBackoffConfig {
+                config: Some(obj.extract::<BackoffConfig>()?),
+            });
+        }
+
         match obj.downcast_exact::<PyDict>() {
             Ok(dict) => {
                 let base = dict
@@ -129,16 +185,21 @@ impl<'py> FromPyObject<'py> for BackoffConfig {
                     .map(|v| v.extract::<u64>())
                     .transpose()?;
 
-                Ok(BackoffConfig {
-                    base,
-                    init_backoff,
-                    max_backoff,
+                Ok(NativeBackoffConfig {
+                    config: Some(BackoffConfig {
+                        base,
+                        init_backoff,
+                        max_backoff,
+                    }),
                 })
             }
-            _ => Err(PyTypeError::new_err("`BackoffConfig` must be a dict")),
+            _ => Err(PyTypeError::new_err(
+                "`BackoffConfig` must be a dict or a `BackoffConfig` instance",
+            )),
         }
     }
 }
+
 impl Into<topk_rs::retry::BackoffConfig> for BackoffConfig {
     fn into(self) -> topk_rs::retry::BackoffConfig {
         topk_rs::retry::BackoffConfig {

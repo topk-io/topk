@@ -15,7 +15,7 @@ class Client:
         region: builtins.str,
         host: builtins.str = "topk.io",
         https: builtins.bool = True,
-        retry_config: typing.Optional[RetryConfig] = None,
+        retry_config: typing.Union[RetryConfig, dict[builtins.str, typing.Any], None] = None,
     ) -> None: ...
     def collection(self, collection: builtins.str) -> CollectionClient:
         """
@@ -39,7 +39,7 @@ class AsyncClient:
         region: builtins.str,
         host: builtins.str = "topk.io",
         https: builtins.bool = True,
-        retry_config: typing.Optional[RetryConfig] = None,
+        retry_config: RetryConfig | dict[builtins.str, typing.Any] | None = None,
     ) -> None: ...
     def collection(self, collection: builtins.str) -> AsyncCollectionClient:
         """Get an async client for a specific collection."""
@@ -258,17 +258,57 @@ class ConsistencyLevel(Enum):
 class RetryConfig:
     """
     Configuration for retry behavior.
+
+    By default, retries occur in two situations:
+    1. When the server requests the client to reduce its request rate, resulting in a `SlowDownError` (https://docs.topk.io/sdk/topk-py/error#slowdownerror).
+    2. When using the query(..., lsn=N) to wait for writes to be available.
     """
 
+    def __init__(
+        self,
+        max_retries: typing.Optional[builtins.int] = None,
+        timeout: typing.Optional[builtins.int] = None,
+        backoff: typing.Union[BackoffConfig, None] = None,
+    ) -> None: ...
+
     max_retries: typing.Optional[builtins.int]
+    """
+    Maximum number of retries to attempt.
+    Default is 3 retries.
+    """
     timeout: typing.Optional[builtins.int]
+    """
+    The total timeout for the retry chain in milliseconds.
+    Default is 30,000 milliseconds (30 seconds).
+    """
     backoff: typing.Optional[BackoffConfig]
+    """
+    The backoff configuration for the client.
+    """
 
 class BackoffConfig:
     """
     Configuration for backoff behavior in retries.
     """
 
+    def __init__(
+        self,
+        base: typing.Optional[builtins.int] = None,
+        init_backoff: typing.Optional[builtins.int] = None,
+        max_backoff: typing.Optional[builtins.int] = None,
+    ) -> None: ...
+
     base: typing.Optional[builtins.int]
+    """
+    The base for the backoff. Default is 2x backoff.
+    """
     init_backoff: typing.Optional[builtins.int]
+    """
+    The initial backoff in milliseconds.
+    Default is 100 milliseconds.
+    """
     max_backoff: typing.Optional[builtins.int]
+    """
+    The maximum backoff in milliseconds.
+    Default is 10,000 milliseconds (10 seconds).
+    """

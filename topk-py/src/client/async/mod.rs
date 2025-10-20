@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use pyo3::{prelude::*, PyResult};
 
-use crate::client::{topk_client, RetryConfig};
+use crate::client::{topk_client, NativeRetryConfig};
 
 mod collection;
 mod collections;
@@ -24,8 +24,10 @@ impl AsyncClient {
         region: String,
         host: String,
         https: bool,
-        retry_config: Option<RetryConfig>,
+        retry_config: Option<NativeRetryConfig>,
     ) -> Self {
+        let retry_config = retry_config.map(|c| c.config.unwrap());
+
         let client = topk_client(api_key, region, host, https, retry_config);
 
         Self { client }
