@@ -6,7 +6,7 @@ from . import query, schema
 
 class Client:
     """
-    Client for interacting with the TopK API. For available regions see: https://docs.topk.io/regions.
+    Client for interacting with the TopK API. For available regions see https://docs.topk.io/regions
     """
 
     def __init__(
@@ -30,7 +30,7 @@ class Client:
 
 class AsyncClient:
     """
-    Async client for interacting with the TopK API. For available regions see: https://docs.topk.io/regions.
+    Async client for interacting with the TopK API. For available regions see https://docs.topk.io/regions
     """
 
     def __init__(
