@@ -430,18 +430,24 @@ def rewrite_doc_links(docstring: str, base_domain: str = "docs.topk.io") -> str:
     def replace_link(match):
         url = match.group(0)
 
-        # Check if the URL is already inside parentheses (part of a markdown link)
-        start_pos = match.start()
-        if start_pos > 0 and docstring[start_pos - 1] == '(':
-            return url  # leave links already in parentheses untouched
-
         parsed = urlparse(url)
         if parsed.netloc != base_domain:
             return url  # leave other domains untouched
 
+        # Check if the URL is already inside parentheses (part of a markdown link)
+        start_pos = match.start()
+        if start_pos > 0 and docstring[start_pos - 1] == '(':
+            # For links inside parentheses, just return the relative path with fragment
+            path = parsed.path.rstrip('/')
+            if parsed.fragment:
+                path += f"#{parsed.fragment}"
+            return path
+
         # Extract just the path (e.g., "/regions") and use the last segment as link text
         path = parsed.path.rstrip('/')
-        link_text = path.split('/')[-1] or path
+        if parsed.fragment:
+            path += f"#{parsed.fragment}"
+        link_text = path.split('/')[-1].split('#')[0] or path
         return f"[{link_text}]({path})"
 
     return re.sub(r"https?://[^\s)]+", replace_link, docstring)

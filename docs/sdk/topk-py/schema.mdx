@@ -92,7 +92,7 @@ Create an index on a field.
 text() -> FieldSpec
 ```
 
-Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `text` values.
+Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `text` values.
 
     Example:
 
@@ -130,7 +130,7 @@ Create an integer field specification.
 float() -> FieldSpec
 ```
 
-Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `float` values.
+Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `float` values.
 
     Example:
 
@@ -154,7 +154,7 @@ Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for
 bool() -> FieldSpec
 ```
 
-Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `bool` values.
+Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `bool` values.
 
     Example:
 
@@ -178,7 +178,7 @@ Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for
 f32_vector(dimension: int) -> FieldSpec
 ```
 
-Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `f32_vector` values.
+Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `f32_vector` values.
 
     Example:
 
@@ -208,7 +208,7 @@ Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for
 u8_vector(dimension: int) -> FieldSpec
 ```
 
-Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `u8_vector` values.
+Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `u8_vector` values.
 
     Example:
 
@@ -238,7 +238,7 @@ Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for
 i8_vector(dimension: int) -> FieldSpec
 ```
 
-Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `i8_vector` values.
+Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `i8_vector` values.
 
     Example:
 
@@ -268,7 +268,7 @@ Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for
 binary_vector(dimension: int) -> FieldSpec
 ```
 
-Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `binary_vector` values.
+Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `binary_vector` values.
 
     Example:
 
@@ -298,7 +298,7 @@ Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for
 f32_sparse_vector() -> FieldSpec
 ```
 
-Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `f32_sparse_vector` values.
+Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `f32_sparse_vector` values.
 
     Note: Sparse vectors use u32 dimension indices to support dictionaries of up to 2^32 - 1 terms.
 
@@ -324,7 +324,7 @@ Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for
 u8_sparse_vector() -> FieldSpec
 ```
 
-Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `u8_sparse_vector` values.
+Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `u8_sparse_vector` values.
 
     Note: Sparse vectors use u32 dimension indices to support dictionaries of up to 2^32 - 1 terms.
 
@@ -350,7 +350,7 @@ Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for
 bytes() -> FieldSpec
 ```
 
-Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `bytes` values.
+Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `bytes` values.
 
     Example:
 
@@ -374,7 +374,7 @@ Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for
 list(value_type: Literal['text', 'integer', 'float']) -> FieldSpec
 ```
 
-Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `list` values.
+Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `list` values.
 
     Example:
 
@@ -404,7 +404,7 @@ Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for
 vector_index(metric: Literal['cosine', 'euclidean', 'dot_product', 'hamming']) -> FieldIndex
 ```
 
-Create a [FieldIndex](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `vector_index` values.
+Create a [FieldIndex](/sdk/topk-py/schema#FieldSpec) type for `vector_index` values.
 
     Supported `metric`s:
         - `euclidean` (only dense vectors)
@@ -440,7 +440,7 @@ Create a [FieldIndex](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type fo
 keyword_index() -> FieldIndex
 ```
 
-Create a [FieldIndex](https://docs.topk.io/sdk/topk-py/schema#FieldIndex) type for `keyword_index` values.
+Create a [FieldIndex](/sdk/topk-py/schema#FieldIndex) type for `keyword_index` values.
 
     Example:
 
@@ -464,7 +464,7 @@ Create a [FieldIndex](https://docs.topk.io/sdk/topk-py/schema#FieldIndex) type f
 semantic_index(model: str) -> FieldIndex
 ```
 
-Create a [FieldIndex](https://docs.topk.io/sdk/topk-py/schema#FieldIndex) type for `semantic_index` values.
+Create a [FieldIndex](/sdk/topk-py/schema#FieldIndex) type for `semantic_index` values.
 
     Supported `model`s:
         - `cohere/embed-english-v3`

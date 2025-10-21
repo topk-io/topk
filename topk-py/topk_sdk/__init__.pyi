@@ -15,7 +15,7 @@ class Client:
         region: builtins.str,
         host: builtins.str = "topk.io",
         https: builtins.bool = True,
-        retry_config: RetryConfig | dict[builtins.str, typing.Any] | None = None,
+        retry_config: typing.Optional[RetryConfig | dict[builtins.str, typing.Any]] = None,
     ) -> None: ...
     def collection(self, collection: builtins.str) -> CollectionClient:
         """
@@ -39,7 +39,7 @@ class AsyncClient:
         region: builtins.str,
         host: builtins.str = "topk.io",
         https: builtins.bool = True,
-        retry_config: RetryConfig | dict[builtins.str, typing.Any] | None = None,
+        retry_config: typing.Optional[RetryConfig | dict[builtins.str, typing.Any]] = None,
     ) -> None: ...
     def collection(self, collection: builtins.str) -> AsyncCollectionClient:
         """Get an async client for a specific collection."""
@@ -260,7 +260,7 @@ class RetryConfig:
     Configuration for retry behavior.
 
     By default, retries occur in two situations:
-    1. When the server requests the client to reduce its request rate, resulting in a `SlowDownError` (https://docs.topk.io/sdk/topk-py/error#slowdownerror).
+    1. When the server requests the client to reduce its request rate, resulting in a [SlowDownError](https://docs.topk.io/sdk/topk-py/error#slowdownerror).
     2. When using the `query(..., lsn=N)` to wait for writes to be available.
     """
 
@@ -268,7 +268,7 @@ class RetryConfig:
         self,
         max_retries: typing.Optional[builtins.int] = None,
         timeout: typing.Optional[builtins.int] = None,
-        backoff: typing.Union[BackoffConfig, None] = None,
+        backoff: typing.Optional[BackoffConfig] = None,
     ) -> None: ...
 
     max_retries: typing.Annotated[typing.Optional[builtins.int], "Maximum number of retries to attempt. Default is 3 retries."]
