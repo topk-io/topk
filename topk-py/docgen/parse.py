@@ -186,7 +186,6 @@ def format_type_annotation(annotation) -> TypeAnnotation:
 
 def extract_docstring(node) -> Optional[str]:
     """Extract docstring from a node."""
-
     if (
         isinstance(node, (ast.FunctionDef, ast.ClassDef))
         and node.body
@@ -314,7 +313,6 @@ def parse_class(class_node: ast.ClassDef) -> Class:
             if type_annotation.name == "Annotated":
                 type_annotation_docstring = type_annotation.generic_args[1].name.strip("'")
                 type_annotation = type_annotation.generic_args[0]
-                # type_annotation_docstring = type_annotation.generic_args[1].name
             else:
                 type_annotation_docstring = None
 
