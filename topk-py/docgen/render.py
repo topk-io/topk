@@ -427,7 +427,7 @@ def rewrite_doc_links(docstring: str, base_domain: str = "docs.topk.io") -> str:
     Returns:
         The text with rewritten links.
     """
-    def replace_link(match):
+    def replace_link(match: re.Match[str]) -> str:
         url = match.group(0)
 
         parsed = urlparse(url)
