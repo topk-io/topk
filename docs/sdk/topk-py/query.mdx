@@ -596,7 +596,7 @@ Adds a filter stage to the query.
 
 | Parameter | Type |
 | --------- | ---- |
-| `expr` | [`LogicalExpr`](#logicalexpr) | [`TextExpr`](#textexpr) |
+| `expr` | [`LogicalExpr`](#logicalexpr) &#124; [`TextExpr`](#textexpr) |
 
 **Returns**
 
@@ -750,7 +750,7 @@ Calculate the vector distance between a field and a query vector.
 | Parameter | Type |
 | --------- | ---- |
 | `field` | str |
-| `vector` | list[int] | list[float] | dict[int, float] | dict[int, int] | [`topk_sdk.data.SparseVector`](/sdk/topk-py/data#sparsevector) | [`topk_sdk.data.List`](/sdk/topk-py/data#list) |
+| `vector` | list[int] &#124; list[float] &#124; dict[int, float] &#124; dict[int, int] &#124; [`topk_sdk.data.SparseVector`](/sdk/topk-py/data#sparsevector) &#124; [`topk_sdk.data.List`](/sdk/topk-py/data#list) |
 | `skip_refine` | bool |
 
 **Returns**
@@ -893,7 +893,7 @@ Creates a new query with a filter stage.
 
 | Parameter | Type |
 | --------- | ---- |
-| `expr` | [`LogicalExpr`](#logicalexpr) | [`TextExpr`](#textexpr) |
+| `expr` | [`LogicalExpr`](#logicalexpr) &#124; [`TextExpr`](#textexpr) |
 
 **Returns**
 
@@ -940,7 +940,7 @@ Perform a keyword search for documents that contain specific keywords or phrases
 | Parameter | Type |
 | --------- | ---- |
 | `token` | str |
-| `field` | str | None |
+| `field` | str &#124; None |
 | `weight` | float |
 | `all` | bool |
 

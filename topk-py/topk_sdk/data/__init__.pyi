@@ -51,7 +51,7 @@ def u8_vector(data: builtins.list[int]) -> List:
 
 def i8_vector(data: builtins.list[int]) -> List:
     """
-    Create a [List](https://docs.topk.io/sdk/topk-py/data#List) type containing an 8-bit signed integer vector. This function is an alias for [i8_list()](https://docs.topk.io/sdk/topk-py/data#i8-list).
+    Create a [List](https://docs.topk.io/sdk/topk-py/data#List) type containing an 8-bit signed integer vector.
 
     Example:
 
@@ -65,7 +65,7 @@ def i8_vector(data: builtins.list[int]) -> List:
 
 def binary_vector(data: builtins.list[int]) -> List:
     """
-    Create a [List](https://docs.topk.io/sdk/topk-py/data#List) type containing a binary vector. This function is an alias for [binary_list()](https://docs.topk.io/sdk/topk-py/data#binary-list).
+    Create a [List](https://docs.topk.io/sdk/topk-py/data#List) type containing a binary vector.
 
     Example:
 
@@ -79,7 +79,7 @@ def binary_vector(data: builtins.list[int]) -> List:
 
 def f32_sparse_vector(data: builtins.dict[int, float]) -> SparseVector:
     """
-    Create a [SparseVector](https://docs.topk.io/sdk/topk-py/data#SparseVector) type containing a 32-bit float sparse vector. This function is an alias for [f32_sparse_list()](https://docs.topk.io/sdk/topk-py/data#f32-sparse-list).
+    Create a [SparseVector](https://docs.topk.io/sdk/topk-py/data#SparseVector) type containing a 32-bit float sparse vector.
 
     Example:
 
@@ -93,7 +93,7 @@ def f32_sparse_vector(data: builtins.dict[int, float]) -> SparseVector:
 
 def u8_sparse_vector(data: builtins.dict[int, int]) -> SparseVector:
     """
-    Create a [SparseVector](https://docs.topk.io/sdk/topk-py/data#SparseVector) type containing an 8-bit unsigned integer sparse vector. This function is an alias for [u8_sparse_list()](https://docs.topk.io/sdk/topk-py/data#u8-sparse-list).
+    Create a [SparseVector](https://docs.topk.io/sdk/topk-py/data#SparseVector) type containing an 8-bit unsigned integer sparse vector.
 
     Example:
 

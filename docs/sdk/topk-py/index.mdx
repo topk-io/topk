@@ -6,7 +6,7 @@ title: topk_sdk
 
 ### Client
 
-Client for interacting with the TopK API. For available regions see: https://docs.topk.io/regions.
+Client for interacting with the TopK API. For available regions see [regions](/regions)
 
 **Methods**
 
@@ -18,9 +18,19 @@ Client(
    region: str,
    host: str = "topk.io",
    https: bool = True,
-   retry_config: RetryConfig | dict[str, Any] | None = None
+   retry_config: Optional[RetryConfig | dict[str, Any]] = None
 )
 ```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `api_key` | str |
+| `region` | str |
+| `host` | str |
+| `https` | bool |
+| `retry_config` | Optional[[`RetryConfig`](#retryconfig) &#124; dict[str, Any]] |
 
 #### collection()
 
@@ -58,7 +68,7 @@ Get a client for managing collections.
 
 ### AsyncClient
 
-Async client for interacting with the TopK API. For available regions see: https://docs.topk.io/regions.
+Async client for interacting with the TopK API. For available regions see [regions](/regions)
 
 **Methods**
 
@@ -70,9 +80,19 @@ AsyncClient(
    region: str,
    host: str = "topk.io",
    https: bool = True,
-   retry_config: RetryConfig | dict[str, Any] | None = None
+   retry_config: Optional[RetryConfig | dict[str, Any]] = None
 )
 ```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `api_key` | str |
+| `region` | str |
+| `host` | str |
+| `https` | bool |
+| `retry_config` | Optional[[`RetryConfig`](#retryconfig) &#124; dict[str, Any]] |
 
 #### collection()
 
@@ -237,7 +257,7 @@ Delete documents by their IDs or using a filter expression.
 
 | Parameter | Type |
 | --------- | ---- |
-| `expr` | Sequence[str] | [`query.LogicalExpr`](/sdk/topk-py/query#logicalexpr) |
+| `expr` | Sequence[str] &#124; [`query.LogicalExpr`](/sdk/topk-py/query#logicalexpr) |
 
 **Returns**
 
@@ -378,7 +398,7 @@ Delete documents by their IDs or using a filter expression asynchronously.
 
 | Parameter | Type |
 | --------- | ---- |
-| `expr` | Sequence[str] | [`query.LogicalExpr`](/sdk/topk-py/query#logicalexpr) |
+| `expr` | Sequence[str] &#124; [`query.LogicalExpr`](/sdk/topk-py/query#logicalexpr) |
 
 **Returns**
 
@@ -392,13 +412,14 @@ Represents a collection in the TopK system.
 
 **Properties**
 
-| Property | Type |
-| -------- | ---- |
-| `name` | str |
-| `org_id` | str |
-| `project_id` | str |
-| `region` | str |
-| `schema` | dict[str, [`schema.FieldSpec`](/sdk/topk-py/schema#fieldspec)] |
+| Property | Type |             |
+| -------- | ---- | ----------- |
+| `name` | str |  |
+| `org_id` | str |  |
+| `project_id` | str |  |
+| `region` | str |  |
+| `schema` | dict[str, [`schema.FieldSpec`](/sdk/topk-py/schema#fieldspec)] |  |
+
 ### CollectionsClient
 
 Synchronous client for managing collections.
@@ -576,8 +597,16 @@ Enumeration of consistency levels for operations.
 Configuration for retry behavior.
 
     By default, retries occur in two situations:
-    1. When the server requests the client to reduce its request rate, resulting in a `SlowDownError` (https://docs.topk.io/sdk/topk-py/error#slowdownerror).
-    2. When using the query(..., lsn=N) to wait for writes to be available.
+    1. When the server requests the client to reduce its request rate, resulting in a [SlowDownError](/sdk/topk-py/error#slowdownerror).
+    2. When using the `query(..., lsn=N)` to wait for writes to be available.
+
+**Properties**
+
+| Property | Type |             |
+| -------- | ---- | ----------- |
+| `max_retries` | Optional[int] | Maximum number of retries to attempt. Default is 3 retries. |
+| `timeout` | Optional[int] | The total timetout for the retry chain in milliseconds. Default is 30,000 milliseconds (30 seconds) |
+| `backoff` | Optional[[`BackoffConfig`](#backoffconfig)] | The backoff configuration for the client. |
 
 **Methods**
 
@@ -587,13 +616,29 @@ Configuration for retry behavior.
 RetryConfig(
    max_retries: Optional[int] = None,
    timeout: Optional[int] = None,
-   backoff: BackoffConfig | None = None
+   backoff: Optional[BackoffConfig] = None
 )
 ```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `max_retries` | Optional[int] |
+| `timeout` | Optional[int] |
+| `backoff` | Optional[[`BackoffConfig`](#backoffconfig)] |
 
 ### BackoffConfig
 
 Configuration for backoff behavior in retries.
+
+**Properties**
+
+| Property | Type |             |
+| -------- | ---- | ----------- |
+| `base` | Optional[int] | The base for the backoff. Default is 2x backoff. |
+| `init_backoff` | Optional[int] | The initial backoff in milliseconds. Default is 100 milliseconds. |
+| `max_backoff` | Optional[int] | The maximum backoff in milliseconds. Default is 10,000 milliseconds (10 seconds). |
 
 **Methods**
 
@@ -606,4 +651,12 @@ BackoffConfig(
    max_backoff: Optional[int] = None
 )
 ```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `base` | Optional[int] |
+| `init_backoff` | Optional[int] |
+| `max_backoff` | Optional[int] |
 
