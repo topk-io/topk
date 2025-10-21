@@ -1,7 +1,5 @@
 from topk_sdk.query import field, fn, select, match
 
-from topk_sdk import RetryConfig
-
 from . import ProjectContext
 from .utils import dataset, doc_ids_ordered, is_sorted
 
