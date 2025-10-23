@@ -1,8 +1,11 @@
+use rstest::rstest;
 use std::collections::{HashMap, HashSet};
+use test_context::AsyncTestContext;
+use topk_rs::proto::v1::data::Query;
 
 use test_context::test_context;
 use topk_rs::data::literal;
-use topk_rs::proto::v1::data::Document;
+use topk_rs::proto::v1::data::{Document, LogicalExpr};
 use topk_rs::query::{field, fns, r#match, select};
 
 mod utils;
@@ -145,36 +148,39 @@ async fn test_query_limit_vector_distance(ctx: &mut ProjectTestContext) {
     assert_eq!(docs_limit, docs_topk);
 }
 
-#[test_context(ProjectTestContext)]
 #[tokio::test]
-async fn test_query_invalid_collectors(ctx: &mut ProjectTestContext) {
-    let collection = dataset::books::setup(ctx).await;
+#[rstest]
+#[case(
+    select([("title", field("title"))])
+        .topk(field("published_year"), 100, true)
+        .limit(100)
+)]
+#[case(
+    select([("title", field("title"))]).limit(100).count()
+)]
+#[case(
+    select([("title", field("title"))]).sort(field("published_year"), true)
+)]
+#[case(
+    select([("title", field("title"))])
+        .sort(field("published_year"), true)
+        .sort(field("published_year"), false)
+)]
+#[case(
+    select([("title", field("title"))])
+        .topk(field("published_year"), 100, true)
+        .sort(field("published_year"), true)
+)]
+async fn test_query_invalid_collectors(#[case] query: Query) {
+    let mut ctx = ProjectTestContext::setup().await;
+    let collection = dataset::books::setup(&mut ctx).await;
 
-    for query_expr in vec![
-        // topk + limit - multiple collectors
-        select([("title", field("title"))])
-            .topk(field("published_year"), 100, true)
-            .limit(100),
-        // limit + count - multiple collectors
-        select([("title", field("title"))]).limit(100).count(),
-        // no collector
-        select([("title", field("title"))]).sort(field("published_year"), true),
-        // multiple sorts
-        select([("title", field("title"))])
-            .sort(field("published_year"), true)
-            .sort(field("published_year"), false),
-        // topk + sort - effectively multiple sorts
-        select([("title", field("title"))])
-            .topk(field("published_year"), 100, true)
-            .sort(field("published_year"), true),
-    ] {
-        let err = ctx
-            .client
-            .collection(&collection.name)
-            .query(query_expr, None, None)
-            .await
-            .expect_err("should have failed");
+    let err = ctx
+        .client
+        .collection(&collection.name)
+        .query(query, None, None)
+        .await
+        .expect_err("should have failed");
 
-        assert!(matches!(err, Error::InvalidArgument(_)));
-    }
+    assert!(matches!(err, Error::InvalidArgument(_)));
 }

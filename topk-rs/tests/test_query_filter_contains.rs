@@ -1,4 +1,7 @@
+use rstest::rstest;
 use test_context::test_context;
+use test_context::AsyncTestContext;
+use topk_rs::proto::v1::data::LogicalExpr;
 use topk_rs::proto::v1::data::Value;
 use topk_rs::query::{field, filter, not, select};
 use topk_rs::{doc, Error};
@@ -474,43 +477,44 @@ async fn test_list_contains_string_field_without_keyword_index(ctx: &mut Project
     assert_doc_ids!(results, ["1984"]);
 }
 
-#[test_context(ProjectTestContext)]
 #[tokio::test]
-async fn test_list_contains_invalid_types(ctx: &mut ProjectTestContext) {
-    let collection = dataset::books::setup(ctx).await;
+#[rstest]
+#[case(
+    field("codes").contains(Value::list(vec![
+        "ISBN 978-0-547-92821-0".to_string(),
+        "ISBN 0-547-92821-2".to_string(),
+    ]))
+)]
+#[case(field("codes").contains(978))]
+#[case(field("codes").contains(Value::list(vec![978])))]
+#[case(field("codes").contains(true))]
+#[case(field("codes").contains(field("published_year")))]
+#[case(field("reprint_years").contains(field("title")))]
+#[case(field("published_year").contains(field("reprint_years")))]
+async fn test_list_contains_invalid_types(#[case] expr: LogicalExpr) {
+    let mut ctx = ProjectTestContext::setup().await;
+
+    let collection = dataset::books::setup(&mut ctx).await;
 
     // verify that invalid type combinations fail validation
-    for filter_expr in vec![
-        field("codes").contains(Value::list(vec![
-            "ISBN 978-0-547-92821-0".to_string(),
-            "ISBN 0-547-92821-2".to_string(),
-        ])),
-        field("codes").contains(978),
-        field("codes").contains(Value::list(vec![978])),
-        field("codes").contains(true),
-        field("codes").contains(field("published_year")),
-        field("reprint_years").contains(field("title")),
-        field("published_year").contains(field("reprint_years")),
-    ] {
-        let err = ctx
-            .client
-            .collection(&collection.name)
-            .query(
-                select([
-                    ("_id", field("_id")),
-                    ("title", field("title")),
-                    ("codes", field("codes")),
-                ])
-                .filter(filter_expr)
-                .topk(field("published_year"), 100, true),
-                None,
-                None,
-            )
-            .await
-            .expect_err("should have failed");
+    let err = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([
+                ("_id", field("_id")),
+                ("title", field("title")),
+                ("codes", field("codes")),
+            ])
+            .filter(expr)
+            .topk(field("published_year"), 100, true),
+            None,
+            None,
+        )
+        .await
+        .expect_err("should have failed");
 
-        assert!(matches!(err, Error::InvalidArgument(_)));
-    }
+    assert!(matches!(err, Error::InvalidArgument(_)));
 }
 
 #[test_context(ProjectTestContext)]
