@@ -166,6 +166,9 @@ pub enum SchemaValidationError {
         data_type: String,
     },
 
+    #[error("invalid vector index spec for field `{field}`: {message}")]
+    InvalidVectorIndexSpec { field: String, message: String },
+
     #[error("vector field `{field}` cannot be have zero dimension")]
     VectorDimensionCannotBeZero { field: String },
 
