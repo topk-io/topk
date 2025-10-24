@@ -190,7 +190,7 @@ async fn test_query_select_vector_distance(ctx: &mut ProjectTestContext) {
         .query(
             select([(
                 "summary_distance",
-                fns::vector_distance("summary_embedding", vec![2.0f32; 16]),
+                fns::vector_distance("summary_embedding", vec![2.0f32; 19]),
             )])
             .topk(field("summary_distance"), 3, true),
             None,
@@ -204,7 +204,7 @@ async fn test_query_select_vector_distance(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-async fn test_query_select_f32_vector(ctx: &mut ProjectTestContext) {
+async fn test_query_select_indexed_vector(ctx: &mut ProjectTestContext) {
     let collection = dataset::books::setup(ctx).await;
 
     let err = ctx
@@ -220,6 +220,8 @@ async fn test_query_select_f32_vector(ctx: &mut ProjectTestContext) {
 
     assert!(
         matches!(err, Error::InvalidArgument(_) if err.to_string().contains("Selecting indexed vector fields in query is not supported.")),
+        "Got error: {:?}",
+        err
     );
 }
 

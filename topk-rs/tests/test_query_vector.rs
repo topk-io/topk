@@ -19,7 +19,7 @@ async fn test_query_vector_distance(ctx: &mut ProjectTestContext) {
             select([("title", field("title"))])
                 .select([(
                     "summary_distance",
-                    fns::vector_distance("summary_embedding", vec![2.0; 16]),
+                    fns::vector_distance("summary_embedding", vec![2.0; 19]),
                 )])
                 .topk(field("summary_distance"), 3, true),
             None,
@@ -45,7 +45,7 @@ async fn test_query_vector_distance_without_refine(ctx: &mut ProjectTestContext)
             select([("title", field("title"))])
                 .select([(
                     "summary_distance",
-                    fns::vector_distance("summary_embedding", vec![2.0; 16]).skip_refine(true),
+                    fns::vector_distance("summary_embedding", vec![2.0; 19]).skip_refine(true),
                 )])
                 .topk(field("summary_distance"), 3, true),
             None,
@@ -64,7 +64,7 @@ async fn test_query_vector_distance_without_refine(ctx: &mut ProjectTestContext)
             select([("title", field("title"))])
                 .select([(
                     "summary_distance",
-                    fns::vector_distance("summary_embedding", vec![2.34; 16]),
+                    fns::vector_distance("summary_embedding", vec![2.34; 19]),
                 )])
                 .topk(field("summary_distance"), 3, true),
             None,
@@ -91,7 +91,7 @@ async fn test_query_vector_distance_nullable(ctx: &mut ProjectTestContext) {
         .query(
             select([(
                 "summary_distance",
-                fns::vector_distance("nullable_embedding", vec![3.0f32; 16]),
+                fns::vector_distance("nullable_embedding", vec![3.0f32; 13]),
             )])
             .topk(field("summary_distance"), 3, true),
             None,
@@ -139,7 +139,7 @@ async fn test_query_vector_distance_i8_vector(ctx: &mut ProjectTestContext) {
         .query(
             select([(
                 "summary_distance",
-                fns::vector_distance("scalar_i8_embedding", vec![-10i8; 16]),
+                fns::vector_distance("scalar_i8_embedding", vec![-10i8; 97]),
             )])
             .topk(field("summary_distance"), 3, true),
             None,
