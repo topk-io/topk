@@ -5,7 +5,7 @@ use topk_rs::proto::v1::data::Query;
 
 use test_context::test_context;
 use topk_rs::data::literal;
-use topk_rs::proto::v1::data::{Document, LogicalExpr};
+use topk_rs::proto::v1::data::Document;
 use topk_rs::query::{field, fns, r#match, select};
 
 mod utils;
