@@ -13,6 +13,7 @@ impl FieldIndex {
         FieldIndex {
             index: Some(field_index::Index::VectorIndex(VectorIndex {
                 metric: metric as i32,
+                exact: false,
             })),
         }
     }

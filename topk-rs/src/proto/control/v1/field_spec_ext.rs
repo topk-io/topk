@@ -74,6 +74,7 @@ impl FieldSpec {
             index: Some(FieldIndex {
                 index: Some(field_index::Index::VectorIndex(VectorIndex {
                     metric: metric as i32,
+                    exact: false,
                 })),
             }),
         }
@@ -88,6 +89,7 @@ impl FieldSpec {
             index: Some(FieldIndex {
                 index: Some(field_index::Index::VectorIndex(VectorIndex {
                     metric: metric as i32,
+                    exact: false,
                 })),
             }),
         }
@@ -102,6 +104,7 @@ impl FieldSpec {
             index: Some(FieldIndex {
                 index: Some(field_index::Index::VectorIndex(VectorIndex {
                     metric: metric as i32,
+                    exact: false,
                 })),
             }),
         }
@@ -120,6 +123,7 @@ impl FieldSpec {
             index: Some(FieldIndex {
                 index: Some(field_index::Index::VectorIndex(VectorIndex {
                     metric: metric as i32,
+                    exact: false,
                 })),
             }),
         }
@@ -136,6 +140,7 @@ impl FieldSpec {
             index: Some(FieldIndex {
                 index: Some(field_index::Index::VectorIndex(VectorIndex {
                     metric: metric as i32,
+                    exact: false,
                 })),
             }),
         }
@@ -152,6 +157,7 @@ impl FieldSpec {
             index: Some(FieldIndex {
                 index: Some(field_index::Index::VectorIndex(VectorIndex {
                     metric: metric as i32,
+                    exact: false,
                 })),
             }),
         }

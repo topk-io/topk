@@ -91,6 +91,8 @@ enum KeywordIndexType {
 message VectorIndex {
   // Distance metric
   VectorDistanceMetric metric = 1;
+  // Use exact scoring for this index.
+  bool exact = 2;
 }
 
 enum VectorDistanceMetric {
