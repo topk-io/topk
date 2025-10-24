@@ -101,7 +101,7 @@ async fn test_query_limit_vector_distance(ctx: &mut ProjectTestContext) {
             select([("title", field("title"))])
                 .select([(
                     "summary_distance",
-                    fns::vector_distance("summary_embedding", vec![2.0; 19]),
+                    fns::vector_distance("summary_embedding", vec![2.0; 16]),
                 )])
                 .limit(100),
             None,
@@ -118,7 +118,7 @@ async fn test_query_limit_vector_distance(ctx: &mut ProjectTestContext) {
             select([("title", field("title"))])
                 .select([(
                     "summary_distance",
-                    fns::vector_distance("summary_embedding", vec![2.0; 19]).skip_refine(true),
+                    fns::vector_distance("summary_embedding", vec![2.0; 16]).skip_refine(true),
                 )])
                 .topk(field("summary_distance"), 100, true),
             None,

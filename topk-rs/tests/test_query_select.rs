@@ -190,7 +190,7 @@ async fn test_query_select_vector_distance(ctx: &mut ProjectTestContext) {
         .query(
             select([(
                 "summary_distance",
-                fns::vector_distance("summary_embedding", vec![2.0f32; 19]),
+                fns::vector_distance("summary_embedding", vec![2.0f32; 16]),
             )])
             .topk(field("summary_distance"), 3, true),
             None,

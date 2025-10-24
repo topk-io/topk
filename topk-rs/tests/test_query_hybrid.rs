@@ -20,7 +20,7 @@ async fn test_query_hybrid_vector_bm25(ctx: &mut ProjectTestContext) {
             select([
                 (
                     "summary_distance",
-                    fns::vector_distance("summary_embedding", vec![2.0f32; 19]),
+                    fns::vector_distance("summary_embedding", vec![2.0f32; 16]),
                 ),
                 ("bm25_score", fns::bm25_score()),
             ])
@@ -65,7 +65,7 @@ async fn test_query_hybrid_keyword_boost(ctx: &mut ProjectTestContext) {
             .query(
                 select([(
                     "summary_distance",
-                    fns::vector_distance("summary_embedding", vec![2.3f32; 19]),
+                    fns::vector_distance("summary_embedding", vec![2.3f32; 16]),
                 )])
                 .topk(score_expr, 3, true),
                 None,
@@ -95,11 +95,11 @@ async fn test_query_hybrid_coalesce_score(ctx: &mut ProjectTestContext) {
             select([
                 (
                     "summary_score",
-                    fns::vector_distance("summary_embedding", vec![4.1; 19]),
+                    fns::vector_distance("summary_embedding", vec![4.1; 16]),
                 ),
                 (
                     "nullable_score",
-                    fns::vector_distance("nullable_embedding", vec![4.1; 13]),
+                    fns::vector_distance("nullable_embedding", vec![4.1; 4]),
                 ),
             ])
             .topk(
@@ -115,5 +115,5 @@ async fn test_query_hybrid_coalesce_score(ctx: &mut ProjectTestContext) {
 
     // Adding the nullable_score without coalescing would exclude "pride" and "gatsby" from
     // the result set, even though they are the closest candidates based on summary_score.
-    assert_doc_ids_ordered!(&result, ["gatsby", "pride", "catcher"]);
+    assert_doc_ids_ordered!(&result, ["gatsby", "catcher", "pride"]);
 }
