@@ -182,5 +182,8 @@ async fn test_query_invalid_collectors(#[case] query: Query) {
         .await
         .expect_err("should have failed");
 
+    // Explicitly teardown the context
+    ctx.teardown().await;
+
     assert!(matches!(err, Error::InvalidArgument(_)));
 }

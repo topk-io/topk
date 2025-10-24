@@ -514,6 +514,9 @@ async fn test_list_contains_invalid_types(#[case] expr: LogicalExpr) {
         .await
         .expect_err("should have failed");
 
+    // Explicitly teardown the context
+    ctx.teardown().await;
+
     assert!(matches!(err, Error::InvalidArgument(_)));
 }
 
