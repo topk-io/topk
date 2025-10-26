@@ -99,7 +99,7 @@ async fn test_query_hybrid_coalesce_score(ctx: &mut ProjectTestContext) {
                 ),
                 (
                     "nullable_score",
-                    fns::vector_distance("nullable_embedding", vec![4.1; 16]),
+                    fns::vector_distance("nullable_embedding", vec![4.1; 4]),
                 ),
             ])
             .topk(
@@ -115,5 +115,5 @@ async fn test_query_hybrid_coalesce_score(ctx: &mut ProjectTestContext) {
 
     // Adding the nullable_score without coalescing would exclude "pride" and "gatsby" from
     // the result set, even though they are the closest candidates based on summary_score.
-    assert_doc_ids_ordered!(&result, ["gatsby", "pride", "catcher"]);
+    assert_doc_ids_ordered!(&result, ["gatsby", "catcher", "pride"]);
 }
