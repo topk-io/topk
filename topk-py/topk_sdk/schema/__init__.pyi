@@ -283,7 +283,8 @@ def semantic_index(model: str) -> FieldIndex:
 
     Supported `model`s:
         - `cohere/embed-english-v3`
-        - `cohere/embed-multilingual-v3` (default)
+        - `cohere/embed-multilingual-v3`
+        - `cohere/embed-v4` (default)
 
     TopK supports the following embedding types for Cohere models:
         - `float32`
@@ -296,7 +297,7 @@ def semantic_index(model: str) -> FieldIndex:
     from topk_sdk.schema import text, semantic_index
 
     client.collections().create("books", schema={
-        "title": text().index(semantic_index(model="cohere/embed-multilingual-v3"))
+        "title": text().index(semantic_index(model="cohere/embed-v4"))
     })
     ```
     """
