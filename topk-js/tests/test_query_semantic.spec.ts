@@ -43,7 +43,7 @@ describe("Semantic Index", () => {
     expect(
       collection.schema.title.index?.type === "SemanticIndex" &&
         collection.schema.title.index?.model
-    ).toBe("cohere/embed-multilingual-v3");
+    ).toBe("cohere/embed-v4");
     expect(
       collection.schema.title.index?.type === "SemanticIndex" &&
         collection.schema.title.index?.embeddingType
@@ -52,7 +52,7 @@ describe("Semantic Index", () => {
     expect(
       collection.schema.summary.index?.type === "SemanticIndex" &&
         collection.schema.summary.index?.model
-    ).toBe("cohere/embed-multilingual-v3");
+    ).toBe("cohere/embed-v4");
     expect(
       collection.schema.summary.index?.type === "SemanticIndex" &&
         collection.schema.summary.index?.embeddingType

@@ -812,14 +812,15 @@ export declare namespace schema {
    * import { text, semanticIndex } from "topk-js/schema";
    *
    * await client.collections().create("books", {
-   *   title: text().index(semanticIndex({ model: "cohere/embed-multilingual-v3" }))
+   *   title: text().index(semanticIndex({ model: "cohere/embed-v4" }))
    * });
    * ```
    *
    * Parameters:
    * - model: Embedding model to use for semantic search. Currently supported:
    *   - `cohere/embed-english-v3`
-   *   - `cohere/embed-multilingual-v3` (default)
+   *   - `cohere/embed-multilingual-v3`
+   *   - `cohere/embed-v4` (default)
    * - embeddingType: TopK supports the following embedding types for Cohere models:
    *   - `float32`
    *   - `uint8`
