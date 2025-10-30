@@ -9,7 +9,14 @@ on:
   workflow_dispatch:
 
 jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+    with:
+      tests: true
+    secrets: inherit
+
   python:
+    needs: [ci]
     uses: ./.github/workflows/publish_python.yml
     secrets: inherit
     permissions:
@@ -20,6 +27,7 @@ jobs:
       publish: true
 
   js:
+    needs: [ci]
     uses: ./.github/workflows/publish_js.yml
     secrets: inherit
     permissions:
@@ -29,6 +37,7 @@ jobs:
       publish: true
 
   test-runner:
+    needs: [ci]
     uses: ./.github/workflows/publish_test_runner.yml
     secrets: inherit
     permissions:
