@@ -15,7 +15,7 @@ jobs:
   rust:
     name: Test Rust
     runs-on: public-amd64
-    if: ${{ (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ready')) || (github.event_name == 'workflow_call' && contains(inputs.stack, 'rust')) }}
+    if: ${{ (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ready')) || (inputs.stack != '' && contains(inputs.stack, 'rust')) }}
     env:
       FORCE_COLOR: 1
     steps:
@@ -32,7 +32,7 @@ jobs:
   python:
     name: Test Python
     runs-on: public-amd64
-    if: ${{ (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ready')) || (github.event_name == 'workflow_call' && contains(inputs.stack, 'python')) }}
+    if: ${{ (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ready')) || (inputs.stack != '' && contains(inputs.stack, 'python')) }}
     env:
       FORCE_COLOR: 1
     steps:
@@ -49,7 +49,7 @@ jobs:
   javascript:
     name: Test JavaScript
     runs-on: public-amd64
-    if: ${{ (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ready')) || (github.event_name == 'workflow_call' && contains(inputs.stack, 'javascript')) }}
+    if: ${{ (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ready')) || (inputs.stack != '' && contains(inputs.stack, 'javascript')) }}
     env:
       FORCE_COLOR: 1
     steps:
@@ -66,6 +66,7 @@ jobs:
   all_sdks_same_version:
     name: Verify all SDKs on the same version
     runs-on: public-amd64
+    if: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -81,6 +82,7 @@ jobs:
   all_sdks_sdk_reference_docs_sync:
     name: Verify SDKs reference docs are in sync
     runs-on: public-amd64
+    if: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -108,7 +110,7 @@ jobs:
   pre_commit:
     name: Verify pre-commit hooks pass
     runs-on: public-amd64
-    if: ${{ (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ready')) || github.event_name == 'workflow_call' }}
+    if: ${{ (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ready')) || inputs.stack != '' }}
     steps:
       - uses: actions/checkout@v4
 
