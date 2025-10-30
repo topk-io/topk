@@ -3,12 +3,19 @@ name: Pull Request
 on:
   pull_request:
     types: [synchronize, opened, reopened, labeled, unlabeled]
+  workflow_call:
+    inputs:
+      stack:
+        type: string
+        description: "Stacks to test"
+        default: "rust,python,javascript"
+        required: true
 
 jobs:
   rust:
     name: Test Rust
     runs-on: public-amd64
-    if: ${{ contains(github.event.pull_request.labels.*.name, 'ready') }}
+    if: ${{ (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ready')) || (github.event_name == 'workflow_call' && contains(inputs.stack, 'rust')) }}
     env:
       FORCE_COLOR: 1
     steps:
@@ -25,7 +32,7 @@ jobs:
   python:
     name: Test Python
     runs-on: public-amd64
-    if: ${{ contains(github.event.pull_request.labels.*.name, 'ready') }}
+    if: ${{ (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ready')) || (github.event_name == 'workflow_call' && contains(inputs.stack, 'python')) }}
     env:
       FORCE_COLOR: 1
     steps:
@@ -42,7 +49,7 @@ jobs:
   javascript:
     name: Test JavaScript
     runs-on: public-amd64
-    if: ${{ contains(github.event.pull_request.labels.*.name, 'ready') }}
+    if: ${{ (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ready')) || (github.event_name == 'workflow_call' && contains(inputs.stack, 'javascript')) }}
     env:
       FORCE_COLOR: 1
     steps:
@@ -101,7 +108,7 @@ jobs:
   pre_commit:
     name: Verify pre-commit hooks pass
     runs-on: public-amd64
-    if: ${{ contains(github.event.pull_request.labels.*.name, 'ready') }}
+    if: ${{ (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ready')) || github.event_name == 'workflow_call' }}
     steps:
       - uses: actions/checkout@v4
 
