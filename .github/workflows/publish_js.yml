@@ -25,13 +25,8 @@ defaults:
         default: false
 
 jobs:
-  test:
-    uses: ./.github/workflows/workflow_pr.yml
-    with:
-      stack: "javascript"
   build:
     timeout-minutes: 30
-    needs: test
     strategy:
       fail-fast: false
       matrix:

@@ -23,12 +23,7 @@ permissions:
   contents: read
 
 jobs:
-  test:
-    uses: ./.github/workflows/workflow_pr.yml
-    with:
-      stack: "python"
   linux:
-    needs: test
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       fail-fast: false
@@ -68,7 +63,6 @@ jobs:
           path: topk-py/dist
 
   musllinux:
-    needs: test
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       fail-fast: false
@@ -104,7 +98,6 @@ jobs:
           path: topk-py/dist
 
   windows:
-    needs: test
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       fail-fast: false
@@ -146,7 +139,6 @@ jobs:
           path: topk-py/dist
 
   macos:
-    needs: test
     runs-on: ${{ matrix.platform.runner }}
     strategy:
       fail-fast: false
@@ -182,7 +174,6 @@ jobs:
           path: topk-py/dist
 
   sdist:
-    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
