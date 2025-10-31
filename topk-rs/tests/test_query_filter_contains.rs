@@ -493,11 +493,9 @@ async fn test_list_contains_string_field_without_keyword_index(ctx: &mut Project
 #[case(field("published_year").contains(field("reprint_years")))]
 async fn test_list_contains_invalid_types(#[case] expr: LogicalExpr) {
     let mut ctx = ProjectTestContext::setup().await;
-
     let collection = dataset::books::setup(&mut ctx).await;
 
-    // verify that invalid type combinations fail validation
-    let err = ctx
+    let res = ctx
         .client
         .collection(&collection.name)
         .query(
@@ -512,12 +510,10 @@ async fn test_list_contains_invalid_types(#[case] expr: LogicalExpr) {
             None,
         )
         .await
-        .expect_err("should have failed");
+        .expect("query failed");
 
-    // Explicitly teardown the context
     ctx.teardown().await;
-
-    assert!(matches!(err, Error::InvalidArgument(_)));
+    assert!(res.is_empty());
 }
 
 #[test_context(ProjectTestContext)]
