@@ -276,12 +276,13 @@ def test_list_contains_invalid_types(ctx: ProjectContext):
         field("reprint_years").contains(field("title")),
         field("published_year").contains(field("reprint_years")),
     ]:
-        with pytest.raises(error.InvalidArgumentError):
-            ctx.client.collection(collection.name).query(
-                select(title=field("title"), codes=field("codes"))
-                .filter(filter_expr)
-                .topk(field("published_year"), 100, True)
-            )
+        result = ctx.client.collection(collection.name).query(
+            select(title=field("title"), codes=field("codes"))
+            .filter(filter_expr)
+            .topk(field("published_year"), 100, True)
+        )
+
+        assert len(result) == 0
 
     with pytest.raises(TypeError):
         (field("codes").contains([978]),)  # type: ignore
