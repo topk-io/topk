@@ -5,6 +5,7 @@ use super::retry::call_with_retry;
 use crate::error::Error;
 use crate::proto::v1::data::Query;
 use crate::proto::v1::data::Stage;
+use crate::proto::v1::data::UpdateDocumentsRequest;
 use crate::proto::v1::data::{ConsistencyLevel, GetRequest};
 use crate::proto::v1::data::{
     DeleteDocumentsRequest, Document, QueryRequest, UpsertDocumentsRequest, Value,
@@ -180,6 +181,9 @@ impl CollectionClient {
         Ok(results)
     }
 
+    /// Upsert documents into the collection.
+    ///
+    /// Existing documents will be replaced, new documents will be created.
     pub async fn upsert(&self, docs: Vec<Document>) -> Result<String, Error> {
         let client =
             create_write_client(&self.config, &self.collection_name, &self.channel).await?;
@@ -205,6 +209,36 @@ impl CollectionClient {
         Ok(response.into_inner().lsn)
     }
 
+    /// Update documents in the collection.
+    ///
+    /// Existing documents will be merged with the provided fields.
+    /// Missing documents will be ignored.
+    pub async fn update(&self, docs: Vec<Document>) -> Result<String, Error> {
+        let client =
+            create_write_client(&self.config, &self.collection_name, &self.channel).await?;
+
+        let response = call_with_retry(&self.config.retry_config, || {
+            let mut client = client.clone();
+            let docs = docs.clone();
+
+            async move {
+                client
+                    .update_documents(UpdateDocumentsRequest { docs })
+                    .await
+                    .map_err(|e| match e.code() {
+                        // Explicitly map `NotFound` to `CollectionNotFound` error
+                        tonic::Code::NotFound => Error::CollectionNotFound,
+                        // Delegate other errors
+                        _ => e.into(),
+                    })
+            }
+        })
+        .await?;
+
+        Ok(response.into_inner().lsn)
+    }
+
+    /// Delete documents from the collection.
     pub async fn delete(&self, req: impl Into<DeleteDocumentsRequest>) -> Result<String, Error> {
         let client =
             create_write_client(&self.config, &self.collection_name, &self.channel).await?;
