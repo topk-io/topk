@@ -39,6 +39,7 @@ message UpdateDocumentsRequest {
 
 message UpdateDocumentsResponse {
   // Log sequence number at which the update was applied.
+  // If no updates were applied, this will be empty.
   string lsn = 1;
 }
 

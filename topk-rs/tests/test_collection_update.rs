@@ -55,6 +55,7 @@ async fn test_update_batch(ctx: &mut ProjectTestContext) {
             doc!("_id" => "2", "foo" => "bar2.2", "baz" => "foo"),
             doc!("_id" => "3", "foo" => Value::null()),
             doc!("_id" => "4", "foo" => "bar4.2"),
+            doc!("_id" => "5", "foo" => "bar5"), // missing id
         ])
         .await
         .expect("could not update document");
@@ -64,7 +65,7 @@ async fn test_update_batch(ctx: &mut ProjectTestContext) {
     let docs = ctx
         .client
         .collection(&collection.name)
-        .get(["1", "2", "3", "4"], None, Some(lsn), None)
+        .get(["1", "2", "3", "4", "5"], None, Some(lsn), None)
         .await
         .expect("could not get documents");
 
@@ -76,6 +77,52 @@ async fn test_update_batch(ctx: &mut ProjectTestContext) {
     );
     assert_eq!(docs["3"], doc!("_id" => "3").fields);
     assert_eq!(docs["4"], doc!("_id" => "4", "foo" => "bar4.2").fields);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_update_missing_id(ctx: &mut ProjectTestContext) {
+    let collection = ctx
+        .client
+        .collections()
+        .create(ctx.wrap("test"), HashMap::default())
+        .await
+        .expect("could not create collection");
+
+    // Upsert some docs
+    let lsn = ctx
+        .client
+        .collection(&collection.name)
+        .upsert(vec![
+            doc!("_id" => "1", "foo" => "bar1"),
+            doc!("_id" => "2", "foo" => "bar2"),
+        ])
+        .await
+        .expect("could not upsert document");
+
+    assert_eq!(&lsn, "1");
+
+    // Update non-existent doc
+    let new_lsn = ctx
+        .client
+        .collection(&collection.name)
+        .update(vec![doc!("_id" => "3", "foo" => "bar3")])
+        .await
+        .expect("could not update document");
+
+    assert!(new_lsn.is_empty());
+
+    // Check that no changes were made
+    let docs = ctx
+        .client
+        .collection(&collection.name)
+        .get(["1", "2", "3"], None, Some(lsn), None)
+        .await
+        .expect("could not get documents");
+
+    assert_eq!(docs.len(), 2);
+    assert_eq!(docs["1"], doc!("_id" => "1", "foo" => "bar1").fields);
+    assert_eq!(docs["2"], doc!("_id" => "2", "foo" => "bar2").fields);
 }
 
 #[test_context(ProjectTestContext)]
