@@ -35,6 +35,8 @@ message UpdateDocumentsRequest {
   // Existing documents will merged with the provided fields.
   // If a document does not exist, it will not be created.
   repeated Document docs = 1;
+  /// Fails the whole request if any of the updated documents is missing.
+  bool fail_on_missing = 2;
 }
 
 message UpdateDocumentsResponse {

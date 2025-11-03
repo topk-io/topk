@@ -213,7 +213,11 @@ impl CollectionClient {
     ///
     /// Existing documents will be merged with the provided fields.
     /// Missing documents will be ignored.
-    pub async fn update(&self, docs: Vec<Document>) -> Result<String, Error> {
+    pub async fn update(
+        &self,
+        docs: Vec<Document>,
+        fail_on_missing: bool,
+    ) -> Result<String, Error> {
         let client =
             create_write_client(&self.config, &self.collection_name, &self.channel).await?;
 
@@ -223,7 +227,10 @@ impl CollectionClient {
 
             async move {
                 client
-                    .update_documents(UpdateDocumentsRequest { docs })
+                    .update_documents(UpdateDocumentsRequest {
+                        docs,
+                        fail_on_missing,
+                    })
                     .await
                     .map_err(|e| match e.code() {
                         // Explicitly map `NotFound` to `CollectionNotFound` error

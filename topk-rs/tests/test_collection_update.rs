@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use test_context::test_context;
 
 use topk_rs::doc;
+use topk_rs::error::{DocumentValidationError, ValidationErrorBag};
 use topk_rs::proto::v1::data::Value;
 use topk_rs::query::{field, fns, select};
 use topk_rs::Error;
@@ -17,7 +18,7 @@ async fn test_update_non_existent_collection(ctx: &mut ProjectTestContext) {
     let err = ctx
         .client
         .collection("missing")
-        .update(vec![doc!("_id" => "one")])
+        .update(vec![doc!("_id" => "one")], false)
         .await
         .expect_err("should not be able to upsert document to non-existent collection");
 
@@ -51,12 +52,15 @@ async fn test_update_batch(ctx: &mut ProjectTestContext) {
     let lsn = ctx
         .client
         .collection(&collection.name)
-        .update(vec![
-            doc!("_id" => "2", "foo" => "bar2.2", "baz" => "foo"),
-            doc!("_id" => "3", "foo" => Value::null()),
-            doc!("_id" => "4", "foo" => "bar4.2"),
-            doc!("_id" => "5", "foo" => "bar5"), // missing id
-        ])
+        .update(
+            vec![
+                doc!("_id" => "2", "foo" => "bar2.2", "baz" => "foo"),
+                doc!("_id" => "3", "foo" => Value::null()),
+                doc!("_id" => "4", "foo" => "bar4.2"),
+                doc!("_id" => "5", "foo" => "bar5"), // missing id
+            ],
+            false,
+        )
         .await
         .expect("could not update document");
 
@@ -106,7 +110,7 @@ async fn test_update_missing_id(ctx: &mut ProjectTestContext) {
     let new_lsn = ctx
         .client
         .collection(&collection.name)
-        .update(vec![doc!("_id" => "3", "foo" => "bar3")])
+        .update(vec![doc!("_id" => "3", "foo" => "bar3")], false)
         .await
         .expect("could not update document");
 
@@ -123,6 +127,42 @@ async fn test_update_missing_id(ctx: &mut ProjectTestContext) {
     assert_eq!(docs.len(), 2);
     assert_eq!(docs["1"], doc!("_id" => "1", "foo" => "bar1").fields);
     assert_eq!(docs["2"], doc!("_id" => "2", "foo" => "bar2").fields);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_update_missing_id_with_fail_on_missing(ctx: &mut ProjectTestContext) {
+    let collection = ctx
+        .client
+        .collections()
+        .create(ctx.wrap("test"), HashMap::default())
+        .await
+        .expect("could not create collection");
+
+    // Upsert some docs
+    let lsn = ctx
+        .client
+        .collection(&collection.name)
+        .upsert(vec![
+            doc!("_id" => "1", "foo" => "bar1"),
+            doc!("_id" => "2", "foo" => "bar2"),
+        ])
+        .await
+        .expect("could not upsert document");
+
+    assert_eq!(&lsn, "1");
+
+    // Update non-existent doc
+    let err = ctx
+        .client
+        .collection(&collection.name)
+        .update(vec![doc!("_id" => "3", "foo" => "bar3")], true)
+        .await
+        .expect_err("should fail to update document with missing id");
+
+    assert!(matches!(err, Error::DocumentValidationError(errs)
+        if errs == ValidationErrorBag::from(vec![DocumentValidationError::DocumentNotFound { doc_id: "3".to_string() }])
+    ));
 }
 
 #[test_context(ProjectTestContext)]
@@ -152,9 +192,10 @@ async fn test_update_vector_index_field(ctx: &mut ProjectTestContext) {
     let lsn = ctx
         .client
         .collection(&collection.name)
-        .update(vec![
-            doc!("_id" => "1984", "summary_embedding" => vec![8.0; 16]),
-        ])
+        .update(
+            vec![doc!("_id" => "1984", "summary_embedding" => vec![8.0; 16])],
+            true,
+        )
         .await
         .expect("could not update document");
 
@@ -203,7 +244,7 @@ async fn test_update_semantic_index_field(ctx: &mut ProjectTestContext) {
     let lsn = ctx
         .client
         .collection(&collection.name)
-        .update(vec![doc!("_id" => id, "title" => "foobarbaz")])
+        .update(vec![doc!("_id" => id, "title" => "foobarbaz")], true)
         .await
         .expect("could not update document");
 
@@ -235,7 +276,7 @@ async fn test_update_invalid_data_type(ctx: &mut ProjectTestContext) {
     let err = ctx
         .client
         .collection(&collection.name)
-        .update(vec![doc!("_id" => "1984", "title" => 1984u32)])
+        .update(vec![doc!("_id" => "1984", "title" => 1984u32)], true)
         .await
         .expect_err("should fail to update with invalid data type");
 
@@ -250,7 +291,7 @@ async fn test_update_missing_required_field(ctx: &mut ProjectTestContext) {
     let err = ctx
         .client
         .collection(&collection.name)
-        .update(vec![doc!("_id" => "1984", "title" => Value::null())])
+        .update(vec![doc!("_id" => "1984", "title" => Value::null())], true)
         .await
         .expect_err("should fail to update with missing required field");
 

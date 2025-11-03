@@ -238,6 +238,10 @@ pub enum DocumentValidationError {
         max_size_bytes: u64,
         got_size_bytes: u64,
     },
+
+    DocumentNotFound {
+        doc_id: String,
+    },
 }
 
 #[derive(PartialEq, Debug, serde::Serialize, serde::Deserialize)]
