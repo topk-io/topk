@@ -1,0 +1,22 @@
+FROM rust:slim
+
+# install system deps
+RUN apt-get update && apt-get install -y python3.13 python3.13-dev python3.13-venv protobuf-compiler
+
+# set up python venv and install turbpuffer
+RUN python3.13 -m venv /venv
+ENV PATH="/venv/bin:$PATH"
+ENV VIRTUAL_ENV="/venv"
+RUN . /venv/bin/activate && pip install --upgrade pip && pip install turbopuffer==1.5.0 topk-sdk==0.7.0
+
+# copy source code
+WORKDIR /sdk
+COPY . .
+
+# build topk-bench
+WORKDIR /sdk/topk-bench
+RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
+    --mount=type=cache,target=target,sharing=locked \
+    cargo build --release --bin topk-bench && \
+    cp target/release/topk-bench /topk-bench

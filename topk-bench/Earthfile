@@ -1,0 +1,27 @@
+VERSION 0.8
+IMPORT github.com/earthly/lib/rust:3.0.1 AS rust
+
+image:
+    FROM debian:bookworm-slim
+
+    ARG --required tag
+    ARG --required registry
+
+    COPY +builder/target/release/topk-bench .
+    ENTRYPOINT ["/topk-bench"]
+
+    SAVE IMAGE --push $registry/topk-bench:$tag
+
+builder:
+    FROM rust:slim
+
+    DO rust+INIT --keep_fingerprints=true
+    WORKDIR /sdk
+
+    # copy source code
+    COPY . .
+
+    WORKDIR /sdk/topk-bench
+
+    DO rust+CARGO --args="build --release --bin topk-bench"
+    SAVE ARTIFACT target/release/topk-bench

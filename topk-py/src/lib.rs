@@ -1,7 +1,7 @@
 use pyo3::prelude::*;
 
 mod client;
-mod data;
+pub mod data;
 mod error;
 mod expr;
 mod query;

@@ -1,0 +1,11 @@
+**/target
+**/wheels
+**/*.so
+**/*.node
+**/.git
+**/.venv
+**/node_modules
+**/__pycache__
+**/.pytest_cache
+**/.DS_Store
+**/Earthfile
