@@ -8,19 +8,45 @@ service WriteService {
   // Upsert
   rpc UpsertDocuments(UpsertDocumentsRequest) returns (UpsertDocumentsResponse);
 
+  // Update
+  rpc UpdateDocuments(UpdateDocumentsRequest) returns (UpdateDocumentsResponse);
+
   // Delete
   rpc DeleteDocuments(DeleteDocumentsRequest) returns (DeleteDocumentsResponse);
 }
 
 // Upsert
+
 message UpsertDocumentsRequest {
+  // Documents to upsert.
+  //Existing documents will be replaced, new documents will be created.
   repeated Document docs = 1;
 }
+
 message UpsertDocumentsResponse {
+  // Log sequence number at which the upsert was applied.
+  string lsn = 1;
+}
+
+// Update
+
+message UpdateDocumentsRequest {
+  // Documents to update.
+  // Existing documents will merged with the provided fields.
+  // If a document does not exist, it will not be created.
+  repeated Document docs = 1;
+  /// Fails the whole request if any of the updated documents is missing.
+  bool fail_on_missing = 2;
+}
+
+message UpdateDocumentsResponse {
+  // Log sequence number at which the update was applied.
+  // If no updates were applied, this will be empty.
   string lsn = 1;
 }
 
 // Delete
+
 message DeleteDocumentsRequest {
   // Document IDs to delete
   repeated string ids = 1;
@@ -28,6 +54,8 @@ message DeleteDocumentsRequest {
   // Documents matching this expression will be deleted.
   LogicalExpr expr = 2;
 }
+
 message DeleteDocumentsResponse {
+  // Log sequence number at which the delete was applied.
   string lsn = 1;
 }
