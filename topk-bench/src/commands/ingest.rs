@@ -48,14 +48,14 @@ pub struct IngestArgs {
 }
 
 pub async fn run(args: IngestArgs) -> anyhow::Result<()> {
-    // Generate trace ID
-    let trace_id = uuid::Uuid::new_v4()
+    // Generate ingest ID
+    let ingest_id = uuid::Uuid::new_v4()
         .to_string()
         .chars()
         .take(8)
         .collect::<String>();
 
-    info!("Starting ingest: {:?} with trace ID: {}", args, trace_id);
+    info!("Starting ingest: {:?} with ID: {}", args, ingest_id);
     let collection = "jobs".into();
 
     // Determine dataset path
@@ -107,6 +107,10 @@ pub async fn run(args: IngestArgs) -> anyhow::Result<()> {
         }
         _ = ctrl_c() => {
             provider.close().await?;
+
+            // export (partial) metrics
+            export_metrics(BUCKET_NAME, &args, &ingest_id).await?;
+
             std::process::exit(128 + 2);
         }
     }
@@ -114,7 +118,8 @@ pub async fn run(args: IngestArgs) -> anyhow::Result<()> {
     let duration = start.elapsed();
     info!("Ingest completed in {:.2}s", duration.as_secs_f64());
 
-    export_metrics(BUCKET_NAME, &args, &trace_id).await?;
+    // Export final metrics
+    export_metrics(BUCKET_NAME, &args, &ingest_id).await?;
 
     Ok(())
 }
