@@ -18,7 +18,7 @@ use tracing::{debug, error, info};
 use crate::data::parse_bench_01;
 use crate::providers::{self, ProviderLike};
 use crate::s3::new_client;
-use crate::telemetry::metrics::read_snapshot;
+use crate::telemetry::metrics::{export_metrics, read_snapshot};
 
 const BUCKET_NAME: &str = "jergu-test";
 
@@ -32,29 +32,36 @@ pub enum ProviderArg {
 #[derive(Parser, Debug, Clone)]
 pub struct IngestArgs {
     #[arg(short, long, help = "Target collection")]
-    provider: ProviderArg,
+    pub(crate) provider: ProviderArg,
 
     #[arg(short, long, help = "Number of documents per upsert request")]
-    batch_size: usize,
+    pub(crate) batch_size: usize,
 
     #[arg(short, long, help = "Number of concurrent writers")]
-    concurrency: usize,
+    pub(crate) concurrency: usize,
 
     #[arg(short, long, help = "Name of the dataset to ingest")]
-    dataset: Option<String>,
+    pub(crate) dataset: Option<String>,
 
     #[arg(short, long, help = "Input file to ingest")]
-    input: Option<String>,
+    pub(crate) input: Option<String>,
 }
 
 pub async fn run(args: IngestArgs) -> anyhow::Result<()> {
-    info!("Starting ingest: {:?}", args);
+    // Generate trace ID
+    let trace_id = uuid::Uuid::new_v4()
+        .to_string()
+        .chars()
+        .take(8)
+        .collect::<String>();
+
+    info!("Starting ingest: {:?} with trace ID: {}", args, trace_id);
     let collection = "jobs".into();
 
     // Determine dataset path
-    let dataset_path = if let Some(dataset) = args.dataset {
+    let dataset_path = if let Some(ref dataset) = args.dataset {
         pull_dataset(BUCKET_NAME, &dataset).await?
-    } else if let Some(input) = args.input {
+    } else if let Some(ref input) = args.input {
         PathBuf::from(input)
     } else {
         anyhow::bail!("Either dataset or input file must be provided");
@@ -106,6 +113,8 @@ pub async fn run(args: IngestArgs) -> anyhow::Result<()> {
 
     let duration = start.elapsed();
     info!("Ingest completed in {:.2}s", duration.as_secs_f64());
+
+    export_metrics(BUCKET_NAME, &args, &trace_id).await?;
 
     Ok(())
 }

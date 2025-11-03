@@ -22,7 +22,7 @@ enum Commands {
 #[tokio::main]
 pub async fn main() -> anyhow::Result<()> {
     // Install telemetry (logs & metrics)
-    let trace_id = telemetry::install()?;
+    telemetry::install()?;
 
     // Force colored output
     colored::control::set_override(true);
@@ -34,9 +34,6 @@ pub async fn main() -> anyhow::Result<()> {
     match args.command {
         Commands::Ingest(args) => commands::ingest::run(args).await?,
     }
-
-    // Shutdown telemetry (export metrics)
-    telemetry::shutdown(&trace_id).await?;
 
     Ok(())
 }

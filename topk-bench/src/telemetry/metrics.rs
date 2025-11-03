@@ -16,6 +16,7 @@ use metrics_util::debugging::Snapshotter;
 use metrics_util::CompositeKey;
 use once_cell::sync::Lazy;
 use parquet::arrow::ArrowWriter;
+use parquet::file::metadata::KeyValue;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
@@ -27,6 +28,7 @@ use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 use tracing::info;
 
+use crate::commands::ingest::IngestArgs;
 use crate::s3::new_client;
 
 /// Snapshot interval in milliseconds.
@@ -69,17 +71,17 @@ pub async fn read_snapshot() -> HashMap<String, MetricCollector> {
     METRIC_COLLECTORS.read().await.clone()
 }
 
-pub async fn export_metrics(bucket: &str, trace_id: &str) -> anyhow::Result<()> {
+pub async fn export_metrics(bucket: &str, args: &IngestArgs, trace_id: &str) -> anyhow::Result<()> {
     // Create S3 client
     let s3 = new_client()?;
-    let now = chrono::Utc::now().format("%Y-%m-%d_%H-%M-%S").to_string();
+    let now = chrono::Utc::now().format("%Y-%m-%d-%H-%M-%S").to_string();
 
     // Open local metrics file
     let mut tmpfile = tempfile::NamedTempFile::new()?;
     let file = tmpfile.as_file_mut();
 
     // Export metrics to a .parquet file
-    write_parquet(&file).await?;
+    write_parquet(&file, args).await?;
 
     // Read metrics file into a buffer
     let mut buffer = Vec::new();
@@ -100,7 +102,7 @@ pub async fn export_metrics(bucket: &str, trace_id: &str) -> anyhow::Result<()> 
 }
 
 /// Export metrics to a .parquet file
-async fn write_parquet(file: &File) -> anyhow::Result<()> {
+async fn write_parquet(file: &File, args: &IngestArgs) -> anyhow::Result<()> {
     let schema = Arc::new(Schema::new(vec![
         Field::new(
             "timestamp",
@@ -181,8 +183,29 @@ async fn write_parquet(file: &File) -> anyhow::Result<()> {
     )?;
 
     let mut writer = ArrowWriter::try_new(file.try_clone()?, schema, None)?;
+
+    // Append metadata
+    writer.append_key_value_metadata(KeyValue::new(
+        "provider".into(),
+        format!("{:?}", args.provider),
+    ));
+    writer.append_key_value_metadata(KeyValue::new(
+        "batch_size".into(),
+        format!("{:?}", args.batch_size),
+    ));
+    writer.append_key_value_metadata(KeyValue::new(
+        "concurrency".into(),
+        format!("{:?}", args.concurrency),
+    ));
+    writer.append_key_value_metadata(KeyValue::new(
+        "dataset".into(),
+        format!("{:?}", args.dataset),
+    ));
+
+    // Write batch to file
     writer.write(&batch)?;
     writer.close()?;
+
     Ok(())
 }
 
