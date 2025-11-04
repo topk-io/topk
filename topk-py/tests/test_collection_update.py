@@ -167,4 +167,3 @@ def test_update_missing_required_field(ctx: ProjectContext):
             [{"_id": "1984", "title": None}], True
         )
     assert "MissingField" in str(exc_info.value) or "required" in str(exc_info.value).lower()
-
