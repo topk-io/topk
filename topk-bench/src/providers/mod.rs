@@ -1,6 +1,14 @@
+use std::ffi::CString;
 use std::time::Duration;
 
 use async_trait::async_trait;
+use pyo3::ffi::c_str;
+use pyo3::types::{PyAnyMethods, PyDict, PyDictMethods, PyList, PyListMethods};
+use pyo3::{FromPyObject, IntoPyObject, PyResult};
+use tokio::time::Instant;
+
+use ::topk_py::data::value::Value as PyValue;
+use ::topk_py::data::Document as PyDocument;
 
 use crate::data::Document;
 
@@ -79,9 +87,130 @@ impl ProviderLike for Provider {
     }
 }
 
-#[macro_export]
-macro_rules! run_python {
-    ($f:expr) => {
-        tokio::task::spawn_blocking(move || Python::with_gil(|py: Python<'_>| $f(py))).await?
-    };
+#[derive(Clone)]
+pub struct PythonProvider {
+    /// Collection name
+    collection: String,
+}
+
+impl PythonProvider {
+    pub async fn new(code: &'static str, collection: String) -> anyhow::Result<Self> {
+        python_run(move |py| {
+            let code = CString::new(code)?;
+
+            py.run(code.as_c_str(), None, None)?;
+
+            Ok(())
+        })
+        .await?;
+
+        Ok(Self { collection })
+    }
+}
+
+#[async_trait]
+impl ProviderLike for PythonProvider {
+    async fn setup(&self) -> anyhow::Result<()> {
+        let collection = self.collection.clone();
+
+        python_run(move |py| {
+            let locals = PyDict::new(py);
+            locals.set_item("collection", collection.clone())?;
+
+            py.run(c_str!("setup(collection)"), None, Some(&locals))?;
+
+            Ok(())
+        })
+        .await?;
+
+        Ok(())
+    }
+
+    async fn ping(&self) -> Result<Duration, anyhow::Error> {
+        let start = Instant::now();
+
+        python_run(|py| py.run(c_str!("ping()"), None, None)).await?;
+
+        Ok(start.elapsed())
+    }
+
+    async fn query_by_id(&self, id: String) -> Result<Option<Document>, anyhow::Error> {
+        let collection = self.collection.clone();
+
+        let result = python_run(move |py| {
+            let locals = PyDict::new(py);
+            locals.set_item("id", id.clone())?;
+            locals.set_item("collection", collection.clone())?;
+
+            py.run(
+                c_str!("result = query_by_id(collection, id)"),
+                None,
+                Some(&locals),
+            )?;
+
+            let result = locals.get_item("result")?.expect("result is required");
+            let result = result.downcast::<PyList>()?;
+
+            Ok(Vec::<PyDocument>::extract_bound(result)?)
+        })
+        .await?;
+
+        match &result[..] {
+            [] => Ok(None),
+            [doc] => Ok(Some(Document::new(
+                doc.into_iter()
+                    .map(|(k, v)| (k.clone(), v.clone().into()))
+                    .collect(),
+            ))),
+            _ => anyhow::bail!("expected 1 document, got {}", result.len()),
+        }
+    }
+
+    async fn upsert(&self, batch: Vec<Document>) -> Result<(), anyhow::Error> {
+        let collection = self.collection.clone();
+
+        python_run(move |py| {
+            let locals = PyDict::new(py);
+            locals.set_item("collection", collection.clone())?;
+            locals.set_item("batch", {
+                let list = PyList::empty(py);
+
+                for doc in &batch {
+                    let dict = PyDict::new(py);
+
+                    for (key, value) in doc.into_iter() {
+                        let topk_py_value = PyValue::from(value);
+                        let topk_py_value = topk_py_value.into_pyobject(py)?;
+                        dict.set_item(key, topk_py_value)?;
+                    }
+
+                    list.append(dict.into_pyobject(py)?)?;
+                }
+
+                list
+            })?;
+
+            py.run(c_str!("upsert(collection, batch)"), None, Some(&locals))
+        })
+        .await?;
+
+        Ok(())
+    }
+
+    async fn close(&self) -> Result<(), anyhow::Error> {
+        python_run(|py| py.run(c_str!("close()"), None, None)).await?;
+        Ok(())
+    }
+}
+
+async fn python_run<F, R>(func: F) -> anyhow::Result<R>
+where
+    F: Fn(pyo3::Python<'_>) -> PyResult<R> + Send + Sync + 'static,
+    R: Send + 'static,
+{
+    let task = tokio::task::spawn_blocking(|| {
+        pyo3::Python::with_gil(move |py: pyo3::Python<'_>| Ok(func(py)?))
+    });
+
+    task.await.expect("failed to run python code")
 }

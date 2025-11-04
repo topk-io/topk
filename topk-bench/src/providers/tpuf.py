@@ -1,0 +1,59 @@
+import os
+import turbopuffer
+
+
+client = turbopuffer.Turbopuffer(
+    api_key=os.environ["TURBOPUFFER_API_KEY"],
+    region=os.environ["TURBOPUFFER_REGION"],
+)
+
+
+def setup(namespace: str):
+    # Turbopuffer namespaces are created automatically
+    pass
+
+
+def ping():
+    try:
+        client.namespace("non-existing-namespace").query(
+            rank_by=("vector", "ANN", []),
+            top_k=1,
+        )
+    except turbopuffer.NotFoundError as e:
+        if "namespace" in e.message and "was not found" in e.message:
+            return True
+        else:
+            raise e
+    except Exception as e:
+        raise e
+
+
+def query_by_id(namespace: str, id: str):
+    result = client.namespace(namespace).query(
+        rank_by=("id", "desc"),
+        filters=("id", "Eq", id),
+        top_k=1,
+    )
+
+    return [r.__dict__ for r in result.rows]
+
+
+def upsert(namespace: str, docs: list[dict]):
+    client.namespace(namespace).write(
+        upsert_rows=[
+            {
+                "id": doc["id"],
+                "text": doc["text"],
+                "vector": doc["dense_embedding"],
+                "numerical_filter": doc["numerical_filter"],
+                "categorical_filter": doc["categorical_filter"],
+            }
+            for doc in docs
+        ],
+        distance_metric="cosine_distance",
+        schema={
+            "text": {"type": "string"},
+            "numerical_filter": {"type": "int"},
+            "categorical_filter": {"type": "string"},
+        },
+    )

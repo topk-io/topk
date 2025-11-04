@@ -14,7 +14,10 @@ use tokio::task::JoinSet;
 use tracing::{debug, error, info};
 
 use crate::data::{parse_bench_01, Document};
-use crate::providers::{self, ProviderLike};
+use crate::providers::topk_py::TopkPyProvider;
+use crate::providers::topk_rs::TopkRsProvider;
+use crate::providers::tpuf_py::TpufPyProvider;
+use crate::providers::ProviderLike;
 use crate::s3::new_client;
 use crate::telemetry::metrics::{export_metrics, read_snapshot};
 
@@ -54,7 +57,7 @@ pub async fn run(args: IngestArgs) -> anyhow::Result<()> {
         .collect::<String>();
 
     info!("Starting ingest: {:?} with ID: {}", args, ingest_id);
-    let collection = "jobs".into();
+    let collection = "jobs3".into();
 
     // Determine dataset path
     let dataset_path = if let Some(ref dataset) = args.dataset {
@@ -67,9 +70,9 @@ pub async fn run(args: IngestArgs) -> anyhow::Result<()> {
 
     // Create provider
     let provider = match args.provider {
-        ProviderArg::TopkRs => providers::topk_rs::new(collection).await?,
-        ProviderArg::TopkPy => providers::topk_py::new(collection).await?,
-        ProviderArg::TpufPy => providers::tpuf_py::new(collection).await?,
+        ProviderArg::TopkRs => TopkRsProvider::new(collection).await?,
+        ProviderArg::TopkPy => TopkPyProvider::new(collection).await?,
+        ProviderArg::TpufPy => TpufPyProvider::new(collection).await?,
     };
 
     // Setup provider

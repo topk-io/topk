@@ -23,24 +23,20 @@ use crate::{
     providers::{Provider, ProviderLike},
 };
 
-#[derive(Clone)]
-pub struct TopkRsProvider {
-    /// Topk-rs client
-    client: Client,
-
-    /// Collection name
-    collection: String,
-}
-
 #[derive(Deserialize)]
 pub struct TopkRsSettings {
     /// Topk API key
     pub topk_api_key: String,
+
     /// Topk region
     pub topk_region: String,
+
     /// Topk host
+    #[serde(default)]
     pub topk_host: Option<String>,
+
     /// Topk HTTPS
+    #[serde(default)]
     pub topk_https: Option<bool>,
 }
 
@@ -54,18 +50,29 @@ impl std::fmt::Debug for TopkRsSettings {
     }
 }
 
-/// Creates a new TopkRsProvider.
-pub async fn new(collection: String) -> anyhow::Result<Provider> {
-    let settings = TopkRsSettings::load_config()?;
-    info!(?settings, "Creating TopkRsProvider");
+#[derive(Clone)]
+pub struct TopkRsProvider {
+    /// Topk-rs client
+    client: Client,
 
-    let client = Client::new(
-        ClientConfig::new(settings.topk_api_key, settings.topk_region)
-            .with_host(settings.topk_host.unwrap_or("topk.io".into()))
-            .with_https(settings.topk_https.unwrap_or(true)),
-    );
+    /// Collection name
+    collection: String,
+}
 
-    Ok(Provider::TopkRs(TopkRsProvider { client, collection }))
+impl TopkRsProvider {
+    /// Creates a new TopkRsProvider.
+    pub async fn new(collection: String) -> anyhow::Result<Provider> {
+        let settings = TopkRsSettings::load_config()?;
+        info!(?settings, "Creating TopkRsProvider");
+
+        let client = Client::new(
+            ClientConfig::new(settings.topk_api_key, settings.topk_region)
+                .with_host(settings.topk_host.unwrap_or("topk.io".into()))
+                .with_https(settings.topk_https.unwrap_or(true)),
+        );
+
+        Ok(Provider::TopkRs(TopkRsProvider { client, collection }))
+    }
 }
 
 #[async_trait]

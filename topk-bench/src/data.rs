@@ -5,17 +5,21 @@ use arrow_array::{
     types::Float64Type, Array, LargeListArray, LargeStringArray, PrimitiveArray, RecordBatch,
 };
 use prost::Message;
-use pyo3::types::{PyDict, PyDictMethods, PyList, PyListMethods};
-use pyo3::{IntoPyObject, Py, Python};
 
-use topk_py::data::value::Value as PyValue;
 use topk_rs::proto::v1::data::{Document as RsDocument, Value as RsValue};
-
-use crate::run_python;
 
 #[derive(Debug, Clone)]
 pub struct Document {
     inner: RsDocument,
+}
+
+impl<'a> IntoIterator for &'a Document {
+    type Item = (String, RsValue);
+    type IntoIter = std::collections::hash_map::IntoIter<String, RsValue>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.inner.fields.clone().into_iter()
+    }
 }
 
 impl Document {
@@ -135,25 +139,4 @@ pub fn parse_bench_01(batch: RecordBatch) -> Vec<Document> {
     }
 
     rows
-}
-
-pub async fn into_python(documents: Vec<Document>) -> anyhow::Result<Py<PyList>> {
-    let list = run_python!(move |py| {
-        let list = PyList::empty(py);
-        for doc in documents {
-            let dict = PyDict::new(py);
-
-            for (key, value) in doc.inner.fields {
-                let topk_py_value = PyValue::from(value);
-                let topk_py_value = topk_py_value.into_pyobject(py)?;
-                dict.set_item(key, topk_py_value)?;
-            }
-
-            list.append(dict.into_pyobject(py)?)?;
-        }
-
-        Ok::<Py<PyList>, anyhow::Error>(list.into())
-    })?;
-
-    Ok(list)
 }
