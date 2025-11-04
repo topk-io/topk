@@ -749,7 +749,7 @@ describe("Logical Queries Contains", () => {
 
     for (const filterExpr of filterExpressions) {
       await expect(
-        ctx.client.collection(collection.name).query(
+        await ctx.client.collection(collection.name).query(
           select({
             title: field("title"),
             codes: field("codes")
@@ -757,7 +757,7 @@ describe("Logical Queries Contains", () => {
             .filter(filterExpr)
             .topk(field("published_year"), 100, true)
         )
-      ).rejects.toThrow();
+      ).toHaveLength(0);
     }
 
     expect(() => {

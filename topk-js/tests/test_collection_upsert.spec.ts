@@ -140,7 +140,7 @@ describe("Upsert", () => {
         .collection(ctx.scope("books"))
         .upsert([{ _id: "doc1", title: null, f32_embedding: [1, 2, 3] }])
     ).rejects.toThrow(
-      /InvalidDataType { doc_id: \"doc1\", field: \"title\", expected_type: \"text\", got_value: \"null\" }/
+      /TopkError\(DocumentValidationError\(ValidationErrorBag\(\[MissingField \{ doc_id: \"doc1\", field: \"title\" \}\]\)\)\)/
     );
   });
 
