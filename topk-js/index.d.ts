@@ -38,6 +38,16 @@ export declare class CollectionClient {
   /** Inserts or updates documents in the collection. */
   upsert(docs: Array<Record<string, any>>): Promise<string>
   /**
+   * Updates documents in the collection.
+   *
+   * Existing documents will be merged with the provided fields.
+   * Missing documents will be ignored.
+   *
+   * @returns The `LSN` at which the update was applied.
+   * If no updates were applied, this will be empty.
+   */
+  update(docs: Array<Record<string, any>>, failOnMissing?: boolean | undefined | null): Promise<string>
+  /**
    * Deletes documents from the collection by their IDs or using a filter expression.
    *
    * Example:

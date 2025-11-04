@@ -1,5 +1,6 @@
 import asyncio
 import pytest
+from topk_sdk import error
 from topk_sdk.query import select, field, literal
 
 from . import AsyncProjectContext
@@ -220,3 +221,61 @@ def test_async_collection_sync_usage(async_ctx: AsyncProjectContext):
     # Run async operations in sync context
     lsn = asyncio.run(async_operations())
     assert isinstance(lsn, str)
+
+
+@pytest.mark.asyncio
+async def test_async_update_batch(async_ctx: AsyncProjectContext):
+    collection = await async_ctx.client.collections().create(async_ctx.scope("test"), schema={})
+    async_collection = async_ctx.client.collection(collection.name)
+
+    lsn = await async_collection.upsert(
+        [
+            {"_id": "1", "foo": "bar1"},
+            {"_id": "2", "foo": "bar2"},
+            {"_id": "3", "foo": "bar3"},
+            {"_id": "4", "foo": "bar4"},
+        ]
+    )
+    assert lsn == "1"
+
+    lsn = await async_collection.update(
+        [
+            {"_id": "2", "foo": "bar2.2", "baz": "foo"},
+            {"_id": "3", "foo": None},
+            {"_id": "4", "foo": "bar4.2"},
+            {"_id": "5", "foo": "bar5"},  # missing id
+        ],
+        False,
+    )
+    assert lsn == "2"
+
+    docs = await async_collection.get(["1", "2", "3", "4", "5"], lsn=lsn)
+
+    assert len(docs) == 4
+    assert docs["1"] == {"_id": "1", "foo": "bar1"}
+    assert docs["2"] == {"_id": "2", "foo": "bar2.2", "baz": "foo"}
+    assert docs["3"] == {"_id": "3"}
+    assert docs["4"] == {"_id": "4", "foo": "bar4.2"}
+
+
+@pytest.mark.asyncio
+async def test_async_update_missing_id_with_fail_on_missing(async_ctx: AsyncProjectContext):
+    collection = await async_ctx.client.collections().create(async_ctx.scope("test"), schema={})
+    async_collection = async_ctx.client.collection(collection.name)
+
+    # Upsert some docs
+    lsn = await async_collection.upsert(
+        [
+            {"_id": "1", "foo": "bar1"},
+            {"_id": "2", "foo": "bar2"},
+        ]
+    )
+    assert lsn == "1"
+
+    # Update non-existent doc
+    with pytest.raises(error.DocumentValidationError) as exc_info:
+        await async_collection.update(
+            [{"_id": "3", "foo": "bar3"}], True
+        )
+    assert "DocumentNotFound" in str(exc_info.value)
+    assert 'doc_id: "3"' in str(exc_info.value)

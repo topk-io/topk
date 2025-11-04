@@ -90,6 +90,20 @@ class CollectionClient:
         Insert or update documents in the collection.
         """
         ...
+
+    def update(
+        self, documents: typing.Sequence[typing.Mapping[builtins.str, typing.Any]], fail_on_missing: typing.Optional[builtins.bool] = None
+    ) -> builtins.str:
+        """
+        Update documents in the collection.
+
+        Existing documents will be merged with the provided fields.
+        Missing documents will be ignored.
+
+        Returns the `LSN` at which the update was applied.
+        If no updates were applied, this will be empty.
+        """
+        ...
     def delete(self, expr: typing.Union[typing.Sequence[builtins.str], query.LogicalExpr]) -> builtins.str:
         """
         Delete documents by their IDs or using a filter expression.
@@ -152,6 +166,19 @@ class AsyncCollectionClient:
     ) -> typing.Awaitable[builtins.str]:
         """
         Insert or update documents in the collection asynchronously.
+        """
+        ...
+    def update(
+        self, documents: typing.Sequence[typing.Mapping[builtins.str, typing.Any]], fail_on_missing: typing.Optional[builtins.bool] = None
+    ) -> typing.Awaitable[builtins.str]:
+        """
+        Update documents in the collection asynchronously.
+
+        Existing documents will be merged with the provided fields.
+        Missing documents will be ignored.
+
+        Returns the `LSN` at which the update was applied.
+        If no updates were applied, this will be empty.
         """
         ...
     def delete(
