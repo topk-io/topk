@@ -120,6 +120,30 @@ impl CollectionClient {
             .map_err(RustError)?)
     }
 
+    pub fn update(
+        &self,
+        py: Python<'_>,
+        documents: Vec<HashMap<String, Value>>,
+        fail_on_missing: Option<bool>,
+    ) -> PyResult<String> {
+        let documents = documents
+            .into_iter()
+            .map(|d| topk_rs::proto::v1::data::Document {
+                fields: d.into_iter().map(|(k, v)| (k, v.into())).collect(),
+            })
+            .collect();
+
+        Ok(self
+            .runtime
+            .block_on(
+                py,
+                self.client
+                    .collection(&self.collection)
+                    .update(documents, fail_on_missing.unwrap_or(false)),
+            )
+            .map_err(RustError)?)
+    }
+
     pub fn delete(&self, py: Python<'_>, spec: DeleteExprUnion) -> PyResult<String> {
         Ok(self
             .runtime

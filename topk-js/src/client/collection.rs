@@ -152,6 +152,36 @@ impl CollectionClient {
         Ok(lsn)
     }
 
+    /// Updates documents in the collection.
+    ///
+    /// Existing documents will be merged with the provided fields.
+    /// Missing documents will be ignored.
+    ///
+    /// @returns The `LSN` at which the update was applied.
+    /// If no updates were applied, this will be empty.
+    #[napi]
+    pub async fn update(
+        &self,
+        docs: Vec<HashMap<String, Value>>,
+        fail_on_missing: Option<bool>,
+    ) -> Result<String> {
+        let documents = docs
+            .into_iter()
+            .map(|d| topk_rs::proto::v1::data::Document {
+                fields: d.into_iter().map(|(k, v)| (k, v.into())).collect(),
+            })
+            .collect();
+
+        let lsn = self
+            .client
+            .collection(&self.collection)
+            .update(documents, fail_on_missing.unwrap_or(false))
+            .await
+            .map_err(TopkError::from)?;
+
+        Ok(lsn)
+    }
+
     /// Deletes documents from the collection by their IDs or using a filter expression.
     ///
     /// Example:

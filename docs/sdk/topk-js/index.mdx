@@ -172,6 +172,31 @@ Executes a query against the collection.
 
 `Promise`\<`Record`\<`string`, `any`\>[]\>
 
+##### update()
+
+```ts
+update(docs: Record<string, any>[], failOnMissing?: boolean): Promise<string>;
+```
+
+Updates documents in the collection.
+
+Existing documents will be merged with the provided fields.
+Missing documents will be ignored.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `docs` | `Record`\<`string`, `any`\>[] |
+| `failOnMissing?` | `boolean` |
+
+**Returns**
+
+`Promise`\<`string`\>
+
+The `LSN` at which the update was applied.
+If no updates were applied, this will be empty.
+
 ##### upsert()
 
 ```ts

@@ -127,6 +127,34 @@ impl AsyncCollectionClient {
         .map(|result| result.into())
     }
 
+    pub fn update(
+        &self,
+        py: Python<'_>,
+        documents: Vec<HashMap<String, Value>>,
+        fail_on_missing: Option<bool>,
+    ) -> PyResult<PyObject> {
+        let client = self.client.clone();
+        let collection = self.collection.clone();
+
+        let documents = documents
+            .into_iter()
+            .map(|d| topk_rs::proto::v1::data::Document {
+                fields: d.into_iter().map(|(k, v)| (k, v.into())).collect(),
+            })
+            .collect();
+
+        future_into_py(py, async move {
+            let lsn = client
+                .collection(collection.as_str())
+                .update(documents, fail_on_missing.unwrap_or(false))
+                .await
+                .map_err(RustError)?;
+
+            Ok(lsn)
+        })
+        .map(|result| result.into())
+    }
+
     pub fn delete(&self, py: Python<'_>, spec: DeleteExprUnion) -> PyResult<PyObject> {
         let client = self.client.clone();
         let collection = self.collection.clone();

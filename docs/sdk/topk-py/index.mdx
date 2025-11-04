@@ -231,6 +231,33 @@ str
 
 ***
 
+#### update()
+
+```python
+update(self, documents: Sequence[Mapping[str, Any]], fail_on_missing: Optional[bool] = None) -> str
+```
+
+Update documents in the collection.
+
+        Existing documents will be merged with the provided fields.
+        Missing documents will be ignored.
+
+        Returns the `LSN` at which the update was applied.
+        If no updates were applied, this will be empty.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `documents` | Sequence[Mapping[str, Any]] |
+| `fail_on_missing` | Optional[bool] |
+
+**Returns**
+
+str
+
+***
+
 #### delete()
 
 ```python
@@ -365,6 +392,37 @@ Insert or update documents in the collection asynchronously.
 | Parameter | Type |
 | --------- | ---- |
 | `documents` | Sequence[Mapping[str, Any]] |
+
+**Returns**
+
+Awaitable[str]
+
+***
+
+#### update()
+
+```python
+update(
+   self,
+   documents: Sequence[Mapping[str, Any]],
+   fail_on_missing: Optional[bool] = None
+)
+```
+
+Update documents in the collection asynchronously.
+
+        Existing documents will be merged with the provided fields.
+        Missing documents will be ignored.
+
+        Returns the `LSN` at which the update was applied.
+        If no updates were applied, this will be empty.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `documents` | Sequence[Mapping[str, Any]] |
+| `fail_on_missing` | Optional[bool] |
 
 **Returns**
 
