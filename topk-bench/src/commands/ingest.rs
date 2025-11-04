@@ -8,14 +8,12 @@ use clap::{Parser, ValueEnum};
 use colored::Colorize;
 use metrics::{counter, histogram};
 use parquet::arrow::arrow_reader::ParquetRecordBatchReader;
-use prost::Message;
 use rand::{thread_rng, Rng};
 use tokio::signal::ctrl_c;
 use tokio::task::JoinSet;
-use topk_rs::proto::v1::data::Document;
 use tracing::{debug, error, info};
 
-use crate::data::parse_bench_01;
+use crate::data::{parse_bench_01, Document};
 use crate::providers::{self, ProviderLike};
 use crate::s3::new_client;
 use crate::telemetry::metrics::{export_metrics, read_snapshot};
@@ -164,9 +162,13 @@ fn spawn_writers(
         let provider = provider.clone();
 
         writers.spawn(async move {
+            // Spawn freshness tasks
+            let mut freshness_tasks = JoinSet::new();
+
             // Writer task
             while let Ok(batch) = rx.recv().await {
                 let doc_count = batch.num_rows();
+                let provider = provider.clone();
 
                 loop {
                     // Parse batch
@@ -175,9 +177,26 @@ fn spawn_writers(
                     // Calculate encoded size from parsed documents
                     let byte_size: usize = documents.iter().map(|doc| doc.encoded_len()).sum();
 
+                    // Calculate max ID from batch
+                    let max_id = documents
+                        .iter()
+                        .map(|doc| {
+                            doc.get("id")
+                                .unwrap()
+                                .as_string()
+                                .unwrap()
+                                .parse::<u64>()
+                                .expect("Failed to parse ID as u64")
+                        })
+                        .max()
+                        .expect("Failed to find max ID")
+                        .to_string();
+
                     let s = Instant::now();
                     counter!("bench.ingest.requests").increment(1);
-                    let result = provider.upsert(documents).await;
+                    let result = provider
+                        .upsert(documents.into_iter().map(|doc| doc.into()).collect())
+                        .await;
 
                     match result {
                         Ok(res) => {
@@ -188,6 +207,14 @@ fn spawn_writers(
                             histogram!("bench.ingest.latency_ms")
                                 .record(latency.as_millis() as f64);
                             debug!(?doc_count, ?res, ?latency, "Upserted documents");
+
+                            // After a successful upsert, spawn a freshness task
+                            freshness_tasks.spawn(async move {
+                                if let Err(error) = freshness_task(provider.clone(), max_id).await {
+                                    error!(?error, "Failed to spawn freshness task");
+                                }
+                            });
+
                             break;
                         }
                         Err(error) => {
@@ -200,6 +227,16 @@ fn spawn_writers(
                             let jitter = thread_rng().gen_range(10..100);
                             tokio::time::sleep(Duration::from_millis(jitter)).await;
                         }
+                    }
+                }
+            }
+
+            // Wait for freshness tasks
+            while let Some(res) = freshness_tasks.join_next().await {
+                match res {
+                    Ok(_) => continue,
+                    Err(error) => {
+                        error!(?error, "Freshness task panicked");
                     }
                 }
             }
@@ -300,7 +337,7 @@ fn spawn_metrics_reporter() -> tokio::task::JoinHandle<()> {
     })
 }
 
-pub async fn pull_dataset(bucket: &str, key: &str) -> anyhow::Result<PathBuf> {
+async fn pull_dataset(bucket: &str, key: &str) -> anyhow::Result<PathBuf> {
     info!(?bucket, ?key, "Pulling dataset");
 
     // Ensure the /tmp/topk-bench directory exists first
@@ -328,4 +365,31 @@ pub async fn pull_dataset(bucket: &str, key: &str) -> anyhow::Result<PathBuf> {
     info!(?out, ?duration, "Dataset downloaded");
 
     Ok(PathBuf::from(out))
+}
+
+async fn freshness_task(
+    provider: impl ProviderLike + Send + Sync + Clone + 'static,
+    id: String,
+) -> anyhow::Result<()> {
+    let first = provider.query_by_id(id.clone()).await?;
+
+    // If found immediately, record 0 latency since it's the benchmarking
+    // tool that took some time to send the first request
+    if first.is_some() {
+        histogram!("bench.ingest.freshness_latency_ms").record(0.);
+        return Ok(());
+    }
+
+    let start = Instant::now();
+    loop {
+        let res = provider.query_by_id(id.clone()).await?;
+        if res.is_some() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    let latency = start.elapsed();
+
+    histogram!("bench.ingest.freshness_latency_ms").record(latency.as_millis() as f64);
+    Ok(())
 }

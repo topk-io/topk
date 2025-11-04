@@ -9,9 +9,7 @@ use serde::Deserialize;
 use tokio::time::Instant;
 use tracing::info;
 
-use topk_rs::proto::v1::data::Document;
-
-use crate::data::into_python;
+use crate::data::{into_python, Document};
 use crate::run_python;
 use crate::{
     config::LoadConfig,
@@ -126,40 +124,40 @@ impl ProviderLike for TpufPyProvider {
         })
     }
 
+    async fn query_by_id(&self, id: String) -> anyhow::Result<Option<Document>> {
+        let client = self.client.clone();
+
+        anyhow::bail!("query by id is not supported for TpufPy")
+    }
+
     async fn upsert(&self, batch: Vec<Document>) -> anyhow::Result<()> {
         let client = self.client.clone();
 
         let docs = batch
             .into_iter()
-            .map(|mut doc| Document {
-                fields: HashMap::from([
-                    (
-                        "id".to_string(),
-                        doc.fields.remove("id").expect("id is required"),
-                    ),
+            .map(|mut doc| {
+                Document::new(HashMap::from([
+                    ("id".to_string(), doc.remove("id").expect("id is required")),
                     (
                         "text".to_string(),
-                        doc.fields.remove("text").expect("text is required"),
+                        doc.remove("text").expect("text is required"),
                     ),
                     (
                         "vector".to_string(),
-                        doc.fields
-                            .remove("dense_embedding")
+                        doc.remove("dense_embedding")
                             .expect("dense_embedding is required"),
                     ),
                     (
                         "numerical_filter".to_string(),
-                        doc.fields
-                            .remove("numerical_filter")
+                        doc.remove("numerical_filter")
                             .expect("numerical_filter is required"),
                     ),
                     (
                         "categorical_filter".to_string(),
-                        doc.fields
-                            .remove("categorical_filter")
+                        doc.remove("categorical_filter")
                             .expect("categorical_filter is required"),
                     ),
-                ]),
+                ]))
             })
             .collect();
 

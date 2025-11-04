@@ -4,16 +4,55 @@ use arrow_array::Int64Array;
 use arrow_array::{
     types::Float64Type, Array, LargeListArray, LargeStringArray, PrimitiveArray, RecordBatch,
 };
-use pyo3::types::PyDictMethods;
-use pyo3::types::PyListMethods;
-use pyo3::types::{PyDict, PyList};
-use pyo3::IntoPyObject;
-use pyo3::Py;
-use pyo3::Python;
+use prost::Message;
+use pyo3::types::{PyDict, PyDictMethods, PyList, PyListMethods};
+use pyo3::{IntoPyObject, Py, Python};
+
 use topk_py::data::value::Value as PyValue;
-use topk_rs::proto::v1::data::{Document, Value};
+use topk_rs::proto::v1::data::{Document as RsDocument, Value as RsValue};
 
 use crate::run_python;
+
+#[derive(Debug, Clone)]
+pub struct Document {
+    inner: RsDocument,
+}
+
+impl Document {
+    pub fn new(fields: HashMap<String, RsValue>) -> Self {
+        Self {
+            inner: RsDocument { fields },
+        }
+    }
+
+    pub fn get(&self, key: &str) -> Option<&RsValue> {
+        self.inner.fields.get(key)
+    }
+
+    pub fn remove(&mut self, key: &str) -> Option<RsValue> {
+        self.inner.fields.remove(key)
+    }
+
+    pub fn insert(&mut self, key: impl Into<String>, value: RsValue) {
+        self.inner.fields.insert(key.into(), value);
+    }
+
+    pub fn encoded_len(&self) -> usize {
+        self.inner.encoded_len()
+    }
+}
+
+impl Into<RsDocument> for Document {
+    fn into(self) -> RsDocument {
+        self.inner
+    }
+}
+
+impl From<RsDocument> for Document {
+    fn from(inner: RsDocument) -> Self {
+        Self { inner }
+    }
+}
 
 pub fn parse_bench_01(batch: RecordBatch) -> Vec<Document> {
     let id = batch
@@ -77,18 +116,22 @@ pub fn parse_bench_01(batch: RecordBatch) -> Vec<Document> {
         let numerical_filter = numerical_filter.value(i) as u32;
         let categorical_filter = categorical_filter.value(i).to_string();
 
-        rows.push(Document {
-            fields: HashMap::from([
-                ("id".to_string(), Value::string(id)),
-                ("text".to_string(), Value::string(text)),
-                ("dense_embedding".to_string(), Value::list(dense_embedding)),
-                ("numerical_filter".to_string(), Value::u32(numerical_filter)),
-                (
-                    "categorical_filter".to_string(),
-                    Value::string(categorical_filter),
-                ),
-            ]),
-        });
+        rows.push(Document::new(HashMap::from([
+            ("id".to_string(), RsValue::string(id)),
+            ("text".to_string(), RsValue::string(text)),
+            (
+                "dense_embedding".to_string(),
+                RsValue::list(dense_embedding),
+            ),
+            (
+                "numerical_filter".to_string(),
+                RsValue::u32(numerical_filter),
+            ),
+            (
+                "categorical_filter".to_string(),
+                RsValue::string(categorical_filter),
+            ),
+        ])));
     }
 
     rows
@@ -100,7 +143,7 @@ pub async fn into_python(documents: Vec<Document>) -> anyhow::Result<Py<PyList>>
         for doc in documents {
             let dict = PyDict::new(py);
 
-            for (key, value) in doc.fields {
+            for (key, value) in doc.inner.fields {
                 let topk_py_value = PyValue::from(value);
                 let topk_py_value = topk_py_value.into_pyobject(py)?;
                 dict.set_item(key, topk_py_value)?;

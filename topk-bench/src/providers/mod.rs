@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 
-use ::topk_rs::proto::v1::data::Document;
+use crate::data::Document;
 
 pub mod topk_py;
 pub mod topk_rs;
@@ -11,17 +11,20 @@ pub mod tpuf_py;
 #[async_trait]
 pub trait ProviderLike: Send + Sync + 'static {
     /// Setup the state in the provider.
-    async fn setup(&self) -> Result<(), anyhow::Error>;
+    async fn setup(&self) -> anyhow::Result<()>;
 
     /// Ping the provider, returns duration in milliseconds.
     /// This can be used to estimate if we are running the right region.
-    async fn ping(&self) -> Result<Duration, anyhow::Error>;
+    async fn ping(&self) -> anyhow::Result<Duration>;
 
     /// Upsert documents into the provider.
-    async fn upsert(&self, batch: Vec<Document>) -> Result<(), anyhow::Error>;
+    async fn upsert(&self, batch: Vec<Document>) -> anyhow::Result<()>;
+
+    /// Query a document by ID.
+    async fn query_by_id(&self, id: String) -> anyhow::Result<Option<Document>>;
 
     /// Close the provider.
-    async fn close(&self) -> Result<(), anyhow::Error>;
+    async fn close(&self) -> anyhow::Result<()>;
 }
 
 #[derive(Clone)]
@@ -48,6 +51,14 @@ impl ProviderLike for Provider {
             Provider::TopkRs(p) => p.ping().await,
             Provider::TopkPy(p) => p.ping().await,
             Provider::TpufPy(p) => p.ping().await,
+        }
+    }
+
+    async fn query_by_id(&self, id: String) -> Result<Option<Document>, anyhow::Error> {
+        match self {
+            Provider::TopkRs(p) => p.query_by_id(id).await,
+            Provider::TopkPy(p) => p.query_by_id(id).await,
+            Provider::TpufPy(p) => p.query_by_id(id).await,
         }
     }
 

@@ -4,6 +4,8 @@ use crate::data::vector::{F32SparseVector, SparseVector, U8SparseVector};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyList};
 
+pub type Document = std::collections::HashMap<String, Value>;
+
 pub mod collection;
 pub mod list;
 pub mod scalar;

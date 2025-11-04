@@ -5,17 +5,19 @@ use std::{
 
 use async_trait::async_trait;
 use serde::Deserialize;
+use topk_rs::query::{field, filter};
 use topk_rs::{
     doc,
     proto::v1::{
         control::{FieldSpec, VectorDistanceMetric},
-        data::{stage::select_stage::SelectExpr, Document},
+        data::stage::select_stage::SelectExpr,
     },
     query::select,
     Client, ClientConfig,
 };
 use tracing::info;
 
+use crate::data::Document;
 use crate::{
     config::LoadConfig,
     providers::{Provider, ProviderLike},
@@ -99,7 +101,11 @@ impl ProviderLike for TopkRsProvider {
         match self
             .client
             .collection("non-existing-collection")
-            .query(select(Vec::<(&str, SelectExpr)>::new()), None, None)
+            .query(
+                select(Vec::<(&str, SelectExpr)>::new()).limit(1),
+                None,
+                None,
+            )
             .await
         {
             Ok(_) => anyhow::bail!("query should have failed"),
@@ -114,12 +120,26 @@ impl ProviderLike for TopkRsProvider {
         Ok(start.elapsed())
     }
 
+    async fn query_by_id(&self, id: String) -> anyhow::Result<Option<Document>> {
+        let documents = self
+            .client
+            .collection(&self.collection)
+            .query(filter(field("_id").eq(id.clone())).limit(1), None, None)
+            .await?;
+
+        match &documents[..] {
+            [] => Ok(None),
+            [document] => Ok(Some(document.clone().into())),
+            _ => anyhow::bail!("multiple documents found for id: {}", id),
+        }
+    }
+
     async fn upsert(&self, batch: Vec<Document>) -> anyhow::Result<()> {
         let batch = batch
             .into_iter()
             .map(|mut doc| {
-                if let Some(id_val) = doc.fields.remove("id") {
-                    doc.fields.insert("_id".to_string(), id_val);
+                if let Some(id_val) = doc.remove("id") {
+                    doc.insert("_id", id_val);
                 }
                 doc.into()
             })
