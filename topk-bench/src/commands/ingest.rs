@@ -292,13 +292,18 @@ fn spawn_metrics_reporter() -> tokio::task::JoinHandle<()> {
                 .map(|m| m.mean())
                 .unwrap_or_default();
 
+            let avg_freshness_latency = metrics
+                .get("bench.ingest.freshness_latency_ms")
+                .map(|m| m.mean())
+                .unwrap_or_default();
+
             if availability.is_nan() {
                 println!("stats] Waiting for metrics...");
                 continue;
             }
 
             println!(
-                "stats] Availability: {}, Throughput: {}, {}, {}, Latency: {}, {}, {}, {}",
+                "stats] Availability: {}, Throughput: {}, {}, {}, Latency: {}, {}, {}, {}, Freshness: {}",
                 // Availability
                 match availability {
                     _ if availability == 100.0 => format!("100%").green().bold(),
@@ -332,6 +337,7 @@ fn spawn_metrics_reporter() -> tokio::task::JoinHandle<()> {
                 format!("p99={:.2}ms", get_quantile("bench.ingest.latency_ms", 0.99))
                     .cyan()
                     .bold(),
+                format!("avg={:.2}ms", avg_freshness_latency).yellow().bold(),
             );
         }
     })
