@@ -196,11 +196,11 @@ fn spawn_writers(
                         .to_string();
 
                     let s = Instant::now();
-                    counter!("bench.ingest.requests").increment(1);
                     let result = provider
                         .upsert(documents.into_iter().map(|doc| doc.into()).collect())
                         .await;
 
+                    counter!("bench.ingest.requests").increment(1);
                     match result {
                         Ok(res) => {
                             counter!("bench.ingest.oks").increment(1);
