@@ -2,6 +2,14 @@
 title: "Changelog"
 ---
 
+### October 2025
+
+- **Features**: Added [`update()`](https://docs.topk.io/sdk/topk-py/index#update)API to simplify partial record updates.
+- **Features**: Shipped support for [`delete-by-filter`](https://docs.topk.io/documents/delete#delete-documents) operations for more flexible bulk deletions.
+- **Docs & SDKs**: Added support for Cohere’s embed-v4 model in [`semantic_index()`](https://docs.topk.io/sdk/topk-py/schema#semantic-index) and exposed organization limits in ddb-management-plane for improved visibility and management.
+
+
+
 ### September 2025
 
 - **Docs & SDKs**: Published SDK reference for [**Python**](https://docs.topk.io/sdk/topk-py) and [**JavaScript**](https://docs.topk.io/sdk/topk-js) clients, and added detailed docstrings for a smoother developer experience in both SDKs
@@ -28,7 +36,7 @@ title: "Changelog"
 - **Binary Data**: Added [`bytes()`](https://docs.topk.io/sdk/topk-py/data#bytes) constructor to the Python SDK.
 - **Performance**: Optimized workload distribution for large-sacle deployments.
 
-
 ### June 2025
+
 - **Sparse Vectors**: Added support for [f32](https://docs.topk.io/sdk/topk-py/schema#f32-sparse-vector) and [u8](https://docs.topk.io/sdk/topk-py/schema#u8-sparse-vector) sparse vector fields.
 - **Benchmarks**: Published [billion-scale benchmarks](https://www.topk.io/benchmarks) for dense & sparse vector search with filtering.
