@@ -36,12 +36,14 @@ def setup(collection: str):
 
 
 def pong():
-    a = time.time()
+    a = time.perf_counter()
     ping()
-    b = time.time()
+    b = time.perf_counter()
     ping()
-    c = time.time()
-    print(f"ping: {b - a:.2f}s, ping: {c - b:.2f}s, pong: {c - a:.2f}s")
+    c = time.perf_counter()
+    print(
+        f"ping: {(b - a) * 1000:.2f}ms, ping: {(c - b) * 1000:.2f}ms, pong: {(c - a) * 1000:.2f}ms"
+    )
 
 
 def ping():

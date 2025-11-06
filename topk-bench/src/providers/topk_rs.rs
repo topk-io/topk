@@ -144,7 +144,7 @@ impl ProviderLike for TopkRsProvider {
     async fn query(&self, query: Query) -> anyhow::Result<Vec<Document>> {
         let mut topk_query = select(vec![(
             "vector_distance",
-            fns::vector_distance("vector", query.vector),
+            fns::vector_distance("dense_embedding", query.vector),
         )])
         .limit(query.top_k as u64);
 
