@@ -152,7 +152,7 @@ impl ProviderLike for PythonProvider {
     async fn ping(&self) -> Result<Duration, anyhow::Error> {
         let start = Instant::now();
 
-        python_run(|py| py.run(c_str!("ping()"), None, None)).await?;
+        python_run(|py| py.run(c_str!("pong()"), None, None)).await?;
 
         Ok(start.elapsed())
     }

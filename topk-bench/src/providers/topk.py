@@ -1,5 +1,6 @@
 import os
-from topk_sdk import Client, ConsistencyLevel
+import time
+from topk_sdk import Client
 from topk_sdk.query import filter, field, select, fn
 from topk_sdk.error import CollectionNotFoundError, CollectionAlreadyExistsError
 from topk_sdk import schema
@@ -32,6 +33,15 @@ def setup(collection: str):
         pass
     except Exception as e:
         raise e
+
+
+def pong():
+    a = time.time()
+    ping()
+    b = time.time()
+    ping()
+    c = time.time()
+    print(f"ping: {b - a:.2f}s, ping: {c - b:.2f}s, pong: {c - a:.2f}s")
 
 
 def ping():

@@ -1,4 +1,5 @@
 import os
+import time
 import turbopuffer
 
 
@@ -11,6 +12,15 @@ client = turbopuffer.Turbopuffer(
 def setup(namespace: str):
     # Turbopuffer namespaces are created automatically
     pass
+
+
+def pong():
+    a = time.time()
+    ping()
+    b = time.time()
+    ping()
+    c = time.time()
+    print(f"ping: {b - a:.2f}s, ping: {c - b:.2f}s, pong: {c - a:.2f}s")
 
 
 def ping():
