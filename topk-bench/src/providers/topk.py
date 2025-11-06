@@ -1,5 +1,5 @@
 import os
-from topk_sdk import Client
+from topk_sdk import Client, ConsistencyLevel
 from topk_sdk.query import filter, field, select, fn
 from topk_sdk.error import CollectionNotFoundError, CollectionAlreadyExistsError
 from topk_sdk import schema
@@ -80,7 +80,10 @@ def query(
     if keyword_filter:
         query = query.filter(field("categorical_filter").match_all(keyword_filter))
 
-    return client.collection(collection).query(query)
+    return client.collection(collection).query(
+        query,
+        # consistency=ConsistencyLevel.STRONG
+    )
 
 
 def close():
