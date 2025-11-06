@@ -1,5 +1,4 @@
 import os
-import time
 import turbopuffer
 
 
@@ -14,28 +13,11 @@ def setup(namespace: str):
     pass
 
 
-def pong():
-    a = time.time()
-    ping()
-    b = time.time()
-    ping()
-    c = time.time()
-    print(f"ping: {b - a:.2f}s, ping: {c - b:.2f}s, pong: {c - a:.2f}s")
-
-
-def ping():
-    try:
-        client.namespace("non-existing-namespace").query(
-            rank_by=("vector", "ANN", []),
-            top_k=1,
-        )
-    except turbopuffer.NotFoundError as e:
-        if "namespace" in e.message and "was not found" in e.message:
-            return True
-        else:
-            raise e
-    except Exception as e:
-        raise e
+def ping(namespace: str):
+    client.namespace(namespace).query(
+        rank_by=("vector", "ANN", []),
+        top_k=1,
+    )
 
 
 def query_by_id(namespace: str, id: str):

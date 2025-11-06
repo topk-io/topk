@@ -223,6 +223,7 @@ fn spawn_metrics_reporter() -> tokio::task::JoinHandle<()> {
             ticker.tick().await;
             let metrics = read_snapshot().await;
             let get_count = |name: &str| metrics.get(name).map(|m| m.count()).unwrap_or_default();
+            let get_sum = |name: &str| metrics.get(name).map(|m| m.sum()).unwrap_or_default();
             let get_rate = |name: &str| {
                 metrics
                     .get(name)
@@ -236,8 +237,8 @@ fn spawn_metrics_reporter() -> tokio::task::JoinHandle<()> {
                     .unwrap_or_default()
             };
 
-            let requests = get_count("bench.query.requests");
-            let errors = get_count("bench.query.errors");
+            let requests = get_sum("bench.query.requests");
+            let errors = get_sum("bench.query.errors");
 
             let availability = (1.0 - errors as f64 / requests as f64) * 100.0;
             let avg_latency = metrics

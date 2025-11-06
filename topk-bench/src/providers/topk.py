@@ -35,25 +35,8 @@ def setup(collection: str):
         raise e
 
 
-def pong():
-    a = time.perf_counter()
-    ping()
-    b = time.perf_counter()
-    ping()
-    c = time.perf_counter()
-    print(
-        f"ping: {(b - a) * 1000:.2f}ms, ping: {(c - b) * 1000:.2f}ms, pong: {(c - a) * 1000:.2f}ms"
-    )
-
-
-def ping():
-    try:
-        client.collection("non-existing-collection").get(["non-existing-id"])
-        raise RuntimeError("get should have failed")
-    except CollectionNotFoundError:
-        pass
-    except Exception as e:
-        raise e
+def ping(collection: str):
+    client.collection(collection).get(["non-existing-id"])
 
 
 def upsert(collection: str, docs: list[dict]):

@@ -151,8 +151,16 @@ impl ProviderLike for PythonProvider {
 
     async fn ping(&self) -> Result<Duration, anyhow::Error> {
         let start = Instant::now();
+        let collection = self.collection.clone();
 
-        python_run(|py| py.run(c_str!("pong()"), None, None)).await?;
+        python_run(move |py| {
+            let locals = PyDict::new(py);
+            locals.set_item("collection", collection.clone())?;
+            py.run(c_str!("ping(collection)"), None, Some(&locals))?;
+
+            Ok(())
+        })
+        .await?;
 
         Ok(start.elapsed())
     }
