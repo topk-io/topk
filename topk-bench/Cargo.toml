@@ -38,3 +38,4 @@ aws-sdk-s3 = { version = "1", features = ["behavior-version-latest"] }
 tempfile = "3.23.0"
 opentelemetry = { version = "0.30.0" }
 opentelemetry_sdk = { version = "0.30.0" }
+rand_distr.workspace = true

@@ -4,15 +4,17 @@ use std::time::{Duration, Instant};
 
 use arrow_array::RecordBatch;
 use async_channel::Receiver;
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 use colored::Colorize;
 use metrics::{counter, histogram};
 use parquet::arrow::arrow_reader::ParquetRecordBatchReader;
+use parquet::file::metadata::KeyValue;
 use rand::{thread_rng, Rng};
 use tokio::signal::ctrl_c;
 use tokio::task::JoinSet;
 use tracing::{debug, error, info};
 
+use crate::commands::{ProviderArg, BUCKET_NAME};
 use crate::data::{parse_bench_01, Document};
 use crate::providers::topk_py::TopkPyProvider;
 use crate::providers::topk_rs::TopkRsProvider;
@@ -21,17 +23,11 @@ use crate::providers::ProviderLike;
 use crate::s3::new_client;
 use crate::telemetry::metrics::{export_metrics, read_snapshot};
 
-const BUCKET_NAME: &str = "jergu-test";
-
-#[derive(ValueEnum, Clone, Debug)]
-pub enum ProviderArg {
-    TopkRs,
-    TopkPy,
-    TpufPy,
-}
-
 #[derive(Parser, Debug, Clone)]
 pub struct IngestArgs {
+    #[arg(long, help = "Target collection")]
+    pub(crate) collection: String,
+
     #[arg(short, long, help = "Target collection")]
     pub(crate) provider: ProviderArg,
 
@@ -57,7 +53,6 @@ pub async fn run(args: IngestArgs) -> anyhow::Result<()> {
         .collect::<String>();
 
     info!("Starting ingest: {:?} with ID: {}", args, ingest_id);
-    let collection = "jobs3".into();
 
     // Determine dataset path
     let dataset_path = if let Some(ref dataset) = args.dataset {
@@ -70,9 +65,9 @@ pub async fn run(args: IngestArgs) -> anyhow::Result<()> {
 
     // Create provider
     let provider = match args.provider {
-        ProviderArg::TopkRs => TopkRsProvider::new(collection).await?,
-        ProviderArg::TopkPy => TopkPyProvider::new(collection).await?,
-        ProviderArg::TpufPy => TpufPyProvider::new(collection).await?,
+        ProviderArg::TopkRs => TopkRsProvider::new(args.collection).await?,
+        ProviderArg::TopkPy => TopkPyProvider::new(args.collection).await?,
+        ProviderArg::TpufPy => TpufPyProvider::new(args.collection).await?,
     };
 
     // Setup provider
@@ -96,6 +91,14 @@ pub async fn run(args: IngestArgs) -> anyhow::Result<()> {
     // Spawn metrics reporter
     let stats = spawn_metrics_reporter();
 
+    // Build metrics metadata
+    let metadata = vec![
+        KeyValue::new("provider".into(), format!("{:?}", args.provider)),
+        KeyValue::new("batch_size".into(), format!("{:?}", args.batch_size)),
+        KeyValue::new("concurrency".into(), format!("{:?}", args.concurrency)),
+        KeyValue::new("dataset".into(), format!("{:?}", args.dataset)),
+    ];
+
     let start = Instant::now();
     tokio::select! {
         res = writers => {
@@ -110,7 +113,7 @@ pub async fn run(args: IngestArgs) -> anyhow::Result<()> {
             provider.close().await?;
 
             // export (partial) metrics
-            export_metrics(BUCKET_NAME, &args, &ingest_id).await?;
+            export_metrics(BUCKET_NAME, metadata, &ingest_id).await?;
 
             std::process::exit(128 + 2);
         }
@@ -120,7 +123,7 @@ pub async fn run(args: IngestArgs) -> anyhow::Result<()> {
     info!("Ingest completed in {:.2}s", duration.as_secs_f64());
 
     // Export final metrics
-    export_metrics(BUCKET_NAME, &args, &ingest_id).await?;
+    export_metrics(BUCKET_NAME, metadata, &ingest_id).await?;
 
     Ok(())
 }

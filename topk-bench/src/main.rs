@@ -17,6 +17,8 @@ pub struct BenchArgs {
 enum Commands {
     /// Ingest data into the benchmark
     Ingest(commands::ingest::IngestArgs),
+    /// Query data from the benchmark
+    Query(commands::query::QueryArgs),
 }
 
 #[tokio::main]
@@ -33,6 +35,7 @@ pub async fn main() -> anyhow::Result<()> {
     // Run command
     match args.command {
         Commands::Ingest(args) => commands::ingest::run(args).await?,
+        Commands::Query(args) => commands::query::run(args).await?,
     }
 
     Ok(())

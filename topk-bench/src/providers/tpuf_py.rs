@@ -3,8 +3,8 @@ use std::time::Duration;
 use async_trait::async_trait;
 
 use crate::data::Document;
-use crate::providers::PythonProvider;
 use crate::providers::{Provider, ProviderLike};
+use crate::providers::{PythonProvider, Query};
 
 const PY_CODE: &str = include_str!("tpuf.py");
 
@@ -35,6 +35,10 @@ impl ProviderLike for TpufPyProvider {
 
     async fn query_by_id(&self, id: String) -> anyhow::Result<Option<Document>> {
         self.py.query_by_id(id).await
+    }
+
+    async fn query(&self, query: Query) -> anyhow::Result<Vec<Document>> {
+        self.py.query(query).await
     }
 
     async fn upsert(&self, batch: Vec<Document>) -> anyhow::Result<()> {

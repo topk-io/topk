@@ -38,6 +38,27 @@ def query_by_id(namespace: str, id: str):
     return [r.__dict__ for r in result.rows]
 
 
+def query(
+    namespace: str,
+    vector: list[float],
+    top_k: int,
+    num_filter: int | None,
+    keyword_filter: str | None,
+):
+    filters = []
+    if num_filter:
+        filters.append(("numerical_filter", "Lte", num_filter))
+    if keyword_filter:
+        filters.append(("categorical_filter", "ContainsAllTokens", keyword_filter))
+
+    result = client.namespace(namespace).query(
+        rank_by=("vector", "ANN", vector),
+        top_k=top_k,
+        filters=None if len(filters) == 0 else ("And", tuple(filters)),
+    )
+    return [r.__dict__ for r in result.rows]
+
+
 def upsert(namespace: str, docs: list[dict]):
     client.namespace(namespace).write(
         upsert_rows=[
@@ -54,6 +75,6 @@ def upsert(namespace: str, docs: list[dict]):
         schema={
             "text": {"type": "string"},
             "numerical_filter": {"type": "int"},
-            "categorical_filter": {"type": "string"},
+            "categorical_filter": {"type": "string", "full_text_search": True},
         },
     )

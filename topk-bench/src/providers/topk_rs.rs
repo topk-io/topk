@@ -5,7 +5,7 @@ use std::{
 
 use async_trait::async_trait;
 use serde::Deserialize;
-use topk_rs::query::{field, filter};
+use topk_rs::query::{field, filter, fns};
 use topk_rs::{
     doc,
     proto::v1::{
@@ -17,11 +17,11 @@ use topk_rs::{
 };
 use tracing::info;
 
-use crate::data::Document;
 use crate::{
     config::LoadConfig,
     providers::{Provider, ProviderLike},
 };
+use crate::{data::Document, providers::Query};
 
 #[derive(Deserialize)]
 pub struct TopkRsSettings {
@@ -139,6 +139,29 @@ impl ProviderLike for TopkRsProvider {
             [document] => Ok(Some(document.clone().into())),
             _ => anyhow::bail!("multiple documents found for id: {}", id),
         }
+    }
+
+    async fn query(&self, query: Query) -> anyhow::Result<Vec<Document>> {
+        let mut topk_query = select(vec![(
+            "vector_distance",
+            fns::vector_distance("vector", query.vector),
+        )])
+        .limit(query.top_k as u64);
+
+        if let Some(numeric_selectivity) = query.numeric_selectivity {
+            topk_query = topk_query.filter(field("numerical_filter").eq(numeric_selectivity));
+        }
+        if let Some(categorical_selectivity) = query.categorical_selectivity {
+            topk_query = topk_query.filter(field("categorical_filter").eq(categorical_selectivity));
+        }
+
+        let documents = self
+            .client
+            .collection(&self.collection)
+            .query(topk_query, None, None)
+            .await?;
+
+        Ok(documents.into_iter().map(|d| d.into()).collect())
     }
 
     async fn upsert(&self, batch: Vec<Document>) -> anyhow::Result<()> {

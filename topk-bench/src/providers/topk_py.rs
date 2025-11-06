@@ -3,8 +3,8 @@ use std::time::Duration;
 use async_trait::async_trait;
 
 use crate::data::Document;
-use crate::providers::PythonProvider;
 use crate::providers::{Provider, ProviderLike};
+use crate::providers::{PythonProvider, Query};
 
 pub const PY_CODE: &str = include_str!("topk.py");
 
@@ -31,6 +31,10 @@ impl ProviderLike for TopkPyProvider {
 
     async fn ping(&self) -> anyhow::Result<Duration> {
         self.py.ping().await
+    }
+
+    async fn query(&self, query: Query) -> anyhow::Result<Vec<Document>> {
+        self.py.query(query).await
     }
 
     async fn query_by_id(&self, id: String) -> anyhow::Result<Option<Document>> {

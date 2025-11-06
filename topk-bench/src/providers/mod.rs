@@ -31,8 +31,23 @@ pub trait ProviderLike: Send + Sync + 'static {
     /// Query a document by ID.
     async fn query_by_id(&self, id: String) -> anyhow::Result<Option<Document>>;
 
+    /// Query documents.
+    async fn query(&self, query: Query) -> anyhow::Result<Vec<Document>>;
+
     /// Close the provider.
     async fn close(&self) -> anyhow::Result<()>;
+}
+
+#[derive(Debug, Clone)]
+pub struct Query {
+    /// Vector to query.
+    pub(crate) vector: Vec<f32>,
+    /// Top K.
+    pub(crate) top_k: usize,
+    /// Numeric selectivity.
+    pub(crate) numeric_selectivity: Option<u32>,
+    /// Categorical selectivity.
+    pub(crate) categorical_selectivity: Option<String>,
 }
 
 #[derive(Clone)]
@@ -67,6 +82,14 @@ impl ProviderLike for Provider {
             Provider::TopkRs(p) => p.query_by_id(id).await,
             Provider::TopkPy(p) => p.query_by_id(id).await,
             Provider::TpufPy(p) => p.query_by_id(id).await,
+        }
+    }
+
+    async fn query(&self, query: Query) -> Result<Vec<Document>, anyhow::Error> {
+        match self {
+            Provider::TopkRs(p) => p.query(query).await,
+            Provider::TopkPy(p) => p.query(query).await,
+            Provider::TpufPy(p) => p.query(query).await,
         }
     }
 
@@ -164,6 +187,43 @@ impl ProviderLike for PythonProvider {
             ))),
             _ => anyhow::bail!("expected 1 document, got {}", result.len()),
         }
+    }
+
+    async fn query(&self, query: Query) -> Result<Vec<Document>, anyhow::Error> {
+        let collection = self.collection.clone();
+
+        let docs = python_run(move |py| {
+            let locals = PyDict::new(py);
+            locals.set_item("collection", collection.clone())?;
+            locals.set_item("vector", query.vector.clone())?;
+            locals.set_item("top_k", query.top_k)?;
+            locals.set_item("num_filter", query.numeric_selectivity)?;
+            locals.set_item("keyword_filter", query.categorical_selectivity.clone())?;
+
+            py.run(
+                c_str!("result = query(collection, vector, top_k, num_filter, keyword_filter)"),
+                None,
+                Some(&locals),
+            )?;
+
+            let result = locals.get_item("result")?.expect("result is required");
+
+            let result = result.downcast::<PyList>()?;
+
+            Ok(Vec::<PyDocument>::extract_bound(result)?)
+        })
+        .await?;
+
+        Ok(docs
+            .into_iter()
+            .map(|doc| {
+                Document::new(
+                    doc.into_iter()
+                        .map(|(k, v)| (k.clone(), v.clone().into()))
+                        .collect(),
+                )
+            })
+            .collect())
     }
 
     async fn upsert(&self, batch: Vec<Document>) -> Result<(), anyhow::Error> {
