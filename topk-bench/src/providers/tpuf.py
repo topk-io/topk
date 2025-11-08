@@ -16,8 +16,8 @@ def setup(namespace: str):
                 "id": "__bootstrap__",
                 "text": "Hello, world!",
                 "dense_embedding": [0.1] * 768,
-                "numerical_filter": 1,
-                "categorical_filter": "Hello",
+                "int_filter": 1,
+                "keyword_filter": "Hello",
             }
         ],
     )
@@ -55,14 +55,14 @@ def query(
     namespace: str,
     vector: list[float],
     top_k: int,
-    num_filter: int | None,
+    int_filter: int | None,
     keyword_filter: str | None,
 ):
     filters = []
-    if num_filter:
-        filters.append(("numerical_filter", "Lte", num_filter))
+    if int_filter:
+        filters.append(("int_filter", "Lte", int_filter))
     if keyword_filter:
-        filters.append(("categorical_filter", "ContainsAllTokens", keyword_filter))
+        filters.append(("keyword_filter", "ContainsAllTokens", keyword_filter))
 
     result = client.namespace(namespace).query(
         rank_by=("vector", "ANN", vector),
@@ -79,16 +79,16 @@ def upsert(namespace: str, docs: list[dict]):
                 "id": doc["id"],
                 "text": doc["text"],
                 "vector": doc["dense_embedding"],
-                "numerical_filter": doc["numerical_filter"],
-                "categorical_filter": doc["categorical_filter"],
+                "int_filter": doc["int_filter"],
+                "keyword_filter": doc["keyword_filter"],
             }
             for doc in docs
         ],
         distance_metric="cosine_distance",
         schema={
             "text": {"type": "string"},
-            "numerical_filter": {"type": "int"},
-            "categorical_filter": {"type": "string", "full_text_search": True},
+            "int_filter": {"type": "int"},
+            "keyword_filter": {"type": "string", "full_text_search": True},
         },
     )
 

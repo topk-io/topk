@@ -34,7 +34,7 @@ pub struct QueryArgs {
     pub(crate) queries: usize,
 
     #[arg(short, long, help = "Numeric filter")]
-    pub(crate) num_filter: Option<u32>,
+    pub(crate) int_filter: Option<u32>,
 
     #[arg(short, long, help = "Keyword filter")]
     pub(crate) keyword_filter: Option<String>,
@@ -85,7 +85,7 @@ pub async fn run(args: QueryArgs) -> anyhow::Result<()> {
         args.collection.clone(),
         rx,
         args.top_k,
-        args.num_filter,
+        args.int_filter,
         args.keyword_filter,
         args.concurrency,
     );
@@ -160,7 +160,7 @@ async fn spawn_workers(
     collection: String,
     rx: Receiver<Vec<f32>>,
     top_k: usize,
-    num_filter: Option<u32>,
+    int_filter: Option<u32>,
     keyword_filter: Option<String>,
     concurrency: usize,
 ) -> anyhow::Result<()> {
@@ -171,22 +171,23 @@ async fn spawn_workers(
         let rx = rx.clone();
         let provider = provider.clone();
         let keyword_filter = keyword_filter.clone();
+        let int_filter = int_filter.clone();
         let collection = collection.clone();
 
         workers.spawn(async move {
             while let Ok(vector) = rx.recv().await {
+                // Build query
+                let query = Query {
+                    vector,
+                    top_k,
+                    int_filter,
+                    keyword_filter: keyword_filter.clone(),
+                };
+
                 loop {
                     let s = Instant::now();
                     counter!("bench.query.requests").increment(1);
-
-                    let query = Query {
-                        vector: vector.clone(),
-                        top_k,
-                        numeric_selectivity: num_filter,
-                        categorical_selectivity: keyword_filter.clone(),
-                    };
-
-                    match provider.query(collection.clone(), query).await {
+                    match provider.query(collection.clone(), query.clone()).await {
                         Ok(res) => {
                             counter!("bench.query.oks").increment(1);
                             let latency = s.elapsed();

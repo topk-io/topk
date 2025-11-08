@@ -55,9 +55,9 @@ pub struct Query {
     /// Top K.
     pub(crate) top_k: usize,
     /// Numeric selectivity.
-    pub(crate) numeric_selectivity: Option<u32>,
+    pub(crate) int_filter: Option<u32>,
     /// Categorical selectivity.
-    pub(crate) categorical_selectivity: Option<String>,
+    pub(crate) keyword_filter: Option<String>,
 }
 
 #[derive(Clone)]
@@ -268,8 +268,8 @@ impl ProviderLike for PythonProvider {
             locals.set_item("collection", collection.clone())?;
             locals.set_item("vector", query.vector.clone())?;
             locals.set_item("top_k", query.top_k)?;
-            locals.set_item("num_filter", query.numeric_selectivity)?;
-            locals.set_item("keyword_filter", query.categorical_selectivity.clone())?;
+            locals.set_item("int_filter", query.int_filter)?;
+            locals.set_item("keyword_filter", query.keyword_filter.clone())?;
 
             py.run(
                 c_str!("result = query(collection, vector, top_k, num_filter, keyword_filter)"),

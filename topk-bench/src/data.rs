@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use arrow_array::Int64Array;
+use arrow::datatypes::Int32Type;
 use arrow_array::{
     types::Float64Type, Array, LargeListArray, LargeStringArray, PrimitiveArray, RecordBatch,
 };
@@ -98,27 +98,27 @@ pub fn parse_bench_01(batch: RecordBatch) -> Vec<Document> {
         out
     };
 
-    let numerical_filter = batch
-        .column_by_name("numerical_filter")
-        .expect("numerical_filter column not found")
+    let int_filter = batch
+        .column_by_name("int_filter")
+        .expect("int_filter column not found")
         .as_any()
-        .downcast_ref::<Int64Array>()
-        .expect("numerical_filter column is not a Int64Array");
+        .downcast_ref::<PrimitiveArray<Int32Type>>()
+        .expect("int_filter column is not a Int32Array");
 
-    let categorical_filter = batch
-        .column_by_name("categorical_filter")
-        .expect("categorical_filter column not found")
+    let keyword_filter = batch
+        .column_by_name("keyword_filter")
+        .expect("keyword_filter column not found")
         .as_any()
         .downcast_ref::<LargeStringArray>()
-        .expect("categorical_filter column is not a LargeStringArray");
+        .expect("keyword_filter column is not a LargeStringArray");
 
     let mut rows = Vec::with_capacity(batch.num_rows());
     for i in 0..batch.num_rows() {
         let id = id.value(i).to_string();
         let text = text.value(i).to_string();
         let dense_embedding = std::mem::take(&mut dense[i]);
-        let numerical_filter = numerical_filter.value(i) as u32;
-        let categorical_filter = categorical_filter.value(i).to_string();
+        let int_filter = int_filter.value(i) as u32;
+        let keyword_filter = keyword_filter.value(i).to_string();
 
         rows.push(Document::new(HashMap::from([
             ("id".to_string(), RsValue::string(id)),
@@ -127,13 +127,10 @@ pub fn parse_bench_01(batch: RecordBatch) -> Vec<Document> {
                 "dense_embedding".to_string(),
                 RsValue::list(dense_embedding),
             ),
+            ("int_filter".to_string(), RsValue::u32(int_filter)),
             (
-                "numerical_filter".to_string(),
-                RsValue::u32(numerical_filter),
-            ),
-            (
-                "categorical_filter".to_string(),
-                RsValue::string(categorical_filter),
+                "keyword_filter".to_string(),
+                RsValue::string(keyword_filter),
             ),
         ])));
     }

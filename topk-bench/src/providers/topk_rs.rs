@@ -145,11 +145,11 @@ impl ProviderLike for TopkRsProvider {
         )])
         .limit(query.top_k as u64);
 
-        if let Some(numeric_selectivity) = query.numeric_selectivity {
-            topk_query = topk_query.filter(field("numerical_filter").eq(numeric_selectivity));
+        if let Some(int_filter) = query.int_filter {
+            topk_query = topk_query.filter(field("int_filter").eq(int_filter));
         }
-        if let Some(categorical_selectivity) = query.categorical_selectivity {
-            topk_query = topk_query.filter(field("categorical_filter").eq(categorical_selectivity));
+        if let Some(keyword_filter) = query.keyword_filter {
+            topk_query = topk_query.filter(field("keyword_filter").eq(keyword_filter));
         }
 
         let documents = self

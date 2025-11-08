@@ -440,6 +440,8 @@ async fn pull_dataset(bucket: &str, key: &str) -> anyhow::Result<PathBuf> {
     let start = Instant::now();
     let resp = s3.get_object().bucket(bucket).key(key).send().await?;
     let mut data = resp.body.into_async_read();
+    // Ensure the directory exists
+    std::fs::create_dir_all(Path::new(&out).parent().unwrap())?;
     let mut file = tokio::fs::File::create(&out).await?;
     tokio::io::copy(&mut data, &mut file).await?;
     let duration = start.elapsed();
