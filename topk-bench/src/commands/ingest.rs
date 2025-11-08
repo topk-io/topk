@@ -207,7 +207,7 @@ fn spawn_writers(
                     match result {
                         Ok(res) => {
                             counter!("bench.ingest.oks").increment(1);
-                            counter!("bench.ingest.upserted_items").increment(doc_count as u64);
+                            counter!("bench.ingest.upserted_docs").increment(doc_count as u64);
                             counter!("bench.ingest.upserted_bytes").increment(byte_size as u64);
                             let latency = s.elapsed();
                             histogram!("bench.ingest.latency_ms")
@@ -321,7 +321,7 @@ fn spawn_metrics_reporter() -> tokio::task::JoinHandle<()> {
                 format!("{:.2} reqs/s", get_rate("bench.ingest.requests"))
                     .yellow()
                     .bold(),
-                format!("{:.2} items/s", get_rate("bench.ingest.upserted_items"))
+                format!("{:.2} docs/s", get_rate("bench.ingest.upserted_docs"))
                     .blue()
                     .bold(),
                 match bytes_per_second {

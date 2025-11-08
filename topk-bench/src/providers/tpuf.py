@@ -15,7 +15,7 @@ def setup(namespace: str):
 
 def ping(namespace: str):
     client.namespace(namespace).query(
-        rank_by=("vector", "ANN", []),
+        rank_by=("vector", "ANN", [0.1] * 768),
         top_k=1,
     )
 
