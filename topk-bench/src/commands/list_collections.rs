@@ -5,6 +5,7 @@ use crate::commands::ProviderArg;
 use crate::providers::topk_py::TopkPyProvider;
 use crate::providers::topk_rs::TopkRsProvider;
 use crate::providers::tpuf_py::TpufPyProvider;
+use crate::providers::ProviderLike;
 
 #[derive(Parser, Debug, Clone)]
 pub struct ListCollectionsArgs {
@@ -20,6 +21,10 @@ pub async fn run(args: ListCollectionsArgs) -> anyhow::Result<()> {
         ProviderArg::TopkPy => TopkPyProvider::new().await?,
         ProviderArg::TpufPy => TpufPyProvider::new().await?,
     };
+
+    let collections = provider.list_collections().await?;
+    info!(?collections, "Listing collections");
+    println!("{:#?}", collections);
 
     Ok(())
 }
