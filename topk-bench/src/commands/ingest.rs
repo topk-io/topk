@@ -71,7 +71,6 @@ pub async fn run(args: IngestArgs) -> anyhow::Result<()> {
     };
 
     // Setup provider
-    info!("Setting up provider");
     provider.setup(args.collection.clone()).await?;
 
     // Ping provider
