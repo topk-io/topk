@@ -102,24 +102,14 @@ impl ProviderLike for TopkRsProvider {
     async fn ping(&self, collection: String) -> anyhow::Result<Duration> {
         let start = Instant::now();
 
-        match self
-            .client
+        self.client
             .collection(collection)
             .query(
                 select(Vec::<(&str, SelectExpr)>::new()).limit(1),
                 None,
                 None,
             )
-            .await
-        {
-            Ok(_) => anyhow::bail!("query should have failed"),
-            Err(e) => match e {
-                topk_rs::Error::CollectionNotFound => {
-                    // Expected error
-                }
-                _ => return Err(e.into()),
-            },
-        };
+            .await?;
 
         Ok(start.elapsed())
     }
