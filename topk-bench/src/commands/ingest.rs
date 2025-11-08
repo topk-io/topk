@@ -295,6 +295,7 @@ fn spawn_metrics_reporter() -> tokio::task::JoinHandle<()> {
             ticker.tick().await;
             let metrics = read_snapshot().await;
             let get_count = |name: &str| metrics.get(name).map(|m| m.count()).unwrap_or_default();
+            let get_sum = |name: &str| metrics.get(name).map(|m| m.sum()).unwrap_or_default();
             let get_rate = |name: &str| {
                 metrics
                     .get(name)
@@ -313,6 +314,7 @@ fn spawn_metrics_reporter() -> tokio::task::JoinHandle<()> {
 
             let availability = (1.0 - errors as f64 / requests as f64) * 100.0;
             let bytes_per_second = get_rate("bench.ingest.upserted_bytes");
+            let total_upserted_bytes = get_sum("bench.ingest.upserted_bytes");
             let avg_latency = metrics
                 .get("bench.ingest.latency_ms")
                 .map(|m| m.mean())
@@ -329,7 +331,7 @@ fn spawn_metrics_reporter() -> tokio::task::JoinHandle<()> {
             }
 
             println!(
-                "stats] Availability: {}, Throughput: {}, {}, {}, Latency: {}, {}, {}, {}, Freshness: {}",
+                "stats] {}, {} Throughput: {}, {}, {}, Latency: {}, {}, Freshness: {}",
                 // Availability
                 match availability {
                     _ if availability == 100.0 => format!("100%").green().bold(),
@@ -337,13 +339,18 @@ fn spawn_metrics_reporter() -> tokio::task::JoinHandle<()> {
                     _ if availability.is_nan() => format!("...").bold(),
                     _ => format!("{:.2}%", availability).red().bold(),
                 },
+                // Total
+                format!("{:.2} MB", total_upserted_bytes / 1024.0 / 1024.0).bold(),
                 // Throughput
                 format!("{:.2} reqs/s", get_rate("bench.ingest.requests"))
                     .yellow()
                     .bold(),
-                format!("{:.2} docs/s", get_rate("bench.ingest.upserted_docs"))
-                    .blue()
-                    .bold(),
+                format!(
+                    "{:.2}k docs/s",
+                    get_rate("bench.ingest.upserted_docs") / 1000.0
+                )
+                .blue()
+                .bold(),
                 match bytes_per_second {
                     _ if bytes_per_second < 1024.0 => format!("{:.2} B/s", bytes_per_second),
                     _ if bytes_per_second < (1024.0 * 1024.0) =>
@@ -354,16 +361,11 @@ fn spawn_metrics_reporter() -> tokio::task::JoinHandle<()> {
                 .bold(),
                 // Latency
                 format!("avg={:.2}ms", avg_latency).yellow().bold(),
-                format!("p50={:.2}", get_quantile("bench.ingest.latency_ms", 0.5))
-                    .blue()
-                    .bold(),
-                format!("p90={:.2}ms", get_quantile("bench.ingest.latency_ms", 0.9))
+                format!("p99={:.2}ms", get_quantile("bench.ingest.latency_ms", 0.99))
                     .magenta()
                     .bold(),
-                format!("p99={:.2}ms", get_quantile("bench.ingest.latency_ms", 0.99))
-                    .cyan()
-                    .bold(),
-                format!("avg={:.2}ms", avg_freshness_latency).yellow().bold(),
+                // Freshness
+                format!("avg={:.2}ms", avg_freshness_latency).bold(),
             );
         }
     })
