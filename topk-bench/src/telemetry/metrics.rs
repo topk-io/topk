@@ -232,9 +232,6 @@ pub struct MetricCollector {
     min: f64,
     max: f64,
     histogram: hdrhistogram::Histogram<u64>,
-    // Simple rate interpolation: track last update
-    last_sum: f64,
-    last_update_time: Option<Instant>,
 }
 
 impl Default for MetricCollector {
@@ -247,8 +244,6 @@ impl Default for MetricCollector {
             min: f64::MAX,
             max: f64::MIN,
             histogram: hdrhistogram::Histogram::new(4).unwrap(),
-            last_sum: 0.0,
-            last_update_time: None,
         }
     }
 }
@@ -268,19 +263,9 @@ impl MetricCollector {
             return 0.0;
         }
 
-        // Use last update rate if recent (within 10 seconds), otherwise fall back to average
-        // This provides simple interpolation between batch completions
-        if let Some(last_time) = self.last_update_time {
-            let time_since_update = Instant::now().duration_since(last_time).as_secs_f64();
-            if time_since_update < 10.0 && time_since_update > 0.0 {
-                let delta = self.sum - self.last_sum;
-                if delta >= 0.0 {
-                    return delta / time_since_update;
-                }
-            }
-        }
-
-        // Fall back to average rate
+        // For counters, the snapshot value is cumulative (total count)
+        // Calculate average rate: total / time
+        // This gives us the average rate over the entire period, which stabilizes after the initial burst
         self.sum / age_secs
     }
 
@@ -315,10 +300,7 @@ impl MetricCollector {
 
                 self.count += 1;
                 self.last = value;
-                self.last_sum = self.sum;
                 self.sum = value;
-                self.last_update_time = Some(Instant::now());
-                
                 self.min = self.min.min(value);
                 self.max = self.max.max(value);
             }
