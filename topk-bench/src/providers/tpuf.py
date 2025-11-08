@@ -15,7 +15,7 @@ def setup(namespace: str):
             {
                 "id": "__bootstrap__",
                 "text": "Hello, world!",
-                "vector": [0.1] * 768,
+                "dense_embedding": [0.1] * 768,
                 "numerical_filter": 1,
                 "categorical_filter": "Hello",
             }
