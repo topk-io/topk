@@ -11,7 +11,7 @@ client = turbopuffer.Turbopuffer(
 def setup(namespace: str):
     upsert(
         namespace,
-        docs=[
+        [
             {
                 "id": "__bootstrap__",
                 "text": "Hello, world!",
