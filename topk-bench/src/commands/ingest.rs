@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use arrow_array::RecordBatch;
@@ -11,7 +12,8 @@ use parquet::arrow::arrow_reader::ParquetRecordBatchReader;
 use parquet::file::metadata::KeyValue;
 use rand::{thread_rng, Rng};
 use tokio::signal::ctrl_c;
-use tokio::task::JoinSet;
+use tokio::sync::Notify;
+use tokio::task::{JoinHandle, JoinSet};
 use tracing::{debug, error, info};
 
 use crate::commands::{ProviderArg, BUCKET_NAME};
@@ -83,8 +85,15 @@ pub async fn run(args: IngestArgs) -> anyhow::Result<()> {
         info!("Ping latency: {:?}", latency);
     }
 
+    let ready = Arc::new(Notify::new());
+
     // Spawn batch producer
-    let rx = spawn_batch_producer(dataset_path, args.batch_size)?;
+    let rx = spawn_batch_producer(
+        dataset_path,
+        args.batch_size,
+        args.concurrency,
+        ready.clone(),
+    )?;
 
     // Spawn writers
     let writers = spawn_writers(
@@ -93,10 +102,11 @@ pub async fn run(args: IngestArgs) -> anyhow::Result<()> {
         rx,
         args.concurrency,
         parse_bench_01,
+        ready.clone(),
     );
 
     // Spawn metrics reporter
-    let stats = spawn_metrics_reporter();
+    let stats = spawn_metrics_reporter(ready.clone());
 
     // Build metrics metadata
     let metadata = vec![
@@ -144,14 +154,22 @@ pub async fn run(args: IngestArgs) -> anyhow::Result<()> {
 fn spawn_batch_producer(
     input: PathBuf,
     batch_size: usize,
+    concurrency: usize,
+    ready: Arc<Notify>,
 ) -> anyhow::Result<Receiver<RecordBatch>> {
     let (tx, rx) = async_channel::unbounded();
     let file = File::open(input)?;
     let mut batch_reader = ParquetRecordBatchReader::try_new(file, batch_size)?;
 
     std::thread::spawn(move || {
+        let mut produced = 0;
         while let Some(batch) = batch_reader.next() {
             let batch = batch.expect("Failed to read batch");
+
+            produced += 1;
+            if produced == concurrency {
+                ready.notify_waiters();
+            }
 
             futures::executor::block_on(async {
                 if tx.send(batch).await.is_err() {
@@ -172,6 +190,7 @@ fn spawn_writers(
     rx: Receiver<RecordBatch>,
     concurrency: usize,
     parser: fn(RecordBatch) -> Vec<Document>,
+    ready: Arc<Notify>,
 ) -> tokio::task::JoinHandle<()> {
     // Spawn collection writer tasks
     let mut writers = JoinSet::new();
@@ -180,8 +199,12 @@ fn spawn_writers(
         let rx = rx.clone();
         let provider = provider.clone();
         let collection = collection.clone();
+        let ready = ready.clone();
 
         writers.spawn(async move {
+            // Wait for batches to be produced
+            ready.notified().await;
+
             // Spawn freshness tasks
             let mut freshness_tasks = JoinSet::new();
 
@@ -296,8 +319,12 @@ fn spawn_writers(
 }
 
 // metrics reporter task
-fn spawn_metrics_reporter() -> tokio::task::JoinHandle<()> {
+fn spawn_metrics_reporter(ready: Arc<Notify>) -> JoinHandle<()> {
     tokio::task::spawn(async move {
+        // Wait for writers to be ready
+        info!("Waiting for writers to be ready...");
+        ready.notified().await;
+
         let mut ticker = tokio::time::interval(Duration::from_secs(1));
         loop {
             ticker.tick().await;
