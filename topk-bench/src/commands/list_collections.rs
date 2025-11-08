@@ -15,7 +15,6 @@ pub struct ListCollectionsArgs {
 
 pub async fn run(args: ListCollectionsArgs) -> anyhow::Result<()> {
     // Create provider
-    info!(?args, "Creating provider");
     let provider = match args.provider {
         ProviderArg::TopkRs => TopkRsProvider::new().await?,
         ProviderArg::TopkPy => TopkPyProvider::new().await?,
@@ -23,8 +22,9 @@ pub async fn run(args: ListCollectionsArgs) -> anyhow::Result<()> {
     };
 
     let collections = provider.list_collections().await?;
-    info!(?collections, "Listing collections");
-    println!("{:#?}", collections);
+    for collection in collections {
+        println!("{}", collection);
+    }
 
     Ok(())
 }

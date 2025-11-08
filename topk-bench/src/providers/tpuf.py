@@ -10,6 +10,15 @@ client = turbopuffer.Turbopuffer(
 
 def setup(namespace: str):
     client.namespace(namespace).write(
+        upsert_rows=[
+            {
+                "id": "__bootstrap__",
+                "text": "Hello, world!",
+                "vector": [0.1] * 768,
+                "numerical_filter": 1,
+                "categorical_filter": "Hello",
+            }
+        ],
         distance_metric="cosine_distance",
         schema={
             "text": {"type": "string"},
@@ -17,6 +26,8 @@ def setup(namespace: str):
             "categorical_filter": {"type": "string", "full_text_search": True},
         },
     )
+
+    client.namespace(namespace).write(deletes=["__bootstrap__"])
 
 
 def ping(namespace: str):
