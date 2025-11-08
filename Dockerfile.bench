@@ -3,7 +3,7 @@ FROM rust:slim
 # install system deps
 RUN apt-get update && apt-get install -y python3.13 python3.13-dev python3.13-venv protobuf-compiler
 
-RUN cargo install cargo-flamegraph
+RUN cargo install flamegraph
 
 # set up python venv and install turbpuffer
 RUN python3.13 -m venv /venv
