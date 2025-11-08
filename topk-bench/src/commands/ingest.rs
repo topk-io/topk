@@ -331,7 +331,7 @@ fn spawn_metrics_reporter() -> tokio::task::JoinHandle<()> {
             }
 
             println!(
-                "stats] {}, {} Throughput: {}, {}, {}, Latency: {}, {}, Freshness: {}",
+                "stats] {} {} Throughput: {}, {}, {}, Latency: {}, {}, Freshness: {}",
                 // Availability
                 match availability {
                     _ if availability == 100.0 => format!("100%").green().bold(),
@@ -340,7 +340,7 @@ fn spawn_metrics_reporter() -> tokio::task::JoinHandle<()> {
                     _ => format!("{:.2}%", availability).red().bold(),
                 },
                 // Total
-                format!("{:.2} MB", total_upserted_bytes / 1024.0 / 1024.0).bold(),
+                format!("{}MB", (total_upserted_bytes / 1024.0 / 1024.0).floor()).bold(),
                 // Throughput
                 format!("{:.2} reqs/s", get_rate("bench.ingest.requests"))
                     .yellow()
