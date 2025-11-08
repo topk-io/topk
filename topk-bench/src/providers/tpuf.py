@@ -15,7 +15,7 @@ def setup(namespace: str):
             {
                 "id": "__bootstrap__",
                 "text": "Hello, world!",
-                "dense_embedding": [0.1] * 768,
+                "vector": [0.1] * 768,
                 "numerical_filter": 1,
                 "categorical_filter": "Hello",
             }
@@ -84,6 +84,12 @@ def upsert(namespace: str, docs: list[dict]):
             }
             for doc in docs
         ],
+        distance_metric="cosine_distance",
+        schema={
+            "text": {"type": "string"},
+            "numerical_filter": {"type": "int"},
+            "categorical_filter": {"type": "string", "full_text_search": True},
+        },
     )
 
 
