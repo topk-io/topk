@@ -110,10 +110,15 @@ pub async fn run(args: IngestArgs) -> anyhow::Result<()> {
             error!(?res, "Metrics reporter exited");
         }
         _ = ctrl_c() => {
-            provider.close().await?;
+            // Close provider
+            if let Err(error) = provider.close().await {
+                error!(?error, "Failed to close provider");
+            }
 
-            // export (partial) metrics
-            export_metrics(BUCKET_NAME, metadata, &ingest_id).await?;
+            // Export metrics
+            if let Err(error) = export_metrics(BUCKET_NAME, metadata, &ingest_id).await {
+                error!(?error, "Failed to export metrics");
+            }
 
             std::process::exit(128 + 2);
         }
