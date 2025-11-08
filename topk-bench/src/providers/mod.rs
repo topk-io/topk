@@ -33,6 +33,7 @@ pub trait ProviderLike: Send + Sync + 'static {
         -> anyhow::Result<Option<Document>>;
 
     /// Delete documents by ID.
+    #[allow(dead_code)]
     async fn delete_by_id(&self, collection: String, ids: Vec<String>) -> anyhow::Result<()>;
 
     /// Query documents.
@@ -272,7 +273,7 @@ impl ProviderLike for PythonProvider {
             locals.set_item("keyword_filter", query.keyword_filter.clone())?;
 
             py.run(
-                c_str!("result = query(collection, vector, top_k, num_filter, keyword_filter)"),
+                c_str!("result = query(collection, vector, top_k, int_filter, keyword_filter)"),
                 None,
                 Some(&locals),
             )?;
