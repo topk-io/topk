@@ -64,6 +64,7 @@ pub async fn run(args: IngestArgs) -> anyhow::Result<()> {
     };
 
     // Create provider
+    info!(?args, "Creating provider");
     let provider = match args.provider {
         ProviderArg::TopkRs => TopkRsProvider::new(args.collection).await?,
         ProviderArg::TopkPy => TopkPyProvider::new(args.collection).await?,
@@ -71,10 +72,12 @@ pub async fn run(args: IngestArgs) -> anyhow::Result<()> {
     };
 
     // Setup provider
+    info!("Setting up provider");
     provider.setup().await?;
 
     // Ping provider
     // First ping to ensure the provider is ready
+    info!("Pinging provider");
     provider.ping().await?;
     // Then measure
     for _ in 0..3 {
