@@ -186,7 +186,15 @@ fn spawn_writers(
             let mut freshness_tasks = JoinSet::new();
 
             // Writer task
-            while let Ok(batch) = rx.recv().await {
+            loop {
+                let recv_start = Instant::now();
+                let batch = match rx.recv().await {
+                    Ok(batch) => batch,
+                    Err(_) => break, // Channel closed
+                };
+                let recv_latency = recv_start.elapsed();
+                histogram!("bench.ingest.recv_latency_ms").record(recv_latency.as_millis() as f64);
+
                 let doc_count = batch.num_rows();
                 let provider = provider.clone();
 
@@ -320,9 +328,19 @@ fn spawn_metrics_reporter() -> tokio::task::JoinHandle<()> {
                 .map(|m| m.mean())
                 .unwrap_or_default();
 
-            let avg_freshness_latency = metrics
+            let max_freshness_latency = metrics
                 .get("bench.ingest.freshness_latency_ms")
+                .map(|m| m.max())
+                .unwrap_or_default();
+
+            let avg_recv_latency = metrics
+                .get("bench.ingest.recv_latency_ms")
                 .map(|m| m.mean())
+                .unwrap_or_default();
+
+            let max_recv_latency = metrics
+                .get("bench.ingest.recv_latency_ms")
+                .map(|m| m.max())
                 .unwrap_or_default();
 
             if availability.is_nan() {
@@ -331,7 +349,7 @@ fn spawn_metrics_reporter() -> tokio::task::JoinHandle<()> {
             }
 
             println!(
-                "stats] {} {} Throughput: {}, {}, {}, Latency: {}, {}, Freshness: {}",
+                "stats] {} {} Throughput: {}, {}, {}, Latency: {}, {}, Freshness: {}, Recv: {}",
                 // Availability
                 match availability {
                     _ if availability == 100.0 => format!("100%").green().bold(),
@@ -365,7 +383,10 @@ fn spawn_metrics_reporter() -> tokio::task::JoinHandle<()> {
                     .magenta()
                     .bold(),
                 // Freshness
-                format!("avg={:.2}ms", avg_freshness_latency).bold(),
+                format!("max={:.2}ms", max_freshness_latency).bold(),
+                // Recv
+                format!("avg={:.2}ms", avg_recv_latency).bold(),
+                format!("max={:.2}ms", max_recv_latency).bold(),
             );
         }
     })
