@@ -1,5 +1,4 @@
 use clap::Parser;
-use tracing::info;
 
 use crate::commands::ProviderArg;
 use crate::providers::topk_py::TopkPyProvider;
