@@ -19,27 +19,30 @@ pub mod tpuf_py;
 #[async_trait]
 pub trait ProviderLike: Send + Sync + 'static {
     /// Setup the state in the provider.
-    async fn setup(&self) -> anyhow::Result<()>;
+    async fn setup(&self, collection: String) -> anyhow::Result<()>;
 
     /// Ping the provider, returns duration in milliseconds.
     /// This can be used to estimate if we are running the right region.
-    async fn ping(&self) -> anyhow::Result<Duration>;
+    async fn ping(&self, collection: String) -> anyhow::Result<Duration>;
 
     /// Upsert documents into the provider.
-    async fn upsert(&self, batch: Vec<Document>) -> anyhow::Result<()>;
+    async fn upsert(&self, collection: String, batch: Vec<Document>) -> anyhow::Result<()>;
 
     /// Query a document by ID.
-    async fn query_by_id(&self, id: String) -> anyhow::Result<Option<Document>>;
+    async fn query_by_id(&self, collection: String, id: String)
+        -> anyhow::Result<Option<Document>>;
 
     /// Delete documents by ID.
-    async fn delete_by_id(&self, ids: Vec<String>) -> anyhow::Result<()>;
-
-    async fn list_collections(&self) -> anyhow::Result<Vec<String>>;
-
-    async fn delete_collection(&self, name: String) -> anyhow::Result<()>;
+    async fn delete_by_id(&self, collection: String, ids: Vec<String>) -> anyhow::Result<()>;
 
     /// Query documents.
-    async fn query(&self, query: Query) -> anyhow::Result<Vec<Document>>;
+    async fn query(&self, collection: String, query: Query) -> anyhow::Result<Vec<Document>>;
+
+    /// List collections.
+    async fn list_collections(&self) -> anyhow::Result<Vec<String>>;
+
+    /// Delete collection.
+    async fn delete_collection(&self, collection: String) -> anyhow::Result<()>;
 
     /// Close the provider.
     async fn close(&self) -> anyhow::Result<()>;
@@ -68,51 +71,63 @@ pub enum Provider {
 
 #[async_trait]
 impl ProviderLike for Provider {
-    async fn setup(&self) -> Result<(), anyhow::Error> {
+    async fn setup(&self, collection: String) -> Result<(), anyhow::Error> {
         match self {
-            Provider::TopkRs(p) => p.setup().await,
-            Provider::TopkPy(p) => p.setup().await,
-            Provider::TpufPy(p) => p.setup().await,
+            Provider::TopkRs(p) => p.setup(collection).await,
+            Provider::TopkPy(p) => p.setup(collection).await,
+            Provider::TpufPy(p) => p.setup(collection).await,
         }
     }
 
-    async fn ping(&self) -> Result<Duration, anyhow::Error> {
+    async fn ping(&self, collection: String) -> Result<Duration, anyhow::Error> {
         match self {
-            Provider::TopkRs(p) => p.ping().await,
-            Provider::TopkPy(p) => p.ping().await,
-            Provider::TpufPy(p) => p.ping().await,
+            Provider::TopkRs(p) => p.ping(collection).await,
+            Provider::TopkPy(p) => p.ping(collection).await,
+            Provider::TpufPy(p) => p.ping(collection).await,
         }
     }
 
-    async fn query_by_id(&self, id: String) -> Result<Option<Document>, anyhow::Error> {
+    async fn query_by_id(
+        &self,
+        collection: String,
+        id: String,
+    ) -> Result<Option<Document>, anyhow::Error> {
         match self {
-            Provider::TopkRs(p) => p.query_by_id(id).await,
-            Provider::TopkPy(p) => p.query_by_id(id).await,
-            Provider::TpufPy(p) => p.query_by_id(id).await,
+            Provider::TopkRs(p) => p.query_by_id(collection, id).await,
+            Provider::TopkPy(p) => p.query_by_id(collection, id).await,
+            Provider::TpufPy(p) => p.query_by_id(collection, id).await,
         }
     }
 
-    async fn delete_by_id(&self, ids: Vec<String>) -> Result<(), anyhow::Error> {
+    async fn delete_by_id(
+        &self,
+        collection: String,
+        ids: Vec<String>,
+    ) -> Result<(), anyhow::Error> {
         match self {
-            Provider::TopkRs(p) => p.delete_by_id(ids).await,
-            Provider::TopkPy(p) => p.delete_by_id(ids).await,
-            Provider::TpufPy(p) => p.delete_by_id(ids).await,
+            Provider::TopkRs(p) => p.delete_by_id(collection, ids).await,
+            Provider::TopkPy(p) => p.delete_by_id(collection, ids).await,
+            Provider::TpufPy(p) => p.delete_by_id(collection, ids).await,
         }
     }
 
-    async fn query(&self, query: Query) -> Result<Vec<Document>, anyhow::Error> {
+    async fn query(
+        &self,
+        collection: String,
+        query: Query,
+    ) -> Result<Vec<Document>, anyhow::Error> {
         match self {
-            Provider::TopkRs(p) => p.query(query).await,
-            Provider::TopkPy(p) => p.query(query).await,
-            Provider::TpufPy(p) => p.query(query).await,
+            Provider::TopkRs(p) => p.query(collection, query).await,
+            Provider::TopkPy(p) => p.query(collection, query).await,
+            Provider::TpufPy(p) => p.query(collection, query).await,
         }
     }
 
-    async fn upsert(&self, batch: Vec<Document>) -> Result<(), anyhow::Error> {
+    async fn upsert(&self, collection: String, batch: Vec<Document>) -> Result<(), anyhow::Error> {
         match self {
-            Provider::TopkRs(p) => p.upsert(batch.clone()).await,
-            Provider::TopkPy(p) => p.upsert(batch.clone()).await,
-            Provider::TpufPy(p) => p.upsert(batch.clone()).await,
+            Provider::TopkRs(p) => p.upsert(collection, batch.clone()).await,
+            Provider::TopkPy(p) => p.upsert(collection, batch.clone()).await,
+            Provider::TpufPy(p) => p.upsert(collection, batch.clone()).await,
         }
     }
 
@@ -124,11 +139,11 @@ impl ProviderLike for Provider {
         }
     }
 
-    async fn delete_collection(&self, name: String) -> Result<(), anyhow::Error> {
+    async fn delete_collection(&self, collection: String) -> Result<(), anyhow::Error> {
         match self {
-            Provider::TopkRs(p) => p.delete_collection(name).await,
-            Provider::TopkPy(p) => p.delete_collection(name).await,
-            Provider::TpufPy(p) => p.delete_collection(name).await,
+            Provider::TopkRs(p) => p.delete_collection(collection).await,
+            Provider::TopkPy(p) => p.delete_collection(collection).await,
+            Provider::TpufPy(p) => p.delete_collection(collection).await,
         }
     }
 
@@ -142,13 +157,10 @@ impl ProviderLike for Provider {
 }
 
 #[derive(Clone)]
-pub struct PythonProvider {
-    /// Collection name
-    collection: String,
-}
+pub struct PythonProvider {}
 
 impl PythonProvider {
-    pub async fn new(code: &'static str, collection: String) -> anyhow::Result<Self> {
+    pub async fn new(code: &'static str) -> anyhow::Result<Self> {
         python_run(move |py| {
             let code = CString::new(code)?;
 
@@ -158,15 +170,13 @@ impl PythonProvider {
         })
         .await?;
 
-        Ok(Self { collection })
+        Ok(Self {})
     }
 }
 
 #[async_trait]
 impl ProviderLike for PythonProvider {
-    async fn setup(&self) -> anyhow::Result<()> {
-        let collection = self.collection.clone();
-
+    async fn setup(&self, collection: String) -> anyhow::Result<()> {
         python_run(move |py| {
             let locals = PyDict::new(py);
             locals.set_item("collection", collection.clone())?;
@@ -180,9 +190,8 @@ impl ProviderLike for PythonProvider {
         Ok(())
     }
 
-    async fn ping(&self) -> Result<Duration, anyhow::Error> {
+    async fn ping(&self, collection: String) -> Result<Duration, anyhow::Error> {
         let start = Instant::now();
-        let collection = self.collection.clone();
 
         python_run(move |py| {
             let locals = PyDict::new(py);
@@ -196,9 +205,11 @@ impl ProviderLike for PythonProvider {
         Ok(start.elapsed())
     }
 
-    async fn query_by_id(&self, id: String) -> Result<Option<Document>, anyhow::Error> {
-        let collection = self.collection.clone();
-
+    async fn query_by_id(
+        &self,
+        collection: String,
+        id: String,
+    ) -> Result<Option<Document>, anyhow::Error> {
         let result = python_run(move |py| {
             let locals = PyDict::new(py);
             locals.set_item("id", id.clone())?;
@@ -228,9 +239,11 @@ impl ProviderLike for PythonProvider {
         }
     }
 
-    async fn delete_by_id(&self, ids: Vec<String>) -> Result<(), anyhow::Error> {
-        let collection = self.collection.clone();
-
+    async fn delete_by_id(
+        &self,
+        collection: String,
+        ids: Vec<String>,
+    ) -> Result<(), anyhow::Error> {
         python_run(move |py| {
             let locals = PyDict::new(py);
             locals.set_item("collection", collection.clone())?;
@@ -245,9 +258,11 @@ impl ProviderLike for PythonProvider {
         Ok(())
     }
 
-    async fn query(&self, query: Query) -> Result<Vec<Document>, anyhow::Error> {
-        let collection = self.collection.clone();
-
+    async fn query(
+        &self,
+        collection: String,
+        query: Query,
+    ) -> Result<Vec<Document>, anyhow::Error> {
         let docs = python_run(move |py| {
             let locals = PyDict::new(py);
             locals.set_item("collection", collection.clone())?;
@@ -282,9 +297,7 @@ impl ProviderLike for PythonProvider {
             .collect())
     }
 
-    async fn upsert(&self, batch: Vec<Document>) -> Result<(), anyhow::Error> {
-        let collection = self.collection.clone();
-
+    async fn upsert(&self, collection: String, batch: Vec<Document>) -> Result<(), anyhow::Error> {
         python_run(move |py| {
             let locals = PyDict::new(py);
             locals.set_item("collection", collection.clone())?;
@@ -314,14 +327,11 @@ impl ProviderLike for PythonProvider {
     }
 
     async fn list_collections(&self) -> Result<Vec<String>, anyhow::Error> {
-        let collection = self.collection.clone();
-
         let collections = python_run(move |py| {
             let locals = PyDict::new(py);
-            locals.set_item("collection", collection.clone())?;
 
             py.run(
-                c_str!("collections = list_collections(collection)"),
+                c_str!("collections = list_collections()"),
                 None,
                 Some(&locals),
             )?;

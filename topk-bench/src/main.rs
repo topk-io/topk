@@ -19,6 +19,10 @@ enum Commands {
     Ingest(commands::ingest::IngestArgs),
     /// Query data from the benchmark
     Query(commands::query::QueryArgs),
+    /// List collections
+    ListCollections(commands::list_collections::ListCollectionsArgs),
+    /// Delete collection
+    DeleteCollection(commands::delete_collection::DeleteCollectionArgs),
 }
 
 #[tokio::main]
@@ -36,6 +40,8 @@ pub async fn main() -> anyhow::Result<()> {
     match args.command {
         Commands::Ingest(args) => commands::ingest::run(args).await?,
         Commands::Query(args) => commands::query::run(args).await?,
+        Commands::ListCollections(args) => commands::list_collections::run(args).await?,
+        Commands::DeleteCollection(args) => commands::delete_collection::run(args).await?,
     }
 
     Ok(())

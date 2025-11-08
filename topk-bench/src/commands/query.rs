@@ -55,17 +55,17 @@ pub async fn run(args: QueryArgs) -> anyhow::Result<()> {
 
     // Create provider
     let provider = match args.provider {
-        ProviderArg::TopkRs => TopkRsProvider::new(args.collection.clone()).await?,
-        ProviderArg::TopkPy => TopkPyProvider::new(args.collection.clone()).await?,
-        ProviderArg::TpufPy => TpufPyProvider::new(args.collection.clone()).await?,
+        ProviderArg::TopkRs => TopkRsProvider::new().await?,
+        ProviderArg::TopkPy => TopkPyProvider::new().await?,
+        ProviderArg::TpufPy => TpufPyProvider::new().await?,
     };
 
     // Ping provider
     // First ping to ensure the provider is ready
-    provider.ping().await?;
+    provider.ping(args.collection.clone()).await?;
     // Then measure
     for _ in 0..3 {
-        let latency = provider.ping().await?;
+        let latency = provider.ping(args.collection.clone()).await?;
         info!("Ping latency: {:?}", latency);
     }
 
@@ -82,6 +82,7 @@ pub async fn run(args: QueryArgs) -> anyhow::Result<()> {
     // Spawn writers
     let workers = spawn_workers(
         provider.clone(),
+        args.collection.clone(),
         rx,
         args.top_k,
         args.num_filter,
@@ -156,6 +157,7 @@ fn random_uniform_vector<R: Rng>(rng: &mut R, dim: usize) -> Vec<f32> {
 // Spawn worker tasks
 async fn spawn_workers(
     provider: impl ProviderLike + Send + Sync + Clone + 'static,
+    collection: String,
     rx: Receiver<Vec<f32>>,
     top_k: usize,
     num_filter: Option<u32>,
@@ -169,6 +171,7 @@ async fn spawn_workers(
         let rx = rx.clone();
         let provider = provider.clone();
         let keyword_filter = keyword_filter.clone();
+        let collection = collection.clone();
 
         workers.spawn(async move {
             while let Ok(vector) = rx.recv().await {
@@ -183,7 +186,7 @@ async fn spawn_workers(
                         categorical_selectivity: keyword_filter.clone(),
                     };
 
-                    match provider.query(query).await {
+                    match provider.query(collection.clone(), query).await {
                         Ok(res) => {
                             counter!("bench.query.oks").increment(1);
                             let latency = s.elapsed();
@@ -227,7 +230,7 @@ fn spawn_metrics_reporter() -> tokio::task::JoinHandle<()> {
         loop {
             ticker.tick().await;
             let metrics = read_snapshot().await;
-            let get_count = |name: &str| metrics.get(name).map(|m| m.count()).unwrap_or_default();
+            // let get_count = |name: &str| metrics.get(name).map(|m| m.count()).unwrap_or_default();
             let get_sum = |name: &str| metrics.get(name).map(|m| m.sum()).unwrap_or_default();
             let get_rate = |name: &str| {
                 metrics

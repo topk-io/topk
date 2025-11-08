@@ -66,22 +66,22 @@ pub async fn run(args: IngestArgs) -> anyhow::Result<()> {
     // Create provider
     info!(?args, "Creating provider");
     let provider = match args.provider {
-        ProviderArg::TopkRs => TopkRsProvider::new(args.collection).await?,
-        ProviderArg::TopkPy => TopkPyProvider::new(args.collection).await?,
-        ProviderArg::TpufPy => TpufPyProvider::new(args.collection).await?,
+        ProviderArg::TopkRs => TopkRsProvider::new().await?,
+        ProviderArg::TopkPy => TopkPyProvider::new().await?,
+        ProviderArg::TpufPy => TpufPyProvider::new().await?,
     };
 
     // Setup provider
     info!("Setting up provider");
-    provider.setup().await?;
+    provider.setup(args.collection.clone()).await?;
 
     // Ping provider
     // First ping to ensure the provider is ready
     info!("Pinging provider");
-    provider.ping().await?;
+    provider.ping(args.collection.clone()).await?;
     // Then measure
     for _ in 0..3 {
-        let latency = provider.ping().await?;
+        let latency = provider.ping(args.collection.clone()).await?;
         info!("Ping latency: {:?}", latency);
     }
 
@@ -89,7 +89,13 @@ pub async fn run(args: IngestArgs) -> anyhow::Result<()> {
     let rx = spawn_batch_producer(dataset_path, args.batch_size)?;
 
     // Spawn writers
-    let writers = spawn_writers(provider.clone(), rx, args.concurrency, parse_bench_01);
+    let writers = spawn_writers(
+        provider.clone(),
+        args.collection.clone(),
+        rx,
+        args.concurrency,
+        parse_bench_01,
+    );
 
     // Spawn metrics reporter
     let stats = spawn_metrics_reporter();
@@ -164,6 +170,7 @@ fn spawn_batch_producer(
 // Spawn writer tasks
 fn spawn_writers(
     provider: impl ProviderLike + Send + Sync + Clone + 'static,
+    collection: String,
     rx: Receiver<RecordBatch>,
     concurrency: usize,
     parser: fn(RecordBatch) -> Vec<Document>,
@@ -174,6 +181,7 @@ fn spawn_writers(
     for _ in 0..concurrency {
         let rx = rx.clone();
         let provider = provider.clone();
+        let collection = collection.clone();
 
         writers.spawn(async move {
             // Spawn freshness tasks
@@ -208,7 +216,10 @@ fn spawn_writers(
 
                     let s = Instant::now();
                     let result = provider
-                        .upsert(documents.into_iter().map(|doc| doc.into()).collect())
+                        .upsert(
+                            collection.clone(),
+                            documents.into_iter().map(|doc| doc.into()).collect(),
+                        )
                         .await;
 
                     counter!("bench.ingest.requests").increment(1);
@@ -223,8 +234,11 @@ fn spawn_writers(
                             debug!(?doc_count, ?res, ?latency, "Upserted documents");
 
                             // After a successful upsert, spawn a freshness task
+                            let collection = collection.clone();
                             freshness_tasks.spawn(async move {
-                                if let Err(error) = freshness_task(provider.clone(), max_id).await {
+                                if let Err(error) =
+                                    freshness_task(provider, collection, max_id).await
+                                {
                                     error!(?error, "Failed to spawn freshness task");
                                 }
                             });
@@ -389,9 +403,10 @@ async fn pull_dataset(bucket: &str, key: &str) -> anyhow::Result<PathBuf> {
 
 async fn freshness_task(
     provider: impl ProviderLike + Send + Sync + Clone + 'static,
+    collection: String,
     id: String,
 ) -> anyhow::Result<()> {
-    let first = provider.query_by_id(id.clone()).await?;
+    let first = provider.query_by_id(collection.clone(), id.clone()).await?;
 
     // If found immediately, record 0 latency since it's the benchmarking
     // tool that took some time to send the first request
@@ -402,7 +417,7 @@ async fn freshness_task(
 
     let start = Instant::now();
     loop {
-        let res = provider.query_by_id(id.clone()).await?;
+        let res = provider.query_by_id(collection.clone(), id.clone()).await?;
         if res.is_some() {
             break;
         }

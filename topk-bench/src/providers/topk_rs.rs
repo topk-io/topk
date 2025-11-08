@@ -54,14 +54,11 @@ impl std::fmt::Debug for TopkRsSettings {
 pub struct TopkRsProvider {
     /// Topk-rs client
     client: Client,
-
-    /// Collection name
-    collection: String,
 }
 
 impl TopkRsProvider {
     /// Creates a new TopkRsProvider.
-    pub async fn new(collection: String) -> anyhow::Result<Provider> {
+    pub async fn new() -> anyhow::Result<Provider> {
         let settings = TopkRsSettings::load_config()?;
         info!(?settings, "Creating TopkRsProvider");
 
@@ -71,14 +68,14 @@ impl TopkRsProvider {
                 .with_https(settings.topk_https.unwrap_or(true)),
         );
 
-        Ok(Provider::TopkRs(TopkRsProvider { client, collection }))
+        Ok(Provider::TopkRs(TopkRsProvider { client }))
     }
 }
 
 #[async_trait]
 impl ProviderLike for TopkRsProvider {
-    async fn setup(&self) -> anyhow::Result<()> {
-        match self.client.collections().get(&self.collection).await {
+    async fn setup(&self, collection: String) -> anyhow::Result<()> {
+        match self.client.collections().get(&collection).await {
             Ok(_) => Ok(()),
             Err(topk_rs::Error::CollectionNotFound) => {
                 // Create collection
@@ -86,7 +83,7 @@ impl ProviderLike for TopkRsProvider {
                     .client
                     .collections()
                     .create(
-                        &self.collection,
+                        &collection,
                         HashMap::from_iter([(
                             "vector".to_string(),
                             FieldSpec::f32_vector(768, true, VectorDistanceMetric::Cosine),
@@ -102,12 +99,12 @@ impl ProviderLike for TopkRsProvider {
         }
     }
 
-    async fn ping(&self) -> anyhow::Result<Duration> {
+    async fn ping(&self, collection: String) -> anyhow::Result<Duration> {
         let start = Instant::now();
 
         match self
             .client
-            .collection("non-existing-collection")
+            .collection(collection)
             .query(
                 select(Vec::<(&str, SelectExpr)>::new()).limit(1),
                 None,
@@ -127,10 +124,14 @@ impl ProviderLike for TopkRsProvider {
         Ok(start.elapsed())
     }
 
-    async fn query_by_id(&self, id: String) -> anyhow::Result<Option<Document>> {
+    async fn query_by_id(
+        &self,
+        collection: String,
+        id: String,
+    ) -> anyhow::Result<Option<Document>> {
         let documents = self
             .client
-            .collection(&self.collection)
+            .collection(collection)
             .query(filter(field("_id").eq(id.clone())).limit(1), None, None)
             .await?;
 
@@ -141,13 +142,13 @@ impl ProviderLike for TopkRsProvider {
         }
     }
 
-    async fn delete_by_id(&self, ids: Vec<String>) -> anyhow::Result<()> {
-        self.client.collection(&self.collection).delete(ids).await?;
+    async fn delete_by_id(&self, collection: String, ids: Vec<String>) -> anyhow::Result<()> {
+        self.client.collection(collection).delete(ids).await?;
 
         Ok(())
     }
 
-    async fn query(&self, query: Query) -> anyhow::Result<Vec<Document>> {
+    async fn query(&self, collection: String, query: Query) -> anyhow::Result<Vec<Document>> {
         let mut topk_query = select(vec![(
             "vector_distance",
             fns::vector_distance("dense_embedding", query.vector),
@@ -163,14 +164,14 @@ impl ProviderLike for TopkRsProvider {
 
         let documents = self
             .client
-            .collection(&self.collection)
+            .collection(collection)
             .query(topk_query, None, None)
             .await?;
 
         Ok(documents.into_iter().map(|d| d.into()).collect())
     }
 
-    async fn upsert(&self, batch: Vec<Document>) -> anyhow::Result<()> {
+    async fn upsert(&self, collection: String, batch: Vec<Document>) -> anyhow::Result<()> {
         let batch = batch
             .into_iter()
             .map(|mut doc| {
@@ -181,10 +182,7 @@ impl ProviderLike for TopkRsProvider {
             })
             .collect();
 
-        self.client
-            .collection(&self.collection)
-            .upsert(batch)
-            .await?;
+        self.client.collection(collection).upsert(batch).await?;
 
         Ok(())
     }
@@ -195,8 +193,8 @@ impl ProviderLike for TopkRsProvider {
         Ok(collections.into_iter().map(|c| c.name).collect())
     }
 
-    async fn delete_collection(&self, name: String) -> anyhow::Result<()> {
-        self.client.collections().delete(name).await?;
+    async fn delete_collection(&self, collection: String) -> anyhow::Result<()> {
+        self.client.collections().delete(collection).await?;
 
         Ok(())
     }

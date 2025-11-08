@@ -78,8 +78,8 @@ def upsert(namespace: str, docs: list[dict]):
     )
 
 
-def delete_collection(name: str):
-    client.namespace(name).delete_all()
+def delete_collection(namespace: str):
+    client.namespace(namespace).delete_all()
 
 
 def list_collections():

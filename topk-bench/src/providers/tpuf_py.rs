@@ -16,8 +16,8 @@ pub struct TpufPyProvider {
 
 impl TpufPyProvider {
     /// Creates a new TpufPyProvider.
-    pub async fn new(collection: String) -> anyhow::Result<Provider> {
-        let py = PythonProvider::new(PY_CODE, collection).await?;
+    pub async fn new() -> anyhow::Result<Provider> {
+        let py = PythonProvider::new(PY_CODE).await?;
 
         Ok(Provider::TpufPy(TpufPyProvider { py }))
     }
@@ -25,28 +25,32 @@ impl TpufPyProvider {
 
 #[async_trait]
 impl ProviderLike for TpufPyProvider {
-    async fn setup(&self) -> anyhow::Result<()> {
-        self.py.setup().await
+    async fn setup(&self, collection: String) -> anyhow::Result<()> {
+        self.py.setup(collection).await
     }
 
-    async fn ping(&self) -> anyhow::Result<Duration> {
-        self.py.ping().await
+    async fn ping(&self, collection: String) -> anyhow::Result<Duration> {
+        self.py.ping(collection).await
     }
 
-    async fn query_by_id(&self, id: String) -> anyhow::Result<Option<Document>> {
-        self.py.query_by_id(id).await
+    async fn query_by_id(
+        &self,
+        collection: String,
+        id: String,
+    ) -> anyhow::Result<Option<Document>> {
+        self.py.query_by_id(collection, id).await
     }
 
-    async fn delete_by_id(&self, ids: Vec<String>) -> anyhow::Result<()> {
-        self.py.delete_by_id(ids).await
+    async fn delete_by_id(&self, collection: String, ids: Vec<String>) -> anyhow::Result<()> {
+        self.py.delete_by_id(collection, ids).await
     }
 
-    async fn query(&self, query: Query) -> anyhow::Result<Vec<Document>> {
-        self.py.query(query).await
+    async fn query(&self, collection: String, query: Query) -> anyhow::Result<Vec<Document>> {
+        self.py.query(collection, query).await
     }
 
-    async fn upsert(&self, batch: Vec<Document>) -> anyhow::Result<()> {
-        self.py.upsert(batch).await
+    async fn upsert(&self, collection: String, batch: Vec<Document>) -> anyhow::Result<()> {
+        self.py.upsert(collection, batch).await
     }
 
     async fn list_collections(&self) -> anyhow::Result<Vec<String>> {

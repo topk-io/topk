@@ -84,8 +84,8 @@ def query(
     )
 
 
-def delete_collection(name: str):
-    client.collections().delete(name)
+def delete_collection(collection: str):
+    client.collections().delete(collection)
 
 
 def list_collections():
