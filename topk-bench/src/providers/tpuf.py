@@ -9,8 +9,9 @@ client = turbopuffer.Turbopuffer(
 
 
 def setup(namespace: str):
-    client.namespace(namespace).write(
-        upsert_rows=[
+    upsert(
+        namespace,
+        docs=[
             {
                 "id": "__bootstrap__",
                 "text": "Hello, world!",
@@ -19,15 +20,12 @@ def setup(namespace: str):
                 "categorical_filter": "Hello",
             }
         ],
-        distance_metric="cosine_distance",
-        schema={
-            "text": {"type": "string"},
-            "numerical_filter": {"type": "int"},
-            "categorical_filter": {"type": "string", "full_text_search": True},
-        },
     )
 
-    client.namespace(namespace).write(deletes=["__bootstrap__"])
+    delete_by_id(
+        namespace,
+        ids=["__bootstrap__"],
+    )
 
 
 def ping(namespace: str):
