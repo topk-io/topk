@@ -31,6 +31,9 @@ pub trait ProviderLike: Send + Sync + 'static {
     /// Query a document by ID.
     async fn query_by_id(&self, id: String) -> anyhow::Result<Option<Document>>;
 
+    /// Delete documents by ID.
+    async fn delete_by_id(&self, ids: Vec<String>) -> anyhow::Result<()>;
+
     /// Query documents.
     async fn query(&self, query: Query) -> anyhow::Result<Vec<Document>>;
 
@@ -82,6 +85,14 @@ impl ProviderLike for Provider {
             Provider::TopkRs(p) => p.query_by_id(id).await,
             Provider::TopkPy(p) => p.query_by_id(id).await,
             Provider::TpufPy(p) => p.query_by_id(id).await,
+        }
+    }
+
+    async fn delete_by_id(&self, ids: Vec<String>) -> Result<(), anyhow::Error> {
+        match self {
+            Provider::TopkRs(p) => p.delete_by_id(ids).await,
+            Provider::TopkPy(p) => p.delete_by_id(ids).await,
+            Provider::TpufPy(p) => p.delete_by_id(ids).await,
         }
     }
 
@@ -195,6 +206,23 @@ impl ProviderLike for PythonProvider {
             ))),
             _ => anyhow::bail!("expected 1 document, got {}", result.len()),
         }
+    }
+
+    async fn delete_by_id(&self, ids: Vec<String>) -> Result<(), anyhow::Error> {
+        let collection = self.collection.clone();
+
+        python_run(move |py| {
+            let locals = PyDict::new(py);
+            locals.set_item("collection", collection.clone())?;
+            locals.set_item("ids", ids.clone())?;
+
+            py.run(c_str!("delete_by_id(collection, ids)"), None, Some(&locals))?;
+
+            Ok(())
+        })
+        .await?;
+
+        Ok(())
     }
 
     async fn query(&self, query: Query) -> Result<Vec<Document>, anyhow::Error> {

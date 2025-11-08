@@ -37,6 +37,10 @@ impl ProviderLike for TopkPyProvider {
         self.py.query(query).await
     }
 
+    async fn delete_by_id(&self, ids: Vec<String>) -> anyhow::Result<()> {
+        self.py.delete_by_id(ids).await
+    }
+
     async fn query_by_id(&self, id: String) -> anyhow::Result<Option<Document>> {
         self.py.query_by_id(id).await
     }

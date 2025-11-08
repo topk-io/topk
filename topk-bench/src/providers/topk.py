@@ -1,9 +1,8 @@
 import os
-import time
 from topk_sdk import Client
-from topk_sdk.query import filter, field, select, fn
-from topk_sdk.error import CollectionNotFoundError, CollectionAlreadyExistsError
 from topk_sdk import schema
+from topk_sdk.query import filter, field, select, fn
+from topk_sdk.error import CollectionAlreadyExistsError
 
 
 client = Client(
@@ -36,7 +35,7 @@ def setup(collection: str):
 
 
 def ping(collection: str):
-    client.collection(collection).get(["non-existing-id"])
+    client.collection(collection).query(select().limit(1))
 
 
 def upsert(collection: str, docs: list[dict]):
@@ -56,6 +55,10 @@ def upsert(collection: str, docs: list[dict]):
 
 def query_by_id(collection: str, id: str):
     return client.collection(collection).query(filter(field("_id").eq(id)).limit(1))
+
+
+def delete_by_id(collection: str, ids: list[str]):
+    client.collection(collection).delete(ids)
 
 
 def query(

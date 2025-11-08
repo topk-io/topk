@@ -141,6 +141,12 @@ impl ProviderLike for TopkRsProvider {
         }
     }
 
+    async fn delete_by_id(&self, ids: Vec<String>) -> anyhow::Result<()> {
+        self.client.collection(&self.collection).delete(ids).await?;
+
+        Ok(())
+    }
+
     async fn query(&self, query: Query) -> anyhow::Result<Vec<Document>> {
         let mut topk_query = select(vec![(
             "vector_distance",

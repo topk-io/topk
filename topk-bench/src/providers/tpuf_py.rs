@@ -37,6 +37,10 @@ impl ProviderLike for TpufPyProvider {
         self.py.query_by_id(id).await
     }
 
+    async fn delete_by_id(&self, ids: Vec<String>) -> anyhow::Result<()> {
+        self.py.delete_by_id(ids).await
+    }
+
     async fn query(&self, query: Query) -> anyhow::Result<Vec<Document>> {
         self.py.query(query).await
     }

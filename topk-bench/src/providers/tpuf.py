@@ -9,8 +9,14 @@ client = turbopuffer.Turbopuffer(
 
 
 def setup(namespace: str):
-    # Turbopuffer namespaces are created automatically
-    pass
+    client.namespace(namespace).write(
+        distance_metric="cosine_distance",
+        schema={
+            "text": {"type": "string"},
+            "numerical_filter": {"type": "int"},
+            "categorical_filter": {"type": "string", "full_text_search": True},
+        },
+    )
 
 
 def ping(namespace: str):
@@ -28,6 +34,12 @@ def query_by_id(namespace: str, id: str):
     )
 
     return [r.__dict__ for r in result.rows]
+
+
+def delete_by_id(namespace: str, ids: list[str]):
+    client.namespace(namespace).write(
+        deletes=ids,
+    )
 
 
 def query(
@@ -63,10 +75,4 @@ def upsert(namespace: str, docs: list[dict]):
             }
             for doc in docs
         ],
-        distance_metric="cosine_distance",
-        schema={
-            "text": {"type": "string"},
-            "numerical_filter": {"type": "int"},
-            "categorical_filter": {"type": "string", "full_text_search": True},
-        },
     )
