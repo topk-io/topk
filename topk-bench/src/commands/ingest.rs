@@ -349,7 +349,7 @@ fn spawn_metrics_reporter() -> tokio::task::JoinHandle<()> {
             }
 
             println!(
-                "stats] {} {} Throughput: {}, {}, {}, Latency: {}, {}, Freshness: {}, Recv: {}",
+                "stats] {} {} Throughput: {}, {}, {}, Latency: {}, {}, Freshness: {}, Recv: {}, {}",
                 // Availability
                 match availability {
                     _ if availability == 100.0 => format!("100%").green().bold(),
