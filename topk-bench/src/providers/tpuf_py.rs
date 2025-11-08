@@ -49,6 +49,14 @@ impl ProviderLike for TpufPyProvider {
         self.py.upsert(batch).await
     }
 
+    async fn list_collections(&self) -> anyhow::Result<Vec<String>> {
+        self.py.list_collections().await
+    }
+
+    async fn delete_collection(&self, name: String) -> anyhow::Result<()> {
+        self.py.delete_collection(name).await
+    }
+
     async fn close(&self) -> anyhow::Result<()> {
         // TODO: this tpuf call times out
         // run_python!(move |py| {

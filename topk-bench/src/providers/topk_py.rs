@@ -49,6 +49,14 @@ impl ProviderLike for TopkPyProvider {
         self.py.upsert(batch).await
     }
 
+    async fn list_collections(&self) -> anyhow::Result<Vec<String>> {
+        self.py.list_collections().await
+    }
+
+    async fn delete_collection(&self, name: String) -> anyhow::Result<()> {
+        self.py.delete_collection(name).await
+    }
+
     async fn close(&self) -> anyhow::Result<()> {
         self.py.close().await
     }

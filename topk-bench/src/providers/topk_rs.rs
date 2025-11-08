@@ -189,6 +189,18 @@ impl ProviderLike for TopkRsProvider {
         Ok(())
     }
 
+    async fn list_collections(&self) -> anyhow::Result<Vec<String>> {
+        let collections = self.client.collections().list().await?;
+
+        Ok(collections.into_iter().map(|c| c.name).collect())
+    }
+
+    async fn delete_collection(&self, name: String) -> anyhow::Result<()> {
+        self.client.collections().delete(name).await?;
+
+        Ok(())
+    }
+
     async fn close(&self) -> anyhow::Result<()> {
         Ok(())
     }

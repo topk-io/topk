@@ -84,5 +84,13 @@ def query(
     )
 
 
+def delete_collection(name: str):
+    client.collections().delete(name)
+
+
+def list_collections():
+    return [collection.name for collection in client.collections().list()]
+
+
 def close():
     pass

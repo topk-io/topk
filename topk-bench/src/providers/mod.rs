@@ -34,6 +34,10 @@ pub trait ProviderLike: Send + Sync + 'static {
     /// Delete documents by ID.
     async fn delete_by_id(&self, ids: Vec<String>) -> anyhow::Result<()>;
 
+    async fn list_collections(&self) -> anyhow::Result<Vec<String>>;
+
+    async fn delete_collection(&self, name: String) -> anyhow::Result<()>;
+
     /// Query documents.
     async fn query(&self, query: Query) -> anyhow::Result<Vec<Document>>;
 
@@ -109,6 +113,22 @@ impl ProviderLike for Provider {
             Provider::TopkRs(p) => p.upsert(batch.clone()).await,
             Provider::TopkPy(p) => p.upsert(batch.clone()).await,
             Provider::TpufPy(p) => p.upsert(batch.clone()).await,
+        }
+    }
+
+    async fn list_collections(&self) -> Result<Vec<String>, anyhow::Error> {
+        match self {
+            Provider::TopkRs(p) => p.list_collections().await,
+            Provider::TopkPy(p) => p.list_collections().await,
+            Provider::TpufPy(p) => p.list_collections().await,
+        }
+    }
+
+    async fn delete_collection(&self, name: String) -> Result<(), anyhow::Error> {
+        match self {
+            Provider::TopkRs(p) => p.delete_collection(name).await,
+            Provider::TopkPy(p) => p.delete_collection(name).await,
+            Provider::TpufPy(p) => p.delete_collection(name).await,
         }
     }
 
@@ -287,6 +307,45 @@ impl ProviderLike for PythonProvider {
             })?;
 
             py.run(c_str!("upsert(collection, batch)"), None, Some(&locals))
+        })
+        .await?;
+
+        Ok(())
+    }
+
+    async fn list_collections(&self) -> Result<Vec<String>, anyhow::Error> {
+        let collection = self.collection.clone();
+
+        let collections = python_run(move |py| {
+            let locals = PyDict::new(py);
+            locals.set_item("collection", collection.clone())?;
+
+            py.run(
+                c_str!("collections = list_collections(collection)"),
+                None,
+                Some(&locals),
+            )?;
+
+            let collections = locals
+                .get_item("collections")?
+                .expect("collections is required");
+            let collections = collections.downcast::<PyList>()?;
+
+            Ok(Vec::<String>::extract_bound(collections)?)
+        })
+        .await?;
+
+        Ok(collections)
+    }
+
+    async fn delete_collection(&self, name: String) -> Result<(), anyhow::Error> {
+        python_run(move |py| {
+            let locals = PyDict::new(py);
+            locals.set_item("name", name.clone())?;
+
+            py.run(c_str!("delete_collection(name)"), None, Some(&locals))?;
+
+            Ok(())
         })
         .await?;
 

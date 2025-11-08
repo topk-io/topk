@@ -76,3 +76,11 @@ def upsert(namespace: str, docs: list[dict]):
             for doc in docs
         ],
     )
+
+
+def delete_collection(name: str):
+    client.namespace(name).delete_all()
+
+
+def list_collections():
+    return [ns.id for ns in client.namespaces()]
