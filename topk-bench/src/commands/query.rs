@@ -404,7 +404,7 @@ fn spawn_metrics_reporter() -> tokio::task::JoinHandle<()> {
                     .cyan()
                     .bold(),
                 // Recall
-                format!("recall={:.2}", get_avg("bench.query.recall"))
+                format!("avg={:.2}", get_avg("bench.query.recall"))
                     .yellow()
                     .bold(),
             );
