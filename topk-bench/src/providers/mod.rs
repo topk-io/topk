@@ -9,7 +9,6 @@ use tokio::time::Instant;
 
 use ::topk_py::data::value::Value as PyValue;
 use ::topk_py::data::Document as PyDocument;
-use ::topk_rs::proto::v1::data::Value;
 
 use crate::data::Document;
 
