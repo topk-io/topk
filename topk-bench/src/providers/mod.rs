@@ -9,6 +9,7 @@ use tokio::time::Instant;
 
 use ::topk_py::data::value::Value as PyValue;
 use ::topk_py::data::Document as PyDocument;
+use ::topk_rs::proto::v1::data::Value;
 
 use crate::data::Document;
 
@@ -99,12 +100,25 @@ impl ProviderLike for Provider {
         collection: String,
         id: String,
     ) -> Result<Option<Document>, anyhow::Error> {
-        match self {
-            Provider::TopkRs(p) => p.query_by_id(collection, id).await,
-            Provider::TopkPy(p) => p.query_by_id(collection, id).await,
-            Provider::TpufPy(p) => p.query_by_id(collection, id).await,
-            Provider::Chroma(p) => p.query_by_id(collection, id).await,
+        let doc = match self {
+            Provider::TopkRs(p) => p.query_by_id(collection, id.clone()).await,
+            Provider::TopkPy(p) => p.query_by_id(collection, id.clone()).await,
+            Provider::TpufPy(p) => p.query_by_id(collection, id.clone()).await,
+            Provider::Chroma(p) => p.query_by_id(collection, id.clone()).await,
+        }?;
+
+        // check `doc.id` == `id`
+        if let Some(doc) = &doc {
+            if doc.get("id").unwrap().as_string() != Some(&id) {
+                anyhow::bail!(
+                    "document id mismatch: expected {}, got {:?}",
+                    id,
+                    doc.get("id")
+                );
+            }
         }
+
+        Ok(doc)
     }
 
     async fn delete_by_id(
@@ -125,12 +139,46 @@ impl ProviderLike for Provider {
         collection: String,
         query: Query,
     ) -> Result<Vec<Document>, anyhow::Error> {
-        match self {
-            Provider::TopkRs(p) => p.query(collection, query).await,
-            Provider::TopkPy(p) => p.query(collection, query).await,
-            Provider::TpufPy(p) => p.query(collection, query).await,
-            Provider::Chroma(p) => p.query(collection, query).await,
+        let docs = match self {
+            Provider::TopkRs(p) => p.query(collection, query.clone()).await,
+            Provider::TopkPy(p) => p.query(collection, query.clone()).await,
+            Provider::TpufPy(p) => p.query(collection, query.clone()).await,
+            Provider::Chroma(p) => p.query(collection, query.clone()).await,
+        }?;
+
+        if query.top_k != docs.len() {
+            anyhow::bail!("expected {} documents, got {}", query.top_k, docs.len());
         }
+
+        for doc in &docs {
+            if let Some(int_filter) = query.int_filter {
+                if doc.get("int_filter").unwrap().as_u32().unwrap() <= int_filter {
+                    anyhow::bail!(
+                        "document int_filter mismatch: expected <= {}, got {}",
+                        int_filter,
+                        doc.get("int_filter").unwrap().as_u32().unwrap()
+                    );
+                }
+            }
+
+            if let Some(keyword_filter) = &query.keyword_filter {
+                if !doc
+                    .get("keyword_filter")
+                    .unwrap()
+                    .as_string()
+                    .unwrap()
+                    .contains(keyword_filter)
+                {
+                    anyhow::bail!(
+                        "document keyword_filter mismatch: expected to contain {}, got {}",
+                        keyword_filter,
+                        doc.get("keyword_filter").unwrap().as_string().unwrap()
+                    );
+                }
+            }
+        }
+
+        Ok(docs)
     }
 
     async fn upsert(&self, collection: String, batch: Vec<Document>) -> Result<(), anyhow::Error> {
