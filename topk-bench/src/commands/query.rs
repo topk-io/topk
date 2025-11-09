@@ -301,7 +301,7 @@ async fn spawn_workers(
                                 keyword_filter.clone(),
                             )
                             .expect("failed to calculate recall");
-                            println!("recall: {}", recall);
+                            histogram!("bench.query.recall").record(recall as f64);
 
                             break;
                         }
@@ -343,6 +343,7 @@ fn spawn_metrics_reporter() -> tokio::task::JoinHandle<()> {
             let metrics = read_snapshot().await;
             // let get_count = |name: &str| metrics.get(name).map(|m| m.count()).unwrap_or_default();
             let get_sum = |name: &str| metrics.get(name).map(|m| m.sum()).unwrap_or_default();
+            let get_avg = |name: &str| metrics.get(name).map(|m| m.mean()).unwrap_or_default();
             let get_rate = |name: &str| {
                 metrics
                     .get(name)
@@ -365,7 +366,7 @@ fn spawn_metrics_reporter() -> tokio::task::JoinHandle<()> {
                 .map(|m| m.mean())
                 .unwrap_or_default();
             println!(
-                "STATS: Availability: {}, Throughput: {}, Latency: {}, {}, {}, {}",
+                "STATS: Availability: {}, Throughput: {}, Latency: {}, {}, {}, {}, Recall: {}",
                 // Availability
                 match availability {
                     _ if availability == 100.0 => format!("100%").green().bold(),
@@ -387,6 +388,10 @@ fn spawn_metrics_reporter() -> tokio::task::JoinHandle<()> {
                     .bold(),
                 format!("p99={:.2}ms", get_quantile("bench.query.latency_ms", 0.99))
                     .cyan()
+                    .bold(),
+                // Recall
+                format!("recall={:.2}", get_avg("bench.query.recall"))
+                    .yellow()
                     .bold(),
             );
         }
