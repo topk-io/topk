@@ -70,7 +70,7 @@ def query(
         filters=None if len(filters) == 0 else ("And", tuple(filters)),
         include_attributes=["text", "int_filter", "keyword_filter"],
     )
-    return [r.__dict__ for r in result.rows]
+    return [r.model_dump() for r in result.rows]
 
 
 def upsert(namespace: str, docs: list[dict]):
