@@ -12,6 +12,7 @@ use ::topk_py::data::Document as PyDocument;
 
 use crate::data::Document;
 
+pub mod chroma;
 pub mod topk_py;
 pub mod topk_rs;
 pub mod tpuf_py;
@@ -63,11 +64,14 @@ pub struct Query {
 
 #[derive(Clone)]
 pub enum Provider {
-    /// TopK
+    /// TopK (native)
     TopkRs(topk_rs::TopkRsProvider),
+    /// TopK
     TopkPy(topk_py::TopkPyProvider),
-    //
+    /// Turbopuffer
     TpufPy(tpuf_py::TpufPyProvider),
+    /// Chroma
+    Chroma(chroma::ChromaProvider),
 }
 
 #[async_trait]
@@ -77,6 +81,7 @@ impl ProviderLike for Provider {
             Provider::TopkRs(p) => p.setup(collection).await,
             Provider::TopkPy(p) => p.setup(collection).await,
             Provider::TpufPy(p) => p.setup(collection).await,
+            Provider::Chroma(p) => p.setup(collection).await,
         }
     }
 
@@ -85,6 +90,7 @@ impl ProviderLike for Provider {
             Provider::TopkRs(p) => p.ping(collection).await,
             Provider::TopkPy(p) => p.ping(collection).await,
             Provider::TpufPy(p) => p.ping(collection).await,
+            Provider::Chroma(p) => p.ping(collection).await,
         }
     }
 
@@ -97,6 +103,7 @@ impl ProviderLike for Provider {
             Provider::TopkRs(p) => p.query_by_id(collection, id).await,
             Provider::TopkPy(p) => p.query_by_id(collection, id).await,
             Provider::TpufPy(p) => p.query_by_id(collection, id).await,
+            Provider::Chroma(p) => p.query_by_id(collection, id).await,
         }
     }
 
@@ -109,6 +116,7 @@ impl ProviderLike for Provider {
             Provider::TopkRs(p) => p.delete_by_id(collection, ids).await,
             Provider::TopkPy(p) => p.delete_by_id(collection, ids).await,
             Provider::TpufPy(p) => p.delete_by_id(collection, ids).await,
+            Provider::Chroma(p) => p.delete_by_id(collection, ids).await,
         }
     }
 
@@ -121,6 +129,7 @@ impl ProviderLike for Provider {
             Provider::TopkRs(p) => p.query(collection, query).await,
             Provider::TopkPy(p) => p.query(collection, query).await,
             Provider::TpufPy(p) => p.query(collection, query).await,
+            Provider::Chroma(p) => p.query(collection, query).await,
         }
     }
 
@@ -129,6 +138,7 @@ impl ProviderLike for Provider {
             Provider::TopkRs(p) => p.upsert(collection, batch.clone()).await,
             Provider::TopkPy(p) => p.upsert(collection, batch.clone()).await,
             Provider::TpufPy(p) => p.upsert(collection, batch.clone()).await,
+            Provider::Chroma(p) => p.upsert(collection, batch.clone()).await,
         }
     }
 
@@ -137,6 +147,7 @@ impl ProviderLike for Provider {
             Provider::TopkRs(p) => p.list_collections().await,
             Provider::TopkPy(p) => p.list_collections().await,
             Provider::TpufPy(p) => p.list_collections().await,
+            Provider::Chroma(p) => p.list_collections().await,
         }
     }
 
@@ -145,6 +156,7 @@ impl ProviderLike for Provider {
             Provider::TopkRs(p) => p.delete_collection(collection).await,
             Provider::TopkPy(p) => p.delete_collection(collection).await,
             Provider::TpufPy(p) => p.delete_collection(collection).await,
+            Provider::Chroma(p) => p.delete_collection(collection).await,
         }
     }
 
@@ -153,6 +165,7 @@ impl ProviderLike for Provider {
             Provider::TopkRs(p) => p.close().await,
             Provider::TopkPy(p) => p.close().await,
             Provider::TpufPy(p) => p.close().await,
+            Provider::Chroma(p) => p.close().await,
         }
     }
 }

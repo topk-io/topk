@@ -12,4 +12,5 @@ pub enum ProviderArg {
     TopkRs,
     TopkPy,
     TpufPy,
+    Chroma,
 }

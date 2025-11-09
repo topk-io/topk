@@ -13,6 +13,7 @@ use tokio::task::JoinSet;
 use tracing::{debug, error, info};
 
 use crate::commands::{ProviderArg, BUCKET_NAME};
+use crate::providers::chroma::ChromaProvider;
 use crate::providers::topk_py::TopkPyProvider;
 use crate::providers::topk_rs::TopkRsProvider;
 use crate::providers::tpuf_py::TpufPyProvider;
@@ -58,6 +59,7 @@ pub async fn run(args: QueryArgs) -> anyhow::Result<()> {
         ProviderArg::TopkRs => TopkRsProvider::new().await?,
         ProviderArg::TopkPy => TopkPyProvider::new().await?,
         ProviderArg::TpufPy => TpufPyProvider::new().await?,
+        ProviderArg::Chroma => ChromaProvider::new().await?,
     };
 
     // Ping provider
