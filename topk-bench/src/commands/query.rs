@@ -35,7 +35,7 @@ pub struct QueryArgs {
     pub(crate) timeout: u64,
 
     #[arg(long, help = "Numeric filter")]
-    pub(crate) int_filter: Option<u32>,
+    pub(crate) int_filter: Option<i64>,
 
     #[arg(long, help = "Keyword filter")]
     pub(crate) keyword_filter: Option<String>,
@@ -164,7 +164,7 @@ async fn spawn_workers(
     collection: String,
     rx: Receiver<Vec<f32>>,
     top_k: usize,
-    int_filter: Option<u32>,
+    int_filter: Option<i64>,
     keyword_filter: Option<String>,
     concurrency: usize,
 ) -> anyhow::Result<()> {

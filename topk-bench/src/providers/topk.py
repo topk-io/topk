@@ -70,6 +70,8 @@ def query(
 ):
     query = select(
         "text",
+        "int_filter",
+        "keyword_filter",
         vector_distance=fn.vector_distance("dense_embedding", vector),
     ).topk(field("vector_distance"), top_k)
 

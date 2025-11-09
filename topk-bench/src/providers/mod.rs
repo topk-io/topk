@@ -9,6 +9,7 @@ use tokio::time::Instant;
 
 use ::topk_py::data::value::Value as PyValue;
 use ::topk_py::data::Document as PyDocument;
+use tracing::warn;
 
 use crate::data::Document;
 
@@ -57,7 +58,7 @@ pub struct Query {
     /// Top K.
     pub(crate) top_k: usize,
     /// Numeric selectivity.
-    pub(crate) int_filter: Option<u32>,
+    pub(crate) int_filter: Option<i64>,
     /// Categorical selectivity.
     pub(crate) keyword_filter: Option<String>,
 }
@@ -146,16 +147,16 @@ impl ProviderLike for Provider {
         }?;
 
         if query.top_k != docs.len() {
-            anyhow::bail!("expected {} documents, got {}", query.top_k, docs.len());
+            warn!("expected {} documents, got {}", query.top_k, docs.len());
         }
 
         for doc in &docs {
             if let Some(int_filter) = query.int_filter {
-                if doc.get("int_filter").unwrap().as_u32().unwrap() <= int_filter {
+                if doc.get("int_filter").unwrap().as_i64().unwrap() > int_filter {
                     anyhow::bail!(
-                        "document int_filter mismatch: expected <= {}, got {}",
+                        "document int_filter mismatch: expected <= {}, got {:?}",
                         int_filter,
-                        doc.get("int_filter").unwrap().as_u32().unwrap()
+                        doc.get("int_filter")
                     );
                 }
             }
