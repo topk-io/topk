@@ -33,13 +33,13 @@ pub struct QueryArgs {
     #[arg(short, long, help = "Timeout in seconds")]
     pub(crate) timeout: u64,
 
-    #[arg(short, long, help = "Numeric filter")]
+    #[arg(long, help = "Numeric filter")]
     pub(crate) int_filter: Option<u32>,
 
-    #[arg(short, long, help = "Keyword filter")]
+    #[arg(long, help = "Keyword filter")]
     pub(crate) keyword_filter: Option<String>,
 
-    #[arg(short, long, help = "Top K")]
+    #[arg(long, help = "Top K")]
     pub(crate) top_k: usize,
 }
 
