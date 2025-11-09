@@ -68,6 +68,7 @@ def query(
         rank_by=("vector", "ANN", vector),
         top_k=top_k,
         filters=None if len(filters) == 0 else ("And", tuple(filters)),
+        include_attributes=["text", "int_filter", "keyword_filter"],
     )
     return [r.__dict__ for r in result.rows]
 
