@@ -165,17 +165,16 @@ impl ProviderLike for Provider {
             }
 
             if let Some(keyword_filter) = &query.keyword_filter {
-                if !doc
+                let text = doc
                     .get("keyword_filter")
-                    .unwrap()
-                    .as_string()
-                    .unwrap()
-                    .contains(keyword_filter)
-                {
+                    .and_then(|v| v.as_string())
+                    .expect("keyword_filter is required");
+
+                if !text.contains(keyword_filter) {
                     anyhow::bail!(
-                        "document keyword_filter mismatch: expected to contain {}, got {}",
-                        keyword_filter,
-                        doc.get("keyword_filter").unwrap().as_string().unwrap()
+                        "keyword filter mismatch: expected {} to contain {}",
+                        text,
+                        keyword_filter
                     );
                 }
             }
