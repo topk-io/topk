@@ -9,15 +9,15 @@ use crate::providers::tpuf_py::TpufPyProvider;
 use crate::providers::ProviderLike;
 
 #[derive(Parser, Debug, Clone)]
-pub struct DeleteCollectionArgs {
-    #[arg(long, help = "Target collection")]
-    pub(crate) collection: String,
-
-    #[arg(short, long, help = "Target collection")]
+pub struct CleanupArgs {
+    #[arg(short, long, help = "Target provider")]
     pub(crate) provider: ProviderArg,
+
+    #[arg(short, long, help = "Wet run")]
+    pub(crate) wet: bool,
 }
 
-pub async fn run(args: DeleteCollectionArgs) -> anyhow::Result<()> {
+pub async fn run(args: CleanupArgs) -> anyhow::Result<()> {
     // Create provider
     let provider = match args.provider {
         ProviderArg::TopkRs => TopkRsProvider::new().await?,
@@ -26,9 +26,18 @@ pub async fn run(args: DeleteCollectionArgs) -> anyhow::Result<()> {
         ProviderArg::Chroma => ChromaProvider::new().await?,
     };
 
-    // Delete collection
-    info!("Deleting collection");
-    provider.delete_collection(args.collection).await?;
+    let collections = provider.list_collections().await?;
+
+    for collection in &collections {
+        println!("{}", collection);
+    }
+
+    if args.wet {
+        for collection in collections {
+            info!("Deleting collection {}", collection);
+            provider.delete_collection(collection).await?;
+        }
+    }
 
     Ok(())
 }
