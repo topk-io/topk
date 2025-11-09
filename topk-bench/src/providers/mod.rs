@@ -56,9 +56,9 @@ pub struct Query {
     /// Vector to query.
     pub(crate) vector: Vec<f32>,
     /// Top K.
-    pub(crate) top_k: usize,
+    pub(crate) top_k: u32,
     /// Numeric selectivity.
-    pub(crate) int_filter: Option<i64>,
+    pub(crate) int_filter: Option<u32>,
     /// Categorical selectivity.
     pub(crate) keyword_filter: Option<String>,
 }
@@ -149,13 +149,13 @@ impl ProviderLike for Provider {
             Provider::Chroma(p) => p.query(collection, query.clone()).await,
         }?;
 
-        if query.top_k != docs.len() {
+        if query.top_k as usize != docs.len() {
             warn!("expected {} documents, got {}", query.top_k, docs.len());
         }
 
         for doc in &docs {
             if let Some(int_filter) = query.int_filter {
-                if doc.get("int_filter").unwrap().as_i64().unwrap() > int_filter {
+                if doc.get("int_filter").unwrap().as_u32().unwrap() > int_filter {
                     anyhow::bail!(
                         "document int_filter mismatch: expected <= {}, got {:?}",
                         int_filter,

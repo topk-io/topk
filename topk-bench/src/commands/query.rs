@@ -1,18 +1,24 @@
+use std::collections::{HashMap, HashSet};
+use std::fs::File;
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use async_channel::{Receiver, Sender};
+use anyhow::Context;
+use arrow_array::RecordBatch;
+use async_channel::Receiver;
 use clap::Parser;
 use colored::Colorize;
 use metrics::{counter, histogram};
+use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 use parquet::file::metadata::KeyValue;
-use rand::prelude::Distribution;
+use rand::prelude::*;
 use rand::{thread_rng, Rng};
-use rand_distr::Uniform;
 use tokio::signal::ctrl_c;
 use tokio::task::JoinSet;
 use tracing::{debug, error, info};
 
 use crate::commands::{ProviderArg, BUCKET_NAME};
+use crate::data::Document;
 use crate::providers::chroma::ChromaProvider;
 use crate::providers::topk_py::TopkPyProvider;
 use crate::providers::topk_rs::TopkRsProvider;
@@ -25,6 +31,9 @@ pub struct QueryArgs {
     #[arg(long, help = "Target collection")]
     pub(crate) collection: String,
 
+    #[arg(short, long, help = "Input file to query")]
+    pub(crate) input: String,
+
     #[arg(short, long, help = "Target collection")]
     pub(crate) provider: ProviderArg,
 
@@ -35,13 +44,13 @@ pub struct QueryArgs {
     pub(crate) timeout: u64,
 
     #[arg(long, help = "Numeric filter")]
-    pub(crate) int_filter: Option<i64>,
+    pub(crate) int_filter: Option<u32>,
 
     #[arg(long, help = "Keyword filter")]
     pub(crate) keyword_filter: Option<String>,
 
     #[arg(long, help = "Top K")]
-    pub(crate) top_k: usize,
+    pub(crate) top_k: u32,
 }
 
 pub async fn run(args: QueryArgs) -> anyhow::Result<()> {
@@ -53,6 +62,9 @@ pub async fn run(args: QueryArgs) -> anyhow::Result<()> {
         .collect::<String>();
 
     info!("Starting query: {:?} with ID: {}", args, query_id);
+
+    // Determine input path
+    let queries = PathBuf::from(args.input);
 
     // Create provider
     let provider = match args.provider {
@@ -71,23 +83,15 @@ pub async fn run(args: QueryArgs) -> anyhow::Result<()> {
         info!("Ping latency: {:?}", latency);
     }
 
-    let (tx, rx) = async_channel::unbounded();
-
-    // Spawn query generator
-    std::thread::spawn(move || {
-        let result = spawn_query_generator(tx, args.timeout, 768);
-        if let Err(error) = result {
-            error!(?error, "Query generator task failed");
-        }
-    });
+    let queries = spawn_query_generator(queries)?;
 
     // Spawn writers
     let workers = spawn_workers(
         provider.clone(),
         args.collection.clone(),
-        rx,
+        queries.clone(),
         args.top_k,
-        args.int_filter,
+        args.int_filter.map(|x| x as u32),
         args.keyword_filter,
         args.concurrency,
     );
@@ -102,6 +106,9 @@ pub async fn run(args: QueryArgs) -> anyhow::Result<()> {
         KeyValue::new("concurrency".into(), args.concurrency.to_string()),
     ];
 
+    // Set timeout
+    let timeout = tokio::time::sleep(Duration::from_secs(args.timeout));
+
     let start = Instant::now();
     tokio::select! {
         res = workers => {
@@ -112,7 +119,24 @@ pub async fn run(args: QueryArgs) -> anyhow::Result<()> {
         res = stats => {
             error!(?res, "Metrics reporter exited");
         }
+        _ = timeout => {
+            info!("Queries completed in {:.2}s", start.elapsed().as_secs_f64());
+
+            // Close provider
+            if let Err(error) = provider.close().await {
+                error!(?error, "Failed to close provider");
+            }
+
+            // Export metrics
+            if let Err(error) = export_metrics(BUCKET_NAME, metadata, &query_id).await {
+                error!(?error, "Failed to export metrics");
+            }
+
+            std::process::exit(0);
+        }
         _ = ctrl_c() => {
+            info!("Queries interrupted after {:.2}s", start.elapsed().as_secs_f64());
+
             // Close provider
             if let Err(error) = provider.close().await {
                 error!(?error, "Failed to close provider");
@@ -127,44 +151,112 @@ pub async fn run(args: QueryArgs) -> anyhow::Result<()> {
         }
     }
 
-    let duration = start.elapsed();
-    info!("Ingest completed in {:.2}s", duration.as_secs_f64());
-
-    export_metrics(BUCKET_NAME, metadata, &query_id).await?;
-
     Ok(())
 }
 
 // Spawn query generator task
-fn spawn_query_generator(tx: Sender<Vec<f32>>, timeout: u64, dim: usize) -> anyhow::Result<()> {
-    let mut rng = thread_rng();
+fn spawn_query_generator(queries: PathBuf) -> anyhow::Result<Receiver<PqQuery>> {
+    let (tx, rx) = async_channel::unbounded::<PqQuery>();
 
-    let start = Instant::now();
-    loop {
-        if start.elapsed().as_secs() >= timeout {
+    let file = File::open(&queries).context("Failed to open queries file")?;
+    let builder = ParquetRecordBatchReaderBuilder::try_new(file)
+        .context("Failed to create ParquetRecordBatchReaderBuilder")?;
+    let reader = builder
+        .build()
+        .context("Failed to build ParquetRecordBatchReader")?;
+    let batches = reader
+        .collect::<Result<Vec<RecordBatch>, _>>()
+        .context("Failed to read record batches from queries file")?;
+    let queries: Vec<PqQuery> = batches
+        .iter()
+        .map(|batch| decode_vectors_fast(batch))
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .flatten()
+        .collect();
+
+    std::thread::spawn(move || loop {
+        let random_query = queries
+            .choose(&mut thread_rng())
+            .expect("Failed to choose query")
+            .clone();
+
+        if tx.send_blocking(random_query).is_err() {
+            error!("Failed to send query to channel");
             break;
         }
+    });
 
-        let vector = random_uniform_vector(&mut rng, dim);
-
-        tx.send_blocking(vector)?;
-    }
-
-    Ok(())
+    Ok(rx)
 }
 
-fn random_uniform_vector<R: Rng>(rng: &mut R, dim: usize) -> Vec<f32> {
-    let distr = Uniform::<f32>::new(0.0, 1.0);
-    distr.sample_iter(rng).take(dim).collect()
+#[allow(dead_code)]
+#[derive(serde::Deserialize, Debug, Clone)]
+struct PqQuery {
+    text: String,
+    dense: Vec<f32>,
+    sparse_keys: Vec<u32>,
+    sparse_values: Vec<f32>,
+    recall_dense_100: HashMap</*int*/ u32, HashMap</*keyword*/ String, /*doc IDs*/ Vec<i64>>>,
+}
+
+impl PqQuery {
+    fn recall(
+        &self,
+        top_k: u32,
+        int_filter: Option<u32>,
+        keyword_filter: Option<String>,
+    ) -> Vec<u32> {
+        assert!(top_k <= 100, "top_k must be less than or equal to 100");
+
+        let int_filter = int_filter.unwrap_or(10000);
+        let keyword_filter = keyword_filter.unwrap_or("10000".to_string());
+
+        self.recall_dense_100
+            .get(&int_filter)
+            .expect("int_filter not found")
+            .get(&keyword_filter)
+            .expect("keyword_filter not found")
+            .clone()
+            .into_iter()
+            .filter(|x| x.is_positive())
+            .map(|x| x as u32)
+            .collect::<Vec<_>>()
+    }
+}
+
+fn decode_vectors_fast(batch: &RecordBatch) -> anyhow::Result<Vec<PqQuery>> {
+    use arrow::json::LineDelimitedWriter;
+
+    // Convert RecordBatch to JSON line-delimited format
+    let mut json_buffer = Vec::new();
+    {
+        let mut writer = LineDelimitedWriter::new(&mut json_buffer);
+        writer.write_batches(&[batch])?;
+        writer.finish()?;
+    }
+
+    // Deserialize each JSON line to PqQuery
+    let mut vectors = Vec::new();
+    let json_str = String::from_utf8(json_buffer)?;
+    for line in json_str.lines() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        let query: PqQuery = serde_json::from_str(line)?;
+        vectors.push(query);
+    }
+
+    Ok(vectors)
 }
 
 // Spawn worker tasks
 async fn spawn_workers(
     provider: impl ProviderLike + Send + Sync + Clone + 'static,
     collection: String,
-    rx: Receiver<Vec<f32>>,
-    top_k: usize,
-    int_filter: Option<i64>,
+    queries: Receiver<PqQuery>,
+    top_k: u32,
+    int_filter: Option<u32>,
     keyword_filter: Option<String>,
     concurrency: usize,
 ) -> anyhow::Result<()> {
@@ -172,17 +264,20 @@ async fn spawn_workers(
     let mut workers = JoinSet::new();
 
     for _ in 0..concurrency {
-        let rx = rx.clone();
-        let provider = provider.clone();
-        let keyword_filter = keyword_filter.clone();
-        let int_filter = int_filter.clone();
         let collection = collection.clone();
+        let queries = queries.clone();
+        let provider = provider.clone();
+        let int_filter = int_filter.clone();
+        let keyword_filter = keyword_filter.clone();
 
         workers.spawn(async move {
-            while let Ok(vector) = rx.recv().await {
+            while let Ok(vector) = queries.recv().await {
+                // Extract dense vector before moving
+                let dense_vector = vector.dense.clone();
+
                 // Build query
                 let query = Query {
-                    vector,
+                    vector: dense_vector,
                     top_k,
                     int_filter,
                     keyword_filter: keyword_filter.clone(),
@@ -197,6 +292,17 @@ async fn spawn_workers(
                             let latency = s.elapsed();
                             histogram!("bench.query.latency_ms").record(latency.as_millis() as f64);
                             debug!(?res, ?latency, k = res.len(), "Returned documents");
+
+                            let recall = calculate_recall(
+                                res,
+                                vector,
+                                top_k,
+                                int_filter,
+                                keyword_filter.clone(),
+                            )
+                            .expect("failed to calculate recall");
+                            println!("recall: {}", recall);
+
                             break;
                         }
                         Err(error) => {
@@ -285,4 +391,37 @@ fn spawn_metrics_reporter() -> tokio::task::JoinHandle<()> {
             );
         }
     })
+}
+
+fn calculate_recall(
+    res: Vec<Document>,
+    vector: PqQuery,
+    top_k: u32,
+    int_filter: Option<u32>,
+    keyword_filter: Option<String>,
+) -> anyhow::Result<f32> {
+    // Get expected doc IDs for recall calculation
+    let actual_doc_ids = res
+        .iter()
+        .map(|x| {
+            x.get("_id")
+                .expect("missing _id")
+                .as_string()
+                .expect("_id is not a string")
+                .to_string()
+                .parse::<u32>()
+                .expect("_id is not a u32")
+        })
+        .collect::<HashSet<u32>>();
+    let expected_doc_ids = vector
+        .recall(top_k, int_filter, keyword_filter.clone())
+        .into_iter()
+        .take(top_k as usize)
+        .collect::<HashSet<u32>>();
+
+    let missing_doc_ids = expected_doc_ids
+        .difference(&actual_doc_ids)
+        .collect::<HashSet<&u32>>();
+
+    Ok(missing_doc_ids.len() as f32 / expected_doc_ids.len() as f32)
 }
