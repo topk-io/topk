@@ -30,8 +30,8 @@ pub struct QueryArgs {
     #[arg(short, long, help = "Number of concurrent queries")]
     pub(crate) concurrency: usize,
 
-    #[arg(short, long, help = "Number of queries to run")]
-    pub(crate) queries: usize,
+    #[arg(short, long, help = "Timeout in seconds")]
+    pub(crate) timeout: u64,
 
     #[arg(short, long, help = "Numeric filter")]
     pub(crate) int_filter: Option<u32>,
@@ -69,11 +69,11 @@ pub async fn run(args: QueryArgs) -> anyhow::Result<()> {
         info!("Ping latency: {:?}", latency);
     }
 
-    let (tx, rx) = async_channel::bounded(args.queries);
+    let (tx, rx) = async_channel::unbounded();
 
     // Spawn query generator
     std::thread::spawn(move || {
-        let result = spawn_query_generator(tx, args.queries, 768);
+        let result = spawn_query_generator(tx, args.timeout, 768);
         if let Err(error) = result {
             error!(?error, "Query generator task failed");
         }
@@ -98,7 +98,6 @@ pub async fn run(args: QueryArgs) -> anyhow::Result<()> {
         KeyValue::new("provider".into(), format!("{:?}", args.provider)),
         KeyValue::new("collection".into(), args.collection),
         KeyValue::new("concurrency".into(), args.concurrency.to_string()),
-        KeyValue::new("queries".into(), args.queries.to_string()),
     ];
 
     let start = Instant::now();
@@ -135,15 +134,18 @@ pub async fn run(args: QueryArgs) -> anyhow::Result<()> {
 }
 
 // Spawn query generator task
-fn spawn_query_generator(tx: Sender<Vec<f32>>, queries: usize, dim: usize) -> anyhow::Result<()> {
+fn spawn_query_generator(tx: Sender<Vec<f32>>, timeout: u64, dim: usize) -> anyhow::Result<()> {
     let mut rng = thread_rng();
 
-    for _ in 0..queries {
+    let start = Instant::now();
+    loop {
+        if start.elapsed().as_secs() >= timeout {
+            break;
+        }
+
         let vector = random_uniform_vector(&mut rng, dim);
 
-        if tx.send_blocking(vector).is_err() {
-            anyhow::bail!("Failed to send query to channel");
-        }
+        tx.send_blocking(vector)?;
     }
 
     Ok(())
