@@ -108,7 +108,7 @@ impl ProviderLike for Provider {
 
         // check `doc.id` == `id`
         if let Some(doc) = &doc {
-            if doc.get("id").unwrap().as_string() != Some(&id) {
+            if doc.get("_id").unwrap().as_string().unwrap() != id {
                 anyhow::bail!(
                     "document id mismatch: expected {}, got {:?}",
                     id,

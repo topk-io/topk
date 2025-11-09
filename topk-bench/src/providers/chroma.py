@@ -40,14 +40,15 @@ def ping(collection: str):
 def upsert(collection: str, docs: list[dict]):
     coll = client.get_collection(name=collection)
 
-    # Prepare data for Chroma
     ids = [doc["id"] for doc in docs]
-    documents = [doc["text"] for doc in docs]
+    # NOTE: we swap `text` and `keyword_filter` because chroma
+    # allows only one keyword index on the `documents` field.
+    documents = [doc["keyword_filter"] for doc in docs]
     embeddings = [doc["dense_embedding"] for doc in docs]
     metadatas = [
         {
             "int_filter": doc["int_filter"],
-            "keyword_filter": doc["keyword_filter"],
+            "text": doc["text"],
         }
         for doc in docs
     ]
