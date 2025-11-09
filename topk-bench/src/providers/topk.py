@@ -73,12 +73,14 @@ def query(
         "int_filter",
         "keyword_filter",
         vector_distance=fn.vector_distance("dense_embedding", vector),
-    ).topk(field("vector_distance"), top_k)
+    )
 
     if int_filter:
         query = query.filter(field("int_filter").lte(int_filter))
     if keyword_filter:
         query = query.filter(field("keyword_filter").match_all(keyword_filter))
+
+    query = query.topk(field("vector_distance"), top_k)
 
     return client.collection(collection).query(
         query,
