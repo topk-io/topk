@@ -154,8 +154,14 @@ impl ProviderLike for Provider {
         }
 
         for doc in &docs {
+            let doc_int_filter = doc
+                .get("int_filter")
+                .expect("int_filter is required")
+                .as_i64()
+                .expect("int_filter is not a i64") as u32;
+
             if let Some(int_filter) = query.int_filter {
-                if doc.get("int_filter").unwrap().as_u32().unwrap() > int_filter {
+                if doc_int_filter > int_filter {
                     anyhow::bail!(
                         "document int_filter mismatch: expected <= {}, got {:?}",
                         int_filter,
@@ -167,8 +173,9 @@ impl ProviderLike for Provider {
             if let Some(keyword_filter) = &query.keyword_filter {
                 let text = doc
                     .get("keyword_filter")
-                    .and_then(|v| v.as_string())
-                    .expect("keyword_filter is required");
+                    .expect("keyword_filter is required")
+                    .as_string()
+                    .expect("keyword_filter is not a string");
 
                 if !text.contains(keyword_filter) {
                     anyhow::bail!(

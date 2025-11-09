@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -23,7 +23,7 @@ use crate::providers::topk_py::TopkPyProvider;
 use crate::providers::topk_rs::TopkRsProvider;
 use crate::providers::tpuf_py::TpufPyProvider;
 use crate::providers::ProviderLike;
-use crate::s3::new_client;
+use crate::s3::pull_dataset;
 use crate::telemetry::metrics::{export_metrics, read_snapshot};
 
 #[derive(Parser, Debug, Clone)]
@@ -419,38 +419,6 @@ fn spawn_metrics_reporter(ready: Arc<Notify>) -> JoinHandle<()> {
             );
         }
     })
-}
-
-async fn pull_dataset(bucket: &str, key: &str) -> anyhow::Result<PathBuf> {
-    info!(?bucket, ?key, "Pulling dataset");
-
-    // Ensure the /tmp/topk-bench directory exists first
-    let dir = Path::new("/tmp/topk-bench");
-    if !dir.exists() {
-        std::fs::create_dir_all(dir)?;
-    }
-
-    let out = format!("/tmp/topk-bench/{key}");
-    if Path::new(&out).exists() {
-        info!(?out, "Dataset already downloaded");
-        return Ok(PathBuf::from(out));
-    }
-
-    // Download dataset
-    let s3 = new_client()?;
-
-    let start = Instant::now();
-    let resp = s3.get_object().bucket(bucket).key(key).send().await?;
-    let mut data = resp.body.into_async_read();
-    // Ensure the directory exists
-    std::fs::create_dir_all(Path::new(&out).parent().unwrap())?;
-    let mut file = tokio::fs::File::create(&out).await?;
-    tokio::io::copy(&mut data, &mut file).await?;
-    let duration = start.elapsed();
-
-    info!(?out, ?duration, "Dataset downloaded");
-
-    Ok(PathBuf::from(out))
 }
 
 async fn freshness_task(

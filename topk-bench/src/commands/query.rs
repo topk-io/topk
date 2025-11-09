@@ -24,6 +24,7 @@ use crate::providers::topk_py::TopkPyProvider;
 use crate::providers::topk_rs::TopkRsProvider;
 use crate::providers::tpuf_py::TpufPyProvider;
 use crate::providers::{ProviderLike, Query};
+use crate::s3::pull_dataset;
 use crate::telemetry::metrics::{export_metrics, read_snapshot};
 
 #[derive(Parser, Debug, Clone)]
@@ -31,8 +32,11 @@ pub struct QueryArgs {
     #[arg(long, help = "Target collection")]
     pub(crate) collection: String,
 
+    #[arg(short, long, help = "Name of the dataset to query")]
+    pub(crate) dataset: Option<String>,
+
     #[arg(short, long, help = "Input file to query")]
-    pub(crate) input: String,
+    pub(crate) input: Option<String>,
 
     #[arg(short, long, help = "Target collection")]
     pub(crate) provider: ProviderArg,
@@ -64,7 +68,14 @@ pub async fn run(args: QueryArgs) -> anyhow::Result<()> {
     info!("Starting query: {:?} with ID: {}", args, query_id);
 
     // Determine input path
-    let queries = PathBuf::from(args.input);
+    // Determine dataset path
+    let dataset_path = if let Some(ref dataset) = args.dataset {
+        pull_dataset(BUCKET_NAME, &dataset).await?
+    } else if let Some(ref input) = args.input {
+        PathBuf::from(input)
+    } else {
+        anyhow::bail!("Either dataset or input file must be provided");
+    };
 
     // Create provider
     let provider = match args.provider {
@@ -83,7 +94,7 @@ pub async fn run(args: QueryArgs) -> anyhow::Result<()> {
         info!("Ping latency: {:?}", latency);
     }
 
-    let queries = spawn_query_generator(queries)?;
+    let queries = spawn_query_generator(dataset_path)?;
 
     // Spawn writers
     let workers = spawn_workers(
@@ -91,7 +102,7 @@ pub async fn run(args: QueryArgs) -> anyhow::Result<()> {
         args.collection.clone(),
         queries.clone(),
         args.top_k,
-        args.int_filter.map(|x| x as u32),
+        args.int_filter,
         args.keyword_filter,
         args.concurrency,
     );
@@ -206,13 +217,14 @@ impl PqQuery {
         top_k: u32,
         int_filter: Option<u32>,
         keyword_filter: Option<String>,
-    ) -> Vec<u32> {
+    ) -> anyhow::Result<Vec<u32>> {
         assert!(top_k <= 100, "top_k must be less than or equal to 100");
 
         let int_filter = int_filter.unwrap_or(10000);
         let keyword_filter = keyword_filter.unwrap_or("10000".to_string());
 
-        self.recall_dense_100
+        let doc_ids = self
+            .recall_dense_100
             .get(&int_filter)
             .expect("int_filter not found")
             .get(&keyword_filter)
@@ -221,7 +233,9 @@ impl PqQuery {
             .into_iter()
             .filter(|x| x.is_positive())
             .map(|x| x as u32)
-            .collect::<Vec<_>>()
+            .collect::<Vec<_>>();
+
+        Ok(doc_ids)
     }
 }
 
@@ -279,7 +293,7 @@ async fn spawn_workers(
                 let query = Query {
                     vector: dense_vector,
                     top_k,
-                    int_filter,
+                    int_filter: int_filter.clone(),
                     keyword_filter: keyword_filter.clone(),
                 };
 
@@ -410,7 +424,8 @@ fn calculate_recall(
         .iter()
         .map(|x| {
             x.get("_id")
-                .expect("missing _id")
+                .or_else(|| x.get("id"))
+                .expect("missing _id or id")
                 .as_string()
                 .expect("_id is not a string")
                 .to_string()
@@ -418,15 +433,17 @@ fn calculate_recall(
                 .expect("_id is not a u32")
         })
         .collect::<HashSet<u32>>();
+
     let expected_doc_ids = vector
         .recall(top_k, int_filter, keyword_filter.clone())
+        .expect("failed to calculate recall")
         .into_iter()
         .take(top_k as usize)
         .collect::<HashSet<u32>>();
 
-    let missing_doc_ids = expected_doc_ids
-        .difference(&actual_doc_ids)
+    let found_doc_ids = actual_doc_ids
+        .intersection(&expected_doc_ids)
         .collect::<HashSet<&u32>>();
 
-    Ok(missing_doc_ids.len() as f32 / expected_doc_ids.len() as f32)
+    Ok(found_doc_ids.len() as f32 / expected_doc_ids.len() as f32)
 }

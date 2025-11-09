@@ -1,6 +1,9 @@
 use aws_config::Region;
 use aws_sdk_s3::{config::Credentials, Client, Config};
 use serde::Deserialize;
+use std::path::{Path, PathBuf};
+use tokio::time::Instant;
+use tracing::info;
 
 use crate::config::LoadConfig;
 
@@ -36,4 +39,36 @@ pub fn new_client() -> anyhow::Result<Client> {
     builder.set_request_checksum_calculation(None);
 
     Ok(Client::from_conf(builder.build()))
+}
+
+pub async fn pull_dataset(bucket: &str, key: &str) -> anyhow::Result<PathBuf> {
+    info!(?bucket, ?key, "Pulling dataset");
+
+    // Ensure the /tmp/topk-bench directory exists first
+    let dir = Path::new("/tmp/topk-bench");
+    if !dir.exists() {
+        std::fs::create_dir_all(dir)?;
+    }
+
+    let out = format!("/tmp/topk-bench/{key}");
+    if Path::new(&out).exists() {
+        info!(?out, "Dataset already downloaded");
+        return Ok(PathBuf::from(out));
+    }
+
+    // Download dataset
+    let s3 = new_client()?;
+
+    let start = Instant::now();
+    let resp = s3.get_object().bucket(bucket).key(key).send().await?;
+    let mut data = resp.body.into_async_read();
+    // Ensure the directory exists
+    std::fs::create_dir_all(Path::new(&out).parent().unwrap())?;
+    let mut file = tokio::fs::File::create(&out).await?;
+    tokio::io::copy(&mut data, &mut file).await?;
+    let duration = start.elapsed();
+
+    info!(?out, ?duration, "Dataset downloaded");
+
+    Ok(PathBuf::from(out))
 }
