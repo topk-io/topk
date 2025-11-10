@@ -264,15 +264,18 @@ fn spawn_writers(
                                 .record(latency.as_millis() as f64);
                             debug!(?doc_count, ?res, ?latency, "Upserted documents");
 
-                            // After a successful upsert, spawn a freshness task
-                            let collection = collection.clone();
-                            freshness_tasks.spawn(async move {
-                                if let Err(error) =
-                                    freshness_task(provider, collection, max_id).await
-                                {
-                                    error!(?error, "Failed to spawn freshness task");
-                                }
-                            });
+                            // After a successful upsert, spawn a freshness task.
+                            // 20% chance of spawning a freshness task, chroma cannot take many requests while upserting.
+                            if thread_rng().gen_bool(0.2) {
+                                let collection = collection.clone();
+                                freshness_tasks.spawn(async move {
+                                    if let Err(error) =
+                                        freshness_task(provider, collection, max_id).await
+                                    {
+                                        error!(?error, "Failed to spawn freshness task");
+                                    }
+                                });
+                            }
 
                             break;
                         }
