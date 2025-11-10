@@ -441,9 +441,7 @@ fn calculate_recall(
         .take(top_k as usize)
         .collect::<HashSet<u32>>();
 
-    let found_doc_ids = actual_doc_ids
-        .intersection(&expected_doc_ids)
-        .collect::<HashSet<&u32>>();
+    let found_doc_ids = actual_doc_ids.intersection(&expected_doc_ids).count();
 
-    Ok(found_doc_ids.len() as f32 / expected_doc_ids.len() as f32)
+    Ok(found_doc_ids as f32 / expected_doc_ids.len() as f32)
 }
