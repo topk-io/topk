@@ -84,10 +84,15 @@ impl ProviderLike for TopkRsProvider {
                     .collections()
                     .create(
                         &collection,
-                        HashMap::from_iter([(
-                            "vector".to_string(),
-                            FieldSpec::f32_vector(768, true, VectorDistanceMetric::Cosine),
-                        )]),
+                        HashMap::from_iter([
+                            ("text".to_string(), FieldSpec::text(true, None)),
+                            (
+                                "dense_embedding".to_string(),
+                                FieldSpec::f32_vector(768, true, VectorDistanceMetric::Cosine),
+                            ),
+                            ("int_filter".to_string(), FieldSpec::integer(true)),
+                            ("keyword_filter".to_string(), FieldSpec::text(true, None)),
+                        ]),
                     )
                     .await?;
 
