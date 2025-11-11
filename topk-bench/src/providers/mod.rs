@@ -2,6 +2,7 @@ use std::ffi::CString;
 use std::time::Duration;
 
 use async_trait::async_trait;
+use clap::ValueEnum;
 use pyo3::ffi::c_str;
 use pyo3::types::{PyAnyMethods, PyDict, PyDictMethods, PyList, PyListMethods};
 use pyo3::{FromPyObject, IntoPyObject, PyResult};
@@ -14,9 +15,29 @@ use tracing::warn;
 use crate::data::Document;
 
 pub mod chroma;
+pub mod milvus;
 pub mod topk_py;
 pub mod topk_rs;
 pub mod tpuf_py;
+
+#[derive(ValueEnum, Clone, Debug)]
+pub enum ProviderArg {
+    TopkRs,
+    TopkPy,
+    TpufPy,
+    Chroma,
+    Milvus,
+}
+
+pub async fn new_provider(provider: &ProviderArg) -> anyhow::Result<Provider> {
+    match provider {
+        ProviderArg::TopkRs => topk_rs::TopkRsProvider::new().await,
+        ProviderArg::TopkPy => topk_py::TopkPyProvider::new().await,
+        ProviderArg::TpufPy => tpuf_py::TpufPyProvider::new().await,
+        ProviderArg::Chroma => chroma::ChromaProvider::new().await,
+        ProviderArg::Milvus => milvus::MilvusProvider::new().await,
+    }
+}
 
 #[async_trait]
 pub trait ProviderLike: Send + Sync + 'static {
@@ -73,6 +94,8 @@ pub enum Provider {
     TpufPy(tpuf_py::TpufPyProvider),
     /// Chroma
     Chroma(chroma::ChromaProvider),
+    /// Milvus
+    Milvus(milvus::MilvusProvider),
 }
 
 #[async_trait]
@@ -83,6 +106,7 @@ impl ProviderLike for Provider {
             Provider::TopkPy(p) => p.setup(collection).await,
             Provider::TpufPy(p) => p.setup(collection).await,
             Provider::Chroma(p) => p.setup(collection).await,
+            Provider::Milvus(p) => p.setup(collection).await,
         }
     }
 
@@ -92,6 +116,7 @@ impl ProviderLike for Provider {
             Provider::TopkPy(p) => p.ping(collection).await,
             Provider::TpufPy(p) => p.ping(collection).await,
             Provider::Chroma(p) => p.ping(collection).await,
+            Provider::Milvus(p) => p.ping(collection).await,
         }
     }
 
@@ -105,6 +130,7 @@ impl ProviderLike for Provider {
             Provider::TopkPy(p) => p.query_by_id(collection, id.clone()).await,
             Provider::TpufPy(p) => p.query_by_id(collection, id.clone()).await,
             Provider::Chroma(p) => p.query_by_id(collection, id.clone()).await,
+            Provider::Milvus(p) => p.query_by_id(collection, id.clone()).await,
         }?;
 
         // check `doc.id` == `id`
@@ -134,6 +160,7 @@ impl ProviderLike for Provider {
             Provider::TopkPy(p) => p.delete_by_id(collection, ids).await,
             Provider::TpufPy(p) => p.delete_by_id(collection, ids).await,
             Provider::Chroma(p) => p.delete_by_id(collection, ids).await,
+            Provider::Milvus(p) => p.delete_by_id(collection, ids).await,
         }
     }
 
@@ -147,6 +174,7 @@ impl ProviderLike for Provider {
             Provider::TopkPy(p) => p.query(collection, query.clone()).await,
             Provider::TpufPy(p) => p.query(collection, query.clone()).await,
             Provider::Chroma(p) => p.query(collection, query.clone()).await,
+            Provider::Milvus(p) => p.query(collection, query.clone()).await,
         }?;
 
         if query.top_k as usize != docs.len() {
@@ -196,6 +224,7 @@ impl ProviderLike for Provider {
             Provider::TopkPy(p) => p.upsert(collection, batch.clone()).await,
             Provider::TpufPy(p) => p.upsert(collection, batch.clone()).await,
             Provider::Chroma(p) => p.upsert(collection, batch.clone()).await,
+            Provider::Milvus(p) => p.upsert(collection, batch.clone()).await,
         }
     }
 
@@ -205,6 +234,7 @@ impl ProviderLike for Provider {
             Provider::TopkPy(p) => p.list_collections().await,
             Provider::TpufPy(p) => p.list_collections().await,
             Provider::Chroma(p) => p.list_collections().await,
+            Provider::Milvus(p) => p.list_collections().await,
         }
     }
 
@@ -214,6 +244,7 @@ impl ProviderLike for Provider {
             Provider::TopkPy(p) => p.delete_collection(collection).await,
             Provider::TpufPy(p) => p.delete_collection(collection).await,
             Provider::Chroma(p) => p.delete_collection(collection).await,
+            Provider::Milvus(p) => p.delete_collection(collection).await,
         }
     }
 
@@ -223,6 +254,7 @@ impl ProviderLike for Provider {
             Provider::TopkPy(p) => p.close().await,
             Provider::TpufPy(p) => p.close().await,
             Provider::Chroma(p) => p.close().await,
+            Provider::Milvus(p) => p.close().await,
         }
     }
 }

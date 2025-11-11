@@ -17,13 +17,9 @@ use tokio::signal::ctrl_c;
 use tokio::task::JoinSet;
 use tracing::{debug, error, info};
 
-use crate::commands::{ProviderArg, BUCKET_NAME};
+use crate::commands::BUCKET_NAME;
 use crate::data::Document;
-use crate::providers::chroma::ChromaProvider;
-use crate::providers::topk_py::TopkPyProvider;
-use crate::providers::topk_rs::TopkRsProvider;
-use crate::providers::tpuf_py::TpufPyProvider;
-use crate::providers::{ProviderLike, Query};
+use crate::providers::{new_provider, ProviderArg, ProviderLike, Query};
 use crate::s3::pull_dataset;
 use crate::telemetry::metrics::{export_metrics, read_snapshot};
 
@@ -78,12 +74,7 @@ pub async fn run(args: QueryArgs) -> anyhow::Result<()> {
     };
 
     // Create provider
-    let provider = match args.provider {
-        ProviderArg::TopkRs => TopkRsProvider::new().await?,
-        ProviderArg::TopkPy => TopkPyProvider::new().await?,
-        ProviderArg::TpufPy => TpufPyProvider::new().await?,
-        ProviderArg::Chroma => ChromaProvider::new().await?,
-    };
+    let provider = new_provider(&args.provider).await?;
 
     // Ping provider
     // First ping to ensure the provider is ready
