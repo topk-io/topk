@@ -31,6 +31,9 @@ pub struct QueryArgs {
     #[arg(short, long, help = "Name of the dataset to query")]
     pub(crate) dataset: Option<String>,
 
+    #[arg(short, long, help = "Size of the dataset to query")]
+    pub(crate) size: String,
+
     #[arg(short, long, help = "Input file to query")]
     pub(crate) input: Option<String>,
 
@@ -54,6 +57,12 @@ pub struct QueryArgs {
 }
 
 pub async fn run(args: QueryArgs) -> anyhow::Result<()> {
+    assert!(
+        ["100k", "1m", "10m"].contains(&args.size.as_str()),
+        "Invalid size: {}",
+        args.size
+    );
+
     // Generate ingest ID
     let query_id = uuid::Uuid::new_v4()
         .to_string()
@@ -96,6 +105,7 @@ pub async fn run(args: QueryArgs) -> anyhow::Result<()> {
         args.int_filter,
         args.keyword_filter,
         args.concurrency,
+        args.size.clone(),
     );
 
     // Spawn metrics reporter
@@ -199,7 +209,9 @@ struct PqQuery {
     dense: Vec<f32>,
     sparse_keys: Vec<u32>,
     sparse_values: Vec<f32>,
-    recall_dense_100: HashMap</*int*/ u32, HashMap</*keyword*/ String, /*doc IDs*/ Vec<i64>>>,
+    recall_dense_100k: HashMap</*int*/ u32, HashMap</*keyword*/ String, /*doc IDs*/ Vec<i64>>>,
+    recall_dense_1m: HashMap</*int*/ u32, HashMap</*keyword*/ String, /*doc IDs*/ Vec<i64>>>,
+    recall_dense_10m: HashMap</*int*/ u32, HashMap</*keyword*/ String, /*doc IDs*/ Vec<i64>>>,
 }
 
 impl PqQuery {
@@ -208,14 +220,21 @@ impl PqQuery {
         top_k: u32,
         int_filter: Option<u32>,
         keyword_filter: Option<String>,
+        size: String,
     ) -> anyhow::Result<Vec<u32>> {
         assert!(top_k <= 100, "top_k must be less than or equal to 100");
 
         let int_filter = int_filter.unwrap_or(10000);
         let keyword_filter = keyword_filter.unwrap_or("10000".to_string());
 
-        let doc_ids = self
-            .recall_dense_100
+        let recall = match size.as_str() {
+            "100k" => &self.recall_dense_100k,
+            "1m" => &self.recall_dense_1m,
+            "10m" => &self.recall_dense_10m,
+            _ => anyhow::bail!("Invalid size: {}", size),
+        };
+
+        let doc_ids = recall
             .get(&int_filter)
             .expect("int_filter not found")
             .get(&keyword_filter)
@@ -264,6 +283,7 @@ async fn spawn_workers(
     int_filter: Option<u32>,
     keyword_filter: Option<String>,
     concurrency: usize,
+    size: String,
 ) -> anyhow::Result<()> {
     // Spawn worker tasks
     let mut workers = JoinSet::new();
@@ -274,11 +294,13 @@ async fn spawn_workers(
         let provider = provider.clone();
         let int_filter = int_filter.clone();
         let keyword_filter = keyword_filter.clone();
+        let size = size.clone();
 
         workers.spawn(async move {
             while let Ok(vector) = queries.recv().await {
                 // Extract dense vector before moving
                 let dense_vector = vector.dense.clone();
+                let size = size.clone();
 
                 // Build query
                 let query = Query {
@@ -304,6 +326,7 @@ async fn spawn_workers(
                                 top_k,
                                 int_filter,
                                 keyword_filter.clone(),
+                                size,
                             )
                             .expect("failed to calculate recall");
                             histogram!("bench.query.recall").record(recall as f64);
@@ -409,6 +432,7 @@ fn calculate_recall(
     top_k: u32,
     int_filter: Option<u32>,
     keyword_filter: Option<String>,
+    size: String,
 ) -> anyhow::Result<f32> {
     // Get expected doc IDs for recall calculation
     let actual_doc_ids = res
@@ -426,7 +450,7 @@ fn calculate_recall(
         .collect::<HashSet<u32>>();
 
     let expected_doc_ids = vector
-        .recall(top_k, int_filter, keyword_filter.clone())
+        .recall(top_k, int_filter, keyword_filter.clone(), size)
         .expect("failed to calculate recall")
         .into_iter()
         .take(top_k as usize)
