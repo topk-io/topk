@@ -1,7 +1,8 @@
 import os
-from pinecone import Pinecone, QueryResponse, ServerlessSpec
+from pinecone import QueryResponse, ServerlessSpec
+from pinecone.grpc import PineconeGRPC
 
-pc = Pinecone(api_key=os.environ["PINECONE_API_KEY"])
+pc = PineconeGRPC(api_key=os.environ["PINECONE_API_KEY"])
 
 __cache = {}
 

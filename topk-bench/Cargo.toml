@@ -40,3 +40,4 @@ tempfile = "3.23.0"
 opentelemetry = { version = "0.30.0" }
 opentelemetry_sdk = { version = "0.30.0" }
 rand_distr = { version = "0.4.3" }
+tokio-util = { version = "0.7.13" }

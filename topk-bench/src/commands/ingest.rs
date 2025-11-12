@@ -214,6 +214,7 @@ fn spawn_writers(
                 let doc_count = batch.num_rows();
                 let provider = provider.clone();
 
+                // Upsert loop
                 loop {
                     // Parse batch
                     let documents = parser(batch.clone());
