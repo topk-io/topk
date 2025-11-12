@@ -20,3 +20,7 @@
   - 1m; ~230s total; `s3://jergu-test/results/topk-bench-2025-11-11-17-59-46-32891c8e.parquet`
 
 ## query
+
+```bash
+for i in "" "--int-filter=10000" "--int-filter=01000" "--int-filter=00100" "--keyword-filter=10000" "--keyword-filter=01000" "--keyword-filter=00100"; do sudo docker run --rm -it --memory=25g --env-file .env -v /topk-bench:/tmp/topk-bench ttl.sh/topk-bench:KGOtK8PO /topk-bench query -d queries.new.parquet --collection eu_100k -t 15 --top-k 10 -p milvus -c 4 $i; done
+```
