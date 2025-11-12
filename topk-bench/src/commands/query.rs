@@ -19,7 +19,7 @@ use tracing::{debug, error, info};
 
 use crate::commands::BUCKET_NAME;
 use crate::data::Document;
-use crate::providers::{new_provider, ProviderArg, ProviderLike, Query};
+use crate::providers::{new_provider, Provider, ProviderArg, Query};
 use crate::s3::pull_dataset;
 use crate::telemetry::metrics::{export_metrics, read_snapshot};
 
@@ -257,7 +257,7 @@ fn decode_vectors_fast(batch: &RecordBatch) -> anyhow::Result<Vec<PqQuery>> {
 
 // Spawn worker tasks
 async fn spawn_workers(
-    provider: impl ProviderLike + Send + Sync + Clone + 'static,
+    provider: Provider,
     collection: String,
     queries: Receiver<PqQuery>,
     top_k: u32,

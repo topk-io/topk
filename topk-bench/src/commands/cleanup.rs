@@ -1,7 +1,7 @@
 use clap::Parser;
 use tracing::info;
 
-use crate::providers::{new_provider, ProviderArg, ProviderLike};
+use crate::providers::{new_provider, ProviderArg};
 
 #[derive(Parser, Debug, Clone)]
 pub struct CleanupArgs {

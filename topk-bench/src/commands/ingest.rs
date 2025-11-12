@@ -18,7 +18,7 @@ use tracing::{debug, error, info};
 
 use crate::commands::BUCKET_NAME;
 use crate::data::{parse_bench_01, Document};
-use crate::providers::ProviderLike;
+use crate::providers::Provider;
 use crate::providers::{new_provider, ProviderArg};
 use crate::s3::pull_dataset;
 use crate::telemetry::metrics::{export_metrics, read_snapshot};
@@ -182,7 +182,7 @@ fn spawn_batch_producer(
 
 // Spawn writer tasks
 fn spawn_writers(
-    provider: impl ProviderLike + Send + Sync + Clone + 'static,
+    provider: Provider,
     collection: String,
     rx: Receiver<RecordBatch>,
     concurrency: usize,
@@ -418,11 +418,7 @@ fn spawn_metrics_reporter() -> JoinHandle<()> {
     })
 }
 
-async fn freshness_task(
-    provider: impl ProviderLike + Send + Sync + Clone + 'static,
-    collection: String,
-    id: String,
-) -> anyhow::Result<()> {
+async fn freshness_task(provider: Provider, collection: String, id: String) -> anyhow::Result<()> {
     let first = provider.query_by_id(collection.clone(), id.clone()).await?;
 
     // If found immediately, record 0 latency since it's the benchmarking

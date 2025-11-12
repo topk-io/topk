@@ -10,12 +10,13 @@ use tokio::time::Instant;
 
 use ::topk_py::data::value::Value as PyValue;
 use ::topk_py::data::Document as PyDocument;
-use tracing::warn;
 
 use crate::data::Document;
 
 pub mod chroma;
 pub mod milvus;
+pub mod pinecone;
+pub mod qdrant;
 pub mod topk_py;
 pub mod topk_rs;
 pub mod tpuf_py;
@@ -27,6 +28,8 @@ pub enum ProviderArg {
     TpufPy,
     Chroma,
     Milvus,
+    Pinecone,
+    Qdrant,
 }
 
 pub async fn new_provider(provider: &ProviderArg) -> anyhow::Result<Provider> {
@@ -36,6 +39,8 @@ pub async fn new_provider(provider: &ProviderArg) -> anyhow::Result<Provider> {
         ProviderArg::TpufPy => tpuf_py::TpufPyProvider::new().await,
         ProviderArg::Chroma => chroma::ChromaProvider::new().await,
         ProviderArg::Milvus => milvus::MilvusProvider::new().await,
+        ProviderArg::Pinecone => pinecone::PineconeProvider::new().await,
+        ProviderArg::Qdrant => qdrant::QdrantProvider::new().await,
     }
 }
 
@@ -96,165 +101,24 @@ pub enum Provider {
     Chroma(chroma::ChromaProvider),
     /// Milvus
     Milvus(milvus::MilvusProvider),
+    /// Pinecone
+    Pinecone(pinecone::PineconeProvider),
+    /// Qdrant
+    Qdrant(qdrant::QdrantProvider),
 }
 
-#[async_trait]
-impl ProviderLike for Provider {
-    async fn setup(&self, collection: String) -> Result<(), anyhow::Error> {
+impl std::ops::Deref for Provider {
+    type Target = dyn ProviderLike;
+
+    fn deref(&self) -> &Self::Target {
         match self {
-            Provider::TopkRs(p) => p.setup(collection).await,
-            Provider::TopkPy(p) => p.setup(collection).await,
-            Provider::TpufPy(p) => p.setup(collection).await,
-            Provider::Chroma(p) => p.setup(collection).await,
-            Provider::Milvus(p) => p.setup(collection).await,
-        }
-    }
-
-    async fn ping(&self, collection: String) -> Result<Duration, anyhow::Error> {
-        match self {
-            Provider::TopkRs(p) => p.ping(collection).await,
-            Provider::TopkPy(p) => p.ping(collection).await,
-            Provider::TpufPy(p) => p.ping(collection).await,
-            Provider::Chroma(p) => p.ping(collection).await,
-            Provider::Milvus(p) => p.ping(collection).await,
-        }
-    }
-
-    async fn query_by_id(
-        &self,
-        collection: String,
-        id: String,
-    ) -> Result<Option<Document>, anyhow::Error> {
-        let doc = match self {
-            Provider::TopkRs(p) => p.query_by_id(collection, id.clone()).await,
-            Provider::TopkPy(p) => p.query_by_id(collection, id.clone()).await,
-            Provider::TpufPy(p) => p.query_by_id(collection, id.clone()).await,
-            Provider::Chroma(p) => p.query_by_id(collection, id.clone()).await,
-            Provider::Milvus(p) => p.query_by_id(collection, id.clone()).await,
-        }?;
-
-        // check `doc.id` == `id`
-        if let Some(doc) = &doc {
-            let doc_id = doc
-                .get("_id")
-                .or(doc.get("id"))
-                .unwrap()
-                .as_string()
-                .unwrap();
-
-            if doc_id != id {
-                anyhow::bail!("document id mismatch: expected {}, got {}", id, doc_id);
-            }
-        }
-
-        Ok(doc)
-    }
-
-    async fn delete_by_id(
-        &self,
-        collection: String,
-        ids: Vec<String>,
-    ) -> Result<(), anyhow::Error> {
-        match self {
-            Provider::TopkRs(p) => p.delete_by_id(collection, ids).await,
-            Provider::TopkPy(p) => p.delete_by_id(collection, ids).await,
-            Provider::TpufPy(p) => p.delete_by_id(collection, ids).await,
-            Provider::Chroma(p) => p.delete_by_id(collection, ids).await,
-            Provider::Milvus(p) => p.delete_by_id(collection, ids).await,
-        }
-    }
-
-    async fn query(
-        &self,
-        collection: String,
-        query: Query,
-    ) -> Result<Vec<Document>, anyhow::Error> {
-        let docs = match self {
-            Provider::TopkRs(p) => p.query(collection, query.clone()).await,
-            Provider::TopkPy(p) => p.query(collection, query.clone()).await,
-            Provider::TpufPy(p) => p.query(collection, query.clone()).await,
-            Provider::Chroma(p) => p.query(collection, query.clone()).await,
-            Provider::Milvus(p) => p.query(collection, query.clone()).await,
-        }?;
-
-        if query.top_k as usize != docs.len() {
-            warn!("expected {} documents, got {}", query.top_k, docs.len());
-        }
-
-        for doc in &docs {
-            let doc_int_filter = doc
-                .get("int_filter")
-                .expect("int_filter is required")
-                .as_i64()
-                .expect("int_filter is not a i64") as u32;
-
-            if let Some(int_filter) = query.int_filter {
-                if doc_int_filter > int_filter {
-                    anyhow::bail!(
-                        "document int_filter mismatch: expected <= {}, got {:?}",
-                        int_filter,
-                        doc.get("int_filter")
-                    );
-                }
-            }
-
-            if let Some(keyword_filter) = &query.keyword_filter {
-                let text = doc
-                    .get("keyword_filter")
-                    .expect("keyword_filter is required")
-                    .as_string()
-                    .expect("keyword_filter is not a string");
-
-                if !text.contains(keyword_filter) {
-                    anyhow::bail!(
-                        "keyword filter mismatch: expected {} to contain {}",
-                        text,
-                        keyword_filter
-                    );
-                }
-            }
-        }
-
-        Ok(docs)
-    }
-
-    async fn upsert(&self, collection: String, batch: Vec<Document>) -> Result<(), anyhow::Error> {
-        match self {
-            Provider::TopkRs(p) => p.upsert(collection, batch.clone()).await,
-            Provider::TopkPy(p) => p.upsert(collection, batch.clone()).await,
-            Provider::TpufPy(p) => p.upsert(collection, batch.clone()).await,
-            Provider::Chroma(p) => p.upsert(collection, batch.clone()).await,
-            Provider::Milvus(p) => p.upsert(collection, batch.clone()).await,
-        }
-    }
-
-    async fn list_collections(&self) -> Result<Vec<String>, anyhow::Error> {
-        match self {
-            Provider::TopkRs(p) => p.list_collections().await,
-            Provider::TopkPy(p) => p.list_collections().await,
-            Provider::TpufPy(p) => p.list_collections().await,
-            Provider::Chroma(p) => p.list_collections().await,
-            Provider::Milvus(p) => p.list_collections().await,
-        }
-    }
-
-    async fn delete_collection(&self, collection: String) -> Result<(), anyhow::Error> {
-        match self {
-            Provider::TopkRs(p) => p.delete_collection(collection).await,
-            Provider::TopkPy(p) => p.delete_collection(collection).await,
-            Provider::TpufPy(p) => p.delete_collection(collection).await,
-            Provider::Chroma(p) => p.delete_collection(collection).await,
-            Provider::Milvus(p) => p.delete_collection(collection).await,
-        }
-    }
-
-    async fn close(&self) -> Result<(), anyhow::Error> {
-        match self {
-            Provider::TopkRs(p) => p.close().await,
-            Provider::TopkPy(p) => p.close().await,
-            Provider::TpufPy(p) => p.close().await,
-            Provider::Chroma(p) => p.close().await,
-            Provider::Milvus(p) => p.close().await,
+            Provider::TopkRs(p) => p,
+            Provider::TopkPy(p) => p,
+            Provider::TpufPy(p) => p,
+            Provider::Chroma(p) => p,
+            Provider::Milvus(p) => p,
+            Provider::Pinecone(p) => p,
+            Provider::Qdrant(p) => p,
         }
     }
 }
