@@ -89,6 +89,10 @@ pub async fn run(args: IngestArgs) -> anyhow::Result<()> {
         ready.clone(),
     )?;
 
+    // Wait for writers to be ready
+    info!("Waiting for writers to be ready...");
+    ready.notified().await;
+
     // Spawn writers
     let writers = spawn_writers(
         provider.clone(),
@@ -96,11 +100,10 @@ pub async fn run(args: IngestArgs) -> anyhow::Result<()> {
         rx,
         args.concurrency,
         parse_bench_01,
-        ready.clone(),
     );
 
     // Spawn metrics reporter
-    let stats = spawn_metrics_reporter(ready.clone());
+    let stats = spawn_metrics_reporter();
 
     // Build metrics metadata
     let metadata = vec![
@@ -184,7 +187,6 @@ fn spawn_writers(
     rx: Receiver<RecordBatch>,
     concurrency: usize,
     parser: fn(RecordBatch) -> Vec<Document>,
-    ready: Arc<Notify>,
 ) -> tokio::task::JoinHandle<()> {
     // Spawn collection writer tasks
     let mut writers = JoinSet::new();
@@ -193,12 +195,8 @@ fn spawn_writers(
         let rx = rx.clone();
         let provider = provider.clone();
         let collection = collection.clone();
-        let ready = ready.clone();
 
         writers.spawn(async move {
-            // Wait for batches to be produced
-            ready.notified().await;
-
             // Spawn freshness tasks
             let mut freshness_tasks = JoinSet::new();
 
@@ -276,7 +274,15 @@ fn spawn_writers(
                             counter!("bench.ingest.errors").increment(1);
                             histogram!("bench.ingest.latency_ms")
                                 .record(latency.as_millis() as f64);
-                            error!(?latency, "Failed to upsert documents: {:#?}", error);
+
+                            // TODO: use signal to propagate to the `tokio::select!` block
+                            if error.to_string().contains("KeyboardInterrupt") {
+                                info!("Keyboard interrupt received, aborting writers");
+                                break;
+                            } else {
+                                error!(?latency, "Failed to upsert documents: {:#?}", error);
+                            }
+
                             // Sleep
                             let jitter = thread_rng().gen_range(10..100);
                             tokio::time::sleep(Duration::from_millis(jitter)).await;
@@ -316,12 +322,8 @@ fn spawn_writers(
 }
 
 // metrics reporter task
-fn spawn_metrics_reporter(ready: Arc<Notify>) -> JoinHandle<()> {
+fn spawn_metrics_reporter() -> JoinHandle<()> {
     tokio::task::spawn(async move {
-        // Wait for writers to be ready
-        info!("Waiting for writers to be ready...");
-        ready.notified().await;
-
         let mut ticker = tokio::time::interval(Duration::from_secs(1));
         loop {
             ticker.tick().await;
