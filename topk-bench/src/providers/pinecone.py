@@ -3,6 +3,14 @@ from pinecone import Pinecone, QueryResponse, ServerlessSpec
 
 pc = Pinecone(api_key=os.environ["PINECONE_API_KEY"])
 
+__cache = {}
+
+
+def _get_index(collection: str):
+    if collection not in __cache:
+        __cache[collection] = pc.Index(collection)
+    return __cache[collection]
+
 
 def setup(collection: str):
     if not pc.has_index(collection):
@@ -19,7 +27,7 @@ def setup(collection: str):
 
 
 def ping(collection: str):
-    index = pc.Index(collection)
+    index = _get_index(collection)
     index.query(
         vector=[0.1] * 768,
         top_k=1,
@@ -28,14 +36,14 @@ def ping(collection: str):
 
 
 def query_by_id(collection: str, id: str):
-    index = pc.Index(collection)
+    index = _get_index(collection)
     results = index.fetch(ids=[id])
 
     return _convert_results(results.vectors.values())
 
 
 def delete_by_id(collection: str, ids: list[str]):
-    index = pc.Index(collection)
+    index = _get_index(collection)
     index.delete(ids=ids)
 
 
@@ -46,7 +54,7 @@ def query(
     int_filter: int | None,
     keyword_filter: str | None,
 ):
-    index = pc.Index(collection)
+    index = _get_index(collection)
 
     # Build filter
     filt = {}
@@ -66,7 +74,7 @@ def query(
 
 
 def upsert(collection: str, docs: list[dict]):
-    index = pc.Index(collection)
+    index = _get_index(collection)
 
     index.upsert(
         vectors=[
@@ -105,3 +113,7 @@ def _convert_results(results: list[dict]):
             }
         )
     return out
+
+
+def close():
+    pass

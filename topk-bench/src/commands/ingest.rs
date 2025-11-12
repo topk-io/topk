@@ -92,6 +92,7 @@ pub async fn run(args: IngestArgs) -> anyhow::Result<()> {
     // Wait for writers to be ready
     info!("Waiting for writers to be ready...");
     ready.notified().await;
+    info!("Writers are ready");
 
     // Spawn writers
     let writers = spawn_writers(
@@ -280,7 +281,7 @@ fn spawn_writers(
                                 info!("Keyboard interrupt received, aborting writers");
                                 break;
                             } else {
-                                error!(?latency, "Failed to upsert documents: {:#?}", error);
+                                error!(?latency, ?error, "Failed to upsert documents");
                             }
 
                             // Sleep

@@ -132,3 +132,7 @@ def _convert_results(results):
             }
         )
     return out
+
+
+def close():
+    pass
