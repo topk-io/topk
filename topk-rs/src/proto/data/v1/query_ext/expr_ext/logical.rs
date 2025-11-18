@@ -184,6 +184,19 @@ impl LogicalExpr {
         Self::ternary(ternary_op::Op::Choose, self, x, y)
     }
 
+    pub fn regexp_match<S: Into<String>>(
+        self,
+        pattern: impl Into<String>,
+        flags: Option<S>,
+    ) -> Self {
+        let pattern = pattern.into();
+        let flags = flags
+            .map(|f| Value::string(f.into()))
+            .unwrap_or(Value::null());
+
+        Self::ternary(ternary_op::Op::RegexpMatch, self, pattern, flags)
+    }
+
     /// Multiplies the scoring expression by the provided `boost` value if the `condition` is true.
     /// Otherwise, the scoring expression is unchanged (multiplied by 1).
     pub fn boost(self, condition: impl Into<LogicalExpr>, boost: impl Into<Value>) -> Self {
