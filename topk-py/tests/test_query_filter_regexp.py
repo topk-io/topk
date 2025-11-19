@@ -24,4 +24,3 @@ def test_query_regexp_match_with_flags(ctx: ProjectContext):
     )
 
     assert doc_ids(result) == {"alchemist"}
-    
