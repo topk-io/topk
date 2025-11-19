@@ -470,7 +470,7 @@ export declare namespace query {
      * Otherwise, the scoring expression is unchanged (multiplied by 1).
      */
     boost(condition: LogicalExpression | boolean, boost: LogicalExpression | number): LogicalExpression
-    /** Checks if the expression is less than another value. */
+    /** Check if the expression matches the provided regexp pattern. */
     regexpMatch(other: string, flags?: string): LogicalExpression
   }
   /**

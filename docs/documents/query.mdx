@@ -1158,6 +1158,29 @@ The `match_any` operator returns `true` if any term in the query is present in t
 When using a `match_any` operator against a text field, it must be used in conjunction with a [**keyword index**](/collections/create#keyword-index) defined in your collection schema.
 </Info>
 
+#### regexp_match
+
+The `regexp_match` operator returns `true` if the field value matches the regular expression.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("summary").regexp_match("^love")
+)
+# Optionally, you can pass flags to the regular expression:
+.filter(
+    field("summary").regexp_match("^love", "i")
+)
+```
+
+```js Javascript
+.filter(field("summary").regexpMatch("^love"))
+// you can also pass an array of strings:
+.filter(field("summary").regexpMatch("^love", "i"))
+```
+</CodeGroup>
+
 ### Mathematical operators
 
 Mathematical operators perform computations on numbers.

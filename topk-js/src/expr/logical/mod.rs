@@ -412,7 +412,7 @@ impl LogicalExpression {
         Self::binary(BinaryOperator::Mul, self.clone(), choose_expr)
     }
 
-    /// Checks if the expression is less than another value.
+    /// Check if the expression matches the provided regexp pattern.
     #[napi]
     pub fn regexp_match(
         &self,
