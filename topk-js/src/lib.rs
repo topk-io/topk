@@ -13,7 +13,7 @@ macro_rules! try_cast_ref {
         let obj = Unknown::from_napi_value($env, $obj)?;
 
         let env = napi::Env::from_raw($env);
-        let is_instance = <$type>::instance_of(env, &obj)?;
+        let is_instance = <$type>::instance_of(&env, &obj)?;
 
         if is_instance {
             <$type>::from_napi_ref($env, $obj)
