@@ -5,6 +5,7 @@ use napi_derive::napi;
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TernaryOperator {
     Choose,
+    RegexpMatch,
 }
 
 impl Into<topk_rs::proto::v1::data::logical_expr::ternary_op::Op> for TernaryOperator {
@@ -12,6 +13,9 @@ impl Into<topk_rs::proto::v1::data::logical_expr::ternary_op::Op> for TernaryOpe
         match self {
             TernaryOperator::Choose => {
                 topk_rs::proto::v1::data::logical_expr::ternary_op::Op::Choose
+            }
+            TernaryOperator::RegexpMatch => {
+                topk_rs::proto::v1::data::logical_expr::ternary_op::Op::RegexpMatch
             }
         }
     }

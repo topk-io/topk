@@ -411,6 +411,21 @@ impl LogicalExpression {
         );
         Self::binary(BinaryOperator::Mul, self.clone(), choose_expr)
     }
+
+    /// Checks if the expression is less than another value.
+    #[napi]
+    pub fn regexp_match(
+        &self,
+        #[napi(ts_arg_type = "string")] other: String,
+        #[napi(ts_arg_type = "string")] flags: Option<String>,
+    ) -> Self {
+        Self::ternary(
+            TernaryOperator::RegexpMatch,
+            self.clone(),
+            LogicalExpression::literal(other),
+            LogicalExpression::literal(flags.unwrap_or_default()),
+        )
+    }
 }
 
 impl Into<topk_rs::proto::v1::data::LogicalExpr> for LogicalExpression {
