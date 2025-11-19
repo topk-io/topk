@@ -1,5 +1,5 @@
 use super::LogicalExpression;
-use crate::data::{Scalar, Value};
+use crate::data::Value;
 use napi::bindgen_prelude::*;
 
 #[derive(Debug, Clone)]
@@ -38,10 +38,10 @@ impl FromNapiValue for Comparable {
 impl Into<LogicalExpression> for Comparable {
     fn into(self) -> LogicalExpression {
         match self {
-            Comparable::String(s) => LogicalExpression::literal(Scalar::String(s)),
-            Comparable::Int(i) => LogicalExpression::literal(Scalar::I64(i)),
-            Comparable::Float(f) => LogicalExpression::literal(Scalar::F64(f)),
-            Comparable::Bool(b) => LogicalExpression::literal(Scalar::Bool(b)),
+            Comparable::String(s) => LogicalExpression::literal(s),
+            Comparable::Int(i) => LogicalExpression::literal(i),
+            Comparable::Float(f) => LogicalExpression::literal(f),
+            Comparable::Bool(b) => LogicalExpression::literal(b),
             Comparable::Null(_) => LogicalExpression::null(),
             Comparable::Expr(e) => e,
         }

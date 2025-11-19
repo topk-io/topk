@@ -5,9 +5,6 @@ mod list;
 pub use list::List;
 pub use list::Values;
 
-mod scalar;
-pub use scalar::Scalar;
-
 mod value;
 pub use value::NativeValue;
 pub use value::Value;

@@ -166,9 +166,9 @@ export interface CollectionFieldSpec {
  * - `Strong`: Query waits for all replicas to be consistent (slower, strong consistency)
  */
 export type ConsistencyLevel = /** Indexed consistency - faster| eventual consistency */
-  'indexed' |
-  /** Strong consistency - slower| waits for all replicas */
-  'strong';
+'indexed'|
+/** Strong consistency - slower| waits for all replicas */
+'strong';
 
 /**
  * Options for query operations.
@@ -470,8 +470,8 @@ export declare namespace query {
      * Otherwise, the scoring expression is unchanged (multiplied by 1).
      */
     boost(condition: LogicalExpression | boolean, boost: LogicalExpression | number): LogicalExpression
-    /** Checks if the expression matches the provided regexp pattern. */
-    regexpMatch(pattern: string, flags?: string | null): LogicalExpression
+    /** Checks if the expression is less than another value. */
+    regexpMatch(other: string, flags?: string): LogicalExpression
   }
   /**
    * @internal
@@ -510,26 +510,26 @@ export declare namespace query {
   /** Evaluates to true if at least one `expr` is true. */
   export function any(exprs: Array<LogicalExpression>): LogicalExpression
   /** @ignore */
-  export type BinaryOperator = 'and' |
-    'or' |
-    'eq' |
-    'neq' |
-    'lt' |
-    'lte' |
-    'gt' |
-    'gte' |
-    'startsWith' |
-    'contains' |
-    'in' |
-    'add' |
-    'sub' |
-    'mul' |
-    'div' |
-    'matchAll' |
-    'matchAny' |
-    'coalesce' |
-    'min' |
-    'max';
+  export type BinaryOperator =  'and'|
+  'or'|
+  'eq'|
+  'neq'|
+  'lt'|
+  'lte'|
+  'gt'|
+  'gte'|
+  'startsWith'|
+  'contains'|
+  'in'|
+  'add'|
+  'sub'|
+  'mul'|
+  'div'|
+  'matchAll'|
+  'matchAny'|
+  'coalesce'|
+  'min'|
+  'max';
   /** Creates a field reference expression. */
   export function field(name: string): LogicalExpression
   /** Creates a new query with a filter stage. */
@@ -569,16 +569,17 @@ export declare namespace query {
     weight: number
   }
   /** @ignore */
-  export type TernaryOperator = 'choose' | "regexpMatch";
+  export type TernaryOperator =  'choose'|
+  'regexpMatch';
   /** @ignore */
-  export type UnaryOperator = 'not' |
-    'isNull' |
-    'isNotNull' |
-    'abs' |
-    'ln' |
-    'exp' |
-    'sqrt' |
-    'square';
+  export type UnaryOperator =  'not'|
+  'isNull'|
+  'isNotNull'|
+  'abs'|
+  'ln'|
+  'exp'|
+  'sqrt'|
+  'square';
 }
 
 export declare namespace query_fn {
@@ -691,9 +692,9 @@ export declare namespace schema {
     | { type: 'U8SparseVector' }
     | { type: 'Bytes' }
     | { type: 'List', valueType: ListValueType }
-  export type EmbeddingDataType = 'float32' |
-    'uint8' |
-    'binary';
+  export type EmbeddingDataType =  'float32'|
+  'uint8'|
+  'binary';
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `f32_sparse_vector` values.
    *
@@ -787,7 +788,7 @@ export declare namespace schema {
    * Adding a keyword index allows you to perform keyword search on this field.
    */
   export function keywordIndex(): FieldIndex
-  export type KeywordIndexType = 'text';
+  export type KeywordIndexType =  'text';
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `list` values.
    *
@@ -812,9 +813,9 @@ export declare namespace schema {
     /** The type of values the list can contain */
     valueType: ListValueType
   }
-  export type ListValueType = 'text' |
-    'integer' |
-    'float';
+  export type ListValueType =  'text'|
+  'integer'|
+  'float';
   /**
    * Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `semantic_index` values.
    *
@@ -895,10 +896,10 @@ export declare namespace schema {
    * ```
    */
   export function u8Vector(options: VectorOptions): FieldSpec
-  export type VectorDistanceMetric = 'cosine' |
-    'euclidean' |
-    'dot_product' |
-    'hamming';
+  export type VectorDistanceMetric =  'cosine'|
+  'euclidean'|
+  'dot_product'|
+  'hamming';
   /**
    * Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `vector_index` values.
    *

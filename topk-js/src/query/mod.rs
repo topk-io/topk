@@ -3,7 +3,7 @@ pub mod query;
 pub mod stage;
 
 use crate::{
-    data::{Scalar, Value},
+    data::Value,
     expr::{
         filter::FilterExpression,
         logical::{BinaryOperator, LogicalExpression, NaryOp, Ordered, UnaryOperator},
@@ -52,11 +52,11 @@ pub fn literal(
     value: Value,
 ) -> napi::Result<LogicalExpression> {
     match value {
-        Value::String(s) => Ok(LogicalExpression::literal(Scalar::String(s))),
-        Value::Bool(b) => Ok(LogicalExpression::literal(Scalar::Bool(b))),
-        Value::I64(i) => Ok(LogicalExpression::literal(Scalar::I64(i))),
-        Value::F64(f) => Ok(LogicalExpression::literal(Scalar::F64(f))),
-        Value::List(l) => Ok(LogicalExpression::literal(Scalar::List(l))),
+        Value::String(s) => Ok(LogicalExpression::literal(s)),
+        Value::Bool(b) => Ok(LogicalExpression::literal(b)),
+        Value::I64(i) => Ok(LogicalExpression::literal(i)),
+        Value::F64(f) => Ok(LogicalExpression::literal(f)),
+        Value::List(l) => Ok(LogicalExpression::literal(Value::List(l))),
         v => Err(napi::Error::from_reason(format!(
             "Unsupported scalar type: {:?}",
             v
