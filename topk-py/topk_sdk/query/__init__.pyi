@@ -284,6 +284,11 @@ class LogicalExpr(Enum):
         Multiply the scoring expression by the provided `boost` value if the `condition` is true.
         """
         ...
+    def regexp_match(self, pattern: builtins.str, flags: typing.Optional[builtins.str] = None) -> LogicalExpr:
+        """
+        Check if the expression matches the provided regexp pattern.
+        """
+        ...
 
 FlexibleExpr = typing.Union[str, int, float, bool, None, LogicalExpr]
 Numeric = typing.Union[int, float, LogicalExpr]

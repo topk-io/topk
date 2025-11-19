@@ -6,7 +6,6 @@ use pyo3::types::{PyBytes, PyList};
 
 pub mod collection;
 pub mod list;
-pub mod scalar;
 pub mod value;
 pub mod vector;
 

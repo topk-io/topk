@@ -1,4 +1,4 @@
-use crate::data::scalar::Scalar;
+use crate::data::value::Value;
 use crate::expr::flexible::FlexibleExpr;
 use crate::expr::flexible::{Boolish, Iterable, Numeric, Ordered, Stringy, StringyWithList};
 use pyo3::exceptions::PyTypeError;
@@ -143,7 +143,7 @@ pub enum LogicalExpr {
         name: String,
     },
     Literal {
-        value: Scalar,
+        value: Value,
     },
     Unary {
         op: UnaryOperator,
@@ -677,13 +677,13 @@ impl LogicalExpr {
             y: Py::new(
                 py,
                 LogicalExpr::Literal {
-                    value: Scalar::String(pattern),
+                    value: Value::String(pattern),
                 },
             )?,
             z: Py::new(
                 py,
                 LogicalExpr::Literal {
-                    value: Scalar::String(flags.unwrap_or_default()),
+                    value: flags.map(Value::String).unwrap_or(Value::Null()),
                 },
             )?,
         })

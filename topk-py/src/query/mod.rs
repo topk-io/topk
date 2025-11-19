@@ -1,4 +1,3 @@
-use crate::data::scalar::Scalar;
 use crate::data::value::Value;
 use crate::expr::filter::FilterExprUnion;
 use crate::expr::flexible::Ordered;
@@ -67,7 +66,7 @@ pub fn field(name: String) -> LogicalExpr {
 }
 
 #[pyfunction]
-pub fn literal(value: Scalar) -> LogicalExpr {
+pub fn literal(value: Value) -> LogicalExpr {
     LogicalExpr::Literal { value }
 }
 
