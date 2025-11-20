@@ -471,7 +471,7 @@ export declare namespace query {
      */
     boost(condition: LogicalExpression | boolean, boost: LogicalExpression | number): LogicalExpression
     /** Check if the expression matches the provided regexp pattern. */
-    regexpMatch(other: string, flags?: string): LogicalExpression
+    regexpMatch(other: string, flags?: string | null): LogicalExpression
   }
   /**
    * @internal
