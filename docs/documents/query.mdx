@@ -1160,7 +1160,8 @@ When using a `match_any` operator against a text field, it must be used in conju
 
 #### regexp_match
 
-The `regexp_match` operator returns `true` if the field value matches the regular expression.
+The `regexp_match` operator returns `true` if the field value matches the regular expression. Internally, this uses Rust's
+[`regex`](https://docs.rs/regex) crate to evaluate the regular expression.
 
 <CodeGroup>
 
@@ -1168,7 +1169,7 @@ The `regexp_match` operator returns `true` if the field value matches the regula
 .filter(
     field("summary").regexp_match("^love")
 )
-# Optionally, you can pass flags to the regular expression:
+# Optionally, you can pass flags to the regular expression
 .filter(
     field("summary").regexp_match("^love", "i")
 )
@@ -1176,7 +1177,7 @@ The `regexp_match` operator returns `true` if the field value matches the regula
 
 ```js Javascript
 .filter(field("summary").regexpMatch("^love"))
-// you can also pass an array of strings:
+// Optionally, you can pass flags to the regular expression
 .filter(field("summary").regexpMatch("^love", "i"))
 ```
 </CodeGroup>

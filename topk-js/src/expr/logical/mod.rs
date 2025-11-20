@@ -417,7 +417,7 @@ impl LogicalExpression {
     pub fn regexp_match(
         &self,
         #[napi(ts_arg_type = "string")] other: String,
-        #[napi(ts_arg_type = "string")] flags: Option<String>,
+        #[napi(ts_arg_type = "string | null")] flags: Option<String>,
     ) -> Self {
         Self::ternary(
             TernaryOperator::RegexpMatch,
