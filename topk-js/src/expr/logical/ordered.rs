@@ -1,5 +1,4 @@
-use super::{Numeric, LogicalExpression};
-use crate::data::Scalar;
+use super::{LogicalExpression, Numeric};
 use napi::bindgen_prelude::*;
 
 pub enum Ordered {
@@ -28,7 +27,7 @@ impl Into<LogicalExpression> for Ordered {
     fn into(self) -> LogicalExpression {
         match self {
             Ordered::Numeric(expr) => expr.into(),
-            Ordered::String(s) => LogicalExpression::literal(Scalar::String(s)),
+            Ordered::String(s) => LogicalExpression::literal(s),
         }
     }
 }

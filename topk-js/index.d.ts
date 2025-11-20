@@ -470,6 +470,8 @@ export declare namespace query {
      * Otherwise, the scoring expression is unchanged (multiplied by 1).
      */
     boost(condition: LogicalExpression | boolean, boost: LogicalExpression | number): LogicalExpression
+    /** Check if the expression matches the provided regexp pattern. */
+    regexpMatch(other: string, flags?: string | null): LogicalExpression
   }
   /**
    * @internal
@@ -567,7 +569,8 @@ export declare namespace query {
     weight: number
   }
   /** @ignore */
-  export type TernaryOperator =  'choose';
+  export type TernaryOperator =  'choose'|
+  'regexpMatch';
   /** @ignore */
   export type UnaryOperator =  'not'|
   'isNull'|

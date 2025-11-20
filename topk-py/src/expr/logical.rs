@@ -1,4 +1,4 @@
-use crate::data::scalar::Scalar;
+use crate::data::value::Value;
 use crate::expr::flexible::FlexibleExpr;
 use crate::expr::flexible::{Boolish, Iterable, Numeric, Ordered, Stringy, StringyWithList};
 use pyo3::exceptions::PyTypeError;
@@ -104,6 +104,7 @@ impl From<BinaryOperator> for topk_rs::proto::v1::data::logical_expr::binary_op:
 #[pyclass(eq, eq_int)]
 pub enum TernaryOperator {
     Choose,
+    RegexpMatch,
 }
 
 impl From<TernaryOperator> for topk_rs::proto::v1::data::logical_expr::ternary_op::Op {
@@ -111,6 +112,9 @@ impl From<TernaryOperator> for topk_rs::proto::v1::data::logical_expr::ternary_o
         match op {
             TernaryOperator::Choose => {
                 topk_rs::proto::v1::data::logical_expr::ternary_op::Op::Choose
+            }
+            TernaryOperator::RegexpMatch => {
+                topk_rs::proto::v1::data::logical_expr::ternary_op::Op::RegexpMatch
             }
         }
     }
@@ -139,7 +143,7 @@ pub enum LogicalExpr {
         name: String,
     },
     Literal {
-        value: Scalar,
+        value: Value,
     },
     Unary {
         op: UnaryOperator,
@@ -619,6 +623,22 @@ impl LogicalExpr {
         })
     }
 
+    fn min(&self, py: Python<'_>, other: Ordered) -> PyResult<Self> {
+        Ok(Self::Binary {
+            left: Py::new(py, self.clone())?,
+            op: BinaryOperator::Min,
+            right: Py::new(py, Into::<LogicalExpr>::into(other))?,
+        })
+    }
+
+    fn max(&self, py: Python<'_>, other: Ordered) -> PyResult<Self> {
+        Ok(Self::Binary {
+            left: Py::new(py, self.clone())?,
+            op: BinaryOperator::Max,
+            right: Py::new(py, Into::<LogicalExpr>::into(other))?,
+        })
+    }
+
     // Ternary operators
 
     fn choose(&self, py: Python<'_>, x: FlexibleExpr, y: FlexibleExpr) -> PyResult<Self> {
@@ -643,19 +663,29 @@ impl LogicalExpr {
         self.mul(py, choose_numeric)
     }
 
-    fn min(&self, py: Python<'_>, other: Ordered) -> PyResult<Self> {
-        Ok(Self::Binary {
-            left: Py::new(py, self.clone())?,
-            op: BinaryOperator::Min,
-            right: Py::new(py, Into::<LogicalExpr>::into(other))?,
-        })
-    }
-
-    fn max(&self, py: Python<'_>, other: Ordered) -> PyResult<Self> {
-        Ok(Self::Binary {
-            left: Py::new(py, self.clone())?,
-            op: BinaryOperator::Max,
-            right: Py::new(py, Into::<LogicalExpr>::into(other))?,
+    /// Filter documents that match the provided regexp pattern.
+    #[pyo3(signature = (pattern, flags=None))]
+    fn regexp_match(
+        &self,
+        py: Python<'_>,
+        pattern: String,
+        flags: Option<String>,
+    ) -> PyResult<Self> {
+        Ok(Self::Ternary {
+            op: TernaryOperator::RegexpMatch,
+            x: Py::new(py, self.clone())?,
+            y: Py::new(
+                py,
+                LogicalExpr::Literal {
+                    value: Value::String(pattern),
+                },
+            )?,
+            z: Py::new(
+                py,
+                LogicalExpr::Literal {
+                    value: flags.map(Value::String).unwrap_or(Value::Null()),
+                },
+            )?,
         })
     }
 }

@@ -1,7 +1,7 @@
 use napi::bindgen_prelude::*;
 
 use crate::{
-    data::{List, Scalar, Value, Values},
+    data::{List, Value},
     expr::logical::LogicalExpression,
 };
 
@@ -37,9 +37,9 @@ impl FromNapiValue for FlexibleExpression {
 impl Into<LogicalExpression> for FlexibleExpression {
     fn into(self) -> LogicalExpression {
         match self {
-            FlexibleExpression::String(s) => LogicalExpression::literal(Scalar::String(s)),
-            FlexibleExpression::Int(i) => LogicalExpression::literal(Scalar::I64(i)),
-            FlexibleExpression::Float(f) => LogicalExpression::literal(Scalar::F64(f)),
+            FlexibleExpression::String(s) => LogicalExpression::literal(s),
+            FlexibleExpression::Int(i) => LogicalExpression::literal(i),
+            FlexibleExpression::Float(f) => LogicalExpression::literal(f),
             FlexibleExpression::Expr(e) => e,
         }
     }
@@ -78,17 +78,11 @@ impl FromNapiValue for Iterable {
 impl Into<LogicalExpression> for Iterable {
     fn into(self) -> LogicalExpression {
         match self {
-            Iterable::String(s) => LogicalExpression::literal(Scalar::String(s)),
-            Iterable::List(l) => LogicalExpression::literal(Scalar::List(l)),
-            Iterable::StringList(l) => LogicalExpression::literal(Scalar::List(List {
-                values: Values::String(l),
-            })),
-            Iterable::IntList(l) => LogicalExpression::literal(Scalar::List(List {
-                values: Values::I64(l),
-            })),
-            Iterable::FloatList(l) => LogicalExpression::literal(Scalar::List(List {
-                values: Values::F32(l),
-            })),
+            Iterable::String(s) => LogicalExpression::literal(s),
+            Iterable::List(l) => LogicalExpression::literal(Value::List(l)),
+            Iterable::StringList(values) => LogicalExpression::literal(values),
+            Iterable::IntList(values) => LogicalExpression::literal(values),
+            Iterable::FloatList(values) => LogicalExpression::literal(values),
             Iterable::Expr(e) => e,
         }
     }

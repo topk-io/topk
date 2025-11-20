@@ -1,6 +1,6 @@
 [package]
 name = "topk-js"
-version = "0.7.1"
+version = "0.7.2"
 edition = "2021"
 description = "TopK JavaScript SDK with TypeScript support"
 license-file = "LICENSE"
@@ -13,14 +13,13 @@ crate-type = ["cdylib"]
 
 [dependencies]
 # Default enable napi4 feature, see https://nodejs.org/api/n-api.html#node-api-version-matrix
-# TODO: Upgrade to stable version
-napi = { version = "=3.0.0-alpha.33", default-features = false, features = [
+napi = { version = "3.5.2", default-features = false, features = [
     "napi4",
     "tokio_rt",
     "serde-json",
 ] }
-napi-derive = { version = "=3.0.0-alpha.29" }
-napi-derive-backend = { version = "=2.0.0-alpha.28" }
+napi-derive = { version = "3.3.3" }
+napi-derive-backend = { version = "3.0.2" }
 topk-rs = { path = "../topk-rs" }
 tokio = { version = "1", features = ["rt-multi-thread"] }
 

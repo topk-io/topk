@@ -20,6 +20,102 @@ pub enum Value {
     List(List),
 }
 
+impl From<i64> for Value {
+    fn from(value: i64) -> Self {
+        Value::I64(value)
+    }
+}
+
+impl From<f64> for Value {
+    fn from(value: f64) -> Self {
+        Value::F64(value)
+    }
+}
+
+impl From<bool> for Value {
+    fn from(value: bool) -> Self {
+        Value::Bool(value)
+    }
+}
+
+impl From<String> for Value {
+    fn from(value: String) -> Self {
+        Value::String(value)
+    }
+}
+
+impl From<Vec<u8>> for Value {
+    fn from(values: Vec<u8>) -> Self {
+        Value::List(List {
+            values: Values::U8(values),
+        })
+    }
+}
+
+impl From<Vec<u32>> for Value {
+    fn from(values: Vec<u32>) -> Self {
+        Value::List(List {
+            values: Values::U32(values),
+        })
+    }
+}
+
+impl From<Vec<u64>> for Value {
+    fn from(values: Vec<u64>) -> Self {
+        Value::List(List {
+            values: Values::U64(values),
+        })
+    }
+}
+
+impl From<Vec<i8>> for Value {
+    fn from(values: Vec<i8>) -> Self {
+        Value::List(List {
+            values: Values::I8(values),
+        })
+    }
+}
+
+impl From<Vec<i32>> for Value {
+    fn from(values: Vec<i32>) -> Self {
+        Value::List(List {
+            values: Values::I32(values),
+        })
+    }
+}
+
+impl From<Vec<i64>> for Value {
+    fn from(values: Vec<i64>) -> Self {
+        Value::List(List {
+            values: Values::I64(values),
+        })
+    }
+}
+
+impl From<Vec<f32>> for Value {
+    fn from(values: Vec<f32>) -> Self {
+        Value::List(List {
+            values: Values::F32(values),
+        })
+    }
+}
+
+impl From<Vec<f64>> for Value {
+    fn from(values: Vec<f64>) -> Self {
+        Value::List(List {
+            values: Values::F64(values),
+        })
+    }
+}
+
+impl From<Vec<String>> for Value {
+    fn from(values: Vec<String>) -> Self {
+        Value::List(List {
+            values: Values::String(values),
+        })
+    }
+}
+
 impl From<Value> for topk_rs::proto::v1::data::Value {
     fn from(value: Value) -> Self {
         match value {

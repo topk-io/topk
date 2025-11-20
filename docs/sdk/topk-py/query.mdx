@@ -553,6 +553,27 @@ Multiply the scoring expression by the provided `boost` value if the `condition`
 
 ***
 
+#### regexp\_match()
+
+```python
+regexp_match(self, pattern: str, flags: Optional[str] = None) -> LogicalExpr
+```
+
+Check if the expression matches the provided regexp pattern.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `pattern` | str |
+| `flags` | Optional[str] |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
 ### FunctionExpr
 
 *Internal*

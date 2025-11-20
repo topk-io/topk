@@ -17,7 +17,7 @@ pub use ternary_op::TernaryOperator;
 pub use unary_op::UnaryOperator;
 
 use crate::{
-    data::Scalar,
+    data::Value,
     expr::logical::{
         flexible::{FlexibleExpression, Iterable},
         stringy::StringyWithList,
@@ -50,7 +50,7 @@ impl LogicalExpression {
         }
     }
 
-    pub(crate) fn literal(value: impl Into<Scalar>) -> Self {
+    pub(crate) fn literal(value: impl Into<Value>) -> Self {
         Self {
             expr: LogicalExpressionUnion::Literal {
                 value: value.into(),
@@ -114,7 +114,7 @@ pub enum LogicalExpressionUnion {
         name: String,
     },
     Literal {
-        value: Scalar,
+        value: Value,
     },
     Unary {
         op: UnaryOperator,
@@ -140,7 +140,7 @@ pub enum LogicalExpressionUnion {
 impl From<bool> for LogicalExpressionUnion {
     fn from(value: bool) -> Self {
         LogicalExpressionUnion::Literal {
-            value: Scalar::Bool(value),
+            value: Value::Bool(value),
         }
     }
 }
@@ -148,7 +148,7 @@ impl From<bool> for LogicalExpressionUnion {
 impl From<i64> for LogicalExpressionUnion {
     fn from(value: i64) -> Self {
         LogicalExpressionUnion::Literal {
-            value: Scalar::I64(value),
+            value: Value::I64(value),
         }
     }
 }
@@ -156,7 +156,7 @@ impl From<i64> for LogicalExpressionUnion {
 impl From<f64> for LogicalExpressionUnion {
     fn from(value: f64) -> Self {
         LogicalExpressionUnion::Literal {
-            value: Scalar::F64(value),
+            value: Value::F64(value),
         }
     }
 }
@@ -410,6 +410,21 @@ impl LogicalExpression {
             comparable::Comparable::Expr(one_expr),
         );
         Self::binary(BinaryOperator::Mul, self.clone(), choose_expr)
+    }
+
+    /// Check if the expression matches the provided regexp pattern.
+    #[napi]
+    pub fn regexp_match(
+        &self,
+        #[napi(ts_arg_type = "string")] other: String,
+        #[napi(ts_arg_type = "string | null")] flags: Option<String>,
+    ) -> Self {
+        Self::ternary(
+            TernaryOperator::RegexpMatch,
+            self.clone(),
+            LogicalExpression::literal(other),
+            LogicalExpression::literal(flags.map(Value::String).unwrap_or(Value::Null)),
+        )
     }
 }
 
