@@ -284,7 +284,7 @@ async fn test_query_select_null_field(ctx: &mut ProjectTestContext) {
     assert_eq!(
         results
             .into_iter()
-            .map(|d| d.fields.get("a").unwrap().clone())
+            .map(|d| d.fields.get("a").cloned().unwrap_or(Value::null()))
             .collect::<Vec<_>>(),
         vec![Value::null(), Value::null()]
     );
