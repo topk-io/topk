@@ -5,5 +5,3 @@ target/
 .vscode/
 .venv/
 __pycache__/
-.topk-bench-tag
-depot.json
