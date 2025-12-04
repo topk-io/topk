@@ -3,7 +3,7 @@ pub mod proto;
 pub mod error;
 pub use error::Error;
 
-mod client;
+pub mod client;
 pub use client::Client;
 pub use client::ClientConfig;
 pub use client::CollectionClient;

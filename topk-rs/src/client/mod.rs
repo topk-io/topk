@@ -53,6 +53,14 @@ impl Client {
         }
     }
 
+    pub fn config(&self) -> Arc<ClientConfig> {
+        self.config.clone()
+    }
+
+    pub fn channel(&self) -> Arc<OnceCell<Channel>> {
+        self.channel.clone()
+    }
+
     #[cfg(feature = "in_memory")]
     pub fn new_in_memory(config: ClientConfig, channel: Channel) -> Self {
         Self {

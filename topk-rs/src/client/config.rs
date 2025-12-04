@@ -5,19 +5,19 @@ use super::retry::RetryConfig;
 #[derive(Clone)]
 pub struct ClientConfig {
     /// Topk region
-    pub(crate) region: String,
+    region: String,
 
     /// Topk host (e.g. "topk.io")
-    pub(crate) host: String,
+    host: String,
 
     /// Whether to use HTTPS
-    pub(crate) https: bool,
+    https: bool,
 
     /// Headers
-    pub(crate) headers: HashMap<&'static str, String>,
+    headers: HashMap<&'static str, String>,
 
     /// Retry config
-    pub(crate) retry_config: RetryConfig,
+    retry_config: RetryConfig,
 }
 
 impl ClientConfig {
@@ -40,6 +40,10 @@ impl ClientConfig {
 
     pub fn headers(&self) -> HashMap<&'static str, String> {
         self.headers.clone()
+    }
+
+    pub fn retry_config(&self) -> RetryConfig {
+        self.retry_config.clone()
     }
 
     /// Setters

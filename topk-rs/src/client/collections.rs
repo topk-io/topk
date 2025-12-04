@@ -29,7 +29,7 @@ impl CollectionsClient {
     pub async fn list(&self) -> Result<Vec<Collection>, Error> {
         let client = create_collection_client(&self.config, &self.control_channel).await?;
 
-        let response = call_with_retry(&self.config.retry_config, || {
+        let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
 
             async move {
@@ -48,7 +48,7 @@ impl CollectionsClient {
         let client = create_collection_client(&self.config, &self.control_channel).await?;
         let name = name.into();
 
-        let response = call_with_retry(&self.config.retry_config, || {
+        let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
             let name = name.clone();
 
@@ -81,7 +81,7 @@ impl CollectionsClient {
         let name = name.into();
         let schema = schema.into();
 
-        let response = call_with_retry(&self.config.retry_config, || {
+        let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
             let name = name.clone();
             let schema = schema.clone();
@@ -110,7 +110,7 @@ impl CollectionsClient {
         let client = create_collection_client(&self.config, &self.control_channel).await?;
         let name = name.into();
 
-        let _ = call_with_retry(&self.config.retry_config, || {
+        let _ = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
             let name = name.clone();
 

@@ -54,7 +54,7 @@ impl CollectionClient {
             create_query_client(&self.config, &self.collection_name, &self.channel).await?;
         let ids: Vec<String> = ids.into_iter().map(|id| id.into()).collect();
 
-        let response = call_with_retry(&self.config.retry_config, || {
+        let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
             let ids = ids.clone();
             let fields = fields.clone();
@@ -105,7 +105,7 @@ impl CollectionClient {
     ) -> Result<u64, Error> {
         let query = Query::new(vec![Stage::count()]);
 
-        let docs = call_with_retry(&self.config.retry_config, || {
+        let docs = call_with_retry(&self.config.retry_config(), || {
             let query = query.clone();
             let lsn = lsn.clone();
             let consistency = consistency.clone();
@@ -146,7 +146,7 @@ impl CollectionClient {
         let client =
             create_query_client(&self.config, &self.collection_name, &self.channel).await?;
 
-        let response = call_with_retry(&self.config.retry_config, || {
+        let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
             let query = query.clone();
             let lsn = lsn.clone();
@@ -188,7 +188,7 @@ impl CollectionClient {
         let client =
             create_write_client(&self.config, &self.collection_name, &self.channel).await?;
 
-        let response = call_with_retry(&self.config.retry_config, || {
+        let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
             let docs = docs.clone();
 
@@ -221,7 +221,7 @@ impl CollectionClient {
         let client =
             create_write_client(&self.config, &self.collection_name, &self.channel).await?;
 
-        let response = call_with_retry(&self.config.retry_config, || {
+        let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
             let docs = docs.clone();
 
@@ -252,7 +252,7 @@ impl CollectionClient {
 
         let req = req.into();
 
-        let response = call_with_retry(&self.config.retry_config, || {
+        let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
             let req = req.clone();
 
