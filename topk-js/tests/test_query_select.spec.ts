@@ -210,8 +210,10 @@ describe("Select Queries", () => {
         select({ a: field("a"), b: literal(1) }).topk(field("b"), 100, true)
       );
 
-    // Assert that `a` is null for all documents, even when not specified when upserting
-    expect(new Set(results.map((doc) => doc.a))).toEqual(new Set([null, null]));
+    // We don't return `null` values
+    expect(new Set(results.map((doc) => doc.a))).toEqual(
+      new Set([undefined, undefined])
+    );
   });
 
   test("query select text match", async () => {
