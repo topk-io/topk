@@ -193,6 +193,68 @@ async fn test_delete_with_filter(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
+async fn test_delete_by_id_prefix(ctx: &mut ProjectTestContext) {
+    let collection = ctx
+        .client
+        .collections()
+        .create(ctx.wrap("test"), HashMap::default())
+        .await
+        .expect("could not create collection");
+
+    let collection = ctx.client.collection(&collection.name);
+
+    let mut lsn = String::new();
+    for batch_idx in 0..3 {
+        lsn = collection
+            .upsert(
+                (0..5)
+                    .map(|i| doc!("_id" => format!("batch-{batch_idx}/id-{i}"), "batch_idx" => batch_idx))
+                    .collect(),
+            )
+            .await
+            .expect("could not upsert document");
+
+        assert_eq!(lsn, format!("{}", batch_idx + 1));
+    }
+    assert_eq!(
+        collection
+            .count(Some(lsn.clone()), None)
+            .await
+            .expect("could not count documents"),
+        15
+    );
+
+    // Delete using filter
+    let lsn = collection
+        .delete(field("_id").starts_with(literal("batch-1/")))
+        .await
+        .expect("could not delete document");
+    assert_eq!(lsn, "4");
+
+    assert_eq!(
+        collection
+            .count(Some(lsn.clone()), None)
+            .await
+            .expect("could not count documents"),
+        10
+    );
+
+    // Verify expected documents
+    let doc_ids = collection
+        .query(select([("_id", field("_id"))]).limit(100), Some(lsn), None)
+        .await
+        .expect("could not query documents");
+
+    assert_doc_ids!(
+        doc_ids,
+        (0..3)
+            .filter(|batch_idx| *batch_idx != 1)
+            .flat_map(|batch_idx| (0..5).map(move |i| format!("batch-{batch_idx}/id-{i}")))
+    );
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
 async fn test_delete_with_invalid_filter(ctx: &mut ProjectTestContext) {
     let collection = ctx
         .client
