@@ -19,9 +19,7 @@ napi = { version = "3.5.2", default-features = false, features = [
     "serde-json",
 ] }
 napi-derive = { version = "3.3.3" }
-napi-derive-backend = { version = "3.0.2" }
 topk-rs = { path = "../topk-rs" }
-tokio = { version = "1", features = ["rt-multi-thread"] }
 
 [build-dependencies]
 napi-build = "2.1.5"
