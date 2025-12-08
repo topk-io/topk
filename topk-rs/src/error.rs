@@ -141,7 +141,7 @@ impl From<Status> for Error {
     }
 }
 
-#[derive(Debug, thiserror::Error, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, thiserror::Error, PartialEq, Eq, serde::Serialize, serde::Deserialize, Clone)]
 pub enum SchemaValidationError {
     #[error("field `{field}` has no data type")]
     MissingDataType { field: String },
@@ -179,7 +179,7 @@ pub enum SchemaValidationError {
     InvalidSemanticIndex { field: String, error: String },
 }
 
-#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize, Clone)]
 pub enum DocumentValidationError {
     MissingId {
         doc_offset: usize,
@@ -244,15 +244,15 @@ pub enum DocumentValidationError {
     },
 }
 
-#[derive(PartialEq, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(PartialEq, Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub enum CollectionValidationError {
     InvalidName(String),
 }
 
-#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct ValidationErrorBag<T: Serialize>(Vec<T>);
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize, Clone)]
+pub struct ValidationErrorBag<T: Serialize + Clone>(Vec<T>);
 
-impl<T: Serialize + DeserializeOwned> ValidationErrorBag<T> {
+impl<T: Serialize + DeserializeOwned + Clone> ValidationErrorBag<T> {
     pub fn new(errors: Vec<T>) -> Self {
         Self(errors)
     }
@@ -286,7 +286,7 @@ impl<T: Serialize + DeserializeOwned> ValidationErrorBag<T> {
     }
 }
 
-impl<T: Serialize> From<ValidationErrorBag<T>> for tonic::Status {
+impl<T: Serialize + Clone> From<ValidationErrorBag<T>> for tonic::Status {
     fn from(err: ValidationErrorBag<T>) -> Self {
         match serde_json::to_string(&err) {
             Ok(message) => tonic::Status::invalid_argument(message),
@@ -298,7 +298,7 @@ impl<T: Serialize> From<ValidationErrorBag<T>> for tonic::Status {
     }
 }
 
-impl<T: Serialize + DeserializeOwned> TryFrom<tonic::Status> for ValidationErrorBag<T> {
+impl<T: Serialize + DeserializeOwned + Clone> TryFrom<tonic::Status> for ValidationErrorBag<T> {
     type Error = serde_json::Error;
 
     fn try_from(status: tonic::Status) -> Result<Self, Self::Error> {
