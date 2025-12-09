@@ -144,7 +144,7 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - runner: macos-13
+          - runner: macos-14
             target: x86_64
             protoc_arch: osx-x86_64
           - runner: macos-14
