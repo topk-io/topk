@@ -51,7 +51,7 @@ jobs:
         with:
           maturin-version: 1.9.0
           target: ${{ matrix.platform.target }}
-          args: --release --out dist -i python3.9 -i python3.10 -i python3.11 -i python3.12 -i python3.13
+          args: --release --out dist -i python3.9 -i python3.10 -i python3.11 -i python3.12 -i python3.13 -i python3.14
           sccache: "true"
           manylinux: auto
           working-directory: topk-py
@@ -86,7 +86,7 @@ jobs:
         with:
           maturin-version: 1.9.0
           target: ${{ matrix.platform.target }}
-          args: --release --out dist -i python3.9 -i python3.10 -i python3.11 -i python3.12 -i python3.13
+          args: --release --out dist -i python3.9 -i python3.10 -i python3.11 -i python3.12 -i python3.13 -i python3.14
           sccache: "true"
           manylinux: musllinux_1_2
           working-directory: topk-py
@@ -129,7 +129,7 @@ jobs:
         with:
           maturin-version: 1.9.0
           target: ${{ matrix.platform.target }}
-          args: --release --out dist -i python3.9 -i python3.10 -i python3.11 -i python3.12 -i python3.13
+          args: --release --out dist -i python3.9 -i python3.10 -i python3.11 -i python3.12 -i python3.13 -i python3.14
           sccache: "true"
           working-directory: topk-py
       - name: Upload wheels
@@ -164,7 +164,7 @@ jobs:
         with:
           maturin-version: 1.9.0
           target: ${{ matrix.platform.target }}
-          args: --release --out dist -i python3.9 -i python3.10 -i python3.11 -i python3.12 -i python3.13
+          args: --release --out dist -i python3.9 -i python3.10 -i python3.11 -i python3.12 -i python3.13 -i python3.14
           sccache: "true"
           working-directory: topk-py
       - name: Upload wheels
