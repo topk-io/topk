@@ -15,7 +15,7 @@ async fn test_query_starts_with(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(field("_id").starts_with("cat")).topk(field("published_year"), 100, false),
+            filter(field("_id").starts_with("cat")).limit(100),
             None,
             None,
         )
@@ -33,11 +33,7 @@ async fn test_query_starts_with_empty(ctx: &mut ProjectTestContext) {
     let result = ctx
         .client
         .collection(&collection.name)
-        .query(
-            filter(field("_id").starts_with("")).topk(field("published_year"), 100, false),
-            None,
-            None,
-        )
+        .query(filter(field("_id").starts_with("")).limit(100), None, None)
         .await
         .expect("could not query");
 
@@ -67,7 +63,7 @@ async fn test_query_starts_with_non_existent_prefix(ctx: &mut ProjectTestContext
         .client
         .collection(&collection.name)
         .query(
-            filter(field("_id").starts_with("foobarbaz")).topk(field("published_year"), 100, false),
+            filter(field("_id").starts_with("foobarbaz")).limit(100),
             None,
             None,
         )
@@ -79,14 +75,14 @@ async fn test_query_starts_with_non_existent_prefix(ctx: &mut ProjectTestContext
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-async fn test_query_starts_with_list_string_type(ctx: &mut ProjectTestContext) {
+async fn test_query_starts_with_list_string_scalar(ctx: &mut ProjectTestContext) {
     let collection = dataset::books::setup(ctx).await;
 
     let result = ctx
         .client
         .collection(&collection.name)
         .query(
-            filter(field("tags").starts_with("lov")).limit(10),
+            filter(field("tags").starts_with("lov")).limit(100),
             None,
             None,
         )
@@ -94,4 +90,23 @@ async fn test_query_starts_with_list_string_type(ctx: &mut ProjectTestContext) {
         .expect("could not query");
 
     assert_doc_ids!(result, ["pride", "gatsby"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_starts_with_list_string_field(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            filter(field("tags").starts_with(field("_id"))).limit(100),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids!(result, ["pride", "hobbit"]);
 }
