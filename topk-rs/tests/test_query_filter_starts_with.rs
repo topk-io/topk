@@ -76,3 +76,22 @@ async fn test_query_starts_with_non_existent_prefix(ctx: &mut ProjectTestContext
 
     assert!(result.is_empty());
 }
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_starts_with_list_string_type(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            filter(field("tags").starts_with("lov")).limit(10),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids!(result, ["pride", "gatsby"]);
+}
