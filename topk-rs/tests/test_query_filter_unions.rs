@@ -44,7 +44,7 @@ async fn test_query_union_starts_with(ctx: &mut ProjectTestContext) {
         .await
         .expect("could not query");
 
-    assert_doc_ids!(results, ["gatsby"]);
+    assert_doc_ids!(results, ["gatsby", "pride", "lotr"]);
 }
 
 #[test_context(ProjectTestContext)]

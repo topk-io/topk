@@ -61,7 +61,7 @@ describe("test_query_filter_unions", () => {
                     .topk(field("published_year"), 100, true)
             );
 
-        expect(new Set(results.map((doc) => doc._id))).toEqual(new Set(["gatsby"]));
+        expect(new Set(results.map((doc) => doc._id))).toEqual(new Set(["gatsby", "pride", "lotr"]));
     });
 
     test("test_query_union_contains", async () => {

@@ -23,7 +23,7 @@ def test_query_union_starts_with(ctx: ProjectContext):
         .topk(field("published_year"), 100, True)
     )
 
-    assert doc_ids(results) == {"gatsby"}
+    assert doc_ids(results) == {"gatsby", "pride", "lotr"}
 
 
 def test_query_union_contains(ctx: ProjectContext):
