@@ -43,6 +43,9 @@ pub enum Error {
     #[error("request too large: {0}")]
     RequestTooLarge(String),
 
+    #[error("input error: {0}")]
+    Input(anyhow::Error),
+
     #[error("internal error: {0}")]
     Internal(String),
 
@@ -81,6 +84,7 @@ impl Error {
             Error::MalformedResponse(_) => false,
             Error::Unexpected(_) => false,
             Error::Internal(_) => false,
+            Error::Input(_) => false,
         }
     }
 
