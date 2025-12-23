@@ -1,4 +1,3 @@
-use crate::create_client;
 use crate::proto::v1::control::collection_service_client::CollectionServiceClient;
 use crate::proto::v1::data::query_service_client::QueryServiceClient;
 use crate::proto::v1::data::write_service_client::WriteServiceClient;
