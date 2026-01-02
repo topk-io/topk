@@ -1,4 +1,4 @@
-use crate::proto::data::v1::list;
+use crate::proto::data::v1::{list, matrix};
 
 mod document;
 mod sparse_vector;
@@ -62,5 +62,29 @@ impl IntoListValues for Vec<f64> {
 impl IntoListValues for Vec<String> {
     fn into_list_values(self) -> list::Values {
         list::Values::String(list::String { values: self })
+    }
+}
+
+pub trait IntoMatrixValues {
+    fn into_matrix_values(self) -> matrix::Values;
+}
+
+impl IntoMatrixValues for Vec<f32> {
+    fn into_matrix_values(self) -> matrix::Values {
+        matrix::Values::F32(matrix::F32 { values: self })
+    }
+}
+
+impl IntoMatrixValues for Vec<u8> {
+    fn into_matrix_values(self) -> matrix::Values {
+        matrix::Values::U8(matrix::U8 { values: self })
+    }
+}
+
+impl IntoMatrixValues for Vec<i8> {
+    fn into_matrix_values(self) -> matrix::Values {
+        matrix::Values::I8(matrix::I8 {
+            values: cast_vec(self),
+        })
     }
 }

@@ -28,6 +28,8 @@ message Value {
     List list = 17;
     // Struct
     Struct struct = 18;
+    // Matrix
+    Matrix matrix = 19;
   }
 }
 
@@ -110,6 +112,27 @@ message SparseVector {
   oneof values {
     F32Values f32 = 2;
     U8Values u8 = 3;
+  }
+}
+
+// Matrix of values stored in row-major order.
+message Matrix {
+  message F32 {
+    repeated float values = 1;
+  }
+  message U8 {
+    bytes values = 1;
+  }
+  message I8 {
+    bytes values = 1;
+  }
+
+  uint32 num_rows = 1;
+  uint32 num_cols = 2;
+  oneof values {
+    F32 f32 = 3;
+    U8 u8 = 4;
+    I8 i8 = 5;
   }
 }
 
