@@ -232,6 +232,9 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                     }
                 },
             }),
+            Some(topk_rs::proto::v1::data::value::Value::Matrix(..)) => {
+                todo!()
+            }
             Some(topk_rs::proto::v1::data::value::Value::Struct(..)) => {
                 todo!()
             }
