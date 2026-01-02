@@ -497,3 +497,9 @@ impl matrix::Values {
         }
     }
 }
+
+impl AsRef<[i8]> for matrix::I8 {
+    fn as_ref(&self) -> &[i8] {
+        cast_slice(&self.values)
+    }
+}
