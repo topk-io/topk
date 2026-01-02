@@ -3,8 +3,8 @@ use bytes::Bytes;
 use std::collections::HashMap;
 
 use crate::proto::data::v1::{
-    data_ext::IntoListValues, list, sparse_vector, value, vector, List, Null, SparseVector, Struct,
-    Value,
+    data_ext::{IntoListValues, IntoMatrixValues},
+    list, matrix, sparse_vector, value, vector, List, Matrix, Null, SparseVector, Struct, Value,
 };
 
 impl Value {
@@ -229,6 +229,53 @@ impl Value {
             _ => None,
         }
     }
+
+    /// Constructs a matrix proto from
+    /// # Panics
+    /// - Panics if the number of values is not equal to the number of rows * columns.
+    pub fn matrix<T: IntoMatrixValues>(num_rows: u32, num_cols: u32, values: T) -> Self {
+        let values = values.into_matrix_values();
+        assert_eq!(values.len(), (num_rows as usize) * (num_cols as usize));
+        Value {
+            value: Some(value::Value::Matrix(Matrix {
+                num_rows,
+                num_cols,
+                values: Some(values),
+            })),
+        }
+    }
+
+    pub fn as_f32_matrix(&self) -> Option<(u32, u32, &[f32])> {
+        match &self.value {
+            Some(value::Value::Matrix(matrix)) => match &matrix.values {
+                Some(matrix::Values::F32(v)) => Some((matrix.num_rows, matrix.num_cols, &v.values)),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    pub fn as_u8_matrix(&self) -> Option<(u32, u32, &[u8])> {
+        match &self.value {
+            Some(value::Value::Matrix(matrix)) => match &matrix.values {
+                Some(matrix::Values::U8(v)) => Some((matrix.num_rows, matrix.num_cols, &v.values)),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    pub fn as_i8_matrix(&self) -> Option<(u32, u32, &[i8])> {
+        match &self.value {
+            Some(value::Value::Matrix(matrix)) => match &matrix.values {
+                Some(matrix::Values::I8(v)) => {
+                    Some((matrix.num_rows, matrix.num_cols, cast_slice(&v.values)))
+                }
+                _ => None,
+            },
+            _ => None,
+        }
+    }
 }
 
 impl value::Value {
@@ -269,6 +316,18 @@ impl value::Value {
                 _ => "null_list".to_string(),
             },
             value::Value::Struct(_) => "struct<string, Value>".to_string(),
+            value::Value::Matrix(v) => match &v.values {
+                Some(matrix::Values::F32(_)) => {
+                    format!("matrix<f32, [{}, {}]>", v.num_rows, v.num_cols)
+                }
+                Some(matrix::Values::U8(_)) => {
+                    format!("matrix<u8, [{}, {}]>", v.num_rows, v.num_cols)
+                }
+                Some(matrix::Values::I8(_)) => {
+                    format!("matrix<i8, [{}, {}]>", v.num_rows, v.num_cols)
+                }
+                _ => "null_matrix".to_string(),
+            },
             value::Value::Null(_) => "null".to_string(),
         }
     }
@@ -425,5 +484,16 @@ impl Struct {
             }
         }
         depth
+    }
+}
+
+impl matrix::Values {
+    #[inline]
+    pub fn len(&self) -> usize {
+        match self {
+            matrix::Values::F32(v) => v.values.len(),
+            matrix::Values::U8(v) => v.values.len(),
+            matrix::Values::I8(v) => v.values.len(),
+        }
     }
 }
