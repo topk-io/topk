@@ -31,6 +31,7 @@ message FieldType {
     FieldTypeU8SparseVector u8_sparse_vector = 10;
     FieldTypeList list = 11;
     FieldTypeI8Vector i8_vector = 12;
+    FieldTypeMatrix matrix = 13;
   }
 }
 
@@ -53,6 +54,18 @@ message FieldTypeI8Vector {
 
 message FieldTypeBinaryVector {
   uint32 dimension = 1;
+}
+
+message FieldTypeMatrix {
+  enum MatrixValueType {
+    MATRIX_VALUE_TYPE_UNSPECIFIED = 0;
+    MATRIX_VALUE_TYPE_F32 = 1;
+    MATRIX_VALUE_TYPE_U8 = 2;
+    MATRIX_VALUE_TYPE_I8 = 3;
+  }
+
+  uint32 dimension = 1;
+  MatrixValueType value_type = 2;
 }
 
 message FieldTypeF32SparseVector {}

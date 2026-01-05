@@ -36,6 +36,7 @@ fn build_topk_v1_protos() {
         "topk.control.v1.FieldTypeBinaryVector",
         "topk.control.v1.FieldTypeF32SparseVector",
         "topk.control.v1.FieldTypeU8SparseVector",
+        "topk.control.v1.FieldTypeMatrix",
         "topk.control.v1.FieldTypeBoolean",
         "topk.control.v1.FieldTypeInteger",
         "topk.control.v1.FieldTypeFloat",
