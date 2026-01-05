@@ -12,6 +12,7 @@ message FieldIndex {
     KeywordIndex keyword_index = 1;
     VectorIndex vector_index = 2;
     SemanticIndex semantic_index = 3;
+    MultiVectorIndex multi_vector_index = 4;
   }
 }
 
@@ -97,6 +98,16 @@ enum KeywordIndexType {
   KEYWORD_INDEX_TYPE_TEXT = 1;
   // KEYWORD_INDEX_TYPE_CODE = 2;
   // KEYWORD_INDEX_TYPE_LOG = 3;
+}
+
+// MaxSim index specification
+message MultiVectorIndex {
+  MultiVectorDistanceMetric metric = 1;
+}
+
+enum MultiVectorDistanceMetric {
+  MULTI_VECTOR_DISTANCE_METRIC_UNSPECIFIED = 0;
+  MULTI_VECTOR_DISTANCE_METRIC_MAXSIM = 1;
 }
 
 // Vector index specification

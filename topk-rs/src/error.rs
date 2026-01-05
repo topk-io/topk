@@ -4,6 +4,7 @@ use tonic::Status;
 use tracing::error;
 
 pub const MAX_VECTOR_DIMENSION: u32 = 16_384; // Double the size of `8192` which is the largest widely used vector dimension.
+pub const MAX_MATRIX_DIMENSION: u32 = 1024; // 8 * 128 which is the commonly used multi-vector dimension.
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -178,6 +179,12 @@ pub enum SchemaValidationError {
 
     #[error("vector field `{field}` cannot have dimension greater than {MAX_VECTOR_DIMENSION}")]
     VectorDimensionTooLarge { field: String, dimension: u32 },
+
+    #[error("matrix field `{field}` cannot be have zero dimension")]
+    MatrixDimensionCannotBeZero { field: String },
+
+    #[error("matrix field `{field}` cannot have dimension greater than {MAX_VECTOR_DIMENSION}")]
+    MatrixDimensionTooLarge { field: String, dimension: u32 },
 
     #[error("Invalid semantic index for field `{field}. Error: {error}`")]
     InvalidSemanticIndex { field: String, error: String },
