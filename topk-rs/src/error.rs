@@ -174,16 +174,16 @@ pub enum SchemaValidationError {
     #[error("invalid vector index spec for field `{field}`: {message}")]
     InvalidVectorIndexSpec { field: String, message: String },
 
-    #[error("vector field `{field}` cannot be have zero dimension")]
+    #[error("vector field `{field}` cannot have zero dimension")]
     VectorDimensionCannotBeZero { field: String },
 
     #[error("vector field `{field}` cannot have dimension greater than {MAX_VECTOR_DIMENSION}")]
     VectorDimensionTooLarge { field: String, dimension: u32 },
 
-    #[error("matrix field `{field}` cannot be have zero dimension")]
+    #[error("matrix field `{field}` cannot have zero dimension")]
     MatrixDimensionCannotBeZero { field: String },
 
-    #[error("matrix field `{field}` cannot have dimension greater than {MAX_VECTOR_DIMENSION}")]
+    #[error("matrix field `{field}` cannot have dimension greater than {MAX_MATRIX_DIMENSION}")]
     MatrixDimensionTooLarge { field: String, dimension: u32 },
 
     #[error("Invalid semantic index for field `{field}. Error: {error}`")]
