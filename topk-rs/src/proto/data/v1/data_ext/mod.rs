@@ -84,14 +84,14 @@ impl IntoMatrixValues for Vec<half::f16> {
             });
         }
 
-        // If the vector is aligned to 4 bytes, we can use the vector directly
+        // Resize to the nearest multiple of 2
         let len = self.len();
-        let values = if (self.as_ptr() as usize) % 4 == 0 {
-            // Resize to the nearest multiple of 2
-            let aligned_len = len.next_multiple_of(2);
-            self.resize(aligned_len, half::f16::ZERO);
-            self.shrink_to_fit();
+        let aligned_len = len.next_multiple_of(2);
+        self.resize(aligned_len, half::f16::ZERO);
+        self.shrink_to_fit();
 
+        // If the vector is aligned to 4 bytes, we can use the vector directly
+        let values = if (self.as_ptr() as usize) % 4 == 0 {
             // Break the vector into parts
             let cap = self.capacity();
             let ptr = self.as_mut_ptr();
@@ -105,7 +105,7 @@ impl IntoMatrixValues for Vec<half::f16> {
             }
         } else {
             // Copy f16 to an 4-byte aligned vector
-            let mut out = vec![0u32; self.len() / 2 + (self.len() % 2 > 0) as usize];
+            let mut out = vec![0u32; aligned_len / 2];
             unsafe {
                 // SAFETY
                 // Copying len(self) f16 into u32 with capacity for ceil(len(self) / 2) u32s.
