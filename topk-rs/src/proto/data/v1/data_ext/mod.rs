@@ -75,6 +75,22 @@ impl IntoMatrixValues for Vec<f32> {
     }
 }
 
+impl IntoMatrixValues for Vec<half::f16> {
+    fn into_matrix_values(self) -> matrix::Values {
+        matrix::Values::F16(matrix::F16 {
+            values: cast_vec(self),
+        })
+    }
+}
+
+impl IntoMatrixValues for Vec<float8::F8E4M3> {
+    fn into_matrix_values(self) -> matrix::Values {
+        matrix::Values::F8(matrix::F8 {
+            values: cast_vec(self),
+        })
+    }
+}
+
 impl IntoMatrixValues for Vec<u8> {
     fn into_matrix_values(self) -> matrix::Values {
         matrix::Values::U8(matrix::U8 { values: self })

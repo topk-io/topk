@@ -61,8 +61,10 @@ message FieldTypeMatrix {
   enum MatrixValueType {
     MATRIX_VALUE_TYPE_UNSPECIFIED = 0;
     MATRIX_VALUE_TYPE_F32 = 1;
-    MATRIX_VALUE_TYPE_U8 = 2;
-    MATRIX_VALUE_TYPE_I8 = 3;
+    MATRIX_VALUE_TYPE_F16 = 2;
+    MATRIX_VALUE_TYPE_F8 = 3;
+    MATRIX_VALUE_TYPE_U8 = 4;
+    MATRIX_VALUE_TYPE_I8 = 5;
   }
 
   uint32 dimension = 1;

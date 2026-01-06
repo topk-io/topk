@@ -120,6 +120,13 @@ message Matrix {
   message F32 {
     repeated float values = 1;
   }
+  message F16 {
+    bytes values = 1;
+  }
+  message F8 {
+    // F8E4M3 format
+    bytes values = 1;
+  }
   message U8 {
     bytes values = 1;
   }
@@ -131,8 +138,10 @@ message Matrix {
   uint32 num_cols = 2;
   oneof values {
     F32 f32 = 3;
-    U8 u8 = 4;
-    I8 i8 = 5;
+    F16 f16 = 4;
+    F8 f8 = 5;
+    U8 u8 = 6;
+    I8 i8 = 7;
   }
 }
 

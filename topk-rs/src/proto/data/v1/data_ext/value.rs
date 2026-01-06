@@ -492,6 +492,8 @@ impl matrix::Values {
     pub fn len(&self) -> usize {
         match self {
             matrix::Values::F32(v) => v.values.len(),
+            matrix::Values::F16(v) => v.values.len(),
+            matrix::Values::F8(v) => v.values.len(),
             matrix::Values::U8(v) => v.values.len(),
             matrix::Values::I8(v) => v.values.len(),
         }
