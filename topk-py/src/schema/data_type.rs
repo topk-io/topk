@@ -141,6 +141,7 @@ impl From<topk_rs::proto::v1::control::field_type::DataType> for DataType {
             topk_rs::proto::v1::control::field_type::DataType::List(list) => DataType::List {
                 value_type: list.value_type().into(),
             },
+            topk_rs::proto::v1::control::field_type::DataType::Matrix(_mat) => todo!(),
         }
     }
 }

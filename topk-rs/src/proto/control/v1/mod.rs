@@ -25,6 +25,12 @@ impl field_type::DataType {
                 field_type_list::ListValueType::String => "list<string>".to_string(),
                 field_type_list::ListValueType::Unspecified => "list<_>".to_string(),
             },
+            field_type::DataType::Matrix(matrix) => match matrix.value_type() {
+                field_type_matrix::MatrixValueType::F32 => "matrix<f32>".to_string(),
+                field_type_matrix::MatrixValueType::U8 => "matrix<u8>".to_string(),
+                field_type_matrix::MatrixValueType::I8 => "matrix<i8>".to_string(),
+                field_type_matrix::MatrixValueType::Unspecified => "matrix<_>".to_string(),
+            },
         }
     }
 }

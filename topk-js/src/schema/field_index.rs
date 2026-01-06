@@ -196,6 +196,9 @@ impl From<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
                         }),
                     )
                 }
+                topk_rs::proto::v1::control::field_index::Index::MultiVectorIndex(_mvi) => {
+                    todo!()
+                }
             },
             None => unreachable!("Invalid field index proto"),
         }
