@@ -45,7 +45,9 @@ pub enum VectorDistanceMetric {
 impl From<VectorDistanceMetric> for topk_rs::proto::v1::control::VectorDistanceMetric {
     fn from(metric: VectorDistanceMetric) -> Self {
         match metric {
-            VectorDistanceMetric::Cosine => topk_rs::proto::v1::control::VectorDistanceMetric::Cosine,
+            VectorDistanceMetric::Cosine => {
+                topk_rs::proto::v1::control::VectorDistanceMetric::Cosine
+            }
             VectorDistanceMetric::Euclidean => {
                 topk_rs::proto::v1::control::VectorDistanceMetric::Euclidean
             }
@@ -99,7 +101,9 @@ impl From<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
             topk_rs::proto::v1::control::field_index::Index::KeywordIndex(keyword_index) => {
                 FieldIndex::KeywordIndex {
                     index_type: match keyword_index.index_type() {
-                        topk_rs::proto::v1::control::KeywordIndexType::Text => KeywordIndexType::Text,
+                        topk_rs::proto::v1::control::KeywordIndexType::Text => {
+                            KeywordIndexType::Text
+                        }
                         t => panic!("unsupported keyword index: {:?}", t),
                     },
                 }
@@ -140,6 +144,9 @@ impl From<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
                     model: semantic_index.model,
                     embedding_type,
                 }
+            }
+            topk_rs::proto::v1::control::field_index::Index::MultiVectorIndex(_mvi) => {
+                todo!()
             }
         }
     }
