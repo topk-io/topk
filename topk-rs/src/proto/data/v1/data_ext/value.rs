@@ -313,20 +313,21 @@ impl value::Value {
                 Some(list::Values::String(_)) => "list<string>".to_string(),
                 Some(list::Values::U8(_)) => "list<u8>".to_string(),
                 Some(list::Values::I8(_)) => "list<i8>".to_string(),
-                _ => "null_list".to_string(),
+                None => "null_list".to_string(),
             },
             value::Value::Struct(_) => "struct<string, Value>".to_string(),
             value::Value::Matrix(v) => match &v.values {
-                Some(matrix::Values::F32(_)) => {
-                    format!("matrix<f32, [{}, {}]>", v.num_rows, v.num_cols)
+                Some(values) => {
+                    let dt = match values {
+                        matrix::Values::F32(_) => "f32",
+                        matrix::Values::F16(_) => "f16",
+                        matrix::Values::F8(_) => "f8",
+                        matrix::Values::U8(_) => "u8",
+                        matrix::Values::I8(_) => "i8",
+                    };
+                    format!("matrix<{}, [{}, {}]>", dt, v.num_rows, v.num_cols)
                 }
-                Some(matrix::Values::U8(_)) => {
-                    format!("matrix<u8, [{}, {}]>", v.num_rows, v.num_cols)
-                }
-                Some(matrix::Values::I8(_)) => {
-                    format!("matrix<i8, [{}, {}]>", v.num_rows, v.num_cols)
-                }
-                _ => "null_matrix".to_string(),
+                None => "null_matrix".to_string(),
             },
             value::Value::Null(_) => "null".to_string(),
         }
