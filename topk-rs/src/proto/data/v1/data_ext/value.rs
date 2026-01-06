@@ -502,9 +502,15 @@ impl matrix::Values {
     }
 }
 
-impl AsRef<[i8]> for matrix::I8 {
-    fn as_ref(&self) -> &[i8] {
-        cast_slice(&self.values)
+impl AsRef<[f32]> for matrix::F32 {
+    fn as_ref(&self) -> &[f32] {
+        &self.values
+    }
+}
+
+impl From<matrix::F32> for Vec<f32> {
+    fn from(value: matrix::F32) -> Self {
+        value.values
     }
 }
 
@@ -515,9 +521,54 @@ impl AsRef<[half::f16]> for matrix::F16 {
     }
 }
 
+impl From<matrix::F16> for Vec<half::f16> {
+    fn from(value: matrix::F16) -> Self {
+        assert!((value.len as usize) <= 2 * value.values.len());
+        let mut vals = value.values;
+        let cap = vals.capacity();
+        let ptr = vals.as_mut_ptr();
+        std::mem::forget(vals);
+        unsafe {
+            // SAFETY
+            // Casting len(vals) u32s into 2 * len(vals) f16s.
+            Vec::from_raw_parts(ptr as *mut half::f16, value.len as usize, cap * 2)
+        }
+    }
+}
+
 impl AsRef<[F8E4M3]> for matrix::F8 {
     fn as_ref(&self) -> &[F8E4M3] {
         cast_slice(&self.values)
+    }
+}
+
+impl From<matrix::F8> for Vec<F8E4M3> {
+    fn from(value: matrix::F8) -> Self {
+        cast_vec::<u8, F8E4M3>(value.values)
+    }
+}
+
+impl AsRef<[i8]> for matrix::I8 {
+    fn as_ref(&self) -> &[i8] {
+        cast_slice(&self.values)
+    }
+}
+
+impl From<matrix::I8> for Vec<i8> {
+    fn from(value: matrix::I8) -> Self {
+        cast_vec::<u8, i8>(value.values)
+    }
+}
+
+impl AsRef<[u8]> for matrix::U8 {
+    fn as_ref(&self) -> &[u8] {
+        &self.values
+    }
+}
+
+impl From<matrix::U8> for Vec<u8> {
+    fn from(value: matrix::U8) -> Self {
+        value.values
     }
 }
 
@@ -548,6 +599,7 @@ mod tests {
             match matrix.values.unwrap() {
                 matrix::Values::F16(v) => {
                     assert_eq!(v.as_ref(), &values);
+                    assert_eq!(Vec::from(v), values);
                 }
                 _ => panic!("Expected F16 values"),
             }
