@@ -121,7 +121,8 @@ message Matrix {
     repeated float values = 1;
   }
   message F16 {
-    bytes values = 1;
+    uint32 len = 1;
+    repeated fixed32 values = 2;
   }
   message F8 {
     // F8E4M3 format

@@ -1,5 +1,6 @@
 use bytemuck::{cast_slice, cast_vec};
 use bytes::Bytes;
+use float8::F8E4M3;
 use std::collections::HashMap;
 
 use crate::proto::data::v1::{
@@ -493,9 +494,7 @@ impl matrix::Values {
     pub fn len(&self) -> usize {
         match self {
             matrix::Values::F32(v) => v.values.len(),
-            // F16 values are stored as u8 inside the proto, so we need to divide the
-            // length by 2 to get the number of f16 values.
-            matrix::Values::F16(v) => v.values.len() / 2,
+            matrix::Values::F16(v) => v.len as usize,
             matrix::Values::F8(v) => v.values.len(),
             matrix::Values::U8(v) => v.values.len(),
             matrix::Values::I8(v) => v.values.len(),
@@ -506,5 +505,52 @@ impl matrix::Values {
 impl AsRef<[i8]> for matrix::I8 {
     fn as_ref(&self) -> &[i8] {
         cast_slice(&self.values)
+    }
+}
+
+impl AsRef<[half::f16]> for matrix::F16 {
+    fn as_ref(&self) -> &[half::f16] {
+        let values = cast_slice::<_, half::f16>(&self.values);
+        &values[..self.len as usize]
+    }
+}
+
+impl AsRef<[F8E4M3]> for matrix::F8 {
+    fn as_ref(&self) -> &[F8E4M3] {
+        cast_slice(&self.values)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use prost::Message;
+    use rand::Rng;
+
+    use super::*;
+
+    #[test]
+    fn fuzz_f16_proto_roundtrip() {
+        let mut rng = rand::thread_rng();
+        for _ in 0..100 {
+            let n = rng.gen_range(0..512);
+            let values: Vec<_> = (0..n)
+                .map(|_| half::f16::from_f32(rng.r#gen::<f32>()))
+                .collect();
+
+            let matrix = Matrix {
+                num_rows: 1,
+                num_cols: values.len() as u32,
+                values: Some(values.clone().into_matrix_values()),
+            };
+            let data = matrix.encode_to_vec();
+            let matrix = Matrix::decode(data.as_slice()).unwrap();
+
+            match matrix.values.unwrap() {
+                matrix::Values::F16(v) => {
+                    assert_eq!(v.as_ref(), &values);
+                }
+                _ => panic!("Expected F16 values"),
+            }
+        }
     }
 }
