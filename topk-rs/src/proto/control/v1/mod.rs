@@ -27,6 +27,8 @@ impl field_type::DataType {
             },
             field_type::DataType::Matrix(matrix) => match matrix.value_type() {
                 field_type_matrix::MatrixValueType::F32 => "matrix<f32>".to_string(),
+                field_type_matrix::MatrixValueType::F16 => "matrix<f16>".to_string(),
+                field_type_matrix::MatrixValueType::F8 => "matrix<f8>".to_string(),
                 field_type_matrix::MatrixValueType::U8 => "matrix<u8>".to_string(),
                 field_type_matrix::MatrixValueType::I8 => "matrix<i8>".to_string(),
                 field_type_matrix::MatrixValueType::Unspecified => "matrix<_>".to_string(),

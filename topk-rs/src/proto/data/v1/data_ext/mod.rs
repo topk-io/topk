@@ -75,6 +75,64 @@ impl IntoMatrixValues for Vec<f32> {
     }
 }
 
+impl IntoMatrixValues for Vec<half::f16> {
+    fn into_matrix_values(mut self) -> matrix::Values {
+        if self.is_empty() {
+            return matrix::Values::F16(matrix::F16 {
+                len: 0,
+                values: vec![],
+            });
+        }
+
+        // Resize to the nearest multiple of 2
+        let len = self.len();
+        let aligned_len = len.next_multiple_of(2);
+        self.resize(aligned_len, half::f16::ZERO);
+        self.shrink_to_fit();
+
+        // If the vector is aligned to 4 bytes, we can use the vector directly
+        let values = if (self.as_ptr() as usize) % 4 == 0 {
+            // Break the vector into parts
+            let cap = self.capacity();
+            let ptr = self.as_mut_ptr();
+            std::mem::forget(self);
+
+            // Reconstruct u32 from f16 parts
+            unsafe {
+                // SAFETY
+                // Copying len(self) f16 into u32 with capacity for ceil(len(self) / 2) u32s.
+                Vec::from_raw_parts(ptr as *mut u32, aligned_len / 2, cap / 2)
+            }
+        } else {
+            // Copy f16 to an 4-byte aligned vector
+            let mut out = vec![0u32; aligned_len / 2];
+            unsafe {
+                // SAFETY
+                // Copying len(self) f16 into u32 with capacity for ceil(len(self) / 2) u32s.
+                std::ptr::copy_nonoverlapping(
+                    self.as_ptr(),
+                    out.as_mut_ptr() as *mut half::f16,
+                    len,
+                );
+            }
+            out
+        };
+
+        return matrix::Values::F16(matrix::F16 {
+            len: len as u32,
+            values,
+        });
+    }
+}
+
+impl IntoMatrixValues for Vec<float8::F8E4M3> {
+    fn into_matrix_values(self) -> matrix::Values {
+        matrix::Values::F8(matrix::F8 {
+            values: cast_vec(self),
+        })
+    }
+}
+
 impl IntoMatrixValues for Vec<u8> {
     fn into_matrix_values(self) -> matrix::Values {
         matrix::Values::U8(matrix::U8 { values: self })

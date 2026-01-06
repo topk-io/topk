@@ -1,5 +1,6 @@
 use bytemuck::{cast_slice, cast_vec};
 use bytes::Bytes;
+use float8::F8E4M3;
 use std::collections::HashMap;
 
 use crate::proto::data::v1::{
@@ -313,20 +314,21 @@ impl value::Value {
                 Some(list::Values::String(_)) => "list<string>".to_string(),
                 Some(list::Values::U8(_)) => "list<u8>".to_string(),
                 Some(list::Values::I8(_)) => "list<i8>".to_string(),
-                _ => "null_list".to_string(),
+                None => "null_list".to_string(),
             },
             value::Value::Struct(_) => "struct<string, Value>".to_string(),
             value::Value::Matrix(v) => match &v.values {
-                Some(matrix::Values::F32(_)) => {
-                    format!("matrix<f32, [{}, {}]>", v.num_rows, v.num_cols)
+                Some(values) => {
+                    let dt = match values {
+                        matrix::Values::F32(_) => "f32",
+                        matrix::Values::F16(_) => "f16",
+                        matrix::Values::F8(_) => "f8",
+                        matrix::Values::U8(_) => "u8",
+                        matrix::Values::I8(_) => "i8",
+                    };
+                    format!("matrix<{}, [{}, {}]>", dt, v.num_rows, v.num_cols)
                 }
-                Some(matrix::Values::U8(_)) => {
-                    format!("matrix<u8, [{}, {}]>", v.num_rows, v.num_cols)
-                }
-                Some(matrix::Values::I8(_)) => {
-                    format!("matrix<i8, [{}, {}]>", v.num_rows, v.num_cols)
-                }
-                _ => "null_matrix".to_string(),
+                None => "null_matrix".to_string(),
             },
             value::Value::Null(_) => "null".to_string(),
         }
@@ -492,14 +494,115 @@ impl matrix::Values {
     pub fn len(&self) -> usize {
         match self {
             matrix::Values::F32(v) => v.values.len(),
+            matrix::Values::F16(v) => v.len as usize,
+            matrix::Values::F8(v) => v.values.len(),
             matrix::Values::U8(v) => v.values.len(),
             matrix::Values::I8(v) => v.values.len(),
         }
     }
 }
 
+impl AsRef<[f32]> for matrix::F32 {
+    fn as_ref(&self) -> &[f32] {
+        &self.values
+    }
+}
+
+impl From<matrix::F32> for Vec<f32> {
+    fn from(value: matrix::F32) -> Self {
+        value.values
+    }
+}
+
+impl AsRef<[half::f16]> for matrix::F16 {
+    fn as_ref(&self) -> &[half::f16] {
+        let values = cast_slice::<_, half::f16>(&self.values);
+        &values[..self.len as usize]
+    }
+}
+
+impl From<matrix::F16> for Vec<half::f16> {
+    fn from(value: matrix::F16) -> Self {
+        assert!((value.len as usize) <= 2 * value.values.len());
+        let mut vals = value.values;
+        let cap = vals.capacity();
+        let ptr = vals.as_mut_ptr();
+        std::mem::forget(vals);
+        unsafe {
+            // SAFETY
+            // Casting len(vals) u32s into 2 * len(vals) f16s.
+            Vec::from_raw_parts(ptr as *mut half::f16, value.len as usize, cap * 2)
+        }
+    }
+}
+
+impl AsRef<[F8E4M3]> for matrix::F8 {
+    fn as_ref(&self) -> &[F8E4M3] {
+        cast_slice(&self.values)
+    }
+}
+
+impl From<matrix::F8> for Vec<F8E4M3> {
+    fn from(value: matrix::F8) -> Self {
+        cast_vec::<u8, F8E4M3>(value.values)
+    }
+}
+
 impl AsRef<[i8]> for matrix::I8 {
     fn as_ref(&self) -> &[i8] {
         cast_slice(&self.values)
+    }
+}
+
+impl From<matrix::I8> for Vec<i8> {
+    fn from(value: matrix::I8) -> Self {
+        cast_vec::<u8, i8>(value.values)
+    }
+}
+
+impl AsRef<[u8]> for matrix::U8 {
+    fn as_ref(&self) -> &[u8] {
+        &self.values
+    }
+}
+
+impl From<matrix::U8> for Vec<u8> {
+    fn from(value: matrix::U8) -> Self {
+        value.values
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use prost::Message;
+    use rand::Rng;
+
+    use super::*;
+
+    #[test]
+    fn fuzz_f16_proto_roundtrip() {
+        let mut rng = rand::thread_rng();
+        for _ in 0..100 {
+            let n = rng.gen_range(0..512);
+            let values: Vec<_> = (0..n)
+                .map(|_| half::f16::from_f32(rng.r#gen::<f32>()))
+                .collect();
+
+            let matrix = Matrix {
+                num_rows: 1,
+                num_cols: values.len() as u32,
+                values: Some(values.clone().into_matrix_values()),
+            };
+            let data = matrix.encode_to_vec();
+            let matrix = Matrix::decode(data.as_slice()).unwrap();
+
+            match matrix.values.unwrap() {
+                matrix::Values::F16(v) => {
+                    assert_eq!(v.as_ref(), &values);
+                    assert_eq!(Vec::from(v), values);
+                }
+                _ => panic!("Expected F16 values"),
+            }
+        }
     }
 }
