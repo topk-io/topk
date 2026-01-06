@@ -492,7 +492,9 @@ impl matrix::Values {
     pub fn len(&self) -> usize {
         match self {
             matrix::Values::F32(v) => v.values.len(),
-            matrix::Values::F16(v) => v.values.len(),
+            // F16 values are stored as u8 inside the proto, so we need to divide the
+            // length by 2 to get the number of f16 values.
+            matrix::Values::F16(v) => v.values.len() / 2,
             matrix::Values::F8(v) => v.values.len(),
             matrix::Values::U8(v) => v.values.len(),
             matrix::Values::I8(v) => v.values.len(),
