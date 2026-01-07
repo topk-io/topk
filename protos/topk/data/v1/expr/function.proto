@@ -27,9 +27,15 @@ message FunctionExpr {
     string query = 2;
   }
 
+  message MultiVectorDistance {
+    string field = 1;
+    Value query = 2;
+  }
+
   oneof func {
     VectorDistance vector_distance = 1;
     Bm25Score bm25_score = 2;
     SemanticSimilarity semantic_similarity = 3;
+    MultiVectorDistance multi_vector_distance = 4;
   }
 }
