@@ -235,15 +235,7 @@ impl Value {
     /// # Panics
     /// - Panics if the number of values is not equal to the number of rows * columns.
     pub fn matrix<T: IntoMatrixValues>(num_rows: u32, num_cols: u32, values: T) -> Self {
-        let values = values.into_matrix_values();
-        assert_eq!(values.len(), (num_rows as usize) * (num_cols as usize));
-        Value {
-            value: Some(value::Value::Matrix(Matrix {
-                num_rows,
-                num_cols,
-                values: Some(values),
-            })),
-        }
+        Matrix::new(num_rows, num_cols, values).into()
     }
 
     pub fn as_f32_matrix(&self) -> Option<(u32, u32, &[f32])> {
@@ -486,6 +478,29 @@ impl Struct {
             }
         }
         depth
+    }
+}
+
+impl Matrix {
+    /// Constructs a [`Matrix`] proto from
+    /// # Panics
+    /// - Panics if the number of values is not equal to the number of rows * columns.
+    pub fn new<T: IntoMatrixValues>(num_rows: u32, num_cols: u32, values: T) -> Self {
+        let values = values.into_matrix_values();
+        assert_eq!(values.len(), (num_rows as usize) * (num_cols as usize));
+        Matrix {
+            num_rows,
+            num_cols,
+            values: Some(values),
+        }
+    }
+}
+
+impl From<Matrix> for Value {
+    fn from(value: Matrix) -> Self {
+        Value {
+            value: Some(value::Value::Matrix(value)),
+        }
     }
 }
 

@@ -240,8 +240,7 @@ pub enum DocumentValidationError {
     InvalidMatrix {
         doc_id: String,
         field: String,
-        expected_dimension: usize,
-        got_dimension: usize,
+        reason: String,
     },
 
     InvalidSparseVector {
