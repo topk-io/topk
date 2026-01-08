@@ -1,4 +1,6 @@
-use crate::proto::control::v1::field_type_list::ListValueType;
+use crate::proto::control::v1::{
+    field_type_list::ListValueType, field_type_matrix::MatrixValueType,
+};
 
 use super::*;
 
@@ -179,6 +181,19 @@ impl FieldSpec {
                     embedding_type: embedding_type.map(|dt| dt.into()),
                 })),
             }),
+        }
+    }
+
+    pub fn matrix(required: bool, num_cols: u32, value_type: MatrixValueType) -> FieldSpec {
+        FieldSpec {
+            data_type: Some(FieldType {
+                data_type: Some(field_type::DataType::Matrix(FieldTypeMatrix {
+                    dimension: num_cols,
+                    value_type: value_type.into(),
+                })),
+            }),
+            required,
+            index: None,
         }
     }
 }
