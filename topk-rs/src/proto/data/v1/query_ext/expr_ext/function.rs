@@ -24,12 +24,17 @@ impl FunctionExpr {
         }
     }
 
-    pub fn multi_vector_distance(field: impl Into<String>, query: impl Into<Value>) -> Self {
+    pub fn multi_vector_distance(
+        field: impl Into<String>,
+        query: impl Into<Value>,
+        candidates: Option<u32>,
+    ) -> Self {
         FunctionExpr {
             func: Some(function_expr::Func::MultiVectorDistance(
                 function_expr::MultiVectorDistance {
                     field: field.into(),
                     query: Some(query.into()),
+                    candidates,
                 },
             )),
         }

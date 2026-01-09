@@ -45,6 +45,7 @@ async fn test_query_multi_vector_float(ctx: &mut ProjectTestContext) {
                             fns::multi_vector_distance(
                                 "token_embeddings",
                                 dataset::multi_vec::cast(dt, Matrix::new(7, q)),
+                                None,
                             ),
                         )])
                         .topk(field("dist"), 3, false),
@@ -93,6 +94,7 @@ async fn test_query_multi_vector_int(ctx: &mut ProjectTestContext) {
                             fns::multi_vector_distance(
                                 "token_embeddings",
                                 dataset::multi_vec::cast(dt, Matrix::new(7, q)),
+                                None,
                             ),
                         )])
                         .topk(field("dist"), 3, false),
@@ -124,7 +126,7 @@ async fn test_query_multi_vector_with_filter(ctx: &mut ProjectTestContext) {
                 select([("title", field("title"))])
                     .select([(
                         "dist",
-                        fns::multi_vector_distance("token_embeddings", Matrix::new(7, q)),
+                        fns::multi_vector_distance("token_embeddings", Matrix::new(7, q), None),
                     )])
                     .filter(field("_id").neq(literal("doc_8")))
                     .topk(field("dist"), 3, false),
@@ -151,7 +153,11 @@ async fn test_query_multi_vector_with_invalid_dim(ctx: &mut ProjectTestContext) 
             select([("title", field("title"))])
                 .select([(
                     "dist",
-                    fns::multi_vector_distance("token_embeddings", Matrix::new(2, Q1.to_vec())),
+                    fns::multi_vector_distance(
+                        "token_embeddings",
+                        Matrix::new(2, Q1.to_vec()),
+                        None,
+                    ),
                 )])
                 .topk(field("dist"), 3, false),
             None,
@@ -178,6 +184,7 @@ async fn test_query_multi_vector_with_invalid_data_type(ctx: &mut ProjectTestCon
                     fns::multi_vector_distance(
                         "token_embeddings",
                         dataset::multi_vec::cast(MatrixValueType::F16, Matrix::new(7, Q1.to_vec())),
+                        None,
                     ),
                 )])
                 .topk(field("dist"), 3, false),
@@ -202,7 +209,11 @@ async fn test_query_multi_vector_with_empty_query(ctx: &mut ProjectTestContext) 
             select([("title", field("title"))])
                 .select([(
                     "dist",
-                    fns::multi_vector_distance("token_embeddings", Matrix::new(7, vec![0.0f32; 0])),
+                    fns::multi_vector_distance(
+                        "token_embeddings",
+                        Matrix::new(7, vec![0.0f32; 0]),
+                        None,
+                    ),
                 )])
                 .topk(field("dist"), 3, false),
             None,
@@ -226,7 +237,11 @@ async fn test_query_multi_vector_with_missing_index(ctx: &mut ProjectTestContext
             select([("title", field("title"))])
                 .select([(
                     "dist",
-                    fns::multi_vector_distance("token_embeddings", Matrix::new(7, Q1.to_vec())),
+                    fns::multi_vector_distance(
+                        "token_embeddings",
+                        Matrix::new(7, Q1.to_vec()),
+                        None,
+                    ),
                 )])
                 .topk(field("dist"), 3, false),
             None,
