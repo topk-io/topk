@@ -207,6 +207,33 @@ async fn test_query_multi_vector_with_invalid_data_type(ctx: &mut ProjectTestCon
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
+async fn test_query_multi_vector_with_empty_query(ctx: &mut ProjectTestContext) {
+    let collection = dataset::multi_vec::setup(ctx, MatrixValueType::F32).await;
+
+    let err = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([("title", field("title"))])
+                .select([(
+                    "dist",
+                    fns::multi_vector_distance(
+                        "token_embeddings",
+                        Matrix::new(0, 7, vec![0.0f32; 0]),
+                    ),
+                )])
+                .topk(field("dist"), 3, false),
+            None,
+            None,
+        )
+        .await
+        .expect_err("Query should fail");
+
+    assert!(matches!(err, Error::InvalidArgument(_)));
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
 async fn test_query_multi_vector_with_missing_index(ctx: &mut ProjectTestContext) {
     let collection = dataset::books::setup(ctx).await;
 
