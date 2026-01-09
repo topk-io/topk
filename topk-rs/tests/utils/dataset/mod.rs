@@ -1,6 +1,7 @@
 use topk_rs::proto::v1::data::Document;
 
 pub mod books;
+pub mod multi_vec;
 pub mod semantic;
 
 #[allow(dead_code)]
