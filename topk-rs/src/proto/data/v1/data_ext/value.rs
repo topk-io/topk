@@ -231,11 +231,12 @@ impl Value {
         }
     }
 
-    /// Constructs a matrix proto from
+    /// Constructs a matrix [`Value`] from values stored in row-major order.
     /// # Panics
-    /// - Panics if the number of values is not equal to the number of rows * columns.
-    pub fn matrix<T: IntoMatrixValues>(num_rows: u32, num_cols: u32, values: T) -> Self {
-        Matrix::new(num_rows, num_cols, values).into()
+    /// - Panics if len(values) >= 2^32-1
+    /// - Panics if len(values) is not divisible by num_cols.
+    pub fn matrix<T: IntoMatrixValues>(num_cols: u32, values: T) -> Self {
+        Matrix::new(num_cols, values).into()
     }
 
     pub fn as_f32_matrix(&self) -> Option<(u32, u32, &[f32])> {
@@ -482,14 +483,23 @@ impl Struct {
 }
 
 impl Matrix {
-    /// Constructs a [`Matrix`] proto from
+    /// Constructs a [`Matrix`] proto from values stored in row-major order.
     /// # Panics
-    /// - Panics if the number of values is not equal to the number of rows * columns.
-    pub fn new<T: IntoMatrixValues>(num_rows: u32, num_cols: u32, values: T) -> Self {
+    /// - Panics if len(values) >= 2^32-1
+    /// - Panics if len(values) is not divisible by num_cols.
+    pub fn new<T: IntoMatrixValues>(num_cols: u32, values: T) -> Self {
         let values = values.into_matrix_values();
-        assert_eq!(values.len(), (num_rows as usize) * (num_cols as usize));
+        assert_eq!(
+            values.len() % (num_cols as usize),
+            0,
+            "len(values) must be divisible by num_cols"
+        );
+        assert!(
+            values.len() < u32::MAX as usize,
+            "len(values) must be less than u32::MAX"
+        );
         Matrix {
-            num_rows,
+            num_rows: (values.len() as u32) / num_cols,
             num_cols,
             values: Some(values),
         }
