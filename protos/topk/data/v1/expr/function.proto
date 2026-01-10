@@ -28,8 +28,12 @@ message FunctionExpr {
   }
 
   message MultiVectorDistance {
+    // Field with multi-vector index to compute distance against.
     string field = 1;
+    // Query matrix used to score documents.
     Value query = 2;
+    // Number of candidates to generate before internal reranking.
+    optional uint32 candidates = 3;
   }
 
   oneof func {

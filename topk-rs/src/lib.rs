@@ -57,8 +57,9 @@ pub mod query {
         pub fn multi_vector_distance(
             field: impl Into<String>,
             query: impl Into<Value>,
+            candidates: Option<u32>,
         ) -> FunctionExpr {
-            FunctionExpr::multi_vector_distance(field, query)
+            FunctionExpr::multi_vector_distance(field, query, candidates)
         }
 
         pub fn semantic_similarity(
