@@ -13,6 +13,9 @@ pub enum FieldIndex {
         model: Option<String>,
         embedding_type: Option<EmbeddingDataType>,
     },
+    MultiVectorIndex {
+        metric: MultiVectorDistanceMetric,
+    },
 }
 
 #[pyclass(eq, eq_int)]
@@ -67,6 +70,35 @@ pub enum KeywordIndexType {
     Text,
 }
 
+#[pyclass(eq, eq_int)]
+#[derive(Debug, Clone, PartialEq)]
+pub enum MultiVectorDistanceMetric {
+    Maxsim,
+}
+
+impl From<MultiVectorDistanceMetric> for topk_rs::proto::v1::control::MultiVectorDistanceMetric {
+    fn from(metric: MultiVectorDistanceMetric) -> Self {
+        match metric {
+            MultiVectorDistanceMetric::Maxsim => {
+                topk_rs::proto::v1::control::MultiVectorDistanceMetric::Maxsim
+            }
+        }
+    }
+}
+
+impl From<topk_rs::proto::v1::control::MultiVectorDistanceMetric> for MultiVectorDistanceMetric {
+    fn from(metric: topk_rs::proto::v1::control::MultiVectorDistanceMetric) -> Self {
+        match metric {
+            topk_rs::proto::v1::control::MultiVectorDistanceMetric::Maxsim => {
+                MultiVectorDistanceMetric::Maxsim
+            }
+            topk_rs::proto::v1::control::MultiVectorDistanceMetric::Unspecified => {
+                unreachable!("Invalid multi-vector distance metric")
+            }
+        }
+    }
+}
+
 impl From<KeywordIndexType> for topk_rs::proto::v1::control::KeywordIndexType {
     fn from(index_type: KeywordIndexType) -> Self {
         match index_type {
@@ -91,6 +123,9 @@ impl Into<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
                 model,
                 embedding_type.map(|dt| dt.into()),
             ),
+            FieldIndex::MultiVectorIndex { metric } => {
+                topk_rs::proto::v1::control::FieldIndex::multi_vector(metric.into())
+            }
         }
     }
 }
@@ -145,8 +180,15 @@ impl From<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
                     embedding_type,
                 }
             }
-            topk_rs::proto::v1::control::field_index::Index::MultiVectorIndex(_mvi) => {
-                todo!()
+            topk_rs::proto::v1::control::field_index::Index::MultiVectorIndex(mvi) => {
+                FieldIndex::MultiVectorIndex {
+                    metric: match mvi.metric() {
+                        topk_rs::proto::v1::control::MultiVectorDistanceMetric::Maxsim => {
+                            MultiVectorDistanceMetric::Maxsim
+                        }
+                        m => panic!("unsupported multi-vector metric {:?}", m),
+                    },
+                }
             }
         }
     }

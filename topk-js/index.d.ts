@@ -692,6 +692,7 @@ export declare namespace schema {
     | { type: 'U8SparseVector' }
     | { type: 'Bytes' }
     | { type: 'List', valueType: ListValueType }
+    | { type: 'Matrix', dimension: number, valueType: MatrixValueType }
   export type EmbeddingDataType =  'float32'|
   'uint8'|
   'binary';
@@ -730,6 +731,7 @@ export declare namespace schema {
     | { type: 'KeywordIndex', indexType: KeywordIndexType }
     | { type: 'VectorIndex', metric: VectorDistanceMetric }
     | { type: 'SemanticIndex', model?: string, embeddingType?: EmbeddingDataType }
+    | { type: 'MultiVectorIndex', metric: MultiVectorDistanceMetric }
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `float` values.
    *
@@ -816,6 +818,64 @@ export declare namespace schema {
   export type ListValueType =  'text'|
   'integer'|
   'float';
+  /**
+   * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `matrix` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { matrix } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   token_embeddings: matrix({ dimension: 7, valueType: "f32" })
+   * });
+   * ```
+   */
+  export function matrix(options: MatrixOptions): FieldSpec
+  /**
+   * Options for matrix field specifications.
+   *
+   * This struct contains configuration options for matrix fields,
+   * including the dimension and value type.
+   */
+  export interface MatrixOptions {
+    /** The dimension (number of columns) of the matrix */
+    dimension: number
+    /** The value type of the matrix elements */
+    valueType: MatrixValueType
+  }
+  export type MatrixValueType =  'f32'|
+  'f16'|
+  'f8'|
+  'u8'|
+  'i8';
+  export type MultiVectorDistanceMetric =  'maxsim';
+  /**
+   * Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `multi_vector_index` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { matrix, multiVectorIndex } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   token_embeddings: matrix({ dimension: 7, valueType: "f32" }).index(
+   *     multiVectorIndex({ metric: "max_sim" })
+   *   )
+   * });
+   * ```
+   */
+  export function multiVectorIndex(options: MultiVectorIndexOptions): FieldIndex
+  /**
+   * Options for multi-vector index specifications.
+   *
+   * This struct contains configuration options for multi-vector indexes,
+   * including the distance metric to use.
+   */
+  export interface MultiVectorIndexOptions {
+    /** The distance metric to use for multi-vector similarity */
+    metric: MultiVectorDistanceMetric
+  }
   /**
    * Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `semantic_index` values.
    *

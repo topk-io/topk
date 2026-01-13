@@ -3,11 +3,14 @@ pub mod field_index;
 pub mod field_spec;
 
 use data_type::DataType;
-use field_index::{EmbeddingDataType, FieldIndex, KeywordIndexType, VectorDistanceMetric};
+use field_index::{
+    EmbeddingDataType, FieldIndex, KeywordIndexType, MultiVectorDistanceMetric,
+    VectorDistanceMetric,
+};
 use field_spec::FieldSpec;
 use napi_derive::napi;
 
-use crate::schema::data_type::ListValueType;
+use crate::schema::data_type::{ListValueType, MatrixValueType};
 
 /// Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `text` values.
 ///
@@ -300,6 +303,34 @@ pub fn semantic_index(options: Option<SemanticIndexOptions>) -> FieldIndex {
     FieldIndex::semantic_index(options.model, options.embedding_type)
 }
 
+/// Options for multi-vector index specifications.
+///
+/// This struct contains configuration options for multi-vector indexes,
+/// including the distance metric to use.
+#[napi(object, namespace = "schema")]
+pub struct MultiVectorIndexOptions {
+    /// The distance metric to use for multi-vector similarity
+    pub metric: MultiVectorDistanceMetric,
+}
+
+/// Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `multi_vector_index` values.
+///
+/// Example:
+///
+/// ```javascript
+/// import { matrix, multiVectorIndex } from "topk-js/schema";
+///
+/// await client.collections().create("books", {
+///   token_embeddings: matrix({ dimension: 7, valueType: "f32" }).index(
+///     multiVectorIndex({ metric: "max_sim" })
+///   )
+/// });
+/// ```
+#[napi(namespace = "schema")]
+pub fn multi_vector_index(options: MultiVectorIndexOptions) -> FieldIndex {
+    FieldIndex::multi_vector_index(options.metric)
+}
+
 /// Options for list field specifications.
 ///
 /// This struct contains configuration options for list fields,
@@ -324,6 +355,37 @@ pub struct ListOptions {
 #[napi(namespace = "schema")]
 pub fn list(options: ListOptions) -> FieldSpec {
     FieldSpec::create(DataType::List {
+        value_type: options.value_type,
+    })
+}
+
+/// Options for matrix field specifications.
+///
+/// This struct contains configuration options for matrix fields,
+/// including the dimension and value type.
+#[napi(object, namespace = "schema")]
+pub struct MatrixOptions {
+    /// The dimension (number of columns) of the matrix
+    pub dimension: u32,
+    /// The value type of the matrix elements
+    pub value_type: MatrixValueType,
+}
+
+/// Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `matrix` values.
+///
+/// Example:
+///
+/// ```javascript
+/// import { matrix } from "topk-js/schema";
+///
+/// await client.collections().create("books", {
+///   token_embeddings: matrix({ dimension: 7, valueType: "f32" })
+/// });
+/// ```
+#[napi(namespace = "schema")]
+pub fn matrix(options: MatrixOptions) -> FieldSpec {
+    FieldSpec::create(DataType::Matrix {
+        dimension: options.dimension,
         value_type: options.value_type,
     })
 }
