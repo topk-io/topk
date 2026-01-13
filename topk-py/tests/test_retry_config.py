@@ -58,9 +58,9 @@ def test_client_construction_retry_config_as_instance_with_backoff_dict():
         "max_backoff": 5000,
     }
 
-    # This should fail with TypeError: argument 'backoff': 'dict' object cannot be converted to 'BackoffConfig'
+    # This should fail with TypeError: argument 'backoff': 'dict' object cannot be cast as 'BackoffConfig'
     try:
         retry_config_dict = RetryConfig(max_retries=5, timeout=30000, backoff=backoff_dict)  # type: ignore
         assert False, "Expected RetryConfig construction to fail"
     except TypeError as e:
-        assert "argument 'backoff': 'dict' object cannot be converted to 'BackoffConfig'" in str(e)
+        assert "argument 'backoff': 'dict' object cannot be cast as 'BackoffConfig'" in str(e)

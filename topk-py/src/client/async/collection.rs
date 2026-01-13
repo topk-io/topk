@@ -3,7 +3,7 @@ use crate::data::value::Value;
 use crate::error::RustError;
 use crate::expr::delete::DeleteExprUnion;
 use crate::query::{ConsistencyLevel, Query};
-use pyo3::prelude::*;
+use pyo3::{prelude::*, types::PyAny};
 use pyo3_async_runtimes::tokio::future_into_py;
 use std::{collections::HashMap, sync::Arc};
 
@@ -29,7 +29,7 @@ impl AsyncCollectionClient {
         fields: Option<Vec<String>>,
         lsn: Option<String>,
         consistency: Option<ConsistencyLevel>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let client = self.client.clone();
         let collection = self.collection.clone();
 
@@ -56,7 +56,7 @@ impl AsyncCollectionClient {
         py: Python<'_>,
         lsn: Option<String>,
         consistency: Option<ConsistencyLevel>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let client = self.client.clone();
         let collection = self.collection.clone();
 
@@ -79,7 +79,7 @@ impl AsyncCollectionClient {
         query: Query,
         lsn: Option<String>,
         consistency: Option<ConsistencyLevel>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let client = self.client.clone();
         let collection = self.collection.clone();
 
@@ -104,7 +104,7 @@ impl AsyncCollectionClient {
         &self,
         py: Python<'_>,
         documents: Vec<HashMap<String, Value>>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let client = self.client.clone();
         let collection = self.collection.clone();
 
@@ -132,7 +132,7 @@ impl AsyncCollectionClient {
         py: Python<'_>,
         documents: Vec<HashMap<String, Value>>,
         fail_on_missing: Option<bool>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let client = self.client.clone();
         let collection = self.collection.clone();
 
@@ -155,7 +155,7 @@ impl AsyncCollectionClient {
         .map(|result| result.into())
     }
 
-    pub fn delete(&self, py: Python<'_>, spec: DeleteExprUnion) -> PyResult<PyObject> {
+    pub fn delete(&self, py: Python<'_>, spec: DeleteExprUnion) -> PyResult<Py<PyAny>> {
         let client = self.client.clone();
         let collection = self.collection.clone();
 

@@ -2,12 +2,12 @@ import pytest
 from topk_sdk.data import binary_vector, f32_vector, u8_vector, i8_vector
 
 TYPE_ERROR = "Invalid vector value"
-TYPE_ERROR_INT_TO_VECTOR = "'int' object cannot be converted to 'Sequence'"
+TYPE_ERROR_INT_TO_VECTOR = "argument 'vector': 'int' object cannot be cast as 'Sequence'"
 TYPE_ERROR_OUT_OF_RANGE = "out of range integral type conversion attempted"
-TYPE_ERROR_NONE_TO_VECTOR = "'NoneType' object cannot be converted to 'Sequence'"
-TYPE_ERROR_BOOL_TO_VECTOR = "'bool' object cannot be converted to 'Sequence'"
-TYPE_ERROR_FLOAT_TO_VECTOR = "'float' object cannot be converted to 'Sequence'"
-TYPE_ERROR_DICT_TO_VECTOR = "'dict' object cannot be converted to 'Sequence'"
+TYPE_ERROR_NONE_TO_VECTOR = "argument 'vector': 'NoneType' object cannot be cast as 'Sequence'"
+TYPE_ERROR_BOOL_TO_VECTOR = "argument 'vector': 'bool' object cannot be cast as 'Sequence'"
+TYPE_ERROR_FLOAT_TO_VECTOR = "argument 'vector': 'float' object cannot be cast as 'Sequence'"
+TYPE_ERROR_DICT_TO_VECTOR = "argument 'vector': 'dict' object cannot be cast as 'Sequence'"
 
 
 class TestF32Vector:

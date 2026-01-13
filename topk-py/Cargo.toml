@@ -8,7 +8,7 @@ homepage = "https://topk.io"
 documentation = "https://docs.topk.io"
 
 [dependencies]
-pyo3 = { version = "0.25.0", features = ["py-clone"] }
-pyo3-async-runtimes = { version = "0.25.0", features = ["tokio-runtime"] }
+pyo3 = { version = "0.27.0", features = ["py-clone"] }
+pyo3-async-runtimes = { version = "0.27.0", features = ["tokio-runtime"] }
 topk-rs = { path = "../topk-rs" }
 tokio = { version = "1.35", features = ["full"] }

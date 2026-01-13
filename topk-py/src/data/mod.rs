@@ -87,10 +87,10 @@ pub fn u8_sparse_vector(vector: U8SparseVector) -> SparseVector {
 
 #[pyfunction]
 pub fn bytes(data: &Bound<'_, PyAny>) -> PyResult<Value> {
-    if let Ok(py_bytes) = data.downcast::<PyBytes>() {
+    if let Ok(py_bytes) = data.cast::<PyBytes>() {
         let bytes_vec = py_bytes.as_bytes().to_vec();
         Ok(Value::Bytes(bytes_vec))
-    } else if let Ok(py_list) = data.downcast::<PyList>() {
+    } else if let Ok(py_list) = data.cast::<PyList>() {
         let bytes_vec: Vec<u8> = py_list.extract().map_err(|_| {
             PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
                 "Expected list[int] with values in range [0, 255]",

@@ -19,6 +19,6 @@ impl Runtime {
     where
         F::Output: Ungil,
     {
-        py.allow_threads(move || self.runtime.block_on(future))
+        py.detach(move || self.runtime.block_on(future))
     }
 }

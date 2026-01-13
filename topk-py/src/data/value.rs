@@ -24,14 +24,15 @@ pub enum Value {
     List(List),
 }
 
-impl<'py> FromPyObject<'py> for Value {
-    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
-        // NOTE: it's safe to use `downcast` for custom types
+impl FromPyObject<'_, '_> for Value {
+    type Error = PyErr;
 
-        if let Ok(v) = obj.downcast::<List>() {
+    fn extract(obj: Borrowed<'_, '_, PyAny>) -> PyResult<Self> {
+        // NOTE: it's safe to use `downcast` for custom types
+        if let Ok(v) = obj.cast::<List>() {
             Ok(Value::List(v.borrow().clone()))
         // PyBytes can be extracted as Vec<f32> so it needs to be handled before list(f32)
-        } else if let Ok(b) = obj.downcast_exact::<PyBytes>() {
+        } else if let Ok(b) = obj.cast_exact::<PyBytes>() {
             Ok(Value::Bytes(b.extract()?))
         } else if let Ok(v) = obj.extract::<Vec<f32>>() {
             Ok(Value::List(List {
@@ -41,22 +42,22 @@ impl<'py> FromPyObject<'py> for Value {
             Ok(Value::List(List {
                 values: Values::String(v),
             }))
-        } else if let Ok(v) = obj.downcast::<SparseVector>() {
+        } else if let Ok(v) = obj.cast::<SparseVector>() {
             Ok(Value::SparseVector(v.get().clone()))
-        } else if let Ok(s) = obj.downcast_exact::<PyString>() {
+        } else if let Ok(s) = obj.cast_exact::<PyString>() {
             Ok(Value::String(s.extract()?))
-        } else if let Ok(i) = obj.downcast_exact::<PyInt>() {
+        } else if let Ok(i) = obj.cast_exact::<PyInt>() {
             Ok(Value::Int(i.extract()?))
-        } else if let Ok(f) = obj.downcast_exact::<PyFloat>() {
+        } else if let Ok(f) = obj.cast_exact::<PyFloat>() {
             Ok(Value::Float(f.extract()?))
-        } else if let Ok(b) = obj.downcast_exact::<PyBool>() {
+        } else if let Ok(b) = obj.cast_exact::<PyBool>() {
             Ok(Value::Bool(b.extract()?))
-        } else if let Ok(v) = F32SparseVector::extract_bound(obj) {
+        } else if let Ok(v) = F32SparseVector::extract(obj) {
             Ok(Value::SparseVector(SparseVector::F32 {
                 indices: v.indices,
                 values: v.values,
             }))
-        } else if let Ok(_) = obj.downcast_exact::<PyNone>() {
+        } else if let Ok(_) = obj.cast_exact::<PyNone>() {
             Ok(Value::Null())
         } else {
             Err(PyTypeError::new_err(format!(
