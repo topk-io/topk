@@ -3,7 +3,7 @@ use std::{future::Future, sync::Arc};
 
 /// Runtime is a wrapper around tokio::runtime::Runtime that allows for blocking on futures.
 /// It yields the GIL when blocking so that the Python interpreter can continue running.
-/// See https://pyo3.rs/v0.24.0/parallelism.html for more information.
+/// See https://pyo3.rs/v0.27.0/parallelism.html for more information.
 pub struct Runtime {
     runtime: Arc<tokio::runtime::Runtime>,
 }
