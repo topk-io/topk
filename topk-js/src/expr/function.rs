@@ -20,6 +20,11 @@ pub enum FunctionExpressionUnion {
         field: String,
         query: String,
     },
+    MultiVectorDistance {
+        field: String,
+        query: Value,
+        candidates: Option<u32>,
+    },
 }
 
 impl From<FunctionExpression> for topk_rs::proto::v1::data::FunctionExpr {
@@ -36,6 +41,13 @@ impl From<FunctionExpression> for topk_rs::proto::v1::data::FunctionExpr {
             FunctionExpressionUnion::SemanticSimilarity { field, query } => {
                 topk_rs::proto::v1::data::FunctionExpr::semantic_similarity(field, query)
             }
+            FunctionExpressionUnion::MultiVectorDistance {
+                field,
+                query,
+                candidates,
+            } => topk_rs::proto::v1::data::FunctionExpr::multi_vector_distance(
+                field, query, candidates,
+            ),
         }
     }
 }

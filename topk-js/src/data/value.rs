@@ -1,9 +1,15 @@
 use super::vector::SparseVector;
+use crate::data::matrix::MatrixValues;
 use crate::data::{
     list::{List, Values},
+    matrix::Matrix,
     vector::{SparseVectorData, SparseVectorUnion},
 };
-use napi::{bindgen_prelude::*, sys::napi_is_buffer};
+use napi::{
+    bindgen_prelude::*,
+    check_status,
+    sys::{napi_create_array, napi_is_buffer, napi_set_element},
+};
 
 #[derive(Debug, Clone)]
 pub enum Value {
@@ -18,6 +24,7 @@ pub enum Value {
     SparseVector(SparseVector),
     Bytes(Vec<u8>),
     List(List),
+    Matrix(Matrix),
 }
 
 impl From<i64> for Value {
@@ -140,6 +147,7 @@ impl From<Value> for topk_rs::proto::v1::data::Value {
                 Values::F64(v) => topk_rs::proto::v1::data::Value::list(v),
                 Values::String(v) => topk_rs::proto::v1::data::Value::list(v),
             },
+            Value::Matrix(m) => m.into(),
         }
     }
 }
@@ -221,8 +229,29 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                     None => unreachable!("Invalid list proto"),
                 },
             }),
-            Some(topk_rs::proto::v1::data::value::Value::Matrix(..)) => {
-                todo!()
+            Some(topk_rs::proto::v1::data::value::Value::Matrix(matrix)) => {
+                let matrix_values = match &matrix.values {
+                    Some(topk_rs::proto::v1::data::matrix::Values::F32(v)) => {
+                        MatrixValues::F32(v.to_owned().into())
+                    }
+                    Some(topk_rs::proto::v1::data::matrix::Values::F16(v)) => {
+                        MatrixValues::F16(v.to_owned().into())
+                    }
+                    Some(topk_rs::proto::v1::data::matrix::Values::F8(v)) => {
+                        MatrixValues::F8(v.to_owned().into())
+                    }
+                    Some(topk_rs::proto::v1::data::matrix::Values::U8(v)) => {
+                        MatrixValues::U8(v.to_owned().into())
+                    }
+                    Some(topk_rs::proto::v1::data::matrix::Values::I8(v)) => {
+                        MatrixValues::I8(v.to_owned().into())
+                    }
+                    None => unreachable!("Invalid matrix proto"),
+                };
+                Value::Matrix(Matrix {
+                    num_cols: matrix.num_cols,
+                    values: matrix_values,
+                })
             }
             Some(topk_rs::proto::v1::data::value::Value::Struct(..)) => {
                 todo!()
@@ -243,6 +272,10 @@ impl FromNapiValue for Value {
 
         if let Ok(sparse_vector) = crate::try_cast_ref!(env, value, SparseVector) {
             return Ok(Value::SparseVector(sparse_vector.clone()));
+        }
+
+        if let Ok(matrix) = crate::try_cast_ref!(env, value, Matrix) {
+            return Ok(Value::Matrix(matrix.clone()));
         }
 
         let mut result: i32 = 0;
@@ -335,6 +368,64 @@ impl ToNapiValue for Value {
                 Values::F64(v) => Vec::<f64>::to_napi_value(env, v),
                 Values::String(v) => Vec::<String>::to_napi_value(env, v),
             },
+            Value::Matrix(m) => {
+                // Convert matrix values to JavaScript array of arrays
+                let num_cols = m.num_cols as usize;
+
+                // Convert matrix values to f64 for JavaScript
+                let f64_values: Vec<f64> = match &m.values {
+                    crate::data::matrix::MatrixValues::F32(v) => {
+                        v.iter().map(|v| *v as f64).collect()
+                    }
+                    crate::data::matrix::MatrixValues::U8(v) => {
+                        v.iter().map(|v| *v as f64).collect()
+                    }
+                    crate::data::matrix::MatrixValues::I8(v) => {
+                        v.iter().map(|v| *v as f64).collect()
+                    }
+                    crate::data::matrix::MatrixValues::F16(v) => {
+                        v.iter().map(|v| v.to_f32() as f64).collect()
+                    }
+                    crate::data::matrix::MatrixValues::F8(v) => {
+                        // F8 is stored as Vec<F8E4M3>, convert to f64
+                        v.iter().map(|v| v.to_f32() as f64).collect()
+                    }
+                };
+
+                // Create outer array
+                let mut outer_array = std::ptr::null_mut();
+                check_status!(
+                    napi_create_array(env, &mut outer_array),
+                    "Failed to create outer array"
+                )?;
+
+                // Split flattened values into rows and create nested arrays
+                for (row_idx, row_chunk) in f64_values.chunks(num_cols).enumerate() {
+                    // Create inner array for this row
+                    let mut inner_array = std::ptr::null_mut();
+                    check_status!(
+                        napi_create_array(env, &mut inner_array),
+                        "Failed to create inner array"
+                    )?;
+
+                    // Add each value to the inner array
+                    for (col_idx, &value) in row_chunk.iter().enumerate() {
+                        let napi_value = f64::to_napi_value(env, value)?;
+                        check_status!(
+                            napi_set_element(env, inner_array, col_idx as u32, napi_value),
+                            "Failed to set array element"
+                        )?;
+                    }
+
+                    // Add inner array to outer array
+                    check_status!(
+                        napi_set_element(env, outer_array, row_idx as u32, inner_array),
+                        "Failed to set outer array element"
+                    )?;
+                }
+
+                Ok(outer_array)
+            }
         }
     }
 }

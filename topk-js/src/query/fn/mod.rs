@@ -47,3 +47,32 @@ pub fn bm25_score() -> FunctionExpression {
 pub fn semantic_similarity(field: String, query: String) -> FunctionExpression {
     FunctionExpression(FunctionExpressionUnion::SemanticSimilarity { field, query })
 }
+
+#[napi(object, namespace = "query_fn")]
+#[derive(Default)]
+pub struct MultiVectorDistanceOptions {
+    pub candidates: Option<u32>,
+}
+
+/// Computes the multi-vector distance between a field and a query matrix.
+#[napi(namespace = "query_fn", ts_return_type = "query.FunctionExpression")]
+pub fn multi_vector_distance(
+    field: String,
+    #[napi(ts_arg_type = "data.Value")]
+    query: Value,
+    options: Option<MultiVectorDistanceOptions>,
+) -> napi::Result<FunctionExpression> {
+    let candidates = options.and_then(|o| o.candidates);
+    match query {
+        Value::Matrix(_) => Ok(FunctionExpression(FunctionExpressionUnion::MultiVectorDistance {
+            field,
+            query,
+            candidates,
+        })),
+        v => Err(napi::Error::from_reason(format!(
+            "Unsupported matrix query: {:?}",
+            v
+        ))
+        .into()),
+    }
+}

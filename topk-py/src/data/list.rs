@@ -1,4 +1,4 @@
-use pyo3::{pyclass, pymethods, FromPyObject, IntoPyObject};
+use pyo3::{prelude::*, pyclass, pymethods, IntoPyObject, IntoPyObjectExt};
 
 #[pyclass]
 #[derive(Debug, Clone, PartialEq)]
@@ -6,7 +6,7 @@ pub struct List {
     pub(crate) values: Values,
 }
 
-#[derive(Debug, Clone, PartialEq, FromPyObject, IntoPyObject)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Values {
     U8(Vec<u8>),
     U32(Vec<u32>),
@@ -17,6 +17,26 @@ pub enum Values {
     F32(Vec<f32>),
     F64(Vec<f64>),
     String(Vec<String>),
+}
+
+impl<'py> IntoPyObject<'py> for Values {
+    type Target = pyo3::types::PyAny;
+    type Output = pyo3::Bound<'py, Self::Target>;
+    type Error = PyErr;
+
+    fn into_pyobject(self, py: Python<'py>) -> PyResult<Self::Output> {
+        match self {
+            Values::U8(v) => Ok(v.into_py_any(py)?.into_bound(py)),
+            Values::U32(v) => Ok(v.into_py_any(py)?.into_bound(py)),
+            Values::U64(v) => Ok(v.into_py_any(py)?.into_bound(py)),
+            Values::I8(v) => Ok(v.into_py_any(py)?.into_bound(py)),
+            Values::I32(v) => Ok(v.into_py_any(py)?.into_bound(py)),
+            Values::I64(v) => Ok(v.into_py_any(py)?.into_bound(py)),
+            Values::F32(v) => Ok(v.into_py_any(py)?.into_bound(py)),
+            Values::F64(v) => Ok(v.into_py_any(py)?.into_bound(py)),
+            Values::String(v) => Ok(v.into_py_any(py)?.into_bound(py)),
+        }
+    }
 }
 
 #[pymethods]

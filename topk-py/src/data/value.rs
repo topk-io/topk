@@ -1,3 +1,4 @@
+use numpy::PyUntypedArray;
 use pyo3::{
     exceptions::PyTypeError,
     prelude::*,
@@ -7,6 +8,7 @@ use pyo3::{
 
 use crate::data::{
     list::{List, Values},
+    matrix_data::{Matrix, MatrixValues},
     vector::F32SparseVector,
 };
 
@@ -22,6 +24,7 @@ pub enum Value {
     SparseVector(SparseVector),
     Bytes(Vec<u8>),
     List(List),
+    Matrix(Matrix),
 }
 
 impl FromPyObject<'_, '_> for Value {
@@ -31,6 +34,15 @@ impl FromPyObject<'_, '_> for Value {
         // NOTE: it's safe to use `downcast` for custom types
         if let Ok(v) = obj.cast::<List>() {
             Ok(Value::List(v.borrow().clone()))
+        // Check if the object is an instance of Matrix
+        } else if let Ok(v) = obj.cast::<Matrix>() {
+            Ok(Value::Matrix(v.borrow().clone()))
+        // Check if the object is a numpy array and convert it to a matrix
+        } else if let Ok(untyped) = obj.cast::<PyUntypedArray>() {
+            Ok(Value::Matrix(Matrix::from_numpy_array(&untyped)?))
+        // Check if the object is a list of lists and convert it to a matrix
+        } else if let Ok(v) = Matrix::from_list_of_lists(&obj, None) {
+            Ok(Value::Matrix(v))
         // PyBytes can be extracted as Vec<f32> so it needs to be handled before list(f32)
         } else if let Ok(b) = obj.cast_exact::<PyBytes>() {
             Ok(Value::Bytes(b.extract()?))
@@ -148,6 +160,62 @@ impl<'py> IntoPyObject<'py> for Value {
                 }
                 Ok(list.into_py_any(py)?.into_bound(py))
             }
+            Value::Matrix(m) => {
+                let num_cols = m.num_cols as usize;
+                let rows_list = PyList::empty(py);
+
+                // Convert matrix values to appropriate Python types and split into rows
+                match &m.values {
+                    MatrixValues::F32(v) => {
+                        for row in v.chunks(num_cols) {
+                            let row_list = PyList::empty(py);
+                            for &value in row {
+                                row_list.append(value.into_py_any(py)?)?;
+                            }
+                            rows_list.append(row_list.into_py_any(py)?)?;
+                        }
+                    }
+                    MatrixValues::F16(v) => {
+                        for row in v.chunks(num_cols) {
+                            let row_list = PyList::empty(py);
+                            for &value in row {
+                                // Convert f16 to f32 for Python
+                                row_list.append(value.to_f32().into_py_any(py)?)?;
+                            }
+                            rows_list.append(row_list.into_py_any(py)?)?;
+                        }
+                    }
+                    MatrixValues::F8(v) => {
+                        for row in v.chunks(num_cols) {
+                            let row_list = PyList::empty(py);
+                            for &value in row {
+                                // Convert F8E4M3 to f32 for Python
+                                row_list.append(value.to_f32().into_py_any(py)?)?;
+                            }
+                            rows_list.append(row_list.into_py_any(py)?)?;
+                        }
+                    }
+                    MatrixValues::U8(v) => {
+                        for row in v.chunks(num_cols) {
+                            let row_list = PyList::empty(py);
+                            for &value in row {
+                                row_list.append(value.into_py_any(py)?)?;
+                            }
+                            rows_list.append(row_list.into_py_any(py)?)?;
+                        }
+                    }
+                    MatrixValues::I8(v) => {
+                        for row in v.chunks(num_cols) {
+                            let row_list = PyList::empty(py);
+                            for &value in row {
+                                row_list.append(value.into_py_any(py)?)?;
+                            }
+                            rows_list.append(row_list.into_py_any(py)?)?;
+                        }
+                    }
+                }
+                Ok(rows_list.into_py_any(py)?.into_bound(py))
+            }
         }
     }
 }
@@ -233,8 +301,31 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                     }
                 },
             }),
-            Some(topk_rs::proto::v1::data::value::Value::Matrix(..)) => {
-                todo!()
+            Some(topk_rs::proto::v1::data::value::Value::Matrix(matrix)) => {
+                let matrix_values = match &matrix.values {
+                    Some(topk_rs::proto::v1::data::matrix::Values::F32(v)) => {
+                        MatrixValues::F32(v.to_owned().into())
+                    }
+                    Some(topk_rs::proto::v1::data::matrix::Values::F16(v)) => {
+                        MatrixValues::F16(v.to_owned().into())
+                    }
+                    Some(topk_rs::proto::v1::data::matrix::Values::F8(v)) => {
+                        MatrixValues::F8(v.to_owned().into())
+                    }
+                    Some(topk_rs::proto::v1::data::matrix::Values::U8(v)) => {
+                        MatrixValues::U8(v.to_owned().into())
+                    }
+                    Some(topk_rs::proto::v1::data::matrix::Values::I8(v)) => {
+                        MatrixValues::I8(v.to_owned().into())
+                    }
+                    None => {
+                        unreachable!("Invalid matrix proto: {:?}", matrix)
+                    }
+                };
+                Value::Matrix(Matrix {
+                    num_cols: matrix.num_cols,
+                    values: matrix_values,
+                })
             }
             Some(topk_rs::proto::v1::data::value::Value::Struct(..)) => {
                 todo!()
@@ -291,6 +382,7 @@ impl From<Value> for topk_rs::proto::v1::data::Value {
                 Values::F64(values) => topk_rs::proto::v1::data::Value::list(values),
                 Values::String(values) => topk_rs::proto::v1::data::Value::list(values),
             },
+            Value::Matrix(m) => m.clone().into(),
         }
     }
 }

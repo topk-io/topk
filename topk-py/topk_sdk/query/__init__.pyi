@@ -4,6 +4,8 @@ from enum import Enum
 
 import topk_sdk.data
 
+import numpy
+
 class LogicalExpr(Enum):
     """
     *Internal*
@@ -641,6 +643,38 @@ class fn:
           )
           .filter(match("animal"))
           .topk(field("text_score"), 10)
+        )
+        ```
+        """
+        ...
+
+    @staticmethod
+    def multi_vector_distance(
+        field: builtins.str,
+        matrix: typing.Union[
+            topk_sdk.data.Matrix,
+            numpy.ndarray,
+        ],
+        candidates: typing.Optional[builtins.int] = None,
+    ) -> FunctionExpr:
+        """
+        Calculate the multi-vector distance between a field and a query matrix.
+
+        ```python
+        # Example:
+
+        from topk_sdk.query import field, fn, select
+        from topk_sdk.data import matrix
+
+        client.collection("books").query(
+          select(
+            "title",
+            title_distance=fn.multi_vector_distance(
+              "title_embedding",
+              matrix([[0.1, 0.2, 0.3, ...], [0.4, 0.5, 0.6, ...]])
+            )
+          )
+          .topk(field("title_distance"), 10)
         )
         ```
         """

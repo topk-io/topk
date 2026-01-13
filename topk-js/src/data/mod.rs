@@ -2,8 +2,12 @@ mod collection;
 pub use collection::Collection;
 
 mod list;
+use float8::F8E4M3;
 pub use list::List;
 pub use list::Values;
+
+mod matrix;
+pub use matrix::Matrix;
 
 mod value;
 pub use value::NativeValue;
@@ -15,6 +19,9 @@ use vector::SparseVectorData;
 
 use napi_derive::napi;
 use value::BytesData;
+
+use crate::data::matrix::MatrixValueType;
+use crate::data::matrix::MatrixValues;
 
 /// Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing bytes data.
 ///
@@ -220,4 +227,87 @@ pub fn u8_sparse_vector(
     #[napi(ts_arg_type = "Record<number, number>")] vector: SparseVectorData<u8>,
 ) -> SparseVector {
     SparseVector::byte(vector)
+}
+
+/// Creates a [Matrix](https://docs.topk.io/sdk/topk-js/data#Matrix) type containing matrix values.
+///
+/// Accepts a JavaScript array of arrays (list of lists) where each inner array is a row.
+/// The number of columns is determined from the first row, and all rows must have the same length.
+///
+/// Example:
+///
+/// ```javascript
+/// import { matrix } from "topk-js/data";
+///
+/// // Create a 2x3 f32 matrix (2 rows, 3 columns)
+/// matrix([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], "f32")
+///
+/// // Create a 2x3 u8 matrix (2 rows, 3 columns)
+/// matrix([[0, 255, 128], [64, 32, 16]], "u8")
+/// ```
+#[napi(namespace = "data")]
+pub fn matrix(
+    #[napi(ts_arg_type = "Array<Array<number>>")] rows: Vec<Vec<f64>>,
+    value_type: MatrixValueType,
+) -> napi::Result<Matrix> {
+    if rows.is_empty() {
+        return Err(napi::Error::from_reason(
+            "Cannot create matrix from empty array",
+        ));
+    }
+
+    let num_cols = rows[0].len() as u32;
+    if num_cols == 0 {
+        return Err(napi::Error::from_reason(
+            "Cannot create matrix with zero columns",
+        ));
+    }
+
+    // Validate all rows have the same length
+    for (row_idx, row) in rows.iter().enumerate() {
+        if row.len() as u32 != num_cols {
+            return Err(napi::Error::from_reason(format!(
+                "All rows must have the same length. Row 0 has {} columns, but row {} has {} columns",
+                num_cols, row_idx, row.len()
+            )));
+        }
+    }
+
+    // Flatten the array of arrays
+    let flattened: Vec<f64> = rows.into_iter().flatten().collect();
+
+    match value_type {
+        MatrixValueType::F32 => Ok(Matrix {
+            num_cols,
+            values: MatrixValues::F32(flattened.into_iter().map(|v| v as f32).collect()),
+        }),
+        MatrixValueType::F16 => {
+            use half::f16;
+            Ok(Matrix {
+                num_cols,
+                values: MatrixValues::F16(
+                    flattened
+                        .into_iter()
+                        .map(|v| f16::from_f32(v as f32))
+                        .collect(),
+                ),
+            })
+        }
+        MatrixValueType::F8 => {
+            let f8_values: Vec<F8E4M3> =
+                flattened.into_iter().map(|v| F8E4M3::from_f64(v)).collect();
+            Ok(Matrix {
+                num_cols,
+                values: MatrixValues::F8(f8_values),
+            })
+        }
+        MatrixValueType::U8 => Ok(Matrix {
+            num_cols,
+            values: MatrixValues::U8(flattened.into_iter().map(|v| v as u8).collect()),
+        }),
+        MatrixValueType::I8 => Ok(Matrix {
+            num_cols,
+            values: MatrixValues::I8(flattened.into_iter().map(|v| v as i8).collect()),
+        }),
+    }
 }
