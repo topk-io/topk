@@ -38,18 +38,20 @@ impl Into<LogicalExpr> for FlexibleExpr {
     }
 }
 
-impl<'py> FromPyObject<'py> for FlexibleExpr {
-    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
-        if let Ok(s) = obj.downcast_exact::<PyString>() {
+impl<'a, 'py> FromPyObject<'a, 'py> for FlexibleExpr {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
+        if let Ok(s) = obj.cast_exact::<PyString>() {
             Ok(FlexibleExpr::String(s.extract()?))
-        } else if let Ok(i) = obj.downcast_exact::<PyInt>() {
+        } else if let Ok(i) = obj.cast_exact::<PyInt>() {
             Ok(FlexibleExpr::Int(i.extract()?))
-        } else if let Ok(f) = obj.downcast_exact::<PyFloat>() {
+        } else if let Ok(f) = obj.cast_exact::<PyFloat>() {
             Ok(FlexibleExpr::Float(f.extract()?))
-        } else if let Ok(b) = obj.downcast_exact::<PyBool>() {
+        } else if let Ok(b) = obj.cast_exact::<PyBool>() {
             Ok(FlexibleExpr::Bool(b.extract()?))
         // NOTE: it's safe to use `downcast` for `LogicalExpr` since it's a custom type
-        } else if let Ok(e) = obj.downcast::<LogicalExpr>() {
+        } else if let Ok(e) = obj.cast::<LogicalExpr>() {
             Ok(FlexibleExpr::Expr(e.get().clone()))
         } else {
             Err(PyTypeError::new_err(format!(

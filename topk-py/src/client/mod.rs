@@ -75,15 +75,17 @@ pub struct NativeRetryConfig {
     pub(crate) config: RetryConfig,
 }
 
-impl<'py> FromPyObject<'py> for NativeRetryConfig {
-    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
-        if obj.downcast_exact::<RetryConfig>().is_ok() {
+impl<'a, 'py> FromPyObject<'a, 'py> for NativeRetryConfig {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
+        if obj.cast_exact::<RetryConfig>().is_ok() {
             return Ok(NativeRetryConfig {
                 config: obj.extract::<RetryConfig>()?,
             });
         }
 
-        match obj.downcast_exact::<PyDict>() {
+        match obj.cast_exact::<PyDict>() {
             Ok(dict) => {
                 let max_retries = dict
                     .get_item("max_retries")?
@@ -158,15 +160,17 @@ pub struct NativeBackoffConfig {
     pub(crate) config: BackoffConfig,
 }
 
-impl<'py> FromPyObject<'py> for NativeBackoffConfig {
-    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
-        if obj.downcast_exact::<BackoffConfig>().is_ok() {
+impl<'a, 'py> FromPyObject<'a, 'py> for NativeBackoffConfig {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
+        if obj.cast_exact::<BackoffConfig>().is_ok() {
             return Ok(NativeBackoffConfig {
                 config: obj.extract::<BackoffConfig>()?,
             });
         }
 
-        match obj.downcast_exact::<PyDict>() {
+        match obj.cast_exact::<PyDict>() {
             Ok(dict) => {
                 let base = dict
                     .get_item("base")?
