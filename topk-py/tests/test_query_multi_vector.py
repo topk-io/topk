@@ -220,7 +220,10 @@ def test_query_multi_vector_list_of_lists_f32(ctx: ProjectContext):
 
 
 @pytest.mark.parametrize("value_type", ["f16", "f8", "u8", "i8"])
-def test_query_multi_vector_list_of_lists_type_mismatch(ctx: ProjectContext, value_type):
+def test_query_multi_vector_list_of_lists_type_mismatch(
+    ctx: ProjectContext,
+    value_type: Literal["f16", "f8", "u8", "i8"],
+) -> None:
     collection = dataset.multi_vec.setup(ctx, value_type)
     num_rows = len(Q1) // 7
     matrix_rows = [Q1[i * 7 : (i + 1) * 7] for i in range(num_rows)]
@@ -243,7 +246,7 @@ def test_query_multi_vector_list_of_lists_type_mismatch(ctx: ProjectContext, val
         (np.int8, "i8", ["doc_7", "doc_8", "doc_6"]),
     ],
 )
-def test_query_multi_vector_numpy_array(ctx: ProjectContext, dtype, value_type, expected_ids):
+def test_query_multi_vector_numpy_array(ctx: ProjectContext, dtype: np.dtype, value_type: str, expected_ids: list[str]):
     """Test that numpy arrays work as query matrices"""
     collection = dataset.multi_vec.setup(ctx, value_type)
     num_rows = len(Q1) // 7

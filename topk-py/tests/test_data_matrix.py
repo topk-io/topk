@@ -1,5 +1,6 @@
 import pytest
 import numpy as np
+from typing import Literal
 from topk_sdk import data
 from topk_sdk.error import InvalidArgumentError
 
@@ -37,10 +38,15 @@ def test_matrix_f32_keyword_argument():
         ("i8", "Matrix(3, I8([-128, -1, 0, 1, 127, 64]))", [[-128, -1, 0], [1, 127, 64]]),
     ],
 )
-def test_matrix_value_types(value_type, expected_str, test_data):
+def test_matrix_value_types(
+    value_type: Literal["f32", "f16", "f8", "u8", "i8"],
+    expected_str: str,
+    test_data: list[list[float]] | list[list[int]],
+) -> None:
     result = data.matrix(test_data, value_type)
     assert result is not None
     assert str(result) == expected_str
+
 
 
 # Numpy array tests
@@ -62,7 +68,7 @@ def test_matrix_value_types(value_type, expected_str, test_data):
         (np.float32, [[1.0, 2.0, 3.0, 4.0]], "Matrix(4, F32([1.0, 2.0, 3.0, 4.0]))"),  # Single row, multiple cols
     ],
 )
-def test_matrix_numpy_arrays(dtype, arr_data, expected_str):
+def test_matrix_numpy_arrays(dtype: np.dtype, arr_data: list[list[float]], expected_str: str):
     arr = np.array(arr_data, dtype=dtype)
     result = data.matrix(arr)
     assert result is not None
@@ -78,7 +84,7 @@ def test_matrix_numpy_arrays(dtype, arr_data, expected_str):
         (np.int8, [[-1, 0], [1, 2]], "Matrix(2, I8([-1, 0, 1, 2]))"),
     ],
 )
-def test_matrix_numpy_readonly_array(dtype, arr_data, expected_str):
+def test_matrix_numpy_readonly_array(dtype: np.dtype, arr_data: list[list[float]], expected_str: str):
     # Test that readonly arrays work
     arr = np.array(arr_data, dtype=dtype)
     arr.setflags(write=False)  # Make it readonly
@@ -95,7 +101,7 @@ def test_matrix_numpy_readonly_array(dtype, arr_data, expected_str):
         ("i8", [[-128.0, -1.0, 0.0], [1.0, 127.0, 64.0]]),
     ],
 )
-def test_matrix_int_types_with_floats_invalid(value_type, test_data):
+def test_matrix_int_types_with_floats_invalid(value_type: Literal["u8", "i8"], test_data: list[list[float]]):
     # u8/i8 should not accept floats - should raise TypeError
     with pytest.raises(TypeError, match="'float' object cannot be interpreted as an integer"):
         data.matrix(test_data, value_type)
@@ -143,7 +149,7 @@ def test_matrix_invalid_input_type():
         (np.int32, [[1, 2], [3, 4]]),
     ],
 )
-def test_matrix_invalid_numpy_dtypes(dtype, test_data):
+def test_matrix_invalid_numpy_dtypes(dtype: np.dtype, test_data: list[list[float]] | list[list[int]]):
     arr = np.array(test_data, dtype=dtype)
     with pytest.raises(Exception, match="Unsupported numpy dtype"):
         data.matrix(arr)
@@ -156,7 +162,7 @@ def test_matrix_invalid_numpy_dtypes(dtype, test_data):
         [[]],
     ],
 )
-def test_matrix_numpy_empty_array(arr_data):
+def test_matrix_numpy_empty_array(arr_data: list[list[float]] | list[list[int]]):
     arr = np.array(arr_data, dtype=np.float32)
     with pytest.raises(InvalidArgumentError, match="Cannot create matrix from empty list"):
         data.matrix(arr)
