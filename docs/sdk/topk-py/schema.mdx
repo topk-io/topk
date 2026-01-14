@@ -8,13 +8,13 @@ title: topk_sdk.schema
 
 *Internal*
 
-    Instances of the `FieldIndex` class represents a field index created by [`vector_index`](#vector-index), [`keyword_index`](#keyword-index), or [`semantic_index`](#semantic-index) functions.
+    Instances of the `FieldIndex` class represents a field index created by [`vector_index`](#vector-index), [`keyword_index`](#keyword-index), [`semantic_index`](#semantic-index), or [`multi_vector_index`](#multi-vector-index) functions.
 
 ### FieldSpec
 
 *Internal*
 
-    Instances of the `FieldSpec` class represents a field specification created by [`text`](#text), [`int`](#int), [`float`](#float), [`bool`](#bool), [`f32_vector`](#f32-vector), [`u8_vector`](#u8-vector), [`i8_vector`](#i8-vector), [`binary_vector`](#binary-vector), [`f32_sparse_vector`](#f32-sparse-vector), [`u8_sparse_vector`](#u8-sparse-vector), [`bytes`](#bytes), or [`list`](#list) functions.
+    Instances of the `FieldSpec` class represents a field specification created by [`text`](#text), [`int`](#int), [`float`](#float), [`bool`](#bool), [`f32_vector`](#f32-vector), [`u8_vector`](#u8-vector), [`i8_vector`](#i8-vector), [`binary_vector`](#binary-vector), [`f32_sparse_vector`](#f32-sparse-vector), [`u8_sparse_vector`](#u8-sparse-vector), [`bytes`](#bytes), [`list`](#list), or [`matrix`](#matrix) functions.
 
 **Methods**
 
@@ -398,6 +398,44 @@ Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `list` values.
 
 ***
 
+### matrix()
+
+```python
+matrix(dimension: int, value_type: Literal['f32', 'f16', 'f8', 'u8', 'i8']) -> FieldSpec
+```
+
+Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `matrix` values.
+
+    Supported `value_type`s:
+        - `f32`
+        - `f16`
+        - `f8`
+        - `u8`
+        - `i8`
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import matrix
+
+    client.collections().create("books", schema={
+        "title_embedding": matrix(dimension=1536, value_type="f32")
+    })
+    ```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `dimension` | int |
+| `value_type` | Literal['f32', 'f16', 'f8', 'u8', 'i8'] |
+
+**Returns**
+
+[`FieldSpec`](#fieldspec)
+
+***
+
 ### vector_index()
 
 ```python
@@ -491,6 +529,39 @@ Create a [FieldIndex](/sdk/topk-py/schema#FieldIndex) type for `semantic_index` 
 | Parameter | Type |
 | --------- | ---- |
 | `model` | str |
+
+**Returns**
+
+[`FieldIndex`](#fieldindex)
+
+***
+
+### multi_vector_index()
+
+```python
+multi_vector_index(metric: Literal['maxsim']) -> FieldIndex
+```
+
+Create a [FieldIndex](/sdk/topk-py/schema#FieldIndex) type for `multi_vector_index` values.
+
+    Supported `metric`s:
+        - `maxsim`
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import matrix, multi_vector_index
+
+    client.collections().create("books", schema={
+        "title_embedding": matrix(dimension=1536, value_type="f32").index(multi_vector_index(metric="maxsim"))
+    })
+    ```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `metric` | Literal['maxsim'] |
 
 **Returns**
 

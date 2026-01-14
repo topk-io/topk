@@ -35,11 +35,13 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(f32_sparse_vector))?;
     m.add_wrapped(wrap_pyfunction!(u8_sparse_vector))?;
     m.add_wrapped(wrap_pyfunction!(list))?;
+    m.add_wrapped(wrap_pyfunction!(matrix))?;
 
     // indexes
     m.add_wrapped(wrap_pyfunction!(vector_index))?;
     m.add_wrapped(wrap_pyfunction!(keyword_index))?;
     m.add_wrapped(wrap_pyfunction!(semantic_index))?;
+    m.add_wrapped(wrap_pyfunction!(multi_vector_index))?;
 
     Ok(())
 }
@@ -119,6 +121,28 @@ pub fn list(value_type: String) -> PyResult<field_spec::FieldSpec> {
 }
 
 #[pyfunction]
+pub fn matrix(dimension: u32, value_type: String) -> PyResult<field_spec::FieldSpec> {
+    let value_type = match value_type.to_lowercase().as_str() {
+        "f32" => data_type::MatrixValueType::F32,
+        "f16" => data_type::MatrixValueType::F16,
+        "f8" => data_type::MatrixValueType::F8,
+        "u8" => data_type::MatrixValueType::U8,
+        "i8" => data_type::MatrixValueType::I8,
+        _ => {
+            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "Invalid matrix value type: {}. Supported value types are: f32, f16, f8, u8, i8.",
+                value_type
+            )))
+        }
+    };
+
+    Ok(field_spec::FieldSpec::new(data_type::DataType::Matrix {
+        dimension,
+        value_type,
+    }))
+}
+
+#[pyfunction]
 pub fn vector_index(metric: String) -> PyResult<field_index::FieldIndex> {
     let metric = match metric.to_lowercase().as_str() {
         "cosine" => field_index::VectorDistanceMetric::Cosine,
@@ -177,6 +201,21 @@ pub fn semantic_index(
         model,
         embedding_type: embedding_type.into(),
     })
+}
+
+#[pyfunction]
+pub fn multi_vector_index(metric: String) -> PyResult<field_index::FieldIndex> {
+    let metric = match metric.to_lowercase().as_str() {
+        "maxsim" => field_index::MultiVectorDistanceMetric::Maxsim,
+        _ => {
+            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "Invalid multi-vector distance metric: {}. Supported metrics are: maxsim.",
+                metric
+            )))
+        }
+    };
+
+    Ok(field_index::FieldIndex::MultiVectorIndex { metric })
 }
 
 pub struct Schema(pub(crate) HashMap<String, FieldSpec>);

@@ -21,6 +21,9 @@ pub enum FieldIndexUnion {
         model: Option<String>,
         embedding_type: Option<EmbeddingDataType>,
     },
+    MultiVectorIndex {
+        metric: MultiVectorDistanceMetric,
+    },
 }
 
 impl FieldIndex {
@@ -40,6 +43,10 @@ impl FieldIndex {
             model,
             embedding_type,
         })
+    }
+
+    pub(crate) fn multi_vector_index(metric: MultiVectorDistanceMetric) -> Self {
+        Self(FieldIndexUnion::MultiVectorIndex { metric })
     }
 }
 
@@ -162,6 +169,35 @@ impl From<EmbeddingDataType> for topk_rs::proto::v1::control::EmbeddingDataType 
     }
 }
 
+#[napi(string_enum = "snake_case", namespace = "schema")]
+#[derive(Clone, Debug)]
+pub enum MultiVectorDistanceMetric {
+    Maxsim,
+}
+
+impl From<MultiVectorDistanceMetric> for topk_rs::proto::v1::control::MultiVectorDistanceMetric {
+    fn from(metric: MultiVectorDistanceMetric) -> Self {
+        match metric {
+            MultiVectorDistanceMetric::Maxsim => {
+                topk_rs::proto::v1::control::MultiVectorDistanceMetric::Maxsim
+            }
+        }
+    }
+}
+
+impl From<topk_rs::proto::v1::control::MultiVectorDistanceMetric> for MultiVectorDistanceMetric {
+    fn from(metric: topk_rs::proto::v1::control::MultiVectorDistanceMetric) -> Self {
+        match metric {
+            topk_rs::proto::v1::control::MultiVectorDistanceMetric::Maxsim => {
+                MultiVectorDistanceMetric::Maxsim
+            }
+            topk_rs::proto::v1::control::MultiVectorDistanceMetric::Unspecified => {
+                unreachable!("Invalid proto: Unspecified multi-vector distance metric")
+            }
+        }
+    }
+}
+
 impl From<topk_rs::proto::v1::control::FieldIndex> for FieldIndexUnion {
     fn from(field_index: topk_rs::proto::v1::control::FieldIndex) -> Self {
         FieldIndex::from(field_index).0
@@ -196,8 +232,14 @@ impl From<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
                         }),
                     )
                 }
-                topk_rs::proto::v1::control::field_index::Index::MultiVectorIndex(_mvi) => {
-                    todo!()
+                topk_rs::proto::v1::control::field_index::Index::MultiVectorIndex(mvi) => {
+                    FieldIndex::multi_vector_index(
+                        topk_rs::proto::v1::control::MultiVectorDistanceMetric::try_from(
+                            mvi.metric,
+                        )
+                        .expect("Unsupported multi-vector distance metric")
+                        .into(),
+                    )
                 }
             },
             None => unreachable!("Invalid field index proto"),
@@ -221,6 +263,9 @@ impl From<FieldIndex> for topk_rs::proto::v1::control::FieldIndex {
                 model,
                 embedding_type.map(|t| t.into()),
             ),
+            FieldIndexUnion::MultiVectorIndex { metric } => {
+                topk_rs::proto::v1::control::FieldIndex::multi_vector(metric.into())
+            }
         }
     }
 }

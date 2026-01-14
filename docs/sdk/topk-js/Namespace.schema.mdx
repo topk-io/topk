@@ -274,6 +274,68 @@ await client.collections().create("books", {
 
 ***
 
+### matrix()
+
+```ts
+function matrix(options: MatrixOptions): FieldSpec;
+```
+
+Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `matrix` values.
+
+Example:
+
+```javascript
+import { matrix } from "topk-js/schema";
+
+await client.collections().create("books", {
+  token_embeddings: matrix({ dimension: 7, valueType: "f32" })
+});
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `options` | [`MatrixOptions`](/sdk/topk-js/Namespace.schema#matrixoptions) |
+
+**Returns**
+
+[`FieldSpec`](/sdk/topk-js/Namespace.schema#fieldspec)
+
+***
+
+### multiVectorIndex()
+
+```ts
+function multiVectorIndex(options: MultiVectorIndexOptions): FieldIndex;
+```
+
+Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `multi_vector_index` values.
+
+Example:
+
+```javascript
+import { matrix, multiVectorIndex } from "topk-js/schema";
+
+await client.collections().create("books", {
+  token_embeddings: matrix({ dimension: 7, valueType: "f32" }).index(
+    multiVectorIndex({ metric: "max_sim" })
+  )
+});
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `options` | [`MultiVectorIndexOptions`](/sdk/topk-js/Namespace.schema#multivectorindexoptions) |
+
+**Returns**
+
+[`FieldIndex`](/sdk/topk-js/Namespace.schema#fieldindex)
+
+***
+
 ### semanticIndex()
 
 ```ts
@@ -511,6 +573,37 @@ including the type of values the list can contain.
 
 ***
 
+### MatrixOptions
+
+Options for matrix field specifications.
+
+This struct contains configuration options for matrix fields,
+including the dimension and value type.
+
+**Properties**
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="dimension"></a> `dimension` | `number` | The dimension (number of columns) of the matrix |
+| <a id="valuetype-1"></a> `valueType` | [`MatrixValueType`](/sdk/topk-js/Namespace.schema#matrixvaluetype) | The value type of the matrix elements |
+
+***
+
+### MultiVectorIndexOptions
+
+Options for multi-vector index specifications.
+
+This struct contains configuration options for multi-vector indexes,
+including the distance metric to use.
+
+**Properties**
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="metric"></a> `metric` | `"maxsim"` | The distance metric to use for multi-vector similarity |
+
+***
+
 ### SemanticIndexOptions
 
 Options for semantic index specifications.
@@ -538,7 +631,7 @@ including the distance metric to use.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="metric"></a> `metric` | [`VectorDistanceMetric`](/sdk/topk-js/Namespace.schema#vectordistancemetric) | The distance metric to use for vector similarity |
+| <a id="metric-1"></a> `metric` | [`VectorDistanceMetric`](/sdk/topk-js/Namespace.schema#vectordistancemetric) | The distance metric to use for vector similarity |
 
 ***
 
@@ -553,7 +646,7 @@ including the required dimension parameter.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="dimension"></a> `dimension` | `number` | The dimension of the vector |
+| <a id="dimension-1"></a> `dimension` | `number` | The dimension of the vector |
 
 ## Type Aliases
 
@@ -577,6 +670,22 @@ type KeywordIndexType = "text";
 
 ```ts
 type ListValueType = "text" | "integer" | "float";
+```
+
+***
+
+### MatrixValueType
+
+```ts
+type MatrixValueType = "f32" | "f16" | "f8" | "u8" | "i8";
+```
+
+***
+
+### MultiVectorDistanceMetric
+
+```ts
+type MultiVectorDistanceMetric = "maxsim";
 ```
 
 ***
