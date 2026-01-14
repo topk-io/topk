@@ -193,6 +193,8 @@ pub fn multi_vector_distance(
             query,
             candidates,
         }),
-        _ => Err(PyValueError::new_err("Matrix query must be a matrix value")),
+        _ => Err(PyValueError::new_err(
+            "Multi-vector query must be a matrix value",
+        )),
     }
 }

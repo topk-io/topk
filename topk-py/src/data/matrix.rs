@@ -89,12 +89,18 @@ impl Matrix {
             ));
         }
 
-        let num_cols = list.get_item(0)?.cast::<PyList>()?.len() as u32;
+        let num_cols = list.get_item(0)?.cast::<PyList>()?.len();
+
+        if num_cols == 0 {
+            return Err(InvalidArgumentError::new_err(
+                "Cannot create matrix from empty list",
+            ));
+        }
 
         // Helper function to flatten list of lists and validate
         fn flatten_and_validate<E, T, F>(
             list: &Bound<'_, PyList>,
-            num_cols: u32,
+            num_cols: usize,
             extract_and_convert: F,
         ) -> PyResult<Vec<T>>
         where
@@ -109,7 +115,7 @@ impl Matrix {
                     flattened.push(extract_and_convert(extracted));
                 }
             }
-            if flattened.len() % (num_cols as usize) != 0 {
+            if flattened.len() % num_cols != 0 {
                 return Err(InvalidArgumentError::new_err(format!(
                     "len(values) must be divisible by num_cols. len(values): {}, num_cols: {}",
                     flattened.len(),
@@ -161,7 +167,10 @@ impl Matrix {
             }
         };
 
-        Ok(Self { num_cols, values })
+        Ok(Self {
+            num_cols: num_cols as u32,
+            values,
+        })
     }
 }
 

@@ -162,63 +162,58 @@ impl<'py> IntoPyObject<'py> for Value {
             }
             Value::Matrix(m) => {
                 let num_cols = m.num_cols as usize;
-                let rows_list = PyList::empty(py);
+
+                // Helper function to convert matrix values to Python list of lists
+                fn convert_matrix_to_python<'py, T, F>(
+                    values: &[T],
+                    num_cols: usize,
+                    py: Python<'py>,
+                    convert: F,
+                ) -> PyResult<Bound<'py, PyList>>
+                where
+                    F: Fn(&T) -> PyResult<Py<PyAny>>,
+                {
+                    let rows_list = PyList::empty(py);
+                    for row in values.chunks(num_cols) {
+                        let row_list = PyList::empty(py);
+                        for value in row {
+                            row_list.append(convert(value)?)?;
+                        }
+                        rows_list.append(row_list.into_py_any(py)?)?;
+                    }
+                    Ok(rows_list)
+                }
 
                 // Convert matrix values to appropriate Python types and split into rows
-                match &m.values {
-                    MatrixValues::F32(v) => {
-                        for row in v.chunks(num_cols) {
-                            let row_list = PyList::empty(py);
-                            for &value in row {
-                                row_list.append(value.into_py_any(py)?)?;
-                            }
-                            rows_list.append(row_list.into_py_any(py)?)?;
-                        }
-                    }
+                let rows_list = match &m.values {
+                    MatrixValues::F32(v) => convert_matrix_to_python(v, num_cols, py, |value| {
+                        Ok(value.into_py_any(py)?)
+                    })?,
                     MatrixValues::F16(v) => {
-                        for row in v.chunks(num_cols) {
-                            let row_list = PyList::empty(py);
-                            for &value in row {
-                                // Convert f16 to f32 for Python
-                                row_list.append(value.to_f32().into_py_any(py)?)?;
-                            }
-                            rows_list.append(row_list.into_py_any(py)?)?;
-                        }
+                        convert_matrix_to_python(v, num_cols, py, |value| {
+                            // Convert f16 to f32 for Python
+                            Ok(value.to_f32().into_py_any(py)?)
+                        })?
                     }
                     MatrixValues::F8(v) => {
-                        for row in v.chunks(num_cols) {
-                            let row_list = PyList::empty(py);
-                            for &value in row {
-                                // Convert F8E4M3 to f32 for Python
-                                row_list.append(value.to_f32().into_py_any(py)?)?;
-                            }
-                            rows_list.append(row_list.into_py_any(py)?)?;
-                        }
+                        convert_matrix_to_python(v, num_cols, py, |value| {
+                            // Convert F8E4M3 to f32 for Python
+                            Ok(value.to_f32().into_py_any(py)?)
+                        })?
                     }
-                    MatrixValues::U8(v) => {
-                        for row in v.chunks(num_cols) {
-                            let row_list = PyList::empty(py);
-                            for &value in row {
-                                row_list.append(value.into_py_any(py)?)?;
-                            }
-                            rows_list.append(row_list.into_py_any(py)?)?;
-                        }
-                    }
-                    MatrixValues::I8(v) => {
-                        for row in v.chunks(num_cols) {
-                            let row_list = PyList::empty(py);
-                            for &value in row {
-                                row_list.append(value.into_py_any(py)?)?;
-                            }
-                            rows_list.append(row_list.into_py_any(py)?)?;
-                        }
-                    }
-                }
+                    MatrixValues::U8(v) => convert_matrix_to_python(v, num_cols, py, |value| {
+                        Ok(value.into_py_any(py)?)
+                    })?,
+                    MatrixValues::I8(v) => convert_matrix_to_python(v, num_cols, py, |value| {
+                        Ok(value.into_py_any(py)?)
+                    })?,
+                };
                 Ok(rows_list.into_py_any(py)?.into_bound(py))
             }
         }
     }
 }
+
 impl From<topk_rs::proto::v1::data::Value> for Value {
     fn from(value: topk_rs::proto::v1::data::Value) -> Self {
         match value.value {

@@ -111,6 +111,9 @@ def test_matrix_empty_list():
     with pytest.raises(InvalidArgumentError, match="Cannot create matrix from empty list"):
         data.matrix([])
 
+def test_matrix_empty_list_of_lists():
+    with pytest.raises(InvalidArgumentError, match="Cannot create matrix from empty list"):
+        data.matrix([[], [1.0, 2.0]])
 
 def test_matrix_mismatched_row_lengths():
     with pytest.raises(

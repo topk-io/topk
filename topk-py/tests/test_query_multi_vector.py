@@ -51,29 +51,28 @@ Q2 = [
 ]
 
 
-def test_query_multi_vector_float(ctx: ProjectContext):
-    for value_type in ["f32", "f16", "f8"]:
-        print(f"value_type={value_type}")
-        collection = dataset.multi_vec.setup(ctx, value_type)
+@pytest.mark.parametrize("value_type", ["f32", "f16", "f8"])
+def test_query_multi_vector_float(ctx: ProjectContext, value_type: str):
+    collection = dataset.multi_vec.setup(ctx, value_type)
 
-        for q, expected_ids in [
-            (Q1, ["doc_7", "doc_8", "doc_6"]),
-            (Q2, ["doc_0", "doc_6", "doc_8"]),
-        ]:
-            # Convert flat list to matrix (2 rows x 7 cols for Q1, 3 rows x 7 cols for Q2)
-            num_rows = len(q) // 7
-            matrix_rows = [q[i * 7 : (i + 1) * 7] for i in range(num_rows)]
-            query_matrix = dataset.multi_vec.cast(value_type, matrix_rows)
+    for q, expected_ids in [
+        (Q1, ["doc_7", "doc_8", "doc_6"]),
+        (Q2, ["doc_0", "doc_6", "doc_8"]),
+    ]:
+        # Convert flat list to matrix (2 rows x 7 cols for Q1, 3 rows x 7 cols for Q2)
+        num_rows = len(q) // 7
+        matrix_rows = [q[i * 7 : (i + 1) * 7] for i in range(num_rows)]
+        query_matrix = dataset.multi_vec.cast(value_type, matrix_rows)
 
-            result = ctx.client.collection(collection.name).query(
-                select(
-                    title=field("title"),
-                    dist=fn.multi_vector_distance("token_embeddings", query_matrix),  # type: ignore
-                ).topk(field("dist"), 3, False)
-            )
+        result = ctx.client.collection(collection.name).query(
+            select(
+                title=field("title"),
+                dist=fn.multi_vector_distance("token_embeddings", query_matrix),
+            ).topk(field("dist"), 3, False)
+        )
 
-            assert len(result) == 3
-            assert doc_ids_ordered(result) == expected_ids
+        assert len(result) == 3
+        assert doc_ids_ordered(result) == expected_ids
 
 
 def test_query_multi_vector_int(ctx: ProjectContext):

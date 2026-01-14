@@ -1,4 +1,5 @@
 import typing
+import builtins;
 
 from topk_sdk import data
 from topk_sdk.schema import (
@@ -6,7 +7,7 @@ from topk_sdk.schema import (
     f32_sparse_vector,
     f32_vector,
     i8_vector,
-    int as int_field_type,
+    int,
     keyword_index,
     matrix,
     multi_vector_index,
@@ -49,7 +50,7 @@ class books:
     def schema():
         return {
             "title": text().required().index(keyword_index()),
-            "published_year": int_field_type().required(),
+            "published_year": int().required(),
             "summary": text().required().index(keyword_index()),
             "summary_embedding": f32_vector(16)
             .required()
@@ -394,13 +395,13 @@ class multi_vec:
         elif value_type == "u8":
             # Convert f32 to u8: (abs(v) * 64.0).round() as u8
             u8_rows = [
-                [int(round(abs(v) * 64.0)) for v in row] for row in matrix
+                [builtins.int(round(abs(v) * 64.0)) for v in row] for row in matrix
             ]
             return data.matrix(u8_rows, value_type="u8")
         elif value_type == "i8":
             # Convert f32 to i8: (v * 64.0).round() and clip to i8 range
             i8_rows = [
-                [multi_vec.clip_number_to_i8(int(round(v * 64.0))) for v in row] for row in matrix
+                [multi_vec.clip_number_to_i8(builtins.int(round(v * 64.0))) for v in row] for row in matrix
             ]
 
             return data.matrix(i8_rows, value_type="i8")
@@ -408,7 +409,7 @@ class multi_vec:
             raise ValueError(f"Unsupported value_type: {value_type}")
 
     @staticmethod
-    def clip_number_to_i8(number: int) -> int:
+    def clip_number_to_i8(number: builtins.int) -> builtins.int:
         return max(min(number, 127), -128)
 
     @staticmethod
@@ -434,7 +435,7 @@ class multi_vec:
     def schema(value_type: str):
         return {
             "title": text().required().index(keyword_index()),
-            "published_year": int_field_type().required(),
+            "published_year": int().required(),
             "token_embeddings": matrix(7, value_type).index(  # type: ignore
                 multi_vector_index("maxsim")
             ),
