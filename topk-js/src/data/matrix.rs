@@ -89,7 +89,7 @@ impl Matrix {
         }
 
         // Flatten all values
-        let flattened: Vec<f64> = values.iter().flat_map(|row| row.iter().copied()).collect();
+        let flattened: Vec<f64> = values.into_iter().flat_map(|row| row).collect();
 
         if flattened.is_empty() {
             return Err(napi::Error::from_reason(
