@@ -207,8 +207,8 @@ jobs:
             mv bin/protoc /usr/local/bin/protoc
             echo "Verifying protoc version"
             protoc --version
-            echo "Installing Rust 1.88.0"
-            rustup install 1.88.0 && rustup default 1.88.0
+            echo "Installing Rust 1.92.0"
+            rustup install 1.92.0 && rustup default 1.92.0
             rustup target add ${{ matrix.settings.target }}
             echo "Building"
             ${{ matrix.settings.build }}
