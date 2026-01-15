@@ -145,6 +145,7 @@ pub fn fn_pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(bm25_score))?;
     m.add_wrapped(wrap_pyfunction!(vector_distance))?;
     m.add_wrapped(wrap_pyfunction!(semantic_similarity))?;
+    m.add_wrapped(wrap_pyfunction!(multi_vector_distance))?;
 
     Ok(())
 }
@@ -177,4 +178,23 @@ pub fn vector_distance(field: String, query: Value, skip_refine: bool) -> PyResu
 #[pyfunction]
 pub fn semantic_similarity(field: String, query: String) -> FunctionExpr {
     FunctionExpr::SemanticSimilarity { field, query }
+}
+
+#[pyfunction]
+#[pyo3(signature = (field, query, candidates=None))]
+pub fn multi_vector_distance(
+    field: String,
+    query: Value,
+    candidates: Option<u32>,
+) -> PyResult<FunctionExpr> {
+    match query {
+        Value::Matrix(_) => Ok(FunctionExpr::MultiVectorDistance {
+            field,
+            query,
+            candidates,
+        }),
+        _ => Err(PyValueError::new_err(
+            "Multi-vector query must be a matrix value",
+        )),
+    }
 }

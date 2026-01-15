@@ -53,6 +53,9 @@ test-py:
     # install pyright
     RUN . /venv/bin/activate && pip install pyright[nodejs]
 
+    # install numpy
+    RUN . /venv/bin/activate && pip install numpy
+
     # source code
     WORKDIR /sdk
     COPY . .
