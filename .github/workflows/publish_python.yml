@@ -119,6 +119,10 @@ jobs:
         with:
           python-version: '3.10'
           architecture: ${{ matrix.platform.target }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          architecture: ${{ matrix.platform.target }}
       - name: Install protoc
         run: |
           curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-${{ matrix.platform.protoc_arch }}.zip
