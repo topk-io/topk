@@ -106,14 +106,16 @@ jobs:
           - runner: windows-latest
             target: x64
             protoc_arch: win64
-          - runner: windows-latest # todo: make it work for x86 windows-latest(Windows-2025)
+            python_version: '3.9.13'
+          - runner: windows-latest
             target: x86
             protoc_arch: win32
+            python_version: 3.x
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.9.13'
+          python-version: ${{ matrix.platform.python_version }}
           architecture: ${{ matrix.platform.target }}
       - name: Install protoc
         run: |
