@@ -1,3 +1,4 @@
+import { MatrixValueType } from '../lib/data';
 import {
   binaryVector,
   bool,
@@ -156,10 +157,12 @@ describe("Collections", () => {
   test("matrix schema", async () => {
     const ctx = getContext();
 
-    const matrixValueTypes: Array<["f32" | "u8" | "i8", string]> = [
+    const matrixValueTypes: Array<[MatrixValueType, string]> = [
       ["f32", "f32"],
       ["u8", "u8"],
       ["i8", "i8"],
+      ["f16", "f16"],
+      ["f8", "f8"],
     ];
 
     for (const [valueType, expectedValueType] of matrixValueTypes) {
@@ -185,31 +188,6 @@ describe("Collections", () => {
     }
   });
 
-  test.each([
-    ["f16", "f16"],
-    ["f8", "f8"],
-  ])("matrix schema %s", async (valueType, expectedValueType) => {
-    const ctx = getContext();
-
-    const schemaWithoutIndex = {
-      token_embeddings: matrix({ dimension: 7, valueType: valueType as "f16" | "f8" }),
-    };
-    const collection = await ctx.createCollection(
-      `test_matrix_${valueType}_no_index`,
-      schemaWithoutIndex
-    );
-    expect(collection.schema.token_embeddings.dataType.type).toBe("Matrix");
-    expect(
-      collection.schema.token_embeddings.dataType.type === "Matrix" &&
-        collection.schema.token_embeddings.dataType.dimension
-    ).toBe(7);
-    expect(
-      collection.schema.token_embeddings.dataType.type === "Matrix" &&
-        collection.schema.token_embeddings.dataType.valueType
-    ).toBe(expectedValueType);
-    expect(collection.schema.token_embeddings.required).toBe(false);
-  });
-
   test("incorrect schema", async () => {
     const ctx = getContext();
 
@@ -219,26 +197,6 @@ describe("Collections", () => {
       })
     ).rejects.toThrow(
       /InvalidIndex { field: \"name\", index: \"vector\", data_type: \"text\" }/
-    );
-
-    await expect(
-      ctx.client.collections().create(ctx.scope("test_matrix_f16_invalid"), {
-        token_embeddings: matrix({ dimension: 7, valueType: "f16" }).index(
-          multiVectorIndex({ metric: "maxsim" })
-        ),
-      })
-    ).rejects.toThrow(
-      /InvalidIndex { field: "token_embeddings", index: "multi_vector", data_type: "matrix<f16>" }/
-    );
-
-    await expect(
-      ctx.client.collections().create(ctx.scope("test_matrix_f8_invalid"), {
-        token_embeddings: matrix({ dimension: 7, valueType: "f8" }).index(
-          multiVectorIndex({ metric: "maxsim" })
-        ),
-      })
-    ).rejects.toThrow(
-      /InvalidIndex { field: "token_embeddings", index: "multi_vector", data_type: "matrix<f8>" }/
     );
   });
 

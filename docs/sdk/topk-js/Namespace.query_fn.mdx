@@ -20,6 +20,53 @@ Computes the BM25 score for a keyword search.
 
 ***
 
+### multiVectorDistance()
+
+```ts
+function multiVectorDistance(
+   field: string, 
+   query: Matrix | number[][], 
+   candidates?: number): FunctionExpression;
+```
+
+Calculate the multi-vector distance between a field and a query matrix.
+
+The query matrix can be an array of number arrays (defaults to f32),
+or a [`Matrix`](https://docs.topk.io/sdk/topk-js/data#Matrix) instance. To specify a different matrix type,
+use [`matrix()`](https://docs.topk.io/sdk/topk-js/data#matrix) with `valueType`.
+
+The optional `candidates` parameter limits the number of candidate vectors considered during retrieval.
+
+```javascript
+import { field, fn, select } from "topk-js/query";
+
+client.collection("books").query(
+  select({
+    title: field("title"),
+    title_distance: fn.multiVectorDistance(
+      "title_embedding",
+      [[0.1, 0.2, 0.3, ...], [0.4, 0.5, 0.6, ...]],
+      100
+    )
+  })
+  .topk(field("title_distance"), 10)
+)
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `field` | `string` |
+| `query` | [`Matrix`](/sdk/topk-js/Namespace.data#matrix) \| `number`[][] |
+| `candidates?` | `number` |
+
+**Returns**
+
+[`FunctionExpression`](/sdk/topk-js/Namespace.query#functionexpression)
+
+***
+
 ### semanticSimilarity()
 
 ```ts

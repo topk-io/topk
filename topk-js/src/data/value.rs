@@ -1,6 +1,7 @@
 use super::vector::SparseVector;
 use crate::data::{
     list::{List, Values},
+    matrix::{Matrix, MatrixValueType, MatrixValues},
     vector::{SparseVectorData, SparseVectorUnion},
 };
 use napi::{bindgen_prelude::*, sys::napi_is_buffer};
@@ -18,6 +19,7 @@ pub enum Value {
     SparseVector(SparseVector),
     Bytes(Vec<u8>),
     List(List),
+    Matrix(Matrix),
 }
 
 impl From<i64> for Value {
@@ -140,6 +142,7 @@ impl From<Value> for topk_rs::proto::v1::data::Value {
                 Values::F64(v) => topk_rs::proto::v1::data::Value::list(v),
                 Values::String(v) => topk_rs::proto::v1::data::Value::list(v),
             },
+            Value::Matrix(m) => m.into(),
         }
     }
 }
@@ -221,8 +224,28 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                     None => unreachable!("Invalid list proto"),
                 },
             }),
-            Some(topk_rs::proto::v1::data::value::Value::Matrix(..)) => {
-                todo!()
+            Some(topk_rs::proto::v1::data::value::Value::Matrix(matrix)) => {
+                let num_cols = matrix.num_cols;
+                let values = match matrix.values {
+                    Some(topk_rs::proto::v1::data::matrix::Values::F32(v)) => {
+                        MatrixValues::F32(v.values)
+                    }
+                    Some(topk_rs::proto::v1::data::matrix::Values::F16(v)) => {
+                        MatrixValues::F16(v.into())
+                    }
+                    Some(topk_rs::proto::v1::data::matrix::Values::F8(v)) => {
+                        MatrixValues::F8(v.into())
+                    }
+                    Some(topk_rs::proto::v1::data::matrix::Values::U8(v)) => {
+                        MatrixValues::U8(v.values)
+                    }
+                    Some(topk_rs::proto::v1::data::matrix::Values::I8(v)) => {
+                        MatrixValues::I8(v.into())
+                    }
+                    None => unreachable!("Invalid matrix proto"),
+                };
+
+                Value::Matrix(Matrix { num_cols, values })
             }
             Some(topk_rs::proto::v1::data::value::Value::Struct(..)) => {
                 todo!()
@@ -239,6 +262,10 @@ impl FromNapiValue for Value {
     ) -> napi::Result<Self> {
         if let Ok(list) = crate::try_cast_ref!(env, value, List) {
             return Ok(Value::List(list.clone()));
+        }
+
+        if let Ok(matrix) = crate::try_cast_ref!(env, value, Matrix) {
+            return Ok(Value::Matrix(matrix.clone()));
         }
 
         if let Ok(sparse_vector) = crate::try_cast_ref!(env, value, SparseVector) {
@@ -266,6 +293,14 @@ impl FromNapiValue for Value {
                     return Ok(Value::List(List {
                         values: Values::F32(list.into_iter().map(|v| v as f32).collect()),
                     }));
+                }
+
+                // Matrices (all "naked" array of arrays are interpreted as f32 matrices)
+                if let Ok(matrix_rows) = Vec::<Vec<f64>>::from_napi_value(env, value) {
+                    return Ok(Value::Matrix(Matrix::from_list_of_lists(
+                        matrix_rows,
+                        Some(MatrixValueType::F32),
+                    )?));
                 }
 
                 // Sparse vectors (all "naked" sparse vectors are interpreted as f32)
@@ -335,6 +370,34 @@ impl ToNapiValue for Value {
                 Values::F64(v) => Vec::<f64>::to_napi_value(env, v),
                 Values::String(v) => Vec::<String>::to_napi_value(env, v),
             },
+            Value::Matrix(m) => {
+                // Always convert to nested JS arrays of numbers (`number[][]`).
+                let num_cols = m.num_cols as usize;
+                let rows: Vec<Vec<f64>> = match m.values {
+                    MatrixValues::F32(v) => v
+                        .chunks(num_cols)
+                        .map(|row| row.iter().map(|x| *x as f64).collect())
+                        .collect(),
+                    MatrixValues::F16(v) => v
+                        .chunks(num_cols)
+                        .map(|row| row.iter().map(|x| x.to_f32() as f64).collect())
+                        .collect(),
+                    MatrixValues::F8(v) => v
+                        .chunks(num_cols)
+                        .map(|row| row.iter().map(|x| x.to_f32() as f64).collect())
+                        .collect(),
+                    MatrixValues::U8(v) => v
+                        .chunks(num_cols)
+                        .map(|row| row.iter().map(|x| *x as f64).collect())
+                        .collect(),
+                    MatrixValues::I8(v) => v
+                        .chunks(num_cols)
+                        .map(|row| row.iter().map(|x| *x as f64).collect())
+                        .collect(),
+                };
+
+                Vec::<Vec<f64>>::to_napi_value(env, rows)
+            }
         }
     }
 }

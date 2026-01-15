@@ -258,6 +258,41 @@ i8Vector([-128, 127, -1, 0, 1])
 
 ***
 
+### matrix()
+
+```ts
+function matrix(values: number[][], valueType?: MatrixValueType): Matrix;
+```
+
+Create a [Matrix](https://docs.topk.io/sdk/topk-js/data#Matrix) type containing matrix values.
+
+The `values` parameter must be an array of number arrays. When passing an array of number arrays,
+the optional `valueType` parameter specifies the matrix type.
+If `valueType` is not provided, the matrix defaults to f32.
+
+```javascript
+import { matrix } from "topk-js/data";
+
+// Array of number arrays with explicit type
+matrix([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], "f32")
+
+// Array of number arrays defaults to f32
+matrix([[1.0, 2.0], [3.0, 4.0]])
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `values` | `number`[][] |
+| `valueType?` | [`MatrixValueType`](/sdk/topk-js/Namespace.data#matrixvaluetype) |
+
+**Returns**
+
+[`Matrix`](/sdk/topk-js/Namespace.data#matrix)
+
+***
+
 ### stringList()
 
 ```ts
@@ -379,9 +414,28 @@ Usually created using data constructors such as [`f32_list()`](#f32list), [`i32_
 
 ***
 
+### Matrix
+
+**`Internal`**
+
+Instances of the `Matrix` class are used to represent matrices in TopK.
+Usually created using data constructors such as [`matrix()`](#matrix).
+
+***
+
 ### SparseVector
 
 **`Internal`**
 
 Instances of the `SparseVector` class are used to represent sparse vectors in TopK.
 Usually created using data constructors such as [`f32_sparse_vector()`](#f32sparsevector) or [`u8_sparse_vector()`](#u8sparsevector).
+
+## Type Aliases
+
+### MatrixValueType
+
+```ts
+type MatrixValueType = "f32" | "f16" | "f8" | "u8" | "i8";
+```
+
+Matrix element value type.

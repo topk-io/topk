@@ -20,6 +20,8 @@ napi = { version = "3.5.2", default-features = false, features = [
 ] }
 napi-derive = { version = "3.3.3" }
 topk-rs = { path = "../topk-rs" }
+half = { version = "2.7.1", features = ["bytemuck"] }
+float8 = { version = "0.5.0", features = ["bytemuck"] }
 
 [build-dependencies]
 napi-build = "2.1.5"
