@@ -14,3 +14,6 @@ export declare const i8Vector: typeof data.i8Vector;
 export declare const u8SparseVector: typeof data.u8SparseVector;
 export declare const f32SparseVector: typeof data.f32SparseVector;
 export declare const SparseVector: typeof data.SparseVector;
+export declare const matrix: typeof data.matrix;
+export declare const Matrix: typeof data.Matrix;
+export declare type MatrixValueType = data.MatrixValueType;

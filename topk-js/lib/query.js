@@ -5,6 +5,7 @@ module.exports.filter = query.filter;
 module.exports.fn = {
   bm25Score: query_fn.bm25Score,
   semanticSimilarity: query_fn.semanticSimilarity,
+  multiVectorDistance: query_fn.multiVectorDistance,
   vectorDistance: query_fn.vectorDistance,
 };
 module.exports.literal = query.literal;
