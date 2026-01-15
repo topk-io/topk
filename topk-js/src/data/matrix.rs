@@ -76,6 +76,18 @@ impl Matrix {
             ));
         }
 
+        // Validate that all rows have the same length
+        for (idx, row) in values.iter().enumerate() {
+            if row.len() != num_cols as usize {
+                return Err(napi::Error::from_reason(format!(
+                    "All rows must have the same length. Row {} has length {}, but expected {}",
+                    idx,
+                    row.len(),
+                    num_cols
+                )));
+            }
+        }
+
         // Flatten all values
         let flattened: Vec<f64> = values.iter().flat_map(|row| row.iter().copied()).collect();
 
@@ -83,15 +95,6 @@ impl Matrix {
             return Err(napi::Error::from_reason(
                 "Cannot create matrix from empty list",
             ));
-        }
-
-        // Validate that total length is divisible by num_cols
-        if flattened.len() % (num_cols as usize) != 0 {
-            return Err(napi::Error::from_reason(format!(
-                "All rows must have the same length. len(values): {}, num_cols: {}",
-                flattened.len(),
-                num_cols
-            )));
         }
 
         let values = match value_type {

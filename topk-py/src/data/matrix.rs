@@ -97,7 +97,7 @@ impl Matrix {
             ));
         }
 
-        // Helper function to flatten list of lists and validate
+        // Helper function to flatten list of lists and validate row lengths
         fn flatten_and_validate<E, T, F>(
             list: &Bound<'_, PyList>,
             num_cols: usize,
@@ -108,19 +108,21 @@ impl Matrix {
             F: Fn(E) -> T,
         {
             let mut flattened = Vec::new();
-            for item in list.iter() {
+            for (idx, item) in list.iter().enumerate() {
                 let row = item.cast::<PyList>()?;
+                // Validate row length
+                if row.len() != num_cols {
+                    return Err(InvalidArgumentError::new_err(format!(
+                        "All rows must have the same length. Row {} has length {}, but expected {}",
+                        idx,
+                        row.len(),
+                        num_cols
+                    )));
+                }
                 for val in row.iter() {
                     let extracted: E = val.extract::<E>()?;
                     flattened.push(extract_and_convert(extracted));
                 }
-            }
-            if flattened.len() % num_cols != 0 {
-                return Err(InvalidArgumentError::new_err(format!(
-                    "len(values) must be divisible by num_cols. len(values): {}, num_cols: {}",
-                    flattened.len(),
-                    num_cols
-                )));
             }
 
             if flattened.is_empty() {

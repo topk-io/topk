@@ -124,9 +124,25 @@ def test_matrix_empty_list_of_lists():
 def test_matrix_mismatched_row_lengths():
     with pytest.raises(
         InvalidArgumentError,
-        match=r"len\(values\) must be divisible by num_cols",
+        match=r"All rows must have the same length.*Row 1 has length 3",
     ):
         data.matrix([[1.0, 2.0], [3.0, 4.0, 5.0]])
+
+
+@pytest.mark.parametrize(
+    "test_data,expected_row_idx",
+    [
+        ([[1.0, 2.0], []], 1),
+        ([[1.0, 2.0], [], [3.0, 4.0]], 1),
+        ([[1.0, 2.0], [3.0, 4.0], []], 2),
+    ],
+)
+def test_matrix_empty_row(test_data: list[list[float]], expected_row_idx: int):
+    with pytest.raises(
+        InvalidArgumentError,
+        match=rf"All rows must have the same length.*Row {expected_row_idx} has length 0",
+    ):
+        data.matrix(test_data)
 
 
 def test_matrix_invalid_value_type():

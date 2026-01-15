@@ -62,6 +62,16 @@ describe("Matrix Data", () => {
     );
   });
 
+  test.each([
+    [[[1.0, 2.0], []] as number[][], 1],
+    [[[1.0, 2.0], [], [3.0, 4.0]] as number[][], 1],
+    [[[1.0, 2.0], [3.0, 4.0], []] as number[][], 2],
+  ])("matrix rejects empty row", (testData, expectedRowIdx) => {
+    expect(() => matrix(testData as unknown as number[][])).toThrow(
+      new RegExp(`All rows must have the same length.*Row ${expectedRowIdx} has length 0`)
+    );
+  });
+
   test("matrix u8 rejects floats", () => {
     expect(() => matrix([[0.0, 1.5]] as unknown as number[][], "u8")).toThrow(
       /cannot be interpreted as an integer/i
