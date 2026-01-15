@@ -36,7 +36,7 @@ jobs:
             setup: |
               curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-osx-x86_64.zip && unzip protoc.zip && mv bin/protoc /usr/local/bin/protoc && protoc --version
             build: yarn build --target x86_64-apple-darwin
-          - host: windows-latest
+          - host: windows-2022
             setup: |
               mkdir /tmp/protoc
               cd /tmp/protoc
@@ -44,7 +44,7 @@ jobs:
               unzip protoc-29.3-win64.zip -d /tmp/protoc
             build: PROTOC=/tmp/protoc/bin/protoc.exe yarn build --target x86_64-pc-windows-msvc
             target: x86_64-pc-windows-msvc
-          - host: windows-latest
+          - host: windows-2022
             setup: |
               mkdir /tmp/protoc
               cd /tmp/protoc
@@ -126,7 +126,7 @@ jobs:
               set -e &&
               rustup target add aarch64-unknown-linux-musl &&
               yarn build --target aarch64-unknown-linux-musl
-          - host: windows-latest
+          - host: windows-2022
             target: aarch64-pc-windows-msvc
             setup: |
               mkdir /tmp/protoc
@@ -207,6 +207,9 @@ jobs:
             mv bin/protoc /usr/local/bin/protoc
             echo "Verifying protoc version"
             protoc --version
+            echo "Installing Rust 1.88.0"
+            rustup install 1.88.0 && rustup default 1.88.0
+            rustup target add ${{ matrix.settings.target }}
             echo "Building"
             ${{ matrix.settings.build }}
       - name: Build
