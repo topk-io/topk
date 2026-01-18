@@ -18,7 +18,7 @@ test-rs:
     WORKDIR /sdk
 
     # copy source code
-    COPY . .
+    COPY --keep-ts . .
 
     WORKDIR /sdk/topk-rs
 
@@ -135,7 +135,7 @@ test-runner:
     DO rust+INIT --keep_fingerprints=true
     WORKDIR /sdk
 
-    COPY . .
+    COPY --keep-ts . .
 
     WORKDIR /sdk/topk-rs
 
