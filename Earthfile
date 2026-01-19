@@ -2,7 +2,7 @@ VERSION 0.8
 IMPORT github.com/earthly/lib/rust:3.0.1 AS rust
 
 test:
-    ARG region=dev
+    ARG region=emulator
     BUILD +test-rs --region=$region
     BUILD +test-py --region=$region
     BUILD +test-js --region=$region
@@ -24,7 +24,7 @@ test-rs:
 
     DO rust+CARGO --args="nextest archive -p topk-rs --archive-file e2e.tar.zst" # compile tests
 
-    ARG region=dev
+    ARG region=emulator
     ARG host
     DO +SETUP_ENV --region=$region --host=$host
 
@@ -70,7 +70,7 @@ test-py:
         --mount=type=cache,target=/usr/local/cargo/git \
         . /venv/bin/activate && maturin develop
 
-    ARG region=dev
+    ARG region=emulator
     DO +SETUP_ENV --region=$region
 
     # test
@@ -116,7 +116,7 @@ test-js:
         exit 1; \
     fi
 
-    ARG region=dev
+    ARG region=emulator
     DO +SETUP_ENV --region=$region
     # test
     ARG args=""
@@ -156,17 +156,17 @@ SETUP_ENV:
 
     # region
     ARG host
-    ARG region=dev
+    ARG region=emulator
     ENV TOPK_REGION=$region
 
     # setup dev environment
-    IF [ "$region" = "dev" ]
+    IF [ "$region" = "emulator" ]
         IF [ -z "$host" ]
             LET host=$(getent hosts host.docker.internal | awk '{ print $1 }')
         END
 
         # forward traffic to dev cluster running on host
-        HOST dev.api.ddb $host
+        HOST emulator.api.ddb $host
         ENV TOPK_HOST=ddb
         ENV TOPK_HTTPS=false
     END
