@@ -22,6 +22,8 @@ impl FieldIndex {
         FieldIndex {
             index: Some(field_index::Index::MultiVectorIndex(MultiVectorIndex {
                 metric: metric.into(),
+                sketch_size: None,
+                quantization: None,
             })),
         }
     }
