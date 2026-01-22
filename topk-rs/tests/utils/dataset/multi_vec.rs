@@ -90,7 +90,7 @@ pub fn schema(dt: MatrixValueType) -> HashMap<String, FieldSpec> {
         "title" => FieldSpec::text(true, Some(KeywordIndexType::Text)),
         "published_year" => FieldSpec::integer(true),
         "token_embeddings" => FieldSpec::matrix(false, 7, dt)
-            .with_index(FieldIndex::multi_vector(MultiVectorDistanceMetric::Maxsim))
+            .with_index(FieldIndex::multi_vector(MultiVectorDistanceMetric::Maxsim, None, None))
     )
 }
 

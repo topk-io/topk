@@ -105,7 +105,7 @@ enum KeywordIndexType {
 // MaxSim index specification
 message MultiVectorIndex {
   MultiVectorDistanceMetric metric = 1;
-  optional uint32 sketch_size = 2;
+  optional uint32 sketch_bits = 2;
   optional MultiVectorQuantization quantization = 3;
 }
 
