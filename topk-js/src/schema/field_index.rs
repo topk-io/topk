@@ -264,7 +264,8 @@ impl From<FieldIndex> for topk_rs::proto::v1::control::FieldIndex {
                 embedding_type.map(|t| t.into()),
             ),
             FieldIndexUnion::MultiVectorIndex { metric } => {
-                topk_rs::proto::v1::control::FieldIndex::multi_vector(metric.into())
+                // TODO: add sketch_bits and quantization
+                topk_rs::proto::v1::control::FieldIndex::multi_vector(metric.into(), None, None)
             }
         }
     }
