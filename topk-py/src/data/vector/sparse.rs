@@ -55,9 +55,11 @@ impl From<U8SparseVector> for SparseVector {
     }
 }
 
-impl<'py> FromPyObject<'py> for F32SparseVector {
-    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
-        let dict = obj.downcast_exact::<PyDict>().map_err(|_| {
+impl<'a, 'py> FromPyObject<'a, 'py> for F32SparseVector {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
+        let dict = obj.cast_exact::<PyDict>().map_err(|_| {
             PyTypeError::new_err("Invalid sparse vector, must be `dict[int, float]`")
         })?;
         let mut indices = Vec::new();
@@ -65,7 +67,7 @@ impl<'py> FromPyObject<'py> for F32SparseVector {
 
         for item in dict.items() {
             let (key, value) = item
-                .downcast_exact::<PyTuple>()
+                .cast_exact::<PyTuple>()
                 .map_err(|_| {
                     PyTypeError::new_err("Invalid sparse vector, must be `dict[int, float]`")
                 })?
@@ -82,17 +84,19 @@ impl<'py> FromPyObject<'py> for F32SparseVector {
     }
 }
 
-impl<'py> FromPyObject<'py> for U8SparseVector {
-    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'a, 'py> FromPyObject<'a, 'py> for U8SparseVector {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
         let dict = obj
-            .downcast_exact::<PyDict>()
+            .cast_exact::<PyDict>()
             .map_err(|_| PyTypeError::new_err("Invalid sparse vector, must be `dict[int, int]`"))?;
         let mut indices = Vec::new();
         let mut values = Vec::new();
 
         for item in dict.items() {
             let (key, value) = item
-                .downcast_exact::<PyTuple>()
+                .cast_exact::<PyTuple>()
                 .map_err(|_| {
                     PyTypeError::new_err("Invalid sparse vector, must be `dict[int, int]`")
                 })?

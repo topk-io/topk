@@ -1,5 +1,6 @@
 import builtins
 import typing
+import numpy
 
 class List:
     """
@@ -17,6 +18,16 @@ class SparseVector:
 
     Instances of the `SparseVector` class are used to represent sparse vectors in TopK.
     Usually created using data constructors such as [`f32_sparse_vector()`](#f32-sparse-vector) or [`u8_sparse_vector()`](#u8-sparse-vector).
+    """
+
+    ...
+
+class Matrix:
+    """
+    *Internal*
+
+    Instances of the `Matrix` class are used to represent matrices in TopK.
+    Usually created using data constructors such as [`matrix()`](#matrix-2).
     """
 
     ...
@@ -199,6 +210,39 @@ def string_list(data: builtins.list[str]) -> List:
     from topk_sdk.data import string_list
 
     string_list(["foo", "bar", "baz"])
+    ```
+    """
+    ...
+
+
+def matrix(
+    values: typing.Union[
+        builtins.list[builtins.list[float]],
+        builtins.list[builtins.list[int]],
+        numpy.ndarray,
+    ],
+    value_type: typing.Optional[typing.Literal["f32", "f16", "f8", "u8", "i8"]] = None,
+) -> Matrix:
+    """
+    Create a [Matrix](https://docs.topk.io/sdk/topk-py/data#Matrix) type containing matrix values.
+
+    The `values` parameter can be a list of lists or a [numpy array](https://numpy.org/doc/stable/reference/generated/numpy.array.html). When passing a numpy array,
+    the matrix type is inferred from the array's dtype (float32, float16, uint8, int8).
+    When passing a list of lists, the optional `value_type` parameter specifies the matrix type.
+    If `value_type` is not provided, the matrix defaults to f32.
+
+    ```python
+    from topk_sdk.data import matrix
+    import numpy as np
+
+    # List of lists with explicit type
+    matrix([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], "f32")
+
+    # List of lists defaults to f32
+    matrix([[1.0, 2.0], [3.0, 4.0]])
+
+    # Numpy array infers type from dtype
+    matrix(np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float16))
     ```
     """
     ...

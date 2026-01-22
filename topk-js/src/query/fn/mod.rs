@@ -47,3 +47,48 @@ pub fn bm25_score() -> FunctionExpression {
 pub fn semantic_similarity(field: String, query: String) -> FunctionExpression {
     FunctionExpression(FunctionExpressionUnion::SemanticSimilarity { field, query })
 }
+
+/// Calculate the multi-vector distance between a field and a query matrix.
+///
+/// The query matrix can be an array of number arrays (defaults to f32),
+/// or a [`Matrix`](https://docs.topk.io/sdk/topk-js/data#Matrix) instance. To specify a different matrix type,
+/// use [`matrix()`](https://docs.topk.io/sdk/topk-js/data#matrix) with `valueType`.
+///
+/// The optional `candidates` parameter limits the number of candidate vectors considered during retrieval.
+///
+/// ```javascript
+/// import { field, fn, select } from "topk-js/query";
+///
+/// client.collection("books").query(
+///   select({
+///     title: field("title"),
+///     title_distance: fn.multiVectorDistance(
+///       "title_embedding",
+///       [[0.1, 0.2, 0.3, ...], [0.4, 0.5, 0.6, ...]],
+///       100
+///     )
+///   })
+///   .topk(field("title_distance"), 10)
+/// )
+/// ```
+#[napi(namespace = "query_fn", ts_return_type = "query.FunctionExpression")]
+pub fn multi_vector_distance(
+    field: String,
+    #[napi(ts_arg_type = "Array<Array<number>> | data.Matrix")] query: Value,
+    candidates: Option<u32>,
+) -> napi::Result<FunctionExpression> {
+    match query {
+        Value::Matrix(_) => Ok(FunctionExpression(
+            FunctionExpressionUnion::MultiVectorDistance {
+                field,
+                query,
+                candidates,
+            },
+        )),
+        v => Err(napi::Error::from_reason(format!(
+            "Multi-vector query must be a matrix value, got: {:?}",
+            v
+        ))
+        .into()),
+    }
+}

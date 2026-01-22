@@ -4,6 +4,7 @@ export declare const field: typeof query.field;
 export declare const filter: typeof query.filter;
 export declare const fn: {
   bm25Score: typeof query_fn.bm25Score;
+  multiVectorDistance: typeof query_fn.multiVectorDistance;
   semanticSimilarity: typeof query_fn.semanticSimilarity;
   vectorDistance: typeof query_fn.vectorDistance;
 };

@@ -14,3 +14,5 @@ exports.i8Vector = data.i8Vector;
 exports.u8SparseVector = data.u8SparseVector;
 exports.f32SparseVector = data.f32SparseVector;
 exports.SparseVector = data.SparseVector;
+exports.matrix = data.matrix;
+exports.Matrix = data.Matrix;

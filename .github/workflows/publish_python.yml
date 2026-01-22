@@ -106,14 +106,20 @@ jobs:
           - runner: windows-latest
             target: x64
             protoc_arch: win64
-          - runner: windows-2022 # todo: make it work for x86 windows-latest(Windows-2025)
+          - runner: windows-latest
             target: x86
             protoc_arch: win32
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: 3.x
+          python-version: |
+            3.9.13
+            3.10
+            3.11
+            3.12
+            3.13
+            3.14
           architecture: ${{ matrix.platform.target }}
       - name: Install protoc
         run: |
@@ -129,8 +135,7 @@ jobs:
         with:
           maturin-version: 1.9.0
           target: ${{ matrix.platform.target }}
-          # Only build for python3.9-3.13, not 3.14, for both x64 and x86
-          args: --release --out dist -i python3.9 -i python3.10 -i python3.11 -i python3.12 -i python3.13
+          args: --release --out dist -i python3.9 -i python3.10 -i python3.11 -i python3.12 -i python3.13 -i python3.14
           sccache: "true"
           working-directory: topk-py
       - name: Upload wheels

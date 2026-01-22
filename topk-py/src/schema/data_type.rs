@@ -7,14 +7,28 @@ pub enum DataType {
     Integer(),
     Float(),
     Boolean(),
-    F32Vector { dimension: u32 },
-    U8Vector { dimension: u32 },
-    I8Vector { dimension: u32 },
-    BinaryVector { dimension: u32 },
+    F32Vector {
+        dimension: u32,
+    },
+    U8Vector {
+        dimension: u32,
+    },
+    I8Vector {
+        dimension: u32,
+    },
+    BinaryVector {
+        dimension: u32,
+    },
     F32SparseVector(),
     U8SparseVector(),
     Bytes(),
-    List { value_type: ListValueType },
+    List {
+        value_type: ListValueType,
+    },
+    Matrix {
+        dimension: u32,
+        value_type: MatrixValueType,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -23,6 +37,63 @@ pub enum ListValueType {
     Text,
     Integer,
     Float,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[pyclass(eq, eq_int)]
+pub enum MatrixValueType {
+    F32,
+    F16,
+    F8,
+    U8,
+    I8,
+}
+
+impl From<MatrixValueType> for topk_rs::proto::v1::control::field_type_matrix::MatrixValueType {
+    fn from(value: MatrixValueType) -> Self {
+        match value {
+            MatrixValueType::F32 => {
+                topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::F32
+            }
+            MatrixValueType::F16 => {
+                topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::F16
+            }
+            MatrixValueType::F8 => {
+                topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::F8
+            }
+            MatrixValueType::U8 => {
+                topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::U8
+            }
+            MatrixValueType::I8 => {
+                topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::I8
+            }
+        }
+    }
+}
+
+impl From<topk_rs::proto::v1::control::field_type_matrix::MatrixValueType> for MatrixValueType {
+    fn from(value: topk_rs::proto::v1::control::field_type_matrix::MatrixValueType) -> Self {
+        match value {
+            topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::F32 => {
+                MatrixValueType::F32
+            }
+            topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::F16 => {
+                MatrixValueType::F16
+            }
+            topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::F8 => {
+                MatrixValueType::F8
+            }
+            topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::U8 => {
+                MatrixValueType::U8
+            }
+            topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::I8 => {
+                MatrixValueType::I8
+            }
+            topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::Unspecified => {
+                unreachable!("Invalid matrix value type")
+            }
+        }
+    }
 }
 
 impl From<ListValueType> for topk_rs::proto::v1::control::FieldTypeList {
@@ -92,6 +163,13 @@ impl Into<topk_rs::proto::v1::control::field_type::DataType> for DataType {
             DataType::List { value_type } => {
                 topk_rs::proto::v1::control::field_type::DataType::List(value_type.into())
             }
+            DataType::Matrix {
+                dimension,
+                value_type,
+            } => topk_rs::proto::v1::control::field_type::DataType::matrix(
+                dimension,
+                value_type.into(),
+            ),
         }
     }
 }
@@ -141,7 +219,10 @@ impl From<topk_rs::proto::v1::control::field_type::DataType> for DataType {
             topk_rs::proto::v1::control::field_type::DataType::List(list) => DataType::List {
                 value_type: list.value_type().into(),
             },
-            topk_rs::proto::v1::control::field_type::DataType::Matrix(_mat) => todo!(),
+            topk_rs::proto::v1::control::field_type::DataType::Matrix(matrix) => DataType::Matrix {
+                dimension: matrix.dimension,
+                value_type: matrix.value_type().into(),
+            },
         }
     }
 }

@@ -16,6 +16,11 @@ pub enum FunctionExpressionUnion {
         query: Value,
         skip_refine: bool,
     },
+    MultiVectorDistance {
+        field: String,
+        query: Value,
+        candidates: Option<u32>,
+    },
     SemanticSimilarity {
         field: String,
         query: String,
@@ -33,6 +38,11 @@ impl From<FunctionExpression> for topk_rs::proto::v1::data::FunctionExpr {
                 query,
                 skip_refine,
             } => topk_rs::proto::v1::data::FunctionExpr::vector_distance(field, query, skip_refine),
+            FunctionExpressionUnion::MultiVectorDistance {
+                field,
+                query,
+                candidates,
+            } => topk_rs::proto::v1::data::FunctionExpr::multi_vector_distance(field, query, candidates),
             FunctionExpressionUnion::SemanticSimilarity { field, query } => {
                 topk_rs::proto::v1::data::FunctionExpr::semantic_similarity(field, query)
             }

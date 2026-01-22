@@ -1,3 +1,6 @@
+import typing
+import builtins;
+
 from topk_sdk import data
 from topk_sdk.schema import (
     binary_vector,
@@ -6,6 +9,8 @@ from topk_sdk.schema import (
     i8_vector,
     int,
     keyword_index,
+    matrix,
+    multi_vector_index,
     semantic_index,
     text,
     u8_sparse_vector,
@@ -371,3 +376,189 @@ class semantic:
                 "summary": "A shepherd boy journeys to fulfill his destiny and discover the meaning of life.",
             },
         ]
+
+
+class multi_vec:
+    @staticmethod
+    def cast(value_type: str, matrix: typing.List[typing.List[float]]) -> data.Matrix:
+        """Cast f32 matrix data to a different value type.
+
+        Similar to the Rust implementation, this function converts f32 matrix values
+        to the target value type.
+        """
+        if value_type == "f32":
+            return data.matrix(matrix, value_type="f32")
+        elif value_type == "f16":
+            return data.matrix(matrix, value_type="f16")
+        elif value_type == "f8":
+            return data.matrix(matrix, value_type="f8")
+        elif value_type == "u8":
+            # Convert f32 to u8: (abs(v) * 64.0).round() as u8
+            u8_rows = [
+                [builtins.int(round(abs(v) * 64.0)) for v in row] for row in matrix
+            ]
+            return data.matrix(u8_rows, value_type="u8")
+        elif value_type == "i8":
+            # Convert f32 to i8: (v * 64.0).round() and clip to i8 range
+            i8_rows = [
+                [multi_vec.clip_number_to_i8(builtins.int(round(v * 64.0))) for v in row] for row in matrix
+            ]
+
+            return data.matrix(i8_rows, value_type="i8")
+        else:
+            raise ValueError(f"Unsupported value_type: {value_type}")
+
+    @staticmethod
+    def clip_number_to_i8(number: builtins.int) -> builtins.int:
+        return max(min(number, 127), -128)
+
+    @staticmethod
+    def setup(ctx: ProjectContext, value_type: str):
+        collection = ctx.client.collections().create(
+            ctx.scope(f"multi_vec_{value_type}"),
+            schema=multi_vec.schema(value_type),
+        )
+
+        lsn = ""
+        docs_list = multi_vec.docs(value_type)
+        # Upsert in chunks of 4
+        for i in range(0, len(docs_list), 4):
+            chunk = docs_list[i : i + 4]
+            lsn = ctx.client.collection(collection.name).upsert(chunk)
+
+        count = ctx.client.collection(collection.name).count(lsn=lsn)
+        assert count == len(docs_list)
+
+        return collection
+
+    @staticmethod
+    def schema(value_type: str):
+        return {
+            "title": text().required().index(keyword_index()),
+            "published_year": int().required(),
+            "token_embeddings": matrix(7, value_type).index(  # type: ignore
+                multi_vector_index("maxsim")
+            ),
+        }
+
+    @staticmethod
+    def docs(value_type: str):
+        # !!! IMPORTANT !!!
+        # Do not change the values of existing fields.
+        # If you need to test new behavior which is not already covered by existing fields, add a new field.
+        base_docs = [
+            {
+                "_id": "doc_0",
+                "title": "To Kill a Mockingbird",
+                "published_year": 1960,
+                "token_embeddings": multi_vec.cast(
+                    value_type,
+                    [[0.9719, 0.132, 0.5612, -1.1843, -0.2115, 0.1455, -1.6471], [-0.1054, 1.6053, -0.0901, 0.5288, -0.6347, 0.9521, -0.8853]],
+                ),
+            },
+            {
+                "_id": "doc_1",
+                "title": "1984",
+                "published_year": 1949,
+                "token_embeddings": multi_vec.cast(
+                    value_type,
+                    [
+                        [0.4364, -0.4954, 0.3665, 1.5041, -1.4773, -0.701, -0.9732],
+                        [-1.2239, 1.7501, 0.4089, 2.0643, -1.3925, 0.4711, -0.6247],
+                    ],
+                ),
+            },
+            {
+                "_id": "doc_2",
+                "title": "Pride and Prejudice",
+                "published_year": 1813,
+                "token_embeddings": multi_vec.cast(
+                    value_type,
+                    [[-2.6447, 0.3202, -0.5956, 0.6756, 1.0693, -1.0891, 1.0181]],
+                ),
+            },
+            {
+                "_id": "doc_3",
+                "title": "The Great Gatsby",
+                "published_year": 1925,
+                "token_embeddings": multi_vec.cast(
+                    value_type,
+                    [
+                        [0.1643, -0.2945, 1.3312, -0.3341, -0.3304, -0.029, -0.4426],
+                        [-0.0975, -0.3696, -0.4106, -0.451, 0.4149, 0.8296, 0.3084],
+                        [0.68, -0.182, -0.2652, -0.9707, -0.3433, 0.9671, -1.9293],
+                    ],
+                ),
+            },
+            {
+                "_id": "doc_4",
+                "title": "The Catcher in the Rye",
+                "published_year": 1951,
+                "token_embeddings": multi_vec.cast(
+                    value_type,
+                    [
+                        [0.8748, 0.9163, 1.5845, -1.303, 1.7739, 0.9365, 1.2679],
+                        [-0.6695, 0.5488, -1.0841, 0.3331, 0.5206, -1.2897, 0.6149],
+                    ],
+                ),
+            },
+            {
+                "_id": "doc_5",
+                "title": "Moby-Dick",
+                "published_year": 1851,
+                "token_embeddings": multi_vec.cast(
+                    value_type,
+                    [
+                        [-0.6367, -0.5482, -1.2782, 1.0357, 1.044, -1.7687, 0.1703],
+                        [-1.379, 0.0448, -0.7917, -1.693, -0.6001, 0.0598, 1.5035],
+                        [1.968, -0.8128, 0.7871, -1.2036, -0.6445, -0.0684, 0.3407],
+                    ],
+                ),
+            },
+            {
+                "_id": "doc_6",
+                "title": "The Hobbit",
+                "published_year": 1937,
+                "token_embeddings": multi_vec.cast(
+                    value_type,
+                    [
+                        [-0.4733, 0.5792, 0.1226, 0.4607, -0.3138, -0.2211, -0.1725],
+                        [1.0828, -0.9416, 0.0848, 1.5135, 1.0625, 0.5481, 0.1558],
+                        [0.71, -1.3281, 0.5986, -2.2235, -0.1252, -0.5943, 0.6521],
+                    ],
+                ),
+            },
+            {
+                "_id": "doc_7",
+                "title": "Harry Potter and the Sorcerer's Stone",
+                "published_year": 1997,
+                "token_embeddings": multi_vec.cast(
+                    value_type,
+                    [
+                        [-0.4046, -0.1552, 2.632, -0.5471, -0.1942, -0.731, -1.1103],
+                        [0.5813, 0.247, 0.0275, 0.0063, -2.4539, -0.2918, 1.1274],
+                        [1.0666, 0.5535, 1.184, 0.5897, 1.2976, 1.2298, 2.6738],
+                    ],
+                ),
+            },
+            {
+                "_id": "doc_8",
+                "title": "The Lord of the Rings: The Fellowship of the Ring",
+                "published_year": 1954,
+                "token_embeddings": multi_vec.cast(
+                    value_type,
+                    [
+                        [-0.2822, -0.4862, 2.0163, -1.4105, 2.1853, 0.583, 0.7119],
+                        [-1.7254, 0.3599, 0.2296, 0.1091, -0.6483, 0.3901, -0.9539],
+                        [-0.5296, -0.3046, 1.5027, 0.7712, -1.071, 0.7371, 0.1228],
+                        [1.7048, 0.182, 0.3116, 0.7806, 0.2414, -0.7322, -0.1204],
+                    ],
+                ),
+            },
+            {
+                "_id": "doc_9",
+                "title": "The Alchemist",
+                "published_year": 1988,
+            },
+        ]
+        return base_docs

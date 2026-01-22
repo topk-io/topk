@@ -1,5 +1,7 @@
 import builtins
 import typing
+import numpy
+
 from enum import Enum
 
 import topk_sdk.data
@@ -641,6 +643,45 @@ class fn:
           )
           .filter(match("animal"))
           .topk(field("text_score"), 10)
+        )
+        ```
+        """
+        ...
+
+    @staticmethod
+    def multi_vector_distance(
+        field: builtins.str,
+        matrix: typing.Union[
+            topk_sdk.data.Matrix,
+            numpy.ndarray,
+            list[list[float]],
+            list[list[int]],
+        ],
+        candidates: typing.Optional[builtins.int] = None,
+    ) -> FunctionExpr:
+        """
+        Calculate the multi-vector distance between a field and a query matrix.
+
+        The query matrix can be a list of lists (defaults to f32), a [numpy array](https://numpy.org/doc/stable/reference/generated/numpy.array.html) (type inferred from dtype),
+        or a [`Matrix`](https://docs.topk.io/sdk/topk-py/data#Matrix) instance. To specify a different matrix type,
+        use [`matrix()`](https://docs.topk.io/sdk/topk-py/data#matrix-2) with `value_type` or a numpy array with the
+        corresponding dtype.
+
+        The optional `candidates` parameter limits the number of candidate vectors considered during search.
+
+        ```python
+        from topk_sdk.query import field, fn, select
+
+        client.collection("books").query(
+          select(
+            "title",
+            title_distance=fn.multi_vector_distance(
+              "title_embedding",
+              [[0.1, 0.2, 0.3, ...], [0.4, 0.5, 0.6, ...]],
+              candidates=100
+            )
+          )
+          .topk(field("title_distance"), 10)
         )
         ```
         """

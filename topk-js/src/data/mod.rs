@@ -5,6 +5,10 @@ mod list;
 pub use list::List;
 pub use list::Values;
 
+mod matrix;
+pub use matrix::Matrix;
+pub use matrix::MatrixValueType;
+
 mod value;
 pub use value::NativeValue;
 pub use value::Value;
@@ -188,6 +192,26 @@ pub fn string_list(values: Vec<String>) -> List {
     List {
         values: Values::String(values),
     }
+}
+
+/// Create a [Matrix](https://docs.topk.io/sdk/topk-js/data#Matrix) type containing matrix values.
+///
+/// The `values` parameter must be an array of number arrays. When passing an array of number arrays,
+/// the optional `valueType` parameter specifies the matrix type.
+/// If `valueType` is not provided, the matrix defaults to f32.
+///
+/// ```javascript
+/// import { matrix } from "topk-js/data";
+///
+/// // Array of number arrays with explicit type
+/// matrix([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], "f32")
+///
+/// // Array of number arrays defaults to f32
+/// matrix([[1.0, 2.0], [3.0, 4.0]])
+/// ```
+#[napi(namespace = "data")]
+pub fn matrix(values: Vec<Vec<f64>>, value_type: Option<MatrixValueType>) -> napi::Result<Matrix> {
+    Matrix::from_list_of_lists(values, value_type)
 }
 
 /// Creates a [SparseVector](https://docs.topk.io/sdk/topk-js/data#SparseVector) type containing a sparse vector of 32-bit floats. This function is an alias for [f32SparseList()](https://docs.topk.io/sdk/topk-js/data#f32sparselist).

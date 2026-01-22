@@ -1,7 +1,7 @@
 use crate::error::RustError;
 use crate::schema::field_spec::FieldSpec;
 use crate::{data::collection::Collection, schema::Schema};
-use pyo3::prelude::*;
+use pyo3::{prelude::*, types::PyAny};
 use pyo3_async_runtimes::tokio::future_into_py;
 use std::{collections::HashMap, sync::Arc};
 
@@ -18,7 +18,7 @@ impl AsyncCollectionsClient {
 
 #[pymethods]
 impl AsyncCollectionsClient {
-    pub fn get(&self, py: Python<'_>, collection_name: String) -> PyResult<PyObject> {
+    pub fn get(&self, py: Python<'_>, collection_name: String) -> PyResult<Py<PyAny>> {
         let client = self.client.clone();
 
         future_into_py(py, async move {
@@ -35,7 +35,7 @@ impl AsyncCollectionsClient {
         .map(|result| result.into())
     }
 
-    pub fn list(&self, py: Python<'_>) -> PyResult<PyObject> {
+    pub fn list(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let client = self.client.clone();
 
         future_into_py(py, async move {
@@ -54,7 +54,7 @@ impl AsyncCollectionsClient {
         py: Python<'_>,
         collection_name: String,
         schema: HashMap<String, FieldSpec>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let client = self.client.clone();
 
         future_into_py(py, async move {
@@ -73,7 +73,7 @@ impl AsyncCollectionsClient {
         .map(|result| result.into())
     }
 
-    pub fn delete(&self, py: Python<'_>, collection_name: String) -> PyResult<PyObject> {
+    pub fn delete(&self, py: Python<'_>, collection_name: String) -> PyResult<Py<PyAny>> {
         let client = self.client.clone();
 
         future_into_py(py, async move {

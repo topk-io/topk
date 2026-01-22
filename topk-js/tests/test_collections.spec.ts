@@ -1,3 +1,4 @@
+import { MatrixValueType } from '../lib/data';
 import {
   binaryVector,
   bool,
@@ -5,6 +6,8 @@ import {
   f32Vector,
   float,
   int,
+  matrix,
+  multiVectorIndex,
   text,
   u8Vector,
   vectorIndex,
@@ -149,6 +152,40 @@ describe("Collections", () => {
 
     expect(collection.schema.bytes.dataType.type).toBe("Bytes");
     expect(collection.schema.bytes.required).toBe(false);
+  });
+
+  test("matrix schema", async () => {
+    const ctx = getContext();
+
+    const matrixValueTypes: Array<[MatrixValueType, string]> = [
+      ["f32", "f32"],
+      ["u8", "u8"],
+      ["i8", "i8"],
+      ["f16", "f16"],
+      ["f8", "f8"],
+    ];
+
+    for (const [valueType, expectedValueType] of matrixValueTypes) {
+      const schema = {
+        token_embeddings: matrix({ dimension: 7, valueType }).index(
+          multiVectorIndex({ metric: "maxsim" })
+        ),
+      };
+      const collection = await ctx.createCollection(
+        `test_matrix_${valueType}`,
+        schema
+      );
+      expect(collection.schema.token_embeddings.dataType.type).toBe("Matrix");
+      expect(
+        collection.schema.token_embeddings.dataType.type === "Matrix" &&
+          collection.schema.token_embeddings.dataType.dimension
+      ).toBe(7);
+      expect(
+        collection.schema.token_embeddings.dataType.type === "Matrix" &&
+          collection.schema.token_embeddings.dataType.valueType
+      ).toBe(expectedValueType);
+      expect(collection.schema.token_embeddings.required).toBe(false);
+    }
   });
 
   test("incorrect schema", async () => {
