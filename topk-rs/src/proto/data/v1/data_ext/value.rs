@@ -211,10 +211,60 @@ impl Value {
         }
     }
 
+    pub fn as_u32_list(&self) -> Option<&[u32]> {
+        match &self.value {
+            Some(value::Value::List(list)) => match &list.values {
+                Some(list::Values::U32(v)) => Some(&v.values),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    pub fn as_u64_list(&self) -> Option<&[u64]> {
+        match &self.value {
+            Some(value::Value::List(list)) => match &list.values {
+                Some(list::Values::U64(v)) => Some(&v.values),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    pub fn as_i32_list(&self) -> Option<&[i32]> {
+        match &self.value {
+            Some(value::Value::List(list)) => match &list.values {
+                Some(list::Values::I32(v)) => Some(&v.values),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    pub fn as_i64_list(&self) -> Option<&[i64]> {
+        match &self.value {
+            Some(value::Value::List(list)) => match &list.values {
+                Some(list::Values::I64(v)) => Some(&v.values),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
     pub fn as_f32_list(&self) -> Option<&[f32]> {
         match &self.value {
             Some(value::Value::List(list)) => match &list.values {
                 Some(list::Values::F32(v)) => Some(&v.values),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    pub fn as_f64_list(&self) -> Option<&[f64]> {
+        match &self.value {
+            Some(value::Value::List(list)) => match &list.values {
+                Some(list::Values::F64(v)) => Some(&v.values),
                 _ => None,
             },
             _ => None,
@@ -388,8 +438,26 @@ impl From<f64> for Value {
     }
 }
 
+impl From<Vec<i32>> for Value {
+    fn from(value: Vec<i32>) -> Self {
+        Value::list(value)
+    }
+}
+
 impl From<Vec<u32>> for Value {
     fn from(value: Vec<u32>) -> Self {
+        Value::list(value)
+    }
+}
+
+impl From<Vec<f32>> for Value {
+    fn from(value: Vec<f32>) -> Self {
+        Value::list(value)
+    }
+}
+
+impl From<Vec<i64>> for Value {
+    fn from(value: Vec<i64>) -> Self {
         Value::list(value)
     }
 }
@@ -400,8 +468,8 @@ impl From<Vec<u64>> for Value {
     }
 }
 
-impl From<Vec<f32>> for Value {
-    fn from(value: Vec<f32>) -> Self {
+impl From<Vec<f64>> for Value {
+    fn from(value: Vec<f64>) -> Self {
         Value::list(value)
     }
 }
