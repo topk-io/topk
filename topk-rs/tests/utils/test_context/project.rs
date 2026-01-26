@@ -1,5 +1,5 @@
 use test_context::AsyncTestContext;
-use topk_rs::{Client, ClientConfig};
+use topk_rs::{Client, ClientConfig, Error};
 use uuid::Uuid;
 
 pub struct ProjectTestContext {
@@ -10,6 +10,36 @@ pub struct ProjectTestContext {
 impl ProjectTestContext {
     pub fn wrap(&self, name: &str) -> String {
         format!("{}-{}", self.scope, name)
+    }
+
+    async fn cleanup_collections(&self) {
+        let client = self.client.collections();
+        let collections = client
+            .list()
+            .await
+            .expect("Failed to list collections on teardown");
+        for collection in collections {
+            if collection.name.starts_with(&self.scope) {
+                println!("Deleting collection: {}", collection.name);
+                let res = client.delete(&collection.name).await;
+
+                if let Err(e) = res {
+                    println!("Failed to delete collection {}: {}", collection.name, e);
+                }
+            }
+        }
+    }
+
+    async fn cleanup_datasets(&self) -> Result<(), Error> {
+        let client = self.client.datasets();
+        let datasets = client.list().await?;
+        for dataset in datasets {
+            if dataset.name.starts_with(&self.scope) {
+                client.delete(&dataset.name).await?;
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -32,19 +62,13 @@ impl AsyncTestContext for ProjectTestContext {
     }
 
     async fn teardown(self) {
-        let client = self.client.collections();
-        let collections = client
-            .list()
-            .await
-            .expect("Failed to list collections on teardown");
-        for collection in collections {
-            if collection.name.starts_with(&self.scope) {
-                println!("Deleting collection: {}", collection.name);
-                let res = client.delete(&collection.name).await;
-
-                if let Err(e) = res {
-                    println!("Failed to delete collection {}: {}", collection.name, e);
-                }
+        match self.cleanup_datasets().await {
+            Ok(_) => {
+                self.cleanup_collections().await;
+            }
+            Err(e) => {
+                // TODO: collections.list() should not return datasets collections
+                println!("Failed to cleanup datasets: {}", e);
             }
         }
     }
