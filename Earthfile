@@ -12,7 +12,7 @@ test-rs:
 
     # install dependencies
     RUN apt-get update && apt-get install -y protobuf-compiler
-    RUN cargo install cargo-nextest
+    RUN cargo install cargo-nextest --locked
 
     DO rust+INIT --keep_fingerprints=true
     WORKDIR /sdk
@@ -130,7 +130,7 @@ test-runner:
 
     # install dependencies
     RUN apt-get update && apt-get install -y protobuf-compiler
-    RUN cargo install cargo-nextest
+    RUN cargo install cargo-nextest --locked
 
     DO rust+INIT --keep_fingerprints=true
     WORKDIR /sdk
