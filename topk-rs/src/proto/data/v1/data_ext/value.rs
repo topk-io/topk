@@ -468,12 +468,6 @@ impl From<Vec<u64>> for Value {
     }
 }
 
-impl From<Vec<f64>> for Value {
-    fn from(value: Vec<f64>) -> Self {
-        Value::list(value)
-    }
-}
-
 impl From<Vec<u8>> for Value {
     fn from(value: Vec<u8>) -> Self {
         Value::list(value)
