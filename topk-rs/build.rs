@@ -9,6 +9,8 @@ fn build_topk_v1_protos() {
         "../protos/topk/control/v1/collection_service.proto",
         "../protos/topk/control/v1/collection.proto",
         "../protos/topk/control/v1/schema.proto",
+        "../protos/topk/control/v1/dataset_service.proto",
+        "../protos/topk/control/v1/dataset.proto",
         "../protos/topk/data/v1/write_service.proto",
         "../protos/topk/data/v1/document.proto",
         "../protos/topk/data/v1/query_service.proto",

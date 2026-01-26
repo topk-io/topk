@@ -1,0 +1,9 @@
+syntax = "proto3";
+package topk.control.v1;
+
+message Dataset {
+  string name = 1;
+  string org_id = 2;
+  string project_id = 3;
+  string region = 4;
+}

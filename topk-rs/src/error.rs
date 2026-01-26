@@ -20,6 +20,12 @@ pub enum Error {
     #[error("collection not found")]
     CollectionNotFound,
 
+    #[error("dataset already exists")]
+    DatasetAlreadyExists,
+
+    #[error("dataset not found")]
+    DatasetNotFound,
+
     #[error("not found")]
     NotFound,
 
@@ -73,6 +79,8 @@ impl Error {
             Error::RetryTimeout => false,
             Error::CollectionAlreadyExists => false,
             Error::CollectionNotFound => false,
+            Error::DatasetAlreadyExists => false,
+            Error::DatasetNotFound => false,
             Error::NotFound => false,
             Error::SchemaValidationError(_) => false,
             Error::DocumentValidationError(_) => false,
