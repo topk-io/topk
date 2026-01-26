@@ -1,4 +1,5 @@
 use crate::proto::v1::control::collection_service_client::CollectionServiceClient;
+use crate::proto::v1::control::dataset_service_client::DatasetServiceClient;
 use crate::proto::v1::data::query_service_client::QueryServiceClient;
 use crate::proto::v1::data::write_service_client::WriteServiceClient;
 use std::sync::Arc;
@@ -8,6 +9,9 @@ use tonic::transport::Channel;
 
 mod collections;
 pub use collections::CollectionsClient;
+
+mod datasets;
+pub use datasets::DatasetsClient;
 
 mod collection;
 pub use collection::CollectionClient;
@@ -71,6 +75,11 @@ impl Client {
     // Collection operations (Control plane)
     pub fn collections(&self) -> CollectionsClient {
         CollectionsClient::new(&self.config, &self.channel)
+    }
+
+    // Dataset operations (Control plane)
+    pub fn datasets(&self) -> DatasetsClient {
+        DatasetsClient::new(&self.config, &self.channel)
     }
 
     // Document operations (Data plane)
@@ -181,6 +190,22 @@ async fn create_collection_client<'a>(
 > {
     create_client!(
         CollectionServiceClient,
+        channel,
+        &config.endpoint(),
+        config.headers()
+    )
+    .await
+}
+
+async fn create_dataset_client<'a>(
+    config: &'a ClientConfig,
+    channel: &'a OnceCell<Channel>,
+) -> Result<
+    DatasetServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>,
+    super::Error,
+> {
+    create_client!(
+        DatasetServiceClient,
         channel,
         &config.endpoint(),
         config.headers()
