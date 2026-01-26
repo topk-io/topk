@@ -23,10 +23,10 @@ pub enum Error {
     #[error("not found")]
     NotFound,
 
-    #[error("invalid collection schema")]
+    #[error("invalid collection schema: {0:?}")]
     SchemaValidationError(ValidationErrorBag<SchemaValidationError>),
 
-    #[error("document validation error")]
+    #[error("document validation error: {0:?}")]
     DocumentValidationError(ValidationErrorBag<DocumentValidationError>),
 
     #[error("collection validation error")]

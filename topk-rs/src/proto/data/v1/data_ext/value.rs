@@ -221,6 +221,16 @@ impl Value {
         }
     }
 
+    pub fn as_u32_list(&self) -> Option<&[u32]> {
+        match &self.value {
+            Some(value::Value::List(list)) => match &list.values {
+                Some(list::Values::U32(v)) => Some(&v.values),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
     pub fn as_string_list(&self) -> Option<&[String]> {
         match &self.value {
             Some(value::Value::List(list)) => match &list.values {
