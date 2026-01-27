@@ -23,6 +23,8 @@ pub enum FieldIndexUnion {
     },
     MultiVectorIndex {
         metric: MultiVectorDistanceMetric,
+        sketch_bits: Option<u32>,
+        quantization: Option<MultiVectorQuantization>,
     },
 }
 
@@ -45,8 +47,16 @@ impl FieldIndex {
         })
     }
 
-    pub(crate) fn multi_vector_index(metric: MultiVectorDistanceMetric) -> Self {
-        Self(FieldIndexUnion::MultiVectorIndex { metric })
+    pub(crate) fn multi_vector_index(
+        metric: MultiVectorDistanceMetric,
+        sketch_bits: Option<u32>,
+        quantization: Option<MultiVectorQuantization>,
+    ) -> Self {
+        Self(FieldIndexUnion::MultiVectorIndex {
+            metric,
+            sketch_bits,
+            quantization,
+        })
     }
 }
 
@@ -198,6 +208,52 @@ impl From<topk_rs::proto::v1::control::MultiVectorDistanceMetric> for MultiVecto
     }
 }
 
+#[napi(string_enum, namespace = "schema")]
+#[derive(Clone, Debug)]
+pub enum MultiVectorQuantization {
+    #[napi(value = "1bit")]
+    Binary1bit,
+    #[napi(value = "2bit")]
+    Binary2bit,
+    #[napi(value = "scalar")]
+    Scalar,
+}
+
+impl From<MultiVectorQuantization> for topk_rs::proto::v1::control::MultiVectorQuantization {
+    fn from(metric: MultiVectorQuantization) -> Self {
+        match metric {
+            MultiVectorQuantization::Binary1bit => {
+                topk_rs::proto::v1::control::MultiVectorQuantization::Binary1bit
+            }
+            MultiVectorQuantization::Binary2bit => {
+                topk_rs::proto::v1::control::MultiVectorQuantization::Binary2bit
+            }
+            MultiVectorQuantization::Scalar => {
+                topk_rs::proto::v1::control::MultiVectorQuantization::Scalar
+            }
+        }
+    }
+}
+
+impl From<topk_rs::proto::v1::control::MultiVectorQuantization> for MultiVectorQuantization {
+    fn from(quantization: topk_rs::proto::v1::control::MultiVectorQuantization) -> Self {
+        match quantization {
+            topk_rs::proto::v1::control::MultiVectorQuantization::Binary1bit => {
+                MultiVectorQuantization::Binary1bit
+            }
+            topk_rs::proto::v1::control::MultiVectorQuantization::Binary2bit => {
+                MultiVectorQuantization::Binary2bit
+            }
+            topk_rs::proto::v1::control::MultiVectorQuantization::Scalar => {
+                MultiVectorQuantization::Scalar
+            }
+            topk_rs::proto::v1::control::MultiVectorQuantization::Unspecified => {
+                panic!("Invalid proto: Unspecified multi-vector quantization")
+            }
+        }
+    }
+}
+
 impl From<topk_rs::proto::v1::control::FieldIndex> for FieldIndexUnion {
     fn from(field_index: topk_rs::proto::v1::control::FieldIndex) -> Self {
         FieldIndex::from(field_index).0
@@ -239,6 +295,12 @@ impl From<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
                         )
                         .expect("Unsupported multi-vector distance metric")
                         .into(),
+                        mvi.sketch_bits,
+                        mvi.quantization.map(|q| {
+                            topk_rs::proto::v1::control::MultiVectorQuantization::try_from(q)
+                                .expect("Unsupported multi-vector quantization")
+                                .into()
+                        }),
                     )
                 }
             },
@@ -263,10 +325,15 @@ impl From<FieldIndex> for topk_rs::proto::v1::control::FieldIndex {
                 model,
                 embedding_type.map(|t| t.into()),
             ),
-            FieldIndexUnion::MultiVectorIndex { metric } => {
-                // TODO: add sketch_bits and quantization
-                topk_rs::proto::v1::control::FieldIndex::multi_vector(metric.into(), None, None)
-            }
+            FieldIndexUnion::MultiVectorIndex {
+                metric,
+                sketch_bits,
+                quantization,
+            } => topk_rs::proto::v1::control::FieldIndex::multi_vector(
+                metric.into(),
+                sketch_bits,
+                quantization.map(|q| q.into()),
+            ),
         }
     }
 }

@@ -791,7 +791,7 @@ export declare namespace schema {
     | { type: 'KeywordIndex', indexType: KeywordIndexType }
     | { type: 'VectorIndex', metric: VectorDistanceMetric }
     | { type: 'SemanticIndex', model?: string, embeddingType?: EmbeddingDataType }
-    | { type: 'MultiVectorIndex', metric: MultiVectorDistanceMetric }
+    | { type: 'MultiVectorIndex', metric: MultiVectorDistanceMetric, sketchBits?: number, quantization?: MultiVectorQuantization }
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `float` values.
    *
@@ -935,7 +935,14 @@ export declare namespace schema {
   export interface MultiVectorIndexOptions {
     /** The distance metric to use for multi-vector similarity */
     metric: MultiVectorDistanceMetric
+    /** Number of bits to use for multi-vector sketch */
+    sketchBits?: number
+    /** The quantization to use for multi-vector values */
+    quantization?: MultiVectorQuantization
   }
+  export type MultiVectorQuantization =  '1bit'|
+  '2bit'|
+  'scalar';
   /**
    * Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `semantic_index` values.
    *

@@ -5,7 +5,7 @@ pub mod field_spec;
 use data_type::DataType;
 use field_index::{
     EmbeddingDataType, FieldIndex, KeywordIndexType, MultiVectorDistanceMetric,
-    VectorDistanceMetric,
+    MultiVectorQuantization, VectorDistanceMetric,
 };
 use field_spec::FieldSpec;
 use napi_derive::napi;
@@ -311,6 +311,10 @@ pub fn semantic_index(options: Option<SemanticIndexOptions>) -> FieldIndex {
 pub struct MultiVectorIndexOptions {
     /// The distance metric to use for multi-vector similarity
     pub metric: MultiVectorDistanceMetric,
+    /// Number of bits to use for multi-vector sketch
+    pub sketch_bits: Option<u32>,
+    /// The quantization to use for multi-vector values
+    pub quantization: Option<MultiVectorQuantization>,
 }
 
 /// Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `multi_vector_index` values.
@@ -328,7 +332,7 @@ pub struct MultiVectorIndexOptions {
 /// ```
 #[napi(namespace = "schema")]
 pub fn multi_vector_index(options: MultiVectorIndexOptions) -> FieldIndex {
-    FieldIndex::multi_vector_index(options.metric)
+    FieldIndex::multi_vector_index(options.metric, options.sketch_bits, options.quantization)
 }
 
 /// Options for list field specifications.
