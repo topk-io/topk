@@ -2,6 +2,7 @@ use test_context::test_context;
 
 use topk_rs::data::literal;
 use topk_rs::proto::v1::control::field_type_matrix::MatrixValueType;
+use topk_rs::proto::v1::control::MultiVectorQuantization;
 use topk_rs::proto::v1::data::Matrix;
 use topk_rs::query::{field, fns, select};
 use topk_rs::Error;
@@ -20,46 +21,143 @@ const Q2: [f32; 3 * 7] = [
     -0.3407, 0.5301, -1.1665, -1.6396, 2.2458, 0.1597, 0.8082, 0.2963, 0.1538, 1.3943,
 ];
 
-#[test_context(ProjectTestContext)]
-#[tokio::test]
-async fn test_query_multi_vector_float(ctx: &mut ProjectTestContext) {
-    for dt in [
-        MatrixValueType::F32,
-        MatrixValueType::F16,
-        MatrixValueType::F8,
-    ] {
-        println!("dt={dt:?}");
-        let collection = dataset::multi_vec::setup(ctx, dt).await;
+macro_rules! test_query_multi_vector_float {
+    ($name:ident, $dt:expr, $sketch_bits:expr, $quant:expr) => {
+        #[test_context(ProjectTestContext)]
+        #[tokio::test]
+        async fn $name(ctx: &mut ProjectTestContext) {
+            let collection = dataset::multi_vec::setup(ctx, $dt, $sketch_bits, $quant).await;
 
-        for (q, expected_ids) in [
-            (Q1.to_vec(), ["doc_7", "doc_8", "doc_6"]),
-            (Q2.to_vec(), ["doc_0", "doc_6", "doc_8"]),
-        ] {
-            let result = ctx
-                .client
-                .collection(&collection.name)
-                .query(
-                    select([("title", field("title"))])
-                        .select([(
-                            "dist",
-                            fns::multi_vector_distance(
-                                "token_embeddings",
-                                dataset::multi_vec::cast(dt, Matrix::new(7, q)),
-                                None,
-                            ),
-                        )])
-                        .topk(field("dist"), 3, false),
-                    None,
-                    None,
-                )
-                .await
-                .expect("could not query");
+            for (q, expected_ids) in [
+                (Q1.to_vec(), ["doc_7", "doc_8", "doc_6"]),
+                (Q2.to_vec(), ["doc_0", "doc_6", "doc_8"]),
+            ] {
+                let result = ctx
+                    .client
+                    .collection(&collection.name)
+                    .query(
+                        select([("title", field("title"))])
+                            .select([(
+                                "dist",
+                                fns::multi_vector_distance(
+                                    "token_embeddings",
+                                    dataset::multi_vec::cast($dt, Matrix::new(7, q)),
+                                    None,
+                                ),
+                            )])
+                            .topk(field("dist"), 3, false),
+                        None,
+                        None,
+                    )
+                    .await
+                    .expect("could not query");
 
-            assert_eq!(result.len(), 3);
-            assert_doc_ids_ordered!(result, expected_ids);
+                assert_eq!(result.len(), 3);
+                assert_doc_ids_ordered!(result, expected_ids);
+            }
         }
-    }
+    };
 }
+
+test_query_multi_vector_float!(
+    test_query_multi_vector_float_f32,
+    MatrixValueType::F32,
+    None,
+    None
+);
+test_query_multi_vector_float!(
+    test_query_multi_vector_float_f16,
+    MatrixValueType::F16,
+    None,
+    None
+);
+
+test_query_multi_vector_float!(
+    test_query_multi_vector_float_f8,
+    MatrixValueType::F8,
+    None,
+    None
+);
+test_query_multi_vector_float!(
+    test_query_multi_vector_float_f32_1024b,
+    MatrixValueType::F32,
+    Some(1024),
+    None
+);
+test_query_multi_vector_float!(
+    test_query_multi_vector_float_f32_2048b,
+    MatrixValueType::F32,
+    Some(2048),
+    None
+);
+test_query_multi_vector_float!(
+    test_query_multi_vector_float_f32_4096b,
+    MatrixValueType::F32,
+    Some(4096),
+    None
+);
+test_query_multi_vector_float!(
+    test_query_multi_vector_float_f32_8192b,
+    MatrixValueType::F32,
+    Some(8192),
+    None
+);
+test_query_multi_vector_float!(
+    test_query_multi_vector_float_f32_scalar_quant,
+    MatrixValueType::F32,
+    None,
+    Some(MultiVectorQuantization::Scalar)
+);
+
+macro_rules! test_query_multi_vector_float_binary {
+    ($name:ident, $k:expr, $dt:expr, $sketch_bits:expr, $quant:expr) => {
+        #[test_context(ProjectTestContext)]
+        #[tokio::test]
+        async fn $name(ctx: &mut ProjectTestContext) {
+            let collection = dataset::multi_vec::setup(ctx, $dt, $sketch_bits, $quant).await;
+
+            for (q, top_1) in [(Q1.to_vec(), "doc_7"), (Q2.to_vec(), "doc_0")] {
+                let result = ctx
+                    .client
+                    .collection(&collection.name)
+                    .query(
+                        select([("title", field("title"))])
+                            .select([(
+                                "dist",
+                                fns::multi_vector_distance(
+                                    "token_embeddings",
+                                    dataset::multi_vec::cast($dt, Matrix::new(7, q)),
+                                    None,
+                                ),
+                            )])
+                            .topk(field("dist"), $k, false),
+                        None,
+                        None,
+                    )
+                    .await
+                    .expect("could not query");
+
+                assert_eq!(result.len(), $k);
+                assert!(result.iter().any(|r| r.id().unwrap() == top_1));
+            }
+        }
+    };
+}
+
+test_query_multi_vector_float_binary!(
+    test_query_multi_vector_float_f32_1bit_quant,
+    5,
+    MatrixValueType::F32,
+    None,
+    Some(MultiVectorQuantization::Binary1bit)
+);
+test_query_multi_vector_float_binary!(
+    test_query_multi_vector_float_f32_2bit_quant,
+    3,
+    MatrixValueType::F32,
+    None,
+    Some(MultiVectorQuantization::Binary2bit)
+);
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
@@ -81,7 +179,7 @@ async fn test_query_multi_vector_int(ctx: &mut ProjectTestContext) {
         ),
     ] {
         println!("dt={dt:?}");
-        let collection = dataset::multi_vec::setup(ctx, dt).await;
+        let collection = dataset::multi_vec::setup(ctx, dt, None, None).await;
 
         for (q, expected_ids) in queries {
             let result = ctx
@@ -113,7 +211,7 @@ async fn test_query_multi_vector_int(ctx: &mut ProjectTestContext) {
 #[test_context(ProjectTestContext)]
 #[tokio::test]
 async fn test_query_multi_vector_with_filter(ctx: &mut ProjectTestContext) {
-    let collection = dataset::multi_vec::setup(ctx, MatrixValueType::F32).await;
+    let collection = dataset::multi_vec::setup(ctx, MatrixValueType::F32, None, None).await;
 
     for (q, expected_ids) in [
         (Q1.to_vec(), ["doc_7", "doc_6", "doc_1"]),
@@ -144,7 +242,7 @@ async fn test_query_multi_vector_with_filter(ctx: &mut ProjectTestContext) {
 #[test_context(ProjectTestContext)]
 #[tokio::test]
 async fn test_query_multi_vector_with_invalid_dim(ctx: &mut ProjectTestContext) {
-    let collection = dataset::multi_vec::setup(ctx, MatrixValueType::F32).await;
+    let collection = dataset::multi_vec::setup(ctx, MatrixValueType::F32, None, None).await;
 
     let err = ctx
         .client
@@ -172,7 +270,7 @@ async fn test_query_multi_vector_with_invalid_dim(ctx: &mut ProjectTestContext) 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
 async fn test_query_multi_vector_with_invalid_data_type(ctx: &mut ProjectTestContext) {
-    let collection = dataset::multi_vec::setup(ctx, MatrixValueType::F32).await;
+    let collection = dataset::multi_vec::setup(ctx, MatrixValueType::F32, None, None).await;
 
     let err = ctx
         .client
@@ -200,7 +298,7 @@ async fn test_query_multi_vector_with_invalid_data_type(ctx: &mut ProjectTestCon
 #[test_context(ProjectTestContext)]
 #[tokio::test]
 async fn test_query_multi_vector_with_empty_query(ctx: &mut ProjectTestContext) {
-    let collection = dataset::multi_vec::setup(ctx, MatrixValueType::F32).await;
+    let collection = dataset::multi_vec::setup(ctx, MatrixValueType::F32, None, None).await;
 
     let err = ctx
         .client

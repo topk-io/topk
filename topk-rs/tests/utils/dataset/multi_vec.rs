@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
 use topk_rs::proto::v1::control::field_type_matrix::MatrixValueType;
-use topk_rs::proto::v1::control::{FieldIndex, KeywordIndexType, MultiVectorDistanceMetric};
+use topk_rs::proto::v1::control::{
+    FieldIndex, KeywordIndexType, MultiVectorDistanceMetric, MultiVectorQuantization,
+};
 use topk_rs::proto::v1::data::{matrix, Matrix};
 use topk_rs::proto::v1::{
     control::{Collection, FieldSpec},
@@ -50,13 +52,18 @@ pub fn cast(dt: MatrixValueType, matrix: Matrix) -> Matrix {
 }
 
 #[allow(dead_code)]
-pub async fn setup(ctx: &mut ProjectTestContext, dt: MatrixValueType) -> Collection {
+pub async fn setup(
+    ctx: &mut ProjectTestContext,
+    dt: MatrixValueType,
+    sketch_bits: Option<u32>,
+    quant: Option<MultiVectorQuantization>,
+) -> Collection {
     let collection = ctx
         .client
         .collections()
         .create(
             ctx.wrap(&format!("multi_vec_{}", dt.as_str_name())),
-            schema(dt),
+            schema(dt, sketch_bits, quant),
         )
         .await
         .expect("could not create collection");
@@ -85,12 +92,16 @@ pub async fn setup(ctx: &mut ProjectTestContext, dt: MatrixValueType) -> Collect
 }
 
 #[allow(dead_code)]
-pub fn schema(dt: MatrixValueType) -> HashMap<String, FieldSpec> {
+pub fn schema(
+    dt: MatrixValueType,
+    sketch_bits: Option<u32>,
+    quant: Option<MultiVectorQuantization>,
+) -> HashMap<String, FieldSpec> {
     schema!(
         "title" => FieldSpec::text(true, Some(KeywordIndexType::Text)),
         "published_year" => FieldSpec::integer(true),
         "token_embeddings" => FieldSpec::matrix(false, 7, dt)
-            .with_index(FieldIndex::multi_vector(MultiVectorDistanceMetric::Maxsim))
+            .with_index(FieldIndex::multi_vector(MultiVectorDistanceMetric::Maxsim, sketch_bits, quant))
     )
 }
 
