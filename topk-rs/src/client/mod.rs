@@ -16,6 +16,9 @@ pub use datasets::DatasetsClient;
 mod collection;
 pub use collection::CollectionClient;
 
+mod dataset;
+pub use dataset::DatasetClient;
+
 mod config;
 pub use config::ClientConfig;
 
@@ -85,6 +88,11 @@ impl Client {
     // Document operations (Data plane)
     pub fn collection(&self, name: impl Into<String>) -> CollectionClient {
         CollectionClient::new(self.config.clone(), self.channel.clone(), name.into())
+    }
+
+    // Dataset operations (Context plane)
+    pub fn dataset(&self, name: impl Into<String>) -> DatasetClient {
+        DatasetClient::new(self.config.clone(), self.channel.clone(), name.into())
     }
 }
 
@@ -200,10 +208,8 @@ async fn create_collection_client<'a>(
 async fn create_dataset_client<'a>(
     config: &'a ClientConfig,
     channel: &'a OnceCell<Channel>,
-) -> Result<
-    DatasetServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>,
-    super::Error,
-> {
+) -> Result<DatasetServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>, super::Error>
+{
     create_client!(
         DatasetServiceClient,
         channel,
