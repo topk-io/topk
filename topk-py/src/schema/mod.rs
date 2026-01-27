@@ -204,7 +204,12 @@ pub fn semantic_index(
 }
 
 #[pyfunction]
-pub fn multi_vector_index(metric: String) -> PyResult<field_index::FieldIndex> {
+#[pyo3(signature=(metric, sketch_bits=None, quantization=None))]
+pub fn multi_vector_index(
+    metric: String,
+    sketch_bits: Option<u32>,
+    quantization: Option<String>,
+) -> PyResult<field_index::FieldIndex> {
     let metric = match metric.to_lowercase().as_str() {
         "maxsim" => field_index::MultiVectorDistanceMetric::Maxsim,
         _ => {
@@ -214,8 +219,25 @@ pub fn multi_vector_index(metric: String) -> PyResult<field_index::FieldIndex> {
             )))
         }
     };
+    let quantization = match quantization {
+        Some(quantization) => match quantization.to_lowercase().as_str() {
+            "1bit" => Some(field_index::MultiVectorQuantization::Binary1bit),
+            "2bit" => Some(field_index::MultiVectorQuantization::Binary2bit),
+            "scalar" => Some(field_index::MultiVectorQuantization::Scalar),
+            q => {
+                return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                    "Invalid multi-vector quantization: {q}. Supported quantizations are: 1bit, 2bit, scalar.",
+                )))
+            }
+        },
+        None => None,
+    };
 
-    Ok(field_index::FieldIndex::MultiVectorIndex { metric })
+    Ok(field_index::FieldIndex::MultiVectorIndex {
+        metric,
+        sketch_bits,
+        quantization,
+    })
 }
 
 pub struct Schema(pub(crate) HashMap<String, FieldSpec>);
