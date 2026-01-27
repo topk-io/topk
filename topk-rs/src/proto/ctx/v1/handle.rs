@@ -7,12 +7,6 @@ impl From<Handle> for String {
     }
 }
 
-impl From<&str> for Handle {
-    fn from(s: &str) -> Self {
-        Self(s.to_string())
-    }
-}
-
 impl From<String> for Handle {
     fn from(s: String) -> Self {
         Self(s)

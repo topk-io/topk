@@ -12,7 +12,11 @@ async fn test_upsert_file_to_non_existent_dataset(ctx: &mut ProjectTestContext) 
     let err = ctx
         .client
         .dataset(ctx.wrap("nonexistent"))
-        .upsert_file("doc1".into(), &test_pdf_path(), HashMap::default())
+        .upsert_file(
+            "doc1".to_string().into(),
+            &test_pdf_path(),
+            HashMap::default(),
+        )
         .await
         .expect_err("should not be able to upsert file to non-existent dataset");
 
@@ -37,7 +41,7 @@ async fn test_upsert_file_pdf(ctx: &mut ProjectTestContext) {
     let handle = ctx
         .client
         .dataset(&dataset.name)
-        .upsert_file("doc1".into(), &test_pdf_path(), metadata)
+        .upsert_file("doc1".to_string().into(), &test_pdf_path(), metadata)
         .await
         .expect("could not upsert PDF file");
 
@@ -63,7 +67,7 @@ async fn test_upsert_file_markdown(ctx: &mut ProjectTestContext) {
     let handle = ctx
         .client
         .dataset(&dataset.name)
-        .upsert_file("doc2".into(), &test_pdf_path(), metadata)
+        .upsert_file("doc2".to_string().into(), &test_pdf_path(), metadata)
         .await;
 
     assert!(matches!(handle, Ok(_)));
@@ -85,7 +89,11 @@ async fn test_upsert_file_large(ctx: &mut ProjectTestContext) {
     let handle = ctx
         .client
         .dataset(&dataset.name)
-        .upsert_file("doc5".into(), &test_pdf_path(), HashMap::default())
+        .upsert_file(
+            "doc5".to_string().into(),
+            &test_pdf_path(),
+            HashMap::default(),
+        )
         .await;
 
     assert!(matches!(handle, Ok(_)));
@@ -106,7 +114,7 @@ async fn test_upsert_file_invalid_extension(ctx: &mut ProjectTestContext) {
     let err = ctx
         .client
         .dataset(&dataset.name)
-        .upsert_file("doc6".into(), &temp_file, HashMap::default())
+        .upsert_file("doc6".to_string().into(), &temp_file, HashMap::default())
         .await
         .expect_err("should not be able to upsert file with invalid extension");
 
@@ -128,7 +136,11 @@ async fn test_upsert_file_nonexistent_path(ctx: &mut ProjectTestContext) {
     let err = ctx
         .client
         .dataset(&dataset.name)
-        .upsert_file("doc7".into(), &nonexistent_path, HashMap::default())
+        .upsert_file(
+            "doc7".to_string().into(),
+            &nonexistent_path,
+            HashMap::default(),
+        )
         .await
         .expect_err("should not be able to upsert non-existent file");
 

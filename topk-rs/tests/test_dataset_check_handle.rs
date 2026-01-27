@@ -18,7 +18,11 @@ async fn test_check_handle_not_processed(ctx: &mut ProjectTestContext) {
     let handle = ctx
         .client
         .dataset(&dataset.name)
-        .upsert_file("doc1".into(), &test_pdf_path(), HashMap::default())
+        .upsert_file(
+            "doc1".to_string().into(),
+            &test_pdf_path(),
+            HashMap::default(),
+        )
         .await
         .expect("could not upsert file");
 
@@ -48,7 +52,7 @@ async fn test_check_handle_wait_until_processed(ctx: &mut ProjectTestContext) {
     let handle = ctx
         .client
         .dataset(&dataset.name)
-        .upsert_file("doc2".into(), &pdf_path, HashMap::default())
+        .upsert_file("doc2".to_string().into(), &pdf_path, HashMap::default())
         .await
         .expect("could not upsert file");
 
@@ -76,7 +80,7 @@ async fn test_check_handle_invalid_handle(ctx: &mut ProjectTestContext) {
     let err = ctx
         .client
         .dataset(&dataset.name)
-        .check_handle("invalid-handle-format-12345".into(), false)
+        .check_handle("invalid-handle-format-12345".to_string().into(), false)
         .await
         .expect_err("should not be able to check handle with invalid handle");
 
@@ -89,7 +93,7 @@ async fn test_check_handle_from_non_existent_dataset(ctx: &mut ProjectTestContex
     let err = ctx
         .client
         .dataset(ctx.wrap("nonexistent"))
-        .check_handle("some-handle".into(), false)
+        .check_handle("some-handle".to_string().into(), false)
         .await
         .expect_err("should not be able to check handle for non-existent dataset");
 

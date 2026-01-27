@@ -48,12 +48,6 @@ impl From<FileId> for String {
     }
 }
 
-impl From<&str> for FileId {
-    fn from(s: &str) -> Self {
-        FileId(s.to_string())
-    }
-}
-
 impl From<String> for FileId {
     fn from(s: String) -> Self {
         FileId(s)
