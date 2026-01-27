@@ -1,13 +1,15 @@
+use std::sync::Arc;
+
+use futures_util::TryFutureExt;
+use tokio::sync::OnceCell;
+
 use super::config::ClientConfig;
-use super::create_dataset_client;
+use super::create_datasets_client;
 use super::retry::call_with_retry;
 use crate::error::Error;
 use crate::proto::v1::control::{
-    Dataset, CreateDatasetRequest, DeleteDatasetRequest, GetDatasetRequest, ListDatasetsRequest,
+    CreateDatasetRequest, Dataset, DeleteDatasetRequest, GetDatasetRequest, ListDatasetsRequest,
 };
-use futures_util::TryFutureExt;
-use std::sync::Arc;
-use tokio::sync::OnceCell;
 
 pub struct DatasetsClient {
     // Client config
@@ -25,7 +27,7 @@ impl DatasetsClient {
     }
 
     pub async fn list(&self) -> Result<Vec<Dataset>, Error> {
-        let client = create_dataset_client(&self.config, &self.control_channel).await?;
+        let client = create_datasets_client(&self.config, &self.control_channel).await?;
 
         let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
@@ -43,7 +45,7 @@ impl DatasetsClient {
     }
 
     pub async fn get(&self, name: impl Into<String>) -> Result<Dataset, Error> {
-        let client = create_dataset_client(&self.config, &self.control_channel).await?;
+        let client = create_datasets_client(&self.config, &self.control_channel).await?;
         let name = name.into();
 
         let response = call_with_retry(&self.config.retry_config(), || {
@@ -71,7 +73,7 @@ impl DatasetsClient {
     }
 
     pub async fn create(&self, name: impl Into<String>) -> Result<Dataset, Error> {
-        let client = create_dataset_client(&self.config, &self.control_channel).await?;
+        let client = create_datasets_client(&self.config, &self.control_channel).await?;
         let name = name.into();
 
         let response = call_with_retry(&self.config.retry_config(), || {
@@ -99,7 +101,7 @@ impl DatasetsClient {
     }
 
     pub async fn delete(&self, name: impl Into<String>) -> Result<(), Error> {
-        let client = create_dataset_client(&self.config, &self.control_channel).await?;
+        let client = create_datasets_client(&self.config, &self.control_channel).await?;
         let name = name.into();
 
         let _ = call_with_retry(&self.config.retry_config(), || {

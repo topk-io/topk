@@ -16,7 +16,6 @@ impl ProjectTestContext {
         format!("{}-{}", self.scope, name)
     }
 
-    /// Create a temporary test file that will be automatically cleaned up on teardown
     #[allow(dead_code)]
     pub fn create_temp_file(&mut self, extension: &str, content: &[u8]) -> PathBuf {
         let mut path = std::env::temp_dir();
@@ -24,7 +23,8 @@ impl ProjectTestContext {
         path.push(file_name);
 
         let mut file = File::create(&path).expect("Failed to create temp file");
-        file.write_all(content).expect("Failed to write to temp file");
+        file.write_all(content)
+            .expect("Failed to write to temp file");
         file.sync_all().expect("Failed to sync temp file");
 
         self.temp_files.push(path.clone());
@@ -85,15 +85,17 @@ impl AsyncTestContext for ProjectTestContext {
                 .with_https(https),
         );
 
+        let temp_files = Vec::new();
+
         Self {
             client,
             scope,
-            temp_files: Vec::new(),
+            temp_files,
         }
     }
 
     async fn teardown(self) {
-        // Clean up temporary files
+        // Clean up temp files
         self.cleanup_temp_files();
 
         // Clean up datasets and collections

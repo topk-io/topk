@@ -8,9 +8,8 @@ use tokio::io::AsyncReadExt;
 use tokio::sync::mpsc;
 use tokio::sync::OnceCell;
 use tokio_stream::wrappers::ReceiverStream;
-use tonic::{service::interceptor::InterceptedService, transport::Channel};
 
-use crate::proto::v1::ctx::dataset_service_client::DatasetServiceClient;
+use crate::client::create_dataset_client;
 use crate::proto::v1::ctx::file::FileId;
 use crate::proto::v1::ctx::file::InputFile;
 use crate::proto::v1::ctx::handle::Handle;
@@ -20,8 +19,8 @@ use crate::proto::v1::ctx::{
 };
 use crate::proto::v1::data::Value;
 use crate::retry::call_with_retry;
+use crate::ClientConfig;
 use crate::Error;
-use crate::{client::AppendHeadersInterceptor, create_client, ClientConfig};
 
 // Buffer size for the upsert stream
 const UPLOAD_BATCH_SIZE: usize = 262_144; // 256KB
@@ -224,25 +223,6 @@ impl DatasetClient {
 
         Ok(response.into_inner().handle.into())
     }
-}
-
-// Clients
-async fn create_dataset_client<'a>(
-    config: &'a ClientConfig,
-    dataset_name: &'a str,
-    channel: &'a OnceCell<Channel>,
-) -> Result<DatasetServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>, Error> {
-    let config = config
-        .clone()
-        .with_headers([("x-topk-dataset", dataset_name.to_string())]);
-
-    create_client!(
-        DatasetServiceClient,
-        channel,
-        &config.endpoint(),
-        config.headers()
-    )
-    .await
 }
 
 async fn stream_file(
