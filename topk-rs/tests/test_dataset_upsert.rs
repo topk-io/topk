@@ -74,32 +74,6 @@ async fn test_upsert_file_markdown(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-async fn test_upsert_file_large(ctx: &mut ProjectTestContext) {
-    // For large file test, we'll still use the same PDF file
-    // The actual file size test can be done separately if needed
-
-    let dataset = ctx
-        .client
-        .datasets()
-        .create(ctx.wrap("test"))
-        .await
-        .expect("could not create dataset");
-
-    let handle = ctx
-        .client
-        .dataset(&dataset.name)
-        .upsert_file(
-            "doc5".to_string().into(),
-            &test_pdf_path(),
-            HashMap::default(),
-        )
-        .await;
-
-    assert!(matches!(handle, Ok(_)));
-}
-
-#[test_context(ProjectTestContext)]
-#[tokio::test]
 async fn test_upsert_file_invalid_extension(ctx: &mut ProjectTestContext) {
     let temp_file = ctx.create_temp_file("txt", b"Some text content");
 
