@@ -26,9 +26,6 @@ pub enum Error {
     #[error("dataset not found")]
     DatasetNotFound,
 
-    #[error("handle timeout")]
-    HandleTimeout,
-
     #[error("not found")]
     NotFound,
 
@@ -87,7 +84,6 @@ impl Error {
             Error::CollectionNotFound => false,
             Error::DatasetAlreadyExists => false,
             Error::DatasetNotFound => false,
-            Error::HandleTimeout => false,
             Error::NotFound => false,
             Error::SchemaValidationError(_) => false,
             Error::DocumentValidationError(_) => false,

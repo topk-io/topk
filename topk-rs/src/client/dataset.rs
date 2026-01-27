@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
 
 use bytes::Bytes;
 use tokio::io::AsyncReadExt;
@@ -125,51 +124,26 @@ impl DatasetClient {
         Ok(response.into_inner().handle.into())
     }
 
-    pub async fn check_handle(&self, handle: Handle, wait: bool) -> Result<bool, Error> {
+    pub async fn check_handle(&self, handle: Handle) -> Result<bool, Error> {
         let client =
             create_dataset_client(&self.config, &self.dataset_name, &self.control_channel).await?;
 
-        let mut i = 0;
-        let max_wait_seconds = 900;
-        loop {
-            let response = call_with_retry(&self.config.retry_config(), || {
-                let mut client = client.clone();
-                let handle = handle.clone().into();
-                async move {
-                    client
-                        .check_handle(CheckHandleRequest { handle })
-                        .await
-                        .map_err(|e| match e.code() {
-                            tonic::Code::NotFound => Error::DatasetNotFound,
-                            _ => Error::from(e),
-                        })
-                }
-            })
-            .await?;
-
-            // If the handle has been processed, return true
-            if response.into_inner().processed {
-                return Ok(true);
+        let response = call_with_retry(&self.config.retry_config(), || {
+            let mut client = client.clone();
+            let handle = handle.clone().into();
+            async move {
+                client
+                    .check_handle(CheckHandleRequest { handle })
+                    .await
+                    .map_err(|e| match e.code() {
+                        tonic::Code::NotFound => Error::DatasetNotFound,
+                        _ => Error::from(e),
+                    })
             }
+        })
+        .await?;
 
-            // If we don't want to wait, return false
-            if !wait {
-                return Ok(false);
-            }
-
-            // If we have waited for too long, return false
-            if i >= max_wait_seconds {
-                if wait {
-                    return Err(Error::HandleTimeout);
-                }
-
-                return Ok(false);
-            }
-
-            // Sleep for 1 second before retrying
-            tokio::time::sleep(Duration::from_secs(1)).await;
-            i += 1;
-        }
+        Ok(response.into_inner().processed)
     }
 
     pub async fn get_metadata(&self, id: FileId) -> Result<HashMap<String, Value>, Error> {
