@@ -539,7 +539,11 @@ Create a [FieldIndex](/sdk/topk-py/schema#FieldIndex) type for `semantic_index` 
 ### multi_vector_index()
 
 ```python
-multi_vector_index(metric: Literal['maxsim']) -> FieldIndex
+multi_vector_index(
+   metric: Literal['maxsim'],
+   sketch_bits: Optional[int] = None,
+   quantization: Optional[Literal['1bit', '2bit', 'scalar']] = None
+)
 ```
 
 Create a [FieldIndex](/sdk/topk-py/schema#FieldIndex) type for `multi_vector_index` values.
@@ -562,6 +566,8 @@ Create a [FieldIndex](/sdk/topk-py/schema#FieldIndex) type for `multi_vector_ind
 | Parameter | Type |
 | --------- | ---- |
 | `metric` | Literal['maxsim'] |
+| `sketch_bits` | Optional[int] |
+| `quantization` | Optional[Literal['1bit', '2bit', 'scalar']] |
 
 **Returns**
 

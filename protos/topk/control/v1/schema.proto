@@ -102,14 +102,28 @@ enum KeywordIndexType {
   // KEYWORD_INDEX_TYPE_LOG = 3;
 }
 
-// MaxSim index specification
+// Multi-vector index specification
 message MultiVectorIndex {
+  // Distance metric used for this multi-vector index.
   MultiVectorDistanceMetric metric = 1;
+  // Number of bits used for 1st stage retrieval sketch.
+  optional uint32 sketch_bits = 2;
+  // Quantization used for multi-vector maxsim reranking.
+  optional MultiVectorQuantization quantization = 3;
 }
 
+// Multi-vector distance
 enum MultiVectorDistanceMetric {
   MULTI_VECTOR_DISTANCE_METRIC_UNSPECIFIED = 0;
   MULTI_VECTOR_DISTANCE_METRIC_MAXSIM = 1;
+}
+
+// Multi-vector quantization type
+enum MultiVectorQuantization {
+  MULTI_VECTOR_QUANTIZATION_UNSPECIFIED = 0;
+  MULTI_VECTOR_QUANTIZATION_BINARY_1BIT = 1;
+  MULTI_VECTOR_QUANTIZATION_BINARY_2BIT = 2;
+  MULTI_VECTOR_QUANTIZATION_SCALAR = 3;
 }
 
 // Vector index specification

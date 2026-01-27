@@ -601,6 +601,8 @@ including the distance metric to use.
 | Property | Type | Description |
 | ------ | ------ | ------ |
 | <a id="metric"></a> `metric` | `"maxsim"` | The distance metric to use for multi-vector similarity |
+| <a id="quantization"></a> `quantization?` | [`MultiVectorQuantization`](/sdk/topk-js/Namespace.schema#multivectorquantization) | The quantization to use for multi-vector values |
+| <a id="sketchbits"></a> `sketchBits?` | `number` | Number of bits to use for multi-vector sketch |
 
 ***
 
@@ -686,6 +688,14 @@ type MatrixValueType = "f32" | "f16" | "f8" | "u8" | "i8";
 
 ```ts
 type MultiVectorDistanceMetric = "maxsim";
+```
+
+***
+
+### MultiVectorQuantization
+
+```ts
+type MultiVectorQuantization = "1bit" | "2bit" | "scalar";
 ```
 
 ***

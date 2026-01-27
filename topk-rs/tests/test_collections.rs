@@ -2,12 +2,17 @@ use std::collections::HashMap;
 use test_context::test_context;
 use topk_rs::{
     error::{CollectionValidationError, SchemaValidationError, ValidationErrorBag},
-    proto::v1::control::{FieldSpec, VectorDistanceMetric},
+    proto::v1::control::{
+        field_type_matrix::MatrixValueType, FieldSpec, MultiVectorQuantization,
+        VectorDistanceMetric,
+    },
     Error,
 };
 
 mod utils;
 use utils::ProjectTestContext;
+
+use crate::utils::dataset::multi_vec::schema;
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
@@ -180,4 +185,24 @@ async fn test_create_collection_with_invalid_vector_dimension(ctx: &mut ProjectT
             }
         ]))
     );
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_create_collection_with_invalid_multi_vector_quant(ctx: &mut ProjectTestContext) {
+    let err = ctx
+        .client
+        .collections()
+        .create(
+            ctx.wrap("multi_vec"),
+            schema(
+                MatrixValueType::U8,
+                None,
+                Some(MultiVectorQuantization::Scalar),
+            ),
+        )
+        .await
+        .expect_err("should fail to create collection");
+
+    assert!(matches!(err, Error::SchemaValidationError(_)));
 }
