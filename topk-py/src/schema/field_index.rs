@@ -153,14 +153,11 @@ impl Into<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
                 metric,
                 sketch_bits,
                 quantization,
-            } => {
-                // TODO: add sketch_bits and quantization
-                topk_rs::proto::v1::control::FieldIndex::multi_vector(
-                    metric.into(),
-                    sketch_bits,
-                    quantization.map(|q| q.into()),
-                )
-            }
+            } => topk_rs::proto::v1::control::FieldIndex::multi_vector(
+                metric.into(),
+                sketch_bits,
+                quantization.map(|q| q.into()),
+            ),
         }
     }
 }
