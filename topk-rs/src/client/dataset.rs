@@ -59,11 +59,8 @@ impl DatasetClient {
         let client =
             create_dataset_client(&self.config, &self.dataset_name, &self.control_channel).await?;
         let path = path.into();
-        let file = InputFile::from_path(path)?;
+        let file = InputFile::from_path(path)?.is_file().await?;
         let metadata = metadata.into();
-
-        // Check if file exists before starting the server call
-        tokio::fs::metadata(&file.path).await?;
 
         let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
@@ -75,7 +72,7 @@ impl DatasetClient {
             let (tx, rx) = mpsc::channel(MAX_CHUNKS_IN_FLIGHT);
 
             // Upload task
-            let upload = tokio::spawn(async move { stream_file(id, file, metadata, tx).await });
+            let upload = tokio::spawn(async move { stream_file(id, &file, metadata, tx).await });
 
             async move {
                 let res: tonic::Response<crate::proto::v1::ctx::UpsertResponse> = client
@@ -201,11 +198,11 @@ impl DatasetClient {
 
 async fn stream_file(
     id: FileId,
-    input: InputFile,
+    input: &InputFile,
     metadata: HashMap<String, Value>,
     tx: mpsc::Sender<UpsertMessage>,
 ) -> Result<(), Error> {
-    let mut file = tokio::fs::File::open(input.path).await?;
+    let mut file = tokio::fs::File::open(&input.path).await?;
 
     let size = file.metadata().await?.len();
 
@@ -216,7 +213,7 @@ async fn stream_file(
             kind: input.kind.into(),
             metadata,
             size,
-            file_name: input.file_name,
+            file_name: input.file_name.clone(),
         })),
     })
     .await

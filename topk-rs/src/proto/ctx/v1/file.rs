@@ -37,6 +37,18 @@ impl InputFile {
             kind,
         })
     }
+
+    pub async fn is_file(&self) -> Result<Self, Error> {
+        let metadata = tokio::fs::metadata(&self.path).await?;
+        if !metadata.is_file() {
+            return Err(Error::Input(anyhow::anyhow!(
+                "Path is not a file: {}",
+                self.path.display()
+            )));
+        }
+
+        Ok(self.clone())
+    }
 }
 
 #[derive(Clone)]
