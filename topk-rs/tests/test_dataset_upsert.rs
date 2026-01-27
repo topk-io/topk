@@ -59,15 +59,14 @@ async fn test_upsert_file_markdown(ctx: &mut ProjectTestContext) {
         .await
         .expect("could not create dataset");
 
-    let metadata = HashMap::from([
-        ("title".to_string(), Value::string("Test PDF")),
-        ("category".to_string(), Value::string("test")),
-    ]);
+    let metadata = HashMap::from([("title".to_string(), Value::string("Test Markdown"))]);
+
+    let temp_file = ctx.create_temp_file("md", b"# Test Markdown\n\nThis is a test markdown file.");
 
     let handle = ctx
         .client
         .dataset(&dataset.name)
-        .upsert_file("doc2".to_string().into(), &test_pdf_path(), metadata)
+        .upsert_file("doc2".to_string().into(), &temp_file, metadata)
         .await;
 
     assert!(matches!(handle, Ok(_)));

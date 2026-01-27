@@ -60,7 +60,7 @@ impl DatasetClient {
         let client =
             create_dataset_client(&self.config, &self.dataset_name, &self.control_channel).await?;
         let path = path.into();
-        let file = InputFile::from_path(path).map_err(|e| Error::Input(e.into()))?;
+        let file = InputFile::from_path(path)?;
         let metadata = metadata.into();
 
         // Check if file exists before starting the server call
