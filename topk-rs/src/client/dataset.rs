@@ -173,7 +173,6 @@ impl DatasetClient {
     ) -> Result<Handle, Error> {
         let client =
             create_dataset_client(&self.config, &self.dataset_name, &self.control_channel).await?;
-        let metadata = metadata.clone();
 
         let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
