@@ -1,8 +1,8 @@
 use test_context::test_context;
 use topk_rs::doc;
 use topk_rs::query::{field, filter};
-use topk_rs::Error;
 use topk_rs::schema;
+use topk_rs::Error;
 
 mod utils;
 use utils::dataset;
@@ -31,10 +31,13 @@ async fn test_query_count_empty_collection(ctx: &mut ProjectTestContext) {
         .await
         .expect("could not create collection");
 
-    let count  = ctx
+    let count = ctx
         .client
         .collection(collection.name)
-        .count(None, Some(topk_rs::proto::v1::data::ConsistencyLevel::Strong))
+        .count(
+            None,
+            Some(topk_rs::proto::v1::data::ConsistencyLevel::Strong),
+        )
         .await
         .expect("could not query");
 
