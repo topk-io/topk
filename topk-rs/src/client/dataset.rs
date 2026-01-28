@@ -218,7 +218,7 @@ async fn stream_file(
         InputSource::Bytes(data) => {
             let size = data.len() as u64;
             (
-                Box::pin(Cursor::new(data.clone())) as Pin<Box<dyn AsyncRead + Send>>,
+                Box::pin(Cursor::new(data)) as Pin<Box<dyn AsyncRead + Send>>,
                 size,
             )
         }

@@ -87,24 +87,6 @@ impl From<PathBuf> for InputFile {
     }
 }
 
-impl From<&PathBuf> for InputFile {
-    fn from(path: &PathBuf) -> Self {
-        Self::from_path(path).expect("Failed to create InputFile from &PathBuf")
-    }
-}
-
-impl From<&Path> for InputFile {
-    fn from(path: &Path) -> Self {
-        Self::from_path(path).expect("Failed to create InputFile from &Path")
-    }
-}
-
-impl From<(&[u8], String)> for InputFile {
-    fn from((data, file_name): (&[u8], String)) -> Self {
-        Self::from_bytes(&data, file_name).expect("Failed to create InputFile from memory")
-    }
-}
-
 #[derive(Clone)]
 pub struct FileId(String);
 

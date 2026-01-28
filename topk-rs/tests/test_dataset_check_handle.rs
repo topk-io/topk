@@ -19,7 +19,7 @@ async fn test_check_handle_waits_until_processed(ctx: &mut ProjectTestContext) {
     let handle = ctx
         .client
         .dataset(&dataset.name)
-        .upsert_file("doc1".to_string(), &test_pdf_path(), HashMap::default())
+        .upsert_file("doc1".to_string(), test_pdf_path(), HashMap::default())
         .await
         .expect("could not upsert file");
 

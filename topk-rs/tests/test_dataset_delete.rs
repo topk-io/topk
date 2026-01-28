@@ -18,7 +18,7 @@ async fn test_delete_document(ctx: &mut ProjectTestContext) {
     let _handle = ctx
         .client
         .dataset(&dataset.name)
-        .upsert_file("doc1".to_string(), &test_pdf_path(), HashMap::default())
+        .upsert_file("doc1".to_string(), test_pdf_path(), HashMap::default())
         .await
         .expect("could not upsert file");
 
@@ -81,7 +81,7 @@ async fn test_delete_returns_handle(ctx: &mut ProjectTestContext) {
     let _upsert_handle = ctx
         .client
         .dataset(&dataset.name)
-        .upsert_file("doc2".to_string(), &pdf_path, HashMap::default())
+        .upsert_file("doc2".to_string(), pdf_path, HashMap::default())
         .await
         .expect("could not upsert file");
 
