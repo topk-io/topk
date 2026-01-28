@@ -231,7 +231,7 @@ impl From<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
                         topk_rs::proto::v1::control::MultiVectorQuantization::Scalar => {
                             Some(MultiVectorQuantization::Scalar)
                         }
-                        q => panic!("unsupported multi-vector quantization {:?}", q),
+                        _ => None,
                     },
                 }
             }
