@@ -62,6 +62,7 @@ impl AsyncTestContext for ProjectTestContext {
     }
 
     async fn teardown(self) {
+        // Clean up datasets and collections
         match self.cleanup_datasets().await {
             Ok(_) => {
                 self.cleanup_collections().await;

@@ -53,6 +53,9 @@ pub enum Error {
     #[error("input error: {0}")]
     Input(anyhow::Error),
 
+    #[error("io error: {0}")]
+    IoError(#[from] std::io::Error),
+
     #[error("internal error: {0}")]
     Internal(String),
 
@@ -94,6 +97,7 @@ impl Error {
             Error::Unexpected(_) => false,
             Error::Internal(_) => false,
             Error::Input(_) => false,
+            Error::IoError(_) => false,
         }
     }
 
