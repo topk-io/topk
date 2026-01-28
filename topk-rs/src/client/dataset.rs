@@ -65,7 +65,7 @@ impl DatasetClient {
         let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
             let metadata = metadata.clone();
-            let id = id.clone().into();
+            let id = id.clone();
             let file = file.clone();
 
             // Channel for the upsert stream
