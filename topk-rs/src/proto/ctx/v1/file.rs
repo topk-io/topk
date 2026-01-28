@@ -38,6 +38,7 @@ impl InputFile {
         })
     }
 
+    /// Checks if the path is a file
     pub async fn is_file(&self) -> Result<Self, Error> {
         let metadata = tokio::fs::metadata(&self.path).await?;
         if !metadata.is_file() {

@@ -4,12 +4,14 @@ use crate::error::Error;
 
 impl DocumentKind {
     pub fn from_extension(extension: &str) -> Result<Self, Error> {
-        match extension {
-            "pdf" => Ok(Self::Pdf),
-            "md" => Ok(Self::Markdown),
-            _ => Err(Error::Input(anyhow::anyhow!(
+        if extension.eq_ignore_ascii_case("pdf") {
+            Ok(Self::Pdf)
+        } else if extension.eq_ignore_ascii_case("md") {
+            Ok(Self::Markdown)
+        } else {
+            Err(Error::Input(anyhow::anyhow!(
                 "Invalid document extension: {extension}"
-            ))),
+            )))
         }
     }
 }
