@@ -22,7 +22,7 @@ async fn test_get_metadata(ctx: &mut ProjectTestContext) {
         .client
         .dataset(&dataset.name)
         .upsert_file(
-            "doc1".to_string().into(),
+            "doc1".to_string(),
             &test_pdf_path(),
             original_metadata.clone(),
         )
@@ -33,7 +33,7 @@ async fn test_get_metadata(ctx: &mut ProjectTestContext) {
     let retrieved_metadata = ctx
         .client
         .dataset(&dataset.name)
-        .get_metadata("doc1".to_string().into())
+        .get_metadata("doc1".to_string())
         .await
         .expect("could not get metadata");
 

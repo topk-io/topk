@@ -18,11 +18,7 @@ async fn test_delete_document(ctx: &mut ProjectTestContext) {
     let _handle = ctx
         .client
         .dataset(&dataset.name)
-        .upsert_file(
-            "doc1".to_string().into(),
-            &test_pdf_path(),
-            HashMap::default(),
-        )
+        .upsert_file("doc1".to_string(), &test_pdf_path(), HashMap::default())
         .await
         .expect("could not upsert file");
 
@@ -30,7 +26,7 @@ async fn test_delete_document(ctx: &mut ProjectTestContext) {
     let delete_handle = ctx
         .client
         .dataset(&dataset.name)
-        .delete("doc1".to_string().into())
+        .delete("doc1".to_string())
         .await;
 
     assert!(matches!(delete_handle, Ok(_)));
@@ -49,7 +45,7 @@ async fn test_delete_non_existent_document_returns_handle(ctx: &mut ProjectTestC
     let delete_handle = ctx
         .client
         .dataset(&dataset.name)
-        .delete("nonexistent".to_string().into())
+        .delete("nonexistent".to_string())
         .await;
 
     // Deleting a non-existent document returns a handle
@@ -62,7 +58,7 @@ async fn test_delete_from_non_existent_dataset(ctx: &mut ProjectTestContext) {
     let err = ctx
         .client
         .dataset(ctx.wrap("nonexistent"))
-        .delete("doc1".to_string().into())
+        .delete("doc1".to_string())
         .await
         .expect_err("should not be able to delete from non-existent dataset");
 
@@ -85,7 +81,7 @@ async fn test_delete_returns_handle(ctx: &mut ProjectTestContext) {
     let _upsert_handle = ctx
         .client
         .dataset(&dataset.name)
-        .upsert_file("doc2".to_string().into(), &pdf_path, HashMap::default())
+        .upsert_file("doc2".to_string(), &pdf_path, HashMap::default())
         .await
         .expect("could not upsert file");
 
@@ -93,7 +89,7 @@ async fn test_delete_returns_handle(ctx: &mut ProjectTestContext) {
     let delete_handle = ctx
         .client
         .dataset(&dataset.name)
-        .delete("doc2".to_string().into())
+        .delete("doc2".to_string())
         .await;
 
     let handle: String = delete_handle.expect("should delete successfully").into();

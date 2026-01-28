@@ -1,15 +1,18 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::error::Error;
 use crate::proto::ctx::v1::DocumentKind;
 
 #[derive(Clone, Debug)]
+pub enum InputSource {
+    Path(PathBuf),
+    Bytes(Vec<u8>),
+}
+
+#[derive(Clone, Debug)]
 pub struct InputFile {
-    // Path to the file
-    pub path: PathBuf,
-    // File name
+    pub source: InputSource,
     pub file_name: String,
-    // Document kind
     pub kind: DocumentKind,
 }
 
@@ -32,7 +35,27 @@ impl InputFile {
         let kind = DocumentKind::from_extension(&extension)?;
 
         Ok(Self {
-            path,
+            source: InputSource::Path(path),
+            file_name,
+            kind,
+        })
+    }
+
+    pub fn from_bytes(data: &[u8], file_name: String) -> Result<Self, Error> {
+        let extension = Path::new(&file_name)
+            .extension()
+            .ok_or_else(|| {
+                Error::Input(anyhow::anyhow!(
+                    "Failed to get file extension from file name"
+                ))
+            })?
+            .to_string_lossy()
+            .to_string();
+
+        let kind = DocumentKind::from_extension(&extension)?;
+
+        Ok(Self {
+            source: InputSource::Bytes(data.to_vec()),
             file_name,
             kind,
         })
@@ -40,15 +63,45 @@ impl InputFile {
 
     /// Checks if the path is a file
     pub async fn is_file(self) -> Result<Self, Error> {
-        let metadata = tokio::fs::metadata(&self.path).await?;
-        if !metadata.is_file() {
-            return Err(Error::Input(anyhow::anyhow!(
-                "Path is not a file: {}",
-                self.path.display()
-            )));
-        }
+        match &self.source {
+            InputSource::Path(path) => {
+                let metadata = tokio::fs::metadata(path).await?;
 
-        Ok(self)
+                if !metadata.is_file() {
+                    return Err(Error::Input(anyhow::anyhow!(
+                        "Path is not a file: {}",
+                        path.display()
+                    )));
+                }
+
+                Ok(self)
+            }
+            InputSource::Bytes(_) => Ok(self),
+        }
+    }
+}
+
+impl From<PathBuf> for InputFile {
+    fn from(path: PathBuf) -> Self {
+        Self::from_path(path).expect("Failed to create InputFile from PathBuf")
+    }
+}
+
+impl From<&PathBuf> for InputFile {
+    fn from(path: &PathBuf) -> Self {
+        Self::from_path(path).expect("Failed to create InputFile from &PathBuf")
+    }
+}
+
+impl From<&Path> for InputFile {
+    fn from(path: &Path) -> Self {
+        Self::from_path(path).expect("Failed to create InputFile from &Path")
+    }
+}
+
+impl From<(&[u8], String)> for InputFile {
+    fn from((data, file_name): (&[u8], String)) -> Self {
+        Self::from_bytes(&data, file_name).expect("Failed to create InputFile from memory")
     }
 }
 

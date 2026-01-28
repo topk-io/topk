@@ -1,6 +1,3 @@
-use std::fs::File;
-use std::io::Write;
-use std::path::PathBuf;
 use test_context::AsyncTestContext;
 use topk_rs::{Client, ClientConfig, Error};
 use uuid::Uuid;
@@ -8,27 +5,11 @@ use uuid::Uuid;
 pub struct ProjectTestContext {
     pub client: Client,
     pub scope: String,
-    temp_files: Vec<PathBuf>,
 }
 
 impl ProjectTestContext {
     pub fn wrap(&self, name: &str) -> String {
         format!("{}-{}", self.scope, name)
-    }
-
-    #[allow(dead_code)]
-    pub fn create_temp_file(&mut self, extension: &str, content: &[u8]) -> PathBuf {
-        let mut path = std::env::temp_dir();
-        let file_name = format!("test_{}.{}", uuid::Uuid::new_v4(), extension);
-        path.push(file_name);
-
-        let mut file = File::create(&path).expect("Failed to create temp file");
-        file.write_all(content)
-            .expect("Failed to write to temp file");
-        file.sync_all().expect("Failed to sync temp file");
-
-        self.temp_files.push(path.clone());
-        path
     }
 
     async fn cleanup_collections(&self) {
@@ -60,14 +41,6 @@ impl ProjectTestContext {
 
         Ok(())
     }
-
-    fn cleanup_temp_files(&self) {
-        for temp_file in &self.temp_files {
-            if let Err(e) = std::fs::remove_file(temp_file) {
-                println!("Failed to remove temp file {:?}: {}", temp_file, e);
-            }
-        }
-    }
 }
 
 impl AsyncTestContext for ProjectTestContext {
@@ -85,19 +58,10 @@ impl AsyncTestContext for ProjectTestContext {
                 .with_https(https),
         );
 
-        let temp_files = Vec::new();
-
-        Self {
-            client,
-            scope,
-            temp_files,
-        }
+        Self { client, scope }
     }
 
     async fn teardown(self) {
-        // Clean up temp files
-        self.cleanup_temp_files();
-
         // Clean up datasets and collections
         match self.cleanup_datasets().await {
             Ok(_) => {

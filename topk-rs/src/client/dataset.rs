@@ -1,16 +1,16 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::io::Cursor;
+use std::pin::Pin;
 use std::sync::Arc;
 
 use bytes::Bytes;
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::sync::mpsc;
 use tokio::sync::OnceCell;
 use tokio_stream::wrappers::ReceiverStream;
 
 use crate::client::create_dataset_client;
-use crate::proto::v1::ctx::file::FileId;
-use crate::proto::v1::ctx::file::InputFile;
+use crate::proto::v1::ctx::file::{FileId, InputFile, InputSource};
 use crate::proto::v1::ctx::handle::Handle;
 use crate::proto::v1::ctx::{
     upsert_message, CheckHandleRequest, DeleteRequest, GetMetadataRequest, UpdateMetadataRequest,
@@ -32,7 +32,7 @@ pub struct DatasetClient {
     // Client config
     config: Arc<ClientConfig>,
     // Channel
-    control_channel: Arc<OnceCell<tonic::transport::Channel>>,
+    channel: Arc<OnceCell<tonic::transport::Channel>>,
     // Dataset name
     dataset_name: String,
 }
@@ -45,27 +45,27 @@ impl DatasetClient {
     ) -> Self {
         Self {
             config,
-            control_channel: channel,
+            channel,
             dataset_name: name.into(),
         }
     }
 
     pub async fn upsert_file(
         &self,
-        id: FileId,
-        path: impl Into<PathBuf>,
+        file_id: impl Into<FileId>,
+        input: impl Into<InputFile>,
         metadata: impl Into<HashMap<String, Value>>,
     ) -> Result<Handle, Error> {
-        let client =
-            create_dataset_client(&self.config, &self.dataset_name, &self.control_channel).await?;
-        let path = path.into();
-        let file = InputFile::from_path(path)?.is_file().await?;
+        let client = create_dataset_client(&self.config, &self.dataset_name, &self.channel).await?;
+        let file = input.into().is_file().await?;
         let metadata = metadata.into();
+
+        let file_id = file_id.into();
 
         let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
             let metadata = metadata.clone();
-            let id = id.clone();
+            let id = file_id.clone();
             let file = file.clone();
 
             // Channel for the upsert stream
@@ -99,13 +99,15 @@ impl DatasetClient {
         Ok(response.into_inner().handle.into())
     }
 
-    pub async fn delete(&self, id: FileId) -> Result<Handle, Error> {
-        let client =
-            create_dataset_client(&self.config, &self.dataset_name, &self.control_channel).await?;
+    pub async fn delete(&self, file_id: impl Into<FileId>) -> Result<Handle, Error> {
+        let client = create_dataset_client(&self.config, &self.dataset_name, &self.channel).await?;
+
+        let file_id = file_id.into();
 
         let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
-            let id = id.clone().into();
+            let id = file_id.clone().into();
+
             async move {
                 client
                     .delete(DeleteRequest { id })
@@ -122,8 +124,7 @@ impl DatasetClient {
     }
 
     pub async fn check_handle(&self, handle: Handle) -> Result<bool, Error> {
-        let client =
-            create_dataset_client(&self.config, &self.dataset_name, &self.control_channel).await?;
+        let client = create_dataset_client(&self.config, &self.dataset_name, &self.channel).await?;
 
         let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
@@ -143,13 +144,17 @@ impl DatasetClient {
         Ok(response.into_inner().processed)
     }
 
-    pub async fn get_metadata(&self, id: FileId) -> Result<HashMap<String, Value>, Error> {
-        let client =
-            create_dataset_client(&self.config, &self.dataset_name, &self.control_channel).await?;
+    pub async fn get_metadata(
+        &self,
+        file_id: impl Into<FileId>,
+    ) -> Result<HashMap<String, Value>, Error> {
+        let client = create_dataset_client(&self.config, &self.dataset_name, &self.channel).await?;
+
+        let file_id = file_id.into();
 
         let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
-            let id = id.clone().into();
+            let id = file_id.clone().into();
 
             async move {
                 client
@@ -168,15 +173,16 @@ impl DatasetClient {
 
     pub async fn update_metadata(
         &self,
-        id: FileId,
+        file_id: impl Into<FileId>,
         metadata: HashMap<String, Value>,
     ) -> Result<Handle, Error> {
-        let client =
-            create_dataset_client(&self.config, &self.dataset_name, &self.control_channel).await?;
+        let client = create_dataset_client(&self.config, &self.dataset_name, &self.channel).await?;
+
+        let file_id = file_id.into();
 
         let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
-            let id = id.clone().into();
+            let id = file_id.clone().into();
             let metadata = metadata.clone();
 
             async move {
@@ -196,14 +202,27 @@ impl DatasetClient {
 }
 
 async fn stream_file(
-    id: FileId,
+    id: impl Into<FileId>,
     input: &InputFile,
     metadata: HashMap<String, Value>,
     tx: mpsc::Sender<UpsertMessage>,
 ) -> Result<(), Error> {
-    let mut file = tokio::fs::File::open(&input.path).await?;
+    let id = id.into();
 
-    let size = file.metadata().await?.len();
+    let (mut reader, size) = match &input.source {
+        InputSource::Path(path) => {
+            let file = tokio::fs::File::open(path).await?;
+            let size = file.metadata().await?.len();
+            (Box::pin(file) as Pin<Box<dyn AsyncRead + Send>>, size)
+        }
+        InputSource::Bytes(data) => {
+            let size = data.len() as u64;
+            (
+                Box::pin(Cursor::new(data.clone())) as Pin<Box<dyn AsyncRead + Send>>,
+                size,
+            )
+        }
+    };
 
     // Send header
     tx.send(UpsertMessage {
@@ -221,7 +240,7 @@ async fn stream_file(
     let mut buf = [0u8; UPLOAD_BATCH_SIZE];
     let mut seq = 0;
     loop {
-        let n = file.read(&mut buf).await?;
+        let n = reader.read(&mut buf).await?;
 
         // No more data to read
         if n == 0 {

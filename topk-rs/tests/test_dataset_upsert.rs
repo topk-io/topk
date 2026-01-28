@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use test_context::test_context;
+use topk_rs::proto::v1::ctx::file::InputFile;
 use topk_rs::proto::v1::data::Value;
 use topk_rs::Error;
 
@@ -12,11 +13,7 @@ async fn test_upsert_file_to_non_existent_dataset(ctx: &mut ProjectTestContext) 
     let err = ctx
         .client
         .dataset(ctx.wrap("nonexistent"))
-        .upsert_file(
-            "doc1".to_string().into(),
-            &test_pdf_path(),
-            HashMap::default(),
-        )
+        .upsert_file("doc1".to_string(), &test_pdf_path(), HashMap::default())
         .await
         .expect_err("should not be able to upsert file to non-existent dataset");
 
@@ -41,7 +38,7 @@ async fn test_upsert_file_pdf(ctx: &mut ProjectTestContext) {
     let handle = ctx
         .client
         .dataset(&dataset.name)
-        .upsert_file("doc1".to_string().into(), &test_pdf_path(), metadata)
+        .upsert_file("doc1".to_string(), &test_pdf_path(), metadata)
         .await
         .expect("could not upsert PDF file");
 
@@ -61,12 +58,14 @@ async fn test_upsert_file_markdown(ctx: &mut ProjectTestContext) {
 
     let metadata = HashMap::from([("title".to_string(), Value::string("Test Markdown"))]);
 
-    let temp_file = ctx.create_temp_file("md", b"# Test Markdown\n\nThis is a test markdown file.");
+    let file_data = b"# Test Markdown\n\nThis is a test markdown file.";
+    let input_file = InputFile::from_bytes(file_data, "test.md".to_string())
+        .expect("could not create InputFile from memory");
 
     let handle = ctx
         .client
         .dataset(&dataset.name)
-        .upsert_file("doc2".to_string().into(), &temp_file, metadata)
+        .upsert_file("doc2".to_string(), input_file, metadata)
         .await;
 
     assert!(matches!(handle, Ok(_)));
@@ -75,22 +74,18 @@ async fn test_upsert_file_markdown(ctx: &mut ProjectTestContext) {
 #[test_context(ProjectTestContext)]
 #[tokio::test]
 async fn test_upsert_file_invalid_extension(ctx: &mut ProjectTestContext) {
-    let temp_file = ctx.create_temp_file("txt", b"Some text content");
-
-    let dataset = ctx
+    let _dataset = ctx
         .client
         .datasets()
         .create(ctx.wrap("test"))
         .await
         .expect("could not create dataset");
 
-    let err = ctx
-        .client
-        .dataset(&dataset.name)
-        .upsert_file("doc6".to_string().into(), &temp_file, HashMap::default())
-        .await
-        .expect_err("should not be able to upsert file with invalid extension");
+    let file_data = b"Some text content";
+    let err = InputFile::from_bytes(file_data, "test.txt".to_string())
+        .expect_err("should not be able to create InputFile with invalid extension");
 
+    // Verify that creating InputFile with invalid extension fails
     assert!(matches!(err, Error::Input(_)));
 }
 
@@ -109,11 +104,7 @@ async fn test_upsert_file_nonexistent_path(ctx: &mut ProjectTestContext) {
     let err = ctx
         .client
         .dataset(&dataset.name)
-        .upsert_file(
-            "doc7".to_string().into(),
-            &nonexistent_path,
-            HashMap::default(),
-        )
+        .upsert_file("doc7".to_string(), &nonexistent_path, HashMap::default())
         .await
         .expect_err("should not be able to upsert non-existent file");
 
