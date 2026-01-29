@@ -6,6 +6,7 @@ use tonic::transport::Channel;
 
 use crate::proto::v1::control::collection_service_client::CollectionServiceClient;
 use crate::proto::v1::control::dataset_service_client::DatasetServiceClient as ControlDatasetServiceClient;
+use crate::proto::v1::ctx::context_service_client::ContextServiceClient;
 use crate::proto::v1::ctx::dataset_service_client::DatasetServiceClient as CtxDatasetServiceClient;
 use crate::proto::v1::data::query_service_client::QueryServiceClient;
 use crate::proto::v1::data::write_service_client::WriteServiceClient;
@@ -21,6 +22,9 @@ pub use collection::CollectionClient;
 
 mod dataset;
 pub use dataset::DatasetClient;
+
+mod ask;
+pub use ask::AskExt;
 
 mod config;
 pub use config::ClientConfig;
@@ -238,6 +242,20 @@ async fn create_dataset_client<'a>(
 
     create_client!(
         CtxDatasetServiceClient,
+        channel,
+        &config.endpoint(),
+        config.headers()
+    )
+    .await
+}
+
+async fn create_ctx_client<'a>(
+    config: &'a ClientConfig,
+    channel: &'a OnceCell<Channel>,
+) -> Result<ContextServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>, super::Error>
+{
+    crate::create_client!(
+        ContextServiceClient,
         channel,
         &config.endpoint(),
         config.headers()
