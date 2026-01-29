@@ -14,7 +14,7 @@ use crate::Error;
 pub trait AskExt {
     async fn ask(
         &self,
-        query: impl Into<String> + Send + Sync,
+        query: String,
         sources: Vec<Source>,
         filter: Option<LogicalExpr>,
         effort: Effort,
@@ -25,13 +25,12 @@ pub trait AskExt {
 impl AskExt for super::Client {
     async fn ask(
         &self,
-        query: impl Into<String> + Send + Sync,
+        query: String,
         sources: Vec<Source>,
         filter: Option<LogicalExpr>,
         effort: Effort,
     ) -> Result<Streaming<AskResponseMessage>, Error> {
         let client = super::create_ctx_client(&self.config(), &self.channel()).await?;
-        let query = query.into();
 
         let response = call_with_retry(&self.config().retry_config(), || {
             let mut client = client.clone();
