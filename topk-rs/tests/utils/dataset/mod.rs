@@ -21,8 +21,8 @@ impl Dataset for Vec<Document> {
 #[allow(dead_code)]
 pub fn test_pdf_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("Failed to get parent directory")
         .join("tests")
-        .join("utils")
-        .join("dataset")
         .join("pdfko.pdf")
 }
