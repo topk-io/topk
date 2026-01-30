@@ -20,28 +20,16 @@ impl FromPyObject<'_, '_> for Effort {
     type Error = PyErr;
 
     fn extract(obj: Borrowed<'_, '_, PyAny>) -> PyResult<Self> {
-        // If None, return Unspecified
-        if obj.cast_exact::<PyNone>().is_ok() {
-            return Ok(Effort::Unspecified);
-        }
-
-        // Try to extract as string
         if let Ok(str) = obj.extract::<String>() {
-            let effort = match str.as_str() {
-                "medium" => Effort::Medium,
-                "low" => Effort::Low,
-                "high" => Effort::High,
-                _ => Effort::Unspecified,
-            };
-
-            if effort == Effort::Unspecified {
-                return Err(PyTypeError::new_err(format!(
-                    "Invalid effort string: {}. Must be one of: medium, low, high",
+            return match str.as_str() {
+                "medium" => Ok(Effort::Medium),
+                "low" => Ok(Effort::Low),
+                "high" => Ok(Effort::High),
+                _ => Err(PyTypeError::new_err(format!(
+                    "Invalid effort value: {}. Must be one of: medium, low, high",
                     str
-                )));
-            }
-
-            return Ok(effort);
+                ))),
+            };
         }
 
         Err(PyTypeError::new_err(
@@ -182,6 +170,15 @@ pub struct Fact {
     source_ids: Vec<String>,
 }
 
+impl From<topk_rs::proto::v1::ctx::Fact> for Fact {
+    fn from(f: topk_rs::proto::v1::ctx::Fact) -> Self {
+        Fact {
+            fact: f.fact,
+            source_ids: f.source_ids,
+        }
+    }
+}
+
 #[pyclass]
 #[derive(Debug, Clone, PartialEq)]
 pub struct SearchResult {
@@ -193,6 +190,17 @@ pub struct SearchResult {
     doc_id: String,
     #[pyo3(get)]
     doc_pages: Vec<u32>,
+}
+
+impl From<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
+    fn from(v: topk_rs::proto::v1::ctx::SearchResult) -> Self {
+        SearchResult {
+            id: v.id,
+            content: v.content,
+            doc_id: v.doc_id,
+            doc_pages: v.doc_pages,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -228,54 +236,20 @@ impl From<topk_rs::proto::v1::ctx::AskResponseMessage> for AskResponseMessage {
 
         match msg.message {
             Some(Message::FinalAnswer(fa)) => AskResponseMessage::FinalAnswer(FinalAnswer {
-                facts: fa
-                    .facts
-                    .into_iter()
-                    .map(|f| Fact {
-                        fact: f.fact,
-                        source_ids: f.source_ids,
-                    })
-                    .collect(),
+                facts: fa.facts.into_iter().map(Fact::from).collect(),
                 sources: fa
                     .sources
                     .into_iter()
-                    .map(|(k, v)| {
-                        (
-                            k,
-                            SearchResult {
-                                id: v.id,
-                                content: v.content,
-                                doc_id: v.doc_id,
-                                doc_pages: v.doc_pages,
-                            },
-                        )
-                    })
+                    .map(|(k, v)| (k, SearchResult::from(v)))
                     .collect(),
             }),
             Some(Message::SubQuery(sq)) => AskResponseMessage::SubQuery(SubQuery {
                 objective: sq.objective,
-                facts: sq
-                    .facts
-                    .into_iter()
-                    .map(|f| Fact {
-                        fact: f.fact,
-                        source_ids: f.source_ids,
-                    })
-                    .collect(),
+                facts: sq.facts.into_iter().map(Fact::from).collect(),
                 sources: sq
                     .sources
                     .into_iter()
-                    .map(|(k, v)| {
-                        (
-                            k,
-                            SearchResult {
-                                id: v.id,
-                                content: v.content,
-                                doc_id: v.doc_id,
-                                doc_pages: v.doc_pages,
-                            },
-                        )
-                    })
+                    .map(|(k, v)| (k, SearchResult::from(v)))
                     .collect(),
             }),
             Some(Message::Reason(r)) => AskResponseMessage::Reason(Reason { thought: r.thought }),
