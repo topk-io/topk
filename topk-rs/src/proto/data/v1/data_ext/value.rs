@@ -352,6 +352,8 @@ impl value::Value {
                 Some(list::Values::U64(_)) => "list<u64>".to_string(),
                 Some(list::Values::I32(_)) => "list<i32>".to_string(),
                 Some(list::Values::I64(_)) => "list<i64>".to_string(),
+                Some(list::Values::F8(_)) => "list<f8>".to_string(),
+                Some(list::Values::F16(_)) => "list<f16>".to_string(),
                 Some(list::Values::F32(_)) => "list<f32>".to_string(),
                 Some(list::Values::F64(_)) => "list<f64>".to_string(),
                 Some(list::Values::String(_)) => "list<string>".to_string(),

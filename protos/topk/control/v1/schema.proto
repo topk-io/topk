@@ -33,6 +33,8 @@ message FieldType {
     FieldTypeList list = 11;
     FieldTypeI8Vector i8_vector = 12;
     FieldTypeMatrix matrix = 13;
+    FieldTypeF8Vector f8_vector = 14;
+    FieldTypeF16Vector f16_vector = 15;
   }
 }
 
@@ -42,6 +44,14 @@ message FieldTypeFloat {}
 message FieldTypeBoolean {}
 
 message FieldTypeF32Vector {
+  uint32 dimension = 1;
+}
+
+message FieldTypeF16Vector {
+  uint32 dimension = 1;
+}
+
+message FieldTypeF8Vector {
   uint32 dimension = 1;
 }
 

@@ -34,6 +34,8 @@ fn build_topk_v1_protos() {
         "topk.control.v1.FieldType",
         "topk.control.v1.FieldType.data_type",
         "topk.control.v1.FieldTypeF32Vector",
+        "topk.control.v1.FieldTypeF16Vector",
+        "topk.control.v1.FieldTypeF8Vector",
         "topk.control.v1.FieldTypeU8Vector",
         "topk.control.v1.FieldTypeI8Vector",
         "topk.control.v1.FieldTypeBinaryVector",
