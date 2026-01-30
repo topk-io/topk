@@ -28,8 +28,7 @@ def test_ask_basic(ctx: ProjectContext):
     stream = ctx.client.ask_stream(
         "What score must general education students achieve who first entered ninth grade in 1997?",
         sources,
-        filter=None,
-        effort="medium",
+        filter=None
     )
 
     message_count = 0

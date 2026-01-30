@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use pyo3::{
     exceptions::PyTypeError,
     prelude::*,
-    types::{PyDict, PyList, PyNone},
+    types::{PyDict, PyList},
 };
 
 use crate::expr::logical::LogicalExpr;
@@ -143,6 +143,13 @@ pub struct FinalAnswer {
     sources: HashMap<String, SearchResult>,
 }
 
+#[pymethods]
+impl FinalAnswer {
+    pub fn __repr__(&self) -> String {
+        format!("{:?}", self)
+    }
+}
+
 #[pyclass]
 #[derive(Debug, Clone, PartialEq)]
 pub struct SubQuery {
@@ -154,11 +161,25 @@ pub struct SubQuery {
     sources: HashMap<String, SearchResult>,
 }
 
+#[pymethods]
+impl SubQuery {
+    pub fn __repr__(&self) -> String {
+        format!("{:?}", self)
+    }
+}
+
 #[pyclass]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Reason {
     #[pyo3(get)]
     thought: String,
+}
+
+#[pymethods]
+impl Reason {
+    pub fn __repr__(&self) -> String {
+        format!("{:?}", self)
+    }
 }
 
 #[pyclass]
@@ -168,6 +189,13 @@ pub struct Fact {
     fact: String,
     #[pyo3(get)]
     source_ids: Vec<String>,
+}
+
+#[pymethods]
+impl Fact {
+    pub fn __repr__(&self) -> String {
+        format!("{:?}", self)
+    }
 }
 
 impl From<topk_rs::proto::v1::ctx::Fact> for Fact {
@@ -190,6 +218,13 @@ pub struct SearchResult {
     doc_id: String,
     #[pyo3(get)]
     doc_pages: Vec<u32>,
+}
+
+#[pymethods]
+impl SearchResult {
+    pub fn __repr__(&self) -> String {
+        format!("{:?}", self)
+    }
 }
 
 impl From<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
