@@ -6,7 +6,9 @@ use numpy::PyUntypedArray;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyList};
 
+pub mod ask;
 pub mod collection;
+pub mod dataset;
 pub mod list;
 pub mod matrix;
 pub mod value;
