@@ -220,4 +220,4 @@ jobs:
         with:
           maturin-version: 1.9.0
           command: upload
-          args: --non-interactive --skip-existing --repository testpypi wheels-*/*
+          args: --non-interactive --skip-existing --repository-url https://test.pypi.org/legacy/ wheels-*/*
