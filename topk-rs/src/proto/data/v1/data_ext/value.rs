@@ -546,6 +546,44 @@ impl Struct {
     }
 }
 
+// List
+
+impl From<list::F16> for Vec<half::f16> {
+    fn from(value: list::F16) -> Self {
+        assert!((value.len as usize) <= 2 * value.values.len());
+        let mut vals = value.values;
+        let cap = vals.capacity();
+        let ptr = vals.as_mut_ptr();
+        std::mem::forget(vals);
+        unsafe {
+            // SAFETY
+            // Casting len(vals) u32s into 2 * len(vals) f16s.
+            Vec::from_raw_parts(ptr as *mut half::f16, value.len as usize, cap * 2)
+        }
+    }
+}
+
+impl From<list::F8> for Vec<F8E4M3> {
+    fn from(value: list::F8) -> Self {
+        cast_vec::<u8, F8E4M3>(value.values)
+    }
+}
+
+impl AsRef<[half::f16]> for list::F16 {
+    fn as_ref(&self) -> &[half::f16] {
+        let values = cast_slice::<_, half::f16>(&self.values);
+        &values[..self.len as usize]
+    }
+}
+
+impl AsRef<[F8E4M3]> for list::F8 {
+    fn as_ref(&self) -> &[F8E4M3] {
+        cast_slice(&self.values)
+    }
+}
+
+// Matrix
+
 impl Matrix {
     /// Constructs a [`Matrix`] proto from values stored in row-major order.
     /// # Panics
