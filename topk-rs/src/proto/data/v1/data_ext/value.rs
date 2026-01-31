@@ -548,6 +548,41 @@ impl Struct {
 
 // List
 
+macro_rules! impl_list_type {
+    ($type:ty) => {
+        impl $type {
+            #[inline]
+            pub fn len(&self) -> usize {
+                self.values.len()
+            }
+        }
+    };
+}
+
+impl_list_type!(list::String);
+
+// Unsigned integer
+impl_list_type!(list::U8);
+impl_list_type!(list::U32);
+impl_list_type!(list::U64);
+
+// Signed integer
+impl_list_type!(list::I8);
+impl_list_type!(list::I32);
+impl_list_type!(list::I64);
+
+// Float
+impl_list_type!(list::F8);
+impl_list_type!(list::F32);
+impl_list_type!(list::F64);
+
+impl list::F16 {
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.len as usize
+    }
+}
+
 impl From<list::F16> for Vec<half::f16> {
     fn from(value: list::F16) -> Self {
         assert!((value.len as usize) <= 2 * value.values.len());
