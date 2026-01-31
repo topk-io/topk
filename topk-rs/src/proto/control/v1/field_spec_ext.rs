@@ -68,48 +68,31 @@ impl FieldSpec {
     }
 
     pub fn f32_vector(dimension: u32, required: bool, metric: VectorDistanceMetric) -> FieldSpec {
-        FieldSpec {
-            data_type: Some(FieldType {
-                data_type: Some(field_type::DataType::f32_vector(dimension)),
-            }),
+        Self::indexed_vector_field(
+            field_type::DataType::f32_vector(dimension),
             required,
-            index: Some(FieldIndex {
-                index: Some(field_index::Index::VectorIndex(VectorIndex {
-                    metric: metric as i32,
-                    exact: None,
-                })),
-            }),
-        }
+            metric,
+        )
+    }
+
+    pub fn f16_vector(dimension: u32, required: bool, metric: VectorDistanceMetric) -> FieldSpec {
+        Self::indexed_vector_field(
+            field_type::DataType::f16_vector(dimension),
+            required,
+            metric,
+        )
+    }
+
+    pub fn f8_vector(dimension: u32, required: bool, metric: VectorDistanceMetric) -> FieldSpec {
+        Self::indexed_vector_field(field_type::DataType::f8_vector(dimension), required, metric)
     }
 
     pub fn u8_vector(dimension: u32, required: bool, metric: VectorDistanceMetric) -> FieldSpec {
-        FieldSpec {
-            data_type: Some(FieldType {
-                data_type: Some(field_type::DataType::u8_vector(dimension)),
-            }),
-            required,
-            index: Some(FieldIndex {
-                index: Some(field_index::Index::VectorIndex(VectorIndex {
-                    metric: metric as i32,
-                    exact: None,
-                })),
-            }),
-        }
+        Self::indexed_vector_field(field_type::DataType::u8_vector(dimension), required, metric)
     }
 
     pub fn i8_vector(dimension: u32, required: bool, metric: VectorDistanceMetric) -> FieldSpec {
-        FieldSpec {
-            data_type: Some(FieldType {
-                data_type: Some(field_type::DataType::i8_vector(dimension)),
-            }),
-            required,
-            index: Some(FieldIndex {
-                index: Some(field_index::Index::VectorIndex(VectorIndex {
-                    metric: metric as i32,
-                    exact: None,
-                })),
-            }),
-        }
+        Self::indexed_vector_field(field_type::DataType::i8_vector(dimension), required, metric)
     }
 
     pub fn binary_vector(
@@ -117,43 +100,37 @@ impl FieldSpec {
         required: bool,
         metric: VectorDistanceMetric,
     ) -> FieldSpec {
-        FieldSpec {
-            data_type: Some(FieldType {
-                data_type: Some(field_type::DataType::binary_vector(dimension)),
-            }),
+        Self::indexed_vector_field(
+            field_type::DataType::binary_vector(dimension),
             required,
-            index: Some(FieldIndex {
-                index: Some(field_index::Index::VectorIndex(VectorIndex {
-                    metric: metric as i32,
-                    exact: None,
-                })),
-            }),
-        }
+            metric,
+        )
     }
 
     pub fn f32_sparse_vector(required: bool, metric: VectorDistanceMetric) -> FieldSpec {
-        FieldSpec {
-            data_type: Some(FieldType {
-                data_type: Some(field_type::DataType::F32SparseVector(
-                    FieldTypeF32SparseVector {},
-                )),
-            }),
+        Self::indexed_vector_field(
+            field_type::DataType::F32SparseVector(FieldTypeF32SparseVector {}),
             required,
-            index: Some(FieldIndex {
-                index: Some(field_index::Index::VectorIndex(VectorIndex {
-                    metric: metric as i32,
-                    exact: None,
-                })),
-            }),
-        }
+            metric,
+        )
     }
 
     pub fn u8_sparse_vector(required: bool, metric: VectorDistanceMetric) -> FieldSpec {
+        Self::indexed_vector_field(
+            field_type::DataType::U8SparseVector(FieldTypeU8SparseVector {}),
+            required,
+            metric,
+        )
+    }
+
+    fn indexed_vector_field(
+        data_type: field_type::DataType,
+        required: bool,
+        metric: VectorDistanceMetric,
+    ) -> FieldSpec {
         FieldSpec {
             data_type: Some(FieldType {
-                data_type: Some(field_type::DataType::U8SparseVector(
-                    FieldTypeU8SparseVector {},
-                )),
+                data_type: Some(data_type),
             }),
             required,
             index: Some(FieldIndex {

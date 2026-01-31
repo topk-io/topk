@@ -52,6 +52,14 @@ message List {
   message I64 {
     repeated int64 values = 1;
   }
+  message F8 {
+    // F8E4M3 format
+    bytes values = 1;
+  }
+  message F16 {
+    uint32 len = 1;
+    repeated fixed32 values = 2;
+  }
   message F32 {
     repeated float values = 1;
   }
@@ -71,6 +79,8 @@ message List {
     String string = 7;
     U8 u8 = 8;
     I8 i8 = 9;
+    F8 f8 = 10;
+    F16 f16 = 11;
   }
 }
 
