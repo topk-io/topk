@@ -1,12 +1,14 @@
 use std::path::{Path, PathBuf};
 
+use bytes::Bytes;
+
 use crate::error::Error;
 use crate::proto::ctx::v1::DocumentKind;
 
 #[derive(Clone, Debug)]
 pub enum InputSource {
     Path(PathBuf),
-    Bytes(Vec<u8>),
+    Bytes(Bytes),
 }
 
 #[derive(Clone, Debug)]
@@ -41,7 +43,7 @@ impl InputFile {
         })
     }
 
-    pub fn from_bytes(data: &[u8], file_name: String) -> Result<Self, Error> {
+    pub fn from_bytes(data: impl Into<Bytes>, file_name: String) -> Result<Self, Error> {
         let extension = Path::new(&file_name)
             .extension()
             .ok_or_else(|| {
@@ -55,7 +57,7 @@ impl InputFile {
         let kind = DocumentKind::from_extension(&extension)?;
 
         Ok(Self {
-            source: InputSource::Bytes(data.to_vec()),
+            source: InputSource::Bytes(data.into()),
             file_name,
             kind,
         })
