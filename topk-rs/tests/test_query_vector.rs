@@ -233,7 +233,7 @@ async fn test_query_vector_distance_f8_vector(ctx: &mut ProjectTestContext) {
         .client
         .collections()
         .create(
-            ctx.wrap("vec_f16"),
+            ctx.wrap("vec_f8"),
             schema!(
                 "embedding" => FieldSpec::f8_vector(16, true, VectorDistanceMetric::Euclidean),
             ),
