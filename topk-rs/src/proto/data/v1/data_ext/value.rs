@@ -452,6 +452,18 @@ impl From<Vec<u32>> for Value {
     }
 }
 
+impl From<Vec<F8E4M3>> for Value {
+    fn from(value: Vec<F8E4M3>) -> Self {
+        Value::list(value)
+    }
+}
+
+impl From<Vec<half::f16>> for Value {
+    fn from(value: Vec<half::f16>) -> Self {
+        Value::list(value)
+    }
+}
+
 impl From<Vec<f32>> for Value {
     fn from(value: Vec<f32>) -> Self {
         Value::list(value)
