@@ -60,7 +60,7 @@ async fn test_ask_basic(ctx: &mut ProjectTestContext) {
     let mut stream = ctx
         .client
         .ask(
-            "What score must general education students achieve who first entered ninth grade in 1997 ?",
+            "What score must general education students achieve who first entered ninth grade in 1997 ?".to_string(),
             sources,
             None,
             Effort::Medium,
