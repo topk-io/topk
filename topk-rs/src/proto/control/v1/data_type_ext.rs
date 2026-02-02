@@ -23,6 +23,14 @@ impl field_type::DataType {
         field_type::DataType::F32Vector(FieldTypeF32Vector { dimension })
     }
 
+    pub fn f16_vector(dimension: u32) -> Self {
+        field_type::DataType::F16Vector(FieldTypeF16Vector { dimension })
+    }
+
+    pub fn f8_vector(dimension: u32) -> Self {
+        field_type::DataType::F8Vector(FieldTypeF8Vector { dimension })
+    }
+
     pub fn u8_vector(dimension: u32) -> Self {
         field_type::DataType::U8Vector(FieldTypeU8Vector { dimension })
     }

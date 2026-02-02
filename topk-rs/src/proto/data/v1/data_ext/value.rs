@@ -352,6 +352,8 @@ impl value::Value {
                 Some(list::Values::U64(_)) => "list<u64>".to_string(),
                 Some(list::Values::I32(_)) => "list<i32>".to_string(),
                 Some(list::Values::I64(_)) => "list<i64>".to_string(),
+                Some(list::Values::F8(_)) => "list<f8>".to_string(),
+                Some(list::Values::F16(_)) => "list<f16>".to_string(),
                 Some(list::Values::F32(_)) => "list<f32>".to_string(),
                 Some(list::Values::F64(_)) => "list<f64>".to_string(),
                 Some(list::Values::String(_)) => "list<string>".to_string(),
@@ -450,6 +452,18 @@ impl From<Vec<u32>> for Value {
     }
 }
 
+impl From<Vec<F8E4M3>> for Value {
+    fn from(value: Vec<F8E4M3>) -> Self {
+        Value::list(value)
+    }
+}
+
+impl From<Vec<half::f16>> for Value {
+    fn from(value: Vec<half::f16>) -> Self {
+        Value::list(value)
+    }
+}
+
 impl From<Vec<f32>> for Value {
     fn from(value: Vec<f32>) -> Self {
         Value::list(value)
@@ -543,6 +557,79 @@ impl Struct {
         depth
     }
 }
+
+// List
+
+macro_rules! impl_list_type {
+    ($type:ty) => {
+        impl $type {
+            #[inline]
+            pub fn len(&self) -> usize {
+                self.values.len()
+            }
+        }
+    };
+}
+
+impl_list_type!(list::String);
+
+// Unsigned integer
+impl_list_type!(list::U8);
+impl_list_type!(list::U32);
+impl_list_type!(list::U64);
+
+// Signed integer
+impl_list_type!(list::I8);
+impl_list_type!(list::I32);
+impl_list_type!(list::I64);
+
+// Float
+impl_list_type!(list::F8);
+impl_list_type!(list::F32);
+impl_list_type!(list::F64);
+
+impl list::F16 {
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.len as usize
+    }
+}
+
+impl From<list::F16> for Vec<half::f16> {
+    fn from(value: list::F16) -> Self {
+        assert!((value.len as usize) <= 2 * value.values.len());
+        let mut vals = value.values;
+        let cap = vals.capacity();
+        let ptr = vals.as_mut_ptr();
+        std::mem::forget(vals);
+        unsafe {
+            // SAFETY
+            // Casting len(vals) u32s into 2 * len(vals) f16s.
+            Vec::from_raw_parts(ptr as *mut half::f16, value.len as usize, cap * 2)
+        }
+    }
+}
+
+impl From<list::F8> for Vec<F8E4M3> {
+    fn from(value: list::F8) -> Self {
+        cast_vec::<u8, F8E4M3>(value.values)
+    }
+}
+
+impl AsRef<[half::f16]> for list::F16 {
+    fn as_ref(&self) -> &[half::f16] {
+        let values = cast_slice::<_, half::f16>(&self.values);
+        &values[..self.len as usize]
+    }
+}
+
+impl AsRef<[F8E4M3]> for list::F8 {
+    fn as_ref(&self) -> &[F8E4M3] {
+        cast_slice(&self.values)
+    }
+}
+
+// Matrix
 
 impl Matrix {
     /// Constructs a [`Matrix`] proto from values stored in row-major order.
