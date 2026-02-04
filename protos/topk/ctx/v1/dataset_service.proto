@@ -1,0 +1,79 @@
+syntax = "proto3";
+package topk.ctx.v1;
+
+import "topk/data/v1/value.proto";
+
+service DatasetService {
+  rpc Upsert(stream UpsertMessage) returns (UpsertResponse);
+
+  rpc GetMetadata(GetMetadataRequest) returns (GetMetadataResponse);
+
+  rpc UpdateMetadata(UpdateMetadataRequest) returns (UpdateMetadataResponse);
+
+  rpc Delete(DeleteRequest) returns (DeleteResponse);
+
+  rpc CheckHandle(CheckHandleRequest) returns (CheckHandleResponse);
+}
+
+message UpsertMessage {
+  message Header {
+    string id = 1;
+    DocumentKind kind = 2;
+    map<string, topk.data.v1.Value> metadata = 3;
+    uint64 size = 4;
+    string file_name = 5;
+  }
+
+  message BodyChunk {
+    uint64 seq = 1;
+    bytes data = 2;
+  }
+
+  oneof message {
+    Header header = 1;
+    BodyChunk body_chunk = 2;
+  }
+}
+
+message UpsertResponse {
+  string handle = 1;
+}
+
+message GetMetadataRequest {
+  string id = 1;
+}
+
+message GetMetadataResponse {
+  map<string, topk.data.v1.Value> metadata = 1;
+}
+
+message UpdateMetadataRequest {
+  string id = 1;
+  map<string, topk.data.v1.Value> metadata = 2;
+}
+
+message UpdateMetadataResponse {
+  string handle = 1;
+}
+
+message DeleteRequest {
+  string id = 1;
+}
+
+message DeleteResponse {
+  string handle = 1;
+}
+
+message CheckHandleRequest {
+  string handle = 1;
+}
+
+message CheckHandleResponse {
+  bool processed = 1;
+}
+
+enum DocumentKind {
+  DOCUMENT_KIND_UNSPECIFIED = 0;
+  DOCUMENT_KIND_PDF = 1;
+  DOCUMENT_KIND_MARKDOWN = 2;
+}

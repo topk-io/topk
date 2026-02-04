@@ -20,6 +20,12 @@ pub enum Error {
     #[error("collection not found")]
     CollectionNotFound,
 
+    #[error("dataset already exists")]
+    DatasetAlreadyExists,
+
+    #[error("dataset not found")]
+    DatasetNotFound,
+
     #[error("not found")]
     NotFound,
 
@@ -47,6 +53,9 @@ pub enum Error {
     #[error("input error: {0}")]
     Input(anyhow::Error),
 
+    #[error("io error: {0}")]
+    IoError(#[from] std::io::Error),
+
     #[error("internal error: {0}")]
     Internal(String),
 
@@ -73,6 +82,8 @@ impl Error {
             Error::RetryTimeout => false,
             Error::CollectionAlreadyExists => false,
             Error::CollectionNotFound => false,
+            Error::DatasetAlreadyExists => false,
+            Error::DatasetNotFound => false,
             Error::NotFound => false,
             Error::SchemaValidationError(_) => false,
             Error::DocumentValidationError(_) => false,
@@ -86,6 +97,7 @@ impl Error {
             Error::Unexpected(_) => false,
             Error::Internal(_) => false,
             Error::Input(_) => false,
+            Error::IoError(_) => false,
         }
     }
 

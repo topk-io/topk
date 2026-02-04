@@ -1,16 +1,30 @@
-use crate::proto::v1::control::collection_service_client::CollectionServiceClient;
-use crate::proto::v1::data::query_service_client::QueryServiceClient;
-use crate::proto::v1::data::write_service_client::WriteServiceClient;
 use std::sync::Arc;
+
 use tokio::sync::OnceCell;
 use tonic::service::interceptor::InterceptedService;
 use tonic::transport::Channel;
 
+use crate::proto::v1::control::collection_service_client::CollectionServiceClient;
+use crate::proto::v1::control::dataset_service_client::DatasetServiceClient as ControlDatasetServiceClient;
+use crate::proto::v1::ctx::context_service_client::ContextServiceClient;
+use crate::proto::v1::ctx::dataset_service_client::DatasetServiceClient as CtxDatasetServiceClient;
+use crate::proto::v1::data::query_service_client::QueryServiceClient;
+use crate::proto::v1::data::write_service_client::WriteServiceClient;
+
 mod collections;
 pub use collections::CollectionsClient;
 
+mod datasets;
+pub use datasets::DatasetsClient;
+
 mod collection;
 pub use collection::CollectionClient;
+
+mod dataset;
+pub use dataset::DatasetClient;
+
+mod ask;
+pub use ask::AskExt;
 
 mod config;
 pub use config::ClientConfig;
@@ -73,9 +87,19 @@ impl Client {
         CollectionsClient::new(&self.config, &self.channel)
     }
 
+    // Dataset operations (Control plane)
+    pub fn datasets(&self) -> DatasetsClient {
+        DatasetsClient::new(&self.config, &self.channel)
+    }
+
     // Document operations (Data plane)
     pub fn collection(&self, name: impl Into<String>) -> CollectionClient {
         CollectionClient::new(self.config.clone(), self.channel.clone(), name.into())
+    }
+
+    // Dataset operations (Data plane)
+    pub fn dataset(&self, name: impl Into<String>) -> DatasetClient {
+        DatasetClient::new(self.config.clone(), self.channel.clone(), name.into())
     }
 }
 
@@ -181,6 +205,57 @@ async fn create_collection_client<'a>(
 > {
     create_client!(
         CollectionServiceClient,
+        channel,
+        &config.endpoint(),
+        config.headers()
+    )
+    .await
+}
+
+async fn create_datasets_client<'a>(
+    config: &'a ClientConfig,
+    channel: &'a OnceCell<Channel>,
+) -> Result<
+    ControlDatasetServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>,
+    super::Error,
+> {
+    create_client!(
+        ControlDatasetServiceClient,
+        channel,
+        &config.endpoint(),
+        config.headers()
+    )
+    .await
+}
+
+async fn create_dataset_client<'a>(
+    config: &'a ClientConfig,
+    dataset: &'a str,
+    channel: &'a OnceCell<Channel>,
+) -> Result<
+    CtxDatasetServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>,
+    super::Error,
+> {
+    let config = config
+        .clone()
+        .with_headers([("x-topk-dataset", dataset.to_string())]);
+
+    create_client!(
+        CtxDatasetServiceClient,
+        channel,
+        &config.endpoint(),
+        config.headers()
+    )
+    .await
+}
+
+async fn create_ctx_client<'a>(
+    config: &'a ClientConfig,
+    channel: &'a OnceCell<Channel>,
+) -> Result<ContextServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>, super::Error>
+{
+    crate::create_client!(
+        ContextServiceClient,
         channel,
         &config.endpoint(),
         config.headers()
