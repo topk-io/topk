@@ -1,7 +1,10 @@
+use float8::F8E4M3;
 use test_context::test_context;
+use topk_rs::proto::v1::control::{FieldSpec, VectorDistanceMetric};
 use topk_rs::query::{field, fns, select};
 
 mod utils;
+use topk_rs::{doc, schema};
 use utils::dataset;
 use utils::ProjectTestContext;
 
@@ -174,4 +177,98 @@ async fn test_query_vector_distance_binary_vector(ctx: &mut ProjectTestContext) 
 
     assert!(is_sorted(&result, "summary_distance"));
     assert_doc_ids!(result, ["1984", "mockingbird"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_vector_distance_f16_vector(ctx: &mut ProjectTestContext) {
+    let collection = ctx
+        .client
+        .collections()
+        .create(
+            ctx.wrap("vec_f16"),
+            schema!(
+                "embedding" => FieldSpec::f16_vector(16, true, VectorDistanceMetric::Euclidean),
+            ),
+        )
+        .await
+        .expect("could not create collection");
+
+    let lsn = ctx
+        .client
+        .collection(&collection.name)
+        .upsert(vec![
+            doc!("_id" => "1", "embedding" => vec![half::f16::from_f32(1.0); 16]),
+            doc!("_id" => "2", "embedding" => vec![half::f16::from_f32(2.0); 16]),
+            doc!("_id" => "3", "embedding" => vec![half::f16::from_f32(3.0); 16]),
+            doc!("_id" => "4", "embedding" => vec![half::f16::from_f32(4.0); 16]),
+            doc!("_id" => "5", "embedding" => vec![half::f16::from_f32(5.0); 16]),
+        ])
+        .await
+        .expect("could not insert");
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([(
+                "dist",
+                fns::vector_distance("embedding", vec![half::f16::from_f32(3.0); 16]),
+            )])
+            .topk(field("dist"), 3, true),
+            Some(lsn),
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert!(is_sorted(&result, "dist"));
+    assert_doc_ids!(result, ["2", "3", "4"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_vector_distance_f8_vector(ctx: &mut ProjectTestContext) {
+    let collection = ctx
+        .client
+        .collections()
+        .create(
+            ctx.wrap("vec_f8"),
+            schema!(
+                "embedding" => FieldSpec::f8_vector(16, true, VectorDistanceMetric::Euclidean),
+            ),
+        )
+        .await
+        .expect("could not create collection");
+
+    let lsn = ctx
+        .client
+        .collection(&collection.name)
+        .upsert(vec![
+            doc!("_id" => "1", "embedding" => vec![F8E4M3::from_f32(1.0); 16]),
+            doc!("_id" => "2", "embedding" => vec![F8E4M3::from_f32(2.0); 16]),
+            doc!("_id" => "3", "embedding" => vec![F8E4M3::from_f32(3.0); 16]),
+            doc!("_id" => "4", "embedding" => vec![F8E4M3::from_f32(4.0); 16]),
+            doc!("_id" => "5", "embedding" => vec![F8E4M3::from_f32(5.0); 16]),
+        ])
+        .await
+        .expect("could not insert");
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([(
+                "dist",
+                fns::vector_distance("embedding", vec![F8E4M3::from_f32(3.0); 16]),
+            )])
+            .topk(field("dist"), 3, true),
+            Some(lsn),
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert!(is_sorted(&result, "dist"));
+    assert_doc_ids!(result, ["2", "3", "4"]);
 }

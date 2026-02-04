@@ -13,6 +13,8 @@ impl field_type::DataType {
             field_type::DataType::Float(..) => "float".to_string(),
             field_type::DataType::Boolean(..) => "boolean".to_string(),
             field_type::DataType::F32Vector(..) => "f32_vector".to_string(),
+            field_type::DataType::F16Vector(..) => "f16_vector".to_string(),
+            field_type::DataType::F8Vector(..) => "f8_vector".to_string(),
             field_type::DataType::U8Vector(..) => "u8_vector".to_string(),
             field_type::DataType::I8Vector(..) => "i8_vector".to_string(),
             field_type::DataType::BinaryVector(..) => "binary_vector".to_string(),
