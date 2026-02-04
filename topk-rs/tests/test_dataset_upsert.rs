@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use test_context::test_context;
-use topk_rs::proto::v1::ctx::file::InputFile;
+use topk_rs::proto::v1::ctx::{file::InputFile, DocumentKind};
 use topk_rs::proto::v1::data::Value;
 use topk_rs::Error;
 
@@ -60,8 +60,12 @@ async fn test_upsert_file_markdown(ctx: &mut ProjectTestContext) {
     let metadata = HashMap::from([("title".to_string(), Value::string("Test Markdown"))]);
 
     let file_data = b"# Test Markdown\n\nThis is a test markdown file.";
-    let input_file = InputFile::from_bytes(file_data.as_slice(), "test.md".to_string())
-        .expect("could not create InputFile from memory");
+    let input_file = InputFile::from_bytes(
+        file_data.as_slice(),
+        "test.md".to_string(),
+        DocumentKind::Markdown,
+    )
+    .expect("could not create InputFile from memory");
 
     let handle = ctx
         .client
@@ -83,8 +87,12 @@ async fn test_upsert_file_invalid_extension(ctx: &mut ProjectTestContext) {
         .expect("could not create dataset");
 
     let file_data = b"Some text content";
-    let err = InputFile::from_bytes(file_data.as_slice(), "test.txt".to_string())
-        .expect_err("should not be able to create InputFile with invalid extension");
+    let err = InputFile::from_bytes(
+        file_data.as_slice(),
+        "test.txt".to_string(),
+        DocumentKind::Unspecified,
+    )
+    .expect_err("should not be able to create InputFile with invalid extension");
 
     // Verify that creating InputFile with invalid extension fails
     assert!(matches!(err, Error::Input(_)));

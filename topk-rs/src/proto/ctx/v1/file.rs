@@ -43,19 +43,11 @@ impl InputFile {
         })
     }
 
-    pub fn from_bytes(data: impl Into<Bytes>, file_name: String) -> Result<Self, Error> {
-        let extension = Path::new(&file_name)
-            .extension()
-            .ok_or_else(|| {
-                Error::Input(anyhow::anyhow!(
-                    "Failed to get file extension from file name"
-                ))
-            })?
-            .to_string_lossy()
-            .to_string();
-
-        let kind = DocumentKind::from_extension(&extension)?;
-
+    pub fn from_bytes(
+        data: impl Into<Bytes>,
+        file_name: String,
+        kind: DocumentKind,
+    ) -> Result<Self, Error> {
         Ok(Self {
             source: InputSource::Bytes(data.into()),
             file_name,
