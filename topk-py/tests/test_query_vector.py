@@ -1,4 +1,4 @@
-from topk_sdk.data import binary_vector, f32_vector, u8_vector, i8_vector
+from topk_sdk.data import binary_vector, f16_vector, f32_vector, f8_vector, u8_vector, i8_vector
 from topk_sdk.query import field, fn, select
 
 from . import ProjectContext
@@ -76,3 +76,29 @@ def test_query_vector_distance_binary_vector(ctx: ProjectContext):
 
     assert is_sorted(result, "summary_distance")
     assert doc_ids(result) == {"1984", "mockingbird"}
+
+
+def test_query_vector_distance_f8_vector(ctx: ProjectContext):
+    collection = dataset.books.setup(ctx)
+
+    result = ctx.client.collection(collection.name).query(
+        select(
+            summary_distance=fn.vector_distance("f8_embedding", f8_vector([1.0] * 16))
+        ).topk(field("summary_distance"), 3, True)
+    )
+
+    assert is_sorted(result, "summary_distance")
+    assert doc_ids(result) == {"mockingbird", "1984", "pride"}
+
+
+def test_query_vector_distance_f16_vector(ctx: ProjectContext):
+    collection = dataset.books.setup(ctx)
+
+    result = ctx.client.collection(collection.name).query(
+        select(
+            summary_distance=fn.vector_distance("f16_embedding", f16_vector([1.0] * 16))
+        ).topk(field("summary_distance"), 3, True)
+    )
+
+    assert is_sorted(result, "summary_distance")
+    assert doc_ids(result) == {"mockingbird", "1984", "pride"}

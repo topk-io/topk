@@ -35,6 +35,8 @@ async def test_async_get(async_ctx: AsyncProjectContext):
             "scalar_i8_embedding": [-100] * 16,
             "sparse_f32_embedding": {9: 1.0, 10: 2.0, 11: 3.0},
             "sparse_u8_embedding": {9: 1, 10: 2, 11: 3},
+            "f8_embedding": [9.0] * 16,
+            "f16_embedding": [9.0] * 16,
             "tags": ["lord of the rings", "fellowship", "magic", "wizard", "elves"],
             "codes": [
                 "ISBN 978-0-547-92821-0",

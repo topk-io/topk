@@ -3,6 +3,8 @@ import { schema } from "../index";
 export declare const binaryVector: typeof schema.binaryVector;
 export declare const bool: typeof schema.bool;
 export declare const bytes: typeof schema.bytes;
+export declare const f8Vector: typeof schema.f8Vector;
+export declare const f16Vector: typeof schema.f16Vector;
 export declare const f32Vector: typeof schema.f32Vector;
 export declare const float: typeof schema.float;
 export declare const int: typeof schema.int;

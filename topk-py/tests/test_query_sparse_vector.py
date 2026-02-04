@@ -70,6 +70,12 @@ def test_query_sparse_vector_distance_nullable(ctx: ProjectContext):
         mockingbird["scalar_i8_embedding"]
     )
 
+    # f8 embeddings need to use `data.f8_vector` constructor
+    mockingbird["f8_embedding"] = data.f8_vector(mockingbird["f8_embedding"])
+
+    # f16 embeddings need to use `data.f16_vector` constructor
+    mockingbird["f16_embedding"] = data.f16_vector(mockingbird["f16_embedding"])
+
     # native value (empty list string) needs to be converted to an empty string list instance
     mockingbird["tags"] = data.string_list(mockingbird["tags"])
 

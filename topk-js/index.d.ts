@@ -271,6 +271,18 @@ export declare namespace data {
    */
   export function bytes(buffer: Array<number> | Buffer): Buffer
   /**
+   * Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a 16-bit float vector.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { f16Vector } from "topk-js/data";
+   *
+   * f16Vector([0.12, 0.67, 0.82, 0.53])
+   * ```
+   */
+  export function f16Vector(values: Array<number>): List
+  /**
    * Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a list of 32-bit floating point numbers.
    *
    * Example:
@@ -318,6 +330,18 @@ export declare namespace data {
    * ```
    */
   export function f64List(values: Array<number>): List
+  /**
+   * Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing an 8-bit float vector.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { f8Vector } from "topk-js/data";
+   *
+   * f8Vector([0.12, 0.67, 0.82, 0.53])
+   * ```
+   */
+  export function f8Vector(values: Array<number>): List
   /**
    * Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a list of 32-bit signed integers.
    *
@@ -744,6 +768,8 @@ export declare namespace schema {
     | { type: 'Integer' }
     | { type: 'Float' }
     | { type: 'Boolean' }
+    | { type: 'F8Vector', dimension: number }
+    | { type: 'F16Vector', dimension: number }
     | { type: 'F32Vector', dimension: number }
     | { type: 'U8Vector', dimension: number }
     | { type: 'I8Vector', dimension: number }
@@ -756,6 +782,20 @@ export declare namespace schema {
   export type EmbeddingDataType =  'float32'|
   'uint8'|
   'binary';
+  /**
+   * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `f16_vector` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { f16Vector } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   title_embedding: f16Vector({ dimension: 1536 })
+   * });
+   * ```
+   */
+  export function f16Vector(options: VectorOptions): FieldSpec
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `f32_sparse_vector` values.
    *
@@ -786,6 +826,20 @@ export declare namespace schema {
    * ```
    */
   export function f32Vector(options: VectorOptions): FieldSpec
+  /**
+   * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `f8_vector` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { f8Vector } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   title_embedding: f8Vector({ dimension: 1536 })
+   * });
+   * ```
+   */
+  export function f8Vector(options: VectorOptions): FieldSpec
   /** @ignore */
   export type FieldIndexUnion =
     | { type: 'KeywordIndex', indexType: KeywordIndexType }

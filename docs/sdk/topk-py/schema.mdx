@@ -172,6 +172,66 @@ Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `bool` values.
 
 ***
 
+### f8_vector()
+
+```python
+f8_vector(dimension: int) -> FieldSpec
+```
+
+Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `f8_vector` values.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import f8_vector
+
+    client.collections().create("books", schema={
+        "title_embedding": f8_vector(dimension=1536)
+    })
+    ```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `dimension` | int |
+
+**Returns**
+
+[`FieldSpec`](#fieldspec)
+
+***
+
+### f16_vector()
+
+```python
+f16_vector(dimension: int) -> FieldSpec
+```
+
+Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `f16_vector` values.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import f16_vector
+
+    client.collections().create("books", schema={
+        "title_embedding": f16_vector(dimension=1536)
+    })
+    ```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `dimension` | int |
+
+**Returns**
+
+[`FieldSpec`](#fieldspec)
+
+***
+
 ### f32_vector()
 
 ```python

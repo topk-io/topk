@@ -1,8 +1,73 @@
-import { binaryVector, f32Vector, i8Vector, u8Vector } from "../lib/data";
+import {
+  binaryVector,
+  f8Vector,
+  f16Vector,
+  f32Vector,
+  i8Vector,
+  u8Vector,
+} from "../lib/data";
 
 const TYPE_ERROR = "Given napi value is not an array";
 const TYPE_ERROR_U32_TO_U8 = "Failed to convert u32 to u8";
 const TYPE_ERROR_I32_TO_I8 = "Failed to convert i32 to i8";
+
+describe("f8Vector", () => {
+  test("valid", () => {
+    f8Vector([0.1, 0.2, 0.3]);
+  });
+
+  test("empty case", () => {
+    f8Vector([]);
+  });
+
+  test("toString", () => {
+    // F8 has limited precision, so we check the format rather than exact values
+    expect(f8Vector([1, 2, 3]).toString()).toMatch(/^List\(F8\(/);
+  });
+
+  test("invalid arguments", () => {
+    expect(() => f8Vector(0 as any)).toThrow(TYPE_ERROR);
+    expect(() => f8Vector(null as any)).toThrow(TYPE_ERROR);
+    expect(() => f8Vector(undefined as any)).toThrow(TYPE_ERROR);
+    expect(() => f8Vector(false as any)).toThrow(TYPE_ERROR);
+    expect(() => f8Vector(NaN as any)).toThrow(TYPE_ERROR);
+    expect(() => f8Vector(Infinity as any)).toThrow(TYPE_ERROR);
+    expect(() => f8Vector(-Infinity as any)).toThrow(TYPE_ERROR);
+    expect(() => f8Vector(Symbol("foo") as any)).toThrow(TYPE_ERROR);
+    expect(() => f8Vector(BigInt(1) as any)).toThrow(TYPE_ERROR);
+    expect(() => f8Vector({ 1: 256 } as any)).toThrow(TYPE_ERROR);
+    expect(() => f8Vector({ 1: -1 } as any)).toThrow(TYPE_ERROR);
+  });
+});
+
+describe("f16Vector", () => {
+  test("valid", () => {
+    f16Vector([0.1, 0.2, 0.3]);
+  });
+
+  test("empty case", () => {
+    f16Vector([]);
+  });
+
+  test("toString", () => {
+    // F16 has limited precision, so we check the format rather than exact values
+    expect(f16Vector([1, 2, 3]).toString()).toMatch(/^List\(F16\(/);
+  });
+
+  test("invalid arguments", () => {
+    expect(() => f16Vector(0 as any)).toThrow(TYPE_ERROR);
+    expect(() => f16Vector(null as any)).toThrow(TYPE_ERROR);
+    expect(() => f16Vector(undefined as any)).toThrow(TYPE_ERROR);
+    expect(() => f16Vector(false as any)).toThrow(TYPE_ERROR);
+    expect(() => f16Vector(NaN as any)).toThrow(TYPE_ERROR);
+    expect(() => f16Vector(Infinity as any)).toThrow(TYPE_ERROR);
+    expect(() => f16Vector(-Infinity as any)).toThrow(TYPE_ERROR);
+    expect(() => f16Vector(Symbol("foo") as any)).toThrow(TYPE_ERROR);
+    expect(() => f16Vector(BigInt(1) as any)).toThrow(TYPE_ERROR);
+    expect(() => f16Vector({ 1: 256 } as any)).toThrow(TYPE_ERROR);
+    expect(() => f16Vector({ 1: -1 } as any)).toThrow(TYPE_ERROR);
+  });
+});
 
 describe("f32Vector", () => {
   test("valid", () => {

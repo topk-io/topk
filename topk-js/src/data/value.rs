@@ -138,6 +138,8 @@ impl From<Value> for topk_rs::proto::v1::data::Value {
                 Values::I8(v) => topk_rs::proto::v1::data::Value::list(v),
                 Values::I32(v) => topk_rs::proto::v1::data::Value::list(v),
                 Values::I64(v) => topk_rs::proto::v1::data::Value::list(v),
+                Values::F8(v) => topk_rs::proto::v1::data::Value::list(v),
+                Values::F16(v) => topk_rs::proto::v1::data::Value::list(v),
                 Values::F32(v) => topk_rs::proto::v1::data::Value::list(v),
                 Values::F64(v) => topk_rs::proto::v1::data::Value::list(v),
                 Values::String(v) => topk_rs::proto::v1::data::Value::list(v),
@@ -216,6 +218,8 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                     Some(topk_rs::proto::v1::data::list::Values::I8(v)) => Values::I8(v.into()),
                     Some(topk_rs::proto::v1::data::list::Values::I32(v)) => Values::I32(v.values),
                     Some(topk_rs::proto::v1::data::list::Values::I64(v)) => Values::I64(v.values),
+                    Some(topk_rs::proto::v1::data::list::Values::F8(v)) => Values::F8(v.into()),
+                    Some(topk_rs::proto::v1::data::list::Values::F16(v)) => Values::F16(v.into()),
                     Some(topk_rs::proto::v1::data::list::Values::F32(v)) => Values::F32(v.values),
                     Some(topk_rs::proto::v1::data::list::Values::F64(v)) => Values::F64(v.values),
                     Some(topk_rs::proto::v1::data::list::Values::String(v)) => {
@@ -366,6 +370,12 @@ impl ToNapiValue for Value {
                 Values::I8(v) => Vec::<i8>::to_napi_value(env, v),
                 Values::I32(v) => Vec::<i32>::to_napi_value(env, v),
                 Values::I64(v) => Vec::<i64>::to_napi_value(env, v),
+                Values::F8(v) => {
+                    Vec::<f32>::to_napi_value(env, v.iter().map(|x| x.to_f32()).collect())
+                }
+                Values::F16(v) => {
+                    Vec::<f32>::to_napi_value(env, v.iter().map(|x| x.to_f32()).collect())
+                }
                 Values::F32(v) => Vec::<f32>::to_napi_value(env, v),
                 Values::F64(v) => Vec::<f64>::to_napi_value(env, v),
                 Values::String(v) => Vec::<String>::to_napi_value(env, v),

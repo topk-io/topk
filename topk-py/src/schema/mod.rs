@@ -27,6 +27,8 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(int))?;
     m.add_wrapped(wrap_pyfunction!(float))?;
     m.add_wrapped(wrap_pyfunction!(self::bool))?;
+    m.add_wrapped(wrap_pyfunction!(f8_vector))?;
+    m.add_wrapped(wrap_pyfunction!(f16_vector))?;
     m.add_wrapped(wrap_pyfunction!(f32_vector))?;
     m.add_wrapped(wrap_pyfunction!(u8_vector))?;
     m.add_wrapped(wrap_pyfunction!(i8_vector))?;
@@ -64,6 +66,16 @@ pub fn float() -> field_spec::FieldSpec {
 #[pyfunction]
 pub fn bool() -> field_spec::FieldSpec {
     field_spec::FieldSpec::new(data_type::DataType::Boolean())
+}
+
+#[pyfunction]
+pub fn f8_vector(dimension: u32) -> field_spec::FieldSpec {
+    field_spec::FieldSpec::new(data_type::DataType::F8Vector { dimension })
+}
+
+#[pyfunction]
+pub fn f16_vector(dimension: u32) -> field_spec::FieldSpec {
+    field_spec::FieldSpec::new(data_type::DataType::F16Vector { dimension })
 }
 
 #[pyfunction]

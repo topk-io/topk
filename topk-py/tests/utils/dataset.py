@@ -5,6 +5,8 @@ from topk_sdk import data
 from topk_sdk.schema import (
     binary_vector,
     f32_sparse_vector,
+    f8_vector,
+    f16_vector,
     f32_vector,
     i8_vector,
     int,
@@ -69,6 +71,8 @@ class books:
             "sparse_u8_embedding": u8_sparse_vector().index(
                 vector_index(metric="dot_product")
             ),
+            "f8_embedding": f8_vector(16).index(vector_index(metric="euclidean")),
+            "f16_embedding": f16_vector(16).index(vector_index(metric="euclidean")),
             "tags": list(value_type="text").index(keyword_index()),
             "codes": list(value_type="text"),
         }
@@ -90,6 +94,8 @@ class books:
                     {0: 1.0, 1: 2.0, 2: 3.0}
                 ),
                 "sparse_u8_embedding": data.u8_sparse_vector({0: 1, 1: 2, 2: 3}),
+                "f8_embedding": data.f8_vector([1.0] * 16),
+                "f16_embedding": data.f16_vector([1.0] * 16),
                 "tags": ["racism", "injustice", "girl", "father", "lawyer"],
                 "codes": [
                     "ISBN 978-0-06-093546-7",
@@ -114,6 +120,8 @@ class books:
                     {2: 1.0, 3: 2.0, 4: 3.0}
                 ),
                 "sparse_u8_embedding": data.u8_sparse_vector({2: 1, 3: 2, 4: 3}),
+                "f8_embedding": data.f8_vector([2.0] * 16),
+                "f16_embedding": data.f16_vector([2.0] * 16),
                 "tags": [
                     "dystopia",
                     "surveillance",
@@ -145,6 +153,8 @@ class books:
                     {3: 1.0, 4: 2.0, 5: 3.0}
                 ),
                 "sparse_u8_embedding": data.u8_sparse_vector({3: 1, 4: 2, 5: 3}),
+                "f8_embedding": data.f8_vector([3.0] * 16),
+                "f16_embedding": data.f16_vector([3.0] * 16),
                 "tags": ["pride", "love", "romance", "class", "marriage", "prejudice"],
                 "codes": ["ISBN 978-0-14-143951-8", "OCLC 934546789"],
                 "reprint_years": data.u32_list([1966, 1972, 1985]),
@@ -161,6 +171,8 @@ class books:
                     {4: 1.0, 5: 2.0, 6: 3.0}
                 ),
                 "sparse_u8_embedding": data.u8_sparse_vector({4: 1, 5: 2, 6: 3}),
+                "f8_embedding": data.f8_vector([4.0] * 16),
+                "f16_embedding": data.f16_vector([4.0] * 16),
                 "tags": ["love", "romance", "wealth", "marriage"],
                 "codes": [
                     "ISBN 978-0-7432-7356-5",
@@ -187,6 +199,8 @@ class books:
                     {5: 1.0, 6: 2.0, 7: 3.0}
                 ),
                 "sparse_u8_embedding": data.u8_sparse_vector({5: 1, 6: 2, 7: 3}),
+                "f8_embedding": data.f8_vector([5.0] * 16),
+                "f16_embedding": data.f16_vector([5.0] * 16),
                 "tags": [
                     "alienation",
                     "identity",
@@ -208,6 +222,8 @@ class books:
                     {6: 1.0, 7: 2.0, 8: 3.0}
                 ),
                 "sparse_u8_embedding": data.u8_sparse_vector({6: 1, 7: 2, 8: 3}),
+                "f8_embedding": data.f8_vector([6.0] * 16),
+                "f16_embedding": data.f16_vector([6.0] * 16),
                 "nullable_importance": 5.0,
                 "tags": ["whale", "obsession", "tragedy", "sailing", "ocean"],
                 "codes": data.string_list([]),
@@ -224,6 +240,8 @@ class books:
                     {7: 1.0, 8: 2.0, 9: 3.0}
                 ),
                 "sparse_u8_embedding": data.u8_sparse_vector({7: 1, 8: 2, 9: 3}),
+                "f8_embedding": data.f8_vector([7.0] * 16),
+                "f16_embedding": data.f16_vector([7.0] * 16),
                 "tags": ["hobbit", "dwarf", "quest", "home", "adventure"],
                 "codes": data.string_list([]),
                 "user_ratings": data.u32_list([5, 3, 4, 5, 2]),
@@ -241,6 +259,8 @@ class books:
                     {8: 1.0, 9: 2.0, 10: 3.0}
                 ),
                 "sparse_u8_embedding": data.u8_sparse_vector({8: 1, 9: 2, 10: 3}),
+                "f8_embedding": data.f8_vector([8.0] * 16),
+                "f16_embedding": data.f16_vector([8.0] * 16),
                 "tags": ["wizard", "magic", "sorcerer", "school", "witchcraft"],
                 "codes": ["ISBN 978-0-439-70818-0", "UPC 043970818909"],
                 "reprint_years": data.u32_list([1998, 1999, 2001, 2004, 2013, 2020]),
@@ -257,6 +277,8 @@ class books:
                     {9: 1.0, 10: 2.0, 11: 3.0}
                 ),
                 "sparse_u8_embedding": data.u8_sparse_vector({9: 1, 10: 2, 11: 3}),
+                "f8_embedding": data.f8_vector([9.0] * 16),
+                "f16_embedding": data.f16_vector([9.0] * 16),
                 "tags": ["lord of the rings", "fellowship", "magic", "wizard", "elves"],
                 "codes": [
                     "ISBN 978-0-547-92821-0",
@@ -277,6 +299,8 @@ class books:
                     {10: 1.0, 11: 2.0, 12: 3.0}
                 ),
                 "sparse_u8_embedding": data.u8_sparse_vector({10: 1, 11: 2, 12: 3}),
+                "f8_embedding": data.f8_vector([10.0] * 16),
+                "f16_embedding": data.f16_vector([10.0] * 16),
                 "tags": ["journey", "destiny", "meaning of life", "alchemy", "soul"],
                 "codes": [
                     "ISBN 978-0-06-231500-7",
