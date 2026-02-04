@@ -62,6 +62,34 @@ bytes([0, 1, 1, 0])
 
 ***
 
+### f16Vector()
+
+```ts
+function f16Vector(values: number[]): List;
+```
+
+Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a 16-bit float vector.
+
+Example:
+
+```javascript
+import { f16Vector } from "topk-js/data";
+
+f16Vector([0.12, 0.67, 0.82, 0.53])
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `values` | `number`[] |
+
+**Returns**
+
+[`List`](/sdk/topk-js/Namespace.data#list)
+
+***
+
 ### f32List()
 
 ```ts
@@ -160,6 +188,34 @@ Example:
 import { f64List } from "topk-js/data";
 
 f64List([0.12, 0.67, 0.82, 0.53])
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `values` | `number`[] |
+
+**Returns**
+
+[`List`](/sdk/topk-js/Namespace.data#list)
+
+***
+
+### f8Vector()
+
+```ts
+function f8Vector(values: number[]): List;
+```
+
+Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing an 8-bit float vector.
+
+Example:
+
+```javascript
+import { f8Vector } from "topk-js/data";
+
+f8Vector([0.12, 0.67, 0.82, 0.53])
 ```
 
 **Parameters**

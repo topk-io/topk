@@ -1,4 +1,4 @@
-use pyo3::{pyclass, pymethods, FromPyObject, IntoPyObject};
+use pyo3::{pyclass, pymethods};
 
 #[pyclass]
 #[derive(Debug, Clone, PartialEq)]
@@ -6,7 +6,7 @@ pub struct List {
     pub(crate) values: Values,
 }
 
-#[derive(Debug, Clone, PartialEq, FromPyObject, IntoPyObject)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Values {
     U8(Vec<u8>),
     U32(Vec<u32>),
@@ -14,6 +14,8 @@ pub enum Values {
     I8(Vec<i8>),
     I32(Vec<i32>),
     I64(Vec<i64>),
+    F8(Vec<float8::F8E4M3>),
+    F16(Vec<half::f16>),
     F32(Vec<f32>),
     F64(Vec<f64>),
     String(Vec<String>),
@@ -29,6 +31,8 @@ impl List {
             Values::I8(values) => format!("List(I8({:?}))", values),
             Values::I32(values) => format!("List(I32({:?}))", values),
             Values::I64(values) => format!("List(I64({:?}))", values),
+            Values::F8(values) => format!("List(F8({:?}))", values),
+            Values::F16(values) => format!("List(F16({:?}))", values),
             Values::F32(values) => format!("List(F32({:?}))", values),
             Values::F64(values) => format!("List(F64({:?}))", values),
             Values::String(values) => format!("List(String({:?}))", values),

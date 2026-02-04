@@ -34,6 +34,43 @@ pub fn bytes(#[napi(ts_arg_type = "Array<number> | Buffer")] buffer: BytesData) 
     Value::Bytes(buffer.into())
 }
 
+/// Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing an 8-bit float vector.
+///
+/// Example:
+///
+/// ```javascript
+/// import { f8Vector } from "topk-js/data";
+///
+/// f8Vector([0.12, 0.67, 0.82, 0.53])
+/// ```
+#[napi(namespace = "data")]
+pub fn f8_vector(values: Vec<f64>) -> List {
+    List {
+        values: Values::F8(
+            values
+                .into_iter()
+                .map(|v| float8::F8E4M3::from_f32(v as f32))
+                .collect(),
+        ),
+    }
+}
+
+/// Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a 16-bit float vector.
+///
+/// Example:
+///
+/// ```javascript
+/// import { f16Vector } from "topk-js/data";
+///
+/// f16Vector([0.12, 0.67, 0.82, 0.53])
+/// ```
+#[napi(namespace = "data")]
+pub fn f16_vector(values: Vec<f64>) -> List {
+    List {
+        values: Values::F16(values.into_iter().map(|v| half::f16::from_f64(v)).collect()),
+    }
+}
+
 /// Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a 32-bit float vector. This function is an alias for [f32List()](https://docs.topk.io/sdk/topk-js/data#f32list).
 ///
 /// Example:

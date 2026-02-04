@@ -32,6 +32,34 @@ class Matrix:
 
     ...
 
+def f8_vector(data: builtins.list[float]) -> List:
+    """
+    Create a [List](https://docs.topk.io/sdk/topk-py/data#List) type containing a 8-bit float vector.
+
+    Example:
+
+    ```python
+    from topk_sdk.data import f8_vector
+
+    f8_vector([0.12, 0.67, 0.82, 0.53])
+    ```
+    """
+    ...
+
+def f16_vector(data: builtins.list[float]) -> List:
+    """
+    Create a [List](https://docs.topk.io/sdk/topk-py/data#List) type containing a 16-bit float vector.
+
+    Example:
+
+    ```python
+    from topk_sdk.data import f16_vector
+
+    f16_vector([0.12, 0.67, 0.82, 0.53])
+    ```
+    """
+    ...
+
 def f32_vector(data: builtins.list[float]) -> List:
     """
     Create a [List](https://docs.topk.io/sdk/topk-py/data#List) type containing a 32-bit float vector. This function is an alias for [f32_list()](https://docs.topk.io/sdk/topk-py/data#f32-list).

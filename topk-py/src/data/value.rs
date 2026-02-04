@@ -142,6 +142,16 @@ impl<'py> IntoPyObject<'py> for Value {
                             list.append(value.into_py_any(py)?)?;
                         }
                     }
+                    Values::F8(values) => {
+                        for value in values {
+                            list.append(value.to_f32().into_py_any(py)?)?;
+                        }
+                    }
+                    Values::F16(values) => {
+                        for value in values {
+                            list.append(value.to_f32().into_py_any(py)?)?;
+                        }
+                    }
                     Values::F32(values) => {
                         for value in values {
                             list.append(value.into_py_any(py)?)?;
@@ -282,6 +292,12 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                     Some(topk_rs::proto::v1::data::list::Values::I64(values)) => {
                         Values::I64(values.values)
                     }
+                    Some(topk_rs::proto::v1::data::list::Values::F8(values)) => {
+                        Values::F8(values.into())
+                    }
+                    Some(topk_rs::proto::v1::data::list::Values::F16(values)) => {
+                        Values::F16(values.into())
+                    }
                     Some(topk_rs::proto::v1::data::list::Values::F32(values)) => {
                         Values::F32(values.values)
                     }
@@ -373,6 +389,8 @@ impl From<Value> for topk_rs::proto::v1::data::Value {
                 Values::I8(values) => topk_rs::proto::v1::data::Value::list(values),
                 Values::I32(values) => topk_rs::proto::v1::data::Value::list(values),
                 Values::I64(values) => topk_rs::proto::v1::data::Value::list(values),
+                Values::F8(values) => topk_rs::proto::v1::data::Value::list(values),
+                Values::F16(values) => topk_rs::proto::v1::data::Value::list(values),
                 Values::F32(values) => topk_rs::proto::v1::data::Value::list(values),
                 Values::F64(values) => topk_rs::proto::v1::data::Value::list(values),
                 Values::String(values) => topk_rs::proto::v1::data::Value::list(values),

@@ -1,11 +1,15 @@
 import {
   binaryVector as binaryVectorData,
+  f8Vector as f8VectorData,
+  f16Vector as f16VectorData,
   i8Vector as i8VectorData,
   u8Vector as u8VectorData,
 } from "../lib/data";
 import { field, fn, select } from "../lib/query";
 import {
   binaryVector,
+  f8Vector,
+  f16Vector,
   f32Vector,
   i8Vector,
   text,
@@ -204,6 +208,82 @@ describe("Vector Queries", () => {
     expect(isSorted(result, "summary_distance")).toBe(true);
     expect(new Set(result.map((doc) => doc._id))).toEqual(
       new Set(["1984", "pride", "gatsby"])
+    );
+  });
+
+  test("query vector distance f8 vector", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("books", {
+      f8_embedding: f8Vector({ dimension: 16 })
+        .required()
+        .index(vectorIndex({ metric: "euclidean" })),
+    });
+
+    await ctx.client.collection(collection.name).upsert([
+      {
+        _id: "harry",
+        f8_embedding: f8VectorData([1, ...Array(15).fill(0)]),
+      },
+      {
+        _id: "1984",
+        f8_embedding: f8VectorData([2, ...Array(15).fill(0)]),
+      },
+      {
+        _id: "catcher",
+        f8_embedding: f8VectorData([3, ...Array(15).fill(0)]),
+      },
+    ]);
+
+    const result = await ctx.client.collection(collection.name).query(
+      select({
+        summary_distance: fn.vectorDistance(
+          "f8_embedding",
+          f8VectorData([1, ...Array(15).fill(0)])
+        ),
+      }).topk(field("summary_distance"), 3, true)
+    );
+
+    expect(isSorted(result, "summary_distance")).toBe(true);
+    expect(new Set(result.map((doc) => doc._id))).toEqual(
+      new Set(["harry", "1984", "catcher"])
+    );
+  });
+
+  test("query vector distance f16 vector", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("books", {
+      f16_embedding: f16Vector({ dimension: 16 })
+        .required()
+        .index(vectorIndex({ metric: "euclidean" })),
+    });
+
+    await ctx.client.collection(collection.name).upsert([
+      {
+        _id: "harry",
+        f16_embedding: f16VectorData([1, ...Array(15).fill(0)]),
+      },
+      {
+        _id: "1984",
+        f16_embedding: f16VectorData([2, ...Array(15).fill(0)]),
+      },
+      {
+        _id: "catcher",
+        f16_embedding: f16VectorData([3, ...Array(15).fill(0)]),
+      },
+    ]);
+
+    const result = await ctx.client.collection(collection.name).query(
+      select({
+        summary_distance: fn.vectorDistance(
+          "f16_embedding",
+          f16VectorData([1, ...Array(15).fill(0)])
+        ),
+      }).topk(field("summary_distance"), 3, true)
+    );
+
+    expect(isSorted(result, "summary_distance")).toBe(true);
+    expect(new Set(result.map((doc) => doc._id))).toEqual(
+      new Set(["harry", "1984", "catcher"])
     );
   });
 });

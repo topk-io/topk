@@ -25,6 +25,8 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Matrix>()?;
 
     // (Dense) Vectors
+    m.add_wrapped(wrap_pyfunction!(f8_vector))?;
+    m.add_wrapped(wrap_pyfunction!(f16_vector))?;
     m.add_wrapped(wrap_pyfunction!(f32_vector))?;
     m.add_wrapped(wrap_pyfunction!(u8_vector))?;
     m.add_wrapped(wrap_pyfunction!(i8_vector))?;
@@ -45,6 +47,22 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(matrix_))?;
 
     Ok(())
+}
+
+#[pyfunction]
+#[pyo3(signature = (vector))]
+pub fn f8_vector(vector: Vec<f32>) -> List {
+    List {
+        values: list::Values::F8(vector.into_iter().map(float8::F8E4M3::from_f32).collect()),
+    }
+}
+
+#[pyfunction]
+#[pyo3(signature = (vector))]
+pub fn f16_vector(vector: Vec<f32>) -> List {
+    List {
+        values: list::Values::F16(vector.into_iter().map(half::f16::from_f32).collect()),
+    }
 }
 
 #[pyfunction]

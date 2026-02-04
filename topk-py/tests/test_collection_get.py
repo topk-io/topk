@@ -32,6 +32,8 @@ def test_get_document(ctx: ProjectContext):
             "scalar_i8_embedding": [-100] * 16,
             "sparse_f32_embedding": {9: 1.0, 10: 2.0, 11: 3.0},
             "sparse_u8_embedding": {9: 1, 10: 2, 11: 3},
+            "f8_embedding": [9.0] * 16,
+            "f16_embedding": [9.0] * 16,
             "tags": ["lord of the rings", "fellowship", "magic", "wizard", "elves"],
             "codes": [
                 "ISBN 978-0-547-92821-0",
@@ -60,6 +62,8 @@ def test_get_multiple_documents(ctx: ProjectContext):
             "scalar_i8_embedding": [-100] * 16,
             "sparse_f32_embedding": {9: 1.0, 10: 2.0, 11: 3.0},
             "sparse_u8_embedding": {9: 1, 10: 2, 11: 3},
+            "f8_embedding": [9.0] * 16,
+            "f16_embedding": [9.0] * 16,
             "tags": ["lord of the rings", "fellowship", "magic", "wizard", "elves"],
             "codes": [
                 "ISBN 978-0-547-92821-0",
@@ -78,6 +82,8 @@ def test_get_multiple_documents(ctx: ProjectContext):
             "summary_embedding": [6.0] * 16,
             "sparse_f32_embedding": {6: 1.0, 7: 2.0, 8: 3.0},
             "sparse_u8_embedding": {6: 1, 7: 2, 8: 3},
+            "f8_embedding": [6.0] * 16,
+            "f16_embedding": [6.0] * 16,
             "nullable_importance": 5.0,
             "tags": ["whale", "obsession", "tragedy", "sailing", "ocean"],
             "codes": [],

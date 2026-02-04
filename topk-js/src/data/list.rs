@@ -19,6 +19,8 @@ pub enum Values {
     I8(Vec<i8>),
     I32(Vec<i32>),
     I64(Vec<i64>),
+    F8(Vec<float8::F8E4M3>),
+    F16(Vec<half::f16>),
     F32(Vec<f32>),
     F64(Vec<f64>),
     String(Vec<String>),
@@ -53,6 +55,12 @@ impl From<List> for topk_rs::proto::v1::data::List {
                 values: Some(values.into_list_values()),
             },
             Values::I64(values) => topk_rs::proto::v1::data::List {
+                values: Some(values.into_list_values()),
+            },
+            Values::F8(values) => topk_rs::proto::v1::data::List {
+                values: Some(values.into_list_values()),
+            },
+            Values::F16(values) => topk_rs::proto::v1::data::List {
                 values: Some(values.into_list_values()),
             },
             Values::F32(values) => topk_rs::proto::v1::data::List {

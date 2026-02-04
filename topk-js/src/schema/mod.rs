@@ -86,6 +86,42 @@ pub struct VectorOptions {
     pub dimension: u32,
 }
 
+/// Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `f8_vector` values.
+///
+/// Example:
+///
+/// ```javascript
+/// import { f8Vector } from "topk-js/schema";
+///
+/// await client.collections().create("books", {
+///   title_embedding: f8Vector({ dimension: 1536 })
+/// });
+/// ```
+#[napi(namespace = "schema")]
+pub fn f8_vector(options: VectorOptions) -> FieldSpec {
+    FieldSpec::create(DataType::F8Vector {
+        dimension: options.dimension,
+    })
+}
+
+/// Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `f16_vector` values.
+///
+/// Example:
+///
+/// ```javascript
+/// import { f16Vector } from "topk-js/schema";
+///
+/// await client.collections().create("books", {
+///   title_embedding: f16Vector({ dimension: 1536 })
+/// });
+/// ```
+#[napi(namespace = "schema")]
+pub fn f16_vector(options: VectorOptions) -> FieldSpec {
+    FieldSpec::create(DataType::F16Vector {
+        dimension: options.dimension,
+    })
+}
+
 /// Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `f32_vector` values.
 ///
 /// Example:

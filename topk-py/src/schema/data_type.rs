@@ -7,6 +7,12 @@ pub enum DataType {
     Integer(),
     Float(),
     Boolean(),
+    F8Vector {
+        dimension: u32,
+    },
+    F16Vector {
+        dimension: u32,
+    },
     F32Vector {
         dimension: u32,
     },
@@ -141,6 +147,12 @@ impl Into<topk_rs::proto::v1::control::field_type::DataType> for DataType {
             DataType::Float() => topk_rs::proto::v1::control::field_type::DataType::float(),
             DataType::Text() => topk_rs::proto::v1::control::field_type::DataType::text(),
             DataType::Boolean() => topk_rs::proto::v1::control::field_type::DataType::bool(),
+            DataType::F8Vector { dimension } => {
+                topk_rs::proto::v1::control::field_type::DataType::f8_vector(dimension)
+            }
+            DataType::F16Vector { dimension } => {
+                topk_rs::proto::v1::control::field_type::DataType::f16_vector(dimension)
+            }
             DataType::F32Vector { dimension } => {
                 topk_rs::proto::v1::control::field_type::DataType::f32_vector(dimension)
             }
@@ -189,6 +201,16 @@ impl From<topk_rs::proto::v1::control::field_type::DataType> for DataType {
             topk_rs::proto::v1::control::field_type::DataType::Float(_) => DataType::Float(),
             topk_rs::proto::v1::control::field_type::DataType::Text(_) => DataType::Text(),
             topk_rs::proto::v1::control::field_type::DataType::Boolean(_) => DataType::Boolean(),
+            topk_rs::proto::v1::control::field_type::DataType::F16Vector(vector) => {
+                DataType::F16Vector {
+                    dimension: vector.dimension,
+                }
+            }
+            topk_rs::proto::v1::control::field_type::DataType::F8Vector(vector) => {
+                DataType::F8Vector {
+                    dimension: vector.dimension,
+                }
+            }
             topk_rs::proto::v1::control::field_type::DataType::F32Vector(vector) => {
                 DataType::F32Vector {
                     dimension: vector.dimension,

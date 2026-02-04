@@ -75,6 +75,12 @@ impl From<FieldSpec> for topk_rs::proto::v1::control::FieldSpec {
                     }
                     DataType::Float => topk_rs::proto::v1::control::field_type::DataType::float(),
                     DataType::Boolean => topk_rs::proto::v1::control::field_type::DataType::bool(),
+                    DataType::F8Vector { dimension } => {
+                        topk_rs::proto::v1::control::field_type::DataType::f8_vector(dimension)
+                    }
+                    DataType::F16Vector { dimension } => {
+                        topk_rs::proto::v1::control::field_type::DataType::f16_vector(dimension)
+                    }
                     DataType::F32Vector { dimension } => {
                         topk_rs::proto::v1::control::field_type::DataType::f32_vector(dimension)
                     }
