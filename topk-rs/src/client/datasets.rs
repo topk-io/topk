@@ -66,10 +66,7 @@ impl DatasetsClient {
         })
         .await?;
 
-        Ok(response
-            .into_inner()
-            .dataset
-            .expect("Invalid dataset proto"))
+        Ok(response.into_inner().dataset.ok_or(Error::InvalidProto)?)
     }
 
     pub async fn create(&self, name: impl Into<String>) -> Result<Dataset, Error> {
@@ -94,10 +91,7 @@ impl DatasetsClient {
         })
         .await?;
 
-        Ok(response
-            .into_inner()
-            .dataset
-            .expect("Invalid dataset proto"))
+        Ok(response.into_inner().dataset.ok_or(Error::InvalidProto)?)
     }
 
     pub async fn delete(&self, name: impl Into<String>) -> Result<(), Error> {

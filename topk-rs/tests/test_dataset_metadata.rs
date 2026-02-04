@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use test_context::test_context;
-use topk_rs::proto::v1::data::Value;
+use topk_rs::proto::v1::{ctx::file::InputFile, data::Value};
 
 mod utils;
 use utils::{dataset::test_pdf_path, ProjectTestContext};
@@ -23,7 +23,7 @@ async fn test_get_metadata(ctx: &mut ProjectTestContext) {
         .dataset(&dataset.name)
         .upsert_file(
             "doc1".to_string(),
-            test_pdf_path(),
+            InputFile::from_path(test_pdf_path()).expect("could not create InputFile from path"),
             original_metadata.clone(),
         )
         .await

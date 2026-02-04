@@ -70,6 +70,9 @@ pub enum Error {
 
     #[error("malformed response: {0}")]
     MalformedResponse(String),
+
+    #[error("invalid proto")]
+    InvalidProto,
 }
 
 impl Error {
@@ -98,6 +101,7 @@ impl Error {
             Error::Internal(_) => false,
             Error::Input(_) => false,
             Error::IoError(_) => false,
+            Error::InvalidProto => false,
         }
     }
 

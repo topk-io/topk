@@ -6,7 +6,7 @@ use test_context::test_context;
 
 use topk_rs::{
     client::AskExt,
-    proto::v1::ctx::{ask_response_message, AskResponseMessage, Effort, Source},
+    proto::v1::ctx::{ask_response_message, file::InputFile, AskResponseMessage, Effort, Source},
 };
 
 mod utils;
@@ -25,7 +25,11 @@ async fn test_ask(ctx: &mut ProjectTestContext) {
     let handle = ctx
         .client
         .dataset(&dataset.name)
-        .upsert_file("doc1".to_string(), test_pdf_path(), HashMap::default())
+        .upsert_file(
+            "doc1".to_string(),
+            InputFile::from_path(test_pdf_path()).expect("could not create InputFile from path"),
+            HashMap::default(),
+        )
         .await
         .expect("could not upsert file");
 

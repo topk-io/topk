@@ -50,11 +50,7 @@ impl AskExt for super::Client {
                     .await
             }
         })
-        .await
-        .map_err(|e| match e {
-            Error::NotFound => Error::DatasetNotFound,
-            _ => e.into(),
-        })?;
+        .await?;
 
         Ok(response.into_inner())
     }

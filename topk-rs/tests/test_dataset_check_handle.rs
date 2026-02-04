@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::time::Duration;
 use test_context::test_context;
-use topk_rs::Error;
+use topk_rs::{proto::v1::ctx::file::InputFile, Error};
 
 mod utils;
 use utils::{dataset::test_pdf_path, ProjectTestContext};
@@ -19,7 +19,11 @@ async fn test_check_handle_waits_until_processed(ctx: &mut ProjectTestContext) {
     let handle = ctx
         .client
         .dataset(&dataset.name)
-        .upsert_file("doc1".to_string(), test_pdf_path(), HashMap::default())
+        .upsert_file(
+            "doc1".to_string(),
+            InputFile::from_path(test_pdf_path()).expect("could not create InputFile from path"),
+            HashMap::default(),
+        )
         .await
         .expect("could not upsert file");
 

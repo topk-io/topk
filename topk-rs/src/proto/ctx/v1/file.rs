@@ -75,12 +75,6 @@ impl InputFile {
     }
 }
 
-impl From<PathBuf> for InputFile {
-    fn from(path: PathBuf) -> Self {
-        Self::from_path(path).expect("Failed to create InputFile from PathBuf")
-    }
-}
-
 #[derive(Clone)]
 pub struct FileId(String);
 
