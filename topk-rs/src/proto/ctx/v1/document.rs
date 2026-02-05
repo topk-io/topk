@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::proto::ctx::v1::DocumentKind;
 
 use crate::error::Error;
@@ -12,6 +14,16 @@ impl DocumentKind {
             Err(Error::Input(anyhow::anyhow!(
                 "Invalid document extension: {extension}"
             )))
+        }
+    }
+}
+
+impl fmt::Display for DocumentKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Unspecified => write!(f, "unspecified"),
+            Self::Pdf => write!(f, "pdf"),
+            Self::Markdown => write!(f, "markdown"),
         }
     }
 }
