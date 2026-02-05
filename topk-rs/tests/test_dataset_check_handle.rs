@@ -70,7 +70,7 @@ async fn test_check_handle_invalid_handle(ctx: &mut ProjectTestContext) {
         .await
         .expect_err("should not be able to check handle with invalid handle");
 
-    assert!(matches!(err, Error::Internal(_)));
+    assert!(matches!(err, Error::InvalidArgument(_)));
 }
 
 #[test_context(ProjectTestContext)]
