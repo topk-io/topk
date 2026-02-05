@@ -1,5 +1,6 @@
 use crate::proto::data::v1::{list, matrix};
 
+mod ask;
 mod document;
 mod sparse_vector;
 mod value;
