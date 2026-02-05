@@ -39,7 +39,7 @@ pub const MAX_DECODING_MESSAGE_SIZE: usize = 512 * 1024 * 1024; // 512MB
 pub const MAX_ENCODING_MESSAGE_SIZE: usize = 512 * 1024 * 1024; // 512MB
 
 // request config
-pub const TIMEOUT: u64 = 60_000; // 1 minute
+pub const TIMEOUT: u64 = 600_000; // 10 minutes
 pub const MAX_HEADER_LIST_SIZE: u32 = 1024 * 64; // 64KB
 
 // (client) retry config
