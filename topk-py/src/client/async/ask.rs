@@ -3,17 +3,18 @@ use std::sync::Arc;
 use futures_util::StreamExt;
 use pyo3::{prelude::*, types::PyAny};
 use pyo3_async_runtimes::tokio::future_into_py;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Mutex};
 use tokio::task::JoinHandle;
 use topk_rs::client::AskExt;
 
+use crate::client::ASK_CHANNEL_BUFFER_SIZE;
 use crate::data::ask::{AskResponseMessage, Effort, Source};
 use crate::error::RustError;
 use crate::expr::logical::LogicalExpr;
 
 #[pyclass]
 pub struct AsyncAskIterator {
-    receiver: Arc<tokio::sync::Mutex<mpsc::Receiver<PyResult<AskResponseMessage>>>>,
+    receiver: Arc<Mutex<mpsc::Receiver<PyResult<AskResponseMessage>>>>,
     #[allow(dead_code)]
     handle: JoinHandle<()>,
 }
@@ -48,7 +49,7 @@ pub fn ask_stream(
     filter: Option<LogicalExpr>,
     effort: Effort,
 ) -> PyResult<Py<AsyncAskIterator>> {
-    let (tx, rx) = mpsc::channel(100);
+    let (tx, rx) = mpsc::channel(ASK_CHANNEL_BUFFER_SIZE);
 
     let sources = sources.into_iter().map(|s| s.into()).collect();
     let filter = filter.map(|f| f.into());
