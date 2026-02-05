@@ -9,6 +9,8 @@ fn build_topk_v1_protos() {
         "../protos/topk/control/v1/collection_service.proto",
         "../protos/topk/control/v1/collection.proto",
         "../protos/topk/control/v1/schema.proto",
+        "../protos/topk/control/v1/dataset_service.proto",
+        "../protos/topk/control/v1/dataset.proto",
         "../protos/topk/data/v1/write_service.proto",
         "../protos/topk/data/v1/document.proto",
         "../protos/topk/data/v1/query_service.proto",
@@ -17,6 +19,8 @@ fn build_topk_v1_protos() {
         "../protos/topk/data/v1/expr/function.proto",
         "../protos/topk/data/v1/expr/logical.proto",
         "../protos/topk/data/v1/expr/text.proto",
+        "../protos/topk/ctx/v1/dataset_service.proto",
+        "../protos/topk/ctx/v1/context_service.proto",
     ];
 
     // Rerun if any proto file changes
@@ -55,6 +59,14 @@ fn build_topk_v1_protos() {
         "topk.control.v1.VectorIndex",
         "topk.control.v1.SemanticIndex",
         "topk.control.v1.MultiVectorIndex",
+        // ctx
+        "topk.ctx.v1.AskResponseMessage",
+        "topk.ctx.v1.AskResponseMessage.message",
+        "topk.ctx.v1.AskResponseMessage.SubQuery",
+        "topk.ctx.v1.AskResponseMessage.Reason",
+        "topk.ctx.v1.AskResponseMessage.FinalAnswer",
+        "topk.ctx.v1.Fact",
+        "topk.ctx.v1.SearchResult",
     ] {
         builder =
             builder.type_attribute(message, "#[derive(serde::Serialize, serde::Deserialize)]");
@@ -64,6 +76,7 @@ fn build_topk_v1_protos() {
         .codec_path("crate::proto::codec::ProstCodec")
         .bytes(".topk.data.v1.Value")
         .bytes(".topk.data.v1.DocumentData")
+        .bytes(".topk.ctx.v1.UpsertMessage.BodyChunk.data")
         .compile_protos(&proto_paths, &["../protos/"])
         .expect("failed to build [topk.v1] protos");
 }
