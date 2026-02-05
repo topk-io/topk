@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::proto::v1::ctx::{
+use crate::proto::ctx::v1::{
     ask_response_message::{FinalAnswer, Message, Reason, SubQuery},
     AskResponseMessage, Fact, SearchResult,
 };
