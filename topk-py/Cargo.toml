@@ -1,6 +1,6 @@
 [package]
 name = "topk-py"
-version = "0.7.5"
+version = "0.7.5-2"
 edition = "2021"
 description = "TopK Python SDK"
 repository = "https://github.com/topk-io/topk"
@@ -15,3 +15,5 @@ tokio = { version = "1.35", features = ["full"] }
 numpy = { version = "0.27.1", features = ["half"] }
 half = { version = "2.7.1", features = ["bytemuck"] }
 float8 = { version = "0.5.0", features = ["bytemuck"] }
+futures-util = { version = "0.3.31" }
+bytes = { version = "1.8.0" }
