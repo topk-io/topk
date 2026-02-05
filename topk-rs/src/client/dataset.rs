@@ -75,17 +75,30 @@ impl DatasetClient {
             let upload = tokio::spawn(async move { stream_file(id, &file, metadata, tx).await });
 
             async move {
-                let res: tonic::Response<crate::proto::v1::ctx::UpsertResponse> = client
-                    .upsert(ReceiverStream::new(rx))
-                    .await
-                    .map_err(|e| match e.code() {
-                        tonic::Code::NotFound => Error::DatasetNotFound,
-                        _ => Error::from(e),
-                    })?;
+                let res =
+                    client
+                        .upsert(ReceiverStream::new(rx))
+                        .await
+                        .map_err(|e| match e.code() {
+                            tonic::Code::NotFound => Error::DatasetNotFound,
+                            _ => Error::from(e),
+                        });
+
+                // Abort the upload task if upsert failed early
+                let res = match res {
+                    Ok(res) => res,
+                    Err(e) => {
+                        upload.abort();
+                        return Err(e);
+                    }
+                };
 
                 match upload.await {
                     Ok(Ok(())) => {}
                     Ok(Err(e)) => return Err(e),
+                    Err(e) if e.is_cancelled() => {
+                        return Err(Error::Internal("upload task was cancelled".to_string()));
+                    }
                     Err(e) => {
                         return Err(Error::Internal(format!("upload task failed: {e}")));
                     }
