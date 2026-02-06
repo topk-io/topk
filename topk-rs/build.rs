@@ -67,6 +67,9 @@ fn build_topk_v1_protos() {
         "topk.ctx.v1.AskResponseMessage.FinalAnswer",
         "topk.ctx.v1.Fact",
         "topk.ctx.v1.SearchResult",
+        "topk.ctx.v1.SearchResult.content",
+        "topk.ctx.v1.Png",
+        "topk.ctx.v1.Jpeg",
     ] {
         builder =
             builder.type_attribute(message, "#[derive(serde::Serialize, serde::Deserialize)]");
@@ -77,6 +80,8 @@ fn build_topk_v1_protos() {
         .bytes(".topk.data.v1.Value")
         .bytes(".topk.data.v1.DocumentData")
         .bytes(".topk.ctx.v1.UpsertMessage.BodyChunk.data")
+        .bytes(".topk.ctx.v1.Png.data")
+        .bytes(".topk.ctx.v1.Jpeg.data")
         .compile_protos(&proto_paths, &["../protos/"])
         .expect("failed to build [topk.v1] protos");
 }

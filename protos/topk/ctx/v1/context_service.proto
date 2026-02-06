@@ -14,9 +14,21 @@ message Source {
 
 message SearchResult {
     string id = 1;
-    string content = 2;
-    string doc_id = 3;
-    repeated uint32 doc_pages = 4;
+    oneof content {
+        string text = 101;
+        Png png = 102;
+        Jpeg jpeg = 103;
+    }
+    string doc_id = 2;
+    repeated uint32 doc_pages = 3;
+}
+
+message Png {
+    bytes data = 1;
+}
+
+message Jpeg {
+    bytes data = 1;
 }
 
 message Fact {

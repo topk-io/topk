@@ -23,7 +23,7 @@ serde_json = { version = "1.0" }
 serde = { version = "1.0", features = ["derive"] }
 rand = { version = "0.8.5" }
 futures-util = { version = "0.3.31" }
-bytes = { version = "1.8.0" }
+bytes = { version = "1.8.0", features = ["serde"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 async-trait = { version = "0.1", default-features = false }
 tonic-prost = { version = "0.14.2" }
