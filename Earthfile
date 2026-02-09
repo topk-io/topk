@@ -30,7 +30,7 @@ test-rs:
 
     # test
     ENV FORCE_COLOR=1
-    ARG args=--no-fail-fast -j 16
+    ARG args="--no-fail-fast -j 16"
     # TODO: remove filter once ask/handle tests are ready
     ARG filter=not test(/ask/) and not test(/handle/)
     RUN --no-cache --secret TOPK_API_KEY \
