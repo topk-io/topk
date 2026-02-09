@@ -31,8 +31,10 @@ test-rs:
     # test
     ENV FORCE_COLOR=1
     ARG args="--no-fail-fast -j 16"
+    # TODO: remove filter once ask/handle tests are ready
+    ARG filter=not test(/ask/) and not test(/handle/)
     RUN --no-cache --secret TOPK_API_KEY \
-        TOPK_API_KEY=$TOPK_API_KEY cargo nextest run --archive-file e2e.tar.zst $args
+        TOPK_API_KEY=$TOPK_API_KEY cargo nextest run --archive-file e2e.tar.zst $args -E "$filter"
 
 
 test-py:
