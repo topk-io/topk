@@ -244,7 +244,7 @@ Creates a new collection with the specified schema.
 
 **Returns**
 
-`Promise`\<[`Collection`](/sdk/topk-js/index#collection-2)\>
+`Promise`\<[`Collection`](/sdk/topk-js/index#collection-1)\>
 
 ##### delete()
 
@@ -284,7 +284,7 @@ Retrieves information about a specific collection.
 
 **Returns**
 
-`Promise`\<[`Collection`](/sdk/topk-js/index#collection-2)\>
+`Promise`\<[`Collection`](/sdk/topk-js/index#collection-1)\>
 
 ##### list()
 
@@ -296,7 +296,7 @@ Lists all collections in the current project.
 
 **Returns**
 
-`Promise`\<[`Collection`](/sdk/topk-js/index#collection-2)[]\>
+`Promise`\<[`Collection`](/sdk/topk-js/index#collection-1)[]\>
 
 ## Interfaces
 
@@ -311,9 +311,9 @@ All fields are optional and will use sensible defaults if not provided.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="base"></a> `base?` | `number` | Base multiplier for exponential backoff (default: 2.0) |
-| <a id="initbackoff"></a> `initBackoff?` | `number` | Initial delay before the first retry in milliseconds |
-| <a id="maxbackoff"></a> `maxBackoff?` | `number` | Maximum delay between retries in milliseconds |
+| <a id="property-base"></a> `base?` | `number` | Base multiplier for exponential backoff (default: 2.0) |
+| <a id="property-initbackoff"></a> `initBackoff?` | `number` | Initial delay before the first retry in milliseconds |
+| <a id="property-maxbackoff"></a> `maxBackoff?` | `number` | Maximum delay between retries in milliseconds |
 
 ***
 
@@ -328,11 +328,11 @@ The `api_key` and `region` are required, while other options have sensible defau
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="apikey"></a> `apiKey` | `string` | Your TopK API key for authentication |
-| <a id="host"></a> `host?` | `string` | Custom host URL (optional, defaults to the standard TopK endpoint) |
-| <a id="https"></a> `https?` | `boolean` | Whether to use HTTPS (optional, defaults to true) |
-| <a id="region"></a> `region` | `string` | The region where your data is stored. For available regions see: https://docs.topk.io/regions. |
-| <a id="retryconfig"></a> `retryConfig?` | [`RetryConfig`](/sdk/topk-js/index#retryconfig-1) | Retry configuration for failed requests (optional) |
+| <a id="property-apikey"></a> `apiKey` | `string` | Your TopK API key for authentication |
+| <a id="property-host"></a> `host?` | `string` | Custom host URL (optional, defaults to the standard TopK endpoint) |
+| <a id="property-https"></a> `https?` | `boolean` | Whether to use HTTPS (optional, defaults to true) |
+| <a id="property-region"></a> `region` | `string` | The region where your data is stored. For available regions see: https://docs.topk.io/regions. |
+| <a id="property-retryconfig"></a> `retryConfig?` | [`RetryConfig`](/sdk/topk-js/index#retryconfig) | Retry configuration for failed requests (optional) |
 
 ***
 
@@ -348,11 +348,11 @@ organization, project, schema, and region.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="name"></a> `name` | `string` | Name of the collection |
-| <a id="orgid"></a> `orgId` | `string` | Organization ID that owns the collection |
-| <a id="projectid"></a> `projectId` | `string` | Project ID that contains the collection |
-| <a id="region-1"></a> `region` | `string` | Region where the collection is stored |
-| <a id="schema"></a> `schema` | `Record`\<`string`, [`CollectionFieldSpec`](/sdk/topk-js/index#collectionfieldspec)\> | Schema definition for the collection fields |
+| <a id="property-name"></a> `name` | `string` | Name of the collection |
+| <a id="property-orgid"></a> `orgId` | `string` | Organization ID that owns the collection |
+| <a id="property-projectid"></a> `projectId` | `string` | Project ID that contains the collection |
+| <a id="property-region-1"></a> `region` | `string` | Region where the collection is stored |
+| <a id="property-schema"></a> `schema` | `Record`\<`string`, [`CollectionFieldSpec`](/sdk/topk-js/index#collectionfieldspec)\> | Schema definition for the collection fields |
 
 ***
 
@@ -367,9 +367,9 @@ including its data type, whether it's required, and any index configuration.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="datatype"></a> `dataType` | `DataType` | Data type of the field |
-| <a id="index"></a> `index?` | `FieldIndexUnion` | Index configuration for the field (optional) |
-| <a id="required"></a> `required` | `boolean` | Whether the field is required (must be present in all documents) |
+| <a id="property-datatype"></a> `dataType` | `DataType` | Data type of the field |
+| <a id="property-index"></a> `index?` | `FieldIndexUnion` | Index configuration for the field (optional) |
+| <a id="property-required"></a> `required` | `boolean` | Whether the field is required (must be present in all documents) |
 
 ***
 
@@ -384,8 +384,8 @@ guarantees and sequence number constraints.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="consistency"></a> `consistency?` | [`ConsistencyLevel`](/sdk/topk-js/index#consistencylevel) | Consistency level for the query |
-| <a id="lsn"></a> `lsn?` | `string` | Last sequence number to query at (for consistency) |
+| <a id="property-consistency"></a> `consistency?` | [`ConsistencyLevel`](/sdk/topk-js/index#consistencylevel) | Consistency level for the query |
+| <a id="property-lsn"></a> `lsn?` | `string` | Last sequence number to query at (for consistency) |
 
 ***
 
@@ -400,10 +400,10 @@ including the model, query, and fields to use.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="fields"></a> `fields?` | `string`[] | Fields to include in reranking |
-| <a id="model"></a> `model?` | `string` | The reranking model to use |
-| <a id="query-2"></a> `query?` | `string` | The query text for reranking |
-| <a id="topkmultiple"></a> `topkMultiple?` | `number` | Multiple of top-k to consider for reranking |
+| <a id="property-fields"></a> `fields?` | `string`[] | Fields to include in reranking |
+| <a id="property-model"></a> `model?` | `string` | The reranking model to use |
+| <a id="property-query"></a> `query?` | `string` | The query text for reranking |
+| <a id="property-topkmultiple"></a> `topkMultiple?` | `number` | Multiple of top-k to consider for reranking |
 
 ***
 
@@ -418,9 +418,9 @@ All fields are optional and will use sensible defaults if not provided.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="backoff"></a> `backoff?` | [`BackoffConfig`](/sdk/topk-js/index#backoffconfig) | Backoff configuration for spacing out retry attempts |
-| <a id="maxretries"></a> `maxRetries?` | `number` | Maximum number of retries to attempt before giving up |
-| <a id="timeout"></a> `timeout?` | `number` | Total timeout for the entire retry chain in milliseconds |
+| <a id="property-backoff"></a> `backoff?` | [`BackoffConfig`](/sdk/topk-js/index#backoffconfig) | Backoff configuration for spacing out retry attempts |
+| <a id="property-maxretries"></a> `maxRetries?` | `number` | Maximum number of retries to attempt before giving up |
+| <a id="property-timeout"></a> `timeout?` | `number` | Total timeout for the entire retry chain in milliseconds |
 
 ## Namespaces
 
