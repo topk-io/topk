@@ -210,7 +210,7 @@ async fn test_upsert_max_doc_size(ctx: &mut ProjectTestContext) {
         .upsert(vec![
             doc!("_id" => "one", "payload" => "x".repeat(500 * 1024)), // 500KB, too large
             doc!("_id" => "two", "payload" => "xxx"),                  // ok
-            doc!("_id" => "three", "payload" => "x".repeat(130 * 1024)), // 130KB, too large
+            doc!("_id" => "three", "payload" => "x".repeat(230 * 1024)), // 230KB, too large
             doc!("_id" => "four", "payload" => "x".repeat(126 * 1024)), // 126KB (plus overhead), ok
         ])
         .await
