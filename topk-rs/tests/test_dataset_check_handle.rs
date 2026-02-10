@@ -1,10 +1,8 @@
-use std::collections::HashMap;
-use std::time::Duration;
 use test_context::test_context;
-use topk_rs::{proto::v1::ctx::file::InputFile, Error};
+use topk_rs::Error;
 
 mod utils;
-use utils::{dataset::test_pdf_path, ProjectTestContext};
+use utils::ProjectTestContext;
 
 // #[test_context(ProjectTestContext)]
 // #[tokio::test]

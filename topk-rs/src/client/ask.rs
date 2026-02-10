@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use futures_util::TryFutureExt;
 use tonic::Streaming;
 
@@ -10,26 +9,18 @@ use crate::proto::v1::data::LogicalExpr;
 use crate::retry::call_with_retry;
 use crate::Error;
 
-#[async_trait]
-pub trait AskExt {
-    async fn ask(
+impl super::Client {
+    pub async fn ask(
         &self,
-        query: String,
-        sources: Vec<Source>,
+        query: impl Into<String>,
+        sources: impl IntoIterator<Item = impl Into<Source>>,
         filter: Option<LogicalExpr>,
-        effort: Effort,
-    ) -> Result<Streaming<AskResponseMessage>, Error>;
-}
-
-#[async_trait]
-impl AskExt for super::Client {
-    async fn ask(
-        &self,
-        query: String,
-        sources: Vec<Source>,
-        filter: Option<LogicalExpr>,
-        effort: Effort,
+        effort: Option<Effort>,
     ) -> Result<Streaming<AskResponseMessage>, Error> {
+        let query = query.into();
+        let sources: Vec<_> = sources.into_iter().map(|s| s.into()).collect();
+        let filter = filter.clone();
+        let effort = effort.unwrap_or(Effort::Unspecified);
         let client = super::create_ctx_client(&self.config(), &self.channel()).await?;
 
         let response = call_with_retry(&self.config().retry_config(), || {

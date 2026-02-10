@@ -1,12 +1,11 @@
-use std::collections::HashMap;
 use std::time::Duration;
 
 use futures_util::StreamExt;
 use test_context::test_context;
 
-use topk_rs::{
-    client::AskExt,
-    proto::v1::ctx::{ask_response_message, file::InputFile, AskResponseMessage, Effort, Source},
+use topk_rs::proto::v1::{
+    ctx::{ask_response_message, file::InputFile, AskResponseMessage},
+    data::Value,
 };
 
 mod utils;
@@ -26,17 +25,16 @@ async fn test_ask(ctx: &mut ProjectTestContext) {
         .client
         .dataset(&dataset.name)
         .upsert_file(
-            "doc1".to_string(),
+            "doc1",
             InputFile::from_path(test_pdf_path()).expect("could not create InputFile from path"),
-            HashMap::default(),
+            Vec::<(String, Value)>::new(),
         )
         .await
         .expect("could not upsert file");
 
     let max_attempts = 120;
-    let mut processed = false;
     for _ in 0..max_attempts {
-        processed = ctx
+        let processed = ctx
             .client
             .dataset(&dataset.name)
             .check_handle(handle.clone())
@@ -56,24 +54,18 @@ async fn test_ask(ctx: &mut ProjectTestContext) {
     //     max_attempts
     // );
 
-    let sources = vec![Source {
-        dataset: dataset.name.clone(),
-        filter: None,
-    }];
-
     let mut stream = ctx
         .client
         .ask(
-            "What score must general education students achieve who first entered ninth grade in 1997 ?".to_string(),
-            sources,
+            "What score must general education students achieve who first entered ninth grade in 1997 ?",
+            [&dataset.name],
             None,
-            Effort::Medium,
+            None
         )
         .await
         .expect("could not call ask");
 
     let mut last_message: Option<AskResponseMessage> = None;
-
     while let Some(result) = stream.next().await {
         last_message = Some(result.expect("could not receive message from stream"));
     }

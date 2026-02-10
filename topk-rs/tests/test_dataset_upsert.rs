@@ -15,9 +15,9 @@ async fn test_upsert_file_to_non_existent_dataset(ctx: &mut ProjectTestContext) 
         .client
         .dataset(ctx.wrap("nonexistent"))
         .upsert_file(
-            "doc1".to_string(),
+            "doc1",
             InputFile::from_path(test_pdf_path()).expect("could not create InputFile from path"),
-            HashMap::default(),
+            Vec::<(String, Value)>::new(),
         )
         .await
         .expect_err("should not be able to upsert file to non-existent dataset");
@@ -44,7 +44,7 @@ async fn test_upsert_file_pdf(ctx: &mut ProjectTestContext) {
         .client
         .dataset(&dataset.name)
         .upsert_file(
-            "doc1".to_string(),
+            "doc1",
             InputFile::from_path(test_pdf_path()).expect("could not create InputFile from path"),
             metadata,
         )
@@ -100,9 +100,9 @@ async fn test_upsert_file_nonexistent_path(ctx: &mut ProjectTestContext) {
         .client
         .dataset(&dataset.name)
         .upsert_file(
-            "doc7".to_string(),
+            "doc7",
             InputFile::from_path(nonexistent_path).expect("could not create InputFile from path"),
-            HashMap::default(),
+            Vec::<(String, Value)>::new(),
         )
         .await
         .expect_err("should not be able to upsert non-existent file");
