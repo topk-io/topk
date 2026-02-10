@@ -239,7 +239,7 @@ async fn test_upsert_max_doc_size(ctx: &mut ProjectTestContext) {
                     got_size_bytes,
                 } => {
                     assert_eq!(doc_id, "one");
-                    assert_eq!(*max_size_bytes, 128 * 1024);
+                    assert_eq!(*max_size_bytes, 200000);
                     assert!(
                         *got_size_bytes > *max_size_bytes,
                         "expected got_size_bytes > max_size_bytes"
@@ -255,7 +255,7 @@ async fn test_upsert_max_doc_size(ctx: &mut ProjectTestContext) {
                     got_size_bytes,
                 } => {
                     assert_eq!(doc_id, "three");
-                    assert_eq!(*max_size_bytes, 128 * 1024);
+                    assert_eq!(*max_size_bytes, 200000);
                     assert!(
                         *got_size_bytes > *max_size_bytes,
                         "expected got_size_bytes > max_size_bytes"
