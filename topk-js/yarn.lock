@@ -409,7 +409,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@gerrit0/mini-shiki@npm:^3.12.0":
+"@gerrit0/mini-shiki@npm:^3.17.0":
   version: 3.22.0
   resolution: "@gerrit0/mini-shiki@npm:3.22.0"
   dependencies:
@@ -4860,7 +4860,7 @@ __metadata:
     "@types/jest": "npm:^29.5.14"
     jest: "npm:^29.7.0"
     ts-jest: "npm:^29.3.1"
-    typedoc: "npm:0.28.12"
+    typedoc: "npm:0.28.16"
     typedoc-plugin-frontmatter: "npm:^1.3.0"
     typedoc-plugin-markdown: "npm:^4.8.1"
     typedoc-plugin-remark: "npm:^2.0.1"
@@ -4984,11 +4984,11 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typedoc@npm:0.28.12":
-  version: 0.28.12
-  resolution: "typedoc@npm:0.28.12"
+"typedoc@npm:0.28.16":
+  version: 0.28.16
+  resolution: "typedoc@npm:0.28.16"
   dependencies:
-    "@gerrit0/mini-shiki": "npm:^3.12.0"
+    "@gerrit0/mini-shiki": "npm:^3.17.0"
     lunr: "npm:^2.3.9"
     markdown-it: "npm:^14.1.0"
     minimatch: "npm:^9.0.5"
@@ -4997,7 +4997,7 @@ __metadata:
     typescript: 5.0.x || 5.1.x || 5.2.x || 5.3.x || 5.4.x || 5.5.x || 5.6.x || 5.7.x || 5.8.x || 5.9.x
   bin:
     typedoc: bin/typedoc
-  checksum: 10c0/b83a182df0887dce0a27df462e86e9ad771b3eff32eeef07b2b2424e57794050de540cd4667a640165518360fe47393cc92b55bc4ca861bd5746ed696df086d0
+  checksum: 10c0/ae444913068088e88be6319a017a3a18f69cbd91dbb5b959fbdd0cf87d1a2a07f3a0d4ab29c957a83dd72808ff35bdd6ceec3ad1803fa412ddceffb78fa60ebb
   languageName: node
   linkType: hard
 
