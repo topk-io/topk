@@ -55,22 +55,14 @@ impl InputFile {
         })
     }
 
-    /// Checks if the path is a file
-    pub async fn is_file(self) -> Result<Self, Error> {
+    /// Returns `true` if the provided [`InputFile`] is a file path.
+    pub async fn is_file(&self) -> Result<bool, Error> {
         match &self.source {
             InputSource::Path(path) => {
                 let metadata = tokio::fs::metadata(path).await?;
-
-                if !metadata.is_file() {
-                    return Err(Error::Input(anyhow::anyhow!(
-                        "Path is not a file: {}",
-                        path.display()
-                    )));
-                }
-
-                Ok(self)
+                Ok(metadata.is_file())
             }
-            InputSource::Bytes(_) => Ok(self),
+            InputSource::Bytes(_) => Ok(true),
         }
     }
 }
@@ -87,5 +79,11 @@ impl From<FileId> for String {
 impl From<String> for FileId {
     fn from(s: String) -> Self {
         FileId(s)
+    }
+}
+
+impl From<&str> for FileId {
+    fn from(s: &str) -> Self {
+        FileId(s.to_string())
     }
 }

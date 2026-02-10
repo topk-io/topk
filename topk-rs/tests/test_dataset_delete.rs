@@ -1,6 +1,8 @@
-use std::collections::HashMap;
 use test_context::test_context;
-use topk_rs::{proto::v1::ctx::file::InputFile, Error};
+use topk_rs::{
+    proto::v1::{ctx::file::InputFile, data::Value},
+    Error,
+};
 
 mod utils;
 use utils::{dataset::test_pdf_path, ProjectTestContext};
@@ -19,19 +21,15 @@ async fn test_delete_document(ctx: &mut ProjectTestContext) {
         .client
         .dataset(&dataset.name)
         .upsert_file(
-            "doc1".to_string(),
+            "doc1",
             InputFile::from_path(test_pdf_path()).expect("could not create InputFile from path"),
-            HashMap::default(),
+            Vec::<(String, Value)>::new(),
         )
         .await
         .expect("could not upsert file");
 
     // Delete the document
-    let delete_handle = ctx
-        .client
-        .dataset(&dataset.name)
-        .delete("doc1".to_string())
-        .await;
+    let delete_handle = ctx.client.dataset(&dataset.name).delete("doc1").await;
 
     assert!(matches!(delete_handle, Ok(_)));
 }
@@ -49,7 +47,7 @@ async fn test_delete_non_existent_document_returns_handle(ctx: &mut ProjectTestC
     let delete_handle = ctx
         .client
         .dataset(&dataset.name)
-        .delete("nonexistent".to_string())
+        .delete("nonexistent")
         .await;
 
     // Deleting a non-existent document returns a handle
@@ -86,19 +84,15 @@ async fn test_delete_returns_handle(ctx: &mut ProjectTestContext) {
         .client
         .dataset(&dataset.name)
         .upsert_file(
-            "doc2".to_string(),
+            "doc2",
             InputFile::from_path(pdf_path).expect("could not create InputFile from path"),
-            HashMap::default(),
+            Vec::<(String, Value)>::new(),
         )
         .await
         .expect("could not upsert file");
 
     // Delete and verify handle is returned
-    let delete_handle = ctx
-        .client
-        .dataset(&dataset.name)
-        .delete("doc2".to_string())
-        .await;
+    let delete_handle = ctx.client.dataset(&dataset.name).delete("doc2").await;
 
     let handle: String = delete_handle.expect("should delete successfully").into();
     assert_eq!(handle.is_empty(), false);

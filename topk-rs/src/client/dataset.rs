@@ -54,11 +54,19 @@ impl DatasetClient {
         &self,
         file_id: impl Into<FileId>,
         input: impl Into<InputFile>,
-        metadata: impl Into<HashMap<String, Value>>,
+        metadata: impl IntoIterator<Item = (impl Into<String>, impl Into<Value>)>,
     ) -> Result<Handle, Error> {
         let client = create_dataset_client(&self.config, &self.dataset_name, &self.channel).await?;
-        let file = input.into().is_file().await?;
-        let metadata = metadata.into();
+        let file = input.into();
+        if !file.is_file().await? {
+            return Err(Error::Input(anyhow::anyhow!(
+                "Provided input is not a file"
+            )));
+        }
+        let metadata: HashMap<String, Value> = metadata
+            .into_iter()
+            .map(|(k, v)| (k.into(), v.into()))
+            .collect();
 
         let file_id = file_id.into();
 
