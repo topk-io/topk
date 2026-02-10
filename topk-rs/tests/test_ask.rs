@@ -3,12 +3,9 @@ use std::time::Duration;
 use futures_util::StreamExt;
 use test_context::test_context;
 
-use topk_rs::{
-    client::AskExt,
-    proto::v1::{
-        ctx::{ask_response_message, file::InputFile, AskResponseMessage, Effort, Source},
-        data::Value,
-    },
+use topk_rs::proto::v1::{
+    ctx::{ask_response_message, file::InputFile, AskResponseMessage},
+    data::Value,
 };
 
 mod utils;
@@ -57,24 +54,18 @@ async fn test_ask(ctx: &mut ProjectTestContext) {
     //     max_attempts
     // );
 
-    let sources = vec![Source {
-        dataset: dataset.name.clone(),
-        filter: None,
-    }];
-
     let mut stream = ctx
         .client
         .ask(
-            "What score must general education students achieve who first entered ninth grade in 1997 ?".to_string(),
-            sources,
+            "What score must general education students achieve who first entered ninth grade in 1997 ?",
+            [&dataset.name],
             None,
-            Effort::Medium,
+            None
         )
         .await
         .expect("could not call ask");
 
     let mut last_message: Option<AskResponseMessage> = None;
-
     while let Some(result) = stream.next().await {
         last_message = Some(result.expect("could not receive message from stream"));
     }

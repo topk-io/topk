@@ -23,8 +23,7 @@ pub use collection::CollectionClient;
 mod dataset;
 pub use dataset::DatasetClient;
 
-mod ask;
-pub use ask::AskExt;
+pub mod ask;
 
 mod config;
 pub use config::ClientConfig;
