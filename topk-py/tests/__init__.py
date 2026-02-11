@@ -14,6 +14,9 @@ class ProjectContext:
         return f"{self.scope_prefix}-{name}"
 
     def cleanup(self):
+        for d in self.client.datasets().list():
+            if d.name.startswith(self.scope_prefix):
+                self.client.datasets().delete(d.name)
         for c in self.client.collections().list():
             if c.name.startswith(self.scope_prefix):
                 self.client.collections().delete(c.name)
@@ -28,6 +31,9 @@ class AsyncProjectContext:
         return f"{self.scope_prefix}-{name}"
 
     async def cleanup(self):
+        for d in await self.client.datasets().list():
+            if d.name.startswith(self.scope_prefix):
+                await self.client.datasets().delete(d.name)
         for c in await self.client.collections().list():
             if c.name.startswith(self.scope_prefix):
                 await self.client.collections().delete(c.name)

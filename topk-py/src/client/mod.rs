@@ -7,6 +7,9 @@ use crate::data::value::NativeValue;
 pub mod r#async;
 pub mod sync;
 
+/// Buffer size for ask stream channels.
+pub const ASK_CHANNEL_BUFFER_SIZE: usize = 32;
+
 pub fn topk_client(
     api_key: String,
     region: String,
