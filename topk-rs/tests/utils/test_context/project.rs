@@ -1,6 +1,11 @@
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
 use test_context::AsyncTestContext;
+use topk_rs::proto::v1::control::Dataset;
 use topk_rs::{Client, ClientConfig, Error};
 use uuid::Uuid;
+
+const DATASET_CLEANUP_MAX_AGE: Duration = Duration::from_mins(60);
 
 pub struct ProjectTestContext {
     pub client: Client,
@@ -31,21 +36,42 @@ impl ProjectTestContext {
     }
 
     async fn cleanup_datasets(&self) -> Result<(), Error> {
+        let should_delete = |dataset: &Dataset| {
+            // Skip if the name does not start with "topk-rs-"
+            if !dataset.name.starts_with("topk-rs-") {
+                return false;
+            }
+            // Current scope
+            if dataset.name.starts_with(&self.scope) {
+                return true;
+            }
+            let now = current_unix_timestamp();
+            match parse_dataset_timestamp(&dataset.name) {
+                Some(created_at) => {
+                    let cutoff = now.saturating_sub(DATASET_CLEANUP_MAX_AGE.as_secs());
+                    created_at < cutoff
+                }
+                None => true,
+            }
+        };
+
         let client = self.client.datasets();
         let datasets = client.list().await?;
         for dataset in datasets {
-            if dataset.name.starts_with(&self.scope) {
-                client.delete(&dataset.name).await?;
+            if should_delete(&dataset) {
+                println!("Deleting dataset: {}", dataset.name);
+                if let Err(e) = client.delete(&dataset.name).await {
+                    println!("Failed to delete dataset {}: {}", dataset.name, e);
+                }
             }
         }
-
         Ok(())
     }
 }
 
 impl AsyncTestContext for ProjectTestContext {
     async fn setup() -> Self {
-        let scope = format!("topk-rs-{}", Uuid::new_v4());
+        let scope = format!("topk-rs-{}-{}", current_unix_timestamp(), Uuid::new_v4());
 
         let host = std::env::var("TOPK_HOST").unwrap_or("topk.io".to_string());
         let region = std::env::var("TOPK_REGION").unwrap_or("elastica".to_string());
@@ -62,15 +88,25 @@ impl AsyncTestContext for ProjectTestContext {
     }
 
     async fn teardown(self) {
-        // Clean up datasets and collections
-        match self.cleanup_datasets().await {
-            Ok(_) => {
-                self.cleanup_collections().await;
-            }
-            Err(e) => {
-                // TODO: collections.list() should not return datasets collections
-                println!("Failed to cleanup datasets: {}", e);
-            }
+        if let Err(e) = self.cleanup_datasets().await {
+            println!("Failed to cleanup datasets: {}", e);
         }
+        self.cleanup_collections().await;
+    }
+}
+
+fn current_unix_timestamp() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system time before Unix epoch")
+        .as_secs()
+}
+
+fn parse_dataset_timestamp(name: &str) -> Option<u64> {
+    let parts: Vec<&str> = name.splitn(4, '-').collect();
+    if parts.len() >= 3 && parts[0] == "topk" && parts[1] == "rs" {
+        parts[2].parse().ok()
+    } else {
+        None
     }
 }
