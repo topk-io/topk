@@ -1,6 +1,9 @@
 fn main() {
     // Rerun if build.rs changes
     println!("cargo::rerun-if-changed=build.rs");
+    // Rerun if EARTHLY_GIT_HASH changes
+    println!("cargo::rerun-if-env-changed=EARTHLY_GIT_HASH");
+
     build_topk_v1_protos();
 }
 
