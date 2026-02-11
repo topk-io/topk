@@ -121,9 +121,14 @@ pub fn ask(
 
         while let Some(result) = stream.next().await {
             match result {
-                Ok(msg) => {
-                    last_message = msg.message.map(|m| m.into());
-                }
+                Ok(msg) => match msg.message {
+                    Some(inner) => last_message = Some(inner.into()),
+                    None => {
+                        return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                            "Invalid protocol: AskResponseMessage has no message",
+                        ))
+                    }
+                },
                 Err(e) => {
                     return Err(RustError(e.into()).into());
                 }

@@ -12,7 +12,7 @@ impl DocumentKind {
             Ok(Self::Markdown)
         } else {
             Err(Error::Input(anyhow::anyhow!(
-                "Invalid document extension: {extension}"
+                "Unsupported document extension: {extension}"
             )))
         }
     }
@@ -26,7 +26,7 @@ impl DocumentKind {
             Ok(Self::Markdown)
         } else {
             Err(Error::Input(anyhow::anyhow!(
-                "Invalid document MIME type: {mime_type}"
+                "Unsupported document MIME type: {mime_type}"
             )))
         }
     }

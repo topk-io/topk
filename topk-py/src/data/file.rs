@@ -56,21 +56,6 @@ impl FromPyObject<'_, '_> for FileOrFileLike {
     }
 }
 
-/// Resolve DocumentKind from MIME type, falling back to file extension.
-fn resolve_document_kind(filename: &str, media_type: &str) -> PyResult<DocumentKind> {
-    DocumentKind::from_mime_type(media_type)
-        .or_else(|_| {
-            let ext = std::path::Path::new(filename)
-                .extension()
-                .and_then(|ext| ext.to_str())
-                .ok_or_else(|| {
-                    topk_rs::Error::Input(std::io::Error::other("No file extension").into())
-                })?;
-            DocumentKind::from_extension(ext)
-        })
-        .map_err(|e| RustError(e).into())
-}
-
 impl TryFrom<FileOrFileLike> for InputFile {
     type Error = PyErr;
 
@@ -80,8 +65,21 @@ impl TryFrom<FileOrFileLike> for InputFile {
                 InputFile::from_path(path).map_err(|e| RustError(e).into())
             }
             FileOrFileLike::Tuple(filename, contents, media_type) => {
-                let kind = resolve_document_kind(&filename, &media_type)?;
-                InputFile::from_bytes(contents, filename, kind).map_err(|e| RustError(e).into())
+                let kind = DocumentKind::from_mime_type(&media_type)
+                    .or_else(|_| {
+                        let ext = std::path::Path::new(&filename)
+                            .extension()
+                            .and_then(|ext| ext.to_str())
+                            .ok_or_else(|| {
+                                topk_rs::Error::Input(
+                                    std::io::Error::other("No file extension").into(),
+                                )
+                            })?;
+                        DocumentKind::from_extension(ext)
+                    })
+                    .map_err(|e| RustError(e))?;
+
+                InputFile::from_bytes(filename, contents, kind).map_err(|e| RustError(e).into())
             }
         }
     }
