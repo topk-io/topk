@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use pyo3::{
     exceptions::PyTypeError,
     prelude::*,
-    types::{PyAny, PyDict, PyList},
+    types::{PyAny, PyDict, PySequence, PyString},
     IntoPyObjectExt,
 };
 use topk_rs::proto::v1::ctx::ask_response_message::Message;
@@ -109,12 +109,19 @@ impl FromPyObject<'_, '_> for Sources {
     type Error = PyErr;
 
     fn extract(obj: Borrowed<'_, '_, PyAny>) -> PyResult<Self> {
-        let list = obj.cast::<PyList>()?;
-        Ok(Sources(
-            list.iter()
-                .map(|item| Source::from_py_object(&item.as_borrowed()))
-                .collect::<PyResult<Vec<Source>>>()?,
-        ))
+        if obj.is_instance_of::<PyString>() {
+            return Err(PyTypeError::new_err(
+                "sources must be a list or tuple, not a string; use [\"dataset_name\"] for a single source",
+            ));
+        }
+        let seq = obj.cast::<PySequence>()?;
+        let len = seq.len()?;
+        let mut sources = Vec::with_capacity(len);
+        for i in 0..len {
+            let item = seq.get_item(i)?;
+            sources.push(Source::from_py_object(&item.as_borrowed())?);
+        }
+        Ok(Sources(sources))
     }
 }
 
