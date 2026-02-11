@@ -5,6 +5,8 @@ use topk_rs::proto::v1::control::Dataset;
 use topk_rs::{Client, ClientConfig, Error};
 use uuid::Uuid;
 
+const DATASET_CLEANUP_MAX_AGE: Duration = Duration::from_mins(60);
+
 pub struct ProjectTestContext {
     pub client: Client,
     pub scope: String,
@@ -35,8 +37,6 @@ impl ProjectTestContext {
 
     async fn cleanup_datasets(&self) -> Result<(), Error> {
         let should_delete = |dataset: &Dataset| {
-            const DATASET_CLEANUP_MAX_AGE: Duration = Duration::from_mins(60);
-
             // Skip if the name does not start with "topk-rs-"
             if !dataset.name.starts_with("topk-rs-") {
                 return false;
