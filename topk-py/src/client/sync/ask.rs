@@ -27,8 +27,10 @@ impl AskIterator {
     }
 
     fn __next__(&mut self, py: Python<'_>) -> PyResult<Option<AskResponseMessage>> {
-        self.runtime
-            .block_on(py, async { self.receiver.recv().await.transpose() })
+        self.runtime.block_on(py, async {
+            // PyO3 maps Ok(None) from __next__ to raise StopIteration to signal exhaustion, so the loop ends
+            self.receiver.recv().await.transpose()
+        })
     }
 }
 
@@ -65,14 +67,19 @@ pub fn ask_stream(
 
         while let Some(result) = stream.next().await {
             match result {
-                Ok(msg) => match msg.try_into() {
-                    Ok(py_msg) => {
-                        if tx.send(Ok(py_msg)).await.is_err() {
+                Ok(msg) => match msg.message {
+                    Some(inner) => {
+                        if let Err(mpsc::error::SendError(_)) = tx.send(Ok(inner.into())).await {
+                            // Channel closed: receiver dropped, Python stopped iterating.
                             break;
                         }
                     }
-                    Err(e) => {
-                        let _ = tx.send(Err(RustError(e).into())).await;
+                    None => {
+                        let _ = tx
+                            .send(Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                                "AskResponseMessage has no message",
+                            )))
+                            .await;
                         break;
                     }
                 },
@@ -115,7 +122,7 @@ pub fn ask(
         while let Some(result) = stream.next().await {
             match result {
                 Ok(msg) => {
-                    last_message = Some(msg.try_into().map_err(RustError)?);
+                    last_message = msg.message.map(|m| m.into());
                 }
                 Err(e) => {
                     return Err(RustError(e.into()).into());

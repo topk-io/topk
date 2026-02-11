@@ -298,20 +298,18 @@ impl<'py> IntoPyObject<'py> for AskResponseMessage {
     }
 }
 
-impl TryFrom<topk_rs::proto::v1::ctx::AskResponseMessage> for AskResponseMessage {
-    type Error = topk_rs::Error;
-
-    fn try_from(msg: topk_rs::proto::v1::ctx::AskResponseMessage) -> Result<Self, Self::Error> {
-        match msg.message {
-            Some(Message::FinalAnswer(fa)) => Ok(AskResponseMessage::FinalAnswer(FinalAnswer {
+impl From<topk_rs::proto::v1::ctx::ask_response_message::Message> for AskResponseMessage {
+    fn from(msg: topk_rs::proto::v1::ctx::ask_response_message::Message) -> Self {
+        match msg {
+            Message::FinalAnswer(fa) => AskResponseMessage::FinalAnswer(FinalAnswer {
                 facts: fa.facts.into_iter().map(Fact::from).collect(),
                 sources: fa
                     .sources
                     .into_iter()
                     .map(|(k, v)| (k, SearchResult::from(v)))
                     .collect(),
-            })),
-            Some(Message::SubQuery(sq)) => Ok(AskResponseMessage::SubQuery(SubQuery {
+            }),
+            Message::SubQuery(sq) => AskResponseMessage::SubQuery(SubQuery {
                 objective: sq.objective,
                 facts: sq.facts.into_iter().map(Fact::from).collect(),
                 sources: sq
@@ -319,13 +317,8 @@ impl TryFrom<topk_rs::proto::v1::ctx::AskResponseMessage> for AskResponseMessage
                     .into_iter()
                     .map(|(k, v)| (k, SearchResult::from(v)))
                     .collect(),
-            })),
-            Some(Message::Reason(r)) => {
-                Ok(AskResponseMessage::Reason(Reason { thought: r.thought }))
-            }
-            None => Err(topk_rs::Error::Internal(
-                "AskResponseMessage has no message".to_string(),
-            )),
+            }),
+            Message::Reason(r) => AskResponseMessage::Reason(Reason { thought: r.thought }),
         }
     }
 }

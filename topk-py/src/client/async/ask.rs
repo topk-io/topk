@@ -28,7 +28,15 @@ impl AsyncAskIterator {
         let receiver = slf.receiver.clone();
         future_into_py(py, async move {
             let mut receiver = receiver.lock().await;
-            receiver.recv().await.transpose()
+            match receiver.recv().await.transpose() {
+                Ok(Some(msg)) => Ok(msg),
+                // Channel exhausted: raise StopAsyncIteration so `async for` terminates
+                // (returning Ok(None) would yield None indefinitely instead of ending the loop)
+                Ok(None) => Err(pyo3::exceptions::PyStopAsyncIteration::new_err(
+                    "Stream exhausted",
+                )),
+                Err(e) => Err(e),
+            }
         })
     }
 }
@@ -65,15 +73,19 @@ pub fn ask_stream(
 
         while let Some(result) = stream.next().await {
             match result {
-                Ok(msg) => match msg.try_into() {
-                    Ok(py_msg) => {
-                        if tx.send(Ok(py_msg)).await.is_err() {
-                            // Receiver was dropped, Python stopped iterating
+                Ok(msg) => match msg.message {
+                    Some(inner) => {
+                        if let Err(mpsc::error::SendError(_)) = tx.send(Ok(inner.into())).await {
+                            // Channel closed: receiver dropped, Python stopped iterating.
                             break;
                         }
                     }
-                    Err(e) => {
-                        let _ = tx.send(Err(RustError(e).into())).await;
+                    None => {
+                        let _ = tx
+                            .send(Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                                "AskResponseMessage has no message",
+                            )))
+                            .await;
                         break;
                     }
                 },
@@ -118,7 +130,7 @@ pub fn ask(
         while let Some(result) = stream.next().await {
             match result {
                 Ok(msg) => {
-                    last_message = Some(msg.try_into().map_err(RustError)?);
+                    last_message = msg.message.map(|m| m.into());
                 }
                 Err(e) => {
                     return Err(RustError(e.into()).into());
