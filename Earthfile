@@ -22,6 +22,7 @@ test-rs:
 
     WORKDIR /sdk/topk-rs
 
+    ARG EARTHLY_GIT_HASH
     DO rust+CARGO --args="nextest archive -p topk-rs --archive-file e2e.tar.zst" # compile tests
 
     ARG region=emulator
