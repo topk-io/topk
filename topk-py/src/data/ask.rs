@@ -208,11 +208,21 @@ impl From<topk_rs::proto::v1::ctx::Fact> for Fact {
 }
 
 #[pyclass]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum Content {
     Text(String),
     Png(Vec<u8>),
     Jpeg(Vec<u8>),
+}
+
+impl std::fmt::Debug for Content {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Content::Text(s) => write!(f, "Text({:?})", s),
+            Content::Png(v) => write!(f, "Png({} bytes)", v.len()),
+            Content::Jpeg(v) => write!(f, "Jpeg({} bytes)", v.len()),
+        }
+    }
 }
 
 #[pymethods]
