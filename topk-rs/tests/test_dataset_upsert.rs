@@ -69,8 +69,8 @@ async fn test_upsert_file_markdown(ctx: &mut ProjectTestContext) {
 
     let file_data = b"# Test Markdown\n\nThis is a test markdown file.";
     let input_file = InputFile::from_bytes(
-        file_data.as_slice(),
         "test.md".to_string(),
+        file_data.as_slice(),
         DocumentKind::Markdown,
     )
     .expect("could not create InputFile from memory");

@@ -44,8 +44,8 @@ impl InputFile {
     }
 
     pub fn from_bytes(
-        data: impl Into<Bytes>,
         file_name: String,
+        data: impl Into<Bytes>,
         kind: DocumentKind,
     ) -> Result<Self, Error> {
         Ok(Self {

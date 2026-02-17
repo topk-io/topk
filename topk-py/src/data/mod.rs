@@ -6,7 +6,10 @@ use numpy::PyUntypedArray;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyList};
 
+pub mod ask;
 pub mod collection;
+pub mod dataset;
+pub mod file;
 pub mod list;
 pub mod matrix;
 pub mod value;
@@ -35,7 +38,7 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(f32_sparse_vector))?;
     m.add_wrapped(wrap_pyfunction!(u8_sparse_vector))?;
     // Bytes
-    m.add_wrapped(wrap_pyfunction!(bytes))?;
+    m.add_wrapped(wrap_pyfunction!(self::bytes))?;
     // List
     m.add_wrapped(wrap_pyfunction!(u32_list))?;
     m.add_wrapped(wrap_pyfunction!(i32_list))?;
