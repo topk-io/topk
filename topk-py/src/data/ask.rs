@@ -146,7 +146,7 @@ pub struct FinalAnswer {
 #[pymethods]
 impl FinalAnswer {
     pub fn __repr__(&self) -> String {
-        format!("{:?}", self)
+        format!("{:#?}", self)
     }
 }
 
@@ -164,7 +164,7 @@ pub struct SubQuery {
 #[pymethods]
 impl SubQuery {
     pub fn __repr__(&self) -> String {
-        format!("{:?}", self)
+        format!("{:#?}", self)
     }
 }
 
@@ -178,7 +178,7 @@ pub struct Reason {
 #[pymethods]
 impl Reason {
     pub fn __repr__(&self) -> String {
-        format!("{:?}", self)
+        format!("{:#?}", self)
     }
 }
 
@@ -194,7 +194,7 @@ pub struct Fact {
 #[pymethods]
 impl Fact {
     pub fn __repr__(&self) -> String {
-        format!("{:?}", self)
+        format!("{:#?}", self)
     }
 }
 
@@ -218,9 +218,9 @@ pub enum Content {
 impl std::fmt::Debug for Content {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Content::Text(s) => write!(f, "Text({:?})", s),
-            Content::Png(v) => write!(f, "Png({} bytes)", v.len()),
-            Content::Jpeg(v) => write!(f, "Jpeg({} bytes)", v.len()),
+            Content::Text(s) => write!(f, "{}", s.split('\n').collect::<Vec<_>>().join("\n")),
+            Content::Png(v) => write!(f, "<png {} bytes>", v.len()),
+            Content::Jpeg(v) => write!(f, "<jpeg {} bytes>", v.len()),
         }
     }
 }
