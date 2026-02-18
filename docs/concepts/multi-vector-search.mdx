@@ -2,129 +2,231 @@
 title: "Multi-vector search"
 ---
 
-In some cases, a single vector search may not be sufficient to retrieve the most relevant results.
+Multi-vector (late-interaction) retrieval represents each document (and query) as a variable-length set of embedding vectors rather than a single pooled embedding.
+Instead of applying global pooling (e.g., CLS or mean pooling), it preserves token, segment, or patch-level vectors and scores documents using a late-interaction objective such as MaxSim.
 
-In TopK, you can run **multiple vector searches in a single query**.
-Additionally, you can apply a **different ranking score** to each individual vector search result.
+## Why multi-vector retrieval is needed
 
-For example, in a research paper database, you might want to:
+Single-vector retrieval is the most common approach, but it can lose signal when:
 
-- Retrieve documents based on both the summary of the entire paper and summaries of individual paragraphs.
-- Rank results by combining scores from multiple embeddings such as:
-  - 70% weight for entire paper similarity
-  - 30% weight for paragraph summary similarity
+- **The document is long**: pooling forces many distinct concepts into one vector.
+- **The query has multiple aspects**: one vector may over-emphasize the dominant facet and miss a smaller but crucial one.
+- **Fine-grained matching matters**: named entities, code identifiers, rare terms, or localized regions in an image benefit from token/patch-level matching.
 
-Let's define a collection with two [semantic indexes](/collections/create#semantic-index):
+Multi-vector retrieval helps because it can match *any* query vector strongly to *some* document vector, instead of requiring a single global representation to be close.
+
+## Multi-vector (tensor) embeddings
+
+Many modern retrieval architectures naturally output a matrix `N x D`:
+
+- **Token-level embeddings** (late interaction): each token (or chunk) gets its own `D` - dim vector.
+- **Patch / region embeddings** (vision or multimodal): each patch/region gets a vector.
+- **Segmented / multi-field encoders**: multiple embeddings per input (e.g., per paragraph or per section).
+
+This pattern shows up in late-interaction retrieval models such as
+[`ColBERT`](https://arxiv.org/abs/2004.12832) and
+[`ColBERTv2`](https://arxiv.org/abs/2112.01488), and in visual/multimodal variants such as
+[`ColPali`](https://arxiv.org/abs/2407.01449) (which uses multi-vector patch/region embeddings).
+
+In all these cases, `N` is the number of vectors and can vary per document/query; `D` is the embedding dimension shared across vectors.
+
+## Define a schema for multi-vector embeddings
+
+In TopK, multi-vector embeddings are stored in a [`matrix()`](/sdk/topk-py/schema#matrix) field and indexed with a [`multi_vector_index()`](/sdk/topk-py/schema#multi-vector-index) using the [`maxsim`](/sdk/topk-py/schema#multi-vector-index) metric.
 
 <CodeGroup>
 
 ```python Python
-from topk_sdk.schema import text, semantic_index
+from topk_sdk.schema import text, matrix, multi_vector_index
 
 client.collections().create(
-    "articles",
+    "passages",
     schema={
-        "title": text().required(),
-        "paper_summary": text().index(semantic_index()),  # Embedding of full paper
-        "paragraph_summary": text().index(semantic_index()),  # Embedding of a paragraph
+        "content": text().required(),
+        # Each row is one embedding vector; columns == dimension.
+        "token_embeddings": matrix(dimension=128, value_type="f16").index(
+            multi_vector_index(metric="maxsim")
+        ),
     },
 )
 ```
 
-
 ```typescript Javascript
-import { text, semanticIndex } from "topk-js/schema";
+import { matrix, multiVectorIndex, text } from "topk-js/schema";
 
-await client.collections().create("articles", {
-  title: text().required(),
-  paper_summary: text().index(semanticIndex()), // Embedding of full paper
-  paragraph_summary: text().index(semanticIndex()), // Embedding of a paragraph
+await client.collections().create("passages", {
+  content: text().required(),
+  // Each row is one embedding vector; columns == dimension.
+  token_embeddings: matrix({ dimension: 128, valueType: "f16" }).index(
+    multiVectorIndex({ metric: "maxsim" })
+  ),
 });
 ```
 
 </CodeGroup>
 
-After, we run a multi-vector search by using the `fn.semantic_similarity()` function for calculating semantic similarity on the `paper_score` field as well as the `paragraph_score` field:
+- **`dimension`**: the number of columns `D` in your `N x D` embedding matrix (e.g. 128, 768, 1024).
+- **`value_type`**: storage type for matrix elements (`f32`, `f16`, `f8`, `u8`, `i8`). Choose based on your model output and memory/perf needs.
+- **`metric="maxsim"`**: a late-interaction style scoring where each query vector contributes based on its best match in the document.
+
+### Index tuning
+
+The multi-vector index has an approximate retrieval stage (to prune work quickly) followed by a more accurate scoring stage. These parameters let you trade off **memory**, **latency**, and **recall**:
+
+- **`sketch_bits`**: increases the fidelity of approximate MaxSim pruning.
+  - **More bits**: more accurate pruning → fewer false negatives (better recall), but higher memory/compute.
+  - **Fewer bits**: more aggressive approximation → more false negatives (recall loss), but faster and smaller.
+- **`quantization`**: compresses stored multi-vector values.
+  - **`1bit` / `2bit`**: very compact and fast, but most approximate.
+  - **`scalar`**: higher-fidelity quantization (larger than 1–2 bit) with better quality.
+
+If you’re starting out, keep defaults, then tune `candidates` and these index parameters based on your latency or recall targets.
+
+## Ingest documents with multi-vector embeddings
+
+When upserting documents, include both:
+* A multi-vector embedding for given content
+* Any relevant document metadata
+
+Each document must also include a required `_id` field.
 
 <CodeGroup>
 
 ```python Python
-from topk_sdk.query import select, field, fn
+import numpy as np
+from topk_sdk.data import matrix
 
-docs = client.collection("articles").query(
-    select(
-        "title",
-        paper_score=fn.semantic_similarity("paper_summary", "deep learning optimization"),
-        paragraph_score=fn.semantic_similarity("paragraph_summary", "stochastic gradient descent"),
-    )
-    .topk(field("paper_score") * 0.7 + field("paragraph_score") * 0.3, 10)
+# Example: shape (num_vectors, dimension)
+token_embeddings = np.random.randn(12, 128).astype(np.float16)
+
+client.collection("passages").upsert(
+    [
+        {
+            "_id": "p1",
+            "content": "Late interaction retrieval",
+            # ndarray is accepted directly
+            "token_embeddings": token_embeddings,
+        },
+        {
+            "_id": "p2",
+            "content": "MaxSim in practice",
+            # Or wrap explicitly using `topk_sdk.data.matrix(...)`
+            "token_embeddings": matrix(token_embeddings, value_type="f16"),
+        },
+    ]
 )
-
-# Example results:
-
-[
-  {
-    "_id": "2",
-    "title": "On the Importance of Initialization and Momentum in Deep Learning",
-    "paper_score": 0.9774298071861267,
-    "paragraph_score": 0.9783554673194885,
-    # "blend_score": 0.9777075052261353,
-  },
-  {
-    "_id": "1",
-    "title": "Understanding the Difficulty of Training Deep Feedforward Neural Networks",
-    "paper_score": 0.9773390889167786,
-    "paragraph_score": 0.976479709148407,
-    # "blend_score": 0.977081298828125,
-  }
-]
 ```
 
+```typescript Javascript
+import { matrix } from "topk-js/data";
 
-```javascript Javascript
-import { select, field, fn } from "topk-js/query";
-
-const docs = await client.collection("articles").query(
-  select({
-    title: field("title"),
-    paper_score: fn.semanticSimilarity(
-      "paper_summary",
-      "deep learning optimization"
-    ),
-    paragraph_score: fn.semanticSimilarity(
-      "paragraph_summary",
-      "stochastic gradient descent"
-    ),
-  }).topk(
-    field("paper_score").mul(0.7).add(field("paragraph_score").mul(0.3)),
-    10
-  )
-);
-
-// Example results:
-
-[
+await client.collection("passages").upsert([
   {
-    _id: "2",
-    title: "On the Importance of Initialization and Momentum in Deep Learning",
-    paper_score: 0.9774298071861267,
-    paragraph_score: 0.9783554673194885,
-    // "blended_score": 0.9777075052261353,
+    _id: "p1",
+    content: "Late interaction retrieval",
+    token_embeddings: matrix(
+      [
+        [0.1, 0.2 /* ... 128 dims ... */],
+        [0.0, -0.1 /* ... */],
+      ],
+      "f16"
+    ),
   },
-  {
-    _id: "1",
-    title: "Understanding the Difficulty of Training Deep Feedforward Neural Networks",
-    paper_score: 0.9773390889167786,
-    paragraph_score: 0.976479709148407,
-    // "blended_score": 0.977081298828125,
-  },
-];
+]);
 ```
 
 </CodeGroup>
 
-Let's break down the example above:
+<Tip>
+TopK has built-in support for [`numpy.ndarray`](https://numpy.org/doc/2.2/reference/generated/numpy.ndarray.html) when ingesting and querying multi-vector (matrix) embeddings. If you pass an ndarray directly, the matrix value type is inferred from its `dtype` (e.g. `float32`, `float16`, `uint8`, `int8`).
+</Tip>
 
-1. Calculate semantic similarity between the query and the full paper summary as well as the paragraph summary.
-2. Blend the two scores by giving 70% weight to the full paper and 30% weight to the paragraph summary.
-3. Retrieve the top 10 results ranked by the blended score.
+## Multi-vector retrieval
+
+Use [`fn.multi_vector_distance()`](/sdk/topk-py/query#multi-vector-distance) to score documents against a query matrix.
+When the field is indexed with `metric="maxsim"`, this computes the *MaxSim* score defined above.
+
+<CodeGroup>
+
+```python Python
+import numpy as np
+from topk_sdk.query import field, fn, select
+
+query_matrix = np.random.randn(8, 128).astype(np.float16)
+
+docs = client.collection("passages").query(
+    select(
+        "content",
+        maxsim=fn.multi_vector_distance(
+            "token_embeddings",
+            query_matrix,      # ndarray supported here too
+            candidates=200,    # optional: tuning performance vs. recall
+        ),
+    ).topk(field("maxsim"), 10)
+)
+
+print(docs)
+
+# Results:
+[
+  {
+    "_id": "p2",
+    "content": "MaxSim in practice",
+    "maxsim": 0.83,
+  },
+  {
+    "_id": "p1",
+    "content": "Late interaction retrieval",
+    "maxsim": 0.79,
+  },
+]
+```
+
+```typescript Javascript
+import { field, fn, select } from "topk-js/query";
+import { matrix } from "topk-js/data";
+
+const queryMatrix = matrix(
+  [
+    [0.1, 0.2 /* ... 128 dims ... */],
+    [0.0, -0.1 /* ... */],
+  ],
+  "f16"
+);
+
+const docs = await client.collection("passages").query(
+  select({
+    content: field("content"),
+    maxsim: fn.multiVectorDistance("token_embeddings", queryMatrix, 200),
+  }).topk(field("maxsim"), 10)
+);
+
+console.log(docs);
+
+// Results:
+[
+  {
+    _id: "p2",
+    content: "MaxSim in practice",
+    maxsim: 0.83,
+  },
+  {
+    _id: "p1",
+    content: "Late interaction retrieval",
+    maxsim: 0.79,
+  },
+]
+```
+
+</CodeGroup>
+
+<Info>
+With `metric="maxsim"`, **higher scores indicate better matches**.
+
+The score is the sum over all query vectors of the maximum dot product with any document vector:
+`sum_q max_d ⟨q, d⟩`
+</Info>
+
+### Optimization tips
+
+- **Tune `candidates` (speed vs recall)**: controls how many top document candidates from the approximate stage are promoted to a more accurate multi-vector scoring pass. Lower values reduce work (faster/cheaper) but can hurt recall; higher values improve recall at the cost of latency.
