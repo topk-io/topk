@@ -4,7 +4,11 @@ package topk.ctx.v1;
 import "topk/data/v1/expr/logical.proto";
 
 service ContextService {
+    // Get a summarized answer to a question based on provided sources.
     rpc Ask(AskRequest) returns (stream AskResponseMessage);
+
+    // Get search results from the provided sources.
+    rpc Search(SearchRequest) returns (stream SearchResult);
 }
 
 message Source {
@@ -71,4 +75,11 @@ message AskResponseMessage {
         SubQuery sub_query = 2;
         Reason reason = 3;
     }
+}
+
+message SearchRequest {
+    string query = 1;
+    repeated Source sources = 2;
+    topk.data.v1.LogicalExpr filter = 3;
+    uint32 top_k = 4;
 }
