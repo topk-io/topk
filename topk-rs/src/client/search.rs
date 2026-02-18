@@ -13,8 +13,8 @@ impl super::Client {
         &self,
         query: impl Into<String>,
         sources: impl IntoIterator<Item = impl Into<Source>>,
-        filter: Option<LogicalExpr>,
         top_k: u32,
+        filter: Option<LogicalExpr>,
     ) -> Result<Streaming<SearchResult>, Error> {
         let query = query.into();
         let sources: Vec<_> = sources.into_iter().map(|s| s.into()).collect();
