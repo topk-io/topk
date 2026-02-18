@@ -1,7 +1,6 @@
 use futures_util::TryFutureExt;
 use tonic::Streaming;
 
-use crate::proto::v1::ctx::Effort;
 use crate::proto::v1::ctx::SearchRequest;
 use crate::proto::v1::ctx::SearchResult;
 use crate::proto::v1::ctx::Source;

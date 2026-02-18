@@ -24,6 +24,7 @@ mod dataset;
 pub use dataset::DatasetClient;
 
 pub mod ask;
+pub mod search;
 
 mod config;
 pub use config::ClientConfig;
