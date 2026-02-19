@@ -19,7 +19,7 @@ message Source {
 
 message SearchResult {
     string doc_id = 1;
-    string source_doc_type = 2;
+    string doc_type = 2;
     Content content = 3;
     map<string, topk.data.v1.Value> metadata = 4;
 }
