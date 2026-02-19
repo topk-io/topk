@@ -1,6 +1,7 @@
 syntax = "proto3";
 package topk.ctx.v1;
 
+import "topk/data/v1/value.proto";
 import "topk/data/v1/expr/logical.proto";
 
 service ContextService {
@@ -25,6 +26,7 @@ message SearchResult {
     }
     string doc_id = 2;
     repeated uint32 doc_pages = 3;
+    map<string, topk.data.v1.Value> metadata = 4;
 }
 
 message Png {
@@ -78,8 +80,14 @@ message AskResponseMessage {
 }
 
 message SearchRequest {
+    // Search query
     string query = 1;
+    // Source datasets for the search
     repeated Source sources = 2;
+    // Filter applied globally to all sources
     topk.data.v1.LogicalExpr filter = 3;
+    // Maximum number of results to return
     uint32 top_k = 4;
+    // Metadata fields to return
+    repeated string select_fields = 5;
 }

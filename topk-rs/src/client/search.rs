@@ -13,31 +13,24 @@ impl super::Client {
         &self,
         query: impl Into<String>,
         sources: impl IntoIterator<Item = impl Into<Source>>,
-        filter: Option<LogicalExpr>,
         top_k: u32,
+        filter: Option<LogicalExpr>,
+        select_fields: impl IntoIterator<Item = impl Into<String>>,
     ) -> Result<Streaming<SearchResult>, Error> {
-        let query = query.into();
-        let sources: Vec<_> = sources.into_iter().map(|s| s.into()).collect();
-        let filter = filter.clone();
         let client = super::create_ctx_client(&self.config(), &self.channel()).await?;
 
-        let response = call_with_retry(&self.config().retry_config(), || {
-            let mut client = client.clone();
-            let query = query.clone();
-            let sources = sources.clone();
-            let filter = filter.clone();
+        let request = SearchRequest {
+            query: query.into(),
+            sources: sources.into_iter().map(|s| s.into()).collect(),
+            filter,
+            top_k,
+            select_fields: select_fields.into_iter().map(|s| s.into()).collect(),
+        };
 
-            async move {
-                client
-                    .search(SearchRequest {
-                        query,
-                        sources,
-                        filter,
-                        top_k,
-                    })
-                    .map_err(Error::from)
-                    .await
-            }
+        let response = call_with_retry(&self.config().retry_config(), || {
+            let request = request.clone();
+            let mut client = client.clone();
+            async move { client.search(request).map_err(Error::from).await }
         })
         .await?;
 

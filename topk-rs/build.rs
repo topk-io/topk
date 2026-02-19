@@ -62,17 +62,6 @@ fn build_topk_v1_protos() {
         "topk.control.v1.VectorIndex",
         "topk.control.v1.SemanticIndex",
         "topk.control.v1.MultiVectorIndex",
-        // ctx
-        "topk.ctx.v1.AskResponseMessage",
-        "topk.ctx.v1.AskResponseMessage.message",
-        "topk.ctx.v1.AskResponseMessage.SubQuery",
-        "topk.ctx.v1.AskResponseMessage.Reason",
-        "topk.ctx.v1.AskResponseMessage.FinalAnswer",
-        "topk.ctx.v1.Fact",
-        "topk.ctx.v1.SearchResult",
-        "topk.ctx.v1.SearchResult.content",
-        "topk.ctx.v1.Png",
-        "topk.ctx.v1.Jpeg",
     ] {
         builder =
             builder.type_attribute(message, "#[derive(serde::Serialize, serde::Deserialize)]");
