@@ -13,8 +13,8 @@ pub enum InputSource {
 #[derive(Clone, Debug)]
 pub struct InputFile {
     pub source: InputSource,
-    pub mime_type: String,
     pub file_name: String,
+    pub mime_type: String,
 }
 
 impl InputFile {
@@ -44,8 +44,8 @@ impl InputFile {
 
         Ok(Self {
             source: InputSource::Path(path),
-            mime_type,
             file_name,
+            mime_type,
         })
     }
 
@@ -110,10 +110,18 @@ mod tests {
     }
 
     #[test]
-    fn from_path_fails_for_nonexistent_path() {
+    fn from_path_fails_for_nonexistent_file() {
         assert!(matches!(
             InputFile::from_path(&std::env::temp_dir().join("nonexistent_file.pdf")),
             Err(Error::Input(e)) if e.to_string().contains("No such file or directory")
+        ));
+    }
+
+    #[test]
+    fn from_path_fails_for_dir() {
+        assert!(matches!(
+            InputFile::from_path(&std::env::temp_dir()),
+            Err(Error::Input(e)) if e.to_string().contains("Is a directory")
         ));
     }
 }

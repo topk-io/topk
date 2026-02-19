@@ -58,7 +58,6 @@ impl DatasetClient {
     ) -> Result<Handle, Error> {
         let client = create_dataset_client(&self.config, &self.dataset_name, &self.channel).await?;
         let file = input.into();
-
         let metadata: HashMap<String, Value> = metadata
             .into_iter()
             .map(|(k, v)| (k.into(), v.into()))
