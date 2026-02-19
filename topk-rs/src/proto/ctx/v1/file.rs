@@ -104,7 +104,7 @@ mod tests {
                 .join("dataset")
                 .join(file),
         )
-        .expect("from_path");
+        .expect("failed to create input file from path");
         assert_eq!(input.mime_type, expected);
     }
 
