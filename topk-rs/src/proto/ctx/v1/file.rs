@@ -91,22 +91,21 @@ mod tests {
 
     use rstest::rstest;
 
-    fn dataset_path(name: &str) -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("tests")
-            .join("utils")
-            .join("dataset")
-            .join(name)
-    }
-
     #[tokio::test]
     #[rstest]
     #[case("pdfko.pdf", "application/pdf")]
     #[case("jpeg.jpg", "image/jpeg")]
     #[case("markdown.md", "text/markdown")]
-    async fn from_path_infers_mime_type(#[case] source: &str, #[case] expected_mime: &str) {
-        let input = InputFile::from_path(dataset_path(source)).expect("from_path");
-        assert_eq!(input.mime_type, expected_mime);
+    async fn from_path_infers_mime_type(#[case] file: &str, #[case] expected: &str) {
+        let input = InputFile::from_path(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("tests")
+                .join("utils")
+                .join("dataset")
+                .join(file),
+        )
+        .expect("from_path");
+        assert_eq!(input.mime_type, expected);
     }
 
     #[test]
