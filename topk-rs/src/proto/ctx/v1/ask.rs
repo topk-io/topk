@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 
 use crate::proto::ctx::v1::{
-    ask_response_message::{FinalAnswer, Message, Reason, Search},
+    ask_response_message::{Answer, Message, Reason, Search},
     AskResponseMessage, Fact, SearchResult,
 };
 
 impl AskResponseMessage {
     pub fn final_answer(facts: Vec<Fact>, refs: HashMap<String, SearchResult>) -> Self {
         Self {
-            message: Some(Message::FinalAnswer(FinalAnswer { facts, refs })),
+            message: Some(Message::Answer(Answer { facts, refs })),
         }
     }
 

@@ -100,7 +100,7 @@ fn build_topk_v1_protos() {
         "topk.ctx.v1.AskResponseMessage.message",
         "topk.ctx.v1.AskResponseMessage.Search",
         "topk.ctx.v1.AskResponseMessage.Reason",
-        "topk.ctx.v1.AskResponseMessage.FinalAnswer",
+        "topk.ctx.v1.AskResponseMessage.Answer",
         "topk.ctx.v1.Fact",
         "topk.ctx.v1.SearchResult",
         "topk.ctx.v1.Content",

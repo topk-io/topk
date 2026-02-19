@@ -18,7 +18,7 @@ message Source {
 }
 
 message SearchResult {
-    string source_doc_id = 1;
+    string doc_id = 1;
     string source_doc_type = 2;
     Content content = 3;
     map<string, topk.data.v1.Value> metadata = 4;
@@ -47,21 +47,21 @@ message Image {
 
 message Fact {
     string fact = 1;
-    repeated string refs_ids = 2;
+    repeated string ref_ids = 2;
 }
 
-enum Effort {
-    EFFORT_UNSPECIFIED = 0;
-    EFFORT_SUMMARIZE = 1;
-    EFFORT_REASON = 2;
-    EFFORT_DEEP_RESEARCH = 3;
+enum Mode {
+    MODE_UNSPECIFIED = 0;
+    MODE_SUMMARIZE = 1;
+    MODE_REASON = 2;
+    MODE_DEEP_RESEARCH = 3;
 }
 
 message AskRequest {
     string query = 1;
     repeated Source sources = 2;
     topk.data.v1.LogicalExpr filter = 3;
-    Effort effort = 4;
+    Mode mode = 4;
 }
 
 message AskResponseMessage {
@@ -75,13 +75,13 @@ message AskResponseMessage {
         string thought = 1;
     }
 
-    message FinalAnswer {
+    message Answer {
         repeated Fact facts = 1;
         map<string, SearchResult> refs = 2;
     }
 
     oneof message {
-        FinalAnswer final_answer = 1;
+        Answer answer = 1;
         Search search = 2;
         Reason reason = 3;
     }
