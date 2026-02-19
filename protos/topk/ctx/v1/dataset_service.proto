@@ -18,7 +18,7 @@ service DatasetService {
 message UpsertMessage {
   message Header {
     string id = 1;
-    DocumentKind kind = 2;
+    string mime_type = 2;
     map<string, topk.data.v1.Value> metadata = 3;
     uint64 size = 4;
     string file_name = 5;
@@ -70,10 +70,4 @@ message CheckHandleRequest {
 
 message CheckHandleResponse {
   bool processed = 1;
-}
-
-enum DocumentKind {
-  DOCUMENT_KIND_UNSPECIFIED = 0;
-  DOCUMENT_KIND_PDF = 1;
-  DOCUMENT_KIND_MARKDOWN = 2;
 }

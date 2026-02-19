@@ -58,11 +58,7 @@ impl DatasetClient {
     ) -> Result<Handle, Error> {
         let client = create_dataset_client(&self.config, &self.dataset_name, &self.channel).await?;
         let file = input.into();
-        if !file.is_file().await? {
-            return Err(Error::Input(anyhow::anyhow!(
-                "Provided input is not a file"
-            )));
-        }
+
         let metadata: HashMap<String, Value> = metadata
             .into_iter()
             .map(|(k, v)| (k.into(), v.into()))
@@ -249,7 +245,7 @@ async fn stream_file(
     tx.send(UpsertMessage {
         message: Some(upsert_message::Message::Header(upsert_message::Header {
             id: id.into(),
-            kind: input.kind.into(),
+            mime_type: input.mime_type.clone(),
             metadata,
             size,
             file_name: input.file_name.clone(),
