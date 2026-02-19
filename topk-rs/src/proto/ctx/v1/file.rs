@@ -91,12 +91,11 @@ mod tests {
 
     use rstest::rstest;
 
-    #[tokio::test]
     #[rstest]
     #[case("pdfko.pdf", "application/pdf")]
     #[case("jpeg.jpg", "image/jpeg")]
     #[case("markdown.md", "text/markdown")]
-    async fn from_path_infers_mime_type(#[case] file: &str, #[case] expected: &str) {
+    fn from_path_infers_mime_type(#[case] file: &str, #[case] expected: &str) {
         let input = InputFile::from_path(
             PathBuf::from(env!("CARGO_MANIFEST_DIR"))
                 .join("tests")
