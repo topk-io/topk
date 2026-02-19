@@ -1,27 +1,27 @@
 use std::collections::HashMap;
 
 use crate::proto::ctx::v1::{
-    ask_response_message::{FinalAnswer, Message, Reason, SubQuery},
+    ask_response_message::{FinalAnswer, Message, Reason, Search},
     AskResponseMessage, Fact, SearchResult,
 };
 
 impl AskResponseMessage {
-    pub fn final_answer(facts: Vec<Fact>, sources: HashMap<String, SearchResult>) -> Self {
+    pub fn final_answer(facts: Vec<Fact>, refs: HashMap<String, SearchResult>) -> Self {
         Self {
-            message: Some(Message::FinalAnswer(FinalAnswer { facts, sources })),
+            message: Some(Message::FinalAnswer(FinalAnswer { facts, refs })),
         }
     }
 
-    pub fn sub_query(
+    pub fn search(
         objective: String,
         facts: Vec<Fact>,
-        sources: HashMap<String, SearchResult>,
+        refs: HashMap<String, SearchResult>,
     ) -> Self {
         Self {
-            message: Some(Message::SubQuery(SubQuery {
+            message: Some(Message::Search(Search {
                 objective,
                 facts,
-                sources,
+                refs,
             })),
         }
     }
