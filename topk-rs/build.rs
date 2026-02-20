@@ -35,6 +35,39 @@ fn build_topk_v1_protos() {
 
     // #[derive(serde::Serialize, serde::Deserialize)]
     for message in [
+        // data Value
+        "topk.data.v1.Value",
+        "topk.data.v1.Value.value",
+        "topk.data.v1.List",
+        "topk.data.v1.List.values",
+        "topk.data.v1.List.U8",
+        "topk.data.v1.List.I8",
+        "topk.data.v1.List.U32",
+        "topk.data.v1.List.U64",
+        "topk.data.v1.List.I32",
+        "topk.data.v1.List.I64",
+        "topk.data.v1.List.F8",
+        "topk.data.v1.List.F16",
+        "topk.data.v1.List.F32",
+        "topk.data.v1.List.F64",
+        "topk.data.v1.List.String",
+        "topk.data.v1.Struct",
+        "topk.data.v1.Vector",
+        "topk.data.v1.Vector.vector",
+        "topk.data.v1.Vector.Float",
+        "topk.data.v1.Vector.Byte",
+        "topk.data.v1.SparseVector",
+        "topk.data.v1.SparseVector.values",
+        "topk.data.v1.SparseVector.F32Values",
+        "topk.data.v1.SparseVector.U8Values",
+        "topk.data.v1.Matrix",
+        "topk.data.v1.Matrix.values",
+        "topk.data.v1.Matrix.F32",
+        "topk.data.v1.Matrix.F16",
+        "topk.data.v1.Matrix.F8",
+        "topk.data.v1.Matrix.U8",
+        "topk.data.v1.Matrix.I8",
+        "topk.data.v1.Null",
         // field spec
         "topk.control.v1.FieldSpec",
         // field type
@@ -62,17 +95,6 @@ fn build_topk_v1_protos() {
         "topk.control.v1.VectorIndex",
         "topk.control.v1.SemanticIndex",
         "topk.control.v1.MultiVectorIndex",
-        // ctx
-        "topk.ctx.v1.AskResponseMessage",
-        "topk.ctx.v1.AskResponseMessage.message",
-        "topk.ctx.v1.AskResponseMessage.SubQuery",
-        "topk.ctx.v1.AskResponseMessage.Reason",
-        "topk.ctx.v1.AskResponseMessage.FinalAnswer",
-        "topk.ctx.v1.Fact",
-        "topk.ctx.v1.SearchResult",
-        "topk.ctx.v1.SearchResult.content",
-        "topk.ctx.v1.Png",
-        "topk.ctx.v1.Jpeg",
     ] {
         builder =
             builder.type_attribute(message, "#[derive(serde::Serialize, serde::Deserialize)]");
@@ -83,8 +105,8 @@ fn build_topk_v1_protos() {
         .bytes(".topk.data.v1.Value")
         .bytes(".topk.data.v1.DocumentData")
         .bytes(".topk.ctx.v1.UpsertMessage.BodyChunk.data")
-        .bytes(".topk.ctx.v1.Png.data")
-        .bytes(".topk.ctx.v1.Jpeg.data")
+        .bytes(".topk.ctx.v1.Page.image")
+        .bytes(".topk.ctx.v1.Image.data")
         .compile_protos(&proto_paths, &["../protos/"])
         .expect("failed to build [topk.v1] protos");
 }

@@ -73,7 +73,7 @@ async fn test_ask(ctx: &mut ProjectTestContext) {
     assert!(matches!(
         last_message,
         Some(AskResponseMessage {
-            message: Some(ask_response_message::Message::FinalAnswer(_))
+            message: Some(ask_response_message::Message::Answer(_))
         })
     ));
 }

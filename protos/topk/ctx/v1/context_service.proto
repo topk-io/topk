@@ -2,6 +2,7 @@ syntax = "proto3";
 package topk.ctx.v1;
 
 import "topk/data/v1/expr/logical.proto";
+import "topk/data/v1/value.proto";
 
 service ContextService {
     // Get a summarized answer to a question based on provided sources.
@@ -17,62 +18,71 @@ message Source {
 }
 
 message SearchResult {
-    string id = 1;
-    oneof content {
-        string text = 101;
-        Png png = 102;
-        Jpeg jpeg = 103;
+    string doc_id = 1;
+    string doc_type = 2;
+    Content content = 3;
+    map<string, topk.data.v1.Value> metadata = 4;
+}
+
+message Content {
+    oneof data {
+        Chunk chunk = 1;
+        Page page = 2;
+        Image image = 3;
     }
-    string doc_id = 2;
-    repeated uint32 doc_pages = 3;
 }
 
-message Png {
-    bytes data = 1;
+message Page {
+    uint32 page_number = 1;
+    bytes image = 2;
 }
 
-message Jpeg {
+message Chunk {
+    string text = 1;
+}
+
+message Image {
     bytes data = 1;
 }
 
 message Fact {
     string fact = 1;
-    repeated string source_ids = 2;
+    repeated string ref_ids = 2;
 }
 
-enum Effort {
-    EFFORT_UNSPECIFIED = 0;
-    EFFORT_MEDIUM = 1;
-    EFFORT_LOW = 2;
-    EFFORT_HIGH = 3;
+enum Mode {
+    MODE_UNSPECIFIED = 0;
+    MODE_SUMMARIZE = 1;
+    MODE_REASON = 2;
+    MODE_DEEP_RESEARCH = 3;
 }
 
 message AskRequest {
     string query = 1;
     repeated Source sources = 2;
     topk.data.v1.LogicalExpr filter = 3;
-    Effort effort = 4;
+    Mode mode = 4;
 }
 
 message AskResponseMessage {
-    message SubQuery {
+    message Search {
         string objective = 1;
         repeated Fact facts = 2;
-        map<string, SearchResult> sources = 3;
+        map<string, SearchResult> refs = 3;
     }
 
     message Reason {
         string thought = 1;
     }
 
-    message FinalAnswer {
+    message Answer {
         repeated Fact facts = 1;
-        map<string, SearchResult> sources = 2;
+        map<string, SearchResult> refs = 2;
     }
 
     oneof message {
-        FinalAnswer final_answer = 1;
-        SubQuery sub_query = 2;
+        Answer answer = 1;
+        Search search = 2;
         Reason reason = 3;
     }
 }
