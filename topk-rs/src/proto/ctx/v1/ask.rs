@@ -6,7 +6,7 @@ use crate::proto::ctx::v1::{
 };
 
 impl AskResponseMessage {
-    pub fn final_answer(facts: Vec<Fact>, refs: HashMap<String, SearchResult>) -> Self {
+    pub fn answer(facts: Vec<Fact>, refs: HashMap<String, SearchResult>) -> Self {
         Self {
             message: Some(Message::Answer(Answer { facts, refs })),
         }
