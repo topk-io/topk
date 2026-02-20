@@ -27,20 +27,7 @@ impl InputFile {
             .to_string_lossy()
             .to_string();
 
-        let mime_type = infer::get_from_path(&path)
-            .map_err(|e| Error::Input(anyhow::anyhow!(e)))?
-            .map(|kind| kind.mime_type().to_string())
-            .or_else(|| {
-                mime_guess::from_path(&path)
-                    .first()
-                    .map(|mime| mime.to_string())
-            })
-            .ok_or_else(|| {
-                Error::Input(anyhow::anyhow!(
-                    "Could not get MIME type for file: {}",
-                    path.display()
-                ))
-            })?;
+        let mime_type = Self::guess_mime_type(&path)?;
 
         Ok(Self {
             source: InputSource::Path(path),
@@ -59,6 +46,26 @@ impl InputFile {
             file_name: file_name.into(),
             mime_type: mime_type.into(),
         })
+    }
+
+    pub fn guess_mime_type(path: impl Into<PathBuf>) -> Result<String, Error> {
+        let path = path.into();
+        let mime_type = infer::get_from_path(&path)
+            .map_err(|e| Error::Input(anyhow::anyhow!(e)))?
+            .map(|kind| kind.mime_type().to_string())
+            .or_else(|| {
+                mime_guess::from_path(&path)
+                    .first()
+                    .map(|mime| mime.to_string())
+            })
+            .ok_or_else(|| {
+                Error::Input(anyhow::anyhow!(
+                    "Could not get MIME type for file: {}",
+                    path.display()
+                ))
+            })?;
+
+        Ok(mime_type)
     }
 }
 
