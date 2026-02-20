@@ -102,7 +102,7 @@ mod tests {
     #[case("pdfko.pdf", "application/pdf")]
     #[case("jpeg.jpg", "image/jpeg")]
     #[case("markdown.md", "text/markdown")]
-    fn from_path_infers_mime_type(#[case] file: &str, #[case] expected: &str) {
+    fn from_path_infers_or_guesses_mime_type(#[case] file: &str, #[case] expected: &str) {
         let input = InputFile::from_path(
             PathBuf::from(env!("CARGO_MANIFEST_DIR"))
                 .join("tests")
@@ -112,6 +112,20 @@ mod tests {
         )
         .expect("failed to create input file from path");
         assert_eq!(input.mime_type, expected);
+    }
+
+    #[rstest]
+    #[case("markdown")]
+    fn from_path_fails_for_no_extension(#[case] file: &str) {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("utils")
+            .join("dataset")
+            .join(file);
+        assert!(matches!(
+            InputFile::from_path(&path),
+            Err(Error::Input(e)) if e.to_string().contains("Could not get MIME type for file")
+        ));
     }
 
     #[test]
