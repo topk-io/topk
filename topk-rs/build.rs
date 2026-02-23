@@ -118,7 +118,6 @@ fn build_topk_v1_protos() {
         .bytes(".topk.data.v1.Value")
         .bytes(".topk.data.v1.DocumentData")
         .bytes(".topk.ctx.v1.UpsertMessage.BodyChunk.data")
-        .bytes(".topk.ctx.v1.Page.image")
         .bytes(".topk.ctx.v1.Image.data")
         .compile_protos(&proto_paths, &["../protos/"])
         .expect("failed to build [topk.v1] protos");

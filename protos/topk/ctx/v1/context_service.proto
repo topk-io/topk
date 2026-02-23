@@ -35,15 +35,17 @@ message Content {
 
 message Page {
     uint32 page_number = 1;
-    bytes image = 2;
+    Image image = 2;
 }
 
 message Chunk {
     string text = 1;
+    repeated uint32 doc_pages = 2;
 }
 
 message Image {
     bytes data = 1;
+    string mime_type = 2;
 }
 
 message Fact {
