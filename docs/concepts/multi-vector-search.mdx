@@ -2,31 +2,31 @@
 title: "Multi-vector search"
 ---
 
-Multi-vector (late-interaction) retrieval represents each document (and query) as a variable-length set of embedding vectors rather than a single pooled embedding.
-Instead of applying global pooling (e.g., CLS or mean pooling), it preserves token, segment, or patch-level vectors and scores documents using a late-interaction objective such as MaxSim.
+Multi-vector (late-interaction) retrieval represents each document (and query) as a variable-length set of embedding vectors rather than a single embedding vector.
+Instead of reducing the input to a single vector via global pooling (e.g., mean pooling) or a dedicated summary token (e.g., CLS), multi-vector representations preserve token-, segment-, or patch-level vectors and score documents using a set-wise similarity function, most commonly **MaxSim**.
 
 ## Why multi-vector retrieval is needed
 
 Single-vector retrieval is the most common approach, but it can lose signal when:
 
-- **The document is long**: pooling forces many distinct concepts into one vector.
-- **The query has multiple aspects**: one vector may over-emphasize the dominant facet and miss a smaller but crucial one.
-- **Fine-grained matching matters**: named entities, code identifiers, rare terms, or localized regions in an image benefit from token/patch-level matching.
+- **The document is long**: pooling compresses many distinct concepts into one vector, potentially sacrificing important details in order to preserve overall meaning.
+- **The query has multiple aspects**: a single vector tends to overemphasize features repeated across the document and suppress distinctive facets that appear only in localized context but are crucial for precision.
+- **Fine-grained matching matters**: named entities, code identifiers, rare terms, or localized image regions are easily lost in single-vector retrieval but can be easily retrieved from token- or patch-level embeddings.
 
-Multi-vector retrieval helps because it can match *any* query vector strongly to *some* document vector, instead of requiring a single global representation to be close.
+Multi-vector retrieval helps because it evaluates (maximum) relevance of *any* query vector against *some* document vector, instead of computing a single global similarity score.
 
 ## Multi-vector (tensor) embeddings
 
-Many modern retrieval architectures naturally output a matrix `N x D`:
+Embedding models generally represent data internally as an `N x D` matrix:
 
-- **Token-level embeddings** (late interaction): each token (or chunk) gets its own `D` - dim vector.
-- **Patch / region embeddings** (vision or multimodal): each patch/region gets a vector.
-- **Segmented / multi-field encoders**: multiple embeddings per input (e.g., per paragraph or per section).
+- **Token-level embeddings**: each of `N` text tokens is represented by a `D`-dimensional vector.
+- **Patch / region embeddings** (vision / multimodal): each of `N` patches or regions is represented by a `D`-dimensional vector.
+- **Segmented / multi-field encoders**: multiple embeddings per input (e.g., each of `N` paragraphs or sections is represented by a `D`-dimensional vector).
 
-This pattern shows up in late-interaction retrieval models such as
-[`ColBERT`](https://arxiv.org/abs/2004.12832) and
-[`ColBERTv2`](https://arxiv.org/abs/2112.01488), and in visual/multimodal variants such as
-[`ColPali`](https://arxiv.org/abs/2407.01449) (multi-vector patch/region embeddings).
+Distinct from traditional embedding models that pool these internal representations in the output layer to produce a single vector, late-interaction models such as
+[`ColBERTv2`](https://arxiv.org/abs/2112.01488) (text) and
+[`ColPali`](https://arxiv.org/abs/2407.01449) (visual/multimodal) 
+produce a full `N x D` matrix of token- or patch-level embeddings at the output layer (potentially projected to a lower dimension, quantized, or otherwise compressed), which is then stored in the database for retrieval.
 
 In all these cases, `N` is the number of vectors and can vary per document/query; `D` is the embedding dimension shared across vectors.
 
