@@ -26,11 +26,11 @@ Many modern retrieval architectures naturally output a matrix `N x D`:
 This pattern shows up in late-interaction retrieval models such as
 [`ColBERT`](https://arxiv.org/abs/2004.12832) and
 [`ColBERTv2`](https://arxiv.org/abs/2112.01488), and in visual/multimodal variants such as
-[`ColPali`](https://arxiv.org/abs/2407.01449) (which uses multi-vector patch/region embeddings).
+[`ColPali`](https://arxiv.org/abs/2407.01449) (multi-vector patch/region embeddings).
 
 In all these cases, `N` is the number of vectors and can vary per document/query; `D` is the embedding dimension shared across vectors.
 
-## Define a schema for multi-vector embeddings
+## Define a schema for multi-vector retrieval
 
 In TopK, multi-vector embeddings are stored in a [`matrix()`](/sdk/topk-py/schema#matrix) field and indexed with a [`multi_vector_index()`](/sdk/topk-py/schema#multi-vector-index) using the [`maxsim`](/sdk/topk-py/schema#multi-vector-index) metric.
 
@@ -88,7 +88,9 @@ When upserting documents, include both:
 * A multi-vector embedding for given content
 * Any relevant document metadata
 
-Each document must also include a required `_id` field.
+<Warning>
+  Each document must also include a required `_id` field.
+</Warning>
 
 <CodeGroup>
 
@@ -104,13 +106,13 @@ client.collection("passages").upsert(
         {
             "_id": "p1",
             "content": "Late interaction retrieval",
-            # ndarray is accepted directly
+            # `numpy.ndarray` is supported out of the box
             "token_embeddings": token_embeddings,
         },
         {
             "_id": "p2",
             "content": "MaxSim in practice",
-            # Or wrap explicitly using `topk_sdk.data.matrix(...)`
+            # Or use matrix data constructor via `topk_sdk.data.matrix(...)`
             "token_embeddings": matrix(token_embeddings, value_type="f16"),
         },
     ]
@@ -141,7 +143,7 @@ await client.collection("passages").upsert([
 TopK has built-in support for [`numpy.ndarray`](https://numpy.org/doc/2.2/reference/generated/numpy.ndarray.html) when ingesting and querying multi-vector (matrix) embeddings. If you pass an ndarray directly, the matrix value type is inferred from its `dtype` (e.g. `float32`, `float16`, `uint8`, `int8`).
 </Tip>
 
-## Multi-vector retrieval
+## Run multi-vector retrieval
 
 Use [`fn.multi_vector_distance()`](/sdk/topk-py/query#multi-vector-distance) to score documents against a query matrix.
 When the field is indexed with `metric="maxsim"`, this computes the *MaxSim* score defined above.
@@ -159,7 +161,7 @@ docs = client.collection("passages").query(
         "content",
         maxsim=fn.multi_vector_distance(
             "token_embeddings",
-            query_matrix,      # ndarray supported here too
+            query_matrix,      # `numpy.ndarray` is supported in query matrix as well
             candidates=200,    # optional: tuning performance vs. recall
         ),
     ).topk(field("maxsim"), 10)
