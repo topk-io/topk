@@ -36,7 +36,7 @@ For a query `Q` represented by `M` vectors `{q_1,...,q_M}` and a document `D` re
 MaxSim(Q, D) = sum_i max_j ⟨q_i, d_j⟩
 ```
 
-Instead of computing a single overall similarity score between the entire query and document embeddings, MaxSim compares each query token to all document tokens and keeps only the maximum similarity for each query token. The final score is the sum (or average) of these maximum similarities.
+In human words, instead of computing a single overall similarity score between the entire query and document embeddings, MaxSim compares each query token to all document tokens and keeps only the maximum similarity for each query token. The final score is the sum (or average) of these maximum similarities.
 
 With [`metric="maxsim"`](/sdk/topk-py/schema#multi-vector-index), **higher scores indicate better matches**.
 
