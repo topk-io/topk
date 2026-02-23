@@ -35,15 +35,23 @@ message Content {
 
 message Page {
     uint32 page_number = 1;
-    bytes image = 2;
+    Image image = 2;
 }
 
 message Chunk {
     string text = 1;
+    repeated uint32 doc_pages = 2;
 }
 
 message Image {
     bytes data = 1;
+    MimeType mime_type = 2;
+}
+
+enum MimeType {
+    MIME_TYPE_UNSPECIFIED = 0;
+    MIME_TYPE_IMAGE_PNG = 1;
+    MIME_TYPE_IMAGE_JPEG = 2;
 }
 
 message Fact {
