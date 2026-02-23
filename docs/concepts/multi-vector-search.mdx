@@ -3,7 +3,7 @@ title: "Multi-vector search"
 ---
 
 Multi-vector (late-interaction) retrieval represents each document (and query) as a variable-length set of embedding vectors rather than a single embedding vector.
-Instead of reducing the input to a single vector via global pooling (e.g., mean pooling) or a dedicated summary token (e.g., CLS), multi-vector representations preserve token-, segment-, or patch-level vectors and score documents using a set-wise similarity function, most commonly **MaxSim**.
+Instead of reducing the input to a single vector via global pooling (e.g., mean pooling) or a dedicated summary token (e.g., CLS), multi-vector representations preserve token-, segment-, or patch-level vectors and score documents using a set-wise similarity function, most commonly [**MaxSim**](#maxsim-scoring).
 
 ## Why multi-vector retrieval is needed
 
@@ -25,14 +25,24 @@ Embedding models generally represent data internally as an `N x D` matrix:
 
 Distinct from traditional embedding models that pool these internal representations in the output layer to produce a single vector, late-interaction models such as
 [`ColBERTv2`](https://arxiv.org/abs/2112.01488) (text) and
-[`ColPali`](https://arxiv.org/abs/2407.01449) (visual/multimodal) 
+[`ColPali`](https://arxiv.org/abs/2407.01449) (visual/multimodal)
 produce a full `N x D` matrix of token- or patch-level embeddings at the output layer (potentially projected to a lower dimension, quantized, or otherwise compressed), which is then stored in the database for retrieval.
 
-In all these cases, `N` is the number of vectors and can vary per document/query; `D` is the embedding dimension shared across vectors.
+### MaxSim scoring
+
+For a query `Q` represented by `M` vectors `{q_1,...,q_M}` and a document `D` represented by `N` vectors `{d_1,...,d_N}` (of dimension `D`), the *MaxSim* function computes the similarity between `Q` and `D` as
+
+```
+MaxSim(Q, D) = sum_i max_j ⟨q_i, d_j⟩
+```
+
+Instead of computing a single overall similarity score between the entire query and document embeddings, MaxSim compares each query token to all document tokens and keeps only the maximum similarity for each query token. The final score is the sum (or average) of these maximum similarities.
+
+With [`metric="maxsim"`](/sdk/topk-py/schema#multi-vector-index), **higher scores indicate better matches**.
 
 ## Define a schema for multi-vector retrieval
 
-In TopK, multi-vector embeddings are stored in a [`matrix()`](/sdk/topk-py/schema#matrix) field and indexed with a [`multi_vector_index()`](/sdk/topk-py/schema#multi-vector-index) using the [`maxsim`](/sdk/topk-py/schema#multi-vector-index) metric.
+In TopK, multi-vector embeddings are stored in a [`matrix()`](/sdk/topk-py/schema#matrix) field and indexed with a [`multi_vector_index()`](/sdk/topk-py/schema#multi-vector-index) using the [`maxsim`](#maxsim-scoring) metric.
 
 <CodeGroup>
 
@@ -69,18 +79,6 @@ await client.collections().create("passages", {
 - **`value_type`**: storage type for matrix elements (`f32`, `f16`, `f8`, `u8`, `i8`). Choose based on your model output and memory/perf needs.
 - **`metric="maxsim"`**: a late-interaction style scoring where each query vector contributes based on its best match in the document.
 
-### Index tuning
-
-The multi-vector index has an approximate retrieval stage (to prune work quickly) followed by a more accurate scoring stage. These parameters let you trade off **memory**, **latency**, and **recall**:
-
-- **`sketch_bits`**: increases the fidelity of approximate MaxSim pruning.
-  - **More bits**: more accurate pruning → fewer false negatives (better recall), but higher memory/compute.
-  - **Fewer bits**: more aggressive approximation → more false negatives (recall loss), but faster and smaller.
-- **`quantization`**: compresses stored multi-vector values.
-  - **`1bit` / `2bit`**: very compact and fast, but most approximate.
-  - **`scalar`**: higher-fidelity quantization (larger than 1–2 bit) with better quality.
-
-If you’re starting out, keep defaults, then tune `candidates` and these index parameters based on your latency or recall targets.
 
 ## Ingest documents with multi-vector embeddings
 
@@ -222,13 +220,16 @@ console.log(docs);
 
 </CodeGroup>
 
-<Info>
-With `metric="maxsim"`, **higher scores indicate better matches**.
-
-The score is the sum over all query vectors of the maximum dot product with any document vector:
-`sum_q max_d ⟨q, d⟩`
-</Info>
-
 ### Optimization tips
 
-- **Tune `candidates` (speed vs recall)**: controls how many top document candidates from the approximate stage are promoted to a more accurate multi-vector scoring pass. Lower values reduce work (faster/cheaper) but can hurt recall; higher values improve recall at the cost of latency.
+The multi-vector index has an approximate retrieval stage (to prune work quickly) followed by a more accurate scoring stage. These parameters let you trade off **memory**, **latency**, and **recall**:
+
+- **`sketch_bits`**: increases the fidelity of approximate MaxSim pruning.
+  - **More bits**: more accurate pruning → fewer false negatives (better recall), but higher memory/compute.
+  - **Fewer bits**: more aggressive approximation → more false negatives (recall loss), but faster and smaller.
+- **`quantization`**: compresses stored multi-vector values.
+  - **`1bit` / `2bit`**: very compact and fast, but most approximate.
+  - **`scalar`**: higher-fidelity quantization (larger than 1–2 bit) with better quality.
+- **`candidates`**: controls how many top document candidates from the approximate stage are promoted to a more accurate multi-vector scoring pass. Lower values reduce work (faster/cheaper) but can hurt recall; higher values improve recall at the cost of latency.
+  If you’re starting out, keep defaults, then tune `candidates` and these index parameters based on your latency or recall targets.
+
