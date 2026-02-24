@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use test_context::test_context;
-use topk_rs::proto::v1::ctx::{file::InputFile, DocumentKind};
+use topk_rs::proto::v1::ctx::file::InputFile;
 use topk_rs::proto::v1::data::Value;
 use topk_rs::Error;
 
@@ -68,12 +68,8 @@ async fn test_upsert_file_markdown(ctx: &mut ProjectTestContext) {
     let metadata = HashMap::from([("title".to_string(), Value::string("Test Markdown"))]);
 
     let file_data = b"# Test Markdown\n\nThis is a test markdown file.";
-    let input_file = InputFile::from_bytes(
-        file_data.as_slice(),
-        "test.md".to_string(),
-        DocumentKind::Markdown,
-    )
-    .expect("could not create InputFile from memory");
+    let input_file = InputFile::from_bytes("doc_1", file_data.as_slice(), "text/markdown")
+        .expect("could not create InputFile from memory");
 
     let handle = ctx
         .client
@@ -82,33 +78,4 @@ async fn test_upsert_file_markdown(ctx: &mut ProjectTestContext) {
         .await;
 
     assert!(matches!(handle, Ok(_)));
-}
-
-#[test_context(ProjectTestContext)]
-#[tokio::test]
-async fn test_upsert_file_nonexistent_path(ctx: &mut ProjectTestContext) {
-    let dataset = ctx
-        .client
-        .datasets()
-        .create(ctx.wrap("test"))
-        .await
-        .expect("could not create dataset");
-
-    let nonexistent_path = std::env::temp_dir().join("nonexistent_file.pdf");
-
-    let err = ctx
-        .client
-        .dataset(&dataset.name)
-        .upsert_file(
-            "doc7",
-            InputFile::from_path(nonexistent_path).expect("could not create InputFile from path"),
-            Vec::<(String, Value)>::new(),
-        )
-        .await
-        .expect_err("should not be able to upsert non-existent file");
-
-    assert!(matches!(
-        err,
-        Error::IoError(ref e) if e.kind() == std::io::ErrorKind::NotFound
-    ));
 }
