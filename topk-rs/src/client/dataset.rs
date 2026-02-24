@@ -10,7 +10,8 @@ use tokio::sync::OnceCell;
 use tokio_stream::wrappers::ReceiverStream;
 
 use crate::client::create_dataset_client;
-use crate::proto::v1::ctx::file::{FileId, InputFile, InputSource};
+use crate::proto::v1::ctx::doc::DocId;
+use crate::proto::v1::ctx::file::{InputFile, InputSource};
 use crate::proto::v1::ctx::handle::Handle;
 use crate::proto::v1::ctx::{
     upsert_message, CheckHandleRequest, DeleteRequest, GetMetadataRequest, UpdateMetadataRequest,
@@ -52,7 +53,7 @@ impl DatasetClient {
 
     pub async fn upsert_file(
         &self,
-        file_id: impl Into<FileId>,
+        doc_id: impl Into<DocId>,
         input: impl Into<InputFile>,
         metadata: impl IntoIterator<Item = (impl Into<String>, impl Into<Value>)>,
     ) -> Result<Handle, Error> {
@@ -63,12 +64,12 @@ impl DatasetClient {
             .map(|(k, v)| (k.into(), v.into()))
             .collect();
 
-        let file_id = file_id.into();
+        let doc_id = doc_id.into();
 
         let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
             let metadata = metadata.clone();
-            let id = file_id.clone();
+            let id = doc_id.clone();
             let file = file.clone();
 
             // Channel for the upsert stream
@@ -115,14 +116,14 @@ impl DatasetClient {
         Ok(response.into_inner().handle.into())
     }
 
-    pub async fn delete(&self, file_id: impl Into<FileId>) -> Result<Handle, Error> {
+    pub async fn delete(&self, doc_id: impl Into<DocId>) -> Result<Handle, Error> {
         let client = create_dataset_client(&self.config, &self.dataset_name, &self.channel).await?;
 
-        let file_id = file_id.into();
+        let doc_id = doc_id.into();
 
         let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
-            let id = file_id.clone().into();
+            let id = doc_id.clone().into();
 
             async move {
                 client
@@ -162,15 +163,15 @@ impl DatasetClient {
 
     pub async fn get_metadata(
         &self,
-        file_id: impl Into<FileId>,
+        doc_id: impl Into<DocId>,
     ) -> Result<HashMap<String, Value>, Error> {
         let client = create_dataset_client(&self.config, &self.dataset_name, &self.channel).await?;
 
-        let file_id = file_id.into();
+        let doc_id = doc_id.into();
 
         let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
-            let id = file_id.clone().into();
+            let id = doc_id.clone().into();
 
             async move {
                 client
@@ -189,16 +190,16 @@ impl DatasetClient {
 
     pub async fn update_metadata(
         &self,
-        file_id: impl Into<FileId>,
+        doc_id: impl Into<DocId>,
         metadata: HashMap<String, Value>,
     ) -> Result<Handle, Error> {
         let client = create_dataset_client(&self.config, &self.dataset_name, &self.channel).await?;
 
-        let file_id = file_id.into();
+        let doc_id = doc_id.into();
 
         let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
-            let id = file_id.clone().into();
+            let id = doc_id.clone().into();
             let metadata = metadata.clone();
 
             async move {
@@ -218,7 +219,7 @@ impl DatasetClient {
 }
 
 async fn stream_file(
-    id: impl Into<FileId>,
+    id: impl Into<DocId>,
     input: &InputFile,
     metadata: HashMap<String, Value>,
     tx: mpsc::Sender<UpsertMessage>,
