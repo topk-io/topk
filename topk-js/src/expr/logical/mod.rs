@@ -326,6 +326,15 @@ impl LogicalExpression {
     }
 
     /// Checks if the expression starts with another value.
+    /// Can be applied on a string field or a list of strings field.
+    ///
+    /// ```ts
+    /// // Example:
+    /// import { field, startsWith } from "topk-js/query";
+    /// client.collection("books").query(
+    ///   filter(field("title").startsWith("The") | field("tags").startsWith("fiction"))
+    /// )
+    /// ```
     #[napi]
     pub fn starts_with(
         &self,

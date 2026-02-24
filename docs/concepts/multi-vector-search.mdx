@@ -38,11 +38,11 @@ MaxSim(Q, D) = sum_i max_j ⟨q_i, d_j⟩
 
 In human words, instead of computing a single overall similarity score between the entire query and document embeddings, MaxSim compares each query token to all document tokens and keeps only the maximum similarity for each query token. The final score is the sum (or average) of these maximum similarities.
 
-With [`metric="maxsim"`](/sdk/topk-py/schema#multi-vector-index), **higher scores indicate better matches**.
+With [`metric="maxsim"`](/sdk/topk-py/schema#multi_vector_index), **higher scores indicate better matches**.
 
 ## Define a schema for multi-vector retrieval
 
-In TopK, multi-vector embeddings are stored in a [`matrix()`](/sdk/topk-py/schema#matrix) field and indexed with a [`multi_vector_index()`](/sdk/topk-py/schema#multi-vector-index) using the [`maxsim`](#maxsim-scoring) metric.
+In TopK, multi-vector embeddings are stored in a [`matrix()`](/sdk/topk-py/schema#matrix) field and indexed with a [`multi_vector_index()`](/sdk/topk-py/schema#multi_vector_index) using the [`maxsim`](#maxsim-scoring) metric.
 
 <CodeGroup>
 
@@ -143,7 +143,7 @@ TopK has built-in support for [`numpy.ndarray`](https://numpy.org/doc/2.2/refere
 
 ## Run multi-vector retrieval
 
-Use [`fn.multi_vector_distance()`](/sdk/topk-py/query#multi-vector-distance) to score documents against a query matrix.
+Use [`fn.multi_vector_distance()`](/sdk/topk-py/query#multi_vector_distance) to score documents against a query matrix.
 When the field is indexed with `metric="maxsim"`, this computes the *MaxSim* score defined above.
 
 <CodeGroup>

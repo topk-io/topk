@@ -249,6 +249,16 @@ class LogicalExpr(Enum):
     def starts_with(self, other: Stringy) -> LogicalExpr:
         """
         Check if the expression starts with the provided string expression.
+        Can be applied on a string field or a list of strings field.
+
+        ```python
+        # Example:
+        from topk_sdk.query import field, starts_with
+
+        client.collection("books").query(
+          filter(field("title").starts_with("The") | field("tags").starts_with("fiction"))
+        )
+        ```
         """
         ...
     def contains(self, other: FlexibleExpr) -> LogicalExpr:
@@ -405,13 +415,10 @@ def select(
     **kwargs: typing.Union[LogicalExpr, FunctionExpr],
 ) -> Query:
     """
-    # Example:
-
     Creates a new query with a select stage.
 
     ```python
     # Example:
-
     from topk_sdk.query import select, field
 
     client.collection("books").query(

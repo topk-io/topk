@@ -509,7 +509,18 @@ export declare namespace query {
     and(other: LogicalExpression | boolean): LogicalExpression
     /** Computes the logical OR of the expression and another expression. */
     or(other: LogicalExpression | boolean): LogicalExpression
-    /** Checks if the expression starts with another value. */
+    /**
+     * Checks if the expression starts with another value.
+     * Can be applied on a string field or a list of strings field.
+     *
+     * ```ts
+     * // Example:
+     * import { field, startsWith } from "topk-js/query";
+     * client.collection("books").query(
+     *   filter(field("title").startsWith("The") | field("tags").startsWith("fiction"))
+     * )
+     * ```
+     */
     startsWith(other: LogicalExpression | string): LogicalExpression
     /** Checks if the expression contains another value. */
     contains(other: LogicalExpression | string | number): LogicalExpression
