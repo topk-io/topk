@@ -24,6 +24,13 @@ pub struct Matrix {
 
 impl Matrix {
     pub(crate) fn from_numpy_array(untyped: &Bound<'_, PyUntypedArray>) -> PyResult<Self> {
+        if true {
+            use numpy::{
+                dtype, PyArrayDescrMethods, PyArrayDyn, PyArrayMethods, PyUntypedArray,
+                PyUntypedArrayMethods,
+            };
+        }
+
         let shape = untyped.shape();
         let ndim = shape.len();
         let num_cols = match ndim {

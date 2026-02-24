@@ -802,6 +802,15 @@ startsWith(other:
 ```
 
 Checks if the expression starts with another value.
+Can be applied on string fields or list of strings fields.
+
+```ts
+// Example:
+import { field, startsWith } from "topk-js/query";
+client.collection("books").query(
+  filter(field("title").startsWith("The") | field("tags").startsWith("fiction"))
+)
+```
 
 **Parameters**
 
