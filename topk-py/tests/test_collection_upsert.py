@@ -72,7 +72,7 @@ def test_upsert_max_doc_size(ctx: ProjectContext):
             [
                 {"_id": "one", "payload": "x" * (500 * 1024)},  # 500KB, too large
                 {"_id": "two", "payload": "xxx"},  # ok
-                {"_id": "three", "payload": "x" * (130 * 1024)},  # 130KB, too large
+                {"_id": "three", "payload": "x" * (230 * 1024)},  # 230KB, too large
                 {
                     "_id": "four",
                     "payload": "x" * (126 * 1024),
