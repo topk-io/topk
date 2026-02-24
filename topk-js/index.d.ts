@@ -511,7 +511,7 @@ export declare namespace query {
     or(other: LogicalExpression | boolean): LogicalExpression
     /**
      * Checks if the expression starts with another value.
-     * Can be applied on string fields or list of strings fields.
+     * Can be applied on a string field or a list of strings field.
      *
      * ```ts
      * // Example:
