@@ -110,7 +110,7 @@ describe("Upsert", () => {
       await ctx.client.collection(collection.name).upsert([
         { _id: "one", payload: "x".repeat(500 * 1024) }, // 500KB, too large
         { _id: "two", payload: "xxx" }, // ok
-        { _id: "three", payload: "x".repeat(130 * 1024) }, // 130KB, too large
+        { _id: "three", payload: "x".repeat(230 * 1024) }, // 230KB, too large
         { _id: "four", payload: "x".repeat(126 * 1024) }, // 126KB (plus overhead), ok
       ]);
       fail("expected DocumentValidationError");
@@ -121,7 +121,7 @@ describe("Upsert", () => {
       expect(s).toMatch(/doc_id: \"three\"/);
       expect(s).not.toMatch(/doc_id: \"two\"/);
       expect(s).not.toMatch(/doc_id: \"four\"/);
-      expect(s).toMatch(/max_size_bytes: 131072/);
+      expect(s).toMatch(/max_size_bytes: 200000/);
     }
   });
 
