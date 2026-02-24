@@ -69,27 +69,6 @@ impl InputFile {
     }
 }
 
-#[derive(Clone)]
-pub struct FileId(String);
-
-impl From<FileId> for String {
-    fn from(file_id: FileId) -> Self {
-        file_id.0
-    }
-}
-
-impl From<String> for FileId {
-    fn from(s: String) -> Self {
-        FileId(s)
-    }
-}
-
-impl From<&str> for FileId {
-    fn from(s: &str) -> Self {
-        FileId(s.to_string())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
