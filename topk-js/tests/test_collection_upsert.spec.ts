@@ -121,7 +121,7 @@ describe("Upsert", () => {
       expect(s).toMatch(/doc_id: \"three\"/);
       expect(s).not.toMatch(/doc_id: \"two\"/);
       expect(s).not.toMatch(/doc_id: \"four\"/);
-      expect(s).toMatch(/max_size_bytes: 131072/);
+      expect(s).toMatch(/max_size_bytes: 200000/);
     }
   });
 
