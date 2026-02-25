@@ -5,5 +5,4 @@ pub mod doc;
 pub mod file;
 pub mod handle;
 pub mod image;
-pub mod mode;
 pub mod source;
