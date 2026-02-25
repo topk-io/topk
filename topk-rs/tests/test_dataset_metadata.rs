@@ -8,7 +8,7 @@ use utils::{dataset::test_pdf_path, ProjectTestContext};
 #[test_context(ProjectTestContext)]
 #[tokio::test]
 async fn test_get_metadata(ctx: &mut ProjectTestContext) {
-    let dataset = ctx
+    let response = ctx
         .client
         .datasets()
         .create(ctx.wrap("test"))
@@ -20,7 +20,7 @@ async fn test_get_metadata(ctx: &mut ProjectTestContext) {
     // Upsert file with metadata
     let _handle = ctx
         .client
-        .dataset(&dataset.name)
+        .dataset(&response.dataset().unwrap().name)
         .upsert_file(
             "doc1".to_string(),
             InputFile::from_path(test_pdf_path()).expect("could not create InputFile from path"),
@@ -32,10 +32,11 @@ async fn test_get_metadata(ctx: &mut ProjectTestContext) {
     // Get metadata and verify it matches
     let retrieved_metadata = ctx
         .client
-        .dataset(&dataset.name)
+        .dataset(&response.dataset().unwrap().name)
         .get_metadata("doc1".to_string())
         .await
-        .expect("could not get metadata");
+        .expect("could not get metadata")
+        .metadata;
 
     assert_eq!(
         retrieved_metadata.get("title"),

@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
 use crate::proto::ctx::v1::{
-    ask_response_message::{Answer, Message, Reason, Search},
-    AskResponseMessage, Fact, SearchResult,
+    ask_result::{Answer, Message, Reason, Search},
+    AskResult, Fact, SearchResult,
 };
 
-impl AskResponseMessage {
+impl AskResult {
     pub fn answer(facts: Vec<Fact>, refs: HashMap<String, SearchResult>) -> Self {
         Self {
             message: Some(Message::Answer(Answer { facts, refs })),

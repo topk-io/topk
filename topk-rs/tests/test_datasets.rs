@@ -12,14 +12,21 @@ async fn test_list_datasets(ctx: &mut ProjectTestContext) {
         .datasets()
         .create(ctx.wrap("test"))
         .await
-        .expect("could not create dataset");
+        .expect("could not create dataset")
+        .dataset
+        .expect("invalid dataset proto")
+        .name;
 
     let response = ctx
         .client
         .datasets()
         .list()
         .await
-        .expect("could not list datasets");
+        .expect("could not list datasets")
+        .datasets
+        .iter()
+        .map(|d| d.name.clone())
+        .collect::<Vec<String>>();
 
     assert!(response.iter().any(|dd| dd == &d));
 }
@@ -32,14 +39,21 @@ async fn test_create_dataset(ctx: &mut ProjectTestContext) {
         .datasets()
         .create(ctx.wrap("test"))
         .await
-        .expect("could not create dataset");
+        .expect("could not create dataset")
+        .dataset
+        .expect("invalid dataset proto")
+        .name;
 
     let datasets = ctx
         .client
         .datasets()
         .list()
         .await
-        .expect("could not list datasets");
+        .expect("could not list datasets")
+        .datasets
+        .iter()
+        .map(|d| d.name.clone())
+        .collect::<Vec<String>>();
 
     assert!(datasets.iter().any(|dd| dd == &d));
 }
@@ -84,7 +98,10 @@ async fn test_delete_dataset(ctx: &mut ProjectTestContext) {
         .datasets()
         .create(ctx.wrap("test"))
         .await
-        .expect("could not create dataset");
+        .expect("could not create dataset")
+        .dataset
+        .expect("invalid dataset proto")
+        .name;
 
     ctx.client
         .datasets()
@@ -97,7 +114,11 @@ async fn test_delete_dataset(ctx: &mut ProjectTestContext) {
         .datasets()
         .list()
         .await
-        .expect("could not list datasets");
+        .expect("could not list datasets")
+        .datasets
+        .iter()
+        .map(|d| d.name.clone())
+        .collect::<Vec<String>>();
 
     assert!(!datasets.iter().any(|dd| *dd == d));
 }
@@ -121,7 +142,10 @@ async fn test_get_dataset(ctx: &mut ProjectTestContext) {
         .datasets()
         .create(ctx.wrap("test"))
         .await
-        .expect("could not create dataset");
+        .expect("could not create dataset")
+        .dataset
+        .expect("invalid dataset proto")
+        .name;
 
     // Get dataset
     let dataset = ctx
@@ -129,7 +153,10 @@ async fn test_get_dataset(ctx: &mut ProjectTestContext) {
         .datasets()
         .get(ctx.wrap("test"))
         .await
-        .expect("could not get dataset");
+        .expect("could not get dataset")
+        .dataset
+        .expect("invalid dataset proto")
+        .name;
 
     assert_eq!(dataset, d);
 }

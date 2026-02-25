@@ -8,7 +8,8 @@ use super::create_datasets_client;
 use super::retry::call_with_retry;
 use crate::error::Error;
 use crate::proto::v1::control::{
-    CreateDatasetRequest, Dataset, DeleteDatasetRequest, GetDatasetRequest, ListDatasetsRequest,
+    CreateDatasetRequest, CreateDatasetResponse, DeleteDatasetRequest, DeleteDatasetResponse,
+    GetDatasetRequest, GetDatasetResponse, ListDatasetsRequest, ListDatasetsResponse,
 };
 
 pub struct DatasetsClient {
@@ -26,7 +27,7 @@ impl DatasetsClient {
         }
     }
 
-    pub async fn list(&self) -> Result<Vec<Dataset>, Error> {
+    pub async fn list(&self) -> Result<ListDatasetsResponse, Error> {
         let client = create_datasets_client(&self.config, &self.control_channel).await?;
 
         let response = call_with_retry(&self.config.retry_config(), || {
@@ -41,10 +42,10 @@ impl DatasetsClient {
         })
         .await?;
 
-        Ok(response.into_inner().datasets)
+        Ok(response.into_inner())
     }
 
-    pub async fn get(&self, name: impl Into<String>) -> Result<Dataset, Error> {
+    pub async fn get(&self, name: impl Into<String>) -> Result<GetDatasetResponse, Error> {
         let client = create_datasets_client(&self.config, &self.control_channel).await?;
         let name = name.into();
 
@@ -66,10 +67,10 @@ impl DatasetsClient {
         })
         .await?;
 
-        Ok(response.into_inner().dataset.ok_or(Error::InvalidProto)?)
+        Ok(response.into_inner())
     }
 
-    pub async fn create(&self, name: impl Into<String>) -> Result<Dataset, Error> {
+    pub async fn create(&self, name: impl Into<String>) -> Result<CreateDatasetResponse, Error> {
         let client = create_datasets_client(&self.config, &self.control_channel).await?;
         let name = name.into();
 
@@ -91,14 +92,14 @@ impl DatasetsClient {
         })
         .await?;
 
-        Ok(response.into_inner().dataset.ok_or(Error::InvalidProto)?)
+        Ok(response.into_inner())
     }
 
-    pub async fn delete(&self, name: impl Into<String>) -> Result<(), Error> {
+    pub async fn delete(&self, name: impl Into<String>) -> Result<DeleteDatasetResponse, Error> {
         let client = create_datasets_client(&self.config, &self.control_channel).await?;
         let name = name.into();
 
-        let _ = call_with_retry(&self.config.retry_config(), || {
+        let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
             let name = name.clone();
 
@@ -116,6 +117,6 @@ impl DatasetsClient {
         })
         .await?;
 
-        Ok(())
+        Ok(response.into_inner())
     }
 }

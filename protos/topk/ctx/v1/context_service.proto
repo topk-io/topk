@@ -6,7 +6,7 @@ import "topk/data/v1/expr/logical.proto";
 
 service ContextService {
     // Get a summarized answer to a question based on provided sources.
-    rpc Ask(AskRequest) returns (stream AskResponseMessage);
+    rpc Ask(AskRequest) returns (stream AskResult);
 
     // Get search results from the provided sources.
     rpc Search(SearchRequest) returns (stream SearchResult);
@@ -73,7 +73,7 @@ message AskRequest {
     repeated string select_fields = 5;
 }
 
-message AskResponseMessage {
+message AskResult {
     message Search {
         string objective = 1;
         repeated Fact facts = 2;

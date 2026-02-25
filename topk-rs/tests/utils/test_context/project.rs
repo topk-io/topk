@@ -32,8 +32,8 @@ impl ProjectTestContext {
 
     async fn cleanup_datasets(&self) -> Result<(), Error> {
         let client = self.client.datasets();
-        let datasets = client.list().await?;
-        for dataset in datasets {
+        let response = client.list().await?;
+        for dataset in response.datasets {
             if dataset.name.starts_with(&self.scope) {
                 println!("Deleting dataset: {}", dataset.name);
                 let res = client.delete(&dataset.name).await;

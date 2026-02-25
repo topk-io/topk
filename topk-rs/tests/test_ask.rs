@@ -4,7 +4,7 @@ use futures_util::StreamExt;
 use test_context::test_context;
 
 use topk_rs::proto::v1::{
-    ctx::{ask_response_message, file::InputFile, AskResponseMessage},
+    ctx::{ask_result::Message, file::InputFile, AskResult},
     data::Value,
 };
 
@@ -14,16 +14,16 @@ use utils::{dataset::test_pdf_path, ProjectTestContext};
 #[test_context(ProjectTestContext)]
 #[tokio::test]
 async fn test_ask(ctx: &mut ProjectTestContext) {
-    let dataset = ctx
+    let response = ctx
         .client
         .datasets()
         .create(ctx.wrap("test"))
         .await
         .expect("could not create dataset");
 
-    let handle = ctx
+    let upsert_result = ctx
         .client
-        .dataset(&dataset.name)
+        .dataset(&response.dataset().unwrap().name)
         .upsert_file(
             "doc1",
             InputFile::from_path(test_pdf_path()).expect("could not create InputFile from path"),
@@ -34,14 +34,14 @@ async fn test_ask(ctx: &mut ProjectTestContext) {
 
     let max_attempts = 120;
     for _ in 0..max_attempts {
-        let processed = ctx
+        let check_handle_response = ctx
             .client
-            .dataset(&dataset.name)
-            .check_handle(handle.clone())
+            .dataset(&response.dataset().unwrap().name)
+            .check_handle(upsert_result.handle.clone().into())
             .await
             .expect("could not check handle");
 
-        if processed {
+        if check_handle_response.processed {
             break;
         }
 
@@ -58,7 +58,7 @@ async fn test_ask(ctx: &mut ProjectTestContext) {
         .client
         .ask(
             "What score must general education students achieve who first entered ninth grade in 1997 ?",
-            [&dataset.name],
+            [&response.dataset().unwrap().name],
             None,
             None,
             Vec::<String>::new(),
@@ -66,15 +66,15 @@ async fn test_ask(ctx: &mut ProjectTestContext) {
         .await
         .expect("could not call ask");
 
-    let mut last_message: Option<AskResponseMessage> = None;
+    let mut last_message: Option<AskResult> = None;
     while let Some(result) = stream.next().await {
         last_message = Some(result.expect("could not receive message from stream"));
     }
 
     assert!(matches!(
         last_message,
-        Some(AskResponseMessage {
-            message: Some(ask_response_message::Message::Answer(_))
+        Some(AskResult {
+            message: Some(Message::Answer(_))
         })
     ));
 }
