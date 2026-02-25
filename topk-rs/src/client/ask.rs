@@ -16,30 +16,22 @@ impl super::Client {
         sources: impl IntoIterator<Item = impl Into<Source>>,
         filter: Option<LogicalExpr>,
         mode: Option<Mode>,
+        select_fields: impl IntoIterator<Item = impl Into<String>>,
     ) -> Result<Streaming<AskResponseMessage>, Error> {
-        let query = query.into();
-        let sources: Vec<_> = sources.into_iter().map(|s| s.into()).collect();
-        let filter = filter.clone();
-        let mode = mode.unwrap_or(Mode::Unspecified);
         let client = super::create_ctx_client(&self.config(), &self.channel()).await?;
 
-        let response = call_with_retry(&self.config().retry_config(), || {
-            let mut client = client.clone();
-            let query = query.clone();
-            let sources = sources.clone();
-            let filter = filter.clone();
+        let request = AskRequest {
+            query: query.into(),
+            sources: sources.into_iter().map(|s| s.into()).collect(),
+            filter,
+            mode: mode.unwrap_or_default() as i32,
+            select_fields: select_fields.into_iter().map(|s| s.into()).collect(),
+        };
 
-            async move {
-                client
-                    .ask(AskRequest {
-                        query,
-                        sources,
-                        filter,
-                        mode: mode as i32,
-                    })
-                    .map_err(Error::from)
-                    .await
-            }
+        let response = call_with_retry(&self.config().retry_config(), || {
+            let request = request.clone();
+            let mut client = client.clone();
+            async move { client.ask(request).map_err(Error::from).await }
         })
         .await?;
 

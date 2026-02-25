@@ -60,7 +60,8 @@ async fn test_ask(ctx: &mut ProjectTestContext) {
             "What score must general education students achieve who first entered ninth grade in 1997 ?",
             [&dataset.name],
             None,
-            None
+            None,
+            vec![]
         )
         .await
         .expect("could not call ask");

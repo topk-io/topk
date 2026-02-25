@@ -61,10 +61,16 @@ enum Mode {
 }
 
 message AskRequest {
+    // Ask query
     string query = 1;
+    // Sources to use for the ask query
     repeated Source sources = 2;
+    // Filter applied globally to all sources
     topk.data.v1.LogicalExpr filter = 3;
+    // Mode to use for the ask query
     Mode mode = 4;
+    // Metadata fields to return
+    repeated string select_fields = 5;
 }
 
 message AskResponseMessage {
