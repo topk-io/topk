@@ -1,7 +1,5 @@
-use crate::{
-    proto::control::v1::{CreateDatasetResponse, Dataset, GetDatasetResponse},
-    Error,
-};
+use crate::Error;
+use super::{CreateDatasetResponse, Dataset, GetDatasetResponse};
 
 impl CreateDatasetResponse {
     pub fn dataset(&self) -> Result<&Dataset, Error> {
