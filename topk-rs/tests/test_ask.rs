@@ -14,16 +14,16 @@ use utils::{dataset::test_pdf_path, ProjectTestContext};
 #[test_context(ProjectTestContext)]
 #[tokio::test]
 async fn test_ask(ctx: &mut ProjectTestContext) {
-    let response = ctx
+    let create = ctx
         .client
         .datasets()
         .create(ctx.wrap("test"))
         .await
         .expect("could not create dataset");
 
-    let upsert_result = ctx
+    let upsert = ctx
         .client
-        .dataset(&response.dataset().unwrap().name)
+        .dataset(&create.dataset().unwrap().name)
         .upsert_file(
             "doc1",
             InputFile::from_path(test_pdf_path()).expect("could not create InputFile from path"),
@@ -34,14 +34,14 @@ async fn test_ask(ctx: &mut ProjectTestContext) {
 
     let max_attempts = 120;
     for _ in 0..max_attempts {
-        let check_handle_response = ctx
+        let check_handle = ctx
             .client
-            .dataset(&response.dataset().unwrap().name)
-            .check_handle(upsert_result.handle.clone().into())
+            .dataset(&create.dataset().unwrap().name)
+            .check_handle(upsert.handle.clone().into())
             .await
             .expect("could not check handle");
 
-        if check_handle_response.processed {
+        if check_handle.processed {
             break;
         }
 
@@ -58,7 +58,7 @@ async fn test_ask(ctx: &mut ProjectTestContext) {
         .client
         .ask(
             "What score must general education students achieve who first entered ninth grade in 1997 ?",
-            [&response.dataset().unwrap().name],
+            [&create.dataset().unwrap().name],
             None,
             None,
             Vec::<String>::new(),
