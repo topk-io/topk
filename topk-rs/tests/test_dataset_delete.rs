@@ -96,12 +96,12 @@ async fn test_delete_returns_handle(ctx: &mut ProjectTestContext) {
         .expect("could not upsert file");
 
     // Delete and verify handle is returned
-    let delete_handle = ctx
+    let response = ctx
         .client
         .dataset(&response.dataset().unwrap().name)
         .delete("doc2")
-        .await;
+        .await
+        .expect("should delete successfully");
 
-    let handle: String = delete_handle.expect("should delete successfully").handle;
-    assert_eq!(handle.is_empty(), false);
+    assert_eq!(response.handle.is_empty(), false);
 }

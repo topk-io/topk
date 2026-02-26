@@ -30,16 +30,15 @@ async fn test_get_metadata(ctx: &mut ProjectTestContext) {
         .expect("could not upsert file");
 
     // Get metadata and verify it matches
-    let retrieved_metadata = ctx
+    let response = ctx
         .client
         .dataset(&response.dataset().unwrap().name)
         .get_metadata("doc1".to_string())
         .await
-        .expect("could not get metadata")
-        .metadata;
+        .expect("could not get metadata");
 
     assert_eq!(
-        retrieved_metadata.get("title"),
+        response.metadata.get("title"),
         original_metadata.get("title")
     );
 }

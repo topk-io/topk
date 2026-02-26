@@ -40,7 +40,7 @@ async fn test_upsert_file_pdf(ctx: &mut ProjectTestContext) {
         ("author".to_string(), Value::string("Test Author")),
     ]);
 
-    let upsert_response = ctx
+    let response = ctx
         .client
         .dataset(&response.dataset().unwrap().name)
         .upsert_file(
@@ -51,9 +51,7 @@ async fn test_upsert_file_pdf(ctx: &mut ProjectTestContext) {
         .await
         .expect("could not upsert PDF file");
 
-    let handle: String = upsert_response.handle;
-
-    assert_eq!(handle.is_empty(), false);
+    assert_eq!(response.handle.is_empty(), false);
 }
 
 #[test_context(ProjectTestContext)]
