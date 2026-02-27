@@ -9,13 +9,14 @@ use tokio::sync::mpsc;
 use tokio::sync::OnceCell;
 use tokio_stream::wrappers::ReceiverStream;
 
-use crate::client::create_dataset_client;
+use crate::client::{create_dataset_client, Response};
 use crate::proto::v1::ctx::doc::DocId;
 use crate::proto::v1::ctx::file::{InputFile, InputSource};
 use crate::proto::v1::ctx::handle::Handle;
 use crate::proto::v1::ctx::{
-    upsert_message, CheckHandleRequest, DeleteRequest, GetMetadataRequest, UpdateMetadataRequest,
-    UpsertMessage,
+    upsert_message, CheckHandleRequest, CheckHandleResponse, DeleteRequest, DeleteResponse,
+    GetMetadataRequest, GetMetadataResponse, UpdateMetadataRequest, UpdateMetadataResponse,
+    UpsertMessage, UpsertResponse,
 };
 use crate::proto::v1::data::Value;
 use crate::retry::call_with_retry;
@@ -56,7 +57,7 @@ impl DatasetClient {
         doc_id: impl Into<DocId>,
         input: impl Into<InputFile>,
         metadata: impl IntoIterator<Item = (impl Into<String>, impl Into<Value>)>,
-    ) -> Result<Handle, Error> {
+    ) -> Result<Response<UpsertResponse>, Error> {
         let client = create_dataset_client(&self.config, &self.dataset_name, &self.channel).await?;
         let file = input.into();
         let metadata: HashMap<String, Value> = metadata
@@ -113,10 +114,10 @@ impl DatasetClient {
         })
         .await?;
 
-        Ok(response.into_inner().handle.into())
+        Ok(response.into())
     }
 
-    pub async fn delete(&self, doc_id: impl Into<DocId>) -> Result<Handle, Error> {
+    pub async fn delete(&self, doc_id: impl Into<DocId>) -> Result<Response<DeleteResponse>, Error> {
         let client = create_dataset_client(&self.config, &self.dataset_name, &self.channel).await?;
 
         let doc_id = doc_id.into();
@@ -137,10 +138,10 @@ impl DatasetClient {
         })
         .await?;
 
-        Ok(response.into_inner().handle.into())
+        Ok(response.into())
     }
 
-    pub async fn check_handle(&self, handle: Handle) -> Result<bool, Error> {
+    pub async fn check_handle(&self, handle: Handle) -> Result<Response<CheckHandleResponse>, Error> {
         let client = create_dataset_client(&self.config, &self.dataset_name, &self.channel).await?;
 
         let response = call_with_retry(&self.config.retry_config(), || {
@@ -158,13 +159,13 @@ impl DatasetClient {
         })
         .await?;
 
-        Ok(response.into_inner().processed)
+        Ok(response.into())
     }
 
     pub async fn get_metadata(
         &self,
         doc_id: impl Into<DocId>,
-    ) -> Result<HashMap<String, Value>, Error> {
+    ) -> Result<Response<GetMetadataResponse>, Error> {
         let client = create_dataset_client(&self.config, &self.dataset_name, &self.channel).await?;
 
         let doc_id = doc_id.into();
@@ -185,14 +186,14 @@ impl DatasetClient {
         })
         .await?;
 
-        Ok(response.into_inner().metadata)
+        Ok(response.into())
     }
 
     pub async fn update_metadata(
         &self,
         doc_id: impl Into<DocId>,
         metadata: HashMap<String, Value>,
-    ) -> Result<Handle, Error> {
+    ) -> Result<Response<UpdateMetadataResponse>, Error> {
         let client = create_dataset_client(&self.config, &self.dataset_name, &self.channel).await?;
 
         let doc_id = doc_id.into();
@@ -214,7 +215,7 @@ impl DatasetClient {
         })
         .await?;
 
-        Ok(response.into_inner().handle.into())
+        Ok(response.into())
     }
 }
 

@@ -54,7 +54,7 @@ use utils::ProjectTestContext;
 #[test_context(ProjectTestContext)]
 #[tokio::test]
 async fn test_check_handle_invalid_handle(ctx: &mut ProjectTestContext) {
-    let dataset = ctx
+    let response = ctx
         .client
         .datasets()
         .create(ctx.wrap("test"))
@@ -63,7 +63,7 @@ async fn test_check_handle_invalid_handle(ctx: &mut ProjectTestContext) {
 
     let err = ctx
         .client
-        .dataset(&dataset.name)
+        .dataset(&response.dataset().unwrap().name)
         .check_handle("invalid-handle-format-12345".to_string().into())
         .await
         .expect_err("should not be able to check handle with invalid handle");

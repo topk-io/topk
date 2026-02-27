@@ -28,7 +28,7 @@ async fn test_upsert_file_to_non_existent_dataset(ctx: &mut ProjectTestContext) 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
 async fn test_upsert_file_pdf(ctx: &mut ProjectTestContext) {
-    let dataset = ctx
+    let response = ctx
         .client
         .datasets()
         .create(ctx.wrap("test"))
@@ -40,9 +40,9 @@ async fn test_upsert_file_pdf(ctx: &mut ProjectTestContext) {
         ("author".to_string(), Value::string("Test Author")),
     ]);
 
-    let handle = ctx
+    let response = ctx
         .client
-        .dataset(&dataset.name)
+        .dataset(&response.dataset().unwrap().name)
         .upsert_file(
             "doc1",
             InputFile::from_path(test_pdf_path()).expect("could not create InputFile from path"),
@@ -51,14 +51,13 @@ async fn test_upsert_file_pdf(ctx: &mut ProjectTestContext) {
         .await
         .expect("could not upsert PDF file");
 
-    let handle_str: String = handle.into();
-    assert!(!handle_str.is_empty());
+    assert_eq!(response.handle.is_empty(), false);
 }
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
 async fn test_upsert_file_markdown(ctx: &mut ProjectTestContext) {
-    let dataset = ctx
+    let response = ctx
         .client
         .datasets()
         .create(ctx.wrap("test"))
@@ -73,7 +72,7 @@ async fn test_upsert_file_markdown(ctx: &mut ProjectTestContext) {
 
     let handle = ctx
         .client
-        .dataset(&dataset.name)
+        .dataset(&response.dataset().unwrap().name)
         .upsert_file("doc2".to_string(), input_file, metadata)
         .await;
 

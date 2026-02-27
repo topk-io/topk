@@ -29,6 +29,9 @@ pub mod search;
 mod config;
 pub use config::ClientConfig;
 
+mod response;
+pub use response::{extract_request_id, RequestId, Response};
+
 pub mod retry;
 
 mod interceptor;

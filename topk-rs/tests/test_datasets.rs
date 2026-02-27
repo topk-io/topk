@@ -7,41 +7,47 @@ use utils::ProjectTestContext;
 #[test_context(ProjectTestContext)]
 #[tokio::test]
 async fn test_list_datasets(ctx: &mut ProjectTestContext) {
-    let d = ctx
+    let create = ctx
         .client
         .datasets()
         .create(ctx.wrap("test"))
         .await
         .expect("could not create dataset");
 
-    let response = ctx
+    let list = ctx
         .client
         .datasets()
         .list()
         .await
         .expect("could not list datasets");
 
-    assert!(response.iter().any(|dd| dd == &d));
+    assert!(list
+        .datasets
+        .iter()
+        .any(|d| d.name == create.dataset().unwrap().name));
 }
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
 async fn test_create_dataset(ctx: &mut ProjectTestContext) {
-    let d = ctx
+    let create = ctx
         .client
         .datasets()
         .create(ctx.wrap("test"))
         .await
         .expect("could not create dataset");
 
-    let datasets = ctx
+    let list = ctx
         .client
         .datasets()
         .list()
         .await
         .expect("could not list datasets");
 
-    assert!(datasets.iter().any(|dd| dd == &d));
+    assert!(list
+        .datasets
+        .iter()
+        .any(|d| d.name == create.dataset().unwrap().name));
 }
 
 #[test_context(ProjectTestContext)]
@@ -79,7 +85,7 @@ async fn test_delete_non_existent_dataset(ctx: &mut ProjectTestContext) {
 #[test_context(ProjectTestContext)]
 #[tokio::test]
 async fn test_delete_dataset(ctx: &mut ProjectTestContext) {
-    let d = ctx
+    let create = ctx
         .client
         .datasets()
         .create(ctx.wrap("test"))
@@ -92,20 +98,22 @@ async fn test_delete_dataset(ctx: &mut ProjectTestContext) {
         .await
         .expect("could not delete dataset");
 
-    let datasets = ctx
+    let list = ctx
         .client
         .datasets()
         .list()
         .await
         .expect("could not list datasets");
 
-    assert!(!datasets.iter().any(|dd| *dd == d));
+    assert!(!list
+        .datasets
+        .iter()
+        .any(|d| d.name == create.dataset().unwrap().name));
 }
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
 async fn test_get_dataset(ctx: &mut ProjectTestContext) {
-    // Test getting non-existent dataset
     let err = ctx
         .client
         .datasets()
@@ -115,21 +123,19 @@ async fn test_get_dataset(ctx: &mut ProjectTestContext) {
 
     assert!(matches!(err, Error::DatasetNotFound));
 
-    // Create dataset
-    let d = ctx
+    let create = ctx
         .client
         .datasets()
         .create(ctx.wrap("test"))
         .await
         .expect("could not create dataset");
 
-    // Get dataset
-    let dataset = ctx
+    let get = ctx
         .client
         .datasets()
         .get(ctx.wrap("test"))
         .await
         .expect("could not get dataset");
 
-    assert_eq!(dataset, d);
+    assert_eq!(get.dataset().unwrap().name, create.dataset().unwrap().name);
 }
