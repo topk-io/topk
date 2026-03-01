@@ -3,15 +3,17 @@ package topk.ctx.v1;
 
 import "topk/data/v1/value.proto";
 
-service DatasetService {
+service DatasetWriteService {
+  // Upsert document
   rpc Upsert(stream UpsertMessage) returns (UpsertResponse);
 
-  rpc GetMetadata(GetMetadataRequest) returns (GetMetadataResponse);
-
+  // Update document metadata
   rpc UpdateMetadata(UpdateMetadataRequest) returns (UpdateMetadataResponse);
 
+  // Delete document
   rpc Delete(DeleteRequest) returns (DeleteResponse);
 
+  // Check if document is ready for reading
   rpc CheckHandle(CheckHandleRequest) returns (CheckHandleResponse);
 }
 
@@ -21,7 +23,7 @@ message UpsertMessage {
     string mime_type = 2;
     map<string, topk.data.v1.Value> metadata = 3;
     uint64 size = 4;
-    string file_name = 5;
+    string name = 5;
   }
 
   message BodyChunk {
@@ -37,14 +39,6 @@ message UpsertMessage {
 
 message UpsertResponse {
   string handle = 1;
-}
-
-message GetMetadataRequest {
-  string id = 1;
-}
-
-message GetMetadataResponse {
-  map<string, topk.data.v1.Value> metadata = 1;
 }
 
 message UpdateMetadataRequest {

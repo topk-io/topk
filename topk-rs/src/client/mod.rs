@@ -5,9 +5,10 @@ use tonic::service::interceptor::InterceptedService;
 use tonic::transport::Channel;
 
 use crate::proto::v1::control::collection_service_client::CollectionServiceClient;
-use crate::proto::v1::control::dataset_service_client::DatasetServiceClient as ControlDatasetServiceClient;
+use crate::proto::v1::control::dataset_service_client::DatasetServiceClient;
 use crate::proto::v1::ctx::context_service_client::ContextServiceClient;
-use crate::proto::v1::ctx::dataset_service_client::DatasetServiceClient as CtxDatasetServiceClient;
+use crate::proto::v1::ctx::dataset_read_service_client::DatasetReadServiceClient;
+use crate::proto::v1::ctx::dataset_write_service_client::DatasetWriteServiceClient;
 use crate::proto::v1::data::query_service_client::QueryServiceClient;
 use crate::proto::v1::data::write_service_client::WriteServiceClient;
 
@@ -69,20 +70,19 @@ impl Client {
         }
     }
 
+    pub fn from_channel(config: ClientConfig, channel: Channel) -> Self {
+        Self {
+            config: Arc::new(config),
+            channel: Arc::new(OnceCell::new_with(Some(channel))),
+        }
+    }
+
     pub fn config(&self) -> Arc<ClientConfig> {
         self.config.clone()
     }
 
     pub fn channel(&self) -> Arc<OnceCell<Channel>> {
         self.channel.clone()
-    }
-
-    #[cfg(feature = "in_memory")]
-    pub fn new_in_memory(config: ClientConfig, channel: Channel) -> Self {
-        Self {
-            config: Arc::new(config),
-            channel: Arc::new(OnceCell::new_with(Some(channel))),
-        }
     }
 
     // Collection operations (Control plane)
@@ -109,13 +109,13 @@ impl Client {
 // Macro for instantiating and connecting a client
 #[macro_export]
 macro_rules! create_client {
-    ($client:ident, $channel:expr, $endpoint:expr, $headers:expr) => {
+    ($client:ident, $channel:expr, $config:expr) => {
         async {
             use std::str::FromStr;
 
             let channel = $channel
                 .get_or_try_init(|| async {
-                    Ok(tonic::transport::Endpoint::from_str($endpoint)?
+                    Ok(tonic::transport::Endpoint::from_str(&$config.endpoint())?
                         .tls_config(tonic::transport::ClientTlsConfig::new().with_native_roots())?
                         // Do not close idle connections so they can be reused
                         .keep_alive_while_idle(true)
@@ -140,7 +140,7 @@ macro_rules! create_client {
                     let client = $client::with_interceptor(
                         channel.clone(),
                         crate::client::AppendHeadersInterceptor::new({
-                            let mut headers = $headers.clone();
+                            let mut headers = $config.headers().clone();
                             headers.insert(
                                 "x-topk-sdk-version",
                                 env!("CARGO_PKG_VERSION").to_string(),
@@ -171,13 +171,7 @@ async fn create_query_client<'a>(
         .clone()
         .with_headers([("x-topk-collection", collection.to_string())]);
 
-    create_client!(
-        QueryServiceClient,
-        channel,
-        &config.endpoint(),
-        config.headers()
-    )
-    .await
+    create_client!(QueryServiceClient, channel, config).await
 }
 
 async fn create_write_client<'a>(
@@ -190,13 +184,7 @@ async fn create_write_client<'a>(
         .clone()
         .with_headers([("x-topk-collection", collection.to_string())]);
 
-    create_client!(
-        WriteServiceClient,
-        channel,
-        &config.endpoint(),
-        config.headers()
-    )
-    .await
+    create_client!(WriteServiceClient, channel, config).await
 }
 
 async fn create_collection_client<'a>(
@@ -206,50 +194,45 @@ async fn create_collection_client<'a>(
     CollectionServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>,
     super::Error,
 > {
-    create_client!(
-        CollectionServiceClient,
-        channel,
-        &config.endpoint(),
-        config.headers()
-    )
-    .await
+    create_client!(CollectionServiceClient, channel, config).await
 }
 
 async fn create_datasets_client<'a>(
     config: &'a ClientConfig,
     channel: &'a OnceCell<Channel>,
-) -> Result<
-    ControlDatasetServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>,
-    super::Error,
-> {
-    create_client!(
-        ControlDatasetServiceClient,
-        channel,
-        &config.endpoint(),
-        config.headers()
-    )
-    .await
+) -> Result<DatasetServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>, super::Error>
+{
+    create_client!(DatasetServiceClient, channel, config).await
 }
 
-async fn create_dataset_client<'a>(
+async fn create_dataset_write_client<'a>(
     config: &'a ClientConfig,
     dataset: &'a str,
     channel: &'a OnceCell<Channel>,
 ) -> Result<
-    CtxDatasetServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>,
+    DatasetWriteServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>,
     super::Error,
 > {
     let config = config
         .clone()
         .with_headers([("x-topk-dataset", dataset.to_string())]);
 
-    create_client!(
-        CtxDatasetServiceClient,
-        channel,
-        &config.endpoint(),
-        config.headers()
-    )
-    .await
+    create_client!(DatasetWriteServiceClient, channel, config).await
+}
+
+async fn create_dataset_read_client<'a>(
+    config: &'a ClientConfig,
+    dataset: &'a str,
+    channel: &'a OnceCell<Channel>,
+) -> Result<
+    DatasetReadServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>,
+    super::Error,
+> {
+    let config = config
+        .clone()
+        .with_headers([("x-topk-dataset", dataset.to_string())]);
+
+    create_client!(DatasetReadServiceClient, channel, config).await
 }
 
 async fn create_ctx_client<'a>(
@@ -257,11 +240,5 @@ async fn create_ctx_client<'a>(
     channel: &'a OnceCell<Channel>,
 ) -> Result<ContextServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>, super::Error>
 {
-    crate::create_client!(
-        ContextServiceClient,
-        channel,
-        &config.endpoint(),
-        config.headers()
-    )
-    .await
+    crate::create_client!(ContextServiceClient, channel, config).await
 }

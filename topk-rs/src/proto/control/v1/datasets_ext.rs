@@ -1,5 +1,5 @@
-use crate::Error;
 use super::{CreateDatasetResponse, Dataset, GetDatasetResponse};
+use crate::Error;
 
 impl CreateDatasetResponse {
     pub fn dataset(&self) -> Result<&Dataset, Error> {

@@ -12,3 +12,9 @@ impl From<String> for Handle {
         Self(s)
     }
 }
+
+impl From<&str> for Handle {
+    fn from(s: &str) -> Self {
+        Self(s.to_string())
+    }
+}

@@ -33,7 +33,7 @@ async fn test_get_metadata(ctx: &mut ProjectTestContext) {
     let response = ctx
         .client
         .dataset(&response.dataset().unwrap().name)
-        .get_metadata("doc1".to_string())
+        .get_metadata("doc1".to_string(), None)
         .await
         .expect("could not get metadata");
 
