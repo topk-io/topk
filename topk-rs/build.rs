@@ -22,7 +22,8 @@ fn build_topk_v1_protos() {
         "../protos/topk/data/v1/expr/function.proto",
         "../protos/topk/data/v1/expr/logical.proto",
         "../protos/topk/data/v1/expr/text.proto",
-        "../protos/topk/ctx/v1/dataset_service.proto",
+        "../protos/topk/ctx/v1/dataset_read_service.proto",
+        "../protos/topk/ctx/v1/dataset_write_service.proto",
         "../protos/topk/ctx/v1/context_service.proto",
     ];
 

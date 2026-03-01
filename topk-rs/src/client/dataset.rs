@@ -8,16 +8,22 @@ use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::sync::mpsc;
 use tokio::sync::OnceCell;
 use tokio_stream::wrappers::ReceiverStream;
+use tokio_stream::StreamExt;
 
-use crate::client::{create_dataset_client, Response};
+use crate::client::create_dataset_read_client;
+use crate::client::create_dataset_write_client;
+use crate::client::Response;
 use crate::proto::v1::ctx::doc::DocId;
 use crate::proto::v1::ctx::file::{InputFile, InputSource};
 use crate::proto::v1::ctx::handle::Handle;
+use crate::proto::v1::ctx::ListEntry;
+use crate::proto::v1::ctx::ListRequest;
 use crate::proto::v1::ctx::{
     upsert_message, CheckHandleRequest, CheckHandleResponse, DeleteRequest, DeleteResponse,
     GetMetadataRequest, GetMetadataResponse, UpdateMetadataRequest, UpdateMetadataResponse,
     UpsertMessage, UpsertResponse,
 };
+use crate::proto::v1::data::LogicalExpr;
 use crate::proto::v1::data::Value;
 use crate::retry::call_with_retry;
 use crate::ClientConfig;
@@ -52,13 +58,48 @@ impl DatasetClient {
         }
     }
 
+    pub async fn list(
+        &self,
+        fields: Option<Vec<String>>,
+        filter: Option<LogicalExpr>,
+    ) -> Result<Vec<ListEntry>, Error> {
+        let client =
+            create_dataset_read_client(&self.config, &self.dataset_name, &self.channel).await?;
+        let fields = fields.unwrap_or_default();
+
+        let mut stream = call_with_retry(&self.config.retry_config(), || {
+            let mut client = client.clone();
+            let filter = filter.clone();
+            let fields = fields.clone();
+            async move {
+                client
+                    .list(ListRequest { fields, filter })
+                    .await
+                    .map_err(|e| match e.code() {
+                        tonic::Code::NotFound => Error::DatasetNotFound,
+                        _ => Error::from(e),
+                    })
+            }
+        })
+        .await?
+        .into_inner();
+
+        let mut entries = Vec::new();
+        while let Some(entry) = stream.next().await {
+            entries.push(entry?);
+        }
+
+        Ok(entries)
+    }
+
     pub async fn upsert_file(
         &self,
         doc_id: impl Into<DocId>,
         input: impl Into<InputFile>,
         metadata: impl IntoIterator<Item = (impl Into<String>, impl Into<Value>)>,
     ) -> Result<Response<UpsertResponse>, Error> {
-        let client = create_dataset_client(&self.config, &self.dataset_name, &self.channel).await?;
+        let client =
+            create_dataset_write_client(&self.config, &self.dataset_name, &self.channel).await?;
         let file = input.into();
         let metadata: HashMap<String, Value> = metadata
             .into_iter()
@@ -117,8 +158,12 @@ impl DatasetClient {
         Ok(response.into())
     }
 
-    pub async fn delete(&self, doc_id: impl Into<DocId>) -> Result<Response<DeleteResponse>, Error> {
-        let client = create_dataset_client(&self.config, &self.dataset_name, &self.channel).await?;
+    pub async fn delete(
+        &self,
+        doc_id: impl Into<DocId>,
+    ) -> Result<Response<DeleteResponse>, Error> {
+        let client =
+            create_dataset_write_client(&self.config, &self.dataset_name, &self.channel).await?;
 
         let doc_id = doc_id.into();
 
@@ -141,8 +186,12 @@ impl DatasetClient {
         Ok(response.into())
     }
 
-    pub async fn check_handle(&self, handle: Handle) -> Result<Response<CheckHandleResponse>, Error> {
-        let client = create_dataset_client(&self.config, &self.dataset_name, &self.channel).await?;
+    pub async fn check_handle(
+        &self,
+        handle: Handle,
+    ) -> Result<Response<CheckHandleResponse>, Error> {
+        let client =
+            create_dataset_write_client(&self.config, &self.dataset_name, &self.channel).await?;
 
         let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
@@ -165,18 +214,21 @@ impl DatasetClient {
     pub async fn get_metadata(
         &self,
         doc_id: impl Into<DocId>,
+        fields: Option<Vec<String>>,
     ) -> Result<Response<GetMetadataResponse>, Error> {
-        let client = create_dataset_client(&self.config, &self.dataset_name, &self.channel).await?;
-
+        let client =
+            create_dataset_read_client(&self.config, &self.dataset_name, &self.channel).await?;
         let doc_id = doc_id.into();
+        let fields = fields.unwrap_or_default();
 
         let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
             let id = doc_id.clone().into();
+            let fields = fields.clone();
 
             async move {
                 client
-                    .get_metadata(GetMetadataRequest { id })
+                    .get_metadata(GetMetadataRequest { id, fields })
                     .await
                     .map_err(|e| match e.code() {
                         tonic::Code::NotFound => Error::DatasetNotFound,
@@ -194,7 +246,8 @@ impl DatasetClient {
         doc_id: impl Into<DocId>,
         metadata: HashMap<String, Value>,
     ) -> Result<Response<UpdateMetadataResponse>, Error> {
-        let client = create_dataset_client(&self.config, &self.dataset_name, &self.channel).await?;
+        let client =
+            create_dataset_write_client(&self.config, &self.dataset_name, &self.channel).await?;
 
         let doc_id = doc_id.into();
 
@@ -235,10 +288,8 @@ async fn stream_file(
         }
         InputSource::Bytes(data) => {
             let size = data.len() as u64;
-            (
-                Box::pin(Cursor::new(data)) as Pin<Box<dyn AsyncRead + Send>>,
-                size,
-            )
+            let data = Box::pin(Cursor::new(data)) as Pin<Box<dyn AsyncRead + Send>>;
+            (data, size)
         }
     };
 
@@ -249,7 +300,7 @@ async fn stream_file(
             mime_type: input.mime_type.clone(),
             metadata,
             size,
-            file_name: input.file_name.clone(),
+            name: input.file_name.clone(),
         })),
     })
     .await

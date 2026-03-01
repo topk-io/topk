@@ -46,7 +46,10 @@ impl DatasetsClient {
         Ok(response.into())
     }
 
-    pub async fn get(&self, name: impl Into<String>) -> Result<Response<GetDatasetResponse>, Error> {
+    pub async fn get(
+        &self,
+        name: impl Into<String>,
+    ) -> Result<Response<GetDatasetResponse>, Error> {
         let client = create_datasets_client(&self.config, &self.control_channel).await?;
         let name = name.into();
 
@@ -71,7 +74,10 @@ impl DatasetsClient {
         Ok(response.into())
     }
 
-    pub async fn create(&self, name: impl Into<String>) -> Result<Response<CreateDatasetResponse>, Error> {
+    pub async fn create(
+        &self,
+        name: impl Into<String>,
+    ) -> Result<Response<CreateDatasetResponse>, Error> {
         let client = create_datasets_client(&self.config, &self.control_channel).await?;
         let name = name.into();
 
@@ -96,7 +102,10 @@ impl DatasetsClient {
         Ok(response.into())
     }
 
-    pub async fn delete(&self, name: impl Into<String>) -> Result<Response<DeleteDatasetResponse>, Error> {
+    pub async fn delete(
+        &self,
+        name: impl Into<String>,
+    ) -> Result<Response<DeleteDatasetResponse>, Error> {
         let client = create_datasets_client(&self.config, &self.control_channel).await?;
         let name = name.into();
 
