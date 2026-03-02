@@ -48,7 +48,7 @@
             ]
           },
           {
-            "group": "Collection API",
+            "group": "Management API",
             "pages": [
               "collections/create",
               "collections/list",

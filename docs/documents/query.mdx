@@ -14,7 +14,9 @@ In TopK, a query consists of multiple stages:
   - these fields can be used in stages such as Filter, TopK or Rerank
 - **Filter stage** - Filter the documents that will be returned in the query results
   - filters can be applied to static fields, computed fields such as `vector_distance()` or `semantic_similarity()` or custom properties computed inside `select()`
-- **TopK stage** - Return the top `k` results based on the provided logical expression
+- **Sort stage** - Order results by an expression (ascending or descending)
+- **Limit stage** - Return at most `k` results
+- **TopK stage** - Return the top `k` results based on the provided logical expression (equivalent to `sort(expr, asc)` followed by `limit(k)`)
 - **Count stage** - Return the total number of documents matching the query
 - **Rerank stage** - Rerank the results
 
@@ -30,12 +32,18 @@ A typical query in TopK looks as follows:
 flowchart TD
     A[Select]
     A --> B[Filter]
-    B --> C[TopK]
-    B --> E[Count]
-    C -.-> D[Rerank]
-    D --> G@{ shape: stadium, label: "Results collection" }
-    E --> H@{ shape: stadium, label: "Results count" }
+    B --> C[Sort]
+    B --> D[Limit]
+    B --> E[TopK]
+    B --> F[Count]
+    C --> D
+    D --> E
+    E -.-> G[Rerank]
+    G --> H@{ shape: stadium, label: "Results collection" }
+    F --> I@{ shape: stadium, label: "Results count" }
 ```
+
+Sort and Limit are optional stages that can be used between Filter and TopK.
 
 <style>
   {`
@@ -113,22 +121,25 @@ const docs = await client.collection("books").query(
 
 ### Function expressions
 
-Function expressions are used to define computed fields that will be included in your query results. TopK currently supports three main function expressions:
+Function expressions are used to define computed fields that will be included in your query results. TopK currently supports four main function expressions:
 
 - `vector_distance(field, vector)`: Computes distance between vectors for vector search. This function is available for all dense and sparse vector types.
 - `bm25_score()`: Calculates relevance scores using the BM25 algorithm for keyword search
 - `semantic_similarity(field, query)`: Measures semantic similarity between the provided text query and the field's embedding
+- `multi_vector_distance(field, matrix)`: Computes MaxSim distance for multi-vector (matrix) fields. Requires a [`multi_vector_index()`](/sdk/topk-py/schema#multi_vector_index) on the field. See [multi-vector search](/concepts/multi-vector-search).
 
 
 #### Vector distance
 
-The `vector_distance()` function is used to compute the vector score between a query vector and a vector field in a collection.
+The [`vector_distance()`](/sdk/topk-py/query#vector_distance) function is used to compute the vector score between a query vector and a vector field in a collection.
 
 There are **multiple ways** to represent a query vector:
 
 - Dense vectors:
   - `[0.1, 0.2, 0.3, ...]` - Array of numbers resolved as a **dense float32 vector**
   - `f32_vector([...])` - Helper function returning a **dense float32 vector**
+  - `f16_vector([...])` - Helper function returning a **dense float16 vector**
+  - `f8_vector([...])` - Helper function returning a **dense float8 vector**
   - `u8_vector([...])` - Helper function returning a **dense u8 vector**
   - `i8_vector([...])` - Helper function returning a **dense i8 vector**
   - `binary_vector([...])` - Helper function returning a **binary vector**
@@ -138,7 +149,7 @@ There are **multiple ways** to represent a query vector:
   - `f32_sparse_vector({ ... })` - Helper function returning a **sparse float32 vector**
   - `u8_sparse_vector({ ... })` - Helper function returning a **sparse u8 vector**
 
-Optionally, uses can provide `skip_refine=True` to bypass the internal distance refinement step. This will improve performance for queries with larget `top_k` at the cost of lower accuracy.
+Optionally, uses can provide `skip_refine=True` to bypass the internal distance refinement step. This will improve performance for queries with large `top_k` at the cost of lower accuracy.
 
 <Warning>
   We don't recommend using `skip_refine=True` unless you're using large `top_k` and a custom reranking model to get the final ranking.
@@ -341,6 +352,50 @@ const docs = await client.collection("books").query(
 ```
 
 </CodeGroup>
+
+#### Multi-vector distance
+
+The `multi_vector_distance()` function computes the MaxSim score between a query matrix and a matrix field in a collection. Use it for multi-vector (late-interaction) retrieval when documents are stored as `N x D` embedding matrices.
+
+To use `multi_vector_distance()`, you **must** have a [`multi_vector_index()`](/sdk/topk-py/schema#multi_vector_index) defined on the field. The query matrix can be a list of lists (defaults to f32), a numpy array (type inferred from dtype), or a [`matrix()`](/sdk/topk-py/data#matrix-2) instance. The optional `candidates` parameter limits the number of candidate vectors considered during search.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, field, fn
+
+docs = client.collection("passages").query(
+    select(
+        "content",
+        dist=fn.multi_vector_distance(
+            "token_embeddings",
+            [[0.1, 0.2, ...], [0.4, 0.5, ...]],  # query matrix
+            candidates=100,
+        ),
+    )
+    .topk(field("dist"), 10, asc=False)
+)
+```
+
+```js Javascript
+import { select, field, fn } from "topk-js/query";
+
+const docs = await client.collection("passages").query(
+  select({
+    content: field("content"),
+    dist: fn.multiVectorDistance(
+      "token_embeddings",
+      [[0.1, 0.2, ...], [0.4, 0.5, ...]],  // query matrix
+      100  // optional: candidates
+    ),
+  })
+    .topk(field("dist"), 10, false)
+);
+```
+
+</CodeGroup>
+
+See [multi-vector search](/concepts/multi-vector-search) for schema setup and ingestion details.
 
 ### Advanced select expressions
 
@@ -996,7 +1051,7 @@ For strings, it uses lexicographic order.
 
 The `starts_with` operator can be used on string fields to match documents that start with a given prefix. This is especially
 useful in multi-tenant applications where document IDs can be structured as `{tenant_id}/{document_id}` and `starts_with` can
-then be used to scope the query to a specific tenant.
+then be used to scope the query to a specific tenant. Also supports list-of-string fields for prefix filtering on array elements (e.g. `field("tags").starts_with("fiction")`).
 
 <CodeGroup>
 
@@ -1511,6 +1566,52 @@ To get the top 10 results with the highest `title_similarity`, you can use the f
 
 </CodeGroup>
 
+The `topk()` stage is equivalent to applying `sort(expr, asc)` followed by `limit(k)`. It is a convenience shorthand for the common pattern of ordering results by a scoring expression and returning the top `k`.
+
+### limit
+
+Use the `.limit(k)` stage to return at most `k` results. Can be used with or without `topk()`.
+
+<CodeGroup>
+
+```python Python
+client.collection("books").query(
+    select("title", "author"),
+    filter=field("year") >= 2000,
+).limit(50)
+```
+
+```js Javascript
+await client.collection("books").query(
+  select({ title: field("title"), author: field("author") }),
+  { filter: field("year").gte(2000) }
+).limit(50);
+```
+
+</CodeGroup>
+
+### sort
+
+Use the `.sort(expr, asc)` stage to sort results by an expression. Use `asc=True` for ascending order, `asc=False` for descending order.
+
+<CodeGroup>
+
+```python Python
+client.collection("books").query(
+    select("title", "author", "year"),
+    filter=field("author") == "George Orwell",
+).sort(field("year"), asc=True)
+```
+
+```js Javascript
+await client.collection("books").query(
+  select({ title: field("title"), author: field("author"), year: field("year") }),
+  { filter: field("author").eq("George Orwell") }
+).sort(field("year"), true);
+```
+
+</CodeGroup>
+
 ### count
 
 Use the `count()` function to get the total number of documents matching the query. If there are no filters then `count()` will return the total number of documents in the collection.
@@ -1536,20 +1637,37 @@ Use the `count()` function to get the total number of documents matching the que
 
 ## Rerank
 
-The `rerank()` function is used to rerank the results of a query. Read more about it in our [reranking](/concepts/reranking) guide.
+The `rerank()` function is used to rerank the results of a query. It accepts the following parameters:
+
+- **`model`** — The reranking model to use (e.g. `cohere/rerank-v3.5`). Defaults to a built-in model if omitted.
+- **`query`** — The query text the cross-encoder scores each document against. If omitted, may be inferred from the filter stage (e.g. `match()`).
+- **`fields`** — Document fields to include when reranking. The reranker concatenates these and scores them against the query.
+- **`topk_multiple`** — Multiple of top-k to consider for reranking. With `topk(10)` and `topk_multiple=2`, the reranker receives 20 candidates and returns the top 10.
+
+Read more in our [reranking](/concepts/reranking) guide.
 
 <CodeGroup>
 
 ```python Python
 .rerank()
+
+# or with options
+.rerank(model="cohere/rerank-v3.5", query="catcher", fields=["title", "description"], topk_multiple=2)
 ```
 
 
 ```js Javascript
 .rerank()
+
+// or with options
+.rerank({ model: "cohere/rerank-v3.5", query: "catcher", fields: ["title", "description"], topkMultiple: 2 })
 ```
 
 </CodeGroup>
+
+## Query options
+
+The `query()` method accepts a `consistency` parameter to control read consistency: `indexed`, `balanced` (default), or `strong`. See the [consistency](/concepts/consistency) concept for details.
 
 ## LSN-based Consistency
 
@@ -1573,12 +1691,13 @@ lsn = client.collection("books").upsert([
     {"_id": "1984", "title": "1984", "author": "George Orwell", "year": 1949}
 ])
 
-# Query with LSN to ensure consistency
+# Query with LSN to ensure consistency (optionally use consistency="strong")
 results = client.collection("books").query(
     select("title", "author", "year")
     .filter(field("author") == "George Orwell")
     .topk(field("year"), 10),
-    lsn=lsn
+    lsn=lsn,
+    consistency="strong"
 )
 ```
 
@@ -1588,12 +1707,12 @@ const lsn = await client.collection("books").upsert([
   { _id: "1984", title: "1984", author: "George Orwell", "year": 1949 }
 ]);
 
-// Query with LSN to ensure consistency
+// Query with LSN to ensure consistency (optionally use consistency: "strong")
 const results = await client.collection("books").query(
   select({ title: field("title"), author: field("author"), year: field("year") })
   .filter(field("author").eq("George Orwell"))
   .topk(field("title"), 10),
-  { lsn: lsn }
+  { lsn: lsn, consistency: "strong" }
 )
 ```
 

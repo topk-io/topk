@@ -1,19 +1,16 @@
 ---
 title: "Vector search"
-description: "TopK Vector Search Guide"
 ---
 
-Vector search is the essential feature of TopK. With that in mind, it is designed to:
+TopK is built for high-performance dense vector search workloads. It is designed to:
 
-- Stay above **98% recall** -- your application (e.g. recommendation, image search, semantic search) rarely misses relevant results.
-- Provide consistent **low latency** (\<50ms p99). Check out our [benchmarks](https://www.topk.io/benchmarks).
-- Support **large-scale** single-collection as well as **multi-tenant** use cases.
+- Maintain **>98% recall**, reducing the likelihood of missing relevant results in applications such as recommendation systems, image search, and semantic search.
+- Deliver consistent **low latency** (p99 < 50 ms). See the [benchmarks](https://www.topk.io/benchmarks) for details.
+- Support **large-scale single-collection** deployments as well as **multi-tenant** architectures.
 
-## How to run a vector search
+## Define a collection schema with a vector field
 
-### Prerequisites
-
-Define a schema with a vector field, either `f32_vector()`, `u8_vector()`, `i8_vector()` or `binary_vector()`, and add a `vector_index()` to it:
+Define a schema with a vector field and add a [`vector_index()`](/sdk/topk-py/schema#vector_index):
 
 <CodeGroup>
 
@@ -41,16 +38,25 @@ await client.collections().create("books", {
 
 </CodeGroup>
 
-When defining a vector field, you need to specify the <Tooltip tip="The number of dimensions in the vector space.">dimension</Tooltip> of the vector.
+Supported vector field types:
 
-To perform a vector search on this field, index it with a vector index and specify the <Tooltip tip="The distance metric(cosine, euclidean, dot product, hamming) to use for the vector index.">metric</Tooltip> parameter.
+- **[`f32_vector()`](/sdk/topk-py/schema#f32_vector)** — Dense float32 embeddings (most common)
+- **[`u8_vector()`](/sdk/topk-py/schema#u8_vector)** — Quantized uint8 embeddings
+- **[`i8_vector()`](/sdk/topk-py/schema#i8_vector)** — Signed quantized int8 embeddings
+- **[`binary_vector()`](/sdk/topk-py/schema#binary_vector)** — Binary embeddings (use with `hamming` metric)
+- **[`f32_sparse_vector()`](/sdk/topk-py/schema#f32_sparse_vector)** — Sparse embeddings (see [sparse vector search guide](/concepts/sparse-vector-search))
+- **[`u8_sparse_vector()`](/sdk/topk-py/schema#u8_sparse_vector)** — Quantized sparse embeddings
+- **[`matrix()`](/sdk/topk-py/schema#matrix)** — Multi-vector embeddings (see [multi-vector search guide](/concepts/multi-vector-search))
 
-### Find the closest neighbors
+See the [schema reference](/sdk/topk-py/schema) for full API details.
 
-To find the top-k closest neighbors of the query vector, use the `vector_distance()` function.
+## Perform a k-Nearest Neighbor (kNN) search
 
-It computes a numeric value(depending on the vector distance metric specified in the vector index)
-which you can use to sort the results:
+To retrieve the top-k nearest neighbors of a query vector, use the [`fn.vector_distance()`](/sdk/topk-py/query#vector_distance) function.
+
+`fn.vector_distance()` computes the distance (or similarity) between a stored vector field and a query vector, based on the distance metric configured in the vector index (e.g., cosine or Euclidean).
+
+You can use the computed value to sort and return the closest matches.
 
 <CodeGroup>
 
@@ -128,9 +134,9 @@ Let's break down the example above:
 2. Store the computed cosine similarity in the `title_similarity` field.
 3. Return the top 10 results sorted by the `title_similarity` field in a descending order.
 
-### Combine vector search with metadata filtering
+## Combine vector search with metadata filtering
 
-Vector search can be easily combined with metadata filtering by adding a `filter()` stage to the query:
+Vector search can be combined with metadata filtering by adding a [`filter()`](/sdk/topk-py/query#filter) stage to the query:
 
 <CodeGroup>
 

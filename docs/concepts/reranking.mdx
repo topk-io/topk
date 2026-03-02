@@ -1,34 +1,22 @@
 ---
-title: "Reranking"
+title: Reranking
 ---
 
-Vector search or keyword-based functions (like BM25 or ANN) can fetch the right ballpark of results quickly, but the **order might not reflect true relevance**.
+Vector search (ANN) and keyword search (BM25) efficiently retrieve
+relevant candidates, but the top results may not always reflect true
+semantic relevance.
 
-Reranking is used to improve relevance and accuracy. TopK comes with a built-in reranking functionality using the `rerank()` function.
+Reranking improves result quality by reordering the top-k results using
+a cross-encoder model.
+TopK provides built-in reranking via the [`rerank()`](/sdk/topk-py/query#rerank) query method.
 
-## `rerank()`
+## Basic usage
 
-The `rerank()` function is called on the query instance and accepts the following parameters:
-
-<ParamField query="model" type="string" default="cohere/rerank-v3.5">
-  The model to use for reranking. Currently, only [`cohere/rerank-v3.5`](https://cohere.com/blog/rerank-3pt5) is supported.
-</ParamField>
-
-<ParamField query="query" type="string" optional>
-  The query text to rerank against. Uses arguments from `semantic_similarity()` function if not specified.
-</ParamField>
-
-<ParamField query="fields" type="string[]" optional>
-  List of fields to use for reranking. Uses fields from `semantic_similarity()` function if not specified.
-</ParamField>
-
-<ParamField query="topk_multiple" optional>
-  Multiple of top-k to rerank. For example, if `topk=10` and `topk_multiple=2`, reranker takes 20 results from the original query and returns the top 10 results.
-</ParamField>
+Call [`rerank()`](/sdk/topk-py/query#rerank) after [`topk()`](/sdk/topk-py/query#topk):
 
 <CodeGroup>
 
-```python Python
+``` python
 .rerank()
 
 # or
@@ -37,12 +25,11 @@ The `rerank()` function is called on the query instance and accepts the followin
     model="cohere/rerank-v3.5",
     query="catcher",
     fields=["title", "description"],
-    topk_multiple=2
+    topk_multiple=2,
 )
 ```
 
-
-```typescript Javascript
+``` typescript
 .rerank()
 
 // or
@@ -54,86 +41,47 @@ The `rerank()` function is called on the query instance and accepts the followin
   topkMultiple: 2,
 })
 ```
+
 </CodeGroup>
 
-## Lexical scoring with reranking
+**Parameters**
 
-Consider the following example for searching documents with the `"how to reset a router"` query:
+- **`model`** — The reranking model to use (e.g. `cohere/rerank-v3.5`). Defaults to a built-in model if omitted.
+- **`query`** — The query text the cross-encoder scores each document against. If omitted, may be inferred from the filter stage (e.g. `match()`).
+- **`fields`** — Document fields to include when reranking. The reranker concatenates these and scores them against the query. Restricts which text is sent to the model.
+- **`topk_multiple`** — Multiple of top-k to consider for reranking. With `topk(10)` and `topk_multiple=2`, the reranker receives 20 candidates and returns the top 10. Use a higher value to improve recall at the cost of latency.
+
+Typical flow:
+
+1.  Retrieve top-k candidates using ANN or BM25.
+2.  Rerank the top `k × N` results.
+3.  Return the highest-scoring documents after reranking.
+
+## Example: Improving lexical search results
+
+Query:
+
+``` text
+how to reset a router
+```
+
+### Step 1: BM25 keyword search
 
 <CodeGroup>
 
-```python Python
-client.collections().create(
-    "documents",
-    schema={
-        "title": text().index(semantic_index()).required(),
-        "content": text().index(semantic_index()).required(),
-    }
-)
-
-client.collection(name).upsert([
-    {
-        "_id": "1",
-        "title": "How to reset router settings to fix intermittent connectivity",
-        "content": "To fix intermittent connectivity issues related to your device, you need to unplug your modem or router for 10 seconds, then plug them back in. This will cause a reset of the network hardware and often resolves temporary disruptions.",
-    },
-    {
-        "_id": "2",
-        "title": "How to reset your device",
-        "content": "Factory reset procedures vary by device. Press and hold the reset button for 10 seconds. This clears all settings, returning the router to default configuration.",
-    },
-])
-
+``` python
 client.collection(name).query(
     select(
         "title",
         "content",
-        title_score=fn.bm25_score()
+        title_score=fn.bm25_score(),
     )
     .filter(match("how to reset a router", field="title"))
     .topk(field("title_score"), 10)
 )
-
-# Results:
-
-[
-    {
-        "_id": "1",
-        "title": "How to reset router settings to fix intermittent connectivity",
-        "title_score": 0.942161500453949,
-        "content": "To fix intermittent connectivity issues related to your device, you need to unplug your modem or router for 10 seconds, then plug them back in. This will cause a reset of the network hardware and often resolves temporary disruptions.",
-    },
-    {
-        "_id": "2",
-        "title": "How to reset your device",
-        "title_score": 0.4156554341316223,
-        "content": "Factory reset procedures vary by device. Press and hold the reset button for 10 seconds. This clears all settings, returning the router to default configuration.",
-    }
-]
 ```
 
-
-```typescript Javascript
-await client.collections().create("documents", {
-  title: text().index(semanticIndex()).required(),
-  content: text().index(semanticIndex()).required(),
-});
-
-await client.collection(name).upsert([
-  {
-    _id: "1",
-    title: "How to reset router settings to fix intermittent connectivity",
-    content:
-      "To fix intermittent connectivity issues related to your device, you need to unplug your modem or router for 10 seconds, then plug them back in. This will cause a reset of the network hardware and often resolves temporary disruptions.",
-  },
-  {
-    _id: "2",
-    title: "How to reset your device",
-    content:
-      "Factory reset procedures vary by device. Press and hold the reset button for 10 seconds. This clears all settings, returning the router to default configuration.",
-  },
-]);
-
+``` typescript
 const docs = await client.collection(name).query(
   select({
     title: field("title"),
@@ -143,48 +91,18 @@ const docs = await client.collection(name).query(
     .filter(match("how to reset a router", { field: "title" }))
     .topk(field("title_score"), 10)
 );
-
-// Results:
-
-[
-  {
-    _id: '1'
-    title: 'How to reset router settings to fix intermittent connectivity',
-    title_score: 0.942161500453949,
-    content: 'To fix intermittent connectivity issues related to your device, you need to unplug your modem or router for 10 seconds, then plug them back in. This will cause a reset of the network hardware and often resolves temporary disruptions.',
-  },
-  {
-    _id: '2',
-    title: 'How to reset your device'
-    title_score: 0.4156554341316223,
-    content: 'Factory reset procedures vary by device. Press and hold the reset button for 10 seconds. This clears all settings, returning the router to default configuration.',
-  }
-]
 ```
+
 </CodeGroup>
 
+BM25 ranks documents based on exact term overlap.
+This is efficient but may not fully capture semantic intent.
 
-Lexical scoring methods like BM25 rely on **exact term overlap**. Here's how they score:
-
-Document `"1"` is ranked higher because:
-
-- It contains `"how"`, `"to"`, `"reset"`, `"router"` (some of which match the query directly).
-- Phrases like `"how to reset router"` appear close together.
-
-Document `"2"` is ranked lower because:
-
-- Although it describes a true factory reset, it doesn’t include the exact phrase `"how to reset a router"` but includes `"how to reset your device"`.
-- The term `"router"` might not appear (assume it uses `"device"`).
-
-Lexical scoring is useful for keyword-based search, but it doesn't capture the **true user intent** - a guide on how to reset a router.
-
-### using rerank() to boost relevant results
-
-Let's apply the `rerank()` passing the `"how to reset a router"` query matching against the `"content"` field to rerank the results:
+### Step 2: Apply reranking
 
 <CodeGroup>
 
-```python Python
+``` python
 client.collection(name).query(
     select(
         "title",
@@ -194,34 +112,13 @@ client.collection(name).query(
     .filter(match("how to reset a router", field="title"))
     .topk(field("title_score"), 10)
     .rerank(
+        query="how to reset a router",
         fields=["content"],
-        query="how to reset a router"
     )
 )
-
-# Results:
-
-[
-    {
-        "_id": "2",
-        "title": "How to reset your device",
-        "title_score": 0.4156554341316223,
-        "content": "Factory reset procedures vary by device. Press and hold the reset button for 10 seconds. This clears all settings, returning the router to default configuration.",
-        "_rerank_score": 0.8374209403991699
-    },
-    {
-        "_id": "1",
-        "title": "How to reset router settings to fix intermittent connectivity",
-        "title_score": 0.942161500453949,
-        "content": "To fix intermittent connectivity issues related to your device, you need to unplug your modem or router for 10 seconds, then plug them back in. This will cause a reset of the network hardware and often resolves temporary disruptions.",
-        "_rerank_score": 0.6334335207939148
-    }
-]
-
 ```
 
-
-```typescript Javascript
+``` typescript
 const docs = await client.collection(name).query(
   select({
     title: field("title"),
@@ -231,31 +128,29 @@ const docs = await client.collection(name).query(
     .filter(match("how to reset a router", { field: "title" }))
     .topk(field("title_score"), 10)
     .rerank({
-      fields: ["content"],
       query: "how to reset a router",
+      fields: ["content"],
     })
 );
-
-// Results:
-
-[
-  {
-    _id: '2',
-    title: 'How to reset your device',
-    title_score: 0.4156554341316223
-    content: 'Factory reset procedures vary by device. Press and hold the reset button for 10 seconds. This clears all settings, returning the router to default configuration.',
-    _rerank_score: 0.8374209403991699,
-  },
-  {
-    _id: '1',
-    title: 'How to reset router settings to fix intermittent connectivity',
-    title_score: 0.942161500453949,
-    content: 'To fix intermittent connectivity issues related to your device, you need to unplug your modem or router for 10 seconds, then plug them back in. This will cause a reset of the network hardware and often resolves temporary disruptions.',
-    _rerank_score: 0.6334335207939148
-  }
-]
 ```
+
 </CodeGroup>
 
-As you can see, using the `rerank()` function, the relevance of the results is improved - the actual guide on how to reset a router is ranked higher,
-even though keyword `"router"` does not appear in the `"title"` field.
+The reranker evaluates each candidate against the full query using a
+cross-encoder model and returns a reordered result set.
+
+Each document includes an additional `_rerank_score` field representing
+its semantic relevance.
+
+## When to use reranking
+
+Reranking is recommended when:
+
+-   Using **BM25** for keyword retrieval
+-   Using **ANN** for dense vector search
+-   Combining multiple retrieval strategies (hybrid search)
+-   Precision at top-k is critical (e.g., RAG, support search,
+    documentation search)
+
+This approach balances retrieval performance with improved ranking
+accuracy.

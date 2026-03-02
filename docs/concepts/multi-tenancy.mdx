@@ -6,8 +6,6 @@ In TopK, multi-tenancy is achieved through prefixing the tenant IDs in documents
 
 This design enables TopK to scale a single collection efficiently without performance degradation by leveraging smart sharding by document ID.
 
-This approach still enables you to query across all tenants if needed.
-
 ### Storing documents for a specific tenant
 
 To store documents for a specific tenant, prepend the **tenant ID** to the document **`_id`** value:
@@ -30,6 +28,7 @@ await client.collection("books").upsert([
 ```
 
 </CodeGroup>
+
 
 ### Querying documents for a specific tenant
 
@@ -57,3 +56,7 @@ await client.collection("books").query(
 ```
 
 </CodeGroup>
+
+<Info>
+  The approach preserves the ability to query across all tenants when required.
+</Info>
