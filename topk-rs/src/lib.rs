@@ -18,6 +18,7 @@ pub mod defaults {
 }
 
 pub use client::retry;
+pub use client::RequestId;
 
 // Public API
 pub mod data {
