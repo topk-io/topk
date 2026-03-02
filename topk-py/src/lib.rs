@@ -64,6 +64,17 @@ pub fn topk_sdk(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<client::RetryConfig>()?;
     m.add_class::<client::BackoffConfig>()?;
 
+    m.add_class::<data::ask::Answer>()?;
+    m.add_class::<data::ask::SearchResult>()?;
+    m.add_class::<data::ask::Chunk>()?;
+    m.add_class::<data::ask::Page>()?;
+    m.add_class::<data::ask::Image>()?;
+    m.add_class::<data::ask::Content>()?;
+    m.add_class::<data::ask::Search>()?;
+    m.add_class::<data::ask::Reason>()?;
+    m.add_class::<data::ask::Fact>()?;
+
+    // responses
     m.add_class::<client::Response>()?;
     m.add_class::<client::GetDatasetResponse>()?;
     m.add_class::<client::ListDatasetsResponse>()?;
@@ -74,13 +85,6 @@ pub fn topk_sdk(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<client::UpdateMetadataResponse>()?;
     m.add_class::<client::DeleteFileResponse>()?;
     m.add_class::<client::CheckHandleResponse>()?;
-
-    m.add_class::<data::ask::FinalAnswer>()?;
-    m.add_class::<data::ask::SearchResult>()?;
-    m.add_class::<data::ask::Content>()?;
-    m.add_class::<data::ask::SubQuery>()?;
-    m.add_class::<data::ask::Reason>()?;
-    m.add_class::<data::ask::Fact>()?;
 
     Ok(())
 }

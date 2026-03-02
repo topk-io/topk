@@ -136,54 +136,6 @@ impl From<Source> for topk_rs::proto::v1::ctx::Source {
 
 #[pyclass]
 #[derive(Debug, Clone, PartialEq)]
-pub struct FinalAnswer {
-    #[pyo3(get)]
-    facts: Vec<Fact>,
-    #[pyo3(get)]
-    sources: HashMap<String, SearchResult>,
-}
-
-#[pymethods]
-impl FinalAnswer {
-    pub fn __repr__(&self) -> String {
-        format!("{:#?}", self)
-    }
-}
-
-#[pyclass]
-#[derive(Debug, Clone, PartialEq)]
-pub struct SubQuery {
-    #[pyo3(get)]
-    objective: String,
-    #[pyo3(get)]
-    facts: Vec<Fact>,
-    #[pyo3(get)]
-    sources: HashMap<String, SearchResult>,
-}
-
-#[pymethods]
-impl SubQuery {
-    pub fn __repr__(&self) -> String {
-        format!("{:#?}", self)
-    }
-}
-
-#[pyclass]
-#[derive(Debug, Clone, PartialEq)]
-pub struct Reason {
-    #[pyo3(get)]
-    thought: String,
-}
-
-#[pymethods]
-impl Reason {
-    pub fn __repr__(&self) -> String {
-        format!("{:#?}", self)
-    }
-}
-
-#[pyclass]
-#[derive(Debug, Clone, PartialEq)]
 pub struct Fact {
     #[pyo3(get)]
     fact: String,
@@ -208,19 +160,67 @@ impl From<topk_rs::proto::v1::ctx::Fact> for Fact {
 }
 
 #[pyclass]
+#[derive(Debug, Clone, PartialEq)]
+pub struct Chunk {
+    #[pyo3(get)]
+    text: String,
+    #[pyo3(get)]
+    doc_pages: Vec<u32>,
+}
+
+#[pymethods]
+impl Chunk {
+    pub fn __repr__(&self) -> String {
+        format!("{:?}", self)
+    }
+}
+
+#[pyclass]
+#[derive(Debug, Clone, PartialEq)]
+pub struct Image {
+    #[pyo3(get)]
+    data: Vec<u8>,
+    #[pyo3(get)]
+    mime_type: String,
+}
+
+#[pymethods]
+impl Image {
+    pub fn __repr__(&self) -> String {
+        format!("<Image {} bytes, {}>", self.data.len(), self.mime_type)
+    }
+}
+
+#[pyclass]
+#[derive(Debug, Clone, PartialEq)]
+pub struct Page {
+    #[pyo3(get)]
+    page_number: u32,
+    #[pyo3(get)]
+    image: Option<Image>,
+}
+
+#[pymethods]
+impl Page {
+    pub fn __repr__(&self) -> String {
+        format!("{:?}", self)
+    }
+}
+
+#[pyclass]
 #[derive(Clone, PartialEq)]
 pub enum Content {
-    Text(String),
-    Png(Vec<u8>),
-    Jpeg(Vec<u8>),
+    Chunk(Chunk),
+    Page(Page),
+    Image(Image),
 }
 
 impl std::fmt::Debug for Content {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Content::Text(s) => write!(f, "{}", s.split('\n').collect::<Vec<_>>().join("\n")),
-            Content::Png(v) => write!(f, "<png {} bytes>", v.len()),
-            Content::Jpeg(v) => write!(f, "<jpeg {} bytes>", v.len()),
+            Content::Chunk(c) => write!(f, "{:?}", c),
+            Content::Page(p) => write!(f, "{:?}", p),
+            Content::Image(i) => write!(f, "{:?}", i),
         }
     }
 }
@@ -230,18 +230,21 @@ impl Content {
     #[getter]
     fn r#type(&self) -> &'static str {
         match self {
-            Content::Text(_) => "text",
-            Content::Png(_) => "png",
-            Content::Jpeg(_) => "jpeg",
+            Content::Chunk(_) => "chunk",
+            Content::Page(_) => "page",
+            Content::Image(_) => "image",
         }
     }
 
     #[getter]
     fn data(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         match self {
-            Content::Text(s) => s.into_py_any(py),
-            Content::Png(v) => v.into_py_any(py),
-            Content::Jpeg(v) => v.into_py_any(py),
+            Content::Chunk(c) => c.text.clone().into_py_any(py),
+            Content::Page(p) => match &p.image {
+                Some(img) => img.data.clone().into_py_any(py),
+                None => py.None().into_py_any(py),
+            },
+            Content::Image(i) => i.data.clone().into_py_any(py),
         }
     }
 }
@@ -250,13 +253,15 @@ impl Content {
 #[derive(Debug, Clone, PartialEq)]
 pub struct SearchResult {
     #[pyo3(get)]
-    id: String,
+    doc_id: String,
+    #[pyo3(get)]
+    doc_type: String,
+    #[pyo3(get)]
+    dataset: String,
     #[pyo3(get)]
     content: Content,
     #[pyo3(get)]
-    doc_id: String,
-    #[pyo3(get)]
-    doc_pages: Vec<u32>,
+    metadata: HashMap<String, crate::data::value::Value>,
 }
 
 #[pymethods]
@@ -270,48 +275,91 @@ impl From<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
     fn from(v: topk_rs::proto::v1::ctx::SearchResult) -> Self {
         use topk_rs::proto::v1::ctx::content::Data;
 
-        let (content, doc_pages) = v
-            .content
-            .and_then(|c| c.data)
-            .map(|data| match data {
-                Data::Chunk(chunk) => (Content::Text(chunk.text), chunk.doc_pages),
-                Data::Page(page) => {
-                    let content = page
-                        .image
-                        .map(|img| {
-                            let data = img.data.to_vec();
-                            match img.mime_type.as_str() {
-                                s if s.contains("png") => Content::Png(data),
-                                _ => Content::Jpeg(data),
-                            }
-                        })
-                        .unwrap_or_else(|| Content::Text(String::new()));
-                    (content, vec![page.page_number])
-                }
-                Data::Image(img) => {
-                    let data = img.data.to_vec();
-                    let content = match img.mime_type.as_str() {
-                        s if s.contains("png") => Content::Png(data),
-                        _ => Content::Jpeg(data),
-                    };
-                    (content, vec![])
-                }
-            })
-            .unwrap_or((Content::Text(String::new()), vec![]));
+        let content = match v.content.and_then(|c| c.data) {
+            None => unreachable!("Invalid proto: SearchResult content is required"),
+            Some(data) => match data {
+                Data::Chunk(chunk) => Content::Chunk(Chunk {
+                    text: chunk.text,
+                    doc_pages: chunk.doc_pages,
+                }),
+                Data::Page(page) => Content::Page(Page {
+                    page_number: page.page_number,
+                    image: page.image.map(|img| Image {
+                        data: img.data.to_vec(),
+                        mime_type: img.mime_type,
+                    }),
+                }),
+                Data::Image(img) => Content::Image(Image {
+                    data: img.data.to_vec(),
+                    mime_type: img.mime_type,
+                }),
+            },
+        };
+
+        let metadata = v.metadata.into_iter().map(|(k, v)| (k, v.into())).collect();
 
         SearchResult {
-            id: v.doc_id.clone(),
-            content,
             doc_id: v.doc_id,
-            doc_pages,
+            doc_type: v.doc_type,
+            dataset: v.dataset,
+            content,
+            metadata,
         }
+    }
+}
+
+#[pyclass]
+#[derive(Debug, Clone, PartialEq)]
+pub struct Answer {
+    #[pyo3(get)]
+    facts: Vec<Fact>,
+    #[pyo3(get)]
+    sources: HashMap<String, SearchResult>,
+}
+
+#[pymethods]
+impl Answer {
+    pub fn __repr__(&self) -> String {
+        format!("{:#?}", self)
+    }
+}
+
+#[pyclass]
+#[derive(Debug, Clone, PartialEq)]
+pub struct Search {
+    #[pyo3(get)]
+    objective: String,
+    #[pyo3(get)]
+    facts: Vec<Fact>,
+    #[pyo3(get)]
+    sources: HashMap<String, SearchResult>,
+}
+
+#[pymethods]
+impl Search {
+    pub fn __repr__(&self) -> String {
+        format!("{:#?}", self)
+    }
+}
+
+#[pyclass]
+#[derive(Debug, Clone, PartialEq)]
+pub struct Reason {
+    #[pyo3(get)]
+    thought: String,
+}
+
+#[pymethods]
+impl Reason {
+    pub fn __repr__(&self) -> String {
+        format!("{:#?}", self)
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum AskResponseMessage {
-    FinalAnswer(FinalAnswer),
-    SubQuery(SubQuery),
+    Answer(Answer),
+    Search(Search),
     Reason(Reason),
 }
 
@@ -322,11 +370,11 @@ impl<'py> IntoPyObject<'py> for AskResponseMessage {
 
     fn into_pyobject(self, py: Python<'py>) -> PyResult<Self::Output> {
         match self {
-            AskResponseMessage::FinalAnswer(final_answer) => {
-                Ok(Py::new(py, final_answer)?.into_bound(py).into_any())
+            AskResponseMessage::Answer(answer) => {
+                Ok(Py::new(py, answer)?.into_bound(py).into_any())
             }
-            AskResponseMessage::SubQuery(sub_query) => {
-                Ok(Py::new(py, sub_query)?.into_bound(py).into_any())
+            AskResponseMessage::Search(search) => {
+                Ok(Py::new(py, search)?.into_bound(py).into_any())
             }
             AskResponseMessage::Reason(reason) => {
                 Ok(Py::new(py, reason)?.into_bound(py).into_any())
@@ -338,7 +386,7 @@ impl<'py> IntoPyObject<'py> for AskResponseMessage {
 impl From<topk_rs::proto::v1::ctx::ask_result::Message> for AskResponseMessage {
     fn from(msg: topk_rs::proto::v1::ctx::ask_result::Message) -> Self {
         match msg {
-            Message::Answer(fa) => AskResponseMessage::FinalAnswer(FinalAnswer {
+            Message::Answer(fa) => AskResponseMessage::Answer(Answer {
                 facts: fa.facts.into_iter().map(Fact::from).collect(),
                 sources: fa
                     .refs
@@ -346,7 +394,7 @@ impl From<topk_rs::proto::v1::ctx::ask_result::Message> for AskResponseMessage {
                     .map(|(k, v)| (k, SearchResult::from(v)))
                     .collect(),
             }),
-            Message::Search(sq) => AskResponseMessage::SubQuery(SubQuery {
+            Message::Search(sq) => AskResponseMessage::Search(Search {
                 objective: sq.objective,
                 facts: sq.facts.into_iter().map(Fact::from).collect(),
                 sources: sq
