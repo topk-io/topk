@@ -488,9 +488,15 @@ class DatasetClient:
         Upsert a file to the dataset.
         """
         ...
-    def get_metadata(self, file_id: builtins.str) -> GetMetadataResponse:
+    def get_metadata(
+        self,
+        file_id: builtins.str,
+        fields: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> GetMetadataResponse:
         """
         Get metadata for a file.
+
+        If `fields` is provided, only the specified fields will be returned.
         """
         ...
     def update_metadata(
@@ -554,9 +560,15 @@ class AsyncDatasetClient:
         Upsert a file to the dataset asynchronously.
         """
         ...
-    def get_metadata(self, file_id: builtins.str) -> typing.Awaitable[GetMetadataResponse]:
+    def get_metadata(
+        self,
+        file_id: builtins.str,
+        fields: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> typing.Awaitable[GetMetadataResponse]:
         """
         Get metadata for a file asynchronously.
+
+        If `fields` is provided, only the specified fields will be returned.
         """
         ...
     def update_metadata(
