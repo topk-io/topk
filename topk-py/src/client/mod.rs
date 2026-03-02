@@ -2,10 +2,15 @@ use pyo3::{exceptions::PyTypeError, prelude::*, types::PyDict, IntoPyObject};
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use topk_rs::ClientConfig;
 
+use crate::data::dataset::Dataset;
 use crate::data::value::NativeValue;
+use crate::data::value::Value;
 
 pub mod r#async;
 pub mod sync;
+
+/// Buffer size for ask stream channels.
+pub const ASK_CHANNEL_BUFFER_SIZE: usize = 32;
 
 pub fn topk_client(
     api_key: String,
@@ -215,5 +220,209 @@ impl Into<topk_rs::retry::BackoffConfig> for BackoffConfig {
                     .unwrap_or(topk_rs::defaults::RETRY_BACKOFF_MAX),
             ),
         }
+    }
+}
+
+// Python response base class and conversion helper (shared by datasets and dataset APIs)
+use pyo3::PyClass;
+
+#[pyclass(subclass)]
+pub struct Response {
+    #[pyo3(get)]
+    pub request_id: Option<String>,
+}
+
+#[pymethods]
+impl Response {
+    #[new]
+    fn new(request_id: Option<String>) -> Self {
+        Self { request_id }
+    }
+}
+
+/// Convert `topk_rs::Response<Proto>` into a Python response object.
+/// Extracts `request_id` once and builds `(Sub, Response)` for PyO3.
+pub(crate) fn into_py_response<Proto, Sub, F>(
+    py: Python<'_>,
+    response: topk_rs::client::Response<Proto>,
+    f: F,
+) -> PyResult<Py<Sub>>
+where
+    F: FnOnce(Proto) -> PyResult<Sub>,
+    Sub: PyClass<BaseType = Response>,
+{
+    let request_id = response.request_id().map(|r| r.as_str().to_string());
+    let inner = response.into_inner();
+    let sub = f(inner)?;
+    Py::new(py, (sub, Response { request_id }))
+}
+
+#[pyclass(extends=Response)]
+#[derive(Debug)]
+pub struct GetDatasetResponse {
+    #[pyo3(get)]
+    pub dataset: Dataset,
+}
+
+#[pymethods]
+impl GetDatasetResponse {
+    #[new]
+    fn new(dataset: Dataset, request_id: Option<String>) -> (Self, Response) {
+        (Self { dataset }, Response { request_id })
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{:?}", self)
+    }
+}
+
+#[pyclass(extends=Response)]
+#[derive(Debug)]
+pub struct ListDatasetsResponse {
+    #[pyo3(get)]
+    pub datasets: Vec<Dataset>,
+}
+
+#[pymethods]
+impl ListDatasetsResponse {
+    #[new]
+    fn new(datasets: Vec<Dataset>, request_id: Option<String>) -> (Self, Response) {
+        (Self { datasets }, Response { request_id })
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{:?}", self)
+    }
+}
+
+#[pyclass(extends=Response)]
+#[derive(Debug)]
+pub struct CreateDatasetResponse {
+    #[pyo3(get)]
+    pub dataset: Dataset,
+}
+
+#[pymethods]
+impl CreateDatasetResponse {
+    #[new]
+    fn new(dataset: Dataset, request_id: Option<String>) -> (Self, Response) {
+        (Self { dataset }, Response { request_id })
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{:?}", self)
+    }
+}
+
+#[pyclass(extends=Response)]
+#[derive(Debug)]
+pub struct DeleteDatasetResponse;
+
+#[pymethods]
+impl DeleteDatasetResponse {
+    #[new]
+    fn new(request_id: Option<String>) -> (Self, Response) {
+        (Self, Response { request_id })
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{:?}", self)
+    }
+}
+
+// Dataset API response types (shared by sync and async clients)
+
+#[pyclass(extends=Response)]
+#[derive(Debug)]
+pub struct UpsertFileResponse {
+    #[pyo3(get)]
+    pub handle: String,
+}
+
+#[pymethods]
+impl UpsertFileResponse {
+    #[new]
+    fn new(handle: String, request_id: Option<String>) -> (Self, Response) {
+        (Self { handle }, Response { request_id })
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{:?}", self)
+    }
+}
+
+#[pyclass(extends=Response)]
+#[derive(Debug)]
+pub struct GetMetadataResponse {
+    #[pyo3(get)]
+    pub metadata: HashMap<String, Value>,
+}
+
+#[pymethods]
+impl GetMetadataResponse {
+    #[new]
+    fn new(metadata: HashMap<String, Value>, request_id: Option<String>) -> (Self, Response) {
+        (Self { metadata }, Response { request_id })
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{:?}", self)
+    }
+}
+
+#[pyclass(extends=Response)]
+#[derive(Debug)]
+pub struct UpdateMetadataResponse {
+    #[pyo3(get)]
+    pub handle: String,
+}
+
+#[pymethods]
+impl UpdateMetadataResponse {
+    #[new]
+    fn new(handle: String, request_id: Option<String>) -> (Self, Response) {
+        (Self { handle }, Response { request_id })
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{:?}", self)
+    }
+}
+
+#[pyclass(extends=Response)]
+#[derive(Debug)]
+pub struct DeleteFileResponse {
+    #[pyo3(get)]
+    pub handle: String,
+}
+
+#[pymethods]
+impl DeleteFileResponse {
+    #[new]
+    fn new(handle: String, request_id: Option<String>) -> (Self, Response) {
+        (Self { handle }, Response { request_id })
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{:?}", self)
+    }
+}
+
+#[pyclass(extends=Response)]
+#[derive(Debug)]
+pub struct CheckHandleResponse {
+    #[pyo3(get)]
+    pub processed: bool,
+}
+
+#[pymethods]
+impl CheckHandleResponse {
+    #[new]
+    fn new(processed: bool, request_id: Option<String>) -> (Self, Response) {
+        (Self { processed }, Response { request_id })
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{:?}", self)
     }
 }

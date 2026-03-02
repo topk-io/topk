@@ -21,4 +21,12 @@ impl Runtime {
     {
         py.detach(move || self.runtime.block_on(future))
     }
+
+    pub fn spawn<F>(&self, future: F) -> tokio::task::JoinHandle<F::Output>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
+    {
+        self.runtime.spawn(future)
+    }
 }
