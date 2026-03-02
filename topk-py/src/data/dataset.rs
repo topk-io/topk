@@ -28,6 +28,10 @@ impl Dataset {
     pub fn __repr__(&self) -> String {
         format!("{:?}", self)
     }
+
+    fn __eq__(&self, other: &Self) -> bool {
+        self == other
+    }
 }
 
 impl From<topk_rs::proto::v1::control::Dataset> for Dataset {

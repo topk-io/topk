@@ -62,6 +62,30 @@ class Client:
         Ask a question and get streaming responses as an iterator.
         """
         ...
+    def search(
+        self,
+        query: builtins.str,
+        sources: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
+        filter: typing.Optional[query.LogicalExpr] = None,
+        top_k: builtins.int = 10,
+        select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> builtins.list[SearchResult]:
+        """
+        Search for documents and wait for the stream to complete, returning all results.
+        """
+        ...
+    def search_stream(
+        self,
+        query: builtins.str,
+        sources: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
+        filter: typing.Optional[query.LogicalExpr] = None,
+        top_k: builtins.int = 10,
+        select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> SearchIterator:
+        """
+        Search for documents and get streaming responses as an iterator.
+        """
+        ...
 
 class AsyncClient:
     """
@@ -110,6 +134,30 @@ class AsyncClient:
     ) -> typing.AsyncIterator[typing.Union[Answer, Search, Reason]]:
         """
         Ask a question and get streaming responses asynchronously as an async iterator.
+        """
+        ...
+    def search(
+        self,
+        query: builtins.str,
+        sources: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
+        filter: typing.Optional[query.LogicalExpr] = None,
+        top_k: builtins.int = 10,
+        select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> typing.Awaitable[builtins.list[SearchResult]]:
+        """
+        Search for documents and wait for the stream to complete asynchronously, returning all results.
+        """
+        ...
+    def search_stream(
+        self,
+        query: builtins.str,
+        sources: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
+        filter: typing.Optional[query.LogicalExpr] = None,
+        top_k: builtins.int = 10,
+        select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> typing.AsyncIterator[SearchResult]:
+        """
+        Search for documents and get streaming responses asynchronously as an async iterator.
         """
         ...
 
@@ -630,6 +678,22 @@ class AsyncAskIterator:
 
     def __aiter__(self) -> AsyncAskIterator: ...
     def __anext__(self) -> typing.AsyncIterator[typing.Union[Answer, Search, Reason]]: ...
+
+class SearchIterator:
+    """
+    Iterator for synchronous search responses.
+    """
+
+    def __iter__(self) -> SearchIterator: ...
+    def __next__(self) -> typing.Optional[SearchResult]: ...
+
+class AsyncSearchIterator:
+    """
+    Iterator for asynchronous search responses.
+    """
+
+    def __aiter__(self) -> AsyncSearchIterator: ...
+    def __anext__(self) -> typing.AsyncIterator[SearchResult]: ...
 
 class ConsistencyLevel(Enum):
     """
