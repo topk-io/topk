@@ -2,19 +2,11 @@
 title: "Create a collection"
 ---
 
-Collections store documents and provide the interface for querying them efficiently.
+Collections organize your documents, define their schema, and enable fast vector search, filtering, keyword search, semantic search, and multi-vector search.
 
 ## Creating a collection
 
-Call `create()` on `client.collections()`:
-
-<ParamField body="name" type="string" required={true}>
-  Collection name (unique within account)
-</ParamField>
-
-<ParamField body="schema" type="Map<String, FieldSpec>" required={true}>
-  Document structure and search capabilities
-</ParamField>
+In order to create a collection, call the [`create()`](/sdk/topk-py#create) method on the [`client.collections()`](/sdk/topk-py#collectionsclient) object:
 
 <CodeGroup>
 
@@ -51,95 +43,175 @@ await client.collections().create("books", {
 
 TopK is schemaless-by-default. Fields without types can store any value. When types are specified, data is validated during upsert.
 
-**Indexed fields require explicit types.**
+<Info>Indexed fields require **explicit types**.</Info>
 
 ### Field types
 
 | Type | Use case |
 |------|----------|
-| `text()` | Strings, descriptions, content |
-| `bytes()` | Binary data, images, files |
-| `int()` | Integers, counts, IDs |
-| `float()` | Decimal numbers, prices |
-| `bool()` | True/false values |
-| `list(value_type)` | Arrays (text, integer, float) |
-| `f32_vector(dim)` | Dense embeddings (most common) |
-| `u8_vector(dim)` | Quantized embeddings |
-| `i8_vector(dim)` | Signed quantized embeddings |
-| `binary_vector(dim)` | Binary embeddings |
-| `f32_sparse_vector()` | Sparse embeddings |
-| `u8_sparse_vector()` | Quantized sparse embeddings |
+| [`text()`](/sdk/topk-py/schema#text) | Strings, descriptions, content, IDs |
+| [`bytes()`](/sdk/topk-py/schema#bytes) | Binary data, images, files |
+| [`int()`](/sdk/topk-py/schema#int) | Integers, counts, IDs |
+| [`float()`](/sdk/topk-py/schema#float) | Decimal numbers, prices |
+| [`bool()`](/sdk/topk-py/schema#bool) | true/false values |
+| [`list(value_type)`](/sdk/topk-py/schema#list) | Arrays of text, integer, or float elements |
+| [`f8_vector(dim)`](/sdk/topk-py/schema#f8_vector) | 8-bit float embeddings |
+| [`f16_vector(dim)`](/sdk/topk-py/schema#f16_vector) | 16-bit float embeddings |
+| [`f32_vector(dim)`](/sdk/topk-py/schema#f32_vector) | Dense embeddings (most common) |
+| [`u8_vector(dim)`](/sdk/topk-py/schema#u8_vector) | Quantized embeddings |
+| [`i8_vector(dim)`](/sdk/topk-py/schema#i8_vector) | Signed quantized embeddings |
+| [`binary_vector(dim)`](/sdk/topk-py/schema#binary_vector) | Binary embeddings |
+| [`f32_sparse_vector()`](/sdk/topk-py/schema#f32_sparse_vector) | Sparse embeddings |
+| [`u8_sparse_vector()`](/sdk/topk-py/schema#u8_sparse_vector) | Quantized sparse embeddings |
+| [`matrix(dim, value_type)`](/sdk/topk-py/schema#matrix) | Multi-vector embeddings |
 
 ### Required fields
 
-Fields are optional by default. Add `.required()` to make them mandatory:
+Fields are optional by default.
 
-```python
-"name": text().required()  # Must be present
-"price": int()            # Can be null
-```
-
-## Indexes
-
-Indexes enable search capabilities. Without indexes, only exact filtering is possible.
-
-### Index types
-
-#### Vector Index
-
-Used for vector search. Supports dimensions up to 2^14.
+Add [`required()`](/sdk/topk-py/schema#required) to make them mandatory—required fields must be present in every document during upsert. Documents missing a required field are rejected with a validation error.
 
 <CodeGroup>
 
 ```python Python
-"embedding": f32_vector(dimension=1536).index(vector_index(metric="cosine"))
+from topk_sdk.schema import int, text
+
+schema = {
+    "name": text().required(),   # Must be present in all documents
+    "price": int(),              # Can be omitted (null)
+}
 ```
 
 ```typescript Javascript
-embedding: f32Vector({ dimension: 1536 }).index(vectorIndex({ metric: "cosine" }))
+import { int, text } from "topk-js/schema";
+
+const schema = {
+  name: text().required(),   // Must be present in all documents
+  price: int(),              // Can be omitted (null)
+};
+```
+
+</CodeGroup>
+
+## Indexes
+
+Only indexed fields can be searched. Non-indexed fields support exact-match filters only.
+
+### Vector Index
+
+Used for vector search. Supports dimensions up to 2^14. Enabled by [`vector_index()`](/sdk/topk-py/schema#vector_index).
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.schema import f32_vector, vector_index
+
+schema = {
+    "embedding": f32_vector(dimension=1536).index(vector_index(metric="cosine")),
+}
+```
+
+```typescript Javascript
+import { f32Vector, vectorIndex } from "topk-js/schema";
+
+const schema = {
+  embedding: f32Vector({ dimension: 1536 }).index(vectorIndex({ metric: "cosine" })),
+};
 ```
 
 </CodeGroup>
 
 **Similarity metrics compatibility:**
 
-| Vector Type | `cosine` | `euclidean` | `dot_product` | `hamming` |
-|-------------|----------|-------------|---------------|-----------|
-| `f32_vector` | ✅ | ✅ | ✅ | — |
-| `u8_vector` | ✅ | ✅ | ✅ | — |
-| `i8_vector` | ✅ | ✅ | ✅ | — |
-| `f32_sparse_vector` | — | — | ✅ | — |
-| `u8_sparse_vector` | — | — | ✅ | — |
-| `binary_vector` | — | — | — | ✅ |
+| Vector Type           | `cosine` | `euclidean` | `dot_product` | `hamming` |
+|-----------------------|:--------:|:-----------:|:-------------:|:---------:|
+| `f8_vector`           |   ✅    |      ✅     |      ✅      |     —     |
+| `f16_vector`          |   ✅    |      ✅     |      ✅      |     —     |
+| `f32_vector`          |   ✅    |      ✅     |      ✅      |     —     |
+| `u8_vector`           |   ✅    |      ✅     |      ✅      |     —     |
+| `i8_vector`           |   ✅    |      ✅     |      ✅      |     —     |
+| `binary_vector`       |    —    |      —      |      —       |    ✅    |
+| `f32_sparse_vector`   |    —    |      —      |      ✅      |     —     |
+| `u8_sparse_vector`    |    —    |      —      |      ✅      |     —     |
 
-#### Keyword Index  
+### Multi Vector Index
 
-Traditional text search with BM25 relevance scoring. Fast keyword matching with no embedding overhead.
+Enables multi-vector search on [`matrix()`](/sdk/topk-py/schema#matrix) fields using the maxsim metric for late-interaction scoring. Enabled by [`multi_vector_index()`](/sdk/topk-py/schema#multi_vector_index). See [multi-vector search](/concepts/multi-vector-search) for more information.
 
 <CodeGroup>
 
 ```python Python
-"title": text().index(keyword_index())
+from topk_sdk.schema import matrix, multi_vector_index
+
+schema = {
+    "token_embeddings": matrix(
+        dimension=1536,
+        value_type="f32"
+    ).index(
+        multi_vector_index(metric="maxsim")
+    ),
+}
 ```
 
 ```typescript Javascript
-title: text().index(keywordIndex())
+import { matrix, multiVectorIndex } from "topk-js/schema";
+
+const schema = {
+  token_embeddings: matrix({
+    dimension: 1536,
+    valueType: "f32",
+  }).index(
+    multiVectorIndex({ metric: "maxsim" })
+  ),
+};
 ```
 
 </CodeGroup>
 
-#### Semantic Index
+### Keyword Index
 
-Convenience method for automatic embeddings.
+Traditional text search with BM25 relevance scoring. Fast keyword matching with no embedding overhead. Enabled by [`keyword_index()`](/sdk/topk-py/schema#keyword_index).
 
 <CodeGroup>
 
 ```python Python
-"title": text().index(semantic_index())
+from topk_sdk.schema import keyword_index, text
+
+schema = {
+    "title": text().index(keyword_index()),
+}
 ```
 
 ```typescript Javascript
-title: text().index(semanticIndex())
+import { keywordIndex, text } from "topk-js/schema";
+
+const schema = {
+  title: text().index(keywordIndex()),
+};
+```
+
+</CodeGroup>
+
+### Semantic Index
+
+Convenience method for automatic embeddings. Enabled by [`semantic_index()`](/sdk/topk-py/schema#semantic_index).
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.schema import semantic_index, text
+
+schema = {
+    "title": text().index(semantic_index()),
+}
+```
+
+```typescript Javascript
+import { semanticIndex, text } from "topk-js/schema";
+
+const schema = {
+  title: text().index(semanticIndex()),
+};
 ```
 
 </CodeGroup>

@@ -2,64 +2,66 @@
 title: "Get documents"
 ---
 
-Getting documents from a collection by their respective IDs can be done via the `get()` function on a `client.collection(name)` object:
+Use the [`get()`](/sdk/topk-py#get) method to retrieve documents by their `_id`.
+
+`get()` provides direct key-based lookup, similar to a key-value store.
+This operation is optimized for **high throughput** and **low latency**.
 
 <CodeGroup>
 
 ```python Python
-docs = ctx.client.collection("books").get(["lotr", "moby"])
+docs = client.collection("books").get(["lotr", "moby"])
 ```
 
-
 ```typescript Javascript
-const docs = await ctx.client.collection("books").get(["lotr", "moby"])
+const docs = await client.collection("books").get(["lotr", "moby"]);
 ```
 
 </CodeGroup>
 
-The result is a key-value mapping: each key is a document ID, and each value is the document in the same shape it was upserted:
+The result is a key-value mapping: each key is a document ID and each value is a full document as it was upserted into the collection.
 
 <CodeGroup>
 
 ```python Python
 # Example response
 {
-    "lotr": {
+	"lotr": {
 		"_id": "lotr",
-        "title": "The Lord of the Rings",
-        "author": "J.R.R. Tolkien",
-        "published_year": 1954
-    },
-    "moby": {
+		"title": "The Lord of the Rings",
+		"author": "J.R.R. Tolkien",
+		"published_year": 1954
+	},
+	"moby": {
 		"_id": "moby",
-        "title": "Moby Dick",
-        "author": "Herman Melville",
-        "published_year": 1851
-    }
+		"title": "Moby Dick",
+		"author": "Herman Melville",
+		"published_year": 1851
+	}
 }
 ```
-
 
 ```typescript Javascript
 // Example response
 {
-  lotr: {
+	lotr: {
 	_id: "lotr",
-    title: "The Lord of the Rings",
-    author: "J.R.R. Tolkien",
-    published_year: 1954
-  },
-  moby: {
+		title: "The Lord of the Rings",
+		author: "J.R.R. Tolkien",
+		published_year: 1954
+	},
+	moby: {
 	_id: "moby",
-    title: "Moby Dick",
-    author: "Herman Melville",
-    published_year: 1851
-  }
+		title: "Moby Dick",
+		author: "Herman Melville",
+		published_year: 1851
+	}
 }
 ```
 
 </CodeGroup>
 
 <Warning>
-  If a document with a given ID does not exist in the collection, it is simply omitted from the results; no error is thrown.
+	If a document with a given ID does not exist in the collection, it is simply
+	omitted from the results - no error is thrown.
 </Warning>

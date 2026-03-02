@@ -2,11 +2,18 @@
 title: "Upsert documents"
 ---
 
-TopK documents are JSON-like objects containing key-value pairs.
+Documents in TopK are JSON-like objects composed of key-value pairs.
 
-## Upsert function
+Each document within a collection:
 
-To upsert documents, pass a list of documents to the `upsert()` function:
+- Must include a unique `_id` field
+- Must conform to the collection schema for indexed fields
+
+Fields defined in the schema can be indexed for vector, keyword, or other retrieval strategies.
+
+## Upsert documents in a collection
+
+To upsert documents, pass a list of documents to the [`upsert()`](/sdk/topk-py#upsert) function:
 
 <CodeGroup>
 
@@ -73,29 +80,117 @@ await client.collection("books").upsert([
   Each document you send is serialized as a Protocol Buffers (protobuf) message. The encoded size of that message must be **128KB or smaller**.
 </Warning>
 
+## Additional (non-schema) fields
+
+You may include fields that are not defined in the collection schema.
+
+These fields:
+
+- Are stored with the document
+- Can be returned to the client in query results
+- Can be used for **filtering** in queries
+
+Fields that are not defined in the schema are not indexed.
+If you want to use a field for [vector search](/concepts/vector-search), [semantic search](/concepts/semantic-search), [keyword search](/concepts/keyword-search) or [multi-vector search](/concepts/multi-vector-search), it must be declared in the schema
+and have a corresponding index defined.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.schema import text, int, f32_vector, vector_index, keyword_index
+from topk_sdk.query import select, field, fn
+
+client.collections().create(
+    "books",
+    schema={
+        "title": text().index(keyword_index()).required(),
+        "published_year": int().required(),
+        "title_embedding": f32_vector(dimension=1024).index(vector_index(metric="cosine")).required(),
+    },
+)
+
+client.collection("books").upsert([
+    {
+        "_id": "book-1",
+        "title": "The Great Gatsby",
+        "published_year": 1925,
+        "title_embedding": [0.12, 0.67, 0.82, 0.53, ...],
+        "tags": ["fiction", "classic"], # non-schema field
+        "source_url": "https://example.com/gatsby", # non-schema field
+    }
+])
+
+client.collection("books").query(
+    select(
+        "title",
+        "source_url",
+        "title_similarity": fn.semantic_similarity("title", "classic American novel"),
+    )
+    .filter(field("tags").contains("fiction")) # non-schema fields can still be used for filtering
+)
+```
+
+```typescript Javascript
+import { text, int, f32Vector, vectorIndex, keywordIndex } from "topk-js/schema";
+import { select, field, fn } from "topk-js/query";
+
+await client.collections().create("books", {
+  title: text().index(keywordIndex()).required(),
+  published_year: int().required(),
+  title_embedding: f32Vector({ dimension: 1024 })
+    .index(vectorIndex({ metric: "cosine" }))
+    .required()
+});
+
+await client.collection("books").upsert([
+  {
+    _id: "book-1",
+    title: "The Great Gatsby",
+    published_year: 1925,
+    title_embedding: [0.12, 0.67, 0.82, 0.53],
+    tags: ["fiction", "classic"], // non-schema field
+    source_url: "https://example.com/gatsby", // non-schema field
+  },
+]);
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    source_url: field("source_url"),
+    title_similarity: fn.semanticSimilarity("title", "classic American novel"),
+  })
+  .filter(field("tags").contains("fiction")) // non-schema fields can still be used for filtering
+);
+```
+
+</CodeGroup>
+
 ## Supported types
 
 TopK documents are a flat structure of key-value pairs.
 
 The following value types are supported:
 
-| Type                  | Python Type   | JavaScript Type | Helper Function                                                |
-| --------------------- | ------------- | --------------- | -------------------------------------------------------------- |
-| **String**            | `str`         | `string`        | -                                                              |
-| **Integer**           | `int`         | `number`        | -                                                              |
-| **Float**             | `float`       | `number`        | -                                                              |
-| **Boolean**           | `bool`        | `boolean`       | -                                                              |
-| **String list**       | `list[str]`   | `string[]`      | [`string_list()`](../sdk/topk-py/data#string-list)             |
-| **F32 list**          | `list[float]` | `number[]`      | [`f32_list()`](../sdk/topk-py/data#f32-list)                   |
-| **F64 list**          | _use helper_  | _use helper_    | [`f64_list()`](../sdk/topk-py/data#f64-list)                   |
-| **I32 list**          | _use helper_  | _use helper_    | [`i32_list()`](../sdk/topk-py/data#i32-list)                   |
-| **I64 list**          | _use helper_  | _use helper_    | [`i64_list()`](../sdk/topk-py/data#i64-list)                   |
-| **U32 list**          | _use helper_  | _use helper_    | [`u32_list()`](../sdk/topk-py/data#u32-list)                   |
-| **F32 vector**        | `list[float]` | `number[]`      | [`f32_vector()`](../sdk/topk-py/data#f32-vector)               |
-| **U8 vector**         | _use helper_  | _use helper_    | [`u8_vector()`](../sdk/topk-py/data#u8-vector)                 |
-| **I8 vector**         | _use helper_  | _use helper_    | [`i8_vector()`](../sdk/topk-py/data#i8-vector)                 |
-| **Binary vector**     | _use helper_  | _use helper_    | [`binary_vector()`](../sdk/topk-py/data#binary-vector)         |
-| **F32 sparse vector** | _use helper_  | _use helper_    | [`f32_sparse_vector()`](../sdk/topk-py/data#f32-sparse-vector) |
-| **U8 sparse vector**  | _use helper_  | _use helper_    | [`u8_sparse_vector()`](../sdk/topk-py/data#u8-sparse-vector)   |
-| **Bytes**             | _use helper_  | _use helper_    | [`bytes()`](../sdk/topk-py/data#bytes)                         |
+| Type                  | Python Type      | JavaScript Type | Helper Function                                                 |
+|-----------------------|------------------|-----------------|-----------------------------------------------------------------|
+| **String**            | `str`            | `string`        | -                                                               |
+| **Integer**           | `int`            | `number`        | -                                                               |
+| **Float**             | `float`          | `number`        | -                                                               |
+| **Boolean**           | `bool`           | `boolean`       | -                                                               |
+| **String list**       | `list[str]`      | `string[]`      | [`string_list()`](../sdk/topk-py/data#string-list)              |
+| **F32 list**          | `list[float]`    | `number[]`      | [`f32_list()`](../sdk/topk-py/data#f32-list)                    |
+| **F64 list**          | _use helper_     | _use helper_    | [`f64_list()`](../sdk/topk-py/data#f64-list)                    |
+| **I32 list**          | _use helper_     | _use helper_    | [`i32_list()`](../sdk/topk-py/data#i32-list)                    |
+| **I64 list**          | _use helper_     | _use helper_    | [`i64_list()`](../sdk/topk-py/data#i64-list)                    |
+| **U32 list**          | _use helper_     | _use helper_    | [`u32_list()`](../sdk/topk-py/data#u32-list)                    |
+| **F8 vector**         | _use helper_     | _use helper_    | [`f8_vector()`](../sdk/topk-py/data#f8-vector)                  |
+| **F16 vector**        | _use helper_     | _use helper_    | [`f16_vector()`](../sdk/topk-py/data#f16-vector)                |
+| **F32 vector**        | `list[float]`    | `number[]`      | [`f32_vector()`](../sdk/topk-py/data#f32-vector)                |
+| **U8 vector**         | _use helper_     | _use helper_    | [`u8_vector()`](../sdk/topk-py/data#u8-vector)                  |
+| **I8 vector**         | _use helper_     | _use helper_    | [`i8_vector()`](../sdk/topk-py/data#i8-vector)                  |
+| **Binary vector**     | _use helper_     | _use helper_    | [`binary_vector()`](../sdk/topk-py/data#binary-vector)          |
+| **F32 sparse vector** | _use helper_     | _use helper_    | [`f32_sparse_vector()`](../sdk/topk-py/data#f32-sparse-vector)  |
+| **U8 sparse vector**  | _use helper_     | _use helper_    | [`u8_sparse_vector()`](../sdk/topk-py/data#u8-sparse-vector)    |
+| **Matrix**            | _use helper_     | _use helper_    | [`matrix()`](../sdk/topk-py/data#matrix-2)                      |
+| **Bytes**             | _use helper_     | _use helper_    | [`bytes()`](../sdk/topk-py/data#bytes)                          |
 

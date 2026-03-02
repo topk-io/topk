@@ -2,10 +2,10 @@
 title: "Delete documents"
 ---
 
-You can delete documents by their `_id` or using an [expression](https://docs.topk.io/documents/query#filtering). Both methods provide
-the same consistency guarantees and will be reflected in query/get results according to your [consistency level](https://docs.topk.io/concepts/consistency).
+You can delete documents by their `_id` or using a [filter expression](/documents/query#filtering). Both methods provide
+the same consistency guarantees and will be reflected in query/get results according to your [consistency level](/concepts/consistency).
 
-To delete documents by their `_id`, you can pass a list of `_id`s to the `delete()` function:
+To delete documents by their `_id`, pass a list of `_id`s to the [`delete()`](/sdk/topk-py#delete) method:
 
 <CodeGroup>
 
@@ -20,6 +20,12 @@ await client.collection("books").delete(["book-1", "book-2", "book-3"]);
 ```
 
 </CodeGroup>
+
+<Info>
+  The `delete()` method returns an **LSN** (Log Sequence Number) that you can pass to subsequent queries for [read-after-write consistency](/documents/query#lsn-based-consistency).
+</Info>
+
+## Delete documents by filter expression
 
 To delete documents that match a predicate, you can pass a [filter expression](https://docs.topk.io/documents/query#filtering) to the `delete()` function.
 
@@ -38,3 +44,7 @@ await client.collection("books").delete(field("published_year").lt(1997));
 ```
 
 </CodeGroup>
+
+<Tip>
+    Passing a filter expression to `delete()` is useful for deleting documents that match a specific condition, such as all documents for a **specific tenant** e.g. `field("_id").starts_with("tenant-123/")`.
+</Tip>

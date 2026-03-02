@@ -1,20 +1,19 @@
 ---
 title: "Sparse vector search"
-description: "TopK Sparse Vector Search Guide"
 ---
 
-Similar to dense vector search, sparse vector search is an essential feature of TopK. With that in mind, it is designed to:
+TopK provides native support for sparse vector search, enabling exact retrieval over high-dimensional sparse representations.
 
-- Provide **100% recall**.
-- Support learned sparse vector representations, for example [SPLADE](https://github.com/naver/splade).
-- Provide consistent **low latency** (\<20ms p99). Check out our [benchmarks](https://www.topk.io/benchmarks).
-- Support **large-scale** single-collection as well as **multi-tenant** use cases.
+It is designed to:
 
-## How to run a sparse vector search
+- Provide **100% recall** (exact search).
+- Support learned sparse representations such as [SPLADE](https://github.com/naver/splade).
+- Deliver consistent **low latency** (p99 < 20 ms). See the [benchmarks](https://www.topk.io/benchmarks) for details.
+- Support **large-scale single-collection** deployments as well as **multi-tenant** architectures.
 
-### Prerequisites
+## Define a collection schema with a sparse vector field
 
-Define a schema with a sparse vector field, either `f32_sparse_vector()` or `u8_sparse_vector()`, and add a `vector_index()` to it:
+Define a schema with a sparse vector field and add a [`vector_index()`](/sdk/topk-py/schema#vector_index):
 
 <CodeGroup>
 
@@ -44,6 +43,13 @@ await client.collections().create("books", {
 });
 ```
 
+Supported sparse vector field types:
+
+- **[`f32_sparse_vector()`](/sdk/topk-py/schema#f32_sparse_vector)** — Sparse float32 embeddings
+- **[`u8_sparse_vector()`](/sdk/topk-py/schema#u8_sparse_vector)** — Sparse uint8 embeddings
+
+See the [schema reference](/sdk/topk-py/schema) for full API details.
+
 </CodeGroup>
 
 <Note>
@@ -55,12 +61,13 @@ await client.collections().create("books", {
   vector representations.
 </Warning>
 
-### Find the most relevant documents
+## Perform a sparse vector search
 
-To find the top-k most relevant results for the query, use the `vector_distance()` function.
+To retrieve the top-k nearest neighbors of a query vector, use the [`fn.vector_distance()`](/sdk/topk-py/query#vector_distance) function.
 
-This function computes a score between the provided sparse query and indexed sparse vectors which
-can then be used to sort the results.
+`fn.vector_distance()` computes the distance (or similarity) between a stored sparse vector field and a query vector, based on the distance metric configured in the vector index (e.g., dot product).
+
+You can use the computed value to sort and return the closest matches.
 
 <CodeGroup>
 
@@ -139,9 +146,9 @@ Let's break down the example above:
 2. Store the computed dot product score in the `title_score` field.
 3. Return the top 10 results sorted by the `title_score` field in a descending order.
 
-### Combine sparse vector search with metadata filtering
+## Combine sparse vector search with metadata filtering
 
-Sparse vector search can be easily combined with metadata filtering by adding a `filter()` stage to the query:
+Sparse vector search can be combined with metadata filtering by adding a [`filter()`](/sdk/topk-py/query#filter) stage to the query:
 
 <CodeGroup>
 

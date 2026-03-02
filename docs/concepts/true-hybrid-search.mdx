@@ -241,6 +241,8 @@ from topk_sdk.query import select, field, fn
 
 docs = client.collection("documents").query(
     select(
+        "content",
+        "importance",
         content_score=fn.semantic_similarity("content", "machine learning applications"),
     )
     .topk(0.8 * field("importance") + 0.2 * field("content_score"), 10)
@@ -253,6 +255,8 @@ import { select, field, fn } from "topk-js/query";
 
 const docs = await client.collection("documents").query(
   select({
+    content: field("content"),
+    importance: field("importance"),
     content_score: fn.semanticSimilarity(
       "content",
       "machine learning applications"

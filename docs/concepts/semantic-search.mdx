@@ -2,28 +2,22 @@
 title: "Semantic search"
 ---
 
-With TopK, you can implement vector-powered **semantic search** in just a few lines of code.
-
-TopK comes with **built-in embeddings** and **reranking**, removing the need for third-party embedding models or custom reranking solutions.
+TopK enables you to add semantic search to your documents with just a few lines of code.
+There is no need to build or maintain a separate embedding pipeline.
 
 ## How to perform a semantic search
 
 In the following example, we'll:
 
 <Steps>
-  <Step title="Define a collection schema">
-    Define a collection schema for semantic search.
-  </Step>
-  <Step title="Add documents">
-    Add documents to the collection.
-  </Step>
-  <Step title="Query the collection with semantic search">
-    Perform a semantic search.
-  </Step>
+  <Step title="Define a collection schema">Create a collection configured for semantic search.</Step>
+  <Step title="Add documents">Insert documents into the collection.</Step>
+  <Step title="Run a semantic query">Retrieve documents using a free-form text query.</Step>
 </Steps>
+
 ### Define a collection schema
 
-Semantic search is enabled by adding a [`semantic_index()`](/collections/create#semantic-index) to a **text** field in the collection schema:
+Semantic search is enabled by adding a [`semantic_index()`](/sdk/topk-py/schema#semantic_index) to a [`text()`](/sdk/topk-py/schema#text) field in the collection schema:
 
 
 <CodeGroup>
@@ -53,7 +47,7 @@ await client.collections().create("books", {
 This configuration automatically generates embeddings as well as enables keyword search for the specified text fields.
 
 <Tip>
-  If you want to use your own embeddings instead of TopK's built-in `semantic_index()`, see [Vector Search](/concepts/vector-search).
+  If you want to use your own embeddings instead of TopK's built-in `semantic_index()`, see [Vector Search](/concepts/vector-search) guide.
 </Tip>
 
 ### Add documents to the collection
@@ -83,9 +77,9 @@ await client.collection("books").upsert([
 
 </CodeGroup>
 
-### Perform a semantic search
+### Run a semantic query
 
-To search for documents based on semantic similarity, use the `semantic_similarity()` function:
+To search for documents based on semantic similarity, use the [`fn.semantic_similarity()`](/sdk/topk-py/query#semantic_similarity) function:
 
 <CodeGroup>
 
@@ -161,7 +155,7 @@ Let's break down the example above:
 1. The `semantic_similarity()` function computes the similarity between the query `"classic American novel"` and the text value stored in the `title` field for each document.
 2. TopK performs automatic query embedding under the hood using the model specified in the `semantic_index()` function.
 3. The results are ranked based on similarity, and the top 10 most relevant documents are returned.
-4. The optional `.rerank()` call uses a reranking model to improve relevance of the results.
+4. The optional [`.rerank()`](/sdk/topk-py/query#rerank) call uses a reranking model to improve relevance of the results.
    For more information, see our [Reranking](/concepts/reranking) guide.
 
 This works **out of the box**—no need to manage embeddings, external APIs, or third-party reranking models.
