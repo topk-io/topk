@@ -48,7 +48,7 @@ async def test_async_ask_stream(async_ctx: AsyncProjectContext):
     max_attempts = 120
     processed = False
     for _ in range(max_attempts):
-        processed = (await async_ctx.client.dataset(dataset.name).check_handle(handle))
+        processed = (await async_ctx.client.dataset(dataset.name).check_handle(handle)).processed
         if processed:
             break
         await asyncio.sleep(1)
