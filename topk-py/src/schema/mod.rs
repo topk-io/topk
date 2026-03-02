@@ -33,7 +33,7 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(u8_vector))?;
     m.add_wrapped(wrap_pyfunction!(i8_vector))?;
     m.add_wrapped(wrap_pyfunction!(binary_vector))?;
-    m.add_wrapped(wrap_pyfunction!(bytes))?;
+    m.add_wrapped(wrap_pyfunction!(self::bytes))?;
     m.add_wrapped(wrap_pyfunction!(f32_sparse_vector))?;
     m.add_wrapped(wrap_pyfunction!(u8_sparse_vector))?;
     m.add_wrapped(wrap_pyfunction!(list))?;
