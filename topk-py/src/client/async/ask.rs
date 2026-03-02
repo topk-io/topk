@@ -88,7 +88,7 @@ pub fn ask_stream(
                     None => {
                         let _ = tx
                             .send(Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                                "AskResponseMessage has no message",
+                                "Invalid proto: AskResponseMessage has no message",
                             )))
                             .await;
                         break;

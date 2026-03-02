@@ -45,7 +45,7 @@ class Client:
         filter: typing.Optional[query.LogicalExpr] = None,
         mode: typing.Optional[typing.Literal["summarize", "reason", "deep_research"]] = None,
         select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> typing.Union[FinalAnswer, SubQuery, Reason]:
+    ) -> typing.Union[Answer, Search, Reason]:
         """
         Ask a question and wait for the stream to complete, returning the last message.
         """
@@ -57,7 +57,7 @@ class Client:
         filter: typing.Optional[query.LogicalExpr] = None,
         mode: typing.Optional[typing.Literal["summarize", "reason", "deep_research"]] = None,
         select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> typing.Iterator[typing.Union[FinalAnswer, SubQuery, Reason]]:
+    ) -> typing.Iterator[typing.Union[Answer, Search, Reason]]:
         """
         Ask a question and get streaming responses as an iterator.
         """
@@ -95,7 +95,7 @@ class AsyncClient:
         filter: typing.Optional[query.LogicalExpr] = None,
         mode: typing.Optional[typing.Literal["summarize", "reason", "deep_research"]] = None,
         select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> typing.Awaitable[typing.Union[FinalAnswer, SubQuery, Reason]]:
+    ) -> typing.Awaitable[typing.Union[Answer, Search, Reason]]:
         """
         Ask a question and wait for the stream to complete asynchronously, returning the last message.
         """
@@ -107,7 +107,7 @@ class AsyncClient:
         filter: typing.Optional[query.LogicalExpr] = None,
         mode: typing.Optional[typing.Literal["summarize", "reason", "deep_research"]] = None,
         select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> typing.AsyncIterator[typing.Union[FinalAnswer, SubQuery, Reason]]:
+    ) -> typing.AsyncIterator[typing.Union[Answer, Search, Reason]]:
         """
         Ask a question and get streaming responses asynchronously as an async iterator.
         """
@@ -547,25 +547,50 @@ class Fact:
     fact: builtins.str
     source_ids: builtins.list[builtins.str]
 
-class Content:
+class Chunk:
     """
-    Represents a content in an ask response.
+    Text chunk content.
     """
 
-    type: typing.Literal["text", "png", "jpeg"]
-    data: typing.Any
+    text: builtins.str
+    doc_pages: builtins.list[builtins.int]
+
+class Image:
+    """
+    Image content.
+    """
+
+    data: builtins.bytes
+    mime_type: builtins.str
+
+class Page:
+    """
+    Page content with optional image.
+    """
+
+    page_number: builtins.int
+    image: typing.Optional[Image]
+
+class Content:
+    """
+    Content in a search result. One of chunk, page, or image.
+    """
+
+    type: typing.Literal["chunk", "page", "image"]
+    data: typing.Union[Chunk, Page, Image]
 
 class SearchResult:
     """
     Represents a search result in an ask response.
     """
 
-    id: builtins.str
-    content: Content
     doc_id: builtins.str
-    doc_pages: builtins.list[builtins.int]
+    doc_type: builtins.str
+    dataset: builtins.str
+    content: Content
+    metadata: builtins.dict[builtins.str, typing.Any]
 
-class FinalAnswer:
+class Answer:
     """
     Represents a final answer in an ask response.
     """
@@ -573,7 +598,7 @@ class FinalAnswer:
     facts: builtins.list[Fact]
     sources: builtins.dict[builtins.str, SearchResult]
 
-class SubQuery:
+class Search:
     """
     Represents a sub-query in an ask response.
     """
@@ -596,7 +621,7 @@ class AskIterator:
     """
 
     def __iter__(self) -> AskIterator: ...
-    def __next__(self) -> typing.Optional[typing.Union[FinalAnswer, SubQuery, Reason]]: ...
+    def __next__(self) -> typing.Optional[typing.Union[Answer, Search, Reason]]: ...
 
 class AsyncAskIterator:
     """
@@ -604,7 +629,7 @@ class AsyncAskIterator:
     """
 
     def __aiter__(self) -> AsyncAskIterator: ...
-    def __anext__(self) -> typing.AsyncIterator[typing.Union[FinalAnswer, SubQuery, Reason]]: ...
+    def __anext__(self) -> typing.AsyncIterator[typing.Union[Answer, Search, Reason]]: ...
 
 class ConsistencyLevel(Enum):
     """
