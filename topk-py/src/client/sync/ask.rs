@@ -81,7 +81,7 @@ pub fn ask_stream(
                     None => {
                         let _ = tx
                             .send(Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                                "AskResponseMessage has no message",
+                                "Invalid proto: AskResponseMessage has no message",
                             )))
                             .await;
                         break;
@@ -130,7 +130,7 @@ pub fn ask(
                     Some(inner) => last_message = Some(inner.into()),
                     None => {
                         return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                            "Invalid protocol: AskResponseMessage has no message",
+                            "Invalid proto: AskResponseMessage has no message",
                         ))
                     }
                 },

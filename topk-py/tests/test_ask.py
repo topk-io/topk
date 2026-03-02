@@ -3,7 +3,7 @@ import time
 from pathlib import Path
 
 import pytest
-from topk_sdk import FinalAnswer
+from topk_sdk import Answer
 
 from . import AsyncProjectContext, ProjectContext
 
@@ -37,7 +37,7 @@ def test_ask(ctx: ProjectContext):
 
     print(result)
 
-#     assert isinstance(result, FinalAnswer), f"Expected FinalAnswer, got {type(result)}"
+#     assert isinstance(result, Answer), f"Expected Answer, got {type(result)}"
 #     found_55 = any("55" in fact.fact for fact in result.facts)
 #     assert found_55, f"Expected '55' in facts, but got: {[f.fact for f in result.facts]}"
 
@@ -73,7 +73,7 @@ def test_ask(ctx: ProjectContext):
 #     for message in stream:
 #         print("what is message", message)
 #         message_count += 1
-#         if isinstance(message, FinalAnswer):
+#         if isinstance(message, Answer):
 #             final_answer_received = True
 #             found_55 = any(
 #                 "55" in fact.fact for fact in message.facts
@@ -112,7 +112,7 @@ def test_ask(ctx: ProjectContext):
 
 #     print(result)
 
-#     assert isinstance(result, FinalAnswer), f"Expected FinalAnswer, got {type(result)}"
+#     assert isinstance(result, Answer), f"Expected Answer, got {type(result)}"
 #     found_55 = any("55" in fact.fact for fact in result.facts)
 #     assert found_55, f"Expected '55' in facts, but got: {[f.fact for f in result.facts]}"
 
@@ -149,7 +149,7 @@ def test_ask(ctx: ProjectContext):
 #     async for message in stream:
 #         print("what is message", message)
 #         message_count += 1
-#         if isinstance(message, FinalAnswer):
+#         if isinstance(message, Answer):
 #             final_answer_received = True
 #             found_55 = any(
 #                 "55" in fact.fact for fact in message.facts

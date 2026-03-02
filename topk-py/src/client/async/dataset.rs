@@ -138,6 +138,7 @@ impl AsyncDatasetClient {
     pub fn check_handle(&self, py: Python<'_>, handle: String) -> PyResult<Py<PyAny>> {
         let client = self.client.clone();
         let dataset = self.dataset.clone();
+
         future_into_py(py, async move {
             let response = client
                 .dataset(&dataset)
