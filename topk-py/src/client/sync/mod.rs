@@ -4,10 +4,12 @@ mod collections;
 mod dataset;
 mod datasets;
 mod runtime;
+mod search;
 
 use std::sync::Arc;
 
 pub use ask::{ask, ask_stream, AskIterator};
+pub use search::{search, search_stream, SearchIterator};
 pub use collection::CollectionClient;
 pub use collections::CollectionsClient;
 pub use dataset::DatasetClient;
@@ -113,6 +115,48 @@ impl Client {
             sources.into(),
             filter,
             mode,
+            select_fields,
+        )
+    }
+
+    #[pyo3(signature = (query, sources, filter=None, top_k=10, select_fields=None))]
+    pub fn search(
+        &self,
+        py: Python<'_>,
+        query: String,
+        sources: Sources,
+        filter: Option<LogicalExpr>,
+        top_k: u32,
+        select_fields: Option<Vec<String>>,
+    ) -> PyResult<Vec<crate::data::ask::SearchResult>> {
+        search(
+            self.runtime.clone(),
+            self.client.clone(),
+            py,
+            query,
+            sources.into(),
+            filter,
+            top_k,
+            select_fields,
+        )
+    }
+
+    #[pyo3(signature = (query, sources, filter=None, top_k=10, select_fields=None))]
+    pub fn search_stream(
+        &self,
+        query: String,
+        sources: Sources,
+        filter: Option<LogicalExpr>,
+        top_k: u32,
+        select_fields: Option<Vec<String>>,
+    ) -> PyResult<SearchIterator> {
+        search_stream(
+            self.runtime.clone(),
+            self.client.clone(),
+            query,
+            sources.into(),
+            filter,
+            top_k,
             select_fields,
         )
     }

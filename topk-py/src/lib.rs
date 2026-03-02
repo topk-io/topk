@@ -56,6 +56,8 @@ pub fn topk_sdk(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     m.add_class::<client::sync::AskIterator>()?;
     m.add_class::<client::r#async::AsyncAskIterator>()?;
+    m.add_class::<client::sync::SearchIterator>()?;
+    m.add_class::<client::r#async::AsyncSearchIterator>()?;
 
     // classes
     m.add_class::<data::collection::Collection>()?;
