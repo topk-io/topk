@@ -8,10 +8,6 @@ repository = "https://github.com/topk-io/topk"
 homepage = "https://topk.io"
 documentation = "https://docs.topk.io"
 
-[features]
-default = []
-in_memory = []
-
 [dependencies]
 tonic = { version = "0.14.2", features = ["tls-ring", "tls-native-roots"] }
 tokio = { version = "1.35", features = ["full"] }

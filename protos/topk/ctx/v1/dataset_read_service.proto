@@ -1,0 +1,39 @@
+syntax = "proto3";
+package topk.ctx.v1;
+
+import "topk/data/v1/expr/logical.proto";
+import "topk/data/v1/value.proto";
+
+service DatasetReadService {
+  // List all dataset documents
+  rpc List(ListRequest) returns (stream ListEntry);
+
+  // Get document metadata
+  rpc GetMetadata(GetMetadataRequest) returns (GetMetadataResponse);
+}
+
+message ListRequest {
+  // Fields to select (empty to select all fields)
+  repeated string fields = 1;
+  // Filter expression
+  topk.data.v1.LogicalExpr filter = 2;
+}
+
+message ListEntry {
+  string id = 1;
+  string name = 2;
+  uint64 size = 3;
+  string mime_type = 4;
+  map<string, topk.data.v1.Value> metadata = 5;
+}
+
+message GetMetadataRequest {
+  // Document ID
+  string id = 1;
+  // Fields to select (empty to select all fields)
+  repeated string fields = 2;
+}
+
+message GetMetadataResponse {
+  map<string, topk.data.v1.Value> metadata = 1;
+}

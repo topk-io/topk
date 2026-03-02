@@ -17,7 +17,7 @@ impl super::Client {
         sources: impl IntoIterator<Item = impl Into<Source>>,
         filter: Option<LogicalExpr>,
         mode: Option<Mode>,
-        select_fields: impl IntoIterator<Item = impl Into<String>>,
+        select_fields: Option<Vec<String>>,
     ) -> Result<Response<Streaming<AskResult>>, Error> {
         let client = super::create_ctx_client(&self.config(), &self.channel()).await?;
 
@@ -26,7 +26,7 @@ impl super::Client {
             sources: sources.into_iter().map(|s| s.into()).collect(),
             filter,
             mode: mode.unwrap_or(Mode::Reason) as i32,
-            select_fields: select_fields.into_iter().map(|s| s.into()).collect(),
+            select_fields: select_fields.unwrap_or_default(),
         };
 
         let response = call_with_retry(&self.config().retry_config(), || {

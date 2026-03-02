@@ -61,7 +61,7 @@ async fn test_ask(ctx: &mut ProjectTestContext) {
             [&create.dataset().unwrap().name],
             None,
             None,
-            Vec::<String>::new(),
+            None
         )
         .await
         .expect("could not call ask");
