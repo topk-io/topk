@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use test_context::test_context;
 use topk_rs::{
-    error::{CollectionValidationError, SchemaValidationError, ValidationErrorBag},
+    error::{SchemaValidationError, ValidationErrorBag},
     proto::v1::control::{
         field_type_matrix::MatrixValueType, FieldSpec, MultiVectorQuantization,
         VectorDistanceMetric,
@@ -64,11 +64,10 @@ async fn test_create_collection_with_invalid_name(ctx: &mut ProjectTestContext) 
         .await
         .expect_err("could not create collection");
 
-    assert!(
-        matches!(err, Error::CollectionValidationError(e) if e == ValidationErrorBag::new(vec![
-            CollectionValidationError::InvalidName("must start with a letter or underscore and contain only letters, numbers, underscores, and dashes".to_string())
-        ]))
-    );
+    assert!(matches!(
+        err,
+        topk_rs::Error::InvalidArgument(e) if e.contains("Invalid collection name")
+    ));
 }
 
 #[test_context(ProjectTestContext)]
