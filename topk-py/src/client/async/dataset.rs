@@ -57,6 +57,7 @@ impl AsyncDatasetClient {
         .map(|result| result.into())
     }
 
+    #[pyo3(signature = (file_id, fields=None))]
     pub fn get_metadata(
         &self,
         py: Python<'_>,
