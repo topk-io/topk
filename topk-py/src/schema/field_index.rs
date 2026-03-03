@@ -53,7 +53,7 @@ impl TryFrom<topk_rs::proto::v1::control::VectorDistanceMetric> for VectorDistan
 
     fn try_from(
         metric: topk_rs::proto::v1::control::VectorDistanceMetric,
-    ) -> std::result::Result<Self, Self::Error> {
+    ) -> Result<Self, Self::Error> {
         match metric {
             topk_rs::proto::v1::control::VectorDistanceMetric::Cosine => {
                 Ok(VectorDistanceMetric::Cosine)
@@ -112,7 +112,7 @@ impl TryFrom<topk_rs::proto::v1::control::KeywordIndexType> for KeywordIndexType
 
     fn try_from(
         index_type: topk_rs::proto::v1::control::KeywordIndexType,
-    ) -> std::result::Result<Self, Self::Error> {
+    ) -> Result<Self, Self::Error> {
         match index_type {
             topk_rs::proto::v1::control::KeywordIndexType::Text => Ok(KeywordIndexType::Text),
             topk_rs::proto::v1::control::KeywordIndexType::Unspecified => {
@@ -143,7 +143,7 @@ impl TryFrom<topk_rs::proto::v1::control::MultiVectorDistanceMetric> for MultiVe
 
     fn try_from(
         metric: topk_rs::proto::v1::control::MultiVectorDistanceMetric,
-    ) -> std::result::Result<Self, Self::Error> {
+    ) -> Result<Self, Self::Error> {
         match metric {
             topk_rs::proto::v1::control::MultiVectorDistanceMetric::Maxsim => {
                 Ok(MultiVectorDistanceMetric::Maxsim)
@@ -211,7 +211,7 @@ impl Into<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
 impl TryFrom<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
     type Error = RustError;
 
-    fn try_from(proto: topk_rs::proto::v1::control::FieldIndex) -> std::result::Result<Self, Self::Error> {
+    fn try_from(proto: topk_rs::proto::v1::control::FieldIndex) -> Result<Self, Self::Error> {
         let index = proto.index.ok_or(topk_rs::Error::InvalidProto)?;
         Ok(match index {
             topk_rs::proto::v1::control::field_index::Index::KeywordIndex(keyword_index) => {

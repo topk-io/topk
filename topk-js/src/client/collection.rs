@@ -85,15 +85,15 @@ impl CollectionClient {
             .await
             .map_err(TopkError::from)?;
 
-        let mut result = HashMap::new();
-        for (id, doc) in documents {
-            let doc_map = doc
-                .into_iter()
-                .map(|(k, v)| v.try_into().map(|nv| (k, nv)))
-                .collect::<std::result::Result<HashMap<_, _>, _>>()?;
-            result.insert(id, doc_map);
-        }
-        Ok(result)
+        Ok(documents
+            .into_iter()
+            .map(|(id, doc)| {
+                doc.into_iter()
+                    .map(|(k, v)| v.try_into().map(|nv| (k, nv)))
+                    .collect::<std::result::Result<HashMap<_, _>, _>>()
+                    .map(|doc_map| (id, doc_map))
+            })
+            .collect::<std::result::Result<HashMap<_, _>, _>>()?)
     }
 
     /// Counts the number of documents in the collection.

@@ -290,11 +290,12 @@ impl TryFrom<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
     type Error = crate::error::TopkError;
 
     fn try_from(
-        field_index: topk_rs::proto::v1::control::FieldIndex,
+        mut field_index: topk_rs::proto::v1::control::FieldIndex,
     ) -> std::result::Result<Self, Self::Error> {
         let index = field_index
-            .index()
-            .map_err(|_| topk_rs::Error::InvalidProto)?;
+            .index
+            .take()
+            .ok_or(topk_rs::Error::InvalidProto)?;
         Ok(match index {
             topk_rs::proto::v1::control::field_index::Index::KeywordIndex(k) => {
                 FieldIndex::keyword_index(

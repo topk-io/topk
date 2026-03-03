@@ -68,12 +68,12 @@ impl Into<topk_rs::proto::v1::control::Collection> for Collection {
 impl TryFrom<topk_rs::proto::v1::control::Collection> for Collection {
     type Error = RustError;
 
-    fn try_from(collection: topk_rs::proto::v1::control::Collection) -> std::result::Result<Self, Self::Error> {
+    fn try_from(collection: topk_rs::proto::v1::control::Collection) -> Result<Self, Self::Error> {
         let schema = collection
             .schema
             .into_iter()
             .map(|(name, field)| field.try_into().map(|f| (name, f)))
-            .collect::<std::result::Result<HashMap<String, FieldSpec>, _>>()?;
+            .collect::<Result<HashMap<String, FieldSpec>, _>>()?;
         Ok(Self {
             name: collection.name,
             org_id: collection.org_id,

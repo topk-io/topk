@@ -34,14 +34,12 @@ pub struct Document(pub(crate) HashMap<String, NativeValue>);
 impl TryFrom<topk_rs::proto::v1::data::Document> for Document {
     type Error = RustError;
 
-    fn try_from(
-        doc: topk_rs::proto::v1::data::Document,
-    ) -> std::result::Result<Self, Self::Error> {
+    fn try_from(doc: topk_rs::proto::v1::data::Document) -> Result<Self, Self::Error> {
         Ok(Document(
             doc.fields
                 .into_iter()
                 .map(|(k, v)| v.try_into().map(|nv| (k, nv)))
-                .collect::<std::result::Result<HashMap<_, _>, _>>()?,
+                .collect::<Result<HashMap<_, _>, _>>()?,
         ))
     }
 }
@@ -51,11 +49,11 @@ impl TryFrom<HashMap<String, topk_rs::proto::v1::data::Value>> for Document {
 
     fn try_from(
         doc: HashMap<String, topk_rs::proto::v1::data::Value>,
-    ) -> std::result::Result<Self, Self::Error> {
+    ) -> Result<Self, Self::Error> {
         Ok(Document(
             doc.into_iter()
                 .map(|(k, v)| v.try_into().map(|nv| (k, nv)))
-                .collect::<std::result::Result<HashMap<_, _>, _>>()?,
+                .collect::<Result<HashMap<_, _>, _>>()?,
         ))
     }
 }

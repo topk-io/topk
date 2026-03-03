@@ -227,7 +227,7 @@ impl<'py> IntoPyObject<'py> for Value {
 impl TryFrom<topk_rs::proto::v1::data::Value> for Value {
     type Error = crate::error::RustError;
 
-    fn try_from(value: topk_rs::proto::v1::data::Value) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: topk_rs::proto::v1::data::Value) -> Result<Self, Self::Error> {
         Ok(match value.value {
             Some(topk_rs::proto::v1::data::value::Value::String(s)) => Value::String(s),
             Some(topk_rs::proto::v1::data::value::Value::U32(i)) => Value::Int(i as i64),
@@ -239,38 +239,31 @@ impl TryFrom<topk_rs::proto::v1::data::Value> for Value {
             Some(topk_rs::proto::v1::data::value::Value::Bool(b)) => Value::Bool(b),
             Some(topk_rs::proto::v1::data::value::Value::Null(_)) => Value::Null(),
             Some(topk_rs::proto::v1::data::value::Value::Binary(b)) => Value::Bytes(b.into()),
-            Some(topk_rs::proto::v1::data::value::Value::Vector(v)) => match v.vector {
-                Some(topk_rs::proto::v1::data::vector::Vector::Float(v)) =>
-                {
-                    #[allow(deprecated)]
-                    Value::List(List {
-                        values: Values::F32(v.values),
-                    })
-                }
-                Some(topk_rs::proto::v1::data::vector::Vector::Byte(v)) =>
-                {
-                    #[allow(deprecated)]
-                    Value::List(List {
-                        values: Values::U8(v.values),
-                    })
-                }
-                _ => return Err(topk_rs::Error::InvalidProto.into()),
-            },
-            Some(topk_rs::proto::v1::data::value::Value::SparseVector(sv)) => {
-                Value::SparseVector(match sv.values {
-                    Some(topk_rs::proto::v1::data::sparse_vector::Values::F32(v)) => {
-                        SparseVector::F32 {
-                            indices: sv.indices,
-                            values: v.values,
+            Some(topk_rs::proto::v1::data::value::Value::Vector(mut v)) => {
+                let vector = v.vector.take().ok_or(topk_rs::Error::InvalidProto)?;
+                #[allow(deprecated)]
+                Value::List(List {
+                    values: match vector {
+                        topk_rs::proto::v1::data::vector::Vector::Float(inner) => {
+                            Values::F32(inner.values)
                         }
-                    }
-                    Some(topk_rs::proto::v1::data::sparse_vector::Values::U8(v)) => {
-                        SparseVector::U8 {
-                            indices: sv.indices,
-                            values: v.values,
+                        topk_rs::proto::v1::data::vector::Vector::Byte(inner) => {
+                            Values::U8(inner.values)
                         }
-                    }
-                    _ => return Err(topk_rs::Error::InvalidProto.into()),
+                    },
+                })
+            }
+            Some(topk_rs::proto::v1::data::value::Value::SparseVector(mut sv)) => {
+                let values = sv.values.take().ok_or(topk_rs::Error::InvalidProto)?;
+                Value::SparseVector(match values {
+                    topk_rs::proto::v1::data::sparse_vector::Values::F32(v) => SparseVector::F32 {
+                        indices: sv.indices,
+                        values: v.values,
+                    },
+                    topk_rs::proto::v1::data::sparse_vector::Values::U8(v) => SparseVector::U8 {
+                        indices: sv.indices,
+                        values: v.values,
+                    },
                 })
             }
             Some(topk_rs::proto::v1::data::value::Value::List(l)) => Value::List(List {
@@ -360,7 +353,7 @@ impl<'py> IntoPyObject<'py> for NativeValue {
 impl TryFrom<topk_rs::proto::v1::data::Value> for NativeValue {
     type Error = crate::error::RustError;
 
-    fn try_from(value: topk_rs::proto::v1::data::Value) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: topk_rs::proto::v1::data::Value) -> Result<Self, Self::Error> {
         Ok(NativeValue(Value::try_from(value)?))
     }
 }

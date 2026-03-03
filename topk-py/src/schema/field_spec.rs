@@ -65,7 +65,7 @@ impl Into<topk_rs::proto::v1::control::FieldSpec> for FieldSpec {
 impl TryFrom<topk_rs::proto::v1::control::FieldSpec> for FieldSpec {
     type Error = RustError;
 
-    fn try_from(proto: topk_rs::proto::v1::control::FieldSpec) -> std::result::Result<Self, Self::Error> {
+    fn try_from(proto: topk_rs::proto::v1::control::FieldSpec) -> Result<Self, Self::Error> {
         Ok(Self {
             data_type: proto
                 .data_type
@@ -73,10 +73,7 @@ impl TryFrom<topk_rs::proto::v1::control::FieldSpec> for FieldSpec {
                 .ok_or(topk_rs::Error::InvalidProto)?
                 .try_into()?,
             required: proto.required,
-            index: proto
-                .index
-                .map(|i| i.try_into())
-                .transpose()?,
+            index: proto.index.map(|i| i.try_into()).transpose()?,
         })
     }
 }

@@ -148,15 +148,16 @@ impl TryFrom<topk_rs::proto::v1::control::field_type_list::ListValueType> for Li
         }
     }
 }
-impl TryFrom<&topk_rs::proto::v1::control::FieldType> for DataType {
+impl TryFrom<topk_rs::proto::v1::control::FieldType> for DataType {
     type Error = crate::error::TopkError;
 
     fn try_from(
-        field_type: &topk_rs::proto::v1::control::FieldType,
+        mut field_type: topk_rs::proto::v1::control::FieldType,
     ) -> std::result::Result<Self, Self::Error> {
         let data_type = field_type
-            .data_type()
-            .map_err(|_| crate::error::TopkError::from(topk_rs::Error::InvalidProto))?;
+            .data_type
+            .take()
+            .ok_or(topk_rs::Error::InvalidProto)?;
         Ok(match data_type {
             topk_rs::proto::v1::control::field_type::DataType::Text(_) => DataType::Text,
             topk_rs::proto::v1::control::field_type::DataType::Integer(_) => DataType::Integer,

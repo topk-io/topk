@@ -62,15 +62,16 @@ impl TryFrom<topk_rs::proto::v1::control::FieldSpec> for CollectionFieldSpec {
     type Error = TopkError;
 
     fn try_from(
-        field_spec: topk_rs::proto::v1::control::FieldSpec,
+        mut field_spec: topk_rs::proto::v1::control::FieldSpec,
     ) -> std::result::Result<Self, Self::Error> {
         Ok(Self {
-            data_type: field_spec.data_type()?.try_into()?,
+            data_type: field_spec
+                .data_type
+                .take()
+                .ok_or(topk_rs::Error::InvalidProto)?
+                .try_into()?,
             required: field_spec.required,
-            index: field_spec
-                .index
-                .map(|i| i.try_into())
-                .transpose()?,
+            index: field_spec.index.map(|i| i.try_into()).transpose()?,
         })
     }
 }

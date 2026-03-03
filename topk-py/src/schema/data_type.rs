@@ -83,7 +83,7 @@ impl TryFrom<topk_rs::proto::v1::control::field_type_matrix::MatrixValueType> fo
 
     fn try_from(
         value: topk_rs::proto::v1::control::field_type_matrix::MatrixValueType,
-    ) -> std::result::Result<Self, Self::Error> {
+    ) -> Result<Self, Self::Error> {
         match value {
             topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::F32 => {
                 Ok(MatrixValueType::F32)
@@ -131,7 +131,7 @@ impl TryFrom<topk_rs::proto::v1::control::field_type_list::ListValueType> for Li
 
     fn try_from(
         value: topk_rs::proto::v1::control::field_type_list::ListValueType,
-    ) -> std::result::Result<Self, Self::Error> {
+    ) -> Result<Self, Self::Error> {
         match value {
             topk_rs::proto::v1::control::field_type_list::ListValueType::Integer => {
                 Ok(ListValueType::Integer)
@@ -206,7 +206,9 @@ impl Into<topk_rs::proto::v1::control::FieldType> for DataType {
 impl TryFrom<topk_rs::proto::v1::control::field_type::DataType> for DataType {
     type Error = RustError;
 
-    fn try_from(proto: topk_rs::proto::v1::control::field_type::DataType) -> std::result::Result<Self, Self::Error> {
+    fn try_from(
+        proto: topk_rs::proto::v1::control::field_type::DataType,
+    ) -> Result<Self, Self::Error> {
         Ok(match proto {
             topk_rs::proto::v1::control::field_type::DataType::Integer(_) => DataType::Integer(),
             topk_rs::proto::v1::control::field_type::DataType::Float(_) => DataType::Float(),
