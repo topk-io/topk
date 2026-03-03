@@ -6,13 +6,15 @@ use std::sync::Arc;
 use bytes::Bytes;
 use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::sync::mpsc;
-use tokio::sync::OnceCell;
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_stream::StreamExt;
 
-use crate::client::create_dataset_read_client;
-use crate::client::create_dataset_write_client;
+use tokio::sync::OnceCell;
+use tonic::transport::Channel;
+
 use crate::client::Response;
+use crate::proto::v1::ctx::dataset_read_service_client::DatasetReadServiceClient;
+use crate::proto::v1::ctx::dataset_write_service_client::DatasetWriteServiceClient;
 use crate::proto::v1::ctx::doc::DocId;
 use crate::proto::v1::ctx::file::{InputFile, InputSource};
 use crate::proto::v1::ctx::handle::Handle;
@@ -26,8 +28,8 @@ use crate::proto::v1::ctx::{
 use crate::proto::v1::data::LogicalExpr;
 use crate::proto::v1::data::Value;
 use crate::retry::call_with_retry;
-use crate::ClientConfig;
 use crate::Error;
+use crate::{create_client, ClientConfig};
 
 // Buffer size for the upsert stream
 const UPLOAD_BATCH_SIZE: usize = 262_144; // 256KB
@@ -38,23 +40,23 @@ const MAX_CHUNKS_IN_FLIGHT: usize = 100;
 #[derive(Clone)]
 pub struct DatasetClient {
     // Client config
-    config: Arc<ClientConfig>,
-    // Channel
-    channel: Arc<OnceCell<tonic::transport::Channel>>,
-    // Dataset name
-    dataset_name: String,
+    config: ClientConfig,
+    // Read channel
+    read: Arc<OnceCell<Channel>>,
+    // Write channel
+    write: Arc<OnceCell<Channel>>,
 }
 
 impl DatasetClient {
     pub fn new(
-        config: Arc<ClientConfig>,
-        channel: Arc<OnceCell<tonic::transport::Channel>>,
-        name: impl Into<String>,
+        config: ClientConfig,
+        read: Arc<OnceCell<Channel>>,
+        write: Arc<OnceCell<Channel>>,
     ) -> Self {
         Self {
             config,
-            channel,
-            dataset_name: name.into(),
+            read,
+            write,
         }
     }
 
@@ -63,8 +65,7 @@ impl DatasetClient {
         fields: Option<Vec<String>>,
         filter: Option<LogicalExpr>,
     ) -> Result<Vec<ListEntry>, Error> {
-        let client =
-            create_dataset_read_client(&self.config, &self.dataset_name, &self.channel).await?;
+        let client = create_client!(DatasetReadServiceClient, self.read, self.config).await?;
         let fields = fields.unwrap_or_default();
 
         let mut stream = call_with_retry(&self.config.retry_config(), || {
@@ -98,8 +99,7 @@ impl DatasetClient {
         input: impl Into<InputFile>,
         metadata: impl IntoIterator<Item = (impl Into<String>, impl Into<Value>)>,
     ) -> Result<Response<UpsertResponse>, Error> {
-        let client =
-            create_dataset_write_client(&self.config, &self.dataset_name, &self.channel).await?;
+        let client = create_client!(DatasetWriteServiceClient, self.write, self.config).await?;
         let file = input.into();
         let metadata: HashMap<String, Value> = metadata
             .into_iter()
@@ -162,8 +162,7 @@ impl DatasetClient {
         &self,
         doc_id: impl Into<DocId>,
     ) -> Result<Response<DeleteResponse>, Error> {
-        let client =
-            create_dataset_write_client(&self.config, &self.dataset_name, &self.channel).await?;
+        let client = create_client!(DatasetWriteServiceClient, self.write, self.config).await?;
 
         let doc_id = doc_id.into();
 
@@ -190,8 +189,7 @@ impl DatasetClient {
         &self,
         handle: Handle,
     ) -> Result<Response<CheckHandleResponse>, Error> {
-        let client =
-            create_dataset_write_client(&self.config, &self.dataset_name, &self.channel).await?;
+        let client = create_client!(DatasetWriteServiceClient, self.write, self.config).await?;
 
         let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
@@ -216,8 +214,7 @@ impl DatasetClient {
         doc_id: impl Into<DocId>,
         fields: Option<Vec<String>>,
     ) -> Result<Response<GetMetadataResponse>, Error> {
-        let client =
-            create_dataset_read_client(&self.config, &self.dataset_name, &self.channel).await?;
+        let client = create_client!(DatasetReadServiceClient, self.read, self.config).await?;
         let doc_id = doc_id.into();
         let fields = fields.unwrap_or_default();
 
@@ -246,8 +243,7 @@ impl DatasetClient {
         doc_id: impl Into<DocId>,
         metadata: HashMap<String, Value>,
     ) -> Result<Response<UpdateMetadataResponse>, Error> {
-        let client =
-            create_dataset_write_client(&self.config, &self.dataset_name, &self.channel).await?;
+        let client = create_client!(DatasetWriteServiceClient, self.write, self.config).await?;
 
         let doc_id = doc_id.into();
 
