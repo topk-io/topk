@@ -27,9 +27,8 @@ impl SearchIterator {
     }
 
     fn __next__(&mut self, py: Python<'_>) -> PyResult<Option<SearchResult>> {
-        self.runtime.block_on(py, async {
-            self.receiver.recv().await.transpose()
-        })
+        self.runtime
+            .block_on(py, async { self.receiver.recv().await.transpose() })
     }
 }
 
@@ -68,11 +67,17 @@ pub fn search_stream(
 
         while let Some(result) = stream.next().await {
             match result {
-                Ok(msg) => {
-                    if let Err(mpsc::error::SendError(_)) = tx.send(Ok(msg.into())).await {
+                Ok(msg) => match msg.try_into() {
+                    Ok(sr) => {
+                        if let Err(mpsc::error::SendError(_)) = tx.send(Ok(sr)).await {
+                            break;
+                        }
+                    }
+                    Err(e) => {
+                        let _ = tx.send(Err::<SearchResult, PyErr>(PyErr::from(e))).await;
                         break;
                     }
-                }
+                },
                 Err(e) => {
                     let _ = tx.send(Err(RustError(e.into()).into())).await;
                     break;
@@ -112,7 +117,7 @@ pub fn search(
         let mut results = Vec::new();
         while let Some(result) = stream.next().await {
             match result {
-                Ok(msg) => results.push(msg.into()),
+                Ok(msg) => results.push(msg.try_into()?),
                 Err(e) => return Err(RustError(e.into()).into()),
             }
         }
