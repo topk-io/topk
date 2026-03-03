@@ -131,16 +131,15 @@ impl CollectionClient {
             .await
             .map_err(TopkError::from)?;
 
-        let mut result = Vec::new();
-        for d in docs {
-            let doc_map = d
-                .fields
-                .into_iter()
-                .map(|(k, v)| NativeValue::try_from(v).map(|nv| (k, nv)))
-                .collect::<std::result::Result<HashMap<_, _>, _>>()?;
-            result.push(doc_map);
-        }
-        Ok(result)
+        Ok(docs
+            .into_iter()
+            .map(|d| {
+                d.fields
+                    .into_iter()
+                    .map(|(k, v)| NativeValue::try_from(v).map(|nv| (k, nv)))
+                    .collect::<std::result::Result<HashMap<_, _>, _>>()
+            })
+            .collect::<std::result::Result<Vec<_>, _>>()?)
     }
 
     /// Inserts or updates documents in the collection.
