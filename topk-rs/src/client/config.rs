@@ -1,4 +1,9 @@
 use std::collections::HashMap;
+use std::str::FromStr;
+
+use tonic::transport::Endpoint;
+
+use crate::Error;
 
 use super::retry::RetryConfig;
 
@@ -26,27 +31,40 @@ impl ClientConfig {
             region: region.into(),
             host: "topk.io".to_string(),
             https: true,
-            headers: HashMap::from([("authorization", format!("Bearer {}", api_key.into()))]),
+            headers: HashMap::from([
+                // Add API key
+                ("authorization", format!("Bearer {}", api_key.into())),
+                // Add SDK version
+                ("x-topk-sdk-version", env!("CARGO_PKG_VERSION").to_string()),
+            ]),
             retry_config: RetryConfig::default(),
         }
     }
 
-    /// Getters
-    pub fn endpoint(&self) -> String {
-        let protocol = if self.https { "https" } else { "http" };
+    // Getters
 
-        format!("{}://{}.api.{}", protocol, self.region, self.host)
+    pub fn region(&self) -> &str {
+        &self.region
     }
 
-    pub fn headers(&self) -> HashMap<&'static str, String> {
-        self.headers.clone()
+    pub fn host(&self) -> &str {
+        &self.host
     }
 
-    pub fn retry_config(&self) -> RetryConfig {
-        self.retry_config.clone()
+    pub fn https(&self) -> bool {
+        self.https
     }
 
-    /// Setters
+    pub fn headers(&self) -> &HashMap<&'static str, String> {
+        &self.headers
+    }
+
+    pub fn retry_config(&self) -> &RetryConfig {
+        &self.retry_config
+    }
+
+    // Setters
+
     pub fn with_host(mut self, host: impl Into<String>) -> Self {
         self.host = host.into();
         self
@@ -57,8 +75,12 @@ impl ClientConfig {
         self
     }
 
-    pub fn with_headers(mut self, headers: impl Into<HashMap<&'static str, String>>) -> Self {
-        self.headers.extend(headers.into());
+    pub fn with_headers(
+        mut self,
+        headers: impl IntoIterator<Item = (&'static str, impl Into<String>)>,
+    ) -> Self {
+        self.headers
+            .extend(headers.into_iter().map(|(key, value)| (key, value.into())));
         self
     }
 
@@ -66,4 +88,12 @@ impl ClientConfig {
         self.retry_config = retry_config;
         self
     }
+
+    /// Builds [`Endpoint`] from the client config.
+    pub fn endpoint(&self) -> Result<Endpoint, Error> {
+        let protocol = if self.https() { "https" } else { "http" };
+        let uri = format!("{}://{}.api.{}", protocol, self.region(), self.host());
+        Ok(Endpoint::from_str(&uri)?)
+    }
+
 }
