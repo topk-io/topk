@@ -78,3 +78,30 @@ async fn test_upsert_file_markdown(ctx: &mut ProjectTestContext) {
 
     assert!(matches!(handle, Ok(_)));
 }
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_upsert_file_with_invalid_metadata(ctx: &mut ProjectTestContext) {
+    let response = ctx
+        .client
+        .datasets()
+        .create(ctx.wrap("test"))
+        .await
+        .expect("could not create dataset");
+
+    let file_data = b"# Test Markdown\n\nThis is a test markdown file.";
+    let input_file = InputFile::from_bytes("doc_1", file_data.as_slice(), "text/markdown")
+        .expect("could not create InputFile from memory");
+
+    for field in ["_title", "topk.title"] {
+        let metadata = HashMap::from([(field.to_string(), Value::string("Test Markdown"))]);
+
+        let handle = ctx
+            .client
+            .dataset(&response.dataset().unwrap().name)
+            .upsert_file("doc2".to_string(), input_file.clone(), metadata)
+            .await;
+
+        assert!(matches!(handle, Err(Error::DocumentValidationError(_))));
+    }
+}
