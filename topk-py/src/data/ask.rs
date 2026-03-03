@@ -8,6 +8,7 @@ use pyo3::{
 };
 use topk_rs::proto::v1::ctx::ask_result::Message;
 
+use crate::error::RustError;
 use crate::expr::logical::LogicalExpr;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -271,40 +272,47 @@ impl SearchResult {
     }
 }
 
-impl From<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
-    fn from(v: topk_rs::proto::v1::ctx::SearchResult) -> Self {
+impl TryFrom<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
+    type Error = RustError;
+
+    fn try_from(mut v: topk_rs::proto::v1::ctx::SearchResult) -> Result<Self, Self::Error> {
         use topk_rs::proto::v1::ctx::content::Data;
 
-        let content = match v.content.and_then(|c| c.data) {
-            None => unreachable!("Invalid proto: SearchResult content is required"),
-            Some(data) => match data {
-                Data::Chunk(chunk) => Content::Chunk(Chunk {
-                    text: chunk.text,
-                    doc_pages: chunk.doc_pages,
-                }),
-                Data::Page(page) => Content::Page(Page {
-                    page_number: page.page_number,
-                    image: page.image.map(|img| Image {
-                        data: img.data.to_vec(),
-                        mime_type: img.mime_type,
-                    }),
-                }),
-                Data::Image(img) => Content::Image(Image {
+        let content = v
+            .content
+            .take()
+            .ok_or(topk_rs::Error::InvalidProto)?
+            .data
+            .take()
+            .ok_or(topk_rs::Error::InvalidProto)?;
+
+        let content = match content {
+            Data::Chunk(chunk) => Content::Chunk(Chunk {
+                text: chunk.text,
+                doc_pages: chunk.doc_pages,
+            }),
+            Data::Page(page) => Content::Page(Page {
+                page_number: page.page_number,
+                image: page.image.map(|img| Image {
                     data: img.data.to_vec(),
                     mime_type: img.mime_type,
                 }),
-            },
+            }),
+            Data::Image(img) => Content::Image(Image {
+                data: img.data.to_vec(),
+                mime_type: img.mime_type,
+            }),
         };
 
         let metadata = v.metadata.into_iter().map(|(k, v)| (k, v.into())).collect();
 
-        SearchResult {
+        Ok(SearchResult {
             doc_id: v.doc_id,
             doc_type: v.doc_type,
             dataset: v.dataset,
             content,
             metadata,
-        }
+        })
     }
 }
 
@@ -383,19 +391,31 @@ impl<'py> IntoPyObject<'py> for AskResponseMessage {
     }
 }
 
-impl From<topk_rs::proto::v1::ctx::ask_result::Message> for AskResponseMessage {
-    fn from(msg: topk_rs::proto::v1::ctx::ask_result::Message) -> Self {
+impl TryFrom<topk_rs::proto::v1::ctx::ask_result::Message> for AskResponseMessage {
+    type Error = RustError;
+
+    fn try_from(msg: topk_rs::proto::v1::ctx::ask_result::Message) -> Result<Self, Self::Error> {
         match msg {
-            Message::Answer(fa) => AskResponseMessage::Answer(Answer {
+            Message::Answer(fa) => Ok(AskResponseMessage::Answer(Answer {
                 facts: fa.facts.into_iter().map(Fact::from).collect(),
-                sources: fa.refs.into_iter().map(|(k, v)| (k, v.into())).collect(),
-            }),
-            Message::Search(sq) => AskResponseMessage::Search(Search {
+                sources: fa
+                    .refs
+                    .into_iter()
+                    .map(|(k, v)| v.try_into().map(|sr| (k, sr)))
+                    .collect::<Result<HashMap<_, _>, _>>()?,
+            })),
+            Message::Search(sq) => Ok(AskResponseMessage::Search(Search {
                 objective: sq.objective,
                 facts: sq.facts.into_iter().map(Fact::from).collect(),
-                sources: sq.refs.into_iter().map(|(k, v)| (k, v.into())).collect(),
-            }),
-            Message::Reason(r) => AskResponseMessage::Reason(Reason { thought: r.thought }),
+                sources: sq
+                    .refs
+                    .into_iter()
+                    .map(|(k, v)| v.try_into().map(|sr| (k, sr)))
+                    .collect::<Result<HashMap<_, _>, _>>()?,
+            })),
+            Message::Reason(r) => Ok(AskResponseMessage::Reason(Reason {
+                thought: r.thought,
+            })),
         }
     }
 }

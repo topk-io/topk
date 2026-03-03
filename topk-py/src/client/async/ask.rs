@@ -79,12 +79,18 @@ pub fn ask_stream(
         while let Some(result) = stream.next().await {
             match result {
                 Ok(msg) => match msg.message {
-                    Some(inner) => {
-                        if let Err(mpsc::error::SendError(_)) = tx.send(Ok(inner.into())).await {
-                            // Channel closed: receiver dropped, Python stopped iterating.
+                    Some(inner) => match inner.try_into() {
+                        Ok(msg) => {
+                            if let Err(mpsc::error::SendError(_)) = tx.send(Ok(msg)).await {
+                                // Channel closed: receiver dropped, Python stopped iterating.
+                                break;
+                            }
+                        }
+                        Err(e) => {
+                            let _ = tx.send(Err::<AskResponseMessage, PyErr>(PyErr::from(e))).await;
                             break;
                         }
-                    }
+                    },
                     None => {
                         let _ = tx
                             .send(Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
@@ -137,7 +143,7 @@ pub fn ask(
         while let Some(result) = stream.next().await {
             match result {
                 Ok(msg) => match msg.message {
-                    Some(inner) => last_message = Some(inner.into()),
+                    Some(inner) => last_message = Some(inner.try_into()?),
                     None => {
                         return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
                             "Invalid proto: AskResponseMessage has no message",
