@@ -55,6 +55,16 @@ impl FieldSpec {
         }
     }
 
+    pub fn bytes(required: bool) -> FieldSpec {
+        FieldSpec {
+            data_type: Some(FieldType {
+                data_type: Some(field_type::DataType::Bytes(FieldTypeBytes {})),
+            }),
+            required,
+            index: None,
+        }
+    }
+
     pub fn list(required: bool, value_type: ListValueType) -> FieldSpec {
         FieldSpec {
             data_type: Some(FieldType {
