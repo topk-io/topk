@@ -35,7 +35,11 @@ pub struct CollectionClient {
 }
 
 impl CollectionClient {
-    pub fn new(config: ClientConfig, read: Arc<OnceCell<Channel>>, write: Arc<OnceCell<Channel>>) -> Self {
+    pub fn new(
+        config: ClientConfig,
+        read: Arc<OnceCell<Channel>>,
+        write: Arc<OnceCell<Channel>>,
+    ) -> Self {
         Self {
             config,
             read,
@@ -152,10 +156,11 @@ impl CollectionClient {
             async move {
                 client
                     .query_stream(QueryRequest {
-                        collection: "deprecated".to_string(),
                         query: Some(query.into()),
                         required_lsn: lsn.clone(),
                         consistency_level: consistency.map(|c| c.into()),
+                        // DEPRECATED: This field is no longer used, kept for backwards compatibility.
+                        collection: String::new(),
                     })
                     .map_err(|e| match e.code() {
                         // Explicitly map `NotFound` to `CollectionNotFound` error

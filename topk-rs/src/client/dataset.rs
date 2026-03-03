@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 use std::io::Cursor;
 use std::pin::Pin;
+use std::sync::Arc;
 
 use bytes::Bytes;
 use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_stream::StreamExt;
-use std::sync::Arc;
 
 use tokio::sync::OnceCell;
 use tonic::transport::Channel;
@@ -48,7 +48,11 @@ pub struct DatasetClient {
 }
 
 impl DatasetClient {
-    pub fn new(config: ClientConfig, read: Arc<OnceCell<Channel>>, write: Arc<OnceCell<Channel>>) -> Self {
+    pub fn new(
+        config: ClientConfig,
+        read: Arc<OnceCell<Channel>>,
+        write: Arc<OnceCell<Channel>>,
+    ) -> Self {
         Self {
             config,
             read,

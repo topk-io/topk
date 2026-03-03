@@ -95,5 +95,4 @@ impl ClientConfig {
         let uri = format!("{}://{}.api.{}", protocol, self.region(), self.host());
         Ok(Endpoint::from_str(&uri)?)
     }
-
 }

@@ -116,24 +116,28 @@ macro_rules! create_client {
             // Lazily connect the channel on first use
             let channel = $channel
                 .get_or_try_init(|| async {
-                    Ok::<_, Error>($config
-                        .endpoint()?
-                        .tls_config(tonic::transport::ClientTlsConfig::new().with_native_roots())?
-                        // Do not close idle connections so they can be reused
-                        .keep_alive_while_idle(true)
-                        // Set max header list size to 64KB
-                        .http2_max_header_list_size(MAX_HEADER_LIST_SIZE)
-                        // Request timeout
-                        .timeout(std::time::Duration::from_millis(TIMEOUT))
-                        // Disable Nagle's algorithm
-                        .tcp_nodelay(true)
-                        // Disable adaptive window
-                        .http2_adaptive_window(false)
-                        .initial_stream_window_size(8 * 1024 * 1024) // 8MB
-                        .initial_connection_window_size(32 * 1024 * 1024) // 32MB
-                        // Connect
-                        .connect()
-                        .await?)
+                    Ok::<_, Error>(
+                        $config
+                            .endpoint()?
+                            .tls_config(
+                                tonic::transport::ClientTlsConfig::new().with_native_roots(),
+                            )?
+                            // Do not close idle connections so they can be reused
+                            .keep_alive_while_idle(true)
+                            // Set max header list size to 64KB
+                            .http2_max_header_list_size(MAX_HEADER_LIST_SIZE)
+                            // Request timeout
+                            .timeout(std::time::Duration::from_millis(TIMEOUT))
+                            // Disable Nagle's algorithm
+                            .tcp_nodelay(true)
+                            // Disable adaptive window
+                            .http2_adaptive_window(false)
+                            .initial_stream_window_size(8 * 1024 * 1024) // 8MB
+                            .initial_connection_window_size(32 * 1024 * 1024) // 32MB
+                            // Connect
+                            .connect()
+                            .await?,
+                    )
                 })
                 .await?;
 
