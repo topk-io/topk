@@ -7,6 +7,7 @@ use pyo3::{
     IntoPyObjectExt,
 };
 use topk_rs::proto::v1::ctx::ask_result::Message;
+use topk_rs::proto::v1::ctx::content::Data;
 
 use crate::error::RustError;
 use crate::expr::logical::LogicalExpr;
@@ -276,9 +277,7 @@ impl TryFrom<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
     type Error = RustError;
 
     fn try_from(mut v: topk_rs::proto::v1::ctx::SearchResult) -> Result<Self, Self::Error> {
-        use topk_rs::proto::v1::ctx::content::Data;
-
-        let content = v
+        let content_data = v
             .content
             .take()
             .ok_or(topk_rs::Error::InvalidProto)?
@@ -286,32 +285,28 @@ impl TryFrom<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
             .take()
             .ok_or(topk_rs::Error::InvalidProto)?;
 
-        let content = match content {
-            Data::Chunk(chunk) => Content::Chunk(Chunk {
-                text: chunk.text,
-                doc_pages: chunk.doc_pages,
-            }),
-            Data::Page(page) => Content::Page(Page {
-                page_number: page.page_number,
-                image: page.image.map(|img| Image {
-                    data: img.data.to_vec(),
-                    mime_type: img.mime_type,
-                }),
-            }),
-            Data::Image(img) => Content::Image(Image {
-                data: img.data.to_vec(),
-                mime_type: img.mime_type,
-            }),
-        };
-
-        let metadata = v.metadata.into_iter().map(|(k, v)| (k, v.into())).collect();
-
         Ok(SearchResult {
             doc_id: v.doc_id,
             doc_type: v.doc_type,
             dataset: v.dataset,
-            content,
-            metadata,
+            content: match content_data {
+                Data::Chunk(chunk) => Content::Chunk(Chunk {
+                    text: chunk.text,
+                    doc_pages: chunk.doc_pages,
+                }),
+                Data::Page(page) => Content::Page(Page {
+                    page_number: page.page_number,
+                    image: page.image.map(|img| Image {
+                        data: img.data.to_vec(),
+                        mime_type: img.mime_type,
+                    }),
+                }),
+                Data::Image(img) => Content::Image(Image {
+                    data: img.data.to_vec(),
+                    mime_type: img.mime_type,
+                }),
+            },
+            metadata: v.metadata.into_iter().map(|(k, v)| (k, v.into())).collect(),
         })
     }
 }
@@ -413,9 +408,7 @@ impl TryFrom<topk_rs::proto::v1::ctx::ask_result::Message> for AskResponseMessag
                     .map(|(k, v)| v.try_into().map(|sr| (k, sr)))
                     .collect::<Result<HashMap<_, _>, _>>()?,
             })),
-            Message::Reason(r) => Ok(AskResponseMessage::Reason(Reason {
-                thought: r.thought,
-            })),
+            Message::Reason(r) => Ok(AskResponseMessage::Reason(Reason { thought: r.thought })),
         }
     }
 }
