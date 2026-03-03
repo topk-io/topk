@@ -388,20 +388,12 @@ impl From<topk_rs::proto::v1::ctx::ask_result::Message> for AskResponseMessage {
         match msg {
             Message::Answer(fa) => AskResponseMessage::Answer(Answer {
                 facts: fa.facts.into_iter().map(Fact::from).collect(),
-                sources: fa
-                    .refs
-                    .into_iter()
-                    .map(|(k, v)| (k, SearchResult::from(v)))
-                    .collect(),
+                sources: fa.refs.into_iter().map(|(k, v)| (k, v.into())).collect(),
             }),
             Message::Search(sq) => AskResponseMessage::Search(Search {
                 objective: sq.objective,
                 facts: sq.facts.into_iter().map(Fact::from).collect(),
-                sources: sq
-                    .refs
-                    .into_iter()
-                    .map(|(k, v)| (k, SearchResult::from(v)))
-                    .collect(),
+                sources: sq.refs.into_iter().map(|(k, v)| (k, v.into())).collect(),
             }),
             Message::Reason(r) => AskResponseMessage::Reason(Reason { thought: r.thought }),
         }
