@@ -2,6 +2,8 @@ use futures_util::TryFutureExt;
 use tonic::Streaming;
 
 use super::Response;
+use crate::create_client;
+use crate::proto::v1::ctx::context_service_client::ContextServiceClient;
 use crate::proto::v1::ctx::AskRequest;
 use crate::proto::v1::ctx::AskResult;
 use crate::proto::v1::ctx::Mode;
@@ -19,7 +21,7 @@ impl super::Client {
         mode: Option<Mode>,
         select_fields: Option<Vec<String>>,
     ) -> Result<Response<Streaming<AskResult>>, Error> {
-        let client = super::create_ctx_client(&self.config(), &self.channel()).await?;
+        let client = create_client!(ContextServiceClient, self.channel, self.config).await?;
 
         let request = AskRequest {
             query: query.into(),

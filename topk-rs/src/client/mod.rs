@@ -1,16 +1,7 @@
 use std::sync::Arc;
 
 use tokio::sync::OnceCell;
-use tonic::service::interceptor::InterceptedService;
 use tonic::transport::Channel;
-
-use crate::proto::v1::control::collection_service_client::CollectionServiceClient;
-use crate::proto::v1::control::dataset_service_client::DatasetServiceClient;
-use crate::proto::v1::ctx::context_service_client::ContextServiceClient;
-use crate::proto::v1::ctx::dataset_read_service_client::DatasetReadServiceClient;
-use crate::proto::v1::ctx::dataset_write_service_client::DatasetWriteServiceClient;
-use crate::proto::v1::data::query_service_client::QueryServiceClient;
-use crate::proto::v1::data::write_service_client::WriteServiceClient;
 
 mod collections;
 pub use collections::CollectionsClient;
@@ -56,53 +47,57 @@ pub const RETRY_BACKOFF_BASE: u32 = 2; // `Base` is the multiplier for the backo
 #[derive(Clone)]
 pub struct Client {
     // Client config
-    config: Arc<ClientConfig>,
+    config: ClientConfig,
 
-    // Channels
+    // Channel (lazily connected on first request)
     channel: Arc<OnceCell<Channel>>,
 }
 
 impl Client {
+    /// Creates a new client with the provided configuration.
+    ///
+    /// The connection is established lazily, at the first request.
     pub fn new(config: ClientConfig) -> Self {
         Self {
-            config: Arc::new(config),
+            config,
             channel: Arc::new(OnceCell::new()),
         }
     }
 
     pub fn from_channel(config: ClientConfig, channel: Channel) -> Self {
         Self {
-            config: Arc::new(config),
+            config,
             channel: Arc::new(OnceCell::new_with(Some(channel))),
         }
     }
 
-    pub fn config(&self) -> Arc<ClientConfig> {
-        self.config.clone()
+    pub fn config(&self) -> &ClientConfig {
+        &self.config
     }
 
-    pub fn channel(&self) -> Arc<OnceCell<Channel>> {
-        self.channel.clone()
-    }
-
-    // Collection operations (Control plane)
     pub fn collections(&self) -> CollectionsClient {
-        CollectionsClient::new(&self.config, &self.channel)
+        CollectionsClient::new(self.config.clone(), self.channel.clone())
     }
 
-    // Dataset operations (Control plane)
     pub fn datasets(&self) -> DatasetsClient {
-        DatasetsClient::new(&self.config, &self.channel)
+        DatasetsClient::new(self.config.clone(), self.channel.clone())
     }
 
-    // Document operations (Data plane)
     pub fn collection(&self, name: impl Into<String>) -> CollectionClient {
-        CollectionClient::new(self.config.clone(), self.channel.clone(), name.into())
+        // Collection services expect `x-topk-collection` header to be set.
+        let config = self
+            .config
+            .clone()
+            .with_headers([("x-topk-collection", name)]);
+
+        CollectionClient::new(config, self.channel.clone(), self.channel.clone())
     }
 
-    // Dataset operations (Data plane)
     pub fn dataset(&self, name: impl Into<String>) -> DatasetClient {
-        DatasetClient::new(self.config.clone(), self.channel.clone(), name.into())
+        // Dataset services expect `x-topk-dataset` header to be set.
+        let config = self.config.clone().with_headers([("x-topk-dataset", name)]);
+
+        DatasetClient::new(config, self.channel.clone(), self.channel.clone())
     }
 }
 
@@ -111,134 +106,50 @@ impl Client {
 macro_rules! create_client {
     ($client:ident, $channel:expr, $config:expr) => {
         async {
-            use std::str::FromStr;
+            use crate::client::AppendHeadersInterceptor;
+            use crate::client::MAX_DECODING_MESSAGE_SIZE;
+            use crate::client::MAX_ENCODING_MESSAGE_SIZE;
+            use crate::client::MAX_HEADER_LIST_SIZE;
+            use crate::client::TIMEOUT;
+            use crate::Error;
 
+            // Lazily connect the channel on first use
             let channel = $channel
                 .get_or_try_init(|| async {
-                    Ok(tonic::transport::Endpoint::from_str(&$config.endpoint())?
-                        .tls_config(tonic::transport::ClientTlsConfig::new().with_native_roots())?
-                        // Do not close idle connections so they can be reused
-                        .keep_alive_while_idle(true)
-                        // Set max header list size to 64KB
-                        .http2_max_header_list_size(crate::client::MAX_HEADER_LIST_SIZE)
-                        // Request timeout
-                        .timeout(std::time::Duration::from_secs(crate::client::TIMEOUT))
-                        // Disable Nagle's algorithm
-                        .tcp_nodelay(true)
-                        // Disable adaptive window
-                        .http2_adaptive_window(false)
-                        .initial_stream_window_size(8 * 1024 * 1024) // 8MB
-                        .initial_connection_window_size(32 * 1024 * 1024) // 32MB
-                        // Connect
-                        .connect()
-                        .await?)
-                })
-                .await;
-
-            match channel {
-                Ok(channel) => {
-                    let client = $client::with_interceptor(
-                        channel.clone(),
-                        crate::client::AppendHeadersInterceptor::new({
-                            let mut headers = $config.headers().clone();
-                            headers.insert(
-                                "x-topk-sdk-version",
-                                env!("CARGO_PKG_VERSION").to_string(),
-                            );
-                            headers
-                        }),
+                    Ok::<_, Error>(
+                        $config
+                            .endpoint()?
+                            .tls_config(
+                                tonic::transport::ClientTlsConfig::new().with_native_roots(),
+                            )?
+                            // Do not close idle connections so they can be reused
+                            .keep_alive_while_idle(true)
+                            // Set max header list size to 64KB
+                            .http2_max_header_list_size(MAX_HEADER_LIST_SIZE)
+                            // Request timeout
+                            .timeout(std::time::Duration::from_millis(TIMEOUT))
+                            // Disable Nagle's algorithm
+                            .tcp_nodelay(true)
+                            // Disable adaptive window
+                            .http2_adaptive_window(false)
+                            .initial_stream_window_size(8 * 1024 * 1024) // 8MB
+                            .initial_connection_window_size(32 * 1024 * 1024) // 32MB
+                            // Connect
+                            .connect()
+                            .await?,
                     )
-                    .max_decoding_message_size(crate::client::MAX_DECODING_MESSAGE_SIZE)
-                    .max_encoding_message_size(crate::client::MAX_ENCODING_MESSAGE_SIZE);
+                })
+                .await?;
 
-                    Ok(client)
-                }
-                // If channel fails to connect, return the error immediately
-                Err(e) => Err(e),
-            }
+            // Build interceptor
+            let interceptor = AppendHeadersInterceptor::new($config.headers().clone())?;
+
+            // Build client
+            let client = $client::with_interceptor(channel.clone(), interceptor)
+                .max_decoding_message_size(MAX_DECODING_MESSAGE_SIZE)
+                .max_encoding_message_size(MAX_ENCODING_MESSAGE_SIZE);
+
+            Result::<_, Error>::Ok(client)
         }
     };
-}
-
-// Clients
-async fn create_query_client<'a>(
-    config: &'a ClientConfig,
-    collection: &'a str,
-    channel: &'a OnceCell<Channel>,
-) -> Result<QueryServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>, super::Error>
-{
-    let config = config
-        .clone()
-        .with_headers([("x-topk-collection", collection.to_string())]);
-
-    create_client!(QueryServiceClient, channel, config).await
-}
-
-async fn create_write_client<'a>(
-    config: &'a ClientConfig,
-    collection: &'a str,
-    channel: &'a OnceCell<Channel>,
-) -> Result<WriteServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>, super::Error>
-{
-    let config = config
-        .clone()
-        .with_headers([("x-topk-collection", collection.to_string())]);
-
-    create_client!(WriteServiceClient, channel, config).await
-}
-
-async fn create_collection_client<'a>(
-    config: &'a ClientConfig,
-    channel: &'a OnceCell<Channel>,
-) -> Result<
-    CollectionServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>,
-    super::Error,
-> {
-    create_client!(CollectionServiceClient, channel, config).await
-}
-
-async fn create_datasets_client<'a>(
-    config: &'a ClientConfig,
-    channel: &'a OnceCell<Channel>,
-) -> Result<DatasetServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>, super::Error>
-{
-    create_client!(DatasetServiceClient, channel, config).await
-}
-
-async fn create_dataset_write_client<'a>(
-    config: &'a ClientConfig,
-    dataset: &'a str,
-    channel: &'a OnceCell<Channel>,
-) -> Result<
-    DatasetWriteServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>,
-    super::Error,
-> {
-    let config = config
-        .clone()
-        .with_headers([("x-topk-dataset", dataset.to_string())]);
-
-    create_client!(DatasetWriteServiceClient, channel, config).await
-}
-
-async fn create_dataset_read_client<'a>(
-    config: &'a ClientConfig,
-    dataset: &'a str,
-    channel: &'a OnceCell<Channel>,
-) -> Result<
-    DatasetReadServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>,
-    super::Error,
-> {
-    let config = config
-        .clone()
-        .with_headers([("x-topk-dataset", dataset.to_string())]);
-
-    create_client!(DatasetReadServiceClient, channel, config).await
-}
-
-async fn create_ctx_client<'a>(
-    config: &'a ClientConfig,
-    channel: &'a OnceCell<Channel>,
-) -> Result<ContextServiceClient<InterceptedService<Channel, AppendHeadersInterceptor>>, super::Error>
-{
-    crate::create_client!(ContextServiceClient, channel, config).await
 }
