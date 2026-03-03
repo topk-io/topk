@@ -42,8 +42,8 @@ impl AsyncCollectionClient {
 
             let docs: HashMap<String, Document> = docs
                 .into_iter()
-                .map(|(id, doc)| (id, Document::from(doc)))
-                .collect();
+                .map(|(id, doc)| doc.try_into().map(|d| (id, d)))
+                .collect::<Result<HashMap<_, _>, _>>()?;
 
             Ok(docs)
         })
@@ -93,7 +93,10 @@ impl AsyncCollectionClient {
                 .await
                 .map_err(RustError)?;
 
-            let docs: Vec<Document> = docs.into_iter().map(|d| d.into()).collect();
+            let docs: Vec<Document> = docs
+                .into_iter()
+                .map(|d| d.try_into())
+                .collect::<Result<Vec<_>, _>>()?;
 
             Ok(docs)
         })

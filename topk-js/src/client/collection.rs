@@ -85,10 +85,15 @@ impl CollectionClient {
             .await
             .map_err(TopkError::from)?;
 
-        Ok(documents
-            .into_iter()
-            .map(|(id, doc)| (id, doc.into_iter().map(|(k, v)| (k, v.into())).collect()))
-            .collect())
+        let mut result = HashMap::new();
+        for (id, doc) in documents {
+            let doc_map = doc
+                .into_iter()
+                .map(|(k, v)| v.try_into().map(|nv| (k, nv)))
+                .collect::<std::result::Result<HashMap<_, _>, _>>()?;
+            result.insert(id, doc_map);
+        }
+        Ok(result)
     }
 
     /// Counts the number of documents in the collection.
@@ -126,10 +131,16 @@ impl CollectionClient {
             .await
             .map_err(TopkError::from)?;
 
-        Ok(docs
-            .into_iter()
-            .map(|d| d.fields.into_iter().map(|(k, v)| (k, v.into())).collect())
-            .collect())
+        let mut result = Vec::new();
+        for d in docs {
+            let doc_map = d
+                .fields
+                .into_iter()
+                .map(|(k, v)| NativeValue::try_from(v).map(|nv| (k, nv)))
+                .collect::<std::result::Result<HashMap<_, _>, _>>()?;
+            result.push(doc_map);
+        }
+        Ok(result)
     }
 
     /// Inserts or updates documents in the collection.

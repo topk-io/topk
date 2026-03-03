@@ -78,26 +78,30 @@ impl From<MatrixValueType> for topk_rs::proto::v1::control::field_type_matrix::M
     }
 }
 
-impl From<topk_rs::proto::v1::control::field_type_matrix::MatrixValueType> for MatrixValueType {
-    fn from(value: topk_rs::proto::v1::control::field_type_matrix::MatrixValueType) -> Self {
+impl TryFrom<topk_rs::proto::v1::control::field_type_matrix::MatrixValueType> for MatrixValueType {
+    type Error = crate::error::TopkError;
+
+    fn try_from(
+        value: topk_rs::proto::v1::control::field_type_matrix::MatrixValueType,
+    ) -> std::result::Result<Self, Self::Error> {
         match value {
             topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::F32 => {
-                MatrixValueType::F32
+                Ok(MatrixValueType::F32)
             }
             topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::F16 => {
-                MatrixValueType::F16
+                Ok(MatrixValueType::F16)
             }
             topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::F8 => {
-                MatrixValueType::F8
+                Ok(MatrixValueType::F8)
             }
             topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::U8 => {
-                MatrixValueType::U8
+                Ok(MatrixValueType::U8)
             }
             topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::I8 => {
-                MatrixValueType::I8
+                Ok(MatrixValueType::I8)
             }
             topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::Unspecified => {
-                unreachable!("Invalid matrix value type")
+                Err(topk_rs::Error::InvalidProto.into())
             }
         }
     }
@@ -122,80 +126,86 @@ impl From<ListValueType> for topk_rs::proto::v1::control::FieldTypeList {
     }
 }
 
-impl From<topk_rs::proto::v1::control::field_type_list::ListValueType> for ListValueType {
-    fn from(value: topk_rs::proto::v1::control::field_type_list::ListValueType) -> Self {
+impl TryFrom<topk_rs::proto::v1::control::field_type_list::ListValueType> for ListValueType {
+    type Error = crate::error::TopkError;
+
+    fn try_from(
+        value: topk_rs::proto::v1::control::field_type_list::ListValueType,
+    ) -> std::result::Result<Self, Self::Error> {
         match value {
             topk_rs::proto::v1::control::field_type_list::ListValueType::Integer => {
-                ListValueType::Integer
+                Ok(ListValueType::Integer)
             }
             topk_rs::proto::v1::control::field_type_list::ListValueType::Float => {
-                ListValueType::Float
+                Ok(ListValueType::Float)
             }
             topk_rs::proto::v1::control::field_type_list::ListValueType::String => {
-                ListValueType::Text
+                Ok(ListValueType::Text)
             }
             topk_rs::proto::v1::control::field_type_list::ListValueType::Unspecified => {
-                unreachable!("Invalid list value type")
+                Err(topk_rs::Error::InvalidProto.into())
             }
         }
     }
 }
-impl From<topk_rs::proto::v1::control::FieldType> for DataType {
-    fn from(field_type: topk_rs::proto::v1::control::FieldType) -> Self {
-        match field_type.data_type {
-            Some(data_type) => match data_type {
-                topk_rs::proto::v1::control::field_type::DataType::Text(_) => DataType::Text,
-                topk_rs::proto::v1::control::field_type::DataType::Integer(_) => DataType::Integer,
-                topk_rs::proto::v1::control::field_type::DataType::Float(_) => DataType::Float,
-                topk_rs::proto::v1::control::field_type::DataType::Boolean(_) => DataType::Boolean,
-                topk_rs::proto::v1::control::field_type::DataType::F8Vector(vector) => {
-                    DataType::F8Vector {
-                        dimension: vector.dimension,
-                    }
+impl TryFrom<&topk_rs::proto::v1::control::FieldType> for DataType {
+    type Error = crate::error::TopkError;
+
+    fn try_from(
+        field_type: &topk_rs::proto::v1::control::FieldType,
+    ) -> std::result::Result<Self, Self::Error> {
+        let data_type = field_type
+            .data_type()
+            .map_err(|_| crate::error::TopkError::from(topk_rs::Error::InvalidProto))?;
+        Ok(match data_type {
+            topk_rs::proto::v1::control::field_type::DataType::Text(_) => DataType::Text,
+            topk_rs::proto::v1::control::field_type::DataType::Integer(_) => DataType::Integer,
+            topk_rs::proto::v1::control::field_type::DataType::Float(_) => DataType::Float,
+            topk_rs::proto::v1::control::field_type::DataType::Boolean(_) => DataType::Boolean,
+            topk_rs::proto::v1::control::field_type::DataType::F8Vector(vector) => {
+                DataType::F8Vector {
+                    dimension: vector.dimension,
                 }
-                topk_rs::proto::v1::control::field_type::DataType::F16Vector(vector) => {
-                    DataType::F16Vector {
-                        dimension: vector.dimension,
-                    }
+            }
+            topk_rs::proto::v1::control::field_type::DataType::F16Vector(vector) => {
+                DataType::F16Vector {
+                    dimension: vector.dimension,
                 }
-                topk_rs::proto::v1::control::field_type::DataType::F32Vector(vector) => {
-                    DataType::F32Vector {
-                        dimension: vector.dimension,
-                    }
+            }
+            topk_rs::proto::v1::control::field_type::DataType::F32Vector(vector) => {
+                DataType::F32Vector {
+                    dimension: vector.dimension,
                 }
-                topk_rs::proto::v1::control::field_type::DataType::U8Vector(vector) => {
-                    DataType::U8Vector {
-                        dimension: vector.dimension,
-                    }
+            }
+            topk_rs::proto::v1::control::field_type::DataType::U8Vector(vector) => {
+                DataType::U8Vector {
+                    dimension: vector.dimension,
                 }
-                topk_rs::proto::v1::control::field_type::DataType::I8Vector(vector) => {
-                    DataType::I8Vector {
-                        dimension: vector.dimension,
-                    }
+            }
+            topk_rs::proto::v1::control::field_type::DataType::I8Vector(vector) => {
+                DataType::I8Vector {
+                    dimension: vector.dimension,
                 }
-                topk_rs::proto::v1::control::field_type::DataType::BinaryVector(vector) => {
-                    DataType::BinaryVector {
-                        dimension: vector.dimension,
-                    }
+            }
+            topk_rs::proto::v1::control::field_type::DataType::BinaryVector(vector) => {
+                DataType::BinaryVector {
+                    dimension: vector.dimension,
                 }
-                topk_rs::proto::v1::control::field_type::DataType::F32SparseVector(_) => {
-                    DataType::F32SparseVector
-                }
-                topk_rs::proto::v1::control::field_type::DataType::U8SparseVector(_) => {
-                    DataType::U8SparseVector
-                }
-                topk_rs::proto::v1::control::field_type::DataType::Bytes(_) => DataType::Bytes,
-                topk_rs::proto::v1::control::field_type::DataType::List(list) => DataType::List {
-                    value_type: list.value_type().into(),
-                },
-                topk_rs::proto::v1::control::field_type::DataType::Matrix(matrix) => {
-                    DataType::Matrix {
-                        dimension: matrix.dimension,
-                        value_type: matrix.value_type().into(),
-                    }
-                }
+            }
+            topk_rs::proto::v1::control::field_type::DataType::F32SparseVector(_) => {
+                DataType::F32SparseVector
+            }
+            topk_rs::proto::v1::control::field_type::DataType::U8SparseVector(_) => {
+                DataType::U8SparseVector
+            }
+            topk_rs::proto::v1::control::field_type::DataType::Bytes(_) => DataType::Bytes,
+            topk_rs::proto::v1::control::field_type::DataType::List(list) => DataType::List {
+                value_type: list.value_type().try_into()?,
             },
-            None => unreachable!("Invalid data type proto"),
-        }
+            topk_rs::proto::v1::control::field_type::DataType::Matrix(matrix) => DataType::Matrix {
+                dimension: matrix.dimension,
+                value_type: matrix.value_type().try_into()?,
+            },
+        })
     }
 }

@@ -1,3 +1,4 @@
+use crate::error::RustError;
 use pyo3::prelude::*;
 
 #[pyclass(eq)]
@@ -47,6 +48,32 @@ pub enum VectorDistanceMetric {
     Hamming,
 }
 
+impl TryFrom<topk_rs::proto::v1::control::VectorDistanceMetric> for VectorDistanceMetric {
+    type Error = RustError;
+
+    fn try_from(
+        metric: topk_rs::proto::v1::control::VectorDistanceMetric,
+    ) -> std::result::Result<Self, Self::Error> {
+        match metric {
+            topk_rs::proto::v1::control::VectorDistanceMetric::Cosine => {
+                Ok(VectorDistanceMetric::Cosine)
+            }
+            topk_rs::proto::v1::control::VectorDistanceMetric::Euclidean => {
+                Ok(VectorDistanceMetric::Euclidean)
+            }
+            topk_rs::proto::v1::control::VectorDistanceMetric::DotProduct => {
+                Ok(VectorDistanceMetric::DotProduct)
+            }
+            topk_rs::proto::v1::control::VectorDistanceMetric::Hamming => {
+                Ok(VectorDistanceMetric::Hamming)
+            }
+            topk_rs::proto::v1::control::VectorDistanceMetric::Unspecified => {
+                Err(topk_rs::Error::InvalidProto.into())
+            }
+        }
+    }
+}
+
 impl From<VectorDistanceMetric> for topk_rs::proto::v1::control::VectorDistanceMetric {
     fn from(metric: VectorDistanceMetric) -> Self {
         match metric {
@@ -80,6 +107,21 @@ impl From<KeywordIndexType> for topk_rs::proto::v1::control::KeywordIndexType {
     }
 }
 
+impl TryFrom<topk_rs::proto::v1::control::KeywordIndexType> for KeywordIndexType {
+    type Error = RustError;
+
+    fn try_from(
+        index_type: topk_rs::proto::v1::control::KeywordIndexType,
+    ) -> std::result::Result<Self, Self::Error> {
+        match index_type {
+            topk_rs::proto::v1::control::KeywordIndexType::Text => Ok(KeywordIndexType::Text),
+            topk_rs::proto::v1::control::KeywordIndexType::Unspecified => {
+                Err(topk_rs::Error::InvalidProto.into())
+            }
+        }
+    }
+}
+
 #[pyclass(eq, eq_int)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum MultiVectorDistanceMetric {
@@ -96,14 +138,18 @@ impl From<MultiVectorDistanceMetric> for topk_rs::proto::v1::control::MultiVecto
     }
 }
 
-impl From<topk_rs::proto::v1::control::MultiVectorDistanceMetric> for MultiVectorDistanceMetric {
-    fn from(metric: topk_rs::proto::v1::control::MultiVectorDistanceMetric) -> Self {
+impl TryFrom<topk_rs::proto::v1::control::MultiVectorDistanceMetric> for MultiVectorDistanceMetric {
+    type Error = RustError;
+
+    fn try_from(
+        metric: topk_rs::proto::v1::control::MultiVectorDistanceMetric,
+    ) -> std::result::Result<Self, Self::Error> {
         match metric {
             topk_rs::proto::v1::control::MultiVectorDistanceMetric::Maxsim => {
-                MultiVectorDistanceMetric::Maxsim
+                Ok(MultiVectorDistanceMetric::Maxsim)
             }
             topk_rs::proto::v1::control::MultiVectorDistanceMetric::Unspecified => {
-                unreachable!("Invalid multi-vector distance metric")
+                Err(topk_rs::Error::InvalidProto.into())
             }
         }
     }
@@ -162,36 +208,20 @@ impl Into<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
     }
 }
 
-impl From<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
-    fn from(proto: topk_rs::proto::v1::control::FieldIndex) -> Self {
-        match proto.index.expect("index is required") {
+impl TryFrom<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
+    type Error = RustError;
+
+    fn try_from(proto: topk_rs::proto::v1::control::FieldIndex) -> std::result::Result<Self, Self::Error> {
+        let index = proto.index.ok_or(topk_rs::Error::InvalidProto)?;
+        Ok(match index {
             topk_rs::proto::v1::control::field_index::Index::KeywordIndex(keyword_index) => {
                 FieldIndex::KeywordIndex {
-                    index_type: match keyword_index.index_type() {
-                        topk_rs::proto::v1::control::KeywordIndexType::Text => {
-                            KeywordIndexType::Text
-                        }
-                        t => panic!("unsupported keyword index: {:?}", t),
-                    },
+                    index_type: keyword_index.index_type().try_into()?,
                 }
             }
             topk_rs::proto::v1::control::field_index::Index::VectorIndex(vector_index) => {
                 FieldIndex::VectorIndex {
-                    metric: match vector_index.metric() {
-                        topk_rs::proto::v1::control::VectorDistanceMetric::Cosine => {
-                            VectorDistanceMetric::Cosine
-                        }
-                        topk_rs::proto::v1::control::VectorDistanceMetric::Euclidean => {
-                            VectorDistanceMetric::Euclidean
-                        }
-                        topk_rs::proto::v1::control::VectorDistanceMetric::DotProduct => {
-                            VectorDistanceMetric::DotProduct
-                        }
-                        topk_rs::proto::v1::control::VectorDistanceMetric::Hamming => {
-                            VectorDistanceMetric::Hamming
-                        }
-                        m => panic!("unsupported vector metric {:?}", m),
-                    },
+                    metric: vector_index.metric().try_into()?,
                 }
             }
             topk_rs::proto::v1::control::field_index::Index::SemanticIndex(semantic_index) => {
@@ -214,12 +244,7 @@ impl From<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
             }
             topk_rs::proto::v1::control::field_index::Index::MultiVectorIndex(mvi) => {
                 FieldIndex::MultiVectorIndex {
-                    metric: match mvi.metric() {
-                        topk_rs::proto::v1::control::MultiVectorDistanceMetric::Maxsim => {
-                            MultiVectorDistanceMetric::Maxsim
-                        }
-                        m => panic!("unsupported multi-vector metric {:?}", m),
-                    },
+                    metric: mvi.metric().try_into()?,
                     sketch_bits: mvi.sketch_bits,
                     quantization: match mvi.quantization() {
                         topk_rs::proto::v1::control::MultiVectorQuantization::Binary1bit => {
@@ -235,6 +260,6 @@ impl From<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
                     },
                 }
             }
-        }
+        })
     }
 }

@@ -6,9 +6,14 @@ use std::collections::HashMap;
 use crate::proto::data::v1::{
     data_ext::{IntoListValues, IntoMatrixValues},
     list, matrix, sparse_vector, value, vector, List, Matrix, Null, SparseVector, Struct, Value,
+    Vector,
 };
+use crate::Error;
 
 impl Value {
+    pub fn value(&self) -> Result<&value::Value, Error> {
+        self.value.as_ref().ok_or(Error::InvalidProto)
+    }
     pub fn null() -> Self {
         Value {
             value: Some(value::Value::Null(Null {})),
@@ -558,6 +563,18 @@ impl Struct {
     }
 }
 
+impl List {
+    pub fn values(&self) -> Result<&list::Values, Error> {
+        self.values.as_ref().ok_or(Error::InvalidProto)
+    }
+}
+
+impl Vector {
+    pub fn vector(&self) -> Result<&vector::Vector, Error> {
+        self.vector.as_ref().ok_or(Error::InvalidProto)
+    }
+}
+
 // List
 
 macro_rules! impl_list_type {
@@ -632,6 +649,10 @@ impl AsRef<[F8E4M3]> for list::F8 {
 // Matrix
 
 impl Matrix {
+    pub fn values(&self) -> Result<&matrix::Values, Error> {
+        self.values.as_ref().ok_or(Error::InvalidProto)
+    }
+
     /// Constructs a [`Matrix`] proto from values stored in row-major order.
     /// # Panics
     /// - Panics if len(values) >= 2^32-1

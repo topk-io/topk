@@ -3,6 +3,7 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 use topk_rs::ClientConfig;
 
 use crate::data::value::NativeValue;
+use crate::error::RustError;
 
 pub mod r#async;
 pub mod sync;
@@ -30,15 +31,32 @@ pub fn topk_client(
 #[derive(IntoPyObject)]
 pub struct Document(pub(crate) HashMap<String, NativeValue>);
 
-impl From<topk_rs::proto::v1::data::Document> for Document {
-    fn from(doc: topk_rs::proto::v1::data::Document) -> Self {
-        Document(doc.fields.into_iter().map(|(k, v)| (k, v.into())).collect())
+impl TryFrom<topk_rs::proto::v1::data::Document> for Document {
+    type Error = RustError;
+
+    fn try_from(
+        doc: topk_rs::proto::v1::data::Document,
+    ) -> std::result::Result<Self, Self::Error> {
+        Ok(Document(
+            doc.fields
+                .into_iter()
+                .map(|(k, v)| v.try_into().map(|nv| (k, nv)))
+                .collect::<std::result::Result<HashMap<_, _>, _>>()?,
+        ))
     }
 }
 
-impl From<HashMap<String, topk_rs::proto::v1::data::Value>> for Document {
-    fn from(doc: HashMap<String, topk_rs::proto::v1::data::Value>) -> Self {
-        Document(doc.into_iter().map(|(k, v)| (k, v.into())).collect())
+impl TryFrom<HashMap<String, topk_rs::proto::v1::data::Value>> for Document {
+    type Error = RustError;
+
+    fn try_from(
+        doc: HashMap<String, topk_rs::proto::v1::data::Value>,
+    ) -> std::result::Result<Self, Self::Error> {
+        Ok(Document(
+            doc.into_iter()
+                .map(|(k, v)| v.try_into().map(|nv| (k, nv)))
+                .collect::<std::result::Result<HashMap<_, _>, _>>()?,
+        ))
     }
 }
 

@@ -1,3 +1,4 @@
+use crate::error::RustError;
 use crate::schema::field_spec::FieldSpec;
 use pyo3::prelude::*;
 use std::collections::HashMap;
@@ -64,18 +65,21 @@ impl Into<topk_rs::proto::v1::control::Collection> for Collection {
     }
 }
 
-impl From<topk_rs::proto::v1::control::Collection> for Collection {
-    fn from(collection: topk_rs::proto::v1::control::Collection) -> Self {
-        Self {
+impl TryFrom<topk_rs::proto::v1::control::Collection> for Collection {
+    type Error = RustError;
+
+    fn try_from(collection: topk_rs::proto::v1::control::Collection) -> std::result::Result<Self, Self::Error> {
+        let schema = collection
+            .schema
+            .into_iter()
+            .map(|(name, field)| field.try_into().map(|f| (name, f)))
+            .collect::<std::result::Result<HashMap<String, FieldSpec>, _>>()?;
+        Ok(Self {
             name: collection.name,
             org_id: collection.org_id,
             project_id: collection.project_id,
             region: collection.region,
-            schema: collection
-                .schema
-                .into_iter()
-                .map(|(name, field)| (name, field.into()))
-                .collect(),
-        }
+            schema,
+        })
     }
 }

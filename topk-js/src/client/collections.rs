@@ -32,7 +32,10 @@ impl CollectionsClient {
             .await
             .map_err(TopkError::from)?;
 
-        Ok(collections.into_iter().map(|c| c.into()).collect())
+        Ok(collections
+            .into_iter()
+            .map(|c| c.try_into())
+            .collect::<std::result::Result<Vec<_>, _>>()?)
     }
 
     /// Creates a new collection with the specified schema.
@@ -57,7 +60,7 @@ impl CollectionsClient {
             .await
             .map_err(TopkError::from)?;
 
-        Ok(collection.into())
+        Ok(collection.try_into()?)
     }
 
     /// Retrieves information about a specific collection.
@@ -70,7 +73,7 @@ impl CollectionsClient {
             .await
             .map_err(TopkError::from)?;
 
-        Ok(collection.into())
+        Ok(collection.try_into()?)
     }
 
     /// Deletes a collection and all its data.

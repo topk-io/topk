@@ -25,7 +25,7 @@ impl CollectionsClient {
             .block_on(py, self.client.collections().get(&collection_name))
             .map_err(RustError)?;
 
-        Ok(collection.into())
+        Ok(collection.try_into()?)
     }
 
     pub fn list(&self, py: Python<'_>) -> PyResult<Vec<Collection>> {
@@ -34,7 +34,10 @@ impl CollectionsClient {
             .block_on(py, self.client.collections().list())
             .map_err(RustError)?;
 
-        Ok(collections.into_iter().map(|i| i.into()).collect())
+        Ok(collections
+            .into_iter()
+            .map(|i| i.try_into())
+            .collect::<Result<Vec<Collection>, _>>()?)
     }
 
     pub fn create(
@@ -53,7 +56,7 @@ impl CollectionsClient {
             )
             .map_err(RustError)?;
 
-        Ok(collection.into())
+        Ok(collection.try_into()?)
     }
 
     pub fn delete(&self, py: Python<'_>, collection_name: String) -> PyResult<()> {

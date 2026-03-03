@@ -224,9 +224,11 @@ impl<'py> IntoPyObject<'py> for Value {
     }
 }
 
-impl From<topk_rs::proto::v1::data::Value> for Value {
-    fn from(value: topk_rs::proto::v1::data::Value) -> Self {
-        match value.value {
+impl TryFrom<topk_rs::proto::v1::data::Value> for Value {
+    type Error = crate::error::RustError;
+
+    fn try_from(value: topk_rs::proto::v1::data::Value) -> std::result::Result<Self, Self::Error> {
+        Ok(match value.value {
             Some(topk_rs::proto::v1::data::value::Value::String(s)) => Value::String(s),
             Some(topk_rs::proto::v1::data::value::Value::U32(i)) => Value::Int(i as i64),
             Some(topk_rs::proto::v1::data::value::Value::U64(i)) => Value::Int(i as i64),
@@ -252,7 +254,7 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                         values: Values::U8(v.values),
                     })
                 }
-                t => unreachable!("Unknown vector type: {:?}", t),
+                _ => return Err(topk_rs::Error::InvalidProto.into()),
             },
             Some(topk_rs::proto::v1::data::value::Value::SparseVector(sv)) => {
                 Value::SparseVector(match sv.values {
@@ -268,7 +270,7 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                             values: v.values,
                         }
                     }
-                    t => unreachable!("Unknown sparse vector type: {:?}", t),
+                    _ => return Err(topk_rs::Error::InvalidProto.into()),
                 })
             }
             Some(topk_rs::proto::v1::data::value::Value::List(l)) => Value::List(List {
@@ -307,9 +309,7 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                     Some(topk_rs::proto::v1::data::list::Values::String(values)) => {
                         Values::String(values.values)
                     }
-                    None => {
-                        unreachable!("Invalid list proto: {:?}", l)
-                    }
+                    None => return Err(topk_rs::Error::InvalidProto.into()),
                 },
             }),
             Some(topk_rs::proto::v1::data::value::Value::Matrix(matrix)) => {
@@ -329,9 +329,7 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                     Some(topk_rs::proto::v1::data::matrix::Values::I8(v)) => {
                         MatrixValues::I8(v.to_owned().into())
                     }
-                    None => {
-                        unreachable!("Invalid matrix proto: {:?}", matrix)
-                    }
+                    None => return Err(topk_rs::Error::InvalidProto.into()),
                 };
                 Value::Matrix(Matrix {
                     num_cols: matrix.num_cols,
@@ -342,7 +340,7 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                 todo!()
             }
             None => Value::Null(),
-        }
+        })
     }
 }
 
@@ -359,9 +357,11 @@ impl<'py> IntoPyObject<'py> for NativeValue {
     }
 }
 
-impl From<topk_rs::proto::v1::data::Value> for NativeValue {
-    fn from(value: topk_rs::proto::v1::data::Value) -> Self {
-        NativeValue(Value::from(value))
+impl TryFrom<topk_rs::proto::v1::data::Value> for NativeValue {
+    type Error = crate::error::RustError;
+
+    fn try_from(value: topk_rs::proto::v1::data::Value) -> std::result::Result<Self, Self::Error> {
+        Ok(NativeValue(Value::try_from(value)?))
     }
 }
 

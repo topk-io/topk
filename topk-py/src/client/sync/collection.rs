@@ -50,8 +50,8 @@ impl CollectionClient {
 
         Ok(docs
             .into_iter()
-            .map(|(id, doc)| (id, Document::from(doc)))
-            .collect())
+            .map(|(id, doc)| doc.try_into().map(|d| (id, d)))
+            .collect::<Result<HashMap<_, _>, _>>()?)
     }
 
     #[pyo3(signature = (lsn=None, consistency=None))]
@@ -94,9 +94,10 @@ impl CollectionClient {
             )
             .map_err(RustError)?;
 
-        let docs: Vec<Document> = docs.into_iter().map(|d| d.into()).collect();
-
-        Ok(docs)
+        Ok(docs
+            .into_iter()
+            .map(|d| d.try_into())
+            .collect::<Result<Vec<_>, _>>()?)
     }
 
     pub fn upsert(

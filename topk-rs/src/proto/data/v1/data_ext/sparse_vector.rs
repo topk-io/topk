@@ -1,6 +1,11 @@
 use crate::proto::data::v1::{sparse_vector, SparseVector};
+use crate::Error;
 
 impl SparseVector {
+    pub fn values(&self) -> Result<&sparse_vector::Values, Error> {
+        self.values.as_ref().ok_or(Error::InvalidProto)
+    }
+
     pub fn f32(indices: Vec<u32>, values: Vec<f32>) -> Self {
         SparseVector {
             indices,
