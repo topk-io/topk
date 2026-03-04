@@ -33,7 +33,7 @@ async fn test_dataset_list(ctx: &mut ProjectTestContext) {
         .dataset(&dataset_name)
         .list(None, None)
         .await
-        .expect("could not list dataset")
+        .expect("could not list dataset entries")
         .into_inner();
 
     let mut entries = Vec::new();
