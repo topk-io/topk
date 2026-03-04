@@ -1,4 +1,4 @@
-use futures_util::StreamExt;
+use futures_util::TryStreamExt;
 use test_context::test_context;
 use topk_rs::proto::v1::ctx::file::InputFile;
 use topk_rs::proto::v1::data::Value;
@@ -26,18 +26,16 @@ async fn test_dataset_list(ctx: &mut ProjectTestContext) {
         .await
         .expect("could not upsert PDF file");
 
-    let mut stream = ctx
+    let entries: Vec<_> = ctx
         .client
         .dataset(&response.dataset().unwrap().name)
         .list(None, None)
         .await
         .expect("could not list dataset entries")
-        .into_inner();
-
-    let mut entries = Vec::new();
-    while let Some(result) = stream.next().await {
-        entries.push(result.expect("could not receive entry from stream"));
-    }
+        .into_inner()
+        .try_collect()
+        .await
+        .expect("could not receive entries from stream");
 
     assert_eq!(entries.len(), 1);
 }
