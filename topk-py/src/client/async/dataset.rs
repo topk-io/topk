@@ -1,16 +1,22 @@
 use std::{collections::HashMap, sync::Arc};
 
+use futures_util::StreamExt;
 use pyo3::{prelude::*, types::PyAny};
 use pyo3_async_runtimes::tokio::future_into_py;
+use tokio::sync::{mpsc, Mutex};
+use tokio::task::JoinHandle;
 
 use crate::client::into_py_response;
+use crate::client::LIST_ENTRIES_BUFFER_SIZE;
 use crate::client::{
     CheckHandleResponse, DeleteFileResponse, GetMetadataResponse, UpdateMetadataResponse,
     UpsertFileResponse,
 };
 use crate::data::file::FileOrFileLike;
+use crate::data::list_entry::ListEntry;
 use crate::data::value::Value;
 use crate::error::RustError;
+use crate::expr::logical::LogicalExpr;
 
 #[pyclass]
 pub struct AsyncDatasetClient {
@@ -155,5 +161,88 @@ impl AsyncDatasetClient {
             })
         })
         .map(|result| result.into())
+    }
+
+    #[pyo3(signature = (fields=None, filter=None))]
+    pub fn list(
+        &self,
+        py: Python<'_>,
+        fields: Option<Vec<String>>,
+        filter: Option<LogicalExpr>,
+    ) -> PyResult<Py<PyAny>> {
+        let (tx, rx) = mpsc::channel(LIST_ENTRIES_BUFFER_SIZE);
+        let filter = filter.map(|f| f.into());
+
+        let handle = pyo3_async_runtimes::tokio::get_runtime().spawn({
+            let client = self.client.clone();
+            let dataset = self.dataset.clone();
+            async move {
+                let mut stream = match client.dataset(&dataset).list(fields, filter).await {
+                    Ok(response) => response.into_inner(),
+                    Err(e) => {
+                        let _ = tx.send(Err(RustError(e).into())).await;
+                        return;
+                    }
+                };
+
+                while let Some(result) = stream.next().await {
+                    match result {
+                        Ok(entry) => {
+                            if let Err(mpsc::error::SendError(_)) = tx.send(Ok(entry.into())).await
+                            {
+                                break;
+                            }
+                        }
+                        Err(e) => {
+                            let _ = tx.send(Err(RustError(e.into()).into())).await;
+                            break;
+                        }
+                    }
+                }
+            }
+        });
+
+        Ok(Py::new(
+            py,
+            AsyncDatasetListIterator {
+                receiver: Arc::new(Mutex::new(rx)),
+                handle,
+            },
+        )?
+        .into())
+    }
+}
+
+#[pyclass]
+pub struct AsyncDatasetListIterator {
+    receiver: Arc<Mutex<mpsc::Receiver<PyResult<ListEntry>>>>,
+    #[allow(dead_code)]
+    handle: JoinHandle<()>,
+}
+
+#[pymethods]
+impl AsyncDatasetListIterator {
+    fn __aiter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __anext__<'py>(slf: PyRefMut<'_, Self>, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let receiver = slf.receiver.clone();
+        future_into_py(py, async move {
+            let mut receiver = receiver.lock().await;
+            match receiver.recv().await.transpose() {
+                Ok(Some(entry)) => Ok(entry),
+                Ok(None) => Err(pyo3::exceptions::PyStopAsyncIteration::new_err(
+                    "Stream exhausted",
+                )),
+                Err(e) => Err(e),
+            }
+        })
+    }
+}
+
+impl Drop for AsyncDatasetListIterator {
+    fn drop(&mut self) {
+        self.handle.abort();
     }
 }

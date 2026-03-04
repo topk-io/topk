@@ -1,15 +1,21 @@
 use std::{collections::HashMap, sync::Arc};
 
+use futures_util::StreamExt;
 use pyo3::prelude::*;
+use tokio::sync::mpsc;
+use tokio::task::JoinHandle;
 
 use crate::client::sync::runtime::Runtime;
+use crate::client::LIST_ENTRIES_BUFFER_SIZE;
 use crate::client::{
     into_py_response, CheckHandleResponse, DeleteFileResponse, GetMetadataResponse,
     UpdateMetadataResponse, UpsertFileResponse,
 };
 use crate::data::file::FileOrFileLike;
+use crate::data::list_entry::ListEntry;
 use crate::data::value::Value;
 use crate::error::RustError;
+use crate::expr::logical::LogicalExpr;
 
 #[pyclass]
 pub struct DatasetClient {
@@ -145,5 +151,76 @@ impl DatasetClient {
                 processed: inner.processed,
             })
         })
+    }
+
+    #[pyo3(signature = (fields=None, filter=None))]
+    pub fn list(
+        &self,
+        fields: Option<Vec<String>>,
+        filter: Option<LogicalExpr>,
+    ) -> PyResult<DatasetListIterator> {
+        let (tx, rx) = mpsc::channel(LIST_ENTRIES_BUFFER_SIZE);
+        let filter = filter.map(|f| f.into());
+
+        let handle = self.runtime.spawn({
+            let client = self.client.clone();
+            let dataset = self.dataset.clone();
+            async move {
+                let mut stream = match client.dataset(&dataset).list(fields, filter).await {
+                    Ok(response) => response.into_inner(),
+                    Err(e) => {
+                        let _ = tx.send(Err(RustError(e).into())).await;
+                        return;
+                    }
+                };
+
+                while let Some(result) = stream.next().await {
+                    match result {
+                        Ok(entry) => {
+                            if let Err(mpsc::error::SendError(_)) = tx.send(Ok(entry.into())).await
+                            {
+                                break;
+                            }
+                        }
+                        Err(e) => {
+                            let _ = tx.send(Err(RustError(e.into()).into())).await;
+                            break;
+                        }
+                    }
+                }
+            }
+        });
+
+        Ok(DatasetListIterator {
+            runtime: self.runtime.clone(),
+            receiver: rx,
+            handle,
+        })
+    }
+}
+
+#[pyclass]
+pub struct DatasetListIterator {
+    runtime: Arc<Runtime>,
+    receiver: mpsc::Receiver<PyResult<ListEntry>>,
+    #[allow(dead_code)]
+    handle: JoinHandle<()>,
+}
+
+#[pymethods]
+impl DatasetListIterator {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(&mut self, py: Python<'_>) -> PyResult<Option<ListEntry>> {
+        self.runtime
+            .block_on(py, async { self.receiver.recv().await.transpose() })
+    }
+}
+
+impl Drop for DatasetListIterator {
+    fn drop(&mut self) {
+        self.handle.abort();
     }
 }

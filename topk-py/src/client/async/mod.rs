@@ -20,6 +20,7 @@ mod datasets;
 mod search;
 
 pub use ask::AsyncAskIterator;
+pub use dataset::AsyncDatasetListIterator;
 pub use search::AsyncSearchIterator;
 pub use collection::AsyncCollectionClient;
 pub use collections::AsyncCollectionsClient;

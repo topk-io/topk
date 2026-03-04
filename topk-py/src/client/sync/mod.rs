@@ -9,6 +9,7 @@ mod search;
 use std::sync::Arc;
 
 pub use ask::{ask, ask_stream, AskIterator};
+pub use dataset::DatasetListIterator;
 pub use search::{search, search_stream, SearchIterator};
 pub use collection::CollectionClient;
 pub use collections::CollectionsClient;

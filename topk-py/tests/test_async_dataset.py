@@ -1,7 +1,7 @@
 import asyncio
 import pytest
 from pathlib import Path
-from topk_sdk import error
+from topk_sdk import ListEntry, error
 
 from . import AsyncProjectContext
 
@@ -95,3 +95,18 @@ async def test_async_check_handle(async_ctx: AsyncProjectContext):
         await asyncio.sleep(1)
 
     assert processed, "Handle was not processed within timeout"
+
+
+@pytest.mark.asyncio
+async def test_async_dataset_list(async_ctx: AsyncProjectContext):
+    dataset = (await async_ctx.client.datasets().create(async_ctx.scope("test"))).dataset
+    pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
+
+    await async_ctx.client.dataset(dataset.name).upsert_file(
+        "doc1", pdf_path, {"title": "test"}
+    )
+
+    entries: list[ListEntry] = []
+    async for entry in async_ctx.client.dataset(dataset.name).list():
+        entries.append(entry)
+    assert len(entries) > 0
