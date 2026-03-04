@@ -16,10 +16,8 @@ async fn test_dataset_list(ctx: &mut ProjectTestContext) {
         .await
         .expect("could not create dataset");
 
-    let dataset_name = response.dataset().unwrap().name.clone();
-
     ctx.client
-        .dataset(&dataset_name)
+        .dataset(&response.dataset().unwrap().name)
         .upsert_file(
             "doc1",
             InputFile::from_path(test_pdf_path()).expect("could not create InputFile from path"),
@@ -30,7 +28,7 @@ async fn test_dataset_list(ctx: &mut ProjectTestContext) {
 
     let mut stream = ctx
         .client
-        .dataset(&dataset_name)
+        .dataset(&response.dataset().unwrap().name)
         .list(None, None)
         .await
         .expect("could not list dataset entries")
@@ -41,5 +39,5 @@ async fn test_dataset_list(ctx: &mut ProjectTestContext) {
         entries.push(result.expect("could not receive entry from stream"));
     }
 
-    assert_eq!(entries.len(), 1,);
+    assert_eq!(entries.len(), 1);
 }
