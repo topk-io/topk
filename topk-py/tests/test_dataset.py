@@ -1,9 +1,8 @@
 import pytest
 from pathlib import Path
-from topk_sdk import error
+from topk_sdk import ListEntry, error
 
 from . import ProjectContext
-
 
 def test_upsert_file_to_non_existent_dataset(ctx: ProjectContext):
     pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
@@ -106,3 +105,13 @@ def test_check_handle(ctx: ProjectContext):
         time.sleep(1)
 
     assert processed, "Handle was not processed within timeout"
+
+
+def test_dataset_list(ctx: ProjectContext):
+    dataset = ctx.client.datasets().create(ctx.scope("test")).dataset
+    pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
+
+    ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {"title": "test"})
+
+    entries = [e for e in ctx.client.dataset(dataset.name).list() if e is not None]
+    assert len(entries) > 0

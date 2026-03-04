@@ -11,6 +11,7 @@ pub mod collection;
 pub mod dataset;
 pub mod file;
 pub mod list;
+pub mod list_entry;
 pub mod matrix;
 pub mod value;
 pub mod vector;

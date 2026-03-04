@@ -12,6 +12,9 @@ pub mod sync;
 /// Buffer size for ask stream channels.
 pub const ASK_CHANNEL_BUFFER_SIZE: usize = 32;
 
+/// Buffer size for dataset list stream channels.
+pub const LIST_ENTRIES_BUFFER_SIZE: usize = 32;
+
 pub fn topk_client(
     api_key: String,
     region: String,

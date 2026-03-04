@@ -337,6 +337,17 @@ class Dataset:
     project_id: builtins.str
     region: builtins.str
 
+class ListEntry:
+    """
+    Entry in a dataset.
+    """
+
+    id: builtins.str
+    name: builtins.str
+    size: builtins.int
+    mime_type: builtins.str
+    metadata: builtins.dict[builtins.str, typing.Any]
+
 class Response:
     """
     Base class for API response objects with request_id.
@@ -518,6 +529,15 @@ class DatasetClient:
         Check if a handle has been processed.
         """
         ...
+    def list(
+        self,
+        fields: typing.Optional[typing.Sequence[builtins.str]] = None,
+        filter: typing.Optional[query.LogicalExpr] = None,
+    ) -> DatasetListIterator:
+        """
+        List files in the dataset as a streaming iterator.
+        """
+        ...
 
 class AsyncDatasetsClient:
     """
@@ -588,6 +608,15 @@ class AsyncDatasetClient:
     def check_handle(self, handle: builtins.str) -> typing.Awaitable[CheckHandleResponse]:
         """
         Check if a handle has been processed asynchronously.
+        """
+        ...
+    def list(
+        self,
+        fields: typing.Optional[typing.Sequence[builtins.str]] = None,
+        filter: typing.Optional[query.LogicalExpr] = None,
+    ) -> AsyncDatasetListIterator:
+        """
+        List files in the dataset as a streaming async iterator.
         """
         ...
 
@@ -706,6 +735,22 @@ class AsyncSearchIterator:
 
     def __aiter__(self) -> AsyncSearchIterator: ...
     def __anext__(self) -> typing.AsyncIterator[SearchResult]: ...
+
+class DatasetListIterator:
+    """
+    Iterator for synchronous dataset list responses.
+    """
+
+    def __iter__(self) -> DatasetListIterator: ...
+    def __next__(self) -> typing.Optional[ListEntry]: ...
+
+class AsyncDatasetListIterator:
+    """
+    Iterator for asynchronous dataset list responses.
+    """
+
+    def __aiter__(self) -> AsyncDatasetListIterator: ...
+    def __anext__(self) -> typing.Awaitable[ListEntry]: ...
 
 class ConsistencyLevel(Enum):
     """
