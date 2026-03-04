@@ -7,10 +7,10 @@ use bytes::Bytes;
 use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
-use tokio_stream::StreamExt;
 
 use tokio::sync::OnceCell;
 use tonic::transport::Channel;
+use tonic::Streaming;
 
 use crate::client::Response;
 use crate::proto::v1::ctx::dataset_read_service_client::DatasetReadServiceClient;
@@ -64,11 +64,11 @@ impl DatasetClient {
         &self,
         fields: Option<Vec<String>>,
         filter: Option<LogicalExpr>,
-    ) -> Result<Vec<ListEntry>, Error> {
+    ) -> Result<Response<Streaming<ListEntry>>, Error> {
         let client = create_client!(DatasetReadServiceClient, self.read, self.config).await?;
         let fields = fields.unwrap_or_default();
 
-        let mut stream = call_with_retry(&self.config.retry_config(), || {
+        let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
             let filter = filter.clone();
             let fields = fields.clone();
@@ -82,15 +82,9 @@ impl DatasetClient {
                     })
             }
         })
-        .await?
-        .into_inner();
+        .await?;
 
-        let mut entries = Vec::new();
-        while let Some(entry) = stream.next().await {
-            entries.push(entry?);
-        }
-
-        Ok(entries)
+        Ok(response.into())
     }
 
     pub async fn upsert_file(
