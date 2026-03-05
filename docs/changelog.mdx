@@ -2,6 +2,10 @@
 title: "Changelog"
 ---
 
+### February 2026
+- **Features**: Enabled native support for state-of-the-art retrieval models via multi-vector retrieval. ~5.5x faster than PLAID, ~7.5 faster than MUVERA with 1-bit, 2-bit and scalar quantization to optimize storage efficiency.
+- **Features**: Added native support for [`f8`](https://docs.topk.io/sdk/topk-py/schema#f8_vector) and [`f16`](https://docs.topk.io/sdk/topk-py/schema#f16_vector) vector types to optimize embedding storage size and improve efficiency when storing large document collections.
+
 ### January 2026
 - **Features**: Added support for multivec [`indexing`](https://docs.topk.io/sdk/topk-py/schema#multi_vector_index) and [`querying`](https://docs.topk.io/sdk/topk-py/query#multi_vector_distance), enabling more advanced multi-embedding retrieval use cases.
 - **Features**: Introduced the [`list<str>.starts_with`](https://docs.topk.io/sdk/topk-py/query#starts_with) operator in our query language, enabling efficient prefix filtering on array string fields.
