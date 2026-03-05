@@ -1,3 +1,4 @@
+use crate::error::RustError;
 use pyo3::prelude::*;
 
 #[pyclass(eq)]
@@ -77,26 +78,30 @@ impl From<MatrixValueType> for topk_rs::proto::v1::control::field_type_matrix::M
     }
 }
 
-impl From<topk_rs::proto::v1::control::field_type_matrix::MatrixValueType> for MatrixValueType {
-    fn from(value: topk_rs::proto::v1::control::field_type_matrix::MatrixValueType) -> Self {
+impl TryFrom<topk_rs::proto::v1::control::field_type_matrix::MatrixValueType> for MatrixValueType {
+    type Error = RustError;
+
+    fn try_from(
+        value: topk_rs::proto::v1::control::field_type_matrix::MatrixValueType,
+    ) -> Result<Self, Self::Error> {
         match value {
             topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::F32 => {
-                MatrixValueType::F32
+                Ok(MatrixValueType::F32)
             }
             topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::F16 => {
-                MatrixValueType::F16
+                Ok(MatrixValueType::F16)
             }
             topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::F8 => {
-                MatrixValueType::F8
+                Ok(MatrixValueType::F8)
             }
             topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::U8 => {
-                MatrixValueType::U8
+                Ok(MatrixValueType::U8)
             }
             topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::I8 => {
-                MatrixValueType::I8
+                Ok(MatrixValueType::I8)
             }
             topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::Unspecified => {
-                unreachable!("Invalid matrix value type")
+                Err(topk_rs::Error::InvalidProto.into())
             }
         }
     }
@@ -121,20 +126,24 @@ impl From<ListValueType> for topk_rs::proto::v1::control::FieldTypeList {
     }
 }
 
-impl From<topk_rs::proto::v1::control::field_type_list::ListValueType> for ListValueType {
-    fn from(value: topk_rs::proto::v1::control::field_type_list::ListValueType) -> Self {
+impl TryFrom<topk_rs::proto::v1::control::field_type_list::ListValueType> for ListValueType {
+    type Error = RustError;
+
+    fn try_from(
+        value: topk_rs::proto::v1::control::field_type_list::ListValueType,
+    ) -> Result<Self, Self::Error> {
         match value {
             topk_rs::proto::v1::control::field_type_list::ListValueType::Integer => {
-                ListValueType::Integer
+                Ok(ListValueType::Integer)
             }
             topk_rs::proto::v1::control::field_type_list::ListValueType::Float => {
-                ListValueType::Float
+                Ok(ListValueType::Float)
             }
             topk_rs::proto::v1::control::field_type_list::ListValueType::String => {
-                ListValueType::Text
+                Ok(ListValueType::Text)
             }
             topk_rs::proto::v1::control::field_type_list::ListValueType::Unspecified => {
-                unreachable!("Invalid list value type")
+                Err(topk_rs::Error::InvalidProto.into())
             }
         }
     }
@@ -194,9 +203,13 @@ impl Into<topk_rs::proto::v1::control::FieldType> for DataType {
     }
 }
 
-impl From<topk_rs::proto::v1::control::field_type::DataType> for DataType {
-    fn from(proto: topk_rs::proto::v1::control::field_type::DataType) -> Self {
-        match proto {
+impl TryFrom<topk_rs::proto::v1::control::field_type::DataType> for DataType {
+    type Error = RustError;
+
+    fn try_from(
+        proto: topk_rs::proto::v1::control::field_type::DataType,
+    ) -> Result<Self, Self::Error> {
+        Ok(match proto {
             topk_rs::proto::v1::control::field_type::DataType::Integer(_) => DataType::Integer(),
             topk_rs::proto::v1::control::field_type::DataType::Float(_) => DataType::Float(),
             topk_rs::proto::v1::control::field_type::DataType::Text(_) => DataType::Text(),
@@ -239,12 +252,12 @@ impl From<topk_rs::proto::v1::control::field_type::DataType> for DataType {
             }
             topk_rs::proto::v1::control::field_type::DataType::Bytes(_) => DataType::Bytes(),
             topk_rs::proto::v1::control::field_type::DataType::List(list) => DataType::List {
-                value_type: list.value_type().into(),
+                value_type: list.value_type().try_into()?,
             },
             topk_rs::proto::v1::control::field_type::DataType::Matrix(matrix) => DataType::Matrix {
                 dimension: matrix.dimension,
-                value_type: matrix.value_type().into(),
+                value_type: matrix.value_type().try_into()?,
             },
-        }
+        })
     }
 }

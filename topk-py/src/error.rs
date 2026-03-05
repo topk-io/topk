@@ -3,6 +3,12 @@ use pyo3::{create_exception, exceptions::PyException, prelude::*};
 #[derive(Debug)]
 pub struct RustError(pub topk_rs::Error);
 
+impl From<topk_rs::Error> for RustError {
+    fn from(value: topk_rs::Error) -> Self {
+        RustError(value)
+    }
+}
+
 impl From<RustError> for PyErr {
     fn from(value: RustError) -> Self {
         match value.0 {

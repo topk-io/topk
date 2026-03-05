@@ -1,3 +1,4 @@
+use crate::error::TopkError;
 use crate::schema::{data_type::DataType, field_index::FieldIndexUnion};
 use napi_derive::napi;
 use std::collections::HashMap;
@@ -21,19 +22,23 @@ pub struct Collection {
     pub region: String,
 }
 
-impl From<topk_rs::proto::v1::control::Collection> for Collection {
-    fn from(collection: topk_rs::proto::v1::control::Collection) -> Self {
-        Self {
+impl TryFrom<topk_rs::proto::v1::control::Collection> for Collection {
+    type Error = TopkError;
+
+    fn try_from(
+        collection: topk_rs::proto::v1::control::Collection,
+    ) -> std::result::Result<Self, Self::Error> {
+        Ok(Self {
             name: collection.name,
             org_id: collection.org_id,
             project_id: collection.project_id,
             schema: collection
                 .schema
                 .into_iter()
-                .map(|(k, v)| (k, v.into()))
-                .collect(),
+                .map(|(k, v)| v.try_into().map(|spec| (k, spec)))
+                .collect::<Result<HashMap<_, _>, _>>()?,
             region: collection.region,
-        }
+        })
     }
 }
 
@@ -53,12 +58,20 @@ pub struct CollectionFieldSpec {
     pub index: Option<FieldIndexUnion>,
 }
 
-impl From<topk_rs::proto::v1::control::FieldSpec> for CollectionFieldSpec {
-    fn from(field_spec: topk_rs::proto::v1::control::FieldSpec) -> Self {
-        Self {
-            data_type: field_spec.data_type.unwrap().into(),
+impl TryFrom<topk_rs::proto::v1::control::FieldSpec> for CollectionFieldSpec {
+    type Error = TopkError;
+
+    fn try_from(
+        mut field_spec: topk_rs::proto::v1::control::FieldSpec,
+    ) -> std::result::Result<Self, Self::Error> {
+        Ok(Self {
+            data_type: field_spec
+                .data_type
+                .take()
+                .ok_or(topk_rs::Error::InvalidProto)?
+                .try_into()?,
             required: field_spec.required,
-            index: field_spec.index.map(|index| index.into()),
-        }
+            index: field_spec.index.map(|i| i.try_into()).transpose()?,
+        })
     }
 }

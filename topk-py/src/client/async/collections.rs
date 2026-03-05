@@ -28,7 +28,7 @@ impl AsyncCollectionsClient {
                 .await
                 .map_err(RustError)?;
 
-            let collection: Collection = collection.into();
+            let collection: Collection = collection.try_into()?;
 
             Ok(collection)
         })
@@ -43,8 +43,8 @@ impl AsyncCollectionsClient {
 
             Ok(collections
                 .into_iter()
-                .map(|i| i.into())
-                .collect::<Vec<Collection>>())
+                .map(|i| i.try_into())
+                .collect::<Result<Vec<Collection>, _>>()?)
         })
         .map(|result| result.into())
     }
@@ -66,7 +66,7 @@ impl AsyncCollectionsClient {
                 .await
                 .map_err(RustError)?;
 
-            let collection: Collection = collection.into();
+            let collection: Collection = collection.try_into()?;
 
             Ok(collection)
         })

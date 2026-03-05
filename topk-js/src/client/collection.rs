@@ -87,8 +87,13 @@ impl CollectionClient {
 
         Ok(documents
             .into_iter()
-            .map(|(id, doc)| (id, doc.into_iter().map(|(k, v)| (k, v.into())).collect()))
-            .collect())
+            .map(|(id, doc)| {
+                doc.into_iter()
+                    .map(|(k, v)| v.try_into().map(|nv| (k, nv)))
+                    .collect::<std::result::Result<HashMap<_, _>, _>>()
+                    .map(|doc_map| (id, doc_map))
+            })
+            .collect::<std::result::Result<HashMap<_, _>, _>>()?)
     }
 
     /// Counts the number of documents in the collection.
@@ -128,8 +133,13 @@ impl CollectionClient {
 
         Ok(docs
             .into_iter()
-            .map(|d| d.fields.into_iter().map(|(k, v)| (k, v.into())).collect())
-            .collect())
+            .map(|d| {
+                d.fields
+                    .into_iter()
+                    .map(|(k, v)| NativeValue::try_from(v).map(|nv| (k, nv)))
+                    .collect::<std::result::Result<HashMap<_, _>, _>>()
+            })
+            .collect::<std::result::Result<Vec<_>, _>>()?)
     }
 
     /// Inserts or updates documents in the collection.
