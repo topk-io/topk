@@ -55,15 +55,16 @@ pub fn cast(dt: MatrixValueType, matrix: Matrix) -> Matrix {
 pub async fn setup(
     ctx: &mut ProjectTestContext,
     dt: MatrixValueType,
-    sketch_bits: Option<u32>,
     quant: Option<MultiVectorQuantization>,
+    width: Option<u32>,
+    top_k: Option<u32>,
 ) -> Collection {
     let collection = ctx
         .client
         .collections()
         .create(
             ctx.wrap(&format!("multi_vec_{}", dt.as_str_name())),
-            schema(dt, sketch_bits, quant),
+            schema(dt, quant, width, top_k),
         )
         .await
         .expect("could not create collection");
@@ -94,14 +95,15 @@ pub async fn setup(
 #[allow(dead_code)]
 pub fn schema(
     dt: MatrixValueType,
-    sketch_bits: Option<u32>,
     quant: Option<MultiVectorQuantization>,
+    width: Option<u32>,
+    top_k: Option<u32>,
 ) -> HashMap<String, FieldSpec> {
     schema!(
         "title" => FieldSpec::text(true, Some(KeywordIndexType::Text)),
         "published_year" => FieldSpec::integer(true),
         "token_embeddings" => FieldSpec::matrix(false, 7, dt)
-            .with_index(FieldIndex::multi_vector(MultiVectorDistanceMetric::Maxsim, sketch_bits, quant))
+            .with_index(FieldIndex::multi_vector(MultiVectorDistanceMetric::Maxsim, quant, width, top_k))
     )
 }
 

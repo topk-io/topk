@@ -117,9 +117,13 @@ message MultiVectorIndex {
   // Distance metric used for this multi-vector index.
   MultiVectorDistanceMetric metric = 1;
   // Number of bits used for 1st stage retrieval sketch.
-  optional uint32 sketch_bits = 2;
+  optional uint32 sketch_bits = 2 [deprecated = true];
   // Quantization used for multi-vector maxsim reranking.
   optional MultiVectorQuantization quantization = 3;
+  /// Width of the sparse projection.
+  optional uint32 width = 4;
+  /// Top-k projected values to keep.
+  optional uint32 top_k = 5;
 }
 
 // Multi-vector distance

@@ -20,14 +20,18 @@ impl FieldIndex {
 
     pub fn multi_vector(
         metric: MultiVectorDistanceMetric,
-        sketch_bits: Option<u32>,
         quantization: Option<MultiVectorQuantization>,
+        width: Option<u32>,
+        top_k: Option<u32>,
     ) -> FieldIndex {
         FieldIndex {
             index: Some(field_index::Index::MultiVectorIndex(MultiVectorIndex {
                 metric: metric.into(),
-                sketch_bits,
+                #[allow(deprecated)]
+                sketch_bits: None,
                 quantization: quantization.map(|q| q.into()),
+                width,
+                top_k,
             })),
         }
     }
