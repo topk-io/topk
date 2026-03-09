@@ -22,11 +22,11 @@ const Q2: [f32; 3 * 7] = [
 ];
 
 macro_rules! test_query_multi_vector_float {
-    ($name:ident, $dt:expr, $sketch_bits:expr, $quant:expr) => {
+    ($name:ident, $dt:expr, $quant:expr, $width:expr, $k:expr) => {
         #[test_context(ProjectTestContext)]
         #[tokio::test]
         async fn $name(ctx: &mut ProjectTestContext) {
-            let collection = dataset::multi_vec::setup(ctx, $dt, $sketch_bits, $quant).await;
+            let collection = dataset::multi_vec::setup(ctx, $dt, $quant, $width, $k).await;
 
             for (q, expected_ids) in [
                 (Q1.to_vec(), ["doc_7", "doc_8", "doc_6"]),
@@ -63,11 +63,13 @@ test_query_multi_vector_float!(
     test_query_multi_vector_float_f32,
     MatrixValueType::F32,
     None,
+    None,
     None
 );
 test_query_multi_vector_float!(
     test_query_multi_vector_float_f16,
     MatrixValueType::F16,
+    None,
     None,
     None
 );
@@ -76,45 +78,44 @@ test_query_multi_vector_float!(
     test_query_multi_vector_float_f8,
     MatrixValueType::F8,
     None,
+    None,
     None
 );
 test_query_multi_vector_float!(
-    test_query_multi_vector_float_f32_1024b,
+    test_query_multi_vector_float_f32_4096w,
     MatrixValueType::F32,
-    Some(1024),
-    None
-);
-test_query_multi_vector_float!(
-    test_query_multi_vector_float_f32_2048b,
-    MatrixValueType::F32,
-    Some(2048),
-    None
-);
-test_query_multi_vector_float!(
-    test_query_multi_vector_float_f32_4096b,
-    MatrixValueType::F32,
+    None,
     Some(4096),
     None
 );
 test_query_multi_vector_float!(
-    test_query_multi_vector_float_f32_8192b,
+    test_query_multi_vector_float_f32_16384w,
     MatrixValueType::F32,
-    Some(8192),
+    None,
+    Some(16384),
     None
+);
+test_query_multi_vector_float!(
+    test_query_multi_vector_float_f32_k16,
+    MatrixValueType::F32,
+    None,
+    None,
+    Some(16)
 );
 test_query_multi_vector_float!(
     test_query_multi_vector_float_f32_scalar_quant,
     MatrixValueType::F32,
+    Some(MultiVectorQuantization::Scalar),
     None,
-    Some(MultiVectorQuantization::Scalar)
+    None
 );
 
 macro_rules! test_query_multi_vector_float_binary {
-    ($name:ident, $k:expr, $dt:expr, $sketch_bits:expr, $quant:expr) => {
+    ($name:ident, $k:expr, $dt:expr, $quant:expr, $width:expr, $proj_k:expr) => {
         #[test_context(ProjectTestContext)]
         #[tokio::test]
         async fn $name(ctx: &mut ProjectTestContext) {
-            let collection = dataset::multi_vec::setup(ctx, $dt, $sketch_bits, $quant).await;
+            let collection = dataset::multi_vec::setup(ctx, $dt, $quant, $width, $proj_k).await;
 
             for (q, top_1) in [(Q1.to_vec(), "doc_7"), (Q2.to_vec(), "doc_0")] {
                 let result = ctx
@@ -148,15 +149,17 @@ test_query_multi_vector_float_binary!(
     test_query_multi_vector_float_f32_1bit_quant,
     5,
     MatrixValueType::F32,
+    Some(MultiVectorQuantization::Binary1bit),
     None,
-    Some(MultiVectorQuantization::Binary1bit)
+    None
 );
 test_query_multi_vector_float_binary!(
     test_query_multi_vector_float_f32_2bit_quant,
     3,
     MatrixValueType::F32,
+    Some(MultiVectorQuantization::Binary2bit),
     None,
-    Some(MultiVectorQuantization::Binary2bit)
+    None
 );
 
 #[test_context(ProjectTestContext)]
@@ -179,7 +182,7 @@ async fn test_query_multi_vector_int(ctx: &mut ProjectTestContext) {
         ),
     ] {
         println!("dt={dt:?}");
-        let collection = dataset::multi_vec::setup(ctx, dt, None, None).await;
+        let collection = dataset::multi_vec::setup(ctx, dt, None, None, None).await;
 
         for (q, expected_ids) in queries {
             let result = ctx
@@ -211,7 +214,7 @@ async fn test_query_multi_vector_int(ctx: &mut ProjectTestContext) {
 #[test_context(ProjectTestContext)]
 #[tokio::test]
 async fn test_query_multi_vector_with_filter(ctx: &mut ProjectTestContext) {
-    let collection = dataset::multi_vec::setup(ctx, MatrixValueType::F32, None, None).await;
+    let collection = dataset::multi_vec::setup(ctx, MatrixValueType::F32, None, None, None).await;
 
     for (q, expected_ids) in [
         (Q1.to_vec(), ["doc_7", "doc_6", "doc_1"]),
@@ -242,7 +245,7 @@ async fn test_query_multi_vector_with_filter(ctx: &mut ProjectTestContext) {
 #[test_context(ProjectTestContext)]
 #[tokio::test]
 async fn test_query_multi_vector_with_invalid_dim(ctx: &mut ProjectTestContext) {
-    let collection = dataset::multi_vec::setup(ctx, MatrixValueType::F32, None, None).await;
+    let collection = dataset::multi_vec::setup(ctx, MatrixValueType::F32, None, None, None).await;
 
     let err = ctx
         .client
@@ -270,7 +273,7 @@ async fn test_query_multi_vector_with_invalid_dim(ctx: &mut ProjectTestContext) 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
 async fn test_query_multi_vector_with_invalid_data_type(ctx: &mut ProjectTestContext) {
-    let collection = dataset::multi_vec::setup(ctx, MatrixValueType::F32, None, None).await;
+    let collection = dataset::multi_vec::setup(ctx, MatrixValueType::F32, None, None, None).await;
 
     let err = ctx
         .client
@@ -298,7 +301,7 @@ async fn test_query_multi_vector_with_invalid_data_type(ctx: &mut ProjectTestCon
 #[test_context(ProjectTestContext)]
 #[tokio::test]
 async fn test_query_multi_vector_with_empty_query(ctx: &mut ProjectTestContext) {
-    let collection = dataset::multi_vec::setup(ctx, MatrixValueType::F32, None, None).await;
+    let collection = dataset::multi_vec::setup(ctx, MatrixValueType::F32, None, None, None).await;
 
     let err = ctx
         .client

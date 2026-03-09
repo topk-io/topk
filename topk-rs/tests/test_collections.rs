@@ -196,8 +196,9 @@ async fn test_create_collection_with_invalid_multi_vector_quant(ctx: &mut Projec
             ctx.wrap("multi_vec"),
             schema(
                 MatrixValueType::U8,
-                None,
                 Some(MultiVectorQuantization::Scalar),
+                None,
+                None,
             ),
         )
         .await
