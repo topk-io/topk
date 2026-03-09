@@ -6,7 +6,9 @@ use topk_rs::proto::v1::data::Value;
 use topk_rs::Error;
 
 mod utils;
-use utils::{dataset::test_pdf_path, ProjectTestContext};
+use utils::ProjectTestContext;
+
+use crate::utils::dataset::test_pdf;
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
@@ -14,11 +16,7 @@ async fn test_upsert_file_to_non_existent_dataset(ctx: &mut ProjectTestContext) 
     let err = ctx
         .client
         .dataset(ctx.wrap("nonexistent"))
-        .upsert_file(
-            "doc1",
-            InputFile::from_path(test_pdf_path()).expect("could not create InputFile from path"),
-            Vec::<(String, Value)>::new(),
-        )
+        .upsert_file("doc1", test_pdf(), Vec::<(String, Value)>::new())
         .await
         .expect_err("should not be able to upsert file to non-existent dataset");
 
@@ -43,11 +41,7 @@ async fn test_upsert_file_pdf(ctx: &mut ProjectTestContext) {
     let response = ctx
         .client
         .dataset(&response.dataset().unwrap().name)
-        .upsert_file(
-            "doc1",
-            InputFile::from_path(test_pdf_path()).expect("could not create InputFile from path"),
-            metadata,
-        )
+        .upsert_file("doc1", test_pdf(), metadata)
         .await
         .expect("could not upsert PDF file");
 

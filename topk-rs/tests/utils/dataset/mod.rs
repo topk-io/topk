@@ -1,28 +1,28 @@
 use std::path::PathBuf;
+use std::time::Duration;
 
-use topk_rs::proto::v1::data::Document;
+use topk_rs::client::WaitConfig;
+use topk_rs::proto::v1::ctx::file::InputFile;
 
 pub mod books;
 pub mod multi_vec;
 pub mod semantic;
 
 #[allow(dead_code)]
-pub trait Dataset {
-    /// Returns a reference to the document with the given id.
-    fn find_by_id(&self, id: &str) -> Option<&Document>;
-}
-
-impl Dataset for Vec<Document> {
-    fn find_by_id(&self, id: &str) -> Option<&Document> {
-        self.iter().find(|doc| doc.id().unwrap() == id).clone()
-    }
+pub fn quick_wait() -> Option<WaitConfig> {
+    Some(WaitConfig {
+        frequency: Duration::from_secs(1),
+        timeout: Duration::from_secs(15),
+    })
 }
 
 #[allow(dead_code)]
-pub fn test_pdf_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+pub fn test_pdf() -> InputFile {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests")
         .join("utils")
         .join("dataset")
-        .join("pdfko.pdf")
+        .join("pdfko.pdf");
+
+    InputFile::from_path(&path).expect("could not create InputFile from path")
 }
