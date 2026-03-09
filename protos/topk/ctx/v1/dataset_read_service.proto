@@ -1,6 +1,7 @@
 syntax = "proto3";
 package topk.ctx.v1;
 
+import "topk/data/v1/document.proto";
 import "topk/data/v1/expr/logical.proto";
 import "topk/data/v1/value.proto";
 
@@ -28,12 +29,12 @@ message ListEntry {
 }
 
 message GetMetadataRequest {
-  // Document ID
-  string id = 1;
+  // Document IDs
+  repeated string ids = 1;
   // Fields to select (empty to select all fields)
   repeated string fields = 2;
 }
 
 message GetMetadataResponse {
-  map<string, topk.data.v1.Value> metadata = 1;
+  map<string, topk.data.v1.Document> docs = 1;
 }

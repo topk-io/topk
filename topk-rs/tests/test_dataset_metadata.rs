@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use test_context::test_context;
+use topk_rs::doc;
 use topk_rs::proto::v1::data::Value;
 
 mod utils;
@@ -15,13 +16,15 @@ async fn test_get_metadata(ctx: &mut ProjectTestContext) {
         .await
         .expect("could not create dataset");
 
-    let original_metadata = HashMap::from([("title".to_string(), Value::string("test"))]);
-
     // Upsert file with metadata
     let upsert = ctx
         .client
         .dataset(&response.dataset().unwrap().name)
-        .upsert_file("doc1".to_string(), test_pdf(), original_metadata.clone())
+        .upsert_file(
+            "doc1".to_string(),
+            test_pdf(),
+            vec![("title", Value::string("test"))],
+        )
         .await
         .expect("could not upsert file");
 
@@ -36,12 +39,12 @@ async fn test_get_metadata(ctx: &mut ProjectTestContext) {
     let response = ctx
         .client
         .dataset(&response.dataset().unwrap().name)
-        .get_metadata("doc1".to_string(), None)
+        .get_metadata(vec!["doc1"], None)
         .await
         .expect("could not get metadata");
 
     assert_eq!(
-        response.metadata.get("title"),
-        original_metadata.get("title")
+        response.docs,
+        HashMap::from([("doc1".to_string(), doc!("title" => Value::string("test")))])
     );
 }
