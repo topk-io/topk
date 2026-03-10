@@ -40,9 +40,22 @@ impl FunctionExpr {
         }
     }
 
-    pub fn bm25_score() -> Self {
+    pub fn bm25_score(b: Option<f32>, k1: Option<f32>) -> Self {
+        if let Some(b) = b {
+            if b < 0.0 || b > 1.0 {
+                panic!("b must be between 0.0 and 1.0");
+            }
+        }
+        if let Some(k1) = k1 {
+            if k1 < 0.0 {
+                panic!("k1 must be greater than 0.0");
+            }
+        }
         FunctionExpr {
-            func: Some(function_expr::Func::Bm25Score(function_expr::Bm25Score {})),
+            func: Some(function_expr::Func::Bm25Score(function_expr::Bm25Score {
+                b,
+                k1,
+            })),
         }
     }
 

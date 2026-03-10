@@ -77,7 +77,7 @@ async fn test_query_limit_with_bm25(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("bm25", fns::bm25_score())])
+            select([("bm25", fns::bm25_score(None, None))])
                 .filter(r#match("quest", None, None, true))
                 .limit(10),
             None,
