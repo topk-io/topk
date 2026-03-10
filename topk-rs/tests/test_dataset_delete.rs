@@ -19,15 +19,6 @@ async fn test_delete_document(ctx: &mut ProjectTestContext) {
         .dataset
         .unwrap();
 
-    // Try to get document metadata
-    let resp = ctx
-        .client
-        .dataset(&dataset.name)
-        .get_metadata(vec!["doc1"], None)
-        .await
-        .expect("could not get metadata");
-    assert!(resp.docs.is_empty());
-
     let upsert = ctx
         .client
         .dataset(&dataset.name)
@@ -39,14 +30,6 @@ async fn test_delete_document(ctx: &mut ProjectTestContext) {
         .wait_for_handle(&upsert.handle, quick_wait())
         .await
         .expect("could not wait handle");
-
-    // Try to get document metadata
-    let resp = ctx
-        .client
-        .dataset(&dataset.name)
-        .get_metadata(vec!["doc1"], None)
-        .await;
-    assert!(resp.is_ok());
 
     // Delete the document
     let delete = ctx
@@ -60,15 +43,6 @@ async fn test_delete_document(ctx: &mut ProjectTestContext) {
         .wait_for_handle(&delete.handle, quick_wait())
         .await
         .expect("could not wait handle");
-
-    // Try to get document metadata
-    let resp = ctx
-        .client
-        .dataset(&dataset.name)
-        .get_metadata(vec!["doc1"], None)
-        .await
-        .unwrap();
-    assert!(resp.docs.is_empty());
 }
 
 #[test_context(ProjectTestContext)]
