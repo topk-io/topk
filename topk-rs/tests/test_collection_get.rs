@@ -4,14 +4,13 @@ use test_context::test_context;
 use topk_rs::data::literal;
 use topk_rs::doc;
 use topk_rs::proto::v1::data::ConsistencyLevel;
+use topk_rs::proto::v1::data::Document;
 use topk_rs::query::field;
 use topk_rs::Error;
 
 mod utils;
 use utils::dataset;
 use utils::ProjectTestContext;
-
-use crate::utils::dataset::Dataset;
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
@@ -47,7 +46,7 @@ async fn test_get_document(ctx: &mut ProjectTestContext) {
     let collection = dataset::books::setup(ctx).await;
 
     let docs = dataset::books::docs();
-    let lotr = docs.find_by_id("lotr").unwrap().clone();
+    let lotr = find_by_id(&docs, "lotr").unwrap().clone();
 
     let docs = ctx
         .client
@@ -72,8 +71,8 @@ async fn test_get_multiple_documents(ctx: &mut ProjectTestContext) {
         .expect("could not get documents");
 
     let books = dataset::books::docs();
-    let lotr = books.find_by_id("lotr").unwrap().clone();
-    let moby = books.find_by_id("moby").unwrap().clone();
+    let lotr = find_by_id(&books, "lotr").unwrap().clone();
+    let moby = find_by_id(&books, "moby").unwrap().clone();
 
     assert_eq!(
         docs,
@@ -120,7 +119,7 @@ async fn test_get_document_fields(ctx: &mut ProjectTestContext) {
 async fn test_get_updated_document(ctx: &mut ProjectTestContext) {
     let collection = dataset::books::setup(ctx).await;
 
-    let mut lotr = dataset::books::docs().find_by_id("lotr").unwrap().clone();
+    let mut lotr = find_by_id(&dataset::books::docs(), "lotr").unwrap().clone();
 
     // Update document
     lotr.fields
@@ -238,4 +237,8 @@ async fn test_get_with_delete_filter(ctx: &mut ProjectTestContext) {
         docs.get("13").expect("document not found"),
         &doc!("_id" => "13", "batch_idx" => 2, "updated" => true).fields
     );
+}
+
+fn find_by_id<'a>(docs: &'a [Document], id: &str) -> Option<&'a Document> {
+    docs.iter().find(|doc| doc.id().unwrap() == id)
 }
