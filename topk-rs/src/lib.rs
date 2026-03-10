@@ -92,17 +92,6 @@ pub mod query {
         LogicalExpr::not(expr)
     }
 
-    pub fn r#match(token: &str, field: Option<&str>, weight: Option<f32>, all: bool) -> TextExpr {
-        TextExpr::terms(
-            all,
-            vec![Term {
-                token: token.to_string(),
-                field: field.map(|s| s.to_string()),
-                weight: weight.unwrap_or(1.0),
-            }],
-        )
-    }
-
     /// Evaluates to true if each `expr` is true.
     pub fn all(exprs: impl IntoIterator<Item = impl Into<LogicalExpr>>) -> LogicalExpr {
         LogicalExpr::all(exprs)
@@ -111,5 +100,66 @@ pub mod query {
     /// Evaluates to true if at least one `expr` is true.
     pub fn any(exprs: impl IntoIterator<Item = impl Into<LogicalExpr>>) -> LogicalExpr {
         LogicalExpr::any(exprs)
+    }
+
+    /// Filters documents that match the text.
+    pub fn r#match(
+        text: impl Into<String>,
+        field: Option<&str>,
+        weight: Option<f32>,
+        all: bool,
+    ) -> TextExpr {
+        TextExpr::terms(
+            all,
+            vec![Term {
+                token: text.into(),
+                field: field.map(|s| s.to_string()),
+                weight: weight.unwrap_or(1.0),
+            }],
+        )
+    }
+
+    pub trait AsTerm {
+        fn as_term(self) -> (String, f32);
+    }
+
+    impl<T: Into<String>> AsTerm for (T, f32) {
+        fn as_term(self) -> (String, f32) {
+            (self.0.into(), self.1)
+        }
+    }
+
+    impl AsTerm for String {
+        fn as_term(self) -> (String, f32) {
+            (self, 1.0)
+        }
+    }
+
+    impl AsTerm for &str {
+        fn as_term(self) -> (String, f32) {
+            (self.to_string(), 1.0)
+        }
+    }
+
+    /// Filters documents that match the provided tokens.
+    pub fn match_tokens(
+        tokens: impl IntoIterator<Item = impl AsTerm>,
+        field: Option<&str>,
+        all: bool,
+    ) -> TextExpr {
+        TextExpr::terms(
+            all,
+            tokens
+                .into_iter()
+                .map(|token| {
+                    let (token, weight) = token.as_term();
+                    Term {
+                        token,
+                        weight,
+                        field: field.map(|s| s.to_string()),
+                    }
+                })
+                .collect(),
+        )
     }
 }
