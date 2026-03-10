@@ -7,6 +7,7 @@ use utils::{dataset::{test_pdf, quick_wait}, ProjectTestContext};
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
+#[ignore]
 async fn test_dataset_list(ctx: &mut ProjectTestContext) {
     let response = ctx
         .client

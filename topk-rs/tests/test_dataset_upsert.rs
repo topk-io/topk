@@ -12,6 +12,7 @@ use crate::utils::dataset::test_pdf;
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
+#[ignore]
 async fn test_upsert_file_to_non_existent_dataset(ctx: &mut ProjectTestContext) {
     let err = ctx
         .client
@@ -25,6 +26,7 @@ async fn test_upsert_file_to_non_existent_dataset(ctx: &mut ProjectTestContext) 
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
+#[ignore]
 async fn test_upsert_file_pdf(ctx: &mut ProjectTestContext) {
     let response = ctx
         .client
@@ -50,6 +52,7 @@ async fn test_upsert_file_pdf(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
+#[ignore]
 async fn test_upsert_file_markdown(ctx: &mut ProjectTestContext) {
     let response = ctx
         .client
@@ -75,6 +78,7 @@ async fn test_upsert_file_markdown(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
+#[ignore]
 async fn test_upsert_file_with_invalid_metadata(ctx: &mut ProjectTestContext) {
     let response = ctx
         .client

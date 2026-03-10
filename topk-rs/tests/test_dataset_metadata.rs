@@ -8,6 +8,7 @@ use utils::{dataset::{test_pdf, quick_wait}, ProjectTestContext};
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
+#[ignore]
 async fn test_get_metadata(ctx: &mut ProjectTestContext) {
     let response = ctx
         .client

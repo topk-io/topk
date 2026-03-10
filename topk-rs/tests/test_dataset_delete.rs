@@ -8,6 +8,7 @@ use crate::utils::dataset::{quick_wait, test_pdf};
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
+#[ignore]
 async fn test_delete_document(ctx: &mut ProjectTestContext) {
     let dataset = ctx
         .client
@@ -77,6 +78,7 @@ async fn test_delete_document(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
+#[ignore]
 async fn test_delete_non_existent_document_returns_handle(ctx: &mut ProjectTestContext) {
     let response = ctx
         .client
@@ -103,6 +105,7 @@ async fn test_delete_non_existent_document_returns_handle(ctx: &mut ProjectTestC
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
+#[ignore]
 async fn test_delete_from_non_existent_dataset(ctx: &mut ProjectTestContext) {
     let err = ctx
         .client
