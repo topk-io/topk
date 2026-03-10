@@ -32,7 +32,7 @@ test-rs:
     # test
     ENV FORCE_COLOR=1
     RUN --no-cache --secret TOPK_API_KEY \
-        if printf '%s' "$TOPK_REGION" | grep -Eq 'monstera|elastica'; then TOPK_API_KEY=$TOPK_API_KEY cargo nextest run --archive-file e2e.tar.zst --no-fail-fast -j 16; else TOPK_API_KEY=$TOPK_API_KEY cargo nextest run --archive-file e2e.tar.zst --no-fail-fast -j 16 --run-ignored all; fi
+        TOPK_API_KEY=$TOPK_API_KEY cargo nextest run --archive-file e2e.tar.zst --no-fail-fast -j 16
 
 
 test-py:
@@ -143,7 +143,7 @@ test-runner:
     ENV FORCE_COLOR=1
     DO rust+CARGO --args="nextest archive --release --archive-file test-runner.tar.zst"
 
-    ENTRYPOINT ["sh", "-c", "if printf '%s' \"$TOPK_REGION\" | grep -Eq 'monstera|elastica'; then cargo nextest run --archive-file test-runner.tar.zst \"$@\"; else cargo nextest run --archive-file test-runner.tar.zst --run-ignored all \"$@\"; fi", "--"]
+    ENTRYPOINT ["cargo", "nextest", "run", "--archive-file", "test-runner.tar.zst", "--no-fail-fast", "-j", "16"]
 
     ARG registry
     ARG tag=latest
