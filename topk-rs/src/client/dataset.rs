@@ -2,10 +2,12 @@ use std::collections::HashMap;
 use std::io::Cursor;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::time::Duration;
 
 use bytes::Bytes;
 use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::sync::mpsc;
+use tokio::time::Instant;
 use tokio_stream::wrappers::ReceiverStream;
 
 use tokio::sync::OnceCell;
@@ -17,11 +19,10 @@ use crate::proto::v1::ctx::dataset_read_service_client::DatasetReadServiceClient
 use crate::proto::v1::ctx::dataset_write_service_client::DatasetWriteServiceClient;
 use crate::proto::v1::ctx::doc::DocId;
 use crate::proto::v1::ctx::file::{InputFile, InputSource};
-use crate::proto::v1::ctx::handle::Handle;
 use crate::proto::v1::ctx::ListEntry;
 use crate::proto::v1::ctx::ListRequest;
 use crate::proto::v1::ctx::{
-    upsert_message, CheckHandleRequest, CheckHandleResponse, DeleteRequest, DeleteResponse,
+    upsert_message, CheckHandleRequest, DeleteRequest, DeleteResponse,
     GetMetadataRequest, GetMetadataResponse, UpdateMetadataRequest, UpdateMetadataResponse,
     UpsertMessage, UpsertResponse,
 };
@@ -30,6 +31,24 @@ use crate::proto::v1::data::Value;
 use crate::retry::call_with_retry;
 use crate::Error;
 use crate::{create_client, ClientConfig};
+
+/// Configuration for polling when waiting for a handle to be processed.
+#[derive(Debug, Clone)]
+pub struct WaitConfig {
+    /// How often to poll for the handle status.
+    pub frequency: Duration,
+    /// Maximum time to wait before returning a timeout error.
+    pub timeout: Duration,
+}
+
+impl Default for WaitConfig {
+    fn default() -> Self {
+        Self {
+            frequency: Duration::from_secs(5),
+            timeout: Duration::from_secs(300),
+        }
+    }
+}
 
 // Buffer size for the upsert stream
 const UPLOAD_BATCH_SIZE: usize = 262_144; // 256KB
@@ -179,15 +198,13 @@ impl DatasetClient {
         Ok(response.into())
     }
 
-    pub async fn check_handle(
-        &self,
-        handle: Handle,
-    ) -> Result<Response<CheckHandleResponse>, Error> {
+    /// Checks if a handle has been processed (single shot).
+    pub async fn check_handle(&self, handle: &str) -> Result<bool, Error> {
         let client = create_client!(DatasetWriteServiceClient, self.write, self.config).await?;
 
         let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
-            let handle = handle.clone().into();
+            let handle = handle.to_string();
             async move {
                 client
                     .check_handle(CheckHandleRequest { handle })
@@ -200,7 +217,32 @@ impl DatasetClient {
         })
         .await?;
 
-        Ok(response.into())
+        Ok(response.into_inner().processed)
+    }
+
+    /// Polls until a handle has been processed or the timeout is reached.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::RetryTimeout` if the handle is not processed within the configured timeout.
+    pub async fn wait_for_handle(
+        &self,
+        handle: &str,
+        config: Option<WaitConfig>,
+    ) -> Result<(), Error> {
+        let config = config.unwrap_or_default();
+        let start = Instant::now();
+        loop {
+            if start.elapsed() > config.timeout {
+                return Err(Error::RetryTimeout);
+            }
+
+            if self.check_handle(handle).await? {
+                return Ok(());
+            }
+
+            tokio::time::sleep(config.frequency).await;
+        }
     }
 
     pub async fn get_metadata(

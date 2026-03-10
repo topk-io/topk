@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use test_context::test_context;
-use topk_rs::proto::v1::{ctx::file::InputFile, data::Value};
+use topk_rs::proto::v1::data::Value;
 
 mod utils;
-use utils::{dataset::test_pdf_path, ProjectTestContext};
+use utils::{dataset::{test_pdf, quick_wait}, ProjectTestContext};
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
@@ -18,16 +18,19 @@ async fn test_get_metadata(ctx: &mut ProjectTestContext) {
     let original_metadata = HashMap::from([("title".to_string(), Value::string("test"))]);
 
     // Upsert file with metadata
-    let _handle = ctx
+    let upsert = ctx
         .client
         .dataset(&response.dataset().unwrap().name)
-        .upsert_file(
-            "doc1".to_string(),
-            InputFile::from_path(test_pdf_path()).expect("could not create InputFile from path"),
-            original_metadata.clone(),
-        )
+        .upsert_file("doc1".to_string(), test_pdf(), original_metadata.clone())
         .await
         .expect("could not upsert file");
+
+    // Wait for file to be processed
+    ctx.client
+        .dataset(&response.dataset().unwrap().name)
+        .wait_for_handle(&upsert.handle, quick_wait())
+        .await
+        .expect("could not wait for handle");
 
     // Get metadata and verify it matches
     let response = ctx

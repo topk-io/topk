@@ -1,41 +1,48 @@
 use test_context::test_context;
-use topk_rs::{
-    proto::v1::{ctx::file::InputFile, data::Value},
-    Error,
-};
+use topk_rs::{proto::v1::data::Value, Error};
 
 mod utils;
-use utils::{dataset::test_pdf_path, ProjectTestContext};
+use utils::ProjectTestContext;
+
+use crate::utils::dataset::{test_pdf, quick_wait};
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
 async fn test_delete_document(ctx: &mut ProjectTestContext) {
-    let response = ctx
+    let dataset = ctx
         .client
         .datasets()
         .create(ctx.wrap("test"))
         .await
-        .expect("could not create dataset");
+        .expect("could not create dataset")
+        .into_inner()
+        .dataset
+        .unwrap();
 
-    let _handle = ctx
+    let upsert = ctx
         .client
-        .dataset(&response.dataset().unwrap().name)
-        .upsert_file(
-            "doc1",
-            InputFile::from_path(test_pdf_path()).expect("could not create InputFile from path"),
-            Vec::<(String, Value)>::new(),
-        )
+        .dataset(&dataset.name)
+        .upsert_file("doc1", test_pdf(), Vec::<(String, Value)>::new())
         .await
         .expect("could not upsert file");
+    ctx.client
+        .dataset(&dataset.name)
+        .wait_for_handle(&upsert.handle, quick_wait())
+        .await
+        .expect("could not wait handle");
 
     // Delete the document
-    let delete_handle = ctx
+    let delete = ctx
         .client
-        .dataset(&response.dataset().unwrap().name)
+        .dataset(&dataset.name)
         .delete("doc1")
-        .await;
-
-    assert!(matches!(delete_handle, Ok(_)));
+        .await
+        .expect("could not delete");
+    ctx.client
+        .dataset(&dataset.name)
+        .wait_for_handle(&delete.handle, quick_wait())
+        .await
+        .expect("could not wait handle");
 }
 
 #[test_context(ProjectTestContext)]
@@ -48,14 +55,20 @@ async fn test_delete_non_existent_document_returns_handle(ctx: &mut ProjectTestC
         .await
         .expect("could not create dataset");
 
-    let delete_handle = ctx
+    let delete = ctx
         .client
         .dataset(&response.dataset().unwrap().name)
         .delete("nonexistent")
-        .await;
+        .await
+        .expect("could not delete");
 
     // Deleting a non-existent document returns a handle
-    assert!(matches!(delete_handle, Ok(_)));
+    let result = ctx
+        .client
+        .dataset(&response.dataset().unwrap().name)
+        .wait_for_handle(&delete.handle, quick_wait())
+        .await;
+    assert!(matches!(result, Ok(_)));
 }
 
 #[test_context(ProjectTestContext)]
@@ -64,44 +77,9 @@ async fn test_delete_from_non_existent_dataset(ctx: &mut ProjectTestContext) {
     let err = ctx
         .client
         .dataset(ctx.wrap("nonexistent"))
-        .delete("doc1".to_string())
+        .delete("doc1")
         .await
         .expect_err("should not be able to delete from non-existent dataset");
 
     assert!(matches!(err, Error::DatasetNotFound));
-}
-
-#[test_context(ProjectTestContext)]
-#[tokio::test]
-async fn test_delete_returns_handle(ctx: &mut ProjectTestContext) {
-    let pdf_path = test_pdf_path();
-
-    let response = ctx
-        .client
-        .datasets()
-        .create(ctx.wrap("test"))
-        .await
-        .expect("could not create dataset");
-
-    // Upload a document
-    let _upsert_handle = ctx
-        .client
-        .dataset(&response.dataset().unwrap().name)
-        .upsert_file(
-            "doc2",
-            InputFile::from_path(pdf_path).expect("could not create InputFile from path"),
-            Vec::<(String, Value)>::new(),
-        )
-        .await
-        .expect("could not upsert file");
-
-    // Delete and verify handle is returned
-    let response = ctx
-        .client
-        .dataset(&response.dataset().unwrap().name)
-        .delete("doc2")
-        .await
-        .expect("should delete successfully");
-
-    assert_eq!(response.handle.is_empty(), false);
 }

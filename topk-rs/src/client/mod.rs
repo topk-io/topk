@@ -14,6 +14,7 @@ pub use collection::CollectionClient;
 
 mod dataset;
 pub use dataset::DatasetClient;
+pub use dataset::WaitConfig;
 
 pub mod ask;
 pub mod search;

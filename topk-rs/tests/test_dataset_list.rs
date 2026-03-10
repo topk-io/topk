@@ -1,10 +1,9 @@
 use futures_util::TryStreamExt;
 use test_context::test_context;
-use topk_rs::proto::v1::ctx::file::InputFile;
 use topk_rs::proto::v1::data::Value;
 
 mod utils;
-use utils::{dataset::test_pdf_path, ProjectTestContext};
+use utils::{dataset::{test_pdf, quick_wait}, ProjectTestContext};
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
@@ -16,15 +15,22 @@ async fn test_dataset_list(ctx: &mut ProjectTestContext) {
         .await
         .expect("could not create dataset");
 
-    ctx.client
+    let upsert = ctx
+        .client
         .dataset(&response.dataset().unwrap().name)
         .upsert_file(
             "doc1",
-            InputFile::from_path(test_pdf_path()).expect("could not create InputFile from path"),
+            test_pdf(),
             Vec::<(String, Value)>::new(),
         )
         .await
         .expect("could not upsert PDF file");
+
+    ctx.client
+        .dataset(&response.dataset().unwrap().name)
+        .wait_for_handle(&upsert.handle, quick_wait())
+        .await
+        .expect("could not wait for handle");
 
     let entries: Vec<_> = ctx
         .client
