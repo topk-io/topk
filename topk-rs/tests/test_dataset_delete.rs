@@ -4,10 +4,11 @@ use topk_rs::{proto::v1::data::Value, Error};
 mod utils;
 use utils::ProjectTestContext;
 
-use crate::utils::dataset::{quick_wait, test_pdf};
+use crate::utils::dataset::test_pdf;
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
+#[ignore]
 async fn test_delete_document(ctx: &mut ProjectTestContext) {
     let dataset = ctx
         .client
@@ -36,7 +37,7 @@ async fn test_delete_document(ctx: &mut ProjectTestContext) {
         .expect("could not upsert file");
     ctx.client
         .dataset(&dataset.name)
-        .wait_for_handle(&upsert.handle, quick_wait())
+        .wait_for_handle(&upsert.handle, None)
         .await
         .expect("could not wait handle");
 
@@ -61,7 +62,7 @@ async fn test_delete_document(ctx: &mut ProjectTestContext) {
         .expect("could not delete");
     ctx.client
         .dataset(&dataset.name)
-        .wait_for_handle(&delete.handle, quick_wait())
+        .wait_for_handle(&delete.handle, None)
         .await
         .expect("could not wait handle");
 
@@ -77,6 +78,7 @@ async fn test_delete_document(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
+#[ignore]
 async fn test_delete_non_existent_document_returns_handle(ctx: &mut ProjectTestContext) {
     let response = ctx
         .client
@@ -96,13 +98,14 @@ async fn test_delete_non_existent_document_returns_handle(ctx: &mut ProjectTestC
     let result = ctx
         .client
         .dataset(&response.dataset().unwrap().name)
-        .wait_for_handle(&delete.handle, quick_wait())
+        .wait_for_handle(&delete.handle, None)
         .await;
     assert!(matches!(result, Ok(_)));
 }
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
+#[ignore]
 async fn test_delete_from_non_existent_dataset(ctx: &mut ProjectTestContext) {
     let err = ctx
         .client

@@ -22,9 +22,9 @@ use crate::proto::v1::ctx::file::{InputFile, InputSource};
 use crate::proto::v1::ctx::ListEntry;
 use crate::proto::v1::ctx::ListRequest;
 use crate::proto::v1::ctx::{
-    upsert_message, CheckHandleRequest, DeleteRequest, DeleteResponse,
-    GetMetadataRequest, GetMetadataResponse, UpdateMetadataRequest, UpdateMetadataResponse,
-    UpsertMessage, UpsertResponse,
+    upsert_message, CheckHandleRequest, DeleteRequest, DeleteResponse, GetMetadataRequest,
+    GetMetadataResponse, UpdateMetadataRequest, UpdateMetadataResponse, UpsertMessage,
+    UpsertResponse,
 };
 use crate::proto::v1::data::LogicalExpr;
 use crate::proto::v1::data::Value;
