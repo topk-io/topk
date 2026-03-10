@@ -46,6 +46,9 @@ impl From<TopkError> for napi::Error {
             topk_rs::Error::PermissionDenied => {
                 napi::Error::new(napi::Status::GenericFailure, "permission denied")
             }
+            topk_rs::Error::InvalidProto => {
+                napi::Error::new(napi::Status::GenericFailure, "invalid proto")
+            }
             // Other errors
             _ => napi::Error::new(napi::Status::GenericFailure, format!("{:?}", error)),
         }

@@ -1,10 +1,15 @@
 use crate::proto::control::v1::{
     field_type_list::ListValueType, field_type_matrix::MatrixValueType,
 };
+use crate::Error;
 
 use super::*;
 
 impl FieldSpec {
+    pub fn data_type(&self) -> Result<&FieldType, Error> {
+        self.data_type.as_ref().ok_or(Error::InvalidProto)
+    }
+
     pub fn with_index(mut self, index: FieldIndex) -> Self {
         assert!(self.index.is_none(), "Field index is already set");
         self.index = Some(index);

@@ -1,6 +1,11 @@
 use super::*;
+use crate::Error;
 
 impl FieldIndex {
+    pub fn index(&self) -> Result<&field_index::Index, Error> {
+        self.index.as_ref().ok_or(Error::InvalidProto)
+    }
+
     pub fn keyword(index_type: KeywordIndexType) -> FieldIndex {
         FieldIndex {
             index: Some(field_index::Index::KeywordIndex(KeywordIndex {

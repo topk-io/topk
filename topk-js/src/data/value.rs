@@ -149,113 +149,133 @@ impl From<Value> for topk_rs::proto::v1::data::Value {
     }
 }
 
-impl From<topk_rs::proto::v1::data::Value> for Value {
-    fn from(value: topk_rs::proto::v1::data::Value) -> Self {
-        match value.value {
+impl TryFrom<topk_rs::proto::v1::data::Value> for Value {
+    type Error = crate::error::TopkError;
+
+    fn try_from(mut value: topk_rs::proto::v1::data::Value) -> std::result::Result<Self, Self::Error> {
+        let value = value
+            .value
+            .take()
+            .ok_or(topk_rs::Error::InvalidProto)?;
+        Ok(match value {
             // Null
-            Some(topk_rs::proto::v1::data::value::Value::Null(_)) => Value::Null,
+            topk_rs::proto::v1::data::value::Value::Null(_) => Value::Null,
             // Bool
-            Some(topk_rs::proto::v1::data::value::Value::Bool(b)) => Value::Bool(b),
+            topk_rs::proto::v1::data::value::Value::Bool(b) => Value::Bool(b),
             // String
-            Some(topk_rs::proto::v1::data::value::Value::String(s)) => Value::String(s),
+            topk_rs::proto::v1::data::value::Value::String(s) => Value::String(s),
             // Numbers
-            Some(topk_rs::proto::v1::data::value::Value::F64(n)) => Value::F64(n),
-            Some(topk_rs::proto::v1::data::value::Value::F32(n)) => Value::F64(n as f64),
-            Some(topk_rs::proto::v1::data::value::Value::U32(n)) => {
+            topk_rs::proto::v1::data::value::Value::F64(n) => Value::F64(n),
+            topk_rs::proto::v1::data::value::Value::F32(n) => Value::F64(n as f64),
+            topk_rs::proto::v1::data::value::Value::U32(n) => {
                 Value::U32(n.try_into().expect("U32 is lossy"))
             }
-            Some(topk_rs::proto::v1::data::value::Value::U64(n)) => {
+            topk_rs::proto::v1::data::value::Value::U64(n) => {
                 Value::U32(n.try_into().expect("U32 is lossy"))
             }
-            Some(topk_rs::proto::v1::data::value::Value::I32(n)) => Value::I32(n),
-            Some(topk_rs::proto::v1::data::value::Value::I64(n)) => Value::I64(n),
+            topk_rs::proto::v1::data::value::Value::I32(n) => Value::I32(n),
+            topk_rs::proto::v1::data::value::Value::I64(n) => Value::I64(n),
             // Bytes
-            Some(topk_rs::proto::v1::data::value::Value::Binary(b)) => Value::Bytes(b.into()),
+            topk_rs::proto::v1::data::value::Value::Binary(b) => Value::Bytes(b.into()),
             // Vectors(deprecated)
-            Some(topk_rs::proto::v1::data::value::Value::Vector(v)) => match v.vector {
-                Some(topk_rs::proto::v1::data::vector::Vector::Float(float_vector)) => {
-                    Value::List(List {
-                        values: Values::F32(
-                            #[allow(deprecated)]
-                            float_vector.values,
-                        ),
-                    })
+            topk_rs::proto::v1::data::value::Value::Vector(mut v) => {
+                let vector = v
+                    .vector
+                    .take()
+                    .ok_or(topk_rs::Error::InvalidProto)?;
+                match vector {
+                    topk_rs::proto::v1::data::vector::Vector::Float(float_vector) => {
+                        Value::List(List {
+                            values: Values::F32(
+                                #[allow(deprecated)]
+                                float_vector.values,
+                            ),
+                        })
+                    }
+                    topk_rs::proto::v1::data::vector::Vector::Byte(byte_vector) => {
+                        Value::List(List {
+                            values: Values::U8(
+                                #[allow(deprecated)]
+                                byte_vector.values,
+                            ),
+                        })
+                    }
                 }
-                Some(topk_rs::proto::v1::data::vector::Vector::Byte(byte_vector)) => {
-                    Value::List(List {
-                        values: Values::U8(
-                            #[allow(deprecated)]
-                            byte_vector.values,
-                        ),
-                    })
-                }
-                None => unreachable!("Invalid vector proto"),
-            },
+            }
             // Sparse vectors
-            Some(topk_rs::proto::v1::data::value::Value::SparseVector(sparse_vector)) => {
-                Value::SparseVector(match sparse_vector.values {
-                    Some(topk_rs::proto::v1::data::sparse_vector::Values::F32(values)) => {
+            topk_rs::proto::v1::data::value::Value::SparseVector(mut sparse_vector) => {
+                let values = sparse_vector
+                    .values
+                    .take()
+                    .ok_or(topk_rs::Error::InvalidProto)?;
+                Value::SparseVector(match values {
+                    topk_rs::proto::v1::data::sparse_vector::Values::F32(values) => {
                         SparseVector::float(SparseVectorData::<f32> {
                             indices: sparse_vector.indices,
                             values: values.values,
                         })
                     }
-                    Some(topk_rs::proto::v1::data::sparse_vector::Values::U8(values)) => {
+                    topk_rs::proto::v1::data::sparse_vector::Values::U8(values) => {
                         SparseVector::byte(SparseVectorData::<u8> {
                             indices: sparse_vector.indices,
                             values: values.values,
                         })
                     }
-                    None => unreachable!("Invalid sparse vector proto"),
                 })
             }
-            Some(topk_rs::proto::v1::data::value::Value::List(list)) => Value::List(List {
-                values: match list.values {
-                    Some(topk_rs::proto::v1::data::list::Values::U8(v)) => Values::U8(v.values),
-                    Some(topk_rs::proto::v1::data::list::Values::U32(v)) => Values::U32(v.values),
-                    Some(topk_rs::proto::v1::data::list::Values::U64(v)) => Values::U64(v.values),
-                    // Transmuting to i8 from the `bytes` u8 representation in proto
-                    Some(topk_rs::proto::v1::data::list::Values::I8(v)) => Values::I8(v.into()),
-                    Some(topk_rs::proto::v1::data::list::Values::I32(v)) => Values::I32(v.values),
-                    Some(topk_rs::proto::v1::data::list::Values::I64(v)) => Values::I64(v.values),
-                    Some(topk_rs::proto::v1::data::list::Values::F8(v)) => Values::F8(v.into()),
-                    Some(topk_rs::proto::v1::data::list::Values::F16(v)) => Values::F16(v.into()),
-                    Some(topk_rs::proto::v1::data::list::Values::F32(v)) => Values::F32(v.values),
-                    Some(topk_rs::proto::v1::data::list::Values::F64(v)) => Values::F64(v.values),
-                    Some(topk_rs::proto::v1::data::list::Values::String(v)) => {
-                        Values::String(v.values)
-                    }
-                    None => unreachable!("Invalid list proto"),
-                },
-            }),
-            Some(topk_rs::proto::v1::data::value::Value::Matrix(matrix)) => {
+            topk_rs::proto::v1::data::value::Value::List(mut list) => {
+                let values = list
+                    .values
+                    .take()
+                    .ok_or(topk_rs::Error::InvalidProto)?;
+                Value::List(List {
+                    values: match values {
+                        topk_rs::proto::v1::data::list::Values::U8(v) => Values::U8(v.values),
+                        topk_rs::proto::v1::data::list::Values::U32(v) => Values::U32(v.values),
+                        topk_rs::proto::v1::data::list::Values::U64(v) => Values::U64(v.values),
+                        topk_rs::proto::v1::data::list::Values::I8(v) => Values::I8(v.into()),
+                        topk_rs::proto::v1::data::list::Values::I32(v) => Values::I32(v.values),
+                        topk_rs::proto::v1::data::list::Values::I64(v) => Values::I64(v.values),
+                        topk_rs::proto::v1::data::list::Values::F8(v) => Values::F8(v.into()),
+                        topk_rs::proto::v1::data::list::Values::F16(v) => Values::F16(v.into()),
+                        topk_rs::proto::v1::data::list::Values::F32(v) => Values::F32(v.values),
+                        topk_rs::proto::v1::data::list::Values::F64(v) => Values::F64(v.values),
+                        topk_rs::proto::v1::data::list::Values::String(v) => {
+                            Values::String(v.values)
+                        }
+                    },
+                })
+            }
+            topk_rs::proto::v1::data::value::Value::Matrix(mut matrix) => {
+                let values = matrix
+                    .values
+                    .take()
+                    .ok_or(topk_rs::Error::InvalidProto)?;
                 let num_cols = matrix.num_cols;
-                let values = match matrix.values {
-                    Some(topk_rs::proto::v1::data::matrix::Values::F32(v)) => {
+                let values = match values {
+                    topk_rs::proto::v1::data::matrix::Values::F32(v) => {
                         MatrixValues::F32(v.values)
                     }
-                    Some(topk_rs::proto::v1::data::matrix::Values::F16(v)) => {
+                    topk_rs::proto::v1::data::matrix::Values::F16(v) => {
                         MatrixValues::F16(v.into())
                     }
-                    Some(topk_rs::proto::v1::data::matrix::Values::F8(v)) => {
+                    topk_rs::proto::v1::data::matrix::Values::F8(v) => {
                         MatrixValues::F8(v.into())
                     }
-                    Some(topk_rs::proto::v1::data::matrix::Values::U8(v)) => {
+                    topk_rs::proto::v1::data::matrix::Values::U8(v) => {
                         MatrixValues::U8(v.values)
                     }
-                    Some(topk_rs::proto::v1::data::matrix::Values::I8(v)) => {
+                    topk_rs::proto::v1::data::matrix::Values::I8(v) => {
                         MatrixValues::I8(v.into())
                     }
-                    None => unreachable!("Invalid matrix proto"),
                 };
 
                 Value::Matrix(Matrix { num_cols, values })
             }
-            Some(topk_rs::proto::v1::data::value::Value::Struct(..)) => {
+            topk_rs::proto::v1::data::value::Value::Struct(..) => {
                 todo!()
             }
-            None => unreachable!("Invalid value proto"),
-        }
+        })
     }
 }
 
@@ -420,9 +440,11 @@ impl ToNapiValue for NativeValue {
     }
 }
 
-impl From<topk_rs::proto::v1::data::Value> for NativeValue {
-    fn from(value: topk_rs::proto::v1::data::Value) -> Self {
-        NativeValue(Value::from(value))
+impl TryFrom<topk_rs::proto::v1::data::Value> for NativeValue {
+    type Error = crate::error::TopkError;
+
+    fn try_from(value: topk_rs::proto::v1::data::Value) -> std::result::Result<Self, Self::Error> {
+        Ok(NativeValue(value.try_into()?))
     }
 }
 
