@@ -1,6 +1,6 @@
 import pytest
 from topk_sdk import error
-from topk_sdk.query import field, filter, fn, match, select
+from topk_sdk.query import field, filter, fn, match, match_tokens, select
 
 from . import ProjectContext
 from .utils import dataset, doc_ids
@@ -48,6 +48,41 @@ def test_query_text_filter_two_terms_conjunctive(ctx: ProjectContext):
     )
 
     assert doc_ids(result) == {"pride"}
+
+
+def test_query_text_filter_match_tokens_strings_only(ctx: ProjectContext):
+    collection = dataset.books.setup(ctx)
+
+    result = ctx.client.collection(collection.name).query(
+        filter(match_tokens(["love", "class"], field="summary", all=True))
+    )
+
+    assert doc_ids(result) == {"pride"}
+
+
+def test_query_text_filter_match_tokens_mixed_strings_and_tuples(ctx: ProjectContext):
+    collection = dataset.books.setup(ctx)
+
+    result = ctx.client.collection(collection.name).query(
+        filter(match_tokens(["love", ("class", 1.0)], field="summary", all=True))
+    )
+
+    assert doc_ids(result) == {"pride"}
+
+
+def test_query_text_filter_match_tokens_with_weights(ctx: ProjectContext):
+    collection = dataset.books.setup(ctx)
+
+    result = ctx.client.collection(collection.name).query(
+        filter(
+            match_tokens(
+                [("wealth", 2.0), "love"],
+                field="summary",
+            )
+        )
+    )
+
+    assert doc_ids(result) == {"gatsby", "pride"}
 
 
 def test_query_text_filter_stop_word(ctx: ProjectContext):

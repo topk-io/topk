@@ -216,11 +216,12 @@ pub fn semantic_index(
 }
 
 #[pyfunction]
-#[pyo3(signature=(metric, sketch_bits=None, quantization=None))]
+#[pyo3(signature=(metric, quantization=None, width=None, top_k=None))]
 pub fn multi_vector_index(
     metric: String,
-    sketch_bits: Option<u32>,
     quantization: Option<String>,
+    width: Option<u32>,
+    top_k: Option<u32>,
 ) -> PyResult<field_index::FieldIndex> {
     let metric = match metric.to_lowercase().as_str() {
         "maxsim" => field_index::MultiVectorDistanceMetric::Maxsim,
@@ -247,8 +248,9 @@ pub fn multi_vector_index(
 
     Ok(field_index::FieldIndex::MultiVectorIndex {
         metric,
-        sketch_bits,
         quantization,
+        width,
+        top_k,
     })
 }
 

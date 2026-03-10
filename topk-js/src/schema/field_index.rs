@@ -23,8 +23,9 @@ pub enum FieldIndexUnion {
     },
     MultiVectorIndex {
         metric: MultiVectorDistanceMetric,
-        sketch_bits: Option<u32>,
         quantization: Option<MultiVectorQuantization>,
+        width: Option<u32>,
+        top_k: Option<u32>,
     },
 }
 
@@ -49,13 +50,15 @@ impl FieldIndex {
 
     pub(crate) fn multi_vector_index(
         metric: MultiVectorDistanceMetric,
-        sketch_bits: Option<u32>,
         quantization: Option<MultiVectorQuantization>,
+        width: Option<u32>,
+        top_k: Option<u32>,
     ) -> Self {
         Self(FieldIndexUnion::MultiVectorIndex {
             metric,
-            sketch_bits,
             quantization,
+            width,
+            top_k,
         })
     }
 }
@@ -295,12 +298,13 @@ impl From<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
                         )
                         .expect("Unsupported multi-vector distance metric")
                         .into(),
-                        mvi.sketch_bits,
                         mvi.quantization.map(|q| {
                             topk_rs::proto::v1::control::MultiVectorQuantization::try_from(q)
                                 .expect("Unsupported multi-vector quantization")
                                 .into()
                         }),
+                        mvi.width,
+                        mvi.top_k,
                     )
                 }
             },
@@ -327,12 +331,14 @@ impl From<FieldIndex> for topk_rs::proto::v1::control::FieldIndex {
             ),
             FieldIndexUnion::MultiVectorIndex {
                 metric,
-                sketch_bits,
                 quantization,
+                width,
+                top_k,
             } => topk_rs::proto::v1::control::FieldIndex::multi_vector(
                 metric.into(),
-                sketch_bits,
                 quantization.map(|q| q.into()),
+                width,
+                top_k,
             ),
         }
     }

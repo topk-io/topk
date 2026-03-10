@@ -4,7 +4,10 @@ use pyo3::prelude::*;
 #[pyclass]
 #[derive(Debug, Clone)]
 pub enum FunctionExpr {
-    KeywordScore {},
+    KeywordScore {
+        b: Option<f32>,
+        k1: Option<f32>,
+    },
     VectorScore {
         field: String,
         query: Value,
@@ -24,7 +27,9 @@ pub enum FunctionExpr {
 impl From<FunctionExpr> for topk_rs::proto::v1::data::FunctionExpr {
     fn from(expr: FunctionExpr) -> Self {
         match expr {
-            FunctionExpr::KeywordScore {} => topk_rs::proto::v1::data::FunctionExpr::bm25_score(),
+            FunctionExpr::KeywordScore { b, k1 } => {
+                topk_rs::proto::v1::data::FunctionExpr::bm25_score(b, k1)
+            }
             FunctionExpr::VectorScore {
                 field,
                 query,

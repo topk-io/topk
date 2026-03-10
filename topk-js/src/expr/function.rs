@@ -10,7 +10,10 @@ pub struct FunctionExpression(pub(crate) FunctionExpressionUnion);
 
 #[derive(Debug, Clone)]
 pub enum FunctionExpressionUnion {
-    KeywordScore,
+    KeywordScore {
+        b: Option<f32>,
+        k1: Option<f32>,
+    },
     VectorScore {
         field: String,
         query: Value,
@@ -30,8 +33,8 @@ pub enum FunctionExpressionUnion {
 impl From<FunctionExpression> for topk_rs::proto::v1::data::FunctionExpr {
     fn from(expr: FunctionExpression) -> Self {
         match expr.0 {
-            FunctionExpressionUnion::KeywordScore => {
-                topk_rs::proto::v1::data::FunctionExpr::bm25_score()
+            FunctionExpressionUnion::KeywordScore { b, k1 } => {
+                topk_rs::proto::v1::data::FunctionExpr::bm25_score(b, k1)
             }
             FunctionExpressionUnion::VectorScore {
                 field,

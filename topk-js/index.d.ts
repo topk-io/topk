@@ -621,6 +621,25 @@ export declare namespace query {
     /** Whether to match all terms */
     all?: boolean
   }
+  /** A token for match_tokens */
+  export interface MatchTokenInput {
+    /** The token to match */
+    token: string
+    /** Weight for the term (defaults to 1.0) */
+    weight?: number
+  }
+  /**
+   * Creates a text match expression from multiple tokens with optional per-token weights.
+   * Each token can be a string (with the default weight of 1.0) or a `MatchTokenInput` object.
+   */
+  export function matchTokens(tokens: Array<string | MatchTokenInput>, options?: MatchTokensOptions | undefined | null): TextExpression
+  /** Options for match_tokens. */
+  export interface MatchTokensOptions {
+    /** Field to match against */
+    field?: string
+    /** Whether to match all terms */
+    all?: boolean
+  }
   /** Creates a MAX expression that returns the larger of two values. */
   export function max(left: LogicalExpression | number | string, right: LogicalExpression | number | string): LogicalExpression
   /** Creates a MIN expression that returns the smaller of two values. */
@@ -653,7 +672,14 @@ export declare namespace query {
 
 export declare namespace query_fn {
   /** Computes the BM25 score for a keyword search. */
-  export function bm25Score(): query.FunctionExpression
+  export function bm25Score(options?: Bm25ScoreOptions | undefined | null): query.FunctionExpression
+  /** Options for BM25 scoring. */
+  export interface Bm25ScoreOptions {
+    /** BM25 parameter b (0-1) */
+    b?: number
+    /** BM25 parameter k1 (>= 0) */
+    k1?: number
+  }
   /**
    * Calculate the multi-vector distance between a field and a query matrix.
    *
@@ -856,7 +882,7 @@ export declare namespace schema {
     | { type: 'KeywordIndex', indexType: KeywordIndexType }
     | { type: 'VectorIndex', metric: VectorDistanceMetric }
     | { type: 'SemanticIndex', model?: string, embeddingType?: EmbeddingDataType }
-    | { type: 'MultiVectorIndex', metric: MultiVectorDistanceMetric, sketchBits?: number, quantization?: MultiVectorQuantization }
+    | { type: 'MultiVectorIndex', metric: MultiVectorDistanceMetric, quantization?: MultiVectorQuantization, width?: number, topK?: number }
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `float` values.
    *
@@ -1000,10 +1026,12 @@ export declare namespace schema {
   export interface MultiVectorIndexOptions {
     /** The distance metric to use for multi-vector similarity */
     metric: MultiVectorDistanceMetric
-    /** Number of bits to use for multi-vector sketch */
-    sketchBits?: number
     /** The quantization to use for multi-vector values */
     quantization?: MultiVectorQuantization
+    /** Width of the sparse projection */
+    width?: number
+    /** Top-k projected values to keep */
+    topK?: number
   }
   export type MultiVectorQuantization =  '1bit'|
   '2bit'|

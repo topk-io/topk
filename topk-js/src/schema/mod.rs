@@ -347,10 +347,13 @@ pub fn semantic_index(options: Option<SemanticIndexOptions>) -> FieldIndex {
 pub struct MultiVectorIndexOptions {
     /// The distance metric to use for multi-vector similarity
     pub metric: MultiVectorDistanceMetric,
-    /// Number of bits to use for multi-vector sketch
-    pub sketch_bits: Option<u32>,
     /// The quantization to use for multi-vector values
     pub quantization: Option<MultiVectorQuantization>,
+    /// Width of the sparse projection
+    pub width: Option<u32>,
+    /// Top-k projected values to keep
+    #[napi(js_name = "topK")]
+    pub top_k: Option<u32>,
 }
 
 /// Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `multi_vector_index` values.
@@ -368,7 +371,12 @@ pub struct MultiVectorIndexOptions {
 /// ```
 #[napi(namespace = "schema")]
 pub fn multi_vector_index(options: MultiVectorIndexOptions) -> FieldIndex {
-    FieldIndex::multi_vector_index(options.metric, options.sketch_bits, options.quantization)
+    FieldIndex::multi_vector_index(
+        options.metric,
+        options.quantization,
+        options.width,
+        options.top_k,
+    )
 }
 
 /// Options for list field specifications.

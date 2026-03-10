@@ -11,6 +11,7 @@ module.exports.fn = {
 module.exports.literal = query.literal;
 module.exports.LogicalExpression = query.LogicalExpression;
 module.exports.match = query.match;
+module.exports.matchTokens = query.matchTokens;
 module.exports.not = query.not;
 module.exports.min = query.min;
 module.exports.max = query.max;

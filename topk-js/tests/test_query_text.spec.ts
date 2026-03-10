@@ -1,4 +1,4 @@
-import { field, fn, match, select, filter } from "../lib/query";
+import { field, fn, match, matchTokens, select, filter } from "../lib/query";
 import { int, keywordIndex, list, text } from "../lib/schema";
 import { newProjectContext, ProjectContext } from "./setup";
 
@@ -246,6 +246,75 @@ describe("Text Queries", () => {
           )
         )
         .topk(field("summary_score"), 100)
+    );
+
+    expect(new Set(result.map((doc) => doc._id))).toEqual(
+      new Set(["gatsby", "pride"])
+    );
+  });
+
+  test("query text filter match_tokens strings only", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("books", {
+      summary: text().required().index(keywordIndex()),
+    });
+
+    await ctx.client.collection(collection.name).upsert([
+      { _id: "pride", summary: "A story about love and class" },
+      { _id: "gatsby", summary: "A tale of love and wealth" },
+      { _id: "lotr", summary: "A fantasy epic" },
+    ]);
+
+    const result = await ctx.client.collection(collection.name).query(
+      filter(matchTokens(["love", "class"], { field: "summary", all: true }))
+    );
+
+    expect(new Set(result.map((doc) => doc._id))).toEqual(new Set(["pride"]));
+  });
+
+  test("query text filter match_tokens mixed strings and objects", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("books", {
+      summary: text().required().index(keywordIndex()),
+    });
+
+    await ctx.client.collection(collection.name).upsert([
+      { _id: "pride", summary: "A story about love and class" },
+      { _id: "gatsby", summary: "A tale of love and wealth" },
+      { _id: "lotr", summary: "A fantasy epic" },
+    ]);
+
+    const result = await ctx.client.collection(collection.name).query(
+      filter(
+        matchTokens(["love", { token: "class" }], {
+          field: "summary",
+          all: true,
+        })
+      )
+    );
+
+    expect(new Set(result.map((doc) => doc._id))).toEqual(new Set(["pride"]));
+  });
+
+  test("query text filter match_tokens with weights", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("books", {
+      summary: text().required().index(keywordIndex()),
+    });
+
+    await ctx.client.collection(collection.name).upsert([
+      { _id: "pride", summary: "A story about love and class or love and wealth" },
+      { _id: "gatsby", summary: "A tale of power and wealth" },
+      { _id: "lotr", summary: "A fantasy epic" },
+    ]);
+
+    const result = await ctx.client.collection(collection.name).query(
+      filter(
+        matchTokens(
+          [{ token: "tale", weight: 2 }, { token: "love" }],
+          { field: "summary" }
+        )
+      )
     );
 
     expect(new Set(result.map((doc) => doc._id))).toEqual(
