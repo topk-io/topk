@@ -1,10 +1,12 @@
+use std::collections::HashMap;
+
 use test_context::test_context;
 use topk_rs::{proto::v1::data::Value, Error};
 
 mod utils;
 use utils::ProjectTestContext;
 
-use crate::utils::dataset::{test_pdf, quick_wait};
+use crate::utils::dataset::{quick_wait, test_pdf};
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
@@ -19,6 +21,15 @@ async fn test_delete_document(ctx: &mut ProjectTestContext) {
         .dataset
         .unwrap();
 
+    // Try to get document metadata
+    let resp = ctx
+        .client
+        .dataset(&dataset.name)
+        .get_metadata(vec!["doc1"], None)
+        .await
+        .expect("could not get metadata");
+    assert!(resp.docs.is_empty());
+
     let upsert = ctx
         .client
         .dataset(&dataset.name)
@@ -30,6 +41,21 @@ async fn test_delete_document(ctx: &mut ProjectTestContext) {
         .wait_for_handle(&upsert.handle, quick_wait())
         .await
         .expect("could not wait handle");
+
+    // Try to get document metadata
+    let resp = ctx
+        .client
+        .dataset(&dataset.name)
+        .get_metadata(vec!["doc1"], None)
+        .await
+        .expect("could not get metadata");
+    assert_eq!(
+        resp.into_inner().docs,
+        HashMap::from([(
+            "doc1".to_string(),
+            topk_rs::doc!("title" => Value::string("test"))
+        )])
+    );
 
     // Delete the document
     let delete = ctx
@@ -43,6 +69,15 @@ async fn test_delete_document(ctx: &mut ProjectTestContext) {
         .wait_for_handle(&delete.handle, quick_wait())
         .await
         .expect("could not wait handle");
+
+    // Try to get document metadata
+    let resp = ctx
+        .client
+        .dataset(&dataset.name)
+        .get_metadata(vec!["doc1"], None)
+        .await
+        .unwrap();
+    assert!(resp.docs.is_empty());
 }
 
 #[test_context(ProjectTestContext)]

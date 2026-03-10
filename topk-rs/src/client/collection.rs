@@ -1,5 +1,7 @@
 use std::collections::HashMap;
+use std::pin::Pin;
 
+use futures::{Stream, TryStreamExt};
 use futures_util::{StreamExt, TryFutureExt};
 use prost::Message;
 use std::sync::Arc;
@@ -146,9 +148,20 @@ impl CollectionClient {
         lsn: Option<String>,
         consistency: Option<ConsistencyLevel>,
     ) -> Result<Vec<Document>, Error> {
+        let stream = self.query_stream(query, lsn, consistency).await?;
+        let results = stream.try_collect::<Vec<_>>().await?;
+        Ok(results)
+    }
+
+    pub async fn query_stream(
+        &self,
+        query: Query,
+        lsn: Option<String>,
+        consistency: Option<ConsistencyLevel>,
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<Document, Error>> + Send>>, Error> {
         let client = create_client!(QueryServiceClient, self.read, self.config).await?;
 
-        let response = call_with_retry(&self.config.retry_config(), || {
+        let stream = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
             let query = query.clone();
             let lsn = lsn.clone();
@@ -171,17 +184,15 @@ impl CollectionClient {
                     .await
             }
         })
-        .await?;
+        .await?
+        .into_inner();
 
-        // Collect results from stream
-        let mut stream = response.into_inner();
-        let mut results = Vec::new();
-        while let Some(result) = stream.next().await {
-            let doc = Document::decode(result?.data)
-                .map_err(|e| Error::MalformedResponse(e.to_string()))?;
-            results.push(doc);
-        }
-        Ok(results)
+        let stream = stream.map(|result| match Document::decode(result?.data) {
+            Ok(doc) => Ok(doc),
+            Err(e) => Err(Error::MalformedResponse(e.to_string())),
+        });
+
+        Ok(Box::pin(stream))
     }
 
     /// Upsert documents into the collection.

@@ -12,10 +12,6 @@ mod utils;
 use utils::dataset;
 use utils::ProjectTestContext;
 
-fn find_by_id<'a>(docs: &'a [Document], id: &str) -> Option<&'a Document> {
-    docs.iter().find(|doc| doc.id().unwrap() == id)
-}
-
 #[test_context(ProjectTestContext)]
 #[tokio::test]
 async fn test_get_from_non_existent_collection(ctx: &mut ProjectTestContext) {
@@ -241,4 +237,8 @@ async fn test_get_with_delete_filter(ctx: &mut ProjectTestContext) {
         docs.get("13").expect("document not found"),
         &doc!("_id" => "13", "batch_idx" => 2, "updated" => true).fields
     );
+}
+
+fn find_by_id<'a>(docs: &'a [Document], id: &str) -> Option<&'a Document> {
+    docs.iter().find(|doc| doc.id().unwrap() == id)
 }
