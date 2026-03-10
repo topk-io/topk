@@ -48,7 +48,7 @@ impl FunctionExpr {
         }
         if let Some(k1) = k1 {
             if k1 < 0.0 {
-                panic!("k1 must be greater than 0.0");
+                panic!("k1 must be >= 0.0");
             }
         }
         FunctionExpr {
