@@ -478,6 +478,12 @@ def match_tokens(
     Filters documents that match the provided tokens with optional per-token weights.
 
     Each token can be a string (with the default weight of 1.0) or a (token, weight) tuple.
+
+    When ``field`` is provided, matches only against that field (must have a keyword index).
+    When ``field`` is None (default), matches against all keyword-indexed fields.
+
+    When ``all`` is False (default), matches documents containing any of the tokens (OR).
+    When ``all`` is True, matches only documents containing all tokens (AND).
     """
     ...
 
