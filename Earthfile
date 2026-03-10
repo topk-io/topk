@@ -149,7 +149,13 @@ test-runner:
     ENV FORCE_COLOR=1
     DO rust+CARGO --args="nextest archive --release --archive-file test-runner.tar.zst"
 
-    ENTRYPOINT ["cargo", "nextest", "run", "--archive-file", "test-runner.tar.zst"]
+    ENTRYPOINT ["bash", "-c", "\
+      if [[ \"$TOPK_REGION\" =~ monstera|elastica ]]; then \
+        cargo nextest run --archive-file test-runner.tar.zst \"$@\"; \
+      else \
+        cargo nextest run --archive-file test-runner.tar.zst --run-ignored all \"$@\"; \
+      fi \
+    ", "--"]
 
     ARG registry
     ARG tag=latest
