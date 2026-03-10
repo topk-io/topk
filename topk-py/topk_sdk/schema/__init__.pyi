@@ -360,8 +360,9 @@ def semantic_index(model: str) -> FieldIndex:
 
 def multi_vector_index(
     metric: typing.Literal["maxsim"],
-    sketch_bits: typing.Optional[builtins.int] = None,
-    quantization: typing.Optional[typing.Literal["1bit", "2bit", "scalar"]] = None
+    quantization: typing.Optional[typing.Literal["1bit", "2bit", "scalar"]] = None,
+    width: typing.Optional[builtins.int] = None,
+    top_k: typing.Optional[builtins.int] = None,
 ) -> FieldIndex:
     """
     Create a [FieldIndex](https://docs.topk.io/sdk/topk-py/schema#FieldIndex) type for `multi_vector_index` values.

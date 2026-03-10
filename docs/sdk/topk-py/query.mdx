@@ -828,10 +828,12 @@ Calculate the semantic similarity between a field and a query string.
 #### bm25\_score()
 
 ```python
-bm25_score() -> FunctionExpr
+bm25_score(b: Optional[float] = None, k1: Optional[float] = None) -> FunctionExpr
 ```
 
 Calculate the BM25 score for a keyword search.
+
+        Optional parameters: b (0-1), k1 (>=0) to override BM25 scoring behavior.
 
         ```python
         # Example:
@@ -847,6 +849,13 @@ Calculate the BM25 score for a keyword search.
           .topk(field("text_score"), 10)
         )
         ```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `b` | Optional[float] |
+| `k1` | Optional[float] |
 
 **Returns**
 
@@ -1001,7 +1010,7 @@ Create a literal expression.
 ### match()
 
 ```python
-match(token: str, field: str | None = None, weight: float = 1.0, all: bool = False) -> LogicalExpr
+match(token: str, field: str | None = None, weight: float = 1.0, all: bool = False) -> TextExpr
 ```
 
 Perform a keyword search for documents that contain specific keywords or phrases.
@@ -1023,7 +1032,35 @@ Perform a keyword search for documents that contain specific keywords or phrases
 
 **Returns**
 
-[`LogicalExpr`](#logicalexpr)
+[`TextExpr`](#textexpr)
+
+***
+
+### match_tokens()
+
+```python
+match_tokens(
+   tokens: Sequence[str | tuple[str, float]],
+   field: str | None = None,
+   all: bool = False
+)
+```
+
+Filters documents that match the provided tokens with optional per-token weights.
+
+    Each token can be a string (with default weight of 1.0) or a (token, weight) tuple.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `tokens` | Sequence[str &#124; tuple[str, float]] |
+| `field` | str &#124; None |
+| `all` | bool |
+
+**Returns**
+
+[`TextExpr`](#textexpr)
 
 ***
 

@@ -36,10 +36,34 @@ pub fn vector_distance(
     }
 }
 
+/// Options for BM25 scoring.
+#[napi(object, namespace = "query_fn")]
+#[derive(Default)]
+pub struct Bm25ScoreOptions {
+    /// BM25 parameter b (0-1)
+    pub b: Option<f64>,
+    /// BM25 parameter k1 (>= 0)
+    pub k1: Option<f64>,
+}
+
 /// Computes the BM25 score for a keyword search.
 #[napi(namespace = "query_fn", ts_return_type = "query.FunctionExpression")]
-pub fn bm25_score() -> FunctionExpression {
-    FunctionExpression(FunctionExpressionUnion::KeywordScore)
+pub fn bm25_score(options: Option<Bm25ScoreOptions>) -> napi::Result<FunctionExpression> {
+    let opts = options.unwrap_or_default();
+    if let Some(b) = opts.b {
+        if b < 0.0 || b > 1.0 {
+            return Err(napi::Error::from_reason("b must be between 0.0 and 1.0"));
+        }
+    }
+    if let Some(k1) = opts.k1 {
+        if k1 < 0.0 {
+            return Err(napi::Error::from_reason("k1 must be >= 0.0"));
+        }
+    }
+    Ok(FunctionExpression(FunctionExpressionUnion::KeywordScore {
+        b: opts.b.map(|v| v as f32),
+        k1: opts.k1.map(|v| v as f32),
+    }))
 }
 
 /// Computes the semantic similarity between a field and a query string.

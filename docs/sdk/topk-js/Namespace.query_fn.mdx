@@ -9,10 +9,16 @@ title: topk-js/query_fn
 ### bm25Score()
 
 ```ts
-function bm25Score(): FunctionExpression;
+function bm25Score(options?: Bm25ScoreOptions): FunctionExpression;
 ```
 
 Computes the BM25 score for a keyword search.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `options?` | [`Bm25ScoreOptions`](/sdk/topk-js/Namespace.query_fn#bm25scoreoptions) |
 
 **Returns**
 
@@ -116,6 +122,19 @@ Computes the vector distance between a field and a query vector.
 [`FunctionExpression`](/sdk/topk-js/Namespace.query#functionexpression)
 
 ## Interfaces
+
+### Bm25ScoreOptions
+
+Options for BM25 scoring.
+
+**Properties**
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="property-b"></a> `b?` | `number` | BM25 parameter b (0-1) |
+| <a id="property-k1"></a> `k1?` | `number` | BM25 parameter k1 (>= 0) |
+
+***
 
 ### VectorDistanceOptions
 

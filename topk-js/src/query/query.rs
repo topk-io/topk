@@ -7,6 +7,7 @@ use crate::expr::{
     select::SelectExpression,
     text::{Term, TextExpression},
 };
+use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
 /// @internal
@@ -177,6 +178,81 @@ pub fn match_(token: String, options: Option<MatchOptions>) -> TextExpression {
             weight: options.weight.unwrap_or(1.0),
         }],
     )
+}
+
+/// A token for match_tokens. Omit weight for default 1.0.
+#[napi(object, namespace = "query")]
+#[derive(Clone)]
+pub struct MatchTokenInput {
+    /// The token to match
+    pub token: String,
+    /// Weight for the term (default 1.0)
+    pub weight: Option<f64>,
+}
+
+/// Options for match_tokens.
+#[napi(object, namespace = "query")]
+#[derive(Default)]
+pub struct MatchTokensOptions {
+    /// Field to match against
+    pub field: Option<String>,
+    /// Whether to match all terms
+    pub all: Option<bool>,
+}
+
+pub struct MatchTokens {
+    tokens: Vec<MatchTokenInput>,
+}
+
+impl FromNapiValue for MatchTokens {
+    unsafe fn from_napi_value(
+        env: napi::sys::napi_env,
+        value: napi::sys::napi_value,
+    ) -> napi::Result<Self> {
+        let mut len: u32 = 0;
+        napi::check_status!(napi::sys::napi_get_array_length(env, value, &mut len))?;
+
+        let mut tokens = Vec::with_capacity(len as usize);
+        for i in 0..len {
+            let mut element: napi::sys::napi_value = std::ptr::null_mut();
+            napi::check_status!(napi::sys::napi_get_element(env, value, i, &mut element))?;
+
+            let mut result: i32 = 0;
+            napi::check_status!(napi::sys::napi_typeof(env, element, &mut result))?;
+
+            if result == napi::sys::ValueType::napi_string {
+                let token = String::from_napi_value(env, element)?;
+                tokens.push(MatchTokenInput {
+                    token,
+                    weight: Some(1.0),
+                });
+            } else {
+                tokens.push(MatchTokenInput::from_napi_value(env, element)?);
+            }
+        }
+
+        Ok(MatchTokens { tokens })
+    }
+}
+
+/// Creates a text match expression from multiple tokens with optional per-token weights.
+/// Each token can be a string (default weight of 1) or a `MatchTokenInput` object.
+#[napi(js_name = "matchTokens", namespace = "query")]
+pub fn match_tokens(
+    #[napi(ts_arg_type = "Array<string | MatchTokenInput>")] tokens: MatchTokens,
+    options: Option<MatchTokensOptions>,
+) -> TextExpression {
+    let options = options.unwrap_or_default();
+    let terms: Vec<Term> = tokens
+        .tokens
+        .into_iter()
+        .map(|t| Term {
+            token: t.token,
+            field: options.field.clone(),
+            weight: t.weight.unwrap_or(1.0),
+        })
+        .collect();
+    TextExpression::terms(options.all.unwrap_or(false), terms)
 }
 
 impl From<Query> for topk_rs::proto::v1::data::Query {

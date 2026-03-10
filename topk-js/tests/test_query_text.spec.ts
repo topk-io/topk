@@ -1,4 +1,4 @@
-import { field, fn, match, select, filter } from "../lib/query";
+import { field, fn, match, matchTokens, select, filter } from "../lib/query";
 import { int, keywordIndex, list, text } from "../lib/schema";
 import { newProjectContext, ProjectContext } from "./setup";
 
@@ -243,6 +243,113 @@ describe("Text Queries", () => {
         .filter(
           match("tale", { field: "summary", weight: 2 }).or(
             match("love", { field: "summary" })
+          )
+        )
+        .topk(field("summary_score"), 100)
+    );
+
+    expect(new Set(result.map((doc) => doc._id))).toEqual(
+      new Set(["gatsby", "pride"])
+    );
+  });
+
+  test("query text filter match_tokens strings only", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("books", {
+      summary: text().required().index(keywordIndex()),
+      published_year: int(),
+    });
+
+    await ctx.client.collection(collection.name).upsert([
+      {
+        _id: "pride",
+        summary: "A story about love and class",
+        published_year: 1813,
+      },
+      {
+        _id: "gatsby",
+        summary: "A tale of love and wealth",
+        published_year: 1925,
+      },
+      { _id: "lotr", summary: "A fantasy epic", published_year: 1954 },
+    ]);
+
+    const result = await ctx.client.collection(collection.name).query(
+      filter(matchTokens(["love", "class"], { field: "summary", all: true }))
+        .topk(field("published_year"), 100)
+    );
+
+    expect(new Set(result.map((doc) => doc._id))).toEqual(new Set(["pride"]));
+  });
+
+  test("query text filter match_tokens mixed strings and objects", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("books", {
+      summary: text().required().index(keywordIndex()),
+      published_year: int(),
+    });
+
+    await ctx.client.collection(collection.name).upsert([
+      {
+        _id: "pride",
+        summary: "A story about love and class",
+        published_year: 1813,
+      },
+      {
+        _id: "gatsby",
+        summary: "A tale of love and wealth",
+        published_year: 1925,
+      },
+      { _id: "lotr", summary: "A fantasy epic", published_year: 1954 },
+    ]);
+
+    const result = await ctx.client.collection(collection.name).query(
+      filter(
+        matchTokens(["love", { token: "class" }], {
+          field: "summary",
+          all: true,
+        })
+      )
+        .topk(field("published_year"), 100)
+    );
+
+    expect(new Set(result.map((doc) => doc._id))).toEqual(new Set(["pride"]));
+  });
+
+  test("query text filter match_tokens with weights", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("books", {
+      summary: text().required().index(keywordIndex()),
+      published_year: int(),
+    });
+
+    await ctx.client.collection(collection.name).upsert([
+      {
+        _id: "pride",
+        summary: "A story about love and class or love and wealth",
+        published_year: 1813,
+      },
+      {
+        _id: "gatsby",
+        summary: "A tale of power and wealth",
+        published_year: 1925,
+      },
+      {
+        _id: "lotr",
+        summary: "A fantasy epic",
+        published_year: 1954,
+      },
+    ]);
+
+    const result = await ctx.client.collection(collection.name).query(
+      select({
+        summary: field("summary"),
+        summary_score: fn.bm25Score(),
+      })
+        .filter(
+          matchTokens(
+            [{ token: "tale", weight: 2 }, { token: "love" }],
+            { field: "summary" }
           )
         )
         .topk(field("summary_score"), 100)
