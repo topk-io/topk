@@ -621,16 +621,16 @@ export declare namespace query {
     /** Whether to match all terms */
     all?: boolean
   }
-  /** A token for match_tokens. Omit weight for default 1.0. */
+  /** A token for match_tokens */
   export interface MatchTokenInput {
     /** The token to match */
     token: string
-    /** Weight for the term (default 1.0) */
+    /** Weight for the term (defaults to 1.0) */
     weight?: number
   }
   /**
    * Creates a text match expression from multiple tokens with optional per-token weights.
-   * Each token can be a string (default weight of 1) or a `MatchTokenInput` object.
+   * Each token can be a string (with the default weight of 1.0) or a `MatchTokenInput` object.
    */
   export function matchTokens(tokens: Array<string | MatchTokenInput>, options?: MatchTokensOptions | undefined | null): TextExpression
   /** Options for match_tokens. */

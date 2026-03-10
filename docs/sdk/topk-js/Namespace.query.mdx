@@ -164,7 +164,7 @@ function matchTokens(tokens: (
 ```
 
 Creates a text match expression from multiple tokens with optional per-token weights.
-Each token can be a string (default weight of 1) or a `MatchTokenInput` object.
+Each token can be a string (with the default weight of 1.0) or a `MatchTokenInput` object.
 
 **Parameters**
 
@@ -1096,14 +1096,14 @@ including field specification, weight, and matching behavior.
 
 ### MatchTokenInput
 
-A token for match_tokens. Omit weight for default 1.0.
+A token for match_tokens
 
 **Properties**
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
 | <a id="property-token"></a> `token` | `string` | The token to match |
-| <a id="property-weight-1"></a> `weight?` | `number` | Weight for the term (default 1.0) |
+| <a id="property-weight-1"></a> `weight?` | `number` | Weight for the term (defaults to 1.0) |
 
 ***
 

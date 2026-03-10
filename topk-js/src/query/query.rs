@@ -180,13 +180,13 @@ pub fn match_(token: String, options: Option<MatchOptions>) -> TextExpression {
     )
 }
 
-/// A token for match_tokens. Omit weight for default 1.0.
+/// A token for match_tokens
 #[napi(object, namespace = "query")]
 #[derive(Clone)]
 pub struct MatchTokenInput {
     /// The token to match
     pub token: String,
-    /// Weight for the term (default 1.0)
+    /// Weight for the term (defaults to 1.0)
     pub weight: Option<f64>,
 }
 
@@ -236,7 +236,7 @@ impl FromNapiValue for MatchTokens {
 }
 
 /// Creates a text match expression from multiple tokens with optional per-token weights.
-/// Each token can be a string (default weight of 1) or a `MatchTokenInput` object.
+/// Each token can be a string (with the default weight of 1.0) or a `MatchTokenInput` object.
 #[napi(js_name = "matchTokens", namespace = "query")]
 pub fn match_tokens(
     #[napi(ts_arg_type = "Array<string | MatchTokenInput>")] tokens: MatchTokens,

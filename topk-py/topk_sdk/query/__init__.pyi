@@ -477,7 +477,7 @@ def match_tokens(
     """
     Filters documents that match the provided tokens with optional per-token weights.
 
-    Each token can be a string (with default weight of 1.0) or a (token, weight) tuple.
+    Each token can be a string (with the default weight of 1.0) or a (token, weight) tuple.
     """
     ...
 
