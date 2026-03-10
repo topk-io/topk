@@ -9,7 +9,7 @@ use topk_rs::proto::v1::{
 mod utils;
 use utils::ProjectTestContext;
 
-use crate::utils::dataset::{test_pdf, quick_wait};
+use crate::utils::dataset::test_pdf;
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
@@ -35,7 +35,7 @@ async fn test_ask(ctx: &mut ProjectTestContext) {
     // Wait for file to be processed
     ctx.client
         .dataset(&dataset.name)
-        .wait_for_handle(&upsert.handle, quick_wait())
+        .wait_for_handle(&upsert.handle, None)
         .await
         .expect("could not wait handle");
 

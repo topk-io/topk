@@ -4,7 +4,7 @@ use topk_rs::doc;
 use topk_rs::proto::v1::data::Value;
 
 mod utils;
-use utils::{dataset::{test_pdf, quick_wait}, ProjectTestContext};
+use utils::{dataset::test_pdf, ProjectTestContext};
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
@@ -32,7 +32,7 @@ async fn test_get_metadata(ctx: &mut ProjectTestContext) {
     // Wait for file to be processed
     ctx.client
         .dataset(&response.dataset().unwrap().name)
-        .wait_for_handle(&upsert.handle, quick_wait())
+        .wait_for_handle(&upsert.handle, None)
         .await
         .expect("could not wait for handle");
 

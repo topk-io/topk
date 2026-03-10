@@ -4,9 +4,7 @@ use test_context::test_context;
 use topk_rs::{proto::v1::data::Value, Error};
 
 mod utils;
-use utils::ProjectTestContext;
-
-use crate::utils::dataset::{test_pdf, quick_wait};
+use utils::{dataset::test_pdf, ProjectTestContext};
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
@@ -25,17 +23,13 @@ async fn test_wait_for_handle(ctx: &mut ProjectTestContext) {
     let upsert = ctx
         .client
         .dataset(&dataset.name)
-        .upsert_file(
-            "doc1".to_string(),
-            test_pdf(),
-            HashMap::<String, Value>::default(),
-        )
+        .upsert_file("doc1", test_pdf(), HashMap::<String, Value>::default())
         .await
         .expect("could not upsert file");
 
     ctx.client
         .dataset(&dataset.name)
-        .wait_for_handle(&upsert.handle, quick_wait())
+        .wait_for_handle(&upsert.handle, None)
         .await
         .expect("handle was not processed within timeout");
 }

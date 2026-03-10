@@ -3,7 +3,7 @@ use test_context::test_context;
 use topk_rs::proto::v1::data::Value;
 
 mod utils;
-use utils::{dataset::{test_pdf, quick_wait}, ProjectTestContext};
+use utils::{dataset::test_pdf, ProjectTestContext};
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
@@ -19,17 +19,13 @@ async fn test_dataset_list(ctx: &mut ProjectTestContext) {
     let upsert = ctx
         .client
         .dataset(&response.dataset().unwrap().name)
-        .upsert_file(
-            "doc1",
-            test_pdf(),
-            Vec::<(String, Value)>::new(),
-        )
+        .upsert_file("doc1", test_pdf(), Vec::<(String, Value)>::new())
         .await
         .expect("could not upsert PDF file");
 
     ctx.client
         .dataset(&response.dataset().unwrap().name)
-        .wait_for_handle(&upsert.handle, quick_wait())
+        .wait_for_handle(&upsert.handle, None)
         .await
         .expect("could not wait for handle");
 
