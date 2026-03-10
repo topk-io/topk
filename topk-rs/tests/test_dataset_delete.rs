@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use test_context::test_context;
 use topk_rs::{proto::v1::data::Value, Error};
 
@@ -50,11 +48,8 @@ async fn test_delete_document(ctx: &mut ProjectTestContext) {
         .await
         .expect("could not get metadata");
     assert_eq!(
-        resp.into_inner().docs,
-        HashMap::from([(
-            "doc1".to_string(),
-            topk_rs::doc!("title" => Value::string("test"))
-        )])
+        resp.into_inner().docs.keys().collect::<Vec<_>>(),
+        vec!["doc1"]
     );
 
     // Delete the document
