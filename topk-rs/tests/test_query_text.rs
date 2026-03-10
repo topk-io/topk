@@ -138,7 +138,7 @@ async fn test_query_select_bm25_without_text_queries(ctx: &mut ProjectTestContex
         .client
         .collection(&collection.name)
         .query(
-            select([("bm25_score", fns::bm25_score())])
+            select([("bm25_score", fns::bm25_score(None, None))])
                 .filter(field("_id").eq("pride"))
                 .topk(field("bm25_score"), 100, true),
             None,
@@ -334,7 +334,7 @@ async fn test_query_text_with_updates(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("bm25", fns::bm25_score())])
+            select([("bm25", fns::bm25_score(None, None))])
                 .filter(r#match("surveillance", None, None, true))
                 .topk(literal(1u32).into(), 10, true),
             Some(lsn),
@@ -358,7 +358,7 @@ async fn test_query_text_with_updates(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("bm25", fns::bm25_score())])
+            select([("bm25", fns::bm25_score(None, None))])
                 .filter(r#match("love", None, None, true))
                 .topk(literal(1u32).into(), 10, true),
             Some(lsn),

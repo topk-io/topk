@@ -69,8 +69,8 @@ pub mod query {
             FunctionExpr::semantic_similarity(field, query)
         }
 
-        pub fn bm25_score() -> FunctionExpr {
-            FunctionExpr::bm25_score()
+        pub fn bm25_score(b: Option<f32>, k1: Option<f32>) -> FunctionExpr {
+            FunctionExpr::bm25_score(b, k1)
         }
     }
 

@@ -22,7 +22,7 @@ async fn test_query_hybrid_vector_bm25(ctx: &mut ProjectTestContext) {
                     "summary_distance",
                     fns::vector_distance("summary_embedding", vec![2.0f32; 16]),
                 ),
-                ("bm25_score", fns::bm25_score()),
+                ("bm25_score", fns::bm25_score(None, None)),
             ])
             .filter(r#match("love", None, Some(30.0), false).or(r#match(
                 "young",

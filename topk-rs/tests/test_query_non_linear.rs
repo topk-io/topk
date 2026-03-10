@@ -17,7 +17,7 @@ async fn test_query_exp_ln(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("bm25_score", fns::bm25_score())])
+            select([("bm25_score", fns::bm25_score(None, None))])
                 .select([
                     ("bm25_score_scale", (field("bm25_score").mul(1.5)).exp()),
                     ("bm25_score_smooth", (field("bm25_score").add(1)).ln()),

@@ -163,7 +163,7 @@ async fn test_query_select_bm25_score(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("bm25_score", fns::bm25_score())])
+            select([("bm25_score", fns::bm25_score(None, None))])
                 .filter(r#match("pride", None, None, false))
                 .topk(field("bm25_score"), 100, true),
             None,

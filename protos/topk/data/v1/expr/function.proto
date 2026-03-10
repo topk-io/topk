@@ -18,7 +18,12 @@ message FunctionExpr {
     bool skip_refine = 5;
   }
 
-  message Bm25Score {}
+  message Bm25Score {
+    // b parameter for BM25 score.
+    optional float b = 1;
+    // k1 parameter for BM25 score.
+    optional float k1 = 2;
+  }
 
   message SemanticSimilarity {
     // Field with semantic index to compute similarity against.
