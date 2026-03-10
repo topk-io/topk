@@ -247,21 +247,21 @@ impl DatasetClient {
 
     pub async fn get_metadata(
         &self,
-        ids: impl IntoIterator<Item = impl Into<String>>,
+        doc_id: impl Into<DocId>,
         fields: Option<Vec<String>>,
     ) -> Result<Response<GetMetadataResponse>, Error> {
         let client = create_client!(DatasetReadServiceClient, self.read, self.config).await?;
-        let ids = ids.into_iter().map(|id| id.into()).collect::<Vec<_>>();
+        let doc_id = doc_id.into();
         let fields = fields.unwrap_or_default();
 
         let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
-            let ids = ids.clone();
+            let id = doc_id.clone().into();
             let fields = fields.clone();
 
             async move {
                 client
-                    .get_metadata(GetMetadataRequest { ids, fields })
+                    .get_metadata(GetMetadataRequest { id, fields })
                     .await
                     .map_err(|e| match e.code() {
                         tonic::Code::NotFound => Error::DatasetNotFound,
@@ -277,15 +277,11 @@ impl DatasetClient {
     pub async fn update_metadata(
         &self,
         doc_id: impl Into<DocId>,
-        metadata: impl IntoIterator<Item = (impl Into<String>, impl Into<Value>)>,
+        metadata: HashMap<String, Value>,
     ) -> Result<Response<UpdateMetadataResponse>, Error> {
         let client = create_client!(DatasetWriteServiceClient, self.write, self.config).await?;
 
         let doc_id = doc_id.into();
-        let metadata: HashMap<String, Value> = metadata
-            .into_iter()
-            .map(|(k, v)| (k.into(), v.into()))
-            .collect();
 
         let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
