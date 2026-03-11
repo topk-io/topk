@@ -78,6 +78,7 @@ await client.collections().create("passages", {
 - **`dimension`**: the number of columns `D` in your `N x D` embedding matrix (e.g. 128, 768, 1024).
 - **`value_type`**: storage type for matrix elements (`f32`, `f16`, `f8`, `u8`, `i8`). Choose based on your model output and memory/perf needs.
 - **`metric="maxsim"`**: a late-interaction style scoring where each query vector contributes based on its best match in the document.
+- **`multi_vector_index()`** also accepts optional `quantization` (`"1bit"`, `"2bit"`, `"scalar"`), `width`, and `top_k` for tuning; see [Optimization tips](#optimization-tips) below.
 
 
 ## Ingest documents with multi-vector embeddings
@@ -222,14 +223,15 @@ console.log(docs);
 
 ### Optimization tips
 
-The multi-vector index has an approximate retrieval stage (to prune work quickly) followed by a more accurate scoring stage. These parameters let you trade off **memory**, **latency**, and **recall**:
+The multi-vector index has an approximate retrieval stage (for faster pruning) followed by a more accurate scoring stage. These parameters let you trade off **memory**, **latency**, and **recall**:
 
-- **`sketch_bits`**: increases the fidelity of approximate MaxSim pruning.
-  - **More bits**: more accurate pruning → fewer false negatives (better recall), but higher memory/compute.
-  - **Fewer bits**: more aggressive approximation → more false negatives (recall loss), but faster and smaller.
+- **`width`**: width of the sparse projection used for approximate MaxSim pruning.
+  - **Higher width**: more accurate pruning → fewer false negatives (better recall), but higher memory/compute.
+  - **Lower width**: more aggressive approximation → more false negatives (recall loss), but faster and smaller.
+- **`top_k`**: number of top projected values to keep during the approximate stage.
 - **`quantization`**: compresses stored multi-vector values.
   - **`1bit` / `2bit`**: very compact and fast, but most approximate.
   - **`scalar`**: higher-fidelity quantization (larger than 1–2 bit) with better quality.
-- **`candidates`**: controls how many top document candidates from the approximate stage are promoted to a more accurate multi-vector scoring pass. Lower values reduce work (faster/cheaper) but can hurt recall; higher values improve recall at the cost of latency.
-  If you’re starting out, keep defaults, then tune `candidates` and these index parameters based on your latency or recall targets.
+- **`candidates`**: (query parameter) controls how many top document candidates from the approximate stage are promoted to a more accurate multi-vector scoring pass. Lower values reduce work (faster/cheaper) but can hurt recall; higher values improve recall at the cost of latency.
+  If you’re starting out, keep defaults, then tune `candidates` and these index parameters (`width`, `top_k`, `quantization`) based on your latency or recall targets.
 
