@@ -8,7 +8,7 @@ use tokio::task::JoinHandle;
 use crate::client::sync::runtime::Runtime;
 use crate::client::LIST_ENTRIES_BUFFER_SIZE;
 use crate::client::{
-    into_py_response, CheckHandleResponse, DeleteFileResponse, GetMetadataResponse,
+    into_py_response, CheckHandleResponse, DeleteFileResponse, GetMetadataResponse, Response,
     UpdateMetadataResponse, UpsertFileResponse,
 };
 use crate::data::file::FileOrFileLike;
@@ -78,14 +78,15 @@ impl DatasetClient {
                 py,
                 self.client
                     .dataset(&self.dataset)
-                    .get_metadata(file_id, fields),
+                    .get_metadata(vec![file_id], fields),
             )
             .map_err(RustError)?;
 
         into_py_response(py, response, |inner| {
             let metadata: HashMap<String, Value> = inner
-                .metadata
+                .docs
                 .into_iter()
+                .flat_map(|(_, doc)| doc.fields.into_iter())
                 .map(|(k, v)| (k, v.into()))
                 .collect();
             Ok(GetMetadataResponse { metadata })
@@ -136,21 +137,19 @@ impl DatasetClient {
         py: Python<'_>,
         handle: String,
     ) -> PyResult<Py<CheckHandleResponse>> {
-        let response = self
+        let processed = self
             .runtime
             .block_on(
                 py,
                 self.client
                     .dataset(&self.dataset)
-                    .check_handle(handle.into()),
+                    .check_handle(&handle),
             )
             .map_err(RustError)?;
 
-        into_py_response(py, response, |inner| {
-            Ok(CheckHandleResponse {
-                processed: inner.processed,
-            })
-        })
+        let init = pyo3::PyClassInitializer::from(Response { request_id: None })
+            .add_subclass(CheckHandleResponse { processed });
+        Py::new(py, init)
     }
 
     #[pyo3(signature = (fields=None, filter=None))]
