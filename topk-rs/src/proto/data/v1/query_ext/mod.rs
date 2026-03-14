@@ -58,4 +58,9 @@ impl Query {
         self.stages.push(Stage::sort(expr, asc));
         self
     }
+
+    pub fn fetch(mut self, fields: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        self.stages.push(Stage::fetch(fields));
+        self
+    }
 }

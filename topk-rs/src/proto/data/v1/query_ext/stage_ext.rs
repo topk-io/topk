@@ -73,4 +73,12 @@ impl Stage {
             })),
         }
     }
+
+    pub fn fetch(fields: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        Stage {
+            stage: Some(stage::Stage::Fetch(stage::FetchStage {
+                fields: fields.into_iter().map(|s| s.into()).collect(),
+            })),
+        }
+    }
 }
