@@ -9,8 +9,8 @@ use tokio::task::JoinHandle;
 use crate::client::into_py_response;
 use crate::client::LIST_ENTRIES_BUFFER_SIZE;
 use crate::client::{
-    CheckHandleResponse, DeleteFileResponse, GetMetadataResponse, UpdateMetadataResponse,
-    UpsertFileResponse,
+    CheckHandleResponse, DeleteFileResponse, GetMetadataResponse, Response,
+    UpdateMetadataResponse, UpsertFileResponse,
 };
 use crate::data::file::FileOrFileLike;
 use crate::data::list_entry::ListEntry;
@@ -76,14 +76,15 @@ impl AsyncDatasetClient {
         future_into_py(py, async move {
             let response = client
                 .dataset(&dataset)
-                .get_metadata(file_id, fields)
+                .get_metadata(vec![file_id], fields)
                 .await
                 .map_err(RustError)?;
             Python::attach(|py| {
                 into_py_response(py, response, |inner| {
                     let metadata: HashMap<String, Value> = inner
-                        .metadata
+                        .docs
                         .into_iter()
+                        .flat_map(|(_, doc)| doc.fields.into_iter())
                         .map(|(k, v)| (k, v.into()))
                         .collect();
                     Ok(GetMetadataResponse { metadata })
@@ -147,17 +148,15 @@ impl AsyncDatasetClient {
         let dataset = self.dataset.clone();
 
         future_into_py(py, async move {
-            let response = client
+            let processed = client
                 .dataset(&dataset)
-                .check_handle(handle.into())
+                .check_handle(&handle)
                 .await
                 .map_err(RustError)?;
             Python::attach(|py| {
-                into_py_response(py, response, |inner| {
-                    Ok(CheckHandleResponse {
-                        processed: inner.processed,
-                    })
-                })
+                let init = pyo3::PyClassInitializer::from(Response { request_id: None })
+                    .add_subclass(CheckHandleResponse { processed });
+                Ok(Py::new(py, init)?.into_any())
             })
         })
         .map(|result| result.into())
