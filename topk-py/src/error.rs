@@ -119,5 +119,22 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
         m.py().get_type::<CollectionValidationError>(),
     )?;
 
+    m.add(
+        "RequestTooLargeError",
+        m.py().get_type::<RequestTooLargeError>(),
+    )?;
+
+    m.add(
+        "QuotaExceededError",
+        m.py().get_type::<QuotaExceededError>(),
+    )?;
+
+    m.add("SlowDownError", m.py().get_type::<SlowDownError>())?;
+
+    m.add(
+        "PermissionDeniedError",
+        m.py().get_type::<PermissionDeniedError>(),
+    )?;
+
     Ok(())
 }
