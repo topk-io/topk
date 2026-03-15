@@ -1,0 +1,29 @@
+[project]
+name = "topk-cli"
+version = "0.1.0"
+description = "Minimal CLI for the TopK search engine"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "typer>=0.9",
+    "topk-sdk>=0.7.7.dev1",
+]
+
+[project.optional-dependencies]
+repl = ["ipython>=8"]
+
+[project.scripts]
+topk = "topk_cli.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+explicit = true
+priority = "explicit"
+
+[tool.uv.sources]
+topk-sdk = { index = "testpypi" }
