@@ -1,15 +1,16 @@
 use std::sync::Arc;
 
-use futures_util::StreamExt;
+use futures_util::{StreamExt, TryStreamExt};
 use pyo3::{prelude::*, types::PyAny};
 use pyo3_async_runtimes::tokio::future_into_py;
 use tokio::sync::{mpsc, Mutex};
 use tokio::task::JoinHandle;
 
-use crate::client::ASK_CHANNEL_BUFFER_SIZE;
 use crate::data::ask::{AskResponseMessage, Mode, Sources};
 use crate::error::RustError;
 use crate::expr::logical::LogicalExpr;
+
+const CHANNEL_BUFFER_SIZE: usize = 32;
 
 #[pyclass]
 pub struct AsyncAskIterator {
@@ -30,7 +31,7 @@ impl AsyncAskIterator {
             let mut receiver = receiver.lock().await;
             match receiver.recv().await.transpose() {
                 Ok(Some(msg)) => Ok(msg),
-                // Channel exhausted: raise StopAsyncIteration so `async for` terminates
+                // Channel exhausted: raise StopAsyncIteration so `async for` in python terminates
                 // (returning Ok(None) would yield None indefinitely instead of ending the loop)
                 Ok(None) => Err(pyo3::exceptions::PyStopAsyncIteration::new_err(
                     "Stream exhausted",
@@ -57,7 +58,7 @@ pub fn ask_stream(
     mode: Option<Mode>,
     select_fields: Option<Vec<String>>,
 ) -> PyResult<Py<AsyncAskIterator>> {
-    let (tx, rx) = mpsc::channel(ASK_CHANNEL_BUFFER_SIZE);
+    let (tx, rx) = mpsc::channel(CHANNEL_BUFFER_SIZE);
 
     let sources = sources.into_iter();
     let filter = filter.map(|f| f.into());
@@ -87,7 +88,9 @@ pub fn ask_stream(
                             }
                         }
                         Err(e) => {
-                            let _ = tx.send(Err::<AskResponseMessage, PyErr>(PyErr::from(e))).await;
+                            let _ = tx
+                                .send(Err::<AskResponseMessage, PyErr>(PyErr::from(e)))
+                                .await;
                             break;
                         }
                     },
@@ -133,31 +136,28 @@ pub fn ask(
     let select_fields = select_fields.clone();
 
     future_into_py(py, async move {
-        let mut stream = client
+        let stream = client
             .ask(query, sources, filter, mode, select_fields)
             .await
-            .map_err(|e| RustError(e))?;
+            .map_err(RustError)?
+            .into_inner();
 
-        let mut last_message: Option<AskResponseMessage> = None;
+        let last_message = stream
+            .map_err(|e| PyErr::from(RustError(e.into())))
+            .try_fold(None, |_, result| async move { Ok(Some(result)) })
+            .await?;
 
-        while let Some(result) = stream.next().await {
-            match result {
-                Ok(msg) => match msg.message {
-                    Some(inner) => last_message = Some(inner.try_into()?),
-                    None => {
-                        return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                            "Invalid proto: AskResponseMessage has no message",
-                        ))
-                    }
-                },
-                Err(e) => {
-                    return Err(RustError(e.into()).into());
-                }
-            }
-        }
-
-        last_message.ok_or_else(|| {
+        let result = last_message.ok_or_else(|| {
             PyErr::new::<pyo3::exceptions::PyValueError, _>("Stream ended without any messages")
+        })?;
+
+        Ok(match result.message {
+            Some(inner) => AskResponseMessage::try_from(inner).map_err(Into::<PyErr>::into)?,
+            None => {
+                return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                    "Invalid proto: AskResponseMessage has no message",
+                ))
+            }
         })
     })
     .map(|result| result.into())

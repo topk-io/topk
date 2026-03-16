@@ -373,15 +373,15 @@ class ListDatasetsResponse(Response):
 class DeleteDatasetResponse(Response):
     """Response from deleting a dataset."""
 
-class UpsertFileResponse(Response):
-    """Response from upserting a file."""
+class UpsertResponse(Response):
+    """Response from upserting a document."""
 
     handle: builtins.str
 
 class GetMetadataResponse(Response):
     """Response from getting file metadata."""
 
-    metadata: builtins.dict[builtins.str, typing.Any]
+    docs: builtins.dict[builtins.str, builtins.dict[builtins.str, typing.Any]]
 
 class UpdateMetadataResponse(Response):
     """Response from updating file metadata."""
@@ -494,20 +494,18 @@ class DatasetClient:
         file_id: builtins.str,
         input: typing.Union[os.PathLike[typing.Any], typing.Tuple[builtins.str, builtins.bytes, builtins.str]],
         metadata: typing.Mapping[builtins.str, typing.Any],
-    ) -> UpsertFileResponse:
+    ) -> UpsertResponse:
         """
         Upsert a file to the dataset.
         """
         ...
     def get_metadata(
         self,
-        file_id: builtins.str,
+        ids: typing.Sequence[builtins.str],
         fields: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> GetMetadataResponse:
         """
-        Get metadata for a file.
-
-        If `fields` is provided, only the specified fields will be returned.
+        Get metadata for one or more documents.
         """
         ...
     def update_metadata(
@@ -527,6 +525,17 @@ class DatasetClient:
     def check_handle(self, handle: builtins.str) -> CheckHandleResponse:
         """
         Check if a handle has been processed.
+        """
+        ...
+    def wait_for_handle(
+        self,
+        handle: builtins.str,
+        config: typing.Optional[typing.Union[WaitConfig, builtins.dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        """
+        Poll until a handle has been processed or the timeout is reached.
+
+        Raises an error if the handle is not processed within the configured timeout.
         """
         ...
     def list(
@@ -575,20 +584,18 @@ class AsyncDatasetClient:
         file_id: builtins.str,
         input: typing.Union[os.PathLike[typing.Any], typing.Tuple[builtins.str, builtins.bytes, builtins.str]],
         metadata: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Awaitable[UpsertFileResponse]:
+    ) -> typing.Awaitable[UpsertResponse]:
         """
         Upsert a file to the dataset asynchronously.
         """
         ...
     def get_metadata(
         self,
-        file_id: builtins.str,
+        ids: typing.Sequence[builtins.str],
         fields: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> typing.Awaitable[GetMetadataResponse]:
         """
-        Get metadata for a file asynchronously.
-
-        If `fields` is provided, only the specified fields will be returned.
+        Get metadata for one or more documents asynchronously.
         """
         ...
     def update_metadata(
@@ -608,6 +615,17 @@ class AsyncDatasetClient:
     def check_handle(self, handle: builtins.str) -> typing.Awaitable[CheckHandleResponse]:
         """
         Check if a handle has been processed asynchronously.
+        """
+        ...
+    def wait_for_handle(
+        self,
+        handle: builtins.str,
+        config: typing.Optional[typing.Union[WaitConfig, builtins.dict[builtins.str, typing.Any]]] = None,
+    ) -> typing.Awaitable[None]:
+        """
+        Poll until a handle has been processed or the timeout is reached asynchronously.
+
+        Raises an error if the handle is not processed within the configured timeout.
         """
         ...
     def list(
@@ -759,6 +777,28 @@ class ConsistencyLevel(Enum):
 
     Indexed = "indexed"
     Strong = "strong"
+
+class WaitConfig:
+    """
+    Configuration for polling when waiting for a handle to be processed.
+    """
+
+    def __init__(
+        self,
+        frequency_secs: typing.Optional[builtins.int] = None,
+        timeout_secs: typing.Optional[builtins.int] = None,
+    ) -> None: ...
+
+    frequency_secs: typing.Annotated[typing.Optional[builtins.int], "How often to poll for the handle status in seconds. Default is 5."]
+    """
+    How often to poll for the handle status in seconds.
+    Default is 5.
+    """
+    timeout_secs: typing.Annotated[typing.Optional[builtins.int], "Maximum time to wait before returning a timeout error in seconds. Default is 300."]
+    """
+    Maximum time to wait before returning a timeout error in seconds.
+    Default is 300.
+    """
 
 class RetryConfig:
     """

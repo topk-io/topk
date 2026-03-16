@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path
-from topk_sdk import ListEntry, error
+from topk_sdk import error
 
 from . import ProjectContext
 
@@ -23,7 +23,6 @@ def test_upsert_file_pdf(ctx: ProjectContext):
     resp = ctx.client.dataset(dataset.name).upsert_file(
         "doc1", pdf_path, metadata
     )
-    print(resp)
     assert resp.handle is not None
     assert len(resp.handle) > 0
 
@@ -41,7 +40,6 @@ def test_upsert_file_markdown_tuple(ctx: ProjectContext):
     resp = ctx.client.dataset(dataset.name).upsert_file(
         "doc1", markdown_tuple, metadata
     )
-    print(resp)
     assert resp.handle is not None
     assert len(resp.handle) > 0
 
@@ -52,13 +50,14 @@ def test_get_metadata(ctx: ProjectContext):
 
     original_metadata = {"title": "test"}
 
-    ctx.client.dataset(dataset.name).upsert_file(
+    upsert_resp = ctx.client.dataset(dataset.name).upsert_file(
         "doc1", pdf_path, original_metadata
     )
+    ctx.client.dataset(dataset.name).wait_for_handle(upsert_resp.handle)
 
-    resp = ctx.client.dataset(dataset.name).get_metadata("doc1")
-    print(resp)
-    assert resp.metadata.get("title") == original_metadata.get("title")
+    resp = ctx.client.dataset(dataset.name).get_metadata(["doc1"])
+
+    assert resp.docs["doc1"]["title"] == original_metadata["title"]
 
 
 def test_update_metadata(ctx: ProjectContext):
@@ -71,7 +70,6 @@ def test_update_metadata(ctx: ProjectContext):
     resp = ctx.client.dataset(dataset.name).update_metadata(
         "doc1", new_metadata
     )
-    print(resp)
     assert resp.handle is not None
 
 
@@ -82,7 +80,6 @@ def test_delete_document(ctx: ProjectContext):
     ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {})
 
     resp = ctx.client.dataset(dataset.name).delete("doc1")
-    print(resp)
     assert resp.handle is not None
 
 
@@ -92,26 +89,28 @@ def test_check_handle(ctx: ProjectContext):
 
     upsert_resp = ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {})
 
-    # Poll check_handle
-    max_attempts = 120
-    processed = False
-    for _ in range(max_attempts):
-        check_resp = ctx.client.dataset(dataset.name).check_handle(upsert_resp.handle)
-        print(check_resp)
-        processed = check_resp.processed
-        if processed:
-            break
-        import time
-        time.sleep(1)
+    check_resp = ctx.client.dataset(dataset.name).check_handle(upsert_resp.handle)
+    assert check_resp.processed is False
 
-    assert processed, "Handle was not processed within timeout"
+
+def test_wait_for_handle(ctx: ProjectContext):
+    dataset = ctx.client.datasets().create(ctx.scope("test")).dataset
+    pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
+
+    upsert_resp = ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {})
+
+    ctx.client.dataset(dataset.name).wait_for_handle(upsert_resp.handle)
+
+    check_resp = ctx.client.dataset(dataset.name).check_handle(upsert_resp.handle)
+    assert check_resp.processed is True
 
 
 def test_dataset_list(ctx: ProjectContext):
     dataset = ctx.client.datasets().create(ctx.scope("test")).dataset
     pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
 
-    ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {"title": "test"})
+    upsert_resp = ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {"title": "test"})
+    ctx.client.dataset(dataset.name).wait_for_handle(upsert_resp.handle)
 
     entries = [e for e in ctx.client.dataset(dataset.name).list() if e is not None]
     assert len(entries) > 0

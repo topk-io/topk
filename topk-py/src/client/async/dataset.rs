@@ -1,22 +1,23 @@
 use std::{collections::HashMap, sync::Arc};
 
 use futures_util::StreamExt;
-use pyo3::{prelude::*, types::PyAny};
+use pyo3::prelude::*;
 use pyo3_async_runtimes::tokio::future_into_py;
 use tokio::sync::{mpsc, Mutex};
 use tokio::task::JoinHandle;
 
 use crate::client::into_py_response;
-use crate::client::LIST_ENTRIES_BUFFER_SIZE;
 use crate::client::{
-    CheckHandleResponse, DeleteFileResponse, GetMetadataResponse, Response,
-    UpdateMetadataResponse, UpsertFileResponse,
+    CheckHandleResponse, DeleteFileResponse, GetMetadataResponse, NativeWaitConfig, Response,
+    UpdateMetadataResponse, UpsertResponse,
 };
 use crate::data::file::FileOrFileLike;
 use crate::data::list_entry::ListEntry;
 use crate::data::value::Value;
 use crate::error::RustError;
 use crate::expr::logical::LogicalExpr;
+
+const CHANNEL_BUFFER_SIZE: usize = 32;
 
 #[pyclass]
 pub struct AsyncDatasetClient {
@@ -32,11 +33,11 @@ impl AsyncDatasetClient {
 
 #[pymethods]
 impl AsyncDatasetClient {
-    #[pyo3(signature = (file_id, input, metadata))]
+    #[pyo3(signature = (doc_id, input, metadata))]
     pub fn upsert_file(
         &self,
         py: Python<'_>,
-        file_id: String,
+        doc_id: String,
         input: FileOrFileLike,
         metadata: HashMap<String, Value>,
     ) -> PyResult<Py<PyAny>> {
@@ -49,12 +50,12 @@ impl AsyncDatasetClient {
         future_into_py(py, async move {
             let response = client
                 .dataset(&dataset)
-                .upsert_file(file_id, input_file, metadata)
+                .upsert_file(doc_id, input_file, metadata)
                 .await
                 .map_err(RustError)?;
             Python::attach(|py| {
                 into_py_response(py, response, |inner| {
-                    Ok(UpsertFileResponse {
+                    Ok(UpsertResponse {
                         handle: inner.handle,
                     })
                 })
@@ -63,11 +64,11 @@ impl AsyncDatasetClient {
         .map(|result| result.into())
     }
 
-    #[pyo3(signature = (file_id, fields=None))]
+    #[pyo3(signature = (ids, fields=None))]
     pub fn get_metadata(
         &self,
         py: Python<'_>,
-        file_id: String,
+        ids: Vec<String>,
         fields: Option<Vec<String>>,
     ) -> PyResult<Py<PyAny>> {
         let client = self.client.clone();
@@ -76,18 +77,22 @@ impl AsyncDatasetClient {
         future_into_py(py, async move {
             let response = client
                 .dataset(&dataset)
-                .get_metadata(vec![file_id], fields)
+                .get_metadata(ids, fields)
                 .await
                 .map_err(RustError)?;
             Python::attach(|py| {
                 into_py_response(py, response, |inner| {
-                    let metadata: HashMap<String, Value> = inner
+                    let docs: HashMap<String, HashMap<String, Value>> = inner
                         .docs
                         .into_iter()
-                        .flat_map(|(_, doc)| doc.fields.into_iter())
-                        .map(|(k, v)| (k, v.into()))
+                        .map(|(id, doc)| {
+                            (
+                                id,
+                                doc.fields.into_iter().map(|(k, v)| (k, v.into())).collect(),
+                            )
+                        })
                         .collect();
-                    Ok(GetMetadataResponse { metadata })
+                    Ok(GetMetadataResponse { docs })
                 })
             })
         })
@@ -162,6 +167,28 @@ impl AsyncDatasetClient {
         .map(|result| result.into())
     }
 
+    #[pyo3(signature = (handle, config=None))]
+    pub fn wait_for_handle(
+        &self,
+        py: Python<'_>,
+        handle: String,
+        config: Option<NativeWaitConfig>,
+    ) -> PyResult<Py<PyAny>> {
+        let client = self.client.clone();
+        let dataset = self.dataset.clone();
+        let wait_config = config.map(|c| c.config.into());
+
+        future_into_py(py, async move {
+            client
+                .dataset(&dataset)
+                .wait_for_handle(&handle, wait_config)
+                .await
+                .map_err(RustError)?;
+            Python::attach(|py| Ok(py.None().into_any()))
+        })
+        .map(|result| result.into())
+    }
+
     #[pyo3(signature = (fields=None, filter=None))]
     pub fn list(
         &self,
@@ -169,7 +196,7 @@ impl AsyncDatasetClient {
         fields: Option<Vec<String>>,
         filter: Option<LogicalExpr>,
     ) -> PyResult<Py<PyAny>> {
-        let (tx, rx) = mpsc::channel(LIST_ENTRIES_BUFFER_SIZE);
+        let (tx, rx) = mpsc::channel(CHANNEL_BUFFER_SIZE);
         let filter = filter.map(|f| f.into());
 
         let handle = pyo3_async_runtimes::tokio::get_runtime().spawn({
