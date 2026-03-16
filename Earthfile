@@ -3,9 +3,10 @@ IMPORT github.com/earthly/lib/rust:3.0.1 AS rust
 
 test:
     ARG region=emulator
-    BUILD +test-rs --region=$region
-    BUILD +test-py --region=$region
-    BUILD +test-js --region=$region
+    ARG host
+    BUILD +test-rs --region=$region --host=$host
+    BUILD +test-py --region=$region --host=$host
+    BUILD +test-js --region=$region --host=$host
 
 test-rs:
     FROM rust:slim
@@ -71,7 +72,8 @@ test-py:
         . /venv/bin/activate && maturin develop
 
     ARG region=emulator
-    DO +SETUP_ENV --region=$region
+    ARG host
+    DO +SETUP_ENV --region=$region --host=$host
 
     # test
     ARG args=""
@@ -117,7 +119,8 @@ test-js:
     fi
 
     ARG region=emulator
-    DO +SETUP_ENV --region=$region
+    ARG host
+    DO +SETUP_ENV --region=$region --host=$host
     # test
     ARG args=""
     RUN --no-cache --secret TOPK_API_KEY \
@@ -154,7 +157,7 @@ test-runner:
 SETUP_ENV:
     FUNCTION
 
-    # region
+    # region and host
     ARG host
     ARG region=emulator
     ENV TOPK_REGION=$region
@@ -169,4 +172,9 @@ SETUP_ENV:
         HOST emulator.api.ddb $host
         ENV TOPK_HOST=ddb
         ENV TOPK_HTTPS=false
+    END
+    IF [ "$region" != "emulator" ]
+        IF [ -n "$host" ]
+            ENV TOPK_HOST=$host
+        END
     END
