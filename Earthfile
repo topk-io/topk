@@ -161,6 +161,7 @@ SETUP_ENV:
     ARG host
     ARG region=emulator
     ENV TOPK_REGION=$region
+    ENV TOPK_HOST=$host
 
     # setup dev environment
     IF [ "$region" = "emulator" ]
@@ -172,9 +173,4 @@ SETUP_ENV:
         HOST emulator.api.ddb $host
         ENV TOPK_HOST=ddb
         ENV TOPK_HTTPS=false
-    END
-    IF [ "$region" != "emulator" ]
-        IF [ -n "$host" ]
-            ENV TOPK_HOST=$host
-        END
     END
