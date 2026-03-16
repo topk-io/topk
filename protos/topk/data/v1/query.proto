@@ -59,6 +59,10 @@ message Stage {
     bool asc = 2;
   }
 
+  message FetchStage {
+    repeated string fields = 1;
+  }
+
   oneof stage {
     SelectStage select = 1;
     FilterStage filter = 2;
@@ -68,5 +72,6 @@ message Stage {
     RerankStage rerank = 5;
     LimitStage limit = 6;
     SortStage sort = 7;
+    FetchStage fetch = 8;
   }
 }
