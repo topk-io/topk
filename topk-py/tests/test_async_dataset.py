@@ -40,13 +40,14 @@ async def test_async_get_metadata(async_ctx: AsyncProjectContext):
 
     original_metadata = {"title": "test"}
 
-    await async_ctx.client.dataset(dataset.name).upsert_file(
+    response = await async_ctx.client.dataset(dataset.name).upsert_file(
         "doc1", pdf_path, original_metadata
     )
 
-    response = await async_ctx.client.dataset(dataset.name).get_metadata("doc1")
-    print(response)
-    assert response.metadata.get("title") == original_metadata.get("title")
+    await async_ctx.client.dataset(dataset.name).wait_for_handle(response.handle)
+
+    response = await async_ctx.client.dataset(dataset.name).get_metadata(["doc1"])
+    assert response.docs["doc1"]["title"] == original_metadata["title"]
 
 
 @pytest.mark.asyncio
@@ -83,18 +84,21 @@ async def test_async_check_handle(async_ctx: AsyncProjectContext):
 
     response = await async_ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {})
 
-    # Poll check_handle
-    max_attempts = 120
-    processed = False
-    for _ in range(max_attempts):
-        check_handle = await async_ctx.client.dataset(dataset.name).check_handle(response.handle)
-        print(check_handle)
-        processed = check_handle.processed
-        if processed:
-            break
-        await asyncio.sleep(1)
+    check_resp = await async_ctx.client.dataset(dataset.name).check_handle(response.handle)
+    assert check_resp.processed is False
 
-    assert processed, "Handle was not processed within timeout"
+
+@pytest.mark.asyncio
+async def test_async_wait_for_handle(async_ctx: AsyncProjectContext):
+    dataset = (await async_ctx.client.datasets().create(async_ctx.scope("test"))).dataset
+    pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
+
+    response = await async_ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {})
+
+    await async_ctx.client.dataset(dataset.name).wait_for_handle(response.handle)
+
+    check_resp = await async_ctx.client.dataset(dataset.name).check_handle(response.handle)
+    assert check_resp.processed is True
 
 
 @pytest.mark.asyncio
@@ -102,9 +106,11 @@ async def test_async_dataset_list(async_ctx: AsyncProjectContext):
     dataset = (await async_ctx.client.datasets().create(async_ctx.scope("test"))).dataset
     pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
 
-    await async_ctx.client.dataset(dataset.name).upsert_file(
+    response = await async_ctx.client.dataset(dataset.name).upsert_file(
         "doc1", pdf_path, {"title": "test"}
     )
+
+    await async_ctx.client.dataset(dataset.name).wait_for_handle(response.handle)
 
     entries: list[ListEntry] = []
     async for entry in async_ctx.client.dataset(dataset.name).list():
