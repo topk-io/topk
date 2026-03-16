@@ -157,7 +157,7 @@ test-runner:
 SETUP_ENV:
     FUNCTION
 
-    # region and host
+    # region
     ARG host
     ARG region=emulator
     ENV TOPK_REGION=$region
