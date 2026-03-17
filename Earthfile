@@ -3,7 +3,7 @@ IMPORT github.com/earthly/lib/rust:3.0.1 AS rust
 
 test:
     ARG region=emulator
-    ARG host=topk.io
+    ARG host
     BUILD +test-rs --region=$region --host=$host
     BUILD +test-py --region=$region --host=$host
     BUILD +test-js --region=$region --host=$host
