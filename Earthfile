@@ -27,7 +27,7 @@ test-rs:
     DO rust+CARGO --args="nextest archive -p topk-rs --archive-file e2e.tar.zst" # compile tests
 
     ARG region=emulator
-    ARG host=topk.io
+    ARG host
     DO +SETUP_ENV --region=$region --host=$host
 
     # test
@@ -72,7 +72,7 @@ test-py:
         . /venv/bin/activate && maturin develop
 
     ARG region=emulator
-    ARG host=topk.io
+    ARG host
     DO +SETUP_ENV --region=$region --host=$host
 
     # test
@@ -119,7 +119,7 @@ test-js:
     fi
 
     ARG region=emulator
-    ARG host=topk.io
+    ARG host
     DO +SETUP_ENV --region=$region --host=$host
     # test
     ARG args=""
