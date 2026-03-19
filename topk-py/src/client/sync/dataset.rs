@@ -4,19 +4,19 @@ use futures_util::StreamExt;
 use pyo3::prelude::*;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
+use topk_rs::proto::v1::ctx::file::InputFile;
 
 use crate::client::sync::runtime::Runtime;
+use crate::client::CHANNEL_BUFFER_SIZE;
 use crate::client::{
-    into_py_response, CheckHandleResponse, DeleteFileResponse, GetMetadataResponse, NativeWaitConfig,
-    Response, UpdateMetadataResponse, UpsertResponse,
+    into_py_response, CheckHandleResponse, DeleteFileResponse, GetMetadataResponse,
+    NativeWaitConfig, Response, UpdateMetadataResponse, UpsertResponse,
 };
 use crate::data::file::FileOrFileLike;
 use crate::data::list_entry::ListEntry;
 use crate::data::value::Value;
 use crate::error::RustError;
 use crate::expr::logical::LogicalExpr;
-
-const CHANNEL_BUFFER_SIZE: usize = 32;
 
 #[pyclass]
 pub struct DatasetClient {
@@ -45,7 +45,7 @@ impl DatasetClient {
         input: FileOrFileLike,
         metadata: HashMap<String, Value>,
     ) -> PyResult<Py<UpsertResponse>> {
-        let input_file: topk_rs::proto::v1::ctx::file::InputFile = input.try_into()?;
+        let input_file: InputFile = input.try_into()?;
         let metadata: HashMap<String, topk_rs::proto::v1::data::Value> =
             metadata.into_iter().map(|(k, v)| (k, v.into())).collect();
 
@@ -99,7 +99,7 @@ impl DatasetClient {
     pub fn update_metadata(
         &self,
         py: Python<'_>,
-        file_id: String,
+        doc_id: String,
         metadata: HashMap<String, Value>,
     ) -> PyResult<Py<UpdateMetadataResponse>> {
         let metadata: HashMap<String, topk_rs::proto::v1::data::Value> =
@@ -111,7 +111,7 @@ impl DatasetClient {
                 py,
                 self.client
                     .dataset(&self.dataset)
-                    .update_metadata(file_id, metadata),
+                    .update_metadata(doc_id, metadata),
             )
             .map_err(RustError)?;
 
@@ -122,10 +122,10 @@ impl DatasetClient {
         })
     }
 
-    pub fn delete(&self, py: Python<'_>, file_id: String) -> PyResult<Py<DeleteFileResponse>> {
+    pub fn delete(&self, py: Python<'_>, doc_id: String) -> PyResult<Py<DeleteFileResponse>> {
         let response = self
             .runtime
-            .block_on(py, self.client.dataset(&self.dataset).delete(file_id))
+            .block_on(py, self.client.dataset(&self.dataset).delete(doc_id))
             .map_err(RustError)?;
 
         into_py_response(py, response, |inner| {

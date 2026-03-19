@@ -3,22 +3,18 @@ use std::sync::Arc;
 use futures_util::{StreamExt, TryStreamExt};
 use pyo3::prelude::*;
 use tokio::sync::mpsc;
-use tokio::task::JoinHandle;
 
+use crate::client::CHANNEL_BUFFER_SIZE;
 use crate::data::ask::{SearchResult, Sources};
 use crate::error::RustError;
 use crate::expr::logical::LogicalExpr;
 
 use super::runtime::Runtime;
 
-const CHANNEL_BUFFER_SIZE: usize = 32;
-
 #[pyclass]
 pub struct SearchIterator {
     runtime: Arc<Runtime>,
     receiver: mpsc::Receiver<PyResult<SearchResult>>,
-    #[allow(dead_code)]
-    handle: JoinHandle<()>,
 }
 
 #[pymethods]
@@ -30,12 +26,6 @@ impl SearchIterator {
     fn __next__(&mut self, py: Python<'_>) -> PyResult<Option<SearchResult>> {
         self.runtime
             .block_on(py, async { self.receiver.recv().await.transpose() })
-    }
-}
-
-impl Drop for SearchIterator {
-    fn drop(&mut self) {
-        self.handle.abort();
     }
 }
 
@@ -54,7 +44,7 @@ pub fn search_stream(
     let filter = filter.map(|f| f.into());
     let select_fields = select_fields.unwrap_or_default();
 
-    let handle = runtime.spawn(async move {
+    runtime.spawn(async move {
         let mut stream = match client
             .search(query, sources, top_k, filter, select_fields)
             .await
@@ -90,7 +80,6 @@ pub fn search_stream(
     Ok(SearchIterator {
         runtime,
         receiver: rx,
-        handle,
     })
 }
 

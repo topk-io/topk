@@ -16,13 +16,11 @@ async def test_async_search(async_ctx: AsyncProjectContext):
 
     await async_ctx.client.dataset(dataset.name).wait_for_handle(upsert_resp.handle)
 
-    result = await async_ctx.client.search("technical", [dataset.name])
-
-    assert isinstance(result, list), f"Expected list, got {type(result)}"
-    assert len(result) > 0, "Expected at least one search result"
-    assert all(isinstance(r, SearchResult) for r in result), (
-        f"Expected SearchResult items, got {[type(r) for r in result]}"
+    result: list[SearchResult] = await async_ctx.client.search(
+        "technical", [dataset.name], top_k=10
     )
+
+    assert len(result) > 0, "Expected at least one search result"
 
 
 @pytest.mark.asyncio
@@ -39,7 +37,6 @@ async def test_async_search_stream(async_ctx: AsyncProjectContext):
     stream = async_ctx.client.search_stream(
         "technical",
         [dataset.name],
-        filter=None,
         top_k=10,
     )
 

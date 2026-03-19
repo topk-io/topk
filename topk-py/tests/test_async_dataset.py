@@ -27,7 +27,6 @@ async def test_async_upsert_file_pdf(async_ctx: AsyncProjectContext):
     response = await async_ctx.client.dataset(dataset.name).upsert_file(
         "doc1", pdf_path, metadata
     )
-    print(response)
 
     assert response.handle is not None
     assert len(response.handle) > 0
@@ -61,7 +60,7 @@ async def test_async_update_metadata(async_ctx: AsyncProjectContext):
     response = await async_ctx.client.dataset(dataset.name).update_metadata(
         "doc1", new_metadata
     )
-    print(response)
+
     assert response.handle is not None
 
 
@@ -73,7 +72,7 @@ async def test_async_delete_document(async_ctx: AsyncProjectContext):
     await async_ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {})
 
     response = await async_ctx.client.dataset(dataset.name).delete("doc1")
-    print(response)
+
     assert response.handle is not None
 
 
