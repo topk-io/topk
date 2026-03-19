@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use bytes::Bytes;
 
@@ -48,13 +48,31 @@ impl InputFile {
         })
     }
 
-    pub fn guess_mime_type(path: impl Into<PathBuf>) -> Result<String, Error> {
-        let path = path.into();
-        let mime_type = infer::get_from_path(&path)
+    pub fn guess_mime_type(path: impl AsRef<Path>) -> Result<String, Error> {
+        let path = path.as_ref();
+
+        // Try to guess the MIME type from the file extension
+        let ext = path.extension().unwrap_or_default();
+        if ext == "pdf" {
+            return Ok("application/pdf".to_string());
+        } else if ext == "jpg" || ext == "jpeg" {
+            return Ok("image/jpeg".to_string());
+        } else if ext == "png" {
+            return Ok("image/png".to_string());
+        } else if ext == "md" {
+            return Ok("text/markdown".to_string());
+        } else if ext == "html" {
+            return Ok("text/html".to_string());
+        } else if ext == "txt" {
+            return Ok("text/plain".to_string());
+        }
+
+        // If the MIME type is not found, try to guess it from the file content
+        let mime_type = infer::get_from_path(path)
             .map_err(|e| Error::Input(anyhow::anyhow!(e)))?
             .map(|kind| kind.mime_type().to_string())
             .or_else(|| {
-                mime_guess::from_path(&path)
+                mime_guess::from_path(path)
                     .first()
                     .map(|mime| mime.to_string())
             })
