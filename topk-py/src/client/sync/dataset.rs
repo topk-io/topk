@@ -3,7 +3,6 @@ use std::{collections::HashMap, sync::Arc};
 use futures_util::StreamExt;
 use pyo3::prelude::*;
 use tokio::sync::mpsc;
-use tokio::task::JoinHandle;
 use topk_rs::proto::v1::ctx::file::InputFile;
 
 use crate::client::sync::runtime::Runtime;
@@ -178,7 +177,7 @@ impl DatasetClient {
         let (tx, rx) = mpsc::channel(CHANNEL_BUFFER_SIZE);
         let filter = filter.map(|f| f.into());
 
-        let handle = self.runtime.spawn({
+        self.runtime.spawn({
             let client = self.client.clone();
             let dataset = self.dataset.clone();
             async move {
@@ -210,7 +209,6 @@ impl DatasetClient {
         Ok(DatasetListIterator {
             runtime: self.runtime.clone(),
             receiver: rx,
-            handle,
         })
     }
 }
@@ -219,8 +217,6 @@ impl DatasetClient {
 pub struct DatasetListIterator {
     runtime: Arc<Runtime>,
     receiver: mpsc::Receiver<PyResult<ListEntry>>,
-    #[allow(dead_code)]
-    handle: JoinHandle<()>,
 }
 
 #[pymethods]
@@ -232,11 +228,5 @@ impl DatasetListIterator {
     fn __next__(&mut self, py: Python<'_>) -> PyResult<Option<ListEntry>> {
         self.runtime
             .block_on(py, async { self.receiver.recv().await.transpose() })
-    }
-}
-
-impl Drop for DatasetListIterator {
-    fn drop(&mut self) {
-        self.handle.abort();
     }
 }
