@@ -4,7 +4,6 @@ use futures_util::StreamExt;
 use pyo3::prelude::*;
 use pyo3_async_runtimes::tokio::future_into_py;
 use tokio::sync::{mpsc, Mutex};
-use tokio::task::JoinHandle;
 use topk_rs::proto::v1::ctx::file::InputFile;
 
 use crate::client::into_py_response;
@@ -193,14 +192,14 @@ impl AsyncDatasetClient {
     #[pyo3(signature = (fields=None, filter=None))]
     pub fn list(
         &self,
-        py: Python<'_>,
+        _py: Python<'_>,
         fields: Option<Vec<String>>,
         filter: Option<LogicalExpr>,
-    ) -> PyResult<Py<PyAny>> {
+    ) -> PyResult<AsyncDatasetListIterator> {
         let (tx, rx) = mpsc::channel(CHANNEL_BUFFER_SIZE);
         let filter = filter.map(|f| f.into());
 
-        let handle = pyo3_async_runtimes::tokio::get_runtime().spawn({
+        pyo3_async_runtimes::tokio::get_runtime().spawn({
             let client = self.client.clone();
             let dataset = self.dataset.clone();
             async move {
@@ -229,22 +228,15 @@ impl AsyncDatasetClient {
             }
         });
 
-        Ok(Py::new(
-            py,
-            AsyncDatasetListIterator {
-                receiver: Arc::new(Mutex::new(rx)),
-                handle,
-            },
-        )?
-        .into())
+        Ok(AsyncDatasetListIterator {
+            receiver: Arc::new(Mutex::new(rx)),
+        })
     }
 }
 
 #[pyclass]
 pub struct AsyncDatasetListIterator {
     receiver: Arc<Mutex<mpsc::Receiver<PyResult<ListEntry>>>>,
-    #[allow(dead_code)]
-    handle: JoinHandle<()>,
 }
 
 #[pymethods]
@@ -265,11 +257,5 @@ impl AsyncDatasetListIterator {
                 Err(e) => Err(e),
             }
         })
-    }
-}
-
-impl Drop for AsyncDatasetListIterator {
-    fn drop(&mut self) {
-        self.handle.abort();
     }
 }
