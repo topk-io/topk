@@ -66,8 +66,8 @@ class Client:
         self,
         query: builtins.str,
         sources: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
+        top_k: builtins.int,
         filter: typing.Optional[query.LogicalExpr] = None,
-        top_k: builtins.int = 10,
         select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> builtins.list[SearchResult]:
         """
@@ -78,8 +78,8 @@ class Client:
         self,
         query: builtins.str,
         sources: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
+        top_k: builtins.int,
         filter: typing.Optional[query.LogicalExpr] = None,
-        top_k: builtins.int = 10,
         select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> SearchIterator:
         """
@@ -140,8 +140,8 @@ class AsyncClient:
         self,
         query: builtins.str,
         sources: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
+        top_k: builtins.int,
         filter: typing.Optional[query.LogicalExpr] = None,
-        top_k: builtins.int = 10,
         select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> typing.Awaitable[builtins.list[SearchResult]]:
         """
@@ -152,8 +152,8 @@ class AsyncClient:
         self,
         query: builtins.str,
         sources: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
+        top_k: builtins.int,
         filter: typing.Optional[query.LogicalExpr] = None,
-        top_k: builtins.int = 10,
         select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> typing.AsyncIterator[SearchResult]:
         """
@@ -491,7 +491,7 @@ class DatasetClient:
 
     def upsert_file(
         self,
-        file_id: builtins.str,
+        doc_id: builtins.str,
         input: typing.Union[os.PathLike[typing.Any], typing.Tuple[builtins.str, builtins.bytes, builtins.str]],
         metadata: typing.Mapping[builtins.str, typing.Any],
     ) -> UpsertResponse:
@@ -510,14 +510,14 @@ class DatasetClient:
         ...
     def update_metadata(
         self,
-        file_id: builtins.str,
+        doc_id: builtins.str,
         metadata: typing.Mapping[builtins.str, typing.Any],
     ) -> UpdateMetadataResponse:
         """
         Update metadata for a file.
         """
         ...
-    def delete(self, file_id: builtins.str) -> DeleteFileResponse:
+    def delete(self, doc_id: builtins.str) -> DeleteFileResponse:
         """
         Delete a file from the dataset.
         """
@@ -581,7 +581,7 @@ class AsyncDatasetClient:
 
     def upsert_file(
         self,
-        file_id: builtins.str,
+        doc_id: builtins.str,
         input: typing.Union[os.PathLike[typing.Any], typing.Tuple[builtins.str, builtins.bytes, builtins.str]],
         metadata: typing.Mapping[builtins.str, typing.Any],
     ) -> typing.Awaitable[UpsertResponse]:
@@ -600,14 +600,14 @@ class AsyncDatasetClient:
         ...
     def update_metadata(
         self,
-        file_id: builtins.str,
+        doc_id: builtins.str,
         metadata: typing.Mapping[builtins.str, typing.Any],
     ) -> typing.Awaitable[UpdateMetadataResponse]:
         """
         Update metadata for a file asynchronously.
         """
         ...
-    def delete(self, file_id: builtins.str) -> typing.Awaitable[DeleteFileResponse]:
+    def delete(self, doc_id: builtins.str) -> typing.Awaitable[DeleteFileResponse]:
         """
         Delete a file from the dataset asynchronously.
         """

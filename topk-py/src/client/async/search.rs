@@ -4,19 +4,15 @@ use futures_util::{StreamExt, TryStreamExt};
 use pyo3::{prelude::*, types::PyAny};
 use pyo3_async_runtimes::tokio::future_into_py;
 use tokio::sync::{mpsc, Mutex};
-use tokio::task::JoinHandle;
 
+use crate::client::CHANNEL_BUFFER_SIZE;
 use crate::data::ask::{SearchResult, Sources};
 use crate::error::RustError;
 use crate::expr::logical::LogicalExpr;
 
-const CHANNEL_BUFFER_SIZE: usize = 32;
-
 #[pyclass]
 pub struct AsyncSearchIterator {
     receiver: Arc<Mutex<mpsc::Receiver<PyResult<SearchResult>>>>,
-    #[allow(dead_code)]
-    handle: JoinHandle<()>,
 }
 
 #[pymethods]
@@ -40,28 +36,21 @@ impl AsyncSearchIterator {
     }
 }
 
-impl Drop for AsyncSearchIterator {
-    fn drop(&mut self) {
-        self.handle.abort();
-    }
-}
-
 pub fn search_stream(
     client: Arc<topk_rs::Client>,
-    py: Python<'_>,
     query: String,
     sources: Sources,
     filter: Option<LogicalExpr>,
     top_k: u32,
     select_fields: Option<Vec<String>>,
-) -> PyResult<Py<AsyncSearchIterator>> {
+) -> PyResult<AsyncSearchIterator> {
     let (tx, rx) = mpsc::channel(CHANNEL_BUFFER_SIZE);
 
     let sources = sources.into_iter();
     let filter = filter.map(|f| f.into());
     let select_fields = select_fields.unwrap_or_default();
 
-    let handle = pyo3_async_runtimes::tokio::get_runtime().spawn(async move {
+    pyo3_async_runtimes::tokio::get_runtime().spawn(async move {
         let mut stream = match client
             .search(query, sources, top_k, filter, select_fields)
             .await
@@ -94,14 +83,9 @@ pub fn search_stream(
         }
     });
 
-    Ok(Py::new(
-        py,
-        AsyncSearchIterator {
-            receiver: Arc::new(tokio::sync::Mutex::new(rx)),
-            handle,
-        },
-    )?
-    .into())
+    Ok(AsyncSearchIterator {
+        receiver: Arc::new(tokio::sync::Mutex::new(rx)),
+    })
 }
 
 pub fn search(

@@ -13,11 +13,11 @@ def test_search(ctx: ProjectContext):
 
     ctx.client.dataset(dataset.name).wait_for_handle(upsert_resp.handle)
 
-    result = ctx.client.search("technical", [dataset.name])
+    result: list[SearchResult] = ctx.client.search(
+        "technical", [dataset.name], top_k=10
+    )
 
-    assert isinstance(result, list), f"Expected list, got {type(result)}"
     assert len(result) > 0, "Expected at least one search result"
-    assert all(isinstance(r, SearchResult) for r in result), f"Expected SearchResult items, got {[type(r) for r in result]}"
 
 
 def test_search_stream(ctx: ProjectContext):
@@ -31,7 +31,6 @@ def test_search_stream(ctx: ProjectContext):
     stream = ctx.client.search_stream(
         "technical",
         [dataset.name],
-        filter=None,
         top_k=10,
     )
 

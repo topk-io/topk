@@ -5,8 +5,10 @@ use pyo3::prelude::*;
 use pyo3_async_runtimes::tokio::future_into_py;
 use tokio::sync::{mpsc, Mutex};
 use tokio::task::JoinHandle;
+use topk_rs::proto::v1::ctx::file::InputFile;
 
 use crate::client::into_py_response;
+use crate::client::CHANNEL_BUFFER_SIZE;
 use crate::client::{
     CheckHandleResponse, DeleteFileResponse, GetMetadataResponse, NativeWaitConfig, Response,
     UpdateMetadataResponse, UpsertResponse,
@@ -16,8 +18,6 @@ use crate::data::list_entry::ListEntry;
 use crate::data::value::Value;
 use crate::error::RustError;
 use crate::expr::logical::LogicalExpr;
-
-const CHANNEL_BUFFER_SIZE: usize = 32;
 
 #[pyclass]
 pub struct AsyncDatasetClient {
@@ -43,7 +43,7 @@ impl AsyncDatasetClient {
     ) -> PyResult<Py<PyAny>> {
         let client = self.client.clone();
         let dataset = self.dataset.clone();
-        let input_file: topk_rs::proto::v1::ctx::file::InputFile = input.try_into()?;
+        let input_file: InputFile = input.try_into()?;
         let metadata: HashMap<String, topk_rs::proto::v1::data::Value> =
             metadata.into_iter().map(|(k, v)| (k, v.into())).collect();
 
@@ -53,6 +53,7 @@ impl AsyncDatasetClient {
                 .upsert_file(doc_id, input_file, metadata)
                 .await
                 .map_err(RustError)?;
+
             Python::attach(|py| {
                 into_py_response(py, response, |inner| {
                     Ok(UpsertResponse {
@@ -102,7 +103,7 @@ impl AsyncDatasetClient {
     pub fn update_metadata(
         &self,
         py: Python<'_>,
-        file_id: String,
+        doc_id: String,
         metadata: HashMap<String, Value>,
     ) -> PyResult<Py<PyAny>> {
         let client = self.client.clone();
@@ -113,7 +114,7 @@ impl AsyncDatasetClient {
         future_into_py(py, async move {
             let response = client
                 .dataset(&dataset)
-                .update_metadata(file_id, metadata)
+                .update_metadata(doc_id, metadata)
                 .await
                 .map_err(RustError)?;
             Python::attach(|py| {
@@ -127,14 +128,14 @@ impl AsyncDatasetClient {
         .map(|result| result.into())
     }
 
-    pub fn delete(&self, py: Python<'_>, file_id: String) -> PyResult<Py<PyAny>> {
+    pub fn delete(&self, py: Python<'_>, doc_id: String) -> PyResult<Py<PyAny>> {
         let client = self.client.clone();
         let dataset = self.dataset.clone();
 
         future_into_py(py, async move {
             let response = client
                 .dataset(&dataset)
-                .delete(file_id)
+                .delete(doc_id)
                 .await
                 .map_err(RustError)?;
             Python::attach(|py| {

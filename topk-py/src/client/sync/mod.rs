@@ -9,13 +9,14 @@ mod search;
 use std::sync::Arc;
 
 pub use ask::{ask, ask_stream, AskIterator};
-pub use dataset::DatasetListIterator;
-pub use search::{search, search_stream, SearchIterator};
 pub use collection::CollectionClient;
 pub use collections::CollectionsClient;
 pub use dataset::DatasetClient;
+pub use dataset::DatasetListIterator;
 pub use datasets::DatasetsClient;
+pub use search::{search, search_stream, SearchIterator};
 
+use crate::data::ask::SearchResult;
 use crate::{
     client::{sync::runtime::Runtime, topk_client, NativeRetryConfig},
     data::ask::{AskResponseMessage, Mode, Sources},
@@ -120,16 +121,16 @@ impl Client {
         )
     }
 
-    #[pyo3(signature = (query, sources, filter=None, top_k=10, select_fields=None))]
+    #[pyo3(signature = (query, sources, top_k, filter=None, select_fields=None))]
     pub fn search(
         &self,
         py: Python<'_>,
         query: String,
         sources: Sources,
-        filter: Option<LogicalExpr>,
         top_k: u32,
+        filter: Option<LogicalExpr>,
         select_fields: Option<Vec<String>>,
-    ) -> PyResult<Vec<crate::data::ask::SearchResult>> {
+    ) -> PyResult<Vec<SearchResult>> {
         search(
             self.runtime.clone(),
             self.client.clone(),
@@ -142,13 +143,13 @@ impl Client {
         )
     }
 
-    #[pyo3(signature = (query, sources, filter=None, top_k=10, select_fields=None))]
+    #[pyo3(signature = (query, sources, top_k, filter=None, select_fields=None))]
     pub fn search_stream(
         &self,
         query: String,
         sources: Sources,
-        filter: Option<LogicalExpr>,
         top_k: u32,
+        filter: Option<LogicalExpr>,
         select_fields: Option<Vec<String>>,
     ) -> PyResult<SearchIterator> {
         search_stream(

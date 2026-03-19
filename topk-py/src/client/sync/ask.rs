@@ -3,22 +3,18 @@ use std::sync::Arc;
 use futures_util::{StreamExt, TryStreamExt};
 use pyo3::prelude::*;
 use tokio::sync::mpsc;
-use tokio::task::JoinHandle;
 
+use crate::client::CHANNEL_BUFFER_SIZE;
 use crate::data::ask::{AskResponseMessage, Mode, Sources};
 use crate::error::RustError;
 use crate::expr::logical::LogicalExpr;
 
 use super::runtime::Runtime;
 
-const CHANNEL_BUFFER_SIZE: usize = 32;
-
 #[pyclass]
 pub struct AskIterator {
     runtime: Arc<Runtime>,
     receiver: mpsc::Receiver<PyResult<AskResponseMessage>>,
-    #[allow(dead_code)]
-    handle: JoinHandle<()>,
 }
 
 #[pymethods]
@@ -32,13 +28,6 @@ impl AskIterator {
             // PyO3 maps Ok(None) from __next__ to raise StopIteration to signal exhaustion, so the loop ends
             self.receiver.recv().await.transpose()
         })
-    }
-}
-
-impl Drop for AskIterator {
-    fn drop(&mut self) {
-        // Abort the background task when the iterator is dropped
-        self.handle.abort();
     }
 }
 
@@ -58,7 +47,7 @@ pub fn ask_stream(
     let mode = mode.map(|m| m.into());
 
     // Spawn a task to consume the stream
-    let handle = runtime.spawn(async move {
+    runtime.spawn(async move {
         let mut stream = match client
             .ask(query, sources, filter, mode, select_fields)
             .await
@@ -107,7 +96,6 @@ pub fn ask_stream(
     Ok(AskIterator {
         runtime,
         receiver: rx,
-        handle,
     })
 }
 
@@ -138,7 +126,7 @@ pub fn ask(
             .await?;
 
         let result = last_message.ok_or_else(|| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>("Stream ended without any messages")
+            PyErr::new::<pyo3::exceptions::PyValueError, _>("Failed to get answer")
         })?;
 
         match result.message {

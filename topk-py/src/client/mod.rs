@@ -13,6 +13,8 @@ use pyo3::PyClass;
 pub mod r#async;
 pub mod sync;
 
+pub const CHANNEL_BUFFER_SIZE: usize = 32;
+
 pub fn topk_client(
     api_key: String,
     region: String,
@@ -313,7 +315,7 @@ impl Response {
 }
 
 /// Convert `topk_rs::Response<Proto>` into a Python response object.
-/// Extracts `request_id` once and builds `(Sub, Response)` for PyO3.
+/// Extracts `request_id` once and builds the subclass via `add_subclass`.
 pub(crate) fn into_py_response<Proto, Sub, F>(
     py: Python<'_>,
     response: topk_rs::client::Response<Proto>,
@@ -326,7 +328,8 @@ where
     let request_id = response.request_id().map(|r| r.as_str().to_string());
     let inner = response.into_inner();
     let sub = f(inner)?;
-    Py::new(py, (sub, Response { request_id }))
+    let init = pyo3::PyClassInitializer::from(Response { request_id }).add_subclass(sub);
+    Py::new(py, init)
 }
 
 #[pyclass(extends=Response)]
