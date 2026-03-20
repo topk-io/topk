@@ -51,7 +51,6 @@ pub fn ask_stream(
     let sources = sources.into_iter();
     let filter = filter.map(|f| f.into());
     let mode = mode.map(|m| m.into());
-    let select_fields = select_fields.clone();
 
     pyo3_async_runtimes::tokio::get_runtime().spawn(async move {
         let mut stream = match client
@@ -114,7 +113,6 @@ pub fn ask(
     let sources = sources.into_iter();
     let filter = filter.map(|f| f.into());
     let mode = mode.map(|m| m.into());
-    let select_fields = select_fields.clone();
 
     future_into_py(py, async move {
         let stream = client
@@ -123,14 +121,13 @@ pub fn ask(
             .map_err(RustError)?
             .into_inner();
 
-        let last_message = stream
+        let result = stream
             .map_err(|e| PyErr::from(RustError(e.into())))
             .try_fold(None, |_, result| async move { Ok(Some(result)) })
-            .await?;
-
-        let result = last_message.ok_or_else(|| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>("Failed to get answer")
-        })?;
+            .await?
+            .ok_or_else(|| {
+                PyErr::new::<pyo3::exceptions::PyValueError, _>("Failed to get answer")
+            })?;
 
         Ok(match result.message {
             Some(inner) => AskResult::try_from(inner).map_err(Into::<PyErr>::into)?,
