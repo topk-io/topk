@@ -6,13 +6,13 @@ use pyo3_async_runtimes::tokio::future_into_py;
 use tokio::sync::{mpsc, Mutex};
 
 use crate::client::CHANNEL_BUFFER_SIZE;
-use crate::data::ask::{AskResponseMessage, Mode, Sources};
+use crate::data::ask::{AskResult, Mode, Sources};
 use crate::error::RustError;
 use crate::expr::logical::LogicalExpr;
 
 #[pyclass]
 pub struct AsyncAskIterator {
-    receiver: Arc<Mutex<mpsc::Receiver<PyResult<AskResponseMessage>>>>,
+    receiver: Arc<Mutex<mpsc::Receiver<PyResult<AskResult>>>>,
 }
 
 #[pymethods]
@@ -76,16 +76,14 @@ pub fn ask_stream(
                             }
                         }
                         Err(e) => {
-                            let _ = tx
-                                .send(Err::<AskResponseMessage, PyErr>(PyErr::from(e)))
-                                .await;
+                            let _ = tx.send(Err::<AskResult, PyErr>(PyErr::from(e))).await;
                             break;
                         }
                     },
                     None => {
                         let _ = tx
                             .send(Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                                "Invalid proto: AskResponseMessage has no message",
+                                "Invalid proto: AskResult has no message",
                             )))
                             .await;
                         break;
@@ -135,10 +133,10 @@ pub fn ask(
         })?;
 
         Ok(match result.message {
-            Some(inner) => AskResponseMessage::try_from(inner).map_err(Into::<PyErr>::into)?,
+            Some(inner) => AskResult::try_from(inner).map_err(Into::<PyErr>::into)?,
             None => {
                 return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                    "Invalid proto: AskResponseMessage has no message",
+                    "Invalid proto: AskResult has no message",
                 ))
             }
         })

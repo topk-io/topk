@@ -19,7 +19,7 @@ pub use search::{search, search_stream, SearchIterator};
 use crate::data::ask::SearchResult;
 use crate::{
     client::{sync::runtime::Runtime, topk_client, NativeRetryConfig},
-    data::ask::{AskResponseMessage, Mode, Sources},
+    data::ask::{AskResult, Mode, Sources},
     expr::logical::LogicalExpr,
 };
 
@@ -88,7 +88,7 @@ impl Client {
         filter: Option<LogicalExpr>,
         mode: Option<Mode>,
         select_fields: Option<Vec<String>>,
-    ) -> PyResult<AskResponseMessage> {
+    ) -> PyResult<AskResult> {
         ask(
             self.runtime.clone(),
             self.client.clone(),
