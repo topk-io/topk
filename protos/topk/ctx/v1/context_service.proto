@@ -58,6 +58,7 @@ enum Mode {
     MODE_SUMMARIZE = 1;
     MODE_REASON = 2;
     MODE_DEEP_RESEARCH = 3;
+    MODE_AUTO = 4;
 }
 
 message AskRequest {

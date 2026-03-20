@@ -27,7 +27,7 @@ impl super::Client {
             query: query.into(),
             sources: sources.into_iter().map(|s| s.into()).collect(),
             filter,
-            mode: mode.unwrap_or(Mode::Reason) as i32,
+            mode: mode.unwrap_or(Mode::Auto).into(),
             select_fields: select_fields.unwrap_or_default(),
         };
 
