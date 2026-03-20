@@ -1,4 +1,5 @@
 import builtins
+import os
 import typing
 from enum import Enum
 
@@ -27,6 +28,64 @@ class Client:
         Get a client for managing collections.
         """
         ...
+    def dataset(self, dataset: builtins.str) -> DatasetClient:
+        """
+        Get a client for managing data operations on a specific dataset such as upserting files, managing metadata, and deleting files.
+        """
+        ...
+    def datasets(self) -> DatasetsClient:
+        """
+        Get a client for managing datasets.
+        """
+        ...
+    def ask(
+        self,
+        query: builtins.str,
+        sources: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
+        filter: typing.Optional[query.LogicalExpr] = None,
+        mode: typing.Optional[typing.Literal["summarize", "reason", "deep_research"]] = None,
+        select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> typing.Union[Answer, Search, Reason]:
+        """
+        Ask a question and wait for the stream to complete, returning the last message.
+        """
+        ...
+    def ask_stream(
+        self,
+        query: builtins.str,
+        sources: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
+        filter: typing.Optional[query.LogicalExpr] = None,
+        mode: typing.Optional[typing.Literal["summarize", "reason", "deep_research"]] = None,
+        select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> typing.Iterator[typing.Union[Answer, Search, Reason]]:
+        """
+        Ask a question and get streaming responses as an iterator.
+        """
+        ...
+    def search(
+        self,
+        query: builtins.str,
+        sources: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
+        top_k: builtins.int,
+        filter: typing.Optional[query.LogicalExpr] = None,
+        select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> builtins.list[SearchResult]:
+        """
+        Search for documents and wait for the stream to complete, returning all results.
+        """
+        ...
+    def search_stream(
+        self,
+        query: builtins.str,
+        sources: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
+        top_k: builtins.int,
+        filter: typing.Optional[query.LogicalExpr] = None,
+        select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> SearchIterator:
+        """
+        Search for documents and get streaming responses as an iterator.
+        """
+        ...
 
 class AsyncClient:
     """
@@ -46,6 +105,60 @@ class AsyncClient:
         ...
     def collections(self) -> AsyncCollectionsClient:
         """Get an async client for managing collections."""
+        ...
+    def dataset(self, dataset: builtins.str) -> AsyncDatasetClient:
+        """Get an async client for managing data operations on a specific dataset."""
+        ...
+    def datasets(self) -> AsyncDatasetsClient:
+        """Get an async client for managing datasets."""
+        ...
+    def ask(
+        self,
+        query: builtins.str,
+        sources: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
+        filter: typing.Optional[query.LogicalExpr] = None,
+        mode: typing.Optional[typing.Literal["summarize", "reason", "deep_research"]] = None,
+        select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> typing.Awaitable[typing.Union[Answer, Search, Reason]]:
+        """
+        Ask a question and wait for the stream to complete asynchronously, returning the last message.
+        """
+        ...
+    def ask_stream(
+        self,
+        query: builtins.str,
+        sources: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
+        filter: typing.Optional[query.LogicalExpr] = None,
+        mode: typing.Optional[typing.Literal["summarize", "reason", "deep_research"]] = None,
+        select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> typing.AsyncIterator[typing.Union[Answer, Search, Reason]]:
+        """
+        Ask a question and get streaming responses asynchronously as an async iterator.
+        """
+        ...
+    def search(
+        self,
+        query: builtins.str,
+        sources: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
+        top_k: builtins.int,
+        filter: typing.Optional[query.LogicalExpr] = None,
+        select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> typing.Awaitable[builtins.list[SearchResult]]:
+        """
+        Search for documents and wait for the stream to complete asynchronously, returning all results.
+        """
+        ...
+    def search_stream(
+        self,
+        query: builtins.str,
+        sources: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
+        top_k: builtins.int,
+        filter: typing.Optional[query.LogicalExpr] = None,
+        select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> typing.AsyncIterator[SearchResult]:
+        """
+        Search for documents and get streaming responses asynchronously as an async iterator.
+        """
         ...
 
 class CollectionClient:
@@ -214,6 +327,77 @@ class Collection:
     region: builtins.str
     schema: builtins.dict[builtins.str, schema.FieldSpec]
 
+class Dataset:
+    """
+    Represents a dataset in the TopK system.
+    """
+
+    name: builtins.str
+    org_id: builtins.str
+    project_id: builtins.str
+    region: builtins.str
+
+class ListEntry:
+    """
+    Entry in a dataset.
+    """
+
+    id: builtins.str
+    name: builtins.str
+    size: builtins.int
+    mime_type: builtins.str
+    metadata: builtins.dict[builtins.str, typing.Any]
+
+class Response:
+    """
+    Base class for API response objects with request_id.
+    """
+
+    request_id: typing.Optional[builtins.str]
+
+class CreateDatasetResponse(Response):
+    """Response from creating a dataset."""
+
+    dataset: Dataset
+
+class GetDatasetResponse(Response):
+    """Response from getting a dataset."""
+
+    dataset: Dataset
+
+class ListDatasetsResponse(Response):
+    """Response from listing datasets."""
+
+    datasets: builtins.list[Dataset]
+
+class DeleteDatasetResponse(Response):
+    """Response from deleting a dataset."""
+
+class UpsertResponse(Response):
+    """Response from upserting a document."""
+
+    handle: builtins.str
+
+class GetMetadataResponse(Response):
+    """Response from getting file metadata."""
+
+    docs: builtins.dict[builtins.str, builtins.dict[builtins.str, typing.Any]]
+
+class UpdateMetadataResponse(Response):
+    """Response from updating file metadata."""
+
+    handle: builtins.str
+
+class DeleteFileResponse(Response):
+    """Response from deleting a file."""
+
+    handle: builtins.str
+
+class CheckHandleResponse(Response):
+    """Response from checking handle status."""
+
+    processed: builtins.bool
+
 class CollectionsClient:
     """
     Synchronous client for managing collections.
@@ -274,6 +458,318 @@ class AsyncCollectionsClient:
         """
         ...
 
+class DatasetsClient:
+    """
+    Synchronous client for managing datasets.
+    """
+
+    def get(self, dataset_name: builtins.str) -> GetDatasetResponse:
+        """
+        Get information about a specific dataset.
+        """
+        ...
+    def list(self) -> ListDatasetsResponse:
+        """
+        List all datasets.
+        """
+        ...
+    def create(self, dataset_name: builtins.str) -> CreateDatasetResponse:
+        """
+        Create a new dataset.
+        """
+        ...
+    def delete(self, dataset_name: builtins.str) -> DeleteDatasetResponse:
+        """
+        Delete a dataset.
+        """
+        ...
+
+class DatasetClient:
+    """
+    Synchronous client for dataset operations.
+    """
+
+    def upsert_file(
+        self,
+        doc_id: builtins.str,
+        input: typing.Union[os.PathLike[typing.Any], typing.Tuple[builtins.str, builtins.bytes, builtins.str]],
+        metadata: typing.Mapping[builtins.str, typing.Any],
+    ) -> UpsertResponse:
+        """
+        Upsert a file to the dataset.
+        """
+        ...
+    def get_metadata(
+        self,
+        ids: typing.Sequence[builtins.str],
+        fields: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> GetMetadataResponse:
+        """
+        Get metadata for one or more documents.
+        """
+        ...
+    def update_metadata(
+        self,
+        doc_id: builtins.str,
+        metadata: typing.Mapping[builtins.str, typing.Any],
+    ) -> UpdateMetadataResponse:
+        """
+        Update metadata for a file.
+        """
+        ...
+    def delete(self, doc_id: builtins.str) -> DeleteFileResponse:
+        """
+        Delete a file from the dataset.
+        """
+        ...
+    def check_handle(self, handle: builtins.str) -> CheckHandleResponse:
+        """
+        Check if a handle has been processed.
+        """
+        ...
+    def wait_for_handle(
+        self,
+        handle: builtins.str,
+        config: typing.Optional[typing.Union[WaitConfig, builtins.dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        """
+        Poll until a handle has been processed or the timeout is reached.
+
+        Raises an error if the handle is not processed within the configured timeout.
+        """
+        ...
+    def list(
+        self,
+        fields: typing.Optional[typing.Sequence[builtins.str]] = None,
+        filter: typing.Optional[query.LogicalExpr] = None,
+    ) -> DatasetListIterator:
+        """
+        List files in the dataset as a streaming iterator.
+        """
+        ...
+
+class AsyncDatasetsClient:
+    """
+    Asynchronous client for managing datasets.
+    """
+
+    def get(self, dataset_name: builtins.str) -> typing.Awaitable[GetDatasetResponse]:
+        """
+        Get information about a specific dataset asynchronously.
+        """
+        ...
+    def list(self) -> typing.Awaitable[ListDatasetsResponse]:
+        """
+        List all datasets asynchronously.
+        """
+        ...
+    def create(self, dataset_name: builtins.str) -> typing.Awaitable[CreateDatasetResponse]:
+        """
+        Create a new dataset asynchronously.
+        """
+        ...
+    def delete(self, dataset_name: builtins.str) -> typing.Awaitable[DeleteDatasetResponse]:
+        """
+        Delete a dataset asynchronously.
+        """
+        ...
+
+class AsyncDatasetClient:
+    """
+    Asynchronous client for dataset operations.
+    """
+
+    def upsert_file(
+        self,
+        doc_id: builtins.str,
+        input: typing.Union[os.PathLike[typing.Any], typing.Tuple[builtins.str, builtins.bytes, builtins.str]],
+        metadata: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Awaitable[UpsertResponse]:
+        """
+        Upsert a file to the dataset asynchronously.
+        """
+        ...
+    def get_metadata(
+        self,
+        ids: typing.Sequence[builtins.str],
+        fields: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> typing.Awaitable[GetMetadataResponse]:
+        """
+        Get metadata for one or more documents asynchronously.
+        """
+        ...
+    def update_metadata(
+        self,
+        doc_id: builtins.str,
+        metadata: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Awaitable[UpdateMetadataResponse]:
+        """
+        Update metadata for a file asynchronously.
+        """
+        ...
+    def delete(self, doc_id: builtins.str) -> typing.Awaitable[DeleteFileResponse]:
+        """
+        Delete a file from the dataset asynchronously.
+        """
+        ...
+    def check_handle(self, handle: builtins.str) -> typing.Awaitable[CheckHandleResponse]:
+        """
+        Check if a handle has been processed asynchronously.
+        """
+        ...
+    def wait_for_handle(
+        self,
+        handle: builtins.str,
+        config: typing.Optional[typing.Union[WaitConfig, builtins.dict[builtins.str, typing.Any]]] = None,
+    ) -> typing.Awaitable[None]:
+        """
+        Poll until a handle has been processed or the timeout is reached asynchronously.
+
+        Raises an error if the handle is not processed within the configured timeout.
+        """
+        ...
+    def list(
+        self,
+        fields: typing.Optional[typing.Sequence[builtins.str]] = None,
+        filter: typing.Optional[query.LogicalExpr] = None,
+    ) -> AsyncDatasetListIterator:
+        """
+        List files in the dataset as a streaming async iterator.
+        """
+        ...
+
+class Source:
+    """
+    Represents a dataset with an optional filter.
+    """
+
+    dataset: builtins.str
+    filter: typing.Optional[query.LogicalExpr] = None
+
+class Fact:
+    """
+    Represents a fact in an ask response.
+    """
+
+    fact: builtins.str
+    source_ids: builtins.list[builtins.str]
+
+class Chunk:
+    """
+    Text chunk content.
+    """
+
+    text: builtins.str
+    doc_pages: builtins.list[builtins.int]
+
+class Image:
+    """
+    Image content.
+    """
+
+    data: builtins.bytes
+    mime_type: builtins.str
+
+class Page:
+    """
+    Page content with optional image.
+    """
+
+    page_number: builtins.int
+    image: typing.Optional[Image]
+
+class Content:
+    """
+    Content in a search result. One of chunk, page, or image.
+    """
+
+    type: typing.Literal["chunk", "page", "image"]
+    data: typing.Union[Chunk, Page, Image]
+
+class SearchResult:
+    """
+    Represents a search result in an ask response.
+    """
+
+    doc_id: builtins.str
+    doc_type: builtins.str
+    dataset: builtins.str
+    content: Content
+    metadata: builtins.dict[builtins.str, typing.Any]
+
+class Answer:
+    """
+    Represents a final answer in an ask response.
+    """
+
+    facts: builtins.list[Fact]
+    sources: builtins.dict[builtins.str, SearchResult]
+
+class Search:
+    """
+    Represents a sub-query in an ask response.
+    """
+
+    objective: builtins.str
+    facts: builtins.list[Fact]
+    sources: builtins.dict[builtins.str, SearchResult]
+
+
+class Reason:
+    """
+    Represents a reason in an ask response.
+    """
+
+    thought: builtins.str
+
+class AskIterator:
+    """
+    Iterator for synchronous ask responses.
+    """
+
+    def __iter__(self) -> AskIterator: ...
+    def __next__(self) -> typing.Optional[typing.Union[Answer, Search, Reason]]: ...
+
+class AsyncAskIterator:
+    """
+    Iterator for asynchronous ask responses.
+    """
+
+    def __aiter__(self) -> AsyncAskIterator: ...
+    def __anext__(self) -> typing.AsyncIterator[typing.Union[Answer, Search, Reason]]: ...
+
+class SearchIterator:
+    """
+    Iterator for synchronous search responses.
+    """
+
+    def __iter__(self) -> SearchIterator: ...
+    def __next__(self) -> typing.Optional[SearchResult]: ...
+
+class AsyncSearchIterator:
+    """
+    Iterator for asynchronous search responses.
+    """
+
+    def __aiter__(self) -> AsyncSearchIterator: ...
+    def __anext__(self) -> typing.AsyncIterator[SearchResult]: ...
+
+class DatasetListIterator:
+    """
+    Iterator for synchronous dataset list responses.
+    """
+
+    def __iter__(self) -> DatasetListIterator: ...
+    def __next__(self) -> typing.Optional[ListEntry]: ...
+
+class AsyncDatasetListIterator:
+    """
+    Iterator for asynchronous dataset list responses.
+    """
+
+    def __aiter__(self) -> AsyncDatasetListIterator: ...
+    def __anext__(self) -> typing.Awaitable[ListEntry]: ...
+
 class ConsistencyLevel(Enum):
     """
     Enumeration of consistency levels for operations.
@@ -281,6 +777,28 @@ class ConsistencyLevel(Enum):
 
     Indexed = "indexed"
     Strong = "strong"
+
+class WaitConfig:
+    """
+    Configuration for polling when waiting for a handle to be processed.
+    """
+
+    def __init__(
+        self,
+        frequency_secs: typing.Optional[builtins.int] = None,
+        timeout_secs: typing.Optional[builtins.int] = None,
+    ) -> None: ...
+
+    frequency_secs: typing.Annotated[typing.Optional[builtins.int], "How often to poll for the handle status in seconds. Default is 5."]
+    """
+    How often to poll for the handle status in seconds.
+    Default is 5.
+    """
+    timeout_secs: typing.Annotated[typing.Optional[builtins.int], "Maximum time to wait before returning a timeout error in seconds. Default is 300."]
+    """
+    Maximum time to wait before returning a timeout error in seconds.
+    Default is 300.
+    """
 
 class RetryConfig:
     """
