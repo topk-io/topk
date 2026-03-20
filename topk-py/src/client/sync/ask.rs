@@ -5,7 +5,7 @@ use pyo3::prelude::*;
 use tokio::sync::mpsc;
 
 use crate::client::CHANNEL_BUFFER_SIZE;
-use crate::data::ask::{AskResponseMessage, Mode, Sources};
+use crate::data::ask::{AskResult, Mode, Sources};
 use crate::error::RustError;
 use crate::expr::logical::LogicalExpr;
 
@@ -14,7 +14,7 @@ use super::runtime::Runtime;
 #[pyclass]
 pub struct AskIterator {
     runtime: Arc<Runtime>,
-    receiver: mpsc::Receiver<PyResult<AskResponseMessage>>,
+    receiver: mpsc::Receiver<PyResult<AskResult>>,
 }
 
 #[pymethods]
@@ -23,7 +23,7 @@ impl AskIterator {
         slf
     }
 
-    fn __next__(&mut self, py: Python<'_>) -> PyResult<Option<AskResponseMessage>> {
+    fn __next__(&mut self, py: Python<'_>) -> PyResult<Option<AskResult>> {
         self.runtime.block_on(py, async {
             // PyO3 maps Ok(None) from __next__ to raise StopIteration to signal exhaustion, so the loop ends
             self.receiver.recv().await.transpose()
@@ -70,16 +70,14 @@ pub fn ask_stream(
                             }
                         }
                         Err(e) => {
-                            let _ = tx
-                                .send(Err::<AskResponseMessage, PyErr>(PyErr::from(e)))
-                                .await;
+                            let _ = tx.send(Err::<AskResult, PyErr>(PyErr::from(e))).await;
                             break;
                         }
                     },
                     None => {
                         let _ = tx
                             .send(Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                                "Invalid proto: AskResponseMessage has no message",
+                                "Invalid proto: AskResult has no message",
                             )))
                             .await;
                         break;
@@ -108,7 +106,7 @@ pub fn ask(
     filter: Option<LogicalExpr>,
     mode: Option<Mode>,
     select_fields: Option<Vec<String>>,
-) -> PyResult<AskResponseMessage> {
+) -> PyResult<AskResult> {
     let sources = sources.into_iter();
     let filter = filter.map(|f| f.into());
     let mode = mode.map(|m| m.into());
@@ -130,9 +128,9 @@ pub fn ask(
         })?;
 
         match result.message {
-            Some(inner) => AskResponseMessage::try_from(inner).map_err(Into::<PyErr>::into),
+            Some(inner) => AskResult::try_from(inner).map_err(Into::<PyErr>::into),
             None => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                "Invalid proto: AskResponseMessage has no message",
+                "Invalid proto: AskResult has no message",
             )),
         }
     })

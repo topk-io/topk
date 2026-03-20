@@ -360,38 +360,32 @@ impl Reason {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum AskResponseMessage {
+pub enum AskResult {
     Answer(Answer),
     Search(Search),
     Reason(Reason),
 }
 
-impl<'py> IntoPyObject<'py> for AskResponseMessage {
+impl<'py> IntoPyObject<'py> for AskResult {
     type Target = PyAny;
     type Output = Bound<'py, Self::Target>;
     type Error = PyErr;
 
     fn into_pyobject(self, py: Python<'py>) -> PyResult<Self::Output> {
         match self {
-            AskResponseMessage::Answer(answer) => {
-                Ok(Py::new(py, answer)?.into_bound(py).into_any())
-            }
-            AskResponseMessage::Search(search) => {
-                Ok(Py::new(py, search)?.into_bound(py).into_any())
-            }
-            AskResponseMessage::Reason(reason) => {
-                Ok(Py::new(py, reason)?.into_bound(py).into_any())
-            }
+            AskResult::Answer(answer) => Ok(Py::new(py, answer)?.into_bound(py).into_any()),
+            AskResult::Search(search) => Ok(Py::new(py, search)?.into_bound(py).into_any()),
+            AskResult::Reason(reason) => Ok(Py::new(py, reason)?.into_bound(py).into_any()),
         }
     }
 }
 
-impl TryFrom<topk_rs::proto::v1::ctx::ask_result::Message> for AskResponseMessage {
+impl TryFrom<topk_rs::proto::v1::ctx::ask_result::Message> for AskResult {
     type Error = RustError;
 
     fn try_from(msg: topk_rs::proto::v1::ctx::ask_result::Message) -> Result<Self, Self::Error> {
         match msg {
-            Message::Answer(fa) => Ok(AskResponseMessage::Answer(Answer {
+            Message::Answer(fa) => Ok(AskResult::Answer(Answer {
                 facts: fa.facts.into_iter().map(Fact::from).collect(),
                 sources: fa
                     .refs
@@ -399,7 +393,7 @@ impl TryFrom<topk_rs::proto::v1::ctx::ask_result::Message> for AskResponseMessag
                     .map(|(k, v)| v.try_into().map(|sr| (k, sr)))
                     .collect::<Result<HashMap<_, _>, _>>()?,
             })),
-            Message::Search(sq) => Ok(AskResponseMessage::Search(Search {
+            Message::Search(sq) => Ok(AskResult::Search(Search {
                 objective: sq.objective,
                 facts: sq.facts.into_iter().map(Fact::from).collect(),
                 sources: sq
@@ -408,7 +402,7 @@ impl TryFrom<topk_rs::proto::v1::ctx::ask_result::Message> for AskResponseMessag
                     .map(|(k, v)| v.try_into().map(|sr| (k, sr)))
                     .collect::<Result<HashMap<_, _>, _>>()?,
             })),
-            Message::Reason(r) => Ok(AskResponseMessage::Reason(Reason { thought: r.thought })),
+            Message::Reason(r) => Ok(AskResult::Reason(Reason { thought: r.thought })),
         }
     }
 }
