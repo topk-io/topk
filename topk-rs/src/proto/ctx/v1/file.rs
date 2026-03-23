@@ -99,9 +99,9 @@ mod tests {
     fn from_path_infers_or_guesses_mime_type(#[case] file: &str, #[case] expected: &str) {
         let input = InputFile::from_path(
             PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .parent()
+                .unwrap()
                 .join("tests")
-                .join("utils")
-                .join("dataset")
                 .join(file),
         )
         .expect("failed to create input file from path");
@@ -112,9 +112,9 @@ mod tests {
     #[case("markdown")]
     fn from_path_fails_for_no_extension(#[case] file: &str) {
         let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
             .join("tests")
-            .join("utils")
-            .join("dataset")
             .join(file);
         assert!(matches!(
             InputFile::from_path(&path),

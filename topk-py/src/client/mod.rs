@@ -1,11 +1,19 @@
-use pyo3::{exceptions::PyTypeError, prelude::*, types::PyDict, IntoPyObject};
+use pyo3::exceptions::PyTypeError;
+use pyo3::prelude::*;
+use pyo3::types::PyDict;
+use pyo3::IntoPyObject;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use topk_rs::ClientConfig;
 
+use crate::data::dataset::Dataset;
 use crate::data::value::NativeValue;
+use crate::data::value::Value;
+use pyo3::PyClass;
 
 pub mod r#async;
 pub mod sync;
+
+pub const CHANNEL_BUFFER_SIZE: usize = 32;
 
 pub fn topk_client(
     api_key: String,
@@ -147,6 +155,7 @@ pub struct BackoffConfig {
 #[pymethods]
 impl BackoffConfig {
     #[new]
+    #[pyo3(signature = (base=None, init_backoff=None, max_backoff=None))]
     pub fn new(base: Option<u32>, init_backoff: Option<u64>, max_backoff: Option<u64>) -> Self {
         Self {
             base,
@@ -215,5 +224,263 @@ impl Into<topk_rs::retry::BackoffConfig> for BackoffConfig {
                     .unwrap_or(topk_rs::defaults::RETRY_BACKOFF_MAX),
             ),
         }
+    }
+}
+
+/// Configuration for polling when waiting for a handle to be processed.
+#[pyclass]
+#[derive(Debug, Clone)]
+pub struct WaitConfig {
+    /// How often to poll for the handle status (seconds). Default is 5.
+    pub frequency_secs: Option<u64>,
+    /// Maximum time to wait before returning a timeout error (seconds). Default is 300.
+    pub timeout_secs: Option<u64>,
+}
+
+#[pymethods]
+impl WaitConfig {
+    #[new]
+    #[pyo3(signature = (frequency_secs=None, timeout_secs=None))]
+    pub fn new(frequency_secs: Option<u64>, timeout_secs: Option<u64>) -> Self {
+        Self {
+            frequency_secs,
+            timeout_secs,
+        }
+    }
+}
+
+impl Into<topk_rs::client::WaitConfig> for WaitConfig {
+    fn into(self) -> topk_rs::client::WaitConfig {
+        topk_rs::client::WaitConfig {
+            frequency: Duration::from_secs(self.frequency_secs.unwrap_or(5)),
+            timeout: Duration::from_secs(self.timeout_secs.unwrap_or(300)),
+        }
+    }
+}
+
+pub struct NativeWaitConfig {
+    pub(crate) config: WaitConfig,
+}
+
+impl<'a, 'py> FromPyObject<'a, 'py> for NativeWaitConfig {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
+        if obj.cast_exact::<WaitConfig>().is_ok() {
+            return Ok(NativeWaitConfig {
+                config: obj.extract::<WaitConfig>()?,
+            });
+        }
+
+        match obj.cast_exact::<PyDict>() {
+            Ok(dict) => {
+                let frequency_secs = dict
+                    .get_item("frequency_secs")?
+                    .map(|v| v.extract::<u64>())
+                    .transpose()?;
+
+                let timeout_secs = dict
+                    .get_item("timeout_secs")?
+                    .map(|v| v.extract::<u64>())
+                    .transpose()?;
+
+                Ok(NativeWaitConfig {
+                    config: WaitConfig {
+                        frequency_secs,
+                        timeout_secs,
+                    },
+                })
+            }
+            _ => Err(PyTypeError::new_err(
+                "`WaitConfig` must be a dict or a `WaitConfig` instance",
+            )),
+        }
+    }
+}
+
+// Python response base class and conversion helper (shared by datasets and dataset APIs)
+
+#[pyclass(subclass)]
+pub struct Response {
+    #[pyo3(get)]
+    pub request_id: Option<String>,
+}
+
+#[pymethods]
+impl Response {
+    #[new]
+    fn new(request_id: Option<String>) -> Self {
+        Self { request_id }
+    }
+}
+
+/// Convert `topk_rs::Response<Proto>` into a Python response object.
+/// Extracts `request_id` once and builds the subclass via `add_subclass`.
+pub(crate) fn into_py_response<Proto, Sub, F>(
+    py: Python<'_>,
+    response: topk_rs::client::Response<Proto>,
+    f: F,
+) -> PyResult<Py<Sub>>
+where
+    F: FnOnce(Proto) -> PyResult<Sub>,
+    Sub: PyClass<BaseType = Response>,
+{
+    let request_id = response.request_id().map(|r| r.as_str().to_string());
+    let inner = response.into_inner();
+    let sub = f(inner)?;
+    let init = pyo3::PyClassInitializer::from(Response { request_id }).add_subclass(sub);
+    Py::new(py, init)
+}
+
+#[pyclass(extends=Response)]
+#[derive(Debug)]
+pub struct GetDatasetResponse {
+    #[pyo3(get)]
+    pub dataset: Dataset,
+}
+
+#[pymethods]
+impl GetDatasetResponse {
+    #[new]
+    fn new(dataset: Dataset, request_id: Option<String>) -> (Self, Response) {
+        (Self { dataset }, Response { request_id })
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{:?}", self)
+    }
+}
+
+#[pyclass(extends=Response)]
+#[derive(Debug)]
+pub struct ListDatasetsResponse {
+    #[pyo3(get)]
+    pub datasets: Vec<Dataset>,
+}
+
+#[pymethods]
+impl ListDatasetsResponse {
+    #[new]
+    fn new(datasets: Vec<Dataset>, request_id: Option<String>) -> (Self, Response) {
+        (Self { datasets }, Response { request_id })
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{:?}", self)
+    }
+}
+
+#[pyclass(extends=Response)]
+#[derive(Debug)]
+pub struct CreateDatasetResponse {
+    #[pyo3(get)]
+    pub dataset: Dataset,
+}
+
+#[pymethods]
+impl CreateDatasetResponse {
+    #[new]
+    fn new(dataset: Dataset, request_id: Option<String>) -> (Self, Response) {
+        (Self { dataset }, Response { request_id })
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{:?}", self)
+    }
+}
+
+#[pyclass(extends=Response)]
+#[derive(Debug)]
+pub struct DeleteDatasetResponse;
+
+#[pymethods]
+impl DeleteDatasetResponse {
+    #[new]
+    fn new(request_id: Option<String>) -> (Self, Response) {
+        (Self, Response { request_id })
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{:?}", self)
+    }
+}
+
+#[pyclass(extends=Response)]
+#[derive(Debug)]
+pub struct UpsertResponse {
+    #[pyo3(get)]
+    pub handle: String,
+}
+
+#[pymethods]
+impl UpsertResponse {
+    #[new]
+    fn new(handle: String, request_id: Option<String>) -> (Self, Response) {
+        (Self { handle }, Response { request_id })
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{:?}", self)
+    }
+}
+
+#[pyclass(extends=Response)]
+#[derive(Debug)]
+pub struct GetMetadataResponse {
+    /// Map from document ID to metadata fields.
+    #[pyo3(get)]
+    pub docs: HashMap<String, HashMap<String, Value>>,
+}
+
+#[pymethods]
+impl GetMetadataResponse {
+    #[new]
+    fn new(
+        docs: HashMap<String, HashMap<String, Value>>,
+        request_id: Option<String>,
+    ) -> (Self, Response) {
+        (Self { docs }, Response { request_id })
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{:?}", self)
+    }
+}
+
+#[pyclass(extends=Response)]
+#[derive(Debug)]
+pub struct UpdateMetadataResponse {
+    #[pyo3(get)]
+    pub handle: String,
+}
+
+#[pymethods]
+impl UpdateMetadataResponse {
+    #[new]
+    fn new(handle: String, request_id: Option<String>) -> (Self, Response) {
+        (Self { handle }, Response { request_id })
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{:?}", self)
+    }
+}
+
+#[pyclass(extends=Response)]
+#[derive(Debug)]
+pub struct DeleteFileResponse {
+    #[pyo3(get)]
+    pub handle: String,
+}
+
+#[pymethods]
+impl DeleteFileResponse {
+    #[new]
+    fn new(handle: String, request_id: Option<String>) -> (Self, Response) {
+        (Self { handle }, Response { request_id })
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{:?}", self)
     }
 }
