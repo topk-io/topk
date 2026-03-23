@@ -2,10 +2,11 @@ VERSION 0.8
 IMPORT github.com/earthly/lib/rust:3.0.1 AS rust
 
 test:
-    ARG region=emulator
-    BUILD +test-rs --region=$region
-    BUILD +test-py --region=$region
-    BUILD +test-js --region=$region
+    ARG --required region
+    ARG --required host
+    BUILD +test-rs --region=$region --host=$host
+    BUILD +test-py --region=$region --host=$host
+    BUILD +test-js --region=$region --host=$host
 
 test-rs:
     FROM rust:slim
@@ -25,8 +26,8 @@ test-rs:
     ARG EARTHLY_GIT_HASH
     DO rust+CARGO --args="nextest archive -p topk-rs --archive-file e2e.tar.zst" # compile tests
 
-    ARG region=emulator
-    ARG host
+    ARG --required region
+    ARG --required host
     DO +SETUP_ENV --region=$region --host=$host
 
     # test
@@ -70,8 +71,9 @@ test-py:
         --mount=type=cache,target=/usr/local/cargo/git \
         . /venv/bin/activate && maturin develop
 
-    ARG region=emulator
-    DO +SETUP_ENV --region=$region
+    ARG --required region
+    ARG --required host
+    DO +SETUP_ENV --region=$region --host=$host
 
     # test
     ARG args=""
@@ -116,8 +118,9 @@ test-js:
         exit 1; \
     fi
 
-    ARG region=emulator
-    DO +SETUP_ENV --region=$region
+    ARG --required region
+    ARG --required host
+    DO +SETUP_ENV --region=$region --host=$host
     # test
     ARG args=""
     RUN --no-cache --secret TOPK_API_KEY \
@@ -155,9 +158,10 @@ SETUP_ENV:
     FUNCTION
 
     # region
-    ARG host
-    ARG region=emulator
+    ARG --required host
+    ARG --required region
     ENV TOPK_REGION=$region
+    ENV TOPK_HOST=$host
 
     # setup dev environment
     IF [ "$region" = "emulator" ]

@@ -22,7 +22,7 @@ jobs:
         run: sudo bash -c "curl -L https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -o /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly"
 
       - name: Rust tests
-        run: earthly --secret TOPK_API_KEY +test-rs --region elastica
+        run: earthly --secret TOPK_API_KEY +test-rs --region sunflower --host=topk.dev
         env:
           TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
 
@@ -39,7 +39,7 @@ jobs:
         run: sudo bash -c "curl -L https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -o /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly"
 
       - name: Python tests
-        run: earthly --secret TOPK_API_KEY +test-py --region elastica
+        run: earthly --secret TOPK_API_KEY +test-py --region sunflower --host=topk.dev
         env:
           TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
 
@@ -56,7 +56,7 @@ jobs:
         run: sudo bash -c "curl -L https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -o /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly"
 
       - name: JavaScript tests
-        run: earthly --secret TOPK_API_KEY +test-js --region elastica
+        run: earthly --secret TOPK_API_KEY +test-js --region sunflower --host=topk.dev
         env:
           TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
 
