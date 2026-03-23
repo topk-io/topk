@@ -484,4 +484,3 @@ impl DeleteFileResponse {
         format!("{:?}", self)
     }
 }
-
