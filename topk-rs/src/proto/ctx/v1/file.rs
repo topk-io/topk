@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use bytes::Bytes;
 
@@ -48,24 +48,39 @@ impl InputFile {
         })
     }
 
-    pub fn guess_mime_type(path: impl Into<PathBuf>) -> Result<String, Error> {
-        let path = path.into();
-        let mime_type = infer::get_from_path(&path)
-            .map_err(|e| Error::Input(anyhow::anyhow!(e)))?
-            .map(|kind| kind.mime_type().to_string())
-            .or_else(|| {
-                mime_guess::from_path(&path)
-                    .first()
-                    .map(|mime| mime.to_string())
-            })
-            .ok_or_else(|| {
-                Error::Input(anyhow::anyhow!(
-                    "Could not get MIME type for file: {}",
-                    path.display()
-                ))
-            })?;
+    /// Tries to guess the MIME type of a file from the file extension or file content.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the MIME type cannot be guessed from the file extension or file content.
+    pub fn guess_mime_type(path: impl AsRef<Path>) -> Result<String, Error> {
+        let path = path.as_ref();
 
-        Ok(mime_type)
+        // Try to guess the MIME type from the file extension
+        match mime_guess::from_path(path).first() {
+            Some(mime) => {
+                let md = std::fs::metadata(path).map_err(|e| Error::Input(anyhow::anyhow!(e)))?;
+                if !md.is_file() {
+                    return Err(Error::Input(anyhow::anyhow!(
+                        "Path is a directory: {}",
+                        path.display()
+                    )));
+                }
+                Ok(mime.to_string())
+            }
+            // If the MIME type is not found, try to guess it from the file content
+            None => match infer::get_from_path(path) {
+                Ok(kind) => kind
+                    .map(|kind| kind.mime_type().to_string())
+                    .ok_or_else(|| {
+                        Error::Input(anyhow::anyhow!(
+                            "Could not get MIME type for file: {}",
+                            path.display()
+                        ))
+                    }),
+                Err(e) => Err(Error::Input(anyhow::anyhow!(e))),
+            },
+        }
     }
 }
 
