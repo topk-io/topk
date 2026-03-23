@@ -48,42 +48,39 @@ impl InputFile {
         })
     }
 
+    /// Tries to guess the MIME type of a file from the file extension or file content.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the MIME type cannot be guessed from the file extension or file content.
     pub fn guess_mime_type(path: impl AsRef<Path>) -> Result<String, Error> {
         let path = path.as_ref();
 
         // Try to guess the MIME type from the file extension
-        let ext = path.extension().unwrap_or_default();
-        if ext == "pdf" {
-            return Ok("application/pdf".to_string());
-        } else if ext == "jpg" || ext == "jpeg" {
-            return Ok("image/jpeg".to_string());
-        } else if ext == "png" {
-            return Ok("image/png".to_string());
-        } else if ext == "md" {
-            return Ok("text/markdown".to_string());
-        } else if ext == "html" {
-            return Ok("text/html".to_string());
-        } else if ext == "txt" {
-            return Ok("text/plain".to_string());
+        match mime_guess::from_path(path).first() {
+            Some(mime) => {
+                let md = std::fs::metadata(path).map_err(|e| Error::Input(anyhow::anyhow!(e)))?;
+                if !md.is_file() {
+                    return Err(Error::Input(anyhow::anyhow!(
+                        "Path is a directory: {}",
+                        path.display()
+                    )));
+                }
+                Ok(mime.to_string())
+            }
+            // If the MIME type is not found, try to guess it from the file content
+            None => match infer::get_from_path(path) {
+                Ok(kind) => kind
+                    .map(|kind| kind.mime_type().to_string())
+                    .ok_or_else(|| {
+                        Error::Input(anyhow::anyhow!(
+                            "Could not get MIME type for file: {}",
+                            path.display()
+                        ))
+                    }),
+                Err(e) => Err(Error::Input(anyhow::anyhow!(e))),
+            },
         }
-
-        // If the MIME type is not found, try to guess it from the file content
-        let mime_type = infer::get_from_path(path)
-            .map_err(|e| Error::Input(anyhow::anyhow!(e)))?
-            .map(|kind| kind.mime_type().to_string())
-            .or_else(|| {
-                mime_guess::from_path(path)
-                    .first()
-                    .map(|mime| mime.to_string())
-            })
-            .ok_or_else(|| {
-                Error::Input(anyhow::anyhow!(
-                    "Could not get MIME type for file: {}",
-                    path.display()
-                ))
-            })?;
-
-        Ok(mime_type)
     }
 }
 
