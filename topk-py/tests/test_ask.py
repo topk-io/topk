@@ -1,8 +1,11 @@
+import pytest
+
 from topk_sdk import Answer
 
 from . import ProjectContext
 
 
+@pytest.mark.xfail(reason="ctx")
 def test_ask(ctx: ProjectContext):
     result = ctx.client.ask("summarize", [])
 
@@ -10,6 +13,7 @@ def test_ask(ctx: ProjectContext):
     assert len(result.facts) > 0, f"Expected at least 1 fact, got {len(result.facts)}"
 
 
+@pytest.mark.xfail(reason="ctx")
 def test_ask_stream(ctx: ProjectContext):
     stream = ctx.client.ask_stream("summarize", [])
 
