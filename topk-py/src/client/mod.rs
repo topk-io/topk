@@ -485,21 +485,3 @@ impl DeleteFileResponse {
     }
 }
 
-#[pyclass(extends=Response)]
-#[derive(Debug)]
-pub struct CheckHandleResponse {
-    #[pyo3(get)]
-    pub processed: bool,
-}
-
-#[pymethods]
-impl CheckHandleResponse {
-    #[new]
-    fn new(processed: bool, request_id: Option<String>) -> (Self, Response) {
-        (Self { processed }, Response { request_id })
-    }
-
-    fn __repr__(&self) -> String {
-        format!("{:?}", self)
-    }
-}

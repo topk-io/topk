@@ -89,8 +89,7 @@ def test_check_handle(ctx: ProjectContext):
 
     upsert_resp = ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {})
 
-    check_resp = ctx.client.dataset(dataset.name).check_handle(upsert_resp.handle)
-    assert check_resp.processed is False
+    assert not ctx.client.dataset(dataset.name).check_handle(upsert_resp.handle)
 
 
 def test_wait_for_handle(ctx: ProjectContext):
@@ -101,8 +100,7 @@ def test_wait_for_handle(ctx: ProjectContext):
 
     ctx.client.dataset(dataset.name).wait_for_handle(upsert_resp.handle)
 
-    check_resp = ctx.client.dataset(dataset.name).check_handle(upsert_resp.handle)
-    assert check_resp.processed is True
+    assert ctx.client.dataset(dataset.name).check_handle(upsert_resp.handle)
 
 
 def test_dataset_list(ctx: ProjectContext):

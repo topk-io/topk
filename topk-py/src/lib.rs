@@ -91,7 +91,6 @@ pub fn topk_sdk(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<client::GetMetadataResponse>()?;
     m.add_class::<client::UpdateMetadataResponse>()?;
     m.add_class::<client::DeleteFileResponse>()?;
-    m.add_class::<client::CheckHandleResponse>()?;
 
     Ok(())
 }

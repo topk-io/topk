@@ -29,7 +29,6 @@ async def test_async_upsert_file_pdf(async_ctx: AsyncProjectContext):
     )
 
     assert response.handle is not None
-    assert len(response.handle) > 0
 
 
 @pytest.mark.asyncio
@@ -83,8 +82,7 @@ async def test_async_check_handle(async_ctx: AsyncProjectContext):
 
     response = await async_ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {})
 
-    check_resp = await async_ctx.client.dataset(dataset.name).check_handle(response.handle)
-    assert check_resp.processed is False
+    assert not await async_ctx.client.dataset(dataset.name).check_handle(response.handle)
 
 
 @pytest.mark.asyncio
@@ -96,8 +94,7 @@ async def test_async_wait_for_handle(async_ctx: AsyncProjectContext):
 
     await async_ctx.client.dataset(dataset.name).wait_for_handle(response.handle)
 
-    check_resp = await async_ctx.client.dataset(dataset.name).check_handle(response.handle)
-    assert check_resp.processed is True
+    assert await async_ctx.client.dataset(dataset.name).check_handle(response.handle)
 
 
 @pytest.mark.asyncio

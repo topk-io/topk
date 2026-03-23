@@ -14,6 +14,7 @@ use crate::expr::logical::LogicalExpr;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Mode {
+    Auto,
     Summarize,
     Reason,
     DeepResearch,
@@ -25,18 +26,19 @@ impl FromPyObject<'_, '_> for Mode {
     fn extract(obj: Borrowed<'_, '_, PyAny>) -> PyResult<Self> {
         if let Ok(str) = obj.extract::<String>() {
             return match str.as_str() {
+                "auto" => Ok(Mode::Auto),
                 "summarize" => Ok(Mode::Summarize),
                 "reason" => Ok(Mode::Reason),
                 "deep_research" => Ok(Mode::DeepResearch),
                 _ => Err(PyTypeError::new_err(format!(
-                    "Invalid mode: {}. Must be one of: summarize, reason, deep_research",
+                    "Invalid mode: {}. Must be one of: auto, summarize, reason, deep_research",
                     str
                 ))),
             };
         }
 
         Err(PyTypeError::new_err(
-            "Mode must be one of: summarize, reason, deep_research",
+            "Mode must be one of: auto, summarize, reason, deep_research",
         ))
     }
 }
@@ -44,6 +46,7 @@ impl FromPyObject<'_, '_> for Mode {
 impl From<Mode> for topk_rs::proto::v1::ctx::Mode {
     fn from(mode: Mode) -> Self {
         match mode {
+            Mode::Auto => topk_rs::proto::v1::ctx::Mode::Auto,
             Mode::Summarize => topk_rs::proto::v1::ctx::Mode::Summarize,
             Mode::Reason => topk_rs::proto::v1::ctx::Mode::Reason,
             Mode::DeepResearch => topk_rs::proto::v1::ctx::Mode::DeepResearch,

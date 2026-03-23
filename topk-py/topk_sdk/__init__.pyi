@@ -43,7 +43,9 @@ class Client:
         query: builtins.str,
         sources: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
         filter: typing.Optional[query.LogicalExpr] = None,
-        mode: typing.Optional[typing.Literal["summarize", "reason", "deep_research"]] = None,
+        mode: typing.Optional[
+            typing.Literal["auto", "summarize", "reason", "deep_research"]
+        ] = None,
         select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> typing.Union[Answer, Search, Reason]:
         """
@@ -55,7 +57,9 @@ class Client:
         query: builtins.str,
         sources: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
         filter: typing.Optional[query.LogicalExpr] = None,
-        mode: typing.Optional[typing.Literal["summarize", "reason", "deep_research"]] = None,
+        mode: typing.Optional[
+            typing.Literal["auto", "summarize", "reason", "deep_research"]
+        ] = None,
         select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> typing.Iterator[typing.Union[Answer, Search, Reason]]:
         """
@@ -117,7 +121,9 @@ class AsyncClient:
         query: builtins.str,
         sources: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
         filter: typing.Optional[query.LogicalExpr] = None,
-        mode: typing.Optional[typing.Literal["summarize", "reason", "deep_research"]] = None,
+        mode: typing.Optional[
+            typing.Literal["auto", "summarize", "reason", "deep_research"]
+        ] = None,
         select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> typing.Awaitable[typing.Union[Answer, Search, Reason]]:
         """
@@ -129,7 +135,9 @@ class AsyncClient:
         query: builtins.str,
         sources: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
         filter: typing.Optional[query.LogicalExpr] = None,
-        mode: typing.Optional[typing.Literal["summarize", "reason", "deep_research"]] = None,
+        mode: typing.Optional[
+            typing.Literal["auto", "summarize", "reason", "deep_research"]
+        ] = None,
         select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> typing.AsyncIterator[typing.Union[Answer, Search, Reason]]:
         """
@@ -393,11 +401,6 @@ class DeleteFileResponse(Response):
 
     handle: builtins.str
 
-class CheckHandleResponse(Response):
-    """Response from checking handle status."""
-
-    processed: builtins.bool
-
 class CollectionsClient:
     """
     Synchronous client for managing collections.
@@ -522,9 +525,9 @@ class DatasetClient:
         Delete a file from the dataset.
         """
         ...
-    def check_handle(self, handle: builtins.str) -> CheckHandleResponse:
+    def check_handle(self, handle: builtins.str) -> builtins.bool:
         """
-        Check if a handle has been processed.
+        Return whether the handle has been processed.
         """
         ...
     def wait_for_handle(
@@ -612,9 +615,9 @@ class AsyncDatasetClient:
         Delete a file from the dataset asynchronously.
         """
         ...
-    def check_handle(self, handle: builtins.str) -> typing.Awaitable[CheckHandleResponse]:
+    def check_handle(self, handle: builtins.str) -> typing.Awaitable[builtins.bool]:
         """
-        Check if a handle has been processed asynchronously.
+        Return whether the handle has been processed asynchronously.
         """
         ...
     def wait_for_handle(

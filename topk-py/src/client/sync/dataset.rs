@@ -8,8 +8,8 @@ use topk_rs::proto::v1::ctx::file::InputFile;
 use crate::client::sync::runtime::Runtime;
 use crate::client::CHANNEL_BUFFER_SIZE;
 use crate::client::{
-    into_py_response, CheckHandleResponse, DeleteFileResponse, GetMetadataResponse,
-    NativeWaitConfig, Response, UpdateMetadataResponse, UpsertResponse,
+    into_py_response, DeleteFileResponse, GetMetadataResponse, NativeWaitConfig,
+    UpdateMetadataResponse, UpsertResponse,
 };
 use crate::data::file::FileOrFileLike;
 use crate::data::list_entry::ListEntry;
@@ -134,19 +134,11 @@ impl DatasetClient {
         })
     }
 
-    pub fn check_handle(
-        &self,
-        py: Python<'_>,
-        handle: String,
-    ) -> PyResult<Py<CheckHandleResponse>> {
-        let processed = self
+    pub fn check_handle(&self, py: Python<'_>, handle: String) -> PyResult<bool> {
+        Ok(self
             .runtime
             .block_on(py, self.client.dataset(&self.dataset).check_handle(&handle))
-            .map_err(RustError)?;
-
-        let init = pyo3::PyClassInitializer::from(Response { request_id: None })
-            .add_subclass(CheckHandleResponse { processed });
-        Py::new(py, init)
+            .map_err(RustError)?)
     }
 
     #[pyo3(signature = (handle, config=None))]

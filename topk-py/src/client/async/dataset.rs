@@ -9,8 +9,8 @@ use topk_rs::proto::v1::ctx::file::InputFile;
 use crate::client::into_py_response;
 use crate::client::CHANNEL_BUFFER_SIZE;
 use crate::client::{
-    CheckHandleResponse, DeleteFileResponse, GetMetadataResponse, NativeWaitConfig, Response,
-    UpdateMetadataResponse, UpsertResponse,
+    DeleteFileResponse, GetMetadataResponse, NativeWaitConfig, UpdateMetadataResponse,
+    UpsertResponse,
 };
 use crate::data::file::FileOrFileLike;
 use crate::data::list_entry::ListEntry;
@@ -153,16 +153,11 @@ impl AsyncDatasetClient {
         let dataset = self.dataset.clone();
 
         future_into_py(py, async move {
-            let processed = client
+            Ok(client
                 .dataset(&dataset)
                 .check_handle(&handle)
                 .await
-                .map_err(RustError)?;
-            Python::attach(|py| {
-                let init = pyo3::PyClassInitializer::from(Response { request_id: None })
-                    .add_subclass(CheckHandleResponse { processed });
-                Ok(Py::new(py, init)?.into_any())
-            })
+                .map_err(RustError)?)
         })
         .map(|result| result.into())
     }
