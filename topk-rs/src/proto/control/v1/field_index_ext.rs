@@ -32,6 +32,7 @@ impl FieldIndex {
                 quantization: quantization.map(|q| q.into()),
                 width,
                 top_k,
+                skip_smve: false,
             })),
         }
     }
@@ -46,5 +47,13 @@ impl FieldIndex {
                 embedding_type: embedding_type.map(|dt| dt.into()),
             })),
         }
+    }
+
+    /// Skip sparse multi-vector encoding (SMVE) for multi-vector index.
+    pub fn skip_smve(mut self) -> Self {
+        if let Some(field_index::Index::MultiVectorIndex(mvi)) = self.index.as_mut() {
+            mvi.skip_smve = true;
+        }
+        self
     }
 }

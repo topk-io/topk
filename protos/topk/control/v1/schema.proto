@@ -124,6 +124,8 @@ message MultiVectorIndex {
   optional uint32 width = 4;
   /// Top-k projected values to keep.
   optional uint32 top_k = 5;
+  /// Skip sparse multi-vector encoding
+  bool skip_smve = 6;
 }
 
 // Multi-vector distance
