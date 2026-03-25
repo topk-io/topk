@@ -122,6 +122,9 @@ message SparseVector {
   oneof values {
     F32Values f32 = 2;
     U8Values u8 = 3;
+    List.I8 i8 = 4;
+    List.F16 f16 = 5;
+    List.F8 f8 = 6;
   }
 }
 

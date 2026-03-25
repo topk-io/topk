@@ -125,9 +125,33 @@ impl FieldSpec {
         )
     }
 
+    pub fn f16_sparse_vector(required: bool, metric: VectorDistanceMetric) -> FieldSpec {
+        Self::indexed_vector_field(
+            field_type::DataType::F16SparseVector(FieldTypeF16SparseVector {}),
+            required,
+            metric,
+        )
+    }
+
+    pub fn f8_sparse_vector(required: bool, metric: VectorDistanceMetric) -> FieldSpec {
+        Self::indexed_vector_field(
+            field_type::DataType::F8SparseVector(FieldTypeF8SparseVector {}),
+            required,
+            metric,
+        )
+    }
+
     pub fn u8_sparse_vector(required: bool, metric: VectorDistanceMetric) -> FieldSpec {
         Self::indexed_vector_field(
             field_type::DataType::U8SparseVector(FieldTypeU8SparseVector {}),
+            required,
+            metric,
+        )
+    }
+
+    pub fn i8_sparse_vector(required: bool, metric: VectorDistanceMetric) -> FieldSpec {
+        Self::indexed_vector_field(
+            field_type::DataType::I8SparseVector(FieldTypeI8SparseVector {}),
             required,
             metric,
         )

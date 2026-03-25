@@ -35,6 +35,10 @@ message FieldType {
     FieldTypeMatrix matrix = 13;
     FieldTypeF8Vector f8_vector = 14;
     FieldTypeF16Vector f16_vector = 15;
+    FieldTypeI8SparseVector i8_sparse_vector = 16;
+    FieldTypeF8SparseVector f8_sparse_vector = 17;
+    FieldTypeF16SparseVector f16_sparse_vector = 18;
+
   }
 }
 
@@ -82,7 +86,10 @@ message FieldTypeMatrix {
 }
 
 message FieldTypeF32SparseVector {}
+message FieldTypeF16SparseVector {}
+message FieldTypeF8SparseVector {}
 message FieldTypeU8SparseVector {}
+message FieldTypeI8SparseVector {}
 
 message FieldTypeBytes {}
 
