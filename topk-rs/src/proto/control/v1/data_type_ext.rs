@@ -54,6 +54,18 @@ impl field_type::DataType {
         field_type::DataType::F32SparseVector(FieldTypeF32SparseVector {})
     }
 
+    pub fn f16_sparse_vector() -> Self {
+        field_type::DataType::F16SparseVector(FieldTypeF16SparseVector {})
+    }
+
+    pub fn f8_sparse_vector() -> Self {
+        field_type::DataType::F8SparseVector(FieldTypeF8SparseVector {})
+    }
+
+    pub fn i8_sparse_vector() -> Self {
+        field_type::DataType::I8SparseVector(FieldTypeI8SparseVector {})
+    }
+
     pub fn u8_sparse_vector() -> Self {
         field_type::DataType::U8SparseVector(FieldTypeU8SparseVector {})
     }
