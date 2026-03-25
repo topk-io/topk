@@ -78,11 +78,14 @@ impl FunctionExpr {
         self
     }
 
-    pub fn with_smve(mut self, smve: impl Into<SparseVector>) -> Self {
+    pub fn with_smve(mut self, field: impl Into<String>, smve: impl Into<SparseVector>) -> Self {
         if let Some(function_expr::Func::MultiVectorDistance(multi_vector_distance)) =
             &mut self.func
         {
-            multi_vector_distance.smve = Some(smve.into());
+            multi_vector_distance.smve = Some(function_expr::multi_vector_distance::QuerySmve {
+                field: field.into(),
+                smve: Some(smve.into()),
+            });
         }
         self
     }
