@@ -1,3 +1,4 @@
+use float8::F8E4M3;
 use test_context::test_context;
 use topk_rs::proto::v1::data::{SparseVector, Value};
 use topk_rs::query::{field, fns, select};
@@ -27,6 +28,43 @@ async fn test_query_sparse_vector_distance_f32(ctx: &mut ProjectTestContext) {
                     ),
                 )])
                 .topk(field("sparse_f32_distance"), 3, false),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids_ordered!(result, ["1984", "mockingbird", "pride"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_sparse_vector_distance_f8(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([("title", field("title"))])
+                .select([(
+                    "sparse_distance",
+                    fns::vector_distance(
+                        "sparse_f8_embedding",
+                        SparseVector::f8(
+                            vec![0, 1, 2, 3, 4, 5],
+                            vec![
+                                F8E4M3::from(1.0),
+                                F8E4M3::from(2.0),
+                                F8E4M3::from(3.0),
+                                F8E4M3::from(1.0),
+                                F8E4M3::from(3.0),
+                                F8E4M3::from(2.0),
+                            ],
+                        ),
+                    ),
+                )])
+                .topk(field("sparse_distance"), 3, false),
             None,
             None,
         )
