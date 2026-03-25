@@ -3,7 +3,7 @@ use test_context::test_context;
 use topk_rs::data::literal;
 use topk_rs::proto::v1::control::field_type_matrix::MatrixValueType;
 use topk_rs::proto::v1::control::MultiVectorQuantization;
-use topk_rs::proto::v1::data::Matrix;
+use topk_rs::proto::v1::data::{Matrix, SparseVector};
 use topk_rs::query::{field, fns, select};
 use topk_rs::Error;
 
@@ -240,6 +240,91 @@ async fn test_query_multi_vector_with_filter(ctx: &mut ProjectTestContext) {
         assert_eq!(result.len(), 3);
         assert_doc_ids_ordered!(result, expected_ids);
     }
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_multi_vector_with_smve(ctx: &mut ProjectTestContext) {
+    let collection = dataset::multi_vec::setup(ctx, MatrixValueType::F32, None, None, None).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([("title", field("title"))])
+                .select([(
+                    "dist",
+                    fns::multi_vector_distance(
+                        "token_embeddings",
+                        Matrix::new(7, Q1.to_vec()),
+                        None,
+                    )
+                    .with_smve("smve", SparseVector::f32(vec![0, 1, 2], vec![1f32; 3])),
+                )])
+                .topk(field("dist"), 3, false),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_eq!(result.len(), 3);
+    assert_doc_ids_ordered!(result, &["doc_8", "doc_1", "doc_2"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_multi_vector_with_invalid_smve(ctx: &mut ProjectTestContext) {
+    let collection = dataset::multi_vec::setup(ctx, MatrixValueType::F32, None, None, None).await;
+
+    // Invalid SMVE field
+    let err = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([("title", field("title"))])
+                .select([(
+                    "dist",
+                    fns::multi_vector_distance(
+                        "token_embeddings",
+                        Matrix::new(7, Q1.to_vec()),
+                        None,
+                    )
+                    .with_smve(
+                        "sparse_vec",
+                        SparseVector::f32(vec![0, 1, 2], vec![1f32; 3]),
+                    ),
+                )])
+                .topk(field("dist"), 3, false),
+            None,
+            None,
+        )
+        .await
+        .expect_err("Query should fail");
+    assert!(matches!(err, Error::InvalidArgument(_)));
+
+    // Invalid SMVE data type
+    let err = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([("title", field("title"))])
+                .select([(
+                    "dist",
+                    fns::multi_vector_distance(
+                        "token_embeddings",
+                        Matrix::new(7, Q1.to_vec()),
+                        None,
+                    )
+                    .with_smve("smve", SparseVector::u8(vec![0, 1, 2], vec![1u8; 3])),
+                )])
+                .topk(field("dist"), 3, false),
+            None,
+            None,
+        )
+        .await
+        .expect_err("Query should fail");
+    assert!(matches!(err, Error::InvalidArgument(_)));
 }
 
 #[test_context(ProjectTestContext)]
