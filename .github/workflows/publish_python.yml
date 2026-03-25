@@ -31,16 +31,16 @@ jobs:
         platform:
           - runner: ubuntu-22.04
             target: x86_64
-          - runner: ubuntu-22.04
-            target: x86
+          # - runner: ubuntu-22.04
+          #   target: x86
           - runner: ubuntu-22.04-arm
             target: aarch64
-          - runner: ubuntu-22.04-arm
-            target: armv7
-          - runner: ubuntu-22.04
-            target: s390x
-          - runner: ubuntu-22.04
-            target: ppc64le
+          # - runner: ubuntu-22.04-arm
+          #   target: armv7
+          # - runner: ubuntu-22.04
+          #   target: s390x
+          # - runner: ubuntu-22.04
+          #   target: ppc64le
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -70,12 +70,12 @@ jobs:
         platform:
           - runner: ubuntu-22.04
             target: x86_64
-          - runner: ubuntu-22.04
-            target: x86
+          # - runner: ubuntu-22.04
+          #   target: x86
           - runner: ubuntu-22.04
             target: aarch64
-          - runner: ubuntu-22.04
-            target: armv7
+          # - runner: ubuntu-22.04
+          #   target: armv7
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -106,9 +106,9 @@ jobs:
           - runner: windows-latest
             target: x64
             protoc_arch: win64
-          - runner: windows-latest
-            target: x86
-            protoc_arch: win32
+          # - runner: windows-latest
+          #   target: x86
+          #   protoc_arch: win32
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
