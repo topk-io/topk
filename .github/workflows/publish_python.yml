@@ -31,15 +31,12 @@ jobs:
         platform:
           - runner: ubuntu-22.04
             target: x86_64
-          # 32-bit x86 Linux (i686): negligible pip share vs x86_64; omitted to limit PyPI wheel size.
           # - runner: ubuntu-22.04
           #   target: x86
           - runner: ubuntu-22.04-arm
             target: aarch64
-          # 32-bit ARM Linux: small share vs aarch64; omitted to limit PyPI wheel size.
           # - runner: ubuntu-22.04-arm
           #   target: armv7
-          # IBM Z / POWER: tiny PyPI download share; omitted to limit PyPI wheel size.
           # - runner: ubuntu-22.04
           #   target: s390x
           # - runner: ubuntu-22.04
@@ -73,12 +70,10 @@ jobs:
         platform:
           - runner: ubuntu-22.04
             target: x86_64
-          # 32-bit x86 musllinux: negligible share; omitted to limit PyPI wheel size.
           # - runner: ubuntu-22.04
           #   target: x86
           - runner: ubuntu-22.04
             target: aarch64
-          # 32-bit ARM musllinux: small share; omitted to limit PyPI wheel size.
           # - runner: ubuntu-22.04
           #   target: armv7
     steps:
@@ -111,7 +106,6 @@ jobs:
           - runner: windows-latest
             target: x64
             protoc_arch: win64
-          # 32-bit Windows: rare; omitted to limit PyPI wheel size.
           # - runner: windows-latest
           #   target: x86
           #   protoc_arch: win32
