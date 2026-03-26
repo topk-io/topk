@@ -26,6 +26,9 @@ pub enum DataType {
         dimension: u32,
     },
     F32SparseVector(),
+    F16SparseVector(),
+    F8SparseVector(),
+    I8SparseVector(),
     U8SparseVector(),
     Bytes(),
     List {
@@ -168,6 +171,15 @@ impl Into<topk_rs::proto::v1::control::field_type::DataType> for DataType {
             DataType::F32SparseVector() => {
                 topk_rs::proto::v1::control::field_type::DataType::f32_sparse_vector()
             }
+            DataType::F16SparseVector() => {
+                topk_rs::proto::v1::control::field_type::DataType::f16_sparse_vector()
+            }
+            DataType::F8SparseVector() => {
+                topk_rs::proto::v1::control::field_type::DataType::f8_sparse_vector()
+            }
+            DataType::I8SparseVector() => {
+                topk_rs::proto::v1::control::field_type::DataType::i8_sparse_vector()
+            }
             DataType::U8SparseVector() => {
                 topk_rs::proto::v1::control::field_type::DataType::u8_sparse_vector()
             }
@@ -233,6 +245,15 @@ impl From<topk_rs::proto::v1::control::field_type::DataType> for DataType {
             }
             topk_rs::proto::v1::control::field_type::DataType::F32SparseVector(_) => {
                 DataType::F32SparseVector()
+            }
+            topk_rs::proto::v1::control::field_type::DataType::F16SparseVector(_) => {
+                DataType::F16SparseVector()
+            }
+            topk_rs::proto::v1::control::field_type::DataType::F8SparseVector(_) => {
+                DataType::F8SparseVector()
+            }
+            topk_rs::proto::v1::control::field_type::DataType::I8SparseVector(_) => {
+                DataType::I8SparseVector()
             }
             topk_rs::proto::v1::control::field_type::DataType::U8SparseVector(_) => {
                 DataType::U8SparseVector()

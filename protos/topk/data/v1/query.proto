@@ -50,6 +50,7 @@ message Stage {
     // TopK multiple.
     optional uint32 topk_multiple = 4;
   }
+
   message LimitStage {
     uint64 k = 1;
   }

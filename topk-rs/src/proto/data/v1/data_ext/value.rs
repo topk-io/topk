@@ -137,6 +137,24 @@ impl Value {
         }
     }
 
+    pub fn f16_sparse_vector(indices: Vec<u32>, values: Vec<half::f16>) -> Self {
+        Value {
+            value: Some(value::Value::SparseVector(SparseVector {
+                indices,
+                values: Some(sparse_vector::Values::F16(values.into())),
+            })),
+        }
+    }
+
+    pub fn f8_sparse_vector(indices: Vec<u32>, values: Vec<F8E4M3>) -> Self {
+        Value {
+            value: Some(value::Value::SparseVector(SparseVector {
+                indices,
+                values: Some(sparse_vector::Values::F8(values.into())),
+            })),
+        }
+    }
+
     pub fn u8_sparse_vector(indices: Vec<u32>, values: Vec<u8>) -> Self {
         Value {
             value: Some(value::Value::SparseVector(SparseVector {
@@ -144,6 +162,15 @@ impl Value {
                 values: Some(sparse_vector::Values::U8(sparse_vector::U8Values {
                     values,
                 })),
+            })),
+        }
+    }
+
+    pub fn i8_sparse_vector(indices: Vec<u32>, values: Vec<i8>) -> Self {
+        Value {
+            value: Some(value::Value::SparseVector(SparseVector {
+                indices,
+                values: Some(sparse_vector::Values::I8(values.into())),
             })),
         }
     }
@@ -343,9 +370,12 @@ impl value::Value {
                 _ => "null_vector".to_string(),
             },
             value::Value::SparseVector(v) => match &v.values {
-                Some(sparse_vector::Values::F32(_)) => "f32_sparse_vector".to_string(),
-                Some(sparse_vector::Values::U8(_)) => "u8_sparse_vector".to_string(),
-                _ => "null_sparse_vector".to_string(),
+                Some(sparse_vector::Values::F32(_)) => "sparse_vector<f32>".to_string(),
+                Some(sparse_vector::Values::F16(_)) => "sparse_vector<f16>".to_string(),
+                Some(sparse_vector::Values::F8(_)) => "sparse_vector<f8>".to_string(),
+                Some(sparse_vector::Values::I8(_)) => "sparse_vector<i8>".to_string(),
+                Some(sparse_vector::Values::U8(_)) => "sparse_vector<u8>".to_string(),
+                None => "null_sparse_vector".to_string(),
             },
             value::Value::List(v) => match &v.values {
                 Some(list::Values::U32(_)) => "list<u32>".to_string(),
@@ -452,9 +482,33 @@ impl From<Vec<u32>> for Value {
     }
 }
 
+impl From<Vec<F8E4M3>> for list::F8 {
+    fn from(values: Vec<F8E4M3>) -> Self {
+        list::F8 {
+            values: cast_vec(values),
+        }
+    }
+}
+
 impl From<Vec<F8E4M3>> for Value {
     fn from(value: Vec<F8E4M3>) -> Self {
         Value::list(value)
+    }
+}
+
+impl From<Vec<half::f16>> for list::F16 {
+    fn from(values: Vec<half::f16>) -> Self {
+        if values.is_empty() {
+            return list::F16 {
+                len: 0,
+                values: vec![],
+            };
+        }
+
+        list::F16 {
+            len: values.len() as u32,
+            values: super::convert_vec_f16_to_u32(values),
+        }
     }
 }
 
@@ -485,6 +539,14 @@ impl From<Vec<u64>> for Value {
 impl From<Vec<u8>> for Value {
     fn from(value: Vec<u8>) -> Self {
         Value::list(value)
+    }
+}
+
+impl From<Vec<i8>> for list::I8 {
+    fn from(values: Vec<i8>) -> Self {
+        list::I8 {
+            values: cast_vec(values),
+        }
     }
 }
 
@@ -743,6 +805,19 @@ impl AsRef<[u8]> for matrix::U8 {
 impl From<matrix::U8> for Vec<u8> {
     fn from(value: matrix::U8) -> Self {
         value.values
+    }
+}
+
+// sparse vector
+impl sparse_vector::F32Values {
+    pub fn len(&self) -> usize {
+        self.values.len()
+    }
+}
+
+impl sparse_vector::U8Values {
+    pub fn len(&self) -> usize {
+        self.values.len()
     }
 }
 

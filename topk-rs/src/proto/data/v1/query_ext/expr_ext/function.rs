@@ -1,5 +1,5 @@
 use crate::proto::{
-    data::v1::Value,
+    data::v1::{SparseVector, Value},
     v1::data::{function_expr, FunctionExpr},
 };
 
@@ -35,6 +35,7 @@ impl FunctionExpr {
                     field: field.into(),
                     query: Some(query.into()),
                     candidates,
+                    smve: None,
                 },
             )),
         }
@@ -73,6 +74,18 @@ impl FunctionExpr {
     pub fn skip_refine(mut self, skip_refine: bool) -> Self {
         if let Some(function_expr::Func::VectorDistance(vector_distance)) = &mut self.func {
             vector_distance.skip_refine = skip_refine;
+        }
+        self
+    }
+
+    pub fn with_smve(mut self, field: impl Into<String>, smve: impl Into<SparseVector>) -> Self {
+        if let Some(function_expr::Func::MultiVectorDistance(multi_vector_distance)) =
+            &mut self.func
+        {
+            multi_vector_distance.smve = Some(function_expr::multi_vector_distance::QuerySmve {
+                field: field.into(),
+                smve: Some(smve.into()),
+            });
         }
         self
     }

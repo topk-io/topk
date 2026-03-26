@@ -206,6 +206,16 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                             values: values.values,
                         })
                     }
+                    // TODO: Implement F16, F8, I8 sparse vectors in js sdk
+                    Some(topk_rs::proto::v1::data::sparse_vector::Values::F16(_)) => {
+                        unimplemented!()
+                    }
+                    Some(topk_rs::proto::v1::data::sparse_vector::Values::F8(_)) => {
+                        unimplemented!()
+                    }
+                    Some(topk_rs::proto::v1::data::sparse_vector::Values::I8(_)) => {
+                        unimplemented!()
+                    }
                     None => unreachable!("Invalid sparse vector proto"),
                 })
             }

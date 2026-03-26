@@ -96,6 +96,15 @@ impl From<FieldSpec> for topk_rs::proto::v1::control::FieldSpec {
                     DataType::F32SparseVector => {
                         topk_rs::proto::v1::control::field_type::DataType::f32_sparse_vector()
                     }
+                    DataType::F16SparseVector => {
+                        topk_rs::proto::v1::control::field_type::DataType::f16_sparse_vector()
+                    }
+                    DataType::F8SparseVector => {
+                        topk_rs::proto::v1::control::field_type::DataType::f8_sparse_vector()
+                    }
+                    DataType::I8SparseVector => {
+                        topk_rs::proto::v1::control::field_type::DataType::i8_sparse_vector()
+                    }
                     DataType::U8SparseVector => {
                         topk_rs::proto::v1::control::field_type::DataType::u8_sparse_vector()
                     }
