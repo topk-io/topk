@@ -117,6 +117,12 @@ fn build_topk_v1_protos() {
             builder.type_attribute(message, "#[derive(serde::Serialize, serde::Deserialize)]");
     }
 
+    // #[serde(default)]
+    builder = builder.field_attribute(
+        "topk.control.v1.MultiVectorIndex.skip_smve",
+        "#[serde(default)]",
+    );
+
     builder
         .codec_path("crate::proto::codec::ProstCodec")
         .bytes(".topk.data.v1.Value")
