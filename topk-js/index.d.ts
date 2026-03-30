@@ -812,6 +812,9 @@ export declare namespace schema {
     | { type: 'I8Vector', dimension: number }
     | { type: 'BinaryVector', dimension: number }
     | { type: 'F32SparseVector' }
+    | { type: 'F16SparseVector' }
+    | { type: 'F8SparseVector' }
+    | { type: 'I8SparseVector' }
     | { type: 'U8SparseVector' }
     | { type: 'Bytes' }
     | { type: 'List', valueType: ListValueType }
