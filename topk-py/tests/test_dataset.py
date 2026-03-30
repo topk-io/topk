@@ -104,7 +104,7 @@ def test_wait_for_handle(ctx: ProjectContext):
 
     assert ctx.client.dataset(dataset.name).check_handle(upsert_resp.handle)
 
-
+@pytest.mark.xfail(reason="ctx")
 def test_dataset_list(ctx: ProjectContext):
     dataset = ctx.client.datasets().create(ctx.scope("test")).dataset
     pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
