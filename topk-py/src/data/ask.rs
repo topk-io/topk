@@ -320,7 +320,7 @@ pub struct Answer {
     #[pyo3(get)]
     facts: Vec<Fact>,
     #[pyo3(get)]
-    sources: HashMap<String, SearchResult>,
+    refs: HashMap<String, SearchResult>,
 }
 
 #[pymethods]
@@ -338,7 +338,7 @@ pub struct Search {
     #[pyo3(get)]
     facts: Vec<Fact>,
     #[pyo3(get)]
-    sources: HashMap<String, SearchResult>,
+    refs: HashMap<String, SearchResult>,
 }
 
 #[pymethods]
@@ -390,7 +390,7 @@ impl TryFrom<topk_rs::proto::v1::ctx::ask_result::Message> for AskResult {
         match msg {
             Message::Answer(fa) => Ok(AskResult::Answer(Answer {
                 facts: fa.facts.into_iter().map(Fact::from).collect(),
-                sources: fa
+                refs: fa
                     .refs
                     .into_iter()
                     .map(|(k, v)| v.try_into().map(|sr| (k, sr)))
@@ -399,7 +399,7 @@ impl TryFrom<topk_rs::proto::v1::ctx::ask_result::Message> for AskResult {
             Message::Search(sq) => Ok(AskResult::Search(Search {
                 objective: sq.objective,
                 facts: sq.facts.into_iter().map(Fact::from).collect(),
-                sources: sq
+                refs: sq
                     .refs
                     .into_iter()
                     .map(|(k, v)| v.try_into().map(|sr| (k, sr)))
