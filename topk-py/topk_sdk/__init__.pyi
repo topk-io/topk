@@ -655,7 +655,7 @@ class Fact:
     """
 
     fact: builtins.str
-    source_ids: builtins.list[builtins.str]
+    ref_ids: builtins.list[builtins.str]
 
 class Chunk:
     """
@@ -706,7 +706,7 @@ class Answer:
     """
 
     facts: builtins.list[Fact]
-    sources: builtins.dict[builtins.str, SearchResult]
+    refs: builtins.dict[builtins.str, SearchResult]
 
 class Search:
     """
@@ -715,7 +715,7 @@ class Search:
 
     objective: builtins.str
     facts: builtins.list[Fact]
-    sources: builtins.dict[builtins.str, SearchResult]
+    refs: builtins.dict[builtins.str, SearchResult]
 
 
 class Reason:
