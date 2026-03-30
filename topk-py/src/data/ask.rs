@@ -145,7 +145,7 @@ pub struct Fact {
     #[pyo3(get)]
     fact: String,
     #[pyo3(get)]
-    source_ids: Vec<String>,
+    ref_ids: Vec<String>,
 }
 
 #[pymethods]
@@ -159,7 +159,7 @@ impl From<topk_rs::proto::v1::ctx::Fact> for Fact {
     fn from(f: topk_rs::proto::v1::ctx::Fact) -> Self {
         Fact {
             fact: f.fact,
-            source_ids: f.ref_ids,
+            ref_ids: f.ref_ids,
         }
     }
 }

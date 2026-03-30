@@ -655,7 +655,7 @@ class Fact:
     """
 
     fact: builtins.str
-    source_ids: builtins.list[builtins.str]
+    ref_ids: builtins.list[builtins.str]
 
 class Chunk:
     """
