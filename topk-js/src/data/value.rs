@@ -422,6 +422,7 @@ impl ToNapiValue for Value {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct NativeValue(pub(crate) Value);
 
 impl ToNapiValue for NativeValue {

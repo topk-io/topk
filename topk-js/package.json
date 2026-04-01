@@ -83,9 +83,9 @@
   },
   "scripts": {
     "artifacts": "napi artifacts",
-    "build": "napi build --no-const-enum --platform --release",
-    "dev": "napi build --no-const-enum --platform && tsc --noEmit",
-    "build:debug": "napi build --no-const-enum --platform",
+    "build": "napi build --no-const-enum --platform --release && node scripts/patch-types.js",
+    "dev": "napi build --no-const-enum --platform && node scripts/patch-types.js && tsc --noEmit",
+    "build:debug": "napi build --no-const-enum --platform && node scripts/patch-types.js",
     "prepublishOnly": "napi prepublish -t npm --no-gh-release",
     "typecheck": "tsc --noEmit",
     "test": "jest --verbose",
