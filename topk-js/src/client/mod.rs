@@ -2,10 +2,20 @@ use std::{sync::Arc, time::Duration};
 
 use collection::CollectionClient;
 use collections::CollectionsClient;
+use dataset::DatasetClient;
+use datasets::DatasetsClient;
+use futures_util::TryStreamExt;
+use napi::bindgen_prelude::*;
 use napi_derive::napi;
+
+use crate::data::ask::{AskResult, ContextSearchResult, Mode, Source};
+use crate::error::TopkError;
+use crate::expr::logical::LogicalExpression;
 
 pub mod collection;
 pub mod collections;
+pub mod dataset;
+pub mod datasets;
 
 /// Configuration for the TopK client.
 ///
@@ -71,6 +81,92 @@ impl Client {
     #[napi]
     pub fn collection(&self, name: String) -> CollectionClient {
         CollectionClient::new(self.client.clone(), name)
+    }
+
+    /// Returns a client for managing datasets.
+    ///
+    /// This method provides access to dataset management operations like creating,
+    /// listing, and deleting datasets.
+    #[napi]
+    pub fn datasets(&self) -> DatasetsClient {
+        DatasetsClient::new(self.client.clone())
+    }
+
+    /// Returns a client for interacting with a specific dataset.
+    #[napi]
+    pub fn dataset(&self, name: String) -> DatasetClient {
+        DatasetClient::new(self.client.clone(), name)
+    }
+
+    /// Queries context across one or more datasets and returns an answer.
+    ///
+    /// Consumes the streaming response and returns the final result.
+    #[napi(
+        ts_args_type = "query: string, sources: Array<string | Source>, filter?: query.LogicalExpression, mode?: Mode, selectFields?: Array<string>",
+        ts_return_type = "Promise<AskResult>"
+    )]
+    pub async fn ask(
+        &self,
+        query: String,
+        sources: Vec<Source>,
+        filter: Option<&LogicalExpression>,
+        mode: Option<Mode>,
+        select_fields: Option<Vec<String>>,
+    ) -> Result<AskResult> {
+        let filter = filter.map(|f| f.clone().into());
+        let mode = mode.map(|m| m.into());
+
+        let stream = self
+            .client
+            .ask(query, sources, filter, mode, select_fields)
+            .await
+            .map_err(TopkError::from)?
+            .into_inner();
+
+        let result = stream
+            .map_err(|e| napi::Error::from_reason(format!("stream error: {e}")))
+            .try_fold(None, |_, result| async move { Ok(Some(result)) })
+            .await?
+            .ok_or_else(|| napi::Error::from_reason("ask returned no results"))?;
+
+        match result.message {
+            Some(inner) => AskResult::try_from(inner),
+            None => Err(napi::Error::from_reason(
+                "invalid proto: AskResult has no message",
+            )),
+        }
+    }
+
+    /// Searches across one or more datasets and returns matching results.
+    ///
+    /// Consumes the streaming response and collects all results.
+    #[napi(
+        ts_args_type = "query: string, sources: Array<string | Source>, topK: number, filter?: query.LogicalExpression, selectFields?: Array<string>",
+        ts_return_type = "Promise<Array<ContextSearchResult>>"
+    )]
+    pub async fn search(
+        &self,
+        query: String,
+        sources: Vec<Source>,
+        top_k: u32,
+        filter: Option<&LogicalExpression>,
+        select_fields: Option<Vec<String>>,
+    ) -> Result<Vec<ContextSearchResult>> {
+        let filter = filter.map(|f| f.clone().into());
+        let select_fields = select_fields.unwrap_or_default();
+
+        let stream = self
+            .client
+            .search(query, sources, top_k, filter, select_fields)
+            .await
+            .map_err(TopkError::from)?
+            .into_inner();
+
+        stream
+            .map_err(|e| napi::Error::from_reason(format!("stream error: {e}")))
+            .and_then(|msg| std::future::ready(ContextSearchResult::try_from(msg)))
+            .try_collect::<Vec<_>>()
+            .await
     }
 }
 
