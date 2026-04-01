@@ -29,7 +29,12 @@ async fn test_query_fetch(ctx: &mut ProjectTestContext) {
     assert_eq!(results.len(), 1);
     assert_fields!(&results, ["_id", "title", "summary"]);
     assert_eq!(
-        results[0].fields.get("summary").unwrap().as_string().unwrap(),
+        results[0]
+            .fields
+            .get("summary")
+            .unwrap()
+            .as_string()
+            .unwrap(),
         "A totalitarian regime uses surveillance and mind control to oppress its citizens."
     );
 }
@@ -56,7 +61,12 @@ async fn test_query_fetch_streaming(ctx: &mut ProjectTestContext) {
     assert_eq!(results.len(), 1);
     assert_fields!(&results, ["_id", "title", "summary"]);
     assert_eq!(
-        results[0].fields.get("summary").unwrap().as_string().unwrap(),
+        results[0]
+            .fields
+            .get("summary")
+            .unwrap()
+            .as_string()
+            .unwrap(),
         "A totalitarian regime uses surveillance and mind control to oppress its citizens."
     );
 }
