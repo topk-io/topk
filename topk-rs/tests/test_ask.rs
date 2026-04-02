@@ -42,7 +42,7 @@ async fn test_ask(ctx: &mut ProjectTestContext) {
     // Ask
     let mut stream = ctx
         .client
-        .ask(
+        .ask_stream(
             "What score must general education students achieve who first entered ninth grade in 1997 ?",
             [&dataset.name],
             None,
