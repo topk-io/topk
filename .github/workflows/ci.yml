@@ -77,7 +77,7 @@ jobs:
 
   all_sdks_sdk_reference_docs_sync:
     name: Verify SDKs reference docs are in sync
-    if: false # TODO
+    if: true
     runs-on: public-amd64
     steps:
       - uses: actions/checkout@v4

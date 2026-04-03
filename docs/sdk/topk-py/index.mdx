@@ -66,6 +66,164 @@ Get a client for managing collections.
 
 ***
 
+#### dataset()
+
+```python
+dataset(self, dataset: str) -> DatasetClient
+```
+
+Get a client for managing data operations on a specific dataset such as upserting files, managing metadata, and deleting files.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `dataset` | str |
+
+**Returns**
+
+[`DatasetClient`](#datasetclient)
+
+***
+
+#### datasets()
+
+```python
+datasets(self) -> DatasetsClient
+```
+
+Get a client for managing datasets.
+
+**Returns**
+
+[`DatasetsClient`](#datasetsclient)
+
+***
+
+#### ask()
+
+```python
+ask(
+   self,
+   query: str,
+   sources: Sequence[Source] | Sequence[str] | Sequence[dict[str, Any]],
+   filter: Optional[query.LogicalExpr] = None,
+   mode: Optional[Literal['auto', 'summarize', 'reason', 'deep_research']] = None,
+   select_fields: Optional[Sequence[str]] = None
+)
+```
+
+Ask a question and wait for the stream to complete, returning the last message.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `query` | str |
+| `sources` | Sequence[[`Source`](#source)] &#124; Sequence[str] &#124; Sequence[dict[str, Any]] |
+| `filter` | Optional[[`query.LogicalExpr`](/sdk/topk-py/query#logicalexpr)] |
+| `mode` | Optional[Literal['auto', 'summarize', 'reason', 'deep_research']] |
+| `select_fields` | Optional[Sequence[str]] |
+
+**Returns**
+
+[`Answer`](#answer) | [`Search`](#search) | [`Reason`](#reason)
+
+***
+
+#### ask\_stream()
+
+```python
+ask_stream(
+   self,
+   query: str,
+   sources: Sequence[Source] | Sequence[str] | Sequence[dict[str, Any]],
+   filter: Optional[query.LogicalExpr] = None,
+   mode: Optional[Literal['auto', 'summarize', 'reason', 'deep_research']] = None,
+   select_fields: Optional[Sequence[str]] = None
+)
+```
+
+Ask a question and get streaming responses as an iterator.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `query` | str |
+| `sources` | Sequence[[`Source`](#source)] &#124; Sequence[str] &#124; Sequence[dict[str, Any]] |
+| `filter` | Optional[[`query.LogicalExpr`](/sdk/topk-py/query#logicalexpr)] |
+| `mode` | Optional[Literal['auto', 'summarize', 'reason', 'deep_research']] |
+| `select_fields` | Optional[Sequence[str]] |
+
+**Returns**
+
+Iterator[[`Answer`](#answer) | [`Search`](#search) | [`Reason`](#reason)]
+
+***
+
+#### search()
+
+```python
+search(
+   self,
+   query: str,
+   sources: Sequence[Source] | Sequence[str] | Sequence[dict[str, Any]],
+   top_k: int,
+   filter: Optional[query.LogicalExpr] = None,
+   select_fields: Optional[Sequence[str]] = None
+)
+```
+
+Search for documents and wait for the stream to complete, returning all results.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `query` | str |
+| `sources` | Sequence[[`Source`](#source)] &#124; Sequence[str] &#124; Sequence[dict[str, Any]] |
+| `top_k` | int |
+| `filter` | Optional[[`query.LogicalExpr`](/sdk/topk-py/query#logicalexpr)] |
+| `select_fields` | Optional[Sequence[str]] |
+
+**Returns**
+
+list[[`SearchResult`](#searchresult)]
+
+***
+
+#### search\_stream()
+
+```python
+search_stream(
+   self,
+   query: str,
+   sources: Sequence[Source] | Sequence[str] | Sequence[dict[str, Any]],
+   top_k: int,
+   filter: Optional[query.LogicalExpr] = None,
+   select_fields: Optional[Sequence[str]] = None
+)
+```
+
+Search for documents and get streaming responses as an iterator.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `query` | str |
+| `sources` | Sequence[[`Source`](#source)] &#124; Sequence[str] &#124; Sequence[dict[str, Any]] |
+| `top_k` | int |
+| `filter` | Optional[[`query.LogicalExpr`](/sdk/topk-py/query#logicalexpr)] |
+| `select_fields` | Optional[Sequence[str]] |
+
+**Returns**
+
+[`SearchIterator`](#searchiterator)
+
+***
+
 ### AsyncClient
 
 Async client for interacting with the TopK API. For available regions see [regions](/regions)
@@ -125,6 +283,164 @@ Get an async client for managing collections.
 **Returns**
 
 [`AsyncCollectionsClient`](#asynccollectionsclient)
+
+***
+
+#### dataset()
+
+```python
+dataset(self, dataset: str) -> AsyncDatasetClient
+```
+
+Get an async client for managing data operations on a specific dataset.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `dataset` | str |
+
+**Returns**
+
+[`AsyncDatasetClient`](#asyncdatasetclient)
+
+***
+
+#### datasets()
+
+```python
+datasets(self) -> AsyncDatasetsClient
+```
+
+Get an async client for managing datasets.
+
+**Returns**
+
+[`AsyncDatasetsClient`](#asyncdatasetsclient)
+
+***
+
+#### ask()
+
+```python
+ask(
+   self,
+   query: str,
+   sources: Sequence[Source] | Sequence[str] | Sequence[dict[str, Any]],
+   filter: Optional[query.LogicalExpr] = None,
+   mode: Optional[Literal['auto', 'summarize', 'reason', 'deep_research']] = None,
+   select_fields: Optional[Sequence[str]] = None
+)
+```
+
+Ask a question and wait for the stream to complete asynchronously, returning the last message.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `query` | str |
+| `sources` | Sequence[[`Source`](#source)] &#124; Sequence[str] &#124; Sequence[dict[str, Any]] |
+| `filter` | Optional[[`query.LogicalExpr`](/sdk/topk-py/query#logicalexpr)] |
+| `mode` | Optional[Literal['auto', 'summarize', 'reason', 'deep_research']] |
+| `select_fields` | Optional[Sequence[str]] |
+
+**Returns**
+
+Awaitable[[`Answer`](#answer) | [`Search`](#search) | [`Reason`](#reason)]
+
+***
+
+#### ask\_stream()
+
+```python
+ask_stream(
+   self,
+   query: str,
+   sources: Sequence[Source] | Sequence[str] | Sequence[dict[str, Any]],
+   filter: Optional[query.LogicalExpr] = None,
+   mode: Optional[Literal['auto', 'summarize', 'reason', 'deep_research']] = None,
+   select_fields: Optional[Sequence[str]] = None
+)
+```
+
+Ask a question and get streaming responses asynchronously as an async iterator.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `query` | str |
+| `sources` | Sequence[[`Source`](#source)] &#124; Sequence[str] &#124; Sequence[dict[str, Any]] |
+| `filter` | Optional[[`query.LogicalExpr`](/sdk/topk-py/query#logicalexpr)] |
+| `mode` | Optional[Literal['auto', 'summarize', 'reason', 'deep_research']] |
+| `select_fields` | Optional[Sequence[str]] |
+
+**Returns**
+
+AsyncIterator[[`Answer`](#answer) | [`Search`](#search) | [`Reason`](#reason)]
+
+***
+
+#### search()
+
+```python
+search(
+   self,
+   query: str,
+   sources: Sequence[Source] | Sequence[str] | Sequence[dict[str, Any]],
+   top_k: int,
+   filter: Optional[query.LogicalExpr] = None,
+   select_fields: Optional[Sequence[str]] = None
+)
+```
+
+Search for documents and wait for the stream to complete asynchronously, returning all results.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `query` | str |
+| `sources` | Sequence[[`Source`](#source)] &#124; Sequence[str] &#124; Sequence[dict[str, Any]] |
+| `top_k` | int |
+| `filter` | Optional[[`query.LogicalExpr`](/sdk/topk-py/query#logicalexpr)] |
+| `select_fields` | Optional[Sequence[str]] |
+
+**Returns**
+
+Awaitable[list[[`SearchResult`](#searchresult)]]
+
+***
+
+#### search\_stream()
+
+```python
+search_stream(
+   self,
+   query: str,
+   sources: Sequence[Source] | Sequence[str] | Sequence[dict[str, Any]],
+   top_k: int,
+   filter: Optional[query.LogicalExpr] = None,
+   select_fields: Optional[Sequence[str]] = None
+)
+```
+
+Search for documents and get streaming responses asynchronously as an async iterator.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `query` | str |
+| `sources` | Sequence[[`Source`](#source)] &#124; Sequence[str] &#124; Sequence[dict[str, Any]] |
+| `top_k` | int |
+| `filter` | Optional[[`query.LogicalExpr`](/sdk/topk-py/query#logicalexpr)] |
+| `select_fields` | Optional[Sequence[str]] |
+
+**Returns**
+
+AsyncIterator[[`SearchResult`](#searchresult)]
 
 ***
 
@@ -478,6 +794,117 @@ Represents a collection in the TopK system.
 | `region` | str |  |
 | `schema` | dict[str, [`schema.FieldSpec`](/sdk/topk-py/schema#fieldspec)] |  |
 
+### Dataset
+
+Represents a dataset in the TopK system.
+
+**Properties**
+
+| Property | Type |             |
+| -------- | ---- | ----------- |
+| `name` | str |  |
+| `org_id` | str |  |
+| `project_id` | str |  |
+| `region` | str |  |
+
+### ListEntry
+
+Entry in a dataset.
+
+**Properties**
+
+| Property | Type |             |
+| -------- | ---- | ----------- |
+| `id` | str |  |
+| `name` | str |  |
+| `size` | int |  |
+| `mime_type` | str |  |
+| `metadata` | dict[str, Any] |  |
+
+### Response
+
+Base class for API response objects with request_id.
+
+**Properties**
+
+| Property | Type |             |
+| -------- | ---- | ----------- |
+| `request_id` | Optional[str] |  |
+
+### CreateDatasetResponse
+
+Response from creating a dataset.
+
+**Properties**
+
+| Property | Type |             |
+| -------- | ---- | ----------- |
+| `dataset` | [`Dataset`](#dataset) |  |
+
+### GetDatasetResponse
+
+Response from getting a dataset.
+
+**Properties**
+
+| Property | Type |             |
+| -------- | ---- | ----------- |
+| `dataset` | [`Dataset`](#dataset) |  |
+
+### ListDatasetsResponse
+
+Response from listing datasets.
+
+**Properties**
+
+| Property | Type |             |
+| -------- | ---- | ----------- |
+| `datasets` | list[[`Dataset`](#dataset)] |  |
+
+### DeleteDatasetResponse
+
+Response from deleting a dataset.
+
+### UpsertResponse
+
+Response from upserting a document.
+
+**Properties**
+
+| Property | Type |             |
+| -------- | ---- | ----------- |
+| `handle` | str |  |
+
+### GetMetadataResponse
+
+Response from getting file metadata.
+
+**Properties**
+
+| Property | Type |             |
+| -------- | ---- | ----------- |
+| `docs` | dict[str, dict[str, Any]] |  |
+
+### UpdateMetadataResponse
+
+Response from updating file metadata.
+
+**Properties**
+
+| Property | Type |             |
+| -------- | ---- | ----------- |
+| `handle` | str |  |
+
+### DeleteFileResponse
+
+Response from deleting a file.
+
+**Properties**
+
+| Property | Type |             |
+| -------- | ---- | ----------- |
+| `handle` | str |  |
+
 ### CollectionsClient
 
 Synchronous client for managing collections.
@@ -640,6 +1067,641 @@ Awaitable[None]
 
 ***
 
+### DatasetsClient
+
+Synchronous client for managing datasets.
+
+**Methods**
+
+#### get()
+
+```python
+get(self, dataset_name: str) -> GetDatasetResponse
+```
+
+Get information about a specific dataset.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `dataset_name` | str |
+
+**Returns**
+
+[`GetDatasetResponse`](#getdatasetresponse)
+
+***
+
+#### list()
+
+```python
+list(self) -> ListDatasetsResponse
+```
+
+List all datasets.
+
+**Returns**
+
+[`ListDatasetsResponse`](#listdatasetsresponse)
+
+***
+
+#### create()
+
+```python
+create(self, dataset_name: str) -> CreateDatasetResponse
+```
+
+Create a new dataset.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `dataset_name` | str |
+
+**Returns**
+
+[`CreateDatasetResponse`](#createdatasetresponse)
+
+***
+
+#### delete()
+
+```python
+delete(self, dataset_name: str) -> DeleteDatasetResponse
+```
+
+Delete a dataset.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `dataset_name` | str |
+
+**Returns**
+
+[`DeleteDatasetResponse`](#deletedatasetresponse)
+
+***
+
+### DatasetClient
+
+Synchronous client for dataset operations.
+
+**Methods**
+
+#### upsert\_file()
+
+```python
+upsert_file(
+   self,
+   doc_id: str,
+   input: os.PathLike[Any] | Tuple[str, bytes, str],
+   metadata: Mapping[str, Any]
+)
+```
+
+Upsert a file to the dataset.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `doc_id` | str |
+| `input` | os.PathLike[Any] &#124; Tuple[str, bytes, str] |
+| `metadata` | Mapping[str, Any] |
+
+**Returns**
+
+[`UpsertResponse`](#upsertresponse)
+
+***
+
+#### get\_metadata()
+
+```python
+get_metadata(
+   self,
+   ids: Sequence[str],
+   fields: Optional[Sequence[str]] = None
+)
+```
+
+Get metadata for one or more documents.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `ids` | Sequence[str] |
+| `fields` | Optional[Sequence[str]] |
+
+**Returns**
+
+[`GetMetadataResponse`](#getmetadataresponse)
+
+***
+
+#### update\_metadata()
+
+```python
+update_metadata(self, doc_id: str, metadata: Mapping[str, Any]) -> UpdateMetadataResponse
+```
+
+Update metadata for a file.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `doc_id` | str |
+| `metadata` | Mapping[str, Any] |
+
+**Returns**
+
+[`UpdateMetadataResponse`](#updatemetadataresponse)
+
+***
+
+#### delete()
+
+```python
+delete(self, doc_id: str) -> DeleteFileResponse
+```
+
+Delete a file from the dataset.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `doc_id` | str |
+
+**Returns**
+
+[`DeleteFileResponse`](#deletefileresponse)
+
+***
+
+#### check\_handle()
+
+```python
+check_handle(self, handle: str) -> bool
+```
+
+Return whether the handle has been processed.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `handle` | str |
+
+**Returns**
+
+bool
+
+***
+
+#### wait\_for\_handle()
+
+```python
+wait_for_handle(self, handle: str, config: Optional[WaitConfig | dict[str, Any]] = None) -> None
+```
+
+Poll until a handle has been processed or the timeout is reached.
+
+        Raises an error if the handle is not processed within the configured timeout.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `handle` | str |
+| `config` | Optional[[`WaitConfig`](#waitconfig) &#124; dict[str, Any]] |
+
+**Returns**
+
+None
+
+***
+
+#### list()
+
+```python
+list(
+   self,
+   fields: Optional[Sequence[str]] = None,
+   filter: Optional[query.LogicalExpr] = None
+)
+```
+
+List files in the dataset as a streaming iterator.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `fields` | Optional[Sequence[str]] |
+| `filter` | Optional[[`query.LogicalExpr`](/sdk/topk-py/query#logicalexpr)] |
+
+**Returns**
+
+[`DatasetListIterator`](#datasetlistiterator)
+
+***
+
+### AsyncDatasetsClient
+
+Asynchronous client for managing datasets.
+
+**Methods**
+
+#### get()
+
+```python
+get(self, dataset_name: str) -> Awaitable[GetDatasetResponse]
+```
+
+Get information about a specific dataset asynchronously.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `dataset_name` | str |
+
+**Returns**
+
+Awaitable[[`GetDatasetResponse`](#getdatasetresponse)]
+
+***
+
+#### list()
+
+```python
+list(self) -> Awaitable[ListDatasetsResponse]
+```
+
+List all datasets asynchronously.
+
+**Returns**
+
+Awaitable[[`ListDatasetsResponse`](#listdatasetsresponse)]
+
+***
+
+#### create()
+
+```python
+create(self, dataset_name: str) -> Awaitable[CreateDatasetResponse]
+```
+
+Create a new dataset asynchronously.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `dataset_name` | str |
+
+**Returns**
+
+Awaitable[[`CreateDatasetResponse`](#createdatasetresponse)]
+
+***
+
+#### delete()
+
+```python
+delete(self, dataset_name: str) -> Awaitable[DeleteDatasetResponse]
+```
+
+Delete a dataset asynchronously.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `dataset_name` | str |
+
+**Returns**
+
+Awaitable[[`DeleteDatasetResponse`](#deletedatasetresponse)]
+
+***
+
+### AsyncDatasetClient
+
+Asynchronous client for dataset operations.
+
+**Methods**
+
+#### upsert\_file()
+
+```python
+upsert_file(
+   self,
+   doc_id: str,
+   input: os.PathLike[Any] | Tuple[str, bytes, str],
+   metadata: Mapping[str, Any]
+)
+```
+
+Upsert a file to the dataset asynchronously.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `doc_id` | str |
+| `input` | os.PathLike[Any] &#124; Tuple[str, bytes, str] |
+| `metadata` | Mapping[str, Any] |
+
+**Returns**
+
+Awaitable[[`UpsertResponse`](#upsertresponse)]
+
+***
+
+#### get\_metadata()
+
+```python
+get_metadata(
+   self,
+   ids: Sequence[str],
+   fields: Optional[Sequence[str]] = None
+)
+```
+
+Get metadata for one or more documents asynchronously.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `ids` | Sequence[str] |
+| `fields` | Optional[Sequence[str]] |
+
+**Returns**
+
+Awaitable[[`GetMetadataResponse`](#getmetadataresponse)]
+
+***
+
+#### update\_metadata()
+
+```python
+update_metadata(self, doc_id: str, metadata: Mapping[str, Any]) -> Awaitable[UpdateMetadataResponse]
+```
+
+Update metadata for a file asynchronously.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `doc_id` | str |
+| `metadata` | Mapping[str, Any] |
+
+**Returns**
+
+Awaitable[[`UpdateMetadataResponse`](#updatemetadataresponse)]
+
+***
+
+#### delete()
+
+```python
+delete(self, doc_id: str) -> Awaitable[DeleteFileResponse]
+```
+
+Delete a file from the dataset asynchronously.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `doc_id` | str |
+
+**Returns**
+
+Awaitable[[`DeleteFileResponse`](#deletefileresponse)]
+
+***
+
+#### check\_handle()
+
+```python
+check_handle(self, handle: str) -> Awaitable[bool]
+```
+
+Return whether the handle has been processed asynchronously.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `handle` | str |
+
+**Returns**
+
+Awaitable[bool]
+
+***
+
+#### wait\_for\_handle()
+
+```python
+wait_for_handle(
+   self,
+   handle: str,
+   config: Optional[WaitConfig | dict[str, Any]] = None
+)
+```
+
+Poll until a handle has been processed or the timeout is reached asynchronously.
+
+        Raises an error if the handle is not processed within the configured timeout.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `handle` | str |
+| `config` | Optional[[`WaitConfig`](#waitconfig) &#124; dict[str, Any]] |
+
+**Returns**
+
+Awaitable[None]
+
+***
+
+#### list()
+
+```python
+list(
+   self,
+   fields: Optional[Sequence[str]] = None,
+   filter: Optional[query.LogicalExpr] = None
+)
+```
+
+List files in the dataset as a streaming async iterator.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `fields` | Optional[Sequence[str]] |
+| `filter` | Optional[[`query.LogicalExpr`](/sdk/topk-py/query#logicalexpr)] |
+
+**Returns**
+
+[`AsyncDatasetListIterator`](#asyncdatasetlistiterator)
+
+***
+
+### Source
+
+Represents a dataset with an optional filter.
+
+**Properties**
+
+| Property | Type |             |
+| -------- | ---- | ----------- |
+| `dataset` | str |  |
+| `filter` | Optional[[`query.LogicalExpr`](/sdk/topk-py/query#logicalexpr)] |  |
+
+### Fact
+
+Represents a fact in an ask response.
+
+**Properties**
+
+| Property | Type |             |
+| -------- | ---- | ----------- |
+| `fact` | str |  |
+| `ref_ids` | list[str] |  |
+
+### Chunk
+
+Text chunk content.
+
+**Properties**
+
+| Property | Type |             |
+| -------- | ---- | ----------- |
+| `text` | str |  |
+| `doc_pages` | list[int] |  |
+
+### Image
+
+Image content.
+
+**Properties**
+
+| Property | Type |             |
+| -------- | ---- | ----------- |
+| `data` | bytes |  |
+| `mime_type` | str |  |
+
+### Page
+
+Page content with optional image.
+
+**Properties**
+
+| Property | Type |             |
+| -------- | ---- | ----------- |
+| `page_number` | int |  |
+| `image` | Optional[[`Image`](#image)] |  |
+
+### Content
+
+Content in a search result. One of chunk, page, or image.
+
+**Properties**
+
+| Property | Type |             |
+| -------- | ---- | ----------- |
+| `type` | Literal['chunk', 'page', 'image'] |  |
+| `data` | [`Chunk`](#chunk) &#124; [`Page`](#page) &#124; [`Image`](#image) |  |
+
+### SearchResult
+
+Represents a search result in an ask response.
+
+**Properties**
+
+| Property | Type |             |
+| -------- | ---- | ----------- |
+| `doc_id` | str |  |
+| `doc_type` | str |  |
+| `dataset` | str |  |
+| `content` | [`Content`](#content) |  |
+| `metadata` | dict[str, Any] |  |
+
+### Answer
+
+Represents a final answer in an ask response.
+
+**Properties**
+
+| Property | Type |             |
+| -------- | ---- | ----------- |
+| `facts` | list[[`Fact`](#fact)] |  |
+| `refs` | dict[str, [`SearchResult`](#searchresult)] |  |
+
+### Search
+
+Represents a sub-query in an ask response.
+
+**Properties**
+
+| Property | Type |             |
+| -------- | ---- | ----------- |
+| `objective` | str |  |
+| `facts` | list[[`Fact`](#fact)] |  |
+| `refs` | dict[str, [`SearchResult`](#searchresult)] |  |
+
+### Reason
+
+Represents a reason in an ask response.
+
+**Properties**
+
+| Property | Type |             |
+| -------- | ---- | ----------- |
+| `thought` | str |  |
+
+### AskIterator
+
+Iterator for synchronous ask responses.
+
+### AsyncAskIterator
+
+Iterator for asynchronous ask responses.
+
+### SearchIterator
+
+Iterator for synchronous search responses.
+
+### AsyncSearchIterator
+
+Iterator for asynchronous search responses.
+
+### DatasetListIterator
+
+Iterator for synchronous dataset list responses.
+
+### AsyncDatasetListIterator
+
+Iterator for asynchronous dataset list responses.
+
 ### ConsistencyLevel
 
 Enumeration of consistency levels for operations.
@@ -650,6 +1712,32 @@ Enumeration of consistency levels for operations.
 | ----- | ----------- |
 | `Indexed` | `indexed` |
 | `Strong` | `strong` |
+### WaitConfig
+
+Configuration for polling when waiting for a handle to be processed.
+
+**Properties**
+
+| Property | Type |             |
+| -------- | ---- | ----------- |
+| `frequency_secs` | Optional[int] | How often to poll for the handle status in seconds. Default is 5. |
+| `timeout_secs` | Optional[int] | Maximum time to wait before returning a timeout error in seconds. Default is 300. |
+
+**Methods**
+
+**Constructor**
+
+```python
+WaitConfig(frequency_secs: Optional[int] = None, timeout_secs: Optional[int] = None) -> None
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `frequency_secs` | Optional[int] |
+| `timeout_secs` | Optional[int] |
+
 ### RetryConfig
 
 Configuration for retry behavior.
