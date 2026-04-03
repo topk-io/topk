@@ -2,13 +2,12 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use anyhow::Result;
 use sha2::{Digest, Sha256};
 use futures::stream::{self, StreamExt};
 use serde::Serialize;
 use tracing::info;
 use walkdir::WalkDir;
-use topk_rs::{proto::v1::ctx::file::InputFile, Client};
+use topk_rs::{proto::v1::ctx::file::InputFile, Client, Error};
 
 use crate::output::RenderForHuman;
 use crate::util::{FileProgress, Spinner};
@@ -60,7 +59,7 @@ fn doc_id_for(path: &Path) -> String {
     format!("{}/{}", hash, filename)
 }
 
-async fn ensure_dataset(client: &Client, dataset: &str) -> Result<()> {
+async fn ensure_dataset(client: &Client, dataset: &str) -> Result<(), Error> {
     match client.datasets().get(dataset).await {
         Ok(_) => Ok(()),
         Err(_) => {
@@ -79,7 +78,7 @@ pub async fn run(
     concurrency: usize,
     dry_run: bool,
     wait: bool,
-) -> Result<(UploadResult, Vec<UploadError>)> {
+) -> Result<(UploadResult, Vec<UploadError>), Error> {
     let files = collect_files(path, recursive)?;
     let total = files.len();
 
@@ -188,13 +187,16 @@ pub async fn run(
         spinner.finish();
     }
 
-    let errors = Arc::try_unwrap(errors).unwrap().into_inner().unwrap();
+    let errors = Arc::try_unwrap(errors)
+        .map_err(|_| Error::Internal("upload tasks still running".to_string()))?
+        .into_inner()
+        .map_err(|_| Error::Internal("mutex poisoned".to_string()))?;
     let uploaded = total - errors.len();
 
     Ok((UploadResult { total, uploaded, processed: wait, dry_run: false }, errors))
 }
 
-fn collect_files(path: &Path, recursive: bool) -> Result<Vec<UploadFile>> {
+fn collect_files(path: &Path, recursive: bool) -> Result<Vec<UploadFile>, Error> {
     let mut files: Vec<UploadFile> = WalkDir::new(path)
         .follow_links(false)
         .max_depth(if recursive { usize::MAX } else { 1 })
@@ -203,11 +205,11 @@ fn collect_files(path: &Path, recursive: bool) -> Result<Vec<UploadFile>> {
         .filter(|e| e.file_type().is_file() && is_supported(e.path()))
         .map(|e| {
             let path = e.path().to_path_buf();
-            let size = e.metadata()?.len();
+            let size = e.metadata().map_err(|e| Error::IoError(e.into()))?.len();
             let doc_id = doc_id_for(&path);
             Ok(UploadFile { doc_id, path, size })
         })
-        .collect::<Result<_>>()?;
+        .collect::<Result<_, Error>>()?;
 
     files.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(files)
