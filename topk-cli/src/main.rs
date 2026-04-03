@@ -154,7 +154,6 @@ async fn main() {
 
     let output = Output::new(cli.agent, cli.output, cli.pretty);
 
-
     if let Err(e) = run(cli, &output).await {
         output.error(&e);
         std::process::exit(1);

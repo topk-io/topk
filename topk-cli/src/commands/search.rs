@@ -10,7 +10,7 @@ use crate::output::{table, RenderForHuman};
 
 #[derive(Serialize)]
 pub struct SearchResults {
-    pub results: Vec<SearchResult>,
+    results: Vec<SearchResult>,
 }
 
 impl RenderForHuman for SearchResults {

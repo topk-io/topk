@@ -31,21 +31,8 @@ pub trait RenderForHuman: Serialize {
     fn render(&self) -> String;
 }
 
-#[derive(Serialize)]
-pub struct Aborted {
-    aborted: bool,
-}
-
-pub const ABORTED: Aborted = Aborted { aborted: true };
-
-impl RenderForHuman for Aborted {
-    fn render(&self) -> String {
-        "Aborted.".to_string()
-    }
-}
-
 pub struct Output {
-    pub mode: OutputMode,
+    mode: OutputMode,
 }
 
 impl Output {
