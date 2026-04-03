@@ -60,6 +60,13 @@ jobs:
         env:
           TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
 
+  cli:
+    if: ${{ inputs.tests }}
+    uses: ./.github/workflows/publish_cli.yml
+    secrets: inherit
+    with:
+      publish: false
+
   all_sdks_same_version:
     name: Verify all SDKs on the same version
     runs-on: public-amd64
