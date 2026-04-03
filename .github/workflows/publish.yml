@@ -12,6 +12,10 @@ on:
         type: boolean
         description: "Publish release to registries"
         default: false
+      publish_homebrew:
+        type: boolean
+        description: "Publish CLI to Homebrew tap"
+        default: false
 
 jobs:
   ci:
@@ -19,6 +23,16 @@ jobs:
     with:
       tests: true
     secrets: inherit
+
+  cli:
+    needs: [ci]
+    uses: ./.github/workflows/publish_cli.yml
+    secrets: inherit
+    permissions:
+      contents: write
+    with:
+      publish: ${{ github.event_name == 'push' || inputs.publish }}
+      publish_homebrew: ${{ github.event_name == 'push' || inputs.publish_homebrew }}
 
   python:
     needs: [ci]
