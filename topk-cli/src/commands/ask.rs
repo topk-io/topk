@@ -131,10 +131,7 @@ pub async fn run(
             Some(ask_result::Message::Answer(a)) => {
                 answer = Some(a);
             }
-            None => {
-                spinner.finish();
-                return Err(Error::InvalidProto)
-            }
+            None => return Err(Error::InvalidProto),
         }
     }
 

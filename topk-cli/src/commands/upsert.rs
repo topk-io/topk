@@ -18,9 +18,9 @@ pub struct UpsertResult {
 impl RenderForHuman for UpsertResult {
     fn render(&self) -> String {
         if self.processed {
-            format!("Uploaded and processed (handle: {}).", self.handle)
+            "Uploaded and processed.".to_string()
         } else {
-            format!("Uploaded (handle: {}).", self.handle)
+            "Uploaded.".to_string()
         }
     }
 }

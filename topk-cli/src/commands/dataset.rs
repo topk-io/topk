@@ -73,18 +73,15 @@ impl RenderForHuman for ListDatasetsResult {
 
 #[derive(Serialize, serde::Deserialize)]
 pub struct GetDatasetResult {
-    name: String,
-    org_id: String,
-    project_id: String,
-    region: String,
+    dataset: Dataset,
 }
 
 impl TryFrom<Response<GetDatasetResponse>> for GetDatasetResult {
     type Error = Error;
 
     fn try_from(resp: Response<GetDatasetResponse>) -> Result<Self, Error> {
-        let dataset = resp.into_inner().dataset.ok_or(Error::InvalidProto)?;
-        Ok(Self { name: dataset.name, org_id: dataset.org_id, project_id: dataset.project_id, region: dataset.region })
+        let dataset = resp.into_inner().dataset.ok_or(Error::InvalidProto)?.into();
+        Ok(Self { dataset })
     }
 }
 
@@ -92,7 +89,7 @@ impl RenderForHuman for GetDatasetResult {
     fn render(&self) -> String {
         table(
             vec!["NAME"],
-            vec![vec![self.name.clone()]],
+            vec![vec![self.dataset.name.clone()]],
         )
     }
 }
@@ -229,11 +226,11 @@ mod tests {
             .output().unwrap();
         assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
         let parsed: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-        assert_eq!(parsed["name"].as_str().unwrap(), dataset.dataset.name);
+        assert_eq!(parsed["deleted"].as_bool().unwrap(), true);
     }
 
     #[test]
-    fn delete_aborted_when_wrong_name_entered() {
+    fn delete_aborted_when_not_confirmed() {
         let dataset = create_dataset();
 
         let out = cmd()
@@ -242,7 +239,7 @@ mod tests {
             .output().unwrap();
         assert!(out.status.success());
         let parsed: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-        assert_eq!(parsed["aborted"].as_bool().unwrap(), true);
+        assert_eq!(parsed["skipped"].as_bool().unwrap(), true);
 
         delete_dataset(&dataset.dataset.name);
     }
