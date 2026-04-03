@@ -69,4 +69,3 @@ fn format_content_text(content: Option<&Content>) -> String {
         None => String::new(),
     }
 }
-
