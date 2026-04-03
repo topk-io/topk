@@ -1,9 +1,11 @@
+use std::io::{IsTerminal, Read};
+
 use topk::commands;
 use topk::output::{Output, OutputArg};
 use tracing_subscriber::EnvFilter;
 
 use anyhow::Result;
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 use topk_rs::{proto::v1::ctx::doc::DocId, Client, ClientConfig};
 
 use topk::util::parse_kv;
@@ -142,7 +144,7 @@ enum Commands {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> std::process::ExitCode {
     let cli = Cli::parse();
 
     if cli.debug {
@@ -156,8 +158,10 @@ async fn main() {
 
     if let Err(e) = run(cli, &output).await {
         output.error(&e);
-        std::process::exit(1);
+        return std::process::ExitCode::FAILURE;
     }
+
+    std::process::ExitCode::SUCCESS
 }
 
 async fn run(cli: Cli, output: &Output) -> Result<()> {
@@ -202,33 +206,50 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
         }
 
         Commands::Ask { query, sources, mode: cmd_mode, fields } => {
-            output.print(&ask::run(&client, resolve_query(query)?, sources, Some(cmd_mode.into()), fields, output).await?)?;
+            let query = match resolve_query(query)? {
+                Some(q) => q,
+                None => {
+                    Cli::command().find_subcommand_mut("ask")
+                        .expect("ask subcommand")
+                        .print_help()?;
+                    return Ok(());
+                }
+            };
+            output.print(&ask::run(&client, query, sources, Some(cmd_mode.into()), fields, output).await?)?;
         }
 
         Commands::Search { query, sources, top_k, fields } => {
-            output.print(&search::run(&client, resolve_query(query)?, sources, top_k, fields).await?)?;
+            let query = match resolve_query(query)? {
+                Some(q) => q,
+                None => {
+                    Cli::command().find_subcommand_mut("search")
+                        .expect("search subcommand")
+                        .print_help()?;
+                    return Ok(());
+                }
+            };
+            output.print(&search::run(&client, query, sources, top_k, fields).await?)?;
         }
     }
 
     Ok(())
 }
 
-fn resolve_query(query: Option<String>) -> Result<String> {
+fn resolve_query(query: Option<String>) -> Result<Option<String>> {
     if let Some(q) = query {
-        return Ok(q);
+        return Ok(Some(q));
     }
-    use std::io::Read;
+    if std::io::stdin().is_terminal() {
+        return Ok(None);
+    }
     let mut buf = String::new();
     std::io::stdin().read_to_string(&mut buf)?;
     let q = buf.trim().to_string();
-    if q.is_empty() {
-        anyhow::bail!("no query provided");
-    }
-    Ok(q)
+    if q.is_empty() { Ok(None) } else { Ok(Some(q)) }
 }
 
 fn make_client(api_key: Option<String>, region: Option<String>, host: Option<String>) -> Result<Client> {
-    let api_key = api_key.ok_or_else(|| anyhow::anyhow!("TOPK_API_KEY env variable is not set. Create an API key at https://console.topk.io/"))?;
+    let api_key = api_key.ok_or_else(|| anyhow::anyhow!("TOPK_API_KEY env variable is not set. Create your API key at https://console.topk.io/"))?;
     let region = region.ok_or_else(|| anyhow::anyhow!("TOPK_REGION env variable is not set. List available regions at https://docs.topk.io/regions"))?;
     let host = host.unwrap_or_else(|| "topk.io".to_string());
     let https = std::env::var("TOPK_HTTPS").map(|v| v == "true").unwrap_or(true);
