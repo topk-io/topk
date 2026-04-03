@@ -52,10 +52,9 @@ pub async fn run(
 fn format_content_text(content: Option<&Content>) -> String {
     match content.and_then(|c| c.data.as_ref()) {
         Some(content::Data::Chunk(chunk)) => {
-            let text = if chunk.text.len() > 200 {
-                format!("{}...", &chunk.text[..200])
-            } else {
-                chunk.text.clone()
+            let text = match chunk.text.char_indices().nth(200) {
+                Some((idx, _)) => format!("{}...", &chunk.text[..idx]),
+                None => chunk.text.clone(),
             };
             if chunk.doc_pages.is_empty() {
                 text

@@ -96,6 +96,7 @@ pub async fn run(
     let pb_current = progress.current.clone();
 
     let errors: Arc<Mutex<Vec<UploadError>>> = Arc::new(Mutex::new(Vec::new()));
+    let upload_errors = Arc::new(AtomicU64::new(0));
 
     let handles: Vec<String> = stream::iter(files)
         .map(|file| {
@@ -104,6 +105,7 @@ pub async fn run(
             let pb_overall = pb_overall.clone();
             let pb_current = pb_current.clone();
             let errors = errors.clone();
+            let upload_errors = upload_errors.clone();
 
             async move {
                 if let Some(pb) = &pb_current {
@@ -113,6 +115,7 @@ pub async fn run(
                 let input = match InputFile::from_path(&file.path) {
                     Ok(i) => i,
                     Err(e) => {
+                        upload_errors.fetch_add(1, Ordering::Relaxed);
                         errors.lock().unwrap().push(UploadError {
                             path: file.path.display().to_string(),
                             error: e.to_string(),
@@ -129,6 +132,7 @@ pub async fn run(
                 {
                     Ok(resp) => resp.into_inner().handle,
                     Err(e) => {
+                        upload_errors.fetch_add(1, Ordering::Relaxed);
                         errors.lock().unwrap().push(UploadError {
                             path: file.path.display().to_string(),
                             error: e.to_string(),
@@ -191,7 +195,7 @@ pub async fn run(
         .map_err(|_| Error::Internal("upload tasks still running".to_string()))?
         .into_inner()
         .map_err(|_| Error::Internal("mutex poisoned".to_string()))?;
-    let uploaded = total - errors.len();
+    let uploaded = total.saturating_sub(upload_errors.load(Ordering::Relaxed) as usize);
 
     Ok((UploadResult { total, uploaded, processed: wait, dry_run: false }, errors))
 }
