@@ -139,4 +139,3 @@ pub async fn run(
 
     answer.map(Into::into).ok_or_else(|| Error::Internal("No answer found".to_string()))
 }
-
