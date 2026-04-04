@@ -1,9 +1,9 @@
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use sha2::{Digest, Sha256};
-use futures::stream::{self, StreamExt};
+use futures::stream::{self, StreamExt, TryStreamExt};
 use serde::Serialize;
 use tracing::info;
 use walkdir::WalkDir;
@@ -18,12 +18,6 @@ struct UploadFile {
     path: PathBuf,
     doc_id: String,
     size: u64,
-}
-
-#[derive(Debug, Serialize)]
-pub struct UploadError {
-    pub path: String,
-    pub error: String,
 }
 
 #[derive(Serialize, serde::Deserialize)]
@@ -78,7 +72,7 @@ pub async fn run(
     concurrency: usize,
     dry_run: bool,
     wait: bool,
-) -> Result<(UploadResult, Vec<UploadError>), Error> {
+) -> Result<UploadResult, Error> {
     let files = collect_files(path, recursive)?;
     let total = files.len();
 
@@ -86,7 +80,7 @@ pub async fn run(
     info!(files = total, total_size, dataset, concurrency, "uploading");
 
     if dry_run {
-        return Ok((UploadResult { total, uploaded: 0, processed: false, dry_run: true }, vec![]));
+        return Ok(UploadResult { total, uploaded: 0, processed: false, dry_run: true });
     }
 
     ensure_dataset(client, dataset).await?;
@@ -95,59 +89,38 @@ pub async fn run(
     let pb_overall = progress.overall.clone();
     let pb_current = progress.current.clone();
 
-    let errors: Arc<Mutex<Vec<UploadError>>> = Arc::new(Mutex::new(Vec::new()));
-
-    let handles: Vec<String> = stream::iter(files)
+    let handles = stream::iter(files)
         .map(|file| {
             let client = client.clone();
             let dataset = dataset.to_string();
             let pb_overall = pb_overall.clone();
             let pb_current = pb_current.clone();
-            let errors = errors.clone();
 
             async move {
                 if let Some(pb) = &pb_current {
                     pb.set_message(format!("Uploading {}", file.path.display()));
                 }
 
-                let input = match InputFile::from_path(&file.path) {
-                    Ok(i) => i,
-                    Err(e) => {
-                        errors.lock().unwrap().push(UploadError {
-                            path: file.path.display().to_string(),
-                            error: e.to_string(),
-                        });
-                        if let Some(pb) = &pb_overall { pb.inc(1); }
-                        return None;
-                    }
-                };
+                let input = InputFile::from_path(&file.path)?;
 
-                let handle = match client
+                let handle = client
                     .dataset(&dataset)
                     .upsert_file(file.doc_id.clone(), input, std::iter::empty::<(String, String)>())
-                    .await
-                {
-                    Ok(resp) => resp.into_inner().handle,
-                    Err(e) => {
-                        errors.lock().unwrap().push(UploadError {
-                            path: file.path.display().to_string(),
-                            error: e.to_string(),
-                        });
-                        if let Some(pb) = &pb_overall { pb.inc(1); }
-                        return None;
-                    }
-                };
+                    .await?
+                    .into_inner()
+                    .handle;
 
                 if let Some(pb) = &pb_overall { pb.inc(1); }
-                Some(handle)
+                Ok::<String, Error>(handle)
             }
         })
         .buffer_unordered(concurrency)
-        .filter_map(|h| async move { h })
-        .collect()
+        .try_collect::<Vec<_>>()
         .await;
 
     progress.finish();
+    let handles = handles?;
+    let uploaded = handles.len();
 
     if wait {
         let handle_count = handles.len() as u64;
@@ -156,21 +129,15 @@ pub async fn run(
         let spinner = Spinner::new(format!("Waiting for documents to be processed... 0/{}", handle_count));
         let pb_waiting = spinner.bar.clone();
 
-        stream::iter(handles)
+        let wait_result = stream::iter(handles)
             .map(|handle| {
                 let client = client.clone();
                 let dataset = dataset.to_string();
                 let pb_waiting = pb_waiting.clone();
-                let errors = errors.clone();
                 let done_count = done_count.clone();
 
                 async move {
-                    if let Err(e) = client.dataset(&dataset).wait_for_handle(&handle, None).await {
-                        errors.lock().unwrap().push(UploadError {
-                            path: String::new(),
-                            error: e.to_string(),
-                        });
-                    }
+                    client.dataset(&dataset).wait_for_handle(&handle, None).await?;
                     if let Some(pb) = &pb_waiting {
                         let done = done_count.fetch_add(1, Ordering::Relaxed) + 1;
                         pb.set_message(format!(
@@ -178,22 +145,18 @@ pub async fn run(
                             done, handle_count
                         ));
                     }
+                    Ok::<(), Error>(())
                 }
             })
             .buffer_unordered(concurrency)
-            .collect::<()>()
+            .try_collect::<()>()
             .await;
 
         spinner.finish();
+        wait_result?;
     }
 
-    let errors = Arc::try_unwrap(errors)
-        .map_err(|_| Error::Internal("upload tasks still running".to_string()))?
-        .into_inner()
-        .map_err(|_| Error::Internal("mutex poisoned".to_string()))?;
-    let uploaded = total - errors.len();
-
-    Ok((UploadResult { total, uploaded, processed: wait, dry_run: false }, errors))
+    Ok(UploadResult { total, uploaded, processed: wait, dry_run: false })
 }
 
 fn collect_files(path: &Path, recursive: bool) -> Result<Vec<UploadFile>, Error> {

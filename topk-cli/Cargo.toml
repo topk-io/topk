@@ -1,5 +1,5 @@
 [package]
-name = "topk"
+name = "topk-cli"
 version = "0.1.0"
 edition = "2021"
 description = "TopK CLI"

@@ -141,13 +141,13 @@ test-cli:
     WORKDIR /sdk/topk-cli
 
     ARG EARTHLY_GIT_HASH
-    DO rust+CARGO --args="test -p topk --no-run" # compile tests (warms up registry cache)
+    DO rust+CARGO --args="test -p topk-cli --no-run" # compile tests (warms up registry cache)
 
     # build the binary as a real layer file so CARGO_BIN_EXE_topk can point to it
     # (DO rust+CARGO uses cache mounts that don't persist as regular files)
     RUN --mount=type=cache,target=/root/.cargo/registry \
         --mount=type=cache,target=/root/.cargo/git \
-        cargo build -p topk
+        cargo build -p topk-cli
 
     ARG --required region
     ARG host
@@ -158,7 +158,7 @@ test-cli:
     ENV FORCE_COLOR=1
     ENV CARGO_BIN_EXE_topk=/sdk/topk-cli/target/debug/topk
     RUN --no-cache --secret TOPK_API_KEY \
-        TOPK_API_KEY=$TOPK_API_KEY cargo test -p topk --lib --no-fail-fast
+        TOPK_API_KEY=$TOPK_API_KEY cargo test -p topk-cli --lib --no-fail-fast
 
 #
 
