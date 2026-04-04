@@ -1,12 +1,13 @@
 use std::sync::Arc;
 
-use futures_util::{StreamExt, TryStreamExt};
+use futures_util::StreamExt;
 use pyo3::{prelude::*, types::PyAny};
 use pyo3_async_runtimes::tokio::future_into_py;
 use tokio::sync::{mpsc, Mutex};
 
 use crate::client::CHANNEL_BUFFER_SIZE;
 use crate::data::ask::{AskResult, Mode, Sources};
+use topk_rs::proto::v1::ctx::ask_result::Message;
 use crate::error::RustError;
 use crate::expr::logical::LogicalExpr;
 
@@ -54,7 +55,7 @@ pub fn ask_stream(
 
     pyo3_async_runtimes::tokio::get_runtime().spawn(async move {
         let mut stream = match client
-            .ask(query, sources, filter, mode, select_fields)
+            .ask_stream(query, sources, filter, mode, select_fields)
             .await
         {
             Ok(stream) => stream,
@@ -115,28 +116,13 @@ pub fn ask(
     let mode = mode.map(|m| m.into());
 
     future_into_py(py, async move {
-        let stream = client
+        let result = client
             .ask(query, sources, filter, mode, select_fields)
             .await
             .map_err(RustError)?
             .into_inner();
 
-        let result = stream
-            .map_err(|e| PyErr::from(RustError(e.into())))
-            .try_fold(None, |_, result| async move { Ok(Some(result)) })
-            .await?
-            .ok_or_else(|| {
-                PyErr::new::<pyo3::exceptions::PyValueError, _>("Failed to get answer")
-            })?;
-
-        Ok(match result.message {
-            Some(inner) => AskResult::try_from(inner).map_err(Into::<PyErr>::into)?,
-            None => {
-                return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                    "Invalid proto: AskResult has no message",
-                ))
-            }
-        })
+        AskResult::try_from(Message::Answer(result)).map_err(Into::<PyErr>::into)
     })
     .map(|result| result.into())
 }
