@@ -184,11 +184,7 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
         },
 
         Commands::Upload { path, dataset, recursive, concurrency, dry_run, wait } => {
-            let (result, errors) = upload::run(&client, &dataset, &path, recursive, concurrency, dry_run, wait).await?;
-            for e in &errors {
-                output.error(&anyhow::anyhow!("{}: {}", e.path, e.error));
-            }
-            output.print(&result)?;
+            output.print(&upload::run(&client, &dataset, &path, recursive, concurrency, dry_run, wait).await?)?;
         }
 
         Commands::Upsert { dataset, document_id, path, metadata, wait } => {

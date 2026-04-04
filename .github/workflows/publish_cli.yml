@@ -79,7 +79,7 @@ jobs:
           key: build-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Build
-        run: cargo build --release --target ${{ matrix.target }} -p topk
+        run: cargo build --release --target ${{ matrix.target }} -p topk-cli
         working-directory: ./topk-cli
 
       - name: Smoke test
