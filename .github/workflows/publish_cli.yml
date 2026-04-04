@@ -5,21 +5,13 @@ on:
     inputs:
       publish:
         type: boolean
-        description: "Publish release to GitHub"
-        default: false
-      publish_homebrew:
-        type: boolean
-        description: "Publish to Homebrew tap"
+        description: "Publish release to GitHub and Homebrew tap"
         default: false
   workflow_call:
     inputs:
       publish:
         type: boolean
-        description: "Publish release to GitHub"
-        default: false
-      publish_homebrew:
-        type: boolean
-        description: "Publish to Homebrew tap"
+        description: "Publish release to GitHub and Homebrew tap"
         default: false
 
 jobs:
@@ -141,7 +133,7 @@ jobs:
   update-homebrew-tap:
     name: Update Homebrew tap
     runs-on: ubuntu-latest
-    if: ${{ inputs.publish_homebrew }}
+    if: ${{ inputs.publish }}
     needs: [publish]
     steps:
       - uses: actions/checkout@v4
