@@ -45,10 +45,6 @@ impl<T> Response<T> {
     pub fn into_inner(self) -> T {
         self.inner
     }
-
-    pub fn into_parts(self) -> (T, Option<RequestId>) {
-        (self.inner, self.request_id)
-    }
 }
 
 impl<T> std::ops::Deref for Response<T> {
