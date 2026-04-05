@@ -1,0 +1,180 @@
+name: Build & publish CLI
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        type: boolean
+        description: "Publish release to GitHub and Homebrew tap"
+        default: false
+  workflow_call:
+    inputs:
+      publish:
+        type: boolean
+        description: "Publish release to GitHub and Homebrew tap"
+        default: false
+
+jobs:
+  build:
+    name: Build - ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            archive: topk-x86_64-unknown-linux-gnu.tar.gz
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-24.04-arm
+            archive: topk-aarch64-unknown-linux-gnu.tar.gz
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            archive: topk-x86_64-apple-darwin.tar.gz
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            archive: topk-aarch64-apple-darwin.tar.gz
+          - target: x86_64-pc-windows-msvc
+            os: windows-2022
+            archive: topk-x86_64-pc-windows-msvc.zip
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install protoc (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Install protoc (macOS)
+        if: runner.os == 'macOS'
+        run: brew install protobuf
+
+      - name: Install protoc (Windows)
+        if: runner.os == 'Windows'
+        run: choco install protoc
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            topk-cli/target/
+          key: build-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }} -p topk-cli
+        working-directory: ./topk-cli
+
+      - name: Smoke test
+        run: ./target/${{ matrix.target }}/release/topk --version
+        working-directory: ./topk-cli
+
+      - name: Package (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cd target/${{ matrix.target }}/release
+          tar czf ../../../${{ matrix.archive }} topk
+        working-directory: ./topk-cli
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cd target/${{ matrix.target }}/release
+          7z a ../../../${{ matrix.archive }} topk.exe
+        working-directory: ./topk-cli
+        shell: bash
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.archive }}
+          path: ./topk-cli/${{ matrix.archive }}
+          if-no-files-found: error
+
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    if: ${{ inputs.publish }}
+    needs: [build]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./dist
+          merge-multiple: true
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(cargo metadata --manifest-path topk-cli/Cargo.toml --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "topk") | .version')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: cli-v${{ steps.version.outputs.version }}
+          name: topk CLI v${{ steps.version.outputs.version }}
+          files: ./dist/*
+          generate_release_notes: true
+
+  update-homebrew-tap:
+    name: Update Homebrew tap
+    runs-on: ubuntu-latest
+    if: ${{ inputs.publish }}
+    needs: [publish]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./dist
+          merge-multiple: true
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(cargo metadata --manifest-path topk-cli/Cargo.toml --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "topk") | .version')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Compute SHA256
+        id: sha256
+        run: |
+          echo "aarch64_apple_darwin=$(sha256sum dist/topk-aarch64-apple-darwin.tar.gz | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          echo "x86_64_apple_darwin=$(sha256sum dist/topk-x86_64-apple-darwin.tar.gz | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          echo "aarch64_linux=$(sha256sum dist/topk-aarch64-unknown-linux-gnu.tar.gz | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          echo "x86_64_linux=$(sha256sum dist/topk-x86_64-unknown-linux-gnu.tar.gz | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      - name: Generate formula
+        run: |
+          sed \
+            -e 's/__VERSION__/${{ steps.version.outputs.version }}/g' \
+            -e 's/__SHA256_AARCH64_APPLE_DARWIN__/${{ steps.sha256.outputs.aarch64_apple_darwin }}/g' \
+            -e 's/__SHA256_X86_64_APPLE_DARWIN__/${{ steps.sha256.outputs.x86_64_apple_darwin }}/g' \
+            -e 's/__SHA256_AARCH64_LINUX__/${{ steps.sha256.outputs.aarch64_linux }}/g' \
+            -e 's/__SHA256_X86_64_LINUX__/${{ steps.sha256.outputs.x86_64_linux }}/g' \
+            topk-cli/homebrew/topk.rb > topk.rb
+
+      - name: Push formula to tap
+        run: |
+          git clone https://x-access-token:${{ secrets.HOMEBREW_TAP_TOKEN }}@github.com/topk-io/homebrew-topk.git tap
+          cp topk.rb tap/Formula/topk.rb
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/topk.rb
+          git commit -m "topk ${{ steps.version.outputs.version }}"
+          git push

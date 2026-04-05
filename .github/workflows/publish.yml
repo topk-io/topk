@@ -20,6 +20,15 @@ jobs:
       tests: true
     secrets: inherit
 
+  cli:
+    needs: [ci]
+    uses: ./.github/workflows/publish_cli.yml
+    secrets: inherit
+    permissions:
+      contents: write
+    with:
+      publish: ${{ github.event_name == 'push' || inputs.publish }}
+
   python:
     needs: [ci]
     uses: ./.github/workflows/publish_python.yml

@@ -60,6 +60,23 @@ jobs:
         env:
           TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
 
+  cli:
+    name: Test CLI
+    runs-on: public-amd64
+    if: ${{ inputs.tests }}
+    env:
+      FORCE_COLOR: 1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install earthly
+        run: sudo bash -c "curl -L https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -o /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly"
+
+      - name: CLI tests
+        run: earthly --secret TOPK_API_KEY +test-cli --region sunflower --host=topk.dev
+        env:
+          TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
+
   all_sdks_same_version:
     name: Verify all SDKs on the same version
     runs-on: public-amd64

@@ -126,6 +126,40 @@ test-js:
     RUN --no-cache --secret TOPK_API_KEY \
         TOPK_API_KEY=$TOPK_API_KEY yarn test --colors $args
 
+test-cli:
+    FROM rust:slim
+
+    # install dependencies
+    RUN apt-get update && apt-get install -y protobuf-compiler jq
+
+    DO rust+INIT --keep_fingerprints=true
+    WORKDIR /sdk
+
+    # copy source code
+    COPY --keep-ts . .
+
+    WORKDIR /sdk/topk-cli
+
+    ARG EARTHLY_GIT_HASH
+    DO rust+CARGO --args="test -p topk-cli --no-run" # compile tests (warms up registry cache)
+
+    # build the binary as a real layer file so CARGO_BIN_EXE_topk can point to it
+    # (DO rust+CARGO uses cache mounts that don't persist as regular files)
+    RUN --mount=type=cache,target=/root/.cargo/registry \
+        --mount=type=cache,target=/root/.cargo/git \
+        cargo build -p topk-cli
+
+    ARG --required region
+    ARG host
+    DO +SETUP_ENV --region=$region --host=$host
+
+    # test — CARGO_BIN_EXE_topk must be set explicitly since tests live in
+    # #[cfg(test)] modules (not integration tests) and Cargo won't set it automatically
+    ENV FORCE_COLOR=1
+    ENV CARGO_BIN_EXE_topk=/sdk/topk-cli/target/debug/topk
+    RUN --no-cache --secret TOPK_API_KEY \
+        TOPK_API_KEY=$TOPK_API_KEY cargo test -p topk-cli --lib --no-fail-fast
+
 #
 
 test-runner:
@@ -158,7 +192,7 @@ SETUP_ENV:
     FUNCTION
 
     # region
-    ARG --required host
+    ARG host
     ARG --required region
     ENV TOPK_REGION=$region
     ENV TOPK_HOST=$host
