@@ -1,6 +1,5 @@
 include!(concat!(env!("OUT_DIR"), "/topk.control.v1.rs"));
 
-pub mod collection_ext;
 pub mod data_type_ext;
 pub mod datasets_ext;
 pub mod field_index_ext;

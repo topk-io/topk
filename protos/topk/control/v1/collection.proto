@@ -9,4 +9,5 @@ message Collection {
   string project_id = 3;
   map<string, FieldSpec> schema = 4;
   string region = 5;
+  string created_at = 6;
 }
