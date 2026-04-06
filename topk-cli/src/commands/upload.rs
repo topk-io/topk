@@ -188,24 +188,18 @@ fn is_supported(path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use assert_cmd::Command;
-    use uuid::Uuid;
+    use test_context::test_context;
+    use crate::test_context::CliTestContext;
     use super::UploadResult;
 
     fn cmd() -> Command {
         Command::cargo_bin("topk").unwrap()
     }
 
-    fn unique_name() -> String {
-        format!("topk-cli-{}", Uuid::new_v4().simple())
-    }
-
-    fn delete_dataset(name: &str) {
-        cmd().args(["dataset", "delete", "--dataset", name, "-y"]).output().unwrap();
-    }
-
-    #[test]
-    fn upload_single_file() {
-        let dataset = unique_name();
+    #[test_context(CliTestContext)]
+    #[tokio::test]
+    async fn upload_single_file(ctx: &mut CliTestContext) {
+        let dataset = ctx.wrap("test");
 
         let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/pdfko.pdf");
         let out = cmd()
@@ -215,13 +209,12 @@ mod tests {
         let result: UploadResult = serde_json::from_slice(&out.stdout).unwrap();
         assert_eq!(result.total, 1);
         assert_eq!(result.uploaded, 1);
-
-        delete_dataset(&dataset);
     }
 
-    #[test]
-    fn upload_dry_run() {
-        let dataset = unique_name();
+    #[test_context(CliTestContext)]
+    #[tokio::test]
+    async fn upload_dry_run(ctx: &mut CliTestContext) {
+        let dataset = ctx.wrap("test");
 
         let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/pdfko.pdf");
         let out = cmd()
