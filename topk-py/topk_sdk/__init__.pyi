@@ -334,6 +334,7 @@ class Collection:
     project_id: builtins.str
     region: builtins.str
     schema: builtins.dict[builtins.str, schema.FieldSpec]
+    created_at: builtins.str
 
 class Dataset:
     """
@@ -344,6 +345,7 @@ class Dataset:
     org_id: builtins.str
     project_id: builtins.str
     region: builtins.str
+    created_at: builtins.str
 
 class ListEntry:
     """
