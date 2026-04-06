@@ -1,8 +1,6 @@
-use std::collections::HashMap;
 use std::io::{IsTerminal, Write};
 
 use serde::Serialize;
-use serde_json::json;
 use tabled::{builder::Builder, settings::Style};
 use topk_rs::proto::v1::data::{value, Value};
 
@@ -128,31 +126,6 @@ pub fn format_value(v: &Value) -> String {
     }
 }
 
-/// Converts a proto Value map to a serde_json object.
-pub fn metadata_to_json(metadata: &HashMap<String, Value>) -> serde_json::Value {
-    let map: serde_json::Map<String, serde_json::Value> = metadata
-        .iter()
-        .map(|(k, v)| (k.clone(), value_to_json(v)))
-        .collect();
-    serde_json::Value::Object(map)
-}
-
-pub fn value_to_json(v: &Value) -> serde_json::Value {
-    match &v.value {
-        Some(value::Value::String(s)) => json!(s),
-        Some(value::Value::Bool(b)) => json!(b),
-        Some(value::Value::U32(n)) => json!(n),
-        Some(value::Value::U64(n)) => json!(n),
-        Some(value::Value::I32(n)) => json!(n),
-        Some(value::Value::I64(n)) => json!(n),
-        Some(value::Value::F32(n)) => json!(n),
-        Some(value::Value::F64(n)) => json!(n),
-        Some(value::Value::Null(_)) => serde_json::Value::Null,
-        None => serde_json::Value::Null,
-        _ => unreachable!(),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use assert_cmd::Command;
@@ -162,7 +135,7 @@ mod tests {
     }
 
     #[test]
-    fn missing_api_key_error_message() {
+    fn missing_api_key_error() {
         let out = cmd()
             .env_remove("TOPK_API_KEY")
             .env_remove("TOPK_REGION")
@@ -174,7 +147,7 @@ mod tests {
     }
 
     #[test]
-    fn missing_region_error_message() {
+    fn missing_region_error() {
         let out = cmd()
             .env("TOPK_API_KEY", "test-key")
             .env_remove("TOPK_REGION")
