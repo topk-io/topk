@@ -230,7 +230,7 @@ mod tests {
     }
 
     #[test]
-    fn delete_aborted_when_not_confirmed() {
+    fn delete_aborted() {
         let dataset = create_dataset();
 
         let out = cmd()
