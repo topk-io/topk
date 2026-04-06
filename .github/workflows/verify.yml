@@ -1,0 +1,25 @@
+name: E2E Verification
+
+on:
+  pull_request:
+    types: [synchronize, opened, reopened, labeled]
+
+jobs:
+  dispatch:
+    name: Trigger E2E
+    if: contains(github.event.pull_request.labels.*.name, 'ready')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.DDB_DISPATCH_TOKEN }}
+          script: |
+            await github.rest.repos.createDispatchEvent({
+              owner: 'topk-io',
+              repo: 'ddb',
+              event_type: 'sdk-verify',
+              client_payload: {
+                sha: context.payload.pull_request.head.sha,
+                pr: context.payload.pull_request.number,
+              }
+            });
