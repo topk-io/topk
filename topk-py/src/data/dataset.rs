@@ -11,20 +11,12 @@ pub struct Dataset {
     project_id: String,
     #[pyo3(get)]
     region: String,
+    #[pyo3(get)]
+    created_at: String,
 }
 
 #[pymethods]
 impl Dataset {
-    #[new]
-    pub fn new(name: String, org_id: String, project_id: String, region: String) -> Self {
-        Self {
-            name,
-            org_id,
-            project_id,
-            region,
-        }
-    }
-
     pub fn __repr__(&self) -> String {
         format!("{:?}", self)
     }
@@ -41,6 +33,7 @@ impl From<topk_rs::proto::v1::control::Dataset> for Dataset {
             org_id: dataset.org_id,
             project_id: dataset.project_id,
             region: dataset.region,
+            created_at: dataset.created_at,
         }
     }
 }

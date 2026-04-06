@@ -16,27 +16,12 @@ pub struct Collection {
     region: String,
     #[pyo3(get)]
     schema: HashMap<String, FieldSpec>,
+    #[pyo3(get)]
+    created_at: String,
 }
 
 #[pymethods]
 impl Collection {
-    #[new]
-    pub fn new(
-        name: String,
-        org_id: String,
-        project_id: String,
-        region: String,
-        schema: HashMap<String, FieldSpec>,
-    ) -> Self {
-        Self {
-            name,
-            org_id,
-            project_id,
-            region,
-            schema,
-        }
-    }
-
     pub fn __repr__(&self) -> String {
         format!("{:?}", self)
     }
@@ -54,13 +39,14 @@ impl Into<topk_rs::proto::v1::control::Collection> for Collection {
             .map(|(name, field)| (name, field.into()))
             .collect::<HashMap<String, FieldSpecPb>>();
 
-        topk_rs::proto::v1::control::Collection::new(
-            self.name,
-            self.org_id.to_string(),
-            self.project_id.to_string(),
+        topk_rs::proto::v1::control::Collection {
+            name: self.name,
+            org_id: self.org_id.to_string(),
+            project_id: self.project_id.to_string(),
             schema,
-            self.region.to_string(),
-        )
+            region: self.region.to_string(),
+            created_at: self.created_at.to_string(),
+        }
     }
 }
 
@@ -76,6 +62,7 @@ impl From<topk_rs::proto::v1::control::Collection> for Collection {
                 .into_iter()
                 .map(|(name, field)| (name, field.into()))
                 .collect(),
+            created_at: collection.created_at,
         }
     }
 }
