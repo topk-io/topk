@@ -46,29 +46,19 @@ pub async fn run(
 #[cfg(test)]
 mod tests {
     use assert_cmd::Command;
-    use uuid::Uuid;
+    use test_context::test_context;
+    use crate::test_context::CliTestContext;
     use super::UpsertResult;
 
     fn cmd() -> Command {
         Command::cargo_bin("topk").unwrap()
     }
 
-    fn unique_name() -> String {
-        format!("topk-cli-{}", Uuid::new_v4().simple())
-    }
-
-    fn create_dataset(name: &str) {
-        cmd().args(["dataset", "create", "--dataset", name]).output().unwrap();
-    }
-
-    fn delete_dataset(name: &str) {
-        cmd().args(["dataset", "delete", "--dataset", name, "-y"]).output().unwrap();
-    }
-
-    #[test]
-    fn upsert_pdf() {
-        let dataset = unique_name();
-        create_dataset(&dataset);
+    #[test_context(CliTestContext)]
+    #[tokio::test]
+    async fn upsert_pdf(ctx: &mut CliTestContext) {
+        let dataset = ctx.wrap("test");
+        cmd().args(["dataset", "create", "--dataset", &dataset]).output().unwrap();
 
         let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/pdfko.pdf");
         let out = cmd()
@@ -77,14 +67,13 @@ mod tests {
         assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
         let result: UpsertResult = serde_json::from_slice(&out.stdout).unwrap();
         assert!(!result.handle.is_empty());
-
-        delete_dataset(&dataset);
     }
 
-    #[test]
-    fn upsert_markdown() {
-        let dataset = unique_name();
-        create_dataset(&dataset);
+    #[test_context(CliTestContext)]
+    #[tokio::test]
+    async fn upsert_markdown(ctx: &mut CliTestContext) {
+        let dataset = ctx.wrap("test");
+        cmd().args(["dataset", "create", "--dataset", &dataset]).output().unwrap();
 
         let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/markdown.md");
         let out = cmd()
@@ -93,7 +82,5 @@ mod tests {
         assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
         let result: UpsertResult = serde_json::from_slice(&out.stdout).unwrap();
         assert!(!result.handle.is_empty());
-
-        delete_dataset(&dataset);
     }
 }

@@ -12,15 +12,10 @@ use topk::util::parse_kv;
 use commands::{ask, dataset, delete, search, upload, upsert};
 
 #[derive(Parser)]
-#[command(
-    name = "topk",
-    about = "Ingest files into datasets, then search or ask questions with cited answers sourced from your content.",
-    version,
-    arg_required_else_help = true
-)]
+#[command(name = "topk", version)]
 struct Cli {
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
 
     /// API key (overrides TOPK_API_KEY)
     #[arg(long, env = "TOPK_API_KEY", global = true, hide_env_values = true, hide = true)]
@@ -156,6 +151,13 @@ async fn main() -> std::process::ExitCode {
 
     let output = Output::new(cli.agent, cli.output, cli.pretty);
 
+    if cli.command.is_none() {
+        print_welcome();
+        Cli::command().print_help().unwrap();
+        println!();
+        return std::process::ExitCode::SUCCESS;
+    }
+
     if let Err(e) = run(cli, &output).await {
         output.error(&e);
         return std::process::ExitCode::FAILURE;
@@ -167,7 +169,7 @@ async fn main() -> std::process::ExitCode {
 async fn run(cli: Cli, output: &Output) -> Result<()> {
     let client = make_client(cli.api_key, cli.region, cli.host)?;
 
-    match cli.command {
+    match cli.command.expect("checked above") {
         Commands::Dataset { action } => match action {
             dataset::DatasetAction::List => {
                 output.print(&dataset::list(&client).await?)?;
@@ -242,6 +244,37 @@ fn resolve_query(query: Option<String>) -> Result<Option<String>> {
     std::io::stdin().read_to_string(&mut buf)?;
     let q = buf.trim().to_string();
     if q.is_empty() { Ok(None) } else { Ok(Some(q)) }
+}
+
+fn print_welcome() {
+    const BOLD: &str = "\x1b[1m";
+    const CYAN: &str = "\x1b[36m";
+    const GREEN: &str = "\x1b[32m";
+    const ORANGE: &str = "\x1b[33m";
+    const RED: &str = "\x1b[31m";
+    const DIM: &str = "\x1b[2m";
+    const RESET: &str = "\x1b[0m";
+
+    println!();
+    println!("{}Welcome to TopK{}", BOLD, RESET);
+    println!("{}Ingest files into datasets, then search or ask questions with cited answers sourced from your content.{}", DIM, RESET);
+    println!();
+
+    let api_key = std::env::var("TOPK_API_KEY").ok().filter(|v| !v.is_empty());
+    let region = std::env::var("TOPK_REGION").ok().filter(|v| !v.is_empty());
+
+    let api_key_status = match &api_key {
+        Some(_) => format!("{GREEN}✓{RESET}"),
+        None => format!("{RED}✗{RESET} {DIM}set via env or --api-key{RESET}"),
+    };
+    let region_status = match &region {
+        Some(r) => format!("{ORANGE}{r}{RESET}"),
+        None => format!("{RED}✗{RESET} {DIM}set via env or --region{RESET}"),
+    };
+
+    println!("{CYAN}TOPK_API_KEY{RESET}  {api_key_status}");
+    println!("{CYAN}TOPK_REGION{RESET}   {region_status}");
+    println!();
 }
 
 fn make_client(api_key: Option<String>, region: Option<String>, host: Option<String>) -> Result<Client> {

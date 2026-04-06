@@ -36,7 +36,7 @@ pub enum DatasetAction {
 
 #[derive(Serialize, serde::Deserialize)]
 pub struct Dataset {
-    name: String,
+    pub(crate) name: String,
 }
 
 impl From<topk_rs::proto::v1::control::Dataset> for Dataset {
@@ -49,7 +49,7 @@ impl From<topk_rs::proto::v1::control::Dataset> for Dataset {
 
 #[derive(Serialize, serde::Deserialize)]
 pub struct ListDatasetsResult {
-    datasets: Vec<Dataset>,
+    pub(crate) datasets: Vec<Dataset>,
 }
 
 impl From<Response<ListDatasetsResponse>> for ListDatasetsResult {
@@ -73,7 +73,7 @@ impl RenderForHuman for ListDatasetsResult {
 
 #[derive(Serialize, serde::Deserialize)]
 pub struct GetDatasetResult {
-    dataset: Dataset,
+    pub(crate) dataset: Dataset,
 }
 
 impl TryFrom<Response<GetDatasetResponse>> for GetDatasetResult {
@@ -96,7 +96,7 @@ impl RenderForHuman for GetDatasetResult {
 
 #[derive(Serialize, serde::Deserialize)]
 pub struct CreateDatasetResult {
-    dataset: Dataset,
+    pub(crate) dataset: Dataset,
 }
 
 impl TryFrom<Response<CreateDatasetResponse>> for CreateDatasetResult {
@@ -116,8 +116,8 @@ impl RenderForHuman for CreateDatasetResult {
 
 #[derive(Serialize, serde::Deserialize)]
 pub struct DeleteDatasetResult {
-    deleted: bool,
-    skipped: Option<bool>,
+    pub(crate) deleted: bool,
+    pub(crate) skipped: Option<bool>,
 }
 
 impl RenderForHuman for DeleteDatasetResult {
@@ -155,92 +155,87 @@ pub async fn delete(client: &Client, name: &str, yes: bool) -> Result<DeleteData
 #[cfg(test)]
 mod tests {
     use assert_cmd::Command;
-    use uuid::Uuid;
-    use super::{CreateDatasetResult, ListDatasetsResult};
+    use test_context::test_context;
+    use crate::test_context::CliTestContext;
+    use super::{CreateDatasetResult, DeleteDatasetResult, GetDatasetResult, ListDatasetsResult};
 
     fn cmd() -> Command {
         Command::cargo_bin("topk").unwrap()
     }
 
-    fn unique_name() -> String {
-        format!("topk-cli-{}", Uuid::new_v4().simple())
+    #[test_context(CliTestContext)]
+    #[tokio::test]
+    async fn list(ctx: &mut CliTestContext) {
+        let name = ctx.wrap("test");
+        cmd()
+            .args(["dataset", "create", "--dataset", &name])
+            .output().unwrap();
+
+        let out = cmd().args(["--json", "dataset", "list"]).output().unwrap();
+        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        let result: ListDatasetsResult = serde_json::from_slice(&out.stdout).unwrap();
+        let names: Vec<&str> = result.datasets.iter().map(|d| d.name.as_str()).collect();
+        assert!(names.contains(&name.as_str()), "created dataset not in list: {:?}", names);
     }
 
-    fn create_dataset() -> CreateDatasetResult {
-        let name = unique_name();
+    #[test_context(CliTestContext)]
+    #[tokio::test]
+    async fn create(ctx: &mut CliTestContext) {
+        let name = ctx.wrap("test");
         let out = cmd()
             .args(["--json", "dataset", "create", "--dataset", &name])
             .output().unwrap();
         assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
-        serde_json::from_slice(&out.stdout).unwrap()
+        let result: CreateDatasetResult = serde_json::from_slice(&out.stdout).unwrap();
+        assert_eq!(result.dataset.name, name);
     }
 
-    fn list_datasets() -> ListDatasetsResult {
-        let out = cmd().args(["--json", "dataset", "list"]).output().unwrap();
-        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
-        serde_json::from_slice(&out.stdout).unwrap()
-    }
-
-    fn delete_dataset(name: &str) {
-        cmd().args(["dataset", "delete", "--dataset", name, "-y"]).output().unwrap();
-    }
-
-    #[test]
-    fn list() {
-        let dataset = create_dataset();
-
-        let result = list_datasets();
-        let names: Vec<&str> = result.datasets.iter().map(|d| d.name.as_str()).collect();
-        assert!(names.contains(&dataset.dataset.name.as_str()), "created dataset not in list: {:?}", names);
-
-        delete_dataset(&dataset.dataset.name);
-    }
-
-    #[test]
-    fn create() {
-        let dataset = create_dataset();
-        assert!(!dataset.dataset.name.is_empty());
-        delete_dataset(&dataset.dataset.name);
-    }
-
-    #[test]
-    fn get() {
-        let dataset = create_dataset();
+    #[test_context(CliTestContext)]
+    #[tokio::test]
+    async fn get(ctx: &mut CliTestContext) {
+        let name = ctx.wrap("test");
+        cmd()
+            .args(["dataset", "create", "--dataset", &name])
+            .output().unwrap();
 
         let out = cmd()
-            .args(["--json", "dataset", "get", "--dataset", &dataset.dataset.name])
+            .args(["--json", "dataset", "get", "--dataset", &name])
             .output().unwrap();
         assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
-        let parsed: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-        assert_eq!(parsed["dataset"]["name"].as_str().unwrap(), dataset.dataset.name);
-
-        delete_dataset(&dataset.dataset.name);
+        let result: GetDatasetResult = serde_json::from_slice(&out.stdout).unwrap();
+        assert_eq!(result.dataset.name, name);
     }
 
-    #[test]
-    fn delete() {
-        let dataset = create_dataset();
+    #[test_context(CliTestContext)]
+    #[tokio::test]
+    async fn delete(ctx: &mut CliTestContext) {
+        let name = ctx.wrap("test");
+        cmd()
+            .args(["dataset", "create", "--dataset", &name])
+            .output().unwrap();
 
         let out = cmd()
-            .args(["--json", "dataset", "delete", "--dataset", &dataset.dataset.name, "-y"])
+            .args(["--json", "dataset", "delete", "--dataset", &name, "-y"])
             .output().unwrap();
         assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
-        let parsed: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-        assert_eq!(parsed["deleted"].as_bool().unwrap(), true);
+        let result: DeleteDatasetResult = serde_json::from_slice(&out.stdout).unwrap();
+        assert!(result.deleted);
     }
 
-    #[test]
-    fn delete_aborted() {
-        let dataset = create_dataset();
+    #[test_context(CliTestContext)]
+    #[tokio::test]
+    async fn delete_aborted(ctx: &mut CliTestContext) {
+        let name = ctx.wrap("test");
+        cmd()
+            .args(["dataset", "create", "--dataset", &name])
+            .output().unwrap();
 
         let out = cmd()
-            .args(["--json", "dataset", "delete", "--dataset", &dataset.dataset.name])
+            .args(["--json", "dataset", "delete", "--dataset", &name])
             .write_stdin("wrong-name\n")
             .output().unwrap();
         assert!(out.status.success());
-        let parsed: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-        assert_eq!(parsed["skipped"].as_bool().unwrap(), true);
-
-        delete_dataset(&dataset.dataset.name);
+        let result: DeleteDatasetResult = serde_json::from_slice(&out.stdout).unwrap();
+        assert_eq!(result.skipped, Some(true));
     }
 }
