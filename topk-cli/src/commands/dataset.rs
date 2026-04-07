@@ -38,17 +38,15 @@ pub enum DatasetAction {
 #[derive(Serialize, serde::Deserialize)]
 pub struct Dataset {
     pub(crate) name: String,
-    pub(crate) created_at: DateTime<Utc>,
+    /// RFC3339 formatted timestamp
+    pub(crate) created_at: String,
 }
 
 impl From<topk_rs::proto::v1::control::Dataset> for Dataset {
     fn from(dataset: topk_rs::proto::v1::control::Dataset) -> Self {
         Self {
             name: dataset.name,
-            created_at: dataset
-                .created_at
-                .parse()
-                .expect("dataset.created_at must be a valid UTC timestamp"),
+            created_at: dataset.created_at,
         }
     }
 }
@@ -84,6 +82,8 @@ impl RenderForHuman for ListDatasetsResult {
                         vec![
                             d.name.clone(),
                             d.created_at
+                                .parse::<DateTime<Utc>>()
+                                .unwrap_or_default()
                                 .with_timezone(&Local)
                                 .format("%b %-d, %Y %-H:%M")
                                 .to_string(),
@@ -163,7 +163,12 @@ pub async fn create(client: &Client, name: &str) -> Result<CreateDatasetResult, 
     client.datasets().create(name).await?.try_into()
 }
 
-pub async fn delete(client: &Client, name: &str, yes: bool, output: &Output) -> Result<DeleteDatasetResult, Error> {
+pub async fn delete(
+    client: &Client,
+    name: &str,
+    yes: bool,
+    output: &Output,
+) -> Result<DeleteDatasetResult, Error> {
     if !yes && !output.confirm(&format!("Delete dataset '{}'? [y/N] ", name))? {
         return Ok(DeleteDatasetResult {
             deleted: false,
