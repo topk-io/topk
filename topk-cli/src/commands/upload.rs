@@ -17,6 +17,10 @@ const SUPPORTED_EXTENSIONS: &[&str] = &["pdf", "md", "mdx", "jpeg", "jpg", "png"
 const GREEN: &str = "\x1b[32m";
 const RESET: &str = "\x1b[0m";
 
+fn should_confirm_upload(is_interactive: bool, yes: bool) -> bool {
+    is_interactive && !yes
+}
+
 struct UploadFile {
     path: PathBuf,
     doc_id: String,
@@ -148,7 +152,7 @@ pub async fn run(
         eprintln!("{GREEN}✓{RESET} Dataset '{}' created.", dataset);
     }
 
-    if is_interactive
+    if should_confirm_upload(is_interactive, yes)
         && !confirm(&format!(
             "Upload {} files ({}) to dataset '{}'? [y/N] ",
             total,
@@ -352,8 +356,7 @@ mod tests {
             .output().unwrap();
         assert!(!out.status.success());
         let stderr = String::from_utf8_lossy(&out.stderr);
-        assert!(stderr.contains("dataset"), "{stderr}");
-        assert!(stderr.contains("does not exist"), "{stderr}");
+        assert!(stderr.contains(&format!("Dataset '{}' does not exist.", dataset)), "{stderr}");
     }
 
     #[test_context(CliTestContext)]
