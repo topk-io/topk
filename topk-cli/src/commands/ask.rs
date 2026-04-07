@@ -151,7 +151,7 @@ pub async fn run(
             Some(ask_result::Message::Search(s)) => {
                 spinner.println(format!("[searching] {}", s.objective));
                 for fact in &s.facts {
-                    spinner.println(format!("  - {}", fact.fact));
+                    spinner.println(format!(" - {}", fact.fact));
                 }
             }
             Some(ask_result::Message::Answer(a)) => {
