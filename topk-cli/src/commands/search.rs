@@ -35,6 +35,7 @@ impl RenderForHuman for SearchResults {
     }
 }
 
+/// `topk search`
 pub async fn run(
     client: &Client,
     query: String,

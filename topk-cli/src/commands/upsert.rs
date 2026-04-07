@@ -28,6 +28,7 @@ impl RenderForHuman for UpsertResult {
     }
 }
 
+/// `topk upsert`
 pub async fn run(
     client: &Client,
     dataset: &str,
