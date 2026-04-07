@@ -57,7 +57,7 @@ enum Commands {
         sources: Vec<String>,
         /// Response mode
         #[arg(long, default_value = "auto")]
-        mode: ask::AskMode,
+        mode: ask::Mode,
         /// Metadata fields to include in results
         #[arg(long = "field", value_delimiter = ',')]
         fields: Option<Vec<String>>,

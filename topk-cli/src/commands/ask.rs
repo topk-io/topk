@@ -5,7 +5,7 @@ use tokio_stream::StreamExt;
 use topk_rs::{
     proto::v1::ctx::{
         ask_result::{self, Answer},
-        Fact, Mode, SearchResult,
+        Fact, SearchResult,
     },
     Client, Error,
 };
@@ -15,28 +15,28 @@ use super::search::format_content_text;
 use crate::output::{Output, RenderForHuman, BLUE, BOLD, DIM, RESET};
 
 #[derive(Debug, Clone, clap::ValueEnum)]
-pub enum AskMode {
+pub enum Mode {
     Auto,
     Summarize,
     Reason,
     DeepResearch,
 }
 
-impl From<AskMode> for Mode {
-    fn from(m: AskMode) -> Self {
+impl From<Mode> for topk_rs::proto::v1::ctx::Mode {
+    fn from(m: Mode) -> Self {
         match m {
-            AskMode::Auto => Mode::Auto,
-            AskMode::Summarize => Mode::Summarize,
-            AskMode::Reason => Mode::Reason,
-            AskMode::DeepResearch => Mode::DeepResearch,
+            Mode::Auto => topk_rs::proto::v1::ctx::Mode::Auto,
+            Mode::Summarize => topk_rs::proto::v1::ctx::Mode::Summarize,
+            Mode::Reason => topk_rs::proto::v1::ctx::Mode::Reason,
+            Mode::DeepResearch => topk_rs::proto::v1::ctx::Mode::DeepResearch,
         }
     }
 }
 
 #[derive(Serialize)]
 pub struct AskResult {
-    facts: Vec<Fact>,
-    refs: HashMap<String, SearchResult>,
+    pub(crate) facts: Vec<Fact>,
+    pub(crate) refs: HashMap<String, SearchResult>,
 }
 
 impl From<Answer> for AskResult {
@@ -59,7 +59,12 @@ impl RenderForHuman for AskResult {
             for fact in &self.facts {
                 out.push_str(fact.fact.trim());
                 if !fact.ref_ids.is_empty() {
-                    let refs_inline = fact.ref_ids.iter().map(|id| format!("[{}]", id)).collect::<Vec<_>>().join(", ");
+                    let refs_inline = fact
+                        .ref_ids
+                        .iter()
+                        .map(|id| format!("[{}]", id))
+                        .collect::<Vec<_>>()
+                        .join(", ");
                     out.push_str(&format!(" {}{}{}", BLUE, refs_inline, RESET));
                 }
                 out.push('\n');
@@ -78,9 +83,15 @@ impl RenderForHuman for AskResult {
                 out.push('\n');
                 out.push_str(&format!(
                     "{}[{}]{} {}\n       {}{} · {} · {}{}",
-                    BLUE, id, RESET,
+                    BLUE,
+                    id,
+                    RESET,
                     format_content_text(r.content.as_ref()),
-                    DIM, r.dataset, r.doc_id, r.doc_type, RESET,
+                    DIM,
+                    r.dataset,
+                    r.doc_id,
+                    r.doc_type,
+                    RESET,
                 ));
                 out.push('\n');
             }
@@ -102,7 +113,7 @@ pub async fn run(
     let spinner = output.spinner("Asking...");
 
     let mut stream = client
-        .ask(query, sources, None, mode, fields)
+        .ask(query, sources, None, mode.map(|m| m.into()), fields)
         .await?
         .into_inner();
 
