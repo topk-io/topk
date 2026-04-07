@@ -1,7 +1,6 @@
 use std::io::{IsTerminal, Write};
 
 use serde::Serialize;
-use topk_rs::proto::v1::data::{value, Value};
 
 use crate::util::Spinner;
 
@@ -138,23 +137,6 @@ pub fn table(headers: Vec<&str>, rows: Vec<Vec<String>>) -> String {
     }
 
     out.trim_end_matches('\n').to_string()
-}
-
-/// Formats a proto Value as a compact string for table display.
-pub fn format_value(v: &Value) -> String {
-    match &v.value {
-        Some(value::Value::String(s)) => s.clone(),
-        Some(value::Value::Bool(b)) => b.to_string(),
-        Some(value::Value::U32(n)) => n.to_string(),
-        Some(value::Value::U64(n)) => n.to_string(),
-        Some(value::Value::I32(n)) => n.to_string(),
-        Some(value::Value::I64(n)) => n.to_string(),
-        Some(value::Value::F32(n)) => format!("{:.4}", n),
-        Some(value::Value::F64(n)) => format!("{:.4}", n),
-        Some(value::Value::Null(_)) => "null".into(),
-        None => "".into(),
-        _ => unreachable!("unsupported value type: {:?}", v.value),
-    }
 }
 
 #[cfg(test)]
