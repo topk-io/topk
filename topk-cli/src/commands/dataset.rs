@@ -16,19 +16,19 @@ pub enum DatasetAction {
     /// Get a dataset
     Get {
         /// Dataset name
-        #[arg(long, value_name = "DATASET_NAME")]
+        #[arg(short = 'd', long, value_name = "DATASET_NAME")]
         dataset: String,
     },
     /// Create a dataset
     Create {
         /// Dataset name
-        #[arg(long, value_name = "DATASET_NAME")]
+        #[arg(short = 'd', long, value_name = "DATASET_NAME")]
         dataset: String,
     },
     /// Delete a dataset
     Delete {
         /// Dataset name
-        #[arg(long, value_name = "DATASET_NAME")]
+        #[arg(short = 'd', long, value_name = "DATASET_NAME")]
         dataset: String,
         /// Skip confirmation prompt
         #[arg(short = 'y')]

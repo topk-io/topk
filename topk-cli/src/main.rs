@@ -84,7 +84,7 @@ enum Commands {
         #[arg(value_name = "PATHS", value_delimiter = ',')]
         paths: Vec<std::path::PathBuf>,
         /// Dataset to upload into
-        #[arg(long, value_name = "DATASET_NAME")]
+        #[arg(short = 'd', long, value_name = "DATASET_NAME")]
         dataset: String,
         /// Scan directory recursively
         #[arg(short = 'r')]
@@ -106,7 +106,7 @@ enum Commands {
     /// Upsert a document
     Upsert {
         /// Dataset name
-        #[arg(long, value_name = "DATASET_NAME")]
+        #[arg(short = 'd', long, value_name = "DATASET_NAME")]
         dataset: String,
         /// Document ID
         #[arg(long)]
@@ -127,7 +127,7 @@ enum Commands {
     /// Delete a document
     Delete {
         /// Dataset name
-        #[arg(long, value_name = "DATASET_NAME")]
+        #[arg(short = 'd', long, value_name = "DATASET_NAME")]
         dataset: String,
         /// Document ID
         #[arg(long)]
