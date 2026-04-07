@@ -45,7 +45,7 @@ pub mod test_context {
             let host = std::env::var("TOPK_HOST").expect("TOPK_HOST not set");
             let region = std::env::var("TOPK_REGION").expect("TOPK_REGION not set");
             let api_key = std::env::var("TOPK_API_KEY").expect("TOPK_API_KEY not set");
-            let https = std::env::var("TOPK_HTTPS").expect("TOPK_HTTPS not set") == "true";
+            let https = std::env::var("TOPK_HTTPS").unwrap_or_else(|_| "true".to_string()) == "true";
 
             let client = Client::new(
                 ClientConfig::new(api_key, region)
