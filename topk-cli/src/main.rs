@@ -184,7 +184,7 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
                 output.print(&dataset::create(&client, &name).await?)?;
             }
             dataset::DatasetAction::Delete { dataset: name, yes } => {
-                output.print(&dataset::delete(&client, &name, yes).await?)?;
+                output.print(&dataset::delete(&client, &name, yes, &output).await?)?;
             }
         },
 
@@ -216,7 +216,7 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
         }
 
         Commands::Delete { dataset, document_id, yes } => {
-            output.print(&delete::run(&client, &dataset, document_id, yes).await?)?;
+            output.print(&delete::run(&client, &dataset, document_id, yes, &output).await?)?;
         }
 
         Commands::Ask { query, sources, mode: cmd_mode, fields } => {
