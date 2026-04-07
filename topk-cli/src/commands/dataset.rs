@@ -1,8 +1,9 @@
 use chrono::{DateTime, Local, Utc};
 use serde::Serialize;
 use topk_rs::{
-    Client, Error, client::Response,
+    client::Response,
     proto::v1::control::{CreateDatasetResponse, GetDatasetResponse, ListDatasetsResponse},
+    Client, Error,
 };
 
 use crate::output::{table, RenderForHuman};
@@ -60,7 +61,14 @@ pub struct ListDatasetsResult {
 
 impl From<Response<ListDatasetsResponse>> for ListDatasetsResult {
     fn from(resp: Response<ListDatasetsResponse>) -> Self {
-        Self { datasets: resp.into_inner().datasets.into_iter().map(|d| d.into()).collect() }
+        Self {
+            datasets: resp
+                .into_inner()
+                .datasets
+                .into_iter()
+                .map(|d| d.into())
+                .collect(),
+        }
     }
 }
 
@@ -104,10 +112,7 @@ impl TryFrom<Response<GetDatasetResponse>> for GetDatasetResult {
 
 impl RenderForHuman for GetDatasetResult {
     fn render(&self) -> String {
-        table(
-            vec!["Name"],
-            vec![vec![self.dataset.name.clone()]],
-        )
+        table(vec!["Name"], vec![vec![self.dataset.name.clone()]])
     }
 }
 
@@ -161,19 +166,25 @@ pub async fn create(client: &Client, name: &str) -> Result<CreateDatasetResult, 
 
 pub async fn delete(client: &Client, name: &str, yes: bool) -> Result<DeleteDatasetResult, Error> {
     if !yes && !confirm(&format!("Delete dataset '{}'? [y/N] ", name))? {
-        return Ok(DeleteDatasetResult { deleted: false, skipped: Some(true) });
+        return Ok(DeleteDatasetResult {
+            deleted: false,
+            skipped: Some(true),
+        });
     }
 
     let _ = client.datasets().delete(name).await?;
 
-    Ok(DeleteDatasetResult { deleted: true, skipped: None })
+    Ok(DeleteDatasetResult {
+        deleted: true,
+        skipped: None,
+    })
 }
 
 #[cfg(test)]
 mod tests {
-    use assert_cmd::Command;
     use super::{CreateDatasetResult, DeleteDatasetResult, GetDatasetResult, ListDatasetsResult};
     use crate::test_context::CliTestContext;
+    use assert_cmd::Command;
     use test_context::test_context;
 
     fn cmd() -> Command {
@@ -186,13 +197,22 @@ mod tests {
         let name = ctx.wrap("test");
         cmd()
             .args(["dataset", "create", "--dataset", &name])
-            .output().unwrap();
+            .output()
+            .unwrap();
 
         let out = cmd().args(["--json", "dataset", "list"]).output().unwrap();
-        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
         let result: ListDatasetsResult = serde_json::from_slice(&out.stdout).unwrap();
         let names: Vec<&str> = result.datasets.iter().map(|d| d.name.as_str()).collect();
-        assert!(names.contains(&name.as_str()), "created dataset not in list: {:?}", names);
+        assert!(
+            names.contains(&name.as_str()),
+            "created dataset not in list: {:?}",
+            names
+        );
     }
 
     #[test_context(CliTestContext)]
@@ -201,8 +221,13 @@ mod tests {
         let name = ctx.wrap("test");
         let out = cmd()
             .args(["--json", "dataset", "create", "--dataset", &name])
-            .output().unwrap();
-        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
         let result: CreateDatasetResult = serde_json::from_slice(&out.stdout).unwrap();
         assert_eq!(result.dataset.name, name);
     }
@@ -213,12 +238,18 @@ mod tests {
         let name = ctx.wrap("test");
         cmd()
             .args(["dataset", "create", "--dataset", &name])
-            .output().unwrap();
+            .output()
+            .unwrap();
 
         let out = cmd()
             .args(["--json", "dataset", "get", "--dataset", &name])
-            .output().unwrap();
-        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
         let result: GetDatasetResult = serde_json::from_slice(&out.stdout).unwrap();
         assert_eq!(result.dataset.name, name);
     }
@@ -229,12 +260,18 @@ mod tests {
         let name = ctx.wrap("test");
         cmd()
             .args(["dataset", "create", "--dataset", &name])
-            .output().unwrap();
+            .output()
+            .unwrap();
 
         let out = cmd()
             .args(["--json", "dataset", "delete", "--dataset", &name, "-y"])
-            .output().unwrap();
-        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
         let result: DeleteDatasetResult = serde_json::from_slice(&out.stdout).unwrap();
         assert!(result.deleted);
     }
@@ -245,12 +282,14 @@ mod tests {
         let name = ctx.wrap("test");
         cmd()
             .args(["dataset", "create", "--dataset", &name])
-            .output().unwrap();
+            .output()
+            .unwrap();
 
         let out = cmd()
             .args(["--json", "dataset", "delete", "--dataset", &name])
             .write_stdin("wrong-name\n")
-            .output().unwrap();
+            .output()
+            .unwrap();
         assert!(out.status.success());
         let result: DeleteDatasetResult = serde_json::from_slice(&out.stdout).unwrap();
         assert_eq!(result.skipped, Some(true));

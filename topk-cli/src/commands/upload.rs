@@ -1,25 +1,19 @@
 use bytesize::ByteSize;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 
-use sha2::{Digest, Sha256};
 use futures::stream::{self, StreamExt, TryStreamExt};
 use serde::Serialize;
+use sha2::{Digest, Sha256};
+use topk_rs::{proto::v1::ctx::file::InputFile, Client, Error};
 use tracing::info;
 use walkdir::WalkDir;
-use topk_rs::{proto::v1::ctx::file::InputFile, Client, Error};
 
-use crate::output::RenderForHuman;
-use crate::util::{confirm, FileProgress, Spinner};
+use crate::output::{Output, RenderForHuman};
+use crate::util::{FileProgress, Spinner};
 
 const SUPPORTED_EXTENSIONS: &[&str] = &["pdf", "md", "mdx", "jpeg", "jpg", "png"];
-const GREEN: &str = "\x1b[32m";
-const RESET: &str = "\x1b[0m";
-
-fn should_confirm_upload(is_interactive: bool, yes: bool) -> bool {
-    is_interactive && !yes
-}
 
 struct UploadFile {
     path: PathBuf,
@@ -67,7 +61,10 @@ fn doc_id_for(path: &Path) -> String {
     let mut hasher = Sha256::new();
     hasher.update(path.to_string_lossy().as_bytes());
     let hash = format!("{:x}", hasher.finalize());
-    let filename = path.file_name().and_then(|n| n.to_str()).unwrap_or("unknown");
+    let filename = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("unknown");
     format!("{}/{}", hash, filename)
 }
 
@@ -75,18 +72,29 @@ async fn ensure_dataset(
     client: &Client,
     dataset: &str,
     yes: bool,
-    is_interactive: bool,
+    dry_run: bool,
+    output: &Output,
 ) -> Result<bool, Error> {
     match client.datasets().get(dataset).await {
         Ok(_) => Ok(false),
         Err(Error::DatasetNotFound) => {
+            if dry_run {
+                return Err(Error::InvalidArgument(format!(
+                    "Dataset '{}' does not exist.",
+                    dataset
+                )));
+            }
+
             if yes {
                 client.datasets().create(dataset).await?;
                 info!(dataset, "created dataset");
                 return Ok(true);
             }
 
-            if is_interactive && confirm(&format!("Dataset '{}' does not exist. Create it? [y/N] ", dataset))? {
+            if output.confirm(&format!(
+                "Dataset '{}' does not exist. Create it? [y/N] ",
+                dataset
+            ))? {
                 client.datasets().create(dataset).await?;
                 info!(dataset, "created dataset");
                 return Ok(true);
@@ -110,31 +118,13 @@ pub async fn run(
     yes: bool,
     dry_run: bool,
     wait: bool,
-    is_interactive: bool,
+    output: &Output,
 ) -> Result<UploadResult, Error> {
     let files = collect_files(paths, recursive)?;
     let total = files.len();
 
     let total_size: u64 = files.iter().map(|f| f.size).sum();
     info!(files = total, total_size, dataset, concurrency, "uploading");
-
-    if dry_run {
-        match client.datasets().get(dataset).await {
-            Ok(_) => {}
-            Err(Error::DatasetNotFound) => {
-                return Err(Error::InvalidArgument(format!("Dataset '{}' does not exist.", dataset)));
-            }
-            Err(err) => return Err(err),
-        }
-        return Ok(UploadResult {
-            total,
-            total_size,
-            uploaded: 0,
-            processed: false,
-            dry_run: true,
-            skipped: false,
-        });
-    }
 
     if total == 0 {
         return Ok(UploadResult {
@@ -147,13 +137,24 @@ pub async fn run(
         });
     }
 
-    let dataset_created = ensure_dataset(client, dataset, yes, is_interactive).await?;
-    if dataset_created && is_interactive {
-        eprintln!("{GREEN}✓{RESET} Dataset '{}' created.", dataset);
+    let dataset_created = ensure_dataset(client, dataset, yes, dry_run, output).await?;
+    if dataset_created {
+        output.success(&format!("Dataset '{}' created.", dataset));
     }
 
-    if should_confirm_upload(is_interactive, yes)
-        && !confirm(&format!(
+    if dry_run {
+        return Ok(UploadResult {
+            total,
+            total_size,
+            uploaded: 0,
+            processed: false,
+            dry_run: true,
+            skipped: false,
+        });
+    }
+
+    if !yes
+        && !output.confirm(&format!(
             "Upload {} files ({}) to dataset '{}'? [y/N] ",
             total,
             ByteSize(total_size),
@@ -190,12 +191,18 @@ pub async fn run(
 
                 let handle = client
                     .dataset(&dataset)
-                    .upsert_file(file.doc_id.clone(), input, std::iter::empty::<(String, String)>())
+                    .upsert_file(
+                        file.doc_id.clone(),
+                        input,
+                        std::iter::empty::<(String, String)>(),
+                    )
                     .await?
                     .into_inner()
                     .handle;
 
-                if let Some(pb) = &pb_overall { pb.inc(1); }
+                if let Some(pb) = &pb_overall {
+                    pb.inc(1);
+                }
                 Ok::<String, Error>(handle)
             }
         })
@@ -211,7 +218,10 @@ pub async fn run(
         let handle_count = handles.len() as u64;
         let done_count = Arc::new(AtomicU64::new(0));
 
-        let spinner = Spinner::new(format!("Waiting for documents to be processed... 0/{}", handle_count));
+        let spinner = Spinner::new(format!(
+            "Waiting for documents to be processed... 0/{}",
+            handle_count
+        ));
         let pb_waiting = spinner.bar.clone();
 
         let wait_result = stream::iter(handles)
@@ -222,7 +232,10 @@ pub async fn run(
                 let done_count = done_count.clone();
 
                 async move {
-                    client.dataset(&dataset).wait_for_handle(&handle, None).await?;
+                    client
+                        .dataset(&dataset)
+                        .wait_for_handle(&handle, None)
+                        .await?;
                     if let Some(pb) = &pb_waiting {
                         let done = done_count.fetch_add(1, Ordering::Relaxed) + 1;
                         pb.set_message(format!(
@@ -256,12 +269,10 @@ fn collect_files(paths: &[PathBuf], recursive: bool) -> Result<Vec<UploadFile>, 
 
     for path in paths {
         if path.is_file() {
-            if is_supported(path) {
-                let size = std::fs::metadata(path).map_err(Error::IoError)?.len();
-                let path = path.to_path_buf();
-                let doc_id = doc_id_for(&path);
-                files.push(UploadFile { doc_id, path, size });
-            }
+            let size = std::fs::metadata(path).map_err(Error::IoError)?.len();
+            let path = path.to_path_buf();
+            let doc_id = doc_id_for(&path);
+            files.push(UploadFile { doc_id, path, size });
             continue;
         }
 
@@ -303,10 +314,14 @@ fn is_supported(path: &Path) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use assert_cmd::Command;
-    use test_context::test_context;
+    use std::fs;
+
+    use super::{run, UploadResult};
+    use crate::output::{Output, OutputArg};
     use crate::test_context::CliTestContext;
-    use super::UploadResult;
+    use assert_cmd::Command;
+    use tempfile::tempdir;
+    use test_context::test_context;
     use uuid::Uuid;
 
     fn cmd() -> Command {
@@ -321,8 +336,13 @@ mod tests {
         let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/pdfko.pdf");
         let out = cmd()
             .args(["--json", "upload", "-y", file, "--dataset", &dataset])
-            .output().unwrap();
-        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
         let result: UploadResult = serde_json::from_slice(&out.stdout).unwrap();
         assert_eq!(result.total, 1);
         assert_eq!(result.uploaded, 1);
@@ -337,8 +357,13 @@ mod tests {
         let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/pdfko.pdf");
         let out = cmd()
             .args(["--json", "upload", file, "--dataset", &dataset, "--dry-run"])
-            .output().unwrap();
-        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
         let result: UploadResult = serde_json::from_slice(&out.stdout).unwrap();
         assert_eq!(result.total, 1);
         assert_eq!(result.uploaded, 0);
@@ -353,10 +378,14 @@ mod tests {
         let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/pdfko.pdf");
         let out = cmd()
             .args(["--json", "upload", file, "--dataset", &dataset, "--dry-run"])
-            .output().unwrap();
+            .output()
+            .unwrap();
         assert!(!out.status.success());
         let stderr = String::from_utf8_lossy(&out.stderr);
-        assert!(stderr.contains(&format!("Dataset '{}' does not exist.", dataset)), "{stderr}");
+        assert!(
+            stderr.contains(&format!("Dataset '{}' does not exist.", dataset)),
+            "{stderr}"
+        );
     }
 
     #[test_context(CliTestContext)]
@@ -369,10 +398,60 @@ mod tests {
         let md = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/markdown.md");
         let paths = format!("{pdf},{md}");
         let out = cmd()
-            .args(["--json", "upload", &paths, "--dataset", &dataset, "--dry-run"])
-            .output().unwrap();
-        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+            .args([
+                "--json",
+                "upload",
+                &paths,
+                "--dataset",
+                &dataset,
+                "--dry-run",
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
         let result: UploadResult = serde_json::from_slice(&out.stdout).unwrap();
+        assert_eq!(result.total, 2);
+        assert_eq!(result.uploaded, 0);
+        assert!(result.dry_run);
+    }
+
+    #[test_context(CliTestContext)]
+    #[tokio::test]
+    async fn upload_accepts_explicit_files_and_filters_directory_contents(
+        ctx: &mut CliTestContext,
+    ) {
+        let dataset = ctx.wrap("test");
+        ctx.client.datasets().create(&dataset).await.unwrap();
+
+        let dir = tempdir().unwrap();
+        let explicit_txt = dir.path().join("test.txt");
+        let nested_dir = dir.path().join("nested");
+        let supported_md = nested_dir.join("doc.md");
+        let unsupported_txt = nested_dir.join("skip.txt");
+
+        fs::create_dir(&nested_dir).unwrap();
+        fs::write(&explicit_txt, "hello").unwrap();
+        fs::write(&supported_md, "# hi").unwrap();
+        fs::write(&unsupported_txt, "skip").unwrap();
+
+        let output = Output::new(true, OutputArg::Agent, false);
+        let result = run(
+            &ctx.client,
+            &dataset,
+            &[explicit_txt, nested_dir],
+            false,
+            4,
+            false,
+            true,
+            false,
+            &output,
+        )
+        .await
+        .unwrap();
         assert_eq!(result.total, 2);
         assert_eq!(result.uploaded, 0);
         assert!(result.dry_run);
@@ -386,7 +465,8 @@ mod tests {
         let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/pdfko.pdf");
         let out = cmd()
             .args(["--json", "upload", file, "--dataset", &dataset])
-            .output().unwrap();
+            .output()
+            .unwrap();
         assert!(!out.status.success());
         let stderr = String::from_utf8_lossy(&out.stderr);
         assert!(stderr.contains("create it first or pass -y"), "{stderr}");

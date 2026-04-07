@@ -3,8 +3,11 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 use topk_rs::{
+    proto::v1::{
+        ctx::{doc::DocId, file::InputFile},
+        data::Value,
+    },
     Client, Error,
-    proto::v1::{ctx::{doc::DocId, file::InputFile}, data::Value},
 };
 
 use crate::output::RenderForHuman;
@@ -38,17 +41,23 @@ pub async fn run(
         .map(|(k, v)| (k, Value::string(v)))
         .collect();
 
-    let result = client.dataset(dataset).upsert_file(doc_id, input, meta).await?;
+    let result = client
+        .dataset(dataset)
+        .upsert_file(doc_id, input, meta)
+        .await?;
 
-    Ok(UpsertResult { handle: result.into_inner().handle, processed: false })
+    Ok(UpsertResult {
+        handle: result.into_inner().handle,
+        processed: false,
+    })
 }
 
 #[cfg(test)]
 mod tests {
+    use super::UpsertResult;
+    use crate::test_context::CliTestContext;
     use assert_cmd::Command;
     use test_context::test_context;
-    use crate::test_context::CliTestContext;
-    use super::UpsertResult;
 
     fn cmd() -> Command {
         Command::cargo_bin("topk").unwrap()
@@ -58,13 +67,29 @@ mod tests {
     #[tokio::test]
     async fn upsert_pdf(ctx: &mut CliTestContext) {
         let dataset = ctx.wrap("test");
-        cmd().args(["dataset", "create", "--dataset", &dataset]).output().unwrap();
+        cmd()
+            .args(["dataset", "create", "--dataset", &dataset])
+            .output()
+            .unwrap();
 
         let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/pdfko.pdf");
         let out = cmd()
-            .args(["--json", "upsert", "--dataset", &dataset, "--document-id", "test-doc", file])
-            .output().unwrap();
-        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+            .args([
+                "--json",
+                "upsert",
+                "--dataset",
+                &dataset,
+                "--document-id",
+                "test-doc",
+                file,
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
         let result: UpsertResult = serde_json::from_slice(&out.stdout).unwrap();
         assert!(!result.handle.is_empty());
     }
@@ -73,13 +98,29 @@ mod tests {
     #[tokio::test]
     async fn upsert_markdown(ctx: &mut CliTestContext) {
         let dataset = ctx.wrap("test");
-        cmd().args(["dataset", "create", "--dataset", &dataset]).output().unwrap();
+        cmd()
+            .args(["dataset", "create", "--dataset", &dataset])
+            .output()
+            .unwrap();
 
         let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/markdown.md");
         let out = cmd()
-            .args(["--json", "upsert", "--dataset", &dataset, "--document-id", "test-doc", file])
-            .output().unwrap();
-        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+            .args([
+                "--json",
+                "upsert",
+                "--dataset",
+                &dataset,
+                "--document-id",
+                "test-doc",
+                file,
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
         let result: UpsertResult = serde_json::from_slice(&out.stdout).unwrap();
         assert!(!result.handle.is_empty());
     }
