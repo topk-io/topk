@@ -29,11 +29,11 @@ struct Cli {
     #[arg(long, env = "TOPK_HOST", global = true, hide = true)]
     host: Option<String>,
 
-    /// Output mode
+    /// Output mode: human for interactive terminal use, agent for machine-readable JSON
     #[arg(long, default_value = "human", global = true)]
     output: OutputArg,
 
-    /// Output as JSON for agent/machine consumption (shorthand for --output agent)
+    /// Shorthand for --output agent
     #[arg(long, alias = "json", global = true)]
     agent: bool,
 
@@ -48,17 +48,41 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Manage datasets
-    Dataset {
-        #[command(subcommand)]
-        action: dataset::DatasetAction,
+    /// Get a grounded answer from documents with source citations for a query
+    Ask {
+        /// Question to ask (reads from stdin if omitted)
+        query: Option<String>,
+        /// Dataset(s) to search (comma-separated or repeated)
+        #[arg(long, value_delimiter = ',')]
+        sources: Vec<String>,
+        /// Response mode
+        #[arg(long, default_value = "auto")]
+        mode: ask::AskMode,
+        /// Metadata fields to include in results
+        #[arg(long = "field", value_delimiter = ',')]
+        fields: Option<Vec<String>>,
     },
 
-    /// Upload a file or directory of supported files to a dataset (creates dataset if needed)
+    /// Find relevant passages in documents for a query
+    Search {
+        /// Search query (reads from stdin if omitted)
+        query: Option<String>,
+        /// Dataset(s) to search (comma-separated or repeated)
+        #[arg(long, value_delimiter = ',')]
+        sources: Vec<String>,
+        /// Number of results to return
+        #[arg(long, default_value = "10")]
+        top_k: u32,
+        /// Metadata fields to include in results
+        #[arg(long = "field", value_delimiter = ',')]
+        fields: Vec<String>,
+    },
+
+    /// Upload files or directories
     Upload {
-        /// Path to a file or directory
-        #[arg(value_name = "PATH_TO_DIR_OR_FILE")]
-        path: std::path::PathBuf,
+        /// Path(s) to files or directories, comma-separated
+        #[arg(value_name = "PATHS", value_delimiter = ',')]
+        paths: Vec<std::path::PathBuf>,
         /// Dataset to upload into
         #[arg(long, value_name = "DATASET_NAME")]
         dataset: String,
@@ -68,15 +92,18 @@ enum Commands {
         /// Number of concurrent uploads (default: 4)
         #[arg(short = 'c', long, default_value = "4")]
         concurrency: usize,
+        /// Create the dataset without prompting if it does not exist
+        #[arg(short = 'y')]
+        yes: bool,
         /// Preview files without uploading
         #[arg(long)]
         dry_run: bool,
-        /// Wait for all files to be fully processed after uploading
+        /// Wait for all files to be uploaded and fully processed
         #[arg(long)]
         wait: bool,
     },
 
-    /// Upload or replace a single file in a dataset
+    /// Upsert a document
     Upsert {
         /// Dataset name
         #[arg(long, value_name = "DATASET_NAME")]
@@ -94,7 +121,7 @@ enum Commands {
         wait: bool,
     },
 
-    /// Delete a document from a dataset
+    /// Delete a document
     Delete {
         /// Dataset name
         #[arg(long, value_name = "DATASET_NAME")]
@@ -107,34 +134,10 @@ enum Commands {
         yes: bool,
     },
 
-    /// Ask a question across one or more datasets
-    Ask {
-        /// Question to ask (reads from stdin if omitted)
-        query: Option<String>,
-        /// Dataset(s) to search (comma-separated or repeated)
-        #[arg(long, value_delimiter = ',')]
-        sources: Vec<String>,
-        /// Response mode
-        #[arg(long, default_value = "auto")]
-        mode: ask::AskMode,
-        /// Metadata fields to include in results
-        #[arg(long = "field", value_delimiter = ',')]
-        fields: Option<Vec<String>>,
-    },
-
-    /// Search across one or more datasets
-    Search {
-        /// Search query (reads from stdin if omitted)
-        query: Option<String>,
-        /// Dataset(s) to search (comma-separated or repeated)
-        #[arg(long, value_delimiter = ',')]
-        sources: Vec<String>,
-        /// Number of results to return
-        #[arg(long, default_value = "10")]
-        top_k: u32,
-        /// Metadata fields to include in results
-        #[arg(long = "field", value_delimiter = ',')]
-        fields: Vec<String>,
+    /// Manage datasets (create, list, delete)
+    Dataset {
+        #[command(subcommand)]
+        action: dataset::DatasetAction,
     },
 }
 
@@ -167,6 +170,10 @@ async fn main() -> std::process::ExitCode {
 }
 
 async fn run(cli: Cli, output: &Output) -> Result<()> {
+    let is_interactive = !cli.agent
+        && !matches!(cli.output, OutputArg::Agent)
+        && std::io::stdin().is_terminal()
+        && std::io::stderr().is_terminal();
     let client = make_client(cli.api_key, cli.region, cli.host)?;
 
     match cli.command.expect("checked above") {
@@ -185,8 +192,21 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             }
         },
 
-        Commands::Upload { path, dataset, recursive, concurrency, dry_run, wait } => {
-            output.print(&upload::run(&client, &dataset, &path, recursive, concurrency, dry_run, wait).await?)?;
+        Commands::Upload { paths, dataset, recursive, concurrency, yes, dry_run, wait } => {
+            output.print(
+                &upload::run(
+                    &client,
+                    &dataset,
+                    &paths,
+                    recursive,
+                    concurrency,
+                    yes,
+                    dry_run,
+                    wait,
+                    is_interactive,
+                )
+                .await?,
+            )?;
         }
 
         Commands::Upsert { dataset, document_id, path, metadata, wait } => {
@@ -249,37 +269,49 @@ fn resolve_query(query: Option<String>) -> Result<Option<String>> {
 fn print_welcome() {
     const BOLD: &str = "\x1b[1m";
     const CYAN: &str = "\x1b[36m";
-    const GREEN: &str = "\x1b[32m";
     const ORANGE: &str = "\x1b[33m";
     const RED: &str = "\x1b[31m";
     const DIM: &str = "\x1b[2m";
     const RESET: &str = "\x1b[0m";
 
     println!();
-    println!("{}Welcome to TopK{}", BOLD, RESET);
-    println!("{}Ingest files into datasets, then search or ask questions with cited answers sourced from your content.{}", DIM, RESET);
+    println!("{}Welcome to TopK CLI{}", BOLD, RESET);
+    println!("{}Turn raw files into searchable knowledge.{}", DIM, RESET);
     println!();
 
     let api_key = std::env::var("TOPK_API_KEY").ok().filter(|v| !v.is_empty());
     let region = std::env::var("TOPK_REGION").ok().filter(|v| !v.is_empty());
 
     let api_key_status = match &api_key {
-        Some(_) => format!("{GREEN}✓{RESET}"),
-        None => format!("{RED}✗{RESET} {DIM}set via env or --api-key{RESET}"),
+        Some(key) => format!("{DIM}{}{RESET}", "*".repeat(key.chars().count())),
+        None => format!(
+            "{RED}✗{RESET} {DIM}set TOPK_API_KEY environment variable or pass --api-key TOPK_API_KEY. Create your API key: https://console.topk.io{RESET}"
+        ),
     };
     let region_status = match &region {
         Some(r) => format!("{ORANGE}{r}{RESET}"),
-        None => format!("{RED}✗{RESET} {DIM}set via env or --region{RESET}"),
+        None => format!(
+            "{RED}✗{RESET} {DIM}set TOPK_REGION environment variable or pass --region TOPK_REGION. List available regions: https://docs.topk.io/regions{RESET}"
+        ),
     };
 
-    println!("{CYAN}TOPK_API_KEY{RESET}  {api_key_status}");
-    println!("{CYAN}TOPK_REGION{RESET}   {region_status}");
+    println!("{BOLD}Configuration:{RESET}");
+    println!("{CYAN}API Key:{RESET}  {api_key_status}");
+    println!("{CYAN}Region:{RESET}   {region_status}");
     println!();
 }
 
 fn make_client(api_key: Option<String>, region: Option<String>, host: Option<String>) -> Result<Client> {
-    let api_key = api_key.ok_or_else(|| anyhow::anyhow!("TOPK_API_KEY env variable is not set. Create your API key at https://console.topk.io/"))?;
-    let region = region.ok_or_else(|| anyhow::anyhow!("TOPK_REGION env variable is not set. List available regions at https://docs.topk.io/regions"))?;
+    let api_key = api_key.ok_or_else(|| {
+        anyhow::anyhow!(
+            "API key not set. Set TOPK_API_KEY environment variable or pass --api-key TOPK_API_KEY. Create your API key: https://console.topk.io"
+        )
+    })?;
+    let region = region.ok_or_else(|| {
+        anyhow::anyhow!(
+            "Region not set. Set TOPK_REGION environment variable or pass --region TOPK_REGION. List available regions: https://docs.topk.io/regions"
+        )
+    })?;
     let host = host.unwrap_or_else(|| "topk.io".to_string());
     let https = std::env::var("TOPK_HTTPS").map(|v| v == "true").unwrap_or(true);
 
