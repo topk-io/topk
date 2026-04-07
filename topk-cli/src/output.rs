@@ -99,7 +99,11 @@ impl Output {
     pub fn error(&self, e: &anyhow::Error) {
         let payload = serde_json::json!({ "error": format!("{:#}", e) });
         match self.mode {
-            OutputMode::Agent(fmt) => eprintln!("{}", self.serialize(fmt, &payload).unwrap()),
+            OutputMode::Agent(fmt) => eprintln!(
+                "{}",
+                self.serialize(fmt, &payload)
+                    .unwrap_or_else(|_| r#"{"error":"serialization failed"}"#.to_string())
+            ),
             OutputMode::Human => eprintln!("Error: {:#}", e),
         }
     }
@@ -119,13 +123,17 @@ impl Output {
 /// Prints a temporary progress message to stderr, overwriting the previous one.
 /// Always ephemeral — never appears in final stdout output.
 pub fn progress(msg: &str) {
-    eprint!("\r\x1b[2K{}", msg);
-    let _ = std::io::stderr().flush();
+    if std::io::stderr().is_terminal() {
+        eprint!("\r\x1b[2K{}", msg);
+        let _ = std::io::stderr().flush();
+    }
 }
 
 fn clear_progress() {
-    eprint!("\r\x1b[2K");
-    let _ = std::io::stderr().flush();
+    if std::io::stderr().is_terminal() {
+        eprint!("\r\x1b[2K");
+        let _ = std::io::stderr().flush();
+    }
 }
 
 /// Formats a table from headers and rows of string values.

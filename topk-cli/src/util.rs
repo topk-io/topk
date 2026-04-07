@@ -8,7 +8,7 @@ pub fn parse_kv(s: &str) -> Result<(String, String), String> {
         .ok_or_else(|| format!("expected key=value, got '{}'", s))
 }
 
-pub fn confirm(prompt: &str) -> std::io::Result<bool> {
+pub(crate) fn confirm(prompt: &str) -> std::io::Result<bool> {
     eprint!("{}", prompt);
     io::stderr().flush()?;
     let mut input = String::new();
@@ -37,11 +37,13 @@ impl FileProgress {
             ProgressStyle::with_template(
                 "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>4}/{len:4} files",
             )
-            .unwrap()
+            .expect("valid progress template")
             .progress_chars("##-"),
         );
         let current = multi.add(ProgressBar::new_spinner());
-        current.set_style(ProgressStyle::with_template("{spinner:.cyan} {msg}").unwrap());
+        current.set_style(
+            ProgressStyle::with_template("{spinner:.cyan} {msg}").expect("valid spinner template"),
+        );
         current.enable_steady_tick(std::time::Duration::from_millis(100));
         Self {
             overall: Some(overall),
@@ -93,7 +95,7 @@ impl Spinner {
         }
         let multi = MultiProgress::new();
         let bar = multi.add(ProgressBar::new_spinner());
-        bar.set_style(ProgressStyle::with_template(template).unwrap());
+        bar.set_style(ProgressStyle::with_template(template).expect("valid spinner template"));
         bar.set_message(msg.into());
         bar.enable_steady_tick(std::time::Duration::from_millis(100));
         Self {
