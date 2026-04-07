@@ -1,3 +1,4 @@
+use chrono::{DateTime, Local, Utc};
 use serde::Serialize;
 use topk_rs::{
     Client, Error, client::Response,
@@ -37,12 +38,17 @@ pub enum DatasetAction {
 #[derive(Serialize, serde::Deserialize)]
 pub struct Dataset {
     pub(crate) name: String,
+    pub(crate) created_at: DateTime<Utc>,
 }
 
 impl From<topk_rs::proto::v1::control::Dataset> for Dataset {
     fn from(dataset: topk_rs::proto::v1::control::Dataset) -> Self {
         Self {
             name: dataset.name,
+            created_at: dataset
+                .created_at
+                .parse()
+                .expect("dataset.created_at must be a valid UTC timestamp"),
         }
     }
 }
@@ -64,8 +70,19 @@ impl RenderForHuman for ListDatasetsResult {
             "No datasets found.".to_string()
         } else {
             table(
-                vec!["NAME"],
-                self.datasets.iter().map(|d| vec![d.name.clone()]).collect(),
+                vec!["Name", "Created"],
+                self.datasets
+                    .iter()
+                    .map(|d| {
+                        vec![
+                            d.name.clone(),
+                            d.created_at
+                                .with_timezone(&Local)
+                                .format("%b %-d, %Y %-H:%M")
+                                .to_string(),
+                        ]
+                    })
+                    .collect(),
             )
         }
     }
@@ -88,7 +105,7 @@ impl TryFrom<Response<GetDatasetResponse>> for GetDatasetResult {
 impl RenderForHuman for GetDatasetResult {
     fn render(&self) -> String {
         table(
-            vec!["NAME"],
+            vec!["Name"],
             vec![vec![self.dataset.name.clone()]],
         )
     }
@@ -155,9 +172,9 @@ pub async fn delete(client: &Client, name: &str, yes: bool) -> Result<DeleteData
 #[cfg(test)]
 mod tests {
     use assert_cmd::Command;
-    use test_context::test_context;
-    use crate::test_context::CliTestContext;
     use super::{CreateDatasetResult, DeleteDatasetResult, GetDatasetResult, ListDatasetsResult};
+    use crate::test_context::CliTestContext;
+    use test_context::test_context;
 
     fn cmd() -> Command {
         Command::cargo_bin("topk").unwrap()
