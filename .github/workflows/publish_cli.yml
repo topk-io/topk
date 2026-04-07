@@ -119,7 +119,7 @@ jobs:
       - name: Get version
         id: version
         run: |
-          VERSION=$(cargo metadata --manifest-path topk-cli/Cargo.toml --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "topk") | .version')
+          VERSION=$(cargo metadata --manifest-path topk-cli/Cargo.toml --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "topk-cli") | .version')
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Publish GitHub Release
@@ -147,7 +147,7 @@ jobs:
       - name: Get version
         id: version
         run: |
-          VERSION=$(cargo metadata --manifest-path topk-cli/Cargo.toml --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "topk") | .version')
+          VERSION=$(cargo metadata --manifest-path topk-cli/Cargo.toml --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "topk-cli") | .version')
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Compute SHA256
