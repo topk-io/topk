@@ -1,5 +1,5 @@
 use chrono::{DateTime, Local, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use topk_rs::{
     client::Response,
     proto::v1::control::{CreateDatasetResponse, GetDatasetResponse, ListDatasetsResponse},
@@ -35,7 +35,7 @@ pub enum DatasetAction {
     },
 }
 
-#[derive(Serialize, serde::Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Dataset {
     pub(crate) name: String,
     /// RFC3339 formatted timestamp
@@ -51,7 +51,7 @@ impl From<topk_rs::proto::v1::control::Dataset> for Dataset {
     }
 }
 
-#[derive(Serialize, serde::Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct ListDatasetsResult {
     pub(crate) datasets: Vec<Dataset>,
 }
@@ -95,7 +95,7 @@ impl RenderForHuman for ListDatasetsResult {
     }
 }
 
-#[derive(Serialize, serde::Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct GetDatasetResult {
     pub(crate) dataset: Dataset,
 }
@@ -115,7 +115,7 @@ impl RenderForHuman for GetDatasetResult {
     }
 }
 
-#[derive(Serialize, serde::Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct CreateDatasetResult {
     pub(crate) dataset: Dataset,
 }
@@ -135,7 +135,7 @@ impl RenderForHuman for CreateDatasetResult {
     }
 }
 
-#[derive(Serialize, serde::Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct DeleteDatasetResult {
     pub(crate) deleted: bool,
     pub(crate) skipped: Option<bool>,

@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use futures::stream::{self, StreamExt, TryStreamExt};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use topk_rs::{proto::v1::ctx::file::InputFile, Client, Error};
 use tracing::info;
@@ -21,7 +21,7 @@ struct UploadFile {
     size: u64,
 }
 
-#[derive(Serialize, serde::Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct UploadResult {
     pub total: usize,
     pub total_size: u64,
