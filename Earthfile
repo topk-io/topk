@@ -192,7 +192,7 @@ SETUP_ENV:
     FUNCTION
 
     # region
-    ARG host
+    ARG --required host
     ARG --required region
     ENV TOPK_REGION=$region
     ENV TOPK_HOST=$host
