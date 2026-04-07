@@ -1,5 +1,5 @@
 class Topk < Formula
-  desc "Ingest files into datasets, then search or ask questions with cited answers"
+  desc "Turn raw files into searchable knowledge"
   homepage "https://topk.io"
   version "__VERSION__"
   license "MIT"
