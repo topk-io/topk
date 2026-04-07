@@ -1,8 +1,7 @@
 use serde::Serialize;
 use topk_rs::{Client, Error};
 
-use crate::output::RenderForHuman;
-use crate::util::confirm;
+use crate::output::{Output, RenderForHuman};
 
 #[derive(Serialize)]
 pub struct DeleteResult {
@@ -25,9 +24,10 @@ pub async fn run(
     dataset: &str,
     doc_id: impl Into<String>,
     yes: bool,
+    output: &Output,
 ) -> Result<DeleteResult, Error> {
     let doc_id = doc_id.into();
-    if !yes && !confirm(&format!("Delete document '{}'? [y/N] ", doc_id))? {
+    if !yes && !output.confirm(&format!("Delete document '{}'? [y/N] ", doc_id))? {
         return Ok(DeleteResult {
             deleted: false,
             skipped: Some(true),

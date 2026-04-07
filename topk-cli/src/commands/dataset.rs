@@ -6,8 +6,7 @@ use topk_rs::{
     Client, Error,
 };
 
-use crate::output::{table, RenderForHuman};
-use crate::util::confirm;
+use crate::output::{table, Output, RenderForHuman};
 
 #[derive(Debug, clap::Subcommand)]
 pub enum DatasetAction {
@@ -164,8 +163,8 @@ pub async fn create(client: &Client, name: &str) -> Result<CreateDatasetResult, 
     client.datasets().create(name).await?.try_into()
 }
 
-pub async fn delete(client: &Client, name: &str, yes: bool) -> Result<DeleteDatasetResult, Error> {
-    if !yes && !confirm(&format!("Delete dataset '{}'? [y/N] ", name))? {
+pub async fn delete(client: &Client, name: &str, yes: bool, output: &Output) -> Result<DeleteDatasetResult, Error> {
+    if !yes && !output.confirm(&format!("Delete dataset '{}'? [y/N] ", name))? {
         return Ok(DeleteDatasetResult {
             deleted: false,
             skipped: Some(true),

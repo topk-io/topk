@@ -75,7 +75,7 @@ impl RenderForHuman for AskResult {
             out.push('\n');
             out.push_str("References:\n");
             for (id, r) in sorted_refs {
-                let filename = r.doc_id.rsplit('/').next().unwrap_or(&r.doc_id);
+                let header = format!("[{}] {} ({}) · {}", id, r.doc_id, r.doc_type, r.dataset);
                 out.push('\n');
                 match r.content.as_ref().and_then(|c| c.data.as_ref()) {
                     Some(content::Data::Chunk(chunk)) => {
@@ -86,21 +86,36 @@ impl RenderForHuman for AskResult {
                             [page] => format!(" · page {}", page),
                             pages => format!(" · pages {}", pages.join(", ")),
                         };
-                        out.push_str(&format!("[{}] {}{}\n", id, filename, location));
+                        out.push_str(&format!("{}{}\n", header, location));
                         out.push_str(&chunk.text);
                         out.push('\n');
                     }
                     Some(content::Data::Page(page)) => {
+                        let (mime, size) = page
+                            .image
+                            .as_ref()
+                            .map(|img| {
+                                (
+                                    img.mime_type.as_str(),
+                                    bytesize::ByteSize(img.data.len() as u64),
+                                )
+                            })
+                            .unwrap_or(("", bytesize::ByteSize(0)));
                         out.push_str(&format!(
-                            "[{}] {} · page {}\n",
-                            id, filename, page.page_number
+                            "{} · page {}, {}, {}\n",
+                            header, page.page_number, mime, size
                         ));
                     }
                     Some(content::Data::Image(img)) => {
-                        out.push_str(&format!("[{}] {} · {}\n", id, filename, img.mime_type));
+                        out.push_str(&format!(
+                            "{} · {}, {}\n",
+                            header,
+                            img.mime_type,
+                            bytesize::ByteSize(img.data.len() as u64)
+                        ));
                     }
                     None => {
-                        out.push_str(&format!("[{}] {}\n", id, filename));
+                        out.push_str(&format!("{}\n", header));
                     }
                 }
             }
