@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use topk_rs::{
     proto::v1::{
         ctx::{doc::DocId, file::InputFile},
@@ -12,7 +12,7 @@ use topk_rs::{
 
 use crate::output::RenderForHuman;
 
-#[derive(Serialize, serde::Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct UpsertResult {
     pub handle: String,
     pub processed: bool,
