@@ -69,7 +69,10 @@ topk search "my query"
 
 ### `upload` — Upload files
 
-Accepts a comma-separated list of files or directories. Supported document formats: `pdf`, `md`, `mdx`, `jpeg`, `jpg`, `png`.
+Accepts a comma-separated list of files or directories. Supported formats:
+
+- Documents: `pdf`, `md`, `mdx`, `html`, `htm`
+- Images: `png`, `jpeg`, `jpg`, `gif`, `webp`, `tiff`, `tif`, `bmp`
 
 ```bash
 topk upload ./docs/ --dataset my-dataset

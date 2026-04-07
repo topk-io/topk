@@ -12,7 +12,12 @@ use walkdir::WalkDir;
 use crate::output::{Output, RenderForHuman};
 use crate::util::{FileProgress, Spinner};
 
-const SUPPORTED_EXTENSIONS: &[&str] = &["pdf", "md", "mdx", "jpeg", "jpg", "png"];
+const SUPPORTED_EXTENSIONS: &[&str] = &[
+    // Documents
+    "pdf", "md", "mdx", "html", "htm",
+    // Images
+    "png", "jpeg", "jpg", "gif", "webp", "tiff", "tif", "bmp",
+];
 
 struct UploadFile {
     path: PathBuf,
