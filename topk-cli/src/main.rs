@@ -8,8 +8,8 @@ use anyhow::Result;
 use clap::{CommandFactory, Parser, Subcommand};
 use topk_rs::{proto::v1::ctx::doc::DocId, Client, ClientConfig};
 
-use topk::util::parse_kv;
 use commands::{ask, dataset, delete, search, upload, upsert};
+use topk::util::parse_kv;
 
 #[derive(Parser)]
 #[command(name = "topk", version)]
@@ -17,15 +17,15 @@ struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
 
-    /// API key (overrides TOPK_API_KEY)
-    #[arg(long, env = "TOPK_API_KEY", global = true, hide_env_values = true, hide = true)]
+    /// TopK API key (overrides TOPK_API_KEY environment variable)
+    #[arg(long, env = "TOPK_API_KEY", global = true, hide_env_values = true)]
     api_key: Option<String>,
 
-    /// Region (overrides TOPK_REGION)
-    #[arg(long, env = "TOPK_REGION", global = true, hide = true)]
+    /// TopK Region (overrides TOPK_REGION environment variable, available regions: https://docs.topk.io/regions)
+    #[arg(long, env = "TOPK_REGION", global = true)]
     region: Option<String>,
 
-    /// Host (overrides TOPK_HOST, default: topk.io)
+    /// Host (overrides TOPK_HOST environment variable, default: topk.io)
     #[arg(long, env = "TOPK_HOST", global = true, hide = true)]
     host: Option<String>,
 
@@ -188,7 +188,15 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             }
         },
 
-        Commands::Upload { paths, dataset, recursive, concurrency, yes, dry_run, wait } => {
+        Commands::Upload {
+            paths,
+            dataset,
+            recursive,
+            concurrency,
+            yes,
+            dry_run,
+            wait,
+        } => {
             output.print(
                 &upload::run(
                     &client,
@@ -205,38 +213,73 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             )?;
         }
 
-        Commands::Upsert { dataset, document_id, path, metadata, wait } => {
+        Commands::Upsert {
+            dataset,
+            document_id,
+            path,
+            metadata,
+            wait,
+        } => {
             let mut result = upsert::run(&client, &dataset, document_id, path, metadata).await?;
             if wait {
                 output.progress("Processing...");
-                client.dataset(&dataset).wait_for_handle(&result.handle, None).await?;
+                client
+                    .dataset(&dataset)
+                    .wait_for_handle(&result.handle, None)
+                    .await?;
                 result.processed = true;
             }
             output.print(&result)?;
         }
 
-        Commands::Delete { dataset, document_id, yes } => {
+        Commands::Delete {
+            dataset,
+            document_id,
+            yes,
+        } => {
             output.print(&delete::run(&client, &dataset, document_id, yes, &output).await?)?;
         }
 
-        Commands::Ask { query, sources, mode: cmd_mode, fields } => {
+        Commands::Ask {
+            query,
+            sources,
+            mode: cmd_mode,
+            fields,
+        } => {
             let query = match resolve_query(query)? {
                 Some(q) => q,
                 None => {
-                    Cli::command().find_subcommand_mut("ask")
+                    Cli::command()
+                        .find_subcommand_mut("ask")
                         .expect("ask subcommand")
                         .print_help()?;
                     return Ok(());
                 }
             };
-            output.print(&ask::run(&client, query, sources, Some(cmd_mode.into()), fields, output).await?)?;
+            output.print(
+                &ask::run(
+                    &client,
+                    query,
+                    sources,
+                    Some(cmd_mode.into()),
+                    fields,
+                    output,
+                )
+                .await?,
+            )?;
         }
 
-        Commands::Search { query, sources, top_k, fields } => {
+        Commands::Search {
+            query,
+            sources,
+            top_k,
+            fields,
+        } => {
             let query = match resolve_query(query)? {
                 Some(q) => q,
                 None => {
-                    Cli::command().find_subcommand_mut("search")
+                    Cli::command()
+                        .find_subcommand_mut("search")
                         .expect("search subcommand")
                         .print_help()?;
                     return Ok(());
@@ -259,7 +302,11 @@ fn resolve_query(query: Option<String>) -> Result<Option<String>> {
     let mut buf = String::new();
     std::io::stdin().read_to_string(&mut buf)?;
     let q = buf.trim().to_string();
-    if q.is_empty() { Ok(None) } else { Ok(Some(q)) }
+    if q.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(q))
+    }
 }
 
 fn print_welcome() {
@@ -297,7 +344,11 @@ fn print_welcome() {
     println!();
 }
 
-fn make_client(api_key: Option<String>, region: Option<String>, host: Option<String>) -> Result<Client> {
+fn make_client(
+    api_key: Option<String>,
+    region: Option<String>,
+    host: Option<String>,
+) -> Result<Client> {
     let api_key = api_key.ok_or_else(|| {
         anyhow::anyhow!(
             "API key not set. Set TOPK_API_KEY environment variable or pass --api-key TOPK_API_KEY. Create your API key: https://console.topk.io"
@@ -309,7 +360,9 @@ fn make_client(api_key: Option<String>, region: Option<String>, host: Option<Str
         )
     })?;
     let host = host.unwrap_or_else(|| "topk.io".to_string());
-    let https = std::env::var("TOPK_HTTPS").map(|v| v == "true").unwrap_or(true);
+    let https = std::env::var("TOPK_HTTPS")
+        .map(|v| v == "true")
+        .unwrap_or(true);
 
     Ok(Client::new(
         ClientConfig::new(api_key, region)
