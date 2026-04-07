@@ -33,9 +33,9 @@ struct Cli {
     #[arg(long, default_value = "human", global = true)]
     output: OutputArg,
 
-    /// Shorthand for --output agent
-    #[arg(long, alias = "json", global = true)]
-    agent: bool,
+    /// Output machine-readable JSON
+    #[arg(long, visible_alias = "agent", global = true)]
+    json: bool,
 
     /// Pretty-print JSON output (only applies in agent mode)
     #[arg(long, global = true)]
@@ -155,7 +155,7 @@ async fn main() -> std::process::ExitCode {
             .init();
     }
 
-    let output = Output::new(cli.agent, cli.output, cli.pretty);
+    let output = Output::new(cli.json, cli.output, cli.pretty);
 
     if cli.command.is_none() {
         print_welcome();
