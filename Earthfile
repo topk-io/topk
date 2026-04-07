@@ -150,7 +150,7 @@ test-cli:
         cargo build -p topk-cli
 
     ARG --required region
-    ARG host
+    ARG --required host
     DO +SETUP_ENV --region=$region --host=$host
 
     # test — CARGO_BIN_EXE_topk must be set explicitly since tests live in

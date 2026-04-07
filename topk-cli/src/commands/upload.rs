@@ -5,7 +5,6 @@ use std::sync::Arc;
 
 use futures::stream::{self, StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use topk_rs::{proto::v1::ctx::file::InputFile, Client, Error};
 use tracing::info;
 use walkdir::WalkDir;
@@ -57,16 +56,6 @@ impl RenderForHuman for UploadResult {
     }
 }
 
-fn doc_id_for(path: &Path) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(path.to_string_lossy().as_bytes());
-    let hash = format!("{:x}", hasher.finalize());
-    let filename = path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("unknown");
-    format!("{}/{}", hash, filename)
-}
 
 async fn ensure_dataset(
     client: &Client,
@@ -271,9 +260,12 @@ fn collect_files(paths: &[PathBuf], recursive: bool) -> Result<Vec<UploadFile>, 
     for path in paths {
         if path.is_file() {
             let size = std::fs::metadata(path).map_err(Error::IoError)?.len();
-            let path = path.to_path_buf();
-            let doc_id = doc_id_for(&path);
-            files.push(UploadFile { doc_id, path, size });
+            let doc_id = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("unknown")
+                .to_string();
+            files.push(UploadFile { doc_id, path: path.to_path_buf(), size });
             continue;
         }
 
@@ -291,10 +283,14 @@ fn collect_files(paths: &[PathBuf], recursive: bool) -> Result<Vec<UploadFile>, 
             .filter_map(|e| e.ok())
             .filter(|e| e.file_type().is_file() && is_supported(e.path()))
             .map(|e| {
-                let path = e.path().to_path_buf();
+                let file_path = e.path().to_path_buf();
                 let size = e.metadata().map_err(|e| Error::IoError(e.into()))?.len();
-                let doc_id = doc_id_for(&path);
-                Ok(UploadFile { doc_id, path, size })
+                let doc_id = file_path
+                    .strip_prefix(path)
+                    .unwrap_or(&file_path)
+                    .to_string_lossy()
+                    .into_owned();
+                Ok(UploadFile { doc_id, path: file_path, size })
             })
             .collect::<Result<Vec<_>, Error>>()?;
 

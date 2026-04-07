@@ -29,8 +29,8 @@ walkdir = { version = "2" }
 futures = { version = "0.3" }
 serde = { version = "1", features = ["derive"] }
 bytesize = { version = "1" }
-sha2 = { version = "0.10" }
 chrono = { version = "0.4", features = ["serde"] }
+comfy-table = { version = "7" }
 
 [dev-dependencies]
 assert_cmd = "2"

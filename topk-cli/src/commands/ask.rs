@@ -5,12 +5,14 @@ use tokio_stream::StreamExt;
 use topk_rs::{
     proto::v1::ctx::{
         ask_result::{self, Answer},
-        content, Fact, Mode, SearchResult,
+        Fact, Mode, SearchResult,
     },
     Client, Error,
 };
 
-use crate::output::{Output, RenderForHuman};
+use super::search::format_content_text;
+
+use crate::output::{Output, RenderForHuman, BLUE, BOLD, DIM, RESET};
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 pub enum AskMode {
@@ -55,12 +57,10 @@ impl RenderForHuman for AskResult {
             out.push_str("No answer found.");
         } else {
             for fact in &self.facts {
-                if fact.ref_ids.is_empty() {
-                    out.push_str(&fact.fact);
-                } else {
-                    let refs_inline: Vec<String> =
-                        fact.ref_ids.iter().map(|id| format!("[{}]", id)).collect();
-                    out.push_str(&format!("{} {}", fact.fact, refs_inline.join(", ")));
+                out.push_str(fact.fact.trim());
+                if !fact.ref_ids.is_empty() {
+                    let refs_inline = fact.ref_ids.iter().map(|id| format!("[{}]", id)).collect::<Vec<_>>().join(", ");
+                    out.push_str(&format!(" {}{}{}", BLUE, refs_inline, RESET));
                 }
                 out.push('\n');
             }
@@ -73,51 +73,16 @@ impl RenderForHuman for AskResult {
                 parts
             });
             out.push('\n');
-            out.push_str("References:\n");
+            out.push_str(&format!("{}References:{}", BOLD, RESET));
             for (id, r) in sorted_refs {
-                let header = format!("[{}] {} ({}) · {}", id, r.doc_id, r.doc_type, r.dataset);
                 out.push('\n');
-                match r.content.as_ref().and_then(|c| c.data.as_ref()) {
-                    Some(content::Data::Chunk(chunk)) => {
-                        let pages: Vec<String> =
-                            chunk.doc_pages.iter().map(|p| p.to_string()).collect();
-                        let location = match pages.as_slice() {
-                            [] => String::new(),
-                            [page] => format!(" · page {}", page),
-                            pages => format!(" · pages {}", pages.join(", ")),
-                        };
-                        out.push_str(&format!("{}{}\n", header, location));
-                        out.push_str(&chunk.text);
-                        out.push('\n');
-                    }
-                    Some(content::Data::Page(page)) => {
-                        let (mime, size) = page
-                            .image
-                            .as_ref()
-                            .map(|img| {
-                                (
-                                    img.mime_type.as_str(),
-                                    bytesize::ByteSize(img.data.len() as u64),
-                                )
-                            })
-                            .unwrap_or(("", bytesize::ByteSize(0)));
-                        out.push_str(&format!(
-                            "{} · page {}, {}, {}\n",
-                            header, page.page_number, mime, size
-                        ));
-                    }
-                    Some(content::Data::Image(img)) => {
-                        out.push_str(&format!(
-                            "{} · {}, {}\n",
-                            header,
-                            img.mime_type,
-                            bytesize::ByteSize(img.data.len() as u64)
-                        ));
-                    }
-                    None => {
-                        out.push_str(&format!("{}\n", header));
-                    }
-                }
+                out.push_str(&format!(
+                    "{}[{}]{} {}\n       {}{} · {} · {}{}",
+                    BLUE, id, RESET,
+                    format_content_text(r.content.as_ref()),
+                    DIM, r.dataset, r.doc_id, r.doc_type, RESET,
+                ));
+                out.push('\n');
             }
         }
 

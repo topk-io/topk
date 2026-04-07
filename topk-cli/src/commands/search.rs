@@ -6,7 +6,7 @@ use topk_rs::{
     Client,
 };
 
-use crate::output::{table, RenderForHuman};
+use crate::output::RenderForHuman;
 
 #[derive(Serialize)]
 pub struct SearchResults {
@@ -18,20 +18,21 @@ impl RenderForHuman for SearchResults {
         if self.results.is_empty() {
             return "No results.".to_string();
         }
-        table(
-            vec!["DOC ID", "DATASET", "TYPE", "CONTENT"],
-            self.results
-                .iter()
-                .map(|r| {
-                    vec![
-                        r.doc_id.clone(),
-                        r.dataset.clone(),
-                        r.doc_type.clone(),
-                        format_content_text(r.content.as_ref()),
-                    ]
-                })
-                .collect(),
-        )
+        self.results
+            .iter()
+            .enumerate()
+            .map(|(i, r)| {
+                format!(
+                    "{}. {}\nDataset: {}\nDocument ID: {}\nDocument Type: {}",
+                    i + 1,
+                    format_content_text(r.content.as_ref()),
+                    r.dataset,
+                    r.doc_id,
+                    r.doc_type,
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n\n")
     }
 }
 
@@ -52,25 +53,14 @@ pub async fn run(
     Ok(SearchResults { results })
 }
 
-fn format_content_text(content: Option<&Content>) -> String {
+pub fn format_content_text(content: Option<&Content>) -> String {
     match content.and_then(|c| c.data.as_ref()) {
         Some(content::Data::Chunk(chunk)) => {
-            let text = if chunk.text.chars().count() > 200 {
-                let end = chunk
-                    .text
-                    .char_indices()
-                    .nth(200)
-                    .map(|(i, _)| i)
-                    .unwrap_or(chunk.text.len());
-                format!("{}...", &chunk.text[..end])
-            } else {
-                chunk.text.clone()
-            };
             if chunk.doc_pages.is_empty() {
-                text
+                chunk.text.clone()
             } else {
                 let pages: Vec<String> = chunk.doc_pages.iter().map(|p| p.to_string()).collect();
-                format!("{} [p.{}]", text, pages.join(","))
+                format!("{} [p.{}]", chunk.text, pages.join(","))
             }
         }
         Some(content::Data::Page(page)) => format!("<page {}>", page.page_number),
