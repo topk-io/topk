@@ -56,7 +56,6 @@ impl RenderForHuman for UploadResult {
     }
 }
 
-
 async fn ensure_dataset(
     client: &Client,
     dataset: &str,
@@ -276,21 +275,22 @@ fn collect_files(paths: &[PathBuf], recursive: bool) -> Result<Vec<UploadFile>, 
             )));
         }
 
-        let mut walked = WalkDir::new(path)
+        let base = path;
+        let mut walked = WalkDir::new(base)
             .follow_links(false)
             .max_depth(if recursive { usize::MAX } else { 1 })
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|e| e.file_type().is_file() && is_supported(e.path()))
             .map(|e| {
-                let file_path = e.path().to_path_buf();
+                let path = e.path().to_path_buf();
                 let size = e.metadata().map_err(|e| Error::IoError(e.into()))?.len();
-                let doc_id = file_path
-                    .strip_prefix(path)
-                    .unwrap_or(&file_path)
+                let doc_id = path
+                    .strip_prefix(base)
+                    .unwrap_or(&path)
                     .to_string_lossy()
                     .into_owned();
-                Ok(UploadFile { doc_id, path: file_path, size })
+                Ok(UploadFile { doc_id, path, size })
             })
             .collect::<Result<Vec<_>, Error>>()?;
 

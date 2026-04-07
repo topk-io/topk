@@ -89,9 +89,9 @@ enum Commands {
         /// Scan directory recursively
         #[arg(short = 'r')]
         recursive: bool,
-        /// Number of concurrent uploads (default: 4)
-        #[arg(short = 'c', long, default_value = "4")]
-        concurrency: usize,
+        /// Number of concurrent uploads (1–64)
+        #[arg(short = 'c', long, default_value = "32", value_parser = clap::value_parser!(u64).range(1..=64))]
+        concurrency: u64,
         /// Create the dataset without prompting if it does not exist
         #[arg(short = 'y')]
         yes: bool,
@@ -206,7 +206,7 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
                     &dataset,
                     &paths,
                     recursive,
-                    concurrency,
+                    concurrency as usize,
                     yes,
                     dry_run,
                     wait,
@@ -224,7 +224,8 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             wait,
             dry_run,
         } => {
-            let mut result = upsert::run(&client, &dataset, document_id, path, metadata, dry_run).await?;
+            let mut result =
+                upsert::run(&client, &dataset, document_id, path, metadata, dry_run).await?;
             if wait && !dry_run {
                 output.progress("Processing...");
                 client

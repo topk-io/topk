@@ -83,7 +83,7 @@ topk upload ./doc1.pdf,./doc2.pdf --dataset my-dataset
 | `--dataset` | Yes      | Dataset to upload into                                                    |
 | `-y`        | No       | Create the dataset automatically if it does not exist & skip confirmation |
 | `-r`        | No       | Scan directories recursively                                              |
-| `-c`        | No       | Number of concurrent uploads (default: 4)                                 |
+| `-c`        | No       | Number of concurrent uploads, 1–64 (default: 32)                         |
 | `--wait`    | No       | Block until all uploaded files are fully processed                        |
 | `--dry-run` | No       | Preview which files would be uploaded without uploading                   |
 
@@ -174,4 +174,3 @@ topk --json dataset list
 topk --json search "query"
 topk --json --pretty search "query"
 ```
-
