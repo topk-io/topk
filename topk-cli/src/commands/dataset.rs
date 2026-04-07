@@ -39,7 +39,7 @@ pub enum DatasetAction {
 #[derive(Serialize, Deserialize)]
 pub struct Dataset {
     pub(crate) name: String,
-    /// RFC3339 formatted timestamp
+    // RFC3339 formatted timestamp
     pub(crate) created_at: String,
 }
 
