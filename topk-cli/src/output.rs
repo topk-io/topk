@@ -1,14 +1,15 @@
 use std::io::{IsTerminal, Write};
 
+use comfy_table::{presets, Attribute, Cell, Color, ContentArrangement, Table};
 use serde::Serialize;
 
 use crate::util::{confirm, Spinner};
 
 const GREEN: &str = "\x1b[32m";
-const RESET: &str = "\x1b[0m";
-const CYAN_BOLD: &str = "\x1b[1;36m";
-const BOLD: &str = "\x1b[1m";
-const COL_GAP: usize = 4;
+pub const RESET: &str = "\x1b[0m";
+pub const DIM: &str = "\x1b[2m";
+pub const BOLD: &str = "\x1b[1m";
+pub const BLUE: &str = "\x1b[34m";
 
 #[derive(Debug, Clone, Copy, clap::ValueEnum, Default)]
 pub enum OutputArg {
@@ -128,46 +129,24 @@ fn clear_progress() {
 }
 
 /// Formats a table from headers and rows of string values.
-/// Headers are rendered in cyan bold, data rows in bold, with no borders.
+/// Headers are rendered in cyan bold, no borders, wraps to terminal width.
 pub fn table(headers: Vec<&str>, rows: Vec<Vec<String>>) -> String {
-    let col_count = headers.len();
-    let mut widths: Vec<usize> = headers.iter().map(|h| h.len()).collect();
-    for row in &rows {
-        for (i, cell) in row.iter().enumerate() {
-            if i < col_count {
-                widths[i] = widths[i].max(cell.len());
-            }
-        }
+    let mut table = Table::new();
+    table
+        .load_preset(presets::NOTHING)
+        .set_content_arrangement(ContentArrangement::Dynamic);
+
+    table.set_header(
+        headers
+            .iter()
+            .map(|h| Cell::new(h).add_attribute(Attribute::Bold).fg(Color::Cyan)),
+    );
+
+    for row in rows {
+        table.add_row(row);
     }
 
-    let mut out = String::new();
-
-    for (i, h) in headers.iter().enumerate() {
-        if i > 0 {
-            out.push_str(&" ".repeat(COL_GAP));
-        }
-        out.push_str(&format!(
-            "{}{:<width$}{}",
-            CYAN_BOLD,
-            h,
-            RESET,
-            width = widths[i]
-        ));
-    }
-    out.push('\n');
-
-    for row in &rows {
-        for (i, cell) in row.iter().enumerate() {
-            if i > 0 {
-                out.push_str(&" ".repeat(COL_GAP));
-            }
-            let width = widths.get(i).copied().unwrap_or(0);
-            out.push_str(&format!("{}{:<width$}{}", BOLD, cell, RESET, width = width));
-        }
-        out.push('\n');
-    }
-
-    out.trim_end_matches('\n').to_string()
+    table.to_string()
 }
 
 #[cfg(test)]
