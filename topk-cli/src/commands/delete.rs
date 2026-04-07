@@ -19,6 +19,7 @@ impl RenderForHuman for DeleteResult {
     }
 }
 
+/// `topk delete`
 pub async fn run(
     client: &Client,
     dataset: &str,

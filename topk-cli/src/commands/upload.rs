@@ -109,6 +109,7 @@ async fn ensure_dataset(
     }
 }
 
+/// `topk upload`
 pub async fn run(
     client: &Client,
     dataset: &str,

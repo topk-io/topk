@@ -125,6 +125,7 @@ impl RenderForHuman for AskResult {
     }
 }
 
+/// `topk ask`
 pub async fn run(
     client: &Client,
     query: String,

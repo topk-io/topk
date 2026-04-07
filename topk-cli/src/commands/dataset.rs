@@ -8,6 +8,7 @@ use topk_rs::{
 
 use crate::output::{table, Output, RenderForHuman};
 
+/// `topk dataset`
 #[derive(Debug, clap::Subcommand)]
 pub enum DatasetAction {
     /// List all datasets
@@ -104,8 +105,9 @@ impl TryFrom<Response<GetDatasetResponse>> for GetDatasetResult {
     type Error = Error;
 
     fn try_from(resp: Response<GetDatasetResponse>) -> Result<Self, Error> {
-        let dataset = resp.into_inner().dataset.ok_or(Error::InvalidProto)?.into();
-        Ok(Self { dataset })
+        Ok(Self {
+            dataset: resp.into_inner().dataset.ok_or(Error::InvalidProto)?.into(),
+        })
     }
 }
 
@@ -124,8 +126,9 @@ impl TryFrom<Response<CreateDatasetResponse>> for CreateDatasetResult {
     type Error = Error;
 
     fn try_from(resp: Response<CreateDatasetResponse>) -> Result<Self, Error> {
-        let dataset = resp.into_inner().dataset.ok_or(Error::InvalidProto)?.into();
-        Ok(Self { dataset })
+        Ok(Self {
+            dataset: resp.into_inner().dataset.ok_or(Error::InvalidProto)?.into(),
+        })
     }
 }
 
@@ -151,18 +154,22 @@ impl RenderForHuman for DeleteDatasetResult {
     }
 }
 
+/// `topk dataset list`
 pub async fn list(client: &Client) -> Result<ListDatasetsResult, Error> {
     Ok(client.datasets().list().await?.into())
 }
 
+/// `topk dataset get`
 pub async fn get(client: &Client, name: &str) -> Result<GetDatasetResult, Error> {
     client.datasets().get(name).await?.try_into()
 }
 
+/// `topk dataset create`
 pub async fn create(client: &Client, name: &str) -> Result<CreateDatasetResult, Error> {
     client.datasets().create(name).await?.try_into()
 }
 
+/// `topk dataset delete`
 pub async fn delete(
     client: &Client,
     name: &str,
