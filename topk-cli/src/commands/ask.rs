@@ -3,7 +3,11 @@ use std::collections::HashMap;
 use serde::Serialize;
 use tokio_stream::StreamExt;
 use topk_rs::{
-    Client, Error, proto::v1::ctx::{Fact, Mode, SearchResult, ask_result::{self, Answer}, content}
+    proto::v1::ctx::{
+        ask_result::{self, Answer},
+        content, Fact, Mode, SearchResult,
+    },
+    Client, Error,
 };
 
 use crate::output::{Output, RenderForHuman};
@@ -35,7 +39,10 @@ pub struct AskResult {
 
 impl From<Answer> for AskResult {
     fn from(a: Answer) -> Self {
-        Self { facts: a.facts, refs: a.refs }
+        Self {
+            facts: a.facts,
+            refs: a.refs,
+        }
     }
 }
 
@@ -72,7 +79,8 @@ impl RenderForHuman for AskResult {
                 out.push('\n');
                 match r.content.as_ref().and_then(|c| c.data.as_ref()) {
                     Some(content::Data::Chunk(chunk)) => {
-                        let pages: Vec<String> = chunk.doc_pages.iter().map(|p| p.to_string()).collect();
+                        let pages: Vec<String> =
+                            chunk.doc_pages.iter().map(|p| p.to_string()).collect();
                         let location = match pages.as_slice() {
                             [] => String::new(),
                             [page] => format!(" · page {}", page),
@@ -83,7 +91,10 @@ impl RenderForHuman for AskResult {
                         out.push('\n');
                     }
                     Some(content::Data::Page(page)) => {
-                        out.push_str(&format!("[{}] {} · page {}\n", id, filename, page.page_number));
+                        out.push_str(&format!(
+                            "[{}] {} · page {}\n",
+                            id, filename, page.page_number
+                        ));
                     }
                     Some(content::Data::Image(img)) => {
                         out.push_str(&format!("[{}] {} · {}\n", id, filename, img.mime_type));
@@ -137,5 +148,7 @@ pub async fn run(
 
     spinner.finish();
 
-    answer.map(Into::into).ok_or_else(|| Error::Internal("No answer found".to_string()))
+    answer
+        .map(Into::into)
+        .ok_or_else(|| Error::Internal("No answer found".to_string()))
 }

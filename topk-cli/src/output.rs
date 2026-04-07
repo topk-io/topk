@@ -2,7 +2,13 @@ use std::io::{IsTerminal, Write};
 
 use serde::Serialize;
 
-use crate::util::Spinner;
+use crate::util::{confirm, Spinner};
+
+const GREEN: &str = "\x1b[32m";
+const RESET: &str = "\x1b[0m";
+const CYAN_BOLD: &str = "\x1b[1;36m";
+const BOLD: &str = "\x1b[1m";
+const COL_GAP: usize = 4;
 
 #[derive(Debug, Clone, Copy, clap::ValueEnum, Default)]
 pub enum OutputArg {
@@ -33,15 +39,18 @@ pub struct Output {
 
 impl Output {
     pub fn new(agent_flag: bool, output: OutputArg, pretty: bool) -> Self {
-        let format = if pretty { JsonFormat::Pretty } else { JsonFormat::Compact };
-        let mode = if agent_flag
-            || matches!(output, OutputArg::Agent)
-            || !std::io::stdout().is_terminal()
-        {
-            OutputMode::Agent(format)
+        let format = if pretty {
+            JsonFormat::Pretty
         } else {
-            OutputMode::Human
+            JsonFormat::Compact
         };
+        let mode =
+            if agent_flag || matches!(output, OutputArg::Agent) || !std::io::stdout().is_terminal()
+            {
+                OutputMode::Agent(format)
+            } else {
+                OutputMode::Human
+            };
         Self { mode }
     }
 
@@ -69,6 +78,23 @@ impl Output {
         }
     }
 
+    pub fn success(&self, msg: &str) {
+        if matches!(self.mode, OutputMode::Human) {
+            eprintln!("{GREEN}✓{RESET} {msg}");
+        }
+    }
+
+    pub fn confirm(&self, prompt: &str) -> std::io::Result<bool> {
+        if matches!(self.mode, OutputMode::Human)
+            && std::io::stdin().is_terminal()
+            && std::io::stderr().is_terminal()
+        {
+            confirm(prompt)
+        } else {
+            Ok(false)
+        }
+    }
+
     pub fn error(&self, e: &anyhow::Error) {
         let payload = serde_json::json!({ "error": format!("{:#}", e) });
         match self.mode {
@@ -77,7 +103,11 @@ impl Output {
         }
     }
 
-    fn serialize<T: Serialize>(&self, fmt: JsonFormat, value: &T) -> Result<String, serde_json::Error> {
+    fn serialize<T: Serialize>(
+        &self,
+        fmt: JsonFormat,
+        value: &T,
+    ) -> Result<String, serde_json::Error> {
         match fmt {
             JsonFormat::Pretty => serde_json::to_string_pretty(value),
             JsonFormat::Compact => serde_json::to_string(value),
@@ -96,11 +126,6 @@ fn clear_progress() {
     eprint!("\r\x1b[2K");
     let _ = std::io::stderr().flush();
 }
-
-const CYAN_BOLD: &str = "\x1b[1;36m";
-const BOLD: &str = "\x1b[1m";
-const RESET: &str = "\x1b[0m";
-const COL_GAP: usize = 4;
 
 /// Formats a table from headers and rows of string values.
 /// Headers are rendered in cyan bold, data rows in bold, with no borders.
@@ -121,7 +146,13 @@ pub fn table(headers: Vec<&str>, rows: Vec<Vec<String>>) -> String {
         if i > 0 {
             out.push_str(&" ".repeat(COL_GAP));
         }
-        out.push_str(&format!("{}{:<width$}{}", CYAN_BOLD, h, RESET, width = widths[i]));
+        out.push_str(&format!(
+            "{}{:<width$}{}",
+            CYAN_BOLD,
+            h,
+            RESET,
+            width = widths[i]
+        ));
     }
     out.push('\n');
 
@@ -153,9 +184,11 @@ mod tests {
             .env_remove("TOPK_API_KEY")
             .env_remove("TOPK_REGION")
             .args(["--json", "dataset", "list"])
-            .output().unwrap();
+            .output()
+            .unwrap();
         let stderr = String::from_utf8_lossy(&out.stderr);
-        let parsed: serde_json::Value = serde_json::from_str(stderr.trim()).expect("stderr should be valid JSON");
+        let parsed: serde_json::Value =
+            serde_json::from_str(stderr.trim()).expect("stderr should be valid JSON");
         assert!(parsed["error"].as_str().unwrap().contains("TOPK_API_KEY"));
     }
 
@@ -165,9 +198,11 @@ mod tests {
             .env("TOPK_API_KEY", "test-key")
             .env_remove("TOPK_REGION")
             .args(["--json", "dataset", "list"])
-            .output().unwrap();
+            .output()
+            .unwrap();
         let stderr = String::from_utf8_lossy(&out.stderr);
-        let parsed: serde_json::Value = serde_json::from_str(stderr.trim()).expect("stderr should be valid JSON");
+        let parsed: serde_json::Value =
+            serde_json::from_str(stderr.trim()).expect("stderr should be valid JSON");
         assert!(parsed["error"].as_str().unwrap().contains("TOPK_REGION"));
     }
 }

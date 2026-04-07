@@ -170,10 +170,6 @@ async fn main() -> std::process::ExitCode {
 }
 
 async fn run(cli: Cli, output: &Output) -> Result<()> {
-    let is_interactive = !cli.agent
-        && !matches!(cli.output, OutputArg::Agent)
-        && std::io::stdin().is_terminal()
-        && std::io::stderr().is_terminal();
     let client = make_client(cli.api_key, cli.region, cli.host)?;
 
     match cli.command.expect("checked above") {
@@ -203,7 +199,7 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
                     yes,
                     dry_run,
                     wait,
-                    is_interactive,
+                    output,
                 )
                 .await?,
             )?;

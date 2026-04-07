@@ -22,12 +22,14 @@ impl RenderForHuman for SearchResults {
             vec!["DOC ID", "DATASET", "TYPE", "CONTENT"],
             self.results
                 .iter()
-                .map(|r| vec![
-                    r.doc_id.clone(),
-                    r.dataset.clone(),
-                    r.doc_type.clone(),
-                    format_content_text(r.content.as_ref()),
-                ])
+                .map(|r| {
+                    vec![
+                        r.doc_id.clone(),
+                        r.dataset.clone(),
+                        r.doc_type.clone(),
+                        format_content_text(r.content.as_ref()),
+                    ]
+                })
                 .collect(),
         )
     }
@@ -53,7 +55,12 @@ fn format_content_text(content: Option<&Content>) -> String {
     match content.and_then(|c| c.data.as_ref()) {
         Some(content::Data::Chunk(chunk)) => {
             let text = if chunk.text.chars().count() > 200 {
-                let end = chunk.text.char_indices().nth(200).map(|(i, _)| i).unwrap_or(chunk.text.len());
+                let end = chunk
+                    .text
+                    .char_indices()
+                    .nth(200)
+                    .map(|(i, _)| i)
+                    .unwrap_or(chunk.text.len());
                 format!("{}...", &chunk.text[..end])
             } else {
                 chunk.text.clone()
@@ -66,7 +73,11 @@ fn format_content_text(content: Option<&Content>) -> String {
             }
         }
         Some(content::Data::Page(page)) => format!("<page {}>", page.page_number),
-        Some(content::Data::Image(img)) => format!("<image {} {}>", img.mime_type, bytesize::ByteSize(img.data.len() as u64)),
+        Some(content::Data::Image(img)) => format!(
+            "<image {} {}>",
+            img.mime_type,
+            bytesize::ByteSize(img.data.len() as u64)
+        ),
         None => String::new(),
     }
 }

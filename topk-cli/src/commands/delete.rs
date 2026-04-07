@@ -20,11 +20,22 @@ impl RenderForHuman for DeleteResult {
     }
 }
 
-pub async fn run(client: &Client, dataset: &str, doc_id: impl Into<String>, yes: bool) -> Result<DeleteResult, Error> {
+pub async fn run(
+    client: &Client,
+    dataset: &str,
+    doc_id: impl Into<String>,
+    yes: bool,
+) -> Result<DeleteResult, Error> {
     let doc_id = doc_id.into();
     if !yes && !confirm(&format!("Delete document '{}'? [y/N] ", doc_id))? {
-        return Ok(DeleteResult { deleted: false, skipped: Some(true) });
+        return Ok(DeleteResult {
+            deleted: false,
+            skipped: Some(true),
+        });
     }
     client.dataset(dataset).delete(doc_id).await?;
-    Ok(DeleteResult { deleted: true, skipped: None })
+    Ok(DeleteResult {
+        deleted: true,
+        skipped: None,
+    })
 }
