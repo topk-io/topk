@@ -52,14 +52,14 @@ enum Commands {
     Ask {
         /// Question to ask (reads from stdin if omitted)
         query: Option<String>,
-        /// Dataset(s) to search (comma-separated or repeated)
+        /// Dataset(s) to search, comma-separated; if omitted, searches all datasets
         #[arg(long, value_delimiter = ',')]
         sources: Vec<String>,
         /// Response mode
         #[arg(long, default_value = "auto")]
         mode: ask::Mode,
-        /// Metadata fields to include in results
-        #[arg(long = "field", value_delimiter = ',')]
+        /// Metadata fields to include in results, comma-separated
+        #[arg(long = "fields", value_delimiter = ',')]
         fields: Option<Vec<String>>,
     },
 
@@ -67,14 +67,14 @@ enum Commands {
     Search {
         /// Search query (reads from stdin if omitted)
         query: Option<String>,
-        /// Dataset(s) to search (comma-separated or repeated)
+        /// Dataset(s) to search, comma-separated; if omitted, searches all datasets
         #[arg(long, value_delimiter = ',')]
         sources: Vec<String>,
         /// Number of results to return
         #[arg(long, default_value = "10")]
         top_k: u32,
-        /// Metadata fields to include in results
-        #[arg(long = "field", value_delimiter = ',')]
+        /// Metadata fields to include in results, comma-separated
+        #[arg(long = "fields", value_delimiter = ',')]
         fields: Vec<String>,
     },
 
@@ -119,6 +119,9 @@ enum Commands {
         /// Block until the document is uploaded and fully processed
         #[arg(long)]
         wait: bool,
+        /// Preview the upsert without uploading
+        #[arg(long)]
+        dry_run: bool,
     },
 
     /// Delete a document
@@ -219,9 +222,10 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             path,
             metadata,
             wait,
+            dry_run,
         } => {
-            let mut result = upsert::run(&client, &dataset, document_id, path, metadata).await?;
-            if wait {
+            let mut result = upsert::run(&client, &dataset, document_id, path, metadata, dry_run).await?;
+            if wait && !dry_run {
                 output.progress("Processing...");
                 client
                     .dataset(&dataset)

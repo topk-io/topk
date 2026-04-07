@@ -16,6 +16,7 @@ use crate::output::RenderForHuman;
 pub struct UpsertResult {
     pub handle: String,
     pub processed: bool,
+    pub metadata: HashMap<String, String>,
 }
 
 impl RenderForHuman for UpsertResult {
@@ -35,21 +36,33 @@ pub async fn run(
     doc_id: DocId,
     file: PathBuf,
     metadata: Vec<(String, String)>,
+    dry_run: bool,
 ) -> Result<UpsertResult, Error> {
-    let input = InputFile::from_path(&file)?;
-    let meta: HashMap<String, Value> = metadata
-        .into_iter()
-        .map(|(k, v)| (k, Value::string(v)))
-        .collect();
+    let metadata: HashMap<String, String> = metadata.into_iter().collect();
+
+    if dry_run {
+        return Ok(UpsertResult {
+            handle: "dry-run".to_string(),
+            processed: false,
+            metadata,
+        });
+    }
 
     let result = client
         .dataset(dataset)
-        .upsert_file(doc_id, input, meta)
+        .upsert_file(
+            doc_id,
+            InputFile::from_path(&file)?,
+            metadata
+                .iter()
+                .map(|(k, v)| (k.clone(), Value::string(v.clone()))),
+        )
         .await?;
 
     Ok(UpsertResult {
         handle: result.into_inner().handle,
         processed: false,
+        metadata,
     })
 }
 
@@ -124,5 +137,44 @@ mod tests {
         );
         let result: UpsertResult = serde_json::from_slice(&out.stdout).unwrap();
         assert!(!result.handle.is_empty());
+    }
+
+    #[test_context(CliTestContext)]
+    #[tokio::test]
+    async fn upsert_with_metadata(ctx: &mut CliTestContext) {
+        let dataset = ctx.wrap("test");
+
+        let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/pdfko.pdf");
+        let out = cmd()
+            .args([
+                "--json",
+                "upsert",
+                "--dataset",
+                &dataset,
+                "--document-id",
+                "meta-doc",
+                "--meta",
+                "title=Test Document",
+                "--meta",
+                "author=Test Author",
+                "--dry-run",
+                file,
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        let result: UpsertResult = serde_json::from_slice(&out.stdout).unwrap();
+        assert_eq!(
+            result.metadata.get("title").map(|s| s.as_str()),
+            Some("Test Document")
+        );
+        assert_eq!(
+            result.metadata.get("author").map(|s| s.as_str()),
+            Some("Test Author")
+        );
     }
 }

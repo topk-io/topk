@@ -1,19 +1,19 @@
 use anyhow::Result;
 use futures::TryStreamExt;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use topk_rs::{
-    proto::v1::ctx::{content, Content, SearchResult},
+    proto::v1::ctx::{content, Content},
     Client,
 };
 
 use crate::output::RenderForHuman;
 
-#[derive(Serialize)]
-pub struct SearchResults {
-    results: Vec<SearchResult>,
+#[derive(Serialize, Deserialize)]
+pub struct SearchResult {
+    results: Vec<topk_rs::proto::v1::ctx::SearchResult>,
 }
 
-impl RenderForHuman for SearchResults {
+impl RenderForHuman for SearchResult {
     fn render(&self) -> String {
         if self.results.is_empty() {
             return "No results.".to_string();
@@ -43,14 +43,47 @@ pub async fn run(
     sources: Vec<String>,
     top_k: u32,
     fields: Vec<String>,
-) -> Result<SearchResults> {
+) -> Result<SearchResult> {
     let stream = client
         .search(query, sources, top_k, None, fields)
         .await?
         .into_inner();
 
     let results = stream.try_collect().await?;
-    Ok(SearchResults { results })
+    Ok(SearchResult { results })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SearchResult;
+    use crate::test_context::CliTestContext;
+    use assert_cmd::Command;
+    use test_context::test_context;
+
+    fn cmd() -> Command {
+        Command::cargo_bin("topk").unwrap()
+    }
+
+    #[test_context(CliTestContext)]
+    #[tokio::test]
+    async fn search_returns_results(ctx: &mut CliTestContext) {
+        let dataset = ctx.wrap("test");
+        cmd()
+            .args(["dataset", "create", "--dataset", &dataset])
+            .output()
+            .unwrap();
+
+        let out = cmd()
+            .args(["--json", "search", "summarize"])
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        let _: SearchResult = serde_json::from_slice(&out.stdout).unwrap();
+    }
 }
 
 pub fn format_content_text(content: Option<&Content>) -> String {

@@ -7,6 +7,7 @@ use crate::output::{Output, RenderForHuman};
 pub struct DeleteResult {
     deleted: bool,
     skipped: Option<bool>,
+    handle: Option<String>,
 }
 
 impl RenderForHuman for DeleteResult {
@@ -28,15 +29,20 @@ pub async fn run(
     output: &Output,
 ) -> Result<DeleteResult, Error> {
     let doc_id = doc_id.into();
+
     if !yes && !output.confirm(&format!("Delete document '{}'? [y/N] ", doc_id))? {
         return Ok(DeleteResult {
             deleted: false,
             skipped: Some(true),
+            handle: None,
         });
     }
-    client.dataset(dataset).delete(doc_id).await?;
+
+    let result = client.dataset(dataset).delete(doc_id).await?;
+
     Ok(DeleteResult {
         deleted: true,
         skipped: None,
+        handle: Some(result.into_inner().handle),
     })
 }

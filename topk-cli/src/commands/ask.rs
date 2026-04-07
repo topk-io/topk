@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tokio_stream::StreamExt;
 use topk_rs::{
     proto::v1::ctx::{
@@ -33,7 +33,7 @@ impl From<Mode> for topk_rs::proto::v1::ctx::Mode {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct AskResult {
     pub(crate) facts: Vec<Fact>,
     pub(crate) refs: HashMap<String, SearchResult>,
@@ -73,9 +73,13 @@ impl RenderForHuman for AskResult {
 
         if !self.refs.is_empty() {
             let mut sorted_refs: Vec<_> = self.refs.iter().collect();
-            sorted_refs.sort_by_key(|(id, _)| {
-                let parts: Vec<u32> = id.split('_').filter_map(|p| p.parse().ok()).collect();
-                parts
+            // Ref IDs have the form "<chunk>_<index>" (e.g. "1_8"). Sort numerically
+            // per segment so that "1_9" < "1_10" rather than lexicographically.
+            sorted_refs.sort_by(|(a, _), (b, _)| {
+                let parse = |s: &str| -> Vec<u64> {
+                    s.split('_').map(|p| p.parse().unwrap_or(u64::MAX)).collect()
+                };
+                parse(a).cmp(&parse(b))
             });
             out.push('\n');
             out.push_str(&format!("{}References:{}", BOLD, RESET));
@@ -143,4 +147,34 @@ pub async fn run(
     answer
         .map(Into::into)
         .ok_or_else(|| Error::Internal("No answer found".to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AskResult;
+    use crate::test_context::CliTestContext;
+    use assert_cmd::Command;
+    use test_context::test_context;
+
+    fn cmd() -> Command {
+        Command::cargo_bin("topk").unwrap()
+    }
+
+    #[test_context(CliTestContext)]
+    #[tokio::test]
+    async fn ask_returns_result(ctx: &mut CliTestContext) {
+        let dataset = ctx.wrap("test");
+        cmd()
+            .args(["dataset", "create", "--dataset", &dataset])
+            .output()
+            .unwrap();
+
+        let out = cmd().args(["--json", "ask", "summarize"]).output().unwrap();
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        let _: AskResult = serde_json::from_slice(&out.stdout).unwrap();
+    }
 }
