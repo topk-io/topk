@@ -133,9 +133,9 @@ pub async fn run(
             Some(ask_result::Message::Reason(r)) => {
                 spinner.println(format!("[thinking] {}", r.thought));
             }
-            Some(ask_result::Message::Search(s_msg)) => {
-                spinner.println(format!("[searching] {}", s_msg.objective));
-                for fact in &s_msg.facts {
+            Some(ask_result::Message::Search(s)) => {
+                spinner.println(format!("[searching] {}", s.objective));
+                for fact in &s.facts {
                     spinner.println(format!("  - {}", fact.fact));
                 }
             }
