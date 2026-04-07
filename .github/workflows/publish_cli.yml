@@ -168,10 +168,23 @@ jobs:
             -e 's/__SHA256_X86_64_LINUX__/${{ steps.sha256.outputs.x86_64_linux }}/g' \
             topk-cli/homebrew/topk.rb > topk.rb
 
+      - name: Upload formula artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: homebrew-formula
+          path: ./topk.rb
+          if-no-files-found: error
+
+      - name: Download formula artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: homebrew-formula
+          path: .
+
       - name: Push formula to tap
         run: |
           git clone https://x-access-token:${{ secrets.HOMEBREW_TAP_TOKEN }}@github.com/topk-io/homebrew-topk.git tap
-          cp topk.rb tap/Formula/topk.rb
+          cp ./topk.rb tap/Formula/topk.rb
           cd tap
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
