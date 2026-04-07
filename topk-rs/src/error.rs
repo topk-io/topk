@@ -59,13 +59,22 @@ pub enum Error {
     #[error("internal error: {0}")]
     Internal(String),
 
+    #[error("unavailable: {0}")]
+    Unavailable(String),
+
+    #[error("deadline exceeded: {0}")]
+    DeadlineExceeded(String),
+
+    #[error("unauthenticated: {0}")]
+    Unauthenticated(String),
+
     #[error("unexpected error: {0}")]
     Unexpected(String),
 
     #[error("slow down: {0}")]
     SlowDown(String),
 
-    #[error("tonic transport error")]
+    #[error("transport error: {0}")]
     TransportError(#[from] tonic::transport::Error),
 
     #[error("malformed response: {0}")]
@@ -81,6 +90,8 @@ impl Error {
             // Retryable
             Error::QueryLsnTimeout => true,
             Error::SlowDown(_) => true,
+            Error::Unavailable(_) => true,
+            Error::TransportError(_) => true,
             // Not retryable
             Error::RetryTimeout => false,
             Error::CollectionAlreadyExists => false,
@@ -95,7 +106,8 @@ impl Error {
             Error::PermissionDenied => false,
             Error::QuotaExceeded(_) => false,
             Error::RequestTooLarge(_) => false,
-            Error::TransportError(_) => false,
+            Error::DeadlineExceeded(_) => false,
+            Error::Unauthenticated(_) => false,
             Error::MalformedResponse(_) => false,
             Error::Unexpected(_) => false,
             Error::Internal(_) => false,
@@ -156,6 +168,15 @@ impl From<Status> for Error {
                 tonic::Code::OutOfRange => Error::RequestTooLarge(e.message().into()),
                 tonic::Code::PermissionDenied => Error::PermissionDenied,
                 tonic::Code::Internal => Error::Internal(append_request_id(e.message())),
+                tonic::Code::Unavailable | tonic::Code::Cancelled => {
+                    Error::Unavailable(append_request_id(e.message()))
+                }
+                tonic::Code::DeadlineExceeded => {
+                    Error::DeadlineExceeded(append_request_id(e.message()))
+                }
+                tonic::Code::Unauthenticated => {
+                    Error::Unauthenticated(append_request_id(e.message()))
+                }
                 _ => Error::Unexpected(append_request_id(&format!("{:?}", e))),
             },
         }
