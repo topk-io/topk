@@ -75,7 +75,7 @@ enum Commands {
         top_k: u32,
         /// Metadata fields to include in results, comma-separated
         #[arg(long = "fields", value_delimiter = ',')]
-        fields: Vec<String>,
+        fields: Option<Vec<String>>,
     },
 
     /// Upload files matching regex patterns from the current directory
