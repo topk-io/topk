@@ -1,9 +1,9 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use topk_rs::{Client, Error};
 
 use crate::output::{Output, RenderForHuman};
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct DeleteResult {
     deleted: bool,
     skipped: Option<bool>,
@@ -45,4 +45,67 @@ pub async fn run(
         skipped: None,
         handle: Some(result.into_inner().handle),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DeleteResult;
+    use crate::test_context::CliTestContext;
+    use assert_cmd::Command;
+    use test_context::test_context;
+
+    fn cmd() -> Command {
+        Command::cargo_bin("topk").unwrap()
+    }
+
+    #[test_context(CliTestContext)]
+    #[tokio::test]
+    async fn delete_document(ctx: &mut CliTestContext) {
+        let dataset = ctx.wrap("test");
+        cmd()
+            .args(["dataset", "create", "-d", &dataset])
+            .output()
+            .unwrap();
+
+        let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/pdfko.pdf");
+        cmd()
+            .args(["upsert", "-d", &dataset, "--document-id", "doc-to-delete", file])
+            .output()
+            .unwrap();
+
+        let out = cmd()
+            .args(["--json", "delete", "-d", &dataset, "--document-id", "doc-to-delete", "-y"])
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        let result: DeleteResult = serde_json::from_slice(&out.stdout).unwrap();
+        assert!(result.deleted);
+        assert!(result.handle.is_some());
+    }
+
+    #[test_context(CliTestContext)]
+    #[tokio::test]
+    async fn delete_aborted(ctx: &mut CliTestContext) {
+        let dataset = ctx.wrap("test");
+        cmd()
+            .args(["dataset", "create", "-d", &dataset])
+            .output()
+            .unwrap();
+
+        let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/pdfko.pdf");
+        cmd()
+            .args(["upsert", "-d", &dataset, "--document-id", "doc-to-keep", file])
+            .output()
+            .unwrap();
+
+        // --json mode is non-interactive so confirm returns false → skipped
+        let out = cmd()
+            .args(["--json", "delete", "-d", &dataset, "--document-id", "doc-to-keep"])
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        let result: DeleteResult = serde_json::from_slice(&out.stdout).unwrap();
+        assert!(!result.deleted);
+        assert_eq!(result.skipped, Some(true));
+    }
 }

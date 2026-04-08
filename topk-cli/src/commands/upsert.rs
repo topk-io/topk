@@ -177,4 +177,31 @@ mod tests {
             Some("Test Author")
         );
     }
+
+    #[test_context(CliTestContext)]
+    #[tokio::test]
+    #[ignore]
+    async fn upsert_wait(ctx: &mut CliTestContext) {
+        let dataset = ctx.wrap("test");
+        cmd()
+            .args(["dataset", "create", "-d", &dataset])
+            .output()
+            .unwrap();
+
+        let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/pdfko.pdf");
+        let out = cmd()
+            .args([
+                "--json", "upsert",
+                "-d", &dataset,
+                "--document-id", "wait-doc",
+                "--wait",
+                file,
+            ])
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        let result: UpsertResult = serde_json::from_slice(&out.stdout).unwrap();
+        assert!(result.processed);
+        assert!(!result.handle.is_empty());
+    }
 }
