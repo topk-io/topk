@@ -19,7 +19,7 @@ pub(crate) fn confirm(prompt: &str) -> std::io::Result<bool> {
 pub struct FileProgress {
     pub overall: Option<ProgressBar>,
     pub current: Option<ProgressBar>,
-    multi: Option<MultiProgress>,
+    pub multi: Option<MultiProgress>,
 }
 
 impl FileProgress {

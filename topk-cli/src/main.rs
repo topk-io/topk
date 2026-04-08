@@ -78,17 +78,14 @@ enum Commands {
         fields: Vec<String>,
     },
 
-    /// Upload files or directories
+    /// Upload files matching regex patterns from the current directory
     Upload {
-        /// Path(s) to files or directories, comma-separated
-        #[arg(value_name = "PATHS", value_delimiter = ',')]
-        paths: Vec<std::path::PathBuf>,
+        /// Regex pattern(s) matched against file paths relative to the current directory
+        #[arg(value_name = "PATTERNS")]
+        patterns: Vec<String>,
         /// Dataset to upload into
         #[arg(short = 'd', long, value_name = "DATASET_NAME")]
         dataset: String,
-        /// Scan directory recursively
-        #[arg(short = 'r')]
-        recursive: bool,
         /// Number of concurrent uploads (1–64)
         #[arg(short = 'c', long, default_value = "32", value_parser = clap::value_parser!(u64).range(1..=64))]
         concurrency: u64,
@@ -98,9 +95,12 @@ enum Commands {
         /// Preview files without uploading
         #[arg(long)]
         dry_run: bool,
-        /// Wait for all files to be uploaded and fully processed
-        #[arg(long)]
+        /// Wait for all files to be fully processed (default in interactive mode)
+        #[arg(long, conflicts_with = "no_wait")]
         wait: bool,
+        /// Skip waiting for processing
+        #[arg(long, conflicts_with = "wait")]
+        no_wait: bool,
     },
 
     /// Upsert a document
@@ -158,7 +158,7 @@ async fn main() -> std::process::ExitCode {
     let output = Output::new(cli.json, cli.output, cli.pretty);
 
     if cli.command.is_none() {
-        print_welcome();
+        print_welcome(cli.api_key.as_deref(), cli.region.as_deref());
         Cli::command().print_help().unwrap();
         println!();
         return std::process::ExitCode::SUCCESS;
@@ -173,9 +173,25 @@ async fn main() -> std::process::ExitCode {
 }
 
 async fn run(cli: Cli, output: &Output) -> Result<()> {
+    let command = cli.command.expect("checked above");
+
+    // Show subcommand help before requiring credentials.
+    match &command {
+        Commands::Upload { patterns, .. } if patterns.is_empty() => {
+            return print_subcommand_help("upload");
+        }
+        Commands::Ask { query, .. } if query.is_none() && std::io::stdin().is_terminal() => {
+            return print_subcommand_help("ask");
+        }
+        Commands::Search { query, .. } if query.is_none() && std::io::stdin().is_terminal() => {
+            return print_subcommand_help("search");
+        }
+        _ => {}
+    }
+
     let client = make_client(cli.api_key, cli.region, cli.host)?;
 
-    match cli.command.expect("checked above") {
+    match command {
         Commands::Dataset { action } => match action {
             dataset::DatasetAction::List => {
                 output.print(&dataset::list(&client).await?)?;
@@ -192,24 +208,24 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
         },
 
         Commands::Upload {
-            paths,
+            patterns,
             dataset,
-            recursive,
             concurrency,
             yes,
             dry_run,
             wait,
+            no_wait,
         } => {
             output.print(
                 &upload::run(
                     &client,
                     &dataset,
-                    &paths,
-                    recursive,
+                    &patterns,
                     concurrency as usize,
                     yes,
                     dry_run,
                     wait,
+                    no_wait,
                     output,
                 )
                 .await?,
@@ -251,16 +267,8 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             mode: cmd_mode,
             fields,
         } => {
-            let query = match resolve_query(query)? {
-                Some(q) => q,
-                None => {
-                    Cli::command()
-                        .find_subcommand_mut("ask")
-                        .expect("ask subcommand")
-                        .print_help()?;
-                    return Ok(());
-                }
-            };
+            let query = resolve_query(query)?
+                .ok_or_else(|| anyhow::anyhow!("query is required; pass it as an argument or pipe it via stdin"))?;
             output.print(
                 &ask::run(
                     &client,
@@ -280,16 +288,8 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             top_k,
             fields,
         } => {
-            let query = match resolve_query(query)? {
-                Some(q) => q,
-                None => {
-                    Cli::command()
-                        .find_subcommand_mut("search")
-                        .expect("search subcommand")
-                        .print_help()?;
-                    return Ok(());
-                }
-            };
+            let query = resolve_query(query)?
+                .ok_or_else(|| anyhow::anyhow!("query is required; pass it as an argument or pipe it via stdin"))?;
             output.print(&search::run(&client, query, sources, top_k, fields).await?)?;
         }
     }
@@ -314,7 +314,7 @@ fn resolve_query(query: Option<String>) -> Result<Option<String>> {
     }
 }
 
-fn print_welcome() {
+fn print_welcome(api_key: Option<&str>, region: Option<&str>) {
     const BOLD: &str = "\x1b[1m";
     const CYAN: &str = "\x1b[36m";
     const ORANGE: &str = "\x1b[33m";
@@ -327,16 +327,13 @@ fn print_welcome() {
     println!("{}Turn raw files into searchable knowledge.{}", DIM, RESET);
     println!();
 
-    let api_key = std::env::var("TOPK_API_KEY").ok().filter(|v| !v.is_empty());
-    let region = std::env::var("TOPK_REGION").ok().filter(|v| !v.is_empty());
-
-    let api_key_status = match &api_key {
+    let api_key_status = match api_key {
         Some(key) => format!("{DIM}{}{RESET}", "*".repeat(key.chars().count())),
         None => format!(
             "{RED}✗{RESET} {DIM}set TOPK_API_KEY environment variable or pass --api-key TOPK_API_KEY. Create your API key: https://console.topk.io{RESET}"
         ),
     };
-    let region_status = match &region {
+    let region_status = match region {
         Some(r) => format!("{ORANGE}{r}{RESET}"),
         None => format!(
             "{RED}✗{RESET} {DIM}set TOPK_REGION environment variable or pass --region TOPK_REGION. List available regions: https://docs.topk.io/regions{RESET}"
@@ -347,6 +344,15 @@ fn print_welcome() {
     println!("{CYAN}API Key:{RESET}  {api_key_status}");
     println!("{CYAN}Region:{RESET}   {region_status}");
     println!();
+}
+
+fn print_subcommand_help(name: &str) -> Result<()> {
+    Cli::command()
+        .find_subcommand_mut(name)
+        .unwrap_or_else(|| panic!("subcommand '{name}' not found"))
+        .print_help()?;
+    println!();
+    Ok(())
 }
 
 fn make_client(

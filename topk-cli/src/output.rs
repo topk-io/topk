@@ -85,6 +85,10 @@ impl Output {
         }
     }
 
+    pub fn is_human(&self) -> bool {
+        matches!(self.mode, OutputMode::Human)
+    }
+
     pub fn confirm(&self, prompt: &str) -> std::io::Result<bool> {
         if matches!(self.mode, OutputMode::Human)
             && std::io::stdin().is_terminal()
