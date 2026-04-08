@@ -42,10 +42,10 @@ pub async fn run(
     query: String,
     sources: Vec<String>,
     top_k: u32,
-    fields: Vec<String>,
+    fields: Option<Vec<String>>,
 ) -> Result<SearchResult> {
     let stream = client
-        .search(query, sources, top_k, None, fields)
+        .search(query, sources, top_k, None, fields.unwrap_or_default())
         .await?
         .into_inner();
 
@@ -83,6 +83,75 @@ mod tests {
             String::from_utf8_lossy(&out.stderr)
         );
         let _: SearchResult = serde_json::from_slice(&out.stdout).unwrap();
+    }
+
+    #[test_context(CliTestContext)]
+    #[tokio::test]
+    async fn search_returns_metadata_fields(ctx: &mut CliTestContext) {
+        let dataset = ctx.wrap("meta-fields");
+
+        cmd()
+            .args(["dataset", "create", "--dataset", &dataset])
+            .output()
+            .unwrap();
+
+        let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/markdown.md");
+        let out = cmd()
+            .args([
+                "--json",
+                "upsert",
+                "--dataset",
+                &dataset,
+                "--document-id",
+                "meta-fields-doc",
+                "--meta",
+                "title=My Test Document",
+                "--meta",
+                "author=Test Author",
+                "--wait",
+                file,
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "upsert failed: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+
+        let out = cmd()
+            .args([
+                "--json",
+                "search",
+                "test",
+                "--sources",
+                &dataset,
+                "--fields",
+                "title,author",
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "search failed: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+
+        let result: SearchResult = serde_json::from_slice(&out.stdout).unwrap();
+        let doc = result
+            .results
+            .iter()
+            .find(|r| r.doc_id == "meta-fields-doc")
+            .expect("document not found in search results");
+
+        assert_eq!(
+            doc.metadata.get("title").and_then(|v| v.as_string()),
+            Some("My Test Document"),
+        );
+        assert_eq!(
+            doc.metadata.get("author").and_then(|v| v.as_string()),
+            Some("Test Author"),
+        );
     }
 }
 
