@@ -25,7 +25,6 @@ anyhow = { version = "1" }
 serde_json = { version = "1" }
 indicatif = { version = "0.17" }
 tracing = { version = "0.1" }
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 walkdir = { version = "2" }
 regex = { version = "1" }
 futures = { version = "0.3" }

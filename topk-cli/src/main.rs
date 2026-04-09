@@ -2,7 +2,6 @@ use std::io::{IsTerminal, Read};
 
 use topk::commands;
 use topk::output::{Output, OutputFormat};
-use tracing_subscriber::EnvFilter;
 
 use anyhow::Result;
 use clap::{CommandFactory, Parser, Subcommand};
@@ -37,9 +36,6 @@ struct Cli {
     #[arg(short = 'o', long, default_value = "text", global = true)]
     output: OutputFormat,
 
-    /// Enable debug logging
-    #[arg(long, global = true)]
-    debug: bool,
 }
 
 #[derive(Subcommand)]
@@ -149,13 +145,6 @@ enum Commands {
 #[tokio::main]
 async fn main() -> std::process::ExitCode {
     let cli = Cli::parse();
-
-    if cli.debug {
-        tracing_subscriber::fmt()
-            .with_env_filter(EnvFilter::new("topk=debug"))
-            .with_target(false)
-            .init();
-    }
 
     let output = Output::new(cli.output);
 
