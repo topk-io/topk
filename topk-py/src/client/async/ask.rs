@@ -109,7 +109,6 @@ pub fn ask(
     mode: Option<Mode>,
     select_fields: Option<Vec<String>>,
 ) -> PyResult<Py<PyAny>> {
-    let datasets = datasets.into_iter();
     let filter = filter.map(|f| f.into());
     let mode = mode.map(|m| m.into());
 

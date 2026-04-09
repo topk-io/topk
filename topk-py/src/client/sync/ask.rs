@@ -42,7 +42,6 @@ pub fn ask_stream(
 ) -> PyResult<AskIterator> {
     let (tx, rx) = mpsc::channel(CHANNEL_BUFFER_SIZE);
 
-    let datasets = datasets.into_iter();
     let filter = filter.map(|f| f.into());
     let mode = mode.map(|m| m.into());
 
@@ -107,7 +106,6 @@ pub fn ask(
     mode: Option<Mode>,
     select_fields: Option<Vec<String>>,
 ) -> PyResult<AskResult> {
-    let datasets = datasets.into_iter();
     let filter = filter.map(|f| f.into());
     let mode = mode.map(|m| m.into());
 

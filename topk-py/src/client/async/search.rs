@@ -46,7 +46,6 @@ pub fn search_stream(
 ) -> PyResult<AsyncSearchIterator> {
     let (tx, rx) = mpsc::channel(CHANNEL_BUFFER_SIZE);
 
-    let datasets = datasets.into_iter();
     let filter = filter.map(|f| f.into());
     let select_fields = select_fields.unwrap_or_default();
 
@@ -97,7 +96,6 @@ pub fn search(
     top_k: u32,
     select_fields: Option<Vec<String>>,
 ) -> PyResult<Py<PyAny>> {
-    let datasets = datasets.into_iter();
     let filter = filter.map(|f| f.into());
     let select_fields = select_fields.unwrap_or_default();
 
