@@ -74,7 +74,7 @@ mod tests {
             .unwrap();
 
         let out = cmd()
-            .args(["-o", "json", "search", "summarize"])
+            .args(["-o", "json", "search", "summarize", "--dataset", &dataset])
             .output()
             .unwrap();
         assert!(
@@ -126,8 +126,8 @@ mod tests {
                 "test",
                 "--dataset",
                 &dataset,
-                "--fields",
-                "title,author",
+                "--field", "title",
+                "--field", "author",
             ])
             .output()
             .unwrap();

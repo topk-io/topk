@@ -69,7 +69,7 @@ impl Output {
     pub fn confirm(&self, prompt: &str) -> std::io::Result<bool> {
         if matches!(self.format, OutputFormat::Text)
             && std::io::stdin().is_terminal()
-            && std::io::stderr().is_terminal()
+            && std::io::stdout().is_terminal()
         {
             confirm(prompt)
         } else {

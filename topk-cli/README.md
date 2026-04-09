@@ -38,9 +38,9 @@ topk ask "my question"
 
 | Flag        | Required | Description                                                                         |
 | ----------- | -------- | ----------------------------------------------------------------------------------- |
-| `--dataset` | No       | Dataset to search (repeatable, e.g. `-d ds1 -d ds2`). Defaults to all datasets.    |
+| `--dataset` | Yes      | Dataset to search (repeatable, e.g. `-d ds1 -d ds2`)                               |
 | `--mode`    | No       | Response mode: `auto` (default), `summarize`, `research`                            |
-| `--fields`  | No       | Metadata fields to include in results, comma-separated                              |
+| `--field`   | No       | Metadata field to include in results (repeatable, e.g. `-f title -f author`)        |
 
 
 The query can also be piped via stdin:
@@ -60,9 +60,9 @@ topk search "my query"
 
 | Flag        | Required | Description                                                                         |
 | ----------- | -------- | ----------------------------------------------------------------------------------- |
-| `--dataset` | No       | Dataset to search (repeatable, e.g. `-d ds1 -d ds2`). Defaults to all datasets.    |
+| `--dataset` | Yes      | Dataset to search (repeatable, e.g. `-d ds1 -d ds2`)                               |
 | `--top-k`   | No       | Number of results to return (default: 10)                                           |
-| `--fields`  | No       | Metadata fields to include in results, comma-separated                              |
+| `--field`   | No       | Metadata field to include in results (repeatable, e.g. `-f title -f author`)        |
 
 
 The query can also be piped via stdin:
@@ -115,6 +115,21 @@ topk upsert --dataset my-dataset --document-id my-doc.pdf ./my-doc.pdf
 | `--wait`        | No       | Block until the document is fully processed |
 | `--dry-run`     | No       | Preview the upsert without uploading        |
 
+
+---
+
+### `list` — List documents in a dataset
+
+```bash
+topk list --dataset my-dataset
+```
+
+Streams results as they arrive. In agent mode (`-o json`) outputs one JSON object per line (NDJSON).
+
+| Flag        | Required | Description                                               |
+| ----------- | -------- | --------------------------------------------------------- |
+| `--dataset` | Yes      | Dataset to list documents from                            |
+| `--field`   | No       | Metadata field to include (repeatable, e.g. `-f title`)  |
 
 ---
 

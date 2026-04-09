@@ -8,7 +8,7 @@ use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, Shell};
 use topk_rs::{proto::v1::ctx::doc::DocId, Client, ClientConfig};
 
-use commands::{ask, dataset, delete, search, upload, upsert};
+use commands::{ask, dataset, delete, list, search, upload, upsert};
 use topk::util::parse_kv;
 
 #[derive(Parser)]
@@ -44,14 +44,14 @@ enum Commands {
     Ask {
         /// Question to ask (reads from stdin if omitted)
         query: Option<String>,
-        /// Dataset to search (repeatable). Defaults to all datasets.
+        /// Dataset to search (repeatable)
         #[arg(short = 'd', long = "dataset")]
         datasets: Vec<String>,
         /// Query mode
         #[arg(short = 'm', long)]
         mode: Option<ask::Mode>,
-        /// Metadata fields to include in results, comma-separated
-        #[arg(short = 'f', long = "fields", value_delimiter = ',')]
+        /// Metadata fields to include in results (repeatable)
+        #[arg(short = 'f', long = "field")]
         fields: Option<Vec<String>>,
     },
 
@@ -59,14 +59,14 @@ enum Commands {
     Search {
         /// Search query (reads from stdin if omitted)
         query: Option<String>,
-        /// Dataset to search (repeatable). Defaults to all datasets.
+        /// Dataset to search (repeatable)
         #[arg(short = 'd', long = "dataset")]
         datasets: Vec<String>,
         /// Number of results to return
         #[arg(short = 'n', long, default_value = "10")]
         top_k: u32,
-        /// Metadata fields to include in results, comma-separated
-        #[arg(short = 'f', long = "fields", value_delimiter = ',')]
+        /// Metadata fields to include in results (repeatable)
+        #[arg(short = 'f', long = "field")]
         fields: Option<Vec<String>>,
     },
 
@@ -127,6 +127,16 @@ enum Commands {
         /// Skip confirmation prompt
         #[arg(short = 'y', long)]
         yes: bool,
+    },
+
+    /// List documents in a dataset
+    List {
+        /// Dataset to list documents from
+        #[arg(short = 'd', long, value_name = "DATASET_NAME")]
+        dataset: String,
+        /// Metadata fields to include (repeatable)
+        #[arg(short = 'f', long = "field")]
+        fields: Option<Vec<String>>,
     },
 
     /// Manage datasets (create, list, delete)
@@ -256,6 +266,10 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             yes,
         } => {
             output.print(&delete::run(&client, &dataset, document_id, yes, &output).await?)?;
+        }
+
+        Commands::List { dataset, fields } => {
+            list::run(&client, &dataset, fields, &output).await?;
         }
 
         Commands::Ask {
