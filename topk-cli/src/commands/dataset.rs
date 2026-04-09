@@ -116,7 +116,18 @@ impl TryFrom<Response<GetDatasetResponse>> for GetDatasetResult {
 
 impl RenderForHuman for GetDatasetResult {
     fn render(&self) -> String {
-        table(vec!["Name"], vec![vec![self.dataset.name.clone()]])
+        let created_at = self
+            .dataset
+            .created_at
+            .parse::<DateTime<Utc>>()
+            .unwrap_or_default()
+            .with_timezone(&Local)
+            .format("%b %-d, %Y %H:%M")
+            .to_string();
+        format!(
+            "Name:    {}\nRegion:  {}\nCreated: {}",
+            self.dataset.name, self.dataset.region, created_at
+        )
     }
 }
 
