@@ -6,7 +6,7 @@ use pyo3_async_runtimes::tokio::future_into_py;
 use tokio::sync::{mpsc, Mutex};
 
 use crate::client::CHANNEL_BUFFER_SIZE;
-use crate::data::ask::{AskResult, Datasets, Mode};
+use crate::data::ask::{AskResult, Mode, Source};
 use crate::error::RustError;
 use crate::expr::logical::LogicalExpr;
 
@@ -41,14 +41,13 @@ impl AsyncAskIterator {
 pub fn ask_stream(
     client: Arc<topk_rs::Client>,
     query: String,
-    datasets: Datasets,
+    datasets: Vec<Source>,
     filter: Option<LogicalExpr>,
     mode: Option<Mode>,
     select_fields: Option<Vec<String>>,
 ) -> PyResult<AsyncAskIterator> {
     let (tx, rx) = mpsc::channel(CHANNEL_BUFFER_SIZE);
 
-    let datasets = datasets.into_iter();
     let filter = filter.map(|f| f.into());
     let mode = mode.map(|m| m.into());
 
@@ -105,7 +104,7 @@ pub fn ask(
     client: Arc<topk_rs::Client>,
     py: Python<'_>,
     query: String,
-    datasets: Datasets,
+    datasets: Vec<Source>,
     filter: Option<LogicalExpr>,
     mode: Option<Mode>,
     select_fields: Option<Vec<String>>,

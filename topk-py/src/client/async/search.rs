@@ -6,7 +6,7 @@ use pyo3_async_runtimes::tokio::future_into_py;
 use tokio::sync::{mpsc, Mutex};
 
 use crate::client::CHANNEL_BUFFER_SIZE;
-use crate::data::ask::{Datasets, SearchResult};
+use crate::data::ask::{SearchResult, Source};
 use crate::error::RustError;
 use crate::expr::logical::LogicalExpr;
 
@@ -39,7 +39,7 @@ impl AsyncSearchIterator {
 pub fn search_stream(
     client: Arc<topk_rs::Client>,
     query: String,
-    datasets: Datasets,
+    datasets: Vec<Source>,
     filter: Option<LogicalExpr>,
     top_k: u32,
     select_fields: Option<Vec<String>>,
@@ -92,7 +92,7 @@ pub fn search(
     client: Arc<topk_rs::Client>,
     py: Python<'_>,
     query: String,
-    datasets: Datasets,
+    datasets: Vec<Source>,
     filter: Option<LogicalExpr>,
     top_k: u32,
     select_fields: Option<Vec<String>>,

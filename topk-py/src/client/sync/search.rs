@@ -5,7 +5,7 @@ use pyo3::prelude::*;
 use tokio::sync::mpsc;
 
 use crate::client::CHANNEL_BUFFER_SIZE;
-use crate::data::ask::{Datasets, SearchResult};
+use crate::data::ask::{SearchResult, Source};
 use crate::error::RustError;
 use crate::expr::logical::LogicalExpr;
 
@@ -33,7 +33,7 @@ pub fn search_stream(
     runtime: Arc<Runtime>,
     client: Arc<topk_rs::Client>,
     query: String,
-    datasets: Datasets,
+    datasets: Vec<Source>,
     filter: Option<LogicalExpr>,
     top_k: u32,
     select_fields: Option<Vec<String>>,
@@ -88,7 +88,7 @@ pub fn search(
     client: Arc<topk_rs::Client>,
     py: Python<'_>,
     query: String,
-    datasets: Datasets,
+    datasets: Vec<Source>,
     filter: Option<LogicalExpr>,
     top_k: u32,
     select_fields: Option<Vec<String>>,

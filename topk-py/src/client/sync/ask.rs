@@ -5,7 +5,7 @@ use pyo3::prelude::*;
 use tokio::sync::mpsc;
 
 use crate::client::CHANNEL_BUFFER_SIZE;
-use crate::data::ask::{AskResult, Datasets, Mode};
+use crate::data::ask::{AskResult, Mode, Source};
 use crate::error::RustError;
 use crate::expr::logical::LogicalExpr;
 
@@ -35,7 +35,7 @@ pub fn ask_stream(
     runtime: Arc<Runtime>,
     client: Arc<topk_rs::Client>,
     query: String,
-    datasets: Datasets,
+    datasets: Vec<Source>,
     filter: Option<LogicalExpr>,
     mode: Option<Mode>,
     select_fields: Option<Vec<String>>,
@@ -102,7 +102,7 @@ pub fn ask(
     client: Arc<topk_rs::Client>,
     py: Python<'_>,
     query: String,
-    datasets: Datasets,
+    datasets: Vec<Source>,
     filter: Option<LogicalExpr>,
     mode: Option<Mode>,
     select_fields: Option<Vec<String>>,
