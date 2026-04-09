@@ -18,24 +18,29 @@ struct Cli {
     command: Option<Commands>,
 
     /// TopK API key (overrides TOPK_API_KEY environment variable)
-    #[arg(short = 'k', long, env = "TOPK_API_KEY", global = true, hide_env_values = true)]
+    #[arg(long, env = "TOPK_API_KEY", global = true, hide_env_values = true)]
     api_key: Option<String>,
 
     /// TopK Region (overrides TOPK_REGION environment variable, available regions: https://docs.topk.io/regions)
-    #[arg(short = 'r', long, env = "TOPK_REGION", global = true)]
+    #[arg(long, env = "TOPK_REGION", global = true)]
     region: Option<String>,
 
     /// Host (overrides TOPK_HOST environment variable, default: topk.io)
     #[arg(long, env = "TOPK_HOST", global = true, hide = true)]
     host: Option<String>,
 
-    #[arg(long, env = "TOPK_HTTPS", default_value = "true", global = true, hide = true)]
+    #[arg(
+        long,
+        env = "TOPK_HTTPS",
+        default_value = "true",
+        global = true,
+        hide = true
+    )]
     https: bool,
 
     /// Output format
     #[arg(short = 'o', long, default_value = "text", global = true)]
     output: OutputFormat,
-
 }
 
 #[derive(Subcommand)]
@@ -63,7 +68,7 @@ enum Commands {
         #[arg(short = 'd', long = "dataset")]
         datasets: Vec<String>,
         /// Number of results to return
-        #[arg(short = 'n', long, default_value = "10")]
+        #[arg(short = 'k', long, default_value = "10")]
         top_k: u32,
         /// Metadata fields to include in results (repeatable)
         #[arg(short = 'f', long = "field")]
@@ -85,12 +90,12 @@ enum Commands {
         #[arg(short = 'y', long)]
         yes: bool,
         /// Preview files without uploading
-        #[arg(short = 'n', long)]
+        #[arg(long)]
         dry_run: bool,
-        /// Wait for all files to be fully processed (default in interactive mode)
-        #[arg(short = 'w', long, conflicts_with = "no_wait")]
+        /// Wait for all files to be fully processed (agent mode only)
+        #[arg(short = 'w', long)]
         wait: bool,
-        /// Skip waiting for processing
+        /// Skip waiting for processing (interactive mode only)
         #[arg(long, conflicts_with = "wait")]
         no_wait: bool,
     },
@@ -101,8 +106,8 @@ enum Commands {
         #[arg(short = 'd', long, value_name = "DATASET_NAME")]
         dataset: String,
         /// Document ID
-        #[arg(short = 'i', long)]
-        document_id: DocId,
+        #[arg(long)]
+        id: DocId,
         /// Path to file
         path: std::path::PathBuf,
         /// Metadata key=value pairs
@@ -112,7 +117,7 @@ enum Commands {
         #[arg(short = 'w', long)]
         wait: bool,
         /// Preview the upsert without uploading
-        #[arg(short = 'n', long)]
+        #[arg(long)]
         dry_run: bool,
     },
 
@@ -122,8 +127,8 @@ enum Commands {
         #[arg(short = 'd', long, value_name = "DATASET_NAME")]
         dataset: String,
         /// Document ID
-        #[arg(short = 'i', long)]
-        document_id: DocId,
+        #[arg(long)]
+        id: DocId,
         /// Skip confirmation prompt
         #[arg(short = 'y', long)]
         yes: bool,
@@ -147,9 +152,7 @@ enum Commands {
 
     /// Generate shell completion script
     #[command(hide = true)]
-    Completions {
-        shell: Shell,
-    },
+    Completions { shell: Shell },
 }
 
 #[tokio::main]
@@ -241,14 +244,13 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
 
         Commands::Upsert {
             dataset,
-            document_id,
+            id,
             path,
             metadata,
             wait,
             dry_run,
         } => {
-            let mut result =
-                upsert::run(&client, &dataset, document_id, path, metadata, dry_run).await?;
+            let mut result = upsert::run(&client, &dataset, id, path, metadata, dry_run).await?;
             if wait && !dry_run {
                 output.progress("Processing...");
                 client
@@ -260,12 +262,8 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             output.print(&result)?;
         }
 
-        Commands::Delete {
-            dataset,
-            document_id,
-            yes,
-        } => {
-            output.print(&delete::run(&client, &dataset, document_id, yes, &output).await?)?;
+        Commands::Delete { dataset, id, yes } => {
+            output.print(&delete::run(&client, &dataset, id, yes, &output).await?)?;
         }
 
         Commands::List { dataset, fields } => {
@@ -278,19 +276,10 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             mode,
             fields,
         } => {
-            let query = resolve_query(query)?
-                .ok_or_else(|| anyhow::anyhow!("query is required; pass it as an argument or pipe it via stdin"))?;
-            output.print(
-                &ask::run(
-                    &client,
-                    query,
-                    datasets,
-                    mode.map(|m| m.into()),
-                    fields,
-                    output,
-                )
-                .await?,
-            )?;
+            let query = resolve_query(query)?.ok_or_else(|| {
+                anyhow::anyhow!("query is required; pass it as an argument or pipe it via stdin")
+            })?;
+            output.print(&ask::run(&client, query, datasets, mode, fields, &output).await?)?;
         }
 
         Commands::Search {
@@ -299,8 +288,9 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             top_k,
             fields,
         } => {
-            let query = resolve_query(query)?
-                .ok_or_else(|| anyhow::anyhow!("query is required; pass it as an argument or pipe it via stdin"))?;
+            let query = resolve_query(query)?.ok_or_else(|| {
+                anyhow::anyhow!("query is required; pass it as an argument or pipe it via stdin")
+            })?;
             output.print(&search::run(&client, query, datasets, top_k, fields).await?)?;
         }
         Commands::Completions { .. } => unreachable!(),

@@ -1,9 +1,12 @@
 use bytesize::ByteSize;
+use comfy_table::{
+    presets, Attribute, Cell, CellAlignment, Color, ColumnConstraint, ContentArrangement, Table,
+};
 use serde::{Deserialize, Serialize};
 use tokio_stream::StreamExt;
 use topk_rs::{proto::v1::ctx::ListEntry, Client, Error};
 
-use crate::output::{Output, BOLD, DIM, RESET};
+use crate::output::{Output, RenderForHuman};
 
 #[derive(Serialize, Deserialize)]
 pub struct ListEntryRow {
@@ -34,6 +37,67 @@ impl TryFrom<ListEntry> for ListEntryRow {
     }
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct ListResult {
+    pub entries: Vec<ListEntryRow>,
+}
+
+impl RenderForHuman for ListResult {
+    fn render(&self) -> String {
+        let rows = self
+            .entries
+            .iter()
+            .map(|entry| {
+                vec![
+                    entry.id.clone(),
+                    entry.name.clone(),
+                    ByteSize(entry.size).to_string(),
+                    entry.mime_type.clone(),
+                ]
+            })
+            .collect::<Vec<_>>();
+
+        render_human_table(&rows)
+    }
+}
+
+fn render_human_table(rows: &[Vec<String>]) -> String {
+    if rows.is_empty() {
+        return "No documents.".to_string();
+    }
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::NOTHING)
+        .set_content_arrangement(ContentArrangement::Disabled)
+        .set_header(["ID", "NAME", "SIZE", "TYPE"].into_iter().map(|header| {
+            Cell::new(header)
+                .add_attribute(Attribute::Bold)
+                .fg(Color::Cyan)
+        }))
+        .set_constraints([
+            ColumnConstraint::ContentWidth,
+            ColumnConstraint::ContentWidth,
+            ColumnConstraint::ContentWidth,
+            ColumnConstraint::ContentWidth,
+        ]);
+
+    if let Some(column) = table.column_mut(2) {
+        column.set_cell_alignment(CellAlignment::Right);
+    }
+
+    for row in rows {
+        table.add_row([
+            Cell::new(&row[0]),
+            Cell::new(&row[1]),
+            Cell::new(&row[2]),
+            Cell::new(&row[3]).add_attribute(Attribute::Dim),
+        ]);
+    }
+
+    table.to_string()
+}
+
 /// `topk list`
 pub async fn run(
     client: &Client,
@@ -48,47 +112,41 @@ pub async fn run(
         .into_inner();
 
     if output.is_human() {
-        println!("{BOLD}{:<60}  {:<40}  {:>10}  {}{RESET}", "ID", "NAME", "SIZE", "TYPE");
-
-        let mut count: u64 = 0;
-        while let Some(entry) = stream.next().await {
-            let entry = entry?;
-            println!(
-                "{:<60}  {:<40}  {:>10}  {DIM}{}{RESET}",
-                entry.id,
-                entry.name,
-                ByteSize(entry.size).to_string(),
-                entry.mime_type,
-            );
-            count += 1;
-        }
-
-        if count == 0 {
-            println!("No documents.");
-        }
-
-        Ok(count)
-    } else {
-        let mut count: u64 = 0;
+        let mut entries = Vec::new();
         while let Some(entry) = stream.next().await {
             let row: ListEntryRow = entry?
                 .try_into()
                 .map_err(|e: serde_json::Error| Error::Internal(e.to_string()))?;
-            println!(
-                "{}",
-                serde_json::to_string(&row).map_err(|e| Error::Internal(e.to_string()))?
-            );
-            count += 1;
+            entries.push(row);
         }
-        Ok(count)
+
+        let count = entries.len() as u64;
+        output
+            .print(&ListResult { entries })
+            .map_err(|e| Error::Internal(e.to_string()))?;
+        return Ok(count);
     }
+
+    let mut count: u64 = 0;
+    while let Some(entry) = stream.next().await {
+        let row: ListEntryRow = entry?
+            .try_into()
+            .map_err(|e: serde_json::Error| Error::Internal(e.to_string()))?;
+        output
+            .print_json_line(&row)
+            .map_err(|e| Error::Internal(e.to_string()))?;
+        count += 1;
+    }
+
+    Ok(count)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::ListEntryRow;
+    use super::{render_human_table, ListEntryRow};
     use crate::test_context::CliTestContext;
     use assert_cmd::Command;
+    use regex::Regex;
     use test_context::test_context;
 
     fn cmd() -> Command {
@@ -96,6 +154,40 @@ mod tests {
     }
 
     const TESTS_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests");
+
+    fn strip_ansi(value: &str) -> String {
+        Regex::new(r"\x1b\[[0-9;]*m")
+            .unwrap()
+            .replace_all(value, "")
+            .into_owned()
+    }
+
+    #[test]
+    fn human_table_keeps_later_columns_aligned_for_long_names() {
+        let rendered = strip_ansi(&render_human_table(&[
+            vec![
+                "short-id".to_string(),
+                "short.pdf".to_string(),
+                "1.0 KB".to_string(),
+                "application/pdf".to_string(),
+            ],
+            vec![
+                "very-long-id".to_string(),
+                "Biosimilar_and_Interchangeable_Products_The_US_FDA_Perspective.pdf".to_string(),
+                "1.0 KB".to_string(),
+                "application/pdf".to_string(),
+            ],
+        ]));
+
+        let lines: Vec<&str> = rendered.lines().collect();
+        assert_eq!(lines.len(), 3);
+
+        let size_col = lines[1].find("1.0 KB").unwrap();
+        assert_eq!(size_col, lines[2].find("1.0 KB").unwrap());
+
+        let type_col = lines[1].find("application/pdf").unwrap();
+        assert_eq!(type_col, lines[2].find("application/pdf").unwrap());
+    }
 
     #[test_context(CliTestContext)]
     #[tokio::test]
@@ -105,17 +197,34 @@ mod tests {
         // Upload two files
         let out = cmd()
             .current_dir(TESTS_DIR)
-            .args(["-o", "json", "upload", r"pdfko\.pdf|markdown\.md", "-d", &dataset, "-y", "--wait"])
+            .args([
+                "-o",
+                "json",
+                "upload",
+                r"pdfko\.pdf|markdown\.md",
+                "-d",
+                &dataset,
+                "-y",
+                "--wait",
+            ])
             .output()
             .unwrap();
-        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
 
         // List and parse NDJSON
         let out = cmd()
             .args(["-o", "json", "list", "--dataset", &dataset])
             .output()
             .unwrap();
-        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
 
         let entries: Vec<ListEntryRow> = String::from_utf8_lossy(&out.stdout)
             .lines()
@@ -131,13 +240,20 @@ mod tests {
     #[tokio::test]
     async fn list_empty_dataset(ctx: &mut CliTestContext) {
         let dataset = ctx.wrap("list-empty");
-        cmd().args(["dataset", "create", &dataset]).output().unwrap();
+        cmd()
+            .args(["dataset", "create", &dataset])
+            .output()
+            .unwrap();
 
         let out = cmd()
             .args(["-o", "json", "list", "--dataset", &dataset])
             .output()
             .unwrap();
-        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
         assert!(out.stdout.is_empty());
     }
 }

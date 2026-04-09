@@ -98,7 +98,8 @@ mod tests {
         let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/markdown.md");
         let out = cmd()
             .args([
-                "-o", "json",
+                "-o",
+                "json",
                 "upsert",
                 "--dataset",
                 &dataset,
@@ -121,13 +122,16 @@ mod tests {
 
         let out = cmd()
             .args([
-                "-o", "json",
+                "-o",
+                "json",
                 "search",
                 "test",
                 "--dataset",
                 &dataset,
-                "--field", "title",
-                "--field", "author",
+                "--field",
+                "title",
+                "--field",
+                "author",
             ])
             .output()
             .unwrap();

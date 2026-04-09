@@ -6,7 +6,7 @@ use topk_rs::{
     Client, Error,
 };
 
-use crate::output::{table, Output, RenderForHuman};
+use crate::output::{Output, RenderForHuman, BOLD, DIM, RESET};
 
 /// `topk dataset`
 #[derive(Debug, clap::Subcommand)]
@@ -75,27 +75,27 @@ impl From<Response<ListDatasetsResponse>> for ListDatasetsResult {
 impl RenderForHuman for ListDatasetsResult {
     fn render(&self) -> String {
         if self.datasets.is_empty() {
-            "No datasets found.".to_string()
-        } else {
-            table(
-                vec!["Name", "Region", "Created"],
-                self.datasets
-                    .iter()
-                    .map(|d| {
-                        vec![
-                            d.name.clone(),
-                            d.region.clone(),
-                            d.created_at
-                                .parse::<DateTime<Utc>>()
-                                .unwrap_or_default()
-                                .with_timezone(&Local)
-                                .format("%b %-d, %Y %H:%M")
-                                .to_string(),
-                        ]
-                    })
-                    .collect(),
-            )
+            return "No datasets found.".to_string();
         }
+
+        let mut out = format!(
+            "{BOLD}{:<40}  {:<15}  {}{RESET}\n",
+            "NAME", "REGION", "CREATED"
+        );
+        for d in &self.datasets {
+            let created = d
+                .created_at
+                .parse::<DateTime<Utc>>()
+                .unwrap_or_default()
+                .with_timezone(&Local)
+                .format("%b %-d, %Y %H:%M")
+                .to_string();
+            out.push_str(&format!(
+                "{:<40}  {:<15}  {DIM}{}{RESET}\n",
+                d.name, d.region, created
+            ));
+        }
+        out.trim_end().to_string()
     }
 }
 
@@ -213,12 +213,12 @@ mod tests {
     #[tokio::test]
     async fn list(ctx: &mut CliTestContext) {
         let name = ctx.wrap("test");
-        cmd()
-            .args(["dataset", "create", &name])
+        cmd().args(["dataset", "create", &name]).output().unwrap();
+
+        let out = cmd()
+            .args(["-o", "json", "dataset", "list"])
             .output()
             .unwrap();
-
-        let out = cmd().args(["-o", "json", "dataset", "list"]).output().unwrap();
         assert!(
             out.status.success(),
             "{}",
@@ -254,10 +254,7 @@ mod tests {
     #[tokio::test]
     async fn get(ctx: &mut CliTestContext) {
         let name = ctx.wrap("test");
-        cmd()
-            .args(["dataset", "create", &name])
-            .output()
-            .unwrap();
+        cmd().args(["dataset", "create", &name]).output().unwrap();
 
         let out = cmd()
             .args(["-o", "json", "dataset", "get", &name])
@@ -276,10 +273,7 @@ mod tests {
     #[tokio::test]
     async fn delete(ctx: &mut CliTestContext) {
         let name = ctx.wrap("test");
-        cmd()
-            .args(["dataset", "create", &name])
-            .output()
-            .unwrap();
+        cmd().args(["dataset", "create", &name]).output().unwrap();
 
         let out = cmd()
             .args(["-o", "json", "dataset", "delete", &name, "-y"])
@@ -298,10 +292,7 @@ mod tests {
     #[tokio::test]
     async fn delete_aborted(ctx: &mut CliTestContext) {
         let name = ctx.wrap("test");
-        cmd()
-            .args(["dataset", "create", &name])
-            .output()
-            .unwrap();
+        cmd().args(["dataset", "create", &name]).output().unwrap();
 
         let out = cmd()
             .args(["-o", "json", "dataset", "delete", &name])

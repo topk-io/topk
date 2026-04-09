@@ -48,8 +48,7 @@ impl From<Answer> for AskResult {
 
 impl RenderForHuman for AskResult {
     fn render(&self) -> String {
-        let mut out = String::new();
-        out.push('\n');
+        let mut out = String::from("\n");
 
         if self.facts.is_empty() {
             out.push_str("No answer found.");
@@ -63,7 +62,7 @@ impl RenderForHuman for AskResult {
                         .map(|id| format!("[{}]", id))
                         .collect::<Vec<_>>()
                         .join(", ");
-                    out.push_str(&format!(" {}{}{}", BLUE, refs_inline, RESET));
+                    out.push_str(&format!(" {BLUE}{refs_inline}{RESET}"));
                 }
                 out.push('\n');
             }
@@ -75,31 +74,26 @@ impl RenderForHuman for AskResult {
             // per segment so that "1_9" < "1_10" rather than lexicographically.
             sorted_refs.sort_by(|(a, _), (b, _)| {
                 let parse = |s: &str| -> Vec<u64> {
-                    s.split('_').map(|p| p.parse().unwrap_or(u64::MAX)).collect()
+                    s.split('_')
+                        .map(|p| p.parse().unwrap_or(u64::MAX))
+                        .collect()
                 };
                 parse(a).cmp(&parse(b))
             });
             out.push('\n');
-            out.push_str(&format!("{}References:{}", BOLD, RESET));
+            out.push_str(&format!("{BOLD}References:{RESET}\n"));
             for (id, r) in sorted_refs {
-                out.push('\n');
                 out.push_str(&format!(
-                    "{}[{}]{} {}\n       {}{} · {} · {}{}",
-                    BLUE,
-                    id,
-                    RESET,
+                    "{BLUE}[{id}]{RESET} {}\n       {DIM}{} · {} · {}{RESET}\n",
                     format_content_text(r.content.as_ref()),
-                    DIM,
                     r.dataset,
                     r.doc_id,
                     r.doc_type,
-                    RESET,
                 ));
-                out.push('\n');
             }
         }
 
-        out
+        out.trim_end().to_string()
     }
 }
 
@@ -167,12 +161,16 @@ mod tests {
             .output()
             .unwrap();
 
-        let out = cmd().args(["-o", "json", "ask", "summarize", "--dataset", &dataset]).output().unwrap();
+        let out = cmd()
+            .args(["-o", "json", "ask", "summarize", "--dataset", &dataset])
+            .output()
+            .unwrap();
         assert!(
             out.status.success(),
             "{}",
             String::from_utf8_lossy(&out.stderr)
         );
-        let _: AskResult = serde_json::from_slice(&out.stdout).unwrap();
+        let result: AskResult = serde_json::from_slice(&out.stdout).unwrap();
+        assert!(result.facts.is_empty() || !result.facts.is_empty());
     }
 }
