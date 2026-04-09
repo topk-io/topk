@@ -26,6 +26,7 @@ class Topk < Formula
 
   def install
     bin.install "topk"
+    generate_completions_from_executable(bin/"topk", "completions")
   end
 
   test do

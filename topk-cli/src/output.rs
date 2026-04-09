@@ -5,29 +5,18 @@ use serde::Serialize;
 
 use crate::util::{confirm, Spinner};
 
-const GREEN: &str = "\x1b[32m";
+pub const GREEN: &str = "\x1b[32m";
+pub const RED: &str = "\x1b[31m";
 pub const RESET: &str = "\x1b[0m";
 pub const DIM: &str = "\x1b[2m";
 pub const BOLD: &str = "\x1b[1m";
 pub const BLUE: &str = "\x1b[34m";
 
 #[derive(Debug, Clone, Copy, clap::ValueEnum, Default)]
-pub enum OutputArg {
+pub enum OutputFormat {
     #[default]
-    Human,
-    Agent,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum JsonFormat {
-    Compact,
-    Pretty,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum OutputMode {
-    Human,
-    Agent(JsonFormat),
+    Text,
+    Json,
 }
 
 pub trait RenderForHuman: Serialize {
@@ -35,30 +24,18 @@ pub trait RenderForHuman: Serialize {
 }
 
 pub struct Output {
-    mode: OutputMode,
+    format: OutputFormat,
 }
 
 impl Output {
-    pub fn new(agent_flag: bool, output: OutputArg, pretty: bool) -> Self {
-        let format = if pretty {
-            JsonFormat::Pretty
-        } else {
-            JsonFormat::Compact
-        };
-        let mode =
-            if agent_flag || matches!(output, OutputArg::Agent) || !std::io::stdout().is_terminal()
-            {
-                OutputMode::Agent(format)
-            } else {
-                OutputMode::Human
-            };
-        Self { mode }
+    pub fn new(format: OutputFormat) -> Self {
+        Self { format }
     }
 
     pub fn print<T: RenderForHuman>(&self, value: &T) -> Result<(), serde_json::Error> {
-        match self.mode {
-            OutputMode::Agent(fmt) => println!("{}", self.serialize(fmt, value)?),
-            OutputMode::Human => {
+        match self.format {
+            OutputFormat::Json => println!("{}", serde_json::to_string(value)?),
+            OutputFormat::Text => {
                 clear_progress();
                 println!("{}", value.render());
             }
@@ -67,30 +44,30 @@ impl Output {
     }
 
     pub fn spinner(&self, msg: impl Into<String>) -> Spinner {
-        match self.mode {
-            OutputMode::Human => Spinner::with_elapsed(msg),
-            OutputMode::Agent(_) => Spinner::disabled(),
+        match self.format {
+            OutputFormat::Text => Spinner::with_elapsed(msg),
+            OutputFormat::Json => Spinner::disabled(),
         }
     }
 
     pub fn progress(&self, msg: &str) {
-        if matches!(self.mode, OutputMode::Human) {
+        if matches!(self.format, OutputFormat::Text) {
             progress(msg);
         }
     }
 
     pub fn success(&self, msg: &str) {
-        if matches!(self.mode, OutputMode::Human) {
+        if matches!(self.format, OutputFormat::Text) {
             eprintln!("{GREEN}✓{RESET} {msg}");
         }
     }
 
     pub fn is_human(&self) -> bool {
-        matches!(self.mode, OutputMode::Human)
+        matches!(self.format, OutputFormat::Text)
     }
 
     pub fn confirm(&self, prompt: &str) -> std::io::Result<bool> {
-        if matches!(self.mode, OutputMode::Human)
+        if matches!(self.format, OutputFormat::Text)
             && std::io::stdin().is_terminal()
             && std::io::stderr().is_terminal()
         {
@@ -101,25 +78,12 @@ impl Output {
     }
 
     pub fn error(&self, e: &anyhow::Error) {
-        let payload = serde_json::json!({ "error": format!("{:#}", e) });
-        match self.mode {
-            OutputMode::Agent(fmt) => eprintln!(
-                "{}",
-                self.serialize(fmt, &payload)
-                    .unwrap_or_else(|_| r#"{"error":"serialization failed"}"#.to_string())
-            ),
-            OutputMode::Human => eprintln!("Error: {:#}", e),
-        }
-    }
-
-    fn serialize<T: Serialize>(
-        &self,
-        fmt: JsonFormat,
-        value: &T,
-    ) -> Result<String, serde_json::Error> {
-        match fmt {
-            JsonFormat::Pretty => serde_json::to_string_pretty(value),
-            JsonFormat::Compact => serde_json::to_string(value),
+        match self.format {
+            OutputFormat::Json => {
+                let payload = serde_json::json!({ "error": format!("{:#}", e) });
+                eprintln!("{}", serde_json::to_string(&payload).unwrap_or_else(|_| r#"{"error":"serialization failed"}"#.to_string()));
+            }
+            OutputFormat::Text => eprintln!("{BOLD}{RED}error:{RESET} {:#}", e),
         }
     }
 }
@@ -174,7 +138,7 @@ mod tests {
         let out = cmd()
             .env_remove("TOPK_API_KEY")
             .env_remove("TOPK_REGION")
-            .args(["--json", "dataset", "list"])
+            .args(["-o", "json", "dataset", "list"])
             .output()
             .unwrap();
         let stderr = String::from_utf8_lossy(&out.stderr);
@@ -188,12 +152,28 @@ mod tests {
         let out = cmd()
             .env("TOPK_API_KEY", "test-key")
             .env_remove("TOPK_REGION")
-            .args(["--json", "dataset", "list"])
+            .args(["-o", "json", "dataset", "list"])
             .output()
             .unwrap();
         let stderr = String::from_utf8_lossy(&out.stderr);
         let parsed: serde_json::Value =
             serde_json::from_str(stderr.trim()).expect("stderr should be valid JSON");
         assert!(parsed["error"].as_str().unwrap().contains("TOPK_REGION"));
+    }
+
+    #[test]
+    fn completions_zsh() {
+        let out = cmd().args(["completions", "zsh"]).output().unwrap();
+        assert!(out.status.success());
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        assert!(stdout.contains("#compdef topk"));
+    }
+
+    #[test]
+    fn completions_bash() {
+        let out = cmd().args(["completions", "bash"]).output().unwrap();
+        assert!(out.status.success());
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        assert!(stdout.contains("topk"));
     }
 }

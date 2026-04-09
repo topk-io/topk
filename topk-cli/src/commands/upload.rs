@@ -238,7 +238,7 @@ pub async fn run(
                 .expect("valid spinner template"),
         );
         bar.enable_steady_tick(std::time::Duration::from_millis(100));
-        bar.set_message(format!("Processing 0/{handle_count}{hint}"));
+        bar.set_message(format!("Waiting for processing 0/{handle_count}{hint}"));
         bar
     });
 
@@ -351,7 +351,7 @@ mod tests {
         let dataset = ctx.wrap("test");
         let out = cmd()
             .current_dir(TESTS_DIR)
-            .args(["--json", "upload", r"pdfko\.pdf", "-y", "--dataset", &dataset])
+            .args(["-o", "json", "upload", r"pdfko\.pdf", "-y", "--dataset", &dataset])
             .output()
             .unwrap();
         assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
@@ -366,7 +366,7 @@ mod tests {
         let dataset = ctx.wrap("test");
         let out = cmd()
             .current_dir(TESTS_DIR)
-            .args(["--json", "upload", r"pdfko\.pdf", "--dataset", &dataset, "--dry-run"])
+            .args(["-o", "json", "upload", r"pdfko\.pdf", "--dataset", &dataset, "--dry-run"])
             .output()
             .unwrap();
         assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
@@ -382,7 +382,7 @@ mod tests {
         let dataset = ctx.wrap("autocreate");
         let out = cmd()
             .current_dir(TESTS_DIR)
-            .args(["--json", "upload", r"pdfko\.pdf", "-d", &dataset, "-y"])
+            .args(["-o", "json", "upload", r"pdfko\.pdf", "-d", &dataset, "-y"])
             .output()
             .unwrap();
         assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
@@ -406,7 +406,7 @@ mod tests {
 
         let out = cmd()
             .current_dir(dir.path())
-            .args(["--json", "upload", r"\.md$", "-d", &dataset, "--dry-run"])
+            .args(["-o", "json", "upload", r"\.md$", "-d", &dataset, "--dry-run"])
             .output()
             .unwrap();
         assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
@@ -425,7 +425,7 @@ mod tests {
 
         let out = cmd()
             .current_dir(TESTS_DIR)
-            .args(["--json", "upload", r"pdfko\.pdf", "-d", &dataset, "-y", "--wait"])
+            .args(["-o", "json", "upload", r"pdfko\.pdf", "-d", &dataset, "-y", "--wait"])
             .output()
             .unwrap();
         assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
@@ -440,7 +440,7 @@ mod tests {
         let dataset = ctx.wrap("test");
         let out = cmd()
             .current_dir(TESTS_DIR)
-            .args(["--json", "upload", r"pdfko\.pdf", r"markdown\.md", "--dataset", &dataset, "--dry-run"])
+            .args(["-o", "json", "upload", r"pdfko\.pdf", r"markdown\.md", "--dataset", &dataset, "--dry-run"])
             .output()
             .unwrap();
         assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
@@ -486,7 +486,7 @@ mod tests {
         let dataset = format!("{}-missing-{}", ctx.scope, Uuid::new_v4().simple());
         let out = cmd()
             .current_dir(TESTS_DIR)
-            .args(["--json", "upload", r"pdfko\.pdf", "--dataset", &dataset])
+            .args(["-o", "json", "upload", r"pdfko\.pdf", "--dataset", &dataset])
             .output()
             .unwrap();
         assert!(!out.status.success());

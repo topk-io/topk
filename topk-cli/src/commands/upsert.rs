@@ -82,14 +82,14 @@ mod tests {
     async fn upsert_pdf(ctx: &mut CliTestContext) {
         let dataset = ctx.wrap("test");
         cmd()
-            .args(["dataset", "create", "--dataset", &dataset])
+            .args(["dataset", "create", &dataset])
             .output()
             .unwrap();
 
         let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/pdfko.pdf");
         let out = cmd()
             .args([
-                "--json",
+                "-o", "json",
                 "upsert",
                 "--dataset",
                 &dataset,
@@ -113,14 +113,14 @@ mod tests {
     async fn upsert_markdown(ctx: &mut CliTestContext) {
         let dataset = ctx.wrap("test");
         cmd()
-            .args(["dataset", "create", "--dataset", &dataset])
+            .args(["dataset", "create", &dataset])
             .output()
             .unwrap();
 
         let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/markdown.md");
         let out = cmd()
             .args([
-                "--json",
+                "-o", "json",
                 "upsert",
                 "--dataset",
                 &dataset,
@@ -147,7 +147,7 @@ mod tests {
         let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/pdfko.pdf");
         let out = cmd()
             .args([
-                "--json",
+                "-o", "json",
                 "upsert",
                 "--dataset",
                 &dataset,
@@ -191,7 +191,7 @@ mod tests {
         let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/pdfko.pdf");
         let out = cmd()
             .args([
-                "--json", "upsert",
+                "-o", "json", "upsert",
                 "-d", &dataset,
                 "--document-id", "wait-doc",
                 "--wait",

@@ -18,6 +18,7 @@ path = "src/main.rs"
 [dependencies]
 topk-rs = { path = "../topk-rs" }
 clap = { version = "4", features = ["derive", "env"] }
+clap_complete = { version = "4" }
 tokio = { version = "1", features = ["full"] }
 tokio-stream = { version = "0.1" }
 anyhow = { version = "1" }

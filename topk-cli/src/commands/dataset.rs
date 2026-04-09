@@ -16,22 +16,22 @@ pub enum DatasetAction {
     /// Get a dataset
     Get {
         /// Dataset name
-        #[arg(short = 'd', long, value_name = "DATASET_NAME")]
+        #[arg(value_name = "DATASET")]
         dataset: String,
     },
     /// Create a dataset
     Create {
         /// Dataset name
-        #[arg(short = 'd', long, value_name = "DATASET_NAME")]
+        #[arg(value_name = "DATASET")]
         dataset: String,
     },
     /// Delete a dataset
     Delete {
         /// Dataset name
-        #[arg(short = 'd', long, value_name = "DATASET_NAME")]
+        #[arg(value_name = "DATASET")]
         dataset: String,
         /// Skip confirmation prompt
-        #[arg(short = 'y')]
+        #[arg(short = 'y', long)]
         yes: bool,
     },
 }
@@ -39,6 +39,7 @@ pub enum DatasetAction {
 #[derive(Serialize, Deserialize)]
 pub struct Dataset {
     pub(crate) name: String,
+    pub(crate) region: String,
     // RFC3339 formatted timestamp
     pub(crate) created_at: String,
 }
@@ -47,6 +48,7 @@ impl From<topk_rs::proto::v1::control::Dataset> for Dataset {
     fn from(dataset: topk_rs::proto::v1::control::Dataset) -> Self {
         Self {
             name: dataset.name,
+            region: dataset.region,
             created_at: dataset.created_at,
         }
     }
@@ -76,17 +78,18 @@ impl RenderForHuman for ListDatasetsResult {
             "No datasets found.".to_string()
         } else {
             table(
-                vec!["Name", "Created"],
+                vec!["Name", "Region", "Created"],
                 self.datasets
                     .iter()
                     .map(|d| {
                         vec![
                             d.name.clone(),
+                            d.region.clone(),
                             d.created_at
                                 .parse::<DateTime<Utc>>()
                                 .unwrap_or_default()
                                 .with_timezone(&Local)
-                                .format("%b %-d, %Y %-H:%M")
+                                .format("%b %-d, %Y %H:%M")
                                 .to_string(),
                         ]
                     })
@@ -141,15 +144,14 @@ impl RenderForHuman for CreateDatasetResult {
 #[derive(Serialize, Deserialize)]
 pub struct DeleteDatasetResult {
     pub(crate) deleted: bool,
-    pub(crate) skipped: Option<bool>,
 }
 
 impl RenderForHuman for DeleteDatasetResult {
     fn render(&self) -> String {
-        if self.skipped == Some(true) {
-            "Deletion skipped.".to_string()
-        } else {
+        if self.deleted {
             "Dataset deleted.".to_string()
+        } else {
+            "Deletion skipped.".to_string()
         }
     }
 }
@@ -177,18 +179,12 @@ pub async fn delete(
     output: &Output,
 ) -> Result<DeleteDatasetResult, Error> {
     if !yes && !output.confirm(&format!("Delete dataset '{}'? [y/N] ", name))? {
-        return Ok(DeleteDatasetResult {
-            deleted: false,
-            skipped: Some(true),
-        });
+        return Ok(DeleteDatasetResult { deleted: false });
     }
 
     let _ = client.datasets().delete(name).await?;
 
-    Ok(DeleteDatasetResult {
-        deleted: true,
-        skipped: None,
-    })
+    Ok(DeleteDatasetResult { deleted: true })
 }
 
 #[cfg(test)]
@@ -207,11 +203,11 @@ mod tests {
     async fn list(ctx: &mut CliTestContext) {
         let name = ctx.wrap("test");
         cmd()
-            .args(["dataset", "create", "--dataset", &name])
+            .args(["dataset", "create", &name])
             .output()
             .unwrap();
 
-        let out = cmd().args(["--json", "dataset", "list"]).output().unwrap();
+        let out = cmd().args(["-o", "json", "dataset", "list"]).output().unwrap();
         assert!(
             out.status.success(),
             "{}",
@@ -231,7 +227,7 @@ mod tests {
     async fn create(ctx: &mut CliTestContext) {
         let name = ctx.wrap("test");
         let out = cmd()
-            .args(["--json", "dataset", "create", "--dataset", &name])
+            .args(["-o", "json", "dataset", "create", &name])
             .output()
             .unwrap();
         assert!(
@@ -248,12 +244,12 @@ mod tests {
     async fn get(ctx: &mut CliTestContext) {
         let name = ctx.wrap("test");
         cmd()
-            .args(["dataset", "create", "--dataset", &name])
+            .args(["dataset", "create", &name])
             .output()
             .unwrap();
 
         let out = cmd()
-            .args(["--json", "dataset", "get", "--dataset", &name])
+            .args(["-o", "json", "dataset", "get", &name])
             .output()
             .unwrap();
         assert!(
@@ -270,12 +266,12 @@ mod tests {
     async fn delete(ctx: &mut CliTestContext) {
         let name = ctx.wrap("test");
         cmd()
-            .args(["dataset", "create", "--dataset", &name])
+            .args(["dataset", "create", &name])
             .output()
             .unwrap();
 
         let out = cmd()
-            .args(["--json", "dataset", "delete", "--dataset", &name, "-y"])
+            .args(["-o", "json", "dataset", "delete", &name, "-y"])
             .output()
             .unwrap();
         assert!(
@@ -292,17 +288,17 @@ mod tests {
     async fn delete_aborted(ctx: &mut CliTestContext) {
         let name = ctx.wrap("test");
         cmd()
-            .args(["dataset", "create", "--dataset", &name])
+            .args(["dataset", "create", &name])
             .output()
             .unwrap();
 
         let out = cmd()
-            .args(["--json", "dataset", "delete", "--dataset", &name])
+            .args(["-o", "json", "dataset", "delete", &name])
             .write_stdin("wrong-name\n")
             .output()
             .unwrap();
         assert!(out.status.success());
         let result: DeleteDatasetResult = serde_json::from_slice(&out.stdout).unwrap();
-        assert_eq!(result.skipped, Some(true));
+        assert!(!result.deleted);
     }
 }
