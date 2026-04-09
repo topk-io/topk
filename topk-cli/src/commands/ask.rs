@@ -107,7 +107,7 @@ impl RenderForHuman for AskResult {
 pub async fn run(
     client: &Client,
     query: String,
-    sources: Vec<String>,
+    datasets: Vec<String>,
     mode: Option<Mode>,
     fields: Option<Vec<String>>,
     output: &Output,
@@ -115,7 +115,7 @@ pub async fn run(
     let spinner = output.spinner("Asking...");
 
     let mut stream = client
-        .ask(query, sources, None, mode.map(|m| m.into()), fields)
+        .ask(query, datasets, None, mode.map(|m| m.into()), fields)
         .await?
         .into_inner();
 

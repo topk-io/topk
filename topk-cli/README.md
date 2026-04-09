@@ -36,11 +36,11 @@ topk ask "my question"
 ```
 
 
-| Flag        | Required | Description                                                                          |
-| ----------- | -------- | ------------------------------------------------------------------------------------ |
-| `--sources` | No       | Datasets to search, comma-separated. If omitted, searches across all datasets        |
-| `--mode`    | No       | Response mode: `auto` (default), `summarize`, `reason`, `deep-research`              |
-| `--fields`  | No       | Metadata fields to include in results, comma-separated                               |
+| Flag        | Required | Description                                                                         |
+| ----------- | -------- | ----------------------------------------------------------------------------------- |
+| `--dataset` | No       | Dataset to search (repeatable, e.g. `-d ds1 -d ds2`). Defaults to all datasets.    |
+| `--mode`    | No       | Response mode: `auto` (default), `summarize`, `research`                            |
+| `--fields`  | No       | Metadata fields to include in results, comma-separated                              |
 
 
 The query can also be piped via stdin:
@@ -58,38 +58,44 @@ topk search "my query"
 ```
 
 
-| Flag        | Required | Description                                                                          |
-| ----------- | -------- | ------------------------------------------------------------------------------------ |
-| `--sources` | No       | Datasets to search, comma-separated. If omitted, searches across all datasets        |
-| `--top-k`   | No       | Number of results to return (default: 10)                                            |
-| `--fields`  | No       | Metadata fields to include in results, comma-separated                               |
+| Flag        | Required | Description                                                                         |
+| ----------- | -------- | ----------------------------------------------------------------------------------- |
+| `--dataset` | No       | Dataset to search (repeatable, e.g. `-d ds1 -d ds2`). Defaults to all datasets.    |
+| `--top-k`   | No       | Number of results to return (default: 10)                                           |
+| `--fields`  | No       | Metadata fields to include in results, comma-separated                              |
 
+
+The query can also be piped via stdin:
+
+```bash
+echo "my query" | topk search
+```
 
 ---
 
-### `upload` — Upload files
+### `upload` — Upload files matching regex patterns
 
-Accepts a comma-separated list of files or directories. Supported formats:
-
-- Documents: `pdf`, `md`, `mdx`, `html`, `htm`
-- Images: `png`, `jpeg`, `jpg`, `gif`, `webp`, `tiff`, `tif`, `bmp`
+Accepts one or more regex patterns matched against file paths relative to the current directory. Always scans recursively.
 
 ```bash
-topk upload ./docs/ --dataset my-dataset
-topk upload ./doc1.pdf,./doc2.pdf --dataset my-dataset
+topk upload '\.pdf$' --dataset my-dataset
+topk upload '\.pdf$' '\.md$' --dataset my-dataset
+topk upload 'docs/' --dataset my-dataset
 ```
 
 
 | Argument    | Required | Description                                                               |
 | ----------- | -------- | ------------------------------------------------------------------------- |
-| `PATHS`     | Yes      | Comma-separated list of files or directories to upload                    |
+| `PATTERNS`  | Yes      | One or more regex patterns matched against relative file paths            |
 | `--dataset` | Yes      | Dataset to upload into                                                    |
 | `-y`        | No       | Create the dataset automatically if it does not exist & skip confirmation |
-| `-r`        | No       | Scan directories recursively                                              |
 | `-c`        | No       | Number of concurrent uploads, 1–64 (default: 32)                         |
-| `--wait`    | No       | Block until all uploaded files are fully processed                        |
+| `--wait`    | No       | Wait for all files to be fully processed (agent mode only; default in interactive mode) |
+| `--no-wait` | No       | Skip waiting for processing (interactive mode only)                       |
 | `--dry-run` | No       | Preview which files would be uploaded without uploading                   |
 
+
+In interactive mode, upload waits for processing by default — press Enter to skip. In agent mode (`-o json`), pass `--wait` to block until processing completes.
 
 ---
 
@@ -107,6 +113,7 @@ topk upsert --dataset my-dataset --document-id my-doc.pdf ./my-doc.pdf
 | `--document-id` | Yes      | Document ID to assign                       |
 | `--meta`        | No       | Metadata as `key=value` pairs, repeatable   |
 | `--wait`        | No       | Block until the document is fully processed |
+| `--dry-run`     | No       | Preview the upsert without uploading        |
 
 
 ---
@@ -138,42 +145,33 @@ topk dataset list
 #### Get a dataset:
 
 ```bash
-topk dataset get --dataset my-dataset
+topk dataset get my-dataset
 ```
-
-| Argument    | Required | Description      |
-| ----------- | -------- | ---------------- |
-| `--dataset` | Yes      | Dataset name     |
 
 #### Create a dataset:
 
 ```bash
-topk dataset create --dataset my-dataset
+topk dataset create my-dataset
 ```
-
-| Argument    | Required | Description          |
-| ----------- | -------- | -------------------- |
-| `--dataset` | Yes      | Name of the dataset to create |
 
 #### Delete a dataset:
 
 ```bash
-topk dataset delete --dataset my-dataset
+topk dataset delete my-dataset
 ```
 
-| Argument    | Required | Description      |
-| ----------- | -------- | ---------------- |
-| `--dataset` | Yes      | Dataset to delete |
-| `-y`        | No       | Skip confirmation prompt |
+| Argument | Required | Description              |
+| -------- | -------- | ------------------------ |
+| `DATASET`| Yes      | Dataset name             |
+| `-y`     | No       | Skip confirmation prompt |
 
 ---
 
 ## Output
 
-By default all commands print human-readable output. Pass `--json` anywhere before the subcommand for machine-readable JSON:
+By default all commands print human-readable text. Pass `-o json` for machine-readable JSON:
 
 ```bash
-topk --json dataset list
-topk --json search "query"
-topk --json --pretty search "query"
+topk -o json dataset list
+topk -o json search "query"
 ```
