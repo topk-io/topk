@@ -26,7 +26,7 @@ impl From<Mode> for topk_rs::proto::v1::ctx::Mode {
         match m {
             Mode::Auto => topk_rs::proto::v1::ctx::Mode::Auto,
             Mode::Summarize => topk_rs::proto::v1::ctx::Mode::Summarize,
-            Mode::Research => topk_rs::proto::v1::ctx::Mode::DeepResearch,
+            Mode::Research => topk_rs::proto::v1::ctx::Mode::Research,
         }
     }
 }
@@ -167,7 +167,7 @@ mod tests {
             .output()
             .unwrap();
 
-        let out = cmd().args(["-o", "json", "ask", "summarize"]).output().unwrap();
+        let out = cmd().args(["-o", "json", "ask", "summarize", "--dataset", &dataset]).output().unwrap();
         assert!(
             out.status.success(),
             "{}",
