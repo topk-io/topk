@@ -8,7 +8,7 @@ use crate::{
         r#async::search::{search, search_stream},
         topk_client, NativeRetryConfig,
     },
-    data::ask::{Mode, Sources},
+    data::ask::{Mode, Source},
     expr::logical::LogicalExpr,
 };
 
@@ -67,12 +67,12 @@ impl AsyncClient {
         Ok(AsyncDatasetsClient::new(self.client.clone()))
     }
 
-    #[pyo3(signature = (query, sources, filter=None, mode=None, select_fields=None))]
+    #[pyo3(signature = (query, datasets, filter=None, mode=None, select_fields=None))]
     pub fn ask(
         &self,
         py: Python<'_>,
         query: String,
-        sources: Sources,
+        datasets: Vec<Source>,
         filter: Option<LogicalExpr>,
         mode: Option<Mode>,
         select_fields: Option<Vec<String>>,
@@ -81,19 +81,19 @@ impl AsyncClient {
             self.client.clone(),
             py,
             query,
-            sources.into(),
+            datasets,
             filter,
             mode,
             select_fields,
         )
     }
 
-    #[pyo3(signature = (query, sources, filter=None, mode=None, select_fields=None))]
+    #[pyo3(signature = (query, datasets, filter=None, mode=None, select_fields=None))]
     pub fn ask_stream(
         &self,
         _py: Python<'_>,
         query: String,
-        sources: Sources,
+        datasets: Vec<Source>,
         filter: Option<LogicalExpr>,
         mode: Option<Mode>,
         select_fields: Option<Vec<String>>,
@@ -101,19 +101,19 @@ impl AsyncClient {
         ask_stream(
             self.client.clone(),
             query,
-            sources.into(),
+            datasets,
             filter,
             mode,
             select_fields,
         )
     }
 
-    #[pyo3(signature = (query, sources, top_k, filter=None, select_fields=None))]
+    #[pyo3(signature = (query, datasets, top_k, filter=None, select_fields=None))]
     pub fn search(
         &self,
         py: Python<'_>,
         query: String,
-        sources: Sources,
+        datasets: Vec<Source>,
         top_k: u32,
         filter: Option<LogicalExpr>,
         select_fields: Option<Vec<String>>,
@@ -122,19 +122,19 @@ impl AsyncClient {
             self.client.clone(),
             py,
             query,
-            sources.into(),
+            datasets,
             filter,
             top_k,
             select_fields,
         )
     }
 
-    #[pyo3(signature = (query, sources, top_k, filter=None, select_fields=None))]
+    #[pyo3(signature = (query, datasets, top_k, filter=None, select_fields=None))]
     pub fn search_stream(
         &self,
         _py: Python<'_>,
         query: String,
-        sources: Sources,
+        datasets: Vec<Source>,
         top_k: u32,
         filter: Option<LogicalExpr>,
         select_fields: Option<Vec<String>>,
@@ -142,7 +142,7 @@ impl AsyncClient {
         search_stream(
             self.client.clone(),
             query,
-            sources.into(),
+            datasets,
             filter,
             top_k,
             select_fields,

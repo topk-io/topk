@@ -6,7 +6,7 @@ use pyo3_async_runtimes::tokio::future_into_py;
 use tokio::sync::{mpsc, Mutex};
 
 use crate::client::CHANNEL_BUFFER_SIZE;
-use crate::data::ask::{SearchResult, Sources};
+use crate::data::ask::{SearchResult, Source};
 use crate::error::RustError;
 use crate::expr::logical::LogicalExpr;
 
@@ -39,20 +39,19 @@ impl AsyncSearchIterator {
 pub fn search_stream(
     client: Arc<topk_rs::Client>,
     query: String,
-    sources: Sources,
+    datasets: Vec<Source>,
     filter: Option<LogicalExpr>,
     top_k: u32,
     select_fields: Option<Vec<String>>,
 ) -> PyResult<AsyncSearchIterator> {
     let (tx, rx) = mpsc::channel(CHANNEL_BUFFER_SIZE);
 
-    let sources = sources.into_iter();
     let filter = filter.map(|f| f.into());
     let select_fields = select_fields.unwrap_or_default();
 
     pyo3_async_runtimes::tokio::get_runtime().spawn(async move {
         let mut stream = match client
-            .search(query, sources, top_k, filter, select_fields)
+            .search(query, datasets, top_k, filter, select_fields)
             .await
         {
             Ok(response) => response.into_inner(),
@@ -92,18 +91,17 @@ pub fn search(
     client: Arc<topk_rs::Client>,
     py: Python<'_>,
     query: String,
-    sources: Sources,
+    datasets: Vec<Source>,
     filter: Option<LogicalExpr>,
     top_k: u32,
     select_fields: Option<Vec<String>>,
 ) -> PyResult<Py<PyAny>> {
-    let sources = sources.into_iter();
     let filter = filter.map(|f| f.into());
     let select_fields = select_fields.unwrap_or_default();
 
     future_into_py(py, async move {
         let stream = client
-            .search(query, sources, top_k, filter, select_fields)
+            .search(query, datasets, top_k, filter, select_fields)
             .await
             .map_err(RustError)?
             .into_inner();
