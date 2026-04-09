@@ -110,7 +110,10 @@ pub async fn run(
 ) -> Result<UploadResult, Error> {
     let regexes = patterns
         .iter()
-        .map(|p| Regex::new(p).map_err(|e| Error::InvalidArgument(format!("invalid pattern '{}': {}", p, e))))
+        .map(|p| {
+            Regex::new(p)
+                .map_err(|e| Error::InvalidArgument(format!("invalid pattern '{}': {}", p, e)))
+        })
         .collect::<Result<Vec<_>, _>>()?;
     let cwd = std::env::current_dir().map_err(Error::IoError)?;
     let files = collect_files(&cwd, &regexes)?;
@@ -193,7 +196,11 @@ pub async fn run(
                 let input = InputFile::from_path(&file.path)?;
                 let handle = client
                     .dataset(&dataset)
-                    .upsert_file(file.doc_id.clone(), input, std::iter::empty::<(String, String)>())
+                    .upsert_file(
+                        file.doc_id.clone(),
+                        input,
+                        std::iter::empty::<(String, String)>(),
+                    )
                     .await?
                     .into_inner()
                     .handle;
@@ -225,22 +232,29 @@ pub async fn run(
 
     // Phase 2: wait for processing — cancellable via Enter in interactive mode.
     // Add spinner to a fresh MultiProgress (uploads are done, no conflict).
-    let hint = if output.is_human() { " — press Enter to skip" } else { "" };
+    let hint = if output.is_human() {
+        " — press Enter to skip"
+    } else {
+        ""
+    };
     let processing_multi = if std::io::stderr().is_terminal() {
         Some(indicatif::MultiProgress::new())
     } else {
         None
     };
-    let pb_processing: Option<ProgressBar> = processing_multi.as_ref().map(|multi: &indicatif::MultiProgress| {
-        let bar = multi.add(ProgressBar::new_spinner());
-        bar.set_style(
-            ProgressStyle::with_template("{spinner:.cyan} {msg}")
-                .expect("valid spinner template"),
-        );
-        bar.enable_steady_tick(std::time::Duration::from_millis(100));
-        bar.set_message(format!("Waiting for processing 0/{handle_count}{hint}"));
-        bar
-    });
+    let pb_processing: Option<ProgressBar> =
+        processing_multi
+            .as_ref()
+            .map(|multi: &indicatif::MultiProgress| {
+                let bar = multi.add(ProgressBar::new_spinner());
+                bar.set_style(
+                    ProgressStyle::with_template("{spinner:.cyan} {msg}")
+                        .expect("valid spinner template"),
+                );
+                bar.enable_steady_tick(std::time::Duration::from_millis(100));
+                bar.set_message(format!("Waiting for processing 0/{handle_count}{hint}"));
+                bar
+            });
 
     let process_fut = {
         let client = client.clone();
@@ -351,10 +365,22 @@ mod tests {
         let dataset = ctx.wrap("test");
         let out = cmd()
             .current_dir(TESTS_DIR)
-            .args(["-o", "json", "upload", r"pdfko\.pdf", "-y", "--dataset", &dataset])
+            .args([
+                "-o",
+                "json",
+                "upload",
+                r"pdfko\.pdf",
+                "-y",
+                "--dataset",
+                &dataset,
+            ])
             .output()
             .unwrap();
-        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
         let result: UploadResult = serde_json::from_slice(&out.stdout).unwrap();
         assert_eq!(result.total, 1);
         assert_eq!(result.uploaded, 1);
@@ -366,10 +392,22 @@ mod tests {
         let dataset = ctx.wrap("test");
         let out = cmd()
             .current_dir(TESTS_DIR)
-            .args(["-o", "json", "upload", r"pdfko\.pdf", "--dataset", &dataset, "--dry-run"])
+            .args([
+                "-o",
+                "json",
+                "upload",
+                r"pdfko\.pdf",
+                "--dataset",
+                &dataset,
+                "--dry-run",
+            ])
             .output()
             .unwrap();
-        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
         let result: UploadResult = serde_json::from_slice(&out.stdout).unwrap();
         assert_eq!(result.total, 1);
         assert_eq!(result.uploaded, 0);
@@ -385,7 +423,11 @@ mod tests {
             .args(["-o", "json", "upload", r"pdfko\.pdf", "-d", &dataset, "-y"])
             .output()
             .unwrap();
-        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
         let result: UploadResult = serde_json::from_slice(&out.stdout).unwrap();
         assert_eq!(result.total, 1);
         assert_eq!(result.uploaded, 1);
@@ -406,10 +448,22 @@ mod tests {
 
         let out = cmd()
             .current_dir(dir.path())
-            .args(["-o", "json", "upload", r"\.md$", "-d", &dataset, "--dry-run"])
+            .args([
+                "-o",
+                "json",
+                "upload",
+                r"\.md$",
+                "-d",
+                &dataset,
+                "--dry-run",
+            ])
             .output()
             .unwrap();
-        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
         let result: UploadResult = serde_json::from_slice(&out.stdout).unwrap();
         // top.md + sub/deep.md — skip.txt filtered out by pattern
         assert_eq!(result.total, 2);
@@ -425,10 +479,23 @@ mod tests {
 
         let out = cmd()
             .current_dir(TESTS_DIR)
-            .args(["-o", "json", "upload", r"pdfko\.pdf", "-d", &dataset, "-y", "--wait"])
+            .args([
+                "-o",
+                "json",
+                "upload",
+                r"pdfko\.pdf",
+                "-d",
+                &dataset,
+                "-y",
+                "--wait",
+            ])
             .output()
             .unwrap();
-        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
         let result: UploadResult = serde_json::from_slice(&out.stdout).unwrap();
         assert_eq!(result.uploaded, 1);
         assert!(result.processed);
@@ -440,10 +507,23 @@ mod tests {
         let dataset = ctx.wrap("test");
         let out = cmd()
             .current_dir(TESTS_DIR)
-            .args(["-o", "json", "upload", r"pdfko\.pdf", r"markdown\.md", "--dataset", &dataset, "--dry-run"])
+            .args([
+                "-o",
+                "json",
+                "upload",
+                r"pdfko\.pdf",
+                r"markdown\.md",
+                "--dataset",
+                &dataset,
+                "--dry-run",
+            ])
             .output()
             .unwrap();
-        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
         let result: UploadResult = serde_json::from_slice(&out.stdout).unwrap();
         assert_eq!(result.total, 2);
         assert_eq!(result.uploaded, 0);
@@ -472,7 +552,10 @@ mod tests {
         fs::write(dir.path().join("b.pdf"), "").unwrap();
         fs::write(dir.path().join("c.txt"), "").unwrap();
 
-        let patterns = vec![Regex::new(r"\.md$").unwrap(), Regex::new(r"\.pdf$").unwrap()];
+        let patterns = vec![
+            Regex::new(r"\.md$").unwrap(),
+            Regex::new(r"\.pdf$").unwrap(),
+        ];
         let mut files = collect_files(dir.path(), &patterns).unwrap();
         files.sort_by(|a, b| a.doc_id.cmp(&b.doc_id));
         assert_eq!(files.len(), 2);

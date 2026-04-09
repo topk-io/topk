@@ -30,12 +30,18 @@ pub async fn run(
     let doc_id = doc_id.into();
 
     if !yes && !output.confirm(&format!("Delete document '{}'? [y/N] ", doc_id))? {
-        return Ok(DeleteResult { deleted: false, handle: None });
+        return Ok(DeleteResult {
+            deleted: false,
+            handle: None,
+        });
     }
 
     let result = client.dataset(dataset).delete(doc_id).await?;
 
-    Ok(DeleteResult { deleted: true, handle: Some(result.into_inner().handle) })
+    Ok(DeleteResult {
+        deleted: true,
+        handle: Some(result.into_inner().handle),
+    })
 }
 
 #[cfg(test)]
@@ -60,15 +66,35 @@ mod tests {
 
         let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/pdfko.pdf");
         cmd()
-            .args(["upsert", "-d", &dataset, "--document-id", "doc-to-delete", file])
+            .args([
+                "upsert",
+                "-d",
+                &dataset,
+                "--document-id",
+                "doc-to-delete",
+                file,
+            ])
             .output()
             .unwrap();
 
         let out = cmd()
-            .args(["-o", "json", "delete", "-d", &dataset, "--document-id", "doc-to-delete", "-y"])
+            .args([
+                "-o",
+                "json",
+                "delete",
+                "-d",
+                &dataset,
+                "--document-id",
+                "doc-to-delete",
+                "-y",
+            ])
             .output()
             .unwrap();
-        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
         let result: DeleteResult = serde_json::from_slice(&out.stdout).unwrap();
         assert!(result.deleted);
         assert!(result.handle.is_some());
@@ -85,16 +111,35 @@ mod tests {
 
         let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/pdfko.pdf");
         cmd()
-            .args(["upsert", "-d", &dataset, "--document-id", "doc-to-keep", file])
+            .args([
+                "upsert",
+                "-d",
+                &dataset,
+                "--document-id",
+                "doc-to-keep",
+                file,
+            ])
             .output()
             .unwrap();
 
         // --json mode is non-interactive so confirm returns false → skipped
         let out = cmd()
-            .args(["-o", "json", "delete", "-d", &dataset, "--document-id", "doc-to-keep"])
+            .args([
+                "-o",
+                "json",
+                "delete",
+                "-d",
+                &dataset,
+                "--document-id",
+                "doc-to-keep",
+            ])
             .output()
             .unwrap();
-        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
         let result: DeleteResult = serde_json::from_slice(&out.stdout).unwrap();
         assert!(!result.deleted);
     }

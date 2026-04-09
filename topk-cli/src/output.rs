@@ -34,12 +34,27 @@ impl Output {
 
     pub fn print<T: RenderForHuman>(&self, value: &T) -> Result<(), serde_json::Error> {
         match self.format {
-            OutputFormat::Json => println!("{}", serde_json::to_string(value)?),
-            OutputFormat::Text => {
-                clear_progress();
-                println!("{}", value.render());
-            }
+            OutputFormat::Json => self.print_json(value),
+            OutputFormat::Text => self.print_human(value),
         }
+    }
+
+    pub fn print_human<T: RenderForHuman>(&self, value: &T) -> Result<(), serde_json::Error> {
+        clear_progress();
+        println!("{}", value.render());
+        Ok(())
+    }
+
+    pub fn print_json<T: Serialize>(&self, value: &T) -> Result<(), serde_json::Error> {
+        println!("{}", serde_json::to_string(value)?);
+        Ok(())
+    }
+
+    pub fn print_json_line<T: Serialize>(&self, value: &T) -> Result<(), serde_json::Error> {
+        let stdout = std::io::stdout();
+        let mut lock = stdout.lock();
+        serde_json::to_writer(&mut lock, value)?;
+        writeln!(&mut lock).map_err(serde_json::Error::io)?;
         Ok(())
     }
 
@@ -81,7 +96,11 @@ impl Output {
         match self.format {
             OutputFormat::Json => {
                 let payload = serde_json::json!({ "error": format!("{:#}", e) });
-                eprintln!("{}", serde_json::to_string(&payload).unwrap_or_else(|_| r#"{"error":"serialization failed"}"#.to_string()));
+                eprintln!(
+                    "{}",
+                    serde_json::to_string(&payload)
+                        .unwrap_or_else(|_| r#"{"error":"serialization failed"}"#.to_string())
+                );
             }
             OutputFormat::Text => eprintln!("{BOLD}{RED}error:{RESET} {:#}", e),
         }

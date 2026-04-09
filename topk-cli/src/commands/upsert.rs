@@ -89,7 +89,8 @@ mod tests {
         let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/pdfko.pdf");
         let out = cmd()
             .args([
-                "-o", "json",
+                "-o",
+                "json",
                 "upsert",
                 "--dataset",
                 &dataset,
@@ -120,7 +121,8 @@ mod tests {
         let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/markdown.md");
         let out = cmd()
             .args([
-                "-o", "json",
+                "-o",
+                "json",
                 "upsert",
                 "--dataset",
                 &dataset,
@@ -147,7 +149,8 @@ mod tests {
         let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/pdfko.pdf");
         let out = cmd()
             .args([
-                "-o", "json",
+                "-o",
+                "json",
                 "upsert",
                 "--dataset",
                 &dataset,
@@ -191,15 +194,23 @@ mod tests {
         let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/pdfko.pdf");
         let out = cmd()
             .args([
-                "-o", "json", "upsert",
-                "-d", &dataset,
-                "--document-id", "wait-doc",
+                "-o",
+                "json",
+                "upsert",
+                "-d",
+                &dataset,
+                "--document-id",
+                "wait-doc",
                 "--wait",
                 file,
             ])
             .output()
             .unwrap();
-        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
         let result: UpsertResult = serde_json::from_slice(&out.stdout).unwrap();
         assert!(result.processed);
         assert!(!result.handle.is_empty());
