@@ -40,12 +40,12 @@ impl RenderForHuman for SearchResult {
 pub async fn run(
     client: &Client,
     query: String,
-    sources: Vec<String>,
+    datasets: Vec<String>,
     top_k: u32,
     fields: Option<Vec<String>>,
 ) -> Result<SearchResult> {
     let stream = client
-        .search(query, sources, top_k, None, fields.unwrap_or_default())
+        .search(query, datasets, top_k, None, fields.unwrap_or_default())
         .await?
         .into_inner();
 
