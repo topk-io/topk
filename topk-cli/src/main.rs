@@ -1,11 +1,12 @@
 use std::io::{IsTerminal, Read};
 
 use topk::commands;
-use topk::output::{Output, OutputArg};
+use topk::output::{Output, OutputFormat};
 use tracing_subscriber::EnvFilter;
 
 use anyhow::Result;
 use clap::{CommandFactory, Parser, Subcommand};
+use clap_complete::{generate, Shell};
 use topk_rs::{proto::v1::ctx::doc::DocId, Client, ClientConfig};
 
 use commands::{ask, dataset, delete, search, upload, upsert};
@@ -18,28 +19,23 @@ struct Cli {
     command: Option<Commands>,
 
     /// TopK API key (overrides TOPK_API_KEY environment variable)
-    #[arg(long, env = "TOPK_API_KEY", global = true, hide_env_values = true)]
+    #[arg(short = 'k', long, env = "TOPK_API_KEY", global = true, hide_env_values = true)]
     api_key: Option<String>,
 
     /// TopK Region (overrides TOPK_REGION environment variable, available regions: https://docs.topk.io/regions)
-    #[arg(long, env = "TOPK_REGION", global = true)]
+    #[arg(short = 'r', long, env = "TOPK_REGION", global = true)]
     region: Option<String>,
 
     /// Host (overrides TOPK_HOST environment variable, default: topk.io)
     #[arg(long, env = "TOPK_HOST", global = true, hide = true)]
     host: Option<String>,
 
-    /// Output mode: human for interactive terminal use, agent for machine-readable JSON
-    #[arg(long, default_value = "human", global = true)]
-    output: OutputArg,
+    #[arg(long, env = "TOPK_HTTPS", default_value = "true", global = true, hide = true)]
+    https: bool,
 
-    /// Output machine-readable JSON
-    #[arg(long, visible_alias = "agent", global = true)]
-    json: bool,
-
-    /// Pretty-print JSON output (only applies in agent mode)
-    #[arg(long, global = true)]
-    pretty: bool,
+    /// Output format
+    #[arg(short = 'o', long, default_value = "text", global = true)]
+    output: OutputFormat,
 
     /// Enable debug logging
     #[arg(long, global = true)]
@@ -52,14 +48,14 @@ enum Commands {
     Ask {
         /// Question to ask (reads from stdin if omitted)
         query: Option<String>,
-        /// Dataset(s) to search, comma-separated; if omitted, searches all datasets
-        #[arg(long, value_delimiter = ',')]
-        sources: Vec<String>,
-        /// Response mode
-        #[arg(long, default_value = "auto")]
-        mode: ask::Mode,
+        /// Dataset to search (repeatable). Defaults to all datasets.
+        #[arg(short = 'd', long = "dataset")]
+        datasets: Vec<String>,
+        /// Query mode
+        #[arg(short = 'm', long)]
+        mode: Option<ask::Mode>,
         /// Metadata fields to include in results, comma-separated
-        #[arg(long = "fields", value_delimiter = ',')]
+        #[arg(short = 'f', long = "fields", value_delimiter = ',')]
         fields: Option<Vec<String>>,
     },
 
@@ -67,14 +63,14 @@ enum Commands {
     Search {
         /// Search query (reads from stdin if omitted)
         query: Option<String>,
-        /// Dataset(s) to search, comma-separated; if omitted, searches all datasets
-        #[arg(long, value_delimiter = ',')]
-        sources: Vec<String>,
+        /// Dataset to search (repeatable). Defaults to all datasets.
+        #[arg(short = 'd', long = "dataset")]
+        datasets: Vec<String>,
         /// Number of results to return
-        #[arg(long, default_value = "10")]
+        #[arg(short = 'n', long, default_value = "10")]
         top_k: u32,
         /// Metadata fields to include in results, comma-separated
-        #[arg(long = "fields", value_delimiter = ',')]
+        #[arg(short = 'f', long = "fields", value_delimiter = ',')]
         fields: Option<Vec<String>>,
     },
 
@@ -90,13 +86,13 @@ enum Commands {
         #[arg(short = 'c', long, default_value = "32", value_parser = clap::value_parser!(u64).range(1..=64))]
         concurrency: u64,
         /// Create the dataset without prompting if it does not exist
-        #[arg(short = 'y')]
+        #[arg(short = 'y', long)]
         yes: bool,
         /// Preview files without uploading
-        #[arg(long)]
+        #[arg(short = 'n', long)]
         dry_run: bool,
         /// Wait for all files to be fully processed (default in interactive mode)
-        #[arg(long, conflicts_with = "no_wait")]
+        #[arg(short = 'w', long, conflicts_with = "no_wait")]
         wait: bool,
         /// Skip waiting for processing
         #[arg(long, conflicts_with = "wait")]
@@ -109,18 +105,18 @@ enum Commands {
         #[arg(short = 'd', long, value_name = "DATASET_NAME")]
         dataset: String,
         /// Document ID
-        #[arg(long)]
+        #[arg(short = 'i', long)]
         document_id: DocId,
         /// Path to file
         path: std::path::PathBuf,
         /// Metadata key=value pairs
-        #[arg(long = "meta", value_parser = parse_kv)]
+        #[arg(short = 'm', long = "meta", value_parser = parse_kv)]
         metadata: Vec<(String, String)>,
         /// Block until the document is uploaded and fully processed
-        #[arg(long)]
+        #[arg(short = 'w', long)]
         wait: bool,
         /// Preview the upsert without uploading
-        #[arg(long)]
+        #[arg(short = 'n', long)]
         dry_run: bool,
     },
 
@@ -130,10 +126,10 @@ enum Commands {
         #[arg(short = 'd', long, value_name = "DATASET_NAME")]
         dataset: String,
         /// Document ID
-        #[arg(long)]
+        #[arg(short = 'i', long)]
         document_id: DocId,
         /// Skip confirmation prompt
-        #[arg(short = 'y')]
+        #[arg(short = 'y', long)]
         yes: bool,
     },
 
@@ -141,6 +137,12 @@ enum Commands {
     Dataset {
         #[command(subcommand)]
         action: dataset::DatasetAction,
+    },
+
+    /// Generate shell completion script
+    #[command(hide = true)]
+    Completions {
+        shell: Shell,
     },
 }
 
@@ -155,10 +157,10 @@ async fn main() -> std::process::ExitCode {
             .init();
     }
 
-    let output = Output::new(cli.json, cli.output, cli.pretty);
+    let output = Output::new(cli.output);
 
     if cli.command.is_none() {
-        print_welcome(cli.api_key.as_deref(), cli.region.as_deref());
+        print_welcome();
         Cli::command().print_help().unwrap();
         println!();
         return std::process::ExitCode::SUCCESS;
@@ -175,6 +177,12 @@ async fn main() -> std::process::ExitCode {
 async fn run(cli: Cli, output: &Output) -> Result<()> {
     let command = cli.command.expect("checked above");
 
+    // Handle completions before requiring credentials.
+    if let Commands::Completions { shell } = command {
+        generate(shell, &mut Cli::command(), "topk", &mut std::io::stdout());
+        return Ok(());
+    }
+
     // Show subcommand help before requiring credentials.
     match &command {
         Commands::Upload { patterns, .. } if patterns.is_empty() => {
@@ -189,7 +197,7 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
         _ => {}
     }
 
-    let client = make_client(cli.api_key, cli.region, cli.host)?;
+    let client = make_client(cli.api_key, cli.region, cli.host, cli.https)?;
 
     match command {
         Commands::Dataset { action } => match action {
@@ -263,8 +271,8 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
 
         Commands::Ask {
             query,
-            sources,
-            mode: cmd_mode,
+            datasets,
+            mode,
             fields,
         } => {
             let query = resolve_query(query)?
@@ -273,8 +281,8 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
                 &ask::run(
                     &client,
                     query,
-                    sources,
-                    Some(cmd_mode.into()),
+                    datasets,
+                    mode.map(|m| m.into()),
                     fields,
                     output,
                 )
@@ -284,14 +292,15 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
 
         Commands::Search {
             query,
-            sources,
+            datasets,
             top_k,
             fields,
         } => {
             let query = resolve_query(query)?
                 .ok_or_else(|| anyhow::anyhow!("query is required; pass it as an argument or pipe it via stdin"))?;
-            output.print(&search::run(&client, query, sources, top_k, fields).await?)?;
+            output.print(&search::run(&client, query, datasets, top_k, fields).await?)?;
         }
+        Commands::Completions { .. } => unreachable!(),
     }
 
     Ok(())
@@ -314,35 +323,7 @@ fn resolve_query(query: Option<String>) -> Result<Option<String>> {
     }
 }
 
-fn print_welcome(api_key: Option<&str>, region: Option<&str>) {
-    const BOLD: &str = "\x1b[1m";
-    const CYAN: &str = "\x1b[36m";
-    const ORANGE: &str = "\x1b[33m";
-    const RED: &str = "\x1b[31m";
-    const DIM: &str = "\x1b[2m";
-    const RESET: &str = "\x1b[0m";
-
-    println!();
-    println!("{}Welcome to TopK CLI{}", BOLD, RESET);
-    println!("{}Turn raw files into searchable knowledge.{}", DIM, RESET);
-    println!();
-
-    let api_key_status = match api_key {
-        Some(key) => format!("{DIM}{}{RESET}", "*".repeat(key.chars().count())),
-        None => format!(
-            "{RED}✗{RESET} {DIM}set TOPK_API_KEY environment variable or pass --api-key TOPK_API_KEY. Create your API key: https://console.topk.io{RESET}"
-        ),
-    };
-    let region_status = match region {
-        Some(r) => format!("{ORANGE}{r}{RESET}"),
-        None => format!(
-            "{RED}✗{RESET} {DIM}set TOPK_REGION environment variable or pass --region TOPK_REGION. List available regions: https://docs.topk.io/regions{RESET}"
-        ),
-    };
-
-    println!("{BOLD}Configuration:{RESET}");
-    println!("{CYAN}API Key:{RESET}  {api_key_status}");
-    println!("{CYAN}Region:{RESET}   {region_status}");
+fn print_welcome() {
     println!();
 }
 
@@ -359,6 +340,7 @@ fn make_client(
     api_key: Option<String>,
     region: Option<String>,
     host: Option<String>,
+    https: bool,
 ) -> Result<Client> {
     let api_key = api_key.ok_or_else(|| {
         anyhow::anyhow!(
@@ -371,9 +353,6 @@ fn make_client(
         )
     })?;
     let host = host.unwrap_or_else(|| "topk.io".to_string());
-    let https = std::env::var("TOPK_HTTPS")
-        .map(|v| v == "true")
-        .unwrap_or(true);
 
     Ok(Client::new(
         ClientConfig::new(api_key, region)

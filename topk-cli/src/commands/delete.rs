@@ -6,16 +6,15 @@ use crate::output::{Output, RenderForHuman};
 #[derive(Serialize, Deserialize)]
 pub struct DeleteResult {
     deleted: bool,
-    skipped: Option<bool>,
     handle: Option<String>,
 }
 
 impl RenderForHuman for DeleteResult {
     fn render(&self) -> String {
-        if self.skipped == Some(true) {
-            "Deletion skipped.".to_string()
-        } else {
+        if self.deleted {
             "Document deleted.".to_string()
+        } else {
+            "Deletion skipped.".to_string()
         }
     }
 }
@@ -31,20 +30,12 @@ pub async fn run(
     let doc_id = doc_id.into();
 
     if !yes && !output.confirm(&format!("Delete document '{}'? [y/N] ", doc_id))? {
-        return Ok(DeleteResult {
-            deleted: false,
-            skipped: Some(true),
-            handle: None,
-        });
+        return Ok(DeleteResult { deleted: false, handle: None });
     }
 
     let result = client.dataset(dataset).delete(doc_id).await?;
 
-    Ok(DeleteResult {
-        deleted: true,
-        skipped: None,
-        handle: Some(result.into_inner().handle),
-    })
+    Ok(DeleteResult { deleted: true, handle: Some(result.into_inner().handle) })
 }
 
 #[cfg(test)]
@@ -63,7 +54,7 @@ mod tests {
     async fn delete_document(ctx: &mut CliTestContext) {
         let dataset = ctx.wrap("test");
         cmd()
-            .args(["dataset", "create", "-d", &dataset])
+            .args(["dataset", "create", &dataset])
             .output()
             .unwrap();
 
@@ -74,7 +65,7 @@ mod tests {
             .unwrap();
 
         let out = cmd()
-            .args(["--json", "delete", "-d", &dataset, "--document-id", "doc-to-delete", "-y"])
+            .args(["-o", "json", "delete", "-d", &dataset, "--document-id", "doc-to-delete", "-y"])
             .output()
             .unwrap();
         assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
@@ -88,7 +79,7 @@ mod tests {
     async fn delete_aborted(ctx: &mut CliTestContext) {
         let dataset = ctx.wrap("test");
         cmd()
-            .args(["dataset", "create", "-d", &dataset])
+            .args(["dataset", "create", &dataset])
             .output()
             .unwrap();
 
@@ -100,12 +91,11 @@ mod tests {
 
         // --json mode is non-interactive so confirm returns false → skipped
         let out = cmd()
-            .args(["--json", "delete", "-d", &dataset, "--document-id", "doc-to-keep"])
+            .args(["-o", "json", "delete", "-d", &dataset, "--document-id", "doc-to-keep"])
             .output()
             .unwrap();
         assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
         let result: DeleteResult = serde_json::from_slice(&out.stdout).unwrap();
         assert!(!result.deleted);
-        assert_eq!(result.skipped, Some(true));
     }
 }

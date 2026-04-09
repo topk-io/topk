@@ -69,12 +69,12 @@ mod tests {
     async fn search_returns_results(ctx: &mut CliTestContext) {
         let dataset = ctx.wrap("test");
         cmd()
-            .args(["dataset", "create", "--dataset", &dataset])
+            .args(["dataset", "create", &dataset])
             .output()
             .unwrap();
 
         let out = cmd()
-            .args(["--json", "search", "summarize"])
+            .args(["-o", "json", "search", "summarize"])
             .output()
             .unwrap();
         assert!(
@@ -91,14 +91,14 @@ mod tests {
         let dataset = ctx.wrap("meta-fields");
 
         cmd()
-            .args(["dataset", "create", "--dataset", &dataset])
+            .args(["dataset", "create", &dataset])
             .output()
             .unwrap();
 
         let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/markdown.md");
         let out = cmd()
             .args([
-                "--json",
+                "-o", "json",
                 "upsert",
                 "--dataset",
                 &dataset,
@@ -121,10 +121,10 @@ mod tests {
 
         let out = cmd()
             .args([
-                "--json",
+                "-o", "json",
                 "search",
                 "test",
-                "--sources",
+                "--dataset",
                 &dataset,
                 "--fields",
                 "title,author",

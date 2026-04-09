@@ -18,8 +18,7 @@ use crate::output::{Output, RenderForHuman, BLUE, BOLD, DIM, RESET};
 pub enum Mode {
     Auto,
     Summarize,
-    Reason,
-    DeepResearch,
+    Research,
 }
 
 impl From<Mode> for topk_rs::proto::v1::ctx::Mode {
@@ -27,8 +26,7 @@ impl From<Mode> for topk_rs::proto::v1::ctx::Mode {
         match m {
             Mode::Auto => topk_rs::proto::v1::ctx::Mode::Auto,
             Mode::Summarize => topk_rs::proto::v1::ctx::Mode::Summarize,
-            Mode::Reason => topk_rs::proto::v1::ctx::Mode::Reason,
-            Mode::DeepResearch => topk_rs::proto::v1::ctx::Mode::DeepResearch,
+            Mode::Research => topk_rs::proto::v1::ctx::Mode::DeepResearch,
         }
     }
 }
@@ -165,11 +163,11 @@ mod tests {
     async fn ask_returns_result(ctx: &mut CliTestContext) {
         let dataset = ctx.wrap("test");
         cmd()
-            .args(["dataset", "create", "--dataset", &dataset])
+            .args(["dataset", "create", &dataset])
             .output()
             .unwrap();
 
-        let out = cmd().args(["--json", "ask", "summarize"]).output().unwrap();
+        let out = cmd().args(["-o", "json", "ask", "summarize"]).output().unwrap();
         assert!(
             out.status.success(),
             "{}",
