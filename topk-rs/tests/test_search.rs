@@ -1,10 +1,7 @@
-use futures_util::StreamExt;
+use futures_util::TryStreamExt;
 use test_context::test_context;
 
-use topk_rs::proto::v1::{
-    ctx::{ask_result::Message, AskResult},
-    data::Value,
-};
+use topk_rs::proto::v1::data::Value;
 use topk_rs::{Client, ClientConfig, Error};
 
 mod utils;
@@ -15,7 +12,7 @@ use crate::utils::dataset::test_pdf;
 #[test_context(ProjectTestContext)]
 #[tokio::test]
 #[ignore]
-async fn test_ask(ctx: &mut ProjectTestContext) {
+async fn test_search(ctx: &mut ProjectTestContext) {
     let dataset = ctx
         .client
         .datasets()
@@ -33,43 +30,36 @@ async fn test_ask(ctx: &mut ProjectTestContext) {
         .await
         .expect("could not upsert file");
 
-    // Wait for file to be processed
     ctx.client
         .dataset(&dataset.name)
         .wait_for_handle(&upsert.handle, None)
         .await
-        .expect("could not wait handle");
+        .expect("could not wait for handle");
 
-    // Ask
-    let mut stream = ctx
+    let results: Vec<_> = ctx
         .client
-        .ask(
-            "What score must general education students achieve who first entered ninth grade in 1997 ?",
+        .search(
+            "What score must students achieve?",
             [&dataset.name],
+            5,
             None,
-            None,
-            None
+            Vec::<String>::new(),
         )
         .await
-        .expect("could not call ask");
+        .expect("could not call search")
+        .into_inner()
+        .try_collect()
+        .await
+        .expect("could not collect search results");
 
-    let mut last_message: Option<AskResult> = None;
-    while let Some(result) = stream.next().await {
-        last_message = Some(result.expect("could not receive message from stream"));
-    }
-
-    assert!(matches!(
-        last_message,
-        Some(AskResult {
-            message: Some(Message::Answer(_))
-        })
-    ));
+    assert!(!results.is_empty(), "expected at least one search result");
+    assert!(results.iter().all(|r| r.doc_id == "doc1"));
 }
 
 #[tokio::test]
-async fn test_ask_empty_datasets() {
+async fn test_search_empty_datasets() {
     let err = Client::new(ClientConfig::new("dummy-key", "us-east-1"))
-        .ask("query", Vec::<&str>::new(), None, None, None)
+        .search("query", Vec::<&str>::new(), 10, None, Vec::<String>::new())
         .await
         .expect_err("should fail with empty datasets");
 

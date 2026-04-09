@@ -5,10 +5,10 @@ import "topk/data/v1/value.proto";
 import "topk/data/v1/expr/logical.proto";
 
 service ContextService {
-    // Get a summarized answer to a question based on provided sources.
+    // Get answer with source citations
     rpc Ask(AskRequest) returns (stream AskResult);
 
-    // Get search results from the provided sources.
+    // Get search results
     rpc Search(SearchRequest) returns (stream SearchResult);
 }
 
@@ -55,18 +55,17 @@ message Fact {
 
 enum Mode {
     MODE_UNSPECIFIED = 0;
-    MODE_SUMMARIZE = 1;
-    MODE_REASON = 2;
-    MODE_DEEP_RESEARCH = 3;
-    MODE_AUTO = 4;
+    MODE_AUTO = 1;
+    MODE_SUMMARIZE = 2;
+    MODE_RESEARCH = 3;
 }
 
 message AskRequest {
     // Ask query
     string query = 1;
     // Sources to use for the ask query
-    repeated Source sources = 2;
-    // Filter applied globally to all sources
+    repeated Source datasets = 2;
+    // Filter applied globally to all datasets
     topk.data.v1.LogicalExpr filter = 3;
     // Mode to use for the ask query
     Mode mode = 4;
@@ -101,8 +100,8 @@ message SearchRequest {
     // Search query
     string query = 1;
     // Source datasets for the search
-    repeated Source sources = 2;
-    // Filter applied globally to all sources
+    repeated Source datasets = 2;
+    // Filter applied globally to all datasets
     topk.data.v1.LogicalExpr filter = 3;
     // Maximum number of results to return
     uint32 top_k = 4;

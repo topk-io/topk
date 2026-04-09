@@ -5,7 +5,7 @@ use pyo3::prelude::*;
 use tokio::sync::mpsc;
 
 use crate::client::CHANNEL_BUFFER_SIZE;
-use crate::data::ask::{SearchResult, Sources};
+use crate::data::ask::{Datasets, SearchResult};
 use crate::error::RustError;
 use crate::expr::logical::LogicalExpr;
 
@@ -33,20 +33,20 @@ pub fn search_stream(
     runtime: Arc<Runtime>,
     client: Arc<topk_rs::Client>,
     query: String,
-    sources: Sources,
+    datasets: Datasets,
     filter: Option<LogicalExpr>,
     top_k: u32,
     select_fields: Option<Vec<String>>,
 ) -> PyResult<SearchIterator> {
     let (tx, rx) = mpsc::channel(CHANNEL_BUFFER_SIZE);
 
-    let sources = sources.into_iter();
+    let datasets = datasets.into_iter();
     let filter = filter.map(|f| f.into());
     let select_fields = select_fields.unwrap_or_default();
 
     runtime.spawn(async move {
         let mut stream = match client
-            .search(query, sources, top_k, filter, select_fields)
+            .search(query, datasets, top_k, filter, select_fields)
             .await
         {
             Ok(response) => response.into_inner(),
@@ -88,18 +88,18 @@ pub fn search(
     client: Arc<topk_rs::Client>,
     py: Python<'_>,
     query: String,
-    sources: Sources,
+    datasets: Datasets,
     filter: Option<LogicalExpr>,
     top_k: u32,
     select_fields: Option<Vec<String>>,
 ) -> PyResult<Vec<SearchResult>> {
-    let sources = sources.into_iter();
+    let datasets = datasets.into_iter();
     let filter = filter.map(|f| f.into());
     let select_fields = select_fields.unwrap_or_default();
 
     runtime.block_on(py, async move {
         let stream = client
-            .search(query, sources, top_k, filter, select_fields)
+            .search(query, datasets, top_k, filter, select_fields)
             .await
             .map_err(RustError)?
             .into_inner();

@@ -19,7 +19,7 @@ pub use search::{search, search_stream, SearchIterator};
 use crate::data::ask::SearchResult;
 use crate::{
     client::{sync::runtime::Runtime, topk_client, NativeRetryConfig},
-    data::ask::{AskResult, Mode, Sources},
+    data::ask::{AskResult, Datasets, Mode},
     expr::logical::LogicalExpr,
 };
 
@@ -79,12 +79,12 @@ impl Client {
         ))
     }
 
-    #[pyo3(signature = (query, sources, filter=None, mode=None, select_fields=None))]
+    #[pyo3(signature = (query, datasets, filter=None, mode=None, select_fields=None))]
     pub fn ask(
         &self,
         py: Python<'_>,
         query: String,
-        sources: Sources,
+        datasets: Datasets,
         filter: Option<LogicalExpr>,
         mode: Option<Mode>,
         select_fields: Option<Vec<String>>,
@@ -94,18 +94,18 @@ impl Client {
             self.client.clone(),
             py,
             query,
-            sources.into(),
+            datasets.into(),
             filter,
             mode,
             select_fields,
         )
     }
 
-    #[pyo3(signature = (query, sources, filter=None, mode=None, select_fields=None))]
+    #[pyo3(signature = (query, datasets, filter=None, mode=None, select_fields=None))]
     pub fn ask_stream(
         &self,
         query: String,
-        sources: Sources,
+        datasets: Datasets,
         filter: Option<LogicalExpr>,
         mode: Option<Mode>,
         select_fields: Option<Vec<String>>,
@@ -114,19 +114,19 @@ impl Client {
             self.runtime.clone(),
             self.client.clone(),
             query,
-            sources.into(),
+            datasets.into(),
             filter,
             mode,
             select_fields,
         )
     }
 
-    #[pyo3(signature = (query, sources, top_k, filter=None, select_fields=None))]
+    #[pyo3(signature = (query, datasets, top_k, filter=None, select_fields=None))]
     pub fn search(
         &self,
         py: Python<'_>,
         query: String,
-        sources: Sources,
+        datasets: Datasets,
         top_k: u32,
         filter: Option<LogicalExpr>,
         select_fields: Option<Vec<String>>,
@@ -136,18 +136,18 @@ impl Client {
             self.client.clone(),
             py,
             query,
-            sources.into(),
+            datasets.into(),
             filter,
             top_k,
             select_fields,
         )
     }
 
-    #[pyo3(signature = (query, sources, top_k, filter=None, select_fields=None))]
+    #[pyo3(signature = (query, datasets, top_k, filter=None, select_fields=None))]
     pub fn search_stream(
         &self,
         query: String,
-        sources: Sources,
+        datasets: Datasets,
         top_k: u32,
         filter: Option<LogicalExpr>,
         select_fields: Option<Vec<String>>,
@@ -156,7 +156,7 @@ impl Client {
             self.runtime.clone(),
             self.client.clone(),
             query,
-            sources.into(),
+            datasets.into(),
             filter,
             top_k,
             select_fields,

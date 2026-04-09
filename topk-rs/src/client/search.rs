@@ -15,16 +15,23 @@ impl super::Client {
     pub async fn search(
         &self,
         query: impl Into<String>,
-        sources: impl IntoIterator<Item = impl Into<Source>>,
+        datasets: impl IntoIterator<Item = impl Into<Source>>,
         top_k: u32,
         filter: Option<LogicalExpr>,
         select_fields: impl IntoIterator<Item = impl Into<String>>,
     ) -> Result<Response<Streaming<SearchResult>>, Error> {
+        let datasets: Vec<_> = datasets.into_iter().map(|s| s.into()).collect();
+        if datasets.is_empty() {
+            return Err(Error::InvalidArgument(
+                "provide at least one dataset".to_string(),
+            ));
+        }
+
         let client = create_client!(ContextServiceClient, self.channel, self.config).await?;
 
         let request = SearchRequest {
             query: query.into(),
-            sources: sources.into_iter().map(|s| s.into()).collect(),
+            datasets,
             filter,
             top_k,
             select_fields: select_fields.into_iter().map(|s| s.into()).collect(),

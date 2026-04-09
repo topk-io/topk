@@ -16,8 +16,7 @@ use crate::expr::logical::LogicalExpr;
 pub enum Mode {
     Auto,
     Summarize,
-    Reason,
-    DeepResearch,
+    Research,
 }
 
 impl FromPyObject<'_, '_> for Mode {
@@ -28,17 +27,16 @@ impl FromPyObject<'_, '_> for Mode {
             return match str.as_str() {
                 "auto" => Ok(Mode::Auto),
                 "summarize" => Ok(Mode::Summarize),
-                "reason" => Ok(Mode::Reason),
-                "deep_research" => Ok(Mode::DeepResearch),
+                "research" => Ok(Mode::Research),
                 _ => Err(PyTypeError::new_err(format!(
-                    "Invalid mode: {}. Must be one of: auto, summarize, reason, deep_research",
+                    "Invalid mode: {}. Must be one of: auto, summarize, research",
                     str
                 ))),
             };
         }
 
         Err(PyTypeError::new_err(
-            "Mode must be one of: auto, summarize, reason, deep_research",
+            "Mode must be one of: auto, summarize, research",
         ))
     }
 }
@@ -48,8 +46,7 @@ impl From<Mode> for topk_rs::proto::v1::ctx::Mode {
         match mode {
             Mode::Auto => topk_rs::proto::v1::ctx::Mode::Auto,
             Mode::Summarize => topk_rs::proto::v1::ctx::Mode::Summarize,
-            Mode::Reason => topk_rs::proto::v1::ctx::Mode::Reason,
-            Mode::DeepResearch => topk_rs::proto::v1::ctx::Mode::DeepResearch,
+            Mode::Research => topk_rs::proto::v1::ctx::Mode::Research,
         }
     }
 }
@@ -93,9 +90,9 @@ impl Source {
     }
 }
 
-pub struct Sources(Vec<Source>);
+pub struct Datasets(Vec<Source>);
 
-impl IntoIterator for Sources {
+impl IntoIterator for Datasets {
     type Item = Source;
     type IntoIter = std::vec::IntoIter<Source>;
 
@@ -104,29 +101,32 @@ impl IntoIterator for Sources {
     }
 }
 
-impl From<Sources> for Vec<Source> {
-    fn from(sources: Sources) -> Self {
-        sources.0
+impl From<Datasets> for Vec<Source> {
+    fn from(datasets: Datasets) -> Self {
+        datasets.0
     }
 }
 
-impl FromPyObject<'_, '_> for Sources {
+impl FromPyObject<'_, '_> for Datasets {
     type Error = PyErr;
 
     fn extract(obj: Borrowed<'_, '_, PyAny>) -> PyResult<Self> {
         if obj.is_instance_of::<PyString>() {
             return Err(PyTypeError::new_err(
-                "sources must be a list or tuple, not a string; use [\"dataset_name\"] for a single source",
+                "datasets must be a list or tuple, not a string; use [\"dataset_name\"] for a single dataset",
             ));
         }
         let seq = obj.cast::<PySequence>()?;
         let len = seq.len()?;
-        let mut sources = Vec::with_capacity(len);
+        if len == 0 {
+            return Err(PyTypeError::new_err("provide at least one dataset"));
+        }
+        let mut datasets = Vec::with_capacity(len);
         for i in 0..len {
             let item = seq.get_item(i)?;
-            sources.push(Source::from_py_object(&item.as_borrowed())?);
+            datasets.push(Source::from_py_object(&item.as_borrowed())?);
         }
-        Ok(Sources(sources))
+        Ok(Datasets(datasets))
     }
 }
 

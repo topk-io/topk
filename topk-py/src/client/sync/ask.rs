@@ -5,7 +5,7 @@ use pyo3::prelude::*;
 use tokio::sync::mpsc;
 
 use crate::client::CHANNEL_BUFFER_SIZE;
-use crate::data::ask::{AskResult, Mode, Sources};
+use crate::data::ask::{AskResult, Datasets, Mode};
 use crate::error::RustError;
 use crate::expr::logical::LogicalExpr;
 
@@ -35,21 +35,21 @@ pub fn ask_stream(
     runtime: Arc<Runtime>,
     client: Arc<topk_rs::Client>,
     query: String,
-    sources: Sources,
+    datasets: Datasets,
     filter: Option<LogicalExpr>,
     mode: Option<Mode>,
     select_fields: Option<Vec<String>>,
 ) -> PyResult<AskIterator> {
     let (tx, rx) = mpsc::channel(CHANNEL_BUFFER_SIZE);
 
-    let sources = sources.into_iter();
+    let datasets = datasets.into_iter();
     let filter = filter.map(|f| f.into());
     let mode = mode.map(|m| m.into());
 
     // Spawn a task to consume the stream
     runtime.spawn(async move {
         let mut stream = match client
-            .ask(query, sources, filter, mode, select_fields)
+            .ask(query, datasets, filter, mode, select_fields)
             .await
         {
             Ok(stream) => stream,
@@ -102,18 +102,18 @@ pub fn ask(
     client: Arc<topk_rs::Client>,
     py: Python<'_>,
     query: String,
-    sources: Sources,
+    datasets: Datasets,
     filter: Option<LogicalExpr>,
     mode: Option<Mode>,
     select_fields: Option<Vec<String>>,
 ) -> PyResult<AskResult> {
-    let sources = sources.into_iter();
+    let datasets = datasets.into_iter();
     let filter = filter.map(|f| f.into());
     let mode = mode.map(|m| m.into());
 
     runtime.block_on(py, async move {
         let stream = client
-            .ask(query, sources, filter, mode, select_fields)
+            .ask(query, datasets, filter, mode, select_fields)
             .await
             .map_err(RustError)?
             .into_inner();
