@@ -9,7 +9,6 @@ use clap_complete::{generate, Shell};
 use topk_rs::{proto::v1::ctx::doc::DocId, Client, ClientConfig};
 
 use commands::{ask, dataset, delete, list, search, upload, upsert};
-use topk::util::parse_kv;
 
 #[derive(Parser)]
 #[command(name = "topk", version)]
@@ -110,9 +109,9 @@ enum Commands {
         id: DocId,
         /// Path to file
         path: std::path::PathBuf,
-        /// Metadata key=value pairs
-        #[arg(short = 'm', long = "meta", value_parser = parse_kv)]
-        metadata: Vec<(String, String)>,
+        /// Metadata as a JSON object (e.g. '{"title": "My Doc", "pages": 42, "published": true}')
+        #[arg(short = 'm', long = "meta", value_name = "JSON")]
+        metadata: Option<String>,
         /// Block until the document is uploaded and fully processed
         #[arg(short = 'w', long)]
         wait: bool,
