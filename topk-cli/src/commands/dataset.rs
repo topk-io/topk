@@ -1,5 +1,5 @@
 use chrono::{DateTime, Local, Utc};
-use comfy_table::{presets, Attribute, Cell, ColumnConstraint, ContentArrangement, Table, Width};
+use comfy_table::{presets, Attribute, Cell, Color, ColumnConstraint, ContentArrangement, Table, Width};
 use terminal_size::{terminal_size, Width as TermWidth};
 use serde::{Deserialize, Serialize};
 use topk_rs::{
@@ -88,7 +88,7 @@ impl RenderForHuman for ListDatasetsResult {
             .set_content_arrangement(ContentArrangement::Dynamic)
             .set_width(term_width)
             .set_header(["NAME", "REGION", "CREATED"].iter().map(|h| {
-                Cell::new(h).add_attribute(Attribute::Bold)
+                Cell::new(h).add_attribute(Attribute::Bold).fg(Color::Cyan)
             }))
             .set_constraints([
                 ColumnConstraint::LowerBoundary(Width::Fixed(10)),

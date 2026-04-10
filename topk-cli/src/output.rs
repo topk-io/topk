@@ -1,6 +1,5 @@
 use std::io::{IsTerminal, Write};
 
-use comfy_table::{presets, Attribute, Cell, Color, ContentArrangement, Table};
 use serde::Serialize;
 
 use crate::util::{confirm, Spinner};
@@ -123,26 +122,6 @@ fn clear_progress() {
     }
 }
 
-/// Formats a table from headers and rows of string values.
-/// Headers are rendered in cyan bold, no borders, wraps to terminal width.
-pub fn table(headers: Vec<&str>, rows: Vec<Vec<String>>) -> String {
-    let mut table = Table::new();
-    table
-        .load_preset(presets::NOTHING)
-        .set_content_arrangement(ContentArrangement::Dynamic);
-
-    table.set_header(
-        headers
-            .iter()
-            .map(|h| Cell::new(h).add_attribute(Attribute::Bold).fg(Color::Cyan)),
-    );
-
-    for row in rows {
-        table.add_row(row);
-    }
-
-    table.to_string()
-}
 
 #[cfg(test)]
 mod tests {
