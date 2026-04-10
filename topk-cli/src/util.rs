@@ -2,11 +2,6 @@ use std::io::{self, IsTerminal, Write};
 
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
-pub fn parse_kv(s: &str) -> Result<(String, String), String> {
-    s.split_once('=')
-        .map(|(k, v)| (k.to_string(), v.to_string()))
-        .ok_or_else(|| format!("expected key=value, got '{}'", s))
-}
 
 pub(crate) fn confirm(prompt: &str) -> std::io::Result<bool> {
     eprint!("{}", prompt);

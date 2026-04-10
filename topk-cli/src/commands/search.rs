@@ -106,9 +106,7 @@ mod tests {
                 "--id",
                 "meta-fields-doc",
                 "--meta",
-                "title=My Test Document",
-                "--meta",
-                "author=Test Author",
+                r#"{"title": "My Test Document", "author": "Test Author"}"#,
                 "--wait",
                 file,
             ])
