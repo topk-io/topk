@@ -1,7 +1,9 @@
 use bytesize::ByteSize;
 use comfy_table::{
     presets, Attribute, Cell, CellAlignment, Color, ColumnConstraint, ContentArrangement, Table,
+    Width,
 };
+use terminal_size::{terminal_size, Width as TermWidth};
 use serde::{Deserialize, Serialize};
 use tokio_stream::StreamExt;
 use topk_rs::{proto::v1::ctx::ListEntry, Client, Error};
@@ -69,15 +71,16 @@ fn render_human_table(rows: &[Vec<String>]) -> String {
     let mut table = Table::new();
     table
         .load_preset(presets::NOTHING)
-        .set_content_arrangement(ContentArrangement::Disabled)
+        .set_content_arrangement(ContentArrangement::Dynamic)
+        .set_width(terminal_size().map(|(TermWidth(w), _)| w).unwrap_or(80))
         .set_header(["ID", "NAME", "SIZE", "TYPE"].into_iter().map(|header| {
             Cell::new(header)
                 .add_attribute(Attribute::Bold)
                 .fg(Color::Cyan)
         }))
         .set_constraints([
-            ColumnConstraint::ContentWidth,
-            ColumnConstraint::ContentWidth,
+            ColumnConstraint::LowerBoundary(Width::Fixed(10)),
+            ColumnConstraint::LowerBoundary(Width::Fixed(10)),
             ColumnConstraint::ContentWidth,
             ColumnConstraint::ContentWidth,
         ]);
