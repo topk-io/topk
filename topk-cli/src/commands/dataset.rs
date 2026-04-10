@@ -1,4 +1,6 @@
 use chrono::{DateTime, Local, Utc};
+use comfy_table::{presets, Attribute, Cell, ColumnConstraint, ContentArrangement, Table, Width};
+use terminal_size::{terminal_size, Width as TermWidth};
 use serde::{Deserialize, Serialize};
 use topk_rs::{
     client::Response,
@@ -6,7 +8,7 @@ use topk_rs::{
     Client, Error,
 };
 
-use crate::output::{Output, RenderForHuman, BOLD, DIM, RESET};
+use crate::output::{Output, RenderForHuman};
 
 /// `topk dataset`
 #[derive(Debug, clap::Subcommand)]
@@ -78,10 +80,22 @@ impl RenderForHuman for ListDatasetsResult {
             return "No datasets found.".to_string();
         }
 
-        let mut out = format!(
-            "{BOLD}{:<40}  {:<15}  {}{RESET}\n",
-            "NAME", "REGION", "CREATED"
-        );
+        let term_width = terminal_size().map(|(TermWidth(w), _)| w).unwrap_or(80);
+
+        let mut table = Table::new();
+        table
+            .load_preset(presets::NOTHING)
+            .set_content_arrangement(ContentArrangement::Dynamic)
+            .set_width(term_width)
+            .set_header(["NAME", "REGION", "CREATED"].iter().map(|h| {
+                Cell::new(h).add_attribute(Attribute::Bold)
+            }))
+            .set_constraints([
+                ColumnConstraint::LowerBoundary(Width::Fixed(10)),
+                ColumnConstraint::ContentWidth,
+                ColumnConstraint::ContentWidth,
+            ]);
+
         for d in &self.datasets {
             let created = d
                 .created_at
@@ -90,12 +104,14 @@ impl RenderForHuman for ListDatasetsResult {
                 .with_timezone(&Local)
                 .format("%b %-d, %Y %H:%M")
                 .to_string();
-            out.push_str(&format!(
-                "{:<40}  {:<15}  {DIM}{}{RESET}\n",
-                d.name, d.region, created
-            ));
+            table.add_row([
+                Cell::new(&d.name),
+                Cell::new(&d.region),
+                Cell::new(created).add_attribute(Attribute::Dim),
+            ]);
         }
-        out.trim_end().to_string()
+
+        table.to_string()
     }
 }
 
