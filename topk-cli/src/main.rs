@@ -75,9 +75,9 @@ enum Commands {
         fields: Option<Vec<String>>,
     },
 
-    /// Upload files matching regex patterns from the current directory
+    /// Upload files
     Upload {
-        /// Regex pattern(s) matched against file paths relative to the current directory
+        /// Glob pattern(s) matched against file paths relative to the current directory (e.g. "*.pdf" "docs/**/*.md")
         #[arg(value_name = "PATTERNS")]
         patterns: Vec<String>,
         /// Dataset to upload into

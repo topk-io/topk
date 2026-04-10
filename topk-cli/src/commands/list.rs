@@ -166,7 +166,7 @@ mod tests {
     }
 
     #[test]
-    fn human_table_keeps_later_columns_aligned_for_long_names() {
+    fn human_table_wraps_long_names_keeping_size_and_type_aligned() {
         let rendered = strip_ansi(&render_human_table(&[
             vec![
                 "short-id".to_string(),
@@ -183,13 +183,20 @@ mod tests {
         ]));
 
         let lines: Vec<&str> = rendered.lines().collect();
-        assert_eq!(lines.len(), 3);
 
-        let size_col = lines[1].find("1.0 KB").unwrap();
-        assert_eq!(size_col, lines[2].find("1.0 KB").unwrap());
+        // Long name/id should cause wrapping — more than header + 2 single lines
+        assert!(lines.len() > 3, "expected wrapping but got {} lines", lines.len());
 
-        let type_col = lines[1].find("application/pdf").unwrap();
-        assert_eq!(type_col, lines[2].find("application/pdf").unwrap());
+        // SIZE and TYPE each appear exactly once per data row (not duplicated across wrap lines)
+        assert_eq!(rendered.matches("1.0 KB").count(), 2);
+        assert_eq!(rendered.matches("application/pdf").count(), 2);
+
+        // SIZE and TYPE columns are at the same horizontal offset for both rows
+        let size_positions: Vec<usize> = lines.iter().filter_map(|l| l.find("1.0 KB")).collect();
+        assert_eq!(size_positions[0], size_positions[1]);
+
+        let type_positions: Vec<usize> = lines.iter().filter_map(|l| l.find("application/pdf")).collect();
+        assert_eq!(type_positions[0], type_positions[1]);
     }
 
     #[test_context(CliTestContext)]
@@ -204,7 +211,8 @@ mod tests {
                 "-o",
                 "json",
                 "upload",
-                r"pdfko\.pdf|markdown\.md",
+                "pdfko.pdf",
+                "markdown.md",
                 "-d",
                 &dataset,
                 "-y",
