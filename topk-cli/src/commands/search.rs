@@ -103,7 +103,7 @@ mod tests {
                 "upsert",
                 "--dataset",
                 &dataset,
-                "--document-id",
+                "--id",
                 "meta-fields-doc",
                 "--meta",
                 "title=My Test Document",

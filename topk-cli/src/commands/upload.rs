@@ -1,5 +1,5 @@
 use bytesize::ByteSize;
-use regex::Regex;
+use globset::{Glob, GlobSetBuilder};
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -108,15 +108,17 @@ pub async fn run(
     no_wait: bool,
     output: &Output,
 ) -> Result<UploadResult, Error> {
-    let regexes = patterns
-        .iter()
-        .map(|p| {
-            Regex::new(p)
-                .map_err(|e| Error::InvalidArgument(format!("invalid pattern '{}': {}", p, e)))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
+    let mut builder = GlobSetBuilder::new();
+    for p in patterns {
+        let glob = Glob::new(p)
+            .map_err(|e| Error::InvalidArgument(format!("invalid pattern '{}': {}", p, e)))?;
+        builder.add(glob);
+    }
+    let globset = builder
+        .build()
+        .map_err(|e| Error::InvalidArgument(format!("invalid patterns: {}", e)))?;
     let cwd = std::env::current_dir().map_err(Error::IoError)?;
-    let files = collect_files(&cwd, &regexes)?;
+    let files = collect_files(&cwd, &globset)?;
     let total = files.len();
 
     let total_size: u64 = files.iter().map(|f| f.size).sum();
@@ -318,7 +320,10 @@ pub async fn run(
     })
 }
 
-pub(crate) fn collect_files(root: &Path, patterns: &[Regex]) -> Result<Vec<UploadFile>, Error> {
+pub(crate) fn collect_files(
+    root: &Path,
+    globset: &globset::GlobSet,
+) -> Result<Vec<UploadFile>, Error> {
     let mut files = WalkDir::new(root)
         .follow_links(false)
         .into_iter()
@@ -327,12 +332,11 @@ pub(crate) fn collect_files(root: &Path, patterns: &[Regex]) -> Result<Vec<Uploa
         .filter_map(|e| {
             let path = e.path().to_path_buf();
             let rel = path.strip_prefix(root).unwrap_or(&path);
-            let rel_str = rel.to_string_lossy();
-            if !patterns.iter().any(|re| re.is_match(&rel_str)) {
+            if !globset.is_match(rel) {
                 return None;
             }
             let size = e.metadata().ok()?.len();
-            let doc_id = rel_str.into_owned();
+            let doc_id = rel.to_string_lossy().into_owned();
             Some(Ok(UploadFile { doc_id, path, size }))
         })
         .collect::<Result<Vec<_>, Error>>()?;
@@ -348,7 +352,7 @@ mod tests {
     use super::{collect_files, UploadResult};
     use crate::test_context::CliTestContext;
     use assert_cmd::Command;
-    use regex::Regex;
+    use globset::{Glob, GlobSetBuilder};
     use tempfile::tempdir;
     use test_context::test_context;
     use uuid::Uuid;
@@ -369,7 +373,7 @@ mod tests {
                 "-o",
                 "json",
                 "upload",
-                r"pdfko\.pdf",
+                "pdfko.pdf",
                 "-y",
                 "--dataset",
                 &dataset,
@@ -396,7 +400,7 @@ mod tests {
                 "-o",
                 "json",
                 "upload",
-                r"pdfko\.pdf",
+                "pdfko.pdf",
                 "--dataset",
                 &dataset,
                 "--dry-run",
@@ -420,7 +424,7 @@ mod tests {
         let dataset = ctx.wrap("autocreate");
         let out = cmd()
             .current_dir(TESTS_DIR)
-            .args(["-o", "json", "upload", r"pdfko\.pdf", "-d", &dataset, "-y"])
+            .args(["-o", "json", "upload", "pdfko.pdf", "-d", &dataset, "-y"])
             .output()
             .unwrap();
         assert!(
@@ -452,7 +456,7 @@ mod tests {
                 "-o",
                 "json",
                 "upload",
-                r"\.md$",
+                "*.md",
                 "-d",
                 &dataset,
                 "--dry-run",
@@ -483,7 +487,7 @@ mod tests {
                 "-o",
                 "json",
                 "upload",
-                r"pdfko\.pdf",
+                "pdfko.pdf",
                 "-d",
                 &dataset,
                 "-y",
@@ -511,8 +515,8 @@ mod tests {
                 "-o",
                 "json",
                 "upload",
-                r"pdfko\.pdf",
-                r"markdown\.md",
+                "pdfko.pdf",
+                "markdown.md",
                 "--dataset",
                 &dataset,
                 "--dry-run",
@@ -539,8 +543,11 @@ mod tests {
         fs::write(dir.path().join("skip.txt"), "skip").unwrap();
         fs::write(nested.join("report.pdf"), b"%PDF").unwrap();
 
-        let patterns = vec![Regex::new(r"\.md$").unwrap()];
-        let files = collect_files(dir.path(), &patterns).unwrap();
+        let globset = GlobSetBuilder::new()
+            .add(Glob::new("*.md").unwrap())
+            .build()
+            .unwrap();
+        let files = collect_files(dir.path(), &globset).unwrap();
         assert_eq!(files.len(), 1);
         assert_eq!(files[0].doc_id, "doc.md");
     }
@@ -552,11 +559,12 @@ mod tests {
         fs::write(dir.path().join("b.pdf"), "").unwrap();
         fs::write(dir.path().join("c.txt"), "").unwrap();
 
-        let patterns = vec![
-            Regex::new(r"\.md$").unwrap(),
-            Regex::new(r"\.pdf$").unwrap(),
-        ];
-        let mut files = collect_files(dir.path(), &patterns).unwrap();
+        let globset = GlobSetBuilder::new()
+            .add(Glob::new("*.md").unwrap())
+            .add(Glob::new("*.pdf").unwrap())
+            .build()
+            .unwrap();
+        let mut files = collect_files(dir.path(), &globset).unwrap();
         files.sort_by(|a, b| a.doc_id.cmp(&b.doc_id));
         assert_eq!(files.len(), 2);
         assert_eq!(files[0].doc_id, "a.md");
@@ -569,7 +577,7 @@ mod tests {
         let dataset = format!("{}-missing-{}", ctx.scope, Uuid::new_v4().simple());
         let out = cmd()
             .current_dir(TESTS_DIR)
-            .args(["-o", "json", "upload", r"pdfko\.pdf", "--dataset", &dataset])
+            .args(["-o", "json", "upload", "pdfko.pdf", "--dataset", &dataset])
             .output()
             .unwrap();
         assert!(!out.status.success());

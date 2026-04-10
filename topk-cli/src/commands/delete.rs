@@ -70,7 +70,7 @@ mod tests {
                 "upsert",
                 "-d",
                 &dataset,
-                "--document-id",
+                "--id",
                 "doc-to-delete",
                 file,
             ])
@@ -84,7 +84,7 @@ mod tests {
                 "delete",
                 "-d",
                 &dataset,
-                "--document-id",
+                "--id",
                 "doc-to-delete",
                 "-y",
             ])
@@ -115,7 +115,7 @@ mod tests {
                 "upsert",
                 "-d",
                 &dataset,
-                "--document-id",
+                "--id",
                 "doc-to-keep",
                 file,
             ])
@@ -130,7 +130,7 @@ mod tests {
                 "delete",
                 "-d",
                 &dataset,
-                "--document-id",
+                "--id",
                 "doc-to-keep",
             ])
             .output()
