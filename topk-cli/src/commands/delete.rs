@@ -67,11 +67,12 @@ mod tests {
         let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/pdfko.pdf");
         cmd()
             .args([
-                "upsert",
+                "upload",
                 "-d",
                 &dataset,
                 "--id",
                 "doc-to-delete",
+                "-y",
                 file,
             ])
             .output()
@@ -111,14 +112,7 @@ mod tests {
 
         let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/pdfko.pdf");
         cmd()
-            .args([
-                "upsert",
-                "-d",
-                &dataset,
-                "--id",
-                "doc-to-keep",
-                file,
-            ])
+            .args(["upload", "-d", &dataset, "--id", "doc-to-keep", "-y", file])
             .output()
             .unwrap();
 

@@ -40,7 +40,10 @@ impl Output {
 
     pub fn print_human<T: RenderForHuman>(&self, value: &T) -> Result<(), serde_json::Error> {
         clear_progress();
-        println!("{}", value.render());
+        let rendered = value.render();
+        if !rendered.is_empty() {
+            println!("{rendered}");
+        }
         Ok(())
     }
 
@@ -121,7 +124,6 @@ fn clear_progress() {
         let _ = std::io::stderr().flush();
     }
 }
-
 
 #[cfg(test)]
 mod tests {

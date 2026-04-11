@@ -8,7 +8,7 @@ use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, Shell};
 use topk_rs::{proto::v1::ctx::doc::DocId, Client, ClientConfig};
 
-use commands::{ask, dataset, delete, list, search, upload, upsert};
+use commands::{ask, dataset, delete, list, search, upload};
 
 #[derive(Parser)]
 #[command(name = "topk", version)]
@@ -76,9 +76,9 @@ enum Commands {
 
     /// Upload files
     Upload {
-        /// Glob pattern(s) matched against file paths relative to the current directory (e.g. "*.pdf" "docs/**/*.md")
-        #[arg(value_name = "PATTERNS")]
-        patterns: Vec<String>,
+        /// File path or glob pattern matched against file paths relative to the current directory (e.g. "./report.pdf" "*.pdf" "docs/**/*.md")
+        #[arg(value_name = "PATTERN")]
+        pattern: String,
         /// Dataset to upload into
         #[arg(short = 'd', long, value_name = "DATASET_NAME")]
         dataset: String,
@@ -88,36 +88,18 @@ enum Commands {
         /// Create the dataset without prompting if it does not exist
         #[arg(short = 'y', long)]
         yes: bool,
+        /// Document ID to assign when exactly one file is uploaded
+        #[arg(long)]
+        id: Option<DocId>,
+        /// Metadata as a JSON object when exactly one file is uploaded
+        #[arg(short = 'm', long = "meta", value_name = "JSON")]
+        metadata: Option<String>,
         /// Preview files without uploading
         #[arg(long)]
         dry_run: bool,
-        /// Wait for all files to be fully processed (agent mode only)
+        /// Wait for all uploaded files to be fully processed
         #[arg(short = 'w', long)]
         wait: bool,
-        /// Skip waiting for processing (interactive mode only)
-        #[arg(long, conflicts_with = "wait")]
-        no_wait: bool,
-    },
-
-    /// Upsert a document
-    Upsert {
-        /// Dataset name
-        #[arg(short = 'd', long, value_name = "DATASET_NAME")]
-        dataset: String,
-        /// Document ID
-        #[arg(long)]
-        id: DocId,
-        /// Path to file
-        path: std::path::PathBuf,
-        /// Metadata as a JSON object (e.g. '{"title": "My Doc", "pages": 42, "published": true}')
-        #[arg(short = 'm', long = "meta", value_name = "JSON")]
-        metadata: Option<String>,
-        /// Block until the document is uploaded and fully processed
-        #[arg(short = 'w', long)]
-        wait: bool,
-        /// Preview the upsert without uploading
-        #[arg(long)]
-        dry_run: bool,
     },
 
     /// Delete a document
@@ -186,9 +168,6 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
 
     // Show subcommand help before requiring credentials.
     match &command {
-        Commands::Upload { patterns, .. } if patterns.is_empty() => {
-            return print_subcommand_help("upload");
-        }
         Commands::Ask { query, .. } if query.is_none() && std::io::stdin().is_terminal() => {
             return print_subcommand_help("ask");
         }
@@ -217,48 +196,30 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
         },
 
         Commands::Upload {
-            patterns,
+            pattern,
             dataset,
             concurrency,
             yes,
+            id,
+            metadata,
             dry_run,
             wait,
-            no_wait,
         } => {
             output.print(
                 &upload::run(
                     &client,
                     &dataset,
-                    &patterns,
+                    &pattern,
+                    id,
+                    metadata,
                     concurrency as usize,
                     yes,
                     dry_run,
                     wait,
-                    no_wait,
                     output,
                 )
                 .await?,
             )?;
-        }
-
-        Commands::Upsert {
-            dataset,
-            id,
-            path,
-            metadata,
-            wait,
-            dry_run,
-        } => {
-            let mut result = upsert::run(&client, &dataset, id, path, metadata, dry_run).await?;
-            if wait && !dry_run {
-                output.progress("Processing...");
-                client
-                    .dataset(&dataset)
-                    .wait_for_handle(&result.handle, None)
-                    .await?;
-                result.processed = true;
-            }
-            output.print(&result)?;
         }
 
         Commands::Delete { dataset, id, yes } => {

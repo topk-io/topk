@@ -34,6 +34,7 @@ chrono = { version = "0.4", features = ["serde"] }
 comfy-table = { version = "7" }
 terminal_size = "0.4"
 globset = { version = "0.4" }
+sha2 = "0.10"
 
 [dev-dependencies]
 assert_cmd = "2"

@@ -100,7 +100,7 @@ mod tests {
             .args([
                 "-o",
                 "json",
-                "upsert",
+                "upload",
                 "--dataset",
                 &dataset,
                 "--id",
@@ -108,13 +108,14 @@ mod tests {
                 "--meta",
                 r#"{"title": "My Test Document", "author": "Test Author"}"#,
                 "--wait",
+                "-y",
                 file,
             ])
             .output()
             .unwrap();
         assert!(
             out.status.success(),
-            "upsert failed: {}",
+            "upload failed: {}",
             String::from_utf8_lossy(&out.stderr)
         );
 

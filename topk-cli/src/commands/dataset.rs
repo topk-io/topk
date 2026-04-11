@@ -1,7 +1,9 @@
 use chrono::{DateTime, Local, Utc};
-use comfy_table::{presets, Attribute, Cell, Color, ColumnConstraint, ContentArrangement, Table, Width};
-use terminal_size::{terminal_size, Width as TermWidth};
+use comfy_table::{
+    presets, Attribute, Cell, Color, ColumnConstraint, ContentArrangement, Table, Width,
+};
 use serde::{Deserialize, Serialize};
+use terminal_size::{terminal_size, Width as TermWidth};
 use topk_rs::{
     client::Response,
     proto::v1::control::{CreateDatasetResponse, GetDatasetResponse, ListDatasetsResponse},
@@ -87,9 +89,11 @@ impl RenderForHuman for ListDatasetsResult {
             .load_preset(presets::NOTHING)
             .set_content_arrangement(ContentArrangement::Dynamic)
             .set_width(term_width)
-            .set_header(["NAME", "REGION", "CREATED"].iter().map(|h| {
-                Cell::new(h).add_attribute(Attribute::Bold).fg(Color::Cyan)
-            }))
+            .set_header(
+                ["NAME", "REGION", "CREATED"]
+                    .iter()
+                    .map(|h| Cell::new(h).add_attribute(Attribute::Bold).fg(Color::Cyan)),
+            )
             .set_constraints([
                 ColumnConstraint::LowerBoundary(Width::Fixed(10)),
                 ColumnConstraint::ContentWidth,
