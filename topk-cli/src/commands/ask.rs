@@ -161,6 +161,26 @@ mod tests {
             .output()
             .unwrap();
 
+        let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/markdown.md");
+        let out = cmd()
+            .args([
+                "-o",
+                "json",
+                "upload",
+                file,
+                "--dataset",
+                &dataset,
+                "-y",
+                "--wait",
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+
         let out = cmd()
             .args(["-o", "json", "ask", "summarize", "--dataset", &dataset])
             .output()

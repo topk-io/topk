@@ -73,47 +73,30 @@ echo "my query" | topk search
 
 ---
 
-### `upload` — Upload files matching regex patterns
+### `upload` — Upload files
 
-Accepts one or more regex patterns matched against file paths relative to the current directory. Always scans recursively.
+Accepts a single file path or glob pattern matched against file paths relative to the current directory. Always scans recursively. If exactly one file is matched, you can override the default document ID with `--id` and attach metadata with `--meta`. By default, each uploaded file gets a document ID derived from the SHA-256 of its absolute path.
 
 ```bash
-topk upload '\.pdf$' --dataset my-dataset
-topk upload '\.pdf$' '\.md$' --dataset my-dataset
-topk upload 'docs/' --dataset my-dataset
+topk upload '*.pdf' --dataset my-dataset
+topk upload 'docs/**/*.md' --dataset my-dataset
+topk upload './report.pdf' --dataset my-dataset --id quarterly-report
 ```
 
 
 | Argument    | Required | Description                                                               |
 | ----------- | -------- | ------------------------------------------------------------------------- |
-| `PATTERNS`  | Yes      | One or more regex patterns matched against relative file paths            |
+| `PATTERN`   | Yes      | A file path or glob pattern matched against relative file paths           |
 | `--dataset` | Yes      | Dataset to upload into                                                    |
 | `-y`        | No       | Create the dataset automatically if it does not exist & skip confirmation |
+| `--id`      | No       | Document ID to assign when exactly one file is uploaded                   |
+| `--meta`    | No       | Metadata as a JSON object when exactly one file is uploaded               |
 | `-c`        | No       | Number of concurrent uploads, 1–64 (default: 32)                         |
-| `--wait`    | No       | Wait for all files to be fully processed (agent mode only; default in interactive mode) |
-| `--no-wait` | No       | Skip waiting for processing (interactive mode only)                       |
+| `--wait`    | No       | Wait for all uploaded files to be fully processed                         |
 | `--dry-run` | No       | Preview which files would be uploaded without uploading                   |
 
 
-In interactive mode, upload waits for processing by default — press Enter to skip. In agent mode (`-o json`), pass `--wait` to block until processing completes.
-
----
-
-### `upsert` — Upsert a single document
-
-```bash
-topk upsert --dataset my-dataset --document-id my-doc.pdf ./my-doc.pdf
-```
-
-
-| Argument        | Required | Description                                 |
-| --------------- | -------- | ------------------------------------------- |
-| `PATH`          | Yes      | Path to the file to upsert                  |
-| `--dataset`     | Yes      | Dataset to upsert the file into             |
-| `--document-id` | Yes      | Document ID to assign                       |
-| `--meta`        | No       | Metadata as `key=value` pairs, repeatable   |
-| `--wait`        | No       | Block until the document is fully processed |
-| `--dry-run`     | No       | Preview the upsert without uploading        |
+In interactive mode, `upload` prompts whether to wait for processing after the files are uploaded. Pass `--wait` to skip the prompt and wait automatically. In non-interactive mode, `upload` returns after upload unless `--wait` is passed.
 
 
 ---

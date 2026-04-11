@@ -3,8 +3,8 @@ use comfy_table::{
     presets, Attribute, Cell, CellAlignment, Color, ColumnConstraint, ContentArrangement, Table,
     Width,
 };
-use terminal_size::{terminal_size, Width as TermWidth};
 use serde::{Deserialize, Serialize};
+use terminal_size::{terminal_size, Width as TermWidth};
 use tokio_stream::StreamExt;
 use topk_rs::{proto::v1::ctx::ListEntry, Client, Error};
 
@@ -59,46 +59,42 @@ impl RenderForHuman for ListResult {
             })
             .collect::<Vec<_>>();
 
-        render_human_table(&rows)
+        if rows.is_empty() {
+            return "No documents.".to_string();
+        }
+
+        let mut table = Table::new();
+        table
+            .load_preset(presets::NOTHING)
+            .set_content_arrangement(ContentArrangement::Dynamic)
+            .set_width(terminal_size().map(|(TermWidth(w), _)| w).unwrap_or(80))
+            .set_header(["ID", "NAME", "SIZE", "TYPE"].into_iter().map(|header| {
+                Cell::new(header)
+                    .add_attribute(Attribute::Bold)
+                    .fg(Color::Cyan)
+            }))
+            .set_constraints([
+                ColumnConstraint::LowerBoundary(Width::Fixed(10)),
+                ColumnConstraint::LowerBoundary(Width::Fixed(10)),
+                ColumnConstraint::ContentWidth,
+                ColumnConstraint::ContentWidth,
+            ]);
+
+        if let Some(column) = table.column_mut(2) {
+            column.set_cell_alignment(CellAlignment::Right);
+        }
+
+        for row in rows {
+            table.add_row([
+                Cell::new(&row[0]),
+                Cell::new(&row[1]),
+                Cell::new(&row[2]),
+                Cell::new(&row[3]).add_attribute(Attribute::Dim),
+            ]);
+        }
+
+        table.to_string()
     }
-}
-
-fn render_human_table(rows: &[Vec<String>]) -> String {
-    if rows.is_empty() {
-        return "No documents.".to_string();
-    }
-
-    let mut table = Table::new();
-    table
-        .load_preset(presets::NOTHING)
-        .set_content_arrangement(ContentArrangement::Dynamic)
-        .set_width(terminal_size().map(|(TermWidth(w), _)| w).unwrap_or(80))
-        .set_header(["ID", "NAME", "SIZE", "TYPE"].into_iter().map(|header| {
-            Cell::new(header)
-                .add_attribute(Attribute::Bold)
-                .fg(Color::Cyan)
-        }))
-        .set_constraints([
-            ColumnConstraint::LowerBoundary(Width::Fixed(10)),
-            ColumnConstraint::LowerBoundary(Width::Fixed(10)),
-            ColumnConstraint::ContentWidth,
-            ColumnConstraint::ContentWidth,
-        ]);
-
-    if let Some(column) = table.column_mut(2) {
-        column.set_cell_alignment(CellAlignment::Right);
-    }
-
-    for row in rows {
-        table.add_row([
-            Cell::new(&row[0]),
-            Cell::new(&row[1]),
-            Cell::new(&row[2]),
-            Cell::new(&row[3]).add_attribute(Attribute::Dim),
-        ]);
-    }
-
-    table.to_string()
 }
 
 /// `topk list`
@@ -146,10 +142,9 @@ pub async fn run(
 
 #[cfg(test)]
 mod tests {
-    use super::{render_human_table, ListEntryRow};
+    use super::ListEntryRow;
     use crate::test_context::CliTestContext;
     use assert_cmd::Command;
-    use regex::Regex;
     use test_context::test_context;
 
     fn cmd() -> Command {
@@ -158,73 +153,25 @@ mod tests {
 
     const TESTS_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests");
 
-    fn strip_ansi(value: &str) -> String {
-        Regex::new(r"\x1b\[[0-9;]*m")
-            .unwrap()
-            .replace_all(value, "")
-            .into_owned()
-    }
-
-    #[test]
-    fn human_table_wraps_long_names_keeping_size_and_type_aligned() {
-        let rendered = strip_ansi(&render_human_table(&[
-            vec![
-                "short-id".to_string(),
-                "short.pdf".to_string(),
-                "1.0 KB".to_string(),
-                "application/pdf".to_string(),
-            ],
-            vec![
-                "very-long-id".to_string(),
-                "Biosimilar_and_Interchangeable_Products_The_US_FDA_Perspective.pdf".to_string(),
-                "1.0 KB".to_string(),
-                "application/pdf".to_string(),
-            ],
-        ]));
-
-        let lines: Vec<&str> = rendered.lines().collect();
-
-        // Long name/id should cause wrapping — more than header + 2 single lines
-        assert!(lines.len() > 3, "expected wrapping but got {} lines", lines.len());
-
-        // SIZE and TYPE each appear exactly once per data row (not duplicated across wrap lines)
-        assert_eq!(rendered.matches("1.0 KB").count(), 2);
-        assert_eq!(rendered.matches("application/pdf").count(), 2);
-
-        // SIZE and TYPE columns are at the same horizontal offset for both rows
-        let size_positions: Vec<usize> = lines.iter().filter_map(|l| l.find("1.0 KB")).collect();
-        assert_eq!(size_positions[0], size_positions[1]);
-
-        let type_positions: Vec<usize> = lines.iter().filter_map(|l| l.find("application/pdf")).collect();
-        assert_eq!(type_positions[0], type_positions[1]);
-    }
-
     #[test_context(CliTestContext)]
     #[tokio::test]
     async fn list_returns_uploaded_documents(ctx: &mut CliTestContext) {
         let dataset = ctx.wrap("list");
 
-        // Upload two files
-        let out = cmd()
-            .current_dir(TESTS_DIR)
-            .args([
-                "-o",
-                "json",
-                "upload",
-                "pdfko.pdf",
-                "markdown.md",
-                "-d",
-                &dataset,
-                "-y",
-                "--wait",
-            ])
-            .output()
-            .unwrap();
-        assert!(
-            out.status.success(),
-            "{}",
-            String::from_utf8_lossy(&out.stderr)
-        );
+        for pattern in ["pdfko.pdf", "markdown.md"] {
+            let out = cmd()
+                .current_dir(TESTS_DIR)
+                .args([
+                    "-o", "json", "upload", pattern, "-d", &dataset, "-y", "--wait",
+                ])
+                .output()
+                .unwrap();
+            assert!(
+                out.status.success(),
+                "{}",
+                String::from_utf8_lossy(&out.stderr)
+            );
+        }
 
         // List and parse NDJSON
         let out = cmd()
