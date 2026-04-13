@@ -1,0 +1,60 @@
+---
+title: "Delete a dataset"
+description: "Permanently delete a dataset and all its documents."
+---
+
+<Warning>
+  Deleting a dataset is irreversible. All documents stored in the dataset will be permanently removed.
+</Warning>
+
+<Tabs>
+  <Tab title="CLI" icon="terminal">
+    ```bash
+    topk dataset delete --dataset my-docs
+    ```
+
+    The CLI will prompt for confirmation. Use `-y` to skip:
+
+    ```bash
+    topk dataset delete --dataset my-docs -y
+    ```
+  </Tab>
+  <Tab title="Python SDK" icon="/icons/python.svg">
+    <CodeGroup>
+      ```python Sync
+      import os
+      from topk_sdk import Client
+
+      client = Client(
+          api_key=os.environ["TOPK_API_KEY"],
+          region=os.environ["TOPK_REGION"],
+      )
+
+      client.datasets().delete("my-docs")
+      ```
+      ```python Async
+      import os
+      from topk_sdk import AsyncClient
+
+      client = AsyncClient(
+          api_key=os.environ["TOPK_API_KEY"],
+          region=os.environ["TOPK_REGION"],
+      )
+
+      await client.datasets().delete("my-docs")
+      ```
+    </CodeGroup>
+  </Tab>
+  <Tab title="JavaScript SDK" icon="/icons/js.svg">
+    ```typescript
+    import { Client } from "topk-js";
+
+    const client = new Client({
+      apiKey: process.env.TOPK_API_KEY!,
+      region: process.env.TOPK_REGION!,
+    });
+
+    await client.datasets().delete("my-docs");
+    ```
+  </Tab>
+</Tabs>

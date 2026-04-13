@@ -1,0 +1,58 @@
+---
+title: "Create a dataset"
+description: "Create a new dataset to store and retrieve your documents."
+---
+
+A dataset is a named container for your documents. You must create a dataset before uploading files into it.
+
+When creating a dataset, you must specify a **region** — this determines where your data is physically stored. Once set, a dataset's region cannot be changed.
+
+See [available regions](/regions).
+
+<Tabs>
+  <Tab title="CLI" icon="terminal">
+    Create a dataset with the CLI by specifying dataset name and region:
+
+    ```bash
+    topk dataset create my-dataset --region aws-us-east-1-elastica
+    ```
+  </Tab>
+  <Tab title="Python SDK" icon="/icons/python.svg">
+    <CodeGroup>
+      ```python Sync
+      import os
+      from topk_sdk import Client
+
+      client = Client(
+          api_key=os.environ["TOPK_API_KEY"],
+          region=os.environ["TOPK_REGION"],
+      )
+
+      client.datasets().create("my-docs")
+      ```
+      ```python Async
+      import os
+      from topk_sdk import AsyncClient
+
+      client = AsyncClient(
+          api_key=os.environ["TOPK_API_KEY"],
+          region=os.environ["TOPK_REGION"],
+      )
+
+      await client.datasets().create("my-docs")
+      ```
+    </CodeGroup>
+  </Tab>
+  <Tab title="JavaScript SDK" icon="/icons/js.svg">
+    ```typescript
+    import { Client } from "topk-js";
+
+    const client = new Client({
+      apiKey: process.env.TOPK_API_KEY!,
+      region: process.env.TOPK_REGION!,
+    });
+
+    await client.datasets().create("my-docs");
+    ```
+  </Tab>
+</Tabs>

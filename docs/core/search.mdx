@@ -1,0 +1,279 @@
+---
+title: "Document Search"
+sidebarTitle: "Document Search"
+description: "Find relevant documents."
+icon: "file-search-2"
+---
+
+Query your documents and get the most relevant passages.
+
+
+## What Document Search does
+
+When you run a Document Search, TopK:
+
+<Steps>
+  <Step title="Searches across your documents">
+    TopK searches one or more datasets for the passages most relevant to the query.
+  </Step>
+  <Step title="Ranks the best matches">
+    It returns the strongest matching passages first, so you can focus on the most useful evidence.
+  </Step>
+  <Step title="Returns the most relevant matches">
+    Instead of generating a summary or conclusion, it gives you the underlying matching results directly.
+  </Step>
+  <Step title="Includes document context">
+    Each result can include the dataset, document ID, passage content, page references, and any metadata fields you requested.
+  </Step>
+</Steps>
+
+This makes Document Search useful for:
+
+- RAG pipelines
+- building custom answering or summarization layers on top of retrieved passages
+- feeding high-signal evidence into agents or downstream workflows
+- inspecting and verifying source passages directly
+- semantic search in applications
+
+The key advantage is control. Document Search gives you the evidence directly, without deciding how to interpret it.
+
+## Basic usage
+
+Once your documents are processed, you can start retrieving relevant passages immediately.
+
+<Tabs>
+  <Tab title="CLI" icon="terminal">
+    ```bash
+    topk search "travel reimbursement policy" -d policies
+    ```
+  </Tab>
+  <Tab title="Python SDK" icon="/icons/python.svg">
+    ```python
+    results = client.search("travel reimbursement policy", ["policies"], 10)
+
+    print(results)
+    ```
+  </Tab>
+  <Tab title="JavaScript SDK" icon="/icons/js.svg">
+    ```typescript
+    const results = await client.search("travel reimbursement policy", ["policies"], 10);
+
+    console.log(results);
+    ```
+  </Tab>
+</Tabs>
+
+## Controlling the number of results
+
+Document Search returns the top matching passages. You can specify the number of results to return:
+
+<Tabs>
+  <Tab title="CLI" icon="terminal">
+    ```bash
+    topk search "travel reimbursement policy" -d policies --top-k 20
+    ```
+  </Tab>
+  <Tab title="Python SDK" icon="/icons/python.svg">
+    ```python
+    results = client.search("travel reimbursement policy", ["policies"], 20)
+    ```
+  </Tab>
+  <Tab title="JavaScript SDK" icon="/icons/js.svg">
+    ```typescript
+    const results = await client.search("travel reimbursement policy", ["policies"], 20);
+    ```
+  </Tab>
+</Tabs>
+
+Returning more results gives you broader recall. Returning fewer results gives you a tighter, higher-signal set of passages.
+
+## Narrowing search scope
+
+At least one dataset must be provided. When you need to query across multiple datasets or want to restrict results to a specific one, you can pass multiple datasets or attach filters to them.
+
+### Scoping to specific datasets
+
+This is useful when you want:
+
+- faster and more targeted retrieval
+- less noise from unrelated documents
+- more predictable context for downstream applications or agents
+
+<Tabs>
+  <Tab title="CLI" icon="terminal">
+    Use `-d` / `--dataset` (repeatable):
+
+    ```bash
+    topk search "What changed in the refund policy?" -d policies -d handbooks
+    ```
+  </Tab>
+  <Tab title="Python SDK" icon="/icons/python.svg">
+    Pass the dataset names as the second argument:
+
+    ```python
+    results = client.search(
+        "What changed in the refund policy?",
+        ["policies", "handbooks"],
+        10,
+    )
+    ```
+  </Tab>
+  <Tab title="JavaScript SDK" icon="/icons/js.svg">
+    Pass the dataset names as the second argument:
+
+    ```typescript
+    const results = await client.search(
+      "What changed in the refund policy?",
+      ["policies", "handbooks"],
+      10,
+    );
+    ```
+  </Tab>
+</Tabs>
+
+### Filter documents
+
+Sometimes even one dataset is still too broad. In the SDKs, you can attach a filter expression to a source to narrow which documents are eligible for retrieval.
+
+These filter expressions operate on the **metadata fields** of documents in that dataset. For example, if your documents include metadata such as `department`, `year`, `doc_type`, or `author`, you can use those fields to narrow the search space before TopK ranks passages.
+
+This is useful when you want to search:
+
+- only within 2024 documents
+- only within HR policies
+- only within documents owned by a specific team
+
+<Tabs>
+  <Tab title="Python SDK" icon="/icons/python.svg">
+    ```python
+    from topk_sdk.query import field
+
+    results = client.search(
+        "travel reimbursement limit",
+        [
+            {
+                "dataset": "policies",
+                "filter": field("department").eq("finance").and_(
+                    field("year").eq(2024)
+                ),
+            }
+        ],
+        10,
+    )
+    ```
+  </Tab>
+  <Tab title="JavaScript SDK" icon="/icons/js.svg">
+    ```typescript
+    import { field } from "topk-js/query";
+
+    const results = await client.search(
+      "travel reimbursement limit",
+      [
+        {
+          dataset: "policies",
+          filter: field("department").eq("finance").and(field("year").eq(2024)),
+        },
+      ],
+      10,
+    );
+    ```
+  </Tab>
+</Tabs>
+
+Use source-level filters when the restriction is part of where the search should look. That keeps retrieval focused and improves the quality of the returned matches.
+
+## Working with results
+
+Document Search returns a list of the most relevant passages from your documents.
+
+Each result can include:
+
+- the dataset the match came from
+- the document ID and document type
+- the matched passage or page content
+- page references when available
+- any metadata fields you requested
+
+For example, for the query:
+
+```text
+What does the policy say about contractor access?
+```
+
+an individual result can look like this:
+
+```json title="Example search result" expandable
+{
+  "doc_id": "vendor-access-policy",
+  "doc_type": "application/pdf",
+  "dataset": "policies",
+  "content": {
+    "chunk": {
+      "text": "Contractors may be granted access only through approved, time-limited credentials.",
+      "doc_pages": [4]
+    }
+  },
+  "metadata": {
+    "title": "Vendor Access Policy",
+    "department": "finance",
+    "year": 2024
+  }
+}
+```
+
+For humans, this means you can review the relevant passages directly. For agents, this means you can pass the highest-signal evidence into a downstream reasoning step.
+
+## Retrieving metadata when searching
+
+Often, the passage text alone is not enough. You may also want metadata such as title, author, date, category, or any custom metadata fields you attached during upload.
+
+That is especially useful when you want to:
+
+- render richer search results in a UI
+- show document titles next to each match
+- filter or group results by source attributes like year, author, or department
+- let agents carry document metadata into downstream workflows
+
+<Tabs>
+  <Tab title="CLI" icon="terminal">
+    Use `--field` (repeatable):
+
+    ```bash
+    topk search "refund policy" -d policies --field title --field author --field year
+    ```
+  </Tab>
+  <Tab title="Python SDK" icon="/icons/python.svg">
+    Use `select_fields`:
+
+    ```python
+    results = client.search(
+        "refund policy",
+        ["policies"],
+        10,
+        select_fields=["title", "author", "year"],
+    )
+    ```
+  </Tab>
+  <Tab title="JavaScript SDK" icon="/icons/js.svg">
+    Use `selectFields`:
+
+    ```typescript
+    const results = await client.search(
+      "refund policy",
+      ["policies"],
+      10,
+      { selectFields: ["title", "author", "year"] },
+    );
+    ```
+  </Tab>
+</Tabs>
+
+The requested metadata appears on each returned result.
+
+## Choosing between Document Search, Agent Search, and Research
+
+Use Document Search when you do **not** want TopK to generate an answer — when you want the passages themselves to inspect, build on, or feed into an agent.
+
+- Use [Document Search](/core/search) when you want the most relevant passages and documents, without answer synthesis.
+- Use [Agent Search](/core/agent-search) when you want the fastest path from documents to a grounded answer with citations.
+- Use [Research](/core/research) when the question is broad, exploratory, or requires deeper multi-step analysis across many documents.

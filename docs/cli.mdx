@@ -1,0 +1,211 @@
+---
+title: "CLI"
+description: "Manage datasets, upload files, search, and ask questions from the command line."
+icon: "terminal"
+---
+
+<Info>
+  **Prerequisites**
+
+  - TopK account ([Sign up here](https://console.topk.io/signup))
+  - TopK API key ([Get API key here](https://console.topk.io/api-key))
+</Info>
+
+## Installation
+
+```bash
+brew tap topk-io/topk
+brew install topk
+```
+
+## Configuration
+
+Set your API key before running any commands:
+
+```bash
+export TOPK_API_KEY="your-api-key"
+```
+
+This can also be passed as a flag (`--api-key`) on any command.
+
+---
+
+## Commands
+
+### `topk ask`
+
+Get a grounded answer from your documents with source citations.
+
+```bash
+topk ask "What are the key findings?" -d my-docs
+```
+
+```bash
+# Search across multiple datasets
+topk ask "What are the key findings?" -d my-docs -d reports
+
+# Include document metadata in results
+topk ask "What are the key findings?" -d my-docs --field title --field author
+
+# Response mode: auto (default), summarize, or research
+topk ask "Compare Q1 and Q2 results" -d my-docs --mode summarize
+
+# Save non-text references (images, etc.) to a directory
+topk ask "What are the key findings?" -d my-docs --output-dir ./refs
+```
+
+| Flag | Description |
+|------|-------------|
+| `--dataset` / `-d` | Dataset to search (repeatable, at least one required) |
+| `--mode` | Response mode: `auto` (default), `summarize`, or `research` |
+| `--field` / `-f` | Metadata field to include in results (repeatable) |
+| `--output-dir` | Save non-text references to a directory |
+
+---
+
+### `topk search`
+
+Find relevant passages in documents for a query.
+
+```bash
+topk search "machine learning" -d my-docs
+```
+
+```bash
+# Search across multiple datasets
+topk search "machine learning" -d my-docs -d research
+
+# Return more results
+topk search "machine learning" -d my-docs --top-k 20
+
+# Include metadata fields
+topk search "machine learning" -d my-docs --field title --field author
+
+# Save non-text results (images, etc.) to a directory
+topk search "machine learning" -d my-docs --output-dir ./results
+```
+
+| Flag | Description |
+|------|-------------|
+| `--dataset` / `-d` | Dataset to search (repeatable, at least one required) |
+| `--top-k` / `-k` | Number of results to return (default: `10`) |
+| `--field` / `-f` | Metadata field to include in results (repeatable) |
+| `--output-dir` | Save non-text results to a directory |
+
+---
+
+### `topk upload`
+
+Upload files into a dataset. Accepts a file path, directory, or glob pattern.
+
+```bash
+topk upload "*.pdf" --dataset my-docs
+```
+
+```bash
+# Upload all PDFs recursively
+topk upload "docs/**/*.pdf" --dataset my-docs
+
+# Create dataset without prompting
+topk upload "*.pdf" --dataset my-docs -y
+
+# Upload a single file with a custom document ID
+topk upload ./report.pdf --dataset my-docs --id report-2024
+
+# Attach metadata (single file only)
+topk upload ./report.pdf --dataset my-docs --id report-2024 --meta '{"title": "Annual Report"}'
+
+# Preview files that would be uploaded, without uploading
+topk upload "*.pdf" --dataset my-docs --dry-run
+
+# Wait for all files to finish processing
+topk upload "*.pdf" --dataset my-docs --wait
+```
+
+If the dataset doesn't exist yet, the CLI will prompt you to create it (or use `-y` to skip the prompt).
+
+| Flag | Description |
+|------|-------------|
+| `--dataset` / `-d` | Dataset to upload into |
+| `--id` | Document ID — only valid when uploading a single file |
+| `--meta` | Metadata as a JSON object — only valid when uploading a single file |
+| `-y` | Create dataset without prompting if it doesn't exist |
+| `--concurrency` / `-c` | Number of concurrent uploads, 1–64 (default: `32`) |
+| `--dry-run` | Preview matched files without uploading |
+| `--wait` | Wait for all files to finish processing |
+
+---
+
+### `topk delete`
+
+Delete a document from a dataset.
+
+```bash
+topk delete --dataset my-docs --document-id doc-001
+```
+
+```bash
+# Skip confirmation prompt
+topk delete --dataset my-docs --document-id doc-001 -y
+```
+
+| Flag | Description |
+|------|-------------|
+| `--dataset` / `-d` | Dataset name |
+| `--document-id` | Document ID |
+| `-y` | Skip confirmation prompt |
+
+---
+
+### `topk dataset`
+
+Manage datasets.
+
+#### `list`
+
+List all datasets.
+
+```bash
+topk dataset list
+```
+
+#### `get`
+
+Get details of a dataset.
+
+```bash
+topk dataset get --dataset my-docs
+```
+
+#### `create`
+
+Create a new dataset. A region must be specified — this determines where your data is stored. See [available regions](/regions).
+
+```bash
+topk dataset create --dataset my-docs --region aws-us-east-1-elastica
+```
+
+#### `delete`
+
+Delete a dataset. Prompts for confirmation unless `-y` is passed.
+
+```bash
+topk dataset delete --dataset my-docs
+
+# Skip confirmation
+topk dataset delete --dataset my-docs -y
+```
+
+---
+
+## Global flags
+
+These flags apply to all commands.
+
+### `--api-key`
+
+TopK API key. Overrides the `TOPK_API_KEY` environment variable.
+
+### `--json`
+
+Output machine-readable JSON.
