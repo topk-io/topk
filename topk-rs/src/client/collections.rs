@@ -92,6 +92,7 @@ impl CollectionsClient {
                     .create_collection(CreateCollectionRequest {
                         name,
                         schema,
+                        // Region is set in the connection context
                         region: None,
                     })
                     .await
