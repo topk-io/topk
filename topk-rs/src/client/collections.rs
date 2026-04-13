@@ -77,6 +77,7 @@ impl CollectionsClient {
         &self,
         name: impl Into<String>,
         schema: impl Into<HashMap<String, FieldSpec>>,
+        region: Option<String>,
     ) -> Result<Collection, Error> {
         let client = create_client!(CollectionServiceClient, self.channel, self.config).await?;
         let name = name.into();
@@ -86,14 +87,14 @@ impl CollectionsClient {
             let mut client = client.clone();
             let name = name.clone();
             let schema = schema.clone();
+            let region = region.clone();
 
             async move {
                 client
                     .create_collection(CreateCollectionRequest {
                         name,
                         schema,
-                        // Region is set in the connection context
-                        region: None,
+                        region,
                     })
                     .await
                     .map_err(|e| match e.code() {
