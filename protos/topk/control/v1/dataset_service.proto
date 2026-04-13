@@ -31,6 +31,7 @@ message GetDatasetResponse {
 
 message CreateDatasetRequest {
   string name = 1;
+  optional string region = 2;
 }
 message CreateDatasetResponse {
   Dataset dataset = 1;

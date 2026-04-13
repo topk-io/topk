@@ -33,6 +33,7 @@ message GetCollectionResponse {
 message CreateCollectionRequest {
   string name = 1;
   map<string, FieldSpec> schema = 2;
+  optional string region = 3;
 }
 message CreateCollectionResponse {
   Collection collection = 1;

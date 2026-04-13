@@ -89,7 +89,11 @@ impl CollectionsClient {
 
             async move {
                 client
-                    .create_collection(CreateCollectionRequest { name, schema })
+                    .create_collection(CreateCollectionRequest {
+                        name,
+                        schema,
+                        region: None,
+                    })
                     .await
                     .map_err(|e| match e.code() {
                         // Collection already exists
