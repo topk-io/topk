@@ -1,4 +1,3 @@
-use chrono::{DateTime, Local, Utc};
 use comfy_table::{
     presets, Attribute, Cell, Color, ColumnConstraint, ContentArrangement, Table, Width,
 };
@@ -11,6 +10,7 @@ use topk_rs::{
 };
 
 use crate::output::{Output, RenderForHuman};
+use crate::util::format_timestamp;
 
 /// `topk dataset`
 #[derive(Debug, clap::Subcommand)]
@@ -77,7 +77,7 @@ impl From<Response<ListDatasetsResponse>> for ListDatasetsResult {
 }
 
 impl RenderForHuman for ListDatasetsResult {
-    fn render(&self) -> String {
+    fn render(&self) -> impl Into<String> {
         if self.datasets.is_empty() {
             return "No datasets found.".to_string();
         }
@@ -101,17 +101,11 @@ impl RenderForHuman for ListDatasetsResult {
             ]);
 
         for d in &self.datasets {
-            let created = d
-                .created_at
-                .parse::<DateTime<Utc>>()
-                .unwrap_or_default()
-                .with_timezone(&Local)
-                .format("%b %-d, %Y %H:%M")
-                .to_string();
             table.add_row([
                 Cell::new(&d.name),
                 Cell::new(&d.region),
-                Cell::new(created).add_attribute(Attribute::Dim),
+                Cell::new(format_timestamp(&d.created_at).unwrap_or_default())
+                    .add_attribute(Attribute::Dim),
             ]);
         }
 
@@ -135,18 +129,12 @@ impl TryFrom<Response<GetDatasetResponse>> for GetDatasetResult {
 }
 
 impl RenderForHuman for GetDatasetResult {
-    fn render(&self) -> String {
-        let created_at = self
-            .dataset
-            .created_at
-            .parse::<DateTime<Utc>>()
-            .unwrap_or_default()
-            .with_timezone(&Local)
-            .format("%b %-d, %Y %H:%M")
-            .to_string();
+    fn render(&self) -> impl Into<String> {
         format!(
             "Name:    {}\nRegion:  {}\nCreated: {}",
-            self.dataset.name, self.dataset.region, created_at
+            self.dataset.name,
+            self.dataset.region,
+            format_timestamp(&self.dataset.created_at).unwrap_or_default()
         )
     }
 }
@@ -167,7 +155,7 @@ impl TryFrom<Response<CreateDatasetResponse>> for CreateDatasetResult {
 }
 
 impl RenderForHuman for CreateDatasetResult {
-    fn render(&self) -> String {
+    fn render(&self) -> impl Into<String> {
         format!("Dataset '{}' created.", self.dataset.name)
     }
 }
@@ -178,7 +166,7 @@ pub struct DeleteDatasetResult {
 }
 
 impl RenderForHuman for DeleteDatasetResult {
-    fn render(&self) -> String {
+    fn render(&self) -> impl Into<String> {
         if self.deleted {
             "Dataset deleted.".to_string()
         } else {

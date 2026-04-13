@@ -1,17 +1,109 @@
 use std::{
-    collections::HashSet,
+    fmt,
     io::{self, IsTerminal, Write},
-    sync::{mpsc, Arc, Mutex},
-    thread,
-    time::Duration,
+    path::{Path, PathBuf},
 };
 
-use bytesize::ByteSize;
-use comfy_table::{
-    presets, Attribute, Cell, Color, ColumnConstraint, ContentArrangement, Table, Width,
-};
+use chrono::{DateTime, Local, Utc};
+use globset::{GlobBuilder, GlobSet, GlobSetBuilder};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use terminal_size::{terminal_size, Width as TermWidth};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use topk_rs::{proto::v1::ctx::file::InputFile, Client, Error};
+use walkdir::WalkDir;
+
+use crate::output::Output;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MimeType {
+    ApplicationPdf,
+    TextMarkdown,
+    TextHtml,
+    ImagePng,
+    ImageJpeg,
+    ImageGif,
+    ImageWebp,
+    ImageTiff,
+    ImageBmp,
+    Other(String),
+}
+
+impl MimeType {
+    pub fn is_supported(&self) -> bool {
+        !matches!(self, MimeType::Other(_))
+    }
+
+    pub fn to_ext(&self) -> &str {
+        match self {
+            MimeType::ImagePng => "png",
+            MimeType::ImageJpeg => "jpg",
+            MimeType::ImageGif => "gif",
+            MimeType::ImageWebp => "webp",
+            MimeType::ImageTiff => "tiff",
+            MimeType::ImageBmp => "bmp",
+            _ => "bin",
+        }
+    }
+}
+
+impl fmt::Display for MimeType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            MimeType::ApplicationPdf => "application/pdf",
+            MimeType::TextMarkdown => "text/markdown",
+            MimeType::TextHtml => "text/html",
+            MimeType::ImagePng => "image/png",
+            MimeType::ImageJpeg => "image/jpeg",
+            MimeType::ImageGif => "image/gif",
+            MimeType::ImageWebp => "image/webp",
+            MimeType::ImageTiff => "image/tiff",
+            MimeType::ImageBmp => "image/bmp",
+            MimeType::Other(s) => s,
+        };
+        f.write_str(s)
+    }
+}
+
+impl From<&str> for MimeType {
+    fn from(s: &str) -> Self {
+        match s {
+            "application/pdf" => MimeType::ApplicationPdf,
+            "text/markdown" => MimeType::TextMarkdown,
+            "text/html" => MimeType::TextHtml,
+            "image/png" => MimeType::ImagePng,
+            "image/jpeg" => MimeType::ImageJpeg,
+            "image/gif" => MimeType::ImageGif,
+            "image/webp" => MimeType::ImageWebp,
+            "image/tiff" => MimeType::ImageTiff,
+            "image/bmp" => MimeType::ImageBmp,
+            other => MimeType::Other(other.to_string()),
+        }
+    }
+}
+
+impl From<String> for MimeType {
+    fn from(s: String) -> Self {
+        MimeType::from(s.as_str())
+    }
+}
+
+impl Serialize for MimeType {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for MimeType {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(MimeType::from(s.as_str()))
+    }
+}
+
+pub fn format_timestamp(rfc3339: &str) -> Option<String> {
+    let dt = rfc3339.parse::<DateTime<Utc>>().ok()?;
+    Some(dt.with_timezone(&Local).format("%b %-d, %Y %H:%M").to_string())
+}
 
 pub(crate) fn confirm(prompt: &str) -> std::io::Result<bool> {
     eprint!("{}", prompt);
@@ -29,341 +121,138 @@ pub fn plural<'a>(count: usize, singular: &'a str, plural: &'a str) -> &'a str {
     }
 }
 
-struct UploadProgressState {
-    rows: Vec<UploadProgressRow>,
-    active: HashSet<usize>,
-    completed: HashSet<usize>,
-    failed_indices: HashSet<usize>,
-    completion_order: Vec<usize>,
-    failed: usize,
-    final_message: Option<String>,
+#[derive(Serialize, Deserialize)]
+pub struct UploadFile {
+    pub(crate) path: PathBuf,
+    pub(crate) doc_id: String,
+    pub(crate) size: u64,
+    pub(crate) mime_type: MimeType,
 }
 
-pub struct UploadProgress {
-    state: Arc<Mutex<UploadProgressState>>,
-    stop_tx: Option<mpsc::Sender<()>>,
-    join_handle: Option<thread::JoinHandle<()>>,
+pub(crate) fn normalize_glob_pattern(pattern: &str) -> &str {
+    pattern.strip_prefix("./").unwrap_or(pattern)
 }
 
-#[derive(Clone)]
-pub struct UploadProgressHandle {
-    state: Arc<Mutex<UploadProgressState>>,
+pub(crate) fn doc_id_from_path(path: &Path) -> Result<String, Error> {
+    Ok(format!(
+        "{:x}",
+        Sha256::digest(
+            path.canonicalize()
+                .map_err(Error::IoError)?
+                .to_string_lossy()
+                .as_bytes()
+        )
+    ))
 }
 
-#[derive(Clone)]
-pub struct UploadProgressRow {
-    pub path: String,
-    pub size: u64,
-    pub mime_type: String,
+pub(crate) fn resolve_files(cwd: &Path, pattern: &str, recursive: bool) -> Result<Vec<UploadFile>, Error> {
+    let path = Path::new(pattern);
+    if path.is_file() {
+        return Ok(vec![collect_file(path)?]);
+    }
+    if path.is_dir() {
+        return collect_directory_files(path, recursive);
+    }
+    let top_level_only = !pattern.contains('/');
+    let glob = GlobBuilder::new(pattern)
+        .literal_separator(true)
+        .build()
+        .map_err(|e| Error::InvalidArgument(format!("invalid pattern '{}': {}", pattern, e)))?;
+    let globset = GlobSetBuilder::new()
+        .add(glob)
+        .build()
+        .map_err(|e| Error::InvalidArgument(format!("invalid pattern '{}': {}", pattern, e)))?;
+    collect_files(cwd, &globset, top_level_only)
 }
 
-impl UploadProgress {
-    pub fn new(rows: Vec<UploadProgressRow>) -> (Self, UploadProgressHandle) {
-        let state = Arc::new(Mutex::new(UploadProgressState {
-            rows,
-            active: HashSet::new(),
-            completed: HashSet::new(),
-            failed_indices: HashSet::new(),
-            completion_order: Vec::new(),
-            failed: 0,
-            final_message: None,
-        }));
+pub(crate) fn collect_file(path: &Path) -> Result<UploadFile, Error> {
+    let doc_id = doc_id_from_path(path)?;
+    let size = path.metadata().map(|m| m.len()).unwrap_or(0);
+    let mime_type = MimeType::from(InputFile::guess_mime_type(path)?);
+    Ok(UploadFile {
+        doc_id,
+        path: path.to_path_buf(),
+        size,
+        mime_type,
+    })
+}
 
-        let handle = UploadProgressHandle {
-            state: state.clone(),
-        };
-
-        if !io::stderr().is_terminal() {
-            return (
-                Self {
-                    state,
-                    stop_tx: None,
-                    join_handle: None,
-                },
-                handle,
-            );
-        }
-
-        let (stop_tx, stop_rx) = mpsc::channel::<()>();
-        let thread_state = state.clone();
-        let join_handle = thread::spawn(move || {
-            let mut tick = 0usize;
-            let mut last_lines = 0usize;
-
-            loop {
-                let stopped = stop_rx.recv_timeout(Duration::from_millis(100)).is_ok();
-                let rendered = {
-                    let state = thread_state.lock().expect("upload progress state lock");
-                    render_upload_progress(&state, tick, stopped)
-                };
-                redraw_rendered_block(&rendered, &mut last_lines);
-                if stopped {
-                    break;
-                }
-                tick = tick.wrapping_add(1);
+pub(crate) fn collect_directory_files(
+    root: &Path,
+    recursive: bool,
+) -> Result<Vec<UploadFile>, Error> {
+    let mut walker = WalkDir::new(root).follow_links(false);
+    if !recursive {
+        walker = walker.max_depth(1);
+    }
+    walker
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().is_file())
+        .filter_map(|e| -> Option<Result<UploadFile, Error>> {
+            let mime = MimeType::from(InputFile::guess_mime_type(e.path()).ok()?);
+            if !mime.is_supported() {
+                return None;
             }
-        });
-
-        (
-            Self {
-                state,
-                stop_tx: Some(stop_tx),
-                join_handle: Some(join_handle),
-            },
-            handle,
-        )
-    }
-
-    pub fn finish(mut self, message: impl Into<String>) {
-        if let Ok(mut state) = self.state.lock() {
-            state.final_message = Some(message.into());
-        }
-
-        if let Some(stop_tx) = self.stop_tx.take() {
-            let _ = stop_tx.send(());
-        }
-        if let Some(join_handle) = self.join_handle.take() {
-            let _ = join_handle.join();
-        }
-        if io::stderr().is_terminal() {
-            eprintln!();
-        }
-    }
+            Some(collect_file(e.path()))
+        })
+        .collect()
 }
 
-impl UploadProgressHandle {
-    pub fn start(&self, index: usize) {
-        if let Ok(mut state) = self.state.lock() {
-            state.active.insert(index);
-        }
-    }
-
-    pub fn finish(&self, index: usize, success: bool) {
-        if let Ok(mut state) = self.state.lock() {
-            state.active.remove(&index);
-            state.completed.insert(index);
-            state.completion_order.push(index);
-            if !success {
-                state.failed_indices.insert(index);
-                state.failed += 1;
+pub(crate) fn collect_files(
+    root: &Path,
+    globset: &GlobSet,
+    top_level_only: bool,
+) -> Result<Vec<UploadFile>, Error> {
+    WalkDir::new(root)
+        .follow_links(false)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().is_file())
+        .filter_map(|e| -> Option<Result<UploadFile, Error>> {
+            let path = e.path().to_path_buf();
+            let rel = path.strip_prefix(root).unwrap_or(&path);
+            if !globset.is_match(rel) || (top_level_only && rel.components().count() != 1) {
+                return None;
             }
+            let mime = MimeType::from(InputFile::guess_mime_type(&path).ok()?);
+            if !mime.is_supported() {
+                return None;
+            }
+            Some(collect_file(&path))
+        })
+        .collect()
+}
+
+pub(crate) async fn ensure_dataset(
+    client: &Client,
+    dataset: &str,
+    yes: bool,
+    output: &Output,
+) -> Result<bool, Error> {
+    match client.datasets().get(dataset).await {
+        Ok(_) => Ok(false),
+        Err(Error::DatasetNotFound) => {
+            if yes {
+                client.datasets().create(dataset).await?;
+                return Ok(true);
+            }
+
+            if output.confirm(&format!(
+                "Dataset '{}' does not exist. Create it? [y/N] ",
+                dataset
+            ))? {
+                client.datasets().create(dataset).await?;
+                return Ok(true);
+            }
+
+            Err(Error::InvalidArgument(format!(
+                "dataset '{}' does not exist; create it first or pass -y",
+                dataset
+            )))
         }
+        Err(err) => Err(err),
     }
-}
-
-pub fn render_upload_preview(summary: &str, rows: &[UploadProgressRow]) -> String {
-    render_upload_table(summary, rows, &HashSet::new(), &HashSet::new(), 0, true)
-}
-
-pub fn rendered_block_line_count(rendered: &str) -> usize {
-    rendered.lines().count().max(1)
-}
-
-pub fn clear_rendered_block(lines: usize) {
-    if !io::stderr().is_terminal() || lines == 0 {
-        return;
-    }
-
-    eprint!("\r\x1b[2K");
-    for _ in 0..lines {
-        eprint!("\x1b[1A\r\x1b[2K");
-    }
-    let _ = io::stderr().flush();
-}
-
-fn render_upload_progress(state: &UploadProgressState, tick: usize, stopped: bool) -> String {
-    let summary = state.final_message.clone().unwrap_or_else(|| {
-        let mut line = format!(
-            "Uploading {}/{} {}",
-            state.completed.len(),
-            state.rows.len(),
-            plural(state.rows.len(), "file", "files")
-        );
-        if state.failed > 0 {
-            line.push_str(&format!(" ({} failed)", state.failed));
-        }
-        line
-    });
-
-    if stopped {
-        return render_upload_final_table(
-            &summary,
-            &state.rows,
-            &state.completion_order,
-            &state.failed_indices,
-        );
-    }
-
-    render_upload_table(
-        &summary,
-        &state.rows,
-        &state.active,
-        &state.completed,
-        tick,
-        stopped,
-    )
-}
-
-fn render_upload_final_table(
-    summary: &str,
-    rows: &[UploadProgressRow],
-    completion_order: &[usize],
-    failed_indices: &HashSet<usize>,
-) -> String {
-    if completion_order.is_empty() {
-        return summary.to_string();
-    }
-
-    let start = completion_order.len().saturating_sub(20);
-    let visible_indices = &completion_order[start..];
-    let more_count = completion_order.len().saturating_sub(visible_indices.len());
-    let terminal_width = terminal_size()
-        .map(|(TermWidth(w), _)| w as usize)
-        .unwrap_or(100);
-    let table_width = terminal_width.saturating_sub(1).max(40);
-    let file_width = table_width.saturating_sub(52).max(24);
-    let mut table = build_upload_table(table_width, file_width);
-
-    for index in visible_indices {
-        let row = &rows[*index];
-        let (status, color) = if failed_indices.contains(index) {
-            ("failed", Color::Red)
-        } else {
-            ("uploaded", Color::Green)
-        };
-        table.add_row([
-            Cell::new(truncate_middle(&row.path, file_width)),
-            Cell::new(ByteSize(row.size).to_string()),
-            Cell::new(truncate_middle(&row.mime_type, 16)),
-            Cell::new(status).fg(color),
-        ]);
-    }
-
-    if more_count > 0 {
-        format!(
-            "{}\n{} more {}\n{summary}",
-            table,
-            more_count,
-            plural(more_count, "file", "files")
-        )
-    } else {
-        format!("{table}\n{summary}")
-    }
-}
-
-fn render_upload_table(
-    summary: &str,
-    rows: &[UploadProgressRow],
-    active: &HashSet<usize>,
-    completed: &HashSet<usize>,
-    tick: usize,
-    stopped: bool,
-) -> String {
-    const SPINNER_FRAMES: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-
-    let total = rows.len();
-    let remaining: Vec<usize> = (0..total).filter(|idx| !completed.contains(idx)).collect();
-
-    if remaining.is_empty() {
-        return summary.to_string();
-    }
-
-    let terminal_width = terminal_size()
-        .map(|(TermWidth(w), _)| w as usize)
-        .unwrap_or(100);
-    let table_width = terminal_width.saturating_sub(1).max(40);
-    let file_width = table_width.saturating_sub(52).max(24);
-    let mut table = build_upload_table(table_width, file_width);
-
-    let spinner = SPINNER_FRAMES[tick % SPINNER_FRAMES.len()];
-    let visible_count = remaining.len().min(20);
-    for index in remaining.iter().take(visible_count) {
-        let (status, color) = if active.contains(index) {
-            (format!("{spinner} uploading"), Color::Cyan)
-        } else if stopped {
-            ("queued".to_string(), Color::DarkGrey)
-        } else {
-            ("queued".to_string(), Color::DarkGrey)
-        };
-        let row = &rows[*index];
-        table.add_row([
-            Cell::new(truncate_middle(&row.path, file_width)),
-            Cell::new(ByteSize(row.size).to_string()),
-            Cell::new(truncate_middle(&row.mime_type, 16)),
-            Cell::new(status).fg(color),
-        ]);
-    }
-
-    let more_count = remaining.len().saturating_sub(visible_count);
-    if more_count > 0 {
-        format!(
-            "{}\n{} more {}\n{summary}",
-            table,
-            more_count,
-            plural(more_count, "file", "files")
-        )
-    } else {
-        format!("{table}\n{summary}")
-    }
-}
-
-fn build_upload_table(table_width: usize, file_width: usize) -> Table {
-    let mut table = Table::new();
-    table
-        .load_preset(presets::NOTHING)
-        .set_content_arrangement(ContentArrangement::Disabled)
-        .set_width(table_width as u16)
-        .set_header(
-            ["FILE", "SIZE", "TYPE", "STATUS"]
-                .into_iter()
-                .map(|header| {
-                    Cell::new(header)
-                        .add_attribute(Attribute::Bold)
-                        .fg(Color::Cyan)
-                }),
-        )
-        .set_constraints([
-            ColumnConstraint::Absolute(Width::Fixed(file_width as u16)),
-            ColumnConstraint::Absolute(Width::Fixed(10)),
-            ColumnConstraint::Absolute(Width::Fixed(18)),
-            ColumnConstraint::Absolute(Width::Fixed(14)),
-        ]);
-
-    for index in 0..4 {
-        if let Some(column) = table.column_mut(index) {
-            column.set_padding((0, 1));
-        }
-    }
-
-    table
-}
-
-fn truncate_middle(value: &str, max_len: usize) -> String {
-    let chars: Vec<char> = value.chars().collect();
-    if chars.len() <= max_len {
-        return value.to_string();
-    }
-    if max_len <= 1 {
-        return "…".to_string();
-    }
-
-    let left_len = (max_len.saturating_sub(1)) / 2;
-    let right_len = max_len.saturating_sub(1 + left_len);
-    let left: String = chars[..left_len].iter().collect();
-    let right: String = chars[chars.len() - right_len..].iter().collect();
-    format!("{left}…{right}")
-}
-
-fn redraw_rendered_block(rendered: &str, last_lines: &mut usize) {
-    if *last_lines > 0 {
-        for _ in 0..(*last_lines - 1) {
-            eprint!("\r\x1b[2K\x1b[1A");
-        }
-        eprint!("\r\x1b[2K");
-    }
-    eprint!("{rendered}");
-    let _ = io::stderr().flush();
-    *last_lines = rendered.lines().count().max(1);
 }
 
 pub struct Spinner {
@@ -389,10 +278,7 @@ impl Spinner {
 
     fn create(msg: impl Into<String>, template: &str) -> Self {
         if !io::stderr().is_terminal() {
-            return Self {
-                bar: None,
-                multi: None,
-            };
+            return Self::disabled();
         }
         let multi = MultiProgress::new();
         let bar = multi.add(ProgressBar::new_spinner());
@@ -428,5 +314,102 @@ impl Spinner {
         if let Some(m) = self.multi {
             let _ = m.clear();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{collect_directory_files, collect_files, doc_id_from_path};
+    use globset::{Glob, GlobSetBuilder};
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn collect_files_filters_by_pattern() {
+        let dir = tempdir().unwrap();
+        let nested = dir.path().join("nested");
+        fs::create_dir(&nested).unwrap();
+        fs::write(dir.path().join("doc.md"), "# hi").unwrap();
+        fs::write(dir.path().join("skip.txt"), "skip").unwrap();
+        fs::write(nested.join("report.pdf"), b"%PDF").unwrap();
+
+        let globset = GlobSetBuilder::new()
+            .add(Glob::new("*.md").unwrap())
+            .build()
+            .unwrap();
+        let files = collect_files(dir.path(), &globset, true).unwrap();
+        assert_eq!(files.len(), 1);
+        assert_eq!(
+            files[0].doc_id,
+            doc_id_from_path(&dir.path().join("doc.md")).unwrap()
+        );
+    }
+
+    #[test]
+    fn collect_files_matches_single_pattern() {
+        let dir = tempdir().unwrap();
+        fs::write(dir.path().join("a.md"), "").unwrap();
+        fs::write(dir.path().join("b.pdf"), "").unwrap();
+        fs::write(dir.path().join("c.txt"), "").unwrap();
+
+        let globset = GlobSetBuilder::new()
+            .add(Glob::new("*.md").unwrap())
+            .build()
+            .unwrap();
+        let files = collect_files(dir.path(), &globset, true).unwrap();
+        assert_eq!(files.len(), 1);
+        assert_eq!(
+            files[0].doc_id,
+            doc_id_from_path(&dir.path().join("a.md")).unwrap()
+        );
+    }
+
+    #[test]
+    fn collect_files_filters_out_unsupported_mime_types() {
+        let dir = tempdir().unwrap();
+        fs::write(dir.path().join("a.md"), "").unwrap();
+        fs::write(dir.path().join("b.docx"), "").unwrap();
+        fs::write(dir.path().join("c.pdf"), "").unwrap();
+
+        let globset = GlobSetBuilder::new()
+            .add(Glob::new("*.*").unwrap())
+            .build()
+            .unwrap();
+        let files = collect_files(dir.path(), &globset, true).unwrap();
+        let paths: Vec<_> = files
+            .iter()
+            .map(|file| file.path.file_name().unwrap().to_string_lossy().to_string())
+            .collect();
+        assert_eq!(paths.len(), 2);
+        assert!(paths.contains(&"a.md".to_string()));
+        assert!(paths.contains(&"c.pdf".to_string()));
+    }
+
+    #[test]
+    fn collect_directory_files_non_recursive() {
+        let dir = tempdir().unwrap();
+        let nested = dir.path().join("nested");
+        fs::create_dir(&nested).unwrap();
+        fs::write(dir.path().join("doc.md"), "# hi").unwrap();
+        fs::write(nested.join("report.pdf"), b"%PDF").unwrap();
+
+        let files = collect_directory_files(dir.path(), false).unwrap();
+        assert_eq!(files.len(), 1);
+        assert_eq!(
+            files[0].doc_id,
+            doc_id_from_path(&dir.path().join("doc.md")).unwrap()
+        );
+    }
+
+    #[test]
+    fn collect_directory_files_recursive() {
+        let dir = tempdir().unwrap();
+        let nested = dir.path().join("nested");
+        fs::create_dir(&nested).unwrap();
+        fs::write(dir.path().join("doc.md"), "# hi").unwrap();
+        fs::write(nested.join("report.pdf"), b"%PDF").unwrap();
+
+        let files = collect_directory_files(dir.path(), true).unwrap();
+        assert_eq!(files.len(), 2);
     }
 }

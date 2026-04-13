@@ -1,4 +1,5 @@
 use std::io::{IsTerminal, Write};
+use std::path::PathBuf;
 
 use serde::Serialize;
 
@@ -14,12 +15,13 @@ pub const BLUE: &str = "\x1b[34m";
 #[derive(Debug, Clone, Copy, clap::ValueEnum, Default)]
 pub enum OutputFormat {
     #[default]
-    Text,
+    #[value(alias = "text")]
+    HumanReadable,
     Json,
 }
 
 pub trait RenderForHuman: Serialize {
-    fn render(&self) -> String;
+    fn render(&self) -> impl Into<String>;
 }
 
 pub struct Output {
@@ -34,13 +36,13 @@ impl Output {
     pub fn print<T: RenderForHuman>(&self, value: &T) -> Result<(), serde_json::Error> {
         match self.format {
             OutputFormat::Json => self.print_json(value),
-            OutputFormat::Text => self.print_human(value),
+            OutputFormat::HumanReadable => self.print_human(value),
         }
     }
 
     pub fn print_human<T: RenderForHuman>(&self, value: &T) -> Result<(), serde_json::Error> {
         clear_progress();
-        let rendered = value.render();
+        let rendered: String = value.render().into();
         if !rendered.is_empty() {
             println!("{rendered}");
         }
@@ -62,35 +64,53 @@ impl Output {
 
     pub fn spinner(&self, msg: impl Into<String>) -> Spinner {
         match self.format {
-            OutputFormat::Text => Spinner::with_elapsed(msg),
+            OutputFormat::HumanReadable => Spinner::with_elapsed(msg),
             OutputFormat::Json => Spinner::disabled(),
         }
     }
 
     pub fn progress(&self, msg: &str) {
-        if matches!(self.format, OutputFormat::Text) {
+        if matches!(self.format, OutputFormat::HumanReadable) {
             progress(msg);
         }
     }
 
     pub fn success(&self, msg: &str) {
-        if matches!(self.format, OutputFormat::Text) {
+        if matches!(self.format, OutputFormat::HumanReadable) {
             eprintln!("{GREEN}✓{RESET} {msg}");
         }
     }
 
     pub fn is_human(&self) -> bool {
-        matches!(self.format, OutputFormat::Text)
+        matches!(self.format, OutputFormat::HumanReadable)
     }
 
     pub fn confirm(&self, prompt: &str) -> std::io::Result<bool> {
-        if matches!(self.format, OutputFormat::Text)
+        if matches!(self.format, OutputFormat::HumanReadable)
             && std::io::stdin().is_terminal()
             && std::io::stdout().is_terminal()
         {
             confirm(prompt)
         } else {
             Ok(false)
+        }
+    }
+
+    pub fn prompt_dir(&self, prompt: &str) -> std::io::Result<Option<PathBuf>> {
+        if !matches!(self.format, OutputFormat::HumanReadable)
+            || !std::io::stdin().is_terminal()
+        {
+            return Ok(None);
+        }
+        eprint!("{}", prompt);
+        std::io::stderr().flush()?;
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input)?;
+        let trimmed = input.trim();
+        if trimmed.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(PathBuf::from(trimmed)))
         }
     }
 
@@ -104,7 +124,7 @@ impl Output {
                         .unwrap_or_else(|_| r#"{"error":"serialization failed"}"#.to_string())
                 );
             }
-            OutputFormat::Text => eprintln!("{BOLD}{RED}error:{RESET} {:#}", e),
+            OutputFormat::HumanReadable => eprintln!("{BOLD}{RED}error:{RESET} {:#}", e),
         }
     }
 }

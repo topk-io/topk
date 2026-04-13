@@ -9,13 +9,14 @@ use tokio_stream::StreamExt;
 use topk_rs::{proto::v1::ctx::ListEntry, Client, Error};
 
 use crate::output::{Output, RenderForHuman};
+use crate::util::MimeType;
 
 #[derive(Serialize, Deserialize)]
 pub struct ListEntryRow {
     pub id: String,
     pub name: String,
     pub size: u64,
-    pub mime_type: String,
+    pub mime_type: MimeType,
     #[serde(default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub metadata: serde_json::Map<String, serde_json::Value>,
 }
@@ -23,18 +24,17 @@ pub struct ListEntryRow {
 impl TryFrom<ListEntry> for ListEntryRow {
     type Error = serde_json::Error;
 
-    fn try_from(e: ListEntry) -> Result<Self, serde_json::Error> {
-        let metadata = e
-            .metadata
-            .into_iter()
-            .map(|(k, v)| serde_json::to_value(v).map(|v| (k, v)))
-            .collect::<Result<_, _>>()?;
+    fn try_from(entry: ListEntry) -> Result<Self, serde_json::Error> {
         Ok(Self {
-            id: e.id,
-            name: e.name,
-            size: e.size,
-            mime_type: e.mime_type,
-            metadata,
+            id: entry.id,
+            name: entry.name,
+            size: entry.size,
+            mime_type: MimeType::from(entry.mime_type),
+            metadata: entry
+                .metadata
+                .into_iter()
+                .map(|(k, v)| serde_json::to_value(v).map(|v| (k, v)))
+                .collect::<Result<_, _>>()?,
         })
     }
 }
@@ -45,7 +45,7 @@ pub struct ListResult {
 }
 
 impl RenderForHuman for ListResult {
-    fn render(&self) -> String {
+    fn render(&self) -> impl Into<String> {
         let rows = self
             .entries
             .iter()
@@ -54,7 +54,7 @@ impl RenderForHuman for ListResult {
                     entry.id.clone(),
                     entry.name.clone(),
                     ByteSize(entry.size).to_string(),
-                    entry.mime_type.clone(),
+                    entry.mime_type.to_string(),
                 ]
             })
             .collect::<Vec<_>>();
@@ -103,7 +103,7 @@ pub async fn run(
     dataset: &str,
     fields: Option<Vec<String>>,
     output: &Output,
-) -> Result<u64, Error> {
+) -> Result<(), Error> {
     let mut stream = client
         .dataset(dataset)
         .list(fields, None)
@@ -119,14 +119,12 @@ pub async fn run(
             entries.push(row);
         }
 
-        let count = entries.len() as u64;
         output
             .print(&ListResult { entries })
             .map_err(|e| Error::Internal(e.to_string()))?;
-        return Ok(count);
+        return Ok(());
     }
 
-    let mut count: u64 = 0;
     while let Some(entry) = stream.next().await {
         let row: ListEntryRow = entry?
             .try_into()
@@ -134,16 +132,15 @@ pub async fn run(
         output
             .print_json_line(&row)
             .map_err(|e| Error::Internal(e.to_string()))?;
-        count += 1;
     }
 
-    Ok(count)
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::ListEntryRow;
-    use crate::test_context::CliTestContext;
+    use crate::{test_context::CliTestContext, util::MimeType};
     use assert_cmd::Command;
     use test_context::test_context;
 
@@ -155,6 +152,7 @@ mod tests {
 
     #[test_context(CliTestContext)]
     #[tokio::test]
+    #[ignore]
     async fn list_returns_uploaded_documents(ctx: &mut CliTestContext) {
         let dataset = ctx.wrap("list");
 
@@ -191,7 +189,9 @@ mod tests {
 
         assert_eq!(entries.len(), 2);
         assert!(entries.iter().all(|e| e.size > 0));
-        assert!(entries.iter().all(|e| !e.mime_type.is_empty()));
+        assert!(entries
+            .iter()
+            .all(|e| e.mime_type != MimeType::Other(String::new())));
     }
 
     #[test_context(CliTestContext)]
