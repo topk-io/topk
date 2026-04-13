@@ -1,7 +1,7 @@
 use anyhow::Result;
 use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
-use std::io::{BufRead, IsTerminal, Write};
+use std::io::{IsTerminal, Write};
 use std::path::{Path, PathBuf};
 use terminal_size::{terminal_size, Width as TermWidth};
 use topk_rs::{
@@ -83,7 +83,7 @@ pub async fn run(
         println!("{initial_rendered}");
     }
 
-    let output_dir = prompt_for_output_dir(&result.results)?;
+    let output_dir = prompt_for_output_dir(&result.results, output)?;
     if let Some(dir) = output_dir {
         result.saved = save_results(&dir, &result.results)?;
         let rerendered: String = result.render().into();
@@ -179,33 +179,6 @@ fn format_reference_detail(content: Option<&Content>) -> Option<String> {
     }
 }
 
-pub fn format_content_detail(content: Option<&Content>) -> Option<String> {
-    match content.and_then(|c| c.data.as_ref()) {
-        Some(content::Data::Chunk(chunk)) => {
-            let text = chunk.text.trim();
-            if text.is_empty() && chunk.doc_pages.is_empty() {
-                None
-            } else if chunk.doc_pages.is_empty() {
-                Some(text.to_string())
-            } else {
-                let pages = chunk
-                    .doc_pages
-                    .iter()
-                    .map(|p| p.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                if text.is_empty() {
-                    Some(format!("p. {pages}"))
-                } else {
-                    Some(format!("{text} [p. {pages}]"))
-                }
-            }
-        }
-        Some(content::Data::Page(page)) => Some(format!("p. {}", page.page_number)),
-        _ => None,
-    }
-}
-
 pub fn format_content_text(content: Option<&Content>) -> String {
     match content.and_then(|c| c.data.as_ref()) {
         Some(content::Data::Chunk(chunk)) => {
@@ -247,6 +220,7 @@ fn save_results(
 
 fn prompt_for_output_dir(
     results: &[topk_rs::proto::v1::ctx::SearchResult],
+    output: &Output,
 ) -> Result<Option<PathBuf>, Error> {
     let non_text_ids: Vec<String> = results
         .iter()
@@ -268,20 +242,12 @@ fn prompt_for_output_dir(
     eprint!(
         "\n{BOLD}References:{RESET} {ids_str} contain non-text citations. Save to directory {DIM}[enter path or press Enter to skip]{RESET}: "
     );
-    std::io::stderr().flush().ok();
-
-    let mut input = String::new();
-    std::io::stdin().lock().read_line(&mut input)?;
+    let output_dir = output.prompt_dir("").map_err(Error::IoError)?;
 
     eprint!("\x1b[2A\x1b[0J");
     std::io::stderr().flush().ok();
 
-    let trimmed = input.trim();
-    if trimmed.is_empty() {
-        Ok(None)
-    } else {
-        Ok(Some(PathBuf::from(trimmed)))
-    }
+    Ok(output_dir)
 }
 
 fn rendered_display_line_count(rendered: &str) -> usize {

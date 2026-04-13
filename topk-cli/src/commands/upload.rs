@@ -47,19 +47,24 @@ pub struct UploadResult {
     pub(crate) no_files_message: Option<String>,
 }
 
-fn json_to_topk_value(v: &serde_json::Value) -> Value {
+fn json_to_topk_value(v: &serde_json::Value) -> Result<Value, Error> {
     match v {
-        serde_json::Value::Null => Value::null(),
-        serde_json::Value::Bool(b) => Value::bool(*b),
+        serde_json::Value::Null => Ok(Value::null()),
+        serde_json::Value::Bool(b) => Ok(Value::bool(*b)),
         serde_json::Value::Number(n) => {
             if let Some(i) = n.as_i64() {
-                Value::i64(i)
+                Ok(Value::i64(i))
             } else {
-                Value::f64(n.as_f64().unwrap_or(0.0))
+                Ok(Value::f64(n.as_f64().unwrap_or(0.0)))
             }
         }
-        serde_json::Value::String(s) => Value::string(s.clone()),
-        _ => Value::null(),
+        serde_json::Value::String(s) => Ok(Value::string(s.clone())),
+        serde_json::Value::Array(_) => Err(Error::InvalidArgument(
+            "metadata arrays are not supported".to_string(),
+        )),
+        serde_json::Value::Object(_) => Err(Error::InvalidArgument(
+            "nested metadata objects are not supported".to_string(),
+        )),
     }
 }
 
@@ -217,9 +222,10 @@ pub async fn run(
             async move {
                 let result = async {
                     let input = InputFile::from_path(&file.path)?;
-                    let metadata = metadata
+                    let metadata: Vec<(String, Value)> = metadata
                         .iter()
-                        .map(|(k, v)| (k.clone(), json_to_topk_value(v)));
+                        .map(|(k, v)| Ok((k.clone(), json_to_topk_value(v)?)))
+                        .collect::<Result<_, Error>>()?;
                     let handle = client
                         .dataset(&dataset)
                         .upsert_file(file.doc_id.clone(), input, metadata)
@@ -404,7 +410,7 @@ fn upload_progress_bar(total_count: usize, output: &Output) -> Option<ProgressBa
 
 #[cfg(test)]
 mod tests {
-    use super::UploadResult;
+    use super::{json_to_topk_value, UploadResult};
     use crate::test_context::CliTestContext;
     use crate::util::doc_id_from_path;
     use assert_cmd::Command;
@@ -418,6 +424,24 @@ mod tests {
     }
 
     const TESTS_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests");
+
+    #[test]
+    fn metadata_array_values_are_rejected() {
+        let value = serde_json::json!(["a", "b"]);
+        let err = json_to_topk_value(&value).expect_err("array metadata should fail");
+        assert!(err
+            .to_string()
+            .contains("metadata arrays are not supported"));
+    }
+
+    #[test]
+    fn metadata_object_values_are_rejected() {
+        let value = serde_json::json!({"key": "value"});
+        let err = json_to_topk_value(&value).expect_err("object metadata should fail");
+        assert!(err
+            .to_string()
+            .contains("nested metadata objects are not supported"));
+    }
 
     #[test_context(CliTestContext)]
     #[tokio::test]

@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::io::{BufRead, IsTerminal, Write};
+use std::io::{IsTerminal, Write};
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -201,21 +201,13 @@ pub async fn run(
                 .collect::<Vec<_>>()
                 .join(", ");
             eprint!("\n{BOLD}References:{RESET} {ids_str} contain non-text citations. Save to directory {DIM}[enter path or press Enter to skip]{RESET}: ");
-            std::io::stderr().flush().ok();
-
-            let mut input = String::new();
-            std::io::stdin().lock().read_line(&mut input)?;
+            let output_dir = output.prompt_dir("").map_err(Error::IoError)?;
 
             // Clear the blank line + prompt+input line, leaving cursor where prompt started
             eprint!("\x1b[2A\x1b[0J");
             std::io::stderr().flush().ok();
 
-            let trimmed = input.trim();
-            if trimmed.is_empty() {
-                None
-            } else {
-                Some(PathBuf::from(trimmed))
-            }
+            output_dir
         } else {
             None
         }
