@@ -1,4 +1,5 @@
 use std::io::{IsTerminal, Read};
+use std::path::PathBuf;
 
 use topk::commands;
 use topk::output::{Output, OutputFormat};
@@ -38,7 +39,7 @@ struct Cli {
     https: bool,
 
     /// Output format
-    #[arg(short = 'o', long, default_value = "text", global = true)]
+    #[arg(short = 'o', long, default_value = "human-readable", global = true)]
     output: OutputFormat,
 }
 
@@ -57,6 +58,9 @@ enum Commands {
         /// Metadata fields to include in results (repeatable)
         #[arg(short = 'f', long = "field")]
         fields: Option<Vec<String>>,
+        /// Save search result content (images, text chunks) to a directory
+        #[arg(long, value_name = "DIR")]
+        output_dir: Option<PathBuf>,
     },
 
     /// Find relevant passages in documents for a query
@@ -72,16 +76,19 @@ enum Commands {
         /// Metadata fields to include in results (repeatable)
         #[arg(short = 'f', long = "field")]
         fields: Option<Vec<String>>,
+        /// Save search results content (images, text chunks) to a directory
+        #[arg(long, value_name = "DIR", num_args = 0..=1, default_missing_value = ".")]
+        output_dir: Option<PathBuf>,
     },
 
     /// Upload files
     Upload {
-        /// File path or glob pattern matched against file paths relative to the current directory (e.g. "./report.pdf" "*.pdf" "docs/**/*.md")
-        #[arg(value_name = "PATTERN")]
-        pattern: String,
         /// Dataset to upload into
         #[arg(short = 'd', long, value_name = "DATASET_NAME")]
         dataset: String,
+        /// Recurse into subdirectories when PATTERN is a directory
+        #[arg(short = 'r', long)]
+        recursive: bool,
         /// Number of concurrent uploads (1–64)
         #[arg(short = 'c', long, default_value = "32", value_parser = clap::value_parser!(u64).range(1..=64))]
         concurrency: u64,
@@ -100,6 +107,9 @@ enum Commands {
         /// Wait for all uploaded files to be fully processed
         #[arg(short = 'w', long)]
         wait: bool,
+        /// File path, directory, or glob pattern (e.g. "./report.pdf" "./docs" "*.pdf" "docs/**/*.md")
+        #[arg(value_name = "PATTERN")]
+        pattern: String,
     },
 
     /// Delete a document
@@ -196,20 +206,22 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
         },
 
         Commands::Upload {
-            pattern,
             dataset,
+            recursive,
             concurrency,
             yes,
             id,
             metadata,
             dry_run,
             wait,
+            pattern,
         } => {
             output.print(
                 &upload::run(
                     &client,
                     &dataset,
                     &pattern,
+                    recursive,
                     id,
                     metadata,
                     concurrency as usize,
@@ -235,11 +247,12 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             datasets,
             mode,
             fields,
+            output_dir,
         } => {
             let query = resolve_query(query)?.ok_or_else(|| {
                 anyhow::anyhow!("query is required; pass it as an argument or pipe it via stdin")
             })?;
-            output.print(&ask::run(&client, query, datasets, mode, fields, &output).await?)?;
+            ask::run(&client, query, datasets, mode, fields, output_dir, &output).await?;
         }
 
         Commands::Search {
@@ -247,11 +260,12 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             datasets,
             top_k,
             fields,
+            output_dir,
         } => {
             let query = resolve_query(query)?.ok_or_else(|| {
                 anyhow::anyhow!("query is required; pass it as an argument or pipe it via stdin")
             })?;
-            output.print(&search::run(&client, query, datasets, top_k, fields).await?)?;
+            search::run(&client, query, datasets, top_k, fields, output_dir, output).await?;
         }
         Commands::Completions { .. } => unreachable!(),
     }

@@ -75,19 +75,21 @@ echo "my query" | topk search
 
 ### `upload` — Upload files
 
-Accepts a single file path or glob pattern matched against file paths relative to the current directory. Always scans recursively. If exactly one file is matched, you can override the default document ID with `--id` and attach metadata with `--meta`. By default, each uploaded file gets a document ID derived from the SHA-256 of its absolute path.
+Accepts a single file path, directory, or glob pattern matched against file paths relative to the current directory. Directory inputs scan only that directory by default, and `-r/--recursive` recurses into subdirectories. For glob patterns, `*.pdf` matches only the current directory, while `**/*.pdf` matches recursively. If exactly one file is matched, you can override the default document ID with `--id` and attach metadata with `--meta`. By default, each uploaded file gets a document ID derived from the SHA-256 of its absolute path.
 
 ```bash
 topk upload '*.pdf' --dataset my-dataset
 topk upload 'docs/**/*.md' --dataset my-dataset
+topk upload docs --dataset my-dataset -r
 topk upload './report.pdf' --dataset my-dataset --id quarterly-report
 ```
 
 
 | Argument    | Required | Description                                                               |
 | ----------- | -------- | ------------------------------------------------------------------------- |
-| `PATTERN`   | Yes      | A file path or glob pattern matched against relative file paths           |
+| `PATTERN`   | Yes      | A file path, directory, or glob pattern matched against relative file paths |
 | `--dataset` | Yes      | Dataset to upload into                                                    |
+| `-r`        | No       | Recurse into subdirectories when `PATTERN` is a directory                 |
 | `-y`        | No       | Create the dataset automatically if it does not exist & skip confirmation |
 | `--id`      | No       | Document ID to assign when exactly one file is uploaded                   |
 | `--meta`    | No       | Metadata as a JSON object when exactly one file is uploaded               |

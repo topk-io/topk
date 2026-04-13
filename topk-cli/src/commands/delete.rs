@@ -10,7 +10,7 @@ pub struct DeleteResult {
 }
 
 impl RenderForHuman for DeleteResult {
-    fn render(&self) -> String {
+    fn render(&self) -> impl Into<String> {
         if self.deleted {
             "Document deleted.".to_string()
         } else {
