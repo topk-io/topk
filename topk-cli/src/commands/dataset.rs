@@ -123,7 +123,7 @@ impl TryFrom<Response<GetDatasetResponse>> for GetDatasetResult {
 
     fn try_from(resp: Response<GetDatasetResponse>) -> Result<Self, Error> {
         Ok(Self {
-            dataset: resp.into_inner().dataset.ok_or(Error::InvalidProto)?.into(),
+            dataset: resp.into_inner().dataset()?.clone().into(),
         })
     }
 }
@@ -149,7 +149,7 @@ impl TryFrom<Response<CreateDatasetResponse>> for CreateDatasetResult {
 
     fn try_from(resp: Response<CreateDatasetResponse>) -> Result<Self, Error> {
         Ok(Self {
-            dataset: resp.into_inner().dataset.ok_or(Error::InvalidProto)?.into(),
+            dataset: resp.into_inner().dataset()?.clone().into(),
         })
     }
 }

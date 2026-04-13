@@ -1,5 +1,4 @@
 use std::io::{IsTerminal, Write};
-use std::path::PathBuf;
 
 use serde::Serialize;
 
@@ -93,24 +92,6 @@ impl Output {
             confirm(prompt)
         } else {
             Ok(false)
-        }
-    }
-
-    pub fn prompt_dir(&self, prompt: &str) -> std::io::Result<Option<PathBuf>> {
-        if !matches!(self.format, OutputFormat::HumanReadable)
-            || !std::io::stdin().is_terminal()
-        {
-            return Ok(None);
-        }
-        eprint!("{}", prompt);
-        std::io::stderr().flush()?;
-        let mut input = String::new();
-        std::io::stdin().read_line(&mut input)?;
-        let trimmed = input.trim();
-        if trimmed.is_empty() {
-            Ok(None)
-        } else {
-            Ok(Some(PathBuf::from(trimmed)))
         }
     }
 
