@@ -7,6 +7,8 @@ icon: "/icons/topk-icon.svg"
 
 TopK is an end-to-end context engine that turns unstructured documents(PDFs, Images, Markdown, HTML) into reliable context for agents and humans.
 
+You can search, explore, and extract relevant information from your documents, all grounded in the source material.
+
 We believe that **context is a search problem.** Agents need relevant data to make the right decision. Without the right context, even the best AI models fall short — garbage in, garbage out.
 
 ## How it works
@@ -16,10 +18,10 @@ We believe that **context is a search problem.** Agents need relevant data to ma
     Upload your documents via the CLI, Python SDK, or JavaScript SDK. TopK supports PDFs, images, markdown, HTML, [and more](/core/document-processing#supported-formats).
   </Step>
   <Step title="Processing" icon="zap">
-    TopK parses, chunks, and indexes your documents—preserving structure from tables, charts, and complex layouts — so no detail is overlooked during retrieval.
+    TopK parses, chunks, and indexes your documents—preserving structure from tables, charts, and complex layouts, capturing the full fidelity of your data.
   </Step>
   <Step title="Retrieval" icon="search">
-    Once the processing is finished, you can ask a question against your documents, search for relevant passages within your documents, or run a complex research query across your documents.
+    Once the processing is complete, you can ask questions, search for relevant passages, or run complex research queries across your documents.
   </Step>
 </Steps>
 
@@ -33,7 +35,7 @@ We believe that **context is a search problem.** Agents need relevant data to ma
     Run an agentic query to get grounded answers with source citations.
   </Card>
   <Card title="Document Search" icon="file-search-2" href="/core/search">
-    Find the most relevant passages across your document corpus.
+    Find the most relevant passages in your documents.
   </Card>
   <Card title="Research" icon="flask-conical" href="/core/research">
     Deep multi-step reasoning across large document sets.
@@ -70,14 +72,14 @@ The quickest way to get started is to follow the [Quickstart](/quickstart) guide
 
 TopK is **SOC 2 Type I** certified. Visit the [trust center](https://trust.topk.io) for full details.
 
-<CardGroup cols={3}>
-  <Card title="Data encryption" icon="lock">
+<CardGroup cols={1}>
+  <Card title="Data encryption" icon="lock" horizontal>
     All data is encrypted in transit and at rest.
   </Card>
-  <Card title="Access control" icon="shield-check">
+  <Card title="Access control" icon="shield-check" horizontal>
     Role-based access control with full auditability.
   </Card>
-  <Card title="VPC deployment" icon="server">
+  <Card title="VPC deployment" icon="server" horizontal>
     Deploy inside your own VPC for complete network isolation (enterprise).
   </Card>
 </CardGroup>

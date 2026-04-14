@@ -19,19 +19,22 @@ icon: "rocket"
         brew tap topk-io/topk
         brew install topk
         ```
+
+        <Tip>If you don't have Homebrew installed, you can install it [here](https://brew.sh).</Tip>
       </Step>
       <Step title="Get your API key">
         ```bash
         export TOPK_API_KEY="your-api-key"
         ```
-        <Tip>Get your API key from the [console here](https://console.topk.io/api-key).</Tip>
       </Step>
       <Step title="Upload a file">
+        Upload a file to your dataset:
+
         ```bash
-        topk upload ./report.pdf --dataset quickstart --region aws-us-east-1-elastica -y
+        topk upload ./report.pdf -d quickstart --region aws-us-east-1-elastica
         ```
 
-        The `--region` flag sets where your dataset is stored. See [available regions](/regions).
+        The `--region` determines where your data is stored. See [available regions](/regions).
       </Step>
       <Step title="Ask a question">
         ```bash
@@ -76,36 +79,66 @@ icon: "rocket"
           )
           ```
         </CodeGroup>
-        <Tip>Get your API key from the [console here](https://console.topk.io/api-key).</Tip>
+        <Info>See [available regions](/regions) for a full list of supported regions.</Info>
       </Step>
       <Step title="Create a dataset">
-        ```python
-        client.datasets().create("quickstart")
-        ```
+        <CodeGroup>
+          ```python Sync
+          client.datasets().create("quickstart")
+          ```
+          ```python Async
+          await client.datasets().create("quickstart")
+          ```
+        </CodeGroup>
       </Step>
       <Step title="Upload a file">
-        ```python
-        from pathlib import Path
+        Upload a file to your dataset by providing the document ID, the path to the file, and optional metadata:
 
-        resp = client.dataset("my-docs").upsert_file(
-            "report-2024",             # document ID
-            Path("./report.pdf"),      # path to file
-            {"title": "Annual Report"},  # optional metadata
-        )
-        ```
+        <CodeGroup>
+          ```python Sync
+          from pathlib import Path
+
+          resp = client.dataset("my-docs").upsert_file(
+              "report-2024",             # document ID
+              Path("./report.pdf"),      # path to file
+              {"title": "Annual Report"},  # optional metadata
+          )
+          ```
+          ```python Async
+          from pathlib import Path
+
+          resp = await client.dataset("my-docs").upsert_file(
+              "report-2024",             # document ID
+              Path("./report.pdf"),      # path to file
+              {"title": "Annual Report"},  # optional metadata
+          )
+          ```
+        </CodeGroup>
 
         After the file has been uploaded, wait for it to be processed:
 
-        ```python
-        client.dataset("my-docs").wait_for_handle(resp.handle)
-        ```
+        <CodeGroup>
+          ```python Sync
+          client.dataset("my-docs").wait_for_handle(resp.handle)
+          ```
+          ```python Async
+          await client.dataset("my-docs").wait_for_handle(resp.handle)
+          ```
+        </CodeGroup>
       </Step>
       <Step title="Ask a question">
-        ```python
-        answer = client.ask("What are the key findings?", ["my-docs"])
+        <CodeGroup>
+          ```python Sync
+          answer = client.ask("What are the key findings?", ["my-docs"])
 
-        print(answer)
-        ```
+          print(answer)
+          ```
+          ```python Async
+          answer = await client.ask("What are the key findings?", ["my-docs"])
+
+          print(answer)
+          ```
+        </CodeGroup>
       </Step>
     </Steps>
   </Tab>
@@ -133,7 +166,7 @@ icon: "rocket"
           region: "aws-us-east-1-elastica",
         });
         ```
-        <Tip>Get your API key from the [console here](https://console.topk.io/api-key).</Tip>
+        <Info>See [available regions](/regions) for a full list of supported regions.</Info>
       </Step>
       <Step title="Create a dataset">
         ```typescript

@@ -1,41 +1,92 @@
 ---
 title: "Document Processing"
-description: "Learn how TopK ingests and processes your documents."
+description: "Learn how to ingest your documents and how the processing works."
 icon: "file-text"
 ---
 
-Before you can run retrieval against your documents, they need to be uploaded and processed.
-TopK performs document parsing, chunking, and indexing to power your retrieval.
+Before you can run agent search, document search or research on top of your data, your documents need to be uploaded and processed.
+
+After you upload your documents, TopK parses, chunks, and indexes them to power your retrieval.
 
 ## Uploading documents
 
+Documents are uploaded to a **dataset**. A dataset is a named container for your documents.
+Each document in a dataset is identified by a **document ID**.
+
 <Tabs>
   <Tab title="CLI" icon="terminal">
-    ```bash
-    # Upload all PDFs in the current directory
-    topk upload "*.pdf" --dataset my-docs
+    ```bash expandable
+    # Upload all supported files in the directory
+    topk upload ./docs --dataset my-docs
+
+    # Upload all supported files in the directory and subdirectories recursively
+    topk upload ./docs -r --dataset my-docs
+
+    # Upload all supported files in the directory by glob pattern
+    topk upload "./docs/*" --dataset my-docs
+
+    # Upload all supported files in the directory by glob pattern recursively
+    topk upload "./docs/**/*" -r --dataset my-docs
+
+    # Upload all PDFs in the directory by glob pattern
+    topk upload "./docs/*.pdf" --dataset my-docs
+
+    # Upload all PDFs in the directory by glob pattern recursively
+    topk upload "./docs/**/*.pdf" --dataset my-docs
 
     # Upload a single file with an explicit document ID
     topk upload ./report.pdf --dataset my-docs --id report-2024
     ```
-
-    In interactive mode, the CLI waits for processing automatically. Use `--wait` to always wait.
   </Tab>
   <Tab title="Python SDK" icon="/icons/python.svg">
-    ```python
-    from pathlib import Path
+    <CodeGroup>
+      ```python Sync
+      import os
+      from pathlib import Path
+      from topk_sdk import Client
 
-    resp = client.dataset("my-docs").upsert_file(
-        "report-2024",                       # document ID
-        Path("./report.pdf"),                # path to file
-        {"title": "Annual Report 2024"},     # optional metadata
-    )
+      client = Client(
+          api_key=os.environ["TOPK_API_KEY"],
+          region=os.environ["TOPK_REGION"],
+      )
 
-    print(resp.handle)  # e.g. "hdl_abc123"
-    ```
+      resp = client.dataset("my-docs").upsert_file(
+          "report-2024",                       # document ID
+          Path("./report.pdf"),                # path to file
+          {"title": "Annual Report 2024"},     # optional metadata
+      )
+
+      print(resp.handle)  # e.g. "hdl_abc123"
+      ```
+      ```python Async
+      import os
+      from pathlib import Path
+      from topk_sdk import AsyncClient
+
+      client = AsyncClient(
+          api_key=os.environ["TOPK_API_KEY"],
+          region=os.environ["TOPK_REGION"],
+      )
+
+      resp = await client.dataset("my-docs").upsert_file(
+          "report-2024",                       # document ID
+          Path("./report.pdf"),                # path to file
+          {"title": "Annual Report 2024"},     # optional metadata
+      )
+
+      print(resp.handle)  # e.g. "hdl_abc123"
+      ```
+    </CodeGroup>
   </Tab>
   <Tab title="JavaScript SDK" icon="/icons/js.svg">
     ```typescript
+    import { Client } from "topk-js";
+
+    const client = new Client({
+      apiKey: process.env.TOPK_API_KEY!,
+      region: process.env.TOPK_REGION!,
+    });
+
     const resp = await client.dataset("my-docs").upsertFile(
       "report-2024",             // document ID
       "./report.pdf",            // path to file
@@ -63,57 +114,125 @@ TopK performs document parsing, chunking, and indexing to power your retrieval.
 
 ### Attaching metadata
 
+Each document can be associated with metadata. This is useful for
+storing additional information about the document, such as title, author, date,
+category, or any custom metadata fields you want to attach to the document.
+
 ## Processing documents
 
 After a document is uploaded, TopK returns a **processing handle** — a reference to the processing job.
-The document is not immediately ready for retrieval until it has been processed.
+The document is not ready for retrieval until it has been processed.
 
 Processing happens asynchronously in the background and may take a few seconds to a few minutes, depending on document size and complexity.
 
 <Info>
-  Your documents might not be processed immediately after upload.
+  Your documents might not be ready for retrieval immediately after upload.
 </Info>
 
 ### Checking the status
 
+After uploading a document, you can check whether it has been processed using the **processing handle**.
+
+<Tabs>
+  <Tab title="Python SDK" icon="/icons/python.svg">
+    <CodeGroup>
+      ```python Sync
+      import os
+      from topk_sdk import Client
+
+      client = Client(
+          api_key=os.environ["TOPK_API_KEY"],
+          region=os.environ["TOPK_REGION"],
+      )
+
+      processed = client.dataset("my-docs").check_handle(resp.handle)
+      print(processed)  # True or False
+      ```
+      ```python Async
+      import os
+      from topk_sdk import AsyncClient
+
+      client = AsyncClient(
+          api_key=os.environ["TOPK_API_KEY"],
+          region=os.environ["TOPK_REGION"],
+      )
+
+      processed = await client.dataset("my-docs").check_handle(resp.handle)
+
+      print(processed)  # True or False
+      ```
+    </CodeGroup>
+  </Tab>
+  <Tab title="JavaScript SDK" icon="/icons/js.svg">
+    ```typescript
+    import { Client } from "topk-js";
+
+    const client = new Client({
+      apiKey: process.env.TOPK_API_KEY!,
+      region: process.env.TOPK_REGION!,
+    });
+
+    const processed = await client.dataset("my-docs").checkHandle(resp.handle);
+
+    console.log(processed);  // true or false
+    ```
+  </Tab>
+</Tabs>
+
+### Waiting for completion
+
+Alternatively, you can wait for the document to be processed using the **processing handle**:
+
 <Tabs>
   <Tab title="CLI" icon="terminal">
-    The CLI will prompt you to wait for processing to complete.
-    
-    Alternatively, you can use `--wait` to wait for processing to complete automatically.
+    Pass `--wait` to block until processing is complete:
 
     ```bash
     topk upload ./report.pdf --dataset my-docs --id report-2024 --wait
     ```
   </Tab>
   <Tab title="Python SDK" icon="/icons/python.svg">
-    **Check once** — returns `True` if processed, `False` if still pending:
+    <CodeGroup>
+      ```python Sync
+      import os
+      from topk_sdk import Client
 
-    ```python
-    processed = client.dataset("my-docs").check_handle(resp.handle)
-    print(processed)  # True or False
-    ```
+      client = Client(
+          api_key=os.environ["TOPK_API_KEY"],
+          region=os.environ["TOPK_REGION"],
+      )
 
-    **Wait until ready** — blocks until processing is complete:
+      client.dataset("my-docs").wait_for_handle(resp.handle)
 
-    ```python
-    client.dataset("my-docs").wait_for_handle(resp.handle)
-    # document is now ready to query
-    ```
+      # Document is now ready to be queried
+      ```
+      ```python Async
+      import os
+      from topk_sdk import AsyncClient
+
+      client = AsyncClient(
+          api_key=os.environ["TOPK_API_KEY"],
+          region=os.environ["TOPK_REGION"],
+      )
+
+      await client.dataset("my-docs").wait_for_handle(resp.handle)
+
+      # Document is now ready to be queried
+      ```
+    </CodeGroup>
   </Tab>
   <Tab title="JavaScript SDK" icon="/icons/js.svg">
-    **Check once** — returns `true` if processed, `false` if still pending:
-
     ```typescript
-    const processed = await client.dataset("my-docs").checkHandle(resp.handle);
-    console.log(processed);  // true or false
-    ```
+    import { Client } from "topk-js";
 
-    **Wait until ready** — resolves when processing is complete:
+    const client = new Client({
+      apiKey: process.env.TOPK_API_KEY!,
+      region: process.env.TOPK_REGION!,
+    });
 
-    ```typescript
     await client.dataset("my-docs").waitForHandle(resp.handle);
-    // document is now ready to query
+
+    // Document is now ready to be queried
     ```
   </Tab>
 </Tabs>
@@ -122,32 +241,67 @@ Processing happens asynchronously in the background and may take a few seconds t
 
 <Tabs>
   <Tab title="Python SDK" icon="/icons/python.svg">
-    ```python
-    from topk_sdk import Client
+    <CodeGroup>
+      ```python Sync
+      import os
+      from pathlib import Path
+      from topk_sdk import Client
 
-    client = Client(api_key=os.environ["TOPK_API_KEY"], region=os.environ.get("TOPK_REGION", "aws-us-east-1-elastica"))
+      client = Client(
+          api_key=os.environ["TOPK_API_KEY"],
+          region=os.environ["TOPK_REGION"],
+      )
 
-    # Create dataset
-    client.datasets().create("my-docs")
+      # Create dataset
+      client.datasets().create("my-docs")
 
-    # Upload document
-    resp = client.dataset("my-docs").upsert_file(
-        "report-2024",
-        Path("./report.pdf"),
-        {"title": "Annual Report 2024"},
-    )
+      # Upload document
+      resp = client.dataset("my-docs").upsert_file(
+          "report-2024",
+          Path("./report.pdf"),
+          {"title": "Annual Report 2024"},
+      )
 
-    # Wait for processing
-    client.dataset("my-docs").wait_for_handle(resp.handle)
+      # Wait for processing
+      client.dataset("my-docs").wait_for_handle(resp.handle)
 
-    print("Document ready.")
-    ```
+      print("Document ready.")
+      ```
+      ```python Async
+      import os
+      from pathlib import Path
+      from topk_sdk import AsyncClient
+
+      client = AsyncClient(
+          api_key=os.environ["TOPK_API_KEY"],
+          region=os.environ["TOPK_REGION"],
+      )
+
+      # Create dataset
+      await client.datasets().create("my-docs")
+
+      # Upload document
+      resp = await client.dataset("my-docs").upsert_file(
+          "report-2024",
+          Path("./report.pdf"),
+          {"title": "Annual Report 2024"},
+      )
+
+      # Wait for processing
+      await client.dataset("my-docs").wait_for_handle(resp.handle)
+
+      print("Document ready.")
+      ```
+    </CodeGroup>
   </Tab>
   <Tab title="JavaScript SDK" icon="/icons/js.svg">
     ```typescript
     import { Client } from "topk-js";
 
-    const client = new Client({ apiKey: process.env.TOPK_API_KEY!, region: process.env.TOPK_REGION ?? "aws-us-east-1-elastica" });
+    const client = new Client({
+      apiKey: process.env.TOPK_API_KEY!,
+      region: process.env.TOPK_REGION!,
+    });
 
     // Create dataset
     await client.datasets().create("my-docs");

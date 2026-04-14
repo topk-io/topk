@@ -8,28 +8,74 @@ icon: "bot-message-square"
 TopK answers natural-language queries over your documents.
 It retrieves the most relevant parts of your documents and synthesizes a grounded answer with source citations.
 
+```mermaid
+flowchart LR
+    Agent["Agent"] -- Query --> TopK["TopK"]
+    TopK --> Answer
+
+    subgraph Answer["Answer"]
+        direction TB
+        Facts["Facts"]
+        Citations["Citations"]
+        Text["Text chunk"]
+        Page["Document page"]
+        Figure["Figure"]
+        Facts --- Citations
+        Citations --- Text & Page & Figure
+    end
+
+    style TopK fill:#f9731619,stroke:#f97316,color:#f97316
+    style Agent fill:#3b82f619,stroke:#3b82f6,color:#3b82f6
+```
+
 ## How it works
 
 When you run an Agent Search, TopK:
 
 <Steps>
-  <Step title="Searches your datasets">
-    Your datasets are searched to find the most relevant pieces of information in your documents based on your query.
+  <Step title="Searches your documents">
+    Your documents are searched to find the most relevant passages based on your query.
   </Step>
   <Step title="Generates a grounded answer">
-    It produces a grounded answer based on that evidence.
+    It produces a grounded answer based on the retrieved evidence.
   </Step>
-  <Step title="Returns source citations">
-    It returns source citations so the answer can be verified.
+  <Step title="Returns answer with source citations">
+    It returns an answer with source citations so the answer can be verified.
   </Step>
 </Steps>
 
-This makes *Agent Search* useful for:
+Here's an example of Agent Search for a financial/legal knowledge base:
 
-- answering questions over internal knowledge bases
-- comparing facts across reports, contracts, or policies
-- grounding agents in private document context
-- summarizing what your documents say about a topic
+<Info>
+**Query:**
+
+Based on the acquisition agreement and recent SEC filings, what are the main risks to the Vertex deal closing on time?
+
+**Answer:**
+- The European Commission's approval is conditional on divestiture of the logistics subsidiary within 90 days of closing, creating a tight execution window. <Badge color="purple">0\_0</Badge> <Badge color="purple">1\_0</Badge>
+- The $1.8B consideration is subject to an unresolved working capital adjustment mechanism that could delay closing if the parties fail to agree on the final figure. <Badge color="purple">0\_1</Badge>
+- An 18-month earnout tied to Vertex's ARR targets introduces post-close execution risk; if milestones are missed, the deal economics shift materially for both parties. <Badge color="purple">2\_0</Badge>
+
+**Citations:**
+- <Badge color="purple">0\_0</Badge> — "Buyer shall procure the divestiture of the European logistics subsidiary no later than ninety (90) days following the Closing Date…"
+  <Badge color="blue">vertex-acquisition-agreement.pdf</Badge>
+- <Badge color="purple">0\_1</Badge> — Consideration structure and working capital adjustment table, p. 4
+  <Badge color="blue">vertex-acquisition-agreement.pdf</Badge>
+- <Badge color="purple">1\_0</Badge> — "The European Commission has indicated that approval is contingent upon structural remedies including divestiture of logistics assets…"
+  <Badge color="blue">sec-filing-8k.html</Badge>
+- <Badge color="purple">2\_0</Badge> — Closing timeline and earnout milestone diagram
+  <Badge color="blue">deal-timeline.png</Badge>
+</Info>
+
+As you can see, not only does TopK understand your data and the relationships within it,
+but it also understands queries and reasons about answers—all grounded in your source material.
+
+This makes Agent Search useful for:
+
+- **answering questions** over internal knowledge bases
+- **comparing facts** across reports, contracts, or policies
+- **grounding agents** in private document context
+- **summarizing** what your documents say about a topic
 
 ## Basic usage
 
@@ -71,14 +117,14 @@ This is useful when you want:
 
 <Tabs>
   <Tab title="CLI" icon="terminal">
-    Use `-d` / `--dataset` (repeatable):
+    Use `-d` / `--dataset` (repeatable) to specify the datasets to search:
 
     ```bash
     topk ask "What changed in the refund policy?" -d policies -d handbooks
     ```
   </Tab>
   <Tab title="Python SDK" icon="/icons/python.svg">
-    Pass the dataset names as the second argument:
+    Pass the dataset names as the second argument as a list:
 
     ```python
     answer = client.ask(
@@ -88,7 +134,7 @@ This is useful when you want:
     ```
   </Tab>
   <Tab title="JavaScript SDK" icon="/icons/js.svg">
-    Pass the dataset names as the second argument:
+    Pass the dataset names as the second argument as a list:
 
     ```typescript
     const answer = await client.ask(
@@ -111,39 +157,40 @@ This is useful when you want to ask things like:
 - only within HR policies
 - only within documents authored by a specific team
 
-In Python, pass a source object with a `dataset` and `filter`:
+<Tabs>
+  <Tab title="Python SDK" icon="/icons/python.svg">
+    ```python
+    from topk_sdk.query import field
 
-```python
-from topk_sdk.query import field
+    answer = client.ask(
+        "What is the travel reimbursement limit?",
+        [
+            {
+                "dataset": "policies",
+                "filter": field("department").eq("finance").and_(
+                    field("year").eq(2024)
+                ),
+            }
+        ],
+    )
+    ```
+  </Tab>
+  <Tab title="JavaScript SDK" icon="/icons/js.svg">
+    ```typescript
+    import { field } from "topk-js/query";
 
-answer = client.ask(
-    "What is the travel reimbursement limit?",
-    [
+    const answer = await client.ask(
+      "What is the travel reimbursement limit?",
+      [
         {
-            "dataset": "policies",
-            "filter": field("department").eq("finance").and_(
-                field("year").eq(2024)
-            ),
-        }
-    ],
-)
-```
-
-In JavaScript, the source object follows the same pattern:
-
-```typescript
-import { field } from "topk-js/query";
-
-const answer = await client.ask(
-  "What is the travel reimbursement limit?",
-  [
-    {
-      dataset: "policies",
-      filter: field("department").eq("finance").and(field("year").eq(2024)),
-    },
-  ],
-);
-```
+          dataset: "policies",
+          filter: field("department").eq("finance").and(field("year").eq(2024)),
+        },
+      ],
+    );
+    ```
+  </Tab>
+</Tabs>
 
 Use source-level filters when the restriction is part of where the answer should come from. That keeps retrieval focused and makes the resulting citations more precise.
 

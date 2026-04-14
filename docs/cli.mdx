@@ -40,28 +40,12 @@ Get a grounded answer from your documents with source citations.
 topk ask "What are the key findings?" -d my-docs
 ```
 
-```bash
-# Search across multiple datasets
-topk ask "What are the key findings?" -d my-docs -d reports
-
-# Include document metadata in results
-topk ask "What are the key findings?" -d my-docs --field title --field author
-
-# Response mode: auto (default), summarize, or research
-topk ask "Compare Q1 and Q2 results" -d my-docs --mode summarize
-
-# Save non-text references (images, etc.) to a directory
-topk ask "What are the key findings?" -d my-docs --output-dir ./refs
-```
-
 | Flag | Description |
 |------|-------------|
 | `--dataset` / `-d` | Dataset to search (repeatable, at least one required) |
 | `--mode` | Response mode: `auto` (default), `summarize`, or `research` |
 | `--field` / `-f` | Metadata field to include in results (repeatable) |
 | `--output-dir` | Save non-text references to a directory |
-
----
 
 ### `topk search`
 
@@ -71,91 +55,56 @@ Find relevant passages in documents for a query.
 topk search "machine learning" -d my-docs
 ```
 
-```bash
-# Search across multiple datasets
-topk search "machine learning" -d my-docs -d research
-
-# Return more results
-topk search "machine learning" -d my-docs --top-k 20
-
-# Include metadata fields
-topk search "machine learning" -d my-docs --field title --field author
-
-# Save non-text results (images, etc.) to a directory
-topk search "machine learning" -d my-docs --output-dir ./results
-```
-
 | Flag | Description |
 |------|-------------|
-| `--dataset` / `-d` | Dataset to search (repeatable, at least one required) |
+| `--dataset` / `-d` | Dataset(s) to search (repeatable, at least one required) |
 | `--top-k` / `-k` | Number of results to return (default: `10`) |
 | `--field` / `-f` | Metadata field to include in results (repeatable) |
 | `--output-dir` | Save non-text results to a directory |
-
----
 
 ### `topk upload`
 
 Upload files into a dataset. Accepts a file path, directory, or glob pattern.
 
 ```bash
+# Upload a single file
+topk upload ./report.pdf --dataset my-docs
+
+# Upload a directory (recursively)
+topk upload ./docs -r --dataset my-docs
+
+# Upload by glob pattern
 topk upload "*.pdf" --dataset my-docs
 ```
 
-```bash
-# Upload all PDFs recursively
-topk upload "docs/**/*.pdf" --dataset my-docs
-
-# Create dataset without prompting
-topk upload "*.pdf" --dataset my-docs -y
-
-# Upload a single file with a custom document ID
-topk upload ./report.pdf --dataset my-docs --id report-2024
-
-# Attach metadata (single file only)
-topk upload ./report.pdf --dataset my-docs --id report-2024 --meta '{"title": "Annual Report"}'
-
-# Preview files that would be uploaded, without uploading
-topk upload "*.pdf" --dataset my-docs --dry-run
-
-# Wait for all files to finish processing
-topk upload "*.pdf" --dataset my-docs --wait
-```
-
-If the dataset doesn't exist yet, the CLI will prompt you to create it (or use `-y` to skip the prompt).
+<Warning>
+  Glob patterns must be quoted, otherwise the shell expands them before TopK sees them and the command will error. Use `"*.pdf"` not `*.pdf`.
+</Warning>
 
 | Flag | Description |
 |------|-------------|
-| `--dataset` / `-d` | Dataset to upload into |
-| `--id` | Document ID — only valid when uploading a single file |
-| `--meta` | Metadata as a JSON object — only valid when uploading a single file |
-| `-y` | Create dataset without prompting if it doesn't exist |
+| `--dataset` / `-d` | Dataset to upload files into |
+| `--recursive` / `-r` | Recurse into subdirectories — only valid when passing a directory |
 | `--concurrency` / `-c` | Number of concurrent uploads, 1–64 (default: `32`) |
-| `--dry-run` | Preview matched files without uploading |
-| `--wait` | Wait for all files to finish processing |
-
----
+| `--wait` | Wait for all files to uploaded and fully processed |
+| `--id` | Custom document ID — only valid when uploading a single file |
+| `--meta` | Metadata as a JSON object — only valid when uploading a single file |
+| `--yes` / `-y` | Create dataset without prompting (if it doesn't exist yet) |
+| `--dry-run` | Preview files that would be uploaded, without uploading |
 
 ### `topk delete`
 
 Delete a document from a dataset.
 
 ```bash
-topk delete --dataset my-docs --document-id doc-001
-```
-
-```bash
-# Skip confirmation prompt
-topk delete --dataset my-docs --document-id doc-001 -y
+topk delete --document-id doc-001 --dataset my-docs
 ```
 
 | Flag | Description |
 |------|-------------|
-| `--dataset` / `-d` | Dataset name |
 | `--document-id` | Document ID |
-| `-y` | Skip confirmation prompt |
-
----
+| `--dataset` / `-d` | Dataset name |
+| `--yes` / `-y` | Skip confirmation prompt |
 
 ### `topk dataset`
 
@@ -196,8 +145,6 @@ topk dataset delete --dataset my-docs
 topk dataset delete --dataset my-docs -y
 ```
 
----
-
 ## Global flags
 
 These flags apply to all commands.
@@ -206,6 +153,11 @@ These flags apply to all commands.
 
 TopK API key. Overrides the `TOPK_API_KEY` environment variable.
 
-### `--json`
+### `--output`
 
-Output machine-readable JSON.
+Controls the output format. Accepts `human` (default) or `json`.
+
+```bash
+topk ask "What are the key findings?" -d my-docs --output json
+topk ask "What are the key findings?" -d my-docs -o json
+```
