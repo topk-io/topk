@@ -8,6 +8,7 @@ use napi::tokio::{
 };
 use napi_derive::napi;
 use std::sync::Arc;
+use topk_rs::proto::v1::ctx::file::InputFile;
 
 use super::spawn_stream_task;
 use super::STREAM_BUFFER_SIZE;
@@ -340,8 +341,6 @@ impl DatasetClient {
 }
 
 fn file_input_to_input_file(input: FileInput) -> Result<topk_rs::proto::v1::ctx::file::InputFile> {
-    use topk_rs::proto::v1::ctx::file::InputFile;
-
     if let Some(path) = input.path {
         return InputFile::from_path(path).map_err(|e| napi::Error::from_reason(format!("{e}")));
     }
