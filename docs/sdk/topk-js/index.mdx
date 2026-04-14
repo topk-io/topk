@@ -4,6 +4,49 @@ title: topk-js
 
 ## Classes
 
+### AskStream
+
+Async iterator over ask stream messages.
+
+This type implements JavaScript's async iterable protocol.
+It can be used with `for await...of` loops.
+
+#### See
+
+https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols#the_async_iterator_and_async_iterable_protocols
+
+**Constructors**
+
+**Constructor**
+
+```ts
+new AskStream(): AskStream;
+```
+
+**Returns**
+
+[`AskStream`](/sdk/topk-js/index#askstream)
+
+**Methods**
+
+##### \[asyncIterator\]()
+
+```ts
+asyncIterator: AsyncGenerator<
+  | Answer
+  | Search
+| Reason, void, undefined>;
+```
+
+**Returns**
+
+`AsyncGenerator`\<
+  \| [`Answer`](/sdk/topk-js/index#answer)
+  \| [`Search`](/sdk/topk-js/index#search-1)
+  \| [`Reason`](/sdk/topk-js/index#reason), `void`, `undefined`\>
+
+***
+
 ### Client
 
 The main TopK client for interacting with the TopK service.
@@ -32,6 +75,73 @@ Creates a new TopK client with the provided configuration.
 [`Client`](/sdk/topk-js/index#client)
 
 **Methods**
+
+##### ask()
+
+```ts
+ask(
+   query: string, 
+   datasets: (
+  | string
+  | {
+  dataset: string;
+  filter?: LogicalExpression;
+})[], 
+   filter?: LogicalExpression, 
+   mode?: Mode, 
+selectFields?: string[]): Promise<Answer>;
+```
+
+Queries context across one or more datasets and returns an answer.
+
+Exhausts the stream internally and returns the final Answer. Errors if the
+last message is missing or is not an Answer.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `query` | `string` |
+| `datasets` | ( \| `string` \| \{ `dataset`: `string`; `filter?`: [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression); \})[] |
+| `filter?` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `mode?` | [`Mode`](/sdk/topk-js/index#mode) |
+| `selectFields?` | `string`[] |
+
+**Returns**
+
+`Promise`\<[`Answer`](/sdk/topk-js/index#answer)\>
+
+##### askStream()
+
+```ts
+askStream(
+   query: string, 
+   datasets: (
+  | string
+  | {
+  dataset: string;
+  filter?: LogicalExpression;
+})[], 
+   filter?: LogicalExpression, 
+   mode?: Mode, 
+   selectFields?: string[]): AskStream;
+```
+
+Queries context across one or more datasets and yields results as an async iterator.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `query` | `string` |
+| `datasets` | ( \| `string` \| \{ `dataset`: `string`; `filter?`: [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression); \})[] |
+| `filter?` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `mode?` | [`Mode`](/sdk/topk-js/index#mode) |
+| `selectFields?` | `string`[] |
+
+**Returns**
+
+[`AskStream`](/sdk/topk-js/index#askstream)
 
 ##### collection()
 
@@ -65,6 +175,105 @@ listing, and deleting collections.
 **Returns**
 
 [`CollectionsClient`](/sdk/topk-js/index#collectionsclient)
+
+##### dataset()
+
+```ts
+dataset(name: string): DatasetClient;
+```
+
+Returns a client for interacting with a specific dataset.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `name` | `string` |
+
+**Returns**
+
+[`DatasetClient`](/sdk/topk-js/index#datasetclient)
+
+##### datasets()
+
+```ts
+datasets(): DatasetsClient;
+```
+
+Returns a client for managing datasets.
+
+This method provides access to dataset management operations like creating,
+listing, and deleting datasets.
+
+**Returns**
+
+[`DatasetsClient`](/sdk/topk-js/index#datasetsclient)
+
+##### search()
+
+```ts
+search(
+   query: string, 
+   datasets: (
+  | string
+  | {
+  dataset: string;
+  filter?: LogicalExpression;
+})[], 
+   topK: number, 
+   filter?: LogicalExpression, 
+selectFields?: string[]): Promise<SearchResult[]>;
+```
+
+Searches across one or more datasets and returns matching results.
+
+Consumes the streaming response and collects all results.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `query` | `string` |
+| `datasets` | ( \| `string` \| \{ `dataset`: `string`; `filter?`: [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression); \})[] |
+| `topK` | `number` |
+| `filter?` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `selectFields?` | `string`[] |
+
+**Returns**
+
+`Promise`\<[`SearchResult`](/sdk/topk-js/index#searchresult)[]\>
+
+##### searchStream()
+
+```ts
+searchStream(
+   query: string, 
+   datasets: (
+  | string
+  | {
+  dataset: string;
+  filter?: LogicalExpression;
+})[], 
+   topK: number, 
+   filter?: LogicalExpression, 
+   selectFields?: string[]): SearchStream;
+```
+
+Searches context across one or more datasets and yields results as an async iterator.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `query` | `string` |
+| `datasets` | ( \| `string` \| \{ `dataset`: `string`; `filter?`: [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression); \})[] |
+| `topK` | `number` |
+| `filter?` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `selectFields?` | `string`[] |
+
+**Returns**
+
+[`SearchStream`](/sdk/topk-js/index#searchstream-1)
 
 ***
 
@@ -298,7 +507,355 @@ Lists all collections in the current project.
 
 `Promise`\<[`Collection`](/sdk/topk-js/index#collection-1)[]\>
 
+***
+
+### DatasetClient
+
+**`Internal`**
+
+Client for interacting with a specific dataset.
+
+This client provides methods to perform operations on a specific dataset,
+including uploading files, managing metadata, and listing entries.
+
+**Methods**
+
+##### checkHandle()
+
+```ts
+checkHandle(handle: string): Promise<boolean>;
+```
+
+Checks if a handle has been processed.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `handle` | `string` |
+
+**Returns**
+
+`Promise`\<`boolean`\>
+
+##### delete()
+
+```ts
+delete(docId: string): Promise<HandleResponse>;
+```
+
+Deletes a document from the dataset.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `docId` | `string` |
+
+**Returns**
+
+`Promise`\<[`HandleResponse`](/sdk/topk-js/index#handleresponse)\>
+
+##### getMetadata()
+
+```ts
+getMetadata(ids: string[], fields?: string[]): Promise<Record<string, Record<string, any>>>;
+```
+
+Retrieves metadata for documents by their IDs.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `ids` | `string`[] |
+| `fields?` | `string`[] |
+
+**Returns**
+
+`Promise`\<`Record`\<`string`, `Record`\<`string`, `any`\>\>\>
+
+##### list()
+
+```ts
+list(fields?: string[], filter?: LogicalExpression): Promise<ListEntry[]>;
+```
+
+Lists files in the dataset.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `fields?` | `string`[] |
+| `filter?` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+`Promise`\<[`ListEntry`](/sdk/topk-js/index#listentry)[]\>
+
+##### listStream()
+
+```ts
+listStream(fields?: string[], filter?: LogicalExpression): DatasetListStream;
+```
+
+Lists files in the dataset as an async iterator.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `fields?` | `string`[] |
+| `filter?` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`DatasetListStream`](/sdk/topk-js/index#datasetliststream)
+
+##### updateMetadata()
+
+```ts
+updateMetadata(docId: string, metadata: Record<string, any>): Promise<HandleResponse>;
+```
+
+Updates metadata for a document.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `docId` | `string` |
+| `metadata` | `Record`\<`string`, `any`\> |
+
+**Returns**
+
+`Promise`\<[`HandleResponse`](/sdk/topk-js/index#handleresponse)\>
+
+##### upsertFile()
+
+```ts
+upsertFile(
+   docId: string, 
+   input: FileInput, 
+metadata: Record<string, any>): Promise<HandleResponse>;
+```
+
+Uploads a file to the dataset.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `docId` | `string` |
+| `input` | [`FileInput`](/sdk/topk-js/index#fileinput) |
+| `metadata` | `Record`\<`string`, `any`\> |
+
+**Returns**
+
+`Promise`\<[`HandleResponse`](/sdk/topk-js/index#handleresponse)\>
+
+##### waitForHandle()
+
+```ts
+waitForHandle(handle: string, config?: WaitConfig): Promise<void>;
+```
+
+Waits for a handle to be processed. Polls periodically until done or timeout.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `handle` | `string` |
+| `config?` | [`WaitConfig`](/sdk/topk-js/index#waitconfig) |
+
+**Returns**
+
+`Promise`\<`void`\>
+
+***
+
+### DatasetListStream
+
+Async iterator over dataset list entries.
+
+This type implements JavaScript's async iterable protocol.
+It can be used with `for await...of` loops.
+
+#### See
+
+https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols#the_async_iterator_and_async_iterable_protocols
+
+**Constructors**
+
+**Constructor**
+
+```ts
+new DatasetListStream(): DatasetListStream;
+```
+
+**Returns**
+
+[`DatasetListStream`](/sdk/topk-js/index#datasetliststream)
+
+**Methods**
+
+##### \[asyncIterator\]()
+
+```ts
+asyncIterator: AsyncGenerator<ListEntry, void, undefined>;
+```
+
+**Returns**
+
+`AsyncGenerator`\<[`ListEntry`](/sdk/topk-js/index#listentry), `void`, `undefined`\>
+
+##### next()
+
+```ts
+next(): Promise<ListEntry>;
+```
+
+Returns the next entry in the stream.
+
+**Returns**
+
+`Promise`\<[`ListEntry`](/sdk/topk-js/index#listentry)\>
+
+***
+
+### DatasetsClient
+
+**`Internal`**
+
+Client for managing datasets.
+
+This client provides methods to create, list, get, and delete datasets.
+
+**Methods**
+
+##### create()
+
+```ts
+create(name: string): Promise<Dataset>;
+```
+
+Creates a new dataset.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `name` | `string` |
+
+**Returns**
+
+`Promise`\<[`Dataset`](/sdk/topk-js/index#dataset-1)\>
+
+##### delete()
+
+```ts
+delete(name: string): Promise<void>;
+```
+
+Deletes a dataset and all its data.
+
+<Warning>
+  This operation is irreversible and will permanently delete all data in the dataset.
+</Warning>
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `name` | `string` |
+
+**Returns**
+
+`Promise`\<`void`\>
+
+##### get()
+
+```ts
+get(name: string): Promise<Dataset>;
+```
+
+Retrieves information about a specific dataset.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `name` | `string` |
+
+**Returns**
+
+`Promise`\<[`Dataset`](/sdk/topk-js/index#dataset-1)\>
+
+##### list()
+
+```ts
+list(): Promise<Dataset[]>;
+```
+
+Lists all datasets in the current project.
+
+**Returns**
+
+`Promise`\<[`Dataset`](/sdk/topk-js/index#dataset-1)[]\>
+
+***
+
+### SearchStream
+
+Async iterator over context search results.
+
+This type implements JavaScript's async iterable protocol.
+It can be used with `for await...of` loops.
+
+#### See
+
+https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols#the_async_iterator_and_async_iterable_protocols
+
+**Constructors**
+
+**Constructor**
+
+```ts
+new SearchStream(): SearchStream;
+```
+
+**Returns**
+
+[`SearchStream`](/sdk/topk-js/index#searchstream-1)
+
+**Methods**
+
+##### \[asyncIterator\]()
+
+```ts
+asyncIterator: AsyncGenerator<SearchResult, void, undefined>;
+```
+
+**Returns**
+
+`AsyncGenerator`\<[`SearchResult`](/sdk/topk-js/index#searchresult), `void`, `undefined`\>
+
 ## Interfaces
+
+### Answer
+
+An answer from the ask API containing facts and references.
+
+**Properties**
+
+| Property | Type |
+| ------ | ------ |
+| <a id="property-facts"></a> `facts` | [`Fact`](/sdk/topk-js/index#fact)[] |
+| <a id="property-refs"></a> `refs` | `Record`\<`string`, [`SearchResult`](/sdk/topk-js/index#searchresult)\> |
+
+***
 
 ### BackoffConfig
 
@@ -314,6 +871,19 @@ All fields are optional and will use sensible defaults if not provided.
 | <a id="property-base"></a> `base?` | `number` | Base multiplier for exponential backoff (default: 2.0) |
 | <a id="property-initbackoff"></a> `initBackoff?` | `number` | Initial delay before the first retry in milliseconds |
 | <a id="property-maxbackoff"></a> `maxBackoff?` | `number` | Maximum delay between retries in milliseconds |
+
+***
+
+### Chunk
+
+Text chunk content.
+
+**Properties**
+
+| Property | Type |
+| ------ | ------ |
+| <a id="property-docpages"></a> `docPages` | `number`[] |
+| <a id="property-text"></a> `text` | `string` |
 
 ***
 
@@ -373,6 +943,118 @@ including its data type, whether it's required, and any index configuration.
 
 ***
 
+### Content
+
+Content in a search result. One of chunk, page, or image.
+
+**Properties**
+
+| Property | Type |
+| ------ | ------ |
+| <a id="property-data"></a> `data` | \| [`Chunk`](/sdk/topk-js/index#chunk) \| [`Page`](/sdk/topk-js/index#page) \| [`Image`](/sdk/topk-js/index#image) |
+| <a id="property-type"></a> `type` | `"page"` \| `"image"` \| `"chunk"` |
+
+***
+
+### Dataset
+
+Represents a dataset in the TopK service.
+
+**Properties**
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="property-name-1"></a> `name` | `string` | Name of the dataset |
+| <a id="property-orgid-1"></a> `orgId` | `string` | Organization ID that owns the dataset |
+| <a id="property-projectid-1"></a> `projectId` | `string` | Project ID that contains the dataset |
+| <a id="property-region-2"></a> `region` | `string` | Region where the dataset is stored |
+
+***
+
+### Fact
+
+A fact extracted from context.
+
+**Properties**
+
+| Property | Type |
+| ------ | ------ |
+| <a id="property-fact"></a> `fact` | `string` |
+| <a id="property-refids"></a> `refIds` | `string`[] |
+
+***
+
+### FileInput
+
+Input for upserting a file to a dataset.
+
+Provide either a `path` to a file on disk, or inline data via `data` + `fileName` + `mimeType`.
+
+**Properties**
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="property-data-1"></a> `data?` | `Buffer` | Inline file data as a Buffer. |
+| <a id="property-filename"></a> `fileName?` | `string` | File name (required when using inline `data`). |
+| <a id="property-mimetype"></a> `mimeType?` | `string` | MIME type (required when using inline `data`). |
+| <a id="property-path"></a> `path?` | `string` | Path to a file on disk. If provided, fileName and mimeType are inferred. |
+
+***
+
+### HandleResponse
+
+Result of an upsert, delete, or metadata update operation.
+
+**Properties**
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="property-handle"></a> `handle` | `string` | Handle that can be used to check or wait for processing completion. |
+
+***
+
+### Image
+
+Image content.
+
+**Properties**
+
+| Property | Type |
+| ------ | ------ |
+| <a id="property-data-2"></a> `data` | `number`[] |
+| <a id="property-mimetype-1"></a> `mimeType` | `string` |
+
+***
+
+### ListEntry
+
+An entry returned when listing files in a dataset.
+
+**Properties**
+
+| Property | Type |
+| ------ | ------ |
+| <a id="property-id"></a> `id` | `string` |
+| <a id="property-metadata"></a> `metadata` | `Record`\<`string`, `any`\> |
+| <a id="property-mimetype-2"></a> `mimeType` | `string` |
+| <a id="property-name-2"></a> `name` | `string` |
+| <a id="property-size"></a> `size` | `number` |
+
+***
+
+### Page
+
+Page content with optional image.
+
+**Properties**
+
+| Property | Type |
+| ------ | ------ |
+| <a id="property-image"></a> `image?` | [`Image`](/sdk/topk-js/index#image) |
+| <a id="property-pagenumber"></a> `pageNumber` | `number` |
+
+***
+
 ### QueryOptions
 
 Options for query operations.
@@ -386,6 +1068,18 @@ guarantees and sequence number constraints.
 | ------ | ------ | ------ |
 | <a id="property-consistency"></a> `consistency?` | [`ConsistencyLevel`](/sdk/topk-js/index#consistencylevel) | Consistency level for the query |
 | <a id="property-lsn"></a> `lsn?` | `string` | Last sequence number to query at (for consistency) |
+
+***
+
+### Reason
+
+A reasoning step from the ask API.
+
+**Properties**
+
+| Property | Type |
+| ------ | ------ |
+| <a id="property-thought"></a> `thought` | `string` |
 
 ***
 
@@ -422,6 +1116,49 @@ All fields are optional and will use sensible defaults if not provided.
 | <a id="property-maxretries"></a> `maxRetries?` | `number` | Maximum number of retries to attempt before giving up |
 | <a id="property-timeout"></a> `timeout?` | `number` | Total timeout for the entire retry chain in milliseconds |
 
+***
+
+### Search
+
+A search step from the ask API containing an objective, facts, and references.
+
+**Properties**
+
+| Property | Type |
+| ------ | ------ |
+| <a id="property-facts-1"></a> `facts` | [`Fact`](/sdk/topk-js/index#fact)[] |
+| <a id="property-objective"></a> `objective` | `string` |
+| <a id="property-refs-1"></a> `refs` | `Record`\<`string`, [`SearchResult`](/sdk/topk-js/index#searchresult)\> |
+
+***
+
+### SearchResult
+
+A search result from context search or ask references.
+
+**Properties**
+
+| Property | Type |
+| ------ | ------ |
+| <a id="property-content"></a> `content` | [`Content`](/sdk/topk-js/index#content) |
+| <a id="property-dataset"></a> `dataset` | `string` |
+| <a id="property-docid"></a> `docId` | `string` |
+| <a id="property-doctype"></a> `docType` | `string` |
+| <a id="property-metadata-1"></a> `metadata` | `Record`\<`string`, `any`\> |
+
+***
+
+### WaitConfig
+
+Configuration for waiting on a handle to be processed.
+
+**Properties**
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="property-frequencysecs"></a> `frequencySecs?` | `number` | How often to poll for the handle status, in seconds. Default is 5. |
+| <a id="property-timeoutsecs"></a> `timeoutSecs?` | `number` | Maximum time to wait before timing out, in seconds. Default is 300. |
+
 ## Namespaces
 
 - [data](/sdk/topk-js/Namespace.data)
@@ -441,3 +1178,13 @@ Consistency levels for query operations.
 
 - `Indexed`: Query returns results as soon as they are indexed (faster, eventual consistency)
 - `Strong`: Query waits for all replicas to be consistent (slower, strong consistency)
+
+***
+
+### Mode
+
+```ts
+type Mode = "auto" | "summarize" | "research";
+```
+
+Mode for ask operations.
