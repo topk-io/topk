@@ -25,7 +25,7 @@ describe("Ask", () => {
       .upsertFile("doc1", { path: pdfPath }, {});
     await ctx.client.dataset(dataset.name).waitForHandle(response.handle);
 
-    const result = await ctx.client.ask("summarize", [dataset.name], undefined, "research");
+    const result = await ctx.client.ask("summarize", [dataset.name]);
 
     expect(result.facts.length).toBeGreaterThan(0);
   });
@@ -39,7 +39,7 @@ describe("Ask", () => {
       .upsertFile("doc1", { path: pdfPath }, {});
     await ctx.client.dataset(dataset.name).waitForHandle(response.handle);
 
-    const stream = ctx.client.askStream("summarize", [dataset.name], undefined, "research");
+    const stream = ctx.client.askStream("summarize", [dataset.name]);
 
     let answerReceived = false;
     for await (const message of stream) {
