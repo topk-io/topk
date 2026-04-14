@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use napi::bindgen_prelude::*;
+use napi::bindgen_prelude::{Either3, *};
 use napi_derive::napi;
 use topk_rs::proto::v1::ctx::ask_result::Message;
 use topk_rs::proto::v1::ctx::content::Data;
@@ -8,7 +8,8 @@ use topk_rs::proto::v1::ctx::content::Data;
 use crate::data::NativeValue;
 use crate::error::TopkError;
 use crate::expr::logical::LogicalExpression;
-use crate::utils::{js_object, js_set};
+
+pub type AskResultEither = Either3<Answer, Search, Reason>;
 
 /// Mode for ask operations.
 #[napi(string_enum = "lowercase")]
@@ -16,8 +17,7 @@ use crate::utils::{js_object, js_set};
 pub enum Mode {
     Auto,
     Summarize,
-    Reason,
-    DeepResearch,
+    Research,
 }
 
 impl From<Mode> for topk_rs::proto::v1::ctx::Mode {
@@ -25,13 +25,12 @@ impl From<Mode> for topk_rs::proto::v1::ctx::Mode {
         match mode {
             Mode::Auto => topk_rs::proto::v1::ctx::Mode::Auto,
             Mode::Summarize => topk_rs::proto::v1::ctx::Mode::Summarize,
-            Mode::Reason => topk_rs::proto::v1::ctx::Mode::Reason,
-            Mode::DeepResearch => topk_rs::proto::v1::ctx::Mode::DeepResearch,
+            Mode::Research => topk_rs::proto::v1::ctx::Mode::Research,
         }
     }
 }
 
-/// A source dataset for ask/search operations.
+/// A dataset selector for ask/search operations.
 /// Accepts a string (dataset name) or `{ dataset: string, filter?: LogicalExpression }`.
 #[derive(Debug, Clone)]
 pub struct Source {
@@ -90,9 +89,104 @@ impl ToNapiValue for Source {
         env: napi::sys::napi_env,
         val: Self,
     ) -> napi::Result<napi::sys::napi_value> {
+        use crate::utils::{js_object, js_set};
         let obj = js_object(env)?;
         js_set(env, obj, "dataset", val.dataset)?;
         Ok(obj)
+    }
+}
+
+/// Text chunk content.
+#[napi(object)]
+#[derive(Debug, Clone)]
+pub struct Chunk {
+    pub text: String,
+    pub doc_pages: Vec<u32>,
+}
+
+/// Image content.
+#[napi(object)]
+#[derive(Debug, Clone)]
+pub struct Image {
+    pub data: Vec<u8>,
+    pub mime_type: String,
+}
+
+/// Page content with optional image.
+#[napi(object)]
+#[derive(Debug, Clone)]
+pub struct Page {
+    pub page_number: u32,
+    pub image: Option<Image>,
+}
+
+/// Content in a search result. One of chunk, page, or image.
+#[napi(object, object_from_js = false)]
+#[derive(Debug, Clone)]
+pub struct Content {
+    #[napi(ts_type = "\"chunk\" | \"page\" | \"image\"")]
+    pub r#type: String,
+    pub data: Either3<Chunk, Page, Image>,
+}
+
+/// A search result from context search or ask references.
+#[napi(object, object_from_js = false)]
+#[derive(Debug, Clone)]
+pub struct SearchResult {
+    pub doc_id: String,
+    pub doc_type: String,
+    pub dataset: String,
+    pub content: Content,
+    #[napi(ts_type = "Record<string, any>")]
+    pub metadata: HashMap<String, NativeValue>,
+}
+
+impl TryFrom<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
+    type Error = napi::Error;
+
+    fn try_from(mut v: topk_rs::proto::v1::ctx::SearchResult) -> Result<Self> {
+        let content_data = v
+            .content
+            .take()
+            .ok_or_else(|| TopkError::from(topk_rs::Error::InvalidProto))?
+            .data
+            .take()
+            .ok_or_else(|| TopkError::from(topk_rs::Error::InvalidProto))?;
+
+        let content = match content_data {
+            Data::Chunk(chunk) => Content {
+                r#type: "chunk".to_string(),
+                data: Either3::A(Chunk {
+                    text: chunk.text,
+                    doc_pages: chunk.doc_pages,
+                }),
+            },
+            Data::Page(page) => Content {
+                r#type: "page".to_string(),
+                data: Either3::B(Page {
+                    page_number: page.page_number,
+                    image: page.image.map(|img| Image {
+                        data: img.data.to_vec(),
+                        mime_type: img.mime_type,
+                    }),
+                }),
+            },
+            Data::Image(img) => Content {
+                r#type: "image".to_string(),
+                data: Either3::C(Image {
+                    data: img.data.to_vec(),
+                    mime_type: img.mime_type,
+                }),
+            },
+        };
+
+        Ok(SearchResult {
+            doc_id: v.doc_id,
+            doc_type: v.doc_type,
+            dataset: v.dataset,
+            content,
+            metadata: v.metadata.into_iter().map(|(k, v)| (k, v.into())).collect(),
+        })
     }
 }
 
@@ -113,151 +207,21 @@ impl From<topk_rs::proto::v1::ctx::Fact> for Fact {
     }
 }
 
-/// Text chunk content.
-#[napi(object)]
-#[derive(Debug, Clone)]
-pub struct Chunk {
-    pub text: String,
-    pub doc_pages: Vec<u32>,
-}
-
-/// Image content.
-#[napi(object)]
-#[derive(Debug, Clone)]
-pub struct ImageContent {
-    pub data: Vec<u8>,
-    pub mime_type: String,
-}
-
-/// Page content with optional image.
-#[napi(object)]
-#[derive(Debug, Clone)]
-pub struct Page {
-    pub page_number: u32,
-    pub image: Option<ImageContent>,
-}
-
-/// Content from a search result. Has a `type` field ("chunk", "page", or "image")
-/// and a corresponding data field.
-#[napi(object)]
-#[derive(Debug, Clone)]
-pub struct Content {
-    /// "chunk", "page", or "image"
-    pub r#type: String,
-    pub chunk: Option<Chunk>,
-    pub page: Option<Page>,
-    pub image: Option<ImageContent>,
-}
-
-/// A search result from context search or ask references.
-#[derive(Debug, Clone)]
-pub struct ContextSearchResult {
-    pub doc_id: String,
-    pub doc_type: String,
-    pub dataset: String,
-    pub content: Content,
-    pub metadata: HashMap<String, NativeValue>,
-}
-
-impl TryFrom<topk_rs::proto::v1::ctx::SearchResult> for ContextSearchResult {
-    type Error = napi::Error;
-
-    fn try_from(mut v: topk_rs::proto::v1::ctx::SearchResult) -> Result<Self> {
-        let content_data = v
-            .content
-            .take()
-            .ok_or_else(|| TopkError::from(topk_rs::Error::InvalidProto))?
-            .data
-            .take()
-            .ok_or_else(|| TopkError::from(topk_rs::Error::InvalidProto))?;
-
-        let content = match content_data {
-            Data::Chunk(chunk) => Content {
-                r#type: "chunk".to_string(),
-                chunk: Some(Chunk {
-                    text: chunk.text,
-                    doc_pages: chunk.doc_pages,
-                }),
-                page: None,
-                image: None,
-            },
-            Data::Page(page) => Content {
-                r#type: "page".to_string(),
-                chunk: None,
-                page: Some(Page {
-                    page_number: page.page_number,
-                    image: page.image.map(|img| ImageContent {
-                        data: img.data.to_vec(),
-                        mime_type: img.mime_type,
-                    }),
-                }),
-                image: None,
-            },
-            Data::Image(img) => Content {
-                r#type: "image".to_string(),
-                chunk: None,
-                page: None,
-                image: Some(ImageContent {
-                    data: img.data.to_vec(),
-                    mime_type: img.mime_type,
-                }),
-            },
-        };
-
-        Ok(ContextSearchResult {
-            doc_id: v.doc_id,
-            doc_type: v.doc_type,
-            dataset: v.dataset,
-            content,
-            metadata: v
-                .metadata
-                .into_iter()
-                .map(|(k, v)| (k, v.into()))
-                .collect(),
-        })
-    }
-}
-
-impl ToNapiValue for ContextSearchResult {
-    unsafe fn to_napi_value(
-        env: napi::sys::napi_env,
-        val: Self,
-    ) -> napi::Result<napi::sys::napi_value> {
-        let obj = js_object(env)?;
-        js_set(env, obj, "docId", val.doc_id)?;
-        js_set(env, obj, "docType", val.doc_type)?;
-        js_set(env, obj, "dataset", val.dataset)?;
-        js_set(env, obj, "content", val.content)?;
-
-        let meta = js_object(env)?;
-        for (k, v) in val.metadata {
-            js_set(env, meta, &k, v)?;
-        }
-        let key = std::ffi::CString::new("metadata").unwrap();
-        napi::check_status!(napi::sys::napi_set_named_property(
-            env,
-            obj,
-            key.as_ptr(),
-            meta
-        ))?;
-
-        Ok(obj)
-    }
-}
-
 /// An answer from the ask API containing facts and references.
+#[napi(object, object_from_js = false)]
 #[derive(Debug, Clone)]
 pub struct Answer {
     pub facts: Vec<Fact>,
-    pub refs: HashMap<String, ContextSearchResult>,
+    pub refs: HashMap<String, SearchResult>,
 }
 
 /// A search step from the ask API containing an objective, facts, and references.
+#[napi(object, object_from_js = false)]
 #[derive(Debug, Clone)]
-pub struct SearchStep {
+pub struct Search {
     pub objective: String,
     pub facts: Vec<Fact>,
-    pub refs: HashMap<String, ContextSearchResult>,
+    pub refs: HashMap<String, SearchResult>,
 }
 
 /// A reasoning step from the ask API.
@@ -267,134 +231,60 @@ pub struct Reason {
     pub thought: String,
 }
 
-/// Result from the ask API. Exactly one of `answer`, `search`, or `reason` will be set,
-/// indicated by the `type` field.
-#[derive(Debug, Clone)]
-pub struct AskResult {
-    pub r#type: String,
-    pub answer: Option<Answer>,
-    pub search: Option<SearchStep>,
-    pub reason: Option<Reason>,
-}
+/// Converts a proto AskResult to Answer, returning an error for any other message type.
+pub fn convert_ask_result_to_answer(
+    result: topk_rs::proto::v1::ctx::AskResult,
+) -> napi::Result<Answer> {
+    let convert_refs =
+        |refs: HashMap<String, topk_rs::proto::v1::ctx::SearchResult>| {
+            refs.into_iter()
+                .map(|(k, v)| SearchResult::try_from(v).map(|sr| (k, sr)))
+                .collect::<napi::Result<HashMap<_, _>>>()
+        };
 
-impl TryFrom<Message> for AskResult {
-    type Error = napi::Error;
-
-    fn try_from(msg: Message) -> Result<Self> {
-        match msg {
-            Message::Answer(fa) => {
-                let refs = fa
-                    .refs
-                    .into_iter()
-                    .map(|(k, v)| ContextSearchResult::try_from(v).map(|sr| (k, sr)))
-                    .collect::<Result<HashMap<_, _>>>()?;
-
-                Ok(AskResult {
-                    r#type: "answer".to_string(),
-                    answer: Some(Answer {
-                        facts: fa.facts.into_iter().map(Fact::from).collect(),
-                        refs,
-                    }),
-                    search: None,
-                    reason: None,
-                })
-            }
-            Message::Search(sq) => {
-                let refs = sq
-                    .refs
-                    .into_iter()
-                    .map(|(k, v)| ContextSearchResult::try_from(v).map(|sr| (k, sr)))
-                    .collect::<Result<HashMap<_, _>>>()?;
-
-                Ok(AskResult {
-                    r#type: "search".to_string(),
-                    answer: None,
-                    search: Some(SearchStep {
-                        objective: sq.objective,
-                        facts: sq.facts.into_iter().map(Fact::from).collect(),
-                        refs,
-                    }),
-                    reason: None,
-                })
-            }
-            Message::Reason(r) => Ok(AskResult {
-                r#type: "reason".to_string(),
-                answer: None,
-                search: None,
-                reason: Some(Reason {
-                    thought: r.thought,
-                }),
-            }),
+    match result.message {
+        Some(Message::Answer(fa)) => {
+            let refs = convert_refs(fa.refs)?;
+            Ok(Answer {
+                facts: fa.facts.into_iter().map(Fact::from).collect(),
+                refs,
+            })
         }
+        Some(_) => Err(napi::Error::from_reason(
+            "ask: expected Answer but received a different message type",
+        )),
+        None => Err(napi::Error::from_reason("ask: result has no message")),
     }
 }
 
-unsafe fn refs_to_napi(
-    env: napi::sys::napi_env,
-    refs: HashMap<String, ContextSearchResult>,
-) -> napi::Result<napi::sys::napi_value> {
-    let obj = js_object(env)?;
-    for (k, v) in refs {
-        js_set(env, obj, &k, v)?;
-    }
-    Ok(obj)
-}
+/// Converts a proto AskResult into one of the three concrete JS types.
+pub fn convert_ask_result(
+    result: topk_rs::proto::v1::ctx::AskResult,
+) -> napi::Result<AskResultEither> {
+    let convert_refs =
+        |refs: HashMap<String, topk_rs::proto::v1::ctx::SearchResult>| {
+            refs.into_iter()
+                .map(|(k, v)| SearchResult::try_from(v).map(|sr| (k, sr)))
+                .collect::<napi::Result<HashMap<_, _>>>()
+        };
 
-impl ToNapiValue for Answer {
-    unsafe fn to_napi_value(
-        env: napi::sys::napi_env,
-        val: Self,
-    ) -> napi::Result<napi::sys::napi_value> {
-        let obj = js_object(env)?;
-        js_set(env, obj, "facts", val.facts)?;
-        let refs = refs_to_napi(env, val.refs)?;
-        let key = std::ffi::CString::new("refs").unwrap();
-        napi::check_status!(napi::sys::napi_set_named_property(
-            env,
-            obj,
-            key.as_ptr(),
-            refs
-        ))?;
-        Ok(obj)
-    }
-}
-
-impl ToNapiValue for SearchStep {
-    unsafe fn to_napi_value(
-        env: napi::sys::napi_env,
-        val: Self,
-    ) -> napi::Result<napi::sys::napi_value> {
-        let obj = js_object(env)?;
-        js_set(env, obj, "objective", val.objective)?;
-        js_set(env, obj, "facts", val.facts)?;
-        let refs = refs_to_napi(env, val.refs)?;
-        let key = std::ffi::CString::new("refs").unwrap();
-        napi::check_status!(napi::sys::napi_set_named_property(
-            env,
-            obj,
-            key.as_ptr(),
-            refs
-        ))?;
-        Ok(obj)
-    }
-}
-
-impl ToNapiValue for AskResult {
-    unsafe fn to_napi_value(
-        env: napi::sys::napi_env,
-        val: Self,
-    ) -> napi::Result<napi::sys::napi_value> {
-        let obj = js_object(env)?;
-        js_set(env, obj, "type", val.r#type)?;
-        if let Some(answer) = val.answer {
-            js_set(env, obj, "answer", answer)?;
+    match result.message {
+        Some(Message::Answer(fa)) => {
+            let refs = convert_refs(fa.refs)?;
+            Ok(Either3::A(Answer {
+                facts: fa.facts.into_iter().map(Fact::from).collect(),
+                refs,
+            }))
         }
-        if let Some(search) = val.search {
-            js_set(env, obj, "search", search)?;
+        Some(Message::Search(sq)) => {
+            let refs = convert_refs(sq.refs)?;
+            Ok(Either3::B(Search {
+                objective: sq.objective,
+                facts: sq.facts.into_iter().map(Fact::from).collect(),
+                refs,
+            }))
         }
-        if let Some(reason) = val.reason {
-            js_set(env, obj, "reason", reason)?;
-        }
-        Ok(obj)
+        Some(Message::Reason(r)) => Ok(Either3::C(Reason { thought: r.thought })),
+        None => Err(napi::Error::from_reason("AskResult has no message")),
     }
 }

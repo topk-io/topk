@@ -1,15 +1,22 @@
 use std::collections::HashMap;
 
-use futures_util::TryStreamExt;
+use futures_util::{StreamExt, TryStreamExt};
 use napi::bindgen_prelude::*;
+use napi::tokio::{
+    self,
+    sync::{mpsc, Mutex},
+};
 use napi_derive::napi;
 use std::sync::Arc;
 
+use super::spawn_stream_task;
+use super::STREAM_BUFFER_SIZE;
 use crate::data::NativeValue;
 use crate::data::Value;
 use crate::error::TopkError;
 use crate::expr::logical::LogicalExpression;
-use crate::utils::{js_object, js_set};
+
+type DatasetListStreamMessage = std::result::Result<ListEntry, String>;
 
 /// Input for upserting a file to a dataset.
 ///
@@ -39,22 +46,20 @@ pub struct WaitConfig {
 impl From<WaitConfig> for topk_rs::client::WaitConfig {
     fn from(config: WaitConfig) -> Self {
         topk_rs::client::WaitConfig {
-            frequency: std::time::Duration::from_secs(
-                config.frequency_secs.unwrap_or(5) as u64,
-            ),
-            timeout: std::time::Duration::from_secs(
-                config.timeout_secs.unwrap_or(300) as u64,
-            ),
+            frequency: std::time::Duration::from_secs(config.frequency_secs.unwrap_or(5) as u64),
+            timeout: std::time::Duration::from_secs(config.timeout_secs.unwrap_or(300) as u64),
         }
     }
 }
 
 /// An entry returned when listing files in a dataset.
+#[napi(object, object_from_js = false)]
 pub struct ListEntry {
     pub id: String,
     pub name: String,
     pub size: f64,
     pub mime_type: String,
+    #[napi(ts_type = "Record<string, any>")]
     pub metadata: HashMap<String, NativeValue>,
 }
 
@@ -74,39 +79,62 @@ impl From<topk_rs::proto::v1::ctx::ListEntry> for ListEntry {
     }
 }
 
-impl ToNapiValue for ListEntry {
-    unsafe fn to_napi_value(
-        env: napi::sys::napi_env,
-        val: Self,
-    ) -> napi::Result<napi::sys::napi_value> {
-        let obj = js_object(env)?;
-        js_set(env, obj, "id", val.id)?;
-        js_set(env, obj, "name", val.name)?;
-        js_set(env, obj, "size", val.size)?;
-        js_set(env, obj, "mimeType", val.mime_type)?;
-
-        let meta = js_object(env)?;
-        for (k, v) in val.metadata {
-            js_set(env, meta, &k, v)?;
-        }
-        let key = std::ffi::CString::new("metadata").unwrap();
-        napi::check_status!(napi::sys::napi_set_named_property(
-            env,
-            obj,
-            key.as_ptr(),
-            meta
-        ))?;
-
-        Ok(obj)
-    }
-}
-
 /// Result of an upsert, delete, or metadata update operation.
 #[napi(object)]
 #[derive(Debug, Clone)]
 pub struct HandleResponse {
     /// Handle that can be used to check or wait for processing completion.
     pub handle: String,
+}
+
+/// Async iterator over dataset list entries.
+#[napi(async_iterator)]
+pub struct DatasetListStream {
+    receiver: Arc<Mutex<mpsc::Receiver<DatasetListStreamMessage>>>,
+}
+
+impl DatasetListStream {
+    fn new(receiver: mpsc::Receiver<DatasetListStreamMessage>) -> Self {
+        Self {
+            receiver: Arc::new(Mutex::new(receiver)),
+        }
+    }
+}
+
+#[napi]
+impl AsyncGenerator for DatasetListStream {
+    type Yield = ListEntry;
+    type Next = ();
+    type Return = ();
+
+    fn next(
+        &mut self,
+        _value: Option<Self::Next>,
+    ) -> impl std::future::Future<Output = Result<Option<Self::Yield>>> + Send + 'static {
+        let receiver = self.receiver.clone();
+        async move {
+            let mut guard = receiver.lock().await;
+            match guard.recv().await {
+                Some(Ok(v)) => Ok(Some(v)),
+                Some(Err(e)) => Err(napi::Error::from_reason(e)),
+                None => Ok(None),
+            }
+        }
+    }
+}
+
+#[napi]
+impl DatasetListStream {
+    /// Returns the next entry in the stream.
+    #[napi]
+    pub async unsafe fn next(&mut self) -> napi::Result<Option<ListEntry>> {
+        let mut guard = self.receiver.lock().await;
+        match guard.recv().await {
+            Some(Ok(v)) => Ok(Some(v)),
+            Some(Err(e)) => Err(napi::Error::from_reason(e)),
+            None => Ok(None),
+        }
+    }
 }
 
 /// Client for interacting with a specific dataset.
@@ -172,10 +200,7 @@ impl DatasetClient {
             .map(|(id, doc)| {
                 (
                     id,
-                    doc.fields
-                        .into_iter()
-                        .map(|(k, v)| (k, v.into()))
-                        .collect(),
+                    doc.fields.into_iter().map(|(k, v)| (k, v.into())).collect(),
                 )
             })
             .collect())
@@ -231,11 +256,7 @@ impl DatasetClient {
 
     /// Waits for a handle to be processed. Polls periodically until done or timeout.
     #[napi]
-    pub async fn wait_for_handle(
-        &self,
-        handle: String,
-        config: Option<WaitConfig>,
-    ) -> Result<()> {
+    pub async fn wait_for_handle(&self, handle: String, config: Option<WaitConfig>) -> Result<()> {
         Ok(self
             .client
             .dataset(&self.dataset)
@@ -269,16 +290,60 @@ impl DatasetClient {
             .await
             .map_err(|e| napi::Error::from_reason(format!("stream error: {e}")))
     }
+
+    /// Lists files in the dataset as an async iterator.
+    #[napi]
+    pub fn list_stream(
+        &self,
+        fields: Option<Vec<String>>,
+        #[napi(ts_arg_type = "query.LogicalExpression | undefined")] filter: Option<
+            &LogicalExpression,
+        >,
+    ) -> DatasetListStream {
+        let (tx, rx) = mpsc::channel::<DatasetListStreamMessage>(STREAM_BUFFER_SIZE);
+        let client = self.client.clone();
+        let dataset = self.dataset.clone();
+        let filter = filter.map(|f| f.clone().into());
+
+        spawn_stream_task(move || {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .map_err(|e| format!("failed to build tokio runtime: {e}"))?;
+
+            runtime.block_on(async move {
+                let mut stream = match client.dataset(&dataset).list(fields, filter).await {
+                    Ok(response) => response.into_inner(),
+                    Err(error) => {
+                        let _ = tx.send(Err(format!("{error}"))).await;
+                        return;
+                    }
+                };
+
+                while let Some(result) = stream.next().await {
+                    let message = match result {
+                        Ok(entry) => Ok(entry.into()),
+                        Err(error) => Err(format!("stream error: {error}")),
+                    };
+
+                    if tx.send(message).await.is_err() {
+                        break;
+                    }
+                }
+            });
+
+            Ok(())
+        });
+
+        DatasetListStream::new(rx)
+    }
 }
 
-fn file_input_to_input_file(
-    input: FileInput,
-) -> Result<topk_rs::proto::v1::ctx::file::InputFile> {
+fn file_input_to_input_file(input: FileInput) -> Result<topk_rs::proto::v1::ctx::file::InputFile> {
     use topk_rs::proto::v1::ctx::file::InputFile;
 
     if let Some(path) = input.path {
-        return InputFile::from_path(path)
-            .map_err(|e| napi::Error::from_reason(format!("{e}")));
+        return InputFile::from_path(path).map_err(|e| napi::Error::from_reason(format!("{e}")));
     }
 
     if let Some(data) = input.data {
