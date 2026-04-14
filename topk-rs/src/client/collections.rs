@@ -73,16 +73,15 @@ impl CollectionsClient {
             .expect("Invalid collection proto"))
     }
 
-    pub async fn create<R: Into<String>>(
+    pub async fn create(
         &self,
         name: impl Into<String>,
         schema: impl Into<HashMap<String, FieldSpec>>,
-        region: Option<R>,
+        region: Option<String>,
     ) -> Result<Collection, Error> {
         let client = create_client!(CollectionServiceClient, self.channel, self.config).await?;
         let name = name.into();
         let schema = schema.into();
-        let region = region.map(|r| r.into());
 
         let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
