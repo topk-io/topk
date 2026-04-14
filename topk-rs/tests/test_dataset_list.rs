@@ -12,7 +12,7 @@ async fn test_dataset_list(ctx: &mut ProjectTestContext) {
     let response = ctx
         .client
         .datasets()
-        .create(ctx.wrap("test"))
+        .create(ctx.wrap("test"), None)
         .await
         .expect("could not create dataset");
 
