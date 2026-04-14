@@ -13,7 +13,7 @@ async fn test_get_metadata(ctx: &mut ProjectTestContext) {
     let response = ctx
         .client
         .datasets()
-        .create(ctx.wrap("test"))
+        .create(ctx.wrap("test"), None)
         .await
         .expect("could not create dataset");
 

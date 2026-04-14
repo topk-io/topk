@@ -20,7 +20,7 @@ async fn test_list_collections(ctx: &mut ProjectTestContext) {
     let c = ctx
         .client
         .collections()
-        .create(ctx.wrap("test"), HashMap::default())
+        .create(ctx.wrap("test"), HashMap::default(), None)
         .await
         .expect("could not create collection");
 
@@ -40,7 +40,7 @@ async fn test_create_collection(ctx: &mut ProjectTestContext) {
     let c = ctx
         .client
         .collections()
-        .create(ctx.wrap("test"), HashMap::default())
+        .create(ctx.wrap("test"), HashMap::default(), None)
         .await
         .expect("could not create collection");
 
@@ -60,7 +60,7 @@ async fn test_create_collection_with_invalid_name(ctx: &mut ProjectTestContext) 
     let err = ctx
         .client
         .collections()
-        .create(ctx.wrap("books with spaces"), HashMap::default())
+        .create(ctx.wrap("books with spaces"), HashMap::default(), None)
         .await
         .expect_err("could not create collection");
 
@@ -75,14 +75,14 @@ async fn test_create_collection_with_invalid_name(ctx: &mut ProjectTestContext) 
 async fn test_create_duplicate_collection(ctx: &mut ProjectTestContext) {
     ctx.client
         .collections()
-        .create(ctx.wrap("test"), HashMap::default())
+        .create(ctx.wrap("test"), HashMap::default(), None)
         .await
         .expect("could not create collection");
 
     let err = ctx
         .client
         .collections()
-        .create(ctx.wrap("test"), HashMap::default())
+        .create(ctx.wrap("test"), HashMap::default(), None)
         .await
         .expect_err("should not be able to create duplicate collection");
 
@@ -108,7 +108,7 @@ async fn test_delete_collection(ctx: &mut ProjectTestContext) {
     let c = ctx
         .client
         .collections()
-        .create(ctx.wrap("test"), HashMap::default())
+        .create(ctx.wrap("test"), HashMap::default(), None)
         .await
         .expect("could not create collection");
 
@@ -145,7 +145,7 @@ async fn test_get_collection(ctx: &mut ProjectTestContext) {
     let c = ctx
         .client
         .collections()
-        .create(ctx.wrap("test"), HashMap::default())
+        .create(ctx.wrap("test"), HashMap::default(), None)
         .await
         .expect("could not create collection");
 
@@ -172,6 +172,7 @@ async fn test_create_collection_with_invalid_vector_dimension(ctx: &mut ProjectT
                 "high_dim_vector".to_string(),
                 FieldSpec::f32_vector(20_000, false, VectorDistanceMetric::Cosine),
             )]),
+            None,
         )
         .await
         .expect_err("should fail");
@@ -200,6 +201,7 @@ async fn test_create_collection_with_invalid_multi_vector_quant(ctx: &mut Projec
                 None,
                 None,
             ),
+            None,
         )
         .await
         .expect_err("should fail to create collection");

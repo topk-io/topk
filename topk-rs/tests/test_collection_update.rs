@@ -31,7 +31,7 @@ async fn test_update_batch(ctx: &mut ProjectTestContext) {
     let collection = ctx
         .client
         .collections()
-        .create(ctx.wrap("test"), HashMap::default())
+        .create(ctx.wrap("test"), HashMap::default(), None)
         .await
         .expect("could not create collection");
 
@@ -89,7 +89,7 @@ async fn test_update_missing_id(ctx: &mut ProjectTestContext) {
     let collection = ctx
         .client
         .collections()
-        .create(ctx.wrap("test"), HashMap::default())
+        .create(ctx.wrap("test"), HashMap::default(), None)
         .await
         .expect("could not create collection");
 
@@ -135,7 +135,7 @@ async fn test_update_missing_id_with_fail_on_missing(ctx: &mut ProjectTestContex
     let collection = ctx
         .client
         .collections()
-        .create(ctx.wrap("test"), HashMap::default())
+        .create(ctx.wrap("test"), HashMap::default(), None)
         .await
         .expect("could not create collection");
 

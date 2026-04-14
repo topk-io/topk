@@ -316,6 +316,7 @@ async fn test_query_text_with_updates(ctx: &mut ProjectTestContext) {
             schema!(
                 "text" => FieldSpec::text(true, Some(KeywordIndexType::Text)),
             ),
+            None,
         )
         .await
         .expect("could not create collection");

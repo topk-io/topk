@@ -11,7 +11,7 @@ async fn test_query_tombstone_only(ctx: &mut ProjectTestContext) {
     let collection = ctx
         .client
         .collections()
-        .create(ctx.wrap("test"), HashMap::default())
+        .create(ctx.wrap("test"), HashMap::default(), None)
         .await
         .expect("could not create collection");
 

@@ -19,7 +19,7 @@ async fn test_ask(ctx: &mut ProjectTestContext) {
     let dataset = ctx
         .client
         .datasets()
-        .create(ctx.wrap("test"))
+        .create(ctx.wrap("test"), None)
         .await
         .expect("could not create dataset")
         .into_inner()

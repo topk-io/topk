@@ -252,7 +252,7 @@ async fn test_query_select_null_field(ctx: &mut ProjectTestContext) {
     let collection = ctx
         .client
         .collections()
-        .create(ctx.wrap("test"), HashMap::default())
+        .create(ctx.wrap("test"), HashMap::default(), None)
         .await
         .expect("could not create collection");
 
@@ -335,7 +335,7 @@ async fn test_query_select_union(ctx: &mut ProjectTestContext) {
     let collection = ctx
         .client
         .collections()
-        .create(ctx.wrap("test"), HashMap::default())
+        .create(ctx.wrap("test"), HashMap::default(), None)
         .await
         .expect("could not create collection");
 
@@ -409,7 +409,7 @@ async fn test_query_select_list(ctx: &mut ProjectTestContext) {
     let collection = ctx
         .client
         .collections()
-        .create(ctx.wrap("test"), HashMap::default())
+        .create(ctx.wrap("test"), HashMap::default(), None)
         .await
         .expect("could not create collection");
 

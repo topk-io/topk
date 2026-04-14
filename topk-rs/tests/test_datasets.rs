@@ -11,7 +11,7 @@ async fn test_list_datasets(ctx: &mut ProjectTestContext) {
     let create = ctx
         .client
         .datasets()
-        .create(ctx.wrap("test"))
+        .create(ctx.wrap("test"), None)
         .await
         .expect("could not create dataset");
 
@@ -35,7 +35,7 @@ async fn test_create_dataset(ctx: &mut ProjectTestContext) {
     let create = ctx
         .client
         .datasets()
-        .create(ctx.wrap("test"))
+        .create(ctx.wrap("test"), None)
         .await
         .expect("could not create dataset");
 
@@ -58,14 +58,14 @@ async fn test_create_dataset(ctx: &mut ProjectTestContext) {
 async fn test_create_duplicate_dataset(ctx: &mut ProjectTestContext) {
     ctx.client
         .datasets()
-        .create(ctx.wrap("test"))
+        .create(ctx.wrap("test"), None)
         .await
         .expect("could not create dataset");
 
     let err = ctx
         .client
         .datasets()
-        .create(ctx.wrap("test"))
+        .create(ctx.wrap("test"), None)
         .await
         .expect_err("should not be able to create duplicate dataset");
 
@@ -93,7 +93,7 @@ async fn test_delete_dataset(ctx: &mut ProjectTestContext) {
     let create = ctx
         .client
         .datasets()
-        .create(ctx.wrap("test"))
+        .create(ctx.wrap("test"), None)
         .await
         .expect("could not create dataset");
 
@@ -132,7 +132,7 @@ async fn test_get_dataset(ctx: &mut ProjectTestContext) {
     let create = ctx
         .client
         .datasets()
-        .create(ctx.wrap("test"))
+        .create(ctx.wrap("test"), None)
         .await
         .expect("could not create dataset");
 

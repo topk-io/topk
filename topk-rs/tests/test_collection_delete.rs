@@ -27,7 +27,7 @@ async fn test_delete_document(ctx: &mut ProjectTestContext) {
     let collection = ctx
         .client
         .collections()
-        .create(ctx.wrap("test"), HashMap::default())
+        .create(ctx.wrap("test"), HashMap::default(), None)
         .await
         .expect("could not create collection");
 
@@ -77,7 +77,7 @@ async fn test_delete_non_existent_document(ctx: &mut ProjectTestContext) {
     let collection = ctx
         .client
         .collections()
-        .create(ctx.wrap("test"), HashMap::default())
+        .create(ctx.wrap("test"), HashMap::default(), None)
         .await
         .expect("could not create collection");
 
@@ -97,7 +97,7 @@ async fn test_delete_with_filter(ctx: &mut ProjectTestContext) {
     let collection = ctx
         .client
         .collections()
-        .create(ctx.wrap("test"), HashMap::default())
+        .create(ctx.wrap("test"), HashMap::default(), None)
         .await
         .expect("could not create collection");
 
@@ -197,7 +197,7 @@ async fn test_delete_by_id_prefix(ctx: &mut ProjectTestContext) {
     let collection = ctx
         .client
         .collections()
-        .create(ctx.wrap("test"), HashMap::default())
+        .create(ctx.wrap("test"), HashMap::default(), None)
         .await
         .expect("could not create collection");
 
@@ -259,7 +259,7 @@ async fn test_delete_with_invalid_filter(ctx: &mut ProjectTestContext) {
     let collection = ctx
         .client
         .collections()
-        .create(ctx.wrap("test"), HashMap::default())
+        .create(ctx.wrap("test"), HashMap::default(), None)
         .await
         .expect("could not create collection");
 

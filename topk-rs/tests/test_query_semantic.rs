@@ -34,7 +34,7 @@ async fn test_semantic_index_create_with_invalid_model(ctx: &mut ProjectTestCont
     let err = ctx
         .client
         .collections()
-        .create(ctx.wrap("semantic"), schema)
+        .create(ctx.wrap("semantic"), schema, None)
         .await
         .expect_err("should not create collection");
 

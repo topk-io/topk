@@ -27,7 +27,7 @@ async fn test_query_count_empty_collection(ctx: &mut ProjectTestContext) {
     let collection: topk_rs::proto::v1::control::Collection = ctx
         .client
         .collections()
-        .create(ctx.wrap("empty"), schema!())
+        .create(ctx.wrap("empty"), schema!(), None)
         .await
         .expect("could not create collection");
 

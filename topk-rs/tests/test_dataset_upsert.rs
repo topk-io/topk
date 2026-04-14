@@ -34,7 +34,7 @@ async fn test_upsert_file_pdf(ctx: &mut ProjectTestContext) {
     let response = ctx
         .client
         .datasets()
-        .create(ctx.wrap("test"))
+        .create(ctx.wrap("test"), None)
         .await
         .expect("could not create dataset");
 
@@ -60,7 +60,7 @@ async fn test_upsert_file_markdown(ctx: &mut ProjectTestContext) {
     let response = ctx
         .client
         .datasets()
-        .create(ctx.wrap("test"))
+        .create(ctx.wrap("test"), None)
         .await
         .expect("could not create dataset");
 
@@ -86,7 +86,7 @@ async fn test_upsert_file_with_invalid_metadata(ctx: &mut ProjectTestContext) {
     let response = ctx
         .client
         .datasets()
-        .create(ctx.wrap("test"))
+        .create(ctx.wrap("test"), None)
         .await
         .expect("could not create dataset");
 
@@ -125,7 +125,7 @@ async fn test_upsert_file(#[case] file: &str) {
     let dataset = ctx
         .client
         .datasets()
-        .create(ctx.wrap("test"))
+        .create(ctx.wrap("test"), None)
         .await
         .expect("could not create dataset")
         .into_inner()
