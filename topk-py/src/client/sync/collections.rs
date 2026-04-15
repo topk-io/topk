@@ -49,7 +49,9 @@ impl CollectionsClient {
             .runtime
             .block_on(
                 py,
-                self.client.collections().create(&collection_name, schema),
+                self.client
+                    .collections()
+                    .create(&collection_name, schema, None),
             )
             .map_err(RustError)?;
 

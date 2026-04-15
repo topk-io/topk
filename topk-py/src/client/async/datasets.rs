@@ -50,18 +50,11 @@ impl AsyncDatasetsClient {
         let client = self.client.clone();
 
         future_into_py(py, async move {
-            let response = client
-                .datasets()
-                .list()
-                .await
-                .map_err(RustError)?;
+            let response = client.datasets().list().await.map_err(RustError)?;
             Python::attach(|py| {
                 into_py_response(py, response, |inner| {
-                    let datasets: Vec<Dataset> = inner
-                        .datasets
-                        .into_iter()
-                        .map(|i| i.into())
-                        .collect();
+                    let datasets: Vec<Dataset> =
+                        inner.datasets.into_iter().map(|i| i.into()).collect();
                     Ok(ListDatasetsResponse { datasets })
                 })
             })
@@ -75,22 +68,18 @@ impl AsyncDatasetsClient {
         future_into_py(py, async move {
             let response = client
                 .datasets()
-                .create(&dataset_name)
+                .create(&dataset_name, None)
                 .await
                 .map_err(RustError)?;
             Python::attach(|py| {
-                into_py_response(
-                    py,
-                    response,
-                    |inner| {
-                        let dataset: Dataset = inner
-                            .dataset
-                            .ok_or(topk_rs::Error::InvalidProto)
-                            .map_err(RustError)?
-                            .into();
-                        Ok(CreateDatasetResponse { dataset })
-                    },
-                )
+                into_py_response(py, response, |inner| {
+                    let dataset: Dataset = inner
+                        .dataset
+                        .ok_or(topk_rs::Error::InvalidProto)
+                        .map_err(RustError)?
+                        .into();
+                    Ok(CreateDatasetResponse { dataset })
+                })
             })
         })
         .map(|result| result.into())
@@ -105,9 +94,7 @@ impl AsyncDatasetsClient {
                 .delete(&dataset_name)
                 .await
                 .map_err(RustError)?;
-            Python::attach(|py| {
-                into_py_response(py, response, |_inner| Ok(DeleteDatasetResponse))
-            })
+            Python::attach(|py| into_py_response(py, response, |_inner| Ok(DeleteDatasetResponse)))
         })
         .map(|result| result.into())
     }

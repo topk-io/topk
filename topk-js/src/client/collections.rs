@@ -53,7 +53,7 @@ impl CollectionsClient {
         let collection = self
             .client
             .collections()
-            .create(name, proto_schema)
+            .create(name, proto_schema, None)
             .await
             .map_err(TopkError::from)?;
 
