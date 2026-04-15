@@ -5,8 +5,6 @@ use napi_derive::napi;
 use std::sync::Arc;
 
 /// Client for managing datasets.
-///
-/// This client provides methods to create, list, get, and delete datasets.
 /// @internal
 /// @hideconstructor
 #[napi]
@@ -20,7 +18,7 @@ impl DatasetsClient {
         Self { client }
     }
 
-    /// Lists all datasets in the current project.
+    /// List all datasets.
     #[napi]
     pub async fn list(&self) -> Result<Vec<Dataset>> {
         let response = self
@@ -38,7 +36,7 @@ impl DatasetsClient {
             .collect())
     }
 
-    /// Retrieves information about a specific dataset.
+    /// Get information about a specific dataset.
     #[napi]
     pub async fn get(&self, name: String) -> Result<Dataset> {
         let response = self
@@ -55,7 +53,7 @@ impl DatasetsClient {
             .ok_or_else(|| napi::Error::from_reason("dataset not found in response"))
     }
 
-    /// Creates a new dataset.
+    /// Create a new dataset.
     #[napi]
     pub async fn create(&self, name: String) -> Result<Dataset> {
         let response = self
@@ -72,11 +70,7 @@ impl DatasetsClient {
             .ok_or_else(|| napi::Error::from_reason("dataset not found in response"))
     }
 
-    /// Deletes a dataset and all its data.
-    ///
-    /// <Warning>
-    ///   This operation is irreversible and will permanently delete all data in the dataset.
-    /// </Warning>
+    /// Delete a dataset.
     #[napi]
     pub async fn delete(&self, name: String) -> Result<()> {
         self.client

@@ -59,16 +59,13 @@ pub struct ClientConfig {
     pub retry_config: Option<RetryConfig>,
 }
 
-/// The main TopK client for interacting with the TopK service.
-///
-/// This client provides access to collections and allows you to perform various operations
-/// like creating collections, querying data, and managing documents.
+/// Client for interacting with the TopK API. For available regions see https://docs.topk.io/regions
 #[napi]
 pub struct Client {
     client: Arc<topk_rs::Client>,
 }
 
-/// Async iterator over ask stream messages.
+/// Iterator for ask responses.
 #[napi(async_iterator)]
 pub struct AskStream {
     receiver: Arc<Mutex<mpsc::Receiver<AskStreamMessage>>>,
@@ -104,7 +101,7 @@ impl AsyncGenerator for AskStream {
     }
 }
 
-/// Async iterator over context search results.
+/// Iterator for search responses.
 #[napi(async_iterator)]
 pub struct SearchStream {
     receiver: Arc<Mutex<mpsc::Receiver<SearchStreamMessage>>>,
@@ -179,25 +176,19 @@ impl Client {
         CollectionClient::new(self.client.clone(), name)
     }
 
-    /// Returns a client for managing datasets.
-    ///
-    /// This method provides access to dataset management operations like creating,
-    /// listing, and deleting datasets.
+    /// Get a client for managing datasets.
     #[napi]
     pub fn datasets(&self) -> DatasetsClient {
         DatasetsClient::new(self.client.clone())
     }
 
-    /// Returns a client for interacting with a specific dataset.
+    /// Get a client for managing data operations on a specific dataset such as upserting files, managing metadata, and deleting files.
     #[napi]
     pub fn dataset(&self, name: String) -> DatasetClient {
         DatasetClient::new(self.client.clone(), name)
     }
 
-    /// Queries context across one or more datasets and returns an answer.
-    ///
-    /// Exhausts the stream internally and returns the final Answer. Errors if the
-    /// last message is missing or is not an Answer.
+    /// Ask a question and wait for the stream to complete, returning the last message.
     #[napi(
         ts_args_type = "query: string, datasets: Array<string | { dataset: string; filter?: query.LogicalExpression }>, filter?: query.LogicalExpression, mode?: Mode, selectFields?: Array<string>"
     )]
@@ -228,7 +219,7 @@ impl Client {
         convert_ask_result_to_answer(result)
     }
 
-    /// Queries context across one or more datasets and yields results as an async iterator.
+    /// Ask a question and get streaming responses as an async iterator.
     #[napi(
         ts_args_type = "query: string, datasets: Array<string | { dataset: string; filter?: query.LogicalExpression }>, filter?: query.LogicalExpression, mode?: Mode, selectFields?: Array<string>"
     )]
@@ -281,9 +272,7 @@ impl Client {
         AskStream::new(rx)
     }
 
-    /// Searches across one or more datasets and returns matching results.
-    ///
-    /// Consumes the streaming response and collects all results.
+    /// Search for documents and wait for the stream to complete, returning all results.
     #[napi(
         ts_args_type = "query: string, datasets: Array<string | { dataset: string; filter?: query.LogicalExpression }>, topK: number, filter?: query.LogicalExpression, selectFields?: Array<string>"
     )]
@@ -312,7 +301,7 @@ impl Client {
             .await
     }
 
-    /// Searches context across one or more datasets and yields results as an async iterator.
+    /// Search for documents and get streaming responses as an async iterator.
     #[napi(
         ts_args_type = "query: string, datasets: Array<string | { dataset: string; filter?: query.LogicalExpression }>, topK: number, filter?: query.LogicalExpression, selectFields?: Array<string>"
     )]
