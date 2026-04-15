@@ -6,7 +6,7 @@ title: topk-js
 
 ### AskStream
 
-Async iterator over ask stream messages.
+Iterator for ask responses.
 
 This type implements JavaScript's async iterable protocol.
 It can be used with `for await...of` loops.
@@ -49,10 +49,7 @@ asyncIterator: AsyncGenerator<
 
 ### Client
 
-The main TopK client for interacting with the TopK service.
-
-This client provides access to collections and allows you to perform various operations
-like creating collections, querying data, and managing documents.
+Client for interacting with the TopK API. For available regions see https://docs.topk.io/regions
 
 **Constructors**
 
@@ -92,10 +89,7 @@ ask(
 selectFields?: string[]): Promise<Answer>;
 ```
 
-Queries context across one or more datasets and returns an answer.
-
-Exhausts the stream internally and returns the final Answer. Errors if the
-last message is missing or is not an Answer.
+Ask a question and wait for the stream to complete, returning the last message.
 
 **Parameters**
 
@@ -127,7 +121,7 @@ askStream(
    selectFields?: string[]): AskStream;
 ```
 
-Queries context across one or more datasets and yields results as an async iterator.
+Ask a question and get streaming responses as an async iterator.
 
 **Parameters**
 
@@ -182,7 +176,7 @@ listing, and deleting collections.
 dataset(name: string): DatasetClient;
 ```
 
-Returns a client for interacting with a specific dataset.
+Get a client for managing data operations on a specific dataset such as upserting files, managing metadata, and deleting files.
 
 **Parameters**
 
@@ -200,10 +194,7 @@ Returns a client for interacting with a specific dataset.
 datasets(): DatasetsClient;
 ```
 
-Returns a client for managing datasets.
-
-This method provides access to dataset management operations like creating,
-listing, and deleting datasets.
+Get a client for managing datasets.
 
 **Returns**
 
@@ -225,9 +216,7 @@ search(
 selectFields?: string[]): Promise<SearchResult[]>;
 ```
 
-Searches across one or more datasets and returns matching results.
-
-Consumes the streaming response and collects all results.
+Search for documents and wait for the stream to complete, returning all results.
 
 **Parameters**
 
@@ -259,7 +248,7 @@ searchStream(
    selectFields?: string[]): SearchStream;
 ```
 
-Searches context across one or more datasets and yields results as an async iterator.
+Search for documents and get streaming responses as an async iterator.
 
 **Parameters**
 
@@ -513,10 +502,7 @@ Lists all collections in the current project.
 
 **`Internal`**
 
-Client for interacting with a specific dataset.
-
-This client provides methods to perform operations on a specific dataset,
-including uploading files, managing metadata, and listing entries.
+Client for dataset operations.
 
 **Methods**
 
@@ -526,7 +512,7 @@ including uploading files, managing metadata, and listing entries.
 checkHandle(handle: string): Promise<boolean>;
 ```
 
-Checks if a handle has been processed.
+Return whether the handle has been processed.
 
 **Parameters**
 
@@ -544,7 +530,7 @@ Checks if a handle has been processed.
 delete(docId: string): Promise<HandleResponse>;
 ```
 
-Deletes a document from the dataset.
+Delete a file from the dataset.
 
 **Parameters**
 
@@ -562,7 +548,7 @@ Deletes a document from the dataset.
 getMetadata(ids: string[], fields?: string[]): Promise<Record<string, Record<string, any>>>;
 ```
 
-Retrieves metadata for documents by their IDs.
+Get metadata for one or more documents.
 
 **Parameters**
 
@@ -581,7 +567,7 @@ Retrieves metadata for documents by their IDs.
 list(fields?: string[], filter?: LogicalExpression): Promise<ListEntry[]>;
 ```
 
-Lists files in the dataset.
+List files in the dataset.
 
 **Parameters**
 
@@ -600,7 +586,7 @@ Lists files in the dataset.
 listStream(fields?: string[], filter?: LogicalExpression): DatasetListStream;
 ```
 
-Lists files in the dataset as an async iterator.
+List files in the dataset as an async iterator.
 
 **Parameters**
 
@@ -619,7 +605,7 @@ Lists files in the dataset as an async iterator.
 updateMetadata(docId: string, metadata: Record<string, any>): Promise<HandleResponse>;
 ```
 
-Updates metadata for a document.
+Update metadata for a file.
 
 **Parameters**
 
@@ -637,18 +623,18 @@ Updates metadata for a document.
 ```ts
 upsertFile(
    docId: string, 
-   input: FileInput, 
+   input: InputFile, 
 metadata: Record<string, any>): Promise<HandleResponse>;
 ```
 
-Uploads a file to the dataset.
+Upsert a file to the dataset.
 
 **Parameters**
 
 | Parameter | Type |
 | ------ | ------ |
 | `docId` | `string` |
-| `input` | [`FileInput`](/sdk/topk-js/index#fileinput) |
+| `input` | [`InputFile`](/sdk/topk-js/index#inputfile) |
 | `metadata` | `Record`\<`string`, `any`\> |
 
 **Returns**
@@ -661,7 +647,9 @@ Uploads a file to the dataset.
 waitForHandle(handle: string, config?: WaitConfig): Promise<void>;
 ```
 
-Waits for a handle to be processed. Polls periodically until done or timeout.
+Poll until a handle has been processed or the timeout is reached.
+
+Throws if the handle is not processed within the configured timeout.
 
 **Parameters**
 
@@ -678,7 +666,7 @@ Waits for a handle to be processed. Polls periodically until done or timeout.
 
 ### DatasetListStream
 
-Async iterator over dataset list entries.
+Iterator for dataset list responses.
 
 This type implements JavaScript's async iterable protocol.
 It can be used with `for await...of` loops.
@@ -731,8 +719,6 @@ Returns the next entry in the stream.
 
 Client for managing datasets.
 
-This client provides methods to create, list, get, and delete datasets.
-
 **Methods**
 
 ##### create()
@@ -741,7 +727,7 @@ This client provides methods to create, list, get, and delete datasets.
 create(name: string): Promise<Dataset>;
 ```
 
-Creates a new dataset.
+Create a new dataset.
 
 **Parameters**
 
@@ -759,11 +745,7 @@ Creates a new dataset.
 delete(name: string): Promise<void>;
 ```
 
-Deletes a dataset and all its data.
-
-<Warning>
-  This operation is irreversible and will permanently delete all data in the dataset.
-</Warning>
+Delete a dataset.
 
 **Parameters**
 
@@ -781,7 +763,7 @@ Deletes a dataset and all its data.
 get(name: string): Promise<Dataset>;
 ```
 
-Retrieves information about a specific dataset.
+Get information about a specific dataset.
 
 **Parameters**
 
@@ -799,7 +781,7 @@ Retrieves information about a specific dataset.
 list(): Promise<Dataset[]>;
 ```
 
-Lists all datasets in the current project.
+List all datasets.
 
 **Returns**
 
@@ -809,7 +791,7 @@ Lists all datasets in the current project.
 
 ### SearchStream
 
-Async iterator over context search results.
+Iterator for search responses.
 
 This type implements JavaScript's async iterable protocol.
 It can be used with `for await...of` loops.
@@ -846,7 +828,7 @@ asyncIterator: AsyncGenerator<SearchResult, void, undefined>;
 
 ### Answer
 
-An answer from the ask API containing facts and references.
+Represents a final answer in an ask response.
 
 **Properties**
 
@@ -973,7 +955,7 @@ Represents a dataset in the TopK service.
 
 ### Fact
 
-A fact extracted from context.
+Represents a fact in an ask response.
 
 **Properties**
 
@@ -981,23 +963,6 @@ A fact extracted from context.
 | ------ | ------ |
 | <a id="property-fact"></a> `fact` | `string` |
 | <a id="property-refids"></a> `refIds` | `string`[] |
-
-***
-
-### FileInput
-
-Input for upserting a file to a dataset.
-
-Provide either a `path` to a file on disk, or inline data via `data` + `fileName` + `mimeType`.
-
-**Properties**
-
-| Property | Type | Description |
-| ------ | ------ | ------ |
-| <a id="property-data-1"></a> `data?` | `Buffer` | Inline file data as a Buffer. |
-| <a id="property-filename"></a> `fileName?` | `string` | File name (required when using inline `data`). |
-| <a id="property-mimetype"></a> `mimeType?` | `string` | MIME type (required when using inline `data`). |
-| <a id="property-path"></a> `path?` | `string` | Path to a file on disk. If provided, fileName and mimeType are inferred. |
 
 ***
 
@@ -1021,14 +986,31 @@ Image content.
 
 | Property | Type |
 | ------ | ------ |
-| <a id="property-data-2"></a> `data` | `number`[] |
-| <a id="property-mimetype-1"></a> `mimeType` | `string` |
+| <a id="property-data-1"></a> `data` | `number`[] |
+| <a id="property-mimetype"></a> `mimeType` | `string` |
+
+***
+
+### InputFile
+
+Input for upserting a file to a dataset.
+
+Provide either a `path` to a file on disk, or inline data via `data` + `fileName` + `mimeType`.
+
+**Properties**
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="property-data-2"></a> `data?` | `Buffer` | Inline file data as a Buffer. |
+| <a id="property-filename"></a> `fileName?` | `string` | File name (required when using inline `data`). |
+| <a id="property-mimetype-1"></a> `mimeType?` | `string` | MIME type (required when using inline `data`). |
+| <a id="property-path"></a> `path?` | `string` | Path to a file on disk. If provided, fileName and mimeType are inferred. |
 
 ***
 
 ### ListEntry
 
-An entry returned when listing files in a dataset.
+Entry in a dataset.
 
 **Properties**
 
@@ -1073,7 +1055,7 @@ guarantees and sequence number constraints.
 
 ### Reason
 
-A reasoning step from the ask API.
+Represents a reason in an ask response.
 
 **Properties**
 
@@ -1120,7 +1102,7 @@ All fields are optional and will use sensible defaults if not provided.
 
 ### Search
 
-A search step from the ask API containing an objective, facts, and references.
+Represents a sub-query in an ask response.
 
 **Properties**
 
@@ -1134,7 +1116,7 @@ A search step from the ask API containing an objective, facts, and references.
 
 ### SearchResult
 
-A search result from context search or ask references.
+Represents a search result in an ask response.
 
 **Properties**
 
@@ -1150,7 +1132,7 @@ A search result from context search or ask references.
 
 ### WaitConfig
 
-Configuration for waiting on a handle to be processed.
+Configuration for polling when waiting for a handle to be processed.
 
 **Properties**
 

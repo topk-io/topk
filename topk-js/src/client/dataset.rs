@@ -8,7 +8,6 @@ use napi::tokio::{
 };
 use napi_derive::napi;
 use std::sync::Arc;
-use topk_rs::proto::v1::ctx::file::InputFile;
 
 use super::spawn_stream_task;
 use super::STREAM_BUFFER_SIZE;
@@ -23,7 +22,7 @@ type DatasetListStreamMessage = std::result::Result<ListEntry, String>;
 ///
 /// Provide either a `path` to a file on disk, or inline data via `data` + `fileName` + `mimeType`.
 #[napi(object)]
-pub struct FileInput {
+pub struct InputFile {
     /// Path to a file on disk. If provided, fileName and mimeType are inferred.
     pub path: Option<String>,
     /// Inline file data as a Buffer.
@@ -34,7 +33,37 @@ pub struct FileInput {
     pub mime_type: Option<String>,
 }
 
-/// Configuration for waiting on a handle to be processed.
+impl TryFrom<InputFile> for topk_rs::proto::v1::ctx::file::InputFile {
+    type Error = napi::Error;
+
+    fn try_from(input: InputFile) -> Result<Self> {
+        if let Some(path) = input.path {
+            return topk_rs::proto::v1::ctx::file::InputFile::from_path(path)
+                .map_err(|e| napi::Error::from_reason(format!("{e}")));
+        }
+
+        if let Some(data) = input.data {
+            let file_name = input.file_name.ok_or_else(|| {
+                napi::Error::from_reason("fileName is required when using inline data")
+            })?;
+            let mime_type = input.mime_type.ok_or_else(|| {
+                napi::Error::from_reason("mimeType is required when using inline data")
+            })?;
+            return topk_rs::proto::v1::ctx::file::InputFile::from_bytes(
+                file_name,
+                data.to_vec(),
+                mime_type,
+            )
+            .map_err(|e| napi::Error::from_reason(format!("{e}")));
+        }
+
+        Err(napi::Error::from_reason(
+            "InputFile must have either `path` or `data`",
+        ))
+    }
+}
+
+/// Configuration for polling when waiting for a handle to be processed.
 #[napi(object)]
 #[derive(Debug, Clone)]
 pub struct WaitConfig {
@@ -53,7 +82,7 @@ impl From<WaitConfig> for topk_rs::client::WaitConfig {
     }
 }
 
-/// An entry returned when listing files in a dataset.
+/// Entry in a dataset.
 #[napi(object, object_from_js = false)]
 pub struct ListEntry {
     pub id: String,
@@ -88,7 +117,7 @@ pub struct HandleResponse {
     pub handle: String,
 }
 
-/// Async iterator over dataset list entries.
+/// Iterator for dataset list responses.
 #[napi(async_iterator)]
 pub struct DatasetListStream {
     receiver: Arc<Mutex<mpsc::Receiver<DatasetListStreamMessage>>>,
@@ -138,10 +167,7 @@ impl DatasetListStream {
     }
 }
 
-/// Client for interacting with a specific dataset.
-///
-/// This client provides methods to perform operations on a specific dataset,
-/// including uploading files, managing metadata, and listing entries.
+/// Client for dataset operations.
 /// @internal
 /// @hideconstructor
 #[napi]
@@ -156,22 +182,22 @@ impl DatasetClient {
         Self { client, dataset }
     }
 
-    /// Uploads a file to the dataset.
+    /// Upsert a file to the dataset.
     #[napi]
     pub async fn upsert_file(
         &self,
         doc_id: String,
-        input: FileInput,
+        input: InputFile,
         #[napi(ts_arg_type = "Record<string, any>")] metadata: HashMap<String, Value>,
     ) -> Result<HandleResponse> {
-        let input_file = file_input_to_input_file(input)?;
+        let input: topk_rs::proto::v1::ctx::file::InputFile = input.try_into()?;
         let metadata: HashMap<String, topk_rs::proto::v1::data::Value> =
             metadata.into_iter().map(|(k, v)| (k, v.into())).collect();
 
         let response = self
             .client
             .dataset(&self.dataset)
-            .upsert_file(doc_id, input_file, metadata)
+            .upsert_file(doc_id, input, metadata)
             .await
             .map_err(TopkError::from)?;
 
@@ -180,7 +206,7 @@ impl DatasetClient {
         })
     }
 
-    /// Retrieves metadata for documents by their IDs.
+    /// Get metadata for one or more documents.
     #[napi(ts_return_type = "Promise<Record<string, Record<string, any>>>")]
     pub async fn get_metadata(
         &self,
@@ -207,7 +233,7 @@ impl DatasetClient {
             .collect())
     }
 
-    /// Updates metadata for a document.
+    /// Update metadata for a file.
     #[napi]
     pub async fn update_metadata(
         &self,
@@ -229,7 +255,7 @@ impl DatasetClient {
         })
     }
 
-    /// Deletes a document from the dataset.
+    /// Delete a file from the dataset.
     #[napi(js_name = "delete")]
     pub async fn delete_doc(&self, doc_id: String) -> Result<HandleResponse> {
         let response = self
@@ -244,7 +270,7 @@ impl DatasetClient {
         })
     }
 
-    /// Checks if a handle has been processed.
+    /// Return whether the handle has been processed.
     #[napi]
     pub async fn check_handle(&self, handle: String) -> Result<bool> {
         Ok(self
@@ -255,7 +281,9 @@ impl DatasetClient {
             .map_err(TopkError::from)?)
     }
 
-    /// Waits for a handle to be processed. Polls periodically until done or timeout.
+    /// Poll until a handle has been processed or the timeout is reached.
+    ///
+    /// Throws if the handle is not processed within the configured timeout.
     #[napi]
     pub async fn wait_for_handle(&self, handle: String, config: Option<WaitConfig>) -> Result<()> {
         Ok(self
@@ -266,7 +294,7 @@ impl DatasetClient {
             .map_err(TopkError::from)?)
     }
 
-    /// Lists files in the dataset.
+    /// List files in the dataset.
     #[napi(ts_return_type = "Promise<Array<ListEntry>>")]
     pub async fn list(
         &self,
@@ -292,7 +320,7 @@ impl DatasetClient {
             .map_err(|e| napi::Error::from_reason(format!("stream error: {e}")))
     }
 
-    /// Lists files in the dataset as an async iterator.
+    /// List files in the dataset as an async iterator.
     #[napi]
     pub fn list_stream(
         &self,
@@ -338,25 +366,4 @@ impl DatasetClient {
 
         DatasetListStream::new(rx)
     }
-}
-
-fn file_input_to_input_file(input: FileInput) -> Result<topk_rs::proto::v1::ctx::file::InputFile> {
-    if let Some(path) = input.path {
-        return InputFile::from_path(path).map_err(|e| napi::Error::from_reason(format!("{e}")));
-    }
-
-    if let Some(data) = input.data {
-        let file_name = input.file_name.ok_or_else(|| {
-            napi::Error::from_reason("fileName is required when using inline data")
-        })?;
-        let mime_type = input.mime_type.ok_or_else(|| {
-            napi::Error::from_reason("mimeType is required when using inline data")
-        })?;
-        return InputFile::from_bytes(file_name, data.to_vec(), mime_type)
-            .map_err(|e| napi::Error::from_reason(format!("{e}")));
-    }
-
-    Err(napi::Error::from_reason(
-        "FileInput must have either `path` or `data`",
-    ))
 }

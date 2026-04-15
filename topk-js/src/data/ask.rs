@@ -30,8 +30,7 @@ impl From<Mode> for topk_rs::proto::v1::ctx::Mode {
     }
 }
 
-/// A dataset selector for ask/search operations.
-/// Accepts a string (dataset name) or `{ dataset: string, filter?: LogicalExpression }`.
+/// Represents a dataset with an optional filter.
 #[derive(Debug, Clone)]
 pub struct Source {
     pub dataset: String,
@@ -117,7 +116,7 @@ pub struct Content {
     pub data: Either3<Chunk, Page, Image>,
 }
 
-/// A search result from context search or ask references.
+/// Represents a search result in an ask response.
 #[napi(object, object_from_js = false)]
 #[derive(Debug, Clone)]
 pub struct SearchResult {
@@ -178,7 +177,7 @@ impl TryFrom<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
     }
 }
 
-/// A fact extracted from context.
+/// Represents a fact in an ask response.
 #[napi(object)]
 #[derive(Debug, Clone)]
 pub struct Fact {
@@ -195,7 +194,7 @@ impl From<topk_rs::proto::v1::ctx::Fact> for Fact {
     }
 }
 
-/// An answer from the ask API containing facts and references.
+/// Represents a final answer in an ask response.
 #[napi(object, object_from_js = false)]
 #[derive(Debug, Clone)]
 pub struct Answer {
@@ -203,7 +202,7 @@ pub struct Answer {
     pub refs: HashMap<String, SearchResult>,
 }
 
-/// A search step from the ask API containing an objective, facts, and references.
+/// Represents a sub-query in an ask response.
 #[napi(object, object_from_js = false)]
 #[derive(Debug, Clone)]
 pub struct Search {
@@ -212,31 +211,30 @@ pub struct Search {
     pub refs: HashMap<String, SearchResult>,
 }
 
-/// A reasoning step from the ask API.
+/// Represents a reason in an ask response.
 #[napi(object)]
 #[derive(Debug, Clone)]
 pub struct Reason {
     pub thought: String,
 }
 
+fn convert_refs(
+    refs: HashMap<String, topk_rs::proto::v1::ctx::SearchResult>,
+) -> napi::Result<HashMap<String, SearchResult>> {
+    refs.into_iter()
+        .map(|(k, v)| SearchResult::try_from(v).map(|sr| (k, sr)))
+        .collect()
+}
+
 /// Converts a proto AskResult to Answer, returning an error for any other message type.
 pub fn convert_ask_result_to_answer(
     result: topk_rs::proto::v1::ctx::AskResult,
 ) -> napi::Result<Answer> {
-    let convert_refs = |refs: HashMap<String, topk_rs::proto::v1::ctx::SearchResult>| {
-        refs.into_iter()
-            .map(|(k, v)| SearchResult::try_from(v).map(|sr| (k, sr)))
-            .collect::<napi::Result<HashMap<_, _>>>()
-    };
-
     match result.message {
-        Some(Message::Answer(fa)) => {
-            let refs = convert_refs(fa.refs)?;
-            Ok(Answer {
-                facts: fa.facts.into_iter().map(Fact::from).collect(),
-                refs,
-            })
-        }
+        Some(Message::Answer(fa)) => Ok(Answer {
+            facts: fa.facts.into_iter().map(Fact::from).collect(),
+            refs: convert_refs(fa.refs)?,
+        }),
         Some(_) => Err(napi::Error::from_reason(
             "ask: expected Answer but received a different message type",
         )),
@@ -248,28 +246,16 @@ pub fn convert_ask_result_to_answer(
 pub fn convert_ask_result(
     result: topk_rs::proto::v1::ctx::AskResult,
 ) -> napi::Result<AskResultEither> {
-    let convert_refs = |refs: HashMap<String, topk_rs::proto::v1::ctx::SearchResult>| {
-        refs.into_iter()
-            .map(|(k, v)| SearchResult::try_from(v).map(|sr| (k, sr)))
-            .collect::<napi::Result<HashMap<_, _>>>()
-    };
-
     match result.message {
-        Some(Message::Answer(fa)) => {
-            let refs = convert_refs(fa.refs)?;
-            Ok(Either3::A(Answer {
-                facts: fa.facts.into_iter().map(Fact::from).collect(),
-                refs,
-            }))
-        }
-        Some(Message::Search(sq)) => {
-            let refs = convert_refs(sq.refs)?;
-            Ok(Either3::B(Search {
-                objective: sq.objective,
-                facts: sq.facts.into_iter().map(Fact::from).collect(),
-                refs,
-            }))
-        }
+        Some(Message::Answer(fa)) => Ok(Either3::A(Answer {
+            facts: fa.facts.into_iter().map(Fact::from).collect(),
+            refs: convert_refs(fa.refs)?,
+        })),
+        Some(Message::Search(sq)) => Ok(Either3::B(Search {
+            objective: sq.objective,
+            facts: sq.facts.into_iter().map(Fact::from).collect(),
+            refs: convert_refs(sq.refs)?,
+        })),
         Some(Message::Reason(r)) => Ok(Either3::C(Reason { thought: r.thought })),
         None => Err(napi::Error::from_reason("AskResult has no message")),
     }
