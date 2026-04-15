@@ -84,18 +84,6 @@ impl FromNapiValue for Source {
     }
 }
 
-impl ToNapiValue for Source {
-    unsafe fn to_napi_value(
-        env: napi::sys::napi_env,
-        val: Self,
-    ) -> napi::Result<napi::sys::napi_value> {
-        use crate::utils::{js_object, js_set};
-        let obj = js_object(env)?;
-        js_set(env, obj, "dataset", val.dataset)?;
-        Ok(obj)
-    }
-}
-
 /// Text chunk content.
 #[napi(object)]
 #[derive(Debug, Clone)]
@@ -235,12 +223,11 @@ pub struct Reason {
 pub fn convert_ask_result_to_answer(
     result: topk_rs::proto::v1::ctx::AskResult,
 ) -> napi::Result<Answer> {
-    let convert_refs =
-        |refs: HashMap<String, topk_rs::proto::v1::ctx::SearchResult>| {
-            refs.into_iter()
-                .map(|(k, v)| SearchResult::try_from(v).map(|sr| (k, sr)))
-                .collect::<napi::Result<HashMap<_, _>>>()
-        };
+    let convert_refs = |refs: HashMap<String, topk_rs::proto::v1::ctx::SearchResult>| {
+        refs.into_iter()
+            .map(|(k, v)| SearchResult::try_from(v).map(|sr| (k, sr)))
+            .collect::<napi::Result<HashMap<_, _>>>()
+    };
 
     match result.message {
         Some(Message::Answer(fa)) => {
@@ -261,12 +248,11 @@ pub fn convert_ask_result_to_answer(
 pub fn convert_ask_result(
     result: topk_rs::proto::v1::ctx::AskResult,
 ) -> napi::Result<AskResultEither> {
-    let convert_refs =
-        |refs: HashMap<String, topk_rs::proto::v1::ctx::SearchResult>| {
-            refs.into_iter()
-                .map(|(k, v)| SearchResult::try_from(v).map(|sr| (k, sr)))
-                .collect::<napi::Result<HashMap<_, _>>>()
-        };
+    let convert_refs = |refs: HashMap<String, topk_rs::proto::v1::ctx::SearchResult>| {
+        refs.into_iter()
+            .map(|(k, v)| SearchResult::try_from(v).map(|sr| (k, sr)))
+            .collect::<napi::Result<HashMap<_, _>>>()
+    };
 
     match result.message {
         Some(Message::Answer(fa)) => {

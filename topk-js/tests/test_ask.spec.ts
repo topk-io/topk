@@ -3,7 +3,6 @@ import * as path from "node:path";
 import type { Answer, Reason, Search } from "../index.js";
 import { newProjectContext, ProjectContext } from "./setup";
 
-/** Stream chunks are plain objects from native code, not class instances — use shape guards. */
 function isReasonMessage(message: Answer | Search | Reason): message is Reason {
   return "thought" in message;
 }
