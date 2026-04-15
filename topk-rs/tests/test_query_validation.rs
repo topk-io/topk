@@ -80,7 +80,7 @@ async fn test_union_u32_and_binary(ctx: &mut ProjectTestContext) {
     let collection = ctx
         .client
         .collections()
-        .create(ctx.wrap("test"), schema!())
+        .create(ctx.wrap("test"), schema!(), None)
         .await
         .expect("could not create collection");
 

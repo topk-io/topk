@@ -17,7 +17,7 @@ pub async fn setup(ctx: &mut ProjectTestContext) -> Collection {
     let collection = ctx
         .client
         .collections()
-        .create(ctx.wrap("books"), schema())
+        .create(ctx.wrap("books"), schema(), None)
         .await
         .expect("could not create collection");
 

@@ -59,7 +59,7 @@ impl DatasetsClient {
     ) -> PyResult<Py<CreateDatasetResponse>> {
         let response = self
             .runtime
-            .block_on(py, self.client.datasets().create(&dataset_name))
+            .block_on(py, self.client.datasets().create(&dataset_name, None))
             .map_err(RustError)?;
         into_py_response(py, response, |inner| {
             let dataset: Dataset = inner

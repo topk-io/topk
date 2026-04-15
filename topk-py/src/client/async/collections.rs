@@ -62,7 +62,7 @@ impl AsyncCollectionsClient {
 
             let collection = client
                 .collections()
-                .create(&collection_name, schema)
+                .create(&collection_name, schema, None)
                 .await
                 .map_err(RustError)?;
 

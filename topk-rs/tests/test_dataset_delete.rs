@@ -13,7 +13,7 @@ async fn test_delete_document(ctx: &mut ProjectTestContext) {
     let dataset = ctx
         .client
         .datasets()
-        .create(ctx.wrap("test"))
+        .create(ctx.wrap("test"), None)
         .await
         .expect("could not create dataset")
         .into_inner()
@@ -83,7 +83,7 @@ async fn test_delete_non_existent_document_returns_handle(ctx: &mut ProjectTestC
     let response = ctx
         .client
         .datasets()
-        .create(ctx.wrap("test"))
+        .create(ctx.wrap("test"), None)
         .await
         .expect("could not create dataset");
 

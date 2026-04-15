@@ -76,6 +76,7 @@ impl DatasetsClient {
     pub async fn create(
         &self,
         name: impl Into<String>,
+        region: Option<String>,
     ) -> Result<Response<CreateDatasetResponse>, Error> {
         let client = create_client!(DatasetServiceClient, self.channel, self.config).await?;
         let name = name.into();
@@ -83,10 +84,14 @@ impl DatasetsClient {
         let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
             let name = name.clone();
+            let region = region.clone();
 
             async move {
                 client
-                    .create_dataset(CreateDatasetRequest { name })
+                    .create_dataset(CreateDatasetRequest {
+                        name,
+                        region,
+                    })
                     .await
                     .map_err(|e| match e.code() {
                         // Dataset already exists

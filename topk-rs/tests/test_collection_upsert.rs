@@ -32,7 +32,7 @@ async fn test_upsert_basic(ctx: &mut ProjectTestContext) {
     let collection = ctx
         .client
         .collections()
-        .create(ctx.wrap("test"), HashMap::default())
+        .create(ctx.wrap("test"), HashMap::default(), None)
         .await
         .expect("could not create collection");
 
@@ -52,7 +52,7 @@ async fn test_upsert_batch(ctx: &mut ProjectTestContext) {
     let collection = ctx
         .client
         .collections()
-        .create(ctx.wrap("test"), HashMap::default())
+        .create(ctx.wrap("test"), HashMap::default(), None)
         .await
         .expect("could not create collection");
 
@@ -72,7 +72,7 @@ async fn test_upsert_sequential(ctx: &mut ProjectTestContext) {
     let collection = ctx
         .client
         .collections()
-        .create(ctx.wrap("test"), HashMap::default())
+        .create(ctx.wrap("test"), HashMap::default(), None)
         .await
         .expect("could not create collection");
 
@@ -107,7 +107,7 @@ async fn test_upsert_no_documents(ctx: &mut ProjectTestContext) {
     let collection = ctx
         .client
         .collections()
-        .create(ctx.wrap("test"), HashMap::default())
+        .create(ctx.wrap("test"), HashMap::default(), None)
         .await
         .expect("could not create collection");
 
@@ -131,7 +131,7 @@ async fn test_upsert_invalid_document(ctx: &mut ProjectTestContext) {
     let collection = ctx
         .client
         .collections()
-        .create(ctx.wrap("test"), HashMap::default())
+        .create(ctx.wrap("test"), HashMap::default(), None)
         .await
         .expect("could not create collection");
 
@@ -170,6 +170,7 @@ async fn test_upsert_schema_validation(ctx: &mut ProjectTestContext) {
                     index: None,
                 },
             )]),
+            None,
         )
         .await
         .expect("could not create collection");
@@ -200,7 +201,7 @@ async fn test_upsert_max_doc_size(ctx: &mut ProjectTestContext) {
     let collection = ctx
         .client
         .collections()
-        .create(ctx.wrap("test"), HashMap::default())
+        .create(ctx.wrap("test"), HashMap::default(), None)
         .await
         .expect("could not create collection");
 
@@ -290,6 +291,7 @@ async fn test_upsert_vectors(ctx: &mut ProjectTestContext) {
                     FieldSpec::binary_vector(2, false, VectorDistanceMetric::Hamming),
                 ),
             ]),
+            None,
         )
         .await
         .expect("could not create collection");
@@ -339,6 +341,7 @@ async fn test_upsert_sparse_vectors(ctx: &mut ProjectTestContext) {
                     FieldSpec::u8_sparse_vector(true, VectorDistanceMetric::DotProduct),
                 ),
             ]),
+            None,
         )
         .await
         .expect("could not create collection");

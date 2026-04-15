@@ -66,6 +66,7 @@ pub async fn setup(
         .create(
             ctx.wrap(&format!("multi_vec_{}", dt.as_str_name())),
             schema(dt, quant, width, top_k),
+            None,
         )
         .await
         .expect("could not create collection");

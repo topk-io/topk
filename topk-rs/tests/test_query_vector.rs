@@ -190,6 +190,7 @@ async fn test_query_vector_distance_f16_vector(ctx: &mut ProjectTestContext) {
             schema!(
                 "embedding" => FieldSpec::f16_vector(16, true, VectorDistanceMetric::Euclidean),
             ),
+            None,
         )
         .await
         .expect("could not create collection");
@@ -237,6 +238,7 @@ async fn test_query_vector_distance_f8_vector(ctx: &mut ProjectTestContext) {
             schema!(
                 "embedding" => FieldSpec::f8_vector(16, true, VectorDistanceMetric::Euclidean),
             ),
+            None,
         )
         .await
         .expect("could not create collection");
