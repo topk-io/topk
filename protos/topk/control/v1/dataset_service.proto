@@ -31,6 +31,7 @@ message GetDatasetResponse {
 
 message CreateDatasetRequest {
   string name = 1;
+  // region is required in global control plane, optional otherwise
   optional string region = 2;
 }
 message CreateDatasetResponse {
