@@ -63,6 +63,7 @@
         "tab": "Python SDK",
         "icon": "/icons/python.svg",
         "pages": [
+          "sdk/topk-py/overview",
           "sdk/topk-py/index",
           "sdk/topk-py/data",
           "sdk/topk-py/error",
@@ -74,6 +75,7 @@
         "tab": "JavaScript SDK",
         "icon": "/icons/js.svg",
         "pages": [
+          "sdk/topk-js/overview",
           "sdk/topk-js/index",
           "sdk/topk-js/Namespace.data",
           "sdk/topk-js/Namespace.query_fn",
@@ -85,6 +87,7 @@
         "tab": "Database",
         "icon": "database",
         "pages": [
+          "database",
           {
             "group": "Guides",
             "pages": [
