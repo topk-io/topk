@@ -1,12 +1,14 @@
-# TopK JavaScript / TypeScript SDK
+# TopK JavaScript SDK
 
 [![npm version](https://img.shields.io/npm/v/topk-js.svg)](https://www.npmjs.com/package/topk-js)
 
-The TopK JavaScript library provides convenient access to the TopK API from Node.js environments. Fully TypeScript-compatible with type definitions for all request params and response fields.
+The TopK JavaScript library provides convenient access to the TopK API from Node.js environments with full Typescript support.
 
 ## Documentation
 
-The TopK documentation can be found at [docs.topk.io](https://docs.topk.io). The JavaScript SDK reference can be found at [docs.topk.io/sdk/topk-js](https://docs.topk.io/sdk/topk-js).
+The full documentation can be found at [docs.topk.io](https://docs.topk.io).
+
+The JavaScript SDK reference can be found at [docs.topk.io/sdk/topk-js](https://docs.topk.io/sdk/topk-js).
 
 ## Installation
 
@@ -14,6 +16,8 @@ The TopK documentation can be found at [docs.topk.io](https://docs.topk.io). The
 npm install topk-js
 # or
 yarn add topk-js
+# or
+pnpm install topk-js
 ```
 
 ## Prerequisites

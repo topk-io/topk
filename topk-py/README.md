@@ -6,7 +6,9 @@ The TopK Python library provides convenient access to the TopK API from any Pyth
 
 ## Documentation
 
-The TopK documentation can be found at [docs.topk.io](https://docs.topk.io). The Python SDK reference can be found at [docs.topk.io/sdk/topk-py](https://docs.topk.io/sdk/topk-py).
+The full documentation can be found at [docs.topk.io](https://docs.topk.io).
+
+The Python SDK reference can be found at [docs.topk.io/sdk/topk-py](https://docs.topk.io/sdk/topk-py).
 
 ## Installation
 

@@ -7,15 +7,15 @@
 
 TopK is an end-to-end context engine that turns unstructured documents into reliable context for agents and humans.
 
-## CLI
-
-- [TopK CLI](./topk-cli/)
-
 ## SDKs
 
-- [Python SDK](./topk-py/)
-- [JavaScript SDK](./topk-js/)
-- [Rust SDK](./topk-rs/)
+- [Python SDK](./topk-py/) - Python SDK for TopK API
+- [JavaScript SDK](./topk-js/) - Javascript SDK for TopK API with full Typescript support
+- [Rust SDK](./topk-rs/) - Rust SDK for TopK API
+
+## CLI
+
+- [TopK CLI](./topk-cli/) - CLI for TopK API
 
 ## What TopK Does
 

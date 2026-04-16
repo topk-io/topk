@@ -4,7 +4,7 @@ The TopK Rust library provides convenient access to the TopK API from Rust appli
 
 ## Documentation
 
-The TopK documentation can be found at [docs.topk.io](https://docs.topk.io).
+The full documentation can be found at [docs.topk.io](https://docs.topk.io).
 
 ## Installation
 
