@@ -5,19 +5,24 @@
 
 # TopK
 
-[TopK](https://topk.io) is a high-performance search engine designed to power modern product experiences. It supports hybrid search out of the box—combining keyword relevance, semantic understanding, and structured filtering in a single query. With a simple and expressive query language, TopK makes it easy to build fast, flexible, and accurate search experiences without stitching together multiple tools.
+TopK is an end-to-end context engine that turns unstructured documents into reliable context for agents and humans.
 
-TopK's query language is designed to be simple yet expressive, allowing you to search using semantic similarity, keyword matching, and filters—all in a single query. SDKs are available for Python and JavaScript.
+## CLI
+
+- [TopK CLI](./topk-cli/)
 
 ## SDKs
 
-- [Python SDK](./topk-py/README.md) - Python client for TopK
-- [Node.js SDK](./topk-js/README.md) - JavaScript/TypeScript client for Node.js environments
+- [Python SDK](./topk-py/)
+- [JavaScript SDK](./topk-js/)
+- [Rust SDK](./topk-rs/)
 
-## Documentation
+## What TopK Does
 
-For full documentation, visit [docs.topk.io](https://docs.topk.io)
+- Ingest and process unstructured documents while preserving structure from complex files like PDFs and images
+- Retrieve relevant context for search, Q&A, and research workflows
+- Power agentic workflows with grounded, source-backed results
 
-## Support & Feedback
+## Getting Started
 
-For support and feedback, please email us at support@topk.io
+Start with the [documentation](https://docs.topk.io) for quickstart guides, API reference, and product documentation.
