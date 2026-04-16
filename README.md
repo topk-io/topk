@@ -5,7 +5,7 @@
 
 # TopK
 
-TopK is an end-to-end context engine that turns unstructured documents into reliable context for agents and humans.
+TopK is an end-to-end solution that turns unstructured documents into reliable context for agents and humans.
 
 ## SDKs
 
@@ -16,6 +16,10 @@ TopK is an end-to-end context engine that turns unstructured documents into reli
 ## CLI
 
 - [TopK CLI](./topk-cli/) - CLI for TopK API
+
+## MCP
+
+- [TopK MCP](https://docs.topk.io/mcp) - Connect TopK to MCP-compatible AI agents
 
 ## What TopK Does
 

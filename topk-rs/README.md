@@ -1,6 +1,6 @@
 # TopK Rust SDK
 
-The TopK Rust library provides convenient access to the TopK API from Rust applications. It is built for asynchronous usage with Tokio and supports document ingestion, grounded Q&A, search, and retrieval workflows.
+The TopK Rust library provides convenient access to the TopK API from Rust applications.
 
 ## Documentation
 

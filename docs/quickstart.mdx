@@ -22,7 +22,13 @@ icon: "rocket"
 
         <Tip>If you don't have Homebrew installed, you can install it [here](https://brew.sh).</Tip>
       </Step>
-      <Step title="Get your API key">
+      <Step title="Authenticate">
+        ```bash
+        topk auth
+        ```
+
+        This command prompts you to either create a new API key or configure an existing one for the CLI, or you can provide your API key via the `TOPK_API_KEY` environment variable:
+
         ```bash
         export TOPK_API_KEY="your-api-key"
         ```
@@ -31,10 +37,10 @@ icon: "rocket"
         Upload a file to your dataset:
 
         ```bash
-        topk upload ./report.pdf -d quickstart --region aws-us-east-1-elastica
+        topk upload ./report.pdf --dataset quickstart
         ```
 
-        The `--region` determines where your data is stored. See [available regions](/regions).
+        <Info>The `--region` flag determines where your data is stored. See [available regions](/regions).</Info>
       </Step>
       <Step title="Ask a question">
         ```bash

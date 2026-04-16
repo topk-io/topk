@@ -35,15 +35,17 @@ client = Client(
 # Create a dataset
 client.datasets().create("my-docs")
 
-# Upsert a file and wait for it to be processed
+# Upload a file
 handle = client.dataset("my-docs").upsert_file(
     "doc-1",
     input="/path/to/document.pdf",
     metadata={"source": "internal"},
 )
+
+# Wait for the file to process (optional)
 client.dataset("my-docs").wait_for_handle(handle.handle)
 
-# Ask a question across the dataset
+# Ask a question
 answer = client.ask(
     "What are the key findings?",
     datasets=["my-docs"],
