@@ -106,9 +106,9 @@ Get a client for managing datasets.
 ask(
    self,
    query: str,
-   sources: Sequence[Source] | Sequence[str] | Sequence[dict[str, Any]],
+   datasets: Sequence[Source] | Sequence[str] | Sequence[dict[str, Any]],
    filter: Optional[query.LogicalExpr] = None,
-   mode: Optional[Literal['auto', 'summarize', 'reason', 'deep_research']] = None,
+   mode: Optional[Literal['auto', 'summarize', 'research']] = None,
    select_fields: Optional[Sequence[str]] = None
 )
 ```
@@ -120,9 +120,9 @@ Ask a question and wait for the stream to complete, returning the last message.
 | Parameter | Type |
 | --------- | ---- |
 | `query` | str |
-| `sources` | Sequence[[`Source`](#source)] &#124; Sequence[str] &#124; Sequence[dict[str, Any]] |
+| `datasets` | Sequence[[`Source`](#source)] &#124; Sequence[str] &#124; Sequence[dict[str, Any]] |
 | `filter` | Optional[[`query.LogicalExpr`](/sdk/topk-py/query#logicalexpr)] |
-| `mode` | Optional[Literal['auto', 'summarize', 'reason', 'deep_research']] |
+| `mode` | Optional[Literal['auto', 'summarize', 'research']] |
 | `select_fields` | Optional[Sequence[str]] |
 
 **Returns**
@@ -137,9 +137,9 @@ Ask a question and wait for the stream to complete, returning the last message.
 ask_stream(
    self,
    query: str,
-   sources: Sequence[Source] | Sequence[str] | Sequence[dict[str, Any]],
+   datasets: Sequence[Source] | Sequence[str] | Sequence[dict[str, Any]],
    filter: Optional[query.LogicalExpr] = None,
-   mode: Optional[Literal['auto', 'summarize', 'reason', 'deep_research']] = None,
+   mode: Optional[Literal['auto', 'summarize', 'research']] = None,
    select_fields: Optional[Sequence[str]] = None
 )
 ```
@@ -151,9 +151,9 @@ Ask a question and get streaming responses as an iterator.
 | Parameter | Type |
 | --------- | ---- |
 | `query` | str |
-| `sources` | Sequence[[`Source`](#source)] &#124; Sequence[str] &#124; Sequence[dict[str, Any]] |
+| `datasets` | Sequence[[`Source`](#source)] &#124; Sequence[str] &#124; Sequence[dict[str, Any]] |
 | `filter` | Optional[[`query.LogicalExpr`](/sdk/topk-py/query#logicalexpr)] |
-| `mode` | Optional[Literal['auto', 'summarize', 'reason', 'deep_research']] |
+| `mode` | Optional[Literal['auto', 'summarize', 'research']] |
 | `select_fields` | Optional[Sequence[str]] |
 
 **Returns**
@@ -168,7 +168,7 @@ Iterator[[`Answer`](#answer) | [`Search`](#search) | [`Reason`](#reason)]
 search(
    self,
    query: str,
-   sources: Sequence[Source] | Sequence[str] | Sequence[dict[str, Any]],
+   datasets: Sequence[Source] | Sequence[str] | Sequence[dict[str, Any]],
    top_k: int,
    filter: Optional[query.LogicalExpr] = None,
    select_fields: Optional[Sequence[str]] = None
@@ -182,7 +182,7 @@ Search for documents and wait for the stream to complete, returning all results.
 | Parameter | Type |
 | --------- | ---- |
 | `query` | str |
-| `sources` | Sequence[[`Source`](#source)] &#124; Sequence[str] &#124; Sequence[dict[str, Any]] |
+| `datasets` | Sequence[[`Source`](#source)] &#124; Sequence[str] &#124; Sequence[dict[str, Any]] |
 | `top_k` | int |
 | `filter` | Optional[[`query.LogicalExpr`](/sdk/topk-py/query#logicalexpr)] |
 | `select_fields` | Optional[Sequence[str]] |
@@ -199,7 +199,7 @@ list[[`SearchResult`](#searchresult)]
 search_stream(
    self,
    query: str,
-   sources: Sequence[Source] | Sequence[str] | Sequence[dict[str, Any]],
+   datasets: Sequence[Source] | Sequence[str] | Sequence[dict[str, Any]],
    top_k: int,
    filter: Optional[query.LogicalExpr] = None,
    select_fields: Optional[Sequence[str]] = None
@@ -213,7 +213,7 @@ Search for documents and get streaming responses as an iterator.
 | Parameter | Type |
 | --------- | ---- |
 | `query` | str |
-| `sources` | Sequence[[`Source`](#source)] &#124; Sequence[str] &#124; Sequence[dict[str, Any]] |
+| `datasets` | Sequence[[`Source`](#source)] &#124; Sequence[str] &#124; Sequence[dict[str, Any]] |
 | `top_k` | int |
 | `filter` | Optional[[`query.LogicalExpr`](/sdk/topk-py/query#logicalexpr)] |
 | `select_fields` | Optional[Sequence[str]] |
@@ -326,9 +326,9 @@ Get an async client for managing datasets.
 ask(
    self,
    query: str,
-   sources: Sequence[Source] | Sequence[str] | Sequence[dict[str, Any]],
+   datasets: Sequence[Source] | Sequence[str] | Sequence[dict[str, Any]],
    filter: Optional[query.LogicalExpr] = None,
-   mode: Optional[Literal['auto', 'summarize', 'reason', 'deep_research']] = None,
+   mode: Optional[Literal['auto', 'summarize', 'research']] = None,
    select_fields: Optional[Sequence[str]] = None
 )
 ```
@@ -340,9 +340,9 @@ Ask a question and wait for the stream to complete asynchronously, returning the
 | Parameter | Type |
 | --------- | ---- |
 | `query` | str |
-| `sources` | Sequence[[`Source`](#source)] &#124; Sequence[str] &#124; Sequence[dict[str, Any]] |
+| `datasets` | Sequence[[`Source`](#source)] &#124; Sequence[str] &#124; Sequence[dict[str, Any]] |
 | `filter` | Optional[[`query.LogicalExpr`](/sdk/topk-py/query#logicalexpr)] |
-| `mode` | Optional[Literal['auto', 'summarize', 'reason', 'deep_research']] |
+| `mode` | Optional[Literal['auto', 'summarize', 'research']] |
 | `select_fields` | Optional[Sequence[str]] |
 
 **Returns**
@@ -357,9 +357,9 @@ Awaitable[[`Answer`](#answer) | [`Search`](#search) | [`Reason`](#reason)]
 ask_stream(
    self,
    query: str,
-   sources: Sequence[Source] | Sequence[str] | Sequence[dict[str, Any]],
+   datasets: Sequence[Source] | Sequence[str] | Sequence[dict[str, Any]],
    filter: Optional[query.LogicalExpr] = None,
-   mode: Optional[Literal['auto', 'summarize', 'reason', 'deep_research']] = None,
+   mode: Optional[Literal['auto', 'summarize', 'research']] = None,
    select_fields: Optional[Sequence[str]] = None
 )
 ```
@@ -371,9 +371,9 @@ Ask a question and get streaming responses asynchronously as an async iterator.
 | Parameter | Type |
 | --------- | ---- |
 | `query` | str |
-| `sources` | Sequence[[`Source`](#source)] &#124; Sequence[str] &#124; Sequence[dict[str, Any]] |
+| `datasets` | Sequence[[`Source`](#source)] &#124; Sequence[str] &#124; Sequence[dict[str, Any]] |
 | `filter` | Optional[[`query.LogicalExpr`](/sdk/topk-py/query#logicalexpr)] |
-| `mode` | Optional[Literal['auto', 'summarize', 'reason', 'deep_research']] |
+| `mode` | Optional[Literal['auto', 'summarize', 'research']] |
 | `select_fields` | Optional[Sequence[str]] |
 
 **Returns**
@@ -388,7 +388,7 @@ AsyncIterator[[`Answer`](#answer) | [`Search`](#search) | [`Reason`](#reason)]
 search(
    self,
    query: str,
-   sources: Sequence[Source] | Sequence[str] | Sequence[dict[str, Any]],
+   datasets: Sequence[Source] | Sequence[str] | Sequence[dict[str, Any]],
    top_k: int,
    filter: Optional[query.LogicalExpr] = None,
    select_fields: Optional[Sequence[str]] = None
@@ -402,7 +402,7 @@ Search for documents and wait for the stream to complete asynchronously, returni
 | Parameter | Type |
 | --------- | ---- |
 | `query` | str |
-| `sources` | Sequence[[`Source`](#source)] &#124; Sequence[str] &#124; Sequence[dict[str, Any]] |
+| `datasets` | Sequence[[`Source`](#source)] &#124; Sequence[str] &#124; Sequence[dict[str, Any]] |
 | `top_k` | int |
 | `filter` | Optional[[`query.LogicalExpr`](/sdk/topk-py/query#logicalexpr)] |
 | `select_fields` | Optional[Sequence[str]] |
@@ -419,7 +419,7 @@ Awaitable[list[[`SearchResult`](#searchresult)]]
 search_stream(
    self,
    query: str,
-   sources: Sequence[Source] | Sequence[str] | Sequence[dict[str, Any]],
+   datasets: Sequence[Source] | Sequence[str] | Sequence[dict[str, Any]],
    top_k: int,
    filter: Optional[query.LogicalExpr] = None,
    select_fields: Optional[Sequence[str]] = None
@@ -433,7 +433,7 @@ Search for documents and get streaming responses asynchronously as an async iter
 | Parameter | Type |
 | --------- | ---- |
 | `query` | str |
-| `sources` | Sequence[[`Source`](#source)] &#124; Sequence[str] &#124; Sequence[dict[str, Any]] |
+| `datasets` | Sequence[[`Source`](#source)] &#124; Sequence[str] &#124; Sequence[dict[str, Any]] |
 | `top_k` | int |
 | `filter` | Optional[[`query.LogicalExpr`](/sdk/topk-py/query#logicalexpr)] |
 | `select_fields` | Optional[Sequence[str]] |
@@ -793,6 +793,7 @@ Represents a collection in the TopK system.
 | `project_id` | str |  |
 | `region` | str |  |
 | `schema` | dict[str, [`schema.FieldSpec`](/sdk/topk-py/schema#fieldspec)] |  |
+| `created_at` | str |  |
 
 ### Dataset
 
@@ -806,6 +807,7 @@ Represents a dataset in the TopK system.
 | `org_id` | str |  |
 | `project_id` | str |  |
 | `region` | str |  |
+| `created_at` | str |  |
 
 ### ListEntry
 

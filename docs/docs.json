@@ -15,6 +15,22 @@
     {
       "source": "/installation",
       "destination": "/quickstart"
+    },
+    {
+      "source": "/sdk/topk-py",
+      "destination": "/sdk/topk-py/index"
+    },
+    {
+      "source": "/sdk/topk-py/",
+      "destination": "/sdk/topk-py/index"
+    },
+    {
+      "source": "/sdk/topk-js",
+      "destination": "/sdk/topk-js/index"
+    },
+    {
+      "source": "/sdk/topk-js/",
+      "destination": "/sdk/topk-js/index"
     }
   ],
   "navigation": {

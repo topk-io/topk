@@ -74,6 +74,30 @@ function stripReadmeHeader(content: string): string {
   return out.join("\n").replace(/^\n+/, "");
 }
 
+function stripSection(content: string, heading: string): string {
+  const lines = content.split("\n");
+  const out: string[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    if (lines[i].trim() === heading) {
+      i++;
+      while (i < lines.length && !/^##\s+/.test(lines[i])) {
+        i++;
+      }
+      while (out.length > 0 && out[out.length - 1].trim() === "") {
+        out.pop();
+      }
+      continue;
+    }
+
+    out.push(lines[i]);
+    i++;
+  }
+
+  return out.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
 async function syncReadme(source: Source): Promise<void> {
   try {
     await fs.access(source.readme);
@@ -83,7 +107,7 @@ async function syncReadme(source: Source): Promise<void> {
   }
 
   const content = await fs.readFile(source.readme, "utf-8");
-  const body = stripReadmeHeader(content);
+  const body = stripSection(stripReadmeHeader(content), "## Documentation");
   const frontmatter = buildFrontmatter(source.frontmatter);
   const output = `${frontmatter}\n\n${body}\n`;
 

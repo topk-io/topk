@@ -1,7 +1,7 @@
 .PHONY: docs generate-docs
 
 build:
-	cd topk-py && maturin develop
+	cd topk-py && uvx maturin develop
 	cd topk-js && yarn dev
 
 docs: build
