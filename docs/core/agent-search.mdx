@@ -103,7 +103,7 @@ Once a dataset is created and your documents are processed, you can start runnin
   </Tab>
 </Tabs>
 
-## Narrowing search scope
+## Scoping the search
 
 At least one dataset must be provided. When you need to query across multiple datasets or want to restrict results to a specific one, you can pass multiple datasets or attach filters to them.
 
@@ -293,14 +293,14 @@ That is especially useful when you want to:
 
 <Tabs>
   <Tab title="CLI" icon="terminal">
-    Use `--field` (repeatable):
+    Use `--field` (repeatable) flag to include metadata field(s):
 
     ```bash
     topk ask "What changed in the refund policy?" -d policies --field title --field author --field year
     ```
   </Tab>
   <Tab title="Python SDK" icon="/icons/python.svg">
-    Use `select_fields`:
+    Use `select_fields` parameter to include metadata field(s):
 
     ```python
     answer = client.ask(
@@ -311,7 +311,7 @@ That is especially useful when you want to:
     ```
   </Tab>
   <Tab title="JavaScript SDK" icon="/icons/js.svg">
-    Use `selectFields`:
+    Use `selectFields` parameter to include metadata field(s):
 
     ```typescript
     const answer = await client.ask(
