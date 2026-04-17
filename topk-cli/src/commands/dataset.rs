@@ -208,7 +208,7 @@ pub async fn delete<C: DatasetsClient + ?Sized>(
     yes: bool,
     output: &Output,
 ) -> Result<DeleteDatasetResult, Error> {
-    if !yes && !output.confirm(&format!("Delete dataset '{}'? [y/N] ", name))? {
+    if !yes && !output.confirm(&format!("Delete dataset '{}'? ", name))? {
         return Ok(DeleteDatasetResult { deleted: false });
     }
 

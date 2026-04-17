@@ -133,20 +133,8 @@ pub async fn get_region<C: DatasetsClient + ?Sized>(
     response
         .dataset
         .as_ref()
-        .map(|dataset| dataset.region.clone())
+        .map(|dataset| normalize_region(&dataset.region))
         .ok_or_else(|| Error::MalformedResponse("dataset missing from get response".to_string()))
-}
-
-/// Busts the cached entry for `name` and re-fetches the region from the backend.
-///
-/// Use this after a regional call has failed with `DatasetNotFound` so the next
-/// attempt resolves from fresh backend state instead of a stale cache entry.
-pub async fn get_region_fresh<C: DatasetsClient + ?Sized>(
-    client: &mut C,
-    name: &str,
-) -> Result<String, Error> {
-    client.bust(name).await;
-    get_region(client, name).await
 }
 
 /// Resolves a single region shared by every dataset in `names`.
@@ -155,11 +143,11 @@ pub async fn get_region_fresh<C: DatasetsClient + ?Sized>(
 /// datasets span more than one region.
 pub async fn ensure_unique_region<C: DatasetsClient + ?Sized>(
     client: &mut C,
-    names: &[String],
+    names: Vec<String>,
 ) -> anyhow::Result<String> {
     let mut pairs: Vec<(String, String)> = Vec::with_capacity(names.len());
     for name in names {
-        let region = get_region(client, name).await?;
+        let region = get_region(client, &name).await?;
         pairs.push((name.clone(), region));
     }
 
@@ -177,7 +165,12 @@ pub async fn ensure_unique_region<C: DatasetsClient + ?Sized>(
         anyhow::bail!("cannot query datasets across regions: {details}");
     }
 
-    Ok(first.clone())
+    Ok(normalize_region(first))
+}
+
+/// TODO: remove when we resolve full region name as hostname
+pub fn normalize_region(region: &str) -> String {
+    region.rsplit('-').next().unwrap_or(region).to_lowercase()
 }
 
 #[cfg(test)]
@@ -262,6 +255,12 @@ mod tests {
         index
     }
 
+    #[test]
+    fn normalize_region_edge_cases() {
+        assert_eq!(normalize_region(""), "");
+        assert_eq!(normalize_region("only"), "only");
+    }
+
     #[tokio::test]
     async fn list_repopulates_index_from_remote() {
         let backend = FakeDatasetsClient::with_dataset(dataset("ds", "us-east-1"));
@@ -338,21 +337,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_region_fresh_busts_then_refetches() {
-        let backend = FakeDatasetsClient::with_dataset(dataset("ds", "eu-west-1"));
-        let mut client = CachedDatasetsClient::new(backend, indexed(dataset("ds", "us-east-1")));
-
-        let region = get_region_fresh(&mut client, "ds").await.unwrap();
-
-        assert_eq!(region, "eu-west-1");
-        assert_eq!(client.backend.get_calls, 1);
-        assert_eq!(
-            client.index.lookup("ds").map(|d| d.region.as_str()),
-            Some("eu-west-1")
-        );
-    }
-
-    #[tokio::test]
     async fn get_region_reads_dataset_region() {
         let backend = FakeDatasetsClient::with_dataset(dataset("ds", "us-east-1"));
         let mut client = CachedDatasetsClient::new(backend, DatasetIndex::default());
@@ -371,7 +355,7 @@ mod tests {
             .insert("b".into(), dataset("b", "us-east-1"));
         let mut client = CachedDatasetsClient::new(backend, DatasetIndex::default());
 
-        let region = ensure_unique_region(&mut client, &["a".into(), "b".into()])
+        let region = ensure_unique_region(&mut client, vec!["a".into(), "b".into()])
             .await
             .unwrap();
 
@@ -389,7 +373,7 @@ mod tests {
             .insert("b".into(), dataset("b", "eu-west-1"));
         let mut client = CachedDatasetsClient::new(backend, DatasetIndex::default());
 
-        let err = ensure_unique_region(&mut client, &["a".into(), "b".into()])
+        let err = ensure_unique_region(&mut client, vec!["a".into(), "b".into()])
             .await
             .unwrap_err();
 
@@ -407,7 +391,7 @@ mod tests {
         let mut client =
             CachedDatasetsClient::new(FakeDatasetsClient::default(), DatasetIndex::default());
 
-        let err = ensure_unique_region(&mut client, &[]).await.unwrap_err();
+        let err = ensure_unique_region(&mut client, vec![]).await.unwrap_err();
 
         assert!(err.to_string().contains("at least one dataset is required"));
     }

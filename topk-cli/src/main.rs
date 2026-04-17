@@ -2,16 +2,17 @@ use std::path::PathBuf;
 
 use topk::client::{make_client, make_global_client};
 use topk::commands;
+use topk::commands::upload::{run as upload_run, UploadArgs};
 use topk::datasets::{ensure_unique_region, get_region, make_cached_datasets_client};
 use topk::output::{Output, OutputFormat};
+use topk::util::resolve_query;
 
 use anyhow::Result;
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, Shell};
-use topk::util::resolve_query;
 use topk_rs::proto::v1::ctx::doc::DocId;
 
-use commands::{ask, auth, dataset, delete, list, search, upload};
+use commands::{ask, auth, dataset, delete, list, search};
 
 #[derive(Parser)]
 #[command(name = "topk", version)]
@@ -239,15 +240,17 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             let client = make_client(&api_key, &region, &host, https);
 
             output.print(
-                &upload::run(
-                    &client,
-                    &dataset,
-                    &pattern,
-                    recursive,
-                    concurrency as usize,
-                    yes,
-                    dry_run,
-                    wait,
+                &upload_run(
+                    UploadArgs {
+                        client: &client,
+                        dataset: &dataset,
+                        pattern: &pattern,
+                        recursive,
+                        concurrency,
+                        yes,
+                        dry_run,
+                        wait,
+                    },
                     output,
                 )
                 .await?,
@@ -276,8 +279,7 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             let mut datasets_client =
                 make_cached_datasets_client(make_global_client(&api_key, &host, https));
 
-            let region =
-                ensure_unique_region(&mut datasets_client, std::slice::from_ref(&dataset)).await?;
+            let region = get_region(&mut datasets_client, &dataset).await?;
             let client = make_client(&api_key, &region, &host, https);
 
             list::run(&client, &dataset, fields, output).await?;
@@ -299,7 +301,7 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
 
             let mut datasets_client =
                 make_cached_datasets_client(make_global_client(&api_key, &host, https));
-            let region = ensure_unique_region(&mut datasets_client, &datasets).await?;
+            let region = ensure_unique_region(&mut datasets_client, datasets.clone()).await?;
             let client = make_client(&api_key, &region, &host, https);
 
             ask::run(&client, query, datasets, mode, fields, output_dir, output).await?;
@@ -321,7 +323,7 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
 
             let mut datasets_client =
                 make_cached_datasets_client(make_global_client(&api_key, &host, https));
-            let region = ensure_unique_region(&mut datasets_client, &datasets).await?;
+            let region = ensure_unique_region(&mut datasets_client, datasets.clone()).await?;
             let client = make_client(&api_key, &region, &host, https);
 
             search::run(&client, query, datasets, top_k, fields, output_dir, output).await?;

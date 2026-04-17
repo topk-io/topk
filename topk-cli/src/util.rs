@@ -128,7 +128,7 @@ pub fn plural<'a>(count: usize, singular: &'a str, plural: &'a str) -> &'a str {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct UploadFile {
     pub(crate) path: PathBuf,
     pub(crate) doc_id: String,
