@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use bytesize::ByteSize;
 
 use topk_rs::{Client, Error};
@@ -24,6 +26,7 @@ pub async fn run(
     yes: bool,
     dry_run: bool,
     wait: bool,
+    upload_timeout: Option<Duration>,
     output: &Output,
 ) -> Result<UploadResult, Error> {
     let cwd = std::env::current_dir().map_err(Error::IoError)?;
@@ -56,8 +59,21 @@ pub async fn run(
 
     // Upload every file concurrently and display a live progress bar.
     let reporter = progress::upload_reporter(totals.count, output);
-    let uploading_output =
-        uploading::upload_all(client, dataset, files, concurrency, &*reporter).await;
+    let upload_fut = uploading::upload_all(client, dataset, files, concurrency, &*reporter);
+    let uploading_output = if let Some(timeout) = upload_timeout {
+        match tokio::time::timeout(timeout, upload_fut).await {
+            Ok(out) => out,
+            Err(_) => {
+                reporter.finish("Upload timed out.", &[]);
+                return Err(Error::DeadlineExceeded(format!(
+                    "upload timed out after {}s",
+                    timeout.as_secs()
+                )));
+            }
+        }
+    } else {
+        upload_fut.await
+    };
     let uploaded = uploading_output.handles.len();
     let failed = uploading_output.errors.len();
 
@@ -118,6 +134,34 @@ mod tests {
     }
 
     const TESTS_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests");
+
+    #[test_context(CliTestContext)]
+    #[tokio::test]
+    async fn upload_timeout_aborts(ctx: &mut CliTestContext) {
+        let dataset = ctx.wrap("timeout");
+        ctx.create_dataset(&dataset);
+        let out = cmd()
+            .current_dir(TESTS_DIR)
+            .args([
+                "-o",
+                "json",
+                "upload",
+                "pdfko.pdf",
+                "-y",
+                "--dataset",
+                &dataset,
+                "--timeout",
+                "0",
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            !out.status.success(),
+            "expected failure due to timeout, got success"
+        );
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert!(stderr.contains("timed out"), "{stderr}");
+    }
 
     #[test_context(CliTestContext)]
     #[tokio::test]

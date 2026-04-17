@@ -10,10 +10,10 @@ pub mod util;
 pub mod test_context {
     use assert_cmd::Command;
     use test_context::AsyncTestContext;
-    use topk_rs::{Client, ClientConfig};
+    use topk_rs::Client;
     use uuid::Uuid;
 
-    use crate::commands::dataset::CreateDatasetResult;
+    use crate::{client::make_global_client, commands::dataset::CreateDatasetResult};
 
     pub struct CliTestContext {
         pub client: Client,
@@ -78,11 +78,7 @@ pub mod test_context {
             let https =
                 std::env::var("TOPK_HTTPS").unwrap_or_else(|_| "true".to_string()) == "true";
 
-            let client = Client::new(
-                ClientConfig::new(api_key, region.clone())
-                    .with_host(host)
-                    .with_https(https),
-            );
+            let client = make_global_client(&api_key, &host, https);
 
             Self {
                 client,

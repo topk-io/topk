@@ -111,6 +111,9 @@ enum Commands {
         /// Wait for all uploaded files to be fully processed
         #[arg(short = 'w', long)]
         wait: bool,
+        /// Timeout for uploading files in seconds (default: 30 minutes)
+        #[arg(long, value_name = "SECS", default_value = "1800")]
+        timeout: u64,
         /// File path, directory, or glob pattern (e.g. "./report.pdf" "./docs" "*.pdf" "docs/**/*.md")
         #[arg(value_name = "PATTERN")]
         pattern: String,
@@ -226,6 +229,7 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             yes,
             dry_run,
             wait,
+            timeout,
             pattern,
         } => {
             let Some(api_key) = auth::resolve(cli.api_key, &host, https, false)? else {
@@ -248,6 +252,7 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
                     yes,
                     dry_run,
                     wait,
+                    Some(std::time::Duration::from_secs(timeout)),
                     output,
                 )
                 .await?,
