@@ -126,9 +126,13 @@ pub fn resolve(
 /// Presents the three-option menu and returns the resolved key, or `None` if
 /// the user chose Skip.
 pub fn prompt_menu(host: &str, https: bool) -> Result<Option<String>> {
-    let options = ["Get your API key", "I already have an API key", "Skip"];
+    let options = ["Create a new API key", "Use an existing API key", "Skip"];
 
-    let choice = Select::new().items(&options).default(0).interact()?;
+    let choice = Select::new()
+        .with_prompt("How would you like to authenticate with TopK?")
+        .items(&options)
+        .default(0)
+        .interact()?;
 
     match choice {
         0 => {

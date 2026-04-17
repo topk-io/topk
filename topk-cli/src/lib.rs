@@ -73,7 +73,7 @@ pub mod test_context {
             let scope = format!("topk-cli-{}", Uuid::new_v4().simple());
 
             let host = std::env::var("TOPK_HOST").expect("TOPK_HOST not set");
-            let region = std::env::var("TOPK_REGION").unwrap_or("emulator".to_string());
+            let region = std::env::var("TOPK_REGION").expect("TOPK_REGION not set");
             let api_key = std::env::var("TOPK_API_KEY").expect("TOPK_API_KEY not set");
             let https =
                 std::env::var("TOPK_HTTPS").unwrap_or_else(|_| "true".to_string()) == "true";
