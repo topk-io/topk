@@ -69,12 +69,6 @@ impl Output {
         }
     }
 
-    pub fn progress(&self, msg: &str) {
-        if matches!(self.format, OutputFormat::HumanReadable) {
-            progress(msg);
-        }
-    }
-
     pub fn success(&self, msg: &str) {
         if matches!(self.format, OutputFormat::HumanReadable) {
             eprintln!("{GREEN}✓{RESET} {msg}");
@@ -112,15 +106,6 @@ impl Output {
             }
             OutputFormat::HumanReadable => eprintln!("{BOLD}{RED}error:{RESET} {:#}", e),
         }
-    }
-}
-
-/// Prints a temporary progress message to stderr, overwriting the previous one.
-/// Always ephemeral — never appears in final stdout output.
-pub fn progress(msg: &str) {
-    if std::io::stderr().is_terminal() {
-        eprint!("\r\x1b[2K{}", msg);
-        let _ = std::io::stderr().flush();
     }
 }
 

@@ -2,9 +2,64 @@ use std::io::IsTerminal;
 
 use anyhow::Result;
 use dialoguer::{Password, Select};
+use serde::{Deserialize, Serialize};
 
 use crate::config;
-use crate::output::{GREEN, RESET};
+use crate::output::{RenderForHuman, GREEN, RESET};
+
+#[derive(Debug, clap::Subcommand)]
+pub enum AuthAction {
+    /// Log in by entering your API key
+    Login,
+    /// Remove the stored API key
+    Logout,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct LogoutResult {
+    pub removed: bool,
+    pub path: String,
+    pub env_var_still_set: bool,
+}
+
+impl RenderForHuman for LogoutResult {
+    fn render(&self) -> impl Into<String> {
+        let mut lines = Vec::new();
+        if self.removed {
+            lines.push(format!("Logged out. Removed \"{}\".", self.path));
+        } else {
+            lines.push(format!(
+                "No API key file to remove at \"{}\". You are already logged out.",
+                self.path
+            ));
+        }
+        if self.env_var_still_set {
+            lines.push(
+                "Note: TOPK_API_KEY is still set in your environment; unset it to fully log out."
+                    .to_string(),
+            );
+        }
+        lines.join("\n")
+    }
+}
+
+pub fn logout() -> Result<LogoutResult> {
+    let path = config::config_path()
+        .ok_or_else(|| anyhow::anyhow!("could not determine config directory"))?;
+
+    let removed = if path.exists() {
+        std::fs::remove_file(&path)?;
+        true
+    } else {
+        false
+    };
+
+    Ok(LogoutResult {
+        removed,
+        path: path.display().to_string(),
+        env_var_still_set: std::env::var("TOPK_API_KEY").is_ok(),
+    })
+}
 
 /// Resolves the API key for the current invocation.
 ///

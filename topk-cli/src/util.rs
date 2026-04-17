@@ -1,8 +1,10 @@
 use std::{
     fmt,
-    io::{self, IsTerminal},
+    io::{self, IsTerminal, Read},
     path::{Path, PathBuf},
 };
+
+use anyhow::Result;
 
 use chrono::{DateTime, Local, Utc};
 use globwalk::GlobWalkerBuilder;
@@ -313,6 +315,34 @@ impl Spinner {
         if let Some(m) = self.multi {
             let _ = m.clear();
         }
+    }
+}
+
+/// Resolves a query string from an optional CLI argument, falling back to stdin.
+///
+/// Returns:
+/// - `Some(query)` if `arg` is provided, or if stdin is piped (non-TTY) and
+///   produces non-empty trimmed content.
+/// - `None` if `arg` is absent and stdin is either a TTY or empty. Callers
+///   typically surface this as "query is required" to the user.
+pub fn resolve_query(arg: Option<String>) -> Result<Option<String>> {
+    if let Some(q) = arg {
+        return Ok(Some(q));
+    }
+
+    if io::stdin().is_terminal() {
+        return Ok(None);
+    }
+
+    let mut buf = String::new();
+    io::stdin().read_to_string(&mut buf)?;
+
+    let q = buf.trim().to_string();
+
+    if q.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(q))
     }
 }
 

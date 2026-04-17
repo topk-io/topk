@@ -37,10 +37,32 @@ pub fn save(config: &Config) -> Result<()> {
     Ok(())
 }
 
-/// Returns a masked display string, e.g. `sk_ab...xy`.
+/// Returns a masked display string, e.g. `****mnop`.
 pub fn mask(key: &str) -> String {
-    if key.len() <= 8 {
-        return "*".repeat(key.len());
+    let chars: Vec<_> = key.chars().collect();
+    if chars.len() <= 4 {
+        return "*".repeat(chars.len());
     }
-    format!("{}...{}", &key[..4], &key[key.len() - 4..])
+    let suffix: String = chars.iter().rev().take(4).copied().collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect();
+    format!("{}{}", "*".repeat(chars.len() - 4), suffix)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::mask;
+
+    #[test]
+    fn mask_handles_ascii_keys() {
+        assert_eq!(mask("sk_abcdefghijklmnop"), "***************mnop");
+        assert_eq!(mask("short"), "*hort");
+    }
+
+    #[test]
+    fn mask_handles_multibyte_keys() {
+        assert_eq!(mask("密钥🔒安全令牌XYZ"), "******牌XYZ");
+        assert_eq!(mask("🔒短"), "**");
+    }
 }

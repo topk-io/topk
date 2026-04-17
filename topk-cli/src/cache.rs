@@ -1,11 +1,8 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
-use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use topk_rs::proto::v1::control::Dataset;
-
-const TTL_MINUTES: i64 = 5;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DatasetEntry {
@@ -32,65 +29,54 @@ impl From<Dataset> for DatasetEntry {
 }
 
 impl From<DatasetEntry> for Dataset {
-    fn from(dataset: DatasetEntry) -> Self {
+    fn from(entry: DatasetEntry) -> Self {
         Self {
-            name: dataset.name,
-            region: dataset.region,
-            org_id: dataset.org_id,
-            project_id: dataset.project_id,
-            created_at: dataset.created_at,
+            name: entry.name,
+            region: entry.region,
+            org_id: entry.org_id,
+            project_id: entry.project_id,
+            created_at: entry.created_at,
         }
     }
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
-pub struct DatasetsCache {
-    pub fetched_at: Option<DateTime<Utc>>,
+pub struct DatasetIndex {
     #[serde(default)]
     pub datasets: Vec<DatasetEntry>,
 }
 
-impl DatasetsCache {
-    pub fn is_fresh(&self) -> bool {
-        self.fetched_at
-            .map(|t| Utc::now() - t < Duration::minutes(TTL_MINUTES))
-            .unwrap_or(false)
+impl DatasetIndex {
+    /// Returns the entry for `name`, or `None` if not cached.
+    ///
+    /// Dataset names are unique per project (across all regions), so at most one
+    /// entry can match.
+    pub fn lookup(&self, name: &str) -> Option<&DatasetEntry> {
+        self.datasets.iter().find(|d| d.name == name)
     }
 
-    pub fn contains(&self, name: &str) -> bool {
-        self.datasets.iter().any(|d| d.name == name)
-    }
-
-    pub fn get_regions(&self, name: &str) -> Vec<&str> {
-        self.datasets
-            .iter()
-            .filter(|d| d.name == name)
-            .map(|d| d.region.as_str())
-            .collect()
-    }
-
-    pub fn get(&self, name: impl Into<String>) -> Option<&DatasetEntry> {
-        let name = name.into();
-        let mut matches = self.datasets.iter().filter(|d| d.name == name);
-        let first = matches.next()?;
-        if matches.next().is_some() {
-            return None;
-        }
-        Some(first)
-    }
-
+    /// Replaces all entries from a full listing.
     pub fn set_all(&mut self, datasets: impl IntoIterator<Item = DatasetEntry>) {
         self.datasets = datasets.into_iter().collect();
-        self.fetched_at = Some(Utc::now());
     }
 
-    pub fn insert(&mut self, dataset: DatasetEntry) {
-        self.datasets
-            .retain(|d| !(d.name == dataset.name && d.region == dataset.region));
-        self.datasets.push(dataset);
+    /// Inserts an entry, replacing any existing one with the same `name`.
+    pub fn insert(&mut self, entry: DatasetEntry) {
+        self.datasets.retain(|d| d.name != entry.name);
+        self.datasets.push(entry);
     }
 
+    /// Removes the entry for `name` as part of a CRUD mutation (e.g. `delete`).
     pub fn remove(&mut self, name: &str) {
+        self.datasets.retain(|d| d.name != name);
+    }
+
+    /// Evicts the entry for `name` because the backend reported it stale.
+    ///
+    /// Semantically distinct from `remove` even though the implementation is the same:
+    /// use `bust` on negative feedback (e.g. `NotFound` from a regional call) so the
+    /// next lookup re-fetches from the backend.
+    pub fn bust(&mut self, name: &str) {
         self.datasets.retain(|d| d.name != name);
     }
 }
@@ -99,25 +85,25 @@ pub fn cache_path() -> Option<PathBuf> {
     dirs::config_dir().map(|d| d.join("topk").join("datasets.toml"))
 }
 
-pub(crate) fn load() -> DatasetsCache {
+pub(crate) fn load() -> DatasetIndex {
     let path = match cache_path() {
         Some(p) => p,
-        None => return DatasetsCache::default(),
+        None => return DatasetIndex::default(),
     };
     let content = match std::fs::read_to_string(&path) {
         Ok(c) => c,
-        Err(_) => return DatasetsCache::default(),
+        Err(_) => return DatasetIndex::default(),
     };
     toml::from_str(&content).unwrap_or_default()
 }
 
-pub(crate) fn save(cache: &DatasetsCache) -> Result<()> {
+pub(crate) fn save(index: &DatasetIndex) -> Result<()> {
     let path =
         cache_path().ok_or_else(|| anyhow::anyhow!("could not determine config directory"))?;
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    std::fs::write(&path, toml::to_string_pretty(cache)?)?;
+    std::fs::write(&path, toml::to_string_pretty(index)?)?;
     Ok(())
 }
 
@@ -135,113 +121,86 @@ mod tests {
         }
     }
 
-    fn fresh_cache(datasets: &[(&str, &str)]) -> DatasetsCache {
-        let mut c = DatasetsCache::default();
-        c.set_all(datasets.iter().map(|(n, r)| entry(n, r)));
-        c
+    fn index(datasets: &[(&str, &str)]) -> DatasetIndex {
+        let mut i = DatasetIndex::default();
+        i.set_all(datasets.iter().map(|(n, r)| entry(n, r)));
+        i
     }
 
     #[test]
-    fn is_fresh_when_just_populated() {
-        let cache = fresh_cache(&[("ds", "us-east-1")]);
-        assert!(cache.is_fresh());
+    fn lookup_returns_entry_for_known_name() {
+        let idx = index(&[("ds", "us-east-1")]);
+        assert_eq!(idx.lookup("ds").map(|d| d.region.as_str()), Some("us-east-1"));
     }
 
     #[test]
-    fn is_stale_when_fetched_at_is_old() {
-        let mut cache = fresh_cache(&[("ds", "us-east-1")]);
-        cache.fetched_at = Some(Utc::now() - Duration::minutes(TTL_MINUTES + 1));
-        assert!(!cache.is_fresh());
-    }
-
-    #[test]
-    fn is_stale_when_never_populated() {
-        let cache = DatasetsCache::default();
-        assert!(!cache.is_fresh());
-    }
-
-    #[test]
-    fn get_regions_returns_value_for_known_dataset() {
-        let cache = fresh_cache(&[("my-ds", "eu-west-1")]);
-        assert_eq!(cache.get_regions("my-ds"), vec!["eu-west-1"]);
-    }
-
-    #[test]
-    fn get_regions_returns_multiple_when_same_name_in_different_regions() {
-        let cache = fresh_cache(&[("ds", "us-east-1"), ("ds", "eu-west-1")]);
-        let mut regions = cache.get_regions("ds");
-        regions.sort();
-        assert_eq!(regions, vec!["eu-west-1", "us-east-1"]);
-    }
-
-    #[test]
-    fn get_regions_returns_empty_for_unknown_dataset() {
-        let cache = fresh_cache(&[("other", "us-east-1")]);
-        assert!(cache.get_regions("missing").is_empty());
-    }
-
-    #[test]
-    fn contains_returns_true_for_known_dataset() {
-        let cache = fresh_cache(&[("ds", "us-east-1")]);
-        assert!(cache.contains("ds"));
-        assert!(!cache.contains("other"));
-    }
-
-    #[test]
-    fn get_returns_single_cached_dataset() {
-        let cache = fresh_cache(&[("ds", "us-east-1")]);
-        assert_eq!(
-            cache.get("ds").map(|d| d.region.as_str()),
-            Some("us-east-1")
-        );
-    }
-
-    #[test]
-    fn get_returns_none_when_dataset_exists_in_multiple_regions() {
-        let cache = fresh_cache(&[("ds", "us-east-1"), ("ds", "eu-west-1")]);
-        assert!(cache.get("ds").is_none());
+    fn lookup_returns_none_for_unknown_name() {
+        let idx = index(&[("other", "us-east-1")]);
+        assert!(idx.lookup("missing").is_none());
     }
 
     #[test]
     fn set_all_replaces_existing_entries() {
-        let mut cache = fresh_cache(&[("old", "us-east-1")]);
-        cache.set_all([entry("new", "eu-west-1")]);
-        assert!(cache.get_regions("new").contains(&"eu-west-1"));
-        assert!(cache.get_regions("old").is_empty());
+        let mut idx = index(&[("old", "us-east-1")]);
+        idx.set_all([entry("new", "eu-west-1")]);
+        assert!(idx.lookup("new").is_some());
+        assert!(idx.lookup("old").is_none());
     }
 
     #[test]
     fn insert_adds_entry_without_clearing_others() {
-        let mut cache = fresh_cache(&[("a", "us-east-1")]);
-        cache.insert(entry("b", "eu-west-1"));
-        assert_eq!(cache.get_regions("a"), vec!["us-east-1"]);
-        assert_eq!(cache.get_regions("b"), vec!["eu-west-1"]);
+        let mut idx = index(&[("a", "us-east-1")]);
+        idx.insert(entry("b", "eu-west-1"));
+        assert!(idx.lookup("a").is_some());
+        assert!(idx.lookup("b").is_some());
     }
 
     #[test]
-    fn insert_replaces_same_name_and_region() {
-        let mut cache = fresh_cache(&[("a", "us-east-1")]);
-        let mut updated = entry("a", "us-east-1");
+    fn insert_replaces_same_name() {
+        let mut idx = index(&[("a", "us-east-1")]);
+        let mut updated = entry("a", "eu-west-1");
         updated.created_at = "updated".to_string();
-        cache.insert(updated);
-        assert_eq!(cache.get("a").unwrap().created_at, "updated");
+        idx.insert(updated);
+        let entry = idx.lookup("a").unwrap();
+        assert_eq!(entry.region, "eu-west-1");
+        assert_eq!(entry.created_at, "updated");
     }
 
     #[test]
-    fn remove_deletes_all_regions_for_name() {
-        let mut cache = fresh_cache(&[("a", "us-east-1"), ("a", "eu-west-1"), ("b", "us-east-1")]);
-        cache.remove("a");
-        assert!(cache.get_regions("a").is_empty());
-        assert_eq!(cache.get_regions("b"), vec!["us-east-1"]);
+    fn remove_deletes_entry_for_name() {
+        let mut idx = index(&[("a", "us-east-1"), ("b", "eu-west-1")]);
+        idx.remove("a");
+        assert!(idx.lookup("a").is_none());
+        assert!(idx.lookup("b").is_some());
+    }
+
+    #[test]
+    fn bust_evicts_entry_for_name() {
+        let mut idx = index(&[("a", "us-east-1"), ("b", "eu-west-1")]);
+        idx.bust("a");
+        assert!(idx.lookup("a").is_none());
+        assert!(idx.lookup("b").is_some());
     }
 
     #[test]
     fn serialization_roundtrip() {
-        let cache = fresh_cache(&[("ds1", "us-east-1"), ("ds2", "eu-west-1")]);
-        let toml = toml::to_string_pretty(&cache).unwrap();
-        let restored: DatasetsCache = toml::from_str(&toml).unwrap();
-        assert!(restored.is_fresh());
-        assert_eq!(restored.get_regions("ds1"), vec!["us-east-1"]);
-        assert_eq!(restored.get_regions("ds2"), vec!["eu-west-1"]);
+        let idx = index(&[("ds1", "us-east-1"), ("ds2", "eu-west-1")]);
+        let toml = toml::to_string_pretty(&idx).unwrap();
+        let restored: DatasetIndex = toml::from_str(&toml).unwrap();
+        assert!(restored.lookup("ds1").is_some());
+        assert!(restored.lookup("ds2").is_some());
+    }
+
+    #[test]
+    fn deserializes_legacy_format_with_fetched_at() {
+        let legacy = r#"
+fetched_at = "2026-01-01T00:00:00Z"
+
+[[datasets]]
+name = "ds"
+region = "us-east-1"
+"#;
+        let restored: DatasetIndex = toml::from_str(legacy).unwrap();
+        assert!(restored.lookup("ds").is_some());
     }
 }

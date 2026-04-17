@@ -1,15 +1,15 @@
-use std::collections::BTreeSet;
-use std::io::{IsTerminal, Read};
 use std::path::PathBuf;
 
+use topk::client::{make_client, make_global_client};
 use topk::commands;
-use topk::datasets::{DatasetsClient, TopkDatasetsClient};
+use topk::datasets::{ensure_unique_region, get_region, make_cached_datasets_client};
 use topk::output::{Output, OutputFormat};
 
 use anyhow::Result;
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, Shell};
-use topk_rs::{proto::v1::ctx::doc::DocId, Client, ClientConfig};
+use topk::util::resolve_query;
+use topk_rs::proto::v1::ctx::doc::DocId;
 
 use commands::{ask, auth, dataset, delete, list, search, upload};
 
@@ -20,7 +20,13 @@ struct Cli {
     command: Option<Commands>,
 
     /// TopK API key (overrides TOPK_API_KEY environment variable)
-    #[arg(long, env = "TOPK_API_KEY", global = true, hide_env_values = true, hide = true)]
+    #[arg(
+        long,
+        env = "TOPK_API_KEY",
+        global = true,
+        hide_env_values = true,
+        hide = true
+    )]
     api_key: Option<String>,
 
     /// Host (overrides TOPK_HOST environment variable, default: topk.io)
@@ -43,8 +49,11 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Authenticate with TopK (set or update your API key)
-    Auth,
+    /// Authenticate with TopK (manage your API key)
+    Auth {
+        #[command(subcommand)]
+        action: Option<auth::AuthAction>,
+    },
 
     /// Get a grounded answer from documents with source citations for a query
     Ask {
@@ -171,9 +180,14 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             generate(shell, &mut Cli::command(), "topk", &mut std::io::stdout());
         }
 
-        Commands::Auth => {
-            auth::resolve(cli.api_key, &host, https, true)?;
-        }
+        Commands::Auth { action } => match action.unwrap_or(auth::AuthAction::Login) {
+            auth::AuthAction::Login => {
+                auth::resolve(cli.api_key, &host, https, true)?;
+            }
+            auth::AuthAction::Logout => {
+                output.print(&auth::logout()?)?;
+            }
+        },
 
         Commands::Dataset { action } => {
             let Some(api_key) = auth::resolve(cli.api_key, &host, https, false)? else {
@@ -181,7 +195,7 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             };
 
             let mut client =
-                TopkDatasetsClient::new(make_client(&api_key, "global", &host, https)?);
+                make_cached_datasets_client(make_global_client(&api_key, &host, https));
 
             match action {
                 dataset::DatasetAction::List => {
@@ -219,11 +233,10 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             };
 
             let mut datasets_client =
-                TopkDatasetsClient::new(make_client(&api_key, "global", &host, https)?);
+                make_cached_datasets_client(make_global_client(&api_key, &host, https));
 
-            let region = datasets_client.get_region(&dataset).await?;
-
-            let client = make_client(&api_key, &region, &host, https)?;
+            let region = get_region(&mut datasets_client, &dataset).await?;
+            let client = make_client(&api_key, &region, &host, https);
 
             output.print(
                 &upload::run(
@@ -247,11 +260,11 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             };
 
             let mut datasets_client =
-                TopkDatasetsClient::new(make_client(&api_key, "global", &host, https)?);
+                make_cached_datasets_client(make_global_client(&api_key, &host, https));
 
-            let region = datasets_client.get_region(&dataset).await?;
+            let region = get_region(&mut datasets_client, &dataset).await?;
+            let client = make_client(&api_key, &region, &host, https);
 
-            let client = make_client(&api_key, &region, &host, https)?;
             output.print(&delete::run(&client, &dataset, id, yes, output).await?)?;
         }
 
@@ -261,11 +274,11 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             };
 
             let mut datasets_client =
-                TopkDatasetsClient::new(make_client(&api_key, "global", &host, https)?);
+                make_cached_datasets_client(make_global_client(&api_key, &host, https));
 
-            let region = datasets_client.get_region(&dataset).await?;
-
-            let client = make_client(&api_key, &region, &host, https)?;
+            let region =
+                ensure_unique_region(&mut datasets_client, std::slice::from_ref(&dataset)).await?;
+            let client = make_client(&api_key, &region, &host, https);
 
             list::run(&client, &dataset, fields, output).await?;
         }
@@ -285,9 +298,10 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             })?;
 
             let mut datasets_client =
-                TopkDatasetsClient::new(make_client(&api_key, "global", &host, https)?);
-            let region = get_single_region_or_error(&mut datasets_client, &datasets).await?;
-            let client = make_client(&api_key, &region, &host, https)?;
+                make_cached_datasets_client(make_global_client(&api_key, &host, https));
+            let region = ensure_unique_region(&mut datasets_client, &datasets).await?;
+            let client = make_client(&api_key, &region, &host, https);
+
             ask::run(&client, query, datasets, mode, fields, output_dir, output).await?;
         }
 
@@ -306,72 +320,13 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             })?;
 
             let mut datasets_client =
-                TopkDatasetsClient::new(make_client(&api_key, "global", &host, https)?);
-            let region = get_single_region_or_error(&mut datasets_client, &datasets).await?;
-            let client = make_client(&api_key, &region, &host, https)?;
+                make_cached_datasets_client(make_global_client(&api_key, &host, https));
+            let region = ensure_unique_region(&mut datasets_client, &datasets).await?;
+            let client = make_client(&api_key, &region, &host, https);
+
             search::run(&client, query, datasets, top_k, fields, output_dir, output).await?;
         }
     }
 
     Ok(())
-}
-
-fn resolve_query(query: Option<String>) -> Result<Option<String>> {
-    if let Some(q) = query {
-        return Ok(Some(q));
-    }
-
-    if std::io::stdin().is_terminal() {
-        return Ok(None);
-    }
-
-    let mut buf = String::new();
-    std::io::stdin().read_to_string(&mut buf)?;
-
-    let q = buf.trim().to_string();
-
-    if q.is_empty() {
-        Ok(None)
-    } else {
-        Ok(Some(q))
-    }
-}
-
-async fn get_single_region_or_error<C: DatasetsClient + ?Sized>(
-    datasets_client: &mut C,
-    datasets: &[String],
-) -> Result<String> {
-    let mut dataset_regions = Vec::with_capacity(datasets.len());
-
-    for dataset in datasets {
-        let region = datasets_client.get_region(dataset).await?;
-        dataset_regions.push((dataset.clone(), region));
-    }
-
-    let unique_regions: BTreeSet<_> = dataset_regions
-        .iter()
-        .map(|(_, region)| region.clone())
-        .collect();
-
-    if unique_regions.len() != 1 {
-        let details = dataset_regions
-            .iter()
-            .map(|(dataset, region)| format!("{dataset} ({region})"))
-            .collect::<Vec<_>>()
-            .join(", ");
-        anyhow::bail!("cannot query datasets across regions: {details}");
-    }
-
-    dataset_regions
-        .first()
-        .map(|(_, region)| region.clone())
-        .ok_or_else(|| anyhow::anyhow!("at least one dataset is required"))
-}
-
-fn make_client(api_key: &str, region: &str, host: &str, https: bool) -> Result<Client> {
-    Ok(Client::new(
-        ClientConfig::new(api_key, region)
-            .with_host(host)
-            .with_https(https),
-    ))
 }
