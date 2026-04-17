@@ -327,6 +327,7 @@ mod tests {
     use crate::test_context::CliTestContext;
     use assert_cmd::Command;
     use test_context::test_context;
+    use topk_rs::proto::v1::{ctx::file::InputFile, data::Value};
 
     fn cmd() -> Command {
         Command::cargo_bin("topk").unwrap()
@@ -336,10 +337,7 @@ mod tests {
     #[tokio::test]
     async fn search_returns_results(ctx: &mut CliTestContext) {
         let dataset = ctx.wrap("test");
-        cmd()
-            .args(["dataset", "create", &dataset])
-            .output()
-            .unwrap();
+        ctx.create_dataset(&dataset);
 
         let out = cmd()
             .args(["-o", "json", "search", "summarize", "--dataset", &dataset])
@@ -358,35 +356,28 @@ mod tests {
     #[ignore]
     async fn search_returns_metadata_fields(ctx: &mut CliTestContext) {
         let dataset = ctx.wrap("meta-fields");
-
-        cmd()
-            .args(["dataset", "create", &dataset])
-            .output()
-            .unwrap();
+        ctx.create_dataset(&dataset);
 
         let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/markdown.md");
-        let out = cmd()
-            .args([
-                "-o",
-                "json",
-                "upload",
-                "--dataset",
-                &dataset,
-                "--id",
+        let input = InputFile::from_path(file).unwrap();
+        let upload = ctx
+            .client
+            .dataset(&dataset)
+            .upsert_file(
                 "meta-fields-doc",
-                "--meta",
-                r#"{"title": "My Test Document", "author": "Test Author"}"#,
-                "--wait",
-                "-y",
-                file,
-            ])
-            .output()
+                input,
+                [
+                    ("title", Value::string("My Test Document")),
+                    ("author", Value::string("Test Author")),
+                ],
+            )
+            .await
             .unwrap();
-        assert!(
-            out.status.success(),
-            "upload failed: {}",
-            String::from_utf8_lossy(&out.stderr)
-        );
+        ctx.client
+            .dataset(&dataset)
+            .wait_for_handle(&upload.handle, None)
+            .await
+            .unwrap();
 
         let out = cmd()
             .args([

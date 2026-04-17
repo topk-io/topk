@@ -1,6 +1,5 @@
 use bytesize::ByteSize;
 use indicatif::{ProgressBar, ProgressStyle};
-use serde_json::Map;
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -9,15 +8,12 @@ use std::sync::Arc;
 use futures::stream::{self, StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
 use topk_rs::{
-    proto::v1::{
-        ctx::{doc::DocId, file::InputFile},
-        data::Value,
-    },
+    proto::v1::{ctx::file::InputFile, data::Value},
     Client, Error,
 };
 
 use crate::output::{Output, RenderForHuman};
-use crate::util::{ensure_dataset, normalize_glob_pattern, plural, resolve_files, UploadFile};
+use crate::util::{normalize_glob_pattern, plural, resolve_files, UploadFile};
 
 #[derive(Serialize, Deserialize)]
 pub struct UploadError {
@@ -45,30 +41,6 @@ pub struct UploadResult {
     pub(crate) errors: Vec<UploadError>,
     #[serde(skip)]
     pub(crate) no_files_message: Option<String>,
-}
-
-fn json_to_topk_value(v: &serde_json::Value) -> Value {
-    match v {
-        serde_json::Value::Null => Value::null(),
-        serde_json::Value::Bool(b) => Value::bool(*b),
-        serde_json::Value::Number(n) => {
-            if let Some(i) = n.as_i64() {
-                Value::i64(i)
-            } else {
-                Value::f64(n.as_f64().unwrap_or(0.0))
-            }
-        }
-        serde_json::Value::String(s) => Value::string(s.clone()),
-        _ => Value::null(),
-    }
-}
-
-fn parse_metadata(metadata: Option<String>) -> Result<Map<String, serde_json::Value>, Error> {
-    match metadata {
-        Some(s) => serde_json::from_str(&s)
-            .map_err(|e| Error::InvalidArgument(format!("invalid metadata JSON: {}", e))),
-        None => Ok(Map::new()),
-    }
 }
 
 impl RenderForHuman for UploadResult {
@@ -112,8 +84,6 @@ pub async fn run(
     dataset: &str,
     pattern: &str,
     recursive: bool,
-    id: Option<DocId>,
-    metadata: Option<String>,
     concurrency: usize,
     yes: bool,
     dry_run: bool,
@@ -123,7 +93,6 @@ pub async fn run(
     let cwd = std::env::current_dir().map_err(Error::IoError)?;
     let pattern = pattern.to_string();
     let match_pattern = normalize_glob_pattern(&pattern).to_string();
-    let metadata = parse_metadata(metadata)?;
 
     let files = resolve_files(&cwd, &match_pattern, recursive)?;
 
@@ -151,22 +120,6 @@ pub async fn run(
         });
     }
 
-    let files = match id {
-        Some(_) if total_count != 1 => {
-            return Err(Error::InvalidArgument(
-                "--id requires exactly one file to upload".to_string(),
-            ));
-        }
-        Some(id) => {
-            let mut f = files.into_iter().next().ok_or_else(|| {
-                Error::InvalidArgument("--id requires exactly one file to upload".to_string())
-            })?;
-            f.doc_id = id.into();
-            vec![f]
-        }
-        None => files,
-    };
-
     if dry_run {
         return Ok(UploadResult {
             total_count,
@@ -175,12 +128,6 @@ pub async fn run(
             dry_run: true,
             ..Default::default()
         });
-    }
-
-    let dataset_created = ensure_dataset(client, dataset, yes, output).await?;
-
-    if dataset_created {
-        output.success(&format!("Dataset '{}' created.", dataset));
     }
 
     if !yes {
@@ -209,7 +156,6 @@ pub async fn run(
         .map(|file| {
             let client = client.clone();
             let dataset = dataset.to_string();
-            let metadata = metadata.clone();
             let upload_progress = upload_progress.clone();
             let completed_count = completed_count.clone();
             let failed_count = failed_count.clone();
@@ -217,12 +163,13 @@ pub async fn run(
             async move {
                 let result = async {
                     let input = InputFile::from_path(&file.path)?;
-                    let metadata = metadata
-                        .iter()
-                        .map(|(k, v)| (k.clone(), json_to_topk_value(v)));
                     let handle = client
                         .dataset(&dataset)
-                        .upsert_file(file.doc_id.clone(), input, metadata)
+                        .upsert_file(
+                            file.doc_id.clone(),
+                            input,
+                            std::iter::empty::<(String, Value)>(),
+                        )
                         .await?
                         .into_inner()
                         .handle;
@@ -423,6 +370,7 @@ mod tests {
     #[tokio::test]
     async fn upload_single_file(ctx: &mut CliTestContext) {
         let dataset = ctx.wrap("test");
+        ctx.create_dataset(&dataset);
         let out = cmd()
             .current_dir(TESTS_DIR)
             .args([
@@ -450,6 +398,7 @@ mod tests {
     #[tokio::test]
     async fn upload_dry_run(ctx: &mut CliTestContext) {
         let dataset = ctx.wrap("test");
+        ctx.create_dataset(&dataset);
         let path = std::path::Path::new(TESTS_DIR).join("pdfko.pdf");
         let out = cmd()
             .current_dir(TESTS_DIR)
@@ -478,8 +427,9 @@ mod tests {
 
     #[test_context(CliTestContext)]
     #[tokio::test]
-    async fn upload_auto_creates_dataset_with_yes(ctx: &mut CliTestContext) {
-        let dataset = ctx.wrap("autocreate");
+    async fn upload_with_yes_skips_confirmation(ctx: &mut CliTestContext) {
+        let dataset = ctx.wrap("yes-flag");
+        ctx.create_dataset(&dataset);
         let out = cmd()
             .current_dir(TESTS_DIR)
             .args(["-o", "json", "upload", "pdfko.pdf", "-d", &dataset, "-y"])
@@ -500,6 +450,7 @@ mod tests {
     #[tokio::test]
     async fn upload_recursive(ctx: &mut CliTestContext) {
         let dataset = ctx.wrap("test");
+        ctx.create_dataset(&dataset);
 
         let dir = tempdir().unwrap();
         let nested = dir.path().join("sub");
@@ -527,6 +478,7 @@ mod tests {
     #[tokio::test]
     async fn upload_recursive_with_globstar_pattern(ctx: &mut CliTestContext) {
         let dataset = ctx.wrap("test");
+        ctx.create_dataset(&dataset);
 
         let dir = tempdir().unwrap();
         let nested = dir.path().join("sub");
@@ -563,7 +515,11 @@ mod tests {
     #[ignore]
     async fn upload_wait(ctx: &mut CliTestContext) {
         let dataset = ctx.wrap("test");
-        ctx.client.datasets().create(&dataset).await.unwrap();
+        ctx.client
+            .datasets()
+            .create(&dataset, Some(ctx.region.clone()))
+            .await
+            .unwrap();
 
         let out = cmd()
             .current_dir(TESTS_DIR)
@@ -591,64 +547,7 @@ mod tests {
 
     #[test_context(CliTestContext)]
     #[tokio::test]
-    async fn upload_single_file_accepts_custom_id(ctx: &mut CliTestContext) {
-        let dataset = ctx.wrap("test");
-        let out = cmd()
-            .current_dir(TESTS_DIR)
-            .args([
-                "-o",
-                "json",
-                "upload",
-                "pdfko.pdf",
-                "--dataset",
-                &dataset,
-                "--id",
-                "custom-doc-id",
-                "--dry-run",
-            ])
-            .output()
-            .unwrap();
-        assert!(
-            out.status.success(),
-            "{}",
-            String::from_utf8_lossy(&out.stderr)
-        );
-        let result: UploadResult = serde_json::from_slice(&out.stdout).unwrap();
-        assert_eq!(result.files[0].doc_id, "custom-doc-id");
-    }
-
-    #[test_context(CliTestContext)]
-    #[tokio::test]
-    async fn upload_rejects_custom_id_for_pattern_matching_multiple_files(
-        ctx: &mut CliTestContext,
-    ) {
-        let dataset = ctx.wrap("test");
-        let out = cmd()
-            .current_dir(TESTS_DIR)
-            .args([
-                "-o",
-                "json",
-                "upload",
-                "*.*",
-                "--dataset",
-                &dataset,
-                "--id",
-                "custom-doc-id",
-                "--dry-run",
-            ])
-            .output()
-            .unwrap();
-        assert!(!out.status.success());
-        let stderr = String::from_utf8_lossy(&out.stderr);
-        assert!(
-            stderr.contains("--id requires exactly one file"),
-            "{stderr}"
-        );
-    }
-
-    #[test_context(CliTestContext)]
-    #[tokio::test]
-    async fn upload_requires_existing_dataset_in_agent_mode_without_yes(ctx: &mut CliTestContext) {
+    async fn upload_requires_existing_dataset(ctx: &mut CliTestContext) {
         let dataset = format!("{}-missing-{}", ctx.scope, Uuid::new_v4().simple());
         let out = cmd()
             .current_dir(TESTS_DIR)
@@ -657,6 +556,6 @@ mod tests {
             .unwrap();
         assert!(!out.status.success());
         let stderr = String::from_utf8_lossy(&out.stderr);
-        assert!(stderr.contains("create it first or pass -y"), "{stderr}");
+        assert!(stderr.contains("not found"), "{stderr}");
     }
 }

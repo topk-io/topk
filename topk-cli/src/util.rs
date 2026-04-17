@@ -1,18 +1,15 @@
 use std::{
     fmt,
-    io::{self, IsTerminal, Write},
+    io::{self, IsTerminal},
     path::{Path, PathBuf},
 };
 
 use chrono::{DateTime, Local, Utc};
-use globset::{GlobBuilder, GlobSet, GlobSetBuilder};
+use globwalk::GlobWalkerBuilder;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use topk_rs::{proto::v1::ctx::file::InputFile, Client, Error};
-use walkdir::WalkDir;
-
-use crate::output::Output;
+use topk_rs::{proto::v1::ctx::file::InputFile, Error};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MimeType {
@@ -100,17 +97,25 @@ impl<'de> Deserialize<'de> for MimeType {
     }
 }
 
-pub fn format_timestamp(rfc3339: &str) -> Option<String> {
-    let dt = rfc3339.parse::<DateTime<Utc>>().ok()?;
-    Some(dt.with_timezone(&Local).format("%b %-d, %Y %H:%M").to_string())
+pub(crate) fn doc_id_from_path(path: &Path) -> Result<String, Error> {
+    Ok(format!(
+        "{:x}",
+        Sha256::digest(
+            path.canonicalize()
+                .map_err(Error::IoError)?
+                .to_string_lossy()
+                .as_bytes()
+        )
+    ))
 }
 
-pub(crate) fn confirm(prompt: &str) -> std::io::Result<bool> {
-    eprint!("{}", prompt);
-    io::stderr().flush()?;
-    let mut input = String::new();
-    io::stdin().read_line(&mut input)?;
-    Ok(matches!(input.trim(), "y" | "yes" | "Yes"))
+pub fn format_timestamp(rfc3339: &str) -> Option<String> {
+    let dt = rfc3339.parse::<DateTime<Utc>>().ok()?;
+    Some(
+        dt.with_timezone(&Local)
+            .format("%b %-d, %Y %H:%M")
+            .to_string(),
+    )
 }
 
 pub fn plural<'a>(count: usize, singular: &'a str, plural: &'a str) -> &'a str {
@@ -133,36 +138,73 @@ pub(crate) fn normalize_glob_pattern(pattern: &str) -> &str {
     pattern.strip_prefix("./").unwrap_or(pattern)
 }
 
-pub(crate) fn doc_id_from_path(path: &Path) -> Result<String, Error> {
-    Ok(format!(
-        "{:x}",
-        Sha256::digest(
-            path.canonicalize()
-                .map_err(Error::IoError)?
-                .to_string_lossy()
-                .as_bytes()
-        )
-    ))
+pub(crate) fn expand_path(pattern: &str) -> Result<PathBuf, Error> {
+    let expanded = shellexpand::full(pattern)
+        .map_err(|err| Error::InvalidArgument(format!("invalid pattern '{}': {}", pattern, err)))?;
+    Ok(PathBuf::from(expanded.as_ref()))
 }
 
-pub(crate) fn resolve_files(cwd: &Path, pattern: &str, recursive: bool) -> Result<Vec<UploadFile>, Error> {
-    let path = Path::new(pattern);
+fn has_glob_chars(component: &str) -> bool {
+    component.contains('*')
+        || component.contains('?')
+        || component.contains('[')
+        || component.contains(']')
+        || component.contains('{')
+        || component.contains('}')
+}
+
+fn split_glob_root(cwd: &Path, pattern: &Path) -> (PathBuf, String) {
+    let root_base = if pattern.is_absolute() {
+        PathBuf::from(std::path::MAIN_SEPARATOR.to_string())
+    } else {
+        cwd.to_path_buf()
+    };
+
+    let mut root = root_base;
+    let mut matching_components = Vec::new();
+    let mut in_glob = false;
+
+    for component in pattern.components() {
+        let part = component.as_os_str().to_string_lossy().to_string();
+        if !in_glob && !has_glob_chars(&part) {
+            if !matches!(component, std::path::Component::RootDir) {
+                root.push(&part);
+            }
+            continue;
+        }
+        in_glob = true;
+        if !matches!(component, std::path::Component::RootDir) {
+            matching_components.push(part);
+        }
+    }
+
+    let matching_pattern = if matching_components.is_empty() {
+        pattern
+            .file_name()
+            .map(|name| name.to_string_lossy().to_string())
+            .unwrap_or_default()
+    } else {
+        matching_components.join(std::path::MAIN_SEPARATOR_STR)
+    };
+
+    (root, matching_pattern)
+}
+
+pub(crate) fn resolve_files(
+    cwd: &Path,
+    pattern: &str,
+    recursive: bool,
+) -> Result<Vec<UploadFile>, Error> {
+    let expanded = expand_path(pattern)?;
+    let path = expanded.as_path();
     if path.is_file() {
         return Ok(vec![collect_file(path)?]);
     }
     if path.is_dir() {
         return collect_directory_files(path, recursive);
     }
-    let top_level_only = !pattern.contains('/');
-    let glob = GlobBuilder::new(pattern)
-        .literal_separator(true)
-        .build()
-        .map_err(|e| Error::InvalidArgument(format!("invalid pattern '{}': {}", pattern, e)))?;
-    let globset = GlobSetBuilder::new()
-        .add(glob)
-        .build()
-        .map_err(|e| Error::InvalidArgument(format!("invalid pattern '{}': {}", pattern, e)))?;
-    collect_files(cwd, &globset, top_level_only)
+    let (root, matching_pattern) = split_glob_root(cwd, path);
+    collect_matching_files(&root, &matching_pattern)
 }
 
 pub(crate) fn collect_file(path: &Path) -> Result<UploadFile, Error> {
@@ -181,78 +223,35 @@ pub(crate) fn collect_directory_files(
     root: &Path,
     recursive: bool,
 ) -> Result<Vec<UploadFile>, Error> {
-    let mut walker = WalkDir::new(root).follow_links(false);
-    if !recursive {
-        walker = walker.max_depth(1);
-    }
+    let pattern = if recursive { "**/*" } else { "*" };
+    collect_matching_files(root, pattern)
+}
+
+pub(crate) fn collect_matching_files(root: &Path, pattern: &str) -> Result<Vec<UploadFile>, Error> {
+    let builder = GlobWalkerBuilder::from_patterns(root, &[pattern]).follow_links(false);
+    let builder = if !pattern.contains(std::path::MAIN_SEPARATOR) {
+        builder.max_depth(1)
+    } else {
+        builder
+    };
+
+    let walker = builder
+        .build()
+        .map_err(|e| Error::InvalidArgument(format!("invalid pattern '{}': {}", pattern, e)))?;
+
     walker
         .into_iter()
-        .filter_map(|e| e.ok())
-        .filter(|e| e.file_type().is_file())
-        .filter_map(|e| -> Option<Result<UploadFile, Error>> {
-            let mime = MimeType::from(InputFile::guess_mime_type(e.path()).ok()?);
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.file_type().is_file())
+        .filter_map(|entry| -> Option<Result<UploadFile, Error>> {
+            let path = entry.path();
+            let mime = MimeType::from(InputFile::guess_mime_type(path).ok()?);
             if !mime.is_supported() {
                 return None;
             }
-            Some(collect_file(e.path()))
+            Some(collect_file(path))
         })
         .collect()
-}
-
-pub(crate) fn collect_files(
-    root: &Path,
-    globset: &GlobSet,
-    top_level_only: bool,
-) -> Result<Vec<UploadFile>, Error> {
-    WalkDir::new(root)
-        .follow_links(false)
-        .into_iter()
-        .filter_map(|e| e.ok())
-        .filter(|e| e.file_type().is_file())
-        .filter_map(|e| -> Option<Result<UploadFile, Error>> {
-            let path = e.path().to_path_buf();
-            let rel = path.strip_prefix(root).unwrap_or(&path);
-            if !globset.is_match(rel) || (top_level_only && rel.components().count() != 1) {
-                return None;
-            }
-            let mime = MimeType::from(InputFile::guess_mime_type(&path).ok()?);
-            if !mime.is_supported() {
-                return None;
-            }
-            Some(collect_file(&path))
-        })
-        .collect()
-}
-
-pub(crate) async fn ensure_dataset(
-    client: &Client,
-    dataset: &str,
-    yes: bool,
-    output: &Output,
-) -> Result<bool, Error> {
-    match client.datasets().get(dataset).await {
-        Ok(_) => Ok(false),
-        Err(Error::DatasetNotFound) => {
-            if yes {
-                client.datasets().create(dataset).await?;
-                return Ok(true);
-            }
-
-            if output.confirm(&format!(
-                "Dataset '{}' does not exist. Create it? [y/N] ",
-                dataset
-            ))? {
-                client.datasets().create(dataset).await?;
-                return Ok(true);
-            }
-
-            Err(Error::InvalidArgument(format!(
-                "dataset '{}' does not exist; create it first or pass -y",
-                dataset
-            )))
-        }
-        Err(err) => Err(err),
-    }
 }
 
 pub struct Spinner {
@@ -319,13 +318,15 @@ impl Spinner {
 
 #[cfg(test)]
 mod tests {
-    use super::{collect_directory_files, collect_files, doc_id_from_path};
-    use globset::{Glob, GlobSetBuilder};
-    use std::fs;
+    use super::{
+        collect_directory_files, collect_matching_files, doc_id_from_path, expand_path,
+        resolve_files, split_glob_root,
+    };
+    use std::{fs, path::Path};
     use tempfile::tempdir;
 
     #[test]
-    fn collect_files_filters_by_pattern() {
+    fn collect_matching_files_filters_by_pattern() {
         let dir = tempdir().unwrap();
         let nested = dir.path().join("nested");
         fs::create_dir(&nested).unwrap();
@@ -333,11 +334,7 @@ mod tests {
         fs::write(dir.path().join("skip.txt"), "skip").unwrap();
         fs::write(nested.join("report.pdf"), b"%PDF").unwrap();
 
-        let globset = GlobSetBuilder::new()
-            .add(Glob::new("*.md").unwrap())
-            .build()
-            .unwrap();
-        let files = collect_files(dir.path(), &globset, true).unwrap();
+        let files = collect_matching_files(dir.path(), "*.md").unwrap();
         assert_eq!(files.len(), 1);
         assert_eq!(
             files[0].doc_id,
@@ -346,17 +343,13 @@ mod tests {
     }
 
     #[test]
-    fn collect_files_matches_single_pattern() {
+    fn collect_matching_files_matches_single_pattern() {
         let dir = tempdir().unwrap();
         fs::write(dir.path().join("a.md"), "").unwrap();
         fs::write(dir.path().join("b.pdf"), "").unwrap();
         fs::write(dir.path().join("c.txt"), "").unwrap();
 
-        let globset = GlobSetBuilder::new()
-            .add(Glob::new("*.md").unwrap())
-            .build()
-            .unwrap();
-        let files = collect_files(dir.path(), &globset, true).unwrap();
+        let files = collect_matching_files(dir.path(), "*.md").unwrap();
         assert_eq!(files.len(), 1);
         assert_eq!(
             files[0].doc_id,
@@ -365,17 +358,13 @@ mod tests {
     }
 
     #[test]
-    fn collect_files_filters_out_unsupported_mime_types() {
+    fn collect_matching_files_filters_out_unsupported_mime_types() {
         let dir = tempdir().unwrap();
         fs::write(dir.path().join("a.md"), "").unwrap();
         fs::write(dir.path().join("b.docx"), "").unwrap();
         fs::write(dir.path().join("c.pdf"), "").unwrap();
 
-        let globset = GlobSetBuilder::new()
-            .add(Glob::new("*.*").unwrap())
-            .build()
-            .unwrap();
-        let files = collect_files(dir.path(), &globset, true).unwrap();
+        let files = collect_matching_files(dir.path(), "*.*").unwrap();
         let paths: Vec<_> = files
             .iter()
             .map(|file| file.path.file_name().unwrap().to_string_lossy().to_string())
@@ -411,5 +400,42 @@ mod tests {
 
         let files = collect_directory_files(dir.path(), true).unwrap();
         assert_eq!(files.len(), 2);
+    }
+
+    #[test]
+    fn expand_path_resolves_tilde() {
+        let home = dirs::home_dir().expect("home dir available");
+        assert_eq!(expand_path("~").unwrap(), home);
+        assert_eq!(
+            expand_path("~/docs/file.pdf").unwrap(),
+            home.join("docs/file.pdf")
+        );
+        assert_eq!(
+            expand_path("~/docs/**/*.pdf").unwrap(),
+            home.join("docs/**/*.pdf")
+        );
+    }
+
+    #[test]
+    fn split_glob_root_handles_absolute_patterns() {
+        let cwd = Path::new("/tmp");
+        let pattern = Path::new("/home/jergus/Data/vidore/*/pdfs/*.pdf");
+        let (root, matching_pattern) = split_glob_root(cwd, pattern);
+        assert_eq!(root, Path::new("/home/jergus/Data/vidore"));
+        assert_eq!(matching_pattern, "*/pdfs/*.pdf");
+    }
+
+    #[test]
+    fn resolve_files_matches_absolute_glob_patterns() {
+        let dir = tempdir().unwrap();
+        let dataset_dir = dir.path().join("vidore_v3_energy").join("pdfs");
+        fs::create_dir_all(&dataset_dir).unwrap();
+        let pdf = dataset_dir.join("bilan.pdf");
+        fs::write(&pdf, b"%PDF").unwrap();
+
+        let pattern = dir.path().join("*").join("pdfs").join("*.pdf");
+        let files = resolve_files(dir.path(), &pattern.to_string_lossy(), false).unwrap();
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].path, pdf);
     }
 }

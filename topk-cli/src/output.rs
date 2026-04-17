@@ -1,8 +1,9 @@
 use std::io::{IsTerminal, Write};
 
+use dialoguer::Confirm;
 use serde::Serialize;
 
-use crate::util::{confirm, Spinner};
+use crate::util::Spinner;
 
 pub const GREEN: &str = "\x1b[32m";
 pub const RED: &str = "\x1b[31m";
@@ -89,7 +90,11 @@ impl Output {
             && std::io::stdin().is_terminal()
             && std::io::stdout().is_terminal()
         {
-            confirm(prompt)
+            Confirm::new()
+                .with_prompt(prompt)
+                .default(false)
+                .interact()
+                .map_err(std::io::Error::other)
         } else {
             Ok(false)
         }
@@ -129,6 +134,7 @@ fn clear_progress() {
 #[cfg(test)]
 mod tests {
     use assert_cmd::Command;
+    use tempfile::tempdir;
 
     fn cmd() -> Command {
         Command::cargo_bin("topk").unwrap()
@@ -136,31 +142,25 @@ mod tests {
 
     #[test]
     fn missing_api_key_error() {
+        let config_home = tempdir().unwrap();
+        let home = tempdir().unwrap();
+
         let out = cmd()
             .env_remove("TOPK_API_KEY")
-            .env_remove("TOPK_REGION")
+            .env("XDG_CONFIG_HOME", config_home.path())
+            .env("HOME", home.path())
             .args(["-o", "json", "dataset", "list"])
             .output()
             .unwrap();
+        assert!(!out.status.success());
         let stderr = String::from_utf8_lossy(&out.stderr);
         let parsed: serde_json::Value =
             serde_json::from_str(stderr.trim()).expect("stderr should be valid JSON");
-        assert!(parsed["error"].as_str().unwrap().contains("TOPK_API_KEY"));
+        let error = parsed["error"].as_str().unwrap();
+        assert!(error.contains("API key not set"));
+        assert!(error.contains("TOPK_API_KEY"));
     }
 
-    #[test]
-    fn missing_region_error() {
-        let out = cmd()
-            .env("TOPK_API_KEY", "test-key")
-            .env_remove("TOPK_REGION")
-            .args(["-o", "json", "dataset", "list"])
-            .output()
-            .unwrap();
-        let stderr = String::from_utf8_lossy(&out.stderr);
-        let parsed: serde_json::Value =
-            serde_json::from_str(stderr.trim()).expect("stderr should be valid JSON");
-        assert!(parsed["error"].as_str().unwrap().contains("TOPK_REGION"));
-    }
 
     #[test]
     fn completions_zsh() {

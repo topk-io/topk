@@ -11,21 +11,25 @@ brew install topk
 
 ## Configuration
 
-Set `TOPK_API_KEY` and `TOPK_REGION` environment variables before running the CLI:
+Run:
+
+```bash
+topk auth
+```
+
+Or set `TOPK_API_KEY` before running the CLI:
 
 ```bash
 export TOPK_API_KEY=<your-api-key>
-export TOPK_REGION=<region>
 ```
 
 
-| Variable       | Required                | Description                                                                             |
-| -------------- | ----------------------- | --------------------------------------------------------------------------------------- |
-| `TOPK_API_KEY` | Yes or pass `--api-key` | Your API key. [Get your API key](https://console.topk.io)                               |
-| `TOPK_REGION`  | Yes or pass `--region`  | Region where your data is stored. [See available regions](https://docs.topk.io/regions) |
+| Variable       | Required                | Description                                       |
+| -------------- | ----------------------- | ------------------------------------------------- |
+| `TOPK_API_KEY` | Yes or pass `--api-key` | Your API key. [Get your API key](https://console.topk.io) |
 
 
-Alternatively, pass `--api-key` and `--region` as flags on any command.
+Alternatively, pass `--api-key` as a flag on any command.
 
 ## Commands
 
@@ -75,27 +79,24 @@ echo "my query" | topk search
 
 ### `upload` — Upload files
 
-Accepts a single file path, directory, or glob pattern matched against file paths relative to the current directory. Directory inputs scan only that directory by default, and `-r/--recursive` recurses into subdirectories. For glob patterns, `*.pdf` matches only the current directory, while `**/*.pdf` matches recursively. If exactly one file is matched, you can override the default document ID with `--id` and attach metadata with `--meta`. By default, each uploaded file gets a document ID derived from the SHA-256 of its absolute path.
+Accepts a single file path, directory, or glob pattern matched against file paths relative to the current directory. Directory inputs scan only that directory by default, and `-r/--recursive` recurses into subdirectories. For glob patterns, `'*.pdf'` matches only the current directory, while `'**/*.pdf'` matches recursively. By default, each uploaded file gets a document ID derived from the SHA-256 of its absolute path.
 
 ```bash
 topk upload '*.pdf' --dataset my-dataset
 topk upload 'docs/**/*.md' --dataset my-dataset
 topk upload docs --dataset my-dataset -r
-topk upload './report.pdf' --dataset my-dataset --id quarterly-report
 ```
 
 
 | Argument    | Required | Description                                                               |
 | ----------- | -------- | ------------------------------------------------------------------------- |
-| `PATTERN`   | Yes      | A file path, directory, or glob pattern matched against relative file paths |
-| `--dataset` | Yes      | Dataset to upload into                                                    |
-| `-r`        | No       | Recurse into subdirectories when `PATTERN` is a directory                 |
-| `-y`        | No       | Create the dataset automatically if it does not exist & skip confirmation |
-| `--id`      | No       | Document ID to assign when exactly one file is uploaded                   |
-| `--meta`    | No       | Metadata as a JSON object when exactly one file is uploaded               |
-| `-c`        | No       | Number of concurrent uploads, 1–64 (default: 32)                         |
-| `--wait`    | No       | Wait for all uploaded files to be fully processed                         |
-| `--dry-run` | No       | Preview which files would be uploaded without uploading                   |
+| `PATTERN`   | Yes      | A file path, directory, or glob pattern |
+| `--dataset` | Yes      | Dataset to upload into |
+| `-r`        | No       | Recurse into subdirectories when `PATTERN` is a directory |
+| `-y`        | No       | Skip the upload confirmation prompt |
+| `-c`        | No       | Number of concurrent uploads, 1–64 (default: 32) |
+| `--wait`    | No       | Wait for all uploaded files to be fully processed |
+| `--dry-run` | No       | Preview which files would be uploaded without uploading |
 
 
 In interactive mode, `upload` prompts whether to wait for processing after the files are uploaded. Pass `--wait` to skip the prompt and wait automatically. In non-interactive mode, `upload` returns after upload unless `--wait` is passed.
@@ -121,15 +122,15 @@ Streams results as they arrive. In agent mode (`-o json`) outputs one JSON objec
 ### `delete` — Delete a document
 
 ```bash
-topk delete --dataset my-dataset --document-id my-doc.pdf
+topk delete --dataset my-dataset --id my-doc-id
 ```
 
 
-| Flag            | Required | Description                     |
-| --------------- | -------- | ------------------------------- |
-| `--dataset`     | Yes      | Dataset containing the document |
-| `--document-id` | Yes      | Document ID to delete           |
-| `-y`            | No       | Skip confirmation prompt        |
+| Flag        | Required | Description                     |
+| ----------- | -------- | ------------------------------- |
+| `--dataset` | Yes      | Dataset containing the document |
+| `--id`      | Yes      | Document ID to delete           |
+| `-y`        | No       | Skip confirmation prompt        |
 
 
 ---
@@ -142,17 +143,28 @@ topk delete --dataset my-dataset --document-id my-doc.pdf
 topk dataset list
 ```
 
+This command has no subcommand-specific flags.
+
 #### Get a dataset:
 
 ```bash
 topk dataset get my-dataset
 ```
 
+| Argument  | Required | Description  |
+| --------- | -------- | ------------ |
+| `DATASET` | Yes      | Dataset name |
+
 #### Create a dataset:
 
 ```bash
-topk dataset create my-dataset
+topk dataset create --region us-east-1 my-dataset
 ```
+
+| Argument   | Required | Description                     |
+| ---------- | -------- | ------------------------------- |
+| `DATASET`  | Yes      | Dataset name                    |
+| `--region` | Yes      | Region to create the dataset in |
 
 #### Delete a dataset:
 
@@ -160,10 +172,10 @@ topk dataset create my-dataset
 topk dataset delete my-dataset
 ```
 
-| Argument | Required | Description              |
-| -------- | -------- | ------------------------ |
-| `DATASET`| Yes      | Dataset name             |
-| `-y`     | No       | Skip confirmation prompt |
+| Argument  | Required | Description              |
+| --------- | -------- | ------------------------ |
+| `DATASET` | Yes      | Dataset name             |
+| `-y`      | No       | Skip confirmation prompt |
 
 ---
 

@@ -251,10 +251,7 @@ mod tests {
     #[tokio::test]
     async fn ask_returns_result(ctx: &mut CliTestContext) {
         let dataset = ctx.wrap("test");
-        cmd()
-            .args(["dataset", "create", &dataset])
-            .output()
-            .unwrap();
+        ctx.create_dataset(&dataset);
 
         let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/markdown.md");
         let out = cmd()

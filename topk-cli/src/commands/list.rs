@@ -155,6 +155,7 @@ mod tests {
     #[ignore]
     async fn list_returns_uploaded_documents(ctx: &mut CliTestContext) {
         let dataset = ctx.wrap("list");
+        ctx.create_dataset(&dataset);
 
         for pattern in ["pdfko.pdf", "markdown.md"] {
             let out = cmd()
@@ -198,10 +199,7 @@ mod tests {
     #[tokio::test]
     async fn list_empty_dataset(ctx: &mut CliTestContext) {
         let dataset = ctx.wrap("list-empty");
-        cmd()
-            .args(["dataset", "create", &dataset])
-            .output()
-            .unwrap();
+        ctx.create_dataset(&dataset);
 
         let out = cmd()
             .args(["-o", "json", "list", "--dataset", &dataset])

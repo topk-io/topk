@@ -1,7 +1,9 @@
+use std::collections::BTreeSet;
 use std::io::{IsTerminal, Read};
 use std::path::PathBuf;
 
 use topk::commands;
+use topk::datasets::{DatasetsClient, TopkDatasetsClient};
 use topk::output::{Output, OutputFormat};
 
 use anyhow::Result;
@@ -9,7 +11,7 @@ use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, Shell};
 use topk_rs::{proto::v1::ctx::doc::DocId, Client, ClientConfig};
 
-use commands::{ask, dataset, delete, list, search, upload};
+use commands::{ask, auth, dataset, delete, list, search, upload};
 
 #[derive(Parser)]
 #[command(name = "topk", version)]
@@ -18,12 +20,8 @@ struct Cli {
     command: Option<Commands>,
 
     /// TopK API key (overrides TOPK_API_KEY environment variable)
-    #[arg(long, env = "TOPK_API_KEY", global = true, hide_env_values = true)]
+    #[arg(long, env = "TOPK_API_KEY", global = true, hide_env_values = true, hide = true)]
     api_key: Option<String>,
-
-    /// TopK Region (overrides TOPK_REGION environment variable, available regions: https://docs.topk.io/regions)
-    #[arg(long, env = "TOPK_REGION", global = true)]
-    region: Option<String>,
 
     /// Host (overrides TOPK_HOST environment variable, default: topk.io)
     #[arg(long, env = "TOPK_HOST", global = true, hide = true)]
@@ -45,6 +43,9 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Authenticate with TopK (set or update your API key)
+    Auth,
+
     /// Get a grounded answer from documents with source citations for a query
     Ask {
         /// Question to ask (reads from stdin if omitted)
@@ -92,15 +93,9 @@ enum Commands {
         /// Number of concurrent uploads (1–64)
         #[arg(short = 'c', long, default_value = "32", value_parser = clap::value_parser!(u64).range(1..=64))]
         concurrency: u64,
-        /// Create the dataset without prompting if it does not exist
+        /// Skip upload confirmation prompt
         #[arg(short = 'y', long)]
         yes: bool,
-        /// Document ID to assign when exactly one file is uploaded
-        #[arg(long)]
-        id: Option<DocId>,
-        /// Metadata as a JSON object when exactly one file is uploaded
-        #[arg(short = 'm', long = "meta", value_name = "JSON")]
-        metadata: Option<String>,
         /// Preview files without uploading
         #[arg(long)]
         dry_run: bool,
@@ -153,9 +148,7 @@ async fn main() -> std::process::ExitCode {
     let output = Output::new(cli.output);
 
     if cli.command.is_none() {
-        print_welcome();
         Cli::command().print_help().unwrap();
-        println!();
         return std::process::ExitCode::SUCCESS;
     }
 
@@ -170,60 +163,74 @@ async fn main() -> std::process::ExitCode {
 async fn run(cli: Cli, output: &Output) -> Result<()> {
     let command = cli.command.expect("checked above");
 
-    // Handle completions before requiring credentials.
-    if let Commands::Completions { shell } = command {
-        generate(shell, &mut Cli::command(), "topk", &mut std::io::stdout());
-        return Ok(());
-    }
-
-    // Show subcommand help before requiring credentials.
-    match &command {
-        Commands::Ask { query, .. } if query.is_none() && std::io::stdin().is_terminal() => {
-            return print_subcommand_help("ask");
-        }
-        Commands::Search { query, .. } if query.is_none() && std::io::stdin().is_terminal() => {
-            return print_subcommand_help("search");
-        }
-        _ => {}
-    }
-
-    let client = make_client(cli.api_key, cli.region, cli.host, cli.https)?;
+    let host = cli.host.unwrap_or_else(|| "topk.io".to_string());
+    let https = cli.https;
 
     match command {
-        Commands::Dataset { action } => match action {
-            dataset::DatasetAction::List => {
-                output.print(&dataset::list(&client).await?)?;
+        Commands::Completions { shell } => {
+            generate(shell, &mut Cli::command(), "topk", &mut std::io::stdout());
+        }
+
+        Commands::Auth => {
+            auth::resolve(cli.api_key, &host, https, true)?;
+        }
+
+        Commands::Dataset { action } => {
+            let Some(api_key) = auth::resolve(cli.api_key, &host, https, false)? else {
+                return Ok(());
+            };
+
+            let mut client =
+                TopkDatasetsClient::new(make_client(&api_key, "global", &host, https)?);
+
+            match action {
+                dataset::DatasetAction::List => {
+                    let result = dataset::list(&mut client).await?;
+                    output.print(&result)?;
+                }
+                dataset::DatasetAction::Get { dataset: name } => {
+                    output.print(&dataset::get(&mut client, &name).await?)?;
+                }
+                dataset::DatasetAction::Create {
+                    dataset: name,
+                    region,
+                } => {
+                    let result = dataset::create(&mut client, &name, &region).await?;
+                    output.print(&result)?;
+                }
+                dataset::DatasetAction::Delete { dataset: name, yes } => {
+                    let result = dataset::delete(&mut client, &name, yes, output).await?;
+                    output.print(&result)?;
+                }
             }
-            dataset::DatasetAction::Get { dataset: name } => {
-                output.print(&dataset::get(&client, &name).await?)?;
-            }
-            dataset::DatasetAction::Create { dataset: name } => {
-                output.print(&dataset::create(&client, &name).await?)?;
-            }
-            dataset::DatasetAction::Delete { dataset: name, yes } => {
-                output.print(&dataset::delete(&client, &name, yes, &output).await?)?;
-            }
-        },
+        }
 
         Commands::Upload {
             dataset,
             recursive,
             concurrency,
             yes,
-            id,
-            metadata,
             dry_run,
             wait,
             pattern,
         } => {
+            let Some(api_key) = auth::resolve(cli.api_key, &host, https, false)? else {
+                return Ok(());
+            };
+
+            let mut datasets_client =
+                TopkDatasetsClient::new(make_client(&api_key, "global", &host, https)?);
+
+            let region = datasets_client.get_region(&dataset).await?;
+
+            let client = make_client(&api_key, &region, &host, https)?;
+
             output.print(
                 &upload::run(
                     &client,
                     &dataset,
                     &pattern,
                     recursive,
-                    id,
-                    metadata,
                     concurrency as usize,
                     yes,
                     dry_run,
@@ -235,11 +242,32 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
         }
 
         Commands::Delete { dataset, id, yes } => {
-            output.print(&delete::run(&client, &dataset, id, yes, &output).await?)?;
+            let Some(api_key) = auth::resolve(cli.api_key, &host, https, false)? else {
+                return Ok(());
+            };
+
+            let mut datasets_client =
+                TopkDatasetsClient::new(make_client(&api_key, "global", &host, https)?);
+
+            let region = datasets_client.get_region(&dataset).await?;
+
+            let client = make_client(&api_key, &region, &host, https)?;
+            output.print(&delete::run(&client, &dataset, id, yes, output).await?)?;
         }
 
         Commands::List { dataset, fields } => {
-            list::run(&client, &dataset, fields, &output).await?;
+            let Some(api_key) = auth::resolve(cli.api_key, &host, https, false)? else {
+                return Ok(());
+            };
+
+            let mut datasets_client =
+                TopkDatasetsClient::new(make_client(&api_key, "global", &host, https)?);
+
+            let region = datasets_client.get_region(&dataset).await?;
+
+            let client = make_client(&api_key, &region, &host, https)?;
+
+            list::run(&client, &dataset, fields, output).await?;
         }
 
         Commands::Ask {
@@ -249,10 +277,18 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             fields,
             output_dir,
         } => {
+            let Some(api_key) = auth::resolve(cli.api_key, &host, https, false)? else {
+                return Ok(());
+            };
             let query = resolve_query(query)?.ok_or_else(|| {
                 anyhow::anyhow!("query is required; pass it as an argument or pipe it via stdin")
             })?;
-            ask::run(&client, query, datasets, mode, fields, output_dir, &output).await?;
+
+            let mut datasets_client =
+                TopkDatasetsClient::new(make_client(&api_key, "global", &host, https)?);
+            let region = get_single_region_or_error(&mut datasets_client, &datasets).await?;
+            let client = make_client(&api_key, &region, &host, https)?;
+            ask::run(&client, query, datasets, mode, fields, output_dir, output).await?;
         }
 
         Commands::Search {
@@ -262,12 +298,19 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             fields,
             output_dir,
         } => {
+            let Some(api_key) = auth::resolve(cli.api_key, &host, https, false)? else {
+                return Ok(());
+            };
             let query = resolve_query(query)?.ok_or_else(|| {
                 anyhow::anyhow!("query is required; pass it as an argument or pipe it via stdin")
             })?;
+
+            let mut datasets_client =
+                TopkDatasetsClient::new(make_client(&api_key, "global", &host, https)?);
+            let region = get_single_region_or_error(&mut datasets_client, &datasets).await?;
+            let client = make_client(&api_key, &region, &host, https)?;
             search::run(&client, query, datasets, top_k, fields, output_dir, output).await?;
         }
-        Commands::Completions { .. } => unreachable!(),
     }
 
     Ok(())
@@ -277,12 +320,16 @@ fn resolve_query(query: Option<String>) -> Result<Option<String>> {
     if let Some(q) = query {
         return Ok(Some(q));
     }
+
     if std::io::stdin().is_terminal() {
         return Ok(None);
     }
+
     let mut buf = String::new();
     std::io::stdin().read_to_string(&mut buf)?;
+
     let q = buf.trim().to_string();
+
     if q.is_empty() {
         Ok(None)
     } else {
@@ -290,37 +337,38 @@ fn resolve_query(query: Option<String>) -> Result<Option<String>> {
     }
 }
 
-fn print_welcome() {
-    println!();
+async fn get_single_region_or_error<C: DatasetsClient + ?Sized>(
+    datasets_client: &mut C,
+    datasets: &[String],
+) -> Result<String> {
+    let mut dataset_regions = Vec::with_capacity(datasets.len());
+
+    for dataset in datasets {
+        let region = datasets_client.get_region(dataset).await?;
+        dataset_regions.push((dataset.clone(), region));
+    }
+
+    let unique_regions: BTreeSet<_> = dataset_regions
+        .iter()
+        .map(|(_, region)| region.clone())
+        .collect();
+
+    if unique_regions.len() != 1 {
+        let details = dataset_regions
+            .iter()
+            .map(|(dataset, region)| format!("{dataset} ({region})"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        anyhow::bail!("cannot query datasets across regions: {details}");
+    }
+
+    dataset_regions
+        .first()
+        .map(|(_, region)| region.clone())
+        .ok_or_else(|| anyhow::anyhow!("at least one dataset is required"))
 }
 
-fn print_subcommand_help(name: &str) -> Result<()> {
-    Cli::command()
-        .find_subcommand_mut(name)
-        .unwrap_or_else(|| panic!("subcommand '{name}' not found"))
-        .print_help()?;
-    println!();
-    Ok(())
-}
-
-fn make_client(
-    api_key: Option<String>,
-    region: Option<String>,
-    host: Option<String>,
-    https: bool,
-) -> Result<Client> {
-    let api_key = api_key.ok_or_else(|| {
-        anyhow::anyhow!(
-            "API key not set. Set TOPK_API_KEY environment variable or pass --api-key TOPK_API_KEY. Create your API key: https://console.topk.io"
-        )
-    })?;
-    let region = region.ok_or_else(|| {
-        anyhow::anyhow!(
-            "Region not set. Set TOPK_REGION environment variable or pass --region TOPK_REGION. List available regions: https://docs.topk.io/regions"
-        )
-    })?;
-    let host = host.unwrap_or_else(|| "topk.io".to_string());
-
+fn make_client(api_key: &str, region: &str, host: &str, https: bool) -> Result<Client> {
     Ok(Client::new(
         ClientConfig::new(api_key, region)
             .with_host(host)

@@ -4,11 +4,11 @@ use comfy_table::{
 use serde::{Deserialize, Serialize};
 use terminal_size::{terminal_size, Width as TermWidth};
 use topk_rs::{
-    client::Response,
     proto::v1::control::{CreateDatasetResponse, GetDatasetResponse, ListDatasetsResponse},
-    Client, Error,
+    Error,
 };
 
+use crate::datasets::DatasetsClient;
 use crate::output::{Output, RenderForHuman};
 use crate::util::format_timestamp;
 
@@ -28,6 +28,9 @@ pub enum DatasetAction {
         /// Dataset name
         #[arg(value_name = "DATASET")]
         dataset: String,
+        /// Region to create the dataset in
+        #[arg(long, required = true)]
+        region: String,
     },
     /// Delete a dataset
     Delete {
@@ -42,8 +45,8 @@ pub enum DatasetAction {
 
 #[derive(Serialize, Deserialize)]
 pub struct Dataset {
-    pub(crate) name: String,
-    pub(crate) region: String,
+    pub name: String,
+    pub region: String,
     // RFC3339 formatted timestamp
     pub(crate) created_at: String,
 }
@@ -60,18 +63,13 @@ impl From<topk_rs::proto::v1::control::Dataset> for Dataset {
 
 #[derive(Serialize, Deserialize)]
 pub struct ListDatasetsResult {
-    pub(crate) datasets: Vec<Dataset>,
+    pub datasets: Vec<Dataset>,
 }
 
-impl From<Response<ListDatasetsResponse>> for ListDatasetsResult {
-    fn from(resp: Response<ListDatasetsResponse>) -> Self {
+impl From<ListDatasetsResponse> for ListDatasetsResult {
+    fn from(resp: ListDatasetsResponse) -> Self {
         Self {
-            datasets: resp
-                .into_inner()
-                .datasets
-                .into_iter()
-                .map(|d| d.into())
-                .collect(),
+            datasets: resp.datasets.into_iter().map(|d| d.into()).collect(),
         }
     }
 }
@@ -118,12 +116,15 @@ pub struct GetDatasetResult {
     pub(crate) dataset: Dataset,
 }
 
-impl TryFrom<Response<GetDatasetResponse>> for GetDatasetResult {
+impl TryFrom<GetDatasetResponse> for GetDatasetResult {
     type Error = Error;
 
-    fn try_from(resp: Response<GetDatasetResponse>) -> Result<Self, Error> {
+    fn try_from(resp: GetDatasetResponse) -> Result<Self, Error> {
         Ok(Self {
-            dataset: resp.into_inner().dataset()?.clone().into(),
+            dataset: resp
+                .dataset
+                .ok_or_else(|| Error::MalformedResponse("dataset missing from get response".to_string()))?
+                .into(),
         })
     }
 }
@@ -144,12 +145,15 @@ pub struct CreateDatasetResult {
     pub(crate) dataset: Dataset,
 }
 
-impl TryFrom<Response<CreateDatasetResponse>> for CreateDatasetResult {
+impl TryFrom<CreateDatasetResponse> for CreateDatasetResult {
     type Error = Error;
 
-    fn try_from(resp: Response<CreateDatasetResponse>) -> Result<Self, Error> {
+    fn try_from(resp: CreateDatasetResponse) -> Result<Self, Error> {
         Ok(Self {
-            dataset: resp.into_inner().dataset()?.clone().into(),
+            dataset: resp
+                .dataset
+                .ok_or_else(|| Error::MalformedResponse("dataset missing from create response".to_string()))?
+                .into(),
         })
     }
 }
@@ -162,7 +166,7 @@ impl RenderForHuman for CreateDatasetResult {
 
 #[derive(Serialize, Deserialize)]
 pub struct DeleteDatasetResult {
-    pub(crate) deleted: bool,
+    pub deleted: bool,
 }
 
 impl RenderForHuman for DeleteDatasetResult {
@@ -176,23 +180,30 @@ impl RenderForHuman for DeleteDatasetResult {
 }
 
 /// `topk dataset list`
-pub async fn list(client: &Client) -> Result<ListDatasetsResult, Error> {
-    Ok(client.datasets().list().await?.into())
+pub async fn list<C: DatasetsClient + ?Sized>(client: &mut C) -> Result<ListDatasetsResult, Error> {
+    Ok(client.list().await?.into())
 }
 
 /// `topk dataset get`
-pub async fn get(client: &Client, name: &str) -> Result<GetDatasetResult, Error> {
-    client.datasets().get(name).await?.try_into()
+pub async fn get<C: DatasetsClient + ?Sized>(
+    client: &mut C,
+    name: &str,
+) -> Result<GetDatasetResult, Error> {
+    client.get(name).await?.try_into()
 }
 
 /// `topk dataset create`
-pub async fn create(client: &Client, name: &str) -> Result<CreateDatasetResult, Error> {
-    client.datasets().create(name).await?.try_into()
+pub async fn create<C: DatasetsClient + ?Sized>(
+    client: &mut C,
+    name: &str,
+    region: &str,
+) -> Result<CreateDatasetResult, Error> {
+    client.create(name, region).await?.try_into()
 }
 
 /// `topk dataset delete`
-pub async fn delete(
-    client: &Client,
+pub async fn delete<C: DatasetsClient + ?Sized>(
+    client: &mut C,
     name: &str,
     yes: bool,
     output: &Output,
@@ -201,7 +212,7 @@ pub async fn delete(
         return Ok(DeleteDatasetResult { deleted: false });
     }
 
-    let _ = client.datasets().delete(name).await?;
+    client.delete(name).await?;
 
     Ok(DeleteDatasetResult { deleted: true })
 }
@@ -221,7 +232,10 @@ mod tests {
     #[tokio::test]
     async fn list(ctx: &mut CliTestContext) {
         let name = ctx.wrap("test");
-        cmd().args(["dataset", "create", &name]).output().unwrap();
+        cmd()
+            .args(["dataset", "create", "--region", &ctx.region, &name])
+            .output()
+            .unwrap();
 
         let out = cmd()
             .args(["-o", "json", "dataset", "list"])
@@ -246,7 +260,7 @@ mod tests {
     async fn create(ctx: &mut CliTestContext) {
         let name = ctx.wrap("test");
         let out = cmd()
-            .args(["-o", "json", "dataset", "create", &name])
+            .args(["-o", "json", "dataset", "create", "--region", &ctx.region, &name])
             .output()
             .unwrap();
         assert!(
@@ -262,7 +276,10 @@ mod tests {
     #[tokio::test]
     async fn get(ctx: &mut CliTestContext) {
         let name = ctx.wrap("test");
-        cmd().args(["dataset", "create", &name]).output().unwrap();
+        cmd()
+            .args(["dataset", "create", "--region", &ctx.region, &name])
+            .output()
+            .unwrap();
 
         let out = cmd()
             .args(["-o", "json", "dataset", "get", &name])
@@ -281,7 +298,10 @@ mod tests {
     #[tokio::test]
     async fn delete(ctx: &mut CliTestContext) {
         let name = ctx.wrap("test");
-        cmd().args(["dataset", "create", &name]).output().unwrap();
+        cmd()
+            .args(["dataset", "create", "--region", &ctx.region, &name])
+            .output()
+            .unwrap();
 
         let out = cmd()
             .args(["-o", "json", "dataset", "delete", &name, "-y"])
@@ -300,7 +320,10 @@ mod tests {
     #[tokio::test]
     async fn delete_aborted(ctx: &mut CliTestContext) {
         let name = ctx.wrap("test");
-        cmd().args(["dataset", "create", &name]).output().unwrap();
+        cmd()
+            .args(["dataset", "create", "--region", &ctx.region, &name])
+            .output()
+            .unwrap();
 
         let out = cmd()
             .args(["-o", "json", "dataset", "delete", &name])
