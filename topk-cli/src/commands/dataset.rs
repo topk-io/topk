@@ -28,7 +28,7 @@ pub enum DatasetAction {
         /// Dataset name
         #[arg(value_name = "DATASET")]
         dataset: String,
-        /// Region to create the dataset in
+        /// Region to create the dataset in. List available regions at https://docs.topk.io/regions
         #[arg(long, required = true)]
         region: String,
     },
