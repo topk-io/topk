@@ -24,6 +24,7 @@ pub trait RenderForHuman: Serialize {
     fn render(&self) -> impl Into<String>;
 }
 
+#[derive(Clone, Copy)]
 pub struct Output {
     format: OutputFormat,
 }

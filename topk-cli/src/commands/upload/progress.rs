@@ -6,29 +6,38 @@ use indicatif::{ProgressBar, ProgressStyle};
 use crate::output::Output;
 use crate::util::plural;
 
+use super::result::UploadError;
+
 /// Reports per-file upload progress. Implementations must be cheap to clone /
 /// share across concurrent tasks; the reporter itself owns internal counters.
 pub trait ProgressReporter: Send + Sync {
     fn on_upload(&self, ok: bool);
-    fn finish(self: Box<Self>, summary: &str);
+    fn finish(self: Box<Self>, summary: &str, errors: &[UploadError]);
 }
 
 /// Build a reporter for the upload phase.
 ///
-/// Falls back to a no-op reporter when the user asked for JSON output or when
-/// stderr is not a TTY (e.g. piping logs to a file).
+/// Falls back to a no-op progress bar when the user asked for JSON output or when
+/// stderr is not a TTY (e.g. piping logs to a file). [`Output`] is always stored
+/// so per-file errors can be printed consistently in human mode after the bar finishes.
 pub fn upload_reporter(total: usize, output: &Output) -> Box<dyn ProgressReporter> {
+    let output = *output;
     if !output.is_human() || !std::io::stderr().is_terminal() {
-        return Box::new(NoopReporter);
+        return Box::new(NoopReporter { output });
     }
-    Box::new(BarReporter::new(total))
+    Box::new(BarReporter::new(total, output))
 }
 
-struct NoopReporter;
+struct NoopReporter {
+    output: Output,
+}
 
 impl ProgressReporter for NoopReporter {
     fn on_upload(&self, _ok: bool) {}
-    fn finish(self: Box<Self>, _summary: &str) {}
+
+    fn finish(self: Box<Self>, _summary: &str, errors: &[UploadError]) {
+        report_upload_errors(&self.output, errors);
+    }
 }
 
 struct BarReporter {
@@ -36,10 +45,11 @@ struct BarReporter {
     total: u64,
     completed: AtomicU64,
     failed: AtomicU64,
+    output: Output,
 }
 
 impl BarReporter {
-    fn new(total: usize) -> Self {
+    fn new(total: usize, output: Output) -> Self {
         let pb = ProgressBar::new(total as u64);
         let style = ProgressStyle::with_template("[{elapsed_precise}] [{wide_bar:.cyan/blue}] {msg}")
             .map(|s| s.progress_chars("=>-"))
@@ -52,6 +62,7 @@ impl BarReporter {
             total: total as u64,
             completed: AtomicU64::new(0),
             failed: AtomicU64::new(0),
+            output,
         }
     }
 }
@@ -77,9 +88,24 @@ impl ProgressReporter for BarReporter {
         }
     }
 
-    fn finish(self: Box<Self>, summary: &str) {
+    fn finish(self: Box<Self>, summary: &str, errors: &[UploadError]) {
         self.pb.finish_with_message(summary.to_string());
         eprintln!();
+        report_upload_errors(&self.output, errors);
+    }
+}
+
+fn report_upload_errors(output: &Output, errors: &[UploadError]) {
+    if !output.is_human() {
+        return;
+    }
+    for e in errors {
+        let label = e
+            .path
+            .as_ref()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| e.doc_id.clone());
+        eprintln!("  {label}: {}", e.error);
     }
 }
 

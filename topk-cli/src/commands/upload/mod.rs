@@ -1,5 +1,3 @@
-use std::num::NonZeroUsize;
-
 use bytesize::ByteSize;
 
 use topk_rs::{Client, Error};
@@ -15,35 +13,22 @@ mod waiting;
 
 pub use result::{Totals, UploadError, UploadOutcome, UploadResult};
 
-pub struct UploadArgs<'a> {
-    pub client: &'a Client,
-    pub dataset: &'a str,
-    pub pattern: &'a str,
-    pub recursive: bool,
-    /// Clamped to a non-zero `usize` internally; clap already enforces `1..=64`.
-    pub concurrency: u64,
-    pub yes: bool,
-    pub dry_run: bool,
-    pub wait: bool,
-}
-
 /// `topk upload`
-pub async fn run(args: UploadArgs<'_>, output: &Output) -> Result<UploadResult, Error> {
-    let UploadArgs {
-        client,
-        dataset,
-        pattern,
-        recursive,
-        concurrency,
-        yes,
-        dry_run,
-        wait,
-    } = args;
-    let concurrency = NonZeroUsize::new(concurrency as usize)
-        .unwrap_or(NonZeroUsize::MIN)
-        .get();
+#[allow(clippy::too_many_arguments)]
+pub async fn run(
+    client: &Client,
+    dataset: &str,
+    pattern: &str,
+    recursive: bool,
+    concurrency: usize,
+    yes: bool,
+    dry_run: bool,
+    wait: bool,
+    output: &Output,
+) -> Result<UploadResult, Error> {
     let cwd = std::env::current_dir().map_err(Error::IoError)?;
 
+    // Collect files to upload and compute totals.
     let (files, totals) = match plan::build(&cwd, pattern, recursive)? {
         plan::PlanOutcome::NoFiles { message } => {
             return Ok(UploadResult(UploadOutcome::NoFiles { message }));
@@ -51,10 +36,12 @@ pub async fn run(args: UploadArgs<'_>, output: &Output) -> Result<UploadResult, 
         plan::PlanOutcome::Files { files, totals } => (files, totals),
     };
 
+    // If dry run, return the result immediately.
     if dry_run {
         return Ok(UploadResult(UploadOutcome::DryRun { totals, files }));
     }
 
+    // Skip upload if the user did not confirm or --yes was not passed.
     if !yes
         && !output.confirm(&format!(
             "Upload {} {} ({}) to '{}' dataset? ",
@@ -67,19 +54,20 @@ pub async fn run(args: UploadArgs<'_>, output: &Output) -> Result<UploadResult, 
         return Ok(UploadResult(UploadOutcome::Skipped { totals }));
     }
 
-    // Phase 1: upload every file concurrently and display a live progress bar.
-    let total_count = totals.count;
-    let reporter = progress::upload_reporter(total_count, output);
-    let uploading::UploadingOutput {
-        handles,
-        errors: upload_errors,
-    } = uploading::upload_all(client, dataset, files, concurrency, &*reporter).await;
-    let uploaded = handles.len();
-    let failed = upload_errors.len();
-    reporter.finish(&progress::summary(total_count, uploaded, failed));
-    report_errors(&upload_errors, output);
+    // Upload every file concurrently and display a live progress bar.
+    let reporter = progress::upload_reporter(totals.count, output);
+    let uploading_output =
+        uploading::upload_all(client, dataset, files, concurrency, &*reporter).await;
+    let uploaded = uploading_output.handles.len();
+    let failed = uploading_output.errors.len();
 
-    // Phase 2: optionally wait for the server to finish processing the handles.
+    // Finish the progress bar and report errors if any.
+    reporter.finish(
+        &progress::summary(totals.count, uploaded, failed),
+        &uploading_output.errors,
+    );
+
+    // (Optional) Wait for the server to finish processing the handles.
     let should_wait = if wait {
         true
     } else if output.is_human() && uploaded > 0 {
@@ -91,8 +79,17 @@ pub async fn run(args: UploadArgs<'_>, output: &Output) -> Result<UploadResult, 
         false
     };
 
-    let processed = if should_wait && !handles.is_empty() {
-        Some(waiting::wait_for_all(client, dataset, handles, concurrency, output).await?)
+    let processed = if should_wait && !uploading_output.handles.is_empty() {
+        Some(
+            waiting::wait_for_all(
+                client,
+                dataset,
+                uploading_output.handles,
+                concurrency,
+                output,
+            )
+            .await?,
+        )
     } else {
         None
     };
@@ -100,23 +97,9 @@ pub async fn run(args: UploadArgs<'_>, output: &Output) -> Result<UploadResult, 
     Ok(UploadResult(UploadOutcome::Uploaded {
         totals,
         uploaded,
-        errors: upload_errors,
+        errors: uploading_output.errors,
         processed,
     }))
-}
-
-fn report_errors(errors: &[UploadError], output: &Output) {
-    if !output.is_human() {
-        return;
-    }
-    for e in errors {
-        let label = e
-            .path
-            .as_ref()
-            .map(|p| p.display().to_string())
-            .unwrap_or_else(|| e.doc_id.clone());
-        eprintln!("  {label}: {}", e.error);
-    }
 }
 
 #[cfg(test)]

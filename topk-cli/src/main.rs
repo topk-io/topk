@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use topk::client::{make_client, make_global_client};
 use topk::commands;
-use topk::commands::upload::{run as upload_run, UploadArgs};
 use topk::datasets::{ensure_unique_region, get_region, make_cached_datasets_client};
 use topk::output::{Output, OutputFormat};
 use topk::util::resolve_query;
@@ -12,7 +11,7 @@ use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, Shell};
 use topk_rs::proto::v1::ctx::doc::DocId;
 
-use commands::{ask, auth, dataset, delete, list, search};
+use commands::{ask, auth, dataset, delete, list, search, upload};
 
 #[derive(Parser)]
 #[command(name = "topk", version)]
@@ -240,17 +239,15 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             let client = make_client(&api_key, &region, &host, https);
 
             output.print(
-                &upload_run(
-                    UploadArgs {
-                        client: &client,
-                        dataset: &dataset,
-                        pattern: &pattern,
-                        recursive,
-                        concurrency,
-                        yes,
-                        dry_run,
-                        wait,
-                    },
+                &upload::run(
+                    &client,
+                    &dataset,
+                    &pattern,
+                    recursive,
+                    concurrency as usize,
+                    yes,
+                    dry_run,
+                    wait,
                     output,
                 )
                 .await?,
