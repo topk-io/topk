@@ -73,7 +73,7 @@ pub async fn run(
     if let Some(ref dir) = output_dir {
         result.saved = save_results(dir, &result.results)?;
         output
-            .print_human(&result)
+            .print_text(&result)
             .map_err(|e| Error::Internal(e.to_string()))?;
         return Ok(());
     }

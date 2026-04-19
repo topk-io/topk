@@ -4,16 +4,12 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use topk_rs::proto::v1::control::Dataset;
 
+use crate::persistence;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DatasetEntry {
     pub name: String,
     pub region: String,
-    #[serde(default)]
-    pub org_id: String,
-    #[serde(default)]
-    pub project_id: String,
-    #[serde(default)]
-    pub created_at: String,
 }
 
 impl From<Dataset> for DatasetEntry {
@@ -21,9 +17,6 @@ impl From<Dataset> for DatasetEntry {
         Self {
             name: dataset.name,
             region: dataset.region,
-            org_id: dataset.org_id,
-            project_id: dataset.project_id,
-            created_at: dataset.created_at,
         }
     }
 }
@@ -33,9 +26,9 @@ impl From<DatasetEntry> for Dataset {
         Self {
             name: entry.name,
             region: entry.region,
-            org_id: entry.org_id,
-            project_id: entry.project_id,
-            created_at: entry.created_at,
+            org_id: String::new(),
+            project_id: String::new(),
+            created_at: String::new(),
         }
     }
 }
@@ -66,17 +59,8 @@ impl DatasetIndex {
         self.datasets.push(entry);
     }
 
-    /// Removes the entry for `name` as part of a CRUD mutation (e.g. `delete`).
+    /// Evicts the cached entry for `name`.
     pub fn remove(&mut self, name: &str) {
-        self.datasets.retain(|d| d.name != name);
-    }
-
-    /// Evicts the entry for `name` because the backend reported it stale.
-    ///
-    /// Semantically distinct from `remove` even though the implementation is the same:
-    /// use `bust` on negative feedback (e.g. `NotFound` from a regional call) so the
-    /// next lookup re-fetches from the backend.
-    pub fn bust(&mut self, name: &str) {
         self.datasets.retain(|d| d.name != name);
     }
 }
@@ -86,25 +70,16 @@ pub fn cache_path() -> Option<PathBuf> {
 }
 
 pub(crate) fn load() -> DatasetIndex {
-    let path = match cache_path() {
-        Some(p) => p,
-        None => return DatasetIndex::default(),
-    };
-    let content = match std::fs::read_to_string(&path) {
-        Ok(c) => c,
-        Err(_) => return DatasetIndex::default(),
-    };
-    toml::from_str(&content).unwrap_or_default()
+    persistence::load_toml_or_default(cache_path(), |path, err| {
+        eprintln!(
+            "warning: failed to parse file {}: {err}, defaulting to empty cache",
+            path.display()
+        );
+    })
 }
 
 pub(crate) fn save(index: &DatasetIndex) -> Result<()> {
-    let path =
-        cache_path().ok_or_else(|| anyhow::anyhow!("could not determine config directory"))?;
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    std::fs::write(&path, toml::to_string_pretty(index)?)?;
-    Ok(())
+    persistence::save_toml(cache_path(), index)
 }
 
 #[cfg(test)]
@@ -115,9 +90,6 @@ mod tests {
         DatasetEntry {
             name: name.to_string(),
             region: region.to_string(),
-            org_id: String::new(),
-            project_id: String::new(),
-            created_at: "2026-01-01T00:00:00Z".to_string(),
         }
     }
 
@@ -130,7 +102,10 @@ mod tests {
     #[test]
     fn lookup_returns_entry_for_known_name() {
         let idx = index(&[("ds", "us-east-1")]);
-        assert_eq!(idx.lookup("ds").map(|d| d.region.as_str()), Some("us-east-1"));
+        assert_eq!(
+            idx.lookup("ds").map(|d| d.region.as_str()),
+            Some("us-east-1")
+        );
     }
 
     #[test]
@@ -158,12 +133,10 @@ mod tests {
     #[test]
     fn insert_replaces_same_name() {
         let mut idx = index(&[("a", "us-east-1")]);
-        let mut updated = entry("a", "eu-west-1");
-        updated.created_at = "updated".to_string();
+        let updated = entry("a", "eu-west-1");
         idx.insert(updated);
         let entry = idx.lookup("a").unwrap();
         assert_eq!(entry.region, "eu-west-1");
-        assert_eq!(entry.created_at, "updated");
     }
 
     #[test]
@@ -175,9 +148,9 @@ mod tests {
     }
 
     #[test]
-    fn bust_evicts_entry_for_name() {
+    fn remove_evicts_entry_for_name() {
         let mut idx = index(&[("a", "us-east-1"), ("b", "eu-west-1")]);
-        idx.bust("a");
+        idx.remove("a");
         assert!(idx.lookup("a").is_none());
         assert!(idx.lookup("b").is_some());
     }

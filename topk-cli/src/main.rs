@@ -1,17 +1,16 @@
 use std::path::PathBuf;
-
-use topk::client::{make_client, make_global_client};
-use topk::commands;
-use topk::datasets::{ensure_unique_region, get_region, make_cached_datasets_client};
-use topk::output::{Output, OutputFormat};
-use topk::util::resolve_query;
+use std::process::ExitCode;
 
 use anyhow::Result;
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, Shell};
 use topk_rs::proto::v1::ctx::doc::DocId;
 
-use commands::{ask, auth, dataset, delete, list, search, upload};
+use topk::client::{make_client, make_global_client};
+use topk::commands::{ask, auth, dataset, delete, list, search, upload};
+use topk::datasets::{ensure_unique_region, get_region, make_cached_datasets_client};
+use topk::output::{Output, OutputFormat};
+use topk::util::resolve_query;
 
 #[derive(Parser)]
 #[command(name = "topk", version)]
@@ -87,37 +86,12 @@ enum Commands {
         #[arg(short = 'f', long = "field")]
         fields: Option<Vec<String>>,
         /// Save search results content (images, text chunks) to a directory
-        #[arg(long, value_name = "DIR", num_args = 0..=1, default_missing_value = ".")]
+        #[arg(long, value_name = "DIR")]
         output_dir: Option<PathBuf>,
     },
 
     /// Upload files
-    Upload {
-        /// Dataset to upload into
-        #[arg(short = 'd', long, value_name = "DATASET_NAME")]
-        dataset: String,
-        /// Recurse into subdirectories when PATTERN is a directory
-        #[arg(short = 'r', long)]
-        recursive: bool,
-        /// Number of concurrent uploads (1–64)
-        #[arg(short = 'c', long, default_value = "32", value_parser = clap::value_parser!(u64).range(1..=64))]
-        concurrency: u64,
-        /// Skip upload confirmation prompt
-        #[arg(short = 'y', long)]
-        yes: bool,
-        /// Preview files without uploading
-        #[arg(long)]
-        dry_run: bool,
-        /// Wait for all uploaded files to be fully processed
-        #[arg(short = 'w', long)]
-        wait: bool,
-        /// Timeout for uploading files in seconds (default: 30 minutes)
-        #[arg(long, value_name = "SECS", default_value = "1800")]
-        timeout: u64,
-        /// File path, directory, or glob pattern (e.g. "./report.pdf" "./docs" "*.pdf" "docs/**/*.md")
-        #[arg(value_name = "PATTERN")]
-        pattern: String,
-    },
+    Upload(upload::UploadArgs),
 
     /// Delete a document
     Delete {
@@ -154,36 +128,30 @@ enum Commands {
 }
 
 #[tokio::main]
-async fn main() -> std::process::ExitCode {
+async fn main() -> ExitCode {
     let cli = Cli::parse();
 
     let output = Output::new(cli.output);
 
-    if cli.command.is_none() {
-        Cli::command().print_help().unwrap();
-        return std::process::ExitCode::SUCCESS;
+    match run(cli, &output).await {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            output.error(&e);
+            ExitCode::FAILURE
+        }
     }
-
-    if let Err(e) = run(cli, &output).await {
-        output.error(&e);
-        return std::process::ExitCode::FAILURE;
-    }
-
-    std::process::ExitCode::SUCCESS
 }
 
 async fn run(cli: Cli, output: &Output) -> Result<()> {
-    let command = cli.command.expect("checked above");
-
     let host = cli.host.unwrap_or_else(|| "topk.io".to_string());
     let https = cli.https;
 
-    match command {
-        Commands::Completions { shell } => {
+    match cli.command {
+        Some(Commands::Completions { shell }) => {
             generate(shell, &mut Cli::command(), "topk", &mut std::io::stdout());
         }
 
-        Commands::Auth { action } => match action.unwrap_or(auth::AuthAction::Login) {
+        Some(Commands::Auth { action }) => match action.unwrap_or(auth::AuthAction::Login) {
             auth::AuthAction::Login => {
                 auth::resolve(cli.api_key, &host, https, true)?;
             }
@@ -192,46 +160,34 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             }
         },
 
-        Commands::Dataset { action } => {
+        Some(Commands::Dataset { action }) => {
             let Some(api_key) = auth::resolve(cli.api_key, &host, https, false)? else {
                 return Ok(());
             };
 
-            let mut client =
-                make_cached_datasets_client(make_global_client(&api_key, &host, https));
+            let client = make_cached_datasets_client(make_global_client(&api_key, &host, https));
 
             match action {
                 dataset::DatasetAction::List => {
-                    let result = dataset::list(&mut client).await?;
+                    let result = dataset::list(client).await?;
                     output.print(&result)?;
                 }
                 dataset::DatasetAction::Get { dataset: name } => {
-                    output.print(&dataset::get(&mut client, &name).await?)?;
+                    output.print(&dataset::get(client, &name).await?)?;
                 }
                 dataset::DatasetAction::Create {
                     dataset: name,
                     region,
                 } => {
-                    let result = dataset::create(&mut client, &name, &region).await?;
-                    output.print(&result)?;
+                    output.print(&dataset::create(client, &name, &region).await?)?;
                 }
                 dataset::DatasetAction::Delete { dataset: name, yes } => {
-                    let result = dataset::delete(&mut client, &name, yes, output).await?;
-                    output.print(&result)?;
+                    output.print(&dataset::delete(client, &name, yes, output).await?)?;
                 }
             }
         }
 
-        Commands::Upload {
-            dataset,
-            recursive,
-            concurrency,
-            yes,
-            dry_run,
-            wait,
-            timeout,
-            pattern,
-        } => {
+        Some(Commands::Upload(args)) => {
             let Some(api_key) = auth::resolve(cli.api_key, &host, https, false)? else {
                 return Ok(());
             };
@@ -239,27 +195,13 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             let mut datasets_client =
                 make_cached_datasets_client(make_global_client(&api_key, &host, https));
 
-            let region = get_region(&mut datasets_client, &dataset).await?;
+            let region = get_region(&mut datasets_client, &args.dataset).await?;
             let client = make_client(&api_key, &region, &host, https);
 
-            output.print(
-                &upload::run(
-                    &client,
-                    &dataset,
-                    &pattern,
-                    recursive,
-                    concurrency as usize,
-                    yes,
-                    dry_run,
-                    wait,
-                    Some(std::time::Duration::from_secs(timeout)),
-                    output,
-                )
-                .await?,
-            )?;
+            output.print(&upload::run(&client, &args, output).await?)?;
         }
 
-        Commands::Delete { dataset, id, yes } => {
+        Some(Commands::Delete { dataset, id, yes }) => {
             let Some(api_key) = auth::resolve(cli.api_key, &host, https, false)? else {
                 return Ok(());
             };
@@ -273,7 +215,7 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             output.print(&delete::run(&client, &dataset, id, yes, output).await?)?;
         }
 
-        Commands::List { dataset, fields } => {
+        Some(Commands::List { dataset, fields }) => {
             let Some(api_key) = auth::resolve(cli.api_key, &host, https, false)? else {
                 return Ok(());
             };
@@ -287,13 +229,13 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             list::run(&client, &dataset, fields, output).await?;
         }
 
-        Commands::Ask {
+        Some(Commands::Ask {
             query,
             datasets,
             mode,
             fields,
             output_dir,
-        } => {
+        }) => {
             let Some(api_key) = auth::resolve(cli.api_key, &host, https, false)? else {
                 return Ok(());
             };
@@ -309,13 +251,13 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             ask::run(&client, query, datasets, mode, fields, output_dir, output).await?;
         }
 
-        Commands::Search {
+        Some(Commands::Search {
             query,
             datasets,
             top_k,
             fields,
             output_dir,
-        } => {
+        }) => {
             let Some(api_key) = auth::resolve(cli.api_key, &host, https, false)? else {
                 return Ok(());
             };
@@ -329,6 +271,10 @@ async fn run(cli: Cli, output: &Output) -> Result<()> {
             let client = make_client(&api_key, &region, &host, https);
 
             search::run(&client, query, datasets, top_k, fields, output_dir, output).await?;
+        }
+
+        None => {
+            Cli::command().print_help()?;
         }
     }
 

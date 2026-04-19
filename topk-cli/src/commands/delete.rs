@@ -29,7 +29,7 @@ pub async fn run(
 ) -> Result<DeleteResult, Error> {
     let doc_id = doc_id.into();
 
-    if !yes && !output.confirm(&format!("Delete document '{}'? ", doc_id))? {
+    if !output.confirm_or_yes(&format!("Delete document '{}'? ", doc_id), yes)? {
         return Ok(DeleteResult {
             deleted: false,
             handle: None,

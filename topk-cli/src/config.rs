@@ -3,6 +3,8 @@ use std::path::PathBuf;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
+use crate::persistence;
+
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Config {
     pub api_key: Option<String>,
@@ -15,25 +17,34 @@ pub fn config_path() -> Option<PathBuf> {
 
 /// Loads the config file. Returns an empty config on any read or parse error.
 pub fn load() -> Config {
-    let path = match config_path() {
-        Some(p) => p,
-        None => return Config::default(),
-    };
-    let content = match std::fs::read_to_string(&path) {
-        Ok(c) => c,
-        Err(_) => return Config::default(),
-    };
-    toml::from_str(&content).unwrap_or_default()
+    persistence::load_toml_or_default(config_path(), |_, _| {})
 }
 
 /// Saves the config file, creating parent directories as needed.
 pub fn save(config: &Config) -> Result<()> {
-    let path =
-        config_path().ok_or_else(|| anyhow::anyhow!("could not determine config directory"))?;
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    std::fs::write(&path, toml::to_string_pretty(config)?)?;
+    persistence::save_toml_with(config_path(), config, write_config_file)
+}
+
+#[cfg(unix)]
+fn write_config_file(path: &std::path::Path, content: &str) -> Result<()> {
+    use std::fs::{OpenOptions, Permissions};
+    use std::io::Write;
+    use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+
+    let mut file = OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .mode(0o600)
+        .open(path)?;
+    file.write_all(content.as_bytes())?;
+    file.set_permissions(Permissions::from_mode(0o600))?;
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn write_config_file(path: &std::path::Path, content: &str) -> Result<()> {
+    std::fs::write(path, content)?;
     Ok(())
 }
 
@@ -43,7 +54,12 @@ pub fn mask(key: &str) -> String {
     if chars.len() <= 4 {
         return "*".repeat(chars.len());
     }
-    let suffix: String = chars.iter().rev().take(4).copied().collect::<Vec<_>>()
+    let suffix: String = chars
+        .iter()
+        .rev()
+        .take(4)
+        .copied()
+        .collect::<Vec<_>>()
         .into_iter()
         .rev()
         .collect();
@@ -64,5 +80,23 @@ mod tests {
     fn mask_handles_multibyte_keys() {
         assert_eq!(mask("密钥🔒安全令牌XYZ"), "******牌XYZ");
         assert_eq!(mask("🔒短"), "**");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn write_config_file_uses_restrictive_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempfile::tempdir().expect("create tempdir");
+        let path = dir.path().join("config.toml");
+
+        super::write_config_file(&path, "api_key = 'secret'").expect("write config");
+
+        let mode = std::fs::metadata(&path)
+            .expect("stat config")
+            .permissions()
+            .mode()
+            & 0o777;
+        assert_eq!(mode, 0o600);
     }
 }

@@ -6,14 +6,15 @@ use super::result::Totals;
 use crate::util::{normalize_glob_pattern, resolve_files, UploadFile};
 
 pub enum PlanOutcome {
-    NoFiles { message: String },
-    Files { files: Vec<UploadFile>, totals: Totals },
+    NoFiles {
+        message: String,
+    },
+    Files {
+        files: Vec<UploadFile>,
+        totals: Totals,
+    },
 }
 
-/// Resolves files matching `pattern` relative to `cwd` and computes totals.
-///
-/// Pure sync — no network, no progress, no interactive I/O — so it's trivial
-/// to unit test the "no files" hint, absolute paths, and recursive behavior.
 pub fn build(cwd: &Path, pattern: &str, recursive: bool) -> Result<PlanOutcome, Error> {
     let match_pattern = normalize_glob_pattern(pattern).to_string();
     let files = resolve_files(cwd, &match_pattern, recursive)?;

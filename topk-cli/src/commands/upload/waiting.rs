@@ -40,9 +40,7 @@ pub async fn wait_for_all(
                             .await?;
                         let n = done.fetch_add(1, Ordering::Relaxed) + 1;
                         if let Some(pb) = &pb {
-                            pb.set_message(format!(
-                                "{n}/{total} processed — press Enter to skip"
-                            ));
+                            pb.set_message(format!("{n}/{total} processed — press Enter to skip"));
                         }
                         Ok::<_, Error>(())
                     }

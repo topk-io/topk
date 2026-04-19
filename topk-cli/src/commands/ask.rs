@@ -93,9 +93,9 @@ fn render_facts_section(facts: &[Fact]) -> String {
 fn render_refs_section(
     refs: &HashMap<String, SearchResult>,
     saved: &HashMap<String, PathBuf>,
-) -> String {
+) -> Option<String> {
     if refs.is_empty() {
-        return String::new();
+        return None;
     }
     let mut sorted_refs: Vec<_> = refs.iter().collect();
     sorted_refs.sort_by(|(a, _), (b, _)| ref_sort_key(a).cmp(&ref_sort_key(b)));
@@ -105,17 +105,21 @@ fn render_refs_section(
         .map(|(id, r)| render_search_result(id, r, saved.get(id), Some(560)))
         .collect();
 
-    format!("{BOLD}References:{RESET}\n{}", ref_lines.join("\n\n"))
+    Some(format!(
+        "{BOLD}References:{RESET}\n{}",
+        ref_lines.join("\n\n")
+    ))
 }
 
-fn save_refs(dir: &Path, refs: &HashMap<String, SearchResult>) -> Result<HashMap<String, PathBuf>, Error> {
+fn save_refs(
+    dir: &Path,
+    refs: &HashMap<String, SearchResult>,
+) -> Result<HashMap<String, PathBuf>, Error> {
     refs.iter()
-        .filter_map(|(ref_id, r)| {
-            match write_result_content(dir, ref_id, r) {
-                Ok(Some(path)) => Some(Ok((ref_id.clone(), path))),
-                Ok(None) => None,
-                Err(err) => Some(Err(Error::IoError(err))),
-            }
+        .filter_map(|(ref_id, r)| match write_result_content(dir, ref_id, r) {
+            Ok(Some(path)) => Some(Ok((ref_id.clone(), path))),
+            Ok(None) => None,
+            Err(err) => Some(Err(Error::IoError(err))),
         })
         .collect()
 }
@@ -228,9 +232,8 @@ pub async fn run(
         HashMap::new()
     };
 
-    let refs_text = render_refs_section(&result.refs, &saved);
-    if !refs_text.is_empty() {
-        println!("\n{refs_text}");
+    if let Some(refs) = render_refs_section(&result.refs, &saved) {
+        println!("\n{refs}");
     }
 
     Ok(())

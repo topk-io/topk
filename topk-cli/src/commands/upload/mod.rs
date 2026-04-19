@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use bytesize::ByteSize;
+use clap::Args;
 
 use topk_rs::{Client, Error};
 
@@ -15,24 +16,51 @@ mod waiting;
 
 pub use result::{Totals, UploadError, UploadOutcome, UploadResult};
 
+fn parse_timeout_secs(value: &str) -> Result<Duration, String> {
+    value
+        .parse::<u64>()
+        .map(Duration::from_secs)
+        .map_err(|err| err.to_string())
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct UploadArgs {
+    /// Dataset to upload into
+    #[arg(short = 'd', long, value_name = "DATASET_NAME")]
+    pub dataset: String,
+    /// Recurse into subdirectories when PATTERN is a directory
+    #[arg(short = 'r', long)]
+    pub recursive: bool,
+    /// Number of concurrent uploads (1–64)
+    #[arg(short = 'c', long, default_value = "32", value_parser = clap::value_parser!(u64).range(1..=64))]
+    pub concurrency: u64,
+    /// Skip upload confirmation prompt
+    #[arg(short = 'y', long)]
+    pub yes: bool,
+    /// Preview files without uploading
+    #[arg(long)]
+    pub dry_run: bool,
+    /// Wait for all uploaded files to be fully processed
+    #[arg(short = 'w', long)]
+    pub wait: bool,
+    /// Timeout for uploading files in seconds (default: 30 minutes)
+    #[arg(long, value_name = "SECS", default_value = "1800", value_parser = parse_timeout_secs)]
+    pub timeout: Duration,
+    /// File path, directory, or glob pattern (e.g. "./report.pdf" "./docs" "*.pdf" "docs/**/*.md")
+    #[arg(value_name = "PATTERN")]
+    pub pattern: String,
+}
+
 /// `topk upload`
-#[allow(clippy::too_many_arguments)]
 pub async fn run(
     client: &Client,
-    dataset: &str,
-    pattern: &str,
-    recursive: bool,
-    concurrency: usize,
-    yes: bool,
-    dry_run: bool,
-    wait: bool,
-    upload_timeout: Option<Duration>,
+    args: &UploadArgs,
     output: &Output,
 ) -> Result<UploadResult, Error> {
     let cwd = std::env::current_dir().map_err(Error::IoError)?;
 
     // Collect files to upload and compute totals.
-    let (files, totals) = match plan::build(&cwd, pattern, recursive)? {
+    let (files, totals) = match plan::build(&cwd, &args.pattern, args.recursive)? {
         plan::PlanOutcome::NoFiles { message } => {
             return Ok(UploadResult(UploadOutcome::NoFiles { message }));
         }
@@ -40,18 +68,18 @@ pub async fn run(
     };
 
     // If dry run, return the result immediately.
-    if dry_run {
+    if args.dry_run {
         return Ok(UploadResult(UploadOutcome::DryRun { totals, files }));
     }
 
     // Skip upload if the user did not confirm or --yes was not passed.
-    if !yes
+    if !args.yes
         && !output.confirm(&format!(
             "Upload {} {} ({}) to '{}' dataset? ",
             totals.count,
             plural(totals.count, "file", "files"),
             ByteSize(totals.size),
-            dataset
+            args.dataset
         ))?
     {
         return Ok(UploadResult(UploadOutcome::Skipped { totals }));
@@ -59,20 +87,22 @@ pub async fn run(
 
     // Upload every file concurrently and display a live progress bar.
     let reporter = progress::upload_reporter(totals.count, output);
-    let upload_fut = uploading::upload_all(client, dataset, files, concurrency, &*reporter);
-    let uploading_output = if let Some(timeout) = upload_timeout {
-        match tokio::time::timeout(timeout, upload_fut).await {
-            Ok(out) => out,
-            Err(_) => {
-                reporter.finish("Upload timed out.", &[]);
-                return Err(Error::DeadlineExceeded(format!(
-                    "upload timed out after {}s",
-                    timeout.as_secs()
-                )));
-            }
+    let upload_fut = uploading::upload_all(
+        client,
+        &args.dataset,
+        files,
+        args.concurrency as usize,
+        &*reporter,
+    );
+    let uploading_output = match tokio::time::timeout(args.timeout, upload_fut).await {
+        Ok(out) => out,
+        Err(_) => {
+            reporter.finish("Upload timed out.", &[]);
+            return Err(Error::DeadlineExceeded(format!(
+                "upload timed out after {}s",
+                args.timeout.as_secs()
+            )));
         }
-    } else {
-        upload_fut.await
     };
     let uploaded = uploading_output.handles.len();
     let failed = uploading_output.errors.len();
@@ -84,7 +114,7 @@ pub async fn run(
     );
 
     // (Optional) Wait for the server to finish processing the handles.
-    let should_wait = if wait {
+    let should_wait = if args.wait {
         true
     } else if output.is_human() && uploaded > 0 {
         output.confirm(&format!(
@@ -99,9 +129,9 @@ pub async fn run(
         Some(
             waiting::wait_for_all(
                 client,
-                dataset,
+                &args.dataset,
                 uploading_output.handles,
-                concurrency,
+                args.concurrency as usize,
                 output,
             )
             .await?,
@@ -121,7 +151,7 @@ pub async fn run(
 #[cfg(test)]
 mod tests {
     use super::{UploadOutcome, UploadResult};
-    use crate::test_context::CliTestContext;
+    use crate::test_context::{CliTestContext, OutputJsonExt};
     use crate::util::doc_id_from_path;
     use assert_cmd::Command;
     use std::fs;
@@ -186,7 +216,7 @@ mod tests {
             "{}",
             String::from_utf8_lossy(&out.stderr)
         );
-        let result: UploadResult = serde_json::from_slice(&out.stdout).unwrap();
+        let result: UploadResult = out.json().unwrap();
         match result.0 {
             UploadOutcome::Uploaded {
                 totals, uploaded, ..
@@ -222,7 +252,7 @@ mod tests {
             "{}",
             String::from_utf8_lossy(&out.stderr)
         );
-        let result: UploadResult = serde_json::from_slice(&out.stdout).unwrap();
+        let result: UploadResult = out.json().unwrap();
         match result.0 {
             UploadOutcome::DryRun { totals, files } => {
                 assert_eq!(totals.count, 1);
@@ -247,7 +277,7 @@ mod tests {
             "{}",
             String::from_utf8_lossy(&out.stderr)
         );
-        let result: UploadResult = serde_json::from_slice(&out.stdout).unwrap();
+        let result: UploadResult = out.json().unwrap();
         match result.0 {
             UploadOutcome::Uploaded {
                 totals, uploaded, ..
@@ -282,7 +312,7 @@ mod tests {
             "{}",
             String::from_utf8_lossy(&out.stderr)
         );
-        let result: UploadResult = serde_json::from_slice(&out.stdout).unwrap();
+        let result: UploadResult = out.json().unwrap();
         match result.0 {
             UploadOutcome::DryRun { totals, .. } => {
                 assert_eq!(totals.count, 1);
@@ -322,7 +352,7 @@ mod tests {
             "{}",
             String::from_utf8_lossy(&out.stderr)
         );
-        let result: UploadResult = serde_json::from_slice(&out.stdout).unwrap();
+        let result: UploadResult = out.json().unwrap();
         match result.0 {
             UploadOutcome::DryRun { totals, .. } => {
                 assert_eq!(totals.count, 2);
@@ -361,7 +391,7 @@ mod tests {
             "{}",
             String::from_utf8_lossy(&out.stderr)
         );
-        let result: UploadResult = serde_json::from_slice(&out.stdout).unwrap();
+        let result: UploadResult = out.json().unwrap();
         match result.0 {
             UploadOutcome::Uploaded {
                 uploaded,

@@ -61,6 +61,16 @@ impl From<topk_rs::proto::v1::control::Dataset> for Dataset {
     }
 }
 
+impl From<&topk_rs::proto::v1::control::Dataset> for Dataset {
+    fn from(dataset: &topk_rs::proto::v1::control::Dataset) -> Self {
+        Self {
+            name: dataset.name.clone(),
+            region: dataset.region.clone(),
+            created_at: dataset.created_at.clone(),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct ListDatasetsResult {
     pub datasets: Vec<Dataset>,
@@ -121,10 +131,7 @@ impl TryFrom<GetDatasetResponse> for GetDatasetResult {
 
     fn try_from(resp: GetDatasetResponse) -> Result<Self, Error> {
         Ok(Self {
-            dataset: resp
-                .dataset
-                .ok_or_else(|| Error::MalformedResponse("dataset missing from get response".to_string()))?
-                .into(),
+            dataset: resp.dataset()?.into(),
         })
     }
 }
@@ -150,10 +157,7 @@ impl TryFrom<CreateDatasetResponse> for CreateDatasetResult {
 
     fn try_from(resp: CreateDatasetResponse) -> Result<Self, Error> {
         Ok(Self {
-            dataset: resp
-                .dataset
-                .ok_or_else(|| Error::MalformedResponse("dataset missing from create response".to_string()))?
-                .into(),
+            dataset: resp.dataset()?.into(),
         })
     }
 }
@@ -180,21 +184,18 @@ impl RenderForHuman for DeleteDatasetResult {
 }
 
 /// `topk dataset list`
-pub async fn list<C: DatasetsClient + ?Sized>(client: &mut C) -> Result<ListDatasetsResult, Error> {
+pub async fn list<C: DatasetsClient>(mut client: C) -> Result<ListDatasetsResult, Error> {
     Ok(client.list().await?.into())
 }
 
 /// `topk dataset get`
-pub async fn get<C: DatasetsClient + ?Sized>(
-    client: &mut C,
-    name: &str,
-) -> Result<GetDatasetResult, Error> {
+pub async fn get<C: DatasetsClient>(mut client: C, name: &str) -> Result<GetDatasetResult, Error> {
     client.get(name).await?.try_into()
 }
 
 /// `topk dataset create`
-pub async fn create<C: DatasetsClient + ?Sized>(
-    client: &mut C,
+pub async fn create<C: DatasetsClient>(
+    mut client: C,
     name: &str,
     region: &str,
 ) -> Result<CreateDatasetResult, Error> {
@@ -202,13 +203,13 @@ pub async fn create<C: DatasetsClient + ?Sized>(
 }
 
 /// `topk dataset delete`
-pub async fn delete<C: DatasetsClient + ?Sized>(
-    client: &mut C,
+pub async fn delete<C: DatasetsClient>(
+    mut client: C,
     name: &str,
     yes: bool,
     output: &Output,
 ) -> Result<DeleteDatasetResult, Error> {
-    if !yes && !output.confirm(&format!("Delete dataset '{}'? ", name))? {
+    if !output.confirm_or_yes(&format!("Delete dataset '{}'? ", name), yes)? {
         return Ok(DeleteDatasetResult { deleted: false });
     }
 
@@ -260,7 +261,15 @@ mod tests {
     async fn create(ctx: &mut CliTestContext) {
         let name = ctx.wrap("test");
         let out = cmd()
-            .args(["-o", "json", "dataset", "create", "--region", &ctx.region, &name])
+            .args([
+                "-o",
+                "json",
+                "dataset",
+                "create",
+                "--region",
+                &ctx.region,
+                &name,
+            ])
             .output()
             .unwrap();
         assert!(

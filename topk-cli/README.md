@@ -14,7 +14,7 @@ brew install topk
 Run:
 
 ```bash
-topk auth
+topk auth login
 ```
 
 Or set `TOPK_API_KEY` before running the CLI:
@@ -31,12 +31,18 @@ export TOPK_API_KEY=<your-api-key>
 
 Alternatively, pass `--api-key` as a flag on any command.
 
-## Commands
-
-### `ask` — Get a grounded answer with citations from documents
+To remove the stored API key:
 
 ```bash
-topk ask "my question"
+topk auth logout
+```
+
+## Commands
+
+### `ask` — Get a grounded answer with citations
+
+```bash
+topk ask "my question" --dataset my-dataset
 ```
 
 
@@ -45,12 +51,13 @@ topk ask "my question"
 | `--dataset` | Yes      | Dataset to search (repeatable, e.g. `-d ds1 -d ds2`)                               |
 | `--mode`    | No       | Response mode: `auto` (default), `summarize`, `research`                            |
 | `--field`   | No       | Metadata field to include in results (repeatable, e.g. `-f title -f author`)        |
+| `--output-dir` | No    | Save result content (images, text chunks) to a directory                            |
 
 
 The query can also be piped via stdin:
 
 ```bash
-echo "my question" | topk ask
+echo "my question" | topk ask --dataset my-dataset
 ```
 
 ---
@@ -58,7 +65,7 @@ echo "my question" | topk ask
 ### `search` — Find relevant passages in documents
 
 ```bash
-topk search "my query"
+topk search "my query" --dataset my-dataset
 ```
 
 
@@ -67,12 +74,13 @@ topk search "my query"
 | `--dataset` | Yes      | Dataset to search (repeatable, e.g. `-d ds1 -d ds2`)                               |
 | `--top-k`   | No       | Number of results to return (default: 10)                                           |
 | `--field`   | No       | Metadata field to include in results (repeatable, e.g. `-f title -f author`)        |
+| `--output-dir` | No    | Save result content (images, text chunks) to a directory                            |
 
 
 The query can also be piped via stdin:
 
 ```bash
-echo "my query" | topk search
+echo "my query" | topk search --dataset my-dataset
 ```
 
 ---
@@ -97,6 +105,7 @@ topk upload docs --dataset my-dataset -r
 | `-c`        | No       | Number of concurrent uploads, 1–64 (default: 32) |
 | `--wait`    | No       | Wait for all uploaded files to be fully processed |
 | `--dry-run` | No       | Preview which files would be uploaded without uploading |
+| `--timeout` | No       | Upload timeout in seconds (default: 1800 / 30 minutes) |
 
 
 In interactive mode, `upload` prompts whether to wait for processing after the files are uploaded. Pass `--wait` to skip the prompt and wait automatically. In non-interactive mode, `upload` returns after upload unless `--wait` is passed.
@@ -158,13 +167,13 @@ topk dataset get my-dataset
 #### Create a dataset:
 
 ```bash
-topk dataset create --region us-east-1 my-dataset
+topk dataset create --region aws-us-east-1-elastica my-dataset
 ```
 
 | Argument   | Required | Description                     |
 | ---------- | -------- | ------------------------------- |
 | `DATASET`  | Yes      | Dataset name                    |
-| `--region` | Yes      | Region to create the dataset in |
+| `--region` | Yes      | Region to create the dataset in. List available regions at https://docs.topk.io/regions |
 
 #### Delete a dataset:
 
@@ -181,7 +190,7 @@ topk dataset delete my-dataset
 
 ## Output
 
-By default all commands print human-readable text. Pass `-o json` for machine-readable JSON:
+By default all commands print human-readable text. Pass `-o json` for machine-readable JSON. The `text` value is also accepted as an alias for the default human-readable format:
 
 ```bash
 topk -o json dataset list

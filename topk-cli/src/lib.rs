@@ -4,16 +4,28 @@ pub mod commands;
 pub mod config;
 pub mod datasets;
 pub mod output;
+pub mod persistence;
 pub mod util;
 
 #[cfg(test)]
 pub mod test_context {
     use assert_cmd::Command;
+    use serde::de::DeserializeOwned;
     use test_context::AsyncTestContext;
     use topk_rs::Client;
     use uuid::Uuid;
 
     use crate::{client::make_global_client, commands::dataset::CreateDatasetResult};
+
+    pub trait OutputJsonExt {
+        fn json<T: DeserializeOwned>(&self) -> serde_json::Result<T>;
+    }
+
+    impl OutputJsonExt for std::process::Output {
+        fn json<T: DeserializeOwned>(&self) -> serde_json::Result<T> {
+            serde_json::from_slice(&self.stdout)
+        }
+    }
 
     pub struct CliTestContext {
         pub client: Client,
@@ -41,7 +53,12 @@ pub mod test_context {
                 .output()
                 .unwrap();
 
-            let result: CreateDatasetResult = serde_json::from_slice(&out.stdout).unwrap();
+            assert!(
+                out.status.success(),
+                "{}",
+                String::from_utf8_lossy(&out.stderr)
+            );
+            let result: CreateDatasetResult = out.json().unwrap();
 
             assert_eq!(result.dataset.name, name);
 

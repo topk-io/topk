@@ -116,7 +116,7 @@ where
     }
 
     async fn bust(&mut self, name: &str) {
-        self.index.bust(name);
+        self.index.remove(name);
         self.persist();
     }
 }
@@ -133,20 +133,20 @@ pub async fn get_region<C: DatasetsClient + ?Sized>(
     response
         .dataset
         .as_ref()
-        .map(|dataset| normalize_region(&dataset.region))
+        .map(|dataset| dataset.region.clone())
         .ok_or_else(|| Error::MalformedResponse("dataset missing from get response".to_string()))
 }
 
-/// Resolves a single region shared by every dataset in `names`.
+/// Resolves a single region shared by every dataset in `datasets`.
 ///
-/// Errors if `names` is empty, if any dataset cannot be resolved, or if the
+/// Errors if `datasets` is empty, if any dataset cannot be resolved, or if the
 /// datasets span more than one region.
 pub async fn ensure_unique_region<C: DatasetsClient + ?Sized>(
     client: &mut C,
-    names: Vec<String>,
+    datasets: Vec<String>,
 ) -> anyhow::Result<String> {
-    let mut pairs: Vec<(String, String)> = Vec::with_capacity(names.len());
-    for name in names {
+    let mut pairs: Vec<(String, String)> = Vec::with_capacity(datasets.len());
+    for name in datasets {
         let region = get_region(client, &name).await?;
         pairs.push((name.clone(), region));
     }
@@ -165,12 +165,7 @@ pub async fn ensure_unique_region<C: DatasetsClient + ?Sized>(
         anyhow::bail!("cannot query datasets across regions: {details}");
     }
 
-    Ok(normalize_region(first))
-}
-
-/// TODO: remove when we resolve full region name as hostname
-pub fn normalize_region(region: &str) -> String {
-    region.rsplit('-').next().unwrap_or(region).to_lowercase()
+    Ok(first.clone())
 }
 
 #[cfg(test)]
@@ -253,12 +248,6 @@ mod tests {
         let mut index = DatasetIndex::default();
         index.insert(dataset.into());
         index
-    }
-
-    #[test]
-    fn normalize_region_edge_cases() {
-        assert_eq!(normalize_region(""), "");
-        assert_eq!(normalize_region("only"), "only");
     }
 
     #[tokio::test]

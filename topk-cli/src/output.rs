@@ -1,6 +1,6 @@
 use std::io::{IsTerminal, Write};
 
-use dialoguer::Confirm;
+use dialoguer::{console::Term, Confirm};
 use serde::Serialize;
 
 use crate::util::Spinner;
@@ -15,8 +15,7 @@ pub const BLUE: &str = "\x1b[34m";
 #[derive(Debug, Clone, Copy, clap::ValueEnum, Default)]
 pub enum OutputFormat {
     #[default]
-    #[value(alias = "text")]
-    HumanReadable,
+    Text,
     Json,
 }
 
@@ -37,11 +36,11 @@ impl Output {
     pub fn print<T: RenderForHuman>(&self, value: &T) -> Result<(), serde_json::Error> {
         match self.format {
             OutputFormat::Json => self.print_json(value),
-            OutputFormat::HumanReadable => self.print_human(value),
+            OutputFormat::Text => self.print_text(value),
         }
     }
 
-    pub fn print_human<T: RenderForHuman>(&self, value: &T) -> Result<(), serde_json::Error> {
+    pub fn print_text<T: RenderForHuman>(&self, value: &T) -> Result<(), serde_json::Error> {
         clear_progress();
         let rendered: String = value.render().into();
         if !rendered.is_empty() {
@@ -65,33 +64,65 @@ impl Output {
 
     pub fn spinner(&self, msg: impl Into<String>) -> Spinner {
         match self.format {
-            OutputFormat::HumanReadable => Spinner::with_elapsed(msg),
+            OutputFormat::Text => Spinner::with_elapsed(msg),
             OutputFormat::Json => Spinner::disabled(),
         }
     }
 
     pub fn success(&self, msg: &str) {
-        if matches!(self.format, OutputFormat::HumanReadable) {
+        if matches!(self.format, OutputFormat::Text) {
             eprintln!("{GREEN}✓{RESET} {msg}");
         }
     }
 
     pub fn is_human(&self) -> bool {
-        matches!(self.format, OutputFormat::HumanReadable)
+        matches!(self.format, OutputFormat::Text)
+    }
+
+    pub fn can_render_human_stderr(&self) -> bool {
+        self.is_human() && std::io::stderr().is_terminal()
     }
 
     pub fn confirm(&self, prompt: &str) -> std::io::Result<bool> {
-        if matches!(self.format, OutputFormat::HumanReadable)
-            && std::io::stdin().is_terminal()
-            && std::io::stdout().is_terminal()
+        if !matches!(self.format, OutputFormat::Text) || !std::io::stdout().is_terminal() {
+            return Ok(false);
+        }
+
+        #[cfg(unix)]
         {
-            Confirm::new()
+            let tty = std::fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .open("/dev/tty")?;
+            let term = Term::read_write_pair(tty.try_clone()?, tty);
+            return Confirm::new()
                 .with_prompt(prompt)
                 .default(false)
-                .interact()
-                .map_err(std::io::Error::other)
-        } else {
+                .wait_for_newline(true)
+                .interact_on(&term)
+                .map_err(std::io::Error::other);
+        }
+
+        #[cfg(not(unix))]
+        {
+            if std::io::stdin().is_terminal() {
+                return Confirm::new()
+                    .with_prompt(prompt)
+                    .default(false)
+                    .wait_for_newline(true)
+                    .interact()
+                    .map_err(std::io::Error::other);
+            }
+
             Ok(false)
+        }
+    }
+
+    pub fn confirm_or_yes(&self, prompt: &str, yes: bool) -> std::io::Result<bool> {
+        if yes {
+            Ok(true)
+        } else {
+            self.confirm(prompt)
         }
     }
 
@@ -99,13 +130,9 @@ impl Output {
         match self.format {
             OutputFormat::Json => {
                 let payload = serde_json::json!({ "error": format!("{:#}", e) });
-                eprintln!(
-                    "{}",
-                    serde_json::to_string(&payload)
-                        .unwrap_or_else(|_| r#"{"error":"serialization failed"}"#.to_string())
-                );
+                eprintln!("{payload}");
             }
-            OutputFormat::HumanReadable => eprintln!("{BOLD}{RED}error:{RESET} {:#}", e),
+            OutputFormat::Text => eprintln!("{BOLD}{RED}error:{RESET} {:#}", e),
         }
     }
 }
@@ -146,7 +173,6 @@ mod tests {
         assert!(error.contains("API key not set"));
         assert!(error.contains("TOPK_API_KEY"));
     }
-
 
     #[test]
     fn completions_zsh() {

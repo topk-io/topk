@@ -1,4 +1,3 @@
-use std::io::IsTerminal;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use indicatif::{ProgressBar, ProgressStyle};
@@ -22,7 +21,7 @@ pub trait ProgressReporter: Send + Sync {
 /// so per-file errors can be printed consistently in human mode after the bar finishes.
 pub fn upload_reporter(total: usize, output: &Output) -> Box<dyn ProgressReporter> {
     let output = *output;
-    if !output.is_human() || !std::io::stderr().is_terminal() {
+    if !output.can_render_human_stderr() {
         return Box::new(NoopReporter { output });
     }
     Box::new(BarReporter::new(total, output))
@@ -51,9 +50,10 @@ struct BarReporter {
 impl BarReporter {
     fn new(total: usize, output: Output) -> Self {
         let pb = ProgressBar::new(total as u64);
-        let style = ProgressStyle::with_template("[{elapsed_precise}] [{wide_bar:.cyan/blue}] {msg}")
-            .map(|s| s.progress_chars("=>-"))
-            .unwrap_or_else(|_| ProgressStyle::default_bar());
+        let style =
+            ProgressStyle::with_template("[{elapsed_precise}] [{wide_bar:.cyan/blue}] {msg}")
+                .map(|s| s.progress_chars("=>-"))
+                .unwrap_or_else(|_| ProgressStyle::default_bar());
         pb.set_style(style);
         pb.set_message(format!("0/{total} uploaded"));
         pb.enable_steady_tick(std::time::Duration::from_millis(100));
@@ -79,12 +79,10 @@ impl ProgressReporter for BarReporter {
         let succeeded = completed.saturating_sub(failed);
         let total = self.total;
         if failed == 0 {
-            self.pb
-                .set_message(format!("{succeeded}/{total} uploaded"));
+            self.pb.set_message(format!("{succeeded}/{total} uploaded"));
         } else {
-            self.pb.set_message(format!(
-                "{succeeded}/{total} uploaded, {failed} failed"
-            ));
+            self.pb
+                .set_message(format!("{succeeded}/{total} uploaded, {failed} failed"));
         }
     }
 

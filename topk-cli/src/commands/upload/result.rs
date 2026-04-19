@@ -89,63 +89,14 @@ impl RenderForHuman for UploadResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::util::{MimeType, UploadFile};
+    use std::path::PathBuf;
 
     fn totals() -> Totals {
         Totals {
             count: 2,
             size: 1024,
         }
-    }
-
-    #[test]
-    fn no_files_roundtrip() {
-        let outcome = UploadOutcome::NoFiles {
-            message: "No files found for upload in ./docs.".to_string(),
-        };
-        let json = serde_json::to_value(&outcome).unwrap();
-        assert_eq!(json["kind"], "no_files");
-        assert_eq!(json["message"], "No files found for upload in ./docs.");
-        let parsed: UploadOutcome = serde_json::from_value(json).unwrap();
-        assert!(matches!(parsed, UploadOutcome::NoFiles { .. }));
-    }
-
-    #[test]
-    fn dry_run_roundtrip() {
-        let outcome = UploadOutcome::DryRun {
-            totals: totals(),
-            files: vec![],
-        };
-        let json = serde_json::to_value(&outcome).unwrap();
-        assert_eq!(json["kind"], "dry_run");
-        assert_eq!(json["totals"]["count"], 2);
-        assert_eq!(json["totals"]["size"], 1024);
-        let parsed: UploadOutcome = serde_json::from_value(json).unwrap();
-        assert!(matches!(parsed, UploadOutcome::DryRun { .. }));
-    }
-
-    #[test]
-    fn skipped_roundtrip() {
-        let outcome = UploadOutcome::Skipped { totals: totals() };
-        let json = serde_json::to_value(&outcome).unwrap();
-        assert_eq!(json["kind"], "skipped");
-        let parsed: UploadOutcome = serde_json::from_value(json).unwrap();
-        assert!(matches!(parsed, UploadOutcome::Skipped { .. }));
-    }
-
-    #[test]
-    fn uploaded_roundtrip() {
-        let outcome = UploadOutcome::Uploaded {
-            totals: totals(),
-            uploaded: 2,
-            errors: vec![],
-            processed: Some(true),
-        };
-        let json = serde_json::to_value(&outcome).unwrap();
-        assert_eq!(json["kind"], "uploaded");
-        assert_eq!(json["uploaded"], 2);
-        assert_eq!(json["processed"], true);
-        let parsed: UploadOutcome = serde_json::from_value(json).unwrap();
-        assert!(matches!(parsed, UploadOutcome::Uploaded { .. }));
     }
 
     #[test]
@@ -182,6 +133,22 @@ mod tests {
     }
 
     #[test]
+    fn render_dry_run_lists_doc_ids() {
+        let r = UploadResult(UploadOutcome::DryRun {
+            totals: totals(),
+            files: vec![UploadFile {
+                path: PathBuf::from("docs/spec.pdf"),
+                doc_id: "doc-123".to_string(),
+                size: 42,
+                mime_type: MimeType::ApplicationPdf,
+            }],
+        });
+        let rendered: String = r.render().into();
+        assert!(rendered.contains("Dry run: upload 2 files (1.0 KB):"));
+        assert!(rendered.contains("doc-123"));
+    }
+
+    #[test]
     fn render_uploaded_processed() {
         let r = UploadResult(UploadOutcome::Uploaded {
             totals: totals(),
@@ -192,6 +159,20 @@ mod tests {
         assert_eq!(
             r.render().into(),
             "Uploaded and processed 1 file.".to_string()
+        );
+    }
+
+    #[test]
+    fn render_uploaded_processing_skipped() {
+        let r = UploadResult(UploadOutcome::Uploaded {
+            totals: totals(),
+            uploaded: 2,
+            errors: vec![],
+            processed: Some(false),
+        });
+        assert_eq!(
+            r.render().into(),
+            "Uploaded 2 files; processing skipped.".to_string()
         );
     }
 

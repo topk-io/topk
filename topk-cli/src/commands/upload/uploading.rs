@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use futures::stream::{self, StreamExt};
@@ -43,7 +44,7 @@ pub async fn upload_all(
                         .upsert_file(
                             file.doc_id.clone(),
                             input,
-                            std::iter::empty::<(String, Value)>(),
+                            HashMap::<String, Value>::default(),
                         )
                         .await?
                         .into_inner()
