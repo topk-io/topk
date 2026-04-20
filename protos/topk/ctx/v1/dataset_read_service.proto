@@ -27,6 +27,7 @@ message ListEntry {
   string mime_type = 4;
   map<string, topk.data.v1.Value> metadata = 5;
   string status = 6;
+  optional string status_reason = 7;
 }
 
 message GetMetadataRequest {
