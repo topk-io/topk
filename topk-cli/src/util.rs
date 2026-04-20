@@ -2,6 +2,7 @@ use std::{
     fmt,
     io::{self, IsTerminal, Read},
     path::{Path, PathBuf},
+    time::Duration,
 };
 
 use anyhow::Result;
@@ -257,7 +258,7 @@ pub(crate) fn collect_matching_files(root: &Path, pattern: &str) -> Result<Vec<U
 }
 
 pub struct Spinner {
-    pub(crate) bar: Option<ProgressBar>,
+    pub(crate) progress_bar: Option<ProgressBar>,
     pub(crate) multi: Option<MultiProgress>,
 }
 
@@ -272,7 +273,7 @@ impl Spinner {
 
     pub fn disabled() -> Self {
         Self {
-            bar: None,
+            progress_bar: None,
             multi: None,
         }
     }
@@ -287,14 +288,14 @@ impl Spinner {
         bar.set_message(msg.into());
         bar.enable_steady_tick(std::time::Duration::from_millis(100));
         Self {
-            bar: Some(bar),
+            progress_bar: Some(bar),
             multi: Some(multi),
         }
     }
 
     pub fn set_message(&self, msg: impl Into<String>) {
-        if let Some(pb) = &self.bar {
-            pb.set_message(msg.into());
+        if let Some(progress_bar) = &self.progress_bar {
+            progress_bar.set_message(msg.into());
         }
     }
 
@@ -309,8 +310,8 @@ impl Spinner {
     }
 
     pub fn finish(self) {
-        if let Some(pb) = self.bar {
-            pb.finish_and_clear();
+        if let Some(progress_bar) = self.progress_bar {
+            progress_bar.finish_and_clear();
         }
         if let Some(m) = self.multi {
             let _ = m.clear();
@@ -318,13 +319,14 @@ impl Spinner {
     }
 }
 
-/// Resolves a query string from an optional CLI argument, falling back to stdin.
-///
-/// Returns:
-/// - `Some(query)` if `arg` is provided, or if stdin is piped (non-TTY) and
-///   produces non-empty trimmed content.
-/// - `None` if `arg` is absent and stdin is either a TTY or empty. Callers
-///   typically surface this as "query is required" to the user.
+pub fn parse_seconds(value: &str) -> Result<Duration, String> {
+    value
+        .parse::<u64>()
+        .map(Duration::from_secs)
+        .map_err(|err| err.to_string())
+}
+
+/// Resolves a query string from an optional CLI argument, falling back to stdin
 pub fn resolve_query(arg: Option<String>) -> Result<Option<String>> {
     if let Some(q) = arg {
         return Ok(Some(q));

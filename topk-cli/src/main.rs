@@ -1,16 +1,14 @@
-use std::path::PathBuf;
 use std::process::ExitCode;
 
 use anyhow::Result;
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, Shell};
-use topk_rs::proto::v1::ctx::doc::DocId;
 
 use topk::client::{make_client, make_global_client};
-use topk::commands::{ask, auth, dataset, delete, list, search, upload};
+use topk::commands::{ask, dataset, delete, list, login, logout, search, upload};
+use topk::config;
 use topk::datasets::{ensure_unique_region, get_region, make_cached_datasets_client};
 use topk::output::{Output, OutputFormat};
-use topk::util::resolve_query;
 
 #[derive(Parser)]
 #[command(name = "topk", version)]
@@ -42,79 +40,32 @@ struct Cli {
     https: bool,
 
     /// Output format
-    #[arg(short = 'o', long, default_value = "human-readable", global = true)]
+    #[arg(short = 'o', long, default_value = "text", global = true)]
     output: OutputFormat,
 }
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Authenticate with TopK (manage your API key)
-    Auth {
-        #[command(subcommand)]
-        action: Option<auth::AuthAction>,
-    },
+    /// Log in by entering your API key
+    Login,
+
+    /// Remove auth credentials
+    Logout,
 
     /// Get a grounded answer from documents with source citations for a query
-    Ask {
-        /// Question to ask (reads from stdin if omitted)
-        query: Option<String>,
-        /// Dataset to search (repeatable)
-        #[arg(short = 'd', long = "dataset")]
-        datasets: Vec<String>,
-        /// Query mode
-        #[arg(short = 'm', long)]
-        mode: Option<ask::Mode>,
-        /// Metadata fields to include in results (repeatable)
-        #[arg(short = 'f', long = "field")]
-        fields: Option<Vec<String>>,
-        /// Save search result content (images, text chunks) to a directory
-        #[arg(long, value_name = "DIR")]
-        output_dir: Option<PathBuf>,
-    },
+    Ask(ask::AskArgs),
 
     /// Find relevant passages in documents for a query
-    Search {
-        /// Search query (reads from stdin if omitted)
-        query: Option<String>,
-        /// Dataset to search (repeatable)
-        #[arg(short = 'd', long = "dataset")]
-        datasets: Vec<String>,
-        /// Number of results to return
-        #[arg(short = 'k', long, default_value = "10")]
-        top_k: u32,
-        /// Metadata fields to include in results (repeatable)
-        #[arg(short = 'f', long = "field")]
-        fields: Option<Vec<String>>,
-        /// Save search results content (images, text chunks) to a directory
-        #[arg(long, value_name = "DIR")]
-        output_dir: Option<PathBuf>,
-    },
+    Search(search::SearchArgs),
 
     /// Upload files
     Upload(upload::UploadArgs),
 
     /// Delete a document
-    Delete {
-        /// Dataset name
-        #[arg(short = 'd', long, value_name = "DATASET_NAME")]
-        dataset: String,
-        /// Document ID
-        #[arg(long)]
-        id: DocId,
-        /// Skip confirmation prompt
-        #[arg(short = 'y', long)]
-        yes: bool,
-    },
+    Delete(delete::DeleteArgs),
 
     /// List documents in a dataset
-    List {
-        /// Dataset to list documents from
-        #[arg(short = 'd', long, value_name = "DATASET_NAME")]
-        dataset: String,
-        /// Metadata fields to include (repeatable)
-        #[arg(short = 'f', long = "field")]
-        fields: Option<Vec<String>>,
-    },
+    List(list::ListArgs),
 
     /// Manage datasets (create, list, delete)
     Dataset {
@@ -143,140 +94,142 @@ async fn main() -> ExitCode {
 }
 
 async fn run(cli: Cli, output: &Output) -> Result<()> {
+    let mut cfg = config::load();
+    let result = match cli.command {
+        Some(Commands::Login) => run_login(cli, output, &mut cfg).await,
+        Some(Commands::Logout) => run_logout(output, &mut cfg),
+        command => {
+            let api_key = cli.api_key.clone();
+            let host = cli.host.clone().unwrap_or_else(|| "topk.io".to_string());
+            let https = cli.https;
+            run_command(command, api_key, &host, https, output, &cfg).await
+        }
+    };
+
+    config::save(&cfg)?;
+    result
+}
+
+async fn run_login(cli: Cli, output: &Output, cfg: &mut config::Config) -> Result<()> {
     let host = cli.host.unwrap_or_else(|| "topk.io".to_string());
     let https = cli.https;
+    output.print(&login::run(cli.api_key, cfg, &host, https, output)?)?;
+    Ok(())
+}
 
-    match cli.command {
+fn run_logout(output: &Output, cfg: &mut config::Config) -> Result<()> {
+    output.print(&logout::run(cfg))?;
+    Ok(())
+}
+
+fn require_api_key(api_key: Option<String>, cfg: &config::Config) -> Result<String> {
+    login::resolve(api_key, cfg)?.ok_or_else(|| {
+        anyhow::anyhow!(
+            "API key not set. Set TOPK_API_KEY environment variable or run: `topk login`"
+        )
+    })
+}
+
+async fn run_command(
+    command: Option<Commands>,
+    api_key: Option<String>,
+    host: &str,
+    https: bool,
+    output: &Output,
+    cfg: &config::Config,
+) -> Result<()> {
+    match command {
         Some(Commands::Completions { shell }) => {
             generate(shell, &mut Cli::command(), "topk", &mut std::io::stdout());
+            Ok(())
         }
 
-        Some(Commands::Auth { action }) => match action.unwrap_or(auth::AuthAction::Login) {
-            auth::AuthAction::Login => {
-                auth::resolve(cli.api_key, &host, https, true)?;
-            }
-            auth::AuthAction::Logout => {
-                output.print(&auth::logout()?)?;
-            }
-        },
-
         Some(Commands::Dataset { action }) => {
-            let Some(api_key) = auth::resolve(cli.api_key, &host, https, false)? else {
-                return Ok(());
-            };
-
+            let api_key = require_api_key(api_key, cfg)?;
             let client = make_cached_datasets_client(make_global_client(&api_key, &host, https));
 
             match action {
                 dataset::DatasetAction::List => {
-                    let result = dataset::list(client).await?;
-                    output.print(&result)?;
+                    output.print(&dataset::list(client).await?)?;
                 }
                 dataset::DatasetAction::Get { dataset: name } => {
                     output.print(&dataset::get(client, &name).await?)?;
                 }
-                dataset::DatasetAction::Create {
-                    dataset: name,
-                    region,
-                } => {
-                    output.print(&dataset::create(client, &name, &region).await?)?;
+                dataset::DatasetAction::Create(args) => {
+                    output.print(&dataset::create(client, &args).await?)?;
                 }
-                dataset::DatasetAction::Delete { dataset: name, yes } => {
-                    output.print(&dataset::delete(client, &name, yes, output).await?)?;
+                dataset::DatasetAction::Delete(args) => {
+                    output.print(&dataset::delete(client, &args, output).await?)?;
                 }
             }
+
+            Ok(())
         }
 
         Some(Commands::Upload(args)) => {
-            let Some(api_key) = auth::resolve(cli.api_key, &host, https, false)? else {
-                return Ok(());
-            };
-
+            let api_key = require_api_key(api_key, cfg)?;
             let mut datasets_client =
                 make_cached_datasets_client(make_global_client(&api_key, &host, https));
-
             let region = get_region(&mut datasets_client, &args.dataset).await?;
             let client = make_client(&api_key, &region, &host, https);
 
             output.print(&upload::run(&client, &args, output).await?)?;
+            Ok(())
         }
 
-        Some(Commands::Delete { dataset, id, yes }) => {
-            let Some(api_key) = auth::resolve(cli.api_key, &host, https, false)? else {
-                return Ok(());
-            };
-
+        Some(Commands::Delete(args)) => {
+            let api_key = require_api_key(api_key, cfg)?;
             let mut datasets_client =
                 make_cached_datasets_client(make_global_client(&api_key, &host, https));
-
-            let region = get_region(&mut datasets_client, &dataset).await?;
+            let region = get_region(&mut datasets_client, &args.dataset).await?;
             let client = make_client(&api_key, &region, &host, https);
 
-            output.print(&delete::run(&client, &dataset, id, yes, output).await?)?;
+            output.print(&delete::run(&client, &args, output).await?)?;
+            Ok(())
         }
 
-        Some(Commands::List { dataset, fields }) => {
-            let Some(api_key) = auth::resolve(cli.api_key, &host, https, false)? else {
-                return Ok(());
-            };
-
+        Some(Commands::List(args)) => {
+            let api_key = require_api_key(api_key, cfg)?;
             let mut datasets_client =
                 make_cached_datasets_client(make_global_client(&api_key, &host, https));
-
-            let region = get_region(&mut datasets_client, &dataset).await?;
+            let region = get_region(&mut datasets_client, &args.dataset).await?;
             let client = make_client(&api_key, &region, &host, https);
 
-            list::run(&client, &dataset, fields, output).await?;
+            // JSON mode streams NDJSON progressively inside run(); only render the table in non-json mode.
+            let result = list::run(&client, &args, output).await?;
+            if !output.is_json() {
+                output.print_text(&result)?;
+            }
+            Ok(())
         }
 
-        Some(Commands::Ask {
-            query,
-            datasets,
-            mode,
-            fields,
-            output_dir,
-        }) => {
-            let Some(api_key) = auth::resolve(cli.api_key, &host, https, false)? else {
-                return Ok(());
-            };
-            let query = resolve_query(query)?.ok_or_else(|| {
-                anyhow::anyhow!("query is required; pass it as an argument or pipe it via stdin")
-            })?;
-
+        Some(Commands::Ask(args)) => {
+            let api_key = require_api_key(api_key, cfg)?;
             let mut datasets_client =
                 make_cached_datasets_client(make_global_client(&api_key, &host, https));
-            let region = ensure_unique_region(&mut datasets_client, datasets.clone()).await?;
+            let region = ensure_unique_region(&mut datasets_client, args.datasets.clone()).await?;
             let client = make_client(&api_key, &region, &host, https);
 
-            ask::run(&client, query, datasets, mode, fields, output_dir, output).await?;
+            output.print(&ask::run(&client, &args, output).await?)?;
+            Ok(())
         }
 
-        Some(Commands::Search {
-            query,
-            datasets,
-            top_k,
-            fields,
-            output_dir,
-        }) => {
-            let Some(api_key) = auth::resolve(cli.api_key, &host, https, false)? else {
-                return Ok(());
-            };
-            let query = resolve_query(query)?.ok_or_else(|| {
-                anyhow::anyhow!("query is required; pass it as an argument or pipe it via stdin")
-            })?;
-
+        Some(Commands::Search(args)) => {
+            let api_key = require_api_key(api_key, cfg)?;
             let mut datasets_client =
                 make_cached_datasets_client(make_global_client(&api_key, &host, https));
-            let region = ensure_unique_region(&mut datasets_client, datasets.clone()).await?;
+            let region = ensure_unique_region(&mut datasets_client, args.datasets.clone()).await?;
             let client = make_client(&api_key, &region, &host, https);
 
-            search::run(&client, query, datasets, top_k, fields, output_dir, output).await?;
+            output.print(&search::run(&client, &args, output).await?)?;
+            Ok(())
         }
 
         None => {
             Cli::command().print_help()?;
+            Ok(())
         }
-    }
 
-    Ok(())
+        Some(Commands::Login | Commands::Logout) => unreachable!(),
+    }
 }

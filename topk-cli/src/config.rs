@@ -99,4 +99,14 @@ mod tests {
             & 0o777;
         assert_eq!(mode, 0o600);
     }
+
+    #[test]
+    fn config_with_none_api_key_serializes_and_roundtrips() {
+        let config = super::Config { api_key: None };
+
+        let toml = toml::to_string(&config).expect("serialize config");
+        let restored: super::Config = toml::from_str(&toml).expect("deserialize config");
+
+        assert!(restored.api_key.is_none());
+    }
 }

@@ -1,6 +1,7 @@
 use std::io::{IsTerminal, Write};
+use std::path::PathBuf;
 
-use dialoguer::{console::Term, Confirm};
+use dialoguer::{console::Term, Confirm, Input};
 use serde::Serialize;
 
 use crate::util::Spinner;
@@ -40,8 +41,15 @@ impl Output {
         }
     }
 
+    pub fn clear_progress(&self) {
+        if std::io::stderr().is_terminal() {
+            eprint!("\r\x1b[2K");
+            let _ = std::io::stderr().flush();
+        }
+    }
+
     pub fn print_text<T: RenderForHuman>(&self, value: &T) -> Result<(), serde_json::Error> {
-        clear_progress();
+        self.clear_progress();
         let rendered: String = value.render().into();
         if !rendered.is_empty() {
             println!("{rendered}");
@@ -75,12 +83,60 @@ impl Output {
         }
     }
 
-    pub fn is_human(&self) -> bool {
-        matches!(self.format, OutputFormat::Text)
+    pub fn warn(&self, msg: &str) {
+        if matches!(self.format, OutputFormat::Text) {
+            eprintln!("{msg}");
+        }
     }
 
-    pub fn can_render_human_stderr(&self) -> bool {
-        self.is_human() && std::io::stderr().is_terminal()
+    pub fn is_json(&self) -> bool {
+        matches!(self.format, OutputFormat::Json)
+    }
+
+    pub fn prompt_dir(&self, prompt: impl Into<String>) -> std::io::Result<Option<PathBuf>> {
+        if self.is_json() {
+            return Ok(None);
+        }
+
+        let prompt = prompt.into();
+
+        #[cfg(unix)]
+        {
+            let tty = std::fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .open("/dev/tty")?;
+            let term = Term::read_write_pair(tty.try_clone()?, tty);
+            let input: String = Input::new()
+                .with_prompt(prompt)
+                .allow_empty(true)
+                .interact_on(&term)
+                .map_err(std::io::Error::other)?;
+            let trimmed = input.trim().to_string();
+            return Ok(if trimmed.is_empty() {
+                None
+            } else {
+                Some(PathBuf::from(trimmed))
+            });
+        }
+
+        #[cfg(not(unix))]
+        {
+            if std::io::stdin().is_terminal() {
+                let input: String = Input::new()
+                    .with_prompt(prompt)
+                    .allow_empty(true)
+                    .interact()
+                    .map_err(std::io::Error::other)?;
+                let trimmed = input.trim().to_string();
+                return Ok(if trimmed.is_empty() {
+                    None
+                } else {
+                    Some(PathBuf::from(trimmed))
+                });
+            }
+            Ok(None)
+        }
     }
 
     pub fn confirm(&self, prompt: &str) -> std::io::Result<bool> {
@@ -134,13 +190,6 @@ impl Output {
             }
             OutputFormat::Text => eprintln!("{BOLD}{RED}error:{RESET} {:#}", e),
         }
-    }
-}
-
-fn clear_progress() {
-    if std::io::stderr().is_terminal() {
-        eprint!("\r\x1b[2K");
-        let _ = std::io::stderr().flush();
     }
 }
 

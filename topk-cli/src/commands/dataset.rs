@@ -12,6 +12,26 @@ use crate::datasets::DatasetsClient;
 use crate::output::{Output, RenderForHuman};
 use crate::util::format_timestamp;
 
+#[derive(Debug, clap::Args)]
+pub struct CreateDatasetArgs {
+    /// Dataset name
+    #[arg(value_name = "DATASET")]
+    pub dataset: String,
+    /// Region to create the dataset in. List available regions at https://docs.topk.io/regions
+    #[arg(long, required = true)]
+    pub region: String,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct DeleteDatasetArgs {
+    /// Dataset name
+    #[arg(value_name = "DATASET")]
+    pub dataset: String,
+    /// Skip confirmation prompt
+    #[arg(short = 'y', long)]
+    pub yes: bool,
+}
+
 /// `topk dataset`
 #[derive(Debug, clap::Subcommand)]
 pub enum DatasetAction {
@@ -24,23 +44,9 @@ pub enum DatasetAction {
         dataset: String,
     },
     /// Create a dataset
-    Create {
-        /// Dataset name
-        #[arg(value_name = "DATASET")]
-        dataset: String,
-        /// Region to create the dataset in. List available regions at https://docs.topk.io/regions
-        #[arg(long, required = true)]
-        region: String,
-    },
+    Create(CreateDatasetArgs),
     /// Delete a dataset
-    Delete {
-        /// Dataset name
-        #[arg(value_name = "DATASET")]
-        dataset: String,
-        /// Skip confirmation prompt
-        #[arg(short = 'y', long)]
-        yes: bool,
-    },
+    Delete(DeleteDatasetArgs),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -196,24 +202,22 @@ pub async fn get<C: DatasetsClient>(mut client: C, name: &str) -> Result<GetData
 /// `topk dataset create`
 pub async fn create<C: DatasetsClient>(
     mut client: C,
-    name: &str,
-    region: &str,
+    args: &CreateDatasetArgs,
 ) -> Result<CreateDatasetResult, Error> {
-    client.create(name, region).await?.try_into()
+    client.create(&args.dataset, &args.region).await?.try_into()
 }
 
 /// `topk dataset delete`
 pub async fn delete<C: DatasetsClient>(
     mut client: C,
-    name: &str,
-    yes: bool,
+    args: &DeleteDatasetArgs,
     output: &Output,
 ) -> Result<DeleteDatasetResult, Error> {
-    if !output.confirm_or_yes(&format!("Delete dataset '{}'? ", name), yes)? {
+    if !output.confirm_or_yes(&format!("Delete dataset '{}'? ", args.dataset), args.yes)? {
         return Ok(DeleteDatasetResult { deleted: false });
     }
 
-    client.delete(name).await?;
+    client.delete(&args.dataset).await?;
 
     Ok(DeleteDatasetResult { deleted: true })
 }

@@ -14,7 +14,7 @@ brew install topk
 Run:
 
 ```bash
-topk auth login
+topk login
 ```
 
 Or set `TOPK_API_KEY` before running the CLI:
@@ -34,7 +34,7 @@ Alternatively, pass `--api-key` as a flag on any command.
 To remove the stored API key:
 
 ```bash
-topk auth logout
+topk logout
 ```
 
 ## Commands

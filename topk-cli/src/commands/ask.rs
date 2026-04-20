@@ -1,19 +1,20 @@
 use std::collections::HashMap;
-use std::io::{BufRead, IsTerminal, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use tokio_stream::StreamExt;
 use topk_rs::{
     proto::v1::ctx::{
         ask_result::{self, Answer},
-        Fact, SearchResult,
+        Fact,
     },
     Client, Error,
 };
 
-use super::search::{has_saveable_content, render_search_result, write_result_content};
-use crate::output::{Output, BLUE, BOLD, DIM, RESET};
+use super::search::{render_search_result, write_result_content, SearchResult};
+use crate::output::{Output, RenderForHuman, BLUE, BOLD, RESET};
+use crate::util::resolve_query;
+use topk_rs::proto::v1::ctx::content;
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 pub enum Mode {
@@ -36,27 +37,51 @@ impl From<Mode> for topk_rs::proto::v1::ctx::Mode {
 pub struct AskResult {
     pub(crate) facts: Vec<Fact>,
     pub(crate) refs: HashMap<String, SearchResult>,
-    #[serde(skip, default)]
-    pub(crate) saved: HashMap<String, PathBuf>,
 }
 
 impl From<Answer> for AskResult {
     fn from(a: Answer) -> Self {
         Self {
             facts: a.facts,
-            refs: a.refs,
-            saved: HashMap::new(),
+            refs: a
+                .refs
+                .into_iter()
+                .map(|(k, v)| {
+                    (
+                        k,
+                        SearchResult {
+                            result: v,
+                            path: None,
+                        },
+                    )
+                })
+                .collect(),
         }
     }
 }
 
-fn ref_sort_key(s: &str) -> Vec<u64> {
-    s.split('_')
-        .map(|p| p.parse().unwrap_or(u64::MAX))
-        .collect()
+impl RenderForHuman for AskResult {
+    fn render(&self) -> impl Into<String> {
+        let facts = render_facts(&self.facts);
+        let refs = render_refs(&self.refs)
+            .map(|r| format!("\n{r}"))
+            .unwrap_or_default();
+        format!("{facts}{refs}")
+    }
 }
 
-fn render_facts_section(facts: &[Fact]) -> String {
+fn has_non_text_search_results(
+    refs: &HashMap<String, topk_rs::proto::v1::ctx::SearchResult>,
+) -> bool {
+    refs.values().any(|r| {
+        !matches!(
+            r.content.as_ref().and_then(|c| c.data.as_ref()),
+            Some(content::Data::Chunk(_)) | None
+        )
+    })
+}
+
+fn render_facts(facts: &[Fact]) -> String {
     if facts.is_empty() {
         return "No answer found.".to_string();
     }
@@ -90,19 +115,13 @@ fn render_facts_section(facts: &[Fact]) -> String {
     format!("{BOLD}Facts:{RESET}\n{facts_text}")
 }
 
-fn render_refs_section(
-    refs: &HashMap<String, SearchResult>,
-    saved: &HashMap<String, PathBuf>,
-) -> Option<String> {
+fn render_refs(refs: &HashMap<String, SearchResult>) -> Option<String> {
     if refs.is_empty() {
         return None;
     }
-    let mut sorted_refs: Vec<_> = refs.iter().collect();
-    sorted_refs.sort_by(|(a, _), (b, _)| ref_sort_key(a).cmp(&ref_sort_key(b)));
-
-    let ref_lines: Vec<String> = sorted_refs
-        .into_iter()
-        .map(|(id, r)| render_search_result(id, r, saved.get(id), Some(560)))
+    let ref_lines: Vec<String> = refs
+        .iter()
+        .map(|(id, r)| render_search_result(id, r, Some(560)))
         .collect();
 
     Some(format!(
@@ -111,41 +130,51 @@ fn render_refs_section(
     ))
 }
 
-fn save_refs(
-    dir: &Path,
-    refs: &HashMap<String, SearchResult>,
-) -> Result<HashMap<String, PathBuf>, Error> {
-    refs.iter()
-        .filter_map(|(ref_id, r)| match write_result_content(dir, ref_id, r) {
-            Ok(Some(path)) => Some(Ok((ref_id.clone(), path))),
-            Ok(None) => None,
-            Err(err) => Some(Err(Error::IoError(err))),
-        })
-        .collect()
+#[derive(Debug, clap::Args)]
+pub struct AskArgs {
+    /// Question to ask (reads from stdin if omitted)
+    pub query: Option<String>,
+    /// Dataset to search (repeatable)
+    #[arg(short = 'd', long = "dataset")]
+    pub datasets: Vec<String>,
+    /// Query mode
+    #[arg(short = 'm', long)]
+    pub mode: Option<Mode>,
+    /// Metadata fields to include in results (repeatable)
+    #[arg(short = 'f', long = "field")]
+    pub fields: Option<Vec<String>>,
+    /// Save search result content (images, text chunks) to a directory
+    #[arg(long, value_name = "DIR")]
+    pub output_dir: Option<PathBuf>,
 }
 
 /// `topk ask`
-pub async fn run(
-    client: &Client,
-    query: String,
-    datasets: Vec<String>,
-    mode: Option<Mode>,
-    fields: Option<Vec<String>>,
-    output_dir: Option<PathBuf>,
-    output: &Output,
-) -> Result<(), Error> {
+pub async fn run(client: &Client, args: &AskArgs, output: &Output) -> Result<AskResult, Error> {
+    let query = resolve_query(args.query.clone())
+        .map_err(|e| Error::Internal(e.to_string()))?
+        .ok_or_else(|| {
+            Error::Internal(
+                "query is required; pass it as an argument or pipe it via stdin".to_string(),
+            )
+        })?;
+
     let spinner = output.spinner("Asking...");
 
     let mut stream = client
-        .ask(query, datasets, None, mode.map(|m| m.into()), fields)
+        .ask(
+            query,
+            args.datasets.clone(),
+            None,
+            args.mode.clone().map(Into::into),
+            args.fields.clone(),
+        )
         .await?
         .into_inner();
 
     let mut answer: Option<Answer> = None;
-
-    while let Some(result) = stream.next().await {
-        let result = result?;
-        match result.message {
+    while let Some(item) = stream.next().await {
+        let item = item?;
+        match item.message {
             Some(ask_result::Message::Reason(r)) => {
                 spinner.println(format!("[thinking] {}", r.thought));
             }
@@ -164,79 +193,49 @@ pub async fn run(
 
     spinner.finish();
 
-    let result: AskResult = answer
-        .map(Into::into)
-        .ok_or_else(|| Error::Internal("No answer found".to_string()))?;
+    let answer = answer.ok_or_else(|| Error::Internal("No answer found".to_string()))?;
 
-    // JSON: save if output_dir given, then serialize
-    if !output.is_human() {
-        let mut result = result;
-        if let Some(ref dir) = output_dir {
-            result.saved = save_refs(dir, &result.refs)?;
-        }
-        output
-            .print_json(&result)
-            .map_err(|e| Error::Internal(e.to_string()))?;
-        return Ok(());
-    }
-
-    // Human mode: print facts immediately
-    println!("{}", render_facts_section(&result.facts));
-
-    // Prompt for output dir if there are non-text refs and none was passed
-    let output_dir = if output_dir.is_some() {
-        output_dir
-    } else {
-        let mut non_text_ids: Vec<&str> = result
-            .refs
-            .iter()
-            .filter(|(_, r)| has_saveable_content(r))
-            .map(|(id, _)| id.as_str())
-            .collect();
-        non_text_ids.sort_by(|a, b| ref_sort_key(a).cmp(&ref_sort_key(b)));
-
-        if !non_text_ids.is_empty()
-            && std::io::stdin().is_terminal()
-            && std::io::stderr().is_terminal()
-        {
-            let ids_str = non_text_ids
+    let output_dir = match &args.output_dir {
+        Some(dir) => Some(dir.clone()),
+        None if !output.is_json() && has_non_text_search_results(&answer.refs) => {
+            let ids = answer
+                .refs
                 .iter()
-                .map(|id| format!("{BLUE}[{id}]{RESET}"))
+                .filter(|(_, r)| {
+                    !matches!(
+                        r.content.as_ref().and_then(|c| c.data.as_ref()),
+                        Some(content::Data::Chunk(_)) | None
+                    )
+                })
+                .map(|(id, _)| format!("{BLUE}[{id}]{RESET}"))
                 .collect::<Vec<_>>()
                 .join(", ");
-            eprint!("\n{BOLD}References:{RESET} {ids_str} contain non-text citations. Save to directory {DIM}[enter path or press Enter to skip]{RESET}: ");
-            std::io::stderr().flush().ok();
-
-            let mut input = String::new();
-            std::io::stdin().lock().read_line(&mut input)?;
-
-            // Clear the blank line + prompt+input line, leaving cursor where prompt started
-            eprint!("\x1b[2A\x1b[0J");
-            std::io::stderr().flush().ok();
-
-            let trimmed = input.trim();
-            if trimmed.is_empty() {
-                None
-            } else {
-                Some(PathBuf::from(trimmed))
-            }
-        } else {
-            None
+            output.prompt_dir(format!(
+                "{ids} contain non-text citations. Save to directory (or Enter to skip)"
+            ))?
         }
+        None => None,
     };
 
-    // Save files and print refs
-    let saved = if let Some(ref dir) = output_dir {
-        save_refs(dir, &result.refs)?
-    } else {
-        HashMap::new()
+    let refs = answer
+        .refs
+        .into_iter()
+        .map(|(k, v)| {
+            let path = if let Some(ref dir) = output_dir {
+                write_result_content(dir, &k, &v).map_err(Error::IoError)?
+            } else {
+                None
+            };
+            Ok::<_, Error>((k, SearchResult { result: v, path }))
+        })
+        .collect::<Result<_, _>>()?;
+
+    let result = AskResult {
+        facts: answer.facts,
+        refs,
     };
 
-    if let Some(refs) = render_refs_section(&result.refs, &saved) {
-        println!("\n{refs}");
-    }
-
-    Ok(())
+    Ok(result)
 }
 
 #[cfg(test)]

@@ -21,11 +21,9 @@ pub struct ListEntryRow {
     pub metadata: serde_json::Map<String, serde_json::Value>,
 }
 
-impl TryFrom<ListEntry> for ListEntryRow {
-    type Error = serde_json::Error;
-
-    fn try_from(entry: ListEntry) -> Result<Self, serde_json::Error> {
-        Ok(Self {
+impl From<ListEntry> for ListEntryRow {
+    fn from(entry: ListEntry) -> Self {
+        Self {
             id: entry.id,
             name: entry.name,
             size: entry.size,
@@ -33,9 +31,9 @@ impl TryFrom<ListEntry> for ListEntryRow {
             metadata: entry
                 .metadata
                 .into_iter()
-                .map(|(k, v)| serde_json::to_value(v).map(|v| (k, v)))
-                .collect::<Result<_, _>>()?,
-        })
+                .map(|(k, v)| (k, serde_json::to_value(v).unwrap_or_default()))
+                .collect(),
+        }
     }
 }
 
@@ -97,44 +95,38 @@ impl RenderForHuman for ListResult {
     }
 }
 
+#[derive(Debug, clap::Args)]
+pub struct ListArgs {
+    /// Dataset to list documents from
+    #[arg(short = 'd', long, value_name = "DATASET_NAME")]
+    pub dataset: String,
+    /// Metadata fields to include (repeatable)
+    #[arg(short = 'f', long = "field")]
+    pub fields: Option<Vec<String>>,
+}
+
 /// `topk list`
-pub async fn run(
-    client: &Client,
-    dataset: &str,
-    fields: Option<Vec<String>>,
-    output: &Output,
-) -> Result<(), Error> {
+pub async fn run(client: &Client, args: &ListArgs, output: &Output) -> Result<ListResult, Error> {
     let mut stream = client
-        .dataset(dataset)
-        .list(fields, None)
+        .dataset(&args.dataset)
+        .list(args.fields.clone(), None)
         .await?
         .into_inner();
 
-    if output.is_human() {
-        let mut entries = Vec::new();
-        while let Some(entry) = stream.next().await {
-            let row: ListEntryRow = entry?
-                .try_into()
-                .map_err(|e: serde_json::Error| Error::Internal(e.to_string()))?;
-            entries.push(row);
-        }
-
-        output
-            .print(&ListResult { entries })
-            .map_err(|e| Error::Internal(e.to_string()))?;
-        return Ok(());
-    }
-
+    let mut entries = Vec::new();
     while let Some(entry) = stream.next().await {
-        let row: ListEntryRow = entry?
-            .try_into()
-            .map_err(|e: serde_json::Error| Error::Internal(e.to_string()))?;
-        output
-            .print_json_line(&row)
-            .map_err(|e| Error::Internal(e.to_string()))?;
+        let row: ListEntryRow = entry?.into();
+        // Stream each entry as NDJSON so the caller sees results progressively.
+        // The caller must not call output.print in JSON mode — entries are already written.
+        if output.is_json() {
+            output
+                .print_json_line(&row)
+                .map_err(|e| Error::Internal(e.to_string()))?;
+        }
+        entries.push(row);
     }
 
-    Ok(())
+    Ok(ListResult { entries })
 }
 
 #[cfg(test)]
@@ -205,11 +197,12 @@ mod tests {
             .args(["-o", "json", "list", "--dataset", &dataset])
             .output()
             .unwrap();
-        assert!(
-            out.status.success(),
-            "{}",
-            String::from_utf8_lossy(&out.stderr)
-        );
-        assert!(out.stdout.is_empty());
+        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        let entries: Vec<ListEntryRow> = String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .filter(|l| !l.is_empty())
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        assert!(entries.is_empty());
     }
 }

@@ -1,25 +1,28 @@
 use anyhow::Result;
 use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
-use std::io::{BufRead, IsTerminal, Write};
 use std::path::{Path, PathBuf};
-use terminal_size::{terminal_size, Width as TermWidth};
 use topk_rs::{
     proto::v1::ctx::{content, Content},
     Client, Error,
 };
 
-use crate::output::{Output, RenderForHuman, BLUE, BOLD, DIM, RESET};
-use crate::util::MimeType;
+use crate::output::{Output, RenderForHuman, BLUE, DIM, RESET};
+use crate::util::{resolve_query, MimeType};
 
 #[derive(Serialize, Deserialize)]
 pub struct SearchResult {
-    results: Vec<topk_rs::proto::v1::ctx::SearchResult>,
+    pub result: topk_rs::proto::v1::ctx::SearchResult,
     #[serde(skip, default)]
-    saved: Vec<Option<PathBuf>>,
+    pub path: Option<PathBuf>,
 }
 
-impl RenderForHuman for SearchResult {
+#[derive(Serialize, Deserialize)]
+pub struct SearchResults {
+    results: Vec<SearchResult>,
+}
+
+impl RenderForHuman for SearchResults {
     fn render(&self) -> impl Into<String> {
         if self.results.is_empty() {
             return "No results.".to_string();
@@ -29,70 +32,106 @@ impl RenderForHuman for SearchResult {
             .results
             .iter()
             .enumerate()
-            .map(|(i, r)| {
-                let saved = self.saved.get(i).and_then(|p| p.as_ref());
-                render_search_result(&(i + 1).to_string(), r, saved, None)
-            })
+            .map(|(i, r)| render_search_result(&(i + 1).to_string(), r, None))
             .collect();
 
         entries.join("\n\n")
     }
 }
 
+#[derive(Debug, clap::Args)]
+pub struct SearchArgs {
+    /// Search query (reads from stdin if omitted)
+    pub query: Option<String>,
+    /// Dataset to search (repeatable)
+    #[arg(short = 'd', long = "dataset")]
+    pub datasets: Vec<String>,
+    /// Number of results to return
+    #[arg(short = 'k', long, default_value = "10")]
+    pub top_k: u32,
+    /// Metadata fields to include in results (repeatable)
+    #[arg(short = 'f', long = "field")]
+    pub fields: Option<Vec<String>>,
+    /// Save search results content (images, text chunks) to a directory
+    #[arg(long, value_name = "DIR")]
+    pub output_dir: Option<PathBuf>,
+}
+
 /// `topk search`
 pub async fn run(
     client: &Client,
-    query: String,
-    datasets: Vec<String>,
-    top_k: u32,
-    fields: Option<Vec<String>>,
-    output_dir: Option<PathBuf>,
+    args: &SearchArgs,
     output: &Output,
-) -> Result<(), Error> {
-    let stream = client
-        .search(query, datasets, top_k, None, fields.unwrap_or_default())
-        .await?
-        .into_inner();
+) -> Result<SearchResults, Error> {
+    let query = resolve_query(args.query.clone())
+        .map_err(|e| Error::Internal(e.to_string()))?
+        .ok_or_else(|| {
+            Error::Internal(
+                "query is required; pass it as an argument or pipe it via stdin".to_string(),
+            )
+        })?;
 
-    let results: Vec<_> = stream.try_collect().await.map_err(Error::from)?;
-    let mut result = SearchResult {
-        results,
-        saved: vec![],
+    let raw: Vec<_> = client
+        .search(
+            query,
+            args.datasets.clone(),
+            args.top_k,
+            None,
+            args.fields.clone().unwrap_or_default(),
+        )
+        .await?
+        .into_inner()
+        .try_collect()
+        .await?;
+
+    let output_dir = match &args.output_dir {
+        Some(dir) => Some(dir.clone()),
+        None if !output.is_json() => {
+            let ids_str = raw
+                .iter()
+                .enumerate()
+                .filter(|(_, r)| {
+                    !matches!(
+                        r.content.as_ref().and_then(|c| c.data.as_ref()),
+                        Some(content::Data::Chunk(_)) | None
+                    )
+                })
+                .map(|(i, _)| format!("{BLUE}[{}]{RESET}", i + 1))
+                .collect::<Vec<_>>()
+                .join(", ");
+            if ids_str.is_empty() {
+                None
+            } else {
+                output.prompt_dir(format!("{ids_str} contain non-text citations. Save to directory (or Enter to skip)")).map_err(Error::IoError)?
+            }
+        }
+        None => None,
     };
 
-    if !output.is_human() {
-        if let Some(ref dir) = output_dir {
-            result.saved = save_results(dir, &result.results)?;
-        }
-        output
-            .print_json(&result)
-            .map_err(|e| Error::Internal(e.to_string()))?;
-        return Ok(());
-    }
+    let results: Vec<SearchResult> = raw
+        .into_iter()
+        .enumerate()
+        .map(|(i, v)| {
+            let path = if let Some(ref dir) = output_dir {
+                write_result_content(dir, &(i + 1).to_string(), &v).map_err(Error::IoError)?
+            } else {
+                None
+            };
+            Ok::<_, Error>(SearchResult { result: v, path })
+        })
+        .collect::<Result<_, _>>()?;
 
     if let Some(ref dir) = output_dir {
-        result.saved = save_results(dir, &result.results)?;
-        output
-            .print_text(&result)
-            .map_err(|e| Error::Internal(e.to_string()))?;
-        return Ok(());
-    }
-
-    let initial_rendered: String = result.render().into();
-    if !initial_rendered.is_empty() {
-        println!("{initial_rendered}");
-    }
-
-    let output_dir = prompt_for_output_dir(&result.results)?;
-    if let Some(dir) = output_dir {
-        result.saved = save_results(&dir, &result.results)?;
-        let rerendered: String = result.render().into();
-        if !rerendered.is_empty() {
-            replace_rendered_stdout(rendered_display_line_count(&initial_rendered), &rerendered)?;
+        let saved = results
+            .iter()
+            .filter(|r: &&SearchResult| r.path.is_some())
+            .count();
+        if saved > 0 {
+            output.success(&format!("Saved {saved} file(s) to {}", dir.display()));
         }
     }
 
-    Ok(())
+    Ok(SearchResults { results })
 }
 
 /// Write a single result's content to `dir/<name>.<ext>`. Returns the path on success,
@@ -114,34 +153,46 @@ pub fn write_result_content(
             path
         }
         content::Data::Image(img) => {
-            let mime = MimeType::from(img.mime_type.as_str());
-            let path = dir.join(format!("{name}.{}", mime.to_ext()));
+            let path = dir.join(format!(
+                "{name}.{}",
+                MimeType::from(img.mime_type.as_str()).to_ext()
+            ));
             std::fs::write(&path, &img.data)?;
             path
         }
-        _ => return Ok(None),
+        content::Data::Page(page) => match &page.image {
+            Some(img) => {
+                let path = dir.join(format!(
+                    "{name}.{}",
+                    MimeType::from(img.mime_type.as_str()).to_ext()
+                ));
+                std::fs::write(&path, &img.data)?;
+                path
+            }
+            None => return Ok(None),
+        },
     };
     Ok(Some(path.canonicalize().unwrap_or(path)))
 }
 
-pub fn render_search_result(
-    id: &str,
-    r: &topk_rs::proto::v1::ctx::SearchResult,
-    saved: Option<&PathBuf>,
-    max_text_len: Option<usize>,
-) -> String {
-    let text = format_reference_detail(r.content.as_ref()).map(|t| match max_text_len {
+pub fn render_search_result(id: &str, r: &SearchResult, max_text_len: Option<usize>) -> String {
+    let text = format_reference_detail(r.result.content.as_ref()).map(|t| match max_text_len {
         Some(max) if t.chars().count() > max => {
             format!("{}…", t.chars().take(max).collect::<String>())
         }
         _ => t,
     });
-    let placeholder = if saved.is_none() && text.is_none() && has_saveable_content(r) {
-        Some(format_content_text(r.content.as_ref()))
+    let placeholder = if r.path.is_none()
+        && text.is_none()
+        && !matches!(
+            r.result.content.as_ref().and_then(|c| c.data.as_ref()),
+            Some(content::Data::Chunk(_)) | None
+        ) {
+        Some(format_content_text(r.result.content.as_ref()))
     } else {
         None
     };
-    let detail = match (saved, text) {
+    let detail = match (&r.path, text) {
         (Some(path), Some(t)) => Some(format!("{DIM}{}\n{t}{RESET}", path.display())),
         (Some(path), None) => Some(format!("{DIM}{}{RESET}", path.display())),
         (None, Some(t)) => Some(format!("{DIM}{t}{RESET}")),
@@ -149,20 +200,12 @@ pub fn render_search_result(
     };
     [format!(
         "{BLUE}[{id}]{RESET} {}, {}, {}",
-        r.dataset, r.doc_id, r.doc_type
+        r.result.dataset, r.result.doc_id, r.result.doc_type
     )]
     .into_iter()
     .chain(detail)
     .collect::<Vec<_>>()
     .join("\n")
-}
-
-/// Returns true if the result has content that can be saved to disk but not displayed inline.
-pub fn has_saveable_content(r: &topk_rs::proto::v1::ctx::SearchResult) -> bool {
-    matches!(
-        r.content.as_ref().and_then(|c| c.data.as_ref()),
-        Some(content::Data::Image(_))
-    )
 }
 
 fn format_reference_detail(content: Option<&Content>) -> Option<String> {
@@ -199,131 +242,9 @@ pub fn format_content_text(content: Option<&Content>) -> String {
     }
 }
 
-fn save_results(
-    dir: &Path,
-    results: &[topk_rs::proto::v1::ctx::SearchResult],
-) -> Result<Vec<Option<PathBuf>>, Error> {
-    let paths: Vec<Option<PathBuf>> = results
-        .iter()
-        .enumerate()
-        .map(|(i, r)| write_result_content(dir, &(i + 1).to_string(), r).map_err(Error::IoError))
-        .collect::<Result<_, _>>()?;
-    let count = paths.iter().filter(|p| p.is_some()).count();
-    if count > 0 {
-        eprintln!("Saved {count} file(s) to {}", dir.display());
-    }
-    Ok(paths)
-}
-
-fn prompt_for_output_dir(
-    results: &[topk_rs::proto::v1::ctx::SearchResult],
-) -> Result<Option<PathBuf>, Error> {
-    let non_text_ids: Vec<String> = results
-        .iter()
-        .enumerate()
-        .filter(|(_, r)| has_saveable_content(r))
-        .map(|(i, _)| (i + 1).to_string())
-        .collect();
-
-    if non_text_ids.is_empty()
-        || !std::io::stdin().is_terminal()
-        || !std::io::stderr().is_terminal()
-    {
-        return Ok(None);
-    }
-
-    let ids_str = non_text_ids
-        .iter()
-        .map(|id| format!("{BLUE}[{id}]{RESET}"))
-        .collect::<Vec<_>>()
-        .join(", ");
-    eprint!(
-        "\n{BOLD}References:{RESET} {ids_str} contain non-text citations. Save to directory {DIM}[enter path or press Enter to skip]{RESET}: "
-    );
-    std::io::stderr().flush().ok();
-
-    let mut input = String::new();
-    std::io::stdin().lock().read_line(&mut input)?;
-
-    eprint!("\x1b[2A\x1b[0J");
-    std::io::stderr().flush().ok();
-
-    let trimmed = input.trim();
-    if trimmed.is_empty() {
-        Ok(None)
-    } else {
-        Ok(Some(PathBuf::from(trimmed)))
-    }
-}
-
-fn rendered_display_line_count(rendered: &str) -> usize {
-    let width = terminal_size()
-        .map(|(TermWidth(w), _)| usize::from(w))
-        .filter(|w| *w > 0)
-        .unwrap_or(usize::MAX);
-
-    rendered
-        .lines()
-        .map(|line| {
-            let visible_len = visible_text_len(line);
-            if width == usize::MAX {
-                1
-            } else {
-                visible_len.max(1).div_ceil(width)
-            }
-        })
-        .sum::<usize>()
-        .max(1)
-}
-
-fn replace_rendered_stdout(previous_lines: usize, rendered: &str) -> Result<(), Error> {
-    if !std::io::stdout().is_terminal() || previous_lines == 0 {
-        println!("{rendered}");
-        return Ok(());
-    }
-
-    print!("\x1b[{}A\x1b[0J", previous_lines);
-    println!("{rendered}");
-    std::io::stdout()
-        .flush()
-        .map_err(|e| Error::Internal(e.to_string()))
-}
-
-fn visible_text_len(line: &str) -> usize {
-    let bytes = line.as_bytes();
-    let mut i = 0usize;
-    let mut visible = 0usize;
-
-    while i < bytes.len() {
-        if bytes[i] == 0x1b {
-            i += 1;
-            if i < bytes.len() && bytes[i] == b'[' {
-                i += 1;
-                while i < bytes.len() {
-                    let b = bytes[i];
-                    i += 1;
-                    if (b as char).is_ascii_alphabetic() {
-                        break;
-                    }
-                }
-            }
-            continue;
-        }
-
-        if let Some(ch) = line[i..].chars().next() {
-            visible += 1;
-            i += ch.len_utf8();
-        } else {
-            break;
-        }
-    }
-
-    visible
-}
-
 #[cfg(test)]
 mod tests {
-    use super::SearchResult;
+    use super::SearchResults;
     use crate::test_context::CliTestContext;
     use assert_cmd::Command;
     use test_context::test_context;
@@ -348,7 +269,7 @@ mod tests {
             "{}",
             String::from_utf8_lossy(&out.stderr)
         );
-        let _: SearchResult = serde_json::from_slice(&out.stdout).unwrap();
+        let _: SearchResults = serde_json::from_slice(&out.stdout).unwrap();
     }
 
     #[test_context(CliTestContext)]
@@ -400,19 +321,22 @@ mod tests {
             String::from_utf8_lossy(&out.stderr)
         );
 
-        let result: SearchResult = serde_json::from_slice(&out.stdout).unwrap();
+        let result: SearchResults = serde_json::from_slice(&out.stdout).unwrap();
         let doc = result
             .results
             .iter()
-            .find(|r| r.doc_id == "meta-fields-doc")
+            .find(|r| r.result.doc_id == "meta-fields-doc")
             .expect("document not found in search results");
 
         assert_eq!(
-            doc.metadata.get("title").and_then(|v| v.as_string()),
+            doc.result.metadata.get("title").and_then(|v| v.as_string()),
             Some("My Test Document"),
         );
         assert_eq!(
-            doc.metadata.get("author").and_then(|v| v.as_string()),
+            doc.result
+                .metadata
+                .get("author")
+                .and_then(|v| v.as_string()),
             Some("Test Author"),
         );
     }
