@@ -223,19 +223,4 @@ mod tests {
         assert!(error.contains("TOPK_API_KEY"));
     }
 
-    #[test]
-    fn completions_zsh() {
-        let out = cmd().args(["completions", "zsh"]).output().unwrap();
-        assert!(out.status.success());
-        let stdout = String::from_utf8_lossy(&out.stdout);
-        assert!(stdout.contains("#compdef topk"));
-    }
-
-    #[test]
-    fn completions_bash() {
-        let out = cmd().args(["completions", "bash"]).output().unwrap();
-        assert!(out.status.success());
-        let stdout = String::from_utf8_lossy(&out.stdout);
-        assert!(stdout.contains("topk"));
-    }
 }

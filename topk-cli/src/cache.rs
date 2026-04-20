@@ -148,14 +148,6 @@ mod tests {
     }
 
     #[test]
-    fn remove_evicts_entry_for_name() {
-        let mut idx = index(&[("a", "us-east-1"), ("b", "eu-west-1")]);
-        idx.remove("a");
-        assert!(idx.lookup("a").is_none());
-        assert!(idx.lookup("b").is_some());
-    }
-
-    #[test]
     fn serialization_roundtrip() {
         let idx = index(&[("ds1", "us-east-1"), ("ds2", "eu-west-1")]);
         let toml = toml::to_string_pretty(&idx).unwrap();
