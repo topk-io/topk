@@ -47,7 +47,7 @@
               "regions",
               "changelog",
               "cli",
-              "mcp"
+              "mcp-server"
             ]
           },
           {
@@ -73,7 +73,9 @@
       {
         "tab": "CLI",
         "icon": "terminal",
-        "pages": ["cli"]
+        "pages": [
+          "cli"
+        ]
       },
       {
         "tab": "Python SDK",
