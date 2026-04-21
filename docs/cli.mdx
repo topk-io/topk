@@ -37,7 +37,7 @@ This can also be passed as a flag (`--api-key`) on any command.
 Get a grounded answer from your documents with source citations.
 
 ```bash
-topk ask "What are the key findings?" -d my-docs
+topk ask "What was the total net income of Bank of America in 2024?" -d my-docs
 ```
 
 | Flag | Description |
@@ -87,9 +87,7 @@ topk upload "*.pdf" --dataset my-docs
 | `--recursive` / `-r` | Recurse into subdirectories — only valid when passing a directory |
 | `--concurrency` / `-c` | Number of concurrent uploads, 1–64 (default: `32`) |
 | `--wait` | Wait for all files to uploaded and fully processed |
-| `--id` | Custom document ID — only valid when uploading a single file |
-| `--meta` | Metadata as a JSON object — only valid when uploading a single file |
-| `--yes` / `-y` | Create dataset without prompting (if it doesn't exist yet) |
+| `--yes` / `-y` | Skip confirmation prompt |
 | `--dry-run` | Preview files that would be uploaded, without uploading |
 
 ### `topk delete`
@@ -97,12 +95,12 @@ topk upload "*.pdf" --dataset my-docs
 Delete a document from a dataset.
 
 ```bash
-topk delete --document-id doc-001 --dataset my-docs
+topk delete --id doc-001 --dataset my-docs
 ```
 
 | Flag | Description |
 |------|-------------|
-| `--document-id` | Document ID |
+| `--id` | Document ID |
 | `--dataset` / `-d` | Dataset name |
 | `--yes` / `-y` | Skip confirmation prompt |
 
@@ -123,7 +121,7 @@ topk dataset list
 Get details of a dataset.
 
 ```bash
-topk dataset get --dataset my-docs
+topk dataset get my-docs
 ```
 
 #### `create`
@@ -131,7 +129,7 @@ topk dataset get --dataset my-docs
 Create a new dataset. A region must be specified — this determines where your data is stored. See [available regions](/regions).
 
 ```bash
-topk dataset create --dataset my-docs --region aws-us-east-1-elastica
+topk dataset create my-docs --region aws-us-east-1-elastica
 ```
 
 #### `delete`
@@ -139,10 +137,10 @@ topk dataset create --dataset my-docs --region aws-us-east-1-elastica
 Delete a dataset. Prompts for confirmation unless `-y` is passed.
 
 ```bash
-topk dataset delete --dataset my-docs
+topk dataset delete my-docs
 
 # Skip confirmation
-topk dataset delete --dataset my-docs -y
+topk dataset delete my-docs -y
 ```
 
 ## Global flags
@@ -155,9 +153,9 @@ TopK API key. Overrides the `TOPK_API_KEY` environment variable.
 
 ### `--output`
 
-Controls the output format. Accepts `human` (default) or `json`.
+Controls the output format. Accepts `text` (default) or `json`.
 
 ```bash
-topk ask "What are the key findings?" -d my-docs --output json
-topk ask "What are the key findings?" -d my-docs -o json
+topk ask "What was the total net income of Bank of America in 2024?" -d my-docs --output json
+topk ask "What was the total net income of Bank of America in 2024?" -d my-docs -o json
 ```

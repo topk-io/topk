@@ -53,8 +53,8 @@
           {
             "group": "Core Concepts",
             "pages": [
-              "core/document-processing",
-              "core/agent-search",
+              "core/ingest",
+              "core/ask",
               "core/search",
               "core/research"
             ]

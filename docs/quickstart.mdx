@@ -4,6 +4,8 @@ description: "Ingest your first document and ask a question."
 icon: "rocket"
 ---
 
+import CoreConcepts from "/snippets/core-concepts.mdx";
+
 <Info>
   **Prerequisites**
 
@@ -24,14 +26,28 @@ icon: "rocket"
       </Step>
       <Step title="Authenticate">
         ```bash
-        topk auth
+        topk login
         ```
 
-        This command prompts you to either create a new API key or configure an existing one for the CLI, or you can provide your API key via the `TOPK_API_KEY` environment variable:
+        <Info>
+          This command prompts you to either create a new API key or set an existing one.
+          
+          You can also provide your API key via the `TOPK_API_KEY` environment variable:
+
+          ```bash
+          export TOPK_API_KEY="your-api-key"
+          ```
+        </Info>
+      </Step>
+      <Step title="Create a dataset">
+          A dataset is a named container for your documents.
+          To create a dataset, run the following command:
 
         ```bash
-        export TOPK_API_KEY="your-api-key"
+        topk dataset create quickstart --region aws-us-east-1-elastica
         ```
+
+        <Info>The `--region` flag determines where your data is stored. See [available regions](/regions).</Info>
       </Step>
       <Step title="Upload a file">
         Upload a file to your dataset:
@@ -40,11 +56,10 @@ icon: "rocket"
         topk upload ./report.pdf --dataset quickstart
         ```
 
-        <Info>The `--region` flag determines where your data is stored. See [available regions](/regions).</Info>
       </Step>
       <Step title="Ask a question">
         ```bash
-        topk ask "What are the key findings?" -d quickstart
+        topk ask "What was the total net income of Bank of America in 2024?" -d quickstart
         ```
       </Step>
     </Steps>
@@ -135,12 +150,12 @@ icon: "rocket"
       <Step title="Ask a question">
         <CodeGroup>
           ```python Sync
-          answer = client.ask("What are the key findings?", ["my-docs"])
+          answer = client.ask("What was the total net income of Bank of America in 2024?", ["my-docs"])
 
           print(answer)
           ```
           ```python Async
-          answer = await client.ask("What are the key findings?", ["my-docs"])
+          answer = await client.ask("What was the total net income of Bank of America in 2024?", ["my-docs"])
 
           print(answer)
           ```
@@ -196,7 +211,7 @@ icon: "rocket"
       </Step>
       <Step title="Ask a question">
         ```typescript
-        const answer = await client.ask("What are the key findings?", ["my-docs"]);
+        const answer = await client.ask("What was the total net income of Bank of America in 2024?", ["my-docs"]);
 
         console.log(answer);
         ```
@@ -204,3 +219,9 @@ icon: "rocket"
     </Steps>
   </Tab>
 </Tabs>
+
+Congratulations! You've just ingested your first document and asked a question.
+
+### Next steps
+
+<CoreConcepts />

@@ -56,7 +56,7 @@ async fn main() -> Result<(), Error> {
         .await?;
 
     let mut stream = client
-        .ask("What are the key findings?", ["my-docs"], None, None, None)
+        .ask("What was the total net income of Bank of America in 2024?", ["my-docs"], None, None, None)
         .await?;
 
     while let Some(message) = stream.next().await {
@@ -83,7 +83,7 @@ async fn main() -> Result<(), Error> {
         "aws-us-east-1-elastica",
     ));
 
-    match client.ask("What are the key findings?", ["my-docs"], None, None, None).await {
+    match client.ask("What was the total net income of Bank of America in 2024?", ["my-docs"], None, None, None).await {
         Ok(_) => {}
         Err(Error::DatasetNotFound) => eprintln!("Dataset does not exist"),
         Err(Error::PermissionDenied | Error::Unauthenticated(_)) => {

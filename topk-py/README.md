@@ -51,7 +51,7 @@ client.dataset("my-docs").wait_for_handle(handle.handle)
 
 # Ask a question
 answer = client.ask(
-    "What are the key findings?",
+    "What was the total net income of Bank of America in 2024?",
     datasets=["my-docs"],
 )
 print(answer.facts)
@@ -82,7 +82,7 @@ async def main() -> None:
     await client.dataset("my-docs").wait_for_handle(handle.handle)
 
     answer = await client.ask(
-        "What are the key findings?",
+        "What was the total net income of Bank of America in 2024?",
         datasets=["my-docs"],
     )
     print(answer.facts)
@@ -103,7 +103,7 @@ from topk_sdk.error import (
 )
 
 try:
-    client.ask("What are the key findings?", datasets=["my-docs"])
+    client.ask("What was the total net income of Bank of America in 2024?", datasets=["my-docs"])
 except DatasetNotFoundError:
     print("Dataset does not exist")
 except PermissionDeniedError:

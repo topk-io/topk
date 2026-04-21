@@ -1,33 +1,31 @@
 ---
-title: "Document Search"
-sidebarTitle: "Document Search"
-description: "Find relevant documents."
+title: "Search"
+sidebarTitle: "Search"
+description: "Retrieve the most relevant passages from your documents."
 icon: "file-search-2"
 ---
 
-TopK searches your documents and returns the most relevant passages, ranked by relevance. You get the evidence directly, grounded in your source material.
+Search your documents and return the most relevant passages based on your natural-language query.
 
 ```mermaid
-flowchart LR
-    Agent["Agent"] -- Query --> TopK["TopK"]
-    TopK --> Results
+flowchart TD
+    R[Result]
 
-    subgraph Results["Results"]
-        direction TB
-        Passages["Passages"]
-        Context["Document context"]
-        Metadata["Metadata"]
-        Passages --- Context
-        Context --- Metadata
-    end
+    P[Passage]
+    D[Original Document]
+    M[Metadata]
 
-    style TopK fill:#f9731619,stroke:#f97316,color:#f97316
-    style Agent fill:#3b82f619,stroke:#3b82f6,color:#3b82f6
+    R --> P
+    P --> D
+    D --> M
+
+    E[Text chunk<br/>Visual citation<br/>Document page]
+    E -.-> P
 ```
 
 ## How it works
 
-When you run a Document Search, TopK:
+When you run Search, TopK:
 
 <Steps>
   <Step title="Searches across your documents">
@@ -101,7 +99,9 @@ results look like this:
 ]
 ```
 
-Document Search gives you the evidence directly, without deciding how to interpret it. That makes it useful for:
+Search gives you the evidence directly, without deciding how to interpret it. 
+
+This makes it useful for:
 
 - RAG pipelines
 - building custom answering or summarization layers on top of retrieved passages
@@ -109,21 +109,23 @@ Document Search gives you the evidence directly, without deciding how to interpr
 - inspecting and verifying source passages directly
 - semantic search in applications
 
-## Basic usage
+## Usage
 
-Once your documents are processed, you can start retrieving relevant passages immediately. Use `top_k` to control how many results are returned — fewer results give a tighter, higher-signal set; more give broader recall.
+Once your documents are processed, you can start retrieving relevant passages immediately.
 
 <Tabs>
   <Tab title="CLI" icon="terminal">
     ```bash
     topk search "travel reimbursement policy" -d policies
     ```
+    
+    <Tip>
+      Alternatively, pass `--top-k` to control the number of results (defaults to 10):
 
-    Alternatively, pass `--top-k` to control the number of results (default: 10):
-
-    ```bash
-    topk search "travel reimbursement policy" -d policies --top-k 20
-    ```
+      ```bash
+      topk search "travel reimbursement policy" -d policies --top-k 20
+      ```
+    </Tip>
   </Tab>
   <Tab title="Python SDK" icon="/icons/python.svg">
     <CodeGroup>
@@ -136,7 +138,11 @@ Once your documents are processed, you can start retrieving relevant passages im
           region="aws-us-east-1-elastica",
       )
 
-      results = client.search("travel reimbursement policy", ["policies"], 10)
+      results = client.search(
+          query="travel reimbursement policy",
+          datasets=["policies"],
+          top_k=10,
+      )
 
       print(results)
       ```
@@ -152,7 +158,11 @@ Once your documents are processed, you can start retrieving relevant passages im
       )
 
       async def main() -> None:
-          results = await client.search("travel reimbursement policy", ["policies"], 10)
+          results = await client.search(
+              query="travel reimbursement policy",
+              datasets=["policies"],
+              top_k=10,
+          )
           print(results)
 
       asyncio.run(main())
@@ -177,28 +187,26 @@ Once your documents are processed, you can start retrieving relevant passages im
 
 ## Scoping the search
 
-When running a document search, at least one dataset must be provided.
-
-Additionally, you can also provide a document filter to scope the search to a specific subset of documents
-depending on their metadata—which is stored within the documents during the upload.
+Query across multiple datasets or apply document filters to narrow the scope of the query.
 
 ### Scoping to specific datasets
 
-Typically, closely related documents are logically grouped into a single dataset. Therefore, this is useful when you want:
+This is useful when you want:
 
-- faster and more targeted retrieval
-- less noise from unrelated documents
-- more predictable context for downstream applications or agents
+- More targeted results
+- Less ambiguity across unrelated document sets
+- Tighter control over what content an agent is allowed to see
+
 <Tabs>
   <Tab title="CLI" icon="terminal">
     Use `-d` / `--dataset` (repeatable):
 
     ```bash
-    topk search "What changed in the refund policy?" -d policies -d handbooks
+    topk search "What was the total net income of Bank of America in 2024?" -d finance -d compliance
     ```
   </Tab>
   <Tab title="Python SDK" icon="/icons/python.svg">
-    Pass the dataset names as the second argument:
+    To specify the datasets to search against, pass them in `datasets=`:
 
     <CodeGroup>
       ```python Sync
@@ -211,9 +219,9 @@ Typically, closely related documents are logically grouped into a single dataset
       )
 
       results = client.search(
-          "What changed in the refund policy?",
-          ["policies", "handbooks"],
-          10,
+          query="What was the total net income of Bank of America in 2024?",
+          datasets=["finance", "compliance"],
+          top_k=10,
       )
       ```
 
@@ -229,9 +237,9 @@ Typically, closely related documents are logically grouped into a single dataset
 
       async def main() -> None:
           results = await client.search(
-              "What changed in the refund policy?",
-              ["policies", "handbooks"],
-              10,
+              query="What was the total net income of Bank of America in 2024?",
+              datasets=["finance", "compliance"],
+              top_k=10,
           )
 
       asyncio.run(main())
@@ -239,12 +247,12 @@ Typically, closely related documents are logically grouped into a single dataset
     </CodeGroup>
   </Tab>
   <Tab title="JavaScript SDK" icon="/icons/js.svg">
-    Pass the dataset names as the second argument:
+    To specify the datasets to search against, pass them in the `datasets` argument:
 
     ```typescript
     const results = await client.search(
-      "What changed in the refund policy?",
-      ["policies", "handbooks"],
+      "What was the total net income of Bank of America in 2024?",
+      ["finance", "compliance"],
       10,
     );
     ```
@@ -253,15 +261,18 @@ Typically, closely related documents are logically grouped into a single dataset
 
 ### Filter documents
 
-Sometimes even one dataset is still too broad. In the SDKs, you can attach a filter expression to a source to narrow which documents are eligible for retrieval.
+Sometimes a dataset might contain documents that should not be considered for the query. You can filter out documents that don't match your criteria by providing a [filter expression](/documents/query#filtering).
 
-These filter expressions operate on the **metadata fields** of documents in that dataset. For example, if your documents include metadata such as `department`, `year`, `doc_type`, or `author`, you can use those fields to narrow the search space before TopK ranks passages.
+These filter expressions operate on the **metadata fields** of documents.
 
-This is useful when you want to search:
+For example, if you uploaded documents with metadata such as `department`, `year`, `doc_type`, or `author`, you can use those fields to limit what Ask is allowed to retrieve.
 
-- only within 2024 documents
-- only within HR policies
-- only within documents owned by a specific team
+This is useful when you want to query:
+
+- Documents within a specific time range
+- Documents matching a particular category or type
+- Documents associated with a specific group or owner
+- Documents the user is permitted to access
 
 <Tabs>
   <Tab title="Python SDK" icon="/icons/python.svg">
@@ -277,8 +288,8 @@ This is useful when you want to search:
       )
 
       results = client.search(
-          "travel reimbursement limit",
-          [
+          query="travel reimbursement limit",
+          datasets=[
               {
                   "dataset": "policies",
                   "filter": field("department").eq("finance").and_(
@@ -286,7 +297,7 @@ This is useful when you want to search:
                   ),
               }
           ],
-          10,
+          top_k=10,
       )
       ```
 
@@ -303,8 +314,8 @@ This is useful when you want to search:
 
       async def main() -> None:
           results = await client.search(
-              "travel reimbursement limit",
-              [
+              query="travel reimbursement limit",
+              datasets=[
                   {
                       "dataset": "policies",
                       "filter": field("department").eq("finance").and_(
@@ -312,7 +323,7 @@ This is useful when you want to search:
                       ),
                   }
               ],
-              10,
+              top_k=10,
           )
 
       asyncio.run(main())
@@ -365,9 +376,9 @@ The passage text alone is often not enough. You may also want metadata such as t
       )
 
       results = client.search(
-          "refund policy",
-          ["policies"],
-          10,
+          query="refund policy",
+          datasets=["policies"],
+          top_k=10,
           select_fields=["title", "author", "year"],
       )
       ```
@@ -384,9 +395,9 @@ The passage text alone is often not enough. You may also want metadata such as t
 
       async def main() -> None:
           results = await client.search(
-              "refund policy",
-              ["policies"],
-              10,
+              query="refund policy",
+              datasets=["policies"],
+              top_k=10,
               select_fields=["title", "author", "year"],
           )
 
@@ -409,9 +420,3 @@ The passage text alone is often not enough. You may also want metadata such as t
 </Tabs>
 
 The requested metadata appears on each returned result.
-
-## Choosing between Document Search, Agent Search, and Research
-
-- Use [Document Search](/core/search) when you want the most relevant passages and documents, without answer synthesis.
-- Use [Agent Search](/core/agent-search) when you want the fastest path from documents to a grounded answer with citations.
-- Use [Research](/core/research) when the question is broad, exploratory, or requires deeper multi-step analysis across many documents.

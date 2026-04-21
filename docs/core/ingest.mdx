@@ -1,17 +1,20 @@
 ---
-title: "Document Processing"
-description: "Learn how to ingest your documents and how the processing works."
+title: "Ingest"
+description: "Learn how to upload your documents."
 icon: "file-text"
 ---
 
-Before you can run agent search, document search or research on top of your data, your documents need to be uploaded and processed.
-
-After you upload your documents, TopK parses, chunks, and indexes them to power your retrieval.
+To run queries in TopK, your documents need to be uploaded. Once a document is uploaded,
+TopK parses, chunks, and indexes its content to power Ask, Search, and Research.
 
 ## Uploading documents
 
 Documents are uploaded to a **dataset**. A dataset is a named container for your documents.
 Each document in a dataset is identified by a **document ID**.
+
+<Tip>
+  Learn how to create your dataset [here](/datasets/create).
+</Tip>
 
 <Tabs>
   <Tab title="CLI" icon="terminal">
@@ -103,7 +106,7 @@ Each document in a dataset is identified by a **document ID**.
 | Format | MIME type | Extensions |
 |--------|-----------|------------|
 | PDF | `application/pdf` | `.pdf` |
-| Markdown | `text/markdown` | `.md`, `.mdx` |
+| Markdown | `text/markdown` | `.md` |
 | HTML | `text/html` | `.html` |
 | PNG | `image/png` | `.png` |
 | JPEG | `image/jpeg` | `.jpg`, `.jpeg` |
@@ -117,6 +120,63 @@ Each document in a dataset is identified by a **document ID**.
 Each document can be associated with metadata. This is useful for
 storing additional information about the document, such as title, author, date,
 category, or any custom metadata fields you want to attach to the document.
+
+Metadata values can also include arrays, for example `tags` or `categories`.
+
+<Tabs>
+  <Tab title="Python SDK" icon="/icons/python.svg">
+    <CodeGroup>
+      ```python Sync
+      from pathlib import Path
+
+      resp = client.dataset("my-docs").upsert_file(
+          "report-2024",
+          Path("./report.pdf"),
+          {
+              "title": "Annual Report 2024",
+              "author": "Finance Team",
+              "year": 2024,
+              "category": "financials",
+              "tags": ["annual-report", "investor-relations"],
+              "categories": ["finance", "public-company"],
+          },
+      )
+      ```
+      ```python Async
+      from pathlib import Path
+
+      resp = await client.dataset("my-docs").upsert_file(
+          "report-2024",
+          Path("./report.pdf"),
+          {
+              "title": "Annual Report 2024",
+              "author": "Finance Team",
+              "year": 2024,
+              "category": "financials",
+              "tags": ["annual-report", "investor-relations"],
+              "categories": ["finance", "public-company"],
+          },
+      )
+      ```
+    </CodeGroup>
+  </Tab>
+  <Tab title="JavaScript SDK" icon="/icons/js.svg">
+    ```typescript
+    const resp = await client.dataset("my-docs").upsertFile(
+      "report-2024",
+      "./report.pdf",
+      {
+        title: "Annual Report 2024",
+        author: "Finance Team",
+        year: 2024,
+        category: "financials",
+        tags: ["annual-report", "investor-relations"],
+        categories: ["finance", "public-company"],
+      },
+    );
+    ```
+  </Tab>
+</Tabs>
 
 ## Processing documents
 
@@ -188,7 +248,7 @@ Alternatively, you can wait for the document to be processed using the **process
     Pass `--wait` to block until processing is complete:
 
     ```bash
-    topk upload ./report.pdf --dataset my-docs --id report-2024 --wait
+    topk upload ./report.pdf --dataset my-docs --wait
     ```
   </Tab>
   <Tab title="Python SDK" icon="/icons/python.svg">
