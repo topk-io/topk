@@ -4,7 +4,7 @@ use topk_rs::{
     Client, Error,
 };
 
-use crate::cache::{self, DatasetEntry, DatasetIndex};
+use crate::cache::{cache_path, Cache, DatasetEntry};
 
 #[async_trait(?Send)]
 pub trait DatasetsClient {
@@ -12,9 +12,6 @@ pub trait DatasetsClient {
     async fn get(&mut self, name: &str) -> Result<GetDatasetResponse, Error>;
     async fn create(&mut self, name: &str, region: &str) -> Result<CreateDatasetResponse, Error>;
     async fn delete(&mut self, name: &str) -> Result<(), Error>;
-
-    /// Evicts any cached entries for `name`. Backends without a cache should no-op.
-    async fn bust(&mut self, name: &str);
 }
 
 struct RealDatasetsClient {
@@ -50,22 +47,20 @@ impl DatasetsClient for RealDatasetsClient {
         self.client.datasets().delete(name).await?;
         Ok(())
     }
-
-    async fn bust(&mut self, _name: &str) {}
 }
 
 struct CachedDatasetsClient<B> {
-    backend: B,
-    index: DatasetIndex,
+    client: B,
+    cache: Cache,
 }
 
 impl<B> CachedDatasetsClient<B> {
-    fn new(backend: B, index: DatasetIndex) -> Self {
-        Self { backend, index }
+    fn new(client: B, cache: Cache) -> Self {
+        Self { client, cache }
     }
 
     fn persist(&self) {
-        if let Err(err) = cache::save(&self.index) {
+        if let Err(err) = self.cache.save() {
             eprintln!("warning: failed to persist dataset index: {err}");
         }
     }
@@ -77,52 +72,47 @@ where
     B: DatasetsClient,
 {
     async fn list(&mut self) -> Result<ListDatasetsResponse, Error> {
-        let response = self.backend.list().await?;
-        self.index
+        let response = self.client.list().await?;
+        self.cache
             .set_all(response.datasets.iter().cloned().map(DatasetEntry::from));
         self.persist();
         Ok(response)
     }
 
     async fn get(&mut self, name: &str) -> Result<GetDatasetResponse, Error> {
-        if let Some(entry) = self.index.lookup(name) {
+        if let Some(entry) = self.cache.lookup(name) {
             return Ok(GetDatasetResponse {
                 dataset: Some(entry.clone().into()),
             });
         }
 
-        let response = self.backend.get(name).await?;
+        let response = self.client.get(name).await?;
         if let Some(dataset) = response.dataset.as_ref().cloned() {
-            self.index.insert(dataset.into());
+            self.cache.insert(dataset.into());
             self.persist();
         }
         Ok(response)
     }
 
     async fn create(&mut self, name: &str, region: &str) -> Result<CreateDatasetResponse, Error> {
-        let response = self.backend.create(name, region).await?;
+        let response = self.client.create(name, region).await?;
         if let Some(dataset) = response.dataset.as_ref().cloned() {
-            self.index.insert(dataset.into());
+            self.cache.insert(dataset.into());
             self.persist();
         }
         Ok(response)
     }
 
     async fn delete(&mut self, name: &str) -> Result<(), Error> {
-        self.backend.delete(name).await?;
-        self.index.remove(name);
+        self.client.delete(name).await?;
+        self.cache.remove(name);
         self.persist();
         Ok(())
-    }
-
-    async fn bust(&mut self, name: &str) {
-        self.index.remove(name);
-        self.persist();
     }
 }
 
 pub fn make_cached_datasets_client(client: Client) -> impl DatasetsClient {
-    CachedDatasetsClient::new(RealDatasetsClient::new(client), cache::load())
+    CachedDatasetsClient::new(RealDatasetsClient::new(client), Cache::new(cache_path()))
 }
 
 pub async fn get_region<C: DatasetsClient + ?Sized>(
@@ -144,7 +134,7 @@ pub async fn get_region<C: DatasetsClient + ?Sized>(
 pub async fn ensure_unique_region<C: DatasetsClient + ?Sized>(
     client: &mut C,
     datasets: Vec<String>,
-) -> anyhow::Result<String> {
+) -> Result<String, Error> {
     let mut pairs: Vec<(String, String)> = Vec::with_capacity(datasets.len());
     for name in datasets {
         let region = get_region(client, &name).await?;
@@ -154,7 +144,7 @@ pub async fn ensure_unique_region<C: DatasetsClient + ?Sized>(
     let mut iter = pairs.iter();
     let (_, first) = iter
         .next()
-        .ok_or_else(|| anyhow::anyhow!("at least one dataset is required"))?;
+        .ok_or_else(|| Error::Input(anyhow::anyhow!("at least one dataset is required")))?;
 
     if iter.any(|(_, r)| r != first) {
         let details = pairs
@@ -162,7 +152,9 @@ pub async fn ensure_unique_region<C: DatasetsClient + ?Sized>(
             .map(|(name, region)| format!("{name} ({region})"))
             .collect::<Vec<_>>()
             .join(", ");
-        anyhow::bail!("cannot query datasets across regions: {details}");
+        return Err(Error::Input(anyhow::anyhow!(
+            "cannot query datasets across regions: {details}"
+        )));
     }
 
     Ok(first.clone())
@@ -230,8 +222,6 @@ mod tests {
             self.datasets.remove(name).ok_or(Error::DatasetNotFound)?;
             Ok(())
         }
-
-        async fn bust(&mut self, _name: &str) {}
     }
 
     fn dataset(name: &str, region: &str) -> Dataset {
@@ -244,21 +234,21 @@ mod tests {
         }
     }
 
-    fn indexed(dataset: Dataset) -> DatasetIndex {
-        let mut index = DatasetIndex::default();
-        index.insert(dataset.into());
-        index
+    fn indexed(dataset: Dataset) -> Cache {
+        let mut cache = Cache::default();
+        cache.insert(dataset.into());
+        cache
     }
 
     #[tokio::test]
     async fn list_repopulates_index_from_remote() {
         let backend = FakeDatasetsClient::with_dataset(dataset("ds", "us-east-1"));
-        let mut client = CachedDatasetsClient::new(backend, DatasetIndex::default());
+        let mut client = CachedDatasetsClient::new(backend, Cache::default());
 
         let response = client.list().await.unwrap();
 
         assert_eq!(response.datasets.len(), 1);
-        assert!(client.index.lookup("ds").is_some());
+        assert!(client.cache.lookup("ds").is_some());
     }
 
     #[tokio::test]
@@ -270,34 +260,33 @@ mod tests {
         let response = client.get("cached").await.unwrap();
 
         assert_eq!(response.dataset.unwrap().region, "us-east-1");
-        assert_eq!(client.backend.get_calls, 0);
+        assert_eq!(client.client.get_calls, 0);
     }
 
     #[tokio::test]
     async fn get_fetches_remote_and_updates_index_on_miss() {
         let backend = FakeDatasetsClient::with_dataset(dataset("ds", "us-east-1"));
-        let mut client = CachedDatasetsClient::new(backend, DatasetIndex::default());
+        let mut client = CachedDatasetsClient::new(backend, Cache::default());
 
         let response = client.get("ds").await.unwrap();
 
         assert_eq!(response.dataset.unwrap().region, "us-east-1");
-        assert_eq!(client.backend.get_calls, 1);
+        assert_eq!(client.client.get_calls, 1);
         assert_eq!(
-            client.index.lookup("ds").map(|d| d.region.as_str()),
+            client.cache.lookup("ds").map(|d| d.region.as_str()),
             Some("us-east-1")
         );
     }
 
     #[tokio::test]
     async fn create_adds_remote_dataset_to_index() {
-        let mut client =
-            CachedDatasetsClient::new(FakeDatasetsClient::default(), DatasetIndex::default());
+        let mut client = CachedDatasetsClient::new(FakeDatasetsClient::default(), Cache::default());
 
         let response = client.create("ds", "us-east-1").await.unwrap();
 
         assert_eq!(response.dataset.unwrap().name, "ds");
-        assert_eq!(client.backend.create_calls, 1);
-        assert!(client.index.lookup("ds").is_some());
+        assert_eq!(client.client.create_calls, 1);
+        assert!(client.cache.lookup("ds").is_some());
     }
 
     #[tokio::test]
@@ -309,26 +298,14 @@ mod tests {
 
         client.delete("ds").await.unwrap();
 
-        assert_eq!(client.backend.delete_calls, 1);
-        assert!(client.index.lookup("ds").is_none());
-    }
-
-    #[tokio::test]
-    async fn bust_evicts_from_index() {
-        let mut client = CachedDatasetsClient::new(
-            FakeDatasetsClient::default(),
-            indexed(dataset("ds", "us-east-1")),
-        );
-
-        client.bust("ds").await;
-
-        assert!(client.index.lookup("ds").is_none());
+        assert_eq!(client.client.delete_calls, 1);
+        assert!(client.cache.lookup("ds").is_none());
     }
 
     #[tokio::test]
     async fn get_region_reads_dataset_region() {
         let backend = FakeDatasetsClient::with_dataset(dataset("ds", "us-east-1"));
-        let mut client = CachedDatasetsClient::new(backend, DatasetIndex::default());
+        let mut client = CachedDatasetsClient::new(backend, Cache::default());
 
         assert_eq!(get_region(&mut client, "ds").await.unwrap(), "us-east-1");
     }
@@ -342,7 +319,7 @@ mod tests {
         backend
             .datasets
             .insert("b".into(), dataset("b", "us-east-1"));
-        let mut client = CachedDatasetsClient::new(backend, DatasetIndex::default());
+        let mut client = CachedDatasetsClient::new(backend, Cache::default());
 
         let region = ensure_unique_region(&mut client, vec!["a".into(), "b".into()])
             .await
@@ -360,7 +337,7 @@ mod tests {
         backend
             .datasets
             .insert("b".into(), dataset("b", "eu-west-1"));
-        let mut client = CachedDatasetsClient::new(backend, DatasetIndex::default());
+        let mut client = CachedDatasetsClient::new(backend, Cache::default());
 
         let err = ensure_unique_region(&mut client, vec!["a".into(), "b".into()])
             .await
@@ -377,8 +354,7 @@ mod tests {
 
     #[tokio::test]
     async fn ensure_unique_region_errors_on_empty_input() {
-        let mut client =
-            CachedDatasetsClient::new(FakeDatasetsClient::default(), DatasetIndex::default());
+        let mut client = CachedDatasetsClient::new(FakeDatasetsClient::default(), Cache::default());
 
         let err = ensure_unique_region(&mut client, vec![]).await.unwrap_err();
 

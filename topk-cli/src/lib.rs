@@ -4,7 +4,6 @@ pub mod commands;
 pub mod config;
 pub mod datasets;
 pub mod output;
-pub mod persistence;
 pub mod util;
 
 #[cfg(test)]

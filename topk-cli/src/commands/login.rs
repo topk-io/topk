@@ -1,29 +1,20 @@
 use anyhow::Result;
 use dialoguer::{Password, Select};
 use serde::{Deserialize, Serialize};
+use topk_rs::Error;
 
 use crate::config;
-use crate::output::{Output, RenderForHuman};
+use crate::output::RenderForHuman;
 
 #[derive(Serialize, Deserialize)]
 pub struct LoginResult {
-    pub saved: bool,
-    pub path: Option<String>,
-    pub opened_url: Option<String>,
-}
-
-struct LoginState {
-    result: LoginResult,
-    api_key: Option<String>,
+    pub api_key: Option<String>,
 }
 
 impl RenderForHuman for LoginResult {
     fn render(&self) -> impl Into<String> {
-        if self.saved {
-            match &self.path {
-                Some(path) => format!("API key saved to {}", path),
-                None => "API key saved.".to_string(),
-            }
+        if self.api_key.is_some() {
+            "API key saved.".to_string()
         } else {
             "Login skipped.".to_string()
         }
@@ -35,25 +26,12 @@ fn console_url(https: bool, host: &str) -> String {
     format!("{}://console.{}/api-key", scheme, host)
 }
 
-pub fn run(
-    _api_key: Option<String>,
-    config: &mut config::Config,
-    host: &str,
-    https: bool,
-    _output: &Output,
-) -> Result<LoginResult> {
-    let login = prompt_menu(host, https)?;
-    if let Some(api_key) = login.api_key {
-        config.api_key = Some(api_key);
-    }
-    Ok(login.result)
+pub fn run(host: &str, https: bool) -> Result<LoginResult, Error> {
+    prompt_api_key(host, https)
 }
 
 /// Resolves the API key for any command that needs credentials.
-pub fn resolve(
-    api_key: Option<String>,
-    config: &config::Config,
-) -> Result<Option<String>> {
+pub fn resolve(api_key: Option<String>, config: &config::Config) -> Result<Option<String>, Error> {
     if let Some(key) = api_key {
         return Ok(Some(key));
     }
@@ -61,50 +39,46 @@ pub fn resolve(
         return Ok(Some(key));
     }
 
-    anyhow::bail!("API key not set. Set TOPK_API_KEY environment variable or run: topk login");
+    Err(Error::Input(anyhow::anyhow!(
+        "API key not set. Set TOPK_API_KEY environment variable or run: topk login"
+    ))
+    .into())
 }
 
-fn prompt_menu(host: &str, https: bool) -> Result<LoginState> {
+fn prompt_api_key(host: &str, https: bool) -> Result<LoginResult, Error> {
     let options = ["Create a new API key", "Use an existing API key", "Skip"];
 
     let choice = Select::new()
         .with_prompt("How would you like to authenticate with TopK?")
         .items(&options)
         .default(0)
-        .interact()?;
+        .interact();
 
     match choice {
-        0 => {
+        Ok(0) => {
             let url = console_url(https, host);
             let _ = open::that(&url);
-            prompt_and_save(Some(url))
+            prompt_and_save()
         }
-        1 => prompt_and_save(None),
-        _ => Ok(LoginState {
-            result: LoginResult {
-                saved: false,
-                path: None,
-                opened_url: None,
-            },
-            api_key: None,
-        }),
+        Ok(1) => prompt_and_save(),
+        Ok(_) => Ok(LoginResult { api_key: None }),
+        Err(e) => Err(Error::Input(anyhow::anyhow!(e.to_string()))),
     }
 }
 
-fn prompt_and_save(opened_url: Option<String>) -> Result<LoginState> {
-    let key = Password::new().with_prompt("API key").interact()?;
-    let key = key.trim().to_string();
+fn prompt_and_save() -> Result<LoginResult, Error> {
+    let password = Password::new().with_prompt("API key").interact();
 
-    if key.is_empty() {
-        anyhow::bail!("no API key provided");
+    let api_key = match password {
+        Ok(password) => password.trim().to_string(),
+        Err(e) => return Err(Error::Input(anyhow::anyhow!(e.to_string()))),
+    };
+
+    if api_key.is_empty() {
+        return Err(Error::Input(anyhow::anyhow!("no API key provided")));
     }
 
-    Ok(LoginState {
-        result: LoginResult {
-            saved: true,
-            path: config::config_path().map(|p| p.display().to_string()),
-            opened_url,
-        },
-        api_key: Some(key),
+    Ok(LoginResult {
+        api_key: Some(api_key),
     })
 }

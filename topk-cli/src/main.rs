@@ -9,6 +9,7 @@ use topk::commands::{ask, dataset, delete, list, login, logout, search, upload};
 use topk::config;
 use topk::datasets::{ensure_unique_region, get_region, make_cached_datasets_client};
 use topk::output::{Output, OutputFormat};
+use topk_rs::Error;
 
 #[derive(Parser)]
 #[command(name = "topk", version)]
@@ -27,8 +28,14 @@ struct Cli {
     api_key: Option<String>,
 
     /// Host (overrides TOPK_HOST environment variable, default: topk.io)
-    #[arg(long, env = "TOPK_HOST", global = true, hide = true)]
-    host: Option<String>,
+    #[arg(
+        long,
+        env = "TOPK_HOST",
+        default_value = "topk.io",
+        global = true,
+        hide = true
+    )]
+    host: String,
 
     #[arg(
         long,
@@ -48,9 +55,6 @@ struct Cli {
 enum Commands {
     /// Log in by entering your API key
     Login,
-
-    /// Remove auth credentials
-    Logout,
 
     /// Get a grounded answer from documents with source citations for a query
     Ask(ask::AskArgs),
@@ -73,6 +77,9 @@ enum Commands {
         action: dataset::DatasetAction,
     },
 
+    /// Remove auth credentials
+    Logout,
+
     /// Generate shell completion script
     #[command(hide = true)]
     Completions { shell: Shell },
@@ -93,59 +100,46 @@ async fn main() -> ExitCode {
     }
 }
 
-async fn run(cli: Cli, output: &Output) -> Result<()> {
+async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
+    let Cli {
+        command,
+        api_key,
+        host,
+        https,
+        output: _,
+    } = cli;
+
     let mut cfg = config::load();
-    let result = match cli.command {
-        Some(Commands::Login) => run_login(cli, output, &mut cfg).await,
-        Some(Commands::Logout) => run_logout(output, &mut cfg),
-        command => {
-            let api_key = cli.api_key.clone();
-            let host = cli.host.clone().unwrap_or_else(|| "topk.io".to_string());
-            let https = cli.https;
-            run_command(command, api_key, &host, https, output, &cfg).await
-        }
-    };
 
-    config::save(&cfg)?;
-    result
-}
-
-async fn run_login(cli: Cli, output: &Output, cfg: &mut config::Config) -> Result<()> {
-    let host = cli.host.unwrap_or_else(|| "topk.io".to_string());
-    let https = cli.https;
-    output.print(&login::run(cli.api_key, cfg, &host, https, output)?)?;
-    Ok(())
-}
-
-fn run_logout(output: &Output, cfg: &mut config::Config) -> Result<()> {
-    output.print(&logout::run(cfg))?;
-    Ok(())
-}
-
-fn require_api_key(api_key: Option<String>, cfg: &config::Config) -> Result<String> {
-    login::resolve(api_key, cfg)?.ok_or_else(|| {
-        anyhow::anyhow!(
-            "API key not set. Set TOPK_API_KEY environment variable or run: `topk login`"
-        )
-    })
-}
-
-async fn run_command(
-    command: Option<Commands>,
-    api_key: Option<String>,
-    host: &str,
-    https: bool,
-    output: &Output,
-    cfg: &config::Config,
-) -> Result<()> {
     match command {
-        Some(Commands::Completions { shell }) => {
-            generate(shell, &mut Cli::command(), "topk", &mut std::io::stdout());
+        Some(Commands::Login) => {
+            let result = login::run(&host, https)?;
+            if let Some(api_key) = &result.api_key {
+                cfg.api_key = Some(api_key.clone());
+                config::save(&cfg)?;
+                if output.is_json() {
+                    output.print(&result)?;
+                } else {
+                    output.success("API key saved.");
+                }
+            } else {
+                output.print(&result)?;
+            }
+            Ok(())
+        }
+
+        Some(Commands::Logout) => {
+            let result = logout::run(&cfg);
+            if result.cleared {
+                cfg.api_key = None;
+                config::save(&cfg)?;
+            }
+            output.print(&result)?;
             Ok(())
         }
 
         Some(Commands::Dataset { action }) => {
-            let api_key = require_api_key(api_key, cfg)?;
+            let api_key = require_api_key(api_key)?;
             let client = make_cached_datasets_client(make_global_client(&api_key, &host, https));
 
             match action {
@@ -167,7 +161,7 @@ async fn run_command(
         }
 
         Some(Commands::Upload(args)) => {
-            let api_key = require_api_key(api_key, cfg)?;
+            let api_key = require_api_key(api_key)?;
             let mut datasets_client =
                 make_cached_datasets_client(make_global_client(&api_key, &host, https));
             let region = get_region(&mut datasets_client, &args.dataset).await?;
@@ -178,7 +172,7 @@ async fn run_command(
         }
 
         Some(Commands::Delete(args)) => {
-            let api_key = require_api_key(api_key, cfg)?;
+            let api_key = require_api_key(api_key)?;
             let mut datasets_client =
                 make_cached_datasets_client(make_global_client(&api_key, &host, https));
             let region = get_region(&mut datasets_client, &args.dataset).await?;
@@ -189,7 +183,7 @@ async fn run_command(
         }
 
         Some(Commands::List(args)) => {
-            let api_key = require_api_key(api_key, cfg)?;
+            let api_key = require_api_key(api_key)?;
             let mut datasets_client =
                 make_cached_datasets_client(make_global_client(&api_key, &host, https));
             let region = get_region(&mut datasets_client, &args.dataset).await?;
@@ -198,13 +192,13 @@ async fn run_command(
             // JSON mode streams NDJSON progressively inside run(); only render the table in non-json mode.
             let result = list::run(&client, &args, output).await?;
             if !output.is_json() {
-                output.print_text(&result)?;
+                output.print(&result)?;
             }
             Ok(())
         }
 
         Some(Commands::Ask(args)) => {
-            let api_key = require_api_key(api_key, cfg)?;
+            let api_key = require_api_key(api_key)?;
             let mut datasets_client =
                 make_cached_datasets_client(make_global_client(&api_key, &host, https));
             let region = ensure_unique_region(&mut datasets_client, args.datasets.clone()).await?;
@@ -215,7 +209,7 @@ async fn run_command(
         }
 
         Some(Commands::Search(args)) => {
-            let api_key = require_api_key(api_key, cfg)?;
+            let api_key = require_api_key(api_key)?;
             let mut datasets_client =
                 make_cached_datasets_client(make_global_client(&api_key, &host, https));
             let region = ensure_unique_region(&mut datasets_client, args.datasets.clone()).await?;
@@ -225,11 +219,23 @@ async fn run_command(
             Ok(())
         }
 
+        Some(Commands::Completions { shell }) => {
+            generate(shell, &mut Cli::command(), "topk", &mut std::io::stdout());
+            Ok(())
+        }
+
         None => {
             Cli::command().print_help()?;
             Ok(())
         }
-
-        Some(Commands::Login | Commands::Logout) => unreachable!(),
     }
+}
+
+fn require_api_key(api_key: Option<String>) -> Result<String, Error> {
+    let cfg = config::load();
+    login::resolve(api_key, &cfg)?.ok_or_else(|| {
+        Error::Input(anyhow::anyhow!(
+            "API key not set. Set TOPK_API_KEY environment variable or run: `topk login`"
+        ))
+    })
 }

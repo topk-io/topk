@@ -1,9 +1,8 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
-
-use crate::persistence;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use topk_rs::Error;
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Config {
@@ -17,16 +16,16 @@ pub fn config_path() -> Option<PathBuf> {
 
 /// Loads the config file. Returns an empty config on any read or parse error.
 pub fn load() -> Config {
-    persistence::load_toml_or_default(config_path(), |_, _| {})
+    load_toml_or_default(config_path(), |_, _| {})
 }
 
 /// Saves the config file, creating parent directories as needed.
-pub fn save(config: &Config) -> Result<()> {
-    persistence::save_toml_with(config_path(), config, write_config_file)
+pub fn save(config: &Config) -> Result<(), Error> {
+    save_toml_with(config_path(), config, write_config_file)
 }
 
 #[cfg(unix)]
-fn write_config_file(path: &std::path::Path, content: &str) -> Result<()> {
+fn write_config_file(path: &std::path::Path, content: &str) -> Result<(), Error> {
     use std::fs::{OpenOptions, Permissions};
     use std::io::Write;
     use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
@@ -48,40 +47,55 @@ fn write_config_file(path: &std::path::Path, content: &str) -> Result<()> {
     Ok(())
 }
 
-/// Returns a masked display string, e.g. `****mnop`.
-pub fn mask(key: &str) -> String {
-    let chars: Vec<_> = key.chars().collect();
-    if chars.len() <= 4 {
-        return "*".repeat(chars.len());
+pub fn load_toml_or_default<T>(
+    path: Option<PathBuf>,
+    on_parse_error: impl FnOnce(&Path, &toml::de::Error),
+) -> T
+where
+    T: DeserializeOwned + Default,
+{
+    let path = match path {
+        Some(p) => p,
+        None => return T::default(),
+    };
+    let content = match std::fs::read_to_string(&path) {
+        Ok(c) => c,
+        Err(_) => return T::default(),
+    };
+    match toml::from_str(&content) {
+        Ok(value) => value,
+        Err(err) => {
+            on_parse_error(&path, &err);
+            T::default()
+        }
     }
-    let suffix: String = chars
-        .iter()
-        .rev()
-        .take(4)
-        .copied()
-        .collect::<Vec<_>>()
-        .into_iter()
-        .rev()
-        .collect();
-    format!("{}{}", "*".repeat(chars.len() - 4), suffix)
+}
+
+pub fn save_toml<T: Serialize>(path: Option<PathBuf>, value: &T) -> Result<(), Error> {
+    save_toml_with(path, value, |path, content| {
+        std::fs::write(path, content).map_err(Error::IoError)?;
+        Ok(())
+    })
+}
+
+pub fn save_toml_with<T: Serialize>(
+    path: Option<PathBuf>,
+    value: &T,
+    writer: impl FnOnce(&Path, &str) -> Result<(), Error>,
+) -> Result<(), Error> {
+    let path =
+        path.ok_or_else(|| Error::Input(anyhow::anyhow!("could not determine config directory")))?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    writer(
+        &path,
+        &toml::to_string_pretty(value).map_err(|e| Error::MalformedResponse(e.to_string()))?,
+    )
 }
 
 #[cfg(test)]
 mod tests {
-    use super::mask;
-
-    #[test]
-    fn mask_handles_ascii_keys() {
-        assert_eq!(mask("sk_abcdefghijklmnop"), "***************mnop");
-        assert_eq!(mask("short"), "*hort");
-    }
-
-    #[test]
-    fn mask_handles_multibyte_keys() {
-        assert_eq!(mask("密钥🔒安全令牌XYZ"), "******牌XYZ");
-        assert_eq!(mask("🔒短"), "**");
-    }
-
     #[cfg(unix)]
     #[test]
     fn write_config_file_uses_restrictive_permissions() {
