@@ -1,0 +1,68 @@
+---
+title: "Welcome"
+sidebarTitle: "Introduction"
+description: "TopK Database is a search engine built for the AI era."
+---
+
+It offers a robust search that includes semantic search, vector search, keyword (BM25) search, sparse vector search, multi-vector search, hybrid search, reranking, and more.
+
+Moreover, it's designed to support massive-scale datasets and is accessible via Python SDK or JavaScript SDK.
+
+## Guides
+
+<CardGroup cols={2}>
+  <Card title="Semantic Search" icon="brain" href="/concepts/semantic-search">
+    Search using natural language — no embedding pipeline required.
+  </Card>
+  <Card title="Vector Search" icon="activity" href="/concepts/vector-search">
+    Bring your own embeddings and run nearest-neighbor search.
+  </Card>
+  <Card title="Sparse Vector Search" icon="vector-square" href="/concepts/sparse-vector-search">
+    Efficient high-dimensional retrieval using sparse representations.
+  </Card>
+  <Card title="Multi-Vector Search" icon="layers" href="/concepts/multi-vector-search">
+    Index and query multiple vector fields per document.
+  </Card>
+  <Card title="Keyword Search" icon="search" href="/concepts/keyword-search">
+    BM25-based full-text search for term matching across documents.
+  </Card>
+  <Card title="True Hybrid Search" icon="git-merge" href="/concepts/true-hybrid-search">
+    Combine semantic and keyword signals in a single query.
+  </Card>
+  <Card title="Reranking" icon="arrow-up-down" href="/concepts/reranking">
+    Re-score results with a cross-encoder model for higher precision.
+  </Card>
+</CardGroup>
+
+## APIs
+
+<CardGroup cols={2}>
+  <Card title="Document API" icon="file-text" href="/documents/upsert">
+    Upsert, query, get, and delete documents.
+  </Card>
+  <Card title="Management API" icon="folder" href="/collections/create">
+    Create, list, get, and delete collections.
+  </Card>
+</CardGroup>
+
+## SDKs
+
+<CardGroup cols={2}>
+  <Card title="Python SDK" icon="/icons/python.svg" href="/sdk/topk-py">
+    Full Python SDK reference.
+  </Card>
+  <Card title="JavaScript SDK" icon="/icons/js.svg" href="/sdk/topk-js">
+    Full TypeScript/JavaScript SDK reference.
+  </Card>
+</CardGroup>
+
+## Digging Deeper
+
+<CardGroup cols={2}>
+  <Card title="Consistency" icon="circle-check" href="/concepts/consistency">
+    Understand TopK's consistency model and write freshness guarantees.
+  </Card>
+  <Card title="Multi-Tenancy" icon="users" href="/concepts/multi-tenancy">
+    Partition data by tenant within a single collection.
+  </Card>
+</CardGroup>

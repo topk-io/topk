@@ -1,0 +1,62 @@
+---
+title: "List datasets"
+description: "List all datasets in your project."
+---
+
+<Tabs>
+  <Tab title="CLI" icon="terminal">
+    List all datasets in your project with the CLI:
+    
+    ```bash
+    topk dataset list
+    ```
+  </Tab>
+  <Tab title="Python SDK" icon="/icons/python.svg">
+    <CodeGroup>
+      ```python Sync
+      import os
+      from topk_sdk import Client
+
+      client = Client(
+          api_key=os.environ["TOPK_API_KEY"],
+          region=os.environ["TOPK_REGION"],
+      )
+
+      datasets = client.datasets().list()
+
+      for dataset in datasets:
+          print(dataset.name)
+      ```
+      ```python Async
+      import os
+      from topk_sdk import AsyncClient
+
+      client = AsyncClient(
+          api_key=os.environ["TOPK_API_KEY"],
+          region=os.environ["TOPK_REGION"],
+      )
+
+      datasets = await client.datasets().list()
+
+      for dataset in datasets:
+          print(dataset.name)
+      ```
+    </CodeGroup>
+  </Tab>
+  <Tab title="JavaScript SDK" icon="/icons/js.svg">
+    ```typescript
+    import { Client } from "topk-js";
+
+    const client = new Client({
+      apiKey: process.env.TOPK_API_KEY!,
+      region: process.env.TOPK_REGION!,
+    });
+
+    const datasets = await client.datasets().list();
+
+    for (const dataset of datasets) {
+      console.log(dataset.name);
+    }
+    ```
+  </Tab>
+</Tabs>

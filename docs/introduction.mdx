@@ -1,67 +1,85 @@
 ---
-title: Welcome
-description: "TopK is a search engine built for the AI era."
+title: "What is TopK?"
+sidebarTitle: "Overview"
+description: "Turn your documents into reliable context for agents and humans."
+icon: "/icons/topk-icon.svg"
 ---
 
-It offers a robust search API that includes vector search, BM25 keyword search, metadata filtering, reranking, and much more.
+import CoreConcepts from "/snippets/core-concepts.mdx";
 
-TopK also coined the concept of **True Hybrid Search**, which allows you to combine multiple search techniques in a single query -- delivering the most relevant results while maintaining record-low latency.
+TopK is an end-to-end solution that turns unstructured documents(PDFs, Images, Markdown, HTML) into reliable context for agents and humans.
 
-Moreover, it's designed to support massive-scale datasets and provide a headache-free setup for multi-tenant configurations.
+You can search, explore, and extract relevant information from your documents, all grounded in the source material.
 
-## Get Started
+We believe that **context is a search problem.** Agents need relevant data to make the right decision. Without the right context, even the best AI models fall short — garbage in, garbage out.
 
-<CardGroup>
-  <Card title="Install SDK" icon="terminal" href="/installation">
-    Install TopK Python or Javascript SDK
+## How it works
+
+<Steps>
+  <Step title="Ingest" icon="upload">
+    Upload your documents via the CLI, Python SDK, or JavaScript SDK. TopK supports PDFs, images, markdown, HTML, [and more](/core/ingest#supported-formats).
+  </Step>
+  <Step title="Process" icon="zap">
+    TopK parses, chunks, and indexes your documents—preserving structure from tables, charts, and complex layouts.
+  </Step>
+  <Step title="Query" icon="search">
+    Ask questions, search for relevant passages, or run complex research queries across your documents.
+  </Step>
+</Steps>
+
+## Core concepts
+
+<CoreConcepts />
+
+## Use cases
+
+- **AI agents & copilots** — ground your agents' context in private knowledge to reduce hallucinations and improve decision quality.
+- **Document-heavy workflows** — automate extraction and Q&A over contracts, filings, research papers, and more.
+- **Enterprise knowledge bases** — give employees instant, cited answers from internal documentation, policies, and reports.
+- **Customer support** — surface the right answers from your knowledge base instantly, at scale.
+
+## How to use TopK
+
+The quickest way to get started is to follow the [Quickstart](/quickstart) guide.
+
+<CardGroup cols={2}>
+  <Card title="CLI" icon="terminal" href="/cli">
+    Upload files, search, and ask questions directly from the terminal.
   </Card>
-    <Card title="Get API Key" icon="key" href="/installation#api-key">
-    Generate your API key in the TopK console.
+  <Card title="Python SDK" icon="/icons/python.svg" href="/sdk/topk-py">
+    Full Python SDK reference.
+  </Card>
+  <Card title="JavaScript SDK" icon="/icons/js.svg" href="/sdk/topk-js">
+    Full TypeScript/JavaScript SDK reference.
+  </Card>
+  <Card title="MCP Server" icon="network" href="/mcp">
+    Connect TopK to any MCP-compatible AI agent via the Model Context Protocol.
   </Card>
 </CardGroup>
 
+## Security & Compliance
 
-## Guides
+TopK is **SOC 2 Type I** certified. Visit the [trust center](https://trust.topk.io) for full details.
 
-<CardGroup>
+<CardGroup cols={1}>
+  <Card title="Data encryption" icon="lock" horizontal>
+    All data is encrypted in transit and at rest.
+  </Card>
+  <Card title="Access control" icon="shield-check" horizontal>
+    Role-based access control with full auditability.
+  </Card>
+  <Card title="VPC deployment" icon="server" horizontal>
+    Deploy inside your own VPC for complete network isolation (enterprise).
+  </Card>
+</CardGroup>
+
+## Get started
+
+<CardGroup cols={2}>
   <Card title="Quickstart" icon="rocket" href="/quickstart">
-    Create your first collection, add documents and run your first search.
+    Ingest your first documents and ask a question in minutes.
   </Card>
-  <Card title="Semantic Search" icon="searchengin" href="/concepts/semantic-search">
-    Learn how to setup and run a semantic search.
-  </Card>
-  <Card title="Vector Search" icon="vector-square" href="/concepts/vector-search">
-    Learn how to setup and run a vector search.
-  </Card>
-  <Card title="Multi-Vector Search" icon="bezier-curve" href="/concepts/multi-vector-search">
-    Learn how to setup and run a multi-vector search.
-  </Card>
-  <Card title="Keyword Search" icon="text" href="/concepts/keyword-search">
-    Learn how to setup and run a BM25 keyword search.
-  </Card>
-  <Card title="True Hybrid Search" icon="wand-magic-sparkles" href="/concepts/true-hybrid-search">
-    Learn how to combine multiple search techniques in a single query.
-  </Card>
-</CardGroup>
-
-## APIs
-
-<CardGroup>
-  <Card title="Query API" icon="magnifying-glass" href="/documents/query">
-    Explore the full Query API for document retrieval.
-  </Card>
-  <Card title="Management API" icon="folder" href="/collections/create">
-    Explore the Management API for managing your collections.
-  </Card>
-</CardGroup>
-
-## Digging Deeper
-
-<CardGroup>
-  <Card title="Consistency" icon="sitemap" href="/concepts/consistency">
-    Learn about TopK's consistency modes and how to choose the right one.
-  </Card>
-  <Card title="Multi-tenancy" icon="users" href="/concepts/multi-tenancy">
-    Learn how to use TopK in a multi-tenant environment.
+  <Card title="Talk to us" icon="message-circle" href="https://topk.io/contact" target="_blank">
+    Reach out to discuss your use case or enterprise deployment.
   </Card>
 </CardGroup>

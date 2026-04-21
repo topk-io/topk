@@ -1,180 +1,227 @@
 ---
-title: "Quickstart (5m)"
-description: "Get started with the TopK search engine in under 5 minutes."
+title: "Quickstart"
+description: "Ingest your first document and ask a question."
+icon: "rocket"
 ---
 
-This quickstart guide will walk you through setting up and using TopK in less than 5 minutes. By the end, you'll know how to:
+import CoreConcepts from "/snippets/core-concepts.mdx";
 
-<Steps>
-  <Step title="Create a collection">
-    Create a collection that stores your data.
-  </Step>
-  <Step title="Insert initial data">
-    Add documents to your collection.
-  </Step>
-  <Step title="Search your collection">
-    Learn how to use various searching methods:
+<Info>
+  **Prerequisites**
 
-    - **Semantic search** -- finding content by semantic meaning
-    - **Keyword search** -- finding exact text matches and sorting by keyword score
-    - **Metadata filtering** -- narrowing down results by document properties
-    - **Reranking** (optional) -- use built-in reranking to boost relevant results
-  </Step>
-</Steps>
+  - TopK account ([Sign up here](https://console.topk.io/signup))
+  - TopK API key ([Get API key here](https://console.topk.io/api-key))
+</Info>
 
-Follow along to build your first functional search experience with TopK!
+<Tabs>
+  <Tab title="CLI" icon="terminal">
+    <Steps>
+      <Step title="Install CLI">
+        ```bash
+        brew tap topk-io/topk
+        brew install topk
+        ```
 
-Before starting, ensure you have the TopK SDK installed and your API key ready - see the [Installation](/installation) docs.
+        <Tip>If you don't have Homebrew installed, you can install it [here](https://brew.sh).</Tip>
+      </Step>
+      <Step title="Authenticate">
+        ```bash
+        topk login
+        ```
 
-## 1. Create your first collection
+        <Info>
+          This command prompts you to either create a new API key or set an existing one.
+          
+          You can also provide your API key via the `TOPK_API_KEY` environment variable:
 
-Collections are the core data structure in TopK. They store documents and provide an interface for querying your data.
+          ```bash
+          export TOPK_API_KEY="your-api-key"
+          ```
+        </Info>
+      </Step>
+      <Step title="Create a dataset">
+          A dataset is a named container for your documents.
+          To create a dataset, run the following command:
 
-First, initialize a TopK `Client` instance with your [API key](/installation#api-key) and
-<Tooltip tip="TopK region is where your data is stored. It maps to a specific cloud region.">region</Tooltip>.
-Check out the [Regions](/regions) page for more information.
+        ```bash
+        topk dataset create quickstart --region aws-us-east-1-elastica
+        ```
 
-<CodeGroup>
+        <Info>The `--region` flag determines where your data is stored. See [available regions](/regions).</Info>
+      </Step>
+      <Step title="Upload a file">
+        Upload a file to your dataset:
 
-```python Python
-from topk_sdk import Client
+        ```bash
+        topk upload ./report.pdf --dataset quickstart
+        ```
 
-client = Client(api_key="YOUR_TOPK_API_KEY", region="aws-us-east-1-elastica")
-```
+      </Step>
+      <Step title="Ask a question">
+        ```bash
+        topk ask "What was the total net income of Bank of America in 2024?" -d quickstart
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Python SDK" icon="/icons/python.svg">
+    <Steps>
+      <Step title="Install Python SDK">
+        <CodeGroup>
+          ```bash pip
+          pip install topk-sdk
+          ```
+          ```bash uv
+          uv add topk-sdk
+          ```
+        </CodeGroup>
+      </Step>
+      <Step title="Initialize the client">
 
+        Setup the TopK client with your API key and region.
 
-```typescript Javascript
-import { Client } from "topk-js";
+        <CodeGroup>
+          ```python Sync
+          import os
+          from topk_sdk import Client
 
-const client = new Client({
-  apiKey: "YOUR_TOPK_API_KEY",
-  region: "aws-us-east-1-elastica"
-});
-```
+          client = Client(
+              api_key=os.environ["TOPK_API_KEY"],
+              region=os.environ.get("TOPK_REGION", "aws-us-east-1-elastica"),
+          )
+          ```
+          ```python Async
+          import os
+          from topk_sdk import AsyncClient
 
-</CodeGroup>
+          client = AsyncClient(
+              api_key=os.environ["TOPK_API_KEY"],
+              region=os.environ.get("TOPK_REGION", "aws-us-east-1-elastica"),
+          )
+          ```
+        </CodeGroup>
+        <Info>See [available regions](/regions) for a full list of supported regions.</Info>
+      </Step>
+      <Step title="Create a dataset">
+        <CodeGroup>
+          ```python Sync
+          client.datasets().create("quickstart")
+          ```
+          ```python Async
+          await client.datasets().create("quickstart")
+          ```
+        </CodeGroup>
+      </Step>
+      <Step title="Upload a file">
+        Upload a file to your dataset by providing the document ID, the path to the file, and optional metadata:
 
-Then, create a collection by specifying a schema. The example below creates a `books` collection with a **semantic index** on the `title` field.
+        <CodeGroup>
+          ```python Sync
+          from pathlib import Path
 
-<CodeGroup>
+          resp = client.dataset("my-docs").upsert_file(
+              "report-2024",             # document ID
+              Path("./report.pdf"),      # path to file
+              {"title": "Annual Report"},  # optional metadata
+          )
+          ```
+          ```python Async
+          from pathlib import Path
 
-```python Python
-from topk_sdk.schema import text, semantic_index
+          resp = await client.dataset("my-docs").upsert_file(
+              "report-2024",             # document ID
+              Path("./report.pdf"),      # path to file
+              {"title": "Annual Report"},  # optional metadata
+          )
+          ```
+        </CodeGroup>
 
-client.collections().create(
-    "books",
-    schema={
-        "title": text().required().index(semantic_index()),
-    },
-)
-```
+        After the file has been uploaded, wait for it to be processed:
 
+        <CodeGroup>
+          ```python Sync
+          client.dataset("my-docs").wait_for_handle(resp.handle)
+          ```
+          ```python Async
+          await client.dataset("my-docs").wait_for_handle(resp.handle)
+          ```
+        </CodeGroup>
+      </Step>
+      <Step title="Ask a question">
+        <CodeGroup>
+          ```python Sync
+          answer = client.ask("What was the total net income of Bank of America in 2024?", ["my-docs"])
 
-```typescript Javascript
-import { text, semanticIndex } from "topk-js/schema";
+          print(answer)
+          ```
+          ```python Async
+          answer = await client.ask("What was the total net income of Bank of America in 2024?", ["my-docs"])
 
-await client.collections().create("books", {
-  title: text().required().index(semanticIndex()),
-});
-```
+          print(answer)
+          ```
+        </CodeGroup>
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="JavaScript SDK" icon="/icons/js.svg">
+    <Steps>
+      <Step title="Install JavaScript SDK">
+        <CodeGroup>
+          ```bash npm
+          npm install topk-js
+          ```
+          ```bash yarn
+          yarn add topk-js
+          ```
+          ```bash pnpm
+          pnpm add topk-js
+          ```
+        </CodeGroup>
+      </Step>
+      <Step title="Initialize the client">
+        ```typescript
+        import { Client } from "topk-js";
 
-</CodeGroup>
+        const client = new Client({
+          apiKey: "your-api-key",
+          region: "aws-us-east-1-elastica",
+        });
+        ```
+        <Info>See [available regions](/regions) for a full list of supported regions.</Info>
+      </Step>
+      <Step title="Create a dataset">
+        ```typescript
+        await client.datasets().create("quickstart");
+        ```
+      </Step>
+      <Step title="Upload a file">
+        ```typescript
+        const resp = await client.dataset("my-docs").upsertFile(
+          "report-2024",    // document ID
+          "./report.pdf",   // path to file
+          { title: "Annual Report" },  // optional metadata
+        );
+        ```
 
-Adding a [`semantic_index()`](/collections/create#semantic-index) to the `title` field enables
-[**semantic search**](/concepts/semantic-search) as well as [**keyword search**](/concepts/keyword-search) on this field.
+        Wait for the file to be processed:
 
-<Tip>
-  Fields that aren't defined in the schema can still be upserted.
-</Tip>
+        ```typescript
+        await client.dataset("my-docs").waitForHandle(resp.handle);
+        ```
+      </Step>
+      <Step title="Ask a question">
+        ```typescript
+        const answer = await client.ask("What was the total net income of Bank of America in 2024?", ["my-docs"]);
 
-## 2. Add documents
+        console.log(answer);
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
 
-After creating a collection, you can start adding documents to it.
+Congratulations! You've just ingested your first document and asked a question.
 
-Documents in TopK are JSON-style dictionaries which must **must** have an `_id` field:
+### Next steps
 
-<CodeGroup>
-
-```python Python
-client.collection("books").upsert(
-    [
-        {"_id": "gatsby", "title": "The Great Gatsby"},
-        {"_id": "1984", "title": "1984"},
-        {"_id": "catcher", "title": "The Catcher in the Rye"},
-    ],
-)
-```
-
-
-```typescript Javascript
-await client.collection("books").upsert([
-  { _id: "gatsby", title: "The Great Gatsby" },
-  { _id: "1984", title: "1984" },
-  { _id: "catcher", title: "The Catcher in the Rye" },
-]);
-```
-
-</CodeGroup>
-
-## 3. Query your collection
-
-Now, run your first **semantic search** query:
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.query import select, fn, field
-
-results = client.collection("books").query(
-    select(
-        "title",
-        # fn.semantic_similarity() scores documents by how semantically similar their titles are to "classic American novel"
-        title_similarity=fn.semantic_similarity("title", "classic American novel"),
-    )
-    # Sort results by `title_similarity` (computed in the `select()` function above), and limit to top 10 results
-    .topk(field("title_similarity"), 10)
-    # Rerank results using the built-in reranking model
-    .rerank()
-)
-```
-
-
-```typescript Javascript
-import { select, fn, field } from "topk-js/query"
-
-const results = await client.collection("books").query(
-  select({
-    title: field("title"),
-    // fn.semantic_similarity() scores documents by how semantically similar their titles are to "classic American novel"
-    title_similarity: fn.semanticSimilarity(
-      "title",
-      "classic American novel"
-    ),
-  })
-    // Sort results by `title_similarity` (computed in `select()` above), and limit to top 10 results
-    .topk(field("title_similarity"), 10)
-    // Rerank results using TopK's built-in reranking model
-    .rerank()
-);
-```
-
-</CodeGroup>
-
-Optionally, you can call `.rerank()` at the end of your query to automatically improve relevance of the results using a reranking model. See [Reranking](/documents/query#reranking) guide for more details.
-
-## 4. (Optional) Clean up
-
-To delete the entire collection:
-
-<CodeGroup>
-
-```python Python
-client.collections().delete("books")
-```
-
-
-```typescript Javascript
-await client.collections().delete("books")
-```
-
-</CodeGroup>
+<CoreConcepts />
