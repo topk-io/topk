@@ -1,4 +1,7 @@
+use std::fmt;
+
 use anyhow::Result;
+use colored::Colorize;
 use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -7,8 +10,8 @@ use topk_rs::{
     Client, Error,
 };
 
-use crate::output::{Output, RenderForHuman, BLUE, DIM, RESET};
-use crate::util::{resolve_query, MimeType};
+use crate::output::Output;
+use crate::util::{mime::MimeType, resolve_query};
 
 #[derive(Serialize, Deserialize)]
 pub struct SearchResult {
@@ -22,10 +25,10 @@ pub struct SearchResults {
     results: Vec<SearchResult>,
 }
 
-impl RenderForHuman for SearchResults {
-    fn render(&self) -> impl Into<String> {
+impl fmt::Display for SearchResults {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.results.is_empty() {
-            return "No results.".to_string();
+            return f.write_str("No results.");
         }
 
         let entries: Vec<String> = self
@@ -35,7 +38,7 @@ impl RenderForHuman for SearchResults {
             .map(|(i, r)| render_search_result(&(i + 1).to_string(), r, None))
             .collect();
 
-        entries.join("\n\n")
+        f.write_str(&entries.join("\n\n"))
     }
 }
 
@@ -66,9 +69,9 @@ pub async fn run(
     let query = resolve_query(args.query.clone())
         .map_err(|e| Error::Internal(e.to_string()))?
         .ok_or_else(|| {
-            Error::Internal(
-                "query is required; pass it as an argument or pipe it via stdin".to_string(),
-            )
+            Error::Input(anyhow::anyhow!(
+                "query is required; pass it as an argument or pipe it via stdin"
+            ))
         })?;
 
     let raw: Vec<_> = client
@@ -96,7 +99,7 @@ pub async fn run(
                         Some(content::Data::Chunk(_)) | None
                     )
                 })
-                .map(|(i, _)| format!("{BLUE}[{}]{RESET}", i + 1))
+                .map(|(i, _)| format!("{}", format!("[{}]", i + 1).blue()))
                 .collect::<Vec<_>>()
                 .join(", ");
             if ids_str.is_empty() {
@@ -188,19 +191,22 @@ pub fn render_search_result(id: &str, r: &SearchResult, max_text_len: Option<usi
             r.result.content.as_ref().and_then(|c| c.data.as_ref()),
             Some(content::Data::Chunk(_)) | None
         ) {
-        Some(format_content_text(r.result.content.as_ref()))
+        format_content_text(r.result.content.as_ref())
     } else {
         None
     };
     let detail = match (&r.path, text) {
-        (Some(path), Some(t)) => Some(format!("{DIM}{}\n{t}{RESET}", path.display())),
-        (Some(path), None) => Some(format!("{DIM}{}{RESET}", path.display())),
-        (None, Some(t)) => Some(format!("{DIM}{t}{RESET}")),
-        (None, None) => placeholder.map(|p| format!("{DIM}{p}{RESET}")),
+        (Some(path), Some(t)) => Some(format!("{}", format!("{}\n{t}", path.display()).dimmed())),
+        (Some(path), None) => Some(format!("{}", format!("{}", path.display()).dimmed())),
+        (None, Some(t)) => Some(format!("{}", t.dimmed())),
+        (None, None) => placeholder.map(|p| format!("{}", p.dimmed())),
     };
     [format!(
-        "{BLUE}[{id}]{RESET} {}, {}, {}",
-        r.result.dataset, r.result.doc_id, r.result.doc_type
+        "{} {}, {}, {}",
+        format!("[{id}]").blue(),
+        r.result.dataset,
+        r.result.doc_id,
+        r.result.doc_type
     )]
     .into_iter()
     .chain(detail)
@@ -222,30 +228,30 @@ fn format_reference_detail(content: Option<&Content>) -> Option<String> {
     }
 }
 
-pub fn format_content_text(content: Option<&Content>) -> String {
+pub fn format_content_text(content: Option<&Content>) -> Option<String> {
     match content.and_then(|c| c.data.as_ref()) {
         Some(content::Data::Chunk(chunk)) => {
             if chunk.doc_pages.is_empty() {
-                chunk.text.clone()
+                Some(chunk.text.clone())
             } else {
                 let pages: Vec<String> = chunk.doc_pages.iter().map(|p| p.to_string()).collect();
-                format!("{} [p.{}]", chunk.text, pages.join(","))
+                Some(format!("{} [p.{}]", chunk.text, pages.join(",")))
             }
         }
-        Some(content::Data::Page(page)) => format!("<page {}>", page.page_number),
-        Some(content::Data::Image(img)) => format!(
+        Some(content::Data::Page(page)) => Some(format!("<page {}>", page.page_number)),
+        Some(content::Data::Image(img)) => Some(format!(
             "<image {} {}>",
             img.mime_type,
             bytesize::ByteSize(img.data.len() as u64)
-        ),
-        None => String::new(),
+        )),
+        None => None,
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::SearchResults;
-    use crate::test_context::CliTestContext;
+    use crate::commands::test_context::{CliTestContext, OutputJsonExt};
     use assert_cmd::Command;
     use test_context::test_context;
     use topk_rs::proto::v1::{ctx::file::InputFile, data::Value};
@@ -269,7 +275,7 @@ mod tests {
             "{}",
             String::from_utf8_lossy(&out.stderr)
         );
-        let _: SearchResults = serde_json::from_slice(&out.stdout).unwrap();
+        let _: SearchResults = out.json().unwrap();
     }
 
     #[test_context(CliTestContext)]
@@ -321,7 +327,7 @@ mod tests {
             String::from_utf8_lossy(&out.stderr)
         );
 
-        let result: SearchResults = serde_json::from_slice(&out.stdout).unwrap();
+        let result: SearchResults = out.json().unwrap();
         let doc = result
             .results
             .iter()

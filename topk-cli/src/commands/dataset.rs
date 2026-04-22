@@ -1,3 +1,5 @@
+use std::fmt;
+
 use comfy_table::{
     presets, Attribute, Cell, Color, ColumnConstraint, ContentArrangement, Table, Width,
 };
@@ -9,7 +11,7 @@ use topk_rs::{
 };
 
 use crate::datasets::DatasetsClient;
-use crate::output::{Output, RenderForHuman};
+use crate::output::Output;
 use crate::util::format_timestamp;
 
 #[derive(Debug, clap::Args)]
@@ -67,16 +69,6 @@ impl From<topk_rs::proto::v1::control::Dataset> for Dataset {
     }
 }
 
-impl From<&topk_rs::proto::v1::control::Dataset> for Dataset {
-    fn from(dataset: &topk_rs::proto::v1::control::Dataset) -> Self {
-        Self {
-            name: dataset.name.clone(),
-            region: dataset.region.clone(),
-            created_at: dataset.created_at.clone(),
-        }
-    }
-}
-
 #[derive(Serialize, Deserialize)]
 pub struct ListDatasetsResult {
     pub datasets: Vec<Dataset>,
@@ -90,10 +82,10 @@ impl From<ListDatasetsResponse> for ListDatasetsResult {
     }
 }
 
-impl RenderForHuman for ListDatasetsResult {
-    fn render(&self) -> impl Into<String> {
+impl fmt::Display for ListDatasetsResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.datasets.is_empty() {
-            return "No datasets found.".to_string();
+            return f.write_str("No datasets found.");
         }
 
         let term_width = terminal_size().map(|(TermWidth(w), _)| w).unwrap_or(80);
@@ -123,7 +115,7 @@ impl RenderForHuman for ListDatasetsResult {
             ]);
         }
 
-        table.to_string()
+        f.write_str(&table.to_string())
     }
 }
 
@@ -137,14 +129,15 @@ impl TryFrom<GetDatasetResponse> for GetDatasetResult {
 
     fn try_from(resp: GetDatasetResponse) -> Result<Self, Error> {
         Ok(Self {
-            dataset: resp.dataset()?.into(),
+            dataset: resp.dataset()?.to_owned().into(),
         })
     }
 }
 
-impl RenderForHuman for GetDatasetResult {
-    fn render(&self) -> impl Into<String> {
-        format!(
+impl fmt::Display for GetDatasetResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
             "Name:    {}\nRegion:  {}\nCreated: {}",
             self.dataset.name,
             self.dataset.region,
@@ -163,14 +156,14 @@ impl TryFrom<CreateDatasetResponse> for CreateDatasetResult {
 
     fn try_from(resp: CreateDatasetResponse) -> Result<Self, Error> {
         Ok(Self {
-            dataset: resp.dataset()?.into(),
+            dataset: resp.dataset()?.to_owned().into(),
         })
     }
 }
 
-impl RenderForHuman for CreateDatasetResult {
-    fn render(&self) -> impl Into<String> {
-        format!("Dataset '{}' created.", self.dataset.name)
+impl fmt::Display for CreateDatasetResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Dataset '{}' created.", self.dataset.name)
     }
 }
 
@@ -179,12 +172,12 @@ pub struct DeleteDatasetResult {
     pub deleted: bool,
 }
 
-impl RenderForHuman for DeleteDatasetResult {
-    fn render(&self) -> impl Into<String> {
+impl fmt::Display for DeleteDatasetResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.deleted {
-            "Dataset deleted.".to_string()
+            f.write_str("Dataset deleted.")
         } else {
-            "Deletion skipped.".to_string()
+            f.write_str("Deletion skipped.")
         }
     }
 }
@@ -225,7 +218,7 @@ pub async fn delete<C: DatasetsClient>(
 #[cfg(test)]
 mod tests {
     use super::{CreateDatasetResult, DeleteDatasetResult, GetDatasetResult, ListDatasetsResult};
-    use crate::test_context::CliTestContext;
+    use crate::commands::test_context::{CliTestContext, OutputJsonExt};
     use assert_cmd::Command;
     use test_context::test_context;
 
@@ -251,7 +244,7 @@ mod tests {
             "{}",
             String::from_utf8_lossy(&out.stderr)
         );
-        let result: ListDatasetsResult = serde_json::from_slice(&out.stdout).unwrap();
+        let result: ListDatasetsResult = out.json().unwrap();
         let names: Vec<&str> = result.datasets.iter().map(|d| d.name.as_str()).collect();
         assert!(
             names.contains(&name.as_str()),
@@ -281,7 +274,7 @@ mod tests {
             "{}",
             String::from_utf8_lossy(&out.stderr)
         );
-        let result: CreateDatasetResult = serde_json::from_slice(&out.stdout).unwrap();
+        let result: CreateDatasetResult = out.json().unwrap();
         assert_eq!(result.dataset.name, name);
     }
 
@@ -303,7 +296,7 @@ mod tests {
             "{}",
             String::from_utf8_lossy(&out.stderr)
         );
-        let result: GetDatasetResult = serde_json::from_slice(&out.stdout).unwrap();
+        let result: GetDatasetResult = out.json().unwrap();
         assert_eq!(result.dataset.name, name);
     }
 
@@ -325,7 +318,7 @@ mod tests {
             "{}",
             String::from_utf8_lossy(&out.stderr)
         );
-        let result: DeleteDatasetResult = serde_json::from_slice(&out.stdout).unwrap();
+        let result: DeleteDatasetResult = out.json().unwrap();
         assert!(result.deleted);
     }
 
@@ -344,7 +337,7 @@ mod tests {
             .output()
             .unwrap();
         assert!(out.status.success());
-        let result: DeleteDatasetResult = serde_json::from_slice(&out.stdout).unwrap();
+        let result: DeleteDatasetResult = out.json().unwrap();
         assert!(!result.deleted);
     }
 }

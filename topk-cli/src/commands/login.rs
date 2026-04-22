@@ -1,22 +1,23 @@
+use std::fmt;
+
 use anyhow::Result;
 use dialoguer::{Password, Select};
 use serde::{Deserialize, Serialize};
 use topk_rs::Error;
 
 use crate::config;
-use crate::output::RenderForHuman;
 
 #[derive(Serialize, Deserialize)]
 pub struct LoginResult {
     pub api_key: Option<String>,
 }
 
-impl RenderForHuman for LoginResult {
-    fn render(&self) -> impl Into<String> {
+impl fmt::Display for LoginResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.api_key.is_some() {
-            "API key saved.".to_string()
+            f.write_str("API key saved.")
         } else {
-            "Login skipped.".to_string()
+            f.write_str("Login skipped.")
         }
     }
 }
@@ -46,11 +47,9 @@ pub fn resolve(api_key: Option<String>, config: &config::Config) -> Result<Optio
 }
 
 fn prompt_api_key(host: &str, https: bool) -> Result<LoginResult, Error> {
-    let options = ["Create a new API key", "Use an existing API key", "Skip"];
-
     let choice = Select::new()
         .with_prompt("How would you like to authenticate with TopK?")
-        .items(&options)
+        .items(&["Create a new API key", "Use an existing API key", "Skip"])
         .default(0)
         .interact();
 
@@ -67,12 +66,10 @@ fn prompt_api_key(host: &str, https: bool) -> Result<LoginResult, Error> {
 }
 
 fn prompt_and_save() -> Result<LoginResult, Error> {
-    let password = Password::new().with_prompt("API key").interact();
-
-    let api_key = match password {
-        Ok(password) => password.trim().to_string(),
-        Err(e) => return Err(Error::Input(anyhow::anyhow!(e.to_string()))),
-    };
+    let api_key = Password::new()
+        .with_prompt("API key")
+        .interact()
+        .map_err(std::io::Error::other)?;
 
     if api_key.is_empty() {
         return Err(Error::Input(anyhow::anyhow!("no API key provided")));

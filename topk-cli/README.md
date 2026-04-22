@@ -5,7 +5,7 @@ Command-line interface for [TopK](https://topk.io) — upload documents, ask que
 ## Installation
 
 ```bash
-brew tap topk-io/tap
+brew tap topk-io/topk
 brew install topk
 ```
 
@@ -24,8 +24,8 @@ export TOPK_API_KEY=<your-api-key>
 ```
 
 
-| Variable       | Required                | Description                                       |
-| -------------- | ----------------------- | ------------------------------------------------- |
+| Variable       | Required                | Description                                               |
+| -------------- | ----------------------- | --------------------------------------------------------- |
 | `TOPK_API_KEY` | Yes or pass `--api-key` | Your API key. [Get your API key](https://console.topk.io) |
 
 
@@ -46,12 +46,12 @@ topk ask "my question" --dataset my-dataset
 ```
 
 
-| Flag        | Required | Description                                                                         |
-| ----------- | -------- | ----------------------------------------------------------------------------------- |
-| `--dataset` | Yes      | Dataset to search (repeatable, e.g. `-d ds1 -d ds2`)                               |
-| `--mode`    | No       | Response mode: `auto` (default), `summarize`, `research`                            |
-| `--field`   | No       | Metadata field to include in results (repeatable, e.g. `-f title -f author`)        |
-| `--output-dir` | No    | Save result content (images, text chunks) to a directory                            |
+| Flag           | Required | Description                                                                  |
+| -------------- | -------- | ---------------------------------------------------------------------------- |
+| `--dataset`    | Yes      | Dataset to search (repeatable, e.g. `-d ds1 -d ds2`)                         |
+| `--mode`       | No       | Response mode: `auto` (default), `summarize`, `research`                     |
+| `--field`      | No       | Metadata field to include in results (repeatable, e.g. `-f title -f author`) |
+| `--output-dir` | No       | Save result content (images, text chunks) to a directory                     |
 
 
 The query can also be piped via stdin:
@@ -69,12 +69,12 @@ topk search "my query" --dataset my-dataset
 ```
 
 
-| Flag        | Required | Description                                                                         |
-| ----------- | -------- | ----------------------------------------------------------------------------------- |
-| `--dataset` | Yes      | Dataset to search (repeatable, e.g. `-d ds1 -d ds2`)                               |
-| `--top-k`   | No       | Number of results to return (default: 10)                                           |
-| `--field`   | No       | Metadata field to include in results (repeatable, e.g. `-f title -f author`)        |
-| `--output-dir` | No    | Save result content (images, text chunks) to a directory                            |
+| Flag           | Required | Description                                                                  |
+| -------------- | -------- | ---------------------------------------------------------------------------- |
+| `--dataset`    | Yes      | Dataset to search (repeatable, e.g. `-d ds1 -d ds2`)                         |
+| `--top-k`      | No       | Number of results to return (default: 10)                                    |
+| `--field`      | No       | Metadata field to include in results (repeatable, e.g. `-f title -f author`) |
+| `--output-dir` | No       | Save result content (images, text chunks) to a directory                     |
 
 
 The query can also be piped via stdin:
@@ -96,20 +96,19 @@ topk upload docs --dataset my-dataset -r
 ```
 
 
-| Argument    | Required | Description                                                               |
-| ----------- | -------- | ------------------------------------------------------------------------- |
-| `PATTERN`   | Yes      | A file path, directory, or glob pattern |
-| `--dataset` | Yes      | Dataset to upload into |
+| Argument    | Required | Description                                               |
+| ----------- | -------- | --------------------------------------------------------- |
+| `PATTERN`   | Yes      | A file path, directory, or glob pattern                   |
+| `--dataset` | Yes      | Dataset to upload into                                    |
 | `-r`        | No       | Recurse into subdirectories when `PATTERN` is a directory |
-| `-y`        | No       | Skip the upload confirmation prompt |
-| `-c`        | No       | Number of concurrent uploads, 1–64 (default: 32) |
-| `--wait`    | No       | Wait for all uploaded files to be fully processed |
-| `--dry-run` | No       | Preview which files would be uploaded without uploading |
-| `--timeout` | No       | Upload timeout in seconds (default: 1800 / 30 minutes) |
+| `-y`        | No       | Skip the upload confirmation prompt                       |
+| `-c`        | No       | Number of concurrent uploads, 1–64 (default: 32)          |
+| `--wait`    | No       | Wait for all uploaded files to be fully processed         |
+| `--dry-run` | No       | Preview which files would be uploaded without uploading   |
+| `--timeout` | No       | Upload timeout in seconds (default: 1800 / 30 minutes)    |
 
 
 In interactive mode, `upload` prompts whether to wait for processing after the files are uploaded. Pass `--wait` to skip the prompt and wait automatically. In non-interactive mode, `upload` returns after upload unless `--wait` is passed.
-
 
 ---
 
@@ -121,10 +120,12 @@ topk list --dataset my-dataset
 
 Streams results as they arrive. In agent mode (`-o json`) outputs one JSON object per line (NDJSON).
 
-| Flag        | Required | Description                                               |
-| ----------- | -------- | --------------------------------------------------------- |
-| `--dataset` | Yes      | Dataset to list documents from                            |
-| `--field`   | No       | Metadata field to include (repeatable, e.g. `-f title`)  |
+
+| Flag        | Required | Description                                             |
+| ----------- | -------- | ------------------------------------------------------- |
+| `--dataset` | Yes      | Dataset to list documents from                          |
+| `--field`   | No       | Metadata field to include (repeatable, e.g. `-f title`) |
+
 
 ---
 
@@ -160,9 +161,11 @@ This command has no subcommand-specific flags.
 topk dataset get my-dataset
 ```
 
+
 | Argument  | Required | Description  |
 | --------- | -------- | ------------ |
 | `DATASET` | Yes      | Dataset name |
+
 
 #### Create a dataset:
 
@@ -170,10 +173,12 @@ topk dataset get my-dataset
 topk dataset create --region aws-us-east-1-elastica my-dataset
 ```
 
-| Argument   | Required | Description                     |
-| ---------- | -------- | ------------------------------- |
-| `DATASET`  | Yes      | Dataset name                    |
-| `--region` | Yes      | Region to create the dataset in. List available regions at https://docs.topk.io/regions |
+
+| Argument   | Required | Description                                                                                                             |
+| ---------- | -------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `DATASET`  | Yes      | Dataset name                                                                                                            |
+| `--region` | Yes      | Region to create the dataset in. List available regions at [https://docs.topk.io/regions](https://docs.topk.io/regions) |
+
 
 #### Delete a dataset:
 
@@ -181,10 +186,12 @@ topk dataset create --region aws-us-east-1-elastica my-dataset
 topk dataset delete my-dataset
 ```
 
+
 | Argument  | Required | Description              |
 | --------- | -------- | ------------------------ |
 | `DATASET` | Yes      | Dataset name             |
 | `-y`      | No       | Skip confirmation prompt |
+
 
 ---
 
@@ -196,3 +203,4 @@ By default all commands print human-readable text. Pass `-o json` for machine-re
 topk -o json dataset list
 topk -o json search "query"
 ```
+

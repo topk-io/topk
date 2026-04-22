@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt;
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -10,13 +11,17 @@ use clap::Args;
 use futures::stream::{self, StreamExt, TryStreamExt};
 use indicatif::{ProgressBar, ProgressStyle};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use topk_rs::{
     proto::v1::{ctx::file::InputFile, data::Value},
     Client, Error,
 };
 
-use crate::output::{Output, RenderForHuman};
-use crate::util::{normalize_glob_pattern, parse_seconds, plural, resolve_files, UploadFile};
+use crate::output::Output;
+use crate::util::{
+    files::{resolve_files, UploadFile},
+    parse_seconds, plural,
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UploadError {
@@ -35,26 +40,28 @@ pub struct UploadResult {
     pub processed: Option<bool>,
 }
 
-impl RenderForHuman for UploadResult {
-    fn render(&self) -> impl Into<String> {
+impl fmt::Display for UploadResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.total == 0 {
-            return "No files found for upload.".to_string();
+            return f.write_str("No files found for upload.");
         }
         if self.uploaded == 0 {
-            return "Upload skipped.".to_string();
+            return f.write_str("Upload skipped.");
         }
         match self.processed {
-            Some(true) => format!(
+            Some(true) => write!(
+                f,
                 "Uploaded and processed {} {}.",
                 self.uploaded,
                 plural(self.uploaded, "file", "files")
             ),
-            Some(false) => format!(
+            Some(false) => write!(
+                f,
                 "Uploaded {} {}; processing skipped.",
                 self.uploaded,
                 plural(self.uploaded, "file", "files")
             ),
-            None => String::new(),
+            None => Ok(()),
         }
     }
 }
@@ -64,7 +71,7 @@ pub struct UploadArgs {
     /// Dataset to upload into
     #[arg(short = 'd', long, value_name = "DATASET_NAME")]
     pub dataset: String,
-    /// Recurse into subdirectories when PATTERN is a directory
+    /// Recurse into subdirectories when any PATTERN is a directory
     #[arg(short = 'r', long)]
     pub recursive: bool,
     /// Number of concurrent uploads (1–64)
@@ -82,14 +89,40 @@ pub struct UploadArgs {
     /// Timeout for uploading files in seconds (default: 30 minutes)
     #[arg(long, value_name = "SECS", default_value = "1800", value_parser = parse_seconds)]
     pub timeout: Duration,
-    /// File path, directory, or glob pattern (e.g. "./report.pdf" "./docs" "*.pdf" "docs/**/*.md")
-    #[arg(value_name = "PATTERN")]
-    pub pattern: String,
+    /// File paths, directories, or glob patterns (e.g. "./report.pdf" "./docs" "*.pdf" "docs/**/*.md")
+    #[arg(value_name = "PATTERN", required = true, num_args = 1..)]
+    pub patterns: Vec<String>,
 }
 
-fn make_upload_plan(cwd: &Path, pattern: &str, recursive: bool) -> Result<Vec<UploadFile>, Error> {
-    let match_pattern = normalize_glob_pattern(pattern).to_string();
-    resolve_files(cwd, &match_pattern, recursive)
+fn make_upload_plan(
+    cwd: &Path,
+    patterns: &[String],
+    recursive: bool,
+) -> Result<Vec<UploadFile>, Error> {
+    let mut files = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+
+    for pattern in patterns {
+        for file in resolve_files(cwd, pattern, recursive)? {
+            if seen.insert(file.doc_id.clone()) {
+                files.push(file);
+            }
+        }
+    }
+
+    Ok(files)
+}
+
+pub(crate) fn doc_id_from_path(path: &Path) -> Result<String, Error> {
+    Ok(format!(
+        "{:x}",
+        Sha256::digest(
+            path.canonicalize()
+                .map_err(Error::IoError)?
+                .to_string_lossy()
+                .as_bytes()
+        )
+    ))
 }
 
 trait ProgressReporter: Send + Sync {
@@ -311,7 +344,7 @@ pub async fn run(
 ) -> Result<UploadResult, Error> {
     let cwd = std::env::current_dir().map_err(Error::IoError)?;
 
-    let files = make_upload_plan(&cwd, &args.pattern, args.recursive)?;
+    let files = make_upload_plan(&cwd, &args.patterns, args.recursive)?;
     let total = files.len();
     let total_size: u64 = files.iter().map(|f| f.size).sum();
 
@@ -420,7 +453,7 @@ pub async fn run(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_context::{CliTestContext, OutputJsonExt};
+    use crate::commands::test_context::{CliTestContext, OutputJsonExt};
     use assert_cmd::Command;
     use std::fs;
     use tempfile::tempdir;
@@ -436,7 +469,7 @@ mod tests {
     #[test]
     fn no_files_in_empty_directory() {
         let dir = tempdir().unwrap();
-        assert!(make_upload_plan(dir.path(), "*.md", false)
+        assert!(make_upload_plan(dir.path(), &["*.md".to_string()], false)
             .unwrap()
             .is_empty());
     }
@@ -446,9 +479,11 @@ mod tests {
         let dir = tempdir().unwrap();
         let empty = dir.path().join("empty");
         fs::create_dir(&empty).unwrap();
-        assert!(make_upload_plan(dir.path(), empty.to_str().unwrap(), false)
-            .unwrap()
-            .is_empty());
+        assert!(
+            make_upload_plan(dir.path(), &[empty.to_string_lossy().into_owned()], false)
+                .unwrap()
+                .is_empty()
+        );
     }
 
     #[test]
@@ -456,7 +491,8 @@ mod tests {
         let dir = tempdir().unwrap();
         let file = dir.path().join("note.md");
         fs::write(&file, "# note").unwrap();
-        let files = make_upload_plan(dir.path(), file.to_str().unwrap(), false).unwrap();
+        let files =
+            make_upload_plan(dir.path(), &[file.to_string_lossy().into_owned()], false).unwrap();
         assert_eq!(files.len(), 1);
         assert!(files[0].size > 0);
     }
@@ -469,7 +505,7 @@ mod tests {
         fs::write(dir.path().join("top.md"), "# top").unwrap();
         fs::write(nested.join("deep.md"), "# deep").unwrap();
         fs::write(nested.join("skip.txt"), "skip").unwrap();
-        let files = make_upload_plan(dir.path(), "**/*.md", true).unwrap();
+        let files = make_upload_plan(dir.path(), &["**/*.md".to_string()], true).unwrap();
         assert_eq!(files.len(), 2);
     }
 
@@ -480,8 +516,26 @@ mod tests {
         fs::create_dir(&nested).unwrap();
         fs::write(dir.path().join("top.md"), "# top").unwrap();
         fs::write(nested.join("deep.md"), "# deep").unwrap();
-        let files = make_upload_plan(dir.path(), "*.md", false).unwrap();
+        let files = make_upload_plan(dir.path(), &["*.md".to_string()], false).unwrap();
         assert_eq!(files.len(), 1);
+    }
+
+    #[test]
+    fn multiple_patterns_are_merged_and_deduplicated() {
+        let dir = tempdir().unwrap();
+        fs::write(dir.path().join("a.md"), "# a").unwrap();
+        fs::write(dir.path().join("b.pdf"), b"%PDF").unwrap();
+
+        let files = make_upload_plan(
+            dir.path(),
+            &["a.md".to_string(), "*.md".to_string(), "*.pdf".to_string()],
+            false,
+        )
+        .unwrap();
+
+        assert_eq!(files.len(), 2);
+        assert!(files.iter().any(|file| file.path.ends_with("a.md")));
+        assert!(files.iter().any(|file| file.path.ends_with("b.pdf")));
     }
 
     #[test_context(CliTestContext)]
@@ -552,6 +606,7 @@ mod tests {
                 "json",
                 "upload",
                 "pdfko.pdf",
+                "markdown.md",
                 "--dataset",
                 &dataset,
                 "--dry-run",
@@ -564,7 +619,7 @@ mod tests {
             String::from_utf8_lossy(&out.stderr)
         );
         let result: UploadResult = out.json().unwrap();
-        assert_eq!(result.total, 1);
+        assert_eq!(result.total, 2);
         assert_eq!(result.uploaded, 0);
     }
 

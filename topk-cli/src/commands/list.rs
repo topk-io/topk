@@ -1,15 +1,16 @@
+use std::fmt;
+
 use bytesize::ByteSize;
 use comfy_table::{
     presets, Attribute, Cell, CellAlignment, Color, ColumnConstraint, ContentArrangement, Table,
     Width,
 };
+use futures::{Stream, StreamExt};
 use serde::{Deserialize, Serialize};
 use terminal_size::{terminal_size, Width as TermWidth};
-use tokio_stream::StreamExt;
 use topk_rs::{proto::v1::ctx::ListEntry, Client, Error};
 
-use crate::output::{Output, RenderForHuman};
-use crate::util::MimeType;
+use crate::util::mime::MimeType;
 
 #[derive(Serialize, Deserialize)]
 pub struct ListEntryRow {
@@ -42,8 +43,8 @@ pub struct ListResult {
     pub entries: Vec<ListEntryRow>,
 }
 
-impl RenderForHuman for ListResult {
-    fn render(&self) -> impl Into<String> {
+impl fmt::Display for ListResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let rows = self
             .entries
             .iter()
@@ -58,7 +59,7 @@ impl RenderForHuman for ListResult {
             .collect::<Vec<_>>();
 
         if rows.is_empty() {
-            return "No documents.".to_string();
+            return f.write_str("No documents.");
         }
 
         let mut table = Table::new();
@@ -91,7 +92,7 @@ impl RenderForHuman for ListResult {
             ]);
         }
 
-        table.to_string()
+        f.write_str(&table.to_string())
     }
 }
 
@@ -106,33 +107,22 @@ pub struct ListArgs {
 }
 
 /// `topk list`
-pub async fn run(client: &Client, args: &ListArgs, output: &Output) -> Result<ListResult, Error> {
-    let mut stream = client
+pub async fn run(
+    client: &Client,
+    args: &ListArgs,
+) -> Result<impl Stream<Item = Result<ListEntry, Error>>, Error> {
+    Ok(client
         .dataset(&args.dataset)
         .list(args.fields.clone(), None)
         .await?
-        .into_inner();
-
-    let mut entries = Vec::new();
-    while let Some(entry) = stream.next().await {
-        let row: ListEntryRow = entry?.into();
-        // Stream each entry as NDJSON so the caller sees results progressively.
-        // The caller must not call output.print in JSON mode — entries are already written.
-        if output.is_json() {
-            output
-                .print_json_line(&row)
-                .map_err(|e| Error::Internal(e.to_string()))?;
-        }
-        entries.push(row);
-    }
-
-    Ok(ListResult { entries })
+        .into_inner()
+        .map(|entry| entry.map_err(Into::into)))
 }
 
 #[cfg(test)]
 mod tests {
     use super::ListEntryRow;
-    use crate::{test_context::CliTestContext, util::MimeType};
+    use crate::{commands::test_context::CliTestContext, util::mime::MimeType};
     use assert_cmd::Command;
     use test_context::test_context;
 
@@ -197,7 +187,11 @@ mod tests {
             .args(["-o", "json", "list", "--dataset", &dataset])
             .output()
             .unwrap();
-        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
         let entries: Vec<ListEntryRow> = String::from_utf8_lossy(&out.stdout)
             .lines()
             .filter(|l| !l.is_empty())

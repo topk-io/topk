@@ -1,6 +1,8 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::fmt;
+use std::path::{Path, PathBuf};
 
+use colored::Colorize;
 use serde::{Deserialize, Serialize};
 use tokio_stream::StreamExt;
 use topk_rs::{
@@ -12,7 +14,7 @@ use topk_rs::{
 };
 
 use super::search::{render_search_result, write_result_content, SearchResult};
-use crate::output::{Output, RenderForHuman, BLUE, BOLD, RESET};
+use crate::output::Output;
 use crate::util::resolve_query;
 use topk_rs::proto::v1::ctx::content;
 
@@ -60,13 +62,13 @@ impl From<Answer> for AskResult {
     }
 }
 
-impl RenderForHuman for AskResult {
-    fn render(&self) -> impl Into<String> {
+impl fmt::Display for AskResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let facts = render_facts(&self.facts);
         let refs = render_refs(&self.refs)
             .map(|r| format!("\n{r}"))
             .unwrap_or_default();
-        format!("{facts}{refs}")
+        f.write_str(&format!("{facts}{refs}"))
     }
 }
 
@@ -97,7 +99,7 @@ fn render_facts(facts: &[Fact]) -> String {
                     .map(|id| format!("[{id}]"))
                     .collect::<Vec<_>>()
                     .join(" ");
-                Some(format!("{BLUE}{ids}{RESET}"))
+                Some(format!("{}", ids.blue()))
             };
             let parts: Vec<&str> = [fact.fact.as_str()]
                 .into_iter()
@@ -112,7 +114,7 @@ fn render_facts(facts: &[Fact]) -> String {
         })
         .collect::<Vec<_>>()
         .join(" ");
-    format!("{BOLD}Facts:{RESET}\n{facts_text}")
+    format!("{}\n{facts_text}", "Facts:".bold())
 }
 
 fn render_refs(refs: &HashMap<String, SearchResult>) -> Option<String> {
@@ -125,9 +127,30 @@ fn render_refs(refs: &HashMap<String, SearchResult>) -> Option<String> {
         .collect();
 
     Some(format!(
-        "{BOLD}References:{RESET}\n{}",
+        "{}\n{}",
+        "References:".bold(),
         ref_lines.join("\n\n")
     ))
+}
+
+fn write_results(answer: Answer, output_dir: Option<&Path>) -> Result<AskResult, Error> {
+    let refs = answer
+        .refs
+        .into_iter()
+        .map(|(k, v)| {
+            let path = output_dir
+                .map(|dir| write_result_content(dir, &k, &v))
+                .transpose()
+                .map_err(Error::IoError)?
+                .flatten();
+            Ok::<_, Error>((k, SearchResult { result: v, path }))
+        })
+        .collect::<Result<_, _>>()?;
+
+    Ok(AskResult {
+        facts: answer.facts,
+        refs,
+    })
 }
 
 #[derive(Debug, clap::Args)]
@@ -151,11 +174,11 @@ pub struct AskArgs {
 /// `topk ask`
 pub async fn run(client: &Client, args: &AskArgs, output: &Output) -> Result<AskResult, Error> {
     let query = resolve_query(args.query.clone())
-        .map_err(|e| Error::Internal(e.to_string()))?
+        .map_err(|e| Error::Input(anyhow::anyhow!(e)))?
         .ok_or_else(|| {
-            Error::Internal(
-                "query is required; pass it as an argument or pipe it via stdin".to_string(),
-            )
+            Error::Input(anyhow::anyhow!(
+                "query is required; pass it as an argument or pipe it via stdin"
+            ))
         })?;
 
     let spinner = output.spinner("Asking...");
@@ -176,12 +199,12 @@ pub async fn run(client: &Client, args: &AskArgs, output: &Output) -> Result<Ask
         let item = item?;
         match item.message {
             Some(ask_result::Message::Reason(r)) => {
-                spinner.println(format!("[thinking] {}", r.thought));
+                spinner.print(format!("[thinking] {}", r.thought));
             }
             Some(ask_result::Message::Search(s)) => {
-                spinner.println(format!("[searching] {}", s.objective));
+                spinner.print(format!("[searching] {}", s.objective));
                 for fact in &s.facts {
-                    spinner.println(format!(" - {}", fact.fact));
+                    spinner.print(format!(" - {}", fact.fact));
                 }
             }
             Some(ask_result::Message::Answer(a)) => {
@@ -207,7 +230,7 @@ pub async fn run(client: &Client, args: &AskArgs, output: &Output) -> Result<Ask
                         Some(content::Data::Chunk(_)) | None
                     )
                 })
-                .map(|(id, _)| format!("{BLUE}[{id}]{RESET}"))
+                .map(|(id, _)| format!("{}", format!("[{id}]").blue()))
                 .collect::<Vec<_>>()
                 .join(", ");
             output.prompt_dir(format!(
@@ -217,31 +240,13 @@ pub async fn run(client: &Client, args: &AskArgs, output: &Output) -> Result<Ask
         None => None,
     };
 
-    let refs = answer
-        .refs
-        .into_iter()
-        .map(|(k, v)| {
-            let path = if let Some(ref dir) = output_dir {
-                write_result_content(dir, &k, &v).map_err(Error::IoError)?
-            } else {
-                None
-            };
-            Ok::<_, Error>((k, SearchResult { result: v, path }))
-        })
-        .collect::<Result<_, _>>()?;
-
-    let result = AskResult {
-        facts: answer.facts,
-        refs,
-    };
-
-    Ok(result)
+    write_results(answer, output_dir.as_deref())
 }
 
 #[cfg(test)]
 mod tests {
     use super::AskResult;
-    use crate::test_context::CliTestContext;
+    use crate::commands::test_context::{CliTestContext, OutputJsonExt};
     use assert_cmd::Command;
     use test_context::test_context;
 
@@ -285,6 +290,6 @@ mod tests {
             String::from_utf8_lossy(&out.stderr)
         );
 
-        let _: AskResult = serde_json::from_slice(&out.stdout).unwrap();
+        let _: AskResult = out.json().unwrap();
     }
 }

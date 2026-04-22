@@ -1,19 +1,20 @@
+use std::fmt;
+
 use serde::{Deserialize, Serialize};
 
 use crate::config;
-use crate::output::RenderForHuman;
 
 #[derive(Serialize, Deserialize)]
 pub struct LogoutResult {
     pub cleared: bool,
 }
 
-impl RenderForHuman for LogoutResult {
-    fn render(&self) -> impl Into<String> {
+impl fmt::Display for LogoutResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.cleared {
-            "Logged out.".to_string()
+            f.write_str("Logged out.")
         } else {
-            "API key not set. Skipping.".to_string()
+            f.write_str("API key not set. Skipping.")
         }
     }
 }

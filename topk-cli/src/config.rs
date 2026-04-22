@@ -24,6 +24,16 @@ pub fn save(config: &Config) -> Result<(), Error> {
     save_toml_with(config_path(), config, write_config_file)
 }
 
+pub fn set_api_key(api_key: String) -> Result<(), Error> {
+    let mut config = load();
+    config.api_key = Some(api_key);
+    save(&config)
+}
+
+pub fn clear() -> Result<(), Error> {
+    save(&Config::default())
+}
+
 #[cfg(unix)]
 fn write_config_file(path: &std::path::Path, content: &str) -> Result<(), Error> {
     use std::fs::{OpenOptions, Permissions};

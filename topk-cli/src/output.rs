@@ -1,28 +1,19 @@
+use std::fmt::Display;
 use std::io::{IsTerminal, Write};
 use std::path::PathBuf;
 
+use colored::Colorize;
 use dialoguer::{console::Term, Confirm, Input};
 use serde::Serialize;
 use topk_rs::Error;
 
-use crate::util::Spinner;
-
-pub const GREEN: &str = "\x1b[32m";
-pub const RED: &str = "\x1b[31m";
-pub const RESET: &str = "\x1b[0m";
-pub const DIM: &str = "\x1b[2m";
-pub const BOLD: &str = "\x1b[1m";
-pub const BLUE: &str = "\x1b[34m";
+use crate::util::progress::Spinner;
 
 #[derive(Debug, Clone, Copy, clap::ValueEnum, Default)]
 pub enum OutputFormat {
     #[default]
     Text,
     Json,
-}
-
-pub trait RenderForHuman: Serialize {
-    fn render(&self) -> impl Into<String>;
 }
 
 #[derive(Clone, Copy)]
@@ -39,10 +30,10 @@ impl Output {
         matches!(self.format, OutputFormat::Json)
     }
 
-    pub fn print<T: RenderForHuman>(&self, value: &T) -> Result<(), Error> {
+    pub fn print<T: Serialize + Display>(&self, value: &T) -> Result<(), Error> {
         match self.format {
             OutputFormat::Text => {
-                let rendered: String = value.render().into();
+                let rendered = value.to_string();
                 if !rendered.is_empty() {
                     println!("{rendered}");
                 }
@@ -78,7 +69,7 @@ impl Output {
     pub fn success(&self, msg: &str) {
         match self.format {
             OutputFormat::Text => {
-                eprintln!("{GREEN}✓{RESET} {msg}");
+                eprintln!("{} {msg}", "✓".green());
             }
             OutputFormat::Json => {}
         }
@@ -99,7 +90,7 @@ impl Output {
                 let payload = serde_json::json!({ "error": format!("{:#}", e) });
                 eprintln!("{payload}");
             }
-            OutputFormat::Text => eprintln!("{BOLD}{RED}error:{RESET} {:#}", e),
+            OutputFormat::Text => eprintln!("{} {:#}", "error:".red().bold(), e),
         }
     }
 

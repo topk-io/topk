@@ -1,7 +1,9 @@
+use std::fmt;
+
 use serde::{Deserialize, Serialize};
 use topk_rs::{Client, Error};
 
-use crate::output::{Output, RenderForHuman};
+use crate::output::Output;
 
 #[derive(Serialize, Deserialize)]
 pub struct DeleteResult {
@@ -9,12 +11,12 @@ pub struct DeleteResult {
     handle: Option<String>,
 }
 
-impl RenderForHuman for DeleteResult {
-    fn render(&self) -> impl Into<String> {
+impl fmt::Display for DeleteResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.deleted {
-            "Document deleted.".to_string()
+            f.write_str("Document deleted.")
         } else {
-            "Deletion skipped.".to_string()
+            f.write_str("Deletion skipped.")
         }
     }
 }
@@ -61,7 +63,7 @@ pub async fn run(
 #[cfg(test)]
 mod tests {
     use super::DeleteResult;
-    use crate::test_context::CliTestContext;
+    use crate::commands::test_context::{CliTestContext, OutputJsonExt};
     use assert_cmd::Command;
     use test_context::test_context;
     use topk_rs::proto::v1::{ctx::file::InputFile, data::Value};
@@ -109,7 +111,7 @@ mod tests {
             "{}",
             String::from_utf8_lossy(&out.stderr)
         );
-        let result: DeleteResult = serde_json::from_slice(&out.stdout).unwrap();
+        let result: DeleteResult = out.json().unwrap();
         assert!(result.deleted);
         assert!(result.handle.is_some());
     }
@@ -153,7 +155,7 @@ mod tests {
             "{}",
             String::from_utf8_lossy(&out.stderr)
         );
-        let result: DeleteResult = serde_json::from_slice(&out.stdout).unwrap();
+        let result: DeleteResult = out.json().unwrap();
         assert!(!result.deleted);
     }
 }
