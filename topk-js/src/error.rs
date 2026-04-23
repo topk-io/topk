@@ -25,6 +25,12 @@ impl From<TopkError> for napi::Error {
             topk_rs::Error::CollectionNotFound => {
                 napi::Error::new(napi::Status::GenericFailure, "collection not found")
             }
+            topk_rs::Error::DatasetAlreadyExists => {
+                napi::Error::new(napi::Status::GenericFailure, "dataset already exists")
+            }
+            topk_rs::Error::DatasetNotFound => {
+                napi::Error::new(napi::Status::GenericFailure, "dataset not found")
+            }
             // Validation errors
             topk_rs::Error::DocumentValidationError(_) => {
                 napi::Error::new(napi::Status::InvalidArg, format!("{:?}", error))
