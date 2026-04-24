@@ -356,6 +356,19 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn get_region_returns_new_region_after_delete_and_recreate_with_same_name() {
+        let backend = FakeDatasetsClient::with_dataset(dataset("ds", "us-east-1"));
+        let mut client = CachedDatasetsClient::new(backend, DatasetRegionCache::default());
+
+        assert_eq!(get_region(&mut client, "ds").await.unwrap(), "us-east-1");
+
+        client.delete("ds").await.unwrap();
+        client.create("ds", "sunflower").await.unwrap();
+
+        assert_eq!(get_region(&mut client, "ds").await.unwrap(), "sunflower");
+    }
+
+    #[tokio::test]
     async fn ensure_unique_region_returns_shared_region() {
         let mut backend = FakeDatasetsClient::default();
         backend

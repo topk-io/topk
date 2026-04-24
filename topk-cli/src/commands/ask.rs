@@ -102,7 +102,7 @@ pub struct AskArgs {
 pub async fn run(client: &Client, args: &AskArgs, output: &Output) -> Result<AskResult, Error> {
     let query = resolve_query(args.query.clone())?;
 
-    let spinner = output.spinner("Asking...");
+    let spinner = output.spinner("Answering...");
 
     let mut stream = client
         .ask(

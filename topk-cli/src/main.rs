@@ -10,6 +10,7 @@ use tokio_stream::StreamExt;
 use topk::client::{make_client, make_global_client};
 use topk::commands::{ask, dataset, delete, list, login, search, upload};
 use topk::config;
+use topk::dataset_region_cache;
 use topk::datasets::{ensure_unique_region, get_region, make_cached_datasets_client};
 use topk::output::{Output, OutputFormat};
 use topk_rs::Error;
@@ -320,6 +321,7 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
 
         Some(Commands::Logout) => {
             config::clear()?;
+            dataset_region_cache::clear()?;
             output.success("Logged out.");
             Ok(())
         }
@@ -346,7 +348,7 @@ fn get_api_key(api_key: Option<String>, config: &config::Config) -> Result<Strin
         return Ok(key);
     }
 
-    Err(Error::Input(anyhow::anyhow!(
+    Err(Error::Unauthenticated(format!(
         "API key not set. Run `topk login` or set TOPK_API_KEY environment variable."
     )))
 }

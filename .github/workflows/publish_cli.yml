@@ -125,6 +125,22 @@ jobs:
           VERSION=$(cargo metadata --manifest-path topk-cli/Cargo.toml --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "topk-cli") | .version')
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      - name: Ensure release does not already exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="cli-v${{ steps.version.outputs.version }}"
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists." >&2
+            exit 1
+          fi
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists." >&2
+            exit 1
+          fi
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:

@@ -114,7 +114,7 @@ impl Output {
             return Ok(Confirm::new()
                 .with_prompt(prompt)
                 .default(false)
-                .wait_for_newline(true)
+                .wait_for_newline(false)
                 .interact_on(&term)
                 .map_err(std::io::Error::other)
                 .map_err(Error::IoError)?);

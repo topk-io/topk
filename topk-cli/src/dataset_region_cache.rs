@@ -127,6 +127,18 @@ pub fn dataset_region_cache_path() -> Option<PathBuf> {
     dirs::config_dir().map(|d| d.join("topk").join("datasets.toml"))
 }
 
+pub fn clear() -> Result<(), Error> {
+    let Some(path) = dataset_region_cache_path() else {
+        return Ok(());
+    };
+
+    match std::fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(err) => Err(Error::IoError(err)),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
