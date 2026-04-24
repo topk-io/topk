@@ -1,6 +1,9 @@
 name: Build & publish CLI
 
 on:
+  push:
+    branches:
+      - topkcli
   workflow_dispatch:
     inputs:
       publish:
@@ -103,7 +106,7 @@ jobs:
   publish:
     name: Publish
     runs-on: ubuntu-latest
-    if: ${{ inputs.publish }}
+    if: ${{ github.event_name == 'push' || inputs.publish }}
     needs: [build]
     permissions:
       contents: write
@@ -133,7 +136,7 @@ jobs:
   update-homebrew-tap:
     name: Update Homebrew tap
     runs-on: ubuntu-latest
-    if: ${{ inputs.publish }}
+    if: ${{ github.event_name == 'push' || inputs.publish }}
     needs: [publish]
     steps:
       - uses: actions/checkout@v4
