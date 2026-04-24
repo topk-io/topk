@@ -3,7 +3,6 @@ use std::{
     time::Duration,
 };
 
-use anyhow::Result;
 use chrono::{DateTime, Local, Utc};
 
 pub mod files;
@@ -11,6 +10,7 @@ pub mod mime;
 pub mod progress;
 
 pub use mime::MimeType;
+use topk_rs::Error;
 
 pub fn format_timestamp(rfc3339: &str) -> Option<String> {
     rfc3339.parse::<DateTime<Utc>>().ok().map(|dt| {
@@ -36,23 +36,19 @@ pub fn parse_seconds(value: &str) -> Result<Duration, String> {
 }
 
 /// Resolves a query string from an optional CLI argument, falling back to stdin
-pub fn resolve_query(arg: Option<String>) -> Result<Option<String>> {
+pub fn resolve_query(arg: Option<String>) -> Result<String, Error> {
     if let Some(q) = arg {
-        return Ok(Some(q));
+        return Ok(q);
     }
 
     if io::stdin().is_terminal() {
-        return Ok(None);
+        return Err(Error::Input(anyhow::anyhow!(
+            "query is required; pass it as an argument or pipe it via stdin"
+        )));
     }
 
     let mut buf = String::new();
     io::stdin().read_to_string(&mut buf)?;
 
-    let q = buf.trim().to_string();
-
-    if q.is_empty() {
-        Ok(None)
-    } else {
-        Ok(Some(q))
-    }
+    Ok(buf.trim().to_string())
 }

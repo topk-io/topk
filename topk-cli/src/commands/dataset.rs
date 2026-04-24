@@ -20,7 +20,7 @@ pub struct CreateDatasetArgs {
     #[arg(value_name = "DATASET")]
     pub dataset: String,
     /// Region to create the dataset in. List available regions at https://docs.topk.io/regions
-    #[arg(long, required = true)]
+    #[arg(long, short = 'r', required = true)]
     pub region: String,
 }
 

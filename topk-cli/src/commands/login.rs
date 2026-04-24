@@ -1,52 +1,12 @@
-use std::fmt;
-
-use anyhow::Result;
 use dialoguer::{Password, Select};
-use serde::{Deserialize, Serialize};
 use topk_rs::Error;
-
-use crate::config;
-
-#[derive(Serialize, Deserialize)]
-pub struct LoginResult {
-    pub api_key: Option<String>,
-}
-
-impl fmt::Display for LoginResult {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.api_key.is_some() {
-            f.write_str("API key saved.")
-        } else {
-            f.write_str("Login skipped.")
-        }
-    }
-}
 
 fn console_url(https: bool, host: &str) -> String {
     let scheme = if https { "https" } else { "http" };
     format!("{}://console.{}/api-key", scheme, host)
 }
 
-pub fn run(host: &str, https: bool) -> Result<LoginResult, Error> {
-    prompt_api_key(host, https)
-}
-
-/// Resolves the API key for any command that needs credentials.
-pub fn resolve(api_key: Option<String>, config: &config::Config) -> Result<Option<String>, Error> {
-    if let Some(key) = api_key {
-        return Ok(Some(key));
-    }
-    if let Some(key) = config.api_key.clone() {
-        return Ok(Some(key));
-    }
-
-    Err(Error::Input(anyhow::anyhow!(
-        "API key not set. Set TOPK_API_KEY environment variable or run: topk login"
-    ))
-    .into())
-}
-
-fn prompt_api_key(host: &str, https: bool) -> Result<LoginResult, Error> {
+pub fn run(host: &str, https: bool) -> Result<Option<String>, Error> {
     let choice = Select::new()
         .with_prompt("How would you like to authenticate with TopK?")
         .items(&["Create a new API key", "Use an existing API key", "Skip"])
@@ -54,28 +14,32 @@ fn prompt_api_key(host: &str, https: bool) -> Result<LoginResult, Error> {
         .interact();
 
     match choice {
+        // Open the console URL in the browser and prompt for the API key
         Ok(0) => {
-            let url = console_url(https, host);
-            let _ = open::that(&url);
-            prompt_and_save()
+            let _ = open::that(&console_url(https, host));
+            Ok(Some(prompt_api_key()?))
         }
-        Ok(1) => prompt_and_save(),
-        Ok(_) => Ok(LoginResult { api_key: None }),
+        // Prompt for the API key directly
+        Ok(1) => Ok(Some(prompt_api_key()?)),
+        // Skip authentication
+        Ok(_) => Ok(None),
+        // Error
         Err(e) => Err(Error::Input(anyhow::anyhow!(e.to_string()))),
     }
 }
 
-fn prompt_and_save() -> Result<LoginResult, Error> {
+fn prompt_api_key() -> Result<String, Error> {
     let api_key = Password::new()
         .with_prompt("API key")
+        .validate_with(|input: &String| {
+            if input.trim().is_empty() {
+                Err("API key cannot be empty")
+            } else {
+                Ok(())
+            }
+        })
         .interact()
         .map_err(std::io::Error::other)?;
 
-    if api_key.is_empty() {
-        return Err(Error::Input(anyhow::anyhow!("no API key provided")));
-    }
-
-    Ok(LoginResult {
-        api_key: Some(api_key),
-    })
+    Ok(api_key)
 }

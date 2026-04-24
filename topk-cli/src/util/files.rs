@@ -23,6 +23,10 @@ pub(crate) fn expand_path(pattern: &str) -> Result<PathBuf, Error> {
     Ok(PathBuf::from(expanded.as_ref()))
 }
 
+fn is_glob_pattern(pattern: &str) -> bool {
+    pattern.contains('*') || pattern.contains('?') || pattern.contains('[')
+}
+
 pub(crate) fn resolve_files(
     cwd: &Path,
     pattern: &str,
@@ -46,6 +50,13 @@ pub(crate) fn resolve_files(
         return collect_directory_files(path, recursive);
     }
 
+    if !is_glob_pattern(pattern) {
+        return Err(Error::InvalidArgument(format!(
+            "file not found: {}",
+            path.display()
+        )));
+    }
+
     collect_files(path)
 }
 
@@ -53,6 +64,12 @@ pub(crate) fn collect_file(path: &Path) -> Result<UploadFile, Error> {
     let doc_id = doc_id_from_path(path)?;
     let size = path.metadata().map(|m| m.len())?;
     let mime_type = MimeType::from(InputFile::guess_mime_type(path)?);
+    if !mime_type.is_supported() {
+        return Err(Error::InvalidArgument(format!(
+            "Invalid document kind: {}",
+            mime_type
+        )));
+    }
 
     Ok(UploadFile {
         doc_id,
@@ -202,6 +219,23 @@ mod tests {
     }
 
     #[test]
+    fn resolve_files_errors_for_missing_literal_path() {
+        let dir = tempdir().unwrap();
+        let missing = dir.path().join("missing.pdf");
+
+        let err = resolve_files(dir.path(), &missing.to_string_lossy(), false).unwrap_err();
+        assert!(err.to_string().contains("file not found"));
+    }
+
+    #[test]
+    fn resolve_files_allows_unmatched_glob() {
+        let dir = tempdir().unwrap();
+
+        let files = resolve_files(dir.path(), "*.pdf", false).unwrap();
+        assert!(files.is_empty());
+    }
+
+    #[test]
     fn collect_file_sets_size_and_path() {
         let dir = tempdir().unwrap();
         let file = dir.path().join("note.md");
@@ -210,5 +244,17 @@ mod tests {
         let collected = collect_file(&file).unwrap();
         assert_eq!(collected.path, file);
         assert!(collected.size > 0);
+    }
+
+    #[test]
+    fn collect_file_rejects_unsupported_document_kind() {
+        let dir = tempdir().unwrap();
+        let file = dir.path().join("note.txt");
+        fs::write(&file, "note").unwrap();
+
+        let err = collect_file(&file).unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("Invalid document kind: text/plain"));
     }
 }

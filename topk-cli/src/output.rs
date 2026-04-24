@@ -18,16 +18,12 @@ pub enum OutputFormat {
 
 #[derive(Clone, Copy)]
 pub struct Output {
-    format: OutputFormat,
+    pub format: OutputFormat,
 }
 
 impl Output {
     pub fn new(format: OutputFormat) -> Self {
         Self { format }
-    }
-
-    pub fn is_json(&self) -> bool {
-        matches!(self.format, OutputFormat::Json)
     }
 
     pub fn print<T: Serialize + Display>(&self, value: &T) -> Result<(), Error> {
@@ -49,6 +45,14 @@ impl Output {
                 Ok(())
             }
         }
+    }
+
+    pub fn print_json<T: Serialize>(&self, value: &T) -> Result<(), Error> {
+        println!(
+            "{}",
+            serde_json::to_string(value).map_err(|e| Error::MalformedResponse(e.to_string()))?
+        );
+        Ok(())
     }
 
     pub fn print_json_line<T: Serialize>(&self, value: &T) -> Result<(), serde_json::Error> {
@@ -94,7 +98,7 @@ impl Output {
         }
     }
 
-    pub fn confirm(&self, prompt: &str) -> std::io::Result<bool> {
+    pub fn confirm(&self, prompt: &str) -> Result<bool, Error> {
         if !matches!(self.format, OutputFormat::Text) || !std::io::stdout().is_terminal() {
             return Ok(false);
         }
@@ -106,12 +110,14 @@ impl Output {
                 .write(true)
                 .open("/dev/tty")?;
             let term = Term::read_write_pair(tty.try_clone()?, tty);
-            return Confirm::new()
+
+            return Ok(Confirm::new()
                 .with_prompt(prompt)
                 .default(false)
                 .wait_for_newline(true)
                 .interact_on(&term)
-                .map_err(std::io::Error::other);
+                .map_err(std::io::Error::other)
+                .map_err(Error::IoError)?);
         }
 
         #[cfg(not(unix))]
@@ -129,7 +135,7 @@ impl Output {
         }
     }
 
-    pub fn confirm_or_yes(&self, prompt: &str, yes: bool) -> std::io::Result<bool> {
+    pub fn confirm_or_yes(&self, prompt: &str, yes: bool) -> Result<bool, Error> {
         if yes {
             Ok(true)
         } else {
@@ -138,7 +144,7 @@ impl Output {
     }
 
     pub fn prompt_dir(&self, prompt: impl Into<String>) -> std::io::Result<Option<PathBuf>> {
-        if self.is_json() {
+        if matches!(self.format, OutputFormat::Json) {
             return Ok(None);
         }
 

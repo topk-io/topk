@@ -1,6 +1,7 @@
 use std::fmt;
 
 use bytesize::ByteSize;
+use colored::Colorize;
 use comfy_table::{
     presets, Attribute, Cell, CellAlignment, Color, ColumnConstraint, ContentArrangement, Table,
     Width,
@@ -8,27 +9,29 @@ use comfy_table::{
 use futures::{Stream, StreamExt};
 use serde::{Deserialize, Serialize};
 use terminal_size::{terminal_size, Width as TermWidth};
-use topk_rs::{proto::v1::ctx::ListEntry, Client, Error};
-
-use crate::util::mime::MimeType;
+use topk_rs::{Client, Error};
 
 #[derive(Serialize, Deserialize)]
-pub struct ListEntryRow {
+pub struct ListEntry {
     pub id: String,
     pub name: String,
     pub size: u64,
-    pub mime_type: MimeType,
+    pub mime_type: String,
+    pub status: String,
+    pub status_reason: Option<String>,
     #[serde(default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub metadata: serde_json::Map<String, serde_json::Value>,
 }
 
-impl From<ListEntry> for ListEntryRow {
-    fn from(entry: ListEntry) -> Self {
+impl From<topk_rs::proto::v1::ctx::ListEntry> for ListEntry {
+    fn from(entry: topk_rs::proto::v1::ctx::ListEntry) -> Self {
         Self {
             id: entry.id,
             name: entry.name,
             size: entry.size,
-            mime_type: MimeType::from(entry.mime_type),
+            mime_type: entry.mime_type,
+            status: entry.status,
+            status_reason: entry.status_reason,
             metadata: entry
                 .metadata
                 .into_iter()
@@ -40,7 +43,15 @@ impl From<ListEntry> for ListEntryRow {
 
 #[derive(Serialize, Deserialize)]
 pub struct ListResult {
-    pub entries: Vec<ListEntryRow>,
+    pub entries: Vec<ListEntry>,
+}
+
+fn format_status(status: &str) -> String {
+    match status {
+        "pending" => status.yellow().to_string(),
+        "ready" => status.green().to_string(),
+        _ => status.to_string(),
+    }
 }
 
 impl fmt::Display for ListResult {
@@ -50,8 +61,9 @@ impl fmt::Display for ListResult {
             .iter()
             .map(|entry| {
                 vec![
-                    entry.id.clone(),
                     entry.name.clone(),
+                    entry.id.clone(),
+                    format_status(&entry.status),
                     ByteSize(entry.size).to_string(),
                     entry.mime_type.to_string(),
                 ]
@@ -67,19 +79,24 @@ impl fmt::Display for ListResult {
             .load_preset(presets::NOTHING)
             .set_content_arrangement(ContentArrangement::Dynamic)
             .set_width(terminal_size().map(|(TermWidth(w), _)| w).unwrap_or(80))
-            .set_header(["ID", "NAME", "SIZE", "TYPE"].into_iter().map(|header| {
-                Cell::new(header)
-                    .add_attribute(Attribute::Bold)
-                    .fg(Color::Cyan)
-            }))
+            .set_header(
+                ["NAME", "ID", "STATUS", "SIZE", "TYPE"]
+                    .into_iter()
+                    .map(|header| {
+                        Cell::new(header)
+                            .add_attribute(Attribute::Bold)
+                            .fg(Color::Cyan)
+                    }),
+            )
             .set_constraints([
                 ColumnConstraint::LowerBoundary(Width::Fixed(10)),
-                ColumnConstraint::LowerBoundary(Width::Fixed(10)),
+                ColumnConstraint::LowerBoundary(Width::Fixed(66)),
+                ColumnConstraint::ContentWidth,
                 ColumnConstraint::ContentWidth,
                 ColumnConstraint::ContentWidth,
             ]);
 
-        if let Some(column) = table.column_mut(2) {
+        if let Some(column) = table.column_mut(3) {
             column.set_cell_alignment(CellAlignment::Right);
         }
 
@@ -88,7 +105,8 @@ impl fmt::Display for ListResult {
                 Cell::new(&row[0]),
                 Cell::new(&row[1]),
                 Cell::new(&row[2]),
-                Cell::new(&row[3]).add_attribute(Attribute::Dim),
+                Cell::new(&row[3]),
+                Cell::new(&row[4]).add_attribute(Attribute::Dim),
             ]);
         }
 
@@ -116,13 +134,13 @@ pub async fn run(
         .list(args.fields.clone(), None)
         .await?
         .into_inner()
-        .map(|entry| entry.map_err(Into::into)))
+        .map(|entry| entry.map_err(Error::from).map(ListEntry::from)))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::ListEntryRow;
-    use crate::{commands::test_context::CliTestContext, util::mime::MimeType};
+    use super::ListEntry;
+    use crate::commands::test_context::CliTestContext;
     use assert_cmd::Command;
     use test_context::test_context;
 
@@ -165,16 +183,13 @@ mod tests {
             String::from_utf8_lossy(&out.stderr)
         );
 
-        let entries: Vec<ListEntryRow> = String::from_utf8_lossy(&out.stdout)
+        let entries: Vec<ListEntry> = String::from_utf8_lossy(&out.stdout)
             .lines()
             .map(|line| serde_json::from_str(line).unwrap())
             .collect();
 
         assert_eq!(entries.len(), 2);
         assert!(entries.iter().all(|e| e.size > 0));
-        assert!(entries
-            .iter()
-            .all(|e| e.mime_type != MimeType::Other(String::new())));
     }
 
     #[test_context(CliTestContext)]
@@ -192,7 +207,7 @@ mod tests {
             "{}",
             String::from_utf8_lossy(&out.stderr)
         );
-        let entries: Vec<ListEntryRow> = String::from_utf8_lossy(&out.stdout)
+        let entries: Vec<ListEntry> = String::from_utf8_lossy(&out.stdout)
             .lines()
             .filter(|l| !l.is_empty())
             .map(|line| serde_json::from_str(line).unwrap())

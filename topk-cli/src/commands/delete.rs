@@ -7,16 +7,15 @@ use crate::output::Output;
 
 #[derive(Serialize, Deserialize)]
 pub struct DeleteResult {
-    deleted: bool,
     handle: Option<String>,
 }
 
 impl fmt::Display for DeleteResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.deleted {
-            f.write_str("Document deleted.")
+        if self.handle.is_some() {
+            f.write_str("Delete request accepted.")
         } else {
-            f.write_str("Deletion skipped.")
+            f.write_str("Delete skipped.")
         }
     }
 }
@@ -41,10 +40,7 @@ pub async fn run(
     output: &Output,
 ) -> Result<DeleteResult, Error> {
     if !output.confirm_or_yes(&format!("Delete document '{}'? ", args.id), args.yes)? {
-        return Ok(DeleteResult {
-            deleted: false,
-            handle: None,
-        });
+        return Ok(DeleteResult { handle: None });
     }
 
     let handle = client
@@ -55,7 +51,6 @@ pub async fn run(
         .handle;
 
     Ok(DeleteResult {
-        deleted: true,
         handle: Some(handle),
     })
 }
@@ -112,7 +107,6 @@ mod tests {
             String::from_utf8_lossy(&out.stderr)
         );
         let result: DeleteResult = out.json().unwrap();
-        assert!(result.deleted);
         assert!(result.handle.is_some());
     }
 
@@ -156,6 +150,6 @@ mod tests {
             String::from_utf8_lossy(&out.stderr)
         );
         let result: DeleteResult = out.json().unwrap();
-        assert!(!result.deleted);
+        assert!(result.handle.is_none());
     }
 }

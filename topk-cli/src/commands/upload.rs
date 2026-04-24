@@ -8,6 +8,7 @@ use std::time::Duration;
 
 use bytesize::ByteSize;
 use clap::Args;
+use colored::Colorize;
 use futures::stream::{self, StreamExt, TryStreamExt};
 use indicatif::{ProgressBar, ProgressStyle};
 use serde::{Deserialize, Serialize};
@@ -17,7 +18,7 @@ use topk_rs::{
     Client, Error,
 };
 
-use crate::output::Output;
+use crate::output::{Output, OutputFormat};
 use crate::util::{
     files::{resolve_files, UploadFile},
     parse_seconds, plural,
@@ -45,9 +46,11 @@ impl fmt::Display for UploadResult {
         if self.total == 0 {
             return f.write_str("No files found for upload.");
         }
+
         if self.uploaded == 0 {
             return f.write_str("Upload skipped.");
         }
+
         match self.processed {
             Some(true) => write!(
                 f,
@@ -55,13 +58,12 @@ impl fmt::Display for UploadResult {
                 self.uploaded,
                 plural(self.uploaded, "file", "files")
             ),
-            Some(false) => write!(
+            Some(false) | None => write!(
                 f,
-                "Uploaded {} {}; processing skipped.",
+                "Uploaded {} {}.",
                 self.uploaded,
                 plural(self.uploaded, "file", "files")
             ),
-            None => Ok(()),
         }
     }
 }
@@ -132,7 +134,7 @@ trait ProgressReporter: Send + Sync {
 
 fn upload_reporter(total: usize, output: &Output) -> Box<dyn ProgressReporter> {
     let output = *output;
-    if output.is_json() || !std::io::stderr().is_terminal() {
+    if matches!(output.format, OutputFormat::Json) || !std::io::stderr().is_terminal() {
         return Box::new(NoopReporter { output });
     }
     Box::new(BarReporter::new(total, output))
@@ -311,7 +313,7 @@ async fn wait_for_all(
         }
     };
 
-    let processed = if !output.is_json() {
+    let processed = if !matches!(output.format, OutputFormat::Json) {
         let cancel = cancel_on_enter();
         tokio::select! {
             r = process_fut => { r?; true }
@@ -368,9 +370,8 @@ pub async fn run(
 
     if !output.confirm_or_yes(
         &format!(
-            "Upload {} {} ({}) to '{}' dataset? ",
-            total,
-            plural(total, "file", "files"),
+            "Upload {} ({}) to '{}' dataset? ",
+            format!("{} {}", total, plural(total, "file", "files")).bold(),
             ByteSize(total_size),
             args.dataset
         ),
@@ -409,7 +410,7 @@ pub async fn run(
 
     let should_wait = if args.wait {
         true
-    } else if !output.is_json() && uploaded > 0 {
+    } else if !matches!(output.format, OutputFormat::Json) && uploaded > 0 {
         output.confirm(&format!(
             "Wait for processing of {uploaded} uploaded {}? ",
             plural(uploaded, "file", "files")
@@ -621,6 +622,19 @@ mod tests {
         let result: UploadResult = out.json().unwrap();
         assert_eq!(result.total, 2);
         assert_eq!(result.uploaded, 0);
+    }
+
+    #[test]
+    fn make_upload_plan_rejects_unsupported_direct_file() {
+        let dir = tempdir().unwrap();
+        let file = dir.path().join("note.txt");
+        fs::write(&file, "note").unwrap();
+
+        let err = make_upload_plan(dir.path(), &[file.to_string_lossy().into_owned()], false)
+            .unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("Invalid document kind: text/plain"));
     }
 
     #[test_context(CliTestContext)]

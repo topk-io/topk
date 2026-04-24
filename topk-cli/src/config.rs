@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use tempfile::NamedTempFile;
 use topk_rs::Error;
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -83,7 +84,16 @@ where
 
 pub fn save_toml<T: Serialize>(path: Option<PathBuf>, value: &T) -> Result<(), Error> {
     save_toml_with(path, value, |path, content| {
-        std::fs::write(path, content).map_err(Error::IoError)?;
+        use std::io::Write;
+
+        let parent = path.parent().ok_or_else(|| {
+            Error::Input(anyhow::anyhow!("could not determine parent directory"))
+        })?;
+        let mut tmp = NamedTempFile::new_in(parent).map_err(Error::IoError)?;
+        tmp.write_all(content.as_bytes()).map_err(Error::IoError)?;
+        tmp.flush().map_err(Error::IoError)?;
+        tmp.as_file().sync_all().map_err(Error::IoError)?;
+        tmp.persist(path).map_err(|e| Error::IoError(e.error))?;
         Ok(())
     })
 }

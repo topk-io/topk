@@ -3,11 +3,12 @@ use std::process::ExitCode;
 use anyhow::Result;
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, Shell};
+use colored::Colorize;
 use futures::TryStreamExt;
 use tokio_stream::StreamExt;
 
 use topk::client::{make_client, make_global_client};
-use topk::commands::{ask, dataset, delete, list, login, logout, search, upload};
+use topk::commands::{ask, dataset, delete, list, login, search, upload};
 use topk::config;
 use topk::datasets::{ensure_unique_region, get_region, make_cached_datasets_client};
 use topk::output::{Output, OutputFormat};
@@ -103,37 +104,28 @@ async fn main() -> ExitCode {
 }
 
 async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
-    let cfg = config::load();
+    let config = config::load();
 
     match cli.command {
         Some(Commands::Login) => {
-            let result = login::run(&cli.host, cli.https)?;
+            let api_key = login::run(&cli.host, cli.https)?;
 
-            if let Some(api_key) = &result.api_key {
-                config::set_api_key(api_key.clone())?;
-                if output.is_json() {
-                    output.print(&result)?;
-                } else {
+            match api_key {
+                Some(api_key) => {
+                    config::set_api_key(api_key)?;
                     output.success("API key saved.");
                 }
-            } else {
-                output.print(&result)?;
+                None => {
+                    output.print(&"Skipping authentication.")?;
+                }
             }
 
-            Ok(())
-        }
-
-        Some(Commands::Logout) => {
-            let result = logout::run(&cfg);
-            if result.cleared {
-                config::clear()?;
-            }
-            output.print(&result)?;
             Ok(())
         }
 
         Some(Commands::Dataset { action }) => {
-            let api_key = require_api_key(cli.api_key)?;
+            let api_key = get_api_key(cli.api_key, &config)?;
+
             let client =
                 make_cached_datasets_client(make_global_client(&api_key, &cli.host, cli.https));
 
@@ -156,72 +148,177 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
         }
 
         Some(Commands::Upload(args)) => {
-            let api_key = require_api_key(cli.api_key)?;
+            let api_key = get_api_key(cli.api_key, &config)?;
+
             let mut datasets_client =
                 make_cached_datasets_client(make_global_client(&api_key, &cli.host, cli.https));
+
             let region = get_region(&mut datasets_client, &args.dataset).await?;
             let client = make_client(&api_key, &region, &cli.host, cli.https);
 
             output.print(&upload::run(&client, &args, output).await?)?;
+
             Ok(())
         }
 
         Some(Commands::Delete(args)) => {
-            let api_key = require_api_key(cli.api_key)?;
+            let api_key = get_api_key(cli.api_key, &config)?;
+
             let mut datasets_client =
                 make_cached_datasets_client(make_global_client(&api_key, &cli.host, cli.https));
+
             let region = get_region(&mut datasets_client, &args.dataset).await?;
             let client = make_client(&api_key, &region, &cli.host, cli.https);
 
             output.print(&delete::run(&client, &args, output).await?)?;
+
             Ok(())
         }
 
         Some(Commands::List(args)) => {
-            let api_key = require_api_key(cli.api_key)?;
+            let api_key = get_api_key(cli.api_key, &config)?;
+
             let mut datasets_client =
                 make_cached_datasets_client(make_global_client(&api_key, &cli.host, cli.https));
+
             let region = get_region(&mut datasets_client, &args.dataset).await?;
             let client = make_client(&api_key, &region, &cli.host, cli.https);
 
             let stream = list::run(&client, &args).await?;
 
-            if output.is_json() {
-                tokio::pin!(stream);
-                while let Some(entry) = stream.next().await {
-                    output
-                        .print_json_line(&list::ListEntryRow::from(entry?))
-                        .map_err(|e| Error::Internal(e.to_string()))?;
+            match output.format {
+                OutputFormat::Json => {
+                    tokio::pin!(stream);
+                    while let Some(entry) = stream.next().await {
+                        output
+                            .print_json_line(&list::ListEntry::from(entry?))
+                            .map_err(|e| Error::Internal(e.to_string()))?;
+                    }
                 }
-            } else {
-                let entries = stream
-                    .map(|entry| entry.map(list::ListEntryRow::from))
-                    .try_collect()
-                    .await?;
-                output.print(&list::ListResult { entries })?;
+                OutputFormat::Text => {
+                    let entries = stream
+                        .map(|entry| entry.map(list::ListEntry::from))
+                        .try_collect()
+                        .await?;
+                    output.print(&list::ListResult { entries })?;
+                }
             }
             Ok(())
         }
 
         Some(Commands::Ask(args)) => {
-            let api_key = require_api_key(cli.api_key)?;
+            let api_key = get_api_key(cli.api_key, &config)?;
+
             let mut datasets_client =
                 make_cached_datasets_client(make_global_client(&api_key, &cli.host, cli.https));
+
             let region = ensure_unique_region(&mut datasets_client, args.datasets.clone()).await?;
             let client = make_client(&api_key, &region, &cli.host, cli.https);
 
-            output.print(&ask::run(&client, &args, output).await?)?;
+            let result = ask::run(&client, &args, output).await?;
+
+            match output.format {
+                OutputFormat::Text => {
+                    // Print the answer
+                    output.print(&result)?;
+
+                    let output_dir = match &args.output_dir {
+                        Some(dir) => Some(dir.clone()),
+                        None if !result.refs.is_empty() => output.prompt_dir(
+                            "\nSave document references to directory (or press Enter to skip)",
+                        )?,
+                        None => None,
+                    };
+
+                    let refs_text = result
+                        .refs
+                        .iter()
+                        .map(|(ref_id, result)| {
+                            let path = output_dir
+                                .as_ref()
+                                .map(|dir| search::write_search_result(dir, ref_id, result))
+                                .transpose()?;
+
+                            Ok::<_, Error>(search::render_search_result(
+                                ref_id,
+                                result,
+                                path.as_deref(),
+                                Some(560),
+                            ))
+                        })
+                        .collect::<Result<Vec<_>, _>>()?
+                        .join("\n\n");
+
+                    output.print(&format!("{}\n{refs_text}", "References:".bold()))?;
+
+                    if output_dir.is_some() {
+                        output.success("References saved.");
+                    }
+                }
+                OutputFormat::Json => {
+                    output.print_json(&result)?;
+                }
+            }
+
             Ok(())
         }
 
         Some(Commands::Search(args)) => {
-            let api_key = require_api_key(cli.api_key)?;
+            let api_key = get_api_key(cli.api_key, &config)?;
+
             let mut datasets_client =
                 make_cached_datasets_client(make_global_client(&api_key, &cli.host, cli.https));
+
             let region = ensure_unique_region(&mut datasets_client, args.datasets.clone()).await?;
             let client = make_client(&api_key, &region, &cli.host, cli.https);
 
-            output.print(&search::run(&client, &args, output).await?)?;
+            let result = search::run(&client, &args).await?;
+
+            match output.format {
+                OutputFormat::Text => {
+                    let output_dir = match &args.output_dir {
+                        Some(dir) => Some(dir.clone()),
+                        None => output
+                            .prompt_dir("Save results to a directory (or press Enter to skip)")?,
+                    };
+
+                    let rendered_text = result
+                        .iter()
+                        .enumerate()
+                        .map(|(i, result)| {
+                            let ref_id = (i + 1).to_string();
+                            let path = output_dir
+                                .as_ref()
+                                .map(|dir| search::write_search_result(dir, &ref_id, result))
+                                .transpose()?;
+
+                            Ok::<_, Error>(search::render_search_result(
+                                &ref_id,
+                                result,
+                                path.as_deref(),
+                                None,
+                            ))
+                        })
+                        .collect::<Result<Vec<_>, _>>()?
+                        .join("\n\n");
+
+                    output.print(&rendered_text)?;
+
+                    if output_dir.is_some() {
+                        output.success("References saved.");
+                    }
+                }
+                OutputFormat::Json => {
+                    output.print_json(&result)?;
+                }
+            }
+
+            Ok(())
+        }
+
+        Some(Commands::Logout) => {
+            config::clear()?;
+            output.success("Logged out.");
             Ok(())
         }
 
@@ -237,11 +334,17 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
     }
 }
 
-fn require_api_key(api_key: Option<String>) -> Result<String, Error> {
-    let cfg = config::load();
-    login::resolve(api_key, &cfg)?.ok_or_else(|| {
-        Error::Input(anyhow::anyhow!(
-            "API key not set. Set TOPK_API_KEY environment variable or run: `topk login`"
-        ))
-    })
+/// Gets the API key from the CLI arguments or the config file.
+fn get_api_key(api_key: Option<String>, config: &config::Config) -> Result<String, Error> {
+    if let Some(key) = api_key {
+        return Ok(key);
+    }
+
+    if let Some(key) = config.api_key.clone() {
+        return Ok(key);
+    }
+
+    Err(Error::Input(anyhow::anyhow!(
+        "API key not set. Run `topk login` or set TOPK_API_KEY environment variable."
+    )))
 }
