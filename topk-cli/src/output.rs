@@ -123,12 +123,13 @@ impl Output {
         #[cfg(not(unix))]
         {
             if std::io::stdin().is_terminal() {
-                return Confirm::new()
+                return Ok(Confirm::new()
                     .with_prompt(prompt)
                     .default(false)
                     .wait_for_newline(true)
                     .interact()
-                    .map_err(std::io::Error::other);
+                    .map_err(std::io::Error::other)
+                    .map_err(Error::IoError)?);
             }
 
             Ok(false)
