@@ -19,7 +19,7 @@ TopK is an end-to-end solution that turns unstructured documents into reliable c
 
 ## MCP
 
-- [TopK MCP](https://docs.topk.io/mcp) - Connect TopK to MCP-compatible AI agents
+- [TopK MCP](https://docs.topk.io/mcp-server) - Connect TopK to MCP-compatible AI agents
 
 ## What TopK Does
 
