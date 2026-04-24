@@ -1,7 +1,6 @@
 use std::fmt;
 
 use bytesize::ByteSize;
-use colored::Colorize;
 use comfy_table::{
     presets, Attribute, Cell, CellAlignment, Color, ColumnConstraint, ContentArrangement, Table,
     Width,
@@ -46,11 +45,11 @@ pub struct ListResult {
     pub entries: Vec<ListEntry>,
 }
 
-fn format_status(status: &str) -> String {
+fn format_status(status: &str) -> (&str, Option<Color>) {
     match status {
-        "pending" => status.yellow().to_string(),
-        "ready" => status.green().to_string(),
-        _ => status.to_string(),
+        "pending" => ("Pending", Some(Color::Yellow)),
+        "ready" => ("Ready", Some(Color::Green)),
+        _ => (status, None),
     }
 }
 
@@ -60,13 +59,13 @@ impl fmt::Display for ListResult {
             .entries
             .iter()
             .map(|entry| {
-                vec![
+                (
                     entry.name.clone(),
                     entry.id.clone(),
                     format_status(&entry.status),
                     ByteSize(entry.size).to_string(),
                     entry.mime_type.to_string(),
-                ]
+                )
             })
             .collect::<Vec<_>>();
 
@@ -101,12 +100,17 @@ impl fmt::Display for ListResult {
         }
 
         for row in rows {
+            let mut status_cell = Cell::new(row.2 .0);
+            if let Some(color) = row.2 .1 {
+                status_cell = status_cell.fg(color);
+            }
+
             table.add_row([
-                Cell::new(&row[0]),
-                Cell::new(&row[1]),
-                Cell::new(&row[2]),
-                Cell::new(&row[3]),
-                Cell::new(&row[4]).add_attribute(Attribute::Dim),
+                Cell::new(&row.0),
+                Cell::new(&row.1),
+                status_cell,
+                Cell::new(&row.3),
+                Cell::new(&row.4).add_attribute(Attribute::Dim),
             ]);
         }
 
