@@ -53,8 +53,8 @@ fn write_config_file(path: &std::path::Path, content: &str) -> Result<(), Error>
 }
 
 #[cfg(not(unix))]
-fn write_config_file(path: &std::path::Path, content: &str) -> Result<()> {
-    std::fs::write(path, content)?;
+fn write_config_file(path: &std::path::Path, content: &str) -> Result<(), Error> {
+    std::fs::write(path, content).map_err(Error::IoError)?;
     Ok(())
 }
 
