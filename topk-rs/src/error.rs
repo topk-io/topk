@@ -167,7 +167,10 @@ impl From<Status> for Error {
                 },
                 tonic::Code::OutOfRange => Error::RequestTooLarge(e.message().into()),
                 tonic::Code::PermissionDenied => Error::PermissionDenied,
-                tonic::Code::Internal => Error::Internal(append_request_id(e.message())),
+                tonic::Code::Internal => match has_h2_source(&e) {
+                    true => Error::Unavailable(append_request_id(e.message())),
+                    false => Error::Internal(append_request_id(e.message())),
+                },
                 tonic::Code::Unavailable | tonic::Code::Cancelled => {
                     Error::Unavailable(append_request_id(e.message()))
                 }
@@ -452,4 +455,19 @@ impl From<CustomError> for Status {
 
         status
     }
+}
+
+/// Walk the error source chain looking for an `h2::Error`.
+///
+/// An h2 error under a tonic `Internal` status means the connection
+/// was torn down (GOAWAY, connection resets, etc.). Retryable.
+fn has_h2_source(err: &(dyn std::error::Error + 'static)) -> bool {
+    let mut source = err.source();
+    while let Some(e) = source {
+        if e.is::<h2::Error>() {
+            return true;
+        }
+        source = e.source();
+    }
+    false
 }
