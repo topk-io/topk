@@ -12,8 +12,8 @@ pub struct DeleteResult {
 
 impl fmt::Display for DeleteResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.handle.is_some() {
-            f.write_str("Delete request accepted.")
+        if let Some(handle) = &self.handle {
+            f.write_str(&format!("Deleting document... (handle: {handle})"))
         } else {
             f.write_str("Delete skipped.")
         }
