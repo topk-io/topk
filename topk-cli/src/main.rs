@@ -249,9 +249,11 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
                         .collect::<Result<Vec<_>, _>>()?
                         .join("\n\n");
 
-                    output.print(&format!("{}\n{refs_text}", "References:".bold()))?;
+                    if !refs_text.is_empty() {
+                        output.print(&format!("{}\n{refs_text}", "References:".bold()))?;
+                    }
 
-                    if output_dir.is_some() {
+                    if output_dir.is_some() && !result.refs.is_empty() {
                         output.success("References saved.");
                     }
                 }
