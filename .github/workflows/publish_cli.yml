@@ -131,7 +131,7 @@ jobs:
           tag_name: cli-v${{ steps.version.outputs.version }}
           name: topk CLI v${{ steps.version.outputs.version }}
           files: ./dist/*
-          generate_release_notes: true
+          generate_release_notes: false
 
   update-homebrew-tap:
     name: Update Homebrew tap
@@ -187,6 +187,7 @@ jobs:
       - name: Push formula to tap
         run: |
           git clone https://x-access-token:${{ secrets.HOMEBREW_TAP_TOKEN }}@github.com/topk-io/homebrew-topk.git tap
+          mkdir -p tap/Formula
           cp ./topk.rb tap/Formula/topk.rb
           cd tap
           git config user.name "github-actions[bot]"
