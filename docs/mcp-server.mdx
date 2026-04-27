@@ -54,10 +54,10 @@ The MCP server URL depends on the region where your datasets are stored:
             "mcp-remote",
             "https://elastica.api.topk.io/mcp",
             "--header",
-            "Authorization: Bearer ${API_TOKEN}"
+            "Authorization: Bearer ${TOPK_API_KEY}"
           ],
           "env": {
-            "API_TOKEN": "your-api-key"
+            "TOPK_API_KEY": "your-api-key"
           }
         }
       }
@@ -73,10 +73,10 @@ The MCP server URL depends on the region where your datasets are stored:
             "mcp-remote",
             "https://monstera.api.topk.io/mcp",
             "--header",
-            "Authorization: Bearer ${API_TOKEN}"
+            "Authorization: Bearer ${TOPK_API_KEY}"
           ],
           "env": {
-            "API_TOKEN": "your-api-key"
+            "TOPK_API_KEY": "your-api-key"
           }
         }
       }
@@ -90,43 +90,13 @@ The MCP server URL depends on the region where your datasets are stored:
     Add the following to your `.claude/mcp.json`:
 
     <CodeGroup>
-    ```json aws-us-east-1-elastica
-    {
-      "mcpServers": {
-        "topk-elastica": {
-          "command": "npx",
-          "args": [
-            "-y",
-            "mcp-remote",
-            "https://elastica.api.topk.io/mcp",
-            "--header",
-            "Authorization: Bearer ${API_TOKEN}"
-          ],
-          "env": {
-            "API_TOKEN": "your-api-key"
-          }
-        }
-      }
-    }
+    ```bash aws-us-east-1-elastica
+claude mcp add --transport http topk-elastica https://elastica.api.topk.io/mcp \
+  --header "Authorization: Bearer <your-api-key>"
     ```
-    ```json aws-eu-central-1-monstera
-    {
-      "mcpServers": {
-        "topk-monstera": {
-          "command": "npx",
-          "args": [
-            "-y",
-            "mcp-remote",
-            "https://monstera.api.topk.io/mcp",
-            "--header",
-            "Authorization: Bearer ${API_TOKEN}"
-          ],
-          "env": {
-            "API_TOKEN": "your-api-key"
-          }
-        }
-      }
-    }
+    ```bash aws-eu-central-1-monstera
+claude mcp add --transport http topk-monstera https://monstera.api.topk.io/mcp \
+  --header "Authorization: Bearer <your-api-key>"
     ```
     </CodeGroup>
   </Tab>
@@ -144,10 +114,10 @@ The MCP server URL depends on the region where your datasets are stored:
             "mcp-remote",
             "https://elastica.api.topk.io/mcp",
             "--header",
-            "Authorization: Bearer ${API_TOKEN}"
+            "Authorization: Bearer ${TOPK_API_KEY}"
           ],
           "env": {
-            "API_TOKEN": "your-api-key"
+            "TOPK_API_KEY": "your-api-key"
           }
         }
       }
@@ -163,10 +133,10 @@ The MCP server URL depends on the region where your datasets are stored:
             "mcp-remote",
             "https://monstera.api.topk.io/mcp",
             "--header",
-            "Authorization: Bearer ${API_TOKEN}"
+            "Authorization: Bearer ${TOPK_API_KEY}"
           ],
           "env": {
-            "API_TOKEN": "your-api-key"
+            "TOPK_API_KEY": "your-api-key"
           }
         }
       }
@@ -190,10 +160,10 @@ The MCP server URL depends on the region where your datasets are stored:
             "mcp-remote",
             "https://elastica.api.topk.io/mcp",
             "--header",
-            "Authorization: Bearer ${API_TOKEN}"
+            "Authorization: Bearer ${TOPK_API_KEY}"
           ],
           "env": {
-            "API_TOKEN": "your-api-key"
+            "TOPK_API_KEY": "your-api-key"
           }
         }
       }
@@ -209,10 +179,10 @@ The MCP server URL depends on the region where your datasets are stored:
             "mcp-remote",
             "https://monstera.api.topk.io/mcp",
             "--header",
-            "Authorization: Bearer ${API_TOKEN}"
+            "Authorization: Bearer ${TOPK_API_KEY}"
           ],
           "env": {
-            "API_TOKEN": "your-api-key"
+            "TOPK_API_KEY": "your-api-key"
           }
         }
       }
@@ -236,10 +206,10 @@ The MCP server URL depends on the region where your datasets are stored:
             "mcp-remote",
             "https://elastica.api.topk.io/mcp",
             "--header",
-            "Authorization: Bearer ${API_TOKEN}"
+            "Authorization: Bearer ${TOPK_API_KEY}"
           ],
           "env": {
-            "API_TOKEN": "your-api-key"
+            "TOPK_API_KEY": "your-api-key"
           }
         }
       }
@@ -255,10 +225,10 @@ The MCP server URL depends on the region where your datasets are stored:
             "mcp-remote",
             "https://monstera.api.topk.io/mcp",
             "--header",
-            "Authorization: Bearer ${API_TOKEN}"
+            "Authorization: Bearer ${TOPK_API_KEY}"
           ],
           "env": {
-            "API_TOKEN": "your-api-key"
+            "TOPK_API_KEY": "your-api-key"
           }
         }
       }
