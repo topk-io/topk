@@ -70,6 +70,7 @@ impl From<topk_rs::proto::v1::control::Dataset> for Dataset {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct ListDatasetsResult {
     pub datasets: Vec<Dataset>,
 }
@@ -120,6 +121,7 @@ impl fmt::Display for ListDatasetsResult {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct GetDatasetResult {
     pub(crate) dataset: Dataset,
 }
@@ -147,6 +149,7 @@ impl fmt::Display for GetDatasetResult {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct CreateDatasetResult {
     pub(crate) dataset: Dataset,
 }
@@ -189,7 +192,7 @@ pub async fn list<C: DatasetsClient>(mut client: C) -> Result<ListDatasetsResult
 
 /// `topk dataset get`
 pub async fn get<C: DatasetsClient>(mut client: C, name: &str) -> Result<GetDatasetResult, Error> {
-    client.get(name).await?.try_into()
+    Ok(client.get(name).await?.try_into()?)
 }
 
 /// `topk dataset create`
@@ -197,7 +200,10 @@ pub async fn create<C: DatasetsClient>(
     mut client: C,
     args: &CreateDatasetArgs,
 ) -> Result<CreateDatasetResult, Error> {
-    client.create(&args.dataset, &args.region).await?.try_into()
+    Ok(client
+        .create(&args.dataset, &args.region)
+        .await?
+        .try_into()?)
 }
 
 /// `topk dataset delete`
@@ -217,7 +223,7 @@ pub async fn delete<C: DatasetsClient>(
 
 #[cfg(test)]
 mod tests {
-    use super::{CreateDatasetResult, DeleteDatasetResult, GetDatasetResult, ListDatasetsResult};
+    use super::{CreateDatasetResult, Dataset, DeleteDatasetResult, GetDatasetResult};
     use crate::commands::test_context::{CliTestContext, OutputJsonExt};
     use assert_cmd::Command;
     use test_context::test_context;
@@ -244,8 +250,8 @@ mod tests {
             "{}",
             String::from_utf8_lossy(&out.stderr)
         );
-        let result: ListDatasetsResult = out.json().unwrap();
-        let names: Vec<&str> = result.datasets.iter().map(|d| d.name.as_str()).collect();
+        let datasets: Vec<Dataset> = out.json_lines().unwrap();
+        let names: Vec<&str> = datasets.iter().map(|d| d.name.as_str()).collect();
         assert!(
             names.contains(&name.as_str()),
             "created dataset not in list: {:?}",

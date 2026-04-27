@@ -1,7 +1,4 @@
-use std::{
-    io::{self, IsTerminal, Read},
-    time::Duration,
-};
+use std::io::{self, IsTerminal, Read};
 
 use chrono::{DateTime, Local, Utc};
 
@@ -28,19 +25,8 @@ pub fn plural<'a>(count: usize, singular: &'a str, plural: &'a str) -> &'a str {
     }
 }
 
-pub fn parse_seconds(value: &str) -> Result<Duration, String> {
-    value
-        .parse::<u64>()
-        .map(Duration::from_secs)
-        .map_err(|err| err.to_string())
-}
-
-/// Resolves a query string from an optional CLI argument, falling back to stdin
-pub fn resolve_query(arg: Option<String>) -> Result<String, Error> {
-    if let Some(q) = arg {
-        return Ok(q);
-    }
-
+/// Reads a query string from stdin.
+pub fn read_query_from_stdin() -> Result<String, Error> {
     if io::stdin().is_terminal() {
         return Err(Error::Input(anyhow::anyhow!(
             "query is required; pass it as an argument or pipe it via stdin"

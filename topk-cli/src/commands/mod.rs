@@ -18,11 +18,21 @@ pub mod test_context {
 
     pub trait OutputJsonExt {
         fn json<T: DeserializeOwned>(&self) -> serde_json::Result<T>;
+        fn json_lines<T: DeserializeOwned>(&self) -> serde_json::Result<Vec<T>>;
     }
 
     impl OutputJsonExt for std::process::Output {
         fn json<T: DeserializeOwned>(&self) -> serde_json::Result<T> {
             serde_json::from_slice(&self.stdout)
+        }
+
+        fn json_lines<T: DeserializeOwned>(&self) -> serde_json::Result<Vec<T>> {
+            let s = std::str::from_utf8(&self.stdout)
+                .map_err(|e| serde_json::Error::io(std::io::Error::other(e)))?;
+            s.lines()
+                .filter(|l: &&str| !l.is_empty())
+                .map(serde_json::from_str)
+                .collect()
         }
     }
 

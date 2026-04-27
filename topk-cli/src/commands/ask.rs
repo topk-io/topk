@@ -13,8 +13,8 @@ use topk_rs::{
     Client, Error,
 };
 
-use crate::output::Output;
-use crate::util::resolve_query;
+use crate::util::read_query_from_stdin;
+use crate::{commands::search::render_search_result, output::Output};
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 pub enum Mode {
@@ -35,49 +35,71 @@ impl From<Mode> for topk_rs::proto::v1::ctx::Mode {
 
 #[derive(Serialize, Deserialize)]
 pub struct AskResult {
-    pub(crate) facts: Vec<Fact>,
+    pub facts: Vec<Fact>,
     pub refs: HashMap<String, SearchResult>,
+
+    #[serde(skip)]
+    pub(crate) show_refs: bool,
 }
 
-impl From<Answer> for AskResult {
-    fn from(a: Answer) -> Self {
+impl AskResult {
+    fn from_answer(a: Answer, show_refs: bool) -> Self {
         Self {
             facts: a.facts,
             refs: a.refs.into_iter().collect(),
+            show_refs,
+        }
+    }
+
+    pub fn render_refs(&self, paths: &HashMap<String, PathBuf>) -> Option<String> {
+        if !self.show_refs || self.refs.is_empty() {
+            return None;
+        }
+
+        let refs_text = self
+            .refs
+            .iter()
+            .map(|(ref_id, result)| {
+                render_search_result(ref_id, result, paths.get(ref_id).map(PathBuf::as_path))
+            })
+            .collect::<Vec<_>>()
+            .join("\n\n");
+
+        if refs_text.is_empty() {
+            None
+        } else {
+            Some(format!("\n{}\n{refs_text}", "References:".bold()))
         }
     }
 }
 
 impl fmt::Display for AskResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&render_facts(&self.facts))
+        if self.facts.is_empty() {
+            return f.write_str("No answer found.");
+        }
+
+        let text = self
+            .facts
+            .iter()
+            .map(|fact| {
+                if self.show_refs && !fact.ref_ids.is_empty() {
+                    let refs = fact
+                        .ref_ids
+                        .iter()
+                        .map(|id| format!("[{id}]"))
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    format!("{} {}", fact.fact, refs.blue())
+                } else {
+                    fact.fact.clone()
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        f.write_str(&text)
     }
-}
-
-fn render_facts(facts: &[Fact]) -> String {
-    if facts.is_empty() {
-        return "No answer found.".to_string();
-    }
-
-    let facts_text = facts
-        .iter()
-        .map(|fact| {
-            if fact.ref_ids.is_empty() {
-                fact.fact.clone()
-            } else {
-                let refs = fact
-                    .ref_ids
-                    .iter()
-                    .map(|id| format!("[{id}]"))
-                    .collect::<Vec<_>>()
-                    .join(" ");
-                format!("{} {}", fact.fact, refs.blue())
-            }
-        })
-        .collect::<Vec<_>>()
-        .join(" ");
-
-    format!("{}\n{}", "Facts:".bold(), facts_text)
 }
 
 #[derive(Debug, clap::Args)]
@@ -93,6 +115,9 @@ pub struct AskArgs {
     /// Metadata fields to include in results (repeatable)
     #[arg(short = 'f', long = "field")]
     pub fields: Option<Vec<String>>,
+    /// Show citations in the answer
+    #[arg(long, default_value = "false")]
+    pub show_refs: bool,
     /// Save search result content (images, text chunks) to a directory
     #[arg(long, value_name = "DIR")]
     pub output_dir: Option<PathBuf>,
@@ -100,7 +125,10 @@ pub struct AskArgs {
 
 /// `topk ask`
 pub async fn run(client: &Client, args: &AskArgs, output: &Output) -> Result<AskResult, Error> {
-    let query = resolve_query(args.query.clone())?;
+    let query = match args.query.clone() {
+        Some(query) => query,
+        None => read_query_from_stdin()?,
+    };
 
     let spinner = output.spinner("Answering...");
 
@@ -139,7 +167,7 @@ pub async fn run(client: &Client, args: &AskArgs, output: &Output) -> Result<Ask
 
     let answer = answer.ok_or_else(|| Error::Internal("No answer found".to_string()))?;
 
-    Ok(answer.into())
+    Ok(AskResult::from_answer(answer, args.show_refs))
 }
 
 #[cfg(test)]

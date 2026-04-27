@@ -111,13 +111,19 @@ impl Output {
                 .open("/dev/tty")?;
             let term = Term::read_write_pair(tty.try_clone()?, tty);
 
-            return Ok(Confirm::new()
+            return Confirm::new()
                 .with_prompt(prompt)
                 .default(false)
                 .wait_for_newline(false)
                 .interact_on(&term)
-                .map_err(std::io::Error::other)
-                .map_err(Error::IoError)?);
+                .map_err(|e| {
+                    let dialoguer::Error::IO(ref io_err) = e;
+                    if io_err.kind() == std::io::ErrorKind::Interrupted {
+                        let _ = term.show_cursor();
+                        std::process::exit(130);
+                    }
+                    Error::IoError(std::io::Error::other(e))
+                });
         }
 
         #[cfg(not(unix))]

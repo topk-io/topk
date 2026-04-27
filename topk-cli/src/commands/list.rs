@@ -1,6 +1,7 @@
 use std::fmt;
 
 use bytesize::ByteSize;
+use colored::Colorize;
 use comfy_table::{
     presets, Attribute, Cell, CellAlignment, Color, ColumnConstraint, ContentArrangement, Table,
     Width,
@@ -14,7 +15,7 @@ use topk_rs::{Client, Error};
 pub struct ListEntry {
     pub id: String,
     pub name: String,
-    pub size: u64,
+    pub size: ByteSize,
     pub mime_type: String,
     pub status: String,
     pub status_reason: Option<String>,
@@ -27,7 +28,7 @@ impl From<topk_rs::proto::v1::ctx::ListEntry> for ListEntry {
         Self {
             id: entry.id,
             name: entry.name,
-            size: entry.size,
+            size: ByteSize::b(entry.size),
             mime_type: entry.mime_type,
             status: entry.status,
             status_reason: entry.status_reason,
@@ -45,76 +46,140 @@ pub struct ListResult {
     pub entries: Vec<ListEntry>,
 }
 
-fn format_status(status: &str) -> (&str, Option<Color>) {
+fn render_status(status: &str, reason: Option<&str>) -> String {
+    let label = |base: &str| match reason {
+        Some(r) => format!("{base} ({r})"),
+        None => base.to_string(),
+    };
     match status {
-        "pending" => ("Pending", Some(Color::Yellow)),
-        "ready" => ("Ready", Some(Color::Green)),
-        _ => (status, None),
+        "pending" => label("Pending").yellow().to_string(),
+        "ready" => label("Ready").green().to_string(),
+        "error" => label("Error").red().to_string(),
+        _ => label(status),
     }
+}
+
+fn truncate_with_ellipsis(value: &str, max_chars: usize) -> String {
+    let len = value.chars().count();
+    if len <= max_chars {
+        return value.to_string();
+    }
+
+    if max_chars <= 1 {
+        return "…".to_string();
+    }
+
+    format!("{}…", value.chars().take(max_chars - 1).collect::<String>())
+}
+
+fn terminal_width() -> u16 {
+    terminal_size().map(|(TermWidth(w), _)| w).unwrap_or(80)
+}
+
+fn render_full_table(entries: &[ListEntry], width: u16) -> String {
+    let mut table = Table::new();
+    table
+        .load_preset(presets::NOTHING)
+        .set_content_arrangement(ContentArrangement::Dynamic)
+        .set_width(width)
+        .set_header(
+            ["NAME", "ID", "STATUS", "SIZE", "TYPE"]
+                .into_iter()
+                .map(|header| {
+                    Cell::new(header)
+                        .add_attribute(Attribute::Bold)
+                        .fg(Color::Cyan)
+                }),
+        )
+        .set_constraints([
+            ColumnConstraint::LowerBoundary(Width::Fixed(28)),
+            ColumnConstraint::LowerBoundary(Width::Fixed(16)),
+            ColumnConstraint::ContentWidth,
+            ColumnConstraint::ContentWidth,
+            ColumnConstraint::ContentWidth,
+        ]);
+
+    if let Some(column) = table.column_mut(3) {
+        column.set_cell_alignment(CellAlignment::Right);
+    }
+
+    for entry in entries {
+        table.add_row([
+            Cell::new(&entry.name),
+            Cell::new(&entry.id),
+            Cell::new(render_status(&entry.status, entry.status_reason.as_deref())),
+            Cell::new(entry.size.to_string()),
+            Cell::new(&entry.mime_type).add_attribute(Attribute::Dim),
+        ]);
+    }
+
+    table.to_string()
+}
+
+fn render_compact_table(entries: &[ListEntry], width: u16) -> String {
+    let mut table = Table::new();
+    table
+        .load_preset(presets::NOTHING)
+        .set_content_arrangement(ContentArrangement::Dynamic)
+        .set_width(width)
+        .set_header(["NAME", "ID", "STATUS", "SIZE"].into_iter().map(|header| {
+            Cell::new(header)
+                .add_attribute(Attribute::Bold)
+                .fg(Color::Cyan)
+        }))
+        .set_constraints([
+            ColumnConstraint::LowerBoundary(Width::Fixed(36)),
+            ColumnConstraint::LowerBoundary(Width::Fixed(16)),
+            ColumnConstraint::ContentWidth,
+            ColumnConstraint::ContentWidth,
+        ]);
+
+    if let Some(column) = table.column_mut(3) {
+        column.set_cell_alignment(CellAlignment::Right);
+    }
+
+    for entry in entries {
+        table.add_row([
+            Cell::new(truncate_with_ellipsis(&entry.name, 40)),
+            Cell::new(truncate_with_ellipsis(&entry.id, 16)),
+            Cell::new(render_status(&entry.status, entry.status_reason.as_deref())),
+            Cell::new(entry.size.to_string()),
+        ]);
+    }
+
+    table.to_string()
+}
+
+fn render_stacked_entries(entries: &[ListEntry]) -> String {
+    entries
+        .iter()
+        .map(|entry| {
+            format!(
+                "{}\n  id: {}\n  status: {}\n  size: {}\n  type: {}",
+                entry.name,
+                entry.id,
+                render_status(&entry.status, entry.status_reason.as_deref()),
+                entry.size.to_string(),
+                entry.mime_type
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n\n")
 }
 
 impl fmt::Display for ListResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let rows = self
-            .entries
-            .iter()
-            .map(|entry| {
-                (
-                    entry.name.clone(),
-                    entry.id.clone(),
-                    format_status(&entry.status),
-                    ByteSize(entry.size).to_string(),
-                    entry.mime_type.to_string(),
-                )
-            })
-            .collect::<Vec<_>>();
-
-        if rows.is_empty() {
+        if self.entries.is_empty() {
             return f.write_str("No documents.");
         }
 
-        let mut table = Table::new();
-        table
-            .load_preset(presets::NOTHING)
-            .set_content_arrangement(ContentArrangement::Dynamic)
-            .set_width(terminal_size().map(|(TermWidth(w), _)| w).unwrap_or(80))
-            .set_header(
-                ["NAME", "ID", "STATUS", "SIZE", "TYPE"]
-                    .into_iter()
-                    .map(|header| {
-                        Cell::new(header)
-                            .add_attribute(Attribute::Bold)
-                            .fg(Color::Cyan)
-                    }),
-            )
-            .set_constraints([
-                ColumnConstraint::LowerBoundary(Width::Fixed(10)),
-                ColumnConstraint::LowerBoundary(Width::Fixed(66)),
-                ColumnConstraint::ContentWidth,
-                ColumnConstraint::ContentWidth,
-                ColumnConstraint::ContentWidth,
-            ]);
+        let rendered = match terminal_width() {
+            width if width >= 120 => render_full_table(&self.entries, width),
+            width if width >= 80 => render_compact_table(&self.entries, width),
+            _ => render_stacked_entries(&self.entries),
+        };
 
-        if let Some(column) = table.column_mut(3) {
-            column.set_cell_alignment(CellAlignment::Right);
-        }
-
-        for row in rows {
-            let mut status_cell = Cell::new(row.2 .0);
-            if let Some(color) = row.2 .1 {
-                status_cell = status_cell.fg(color);
-            }
-
-            table.add_row([
-                Cell::new(&row.0),
-                Cell::new(&row.1),
-                status_cell,
-                Cell::new(&row.3),
-                Cell::new(&row.4).add_attribute(Attribute::Dim),
-            ]);
-        }
-
-        f.write_str(&table.to_string())
+        f.write_str(&rendered)
     }
 }
 
@@ -146,6 +211,7 @@ mod tests {
     use super::ListEntry;
     use crate::commands::test_context::CliTestContext;
     use assert_cmd::Command;
+    use bytesize::ByteSize;
     use test_context::test_context;
 
     fn cmd() -> Command {
@@ -193,7 +259,7 @@ mod tests {
             .collect();
 
         assert_eq!(entries.len(), 2);
-        assert!(entries.iter().all(|e| e.size > 0));
+        assert!(entries.iter().all(|e| e.size > ByteSize::b(0)));
     }
 
     #[test_context(CliTestContext)]

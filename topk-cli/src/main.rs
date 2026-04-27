@@ -3,7 +3,6 @@ use std::process::ExitCode;
 use anyhow::Result;
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, Shell};
-use colored::Colorize;
 use futures::TryStreamExt;
 use tokio_stream::StreamExt;
 
@@ -109,7 +108,10 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
 
     match cli.command {
         Some(Commands::Login) => {
-            let api_key = login::run(&cli.host, cli.https)?;
+            let api_key = match cli.api_key {
+                Some(key) => Some(key),
+                None => login::run(&cli.host, cli.https)?,
+            };
 
             match api_key {
                 Some(api_key) => {
@@ -132,7 +134,19 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
 
             match action {
                 dataset::DatasetAction::List => {
-                    output.print(&dataset::list(client).await?)?;
+                    let result = dataset::list(client).await?;
+                    match output.format {
+                        OutputFormat::Json => {
+                            for dataset in &result.datasets {
+                                output
+                                    .print_json_line(dataset)
+                                    .map_err(|e| Error::Internal(e.to_string()))?;
+                            }
+                        }
+                        OutputFormat::Text => {
+                            output.print(&result)?;
+                        }
+                    }
                 }
                 dataset::DatasetAction::Get { dataset: name } => {
                     output.print(&dataset::get(client, &name).await?)?;
@@ -220,42 +234,30 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
 
             match output.format {
                 OutputFormat::Text => {
-                    // Print the answer
                     output.print(&result)?;
 
-                    let output_dir = match &args.output_dir {
-                        Some(dir) => Some(dir.clone()),
-                        None if !result.refs.is_empty() => output.prompt_dir(
-                            "\nSave document references to directory (or press Enter to skip)",
-                        )?,
-                        None => None,
+                    let paths = match &args.output_dir {
+                        Some(dir) => result
+                            .refs
+                            .iter()
+                            .map(|(ref_id, result)| {
+                                Ok::<_, Error>((
+                                    ref_id.clone(),
+                                    search::write_search_result(dir, ref_id, result)?,
+                                ))
+                            })
+                            .collect::<Result<std::collections::HashMap<_, _>, _>>()?,
+                        None => std::collections::HashMap::new(),
                     };
 
-                    let refs_text = result
-                        .refs
-                        .iter()
-                        .map(|(ref_id, result)| {
-                            let path = output_dir
-                                .as_ref()
-                                .map(|dir| search::write_search_result(dir, ref_id, result))
-                                .transpose()?;
-
-                            Ok::<_, Error>(search::render_search_result(
-                                ref_id,
-                                result,
-                                path.as_deref(),
-                                Some(560),
-                            ))
-                        })
-                        .collect::<Result<Vec<_>, _>>()?
-                        .join("\n\n");
-
-                    if !refs_text.is_empty() {
-                        output.print(&format!("{}\n{refs_text}", "References:".bold()))?;
+                    if let Some(refs_text) = result.render_refs(&paths) {
+                        output.print(&refs_text)?;
                     }
 
-                    if output_dir.is_some() && !result.refs.is_empty() {
-                        output.success("References saved.");
+                    if let Some(dir) = &args.output_dir {
+                        if !result.refs.is_empty() {
+                            output.success(&format!("References saved to '{}'.", dir.display()));
+                        }
                     }
                 }
                 OutputFormat::Json => {
@@ -279,36 +281,28 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
 
             match output.format {
                 OutputFormat::Text => {
-                    let output_dir = match &args.output_dir {
-                        Some(dir) => Some(dir.clone()),
-                        None => output
-                            .prompt_dir("Save results to a directory (or press Enter to skip)")?,
+                    let paths = match &args.output_dir {
+                        Some(dir) => result
+                            .results
+                            .iter()
+                            .enumerate()
+                            .map(|(i, result)| {
+                                let ref_id = (i + 1).to_string();
+                                Ok::<_, Error>((
+                                    ref_id.clone(),
+                                    search::write_search_result(dir, &ref_id, result)?,
+                                ))
+                            })
+                            .collect::<Result<std::collections::HashMap<_, _>, _>>()?,
+                        None => std::collections::HashMap::new(),
                     };
 
-                    let rendered_text = result
-                        .iter()
-                        .enumerate()
-                        .map(|(i, result)| {
-                            let ref_id = (i + 1).to_string();
-                            let path = output_dir
-                                .as_ref()
-                                .map(|dir| search::write_search_result(dir, &ref_id, result))
-                                .transpose()?;
+                    output.print(&result.render(&paths))?;
 
-                            Ok::<_, Error>(search::render_search_result(
-                                &ref_id,
-                                result,
-                                path.as_deref(),
-                                None,
-                            ))
-                        })
-                        .collect::<Result<Vec<_>, _>>()?
-                        .join("\n\n");
-
-                    output.print(&rendered_text)?;
-
-                    if output_dir.is_some() {
-                        output.success("References saved.");
+                    if let Some(dir) = &args.output_dir {
+                        if !result.results.is_empty() {
+                            output.success(&format!("References saved to '{}'.", dir.display()));
+                        }
                     }
                 }
                 OutputFormat::Json => {

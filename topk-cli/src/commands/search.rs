@@ -1,12 +1,40 @@
 use colored::Colorize;
 use futures::TryStreamExt;
+use std::collections::HashMap;
+use std::fmt;
 use std::path::{Path, PathBuf};
 use topk_rs::{
     proto::v1::ctx::{content, Content, SearchResult},
     Client, Error,
 };
 
-use crate::util::{mime::MimeType, resolve_query};
+use crate::util::{mime::MimeType, read_query_from_stdin};
+
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(transparent)]
+pub struct SearchResults {
+    pub results: Vec<SearchResult>,
+}
+
+impl SearchResults {
+    pub fn render(&self, paths: &HashMap<String, PathBuf>) -> String {
+        self.results
+            .iter()
+            .enumerate()
+            .map(|(i, result)| {
+                let ref_id = (i + 1).to_string();
+                render_search_result(&ref_id, result, paths.get(&ref_id).map(PathBuf::as_path))
+            })
+            .collect::<Vec<_>>()
+            .join("\n\n")
+    }
+}
+
+impl fmt::Display for SearchResults {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.render(&HashMap::new()))
+    }
+}
 
 #[derive(Debug, clap::Args)]
 pub struct SearchArgs {
@@ -27,19 +55,26 @@ pub struct SearchArgs {
 }
 
 /// `topk search`
-pub async fn run(client: &Client, args: &SearchArgs) -> Result<Vec<SearchResult>, Error> {
-    Ok(client
-        .search(
-            resolve_query(args.query.clone())?,
-            args.datasets.clone(),
-            args.top_k,
-            None,
-            args.fields.clone().unwrap_or_default(),
-        )
-        .await?
-        .into_inner()
-        .try_collect()
-        .await?)
+pub async fn run(client: &Client, args: &SearchArgs) -> Result<SearchResults, Error> {
+    let query = match args.query.clone() {
+        Some(query) => query,
+        None => read_query_from_stdin()?,
+    };
+
+    Ok(SearchResults {
+        results: client
+            .search(
+                query,
+                args.datasets.clone(),
+                args.top_k,
+                None,
+                args.fields.clone().unwrap_or_default(),
+            )
+            .await?
+            .into_inner()
+            .try_collect()
+            .await?,
+    })
 }
 
 /// Write a search result content to a file
@@ -90,18 +125,11 @@ pub fn write_search_result(
     Ok(path.canonicalize().unwrap_or(path))
 }
 
-pub fn render_search_result(
-    ref_id: &str,
-    result: &SearchResult,
-    path: Option<&Path>,
-    max_text_len: Option<usize>,
-) -> String {
-    let text = format_reference_detail(result.content.as_ref()).map(|t| match max_text_len {
-        Some(max) if t.chars().count() > max => {
-            format!("{}…", t.chars().take(max).collect::<String>())
-        }
-        _ => t,
-    });
+pub fn render_search_result(ref_id: &str, result: &SearchResult, path: Option<&Path>) -> String {
+    let text = match result.content.as_ref().and_then(|c| c.data.as_ref()) {
+        Some(content::Data::Chunk(chunk)) => Some(chunk.text.to_string()),
+        _ => None,
+    };
 
     let placeholder = if path.is_none()
         && text.is_none()
@@ -114,38 +142,51 @@ pub fn render_search_result(
         None
     };
 
-    let detail = match (path, text) {
-        (Some(path), Some(t)) => Some(format!("{}", format!("{}\n{t}", path.display()).dimmed())),
-        (Some(path), None) => Some(format!("{}", format!("{}", path.display()).dimmed())),
-        (None, Some(t)) => Some(format!("{}", t.dimmed())),
-        (None, None) => placeholder.map(|p| format!("{}", p.dimmed())),
+    let mut header = format!(
+        "{} {}{} {}{} {}{}",
+        format!("[{ref_id}]").blue(),
+        "dataset=".dimmed(),
+        result.dataset,
+        "id=".dimmed(),
+        result.doc_id,
+        "type=".dimmed(),
+        result.doc_type,
+    );
+
+    if let Some(path) = path {
+        header.push_str(&format!(" {}{}", "file=".dimmed(), display_path(path)));
+    }
+
+    let mut lines = vec![header];
+
+    let detail = match (text, placeholder) {
+        (Some(t), _) => Some(t),
+        (None, Some(p)) => Some(p),
+        (None, None) => None,
     };
 
-    [format!(
-        "{} {}, {}, {}",
-        format!("[{ref_id}]").blue(),
-        result.dataset,
-        result.doc_id,
-        result.doc_type,
-    )]
-    .into_iter()
-    .chain(detail)
-    .collect::<Vec<_>>()
-    .join("\n")
+    if let Some(detail) = detail {
+        lines.push(format!("{}", detail.dimmed()));
+    }
+
+    lines.join("\n")
 }
 
-fn format_reference_detail(content: Option<&Content>) -> Option<String> {
-    match content.and_then(|c| c.data.as_ref()) {
-        Some(content::Data::Chunk(chunk)) => {
-            let text = chunk.text.trim();
-            if text.is_empty() {
-                None
-            } else {
-                Some(text.to_string())
+fn display_path(path: &Path) -> String {
+    if let Ok(cwd) = std::env::current_dir() {
+        if let Ok(relative) = path.strip_prefix(&cwd) {
+            return relative.display().to_string();
+        }
+    }
+
+    if let Some(file_name) = path.file_name() {
+        if let Some(parent) = path.parent() {
+            if parent == Path::new("") {
+                return file_name.to_string_lossy().into_owned();
             }
         }
-        _ => None,
-    }
+    };
+    path.display().to_string()
 }
 
 pub fn format_content_text(content: Option<&Content>) -> Option<String> {

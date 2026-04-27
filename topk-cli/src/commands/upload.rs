@@ -1,6 +1,5 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
-use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -13,6 +12,7 @@ use futures::stream::{self, StreamExt, TryStreamExt};
 use indicatif::{ProgressBar, ProgressStyle};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use topk_rs::client::WaitConfig;
 use topk_rs::{
     proto::v1::{ctx::file::InputFile, data::Value},
     Client, Error,
@@ -21,7 +21,7 @@ use topk_rs::{
 use crate::output::{Output, OutputFormat};
 use crate::util::{
     files::{resolve_files, UploadFile},
-    parse_seconds, plural,
+    plural,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -35,6 +35,8 @@ pub struct UploadError {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UploadResult {
     pub total: usize,
+    #[serde(default)]
+    pub dry_run: bool,
     pub uploaded: usize,
     pub errors: Vec<UploadError>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -47,8 +49,21 @@ impl fmt::Display for UploadResult {
             return f.write_str("No files found for upload.");
         }
 
+        if self.dry_run {
+            return write!(
+                f,
+                "Dry run: would upload {} {}.",
+                self.total,
+                plural(self.total, "file", "files")
+            );
+        }
+
         if self.uploaded == 0 {
-            return f.write_str("Upload skipped.");
+            return if self.errors.is_empty() {
+                f.write_str("Upload skipped.")
+            } else {
+                f.write_str("Upload failed.")
+            };
         }
 
         match self.processed {
@@ -85,12 +100,9 @@ pub struct UploadArgs {
     /// Preview files without uploading
     #[arg(long)]
     pub dry_run: bool,
-    /// Wait for all uploaded files to be fully processed
-    #[arg(short = 'w', long)]
-    pub wait: bool,
-    /// Timeout for uploading files in seconds (default: 30 minutes)
-    #[arg(long, value_name = "SECS", default_value = "1800", value_parser = parse_seconds)]
-    pub timeout: Duration,
+    /// Wait for all uploaded files to be fully processed, optionally up to a duration (e.g. 5m, 2h)
+    #[arg(short = 'w', long, value_name = "DURATION", num_args = 0..=1, value_parser = humantime::parse_duration)]
+    pub wait: Option<Option<Duration>>,
     /// File paths, directories, or glob patterns (e.g. "./report.pdf" "./docs" "*.pdf" "docs/**/*.md")
     #[arg(value_name = "PATTERN", required = true, num_args = 1..)]
     pub patterns: Vec<String>,
@@ -102,7 +114,7 @@ fn make_upload_plan(
     recursive: bool,
 ) -> Result<Vec<UploadFile>, Error> {
     let mut files = Vec::new();
-    let mut seen = std::collections::HashSet::new();
+    let mut seen = HashSet::new();
 
     for pattern in patterns {
         for file in resolve_files(cwd, pattern, recursive)? {
@@ -116,7 +128,7 @@ fn make_upload_plan(
 }
 
 pub(crate) fn doc_id_from_path(path: &Path) -> Result<String, Error> {
-    Ok(format!(
+    let digest = format!(
         "{:x}",
         Sha256::digest(
             path.canonicalize()
@@ -124,43 +136,23 @@ pub(crate) fn doc_id_from_path(path: &Path) -> Result<String, Error> {
                 .to_string_lossy()
                 .as_bytes()
         )
-    ))
+    );
+
+    // Use the first 16 hex characters of the SHA-256 as a shorter stable ID.
+    Ok(digest[..16].to_string())
 }
 
-trait ProgressReporter: Send + Sync {
-    fn on_upload(&self, ok: bool);
-    fn finish(self: Box<Self>, total: usize, files: &[FileUpload]);
-}
-
-fn upload_reporter(total: usize, output: &Output) -> Box<dyn ProgressReporter> {
-    let output = *output;
-    if matches!(output.format, OutputFormat::Json) || !std::io::stderr().is_terminal() {
-        return Box::new(NoopReporter { output });
-    }
-    Box::new(BarReporter::new(total, output))
-}
-
-fn progress_summary(total: usize, uploaded: usize, failed: usize) -> String {
+fn progress_summary(total: usize, files: &[FileUpload]) -> String {
+    let uploaded = files.iter().filter(|f| f.result.is_ok()).count();
+    let failed = files.iter().filter(|f| f.result.is_err()).count();
     let files = plural(total, "file", "files");
+
     match failed {
         0 => format!("{uploaded}/{total} {files} uploaded"),
         _ => format!("{uploaded}/{total} {files} uploaded ({failed} failed)"),
     }
 }
-
-struct NoopReporter {
-    output: Output,
-}
-
-impl ProgressReporter for NoopReporter {
-    fn on_upload(&self, _ok: bool) {}
-
-    fn finish(self: Box<Self>, _total: usize, files: &[FileUpload]) {
-        report_upload_errors(&self.output, files);
-    }
-}
-
-struct BarReporter {
+struct UploadProgressBar {
     progress_bar: ProgressBar,
     total: u64,
     completed: AtomicU64,
@@ -168,58 +160,59 @@ struct BarReporter {
     output: Output,
 }
 
-impl BarReporter {
-    fn new(total: usize, output: Output) -> Self {
-        let progress_bar = ProgressBar::new(total as u64);
-        let style =
+impl UploadProgressBar {
+    fn new(total: u64, output: Output) -> Self {
+        let progress_bar = ProgressBar::new(total);
+
+        progress_bar.set_style(
             ProgressStyle::with_template("[{elapsed_precise}] [{wide_bar:.cyan/blue}] {msg}")
                 .map(|s| s.progress_chars("=>-"))
-                .unwrap_or_else(|_| ProgressStyle::default_bar());
-        progress_bar.set_style(style);
+                .unwrap_or_else(|_| ProgressStyle::default_bar()),
+        );
         progress_bar.set_message(format!("0/{total} uploaded"));
-        progress_bar.enable_steady_tick(std::time::Duration::from_millis(100));
+        progress_bar.enable_steady_tick(Duration::from_millis(100));
+
         Self {
             progress_bar,
-            total: total as u64,
+            total,
             completed: AtomicU64::new(0),
             failed: AtomicU64::new(0),
             output,
         }
     }
-}
 
-impl ProgressReporter for BarReporter {
-    fn on_upload(&self, ok: bool) {
+    fn on_upload(&self, suceeded: bool) {
         let completed = self.completed.fetch_add(1, Ordering::Relaxed) + 1;
-        let failed = if ok {
+
+        let failed = if suceeded {
             self.failed.load(Ordering::Relaxed)
         } else {
             self.failed.fetch_add(1, Ordering::Relaxed) + 1
         };
+
         let succeeded = completed.saturating_sub(failed);
 
         let msg = match failed {
             0 => format!("{succeeded}/{} uploaded", self.total),
-            _ => format!("{succeeded}/{} uploaded, {failed} failed", self.total),
+            _ => format!(
+                "{succeeded}/{} uploaded ({})",
+                self.total,
+                format!("{failed} failed").red()
+            ),
         };
 
         self.progress_bar.set_position(completed);
         self.progress_bar.set_message(msg);
     }
 
-    fn finish(self: Box<Self>, total: usize, files: &[FileUpload]) {
-        let uploaded = files.iter().filter(|f| f.result.is_ok()).count();
-        let failed = files.iter().filter(|f| f.result.is_err()).count();
+    fn finish(&self, total: usize, files: &[FileUpload]) {
         self.progress_bar
-            .finish_with_message(progress_summary(total, uploaded, failed));
-        report_upload_errors(&self.output, files);
-    }
-}
+            .finish_with_message(progress_summary(total, files));
 
-fn report_upload_errors(output: &Output, files: &[FileUpload]) {
-    for f in files {
-        if let Err(e) = &f.result {
-            output.warn(&format!("  {}: {e}", f.path.display()));
+        for f in files {
+            if let Err(e) = &f.result {
+                self.output.warn(&format!("  {}: {e}", f.path.display()));
+            }
         }
     }
 }
@@ -235,12 +228,13 @@ async fn upload_all(
     dataset: &str,
     files: Vec<UploadFile>,
     concurrency: usize,
-    reporter: &dyn ProgressReporter,
+    progress_bar: &UploadProgressBar,
 ) -> Vec<FileUpload> {
     stream::iter(files)
         .map(|file| {
             let client = client.clone();
             let dataset = dataset.to_string();
+
             async move {
                 let result = async {
                     let handle = client
@@ -256,7 +250,9 @@ async fn upload_all(
                     Ok::<String, Error>(handle)
                 }
                 .await;
-                reporter.on_upload(result.is_ok());
+
+                progress_bar.on_upload(result.is_ok());
+
                 FileUpload {
                     doc_id: file.doc_id,
                     path: file.path,
@@ -274,6 +270,7 @@ async fn wait_for_all(
     dataset: &str,
     files: &[FileUpload],
     concurrency: usize,
+    timeout: Duration,
     output: &Output,
 ) -> Result<bool, Error> {
     let handles: Vec<String> = files
@@ -281,28 +278,35 @@ async fn wait_for_all(
         .filter_map(|f| f.result.as_ref().ok().cloned())
         .collect();
     let total = handles.len() as u64;
-    let spinner = output.spinner(format!("0/{total} processed — press Enter to skip"));
+    let spinner = output.spinner(format!("0/{total} processed — Ctrl+C to skip"));
     let progress_bar = spinner.progress_bar.clone();
 
     let process_fut = {
         let client = client.clone();
         let dataset = dataset.to_string();
+
         async move {
             let done = Arc::new(AtomicU64::new(0));
+
             stream::iter(handles)
                 .map(|handle| {
                     let client = client.clone();
                     let dataset = dataset.to_string();
                     let progress_bar = progress_bar.clone();
                     let done = done.clone();
+                    let wait_config = WaitConfig {
+                        frequency: Duration::from_secs(5),
+                        timeout,
+                    };
+
                     async move {
                         client
                             .dataset(&dataset)
-                            .wait_for_handle(&handle, None)
+                            .wait_for_handle(&handle, Some(wait_config))
                             .await?;
                         let n = done.fetch_add(1, Ordering::Relaxed) + 1;
                         if let Some(pb) = &progress_bar {
-                            pb.set_message(format!("{n}/{total} processed — press Enter to skip"));
+                            pb.set_message(format!("{n}/{total} processed — Ctrl+C to skip"));
                         }
                         Ok::<_, Error>(())
                     }
@@ -314,7 +318,7 @@ async fn wait_for_all(
     };
 
     let processed = if !matches!(output.format, OutputFormat::Json) {
-        let cancel = cancel_on_enter();
+        let cancel = cancel_on_ctrl_c();
         tokio::select! {
             r = process_fut => { r?; true }
             _ = cancel => { false }
@@ -329,13 +333,8 @@ async fn wait_for_all(
     Ok(processed)
 }
 
-fn cancel_on_enter() -> tokio::sync::oneshot::Receiver<()> {
-    let (tx, rx) = tokio::sync::oneshot::channel::<()>();
-    std::thread::spawn(move || {
-        let _ = std::io::stdin().read_line(&mut String::new());
-        let _ = tx.send(());
-    });
-    rx
+async fn cancel_on_ctrl_c() {
+    let _ = tokio::signal::ctrl_c().await;
 }
 
 /// `topk upload`
@@ -350,18 +349,10 @@ pub async fn run(
     let total = files.len();
     let total_size: u64 = files.iter().map(|f| f.size).sum();
 
-    if total == 0 {
-        return Ok(UploadResult {
-            total: 0,
-            uploaded: 0,
-            errors: vec![],
-            processed: None,
-        });
-    }
-
-    if args.dry_run {
+    if args.dry_run || total == 0 {
         return Ok(UploadResult {
             total,
+            dry_run: args.dry_run,
             uploaded: 0,
             errors: vec![],
             processed: None,
@@ -379,53 +370,48 @@ pub async fn run(
     )? {
         return Ok(UploadResult {
             total,
+            dry_run: false,
             uploaded: 0,
             errors: vec![],
             processed: None,
         });
     }
 
-    let reporter = upload_reporter(total, output);
-    let upload_fut = upload_all(
+    let progress_bar = UploadProgressBar::new(total as u64, output.clone());
+
+    let file_uploads = upload_all(
         client,
         &args.dataset,
         files,
         args.concurrency as usize,
-        &*reporter,
-    );
-    let file_uploads = match tokio::time::timeout(args.timeout, upload_fut).await {
-        Ok(out) => out,
-        Err(_) => {
-            reporter.finish(total, &[]);
-            return Err(Error::DeadlineExceeded(format!(
-                "upload timed out after {}s",
-                args.timeout.as_secs()
-            )));
-        }
-    };
+        &progress_bar,
+    )
+    .await;
 
-    reporter.finish(total, &file_uploads);
+    progress_bar.finish(total, &file_uploads);
 
     let uploaded = file_uploads.iter().filter(|f| f.result.is_ok()).count();
 
-    let should_wait = if args.wait {
-        true
-    } else if !matches!(output.format, OutputFormat::Json) && uploaded > 0 {
-        output.confirm(&format!(
-            "Wait for processing of {uploaded} uploaded {}? ",
-            plural(uploaded, "file", "files")
-        ))?
-    } else {
-        false
+    let wait_timeout = match args.wait {
+        Some(Some(d)) => Some(d),
+        Some(None) => Some(Duration::MAX),
+        None if !matches!(output.format, OutputFormat::Json) && uploaded > 0 => output
+            .confirm(&format!(
+                "Wait for processing of {uploaded} uploaded {}? ",
+                plural(uploaded, "file", "files")
+            ))?
+            .then_some(Duration::MAX),
+        None => None,
     };
 
-    let processed = if should_wait {
+    let processed = if let Some(timeout) = wait_timeout {
         Some(
             wait_for_all(
                 client,
                 &args.dataset,
                 &file_uploads,
                 args.concurrency as usize,
+                timeout,
                 output,
             )
             .await?,
@@ -436,6 +422,7 @@ pub async fn run(
 
     Ok(UploadResult {
         total,
+        dry_run: false,
         uploaded,
         errors: file_uploads
             .into_iter()
@@ -541,7 +528,7 @@ mod tests {
 
     #[test_context(CliTestContext)]
     #[tokio::test]
-    async fn upload_timeout_aborts(ctx: &mut CliTestContext) {
+    async fn wait_timeout_aborts(ctx: &mut CliTestContext) {
         let dataset = ctx.wrap("timeout");
         ctx.create_dataset(&dataset);
         let out = cmd()
@@ -554,8 +541,8 @@ mod tests {
                 "-y",
                 "--dataset",
                 &dataset,
-                "--timeout",
-                "0",
+                "--wait",
+                "0s",
             ])
             .output()
             .unwrap();
@@ -564,7 +551,7 @@ mod tests {
             "expected failure due to timeout, got success"
         );
         let stderr = String::from_utf8_lossy(&out.stderr);
-        assert!(stderr.contains("timed out"), "{stderr}");
+        assert!(stderr.contains("retry timeout"), "{stderr}");
     }
 
     #[test_context(CliTestContext)]

@@ -17,14 +17,22 @@ pub struct UploadFile {
     pub(crate) mime_type: MimeType,
 }
 
-pub(crate) fn expand_path(pattern: &str) -> Result<PathBuf, Error> {
-    let expanded = shellexpand::full(pattern)
-        .map_err(|err| Error::InvalidArgument(format!("invalid pattern '{}': {}", pattern, err)))?;
-    Ok(PathBuf::from(expanded.as_ref()))
+pub(crate) fn expand_path(pattern: &str, cwd: &Path) -> Result<PathBuf, Error> {
+    let expanded = shellexpand::tilde(pattern);
+
+    let path = Path::new(expanded.as_ref());
+
+    let path = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        cwd.join(path)
+    };
+
+    Ok(path)
 }
 
 fn is_glob_pattern(pattern: &str) -> bool {
-    pattern.contains('*') || pattern.contains('?') || pattern.contains('[')
+    pattern.contains('*')
 }
 
 pub(crate) fn resolve_files(
@@ -32,22 +40,14 @@ pub(crate) fn resolve_files(
     pattern: &str,
     recursive: bool,
 ) -> Result<Vec<UploadFile>, Error> {
-    let expanded = expand_path(pattern)?;
-
-    let path = if expanded.is_absolute() {
-        expanded
-    } else {
-        cwd.join(expanded)
-    };
-
-    let path = path.as_path();
+    let path = expand_path(pattern, cwd)?;
 
     if path.is_file() {
-        return Ok(vec![collect_file(path)?]);
+        return Ok(vec![collect_file(&path)?]);
     }
 
     if path.is_dir() {
-        return collect_directory_files(path, recursive);
+        return collect_directory_files(&path, recursive);
     }
 
     if !is_glob_pattern(pattern) {
@@ -57,7 +57,7 @@ pub(crate) fn resolve_files(
         )));
     }
 
-    collect_files(path)
+    collect_files(&path)
 }
 
 pub(crate) fn collect_file(path: &Path) -> Result<UploadFile, Error> {
@@ -193,13 +193,13 @@ mod tests {
     #[test]
     fn expand_path_resolves_tilde() {
         let home = dirs::home_dir().expect("home dir available");
-        assert_eq!(expand_path("~").unwrap(), home);
+        assert_eq!(expand_path("~", &home).unwrap(), home);
         assert_eq!(
-            expand_path("~/docs/file.pdf").unwrap(),
+            expand_path("~/docs/file.pdf", &home).unwrap(),
             home.join("docs/file.pdf")
         );
         assert_eq!(
-            expand_path("~/docs/**/*.pdf").unwrap(),
+            expand_path("~/docs/**/*.pdf", &home).unwrap(),
             home.join("docs/**/*.pdf")
         );
     }
