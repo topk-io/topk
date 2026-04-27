@@ -88,10 +88,7 @@ impl DatasetsClient {
 
             async move {
                 client
-                    .create_dataset(CreateDatasetRequest {
-                        name,
-                        region,
-                    })
+                    .create_dataset(CreateDatasetRequest { name, region })
                     .await
                     .map_err(|e| match e.code() {
                         // Dataset already exists

@@ -1,8 +1,4 @@
----
-title: "CLI"
-description: "Upload documents, ask questions and search relevant passages grounded in your data from the command line."
-icon: "terminal"
----
+# TopK CLI
 
 Command-line interface for [TopK](https://topk.io) — upload documents, ask questions and search relevant passages grounded in your data.
 
@@ -45,6 +41,7 @@ topk ask "my question" --dataset my-dataset
 | `--show-refs`  | No       | Show citations inline in the answer                                          |
 | `--output-dir` | No       | Save result content (images, text chunks) to a directory                     |
 
+
 The query can also be piped via stdin:
 
 ```bash
@@ -68,6 +65,7 @@ topk search "my query" --dataset my-dataset
 | `--field`      | No       | Metadata field to include in results (repeatable, e.g. `-f title -f author`) |
 | `--output-dir` | No       | Save result content (images, text chunks) to a directory                     |
 
+
 The query can also be piped via stdin:
 
 ```bash
@@ -85,6 +83,7 @@ topk upload docs --dataset my-dataset -r
 topk upload report.pdf notes.md images/ --dataset my-dataset
 ```
 
+
 | Argument    | Required | Description                                                              |
 | ----------- | -------- | ------------------------------------------------------------------------ |
 | `PATTERN`   | **Yes**  | One or more file paths, directories, or glob patterns                    |
@@ -94,6 +93,7 @@ topk upload report.pdf notes.md images/ --dataset my-dataset
 | `-c`        | No       | Number of concurrent uploads, 1–64 (default: 32)                         |
 | `--wait`    | No       | Wait for processing; optionally up to a duration (e.g. `--wait 5m`)     |
 | `--dry-run` | No       | Preview which files would be uploaded without uploading                  |
+
 
 ### list
 
@@ -105,10 +105,12 @@ topk list --dataset my-dataset
 
 Streams results as they arrive. In agent mode (`-o json`) outputs one JSON object per line (NDJSON).
 
+
 | Flag        | Required | Description                                             |
 | ----------- | -------- | ------------------------------------------------------- |
 | `--dataset` | **Yes**  | Dataset to list documents from                          |
 | `--field`   | No       | Metadata field to include (repeatable, e.g. `-f title`) |
+
 
 ### delete
 
@@ -118,11 +120,13 @@ Delete a document from a dataset:
 topk delete --dataset my-dataset --id my-doc-id
 ```
 
+
 | Flag        | Required | Description                     |
 | ----------- | -------- | ------------------------------- |
 | `--dataset` | **Yes**  | Dataset containing the document |
 | `--id`      | **Yes**  | Document ID to delete           |
 | `-y`        | No       | Skip confirmation prompt        |
+
 
 ### dataset
 
@@ -146,9 +150,11 @@ Get a dataset:
 topk dataset get my-dataset
 ```
 
+
 | Argument  | Required | Description  |
 | --------- | -------- | ------------ |
 | `DATASET` | **Yes**  | Dataset name |
+
 
 #### create
 
@@ -158,10 +164,12 @@ Create a dataset:
 topk dataset create --region aws-us-east-1-elastica my-dataset
 ```
 
+
 | Argument   | Required | Description                                                                                                             |
 | ---------- | -------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `DATASET`  | **Yes**  | Dataset name                                                                                                            |
 | `--region` | **Yes**  | Region to create the dataset in. List available regions at [https://docs.topk.io/regions](https://docs.topk.io/regions) |
+
 
 #### delete
 
@@ -171,10 +179,12 @@ Delete a dataset:
 topk dataset delete my-dataset
 ```
 
+
 | Argument  | Required | Description              |
 | --------- | -------- | ------------------------ |
 | `DATASET` | **Yes**  | Dataset name             |
 | `-y`      | No       | Skip confirmation prompt |
+
 
 ### logout
 
