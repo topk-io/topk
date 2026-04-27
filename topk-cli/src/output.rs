@@ -21,6 +21,10 @@ pub struct Output {
     pub format: OutputFormat,
 }
 
+pub fn is_broken_pipe(err: &Error) -> bool {
+    matches!(err, Error::IoError(io_err) if io_err.kind() == std::io::ErrorKind::BrokenPipe)
+}
+
 impl Output {
     pub fn new(format: OutputFormat) -> Self {
         Self { format }

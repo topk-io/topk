@@ -11,7 +11,7 @@ use topk::commands::{ask, dataset, delete, list, login, search, upload};
 use topk::config;
 use topk::dataset_region_cache;
 use topk::datasets::{ensure_unique_region, get_region, make_cached_datasets_client};
-use topk::output::{Output, OutputFormat};
+use topk::output::{is_broken_pipe, Output, OutputFormat};
 use topk_rs::Error;
 
 #[derive(Parser)]
@@ -96,9 +96,6 @@ async fn main() -> ExitCode {
 
     match run(cli, &output).await {
         Ok(()) => ExitCode::SUCCESS,
-        Err(Error::IoError(io_err)) if io_err.kind() == std::io::ErrorKind::BrokenPipe => {
-            ExitCode::SUCCESS
-        }
         Err(e) => {
             output.error(&e);
             ExitCode::FAILURE
@@ -141,7 +138,12 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
                     match output.format {
                         OutputFormat::Json => {
                             for dataset in &result.datasets {
-                                output.print_json_line(dataset)?;
+                                if let Err(err) = output.print_json_line(dataset) {
+                                    if is_broken_pipe(&err) {
+                                        break;
+                                    }
+                                    return Err(err);
+                                }
                             }
                         }
                         OutputFormat::Text => {
@@ -206,7 +208,12 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
                 OutputFormat::Json => {
                     tokio::pin!(stream);
                     while let Some(entry) = stream.next().await {
-                        output.print_json_line(&list::ListEntry::from(entry?))?;
+                        if let Err(err) = output.print_json_line(&list::ListEntry::from(entry?)) {
+                            if is_broken_pipe(&err) {
+                                break;
+                            }
+                            return Err(err);
+                        }
                     }
                 }
                 OutputFormat::Text => {
