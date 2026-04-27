@@ -55,11 +55,11 @@ impl Output {
         Ok(())
     }
 
-    pub fn print_json_line<T: Serialize>(&self, value: &T) -> Result<(), serde_json::Error> {
+    pub fn print_json_line<T: Serialize>(&self, value: &T) -> Result<(), Error> {
         let stdout = std::io::stdout();
         let mut lock = stdout.lock();
-        serde_json::to_writer(&mut lock, value)?;
-        writeln!(&mut lock).map_err(serde_json::Error::io)?;
+        serde_json::to_writer(&mut lock, value).map_err(map_json_write_error)?;
+        writeln!(&mut lock).map_err(Error::IoError)?;
         Ok(())
     }
 
@@ -195,4 +195,12 @@ impl Output {
             Ok(None)
         }
     }
+}
+
+fn map_json_write_error(err: serde_json::Error) -> Error {
+    if let Some(io_kind) = err.io_error_kind() {
+        return Error::IoError(std::io::Error::from(io_kind));
+    }
+
+    Error::MalformedResponse(err.to_string())
 }

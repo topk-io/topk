@@ -1969,6 +1969,7 @@ dependencies = [
  "float8",
  "futures",
  "futures-util",
+ "h2",
  "half",
  "infer",
  "mime_guess",

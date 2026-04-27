@@ -86,9 +86,9 @@ pub fn save_toml<T: Serialize>(path: Option<PathBuf>, value: &T) -> Result<(), E
     save_toml_with(path, value, |path, content| {
         use std::io::Write;
 
-        let parent = path.parent().ok_or_else(|| {
-            Error::Input(anyhow::anyhow!("could not determine parent directory"))
-        })?;
+        let parent = path
+            .parent()
+            .ok_or_else(|| Error::Input(anyhow::anyhow!("could not determine parent directory")))?;
         let mut tmp = NamedTempFile::new_in(parent).map_err(Error::IoError)?;
         tmp.write_all(content.as_bytes()).map_err(Error::IoError)?;
         tmp.flush().map_err(Error::IoError)?;

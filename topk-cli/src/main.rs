@@ -96,6 +96,9 @@ async fn main() -> ExitCode {
 
     match run(cli, &output).await {
         Ok(()) => ExitCode::SUCCESS,
+        Err(Error::IoError(io_err)) if io_err.kind() == std::io::ErrorKind::BrokenPipe => {
+            ExitCode::SUCCESS
+        }
         Err(e) => {
             output.error(&e);
             ExitCode::FAILURE
@@ -138,9 +141,7 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
                     match output.format {
                         OutputFormat::Json => {
                             for dataset in &result.datasets {
-                                output
-                                    .print_json_line(dataset)
-                                    .map_err(|e| Error::Internal(e.to_string()))?;
+                                output.print_json_line(dataset)?;
                             }
                         }
                         OutputFormat::Text => {
@@ -205,9 +206,7 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
                 OutputFormat::Json => {
                     tokio::pin!(stream);
                     while let Some(entry) = stream.next().await {
-                        output
-                            .print_json_line(&list::ListEntry::from(entry?))
-                            .map_err(|e| Error::Internal(e.to_string()))?;
+                        output.print_json_line(&list::ListEntry::from(entry?))?;
                     }
                 }
                 OutputFormat::Text => {
