@@ -13,6 +13,9 @@ const files = {
   rs: {
     cargoToml: Bun.file("./topk-rs/Cargo.toml"),
   },
+  cli: {
+    cargoToml: Bun.file("./topk-cli/Cargo.toml"),
+  },
 };
 
 // Get versions
@@ -28,6 +31,9 @@ async function getVersions() {
     rs: {
       cargoToml: await getCargoTomlVersion(files.rs.cargoToml),
     },
+    cli: {
+      cargoToml: await getCargoTomlVersion(files.cli.cargoToml),
+    },
   };
 
   const uniqueVersions = new Set([
@@ -35,6 +41,7 @@ async function getVersions() {
     versions.js.cargoToml,
     versions.py.cargoToml,
     versions.rs.cargoToml,
+    versions.cli.cargoToml,
   ]);
 
   return { versions, consistent: uniqueVersions.size === 1 };
@@ -54,6 +61,7 @@ async function updateVersions(version: string) {
   await updatePackageJsonVersion(files.js.packageJson, version);
   await updateCargoTomlVersion(files.py.cargoToml, version);
   await updateCargoTomlVersion(files.rs.cargoToml, version);
+  await updateCargoTomlVersion(files.cli.cargoToml, version);
 }
 
 async function updateCargoTomlVersion(file: Bun.File, version: string) {
@@ -91,6 +99,7 @@ program.command("check").action(async () => {
   console.log(`topk-py/Cargo.toml\t${versions.py.cargoToml}`);
   console.log(`topk-js/Cargo.toml\t${versions.js.cargoToml}`);
   console.log(`topk-js/package.json\t${versions.js.packageJson}`);
+  console.log(`topk-cli/Cargo.toml\t${versions.cli.cargoToml}`);
 
   if (!consistent) {
     program.error("ERROR: versions are not consistent");
@@ -101,11 +110,7 @@ program
   .command("update")
   .argument("<version>", "version to update to")
   .action(async (version) => {
-    await updatePackageJsonVersion(files.js.packageJson, version);
-    await updateCargoTomlVersion(files.js.cargoToml, version);
-    await updateCargoTomlVersion(files.py.cargoToml, version);
-    await updateCargoTomlVersion(files.rs.cargoToml, version);
-
+    await updateVersions(version);
     console.info(`updated all versions to ${version}`);
   });
 

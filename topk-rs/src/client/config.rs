@@ -92,7 +92,10 @@ impl ClientConfig {
     /// Builds [`Endpoint`] from the client config.
     pub fn endpoint(&self) -> Result<Endpoint, Error> {
         let protocol = if self.https() { "https" } else { "http" };
-        let uri = format!("{}://{}.api.{}", protocol, self.region(), self.host());
+        let uri = match self.region() {
+            "global" => format!("{}://api.{}", protocol, self.host()),
+            _ => format!("{}://{}.api.{}", protocol, self.region(), self.host()),
+        };
         Ok(Endpoint::from_str(&uri)?)
     }
 }

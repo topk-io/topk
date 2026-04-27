@@ -34,7 +34,7 @@ const SOURCES: Source[] = [
     frontmatter: {
       title: "CLI",
       description:
-        "Manage datasets, upload files, search, and ask questions from the command line.",
+        "Upload documents, ask questions and search relevant passages grounded in your data from the command line.",
       icon: "terminal",
     },
   },
