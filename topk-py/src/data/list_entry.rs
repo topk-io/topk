@@ -20,6 +20,12 @@ pub struct ListEntry {
     /// MIME type
     #[pyo3(get)]
     pub mime_type: String,
+    /// Status
+    #[pyo3(get)]
+    pub status: String,
+    /// Status reason
+    #[pyo3(get)]
+    pub status_reason: Option<String>,
     /// Metadata fields
     #[pyo3(get)]
     pub metadata: HashMap<String, Value>,
@@ -39,6 +45,8 @@ impl From<topk_rs::proto::v1::ctx::ListEntry> for ListEntry {
             name: entry.name,
             size: entry.size,
             mime_type: entry.mime_type,
+            status: entry.status,
+            status_reason: entry.status_reason,
             metadata: entry
                 .metadata
                 .into_iter()

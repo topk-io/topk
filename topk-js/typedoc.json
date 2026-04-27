@@ -25,5 +25,6 @@
   "indexFrontmatter": {
     "title": "topk-js"
   },
-  "publicPath": "/sdk/topk-js"
+  "publicPath": "/sdk/topk-js",
+  "cleanOutputDir": false
 }
