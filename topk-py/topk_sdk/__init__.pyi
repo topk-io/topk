@@ -356,6 +356,8 @@ class ListEntry:
     name: builtins.str
     size: builtins.int
     mime_type: builtins.str
+    status: builtins.str
+    status_reason: typing.Optional[builtins.str]
     metadata: builtins.dict[builtins.str, typing.Any]
 
 class Response:
