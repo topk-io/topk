@@ -17,10 +17,7 @@ pub enum FieldIndexUnion {
     VectorIndex {
         metric: VectorDistanceMetric,
     },
-    SemanticIndex {
-        model: Option<String>,
-        embedding_type: Option<EmbeddingDataType>,
-    },
+    SemanticIndex {},
     MultiVectorIndex {
         metric: MultiVectorDistanceMetric,
         quantization: Option<MultiVectorQuantization>,
@@ -38,14 +35,8 @@ impl FieldIndex {
         Self(FieldIndexUnion::KeywordIndex { index_type })
     }
 
-    pub(crate) fn semantic_index(
-        model: Option<String>,
-        embedding_type: Option<EmbeddingDataType>,
-    ) -> Self {
-        Self(FieldIndexUnion::SemanticIndex {
-            model,
-            embedding_type,
-        })
+    pub(crate) fn semantic_index() -> Self {
+        Self(FieldIndexUnion::SemanticIndex {})
     }
 
     pub(crate) fn multi_vector_index(
@@ -281,15 +272,8 @@ impl From<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
                             .into(),
                     )
                 }
-                topk_rs::proto::v1::control::field_index::Index::SemanticIndex(s) => {
-                    FieldIndex::semantic_index(
-                        s.model,
-                        s.embedding_type.map(|t| {
-                            topk_rs::proto::v1::control::EmbeddingDataType::try_from(t)
-                                .expect("Unsupported embedding data type")
-                                .into()
-                        }),
-                    )
+                topk_rs::proto::v1::control::field_index::Index::SemanticIndex(_) => {
+                    FieldIndex::semantic_index()
                 }
                 topk_rs::proto::v1::control::field_index::Index::MultiVectorIndex(mvi) => {
                     FieldIndex::multi_vector_index(
@@ -322,13 +306,9 @@ impl From<FieldIndex> for topk_rs::proto::v1::control::FieldIndex {
             FieldIndexUnion::VectorIndex { metric } => {
                 topk_rs::proto::v1::control::FieldIndex::vector(metric.into())
             }
-            FieldIndexUnion::SemanticIndex {
-                model,
-                embedding_type,
-            } => topk_rs::proto::v1::control::FieldIndex::semantic(
-                model,
-                embedding_type.map(|t| t.into()),
-            ),
+            FieldIndexUnion::SemanticIndex {} => {
+                topk_rs::proto::v1::control::FieldIndex::semantic()
+            },
             FieldIndexUnion::MultiVectorIndex {
                 metric,
                 quantization,

@@ -28,7 +28,7 @@ async fn test_semantic_index_schema(ctx: &mut ProjectTestContext) {
 #[tokio::test]
 async fn test_semantic_index_create_with_invalid_model(ctx: &mut ProjectTestContext) {
     let schema = schema!(
-        "title" => FieldSpec::semantic(true, Some("definitely-does-not-exist".into()), None),
+        "title" => FieldSpec::semantic(true),
     );
 
     let err = ctx
