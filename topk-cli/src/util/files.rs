@@ -1,3 +1,4 @@
+use std::io;
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
@@ -35,12 +36,21 @@ fn is_glob_pattern(pattern: &str) -> bool {
     pattern.contains('*')
 }
 
+fn file_access_error(path: &Path, err: io::Error) -> Error {
+    Error::IoError(io::Error::new(
+        err.kind(),
+        format!("can't access file '{}': {}", path.display(), err),
+    ))
+}
+
 pub(crate) fn resolve_files(
     cwd: &Path,
     pattern: &str,
     recursive: bool,
 ) -> Result<Vec<UploadFile>, Error> {
     let path = expand_path(pattern, cwd)?;
+
+    path.try_exists().map_err(|e| file_access_error(&path, e))?;
 
     if path.is_file() {
         return Ok(vec![collect_file(&path)?]);
@@ -61,6 +71,8 @@ pub(crate) fn resolve_files(
 }
 
 pub(crate) fn collect_file(path: &Path) -> Result<UploadFile, Error> {
+    std::fs::File::open(path).map_err(|e| file_access_error(path, e))?;
+
     let doc_id = doc_id_from_path(path)?;
     let size = path.metadata().map(|m| m.len())?;
     let mime_type = MimeType::from(InputFile::guess_mime_type(path)?);
@@ -256,5 +268,21 @@ mod tests {
         assert!(err
             .to_string()
             .contains("Invalid document kind: text/plain"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn collect_file_errors_for_unreadable_file() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempdir().unwrap();
+        let file = dir.path().join("note.md");
+        fs::write(&file, "# note").unwrap();
+        fs::set_permissions(&file, fs::Permissions::from_mode(0o000)).unwrap();
+
+        let err = collect_file(&file).unwrap_err();
+
+        fs::set_permissions(&file, fs::Permissions::from_mode(0o600)).unwrap();
+        assert!(err.to_string().contains("can't access file"));
     }
 }
