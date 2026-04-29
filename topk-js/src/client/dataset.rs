@@ -4,7 +4,7 @@ use futures_util::{StreamExt, TryStreamExt};
 use napi::bindgen_prelude::*;
 use napi::tokio::{
     self,
-    sync::{mpsc, Mutex},
+    sync::{mpsc, watch, Mutex},
 };
 use napi_derive::napi;
 use std::sync::Arc;
@@ -125,12 +125,14 @@ pub struct HandleResponse {
 #[napi(async_iterator)]
 pub struct DatasetListStream {
     receiver: Arc<Mutex<mpsc::Receiver<DatasetListStreamMessage>>>,
+    cancel: watch::Sender<bool>,
 }
 
 impl DatasetListStream {
-    fn new(receiver: mpsc::Receiver<DatasetListStreamMessage>) -> Self {
+    fn new(receiver: mpsc::Receiver<DatasetListStreamMessage>, cancel: watch::Sender<bool>) -> Self {
         Self {
             receiver: Arc::new(Mutex::new(receiver)),
+            cancel,
         }
     }
 }
@@ -153,6 +155,20 @@ impl AsyncGenerator for DatasetListStream {
                 Some(Err(e)) => Err(napi::Error::from_reason(e)),
                 None => Ok(None),
             }
+        }
+    }
+
+    fn complete(
+        &mut self,
+        _value: Option<Self::Return>,
+    ) -> impl std::future::Future<Output = Result<Option<Self::Yield>>> + Send + 'static {
+        let receiver = self.receiver.clone();
+        let cancel = self.cancel.clone();
+        let _ = cancel.send(true);
+
+        async move {
+            receiver.lock().await.close();
+            Ok(None)
         }
     }
 }
@@ -334,6 +350,7 @@ impl DatasetClient {
         >,
     ) -> DatasetListStream {
         let (tx, rx) = mpsc::channel::<DatasetListStreamMessage>(STREAM_BUFFER_SIZE);
+        let (cancel_tx, mut cancel_rx) = watch::channel(false);
         let client = self.client.clone();
         let dataset = self.dataset.clone();
         let filter = filter.map(|f| f.clone().into());
@@ -353,14 +370,25 @@ impl DatasetClient {
                     }
                 };
 
-                while let Some(result) = stream.next().await {
-                    let message = match result {
-                        Ok(entry) => Ok(entry.into()),
-                        Err(error) => Err(format!("stream error: {error}")),
-                    };
+                loop {
+                    tokio::select! {
+                        _ = cancel_rx.changed() => {
+                            break;
+                        }
+                        result = stream.next() => {
+                            let Some(result) = result else {
+                                break;
+                            };
 
-                    if tx.send(message).await.is_err() {
-                        break;
+                            let message = match result {
+                                Ok(entry) => Ok(entry.into()),
+                                Err(error) => Err(format!("stream error: {error}")),
+                            };
+
+                            if tx.send(message).await.is_err() {
+                                break;
+                            }
+                        }
                     }
                 }
             });
@@ -368,6 +396,6 @@ impl DatasetClient {
             Ok(())
         });
 
-        DatasetListStream::new(rx)
+        DatasetListStream::new(rx, cancel_tx)
     }
 }
