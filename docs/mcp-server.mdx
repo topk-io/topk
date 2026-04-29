@@ -12,93 +12,131 @@ The TopK MCP server lets any MCP-compatible AI agent query your datasets using n
 <Info>
   **Prerequisites**
 
-  - TopK account ([Sign up here](https://console.topk.io/signup))
+  - TopK account ([Sign up here](https://console.topk.io/login))
   - TopK API key ([Get API key here](https://console.topk.io/api-key))
-  - Node.js 18+ (required to run `npx`)
 </Info>
 
-## MCP Server URL
+## Authentication
 
-<Warning>
-  The MCP server URL is **region-specific**. Make sure to use the URL that matches the region where your datasets are stored, otherwise requests will fail.
-</Warning>
+To authenticate with the MCP server, you need to provide your `TOPK_API_KEY`.
 
-The MCP server URL depends on the region where your datasets are stored:
-
-| Region | MCP Server URL |
-|--------|---------------|
-| `aws-us-east-1-elastica` | `https://elastica.api.topk.io/mcp` |
-| `aws-eu-central-1-monstera` | `https://monstera.api.topk.io/mcp` |
+<Tip>
+  Get your API key [here](https://console.topk.io/api-key).
+</Tip>
 
 ## Setup
 
 <Tabs>
-  <Tab title="Claude Desktop">
-    Open your Claude Desktop config file:
-
-    - **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
-    - **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
-
-    Alternatively, go to **Settings → Developer → Edit Config**.
-
-    Add the following under `mcpServers`:
-
-    <CodeGroup>
-    ```json aws-us-east-1-elastica
-    {
-      "mcpServers": {
-        "topk-elastica": {
-          "command": "npx",
-          "args": [
-            "-y",
-            "mcp-remote",
-            "https://elastica.api.topk.io/mcp",
-            "--header",
-            "Authorization: Bearer ${TOPK_API_KEY}"
-          ],
-          "env": {
-            "TOPK_API_KEY": "your-api-key"
-          }
-        }
-      }
-    }
-    ```
-    ```json aws-eu-central-1-monstera
-    {
-      "mcpServers": {
-        "topk-monstera": {
-          "command": "npx",
-          "args": [
-            "-y",
-            "mcp-remote",
-            "https://monstera.api.topk.io/mcp",
-            "--header",
-            "Authorization: Bearer ${TOPK_API_KEY}"
-          ],
-          "env": {
-            "TOPK_API_KEY": "your-api-key"
-          }
-        }
-      }
-    }
-    ```
-    </CodeGroup>
-
-    Restart Claude Desktop to apply the changes.
-  </Tab>
   <Tab title="Claude Code">
-    Add the following to your `.claude/mcp.json`:
+    <Steps>
+      <Step title="aws-us-east-1-elastica" icon="flower-2">
+      ```bash
+  claude mcp add --transport http topk https://elastica.api.topk.io/mcp \
+    --header "Authorization: Bearer <your-topk-api-key>"
+      ```
+      </Step>
+ 
 
-    <CodeGroup>
-    ```bash aws-us-east-1-elastica
-claude mcp add --transport http topk-elastica https://elastica.api.topk.io/mcp \
-  --header "Authorization: Bearer <your-api-key>"
-    ```
-    ```bash aws-eu-central-1-monstera
-claude mcp add --transport http topk-monstera https://monstera.api.topk.io/mcp \
-  --header "Authorization: Bearer <your-api-key>"
-    ```
-    </CodeGroup>
+      <Step title="aws-eu-central-1-monstera" icon="clover">  
+      ```bash
+  claude mcp add --transport http topk https://monstera.api.topk.io/mcp \
+    --header "Authorization: Bearer <your-topk-api-key>"
+      ```
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Codex">
+    <Steps>
+      <Step title="aws-us-east-1-elastica" icon="flower-2">
+      ```bash
+  codex mcp add topk --url https://elastica.api.topk.io/mcp --bearer-token-env-var TOPK_API_KEY
+      ```
+      </Step>
+ 
+
+      <Step title="aws-eu-central-1-monstera" icon="clover">  
+      ```bash
+  codex mcp add topk --url https://monstera.api.topk.io/mcp --bearer-token-env-var TOPK_API_KEY
+      ```
+      </Step>
+    </Steps>
+
+    <Warning>
+      You need to set the `TOPK_API_KEY` environment variable that **Codex** will use in the
+      Authorization header.
+    </Warning>
+
+  </Tab>
+  <Tab title="Claude Desktop">
+    <Steps>
+      <Step title="Open Developer Settings">
+        Go to Settings → Developer -> Edit Config.
+
+        <Info>
+          Make sure you have **Developer Mode** enabled in Claude Desktop.
+        </Info>
+
+        <Frame>
+          <img src="/images/claude-desktop-developer-settings.png" alt="Claude Desktop Developer Settings" />
+        </Frame>
+      </Step>
+      <Step title="Open Config File">
+        Open your Claude Desktop JSON config file:
+        <Frame>
+          <img src="/images/claude-desktop-config-json.png" alt="Claude Desktop Config File" />
+        </Frame>
+      </Step>
+      <Step title="Add TopK MCP">
+        Add the following under `mcpServers` and provide your API key:
+        <CodeGroup>
+        ```json aws-us-east-1-elastica
+        {
+          "mcpServers": {
+            "topk": {
+              "command": "npx",
+              "args": [
+                "-y",
+                "mcp-remote",
+                "https://elastica.api.topk.io/mcp",
+                "--header",
+                "Authorization: Bearer ${TOPK_API_KEY}"
+              ],
+              "env": {
+                "TOPK_API_KEY": "your-api-key-here"
+              }
+            }
+          }
+        }
+        ```
+        ```json aws-eu-central-1-monstera
+        {
+          "mcpServers": {
+            "topk": {
+              "command": "npx",
+              "args": [
+                "-y",
+                "mcp-remote",
+                "https://monstera.api.topk.io/mcp",
+                "--header",
+                "Authorization: Bearer ${TOPK_API_KEY}"
+              ],
+              "env": {
+                "TOPK_API_KEY": "your-api-key-here"
+              }
+            }
+          }
+        }
+        ```
+        </CodeGroup>
+
+        <Info>
+          Make sure you have **Node.js** installed with version **20** or **higher**.
+        </Info>
+      </Step>
+      <Step title="Restart Claude Desktop">
+        Restart Claude Desktop to apply the changes.
+      </Step>
+    </Steps>
   </Tab>
   <Tab title="Cursor">
     Add the following to `~/.cursor/mcp.json`:
@@ -117,7 +155,7 @@ claude mcp add --transport http topk-monstera https://monstera.api.topk.io/mcp \
             "Authorization: Bearer ${TOPK_API_KEY}"
           ],
           "env": {
-            "TOPK_API_KEY": "your-api-key"
+            "TOPK_API_KEY": "your-api-key-here"
           }
         }
       }
@@ -136,7 +174,7 @@ claude mcp add --transport http topk-monstera https://monstera.api.topk.io/mcp \
             "Authorization: Bearer ${TOPK_API_KEY}"
           ],
           "env": {
-            "TOPK_API_KEY": "your-api-key"
+            "TOPK_API_KEY": "your-api-key-here"
           }
         }
       }
@@ -146,110 +184,34 @@ claude mcp add --transport http topk-monstera https://monstera.api.topk.io/mcp \
 
     Restart Cursor to apply the changes.
   </Tab>
-  <Tab title="Windsurf">
-    Add the following to `~/.codeium/windsurf/mcp_config.json`:
-
-    <CodeGroup>
-    ```json aws-us-east-1-elastica
-    {
-      "mcpServers": {
-        "topk-elastica": {
-          "command": "npx",
-          "args": [
-            "-y",
-            "mcp-remote",
-            "https://elastica.api.topk.io/mcp",
-            "--header",
-            "Authorization: Bearer ${TOPK_API_KEY}"
-          ],
-          "env": {
-            "TOPK_API_KEY": "your-api-key"
-          }
-        }
-      }
-    }
-    ```
-    ```json aws-eu-central-1-monstera
-    {
-      "mcpServers": {
-        "topk-monstera": {
-          "command": "npx",
-          "args": [
-            "-y",
-            "mcp-remote",
-            "https://monstera.api.topk.io/mcp",
-            "--header",
-            "Authorization: Bearer ${TOPK_API_KEY}"
-          ],
-          "env": {
-            "TOPK_API_KEY": "your-api-key"
-          }
-        }
-      }
-    }
-    ```
-    </CodeGroup>
-
-    Restart Windsurf to apply the changes.
-  </Tab>
-  <Tab title="VS Code">
-    Add the following to `.vscode/mcp.json`:
-
-    <CodeGroup>
-    ```json aws-us-east-1-elastica
-    {
-      "servers": {
-        "topk-elastica": {
-          "command": "npx",
-          "args": [
-            "-y",
-            "mcp-remote",
-            "https://elastica.api.topk.io/mcp",
-            "--header",
-            "Authorization: Bearer ${TOPK_API_KEY}"
-          ],
-          "env": {
-            "TOPK_API_KEY": "your-api-key"
-          }
-        }
-      }
-    }
-    ```
-    ```json aws-eu-central-1-monstera
-    {
-      "servers": {
-        "topk-monstera": {
-          "command": "npx",
-          "args": [
-            "-y",
-            "mcp-remote",
-            "https://monstera.api.topk.io/mcp",
-            "--header",
-            "Authorization: Bearer ${TOPK_API_KEY}"
-          ],
-          "env": {
-            "TOPK_API_KEY": "your-api-key"
-          }
-        }
-      }
-    }
-    ```
-    </CodeGroup>
-  </Tab>
 </Tabs>
+
+<Info>
+  TopK MCP server is **region-specific**. See available regions [here](/regions).
+</Info>
 
 ## Available tools
 
-Once connected, your agent will have access to the following tools:
+Once connected, your agent will have access to `list_datasets` and `ask` tools.
 
-<AccordionGroup>
-  <Accordion title="list_datasets" icon="database">
-    Lists all available datasets in your TopK project. The agent should call this first to discover what data is available before answering any data-related questions.
-  </Accordion>
-  <Accordion title="ask" icon="message-circle">
-    Queries one or more datasets using natural language and returns a grounded answer. Supports two modes:
+Agents typically follow this flow:
 
-    - **reason** *(default)* — multi-step search and reasoning, best for analytical or comparative questions
-    - **summarize** — single search with a concise answer, best for simple lookups
-  </Accordion>
-</AccordionGroup>
+1. Call `list_datasets` to discover what datasets are available
+2. Select one or more relevant datasets
+3. Call `ask` with a natural language query and the selected datasets
+
+### `list_datasets`
+
+Lists all available datasets in your TopK project. The agent should call this first to discover what data is available before answering any data-related questions.
+
+### `ask`
+
+Queries one or more datasets using natural language and returns a grounded answer.
+
+These ask modes are supported:
+
+- **auto** *(default)* — chooses the best mode based on the provided query
+- **summarize** — gathers information from the datasets and returns a concise answer
+- **research** — multi-step search and reasoning, best for analytical or comparative questions
+
+
