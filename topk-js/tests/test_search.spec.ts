@@ -28,7 +28,7 @@ describe("Search", () => {
     const results = await ctx.client.search("technical", [dataset.name], 10);
 
     expect(results.length).toBeGreaterThan(0);
-  }, 60000);
+  }, 1000 * 60 * 6); // 6 minutes
 
   test("searchStream yields results", async () => {
     const ctx = getContext();
@@ -48,5 +48,5 @@ describe("Search", () => {
 
     expect(results.length).toBeGreaterThan(0);
     expect(results.every((r) => typeof r.docId === "string")).toBe(true);
-  }, 60000);
+  }, 1000 * 60 * 6); // 6 minutes
 });

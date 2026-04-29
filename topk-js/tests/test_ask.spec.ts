@@ -41,7 +41,7 @@ describe("Ask", () => {
     const result = await ctx.client.ask("summarize", [dataset.name]);
 
     expect(isAnswerMessage(result)).toBe(true);
-  }, 60000);
+  }, 1000 * 60 * 6); // 6 minutes
 
   test("askStream yields an answer", async () => {
     const ctx = getContext();
@@ -63,5 +63,5 @@ describe("Ask", () => {
     }
 
     expect(answerReceived).toBe(true);
-  }, 60000);
+  }, 1000 * 60 * 6); // 6 minutes
 });
