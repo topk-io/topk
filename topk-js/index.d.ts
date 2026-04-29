@@ -287,6 +287,8 @@ export interface Dataset {
   projectId: string
   /** Region where the dataset is stored */
   region: string
+  /** RFC 3339 timestamp when the dataset was created */
+  createdAt: string
 }
 
 /** Represents a fact in an ask response. */
@@ -330,6 +332,8 @@ export interface ListEntry {
   size: number
   mimeType: string
   metadata: Record<string, any>
+  status: string
+  statusReason?: string
 }
 
 /** Mode for ask operations. */

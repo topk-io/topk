@@ -8,7 +8,7 @@ use futures_util::{StreamExt, TryStreamExt};
 use napi::bindgen_prelude::*;
 use napi::tokio::{
     self,
-    sync::{mpsc, Mutex},
+    sync::{mpsc, watch, Mutex},
 };
 use napi_derive::napi;
 
@@ -69,12 +69,14 @@ pub struct Client {
 #[napi(async_iterator)]
 pub struct AskStream {
     receiver: Arc<Mutex<mpsc::Receiver<AskStreamMessage>>>,
+    cancel: watch::Sender<bool>,
 }
 
 impl AskStream {
-    fn new(receiver: mpsc::Receiver<AskStreamMessage>) -> Self {
+    fn new(receiver: mpsc::Receiver<AskStreamMessage>, cancel: watch::Sender<bool>) -> Self {
         Self {
             receiver: Arc::new(Mutex::new(receiver)),
+            cancel,
         }
     }
 }
@@ -99,18 +101,34 @@ impl AsyncGenerator for AskStream {
             }
         }
     }
+
+    fn complete(
+        &mut self,
+        _value: Option<Self::Return>,
+    ) -> impl std::future::Future<Output = Result<Option<Self::Yield>>> + Send + 'static {
+        let receiver = self.receiver.clone();
+        let cancel = self.cancel.clone();
+        let _ = cancel.send(true);
+
+        async move {
+            receiver.lock().await.close();
+            Ok(None)
+        }
+    }
 }
 
 /// Iterator for search responses.
 #[napi(async_iterator)]
 pub struct SearchStream {
     receiver: Arc<Mutex<mpsc::Receiver<SearchStreamMessage>>>,
+    cancel: watch::Sender<bool>,
 }
 
 impl SearchStream {
-    fn new(receiver: mpsc::Receiver<SearchStreamMessage>) -> Self {
+    fn new(receiver: mpsc::Receiver<SearchStreamMessage>, cancel: watch::Sender<bool>) -> Self {
         Self {
             receiver: Arc::new(Mutex::new(receiver)),
+            cancel,
         }
     }
 }
@@ -133,6 +151,20 @@ impl AsyncGenerator for SearchStream {
                 Some(Err(e)) => Err(napi::Error::from_reason(e)),
                 None => Ok(None),
             }
+        }
+    }
+
+    fn complete(
+        &mut self,
+        _value: Option<Self::Return>,
+    ) -> impl std::future::Future<Output = Result<Option<Self::Yield>>> + Send + 'static {
+        let receiver = self.receiver.clone();
+        let cancel = self.cancel.clone();
+        let _ = cancel.send(true);
+
+        async move {
+            receiver.lock().await.close();
+            Ok(None)
         }
     }
 }
@@ -232,6 +264,7 @@ impl Client {
         select_fields: Option<Vec<String>>,
     ) -> AskStream {
         let (tx, rx) = mpsc::channel::<AskStreamMessage>(STREAM_BUFFER_SIZE);
+        let (cancel_tx, mut cancel_rx) = watch::channel(false);
         let client = self.client.clone();
         let filter = filter.map(|f| f.clone().into());
         let mode = mode.map(|m| m.into());
@@ -254,14 +287,25 @@ impl Client {
                     }
                 };
 
-                while let Some(result) = stream.next().await {
-                    let message = match result {
-                        Ok(message) => convert_ask_result(message).map_err(|e| e.to_string()),
-                        Err(error) => Err(format!("stream error: {error}")),
-                    };
+                loop {
+                    tokio::select! {
+                        _ = cancel_rx.changed() => {
+                            break;
+                        }
+                        result = stream.next() => {
+                            let Some(result) = result else {
+                                break;
+                            };
 
-                    if tx.send(message).await.is_err() {
-                        break;
+                            let message = match result {
+                                Ok(message) => convert_ask_result(message).map_err(|e| e.to_string()),
+                                Err(error) => Err(format!("stream error: {error}")),
+                            };
+
+                            if tx.send(message).await.is_err() {
+                                break;
+                            }
+                        }
                     }
                 }
             });
@@ -269,7 +313,7 @@ impl Client {
             Ok(())
         });
 
-        AskStream::new(rx)
+        AskStream::new(rx, cancel_tx)
     }
 
     /// Search for documents and wait for the stream to complete, returning all results.
@@ -314,6 +358,7 @@ impl Client {
         select_fields: Option<Vec<String>>,
     ) -> SearchStream {
         let (tx, rx) = mpsc::channel::<SearchStreamMessage>(STREAM_BUFFER_SIZE);
+        let (cancel_tx, mut cancel_rx) = watch::channel(false);
         let client = self.client.clone();
         let filter = filter.map(|f| f.clone().into());
         let select_fields = select_fields.unwrap_or_default();
@@ -336,14 +381,25 @@ impl Client {
                     }
                 };
 
-                while let Some(result) = stream.next().await {
-                    let message = match result {
-                        Ok(message) => SearchResult::try_from(message).map_err(|e| e.to_string()),
-                        Err(error) => Err(format!("stream error: {error}")),
-                    };
+                loop {
+                    tokio::select! {
+                        _ = cancel_rx.changed() => {
+                            break;
+                        }
+                        result = stream.next() => {
+                            let Some(result) = result else {
+                                break;
+                            };
 
-                    if tx.send(message).await.is_err() {
-                        break;
+                            let message = match result {
+                                Ok(message) => SearchResult::try_from(message).map_err(|e| e.to_string()),
+                                Err(error) => Err(format!("stream error: {error}")),
+                            };
+
+                            if tx.send(message).await.is_err() {
+                                break;
+                            }
+                        }
                     }
                 }
             });
@@ -351,7 +407,7 @@ impl Client {
             Ok(())
         });
 
-        SearchStream::new(rx)
+        SearchStream::new(rx, cancel_tx)
     }
 }
 

@@ -29,7 +29,7 @@ describe("Ask", () => {
     await Promise.all(contexts.map((ctx) => ctx.cleanup()));
   });
 
-  test.failing("ask returns an answer", async () => {
+  test("ask returns an answer", async () => {
     const ctx = getContext();
     const dataset = await ctx.createDataset("test");
 
@@ -41,9 +41,9 @@ describe("Ask", () => {
     const result = await ctx.client.ask("summarize", [dataset.name]);
 
     expect(isAnswerMessage(result)).toBe(true);
-  });
+  }, 60000);
 
-  test.failing("askStream yields an answer", async () => {
+  test("askStream yields an answer", async () => {
     const ctx = getContext();
     const dataset = await ctx.createDataset("test");
 
@@ -63,5 +63,5 @@ describe("Ask", () => {
     }
 
     expect(answerReceived).toBe(true);
-  });
+  }, 60000);
 });

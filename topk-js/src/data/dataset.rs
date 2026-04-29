@@ -11,6 +11,8 @@ pub struct Dataset {
     pub project_id: String,
     /// Region where the dataset is stored
     pub region: String,
+    /// RFC 3339 timestamp when the dataset was created
+    pub created_at: String,
 }
 
 impl From<topk_rs::proto::v1::control::Dataset> for Dataset {
@@ -20,6 +22,7 @@ impl From<topk_rs::proto::v1::control::Dataset> for Dataset {
             org_id: dataset.org_id,
             project_id: dataset.project_id,
             region: dataset.region,
+            created_at: dataset.created_at,
         }
     }
 }

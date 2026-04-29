@@ -59,7 +59,7 @@ impl DatasetsClient {
         let response = self
             .client
             .datasets()
-            .create(&name)
+            .create(&name, None)
             .await
             .map_err(TopkError::from)?;
 

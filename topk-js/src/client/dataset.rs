@@ -91,6 +91,8 @@ pub struct ListEntry {
     pub mime_type: String,
     #[napi(ts_type = "Record<string, any>")]
     pub metadata: HashMap<String, NativeValue>,
+    pub status: String,
+    pub status_reason: Option<String>,
 }
 
 impl From<topk_rs::proto::v1::ctx::ListEntry> for ListEntry {
@@ -105,6 +107,8 @@ impl From<topk_rs::proto::v1::ctx::ListEntry> for ListEntry {
                 .into_iter()
                 .map(|(k, v)| (k, v.into()))
                 .collect(),
+            status: entry.status,
+            status_reason: entry.status_reason,
         }
     }
 }

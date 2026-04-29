@@ -16,7 +16,7 @@ describe("Search", () => {
     await Promise.all(contexts.map((ctx) => ctx.cleanup()));
   });
 
-  test.failing("search returns results", async () => {
+  test("search returns results", async () => {
     const ctx = getContext();
     const dataset = await ctx.createDataset("test");
 
@@ -28,9 +28,9 @@ describe("Search", () => {
     const results = await ctx.client.search("technical", [dataset.name], 10);
 
     expect(results.length).toBeGreaterThan(0);
-  });
+  }, 60000);
 
-  test.failing("searchStream yields results", async () => {
+  test("searchStream yields results", async () => {
     const ctx = getContext();
     const dataset = await ctx.createDataset("test");
 
@@ -48,5 +48,5 @@ describe("Search", () => {
 
     expect(results.length).toBeGreaterThan(0);
     expect(results.every((r) => typeof r.docId === "string")).toBe(true);
-  });
+  }, 60000);
 });
