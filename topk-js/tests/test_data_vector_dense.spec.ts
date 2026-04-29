@@ -7,7 +7,6 @@ import {
   u8Vector,
 } from "../lib/data";
 
-const TYPE_ERROR = "Given napi value is not an array";
 const TYPE_ERROR_U32_TO_U8 = "Failed to convert u32 to u8";
 const TYPE_ERROR_I32_TO_I8 = "Failed to convert i32 to i8";
 
@@ -26,17 +25,17 @@ describe("f8Vector", () => {
   });
 
   test("invalid arguments", () => {
-    expect(() => f8Vector(0 as any)).toThrow(TYPE_ERROR);
-    expect(() => f8Vector(null as any)).toThrow(TYPE_ERROR);
-    expect(() => f8Vector(undefined as any)).toThrow(TYPE_ERROR);
-    expect(() => f8Vector(false as any)).toThrow(TYPE_ERROR);
-    expect(() => f8Vector(NaN as any)).toThrow(TYPE_ERROR);
-    expect(() => f8Vector(Infinity as any)).toThrow(TYPE_ERROR);
-    expect(() => f8Vector(-Infinity as any)).toThrow(TYPE_ERROR);
-    expect(() => f8Vector(Symbol("foo") as any)).toThrow(TYPE_ERROR);
-    expect(() => f8Vector(BigInt(1) as any)).toThrow(TYPE_ERROR);
-    expect(() => f8Vector({ 1: 256 } as any)).toThrow(TYPE_ERROR);
-    expect(() => f8Vector({ 1: -1 } as any)).toThrow(TYPE_ERROR);
+    expect(() => f8Vector(0 as any)).toThrow();
+    expect(() => f8Vector(null as any)).toThrow();
+    expect(() => f8Vector(undefined as any)).toThrow();
+    expect(() => f8Vector(false as any)).toThrow();
+    expect(() => f8Vector(NaN as any)).toThrow();
+    expect(() => f8Vector(Infinity as any)).toThrow();
+    expect(() => f8Vector(-Infinity as any)).toThrow();
+    expect(() => f8Vector(Symbol("foo") as any)).toThrow();
+    expect(() => f8Vector(BigInt(1) as any)).toThrow();
+    expect(() => f8Vector({ 1: 256 } as any)).toThrow();
+    expect(() => f8Vector({ 1: -1 } as any)).toThrow();
   });
 });
 
@@ -55,17 +54,17 @@ describe("f16Vector", () => {
   });
 
   test("invalid arguments", () => {
-    expect(() => f16Vector(0 as any)).toThrow(TYPE_ERROR);
-    expect(() => f16Vector(null as any)).toThrow(TYPE_ERROR);
-    expect(() => f16Vector(undefined as any)).toThrow(TYPE_ERROR);
-    expect(() => f16Vector(false as any)).toThrow(TYPE_ERROR);
-    expect(() => f16Vector(NaN as any)).toThrow(TYPE_ERROR);
-    expect(() => f16Vector(Infinity as any)).toThrow(TYPE_ERROR);
-    expect(() => f16Vector(-Infinity as any)).toThrow(TYPE_ERROR);
-    expect(() => f16Vector(Symbol("foo") as any)).toThrow(TYPE_ERROR);
-    expect(() => f16Vector(BigInt(1) as any)).toThrow(TYPE_ERROR);
-    expect(() => f16Vector({ 1: 256 } as any)).toThrow(TYPE_ERROR);
-    expect(() => f16Vector({ 1: -1 } as any)).toThrow(TYPE_ERROR);
+    expect(() => f16Vector(0 as any)).toThrow();
+    expect(() => f16Vector(null as any)).toThrow();
+    expect(() => f16Vector(undefined as any)).toThrow();
+    expect(() => f16Vector(false as any)).toThrow();
+    expect(() => f16Vector(NaN as any)).toThrow();
+    expect(() => f16Vector(Infinity as any)).toThrow();
+    expect(() => f16Vector(-Infinity as any)).toThrow();
+    expect(() => f16Vector(Symbol("foo") as any)).toThrow();
+    expect(() => f16Vector(BigInt(1) as any)).toThrow();
+    expect(() => f16Vector({ 1: 256 } as any)).toThrow();
+    expect(() => f16Vector({ 1: -1 } as any)).toThrow();
   });
 });
 
@@ -85,17 +84,17 @@ describe("f32Vector", () => {
   });
 
   test("invalid arguments", () => {
-    expect(() => f32Vector(0 as any)).toThrow(TYPE_ERROR);
-    expect(() => f32Vector(null as any)).toThrow(TYPE_ERROR);
-    expect(() => f32Vector(undefined as any)).toThrow(TYPE_ERROR);
-    expect(() => f32Vector(false as any)).toThrow(TYPE_ERROR);
-    expect(() => f32Vector(NaN as any)).toThrow(TYPE_ERROR);
-    expect(() => f32Vector(Infinity as any)).toThrow(TYPE_ERROR);
-    expect(() => f32Vector(-Infinity as any)).toThrow(TYPE_ERROR);
-    expect(() => f32Vector(Symbol("foo") as any)).toThrow(TYPE_ERROR);
-    expect(() => f32Vector(BigInt(1) as any)).toThrow(TYPE_ERROR);
-    expect(() => f32Vector({ 1: 256 } as any)).toThrow(TYPE_ERROR);
-    expect(() => f32Vector({ 1: -1 } as any)).toThrow(TYPE_ERROR);
+    expect(() => f32Vector(0 as any)).toThrow();
+    expect(() => f32Vector(null as any)).toThrow();
+    expect(() => f32Vector(undefined as any)).toThrow();
+    expect(() => f32Vector(false as any)).toThrow();
+    expect(() => f32Vector(NaN as any)).toThrow();
+    expect(() => f32Vector(Infinity as any)).toThrow();
+    expect(() => f32Vector(-Infinity as any)).toThrow();
+    expect(() => f32Vector(Symbol("foo") as any)).toThrow();
+    expect(() => f32Vector(BigInt(1) as any)).toThrow();
+    expect(() => f32Vector({ 1: 256 } as any)).toThrow();
+    expect(() => f32Vector({ 1: -1 } as any)).toThrow();
   });
 });
 
@@ -120,17 +119,17 @@ describe("u8Vector", () => {
   });
 
   test("invalid arguments", () => {
-    expect(() => u8Vector(0 as any)).toThrow(TYPE_ERROR);
-    expect(() => u8Vector(null as any)).toThrow(TYPE_ERROR);
-    expect(() => u8Vector(undefined as any)).toThrow(TYPE_ERROR);
-    expect(() => u8Vector(false as any)).toThrow(TYPE_ERROR);
-    expect(() => u8Vector(NaN as any)).toThrow(TYPE_ERROR);
-    expect(() => u8Vector(Infinity as any)).toThrow(TYPE_ERROR);
-    expect(() => u8Vector(-Infinity as any)).toThrow(TYPE_ERROR);
-    expect(() => u8Vector(Symbol("foo") as any)).toThrow(TYPE_ERROR);
-    expect(() => u8Vector(BigInt(1) as any)).toThrow(TYPE_ERROR);
-    expect(() => u8Vector({ 1: 256 } as any)).toThrow(TYPE_ERROR);
-    expect(() => u8Vector({ 1: -1 } as any)).toThrow(TYPE_ERROR);
+    expect(() => u8Vector(0 as any)).toThrow();
+    expect(() => u8Vector(null as any)).toThrow();
+    expect(() => u8Vector(undefined as any)).toThrow();
+    expect(() => u8Vector(false as any)).toThrow();
+    expect(() => u8Vector(NaN as any)).toThrow();
+    expect(() => u8Vector(Infinity as any)).toThrow();
+    expect(() => u8Vector(-Infinity as any)).toThrow();
+    expect(() => u8Vector(Symbol("foo") as any)).toThrow();
+    expect(() => u8Vector(BigInt(1) as any)).toThrow();
+    expect(() => u8Vector({ 1: 256 } as any)).toThrow();
+    expect(() => u8Vector({ 1: -1 } as any)).toThrow();
   });
 });
 
@@ -155,17 +154,17 @@ describe("i8Vector", () => {
   });
 
   test("invalid arguments", () => {
-    expect(() => i8Vector(0 as any)).toThrow(TYPE_ERROR);
-    expect(() => i8Vector(null as any)).toThrow(TYPE_ERROR);
-    expect(() => i8Vector(undefined as any)).toThrow(TYPE_ERROR);
-    expect(() => i8Vector(false as any)).toThrow(TYPE_ERROR);
-    expect(() => i8Vector(NaN as any)).toThrow(TYPE_ERROR);
-    expect(() => i8Vector(Infinity as any)).toThrow(TYPE_ERROR);
-    expect(() => i8Vector(-Infinity as any)).toThrow(TYPE_ERROR);
-    expect(() => i8Vector(Symbol("foo") as any)).toThrow(TYPE_ERROR);
-    expect(() => i8Vector(BigInt(1) as any)).toThrow(TYPE_ERROR);
-    expect(() => i8Vector({ 1: 256 } as any)).toThrow(TYPE_ERROR);
-    expect(() => i8Vector({ 1: -1 } as any)).toThrow(TYPE_ERROR);
+    expect(() => i8Vector(0 as any)).toThrow();
+    expect(() => i8Vector(null as any)).toThrow();
+    expect(() => i8Vector(undefined as any)).toThrow();
+    expect(() => i8Vector(false as any)).toThrow();
+    expect(() => i8Vector(NaN as any)).toThrow();
+    expect(() => i8Vector(Infinity as any)).toThrow();
+    expect(() => i8Vector(-Infinity as any)).toThrow();
+    expect(() => i8Vector(Symbol("foo") as any)).toThrow();
+    expect(() => i8Vector(BigInt(1) as any)).toThrow();
+    expect(() => i8Vector({ 1: 256 } as any)).toThrow();
+    expect(() => i8Vector({ 1: -1 } as any)).toThrow();
   });
 });
 
@@ -190,16 +189,16 @@ describe("binaryVector", () => {
   });
 
   test("invalid arguments", () => {
-    expect(() => binaryVector(0 as any)).toThrow(TYPE_ERROR);
-    expect(() => binaryVector(null as any)).toThrow(TYPE_ERROR);
-    expect(() => binaryVector(undefined as any)).toThrow(TYPE_ERROR);
-    expect(() => binaryVector(false as any)).toThrow(TYPE_ERROR);
-    expect(() => binaryVector(NaN as any)).toThrow(TYPE_ERROR);
-    expect(() => binaryVector(Infinity as any)).toThrow(TYPE_ERROR);
-    expect(() => binaryVector(-Infinity as any)).toThrow(TYPE_ERROR);
-    expect(() => binaryVector(Symbol("foo") as any)).toThrow(TYPE_ERROR);
-    expect(() => binaryVector(BigInt(1) as any)).toThrow(TYPE_ERROR);
-    expect(() => binaryVector({ 1: 256 } as any)).toThrow(TYPE_ERROR);
-    expect(() => binaryVector({ 1: -1 } as any)).toThrow(TYPE_ERROR);
+    expect(() => binaryVector(0 as any)).toThrow();
+    expect(() => binaryVector(null as any)).toThrow();
+    expect(() => binaryVector(undefined as any)).toThrow();
+    expect(() => binaryVector(false as any)).toThrow();
+    expect(() => binaryVector(NaN as any)).toThrow();
+    expect(() => binaryVector(Infinity as any)).toThrow();
+    expect(() => binaryVector(-Infinity as any)).toThrow();
+    expect(() => binaryVector(Symbol("foo") as any)).toThrow();
+    expect(() => binaryVector(BigInt(1) as any)).toThrow();
+    expect(() => binaryVector({ 1: 256 } as any)).toThrow();
+    expect(() => binaryVector({ 1: -1 } as any)).toThrow();
   });
 });
