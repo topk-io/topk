@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::proto::ctx::v1::{
-    ask_result::{Answer, Message, Reason, Search},
+    ask_result::{Answer, Message, Search},
     AskResult, Fact, SearchResult,
 };
 
@@ -12,23 +12,9 @@ impl AskResult {
         }
     }
 
-    pub fn search(
-        objective: String,
-        facts: Vec<Fact>,
-        refs: HashMap<String, SearchResult>,
-    ) -> Self {
+    pub fn search(query: String) -> Self {
         Self {
-            message: Some(Message::Search(Search {
-                objective,
-                facts,
-                refs,
-            })),
-        }
-    }
-
-    pub fn reason(thought: String) -> Self {
-        Self {
-            message: Some(Message::Reason(Reason { thought })),
+            message: Some(Message::Search(Search { query })),
         }
     }
 }
