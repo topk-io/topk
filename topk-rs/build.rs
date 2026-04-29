@@ -102,8 +102,7 @@ fn build_topk_v1_protos() {
         // ctx
         "topk.ctx.v1.AskResult",
         "topk.ctx.v1.AskResult.message",
-        "topk.ctx.v1.AskResult.Search",
-        "topk.ctx.v1.AskResult.Reason",
+        "topk.ctx.v1.AskResult.Progress",
         "topk.ctx.v1.AskResult.Answer",
         "topk.ctx.v1.Fact",
         "topk.ctx.v1.SearchResult",
