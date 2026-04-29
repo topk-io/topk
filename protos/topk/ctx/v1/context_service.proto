@@ -74,16 +74,12 @@ message AskRequest {
 }
 
 message AskResult {
-    message Search {
-        string objective = 1;
-        repeated Fact facts = 2;
-        map<string, SearchResult> refs = 3;
+    // Progress update
+    message Progress {
+        string update = 1;
     }
 
-    message Reason {
-        string thought = 1;
-    }
-
+    // Final answer
     message Answer {
         repeated Fact facts = 1;
         map<string, SearchResult> refs = 2;
@@ -91,8 +87,7 @@ message AskResult {
 
     oneof message {
         Answer answer = 1;
-        Search search = 2;
-        Reason reason = 3;
+        Progress progress = 2;
     }
 }
 
