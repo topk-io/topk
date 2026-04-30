@@ -127,7 +127,7 @@ Ask a question and wait for the stream to complete, returning the last message.
 
 **Returns**
 
-[`Answer`](#answer) | [`Search`](#search) | [`Reason`](#reason)
+[`Answer`](#answer) | [`Progress`](#progress)
 
 ***
 
@@ -158,7 +158,7 @@ Ask a question and get streaming responses as an iterator.
 
 **Returns**
 
-Iterator[[`Answer`](#answer) | [`Search`](#search) | [`Reason`](#reason)]
+Iterator[[`Answer`](#answer) | [`Progress`](#progress)]
 
 ***
 
@@ -347,7 +347,7 @@ Ask a question and wait for the stream to complete asynchronously, returning the
 
 **Returns**
 
-Awaitable[[`Answer`](#answer) | [`Search`](#search) | [`Reason`](#reason)]
+Awaitable[[`Answer`](#answer) | [`Progress`](#progress)]
 
 ***
 
@@ -378,7 +378,7 @@ Ask a question and get streaming responses asynchronously as an async iterator.
 
 **Returns**
 
-AsyncIterator[[`Answer`](#answer) | [`Search`](#search) | [`Reason`](#reason)]
+AsyncIterator[[`Answer`](#answer) | [`Progress`](#progress)]
 
 ***
 
@@ -1660,27 +1660,15 @@ Represents a final answer in an ask response.
 | `facts` | list[[`Fact`](#fact)] |  |
 | `refs` | dict[str, [`SearchResult`](#searchresult)] |  |
 
-### Search
+### Progress
 
-Represents a sub-query in an ask response.
-
-**Properties**
-
-| Property | Type |             |
-| -------- | ---- | ----------- |
-| `objective` | str |  |
-| `facts` | list[[`Fact`](#fact)] |  |
-| `refs` | dict[str, [`SearchResult`](#searchresult)] |  |
-
-### Reason
-
-Represents a reason in an ask response.
+Represents a progress update in an ask response.
 
 **Properties**
 
 | Property | Type |             |
 | -------- | ---- | ----------- |
-| `thought` | str |  |
+| `update` | str |  |
 
 ### AskIterator
 

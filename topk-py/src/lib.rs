@@ -75,8 +75,7 @@ pub fn topk_sdk(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<data::ask::Page>()?;
     m.add_class::<data::ask::Image>()?;
     m.add_class::<data::ask::Content>()?;
-    m.add_class::<data::ask::Search>()?;
-    m.add_class::<data::ask::Reason>()?;
+    m.add_class::<data::ask::Progress>()?;
     m.add_class::<data::ask::Fact>()?;
 
     m.add_class::<data::list_entry::ListEntry>()?;

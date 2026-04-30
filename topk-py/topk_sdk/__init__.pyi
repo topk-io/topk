@@ -47,7 +47,7 @@ class Client:
             typing.Literal["auto", "summarize", "research"]
         ] = None,
         select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> typing.Union[Answer, Search, Reason]:
+    ) -> typing.Union[Answer, Progress]:
         """
         Ask a question and wait for the stream to complete, returning the last message.
         """
@@ -61,7 +61,7 @@ class Client:
             typing.Literal["auto", "summarize", "research"]
         ] = None,
         select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> typing.Iterator[typing.Union[Answer, Search, Reason]]:
+    ) -> typing.Iterator[typing.Union[Answer, Progress]]:
         """
         Ask a question and get streaming responses as an iterator.
         """
@@ -125,7 +125,7 @@ class AsyncClient:
             typing.Literal["auto", "summarize", "research"]
         ] = None,
         select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> typing.Awaitable[typing.Union[Answer, Search, Reason]]:
+    ) -> typing.Awaitable[typing.Union[Answer, Progress]]:
         """
         Ask a question and wait for the stream to complete asynchronously, returning the last message.
         """
@@ -139,7 +139,7 @@ class AsyncClient:
             typing.Literal["auto", "summarize", "research"]
         ] = None,
         select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> typing.AsyncIterator[typing.Union[Answer, Search, Reason]]:
+    ) -> typing.AsyncIterator[typing.Union[Answer, Progress]]:
         """
         Ask a question and get streaming responses asynchronously as an async iterator.
         """
@@ -712,22 +712,12 @@ class Answer:
     facts: builtins.list[Fact]
     refs: builtins.dict[builtins.str, SearchResult]
 
-class Search:
+class Progress:
     """
-    Represents a sub-query in an ask response.
-    """
-
-    objective: builtins.str
-    facts: builtins.list[Fact]
-    refs: builtins.dict[builtins.str, SearchResult]
-
-
-class Reason:
-    """
-    Represents a reason in an ask response.
+    Represents a progress update in an ask response.
     """
 
-    thought: builtins.str
+    update: builtins.str
 
 class AskIterator:
     """
@@ -735,7 +725,7 @@ class AskIterator:
     """
 
     def __iter__(self) -> AskIterator: ...
-    def __next__(self) -> typing.Optional[typing.Union[Answer, Search, Reason]]: ...
+    def __next__(self) -> typing.Optional[typing.Union[Answer, Progress]]: ...
 
 class AsyncAskIterator:
     """
@@ -743,7 +733,7 @@ class AsyncAskIterator:
     """
 
     def __aiter__(self) -> AsyncAskIterator: ...
-    def __anext__(self) -> typing.AsyncIterator[typing.Union[Answer, Search, Reason]]: ...
+    def __anext__(self) -> typing.AsyncIterator[typing.Union[Answer, Progress]]: ...
 
 class SearchIterator:
     """

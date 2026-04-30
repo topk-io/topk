@@ -294,31 +294,13 @@ impl Answer {
 
 #[pyclass]
 #[derive(Debug, Clone, PartialEq)]
-pub struct Search {
+pub struct Progress {
     #[pyo3(get)]
-    objective: String,
-    #[pyo3(get)]
-    facts: Vec<Fact>,
-    #[pyo3(get)]
-    refs: HashMap<String, SearchResult>,
+    update: String,
 }
 
 #[pymethods]
-impl Search {
-    pub fn __repr__(&self) -> String {
-        format!("{:#?}", self)
-    }
-}
-
-#[pyclass]
-#[derive(Debug, Clone, PartialEq)]
-pub struct Reason {
-    #[pyo3(get)]
-    thought: String,
-}
-
-#[pymethods]
-impl Reason {
+impl Progress {
     pub fn __repr__(&self) -> String {
         format!("{:#?}", self)
     }
@@ -327,8 +309,7 @@ impl Reason {
 #[derive(Debug, Clone, PartialEq)]
 pub enum AskResult {
     Answer(Answer),
-    Search(Search),
-    Reason(Reason),
+    Progress(Progress),
 }
 
 impl<'py> IntoPyObject<'py> for AskResult {
@@ -339,8 +320,7 @@ impl<'py> IntoPyObject<'py> for AskResult {
     fn into_pyobject(self, py: Python<'py>) -> PyResult<Self::Output> {
         match self {
             AskResult::Answer(answer) => Ok(Py::new(py, answer)?.into_bound(py).into_any()),
-            AskResult::Search(search) => Ok(Py::new(py, search)?.into_bound(py).into_any()),
-            AskResult::Reason(reason) => Ok(Py::new(py, reason)?.into_bound(py).into_any()),
+            AskResult::Progress(progress) => Ok(Py::new(py, progress)?.into_bound(py).into_any()),
         }
     }
 }
@@ -358,16 +338,7 @@ impl TryFrom<topk_rs::proto::v1::ctx::ask_result::Message> for AskResult {
                     .map(|(k, v)| v.try_into().map(|sr| (k, sr)))
                     .collect::<Result<HashMap<_, _>, _>>()?,
             })),
-            Message::Search(sq) => Ok(AskResult::Search(Search {
-                objective: sq.objective,
-                facts: sq.facts.into_iter().map(Fact::from).collect(),
-                refs: sq
-                    .refs
-                    .into_iter()
-                    .map(|(k, v)| v.try_into().map(|sr| (k, sr)))
-                    .collect::<Result<HashMap<_, _>, _>>()?,
-            })),
-            Message::Reason(r) => Ok(AskResult::Reason(Reason { thought: r.thought })),
+            Message::Progress(p) => Ok(AskResult::Progress(Progress { update: p.update })),
         }
     }
 }
