@@ -389,24 +389,6 @@ guarantees and sequence number constraints.
 
 ***
 
-### RerankOptions
-
-Options for rerank stages.
-
-This struct contains configuration options for reranking results,
-including the model, query, and fields to use.
-
-**Properties**
-
-| Property | Type | Description |
-| ------ | ------ | ------ |
-| <a id="property-fields"></a> `fields?` | `string`[] | Fields to include in reranking |
-| <a id="property-model"></a> `model?` | `string` | The reranking model to use |
-| <a id="property-query"></a> `query?` | `string` | The query text for reranking |
-| <a id="property-topkmultiple"></a> `topkMultiple?` | `number` | Multiple of top-k to consider for reranking |
-
-***
-
 ### RetryConfig
 
 Configuration for retry behavior when requests fail.

@@ -676,35 +676,6 @@ Adds a limit stage to the query.
 
 ***
 
-#### rerank()
-
-```python
-rerank(
-   self,
-   model: Optional[str] = None,
-   query: Optional[str] = None,
-   fields: Sequence[str] = ...,
-   topk_multiple: Optional[int] = None
-)
-```
-
-Adds a rerank stage to the query.
-
-**Parameters**
-
-| Parameter | Type |
-| --------- | ---- |
-| `model` | Optional[str] |
-| `query` | Optional[str] |
-| `fields` | Sequence[str] |
-| `topk_multiple` | Optional[int] |
-
-**Returns**
-
-[`Query`](#query)
-
-***
-
 #### count()
 
 ```python

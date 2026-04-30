@@ -186,7 +186,7 @@ enum EmbeddingDataType {
 
 message SemanticIndex {
   // Model to be used for embedding text to vectors.
-  optional string model = 1;
+  optional string model = 1 [deprecated = true];
   // Data type of the embedding vectors.
-  optional EmbeddingDataType embedding_type = 2;
+  optional EmbeddingDataType embedding_type = 2 [deprecated = true];
 }

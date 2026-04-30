@@ -176,11 +176,7 @@ impl FieldSpec {
         }
     }
 
-    pub fn semantic(
-        required: bool,
-        model: Option<String>,
-        embedding_type: Option<EmbeddingDataType>,
-    ) -> FieldSpec {
+    pub fn semantic(required: bool) -> FieldSpec {
         FieldSpec {
             data_type: Some(FieldType {
                 data_type: Some(field_type::DataType::Text(FieldTypeText {})),
@@ -188,8 +184,10 @@ impl FieldSpec {
             required,
             index: Some(FieldIndex {
                 index: Some(field_index::Index::SemanticIndex(SemanticIndex {
-                    model,
-                    embedding_type: embedding_type.map(|dt| dt.into()),
+                    #[allow(deprecated)]
+                    model: None,
+                    #[allow(deprecated)]
+                    embedding_type: None,
                 })),
             }),
         }

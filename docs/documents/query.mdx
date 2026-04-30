@@ -2,7 +2,7 @@
 title: "Query documents"
 ---
 
-TopK provides a data frame-like syntax for querying documents. It features built-in **semantic search**, **text search**, **vector search**, metadata **filtering** as well as **reranking** capabilities.
+TopK provides a data frame-like syntax for querying documents. It features built-in **semantic search**, **text search**, **vector search**, and metadata **filtering** capabilities.
 
 With TopK's declarative query builder, you can easily select fields, chain filters, and apply vector/text search in a composable manner.
 
@@ -11,14 +11,13 @@ With TopK's declarative query builder, you can easily select fields, chain filte
 In TopK, a query consists of multiple stages:
 
 - **Select stage** - Select static or computed fields that will be returned in the query results
-  - these fields can be used in stages such as Filter, TopK or Rerank
+  - these fields can be used in stages such as Filter or TopK
 - **Filter stage** - Filter the documents that will be returned in the query results
   - filters can be applied to static fields, computed fields such as `vector_distance()` or `semantic_similarity()` or custom properties computed inside `select()`
 - **Sort stage** - Order results by an expression (ascending or descending)
 - **Limit stage** - Return at most `k` results
 - **TopK stage** - Return the top `k` results based on the provided logical expression (equivalent to `sort(expr, asc)` followed by `limit(k)`)
 - **Count stage** - Return the total number of documents matching the query
-- **Rerank stage** - Rerank the results
 
 All queries **must** have either TopK or Count collection stage.
 
@@ -38,8 +37,7 @@ flowchart TD
     B --> F[Count]
     C --> D
     D --> E
-    E -.-> G[Rerank]
-    G --> H@{ shape: stadium, label: "Results collection" }
+    E --> H@{ shape: stadium, label: "Results collection" }
     F --> I@{ shape: stadium, label: "Results count" }
 ```
 
@@ -152,7 +150,7 @@ There are **multiple ways** to represent a query vector:
 Optionally, uses can provide `skip_refine=True` to bypass the internal distance refinement step. This will improve performance for queries with large `top_k` at the cost of lower accuracy.
 
 <Warning>
-  We don't recommend using `skip_refine=True` unless you're using large `top_k` and a custom reranking model to get the final ranking.
+  We don't recommend using `skip_refine=True` unless you're using a large `top_k`.
 </Warning>
 
 <Warning>
@@ -1634,36 +1632,6 @@ Use the `count()` function to get the total number of documents matching the que
 <Info>
   When writing queries, remember that they all require the `topk` or `count` function at the end.
 </Info>
-
-## Rerank
-
-The `rerank()` function is used to rerank the results of a query. It accepts the following parameters:
-
-- **`model`** — The reranking model to use (e.g. `cohere/rerank-v3.5`). Defaults to a built-in model if omitted.
-- **`query`** — The query text the cross-encoder scores each document against. If omitted, may be inferred from the filter stage (e.g. `match()`).
-- **`fields`** — Document fields to include when reranking. The reranker concatenates these and scores them against the query.
-- **`topk_multiple`** — Multiple of top-k to consider for reranking. With `topk(10)` and `topk_multiple=2`, the reranker receives 20 candidates and returns the top 10.
-
-Read more in our [reranking](/concepts/reranking) guide.
-
-<CodeGroup>
-
-```python Python
-.rerank()
-
-# or with options
-.rerank(model="cohere/rerank-v3.5", query="catcher", fields=["title", "description"], topk_multiple=2)
-```
-
-
-```js Javascript
-.rerank()
-
-// or with options
-.rerank({ model: "cohere/rerank-v3.5", query: "catcher", fields: ["title", "description"], topkMultiple: 2 })
-```
-
-</CodeGroup>
 
 ## Query options
 
