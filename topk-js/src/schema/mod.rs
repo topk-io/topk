@@ -4,8 +4,8 @@ pub mod field_spec;
 
 use data_type::DataType;
 use field_index::{
-    EmbeddingDataType, FieldIndex, KeywordIndexType, MultiVectorDistanceMetric,
-    MultiVectorQuantization, VectorDistanceMetric,
+    FieldIndex, KeywordIndexType, MultiVectorDistanceMetric, MultiVectorQuantization,
+    VectorDistanceMetric,
 };
 use field_spec::FieldSpec;
 use napi_derive::napi;
@@ -298,19 +298,6 @@ pub fn keyword_index() -> FieldIndex {
     FieldIndex::keyword_index(KeywordIndexType::Text)
 }
 
-/// Options for semantic index specifications.
-///
-/// This struct contains configuration options for semantic indexes,
-/// including the model and embedding type to use.
-#[napi(object, namespace = "schema")]
-#[derive(Default)]
-pub struct SemanticIndexOptions {
-    /// The embedding model to use
-    pub model: Option<String>,
-    /// The type of embedding data
-    pub embedding_type: Option<EmbeddingDataType>,
-}
-
 /// Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `semantic_index` values.
 ///
 /// Example:
@@ -319,24 +306,12 @@ pub struct SemanticIndexOptions {
 /// import { text, semanticIndex } from "topk-js/schema";
 ///
 /// await client.collections().create("books", {
-///   title: text().index(semanticIndex({ model: "cohere/embed-v4" }))
+///   title: text().index(semanticIndex())
 /// });
 /// ```
-///
-/// Parameters:
-/// - model: Embedding model to use for semantic search. Currently supported:
-///   - `cohere/embed-english-v3`
-///   - `cohere/embed-multilingual-v3`
-///   - `cohere/embed-v4` (default)
-/// - embeddingType: TopK supports the following embedding types for Cohere models:
-///   - `float32`
-///   - `uint8`
-///   - `binary`
 #[napi(namespace = "schema")]
-pub fn semantic_index(options: Option<SemanticIndexOptions>) -> FieldIndex {
-    let options = options.unwrap_or_default();
-
-    FieldIndex::semantic_index(options.model, options.embedding_type)
+pub fn semantic_index() -> FieldIndex {
+    FieldIndex::semantic_index()
 }
 
 /// Options for multi-vector index specifications.

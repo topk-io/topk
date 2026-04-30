@@ -189,30 +189,8 @@ pub fn keyword_index(r#type: String) -> PyResult<field_index::FieldIndex> {
 }
 
 #[pyfunction]
-#[pyo3(signature=(model=None, embedding_type=None))]
-pub fn semantic_index(
-    model: Option<String>,
-    embedding_type: Option<String>,
-) -> PyResult<field_index::FieldIndex> {
-    let embedding_type = match embedding_type {
-        Some(embedding_type) => match embedding_type.as_str() {
-            "f32" => Some(field_index::EmbeddingDataType::Float32),
-            "u8" => Some(field_index::EmbeddingDataType::UInt8),
-            "binary" => Some(field_index::EmbeddingDataType::Binary),
-            _ => {
-                return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                    "Invalid embedding type: {}",
-                    embedding_type
-                )))
-            }
-        },
-        None => None,
-    };
-
-    Ok(field_index::FieldIndex::SemanticIndex {
-        model,
-        embedding_type: embedding_type.into(),
-    })
+pub fn semantic_index() -> PyResult<field_index::FieldIndex> {
+    Ok(field_index::FieldIndex::SemanticIndex {})
 }
 
 #[pyfunction]

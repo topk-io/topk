@@ -7,26 +7,11 @@ use std::collections::HashMap;
 #[pyclass]
 #[derive(Debug, Clone)]
 pub enum Stage {
-    Select {
-        exprs: HashMap<String, SelectExpr>,
-    },
-    Filter {
-        expr: FilterExpr,
-    },
-    Limit {
-        k: u64,
-    },
-    Sort {
-        expr: LogicalExpr,
-        asc: bool,
-    },
+    Select { exprs: HashMap<String, SelectExpr> },
+    Filter { expr: FilterExpr },
+    Limit { k: u64 },
+    Sort { expr: LogicalExpr, asc: bool },
     Count {},
-    Rerank {
-        model: Option<String>,
-        query: Option<String>,
-        fields: Vec<String>,
-        topk_multiple: Option<u32>,
-    },
 }
 
 impl From<Stage> for topk_rs::proto::v1::data::Stage {
@@ -37,12 +22,6 @@ impl From<Stage> for topk_rs::proto::v1::data::Stage {
             Stage::Limit { k } => topk_rs::proto::v1::data::Stage::limit(k),
             Stage::Sort { expr, asc } => topk_rs::proto::v1::data::Stage::sort(expr.into(), asc),
             Stage::Count {} => topk_rs::proto::v1::data::Stage::count(),
-            Stage::Rerank {
-                model,
-                query,
-                fields,
-                topk_multiple,
-            } => topk_rs::proto::v1::data::Stage::rerank(model, query, fields, topk_multiple),
         }
     }
 }

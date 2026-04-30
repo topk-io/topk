@@ -92,7 +92,6 @@ docs = client.collection("books").query(
         title_similarity=fn.semantic_similarity("title", "classic American novel"),
     )
     .topk(field("title_similarity"), 10)
-    .rerank()
 )
 
 # Example results:
@@ -103,14 +102,12 @@ docs = client.collection("books").query(
     "title": "The Catcher in the Rye",
     "title_similarity": 0.9497610926628113,
     "_rank": 0,
-    "_rerank_score": 0.048159245401620865,
   },
   {
     "_id": "1",
     "title": "The Great Gatsby",
     "title_similarity": 0.9480283856391907,
     "_rank": 1,
-    "_rerank_score": 0.02818089909851551,
   }
 ]
 ```
@@ -125,7 +122,6 @@ const docs = await client.collection("books").query(
     title_similarity: fn.semanticSimilarity("title", "classic American novel"),
   })
     .topk(field("title_similarity"), 10)
-    .rerank()
 );
 
 // Example results:
@@ -136,14 +132,12 @@ const docs = await client.collection("books").query(
     title: 'The Catcher in the Rye',
     title_similarity: 0.9497610926628113,
     _rank: 0
-    _rerank_score: 0.048159245401620865,
   },
   {
     _id: '1',
     title: 'The Great Gatsby'
     title_similarity: 0.9480283856391907,
     _rank: 1,
-    _rerank_score: 0.02818089909851551,
   }
 ]
 ```
@@ -153,12 +147,10 @@ const docs = await client.collection("books").query(
 Let's break down the example above:
 
 1. The `semantic_similarity()` function computes the similarity between the query `"classic American novel"` and the text value stored in the `title` field for each document.
-2. TopK performs automatic query embedding under the hood using the model specified in the `semantic_index()` function.
+2. TopK performs automatic query embedding under the hood.
 3. The results are ranked based on similarity, and the top 10 most relevant documents are returned.
-4. The optional [`.rerank()`](/sdk/topk-py/query#rerank) call uses a reranking model to improve relevance of the results.
-   For more information, see our [Reranking](/concepts/reranking) guide.
 
-This works **out of the box**—no need to manage embeddings, external APIs, or third-party reranking models.
+This works **out of the box**—no need to manage embeddings or external APIs.
 
 ## Combining semantic and keyword search
 
@@ -177,7 +169,6 @@ docs = client.collection("books").query(
     )
     .filter(match("classic"))  # Ensure the book contains the keyword "classic" in any of the text-indexed fields
     .topk(field("title_similarity") * 0.7 + field("text_score") * 0.3, 10) # Add 70% weight to semantic similarity and 30% weight to keyword relevance
-    .rerank()
 )
 ```
 
@@ -197,7 +188,6 @@ const docs = await client.collection("books").query(
       field("title_similarity").mul(0.7).add(field("text_score").mul(0.3)),
       10
     )
-    .rerank()
 );
 ```
 

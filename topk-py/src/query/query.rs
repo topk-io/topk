@@ -142,28 +142,6 @@ impl Query {
         })
     }
 
-    #[pyo3(signature = (model=None, query=None, fields=vec![], topk_multiple=None))]
-    pub fn rerank(
-        &self,
-        model: Option<String>,
-        query: Option<String>,
-        fields: Vec<String>,
-        topk_multiple: Option<u32>,
-    ) -> PyResult<Self> {
-        Ok(Self {
-            stages: [
-                self.stages.clone(),
-                vec![Stage::Rerank {
-                    model,
-                    query,
-                    fields,
-                    topk_multiple,
-                }],
-            ]
-            .concat(),
-        })
-    }
-
     pub fn count(&self) -> PyResult<Self> {
         Ok(Self {
             stages: [self.stages.clone(), vec![Stage::Count {}]].concat(),

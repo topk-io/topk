@@ -1,6 +1,5 @@
 import typing
-import builtins;
-
+import builtins
 from topk_sdk import data
 from topk_sdk.schema import (
     binary_vector,
@@ -321,8 +320,8 @@ class semantic:
     @staticmethod
     def setup(ctx: ProjectContext):
         schema = {
-            "title": text().required().index(semantic_index(model="dummy")),
-            "summary": text().required().index(semantic_index(model="dummy")),
+            "title": text().required().index(semantic_index()),
+            "summary": text().required().index(semantic_index()),
         }
 
         collection = ctx.client.collections().create(
@@ -425,7 +424,11 @@ class multi_vec:
         elif value_type == "i8":
             # Convert f32 to i8: (v * 64.0).round() and clip to i8 range
             i8_rows = [
-                [multi_vec.clip_number_to_i8(builtins.int(round(v * 64.0))) for v in row] for row in matrix
+                [
+                    multi_vec.clip_number_to_i8(builtins.int(round(v * 64.0)))
+                    for v in row
+                ]
+                for row in matrix
             ]
 
             return data.matrix(i8_rows, value_type="i8")
@@ -477,7 +480,10 @@ class multi_vec:
                 "published_year": 1960,
                 "token_embeddings": multi_vec.cast(
                     value_type,
-                    [[0.9719, 0.132, 0.5612, -1.1843, -0.2115, 0.1455, -1.6471], [-0.1054, 1.6053, -0.0901, 0.5288, -0.6347, 0.9521, -0.8853]],
+                    [
+                        [0.9719, 0.132, 0.5612, -1.1843, -0.2115, 0.1455, -1.6471],
+                        [-0.1054, 1.6053, -0.0901, 0.5288, -0.6347, 0.9521, -0.8853],
+                    ],
                 ),
             },
             {

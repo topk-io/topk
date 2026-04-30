@@ -268,7 +268,9 @@ def list(value_type: typing.Literal["text", "integer", "float"]) -> FieldSpec:
     """
     ...
 
-def matrix(dimension: builtins.int, value_type: typing.Literal["f32", "f16", "f8", "u8", "i8"]) -> FieldSpec:
+def matrix(
+    dimension: builtins.int, value_type: typing.Literal["f32", "f16", "f8", "u8", "i8"]
+) -> FieldSpec:
     """
     Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `matrix` values.
 
@@ -332,19 +334,9 @@ def keyword_index() -> FieldIndex:
     """
     ...
 
-def semantic_index(model: str) -> FieldIndex:
+def semantic_index() -> FieldIndex:
     """
     Create a [FieldIndex](https://docs.topk.io/sdk/topk-py/schema#FieldIndex) type for `semantic_index` values.
-
-    Supported `model`s:
-        - `cohere/embed-english-v3`
-        - `cohere/embed-multilingual-v3`
-        - `cohere/embed-v4` (default)
-
-    TopK supports the following embedding types for Cohere models:
-        - `float32`
-        - `uint8`
-        - `binary`
 
     Example:
 
@@ -352,7 +344,7 @@ def semantic_index(model: str) -> FieldIndex:
     from topk_sdk.schema import text, semantic_index
 
     client.collections().create("books", schema={
-        "title": text().index(semantic_index(model="cohere/embed-v4"))
+        "title": text().index(semantic_index())
     })
     ```
     """

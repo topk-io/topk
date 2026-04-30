@@ -52,12 +52,7 @@
           },
           {
             "group": "Core Concepts",
-            "pages": [
-              "core/ingest",
-              "core/ask",
-              "core/search",
-              "core/research"
-            ]
+            "pages": ["core/ingest", "core/ask", "core/search", "core/research"]
           },
           {
             "group": "Dataset API",
@@ -73,9 +68,7 @@
       {
         "tab": "CLI",
         "icon": "terminal",
-        "pages": [
-          "cli"
-        ]
+        "pages": ["cli"]
       },
       {
         "tab": "Python SDK",
@@ -115,7 +108,6 @@
               "concepts/multi-vector-search",
               "concepts/keyword-search",
               "concepts/true-hybrid-search",
-              "concepts/reranking",
               "concepts/consistency",
               "concepts/multi-tenancy"
             ]

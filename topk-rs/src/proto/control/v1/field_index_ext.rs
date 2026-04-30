@@ -37,14 +37,13 @@ impl FieldIndex {
         }
     }
 
-    pub fn semantic(
-        model: Option<String>,
-        embedding_type: Option<EmbeddingDataType>,
-    ) -> FieldIndex {
+    pub fn semantic() -> FieldIndex {
         FieldIndex {
             index: Some(field_index::Index::SemanticIndex(SemanticIndex {
-                model,
-                embedding_type: embedding_type.map(|dt| dt.into()),
+                #[allow(deprecated)]
+                model: None,
+                #[allow(deprecated)]
+                embedding_type: None,
             })),
         }
     }

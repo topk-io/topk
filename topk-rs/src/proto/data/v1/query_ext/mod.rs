@@ -37,18 +37,6 @@ impl Query {
         self
     }
 
-    pub fn rerank(
-        mut self,
-        model: Option<String>,
-        query: Option<String>,
-        fields: Vec<String>,
-        topk_multiple: Option<u32>,
-    ) -> Self {
-        self.stages
-            .push(Stage::rerank(model, query, fields, topk_multiple));
-        self
-    }
-
     pub fn limit(mut self, k: u64) -> Self {
         self.stages.push(Stage::limit(k));
         self
