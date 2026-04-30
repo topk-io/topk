@@ -15,7 +15,6 @@ use crate::utils::dataset::{test_file, test_pdf};
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-#[ignore]
 async fn test_upsert_file_to_non_existent_dataset(ctx: &mut ProjectTestContext) {
     let err = ctx
         .client
@@ -29,7 +28,6 @@ async fn test_upsert_file_to_non_existent_dataset(ctx: &mut ProjectTestContext) 
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-#[ignore]
 async fn test_upsert_file_pdf(ctx: &mut ProjectTestContext) {
     let dataset = ctx
         .client
@@ -55,7 +53,6 @@ async fn test_upsert_file_pdf(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-#[ignore]
 async fn test_upsert_file_markdown(ctx: &mut ProjectTestContext) {
     let dataset = ctx
         .client
@@ -81,7 +78,6 @@ async fn test_upsert_file_markdown(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-#[ignore]
 async fn test_upsert_file_with_invalid_metadata(ctx: &mut ProjectTestContext) {
     let dataset = ctx
         .client
@@ -117,7 +113,6 @@ async fn test_upsert_file_with_invalid_metadata(ctx: &mut ProjectTestContext) {
 #[case("pictures/sample.tiff")]
 #[case("pictures/sample.webp")]
 #[tokio::test]
-#[ignore]
 async fn test_upsert_file(#[case] file: &str) {
     let ctx = ProjectTestContext::setup().await;
 

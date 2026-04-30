@@ -274,7 +274,6 @@ mod tests {
 
     #[test_context(CliTestContext)]
     #[tokio::test]
-    #[ignore]
     async fn search_returns_metadata_fields(ctx: &mut CliTestContext) {
         let dataset = ctx.wrap("meta-fields");
         ctx.create_dataset(&dataset);

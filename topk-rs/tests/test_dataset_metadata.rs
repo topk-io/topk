@@ -8,7 +8,6 @@ use utils::{dataset::test_pdf, ProjectTestContext};
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-#[ignore]
 async fn test_get_metadata(ctx: &mut ProjectTestContext) {
     let dataset = ctx
         .client

@@ -8,7 +8,6 @@ use utils::{dataset::test_pdf, ProjectTestContext};
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-#[ignore]
 async fn test_wait_for_handle(ctx: &mut ProjectTestContext) {
     let dataset = ctx
         .client
@@ -33,7 +32,6 @@ async fn test_wait_for_handle(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-#[ignore]
 async fn test_check_handle_invalid_handle(ctx: &mut ProjectTestContext) {
     let dataset = ctx
         .client
@@ -54,7 +52,6 @@ async fn test_check_handle_invalid_handle(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-#[ignore]
 async fn test_check_handle_from_non_existent_dataset(ctx: &mut ProjectTestContext) {
     let err = ctx
         .client

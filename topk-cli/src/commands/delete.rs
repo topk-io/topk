@@ -67,7 +67,6 @@ mod tests {
 
     #[test_context(CliTestContext)]
     #[tokio::test]
-    #[ignore]
     async fn delete_document(ctx: &mut CliTestContext) {
         let dataset = ctx.wrap("test");
         ctx.create_dataset(&dataset);
@@ -110,7 +109,6 @@ mod tests {
 
     #[test_context(CliTestContext)]
     #[tokio::test]
-    #[ignore]
     async fn delete_aborted(ctx: &mut CliTestContext) {
         let dataset = ctx.wrap("test");
         ctx.create_dataset(&dataset);
