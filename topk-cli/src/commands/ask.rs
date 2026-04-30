@@ -147,14 +147,8 @@ pub async fn run(client: &Client, args: &AskArgs, output: &Output) -> Result<Ask
     while let Some(item) = stream.next().await {
         let item = item?;
         match item.message {
-            Some(ask_result::Message::Reason(r)) => {
-                spinner.print(format!("[thinking] {}", r.thought));
-            }
-            Some(ask_result::Message::Search(s)) => {
-                spinner.print(format!("[searching] {}", s.objective));
-                for fact in &s.facts {
-                    spinner.print(format!(" - {}", fact.fact));
-                }
+            Some(ask_result::Message::Progress(p)) => {
+                spinner.print(format!("{} {}", "[progress]".cyan(), p.update));
             }
             Some(ask_result::Message::Answer(a)) => {
                 answer = Some(a);
