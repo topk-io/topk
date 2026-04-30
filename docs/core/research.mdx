@@ -1,9 +1,174 @@
 ---
 title: "Research"
+sidebarTitle: "Research"
 description: "Deep multi-step research across your document corpus."
 icon: "flask-conical"
 ---
 
-<Warning>
-  Coming soon. Stay tuned!
-</Warning>
+Research turns complex queries into a series of targeted searches, gathers evidence across documents, and produces a grounded answer with source citations.
+
+```mermaid
+flowchart LR
+    Q[Research query]
+    S1["Search (Step 1)"]
+    S2["Search (Step 2)"]
+    S3["Search (Step 3)"]
+    E[Evidence]
+    A[Grounded answer]
+
+    Q --> S1
+    Q --> S2
+    Q --> S3
+    S1 --> E
+    S2 --> E
+    S3 --> E
+    E --> A
+```
+
+## How it works
+
+When you run a Research query, TopK:
+
+<Steps>
+  <Step title="Understands the query">
+    Research interprets the query in context, including the evidence gathered so far.
+  </Step>
+  <Step title="Breaks it into smaller tasks">
+    It decomposes the problem into focused sub-queries.
+  </Step>
+  <Step title="Searches for relevant evidence">
+    It runs targeted searches across your data to find the most relevant information.
+  </Step>
+  <Step title="Extracts grounded facts">
+    It pulls out concrete, source-backed facts from each result, preserving citations.
+  </Step>
+  <Step title="Produces the final answer">
+    It combines the gathered evidence, performing comparisons or aggregations when needed, to produce a single, grounded answer with citations.
+  </Step>
+</Steps>
+
+Here's an example of a Research query over a financial dataset:
+
+<Info>
+**Query:**
+
+What was the 2022 and 2023 total value of commercial loans modified as TDRs, and the total 90+ days past due for consumer loans at December 31, 2024?
+
+**Answer:**
+- For 2022, Bank of America reported that the carrying value of commercial loans modified as troubled debt restructurings (TDRs) was \$1.9 billion. <Badge color="purple">0_0</Badge>
+- For 2023, the total value of commercial loans modified as TDRs is not provided in the source material. <Badge color="purple">1_0</Badge>
+- At December 31, 2024, consumer loans 90+ days past due totaled \$186 million, consisting of \$183 million in North America offices and \$3 million outside of North America offices. <Badge color="purple">2_0</Badge> <Badge color="purple">2_1</Badge>
+
+**References:**
+- <Badge color="purple">0_0</Badge> — "During 2022, the carrying value of the Corporation's commercial loans that were modified as TDRs was \$1.9 billion."
+  <Badge color="blue">bank-of-america-2024-10k.pdf</Badge>
+- <Badge color="purple">1_0</Badge> — No retrieved source provided a 2023 commercial TDR carrying value comparable to the 2022 disclosure.
+  <Badge color="blue">bank-of-america-2024-10k.pdf</Badge>
+- <Badge color="purple">2_0</Badge> — Consumer loans 90+ days past due in North America offices: \$183 million at December 31, 2024
+  <Badge color="blue">citigroup-2024-10k.pdf</Badge>
+- <Badge color="purple">2_1</Badge> — Consumer loans 90+ days past due outside of North America offices: \$3 million at December 31, 2024
+  <Badge color="blue">citigroup-2024-10k.pdf</Badge>
+</Info>
+
+## Usage
+
+Research is invoked through `ask` by setting `mode` to `research`.
+
+<Tabs>
+  <Tab title="CLI" icon="terminal">
+    ```bash
+    topk ask "What was the 2022 and 2023 total value of commercial loans modified as TDRs, and the total 90+ days past due for consumer loans at December 31, 2024?" -d finance --mode research
+    ```
+  </Tab>
+  <Tab title="Python SDK" icon="/icons/python.svg">
+    <CodeGroup>
+      ```python Sync
+      import os
+      from topk_sdk import Client
+
+      client = Client(
+          api_key=os.environ.get("TOPK_API_KEY"),
+          region="aws-us-east-1-elastica",
+      )
+
+      answer = client.ask(
+          "What was the 2022 and 2023 total value of commercial loans modified as TDRs, and the total 90+ days past due for consumer loans at December 31, 2024?",
+          ["finance"],
+          mode="research",
+      )
+
+      print(answer)
+      ```
+
+      ```python Async
+      import os
+      from topk_sdk import AsyncClient
+
+      client = AsyncClient(
+          api_key=os.environ.get("TOPK_API_KEY"),
+          region="aws-us-east-1-elastica",
+      )
+
+      answer = await client.ask(
+          "What was the 2022 and 2023 total value of commercial loans modified as TDRs, and the total 90+ days past due for consumer loans at December 31, 2024?",
+          ["finance"],
+          mode="research",
+      )
+
+      print(answer)
+      ```
+    </CodeGroup>
+  </Tab>
+  <Tab title="JavaScript SDK" icon="/icons/js.svg">
+    ```typescript
+    import { Client } from "topk-js";
+
+    const client = new Client({
+      apiKey: process.env.TOPK_API_KEY,
+      region: "aws-us-east-1-elastica",
+    });
+
+    const answer = await client.ask(
+      "What was the 2022 and 2023 total value of commercial loans modified as TDRs, and the total 90+ days past due for consumer loans at December 31, 2024?",
+      ["finance"],
+      "research",
+    );
+
+    console.log(answer);
+    ```
+  </Tab>
+</Tabs>
+
+## Scoping the search
+
+Research uses the same dataset scoping and document filtering model as [`ask`](/core/ask).
+
+For guidance on:
+
+- querying across specific datasets
+- applying document filters
+- limiting which documents can be considered during retrieval
+
+see [Scoping the search](/core/ask#scoping-the-search) in the Ask guide.
+
+## When to use Research
+
+Use **Research** for analytical questions that require more than a single retrieval pass to answer reliably.
+It is intended for multi-hop questions when searching, connecting, comparing, and synthesizing facts is needed to answer the question.
+
+Use **Research** when:
+
+- the answer depends on multiple facts from different parts of a document or different documents
+- the query requires comparison across years, entities, filings, or sections
+- the answer requires complex computation, aggregation, synthesis or resolving intermediate facts
+- you care more about depth and correctness than getting the fastest possible answer
+
+<Info>
+  Because Research performs more work than an `ask` query in `summarize` mode, it will usually take longer to produce an answer.
+</Info>
+
+Prefer `ask` with `summarize` mode when:
+
+- the question is direct and likely answered by one or a few passages
+- you want the fastest grounded answer
+- the extra decomposition and multi-step reasoning are not necessary to reliably answer the question
