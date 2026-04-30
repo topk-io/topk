@@ -122,9 +122,7 @@ impl Into<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
             FieldIndex::VectorIndex { metric } => {
                 topk_rs::proto::v1::control::FieldIndex::vector(metric.into())
             }
-            FieldIndex::SemanticIndex {} => {
-                topk_rs::proto::v1::control::FieldIndex::semantic()
-            }
+            FieldIndex::SemanticIndex {} => topk_rs::proto::v1::control::FieldIndex::semantic(),
             FieldIndex::MultiVectorIndex {
                 metric,
                 quantization,

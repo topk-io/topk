@@ -6,11 +6,8 @@ use tokio::sync::mpsc;
 use topk_rs::proto::v1::ctx::file::InputFile;
 
 use crate::client::sync::runtime::Runtime;
+use crate::client::NativeWaitConfig;
 use crate::client::CHANNEL_BUFFER_SIZE;
-use crate::client::{
-    into_py_response, DeleteFileResponse, GetMetadataResponse, NativeWaitConfig,
-    UpdateMetadataResponse, UpsertResponse,
-};
 use crate::data::file::FileOrFileLike;
 use crate::data::list_entry::ListEntry;
 use crate::data::value::Value;
@@ -43,12 +40,12 @@ impl DatasetClient {
         doc_id: String,
         input: FileOrFileLike,
         metadata: HashMap<String, Value>,
-    ) -> PyResult<Py<UpsertResponse>> {
+    ) -> PyResult<String> {
         let input_file: InputFile = input.try_into()?;
         let metadata: HashMap<String, topk_rs::proto::v1::data::Value> =
             metadata.into_iter().map(|(k, v)| (k, v.into())).collect();
 
-        let response = self
+        let handle = self
             .runtime
             .block_on(
                 py,
@@ -58,11 +55,7 @@ impl DatasetClient {
             )
             .map_err(RustError)?;
 
-        into_py_response(py, response, |inner| {
-            Ok(UpsertResponse {
-                handle: inner.handle,
-            })
-        })
+        Ok(handle)
     }
 
     #[pyo3(signature = (ids, fields=None))]
@@ -71,8 +64,8 @@ impl DatasetClient {
         py: Python<'_>,
         ids: Vec<String>,
         fields: Option<Vec<String>>,
-    ) -> PyResult<Py<GetMetadataResponse>> {
-        let response = self
+    ) -> PyResult<HashMap<String, HashMap<String, Value>>> {
+        let docs = self
             .runtime
             .block_on(
                 py,
@@ -80,19 +73,17 @@ impl DatasetClient {
             )
             .map_err(RustError)?;
 
-        into_py_response(py, response, |inner| {
-            let docs: HashMap<String, HashMap<String, Value>> = inner
-                .docs
-                .into_iter()
-                .map(|(id, doc)| {
-                    (
-                        id,
-                        doc.fields.into_iter().map(|(k, v)| (k, v.into())).collect(),
-                    )
-                })
-                .collect();
-            Ok(GetMetadataResponse { docs })
-        })
+        let docs = docs
+            .into_iter()
+            .map(|(id, doc)| {
+                (
+                    id,
+                    doc.fields.into_iter().map(|(k, v)| (k, v.into())).collect(),
+                )
+            })
+            .collect();
+
+        Ok(docs)
     }
 
     pub fn update_metadata(
@@ -100,11 +91,11 @@ impl DatasetClient {
         py: Python<'_>,
         doc_id: String,
         metadata: HashMap<String, Value>,
-    ) -> PyResult<Py<UpdateMetadataResponse>> {
+    ) -> PyResult<String> {
         let metadata: HashMap<String, topk_rs::proto::v1::data::Value> =
             metadata.into_iter().map(|(k, v)| (k, v.into())).collect();
 
-        let response = self
+        let handle = self
             .runtime
             .block_on(
                 py,
@@ -114,24 +105,16 @@ impl DatasetClient {
             )
             .map_err(RustError)?;
 
-        into_py_response(py, response, |inner| {
-            Ok(UpdateMetadataResponse {
-                handle: inner.handle,
-            })
-        })
+        Ok(handle)
     }
 
-    pub fn delete(&self, py: Python<'_>, doc_id: String) -> PyResult<Py<DeleteFileResponse>> {
-        let response = self
+    pub fn delete(&self, py: Python<'_>, doc_id: String) -> PyResult<String> {
+        let handle = self
             .runtime
             .block_on(py, self.client.dataset(&self.dataset).delete(doc_id))
             .map_err(RustError)?;
 
-        into_py_response(py, response, |inner| {
-            Ok(DeleteFileResponse {
-                handle: inner.handle,
-            })
-        })
+        Ok(handle)
     }
 
     pub fn check_handle(&self, py: Python<'_>, handle: String) -> PyResult<bool> {
@@ -174,7 +157,7 @@ impl DatasetClient {
             let dataset = self.dataset.clone();
             async move {
                 let mut stream = match client.dataset(&dataset).list(fields, filter).await {
-                    Ok(response) => response.into_inner(),
+                    Ok(stream) => stream,
                     Err(e) => {
                         let _ = tx.send(Err(RustError(e).into())).await;
                         return;

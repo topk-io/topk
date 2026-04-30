@@ -23,9 +23,7 @@ impl From<RustError> for PyErr {
             topk_rs::Error::CollectionAlreadyExists => {
                 CollectionAlreadyExistsError::new_err(value.0.to_string())
             }
-            topk_rs::Error::DatasetNotFound => {
-                DatasetNotFoundError::new_err(value.0.to_string())
-            }
+            topk_rs::Error::DatasetNotFound => DatasetNotFoundError::new_err(value.0.to_string()),
             topk_rs::Error::DatasetAlreadyExists => {
                 DatasetAlreadyExistsError::new_err(value.0.to_string())
             }

@@ -16,99 +16,99 @@ async def test_async_upsert_file_to_non_existent_dataset(async_ctx: AsyncProject
 
 @pytest.mark.asyncio
 async def test_async_upsert_file_pdf(async_ctx: AsyncProjectContext):
-    dataset = (await async_ctx.client.datasets().create(async_ctx.scope("test"))).dataset
+    dataset = await async_ctx.client.datasets().create(async_ctx.scope("test"))
     pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
 
     metadata = {
         "title": "test"
     }
 
-    response = await async_ctx.client.dataset(dataset.name).upsert_file(
+    handle = await async_ctx.client.dataset(dataset.name).upsert_file(
         "doc1", pdf_path, metadata
     )
 
-    assert response.handle is not None
+    assert handle is not None
 
 
 @pytest.mark.asyncio
 @pytest.mark.xfail(reason="ctx")
 async def test_async_get_metadata(async_ctx: AsyncProjectContext):
-    dataset = (await async_ctx.client.datasets().create(async_ctx.scope("test"))).dataset
+    dataset = await async_ctx.client.datasets().create(async_ctx.scope("test"))
     pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
 
     original_metadata = {"title": "test"}
 
-    response = await async_ctx.client.dataset(dataset.name).upsert_file(
+    handle = await async_ctx.client.dataset(dataset.name).upsert_file(
         "doc1", pdf_path, original_metadata
     )
 
-    await async_ctx.client.dataset(dataset.name).wait_for_handle(response.handle)
+    await async_ctx.client.dataset(dataset.name).wait_for_handle(handle)
 
-    response = await async_ctx.client.dataset(dataset.name).get_metadata(["doc1"])
-    assert response.docs["doc1"]["title"] == original_metadata["title"]
+    docs = await async_ctx.client.dataset(dataset.name).get_metadata(["doc1"])
+    assert docs["doc1"]["title"] == original_metadata["title"]
 
 
 @pytest.mark.asyncio
 async def test_async_update_metadata(async_ctx: AsyncProjectContext):
-    dataset = (await async_ctx.client.datasets().create(async_ctx.scope("test"))).dataset
+    dataset = await async_ctx.client.datasets().create(async_ctx.scope("test"))
     pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
 
     await async_ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {})
 
     new_metadata = {"title": "Updated Title"}
-    response = await async_ctx.client.dataset(dataset.name).update_metadata(
+    handle = await async_ctx.client.dataset(dataset.name).update_metadata(
         "doc1", new_metadata
     )
 
-    assert response.handle is not None
+    assert handle is not None
 
 
 @pytest.mark.asyncio
 async def test_async_delete_document(async_ctx: AsyncProjectContext):
-    dataset = (await async_ctx.client.datasets().create(async_ctx.scope("test"))).dataset
+    dataset = await async_ctx.client.datasets().create(async_ctx.scope("test"))
     pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
 
     await async_ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {})
 
-    response = await async_ctx.client.dataset(dataset.name).delete("doc1")
+    handle = await async_ctx.client.dataset(dataset.name).delete("doc1")
 
-    assert response.handle is not None
+    assert handle is not None
 
 
 @pytest.mark.asyncio
 async def test_async_check_handle(async_ctx: AsyncProjectContext):
-    dataset = (await async_ctx.client.datasets().create(async_ctx.scope("test"))).dataset
+    dataset = await async_ctx.client.datasets().create(async_ctx.scope("test"))
     pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
 
-    response = await async_ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {})
+    handle = await async_ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {})
 
-    assert not await async_ctx.client.dataset(dataset.name).check_handle(response.handle)
+    assert not await async_ctx.client.dataset(dataset.name).check_handle(handle)
 
 
 @pytest.mark.asyncio
 @pytest.mark.xfail(reason="ctx")
 async def test_async_wait_for_handle(async_ctx: AsyncProjectContext):
-    dataset = (await async_ctx.client.datasets().create(async_ctx.scope("test"))).dataset
+    dataset = await async_ctx.client.datasets().create(async_ctx.scope("test"))
     pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
 
-    response = await async_ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {})
+    handle = await async_ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {})
 
-    await async_ctx.client.dataset(dataset.name).wait_for_handle(response.handle)
+    await async_ctx.client.dataset(dataset.name).wait_for_handle(handle)
 
-    assert await async_ctx.client.dataset(dataset.name).check_handle(response.handle)
+    assert await async_ctx.client.dataset(dataset.name).check_handle(handle)
 
 
 @pytest.mark.asyncio
 @pytest.mark.xfail(reason="ctx")
 async def test_async_dataset_list(async_ctx: AsyncProjectContext):
-    dataset = (await async_ctx.client.datasets().create(async_ctx.scope("test"))).dataset
+    dataset = await async_ctx.client.datasets().create(async_ctx.scope("test"))
     pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
 
-    response = await async_ctx.client.dataset(dataset.name).upsert_file(
+    handle = await async_ctx.client.dataset(dataset.name).upsert_file(
         "doc1", pdf_path, {"title": "test"}
     )
 
-    await async_ctx.client.dataset(dataset.name).wait_for_handle(response.handle)
+    await async_ctx.client.dataset(dataset.name).wait_for_handle(handle)
 
     entries: list[ListEntry] = []
     async for entry in async_ctx.client.dataset(dataset.name).list():

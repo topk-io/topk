@@ -31,7 +31,7 @@ async fn test_upsert_file_to_non_existent_dataset(ctx: &mut ProjectTestContext) 
 #[tokio::test]
 #[ignore]
 async fn test_upsert_file_pdf(ctx: &mut ProjectTestContext) {
-    let response = ctx
+    let dataset = ctx
         .client
         .datasets()
         .create(ctx.wrap("test"), None)
@@ -43,21 +43,21 @@ async fn test_upsert_file_pdf(ctx: &mut ProjectTestContext) {
         ("author".to_string(), Value::string("Test Author")),
     ]);
 
-    let response = ctx
+    let handle = ctx
         .client
-        .dataset(&response.dataset().unwrap().name)
+        .dataset(&dataset.name)
         .upsert_file("doc1", test_pdf(), metadata)
         .await
         .expect("could not upsert PDF file");
 
-    assert_eq!(response.handle.is_empty(), false);
+    assert_eq!(handle.is_empty(), false);
 }
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
 #[ignore]
 async fn test_upsert_file_markdown(ctx: &mut ProjectTestContext) {
-    let response = ctx
+    let dataset = ctx
         .client
         .datasets()
         .create(ctx.wrap("test"), None)
@@ -72,7 +72,7 @@ async fn test_upsert_file_markdown(ctx: &mut ProjectTestContext) {
 
     let handle = ctx
         .client
-        .dataset(&response.dataset().unwrap().name)
+        .dataset(&dataset.name)
         .upsert_file("doc2".to_string(), input_file, metadata)
         .await;
 
@@ -83,7 +83,7 @@ async fn test_upsert_file_markdown(ctx: &mut ProjectTestContext) {
 #[tokio::test]
 #[ignore]
 async fn test_upsert_file_with_invalid_metadata(ctx: &mut ProjectTestContext) {
-    let response = ctx
+    let dataset = ctx
         .client
         .datasets()
         .create(ctx.wrap("test"), None)
@@ -99,7 +99,7 @@ async fn test_upsert_file_with_invalid_metadata(ctx: &mut ProjectTestContext) {
 
         let handle = ctx
             .client
-            .dataset(&response.dataset().unwrap().name)
+            .dataset(&dataset.name)
             .upsert_file("doc2".to_string(), input_file.clone(), metadata)
             .await;
 
@@ -127,13 +127,10 @@ async fn test_upsert_file(#[case] file: &str) {
         .datasets()
         .create(ctx.wrap("test"), None)
         .await
-        .expect("could not create dataset")
-        .into_inner()
-        .dataset
-        .unwrap();
+        .expect("could not create dataset");
 
     // Upsert  file
-    let upsert = ctx
+    let handle = ctx
         .client
         .dataset(&dataset.name)
         .upsert_file(file, test_file(file), HashMap::<String, Value>::new())
@@ -143,7 +140,7 @@ async fn test_upsert_file(#[case] file: &str) {
     // Wait for handle to be processed
     ctx.client
         .dataset(&dataset.name)
-        .wait_for_handle(&upsert.handle, None)
+        .wait_for_handle(&handle, None)
         .await
         .expect("handle was not processed within timeout");
 
@@ -153,7 +150,6 @@ async fn test_upsert_file(#[case] file: &str) {
         .search(file, [&dataset.name], 1, None, Vec::<String>::new())
         .await
         .expect("could not search")
-        .into_inner()
         .try_collect::<Vec<_>>()
         .await
         .expect("could not collect search results");

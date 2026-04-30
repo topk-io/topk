@@ -14,7 +14,8 @@ use tokio::sync::OnceCell;
 use tonic::transport::Channel;
 use tonic::Streaming;
 
-use crate::client::Response;
+use crate::proto::v1::data::Document;
+
 use crate::proto::v1::ctx::dataset_read_service_client::DatasetReadServiceClient;
 use crate::proto::v1::ctx::dataset_write_service_client::DatasetWriteServiceClient;
 use crate::proto::v1::ctx::doc::DocId;
@@ -22,9 +23,8 @@ use crate::proto::v1::ctx::file::{InputFile, InputSource};
 use crate::proto::v1::ctx::ListEntry;
 use crate::proto::v1::ctx::ListRequest;
 use crate::proto::v1::ctx::{
-    upsert_message, CheckHandleRequest, DeleteRequest, DeleteResponse, GetMetadataRequest,
-    GetMetadataResponse, UpdateMetadataRequest, UpdateMetadataResponse, UpsertMessage,
-    UpsertResponse,
+    upsert_message, CheckHandleRequest, DeleteRequest, GetMetadataRequest, UpdateMetadataRequest,
+    UpsertMessage,
 };
 use crate::proto::v1::data::LogicalExpr;
 use crate::proto::v1::data::Value;
@@ -83,7 +83,7 @@ impl DatasetClient {
         &self,
         fields: Option<Vec<String>>,
         filter: Option<LogicalExpr>,
-    ) -> Result<Response<Streaming<ListEntry>>, Error> {
+    ) -> Result<Streaming<ListEntry>, Error> {
         let client = create_client!(DatasetReadServiceClient, self.read, self.config).await?;
         let fields = fields.unwrap_or_default();
 
@@ -103,7 +103,7 @@ impl DatasetClient {
         })
         .await?;
 
-        Ok(response.into())
+        Ok(response.into_inner())
     }
 
     pub async fn upsert_file(
@@ -111,7 +111,7 @@ impl DatasetClient {
         doc_id: impl Into<DocId>,
         input: impl Into<InputFile>,
         metadata: impl IntoIterator<Item = (impl Into<String>, impl Into<Value>)>,
-    ) -> Result<Response<UpsertResponse>, Error> {
+    ) -> Result<String, Error> {
         let client = create_client!(DatasetWriteServiceClient, self.write, self.config).await?;
         let file = input.into();
         let metadata: HashMap<String, Value> = metadata
@@ -168,13 +168,10 @@ impl DatasetClient {
         })
         .await?;
 
-        Ok(response.into())
+        Ok(response.into_inner().handle)
     }
 
-    pub async fn delete(
-        &self,
-        doc_id: impl Into<DocId>,
-    ) -> Result<Response<DeleteResponse>, Error> {
+    pub async fn delete(&self, doc_id: impl Into<DocId>) -> Result<String, Error> {
         let client = create_client!(DatasetWriteServiceClient, self.write, self.config).await?;
 
         let doc_id = doc_id.into();
@@ -195,7 +192,7 @@ impl DatasetClient {
         })
         .await?;
 
-        Ok(response.into())
+        Ok(response.into_inner().handle)
     }
 
     /// Checks if a handle has been processed (single shot).
@@ -249,7 +246,7 @@ impl DatasetClient {
         &self,
         ids: impl IntoIterator<Item = impl Into<String>>,
         fields: Option<Vec<String>>,
-    ) -> Result<Response<GetMetadataResponse>, Error> {
+    ) -> Result<HashMap<String, Document>, Error> {
         let client = create_client!(DatasetReadServiceClient, self.read, self.config).await?;
         let ids = ids.into_iter().map(|id| id.into()).collect::<Vec<_>>();
         let fields = fields.unwrap_or_default();
@@ -271,14 +268,14 @@ impl DatasetClient {
         })
         .await?;
 
-        Ok(response.into())
+        Ok(response.into_inner().docs)
     }
 
     pub async fn update_metadata(
         &self,
         doc_id: impl Into<DocId>,
         metadata: impl IntoIterator<Item = (impl Into<String>, impl Into<Value>)>,
-    ) -> Result<Response<UpdateMetadataResponse>, Error> {
+    ) -> Result<String, Error> {
         let client = create_client!(DatasetWriteServiceClient, self.write, self.config).await?;
 
         let doc_id = doc_id.into();
@@ -304,7 +301,7 @@ impl DatasetClient {
         })
         .await?;
 
-        Ok(response.into())
+        Ok(response.into_inner().handle)
     }
 }
 

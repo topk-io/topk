@@ -1,7 +1,6 @@
 use futures_util::TryFutureExt;
 use tonic::Streaming;
 
-use super::Response;
 use crate::create_client;
 use crate::proto::v1::ctx::context_service_client::ContextServiceClient;
 use crate::proto::v1::ctx::SearchRequest;
@@ -19,7 +18,7 @@ impl super::Client {
         top_k: u32,
         filter: Option<LogicalExpr>,
         select_fields: impl IntoIterator<Item = impl Into<String>>,
-    ) -> Result<Response<Streaming<SearchResult>>, Error> {
+    ) -> Result<Streaming<SearchResult>, Error> {
         let datasets: Vec<_> = datasets.into_iter().map(|s| s.into()).collect();
         if datasets.is_empty() {
             return Err(Error::InvalidArgument(
@@ -44,6 +43,6 @@ impl super::Client {
         })
         .await?;
 
-        Ok(response.into())
+        Ok(response.into_inner())
     }
 }
