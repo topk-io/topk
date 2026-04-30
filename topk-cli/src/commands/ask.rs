@@ -140,8 +140,7 @@ pub async fn run(client: &Client, args: &AskArgs, output: &Output) -> Result<Ask
             args.mode.clone().map(Into::into),
             args.fields.clone(),
         )
-        .await?
-        .into_inner();
+        .await?;
 
     let mut answer: Option<Answer> = None;
     while let Some(item) = stream.next().await {

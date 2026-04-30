@@ -71,7 +71,6 @@ pub async fn run(client: &Client, args: &SearchArgs) -> Result<SearchResults, Er
                 args.fields.clone().unwrap_or_default(),
             )
             .await?
-            .into_inner()
             .try_collect()
             .await?,
     })
@@ -265,7 +264,7 @@ mod tests {
             .unwrap();
         ctx.client
             .dataset(&dataset)
-            .wait_for_handle(&upload.handle, None)
+            .wait_for_handle(&upload, None)
             .await
             .unwrap();
 

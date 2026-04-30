@@ -244,9 +244,7 @@ async fn upload_all(
                             InputFile::from_path(&file.path)?,
                             HashMap::<String, Value>::default(),
                         )
-                        .await?
-                        .into_inner()
-                        .handle;
+                        .await?;
                     Ok::<String, Error>(handle)
                 }
                 .await;

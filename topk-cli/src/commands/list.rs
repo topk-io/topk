@@ -202,7 +202,6 @@ pub async fn run(
         .dataset(&args.dataset)
         .list(args.fields.clone(), None)
         .await?
-        .into_inner()
         .map(|entry| entry.map_err(Error::from).map(ListEntry::from)))
 }
 
