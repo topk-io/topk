@@ -9,7 +9,7 @@
  * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols#the_async_iterator_and_async_iterable_protocols
  */
 export declare class AskStream {
-  [Symbol.asyncIterator](): AsyncGenerator<Answer | Search | Reason, void, undefined>
+  [Symbol.asyncIterator](): AsyncGenerator<Answer | Progress, void, undefined>
 }
 
 /** Client for interacting with the TopK API. For available regions see https://docs.topk.io/regions */
@@ -347,6 +347,11 @@ export interface Page {
   image?: Image
 }
 
+/** Represents a progress update in an ask response. */
+export interface Progress {
+  update: string
+}
+
 /**
  * Options for query operations.
  *
@@ -358,11 +363,6 @@ export interface QueryOptions {
   lsn?: string
   /** Consistency level for the query */
   consistency?: ConsistencyLevel
-}
-
-/** Represents a reason in an ask response. */
-export interface Reason {
-  thought: string
 }
 
 /**
@@ -395,13 +395,6 @@ export interface RetryConfig {
   timeout?: number
   /** Backoff configuration for spacing out retry attempts */
   backoff?: BackoffConfig
-}
-
-/** Represents a sub-query in an ask response. */
-export interface Search {
-  objective: string
-  facts: Array<Fact>
-  refs: Record<string, SearchResult>
 }
 
 /** Represents a search result in an ask response. */

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use napi::bindgen_prelude::{Either3, *};
+use napi::bindgen_prelude::{Either, *};
 use napi_derive::napi;
 use topk_rs::proto::v1::ctx::ask_result::Message;
 use topk_rs::proto::v1::ctx::content::Data;
@@ -9,7 +9,7 @@ use crate::data::NativeValue;
 use crate::error::TopkError;
 use crate::expr::logical::LogicalExpression;
 
-pub type AskResultEither = Either3<Answer, Search, Reason>;
+pub type AskResultEither = Either<Answer, Progress>;
 
 /// Mode for ask operations.
 #[napi(string_enum = "lowercase")]
@@ -202,20 +202,11 @@ pub struct Answer {
     pub refs: HashMap<String, SearchResult>,
 }
 
-/// Represents a sub-query in an ask response.
+/// Represents a progress update in an ask response.
 #[napi(object, object_from_js = false)]
 #[derive(Debug, Clone)]
-pub struct Search {
-    pub objective: String,
-    pub facts: Vec<Fact>,
-    pub refs: HashMap<String, SearchResult>,
-}
-
-/// Represents a reason in an ask response.
-#[napi(object)]
-#[derive(Debug, Clone)]
-pub struct Reason {
-    pub thought: String,
+pub struct Progress {
+    pub update: String,
 }
 
 fn convert_refs(
@@ -242,21 +233,16 @@ pub fn convert_ask_result_to_answer(
     }
 }
 
-/// Converts a proto AskResult into one of the three concrete JS types.
+/// Converts a proto AskResult into one of the two concrete JS types.
 pub fn convert_ask_result(
     result: topk_rs::proto::v1::ctx::AskResult,
 ) -> napi::Result<AskResultEither> {
     match result.message {
-        Some(Message::Answer(fa)) => Ok(Either3::A(Answer {
+        Some(Message::Answer(fa)) => Ok(Either::A(Answer {
             facts: fa.facts.into_iter().map(Fact::from).collect(),
             refs: convert_refs(fa.refs)?,
         })),
-        Some(Message::Search(sq)) => Ok(Either3::B(Search {
-            objective: sq.objective,
-            facts: sq.facts.into_iter().map(Fact::from).collect(),
-            refs: convert_refs(sq.refs)?,
-        })),
-        Some(Message::Reason(r)) => Ok(Either3::C(Reason { thought: r.thought })),
+        Some(Message::Progress(p)) => Ok(Either::B(Progress { update: p.update })),
         None => Err(napi::Error::from_reason("AskResult has no message")),
     }
 }

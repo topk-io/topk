@@ -1,18 +1,14 @@
 import * as path from "node:path";
 
-import type { Answer, Reason, Search } from "../index.js";
+import type { Answer, Progress } from "../index.js";
 import { newProjectContext, ProjectContext } from "./setup";
 
-function isReasonMessage(message: Answer | Search | Reason): message is Reason {
-  return "thought" in message;
+function isProgressMessage(message: Answer | Progress): message is Progress {
+  return "update" in message;
 }
 
-function isSearchMessage(message: Answer | Search | Reason): message is Search {
-  return "objective" in message;
-}
-
-function isAnswerMessage(message: Answer | Search | Reason): message is Answer {
-  return "facts" in message && !isSearchMessage(message) && !isReasonMessage(message);
+function isAnswerMessage(message: Answer | Progress): message is Answer {
+  return "facts" in message && !isProgressMessage(message);
 }
 
 describe("Ask", () => {

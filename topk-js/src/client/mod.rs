@@ -12,10 +12,10 @@ use napi::tokio::{
 };
 use napi_derive::napi;
 
-use napi::bindgen_prelude::Either3;
+use napi::bindgen_prelude::Either;
 
 use crate::data::ask::{
-    convert_ask_result, convert_ask_result_to_answer, Answer, Mode, Reason, Search, SearchResult,
+    convert_ask_result, convert_ask_result_to_answer, Answer, Mode, Progress, SearchResult,
     Source,
 };
 use crate::error::TopkError;
@@ -27,7 +27,7 @@ pub mod dataset;
 pub mod datasets;
 
 pub(crate) const STREAM_BUFFER_SIZE: usize = 16;
-type AskStreamMessage = std::result::Result<Either3<Answer, Search, Reason>, String>;
+type AskStreamMessage = std::result::Result<Either<Answer, Progress>, String>;
 type SearchStreamMessage = std::result::Result<SearchResult, String>;
 
 pub(crate) fn spawn_stream_task<F>(task: F)
@@ -83,7 +83,7 @@ impl AskStream {
 
 #[napi]
 impl AsyncGenerator for AskStream {
-    type Yield = Either3<Answer, Search, Reason>;
+    type Yield = Either<Answer, Progress>;
     type Next = ();
     type Return = ();
 
