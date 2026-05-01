@@ -11,7 +11,6 @@ use crate::utils::dataset::test_pdf;
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-#[ignore]
 async fn test_search(ctx: &mut ProjectTestContext) {
     let dataset = ctx
         .client

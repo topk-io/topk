@@ -708,7 +708,6 @@ mod tests {
 
     #[test_context(CliTestContext)]
     #[tokio::test]
-    #[ignore]
     async fn upload_wait(ctx: &mut CliTestContext) {
         let dataset = ctx.wrap("test");
         ctx.client

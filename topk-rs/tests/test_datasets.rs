@@ -6,7 +6,6 @@ use utils::ProjectTestContext;
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-#[ignore]
 async fn test_list_datasets(ctx: &mut ProjectTestContext) {
     let create = ctx
         .client
@@ -27,7 +26,6 @@ async fn test_list_datasets(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-#[ignore]
 async fn test_create_dataset(ctx: &mut ProjectTestContext) {
     let create = ctx
         .client
@@ -48,7 +46,6 @@ async fn test_create_dataset(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-#[ignore]
 async fn test_create_duplicate_dataset(ctx: &mut ProjectTestContext) {
     ctx.client
         .datasets()
@@ -68,7 +65,6 @@ async fn test_create_duplicate_dataset(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-#[ignore]
 async fn test_delete_non_existent_dataset(ctx: &mut ProjectTestContext) {
     let err = ctx
         .client
@@ -82,7 +78,6 @@ async fn test_delete_non_existent_dataset(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-#[ignore]
 async fn test_delete_dataset(ctx: &mut ProjectTestContext) {
     let create = ctx
         .client
@@ -109,7 +104,6 @@ async fn test_delete_dataset(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-#[ignore]
 async fn test_get_dataset(ctx: &mut ProjectTestContext) {
     let err = ctx
         .client

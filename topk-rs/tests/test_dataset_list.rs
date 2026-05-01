@@ -7,7 +7,6 @@ use utils::{dataset::test_pdf, ProjectTestContext};
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-#[ignore]
 async fn test_dataset_list(ctx: &mut ProjectTestContext) {
     let dataset = ctx
         .client

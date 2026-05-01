@@ -14,7 +14,7 @@ pub mod test_context {
     use topk_rs::Client;
     use uuid::Uuid;
 
-    use crate::{client::make_global_client, commands::dataset::CreateDatasetResult};
+    use crate::{client::make_client, commands::dataset::CreateDatasetResult};
 
     pub trait OutputJsonExt {
         fn json<T: DeserializeOwned>(&self) -> serde_json::Result<T>;
@@ -104,7 +104,7 @@ pub mod test_context {
             let https =
                 std::env::var("TOPK_HTTPS").unwrap_or_else(|_| "true".to_string()) == "true";
 
-            let client = make_global_client(&api_key, &host, https);
+            let client = make_client(&api_key, &region, &host, https);
 
             Self {
                 client,

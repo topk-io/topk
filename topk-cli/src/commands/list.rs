@@ -225,7 +225,6 @@ mod tests {
 
     #[test_context(CliTestContext)]
     #[tokio::test]
-    #[ignore]
     async fn list_returns_uploaded_documents(ctx: &mut CliTestContext) {
         let dataset = ctx.wrap("list");
         ctx.create_dataset(&dataset);

@@ -37,7 +37,6 @@ def test_upsert_file_markdown_tuple(ctx: ProjectContext):
     assert len(handle) > 0
 
 
-@pytest.mark.xfail(reason="ctx")
 def test_get_metadata(ctx: ProjectContext):
     dataset = ctx.client.datasets().create(ctx.scope("test"))
     pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
@@ -84,7 +83,6 @@ def test_check_handle(ctx: ProjectContext):
     assert not ctx.client.dataset(dataset.name).check_handle(handle)
 
 
-@pytest.mark.xfail(reason="ctx")
 def test_wait_for_handle(ctx: ProjectContext):
     dataset = ctx.client.datasets().create(ctx.scope("test"))
     pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
@@ -96,7 +94,6 @@ def test_wait_for_handle(ctx: ProjectContext):
     assert ctx.client.dataset(dataset.name).check_handle(handle)
 
 
-@pytest.mark.xfail(reason="ctx")
 def test_dataset_list(ctx: ProjectContext):
     dataset = ctx.client.datasets().create(ctx.scope("test"))
     pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
