@@ -1,22 +1,20 @@
+from pathlib import Path
 import pytest
+
 from topk_sdk import Answer
 
 from . import AsyncProjectContext
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(reason="ctx")
 async def test_async_ask(async_ctx: AsyncProjectContext):
-    result = await async_ctx.client.ask("summarize", [])
+    dataset = await async_ctx.client.datasets().create(async_ctx.scope("test"))
+    pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
 
-    assert isinstance(result, Answer), f"Expected Answer, got {type(result)}"
-    assert len(result.facts) > 0, f"Expected at least 1 fact, got {len(result.facts)}"
+    handle = await async_ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {})
+    await async_ctx.client.dataset(dataset.name).wait_for_handle(handle)
 
-
-@pytest.mark.asyncio
-@pytest.mark.xfail(reason="ctx")
-async def test_async_ask_stream(async_ctx: AsyncProjectContext):
-    stream = async_ctx.client.ask_stream("summarize", [])
+    stream = async_ctx.client.ask("summarize", [dataset.name])
 
     answer_received = False
     async for message in stream:
@@ -24,4 +22,4 @@ async def test_async_ask_stream(async_ctx: AsyncProjectContext):
             answer_received = True
             break
 
-    assert answer_received, "Expected at least one Answer in the stream"
+    assert answer_received, "Expected Answer in the stream"

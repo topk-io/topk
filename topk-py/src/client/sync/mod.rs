@@ -8,22 +8,21 @@ mod search;
 
 use std::sync::Arc;
 
-pub use ask::{ask, ask_stream, AskIterator};
+pub use ask::{ask, AskIterator};
 pub use collection::CollectionClient;
 pub use collections::CollectionsClient;
 pub use dataset::DatasetClient;
 pub use dataset::DatasetListIterator;
 pub use datasets::DatasetsClient;
-pub use search::{search, search_stream, SearchIterator};
+pub use search::{search, SearchIterator};
 
-use crate::data::ask::SearchResult;
 use crate::{
     client::{sync::runtime::Runtime, topk_client, NativeRetryConfig},
-    data::ask::{AskResult, Mode, Source},
+    data::ask::{Mode, Source},
     expr::logical::LogicalExpr,
 };
 
-use pyo3::{prelude::Python, pyclass, pymethods, PyResult};
+use pyo3::{pyclass, pymethods, PyResult};
 
 #[pyclass]
 pub struct Client {
@@ -82,35 +81,13 @@ impl Client {
     #[pyo3(signature = (query, datasets, filter=None, mode=None, select_fields=None))]
     pub fn ask(
         &self,
-        py: Python<'_>,
-        query: String,
-        datasets: Vec<Source>,
-        filter: Option<LogicalExpr>,
-        mode: Option<Mode>,
-        select_fields: Option<Vec<String>>,
-    ) -> PyResult<AskResult> {
-        ask(
-            self.runtime.clone(),
-            self.client.clone(),
-            py,
-            query,
-            datasets,
-            filter,
-            mode,
-            select_fields,
-        )
-    }
-
-    #[pyo3(signature = (query, datasets, filter=None, mode=None, select_fields=None))]
-    pub fn ask_stream(
-        &self,
         query: String,
         datasets: Vec<Source>,
         filter: Option<LogicalExpr>,
         mode: Option<Mode>,
         select_fields: Option<Vec<String>>,
     ) -> PyResult<AskIterator> {
-        ask_stream(
+        ask(
             self.runtime.clone(),
             self.client.clone(),
             query,
@@ -124,35 +101,13 @@ impl Client {
     #[pyo3(signature = (query, datasets, top_k, filter=None, select_fields=None))]
     pub fn search(
         &self,
-        py: Python<'_>,
-        query: String,
-        datasets: Vec<Source>,
-        top_k: u32,
-        filter: Option<LogicalExpr>,
-        select_fields: Option<Vec<String>>,
-    ) -> PyResult<Vec<SearchResult>> {
-        search(
-            self.runtime.clone(),
-            self.client.clone(),
-            py,
-            query,
-            datasets,
-            filter,
-            top_k,
-            select_fields,
-        )
-    }
-
-    #[pyo3(signature = (query, datasets, top_k, filter=None, select_fields=None))]
-    pub fn search_stream(
-        &self,
         query: String,
         datasets: Vec<Source>,
         top_k: u32,
         filter: Option<LogicalExpr>,
         select_fields: Option<Vec<String>>,
     ) -> PyResult<SearchIterator> {
-        search_stream(
+        search(
             self.runtime.clone(),
             self.client.clone(),
             query,

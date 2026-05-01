@@ -1,21 +1,18 @@
-import pytest
+from pathlib import Path
 
 from topk_sdk import Answer
 
 from . import ProjectContext
 
 
-@pytest.mark.xfail(reason="ctx")
 def test_ask(ctx: ProjectContext):
-    result = ctx.client.ask("summarize", [])
+    dataset = ctx.client.datasets().create(ctx.scope("test"))
+    pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
 
-    assert isinstance(result, Answer), f"Expected Answer, got {type(result)}"
-    assert len(result.facts) > 0, f"Expected at least 1 fact, got {len(result.facts)}"
+    handle = ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {})
+    ctx.client.dataset(dataset.name).wait_for_handle(handle)
 
-
-@pytest.mark.xfail(reason="ctx")
-def test_ask_stream(ctx: ProjectContext):
-    stream = ctx.client.ask_stream("summarize", [])
+    stream = ctx.client.ask("summarize", [dataset.name])
 
     answer_received = False
     for message in stream:
@@ -23,4 +20,4 @@ def test_ask_stream(ctx: ProjectContext):
             answer_received = True
             break
 
-    assert answer_received, "Expected at least one Answer in the stream"
+    assert answer_received, "Expected Answer in the stream"

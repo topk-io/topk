@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use futures_util::{StreamExt, TryStreamExt};
+use futures_util::StreamExt;
 use pyo3::{prelude::*, types::PyAny};
 use pyo3_async_runtimes::tokio::future_into_py;
 use tokio::sync::{mpsc, Mutex};
@@ -36,7 +36,7 @@ impl AsyncSearchIterator {
     }
 }
 
-pub fn search_stream(
+pub fn search(
     client: Arc<topk_rs::Client>,
     query: String,
     datasets: Vec<Source>,
@@ -85,33 +85,4 @@ pub fn search_stream(
     Ok(AsyncSearchIterator {
         receiver: Arc::new(tokio::sync::Mutex::new(rx)),
     })
-}
-
-pub fn search(
-    client: Arc<topk_rs::Client>,
-    py: Python<'_>,
-    query: String,
-    datasets: Vec<Source>,
-    filter: Option<LogicalExpr>,
-    top_k: u32,
-    select_fields: Option<Vec<String>>,
-) -> PyResult<Py<PyAny>> {
-    let filter = filter.map(|f| f.into());
-    let select_fields = select_fields.unwrap_or_default();
-
-    future_into_py(py, async move {
-        let stream = client
-            .search(query, datasets, top_k, filter, select_fields)
-            .await
-            .map_err(RustError)?;
-
-        stream
-            .map_err(|e| PyErr::from(RustError(e.into())))
-            .and_then(|msg| {
-                std::future::ready(SearchResult::try_from(msg).map_err(Into::<PyErr>::into))
-            })
-            .try_collect::<Vec<_>>()
-            .await
-    })
-    .map(|result| result.into())
 }

@@ -47,38 +47,12 @@ class Client:
             typing.Literal["auto", "summarize", "research"]
         ] = None,
         select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> typing.Union[Answer, Progress]:
-        """
-        Ask a question and wait for the stream to complete, returning the last message.
-        """
-        ...
-    def ask_stream(
-        self,
-        query: builtins.str,
-        datasets: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
-        filter: typing.Optional[query.LogicalExpr] = None,
-        mode: typing.Optional[
-            typing.Literal["auto", "summarize", "research"]
-        ] = None,
-        select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> typing.Iterator[typing.Union[Answer, Progress]]:
+    ) -> AskIterator:
         """
         Ask a question and get streaming responses as an iterator.
         """
         ...
     def search(
-        self,
-        query: builtins.str,
-        datasets: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
-        top_k: builtins.int,
-        filter: typing.Optional[query.LogicalExpr] = None,
-        select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> builtins.list[SearchResult]:
-        """
-        Search for documents and wait for the stream to complete, returning all results.
-        """
-        ...
-    def search_stream(
         self,
         query: builtins.str,
         datasets: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
@@ -125,21 +99,7 @@ class AsyncClient:
             typing.Literal["auto", "summarize", "research"]
         ] = None,
         select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> typing.Awaitable[typing.Union[Answer, Progress]]:
-        """
-        Ask a question and wait for the stream to complete asynchronously, returning the last message.
-        """
-        ...
-    def ask_stream(
-        self,
-        query: builtins.str,
-        datasets: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
-        filter: typing.Optional[query.LogicalExpr] = None,
-        mode: typing.Optional[
-            typing.Literal["auto", "summarize", "research"]
-        ] = None,
-        select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> typing.AsyncIterator[typing.Union[Answer, Progress]]:
+    ) -> AsyncAskIterator:
         """
         Ask a question and get streaming responses asynchronously as an async iterator.
         """
@@ -151,19 +111,7 @@ class AsyncClient:
         top_k: builtins.int,
         filter: typing.Optional[query.LogicalExpr] = None,
         select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> typing.Awaitable[builtins.list[SearchResult]]:
-        """
-        Search for documents and wait for the stream to complete asynchronously, returning all results.
-        """
-        ...
-    def search_stream(
-        self,
-        query: builtins.str,
-        datasets: typing.Union[typing.Sequence[Source], typing.Sequence[str], typing.Sequence[dict[builtins.str, typing.Any]]],
-        top_k: builtins.int,
-        filter: typing.Optional[query.LogicalExpr] = None,
-        select_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> typing.AsyncIterator[SearchResult]:
+    ) -> AsyncSearchIterator:
         """
         Search for documents and get streaming responses asynchronously as an async iterator.
         """
@@ -688,7 +636,7 @@ class AsyncAskIterator:
     """
 
     def __aiter__(self) -> AsyncAskIterator: ...
-    def __anext__(self) -> typing.AsyncIterator[typing.Union[Answer, Progress]]: ...
+    def __anext__(self) -> typing.Awaitable[typing.Union[Answer, Progress]]: ...
 
 class SearchIterator:
     """
@@ -704,7 +652,7 @@ class AsyncSearchIterator:
     """
 
     def __aiter__(self) -> AsyncSearchIterator: ...
-    def __anext__(self) -> typing.AsyncIterator[SearchResult]: ...
+    def __anext__(self) -> typing.Awaitable[SearchResult]: ...
 
 class DatasetListIterator:
     """

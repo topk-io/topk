@@ -138,13 +138,12 @@ Once your documents are processed, you can start retrieving relevant passages im
           region="aws-us-east-1-elastica",
       )
 
-      results = client.search(
+      for result in client.search(
           query="travel reimbursement policy",
           datasets=["policies"],
           top_k=10,
-      )
-
-      print(results)
+      ):
+          print(result)
       ```
 
       ```python Async
@@ -158,12 +157,12 @@ Once your documents are processed, you can start retrieving relevant passages im
       )
 
       async def main() -> None:
-          results = await client.search(
+          async for result in client.search(
               query="travel reimbursement policy",
               datasets=["policies"],
               top_k=10,
-          )
-          print(results)
+          ):
+              print(result)
 
       asyncio.run(main())
       ```
@@ -218,11 +217,12 @@ This is useful when you want:
           region="aws-us-east-1-elastica",
       )
 
-      results = client.search(
+      for result in client.search(
           query="What was the total net income of Bank of America in 2024?",
           datasets=["finance", "compliance"],
           top_k=10,
-      )
+      ):
+          print(result)
       ```
 
       ```python Async
@@ -236,11 +236,12 @@ This is useful when you want:
       )
 
       async def main() -> None:
-          results = await client.search(
+          async for result in client.search(
               query="What was the total net income of Bank of America in 2024?",
               datasets=["finance", "compliance"],
               top_k=10,
-          )
+          ):
+              print(result)
 
       asyncio.run(main())
       ```
@@ -287,7 +288,7 @@ This is useful when you want to query:
           region="aws-us-east-1-elastica",
       )
 
-      results = client.search(
+      for result in client.search(
           query="travel reimbursement limit",
           datasets=[
               {
@@ -298,7 +299,8 @@ This is useful when you want to query:
               }
           ],
           top_k=10,
-      )
+      ):
+          print(result)
       ```
 
       ```python Async
@@ -313,7 +315,7 @@ This is useful when you want to query:
       )
 
       async def main() -> None:
-          results = await client.search(
+          async for result in client.search(
               query="travel reimbursement limit",
               datasets=[
                   {
@@ -324,7 +326,8 @@ This is useful when you want to query:
                   }
               ],
               top_k=10,
-          )
+          ):
+              print(result)
 
       asyncio.run(main())
       ```
@@ -375,12 +378,13 @@ The passage text alone is often not enough. You may also want metadata such as t
           region="aws-us-east-1-elastica",
       )
 
-      results = client.search(
+      for result in client.search(
           query="refund policy",
           datasets=["policies"],
           top_k=10,
           select_fields=["title", "author", "year"],
-      )
+      ):
+          print(result)
       ```
 
       ```python Async
@@ -394,12 +398,13 @@ The passage text alone is often not enough. You may also want metadata such as t
       )
 
       async def main() -> None:
-          results = await client.search(
+          async for result in client.search(
               query="refund policy",
               datasets=["policies"],
               top_k=10,
               select_fields=["title", "author", "year"],
-          )
+          ):
+              print(result)
 
       asyncio.run(main())
       ```

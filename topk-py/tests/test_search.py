@@ -1,12 +1,10 @@
 from pathlib import Path
 
-import pytest
 from topk_sdk import SearchResult
 
 from . import ProjectContext
 
 
-@pytest.mark.xfail(reason="ctx")
 def test_search(ctx: ProjectContext):
     dataset = ctx.client.datasets().create(ctx.scope("test"))
     pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
@@ -15,23 +13,7 @@ def test_search(ctx: ProjectContext):
 
     ctx.client.dataset(dataset.name).wait_for_handle(handle)
 
-    result: list[SearchResult] = ctx.client.search(
-        "technical", [dataset.name], top_k=10
-    )
-
-    assert len(result) > 0, "Expected at least one search result"
-
-
-@pytest.mark.xfail(reason="ctx")
-def test_search_stream(ctx: ProjectContext):
-    dataset = ctx.client.datasets().create(ctx.scope("test"))
-    pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
-
-    handle = ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {})
-
-    ctx.client.dataset(dataset.name).wait_for_handle(handle)
-
-    stream = ctx.client.search_stream(
+    stream = ctx.client.search(
         "technical",
         [dataset.name],
         top_k=10,
