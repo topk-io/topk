@@ -11,6 +11,15 @@ function isAnswerMessage(message: Answer | Progress): message is Answer {
   return "facts" in message && !isProgressMessage(message);
 }
 
+async function extractAnswer(
+  stream: AsyncIterable<Answer | Progress>
+): Promise<Answer | null> {
+  for await (const message of stream) {
+    if (isAnswerMessage(message)) return message;
+  }
+  return null;
+}
+
 describe("Ask", () => {
   const contexts: ProjectContext[] = [];
   const pdfPath = path.join(__dirname, "..", "..", "tests", "pdfko.pdf");
@@ -29,22 +38,14 @@ describe("Ask", () => {
     const ctx = getContext();
     const dataset = await ctx.createDataset("test");
 
-    const response = await ctx.client
+    const handle = await ctx.client
       .dataset(dataset.name)
       .upsertFile("doc1", { path: pdfPath }, {});
 
-    await ctx.client.dataset(dataset.name).waitForHandle(response.handle);
+    await ctx.client.dataset(dataset.name).waitForHandle(handle);
 
-    const stream = ctx.client.ask("summarize", [dataset.name]);
+    const answer = await extractAnswer(ctx.client.ask("summarize", [dataset.name]));
 
-    let answerReceived = false;
-    for await (const message of stream) {
-      if (isAnswerMessage(message)) {
-        answerReceived = true;
-        break;
-      }
-    }
-
-    expect(answerReceived).toBe(true);
+    expect(answer).not.toBeNull();
   }, 1000 * 60 * 6); // 6 minutes
 });

@@ -112,13 +112,13 @@ export declare class CollectionsClient {
  */
 export declare class DatasetClient {
   /** Upsert a file to the dataset. */
-  upsertFile(docId: string, input: InputFile, metadata: Record<string, any>): Promise<HandleResponse>
+  upsertFile(docId: string, input: InputFile, metadata: Record<string, any>): Promise<string>
   /** Get metadata for one or more documents. */
   getMetadata(ids: Array<string>, fields?: Array<string> | undefined | null): Promise<Record<string, Record<string, any>>>
   /** Update metadata for a file. */
-  updateMetadata(docId: string, metadata: Record<string, any>): Promise<HandleResponse>
+  updateMetadata(docId: string, metadata: Record<string, any>): Promise<string>
   /** Delete a file from the dataset. */
-  delete(docId: string): Promise<HandleResponse>
+  delete(docId: string): Promise<string>
   /** Return whether the handle has been processed. */
   checkHandle(handle: string): Promise<boolean>
   /**
@@ -289,12 +289,6 @@ export interface Dataset {
 export interface Fact {
   fact: string
   refIds: Array<string>
-}
-
-/** Result of an upsert, delete, or metadata update operation. */
-export interface HandleResponse {
-  /** Handle that can be used to check or wait for processing completion. */
-  handle: string
 }
 
 /** Image content. */

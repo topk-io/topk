@@ -20,10 +20,10 @@ describe("Search", () => {
     const ctx = getContext();
     const dataset = await ctx.createDataset("test");
 
-    const response = await ctx.client
+    const handle = await ctx.client
       .dataset(dataset.name)
       .upsertFile("doc1", { path: pdfPath }, {});
-    await ctx.client.dataset(dataset.name).waitForHandle(response.handle);
+    await ctx.client.dataset(dataset.name).waitForHandle(handle);
 
     const stream = ctx.client.search("technical", [dataset.name], 10);
 

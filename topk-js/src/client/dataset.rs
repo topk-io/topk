@@ -118,14 +118,6 @@ impl From<topk_rs::proto::v1::ctx::ListEntry> for ListEntry {
     }
 }
 
-/// Result of an upsert, delete, or metadata update operation.
-#[napi(object)]
-#[derive(Debug, Clone)]
-pub struct HandleResponse {
-    /// Handle that can be used to check or wait for processing completion.
-    pub handle: String,
-}
-
 /// Iterator for dataset list responses.
 #[napi(async_iterator)]
 pub struct DatasetListStream {
@@ -209,7 +201,7 @@ impl DatasetClient {
         doc_id: String,
         input: InputFile,
         #[napi(ts_arg_type = "Record<string, any>")] metadata: HashMap<String, Value>,
-    ) -> Result<HandleResponse> {
+    ) -> Result<String> {
         let input: topk_rs::proto::v1::ctx::file::InputFile = input.try_into()?;
         let metadata: HashMap<String, topk_rs::proto::v1::data::Value> =
             metadata.into_iter().map(|(k, v)| (k, v.into())).collect();
@@ -221,9 +213,7 @@ impl DatasetClient {
             .await
             .map_err(TopkError::from)?;
 
-        Ok(HandleResponse {
-            handle,
-        })
+        Ok(handle)
     }
 
     /// Get metadata for one or more documents.
@@ -260,7 +250,7 @@ impl DatasetClient {
         &self,
         doc_id: String,
         #[napi(ts_arg_type = "Record<string, any>")] metadata: HashMap<String, Value>,
-    ) -> Result<HandleResponse> {
+    ) -> Result<String> {
         let metadata: HashMap<String, topk_rs::proto::v1::data::Value> =
             metadata.into_iter().map(|(k, v)| (k, v.into())).collect();
 
@@ -271,12 +261,12 @@ impl DatasetClient {
             .await
             .map_err(TopkError::from)?;
 
-        Ok(HandleResponse { handle: response })
+        Ok(response)
     }
 
     /// Delete a file from the dataset.
     #[napi]
-    pub async fn delete(&self, doc_id: String) -> Result<HandleResponse> {
+    pub async fn delete(&self, doc_id: String) -> Result<String> {
         let handle = self
             .client
             .dataset(&self.dataset)
@@ -284,7 +274,7 @@ impl DatasetClient {
             .await
             .map_err(TopkError::from)?;
 
-        Ok(HandleResponse { handle })
+        Ok(handle)
     }
 
     /// Return whether the handle has been processed.

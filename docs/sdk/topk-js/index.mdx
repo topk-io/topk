@@ -461,7 +461,7 @@ Return whether the handle has been processed.
 ##### delete()
 
 ```ts
-delete(docId: string): Promise<HandleResponse>;
+delete(docId: string): Promise<string>;
 ```
 
 Delete a file from the dataset.
@@ -474,7 +474,7 @@ Delete a file from the dataset.
 
 **Returns**
 
-`Promise`\<[`HandleResponse`](/sdk/topk-js/index#handleresponse)\>
+`Promise`\<`string`\>
 
 ##### getMetadata()
 
@@ -517,7 +517,7 @@ List files in the dataset as an async iterator.
 ##### updateMetadata()
 
 ```ts
-updateMetadata(docId: string, metadata: Record<string, any>): Promise<HandleResponse>;
+updateMetadata(docId: string, metadata: Record<string, any>): Promise<string>;
 ```
 
 Update metadata for a file.
@@ -531,7 +531,7 @@ Update metadata for a file.
 
 **Returns**
 
-`Promise`\<[`HandleResponse`](/sdk/topk-js/index#handleresponse)\>
+`Promise`\<`string`\>
 
 ##### upsertFile()
 
@@ -539,7 +539,7 @@ Update metadata for a file.
 upsertFile(
    docId: string, 
    input: InputFile, 
-metadata: Record<string, any>): Promise<HandleResponse>;
+metadata: Record<string, any>): Promise<string>;
 ```
 
 Upsert a file to the dataset.
@@ -554,7 +554,7 @@ Upsert a file to the dataset.
 
 **Returns**
 
-`Promise`\<[`HandleResponse`](/sdk/topk-js/index#handleresponse)\>
+`Promise`\<`string`\>
 
 ##### waitForHandle()
 
@@ -879,18 +879,6 @@ Represents a fact in an ask response.
 | ------ | ------ |
 | <a id="property-fact"></a> `fact` | `string` |
 | <a id="property-refids"></a> `refIds` | `string`[] |
-
-***
-
-### HandleResponse
-
-Result of an upsert, delete, or metadata update operation.
-
-**Properties**
-
-| Property | Type | Description |
-| ------ | ------ | ------ |
-| <a id="property-handle"></a> `handle` | `string` | Handle that can be used to check or wait for processing completion. |
 
 ***
 

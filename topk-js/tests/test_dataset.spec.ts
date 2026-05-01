@@ -50,7 +50,7 @@ describe("Dataset", () => {
       .dataset(dataset.name)
       .upsertFile("doc1", { path: pdfPath }, { title: "test" });
 
-    expect(response.handle.length).toBeGreaterThan(0);
+    expect(response.length).toBeGreaterThan(0);
   });
 
   test("upsert file from inline bytes", async () => {
@@ -67,7 +67,7 @@ describe("Dataset", () => {
       { title: "test markdown" }
     );
 
-    expect(response.handle.length).toBeGreaterThan(0);
+    expect(response.length).toBeGreaterThan(0);
   });
 
   test("update metadata", async () => {
@@ -80,7 +80,7 @@ describe("Dataset", () => {
       .dataset(dataset.name)
       .updateMetadata("doc1", { title: "Updated Title" });
 
-    expect(response.handle.length).toBeGreaterThan(0);
+    expect(response.length).toBeGreaterThan(0);
   });
 
   test("delete document", async () => {
@@ -90,7 +90,7 @@ describe("Dataset", () => {
     await ctx.client.dataset(dataset.name).upsertFile("doc1", { path: pdfPath }, {});
 
     const response = await ctx.client.dataset(dataset.name).delete("doc1");
-    expect(response.handle.length).toBeGreaterThan(0);
+    expect(response.length).toBeGreaterThan(0);
   });
 
   test("check handle", async () => {
@@ -102,7 +102,7 @@ describe("Dataset", () => {
       .upsertFile("doc1", { path: pdfPath }, {});
 
     await expect(
-      ctx.client.dataset(dataset.name).checkHandle(response.handle)
+      ctx.client.dataset(dataset.name).checkHandle(response)
     ).resolves.toBe(false);
   });
 

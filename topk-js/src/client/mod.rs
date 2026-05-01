@@ -23,7 +23,7 @@ pub mod collections;
 pub mod dataset;
 pub mod datasets;
 
-pub(crate) const STREAM_BUFFER_SIZE: usize = 16;
+pub(crate) const STREAM_BUFFER_SIZE: usize = 64;
 type AskStreamMessage = std::result::Result<Either<Answer, Progress>, String>;
 type SearchStreamMessage = std::result::Result<SearchResult, String>;
 
