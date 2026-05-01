@@ -22,4 +22,4 @@ async def test_async_ask(async_ctx: AsyncProjectContext):
             answer_received = True
             break
 
-    assert answer_received, "Expected at Answer in the stream"
+    assert answer_received, "Expected Answer in the stream"

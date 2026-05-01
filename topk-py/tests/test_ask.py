@@ -20,4 +20,4 @@ def test_ask(ctx: ProjectContext):
             answer_received = True
             break
 
-    assert answer_received, "Expected at Answer in the stream"
+    assert answer_received, "Expected Answer in the stream"

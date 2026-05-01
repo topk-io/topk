@@ -119,7 +119,7 @@ import CoreConcepts from "/snippets/core-concepts.mdx";
           ```python Sync
           from pathlib import Path
 
-          resp = client.dataset("my-docs").upsert_file(
+          handle = client.dataset("my-docs").upsert_file(
               "report-2024",             # document ID
               Path("./report.pdf"),      # path to file
               {"title": "Annual Report"},  # optional metadata
@@ -128,7 +128,7 @@ import CoreConcepts from "/snippets/core-concepts.mdx";
           ```python Async
           from pathlib import Path
 
-          resp = await client.dataset("my-docs").upsert_file(
+          handle = await client.dataset("my-docs").upsert_file(
               "report-2024",             # document ID
               Path("./report.pdf"),      # path to file
               {"title": "Annual Report"},  # optional metadata
@@ -140,10 +140,10 @@ import CoreConcepts from "/snippets/core-concepts.mdx";
 
         <CodeGroup>
           ```python Sync
-          client.dataset("my-docs").wait_for_handle(resp)
+          client.dataset("my-docs").wait_for_handle(handle)
           ```
           ```python Async
-          await client.dataset("my-docs").wait_for_handle(resp)
+          await client.dataset("my-docs").wait_for_handle(handle)
           ```
         </CodeGroup>
       </Step>
