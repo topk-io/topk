@@ -178,9 +178,9 @@ Once your documents are processed, you can start retrieving relevant passages im
       region: "aws-us-east-1-elastica",
     });
 
-    const results = await client.search("travel reimbursement policy", ["policies"], 10);
-
-    console.log(results);
+    for await (const message of client.search("travel reimbursement policy", ["policies"], 10)) {
+      console.log(message);
+    }
     ```
   </Tab>
 </Tabs>
@@ -250,11 +250,13 @@ This is useful when you want:
     To specify the datasets to search against, pass them in the `datasets` argument:
 
     ```typescript
-    const results = await client.search(
+    for await (const message of client.search(
       "What was the total net income of Bank of America in 2024?",
       ["finance", "compliance"],
       10,
-    );
+    )) {
+      console.log(message);
+    }
     ```
   </Tab>
 </Tabs>
@@ -334,7 +336,7 @@ This is useful when you want to query:
     ```typescript
     import { field } from "topk-js/query";
 
-    const results = await client.search(
+    for await (const message of client.search(
       "travel reimbursement limit",
       [
         {
@@ -343,7 +345,9 @@ This is useful when you want to query:
         },
       ],
       10,
-    );
+    )) {
+      console.log(message);
+    }
     ```
   </Tab>
 </Tabs>
@@ -409,12 +413,15 @@ The passage text alone is often not enough. You may also want metadata such as t
     Use `selectFields`:
 
     ```typescript
-    const results = await client.search(
+    for await (const message of client.search(
       "refund policy",
       ["policies"],
       10,
-      { selectFields: ["title", "author", "year"] },
-    );
+      undefined,
+      ["title", "author", "year"],
+    )) {
+      console.log(message);
+    }
     ```
   </Tab>
 </Tabs>

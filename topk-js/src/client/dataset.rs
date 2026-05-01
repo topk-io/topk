@@ -1,15 +1,14 @@
 use std::collections::HashMap;
-
-use futures_util::{StreamExt, TryStreamExt};
-use napi::bindgen_prelude::*;
-use napi::tokio::{
-    self,
-    sync::{mpsc, watch, Mutex},
-};
-use napi_derive::napi;
+use std::future::Future;
 use std::sync::Arc;
+use std::time::Duration;
 
-use super::spawn_stream_task;
+use futures_util::StreamExt;
+use napi::bindgen_prelude::*;
+use napi::tokio::{self, sync::{mpsc, Mutex}};
+use napi_derive::napi;
+
+use super::RUNTIME;
 use super::STREAM_BUFFER_SIZE;
 use crate::data::NativeValue;
 use crate::data::Value;
@@ -37,6 +36,12 @@ impl TryFrom<InputFile> for topk_rs::proto::v1::ctx::file::InputFile {
     type Error = napi::Error;
 
     fn try_from(input: InputFile) -> Result<Self> {
+        if input.path.is_some() && input.data.is_some() {
+            return Err(napi::Error::from_reason(
+                "InputFile must have either `path` or `data`, not both",
+            ));
+        }
+
         if let Some(path) = input.path {
             return topk_rs::proto::v1::ctx::file::InputFile::from_path(path)
                 .map_err(|e| napi::Error::from_reason(format!("{e}")));
@@ -76,8 +81,8 @@ pub struct WaitConfig {
 impl From<WaitConfig> for topk_rs::client::WaitConfig {
     fn from(config: WaitConfig) -> Self {
         topk_rs::client::WaitConfig {
-            frequency: std::time::Duration::from_secs(config.frequency_secs.unwrap_or(5) as u64),
-            timeout: std::time::Duration::from_secs(config.timeout_secs.unwrap_or(300) as u64),
+            frequency: Duration::from_secs(config.frequency_secs.unwrap_or(5) as u64),
+            timeout: Duration::from_secs(config.timeout_secs.unwrap_or(300) as u64),
         }
     }
 }
@@ -125,14 +130,12 @@ pub struct HandleResponse {
 #[napi(async_iterator)]
 pub struct DatasetListStream {
     receiver: Arc<Mutex<mpsc::Receiver<DatasetListStreamMessage>>>,
-    cancel: watch::Sender<bool>,
 }
 
 impl DatasetListStream {
-    fn new(receiver: mpsc::Receiver<DatasetListStreamMessage>, cancel: watch::Sender<bool>) -> Self {
+    fn new(receiver: mpsc::Receiver<DatasetListStreamMessage>) -> Self {
         Self {
             receiver: Arc::new(Mutex::new(receiver)),
-            cancel,
         }
     }
 }
@@ -146,7 +149,7 @@ impl AsyncGenerator for DatasetListStream {
     fn next(
         &mut self,
         _value: Option<Self::Next>,
-    ) -> impl std::future::Future<Output = Result<Option<Self::Yield>>> + Send + 'static {
+    ) -> impl Future<Output = Result<Option<Self::Yield>>> + Send + 'static {
         let receiver = self.receiver.clone();
         async move {
             let mut guard = receiver.lock().await;
@@ -161,11 +164,8 @@ impl AsyncGenerator for DatasetListStream {
     fn complete(
         &mut self,
         _value: Option<Self::Return>,
-    ) -> impl std::future::Future<Output = Result<Option<Self::Yield>>> + Send + 'static {
+    ) -> impl Future<Output = Result<Option<Self::Yield>>> + Send + 'static {
         let receiver = self.receiver.clone();
-        let cancel = self.cancel.clone();
-        let _ = cancel.send(true);
-
         async move {
             receiver.lock().await.close();
             Ok(None)
@@ -214,7 +214,7 @@ impl DatasetClient {
         let metadata: HashMap<String, topk_rs::proto::v1::data::Value> =
             metadata.into_iter().map(|(k, v)| (k, v.into())).collect();
 
-        let response = self
+        let handle = self
             .client
             .dataset(&self.dataset)
             .upsert_file(doc_id, input, metadata)
@@ -222,7 +222,7 @@ impl DatasetClient {
             .map_err(TopkError::from)?;
 
         Ok(HandleResponse {
-            handle: response.into_inner().handle,
+            handle,
         })
     }
 
@@ -241,13 +241,14 @@ impl DatasetClient {
             .map_err(TopkError::from)?;
 
         Ok(response
-            .into_inner()
-            .docs
             .into_iter()
             .map(|(id, doc)| {
                 (
                     id,
-                    doc.fields.into_iter().map(|(k, v)| (k, v.into())).collect(),
+                    doc.fields
+                        .into_iter()
+                        .map(|(k, v): (String, topk_rs::proto::v1::data::Value)| (k, v.into()))
+                        .collect(),
                 )
             })
             .collect())
@@ -270,24 +271,20 @@ impl DatasetClient {
             .await
             .map_err(TopkError::from)?;
 
-        Ok(HandleResponse {
-            handle: response.into_inner().handle,
-        })
+        Ok(HandleResponse { handle: response })
     }
 
     /// Delete a file from the dataset.
-    #[napi(js_name = "delete")]
-    pub async fn delete_doc(&self, doc_id: String) -> Result<HandleResponse> {
-        let response = self
+    #[napi]
+    pub async fn delete(&self, doc_id: String) -> Result<HandleResponse> {
+        let handle = self
             .client
             .dataset(&self.dataset)
             .delete(doc_id)
             .await
             .map_err(TopkError::from)?;
 
-        Ok(HandleResponse {
-            handle: response.into_inner().handle,
-        })
+        Ok(HandleResponse { handle })
     }
 
     /// Return whether the handle has been processed.
@@ -314,35 +311,9 @@ impl DatasetClient {
             .map_err(TopkError::from)?)
     }
 
-    /// List files in the dataset.
-    #[napi(ts_return_type = "Promise<Array<ListEntry>>")]
-    pub async fn list(
-        &self,
-        fields: Option<Vec<String>>,
-        #[napi(ts_arg_type = "query.LogicalExpression | undefined")] filter: Option<
-            &LogicalExpression,
-        >,
-    ) -> Result<Vec<ListEntry>> {
-        let filter = filter.map(|f| f.clone().into());
-
-        let response = self
-            .client
-            .dataset(&self.dataset)
-            .list(fields, filter)
-            .await
-            .map_err(TopkError::from)?;
-
-        response
-            .into_inner()
-            .map_ok(|entry| entry.into())
-            .try_collect::<Vec<ListEntry>>()
-            .await
-            .map_err(|e| napi::Error::from_reason(format!("stream error: {e}")))
-    }
-
     /// List files in the dataset as an async iterator.
     #[napi]
-    pub fn list_stream(
+    pub fn list(
         &self,
         fields: Option<Vec<String>>,
         #[napi(ts_arg_type = "query.LogicalExpression | undefined")] filter: Option<
@@ -350,52 +321,38 @@ impl DatasetClient {
         >,
     ) -> DatasetListStream {
         let (tx, rx) = mpsc::channel::<DatasetListStreamMessage>(STREAM_BUFFER_SIZE);
-        let (cancel_tx, mut cancel_rx) = watch::channel(false);
         let client = self.client.clone();
         let dataset = self.dataset.clone();
         let filter = filter.map(|f| f.clone().into());
 
-        spawn_stream_task(move || {
-            let runtime = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .map_err(|e| format!("failed to build tokio runtime: {e}"))?;
+        RUNTIME.spawn(async move {
+            let mut stream = match client.dataset(&dataset).list(fields, filter).await {
+                Ok(stream) => stream,
+                Err(error) => {
+                    let _ = tx.send(Err(format!("{error}"))).await;
+                    return;
+                }
+            };
 
-            runtime.block_on(async move {
-                let mut stream = match client.dataset(&dataset).list(fields, filter).await {
-                    Ok(response) => response.into_inner(),
-                    Err(error) => {
-                        let _ = tx.send(Err(format!("{error}"))).await;
-                        return;
-                    }
-                };
+            loop {
+                tokio::select! {
+                    _ = tx.closed() => break,
+                    result = stream.next() => {
+                        let Some(result) = result else { break };
 
-                loop {
-                    tokio::select! {
-                        _ = cancel_rx.changed() => {
+                        let message = match result {
+                            Ok(entry) => Ok(entry.into()),
+                            Err(error) => Err(format!("stream error: {error}")),
+                        };
+
+                        if tx.send(message).await.is_err() {
                             break;
-                        }
-                        result = stream.next() => {
-                            let Some(result) = result else {
-                                break;
-                            };
-
-                            let message = match result {
-                                Ok(entry) => Ok(entry.into()),
-                                Err(error) => Err(format!("stream error: {error}")),
-                            };
-
-                            if tx.send(message).await.is_err() {
-                                break;
-                            }
                         }
                     }
                 }
-            });
-
-            Ok(())
+            }
         });
 
-        DatasetListStream::new(rx, cancel_tx)
+        DatasetListStream::new(rx)
     }
 }

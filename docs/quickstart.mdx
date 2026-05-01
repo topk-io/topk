@@ -197,9 +197,9 @@ import CoreConcepts from "/snippets/core-concepts.mdx";
       <Step title="Upload a file">
         ```typescript
         const resp = await client.dataset("my-docs").upsertFile(
-          "report-2024",    // document ID
-          "./report.pdf",   // path to file
-          { title: "Annual Report" },  // optional metadata
+          "report-2024",              // document ID
+          { path: "./report.pdf" },   // path to file
+          { title: "Annual Report" }, // optional metadata
         );
         ```
 
@@ -211,9 +211,9 @@ import CoreConcepts from "/snippets/core-concepts.mdx";
       </Step>
       <Step title="Ask a question">
         ```typescript
-        const answer = await client.ask("What was the total net income of Bank of America in 2024?", ["my-docs"]);
-
-        console.log(answer);
+        for await (const message of client.ask("What was the total net income of Bank of America in 2024?", ["my-docs"])) {
+          console.log(message);
+        }
         ```
       </Step>
     </Steps>

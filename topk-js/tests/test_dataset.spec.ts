@@ -24,6 +24,24 @@ describe("Dataset", () => {
     ).rejects.toThrow(/dataset not found/i);
   });
 
+  test("upsert file rejects both path and data", async () => {
+    const ctx = getContext();
+    const dataset = await ctx.createDataset("test");
+
+    await expect(
+      ctx.client.dataset(dataset.name).upsertFile(
+        "doc1",
+        {
+          path: pdfPath,
+          data: Buffer.from("some data"),
+          fileName: "test.pdf",
+          mimeType: "application/pdf",
+        },
+        {}
+      )
+    ).rejects.toThrow(/not both/i);
+  });
+
   test("upsert file from path", async () => {
     const ctx = getContext();
     const dataset = await ctx.createDataset("test");
@@ -88,9 +106,9 @@ describe("Dataset", () => {
     ).resolves.toBe(false);
   });
 
-  test("listStream implements AsyncIterator", async () => {
+  test("list implements AsyncIterator", async () => {
     const ctx = getContext();
-    const stream = ctx.client.dataset(ctx.scope("missing")).listStream();
+    const stream = ctx.client.dataset(ctx.scope("missing")).list();
 
     // napi-rs async iterators return a dedicated iterator from @@asyncIterator (not `this`).
     expect(typeof stream[Symbol.asyncIterator]).toBe("function");

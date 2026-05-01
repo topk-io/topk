@@ -16,7 +16,7 @@ describe("Search", () => {
     await Promise.all(contexts.map((ctx) => ctx.cleanup()));
   });
 
-  test("search returns results", async () => {
+  test("search yields results", async () => {
     const ctx = getContext();
     const dataset = await ctx.createDataset("test");
 
@@ -25,21 +25,7 @@ describe("Search", () => {
       .upsertFile("doc1", { path: pdfPath }, {});
     await ctx.client.dataset(dataset.name).waitForHandle(response.handle);
 
-    const results = await ctx.client.search("technical", [dataset.name], 10);
-
-    expect(results.length).toBeGreaterThan(0);
-  }, 1000 * 60 * 6); // 6 minutes
-
-  test("searchStream yields results", async () => {
-    const ctx = getContext();
-    const dataset = await ctx.createDataset("test");
-
-    const response = await ctx.client
-      .dataset(dataset.name)
-      .upsertFile("doc1", { path: pdfPath }, {});
-    await ctx.client.dataset(dataset.name).waitForHandle(response.handle);
-
-    const stream = ctx.client.searchStream("technical", [dataset.name], 10);
+    const stream = ctx.client.search("technical", [dataset.name], 10);
 
     const results = [];
     for await (const result of stream) {

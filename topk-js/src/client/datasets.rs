@@ -1,8 +1,10 @@
-use crate::data::Dataset;
-use crate::error::TopkError;
+use std::sync::Arc;
+
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
-use std::sync::Arc;
+
+use crate::data::Dataset;
+use crate::error::TopkError;
 
 /// Client for managing datasets.
 /// @internal
@@ -21,53 +23,40 @@ impl DatasetsClient {
     /// List all datasets.
     #[napi]
     pub async fn list(&self) -> Result<Vec<Dataset>> {
-        let response = self
+        let datasets = self
             .client
             .datasets()
             .list()
             .await
             .map_err(TopkError::from)?;
 
-        Ok(response
-            .into_inner()
-            .datasets
-            .into_iter()
-            .map(|d| d.into())
-            .collect())
+        Ok(datasets.into_iter().map(|d| d.into()).collect())
     }
 
     /// Get information about a specific dataset.
     #[napi]
     pub async fn get(&self, name: String) -> Result<Dataset> {
-        let response = self
+        let dataset = self
             .client
             .datasets()
             .get(&name)
             .await
             .map_err(TopkError::from)?;
 
-        response
-            .into_inner()
-            .dataset
-            .map(|d| d.into())
-            .ok_or_else(|| napi::Error::from_reason("dataset not found in response"))
+        Ok(dataset.into())
     }
 
     /// Create a new dataset.
     #[napi]
     pub async fn create(&self, name: String) -> Result<Dataset> {
-        let response = self
+        let dataset = self
             .client
             .datasets()
             .create(&name, None)
             .await
             .map_err(TopkError::from)?;
 
-        response
-            .into_inner()
-            .dataset
-            .map(|d| d.into())
-            .ok_or_else(|| napi::Error::from_reason("dataset not found in response"))
+        Ok(dataset.into())
     }
 
     /// Delete a dataset.

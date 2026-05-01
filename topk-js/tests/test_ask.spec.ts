@@ -25,30 +25,17 @@ describe("Ask", () => {
     await Promise.all(contexts.map((ctx) => ctx.cleanup()));
   });
 
-  test("ask returns an answer", async () => {
+  test("ask yields an answer", async () => {
     const ctx = getContext();
     const dataset = await ctx.createDataset("test");
 
     const response = await ctx.client
       .dataset(dataset.name)
       .upsertFile("doc1", { path: pdfPath }, {});
+
     await ctx.client.dataset(dataset.name).waitForHandle(response.handle);
 
-    const result = await ctx.client.ask("summarize", [dataset.name]);
-
-    expect(isAnswerMessage(result)).toBe(true);
-  }, 1000 * 60 * 6); // 6 minutes
-
-  test("askStream yields an answer", async () => {
-    const ctx = getContext();
-    const dataset = await ctx.createDataset("test");
-
-    const response = await ctx.client
-      .dataset(dataset.name)
-      .upsertFile("doc1", { path: pdfPath }, {});
-    await ctx.client.dataset(dataset.name).waitForHandle(response.handle);
-
-    const stream = ctx.client.askStream("summarize", [dataset.name]);
+    const stream = ctx.client.ask("summarize", [dataset.name]);
 
     let answerReceived = false;
     for await (const message of stream) {

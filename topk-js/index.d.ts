@@ -29,14 +29,10 @@ export declare class Client {
   datasets(): DatasetsClient
   /** Get a client for managing data operations on a specific dataset such as upserting files, managing metadata, and deleting files. */
   dataset(name: string): DatasetClient
-  /** Ask a question and wait for the stream to complete, returning the last message. */
-  ask(query: string, datasets: Array<string | { dataset: string; filter?: query.LogicalExpression }>, filter?: query.LogicalExpression, mode?: Mode, selectFields?: Array<string>): Promise<Answer>
   /** Ask a question and get streaming responses as an async iterator. */
-  askStream(query: string, datasets: Array<string | { dataset: string; filter?: query.LogicalExpression }>, filter?: query.LogicalExpression, mode?: Mode, selectFields?: Array<string>): AskStream
-  /** Search for documents and wait for the stream to complete, returning all results. */
-  search(query: string, datasets: Array<string | { dataset: string; filter?: query.LogicalExpression }>, topK: number, filter?: query.LogicalExpression, selectFields?: Array<string>): Promise<Array<SearchResult>>
+  ask(query: string, datasets: Array<string | { dataset: string; filter?: query.LogicalExpression }>, filter?: query.LogicalExpression, mode?: Mode, selectFields?: Array<string>): AskStream
   /** Search for documents and get streaming responses as an async iterator. */
-  searchStream(query: string, datasets: Array<string | { dataset: string; filter?: query.LogicalExpression }>, topK: number, filter?: query.LogicalExpression, selectFields?: Array<string>): SearchStream
+  search(query: string, datasets: Array<string | { dataset: string; filter?: query.LogicalExpression }>, topK: number, filter?: query.LogicalExpression, selectFields?: Array<string>): SearchStream
 }
 
 /**
@@ -131,10 +127,8 @@ export declare class DatasetClient {
    * Throws if the handle is not processed within the configured timeout.
    */
   waitForHandle(handle: string, config?: WaitConfig | undefined | null): Promise<void>
-  /** List files in the dataset. */
-  list(fields?: Array<string> | undefined | null, filter?: query.LogicalExpression | undefined): Promise<Array<ListEntry>>
   /** List files in the dataset as an async iterator. */
-  listStream(fields?: Array<string> | undefined | null, filter?: query.LogicalExpression | undefined): DatasetListStream
+  list(fields?: Array<string> | undefined | null, filter?: query.LogicalExpression | undefined): DatasetListStream
 }
 
 /**

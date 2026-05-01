@@ -1,15 +1,12 @@
 use std::collections::HashMap;
 
-use napi::bindgen_prelude::{Either, *};
+use napi::bindgen_prelude::*;
 use napi_derive::napi;
-use topk_rs::proto::v1::ctx::ask_result::Message;
 use topk_rs::proto::v1::ctx::content::Data;
 
 use crate::data::NativeValue;
 use crate::error::TopkError;
 use crate::expr::logical::LogicalExpression;
-
-pub type AskResultEither = Either<Answer, Progress>;
 
 /// Mode for ask operations.
 #[napi(string_enum = "lowercase")]
@@ -207,42 +204,4 @@ pub struct Answer {
 #[derive(Debug, Clone)]
 pub struct Progress {
     pub update: String,
-}
-
-fn convert_refs(
-    refs: HashMap<String, topk_rs::proto::v1::ctx::SearchResult>,
-) -> napi::Result<HashMap<String, SearchResult>> {
-    refs.into_iter()
-        .map(|(k, v)| SearchResult::try_from(v).map(|sr| (k, sr)))
-        .collect()
-}
-
-/// Converts a proto AskResult to Answer, returning an error for any other message type.
-pub fn convert_ask_result_to_answer(
-    result: topk_rs::proto::v1::ctx::AskResult,
-) -> napi::Result<Answer> {
-    match result.message {
-        Some(Message::Answer(fa)) => Ok(Answer {
-            facts: fa.facts.into_iter().map(Fact::from).collect(),
-            refs: convert_refs(fa.refs)?,
-        }),
-        Some(_) => Err(napi::Error::from_reason(
-            "ask: expected Answer but received a different message type",
-        )),
-        None => Err(napi::Error::from_reason("ask: result has no message")),
-    }
-}
-
-/// Converts a proto AskResult into one of the two concrete JS types.
-pub fn convert_ask_result(
-    result: topk_rs::proto::v1::ctx::AskResult,
-) -> napi::Result<AskResultEither> {
-    match result.message {
-        Some(Message::Answer(fa)) => Ok(Either::A(Answer {
-            facts: fa.facts.into_iter().map(Fact::from).collect(),
-            refs: convert_refs(fa.refs)?,
-        })),
-        Some(Message::Progress(p)) => Ok(Either::B(Progress { update: p.update })),
-        None => Err(napi::Error::from_reason("AskResult has no message")),
-    }
 }

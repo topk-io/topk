@@ -84,38 +84,6 @@ ask(
 })[], 
    filter?: LogicalExpression, 
    mode?: Mode, 
-selectFields?: string[]): Promise<Answer>;
-```
-
-Ask a question and wait for the stream to complete, returning the last message.
-
-**Parameters**
-
-| Parameter | Type |
-| ------ | ------ |
-| `query` | `string` |
-| `datasets` | ( \| `string` \| \{ `dataset`: `string`; `filter?`: [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression); \})[] |
-| `filter?` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
-| `mode?` | [`Mode`](/sdk/topk-js/index#mode) |
-| `selectFields?` | `string`[] |
-
-**Returns**
-
-`Promise`\<[`Answer`](/sdk/topk-js/index#answer)\>
-
-##### askStream()
-
-```ts
-askStream(
-   query: string, 
-   datasets: (
-  | string
-  | {
-  dataset: string;
-  filter?: LogicalExpression;
-})[], 
-   filter?: LogicalExpression, 
-   mode?: Mode, 
    selectFields?: string[]): AskStream;
 ```
 
@@ -211,38 +179,6 @@ search(
 })[], 
    topK: number, 
    filter?: LogicalExpression, 
-selectFields?: string[]): Promise<SearchResult[]>;
-```
-
-Search for documents and wait for the stream to complete, returning all results.
-
-**Parameters**
-
-| Parameter | Type |
-| ------ | ------ |
-| `query` | `string` |
-| `datasets` | ( \| `string` \| \{ `dataset`: `string`; `filter?`: [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression); \})[] |
-| `topK` | `number` |
-| `filter?` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
-| `selectFields?` | `string`[] |
-
-**Returns**
-
-`Promise`\<[`SearchResult`](/sdk/topk-js/index#searchresult)[]\>
-
-##### searchStream()
-
-```ts
-searchStream(
-   query: string, 
-   datasets: (
-  | string
-  | {
-  dataset: string;
-  filter?: LogicalExpression;
-})[], 
-   topK: number, 
-   filter?: LogicalExpression, 
    selectFields?: string[]): SearchStream;
 ```
 
@@ -260,7 +196,7 @@ Search for documents and get streaming responses as an async iterator.
 
 **Returns**
 
-[`SearchStream`](/sdk/topk-js/index#searchstream-1)
+[`SearchStream`](/sdk/topk-js/index#searchstream)
 
 ***
 
@@ -562,26 +498,7 @@ Get metadata for one or more documents.
 ##### list()
 
 ```ts
-list(fields?: string[], filter?: LogicalExpression): Promise<ListEntry[]>;
-```
-
-List files in the dataset.
-
-**Parameters**
-
-| Parameter | Type |
-| ------ | ------ |
-| `fields?` | `string`[] |
-| `filter?` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
-
-**Returns**
-
-`Promise`\<[`ListEntry`](/sdk/topk-js/index#listentry)[]\>
-
-##### listStream()
-
-```ts
-listStream(fields?: string[], filter?: LogicalExpression): DatasetListStream;
+list(fields?: string[], filter?: LogicalExpression): DatasetListStream;
 ```
 
 List files in the dataset as an async iterator.
@@ -808,7 +725,7 @@ new SearchStream(): SearchStream;
 
 **Returns**
 
-[`SearchStream`](/sdk/topk-js/index#searchstream-1)
+[`SearchStream`](/sdk/topk-js/index#searchstream)
 
 **Methods**
 

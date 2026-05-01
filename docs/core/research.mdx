@@ -128,13 +128,14 @@ Research is invoked through `ask` by setting `mode` to `research`.
       region: "aws-us-east-1-elastica",
     });
 
-    const answer = await client.ask(
+    for await (const message of client.ask(
       "What was the 2022 and 2023 total value of commercial loans modified as TDRs, and the total 90+ days past due for consumer loans at December 31, 2024?",
       ["finance"],
+      undefined,
       "research",
-    );
-
-    console.log(answer);
+    )) {
+      console.log(message);
+    }
     ```
   </Tab>
 </Tabs>
