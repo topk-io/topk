@@ -141,9 +141,9 @@ Let's break down the example above:
 
 This **balances precision and recall**, capturing both **exact keyword matches** and **meaningful context**.
 
-## Implementing Complex Search(Keyword \+ Vector \+ Filtering \+ Reranking)
+## Implementing Complex Search(Keyword \+ Vector \+ Filtering)
 
-In TopK, you can combine [keyword search](/concepts/keyword-search), [vector search](/concepts/vector-search), [filtering](/documents/query#filtering) and [reranking](/concepts/reranking) in a single query.
+In TopK, you can combine [keyword search](/concepts/keyword-search), [vector search](/concepts/vector-search), and [filtering](/documents/query#filtering) in a single query.
 This allows you to fetch the truly **most relevant results** while maintaining a steady performance - no overfetching.
 
 <CodeGroup>
@@ -165,8 +165,6 @@ docs = client.collection("books").query(
     .filter(field("published_year") > 1980)
     # Return top 10 documents with the highest combined score
     .topk(field("text_score") * 0.2 + field("title_similarity") * 0.8, 10)
-    # Rerank the documents
-    .rerank()
 )
 ```
 
@@ -186,7 +184,6 @@ const docs = await client.collection("books").query(
       field("text_score").mul(0.2).add(field("title_similarity").mul(0.8)),
       10
     )
-    .rerank()
 );
 ```
 

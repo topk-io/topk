@@ -113,8 +113,7 @@ pub fn ask(
         let stream = client
             .ask(query, datasets, filter, mode, select_fields)
             .await
-            .map_err(RustError)?
-            .into_inner();
+            .map_err(RustError)?;
 
         let result = stream
             .map_err(|e| PyErr::from(RustError(e.into())))

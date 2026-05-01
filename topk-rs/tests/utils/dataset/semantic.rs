@@ -35,8 +35,8 @@ pub async fn setup(ctx: &mut ProjectTestContext) -> Collection {
 #[allow(dead_code)]
 pub fn schema() -> HashMap<String, FieldSpec> {
     schema!(
-        "title" => FieldSpec::semantic(true, Some("dummy".into()), None),
-        "summary" => FieldSpec::semantic(false, Some("dummy".into()), None),
+        "title" => FieldSpec::semantic(true),
+        "summary" => FieldSpec::semantic(false),
     )
 }
 

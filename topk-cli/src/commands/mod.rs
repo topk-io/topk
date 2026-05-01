@@ -76,14 +76,14 @@ pub mod test_context {
 
         async fn cleanup_datasets(&self) {
             let client = self.client.datasets();
-            let response = match client.list().await {
+            let datasets = match client.list().await {
                 Ok(r) => r,
                 Err(e) => {
                     println!("Failed to list datasets on teardown: {}", e);
                     return;
                 }
             };
-            for dataset in &response.datasets {
+            for dataset in &datasets {
                 if dataset.name.starts_with(&self.scope) {
                     println!("Deleting dataset: {}", dataset.name);
                     if let Err(e) = client.delete(&dataset.name).await {

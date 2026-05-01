@@ -4,113 +4,107 @@ from topk_sdk import error
 
 from . import ProjectContext
 
+
 def test_upsert_file_to_non_existent_dataset(ctx: ProjectContext):
     pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
     with pytest.raises(error.DatasetNotFoundError):
-        ctx.client.dataset(ctx.scope("nonexistent")).upsert_file(
-            "doc1", pdf_path, {}
-        )
+        ctx.client.dataset(ctx.scope("nonexistent")).upsert_file("doc1", pdf_path, {})
 
 
 def test_upsert_file_pdf(ctx: ProjectContext):
-    dataset = ctx.client.datasets().create(ctx.scope("test")).dataset
+    dataset = ctx.client.datasets().create(ctx.scope("test"))
     pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
 
-    metadata = {
-        "title": "test"
-    }
+    metadata = {"title": "test"}
 
-    resp = ctx.client.dataset(dataset.name).upsert_file(
-        "doc1", pdf_path, metadata
-    )
-    assert resp.handle is not None
-    assert len(resp.handle) > 0
+    handle = ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, metadata)
+    assert handle is not None
+    assert len(handle) > 0
 
 
 def test_upsert_file_markdown_tuple(ctx: ProjectContext):
-    dataset = ctx.client.datasets().create(ctx.scope("test")).dataset
+    dataset = ctx.client.datasets().create(ctx.scope("test"))
 
     markdown_content = b"# Test Document\n\nThis is a test markdown file."
     markdown_tuple = ("test.md", markdown_content, "text/markdown")
 
-    metadata = {
-        "title": "test markdown"
-    }
+    metadata = {"title": "test markdown"}
 
-    resp = ctx.client.dataset(dataset.name).upsert_file(
+    handle = ctx.client.dataset(dataset.name).upsert_file(
         "doc1", markdown_tuple, metadata
     )
-    assert resp.handle is not None
-    assert len(resp.handle) > 0
+    assert handle is not None
+    assert len(handle) > 0
 
 
 @pytest.mark.xfail(reason="ctx")
 def test_get_metadata(ctx: ProjectContext):
-    dataset = ctx.client.datasets().create(ctx.scope("test")).dataset
+    dataset = ctx.client.datasets().create(ctx.scope("test"))
     pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
 
     original_metadata = {"title": "test"}
 
-    upsert_resp = ctx.client.dataset(dataset.name).upsert_file(
+    handle = ctx.client.dataset(dataset.name).upsert_file(
         "doc1", pdf_path, original_metadata
     )
-    ctx.client.dataset(dataset.name).wait_for_handle(upsert_resp.handle)
+    ctx.client.dataset(dataset.name).wait_for_handle(handle)
 
-    resp = ctx.client.dataset(dataset.name).get_metadata(["doc1"])
+    docs = ctx.client.dataset(dataset.name).get_metadata(["doc1"])
 
-    assert resp.docs["doc1"]["title"] == original_metadata["title"]
+    assert docs["doc1"]["title"] == original_metadata["title"]
 
 
 def test_update_metadata(ctx: ProjectContext):
-    dataset = ctx.client.datasets().create(ctx.scope("test")).dataset
+    dataset = ctx.client.datasets().create(ctx.scope("test"))
     pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
 
     ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {})
 
     new_metadata = {"title": "Updated Title"}
-    resp = ctx.client.dataset(dataset.name).update_metadata(
-        "doc1", new_metadata
-    )
-    assert resp.handle is not None
+    handle = ctx.client.dataset(dataset.name).update_metadata("doc1", new_metadata)
+    assert handle is not None
 
 
 def test_delete_document(ctx: ProjectContext):
-    dataset = ctx.client.datasets().create(ctx.scope("test")).dataset
+    dataset = ctx.client.datasets().create(ctx.scope("test"))
     pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
 
     ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {})
 
-    resp = ctx.client.dataset(dataset.name).delete("doc1")
-    assert resp.handle is not None
+    handle = ctx.client.dataset(dataset.name).delete("doc1")
+    assert handle is not None
 
 
 def test_check_handle(ctx: ProjectContext):
-    dataset = ctx.client.datasets().create(ctx.scope("test")).dataset
+    dataset = ctx.client.datasets().create(ctx.scope("test"))
     pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
 
-    upsert_resp = ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {})
+    handle = ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {})
 
-    assert not ctx.client.dataset(dataset.name).check_handle(upsert_resp.handle)
+    assert not ctx.client.dataset(dataset.name).check_handle(handle)
 
 
 @pytest.mark.xfail(reason="ctx")
 def test_wait_for_handle(ctx: ProjectContext):
-    dataset = ctx.client.datasets().create(ctx.scope("test")).dataset
+    dataset = ctx.client.datasets().create(ctx.scope("test"))
     pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
 
-    upsert_resp = ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {})
+    handle = ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {})
 
-    ctx.client.dataset(dataset.name).wait_for_handle(upsert_resp.handle)
+    ctx.client.dataset(dataset.name).wait_for_handle(handle)
 
-    assert ctx.client.dataset(dataset.name).check_handle(upsert_resp.handle)
+    assert ctx.client.dataset(dataset.name).check_handle(handle)
+
 
 @pytest.mark.xfail(reason="ctx")
 def test_dataset_list(ctx: ProjectContext):
-    dataset = ctx.client.datasets().create(ctx.scope("test")).dataset
+    dataset = ctx.client.datasets().create(ctx.scope("test"))
     pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
 
-    upsert_resp = ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {"title": "test"})
-    ctx.client.dataset(dataset.name).wait_for_handle(upsert_resp.handle)
+    handle = ctx.client.dataset(dataset.name).upsert_file(
+        "doc1", pdf_path, {"title": "test"}
+    )
+    ctx.client.dataset(dataset.name).wait_for_handle(handle)
 
     entries = [e for e in ctx.client.dataset(dataset.name).list() if e is not None]
     assert len(entries) > 0

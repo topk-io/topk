@@ -151,8 +151,8 @@ describe("Update", () => {
     const collection = await ctx.createCollection("semantic", {
       title: text()
         .required()
-        .index(semanticIndex({ model: "dummy" })),
-      summary: text().required().index(semanticIndex({ model: "dummy" })),
+        .index(semanticIndex()),
+      summary: text().required().index(semanticIndex()),
     });
 
     await ctx.client.collection(collection.name).upsert([

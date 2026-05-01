@@ -21,12 +21,9 @@ async fn test_ask(ctx: &mut ProjectTestContext) {
         .datasets()
         .create(ctx.wrap("test"), None)
         .await
-        .expect("could not create dataset")
-        .into_inner()
-        .dataset
-        .unwrap();
+        .expect("could not create dataset");
 
-    let upsert = ctx
+    let handle = ctx
         .client
         .dataset(&dataset.name)
         .upsert_file("doc1", test_pdf(), Vec::<(String, Value)>::new())
@@ -36,7 +33,7 @@ async fn test_ask(ctx: &mut ProjectTestContext) {
     // Wait for file to be processed
     ctx.client
         .dataset(&dataset.name)
-        .wait_for_handle(&upsert.handle, None)
+        .wait_for_handle(&handle, None)
         .await
         .expect("could not wait handle");
 

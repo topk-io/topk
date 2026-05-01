@@ -9,34 +9,13 @@ pub enum FieldIndex {
     VectorIndex {
         metric: VectorDistanceMetric,
     },
-    SemanticIndex {
-        model: Option<String>,
-        embedding_type: Option<EmbeddingDataType>,
-    },
+    SemanticIndex {},
     MultiVectorIndex {
         metric: MultiVectorDistanceMetric,
         quantization: Option<MultiVectorQuantization>,
         width: Option<u32>,
         top_k: Option<u32>,
     },
-}
-
-#[pyclass(eq, eq_int)]
-#[derive(Debug, Clone, PartialEq)]
-pub enum EmbeddingDataType {
-    Float32,
-    UInt8,
-    Binary,
-}
-
-impl From<EmbeddingDataType> for topk_rs::proto::v1::control::EmbeddingDataType {
-    fn from(dt: EmbeddingDataType) -> Self {
-        match dt {
-            EmbeddingDataType::Float32 => topk_rs::proto::v1::control::EmbeddingDataType::F32,
-            EmbeddingDataType::UInt8 => topk_rs::proto::v1::control::EmbeddingDataType::U8,
-            EmbeddingDataType::Binary => topk_rs::proto::v1::control::EmbeddingDataType::Binary,
-        }
-    }
 }
 
 #[pyclass(eq, eq_int)]
@@ -143,13 +122,7 @@ impl Into<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
             FieldIndex::VectorIndex { metric } => {
                 topk_rs::proto::v1::control::FieldIndex::vector(metric.into())
             }
-            FieldIndex::SemanticIndex {
-                model,
-                embedding_type,
-            } => topk_rs::proto::v1::control::FieldIndex::semantic(
-                model,
-                embedding_type.map(|dt| dt.into()),
-            ),
+            FieldIndex::SemanticIndex {} => topk_rs::proto::v1::control::FieldIndex::semantic(),
             FieldIndex::MultiVectorIndex {
                 metric,
                 quantization,
@@ -197,23 +170,8 @@ impl From<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
                     },
                 }
             }
-            topk_rs::proto::v1::control::field_index::Index::SemanticIndex(semantic_index) => {
-                let embedding_type = match semantic_index.embedding_type() {
-                    topk_rs::proto::v1::control::EmbeddingDataType::Unspecified => None,
-                    topk_rs::proto::v1::control::EmbeddingDataType::Binary => {
-                        Some(EmbeddingDataType::Binary)
-                    }
-                    topk_rs::proto::v1::control::EmbeddingDataType::F32 => {
-                        Some(EmbeddingDataType::Float32)
-                    }
-                    topk_rs::proto::v1::control::EmbeddingDataType::U8 => {
-                        Some(EmbeddingDataType::UInt8)
-                    }
-                };
-                FieldIndex::SemanticIndex {
-                    model: semantic_index.model,
-                    embedding_type,
-                }
+            topk_rs::proto::v1::control::field_index::Index::SemanticIndex(_) => {
+                FieldIndex::SemanticIndex {}
             }
             topk_rs::proto::v1::control::field_index::Index::MultiVectorIndex(mvi) => {
                 FieldIndex::MultiVectorIndex {

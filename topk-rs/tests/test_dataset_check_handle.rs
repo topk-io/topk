@@ -15,12 +15,9 @@ async fn test_wait_for_handle(ctx: &mut ProjectTestContext) {
         .datasets()
         .create(ctx.wrap("test"), None)
         .await
-        .expect("could not create dataset")
-        .into_inner()
-        .dataset
-        .unwrap();
+        .expect("could not create dataset");
 
-    let upsert = ctx
+    let handle = ctx
         .client
         .dataset(&dataset.name)
         .upsert_file("doc1", test_pdf(), HashMap::<String, Value>::default())
@@ -29,7 +26,7 @@ async fn test_wait_for_handle(ctx: &mut ProjectTestContext) {
 
     ctx.client
         .dataset(&dataset.name)
-        .wait_for_handle(&upsert.handle, None)
+        .wait_for_handle(&handle, None)
         .await
         .expect("handle was not processed within timeout");
 }
@@ -38,7 +35,7 @@ async fn test_wait_for_handle(ctx: &mut ProjectTestContext) {
 #[tokio::test]
 #[ignore]
 async fn test_check_handle_invalid_handle(ctx: &mut ProjectTestContext) {
-    let response = ctx
+    let dataset = ctx
         .client
         .datasets()
         .create(ctx.wrap("test"), None)
@@ -47,7 +44,7 @@ async fn test_check_handle_invalid_handle(ctx: &mut ProjectTestContext) {
 
     let err = ctx
         .client
-        .dataset(&response.dataset().unwrap().name)
+        .dataset(&dataset.name)
         .check_handle("invalid-handle-format-12345")
         .await
         .expect_err("should not be able to check handle with invalid handle");

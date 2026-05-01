@@ -112,42 +112,6 @@ impl Query {
 
         new_query
     }
-
-    /// Adds a rerank stage to the query.
-    #[napi]
-    pub fn rerank(&self, options: Option<RerankOptions>) -> Query {
-        let options = options.unwrap_or_default();
-
-        let mut new_query = Query {
-            stages: self.stages.clone(),
-        };
-
-        new_query.stages.push(Stage::Rerank {
-            model: options.model,
-            query: options.query,
-            fields: options.fields.unwrap_or_default(),
-            topk_multiple: options.topk_multiple,
-        });
-
-        new_query
-    }
-}
-
-/// Options for rerank stages.
-///
-/// This struct contains configuration options for reranking results,
-/// including the model, query, and fields to use.
-#[napi(object)]
-#[derive(Default)]
-pub struct RerankOptions {
-    /// The reranking model to use
-    pub model: Option<String>,
-    /// The query text for reranking
-    pub query: Option<String>,
-    /// Fields to include in reranking
-    pub fields: Option<Vec<String>>,
-    /// Multiple of top-k to consider for reranking
-    pub topk_multiple: Option<u32>,
 }
 
 /// Options for text matching.

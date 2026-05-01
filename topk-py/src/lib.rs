@@ -80,16 +80,5 @@ pub fn topk_sdk(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     m.add_class::<data::list_entry::ListEntry>()?;
 
-    // responses
-    m.add_class::<client::Response>()?;
-    m.add_class::<client::GetDatasetResponse>()?;
-    m.add_class::<client::ListDatasetsResponse>()?;
-    m.add_class::<client::CreateDatasetResponse>()?;
-    m.add_class::<client::DeleteDatasetResponse>()?;
-    m.add_class::<client::UpsertResponse>()?;
-    m.add_class::<client::GetMetadataResponse>()?;
-    m.add_class::<client::UpdateMetadataResponse>()?;
-    m.add_class::<client::DeleteFileResponse>()?;
-
     Ok(())
 }

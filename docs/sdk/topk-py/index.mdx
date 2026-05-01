@@ -825,90 +825,6 @@ Entry in a dataset.
 | `status_reason` | Optional[str] |  |
 | `metadata` | dict[str, Any] |  |
 
-### Response
-
-Base class for API response objects with request_id.
-
-**Properties**
-
-| Property | Type |             |
-| -------- | ---- | ----------- |
-| `request_id` | Optional[str] |  |
-
-### CreateDatasetResponse
-
-Response from creating a dataset.
-
-**Properties**
-
-| Property | Type |             |
-| -------- | ---- | ----------- |
-| `dataset` | [`Dataset`](#dataset) |  |
-
-### GetDatasetResponse
-
-Response from getting a dataset.
-
-**Properties**
-
-| Property | Type |             |
-| -------- | ---- | ----------- |
-| `dataset` | [`Dataset`](#dataset) |  |
-
-### ListDatasetsResponse
-
-Response from listing datasets.
-
-**Properties**
-
-| Property | Type |             |
-| -------- | ---- | ----------- |
-| `datasets` | list[[`Dataset`](#dataset)] |  |
-
-### DeleteDatasetResponse
-
-Response from deleting a dataset.
-
-### UpsertResponse
-
-Response from upserting a document.
-
-**Properties**
-
-| Property | Type |             |
-| -------- | ---- | ----------- |
-| `handle` | str |  |
-
-### GetMetadataResponse
-
-Response from getting file metadata.
-
-**Properties**
-
-| Property | Type |             |
-| -------- | ---- | ----------- |
-| `docs` | dict[str, dict[str, Any]] |  |
-
-### UpdateMetadataResponse
-
-Response from updating file metadata.
-
-**Properties**
-
-| Property | Type |             |
-| -------- | ---- | ----------- |
-| `handle` | str |  |
-
-### DeleteFileResponse
-
-Response from deleting a file.
-
-**Properties**
-
-| Property | Type |             |
-| -------- | ---- | ----------- |
-| `handle` | str |  |
-
 ### CollectionsClient
 
 Synchronous client for managing collections.
@@ -1080,7 +996,7 @@ Synchronous client for managing datasets.
 #### get()
 
 ```python
-get(self, dataset_name: str) -> GetDatasetResponse
+get(self, dataset_name: str) -> Dataset
 ```
 
 Get information about a specific dataset.
@@ -1093,28 +1009,28 @@ Get information about a specific dataset.
 
 **Returns**
 
-[`GetDatasetResponse`](#getdatasetresponse)
+[`Dataset`](#dataset)
 
 ***
 
 #### list()
 
 ```python
-list(self) -> ListDatasetsResponse
+list(self) -> list[Dataset]
 ```
 
 List all datasets.
 
 **Returns**
 
-[`ListDatasetsResponse`](#listdatasetsresponse)
+list[[`Dataset`](#dataset)]
 
 ***
 
 #### create()
 
 ```python
-create(self, dataset_name: str) -> CreateDatasetResponse
+create(self, dataset_name: str) -> Dataset
 ```
 
 Create a new dataset.
@@ -1127,14 +1043,14 @@ Create a new dataset.
 
 **Returns**
 
-[`CreateDatasetResponse`](#createdatasetresponse)
+[`Dataset`](#dataset)
 
 ***
 
 #### delete()
 
 ```python
-delete(self, dataset_name: str) -> DeleteDatasetResponse
+delete(self, dataset_name: str) -> None
 ```
 
 Delete a dataset.
@@ -1147,7 +1063,7 @@ Delete a dataset.
 
 **Returns**
 
-[`DeleteDatasetResponse`](#deletedatasetresponse)
+None
 
 ***
 
@@ -1168,7 +1084,7 @@ upsert_file(
 )
 ```
 
-Upsert a file to the dataset.
+Upsert a file to the dataset. Returns the processing handle.
 
 **Parameters**
 
@@ -1180,7 +1096,7 @@ Upsert a file to the dataset.
 
 **Returns**
 
-[`UpsertResponse`](#upsertresponse)
+str
 
 ***
 
@@ -1205,17 +1121,17 @@ Get metadata for one or more documents.
 
 **Returns**
 
-[`GetMetadataResponse`](#getmetadataresponse)
+dict[str, dict[str, Any]]
 
 ***
 
 #### update\_metadata()
 
 ```python
-update_metadata(self, doc_id: str, metadata: Mapping[str, Any]) -> UpdateMetadataResponse
+update_metadata(self, doc_id: str, metadata: Mapping[str, Any]) -> str
 ```
 
-Update metadata for a file.
+Update metadata for a file. Returns the processing handle.
 
 **Parameters**
 
@@ -1226,17 +1142,17 @@ Update metadata for a file.
 
 **Returns**
 
-[`UpdateMetadataResponse`](#updatemetadataresponse)
+str
 
 ***
 
 #### delete()
 
 ```python
-delete(self, doc_id: str) -> DeleteFileResponse
+delete(self, doc_id: str) -> str
 ```
 
-Delete a file from the dataset.
+Delete a file from the dataset. Returns the processing handle.
 
 **Parameters**
 
@@ -1246,7 +1162,7 @@ Delete a file from the dataset.
 
 **Returns**
 
-[`DeleteFileResponse`](#deletefileresponse)
+str
 
 ***
 
@@ -1327,7 +1243,7 @@ Asynchronous client for managing datasets.
 #### get()
 
 ```python
-get(self, dataset_name: str) -> Awaitable[GetDatasetResponse]
+get(self, dataset_name: str) -> Awaitable[Dataset]
 ```
 
 Get information about a specific dataset asynchronously.
@@ -1340,28 +1256,28 @@ Get information about a specific dataset asynchronously.
 
 **Returns**
 
-Awaitable[[`GetDatasetResponse`](#getdatasetresponse)]
+Awaitable[[`Dataset`](#dataset)]
 
 ***
 
 #### list()
 
 ```python
-list(self) -> Awaitable[ListDatasetsResponse]
+list(self) -> Awaitable[list[Dataset]]
 ```
 
 List all datasets asynchronously.
 
 **Returns**
 
-Awaitable[[`ListDatasetsResponse`](#listdatasetsresponse)]
+Awaitable[list[[`Dataset`](#dataset)]]
 
 ***
 
 #### create()
 
 ```python
-create(self, dataset_name: str) -> Awaitable[CreateDatasetResponse]
+create(self, dataset_name: str) -> Awaitable[Dataset]
 ```
 
 Create a new dataset asynchronously.
@@ -1374,14 +1290,14 @@ Create a new dataset asynchronously.
 
 **Returns**
 
-Awaitable[[`CreateDatasetResponse`](#createdatasetresponse)]
+Awaitable[[`Dataset`](#dataset)]
 
 ***
 
 #### delete()
 
 ```python
-delete(self, dataset_name: str) -> Awaitable[DeleteDatasetResponse]
+delete(self, dataset_name: str) -> Awaitable[None]
 ```
 
 Delete a dataset asynchronously.
@@ -1394,7 +1310,7 @@ Delete a dataset asynchronously.
 
 **Returns**
 
-Awaitable[[`DeleteDatasetResponse`](#deletedatasetresponse)]
+Awaitable[None]
 
 ***
 
@@ -1415,7 +1331,7 @@ upsert_file(
 )
 ```
 
-Upsert a file to the dataset asynchronously.
+Upsert a file to the dataset asynchronously. Returns the processing handle.
 
 **Parameters**
 
@@ -1427,7 +1343,7 @@ Upsert a file to the dataset asynchronously.
 
 **Returns**
 
-Awaitable[[`UpsertResponse`](#upsertresponse)]
+Awaitable[str]
 
 ***
 
@@ -1452,17 +1368,17 @@ Get metadata for one or more documents asynchronously.
 
 **Returns**
 
-Awaitable[[`GetMetadataResponse`](#getmetadataresponse)]
+Awaitable[dict[str, dict[str, Any]]]
 
 ***
 
 #### update\_metadata()
 
 ```python
-update_metadata(self, doc_id: str, metadata: Mapping[str, Any]) -> Awaitable[UpdateMetadataResponse]
+update_metadata(self, doc_id: str, metadata: Mapping[str, Any]) -> Awaitable[str]
 ```
 
-Update metadata for a file asynchronously.
+Update metadata for a file asynchronously. Returns the processing handle.
 
 **Parameters**
 
@@ -1473,17 +1389,17 @@ Update metadata for a file asynchronously.
 
 **Returns**
 
-Awaitable[[`UpdateMetadataResponse`](#updatemetadataresponse)]
+Awaitable[str]
 
 ***
 
 #### delete()
 
 ```python
-delete(self, doc_id: str) -> Awaitable[DeleteFileResponse]
+delete(self, doc_id: str) -> Awaitable[str]
 ```
 
-Delete a file from the dataset asynchronously.
+Delete a file from the dataset asynchronously. Returns the processing handle.
 
 **Parameters**
 
@@ -1493,7 +1409,7 @@ Delete a file from the dataset asynchronously.
 
 **Returns**
 
-Awaitable[[`DeleteFileResponse`](#deletefileresponse)]
+Awaitable[str]
 
 ***
 

@@ -5,10 +5,7 @@ use comfy_table::{
 };
 use serde::{Deserialize, Serialize};
 use terminal_size::{terminal_size, Width as TermWidth};
-use topk_rs::{
-    proto::v1::control::{CreateDatasetResponse, GetDatasetResponse, ListDatasetsResponse},
-    Error,
-};
+use topk_rs::{proto::v1::control::Dataset as DatasetPb, Error};
 
 use crate::datasets::DatasetsClient;
 use crate::output::Output;
@@ -75,10 +72,10 @@ pub struct ListDatasetsResult {
     pub datasets: Vec<Dataset>,
 }
 
-impl From<ListDatasetsResponse> for ListDatasetsResult {
-    fn from(resp: ListDatasetsResponse) -> Self {
+impl From<Vec<DatasetPb>> for ListDatasetsResult {
+    fn from(datasets: Vec<DatasetPb>) -> Self {
         Self {
-            datasets: resp.datasets.into_iter().map(|d| d.into()).collect(),
+            datasets: datasets.into_iter().map(|d| d.into()).collect(),
         }
     }
 }
@@ -126,13 +123,11 @@ pub struct GetDatasetResult {
     pub(crate) dataset: Dataset,
 }
 
-impl TryFrom<GetDatasetResponse> for GetDatasetResult {
-    type Error = Error;
-
-    fn try_from(resp: GetDatasetResponse) -> Result<Self, Error> {
-        Ok(Self {
-            dataset: resp.dataset()?.to_owned().into(),
-        })
+impl From<DatasetPb> for GetDatasetResult {
+    fn from(dataset: DatasetPb) -> Self {
+        Self {
+            dataset: dataset.into(),
+        }
     }
 }
 
@@ -154,13 +149,11 @@ pub struct CreateDatasetResult {
     pub(crate) dataset: Dataset,
 }
 
-impl TryFrom<CreateDatasetResponse> for CreateDatasetResult {
-    type Error = Error;
-
-    fn try_from(resp: CreateDatasetResponse) -> Result<Self, Error> {
-        Ok(Self {
-            dataset: resp.dataset()?.to_owned().into(),
-        })
+impl From<DatasetPb> for CreateDatasetResult {
+    fn from(dataset: DatasetPb) -> Self {
+        Self {
+            dataset: dataset.into(),
+        }
     }
 }
 
@@ -192,7 +185,7 @@ pub async fn list<C: DatasetsClient>(mut client: C) -> Result<ListDatasetsResult
 
 /// `topk dataset get`
 pub async fn get<C: DatasetsClient>(mut client: C, name: &str) -> Result<GetDatasetResult, Error> {
-    Ok(client.get(name).await?.try_into()?)
+    Ok(client.get(name).await?.into())
 }
 
 /// `topk dataset create`
@@ -200,10 +193,7 @@ pub async fn create<C: DatasetsClient>(
     mut client: C,
     args: &CreateDatasetArgs,
 ) -> Result<CreateDatasetResult, Error> {
-    Ok(client
-        .create(&args.dataset, &args.region)
-        .await?
-        .try_into()?)
+    Ok(client.create(&args.dataset, &args.region).await?.into())
 }
 
 /// `topk dataset delete`

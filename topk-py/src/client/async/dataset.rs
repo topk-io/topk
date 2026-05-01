@@ -6,12 +6,8 @@ use pyo3_async_runtimes::tokio::future_into_py;
 use tokio::sync::{mpsc, Mutex};
 use topk_rs::proto::v1::ctx::file::InputFile;
 
-use crate::client::into_py_response;
+use crate::client::NativeWaitConfig;
 use crate::client::CHANNEL_BUFFER_SIZE;
-use crate::client::{
-    DeleteFileResponse, GetMetadataResponse, NativeWaitConfig, UpdateMetadataResponse,
-    UpsertResponse,
-};
 use crate::data::file::FileOrFileLike;
 use crate::data::list_entry::ListEntry;
 use crate::data::value::Value;
@@ -47,19 +43,11 @@ impl AsyncDatasetClient {
             metadata.into_iter().map(|(k, v)| (k, v.into())).collect();
 
         future_into_py(py, async move {
-            let response = client
+            client
                 .dataset(&dataset)
                 .upsert_file(doc_id, input_file, metadata)
                 .await
-                .map_err(RustError)?;
-
-            Python::attach(|py| {
-                into_py_response(py, response, |inner| {
-                    Ok(UpsertResponse {
-                        handle: inner.handle,
-                    })
-                })
-            })
+                .map_err(|e| RustError::from(e).into())
         })
         .map(|result| result.into())
     }
@@ -75,26 +63,21 @@ impl AsyncDatasetClient {
         let dataset = self.dataset.clone();
 
         future_into_py(py, async move {
-            let response = client
+            let docs = client
                 .dataset(&dataset)
                 .get_metadata(ids, fields)
                 .await
                 .map_err(RustError)?;
-            Python::attach(|py| {
-                into_py_response(py, response, |inner| {
-                    let docs: HashMap<String, HashMap<String, Value>> = inner
-                        .docs
-                        .into_iter()
-                        .map(|(id, doc)| {
-                            (
-                                id,
-                                doc.fields.into_iter().map(|(k, v)| (k, v.into())).collect(),
-                            )
-                        })
-                        .collect();
-                    Ok(GetMetadataResponse { docs })
+            let docs: HashMap<String, HashMap<String, Value>> = docs
+                .into_iter()
+                .map(|(id, doc)| {
+                    (
+                        id,
+                        doc.fields.into_iter().map(|(k, v)| (k, v.into())).collect(),
+                    )
                 })
-            })
+                .collect();
+            Ok(docs)
         })
         .map(|result| result.into())
     }
@@ -111,18 +94,11 @@ impl AsyncDatasetClient {
             metadata.into_iter().map(|(k, v)| (k, v.into())).collect();
 
         future_into_py(py, async move {
-            let response = client
+            client
                 .dataset(&dataset)
                 .update_metadata(doc_id, metadata)
                 .await
-                .map_err(RustError)?;
-            Python::attach(|py| {
-                into_py_response(py, response, |inner| {
-                    Ok(UpdateMetadataResponse {
-                        handle: inner.handle,
-                    })
-                })
-            })
+                .map_err(|e| RustError::from(e).into())
         })
         .map(|result| result.into())
     }
@@ -132,18 +108,11 @@ impl AsyncDatasetClient {
         let dataset = self.dataset.clone();
 
         future_into_py(py, async move {
-            let response = client
+            client
                 .dataset(&dataset)
                 .delete(doc_id)
                 .await
-                .map_err(RustError)?;
-            Python::attach(|py| {
-                into_py_response(py, response, |inner| {
-                    Ok(DeleteFileResponse {
-                        handle: inner.handle,
-                    })
-                })
-            })
+                .map_err(|e| RustError::from(e).into())
         })
         .map(|result| result.into())
     }
@@ -153,11 +122,11 @@ impl AsyncDatasetClient {
         let dataset = self.dataset.clone();
 
         future_into_py(py, async move {
-            Ok(client
+            client
                 .dataset(&dataset)
                 .check_handle(&handle)
                 .await
-                .map_err(RustError)?)
+                .map_err(|e| RustError::from(e).into())
         })
         .map(|result| result.into())
     }
@@ -199,7 +168,7 @@ impl AsyncDatasetClient {
             let dataset = self.dataset.clone();
             async move {
                 let mut stream = match client.dataset(&dataset).list(fields, filter).await {
-                    Ok(response) => response.into_inner(),
+                    Ok(stream) => stream,
                     Err(e) => {
                         let _ = tx.send(Err(RustError(e).into())).await;
                         return;

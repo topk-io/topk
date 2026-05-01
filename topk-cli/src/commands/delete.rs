@@ -46,9 +46,7 @@ pub async fn run(
     let handle = client
         .dataset(&args.dataset)
         .delete(args.id.clone())
-        .await?
-        .into_inner()
-        .handle;
+        .await?;
 
     Ok(DeleteResult {
         handle: Some(handle),
@@ -84,7 +82,7 @@ mod tests {
             .unwrap();
         ctx.client
             .dataset(&dataset)
-            .wait_for_handle(&upload.handle, None)
+            .wait_for_handle(&upload, None)
             .await
             .unwrap();
 
@@ -127,7 +125,7 @@ mod tests {
             .unwrap();
         ctx.client
             .dataset(&dataset)
-            .wait_for_handle(&upload.handle, None)
+            .wait_for_handle(&upload, None)
             .await
             .unwrap();
 

@@ -366,23 +366,6 @@ export interface QueryOptions {
 }
 
 /**
- * Options for rerank stages.
- *
- * This struct contains configuration options for reranking results,
- * including the model, query, and fields to use.
- */
-export interface RerankOptions {
-  /** The reranking model to use */
-  model?: string
-  /** The query text for reranking */
-  query?: string
-  /** Fields to include in reranking */
-  fields?: Array<string>
-  /** Multiple of top-k to consider for reranking */
-  topkMultiple?: number
-}
-
-/**
  * Configuration for retry behavior when requests fail.
  *
  * This struct allows you to customize how the client handles retries for failed requests.
@@ -762,8 +745,6 @@ export declare namespace query {
     sort(expr: LogicalExpression, asc?: boolean | undefined | null): Query
     /** Adds a count stage to the query. */
     count(): Query
-    /** Adds a rerank stage to the query. */
-    rerank(options?: RerankOptions | undefined | null): Query
   }
   export class TextExpression {
     /** Computes the logical AND of the expression and another text expression. */
@@ -1018,9 +999,6 @@ export declare namespace schema {
     | { type: 'Bytes' }
     | { type: 'List', valueType: ListValueType }
     | { type: 'Matrix', dimension: number, valueType: MatrixValueType }
-  export type EmbeddingDataType =  'float32'|
-  'uint8'|
-  'binary';
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `f16_vector` values.
    *
@@ -1083,7 +1061,7 @@ export declare namespace schema {
   export type FieldIndexUnion =
     | { type: 'KeywordIndex', indexType: KeywordIndexType }
     | { type: 'VectorIndex', metric: VectorDistanceMetric }
-    | { type: 'SemanticIndex', model?: string, embeddingType?: EmbeddingDataType }
+    | { type: 'SemanticIndex' }
     | { type: 'MultiVectorIndex', metric: MultiVectorDistanceMetric, quantization?: MultiVectorQuantization, width?: number, topK?: number }
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `float` values.
@@ -1247,33 +1225,11 @@ export declare namespace schema {
    * import { text, semanticIndex } from "topk-js/schema";
    *
    * await client.collections().create("books", {
-   *   title: text().index(semanticIndex({ model: "cohere/embed-v4" }))
+   *   title: text().index(semanticIndex())
    * });
    * ```
-   *
-   * Parameters:
-   * - model: Embedding model to use for semantic search. Currently supported:
-   *   - `cohere/embed-english-v3`
-   *   - `cohere/embed-multilingual-v3`
-   *   - `cohere/embed-v4` (default)
-   * - embeddingType: TopK supports the following embedding types for Cohere models:
-   *   - `float32`
-   *   - `uint8`
-   *   - `binary`
    */
-  export function semanticIndex(options?: SemanticIndexOptions | undefined | null): FieldIndex
-  /**
-   * Options for semantic index specifications.
-   *
-   * This struct contains configuration options for semantic indexes,
-   * including the model and embedding type to use.
-   */
-  export interface SemanticIndexOptions {
-    /** The embedding model to use */
-    model?: string
-    /** The type of embedding data */
-    embeddingType?: EmbeddingDataType
-  }
+  export function semanticIndex(): FieldIndex
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `text` values.
    *

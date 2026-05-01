@@ -296,7 +296,9 @@ class LogicalExpr(Enum):
         Multiply the scoring expression by the provided `boost` value if the `condition` is true.
         """
         ...
-    def regexp_match(self, pattern: builtins.str, flags: typing.Optional[builtins.str] = None) -> LogicalExpr:
+    def regexp_match(
+        self, pattern: builtins.str, flags: typing.Optional[builtins.str] = None
+    ) -> LogicalExpr:
         """
         Check if the expression matches the provided regexp pattern.
         """
@@ -378,17 +380,6 @@ class Query:
     def limit(self, k: builtins.int) -> Query:
         """
         Adds a limit stage to the query.
-        """
-        ...
-    def rerank(
-        self,
-        model: typing.Optional[builtins.str] = None,
-        query: typing.Optional[builtins.str] = None,
-        fields: typing.Sequence[builtins.str] = [],
-        topk_multiple: typing.Optional[builtins.int] = None,
-    ) -> Query:
-        """
-        Adds a rerank stage to the query.
         """
         ...
     def count(self) -> Query:
