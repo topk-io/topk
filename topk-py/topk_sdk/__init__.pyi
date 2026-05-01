@@ -360,51 +360,6 @@ class ListEntry:
     status_reason: typing.Optional[builtins.str]
     metadata: builtins.dict[builtins.str, typing.Any]
 
-class Response:
-    """
-    Base class for API response objects with request_id.
-    """
-
-    request_id: typing.Optional[builtins.str]
-
-class CreateDatasetResponse(Response):
-    """Response from creating a dataset."""
-
-    dataset: Dataset
-
-class GetDatasetResponse(Response):
-    """Response from getting a dataset."""
-
-    dataset: Dataset
-
-class ListDatasetsResponse(Response):
-    """Response from listing datasets."""
-
-    datasets: builtins.list[Dataset]
-
-class DeleteDatasetResponse(Response):
-    """Response from deleting a dataset."""
-
-class UpsertResponse(Response):
-    """Response from upserting a document."""
-
-    handle: builtins.str
-
-class GetMetadataResponse(Response):
-    """Response from getting file metadata."""
-
-    docs: builtins.dict[builtins.str, builtins.dict[builtins.str, typing.Any]]
-
-class UpdateMetadataResponse(Response):
-    """Response from updating file metadata."""
-
-    handle: builtins.str
-
-class DeleteFileResponse(Response):
-    """Response from deleting a file."""
-
-    handle: builtins.str
-
 class CollectionsClient:
     """
     Synchronous client for managing collections.
@@ -470,22 +425,22 @@ class DatasetsClient:
     Synchronous client for managing datasets.
     """
 
-    def get(self, dataset_name: builtins.str) -> GetDatasetResponse:
+    def get(self, dataset_name: builtins.str) -> Dataset:
         """
         Get information about a specific dataset.
         """
         ...
-    def list(self) -> ListDatasetsResponse:
+    def list(self) -> builtins.list[Dataset]:
         """
         List all datasets.
         """
         ...
-    def create(self, dataset_name: builtins.str) -> CreateDatasetResponse:
+    def create(self, dataset_name: builtins.str) -> Dataset:
         """
         Create a new dataset.
         """
         ...
-    def delete(self, dataset_name: builtins.str) -> DeleteDatasetResponse:
+    def delete(self, dataset_name: builtins.str) -> None:
         """
         Delete a dataset.
         """
@@ -501,16 +456,16 @@ class DatasetClient:
         doc_id: builtins.str,
         input: typing.Union[os.PathLike[typing.Any], typing.Tuple[builtins.str, builtins.bytes, builtins.str]],
         metadata: typing.Mapping[builtins.str, typing.Any],
-    ) -> UpsertResponse:
+    ) -> builtins.str:
         """
-        Upsert a file to the dataset.
+        Upsert a file to the dataset. Returns the processing handle.
         """
         ...
     def get_metadata(
         self,
         ids: typing.Sequence[builtins.str],
         fields: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> GetMetadataResponse:
+    ) -> builtins.dict[builtins.str, builtins.dict[builtins.str, typing.Any]]:
         """
         Get metadata for one or more documents.
         """
@@ -519,14 +474,14 @@ class DatasetClient:
         self,
         doc_id: builtins.str,
         metadata: typing.Mapping[builtins.str, typing.Any],
-    ) -> UpdateMetadataResponse:
+    ) -> builtins.str:
         """
-        Update metadata for a file.
+        Update metadata for a file. Returns the processing handle.
         """
         ...
-    def delete(self, doc_id: builtins.str) -> DeleteFileResponse:
+    def delete(self, doc_id: builtins.str) -> builtins.str:
         """
-        Delete a file from the dataset.
+        Delete a file from the dataset. Returns the processing handle.
         """
         ...
     def check_handle(self, handle: builtins.str) -> builtins.bool:
@@ -560,22 +515,22 @@ class AsyncDatasetsClient:
     Asynchronous client for managing datasets.
     """
 
-    def get(self, dataset_name: builtins.str) -> typing.Awaitable[GetDatasetResponse]:
+    def get(self, dataset_name: builtins.str) -> typing.Awaitable[Dataset]:
         """
         Get information about a specific dataset asynchronously.
         """
         ...
-    def list(self) -> typing.Awaitable[ListDatasetsResponse]:
+    def list(self) -> typing.Awaitable[builtins.list[Dataset]]:
         """
         List all datasets asynchronously.
         """
         ...
-    def create(self, dataset_name: builtins.str) -> typing.Awaitable[CreateDatasetResponse]:
+    def create(self, dataset_name: builtins.str) -> typing.Awaitable[Dataset]:
         """
         Create a new dataset asynchronously.
         """
         ...
-    def delete(self, dataset_name: builtins.str) -> typing.Awaitable[DeleteDatasetResponse]:
+    def delete(self, dataset_name: builtins.str) -> typing.Awaitable[None]:
         """
         Delete a dataset asynchronously.
         """
@@ -591,16 +546,16 @@ class AsyncDatasetClient:
         doc_id: builtins.str,
         input: typing.Union[os.PathLike[typing.Any], typing.Tuple[builtins.str, builtins.bytes, builtins.str]],
         metadata: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Awaitable[UpsertResponse]:
+    ) -> typing.Awaitable[builtins.str]:
         """
-        Upsert a file to the dataset asynchronously.
+        Upsert a file to the dataset asynchronously. Returns the processing handle.
         """
         ...
     def get_metadata(
         self,
         ids: typing.Sequence[builtins.str],
         fields: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> typing.Awaitable[GetMetadataResponse]:
+    ) -> typing.Awaitable[builtins.dict[builtins.str, builtins.dict[builtins.str, typing.Any]]]:
         """
         Get metadata for one or more documents asynchronously.
         """
@@ -609,14 +564,14 @@ class AsyncDatasetClient:
         self,
         doc_id: builtins.str,
         metadata: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Awaitable[UpdateMetadataResponse]:
+    ) -> typing.Awaitable[builtins.str]:
         """
-        Update metadata for a file asynchronously.
+        Update metadata for a file asynchronously. Returns the processing handle.
         """
         ...
-    def delete(self, doc_id: builtins.str) -> typing.Awaitable[DeleteFileResponse]:
+    def delete(self, doc_id: builtins.str) -> typing.Awaitable[builtins.str]:
         """
-        Delete a file from the dataset asynchronously.
+        Delete a file from the dataset asynchronously. Returns the processing handle.
         """
         ...
     def check_handle(self, handle: builtins.str) -> typing.Awaitable[builtins.bool]:

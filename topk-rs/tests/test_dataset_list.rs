@@ -9,33 +9,32 @@ use utils::{dataset::test_pdf, ProjectTestContext};
 #[tokio::test]
 #[ignore]
 async fn test_dataset_list(ctx: &mut ProjectTestContext) {
-    let response = ctx
+    let dataset = ctx
         .client
         .datasets()
         .create(ctx.wrap("test"), None)
         .await
         .expect("could not create dataset");
 
-    let upsert = ctx
+    let handle = ctx
         .client
-        .dataset(&response.dataset().unwrap().name)
+        .dataset(&dataset.name)
         .upsert_file("doc1", test_pdf(), Vec::<(String, Value)>::new())
         .await
         .expect("could not upsert PDF file");
 
     ctx.client
-        .dataset(&response.dataset().unwrap().name)
-        .wait_for_handle(&upsert.handle, None)
+        .dataset(&dataset.name)
+        .wait_for_handle(&handle, None)
         .await
         .expect("could not wait for handle");
 
     let entries: Vec<_> = ctx
         .client
-        .dataset(&response.dataset().unwrap().name)
+        .dataset(&dataset.name)
         .list(None, None)
         .await
         .expect("could not list dataset entries")
-        .into_inner()
         .try_collect()
         .await
         .expect("could not receive entries from stream");

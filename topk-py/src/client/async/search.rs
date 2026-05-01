@@ -54,7 +54,7 @@ pub fn search_stream(
             .search(query, datasets, top_k, filter, select_fields)
             .await
         {
-            Ok(response) => response.into_inner(),
+            Ok(stream) => stream,
             Err(e) => {
                 let _ = tx.send(Err(RustError(e).into())).await;
                 return;
@@ -103,8 +103,7 @@ pub fn search(
         let stream = client
             .search(query, datasets, top_k, filter, select_fields)
             .await
-            .map_err(RustError)?
-            .into_inner();
+            .map_err(RustError)?;
 
         stream
             .map_err(|e| PyErr::from(RustError(e.into())))

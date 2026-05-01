@@ -8,14 +8,14 @@ from . import AsyncProjectContext
 @pytest.mark.asyncio
 @pytest.mark.xfail(reason="ctx")
 async def test_async_search(async_ctx: AsyncProjectContext):
-    dataset = (await async_ctx.client.datasets().create(async_ctx.scope("test"))).dataset
+    dataset = await async_ctx.client.datasets().create(async_ctx.scope("test"))
     pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
 
-    upsert_resp = await async_ctx.client.dataset(dataset.name).upsert_file(
+    handle = await async_ctx.client.dataset(dataset.name).upsert_file(
         "doc1", pdf_path, {}
     )
 
-    await async_ctx.client.dataset(dataset.name).wait_for_handle(upsert_resp.handle)
+    await async_ctx.client.dataset(dataset.name).wait_for_handle(handle)
 
     result: list[SearchResult] = await async_ctx.client.search(
         "technical", [dataset.name], top_k=10
@@ -27,14 +27,14 @@ async def test_async_search(async_ctx: AsyncProjectContext):
 @pytest.mark.asyncio
 @pytest.mark.xfail(reason="ctx")
 async def test_async_search_stream(async_ctx: AsyncProjectContext):
-    dataset = (await async_ctx.client.datasets().create(async_ctx.scope("test"))).dataset
+    dataset = await async_ctx.client.datasets().create(async_ctx.scope("test"))
     pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
 
-    upsert_resp = await async_ctx.client.dataset(dataset.name).upsert_file(
+    handle = await async_ctx.client.dataset(dataset.name).upsert_file(
         "doc1", pdf_path, {}
     )
 
-    await async_ctx.client.dataset(dataset.name).wait_for_handle(upsert_resp.handle)
+    await async_ctx.client.dataset(dataset.name).wait_for_handle(handle)
 
     stream = async_ctx.client.search_stream(
         "technical",

@@ -1,16 +1,13 @@
 use async_trait::async_trait;
-use topk_rs::{
-    proto::v1::control::{CreateDatasetResponse, GetDatasetResponse, ListDatasetsResponse},
-    Client, Error,
-};
+use topk_rs::{proto::v1::control::Dataset, Client, Error};
 
 use crate::dataset_region_cache::{dataset_region_cache_path, DatasetRegionCache};
 
 #[async_trait(?Send)]
 pub trait DatasetsClient {
-    async fn list(&mut self) -> Result<ListDatasetsResponse, Error>;
-    async fn get(&mut self, name: &str) -> Result<GetDatasetResponse, Error>;
-    async fn create(&mut self, name: &str, region: &str) -> Result<CreateDatasetResponse, Error>;
+    async fn list(&mut self) -> Result<Vec<Dataset>, Error>;
+    async fn get(&mut self, name: &str) -> Result<Dataset, Error>;
+    async fn create(&mut self, name: &str, region: &str) -> Result<Dataset, Error>;
     async fn delete(&mut self, name: &str) -> Result<(), Error>;
 }
 
@@ -31,21 +28,19 @@ impl RealDatasetsClient {
 
 #[async_trait(?Send)]
 impl DatasetsClient for RealDatasetsClient {
-    async fn list(&mut self) -> Result<ListDatasetsResponse, Error> {
-        Ok(self.client.datasets().list().await?.into_inner())
+    async fn list(&mut self) -> Result<Vec<Dataset>, Error> {
+        Ok(self.client.datasets().list().await?)
     }
 
-    async fn get(&mut self, name: &str) -> Result<GetDatasetResponse, Error> {
-        Ok(self.client.datasets().get(name).await?.into_inner())
+    async fn get(&mut self, name: &str) -> Result<Dataset, Error> {
+        Ok(self.client.datasets().get(name).await?)
     }
 
-    async fn create(&mut self, name: &str, region: &str) -> Result<CreateDatasetResponse, Error> {
-        Ok(self
-            .client
+    async fn create(&mut self, name: &str, region: &str) -> Result<Dataset, Error> {
+        Ok(self.client
             .datasets()
             .create(name, Some(region.to_string()))
-            .await?
-            .into_inner())
+            .await?)
     }
 
     async fn delete(&mut self, name: &str) -> Result<(), Error> {
@@ -57,8 +52,7 @@ impl DatasetsClient for RealDatasetsClient {
 #[async_trait(?Send)]
 impl DatasetRegionResolver for RealDatasetsClient {
     async fn get_region(&mut self, name: &str) -> Result<String, Error> {
-        let response = self.get(name).await?;
-        Ok(response.dataset()?.to_owned().region)
+        Ok(self.get(name).await?.region)
     }
 }
 
@@ -89,32 +83,27 @@ impl<B> DatasetsClient for CachedDatasetsClient<B>
 where
     B: DatasetsClient,
 {
-    async fn list(&mut self) -> Result<ListDatasetsResponse, Error> {
-        let response = self.client.list().await?;
+    async fn list(&mut self) -> Result<Vec<Dataset>, Error> {
+        let datasets = self.client.list().await?;
         self.cache.set_all(
-            response
-                .datasets
+            datasets
                 .iter()
                 .map(|dataset| (dataset.name.clone(), dataset.region.clone())),
         );
         self.persist();
-        Ok(response)
+        Ok(datasets)
     }
 
-    async fn get(&mut self, name: &str) -> Result<GetDatasetResponse, Error> {
-        let response = self.client.get(name).await?;
-        if let Some(dataset) = response.dataset.as_ref().cloned() {
-            self.cache_dataset_region(&dataset.name, &dataset.region);
-        }
-        Ok(response)
+    async fn get(&mut self, name: &str) -> Result<Dataset, Error> {
+        let dataset = self.client.get(name).await?;
+        self.cache_dataset_region(&dataset.name, &dataset.region);
+        Ok(dataset)
     }
 
-    async fn create(&mut self, name: &str, region: &str) -> Result<CreateDatasetResponse, Error> {
-        let response = self.client.create(name, region).await?;
-        if let Some(dataset) = response.dataset.as_ref().cloned() {
-            self.cache_dataset_region(&dataset.name, &dataset.region);
-        }
-        Ok(response)
+    async fn create(&mut self, name: &str, region: &str) -> Result<Dataset, Error> {
+        let dataset = self.client.create(name, region).await?;
+        self.cache_dataset_region(&dataset.name, &dataset.region);
+        Ok(dataset)
     }
 
     async fn delete(&mut self, name: &str) -> Result<(), Error> {
@@ -214,36 +203,24 @@ mod tests {
 
     #[async_trait(?Send)]
     impl DatasetsClient for FakeDatasetsClient {
-        async fn list(&mut self) -> Result<ListDatasetsResponse, Error> {
+        async fn list(&mut self) -> Result<Vec<Dataset>, Error> {
             self.list_calls += 1;
-            Ok(ListDatasetsResponse {
-                datasets: self.datasets.values().cloned().collect(),
-            })
+            Ok(self.datasets.values().cloned().collect())
         }
 
-        async fn get(&mut self, name: &str) -> Result<GetDatasetResponse, Error> {
+        async fn get(&mut self, name: &str) -> Result<Dataset, Error> {
             self.get_calls += 1;
-            let dataset = self
-                .datasets
+            self.datasets
                 .get(name)
                 .cloned()
-                .ok_or(Error::DatasetNotFound)?;
-            Ok(GetDatasetResponse {
-                dataset: Some(dataset),
-            })
+                .ok_or(Error::DatasetNotFound)
         }
 
-        async fn create(
-            &mut self,
-            name: &str,
-            region: &str,
-        ) -> Result<CreateDatasetResponse, Error> {
+        async fn create(&mut self, name: &str, region: &str) -> Result<Dataset, Error> {
             self.create_calls += 1;
             let dataset = dataset(name, region);
             self.datasets.insert(name.to_string(), dataset.clone());
-            Ok(CreateDatasetResponse {
-                dataset: Some(dataset),
-            })
+            Ok(dataset)
         }
 
         async fn delete(&mut self, name: &str) -> Result<(), Error> {
@@ -256,8 +233,7 @@ mod tests {
     #[async_trait(?Send)]
     impl DatasetRegionResolver for FakeDatasetsClient {
         async fn get_region(&mut self, name: &str) -> Result<String, Error> {
-            let response = self.get(name).await?;
-            Ok(response.dataset()?.to_owned().region)
+            Ok(self.get(name).await?.region)
         }
     }
 
@@ -282,9 +258,9 @@ mod tests {
         let backend = FakeDatasetsClient::with_dataset(dataset("ds", "us-east-1"));
         let mut client = CachedDatasetsClient::new(backend, DatasetRegionCache::default());
 
-        let response = client.list().await.unwrap();
+        let datasets = client.list().await.unwrap();
 
-        assert_eq!(response.datasets.len(), 1);
+        assert_eq!(datasets.len(), 1);
         assert_eq!(client.cache.get("ds"), Some("us-east-1"));
     }
 
@@ -293,9 +269,9 @@ mod tests {
         let backend = FakeDatasetsClient::with_dataset(dataset("cached", "eu-west-1"));
         let mut client = CachedDatasetsClient::new(backend, indexed("cached", "us-east-1"));
 
-        let response = client.get("cached").await.unwrap();
+        let dataset = client.get("cached").await.unwrap();
 
-        assert_eq!(response.dataset.unwrap().region, "eu-west-1");
+        assert_eq!(dataset.region, "eu-west-1");
         assert_eq!(client.client.get_calls, 1);
     }
 
@@ -304,9 +280,9 @@ mod tests {
         let backend = FakeDatasetsClient::with_dataset(dataset("ds", "us-east-1"));
         let mut client = CachedDatasetsClient::new(backend, DatasetRegionCache::default());
 
-        let response = client.get("ds").await.unwrap();
+        let dataset = client.get("ds").await.unwrap();
 
-        assert_eq!(response.dataset.unwrap().region, "us-east-1");
+        assert_eq!(dataset.region, "us-east-1");
         assert_eq!(client.client.get_calls, 1);
         assert_eq!(client.cache.get("ds"), Some("us-east-1"));
     }
@@ -316,9 +292,9 @@ mod tests {
         let mut client =
             CachedDatasetsClient::new(FakeDatasetsClient::default(), DatasetRegionCache::default());
 
-        let response = client.create("ds", "us-east-1").await.unwrap();
+        let dataset = client.create("ds", "us-east-1").await.unwrap();
 
-        assert_eq!(response.dataset.unwrap().name, "ds");
+        assert_eq!(dataset.name, "ds");
         assert_eq!(client.client.create_calls, 1);
         assert_eq!(client.cache.get("ds"), Some("us-east-1"));
     }

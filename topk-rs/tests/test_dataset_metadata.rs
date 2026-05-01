@@ -10,7 +10,7 @@ use utils::{dataset::test_pdf, ProjectTestContext};
 #[tokio::test]
 #[ignore]
 async fn test_get_metadata(ctx: &mut ProjectTestContext) {
-    let response = ctx
+    let dataset = ctx
         .client
         .datasets()
         .create(ctx.wrap("test"), None)
@@ -18,9 +18,9 @@ async fn test_get_metadata(ctx: &mut ProjectTestContext) {
         .expect("could not create dataset");
 
     // Upsert file with metadata
-    let upsert = ctx
+    let handle = ctx
         .client
-        .dataset(&response.dataset().unwrap().name)
+        .dataset(&dataset.name)
         .upsert_file(
             "doc1".to_string(),
             test_pdf(),
@@ -31,21 +31,21 @@ async fn test_get_metadata(ctx: &mut ProjectTestContext) {
 
     // Wait for file to be processed
     ctx.client
-        .dataset(&response.dataset().unwrap().name)
-        .wait_for_handle(&upsert.handle, None)
+        .dataset(&dataset.name)
+        .wait_for_handle(&handle, None)
         .await
         .expect("could not wait for handle");
 
     // Get metadata and verify it matches
-    let response = ctx
+    let docs = ctx
         .client
-        .dataset(&response.dataset().unwrap().name)
+        .dataset(&dataset.name)
         .get_metadata(vec!["doc1"], None)
         .await
         .expect("could not get metadata");
 
     assert_eq!(
-        response.docs,
+        docs,
         HashMap::from([("doc1".to_string(), doc!("title" => Value::string("test")))])
     );
 }

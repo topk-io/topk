@@ -6,13 +6,11 @@ use tonic::transport::Channel;
 
 use super::config::ClientConfig;
 use super::retry::call_with_retry;
-use super::Response;
 use crate::create_client;
 use crate::error::Error;
 use crate::proto::v1::control::dataset_service_client::DatasetServiceClient;
 use crate::proto::v1::control::{
-    CreateDatasetRequest, CreateDatasetResponse, DeleteDatasetRequest, DeleteDatasetResponse,
-    GetDatasetRequest, GetDatasetResponse, ListDatasetsRequest, ListDatasetsResponse,
+    CreateDatasetRequest, Dataset, DeleteDatasetRequest, GetDatasetRequest, ListDatasetsRequest,
 };
 
 pub struct DatasetsClient {
@@ -27,7 +25,7 @@ impl DatasetsClient {
         Self { config, channel }
     }
 
-    pub async fn list(&self) -> Result<Response<ListDatasetsResponse>, Error> {
+    pub async fn list(&self) -> Result<Vec<Dataset>, Error> {
         let client = create_client!(DatasetServiceClient, self.channel, self.config).await?;
 
         let response = call_with_retry(&self.config.retry_config(), || {
@@ -42,13 +40,10 @@ impl DatasetsClient {
         })
         .await?;
 
-        Ok(response.into())
+        Ok(response.into_inner().datasets)
     }
 
-    pub async fn get(
-        &self,
-        name: impl Into<String>,
-    ) -> Result<Response<GetDatasetResponse>, Error> {
+    pub async fn get(&self, name: impl Into<String>) -> Result<Dataset, Error> {
         let client = create_client!(DatasetServiceClient, self.channel, self.config).await?;
         let name = name.into();
 
@@ -70,14 +65,15 @@ impl DatasetsClient {
         })
         .await?;
 
-        Ok(response.into())
+        let dataset = response.into_inner().dataset.ok_or(Error::InvalidProto)?;
+        Ok(dataset)
     }
 
     pub async fn create(
         &self,
         name: impl Into<String>,
         region: Option<String>,
-    ) -> Result<Response<CreateDatasetResponse>, Error> {
+    ) -> Result<Dataset, Error> {
         let client = create_client!(DatasetServiceClient, self.channel, self.config).await?;
         let name = name.into();
 
@@ -100,17 +96,15 @@ impl DatasetsClient {
         })
         .await?;
 
-        Ok(response.into())
+        let dataset = response.into_inner().dataset.ok_or(Error::InvalidProto)?;
+        Ok(dataset)
     }
 
-    pub async fn delete(
-        &self,
-        name: impl Into<String>,
-    ) -> Result<Response<DeleteDatasetResponse>, Error> {
+    pub async fn delete(&self, name: impl Into<String>) -> Result<(), Error> {
         let client = create_client!(DatasetServiceClient, self.channel, self.config).await?;
         let name = name.into();
 
-        let response = call_with_retry(&self.config.retry_config(), || {
+        call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
             let name = name.clone();
 
@@ -128,6 +122,6 @@ impl DatasetsClient {
         })
         .await?;
 
-        Ok(response.into())
+        Ok(())
     }
 }

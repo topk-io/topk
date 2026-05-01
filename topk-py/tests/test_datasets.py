@@ -5,17 +5,15 @@ from . import ProjectContext
 
 
 def test_list_datasets(ctx: ProjectContext):
-    create_resp = ctx.client.datasets().create(ctx.scope("test"))
-    d = create_resp.dataset
-    response = ctx.client.datasets().list()
-    assert d in response.datasets
+    d = ctx.client.datasets().create(ctx.scope("test"))
+    datasets = ctx.client.datasets().list()
+    assert d in datasets
 
 
 def test_create_dataset(ctx: ProjectContext):
-    create_resp = ctx.client.datasets().create(ctx.scope("test"))
-    d = create_resp.dataset
-    response = ctx.client.datasets().list()
-    assert d in response.datasets
+    d = ctx.client.datasets().create(ctx.scope("test"))
+    datasets = ctx.client.datasets().list()
+    assert d in datasets
 
 
 def test_create_duplicate_dataset(ctx: ProjectContext):
@@ -31,11 +29,11 @@ def test_delete_non_existent_dataset(ctx: ProjectContext):
 
 
 def test_delete_dataset(ctx: ProjectContext):
-    d = ctx.client.datasets().create(ctx.scope("test")).dataset
+    d = ctx.client.datasets().create(ctx.scope("test"))
     ctx.client.datasets().delete(ctx.scope("test"))
 
-    response = ctx.client.datasets().list()
-    assert d not in response.datasets
+    datasets = ctx.client.datasets().list()
+    assert d not in datasets
 
 
 def test_get_dataset(ctx: ProjectContext):
@@ -44,9 +42,8 @@ def test_get_dataset(ctx: ProjectContext):
         ctx.client.datasets().get(ctx.scope("test"))
 
     # Create dataset
-    create_resp = ctx.client.datasets().create(ctx.scope("test"))
-    d = create_resp.dataset
+    d = ctx.client.datasets().create(ctx.scope("test"))
 
     # Get dataset
-    response = ctx.client.datasets().get(ctx.scope("test"))
-    assert response.dataset == d
+    got = ctx.client.datasets().get(ctx.scope("test"))
+    assert got == d

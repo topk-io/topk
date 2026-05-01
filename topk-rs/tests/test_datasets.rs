@@ -22,10 +22,7 @@ async fn test_list_datasets(ctx: &mut ProjectTestContext) {
         .await
         .expect("could not list datasets");
 
-    assert!(list
-        .datasets
-        .iter()
-        .any(|d| d.name == create.dataset().unwrap().name));
+    assert!(list.iter().any(|d| d.name == create.name));
 }
 
 #[test_context(ProjectTestContext)]
@@ -46,10 +43,7 @@ async fn test_create_dataset(ctx: &mut ProjectTestContext) {
         .await
         .expect("could not list datasets");
 
-    assert!(list
-        .datasets
-        .iter()
-        .any(|d| d.name == create.dataset().unwrap().name));
+    assert!(list.iter().any(|d| d.name == create.name));
 }
 
 #[test_context(ProjectTestContext)]
@@ -110,10 +104,7 @@ async fn test_delete_dataset(ctx: &mut ProjectTestContext) {
         .await
         .expect("could not list datasets");
 
-    assert!(!list
-        .datasets
-        .iter()
-        .any(|d| d.name == create.dataset().unwrap().name));
+    assert!(!list.iter().any(|d| d.name == create.name));
 }
 
 #[test_context(ProjectTestContext)]
@@ -143,5 +134,5 @@ async fn test_get_dataset(ctx: &mut ProjectTestContext) {
         .await
         .expect("could not get dataset");
 
-    assert_eq!(get.dataset().unwrap().name, create.dataset().unwrap().name);
+    assert_eq!(get.name, create.name);
 }

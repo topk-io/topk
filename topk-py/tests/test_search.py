@@ -8,12 +8,12 @@ from . import ProjectContext
 
 @pytest.mark.xfail(reason="ctx")
 def test_search(ctx: ProjectContext):
-    dataset = ctx.client.datasets().create(ctx.scope("test")).dataset
+    dataset = ctx.client.datasets().create(ctx.scope("test"))
     pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
 
-    upsert_resp = ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {})
+    handle = ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {})
 
-    ctx.client.dataset(dataset.name).wait_for_handle(upsert_resp.handle)
+    ctx.client.dataset(dataset.name).wait_for_handle(handle)
 
     result: list[SearchResult] = ctx.client.search(
         "technical", [dataset.name], top_k=10
@@ -24,12 +24,12 @@ def test_search(ctx: ProjectContext):
 
 @pytest.mark.xfail(reason="ctx")
 def test_search_stream(ctx: ProjectContext):
-    dataset = ctx.client.datasets().create(ctx.scope("test")).dataset
+    dataset = ctx.client.datasets().create(ctx.scope("test"))
     pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
 
-    upsert_resp = ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {})
+    handle = ctx.client.dataset(dataset.name).upsert_file("doc1", pdf_path, {})
 
-    ctx.client.dataset(dataset.name).wait_for_handle(upsert_resp.handle)
+    ctx.client.dataset(dataset.name).wait_for_handle(handle)
 
     stream = ctx.client.search_stream(
         "technical",
