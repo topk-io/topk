@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use futures_util::StreamExt;
 use pyo3::{prelude::*, types::PyAny};
+use pyo3_async_runtimes::tokio::future_into_py;
 use tokio::sync::{mpsc, Mutex};
 
 use crate::client::CHANNEL_BUFFER_SIZE;
@@ -22,7 +23,7 @@ impl AsyncSearchIterator {
 
     fn __anext__<'py>(slf: PyRefMut<'_, Self>, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let receiver = slf.receiver.clone();
-        pyo3_async_runtimes::tokio::future_into_py(py, async move {
+        future_into_py(py, async move {
             let mut receiver = receiver.lock().await;
             match receiver.recv().await.transpose() {
                 Ok(Some(msg)) => Ok(msg),
