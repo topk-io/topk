@@ -8,13 +8,16 @@ use tokio_stream::StreamExt;
 use topk_rs::{
     proto::v1::ctx::{
         ask_result::{self, Answer},
-        Fact, SearchResult,
+        Fact,
     },
     Client, Error,
 };
 
 use crate::util::read_query_from_stdin;
-use crate::{commands::search::render_search_result, output::Output};
+use crate::{
+    commands::search::{render_search_result, SearchResult},
+    output::Output,
+};
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 pub enum Mode {
@@ -46,7 +49,11 @@ impl AskResult {
     fn from_answer(a: Answer, show_refs: bool) -> Self {
         Self {
             facts: a.facts,
-            refs: a.refs.into_iter().collect(),
+            refs: a
+                .refs
+                .into_iter()
+                .map(|(k, v)| (k, SearchResult::from(v)))
+                .collect(),
             show_refs,
         }
     }

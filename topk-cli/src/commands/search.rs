@@ -4,16 +4,42 @@ use std::collections::HashMap;
 use std::fmt;
 use std::path::{Path, PathBuf};
 use topk_rs::{
-    proto::v1::ctx::{content, Content, SearchResult},
+    proto::v1::ctx::{content, Content},
     Client, Error,
 };
 
-use crate::util::{mime::MimeType, read_query_from_stdin};
+use crate::util::{mime::MimeType, read_query_from_stdin, value::value_to_json};
 
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(transparent)]
 pub struct SearchResults {
     pub results: Vec<SearchResult>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct SearchResult {
+    pub doc_id: String,
+    pub doc_type: String,
+    pub dataset: String,
+    pub content: Option<Content>,
+    #[serde(default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub metadata: serde_json::Map<String, serde_json::Value>,
+}
+
+impl From<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
+    fn from(result: topk_rs::proto::v1::ctx::SearchResult) -> Self {
+        Self {
+            doc_id: result.doc_id,
+            doc_type: result.doc_type,
+            dataset: result.dataset,
+            content: result.content,
+            metadata: result
+                .metadata
+                .into_iter()
+                .map(|(k, v)| (k, value_to_json(v)))
+                .collect(),
+        }
+    }
 }
 
 impl SearchResults {
@@ -71,8 +97,11 @@ pub async fn run(client: &Client, args: &SearchArgs) -> Result<SearchResults, Er
                 args.fields.clone().unwrap_or_default(),
             )
             .await?
-            .try_collect()
-            .await?,
+            .try_collect::<Vec<_>>()
+            .await?
+            .into_iter()
+            .map(|r| r.into())
+            .collect(),
     })
 }
 
@@ -210,13 +239,16 @@ pub fn format_content_text(content: Option<&Content>) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use crate::commands::test_context::{CliTestContext, OutputJsonExt};
+    use super::SearchResult;
     use assert_cmd::Command;
+    use serde_json::json;
     use test_context::test_context;
     use topk_rs::proto::v1::{
-        ctx::{file::InputFile, SearchResult},
+        ctx::{file::InputFile},
         data::Value,
     };
+
+    use crate::commands::test_context::{CliTestContext, OutputJsonExt};
 
     fn cmd() -> Command {
         Command::cargo_bin("topk").unwrap()
@@ -295,13 +327,39 @@ mod tests {
             .find(|r| r.doc_id == "meta-fields-doc")
             .expect("document not found in search results");
 
+        assert_eq!(doc.metadata.get("title"), Some(&json!("My Test Document")));
+        assert_eq!(doc.metadata.get("author"), Some(&json!("Test Author")));
+    }
+
+    #[test]
+    fn search_result_json_unwraps_metadata_values() {
+        let result = topk_rs::proto::v1::ctx::SearchResult {
+            doc_id: "doc1".to_string(),
+            doc_type: "text/markdown".to_string(),
+            dataset: "sec-10k".to_string(),
+            content: None,
+            metadata: [
+                ("ticker".to_string(), Value::string("AAPL")),
+                ("cik".to_string(), Value::i64(320193)),
+            ]
+            .into_iter()
+            .collect(),
+        };
+
+        let json_result = SearchResult::from(result);
+
         assert_eq!(
-            doc.metadata.get("title").and_then(|v| v.as_string()),
-            Some("My Test Document"),
-        );
-        assert_eq!(
-            doc.metadata.get("author").and_then(|v| v.as_string()),
-            Some("Test Author"),
+            serde_json::to_value(json_result).unwrap(),
+            json!({
+                "doc_id": "doc1",
+                "doc_type": "text/markdown",
+                "dataset": "sec-10k",
+                "content": null,
+                "metadata": {
+                    "ticker": "AAPL",
+                    "cik": 320193
+                }
+            })
         );
     }
 }
