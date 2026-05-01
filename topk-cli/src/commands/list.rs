@@ -11,6 +11,8 @@ use serde::{Deserialize, Serialize};
 use terminal_size::{terminal_size, Width as TermWidth};
 use topk_rs::{Client, Error};
 
+use crate::util::value::value_to_json;
+
 #[derive(Serialize, Deserialize)]
 pub struct ListEntry {
     pub id: String,
@@ -35,7 +37,7 @@ impl From<topk_rs::proto::v1::ctx::ListEntry> for ListEntry {
             metadata: entry
                 .metadata
                 .into_iter()
-                .map(|(k, v)| (k, serde_json::to_value(v).unwrap_or_default()))
+                .map(|(k, v)| (k, value_to_json(v)))
                 .collect(),
         }
     }
@@ -207,11 +209,13 @@ pub async fn run(
 
 #[cfg(test)]
 mod tests {
-    use super::ListEntry;
+    use super::{value_to_json, ListEntry};
     use crate::commands::test_context::CliTestContext;
     use assert_cmd::Command;
     use bytesize::ByteSize;
+    use serde_json::json;
     use test_context::test_context;
+    use topk_rs::proto::v1::data::Value;
 
     fn cmd() -> Command {
         Command::cargo_bin("topk").unwrap()
@@ -282,5 +286,26 @@ mod tests {
             .map(|line| serde_json::from_str(line).unwrap())
             .collect();
         assert!(entries.is_empty());
+    }
+
+    #[test]
+    fn metadata_values_are_unwrapped_for_json_output() {
+        let value = Value::r#struct([
+            ("ticker", Value::string("AAPL")),
+            ("cik", Value::i64(320193)),
+            (
+                "aliases",
+                Value::list(vec!["Apple".to_string(), "AAPL".to_string()]),
+            ),
+        ]);
+
+        assert_eq!(
+            value_to_json(value),
+            json!({
+                "ticker": "AAPL",
+                "cik": 320193,
+                "aliases": ["Apple", "AAPL"]
+            })
+        );
     }
 }

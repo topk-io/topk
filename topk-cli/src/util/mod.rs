@@ -5,6 +5,7 @@ use chrono::{DateTime, Local, Utc};
 pub mod files;
 pub mod mime;
 pub mod progress;
+pub mod value;
 
 pub use mime::MimeType;
 use topk_rs::Error;

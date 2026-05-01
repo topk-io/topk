@@ -37,7 +37,8 @@ impl DatasetsClient for RealDatasetsClient {
     }
 
     async fn create(&mut self, name: &str, region: &str) -> Result<Dataset, Error> {
-        Ok(self.client
+        Ok(self
+            .client
             .datasets()
             .create(name, Some(region.to_string()))
             .await?)
