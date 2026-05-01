@@ -113,37 +113,6 @@ ask(
 )
 ```
 
-Ask a question and wait for the stream to complete, returning the last message.
-
-**Parameters**
-
-| Parameter | Type |
-| --------- | ---- |
-| `query` | str |
-| `datasets` | Sequence[[`Source`](#source)] &#124; Sequence[str] &#124; Sequence[dict[str, Any]] |
-| `filter` | Optional[[`query.LogicalExpr`](/sdk/topk-py/query#logicalexpr)] |
-| `mode` | Optional[Literal['auto', 'summarize', 'research']] |
-| `select_fields` | Optional[Sequence[str]] |
-
-**Returns**
-
-[`Answer`](#answer) | [`Progress`](#progress)
-
-***
-
-#### ask\_stream()
-
-```python
-ask_stream(
-   self,
-   query: str,
-   datasets: Sequence[Source] | Sequence[str] | Sequence[dict[str, Any]],
-   filter: Optional[query.LogicalExpr] = None,
-   mode: Optional[Literal['auto', 'summarize', 'research']] = None,
-   select_fields: Optional[Sequence[str]] = None
-)
-```
-
 Ask a question and get streaming responses as an iterator.
 
 **Parameters**
@@ -158,7 +127,7 @@ Ask a question and get streaming responses as an iterator.
 
 **Returns**
 
-Iterator[[`Answer`](#answer) | [`Progress`](#progress)]
+[`AskIterator`](#askiterator)
 
 ***
 
@@ -166,37 +135,6 @@ Iterator[[`Answer`](#answer) | [`Progress`](#progress)]
 
 ```python
 search(
-   self,
-   query: str,
-   datasets: Sequence[Source] | Sequence[str] | Sequence[dict[str, Any]],
-   top_k: int,
-   filter: Optional[query.LogicalExpr] = None,
-   select_fields: Optional[Sequence[str]] = None
-)
-```
-
-Search for documents and wait for the stream to complete, returning all results.
-
-**Parameters**
-
-| Parameter | Type |
-| --------- | ---- |
-| `query` | str |
-| `datasets` | Sequence[[`Source`](#source)] &#124; Sequence[str] &#124; Sequence[dict[str, Any]] |
-| `top_k` | int |
-| `filter` | Optional[[`query.LogicalExpr`](/sdk/topk-py/query#logicalexpr)] |
-| `select_fields` | Optional[Sequence[str]] |
-
-**Returns**
-
-list[[`SearchResult`](#searchresult)]
-
-***
-
-#### search\_stream()
-
-```python
-search_stream(
    self,
    query: str,
    datasets: Sequence[Source] | Sequence[str] | Sequence[dict[str, Any]],
@@ -333,37 +271,6 @@ ask(
 )
 ```
 
-Ask a question and wait for the stream to complete asynchronously, returning the last message.
-
-**Parameters**
-
-| Parameter | Type |
-| --------- | ---- |
-| `query` | str |
-| `datasets` | Sequence[[`Source`](#source)] &#124; Sequence[str] &#124; Sequence[dict[str, Any]] |
-| `filter` | Optional[[`query.LogicalExpr`](/sdk/topk-py/query#logicalexpr)] |
-| `mode` | Optional[Literal['auto', 'summarize', 'research']] |
-| `select_fields` | Optional[Sequence[str]] |
-
-**Returns**
-
-Awaitable[[`Answer`](#answer) | [`Progress`](#progress)]
-
-***
-
-#### ask\_stream()
-
-```python
-ask_stream(
-   self,
-   query: str,
-   datasets: Sequence[Source] | Sequence[str] | Sequence[dict[str, Any]],
-   filter: Optional[query.LogicalExpr] = None,
-   mode: Optional[Literal['auto', 'summarize', 'research']] = None,
-   select_fields: Optional[Sequence[str]] = None
-)
-```
-
 Ask a question and get streaming responses asynchronously as an async iterator.
 
 **Parameters**
@@ -378,7 +285,7 @@ Ask a question and get streaming responses asynchronously as an async iterator.
 
 **Returns**
 
-AsyncIterator[[`Answer`](#answer) | [`Progress`](#progress)]
+[`AsyncAskIterator`](#asyncaskiterator)
 
 ***
 
@@ -386,37 +293,6 @@ AsyncIterator[[`Answer`](#answer) | [`Progress`](#progress)]
 
 ```python
 search(
-   self,
-   query: str,
-   datasets: Sequence[Source] | Sequence[str] | Sequence[dict[str, Any]],
-   top_k: int,
-   filter: Optional[query.LogicalExpr] = None,
-   select_fields: Optional[Sequence[str]] = None
-)
-```
-
-Search for documents and wait for the stream to complete asynchronously, returning all results.
-
-**Parameters**
-
-| Parameter | Type |
-| --------- | ---- |
-| `query` | str |
-| `datasets` | Sequence[[`Source`](#source)] &#124; Sequence[str] &#124; Sequence[dict[str, Any]] |
-| `top_k` | int |
-| `filter` | Optional[[`query.LogicalExpr`](/sdk/topk-py/query#logicalexpr)] |
-| `select_fields` | Optional[Sequence[str]] |
-
-**Returns**
-
-Awaitable[list[[`SearchResult`](#searchresult)]]
-
-***
-
-#### search\_stream()
-
-```python
-search_stream(
    self,
    query: str,
    datasets: Sequence[Source] | Sequence[str] | Sequence[dict[str, Any]],
@@ -440,7 +316,7 @@ Search for documents and get streaming responses asynchronously as an async iter
 
 **Returns**
 
-AsyncIterator[[`SearchResult`](#searchresult)]
+[`AsyncSearchIterator`](#asyncsearchiterator)
 
 ***
 

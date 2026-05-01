@@ -86,9 +86,8 @@ Once a dataset is created and your documents are processed, you can start runnin
   </Tab>
   <Tab title="Python SDK" icon="/icons/python.svg">
     ```python
-    answer = client.ask("What was the total net income of Bank of America in 2024?", ["my-docs"])
-
-    print(answer)
+    for message in client.ask("What was the total net income of Bank of America in 2024?", ["my-docs"]):
+        print(message)
     ```
   </Tab>
   <Tab title="JavaScript SDK" icon="/icons/js.svg">
@@ -138,10 +137,11 @@ This is useful when you want:
           region="aws-us-east-1-elastica",
       )
 
-      answer = client.ask(
+      for message in client.ask(
           "What was the total net income of Bank of America in 2024?",
           ["finance", "compliance"],  # list of dataset names to query against
-      )
+      ):
+          print(message)
       ```
       ```python Async
       import os
@@ -152,10 +152,11 @@ This is useful when you want:
           region="aws-us-east-1-elastica",
       )
 
-      answer = await client.ask(
+      async for message in client.ask(
           "What was the total net income of Bank of America in 2024?",
           ["finance", "compliance"],  # list of dataset names to query against
-      )
+      ):
+          print(message)
       ```
     </CodeGroup>
   </Tab>
@@ -206,7 +207,7 @@ This is useful when you want to query:
           region="aws-us-east-1-elastica",
       )
 
-      answer = client.ask(
+      for message in client.ask(
           "What is the travel reimbursement limit?",
           [
               {
@@ -216,7 +217,8 @@ This is useful when you want to query:
                   ),
               }
           ],
-      )
+      ):
+          print(message)
       ```
       ```python Async
       import os
@@ -228,7 +230,7 @@ This is useful when you want to query:
           region="aws-us-east-1-elastica",
       )
 
-      answer = await client.ask(
+      async for message in client.ask(
           "What is the travel reimbursement limit?",
           [
               {
@@ -238,7 +240,8 @@ This is useful when you want to query:
                   ),
               }
           ],
-      )
+      ):
+          print(message)
       ```
     </CodeGroup>
   </Tab>
@@ -285,11 +288,12 @@ That is especially useful when you want to:
     Use `select_fields` parameter to include metadata field(s):
 
     ```python
-    answer = client.ask(
+    for message in client.ask(
         "What was the total net income of Bank of America in 2024?",
         ["policies"],
         select_fields=["title", "author", "year"],
-    )
+    ):
+        print(message)
     ```
   </Tab>
   <Tab title="JavaScript SDK" icon="/icons/js.svg">

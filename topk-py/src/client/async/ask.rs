@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
-use futures_util::{StreamExt, TryStreamExt};
+use futures_util::StreamExt;
 use pyo3::{prelude::*, types::PyAny};
-use pyo3_async_runtimes::tokio::future_into_py;
 use tokio::sync::{mpsc, Mutex};
 
 use crate::client::CHANNEL_BUFFER_SIZE;
@@ -23,7 +22,7 @@ impl AsyncAskIterator {
 
     fn __anext__<'py>(slf: PyRefMut<'_, Self>, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let receiver = slf.receiver.clone();
-        future_into_py(py, async move {
+        pyo3_async_runtimes::tokio::future_into_py(py, async move {
             let mut receiver = receiver.lock().await;
             match receiver.recv().await.transpose() {
                 Ok(Some(msg)) => Ok(msg),
@@ -38,7 +37,7 @@ impl AsyncAskIterator {
     }
 }
 
-pub fn ask_stream(
+pub fn ask(
     client: Arc<topk_rs::Client>,
     query: String,
     datasets: Vec<Source>,
@@ -98,42 +97,4 @@ pub fn ask_stream(
     Ok(AsyncAskIterator {
         receiver: Arc::new(tokio::sync::Mutex::new(rx)),
     })
-}
-
-pub fn ask(
-    client: Arc<topk_rs::Client>,
-    py: Python<'_>,
-    query: String,
-    datasets: Vec<Source>,
-    filter: Option<LogicalExpr>,
-    mode: Option<Mode>,
-    select_fields: Option<Vec<String>>,
-) -> PyResult<Py<PyAny>> {
-    let filter = filter.map(|f| f.into());
-    let mode = mode.map(|m| m.into());
-
-    future_into_py(py, async move {
-        let stream = client
-            .ask(query, datasets, filter, mode, select_fields)
-            .await
-            .map_err(RustError)?;
-
-        let result = stream
-            .map_err(|e| PyErr::from(RustError(e.into())))
-            .try_fold(None, |_, result| async move { Ok(Some(result)) })
-            .await?
-            .ok_or_else(|| {
-                PyErr::new::<pyo3::exceptions::PyValueError, _>("Failed to get answer")
-            })?;
-
-        Ok(match result.message {
-            Some(inner) => AskResult::try_from(inner).map_err(Into::<PyErr>::into)?,
-            None => {
-                return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                    "Invalid proto: AskResult has no message",
-                ))
-            }
-        })
-    })
-    .map(|result| result.into())
 }

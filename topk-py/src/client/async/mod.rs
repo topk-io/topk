@@ -4,8 +4,8 @@ use pyo3::{prelude::*, PyResult};
 
 use crate::{
     client::{
-        r#async::ask::{ask, ask_stream},
-        r#async::search::{search, search_stream},
+        r#async::ask::ask,
+        r#async::search::search,
         topk_client, NativeRetryConfig,
     },
     data::ask::{Mode, Source},
@@ -70,35 +70,13 @@ impl AsyncClient {
     #[pyo3(signature = (query, datasets, filter=None, mode=None, select_fields=None))]
     pub fn ask(
         &self,
-        py: Python<'_>,
-        query: String,
-        datasets: Vec<Source>,
-        filter: Option<LogicalExpr>,
-        mode: Option<Mode>,
-        select_fields: Option<Vec<String>>,
-    ) -> PyResult<Py<PyAny>> {
-        ask(
-            self.client.clone(),
-            py,
-            query,
-            datasets,
-            filter,
-            mode,
-            select_fields,
-        )
-    }
-
-    #[pyo3(signature = (query, datasets, filter=None, mode=None, select_fields=None))]
-    pub fn ask_stream(
-        &self,
-        _py: Python<'_>,
         query: String,
         datasets: Vec<Source>,
         filter: Option<LogicalExpr>,
         mode: Option<Mode>,
         select_fields: Option<Vec<String>>,
     ) -> PyResult<AsyncAskIterator> {
-        ask_stream(
+        ask(
             self.client.clone(),
             query,
             datasets,
@@ -111,35 +89,13 @@ impl AsyncClient {
     #[pyo3(signature = (query, datasets, top_k, filter=None, select_fields=None))]
     pub fn search(
         &self,
-        py: Python<'_>,
-        query: String,
-        datasets: Vec<Source>,
-        top_k: u32,
-        filter: Option<LogicalExpr>,
-        select_fields: Option<Vec<String>>,
-    ) -> PyResult<Py<PyAny>> {
-        search(
-            self.client.clone(),
-            py,
-            query,
-            datasets,
-            filter,
-            top_k,
-            select_fields,
-        )
-    }
-
-    #[pyo3(signature = (query, datasets, top_k, filter=None, select_fields=None))]
-    pub fn search_stream(
-        &self,
-        _py: Python<'_>,
         query: String,
         datasets: Vec<Source>,
         top_k: u32,
         filter: Option<LogicalExpr>,
         select_fields: Option<Vec<String>>,
     ) -> PyResult<AsyncSearchIterator> {
-        search_stream(
+        search(
             self.client.clone(),
             query,
             datasets,

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use futures_util::{StreamExt, TryStreamExt};
+use futures_util::StreamExt;
 use pyo3::prelude::*;
 use tokio::sync::mpsc;
 
@@ -31,7 +31,7 @@ impl AskIterator {
     }
 }
 
-pub fn ask_stream(
+pub fn ask(
     runtime: Arc<Runtime>,
     client: Arc<topk_rs::Client>,
     query: String,
@@ -93,41 +93,5 @@ pub fn ask_stream(
     Ok(AskIterator {
         runtime,
         receiver: rx,
-    })
-}
-
-pub fn ask(
-    runtime: Arc<Runtime>,
-    client: Arc<topk_rs::Client>,
-    py: Python<'_>,
-    query: String,
-    datasets: Vec<Source>,
-    filter: Option<LogicalExpr>,
-    mode: Option<Mode>,
-    select_fields: Option<Vec<String>>,
-) -> PyResult<AskResult> {
-    let filter = filter.map(|f| f.into());
-    let mode = mode.map(|m| m.into());
-
-    runtime.block_on(py, async move {
-        let stream = client
-            .ask(query, datasets, filter, mode, select_fields)
-            .await
-            .map_err(RustError)?;
-
-        let result = stream
-            .map_err(|e| PyErr::from(RustError(e.into())))
-            .try_fold(None, |_, result| async move { Ok(Some(result)) })
-            .await?
-            .ok_or_else(|| {
-                PyErr::new::<pyo3::exceptions::PyValueError, _>("Failed to get answer")
-            })?;
-
-        match result.message {
-            Some(inner) => AskResult::try_from(inner).map_err(Into::<PyErr>::into),
-            None => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                "Invalid proto: AskResult has no message",
-            )),
-        }
     })
 }

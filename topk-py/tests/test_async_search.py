@@ -6,7 +6,6 @@ from . import AsyncProjectContext
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(reason="ctx")
 async def test_async_search(async_ctx: AsyncProjectContext):
     dataset = await async_ctx.client.datasets().create(async_ctx.scope("test"))
     pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
@@ -17,26 +16,7 @@ async def test_async_search(async_ctx: AsyncProjectContext):
 
     await async_ctx.client.dataset(dataset.name).wait_for_handle(handle)
 
-    result: list[SearchResult] = await async_ctx.client.search(
-        "technical", [dataset.name], top_k=10
-    )
-
-    assert len(result) > 0, "Expected at least one search result"
-
-
-@pytest.mark.asyncio
-@pytest.mark.xfail(reason="ctx")
-async def test_async_search_stream(async_ctx: AsyncProjectContext):
-    dataset = await async_ctx.client.datasets().create(async_ctx.scope("test"))
-    pdf_path = Path(__file__).parent.parent.parent / "tests" / "pdfko.pdf"
-
-    handle = await async_ctx.client.dataset(dataset.name).upsert_file(
-        "doc1", pdf_path, {}
-    )
-
-    await async_ctx.client.dataset(dataset.name).wait_for_handle(handle)
-
-    stream = async_ctx.client.search_stream(
+    stream = async_ctx.client.search(
         "technical",
         [dataset.name],
         top_k=10,

@@ -43,14 +43,14 @@ handle = client.dataset("my-docs").upsert_file(
 )
 
 # Wait for the file to process (optional)
-client.dataset("my-docs").wait_for_handle(handle.handle)
+client.dataset("my-docs").wait_for_handle(handle)
 
 # Ask a question
-answer = client.ask(
+for message in client.ask(
     "What was the total net income of Bank of America in 2024?",
     datasets=["my-docs"],
-)
-print(answer.facts)
+):
+    print(message)
 ```
 
 ## Async usage
@@ -75,13 +75,13 @@ async def main() -> None:
         input="/path/to/document.pdf",
         metadata={"source": "internal"},
     )
-    await client.dataset("my-docs").wait_for_handle(handle.handle)
+    await client.dataset("my-docs").wait_for_handle(handle)
 
-    answer = await client.ask(
+    async for message in client.ask(
         "What was the total net income of Bank of America in 2024?",
         datasets=["my-docs"],
-    )
-    print(answer.facts)
+    ):
+        print(message)
 
 asyncio.run(main())
 ```
