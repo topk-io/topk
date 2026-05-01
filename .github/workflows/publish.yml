@@ -5,7 +5,8 @@ on:
     # TODO(jergus): we need to check that the GH tag matches
     # the version(s) in the Cargo.toml to avoid running unhealthy builds
     tags:
-      - "*"
+      # Whitelist version tags only (excludes "cli-v*" tags created by publish_cli.yml)
+      - "[0-9]*"
   workflow_dispatch:
     inputs:
       publish:
