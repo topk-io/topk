@@ -1,7 +1,6 @@
 use napi::bindgen_prelude::{FromNapiValue, ToNapiValue};
 
 // NapiBox
-
 #[derive(Debug, Clone)]
 pub struct NapiBox<T>(pub std::boxed::Box<T>);
 

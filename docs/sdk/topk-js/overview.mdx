@@ -5,7 +5,7 @@ description: "TypeScript/JavaScript library for the TopK API"
 
 [![npm version](https://img.shields.io/npm/v/topk-js.svg)](https://www.npmjs.com/package/topk-js)
 
-The TopK JavaScript library provides convenient access to the TopK API from Node.js environments with full Typescript support.
+The TopK JavaScript library provides convenient access to the TopK API from Node.js environments with full TypeScript support.
 ## Installation
 
 ```sh
@@ -25,48 +25,51 @@ pnpm install topk-js
 
 ```typescript
 import { Client } from "topk-js";
-import { text, semanticIndex } from "topk-js/schema";
-import { select, field, fn } from "topk-js/query";
 
 const client = new Client({
   apiKey: process.env.TOPK_API_KEY,
   region: "aws-us-east-1-elastica",
 });
 
-// Create a collection
-await client.collections().create("books", {
-  title: text().index(semanticIndex()),
-});
+// Create a dataset
+await client.datasets().create("my-docs");
 
-// Upsert documents
-await client.collection("books").upsert([
-  { _id: "gatsby", title: "The Great Gatsby" },
-  { _id: "1984", title: "1984" },
-]);
-
-// Query
-const results = await client.collection("books").query(
-  select({
-    title: field("title"),
-    score: fn.semanticSimilarity("title", "classic American novel"),
-  }).topk(field("score"), 10)
+// Upload a file
+const { handle } = await client.dataset("my-docs").upsertFile(
+  "doc-1",
+  { path: "/path/to/document.pdf" },
+  { source: "internal" },
 );
+
+// Wait for the file to process (optional)
+await client.dataset("my-docs").waitForHandle(handle);
+
+// Ask a question
+for await (const message of client.ask(
+  "What was the total net income of Bank of America in 2024?",
+  ["my-docs"],
+)) {
+  console.log(message);
+}
 ```
 
 ## Handling errors
 
 ```typescript
-import { Client } from "topk-js";
-
-const client = new Client({
-  apiKey: process.env.TOPK_API_KEY,
-  region: "aws-us-east-1-elastica",
-});
+import { DatasetNotFoundError, PermissionDeniedError, QuotaExceededError, SlowDownError } from "topk-js";
 
 try {
-  await client.collection("books").query(...);
-} catch (err: any) {
-  console.error(err.message);
+  for await (const message of client.ask(
+    "What was the total net income of Bank of America in 2024?",
+    ["my-docs"],
+  )) {
+    console.log(message);
+  }
+} catch (err) {
+  if (err instanceof DatasetNotFoundError) console.error("Dataset does not exist");
+  else if (err instanceof PermissionDeniedError) console.error("Check your API key");
+  else if (err instanceof QuotaExceededError) console.error("Usage quota exceeded");
+  else if (err instanceof SlowDownError) console.error("Rate limited — the client will retry automatically");
 }
 ```
 
@@ -75,6 +78,8 @@ try {
 | `CollectionNotFoundError` | Collection does not exist |
 | `CollectionAlreadyExistsError` | Collection with this name already exists |
 | `CollectionValidationError` | Invalid collection name or schema |
+| `DatasetNotFoundError` | Dataset does not exist |
+| `DatasetAlreadyExistsError` | Dataset with this name already exists |
 | `DocumentValidationError` | Invalid document |
 | `SchemaValidationError` | Invalid schema |
 | `PermissionDeniedError` | Invalid or missing API key |

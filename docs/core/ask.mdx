@@ -92,9 +92,9 @@ Once a dataset is created and your documents are processed, you can start runnin
   </Tab>
   <Tab title="JavaScript SDK" icon="/icons/js.svg">
     ```typescript
-    const answer = await client.ask("What was the total net income of Bank of America in 2024?", ["my-docs"]);
-
-    console.log(answer);
+    for await (const message of client.ask("What was the total net income of Bank of America in 2024?", ["my-docs"])) {
+      console.log(message);
+    }
     ```
   </Tab>
 </Tabs>
@@ -171,10 +171,12 @@ This is useful when you want:
       region: "aws-us-east-1-elastica",
     });
 
-    const answer = await client.ask(
+    for await (const message of client.ask(
       "What was the total net income of Bank of America in 2024?",
-      ["finance", "compliance"], # list of dataset names to query against
-    );
+      ["finance", "compliance"],
+    )) {
+      console.log(message);
+    }
     ```
   </Tab>
 </Tabs>
@@ -249,7 +251,7 @@ This is useful when you want to query:
     ```typescript
     import { field } from "topk-js/query";
 
-    const answer = await client.ask(
+    for await (const message of client.ask(
       "What is the travel reimbursement limit?",
       [
         {
@@ -257,7 +259,9 @@ This is useful when you want to query:
           filter: field("department").eq("finance").and(field("year").eq(2024)),
         },
       ],
-    );
+    )) {
+      console.log(message);
+    }
     ```
   </Tab>
 </Tabs>
@@ -300,11 +304,15 @@ That is especially useful when you want to:
     Use `selectFields` parameter to include metadata field(s):
 
     ```typescript
-    const answer = await client.ask(
+    for await (const message of client.ask(
       "What was the total net income of Bank of America in 2024?",
       ["policies"],
-      { selectFields: ["title", "author", "year"] },
-    );
+      undefined,
+      undefined,
+      ["title", "author", "year"],
+    )) {
+      console.log(message);
+    }
     ```
   </Tab>
 </Tabs>
