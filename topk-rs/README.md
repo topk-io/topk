@@ -41,18 +41,21 @@ async fn main() -> Result<(), Error> {
 
     client.datasets().create("my-docs").await?;
 
-    let upsert = client
+    let handle = client
         .dataset("my-docs")
         .upsert_file(
             "doc-1",
             "/path/to/document.pdf",
-            [("source", Value::string("internal"))],
+            [
+                ("kind", Value::string("report")),
+                ("department", Value::string("finance")),
+            ],
         )
         .await?;
 
     client
         .dataset("my-docs")
-        .wait_for_handle(&upsert.handle, None)
+        .wait_for_handle(&handle, None)
         .await?;
 
     let mut stream = client

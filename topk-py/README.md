@@ -37,29 +37,29 @@ client = Client(
 )
 
 # Create a dataset
-client.datasets().create("my-docs")
+client.datasets().create("my-dataset")
 
 # Upload a file
-handle = client.dataset("my-docs").upsert_file(
+handle = client.dataset("my-dataset").upsert_file(
     "doc-1",
     input="/path/to/document.pdf",
-    metadata={"source": "internal"},
+    metadata={"kind": "report", "department": "finance"},  # optional metadata
 )
 
 # Wait for the file to process (optional)
-client.dataset("my-docs").wait_for_handle(handle.handle)
+client.dataset("my-dataset").wait_for_handle(handle)
 
 # Ask a question
-answer = client.ask(
+for message in client.ask(
     "What was the total net income of Bank of America in 2024?",
-    datasets=["my-docs"],
-)
-print(answer.facts)
+    datasets=["my-dataset"],
+):
+    print(message)
 ```
 
 ## Async usage
 
-Simply import `AsyncClient` instead of `Client` and use `await` with each API call:
+Simply import `AsyncClient` instead of `Client` and use `async for` / `await` with each API call:
 
 ```python
 import os
@@ -72,20 +72,20 @@ client = AsyncClient(
 )
 
 async def main() -> None:
-    await client.datasets().create("my-docs")
+    await client.datasets().create("my-dataset")
 
-    handle = await client.dataset("my-docs").upsert_file(
+    handle = await client.dataset("my-dataset").upsert_file(
         "doc-1",
         input="/path/to/document.pdf",
-        metadata={"source": "internal"},
+        metadata={"kind": "report", "department": "finance"},
     )
-    await client.dataset("my-docs").wait_for_handle(handle.handle)
+    await client.dataset("my-dataset").wait_for_handle(handle)
 
-    answer = await client.ask(
+    async for message in client.ask(
         "What was the total net income of Bank of America in 2024?",
-        datasets=["my-docs"],
-    )
-    print(answer.facts)
+        datasets=["my-dataset"],
+    ):
+        print(message)
 
 asyncio.run(main())
 ```
@@ -103,7 +103,11 @@ from topk_sdk.error import (
 )
 
 try:
-    client.ask("What was the total net income of Bank of America in 2024?", datasets=["my-docs"])
+    for message in client.ask(
+        "What was the total net income of Bank of America in 2024?",
+        datasets=["my-dataset"],
+    ):
+        print(message)
 except DatasetNotFoundError:
     print("Dataset does not exist")
 except PermissionDeniedError:
