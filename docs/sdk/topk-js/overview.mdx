@@ -32,22 +32,22 @@ const client = new Client({
 });
 
 // Create a dataset
-await client.datasets().create("my-docs");
+await client.datasets().create("my-dataset");
 
 // Upload a file
-const { handle } = await client.dataset("my-docs").upsertFile(
+const handle = await client.dataset("my-dataset").upsertFile(
   "doc-1",
   { path: "/path/to/document.pdf" },
-  { source: "internal" },
+  { kind: "report", department: "finance" }, // optional metadata
 );
 
 // Wait for the file to process (optional)
-await client.dataset("my-docs").waitForHandle(handle);
+await client.dataset("my-dataset").waitForHandle(handle);
 
 // Ask a question
 for await (const message of client.ask(
   "What was the total net income of Bank of America in 2024?",
-  ["my-docs"],
+  ["my-dataset"],
 )) {
   console.log(message);
 }
@@ -55,42 +55,37 @@ for await (const message of client.ask(
 
 ## Handling errors
 
-```typescript
-import { DatasetNotFoundError, PermissionDeniedError, QuotaExceededError, SlowDownError } from "topk-js";
+The SDK throws plain `Error` objects. Check `err.message` to identify the error:
 
+```typescript
 try {
   for await (const message of client.ask(
     "What was the total net income of Bank of America in 2024?",
-    ["my-docs"],
+    ["my-dataset"],
   )) {
     console.log(message);
   }
 } catch (err) {
-  if (err instanceof DatasetNotFoundError) console.error("Dataset does not exist");
-  else if (err instanceof PermissionDeniedError) console.error("Check your API key");
-  else if (err instanceof QuotaExceededError) console.error("Usage quota exceeded");
-  else if (err instanceof SlowDownError) console.error("Rate limited — the client will retry automatically");
+  if (err instanceof Error) {
+    if (err.message === "dataset not found") console.error("Dataset does not exist");
+    else if (err.message === "permission denied") console.error("Check your API key");
+    else console.error("Unexpected error:", err.message);
+  }
 }
 ```
 
-| Error | Description |
+| `err.message` | Description |
 | --- | --- |
-| `CollectionNotFoundError` | Collection does not exist |
-| `CollectionAlreadyExistsError` | Collection with this name already exists |
-| `CollectionValidationError` | Invalid collection name or schema |
-| `DatasetNotFoundError` | Dataset does not exist |
-| `DatasetAlreadyExistsError` | Dataset with this name already exists |
-| `DocumentValidationError` | Invalid document |
-| `SchemaValidationError` | Invalid schema |
-| `PermissionDeniedError` | Invalid or missing API key |
-| `QuotaExceededError` | Usage quota exceeded |
-| `RequestTooLargeError` | Request payload too large |
-| `SlowDownError` | Rate limited by the server (retried automatically) |
-| `QueryLsnTimeoutError` | Timed out waiting for write consistency |
+| `"collection not found"` | Collection does not exist |
+| `"collection already exists"` | Collection with this name already exists |
+| `"dataset not found"` | Dataset does not exist |
+| `"dataset already exists"` | Dataset with this name already exists |
+| `"permission denied"` | Invalid or missing API key |
+| starts with `"request too large:"` | Request payload too large |
 
 ### Retries
 
-The client automatically retries on `SlowDownError` and on LSN consistency
+The client automatically retries on slow-down and LSN consistency
 timeouts. Retry behaviour can be configured via `retryConfig`:
 
 ```typescript
