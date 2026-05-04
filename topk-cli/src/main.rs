@@ -287,8 +287,7 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
                         .results
                         .iter()
                         .enumerate()
-                        .map(|(i, result)| ((i + 1).to_string(), result))
-                        .map(|(ref_id, result)| (ref_id, result)),
+                        .map(|(i, result)| ((i + 1).to_string(), result)),
                 )?,
                 None => std::collections::HashMap::default(),
             };
