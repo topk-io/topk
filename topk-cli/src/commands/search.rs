@@ -153,6 +153,26 @@ pub fn write_search_result(
     Ok(path.canonicalize().unwrap_or(path))
 }
 
+pub fn save_search_results<'a, I, S>(
+    output_dir: &Path,
+    results: I,
+) -> Result<HashMap<String, PathBuf>, Error>
+where
+    I: IntoIterator<Item = (S, &'a SearchResult)>,
+    S: Into<String>,
+{
+    results
+        .into_iter()
+        .map(|(ref_id, result)| {
+            let ref_id = ref_id.into();
+            Ok::<_, Error>((
+                ref_id.clone(),
+                write_search_result(output_dir, &ref_id, result)?,
+            ))
+        })
+        .collect()
+}
+
 pub fn render_search_result(ref_id: &str, result: &SearchResult, path: Option<&Path>) -> String {
     let text = match result.content.as_ref().and_then(|c| c.data.as_ref()) {
         Some(content::Data::Chunk(chunk)) => Some(chunk.text.to_string()),
@@ -242,11 +262,9 @@ mod tests {
     use super::SearchResult;
     use assert_cmd::Command;
     use serde_json::json;
+    use tempfile::tempdir;
     use test_context::test_context;
-    use topk_rs::proto::v1::{
-        ctx::{file::InputFile},
-        data::Value,
-    };
+    use topk_rs::proto::v1::{ctx::file::InputFile, data::Value};
 
     use crate::commands::test_context::{CliTestContext, OutputJsonExt};
 
@@ -270,6 +288,72 @@ mod tests {
             String::from_utf8_lossy(&out.stderr)
         );
         let _: Vec<SearchResult> = out.json().unwrap();
+    }
+
+    #[test_context(CliTestContext)]
+    #[tokio::test]
+    async fn search_json_output_saves_results_to_output_dir(ctx: &mut CliTestContext) {
+        let dataset = ctx.wrap("json-output-dir");
+        ctx.create_dataset(&dataset);
+
+        let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/markdown.md");
+        let out = cmd()
+            .args([
+                "-o",
+                "json",
+                "upload",
+                file,
+                "--dataset",
+                &dataset,
+                "-y",
+                "--wait",
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+
+        let dir = tempdir().unwrap();
+        let out = cmd()
+            .args([
+                "-o",
+                "json",
+                "search",
+                "Item one",
+                "--dataset",
+                &dataset,
+                "--output-dir",
+                dir.path().to_str().unwrap(),
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+
+        let result: Vec<SearchResult> = out.json().unwrap();
+        assert!(!result.is_empty(), "expected search results");
+
+        let saved_files = std::fs::read_dir(dir.path())
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .collect::<Vec<_>>();
+
+        assert_eq!(saved_files.len(), result.len());
+        for (index, _) in result.iter().enumerate() {
+            let ref_id = (index + 1).to_string();
+            assert!(
+                saved_files
+                    .iter()
+                    .any(|path| path.file_stem() == Some(ref_id.as_ref())),
+                "missing saved file for ref {ref_id}"
+            );
+        }
     }
 
     #[test_context(CliTestContext)]
