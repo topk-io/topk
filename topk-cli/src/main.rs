@@ -275,8 +275,15 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
             let client = make_client(&api_key, &region, &cli.host, cli.https);
 
             let result = search::run(&client, &args).await?;
+
+            let refs = result.results
+                .iter()
+                .enumerate()
+                .map(|(i, r)| ((i + 1).to_string(), r.clone()))
+                .collect();
+
             let paths = match args.output_dir.as_deref() {
-                Some(dir) => search::save_search_results(dir, &result.refs())?,
+                Some(dir) => search::save_search_results(dir, &refs)?,
                 None => HashMap::default(),
             };
 

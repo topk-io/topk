@@ -43,14 +43,6 @@ impl From<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
 }
 
 impl SearchResults {
-    pub fn refs(&self) -> HashMap<String, SearchResult> {
-        self.results
-            .iter()
-            .enumerate()
-            .map(|(i, r)| ((i + 1).to_string(), r.clone()))
-            .collect()
-    }
-
     pub fn render(&self, paths: &HashMap<String, PathBuf>) -> String {
         self.results
             .iter()
