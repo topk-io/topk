@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::process::ExitCode;
 
 use anyhow::Result;
@@ -238,14 +239,8 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
 
             let result = ask::run(&client, &args, output).await?;
             let paths = match args.output_dir.as_deref() {
-                Some(dir) => search::save_search_results(
-                    dir,
-                    result
-                        .refs
-                        .iter()
-                        .map(|(ref_id, result)| (ref_id.as_str(), result)),
-                )?,
-                None => std::collections::HashMap::default(),
+                Some(dir) => search::save_search_results(dir, &result.refs)?,
+                None => HashMap::default(),
             };
 
             match output.format {
@@ -281,15 +276,8 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
 
             let result = search::run(&client, &args).await?;
             let paths = match args.output_dir.as_deref() {
-                Some(dir) => search::save_search_results(
-                    dir,
-                    result
-                        .results
-                        .iter()
-                        .enumerate()
-                        .map(|(i, result)| ((i + 1).to_string(), result)),
-                )?,
-                None => std::collections::HashMap::default(),
+                Some(dir) => search::save_search_results(dir, &result.refs())?,
+                None => HashMap::default(),
             };
 
             match output.format {

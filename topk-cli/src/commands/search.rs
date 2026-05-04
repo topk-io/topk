@@ -16,7 +16,7 @@ pub struct SearchResults {
     pub results: Vec<SearchResult>,
 }
 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub struct SearchResult {
     pub doc_id: String,
     pub doc_type: String,
@@ -43,6 +43,14 @@ impl From<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
 }
 
 impl SearchResults {
+    pub fn refs(&self) -> HashMap<String, SearchResult> {
+        self.results
+            .iter()
+            .enumerate()
+            .map(|(i, r)| ((i + 1).to_string(), r.clone()))
+            .collect()
+    }
+
     pub fn render(&self, paths: &HashMap<String, PathBuf>) -> String {
         self.results
             .iter()
@@ -105,72 +113,56 @@ pub async fn run(client: &Client, args: &SearchArgs) -> Result<SearchResults, Er
     })
 }
 
-/// Write a search result content to a file
-pub fn write_search_result(
-    dir: &Path,
-    ref_id: &str,
-    result: &SearchResult,
-) -> Result<PathBuf, Error> {
-    let data = result
-        .content
-        .as_ref()
-        .ok_or(Error::InvalidProto)?
-        .data
-        .as_ref()
-        .ok_or(Error::InvalidProto)?;
+/// Save search results to a directory
+pub fn save_search_results(
+    output_dir: &Path,
+    refs: &HashMap<String, SearchResult>,
+) -> Result<HashMap<String, PathBuf>, Error> {
+    std::fs::create_dir_all(output_dir)?;
 
-    let ext = match data {
-        content::Data::Chunk(_) => "txt".to_string(),
-        content::Data::Image(img) => MimeType::from(img.mime_type.as_str()).to_ext().to_string(),
-        content::Data::Page(page) => MimeType::from(
-            page.image
-                .as_ref()
-                .ok_or(Error::InvalidProto)?
-                .mime_type
-                .as_str(),
-        )
-        .to_ext()
-        .to_string(),
-    };
-
-    let path = dir.join(format!("{ref_id}.{ext}"));
-
-    let bytes = match data {
-        content::Data::Chunk(chunk) => chunk.text.as_bytes(),
-        content::Data::Image(img) => img.data.as_ref(),
-        content::Data::Page(page) => page
-            .image
+    let mut paths = HashMap::new();
+    for (ref_id, result) in refs {
+        let data = result
+            .content
             .as_ref()
             .ok_or(Error::InvalidProto)?
             .data
-            .as_ref(),
-    };
+            .as_ref()
+            .ok_or(Error::InvalidProto)?;
 
-    std::fs::create_dir_all(dir)?;
+        let ext = match data {
+            content::Data::Chunk(_) => "txt".to_string(),
+            content::Data::Image(img) => MimeType::from(img.mime_type.as_str()).to_ext().to_string(),
+            content::Data::Page(page) => MimeType::from(
+                page.image
+                    .as_ref()
+                    .ok_or(Error::InvalidProto)?
+                    .mime_type
+                    .as_str(),
+            )
+            .to_ext()
+            .to_string(),
+        };
 
-    std::fs::write(&path, bytes)?;
+        let path = output_dir.join(format!("{ref_id}.{ext}"));
 
-    Ok(path.canonicalize().unwrap_or(path))
-}
+        let bytes = match data {
+            content::Data::Chunk(chunk) => chunk.text.as_bytes(),
+            content::Data::Image(img) => img.data.as_ref(),
+            content::Data::Page(page) => page
+                .image
+                .as_ref()
+                .ok_or(Error::InvalidProto)?
+                .data
+                .as_ref(),
+        };
 
-pub fn save_search_results<'a, I, S>(
-    output_dir: &Path,
-    results: I,
-) -> Result<HashMap<String, PathBuf>, Error>
-where
-    I: IntoIterator<Item = (S, &'a SearchResult)>,
-    S: Into<String>,
-{
-    results
-        .into_iter()
-        .map(|(ref_id, result)| {
-            let ref_id = ref_id.into();
-            Ok::<_, Error>((
-                ref_id.clone(),
-                write_search_result(output_dir, &ref_id, result)?,
-            ))
-        })
-        .collect()
+        std::fs::write(&path, bytes)?;
+
+        paths.insert(ref_id.clone(), path.canonicalize().unwrap_or(path));
+    }
+
+    Ok(paths)
 }
 
 pub fn render_search_result(ref_id: &str, result: &SearchResult, path: Option<&Path>) -> String {
