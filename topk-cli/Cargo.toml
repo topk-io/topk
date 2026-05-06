@@ -29,6 +29,8 @@ tracing = { version = "0.1" }
 regex = { version = "1" }
 futures = { version = "0.3" }
 serde = { version = "1", features = ["derive"] }
+base64 = "0.22"
+bytes = "1"
 bytesize = { version = "1", features = ["serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 comfy-table = { version = "7" }

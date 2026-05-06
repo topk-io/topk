@@ -47,17 +47,17 @@ pub struct AskResult {
 }
 
 impl AskResult {
-    fn from_answer(a: Answer, show_refs: bool) -> Self {
-        Self {
+    fn from_answer(a: Answer, show_refs: bool) -> Result<Self, Error> {
+        Ok(Self {
             facts: a.facts,
             refs: a
                 .refs
                 .into_iter()
-                .map(|(k, v)| (k, SearchResult::from(v)))
-                .collect(),
+                .map(|(k, v)| SearchResult::try_from(v).map(|v| (k, v)))
+                .collect::<Result<HashMap<_, _>, _>>()?,
             confidence: a.confidence,
             show_refs,
-        }
+        })
     }
 
     pub fn render_refs(&self, paths: &HashMap<String, PathBuf>) -> Option<String> {
@@ -170,7 +170,7 @@ pub async fn run(client: &Client, args: &AskArgs, output: &Output) -> Result<Ask
 
     let answer = answer.ok_or_else(|| Error::Internal("No answer found".to_string()))?;
 
-    Ok(AskResult::from_answer(answer, args.show_refs))
+    AskResult::from_answer(answer, args.show_refs)
 }
 
 #[cfg(test)]
