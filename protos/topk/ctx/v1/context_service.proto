@@ -83,6 +83,7 @@ message AskResult {
     message Answer {
         repeated Fact facts = 1;
         map<string, SearchResult> refs = 2;
+        float confidence = 3;
     }
 
     oneof message {
