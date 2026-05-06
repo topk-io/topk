@@ -170,7 +170,7 @@ pub async fn run(client: &Client, args: &AskArgs, output: &Output) -> Result<Ask
 
     let answer = answer.ok_or_else(|| Error::Internal("No answer found".to_string()))?;
 
-    AskResult::from_answer(answer, args.show_refs)
+    Ok(AskResult::from_answer(answer, args.show_refs)?)
 }
 
 #[cfg(test)]
