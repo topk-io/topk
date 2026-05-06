@@ -24,6 +24,7 @@ message SearchResult {
     Content content = 4;
     map<string, topk.data.v1.Value> metadata = 5;
     string content_id = 6;
+    string doc_name = 7;
 }
 
 message Content {
