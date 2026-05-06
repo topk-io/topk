@@ -1,6 +1,7 @@
 syntax = "proto3";
 package topk.ctx.v1;
 
+import "topk/ctx/v1/context_service.proto";
 import "topk/data/v1/document.proto";
 import "topk/data/v1/expr/logical.proto";
 import "topk/data/v1/value.proto";
@@ -11,6 +12,9 @@ service DatasetReadService {
 
   // Get document metadata
   rpc GetMetadata(GetMetadataRequest) returns (GetMetadataResponse);
+
+  // Get content of a chunk
+  rpc GetContent(GetContentRequest) returns (GetContentResponse);
 }
 
 message ListRequest {
@@ -39,4 +43,14 @@ message GetMetadataRequest {
 
 message GetMetadataResponse {
   map<string, topk.data.v1.Document> docs = 1;
+}
+
+message GetContentRequest {
+  // Chunk ID to fetch
+  string content_id = 1;
+}
+
+message GetContentResponse {
+  string content_id = 1;
+  topk.ctx.v1.Content content = 2;
 }

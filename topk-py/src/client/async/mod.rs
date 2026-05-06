@@ -67,7 +67,9 @@ impl AsyncClient {
         Ok(AsyncDatasetsClient::new(self.client.clone()))
     }
 
-    #[pyo3(signature = (query, datasets, filter=None, mode=None, select_fields=None))]
+    #[pyo3(
+        signature = (query, datasets, filter=None, mode=None, select_fields=None, include_content=None)
+    )]
     pub fn ask(
         &self,
         query: String,
@@ -75,6 +77,7 @@ impl AsyncClient {
         filter: Option<LogicalExpr>,
         mode: Option<Mode>,
         select_fields: Option<Vec<String>>,
+        include_content: Option<bool>,
     ) -> PyResult<AsyncAskIterator> {
         ask(
             self.client.clone(),
@@ -83,6 +86,7 @@ impl AsyncClient {
             filter,
             mode,
             select_fields,
+            include_content,
         )
     }
 

@@ -45,6 +45,7 @@ pub fn ask(
     filter: Option<LogicalExpr>,
     mode: Option<Mode>,
     select_fields: Option<Vec<String>>,
+    include_content: Option<bool>,
 ) -> PyResult<AsyncAskIterator> {
     let (tx, rx) = mpsc::channel(CHANNEL_BUFFER_SIZE);
 
@@ -53,7 +54,7 @@ pub fn ask(
 
     pyo3_async_runtimes::tokio::get_runtime().spawn(async move {
         let mut stream = match client
-            .ask(query, datasets, filter, mode, select_fields)
+            .ask(query, datasets, filter, mode, select_fields, include_content)
             .await
         {
             Ok(stream) => stream,

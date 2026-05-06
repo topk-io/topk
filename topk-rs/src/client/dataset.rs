@@ -23,8 +23,8 @@ use crate::proto::v1::ctx::file::{InputFile, InputSource};
 use crate::proto::v1::ctx::ListEntry;
 use crate::proto::v1::ctx::ListRequest;
 use crate::proto::v1::ctx::{
-    upsert_message, CheckHandleRequest, DeleteRequest, GetMetadataRequest, UpdateMetadataRequest,
-    UpsertMessage,
+    upsert_message, CheckHandleRequest, DeleteRequest, GetContentRequest, GetContentResponse,
+    GetMetadataRequest, UpdateMetadataRequest, UpsertMessage,
 };
 use crate::proto::v1::data::LogicalExpr;
 use crate::proto::v1::data::Value;
@@ -269,6 +269,34 @@ impl DatasetClient {
         .await?;
 
         Ok(response.into_inner().docs)
+    }
+
+    /// Fetch the content of a single chunk by content_id.
+    pub async fn get_content(
+        &self,
+        content_id: impl Into<String>,
+    ) -> Result<GetContentResponse, Error> {
+        let client = create_client!(DatasetReadServiceClient, self.read, self.config).await?;
+        let content_id = content_id.into();
+
+        let response = call_with_retry(&self.config.retry_config(), || {
+            let mut client = client.clone();
+            let content_id = content_id.clone();
+
+            async move {
+                client
+                    .get_content(GetContentRequest { content_id })
+                    .await
+                    .map_err(|e| match e.code() {
+                        // Dataset missing or content_id missing.
+                        tonic::Code::NotFound => Error::NotFound,
+                        _ => Error::from(e),
+                    })
+            }
+        })
+        .await?;
+
+        Ok(response.into_inner())
     }
 
     pub async fn update_metadata(

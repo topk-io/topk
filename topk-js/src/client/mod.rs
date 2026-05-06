@@ -203,7 +203,7 @@ impl Client {
 
     /// Ask a question and get streaming responses as an async iterator.
     #[napi(
-        ts_args_type = "query: string, datasets: Array<string | { dataset: string; filter?: query.LogicalExpression }>, filter?: query.LogicalExpression, mode?: Mode, selectFields?: Array<string>"
+        ts_args_type = "query: string, datasets: Array<string | { dataset: string; filter?: query.LogicalExpression }>, filter?: query.LogicalExpression, mode?: Mode, selectFields?: Array<string>, includeContent?: boolean"
     )]
     pub fn ask(
         &self,
@@ -212,6 +212,7 @@ impl Client {
         filter: Option<&LogicalExpression>,
         mode: Option<Mode>,
         select_fields: Option<Vec<String>>,
+        include_content: Option<bool>,
     ) -> AskStream {
         let (tx, rx) = mpsc::channel::<AskStreamMessage>(STREAM_BUFFER_SIZE);
         let client = self.client.clone();
@@ -220,7 +221,7 @@ impl Client {
 
         RUNTIME.spawn(async move {
             let mut stream = match client
-                .ask(query, datasets, filter, mode, select_fields)
+                .ask(query, datasets, filter, mode, select_fields, include_content)
                 .await
             {
                 Ok(stream) => stream,

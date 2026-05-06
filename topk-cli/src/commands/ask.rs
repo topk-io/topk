@@ -146,6 +146,7 @@ pub async fn run(client: &Client, args: &AskArgs, output: &Output) -> Result<Ask
             None,
             args.mode.clone().map(Into::into),
             args.fields.clone(),
+            Some(true),
         )
         .await?;
 

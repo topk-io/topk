@@ -39,6 +39,7 @@ pub fn ask(
     filter: Option<LogicalExpr>,
     mode: Option<Mode>,
     select_fields: Option<Vec<String>>,
+    include_content: Option<bool>,
 ) -> PyResult<AskIterator> {
     let (tx, rx) = mpsc::channel(CHANNEL_BUFFER_SIZE);
 
@@ -48,7 +49,7 @@ pub fn ask(
     // Spawn a task to consume the stream
     runtime.spawn(async move {
         let mut stream = match client
-            .ask(query, datasets, filter, mode, select_fields)
+            .ask(query, datasets, filter, mode, select_fields, include_content)
             .await
         {
             Ok(stream) => stream,
