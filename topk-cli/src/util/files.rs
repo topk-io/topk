@@ -61,11 +61,8 @@ pub(crate) fn resolve_files(
 }
 
 pub(crate) fn collect_file(path: &Path) -> Result<UploadFile, Error> {
-    // Check if the file is readable first
-    if let Err(e) = std::fs::File::open(path) {
-        eprintln!("error reading file: {path:?}: {e}");
-        return Err(Error::IoError(e));
-    }
+    // Check readability early so any unreadable file fails the upload
+    std::fs::File::open(path)?;
 
     let doc_id = doc_id_from_path(path)?;
     let size = path.metadata().map(|m| m.len())?;
@@ -269,6 +266,15 @@ mod tests {
     #[test]
     fn collect_file_errors_for_unreadable_file() {
         use std::os::unix::fs::PermissionsExt;
+
+        unsafe extern "C" {
+            fn geteuid() -> u32;
+        }
+
+        // If user is root, skip the test
+        if unsafe { geteuid() } == 0 {
+            return;
+        }
 
         let dir = tempdir().unwrap();
         let file = dir.path().join("note.md");
