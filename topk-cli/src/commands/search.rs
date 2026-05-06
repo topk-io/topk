@@ -16,7 +16,7 @@ pub struct SearchResults {
     pub results: Vec<SearchResult>,
 }
 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub struct SearchResult {
     pub doc_id: String,
     pub doc_type: String,
@@ -105,52 +105,56 @@ pub async fn run(client: &Client, args: &SearchArgs) -> Result<SearchResults, Er
     })
 }
 
-/// Write a search result content to a file
-pub fn write_search_result(
-    dir: &Path,
-    ref_id: &str,
-    result: &SearchResult,
-) -> Result<PathBuf, Error> {
-    let data = result
-        .content
-        .as_ref()
-        .ok_or(Error::InvalidProto)?
-        .data
-        .as_ref()
-        .ok_or(Error::InvalidProto)?;
+/// Save search results to a directory
+pub fn save_search_results(
+    output_dir: &Path,
+    refs: &HashMap<String, SearchResult>,
+) -> Result<HashMap<String, PathBuf>, Error> {
+    std::fs::create_dir_all(output_dir)?;
 
-    let ext = match data {
-        content::Data::Chunk(_) => "txt".to_string(),
-        content::Data::Image(img) => MimeType::from(img.mime_type.as_str()).to_ext().to_string(),
-        content::Data::Page(page) => MimeType::from(
-            page.image
-                .as_ref()
-                .ok_or(Error::InvalidProto)?
-                .mime_type
-                .as_str(),
-        )
-        .to_ext()
-        .to_string(),
-    };
-
-    let path = dir.join(format!("{ref_id}.{ext}"));
-
-    let bytes = match data {
-        content::Data::Chunk(chunk) => chunk.text.as_bytes(),
-        content::Data::Image(img) => img.data.as_ref(),
-        content::Data::Page(page) => page
-            .image
+    let mut paths = HashMap::new();
+    for (ref_id, result) in refs {
+        let data = result
+            .content
             .as_ref()
             .ok_or(Error::InvalidProto)?
             .data
-            .as_ref(),
-    };
+            .as_ref()
+            .ok_or(Error::InvalidProto)?;
 
-    std::fs::create_dir_all(dir)?;
+        let ext = match data {
+            content::Data::Chunk(_) => "txt".to_string(),
+            content::Data::Image(img) => MimeType::from(img.mime_type.as_str()).to_ext().to_string(),
+            content::Data::Page(page) => MimeType::from(
+                page.image
+                    .as_ref()
+                    .ok_or(Error::InvalidProto)?
+                    .mime_type
+                    .as_str(),
+            )
+            .to_ext()
+            .to_string(),
+        };
 
-    std::fs::write(&path, bytes)?;
+        let path = output_dir.join(format!("{ref_id}.{ext}"));
 
-    Ok(path.canonicalize().unwrap_or(path))
+        let bytes = match data {
+            content::Data::Chunk(chunk) => chunk.text.as_bytes(),
+            content::Data::Image(img) => img.data.as_ref(),
+            content::Data::Page(page) => page
+                .image
+                .as_ref()
+                .ok_or(Error::InvalidProto)?
+                .data
+                .as_ref(),
+        };
+
+        std::fs::write(&path, bytes)?;
+
+        paths.insert(ref_id.clone(), path.canonicalize().unwrap_or(path));
+    }
+
+    Ok(paths)
 }
 
 pub fn render_search_result(ref_id: &str, result: &SearchResult, path: Option<&Path>) -> String {
@@ -242,11 +246,9 @@ mod tests {
     use super::SearchResult;
     use assert_cmd::Command;
     use serde_json::json;
+    use tempfile::tempdir;
     use test_context::test_context;
-    use topk_rs::proto::v1::{
-        ctx::{file::InputFile},
-        data::Value,
-    };
+    use topk_rs::proto::v1::{ctx::file::InputFile, data::Value};
 
     use crate::commands::test_context::{CliTestContext, OutputJsonExt};
 
@@ -270,6 +272,72 @@ mod tests {
             String::from_utf8_lossy(&out.stderr)
         );
         let _: Vec<SearchResult> = out.json().unwrap();
+    }
+
+    #[test_context(CliTestContext)]
+    #[tokio::test]
+    async fn search_json_output_saves_results_to_output_dir(ctx: &mut CliTestContext) {
+        let dataset = ctx.wrap("json-output-dir");
+        ctx.create_dataset(&dataset);
+
+        let file = concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/markdown.md");
+        let out = cmd()
+            .args([
+                "-o",
+                "json",
+                "upload",
+                file,
+                "--dataset",
+                &dataset,
+                "-y",
+                "--wait",
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+
+        let dir = tempdir().unwrap();
+        let out = cmd()
+            .args([
+                "-o",
+                "json",
+                "search",
+                "Item one",
+                "--dataset",
+                &dataset,
+                "--output-dir",
+                dir.path().to_str().unwrap(),
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+
+        let result: Vec<SearchResult> = out.json().unwrap();
+        assert!(!result.is_empty(), "expected search results");
+
+        let saved_files = std::fs::read_dir(dir.path())
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .collect::<Vec<_>>();
+
+        assert_eq!(saved_files.len(), result.len());
+        for (index, _) in result.iter().enumerate() {
+            let ref_id = (index + 1).to_string();
+            assert!(
+                saved_files
+                    .iter()
+                    .any(|path| path.file_stem() == Some(ref_id.as_ref())),
+                "missing saved file for ref {ref_id}"
+            );
+        }
     }
 
     #[test_context(CliTestContext)]

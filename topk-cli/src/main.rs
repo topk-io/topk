@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::process::ExitCode;
 
 use anyhow::Result;
@@ -237,24 +238,14 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
             let client = make_client(&api_key, &region, &cli.host, cli.https);
 
             let result = ask::run(&client, &args, output).await?;
+            let paths = match args.output_dir.as_deref() {
+                Some(dir) => search::save_search_results(dir, &result.refs)?,
+                None => HashMap::default(),
+            };
 
             match output.format {
                 OutputFormat::Text => {
                     output.print(&result)?;
-
-                    let paths = match &args.output_dir {
-                        Some(dir) => result
-                            .refs
-                            .iter()
-                            .map(|(ref_id, result)| {
-                                Ok::<_, Error>((
-                                    ref_id.clone(),
-                                    search::write_search_result(dir, ref_id, result)?,
-                                ))
-                            })
-                            .collect::<Result<std::collections::HashMap<_, _>, _>>()?,
-                        None => std::collections::HashMap::new(),
-                    };
 
                     if let Some(refs_text) = result.render_refs(&paths) {
                         output.print(&refs_text)?;
@@ -285,24 +276,22 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
 
             let result = search::run(&client, &args).await?;
 
+            let paths = match args.output_dir.as_deref() {
+                Some(dir) => {
+                    let refs = result
+                        .results
+                        .iter()
+                        .enumerate()
+                        .map(|(i, r)| ((i + 1).to_string(), r.clone()))
+                        .collect();
+
+                    search::save_search_results(dir, &refs)?
+                }
+                None => HashMap::default(),
+            };
+
             match output.format {
                 OutputFormat::Text => {
-                    let paths = match &args.output_dir {
-                        Some(dir) => result
-                            .results
-                            .iter()
-                            .enumerate()
-                            .map(|(i, result)| {
-                                let ref_id = (i + 1).to_string();
-                                Ok::<_, Error>((
-                                    ref_id.clone(),
-                                    search::write_search_result(dir, &ref_id, result)?,
-                                ))
-                            })
-                            .collect::<Result<std::collections::HashMap<_, _>, _>>()?,
-                        None => std::collections::HashMap::new(),
-                    };
-
                     output.print(&result.render(&paths))?;
 
                     if let Some(dir) = &args.output_dir {
