@@ -6,9 +6,13 @@ use crate::proto::ctx::v1::{
 };
 
 impl AskResult {
-    pub fn answer(facts: Vec<Fact>, refs: HashMap<String, SearchResult>) -> Self {
+    pub fn answer(facts: Vec<Fact>, refs: HashMap<String, SearchResult>, confidence: f32) -> Self {
         Self {
-            message: Some(Message::Answer(Answer { facts, refs })),
+            message: Some(Message::Answer(Answer {
+                facts,
+                refs,
+                confidence,
+            })),
         }
     }
 
