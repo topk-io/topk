@@ -1,106 +1,110 @@
 syntax = "proto3";
 package topk.ctx.v1;
 
-import "topk/data/v1/value.proto";
 import "topk/data/v1/expr/logical.proto";
+import "topk/data/v1/value.proto";
 
 service ContextService {
-    // Get answer with source citations
-    rpc Ask(AskRequest) returns (stream AskResult);
+  // Get answer with source citations
+  rpc Ask(AskRequest) returns (stream AskResult);
 
-    // Get search results
-    rpc Search(SearchRequest) returns (stream SearchResult);
+  // Get search results
+  rpc Search(SearchRequest) returns (stream SearchResult);
 }
 
 message Source {
-    string dataset = 1;
-    topk.data.v1.LogicalExpr filter = 2;
+  string dataset = 1;
+  topk.data.v1.LogicalExpr filter = 2;
 }
 
 message SearchResult {
-    string doc_id = 1;
-    string doc_type = 2;
-    string dataset = 3;
-    Content content = 4;
-    map<string, topk.data.v1.Value> metadata = 5;
+  string doc_id = 1;
+  string doc_type = 2;
+  string dataset = 3;
+  Content content = 4;
+  map<string, topk.data.v1.Value> metadata = 5;
+  string content_id = 6;
+  string doc_name = 7;
 }
 
 message Content {
-    oneof data {
-        Chunk chunk = 1;
-        Page page = 2;
-        Image image = 3;
-    }
+  oneof data {
+    Chunk chunk = 1;
+    Page page = 2;
+    Image image = 3;
+  }
 }
 
 message Page {
-    uint32 page_number = 1;
-    Image image = 2;
+  uint32 page_number = 1;
+  Image image = 2;
 }
 
 message Chunk {
-    string text = 1;
-    repeated uint32 doc_pages = 2;
+  string text = 1;
+  repeated uint32 doc_pages = 2;
 }
 
 message Image {
-    bytes data = 1;
-    string mime_type = 2;
+  bytes data = 1;
+  string mime_type = 2;
 }
 
 message Fact {
-    string fact = 1;
-    repeated string ref_ids = 2;
+  string fact = 1;
+  repeated string ref_ids = 2;
 }
 
 enum Mode {
-    MODE_UNSPECIFIED = 0;
-    MODE_AUTO = 1;
-    MODE_SUMMARIZE = 2;
-    MODE_RESEARCH = 3;
+  MODE_UNSPECIFIED = 0;
+  MODE_AUTO = 1;
+  MODE_SUMMARIZE = 2;
+  MODE_RESEARCH = 3;
 }
 
 message AskRequest {
-    // Ask query
-    string query = 1;
-    // Sources to use for the ask query
-    repeated Source datasets = 2;
-    // Filter applied globally to all datasets
-    topk.data.v1.LogicalExpr filter = 3;
-    // Mode to use for the ask query
-    Mode mode = 4;
-    // Metadata fields to return
-    repeated string select_fields = 5;
+  // Ask query
+  string query = 1;
+  // Sources to use for the ask query
+  repeated Source datasets = 2;
+  // Filter applied globally to all datasets
+  topk.data.v1.LogicalExpr filter = 3;
+  // Mode to use for the ask query
+  Mode mode = 4;
+  // Metadata fields to return
+  repeated string select_fields = 5;
+  // Controls whether the raw chunkControls whether the raw chunks are returned, ref IDs are returned otherwise.
+  bool include_content = 6;
 }
 
 message AskResult {
-    // Progress update
-    message Progress {
-        string update = 1;
-    }
+  // Progress update
+  message Progress {
+    string update = 1;
+  }
 
-    // Final answer
-    message Answer {
-        repeated Fact facts = 1;
-        map<string, SearchResult> refs = 2;
-        float confidence = 3;
-    }
+  // Final answer
+  message Answer {
+    repeated Fact facts = 1;
+    map<string, SearchResult> refs = 2;
+    float confidence = 3;
+  }
 
-    oneof message {
-        Answer answer = 1;
-        Progress progress = 2;
-    }
+  oneof message {
+    Answer answer = 1;
+    Progress progress = 2;
+  }
 }
 
 message SearchRequest {
-    // Search query
-    string query = 1;
-    // Source datasets for the search
-    repeated Source datasets = 2;
-    // Filter applied globally to all datasets
-    topk.data.v1.LogicalExpr filter = 3;
-    // Maximum number of results to return
-    uint32 top_k = 4;
-    // Metadata fields to return
-    repeated string select_fields = 5;
+  // Search query
+  string query = 1;
+  // Source datasets for the search
+  repeated Source datasets = 2;
+  // Filter applied globally to all datasets
+  topk.data.v1.LogicalExpr filter = 3;
+  // Maximum number of results to return
+  uint32 top_k = 4;
+  // Metadata fields to return
+  repeated string select_fields = 5;
 }

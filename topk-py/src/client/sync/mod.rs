@@ -78,7 +78,9 @@ impl Client {
         ))
     }
 
-    #[pyo3(signature = (query, datasets, filter=None, mode=None, select_fields=None))]
+    #[pyo3(
+        signature = (query, datasets, filter=None, mode=None, select_fields=None, include_content=None)
+    )]
     pub fn ask(
         &self,
         query: String,
@@ -86,6 +88,7 @@ impl Client {
         filter: Option<LogicalExpr>,
         mode: Option<Mode>,
         select_fields: Option<Vec<String>>,
+        include_content: Option<bool>,
     ) -> PyResult<AskIterator> {
         ask(
             self.runtime.clone(),
@@ -95,6 +98,7 @@ impl Client {
             filter,
             mode,
             select_fields,
+            include_content,
         )
     }
 

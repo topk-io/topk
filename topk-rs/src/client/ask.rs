@@ -19,6 +19,7 @@ impl super::Client {
         filter: Option<LogicalExpr>,
         mode: Option<Mode>,
         select_fields: Option<Vec<String>>,
+        include_content: Option<bool>,
     ) -> Result<Streaming<AskResult>, Error> {
         let datasets: Vec<_> = datasets.into_iter().map(|s| s.into()).collect();
         if datasets.is_empty() {
@@ -35,6 +36,7 @@ impl super::Client {
             filter,
             mode: mode.unwrap_or(Mode::Auto).into(),
             select_fields: select_fields.unwrap_or_default(),
+            include_content: include_content.unwrap_or(false),
         };
 
         let response = call_with_retry(&self.config().retry_config(), || {
