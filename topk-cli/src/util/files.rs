@@ -61,7 +61,11 @@ pub(crate) fn resolve_files(
 }
 
 pub(crate) fn collect_file(path: &Path) -> Result<UploadFile, Error> {
-    std::fs::File::open(path)?;
+    // Check if the file is readable first
+    if let Err(e) = std::fs::File::open(path) {
+        eprintln!("error reading file: {path:?}: {e}");
+        return Err(Error::IoError(e));
+    }
 
     let doc_id = doc_id_from_path(path)?;
     let size = path.metadata().map(|m| m.len())?;
@@ -114,6 +118,7 @@ mod tests {
     use super::{collect_directory_files, collect_file, collect_files, expand_path, resolve_files};
     use std::fs;
     use tempfile::tempdir;
+    use topk_rs::Error;
 
     #[test]
     fn collect_matching_files_filters_by_pattern() {
@@ -273,6 +278,9 @@ mod tests {
         let err = collect_file(&file).unwrap_err();
 
         fs::set_permissions(&file, fs::Permissions::from_mode(0o600)).unwrap();
-        assert!(err.to_string().contains("can't access file"));
+        assert!(matches!(
+            err,
+            Error::IoError(ref io_err) if io_err.kind() == std::io::ErrorKind::PermissionDenied
+        ));
     }
 }
