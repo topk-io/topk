@@ -73,7 +73,7 @@ message AskRequest {
   Mode mode = 4;
   // Metadata fields to return
   repeated string select_fields = 5;
-  // Controls whether the raw chunkControls whether the raw chunks are returned, ref IDs are returned otherwise.
+  // Controls whether the raw chunks are returned, ref IDs are returned otherwise.
   bool include_content = 6;
 }
 
