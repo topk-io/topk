@@ -409,7 +409,7 @@ mod tests {
             doc_name: "doc1.md".to_string(),
             doc_type: "text/markdown".to_string(),
             dataset: "sec-10k".to_string(),
-            content_id: "doc1".to_string(),
+            content_id: "chunk-1".to_string(),
             content: None,
             metadata: [
                 ("ticker".to_string(), Value::string("AAPL")),
