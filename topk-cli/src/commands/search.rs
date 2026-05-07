@@ -427,7 +427,7 @@ mod tests {
                 "doc_id": "doc1",
                 "doc_type": "text/markdown",
                 "dataset": "sec-10k",
-                "content_id": "doc1",
+                "content_id": "chunk-1",
                 "doc_name": "doc1.md",
                 "content": null,
                 "metadata": {
