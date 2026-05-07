@@ -84,7 +84,8 @@ ask(
 })[], 
    filter?: LogicalExpression, 
    mode?: Mode, 
-   selectFields?: string[]): AskStream;
+   selectFields?: string[], 
+   includeContent?: boolean): AskStream;
 ```
 
 Ask a question and get streaming responses as an async iterator.
@@ -98,6 +99,7 @@ Ask a question and get streaming responses as an async iterator.
 | `filter?` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
 | `mode?` | [`Mode`](/sdk/topk-js/index#mode) |
 | `selectFields?` | `string`[] |
+| `includeContent?` | `boolean` |
 
 **Returns**
 
@@ -749,6 +751,7 @@ Represents a final answer in an ask response.
 
 | Property | Type |
 | ------ | ------ |
+| <a id="property-confidence"></a> `confidence` | `number` |
 | <a id="property-facts"></a> `facts` | [`Fact`](/sdk/topk-js/index#fact)[] |
 | <a id="property-refs"></a> `refs` | `Record`\<`string`, [`SearchResult`](/sdk/topk-js/index#searchresult)\> |
 
@@ -997,8 +1000,10 @@ Represents a search result in an ask response.
 | Property | Type |
 | ------ | ------ |
 | <a id="property-content"></a> `content` | [`Content`](/sdk/topk-js/index#content) |
+| <a id="property-contentid"></a> `contentId` | `string` |
 | <a id="property-dataset"></a> `dataset` | `string` |
 | <a id="property-docid"></a> `docId` | `string` |
+| <a id="property-docname"></a> `docName` | `string` |
 | <a id="property-doctype"></a> `docType` | `string` |
 | <a id="property-metadata-1"></a> `metadata` | `Record`\<`string`, `any`\> |
 

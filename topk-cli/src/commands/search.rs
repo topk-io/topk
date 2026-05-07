@@ -21,6 +21,8 @@ pub struct SearchResult {
     pub doc_id: String,
     pub doc_type: String,
     pub dataset: String,
+    pub content_id: String,
+    pub doc_name: String,
     pub content: Option<Content>,
     #[serde(default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub metadata: serde_json::Map<String, serde_json::Value>,
@@ -32,6 +34,8 @@ impl From<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
             doc_id: result.doc_id,
             doc_type: result.doc_type,
             dataset: result.dataset,
+            content_id: result.content_id,
+            doc_name: result.doc_name,
             content: result.content,
             metadata: result
                 .metadata
@@ -421,6 +425,8 @@ mod tests {
                 "doc_id": "doc1",
                 "doc_type": "text/markdown",
                 "dataset": "sec-10k",
+                "content_id": "",
+                "doc_name": "",
                 "content": null,
                 "metadata": {
                     "ticker": "AAPL",

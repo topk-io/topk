@@ -226,6 +226,10 @@ pub struct SearchResult {
     #[pyo3(get)]
     dataset: String,
     #[pyo3(get)]
+    content_id: String,
+    #[pyo3(get)]
+    doc_name: String,
+    #[pyo3(get)]
     content: Content,
     #[pyo3(get)]
     metadata: HashMap<String, crate::data::value::Value>,
@@ -254,6 +258,8 @@ impl TryFrom<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
             doc_id: v.doc_id,
             doc_type: v.doc_type,
             dataset: v.dataset,
+            content_id: v.content_id,
+            doc_name: v.doc_name,
             content: match content_data {
                 Data::Chunk(chunk) => Content::Chunk(Chunk {
                     text: chunk.text,
@@ -283,6 +289,8 @@ pub struct Answer {
     facts: Vec<Fact>,
     #[pyo3(get)]
     refs: HashMap<String, SearchResult>,
+    #[pyo3(get)]
+    confidence: f32,
 }
 
 #[pymethods]
@@ -337,6 +345,7 @@ impl TryFrom<topk_rs::proto::v1::ctx::ask_result::Message> for AskResult {
                     .into_iter()
                     .map(|(k, v)| v.try_into().map(|sr| (k, sr)))
                     .collect::<Result<HashMap<_, _>, _>>()?,
+                confidence: fa.confidence,
             })),
             Message::Progress(p) => Ok(AskResult::Progress(Progress { update: p.update })),
         }

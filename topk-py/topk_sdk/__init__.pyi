@@ -604,6 +604,8 @@ class SearchResult:
     doc_id: builtins.str
     doc_type: builtins.str
     dataset: builtins.str
+    content_id: builtins.str
+    doc_name: builtins.str
     content: Content
     metadata: builtins.dict[builtins.str, typing.Any]
 
@@ -614,6 +616,7 @@ class Answer:
 
     facts: builtins.list[Fact]
     refs: builtins.dict[builtins.str, SearchResult]
+    confidence: builtins.float
 
 class Progress:
     """

@@ -120,6 +120,8 @@ pub struct SearchResult {
     pub doc_id: String,
     pub doc_type: String,
     pub dataset: String,
+    pub content_id: String,
+    pub doc_name: String,
     pub content: Content,
     #[napi(ts_type = "Record<string, any>")]
     pub metadata: HashMap<String, NativeValue>,
@@ -168,6 +170,8 @@ impl TryFrom<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
             doc_id: v.doc_id,
             doc_type: v.doc_type,
             dataset: v.dataset,
+            content_id: v.content_id,
+            doc_name: v.doc_name,
             content,
             metadata: v.metadata.into_iter().map(|(k, v)| (k, v.into())).collect(),
         })
@@ -197,6 +201,7 @@ impl From<topk_rs::proto::v1::ctx::Fact> for Fact {
 pub struct Answer {
     pub facts: Vec<Fact>,
     pub refs: HashMap<String, SearchResult>,
+    pub confidence: f32,
 }
 
 /// Represents a progress update in an ask response.

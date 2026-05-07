@@ -1438,6 +1438,8 @@ Represents a search result in an ask response.
 | `doc_id` | str |  |
 | `doc_type` | str |  |
 | `dataset` | str |  |
+| `content_id` | str |  |
+| `doc_name` | str |  |
 | `content` | [`Content`](#content) |  |
 | `metadata` | dict[str, Any] |  |
 
@@ -1451,6 +1453,7 @@ Represents a final answer in an ask response.
 | -------- | ---- | ----------- |
 | `facts` | list[[`Fact`](#fact)] |  |
 | `refs` | dict[str, [`SearchResult`](#searchresult)] |  |
+| `confidence` | float |  |
 
 ### Progress
 
