@@ -92,6 +92,15 @@ impl Output {
         }
     }
 
+    pub fn meta(&self, msg: &str) {
+        match self.format {
+            OutputFormat::Text => {
+                eprintln!("{msg}");
+            }
+            OutputFormat::Json => {}
+        }
+    }
+
     pub fn error(&self, e: &Error) {
         match self.format {
             OutputFormat::Json => {
