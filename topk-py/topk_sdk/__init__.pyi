@@ -606,7 +606,7 @@ class SearchResult:
     dataset: builtins.str
     content_id: builtins.str
     doc_name: builtins.str
-    content: Content
+    content: typing.Optional[Content]
     metadata: builtins.dict[builtins.str, typing.Any]
 
 class Answer:

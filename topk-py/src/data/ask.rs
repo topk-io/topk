@@ -230,7 +230,7 @@ pub struct SearchResult {
     #[pyo3(get)]
     doc_name: String,
     #[pyo3(get)]
-    content: Content,
+    content: Option<Content>,
     #[pyo3(get)]
     metadata: HashMap<String, crate::data::value::Value>,
 }
@@ -246,35 +246,30 @@ impl TryFrom<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
     type Error = RustError;
 
     fn try_from(mut v: topk_rs::proto::v1::ctx::SearchResult) -> Result<Self, Self::Error> {
-        let content_data = v
-            .content
-            .take()
-            .ok_or(topk_rs::Error::InvalidProto)?
-            .data
-            .take()
-            .ok_or(topk_rs::Error::InvalidProto)?;
-
         Ok(SearchResult {
             doc_id: v.doc_id,
             doc_type: v.doc_type,
             dataset: v.dataset,
             content_id: v.content_id,
             doc_name: v.doc_name,
-            content: match content_data {
-                Data::Chunk(chunk) => Content::Chunk(Chunk {
-                    text: chunk.text,
-                    doc_pages: chunk.doc_pages,
-                }),
-                Data::Page(page) => Content::Page(Page {
-                    page_number: page.page_number,
-                    image: page.image.map(|img| Image {
+            content: match v.content.take() {
+                None => None,
+                Some(mut content) => Some(match content.data.take().ok_or(topk_rs::Error::InvalidProto)? {
+                    Data::Chunk(chunk) => Content::Chunk(Chunk {
+                        text: chunk.text,
+                        doc_pages: chunk.doc_pages,
+                    }),
+                    Data::Page(page) => Content::Page(Page {
+                        page_number: page.page_number,
+                        image: page.image.map(|img| Image {
+                            data: img.data.to_vec(),
+                            mime_type: img.mime_type,
+                        }),
+                    }),
+                    Data::Image(img) => Content::Image(Image {
                         data: img.data.to_vec(),
                         mime_type: img.mime_type,
                     }),
-                }),
-                Data::Image(img) => Content::Image(Image {
-                    data: img.data.to_vec(),
-                    mime_type: img.mime_type,
                 }),
             },
             metadata: v.metadata.into_iter().map(|(k, v)| (k, v.into())).collect(),

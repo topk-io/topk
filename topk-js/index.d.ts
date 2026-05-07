@@ -376,7 +376,7 @@ export interface SearchResult {
   dataset: string
   contentId: string
   docName: string
-  content: Content
+  content?: Content
   metadata: Record<string, any>
 }
 

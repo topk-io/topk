@@ -5,7 +5,6 @@ use napi_derive::napi;
 use topk_rs::proto::v1::ctx::content::Data;
 
 use crate::data::NativeValue;
-use crate::error::TopkError;
 use crate::expr::logical::LogicalExpression;
 
 /// Mode for ask operations.
@@ -122,7 +121,7 @@ pub struct SearchResult {
     pub dataset: String,
     pub content_id: String,
     pub doc_name: String,
-    pub content: Content,
+    pub content: Option<Content>,
     #[napi(ts_type = "Record<string, any>")]
     pub metadata: HashMap<String, NativeValue>,
 }
@@ -131,39 +130,40 @@ impl TryFrom<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
     type Error = napi::Error;
 
     fn try_from(mut v: topk_rs::proto::v1::ctx::SearchResult) -> Result<Self> {
-        let content_data = v
-            .content
-            .take()
-            .ok_or_else(|| TopkError::from(topk_rs::Error::InvalidProto))?
-            .data
-            .take()
-            .ok_or_else(|| TopkError::from(topk_rs::Error::InvalidProto))?;
-
-        let content = match content_data {
-            Data::Chunk(chunk) => Content {
-                r#type: "chunk".to_string(),
-                data: Either3::A(Chunk {
-                    text: chunk.text,
-                    doc_pages: chunk.doc_pages,
-                }),
-            },
-            Data::Page(page) => Content {
-                r#type: "page".to_string(),
-                data: Either3::B(Page {
-                    page_number: page.page_number,
-                    image: page.image.map(|img| Image {
-                        data: img.data.to_vec(),
-                        mime_type: img.mime_type,
-                    }),
-                }),
-            },
-            Data::Image(img) => Content {
-                r#type: "image".to_string(),
-                data: Either3::C(Image {
-                    data: img.data.to_vec(),
-                    mime_type: img.mime_type,
-                }),
-            },
+        let content = match v.content.take() {
+            None => None,
+            Some(mut content) => Some(
+                match content
+                    .data
+                    .take()
+                    .ok_or_else(|| napi::Error::from_reason(topk_rs::Error::InvalidProto.to_string()))?
+                {
+                    Data::Chunk(chunk) => Content {
+                        r#type: "chunk".to_string(),
+                        data: Either3::A(Chunk {
+                            text: chunk.text,
+                            doc_pages: chunk.doc_pages,
+                        }),
+                    },
+                    Data::Page(page) => Content {
+                        r#type: "page".to_string(),
+                        data: Either3::B(Page {
+                            page_number: page.page_number,
+                            image: page.image.map(|img| Image {
+                                data: img.data.to_vec(),
+                                mime_type: img.mime_type,
+                            }),
+                        }),
+                    },
+                    Data::Image(img) => Content {
+                        r#type: "image".to_string(),
+                        data: Either3::C(Image {
+                            data: img.data.to_vec(),
+                            mime_type: img.mime_type,
+                        }),
+                    },
+                },
+            ),
         };
 
         Ok(SearchResult {
