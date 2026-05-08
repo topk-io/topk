@@ -373,9 +373,9 @@ export interface RetryConfig {
 export interface SearchResult {
   docId: string
   docType: string
+  docName: string
   dataset: string
   contentId: string
-  docName: string
   content?: Content
   metadata: Record<string, any>
 }
