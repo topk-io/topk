@@ -163,7 +163,6 @@ impl TryFrom<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
                         }),
                     },
                 })
-            }
         };
 
         Ok(SearchResult {
