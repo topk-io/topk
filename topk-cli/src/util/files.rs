@@ -61,9 +61,6 @@ pub(crate) fn resolve_files(
 }
 
 pub(crate) fn collect_file(path: &Path) -> Result<UploadFile, Error> {
-    // Check readability early so any unreadable file fails the upload
-    std::fs::File::open(path)?;
-
     let doc_id = doc_id_from_path(path)?;
     let size = path.metadata().map(|m| m.len())?;
     let mime_type = MimeType::from(InputFile::guess_mime_type(path)?);
@@ -115,7 +112,6 @@ mod tests {
     use super::{collect_directory_files, collect_file, collect_files, expand_path, resolve_files};
     use std::fs;
     use tempfile::tempdir;
-    use topk_rs::Error;
 
     #[test]
     fn collect_matching_files_filters_by_pattern() {
@@ -262,31 +258,4 @@ mod tests {
             .contains("Invalid document kind: text/plain"));
     }
 
-    #[cfg(unix)]
-    #[test]
-    fn collect_file_errors_for_unreadable_file() {
-        use std::os::unix::fs::PermissionsExt;
-
-        unsafe extern "C" {
-            fn geteuid() -> u32;
-        }
-
-        // If user is root, skip the test
-        if unsafe { geteuid() } == 0 {
-            return;
-        }
-
-        let dir = tempdir().unwrap();
-        let file = dir.path().join("note.md");
-        fs::write(&file, "# note").unwrap();
-        fs::set_permissions(&file, fs::Permissions::from_mode(0o000)).unwrap();
-
-        let err = collect_file(&file).unwrap_err();
-
-        fs::set_permissions(&file, fs::Permissions::from_mode(0o600)).unwrap();
-        assert!(matches!(
-            err,
-            Error::IoError(ref io_err) if io_err.kind() == std::io::ErrorKind::PermissionDenied
-        ));
-    }
 }
