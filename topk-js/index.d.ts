@@ -30,7 +30,7 @@ export declare class Client {
   /** Get a client for managing data operations on a specific dataset such as upserting files, managing metadata, and deleting files. */
   dataset(name: string): DatasetClient
   /** Ask a question and get streaming responses as an async iterator. */
-  ask(query: string, datasets: Array<string | { dataset: string; filter?: query.LogicalExpression }>, filter?: query.LogicalExpression, mode?: Mode, selectFields?: Array<string>): AskStream
+  ask(query: string, datasets: Array<string | { dataset: string; filter?: query.LogicalExpression }>, filter?: query.LogicalExpression, mode?: Mode, selectFields?: Array<string>, includeContent?: boolean): AskStream
   /** Search for documents and get streaming responses as an async iterator. */
   search(query: string, datasets: Array<string | { dataset: string; filter?: query.LogicalExpression }>, topK: number, filter?: query.LogicalExpression, selectFields?: Array<string>): SearchStream
 }
@@ -177,6 +177,7 @@ export declare class SearchStream {
 export interface Answer {
   facts: Array<Fact>
   refs: Record<string, SearchResult>
+  confidence: number
 }
 
 /**
@@ -372,8 +373,10 @@ export interface RetryConfig {
 export interface SearchResult {
   docId: string
   docType: string
+  docName: string
   dataset: string
-  content: Content
+  contentId: string
+  content?: Content
   metadata: Record<string, any>
 }
 

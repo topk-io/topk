@@ -247,6 +247,7 @@ impl Client {
                                     .map(|refs| Either::A(Answer {
                                         facts: fa.facts.into_iter().map(Fact::from).collect(),
                                         refs,
+                                        confidence: fa.confidence,
                                     }))
                                     .map_err(|e| e.to_string()),
                                 Some(Message::Progress(p)) => {

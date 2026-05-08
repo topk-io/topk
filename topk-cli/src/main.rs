@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::process::ExitCode;
 
 use anyhow::Result;
+use colored::Colorize;
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, Shell};
 use futures::TryStreamExt;
@@ -246,6 +247,10 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
             match output.format {
                 OutputFormat::Text => {
                     output.print(&result)?;
+
+                    if !result.facts.is_empty() {
+                        output.meta(&format!("{} {}", "Confidence:".dimmed(), format!("{:.2}%", result.confidence).dimmed().bold()));
+                    }
 
                     if let Some(refs_text) = result.render_refs(&paths) {
                         output.print(&refs_text)?;

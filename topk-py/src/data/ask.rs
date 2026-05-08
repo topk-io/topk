@@ -224,9 +224,13 @@ pub struct SearchResult {
     #[pyo3(get)]
     doc_type: String,
     #[pyo3(get)]
+    doc_name: String,
+    #[pyo3(get)]
     dataset: String,
     #[pyo3(get)]
-    content: Content,
+    content_id: String,
+    #[pyo3(get)]
+    content: Option<Content>,
     #[pyo3(get)]
     metadata: HashMap<String, crate::data::value::Value>,
 }
@@ -241,36 +245,37 @@ impl SearchResult {
 impl TryFrom<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
     type Error = RustError;
 
-    fn try_from(mut v: topk_rs::proto::v1::ctx::SearchResult) -> Result<Self, Self::Error> {
-        let content_data = v
-            .content
-            .take()
-            .ok_or(topk_rs::Error::InvalidProto)?
-            .data
-            .take()
-            .ok_or(topk_rs::Error::InvalidProto)?;
+    fn try_from(v: topk_rs::proto::v1::ctx::SearchResult) -> Result<Self, Self::Error> {
+        let content = match v.content {
+            None => None,
+            Some(content) => {
+                Some(match content.data.ok_or(topk_rs::Error::InvalidProto)? {
+                    Data::Chunk(chunk) => Content::Chunk(Chunk {
+                        text: chunk.text,
+                        doc_pages: chunk.doc_pages,
+                    }),
+                    Data::Page(page) => Content::Page(Page {
+                        page_number: page.page_number,
+                        image: page.image.map(|img| Image {
+                            data: img.data.to_vec(),
+                            mime_type: img.mime_type,
+                        }),
+                    }),
+                    Data::Image(img) => Content::Image(Image {
+                        data: img.data.to_vec(),
+                        mime_type: img.mime_type,
+                    }),
+                })
+            }
+        };
 
         Ok(SearchResult {
             doc_id: v.doc_id,
             doc_type: v.doc_type,
+            doc_name: v.doc_name,
             dataset: v.dataset,
-            content: match content_data {
-                Data::Chunk(chunk) => Content::Chunk(Chunk {
-                    text: chunk.text,
-                    doc_pages: chunk.doc_pages,
-                }),
-                Data::Page(page) => Content::Page(Page {
-                    page_number: page.page_number,
-                    image: page.image.map(|img| Image {
-                        data: img.data.to_vec(),
-                        mime_type: img.mime_type,
-                    }),
-                }),
-                Data::Image(img) => Content::Image(Image {
-                    data: img.data.to_vec(),
-                    mime_type: img.mime_type,
-                }),
-            },
+            content_id: v.content_id,
+            content,
             metadata: v.metadata.into_iter().map(|(k, v)| (k, v.into())).collect(),
         })
     }
@@ -283,6 +288,8 @@ pub struct Answer {
     facts: Vec<Fact>,
     #[pyo3(get)]
     refs: HashMap<String, SearchResult>,
+    #[pyo3(get)]
+    confidence: f32,
 }
 
 #[pymethods]
@@ -337,6 +344,7 @@ impl TryFrom<topk_rs::proto::v1::ctx::ask_result::Message> for AskResult {
                     .into_iter()
                     .map(|(k, v)| v.try_into().map(|sr| (k, sr)))
                     .collect::<Result<HashMap<_, _>, _>>()?,
+                confidence: fa.confidence,
             })),
             Message::Progress(p) => Ok(AskResult::Progress(Progress { update: p.update })),
         }

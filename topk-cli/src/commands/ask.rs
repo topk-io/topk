@@ -40,6 +40,7 @@ impl From<Mode> for topk_rs::proto::v1::ctx::Mode {
 pub struct AskResult {
     pub facts: Vec<Fact>,
     pub refs: HashMap<String, SearchResult>,
+    pub confidence: f32,
 
     #[serde(skip)]
     pub(crate) show_refs: bool,
@@ -54,6 +55,7 @@ impl AskResult {
                 .into_iter()
                 .map(|(k, v)| (k, SearchResult::from(v)))
                 .collect(),
+            confidence: a.confidence,
             show_refs,
         }
     }
