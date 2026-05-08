@@ -38,8 +38,8 @@ pub struct UpdateDatasetArgs {
     #[arg(value_name = "DATASET")]
     pub dataset: String,
     /// Dataset description
-    #[arg(long, required = true)]
-    pub description: String,
+    #[arg(long)]
+    pub description: Option<String>,
 }
 
 /// `topk dataset`
@@ -241,8 +241,12 @@ pub async fn update<C: DatasetsClient>(
     mut client: C,
     args: &UpdateDatasetArgs,
 ) -> Result<UpdateDatasetResult, Error> {
+    if args.description.is_none() {
+        return Err(Error::InvalidArgument("at least one field must be specified".into()));
+    }
+
     Ok(client
-        .update(&args.dataset, Some(args.description.clone()))
+        .update(&args.dataset, args.description.clone())
         .await?
         .into())
 }
@@ -378,6 +382,25 @@ mod tests {
         let result: UpdateDatasetResult = out.json().unwrap();
         assert_eq!(result.dataset.name, name);
         assert_eq!(result.dataset.description.as_deref(), Some("Hello world"));
+    }
+
+    #[test_context(CliTestContext)]
+    #[tokio::test]
+    async fn update_without_fields(ctx: &mut CliTestContext) {
+        let name = ctx.wrap("test");
+        cmd()
+            .args(["dataset", "create", "--region", &ctx.region, &name])
+            .output()
+            .unwrap();
+
+        let out = cmd()
+            .args(["dataset", "update", &name])
+            .output()
+            .unwrap();
+        assert!(!out.status.success());
+        assert!(
+            String::from_utf8_lossy(&out.stderr).contains("at least one field must be specified")
+        );
     }
 
     #[test_context(CliTestContext)]

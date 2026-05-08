@@ -182,7 +182,7 @@ topk dataset update my-dataset --description "My dataset description"
 | Flag            | Required | Description                                  |
 | --------------- | -------- | -------------------------------------------- |
 | `DATASET`       | **Yes**  | Dataset name                                 |
-| `--description` | **Yes**  | Dataset description                          |
+| `--description` | No       | Dataset description                          |
 
 
 #### delete
