@@ -129,13 +129,12 @@ pub struct SearchResult {
 impl TryFrom<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
     type Error = napi::Error;
 
-    fn try_from(mut v: topk_rs::proto::v1::ctx::SearchResult) -> Result<Self> {
-        let content = match v.content.take() {
+    fn try_from(v: topk_rs::proto::v1::ctx::SearchResult) -> Result<Self> {
+        let content = match v.content {
             None => None,
-            Some(mut content) => Some(
+            Some(content) => Some(
                 match content
                     .data
-                    .take()
                     .ok_or_else(|| napi::Error::from_reason(topk_rs::Error::InvalidProto.to_string()))?
                 {
                     Data::Chunk(chunk) => Content {

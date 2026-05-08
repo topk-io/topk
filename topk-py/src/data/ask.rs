@@ -245,12 +245,11 @@ impl SearchResult {
 impl TryFrom<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
     type Error = RustError;
 
-    fn try_from(mut v: topk_rs::proto::v1::ctx::SearchResult) -> Result<Self, Self::Error> {
-        let content = match v.content.take() {
+    fn try_from(v: topk_rs::proto::v1::ctx::SearchResult) -> Result<Self, Self::Error> {
+        let content = match v.content {
             None => None,
-            Some(mut c) => {
-                let data = c.data.take().ok_or(topk_rs::Error::InvalidProto)?;
-                Some(match data {
+            Some(content) => {
+                Some(match content.data.ok_or(topk_rs::Error::InvalidProto)? {
                     Data::Chunk(chunk) => Content::Chunk(Chunk {
                         text: chunk.text,
                         doc_pages: chunk.doc_pages,
