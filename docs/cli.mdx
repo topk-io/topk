@@ -163,6 +163,19 @@ topk dataset create --region aws-us-east-1-elastica my-dataset
 | `DATASET`  | **Yes**  | Dataset name                                                                                                            |
 | `--region` | **Yes**  | Region to create the dataset in. List available regions at [https://docs.topk.io/regions](https://docs.topk.io/regions) |
 
+#### update
+
+Update a dataset:
+
+```bash
+topk dataset update my-dataset --description "My dataset description"
+```
+
+| Flag            | Required | Description                                  |
+| --------------- | -------- | -------------------------------------------- |
+| `DATASET`       | **Yes**  | Dataset name                                 |
+| `--description` | **Yes**  | Dataset description                          |
+
 #### delete
 
 Delete a dataset:

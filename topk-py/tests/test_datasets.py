@@ -28,6 +28,19 @@ def test_delete_non_existent_dataset(ctx: ProjectContext):
         ctx.client.datasets().delete(ctx.scope("test"))
 
 
+def test_update_dataset_description(ctx: ProjectContext):
+    dataset = ctx.client.datasets().create(ctx.scope("test"))
+
+    updated = ctx.client.datasets().update(dataset.name, "Hello world")
+    assert updated.description == "Hello world"
+
+    updated = ctx.client.datasets().update(dataset.name)
+    assert updated.description == "Hello world"
+
+    updated = ctx.client.datasets().update(dataset.name, "")
+    assert updated.description == ""
+
+
 def test_delete_dataset(ctx: ProjectContext):
     d = ctx.client.datasets().create(ctx.scope("test"))
     ctx.client.datasets().delete(ctx.scope("test"))

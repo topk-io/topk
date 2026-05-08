@@ -46,6 +46,20 @@ impl DatasetsClient {
         Ok(dataset.into())
     }
 
+    #[pyo3(signature = (name, description=None))]
+    pub fn update(
+        &self,
+        py: Python<'_>,
+        name: String,
+        description: Option<String>,
+    ) -> PyResult<Dataset> {
+        let dataset = self
+            .runtime
+            .block_on(py, self.client.datasets().update(&name, description))
+            .map_err(RustError)?;
+        Ok(dataset.into())
+    }
+
     pub fn delete(&self, py: Python<'_>, dataset_name: String) -> PyResult<()> {
         self.runtime
             .block_on(py, self.client.datasets().delete(&dataset_name))

@@ -680,6 +680,7 @@ Represents a dataset in the TopK system.
 | Property | Type |             |
 | -------- | ---- | ----------- |
 | `name` | str |  |
+| `description` | Optional[str] |  |
 | `org_id` | str |  |
 | `project_id` | str |  |
 | `region` | str |  |
@@ -916,6 +917,27 @@ Create a new dataset.
 | Parameter | Type |
 | --------- | ---- |
 | `dataset_name` | str |
+
+**Returns**
+
+[`Dataset`](#dataset)
+
+***
+
+#### update()
+
+```python
+update(self, name: str, description: Optional[str] = None) -> Dataset
+```
+
+Update a dataset.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `name` | str |
+| `description` | Optional[str] |
 
 **Returns**
 
@@ -1163,6 +1185,27 @@ Create a new dataset asynchronously.
 | Parameter | Type |
 | --------- | ---- |
 | `dataset_name` | str |
+
+**Returns**
+
+Awaitable[[`Dataset`](#dataset)]
+
+***
+
+#### update()
+
+```python
+update(self, name: str, description: Optional[str] = None) -> Awaitable[Dataset]
+```
+
+Update a dataset.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `name` | str |
+| `description` | Optional[str] |
 
 **Returns**
 

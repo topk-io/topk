@@ -33,6 +33,20 @@ async def test_async_delete_non_existent_dataset(async_ctx: AsyncProjectContext)
 
 
 @pytest.mark.asyncio
+async def test_async_update_dataset_description(async_ctx: AsyncProjectContext):
+    dataset = await async_ctx.client.datasets().create(async_ctx.scope("test"))
+
+    updated = await async_ctx.client.datasets().update(dataset.name, "Hello world")
+    assert updated.description == "Hello world"
+
+    updated = await async_ctx.client.datasets().update(dataset.name)
+    assert updated.description == "Hello world"
+
+    updated = await async_ctx.client.datasets().update(dataset.name, "")
+    assert updated.description == ""
+
+
+@pytest.mark.asyncio
 async def test_async_delete_dataset(async_ctx: AsyncProjectContext):
     d = await async_ctx.client.datasets().create(async_ctx.scope("test"))
     await async_ctx.client.datasets().delete(async_ctx.scope("test"))

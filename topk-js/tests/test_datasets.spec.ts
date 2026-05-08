@@ -49,6 +49,40 @@ describe("Datasets", () => {
     );
   });
 
+  test("update dataset description", async () => {
+    const ctx = getContext();
+    const dataset = await ctx.createDataset("test");
+
+    await expect(
+      ctx.client.datasets().update({
+        name: dataset.name,
+        description: "Hello world",
+      })
+    ).resolves.toMatchObject({
+      name: dataset.name,
+      description: "Hello world",
+    });
+
+    await expect(
+      ctx.client.datasets().update({
+        name: dataset.name,
+      })
+    ).resolves.toMatchObject({
+      name: dataset.name,
+      description: "Hello world",
+    });
+
+    await expect(
+      ctx.client.datasets().update({
+        name: dataset.name,
+        description: "",
+      })
+    ).resolves.toMatchObject({
+      name: dataset.name,
+      description: "",
+    });
+  });
+
   test("delete dataset", async () => {
     const ctx = getContext();
     const dataset = await ctx.createDataset("test");
