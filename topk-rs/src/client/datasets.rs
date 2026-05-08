@@ -11,6 +11,7 @@ use crate::error::Error;
 use crate::proto::v1::control::dataset_service_client::DatasetServiceClient;
 use crate::proto::v1::control::{
     CreateDatasetRequest, Dataset, DeleteDatasetRequest, GetDatasetRequest, ListDatasetsRequest,
+    UpdateDatasetRequest,
 };
 
 pub struct DatasetsClient {
@@ -89,6 +90,37 @@ impl DatasetsClient {
                     .map_err(|e| match e.code() {
                         // Dataset already exists
                         tonic::Code::AlreadyExists => Error::DatasetAlreadyExists,
+                        // Delegate other errors
+                        _ => e.into(),
+                    })
+            }
+        })
+        .await?;
+
+        let dataset = response.into_inner().dataset.ok_or(Error::InvalidProto)?;
+        Ok(dataset)
+    }
+
+    pub async fn update(
+        &self,
+        name: impl Into<String>,
+        description: Option<String>,
+    ) -> Result<Dataset, Error> {
+        let client = create_client!(DatasetServiceClient, self.channel, self.config).await?;
+        let name = name.into();
+
+        let response = call_with_retry(&self.config.retry_config(), || {
+            let mut client = client.clone();
+            let name = name.clone();
+            let description = description.clone();
+
+            async move {
+                client
+                    .update_dataset(UpdateDatasetRequest { name, description })
+                    .await
+                    .map_err(|e| match e.code() {
+                        // Dataset not found
+                        tonic::Code::NotFound => Error::DatasetNotFound,
                         // Delegate other errors
                         _ => e.into(),
                     })

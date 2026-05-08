@@ -41,7 +41,11 @@ async fn test_create_dataset(ctx: &mut ProjectTestContext) {
         .await
         .expect("could not list datasets");
 
-    assert!(list.iter().any(|d| d.name == create.name));
+    let dataset = list
+        .iter()
+        .find(|d| d.name == create.name)
+        .expect("dataset not found");
+    assert_eq!(dataset.description, None);
 }
 
 #[test_context(ProjectTestContext)]
@@ -100,6 +104,40 @@ async fn test_delete_dataset(ctx: &mut ProjectTestContext) {
         .expect("could not list datasets");
 
     assert!(!list.iter().any(|d| d.name == create.name));
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_update_dataset_description(ctx: &mut ProjectTestContext) {
+    ctx.client
+        .datasets()
+        .create(ctx.wrap("test"), None)
+        .await
+        .expect("could not create dataset");
+
+    let updated = ctx
+        .client
+        .datasets()
+        .update(ctx.wrap("test"), Some("Hello world".to_string()))
+        .await
+        .expect("could not update dataset");
+    assert_eq!(updated.description.as_deref(), Some("Hello world"));
+
+    let updated = ctx
+        .client
+        .datasets()
+        .update(ctx.wrap("test"), None)
+        .await
+        .expect("could not update dataset");
+    assert_eq!(updated.description.as_deref(), Some("Hello world"));
+
+    let updated = ctx
+        .client
+        .datasets()
+        .update(ctx.wrap("test"), Some("".to_string()))
+        .await
+        .expect("could not update dataset");
+    assert_eq!(updated.description.as_deref(), Some(""));
 }
 
 #[test_context(ProjectTestContext)]

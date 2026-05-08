@@ -7,4 +7,5 @@ message Dataset {
   string project_id = 3;
   string region = 4;
   string created_at = 5;
+  optional string description = 6;
 }

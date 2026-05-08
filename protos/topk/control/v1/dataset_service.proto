@@ -13,6 +13,9 @@ service DatasetService {
   // Create dataset
   rpc CreateDataset(CreateDatasetRequest) returns (CreateDatasetResponse);
 
+  // Update dataset
+  rpc UpdateDataset(UpdateDatasetRequest) returns (UpdateDatasetResponse);
+
   // Delete dataset
   rpc DeleteDataset(DeleteDatasetRequest) returns (DeleteDatasetResponse);
 }
@@ -35,6 +38,14 @@ message CreateDatasetRequest {
   optional string region = 2;
 }
 message CreateDatasetResponse {
+  Dataset dataset = 1;
+}
+
+message UpdateDatasetRequest {
+  string name = 1;
+  optional string description = 2;
+}
+message UpdateDatasetResponse {
   Dataset dataset = 1;
 }
 
