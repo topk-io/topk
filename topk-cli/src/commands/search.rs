@@ -128,7 +128,9 @@ pub fn save_search_results(
 
         let ext = match data {
             content::Data::Chunk(_) => "txt".to_string(),
-            content::Data::Image(img) => MimeType::from(img.mime_type.as_str()).to_ext().to_string(),
+            content::Data::Image(img) => {
+                MimeType::from(img.mime_type.as_str()).to_ext().to_string()
+            }
             content::Data::Page(page) => MimeType::from(
                 page.image
                     .as_ref()
@@ -406,8 +408,8 @@ mod tests {
     fn search_result_json_unwraps_metadata_values() {
         let result = topk_rs::proto::v1::ctx::SearchResult {
             doc_id: "doc1".to_string(),
-            doc_name: "doc1.md".to_string(),
             doc_type: "text/markdown".to_string(),
+            doc_name: "doc1.md".to_string(),
             dataset: "sec-10k".to_string(),
             content_id: "chunk-1".to_string(),
             content: None,
@@ -426,9 +428,9 @@ mod tests {
             json!({
                 "doc_id": "doc1",
                 "doc_type": "text/markdown",
+                "doc_name": "doc1.md",
                 "dataset": "sec-10k",
                 "content_id": "chunk-1",
-                "doc_name": "doc1.md",
                 "content": null,
                 "metadata": {
                     "ticker": "AAPL",

@@ -704,6 +704,25 @@ List all datasets.
 
 `Promise`\<[`Dataset`](/sdk/topk-js/index#dataset-1)[]\>
 
+##### update()
+
+```ts
+update(name: string, params: UpdateDatasetParams): Promise<Dataset>;
+```
+
+Update dataset properties
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `name` | `string` |
+| `params` | [`UpdateDatasetParams`](/sdk/topk-js/index#updatedatasetparams) |
+
+**Returns**
+
+`Promise`\<[`Dataset`](/sdk/topk-js/index#dataset-1)\>
+
 ***
 
 ### SearchStream
@@ -865,6 +884,7 @@ Represents a dataset in the TopK service.
 | Property | Type | Description |
 | ------ | ------ | ------ |
 | <a id="property-createdat"></a> `createdAt` | `string` | RFC 3339 timestamp when the dataset was created |
+| <a id="property-description"></a> `description?` | `string` | Dataset description |
 | <a id="property-name-1"></a> `name` | `string` | Name of the dataset |
 | <a id="property-orgid-1"></a> `orgId` | `string` | Organization ID that owns the dataset |
 | <a id="property-projectid-1"></a> `projectId` | `string` | Project ID that contains the dataset |
@@ -1006,6 +1026,16 @@ Represents a search result in an ask response.
 | <a id="property-docname"></a> `docName` | `string` |
 | <a id="property-doctype"></a> `docType` | `string` |
 | <a id="property-metadata-1"></a> `metadata` | `Record`\<`string`, `any`\> |
+
+***
+
+### UpdateDatasetParams
+
+**Properties**
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="property-description-1"></a> `description?` | `string` | Dataset description |
 
 ***
 

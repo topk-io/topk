@@ -8,6 +8,7 @@ pub trait DatasetsClient {
     async fn list(&mut self) -> Result<Vec<Dataset>, Error>;
     async fn get(&mut self, name: &str) -> Result<Dataset, Error>;
     async fn create(&mut self, name: &str, region: &str) -> Result<Dataset, Error>;
+    async fn update(&mut self, name: &str, description: Option<String>) -> Result<Dataset, Error>;
     async fn delete(&mut self, name: &str) -> Result<(), Error>;
 }
 
@@ -42,6 +43,10 @@ impl DatasetsClient for RealDatasetsClient {
             .datasets()
             .create(name, Some(region.to_string()))
             .await?)
+    }
+
+    async fn update(&mut self, name: &str, description: Option<String>) -> Result<Dataset, Error> {
+        Ok(self.client.datasets().update(name, description).await?)
     }
 
     async fn delete(&mut self, name: &str) -> Result<(), Error> {
@@ -103,6 +108,12 @@ where
 
     async fn create(&mut self, name: &str, region: &str) -> Result<Dataset, Error> {
         let dataset = self.client.create(name, region).await?;
+        self.cache_dataset_region(&dataset.name, &dataset.region);
+        Ok(dataset)
+    }
+
+    async fn update(&mut self, name: &str, description: Option<String>) -> Result<Dataset, Error> {
+        let dataset = self.client.update(name, description).await?;
         self.cache_dataset_region(&dataset.name, &dataset.region);
         Ok(dataset)
     }
@@ -191,6 +202,7 @@ mod tests {
         list_calls: usize,
         get_calls: usize,
         create_calls: usize,
+        update_calls: usize,
         delete_calls: usize,
     }
 
@@ -224,6 +236,21 @@ mod tests {
             Ok(dataset)
         }
 
+        async fn update(
+            &mut self,
+            name: &str,
+            description: Option<String>,
+        ) -> Result<Dataset, Error> {
+            self.update_calls += 1;
+            let dataset = self.datasets.get_mut(name).ok_or(Error::DatasetNotFound)?;
+
+            if let Some(description) = description {
+                dataset.description = Some(description);
+            }
+
+            Ok(dataset.clone())
+        }
+
         async fn delete(&mut self, name: &str) -> Result<(), Error> {
             self.delete_calls += 1;
             self.datasets.remove(name).ok_or(Error::DatasetNotFound)?;
@@ -241,6 +268,7 @@ mod tests {
     fn dataset(name: &str, region: &str) -> Dataset {
         Dataset {
             name: name.to_string(),
+            description: None,
             region: region.to_string(),
             org_id: "org".to_string(),
             project_id: "project".to_string(),
@@ -297,6 +325,23 @@ mod tests {
 
         assert_eq!(dataset.name, "ds");
         assert_eq!(client.client.create_calls, 1);
+        assert_eq!(client.cache.get("ds"), Some("us-east-1"));
+    }
+
+    #[tokio::test]
+    async fn update_keeps_region_index_and_updates_remote_dataset() {
+        let mut client = CachedDatasetsClient::new(
+            FakeDatasetsClient::with_dataset(dataset("ds", "us-east-1")),
+            indexed("ds", "us-east-1"),
+        );
+
+        let dataset = client
+            .update("ds", Some("Hello world".to_string()))
+            .await
+            .unwrap();
+
+        assert_eq!(dataset.description.as_deref(), Some("Hello world"));
+        assert_eq!(client.client.update_calls, 1);
         assert_eq!(client.cache.get("ds"), Some("us-east-1"));
     }
 

@@ -290,6 +290,7 @@ class Dataset:
     """
 
     name: builtins.str
+    description: typing.Optional[builtins.str]
     org_id: builtins.str
     project_id: builtins.str
     region: builtins.str
@@ -388,6 +389,15 @@ class DatasetsClient:
         Create a new dataset.
         """
         ...
+    def update(
+        self,
+        dataset_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+    ) -> Dataset:
+        """
+        Update dataset properties.
+        """
+        ...
     def delete(self, dataset_name: builtins.str) -> None:
         """
         Delete a dataset.
@@ -476,6 +486,15 @@ class AsyncDatasetsClient:
     def create(self, dataset_name: builtins.str) -> typing.Awaitable[Dataset]:
         """
         Create a new dataset asynchronously.
+        """
+        ...
+    def update(
+        self,
+        dataset_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+    ) -> typing.Awaitable[Dataset]:
+        """
+        Update dataset properties.
         """
         ...
     def delete(self, dataset_name: builtins.str) -> typing.Awaitable[None]:

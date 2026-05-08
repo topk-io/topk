@@ -157,6 +157,8 @@ export declare class DatasetsClient {
   get(name: string): Promise<Dataset>
   /** Create a new dataset. */
   create(name: string): Promise<Dataset>
+  /** Update dataset properties */
+  update(name: string, params: UpdateDatasetParams): Promise<Dataset>
   /** Delete a dataset. */
   delete(name: string): Promise<void>
 }
@@ -276,6 +278,8 @@ export interface Content {
 export interface Dataset {
   /** Name of the dataset */
   name: string
+  /** Dataset description */
+  description?: string
   /** Organization ID that owns the dataset */
   orgId: string
   /** Project ID that contains the dataset */
@@ -378,6 +382,11 @@ export interface SearchResult {
   contentId: string
   content?: Content
   metadata: Record<string, any>
+}
+
+export interface UpdateDatasetParams {
+  /** Dataset description */
+  description?: string
 }
 
 /** Configuration for polling when waiting for a handle to be processed. */

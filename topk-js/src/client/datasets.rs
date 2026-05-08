@@ -6,6 +6,12 @@ use napi_derive::napi;
 use crate::data::Dataset;
 use crate::error::TopkError;
 
+#[napi(object)]
+pub struct UpdateDatasetParams {
+    /// Dataset description
+    pub description: Option<String>,
+}
+
 /// Client for managing datasets.
 /// @internal
 /// @hideconstructor
@@ -53,6 +59,19 @@ impl DatasetsClient {
             .client
             .datasets()
             .create(&name, None)
+            .await
+            .map_err(TopkError::from)?;
+
+        Ok(dataset.into())
+    }
+
+    /// Update dataset properties
+    #[napi]
+    pub async fn update(&self, name: String, params: UpdateDatasetParams) -> Result<Dataset> {
+        let dataset = self
+            .client
+            .datasets()
+            .update(name, params.description)
             .await
             .map_err(TopkError::from)?;
 

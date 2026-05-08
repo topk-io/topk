@@ -1,5 +1,6 @@
 use std::fmt;
 
+use colored::Colorize;
 use comfy_table::{
     presets, Attribute, Cell, Color, ColumnConstraint, ContentArrangement, Table, Width,
 };
@@ -31,6 +32,16 @@ pub struct DeleteDatasetArgs {
     pub yes: bool,
 }
 
+#[derive(Debug, clap::Args)]
+pub struct UpdateDatasetArgs {
+    /// Dataset name
+    #[arg(value_name = "DATASET")]
+    pub dataset: String,
+    /// Dataset description
+    #[arg(long)]
+    pub description: Option<String>,
+}
+
 /// `topk dataset`
 #[derive(Debug, clap::Subcommand)]
 pub enum DatasetAction {
@@ -44,6 +55,8 @@ pub enum DatasetAction {
     },
     /// Create a dataset
     Create(CreateDatasetArgs),
+    /// Update a dataset
+    Update(UpdateDatasetArgs),
     /// Delete a dataset
     Delete(DeleteDatasetArgs),
 }
@@ -51,6 +64,7 @@ pub enum DatasetAction {
 #[derive(Serialize, Deserialize)]
 pub struct Dataset {
     pub name: String,
+    pub description: Option<String>,
     pub region: String,
     // RFC3339 formatted timestamp
     pub(crate) created_at: String,
@@ -60,6 +74,7 @@ impl From<topk_rs::proto::v1::control::Dataset> for Dataset {
     fn from(dataset: topk_rs::proto::v1::control::Dataset) -> Self {
         Self {
             name: dataset.name,
+            description: dataset.description,
             region: dataset.region,
             created_at: dataset.created_at,
         }
@@ -135,10 +150,15 @@ impl fmt::Display for GetDatasetResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "Name:    {}\nRegion:  {}\nCreated: {}",
+            "Name:        {}\nRegion:      {}\nCreated:     {}\nDescription: {}",
             self.dataset.name,
             self.dataset.region,
-            format_timestamp(&self.dataset.created_at).unwrap_or_default()
+            format_timestamp(&self.dataset.created_at).unwrap_or_default(),
+            self.dataset
+                .description
+                .as_deref()
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| "N/A".dimmed().to_string()),
         )
     }
 }
@@ -160,6 +180,26 @@ impl From<DatasetPb> for CreateDatasetResult {
 impl fmt::Display for CreateDatasetResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Dataset '{}' created.", self.dataset.name)
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct UpdateDatasetResult {
+    pub(crate) dataset: Dataset,
+}
+
+impl From<DatasetPb> for UpdateDatasetResult {
+    fn from(dataset: DatasetPb) -> Self {
+        Self {
+            dataset: dataset.into(),
+        }
+    }
+}
+
+impl fmt::Display for UpdateDatasetResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Dataset '{}' updated.", self.dataset.name)
     }
 }
 
@@ -196,6 +236,21 @@ pub async fn create<C: DatasetsClient>(
     Ok(client.create(&args.dataset, &args.region).await?.into())
 }
 
+/// `topk dataset update`
+pub async fn update<C: DatasetsClient>(
+    mut client: C,
+    args: &UpdateDatasetArgs,
+) -> Result<UpdateDatasetResult, Error> {
+    if args.description.is_none() {
+        return Err(Error::InvalidArgument("at least one field must be specified".into()));
+    }
+
+    Ok(client
+        .update(&args.dataset, args.description.clone())
+        .await?
+        .into())
+}
+
 /// `topk dataset delete`
 pub async fn delete<C: DatasetsClient>(
     mut client: C,
@@ -213,7 +268,9 @@ pub async fn delete<C: DatasetsClient>(
 
 #[cfg(test)]
 mod tests {
-    use super::{CreateDatasetResult, Dataset, DeleteDatasetResult, GetDatasetResult};
+    use super::{
+        CreateDatasetResult, Dataset, DeleteDatasetResult, GetDatasetResult, UpdateDatasetResult,
+    };
     use crate::commands::test_context::{CliTestContext, OutputJsonExt};
     use assert_cmd::Command;
     use test_context::test_context;
@@ -294,6 +351,56 @@ mod tests {
         );
         let result: GetDatasetResult = out.json().unwrap();
         assert_eq!(result.dataset.name, name);
+    }
+
+    #[test_context(CliTestContext)]
+    #[tokio::test]
+    async fn update(ctx: &mut CliTestContext) {
+        let name = ctx.wrap("test");
+        cmd()
+            .args(["dataset", "create", "--region", &ctx.region, &name])
+            .output()
+            .unwrap();
+
+        let out = cmd()
+            .args([
+                "-o",
+                "json",
+                "dataset",
+                "update",
+                &name,
+                "--description",
+                "Hello world",
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        let result: UpdateDatasetResult = out.json().unwrap();
+        assert_eq!(result.dataset.name, name);
+        assert_eq!(result.dataset.description.as_deref(), Some("Hello world"));
+    }
+
+    #[test_context(CliTestContext)]
+    #[tokio::test]
+    async fn update_without_fields(ctx: &mut CliTestContext) {
+        let name = ctx.wrap("test");
+        cmd()
+            .args(["dataset", "create", "--region", &ctx.region, &name])
+            .output()
+            .unwrap();
+
+        let out = cmd()
+            .args(["dataset", "update", &name])
+            .output()
+            .unwrap();
+        assert!(!out.status.success());
+        assert!(
+            String::from_utf8_lossy(&out.stderr).contains("at least one field must be specified")
+        );
     }
 
     #[test_context(CliTestContext)]

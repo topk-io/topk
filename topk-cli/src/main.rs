@@ -76,7 +76,7 @@ enum Commands {
     /// List documents in a dataset
     List(list::ListArgs),
 
-    /// Manage datasets (create, list, delete)
+    /// Manage datasets (create, list, update, delete)
     Dataset {
         #[command(subcommand)]
         action: dataset::DatasetAction,
@@ -158,6 +158,9 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
                 }
                 dataset::DatasetAction::Create(args) => {
                     output.print(&dataset::create(client, &args).await?)?;
+                }
+                dataset::DatasetAction::Update(args) => {
+                    output.print(&dataset::update(client, &args).await?)?;
                 }
                 dataset::DatasetAction::Delete(args) => {
                     output.print(&dataset::delete(client, &args, output).await?)?;
