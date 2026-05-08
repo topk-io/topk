@@ -395,7 +395,7 @@ class DatasetsClient:
         description: typing.Optional[builtins.str] = None,
     ) -> Dataset:
         """
-        Update a dataset.
+        Update dataset properties.
         """
         ...
     def delete(self, dataset_name: builtins.str) -> None:
@@ -494,7 +494,7 @@ class AsyncDatasetsClient:
         description: typing.Optional[builtins.str] = None,
     ) -> typing.Awaitable[Dataset]:
         """
-        Update a dataset.
+        Update dataset properties.
         """
         ...
     def delete(self, dataset_name: builtins.str) -> typing.Awaitable[None]:

@@ -65,7 +65,7 @@ impl DatasetsClient {
         Ok(dataset.into())
     }
 
-    /// Update a dataset.
+    /// Update dataset properties
     #[napi]
     pub async fn update(&self, name: String, params: UpdateDatasetParams) -> Result<Dataset> {
         let dataset = self

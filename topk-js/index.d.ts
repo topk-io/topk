@@ -157,7 +157,7 @@ export declare class DatasetsClient {
   get(name: string): Promise<Dataset>
   /** Create a new dataset. */
   create(name: string): Promise<Dataset>
-  /** Update a dataset. */
+  /** Update dataset properties */
   update(name: string, params: UpdateDatasetParams): Promise<Dataset>
   /** Delete a dataset. */
   delete(name: string): Promise<void>
