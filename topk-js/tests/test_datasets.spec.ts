@@ -54,8 +54,7 @@ describe("Datasets", () => {
     const dataset = await ctx.createDataset("test");
 
     await expect(
-      ctx.client.datasets().update({
-        name: dataset.name,
+      ctx.client.datasets().update(dataset.name, {
         description: "Hello world",
       })
     ).resolves.toMatchObject({
@@ -64,17 +63,14 @@ describe("Datasets", () => {
     });
 
     await expect(
-      ctx.client.datasets().update({
-        name: dataset.name,
-      })
+      ctx.client.datasets().update(dataset.name, {})
     ).resolves.toMatchObject({
       name: dataset.name,
       description: "Hello world",
     });
 
     await expect(
-      ctx.client.datasets().update({
-        name: dataset.name,
+      ctx.client.datasets().update(dataset.name, {
         description: "",
       })
     ).resolves.toMatchObject({

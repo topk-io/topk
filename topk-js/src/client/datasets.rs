@@ -8,8 +8,6 @@ use crate::error::TopkError;
 
 #[napi(object)]
 pub struct UpdateDatasetParams {
-    /// Dataset name
-    pub name: String,
     /// Dataset description
     pub description: Option<String>,
 }
@@ -69,11 +67,11 @@ impl DatasetsClient {
 
     /// Update a dataset.
     #[napi]
-    pub async fn update(&self, params: UpdateDatasetParams) -> Result<Dataset> {
+    pub async fn update(&self, name: String, params: UpdateDatasetParams) -> Result<Dataset> {
         let dataset = self
             .client
             .datasets()
-            .update(params.name, params.description)
+            .update(name, params.description)
             .await
             .map_err(TopkError::from)?;
 

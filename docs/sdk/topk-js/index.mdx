@@ -707,7 +707,7 @@ List all datasets.
 ##### update()
 
 ```ts
-update(params: UpdateDatasetParams): Promise<Dataset>;
+update(name: string, params: UpdateDatasetParams): Promise<Dataset>;
 ```
 
 Update a dataset.
@@ -716,6 +716,7 @@ Update a dataset.
 
 | Parameter | Type |
 | ------ | ------ |
+| `name` | `string` |
 | `params` | [`UpdateDatasetParams`](/sdk/topk-js/index#updatedatasetparams) |
 
 **Returns**
@@ -1035,7 +1036,6 @@ Represents a search result in an ask response.
 | Property | Type | Description |
 | ------ | ------ | ------ |
 | <a id="property-description-1"></a> `description?` | `string` | Dataset description |
-| <a id="property-name-3"></a> `name` | `string` | Dataset name |
 
 ***
 

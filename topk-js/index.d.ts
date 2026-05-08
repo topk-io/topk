@@ -158,7 +158,7 @@ export declare class DatasetsClient {
   /** Create a new dataset. */
   create(name: string): Promise<Dataset>
   /** Update a dataset. */
-  update(params: UpdateDatasetParams): Promise<Dataset>
+  update(name: string, params: UpdateDatasetParams): Promise<Dataset>
   /** Delete a dataset. */
   delete(name: string): Promise<void>
 }
@@ -385,8 +385,6 @@ export interface SearchResult {
 }
 
 export interface UpdateDatasetParams {
-  /** Dataset name */
-  name: string
   /** Dataset description */
   description?: string
 }
