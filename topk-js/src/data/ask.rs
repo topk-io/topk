@@ -118,9 +118,9 @@ pub struct Content {
 pub struct SearchResult {
     pub doc_id: String,
     pub doc_type: String,
+    pub doc_name: String,
     pub dataset: String,
     pub content_id: String,
-    pub doc_name: String,
     pub content: Option<Content>,
     #[napi(ts_type = "Record<string, any>")]
     pub metadata: HashMap<String, NativeValue>,
@@ -162,16 +162,16 @@ impl TryFrom<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
                             mime_type: img.mime_type,
                         }),
                     },
-                },
-            ),
+                })
+            }
         };
 
         Ok(SearchResult {
             doc_id: v.doc_id,
             doc_type: v.doc_type,
+            doc_name: v.doc_name,
             dataset: v.dataset,
             content_id: v.content_id,
-            doc_name: v.doc_name,
             content,
             metadata: v.metadata.into_iter().map(|(k, v)| (k, v.into())).collect(),
         })
