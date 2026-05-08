@@ -46,16 +46,16 @@ impl DatasetsClient {
         Ok(dataset.into())
     }
 
-    #[pyo3(signature = (name, description=None))]
+    #[pyo3(signature = (dataset_name, description=None))]
     pub fn update(
         &self,
         py: Python<'_>,
-        name: String,
+        dataset_name: String,
         description: Option<String>,
     ) -> PyResult<Dataset> {
         let dataset = self
             .runtime
-            .block_on(py, self.client.datasets().update(&name, description))
+            .block_on(py, self.client.datasets().update(&dataset_name, description))
             .map_err(RustError)?;
         Ok(dataset.into())
     }

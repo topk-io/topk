@@ -927,7 +927,7 @@ Create a new dataset.
 #### update()
 
 ```python
-update(self, name: str, description: Optional[str] = None) -> Dataset
+update(self, dataset_name: str, description: Optional[str] = None) -> Dataset
 ```
 
 Update a dataset.
@@ -936,7 +936,7 @@ Update a dataset.
 
 | Parameter | Type |
 | --------- | ---- |
-| `name` | str |
+| `dataset_name` | str |
 | `description` | Optional[str] |
 
 **Returns**
@@ -1195,7 +1195,7 @@ Awaitable[[`Dataset`](#dataset)]
 #### update()
 
 ```python
-update(self, name: str, description: Optional[str] = None) -> Awaitable[Dataset]
+update(self, dataset_name: str, description: Optional[str] = None) -> Awaitable[Dataset]
 ```
 
 Update a dataset.
@@ -1204,7 +1204,7 @@ Update a dataset.
 
 | Parameter | Type |
 | --------- | ---- |
-| `name` | str |
+| `dataset_name` | str |
 | `description` | Optional[str] |
 
 **Returns**

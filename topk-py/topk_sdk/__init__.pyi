@@ -391,7 +391,7 @@ class DatasetsClient:
         ...
     def update(
         self,
-        name: builtins.str,
+        dataset_name: builtins.str,
         description: typing.Optional[builtins.str] = None,
     ) -> Dataset:
         """
@@ -490,7 +490,7 @@ class AsyncDatasetsClient:
         ...
     def update(
         self,
-        name: builtins.str,
+        dataset_name: builtins.str,
         description: typing.Optional[builtins.str] = None,
     ) -> typing.Awaitable[Dataset]:
         """
