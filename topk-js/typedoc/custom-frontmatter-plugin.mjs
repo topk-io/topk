@@ -6,7 +6,7 @@ import { MarkdownPageEvent } from "typedoc-plugin-markdown";
 
 export function load(app) {
   app.renderer.on(MarkdownPageEvent.END, (page) => {
-    const titlesToReplace = ["Methods", "Properties", "Constructors", "Constructor", "Parameters", "Returns"];
+    const titlesToReplace = ["Methods", "Properties", "Constructors", "Constructor", "Parameters", "Returns", "See"];
 
     titlesToReplace.forEach(title => {
       const regex = new RegExp(`^(#{1,6})\\s*${title}`, 'gm');
