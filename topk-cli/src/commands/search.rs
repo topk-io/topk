@@ -5,7 +5,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use topk_rs::{Client, Error};
 
-use crate::util::{mime::MimeType, read_query_from_stdin, value::value_to_json, Base64Bytes};
+use crate::util::{mime::MimeType, read_query_from_stdin, value::value_to_json, Base64};
 
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(transparent)]
@@ -42,13 +42,11 @@ pub enum Content {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Image {
     pub mime_type: String,
-    pub data: Base64Bytes,
+    pub data: Base64,
 }
 
-impl TryFrom<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
-    type Error = Error;
-
-    fn try_from(result: topk_rs::proto::v1::ctx::SearchResult) -> Result<Self, Self::Error> {
+impl From<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
+    fn from(result: topk_rs::proto::v1::ctx::SearchResult) -> Self {
         let content = match result.content {
             None => None,
             Some(proto) => match proto.data {
@@ -57,7 +55,7 @@ impl TryFrom<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
             },
         };
 
-        Ok(Self {
+        Self {
             doc_id: result.doc_id,
             doc_type: result.doc_type,
             dataset: result.dataset,
@@ -69,7 +67,7 @@ impl TryFrom<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
                 .into_iter()
                 .map(|(k, v)| (k, value_to_json(v)))
                 .collect(),
-        })
+        }
     }
 }
 
@@ -82,13 +80,13 @@ impl From<topk_rs::proto::v1::ctx::content::Data> for Content {
             },
             topk_rs::proto::v1::ctx::content::Data::Image(image) => Self::Image(Image {
                 mime_type: image.mime_type,
-                data: Base64Bytes(image.data),
+                data: image.data.into(),
             }),
             topk_rs::proto::v1::ctx::content::Data::Page(page) => Self::Page {
                 page_number: page.page_number,
                 image: page.image.map(|image| Image {
                     mime_type: image.mime_type,
-                    data: Base64Bytes(image.data),
+                    data: image.data.into(),
                 }),
             },
         }
@@ -153,8 +151,8 @@ pub async fn run(client: &Client, args: &SearchArgs) -> Result<SearchResults, Er
             .try_collect::<Vec<_>>()
             .await?
             .into_iter()
-            .map(|r| r.try_into())
-            .collect::<Result<Vec<_>, _>>()?,
+            .map(|r| r.into())
+            .collect::<Vec<_>>(),
     })
 }
 
@@ -277,7 +275,7 @@ pub fn format_content_text(content: &Content) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Base64Bytes, Content, Image, SearchResult};
+    use super::{Base64, Content, Image, SearchResult};
     use assert_cmd::Command;
     use serde_json::json;
     use tempfile::tempdir;
@@ -517,7 +515,7 @@ mod tests {
             doc_name: "doc1.png".to_string(),
             content: Some(Content::Image(Image {
                 mime_type: "image/png".to_string(),
-                data: Base64Bytes(bytes::Bytes::from(vec![1, 2, 3])),
+                data: bytes::Bytes::from(vec![1, 2, 3]).into(),
             })),
             metadata: serde_json::Map::new(),
         };
