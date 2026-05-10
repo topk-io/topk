@@ -15,22 +15,6 @@
     {
       "source": "/installation",
       "destination": "/quickstart"
-    },
-    {
-      "source": "/sdk/topk-py",
-      "destination": "/sdk/topk-py/index"
-    },
-    {
-      "source": "/sdk/topk-py/",
-      "destination": "/sdk/topk-py/index"
-    },
-    {
-      "source": "/sdk/topk-js",
-      "destination": "/sdk/topk-js/index"
-    },
-    {
-      "source": "/sdk/topk-js/",
-      "destination": "/sdk/topk-js/index"
     }
   ],
   "navigation": {
@@ -74,24 +58,40 @@
         "tab": "Python SDK",
         "icon": "/icons/python.svg",
         "pages": [
-          "sdk/topk-py/overview",
-          "sdk/topk-py/index",
-          "sdk/topk-py/data",
-          "sdk/topk-py/error",
-          "sdk/topk-py/query",
-          "sdk/topk-py/schema"
+          {
+            "group": "SDK Reference",
+            "pages": [
+              "sdk/topk-py/index",
+              "sdk/topk-py/data",
+              "sdk/topk-py/error",
+              "sdk/topk-py/query",
+              "sdk/topk-py/schema"
+            ]
+          },
+          {
+            "group": "Overview",
+            "pages": ["sdk/topk-py/overview"]
+          }
         ]
       },
       {
         "tab": "JavaScript SDK",
         "icon": "/icons/js.svg",
         "pages": [
-          "sdk/topk-js/overview",
-          "sdk/topk-js/index",
-          "sdk/topk-js/Namespace.data",
-          "sdk/topk-js/Namespace.query_fn",
-          "sdk/topk-js/Namespace.query",
-          "sdk/topk-js/Namespace.schema"
+          {
+            "group": "SDK Reference",
+            "pages": [
+              "sdk/topk-js/index",
+              "sdk/topk-js/Namespace.data",
+              "sdk/topk-js/Namespace.query_fn",
+              "sdk/topk-js/Namespace.query",
+              "sdk/topk-js/Namespace.schema"
+            ]
+          },
+          {
+            "group": "Overview",
+            "pages": ["sdk/topk-js/overview"]
+          }
         ]
       },
       {
