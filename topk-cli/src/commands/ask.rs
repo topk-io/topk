@@ -54,7 +54,7 @@ impl AskResult {
                 .refs
                 .into_iter()
                 .map(|(k, v)| (k, v.into()))
-                .collect::<HashMap<_, _>>(),
+                .collect(),
             confidence: a.confidence,
             show_refs,
         }

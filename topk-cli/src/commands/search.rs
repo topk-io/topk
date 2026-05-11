@@ -47,13 +47,7 @@ pub struct Image {
 
 impl From<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
     fn from(result: topk_rs::proto::v1::ctx::SearchResult) -> Self {
-        let content = match result.content {
-            None => None,
-            Some(proto) => match proto.data {
-                None => None,
-                Some(data) => Some(Content::from(data)),
-            },
-        };
+        let content = result.content.and_then(|proto| proto.data).map(Content::from);
 
         Self {
             doc_id: result.doc_id,
@@ -152,7 +146,7 @@ pub async fn run(client: &Client, args: &SearchArgs) -> Result<SearchResults, Er
             .await?
             .into_iter()
             .map(|r| r.into())
-            .collect::<Vec<_>>(),
+            .collect(),
     })
 }
 
@@ -171,13 +165,13 @@ pub fn save_search_results(
             Content::Chunk { text, .. } => ("txt".to_string(), text.as_bytes()),
             Content::Image(img) => (
                 MimeType::from(img.mime_type.as_str()).to_ext().to_string(),
-                img.data.0.as_ref(),
+                img.data.as_ref(),
             ),
             Content::Page { image, .. } => {
                 let img = image.as_ref().ok_or(Error::InvalidProto)?;
                 (
                     MimeType::from(img.mime_type.as_str()).to_ext().to_string(),
-                    img.data.0.as_ref(),
+                    img.data.as_ref(),
                 )
             }
         };
@@ -268,14 +262,14 @@ pub fn format_content_text(content: &Content) -> Option<String> {
         Content::Image(img) => Some(format!(
             "<image {} {}>",
             img.mime_type,
-            bytesize::ByteSize(img.data.0.len() as u64)
+            bytesize::ByteSize(img.data.as_ref().len() as u64)
         )),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Base64, Content, Image, SearchResult};
+    use super::{Content, Image, SearchResult};
     use assert_cmd::Command;
     use serde_json::json;
     use tempfile::tempdir;

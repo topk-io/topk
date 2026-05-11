@@ -2,11 +2,17 @@ use base64::{engine::general_purpose::STANDARD, Engine as _};
 use bytes::Bytes;
 
 #[derive(Debug, Clone)]
-pub struct Base64(pub Bytes);
+pub struct Base64(Bytes);
 
 impl From<Bytes> for Base64 {
     fn from(b: Bytes) -> Self {
         Self(b)
+    }
+}
+
+impl AsRef<[u8]> for Base64 {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_ref()
     }
 }
 
