@@ -280,6 +280,32 @@ Alternatively, you can wait for the document to be processed using the **process
       # Document is now ready to be queried
       ```
     </CodeGroup>
+
+    You can customize polling behavior by passing a `WaitConfig`:
+
+    <CodeGroup>
+      ```python Sync
+      from topk_sdk import WaitConfig
+
+      client.dataset("my-docs").wait_for_handle(
+          handle,
+          WaitConfig(frequency_secs=10, timeout_secs=600),
+      )
+      ```
+      ```python Async
+      from topk_sdk import WaitConfig
+
+      await client.dataset("my-docs").wait_for_handle(
+          handle,
+          WaitConfig(frequency_secs=10, timeout_secs=600),
+      )
+      ```
+    </CodeGroup>
+
+    | Parameter        | Default | Description                                  |
+    | ---------------- | ------- | -------------------------------------------- |
+    | `frequency_secs` | `5`     | How often to poll for the handle status      |
+    | `timeout_secs`   | `300`   | Maximum time to wait before timing out       |
   </Tab>
   <Tab title="JavaScript SDK" icon="/icons/js.svg">
     ```typescript
@@ -294,89 +320,19 @@ Alternatively, you can wait for the document to be processed using the **process
 
     // Document is now ready to be queried
     ```
-  </Tab>
-</Tabs>
 
-## Full example
+    You can customize polling behavior by passing a `WaitConfig`:
 
-<Tabs>
-  <Tab title="Python SDK" icon="/icons/python.svg">
-    <CodeGroup>
-      ```python Sync
-      import os
-      from pathlib import Path
-      from topk_sdk import Client
-
-      client = Client(
-          api_key=os.environ["TOPK_API_KEY"],
-          region=os.environ["TOPK_REGION"],
-      )
-
-      # Create dataset
-      client.datasets().create("my-docs")
-
-      # Upload document
-      resp = client.dataset("my-docs").upsert_file(
-          "report-2024",
-          Path("./report.pdf"),
-          {"title": "Annual Report 2024"},
-      )
-
-      # Wait for processing
-      client.dataset("my-docs").wait_for_handle(resp.handle)
-
-      print("Document ready.")
-      ```
-      ```python Async
-      import os
-      from pathlib import Path
-      from topk_sdk import AsyncClient
-
-      client = AsyncClient(
-          api_key=os.environ["TOPK_API_KEY"],
-          region=os.environ["TOPK_REGION"],
-      )
-
-      # Create dataset
-      await client.datasets().create("my-docs")
-
-      # Upload document
-      resp = await client.dataset("my-docs").upsert_file(
-          "report-2024",
-          Path("./report.pdf"),
-          {"title": "Annual Report 2024"},
-      )
-
-      # Wait for processing
-      await client.dataset("my-docs").wait_for_handle(resp.handle)
-
-      print("Document ready.")
-      ```
-    </CodeGroup>
-  </Tab>
-  <Tab title="JavaScript SDK" icon="/icons/js.svg">
     ```typescript
-    import { Client } from "topk-js";
-
-    const client = new Client({
-      apiKey: process.env.TOPK_API_KEY!,
-      region: process.env.TOPK_REGION!,
+    await client.dataset("my-docs").waitForHandle(handle, {
+      frequencySecs: 10,
+      timeoutSecs: 600,
     });
-
-    // Create dataset
-    await client.datasets().create("my-docs");
-
-    // Upload document
-    const resp = await client.dataset("my-docs").upsertFile(
-      "report-2024",
-      "./report.pdf",
-      { title: "Annual Report 2024" },
-    );
-
-    // Wait for processing
-    await client.dataset("my-docs").waitForHandle(resp.handle);
-
-    console.log("Document ready.");
     ```
+
+    | Parameter       | Default | Description                                  |
+    | --------------- | ------- | -------------------------------------------- |
+    | `frequencySecs` | `5`     | How often to poll for the handle status      |
+    | `timeoutSecs`   | `300`   | Maximum time to wait before timing out       |
   </Tab>
 </Tabs>

@@ -1,0 +1,44 @@
+---
+title: "Rust SDK"
+description: "Rust library for the TopK API"
+icon: "/icons/rust.svg"
+---
+
+The `topk-rs` crate provides async Rust bindings for TopK API.
+
+Source code is on [GitHub](https://github.com/topk-io/topk/tree/main/sdk/topk-rs).
+
+## Installation
+
+The crate is not published on crates.io yet. Depend on it from the TopK repository:
+
+```toml
+[dependencies]
+topk-rs = { git = "https://github.com/topk-io/topk.git", subdirectory = "sdk/topk-rs" }
+```
+
+Or use a `path` dependency if you have the SDK checked out locally.
+
+## Prerequisites
+
+- **API key** — sign in to [console.topk.io](https://console.topk.io) and generate an API key.
+- **Region** — available regions are listed at [Regions](/regions).
+
+## Usage
+
+```rust
+use topk_rs::{Client, ClientConfig};
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let config = ClientConfig::new(
+        std::env::var("TOPK_API_KEY").expect("TOPK_API_KEY"),
+        std::env::var("TOPK_REGION").unwrap_or_else(|_| "aws-us-east-1-elastica".into()),
+    );
+    let client = Client::new(config);
+
+    client.datasets().create("my-dataset").await?;
+
+    Ok(())
+}
+```

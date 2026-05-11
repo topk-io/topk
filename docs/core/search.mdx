@@ -7,22 +7,6 @@ icon: "file-search-2"
 
 Search your documents and return the most relevant passages based on your natural-language query.
 
-```mermaid
-flowchart TD
-    R[Result]
-
-    P[Passage]
-    D[Original Document]
-    M[Metadata]
-
-    R --> P
-    P --> D
-    D --> M
-
-    E[Text chunk<br/>Visual citation<br/>Document page]
-    E -.-> P
-```
-
 ## How it works
 
 When you run Search, TopK:

@@ -9,9 +9,7 @@ brew tap topk-io/topk
 brew install topk
 ```
 
-## Commands
-
-### login
+## Authentication
 
 To authenticate, run:
 
@@ -19,11 +17,13 @@ To authenticate, run:
 topk login
 ```
 
-Or set `TOPK_API_KEY` environment variable before running the CLI commands:
+Alternatively, you can set `TOPK_API_KEY` environment variable and skip the `topk login` command.
 
 ```bash
 export TOPK_API_KEY=<your-api-key>
 ```
+
+## Commands
 
 ### ask
 
@@ -200,6 +200,20 @@ topk dataset delete my-dataset
 | `-y`      | No       | Skip confirmation prompt |
 
 
+### login
+
+To authenticate, run:
+
+```bash
+topk login
+```
+
+Alternatively, you can set `TOPK_API_KEY` environment variable and skip the `topk login` command.
+
+```bash
+export TOPK_API_KEY=<your-api-key>
+```
+
 ### logout
 
 Log out and clear cache:
@@ -212,15 +226,28 @@ topk logout
 
 These flags are accepted by every command:
 
-### `--json`
+### `--output`
+
+Options:
+
+* `text` (default)
+* `json`
 
 Output results as NDJSON — one JSON object per line, compatible with `jq`:
 
 ```bash
 topk -o json dataset list | jq '.name'
-topk -o json list --dataset my-dataset | jq 'select(.status == "ready") | .name'
 ```
 
 ### `--api-key`
 
 API key to use for this invocation. Overrides the `TOPK_API_KEY` environment variable and the key saved via `topk login`.
+
+## Updating the CLI
+
+To update CLI to the latest version, run:
+
+```bash
+brew update
+brew upgrade topk
+```

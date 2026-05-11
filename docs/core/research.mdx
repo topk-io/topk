@@ -47,7 +47,7 @@ When you run a Research query, TopK:
   </Step>
 </Steps>
 
-Here's an example of a Research query over a financial dataset:
+Here's an example of a Research query over financial filings:
 
 <Info>
 **Query:**
@@ -55,19 +55,21 @@ Here's an example of a Research query over a financial dataset:
 What was the 2022 and 2023 total value of commercial loans modified as TDRs, and the total 90+ days past due for consumer loans at December 31, 2024?
 
 **Answer:**
-- For 2022, Bank of America reported that the carrying value of commercial loans modified as troubled debt restructurings (TDRs) was \$1.9 billion. <Badge color="purple">0_0</Badge>
-- For 2023, the total value of commercial loans modified as TDRs is not provided in the source material. <Badge color="purple">1_0</Badge>
-- At December 31, 2024, consumer loans 90+ days past due totaled \$186 million, consisting of \$183 million in North America offices and \$3 million outside of North America offices. <Badge color="purple">2_0</Badge> <Badge color="purple">2_1</Badge>
+
+- Based on exact phrasing matches to corporate filings, the question refers to Bank of America. During 2022, the carrying value of Bank of America's commercial loans modified as Troubled Debt Restructurings (TDRs) was \$1.9 billion. <Badge color="purple">1</Badge> <Badge color="purple">2</Badge>
+- There is no 2023 value reported, as the TDR reporting designation and accounting guidance were eliminated effective January 1, 2023, upon the adoption of ASU 2022-02. <Badge color="purple">2</Badge> <Badge color="purple">3</Badge>
+- As of December 31, 2024, Bank of America's total consumer loans and leases that were 90 days or more past due totaled \$2,422 million. <Badge color="purple">4</Badge>
 
 **References:**
-- <Badge color="purple">0_0</Badge> — "During 2022, the carrying value of the Corporation's commercial loans that were modified as TDRs was \$1.9 billion."
-  <Badge color="blue">bank-of-america-2024-10k.pdf</Badge>
-- <Badge color="purple">1_0</Badge> — No retrieved source provided a 2023 commercial TDR carrying value comparable to the 2022 disclosure.
-  <Badge color="blue">bank-of-america-2024-10k.pdf</Badge>
-- <Badge color="purple">2_0</Badge> — Consumer loans 90+ days past due in North America offices: \$183 million at December 31, 2024
-  <Badge color="blue">citigroup-2024-10k.pdf</Badge>
-- <Badge color="purple">2_1</Badge> — Consumer loans 90+ days past due outside of North America offices: \$3 million at December 31, 2024
-  <Badge color="blue">citigroup-2024-10k.pdf</Badge>
+
+- <Badge color="purple">1</Badge> Commercial loans modified as TDRs—2022 carrying value (\$1.9 billion) and related commitments and payment-default balances (Bank of America 10-K excerpt)
+  <a href="/files/bank_of_america_2024.pdf#page=127" target="_blank" rel="noopener noreferrer"><Badge color="blue">bank_of_america_2024.pdf</Badge></a> <Badge color="gray" shape="pill">p. 127</Badge>
+- <Badge color="purple">2</Badge> Same filing section as ref 1 (duplicate retrieval in payload)
+  <a href="/files/bank_of_america_2024.pdf#page=127" target="_blank" rel="noopener noreferrer"><Badge color="blue">bank_of_america_2024.pdf</Badge></a> <Badge color="gray" shape="pill">p. 127</Badge>
+- <Badge color="purple">3</Badge> ASU 2022-02 eliminated U.S. GAAP troubled debt restructuring reporting; cites year-end 2022 TDR table context (Wells Fargo 10-K excerpt)
+  <a href="/files/wells_fargo_2024.pdf#page=254" target="_blank" rel="noopener noreferrer"><Badge color="blue">wells_fargo_2024.pdf</Badge></a> <Badge color="gray" shape="pill">pp. 254–255</Badge>
+- <Badge color="purple">4</Badge> Outstanding consumer loans and leases—90+ days past due (\$2,422 million in “Total consumer” rows, December 31, 2024)
+  <a href="/files/bank_of_america_2024.pdf#page=116" target="_blank" rel="noopener noreferrer"><Badge color="blue">bank_of_america_2024.pdf</Badge></a> <Badge color="gray" shape="pill">pp. 116–117</Badge>
 </Info>
 
 ## Usage

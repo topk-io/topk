@@ -8,20 +8,6 @@ icon: "message-circle-question-mark"
 TopK answers natural-language queries over your documents.
 It retrieves the most relevant parts of your documents and synthesizes a grounded answer with source citations.
 
-```mermaid
-flowchart LR
-    subgraph Answer["Answer"]
-        direction TB
-        Facts["Facts"]
-        Citations["Citations"]
-        Text["Text chunk"]
-        Page["Document page"]
-        Figure["Figure"]
-        Facts --- Citations
-        Citations --- Text & Page & Figure
-    end
-```
-
 ## How it works
 
 When you run Ask:
@@ -41,27 +27,33 @@ When you run Ask:
   </Step>
 </Steps>
 
-Here's an example of Ask query for a financial/legal knowledge base:
+Here's an example Ask query against a corporate filing (financial knowledge base):
 
 <Info>
 **Query:**
 
-Based on the acquisition agreement and recent SEC filings, what are the main risks to the Vertex deal closing on time?
+What was the total net income of Bank of America in 2024?
 
 **Answer:**
-- The European Commission's approval is conditional on divestiture of the logistics subsidiary within 90 days of closing, creating a tight execution window. <Badge color="purple">0\_0</Badge> <Badge color="purple">1\_0</Badge>
-- The $1.8B consideration is subject to an unresolved working capital adjustment mechanism that could delay closing if the parties fail to agree on the final figure. <Badge color="purple">0\_1</Badge>
-- An 18-month earnout tied to Vertex's ARR targets introduces post-close execution risk; if milestones are missed, the deal economics shift materially for both parties. <Badge color="purple">2\_0</Badge>
+
+- Bank of America's total net income for the fiscal year 2024 was \$27,132 million. <Badge color="purple">1</Badge> <Badge color="purple">2</Badge> <Badge color="purple">3</Badge> <Badge color="purple">4</Badge> <Badge color="purple">5</Badge> <Badge color="purple">6</Badge>
+- The 2024 net income of \$27.1 billion represented an increase from the \$26.5 billion reported in 2023. <Badge color="purple">3</Badge> <Badge color="purple">4</Badge> <Badge color="purple">6</Badge>
+- The increase in 2024 net income was driven by higher noninterest income, although this was partially offset by a higher provision for credit losses and lower net interest income. <Badge color="purple">3</Badge> <Badge color="purple">6</Badge>
 
 **Citations:**
-- <Badge color="purple">0\_0</Badge> — "Buyer shall procure the divestiture of the European logistics subsidiary no later than ninety (90) days following the Closing Date…"
-  <Badge color="blue">vertex-acquisition-agreement.pdf</Badge>
-- <Badge color="purple">0\_1</Badge> — Consideration structure and working capital adjustment table, p. 4
-  <Badge color="blue">vertex-acquisition-agreement.pdf</Badge>
-- <Badge color="purple">1\_0</Badge> — "The European Commission has indicated that approval is contingent upon structural remedies including divestiture of logistics assets…"
-  <Badge color="blue">sec-filing-8k.html</Badge>
-- <Badge color="purple">2\_0</Badge> — Closing timeline and earnout milestone diagram
-  <Badge color="blue">deal-timeline.png</Badge>
+
+- <Badge color="purple">1</Badge> Condensed Statement of Cash Flows showing net income of \$27,132m (2024) vs \$26,515m (2023)
+  <a href="/files/bank_of_america_2024.pdf#page=170" target="_blank" rel="noopener noreferrer"><Badge color="blue">bank_of_america_2024.pdf</Badge></a> <Badge color="gray" shape="pill">p. 170</Badge>
+- <Badge color="purple">2</Badge> Consolidated Statement of Comprehensive Income: net income line item for 2024–2022
+  <a href="/files/bank_of_america_2024.pdf#page=92" target="_blank" rel="noopener noreferrer"><Badge color="blue">bank_of_america_2024.pdf</Badge></a> <Badge color="gray" shape="pill">p. 92</Badge>
+- <Badge color="purple">3</Badge> Supporting figure from the filing (tabular financial excerpt)
+  <a href="/files/boa-ask-ref-3-figure.jpg" target="_blank" rel="noopener noreferrer"><Badge color="blue">boa-ask-ref-3-figure.jpg</Badge></a>
+- <Badge color="purple">4</Badge> Key performance indicators—selected annual financial data (including net income)
+  <a href="/files/bank_of_america_2024.pdf#page=33" target="_blank" rel="noopener noreferrer"><Badge color="blue">bank_of_america_2024.pdf</Badge></a> <Badge color="gray" shape="pill">pp. 33–36</Badge>
+- <Badge color="purple">5</Badge> Segment results tying to total-corporation net income
+  <a href="/files/bank_of_america_2024.pdf#page=166" target="_blank" rel="noopener noreferrer"><Badge color="blue">bank_of_america_2024.pdf</Badge></a> <Badge color="gray" shape="pill">pp. 166–168</Badge>
+- <Badge color="purple">6</Badge> Executive summary—summary income statement and balance sheet excerpts
+  <a href="/files/bank_of_america_2024.pdf#page=29" target="_blank" rel="noopener noreferrer"><Badge color="blue">bank_of_america_2024.pdf</Badge></a> <Badge color="gray" shape="pill">pp. 29–30</Badge>
 </Info>
 
 As you can see, not only does TopK understand your data and the relationships within it,
@@ -83,17 +75,207 @@ Once a dataset is created and your documents are processed, you can start runnin
     ```bash
     topk ask "What was the total net income of Bank of America in 2024?" -d my-docs
     ```
+
+    <CodeGroup>
+      ```text Text
+      Bank of America's total net income for 2024 was $27,132 million (approximately $27.1 billion).
+      The 2024 net income of $27.1 billion represented an increase from the $26.5 billion reported in 2023.
+      On a quarterly basis in 2024, Bank of America reported net incomes of $6,674 million in Q1, $6,897 million in Q2, $6,896 million in Q3, and $6,665 million in Q4.
+      Confidence: 100.00%
+      ```
+      ```json JSON expandable
+      {
+        "facts": [
+          {
+            "fact": "Bank of America's total net income for the fiscal year 2024 was $27,132 million.",
+            "ref_ids": ["1", "2", "3", "4", "5"]
+          },
+          {
+            "fact": "The 2024 net income of $27.1 billion represented an increase from the $26.5 billion reported in 2023.",
+            "ref_ids": ["3", "5"]
+          }
+        ],
+        "refs": {
+          "1": {
+            "doc_id": "bank-of-america-annual-report-2024",
+            "doc_type": "application/pdf",
+            "dataset": "my-docs",
+            "content": {
+              "data": {
+                "Chunk": {
+                  "text": "## Condensed Statement of Cash Flows\n[row_1]; []=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
+                  "doc_pages": [170]
+                }
+              }
+            },
+            "metadata": {}
+          },
+          "2": {
+            "doc_id": "bank-of-america-annual-report-2024",
+            "doc_type": "application/pdf",
+            "dataset": "my-docs",
+            "content": {
+              "data": {
+                "Chunk": {
+                  "text": "## Consolidated Statement of Comprehensive Income\n[row_0]; [Dollars in millions]=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
+                  "doc_pages": [92]
+                }
+              }
+            },
+            "metadata": {}
+          },
+          "3": {
+            "doc_id": "bank-of-america-annual-report-2024",
+            "doc_type": "application/pdf",
+            "dataset": "my-docs",
+            "content": {
+              "data": {
+                "Image": {
+                  "mime_type": "image/jpeg",
+                  "data": "binary data"
+                }
+              }
+            },
+            "metadata": {}
+          }
+        },
+        "confidence": 100
+      }
+      ```
+    </CodeGroup>
   </Tab>
   <Tab title="Python SDK" icon="/icons/python.svg">
     ```python
     for message in client.ask("What was the total net income of Bank of America in 2024?", ["my-docs"]):
         print(message)
     ```
+
+    ```json title="Example output" expandable
+    {
+      "facts": [
+        {
+          "fact": "Bank of America's total net income for the fiscal year 2024 was $27,132 million.",
+          "ref_ids": ["1", "2", "3", "4", "5", "6"]
+        },
+        {
+          "fact": "The 2024 net income of $27.1 billion represented an increase from the $26.5 billion reported in 2023.",
+          "ref_ids": ["3", "4", "6"]
+        },
+        {
+          "fact": "The increase in 2024 net income was driven by higher noninterest income, although this was partially offset by a higher provision for credit losses and lower net interest income.",
+          "ref_ids": ["3", "6"]
+        }
+      ],
+      "refs": {
+        "1": {
+          "doc_id": "bank-of-america-annual-report-2024",
+          "doc_type": "application/pdf",
+          "dataset": "my-docs",
+          "content": {
+            "type": "chunk",
+            "data": {
+              "text": "## Condensed Statement of Cash Flows\n[row_1]; []=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
+              "doc_pages": [170]
+            }
+          },
+          "metadata": {}
+        },
+        "2": {
+          "doc_id": "bank-of-america-annual-report-2024",
+          "doc_type": "application/pdf",
+          "dataset": "my-docs",
+          "content": {
+            "type": "chunk",
+            "data": {
+              "text": "## Consolidated Statement of Comprehensive Income\n[row_0]; [Dollars in millions]=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
+              "doc_pages": [92]
+            }
+          },
+          "metadata": {}
+        },
+        "3": {
+          "doc_id": "bank-of-america-annual-report-2024",
+          "doc_type": "application/pdf",
+          "dataset": "my-docs",
+          "content": {
+            "type": "image",
+            "data": {
+              "mime_type": "image/jpeg",
+              "data": "binary data"
+            }
+          },
+          "metadata": {}
+        }
+      },
+      "confidence": 100
+    }
+    ```
   </Tab>
   <Tab title="JavaScript SDK" icon="/icons/js.svg">
     ```typescript
     for await (const message of client.ask("What was the total net income of Bank of America in 2024?", ["my-docs"])) {
       console.log(message);
+    }
+    ```
+
+    ```json title="Example output" expandable
+    {
+      "facts": [
+        {
+          "fact": "Bank of America's total net income for the fiscal year 2024 was $27,132 million.",
+          "refIds": ["1", "2", "3", "4", "5", "6"]
+        },
+        {
+          "fact": "The 2024 net income of $27.1 billion represented an increase from the $26.5 billion reported in 2023.",
+          "refIds": ["3", "4", "6"]
+        },
+        {
+          "fact": "The increase in 2024 net income was driven by higher noninterest income, although this was partially offset by a higher provision for credit losses and lower net interest income.",
+          "refIds": ["3", "6"]
+        }
+      ],
+      "refs": {
+        "1": {
+          "docId": "bank-of-america-annual-report-2024",
+          "docType": "application/pdf",
+          "dataset": "my-docs",
+          "content": {
+            "type": "chunk",
+            "data": {
+              "text": "## Condensed Statement of Cash Flows\n[row_1]; []=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
+              "docPages": [170]
+            }
+          },
+          "metadata": {}
+        },
+        "2": {
+          "docId": "bank-of-america-annual-report-2024",
+          "docType": "application/pdf",
+          "dataset": "my-docs",
+          "content": {
+            "type": "chunk",
+            "data": {
+              "text": "## Consolidated Statement of Comprehensive Income\n[row_0]; [Dollars in millions]=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
+              "docPages": [92]
+            }
+          },
+          "metadata": {}
+        },
+        "3": {
+          "docId": "bank-of-america-annual-report-2024",
+          "docType": "application/pdf",
+          "dataset": "my-docs",
+          "content": {
+            "type": "image",
+            "data": {
+              "mimeType": "image/jpeg",
+              "data": "binary data"
+            }
+          },
+          "metadata": {}
+        }
+      },
+      "confidence": 100
     }
     ```
   </Tab>
@@ -322,7 +504,29 @@ The returned metadata appears on the cited results, which are associated with ea
 
 ## Understanding citations
 
-Citations are the evidence trail for the answer. They link each fact back to the original document passages that support it.
+Citations, or *references*, are the evidence trail for the answer.
+They link each fact from the answer back to the original document passages that support it.
+
+### Reference
+
+Each reference is a search result with the following fields:
+
+| Field      | Type     | Description                                                    |
+| ---------- | -------- | -------------------------------------------------------------- |
+| `doc_id`   | `string` | The document ID assigned at upload time                        |
+| `doc_name` | `string` | The file name of the document                                  |
+| `doc_type` | `string` | The MIME type of the document (e.g. `application/pdf`)         |
+| `dataset`  | `string` | The dataset the document belongs to                            |
+| `metadata` | `object` | Metadata fields attached to the document at upload time — must be explicitly requested, see [Retrieving document metadata](#retrieving-documents-metadata) |
+| `content`  | `object` | The referenced content — described in the section below        |
+
+### Content types
+
+In TopK, there are three types of references:
+
+- **Chunk** - a text chunk extracted from a document. <Info> Alongside the text, chunk may also contain page number(s) from the original document where it was extracted from.</Info>
+- **Image** - an image of a certain section of a document
+- **Page** - an image of a page from a document associated with a page number
 
 A citation helps you identify:
 

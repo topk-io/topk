@@ -32,7 +32,7 @@ import CoreConcepts from "/snippets/core-concepts.mdx";
         <Info>
           This command prompts you to either create a new API key or set an existing one.
           
-          You can also provide your API key via the `TOPK_API_KEY` environment variable:
+          You can also skip the `topk login` command and authenticate by providing your API key via the `TOPK_API_KEY` environment variable:
 
           ```bash
           export TOPK_API_KEY="your-api-key"
@@ -61,6 +61,126 @@ import CoreConcepts from "/snippets/core-concepts.mdx";
         ```bash
         topk ask "What was the total net income of Bank of America in 2024?" -d quickstart
         ```
+
+        <CodeGroup>
+          ```text Text
+          Bank of America's total net income for 2024 was $27,132 million (approximately $27.1 billion).
+          The 2024 net income of $27.1 billion represented an increase from the $26.5 billion reported in 2023.
+          On a quarterly basis in 2024, Bank of America reported net incomes of $6,674 million in Q1, $6,897 million in Q2, $6,896 million in Q3, and $6,665 million in Q4.
+          Confidence: 100.00%
+          ```
+          ```json JSON expandable
+          {
+            "facts": [
+              {
+                "fact": "Bank of America's total net income for the fiscal year 2024 was $27,132 million.",
+                "ref_ids": ["1", "2", "3", "4", "5"]
+              },
+              {
+                "fact": "The 2024 net income of $27.1 billion represented an increase from the $26.5 billion reported in 2023.",
+                "ref_ids": ["3", "5"]
+              }
+            ],
+            "refs": {
+              "1": {
+                "doc_id": "bank-of-america-annual-report-2024",
+                "doc_type": "application/pdf",
+                "dataset": "quickstart",
+                "content": {
+                  "data": {
+                    "Chunk": {
+                      "text": "# U.S. Securities and Exchange Commission - PDF Copy of Submission on SEC EDGAR system, UNITED STATES SECURITIES AND EXCHANGE COMMISSION FORM 10-K for Bank of America Corporation, Bank of America Corporation Annual Report Part I: Item 1. Business\n## Condensed Statement of Cash Flows\n### Condensed Statement of Cash Flows (Dollars in millions)\n[row_0]; []=Operating activities; [2024]=null; [2023]=null; [2022]=null\n[row_1]; []=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n[row_5]; []=Net cash provided by (used in) operating activities; [2024]=26,131; [2023]=28,529; [2022]=(6,590)\n...",
+                      "doc_pages": [170]
+                    }
+                  }
+                },
+                "metadata": {
+                  "ticker": "BAC",
+                  "doc_type": "annual_report",
+                  "fiscal_year": 2024
+                }
+              },
+              "2": {
+                "doc_id": "bank-of-america-annual-report-2024",
+                "doc_type": "application/pdf",
+                "dataset": "quickstart",
+                "content": {
+                  "data": {
+                    "Chunk": {
+                      "text": "# U.S. Securities and Exchange Commission - PDF Copy of Submission on SEC EDGAR system, UNITED STATES SECURITIES AND EXCHANGE COMMISSION FORM 10-K for Bank of America Corporation, Bank of America Corporation Annual Report Part I: Item 1. Business\n## Consolidated Statement of Comprehensive Income\n### Consolidated Statement of Comprehensive Income\n[row_0]; [Dollars in millions]=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
+                      "doc_pages": [92]
+                    }
+                  }
+                },
+                "metadata": {
+                  "ticker": "BAC",
+                  "doc_type": "annual_report",
+                  "fiscal_year": 2024
+                }
+              },
+              "3": {
+                "doc_id": "bank-of-america-annual-report-2024",
+                "doc_type": "application/pdf",
+                "dataset": "quickstart",
+                "content": {
+                  "data": {
+                    "Image": {
+                      "mime_type": "image/jpeg",
+                      "data": "binary data"
+                    }
+                  }
+                },
+                "metadata": {
+                  "ticker": "BAC",
+                  "doc_type": "annual_report",
+                  "fiscal_year": 2024
+                }
+              },
+              "4": {
+                "doc_id": "bank-of-america-annual-report-2024",
+                "doc_type": "application/pdf",
+                "dataset": "quickstart",
+                "content": {
+                  "data": {
+                    "Chunk": {
+                      "text": "# U.S. Securities and Exchange Commission - PDF Copy of Submission on SEC EDGAR system, UNITED STATES SECURITIES AND EXCHANGE COMMISSION FORM 10-K for Bank of America Corporation, Bank of America Corporation Annual Report Part I: Item 1. Business\n## Key Performance Indicators\n### Table 6 Selected Annual Financial Data\n[row_0]=Income statement; []=Net interest income; [2024]=56,060; [2023]=56,931; [2022]=52,462\n[row_2]=Income statement; []=Total revenue, net of interest expense; [2024]=101,887; [2023]=98,581; [2022]=94,950\n...",
+                      "doc_pages": [33, 34, 35, 36]
+                    }
+                  }
+                },
+                "metadata": {
+                  "ticker": "BAC",
+                  "doc_type": "annual_report",
+                  "fiscal_year": 2024
+                }
+              },
+              "5": {
+                "doc_id": "bank-of-america-annual-report-2024",
+                "doc_type": "application/pdf",
+                "dataset": "quickstart",
+                "content": {
+                  "data": {
+                    "Chunk": {
+                      "text": "# U.S. Securities and Exchange Commission - PDF Copy of Submission on SEC EDGAR system, UNITED STATES SECURITIES AND EXCHANGE COMMISSION FORM 10-K for Bank of America Corporation, Bank of America Corporation Annual Report Part I: Item 1. Business\n## Executive Summary > Financial Highlights\n### Table 1 Summary Income Statement and Selected Financial Data (Dollars in millions, except per share information)\n[row_20]=Balance sheet at year end; [Item]=Total liabilities; [2024]=2,965,960; [2023]=2,888,505\n...",
+                      "doc_pages": [29, 30]
+                    }
+                  }
+                },
+                "metadata": {
+                  "ticker": "BAC",
+                  "doc_type": "annual_report",
+                  "fiscal_year": 2024
+                }
+              }
+            },
+            "confidence": 100
+          }
+          ```
+        </CodeGroup>
+
+        <Note>
+          To learn more about how to use TopK CLI, see the [CLI documentation](/cli).
+        </Note>
       </Step>
     </Steps>
   </Tab>
@@ -119,19 +239,27 @@ import CoreConcepts from "/snippets/core-concepts.mdx";
           ```python Sync
           from pathlib import Path
 
-          handle = client.dataset("my-docs").upsert_file(
-              "report-2024",             # document ID
-              Path("./report.pdf"),      # path to file
-              {"title": "Annual Report"},  # optional metadata
+          handle = client.dataset("quickstart").upsert_file(
+              "bank-of-america-annual-report-2024",  # document ID
+              Path("./report.pdf"),                  # path to file
+              {
+                  "ticker": "BAC",
+                  "doc_type": "annual_report",
+                  "fiscal_year": 2024,
+              },
           )
           ```
           ```python Async
           from pathlib import Path
 
-          handle = await client.dataset("my-docs").upsert_file(
-              "report-2024",             # document ID
-              Path("./report.pdf"),      # path to file
-              {"title": "Annual Report"},  # optional metadata
+          handle = await client.dataset("quickstart").upsert_file(
+              "bank-of-america-annual-report-2024",  # document ID
+              Path("./report.pdf"),                  # path to file
+              {
+                  "ticker": "BAC",
+                  "doc_type": "annual_report",
+                  "fiscal_year": 2024,
+              },
           )
           ```
         </CodeGroup>
@@ -140,24 +268,152 @@ import CoreConcepts from "/snippets/core-concepts.mdx";
 
         <CodeGroup>
           ```python Sync
-          client.dataset("my-docs").wait_for_handle(handle)
+          client.dataset("quickstart").wait_for_handle(handle)
           ```
           ```python Async
-          await client.dataset("my-docs").wait_for_handle(handle)
+          await client.dataset("quickstart").wait_for_handle(handle)
           ```
         </CodeGroup>
       </Step>
       <Step title="Ask a question">
         <CodeGroup>
           ```python Sync
-          for message in client.ask("What was the total net income of Bank of America in 2024?", ["my-docs"]):
+          for message in client.ask("What was the total net income of Bank of America in 2024?", ["quickstart"]):
               print(message)
           ```
           ```python Async
-          async for message in client.ask("What was the total net income of Bank of America in 2024?", ["my-docs"]):
+          async for message in client.ask("What was the total net income of Bank of America in 2024?", ["quickstart"]):
               print(message)
           ```
         </CodeGroup>
+
+        ```json title="Example JSON payload (trimmed from a real response)" expandable
+        {
+          "facts": [
+            {
+              "fact": "Bank of America's total net income for the fiscal year 2024 was $27,132 million.",
+              "ref_ids": ["1", "2", "3", "4", "5", "6"]
+            },
+            {
+              "fact": "The 2024 net income of $27.1 billion represented an increase from the $26.5 billion reported in 2023.",
+              "ref_ids": ["3", "4", "6"]
+            },
+            {
+              "fact": "The increase in 2024 net income was driven by higher noninterest income, although this was partially offset by a higher provision for credit losses and lower net interest income.",
+              "ref_ids": ["3", "6"]
+            }
+          ],
+          "refs": {
+            "1": {
+              "doc_id": "bank-of-america-annual-report-2024",
+              "doc_type": "application/pdf",
+              "dataset": "quickstart",
+              "content": {
+                "type": "chunk",
+                "data": {
+                  "text": "# U.S. Securities and Exchange Commission - PDF Copy of Submission on SEC EDGAR system, UNITED STATES SECURITIES AND EXCHANGE COMMISSION FORM 10-K for Bank of America Corporation, Bank of America Corporation Annual Report Part I: Item 1. Business\n## Condensed Statement of Cash Flows\n### Condensed Statement of Cash Flows (Dollars in millions)\n[row_0]; []=Operating activities; [2024]=null; [2023]=null; [2022]=null\n[row_1]; []=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n[row_2]; []=Reconciliation of net income (loss) to net cash provided by (used in) operating activities:; [2024]=null; [2023]=null; [2022]=null\n[row_3]; []=Equity in undistributed (earnings) losses of subsidiaries; [2024]=(2,987); [2023]=(1,381); [2022]=(2,341)\n[row_4]; []=Other operating activities, net; [2024]=1,986; [2023]=3,395; [2022]=(31,777)\n[row_5]; []=Net cash provided by (used in) operating activities; [2024]=26,131; [2023]=28,529; [2022]=(6,590)\n[row_6...",
+                  "doc_pages": [170]
+                }
+              },
+              "metadata": {
+                "ticker": "BAC",
+                "doc_type": "annual_report",
+                "fiscal_year": 2024
+              }
+            },
+            "2": {
+              "doc_id": "bank-of-america-annual-report-2024",
+              "doc_type": "application/pdf",
+              "dataset": "quickstart",
+              "content": {
+                "type": "chunk",
+                "data": {
+                  "text": "# U.S. Securities and Exchange Commission - PDF Copy of Submission on SEC EDGAR system, UNITED STATES SECURITIES AND EXCHANGE COMMISSION FORM 10-K for Bank of America Corporation, Bank of America Corporation Annual Report Part I: Item 1. Business\n## Consolidated Statement of Comprehensive Income\n### Consolidated Statement of Comprehensive Income\n[row_0]; [Dollars in millions]=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n[row_1]=Other comprehensive income (loss), net-of-tax; [Dollars in millions]=Net change in debt securities; [2024]=158; [2023]=573; [2022]=(6,028)\n[row_2]=Other comprehensive income (loss), net-of-tax; [Dollars in millions]=Net change in debit valuation adjustments; [2024]=(127); [2023]=(686); [2022]=755\n[row_3]=Other comprehensive income (loss), net-of-tax; [Dollars in millions]=Net change in derivatives; [2024]=2,428; [2023]=3,919; [2022]=(10,055)\n[row_4]=Other comprehensive income (loss), net-of-tax; [Dolla...",
+                  "doc_pages": [92]
+                }
+              },
+              "metadata": {
+                "ticker": "BAC",
+                "doc_type": "annual_report",
+                "fiscal_year": 2024
+              }
+            },
+            "3": {
+              "doc_id": "bank-of-america-annual-report-2024",
+              "doc_type": "application/pdf",
+              "dataset": "quickstart",
+              "content": {
+                "type": "image",
+                "data": {
+                  "mime_type": "image/jpeg",
+                  "data": "binary data"
+                }
+              },
+              "metadata": {
+                "ticker": "BAC",
+                "doc_type": "annual_report",
+                "fiscal_year": 2024
+              }
+            },
+            "4": {
+              "doc_id": "bank-of-america-annual-report-2024",
+              "doc_type": "application/pdf",
+              "dataset": "quickstart",
+              "content": {
+                "type": "chunk",
+                "data": {
+                  "text": "# U.S. Securities and Exchange Commission - PDF Copy of Submission on SEC EDGAR system, UNITED STATES SECURITIES AND EXCHANGE COMMISSION FORM 10-K for Bank of America Corporation, Bank of America Corporation Annual Report Part I: Item 1. Business\n## Key Performance Indicators\n### Table 6 Selected Annual Financial Data\n[row_0]=Income statement; []=Net interest income; [2024]=56,060; [2023]=56,931; [2022]=52,462\n[row_1]=Income statement; []=Noninterest income; [2024]=45,827; [2023]=41,650; [2022]=42,488\n[row_2]=Income statement; []=Total revenue, net of interest expense; [2024]=101,887; [2023]=98,581; [2022]=94,950\n[row_3]=Income statement; []=Provision for credit losses; [2024]=5,821; [2023]=4,394; [2022]=2,543\n[row_4]=Income statement; []=Noninterest expense; [2024]=66,812; [2023]=65,845; [2022]=61,438\n[row_5]=Income statement; []=Income before income taxes; [2024]=29,254; [2023]=28,342; [2022]=30,969\n[row_6]=Income statement; []=Income...",
+                  "doc_pages": [33, 34, 35, 36]
+                }
+              },
+              "metadata": {
+                "ticker": "BAC",
+                "doc_type": "annual_report",
+                "fiscal_year": 2024
+              }
+            },
+            "5": {
+              "doc_id": "bank-of-america-annual-report-2024",
+              "doc_type": "application/pdf",
+              "dataset": "quickstart",
+              "content": {
+                "type": "chunk",
+                "data": {
+                  "text": "# U.S. Securities and Exchange Commission - PDF Copy of Submission on SEC EDGAR system, UNITED STATES SECURITIES AND EXCHANGE COMMISSION FORM 10-K for Bank of America Corporation, Bank of America Corporation Annual Report Part I: Item 1. Business\n## NOTE 22 Fair Value of Financial Instruments > Basis of Presentation\n### Results of Business Segments and All Other - Total Corporation and Consumer Banking (2024-2022)\n[row_7]; [Item]=Income before income taxes; [Total Corporation (2) 2024]=29,873; [Total Corporation (2) 2023]=28,909; [Total Corporation (2) 2022]=31,407; [Consumer Banking 2024]=14,345; [Consumer Banking 2023]=15,457; [Consumer Banking 2022]=16,578\n[row_8]; [Item]=Income tax expense; [Total Corporation (2) 2024]=2,741; [Total Corporation (2) 2023]=2,394; [Total Corporation (2) 2022]=3,879; [Consumer Banking 2024]=3,586; [Consumer Banking 2023]=3,864; [Consumer Banking 2022]=4,062\n[row_9]; [Item]=Net income; [Total Corporation...",
+                  "doc_pages": [166, 167, 168]
+                }
+              },
+              "metadata": {
+                "ticker": "BAC",
+                "doc_type": "annual_report",
+                "fiscal_year": 2024
+              }
+            },
+            "6": {
+              "doc_id": "bank-of-america-annual-report-2024",
+              "doc_type": "application/pdf",
+              "dataset": "quickstart",
+              "content": {
+                "type": "chunk",
+                "data": {
+                  "text": "# U.S. Securities and Exchange Commission - PDF Copy of Submission on SEC EDGAR system, UNITED STATES SECURITIES AND EXCHANGE COMMISSION FORM 10-K for Bank of America Corporation, Bank of America Corporation Annual Report Part I: Item 1. Business\n## Executive Summary > Financial Highlights\n### Table 1 Summary Income Statement and Selected Financial Data (Dollars in millions, except per share information)\n[row_20]=Balance sheet at year end; [Item]=Total liabilities; [2024]=2,965,960; [2023]=2,888,505\n[row_21]=Balance sheet at year end; [Item]=Total common shareholders' equity; [2024]=272,400; [2023]=263,249\n[row_22]=Balance sheet at year end; [Item]=Total shareholders' equity; [2024]=295,559; [2023]=291,646\n\n\n\n\n(1) For definitions, see Key Metrics on page 170.\n(2) Return on average tangible common shareholders' equity is a non-GAAP financial measure. For more information and a corresponding reconciliation to the most directly comparable ...",
+                  "doc_pages": [29, 30]
+                }
+              },
+              "metadata": {
+                "ticker": "BAC",
+                "doc_type": "annual_report",
+                "fiscal_year": 2024
+              }
+            }
+          },
+          "confidence": 100
+        }
+        ```
+
+        <Note>
+          To learn more about how to use the Python SDK, see the [Python SDK documentation](/sdk/topk-py).
+        </Note>
       </Step>
     </Steps>
   </Tab>
@@ -194,25 +450,157 @@ import CoreConcepts from "/snippets/core-concepts.mdx";
       </Step>
       <Step title="Upload a file">
         ```typescript
-        const resp = await client.dataset("my-docs").upsertFile(
-          "report-2024",              // document ID
-          { path: "./report.pdf" },   // path to file
-          { title: "Annual Report" }, // optional metadata
+        const resp = await client.dataset("quickstart").upsertFile(
+          "bank-of-america-annual-report-2024", // document ID
+          { path: "./report.pdf" },             // path to file
+          {
+            ticker: "BAC",
+            doc_type: "annual_report",
+            fiscal_year: 2024,
+          },
         );
         ```
 
         Wait for the file to be processed:
 
         ```typescript
-        await client.dataset("my-docs").waitForHandle(resp.handle);
+        await client.dataset("quickstart").waitForHandle(resp.handle);
         ```
       </Step>
       <Step title="Ask a question">
         ```typescript
-        for await (const message of client.ask("What was the total net income of Bank of America in 2024?", ["my-docs"])) {
+        for await (const message of client.ask("What was the total net income of Bank of America in 2024?", ["quickstart"])) {
           console.log(message);
         }
         ```
+
+        ```json title="Example JSON payload (JavaScript SDK shape, trimmed from a real response)" expandable
+        {
+          "facts": [
+            {
+              "fact": "Bank of America's total net income for the fiscal year 2024 was $27,132 million.",
+              "refIds": ["1", "2", "3", "4", "5", "6"]
+            },
+            {
+              "fact": "The 2024 net income of $27.1 billion represented an increase from the $26.5 billion reported in 2023.",
+              "refIds": ["3", "4", "6"]
+            },
+            {
+              "fact": "The increase in 2024 net income was driven by higher noninterest income, although this was partially offset by a higher provision for credit losses and lower net interest income.",
+              "refIds": ["3", "6"]
+            }
+          ],
+          "refs": {
+            "1": {
+              "docId": "bank-of-america-annual-report-2024",
+              "docType": "application/pdf",
+              "dataset": "quickstart",
+              "content": {
+                "type": "chunk",
+                "data": {
+                  "text": "# U.S. Securities and Exchange Commission - PDF Copy of Submission on SEC EDGAR system, UNITED STATES SECURITIES AND EXCHANGE COMMISSION FORM 10-K for Bank of America Corporation, Bank of America Corporation Annual Report Part I: Item 1. Business\n## Condensed Statement of Cash Flows\n### Condensed Statement of Cash Flows (Dollars in millions)\n[row_0]; []=Operating activities; [2024]=null; [2023]=null; [2022]=null\n[row_1]; []=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n[row_2]; []=Reconciliation of net income (loss) to net cash provided by (used in) operating activities:; [2024]=null; [2023]=null; [2022]=null\n[row_3]; []=Equity in undistributed (earnings) losses of subsidiaries; [2024]=(2,987); [2023]=(1,381); [2022]=(2,341)\n[row_4]; []=Other operating activities, net; [2024]=1,986; [2023]=3,395; [2022]=(31,777)\n[row_5]; []=Net cash provided by (used in) operating activities; [2024]=26,131; [2023]=28,529; [2022]=(6,590)\n[row_6...",
+                  "docPages": [170]
+                }
+              },
+              "metadata": {
+                "ticker": "BAC",
+                "doc_type": "annual_report",
+                "fiscal_year": 2024
+              }
+            },
+            "2": {
+              "docId": "bank-of-america-annual-report-2024",
+              "docType": "application/pdf",
+              "dataset": "quickstart",
+              "content": {
+                "type": "chunk",
+                "data": {
+                  "text": "# U.S. Securities and Exchange Commission - PDF Copy of Submission on SEC EDGAR system, UNITED STATES SECURITIES AND EXCHANGE COMMISSION FORM 10-K for Bank of America Corporation, Bank of America Corporation Annual Report Part I: Item 1. Business\n## Consolidated Statement of Comprehensive Income\n### Consolidated Statement of Comprehensive Income\n[row_0]; [Dollars in millions]=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n[row_1]=Other comprehensive income (loss), net-of-tax; [Dollars in millions]=Net change in debt securities; [2024]=158; [2023]=573; [2022]=(6,028)\n[row_2]=Other comprehensive income (loss), net-of-tax; [Dollars in millions]=Net change in debit valuation adjustments; [2024]=(127); [2023]=(686); [2022]=755\n[row_3]=Other comprehensive income (loss), net-of-tax; [Dollars in millions]=Net change in derivatives; [2024]=2,428; [2023]=3,919; [2022]=(10,055)\n[row_4]=Other comprehensive income (loss), net-of-tax; [Dolla...",
+                  "docPages": [92]
+                }
+              },
+              "metadata": {
+                "ticker": "BAC",
+                "doc_type": "annual_report",
+                "fiscal_year": 2024
+              }
+            },
+            "3": {
+              "docId": "bank-of-america-annual-report-2024",
+              "docType": "application/pdf",
+              "dataset": "quickstart",
+              "content": {
+                "type": "image",
+                "data": {
+                  "mimeType": "image/jpeg",
+                  "data": "binary data"
+                }
+              },
+              "metadata": {
+                "ticker": "BAC",
+                "doc_type": "annual_report",
+                "fiscal_year": 2024
+              }
+            },
+            "4": {
+              "docId": "bank-of-america-annual-report-2024",
+              "docType": "application/pdf",
+              "dataset": "quickstart",
+              "content": {
+                "type": "chunk",
+                "data": {
+                  "text": "# U.S. Securities and Exchange Commission - PDF Copy of Submission on SEC EDGAR system, UNITED STATES SECURITIES AND EXCHANGE COMMISSION FORM 10-K for Bank of America Corporation, Bank of America Corporation Annual Report Part I: Item 1. Business\n## Key Performance Indicators\n### Table 6 Selected Annual Financial Data\n[row_0]=Income statement; []=Net interest income; [2024]=56,060; [2023]=56,931; [2022]=52,462\n[row_1]=Income statement; []=Noninterest income; [2024]=45,827; [2023]=41,650; [2022]=42,488\n[row_2]=Income statement; []=Total revenue, net of interest expense; [2024]=101,887; [2023]=98,581; [2022]=94,950\n[row_3]=Income statement; []=Provision for credit losses; [2024]=5,821; [2023]=4,394; [2022]=2,543\n[row_4]=Income statement; []=Noninterest expense; [2024]=66,812; [2023]=65,845; [2022]=61,438\n[row_5]=Income statement; []=Income before income taxes; [2024]=29,254; [2023]=28,342; [2022]=30,969\n[row_6]=Income statement; []=Income...",
+                  "docPages": [33, 34, 35, 36]
+                }
+              },
+              "metadata": {
+                "ticker": "BAC",
+                "doc_type": "annual_report",
+                "fiscal_year": 2024
+              }
+            },
+            "5": {
+              "docId": "bank-of-america-annual-report-2024",
+              "docType": "application/pdf",
+              "dataset": "quickstart",
+              "content": {
+                "type": "chunk",
+                "data": {
+                  "text": "# U.S. Securities and Exchange Commission - PDF Copy of Submission on SEC EDGAR system, UNITED STATES SECURITIES AND EXCHANGE COMMISSION FORM 10-K for Bank of America Corporation, Bank of America Corporation Annual Report Part I: Item 1. Business\n## NOTE 22 Fair Value of Financial Instruments > Basis of Presentation\n### Results of Business Segments and All Other - Total Corporation and Consumer Banking (2024-2022)\n[row_7]; [Item]=Income before income taxes; [Total Corporation (2) 2024]=29,873; [Total Corporation (2) 2023]=28,909; [Total Corporation (2) 2022]=31,407; [Consumer Banking 2024]=14,345; [Consumer Banking 2023]=15,457; [Consumer Banking 2022]=16,578\n[row_8]; [Item]=Income tax expense; [Total Corporation (2) 2024]=2,741; [Total Corporation (2) 2023]=2,394; [Total Corporation (2) 2022]=3,879; [Consumer Banking 2024]=3,586; [Consumer Banking 2023]=3,864; [Consumer Banking 2022]=4,062\n[row_9]; [Item]=Net income; [Total Corporation...",
+                  "docPages": [166, 167, 168]
+                }
+              },
+              "metadata": {
+                "ticker": "BAC",
+                "doc_type": "annual_report",
+                "fiscal_year": 2024
+              }
+            },
+            "6": {
+              "docId": "bank-of-america-annual-report-2024",
+              "docType": "application/pdf",
+              "dataset": "quickstart",
+              "content": {
+                "type": "chunk",
+                "data": {
+                  "text": "# U.S. Securities and Exchange Commission - PDF Copy of Submission on SEC EDGAR system, UNITED STATES SECURITIES AND EXCHANGE COMMISSION FORM 10-K for Bank of America Corporation, Bank of America Corporation Annual Report Part I: Item 1. Business\n## Executive Summary > Financial Highlights\n### Table 1 Summary Income Statement and Selected Financial Data (Dollars in millions, except per share information)\n[row_20]=Balance sheet at year end; [Item]=Total liabilities; [2024]=2,965,960; [2023]=2,888,505\n[row_21]=Balance sheet at year end; [Item]=Total common shareholders' equity; [2024]=272,400; [2023]=263,249\n[row_22]=Balance sheet at year end; [Item]=Total shareholders' equity; [2024]=295,559; [2023]=291,646\n\n\n\n\n(1) For definitions, see Key Metrics on page 170.\n(2) Return on average tangible common shareholders' equity is a non-GAAP financial measure. For more information and a corresponding reconciliation to the most directly comparable ...",
+                  "docPages": [29, 30]
+                }
+              },
+              "metadata": {
+                "ticker": "BAC",
+                "doc_type": "annual_report",
+                "fiscal_year": 2024
+              }
+            }
+          },
+          "confidence": 100
+        }
+        ```
+
+        <Note>
+          To learn more about how to use the JavaScript SDK, see the [JavaScript SDK documentation](/sdk/topk-js).
+        </Note>
       </Step>
     </Steps>
   </Tab>

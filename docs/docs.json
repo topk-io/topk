@@ -29,7 +29,12 @@
               "introduction",
               "quickstart",
               "regions",
-              "changelog",
+              "changelog"
+            ]
+          },
+          {
+            "group": "APIs",
+            "pages": [
               "cli",
               "mcp-server"
             ]
