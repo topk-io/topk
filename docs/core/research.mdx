@@ -7,24 +7,6 @@ icon: "flask-conical"
 
 Research turns complex queries into a series of targeted searches, gathers evidence across documents, and produces a grounded answer with source citations.
 
-```mermaid
-flowchart LR
-    Q[Research query]
-    S1["Search (Step 1)"]
-    S2["Search (Step 2)"]
-    S3["Search (Step 3)"]
-    E[Evidence]
-    A[Grounded answer]
-
-    Q --> S1
-    Q --> S2
-    Q --> S3
-    S1 --> E
-    S2 --> E
-    S3 --> E
-    E --> A
-```
-
 ## How it works
 
 When you run a **Research**, TopK:
@@ -46,6 +28,24 @@ When you run a **Research**, TopK:
     It combines the gathered evidence, performing comparisons or aggregations when needed, to produce a single, grounded answer with citations.
   </Step>
 </Steps>
+
+```mermaid
+flowchart LR
+    Q[Research query]
+    S1["Search (Step 1)"]
+    S2["Search (Step 2)"]
+    S3["Search (Step 3)"]
+    E[Evidence]
+    A[Grounded answer]
+
+    Q --> S1
+    Q --> S2
+    Q --> S3
+    S1 --> E
+    S2 --> E
+    S3 --> E
+    E --> A
+```
 
 ## Usage
 
