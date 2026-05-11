@@ -23,10 +23,7 @@ When you run an **Ask**, TopK:
     Produce a grounded answer based on the retrieved evidence.
   </Step>
   <Step title="Returns answer with source citations">
-    Answer consists of the following properties:
-    - **`facts`** — individual statements answering the query, backed by one or more citations
-    - **`refs`** — a map of citation number to a passage from the source document
-    - **`confidence`** — a score between 0 and 100 indicating confidence in the answer
+    Returns a grounded answer with facts, citations, and a confidence score. See [Understanding the answer](#understanding-the-answer).
   </Step>
 </Steps>
 
@@ -217,28 +214,45 @@ What was the total net income of Bank of America in 2024?
 </ul>
 </Info>
 
-## Understanding citations
+## Understanding the answer
 
-Facts in the answer are associated with one or more citations. Citations are **numbered**. Each fact includes a of `ref_ids`, whose values are keys in the `refs` object.
+The answer consists of three fields:
 
-The `refs` maps a citation number to a [Search Result](/core/search#search-result), including the matched passage (text, image or page), source document ID, file name, document type, dataset, and any requested metadata.
+- **`facts`** — individual statements answering the query, each backed by one or more citations
+- **`refs`** — a map from citation number to a [Search Result](/core/search#search-result)
+- **`confidence`** — a score between 0 and 100 indicating confidence in the answer
 
 ```json
 {
   "facts": [
     {
       "fact": "Bank of America's total net income for the fiscal year 2024 was $27,132 million.",
-      "ref_ids": ["1", "2", "3"]
+      "ref_ids": ["1", "2", "3", "4", "5", "6"]
+    },
+    {
+      "fact": "The 2024 net income represented an increase from the $26.5 billion reported in 2023.",
+      "ref_ids": ["3", "4", "6"]
+    },
+    {
+      "fact": "The increase was driven by higher noninterest income, partially offset by a higher provision for credit losses and lower net interest income.",
+      "ref_ids": ["3", "6"]
     }
   ],
   "refs": {
     "1": { ... }, // Search Result 1
     "2": { ... }, // Search Result 2
-    "3": { ... }  // Search Result 3
+    "3": { ... }, // Search Result 3
+    "4": { ... }, // Search Result 4
+    "5": { ... }, // Search Result 5
+    "6": { ... }  // Search Result 6
   },
   "confidence": 100.0
 }
 ```
+
+### Citations
+
+Citations are **numbered**. Each fact's `ref_ids` list points to entries in `refs`, where each key is a citation number and each value is a [Search Result](/core/search#search-result) — the matched passage or image along with its document ID, file name, dataset, and any requested metadata.
 
 ## Scoping the search
 
