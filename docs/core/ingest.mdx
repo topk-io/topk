@@ -5,7 +5,7 @@ icon: "file-text"
 ---
 
 To run queries in TopK, your documents need to be uploaded. Once a document is uploaded,
-TopK parses, chunks, and indexes its content to power Ask, Search, and Research.
+TopK parses, chunks, and indexes its content to power [Ask](/core/ask), [Search](/core/search), and [Research](/core/research).
 
 ## Uploading documents
 
@@ -13,7 +13,7 @@ Documents are uploaded to a **dataset**. A dataset is a named container for your
 Each document in a dataset is identified by a **document ID**.
 
 <Tip>
-  Learn how to create your dataset [here](/datasets/create).
+  Learn how to create your dataset [here](/datasets#create-a-dataset).
 </Tip>
 
 <Tabs>
@@ -37,8 +37,8 @@ Each document in a dataset is identified by a **document ID**.
     # Upload all PDFs in the directory by glob pattern recursively
     topk upload "./docs/**/*.pdf" --dataset my-docs
 
-    # Upload a single file with an explicit document ID
-    topk upload ./report.pdf --dataset my-docs --id report-2024
+    # Upload a single file
+    topk upload ./report.pdf --dataset my-docs
     ```
   </Tab>
   <Tab title="Python SDK" icon="/icons/python.svg">
@@ -53,13 +53,13 @@ Each document in a dataset is identified by a **document ID**.
           region=os.environ["TOPK_REGION"],
       )
 
-      resp = client.dataset("my-docs").upsert_file(
+      handle = client.dataset("my-docs").upsert_file(
           "report-2024",                       # document ID
           Path("./report.pdf"),                # path to file
-          {"title": "Annual Report 2024"},     # optional metadata
+          {"title": "Annual Report 2024"},     # document metadata (optional)
       )
 
-      print(resp.handle)  # e.g. "hdl_abc123"
+      print(handle)  # e.g. "hdl_abc123"
       ```
       ```python Async
       import os
@@ -71,13 +71,13 @@ Each document in a dataset is identified by a **document ID**.
           region=os.environ["TOPK_REGION"],
       )
 
-      resp = await client.dataset("my-docs").upsert_file(
+      handle = await client.dataset("my-docs").upsert_file(
           "report-2024",                       # document ID
           Path("./report.pdf"),                # path to file
-          {"title": "Annual Report 2024"},     # optional metadata
+          {"title": "Annual Report 2024"},     # document metadata (optional)
       )
 
-      print(resp.handle)  # e.g. "hdl_abc123"
+      print(handle)  # e.g. "hdl_abc123"
       ```
     </CodeGroup>
   </Tab>
@@ -90,13 +90,13 @@ Each document in a dataset is identified by a **document ID**.
       region: process.env.TOPK_REGION!,
     });
 
-    const resp = await client.dataset("my-docs").upsertFile(
-      "report-2024",             // document ID
-      "./report.pdf",            // path to file
-      { title: "Annual Report 2024" },  // optional metadata
+    const handle = await client.dataset("my-docs").upsertFile(
+      "report-2024",                    // document ID
+      { path: "./report.pdf" },         // path to file
+      { title: "Annual Report 2024" },  // document metadata (optional)
     );
 
-    console.log(resp.handle);  // e.g. "hdl_abc123"
+    console.log(handle);  // e.g. "hdl_abc123"
     ```
   </Tab>
 </Tabs>
@@ -117,11 +117,8 @@ Each document in a dataset is identified by a **document ID**.
 
 ### Attaching metadata
 
-Each document can be associated with metadata. This is useful for
-storing additional information about the document, such as title, author, date,
-category, or any custom metadata fields you want to attach to the document.
-
-Metadata values can also include arrays, for example `tags` or `categories`.
+Each document can be associated with its own metadata. You can attach additional
+information about the document, such as title, author, date, or category.
 
 <Tabs>
   <Tab title="Python SDK" icon="/icons/python.svg">
@@ -164,7 +161,7 @@ Metadata values can also include arrays, for example `tags` or `categories`.
     ```typescript
     const resp = await client.dataset("my-docs").upsertFile(
       "report-2024",
-      "./report.pdf",
+      { path: "./report.pdf" },
       {
         title: "Annual Report 2024",
         author: "Finance Team",
@@ -177,6 +174,13 @@ Metadata values can also include arrays, for example `tags` or `categories`.
     ```
   </Tab>
 </Tabs>
+
+<Note>
+  Metadata values can also include **lists** of strings or numbers, for example `tags` or `categories`.
+
+  See all supported metadata types [here](/documents/upsert#supported-types).
+</Note>
+
 
 ## Processing documents
 
@@ -205,7 +209,7 @@ After uploading a document, you can check whether it has been processed using th
           region=os.environ["TOPK_REGION"],
       )
 
-      processed = client.dataset("my-docs").check_handle(resp.handle)
+      processed = client.dataset("my-docs").check_handle(handle)
       print(processed)  # True or False
       ```
       ```python Async
@@ -217,7 +221,7 @@ After uploading a document, you can check whether it has been processed using th
           region=os.environ["TOPK_REGION"],
       )
 
-      processed = await client.dataset("my-docs").check_handle(resp.handle)
+      processed = await client.dataset("my-docs").check_handle(handle)
 
       print(processed)  # True or False
       ```
@@ -232,7 +236,7 @@ After uploading a document, you can check whether it has been processed using th
       region: process.env.TOPK_REGION!,
     });
 
-    const processed = await client.dataset("my-docs").checkHandle(resp.handle);
+    const processed = await client.dataset("my-docs").checkHandle(handle);
 
     console.log(processed);  // true or false
     ```
@@ -262,7 +266,7 @@ Alternatively, you can wait for the document to be processed using the **process
           region=os.environ["TOPK_REGION"],
       )
 
-      client.dataset("my-docs").wait_for_handle(resp.handle)
+      client.dataset("my-docs").wait_for_handle(handle)
 
       # Document is now ready to be queried
       ```
@@ -275,11 +279,37 @@ Alternatively, you can wait for the document to be processed using the **process
           region=os.environ["TOPK_REGION"],
       )
 
-      await client.dataset("my-docs").wait_for_handle(resp.handle)
+      await client.dataset("my-docs").wait_for_handle(handle)
 
       # Document is now ready to be queried
       ```
     </CodeGroup>
+
+    You can customize polling behavior by passing a `WaitConfig`:
+
+    <CodeGroup>
+      ```python Sync
+      from topk_sdk import WaitConfig
+
+      client.dataset("my-docs").wait_for_handle(
+          handle,
+          WaitConfig(frequency_secs=10, timeout_secs=600),
+      )
+      ```
+      ```python Async
+      from topk_sdk import WaitConfig
+
+      await client.dataset("my-docs").wait_for_handle(
+          handle,
+          WaitConfig(frequency_secs=10, timeout_secs=600),
+      )
+      ```
+    </CodeGroup>
+
+    | Parameter        | Default | Description                                  |
+    | ---------------- | ------- | -------------------------------------------- |
+    | `frequency_secs` | `5`     | How often to poll for the handle status      |
+    | `timeout_secs`   | `300`   | Maximum time to wait before timing out       |
   </Tab>
   <Tab title="JavaScript SDK" icon="/icons/js.svg">
     ```typescript
@@ -290,93 +320,23 @@ Alternatively, you can wait for the document to be processed using the **process
       region: process.env.TOPK_REGION!,
     });
 
-    await client.dataset("my-docs").waitForHandle(resp.handle);
+    await client.dataset("my-docs").waitForHandle(handle);
 
     // Document is now ready to be queried
     ```
-  </Tab>
-</Tabs>
 
-## Full example
+    You can customize polling behavior by passing a `WaitConfig`:
 
-<Tabs>
-  <Tab title="Python SDK" icon="/icons/python.svg">
-    <CodeGroup>
-      ```python Sync
-      import os
-      from pathlib import Path
-      from topk_sdk import Client
-
-      client = Client(
-          api_key=os.environ["TOPK_API_KEY"],
-          region=os.environ["TOPK_REGION"],
-      )
-
-      # Create dataset
-      client.datasets().create("my-docs")
-
-      # Upload document
-      resp = client.dataset("my-docs").upsert_file(
-          "report-2024",
-          Path("./report.pdf"),
-          {"title": "Annual Report 2024"},
-      )
-
-      # Wait for processing
-      client.dataset("my-docs").wait_for_handle(resp.handle)
-
-      print("Document ready.")
-      ```
-      ```python Async
-      import os
-      from pathlib import Path
-      from topk_sdk import AsyncClient
-
-      client = AsyncClient(
-          api_key=os.environ["TOPK_API_KEY"],
-          region=os.environ["TOPK_REGION"],
-      )
-
-      # Create dataset
-      await client.datasets().create("my-docs")
-
-      # Upload document
-      resp = await client.dataset("my-docs").upsert_file(
-          "report-2024",
-          Path("./report.pdf"),
-          {"title": "Annual Report 2024"},
-      )
-
-      # Wait for processing
-      await client.dataset("my-docs").wait_for_handle(resp.handle)
-
-      print("Document ready.")
-      ```
-    </CodeGroup>
-  </Tab>
-  <Tab title="JavaScript SDK" icon="/icons/js.svg">
     ```typescript
-    import { Client } from "topk-js";
-
-    const client = new Client({
-      apiKey: process.env.TOPK_API_KEY!,
-      region: process.env.TOPK_REGION!,
+    await client.dataset("my-docs").waitForHandle(handle, {
+      frequencySecs: 10,
+      timeoutSecs: 600,
     });
-
-    // Create dataset
-    await client.datasets().create("my-docs");
-
-    // Upload document
-    const resp = await client.dataset("my-docs").upsertFile(
-      "report-2024",
-      "./report.pdf",
-      { title: "Annual Report 2024" },
-    );
-
-    // Wait for processing
-    await client.dataset("my-docs").waitForHandle(resp.handle);
-
-    console.log("Document ready.");
     ```
+
+    | Parameter       | Default | Description                                  |
+    | --------------- | ------- | -------------------------------------------- |
+    | `frequencySecs` | `5`     | How often to poll for the handle status      |
+    | `timeoutSecs`   | `300`   | Maximum time to wait before timing out       |
   </Tab>
 </Tabs>

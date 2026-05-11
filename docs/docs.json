@@ -39,12 +39,10 @@
             "pages": ["core/ingest", "core/ask", "core/search", "core/research"]
           },
           {
-            "group": "Dataset API",
+            "group": "Management APIs",
             "pages": [
-              "datasets/create",
-              "datasets/list",
-              "datasets/get",
-              "datasets/delete"
+              "datasets/index",
+              "usage"
             ]
           }
         ]

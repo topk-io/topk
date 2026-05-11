@@ -7,29 +7,13 @@ icon: "file-search-2"
 
 Search your documents and return the most relevant passages based on your natural-language query.
 
-```mermaid
-flowchart TD
-    R[Result]
-
-    P[Passage]
-    D[Original Document]
-    M[Metadata]
-
-    R --> P
-    P --> D
-    D --> M
-
-    E[Text chunk<br/>Visual citation<br/>Document page]
-    E -.-> P
-```
-
 ## How it works
 
-When you run Search, TopK:
+When you run **Search**, TopK:
 
 <Steps>
   <Step title="Searches across your documents">
-    TopK searches one or more datasets for the passages most relevant to the query.
+     Searches one or more datasets for the passages most relevant to the query.
   </Step>
   <Step title="Ranks the best matches">
     Results are ranked by relevance so the highest-signal passages come first.
@@ -38,76 +22,6 @@ When you run Search, TopK:
     Each result includes the matched passage, document ID, dataset, page references, and requested metadata.
   </Step>
 </Steps>
-
-For example, for the query:
-
-```text
-What does the policy say about contractor access?
-```
-
-results look like this:
-
-```json title="Example search results" expandable
-[
-  {
-    "doc_id": "vendor-access-policy",
-    "doc_type": "application/pdf",
-    "dataset": "policies",
-    "content": {
-      "chunk": {
-        "text": "Contractors may be granted access only through approved, time-limited credentials.",
-        "doc_pages": [4]
-      }
-    },
-    "metadata": {
-      "title": "Vendor Access Policy",
-      "department": "finance",
-      "year": 2024
-    }
-  },
-  {
-    "doc_id": "security-standards",
-    "doc_type": "text/markdown",
-    "dataset": "policies",
-    "content": {
-      "chunk": {
-        "text": "All contractor access must be sponsored by a full-time employee and reviewed on a quarterly basis.",
-        "doc_pages": []
-      }
-    },
-    "metadata": {
-      "title": "Security Standards",
-      "department": "it",
-      "year": 2024
-    }
-  },
-  {
-    "doc_id": "access-control-diagram",
-    "doc_type": "image/png",
-    "dataset": "policies",
-    "content": {
-      "image": {
-        "data": "iVBORw0KGgoAAAANSUhEUgAAAMgAAADICAYAAACtWK6eAAAABmJLR0QA/wD/AP+gvaeTAAAF...",
-        "mime_type": "image/png"
-      }
-    },
-    "metadata": {
-      "title": "Access Control Diagram",
-      "department": "it"
-    }
-  }
-]
-```
-
-Search gives you the evidence directly, without deciding how to interpret it. 
-
-This makes it useful for:
-
-- RAG pipelines
-- building custom answering or summarization layers on top of retrieved passages
-- feeding high-signal evidence into agents or downstream workflows
-- inspecting and verifying source passages directly
-- semantic search in applications
 
 ## Usage
 
@@ -118,14 +32,6 @@ Once your documents are processed, you can start retrieving relevant passages im
     ```bash
     topk search "travel reimbursement policy" -d policies
     ```
-    
-    <Tip>
-      Alternatively, pass `--top-k` to control the number of results (defaults to 10):
-
-      ```bash
-      topk search "travel reimbursement policy" -d policies --top-k 20
-      ```
-    </Tip>
   </Tab>
   <Tab title="Python SDK" icon="/icons/python.svg">
     <CodeGroup>
@@ -184,6 +90,56 @@ Once your documents are processed, you can start retrieving relevant passages im
   </Tab>
 </Tabs>
 
+Here's an example of a **Search** query over a financial dataset:
+
+<Info>
+**Query:**
+
+What was the total net income of Bank of America in 2024?
+
+**Search results:**
+
+- <Badge color="purple">1</Badge> Condensed Statement of Cash Flows showing net income of \$27,132m (2024) vs \$26,515m (2023)
+  <a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=170" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">p. 170</Badge>
+- <Badge color="purple">2</Badge> Consolidated Statement of Comprehensive Income: net income line item for 2024–2022
+  <a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=92" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">p. 92</Badge>
+- <Badge color="purple">3</Badge> Supporting figure from the filing (tabular financial excerpt)
+  <a href="https://topk-docs.s3.us-east-2.amazonaws.com/boa-ask-ref-3-figure.jpg" target="_blank" rel="noopener noreferrer">boa-ask-ref-3-figure.jpg</a>
+- <Badge color="purple">4</Badge> Key performance indicators—selected annual financial data (including net income)
+  <a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=33" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">pp. 33–36</Badge>
+- <Badge color="purple">5</Badge> Segment results tying to total-corporation net income
+  <a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=166" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">pp. 166–168</Badge>
+- <Badge color="purple">6</Badge> Executive summary—summary income statement and balance sheet excerpts
+  <a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=29" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">pp. 29–30</Badge>
+</Info>
+
+## Understanding search results
+
+Search returns a list of the most relevant Search Results based on the provided query.
+[Search Results](/core/search#search-result) are objects referencing specific passages extracted from the original documents.
+
+### Search Result
+
+Each Search Result has the following fields:
+
+| Field        | Type     | Description                                                                                                                                                    |
+| ------------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `doc_id`     | `string` | The ID of the source document assigned at upload time                                                                                                                        |
+| `doc_name`   | `string` | The file name of the source document assigned at upload time                                                                                                        |
+| `doc_type`   | `string` | The MIME type of the source document (e.g. `application/pdf`)                                                                                                         |
+| `dataset`    | `string` | The dataset the document belongs to                                                                                                                            |
+| `content_id` | `string` | A unique identifier for the content of this Search Result                                                                                              |
+| `content`    | `object` | The matched content — see [Content types](#content-types)                                                                                                      |
+| `metadata`   | `object` | Metadata fields attached to the source document at upload time — must be requested, see [Retrieving metadata](#retrieving-metadata)                        |
+
+### Content types
+
+There are three content types a search result can contain:
+
+- **Chunk** — a text passage extracted from a document, with optional source page number(s)
+- **Image** — an image extracted from a document
+- **Page** — an image of a page from a document, with source page number
+
 ## Scoping the search
 
 Query across multiple datasets or apply document filters to narrow the scope of the query.
@@ -209,14 +165,6 @@ This is useful when you want:
 
     <CodeGroup>
       ```python Sync
-      import os
-      from topk_sdk import Client
-
-      client = Client(
-          api_key=os.environ.get("TOPK_API_KEY"),
-          region="aws-us-east-1-elastica",
-      )
-
       for result in client.search(
           query="What was the total net income of Bank of America in 2024?",
           datasets=["finance", "compliance"],
@@ -226,15 +174,6 @@ This is useful when you want:
       ```
 
       ```python Async
-      import os
-      import asyncio
-      from topk_sdk import AsyncClient
-
-      client = AsyncClient(
-          api_key=os.environ.get("TOPK_API_KEY"),
-          region="aws-us-east-1-elastica",
-      )
-
       async def main() -> None:
           async for result in client.search(
               query="What was the total net income of Bank of America in 2024?",
@@ -268,27 +207,20 @@ Sometimes a dataset might contain documents that should not be considered for th
 
 These filter expressions operate on the **metadata fields** of documents.
 
-For example, if you uploaded documents with metadata such as `department`, `year`, `doc_type`, or `author`, you can use those fields to limit what Ask is allowed to retrieve.
+If your documents include metadata fields, you can use those fields to narrow down the search scope.
 
 This is useful when you want to query:
 
-- Documents within a specific time range
-- Documents matching a particular category or type
-- Documents associated with a specific group or owner
-- Documents the user is permitted to access
+- Documents within a **specific time** range
+- Documents matching a **particular category** or type
+- Documents associated with a **specific group** or owner
+- Documents the end user is **permitted to access**
 
 <Tabs>
   <Tab title="Python SDK" icon="/icons/python.svg">
     <CodeGroup>
       ```python Sync
-      import os
-      from topk_sdk import Client
       from topk_sdk.query import field
-
-      client = Client(
-          api_key=os.environ.get("TOPK_API_KEY"),
-          region="aws-us-east-1-elastica",
-      )
 
       for result in client.search(
           query="travel reimbursement limit",
@@ -306,15 +238,8 @@ This is useful when you want to query:
       ```
 
       ```python Async
-      import os
       import asyncio
-      from topk_sdk import AsyncClient
       from topk_sdk.query import field
-
-      client = AsyncClient(
-          api_key=os.environ.get("TOPK_API_KEY"),
-          region="aws-us-east-1-elastica",
-      )
 
       async def main() -> None:
           async for result in client.search(
@@ -355,67 +280,94 @@ This is useful when you want to query:
   </Tab>
 </Tabs>
 
-Use source-level filters when the restriction is part of where the search should look. That keeps retrieval focused and improves the quality of the returned matches.
-
 ## Retrieving metadata
 
-The passage text alone is often not enough. You may also want metadata such as title, author, date, or any custom fields you attached during upload — to render richer results, group by source attributes, or carry context into downstream agents.
+By default, metadata fields are not included in search results. Pass the field names you want returned and they will appear on each Search Result.
 
 <Tabs>
   <Tab title="CLI" icon="terminal">
-    Use `--field` (repeatable):
+    Use `--field` (repeatable) and `--output json` to include metadata field(s) in the output:
 
     ```bash
-    topk search "refund policy" -d policies --field title --field author --field year
+    topk search "refund policy" -d policies --field title --field author --field year --output json
+    ```
+
+    ```json title="Example output" expandable
+    [
+      {
+        "metadata": {
+          "title": "Refund Policy 2024",
+          "author": "Finance Team",
+          "year": 2024
+        },
+        "doc_id": "refund-policy-2024",
+        "doc_type": "application/pdf",
+        "dataset": "policies",
+        "content_id": "doc#refund-policy-2024#chunk#12",
+        "doc_name": "refund_policy_2024.pdf",
+        "content": {
+          "text": "Refund requests must be submitted within 30 days of purchase. Approved refunds are processed within 5–7 business days.",
+          "doc_pages": [3]
+        }
+      }
+    ]
     ```
   </Tab>
   <Tab title="Python SDK" icon="/icons/python.svg">
-    Use `select_fields`:
+    Pass a list of metadata field names to include in the output:
 
     <CodeGroup>
       ```python Sync
-      import os
-      from topk_sdk import Client
-
-      client = Client(
-          api_key=os.environ.get("TOPK_API_KEY"),
-          region="aws-us-east-1-elastica",
-      )
-
       for result in client.search(
           query="refund policy",
           datasets=["policies"],
           top_k=10,
-          select_fields=["title", "author", "year"],
+          select_fields=["title", "author", "year"], # document metadata fields
       ):
           print(result)
       ```
 
       ```python Async
-      import os
       import asyncio
-      from topk_sdk import AsyncClient
-
-      client = AsyncClient(
-          api_key=os.environ.get("TOPK_API_KEY"),
-          region="aws-us-east-1-elastica",
-      )
 
       async def main() -> None:
           async for result in client.search(
               query="refund policy",
               datasets=["policies"],
               top_k=10,
-              select_fields=["title", "author", "year"],
+              select_fields=["title", "author", "year"], # document metadata fields
           ):
               print(result)
 
       asyncio.run(main())
       ```
     </CodeGroup>
+
+    ```json title="Example output" expandable
+    {
+      "metadata": {
+        "title": "Refund Policy 2024",
+        "author": "Finance Team",
+        "year": 2024
+      },
+      "doc_id": "refund-policy-2024",
+      "doc_type": "application/pdf",
+      "dataset": "policies",
+      "content_id": "doc#refund-policy-2024#chunk#12",
+      "doc_name": "refund_policy_2024.pdf",
+      "content": {
+        "data": {
+          "Chunk": {
+            "text": "Refund requests must be submitted within 30 days of purchase. Approved refunds are processed within 5–7 business days.",
+            "doc_pages": [3]
+          }
+        }
+      }
+    }
+    ```
   </Tab>
   <Tab title="JavaScript SDK" icon="/icons/js.svg">
-    Use `selectFields`:
+    Pass a list of metadata field names to include in the output:
 
     ```typescript
     for await (const message of client.search(
@@ -423,12 +375,34 @@ The passage text alone is often not enough. You may also want metadata such as t
       ["policies"],
       10,
       undefined,
-      ["title", "author", "year"],
+      ["title", "author", "year"], // document metadata fields
     )) {
       console.log(message);
+    }
+    ```
+
+    ```json title="Example output" expandable
+    {
+      "metadata": {
+        "title": "Refund Policy 2024",
+        "author": "Finance Team",
+        "year": 2024
+      },
+      "docId": "refund-policy-2024",
+      "docType": "application/pdf",
+      "dataset": "policies",
+      "contentId": "doc#refund-policy-2024#chunk#12",
+      "docName": "refund_policy_2024.pdf",
+      "content": {
+        "type": "chunk",
+        "data": {
+          "text": "Refund requests must be submitted within 30 days of purchase. Approved refunds are processed within 5–7 business days.",
+          "docPages": [3]
+        }
+      }
     }
     ```
   </Tab>
 </Tabs>
 
-The requested metadata appears on each returned result.
+If present on the original document, the requested metadata appears on the returned [Search Result](/core/search#search-result).

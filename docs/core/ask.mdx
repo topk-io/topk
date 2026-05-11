@@ -8,27 +8,13 @@ icon: "message-circle-question-mark"
 TopK answers natural-language queries over your documents.
 It retrieves the most relevant parts of your documents and synthesizes a grounded answer with source citations.
 
-```mermaid
-flowchart LR
-    subgraph Answer["Answer"]
-        direction TB
-        Facts["Facts"]
-        Citations["Citations"]
-        Text["Text chunk"]
-        Page["Document page"]
-        Figure["Figure"]
-        Facts --- Citations
-        Citations --- Text & Page & Figure
-    end
-```
-
 ## How it works
 
-When you run Ask:
+When you run an **Ask**, TopK:
 
 <Steps>
   <Step title="Understands your query">
-    TopK interprets your question and organizes it into a clear sequence of answerable steps
+     Interprets your question and organizes it into a clear sequence of answerable steps
   </Step>
   <Step title="Searches your documents">
     Your documents are searched to find the most relevant passages based on your query.
@@ -37,42 +23,9 @@ When you run Ask:
     Produce a grounded answer based on the retrieved evidence.
   </Step>
   <Step title="Returns answer with source citations">
-    Get a verifiable answer backed by source citations
+    Returns a grounded answer with facts, citations, and a confidence score. See [Understanding the answer](#understanding-the-answer).
   </Step>
 </Steps>
-
-Here's an example of Ask query for a financial/legal knowledge base:
-
-<Info>
-**Query:**
-
-Based on the acquisition agreement and recent SEC filings, what are the main risks to the Vertex deal closing on time?
-
-**Answer:**
-- The European Commission's approval is conditional on divestiture of the logistics subsidiary within 90 days of closing, creating a tight execution window. <Badge color="purple">0\_0</Badge> <Badge color="purple">1\_0</Badge>
-- The $1.8B consideration is subject to an unresolved working capital adjustment mechanism that could delay closing if the parties fail to agree on the final figure. <Badge color="purple">0\_1</Badge>
-- An 18-month earnout tied to Vertex's ARR targets introduces post-close execution risk; if milestones are missed, the deal economics shift materially for both parties. <Badge color="purple">2\_0</Badge>
-
-**Citations:**
-- <Badge color="purple">0\_0</Badge> — "Buyer shall procure the divestiture of the European logistics subsidiary no later than ninety (90) days following the Closing Date…"
-  <Badge color="blue">vertex-acquisition-agreement.pdf</Badge>
-- <Badge color="purple">0\_1</Badge> — Consideration structure and working capital adjustment table, p. 4
-  <Badge color="blue">vertex-acquisition-agreement.pdf</Badge>
-- <Badge color="purple">1\_0</Badge> — "The European Commission has indicated that approval is contingent upon structural remedies including divestiture of logistics assets…"
-  <Badge color="blue">sec-filing-8k.html</Badge>
-- <Badge color="purple">2\_0</Badge> — Closing timeline and earnout milestone diagram
-  <Badge color="blue">deal-timeline.png</Badge>
-</Info>
-
-As you can see, not only does TopK understand your data and the relationships within it,
-but it also understands queries and reasons about answers—all grounded in your source material.
-
-This makes Ask useful for:
-
-- **answering questions** over internal knowledge bases
-- **comparing facts** across reports, contracts, or policies
-- **grounding agents** in private document context
-- **summarizing** what your documents say about a topic
 
 ## Usage
 
@@ -89,6 +42,76 @@ Once a dataset is created and your documents are processed, you can start runnin
     for message in client.ask("What was the total net income of Bank of America in 2024?", ["my-docs"]):
         print(message)
     ```
+
+    ```json title="Example output" expandable
+    {
+      "facts": [
+        {
+          "fact": "Bank of America's total net income for the fiscal year 2024 was $27,132 million.",
+          "ref_ids": ["1", "2", "3", "4", "5", "6"]
+        },
+        {
+          "fact": "The 2024 net income of $27.1 billion represented an increase from the $26.5 billion reported in 2023.",
+          "ref_ids": ["3", "4", "6"]
+        },
+        {
+          "fact": "The increase in 2024 net income was driven by higher noninterest income, although this was partially offset by a higher provision for credit losses and lower net interest income.",
+          "ref_ids": ["3", "6"]
+        }
+      ],
+      "refs": {
+        "1": {
+          "doc_id": "bank-of-america-annual-report-2024",
+          "doc_type": "application/pdf",
+          "dataset": "my-docs",
+          "content_id": "doc#bank-of-america-annual-report-2024#chunk#130",
+          "doc_name": "bank_of_america_2024.pdf",
+          "content": {
+            "data": {
+              "Chunk": {
+                "text": "## Condensed Statement of Cash Flows\n[row_1]; []=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
+                "doc_pages": [170]
+              }
+            }
+          },
+          "metadata": {}
+        },
+        "2": {
+          "doc_id": "bank-of-america-annual-report-2024",
+          "doc_type": "application/pdf",
+          "dataset": "my-docs",
+          "content_id": "doc#bank-of-america-annual-report-2024#chunk#428",
+          "doc_name": "bank_of_america_2024.pdf",
+          "content": {
+            "data": {
+              "Chunk": {
+                "text": "## Consolidated Statement of Comprehensive Income\n[row_0]; [Dollars in millions]=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
+                "doc_pages": [92]
+              }
+            }
+          },
+          "metadata": {}
+        },
+        "3": {
+          "doc_id": "bank-of-america-annual-report-2024",
+          "doc_type": "application/pdf",
+          "dataset": "my-docs",
+          "content_id": "doc#bank-of-america-annual-report-2024#image#92",
+          "doc_name": "bank_of_america_2024.pdf",
+          "content": {
+            "data": {
+              "Image": {
+                "mime_type": "image/jpeg",
+                "data": "<base64 encoded image>"
+              }
+            }
+          },
+          "metadata": {}
+        }
+      },
+      "confidence": 100.0
+    }
+    ```
   </Tab>
   <Tab title="JavaScript SDK" icon="/icons/js.svg">
     ```typescript
@@ -96,26 +119,148 @@ Once a dataset is created and your documents are processed, you can start runnin
       console.log(message);
     }
     ```
+
+    ```json title="Example output" expandable
+    {
+      "facts": [
+        {
+          "fact": "Bank of America's total net income for the fiscal year 2024 was $27,132 million.",
+          "refIds": ["1", "2", "3", "4", "5", "6"]
+        },
+        {
+          "fact": "The 2024 net income of $27.1 billion represented an increase from the $26.5 billion reported in 2023.",
+          "refIds": ["3", "4", "6"]
+        },
+        {
+          "fact": "The increase in 2024 net income was driven by higher noninterest income, although this was partially offset by a higher provision for credit losses and lower net interest income.",
+          "refIds": ["3", "6"]
+        }
+      ],
+      "refs": {
+        "1": {
+          "docId": "bank-of-america-annual-report-2024",
+          "docType": "application/pdf",
+          "dataset": "my-docs",
+          "contentId": "doc#bank-of-america-annual-report-2024#chunk#130",
+          "docName": "bank_of_america_2024.pdf",
+          "content": {
+            "type": "chunk",
+            "data": {
+              "text": "## Condensed Statement of Cash Flows\n[row_1]; []=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
+              "docPages": [170]
+            }
+          },
+          "metadata": {}
+        },
+        "2": {
+          "docId": "bank-of-america-annual-report-2024",
+          "docType": "application/pdf",
+          "dataset": "my-docs",
+          "contentId": "doc#bank-of-america-annual-report-2024#chunk#428",
+          "docName": "bank_of_america_2024.pdf",
+          "content": {
+            "type": "chunk",
+            "data": {
+              "text": "## Consolidated Statement of Comprehensive Income\n[row_0]; [Dollars in millions]=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
+              "docPages": [92]
+            }
+          },
+          "metadata": {}
+        },
+        "3": {
+          "docId": "bank-of-america-annual-report-2024",
+          "docType": "application/pdf",
+          "dataset": "my-docs",
+          "contentId": "doc#bank-of-america-annual-report-2024#image#92",
+          "docName": "bank_of_america_2024.pdf",
+          "content": {
+            "type": "image",
+            "data": {
+              "mimeType": "image/jpeg",
+              "data": "<base64 encoded image>"
+            }
+          },
+          "metadata": {}
+        }
+      },
+      "confidence": 100
+    }
+    ```
   </Tab>
 </Tabs>
 
-Each answer includes:
+Here's an example **Ask** query against a corporate filing (financial knowledge base):
 
-- **`facts`** — individual statements answering the query, backed by source citations
-- **`refs`** — citations associated with each fact, linking back to the supporting documents
-- **`confidence`** — a score between 0 and 100 indicating the confidence in the answer
+<Info>
+**Query:**
+
+What was the total net income of Bank of America in 2024?
+
+**Answer:**
+
+- Bank of America's total net income for the fiscal year 2024 was \$27,132 million. <Badge color="purple">1</Badge> <Badge color="purple">2</Badge> <Badge color="purple">3</Badge> <Badge color="purple">4</Badge> <Badge color="purple">5</Badge> <Badge color="purple">6</Badge>
+- The 2024 net income of \$27.1 billion represented an increase from the \$26.5 billion reported in 2023. <Badge color="purple">3</Badge> <Badge color="purple">4</Badge> <Badge color="purple">6</Badge>
+- The increase in 2024 net income was driven by higher noninterest income, although this was partially offset by a higher provision for credit losses and lower net interest income. <Badge color="purple">3</Badge> <Badge color="purple">6</Badge>
+
+**Citations:**
+
+<ul className="list-none pl-2 space-y-2">
+  <li><Badge color="purple">1</Badge> Condensed Statement of Cash Flows showing net income of \$27,132m (2024) vs \$26,515m (2023)<br /><a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=170" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">p. 170</Badge></li>
+  <li><Badge color="purple">2</Badge> Consolidated Statement of Comprehensive Income: net income line item for 2024–2022<br /><a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=92" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">p. 92</Badge></li>
+  <li><Badge color="purple">3</Badge> Supporting figure from the filing (tabular financial excerpt)<br /><a href="https://topk-docs.s3.us-east-2.amazonaws.com/boa-ask-ref-3-figure.jpg" target="_blank" rel="noopener noreferrer">boa-ask-ref-3-figure.jpg</a></li>
+  <li><Badge color="purple">4</Badge> Key performance indicators—selected annual financial data (including net income)<br /><a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=33" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">pp. 33–36</Badge></li>
+  <li><Badge color="purple">5</Badge> Segment results tying to total-corporation net income<br /><a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=166" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">pp. 166–168</Badge></li>
+  <li><Badge color="purple">6</Badge> Executive summary—summary income statement and balance sheet excerpts<br /><a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=29" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">pp. 29–30</Badge></li>
+</ul>
+</Info>
+
+## Understanding the answer
+
+The answer consists of three fields:
+
+- **`facts`** — individual statements answering the query, each backed by one or more citations
+- **`refs`** — a map from citation number to a [Search Result](/core/search#search-result)
+- **`confidence`** — a score between 0 and 100 indicating confidence in the answer
+
+```json
+{
+  "facts": [
+    {
+      "fact": "Bank of America's total net income for the fiscal year 2024 was $27,132 million.",
+      "ref_ids": ["1", "2", "3", "4", "5", "6"]
+    },
+    {
+      "fact": "The 2024 net income represented an increase from the $26.5 billion reported in 2023.",
+      "ref_ids": ["3", "4", "6"]
+    },
+    {
+      "fact": "The increase was driven by higher noninterest income, partially offset by a higher provision for credit losses and lower net interest income.",
+      "ref_ids": ["3", "6"]
+    }
+  ],
+  "refs": {
+    "1": { ... }, // Search Result 1
+    "2": { ... }, // Search Result 2
+    "3": { ... }, // Search Result 3
+    "4": { ... }, // Search Result 4
+    "5": { ... }, // Search Result 5
+    "6": { ... }  // Search Result 6
+  },
+  "confidence": 100.0
+}
+```
+
+### Citations
+
+Citations are **numbered**. Each fact's `ref_ids` list points to entries in `refs`, where each key is a citation number and each value is a [Search Result](/core/search#search-result) — the matched passage or image along with its document ID, file name, dataset, and any requested metadata.
 
 ## Scoping the search
 
-Query across multiple datasets or apply document filters to narrow the scope of the query.
+Query across specific datasets or apply document filters to narrow the scope of the query.
 
 ### Scoping to specific datasets
 
-This is useful when you want:
-
-- More targeted answers
-- Less ambiguity across unrelated document sets
-- Tighter control over what context an agent is allowed to use
+When running ask, you must specify at least one dataset to query against.
 
 <Tabs>
   <Tab title="CLI" icon="terminal">
@@ -126,7 +271,7 @@ This is useful when you want:
     ```
   </Tab>
   <Tab title="Python SDK" icon="/icons/python.svg">
-    To specify the datasets to query against, pass the dataset names as the second argument as a list:
+    To specify the datasets to query against, pass a list of dataset names as the second argument:
 
     <CodeGroup>
       ```python Sync
@@ -162,7 +307,7 @@ This is useful when you want:
     </CodeGroup>
   </Tab>
   <Tab title="JavaScript SDK" icon="/icons/js.svg">
-    To specify the datasets to query against, pass the dataset names as the second argument as a list:
+    To specify the datasets to query against, pass a list of dataset names as the second argument:
 
     ```typescript
     import { Client } from "topk-js";
@@ -188,27 +333,20 @@ Sometimes a dataset might contain documents that should not be considered for th
 
 These filter expressions operate on the **metadata fields** of documents.
 
-For example, if you uploaded documents with metadata such as `department`, `year`, `doc_type`, or `author`, you can use those fields to limit what Ask is allowed to retrieve.
+If your documents include metadata fields, you can use those fields to narrow down the search scope.
 
 This is useful when you want to query:
 
-- Documents within a specific time range
-- Documents matching a particular category or type
-- Documents associated with a specific group or owner
-- Documents the user is permitted to access
+- Documents within a **specific time** range
+- Documents matching a **particular category** or type
+- Documents associated with a **specific group** or owner
+- Documents the end user is **permitted to access**
 
 <Tabs>
   <Tab title="Python SDK" icon="/icons/python.svg">
     <CodeGroup>
       ```python Sync
-      import os
-      from topk_sdk import Client
       from topk_sdk.query import field
-
-      client = Client(
-          api_key=os.environ.get("TOPK_API_KEY"),
-          region="aws-us-east-1-elastica",
-      )
 
       for message in client.ask(
           "What is the travel reimbursement limit?",
@@ -224,14 +362,7 @@ This is useful when you want to query:
           print(message)
       ```
       ```python Async
-      import os
-      from topk_sdk import AsyncClient
       from topk_sdk.query import field
-
-      client = AsyncClient(
-          api_key=os.environ.get("TOPK_API_KEY"),
-          region="aws-us-east-1-elastica",
-      )
 
       async for message in client.ask(
           "What is the travel reimbursement limit?",
@@ -267,26 +398,60 @@ This is useful when you want to query:
   </Tab>
 </Tabs>
 
-Apply source filters when you want answers to come from specific sources.
-This keeps results focused and easier to verify.
+## Retrieving metadata
 
-## Retrieving documents metadata
-
-You may also want to retrieve metadata on the cited documents, such as title, author, date, category, or any custom metadata fields you attached during upload.
-
-That is especially useful when you want to:
-
-- Show document titles alongside facts
-- Group answers by source attributes like year, author, or department
-- Let agents carry document metadata into downstream workflows
-- Render richer citations in a UI
+By default, metadata fields are not included in citations. Pass the field names you want returned and they will appear on each cited Search Result.
 
 <Tabs>
   <Tab title="CLI" icon="terminal">
-    Use `--field` (repeatable) flag to include metadata field(s):
+    Use `--field` (repeatable) and `--output json` to include metadata field(s) in the output:
 
     ```bash
-    topk ask "What was the total net income of Bank of America in 2024?" -d finance --field title --field author --field year
+    topk ask "What was the total net income of Bank of America in 2024?" -d finance --field title --field year --output json
+    ```
+
+    ```json title="Example output" expandable
+    {
+      "facts": [
+        {
+          "fact": "Bank of America's total net income for the fiscal year 2024 was $27,132 million.",
+          "ref_ids": ["1", "2"]
+        }
+      ],
+      "refs": {
+        "1": {
+          "metadata": {
+            "title": "Bank of America 2024 Annual Report",
+            "year": 2024
+          },
+          "doc_id": "bank-of-america-annual-report-2024",
+          "doc_type": "application/pdf",
+          "dataset": "finance",
+          "content_id": "doc#bank-of-america-annual-report-2024#chunk#130",
+          "doc_name": "bank_of_america_2024.pdf",
+          "content": {
+            "text": "## Condensed Statement of Cash Flows\n[row_1]; []=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
+            "doc_pages": [170]
+          }
+        },
+        "2": {
+          "metadata": {
+            "title": "Bank of America 2024 Annual Report",
+            "year": 2024
+          },
+          "doc_id": "bank-of-america-annual-report-2024",
+          "doc_type": "application/pdf",
+          "dataset": "finance",
+          "content_id": "doc#bank-of-america-annual-report-2024#chunk#428",
+          "doc_name": "bank_of_america_2024.pdf",
+          "content": {
+            "text": "## Consolidated Statement of Comprehensive Income\n[row_0]; [Dollars in millions]=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
+            "doc_pages": [92]
+          }
+        }
+      },
+      "confidence": 100.0
+    }
     ```
   </Tab>
   <Tab title="Python SDK" icon="/icons/python.svg">
@@ -295,10 +460,43 @@ That is especially useful when you want to:
     ```python
     for message in client.ask(
         "What was the total net income of Bank of America in 2024?",
-        ["policies"],
-        select_fields=["title", "author", "year"],
+        ["finance"],
+        select_fields=["title", "year"],
     ):
         print(message)
+    ```
+
+    ```json title="Example output" expandable
+    {
+      "facts": [
+        {
+          "fact": "Bank of America's total net income for the fiscal year 2024 was $27,132 million.",
+          "ref_ids": ["1", "2"]
+        }
+      ],
+      "refs": {
+        "1": {
+          "metadata": {
+            "title": "Bank of America 2024 Annual Report",
+            "year": 2024
+          },
+          "doc_id": "bank-of-america-annual-report-2024",
+          "doc_type": "application/pdf",
+          "dataset": "finance",
+          "content_id": "doc#bank-of-america-annual-report-2024#chunk#130",
+          "doc_name": "bank_of_america_2024.pdf",
+          "content": {
+            "data": {
+              "Chunk": {
+                "text": "## Condensed Statement of Cash Flows\n[row_1]; []=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
+                "doc_pages": [170]
+              }
+            }
+          }
+        }
+      },
+      "confidence": 100.0
+    }
     ```
   </Tab>
   <Tab title="JavaScript SDK" icon="/icons/js.svg">
@@ -307,37 +505,45 @@ That is especially useful when you want to:
     ```typescript
     for await (const message of client.ask(
       "What was the total net income of Bank of America in 2024?",
-      ["policies"],
+      ["finance"],
       undefined,
       undefined,
-      ["title", "author", "year"],
+      ["title", "year"],
     )) {
       console.log(message);
     }
     ```
+
+    ```json title="Example output" expandable
+    {
+      "facts": [
+        {
+          "fact": "Bank of America's total net income for the fiscal year 2024 was $27,132 million.",
+          "refIds": ["1", "2"]
+        }
+      ],
+      "refs": {
+        "1": {
+          "metadata": {
+            "title": "Bank of America 2024 Annual Report",
+            "year": 2024
+          },
+          "docId": "bank-of-america-annual-report-2024",
+          "docType": "application/pdf",
+          "dataset": "finance",
+          "contentId": "doc#bank-of-america-annual-report-2024#chunk#130",
+          "docName": "bank_of_america_2024.pdf",
+          "content": {
+            "type": "chunk",
+            "data": {
+              "text": "## Condensed Statement of Cash Flows\n[row_1]; []=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
+              "docPages": [170]
+            }
+          }
+        }
+      },
+      "confidence": 100
+    }
+    ```
   </Tab>
 </Tabs>
-
-The returned metadata appears on the cited results, which are associated with each fact.
-
-## Understanding citations
-
-Citations are the evidence trail for the answer. They link each fact back to the original document passages that support it.
-
-A citation helps you identify:
-
-- Which document supported the claim
-- Which passage, section, or chunk was used
-- Any returned metadata you asked TopK to include
-
-**For humans**, this means you can:
-
-- Verify that an answer is correct
-- Open the original document and inspect the relevant section
-- Compare how strongly different sources support a claim
-
-**For agents**, this means you can:
-
-- Decide whether there is enough evidence to proceed
-- Attach evidence to downstream actions or reports
-- Ask follow-up questions against the cited documents

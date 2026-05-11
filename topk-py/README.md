@@ -90,8 +90,6 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-Functionality between the synchronous and asynchronous clients is otherwise identical.
-
 ## Handling errors
 
 ```python

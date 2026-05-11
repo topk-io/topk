@@ -1,0 +1,179 @@
+---
+title: "Managing Datasets"
+description: "Create, list, get, update, and delete datasets."
+icon: "folder-open"
+---
+
+A dataset is a named container for your documents. You must create a dataset before uploading files into it.
+
+## Create a dataset
+
+When creating a dataset, you must specify a **region** — this determines where your data is physically stored.
+Once set, a dataset's region cannot be changed. See [available regions](/regions).
+
+<Tabs>
+  <Tab title="CLI" icon="terminal">
+    ```bash
+    topk dataset create my-dataset --region aws-us-east-1-elastica
+    ```
+  </Tab>
+  <Tab title="Python SDK" icon="/icons/python.svg">
+    <CodeGroup>
+      ```python Sync
+      client.datasets().create("my-docs")
+      ```
+      ```python Async
+      await client.datasets().create("my-docs")
+      ```
+    </CodeGroup>
+  </Tab>
+  <Tab title="JavaScript SDK" icon="/icons/js.svg">
+    ```typescript
+    await client.datasets().create("my-docs");
+    ```
+  </Tab>
+</Tabs>
+
+## List datasets
+
+<Tabs>
+  <Tab title="CLI" icon="terminal">
+    ```bash
+    topk dataset list
+    ```
+  </Tab>
+  <Tab title="Python SDK" icon="/icons/python.svg">
+    <CodeGroup>
+      ```python Sync
+      datasets = client.datasets().list()
+
+      for dataset in datasets:
+          print(dataset.name)
+      ```
+      ```python Async
+      datasets = await client.datasets().list()
+
+      for dataset in datasets:
+          print(dataset.name)
+      ```
+    </CodeGroup>
+  </Tab>
+  <Tab title="JavaScript SDK" icon="/icons/js.svg">
+    ```typescript
+    const datasets = await client.datasets().list();
+
+    for (const dataset of datasets) {
+      console.log(dataset.name);
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Get a dataset
+
+<Tabs>
+  <Tab title="CLI" icon="terminal">
+    ```bash
+    topk dataset get my-docs
+    ```
+  </Tab>
+  <Tab title="Python SDK" icon="/icons/python.svg">
+    <CodeGroup>
+      ```python Sync
+      dataset = client.datasets().get("my-docs")
+
+      print(dataset.name)
+      ```
+      ```python Async
+      dataset = await client.datasets().get("my-docs")
+
+      print(dataset.name)
+      ```
+    </CodeGroup>
+  </Tab>
+  <Tab title="JavaScript SDK" icon="/icons/js.svg">
+    ```typescript
+    const dataset = await client.datasets().get("my-docs");
+
+    console.log(dataset.name);
+    ```
+  </Tab>
+</Tabs>
+
+## Update a dataset
+
+Update dataset **description**:
+
+<Tabs>
+  <Tab title="CLI" icon="terminal">
+    ```bash
+    topk dataset update my-docs --description "Annual financial filings"
+    ```
+  </Tab>
+  <Tab title="Python SDK" icon="/icons/python.svg">
+    <CodeGroup>
+      ```python Sync
+      dataset = client.datasets().update(
+          "my-docs",
+          description="Annual financial filings",
+      )
+
+      print(dataset.description)
+      ```
+      ```python Async
+      dataset = await client.datasets().update(
+          "my-docs",
+          description="Annual financial filings",
+      )
+
+      print(dataset.description)
+      ```
+    </CodeGroup>
+  </Tab>
+  <Tab title="JavaScript SDK" icon="/icons/js.svg">
+    ```typescript
+    const dataset = await client.datasets().update("my-docs", {
+      description: "Annual financial filings",
+    });
+
+    console.log(dataset.description);
+    ```
+  </Tab>
+</Tabs>
+
+## Delete a dataset
+
+<Warning>
+  Deleting a dataset is irreversible.
+  
+  All documents stored in the dataset will be permanently removed.
+</Warning>
+
+<Tabs>
+  <Tab title="CLI" icon="terminal">
+    ```bash
+    topk dataset delete --dataset my-docs
+    ```
+
+    The CLI will prompt for confirmation. Use `-y` to skip:
+
+    ```bash
+    topk dataset delete --dataset my-docs -y
+    ```
+  </Tab>
+  <Tab title="Python SDK" icon="/icons/python.svg">
+    <CodeGroup>
+      ```python Sync
+      client.datasets().delete("my-docs")
+      ```
+      ```python Async
+      await client.datasets().delete("my-docs")
+      ```
+    </CodeGroup>
+  </Tab>
+  <Tab title="JavaScript SDK" icon="/icons/js.svg">
+    ```typescript
+    await client.datasets().delete("my-docs");
+    ```
+  </Tab>
+</Tabs>

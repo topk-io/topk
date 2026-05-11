@@ -7,27 +7,9 @@ icon: "flask-conical"
 
 Research turns complex queries into a series of targeted searches, gathers evidence across documents, and produces a grounded answer with source citations.
 
-```mermaid
-flowchart LR
-    Q[Research query]
-    S1["Search (Step 1)"]
-    S2["Search (Step 2)"]
-    S3["Search (Step 3)"]
-    E[Evidence]
-    A[Grounded answer]
-
-    Q --> S1
-    Q --> S2
-    Q --> S3
-    S1 --> E
-    S2 --> E
-    S3 --> E
-    E --> A
-```
-
 ## How it works
 
-When you run a Research query, TopK:
+When you run a **Research**, TopK:
 
 <Steps>
   <Step title="Understands the query">
@@ -47,28 +29,23 @@ When you run a Research query, TopK:
   </Step>
 </Steps>
 
-Here's an example of a Research query over a financial dataset:
+```mermaid
+flowchart LR
+    Q[Research query]
+    S1["Search (Step 1)"]
+    S2["Search (Step 2)"]
+    S3["Search (Step 3)"]
+    E[Evidence]
+    A[Grounded answer]
 
-<Info>
-**Query:**
-
-What was the 2022 and 2023 total value of commercial loans modified as TDRs, and the total 90+ days past due for consumer loans at December 31, 2024?
-
-**Answer:**
-- For 2022, Bank of America reported that the carrying value of commercial loans modified as troubled debt restructurings (TDRs) was \$1.9 billion. <Badge color="purple">0_0</Badge>
-- For 2023, the total value of commercial loans modified as TDRs is not provided in the source material. <Badge color="purple">1_0</Badge>
-- At December 31, 2024, consumer loans 90+ days past due totaled \$186 million, consisting of \$183 million in North America offices and \$3 million outside of North America offices. <Badge color="purple">2_0</Badge> <Badge color="purple">2_1</Badge>
-
-**References:**
-- <Badge color="purple">0_0</Badge> — "During 2022, the carrying value of the Corporation's commercial loans that were modified as TDRs was \$1.9 billion."
-  <Badge color="blue">bank-of-america-2024-10k.pdf</Badge>
-- <Badge color="purple">1_0</Badge> — No retrieved source provided a 2023 commercial TDR carrying value comparable to the 2022 disclosure.
-  <Badge color="blue">bank-of-america-2024-10k.pdf</Badge>
-- <Badge color="purple">2_0</Badge> — Consumer loans 90+ days past due in North America offices: \$183 million at December 31, 2024
-  <Badge color="blue">citigroup-2024-10k.pdf</Badge>
-- <Badge color="purple">2_1</Badge> — Consumer loans 90+ days past due outside of North America offices: \$3 million at December 31, 2024
-  <Badge color="blue">citigroup-2024-10k.pdf</Badge>
-</Info>
+    Q --> S1
+    Q --> S2
+    Q --> S3
+    S1 --> E
+    S2 --> E
+    S3 --> E
+    E --> A
+```
 
 ## Usage
 
@@ -138,9 +115,29 @@ Research is invoked through `ask` by setting `mode` to `research`.
   </Tab>
 </Tabs>
 
-## Scoping the search
+Here's an example of a **Research** query over a financial dataset:
 
-Research uses the same dataset scoping and document filtering model as [`ask`](/core/ask).
+<Info>
+**Query:**
+
+What was the 2022 and 2023 total value of commercial loans modified as TDRs, and the total 90+ days past due for consumer loans at December 31, 2024?
+
+**Answer:**
+
+- Based on exact phrasing matches to corporate filings, the question refers to Bank of America. During 2022, the carrying value of Bank of America's commercial loans modified as Troubled Debt Restructurings (TDRs) was \$1.9 billion. <Badge color="purple">1</Badge>
+- There is no 2023 value reported, as the TDR reporting designation and accounting guidance were eliminated effective January 1, 2023, upon the adoption of ASU 2022-02. <Badge color="purple">2</Badge>
+- As of December 31, 2024, Bank of America's total consumer loans and leases that were 90 days or more past due totaled \$2,422 million. <Badge color="purple">3</Badge>
+
+**References:**
+
+<ul className="list-none pl-2 space-y-2">
+  <li><Badge color="purple">1</Badge> Commercial loans modified as TDRs—2022 carrying value (\$1.9 billion) and related commitments and payment-default balances (Bank of America 10-K excerpt)<br /><a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=127" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">p. 127</Badge></li>
+  <li><Badge color="purple">2</Badge> ASU 2022-02 eliminated U.S. GAAP troubled debt restructuring reporting; cites year-end 2022 TDR table context (Wells Fargo 10-K excerpt)<br /><a href="https://topk-docs.s3.us-east-2.amazonaws.com/wells_fargo_2024.pdf#page=254" target="_blank" rel="noopener noreferrer">wells_fargo_2024.pdf</a> <Badge color="gray" shape="pill">pp. 254–255</Badge></li>
+  <li><Badge color="purple">3</Badge> Outstanding consumer loans and leases—90+ days past due (\$2,422 million in "Total consumer" rows, December 31, 2024)<br /><a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=116" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">pp. 116–117</Badge></li>
+</ul>
+</Info>
+
+## Scoping the search
 
 For guidance on:
 
@@ -152,7 +149,7 @@ see [Scoping the search](/core/ask#scoping-the-search) in the Ask guide.
 
 ## When to use Research
 
-Use **Research** for analytical questions that require more than a single retrieval pass to answer reliably.
+Use Research for analytical questions that require more than a single retrieval pass to answer reliably.
 It is intended for multi-hop questions when searching, connecting, comparing, and synthesizing facts is needed to answer the question.
 
 Use **Research** when:
@@ -162,12 +159,13 @@ Use **Research** when:
 - the answer requires complex computation, aggregation, synthesis or resolving intermediate facts
 - you care more about depth and correctness than getting the fastest possible answer
 
-<Info>
-  Because Research performs more work than an `ask` query in `summarize` mode, it will usually take longer to produce an answer.
-</Info>
-
-Prefer `ask` with `summarize` mode when:
+Prefer [Ask](/core/ask) with `summarize` mode when:
 
 - the question is direct and likely answered by one or a few passages
 - you want the fastest grounded answer
 - the extra decomposition and multi-step reasoning are not necessary to reliably answer the question
+
+
+<Warning>
+  Because **Research** performs more work than an `ask` query in `summarize` mode, it will usually take longer to produce an answer.
+</Warning>
