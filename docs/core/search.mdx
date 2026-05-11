@@ -128,9 +128,9 @@ Each Search Result has the following fields:
 | `doc_name`   | `string` | The file name of the source document assigned at upload time                                                                                                        |
 | `doc_type`   | `string` | The MIME type of the source document (e.g. `application/pdf`)                                                                                                         |
 | `dataset`    | `string` | The dataset the document belongs to                                                                                                                            |
-| `content_id` | `string` | A unique identifier for the content of this passage                                                                                               |
-| `metadata`   | `object` | Metadata fields attached to the document at upload time — must be explicitly requested, see [Retrieving metadata](#retrieving-metadata)                        |
+| `content_id` | `string` | A unique identifier for the content of this Search Result                                                                                              |
 | `content`    | `object` | The matched content — see [Content types](#content-types)                                                                                                      |
+| `metadata`   | `object` | Metadata fields attached to the source document at upload time — must be requested, see [Retrieving metadata](#retrieving-metadata)                        |
 
 ### Content types
 
@@ -282,7 +282,7 @@ This is useful when you want to query:
 
 ## Retrieving metadata
 
-You may also want to retrieve metadata on the cited documents, such as title, author, date, category, or any custom metadata fields you attached during upload.
+By default, metadata fields are not included in search results. Pass the field names you want returned and they will appear on each Search Result.
 
 <Tabs>
   <Tab title="CLI" icon="terminal">
