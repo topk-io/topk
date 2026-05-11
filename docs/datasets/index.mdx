@@ -1,6 +1,6 @@
 ---
 title: "Managing Datasets"
-description: "Create, list, get, and delete datasets."
+description: "Create, list, get, update, and delete datasets."
 icon: "folder-open"
 ---
 
@@ -100,10 +100,53 @@ Once set, a dataset's region cannot be changed. See [available regions](/regions
   </Tab>
 </Tabs>
 
+## Update a dataset
+
+Update dataset **description**:
+
+<Tabs>
+  <Tab title="CLI" icon="terminal">
+    ```bash
+    topk dataset update my-docs --description "Annual financial filings"
+    ```
+  </Tab>
+  <Tab title="Python SDK" icon="/icons/python.svg">
+    <CodeGroup>
+      ```python Sync
+      dataset = client.datasets().update(
+          "my-docs",
+          description="Annual financial filings",
+      )
+
+      print(dataset.description)
+      ```
+      ```python Async
+      dataset = await client.datasets().update(
+          "my-docs",
+          description="Annual financial filings",
+      )
+
+      print(dataset.description)
+      ```
+    </CodeGroup>
+  </Tab>
+  <Tab title="JavaScript SDK" icon="/icons/js.svg">
+    ```typescript
+    const dataset = await client.datasets().update("my-docs", {
+      description: "Annual financial filings",
+    });
+
+    console.log(dataset.description);
+    ```
+  </Tab>
+</Tabs>
+
 ## Delete a dataset
 
 <Warning>
-  Deleting a dataset is irreversible. All documents stored in the dataset will be permanently removed.
+  Deleting a dataset is irreversible.
+  
+  All documents stored in the dataset will be permanently removed.
 </Warning>
 
 <Tabs>
