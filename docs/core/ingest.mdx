@@ -37,8 +37,8 @@ Each document in a dataset is identified by a **document ID**.
     # Upload all PDFs in the directory by glob pattern recursively
     topk upload "./docs/**/*.pdf" --dataset my-docs
 
-    # Upload a single file with an explicit document ID
-    topk upload ./report.pdf --dataset my-docs --id report-2024
+    # Upload a single file
+    topk upload ./report.pdf --dataset my-docs
     ```
   </Tab>
   <Tab title="Python SDK" icon="/icons/python.svg">
@@ -92,7 +92,7 @@ Each document in a dataset is identified by a **document ID**.
 
     const handle = await client.dataset("my-docs").upsertFile(
       "report-2024",                    // document ID
-      "./report.pdf",                   // path to file
+      { path: "./report.pdf" },         // path to file
       { title: "Annual Report 2024" },  // document metadata (optional)
     );
 
@@ -161,7 +161,7 @@ information about the document, such as title, author, date, or category.
     ```typescript
     const resp = await client.dataset("my-docs").upsertFile(
       "report-2024",
-      "./report.pdf",
+      { path: "./report.pdf" },
       {
         title: "Annual Report 2024",
         author: "Finance Team",
