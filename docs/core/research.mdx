@@ -140,8 +140,6 @@ What was the 2022 and 2023 total value of commercial loans modified as TDRs, and
 
 ## Scoping the search
 
-Research uses the same dataset scoping and document filtering model as [`ask`](/core/ask).
-
 For guidance on:
 
 - querying across specific datasets
@@ -152,7 +150,7 @@ see [Scoping the search](/core/ask#scoping-the-search) in the Ask guide.
 
 ## When to use Research
 
-Use **Research** for analytical questions that require more than a single retrieval pass to answer reliably.
+Use Research for analytical questions that require more than a single retrieval pass to answer reliably.
 It is intended for multi-hop questions when searching, connecting, comparing, and synthesizing facts is needed to answer the question.
 
 Use **Research** when:
@@ -162,12 +160,13 @@ Use **Research** when:
 - the answer requires complex computation, aggregation, synthesis or resolving intermediate facts
 - you care more about depth and correctness than getting the fastest possible answer
 
-<Warning>
-  Because **Research** performs more work than an `ask` query in `summarize` mode, it will usually take longer to produce an answer.
-</Warning>
-
-Prefer `ask` with `summarize` mode when:
+Prefer [Ask](/core/ask) with `summarize` mode when:
 
 - the question is direct and likely answered by one or a few passages
 - you want the fastest grounded answer
 - the extra decomposition and multi-step reasoning are not necessary to reliably answer the question
+
+
+<Warning>
+  Because **Research** performs more work than an `ask` query in `summarize` mode, it will usually take longer to produce an answer.
+</Warning>
