@@ -171,10 +171,11 @@ test-runner-builder:
     RUN apt-get update && apt-get install -y protobuf-compiler
     RUN cargo install cargo-nextest --locked
 
-    WORKDIR /workspace
+    WORKDIR /sdk
     DO rust+INIT --keep_fingerprints=true
-    COPY --keep-ts --dir . .
+    COPY --keep-ts . .
 
+    WORKDIR /sdk/topk-rs
     ENV RUSTFLAGS="-C target-cpu=generic"
     ENV FORCE_COLOR=1
     DO rust+CARGO --args="nextest archive --release --archive-file test-runner.tar.zst"
