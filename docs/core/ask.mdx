@@ -23,38 +23,12 @@ When you run Ask:
     Produce a grounded answer based on the retrieved evidence.
   </Step>
   <Step title="Returns answer with source citations">
-    Get a verifiable answer backed by source citations
+    Answer contains the following fields:
+    - **`facts`** — individual statements answering the query, backed by one or more citations
+    - **`refs`** — a map of citation number to a passage from the source document
+    - **`confidence`** — a score between 0 and 100 indicating confidence in the answer
   </Step>
 </Steps>
-
-Here's an example Ask query against a corporate filing (financial knowledge base):
-
-<Info>
-**Query:**
-
-What was the total net income of Bank of America in 2024?
-
-**Answer:**
-
-- Bank of America's total net income for the fiscal year 2024 was \$27,132 million. <Badge color="purple">1</Badge> <Badge color="purple">2</Badge> <Badge color="purple">3</Badge> <Badge color="purple">4</Badge> <Badge color="purple">5</Badge> <Badge color="purple">6</Badge>
-- The 2024 net income of \$27.1 billion represented an increase from the \$26.5 billion reported in 2023. <Badge color="purple">3</Badge> <Badge color="purple">4</Badge> <Badge color="purple">6</Badge>
-- The increase in 2024 net income was driven by higher noninterest income, although this was partially offset by a higher provision for credit losses and lower net interest income. <Badge color="purple">3</Badge> <Badge color="purple">6</Badge>
-
-**Citations:**
-
-- <Badge color="purple">1</Badge> Condensed Statement of Cash Flows showing net income of \$27,132m (2024) vs \$26,515m (2023)
-  <a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=170" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">p. 170</Badge>
-- <Badge color="purple">2</Badge> Consolidated Statement of Comprehensive Income: net income line item for 2024–2022
-  <a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=92" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">p. 92</Badge>
-- <Badge color="purple">3</Badge> Supporting figure from the filing (tabular financial excerpt)
-  <a href="https://topk-docs.s3.us-east-2.amazonaws.com/boa-ask-ref-3-figure.jpg" target="_blank" rel="noopener noreferrer">boa-ask-ref-3-figure.jpg</a>
-- <Badge color="purple">4</Badge> Key performance indicators—selected annual financial data (including net income)
-  <a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=33" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">pp. 33–36</Badge>
-- <Badge color="purple">5</Badge> Segment results tying to total-corporation net income
-  <a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=166" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">pp. 166–168</Badge>
-- <Badge color="purple">6</Badge> Executive summary—summary income statement and balance sheet excerpts
-  <a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=29" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">pp. 29–30</Badge>
-</Info>
 
 ## Usage
 
@@ -65,70 +39,6 @@ Once a dataset is created and your documents are processed, you can start runnin
     ```bash
     topk ask "What was the total net income of Bank of America in 2024?" -d my-docs
     ```
-
-    Answer:
-
-    <CodeGroup>
-      ```text Text
-      Bank of America's total net income for 2024 was $27,132 million (approximately $27.1 billion).
-      The 2024 net income of $27.1 billion represented an increase from the $26.5 billion reported in 2023.
-      On a quarterly basis in 2024, Bank of America reported net incomes of $6,674 million in Q1, $6,897 million in Q2, $6,896 million in Q3, and $6,665 million in Q4.
-      Confidence: 100.00%
-      ```
-      ```json JSON expandable
-      {
-        "facts": [
-          {
-            "fact": "Bank of America's total net income for the fiscal year 2024 was $27,132 million.",
-            "ref_ids": ["1", "2", "3", "4", "5"]
-          },
-          {
-            "fact": "The 2024 net income of $27.1 billion represented an increase from the $26.5 billion reported in 2023.",
-            "ref_ids": ["3", "5"]
-          }
-        ],
-        "refs": {
-          "1": {
-            "doc_id": "bank-of-america-annual-report-2024",
-            "doc_type": "application/pdf",
-            "dataset": "my-docs",
-            "content_id": "doc#bank-of-america-annual-report-2024#chunk#130",
-            "doc_name": "bank_of_america_2024.pdf",
-            "content": {
-              "text": "## Condensed Statement of Cash Flows\n[row_1]; []=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
-              "doc_pages": [170]
-            },
-            "metadata": {}
-          },
-          "2": {
-            "doc_id": "bank-of-america-annual-report-2024",
-            "doc_type": "application/pdf",
-            "dataset": "my-docs",
-            "content_id": "doc#bank-of-america-annual-report-2024#chunk#428",
-            "doc_name": "bank_of_america_2024.pdf",
-            "content": {
-              "text": "## Consolidated Statement of Comprehensive Income\n[row_0]; [Dollars in millions]=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
-              "doc_pages": [92]
-            },
-            "metadata": {}
-          },
-          "3": {
-            "doc_id": "bank-of-america-annual-report-2024",
-            "doc_type": "application/pdf",
-            "dataset": "my-docs",
-            "content_id": "doc#bank-of-america-annual-report-2024#image#92",
-            "doc_name": "bank_of_america_2024.pdf",
-            "content": {
-              "mime_type": "image/jpeg",
-              "data": "binary data"
-            },
-            "metadata": {}
-          }
-        },
-        "confidence": 100.0
-      }
-      ```
-    </CodeGroup>
   </Tab>
   <Tab title="Python SDK" icon="/icons/python.svg">
     ```python
@@ -195,7 +105,7 @@ Once a dataset is created and your documents are processed, you can start runnin
             "data": {
               "Image": {
                 "mime_type": "image/jpeg",
-                "data": "binary data"
+                "data": "<base64 encoded image>"
               }
             }
           },
@@ -264,7 +174,7 @@ Once a dataset is created and your documents are processed, you can start runnin
             "type": "image",
             "data": {
               "mimeType": "image/jpeg",
-              "data": "binary data"
+              "data": "<base64 encoded image>"
             }
           },
           "metadata": {}
@@ -276,11 +186,59 @@ Once a dataset is created and your documents are processed, you can start runnin
   </Tab>
 </Tabs>
 
-Each answer includes:
+Here's an example **Ask** query against a corporate filing (financial knowledge base):
 
-- **`facts`** — individual statements answering the query, backed by source citations
-- **`refs`** — citations associated with each fact, linking back to the supporting documents
-- **`confidence`** — a score between 0 and 100 indicating the confidence in the answer
+<Info>
+**Query:**
+
+What was the total net income of Bank of America in 2024?
+
+**Answer:**
+
+- Bank of America's total net income for the fiscal year 2024 was \$27,132 million. <Badge color="purple">1</Badge> <Badge color="purple">2</Badge> <Badge color="purple">3</Badge> <Badge color="purple">4</Badge> <Badge color="purple">5</Badge> <Badge color="purple">6</Badge>
+- The 2024 net income of \$27.1 billion represented an increase from the \$26.5 billion reported in 2023. <Badge color="purple">3</Badge> <Badge color="purple">4</Badge> <Badge color="purple">6</Badge>
+- The increase in 2024 net income was driven by higher noninterest income, although this was partially offset by a higher provision for credit losses and lower net interest income. <Badge color="purple">3</Badge> <Badge color="purple">6</Badge>
+
+**Citations:**
+
+- <Badge color="purple">1</Badge> Condensed Statement of Cash Flows showing net income of \$27,132m (2024) vs \$26,515m (2023)
+  <a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=170" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">p. 170</Badge>
+- <Badge color="purple">2</Badge> Consolidated Statement of Comprehensive Income: net income line item for 2024–2022
+  <a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=92" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">p. 92</Badge>
+- <Badge color="purple">3</Badge> Supporting figure from the filing (tabular financial excerpt)
+  <a href="https://topk-docs.s3.us-east-2.amazonaws.com/boa-ask-ref-3-figure.jpg" target="_blank" rel="noopener noreferrer">boa-ask-ref-3-figure.jpg</a>
+- <Badge color="purple">4</Badge> Key performance indicators—selected annual financial data (including net income)
+  <a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=33" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">pp. 33–36</Badge>
+- <Badge color="purple">5</Badge> Segment results tying to total-corporation net income
+  <a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=166" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">pp. 166–168</Badge>
+- <Badge color="purple">6</Badge> Executive summary—summary income statement and balance sheet excerpts
+  <a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=29" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">pp. 29–30</Badge>
+</Info>
+
+## Understanding citations
+
+Facts in the answer are associated with one or more citations.
+
+Citations are **numbered**. Each fact includes a `ref_ids` list, whose values correspond to keys in the `refs` map.
+
+Each entry in `refs` maps a citation number to a [Search Result](/core/search#search-result), including the matched passage (text, image or page), document ID, file name, document type, dataset, and any requested metadata.
+
+```json
+{
+  "facts": [
+    {
+      "fact": "Bank of America's total net income for the fiscal year 2024 was $27,132 million.",
+      "ref_ids": ["1", "2", "3"]
+    }
+  ],
+  "refs": {
+    "1": { ... }, // Search Result
+    "2": { ... },
+    "3": { ... }
+  },
+  "confidence": 100.0
+}
+```
 
 ## Scoping the search
 
@@ -299,7 +257,7 @@ When running ask, you must specify at least one dataset to query against.
     ```
   </Tab>
   <Tab title="Python SDK" icon="/icons/python.svg">
-    To specify the datasets to query against, pass the dataset names as the second argument as a list:
+    To specify the datasets to query against, pass a list of dataset names as the second argument:
 
     <CodeGroup>
       ```python Sync
@@ -335,7 +293,7 @@ When running ask, you must specify at least one dataset to query against.
     </CodeGroup>
   </Tab>
   <Tab title="JavaScript SDK" icon="/icons/js.svg">
-    To specify the datasets to query against, pass the dataset names as the second argument as a list:
+    To specify the datasets to query against, pass a list of dataset names as the second argument:
 
     ```typescript
     import { Client } from "topk-js";
@@ -368,7 +326,7 @@ This is useful when you want to query:
 - Documents within a specific time range
 - Documents matching a particular category or type
 - Documents associated with a specific group or owner
-- Documents the user is permitted to access
+- Documents the end user is permitted to access
 
 <Tabs>
   <Tab title="Python SDK" icon="/icons/python.svg">
@@ -429,23 +387,60 @@ This is useful when you want to query:
 Apply source filters when you want answers to come from specific sources.
 This keeps results focused and easier to verify.
 
-## Retrieving documents metadata
+## Retrieving metadata
 
 You may also want to retrieve metadata on the cited documents, such as title, author, date, category, or any custom metadata fields you attached during upload.
 
-That is especially useful when you want to:
-
-- Show document titles alongside facts
-- Group answers by source attributes like year, author, or department
-- Let agents carry document metadata into downstream workflows
-- Render richer citations in a UI
-
 <Tabs>
   <Tab title="CLI" icon="terminal">
-    Use `--field` (repeatable) flag to include metadata field(s):
+    Use `--field` (repeatable) and `--output json` to include metadata field(s) in the output:
 
     ```bash
-    topk ask "What was the total net income of Bank of America in 2024?" -d finance --field title --field author --field year
+    topk ask "What was the total net income of Bank of America in 2024?" -d finance --field title --field year --output json
+    ```
+
+    ```json title="Example output" expandable
+    {
+      "facts": [
+        {
+          "fact": "Bank of America's total net income for the fiscal year 2024 was $27,132 million.",
+          "ref_ids": ["1", "2"]
+        }
+      ],
+      "refs": {
+        "1": {
+          "metadata": {
+            "title": "Bank of America 2024 Annual Report",
+            "year": 2024
+          },
+          "doc_id": "bank-of-america-annual-report-2024",
+          "doc_type": "application/pdf",
+          "dataset": "finance",
+          "content_id": "doc#bank-of-america-annual-report-2024#chunk#130",
+          "doc_name": "bank_of_america_2024.pdf",
+          "content": {
+            "text": "## Condensed Statement of Cash Flows\n[row_1]; []=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
+            "doc_pages": [170]
+          }
+        },
+        "2": {
+          "metadata": {
+            "title": "Bank of America 2024 Annual Report",
+            "year": 2024
+          },
+          "doc_id": "bank-of-america-annual-report-2024",
+          "doc_type": "application/pdf",
+          "dataset": "finance",
+          "content_id": "doc#bank-of-america-annual-report-2024#chunk#428",
+          "doc_name": "bank_of_america_2024.pdf",
+          "content": {
+            "text": "## Consolidated Statement of Comprehensive Income\n[row_0]; [Dollars in millions]=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
+            "doc_pages": [92]
+          }
+        }
+      },
+      "confidence": 100.0
+    }
     ```
   </Tab>
   <Tab title="Python SDK" icon="/icons/python.svg">
@@ -454,10 +449,43 @@ That is especially useful when you want to:
     ```python
     for message in client.ask(
         "What was the total net income of Bank of America in 2024?",
-        ["policies"],
-        select_fields=["title", "author", "year"],
+        ["finance"],
+        select_fields=["title", "year"],
     ):
         print(message)
+    ```
+
+    ```json title="Example output" expandable
+    {
+      "facts": [
+        {
+          "fact": "Bank of America's total net income for the fiscal year 2024 was $27,132 million.",
+          "ref_ids": ["1", "2"]
+        }
+      ],
+      "refs": {
+        "1": {
+          "metadata": {
+            "title": "Bank of America 2024 Annual Report",
+            "year": 2024
+          },
+          "doc_id": "bank-of-america-annual-report-2024",
+          "doc_type": "application/pdf",
+          "dataset": "finance",
+          "content_id": "doc#bank-of-america-annual-report-2024#chunk#130",
+          "doc_name": "bank_of_america_2024.pdf",
+          "content": {
+            "data": {
+              "Chunk": {
+                "text": "## Condensed Statement of Cash Flows\n[row_1]; []=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
+                "doc_pages": [170]
+              }
+            }
+          }
+        }
+      },
+      "confidence": 100.0
+    }
     ```
   </Tab>
   <Tab title="JavaScript SDK" icon="/icons/js.svg">
@@ -466,47 +494,43 @@ That is especially useful when you want to:
     ```typescript
     for await (const message of client.ask(
       "What was the total net income of Bank of America in 2024?",
-      ["policies"],
+      ["finance"],
       undefined,
       undefined,
-      ["title", "author", "year"],
+      ["title", "year"],
     )) {
       console.log(message);
     }
     ```
+
+    ```json title="Example output" expandable
+    {
+      "facts": [
+        {
+          "fact": "Bank of America's total net income for the fiscal year 2024 was $27,132 million.",
+          "refIds": ["1", "2"]
+        }
+      ],
+      "refs": {
+        "1": {
+          "metadata": {
+            "title": "Bank of America 2024 Annual Report",
+            "year": 2024
+          },
+          "docId": "bank-of-america-annual-report-2024",
+          "docType": "application/pdf",
+          "dataset": "finance",
+          "content": {
+            "type": "chunk",
+            "data": {
+              "text": "## Condensed Statement of Cash Flows\n[row_1]; []=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
+              "docPages": [170]
+            }
+          }
+        }
+      },
+      "confidence": 100
+    }
+    ```
   </Tab>
 </Tabs>
-
-The returned metadata appears on the cited results, which are associated with each fact.
-
-## Understanding citations
-
-Citations, or *references*, are the evidence trail for the answer.
-They link each fact from the answer back to the original document passages that support it.
-
-### Reference
-
-Each reference is a search result with the following fields:
-
-| Field      | Type     | Description                                                    |
-| ---------- | -------- | -------------------------------------------------------------- |
-| `doc_id`   | `string` | The document ID assigned at upload time                        |
-| `doc_name` | `string` | The file name of the document                                  |
-| `doc_type` | `string` | The MIME type of the document (e.g. `application/pdf`)         |
-| `dataset`  | `string` | The dataset the document belongs to                            |
-| `metadata` | `object` | Metadata fields attached to the document at upload time — must be explicitly requested, see [Retrieving document metadata](#retrieving-documents-metadata) |
-| `content`  | `object` | The referenced content — described in the section below        |
-
-### Content types
-
-In TopK, there are three types of references:
-
-- **Chunk** - a text chunk extracted from a document. <Info> Alongside the text, chunk may also contain page number(s) from the original document where it was extracted from.</Info>
-- **Image** - an image of a certain section of a document
-- **Page** - an image of a page from a document associated with a page number
-
-A citation helps you identify:
-
-- Which document supported the claim
-- Which passage, section, or chunk was used
-- Any returned metadata you asked TopK to include
