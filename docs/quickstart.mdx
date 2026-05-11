@@ -69,88 +69,114 @@ import CoreConcepts from "/snippets/core-concepts.mdx";
         topk ask "What was the total net income of Bank of America in 2024?" -d quickstart
         ```
 
-        Answer:
+        <Info>
+        **Answer:**
 
-        <CodeGroup>
-          ```text Text
-          Bank of America's total net income for 2024 was $27,132 million (approximately $27.1 billion).
-          The 2024 net income of $27.1 billion represented an increase from the $26.5 billion reported in 2023.
-          On a quarterly basis in 2024, Bank of America reported net incomes of $6,674 million in Q1, $6,897 million in Q2, $6,896 million in Q3, and $6,665 million in Q4.
-          Confidence: 100.00%
-          ```
-          ```json JSON expandable
-          {
-            "facts": [
-              {
-                "fact": "Bank of America's total net income for the fiscal year 2024 was $27,132 million.",
-                "ref_ids": ["1", "2", "3", "4", "5"]
-              },
-              {
-                "fact": "The 2024 net income of $27.1 billion represented an increase from the $26.5 billion reported in 2023.",
-                "ref_ids": ["3", "5"]
-              }
-            ],
-            "refs": {
-              "1": {
-                "doc_id": "bank-of-america-annual-report-2024",
-                "doc_type": "application/pdf",
-                "dataset": "quickstart",
-                "content_id": "doc#bank-of-america-annual-report-2024#chunk#130",
-                "doc_name": "report.pdf",
-                "content": {
-                  "text": "## Condensed Statement of Cash Flows\n[row_1]; []=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
-                  "doc_pages": [170]
-                }
-              },
-              "2": {
-                "doc_id": "bank-of-america-annual-report-2024",
-                "doc_type": "application/pdf",
-                "dataset": "quickstart",
-                "content_id": "doc#bank-of-america-annual-report-2024#chunk#428",
-                "doc_name": "report.pdf",
-                "content": {
-                  "text": "## Consolidated Statement of Comprehensive Income\n[row_0]; [Dollars in millions]=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
-                  "doc_pages": [92]
-                }
-              },
-              "3": {
-                "doc_id": "bank-of-america-annual-report-2024",
-                "doc_type": "application/pdf",
-                "dataset": "quickstart",
-                "content_id": "doc#bank-of-america-annual-report-2024#image#92",
-                "doc_name": "report.pdf",
-                "content": {
-                  "mime_type": "image/jpeg",
-                  "data": "<base64 encoded image>"
-                }
-              },
-              "4": {
-                "doc_id": "bank-of-america-annual-report-2024",
-                "doc_type": "application/pdf",
-                "dataset": "quickstart",
-                "content_id": "doc#bank-of-america-annual-report-2024#chunk#129",
-                "doc_name": "report.pdf",
-                "content": {
-                  "text": "## Key Performance Indicators\n[row_7]=Income statement; []=Net income; [2024]=27,132; [2023]=26,515\n...",
-                  "doc_pages": [33, 34, 35, 36]
-                }
-              },
-              "5": {
-                "doc_id": "bank-of-america-annual-report-2024",
-                "doc_type": "application/pdf",
-                "dataset": "quickstart",
-                "content_id": "doc#bank-of-america-annual-report-2024#chunk#854",
-                "doc_name": "report.pdf",
-                "content": {
-                  "text": "## Executive Summary > Financial Highlights\n[row_7]=Net income; [2024]=27,132; [2023]=26,515\n...",
-                  "doc_pages": [29, 30]
-                }
+        - Bank of America's total net income for 2024 was \$27,132 million (approximately \$27.1 billion). <Badge color="purple">1</Badge> <Badge color="purple">2</Badge> <Badge color="purple">3</Badge> <Badge color="purple">4</Badge> <Badge color="purple">5</Badge> <Badge color="purple">6</Badge>
+        - The 2024 net income represented an increase from the \$26.5 billion reported in 2023. <Badge color="purple">3</Badge> <Badge color="purple">4</Badge> <Badge color="purple">6</Badge>
+        - The increase was driven by higher noninterest income, partially offset by a higher provision for credit losses and lower net interest income. <Badge color="purple">3</Badge> <Badge color="purple">6</Badge>
+
+        **Citations:**
+
+        <ul className="list-none pl-2 space-y-2">
+          <li><Badge color="purple">1</Badge> Condensed Statement of Cash Flows showing net income of \$27,132m (2024) vs \$26,515m (2023)<br /><a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=170" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">p. 170</Badge></li>
+          <li><Badge color="purple">2</Badge> Consolidated Statement of Comprehensive Income: net income line item for 2024–2022<br /><a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=92" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">p. 92</Badge></li>
+          <li><Badge color="purple">3</Badge> Supporting figure from the filing (tabular financial excerpt)<br /><a href="https://topk-docs.s3.us-east-2.amazonaws.com/boa-ask-ref-3-figure.jpg" target="_blank" rel="noopener noreferrer">boa-ask-ref-3-figure.jpg</a></li>
+          <li><Badge color="purple">4</Badge> Key performance indicators—selected annual financial data (including net income)<br /><a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=33" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">pp. 33–36</Badge></li>
+          <li><Badge color="purple">5</Badge> Segment results tying to total-corporation net income<br /><a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=166" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">pp. 166–168</Badge></li>
+          <li><Badge color="purple">6</Badge> Executive summary—summary income statement and balance sheet excerpts<br /><a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=29" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">pp. 29–30</Badge></li>
+        </ul>
+        </Info>
+
+        <Accordion title="Full JSON output">
+        ```json
+        {
+          "facts": [
+            {
+              "fact": "Bank of America's total net income for the fiscal year 2024 was $27,132 million.",
+              "ref_ids": ["1", "2", "3", "4", "5", "6"]
+            },
+            {
+              "fact": "The 2024 net income of $27.1 billion represented an increase from the $26.5 billion reported in 2023.",
+              "ref_ids": ["3", "4", "6"]
+            },
+            {
+              "fact": "The increase was driven by higher noninterest income, partially offset by a higher provision for credit losses and lower net interest income.",
+              "ref_ids": ["3", "6"]
+            }
+          ],
+          "refs": {
+            "1": {
+              "doc_id": "bank-of-america-annual-report-2024",
+              "doc_type": "application/pdf",
+              "dataset": "quickstart",
+              "content_id": "doc#bank-of-america-annual-report-2024#chunk#130",
+              "doc_name": "report.pdf",
+              "content": {
+                "text": "## Condensed Statement of Cash Flows\n[row_1]; []=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
+                "doc_pages": [170]
               }
             },
-            "confidence": 100.0
-          }
-          ```
-        </CodeGroup>
+            "2": {
+              "doc_id": "bank-of-america-annual-report-2024",
+              "doc_type": "application/pdf",
+              "dataset": "quickstart",
+              "content_id": "doc#bank-of-america-annual-report-2024#chunk#428",
+              "doc_name": "report.pdf",
+              "content": {
+                "text": "## Consolidated Statement of Comprehensive Income\n[row_0]; [Dollars in millions]=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
+                "doc_pages": [92]
+              }
+            },
+            "3": {
+              "doc_id": "bank-of-america-annual-report-2024",
+              "doc_type": "application/pdf",
+              "dataset": "quickstart",
+              "content_id": "doc#bank-of-america-annual-report-2024#image#92",
+              "doc_name": "report.pdf",
+              "content": {
+                "mime_type": "image/jpeg",
+                "data": "<base64 encoded image>"
+              }
+            },
+            "4": {
+              "doc_id": "bank-of-america-annual-report-2024",
+              "doc_type": "application/pdf",
+              "dataset": "quickstart",
+              "content_id": "doc#bank-of-america-annual-report-2024#chunk#129",
+              "doc_name": "report.pdf",
+              "content": {
+                "text": "## Key Performance Indicators\n[row_7]=Income statement; []=Net income; [2024]=27,132; [2023]=26,515\n...",
+                "doc_pages": [33, 34, 35, 36]
+              }
+            },
+            "5": {
+              "doc_id": "bank-of-america-annual-report-2024",
+              "doc_type": "application/pdf",
+              "dataset": "quickstart",
+              "content_id": "doc#bank-of-america-annual-report-2024#chunk#854",
+              "doc_name": "report.pdf",
+              "content": {
+                "text": "## Results of Business Segments\n[row_9]; [Item]=Net income; [Total Corporation (2) 2024]=27,132; [Total Corporation (2) 2023]=26,515\n...",
+                "doc_pages": [166, 167, 168]
+              }
+            },
+            "6": {
+              "doc_id": "bank-of-america-annual-report-2024",
+              "doc_type": "application/pdf",
+              "dataset": "quickstart",
+              "content_id": "doc#bank-of-america-annual-report-2024#chunk#131",
+              "doc_name": "report.pdf",
+              "content": {
+                "text": "## Executive Summary > Financial Highlights\n[row_7]=Net income; [2024]=27,132; [2023]=26,515\n...",
+                "doc_pages": [29, 30]
+              }
+            }
+          },
+          "confidence": 100.0
+        }
+        ```
+        </Accordion>
 
         <Note>
           To learn more about how to use TopK CLI, see the [CLI documentation](/cli).
@@ -268,7 +294,8 @@ import CoreConcepts from "/snippets/core-concepts.mdx";
           ```
         </CodeGroup>
 
-        ```json title="Example JSON payload (trimmed from a real response)" expandable
+        <Accordion title="Full JSON output">
+        ```json
         {
           "facts": [
             {
@@ -379,6 +406,7 @@ import CoreConcepts from "/snippets/core-concepts.mdx";
           "confidence": 100.0
         }
         ```
+        </Accordion>
 
         <Note>
           To learn more about how to use the Python SDK, see the [Python SDK documentation](/sdk/topk-py).
@@ -450,7 +478,8 @@ import CoreConcepts from "/snippets/core-concepts.mdx";
         }
         ```
 
-        ```json title="Example JSON payload (JavaScript SDK shape, trimmed from a real response)" expandable
+        <Accordion title="Full JSON output">
+        ```json
         {
           "facts": [
             {
@@ -555,6 +584,7 @@ import CoreConcepts from "/snippets/core-concepts.mdx";
           "confidence": 100.0
         }
         ```
+        </Accordion>
 
         <Note>
           To learn more about how to use the JavaScript SDK, see the [JavaScript SDK documentation](/sdk/topk-js).
