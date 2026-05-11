@@ -216,6 +216,28 @@ impl Content {
     }
 }
 
+impl From<Data> for Content {
+    fn from(data: Data) -> Self {
+        match data {
+            Data::Chunk(chunk) => Content::Chunk(Chunk {
+                text: chunk.text,
+                doc_pages: chunk.doc_pages,
+            }),
+            Data::Page(page) => Content::Page(Page {
+                page_number: page.page_number,
+                image: page.image.map(|img| Image {
+                    data: img.data.to_vec(),
+                    mime_type: img.mime_type,
+                }),
+            }),
+            Data::Image(img) => Content::Image(Image {
+                data: img.data.to_vec(),
+                mime_type: img.mime_type,
+            }),
+        }
+    }
+}
+
 #[pyclass]
 #[derive(Debug, Clone, PartialEq)]
 pub struct SearchResult {
@@ -246,28 +268,7 @@ impl TryFrom<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
     type Error = RustError;
 
     fn try_from(v: topk_rs::proto::v1::ctx::SearchResult) -> Result<Self, Self::Error> {
-        let content = match v.content {
-            None => None,
-            Some(content) => {
-                Some(match content.data.ok_or(topk_rs::Error::InvalidProto)? {
-                    Data::Chunk(chunk) => Content::Chunk(Chunk {
-                        text: chunk.text,
-                        doc_pages: chunk.doc_pages,
-                    }),
-                    Data::Page(page) => Content::Page(Page {
-                        page_number: page.page_number,
-                        image: page.image.map(|img| Image {
-                            data: img.data.to_vec(),
-                            mime_type: img.mime_type,
-                        }),
-                    }),
-                    Data::Image(img) => Content::Image(Image {
-                        data: img.data.to_vec(),
-                        mime_type: img.mime_type,
-                    }),
-                })
-            }
-        };
+        let content = v.content.and_then(|proto| proto.data).map(Content::from);
 
         Ok(SearchResult {
             doc_id: v.doc_id,

@@ -53,7 +53,7 @@ impl AskResult {
             refs: a
                 .refs
                 .into_iter()
-                .map(|(k, v)| (k, SearchResult::from(v)))
+                .map(|(k, v)| (k, v.into()))
                 .collect(),
             confidence: a.confidence,
             show_refs,

@@ -132,36 +132,33 @@ impl TryFrom<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
     fn try_from(v: topk_rs::proto::v1::ctx::SearchResult) -> Result<Self> {
         let content = match v.content {
             None => None,
-            Some(content) => Some(
-                match content
-                    .data
-                    .ok_or_else(|| napi::Error::from_reason(topk_rs::Error::InvalidProto.to_string()))?
-                {
-                    Data::Chunk(chunk) => Content {
-                        r#type: "chunk".to_string(),
-                        data: Either3::A(Chunk {
-                            text: chunk.text,
-                            doc_pages: chunk.doc_pages,
-                        }),
-                    },
-                    Data::Page(page) => Content {
-                        r#type: "page".to_string(),
-                        data: Either3::B(Page {
-                            page_number: page.page_number,
-                            image: page.image.map(|img| Image {
-                                data: img.data.to_vec(),
-                                mime_type: img.mime_type,
-                            }),
-                        }),
-                    },
-                    Data::Image(img) => Content {
-                        r#type: "image".to_string(),
-                        data: Either3::C(Image {
+            Some(content) => match content.data {
+                None => None,
+                Some(Data::Chunk(chunk)) => Some(Content {
+                    r#type: "chunk".to_string(),
+                    data: Either3::A(Chunk {
+                        text: chunk.text,
+                        doc_pages: chunk.doc_pages,
+                    }),
+                }),
+                Some(Data::Page(page)) => Some(Content {
+                    r#type: "page".to_string(),
+                    data: Either3::B(Page {
+                        page_number: page.page_number,
+                        image: page.image.map(|img| Image {
                             data: img.data.to_vec(),
                             mime_type: img.mime_type,
                         }),
-                    },
-                })
+                    }),
+                }),
+                Some(Data::Image(img)) => Some(Content {
+                    r#type: "image".to_string(),
+                    data: Either3::C(Image {
+                        data: img.data.to_vec(),
+                        mime_type: img.mime_type,
+                    }),
+                }),
+            },
         };
 
         Ok(SearchResult {

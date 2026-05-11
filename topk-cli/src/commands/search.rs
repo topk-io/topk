@@ -3,12 +3,9 @@ use futures::TryStreamExt;
 use std::collections::HashMap;
 use std::fmt;
 use std::path::{Path, PathBuf};
-use topk_rs::{
-    proto::v1::ctx::{content, Content},
-    Client, Error,
-};
+use topk_rs::{Client, Error};
 
-use crate::util::{mime::MimeType, read_query_from_stdin, value::value_to_json};
+use crate::util::{mime::MimeType, read_query_from_stdin, value::value_to_json, Base64};
 
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(transparent)]
@@ -28,20 +25,64 @@ pub struct SearchResult {
     pub metadata: serde_json::Map<String, serde_json::Value>,
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(untagged)]
+pub enum Content {
+    Chunk {
+        text: String,
+        doc_pages: Vec<u32>,
+    },
+    Image(Image),
+    Page {
+        page_number: u32,
+        image: Option<Image>,
+    },
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct Image {
+    pub mime_type: String,
+    pub data: Base64,
+}
+
 impl From<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
     fn from(result: topk_rs::proto::v1::ctx::SearchResult) -> Self {
+        let content = result.content.and_then(|proto| proto.data).map(Content::from);
+
         Self {
             doc_id: result.doc_id,
             doc_type: result.doc_type,
             dataset: result.dataset,
             content_id: result.content_id,
             doc_name: result.doc_name,
-            content: result.content,
+            content,
             metadata: result
                 .metadata
                 .into_iter()
                 .map(|(k, v)| (k, value_to_json(v)))
                 .collect(),
+        }
+    }
+}
+
+impl From<topk_rs::proto::v1::ctx::content::Data> for Content {
+    fn from(data: topk_rs::proto::v1::ctx::content::Data) -> Self {
+        match data {
+            topk_rs::proto::v1::ctx::content::Data::Chunk(chunk) => Self::Chunk {
+                text: chunk.text,
+                doc_pages: chunk.doc_pages,
+            },
+            topk_rs::proto::v1::ctx::content::Data::Image(image) => Self::Image(Image {
+                mime_type: image.mime_type,
+                data: image.data.into(),
+            }),
+            topk_rs::proto::v1::ctx::content::Data::Page(page) => Self::Page {
+                page_number: page.page_number,
+                image: page.image.map(|image| Image {
+                    mime_type: image.mime_type,
+                    data: image.data.into(),
+                }),
+            },
         }
     }
 }
@@ -118,42 +159,24 @@ pub fn save_search_results(
 
     let mut paths = HashMap::new();
     for (ref_id, result) in refs {
-        let data = result
-            .content
-            .as_ref()
-            .ok_or(Error::InvalidProto)?
-            .data
-            .as_ref()
-            .ok_or(Error::InvalidProto)?;
+        let content = result.content.as_ref().ok_or(Error::InvalidProto)?;
 
-        let ext = match data {
-            content::Data::Chunk(_) => "txt".to_string(),
-            content::Data::Image(img) => {
-                MimeType::from(img.mime_type.as_str()).to_ext().to_string()
+        let (ext, bytes): (String, &[u8]) = match content {
+            Content::Chunk { text, .. } => ("txt".to_string(), text.as_bytes()),
+            Content::Image(img) => (
+                MimeType::from(img.mime_type.as_str()).to_ext().to_string(),
+                img.data.as_ref(),
+            ),
+            Content::Page { image, .. } => {
+                let img = image.as_ref().ok_or(Error::InvalidProto)?;
+                (
+                    MimeType::from(img.mime_type.as_str()).to_ext().to_string(),
+                    img.data.as_ref(),
+                )
             }
-            content::Data::Page(page) => MimeType::from(
-                page.image
-                    .as_ref()
-                    .ok_or(Error::InvalidProto)?
-                    .mime_type
-                    .as_str(),
-            )
-            .to_ext()
-            .to_string(),
         };
 
         let path = output_dir.join(format!("{ref_id}.{ext}"));
-
-        let bytes = match data {
-            content::Data::Chunk(chunk) => chunk.text.as_bytes(),
-            content::Data::Image(img) => img.data.as_ref(),
-            content::Data::Page(page) => page
-                .image
-                .as_ref()
-                .ok_or(Error::InvalidProto)?
-                .data
-                .as_ref(),
-        };
 
         std::fs::write(&path, bytes)?;
 
@@ -164,18 +187,16 @@ pub fn save_search_results(
 }
 
 pub fn render_search_result(ref_id: &str, result: &SearchResult, path: Option<&Path>) -> String {
-    let text = match result.content.as_ref().and_then(|c| c.data.as_ref()) {
-        Some(content::Data::Chunk(chunk)) => Some(chunk.text.to_string()),
+    let text = match &result.content {
+        Some(Content::Chunk { text, .. }) => Some(text.to_string()),
         _ => None,
     };
 
     let placeholder = if path.is_none()
         && text.is_none()
-        && !matches!(
-            result.content.as_ref().and_then(|c| c.data.as_ref()),
-            Some(content::Data::Chunk(_)) | None
-        ) {
-        format_content_text(result.content.as_ref())
+        && !matches!(&result.content, Some(Content::Chunk { .. }))
+    {
+        result.content.as_ref().and_then(format_content_text)
     } else {
         None
     };
@@ -227,29 +248,28 @@ fn display_path(path: &Path) -> String {
     path.display().to_string()
 }
 
-pub fn format_content_text(content: Option<&Content>) -> Option<String> {
-    match content.and_then(|c| c.data.as_ref()) {
-        Some(content::Data::Chunk(chunk)) => {
-            if chunk.doc_pages.is_empty() {
-                Some(chunk.text.clone())
+pub fn format_content_text(content: &Content) -> Option<String> {
+    match content {
+        Content::Chunk { text, doc_pages } => {
+            if doc_pages.is_empty() {
+                Some(text.clone())
             } else {
-                let pages: Vec<String> = chunk.doc_pages.iter().map(|p| p.to_string()).collect();
-                Some(format!("{} [p.{}]", chunk.text, pages.join(",")))
+                let pages: Vec<String> = doc_pages.iter().map(|p| p.to_string()).collect();
+                Some(format!("{} [p.{}]", text, pages.join(",")))
             }
         }
-        Some(content::Data::Page(page)) => Some(format!("<page {}>", page.page_number)),
-        Some(content::Data::Image(img)) => Some(format!(
+        Content::Page { page_number, .. } => Some(format!("<page {}>", page_number)),
+        Content::Image(img) => Some(format!(
             "<image {} {}>",
             img.mime_type,
-            bytesize::ByteSize(img.data.len() as u64)
+            bytesize::ByteSize(img.data.as_ref().len() as u64)
         )),
-        None => None,
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::SearchResult;
+    use super::{Content, Image, SearchResult};
     use assert_cmd::Command;
     use serde_json::json;
     use tempfile::tempdir;
@@ -412,7 +432,12 @@ mod tests {
             doc_name: "doc1.md".to_string(),
             dataset: "sec-10k".to_string(),
             content_id: "chunk-1".to_string(),
-            content: None,
+            content: Some(topk_rs::proto::v1::ctx::Content {
+                data: Some(topk_rs::proto::v1::ctx::content::Data::Chunk(topk_rs::proto::v1::ctx::Chunk {
+                    text: "hello".to_string(),
+                    doc_pages: vec![],
+                })),
+            }),
             metadata: [
                 ("ticker".to_string(), Value::string("AAPL")),
                 ("cik".to_string(), Value::i64(320193)),
@@ -421,7 +446,7 @@ mod tests {
             .collect(),
         };
 
-        let json_result = SearchResult::from(result);
+        let json_result = SearchResult::try_from(result).unwrap();
 
         assert_eq!(
             serde_json::to_value(json_result).unwrap(),
@@ -431,10 +456,75 @@ mod tests {
                 "doc_name": "doc1.md",
                 "dataset": "sec-10k",
                 "content_id": "chunk-1",
-                "content": null,
+                "content": {
+                    "text": "hello",
+                    "doc_pages": []
+                },
                 "metadata": {
                     "ticker": "AAPL",
                     "cik": 320193
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn search_result_json_flattens_chunk_content() {
+        let result = SearchResult {
+            doc_id: "doc1".to_string(),
+            doc_type: "application/pdf".to_string(),
+            dataset: "sec-10k".to_string(),
+            content_id: "chunk-1".to_string(),
+            doc_name: "doc1.pdf".to_string(),
+            content: Some(Content::Chunk {
+                text: "hello".to_string(),
+                doc_pages: vec![170],
+            }),
+            metadata: serde_json::Map::new(),
+        };
+
+        assert_eq!(
+            serde_json::to_value(result).unwrap(),
+            json!({
+                "doc_id": "doc1",
+                "doc_type": "application/pdf",
+                "dataset": "sec-10k",
+                "content_id": "chunk-1",
+                "doc_name": "doc1.pdf",
+                "content": {
+                    "text": "hello",
+                    "doc_pages": [170]
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn search_result_json_encodes_image_bytes_as_base64() {
+        let result = SearchResult {
+            doc_id: "doc1".to_string(),
+            doc_type: "image/png".to_string(),
+            dataset: "images".to_string(),
+            content_id: "img-1".to_string(),
+            doc_name: "doc1.png".to_string(),
+            content: Some(Content::Image(Image {
+                mime_type: "image/png".to_string(),
+                data: bytes::Bytes::from(vec![1, 2, 3]).into(),
+            })),
+            metadata: serde_json::Map::new(),
+        };
+
+        assert_eq!(
+            serde_json::to_value(result).unwrap(),
+            json!({
+                "doc_id": "doc1",
+                "doc_type": "image/png",
+                "dataset": "images",
+                "content_id": "img-1",
+                "doc_name": "doc1.png",
+                "content": {
+                    "mime_type": "image/png",
+                    "data": "AQID"
                 }
             })
         );
