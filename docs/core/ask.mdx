@@ -43,28 +43,18 @@ What was the total net income of Bank of America in 2024?
 **Citations:**
 
 - <Badge color="purple">1</Badge> Condensed Statement of Cash Flows showing net income of \$27,132m (2024) vs \$26,515m (2023)
-  <a href="/files/bank_of_america_2024.pdf#page=170" target="_blank" rel="noopener noreferrer"><Badge color="blue">bank_of_america_2024.pdf</Badge></a> <Badge color="gray" shape="pill">p. 170</Badge>
+  <a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=170" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">p. 170</Badge>
 - <Badge color="purple">2</Badge> Consolidated Statement of Comprehensive Income: net income line item for 2024–2022
-  <a href="/files/bank_of_america_2024.pdf#page=92" target="_blank" rel="noopener noreferrer"><Badge color="blue">bank_of_america_2024.pdf</Badge></a> <Badge color="gray" shape="pill">p. 92</Badge>
+  <a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=92" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">p. 92</Badge>
 - <Badge color="purple">3</Badge> Supporting figure from the filing (tabular financial excerpt)
-  <a href="/files/boa-ask-ref-3-figure.jpg" target="_blank" rel="noopener noreferrer"><Badge color="blue">boa-ask-ref-3-figure.jpg</Badge></a>
+  <a href="https://topk-docs.s3.us-east-2.amazonaws.com/boa-ask-ref-3-figure.jpg" target="_blank" rel="noopener noreferrer">boa-ask-ref-3-figure.jpg</a>
 - <Badge color="purple">4</Badge> Key performance indicators—selected annual financial data (including net income)
-  <a href="/files/bank_of_america_2024.pdf#page=33" target="_blank" rel="noopener noreferrer"><Badge color="blue">bank_of_america_2024.pdf</Badge></a> <Badge color="gray" shape="pill">pp. 33–36</Badge>
+  <a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=33" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">pp. 33–36</Badge>
 - <Badge color="purple">5</Badge> Segment results tying to total-corporation net income
-  <a href="/files/bank_of_america_2024.pdf#page=166" target="_blank" rel="noopener noreferrer"><Badge color="blue">bank_of_america_2024.pdf</Badge></a> <Badge color="gray" shape="pill">pp. 166–168</Badge>
+  <a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=166" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">pp. 166–168</Badge>
 - <Badge color="purple">6</Badge> Executive summary—summary income statement and balance sheet excerpts
-  <a href="/files/bank_of_america_2024.pdf#page=29" target="_blank" rel="noopener noreferrer"><Badge color="blue">bank_of_america_2024.pdf</Badge></a> <Badge color="gray" shape="pill">pp. 29–30</Badge>
+  <a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=29" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">pp. 29–30</Badge>
 </Info>
-
-As you can see, not only does TopK understand your data and the relationships within it,
-but it also understands queries and reasons about answers—all grounded in your source material.
-
-This makes Ask useful for:
-
-- **answering questions** over internal knowledge bases
-- **comparing facts** across reports, contracts, or policies
-- **grounding agents** in private document context
-- **summarizing** what your documents say about a topic
 
 ## Usage
 
@@ -75,6 +65,8 @@ Once a dataset is created and your documents are processed, you can start runnin
     ```bash
     topk ask "What was the total net income of Bank of America in 2024?" -d my-docs
     ```
+
+    Answer:
 
     <CodeGroup>
       ```text Text
@@ -100,13 +92,11 @@ Once a dataset is created and your documents are processed, you can start runnin
             "doc_id": "bank-of-america-annual-report-2024",
             "doc_type": "application/pdf",
             "dataset": "my-docs",
+            "content_id": "doc#bank-of-america-annual-report-2024#chunk#130",
+            "doc_name": "bank_of_america_2024.pdf",
             "content": {
-              "data": {
-                "Chunk": {
-                  "text": "## Condensed Statement of Cash Flows\n[row_1]; []=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
-                  "doc_pages": [170]
-                }
-              }
+              "text": "## Condensed Statement of Cash Flows\n[row_1]; []=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
+              "doc_pages": [170]
             },
             "metadata": {}
           },
@@ -114,13 +104,11 @@ Once a dataset is created and your documents are processed, you can start runnin
             "doc_id": "bank-of-america-annual-report-2024",
             "doc_type": "application/pdf",
             "dataset": "my-docs",
+            "content_id": "doc#bank-of-america-annual-report-2024#chunk#428",
+            "doc_name": "bank_of_america_2024.pdf",
             "content": {
-              "data": {
-                "Chunk": {
-                  "text": "## Consolidated Statement of Comprehensive Income\n[row_0]; [Dollars in millions]=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
-                  "doc_pages": [92]
-                }
-              }
+              "text": "## Consolidated Statement of Comprehensive Income\n[row_0]; [Dollars in millions]=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
+              "doc_pages": [92]
             },
             "metadata": {}
           },
@@ -128,18 +116,16 @@ Once a dataset is created and your documents are processed, you can start runnin
             "doc_id": "bank-of-america-annual-report-2024",
             "doc_type": "application/pdf",
             "dataset": "my-docs",
+            "content_id": "doc#bank-of-america-annual-report-2024#image#92",
+            "doc_name": "bank_of_america_2024.pdf",
             "content": {
-              "data": {
-                "Image": {
-                  "mime_type": "image/jpeg",
-                  "data": "binary data"
-                }
-              }
+              "mime_type": "image/jpeg",
+              "data": "binary data"
             },
             "metadata": {}
           }
         },
-        "confidence": 100
+        "confidence": 100.0
       }
       ```
     </CodeGroup>
@@ -171,11 +157,14 @@ Once a dataset is created and your documents are processed, you can start runnin
           "doc_id": "bank-of-america-annual-report-2024",
           "doc_type": "application/pdf",
           "dataset": "my-docs",
+          "content_id": "doc#bank-of-america-annual-report-2024#chunk#130",
+          "doc_name": "bank_of_america_2024.pdf",
           "content": {
-            "type": "chunk",
             "data": {
-              "text": "## Condensed Statement of Cash Flows\n[row_1]; []=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
-              "doc_pages": [170]
+              "Chunk": {
+                "text": "## Condensed Statement of Cash Flows\n[row_1]; []=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
+                "doc_pages": [170]
+              }
             }
           },
           "metadata": {}
@@ -184,11 +173,14 @@ Once a dataset is created and your documents are processed, you can start runnin
           "doc_id": "bank-of-america-annual-report-2024",
           "doc_type": "application/pdf",
           "dataset": "my-docs",
+          "content_id": "doc#bank-of-america-annual-report-2024#chunk#428",
+          "doc_name": "bank_of_america_2024.pdf",
           "content": {
-            "type": "chunk",
             "data": {
-              "text": "## Consolidated Statement of Comprehensive Income\n[row_0]; [Dollars in millions]=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
-              "doc_pages": [92]
+              "Chunk": {
+                "text": "## Consolidated Statement of Comprehensive Income\n[row_0]; [Dollars in millions]=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
+                "doc_pages": [92]
+              }
             }
           },
           "metadata": {}
@@ -197,17 +189,20 @@ Once a dataset is created and your documents are processed, you can start runnin
           "doc_id": "bank-of-america-annual-report-2024",
           "doc_type": "application/pdf",
           "dataset": "my-docs",
+          "content_id": "doc#bank-of-america-annual-report-2024#image#92",
+          "doc_name": "bank_of_america_2024.pdf",
           "content": {
-            "type": "image",
             "data": {
-              "mime_type": "image/jpeg",
-              "data": "binary data"
+              "Image": {
+                "mime_type": "image/jpeg",
+                "data": "binary data"
+              }
             }
           },
           "metadata": {}
         }
       },
-      "confidence": 100
+      "confidence": 100.0
     }
     ```
   </Tab>
@@ -289,15 +284,11 @@ Each answer includes:
 
 ## Scoping the search
 
-Query across multiple datasets or apply document filters to narrow the scope of the query.
+Query across specific datasets or apply document filters to narrow the scope of the query.
 
 ### Scoping to specific datasets
 
-This is useful when you want:
-
-- More targeted answers
-- Less ambiguity across unrelated document sets
-- Tighter control over what context an agent is allowed to use
+When running ask, you must specify at least one dataset to query against.
 
 <Tabs>
   <Tab title="CLI" icon="terminal">
@@ -383,14 +374,7 @@ This is useful when you want to query:
   <Tab title="Python SDK" icon="/icons/python.svg">
     <CodeGroup>
       ```python Sync
-      import os
-      from topk_sdk import Client
       from topk_sdk.query import field
-
-      client = Client(
-          api_key=os.environ.get("TOPK_API_KEY"),
-          region="aws-us-east-1-elastica",
-      )
 
       for message in client.ask(
           "What is the travel reimbursement limit?",
@@ -406,14 +390,7 @@ This is useful when you want to query:
           print(message)
       ```
       ```python Async
-      import os
-      from topk_sdk import AsyncClient
       from topk_sdk.query import field
-
-      client = AsyncClient(
-          api_key=os.environ.get("TOPK_API_KEY"),
-          region="aws-us-east-1-elastica",
-      )
 
       async for message in client.ask(
           "What is the travel reimbursement limit?",
@@ -533,15 +510,3 @@ A citation helps you identify:
 - Which document supported the claim
 - Which passage, section, or chunk was used
 - Any returned metadata you asked TopK to include
-
-**For humans**, this means you can:
-
-- Verify that an answer is correct
-- Open the original document and inspect the relevant section
-- Compare how strongly different sources support a claim
-
-**For agents**, this means you can:
-
-- Decide whether there is enough evidence to proceed
-- Attach evidence to downstream actions or reports
-- Ask follow-up questions against the cited documents

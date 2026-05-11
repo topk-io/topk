@@ -193,14 +193,6 @@ This is useful when you want:
 
     <CodeGroup>
       ```python Sync
-      import os
-      from topk_sdk import Client
-
-      client = Client(
-          api_key=os.environ.get("TOPK_API_KEY"),
-          region="aws-us-east-1-elastica",
-      )
-
       for result in client.search(
           query="What was the total net income of Bank of America in 2024?",
           datasets=["finance", "compliance"],
@@ -210,15 +202,6 @@ This is useful when you want:
       ```
 
       ```python Async
-      import os
-      import asyncio
-      from topk_sdk import AsyncClient
-
-      client = AsyncClient(
-          api_key=os.environ.get("TOPK_API_KEY"),
-          region="aws-us-east-1-elastica",
-      )
-
       async def main() -> None:
           async for result in client.search(
               query="What was the total net income of Bank of America in 2024?",
@@ -265,14 +248,7 @@ This is useful when you want to query:
   <Tab title="Python SDK" icon="/icons/python.svg">
     <CodeGroup>
       ```python Sync
-      import os
-      from topk_sdk import Client
       from topk_sdk.query import field
-
-      client = Client(
-          api_key=os.environ.get("TOPK_API_KEY"),
-          region="aws-us-east-1-elastica",
-      )
 
       for result in client.search(
           query="travel reimbursement limit",
@@ -290,15 +266,8 @@ This is useful when you want to query:
       ```
 
       ```python Async
-      import os
       import asyncio
-      from topk_sdk import AsyncClient
       from topk_sdk.query import field
-
-      client = AsyncClient(
-          api_key=os.environ.get("TOPK_API_KEY"),
-          region="aws-us-east-1-elastica",
-      )
 
       async def main() -> None:
           async for result in client.search(
