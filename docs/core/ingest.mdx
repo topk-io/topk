@@ -53,13 +53,13 @@ Each document in a dataset is identified by a **document ID**.
           region=os.environ["TOPK_REGION"],
       )
 
-      resp = client.dataset("my-docs").upsert_file(
+      handle = client.dataset("my-docs").upsert_file(
           "report-2024",                       # document ID
           Path("./report.pdf"),                # path to file
-          {"title": "Annual Report 2024"},     # optional metadata
+          {"title": "Annual Report 2024"},     # metadata
       )
 
-      print(resp.handle)  # e.g. "hdl_abc123"
+      print(handle)  # e.g. "hdl_abc123"
       ```
       ```python Async
       import os
@@ -71,13 +71,13 @@ Each document in a dataset is identified by a **document ID**.
           region=os.environ["TOPK_REGION"],
       )
 
-      resp = await client.dataset("my-docs").upsert_file(
+      handle = await client.dataset("my-docs").upsert_file(
           "report-2024",                       # document ID
           Path("./report.pdf"),                # path to file
-          {"title": "Annual Report 2024"},     # optional metadata
+          {"title": "Annual Report 2024"},     # metadata
       )
 
-      print(resp.handle)  # e.g. "hdl_abc123"
+      print(handle)  # e.g. "hdl_abc123"
       ```
     </CodeGroup>
   </Tab>
@@ -90,13 +90,13 @@ Each document in a dataset is identified by a **document ID**.
       region: process.env.TOPK_REGION!,
     });
 
-    const resp = await client.dataset("my-docs").upsertFile(
+    const handle = await client.dataset("my-docs").upsertFile(
       "report-2024",             // document ID
       "./report.pdf",            // path to file
-      { title: "Annual Report 2024" },  // optional metadata
+      { title: "Annual Report 2024" },  // metadata
     );
 
-    console.log(resp.handle);  // e.g. "hdl_abc123"
+    console.log(handle);  // e.g. "hdl_abc123"
     ```
   </Tab>
 </Tabs>
@@ -204,7 +204,7 @@ After uploading a document, you can check whether it has been processed using th
           region=os.environ["TOPK_REGION"],
       )
 
-      processed = client.dataset("my-docs").check_handle(resp.handle)
+      processed = client.dataset("my-docs").check_handle(handle)
       print(processed)  # True or False
       ```
       ```python Async
@@ -216,7 +216,7 @@ After uploading a document, you can check whether it has been processed using th
           region=os.environ["TOPK_REGION"],
       )
 
-      processed = await client.dataset("my-docs").check_handle(resp.handle)
+      processed = await client.dataset("my-docs").check_handle(handle)
 
       print(processed)  # True or False
       ```
@@ -231,7 +231,7 @@ After uploading a document, you can check whether it has been processed using th
       region: process.env.TOPK_REGION!,
     });
 
-    const processed = await client.dataset("my-docs").checkHandle(resp.handle);
+    const processed = await client.dataset("my-docs").checkHandle(handle);
 
     console.log(processed);  // true or false
     ```
@@ -261,7 +261,7 @@ Alternatively, you can wait for the document to be processed using the **process
           region=os.environ["TOPK_REGION"],
       )
 
-      client.dataset("my-docs").wait_for_handle(resp.handle)
+      client.dataset("my-docs").wait_for_handle(handle)
 
       # Document is now ready to be queried
       ```
@@ -274,7 +274,7 @@ Alternatively, you can wait for the document to be processed using the **process
           region=os.environ["TOPK_REGION"],
       )
 
-      await client.dataset("my-docs").wait_for_handle(resp.handle)
+      await client.dataset("my-docs").wait_for_handle(handle)
 
       # Document is now ready to be queried
       ```
@@ -315,7 +315,7 @@ Alternatively, you can wait for the document to be processed using the **process
       region: process.env.TOPK_REGION!,
     });
 
-    await client.dataset("my-docs").waitForHandle(resp.handle);
+    await client.dataset("my-docs").waitForHandle(handle);
 
     // Document is now ready to be queried
     ```
