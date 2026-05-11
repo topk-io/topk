@@ -223,7 +223,7 @@ What was the total net income of Bank of America in 2024?
 
 ## Understanding citations
 
-Facts in the answer are associated with one or more citations. Citations are **numbered**. Each fact includes a `ref_ids` list, whose values correspond to keys in the `refs`.
+Facts in the answer are associated with one or more citations. Citations are **numbered**. Each fact includes a of `ref_ids`, whose values are keys in the `refs` object.
 
 The `refs` maps a citation number to a [Search Result](/core/search#search-result), including the matched passage (text, image or page), source document ID, file name, document type, dataset, and any requested metadata.
 
@@ -236,9 +236,9 @@ The `refs` maps a citation number to a [Search Result](/core/search#search-resul
     }
   ],
   "refs": {
-    "1": { ... }, // Search Result
-    "2": { ... },
-    "3": { ... }
+    "1": { ... }, // Search Result 1
+    "2": { ... }, // Search Result 2
+    "3": { ... }  // Search Result 3
   },
   "confidence": 100.0
 }
