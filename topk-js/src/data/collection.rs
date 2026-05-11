@@ -19,6 +19,8 @@ pub struct Collection {
     pub schema: HashMap<String, CollectionFieldSpec>,
     /// Region where the collection is stored
     pub region: String,
+    /// Timestamp when the collection was created (ISO 8601)
+    pub created_at: String,
 }
 
 impl From<topk_rs::proto::v1::control::Collection> for Collection {
@@ -33,6 +35,7 @@ impl From<topk_rs::proto::v1::control::Collection> for Collection {
                 .map(|(k, v)| (k, v.into()))
                 .collect(),
             region: collection.region,
+            created_at: collection.created_at,
         }
     }
 }

@@ -240,6 +240,8 @@ export interface Collection {
   schema: Record<string, CollectionFieldSpec>
   /** Region where the collection is stored */
   region: string
+  /** Timestamp when the collection was created (ISO 8601) */
+  createdAt: string
 }
 
 /**
