@@ -14,6 +14,7 @@ test-rs:
     # install dependencies
     RUN apt-get update && apt-get install -y protobuf-compiler
     RUN cargo install cargo-nextest --locked
+    COPY +test-sandbox/topk-test-sandbox /usr/local/bin/topk-test-sandbox
 
     DO rust+INIT --keep_fingerprints=true
     WORKDIR /sdk
@@ -33,7 +34,7 @@ test-rs:
     # test
     ENV FORCE_COLOR=1
     RUN --no-cache --secret TOPK_API_KEY \
-        TOPK_API_KEY=$TOPK_API_KEY cargo nextest run --archive-file e2e.tar.zst --no-fail-fast -j 16
+        TOPK_API_KEY=$TOPK_API_KEY topk-test-sandbox cargo nextest run --archive-file e2e.tar.zst --no-fail-fast -j 16
 
 
 test-py:
@@ -41,9 +42,8 @@ test-py:
 
     # install dependencies
     RUN apt-get update && apt-get install -y protobuf-compiler python3-venv
-
-    # setup maturin
     RUN cargo install maturin@1.9.0 --locked
+    COPY +test-sandbox/topk-test-sandbox /usr/local/bin/topk-test-sandbox
 
     # setup python
     RUN python3 -m venv /venv \
@@ -79,7 +79,7 @@ test-py:
     ARG args=""
     RUN --no-cache --secret TOPK_API_KEY \
         . /venv/bin/activate \
-        && TOPK_API_KEY=$TOPK_API_KEY pytest -n auto --tb=long --durations=50 --color=yes -vv $args
+        && TOPK_API_KEY=$TOPK_API_KEY topk-test-sandbox pytest -n auto --tb=long --durations=50 --color=yes -vv $args
 
 test-js:
     FROM node:20-slim
@@ -90,6 +90,8 @@ test-js:
     # install Rust
     RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
     ENV PATH="/root/.cargo/bin:${PATH}"
+
+    COPY +test-sandbox/topk-test-sandbox /usr/local/bin/topk-test-sandbox
 
     # Ensure yarn bins are in the PATH
     ENV PATH="/sdk/topk-js/node_modules/.bin:${PATH}"
@@ -124,13 +126,14 @@ test-js:
     # test
     ARG args=""
     RUN --no-cache --secret TOPK_API_KEY \
-        TOPK_API_KEY=$TOPK_API_KEY yarn test --colors $args
+        TOPK_API_KEY=$TOPK_API_KEY topk-test-sandbox yarn test --colors $args
 
 test-cli:
     FROM rust:slim
 
     # install dependencies
     RUN apt-get update && apt-get install -y protobuf-compiler jq
+    COPY +test-sandbox/topk-test-sandbox /usr/local/bin/topk-test-sandbox
 
     DO rust+INIT --keep_fingerprints=true
     WORKDIR /sdk
@@ -158,33 +161,50 @@ test-cli:
     ENV FORCE_COLOR=1
     ENV CARGO_BIN_EXE_topk=/sdk/topk-cli/target/debug/topk
     RUN --no-cache --secret TOPK_API_KEY \
-        TOPK_API_KEY=$TOPK_API_KEY cargo test -p topk-cli --lib --no-fail-fast
+        TOPK_API_KEY=$TOPK_API_KEY topk-test-sandbox cargo test -p topk-cli --lib --no-fail-fast
 
 #
 
-test-runner:
+test-runner-builder:
     FROM rust:slim
 
-    # install dependencies
     RUN apt-get update && apt-get install -y protobuf-compiler
     RUN cargo install cargo-nextest --locked
 
+    WORKDIR /workspace
     DO rust+INIT --keep_fingerprints=true
-    WORKDIR /sdk
-
-    COPY --keep-ts . .
-
-    WORKDIR /sdk/topk-rs
+    COPY --keep-ts --dir . .
 
     ENV RUSTFLAGS="-C target-cpu=generic"
     ENV FORCE_COLOR=1
     DO rust+CARGO --args="nextest archive --release --archive-file test-runner.tar.zst"
 
-    ENTRYPOINT ["cargo", "nextest", "run", "--archive-file", "test-runner.tar.zst", "--no-fail-fast", "-j", "16"]
+    SAVE ARTIFACT test-runner.tar.zst
+    SAVE ARTIFACT /usr/local/cargo/bin/cargo-nextest
 
-    ARG registry
-    ARG tag=latest
-    SAVE IMAGE --push $registry/topk-test-runner:$tag
+test-runner:
+    FROM ghcr.io/topk-io/rust-release:latest
+
+    COPY +test-runner-builder/cargo-nextest /usr/local/bin/cargo-nextest
+    COPY +test-sandbox/topk-test-sandbox /usr/local/bin/topk-test-sandbox
+    COPY +test-runner-builder/test-runner.tar.zst /workspace/test-runner.tar.zst
+
+    WORKDIR /workspace
+    ENTRYPOINT ["topk-test-sandbox", "cargo-nextest", "nextest", "run", "--archive-file", "test-runner.tar.zst", "--no-fail-fast", "-j", "16"]
+
+    ARG --required registry
+    ARG --required tag
+    SAVE IMAGE --push $registry:$tag
+
+test-sandbox:
+    FROM oven/bun:latest
+
+    COPY --dir utils/ /workspace
+
+    WORKDIR /workspace
+    RUN bun install --frozen-lockfile
+    RUN bun build --compile --outfile topk-test-sandbox test-sandbox.ts
+    SAVE ARTIFACT topk-test-sandbox
 
 #
 
