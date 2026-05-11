@@ -225,9 +225,9 @@ What was the total net income of Bank of America in 2024?
 
 Facts in the answer are associated with one or more citations.
 
-Citations are **numbered**. Each fact includes a `ref_ids` list, whose values correspond to keys in the `refs` map.
+Citations are **numbered**. Each fact includes a `ref_ids` list, whose values correspond to keys in the `refs`.
 
-Each entry in `refs` maps a citation number to a [Search Result](/core/search#search-result), including the matched passage (text, image or page), document ID, file name, document type, dataset, and any requested metadata.
+The `refs` maps a citation number to a [Search Result](/core/search#search-result), including the matched passage (text, image or page), document ID, file name, document type, dataset, and any requested metadata.
 
 ```json
 {
@@ -389,9 +389,6 @@ This is useful when you want to query:
     ```
   </Tab>
 </Tabs>
-
-Apply source filters when you want answers to come from specific sources.
-This keeps results focused and easier to verify.
 
 ## Retrieving metadata
 

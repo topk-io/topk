@@ -321,7 +321,7 @@ You may also want to retrieve metadata on the cited documents, such as title, au
           query="refund policy",
           datasets=["policies"],
           top_k=10,
-          select_fields=["title", "author", "year"], # metadata fields
+          select_fields=["title", "author", "year"], # document metadata fields
       ):
           print(result)
       ```
@@ -334,7 +334,7 @@ You may also want to retrieve metadata on the cited documents, such as title, au
               query="refund policy",
               datasets=["policies"],
               top_k=10,
-              select_fields=["title", "author", "year"], # metadata fields
+              select_fields=["title", "author", "year"], # document metadata fields
           ):
               print(result)
 
@@ -374,7 +374,7 @@ You may also want to retrieve metadata on the cited documents, such as title, au
       ["policies"],
       10,
       undefined,
-      ["title", "author", "year"], // metadata fields
+      ["title", "author", "year"], // document metadata fields
     )) {
       console.log(message);
     }

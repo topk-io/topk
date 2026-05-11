@@ -5,7 +5,7 @@ icon: "file-text"
 ---
 
 To run queries in TopK, your documents need to be uploaded. Once a document is uploaded,
-TopK parses, chunks, and indexes its content to power Ask, Search, and Research.
+TopK parses, chunks, and indexes its content to power [Ask](/core/ask), [Search](/core/search), and [Research](/core/research).
 
 ## Uploading documents
 
@@ -56,7 +56,7 @@ Each document in a dataset is identified by a **document ID**.
       handle = client.dataset("my-docs").upsert_file(
           "report-2024",                       # document ID
           Path("./report.pdf"),                # path to file
-          {"title": "Annual Report 2024"},     # metadata
+          {"title": "Annual Report 2024"},     # document metadata (optional)
       )
 
       print(handle)  # e.g. "hdl_abc123"
@@ -74,7 +74,7 @@ Each document in a dataset is identified by a **document ID**.
       handle = await client.dataset("my-docs").upsert_file(
           "report-2024",                       # document ID
           Path("./report.pdf"),                # path to file
-          {"title": "Annual Report 2024"},     # metadata
+          {"title": "Annual Report 2024"},     # document metadata (optional)
       )
 
       print(handle)  # e.g. "hdl_abc123"
@@ -91,9 +91,9 @@ Each document in a dataset is identified by a **document ID**.
     });
 
     const handle = await client.dataset("my-docs").upsertFile(
-      "report-2024",             // document ID
-      "./report.pdf",            // path to file
-      { title: "Annual Report 2024" },  // metadata
+      "report-2024",                    // document ID
+      "./report.pdf",                   // path to file
+      { title: "Annual Report 2024" },  // document metadata (optional)
     );
 
     console.log(handle);  // e.g. "hdl_abc123"
@@ -119,8 +119,6 @@ Each document in a dataset is identified by a **document ID**.
 
 Each document can be associated with its own metadata. You can attach additional
 information about the document, such as title, author, date, or category.
-
-Metadata values can also include arrays, for example `tags` or `categories`.
 
 <Tabs>
   <Tab title="Python SDK" icon="/icons/python.svg">
@@ -176,6 +174,11 @@ Metadata values can also include arrays, for example `tags` or `categories`.
     ```
   </Tab>
 </Tabs>
+
+<Note>
+  Metadata values can also include **lists** of strings or numbers, for example `tags` or `categories`.
+</Note>
+
 
 ## Processing documents
 
