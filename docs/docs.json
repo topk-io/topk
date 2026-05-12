@@ -28,6 +28,7 @@
             "pages": [
               "introduction",
               "quickstart",
+              "architecture",
               "regions",
               "changelog",
               "cli",
