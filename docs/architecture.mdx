@@ -67,8 +67,10 @@ TopK is organized into three operational planes:
 
 The diagram below shows how clients interact with the global control plane, regional control plane, and regional data plane.
 
+The diagram reads left to right so paths from the same client (especially the CLI) fan out without crossing as much as in a purely top-down layout. Mermaid still chooses exact anchor points automatically.
+
 ```mermaid
-flowchart TB
+flowchart LR
     subgraph clients[Clients]
         direction TB
         Console[Console]
@@ -78,42 +80,24 @@ flowchart TB
     end
 
     subgraph global[Global control plane]
-        GlobalAPI[Global Management API]
-        GlobalStore[(Global Metadata Store)]
-
-        GlobalAPI --> GlobalStore
+        GCP[Global Management API]
     end
 
-    subgraph region[Selected region]
-        subgraph rcp[Regional control plane]
-            RegionalAPI[Regional Management API]
-            RegionalMeta[(Regional Metadata Store)]
-
-            RegionalAPI --> RegionalMeta
-        end
-
-        subgraph rdp[Regional data plane]
-            Context[TopK Context Engine]
-            Database[(TopK Database)]
-            Inference{{TopK Inference Engine}}
-
-            Context --> Database
-            Context --> Inference
-        end
+    subgraph region[Region]
+        direction TB
+        RCP[Regional Management API]
+        RDP[Regional Data Plane]
     end
 
-    Console -->|account / org / project / keys| GlobalAPI
-    CLI -->|login / keys / region inventory| GlobalAPI
+    Console -->|manage resources| GCP
+    CLI -->|manage datasets| GCP
 
-    SDK -->|dataset / collection management| RegionalAPI
-    CLI -->|dataset / collection management| RegionalAPI
-    MCP -->|dataset / collection management| RegionalAPI
+    SDK -->|manage resources| RCP
+    MCP -->|list resources| RCP
 
-    SDK -->|upload / search / ask| Context
-    CLI -->|upload / search / ask| Context
-    MCP -->|context queries| Context
-
-    GlobalAPI -. dataset home region .-> RegionalAPI
+    CLI -->|read / write| RDP
+    SDK -->|read / write| RDP
+    MCP -->|read| RDP
 ```
 
 ## Request paths
@@ -137,7 +121,6 @@ flowchart LR
         GlobalAPI --> Projects[Projects]
         GlobalAPI --> Keys[API Keys]
         GlobalAPI --> Regions[Region Inventory]
-        GlobalAPI --> Store[(Global Metadata Store)]
 
         Auth --> Store
         Orgs --> Store
@@ -153,9 +136,10 @@ Dataset and collection management requests are handled by the regional control p
 
 ```mermaid
 flowchart LR
-    Client[SDK / CLI / MCP] --> RegionalAPI[Regional Management API]
+    SDK[SDKs] --> RegionalAPI[Regional Management API]
+    MCP[MCP] --> RegionalAPI
 
-    subgraph Region[Selected region]
+    subgraph Region[Region]
         RegionalAPI --> Datasets[Datasets]
         RegionalAPI --> Collections[Collections]
         RegionalAPI --> Settings[Region-scoped Settings]
@@ -398,7 +382,6 @@ TopK can be accessed through SDKs, the CLI, the MCP server, and the Console.
 
     <div className="mt-2 flex flex-wrap gap-2">
       <Badge icon="globe" color="blue" shape="pill">Global control plane</Badge>
-      <Badge icon="layout-dashboard" color="purple" shape="pill">Regional control plane</Badge>
       <Badge icon="database" color="green" shape="pill">Regional data plane</Badge>
     </div>
   </Card>
