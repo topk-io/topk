@@ -1,211 +1,269 @@
 ---
 title: "Architecture"
-description: "A high-level overview of the TopK platform."
+description: "High-level overview of the TopK architecture."
 icon: "layers"
 ---
 
 ## Overview
 
-TopK is built from these core components:
+TopK is designed to separate platform management from customer-data workloads.
 
-<Steps>
-  <Step title="TopK Database">
-    Durable storage, indexing, routing, and query execution.
-  </Step>
-  <Step title="TopK Context Engine">
-    Document ingestion, transformation, and context retrieval.
-  </Step>
-  <Step title="TopK Inference Engine">
-    Embedding, reranking, generation, and OCR.
-  </Step>
-</Steps>
+The **global control plane** manages organizations, projects, API keys, account-level settings, routing metadata, and cross-region inventory. It records the home region for each dataset and collection.
 
-In terms of accessing resources, the system is split into a **control plane** and a **data plane**.
+Each **regional control plane** exposes management APIs for datasets and collections in that region.
 
-**Global** control plane covers organizations, projects, API keys, routing metadata, and cross-region inventory (including dataset and collection records and their home region).
+Each **regional data plane** runs customer-data workloads in the selected region, including storage, indexing, ingestion, retrieval, context workflows, and inference.
 
-**Regional** control plane exposes dataset and collection management APIs backed by metadata scoped to that geography. The **data plane** runs storage, indexing, ingestion, retrieval, and inference in your selected region next to your data.
+This separation keeps the global control plane out of the hot path for dataset reads, writes, retrieval, and inference, while allowing each regional deployment to operate close to the data it serves.
 
-The platform is accessed through these API clients:
+<Info>
+  Dataset workloads are served by the regional data plane. The global control plane manages account-level resources and routing metadata; it does not serve dataset reads, writes, retrieval, or inference requests.
+</Info>
 
-**SDKs and CLI**
+## Architecture principles
+
+TopK is built around a few core architectural principles:
 
 <CardGroup cols={2}>
-  <Card title="CLI" icon="terminal" href="/cli">
-    Command-line interface for upload, search, and ask.
-
-    <div className="mt-2 flex flex-wrap gap-2">
-      <Badge icon="globe" color="blue" shape="pill">Global control plane</Badge>
-      <Badge icon="database" color="green" shape="pill">Data plane</Badge>
-      <Badge icon="layout-dashboard" color="purple" shape="pill">Control plane</Badge>
-    </div>
+  <Card title="Control and data plane separation" icon="split">
+    Management workflows are separated from customer-data workloads. The global control plane is not on the hot path for reads, writes, retrieval, or inference.
   </Card>
-  <Card title="Python SDK" icon="/icons/python.svg" href="/sdk/topk-py/overview">
-    Python client library and API reference.
 
-    <div className="mt-2 flex flex-wrap gap-2">
-      <Badge icon="database" color="green" shape="pill">Data plane</Badge>
-      <Badge icon="layout-dashboard" color="purple" shape="pill">Control plane</Badge>
-    </div>
+  <Card title="Regional data residency" icon="map">
+    Dataset data, transformed artifacts, indexes, and workload execution are scoped to the selected region.
   </Card>
-  <Card title="JavaScript SDK" icon="/icons/js.svg" href="/sdk/topk-js/overview">
-    TypeScript/JavaScript client for Node.js.
 
-    <div className="mt-2 flex flex-wrap gap-2">
-      <Badge icon="database" color="green" shape="pill">Data plane</Badge>
-      <Badge icon="layout-dashboard" color="purple" shape="pill">Control plane</Badge>
-    </div>
+  <Card title="Regional failure isolation" icon="shield">
+    Regional deployments operate as isolated workload environments.
   </Card>
-  <Card title="Rust SDK" icon="/icons/rust.svg" href="https://github.com/topk-io/topk/tree/main/topk-rs">
-    Rust client library.
 
-    <div className="mt-2 flex flex-wrap gap-2">
-      <Badge icon="database" color="green" shape="pill">Data plane</Badge>
-      <Badge icon="layout-dashboard" color="purple" shape="pill">Control plane</Badge>
-    </div>
+  <Card title="Composable retrieval stack" icon="layers">
+    Storage, indexing, ingestion, retrieval, and inference are separate services with clear responsibilities.
   </Card>
 </CardGroup>
 
-<Columns cols={2} className="mt-2">
-    <Column>
-        **MCP Server**
+## Operational model
 
-        <Card title="MCP" icon="network" href="/mcp-server">
-          Connect TopK to MCP-compatible clients or agents to query your datasets.
-
-          <div className="mt-2 flex flex-wrap gap-2">
-            <Badge icon="database" color="green" shape="pill">Data plane</Badge>
-            <Badge icon="layout-dashboard" color="purple" shape="pill">Control plane</Badge>
-          </div>
-        </Card>
-    </Column>
-    <Column>
-        **Console**
-
-        <Card title="Console" icon="settings" href="https://console.topk.io">
-          Web console for managing your account, organization, projects, usage and spend.
-
-          <div className="mt-2 flex flex-wrap gap-2">
-            <Badge icon="globe" color="blue" shape="pill">Global control plane</Badge>
-          </div>
-        </Card>
-    </Column>
-</Columns>
-
-Operationally, the platform is split into:
+TopK is organized into three operational planes:
 
 <CardGroup cols={1}>
   <Card title="Global control plane" icon="globe" href="/architecture#global-control-plane">
-    Accounts, projects, datasets, metadata, and management APIs—shared policy and inventory across regions.
+    Account-level management for organizations, projects, API keys, routing metadata, and cross-region inventory.
   </Card>
 </CardGroup>
 
 <CardGroup cols={2}>
   <Card title="Regional control plane" icon="layout-dashboard" href="/architecture#regional-control-plane">
-    In-region metadata and management APIs.
+    Region-scoped management APIs and metadata for datasets and collections.
   </Card>
+
   <Card title="Regional data plane" icon="database" href="/architecture#regional-data-plane">
-    Storage, indexing, inference, context, and retrieval scoped to your region.
+    In-region workload execution for storage, indexing, ingestion, retrieval, context workflows, and inference.
   </Card>
 </CardGroup>
 
-## Architecture
 
-The diagrams below group the control plane (global and per region) and data plane (database, context engine, inference), then show data flow across the platform.
+## Deployment model
 
-### Platform overview
+The diagram below shows how clients interact with the global control plane, regional control plane, and regional data plane.
 
-This first diagram shows the API surfaces and how clients reach the global control plane versus a regional deployment: the data plane (storage, context, inference) and the control plane (in-region management APIs).
+```mermaid
+flowchart TB
+    subgraph clients[Clients]
+        direction TB
+        Console[Console]
+        CLI[CLI]
+        SDK[SDKs]
+        MCP[MCP]
+    end
+
+    subgraph global[Global control plane]
+        GlobalAPI[Global Management API]
+        GlobalStore[(Global Metadata Store)]
+
+        GlobalAPI --> GlobalStore
+    end
+
+    subgraph region[Selected region]
+        subgraph rcp[Regional control plane]
+            RegionalAPI[Regional Management API]
+            RegionalMeta[(Regional Metadata Store)]
+
+            RegionalAPI --> RegionalMeta
+        end
+
+        subgraph rdp[Regional data plane]
+            Context[TopK Context Engine]
+            Database[(TopK Database)]
+            Inference{{TopK Inference Engine}}
+
+            Context --> Database
+            Context --> Inference
+        end
+    end
+
+    Console -->|account / org / project / keys| GlobalAPI
+    CLI -->|login / keys / region inventory| GlobalAPI
+
+    SDK -->|dataset / collection management| RegionalAPI
+    CLI -->|dataset / collection management| RegionalAPI
+    MCP -->|dataset / collection management| RegionalAPI
+
+    SDK -->|upload / search / ask| Context
+    CLI -->|upload / search / ask| Context
+    MCP -->|context queries| Context
+
+    GlobalAPI -. dataset home region .-> RegionalAPI
+```
+
+## Request paths
+
+TopK separates management requests from customer-data workload requests.
+
+### Account and project management
+
+Account-level operations go to the global control plane.
+
+This includes organization management, project management, API key management, account-level settings, and region inventory.
 
 ```mermaid
 flowchart LR
-    subgraph APIs[APIs]
-        direction TB
-        SDK[SDKs]
-        MCP[MCP]
-        CLI[CLI]
-        Console[Console]
-    end
+    Console[Console] --> GlobalAPI[Global Management API]
+    CLI[CLI] --> GlobalAPI
 
     subgraph Global[Global control plane]
-        CP[Management API]
+        GlobalAPI --> Auth[Authentication]
+        GlobalAPI --> Orgs[Organizations]
+        GlobalAPI --> Projects[Projects]
+        GlobalAPI --> Keys[API Keys]
+        GlobalAPI --> Regions[Region Inventory]
+        GlobalAPI --> Store[(Global Metadata Store)]
+
+        Auth --> Store
+        Orgs --> Store
+        Projects --> Store
+        Keys --> Store
+        Regions --> Store
+    end
+```
+
+### Dataset and collection management
+
+Dataset and collection management requests are handled by the regional control plane in the dataset’s home region.
+
+```mermaid
+flowchart LR
+    Client[SDK / CLI / MCP] --> RegionalAPI[Regional Management API]
+
+    subgraph Region[Selected region]
+        RegionalAPI --> Datasets[Datasets]
+        RegionalAPI --> Collections[Collections]
+        RegionalAPI --> Settings[Region-scoped Settings]
+        RegionalAPI --> Store[(Regional Metadata Store)]
+
+        Datasets --> Store
+        Collections --> Store
+        Settings --> Store
+    end
+```
+
+### Ingestion and retrieval path
+
+Reads, writes, search, ask, ingestion, retrieval, and inference are served by the regional data plane.
+
+```mermaid
+flowchart LR
+    Client[SDK / CLI / MCP] --> Context[TopK Context Engine]
+
+    subgraph DataPlane[Regional data plane]
+        Context --> Database[(TopK Database)]
+        Context --> Inference{{TopK Inference Engine}}
+    end
+```
+
+## Control plane
+
+The control plane manages metadata, configuration, and administrative operations for datasets, collections, and resources within the system.
+
+### Global control plane
+
+The global control plane owns account-level management workflows.
+
+It manages:
+
+- Organizations
+- Projects
+- API keys
+- Account-level settings
+- Region inventory
+- Routing metadata
+- Dataset and collection home-region records
+
+The global control plane records where each dataset and collection belongs, but it is not on the hot path for dataset reads, writes, retrieval, or inference.
+
+Clients use credentials issued through the global control plane together with an explicit region to connect to the correct regional deployment.
+
+<Info>
+  The global control plane exposes management APIs and stores routing metadata. It does not serve customer-data workload requests.
+</Info>
+
+### Regional control plane
+
+Each region runs its own control plane for region-scoped dataset and collection management.
+
+The regional control plane manages metadata and APIs for resources in that region. It is responsible for management operations such as creating, updating, listing, and deleting region-scoped dataset and collection resources.
+
+The regional control plane is separate from the regional data plane. Management operations are isolated from the hot path for reads, writes, ingestion, retrieval, and inference.
+
+## Data plane
+
+The regional data plane is where customer-data workloads run and where dataset data lives.
+
+Within each region, clients connect to the data plane for dataset workloads:
+
+```mermaid
+flowchart TB
+    Client[Client]
+    subgraph dp[Data plane]
+        CTX[TopK Context Engine]
+        DB[(TopK Database)]
+        INF{{TopK Inference Engine}}
     end
 
-    subgraph regional[Regional]
-        subgraph dp[Data plane]
-            CTX[TopK Context Engine]
-            DB[(TopK Database)]
-            INF{{TopK Inference Engine}}
-        end
-        subgraph rcp[Control plane]
-            RAPI[Management API]
-        end
-    end
-
-    Console --> CP
-    CLI --> CP
-    CLI --> CTX
-    CLI --> RAPI
-    SDK --> CTX
-    SDK --> RAPI
-    MCP --> CTX
-    MCP --> RAPI
-
-    CP -. routing metadata .-> RAPI
+    Client --> CTX
+    Client --> DB
 
     CTX --> DB
     CTX --> INF
 ```
 
-### Control plane
+<Note>
+    The data plane runs in the selected region, close to the data it serves.
+</Note>
 
-<a id="global-control-plane" />
+## Core components
 
-#### Global
+TopK consist of three core components which are deployed in the regional data plane:
 
-The global control plane owns the organization and project-specific workflows.
-It provides the management access to the organization, project, dataset and collection settings.
+<Steps>
+  <Step title="TopK Database">
+    Durable storage, indexing, query planning, and query execution.
+  </Step>
 
-It also manages API keys and records which region each dataset and related resource configuration belongs to.
-Clients use those credentials together with an explicit region to reach the correct data plane for dataset workloads and the control plane for in-region management APIs.
+  <Step title="TopK Context Engine">
+    Document ingestion, transformation, retrieval orchestration, and context workflows.
+  </Step>
 
-<Info>
-The global control plane exposes management APIs and holds the routing metadata — it does not sit in the hot path for context engine or database requests.
-</Info>
+  <Step title="TopK Inference Engine">
+    Regional model serving for embedding, reranking, generation, and OCR.
+  </Step>
+</Steps>
 
-```mermaid
-flowchart LR
-    Console[Console] --> Mgmt[Management API]
-    CLI[CLI] --> Mgmt
+### TopK Database
 
-    subgraph Global[Global Control Plane]
-        Mgmt --> Auth[Authentication]
-        Mgmt --> Projects[Projects]
-        Mgmt --> Datasets[Datasets and Collections]
-        Mgmt --> Keys[API Keys]
-        Mgmt --> Regions[Region and Routing Metadata]
-        Datasets --> Metadata[Control Plane Store]
-        Projects --> Metadata
-        Keys --> Metadata
-        Regions --> Metadata
-    end
-```
+The TopK Database is the regional execution and storage system.
 
-<a id="regional-control-plane" />
-
-#### Regional
-
-Each region runs its own control plane for dataset and collection management. That metadata and those APIs are scoped to the geography, so inventory and changes apply only to resources in that region. The global control plane supplies routing metadata so clients address the right deployment.
-
-<a id="regional-data-plane" />
-
-### Data plane
-
-The data plane is where workloads run and data lives: storage, indexing, ingestion and retrieval, and inference.
-
-#### Database
-
-The TopK Database is the regional execution and storage system. Writes flow through the writer into durable storage, queries are planned by the router, and the query layer scans stored data and indexes. Compactors continuously reorganize stored data in the background.
+Writes flow through the writer into durable storage. Queries are planned by the database router and executed by the query layer against stored data and indexes. Compactors reorganize stored data in the background.
 
 <Frame caption="TopK Database Architecture Diagram">
   <img
@@ -215,48 +273,53 @@ The TopK Database is the regional execution and storage system. Writes flow thro
   />
 </Frame>
 
-#### Context Engine
+### TopK Context Engine
 
-The TopK Context Engine orchestrates ingestion and retrieval. It accepts source content, transforms it into searchable artifacts, writes that output into the database, and serves retrieval and MCP-oriented context workflows.
+The TopK Context Engine orchestrates ingestion of documents and retrieval.
+
+It handles source documents, transforms them into searchable artifacts, writes that output into the database, and serves retrieval and MCP-oriented context workflows.
 
 ```mermaid
 flowchart TB
-    SDK[Clients]
+    Client[SDK / CLI / MCP]
 
-    subgraph WritePath[Context Engine Write]
+    subgraph WritePath["Context Engine (Write path)"]
         Upload[Upload]
-        DocProcessing[Document processing]
+        Processing[Document processing]
         Persist[Write transformed artifacts]
     end
 
-    subgraph ReadPath[Context Engine Read]
-        CtxRead[Ctx-Read]
+    subgraph ReadPath["Context Engine (Read path)"]
+        Read[Context read]
         Retrieve[Ask / Search / Research]
     end
 
     Database[(TopK Database)]
     Inference{{TopK Inference Engine}}
 
-    SDK --> Upload
-    SDK --> CtxRead
+    Client --> Upload
+    Client --> Read
 
-    Upload --> DocProcessing
-    DocProcessing --> Inference
-    Inference --> Persist
+    Upload --> Processing
+    Processing --> Inference
+    Processing --> Persist
     Persist --> Database
 
-    CtxRead --> Retrieve
+    Read --> Retrieve
     Retrieve --> Database
     Retrieve --> Inference
 ```
 
-#### Inference Engine
+### TopK Inference Engine
 
-The TopK Inference Engine is a shared regional model-serving layer. It exposes a single inference entry point and dispatches requests to the capability-specific model backends.
+The TopK Inference Engine is the regional model-serving layer.
+
+It exposes a single inference entry point and dispatches requests to capability-specific model backends.
 
 ```mermaid
 flowchart LR
     Callers[Database and Context Engine] --> Gateway[Inference Gateway]
+
     Gateway --> Embed[Embedding]
     Gateway --> Rerank[Reranking]
     Gateway --> Generate[Generation]
@@ -268,47 +331,137 @@ flowchart LR
     Ocr --> Models
 ```
 
-## Data flow
+## Where the data lives
 
-Read top to bottom: the console uses the global control plane only. SDKs and MCP use a regional API host and talk to the regional data plane and control plane (the usual client configuration). The CLI uses the global control plane for some operations and the regional deployment for others. The global management API supplies routing metadata to the regional control plane. Inside the data plane, the context engine coordinates the database and inference.
+The table below summarizes the split between global management, regional metadata, and regional workload execution.
 
-```mermaid
-flowchart TB
-    subgraph clients[Clients]
-        direction TB
-        SDK[SDKs]
-        MCP[MCP]
-        CLI[CLI]
-        Console[Console]
-    end
+| Resource or workload | Global control plane | Regional control plane | Regional data plane |
+| --- | --- | --- | --- |
+| Organizations | Yes | No | No |
+| Projects | Yes | No | No |
+| API keys | Yes | Used for regional access | No |
+| Region inventory | Yes | No | No |
+| Dataset metadata | Yes, including home region | Yes, region-scoped | No |
+| Collection metadata | Yes, including home region | Yes, region-scoped | No |
+| Transformed artifacts | No | No | Yes |
+| Indexes | No | No | Yes |
+| Query execution | No | No | Yes |
+| Ingestion pipelines | No | No | Yes |
+| Retrieval workflows | No | No | Yes |
+| Embedding | No | No | Yes |
+| Reranking | No | No | Yes |
+| Generation | No | No | Yes |
+| OCR | No | No | Yes |
 
-    subgraph global[Global control plane]
-        Control[Management API]
-    end
+## Failure domains
 
-    subgraph regional[Regional]
-        subgraph dataPlane[Data plane]
-            Context[TopK Context Engine]
-            Database[(TopK Database)]
-            Inference{{TopK Inference Engine}}
-        end
-        subgraph regCP[Control plane]
-            RegCtl[Management API]
-        end
-    end
+TopK separates global management workflows from regional dataset workloads.
 
-    Console --> Control
-    CLI -->|list resources| Control
-    CLI --> Context
-    CLI --> RegCtl
-    SDK --> Context
-    SDK --> RegCtl
-    MCP --> Context
-    MCP --> RegCtl
+<CardGroup cols={1}>
+  <Card title="Global control plane" icon="globe">
+    If the global control plane is unavailable, account-level management operations such as organization changes, project changes, API key management, and region inventory updates may be affected.
+  </Card>
 
-    Control -. routing metadata .-> RegCtl
+  <Card title="Regional control plane" icon="layout-dashboard">
+    If a regional control plane is unavailable, dataset and collection management operations in that region may be affected.
+  </Card>
 
-    Context --> Database
-    Context --> Inference
-```
+  <Card title="Regional data plane" icon="database">
+    If a regional data plane is unavailable, dataset workloads in that region may be affected, while other regions remain isolated.
+  </Card>
+</CardGroup>
 
+<Note>
+  Existing regional dataset workloads do not depend on the global control plane being in the request path.
+  Clients target the region directly and authenticate with an existing API key.
+</Note>
+
+## Security and trust boundaries
+
+TopK separates account metadata from customer data.
+
+- Account, organization, project, API key, routing, and inventory metadata are managed by the global control plane.
+- Region-scoped dataset and collection metadata is managed by the regional control plane.
+- Dataset data, transformed artifacts, indexes, and workload execution are handled by the regional data plane.
+- Management APIs and workload APIs are separate surfaces with separate operational responsibilities.
+- Regional services enforce access using credentials issued through the global control plane.
+
+## API surfaces
+
+TopK can be accessed through SDKs, the CLI, the MCP server, and the Console.
+
+### SDKs and CLI
+
+<CardGroup cols={2}>
+  <Card title="CLI" icon="terminal" href="/cli">
+    Command-line interface for upload, search, ask, and management workflows.
+
+    <div className="mt-2 flex flex-wrap gap-2">
+      <Badge icon="globe" color="blue" shape="pill">Global control plane</Badge>
+      <Badge icon="layout-dashboard" color="purple" shape="pill">Regional control plane</Badge>
+      <Badge icon="database" color="green" shape="pill">Regional data plane</Badge>
+    </div>
+  </Card>
+
+  <Card title="Python SDK" icon="/icons/python.svg" href="/sdk/topk-py/overview">
+    Python client library and API reference.
+
+    <div className="mt-2 flex flex-wrap gap-2">
+      <Badge icon="layout-dashboard" color="purple" shape="pill">Regional control plane</Badge>
+      <Badge icon="database" color="green" shape="pill">Regional data plane</Badge>
+    </div>
+  </Card>
+
+  <Card title="JavaScript SDK" icon="/icons/js.svg" href="/sdk/topk-js/overview">
+    TypeScript/JavaScript client for Node.js.
+
+    <div className="mt-2 flex flex-wrap gap-2">
+      <Badge icon="layout-dashboard" color="purple" shape="pill">Regional control plane</Badge>
+      <Badge icon="database" color="green" shape="pill">Regional data plane</Badge>
+    </div>
+  </Card>
+
+  <Card title="Rust SDK" icon="/icons/rust.svg" href="https://github.com/topk-io/topk/tree/main/topk-rs">
+    Rust client library.
+
+    <div className="mt-2 flex flex-wrap gap-2">
+      <Badge icon="layout-dashboard" color="purple" shape="pill">Regional control plane</Badge>
+      <Badge icon="database" color="green" shape="pill">Regional data plane</Badge>
+    </div>
+  </Card>
+</CardGroup>
+
+<Columns cols={2} className="mt-2">
+  <Column>
+    **MCP Server**
+
+    <Card title="MCP" icon="network" href="/mcp-server">
+      Connect TopK to MCP-compatible clients or agents to query your datasets.
+
+      <div className="mt-2 flex flex-wrap gap-2">
+        <Badge icon="layout-dashboard" color="purple" shape="pill">Regional control plane</Badge>
+        <Badge icon="database" color="green" shape="pill">Regional data plane</Badge>
+      </div>
+    </Card>
+  </Column>
+
+  <Column>
+    **Console**
+
+    <Card title="Console" icon="settings" href="https://console.topk.io">
+      Web console for managing your account, organization, projects, usage, and spend.
+
+      <div className="mt-2 flex flex-wrap gap-2">
+        <Badge icon="globe" color="blue" shape="pill">Global control plane</Badge>
+      </div>
+    </Card>
+  </Column>
+</Columns>
+
+## Summary
+
+TopK’s architecture separates global management, regional metadata, and regional workload execution.
+
+- The **global control plane** manages accounts, projects, API keys, routing metadata, and cross-region inventory.
+- The **regional control plane** manages datasets and collections in the selected region.
+- The **regional data plane** serves customer-data workloads, including storage, indexing, ingestion, retrieval, and inference.
