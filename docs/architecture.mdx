@@ -6,39 +6,35 @@ icon: "layers"
 
 ## Overview
 
-TopK is designed to separate platform management from customer-data workloads.
+TopK separates data read/write workloads from resource management across two operational planes: the **control plane** and the **data plane**.
+There is a single **global** control plane and multiple **regional** control planes, deployed alongside the regional data plane.
 
-The **global control plane** manages organizations, projects, API keys, account-level settings, routing metadata, and cross-region inventory. It records the home region for each dataset and collection.
+* The **global control plane** manages organizations, projects, API keys, account-level settings, routing metadata, and cross-region inventory. It records the home region for each dataset and collection.
+* The **regional control plane** exposes management APIs for datasets and collections in that region.
+* The **regional data plane** runs customer-data workloads in the selected region, including storage, indexing, ingestion, retrieval, context workflows, and inference.
 
-Each **regional control plane** exposes management APIs for datasets and collections in that region.
-
-Each **regional data plane** runs customer-data workloads in the selected region, including storage, indexing, ingestion, retrieval, context workflows, and inference.
-
-This separation keeps the global control plane out of the hot path for dataset reads, writes, retrieval, and inference, while allowing each regional deployment to operate close to the data it serves.
+This separation keeps account-level management out of the hot path for dataset reads, writes, retrieval, and inference, while allowing each regional deployment to operate close to the data it serves.
 
 <Info>
-  Dataset workloads are served by the regional data plane. The global control plane manages account-level resources and routing metadata; it does not serve dataset reads, writes, retrieval, or inference requests.
+  Dataset reads, writes, retrieval, and inference are served by the **regional data plane**.
+  The global control plane manages account-level resources and routing metadata; it does not serve customer-data workload requests.
 </Info>
 
 ## Architecture principles
 
 TopK is built around a few core architectural principles:
 
-<CardGroup cols={2}>
-  <Card title="Control and data plane separation" icon="split">
+<CardGroup cols={1}>
+  <Card title="Control and data plane separation" icon="split" horizontal>
     Management workflows are separated from customer-data workloads. The global control plane is not on the hot path for reads, writes, retrieval, or inference.
   </Card>
 
-  <Card title="Regional data residency" icon="map">
+  <Card title="Regional data residency" icon="map" horizontal>
     Dataset data, transformed artifacts, indexes, and workload execution are scoped to the selected region.
   </Card>
 
-  <Card title="Regional failure isolation" icon="shield">
+  <Card title="Regional failure isolation" icon="shield" horizontal>
     Regional deployments operate as isolated workload environments.
-  </Card>
-
-  <Card title="Composable retrieval stack" icon="layers">
-    Storage, indexing, ingestion, retrieval, and inference are separate services with clear responsibilities.
   </Card>
 </CardGroup>
 
@@ -67,8 +63,6 @@ TopK is organized into three operational planes:
 
 The diagram below shows how clients interact with the global control plane, regional control plane, and regional data plane.
 
-The diagram reads left to right so paths from the same client (especially the CLI) fan out without crossing as much as in a purely top-down layout. Mermaid still chooses exact anchor points automatically.
-
 ```mermaid
 flowchart LR
     subgraph clients[Clients]
@@ -90,14 +84,14 @@ flowchart LR
     end
 
     Console -->|manage resources| GCP
-    CLI -->|manage datasets| GCP
 
     SDK -->|manage resources| RCP
     MCP -->|list resources| RCP
 
-    CLI -->|read / write| RDP
-    SDK -->|read / write| RDP
-    MCP -->|read| RDP
+    CLI -->|"read / write (ctx & db)"| RDP
+    CLI -->|manage datasets| GCP
+    SDK -->|"read / write (ctx & db)"| RDP
+    MCP -->|"read (ctx)"| RDP
 ```
 
 ## Request paths
@@ -122,7 +116,7 @@ flowchart LR
         GlobalAPI --> Keys[API Keys]
         GlobalAPI --> Regions[Region Inventory]
 
-        Auth --> Store
+        Auth --> Store[(Global Control Plane Store)]
         Orgs --> Store
         Projects --> Store
         Keys --> Store
@@ -143,7 +137,7 @@ flowchart LR
         RegionalAPI --> Datasets[Datasets]
         RegionalAPI --> Collections[Collections]
         RegionalAPI --> Settings[Region-scoped Settings]
-        RegionalAPI --> Store[(Regional Metadata Store)]
+        RegionalAPI --> Store[(Regional Control Plane Store)]
 
         Datasets --> Store
         Collections --> Store
@@ -179,7 +173,6 @@ It manages:
 - Projects
 - API keys
 - Account-level settings
-- Region inventory
 - Routing metadata
 - Dataset and collection home-region records
 
@@ -321,21 +314,15 @@ The table below summarizes the split between global management, regional metadat
 
 | Resource or workload | Global control plane | Regional control plane | Regional data plane |
 | --- | --- | --- | --- |
-| Organizations | Yes | No | No |
-| Projects | Yes | No | No |
-| API keys | Yes | Used for regional access | No |
-| Region inventory | Yes | No | No |
-| Dataset metadata | Yes, including home region | Yes, region-scoped | No |
-| Collection metadata | Yes, including home region | Yes, region-scoped | No |
-| Transformed artifacts | No | No | Yes |
-| Indexes | No | No | Yes |
-| Query execution | No | No | Yes |
-| Ingestion pipelines | No | No | Yes |
-| Retrieval workflows | No | No | Yes |
-| Embedding | No | No | Yes |
-| Reranking | No | No | Yes |
-| Generation | No | No | Yes |
-| OCR | No | No | Yes |
+| Organizations | **Yes** | No | No |
+| Projects | **Yes** | No | No |
+| API keys | **Yes** | No | No |
+| Dataset metadata | **Yes** | Yes, region-scoped | No |
+| Collection metadata | **Yes**| Yes, region-scoped | No |
+| DB indexes | No | No | **Yes** |
+| Ingestion | No | No | **Yes** |
+| Retrieval | No | No | **Yes** |
+| Inference | No | No | **Yes** |
 
 ## Failure domains
 
