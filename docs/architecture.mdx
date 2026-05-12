@@ -9,7 +9,7 @@ icon: "layers"
 TopK separates data read/write workloads from resource management across two operational planes: the **control plane** and the **data plane**.
 There is a single **global** control plane and multiple **regional** control planes, deployed alongside the regional data plane.
 
-* The **global control plane** manages organizations, projects, API keys, account-level settings, routing metadata, and cross-region inventory. It records the home region for each dataset and collection.
+* The **global control plane** manages organizations, projects, API keys, account-level settings, and routing metadata. It records the home region for each dataset and collection.
 * The **regional control plane** exposes management APIs for datasets and collections in that region.
 * The **regional data plane** runs customer-data workloads in the selected region, including storage, indexing, ingestion, retrieval, context workflows, and inference.
 
@@ -44,7 +44,7 @@ TopK is organized into three operational planes:
 
 <CardGroup cols={1}>
   <Card title="Global control plane" icon="globe" href="/architecture#global-control-plane">
-    Account-level management for organizations, projects, API keys, routing metadata, and cross-region inventory.
+    Account-level management for organizations, projects, API keys, and routing metadata.
   </Card>
 </CardGroup>
 
@@ -238,9 +238,12 @@ TopK consist of three core components which are deployed in the regional data pl
 
 ### TopK Database
 
-The TopK Database is the regional execution and storage system.
+The TopK Database is an independent, durable storage system.
 
-Writes flow through the writer into durable storage. Queries are planned by the database router and executed by the query layer against stored data and indexes. Compactors reorganize stored data in the background.
+It is used by the TopK Context Engine as well as the TopK Inference Engine, however it can be used as a standalone component
+to power hybrid retrieval workflows.
+
+The full documentation for the TopK Database is available [here](/database).
 
 <Frame caption="TopK Database Architecture Diagram">
   <img
@@ -330,15 +333,16 @@ TopK separates global management workflows from regional dataset workloads.
 
 <CardGroup cols={1}>
   <Card title="Global control plane" icon="globe">
-    If the global control plane is unavailable, account-level management operations such as organization changes, project changes, API key management, and region inventory updates may be affected.
+    If the global control plane is unavailable, account-level management operations such as organization changes, project changes, API key management, and region inventory updates may fail.
   </Card>
 
   <Card title="Regional control plane" icon="layout-dashboard">
-    If a regional control plane is unavailable, dataset and collection management operations in that region may be affected.
+    If a regional control plane is unavailable, dataset and collection management operations in that region may fail.
   </Card>
 
   <Card title="Regional data plane" icon="database">
-    If a regional data plane is unavailable, dataset workloads in that region may be affected, while other regions remain isolated.
+    If a regional data plane is unavailable, dataset workloads in that region may fail, while other regions remain isolated.
+    While the regional data plane might be temporarily unavailable, the persisted data is never lost.
   </Card>
 </CardGroup>
 
@@ -351,7 +355,7 @@ TopK separates global management workflows from regional dataset workloads.
 
 TopK separates account metadata from customer data.
 
-- Account, organization, project, API key, routing, and inventory metadata are managed by the global control plane.
+- Account, organization, project, API key, and routing metadata are managed by the global control plane.
 - Region-scoped dataset and collection metadata is managed by the regional control plane.
 - Dataset data, transformed artifacts, indexes, and workload execution are handled by the regional data plane.
 - Management APIs and workload APIs are separate surfaces with separate operational responsibilities.
@@ -432,6 +436,6 @@ TopK can be accessed through SDKs, the CLI, the MCP server, and the Console.
 
 TopK’s architecture separates global management, regional metadata, and regional workload execution.
 
-- The **global control plane** manages accounts, projects, API keys, routing metadata, and cross-region inventory.
+- The **global control plane** manages accounts, projects, API keys, and routing metadata.
 - The **regional control plane** manages datasets and collections in the selected region.
 - The **regional data plane** serves customer-data workloads, including storage, indexing, ingestion, retrieval, and inference.
