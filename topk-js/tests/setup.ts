@@ -55,8 +55,7 @@ export class ProjectContext {
   }
 
   async cleanup() {
-    await this.deleteDatasets();
-    await this.deleteCollections();
+    await Promise.all([this.deleteDatasets(), this.deleteCollections()]);
   }
 }
 
