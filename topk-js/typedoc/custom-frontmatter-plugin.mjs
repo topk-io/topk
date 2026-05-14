@@ -19,7 +19,6 @@ export function load(app) {
   app.renderer.on(MarkdownPageEvent.BEGIN, (page) => {
     page.frontmatter = {
       title: `topk-js/${page.model.name}`,
-      subtitle: `topk-js/${page.model.name}`,
       ...page.frontmatter,
     };
   });
