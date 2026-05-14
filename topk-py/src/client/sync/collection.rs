@@ -82,12 +82,15 @@ impl CollectionClient {
         lsn: Option<String>,
         consistency: Option<ConsistencyLevel>,
     ) -> PyResult<Vec<Document>> {
+        // Convert query to proto while GIL is held
+        let query: topk_rs::proto::v1::data::Query = query.into();
+
         let docs = self
             .runtime
             .block_on(
                 py,
                 self.client.collection(&self.collection).query(
-                    query.into(),
+                    query,
                     lsn,
                     consistency.map(|c| c.into()),
                 ),
