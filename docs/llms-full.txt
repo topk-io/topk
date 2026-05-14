@@ -114,7 +114,7 @@ URL: https://docs.topk.io/quickstart
 
         <Info>
           This command prompts you to either create a new API key or set an existing one.
-          
+
           You can also skip the `topk login` command and authenticate by providing your API key via the `TOPK_API_KEY` environment variable:
 
           ```bash
@@ -2508,9 +2508,9 @@ To authenticate with the MCP server, you need to provide your `TOPK_API_KEY`.
     --header "Authorization: Bearer <your-topk-api-key>"
       ```
       </Step>
- 
 
-      <Step title="aws-eu-central-1-monstera" icon="clover">  
+
+      <Step title="aws-eu-central-1-monstera" icon="clover">
       ```bash
   claude mcp add --transport http topk https://monstera.api.topk.io/mcp \
     --header "Authorization: Bearer <your-topk-api-key>"
@@ -2525,9 +2525,9 @@ To authenticate with the MCP server, you need to provide your `TOPK_API_KEY`.
   codex mcp add topk --url https://elastica.api.topk.io/mcp --bearer-token-env-var TOPK_API_KEY
       ```
       </Step>
- 
 
-      <Step title="aws-eu-central-1-monstera" icon="clover">  
+
+      <Step title="aws-eu-central-1-monstera" icon="clover">
       ```bash
   codex mcp add topk --url https://monstera.api.topk.io/mcp --bearer-token-env-var TOPK_API_KEY
       ```
@@ -3099,7 +3099,7 @@ Update dataset **description**:
 
 <Warning>
   Deleting a dataset is irreversible.
-  
+
   All documents stored in the dataset will be permanently removed.
 </Warning>
 
@@ -7366,16 +7366,16 @@ Creates a new TopK client with the provided configuration.
 
 ```ts
 ask(
-   query: string, 
+   query: string,
    datasets: (
   | string
   | {
   dataset: string;
   filter?: LogicalExpression;
-})[], 
-   filter?: LogicalExpression, 
-   mode?: Mode, 
-   selectFields?: string[], 
+})[],
+   filter?: LogicalExpression,
+   mode?: Mode,
+   selectFields?: string[],
    includeContent?: boolean): AskStream;
 ```
 
@@ -7463,15 +7463,15 @@ Get a client for managing datasets.
 
 ```ts
 search(
-   query: string, 
+   query: string,
    datasets: (
   | string
   | {
   dataset: string;
   filter?: LogicalExpression;
-})[], 
-   topK: number, 
-   filter?: LogicalExpression, 
+})[],
+   topK: number,
+   filter?: LogicalExpression,
    selectFields?: string[]): SearchStream;
 ```
 
@@ -7525,7 +7525,7 @@ Counts the number of documents in the collection.
 ##### delete()
 
 ```ts
-delete(expr: 
+delete(expr:
   | string[]
 | LogicalExpression): Promise<string>;
 ```
@@ -7558,8 +7558,8 @@ await client.collection("books").delete(field("published_year").gt(1997))
 
 ```ts
 get(
-   ids: string[], 
-   fields?: string[], 
+   ids: string[],
+   fields?: string[],
 options?: QueryOptions): Promise<Record<string, Record<string, any>>>;
 ```
 
@@ -7829,8 +7829,8 @@ Update metadata for a file.
 
 ```ts
 upsertFile(
-   docId: string, 
-   input: InputFile, 
+   docId: string,
+   input: InputFile,
 metadata: Record<string, any>): Promise<string>;
 ```
 
@@ -8885,8 +8885,8 @@ Computes the BM25 score for a keyword search.
 
 ```ts
 function multiVectorDistance(
-   field: string, 
-   query: Matrix | number[][], 
+   field: string,
+   query: Matrix | number[][],
    candidates?: number): FunctionExpression;
 ```
 
@@ -8952,12 +8952,12 @@ Computes the semantic similarity between a field and a query string.
 
 ```ts
 function vectorDistance(
-   field: string, 
-   query: 
+   field: string,
+   query:
   | number[]
   | List
   | SparseVector
-  | Record<number, number>, 
+  | Record<number, number>,
    options?: VectorDistanceOptions): FunctionExpression;
 ```
 
@@ -9089,7 +9089,7 @@ Creates a field reference expression.
 ### filter()
 
 ```ts
-function filter(expr: 
+function filter(expr:
   | LogicalExpression
   | TextExpression): Query;
 ```
@@ -9111,7 +9111,7 @@ Creates a new query with a filter stage.
 ### literal()
 
 ```ts
-function literal(value: 
+function literal(value:
   | string
   | number
   | boolean
@@ -9182,10 +9182,10 @@ Each token can be a string (with the default weight of 1.0) or a `MatchTokenInpu
 ### max()
 
 ```ts
-function max(left: 
+function max(left:
   | string
   | number
-  | LogicalExpression, right: 
+  | LogicalExpression, right:
   | string
   | number
   | LogicalExpression): LogicalExpression;
@@ -9209,10 +9209,10 @@ Creates a MAX expression that returns the larger of two values.
 ### min()
 
 ```ts
-function min(left: 
+function min(left:
   | string
   | number
-  | LogicalExpression, right: 
+  | LogicalExpression, right:
   | string
   | number
   | LogicalExpression): LogicalExpression;
@@ -9256,7 +9256,7 @@ Creates a logical NOT expression.
 ### select()
 
 ```ts
-function select(exprs: Record<string, 
+function select(exprs: Record<string,
   | LogicalExpression
   | FunctionExpression>): Query;
 ```
@@ -9302,7 +9302,7 @@ Computes the absolute value of the expression.
 ##### add()
 
 ```ts
-add(other: 
+add(other:
   | number
   | LogicalExpression): LogicalExpression;
 ```
@@ -9322,7 +9322,7 @@ Adds another value to the expression.
 ##### and()
 
 ```ts
-and(other: 
+and(other:
   | boolean
   | LogicalExpression): LogicalExpression;
 ```
@@ -9342,9 +9342,9 @@ Computes the logical AND of the expression and another expression.
 ##### boost()
 
 ```ts
-boost(condition: 
+boost(condition:
   | boolean
-  | LogicalExpression, boost: 
+  | LogicalExpression, boost:
   | number
   | LogicalExpression): LogicalExpression;
 ```
@@ -9366,11 +9366,11 @@ Otherwise, the scoring expression is unchanged (multiplied by 1).
 ##### choose()
 
 ```ts
-choose(x: 
+choose(x:
   | string
   | number
   | boolean
-  | LogicalExpression, y: 
+  | LogicalExpression, y:
   | string
   | number
   | boolean
@@ -9393,7 +9393,7 @@ Chooses between two values based on the expression.
 ##### coalesce()
 
 ```ts
-coalesce(other: 
+coalesce(other:
   | number
   | LogicalExpression): LogicalExpression;
 ```
@@ -9413,7 +9413,7 @@ Coalesces nulls in the expression with another value.
 ##### contains()
 
 ```ts
-contains(other: 
+contains(other:
   | string
   | number
   | LogicalExpression): LogicalExpression;
@@ -9434,7 +9434,7 @@ Checks if the expression contains another value.
 ##### div()
 
 ```ts
-div(other: 
+div(other:
   | number
   | LogicalExpression): LogicalExpression;
 ```
@@ -9454,7 +9454,7 @@ Divides the expression by another value.
 ##### eq()
 
 ```ts
-eq(other: 
+eq(other:
   | string
   | number
   | boolean
@@ -9488,7 +9488,7 @@ Computes the exponential of the expression.
 ##### gt()
 
 ```ts
-gt(other: 
+gt(other:
   | string
   | number
   | LogicalExpression): LogicalExpression;
@@ -9509,7 +9509,7 @@ Checks if the expression is greater than another value.
 ##### gte()
 
 ```ts
-gte(other: 
+gte(other:
   | string
   | number
   | LogicalExpression): LogicalExpression;
@@ -9530,7 +9530,7 @@ Checks if the expression is greater than or equal to another value.
 ##### in()
 
 ```ts
-in(other: 
+in(other:
   | string
   | string[]
   | number[]
@@ -9589,7 +9589,7 @@ Computes the natural logarithm of the expression.
 ##### lt()
 
 ```ts
-lt(other: 
+lt(other:
   | string
   | number
   | LogicalExpression): LogicalExpression;
@@ -9610,7 +9610,7 @@ Checks if the expression is less than another value.
 ##### lte()
 
 ```ts
-lte(other: 
+lte(other:
   | string
   | number
   | LogicalExpression): LogicalExpression;
@@ -9631,7 +9631,7 @@ Checks if the expression is less than or equal to another value.
 ##### matchAll()
 
 ```ts
-matchAll(other: 
+matchAll(other:
   | string
   | string[]
   | LogicalExpression): LogicalExpression;
@@ -9652,7 +9652,7 @@ Checks if the expression matches all terms against the field with keyword index.
 ##### matchAny()
 
 ```ts
-matchAny(other: 
+matchAny(other:
   | string
   | string[]
   | LogicalExpression): LogicalExpression;
@@ -9673,7 +9673,7 @@ Checks if the expression matches any term against the field with keyword index.
 ##### max()
 
 ```ts
-max(other: 
+max(other:
   | string
   | number
   | LogicalExpression): LogicalExpression;
@@ -9694,7 +9694,7 @@ Computes the maximum of the expression and another value.
 ##### min()
 
 ```ts
-min(other: 
+min(other:
   | string
   | number
   | LogicalExpression): LogicalExpression;
@@ -9715,7 +9715,7 @@ Computes the minimum of the expression and another value.
 ##### mul()
 
 ```ts
-mul(other: 
+mul(other:
   | number
   | LogicalExpression): LogicalExpression;
 ```
@@ -9735,7 +9735,7 @@ Multiplies the expression by another value.
 ##### ne()
 
 ```ts
-ne(other: 
+ne(other:
   | string
   | number
   | boolean
@@ -9757,7 +9757,7 @@ Checks if the expression does not equal another value.
 ##### or()
 
 ```ts
-or(other: 
+or(other:
   | boolean
   | LogicalExpression): LogicalExpression;
 ```
@@ -9820,7 +9820,7 @@ Computes the square of the expression.
 ##### startsWith()
 
 ```ts
-startsWith(other: 
+startsWith(other:
   | string
   | LogicalExpression): LogicalExpression;
 ```
@@ -9848,7 +9848,7 @@ client.collection("books").query(
 ##### sub()
 
 ```ts
-sub(other: 
+sub(other:
   | number
   | LogicalExpression): LogicalExpression;
 ```
@@ -9905,7 +9905,7 @@ Adds a count stage to the query.
 ##### filter()
 
 ```ts
-filter(expr: 
+filter(expr:
   | LogicalExpression
   | TextExpression): Query;
 ```
@@ -9943,7 +9943,7 @@ Adds a limit stage to the query.
 ##### select()
 
 ```ts
-select(exprs: Record<string, 
+select(exprs: Record<string,
   | LogicalExpression
   | FunctionExpression>): Query;
 ```
@@ -9983,8 +9983,8 @@ Adds a sort stage to the query.
 
 ```ts
 topk(
-   expr: LogicalExpression, 
-   k: number, 
+   expr: LogicalExpression,
+   k: number,
    asc?: boolean): Query;
 ```
 
