@@ -188,10 +188,12 @@ test-runner:
 
     COPY +test-runner-builder/cargo-nextest /usr/local/bin/cargo-nextest
     COPY +test-sandbox/topk-test-sandbox /usr/local/bin/topk-test-sandbox
-    COPY +test-runner-builder/test-runner.tar.zst /workspace/test-runner.tar.zst
+    COPY +test-runner-builder/test-runner.tar.zst /test-runner.tar.zst
 
-    WORKDIR /workspace
-    ENTRYPOINT ["topk-test-sandbox", "cargo-nextest", "nextest", "run", "--archive-file", "test-runner.tar.zst", "--no-fail-fast", "-j", "16"]
+    COPY --dir . /sdk
+
+    WORKDIR /sdk/topk-rs
+    ENTRYPOINT ["topk-test-sandbox", "cargo-nextest", "nextest", "run", "--archive-file", "/test-runner.tar.zst", "--no-fail-fast", "-j", "16"]
 
     ARG --required registry
     ARG --required tag
