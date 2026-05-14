@@ -1,0 +1,66 @@
+# TopK Documentation
+
+> The context layer for vertical AI agents.
+
+## Overview
+
+- [What is TopK?](https://docs.topk.io/introduction): Turn your documents into reliable context for agents and humans.
+- [Quickstart](https://docs.topk.io/quickstart): Ingest your first document and ask a question.
+- [Regions](https://docs.topk.io/regions): List available regions
+- [Changelog](https://docs.topk.io/changelog)
+
+## Core Concepts
+
+- [Ingest](https://docs.topk.io/core/ingest): Upload your documents to TopK Context Engine.
+- [Ask](https://docs.topk.io/core/ask): Get grounded, evidence-backed answers from your documents.
+- [Search](https://docs.topk.io/core/search): Retrieve the most relevant passages from your documents.
+- [Research](https://docs.topk.io/core/research): Perform deep multi-step research across your document corpus.
+
+## APIs
+
+- [CLI](https://docs.topk.io/cli): Upload documents, ask questions and search relevant passages with TopK CLI.
+- [MCP](https://docs.topk.io/mcp-server): Get started with TopK Context Engine using MCP server.
+- [Python SDK](https://docs.topk.io/sdk/topk-py/overview): Get started with TopK Context Engine using Python SDK.
+- [JavaScript SDK](https://docs.topk.io/sdk/topk-js/overview): Get started with TopK Context Engine using JavaScript SDK.
+- [Rust SDK](https://github.com/topk-io/topk/tree/main/topk-rs): Get started with TopK Context Engine using Rust SDK.
+
+## Management
+
+- [Managing Datasets](https://docs.topk.io/datasets): Create, list, get, update, and delete datasets.
+- [Understanding Usage](https://docs.topk.io/usage): Monitor your TopK usage and spend.
+
+## Python SDK Reference
+
+- [topk_sdk](https://docs.topk.io/sdk/topk-py)
+- [topk_sdk.data](https://docs.topk.io/sdk/topk-py/data)
+- [topk_sdk.error](https://docs.topk.io/sdk/topk-py/error)
+- [topk_sdk.query](https://docs.topk.io/sdk/topk-py/query)
+- [topk_sdk.schema](https://docs.topk.io/sdk/topk-py/schema)
+
+## JavaScript SDK Reference
+
+- [topk-js](https://docs.topk.io/sdk/topk-js)
+- [topk-js/data](https://docs.topk.io/sdk/topk-js/Namespace.data)
+- [topk-js/query_fn](https://docs.topk.io/sdk/topk-js/Namespace.query_fn)
+- [topk-js/query](https://docs.topk.io/sdk/topk-js/Namespace.query)
+- [topk-js/schema](https://docs.topk.io/sdk/topk-js/Namespace.schema)
+
+## Optional
+
+- [TopK Database](https://docs.topk.io/database): Introduction to the TopK Database
+- [TopK Database - Semantic search](https://docs.topk.io/concepts/semantic-search)
+- [TopK Database - Vector search](https://docs.topk.io/concepts/vector-search)
+- [TopK Database - Sparse vector search](https://docs.topk.io/concepts/sparse-vector-search)
+- [TopK Database - Multi-vector search](https://docs.topk.io/concepts/multi-vector-search)
+- [TopK Database - Keyword search](https://docs.topk.io/concepts/keyword-search)
+- [TopK Database - True Hybrid search](https://docs.topk.io/concepts/true-hybrid-search)
+- [TopK Database - Consistency](https://docs.topk.io/concepts/consistency)
+- [TopK Database - Multi-tenancy](https://docs.topk.io/concepts/multi-tenancy)
+- [TopK Database - Upsert documents](https://docs.topk.io/documents/upsert)
+- [TopK Database - Query documents](https://docs.topk.io/documents/query)
+- [TopK Database - Get documents](https://docs.topk.io/documents/get)
+- [TopK Database - Delete documents](https://docs.topk.io/documents/delete)
+- [TopK Database - Create a collection](https://docs.topk.io/collections/create)
+- [TopK Database - List collections](https://docs.topk.io/collections/list)
+- [TopK Database - Get collection](https://docs.topk.io/collections/get)
+- [TopK Database - Delete a collection](https://docs.topk.io/collections/delete)
