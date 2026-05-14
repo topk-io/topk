@@ -145,6 +145,9 @@ impl CollectionClient {
     }
 
     pub fn delete(&self, py: Python<'_>, spec: DeleteExprUnion) -> PyResult<String> {
+        // Convert spec to proto while GIL is held
+        let spec: topk_rs::proto::v1::data::DeleteDocumentsRequest = spec.into();
+
         Ok(self
             .runtime
             .block_on(py, self.client.collection(&self.collection).delete(spec))
