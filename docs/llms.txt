@@ -41,7 +41,7 @@
 - [topk-js/query](https://docs.topk.io/sdk/topk-js/Namespace.query)
 - [topk-js/schema](https://docs.topk.io/sdk/topk-js/Namespace.schema)
 
-## Optional
+## Database APIs
 
 - [TopK Database](https://docs.topk.io/database): TopK Database is a search engine for building performant semantic search, vector search, keyword (BM25) search, sparse vector search, multi-vector search or a combination of these — all within a single query.
 - [TopK Database - Semantic search](https://docs.topk.io/concepts/semantic-search)

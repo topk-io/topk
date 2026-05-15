@@ -145,7 +145,7 @@ function buildSections(): Section[] {
     });
   }
 
-  // Database tab - Optional
+  // Database tab
   const dbTab = docs.navigation.tabs.find((t) => t.tab === "Database");
   if (dbTab) {
     const DB_CONCEPT_SLUGS = [
@@ -157,7 +157,7 @@ function buildSections(): Section[] {
       "concepts/true-hybrid-search",
     ];
     sections.push({
-      heading: "Optional",
+      heading: "Database APIs",
       entries: [
         { type: "slug", slug: "database", useFirstParagraph: true },
         ...DB_CONCEPT_SLUGS.map((slug): Entry => ({ type: "slug", slug, titlePrefix: "TopK Database - " })),

@@ -10789,7 +10789,7 @@ type MultiVectorQuantization = "1bit" | "2bit" | "scalar";
 type VectorDistanceMetric = "cosine" | "euclidean" | "dot_product" | "hamming";
 ```
 
-## Optional
+## Database APIs
 
 ### TopK Database
 
