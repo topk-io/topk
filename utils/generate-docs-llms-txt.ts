@@ -11,11 +11,20 @@ program
   .description("CLI to generate llms.txt and llms-full.txt in the docs")
   .version("0.1.0");
 
-type SlugEntry = { type: "slug"; slug: string; titlePrefix?: string; useFirstParagraph?: boolean };
+type SlugEntry = { type: "slug"; slug: string; titlePrefix?: string; useFirstParagraph?: boolean; firstParagraphs?: number };
 type ExternalEntry = { type: "external"; title: string; url: string; description?: string };
 type Entry = SlugEntry | ExternalEntry;
 type Section = { heading: string; entries: Entry[] };
 type PageGroup = { group?: string; pages: string[] };
+
+function stripLeadingMdxImports(text: string): string {
+  const lines = text.split('\n');
+  let i = 0;
+  while (i < lines.length && (lines[i].trim() === '' || /^import\s+/.test(lines[i]))) {
+    i++;
+  }
+  return lines.slice(i).join('\n');
+}
 
 function normalizeTabPages(tabPages: unknown): PageGroup[] {
   if (Array.isArray(tabPages))
@@ -45,24 +54,24 @@ async function readFrontmatter(slug: string): Promise<{ title?: string; descript
   return { title, description };
 }
 
-async function readFirstParagraph(slug: string): Promise<string | undefined> {
+async function readFirstParagraph(slug: string, count = 1): Promise<string | undefined> {
   const file = Bun.file(`${DOCS_DIR}/${slug}.mdx`);
   if (!(await file.exists())) return undefined;
 
   const text = await file.text();
-  const body = text
-    .replace(/^---\n[\s\S]*?\n---\n?/, "")
-    .replace(/^import\s+.+\n/gm, "");
+  const body = stripLeadingMdxImports(text.replace(/^---\n[\s\S]*?\n---\n?/, ""));
 
+  const collected: string[] = [];
   for (const block of body.split(/\n\n+/)) {
     const trimmed = block.trim();
     if (!trimmed) continue;
     if (trimmed.startsWith("#")) continue;
     if (trimmed.startsWith("<")) continue;
     if (trimmed.startsWith("```")) continue;
-    return trimmed.replace(/\n/g, " ");
+    collected.push(trimmed.replace(/\n/g, " "));
+    if (collected.length >= count) break;
   }
-  return undefined;
+  return collected.length > 0 ? collected.join(" ") : undefined;
 }
 
 async function readPageContent(slug: string): Promise<string> {
@@ -70,9 +79,7 @@ async function readPageContent(slug: string): Promise<string> {
   if (!(await file.exists())) return "";
 
   const text = await file.text();
-  return text
-    .replace(/^---\n[\s\S]*?\n---\n?/, "")   // strip frontmatter
-    .replace(/^import\s+.+\n/gm, "")         // strip MDX imports
+  return stripLeadingMdxImports(text.replace(/^---\n[\s\S]*?\n---\n?/, ""))
     .replace(/[ \t]+$/gm, "")                // strip trailing whitespace per line
     .trim();
 }
@@ -159,7 +166,7 @@ function buildSections(): Section[] {
     sections.push({
       heading: "Database APIs",
       entries: [
-        { type: "slug", slug: "database", useFirstParagraph: true },
+        { type: "slug", slug: "database", firstParagraphs: 2 },
         ...DB_CONCEPT_SLUGS.map((slug): Entry => ({ type: "slug", slug, titlePrefix: "TopK Database - " })),
       ],
     });
@@ -184,8 +191,8 @@ async function renderLinks(sections: Section[]): Promise<string> {
         out += entry.description ? `${line}: ${entry.description}\n` : `${line}\n`;
       } else {
         const { title, description: fmDesc } = await readFrontmatter(entry.slug);
-        const description = entry.useFirstParagraph
-          ? await readFirstParagraph(entry.slug)
+        const description = (entry.useFirstParagraph || entry.firstParagraphs)
+          ? await readFirstParagraph(entry.slug, entry.firstParagraphs ?? 1)
           : fmDesc;
         const displayTitle = `${entry.titlePrefix ?? ""}${title ?? entry.slug}`;
         const line = `- [${displayTitle}](${slugToUrl(entry.slug)})`;

@@ -2890,6 +2890,7 @@ uv add topk-sdk
 ## Usage
 
 ```python
+import os
 from topk_sdk import Client
 
 client = Client(
@@ -2923,6 +2924,8 @@ for message in client.ask(
 Simply import `AsyncClient` instead of `Client` and use `async for` / `await` with each API call:
 
 ```python
+import os
+import asyncio
 from topk_sdk import AsyncClient
 
 client = AsyncClient(
@@ -3041,6 +3044,7 @@ pnpm install topk-js
 ## Usage
 
 ```typescript
+import { Client } from "topk-js";
 
 const client = new Client({
   apiKey: process.env.TOPK_API_KEY,
@@ -3105,6 +3109,7 @@ The client automatically retries on slow-down and LSN consistency
 timeouts. Retry behaviour can be configured via `retryConfig`:
 
 ```typescript
+import { Client } from "topk-js";
 
 const client = new Client({
   apiKey: process.env.TOPK_API_KEY,
@@ -7510,6 +7515,7 @@ await client.collection("books").delete(["id_1", "id_2"])
 
 Delete documents by a filter expression:
 ```javascript
+import { field } from "topk-js/query";
 
 await client.collection("books").delete(field("published_year").gt(1997))
 ```
@@ -8360,6 +8366,7 @@ Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a b
 Example:
 
 ```javascript
+import { binaryVector } from "topk-js/data";
 
 binaryVector([0, 1, 1, 0])
 ```
@@ -8387,6 +8394,7 @@ Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing byt
 Example:
 
 ```javascript
+import { bytes } from "topk-js/data";
 
 bytes([0, 1, 1, 0])
 ```
@@ -8414,6 +8422,7 @@ Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a 1
 Example:
 
 ```javascript
+import { f16Vector } from "topk-js/data";
 
 f16Vector([0.12, 0.67, 0.82, 0.53])
 ```
@@ -8441,6 +8450,7 @@ Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a l
 Example:
 
 ```javascript
+import { f32List } from "topk-js/data";
 
 f32List([0.12, 0.67, 0.82, 0.53])
 ```
@@ -8468,6 +8478,7 @@ Creates a [SparseVector](https://docs.topk.io/sdk/topk-js/data#SparseVector) typ
 Example:
 
 ```javascript
+import { f32SparseVector } from "topk-js/data";
 
 f32SparseVector({0: 0.12, 6: 0.67, 17: 0.82, 97: 0.53})
 ```
@@ -8495,6 +8506,7 @@ Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a 3
 Example:
 
 ```javascript
+import { f32Vector } from "topk-js/data";
 
 f32Vector([0.12, 0.67, 0.82, 0.53])
 ```
@@ -8522,6 +8534,7 @@ Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a l
 Example:
 
 ```javascript
+import { f64List } from "topk-js/data";
 
 f64List([0.12, 0.67, 0.82, 0.53])
 ```
@@ -8549,6 +8562,7 @@ Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing an 
 Example:
 
 ```javascript
+import { f8Vector } from "topk-js/data";
 
 f8Vector([0.12, 0.67, 0.82, 0.53])
 ```
@@ -8576,6 +8590,7 @@ Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a l
 Example:
 
 ```javascript
+import { i32List } from "topk-js/data";
 
 i32List([0, 1, 2, 3])
 ```
@@ -8603,6 +8618,7 @@ Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a l
 Example:
 
 ```javascript
+import { i64List } from "topk-js/data";
 
 i64List([0, 1, 2, 3])
 ```
@@ -8630,6 +8646,7 @@ Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing an 
 Example:
 
 ```javascript
+import { i8Vector } from "topk-js/data";
 
 i8Vector([-128, 127, -1, 0, 1])
 ```
@@ -8659,6 +8676,7 @@ the optional `valueType` parameter specifies the matrix type.
 If `valueType` is not provided, the matrix defaults to f32.
 
 ```javascript
+import { matrix } from "topk-js/data";
 
 // Array of number arrays with explicit type
 matrix([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], "f32")
@@ -8691,6 +8709,7 @@ Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a l
 Example:
 
 ```javascript
+import { stringList } from "topk-js/data";
 
 stringList(["foo", "bar", "baz"])
 ```
@@ -8718,6 +8737,7 @@ Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a l
 Example:
 
 ```javascript
+import { u32List } from "topk-js/data";
 
 u32List([0, 1, 2, 3])
 ```
@@ -8745,6 +8765,7 @@ Creates a [SparseVector](https://docs.topk.io/sdk/topk-js/data#SparseVector) typ
 Example:
 
 ```javascript
+import { u8SparseVector } from "topk-js/data";
 
 u8SparseVector({0: 12, 6: 67, 17: 82, 97: 53})
 ```
@@ -8772,6 +8793,7 @@ Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing an 
 Example:
 
 ```javascript
+import { u8Vector } from "topk-js/data";
 
 u8Vector([0, 255, 1, 2, 3])
 ```
@@ -8869,6 +8891,7 @@ use [`matrix()`](https://docs.topk.io/sdk/topk-js/data#matrix) with `valueType`.
 The optional `candidates` parameter limits the number of candidate vectors considered during retrieval.
 
 ```javascript
+import { field, fn, select } from "topk-js/query";
 
 client.collection("books").query(
   select({
@@ -9800,6 +9823,7 @@ Can be applied on a string field or a list of strings field.
 
 ```ts
 // Example:
+import { field, startsWith } from "topk-js/query";
 client.collection("books").query(
   filter(field("title").startsWith("The") | field("tags").startsWith("fiction"))
 )
@@ -10100,6 +10124,7 @@ Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type fo
 Example:
 
 ```javascript
+import { binaryVector } from "topk-js/schema";
 
 await client.collections().create("books", {
   title_embedding: binaryVector({ dimension: 128 })
@@ -10129,6 +10154,7 @@ Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type fo
 Example:
 
 ```javascript
+import { bool } from "topk-js/schema";
 
 await client.collections().create("books", {
   is_published: bool()
@@ -10152,6 +10178,7 @@ Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type fo
 Example:
 
 ```javascript
+import { bytes } from "topk-js/schema";
 
 await client.collections().create("books", {
   image: bytes()
@@ -10175,6 +10202,7 @@ Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type fo
 Example:
 
 ```javascript
+import { f16Vector } from "topk-js/schema";
 
 await client.collections().create("books", {
   title_embedding: f16Vector({ dimension: 1536 })
@@ -10206,6 +10234,7 @@ Note: Sparse vectors use u32 dimension indices to support dictionaries of up to 
 Example:
 
 ```javascript
+import { f32SparseVector } from "topk-js/schema";
 
 await client.collections().create("books", {
   sparse_field: f32SparseVector()
@@ -10229,6 +10258,7 @@ Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type fo
 Example:
 
 ```javascript
+import { f32Vector } from "topk-js/schema";
 
 await client.collections().create("books", {
   title_embedding: f32Vector({ dimension: 1536 })
@@ -10258,6 +10288,7 @@ Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type fo
 Example:
 
 ```javascript
+import { f8Vector } from "topk-js/schema";
 
 await client.collections().create("books", {
   title_embedding: f8Vector({ dimension: 1536 })
@@ -10287,6 +10318,7 @@ Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type fo
 Example:
 
 ```javascript
+import { float } from "topk-js/schema";
 
 await client.collections().create("books", {
   price: float()
@@ -10310,6 +10342,7 @@ Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type fo
 Example:
 
 ```javascript
+import { i8Vector } from "topk-js/schema";
 
 await client.collections().create("books", {
   title_embedding: i8Vector({ dimension: 1536 })
@@ -10339,6 +10372,7 @@ Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type fo
 Example:
 
 ```javascript
+import { int } from "topk-js/schema";
 
 await client.collections().create("books", {
   published_year: int()
@@ -10362,6 +10396,7 @@ Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type 
 Example:
 
 ```javascript
+import { text, keywordIndex } from "topk-js/schema";
 
 await client.collections().create("books", {
   title: text().index(keywordIndex())
@@ -10387,6 +10422,7 @@ Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type fo
 Example:
 
 ```javascript
+import { list } from "topk-js/schema";
 
 await client.collections().create("books", {
   tags: list({ valueType: "text" })
@@ -10416,6 +10452,7 @@ Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type fo
 Example:
 
 ```javascript
+import { matrix } from "topk-js/schema";
 
 await client.collections().create("books", {
   token_embeddings: matrix({ dimension: 7, valueType: "f32" })
@@ -10445,6 +10482,7 @@ Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type 
 Example:
 
 ```javascript
+import { matrix, multiVectorIndex } from "topk-js/schema";
 
 await client.collections().create("books", {
   token_embeddings: matrix({ dimension: 7, valueType: "f32" }).index(
@@ -10476,6 +10514,7 @@ Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type 
 Example:
 
 ```javascript
+import { text, semanticIndex } from "topk-js/schema";
 
 await client.collections().create("books", {
   title: text().index(semanticIndex())
@@ -10499,6 +10538,7 @@ Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type fo
 Example:
 
 ```javascript
+import { text } from "topk-js/schema";
 
 await client.collections().create("books", {
   title: text()
@@ -10524,6 +10564,7 @@ Note: Sparse vectors use u32 dimension indices to support dictionaries of up to 
 Example:
 
 ```javascript
+import { u8SparseVector } from "topk-js/schema";
 
 await client.collections().create("books", {
   sparse_field: u8SparseVector()
@@ -10547,6 +10588,7 @@ Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type fo
 Example:
 
 ```javascript
+import { u8Vector } from "topk-js/schema";
 
 await client.collections().create("books", {
   title_embedding: u8Vector({ dimension: 1536 })
@@ -10582,6 +10624,7 @@ Supported `metric`s:
 Example:
 
 ```javascript
+import { f32Vector, vectorIndex } from "topk-js/schema";
 
 await client.collections().create("books", {
   title_embedding: f32Vector({ dimension: 1536 }).index(
@@ -10625,6 +10668,7 @@ Creates an index on a field.
 Example:
 
 ```javascript
+import { text, keywordIndex } from "topk-js/schema";
 
 await client.collections().create("books", {
   title: text().index(keywordIndex())
@@ -10652,6 +10696,7 @@ Marks the field as required. All fields are optional by default.
 Example:
 
 ```javascript
+import { text } from "topk-js/schema";
 
 await client.collections().create("books", {
   title: text().required()
@@ -10795,7 +10840,9 @@ type VectorDistanceMetric = "cosine" | "euclidean" | "dot_product" | "hamming";
 
 URL: https://docs.topk.io/database
 
-TopK Database is a search engine for building performant semantic search, vector search, keyword (BM25) search, sparse vector search, multi-vector search or a combination of these — all within a single query.
+TopK Database is a search engine for building fast semantic search, vector search, keyword (BM25) search, sparse vector search, multi-vector search or a combination of these — all within a single query.
+
+It is powering the [TopK Context Engine](https://docs.topk.io/introduction) and is also available as a standalone solution via [Python SDK](https://docs.topk.io/sdk/topk-py/index), [JavaScript SDK](https://docs.topk.io/sdk/topk-js/index) or [Rust SDK](https://github.com/topk-io/topk/tree/main/topk-rs).
 
 ## Guides
 
@@ -10834,10 +10881,10 @@ TopK Database is a search engine for building performant semantic search, vector
 ## SDKs
 
 <CardGroup cols={2}>
-  <Card title="Python SDK" icon="/icons/python.svg" href="/sdk/topk-py/overview">
+  <Card title="Python SDK" icon="/icons/python.svg" href="/sdk/topk-py/index">
     Full Python SDK reference.
   </Card>
-  <Card title="JavaScript SDK" icon="/icons/js.svg" href="/sdk/topk-js/overview">
+  <Card title="JavaScript SDK" icon="/icons/js.svg" href="/sdk/topk-js/index">
     Full TypeScript/JavaScript SDK reference.
   </Card>
 </CardGroup>
@@ -10890,6 +10937,7 @@ client.collections().create(
 
 
 ```typescript Javascript
+import { text, semanticIndex } from "topk-js/schema";
 
 await client.collections().create("books", {
   title: text().required().index(semanticIndex()),
@@ -10966,6 +11014,7 @@ docs = client.collection("books").query(
 
 
 ```typescript Javascript
+import { select, field, fn } from "topk-js/query";
 
 const docs = await client.collection("books").query(
   select({
@@ -11023,6 +11072,7 @@ docs = client.collection("books").query(
 
 
 ```typescript Javascript
+import { select, field, fn, match } from "topk-js/query";
 
 const docs = await client.collection("books").query(
   select({
@@ -11074,6 +11124,7 @@ client.collections().create(
 
 
 ```typescript Javascript
+import { text, f32Vector, vectorIndex } from "topk-js/schema";
 
 await client.collections().create("books", {
   title: text().required(),
@@ -11139,6 +11190,7 @@ docs = client.collection("books").query(
 
 
 ```js Javascript
+import { select, field, fn } from "topk-js/query";
 
 const docs = await client.collection("books").query(
   select({
@@ -11200,6 +11252,7 @@ docs = client.collection("books").query(
 
 
 ```js Javascript
+import { select, field, fn } from "topk-js/query";
 
 const docs = await client.collection("books").query(
   select({
@@ -11252,6 +11305,7 @@ client.collections().create(
 
 
 ```typescript Javascript
+import { text, f32SparseVector, vectorIndex } from "topk-js/schema";
 
 await client.collections().create("books", {
   title: text().required(),
@@ -11325,6 +11379,8 @@ docs = client.collection("books").query(
 
 
 ```js Javascript
+import { select, field, fn } from "topk-js/query";
+import { f32SparseVector } from "topk-js/data";
 
 const docs = await client.collection("books").query(
   select({
@@ -11388,6 +11444,8 @@ docs = client.collection("books").query(
 
 
 ```js Javascript
+import { select, field, fn } from "topk-js/query";
+import { f32SparseVector } from "topk-js/data";
 
 const docs = await client.collection("books").query(
   select({
@@ -11469,6 +11527,7 @@ client.collections().create(
 ```
 
 ```typescript Javascript
+import { matrix, multiVectorIndex, text } from "topk-js/schema";
 
 await client.collections().create("passages", {
   content: text().required(),
@@ -11500,6 +11559,7 @@ When upserting documents, include both:
 <CodeGroup>
 
 ```python Python
+import numpy as np
 from topk_sdk.data import matrix
 
 # Example: shape (num_vectors, dimension)
@@ -11524,6 +11584,7 @@ client.collection("passages").upsert(
 ```
 
 ```typescript Javascript
+import { matrix } from "topk-js/data";
 
 await client.collection("passages").upsert([
   {
@@ -11554,6 +11615,7 @@ When the field is indexed with `metric="maxsim"`, this computes the *MaxSim* sco
 <CodeGroup>
 
 ```python Python
+import numpy as np
 from topk_sdk.query import field, fn, select
 
 query_matrix = np.random.randn(8, 128).astype(np.float16)
@@ -11587,6 +11649,8 @@ print(docs)
 ```
 
 ```typescript Javascript
+import { field, fn, select } from "topk-js/query";
+import { matrix } from "topk-js/data";
 
 const queryMatrix = matrix(
   [
@@ -11664,6 +11728,7 @@ client.collections().create(
 
 
 ```js Javascript
+import { text, keywordIndex } from "topk-js/schema";
 
 await client.collections().create("books", {
   title: text().index(keywordIndex()),
@@ -11719,6 +11784,7 @@ docs = client.collection("books").query(
 
 
 ```js Javascript
+import { select, field, fn, match } from "topk-js/query";
 
 const docs = await client.collection(name).query(
   select({
@@ -11845,6 +11911,7 @@ client.collections().create(
 
 
 ```typescript Javascript
+import { text, keywordIndex, semanticIndex } from "topk-js/schema";
 
 await client.collections().create("articles", {
   title: text().required().index(keywordIndex()), // Keyword-based retrieval
@@ -11874,6 +11941,7 @@ docs = client.collection("articles").query(
 
 
 ```typescript Javascript
+import { select, field, fn, match } from "topk-js/query";
 
 const docs = await client.collection("articles").query(
   select({
@@ -11931,6 +11999,7 @@ docs = client.collection("books").query(
 
 
 ```typescript Javascript
+import { select, fn, field, match } from "topk-js/query";
 
 const docs = await client.collection("books").query(
   select({
@@ -11979,6 +12048,7 @@ client.collections().create(
 
 
 ```typescript Javascript
+import { text, float, semanticIndex } from "topk-js/schema";
 
 await client.collections().create("documents", {
   content: text().index(semanticIndex()), // Semantic search
@@ -12007,6 +12077,7 @@ docs = client.collection("documents").query(
 
 
 ```typescript Javascript
+import { select, field, fn } from "topk-js/query";
 
 const docs = await client.collection("documents").query(
   select({
