@@ -74,6 +74,12 @@ async function readFirstParagraph(slug: string, count = 1): Promise<string | und
   return collected.length > 0 ? collected.join(" ") : undefined;
 }
 
+function shiftHeadings(content: string, offset: number): string {
+  return content.replace(/^(#{1,6})( )/gm, (_, hashes, space) =>
+    "#".repeat(Math.min(hashes.length + offset, 6)) + space
+  );
+}
+
 async function readPageContent(slug: string): Promise<string> {
   const file = Bun.file(`${DOCS_DIR}/${slug}.mdx`);
   if (!(await file.exists())) return "";
@@ -219,7 +225,7 @@ async function renderFull(sections: Section[]): Promise<string> {
         const content = await readPageContent(entry.slug);
         out += `### ${displayTitle}\n\n`;
         out += `URL: ${slugToUrl(entry.slug)}\n\n`;
-        if (content) out += `${content}\n\n`;
+        if (content) out += `${shiftHeadings(content, 2)}\n\n`;
       }
     }
   }

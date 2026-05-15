@@ -14,7 +14,7 @@ You can search, explore, and extract relevant information from your documents, a
 
 We believe that **context is a search problem.** Agents need relevant data to make the right decision. Without the right context, even the best AI models fall short — garbage in, garbage out.
 
-## How it works
+#### How it works
 
 <Steps>
   <Step title="Ingest" icon="upload">
@@ -28,18 +28,18 @@ We believe that **context is a search problem.** Agents need relevant data to ma
   </Step>
 </Steps>
 
-## Core concepts
+#### Core concepts
 
 <CoreConcepts />
 
-## Use cases
+#### Use cases
 
 - **AI agents & copilots** — ground your agents' context in private knowledge to reduce hallucinations and improve decision quality.
 - **Document-heavy workflows** — automate extraction and Q&A over contracts, filings, research papers, and more.
 - **Enterprise knowledge bases** — give employees instant, cited answers from internal documentation, policies, and reports.
 - **Customer support** — surface the right answers from your knowledge base instantly, at scale.
 
-## How to use TopK
+#### How to use TopK
 
 The quickest way to get started is to follow the [Quickstart](/quickstart) guide.
 
@@ -58,7 +58,7 @@ The quickest way to get started is to follow the [Quickstart](/quickstart) guide
   </Card>
 </CardGroup>
 
-## Security & Compliance
+#### Security & Compliance
 
 TopK is **SOC 2 Type I** certified. Visit the [trust center](https://trust.topk.io) for full details.
 
@@ -74,7 +74,7 @@ TopK is **SOC 2 Type I** certified. Visit the [trust center](https://trust.topk.
   </Card>
 </CardGroup>
 
-## Get started
+#### Get started
 
 <CardGroup cols={2}>
   <Card title="Quickstart" icon="rocket" href="/quickstart">
@@ -679,7 +679,7 @@ URL: https://docs.topk.io/quickstart
 
 Congratulations! You've just ingested your first document and asked a question.
 
-### Next steps
+##### Next steps
 
 <CoreConcepts />
 
@@ -708,33 +708,33 @@ These are the available regions:
 
 URL: https://docs.topk.io/changelog
 
-### March 2026
+##### March 2026
 - **Features**: Added support for tuning [`BM25`](https://docs.topk.io/sdk/topk-py/query#bm25_score). Configure your own b and k1 parameters to adjust ranking behavior and refine result relevance.
 - **Blog**: Published a post about [`SMVE`](https://www.topk.io/blog/20260311-smve-multi-vector-retrieval) — an algorithm for scaling multi-vector retrieval, focusing on improved efficiency and performance for large-scale workloads.
 
-### February 2026
+##### February 2026
 - **Features**: Enabled native support for state-of-the-art retrieval models via multi-vector retrieval. ~5.5x faster than PLAID, ~7.5 faster than MUVERA with 1-bit, 2-bit and scalar quantization to optimize storage efficiency.
 - **Features**: Added native support for [`f8`](https://docs.topk.io/sdk/topk-py/schema#f8_vector) and [`f16`](https://docs.topk.io/sdk/topk-py/schema#f16_vector) vector types to optimize embedding storage size and improve efficiency when storing large document collections.
 
-### January 2026
+##### January 2026
 - **Features**: Added support for multivec [`indexing`](https://docs.topk.io/sdk/topk-py/schema#multi_vector_index) and [`querying`](https://docs.topk.io/sdk/topk-py/query#multi_vector_distance), enabling more advanced multi-embedding retrieval use cases.
 - **Features**: Introduced the [`list<str>.starts_with`](https://docs.topk.io/sdk/topk-py/query#starts_with) operator in our query language, enabling efficient prefix filtering on array string fields.
 
 
-### November 2025
+##### November 2025
 
 - **Features**: Added support for [`regular-expression`](https://docs.topk.io/documents/query#regexp-match) filtering in our query language, enabling more flexible querying logic.
 - **Benchmarks**: Published the new [`TopK Benchmarks`](https://www.topk.io/blog/20251201-topk-bench) results, showcasing performance and scalability across production-like workloads for multiple providers.
 - **Billing**: Shipped billing, unlocking end-to-end usage tracking and payment workflows.
 - **Performance**: Shipped distributed compaction to optimize cost and improve indexing throughput per collection.
 
-### October 2025
+##### October 2025
 
 - **Features**: Added [`update()`](https://docs.topk.io/sdk/topk-py/index#update)API to simplify partial record updates.
 - **Features**: Shipped support for [`delete-by-filter`](https://docs.topk.io/documents/delete#delete-documents) operations for more flexible bulk deletions.
 - **Docs & SDKs**: Added support for Cohere’s embed-v4 model in [`semantic_index()`](https://docs.topk.io/sdk/topk-py/schema#semantic-index) and exposed organization limits in ddb-management-plane for improved visibility and management.
 
-### September 2025
+##### September 2025
 
 - **Docs & SDKs**: Published SDK reference for [**Python**](https://docs.topk.io/sdk/topk-py) and [**JavaScript**](https://docs.topk.io/sdk/topk-js) clients, and added detailed docstrings for a smoother developer experience in both SDKs
 - **Python SDK**: Released [`AsyncClient`](https://docs.topk.io/sdk/topk-py/index#asyncclient) for easier async workflows.
@@ -747,20 +747,20 @@ URL: https://docs.topk.io/changelog
 - **Faster GETs**: Added option to cache raw document data and improved performance with zero-copy design.
 - **Performance**: Improved performance for queries with default & strong [consistency level](https://docs.topk.io/sdk/topk-py/index#consistencylevel).
 
-### August 2025
+##### August 2025
 
 - **Lists Data Type**: Native support for [list](https://docs.topk.io/sdk/topk-py/data#list) fields.
 - **Performance**: Added [`skip_refine`](https://docs.topk.io/sdk/topk-py/query#vector-distance) query option to improve speed when reranking isn’t needed.
 - **Monitoring**: Usage Metrics now available directly in the [console](https://console.topk.io/).
 
-### July 2025
+##### July 2025
 
 - **Math Operators**: Added [`ln`](https://docs.topk.io/sdk/topk-py/query#ln), [`exp`](https://docs.topk.io/sdk/topk-py/query#exp), [`sqrt`](https://docs.topk.io/sdk/topk-py/query#sqrt), [`square`](https://docs.topk.io/sdk/topk-py/query#square), [`min`](https://docs.topk.io/sdk/topk-py/query#min-2), [`max`](https://docs.topk.io/sdk/topk-py/query#max-2), and [`abs`](https://docs.topk.io/sdk/topk-py/query#abs).
 - **Advanced Querying**: Introduced [`choose`](https://docs.topk.io/sdk/topk-py/query#choose), [`match_all`](https://docs.topk.io/sdk/topk-py/query#match-all), [`match_any`](https://docs.topk.io/sdk/topk-py/query#match-any), [`coalesce`](https://docs.topk.io/sdk/topk-py/query#coalesce), and [`boost`](https://docs.topk.io/sdk/topk-py/query#boost) (with null coalescing).
 - **Binary Data**: Added [`bytes()`](https://docs.topk.io/sdk/topk-py/data#bytes) constructor to the Python SDK.
 - **Performance**: Optimized workload distribution for large-sacle deployments.
 
-### June 2025
+##### June 2025
 
 - **Sparse Vectors**: Added support for [f32](https://docs.topk.io/sdk/topk-py/schema#f32-sparse-vector) and [u8](https://docs.topk.io/sdk/topk-py/schema#u8-sparse-vector) sparse vector fields.
 - **Benchmarks**: Published [billion-scale benchmarks](https://www.topk.io/benchmarks) for dense & sparse vector search with filtering.
@@ -774,7 +774,7 @@ URL: https://docs.topk.io/core/ingest
 To run queries in TopK, your documents need to be uploaded. Once a document is uploaded,
 TopK parses, chunks, and indexes its content to power [Ask](/core/ask), [Search](/core/search), and [Research](/core/research).
 
-## Uploading documents
+#### Uploading documents
 
 Documents are uploaded to a **dataset**. A dataset is a named container for your documents.
 Each document in a dataset is identified by a **document ID**.
@@ -868,7 +868,7 @@ Each document in a dataset is identified by a **document ID**.
   </Tab>
 </Tabs>
 
-### Supported formats
+##### Supported formats
 
 | Format | MIME type | Extensions |
 |--------|-----------|------------|
@@ -882,7 +882,7 @@ Each document in a dataset is identified by a **document ID**.
 | TIFF | `image/tiff` | `.tiff`, `.tif` |
 | BMP | `image/bmp` | `.bmp` |
 
-### Attaching metadata
+##### Attaching metadata
 
 Each document can be associated with its own metadata. You can attach additional
 information about the document, such as title, author, date, or category.
@@ -949,7 +949,7 @@ information about the document, such as title, author, date, or category.
 </Note>
 
 
-## Processing documents
+#### Processing documents
 
 After a document is uploaded, TopK returns a **processing handle** — a reference to the processing job.
 The document is not ready for retrieval until it has been processed.
@@ -960,7 +960,7 @@ Processing happens asynchronously in the background and may take a few seconds t
   Your documents might not be ready for retrieval immediately after upload.
 </Info>
 
-### Checking the status
+##### Checking the status
 
 After uploading a document, you can check whether it has been processed using the **processing handle**.
 
@@ -1010,7 +1010,7 @@ After uploading a document, you can check whether it has been processed using th
   </Tab>
 </Tabs>
 
-### Waiting for completion
+##### Waiting for completion
 
 Alternatively, you can wait for the document to be processed using the **processing handle**:
 
@@ -1115,7 +1115,7 @@ URL: https://docs.topk.io/core/ask
 TopK answers natural-language queries over your documents.
 It retrieves the most relevant parts of your documents and synthesizes a grounded answer with source citations.
 
-## How it works
+#### How it works
 
 When you run an **Ask**, TopK:
 
@@ -1134,7 +1134,7 @@ When you run an **Ask**, TopK:
   </Step>
 </Steps>
 
-## Usage
+#### Usage
 
 Once a dataset is created and your documents are processed, you can start running agentic queries against your documents:
 
@@ -1321,7 +1321,7 @@ What was the total net income of Bank of America in 2024?
 </ul>
 </Info>
 
-## Understanding the answer
+#### Understanding the answer
 
 The answer consists of three fields:
 
@@ -1357,15 +1357,15 @@ The answer consists of three fields:
 }
 ```
 
-### Citations
+##### Citations
 
 Citations are **numbered**. Each fact's `ref_ids` list points to entries in `refs`, where each key is a citation number and each value is a [Search Result](/core/search#search-result) — the matched passage or image along with its document ID, file name, dataset, and any requested metadata.
 
-## Scoping the search
+#### Scoping the search
 
 Query across specific datasets or apply document filters to narrow the scope of the query.
 
-### Scoping to specific datasets
+##### Scoping to specific datasets
 
 When running ask, you must specify at least one dataset to query against.
 
@@ -1434,7 +1434,7 @@ When running ask, you must specify at least one dataset to query against.
   </Tab>
 </Tabs>
 
-### Document filtering
+##### Document filtering
 
 Sometimes a dataset might contain documents that should not be considered for the query. You can filter out documents that don't match your criteria by providing a [filter expression](/documents/query#filtering).
 
@@ -1505,7 +1505,7 @@ This is useful when you want to query:
   </Tab>
 </Tabs>
 
-## Retrieving metadata
+#### Retrieving metadata
 
 By default, metadata fields are not included in citations. Pass the field names you want returned and they will appear on each cited Search Result.
 
@@ -1661,7 +1661,7 @@ URL: https://docs.topk.io/core/search
 
 Search your documents and return the most relevant passages based on your natural-language query.
 
-## How it works
+#### How it works
 
 When you run **Search**, TopK:
 
@@ -1677,7 +1677,7 @@ When you run **Search**, TopK:
   </Step>
 </Steps>
 
-## Usage
+#### Usage
 
 Once your documents are processed, you can start retrieving relevant passages immediately.
 
@@ -1767,12 +1767,12 @@ What was the total net income of Bank of America in 2024?
   <a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=29" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">pp. 29–30</Badge>
 </Info>
 
-## Understanding search results
+#### Understanding search results
 
 Search returns a list of the most relevant Search Results based on the provided query.
 [Search Results](/core/search#search-result) are objects referencing specific passages extracted from the original documents.
 
-### Search Result
+##### Search Result
 
 Each Search Result has the following fields:
 
@@ -1786,7 +1786,7 @@ Each Search Result has the following fields:
 | `content`    | `object` | The matched content — see [Content types](#content-types)                                                                                                      |
 | `metadata`   | `object` | Metadata fields attached to the source document at upload time — must be requested, see [Retrieving metadata](#retrieving-metadata)                        |
 
-### Content types
+##### Content types
 
 There are three content types a search result can contain:
 
@@ -1794,11 +1794,11 @@ There are three content types a search result can contain:
 - **Image** — an image extracted from a document
 - **Page** — an image of a page from a document, with source page number
 
-## Scoping the search
+#### Scoping the search
 
 Query across multiple datasets or apply document filters to narrow the scope of the query.
 
-### Scoping to specific datasets
+##### Scoping to specific datasets
 
 This is useful when you want:
 
@@ -1855,7 +1855,7 @@ This is useful when you want:
   </Tab>
 </Tabs>
 
-### Filter documents
+##### Filter documents
 
 Sometimes a dataset might contain documents that should not be considered for the query. You can filter out documents that don't match your criteria by providing a [filter expression](/documents/query#filtering).
 
@@ -1934,7 +1934,7 @@ This is useful when you want to query:
   </Tab>
 </Tabs>
 
-## Retrieving metadata
+#### Retrieving metadata
 
 By default, metadata fields are not included in search results. Pass the field names you want returned and they will appear on each Search Result.
 
@@ -2067,7 +2067,7 @@ URL: https://docs.topk.io/core/research
 
 Research turns complex queries into a series of targeted searches, gathers evidence across documents, and produces a grounded answer with source citations.
 
-## How it works
+#### How it works
 
 When you run a **Research**, TopK:
 
@@ -2107,7 +2107,7 @@ flowchart LR
     E --> A
 ```
 
-## Usage
+#### Usage
 
 Research is invoked through `ask` by setting `mode` to `research`.
 
@@ -2197,7 +2197,7 @@ What was the 2022 and 2023 total value of commercial loans modified as TDRs, and
 </ul>
 </Info>
 
-## Scoping the search
+#### Scoping the search
 
 For guidance on:
 
@@ -2207,7 +2207,7 @@ For guidance on:
 
 see [Scoping the search](/core/ask#scoping-the-search) in the Ask guide.
 
-## When to use Research
+#### When to use Research
 
 Use Research for analytical questions that require more than a single retrieval pass to answer reliably.
 It is intended for multi-hop questions when searching, connecting, comparing, and synthesizing facts is needed to answer the question.
@@ -2236,7 +2236,7 @@ URL: https://docs.topk.io/datasets
 
 A dataset is a named container for your documents. You must create a dataset before uploading files into it.
 
-## Create a dataset
+#### Create a dataset
 
 When creating a dataset, you must specify a **region** — this determines where your data is physically stored.
 Once set, a dataset's region cannot be changed. See [available regions](/regions).
@@ -2264,7 +2264,7 @@ Once set, a dataset's region cannot be changed. See [available regions](/regions
   </Tab>
 </Tabs>
 
-## List datasets
+#### List datasets
 
 <Tabs>
   <Tab title="CLI" icon="terminal">
@@ -2299,7 +2299,7 @@ Once set, a dataset's region cannot be changed. See [available regions](/regions
   </Tab>
 </Tabs>
 
-## Get a dataset
+#### Get a dataset
 
 <Tabs>
   <Tab title="CLI" icon="terminal">
@@ -2330,7 +2330,7 @@ Once set, a dataset's region cannot be changed. See [available regions](/regions
   </Tab>
 </Tabs>
 
-## Update a dataset
+#### Update a dataset
 
 Update dataset **description**:
 
@@ -2371,7 +2371,7 @@ Update dataset **description**:
   </Tab>
 </Tabs>
 
-## Delete a dataset
+#### Delete a dataset
 
 <Warning>
   Deleting a dataset is irreversible.
@@ -2416,14 +2416,14 @@ URL: https://docs.topk.io/cli
 
 Command-line interface for [TopK](https://topk.io) — upload documents, ask questions and search relevant passages grounded in your data.
 
-## Installation
+#### Installation
 
 ```bash
 brew tap topk-io/topk
 brew install topk
 ```
 
-## Authentication
+#### Authentication
 
 To authenticate, run:
 
@@ -2437,9 +2437,9 @@ Alternatively, you can set `TOPK_API_KEY` environment variable and skip the `top
 export TOPK_API_KEY=<your-api-key>
 ```
 
-## Commands
+#### Commands
 
-### ask
+##### ask
 
 Get a grounded answer with citations
 
@@ -2463,7 +2463,7 @@ echo "my question" | topk ask --dataset my-dataset
 
 ---
 
-### search
+##### search
 
 Find relevant passages in documents
 
@@ -2484,7 +2484,7 @@ The query can also be piped via stdin:
 echo "my query" | topk search --dataset my-dataset
 ```
 
-### upload
+##### upload
 
 Upload files to a dataset
 
@@ -2505,7 +2505,7 @@ topk upload report.pdf notes.md images/ --dataset my-dataset
 | `--wait`    | No       | Wait for processing; optionally up to a duration (e.g. `--wait 5m`)     |
 | `--dry-run` | No       | Preview which files would be uploaded without uploading                  |
 
-### list
+##### list
 
 List documents in a dataset:
 
@@ -2520,7 +2520,7 @@ Streams results as they arrive. In agent mode (`-o json`) outputs one JSON objec
 | `--dataset` | **Yes**  | Dataset to list documents from                          |
 | `--field`   | No       | Metadata field to include (repeatable, e.g. `-f title`) |
 
-### delete
+##### delete
 
 Delete a document from a dataset:
 
@@ -2534,11 +2534,11 @@ topk delete --dataset my-dataset --id my-doc-id
 | `--id`      | **Yes**  | Document ID to delete           |
 | `-y`        | No       | Skip confirmation prompt        |
 
-### dataset
+##### dataset
 
 Manage datasets
 
-#### list
+###### list
 
 List all datasets:
 
@@ -2548,7 +2548,7 @@ topk dataset list
 
 This command has no subcommand-specific flags.
 
-#### get
+###### get
 
 Get a dataset:
 
@@ -2560,7 +2560,7 @@ topk dataset get my-dataset
 | --------- | -------- | ------------ |
 | `DATASET` | **Yes**  | Dataset name |
 
-#### create
+###### create
 
 Create a dataset:
 
@@ -2573,7 +2573,7 @@ topk dataset create --region aws-us-east-1-elastica my-dataset
 | `DATASET`  | **Yes**  | Dataset name                                                                                                            |
 | `--region` | **Yes**  | Region to create the dataset in. List available regions at [https://docs.topk.io/regions](https://docs.topk.io/regions) |
 
-#### update
+###### update
 
 Update a dataset:
 
@@ -2586,7 +2586,7 @@ topk dataset update my-dataset --description "My dataset description"
 | `DATASET`       | **Yes**  | Dataset name                                 |
 | `--description` | No       | Dataset description                          |
 
-#### delete
+###### delete
 
 Delete a dataset:
 
@@ -2599,7 +2599,7 @@ topk dataset delete my-dataset
 | `DATASET` | **Yes**  | Dataset name             |
 | `-y`      | No       | Skip confirmation prompt |
 
-### login
+##### login
 
 To authenticate, run:
 
@@ -2613,7 +2613,7 @@ Alternatively, you can set `TOPK_API_KEY` environment variable and skip the `top
 export TOPK_API_KEY=<your-api-key>
 ```
 
-### logout
+##### logout
 
 Log out and clear cache:
 
@@ -2621,11 +2621,11 @@ Log out and clear cache:
 topk logout
 ```
 
-## Global flags
+#### Global flags
 
 These flags are accepted by every command:
 
-### `--output`
+##### `--output`
 
 Options:
 
@@ -2638,11 +2638,11 @@ Output results as NDJSON — one JSON object per line, compatible with `jq`:
 topk -o json dataset list | jq '.name'
 ```
 
-### `--api-key`
+##### `--api-key`
 
 API key to use for this invocation. Overrides the `TOPK_API_KEY` environment variable and the key saved via `topk login`.
 
-## Updating the CLI
+#### Updating the CLI
 
 To update CLI to the latest version, run:
 
@@ -2667,7 +2667,7 @@ The TopK MCP server lets any MCP-compatible AI agent query your datasets using n
   - TopK API key ([Get API key here](https://console.topk.io/api-key))
 </Info>
 
-## Authentication
+#### Authentication
 
 To authenticate with the MCP server, you need to provide your `TOPK_API_KEY`.
 
@@ -2675,7 +2675,7 @@ To authenticate with the MCP server, you need to provide your `TOPK_API_KEY`.
   Get your API key [here](https://console.topk.io/api-key).
 </Tip>
 
-## Setup
+#### Setup
 
 <Tabs>
   <Tab title="Claude Code">
@@ -2841,7 +2841,7 @@ To authenticate with the MCP server, you need to provide your `TOPK_API_KEY`.
   TopK MCP server is **region-specific**. See available regions [here](/regions).
 </Info>
 
-## Available tools
+#### Available tools
 
 Once connected, your agent will have access to `list_datasets` and `ask` tools.
 
@@ -2851,11 +2851,11 @@ Agents typically follow this flow:
 2. Select one or more relevant datasets
 3. Call `ask` with a natural language query and the selected datasets
 
-### `list_datasets`
+##### `list_datasets`
 
 Lists all available datasets in your TopK project. The agent should call this first to discover what data is available before answering any data-related questions.
 
-### `ask`
+##### `ask`
 
 Queries one or more datasets using natural language and returns a grounded answer.
 
@@ -2872,22 +2872,22 @@ URL: https://docs.topk.io/sdk/topk-py/overview
 [![PyPI version](https://img.shields.io/pypi/v/topk-sdk.svg)](https://pypi.org/project/topk-sdk/)
 
 The TopK Python library provides convenient access to the TopK API from any Python 3.9+ application. The library includes type definitions for all request params and response fields, and features both synchronous and asynchronous clients.
-## Installation
+#### Installation
 
 ```sh
 pip install topk-sdk
 
-# or
+### or
 
 uv add topk-sdk
 ```
 
-## Prerequisites
+#### Prerequisites
 
 - **API key** — sign in to [console.topk.io](https://console.topk.io) and generate an API key.
 - **Region** — available regions are listed at [docs.topk.io/regions](https://docs.topk.io/regions).
 
-## Usage
+#### Usage
 
 ```python
 import os
@@ -2898,20 +2898,20 @@ client = Client(
     region="aws-us-east-1-elastica",
 )
 
-# Create a dataset
+### Create a dataset
 client.datasets().create("my-dataset")
 
-# Upload a file
+### Upload a file
 handle = client.dataset("my-dataset").upsert_file(
     "doc-1",
     input="/path/to/document.pdf",
     metadata={"kind": "report", "department": "finance"},  # optional metadata
 )
 
-# Wait for the file to process (optional)
+### Wait for the file to process (optional)
 client.dataset("my-dataset").wait_for_handle(handle)
 
-# Ask a question
+### Ask a question
 for message in client.ask(
     "What was the total net income of Bank of America in 2024?",
     datasets=["my-dataset"],
@@ -2919,7 +2919,7 @@ for message in client.ask(
     print(message)
 ```
 
-## Async usage
+#### Async usage
 
 Simply import `AsyncClient` instead of `Client` and use `async for` / `await` with each API call:
 
@@ -2952,7 +2952,7 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-## Handling errors
+#### Handling errors
 
 ```python
 from topk_sdk.error import (
@@ -2993,7 +2993,7 @@ except SlowDownError:
 | `SlowDownError` | Rate limited by the server (retried automatically) |
 | `QueryLsnTimeoutError` | Timed out waiting for write consistency |
 
-### Retries
+##### Retries
 
 The client automatically retries on `SlowDownError` and on LSN consistency
 timeouts. Retry behaviour can be configured via `RetryConfig`:
@@ -3015,7 +3015,7 @@ client = Client(
 )
 ```
 
-## Requirements
+#### Requirements
 
 Python 3.9 or higher.
 
@@ -3026,22 +3026,22 @@ URL: https://docs.topk.io/sdk/topk-js/overview
 [![npm version](https://img.shields.io/npm/v/topk-js.svg)](https://www.npmjs.com/package/topk-js)
 
 The TopK JavaScript library provides convenient access to the TopK API from Node.js environments with full TypeScript support.
-## Installation
+#### Installation
 
 ```sh
 npm install topk-js
-# or
+### or
 yarn add topk-js
-# or
+### or
 pnpm install topk-js
 ```
 
-## Prerequisites
+#### Prerequisites
 
 - **API key** — sign in to [console.topk.io](https://console.topk.io) and generate an API key.
 - **Region** — available regions are listed at [docs.topk.io/regions](https://docs.topk.io/regions).
 
-## Usage
+#### Usage
 
 ```typescript
 import { Client } from "topk-js";
@@ -3073,7 +3073,7 @@ for await (const message of client.ask(
 }
 ```
 
-## Handling errors
+#### Handling errors
 
 The SDK throws plain `Error` objects. Check `err.message` to identify the error:
 
@@ -3103,7 +3103,7 @@ try {
 | `"permission denied"` | Invalid or missing API key |
 | starts with `"request too large:"` | Request payload too large |
 
-### Retries
+##### Retries
 
 The client automatically retries on slow-down and LSN consistency
 timeouts. Retry behaviour can be configured via `retryConfig`:
@@ -3125,7 +3125,7 @@ const client = new Client({
 });
 ```
 
-## Requirements
+#### Requirements
 
 Node.js 18 or higher.
 
@@ -3141,9 +3141,9 @@ URL: https://github.com/topk-io/topk/tree/main/topk-rs
 
 URL: https://docs.topk.io/sdk/topk-py
 
-## Classes
+#### Classes
 
-### Client
+##### Client
 
 Client for interacting with the TopK API. For available regions see [regions](/regions)
 
@@ -3171,7 +3171,7 @@ Client(
 | `https` | bool |
 | `retry_config` | Optional[[`RetryConfig`](#retryconfig) &#124; dict[str, Any]] |
 
-#### collection()
+###### collection()
 
 ```python
 collection(self, collection: str) -> CollectionClient
@@ -3191,7 +3191,7 @@ Get a client for managing data operations on a specific collection such as query
 
 ***
 
-#### collections()
+###### collections()
 
 ```python
 collections(self) -> CollectionsClient
@@ -3205,7 +3205,7 @@ Get a client for managing collections.
 
 ***
 
-#### dataset()
+###### dataset()
 
 ```python
 dataset(self, dataset: str) -> DatasetClient
@@ -3225,7 +3225,7 @@ Get a client for managing data operations on a specific dataset such as upsertin
 
 ***
 
-#### datasets()
+###### datasets()
 
 ```python
 datasets(self) -> DatasetsClient
@@ -3239,7 +3239,7 @@ Get a client for managing datasets.
 
 ***
 
-#### ask()
+###### ask()
 
 ```python
 ask(
@@ -3270,7 +3270,7 @@ Ask a question and get streaming responses as an iterator.
 
 ***
 
-#### search()
+###### search()
 
 ```python
 search(
@@ -3301,7 +3301,7 @@ Search for documents and get streaming responses as an iterator.
 
 ***
 
-### AsyncClient
+##### AsyncClient
 
 Async client for interacting with the TopK API. For available regions see [regions](/regions)
 
@@ -3329,7 +3329,7 @@ AsyncClient(
 | `https` | bool |
 | `retry_config` | Optional[[`RetryConfig`](#retryconfig) &#124; dict[str, Any]] |
 
-#### collection()
+###### collection()
 
 ```python
 collection(self, collection: str) -> AsyncCollectionClient
@@ -3349,7 +3349,7 @@ Get an async client for a specific collection.
 
 ***
 
-#### collections()
+###### collections()
 
 ```python
 collections(self) -> AsyncCollectionsClient
@@ -3363,7 +3363,7 @@ Get an async client for managing collections.
 
 ***
 
-#### dataset()
+###### dataset()
 
 ```python
 dataset(self, dataset: str) -> AsyncDatasetClient
@@ -3383,7 +3383,7 @@ Get an async client for managing data operations on a specific dataset.
 
 ***
 
-#### datasets()
+###### datasets()
 
 ```python
 datasets(self) -> AsyncDatasetsClient
@@ -3397,7 +3397,7 @@ Get an async client for managing datasets.
 
 ***
 
-#### ask()
+###### ask()
 
 ```python
 ask(
@@ -3428,7 +3428,7 @@ Ask a question and get streaming responses asynchronously as an async iterator.
 
 ***
 
-#### search()
+###### search()
 
 ```python
 search(
@@ -3459,13 +3459,13 @@ Search for documents and get streaming responses asynchronously as an async iter
 
 ***
 
-### CollectionClient
+##### CollectionClient
 
 Synchronous client for collection operations.
 
 **Methods**
 
-#### get()
+###### get()
 
 ```python
 get(
@@ -3494,7 +3494,7 @@ dict[str, dict[str, Any]]
 
 ***
 
-#### count()
+###### count()
 
 ```python
 count(self, lsn: Optional[str] = None, consistency: Optional[ConsistencyLevel] = None) -> int
@@ -3515,7 +3515,7 @@ int
 
 ***
 
-#### query()
+###### query()
 
 ```python
 query(
@@ -3542,7 +3542,7 @@ list[dict[str, Any]]
 
 ***
 
-#### upsert()
+###### upsert()
 
 ```python
 upsert(self, documents: Sequence[Mapping[str, Any]]) -> str
@@ -3562,7 +3562,7 @@ str
 
 ***
 
-#### update()
+###### update()
 
 ```python
 update(self, documents: Sequence[Mapping[str, Any]], fail_on_missing: Optional[bool] = None) -> str
@@ -3589,7 +3589,7 @@ str
 
 ***
 
-#### delete()
+###### delete()
 
 ```python
 delete(self, expr: Sequence[str] | query.LogicalExpr) -> str
@@ -3623,13 +3623,13 @@ str
 
 ***
 
-### AsyncCollectionClient
+##### AsyncCollectionClient
 
 Asynchronous client for collection operations.
 
 **Methods**
 
-#### get()
+###### get()
 
 ```python
 get(
@@ -3658,7 +3658,7 @@ Awaitable[dict[str, dict[str, Any]]]
 
 ***
 
-#### count()
+###### count()
 
 ```python
 count(
@@ -3683,7 +3683,7 @@ Awaitable[int]
 
 ***
 
-#### query()
+###### query()
 
 ```python
 query(
@@ -3710,7 +3710,7 @@ Awaitable[list[dict[str, Any]]]
 
 ***
 
-#### upsert()
+###### upsert()
 
 ```python
 upsert(self, documents: Sequence[Mapping[str, Any]]) -> Awaitable[str]
@@ -3730,7 +3730,7 @@ Awaitable[str]
 
 ***
 
-#### update()
+###### update()
 
 ```python
 update(
@@ -3761,7 +3761,7 @@ Awaitable[str]
 
 ***
 
-#### delete()
+###### delete()
 
 ```python
 delete(self, expr: Sequence[str] | query.LogicalExpr) -> Awaitable[str]
@@ -3795,7 +3795,7 @@ Awaitable[str]
 
 ***
 
-### Collection
+##### Collection
 
 Represents a collection in the TopK system.
 
@@ -3810,7 +3810,7 @@ Represents a collection in the TopK system.
 | `schema` | dict[str, [`schema.FieldSpec`](/sdk/topk-py/schema#fieldspec)] |  |
 | `created_at` | str |  |
 
-### Dataset
+##### Dataset
 
 Represents a dataset in the TopK system.
 
@@ -3825,7 +3825,7 @@ Represents a dataset in the TopK system.
 | `region` | str |  |
 | `created_at` | str |  |
 
-### ListEntry
+##### ListEntry
 
 Entry in a dataset.
 
@@ -3841,13 +3841,13 @@ Entry in a dataset.
 | `status_reason` | Optional[str] |  |
 | `metadata` | dict[str, Any] |  |
 
-### CollectionsClient
+##### CollectionsClient
 
 Synchronous client for managing collections.
 
 **Methods**
 
-#### get()
+###### get()
 
 ```python
 get(self, collection_name: str) -> Collection
@@ -3867,7 +3867,7 @@ Get information about a specific collection.
 
 ***
 
-#### list()
+###### list()
 
 ```python
 list(self) -> list[Collection]
@@ -3881,7 +3881,7 @@ list[[`Collection`](#collection)]
 
 ***
 
-#### create()
+###### create()
 
 ```python
 create(self, collection_name: str, schema: Mapping[str, schema.FieldSpec]) -> Collection
@@ -3902,7 +3902,7 @@ Create a new collection with the specified schema.
 
 ***
 
-#### delete()
+###### delete()
 
 ```python
 delete(self, collection_name: str) -> None
@@ -3922,13 +3922,13 @@ None
 
 ***
 
-### AsyncCollectionsClient
+##### AsyncCollectionsClient
 
 Asynchronous client for managing collections.
 
 **Methods**
 
-#### get()
+###### get()
 
 ```python
 get(self, collection_name: str) -> Awaitable[Collection]
@@ -3948,7 +3948,7 @@ Awaitable[[`Collection`](#collection)]
 
 ***
 
-#### list()
+###### list()
 
 ```python
 list(self) -> Awaitable[list[Collection]]
@@ -3962,7 +3962,7 @@ Awaitable[list[[`Collection`](#collection)]]
 
 ***
 
-#### create()
+###### create()
 
 ```python
 create(self, collection_name: str, schema: Mapping[str, schema.FieldSpec]) -> Awaitable[Collection]
@@ -3983,7 +3983,7 @@ Awaitable[[`Collection`](#collection)]
 
 ***
 
-#### delete()
+###### delete()
 
 ```python
 delete(self, collection_name: str) -> Awaitable[None]
@@ -4003,13 +4003,13 @@ Awaitable[None]
 
 ***
 
-### DatasetsClient
+##### DatasetsClient
 
 Synchronous client for managing datasets.
 
 **Methods**
 
-#### get()
+###### get()
 
 ```python
 get(self, dataset_name: str) -> Dataset
@@ -4029,7 +4029,7 @@ Get information about a specific dataset.
 
 ***
 
-#### list()
+###### list()
 
 ```python
 list(self) -> list[Dataset]
@@ -4043,7 +4043,7 @@ list[[`Dataset`](#dataset)]
 
 ***
 
-#### create()
+###### create()
 
 ```python
 create(self, dataset_name: str) -> Dataset
@@ -4063,7 +4063,7 @@ Create a new dataset.
 
 ***
 
-#### update()
+###### update()
 
 ```python
 update(self, dataset_name: str, description: Optional[str] = None) -> Dataset
@@ -4084,7 +4084,7 @@ Update dataset properties.
 
 ***
 
-#### delete()
+###### delete()
 
 ```python
 delete(self, dataset_name: str) -> None
@@ -4104,13 +4104,13 @@ None
 
 ***
 
-### DatasetClient
+##### DatasetClient
 
 Synchronous client for dataset operations.
 
 **Methods**
 
-#### upsert\_file()
+###### upsert\_file()
 
 ```python
 upsert_file(
@@ -4137,7 +4137,7 @@ str
 
 ***
 
-#### get\_metadata()
+###### get\_metadata()
 
 ```python
 get_metadata(
@@ -4162,7 +4162,7 @@ dict[str, dict[str, Any]]
 
 ***
 
-#### update\_metadata()
+###### update\_metadata()
 
 ```python
 update_metadata(self, doc_id: str, metadata: Mapping[str, Any]) -> str
@@ -4183,7 +4183,7 @@ str
 
 ***
 
-#### delete()
+###### delete()
 
 ```python
 delete(self, doc_id: str) -> str
@@ -4203,7 +4203,7 @@ str
 
 ***
 
-#### check\_handle()
+###### check\_handle()
 
 ```python
 check_handle(self, handle: str) -> bool
@@ -4223,7 +4223,7 @@ bool
 
 ***
 
-#### wait\_for\_handle()
+###### wait\_for\_handle()
 
 ```python
 wait_for_handle(self, handle: str, config: Optional[WaitConfig | dict[str, Any]] = None) -> None
@@ -4246,7 +4246,7 @@ None
 
 ***
 
-#### list()
+###### list()
 
 ```python
 list(
@@ -4271,13 +4271,13 @@ List files in the dataset as a streaming iterator.
 
 ***
 
-### AsyncDatasetsClient
+##### AsyncDatasetsClient
 
 Asynchronous client for managing datasets.
 
 **Methods**
 
-#### get()
+###### get()
 
 ```python
 get(self, dataset_name: str) -> Awaitable[Dataset]
@@ -4297,7 +4297,7 @@ Awaitable[[`Dataset`](#dataset)]
 
 ***
 
-#### list()
+###### list()
 
 ```python
 list(self) -> Awaitable[list[Dataset]]
@@ -4311,7 +4311,7 @@ Awaitable[list[[`Dataset`](#dataset)]]
 
 ***
 
-#### create()
+###### create()
 
 ```python
 create(self, dataset_name: str) -> Awaitable[Dataset]
@@ -4331,7 +4331,7 @@ Awaitable[[`Dataset`](#dataset)]
 
 ***
 
-#### update()
+###### update()
 
 ```python
 update(self, dataset_name: str, description: Optional[str] = None) -> Awaitable[Dataset]
@@ -4352,7 +4352,7 @@ Awaitable[[`Dataset`](#dataset)]
 
 ***
 
-#### delete()
+###### delete()
 
 ```python
 delete(self, dataset_name: str) -> Awaitable[None]
@@ -4372,13 +4372,13 @@ Awaitable[None]
 
 ***
 
-### AsyncDatasetClient
+##### AsyncDatasetClient
 
 Asynchronous client for dataset operations.
 
 **Methods**
 
-#### upsert\_file()
+###### upsert\_file()
 
 ```python
 upsert_file(
@@ -4405,7 +4405,7 @@ Awaitable[str]
 
 ***
 
-#### get\_metadata()
+###### get\_metadata()
 
 ```python
 get_metadata(
@@ -4430,7 +4430,7 @@ Awaitable[dict[str, dict[str, Any]]]
 
 ***
 
-#### update\_metadata()
+###### update\_metadata()
 
 ```python
 update_metadata(self, doc_id: str, metadata: Mapping[str, Any]) -> Awaitable[str]
@@ -4451,7 +4451,7 @@ Awaitable[str]
 
 ***
 
-#### delete()
+###### delete()
 
 ```python
 delete(self, doc_id: str) -> Awaitable[str]
@@ -4471,7 +4471,7 @@ Awaitable[str]
 
 ***
 
-#### check\_handle()
+###### check\_handle()
 
 ```python
 check_handle(self, handle: str) -> Awaitable[bool]
@@ -4491,7 +4491,7 @@ Awaitable[bool]
 
 ***
 
-#### wait\_for\_handle()
+###### wait\_for\_handle()
 
 ```python
 wait_for_handle(
@@ -4518,7 +4518,7 @@ Awaitable[None]
 
 ***
 
-#### list()
+###### list()
 
 ```python
 list(
@@ -4543,7 +4543,7 @@ List files in the dataset as a streaming async iterator.
 
 ***
 
-### Source
+##### Source
 
 Represents a dataset with an optional filter.
 
@@ -4554,7 +4554,7 @@ Represents a dataset with an optional filter.
 | `dataset` | str |  |
 | `filter` | Optional[[`query.LogicalExpr`](/sdk/topk-py/query#logicalexpr)] |  |
 
-### Fact
+##### Fact
 
 Represents a fact in an ask response.
 
@@ -4565,7 +4565,7 @@ Represents a fact in an ask response.
 | `fact` | str |  |
 | `ref_ids` | list[str] |  |
 
-### Chunk
+##### Chunk
 
 Text chunk content.
 
@@ -4576,7 +4576,7 @@ Text chunk content.
 | `text` | str |  |
 | `doc_pages` | list[int] |  |
 
-### Image
+##### Image
 
 Image content.
 
@@ -4587,7 +4587,7 @@ Image content.
 | `data` | bytes |  |
 | `mime_type` | str |  |
 
-### Page
+##### Page
 
 Page content with optional image.
 
@@ -4598,7 +4598,7 @@ Page content with optional image.
 | `page_number` | int |  |
 | `image` | Optional[[`Image`](#image)] |  |
 
-### Content
+##### Content
 
 Content in a search result. One of chunk, page, or image.
 
@@ -4609,7 +4609,7 @@ Content in a search result. One of chunk, page, or image.
 | `type` | Literal['chunk', 'page', 'image'] |  |
 | `data` | [`Chunk`](#chunk) &#124; [`Page`](#page) &#124; [`Image`](#image) |  |
 
-### SearchResult
+##### SearchResult
 
 Represents a search result in an ask response.
 
@@ -4625,7 +4625,7 @@ Represents a search result in an ask response.
 | `content` | Optional[[`Content`](#content)] |  |
 | `metadata` | dict[str, Any] |  |
 
-### Answer
+##### Answer
 
 Represents a final answer in an ask response.
 
@@ -4637,7 +4637,7 @@ Represents a final answer in an ask response.
 | `refs` | dict[str, [`SearchResult`](#searchresult)] |  |
 | `confidence` | float |  |
 
-### Progress
+##### Progress
 
 Represents a progress update in an ask response.
 
@@ -4647,31 +4647,31 @@ Represents a progress update in an ask response.
 | -------- | ---- | ----------- |
 | `update` | str |  |
 
-### AskIterator
+##### AskIterator
 
 Iterator for synchronous ask responses.
 
-### AsyncAskIterator
+##### AsyncAskIterator
 
 Iterator for asynchronous ask responses.
 
-### SearchIterator
+##### SearchIterator
 
 Iterator for synchronous search responses.
 
-### AsyncSearchIterator
+##### AsyncSearchIterator
 
 Iterator for asynchronous search responses.
 
-### DatasetListIterator
+##### DatasetListIterator
 
 Iterator for synchronous dataset list responses.
 
-### AsyncDatasetListIterator
+##### AsyncDatasetListIterator
 
 Iterator for asynchronous dataset list responses.
 
-### ConsistencyLevel
+##### ConsistencyLevel
 
 Enumeration of consistency levels for operations.
 
@@ -4681,7 +4681,7 @@ Enumeration of consistency levels for operations.
 | ----- | ----------- |
 | `Indexed` | `indexed` |
 | `Strong` | `strong` |
-### WaitConfig
+##### WaitConfig
 
 Configuration for polling when waiting for a handle to be processed.
 
@@ -4707,7 +4707,7 @@ WaitConfig(frequency_secs: Optional[int] = None, timeout_secs: Optional[int] = N
 | `frequency_secs` | Optional[int] |
 | `timeout_secs` | Optional[int] |
 
-### RetryConfig
+##### RetryConfig
 
 Configuration for retry behavior.
 
@@ -4743,7 +4743,7 @@ RetryConfig(
 | `timeout` | Optional[int] |
 | `backoff` | Optional[[`BackoffConfig`](#backoffconfig)] |
 
-### BackoffConfig
+##### BackoffConfig
 
 Configuration for backoff behavior in retries.
 
@@ -4779,32 +4779,32 @@ BackoffConfig(
 
 URL: https://docs.topk.io/sdk/topk-py/data
 
-## Classes
+#### Classes
 
-### List
+##### List
 
 *Internal*
 
     Instances of the `List` class are used to represent lists of values in TopK.
     Usually created using data constructors such as [`f32_list()`](#f32-list), [`i32_list()`](#i32-list), etc.
 
-### SparseVector
+##### SparseVector
 
 *Internal*
 
     Instances of the `SparseVector` class are used to represent sparse vectors in TopK.
     Usually created using data constructors such as [`f32_sparse_vector()`](#f32-sparse-vector) or [`u8_sparse_vector()`](#u8-sparse-vector).
 
-### Matrix
+##### Matrix
 
 *Internal*
 
     Instances of the `Matrix` class are used to represent matrices in TopK.
     Usually created using data constructors such as [`matrix()`](#matrix-2).
 
-## Functions
+#### Functions
 
-### f8_vector()
+##### f8_vector()
 
 ```python
 f8_vector(data: list[float]) -> List
@@ -4832,7 +4832,7 @@ Create a [List](/sdk/topk-py/data#List) type containing a 8-bit float vector.
 
 ***
 
-### f16_vector()
+##### f16_vector()
 
 ```python
 f16_vector(data: list[float]) -> List
@@ -4860,7 +4860,7 @@ Create a [List](/sdk/topk-py/data#List) type containing a 16-bit float vector.
 
 ***
 
-### f32_vector()
+##### f32_vector()
 
 ```python
 f32_vector(data: list[float]) -> List
@@ -4888,7 +4888,7 @@ Create a [List](/sdk/topk-py/data#List) type containing a 32-bit float vector. T
 
 ***
 
-### u8_vector()
+##### u8_vector()
 
 ```python
 u8_vector(data: list[int]) -> List
@@ -4916,7 +4916,7 @@ Create a [List](/sdk/topk-py/data#List) type containing an 8-bit unsigned intege
 
 ***
 
-### i8_vector()
+##### i8_vector()
 
 ```python
 i8_vector(data: list[int]) -> List
@@ -4944,7 +4944,7 @@ Create a [List](/sdk/topk-py/data#List) type containing an 8-bit signed integer 
 
 ***
 
-### binary_vector()
+##### binary_vector()
 
 ```python
 binary_vector(data: list[int]) -> List
@@ -4972,7 +4972,7 @@ Create a [List](/sdk/topk-py/data#List) type containing a binary vector.
 
 ***
 
-### f32_sparse_vector()
+##### f32_sparse_vector()
 
 ```python
 f32_sparse_vector(data: dict[int, float]) -> SparseVector
@@ -5000,7 +5000,7 @@ Create a [SparseVector](/sdk/topk-py/data#SparseVector) type containing a 32-bit
 
 ***
 
-### u8_sparse_vector()
+##### u8_sparse_vector()
 
 ```python
 u8_sparse_vector(data: dict[int, int]) -> SparseVector
@@ -5028,7 +5028,7 @@ Create a [SparseVector](/sdk/topk-py/data#SparseVector) type containing an 8-bit
 
 ***
 
-### bytes()
+##### bytes()
 
 ```python
 bytes(data: list[int] | bytes) -> List
@@ -5056,7 +5056,7 @@ Create a [List](/sdk/topk-py/data#List) type containing bytes data.
 
 ***
 
-### u32_list()
+##### u32_list()
 
 ```python
 u32_list(data: list[int]) -> List
@@ -5084,7 +5084,7 @@ Create a [List](/sdk/topk-py/data#List) type containing a list of 32-bit unsigne
 
 ***
 
-### i32_list()
+##### i32_list()
 
 ```python
 i32_list(data: list[int]) -> List
@@ -5112,7 +5112,7 @@ Create a [List](/sdk/topk-py/data#List) type containing a list of 32-bit signed 
 
 ***
 
-### i64_list()
+##### i64_list()
 
 ```python
 i64_list(data: list[int]) -> List
@@ -5140,7 +5140,7 @@ Create a [List](/sdk/topk-py/data#List) type containing a list of 64-bit signed 
 
 ***
 
-### f32_list()
+##### f32_list()
 
 ```python
 f32_list(data: list[float]) -> List
@@ -5168,7 +5168,7 @@ Create a [List](/sdk/topk-py/data#List) type containing a list of 32-bit floatin
 
 ***
 
-### f64_list()
+##### f64_list()
 
 ```python
 f64_list(data: list[float]) -> List
@@ -5196,7 +5196,7 @@ Create a [List](/sdk/topk-py/data#List) type containing a list of 64-bit floatin
 
 ***
 
-### string_list()
+##### string_list()
 
 ```python
 string_list(data: list[str]) -> List
@@ -5224,7 +5224,7 @@ Create a [List](/sdk/topk-py/data#List) type containing a list of strings.
 
 ***
 
-### matrix()
+##### matrix()
 
 ```python
 matrix(values: list[list[float]] | list[list[int]] | numpy.ndarray, value_type: Optional[Literal['f32', 'f16', 'f8', 'u8', 'i8']] = None) -> Matrix
@@ -5268,57 +5268,57 @@ Create a [Matrix](/sdk/topk-py/data#Matrix) type containing matrix values.
 
 URL: https://docs.topk.io/sdk/topk-py/error
 
-## Classes
+#### Classes
 
-### CollectionAlreadyExistsError
+##### CollectionAlreadyExistsError
 
 Raised when creating a collection with a name that already exists.
 
-### CollectionNotFoundError
+##### CollectionNotFoundError
 
 Raised when a collection is not found.
 
-### CollectionValidationError
+##### CollectionValidationError
 
 Raised when a collection name or schema is invalid.
 
-### DatasetNotFoundError
+##### DatasetNotFoundError
 
 Raised when a dataset is not found.
 
-### DatasetAlreadyExistsError
+##### DatasetAlreadyExistsError
 
 Raised when a dataset with the same name already exists.
 
-### DocumentValidationError
+##### DocumentValidationError
 
 Raised when a document is invalid.
 
-### InvalidArgumentError
+##### InvalidArgumentError
 
 Raised when an invalid argument is provided.
 
-### PermissionDeniedError
+##### PermissionDeniedError
 
 Raised when a permission is denied.
 
-### QueryLsnTimeoutError
+##### QueryLsnTimeoutError
 
 Raised when a query LSN timeout occurs.
 
-### QuotaExceededError
+##### QuotaExceededError
 
 Raised when a quota is exceeded.
 
-### RequestTooLargeError
+##### RequestTooLargeError
 
 Raised when a request is too large.
 
-### SchemaValidationError
+##### SchemaValidationError
 
 Raised when a schema is invalid.
 
-### SlowDownError
+##### SlowDownError
 
 Raised when a slow down occurs.
 
@@ -5326,9 +5326,9 @@ Raised when a slow down occurs.
 
 URL: https://docs.topk.io/sdk/topk-py/query
 
-## Classes
+#### Classes
 
-### LogicalExpr
+##### LogicalExpr
 
 *Internal*
 
@@ -5337,7 +5337,7 @@ URL: https://docs.topk.io/sdk/topk-py/query
 
 **Methods**
 
-#### is\_null()
+###### is\_null()
 
 ```python
 is_null(self) -> LogicalExpr
@@ -5351,7 +5351,7 @@ Check if the expression is null.
 
 ***
 
-#### is\_not\_null()
+###### is\_not\_null()
 
 ```python
 is_not_null(self) -> LogicalExpr
@@ -5365,7 +5365,7 @@ Check if the expression is not null.
 
 ***
 
-#### abs()
+###### abs()
 
 ```python
 abs(self) -> LogicalExpr
@@ -5379,7 +5379,7 @@ Compute the absolute value of the expression.
 
 ***
 
-#### ln()
+###### ln()
 
 ```python
 ln(self) -> LogicalExpr
@@ -5393,7 +5393,7 @@ Compute the natural logarithm of the expression.
 
 ***
 
-#### exp()
+###### exp()
 
 ```python
 exp(self) -> LogicalExpr
@@ -5407,7 +5407,7 @@ Compute the exponential of the expression.
 
 ***
 
-#### sqrt()
+###### sqrt()
 
 ```python
 sqrt(self) -> LogicalExpr
@@ -5421,7 +5421,7 @@ Compute the square root of the expression.
 
 ***
 
-#### square()
+###### square()
 
 ```python
 square(self) -> LogicalExpr
@@ -5435,7 +5435,7 @@ Compute the square of the expression.
 
 ***
 
-#### eq()
+###### eq()
 
 ```python
 eq(self, other: FlexibleExpr) -> LogicalExpr
@@ -5455,7 +5455,7 @@ Check if the expression is equal to another expression.
 
 ***
 
-#### ne()
+###### ne()
 
 ```python
 ne(self, other: FlexibleExpr) -> LogicalExpr
@@ -5475,7 +5475,7 @@ Check if the expression is not equal to another expression.
 
 ***
 
-#### lt()
+###### lt()
 
 ```python
 lt(self, other: Ordered) -> LogicalExpr
@@ -5495,7 +5495,7 @@ Check if the expression is less than another expression.
 
 ***
 
-#### lte()
+###### lte()
 
 ```python
 lte(self, other: Ordered) -> LogicalExpr
@@ -5515,7 +5515,7 @@ Check if the expression is less than or equal to another expression.
 
 ***
 
-#### gt()
+###### gt()
 
 ```python
 gt(self, other: Ordered) -> LogicalExpr
@@ -5535,7 +5535,7 @@ Check if the expression is greater than another expression.
 
 ***
 
-#### gte()
+###### gte()
 
 ```python
 gte(self, other: Ordered) -> LogicalExpr
@@ -5555,7 +5555,7 @@ Check if the expression is greater than or equal to another expression.
 
 ***
 
-#### add()
+###### add()
 
 ```python
 add(self, other: Numeric) -> LogicalExpr
@@ -5575,7 +5575,7 @@ Add another value to the expression.
 
 ***
 
-#### sub()
+###### sub()
 
 ```python
 sub(self, other: Numeric) -> LogicalExpr
@@ -5595,7 +5595,7 @@ Subtract another value from the expression.
 
 ***
 
-#### mul()
+###### mul()
 
 ```python
 mul(self, other: Numeric) -> LogicalExpr
@@ -5615,7 +5615,7 @@ Multiply the expression by another value.
 
 ***
 
-#### div()
+###### div()
 
 ```python
 div(self, other: Numeric) -> LogicalExpr
@@ -5635,7 +5635,7 @@ Divide the expression by another value.
 
 ***
 
-#### min()
+###### min()
 
 ```python
 min(self, other: Ordered) -> LogicalExpr
@@ -5655,7 +5655,7 @@ Compute the minimum of the expression and another value.
 
 ***
 
-#### max()
+###### max()
 
 ```python
 max(self, other: Ordered) -> LogicalExpr
@@ -5675,7 +5675,7 @@ Compute the maximum of the expression and another value.
 
 ***
 
-#### and\_()
+###### and\_()
 
 ```python
 and_(self, other: Boolish) -> LogicalExpr
@@ -5695,7 +5695,7 @@ Compute the logical AND of the expression and another expression.
 
 ***
 
-#### or\_()
+###### or\_()
 
 ```python
 or_(self, other: Boolish) -> LogicalExpr
@@ -5715,7 +5715,7 @@ Compute the logical OR of the expression and another expression.
 
 ***
 
-#### starts\_with()
+###### starts\_with()
 
 ```python
 starts_with(self, other: Stringy) -> LogicalExpr
@@ -5745,7 +5745,7 @@ Check if the expression starts with the provided string expression.
 
 ***
 
-#### contains()
+###### contains()
 
 ```python
 contains(self, other: FlexibleExpr) -> LogicalExpr
@@ -5765,7 +5765,7 @@ Check if the expression contains another value.
 
 ***
 
-#### in\_()
+###### in\_()
 
 ```python
 in_(self, other: Iterable) -> LogicalExpr
@@ -5785,7 +5785,7 @@ Check if the expression is in the provided iterable expression.
 
 ***
 
-#### match\_all()
+###### match\_all()
 
 ```python
 match_all(self, other: StringyWithList) -> LogicalExpr
@@ -5805,7 +5805,7 @@ Check if the expression matches all terms against the field with keyword index.
 
 ***
 
-#### match\_any()
+###### match\_any()
 
 ```python
 match_any(self, other: StringyWithList) -> LogicalExpr
@@ -5825,7 +5825,7 @@ Check if the expression matches any term against the field with keyword index.
 
 ***
 
-#### coalesce()
+###### coalesce()
 
 ```python
 coalesce(self, other: Numeric) -> LogicalExpr
@@ -5845,7 +5845,7 @@ Coalesce nulls in the expression with another value.
 
 ***
 
-#### choose()
+###### choose()
 
 ```python
 choose(self, x: FlexibleExpr, y: FlexibleExpr) -> LogicalExpr
@@ -5866,7 +5866,7 @@ Choose between two values based on the expression.
 
 ***
 
-#### boost()
+###### boost()
 
 ```python
 boost(self, condition: FlexibleExpr, boost: Numeric) -> LogicalExpr
@@ -5887,7 +5887,7 @@ Multiply the scoring expression by the provided `boost` value if the `condition`
 
 ***
 
-#### regexp\_match()
+###### regexp\_match()
 
 ```python
 regexp_match(self, pattern: str, flags: Optional[str] = None) -> LogicalExpr
@@ -5908,24 +5908,24 @@ Check if the expression matches the provided regexp pattern.
 
 ***
 
-### FunctionExpr
+##### FunctionExpr
 
 *Internal*
 
     Instances of the `FunctionExpr` class are used to represent function expressions in TopK.
     Usually created using function constructors such as [`fn.vector_distance()`](#vector-distance), [`fn.semantic_similarity()`](#semantic-similarity) or [`fn.bm25_score()`](#bm25-score).
 
-### TextExpr
+##### TextExpr
 
 *Internal*
 
     Instances of the `TextExpr` class are used to represent text expressions in TopK.
 
-### Query
+##### Query
 
 **Methods**
 
-#### select()
+###### select()
 
 ```python
 select(self) -> Query
@@ -5939,7 +5939,7 @@ Adds a select stage to the query.
 
 ***
 
-#### filter()
+###### filter()
 
 ```python
 filter(self, expr: LogicalExpr | TextExpr) -> Query
@@ -5959,7 +5959,7 @@ Adds a filter stage to the query.
 
 ***
 
-#### sort()
+###### sort()
 
 ```python
 sort(self, expr: LogicalExpr, asc: bool = True) -> Query
@@ -5980,7 +5980,7 @@ Adds a sort stage to the query.
 
 ***
 
-#### limit()
+###### limit()
 
 ```python
 limit(self, k: int) -> Query
@@ -6000,7 +6000,7 @@ Adds a limit stage to the query.
 
 ***
 
-#### count()
+###### count()
 
 ```python
 count(self) -> Query
@@ -6014,7 +6014,7 @@ Adds a count stage to the query.
 
 ***
 
-#### topk()
+###### topk()
 
 ```python
 topk(self, expr: LogicalExpr, k: int, asc: bool = False) -> Query
@@ -6036,13 +6036,13 @@ Adds a top-k stage to the query.
 
 ***
 
-### fn
+##### fn
 
 The `query.fn` submodule exposes functions for creating function expressions such as [`fn.vector_distance()`](#vector-distance), [`fn.semantic_similarity()`](#semantic-similarity) or [`fn.bm25_score()`](#bm25-score).
 
 **Methods**
 
-#### vector\_distance()
+###### vector\_distance()
 
 ```python
 vector_distance(
@@ -6085,7 +6085,7 @@ Calculate the vector distance between a field and a query vector.
 
 ***
 
-#### semantic\_similarity()
+###### semantic\_similarity()
 
 ```python
 semantic_similarity(field: str, query: str) -> FunctionExpr
@@ -6120,7 +6120,7 @@ Calculate the semantic similarity between a field and a query string.
 
 ***
 
-#### bm25\_score()
+###### bm25\_score()
 
 ```python
 bm25_score(b: Optional[float] = None, k1: Optional[float] = None) -> FunctionExpr
@@ -6158,7 +6158,7 @@ Calculate the BM25 score for a keyword search.
 
 ***
 
-#### multi\_vector\_distance()
+###### multi\_vector\_distance()
 
 ```python
 multi_vector_distance(
@@ -6207,9 +6207,9 @@ Calculate the multi-vector distance between a field and a query matrix.
 
 ***
 
-## Functions
+#### Functions
 
-### field()
+##### field()
 
 ```python
 field(name: str) -> LogicalExpr
@@ -6229,7 +6229,7 @@ Select a field from the document.
 
 ***
 
-### select()
+##### select()
 
 ```python
 select() -> Query
@@ -6252,7 +6252,7 @@ Creates a new query with a select stage.
 
 ***
 
-### filter()
+##### filter()
 
 ```python
 filter(expr: LogicalExpr | TextExpr) -> Query
@@ -6282,7 +6282,7 @@ Creates a new query with a filter stage.
 
 ***
 
-### literal()
+##### literal()
 
 ```python
 literal(value: Any) -> LogicalExpr
@@ -6302,7 +6302,7 @@ Create a literal expression.
 
 ***
 
-### match()
+##### match()
 
 ```python
 match(token: str, field: str | None = None, weight: float = 1.0, all: bool = False) -> TextExpr
@@ -6331,7 +6331,7 @@ Perform a keyword search for documents that contain specific keywords or phrases
 
 ***
 
-### match_tokens()
+##### match_tokens()
 
 ```python
 match_tokens(
@@ -6365,7 +6365,7 @@ Filters documents that match the provided tokens with optional per-token weights
 
 ***
 
-### not_()
+##### not_()
 
 ```python
 not_(expr: LogicalExpr) -> LogicalExpr
@@ -6395,7 +6395,7 @@ Negate a logical expression.
 
 ***
 
-### abs()
+##### abs()
 
 ```python
 abs(expr: LogicalExpr) -> LogicalExpr
@@ -6425,7 +6425,7 @@ Compute the absolute value of a logical expression.
 
 ***
 
-### all()
+##### all()
 
 ```python
 all(exprs: Sequence[LogicalExpr]) -> LogicalExpr
@@ -6459,7 +6459,7 @@ Create a logical AND expression.
 
 ***
 
-### any()
+##### any()
 
 ```python
 any(exprs: Sequence[LogicalExpr]) -> LogicalExpr
@@ -6493,7 +6493,7 @@ Create a logical OR expression.
 
 ***
 
-### min()
+##### min()
 
 ```python
 min(left: Ordered, right: Ordered) -> LogicalExpr
@@ -6524,7 +6524,7 @@ Create a logical MIN expression.
 
 ***
 
-### max()
+##### max()
 
 ```python
 max(left: Ordered, right: Ordered) -> LogicalExpr
@@ -6553,9 +6553,9 @@ Create a logical MAX expression.
 
 ***
 
-## Type Aliases
+#### Type Aliases
 
-### FlexibleExpr
+##### FlexibleExpr
 
 ```python
 FlexibleExpr = str | int | float | bool | None | LogicalExpr
@@ -6567,7 +6567,7 @@ str | int | float | bool | None | [`LogicalExpr`](#logicalexpr)
 
 ***
 
-### Numeric
+##### Numeric
 
 ```python
 Numeric = int | float | LogicalExpr
@@ -6579,7 +6579,7 @@ int | float | [`LogicalExpr`](#logicalexpr)
 
 ***
 
-### Ordered
+##### Ordered
 
 ```python
 Ordered = int | float | str | LogicalExpr
@@ -6591,7 +6591,7 @@ int | float | str | [`LogicalExpr`](#logicalexpr)
 
 ***
 
-### Boolish
+##### Boolish
 
 ```python
 Boolish = bool | LogicalExpr
@@ -6603,7 +6603,7 @@ bool | [`LogicalExpr`](#logicalexpr)
 
 ***
 
-### Stringy
+##### Stringy
 
 ```python
 Stringy = str | LogicalExpr
@@ -6615,7 +6615,7 @@ str | [`LogicalExpr`](#logicalexpr)
 
 ***
 
-### StringyWithList
+##### StringyWithList
 
 ```python
 StringyWithList = str | list[str] | LogicalExpr
@@ -6627,7 +6627,7 @@ str | list[str] | [`LogicalExpr`](#logicalexpr)
 
 ***
 
-### Iterable
+##### Iterable
 
 ```python
 Iterable = str | list[int] | list[float] | list[str] | topk_sdk.data.List | LogicalExpr
@@ -6643,15 +6643,15 @@ str | list[int] | list[float] | list[str] | [`topk_sdk.data.List`](/sdk/topk-py/
 
 URL: https://docs.topk.io/sdk/topk-py/schema
 
-## Classes
+#### Classes
 
-### FieldIndex
+##### FieldIndex
 
 *Internal*
 
     Instances of the `FieldIndex` class represents a field index created by [`vector_index`](#vector-index), [`keyword_index`](#keyword-index), [`semantic_index`](#semantic-index), or [`multi_vector_index`](#multi-vector-index) functions.
 
-### FieldSpec
+##### FieldSpec
 
 *Internal*
 
@@ -6659,7 +6659,7 @@ URL: https://docs.topk.io/sdk/topk-py/schema
 
 **Methods**
 
-#### required()
+###### required()
 
 ```python
 required(self) -> FieldSpec
@@ -6683,7 +6683,7 @@ Mark a field as required. All fields are optional by default.
 
 ***
 
-#### optional()
+###### optional()
 
 ```python
 optional(self) -> FieldSpec
@@ -6695,7 +6695,7 @@ optional(self) -> FieldSpec
 
 ***
 
-#### index()
+###### index()
 
 ```python
 index(self, index: FieldIndex) -> FieldSpec
@@ -6725,9 +6725,9 @@ Create an index on a field.
 
 ***
 
-## Functions
+#### Functions
 
-### text()
+##### text()
 
 ```python
 text() -> FieldSpec
@@ -6751,7 +6751,7 @@ Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `text` values.
 
 ***
 
-### int()
+##### int()
 
 ```python
 int() -> FieldSpec
@@ -6765,7 +6765,7 @@ Create an integer field specification.
 
 ***
 
-### float()
+##### float()
 
 ```python
 float() -> FieldSpec
@@ -6789,7 +6789,7 @@ Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `float` values.
 
 ***
 
-### bool()
+##### bool()
 
 ```python
 bool() -> FieldSpec
@@ -6813,7 +6813,7 @@ Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `bool` values.
 
 ***
 
-### f8_vector()
+##### f8_vector()
 
 ```python
 f8_vector(dimension: int) -> FieldSpec
@@ -6843,7 +6843,7 @@ Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `f8_vector` values.
 
 ***
 
-### f16_vector()
+##### f16_vector()
 
 ```python
 f16_vector(dimension: int) -> FieldSpec
@@ -6873,7 +6873,7 @@ Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `f16_vector` values
 
 ***
 
-### f32_vector()
+##### f32_vector()
 
 ```python
 f32_vector(dimension: int) -> FieldSpec
@@ -6903,7 +6903,7 @@ Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `f32_vector` values
 
 ***
 
-### u8_vector()
+##### u8_vector()
 
 ```python
 u8_vector(dimension: int) -> FieldSpec
@@ -6933,7 +6933,7 @@ Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `u8_vector` values.
 
 ***
 
-### i8_vector()
+##### i8_vector()
 
 ```python
 i8_vector(dimension: int) -> FieldSpec
@@ -6963,7 +6963,7 @@ Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `i8_vector` values.
 
 ***
 
-### binary_vector()
+##### binary_vector()
 
 ```python
 binary_vector(dimension: int) -> FieldSpec
@@ -6993,7 +6993,7 @@ Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `binary_vector` val
 
 ***
 
-### f32_sparse_vector()
+##### f32_sparse_vector()
 
 ```python
 f32_sparse_vector() -> FieldSpec
@@ -7019,7 +7019,7 @@ Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `f32_sparse_vector`
 
 ***
 
-### u8_sparse_vector()
+##### u8_sparse_vector()
 
 ```python
 u8_sparse_vector() -> FieldSpec
@@ -7045,7 +7045,7 @@ Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `u8_sparse_vector` 
 
 ***
 
-### bytes()
+##### bytes()
 
 ```python
 bytes() -> FieldSpec
@@ -7069,7 +7069,7 @@ Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `bytes` values.
 
 ***
 
-### list()
+##### list()
 
 ```python
 list(value_type: Literal['text', 'integer', 'float']) -> FieldSpec
@@ -7099,7 +7099,7 @@ Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `list` values.
 
 ***
 
-### matrix()
+##### matrix()
 
 ```python
 matrix(dimension: int, value_type: Literal['f32', 'f16', 'f8', 'u8', 'i8']) -> FieldSpec
@@ -7137,7 +7137,7 @@ Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `matrix` values.
 
 ***
 
-### vector_index()
+##### vector_index()
 
 ```python
 vector_index(metric: Literal['cosine', 'euclidean', 'dot_product', 'hamming']) -> FieldIndex
@@ -7173,7 +7173,7 @@ Create a [FieldIndex](/sdk/topk-py/schema#FieldSpec) type for `vector_index` val
 
 ***
 
-### keyword_index()
+##### keyword_index()
 
 ```python
 keyword_index() -> FieldIndex
@@ -7197,7 +7197,7 @@ Create a [FieldIndex](/sdk/topk-py/schema#FieldIndex) type for `keyword_index` v
 
 ***
 
-### semantic_index()
+##### semantic_index()
 
 ```python
 semantic_index() -> FieldIndex
@@ -7221,7 +7221,7 @@ Create a [FieldIndex](/sdk/topk-py/schema#FieldIndex) type for `semantic_index` 
 
 ***
 
-### multi_vector_index()
+##### multi_vector_index()
 
 ```python
 multi_vector_index(
@@ -7268,9 +7268,9 @@ Create a [FieldIndex](/sdk/topk-py/schema#FieldIndex) type for `multi_vector_ind
 
 URL: https://docs.topk.io/sdk/topk-js
 
-## Classes
+#### Classes
 
-### AskStream
+##### AskStream
 
 Iterator for ask responses.
 
@@ -7295,7 +7295,7 @@ new AskStream(): AskStream;
 
 **Methods**
 
-##### \[asyncIterator\]()
+###### \[asyncIterator\]()
 
 ```ts
 asyncIterator: AsyncGenerator<
@@ -7311,7 +7311,7 @@ asyncIterator: AsyncGenerator<
 
 ***
 
-### Client
+##### Client
 
 Client for interacting with the TopK API. For available regions see https://docs.topk.io/regions
 
@@ -7337,7 +7337,7 @@ Creates a new TopK client with the provided configuration.
 
 **Methods**
 
-##### ask()
+###### ask()
 
 ```ts
 ask(
@@ -7371,7 +7371,7 @@ Ask a question and get streaming responses as an async iterator.
 
 [`AskStream`](/sdk/topk-js/index#askstream)
 
-##### collection()
+###### collection()
 
 ```ts
 collection(name: string): CollectionClient;
@@ -7389,7 +7389,7 @@ Returns a client for interacting with a specific collection.
 
 [`CollectionClient`](/sdk/topk-js/index#collectionclient)
 
-##### collections()
+###### collections()
 
 ```ts
 collections(): CollectionsClient;
@@ -7404,7 +7404,7 @@ listing, and deleting collections.
 
 [`CollectionsClient`](/sdk/topk-js/index#collectionsclient)
 
-##### dataset()
+###### dataset()
 
 ```ts
 dataset(name: string): DatasetClient;
@@ -7422,7 +7422,7 @@ Get a client for managing data operations on a specific dataset such as upsertin
 
 [`DatasetClient`](/sdk/topk-js/index#datasetclient)
 
-##### datasets()
+###### datasets()
 
 ```ts
 datasets(): DatasetsClient;
@@ -7434,7 +7434,7 @@ Get a client for managing datasets.
 
 [`DatasetsClient`](/sdk/topk-js/index#datasetsclient)
 
-##### search()
+###### search()
 
 ```ts
 search(
@@ -7468,7 +7468,7 @@ Search for documents and get streaming responses as an async iterator.
 
 ***
 
-### CollectionClient
+##### CollectionClient
 
 **`Internal`**
 
@@ -7479,7 +7479,7 @@ including querying, upserting, and deleting documents.
 
 **Methods**
 
-##### count()
+###### count()
 
 ```ts
 count(options?: QueryOptions): Promise<number>;
@@ -7497,7 +7497,7 @@ Counts the number of documents in the collection.
 
 `Promise`\<`number`\>
 
-##### delete()
+###### delete()
 
 ```ts
 delete(expr:
@@ -7530,7 +7530,7 @@ await client.collection("books").delete(field("published_year").gt(1997))
 
 `Promise`\<`string`\>
 
-##### get()
+###### get()
 
 ```ts
 get(
@@ -7553,7 +7553,7 @@ Retrieves documents by their IDs.
 
 `Promise`\<`Record`\<`string`, `Record`\<`string`, `any`\>\>\>
 
-##### query()
+###### query()
 
 ```ts
 query(query: Query, options?: QueryOptions): Promise<Record<string, any>[]>;
@@ -7572,7 +7572,7 @@ Executes a query against the collection.
 
 `Promise`\<`Record`\<`string`, `any`\>[]\>
 
-##### update()
+###### update()
 
 ```ts
 update(docs: Record<string, any>[], failOnMissing?: boolean): Promise<string>;
@@ -7597,7 +7597,7 @@ Missing documents will be ignored.
 The `LSN` at which the update was applied.
 If no updates were applied, this will be empty.
 
-##### upsert()
+###### upsert()
 
 ```ts
 upsert(docs: Record<string, any>[]): Promise<string>;
@@ -7617,7 +7617,7 @@ Inserts or updates documents in the collection.
 
 ***
 
-### CollectionsClient
+##### CollectionsClient
 
 **`Internal`**
 
@@ -7627,7 +7627,7 @@ This client provides methods to create, list, get, and delete collections.
 
 **Methods**
 
-##### create()
+###### create()
 
 ```ts
 create(name: string, schema: Record<string, FieldSpec>): Promise<Collection>;
@@ -7646,7 +7646,7 @@ Creates a new collection with the specified schema.
 
 `Promise`\<[`Collection`](/sdk/topk-js/index#collection-1)\>
 
-##### delete()
+###### delete()
 
 ```ts
 delete(name: string): Promise<void>;
@@ -7668,7 +7668,7 @@ Deletes a collection and all its data.
 
 `Promise`\<`void`\>
 
-##### get()
+###### get()
 
 ```ts
 get(name: string): Promise<Collection>;
@@ -7686,7 +7686,7 @@ Retrieves information about a specific collection.
 
 `Promise`\<[`Collection`](/sdk/topk-js/index#collection-1)\>
 
-##### list()
+###### list()
 
 ```ts
 list(): Promise<Collection[]>;
@@ -7700,7 +7700,7 @@ Lists all collections in the current project.
 
 ***
 
-### DatasetClient
+##### DatasetClient
 
 **`Internal`**
 
@@ -7708,7 +7708,7 @@ Client for dataset operations.
 
 **Methods**
 
-##### checkHandle()
+###### checkHandle()
 
 ```ts
 checkHandle(handle: string): Promise<boolean>;
@@ -7726,7 +7726,7 @@ Return whether the handle has been processed.
 
 `Promise`\<`boolean`\>
 
-##### delete()
+###### delete()
 
 ```ts
 delete(docId: string): Promise<string>;
@@ -7744,7 +7744,7 @@ Delete a file from the dataset.
 
 `Promise`\<`string`\>
 
-##### getMetadata()
+###### getMetadata()
 
 ```ts
 getMetadata(ids: string[], fields?: string[]): Promise<Record<string, Record<string, any>>>;
@@ -7763,7 +7763,7 @@ Get metadata for one or more documents.
 
 `Promise`\<`Record`\<`string`, `Record`\<`string`, `any`\>\>\>
 
-##### list()
+###### list()
 
 ```ts
 list(fields?: string[], filter?: LogicalExpression): DatasetListStream;
@@ -7782,7 +7782,7 @@ List files in the dataset as an async iterator.
 
 [`DatasetListStream`](/sdk/topk-js/index#datasetliststream)
 
-##### updateMetadata()
+###### updateMetadata()
 
 ```ts
 updateMetadata(docId: string, metadata: Record<string, any>): Promise<string>;
@@ -7801,7 +7801,7 @@ Update metadata for a file.
 
 `Promise`\<`string`\>
 
-##### upsertFile()
+###### upsertFile()
 
 ```ts
 upsertFile(
@@ -7824,7 +7824,7 @@ Upsert a file to the dataset.
 
 `Promise`\<`string`\>
 
-##### waitForHandle()
+###### waitForHandle()
 
 ```ts
 waitForHandle(handle: string, config?: WaitConfig): Promise<void>;
@@ -7847,7 +7847,7 @@ Throws if the handle is not processed within the configured timeout.
 
 ***
 
-### DatasetListStream
+##### DatasetListStream
 
 Iterator for dataset list responses.
 
@@ -7872,7 +7872,7 @@ new DatasetListStream(): DatasetListStream;
 
 **Methods**
 
-##### \[asyncIterator\]()
+###### \[asyncIterator\]()
 
 ```ts
 asyncIterator: AsyncGenerator<ListEntry, void, undefined>;
@@ -7882,7 +7882,7 @@ asyncIterator: AsyncGenerator<ListEntry, void, undefined>;
 
 `AsyncGenerator`\<[`ListEntry`](/sdk/topk-js/index#listentry), `void`, `undefined`\>
 
-##### next()
+###### next()
 
 ```ts
 next(): Promise<ListEntry>;
@@ -7896,7 +7896,7 @@ Returns the next entry in the stream.
 
 ***
 
-### DatasetsClient
+##### DatasetsClient
 
 **`Internal`**
 
@@ -7904,7 +7904,7 @@ Client for managing datasets.
 
 **Methods**
 
-##### create()
+###### create()
 
 ```ts
 create(name: string): Promise<Dataset>;
@@ -7922,7 +7922,7 @@ Create a new dataset.
 
 `Promise`\<[`Dataset`](/sdk/topk-js/index#dataset-1)\>
 
-##### delete()
+###### delete()
 
 ```ts
 delete(name: string): Promise<void>;
@@ -7940,7 +7940,7 @@ Delete a dataset.
 
 `Promise`\<`void`\>
 
-##### get()
+###### get()
 
 ```ts
 get(name: string): Promise<Dataset>;
@@ -7958,7 +7958,7 @@ Get information about a specific dataset.
 
 `Promise`\<[`Dataset`](/sdk/topk-js/index#dataset-1)\>
 
-##### list()
+###### list()
 
 ```ts
 list(): Promise<Dataset[]>;
@@ -7970,7 +7970,7 @@ List all datasets.
 
 `Promise`\<[`Dataset`](/sdk/topk-js/index#dataset-1)[]\>
 
-##### update()
+###### update()
 
 ```ts
 update(name: string, params: UpdateDatasetParams): Promise<Dataset>;
@@ -7991,7 +7991,7 @@ Update dataset properties
 
 ***
 
-### SearchStream
+##### SearchStream
 
 Iterator for search responses.
 
@@ -8016,7 +8016,7 @@ new SearchStream(): SearchStream;
 
 **Methods**
 
-##### \[asyncIterator\]()
+###### \[asyncIterator\]()
 
 ```ts
 asyncIterator: AsyncGenerator<SearchResult, void, undefined>;
@@ -8026,9 +8026,9 @@ asyncIterator: AsyncGenerator<SearchResult, void, undefined>;
 
 `AsyncGenerator`\<[`SearchResult`](/sdk/topk-js/index#searchresult), `void`, `undefined`\>
 
-## Interfaces
+#### Interfaces
 
-### Answer
+##### Answer
 
 Represents a final answer in an ask response.
 
@@ -8042,7 +8042,7 @@ Represents a final answer in an ask response.
 
 ***
 
-### BackoffConfig
+##### BackoffConfig
 
 Configuration for exponential backoff between retry attempts.
 
@@ -8059,7 +8059,7 @@ All fields are optional and will use sensible defaults if not provided.
 
 ***
 
-### Chunk
+##### Chunk
 
 Text chunk content.
 
@@ -8072,7 +8072,7 @@ Text chunk content.
 
 ***
 
-### ClientConfig
+##### ClientConfig
 
 Configuration for the TopK client.
 
@@ -8091,7 +8091,7 @@ The `api_key` and `region` are required, while other options have sensible defau
 
 ***
 
-### Collection
+##### Collection
 
 Represents a collection in the TopK service.
 
@@ -8112,7 +8112,7 @@ organization, project, schema, and region.
 
 ***
 
-### CollectionFieldSpec
+##### CollectionFieldSpec
 
 Represents a field specification within a collection schema.
 
@@ -8129,7 +8129,7 @@ including its data type, whether it's required, and any index configuration.
 
 ***
 
-### Content
+##### Content
 
 Content in a search result. One of chunk, page, or image.
 
@@ -8142,7 +8142,7 @@ Content in a search result. One of chunk, page, or image.
 
 ***
 
-### Dataset
+##### Dataset
 
 Represents a dataset in the TopK service.
 
@@ -8159,7 +8159,7 @@ Represents a dataset in the TopK service.
 
 ***
 
-### Fact
+##### Fact
 
 Represents a fact in an ask response.
 
@@ -8172,7 +8172,7 @@ Represents a fact in an ask response.
 
 ***
 
-### Image
+##### Image
 
 Image content.
 
@@ -8185,7 +8185,7 @@ Image content.
 
 ***
 
-### InputFile
+##### InputFile
 
 Input for upserting a file to a dataset.
 
@@ -8202,7 +8202,7 @@ Provide either a `path` to a file on disk, or inline data via `data` + `fileName
 
 ***
 
-### ListEntry
+##### ListEntry
 
 Entry in a dataset.
 
@@ -8220,7 +8220,7 @@ Entry in a dataset.
 
 ***
 
-### Page
+##### Page
 
 Page content with optional image.
 
@@ -8233,7 +8233,7 @@ Page content with optional image.
 
 ***
 
-### Progress
+##### Progress
 
 Represents a progress update in an ask response.
 
@@ -8245,7 +8245,7 @@ Represents a progress update in an ask response.
 
 ***
 
-### QueryOptions
+##### QueryOptions
 
 Options for query operations.
 
@@ -8261,7 +8261,7 @@ guarantees and sequence number constraints.
 
 ***
 
-### RetryConfig
+##### RetryConfig
 
 Configuration for retry behavior when requests fail.
 
@@ -8278,7 +8278,7 @@ All fields are optional and will use sensible defaults if not provided.
 
 ***
 
-### SearchResult
+##### SearchResult
 
 Represents a search result in an ask response.
 
@@ -8296,7 +8296,7 @@ Represents a search result in an ask response.
 
 ***
 
-### UpdateDatasetParams
+##### UpdateDatasetParams
 
 **Properties**
 
@@ -8306,7 +8306,7 @@ Represents a search result in an ask response.
 
 ***
 
-### WaitConfig
+##### WaitConfig
 
 Configuration for polling when waiting for a handle to be processed.
 
@@ -8317,16 +8317,16 @@ Configuration for polling when waiting for a handle to be processed.
 | <a id="property-frequencysecs"></a> `frequencySecs?` | `number` | How often to poll for the handle status, in seconds. Default is 5. |
 | <a id="property-timeoutsecs"></a> `timeoutSecs?` | `number` | Maximum time to wait before timing out, in seconds. Default is 300. |
 
-## Namespaces
+#### Namespaces
 
 - [data](/sdk/topk-js/Namespace.data)
 - [query](/sdk/topk-js/Namespace.query)
 - [query\_fn](/sdk/topk-js/Namespace.query_fn)
 - [schema](/sdk/topk-js/Namespace.schema)
 
-## Type Aliases
+#### Type Aliases
 
-### ConsistencyLevel
+##### ConsistencyLevel
 
 ```ts
 type ConsistencyLevel = "indexed" | "strong";
@@ -8339,7 +8339,7 @@ Consistency levels for query operations.
 
 ***
 
-### Mode
+##### Mode
 
 ```ts
 type Mode = "auto" | "summarize" | "research";
@@ -8353,9 +8353,9 @@ URL: https://docs.topk.io/sdk/topk-js/Namespace.data
 
 [topk-js](/sdk/topk-js/index) / data
 
-## Functions
+#### Functions
 
-### binaryVector()
+##### binaryVector()
 
 ```ts
 function binaryVector(values: number[]): List;
@@ -8383,7 +8383,7 @@ binaryVector([0, 1, 1, 0])
 
 ***
 
-### bytes()
+##### bytes()
 
 ```ts
 function bytes(buffer: number[] | Buffer<ArrayBufferLike>): Buffer;
@@ -8411,7 +8411,7 @@ bytes([0, 1, 1, 0])
 
 ***
 
-### f16Vector()
+##### f16Vector()
 
 ```ts
 function f16Vector(values: number[]): List;
@@ -8439,7 +8439,7 @@ f16Vector([0.12, 0.67, 0.82, 0.53])
 
 ***
 
-### f32List()
+##### f32List()
 
 ```ts
 function f32List(values: number[]): List;
@@ -8467,7 +8467,7 @@ f32List([0.12, 0.67, 0.82, 0.53])
 
 ***
 
-### f32SparseVector()
+##### f32SparseVector()
 
 ```ts
 function f32SparseVector(vector: Record<number, number>): SparseVector;
@@ -8495,7 +8495,7 @@ f32SparseVector({0: 0.12, 6: 0.67, 17: 0.82, 97: 0.53})
 
 ***
 
-### f32Vector()
+##### f32Vector()
 
 ```ts
 function f32Vector(values: number[]): List;
@@ -8523,7 +8523,7 @@ f32Vector([0.12, 0.67, 0.82, 0.53])
 
 ***
 
-### f64List()
+##### f64List()
 
 ```ts
 function f64List(values: number[]): List;
@@ -8551,7 +8551,7 @@ f64List([0.12, 0.67, 0.82, 0.53])
 
 ***
 
-### f8Vector()
+##### f8Vector()
 
 ```ts
 function f8Vector(values: number[]): List;
@@ -8579,7 +8579,7 @@ f8Vector([0.12, 0.67, 0.82, 0.53])
 
 ***
 
-### i32List()
+##### i32List()
 
 ```ts
 function i32List(values: number[]): List;
@@ -8607,7 +8607,7 @@ i32List([0, 1, 2, 3])
 
 ***
 
-### i64List()
+##### i64List()
 
 ```ts
 function i64List(values: number[]): List;
@@ -8635,7 +8635,7 @@ i64List([0, 1, 2, 3])
 
 ***
 
-### i8Vector()
+##### i8Vector()
 
 ```ts
 function i8Vector(values: number[]): List;
@@ -8663,7 +8663,7 @@ i8Vector([-128, 127, -1, 0, 1])
 
 ***
 
-### matrix()
+##### matrix()
 
 ```ts
 function matrix(values: number[][], valueType?: MatrixValueType): Matrix;
@@ -8698,7 +8698,7 @@ matrix([[1.0, 2.0], [3.0, 4.0]])
 
 ***
 
-### stringList()
+##### stringList()
 
 ```ts
 function stringList(values: string[]): List;
@@ -8726,7 +8726,7 @@ stringList(["foo", "bar", "baz"])
 
 ***
 
-### u32List()
+##### u32List()
 
 ```ts
 function u32List(values: number[]): List;
@@ -8754,7 +8754,7 @@ u32List([0, 1, 2, 3])
 
 ***
 
-### u8SparseVector()
+##### u8SparseVector()
 
 ```ts
 function u8SparseVector(vector: Record<number, number>): SparseVector;
@@ -8782,7 +8782,7 @@ u8SparseVector({0: 12, 6: 67, 17: 82, 97: 53})
 
 ***
 
-### u8Vector()
+##### u8Vector()
 
 ```ts
 function u8Vector(values: number[]): List;
@@ -8808,9 +8808,9 @@ u8Vector([0, 255, 1, 2, 3])
 
 [`List`](/sdk/topk-js/Namespace.data#list)
 
-## Classes
+#### Classes
 
-### List
+##### List
 
 **`Internal`**
 
@@ -8819,7 +8819,7 @@ Usually created using data constructors such as [`f32_list()`](#f32list), [`i32_
 
 ***
 
-### Matrix
+##### Matrix
 
 **`Internal`**
 
@@ -8828,16 +8828,16 @@ Usually created using data constructors such as [`matrix()`](#matrix).
 
 ***
 
-### SparseVector
+##### SparseVector
 
 **`Internal`**
 
 Instances of the `SparseVector` class are used to represent sparse vectors in TopK.
 Usually created using data constructors such as [`f32_sparse_vector()`](#f32sparsevector) or [`u8_sparse_vector()`](#u8sparsevector).
 
-## Type Aliases
+#### Type Aliases
 
-### MatrixValueType
+##### MatrixValueType
 
 ```ts
 type MatrixValueType = "f32" | "f16" | "f8" | "u8" | "i8";
@@ -8851,9 +8851,9 @@ URL: https://docs.topk.io/sdk/topk-js/Namespace.query_fn
 
 [topk-js](/sdk/topk-js/index) / query\_fn
 
-## Functions
+#### Functions
 
-### bm25Score()
+##### bm25Score()
 
 ```ts
 function bm25Score(options?: Bm25ScoreOptions): FunctionExpression;
@@ -8873,7 +8873,7 @@ Computes the BM25 score for a keyword search.
 
 ***
 
-### multiVectorDistance()
+##### multiVectorDistance()
 
 ```ts
 function multiVectorDistance(
@@ -8920,7 +8920,7 @@ client.collection("books").query(
 
 ***
 
-### semanticSimilarity()
+##### semanticSimilarity()
 
 ```ts
 function semanticSimilarity(field: string, query: string): FunctionExpression;
@@ -8941,7 +8941,7 @@ Computes the semantic similarity between a field and a query string.
 
 ***
 
-### vectorDistance()
+##### vectorDistance()
 
 ```ts
 function vectorDistance(
@@ -8968,9 +8968,9 @@ Computes the vector distance between a field and a query vector.
 
 [`FunctionExpression`](/sdk/topk-js/Namespace.query#functionexpression)
 
-## Interfaces
+#### Interfaces
 
-### Bm25ScoreOptions
+##### Bm25ScoreOptions
 
 Options for BM25 scoring.
 
@@ -8983,7 +8983,7 @@ Options for BM25 scoring.
 
 ***
 
-### VectorDistanceOptions
+##### VectorDistanceOptions
 
 **Properties**
 
@@ -8997,9 +8997,9 @@ URL: https://docs.topk.io/sdk/topk-js/Namespace.query
 
 [topk-js](/sdk/topk-js/index) / query
 
-## Functions
+#### Functions
 
-### abs()
+##### abs()
 
 ```ts
 function abs(expr: LogicalExpression): LogicalExpression;
@@ -9019,7 +9019,7 @@ Creates an absolute value expression.
 
 ***
 
-### all()
+##### all()
 
 ```ts
 function all(exprs: LogicalExpression[]): LogicalExpression;
@@ -9039,7 +9039,7 @@ Evaluates to true if each `expr` is true.
 
 ***
 
-### any()
+##### any()
 
 ```ts
 function any(exprs: LogicalExpression[]): LogicalExpression;
@@ -9059,7 +9059,7 @@ Evaluates to true if at least one `expr` is true.
 
 ***
 
-### field()
+##### field()
 
 ```ts
 function field(name: string): LogicalExpression;
@@ -9079,7 +9079,7 @@ Creates a field reference expression.
 
 ***
 
-### filter()
+##### filter()
 
 ```ts
 function filter(expr:
@@ -9101,7 +9101,7 @@ Creates a new query with a filter stage.
 
 ***
 
-### literal()
+##### literal()
 
 ```ts
 function literal(value:
@@ -9127,7 +9127,7 @@ Creates a literal value expression.
 
 ***
 
-### match()
+##### match()
 
 ```ts
 function match(token: string, options?: MatchOptions): TextExpression;
@@ -9148,7 +9148,7 @@ Creates a text match expression.
 
 ***
 
-### matchTokens()
+##### matchTokens()
 
 ```ts
 function matchTokens(tokens: (
@@ -9172,7 +9172,7 @@ Each token can be a string (with the default weight of 1.0) or a `MatchTokenInpu
 
 ***
 
-### max()
+##### max()
 
 ```ts
 function max(left:
@@ -9199,7 +9199,7 @@ Creates a MAX expression that returns the larger of two values.
 
 ***
 
-### min()
+##### min()
 
 ```ts
 function min(left:
@@ -9226,7 +9226,7 @@ Creates a MIN expression that returns the smaller of two values.
 
 ***
 
-### not()
+##### not()
 
 ```ts
 function not(expr: LogicalExpression): LogicalExpression;
@@ -9246,7 +9246,7 @@ Creates a logical NOT expression.
 
 ***
 
-### select()
+##### select()
 
 ```ts
 function select(exprs: Record<string,
@@ -9266,21 +9266,21 @@ Creates a new query with a select stage.
 
 [`Query`](/sdk/topk-js/Namespace.query#query)
 
-## Classes
+#### Classes
 
-### FunctionExpression
+##### FunctionExpression
 
 **`Internal`**
 
 ***
 
-### LogicalExpression
+##### LogicalExpression
 
 **`Internal`**
 
 **Methods**
 
-##### abs()
+###### abs()
 
 ```ts
 abs(): LogicalExpression;
@@ -9292,7 +9292,7 @@ Computes the absolute value of the expression.
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
-##### add()
+###### add()
 
 ```ts
 add(other:
@@ -9312,7 +9312,7 @@ Adds another value to the expression.
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
-##### and()
+###### and()
 
 ```ts
 and(other:
@@ -9332,7 +9332,7 @@ Computes the logical AND of the expression and another expression.
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
-##### boost()
+###### boost()
 
 ```ts
 boost(condition:
@@ -9356,7 +9356,7 @@ Otherwise, the scoring expression is unchanged (multiplied by 1).
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
-##### choose()
+###### choose()
 
 ```ts
 choose(x:
@@ -9383,7 +9383,7 @@ Chooses between two values based on the expression.
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
-##### coalesce()
+###### coalesce()
 
 ```ts
 coalesce(other:
@@ -9403,7 +9403,7 @@ Coalesces nulls in the expression with another value.
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
-##### contains()
+###### contains()
 
 ```ts
 contains(other:
@@ -9424,7 +9424,7 @@ Checks if the expression contains another value.
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
-##### div()
+###### div()
 
 ```ts
 div(other:
@@ -9444,7 +9444,7 @@ Divides the expression by another value.
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
-##### eq()
+###### eq()
 
 ```ts
 eq(other:
@@ -9466,7 +9466,7 @@ Checks if the expression equals another value.
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
-##### exp()
+###### exp()
 
 ```ts
 exp(): LogicalExpression;
@@ -9478,7 +9478,7 @@ Computes the exponential of the expression.
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
-##### gt()
+###### gt()
 
 ```ts
 gt(other:
@@ -9499,7 +9499,7 @@ Checks if the expression is greater than another value.
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
-##### gte()
+###### gte()
 
 ```ts
 gte(other:
@@ -9520,7 +9520,7 @@ Checks if the expression is greater than or equal to another value.
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
-##### in()
+###### in()
 
 ```ts
 in(other:
@@ -9543,7 +9543,7 @@ Checks if the expression is in another value.
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
-##### isNotNull()
+###### isNotNull()
 
 ```ts
 isNotNull(): LogicalExpression;
@@ -9555,7 +9555,7 @@ Checks if the expression evaluates to a non-null value.
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
-##### isNull()
+###### isNull()
 
 ```ts
 isNull(): LogicalExpression;
@@ -9567,7 +9567,7 @@ Checks if the expression evaluates to null.
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
-##### ln()
+###### ln()
 
 ```ts
 ln(): LogicalExpression;
@@ -9579,7 +9579,7 @@ Computes the natural logarithm of the expression.
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
-##### lt()
+###### lt()
 
 ```ts
 lt(other:
@@ -9600,7 +9600,7 @@ Checks if the expression is less than another value.
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
-##### lte()
+###### lte()
 
 ```ts
 lte(other:
@@ -9621,7 +9621,7 @@ Checks if the expression is less than or equal to another value.
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
-##### matchAll()
+###### matchAll()
 
 ```ts
 matchAll(other:
@@ -9642,7 +9642,7 @@ Checks if the expression matches all terms against the field with keyword index.
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
-##### matchAny()
+###### matchAny()
 
 ```ts
 matchAny(other:
@@ -9663,7 +9663,7 @@ Checks if the expression matches any term against the field with keyword index.
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
-##### max()
+###### max()
 
 ```ts
 max(other:
@@ -9684,7 +9684,7 @@ Computes the maximum of the expression and another value.
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
-##### min()
+###### min()
 
 ```ts
 min(other:
@@ -9705,7 +9705,7 @@ Computes the minimum of the expression and another value.
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
-##### mul()
+###### mul()
 
 ```ts
 mul(other:
@@ -9725,7 +9725,7 @@ Multiplies the expression by another value.
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
-##### ne()
+###### ne()
 
 ```ts
 ne(other:
@@ -9747,7 +9747,7 @@ Checks if the expression does not equal another value.
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
-##### or()
+###### or()
 
 ```ts
 or(other:
@@ -9767,7 +9767,7 @@ Computes the logical OR of the expression and another expression.
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
-##### regexpMatch()
+###### regexpMatch()
 
 ```ts
 regexpMatch(other: string, flags?: string): LogicalExpression;
@@ -9786,7 +9786,7 @@ Check if the expression matches the provided regexp pattern.
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
-##### sqrt()
+###### sqrt()
 
 ```ts
 sqrt(): LogicalExpression;
@@ -9798,7 +9798,7 @@ Computes the square root of the expression.
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
-##### square()
+###### square()
 
 ```ts
 square(): LogicalExpression;
@@ -9810,7 +9810,7 @@ Computes the square of the expression.
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
-##### startsWith()
+###### startsWith()
 
 ```ts
 startsWith(other:
@@ -9839,7 +9839,7 @@ client.collection("books").query(
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
-##### sub()
+###### sub()
 
 ```ts
 sub(other:
@@ -9859,7 +9859,7 @@ Subtracts another value from the expression.
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
-##### toString()
+###### toString()
 
 ```ts
 toString(): string;
@@ -9873,7 +9873,7 @@ Returns a string representation of the logical expression.
 
 ***
 
-### Query
+##### Query
 
 **`Internal`**
 
@@ -9884,7 +9884,7 @@ Each stage performs a specific operation on the data.
 
 **Methods**
 
-##### count()
+###### count()
 
 ```ts
 count(): Query;
@@ -9896,7 +9896,7 @@ Adds a count stage to the query.
 
 [`Query`](/sdk/topk-js/Namespace.query#query)
 
-##### filter()
+###### filter()
 
 ```ts
 filter(expr:
@@ -9916,7 +9916,7 @@ Adds a filter stage to the query.
 
 [`Query`](/sdk/topk-js/Namespace.query#query)
 
-##### limit()
+###### limit()
 
 ```ts
 limit(k: number): Query;
@@ -9934,7 +9934,7 @@ Adds a limit stage to the query.
 
 [`Query`](/sdk/topk-js/Namespace.query#query)
 
-##### select()
+###### select()
 
 ```ts
 select(exprs: Record<string,
@@ -9954,7 +9954,7 @@ Adds a select stage to the query.
 
 [`Query`](/sdk/topk-js/Namespace.query#query)
 
-##### sort()
+###### sort()
 
 ```ts
 sort(expr: LogicalExpression, asc?: boolean): Query;
@@ -9973,7 +9973,7 @@ Adds a sort stage to the query.
 
 [`Query`](/sdk/topk-js/Namespace.query#query)
 
-##### topk()
+###### topk()
 
 ```ts
 topk(
@@ -9998,7 +9998,7 @@ Adds a top-k stage to the query.
 
 ***
 
-### TextExpression
+##### TextExpression
 
 **Constructors**
 
@@ -10014,7 +10014,7 @@ new TextExpression(): TextExpression;
 
 **Methods**
 
-##### and()
+###### and()
 
 ```ts
 and(other: TextExpression): TextExpression;
@@ -10032,7 +10032,7 @@ Computes the logical AND of the expression and another text expression.
 
 [`TextExpression`](/sdk/topk-js/Namespace.query#textexpression)
 
-##### or()
+###### or()
 
 ```ts
 or(other: TextExpression): TextExpression;
@@ -10050,9 +10050,9 @@ Computes the logical OR of the expression and another text expression.
 
 [`TextExpression`](/sdk/topk-js/Namespace.query#textexpression)
 
-## Interfaces
+#### Interfaces
 
-### MatchOptions
+##### MatchOptions
 
 Options for text matching.
 
@@ -10069,7 +10069,7 @@ including field specification, weight, and matching behavior.
 
 ***
 
-### MatchTokenInput
+##### MatchTokenInput
 
 A token for match_tokens
 
@@ -10082,7 +10082,7 @@ A token for match_tokens
 
 ***
 
-### MatchTokensOptions
+##### MatchTokensOptions
 
 Options for match_tokens.
 
@@ -10095,7 +10095,7 @@ Options for match_tokens.
 
 ***
 
-### Term
+##### Term
 
 **Properties**
 
@@ -10111,9 +10111,9 @@ URL: https://docs.topk.io/sdk/topk-js/Namespace.schema
 
 [topk-js](/sdk/topk-js/index) / schema
 
-## Functions
+#### Functions
 
-### binaryVector()
+##### binaryVector()
 
 ```ts
 function binaryVector(options: VectorOptions): FieldSpec;
@@ -10143,7 +10143,7 @@ await client.collections().create("books", {
 
 ***
 
-### bool()
+##### bool()
 
 ```ts
 function bool(): FieldSpec;
@@ -10167,7 +10167,7 @@ await client.collections().create("books", {
 
 ***
 
-### bytes()
+##### bytes()
 
 ```ts
 function bytes(): FieldSpec;
@@ -10191,7 +10191,7 @@ await client.collections().create("books", {
 
 ***
 
-### f16Vector()
+##### f16Vector()
 
 ```ts
 function f16Vector(options: VectorOptions): FieldSpec;
@@ -10221,7 +10221,7 @@ await client.collections().create("books", {
 
 ***
 
-### f32SparseVector()
+##### f32SparseVector()
 
 ```ts
 function f32SparseVector(): FieldSpec;
@@ -10247,7 +10247,7 @@ await client.collections().create("books", {
 
 ***
 
-### f32Vector()
+##### f32Vector()
 
 ```ts
 function f32Vector(options: VectorOptions): FieldSpec;
@@ -10277,7 +10277,7 @@ await client.collections().create("books", {
 
 ***
 
-### f8Vector()
+##### f8Vector()
 
 ```ts
 function f8Vector(options: VectorOptions): FieldSpec;
@@ -10307,7 +10307,7 @@ await client.collections().create("books", {
 
 ***
 
-### float()
+##### float()
 
 ```ts
 function float(): FieldSpec;
@@ -10331,7 +10331,7 @@ await client.collections().create("books", {
 
 ***
 
-### i8Vector()
+##### i8Vector()
 
 ```ts
 function i8Vector(options: VectorOptions): FieldSpec;
@@ -10361,7 +10361,7 @@ await client.collections().create("books", {
 
 ***
 
-### int()
+##### int()
 
 ```ts
 function int(): FieldSpec;
@@ -10385,7 +10385,7 @@ await client.collections().create("books", {
 
 ***
 
-### keywordIndex()
+##### keywordIndex()
 
 ```ts
 function keywordIndex(): FieldIndex;
@@ -10411,7 +10411,7 @@ Adding a keyword index allows you to perform keyword search on this field.
 
 ***
 
-### list()
+##### list()
 
 ```ts
 function list(options: ListOptions): FieldSpec;
@@ -10441,7 +10441,7 @@ await client.collections().create("books", {
 
 ***
 
-### matrix()
+##### matrix()
 
 ```ts
 function matrix(options: MatrixOptions): FieldSpec;
@@ -10471,7 +10471,7 @@ await client.collections().create("books", {
 
 ***
 
-### multiVectorIndex()
+##### multiVectorIndex()
 
 ```ts
 function multiVectorIndex(options: MultiVectorIndexOptions): FieldIndex;
@@ -10503,7 +10503,7 @@ await client.collections().create("books", {
 
 ***
 
-### semanticIndex()
+##### semanticIndex()
 
 ```ts
 function semanticIndex(): FieldIndex;
@@ -10527,7 +10527,7 @@ await client.collections().create("books", {
 
 ***
 
-### text()
+##### text()
 
 ```ts
 function text(): FieldSpec;
@@ -10551,7 +10551,7 @@ await client.collections().create("books", {
 
 ***
 
-### u8SparseVector()
+##### u8SparseVector()
 
 ```ts
 function u8SparseVector(): FieldSpec;
@@ -10577,7 +10577,7 @@ await client.collections().create("books", {
 
 ***
 
-### u8Vector()
+##### u8Vector()
 
 ```ts
 function u8Vector(options: VectorOptions): FieldSpec;
@@ -10607,7 +10607,7 @@ await client.collections().create("books", {
 
 ***
 
-### vectorIndex()
+##### vectorIndex()
 
 ```ts
 function vectorIndex(options: VectorIndexOptions): FieldIndex;
@@ -10643,21 +10643,21 @@ await client.collections().create("books", {
 
 [`FieldIndex`](/sdk/topk-js/Namespace.schema#fieldindex)
 
-## Classes
+#### Classes
 
-### FieldIndex
+##### FieldIndex
 
 **`Internal`**
 
 ***
 
-### FieldSpec
+##### FieldSpec
 
 **`Internal`**
 
 **Methods**
 
-##### index()
+###### index()
 
 ```ts
 index(index: FieldIndex): FieldSpec;
@@ -10685,7 +10685,7 @@ await client.collections().create("books", {
 
 [`FieldSpec`](/sdk/topk-js/Namespace.schema#fieldspec)
 
-##### required()
+###### required()
 
 ```ts
 required(): FieldSpec;
@@ -10707,9 +10707,9 @@ await client.collections().create("books", {
 
 [`FieldSpec`](/sdk/topk-js/Namespace.schema#fieldspec)
 
-## Interfaces
+#### Interfaces
 
-### ListOptions
+##### ListOptions
 
 Options for list field specifications.
 
@@ -10724,7 +10724,7 @@ including the type of values the list can contain.
 
 ***
 
-### MatrixOptions
+##### MatrixOptions
 
 Options for matrix field specifications.
 
@@ -10740,7 +10740,7 @@ including the dimension and value type.
 
 ***
 
-### MultiVectorIndexOptions
+##### MultiVectorIndexOptions
 
 Options for multi-vector index specifications.
 
@@ -10758,7 +10758,7 @@ including the distance metric to use.
 
 ***
 
-### VectorIndexOptions
+##### VectorIndexOptions
 
 Options for vector index specifications.
 
@@ -10773,7 +10773,7 @@ including the distance metric to use.
 
 ***
 
-### VectorOptions
+##### VectorOptions
 
 Options for vector field specifications.
 
@@ -10786,9 +10786,9 @@ including the required dimension parameter.
 | ------ | ------ | ------ |
 | <a id="property-dimension-1"></a> `dimension` | `number` | The dimension of the vector |
 
-## Type Aliases
+#### Type Aliases
 
-### KeywordIndexType
+##### KeywordIndexType
 
 ```ts
 type KeywordIndexType = "text";
@@ -10796,7 +10796,7 @@ type KeywordIndexType = "text";
 
 ***
 
-### ListValueType
+##### ListValueType
 
 ```ts
 type ListValueType = "text" | "integer" | "float";
@@ -10804,7 +10804,7 @@ type ListValueType = "text" | "integer" | "float";
 
 ***
 
-### MatrixValueType
+##### MatrixValueType
 
 ```ts
 type MatrixValueType = "f32" | "f16" | "f8" | "u8" | "i8";
@@ -10812,7 +10812,7 @@ type MatrixValueType = "f32" | "f16" | "f8" | "u8" | "i8";
 
 ***
 
-### MultiVectorDistanceMetric
+##### MultiVectorDistanceMetric
 
 ```ts
 type MultiVectorDistanceMetric = "maxsim";
@@ -10820,7 +10820,7 @@ type MultiVectorDistanceMetric = "maxsim";
 
 ***
 
-### MultiVectorQuantization
+##### MultiVectorQuantization
 
 ```ts
 type MultiVectorQuantization = "1bit" | "2bit" | "scalar";
@@ -10828,7 +10828,7 @@ type MultiVectorQuantization = "1bit" | "2bit" | "scalar";
 
 ***
 
-### VectorDistanceMetric
+##### VectorDistanceMetric
 
 ```ts
 type VectorDistanceMetric = "cosine" | "euclidean" | "dot_product" | "hamming";
@@ -10844,7 +10844,7 @@ TopK Database is a search engine for building fast semantic search, vector searc
 
 It is powering the [TopK Context Engine](https://docs.topk.io/introduction) and is also available as a standalone solution via [Python SDK](https://docs.topk.io/sdk/topk-py/index), [JavaScript SDK](https://docs.topk.io/sdk/topk-js/index) or [Rust SDK](https://github.com/topk-io/topk/tree/main/topk-rs).
 
-## Guides
+#### Guides
 
 <CardGroup cols={2}>
   <Card title="Semantic Search" icon="brain" href="/concepts/semantic-search">
@@ -10867,7 +10867,7 @@ It is powering the [TopK Context Engine](https://docs.topk.io/introduction) and 
   </Card>
 </CardGroup>
 
-## APIs
+#### APIs
 
 <CardGroup cols={2}>
   <Card title="Document API" icon="file-text" href="/documents/upsert">
@@ -10878,7 +10878,7 @@ It is powering the [TopK Context Engine](https://docs.topk.io/introduction) and 
   </Card>
 </CardGroup>
 
-## SDKs
+#### SDKs
 
 <CardGroup cols={2}>
   <Card title="Python SDK" icon="/icons/python.svg" href="/sdk/topk-py/index">
@@ -10889,7 +10889,7 @@ It is powering the [TopK Context Engine](https://docs.topk.io/introduction) and 
   </Card>
 </CardGroup>
 
-## Digging Deeper
+#### Digging Deeper
 
 <CardGroup cols={2}>
   <Card title="Consistency" icon="circle-check" href="/concepts/consistency">
@@ -10907,7 +10907,7 @@ URL: https://docs.topk.io/concepts/semantic-search
 TopK enables you to add semantic search to your documents with just a few lines of code.
 There is no need to build or maintain a separate embedding pipeline.
 
-## How to perform a semantic search
+#### How to perform a semantic search
 
 In the following example, we'll:
 
@@ -10917,7 +10917,7 @@ In the following example, we'll:
   <Step title="Run a semantic query">Retrieve documents using a free-form text query.</Step>
 </Steps>
 
-### Define a collection schema
+##### Define a collection schema
 
 Semantic search is enabled by adding a [`semantic_index()`](/sdk/topk-py/schema#semantic_index) to a [`text()`](/sdk/topk-py/schema#text) field in the collection schema:
 
@@ -10952,7 +10952,7 @@ This configuration automatically generates embeddings as well as enables keyword
   If you want to use your own embeddings instead of TopK's built-in `semantic_index()`, see [Vector Search](/concepts/vector-search) guide.
 </Tip>
 
-### Add documents to the collection
+##### Add documents to the collection
 
 Let's add some documents to the collection:
 
@@ -10979,7 +10979,7 @@ await client.collection("books").upsert([
 
 </CodeGroup>
 
-### Run a semantic query
+##### Run a semantic query
 
 To search for documents based on semantic similarity, use the [`fn.semantic_similarity()`](/sdk/topk-py/query#semantic_similarity) function:
 
@@ -10996,7 +10996,7 @@ docs = client.collection("books").query(
     .topk(field("title_similarity"), 10)
 )
 
-# Example results:
+### Example results:
 
 [
   {
@@ -11050,7 +11050,7 @@ Let's break down the example above:
 
 This works **out of the box**—no need to manage embeddings or external APIs.
 
-## Combining semantic and keyword search
+#### Combining semantic and keyword search
 
 For certain use cases, you might want to use a combination of **keyword search** and **semantic search**:
 
@@ -11104,7 +11104,7 @@ TopK is built for high-performance dense vector search workloads. It is designed
 - Deliver consistent **low latency** (p99 < 50 ms). See the [benchmarks](https://www.topk.io/benchmarks) for details.
 - Support **large-scale single-collection** deployments as well as **multi-tenant** architectures.
 
-## Define a collection schema with a vector field
+#### Define a collection schema with a vector field
 
 Define a schema with a vector field and add a [`vector_index()`](/sdk/topk-py/schema#vector_index):
 
@@ -11146,7 +11146,7 @@ Supported vector field types:
 
 See the [schema reference](/sdk/topk-py/schema) for full API details.
 
-## Perform a k-Nearest Neighbor (kNN) search
+#### Perform a k-Nearest Neighbor (kNN) search
 
 To retrieve the top-k nearest neighbors of a query vector, use the [`fn.vector_distance()`](/sdk/topk-py/query#vector_distance) function.
 
@@ -11173,7 +11173,7 @@ docs = client.collection("books").query(
     .topk(field("title_similarity"), 10)
 )
 
-# Example results:
+### Example results:
 [
   {
     "_id": "2",
@@ -11230,7 +11230,7 @@ Let's break down the example above:
 2. Store the computed cosine similarity in the `title_similarity` field.
 3. Return the top 10 results sorted by the `title_similarity` field in a descending order.
 
-## Combine vector search with metadata filtering
+#### Combine vector search with metadata filtering
 
 Vector search can be combined with metadata filtering by adding a [`filter()`](/sdk/topk-py/query#filter) stage to the query:
 
@@ -11283,7 +11283,7 @@ It is designed to:
 - Deliver consistent **low latency** (p99 < 20 ms). See the [benchmarks](https://www.topk.io/benchmarks) for details.
 - Support **large-scale single-collection** deployments as well as **multi-tenant** architectures.
 
-## Define a collection schema with a sparse vector field
+#### Define a collection schema with a sparse vector field
 
 Define a schema with a sparse vector field and add a [`vector_index()`](/sdk/topk-py/schema#vector_index):
 
@@ -11333,7 +11333,7 @@ See the [schema reference](/sdk/topk-py/schema) for full API details.
   vector representations.
 </Warning>
 
-## Perform a sparse vector search
+#### Perform a sparse vector search
 
 To retrieve the top-k nearest neighbors of a query vector, use the [`fn.vector_distance()`](/sdk/topk-py/query#vector_distance) function.
 
@@ -11362,7 +11362,7 @@ docs = client.collection("books").query(
     .topk(field("title_score"), 10)
 )
 
-# Example results:
+### Example results:
 [
   {
     "_id": "2",
@@ -11418,7 +11418,7 @@ Let's break down the example above:
 2. Store the computed dot product score in the `title_score` field.
 3. Return the top 10 results sorted by the `title_score` field in a descending order.
 
-## Combine sparse vector search with metadata filtering
+#### Combine sparse vector search with metadata filtering
 
 Sparse vector search can be combined with metadata filtering by adding a [`filter()`](/sdk/topk-py/query#filter) stage to the query:
 
@@ -11470,7 +11470,7 @@ URL: https://docs.topk.io/concepts/multi-vector-search
 Multi-vector (late-interaction) retrieval represents each document (and query) as a variable-length set of embedding vectors rather than a single embedding vector.
 Instead of reducing the input to a single vector via global pooling (e.g., mean pooling) or a dedicated summary token (e.g., CLS), multi-vector representations preserve token-, segment-, or patch-level vectors and score documents using a set-wise similarity function, most commonly [**MaxSim**](#maxsim-scoring).
 
-## Why multi-vector retrieval is needed
+#### Why multi-vector retrieval is needed
 
 Single-vector retrieval is the most common approach, but it can lose signal when:
 
@@ -11480,7 +11480,7 @@ Single-vector retrieval is the most common approach, but it can lose signal when
 
 Multi-vector retrieval helps because it evaluates (maximum) relevance of *any* query vector against *some* document vector, instead of computing a single global similarity score.
 
-## Multi-vector (tensor) embeddings
+#### Multi-vector (tensor) embeddings
 
 Embedding models generally represent data internally as an `N x D` matrix:
 
@@ -11493,7 +11493,7 @@ Distinct from traditional embedding models that pool these internal representati
 [`ColPali`](https://arxiv.org/abs/2407.01449) (visual/multimodal)
 produce a full `N x D` matrix of token- or patch-level embeddings at the output layer (potentially projected to a lower dimension, quantized, or otherwise compressed), which is then stored in the database for retrieval.
 
-### MaxSim scoring
+##### MaxSim scoring
 
 For a query `Q` represented by `M` vectors `{q_1,...,q_M}` and a document `D` represented by `N` vectors `{d_1,...,d_N}` (of dimension `D`), the *MaxSim* function computes the similarity between `Q` and `D` as
 
@@ -11505,7 +11505,7 @@ In human words, instead of computing a single overall similarity score between t
 
 With [`metric="maxsim"`](/sdk/topk-py/schema#multi_vector_index), **higher scores indicate better matches**.
 
-## Define a schema for multi-vector retrieval
+#### Define a schema for multi-vector retrieval
 
 In TopK, multi-vector embeddings are stored in a [`matrix()`](/sdk/topk-py/schema#matrix) field and indexed with a [`multi_vector_index()`](/sdk/topk-py/schema#multi_vector_index) using the [`maxsim`](#maxsim-scoring) metric.
 
@@ -11546,7 +11546,7 @@ await client.collections().create("passages", {
 - **`multi_vector_index()`** also accepts optional `quantization` (`"1bit"`, `"2bit"`, `"scalar"`), `width`, and `top_k` for tuning; see [Optimization tips](#optimization-tips) below.
 
 
-## Ingest documents with multi-vector embeddings
+#### Ingest documents with multi-vector embeddings
 
 When upserting documents, include both:
 * A multi-vector embedding for given content
@@ -11562,7 +11562,7 @@ When upserting documents, include both:
 import numpy as np
 from topk_sdk.data import matrix
 
-# Example: shape (num_vectors, dimension)
+### Example: shape (num_vectors, dimension)
 token_embeddings = np.random.randn(12, 128).astype(np.float16)
 
 client.collection("passages").upsert(
@@ -11607,7 +11607,7 @@ await client.collection("passages").upsert([
 TopK has built-in support for [`numpy.ndarray`](https://numpy.org/doc/2.2/reference/generated/numpy.ndarray.html) when ingesting and querying multi-vector (matrix) embeddings. If you pass an ndarray directly, the matrix value type is inferred from its `dtype` (e.g. `float32`, `float16`, `uint8`, `int8`).
 </Tip>
 
-## Run multi-vector retrieval
+#### Run multi-vector retrieval
 
 Use [`fn.multi_vector_distance()`](/sdk/topk-py/query#multi_vector_distance) to score documents against a query matrix.
 When the field is indexed with `metric="maxsim"`, this computes the *MaxSim* score defined above.
@@ -11633,7 +11633,7 @@ docs = client.collection("passages").query(
 
 print(docs)
 
-# Results:
+### Results:
 [
   {
     "_id": "p2",
@@ -11686,7 +11686,7 @@ console.log(docs);
 
 </CodeGroup>
 
-### Optimization tips
+##### Optimization tips
 
 The multi-vector index has an approximate retrieval stage (for faster pruning) followed by a more accurate scoring stage. These parameters let you trade off **memory**, **latency**, and **recall**:
 
@@ -11708,7 +11708,7 @@ TopK supports keyword search with the BM25 ranking function.
 
 To perform a keyword search on your documents, use the [`match()`](/sdk/topk-py/query#match) function.
 
-## Define a collection schema for keyword search
+#### Define a collection schema for keyword search
 
 Define a schema with a [`text()`](/sdk/topk-py/schema#text) field and add a [`keyword_index()`](/sdk/topk-py/schema#keyword_index):
 
@@ -11738,7 +11738,7 @@ await client.collections().create("books", {
 
 </CodeGroup>
 
-## Run a keyword search
+#### Run a keyword search
 
 To run a keyword search on the `title` and `description` fields using the [`match()`](/sdk/topk-py/query#match) function.
 We'll query the collection to match the term `"great"` in the `title` field or the term `"novel"` in any of the keyword-indexed text fields:
@@ -11764,7 +11764,7 @@ docs = client.collection("books").query(
     .topk(field("text_score"), 10)
 )
 
-# Example result:
+### Example result:
 
 [
   {
@@ -11841,7 +11841,7 @@ With TopK's true hybrid search, you can combine multiple retrieval techniques su
 
 -- all in a single query.
 
-## How TopK differs from other "hybrid" search systems
+#### How TopK differs from other "hybrid" search systems
 
 Most databases that offer hybrid search maintain separate vector and keyword indexes. When a query is executed they:
 
@@ -11889,7 +11889,7 @@ With TopK, you can:
 - **Filter documents** by their metadata
 - Apply custom scoring functions blending multiple ranking factors -- **Custom scoring**
 
-## Implementing Hybrid Search (Vector \+ Keyword)
+#### Implementing Hybrid Search (Vector \+ Keyword)
 
 Hybrid retrieval combines **semantic similarity (vector-based search)** with **exact keyword matching**. This approach ensures that documents with **direct keyword matches** are considered alongside those that are **semantically similar** to the query.
 
@@ -11970,7 +11970,7 @@ Let's break down the example above:
 
 This **balances precision and recall**, capturing both **exact keyword matches** and **meaningful context**.
 
-## Implementing Complex Search(Keyword \+ Vector \+ Filtering)
+#### Implementing Complex Search(Keyword \+ Vector \+ Filtering)
 
 In TopK, you can combine [keyword search](/concepts/keyword-search), [vector search](/concepts/vector-search), and [filtering](/documents/query#filtering) in a single query.
 This allows you to fetch the truly **most relevant results** while maintaining a steady performance - no overfetching.
@@ -12021,7 +12021,7 @@ const docs = await client.collection("books").query(
 As you might have noticed, we are also sorting the top-k results using a custom scoring function.
 You can read more about custom scoring functions in the following section.
 
-## Custom Scoring Functions
+#### Custom Scoring Functions
 
 TopK allows you to **define custom scoring functions** by combining:
 
@@ -12030,7 +12030,7 @@ TopK allows you to **define custom scoring functions** by combining:
 - Vector distance
 - "Bring-your-own" precomputed importance score
 
-### Defining a Collection with Custom Scoring Fields
+##### Defining a Collection with Custom Scoring Fields
 
 <CodeGroup>
 
@@ -12058,7 +12058,7 @@ await client.collections().create("documents", {
 
 </CodeGroup>
 
-### Querying with a Custom Scoring Function
+##### Querying with a Custom Scoring Function
 
 <CodeGroup>
 
