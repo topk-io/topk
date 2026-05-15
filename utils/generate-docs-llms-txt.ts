@@ -11,7 +11,7 @@ program
   .description("CLI to generate llms.txt and llms-full.txt in the docs")
   .version("0.1.0");
 
-type SlugEntry = { type: "slug"; slug: string; titlePrefix?: string };
+type SlugEntry = { type: "slug"; slug: string; titlePrefix?: string; useFirstParagraph?: boolean };
 type ExternalEntry = { type: "external"; title: string; url: string; description?: string };
 type Entry = SlugEntry | ExternalEntry;
 type Section = { heading: string; entries: Entry[] };
@@ -45,20 +45,43 @@ async function readFrontmatter(slug: string): Promise<{ title?: string; descript
   return { title, description };
 }
 
+async function readFirstParagraph(slug: string): Promise<string | undefined> {
+  const file = Bun.file(`${DOCS_DIR}/${slug}.mdx`);
+  if (!(await file.exists())) return undefined;
+
+  const text = await file.text();
+  const body = text
+    .replace(/^---\n[\s\S]*?\n---\n?/, "")
+    .replace(/^import\s+.+\n/gm, "");
+
+  for (const block of body.split(/\n\n+/)) {
+    const trimmed = block.trim();
+    if (!trimmed) continue;
+    if (trimmed.startsWith("#")) continue;
+    if (trimmed.startsWith("<")) continue;
+    if (trimmed.startsWith("```")) continue;
+    return trimmed.replace(/\n/g, " ");
+  }
+  return undefined;
+}
+
 async function readPageContent(slug: string): Promise<string> {
   const file = Bun.file(`${DOCS_DIR}/${slug}.mdx`);
   if (!(await file.exists())) return "";
 
   const text = await file.text();
   return text
-    .replace(/^---\n[\s\S]*?\n---\n?/, "")  // strip frontmatter
+    .replace(/^---\n[\s\S]*?\n---\n?/, "")   // strip frontmatter
     .replace(/^import\s+.+\n/gm, "")         // strip MDX imports
+    .replace(/[ \t]+$/gm, "")                // strip trailing whitespace per line
     .trim();
 }
 
 // --- Navigation ---
 
 const OVERVIEW_EXCLUDE = new Set(["cli", "mcp-server"]);
+const LLMS_EXCLUDE = new Set(["usage"]);
+const LLMS_MOVE_TO_CORE_CONCEPTS = ["datasets/index"];
 
 const API_ENTRIES: Entry[] = [
   { type: "slug", slug: "cli" },
@@ -81,9 +104,15 @@ function buildSections(): Section[] {
   if (docTab) {
     for (const group of normalizeTabPages(docTab.pages)) {
       const isOverview = group.group === "Overview" || !group.group;
-      const slugs = isOverview
+      let slugs = isOverview
         ? group.pages.filter((s) => !OVERVIEW_EXCLUDE.has(s))
-        : group.pages;
+        : group.pages.filter((s) => !LLMS_EXCLUDE.has(s) && !LLMS_MOVE_TO_CORE_CONCEPTS.includes(s));
+
+      if (group.group === "Core Concepts") {
+        slugs = [...slugs, ...LLMS_MOVE_TO_CORE_CONCEPTS];
+      }
+
+      if (slugs.length === 0) continue;
 
       sections.push({
         heading: isOverview ? "Overview" : group.group!,
@@ -119,14 +148,21 @@ function buildSections(): Section[] {
   // Database tab - Optional
   const dbTab = docs.navigation.tabs.find((t) => t.tab === "Database");
   if (dbTab) {
-    const entries: Entry[] = [];
-    for (const group of normalizeTabPages(dbTab.pages)) {
-      const prefix = group.group ? "TopK Database - " : undefined;
-      for (const slug of group.pages) {
-        entries.push({ type: "slug", slug, titlePrefix: prefix });
-      }
-    }
-    sections.push({ heading: "Optional", entries });
+    const DB_CONCEPT_SLUGS = [
+      "concepts/semantic-search",
+      "concepts/vector-search",
+      "concepts/sparse-vector-search",
+      "concepts/multi-vector-search",
+      "concepts/keyword-search",
+      "concepts/true-hybrid-search",
+    ];
+    sections.push({
+      heading: "Optional",
+      entries: [
+        { type: "slug", slug: "database", useFirstParagraph: true },
+        ...DB_CONCEPT_SLUGS.map((slug): Entry => ({ type: "slug", slug, titlePrefix: "TopK Database - " })),
+      ],
+    });
   }
 
   return sections;
@@ -147,7 +183,10 @@ async function renderLinks(sections: Section[]): Promise<string> {
         const line = `- [${entry.title}](${entry.url})`;
         out += entry.description ? `${line}: ${entry.description}\n` : `${line}\n`;
       } else {
-        const { title, description } = await readFrontmatter(entry.slug);
+        const { title, description: fmDesc } = await readFrontmatter(entry.slug);
+        const description = entry.useFirstParagraph
+          ? await readFirstParagraph(entry.slug)
+          : fmDesc;
         const displayTitle = `${entry.titlePrefix ?? ""}${title ?? entry.slug}`;
         const line = `- [${displayTitle}](${slugToUrl(entry.slug)})`;
         out += description ? `${line}: ${description}\n` : `${line}\n`;
@@ -155,7 +194,7 @@ async function renderLinks(sections: Section[]): Promise<string> {
     }
     out += "\n";
   }
-  return out.trimEnd();
+  return out.trimEnd() + "\n";
 }
 
 async function renderFull(sections: Section[]): Promise<string> {
@@ -177,7 +216,7 @@ async function renderFull(sections: Section[]): Promise<string> {
       }
     }
   }
-  return out.trimEnd();
+  return out.trimEnd() + "\n";
 }
 
 // --- Commands ---
