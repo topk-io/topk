@@ -24,14 +24,14 @@
         "icon": "book-open",
         "pages": [
           {
-            "group": "Documentation",
+            "group": "Overview",
             "pages": [
               "introduction",
               "quickstart",
               "regions",
-              "changelog",
               "cli",
-              "mcp-server"
+              "mcp-server",
+              "changelog"
             ]
           },
           {
@@ -39,7 +39,7 @@
             "pages": ["core/ingest", "core/ask", "core/search", "core/research"]
           },
           {
-            "group": "Management APIs",
+            "group": "Management",
             "pages": [
               "datasets/index",
               "usage"
@@ -50,7 +50,9 @@
       {
         "tab": "CLI",
         "icon": "terminal",
-        "pages": ["cli"]
+        "pages": [
+          "cli"
+        ]
       },
       {
         "tab": "Python SDK",
