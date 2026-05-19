@@ -228,6 +228,12 @@ pub enum SchemaValidationError {
 
     #[error("Invalid semantic index for field `{field}. Error: {error}`")]
     InvalidSemanticIndex { field: String, error: String },
+
+    #[error("field `{field}` contains '.' which is reserved as a struct path separator")]
+    FieldNameContainsDot { field: String },
+
+    #[error("struct field `{field}` exceeds maximum nesting depth of {max_depth}")]
+    StructTooDeep { field: String, max_depth: usize },
 }
 
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize, Clone)]
@@ -347,6 +353,15 @@ impl<T: Serialize + DeserializeOwned + Clone> ValidationErrorBag<T> {
 
     pub fn iter(&self) -> std::slice::Iter<'_, T> {
         self.0.iter()
+    }
+}
+
+impl<T: Serialize + DeserializeOwned + Clone> IntoIterator for ValidationErrorBag<T> {
+    type Item = T;
+    type IntoIter = std::vec::IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 

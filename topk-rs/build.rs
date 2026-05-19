@@ -92,6 +92,7 @@ fn build_topk_v1_protos() {
         "topk.control.v1.FieldTypeText",
         "topk.control.v1.FieldTypeBytes",
         "topk.control.v1.FieldTypeList",
+        "topk.control.v1.FieldTypeStruct",
         // indexes
         "topk.control.v1.FieldIndex",
         "topk.control.v1.FieldIndex.index",
@@ -121,6 +122,15 @@ fn build_topk_v1_protos() {
         "topk.control.v1.MultiVectorIndex.skip_smve",
         "#[serde(default)]",
     );
+
+    for ty in [
+        "topk.control.v1.FieldTypeStruct",
+        "topk.control.v1.FieldType",
+        "topk.control.v1.FieldType.data_type",
+        "topk.control.v1.FieldSpec",
+    ] {
+        builder = builder.type_attribute(ty, "#[derive(Eq)]");
+    }
 
     builder
         .codec_path("crate::proto::codec::ProstCodec")

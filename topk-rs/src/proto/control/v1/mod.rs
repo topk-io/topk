@@ -42,6 +42,8 @@ impl field_type::DataType {
                 field_type_matrix::MatrixValueType::I8 => "matrix<i8>".to_string(),
                 field_type_matrix::MatrixValueType::Unspecified => "matrix<_>".to_string(),
             },
+            // Struct
+            field_type::DataType::Struct(..) => "struct".to_string(),
         }
     }
 }

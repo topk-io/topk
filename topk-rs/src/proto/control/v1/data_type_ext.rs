@@ -73,4 +73,10 @@ impl field_type::DataType {
     pub fn bytes() -> Self {
         field_type::DataType::Bytes(FieldTypeBytes {})
     }
+
+    pub fn r#struct(fields: impl IntoIterator<Item = (impl Into<String>, FieldSpec)>) -> Self {
+        field_type::DataType::Struct(FieldTypeStruct {
+            fields: fields.into_iter().map(|(k, v)| (k.into(), v)).collect(),
+        })
+    }
 }
