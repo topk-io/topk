@@ -92,7 +92,7 @@ pub struct UploadArgs {
     #[arg(short = 'r', long)]
     pub recursive: bool,
     /// Number of concurrent uploads (1–64)
-    #[arg(short = 'c', long, default_value = "32", value_parser = clap::value_parser!(u64).range(1..=64))]
+    #[arg(short = 'c', long, default_value = "8", value_parser = clap::value_parser!(u64).range(1..=64))]
     pub concurrency: u64,
     /// Skip upload confirmation prompt
     #[arg(short = 'y', long)]
