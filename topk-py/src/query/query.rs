@@ -6,20 +6,43 @@ use std::collections::HashMap;
 
 use super::stage::Stage;
 
-#[derive(Debug, Clone)]
-pub enum ConsistencyLevel {
-    Indexed,
-    Strong,
+#[pyclass]
+pub struct ConsistencyLevel(String);
+
+#[pymethods]
+impl ConsistencyLevel {
+    #[classattr]
+    #[pyo3(name = "Indexed")]
+    fn indexed() -> Self {
+        ConsistencyLevel("indexed".to_string())
+    }
+
+    #[classattr]
+    #[pyo3(name = "Strong")]
+    fn strong() -> Self {
+        ConsistencyLevel("strong".to_string())
+    }
+
+    fn __repr__(&self) -> String {
+        let variant = match self.0.as_str() {
+            "indexed" => "Indexed",
+            "strong" => "Strong",
+            _ => &self.0,
+        };
+        format!("ConsistencyLevel.{variant}")
+    }
 }
 
 impl<'a, 'py> FromPyObject<'a, 'py> for ConsistencyLevel {
     type Error = PyErr;
 
     fn extract(obj: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
+        if let Ok(cl) = obj.extract::<PyRef<ConsistencyLevel>>() {
+            return Ok(ConsistencyLevel(cl.0.clone()));
+        }
         match obj.cast_exact::<PyString>() {
             Ok(val) => match val.extract::<&str>()? {
-                "indexed" => Ok(ConsistencyLevel::Indexed),
-                "strong" => Ok(ConsistencyLevel::Strong),
+                s @ ("indexed" | "strong") => Ok(ConsistencyLevel(s.to_string())),
                 val => Err(PyTypeError::new_err(format!(
                     "Invalid consistency level `{val}`",
                 ))),
@@ -33,10 +56,11 @@ impl<'a, 'py> FromPyObject<'a, 'py> for ConsistencyLevel {
 }
 
 impl From<ConsistencyLevel> for topk_rs::proto::v1::data::ConsistencyLevel {
-    fn from(consistency_level: ConsistencyLevel) -> Self {
-        match consistency_level {
-            ConsistencyLevel::Indexed => topk_rs::proto::v1::data::ConsistencyLevel::Indexed,
-            ConsistencyLevel::Strong => topk_rs::proto::v1::data::ConsistencyLevel::Strong,
+    fn from(c: ConsistencyLevel) -> Self {
+        match c.0.as_str() {
+            "indexed" => topk_rs::proto::v1::data::ConsistencyLevel::Indexed,
+            "strong" => topk_rs::proto::v1::data::ConsistencyLevel::Strong,
+            _ => unreachable!("invalid ConsistencyLevel value: {}", c.0),
         }
     }
 }

@@ -1,7 +1,6 @@
 import builtins
 import os
 import typing
-from enum import Enum
 
 from . import query, schema
 
@@ -127,7 +126,7 @@ class CollectionClient:
         ids: typing.Sequence[builtins.str],
         fields: typing.Optional[typing.Sequence[builtins.str]] = None,
         lsn: typing.Optional[builtins.str] = None,
-        consistency: typing.Optional[ConsistencyLevel] = None,
+        consistency: typing.Optional[typing.Union[ConsistencyLevel, typing.Literal["indexed", "strong"]]] = None,
     ) -> builtins.dict[builtins.str, builtins.dict[builtins.str, typing.Any]]:
         """
         Get documents by their IDs.
@@ -136,7 +135,7 @@ class CollectionClient:
     def count(
         self,
         lsn: typing.Optional[builtins.str] = None,
-        consistency: typing.Optional[ConsistencyLevel] = None,
+        consistency: typing.Optional[typing.Union[ConsistencyLevel, typing.Literal["indexed", "strong"]]] = None,
     ) -> builtins.int:
         """
         Get the count of documents in the collection.
@@ -146,7 +145,7 @@ class CollectionClient:
         self,
         query: query.Query,
         lsn: typing.Optional[builtins.str] = None,
-        consistency: typing.Optional[ConsistencyLevel] = None,
+        consistency: typing.Optional[typing.Union[ConsistencyLevel, typing.Literal["indexed", "strong"]]] = None,
     ) -> builtins.list[builtins.dict[builtins.str, typing.Any]]:
         """
         Execute a query against the collection.
@@ -203,7 +202,7 @@ class AsyncCollectionClient:
         ids: typing.Sequence[builtins.str],
         fields: typing.Optional[typing.Sequence[builtins.str]] = None,
         lsn: typing.Optional[builtins.str] = None,
-        consistency: typing.Optional[ConsistencyLevel] = None,
+        consistency: typing.Optional[typing.Union[ConsistencyLevel, typing.Literal["indexed", "strong"]]] = None,
     ) -> typing.Awaitable[
         builtins.dict[builtins.str, builtins.dict[builtins.str, typing.Any]]
     ]:
@@ -214,7 +213,7 @@ class AsyncCollectionClient:
     def count(
         self,
         lsn: typing.Optional[builtins.str] = None,
-        consistency: typing.Optional[ConsistencyLevel] = None,
+        consistency: typing.Optional[typing.Union[ConsistencyLevel, typing.Literal["indexed", "strong"]]] = None,
     ) -> typing.Awaitable[builtins.int]:
         """
         Get the count of documents in the collection asynchronously.
@@ -224,7 +223,7 @@ class AsyncCollectionClient:
         self,
         query: query.Query,
         lsn: typing.Optional[builtins.str] = None,
-        consistency: typing.Optional[ConsistencyLevel] = None,
+        consistency: typing.Optional[typing.Union[ConsistencyLevel, typing.Literal["indexed", "strong"]]] = None,
     ) -> typing.Awaitable[builtins.list[builtins.dict[builtins.str, typing.Any]]]:
         """
         Execute a query against the collection asynchronously.
@@ -692,13 +691,15 @@ class AsyncDatasetListIterator:
     def __aiter__(self) -> AsyncDatasetListIterator: ...
     def __anext__(self) -> typing.Awaitable[ListEntry]: ...
 
-class ConsistencyLevel(Enum):
+class ConsistencyLevel:
     """
-    Enumeration of consistency levels for operations.
+    Consistency level for read operations.
     """
 
-    Indexed = "indexed"
-    Strong = "strong"
+    Indexed: ConsistencyLevel
+    Strong: ConsistencyLevel
+
+    def __repr__(self) -> builtins.str: ...
 
 class WaitConfig:
     """

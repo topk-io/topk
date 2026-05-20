@@ -79,9 +79,9 @@ impl FromPyObject<'_, '_> for Value {
 
             for item in dict.items() {
                 let (key, value) = item.extract::<(Bound<'_, PyAny>, Bound<'_, PyAny>)>()?;
-                let key = key.extract::<String>().map_err(|_| {
-                    PyTypeError::new_err("Struct field names must be strings")
-                })?;
+                let key = key
+                    .extract::<String>()
+                    .map_err(|_| PyTypeError::new_err("Struct field names must be strings"))?;
                 fields.insert(key, value.extract::<Value>()?);
             }
 
@@ -292,7 +292,28 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                             values: v.values,
                         }
                     }
-                    t => unreachable!("Unknown sparse vector type: {:?}", t),
+                    Some(topk_rs::proto::v1::data::sparse_vector::Values::F16(v)) => {
+                        let values: Vec<half::f16> = v.into();
+                        SparseVector::F32 {
+                            indices: sv.indices,
+                            values: values.iter().map(|x| x.to_f32()).collect(),
+                        }
+                    }
+                    Some(topk_rs::proto::v1::data::sparse_vector::Values::F8(v)) => {
+                        let values: Vec<float8::F8E4M3> = v.into();
+                        SparseVector::F32 {
+                            indices: sv.indices,
+                            values: values.iter().map(|x| x.to_f32()).collect(),
+                        }
+                    }
+                    Some(topk_rs::proto::v1::data::sparse_vector::Values::I8(v)) => {
+                        let values: Vec<i8> = v.into();
+                        SparseVector::F32 {
+                            indices: sv.indices,
+                            values: values.iter().map(|&x| x as f32).collect(),
+                        }
+                    }
+                    None => unreachable!("Invalid sparse vector proto"),
                 })
             }
             Some(topk_rs::proto::v1::data::value::Value::List(l)) => Value::List(List {
@@ -363,7 +384,10 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                 })
             }
             Some(topk_rs::proto::v1::data::value::Value::Struct(s)) => Value::Struct(
-                s.fields.into_iter().map(|(k, v)| (k, Value::from(v))).collect(),
+                s.fields
+                    .into_iter()
+                    .map(|(k, v)| (k, Value::from(v)))
+                    .collect(),
             ),
             None => Value::Null(),
         }

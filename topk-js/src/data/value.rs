@@ -268,15 +268,26 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                             values: values.values,
                         })
                     }
-                    // TODO: Implement F16, F8, I8 sparse vectors in js sdk
-                    Some(topk_rs::proto::v1::data::sparse_vector::Values::F16(_)) => {
-                        unimplemented!()
+                    Some(topk_rs::proto::v1::data::sparse_vector::Values::F16(v)) => {
+                        let values: Vec<half::f16> = v.into();
+                        SparseVector::float(SparseVectorData::<f32> {
+                            indices: sparse_vector.indices,
+                            values: values.iter().map(|x| x.to_f32()).collect(),
+                        })
                     }
-                    Some(topk_rs::proto::v1::data::sparse_vector::Values::F8(_)) => {
-                        unimplemented!()
+                    Some(topk_rs::proto::v1::data::sparse_vector::Values::F8(v)) => {
+                        let values: Vec<float8::F8E4M3> = v.into();
+                        SparseVector::float(SparseVectorData::<f32> {
+                            indices: sparse_vector.indices,
+                            values: values.iter().map(|x| x.to_f32()).collect(),
+                        })
                     }
-                    Some(topk_rs::proto::v1::data::sparse_vector::Values::I8(_)) => {
-                        unimplemented!()
+                    Some(topk_rs::proto::v1::data::sparse_vector::Values::I8(v)) => {
+                        let values: Vec<i8> = v.into();
+                        SparseVector::float(SparseVectorData::<f32> {
+                            indices: sparse_vector.indices,
+                            values: values.iter().map(|&x| x as f32).collect(),
+                        })
                     }
                     None => unreachable!("Invalid sparse vector proto"),
                 })
@@ -432,8 +443,7 @@ impl FromNapiValue for Value {
                 // Sparse vectors (all "naked" sparse vectors are interpreted as f32).
                 // Empty objects are structs — skip the check so {} doesn't become SparseVector([]).
                 if !keys.is_empty() {
-                    if let Ok(sparse_vector) =
-                        SparseVectorData::<f64>::from_napi_value(env, value)
+                    if let Ok(sparse_vector) = SparseVectorData::<f64>::from_napi_value(env, value)
                     {
                         return Ok(Value::SparseVector(SparseVector::float(
                             sparse_vector

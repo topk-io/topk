@@ -3473,7 +3473,7 @@ get(
    ids: Sequence[str],
    fields: Optional[Sequence[str]] = None,
    lsn: Optional[str] = None,
-   consistency: Optional[ConsistencyLevel] = None
+   consistency: Optional[ConsistencyLevel | Literal['indexed', 'strong']] = None
 )
 ```
 
@@ -3486,7 +3486,7 @@ Get documents by their IDs.
 | `ids` | Sequence[str] |
 | `fields` | Optional[Sequence[str]] |
 | `lsn` | Optional[str] |
-| `consistency` | Optional[[`ConsistencyLevel`](#consistencylevel)] |
+| `consistency` | Optional[[`ConsistencyLevel`](#consistencylevel) &#124; Literal['indexed', 'strong']] |
 
 **Returns**
 
@@ -3497,7 +3497,11 @@ dict[str, dict[str, Any]]
 ###### count()
 
 ```python
-count(self, lsn: Optional[str] = None, consistency: Optional[ConsistencyLevel] = None) -> int
+count(
+   self,
+   lsn: Optional[str] = None,
+   consistency: Optional[ConsistencyLevel | Literal['indexed', 'strong']] = None
+)
 ```
 
 Get the count of documents in the collection.
@@ -3507,7 +3511,7 @@ Get the count of documents in the collection.
 | Parameter | Type |
 | --------- | ---- |
 | `lsn` | Optional[str] |
-| `consistency` | Optional[[`ConsistencyLevel`](#consistencylevel)] |
+| `consistency` | Optional[[`ConsistencyLevel`](#consistencylevel) &#124; Literal['indexed', 'strong']] |
 
 **Returns**
 
@@ -3522,7 +3526,7 @@ query(
    self,
    query: query.Query,
    lsn: Optional[str] = None,
-   consistency: Optional[ConsistencyLevel] = None
+   consistency: Optional[ConsistencyLevel | Literal['indexed', 'strong']] = None
 )
 ```
 
@@ -3534,7 +3538,7 @@ Execute a query against the collection.
 | --------- | ---- |
 | `query` | [`query.Query`](/sdk/topk-py/query#query) |
 | `lsn` | Optional[str] |
-| `consistency` | Optional[[`ConsistencyLevel`](#consistencylevel)] |
+| `consistency` | Optional[[`ConsistencyLevel`](#consistencylevel) &#124; Literal['indexed', 'strong']] |
 
 **Returns**
 
@@ -3637,7 +3641,7 @@ get(
    ids: Sequence[str],
    fields: Optional[Sequence[str]] = None,
    lsn: Optional[str] = None,
-   consistency: Optional[ConsistencyLevel] = None
+   consistency: Optional[ConsistencyLevel | Literal['indexed', 'strong']] = None
 )
 ```
 
@@ -3650,7 +3654,7 @@ Get documents by their IDs asynchronously.
 | `ids` | Sequence[str] |
 | `fields` | Optional[Sequence[str]] |
 | `lsn` | Optional[str] |
-| `consistency` | Optional[[`ConsistencyLevel`](#consistencylevel)] |
+| `consistency` | Optional[[`ConsistencyLevel`](#consistencylevel) &#124; Literal['indexed', 'strong']] |
 
 **Returns**
 
@@ -3664,7 +3668,7 @@ Awaitable[dict[str, dict[str, Any]]]
 count(
    self,
    lsn: Optional[str] = None,
-   consistency: Optional[ConsistencyLevel] = None
+   consistency: Optional[ConsistencyLevel | Literal['indexed', 'strong']] = None
 )
 ```
 
@@ -3675,7 +3679,7 @@ Get the count of documents in the collection asynchronously.
 | Parameter | Type |
 | --------- | ---- |
 | `lsn` | Optional[str] |
-| `consistency` | Optional[[`ConsistencyLevel`](#consistencylevel)] |
+| `consistency` | Optional[[`ConsistencyLevel`](#consistencylevel) &#124; Literal['indexed', 'strong']] |
 
 **Returns**
 
@@ -3690,7 +3694,7 @@ query(
    self,
    query: query.Query,
    lsn: Optional[str] = None,
-   consistency: Optional[ConsistencyLevel] = None
+   consistency: Optional[ConsistencyLevel | Literal['indexed', 'strong']] = None
 )
 ```
 
@@ -3702,7 +3706,7 @@ Execute a query against the collection asynchronously.
 | --------- | ---- |
 | `query` | [`query.Query`](/sdk/topk-py/query#query) |
 | `lsn` | Optional[str] |
-| `consistency` | Optional[[`ConsistencyLevel`](#consistencylevel)] |
+| `consistency` | Optional[[`ConsistencyLevel`](#consistencylevel) &#124; Literal['indexed', 'strong']] |
 
 **Returns**
 
@@ -4673,14 +4677,15 @@ Iterator for asynchronous dataset list responses.
 
 ##### ConsistencyLevel
 
-Enumeration of consistency levels for operations.
+Consistency level for read operations.
 
-**Values**
+**Properties**
 
-| Value | Description |
-| ----- | ----------- |
-| `Indexed` | `indexed` |
-| `Strong` | `strong` |
+| Property | Type |             |
+| -------- | ---- | ----------- |
+| `Indexed` | [`ConsistencyLevel`](#consistencylevel) |  |
+| `Strong` | [`ConsistencyLevel`](#consistencylevel) |  |
+
 ##### WaitConfig
 
 Configuration for polling when waiting for a handle to be processed.
