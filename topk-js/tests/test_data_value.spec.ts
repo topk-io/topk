@@ -1,4 +1,4 @@
-import { bytes, f32List, f64List, i32List, i64List, stringList, u32List } from "../lib/data";
+import { bytes, f32List, f64List, i32List, i64List, stringList, struct, u32List } from "../lib/data";
 
 const TYPE_ERROR_BYTES = "Invalid bytes value, must be `number[]` or `Buffer`";
 const TYPE_ERROR_STRING_TO_INT32 =
@@ -142,5 +142,72 @@ describe("list", () => {
     expect(() => stringList(BigInt(1) as any)).toThrow();
     expect(() => stringList({ 1: 256 } as any)).toThrow();
     expect(() => stringList({ 1: -1 } as any)).toThrow();
+  });
+});
+
+describe("struct (data)", () => {
+  test("plain object accepted", () => {
+    expect(() => struct({})).not.toThrow();
+    expect(() => struct({ key: "value" })).not.toThrow();
+    expect(() => struct({ a: 1, b: true, c: "s" })).not.toThrow();
+  });
+
+  test("nested plain object accepted", () => {
+    expect(() => struct({ nested: { key: "value" } })).not.toThrow();
+  });
+
+  test("rejects Date instance", () => {
+    expect(() => struct(new Date() as any)).toThrow(
+      "struct() expects a plain object, got 'Date' instance"
+    );
+  });
+
+  test("rejects Map instance", () => {
+    expect(() => struct(new Map() as any)).toThrow(
+      "struct() expects a plain object, got 'Map' instance"
+    );
+  });
+
+  test("rejects Set instance", () => {
+    expect(() => struct(new Set() as any)).toThrow(
+      "struct() expects a plain object, got 'Set' instance"
+    );
+  });
+
+  test("rejects class instance", () => {
+    class Foo {
+      bar = 1;
+    }
+    expect(() => struct(new Foo() as any)).toThrow(
+      "struct() expects a plain object, got 'Foo' instance"
+    );
+  });
+
+  test("rejects arrays at top level", () => {
+    expect(() => struct([1, 2, 3] as any)).toThrow(
+      "struct() expects a plain object, not an array"
+    );
+    expect(() => struct([{ a: 1 }] as any)).toThrow(
+      "struct() expects a plain object, not an array"
+    );
+  });
+
+  test("rejects numeric string keys", () => {
+    expect(() => struct({ "0": "val" } as any)).toThrow(
+      "Struct field names must not be numeric indices"
+    );
+  });
+
+  test("rejects array as nested field value", () => {
+    // Arrays of objects that slip past f32/string list checks should be caught.
+    expect(() => struct({ data: [{ a: 1 }] as any })).toThrow(
+      "Arrays are not valid struct values"
+    );
+  });
+
+  test("rejects nested non-plain object", () => {
+    expect(() => struct({ meta: new Date() as any })).toThrow(
+      "Unsupported object type 'Date'"
+    );
   });
 });

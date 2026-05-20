@@ -32,6 +32,16 @@ class Matrix:
 
     ...
 
+class Struct:
+    """
+    *Internal*
+
+    Instances of the `Struct` class are used to represent nested object values in TopK.
+    Usually created using the [`struct()`](#struct) helper.
+    """
+
+    ...
+
 def f8_vector(data: builtins.list[float]) -> List:
     """
     Create a [List](https://docs.topk.io/sdk/topk-py/data#List) type containing a 8-bit float vector.
@@ -238,6 +248,20 @@ def string_list(data: builtins.list[str]) -> List:
     from topk_sdk.data import string_list
 
     string_list(["foo", "bar", "baz"])
+    ```
+    """
+    ...
+
+def struct(fields: builtins.dict[str, typing.Any]) -> Struct:
+    """
+    Create a [Struct](https://docs.topk.io/sdk/topk-py/data#Struct) type containing nested object values.
+
+    Example:
+
+    ```python
+    from topk_sdk.data import struct
+
+    struct({"author": "alice", "year": 2024})
     ```
     """
     ...

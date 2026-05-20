@@ -2,11 +2,69 @@ use super::vector::SparseVector;
 use crate::data::{
     list::{List, Values},
     matrix::{Matrix, MatrixValueType, MatrixValues},
+    r#struct::Struct,
     vector::{SparseVectorData, SparseVectorUnion},
 };
 use napi::{bindgen_prelude::*, sys::napi_is_buffer};
+use std::{collections::HashMap, ffi::CString, ptr};
 
-#[derive(Debug, Clone)]
+/// Validates and deserializes a plain JS object into struct fields.
+/// Rejects arrays, Date, Map, Set, and class instances at the JS boundary.
+pub(crate) struct PlainJsObject {
+    pub(crate) fields: HashMap<String, Value>,
+}
+
+impl FromNapiValue for PlainJsObject {
+    unsafe fn from_napi_value(
+        env: napi::sys::napi_env,
+        napi_val: napi::sys::napi_value,
+    ) -> napi::Result<Self> {
+        let mut is_array = false;
+        check_status!(napi::sys::napi_is_array(env, napi_val, &mut is_array))?;
+        if is_array {
+            return Err(napi::Error::from_reason(
+                "struct() expects a plain object, not an array".to_string(),
+            ));
+        }
+
+        let object = Object::from_napi_value(env, napi_val)?;
+
+        // Reject non-plain objects (Date, Map, Set, class instances).
+        if let Ok(ctor) = object.get_named_property::<Unknown>("constructor") {
+            let ctor_napi = Unknown::to_napi_value(env, ctor)?;
+            let mut ctor_type: i32 = 0;
+            check_status!(napi::sys::napi_typeof(env, ctor_napi, &mut ctor_type))?;
+            if ctor_type == napi::sys::ValueType::napi_function {
+                if let Ok(ctor_obj) = Object::from_napi_value(env, ctor_napi) {
+                    if let Ok(name) = ctor_obj.get_named_property::<String>("name") {
+                        if name != "Object" {
+                            return Err(napi::Error::from_reason(format!(
+                                "struct() expects a plain object, got '{}' instance",
+                                name
+                            )));
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut fields = HashMap::new();
+        for key in Object::keys(&object)? {
+            if key.parse::<u32>().is_ok() {
+                return Err(napi::Error::from_reason(
+                    "Struct field names must not be numeric indices".to_string(),
+                ));
+            }
+            let raw = object.get_named_property_unchecked::<Unknown>(&key)?;
+            let value = Unknown::to_napi_value(env, raw)?;
+            fields.insert(key, Value::from_napi_value(env, value)?);
+        }
+
+        Ok(PlainJsObject { fields })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Null,
     Bool(bool),
@@ -20,6 +78,7 @@ pub enum Value {
     Bytes(Vec<u8>),
     List(List),
     Matrix(Matrix),
+    Struct(HashMap<String, Value>),
 }
 
 impl From<i64> for Value {
@@ -145,6 +204,9 @@ impl From<Value> for topk_rs::proto::v1::data::Value {
                 Values::String(v) => topk_rs::proto::v1::data::Value::list(v),
             },
             Value::Matrix(m) => m.into(),
+            Value::Struct(fields) => topk_rs::proto::v1::data::Value::r#struct(
+                fields.into_iter().map(|(k, v)| (k, v.into())),
+            ),
         }
     }
 }
@@ -261,8 +323,8 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
 
                 Value::Matrix(Matrix { num_cols, values })
             }
-            Some(topk_rs::proto::v1::data::value::Value::Struct(..)) => {
-                todo!()
+            Some(topk_rs::proto::v1::data::value::Value::Struct(s)) => {
+                Value::Struct(s.fields.into_iter().map(|(k, v)| (k, v.into())).collect())
             }
             None => unreachable!("Invalid value proto"),
         }
@@ -284,6 +346,10 @@ impl FromNapiValue for Value {
 
         if let Ok(sparse_vector) = crate::try_cast_ref!(env, value, SparseVector) {
             return Ok(Value::SparseVector(sparse_vector.clone()));
+        }
+
+        if let Ok(struct_value) = crate::try_cast_ref!(env, value, Struct) {
+            return Ok(Value::Struct(struct_value.fields.clone()));
         }
 
         let mut result: i32 = 0;
@@ -317,16 +383,6 @@ impl FromNapiValue for Value {
                     )?));
                 }
 
-                // Sparse vectors (all "naked" sparse vectors are interpreted as f32)
-                if let Ok(sparse_vector) = SparseVectorData::<f64>::from_napi_value(env, value) {
-                    return Ok(Value::SparseVector(SparseVector::float(
-                        sparse_vector
-                            .into_iter()
-                            .map(|(i, v)| (i, v as f32))
-                            .collect(),
-                    )));
-                }
-
                 // List of strings
                 if let Ok(list) = Vec::<String>::from_napi_value(env, value) {
                     return Ok(Value::List(List {
@@ -339,9 +395,63 @@ impl FromNapiValue for Value {
                     return Ok(Value::Bytes(bytes.into()));
                 }
 
-                return Err(napi::Error::from_reason(
-                    "Unsupported object type".to_string(),
-                ));
+                // Arrays of objects/mixed types slip past the f32/string list checks above.
+                let mut is_array = false;
+                check_status!(napi::sys::napi_is_array(env, value, &mut is_array))?;
+                if is_array {
+                    return Err(napi::Error::from_reason(
+                        "Arrays are not valid struct values; use a typed list constructor instead"
+                            .to_string(),
+                    ));
+                }
+
+                let object = Object::from_napi_value(env, value)?;
+
+                // Must precede sparse vector check: objects with no enumerable keys (e.g. Date)
+                // would otherwise become empty sparse vectors.
+                if let Ok(ctor) = object.get_named_property::<Unknown>("constructor") {
+                    let ctor_napi = Unknown::to_napi_value(env, ctor)?;
+                    let mut ctor_type: i32 = 0;
+                    check_status!(napi::sys::napi_typeof(env, ctor_napi, &mut ctor_type))?;
+                    if ctor_type == napi::sys::ValueType::napi_function {
+                        if let Ok(ctor_obj) = Object::from_napi_value(env, ctor_napi) {
+                            if let Ok(name) = ctor_obj.get_named_property::<String>("name") {
+                                if name != "Object" {
+                                    return Err(napi::Error::from_reason(format!(
+                                        "Unsupported object type '{}'",
+                                        name
+                                    )));
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Sparse vectors (all "naked" sparse vectors are interpreted as f32)
+                if let Ok(sparse_vector) = SparseVectorData::<f64>::from_napi_value(env, value) {
+                    return Ok(Value::SparseVector(SparseVector::float(
+                        sparse_vector
+                            .into_iter()
+                            .map(|(i, v)| (i, v as f32))
+                            .collect(),
+                    )));
+                }
+
+                let mut fields = HashMap::new();
+
+                for key in Object::keys(&object)? {
+                    if key.parse::<u32>().is_ok() {
+                        return Err(napi::Error::from_reason(
+                            "Struct field names must not be numeric indices".to_string(),
+                        ));
+                    }
+
+                    let raw = object.get_named_property_unchecked::<Unknown>(&key)?;
+                    let value = Unknown::to_napi_value(env, raw)?;
+                    fields.insert(key, Value::from_napi_value(env, value)?);
+                }
+
+                return Ok(Value::Struct(fields));
             }
             _ => Err(napi::Error::from_reason(format!(
                 "Unsupported napi value type: {:?}",
@@ -417,6 +527,29 @@ impl ToNapiValue for Value {
                 };
 
                 Vec::<Vec<f64>>::to_napi_value(env, rows)
+            }
+            Value::Struct(fields) => {
+                let mut object = ptr::null_mut();
+                check_status!(
+                    napi::sys::napi_create_object(env, &mut object),
+                    "Failed to create JavaScript object"
+                )?;
+
+                for (key, value) in fields {
+                    let key = CString::new(key).map_err(|_| {
+                        napi::Error::from_reason(
+                            "Struct field name contains an embedded null byte".to_string(),
+                        )
+                    })?;
+                    let value = Value::to_napi_value(env, value)?;
+
+                    check_status!(
+                        napi::sys::napi_set_named_property(env, object, key.as_ptr(), value),
+                        "Failed to set property"
+                    )?;
+                }
+
+                Ok(object)
             }
         }
     }

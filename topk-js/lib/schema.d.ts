@@ -10,6 +10,7 @@ export declare const float: typeof schema.float;
 export declare const int: typeof schema.int;
 export declare const keywordIndex: typeof schema.keywordIndex;
 export declare const list: typeof schema.list;
+export declare const struct: typeof schema.struct;
 export declare const semanticIndex: typeof schema.semanticIndex;
 export declare const multiVectorIndex: typeof schema.multiVectorIndex;
 export declare const text: typeof schema.text;

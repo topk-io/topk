@@ -25,6 +25,13 @@ title: topk_sdk.data
     Instances of the `Matrix` class are used to represent matrices in TopK.
     Usually created using data constructors such as [`matrix()`](#matrix-2).
 
+### Struct
+
+*Internal*
+
+    Instances of the `Struct` class are used to represent nested object values in TopK.
+    Usually created using the [`struct()`](#struct) helper.
+
 ## Functions
 
 ### f8_vector()
@@ -444,6 +451,34 @@ Create a [List](/sdk/topk-py/data#List) type containing a list of strings.
 **Returns**
 
 [`List`](#list)
+
+***
+
+### struct()
+
+```python
+struct(fields: dict[str, Any]) -> Struct
+```
+
+Create a [Struct](/sdk/topk-py/data#Struct) type containing nested object values.
+
+    Example:
+
+    ```python
+    from topk_sdk.data import struct
+
+    struct({"author": "alice", "year": 2024})
+    ```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `fields` | dict[str, Any] |
+
+**Returns**
+
+[`Struct`](#struct)
 
 ***
 

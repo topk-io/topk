@@ -1,4 +1,7 @@
 use napi_derive::napi;
+use std::collections::HashMap;
+
+use crate::schema::field_spec::FieldSpec;
 
 /// @ignore
 #[napi(string_enum, namespace = "schema")]
@@ -34,6 +37,9 @@ pub enum DataType {
     Bytes,
     List {
         value_type: ListValueType,
+    },
+    Struct {
+        fields: HashMap<String, FieldSpec>,
     },
     Matrix {
         dimension: u32,
@@ -199,6 +205,9 @@ impl From<topk_rs::proto::v1::control::FieldType> for DataType {
                 topk_rs::proto::v1::control::field_type::DataType::Bytes(_) => DataType::Bytes,
                 topk_rs::proto::v1::control::field_type::DataType::List(list) => DataType::List {
                     value_type: list.value_type().into(),
+                },
+                topk_rs::proto::v1::control::field_type::DataType::Struct(s) => DataType::Struct {
+                    fields: s.fields.into_iter().map(|(k, v)| (k, v.into())).collect(),
                 },
                 topk_rs::proto::v1::control::field_type::DataType::Matrix(matrix) => {
                     DataType::Matrix {

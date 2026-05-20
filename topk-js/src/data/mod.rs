@@ -12,16 +12,19 @@ mod matrix;
 pub use matrix::Matrix;
 pub use matrix::MatrixValueType;
 
+mod r#struct;
+pub use r#struct::Struct;
+
 mod value;
 pub use value::NativeValue;
 pub use value::Value;
+use value::{BytesData, PlainJsObject};
 
 mod vector;
 pub use vector::SparseVector;
 use vector::SparseVectorData;
 
 use napi_derive::napi;
-use value::BytesData;
 
 /// Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing bytes data.
 ///
@@ -231,6 +234,22 @@ pub fn f64_list(values: Vec<f64>) -> List {
 pub fn string_list(values: Vec<String>) -> List {
     List {
         values: Values::String(values),
+    }
+}
+
+/// Creates a [Struct](https://docs.topk.io/sdk/topk-js/data#Struct) type containing nested object values.
+///
+/// Example:
+///
+/// ```javascript
+/// import { struct } from "topk-js/data";
+///
+/// struct({ author: "alice", year: 2024 })
+/// ```
+#[napi(js_name = "struct", namespace = "data")]
+pub fn struct_(#[napi(ts_arg_type = "Record<string, any>")] fields: PlainJsObject) -> Struct {
+    Struct {
+        fields: fields.fields,
     }
 }
 

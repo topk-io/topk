@@ -5,7 +5,7 @@ use napi_derive::napi;
 /// @internal
 /// @hideconstructor
 #[napi(namespace = "schema")]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct FieldSpec {
     data_type: DataType,
     required: bool,
@@ -112,6 +112,9 @@ impl From<FieldSpec> for topk_rs::proto::v1::control::FieldSpec {
                     DataType::List { value_type } => {
                         topk_rs::proto::v1::control::field_type::DataType::List(value_type.into())
                     }
+                    DataType::Struct { fields } => topk_rs::proto::v1::control::field_type::DataType::r#struct(
+                        fields.into_iter().map(|(k, v)| (k, v.into())),
+                    ),
                     DataType::Matrix {
                         dimension,
                         value_type,
@@ -123,6 +126,19 @@ impl From<FieldSpec> for topk_rs::proto::v1::control::FieldSpec {
             }),
             required: field_spec.required,
             index: field_spec.index.map(|idx| idx.into()),
+        }
+    }
+}
+
+impl From<topk_rs::proto::v1::control::FieldSpec> for FieldSpec {
+    fn from(proto: topk_rs::proto::v1::control::FieldSpec) -> Self {
+        Self {
+            data_type: proto
+                .data_type
+                .map(DataType::from)
+                .expect("data_type is required"),
+            required: proto.required,
+            index: proto.index.map(|idx| idx.into()),
         }
     }
 }
