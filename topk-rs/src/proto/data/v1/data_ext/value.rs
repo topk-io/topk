@@ -587,6 +587,12 @@ impl From<HashMap<String, Value>> for Value {
     }
 }
 
+impl<const N: usize, K: Into<String>, V: Into<Value>> From<[(K, V); N]> for Value {
+    fn from(arr: [(K, V); N]) -> Self {
+        Value::r#struct(arr.into_iter().map(|(k, v)| (k.into(), v.into())))
+    }
+}
+
 impl<T: Into<Value>> From<Option<T>> for Value {
     fn from(value: Option<T>) -> Self {
         match value {
