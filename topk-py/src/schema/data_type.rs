@@ -1,4 +1,8 @@
+use std::collections::HashMap;
+
 use pyo3::prelude::*;
+
+use crate::schema::field_spec::FieldSpec;
 
 #[pyclass(eq)]
 #[derive(Debug, Clone, PartialEq)]
@@ -33,6 +37,9 @@ pub enum DataType {
     Bytes(),
     List {
         value_type: ListValueType,
+    },
+    Struct {
+        fields: HashMap<String, FieldSpec>,
     },
     Matrix {
         dimension: u32,
@@ -187,6 +194,11 @@ impl Into<topk_rs::proto::v1::control::field_type::DataType> for DataType {
             DataType::List { value_type } => {
                 topk_rs::proto::v1::control::field_type::DataType::List(value_type.into())
             }
+            DataType::Struct { fields } => {
+                topk_rs::proto::v1::control::field_type::DataType::r#struct(
+                    fields.into_iter().map(|(k, v)| (k, v.into())),
+                )
+            }
             DataType::Matrix {
                 dimension,
                 value_type,
@@ -261,6 +273,9 @@ impl From<topk_rs::proto::v1::control::field_type::DataType> for DataType {
             topk_rs::proto::v1::control::field_type::DataType::Bytes(_) => DataType::Bytes(),
             topk_rs::proto::v1::control::field_type::DataType::List(list) => DataType::List {
                 value_type: list.value_type().into(),
+            },
+            topk_rs::proto::v1::control::field_type::DataType::Struct(s) => DataType::Struct {
+                fields: s.fields.into_iter().map(|(k, v)| (k, v.into())).collect(),
             },
             topk_rs::proto::v1::control::field_type::DataType::Matrix(matrix) => DataType::Matrix {
                 dimension: matrix.dimension,

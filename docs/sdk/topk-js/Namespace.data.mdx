@@ -377,6 +377,34 @@ stringList(["foo", "bar", "baz"])
 
 ***
 
+### struct()
+
+```ts
+function struct(fields: Record<string, any>): Struct;
+```
+
+Creates a [Struct](https://docs.topk.io/sdk/topk-js/data#Struct) type containing nested object values.
+
+Example:
+
+```javascript
+import { struct } from "topk-js/data";
+
+struct({ author: "alice", year: 2024 })
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `fields` | `Record`\<`string`, `any`\> |
+
+**Returns**
+
+[`Struct`](/sdk/topk-js/Namespace.data#struct)
+
+***
+
 ### u32List()
 
 ```ts
@@ -485,6 +513,15 @@ Usually created using data constructors such as [`matrix()`](#matrix).
 
 Instances of the `SparseVector` class are used to represent sparse vectors in TopK.
 Usually created using data constructors such as [`f32_sparse_vector()`](#f32sparsevector) or [`u8_sparse_vector()`](#u8sparsevector).
+
+***
+
+### Struct
+
+**`Internal`**
+
+Instances of the `Struct` class are used to represent nested object values in TopK.
+Usually created using the [`struct()`](https://docs.topk.io/sdk/topk-js/data#struct-2) helper.
 
 ## Type Aliases
 

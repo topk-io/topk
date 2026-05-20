@@ -431,6 +431,16 @@ export declare namespace data {
     toString(): string
   }
   /**
+   * @internal
+   * @hideconstructor
+   * Instances of the `Struct` class are used to represent nested object values in TopK.
+   * Usually created using the [`struct()`](https://docs.topk.io/sdk/topk-js/data#struct-2) helper.
+   */
+  export class Struct {
+    /** @ignore */
+    toString(): string
+  }
+  /**
    * Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a binary vector. This function is an alias for [binaryList()](https://docs.topk.io/sdk/topk-js/data#binarylist).
    *
    * Example:
@@ -598,6 +608,18 @@ export declare namespace data {
    * ```
    */
   export function stringList(values: Array<string>): List
+  /**
+   * Creates a [Struct](https://docs.topk.io/sdk/topk-js/data#Struct) type containing nested object values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { struct } from "topk-js/data";
+   *
+   * struct({ author: "alice", year: 2024 })
+   * ```
+   */
+  export function struct(fields: Record<string, any>): Struct
   /**
    * Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a list of 32-bit unsigned integers.
    *
@@ -1000,6 +1022,7 @@ export declare namespace schema {
     | { type: 'U8SparseVector' }
     | { type: 'Bytes' }
     | { type: 'List', valueType: ListValueType }
+    | { type: 'Struct', fields: Record<string, FieldSpec> }
     | { type: 'Matrix', dimension: number, valueType: MatrixValueType }
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `f16_vector` values.
@@ -1232,6 +1255,20 @@ export declare namespace schema {
    * ```
    */
   export function semanticIndex(): FieldIndex
+  /**
+   * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `struct` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { struct, text, int } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   meta: struct({ author: text(), year: int() })
+   * });
+   * ```
+   */
+  export function struct(fields: Record<string, schema.FieldSpec>): FieldSpec
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `text` values.
    *

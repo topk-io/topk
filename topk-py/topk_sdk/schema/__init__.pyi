@@ -14,7 +14,7 @@ class FieldSpec:
     """
     *Internal*
 
-    Instances of the `FieldSpec` class represents a field specification created by [`text`](#text), [`int`](#int), [`float`](#float), [`bool`](#bool), [`f32_vector`](#f32-vector), [`u8_vector`](#u8-vector), [`i8_vector`](#i8-vector), [`binary_vector`](#binary-vector), [`f32_sparse_vector`](#f32-sparse-vector), [`u8_sparse_vector`](#u8-sparse-vector), [`bytes`](#bytes), [`list`](#list), or [`matrix`](#matrix) functions.
+    Instances of the `FieldSpec` class represents a field specification created by [`text`](#text), [`int`](#int), [`float`](#float), [`bool`](#bool), [`f32_vector`](#f32-vector), [`u8_vector`](#u8-vector), [`i8_vector`](#i8-vector), [`binary_vector`](#binary-vector), [`f32_sparse_vector`](#f32-sparse-vector), [`u8_sparse_vector`](#u8-sparse-vector), [`bytes`](#bytes), [`list`](#list), [`struct`](#struct), or [`matrix`](#matrix) functions.
     """
 
     def required(self) -> FieldSpec:
@@ -263,6 +263,22 @@ def list(value_type: typing.Literal["text", "integer", "float"]) -> FieldSpec:
 
     client.collections().create("books", schema={
         "tags": list(value_type="text")
+    })
+    ```
+    """
+    ...
+
+def struct(fields: builtins.dict[str, FieldSpec]) -> FieldSpec:
+    """
+    Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `struct` values.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import int, struct, text
+
+    client.collections().create("books", schema={
+        "meta": struct({"author": text(), "year": int()})
     })
     ```
     """

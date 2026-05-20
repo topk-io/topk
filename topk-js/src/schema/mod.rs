@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 pub mod data_type;
 pub mod field_index;
 pub mod field_spec;
@@ -74,6 +76,24 @@ pub fn float() -> FieldSpec {
 #[napi(namespace = "schema")]
 pub fn bool() -> FieldSpec {
     FieldSpec::create(DataType::Boolean {})
+}
+
+/// Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `struct` values.
+///
+/// Example:
+///
+/// ```javascript
+/// import { struct, text, int } from "topk-js/schema";
+///
+/// await client.collections().create("books", {
+///   meta: struct({ author: text(), year: int() })
+/// });
+/// ```
+#[napi(js_name = "struct", namespace = "schema")]
+pub fn struct_(
+    #[napi(ts_arg_type = "Record<string, schema.FieldSpec>")] fields: HashMap<String, FieldSpec>,
+) -> FieldSpec {
+    FieldSpec::create(DataType::Struct { fields })
 }
 
 /// Options for vector field specifications.

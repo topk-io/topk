@@ -68,6 +68,7 @@ pub fn topk_sdk(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<client::RetryConfig>()?;
     m.add_class::<client::BackoffConfig>()?;
     m.add_class::<client::WaitConfig>()?;
+    m.add_class::<query::ConsistencyLevel>()?;
 
     m.add_class::<data::ask::Answer>()?;
     m.add_class::<data::ask::SearchResult>()?;

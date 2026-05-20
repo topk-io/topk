@@ -86,7 +86,7 @@ describe("Expression Tests", () => {
       "Unsupported numeric type"
     );
     expect(() => field("a").add({ a: 1 } as any)).toThrow(
-      "Unsupported object type"
+      "Unsupported numeric type"
     );
   });
 

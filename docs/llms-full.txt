@@ -3473,7 +3473,7 @@ get(
    ids: Sequence[str],
    fields: Optional[Sequence[str]] = None,
    lsn: Optional[str] = None,
-   consistency: Optional[ConsistencyLevel] = None
+   consistency: Optional[ConsistencyLevel | Literal['indexed', 'strong']] = None
 )
 ```
 
@@ -3486,7 +3486,7 @@ Get documents by their IDs.
 | `ids` | Sequence[str] |
 | `fields` | Optional[Sequence[str]] |
 | `lsn` | Optional[str] |
-| `consistency` | Optional[[`ConsistencyLevel`](#consistencylevel)] |
+| `consistency` | Optional[[`ConsistencyLevel`](#consistencylevel) &#124; Literal['indexed', 'strong']] |
 
 **Returns**
 
@@ -3497,7 +3497,11 @@ dict[str, dict[str, Any]]
 ###### count()
 
 ```python
-count(self, lsn: Optional[str] = None, consistency: Optional[ConsistencyLevel] = None) -> int
+count(
+   self,
+   lsn: Optional[str] = None,
+   consistency: Optional[ConsistencyLevel | Literal['indexed', 'strong']] = None
+)
 ```
 
 Get the count of documents in the collection.
@@ -3507,7 +3511,7 @@ Get the count of documents in the collection.
 | Parameter | Type |
 | --------- | ---- |
 | `lsn` | Optional[str] |
-| `consistency` | Optional[[`ConsistencyLevel`](#consistencylevel)] |
+| `consistency` | Optional[[`ConsistencyLevel`](#consistencylevel) &#124; Literal['indexed', 'strong']] |
 
 **Returns**
 
@@ -3522,7 +3526,7 @@ query(
    self,
    query: query.Query,
    lsn: Optional[str] = None,
-   consistency: Optional[ConsistencyLevel] = None
+   consistency: Optional[ConsistencyLevel | Literal['indexed', 'strong']] = None
 )
 ```
 
@@ -3534,7 +3538,7 @@ Execute a query against the collection.
 | --------- | ---- |
 | `query` | [`query.Query`](/sdk/topk-py/query#query) |
 | `lsn` | Optional[str] |
-| `consistency` | Optional[[`ConsistencyLevel`](#consistencylevel)] |
+| `consistency` | Optional[[`ConsistencyLevel`](#consistencylevel) &#124; Literal['indexed', 'strong']] |
 
 **Returns**
 
@@ -3637,7 +3641,7 @@ get(
    ids: Sequence[str],
    fields: Optional[Sequence[str]] = None,
    lsn: Optional[str] = None,
-   consistency: Optional[ConsistencyLevel] = None
+   consistency: Optional[ConsistencyLevel | Literal['indexed', 'strong']] = None
 )
 ```
 
@@ -3650,7 +3654,7 @@ Get documents by their IDs asynchronously.
 | `ids` | Sequence[str] |
 | `fields` | Optional[Sequence[str]] |
 | `lsn` | Optional[str] |
-| `consistency` | Optional[[`ConsistencyLevel`](#consistencylevel)] |
+| `consistency` | Optional[[`ConsistencyLevel`](#consistencylevel) &#124; Literal['indexed', 'strong']] |
 
 **Returns**
 
@@ -3664,7 +3668,7 @@ Awaitable[dict[str, dict[str, Any]]]
 count(
    self,
    lsn: Optional[str] = None,
-   consistency: Optional[ConsistencyLevel] = None
+   consistency: Optional[ConsistencyLevel | Literal['indexed', 'strong']] = None
 )
 ```
 
@@ -3675,7 +3679,7 @@ Get the count of documents in the collection asynchronously.
 | Parameter | Type |
 | --------- | ---- |
 | `lsn` | Optional[str] |
-| `consistency` | Optional[[`ConsistencyLevel`](#consistencylevel)] |
+| `consistency` | Optional[[`ConsistencyLevel`](#consistencylevel) &#124; Literal['indexed', 'strong']] |
 
 **Returns**
 
@@ -3690,7 +3694,7 @@ query(
    self,
    query: query.Query,
    lsn: Optional[str] = None,
-   consistency: Optional[ConsistencyLevel] = None
+   consistency: Optional[ConsistencyLevel | Literal['indexed', 'strong']] = None
 )
 ```
 
@@ -3702,7 +3706,7 @@ Execute a query against the collection asynchronously.
 | --------- | ---- |
 | `query` | [`query.Query`](/sdk/topk-py/query#query) |
 | `lsn` | Optional[str] |
-| `consistency` | Optional[[`ConsistencyLevel`](#consistencylevel)] |
+| `consistency` | Optional[[`ConsistencyLevel`](#consistencylevel) &#124; Literal['indexed', 'strong']] |
 
 **Returns**
 
@@ -4673,14 +4677,15 @@ Iterator for asynchronous dataset list responses.
 
 ##### ConsistencyLevel
 
-Enumeration of consistency levels for operations.
+Consistency level for read operations.
 
-**Values**
+**Properties**
 
-| Value | Description |
-| ----- | ----------- |
-| `Indexed` | `indexed` |
-| `Strong` | `strong` |
+| Property | Type |             |
+| -------- | ---- | ----------- |
+| `Indexed` | [`ConsistencyLevel`](#consistencylevel) |  |
+| `Strong` | [`ConsistencyLevel`](#consistencylevel) |  |
+
 ##### WaitConfig
 
 Configuration for polling when waiting for a handle to be processed.
@@ -4801,6 +4806,13 @@ URL: https://docs.topk.io/sdk/topk-py/data
 
     Instances of the `Matrix` class are used to represent matrices in TopK.
     Usually created using data constructors such as [`matrix()`](#matrix-2).
+
+##### Struct
+
+*Internal*
+
+    Instances of the `Struct` class are used to represent nested object values in TopK.
+    Usually created using the [`struct()`](#struct) helper.
 
 #### Functions
 
@@ -5221,6 +5233,34 @@ Create a [List](/sdk/topk-py/data#List) type containing a list of strings.
 **Returns**
 
 [`List`](#list)
+
+***
+
+##### struct()
+
+```python
+struct(fields: dict[str, Any]) -> Struct
+```
+
+Create a [Struct](/sdk/topk-py/data#Struct) type containing nested object values.
+
+    Example:
+
+    ```python
+    from topk_sdk.data import struct
+
+    struct({"author": "alice", "year": 2024})
+    ```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `fields` | dict[str, Any] |
+
+**Returns**
+
+[`Struct`](#struct)
 
 ***
 
@@ -6655,7 +6695,7 @@ URL: https://docs.topk.io/sdk/topk-py/schema
 
 *Internal*
 
-    Instances of the `FieldSpec` class represents a field specification created by [`text`](#text), [`int`](#int), [`float`](#float), [`bool`](#bool), [`f32_vector`](#f32-vector), [`u8_vector`](#u8-vector), [`i8_vector`](#i8-vector), [`binary_vector`](#binary-vector), [`f32_sparse_vector`](#f32-sparse-vector), [`u8_sparse_vector`](#u8-sparse-vector), [`bytes`](#bytes), [`list`](#list), or [`matrix`](#matrix) functions.
+    Instances of the `FieldSpec` class represents a field specification created by [`text`](#text), [`int`](#int), [`float`](#float), [`bool`](#bool), [`f32_vector`](#f32-vector), [`u8_vector`](#u8-vector), [`i8_vector`](#i8-vector), [`binary_vector`](#binary-vector), [`f32_sparse_vector`](#f32-sparse-vector), [`u8_sparse_vector`](#u8-sparse-vector), [`bytes`](#bytes), [`list`](#list), [`struct`](#struct), or [`matrix`](#matrix) functions.
 
 **Methods**
 
@@ -7092,6 +7132,36 @@ Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `list` values.
 | Parameter | Type |
 | --------- | ---- |
 | `value_type` | Literal['text', 'integer', 'float'] |
+
+**Returns**
+
+[`FieldSpec`](#fieldspec)
+
+***
+
+##### struct()
+
+```python
+struct(fields: dict[str, FieldSpec]) -> FieldSpec
+```
+
+Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `struct` values.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import int, struct, text
+
+    client.collections().create("books", schema={
+        "meta": struct({"author": text(), "year": int()})
+    })
+    ```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `fields` | dict[str, [`FieldSpec`](#fieldspec)] |
 
 **Returns**
 
@@ -8726,6 +8796,34 @@ stringList(["foo", "bar", "baz"])
 
 ***
 
+##### struct()
+
+```ts
+function struct(fields: Record<string, any>): Struct;
+```
+
+Creates a [Struct](https://docs.topk.io/sdk/topk-js/data#Struct) type containing nested object values.
+
+Example:
+
+```javascript
+import { struct } from "topk-js/data";
+
+struct({ author: "alice", year: 2024 })
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `fields` | `Record`\<`string`, `any`\> |
+
+**Returns**
+
+[`Struct`](/sdk/topk-js/Namespace.data#struct)
+
+***
+
 ##### u32List()
 
 ```ts
@@ -8834,6 +8932,15 @@ Usually created using data constructors such as [`matrix()`](#matrix).
 
 Instances of the `SparseVector` class are used to represent sparse vectors in TopK.
 Usually created using data constructors such as [`f32_sparse_vector()`](#f32sparsevector) or [`u8_sparse_vector()`](#u8sparsevector).
+
+***
+
+##### Struct
+
+**`Internal`**
+
+Instances of the `Struct` class are used to represent nested object values in TopK.
+Usually created using the [`struct()`](https://docs.topk.io/sdk/topk-js/data#struct-2) helper.
 
 #### Type Aliases
 
@@ -10524,6 +10631,36 @@ await client.collections().create("books", {
 **Returns**
 
 [`FieldIndex`](/sdk/topk-js/Namespace.schema#fieldindex)
+
+***
+
+##### struct()
+
+```ts
+function struct(fields: Record<string, FieldSpec>): FieldSpec;
+```
+
+Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `struct` values.
+
+Example:
+
+```javascript
+import { struct, text, int } from "topk-js/schema";
+
+await client.collections().create("books", {
+  meta: struct({ author: text(), year: int() })
+});
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `fields` | `Record`\<`string`, [`FieldSpec`](/sdk/topk-js/Namespace.schema#fieldspec)\> |
+
+**Returns**
+
+[`FieldSpec`](/sdk/topk-js/Namespace.schema#fieldspec)
 
 ***
 

@@ -5,10 +5,12 @@ use pyo3::{
     types::{PyBool, PyBytes, PyDict, PyFloat, PyInt, PyList, PyNone, PyString},
     IntoPyObjectExt,
 };
+use std::collections::HashMap;
 
 use crate::data::{
     list::{List, Values},
     matrix::{Matrix, MatrixValues},
+    r#struct::Struct,
     vector::F32SparseVector,
 };
 
@@ -25,6 +27,7 @@ pub enum Value {
     Bytes(Vec<u8>),
     List(List),
     Matrix(Matrix),
+    Struct(HashMap<String, Value>),
 }
 
 impl FromPyObject<'_, '_> for Value {
@@ -34,6 +37,8 @@ impl FromPyObject<'_, '_> for Value {
         // NOTE: it's safe to use `downcast` for custom types
         if let Ok(v) = obj.cast::<List>() {
             Ok(Value::List(v.borrow().clone()))
+        } else if let Ok(v) = obj.cast::<Struct>() {
+            Ok(Value::Struct(v.borrow().fields.clone()))
         // Check if the object is an instance of Matrix
         } else if let Ok(v) = obj.cast::<Matrix>() {
             Ok(Value::Matrix(v.borrow().clone()))
@@ -69,6 +74,18 @@ impl FromPyObject<'_, '_> for Value {
                 indices: v.indices,
                 values: v.values,
             }))
+        } else if let Ok(dict) = obj.cast_exact::<PyDict>() {
+            let mut fields = HashMap::with_capacity(dict.len());
+
+            for item in dict.items() {
+                let (key, value) = item.extract::<(Bound<'_, PyAny>, Bound<'_, PyAny>)>()?;
+                let key = key
+                    .extract::<String>()
+                    .map_err(|_| PyTypeError::new_err("Struct field names must be strings"))?;
+                fields.insert(key, value.extract::<Value>()?);
+            }
+
+            Ok(Value::Struct(fields))
         } else if let Ok(_) = obj.cast_exact::<PyNone>() {
             Ok(Value::Null())
         } else {
@@ -220,6 +237,13 @@ impl<'py> IntoPyObject<'py> for Value {
                 };
                 Ok(rows_list.into_py_any(py)?.into_bound(py))
             }
+            Value::Struct(fields) => {
+                let dict = PyDict::new(py);
+                for (key, value) in fields {
+                    dict.set_item(key, value.into_pyobject(py)?)?;
+                }
+                Ok(dict.into_py_any(py)?.into_bound(py))
+            }
         }
     }
 }
@@ -268,7 +292,28 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                             values: v.values,
                         }
                     }
-                    t => unreachable!("Unknown sparse vector type: {:?}", t),
+                    Some(topk_rs::proto::v1::data::sparse_vector::Values::F16(v)) => {
+                        let values: Vec<half::f16> = v.into();
+                        SparseVector::F32 {
+                            indices: sv.indices,
+                            values: values.iter().map(|x| x.to_f32()).collect(),
+                        }
+                    }
+                    Some(topk_rs::proto::v1::data::sparse_vector::Values::F8(v)) => {
+                        let values: Vec<float8::F8E4M3> = v.into();
+                        SparseVector::F32 {
+                            indices: sv.indices,
+                            values: values.iter().map(|x| x.to_f32()).collect(),
+                        }
+                    }
+                    Some(topk_rs::proto::v1::data::sparse_vector::Values::I8(v)) => {
+                        let values: Vec<i8> = v.into();
+                        SparseVector::F32 {
+                            indices: sv.indices,
+                            values: values.iter().map(|&x| x as f32).collect(),
+                        }
+                    }
+                    None => unreachable!("Invalid sparse vector proto"),
                 })
             }
             Some(topk_rs::proto::v1::data::value::Value::List(l)) => Value::List(List {
@@ -338,9 +383,12 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                     values: matrix_values,
                 })
             }
-            Some(topk_rs::proto::v1::data::value::Value::Struct(..)) => {
-                todo!()
-            }
+            Some(topk_rs::proto::v1::data::value::Value::Struct(s)) => Value::Struct(
+                s.fields
+                    .into_iter()
+                    .map(|(k, v)| (k, Value::from(v)))
+                    .collect(),
+            ),
             None => Value::Null(),
         }
     }
@@ -396,6 +444,9 @@ impl From<Value> for topk_rs::proto::v1::data::Value {
                 Values::String(values) => topk_rs::proto::v1::data::Value::list(values),
             },
             Value::Matrix(m) => m.into(),
+            Value::Struct(fields) => topk_rs::proto::v1::data::Value::r#struct(
+                fields.into_iter().map(|(k, v)| (k, v.into())),
+            ),
         }
     }
 }

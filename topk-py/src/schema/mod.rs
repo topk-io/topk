@@ -37,6 +37,7 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(f32_sparse_vector))?;
     m.add_wrapped(wrap_pyfunction!(u8_sparse_vector))?;
     m.add_wrapped(wrap_pyfunction!(list))?;
+    m.add_wrapped(wrap_pyfunction!(struct_))?;
     m.add_wrapped(wrap_pyfunction!(matrix))?;
 
     // indexes
@@ -130,6 +131,12 @@ pub fn list(value_type: String) -> PyResult<field_spec::FieldSpec> {
     Ok(field_spec::FieldSpec::new(data_type::DataType::List {
         value_type,
     }))
+}
+
+#[pyfunction]
+#[pyo3(name = "struct")]
+pub fn struct_(fields: HashMap<String, field_spec::FieldSpec>) -> field_spec::FieldSpec {
+    field_spec::FieldSpec::new(data_type::DataType::Struct { fields })
 }
 
 #[pyfunction]

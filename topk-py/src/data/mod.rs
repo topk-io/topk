@@ -1,10 +1,14 @@
-use crate::data::list::List;
-use crate::data::matrix::Matrix;
-use crate::data::value::Value;
-use crate::data::vector::{F32SparseVector, SparseVector, U8SparseVector};
+use std::collections::HashMap;
+
 use numpy::PyUntypedArray;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyList};
+
+use crate::data::list::List;
+use crate::data::matrix::Matrix;
+use crate::data::r#struct::Struct;
+use crate::data::value::Value;
+use crate::data::vector::{F32SparseVector, SparseVector, U8SparseVector};
 
 pub mod ask;
 pub mod collection;
@@ -13,6 +17,7 @@ pub mod file;
 pub mod list;
 pub mod list_entry;
 pub mod matrix;
+pub mod r#struct;
 pub mod value;
 pub mod vector;
 
@@ -27,6 +32,7 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<List>()?;
     m.add_class::<SparseVector>()?;
     m.add_class::<Matrix>()?;
+    m.add_class::<Struct>()?;
 
     // (Dense) Vectors
     m.add_wrapped(wrap_pyfunction!(f8_vector))?;
@@ -47,6 +53,7 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(f32_list))?;
     m.add_wrapped(wrap_pyfunction!(f64_list))?;
     m.add_wrapped(wrap_pyfunction!(string_list))?;
+    m.add_wrapped(wrap_pyfunction!(struct_))?;
     // Matrix
     m.add_wrapped(wrap_pyfunction!(matrix_))?;
 
@@ -208,6 +215,11 @@ pub fn string_list(data: &Bound<'_, PyAny>) -> PyResult<List> {
             "Expected list[str] for string_list() function",
         ))
     }
+}
+
+#[pyfunction(name = "struct")]
+pub fn struct_(fields: HashMap<String, Value>) -> Struct {
+    Struct { fields }
 }
 
 #[pyfunction]
