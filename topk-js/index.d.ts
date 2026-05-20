@@ -434,7 +434,7 @@ export declare namespace data {
    * @internal
    * @hideconstructor
    * Instances of the `Struct` class are used to represent nested object values in TopK.
-   * Usually created using the [`struct()`](https://docs.topk.io/sdk/topk-js/data#struct) helper.
+   * Usually created using the [`struct()`](https://docs.topk.io/sdk/topk-js/data#struct-2) helper.
    */
   export class Struct {
     /** @ignore */

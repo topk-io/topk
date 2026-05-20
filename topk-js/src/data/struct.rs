@@ -7,7 +7,7 @@ use crate::data::Value;
 /// @internal
 /// @hideconstructor
 /// Instances of the `Struct` class are used to represent nested object values in TopK.
-/// Usually created using the [`struct()`](https://docs.topk.io/sdk/topk-js/data#struct) helper.
+/// Usually created using the [`struct()`](https://docs.topk.io/sdk/topk-js/data#struct-2) helper.
 #[derive(Debug, Clone, PartialEq)]
 #[napi(namespace = "data")]
 pub struct Struct {

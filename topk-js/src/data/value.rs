@@ -427,19 +427,26 @@ impl FromNapiValue for Value {
                     }
                 }
 
-                // Sparse vectors (all "naked" sparse vectors are interpreted as f32)
-                if let Ok(sparse_vector) = SparseVectorData::<f64>::from_napi_value(env, value) {
-                    return Ok(Value::SparseVector(SparseVector::float(
-                        sparse_vector
-                            .into_iter()
-                            .map(|(i, v)| (i, v as f32))
-                            .collect(),
-                    )));
+                let keys = Object::keys(&object)?;
+
+                // Sparse vectors (all "naked" sparse vectors are interpreted as f32).
+                // Empty objects are structs — skip the check so {} doesn't become SparseVector([]).
+                if !keys.is_empty() {
+                    if let Ok(sparse_vector) =
+                        SparseVectorData::<f64>::from_napi_value(env, value)
+                    {
+                        return Ok(Value::SparseVector(SparseVector::float(
+                            sparse_vector
+                                .into_iter()
+                                .map(|(i, v)| (i, v as f32))
+                                .collect(),
+                        )));
+                    }
                 }
 
                 let mut fields = HashMap::new();
 
-                for key in Object::keys(&object)? {
+                for key in keys {
                     if key.parse::<u32>().is_ok() {
                         return Err(napi::Error::from_reason(
                             "Struct field names must not be numeric indices".to_string(),
