@@ -205,4 +205,17 @@ impl FieldSpec {
             index: None,
         }
     }
+
+    pub fn r#struct(
+        required: bool,
+        fields: impl IntoIterator<Item = (impl Into<String>, FieldSpec)>,
+    ) -> FieldSpec {
+        FieldSpec {
+            data_type: Some(FieldType {
+                data_type: Some(field_type::DataType::r#struct(fields)),
+            }),
+            required,
+            index: None,
+        }
+    }
 }

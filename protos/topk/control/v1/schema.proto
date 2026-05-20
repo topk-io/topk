@@ -38,7 +38,7 @@ message FieldType {
     FieldTypeI8SparseVector i8_sparse_vector = 16;
     FieldTypeF8SparseVector f8_sparse_vector = 17;
     FieldTypeF16SparseVector f16_sparse_vector = 18;
-
+    FieldTypeStruct struct = 19;
   }
 }
 
@@ -101,6 +101,10 @@ message FieldTypeList {
     LIST_VALUE_TYPE_STRING = 3;
   }
   ListValueType value_type = 1;
+}
+
+message FieldTypeStruct {
+  map<string, FieldSpec> fields = 1;
 }
 
 // Keyword index specification
