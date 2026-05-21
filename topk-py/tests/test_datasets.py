@@ -16,6 +16,14 @@ def test_create_dataset(ctx: ProjectContext):
     assert d in datasets
 
 
+def test_create_dataset_with_description(ctx: ProjectContext):
+    d = ctx.client.datasets().create(ctx.scope("test"), description="my dataset")
+    assert d.description == "my dataset"
+
+    got = ctx.client.datasets().get(ctx.scope("test"))
+    assert got.description == "my dataset"
+
+
 def test_create_duplicate_dataset(ctx: ProjectContext):
     ctx.client.datasets().create(ctx.scope("test"))
 

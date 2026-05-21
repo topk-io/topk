@@ -12,7 +12,7 @@ async fn test_wait_for_handle(ctx: &mut ProjectTestContext) {
     let dataset = ctx
         .client
         .datasets()
-        .create(ctx.wrap("test"), None)
+        .create(ctx.wrap("test"), None, None)
         .await
         .expect("could not create dataset");
 
@@ -36,7 +36,7 @@ async fn test_check_handle_invalid_handle(ctx: &mut ProjectTestContext) {
     let dataset = ctx
         .client
         .datasets()
-        .create(ctx.wrap("test"), None)
+        .create(ctx.wrap("test"), None, None)
         .await
         .expect("could not create dataset");
 

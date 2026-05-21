@@ -18,7 +18,7 @@ async fn test_ask(ctx: &mut ProjectTestContext) {
     let dataset = ctx
         .client
         .datasets()
-        .create(ctx.wrap("test"), None)
+        .create(ctx.wrap("test"), None, None)
         .await
         .expect("could not create dataset");
 
@@ -78,7 +78,7 @@ async fn test_ask_include_content_true_returns_chunks(ctx: &mut ProjectTestConte
     let dataset = ctx
         .client
         .datasets()
-        .create(ctx.wrap("test"), None)
+        .create(ctx.wrap("test"), None, None)
         .await
         .expect("could not create dataset");
 
@@ -123,7 +123,7 @@ async fn test_ask_include_content_false_strips_chunks(ctx: &mut ProjectTestConte
     let dataset = ctx
         .client
         .datasets()
-        .create(ctx.wrap("test"), None)
+        .create(ctx.wrap("test"), None, None)
         .await
         .expect("could not create dataset");
 

@@ -641,7 +641,7 @@ Client for managing datasets.
 ##### create()
 
 ```ts
-create(name: string): Promise<Dataset>;
+create(name: string, description?: string): Promise<Dataset>;
 ```
 
 Create a new dataset.
@@ -651,6 +651,7 @@ Create a new dataset.
 | Parameter | Type |
 | ------ | ------ |
 | `name` | `string` |
+| `description?` | `string` |
 
 **Returns**
 

@@ -32,6 +32,17 @@ describe("Datasets", () => {
     await expect(ctx.client.datasets().get(dataset.name)).resolves.toEqual(dataset);
   });
 
+  test("create dataset with description", async () => {
+    const ctx = getContext();
+    const dataset = await ctx.client.datasets().create(ctx.scope("test"), "my dataset");
+    ctx.datasetsCreated.push(dataset.name);
+
+    expect(dataset.description).toBe("my dataset");
+
+    const get = await ctx.client.datasets().get(dataset.name);
+    expect(get.description).toBe("my dataset");
+  });
+
   test("create duplicate dataset", async () => {
     const ctx = getContext();
     await ctx.createDataset("test");

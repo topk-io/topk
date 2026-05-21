@@ -15,21 +15,33 @@ Once set, a dataset's region cannot be changed. See [available regions](/regions
   <Tab title="CLI" icon="terminal">
     ```bash
     topk dataset create my-dataset --region aws-us-east-1-elastica
+
+    # (Optional) Dataset description can be also specified:
+    topk dataset create my-dataset --region aws-us-east-1-elastica --description "My dataset"
     ```
   </Tab>
   <Tab title="Python SDK" icon="/icons/python.svg">
     <CodeGroup>
       ```python Sync
       client.datasets().create("my-docs")
+
+      # (Optional) Dataset description can be also specified:
+      client.datasets().create("my-docs", description="My dataset")
       ```
       ```python Async
       await client.datasets().create("my-docs")
+
+      # (Optional) Dataset description can be also specified:
+      await client.datasets().create("my-docs", description="My dataset")
       ```
     </CodeGroup>
   </Tab>
   <Tab title="JavaScript SDK" icon="/icons/js.svg">
     ```typescript
     await client.datasets().create("my-docs");
+
+    // (Optional) Dataset description can be also specified:
+    await client.datasets().create("my-docs", "My dataset");
     ```
   </Tab>
 </Tabs>

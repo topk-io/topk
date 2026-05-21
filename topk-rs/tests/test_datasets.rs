@@ -10,7 +10,7 @@ async fn test_list_datasets(ctx: &mut ProjectTestContext) {
     let create = ctx
         .client
         .datasets()
-        .create(ctx.wrap("test"), None)
+        .create(ctx.wrap("test"), None, None)
         .await
         .expect("could not create dataset");
 
@@ -30,7 +30,7 @@ async fn test_create_dataset(ctx: &mut ProjectTestContext) {
     let create = ctx
         .client
         .datasets()
-        .create(ctx.wrap("test"), None)
+        .create(ctx.wrap("test"), None, None)
         .await
         .expect("could not create dataset");
 
@@ -50,17 +50,39 @@ async fn test_create_dataset(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
+async fn test_create_dataset_with_description(ctx: &mut ProjectTestContext) {
+    let create = ctx
+        .client
+        .datasets()
+        .create(ctx.wrap("test"), None, Some("my dataset".to_string()))
+        .await
+        .expect("could not create dataset");
+
+    assert_eq!(create.description.as_deref(), Some("my dataset"));
+
+    let get = ctx
+        .client
+        .datasets()
+        .get(ctx.wrap("test"))
+        .await
+        .expect("could not get dataset");
+
+    assert_eq!(get.description.as_deref(), Some("my dataset"));
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
 async fn test_create_duplicate_dataset(ctx: &mut ProjectTestContext) {
     ctx.client
         .datasets()
-        .create(ctx.wrap("test"), None)
+        .create(ctx.wrap("test"), None, None)
         .await
         .expect("could not create dataset");
 
     let err = ctx
         .client
         .datasets()
-        .create(ctx.wrap("test"), None)
+        .create(ctx.wrap("test"), None, None)
         .await
         .expect_err("should not be able to create duplicate dataset");
 
@@ -86,7 +108,7 @@ async fn test_delete_dataset(ctx: &mut ProjectTestContext) {
     let create = ctx
         .client
         .datasets()
-        .create(ctx.wrap("test"), None)
+        .create(ctx.wrap("test"), None, None)
         .await
         .expect("could not create dataset");
 
@@ -111,7 +133,7 @@ async fn test_delete_dataset(ctx: &mut ProjectTestContext) {
 async fn test_update_dataset_description(ctx: &mut ProjectTestContext) {
     ctx.client
         .datasets()
-        .create(ctx.wrap("test"), None)
+        .create(ctx.wrap("test"), None, None)
         .await
         .expect("could not create dataset");
 
@@ -155,7 +177,7 @@ async fn test_get_dataset(ctx: &mut ProjectTestContext) {
     let create = ctx
         .client
         .datasets()
-        .create(ctx.wrap("test"), None)
+        .create(ctx.wrap("test"), None, None)
         .await
         .expect("could not create dataset");
 

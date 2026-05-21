@@ -2245,21 +2245,33 @@ Once set, a dataset's region cannot be changed. See [available regions](/regions
   <Tab title="CLI" icon="terminal">
     ```bash
     topk dataset create my-dataset --region aws-us-east-1-elastica
+
+    # (Optional) Dataset description can be also specified:
+    topk dataset create my-dataset --region aws-us-east-1-elastica --description "My dataset"
     ```
   </Tab>
   <Tab title="Python SDK" icon="/icons/python.svg">
     <CodeGroup>
       ```python Sync
       client.datasets().create("my-docs")
+
+      # (Optional) Dataset description can be also specified:
+      client.datasets().create("my-docs", description="My dataset")
       ```
       ```python Async
       await client.datasets().create("my-docs")
+
+      # (Optional) Dataset description can be also specified:
+      await client.datasets().create("my-docs", description="My dataset")
       ```
     </CodeGroup>
   </Tab>
   <Tab title="JavaScript SDK" icon="/icons/js.svg">
     ```typescript
     await client.datasets().create("my-docs");
+
+    // (Optional) Dataset description can be also specified:
+    await client.datasets().create("my-docs", "My dataset");
     ```
   </Tab>
 </Tabs>
@@ -2566,12 +2578,14 @@ Create a dataset:
 
 ```bash
 topk dataset create --region aws-us-east-1-elastica my-dataset
+topk dataset create --region aws-us-east-1-elastica --description "My dataset" my-dataset
 ```
 
-| Argument   | Required | Description                                                                                                             |
-| ---------- | -------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `DATASET`  | **Yes**  | Dataset name                                                                                                            |
-| `--region` | **Yes**  | Region to create the dataset in. List available regions at [https://docs.topk.io/regions](https://docs.topk.io/regions) |
+| Argument        | Required | Description                                                                                                             |
+| --------------- | -------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `DATASET`       | **Yes**  | Dataset name                                                                                                            |
+| `--region`      | **Yes**  | Region to create the dataset in. List available regions at [https://docs.topk.io/regions](https://docs.topk.io/regions) |
+| `--description` | No       | Dataset description                                                                                 |
 
 ###### update
 
@@ -4050,7 +4064,7 @@ list[[`Dataset`](#dataset)]
 ###### create()
 
 ```python
-create(self, dataset_name: str) -> Dataset
+create(self, dataset_name: str, description: Optional[str] = None) -> Dataset
 ```
 
 Create a new dataset.
@@ -4060,6 +4074,7 @@ Create a new dataset.
 | Parameter | Type |
 | --------- | ---- |
 | `dataset_name` | str |
+| `description` | Optional[str] |
 
 **Returns**
 
@@ -4318,7 +4333,7 @@ Awaitable[list[[`Dataset`](#dataset)]]
 ###### create()
 
 ```python
-create(self, dataset_name: str) -> Awaitable[Dataset]
+create(self, dataset_name: str, description: Optional[str] = None) -> Awaitable[Dataset]
 ```
 
 Create a new dataset asynchronously.
@@ -4328,6 +4343,7 @@ Create a new dataset asynchronously.
 | Parameter | Type |
 | --------- | ---- |
 | `dataset_name` | str |
+| `description` | Optional[str] |
 
 **Returns**
 
@@ -7977,7 +7993,7 @@ Client for managing datasets.
 ###### create()
 
 ```ts
-create(name: string): Promise<Dataset>;
+create(name: string, description?: string): Promise<Dataset>;
 ```
 
 Create a new dataset.
@@ -7987,6 +8003,7 @@ Create a new dataset.
 | Parameter | Type |
 | ------ | ------ |
 | `name` | `string` |
+| `description?` | `string` |
 
 **Returns**
 

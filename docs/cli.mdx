@@ -156,12 +156,14 @@ Create a dataset:
 
 ```bash
 topk dataset create --region aws-us-east-1-elastica my-dataset
+topk dataset create --region aws-us-east-1-elastica --description "My dataset" my-dataset
 ```
 
-| Argument   | Required | Description                                                                                                             |
-| ---------- | -------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `DATASET`  | **Yes**  | Dataset name                                                                                                            |
-| `--region` | **Yes**  | Region to create the dataset in. List available regions at [https://docs.topk.io/regions](https://docs.topk.io/regions) |
+| Argument        | Required | Description                                                                                                             |
+| --------------- | -------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `DATASET`       | **Yes**  | Dataset name                                                                                                            |
+| `--region`      | **Yes**  | Region to create the dataset in. List available regions at [https://docs.topk.io/regions](https://docs.topk.io/regions) |
+| `--description` | No       | Dataset description                                                                                 |
 
 #### update
 

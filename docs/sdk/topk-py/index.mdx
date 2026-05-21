@@ -911,7 +911,7 @@ list[[`Dataset`](#dataset)]
 #### create()
 
 ```python
-create(self, dataset_name: str) -> Dataset
+create(self, dataset_name: str, description: Optional[str] = None) -> Dataset
 ```
 
 Create a new dataset.
@@ -921,6 +921,7 @@ Create a new dataset.
 | Parameter | Type |
 | --------- | ---- |
 | `dataset_name` | str |
+| `description` | Optional[str] |
 
 **Returns**
 
@@ -1179,7 +1180,7 @@ Awaitable[list[[`Dataset`](#dataset)]]
 #### create()
 
 ```python
-create(self, dataset_name: str) -> Awaitable[Dataset]
+create(self, dataset_name: str, description: Optional[str] = None) -> Awaitable[Dataset]
 ```
 
 Create a new dataset asynchronously.
@@ -1189,6 +1190,7 @@ Create a new dataset asynchronously.
 | Parameter | Type |
 | --------- | ---- |
 | `dataset_name` | str |
+| `description` | Optional[str] |
 
 **Returns**
 
