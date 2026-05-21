@@ -89,9 +89,10 @@ def test_struct_query_with_naked_dict(ctx: ProjectContext):
 
     assert len(results) == 1
     assert results[0]["_id"] == "new"
-    assert results[0]["meta"]["author"] == "bob"
-    assert results[0]["meta"]["tag"] == "fresh"
-    assert "year" not in results[0]["meta"]
+    assert results[0]["meta.author"] == "bob"
+    assert results[0]["meta.tag"] == "fresh"
+    assert "meta.year" not in results[0]
+    assert "meta" not in results[0]
 
 
 def test_struct_semantic_index_on_subfield(ctx: ProjectContext):

@@ -87,9 +87,10 @@ describe("Struct", () => {
 
     expect(results).toHaveLength(1);
     expect(results[0]._id).toBe("new");
-    expect(results[0].meta.author).toBe("bob");
-    expect(results[0].meta.tag).toBe("fresh");
-    expect(results[0].meta.year).toBeUndefined();
+    expect(results[0]["meta.author"]).toBe("bob");
+    expect(results[0]["meta.tag"]).toBe("fresh");
+    expect(results[0]["meta.year"]).toBeUndefined();
+    expect(results[0].meta).toBeUndefined();
   });
 
   test("struct semantic index on subfield", async () => {
