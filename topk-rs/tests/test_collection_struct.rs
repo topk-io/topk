@@ -515,3 +515,67 @@ async fn test_struct_get_returns_flat_leaf(ctx: &mut ProjectTestContext) {
     assert!(one.get("meta").is_none());
     assert!(one.get("meta.year").is_none());
 }
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_struct_underscore_sub_field(ctx: &mut ProjectTestContext) {
+    let collection = ctx
+        .client
+        .collections()
+        .create(
+            ctx.wrap("test"),
+            HashMap::from_iter([(
+                "meta".to_string(),
+                FieldSpec::r#struct(false, [("_bar", FieldSpec::text(false, None))]),
+            )]),
+            None,
+        )
+        .await
+        .expect("could not create collection");
+
+    // Upsert document
+    let lsn = ctx
+        .client
+        .collection(&collection.name)
+        .upsert(vec![doc!(
+            "_id" => "one",
+            "meta" => Value::r#struct([("_bar", "v".into())]),
+        )])
+        .await
+        .expect("could not upsert");
+
+    // Request the whole struct
+    let docs = ctx
+        .client
+        .collection(&collection.name)
+        .get(
+            ["one"],
+            Some(vec!["meta".to_string()]),
+            Some(lsn.clone()),
+            None,
+        )
+        .await
+        .expect("could not get document");
+    let meta = docs
+        .get("one")
+        .and_then(|d| d.get("meta"))
+        .and_then(|v| v.as_struct())
+        .expect("missing meta struct");
+    assert_eq!(meta.get("_bar").and_then(|v| v.as_string()), Some("v"));
+
+    // Request the dotted leaf
+    let docs = ctx
+        .client
+        .collection(&collection.name)
+        .get(
+            ["one"],
+            Some(vec!["meta._bar".to_string()]),
+            Some(lsn),
+            None,
+        )
+        .await
+        .expect("could not get document");
+    let one = docs.get("one").expect("missing doc");
+    assert_eq!(one.get("meta._bar").and_then(|v| v.as_string()), Some("v"));
+    assert!(one.get("meta").is_none());
+}
