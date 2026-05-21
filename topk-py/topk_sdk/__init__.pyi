@@ -383,7 +383,7 @@ class DatasetsClient:
         List all datasets.
         """
         ...
-    def create(self, dataset_name: builtins.str) -> Dataset:
+    def create(self, dataset_name: builtins.str, description: typing.Optional[builtins.str] = None) -> Dataset:
         """
         Create a new dataset.
         """
@@ -482,7 +482,7 @@ class AsyncDatasetsClient:
         List all datasets asynchronously.
         """
         ...
-    def create(self, dataset_name: builtins.str) -> typing.Awaitable[Dataset]:
+    def create(self, dataset_name: builtins.str, description: typing.Optional[builtins.str] = None) -> typing.Awaitable[Dataset]:
         """
         Create a new dataset asynchronously.
         """

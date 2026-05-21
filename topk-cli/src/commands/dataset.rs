@@ -20,6 +20,9 @@ pub struct CreateDatasetArgs {
     /// Region to create the dataset in. List available regions at https://docs.topk.io/regions
     #[arg(long, short = 'r', required = true)]
     pub region: String,
+    /// Dataset description
+    #[arg(long)]
+    pub description: Option<String>,
 }
 
 #[derive(Debug, clap::Args)]
@@ -233,7 +236,10 @@ pub async fn create<C: DatasetsClient>(
     mut client: C,
     args: &CreateDatasetArgs,
 ) -> Result<CreateDatasetResult, Error> {
-    Ok(client.create(&args.dataset, &args.region).await?.into())
+    Ok(client
+        .create(&args.dataset, &args.region, args.description.clone())
+        .await?
+        .into())
 }
 
 /// `topk dataset update`
@@ -242,7 +248,9 @@ pub async fn update<C: DatasetsClient>(
     args: &UpdateDatasetArgs,
 ) -> Result<UpdateDatasetResult, Error> {
     if args.description.is_none() {
-        return Err(Error::InvalidArgument("at least one field must be specified".into()));
+        return Err(Error::InvalidArgument(
+            "at least one field must be specified".into(),
+        ));
     }
 
     Ok(client
@@ -333,6 +341,34 @@ mod tests {
 
     #[test_context(CliTestContext)]
     #[tokio::test]
+    async fn create_with_description(ctx: &mut CliTestContext) {
+        let name = ctx.wrap("test");
+        let out = cmd()
+            .args([
+                "-o",
+                "json",
+                "dataset",
+                "create",
+                "--region",
+                &ctx.region,
+                "--description",
+                "my dataset",
+                &name,
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        let result: CreateDatasetResult = out.json().unwrap();
+        assert_eq!(result.dataset.name, name);
+        assert_eq!(result.dataset.description.as_deref(), Some("my dataset"));
+    }
+
+    #[test_context(CliTestContext)]
+    #[tokio::test]
     async fn get(ctx: &mut CliTestContext) {
         let name = ctx.wrap("test");
         cmd()
@@ -393,10 +429,7 @@ mod tests {
             .output()
             .unwrap();
 
-        let out = cmd()
-            .args(["dataset", "update", &name])
-            .output()
-            .unwrap();
+        let out = cmd().args(["dataset", "update", &name]).output().unwrap();
         assert!(!out.status.success());
         assert!(
             String::from_utf8_lossy(&out.stderr).contains("at least one field must be specified")

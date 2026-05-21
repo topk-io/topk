@@ -7,7 +7,12 @@ use crate::dataset_region_cache::{dataset_region_cache_path, DatasetRegionCache}
 pub trait DatasetsClient {
     async fn list(&mut self) -> Result<Vec<Dataset>, Error>;
     async fn get(&mut self, name: &str) -> Result<Dataset, Error>;
-    async fn create(&mut self, name: &str, region: &str) -> Result<Dataset, Error>;
+    async fn create(
+        &mut self,
+        name: &str,
+        region: &str,
+        description: Option<String>,
+    ) -> Result<Dataset, Error>;
     async fn update(&mut self, name: &str, description: Option<String>) -> Result<Dataset, Error>;
     async fn delete(&mut self, name: &str) -> Result<(), Error>;
 }
@@ -37,11 +42,16 @@ impl DatasetsClient for RealDatasetsClient {
         Ok(self.client.datasets().get(name).await?)
     }
 
-    async fn create(&mut self, name: &str, region: &str) -> Result<Dataset, Error> {
+    async fn create(
+        &mut self,
+        name: &str,
+        region: &str,
+        description: Option<String>,
+    ) -> Result<Dataset, Error> {
         Ok(self
             .client
             .datasets()
-            .create(name, Some(region.to_string()))
+            .create(name, Some(region.to_string()), description)
             .await?)
     }
 
@@ -106,8 +116,13 @@ where
         Ok(dataset)
     }
 
-    async fn create(&mut self, name: &str, region: &str) -> Result<Dataset, Error> {
-        let dataset = self.client.create(name, region).await?;
+    async fn create(
+        &mut self,
+        name: &str,
+        region: &str,
+        description: Option<String>,
+    ) -> Result<Dataset, Error> {
+        let dataset = self.client.create(name, region, description).await?;
         self.cache_dataset_region(&dataset.name, &dataset.region);
         Ok(dataset)
     }
@@ -229,7 +244,12 @@ mod tests {
                 .ok_or(Error::DatasetNotFound)
         }
 
-        async fn create(&mut self, name: &str, region: &str) -> Result<Dataset, Error> {
+        async fn create(
+            &mut self,
+            name: &str,
+            region: &str,
+            _description: Option<String>,
+        ) -> Result<Dataset, Error> {
             self.create_calls += 1;
             let dataset = dataset(name, region);
             self.datasets.insert(name.to_string(), dataset.clone());
@@ -321,7 +341,7 @@ mod tests {
         let mut client =
             CachedDatasetsClient::new(FakeDatasetsClient::default(), DatasetRegionCache::default());
 
-        let dataset = client.create("ds", "us-east-1").await.unwrap();
+        let dataset = client.create("ds", "us-east-1", None).await.unwrap();
 
         assert_eq!(dataset.name, "ds");
         assert_eq!(client.client.create_calls, 1);
@@ -385,7 +405,7 @@ mod tests {
         assert_eq!(get_region(&mut client, "ds").await.unwrap(), "us-east-1");
 
         client.delete("ds").await.unwrap();
-        client.create("ds", "sunflower").await.unwrap();
+        client.create("ds", "sunflower", None).await.unwrap();
 
         assert_eq!(get_region(&mut client, "ds").await.unwrap(), "sunflower");
     }

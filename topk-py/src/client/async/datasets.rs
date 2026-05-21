@@ -44,13 +44,14 @@ impl AsyncDatasetsClient {
         .map(|result| result.into())
     }
 
-    pub fn create(&self, py: Python<'_>, dataset_name: String) -> PyResult<Py<PyAny>> {
+    #[pyo3(signature = (dataset_name, description=None))]
+    pub fn create(&self, py: Python<'_>, dataset_name: String, description: Option<String>) -> PyResult<Py<PyAny>> {
         let client = self.client.clone();
 
         future_into_py(py, async move {
             let dataset = client
                 .datasets()
-                .create(&dataset_name, None)
+                .create(&dataset_name, None, description)
                 .await
                 .map_err(RustError)?;
             Ok(Dataset::from(dataset))

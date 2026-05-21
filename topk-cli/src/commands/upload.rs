@@ -712,7 +712,7 @@ mod tests {
         let dataset = ctx.wrap("test");
         ctx.client
             .datasets()
-            .create(&dataset, Some(ctx.region.clone()))
+            .create(&dataset, Some(ctx.region.clone()), None)
             .await
             .unwrap();
 

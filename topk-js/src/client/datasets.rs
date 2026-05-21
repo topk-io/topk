@@ -53,12 +53,12 @@ impl DatasetsClient {
     }
 
     /// Create a new dataset.
-    #[napi]
-    pub async fn create(&self, name: String) -> Result<Dataset> {
+    #[napi(ts_args_type = "name: string, description?: string")]
+    pub async fn create(&self, name: String, description: Option<String>) -> Result<Dataset> {
         let dataset = self
             .client
             .datasets()
-            .create(&name, None)
+            .create(&name, None, description)
             .await
             .map_err(TopkError::from)?;
 
