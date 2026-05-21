@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use test_context::test_context;
 use topk_rs::doc;
-use topk_rs::error::{DocumentValidationError, ValidationErrorBag};
+use topk_rs::error::{DocumentValidationError, SchemaValidationError, ValidationErrorBag};
 use topk_rs::proto::v1::control::FieldSpec;
 use topk_rs::proto::v1::data::Value;
 use topk_rs::query::{field, fns, select};
@@ -346,6 +346,69 @@ async fn test_upsert_mixed_dotted_and_struct_rejected(ctx: &mut ProjectTestConte
                 DocumentValidationError::InvalidFieldName {
                     doc_id: "one".to_string(),
                     field: "meta.foo".to_string(),
+                },
+            ])
+        ),
+        "got: {err:?}",
+    );
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_create_schema_struct_dotted_sub_field_rejected(ctx: &mut ProjectTestContext) {
+    let err = ctx
+        .client
+        .collections()
+        .create(
+            ctx.wrap("test"),
+            HashMap::from_iter([(
+                "meta".to_string(),
+                FieldSpec::r#struct(false, [("a.b", FieldSpec::text(false, None))]),
+            )]),
+            None,
+        )
+        .await
+        .expect_err("schema with dotted sub-field name should fail");
+
+    assert!(
+        matches!(
+            err,
+            Error::SchemaValidationError(ref bag) if bag.iter().any(|e| matches!(
+                e,
+                SchemaValidationError::FieldNameContainsDot { field } if field == "meta.a.b",
+            ))
+        ),
+        "got: {err:?}",
+    );
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_upsert_struct_dotted_sub_field_rejected(ctx: &mut ProjectTestContext) {
+    let collection = ctx
+        .client
+        .collections()
+        .create(ctx.wrap("test"), HashMap::default(), None)
+        .await
+        .expect("could not create collection");
+
+    let err = ctx
+        .client
+        .collection(&collection.name)
+        .upsert(vec![doc!(
+            "_id" => "one",
+            "meta" => Value::r#struct([("a.b", "v".into())]),
+        )])
+        .await
+        .expect_err("dotted sub-field name should fail");
+
+    assert!(
+        matches!(
+            err,
+            Error::DocumentValidationError(ref s) if s == &ValidationErrorBag::from(vec![
+                DocumentValidationError::InvalidFieldName {
+                    doc_id: "one".to_string(),
+                    field: "meta.a.b".to_string(),
                 },
             ])
         ),
