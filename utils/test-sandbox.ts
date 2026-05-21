@@ -84,7 +84,7 @@ program
   .parseAsync();
 
 async function discoverState(client: Client, opts: Opts): Promise<State> {
-  log.info(`Discovering state for ${JSON.stringify(opts)}`);
+  log.info(`Discovering state for ${formatOpts(opts)}`);
 
   const [allDatasets, allCollections] = await Promise.all([
     withRetry(() => client.datasets().list()),
@@ -265,4 +265,12 @@ function parseDuration(flag: string) {
 function olderThan(ts: string, age: number): boolean {
   const createdMs = Date.parse(ts);
   return Date.now() - createdMs >= age;
+}
+
+function formatOpts(opts: Opts): string {
+  return JSON.stringify({
+    ...opts,
+    age: opts.age !== undefined ? ms(opts.age) : opts.age,
+    timeout: opts.timeout !== undefined ? ms(opts.timeout) : opts.timeout,
+  });
 }
