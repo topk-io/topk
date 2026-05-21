@@ -1,4 +1,4 @@
-/target
+**/target
 Earthfile
 **/.git
 **/.venv
@@ -6,3 +6,8 @@ Earthfile
 **/__pycache__
 **/.pytest_cache
 **/.DS_Store
+**/*.node
+**/*.so
+**/*.dylib
+**/*.dll
+**/*.pyd
