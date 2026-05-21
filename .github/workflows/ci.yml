@@ -15,11 +15,15 @@ jobs:
     if: ${{ inputs.tests }}
     env:
       FORCE_COLOR: 1
+      EARTHLY_DISABLE_ANALYTICS: 1
+      EARTHLY_DISABLE_LOG_SHARING: 1
     steps:
       - uses: actions/checkout@v4
 
       - name: Install earthly
-        run: sudo bash -c "curl -L https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -o /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly"
+        run: |
+          sudo bash -c "curl -L https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -o /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly"
+          earthly account logout
 
       - name: Rust tests
         run: earthly --secret TOPK_API_KEY +test-rs --region sunflower --host=topk.dev
@@ -32,11 +36,15 @@ jobs:
     if: ${{ inputs.tests }}
     env:
       FORCE_COLOR: 1
+      EARTHLY_DISABLE_ANALYTICS: 1
+      EARTHLY_DISABLE_LOG_SHARING: 1
     steps:
       - uses: actions/checkout@v4
 
       - name: Install earthly
-        run: sudo bash -c "curl -L https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -o /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly"
+        run: |
+          sudo bash -c "curl -L https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -o /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly"
+          earthly account logout
 
       - name: Python tests
         run: earthly --secret TOPK_API_KEY +test-py --region sunflower --host=topk.dev
@@ -49,11 +57,15 @@ jobs:
     if: ${{ inputs.tests }}
     env:
       FORCE_COLOR: 1
+      EARTHLY_DISABLE_ANALYTICS: 1
+      EARTHLY_DISABLE_LOG_SHARING: 1
     steps:
       - uses: actions/checkout@v4
 
       - name: Install earthly
-        run: sudo bash -c "curl -L https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -o /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly"
+        run: |
+          sudo bash -c "curl -L https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -o /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly"
+          earthly account logout
 
       - name: JavaScript tests
         run: earthly --secret TOPK_API_KEY +test-js --region sunflower --host=topk.dev
@@ -66,11 +78,15 @@ jobs:
     if: ${{ inputs.tests }}
     env:
       FORCE_COLOR: 1
+      EARTHLY_DISABLE_ANALYTICS: 1
+      EARTHLY_DISABLE_LOG_SHARING: 1
     steps:
       - uses: actions/checkout@v4
 
       - name: Install earthly
-        run: sudo bash -c "curl -L https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -o /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly"
+        run: |
+          sudo bash -c "curl -L https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -o /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly"
+          earthly account logout
 
       - name: CLI tests
         run: earthly --secret TOPK_API_KEY +test-cli --region sunflower --host=topk.dev
