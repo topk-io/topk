@@ -14,6 +14,7 @@ type Opts = {
   concurrency: number;
   prefix?: string;
   age?: number;
+  timeout: number;
   dryRun: boolean;
 };
 
@@ -37,8 +38,14 @@ program
   .option(
     "--age <duration>",
     "minimum age of datasets/collections to remove (e.g. 2d, 30m. default: 24h)",
-    parseAge,
+    parseDuration("--age"),
     24 * 60 * 60 * 1000 // 24 hours
+  )
+  .option(
+    "--timeout <duration>",
+    "kill the command if it runs longer than this (e.g. 30m, 1h. default: 5m)",
+    parseDuration("--timeout"),
+    5 * 60 * 1000 // 5 minutes
   )
   .option("--dry-run", "do not perform the reset operation", false)
   .passThroughOptions()
@@ -62,7 +69,7 @@ program
     }
 
     // Run the command
-    const exitCode = await exec(cmd, opts.dryRun);
+    const exitCode = await exec(cmd, opts.dryRun, opts.timeout);
 
     // "After" hook
     const afterState = await discoverState(client, opts);
@@ -180,12 +187,17 @@ function loadEnv() {
 
 // Command
 
-async function exec(cmd: string[], dryRun: boolean): Promise<number> {
+async function exec(
+  cmd: string[],
+  dryRun: boolean,
+  timeout: number
+): Promise<number> {
   if (dryRun) {
     log.info(`Dry run: ${cmd.join(" ")}`);
     return 0;
   }
 
+  const timeoutSignal = AbortSignal.timeout(timeout);
   let proc: ReturnType<typeof Bun.spawn>;
   try {
     // @ts-ignore
@@ -194,6 +206,7 @@ async function exec(cmd: string[], dryRun: boolean): Promise<number> {
       stdin: "inherit",
       stdout: "inherit",
       stderr: "inherit",
+      signal: timeoutSignal,
     });
   } catch (error) {
     log.error(error instanceof Error ? error.message : String(error));
@@ -214,6 +227,10 @@ async function exec(cmd: string[], dryRun: boolean): Promise<number> {
 
   try {
     const exitCode = await proc.exited;
+    if (timeoutSignal.aborted) {
+      log.error(`Command "${cmd.join(" ")}" timed out after ${timeout}ms`);
+      return 124;
+    }
     if (exitCode !== 0) {
       log.error(`Command "${cmd.join(" ")}" exited with code ${exitCode}`);
     }
@@ -234,13 +251,15 @@ function withRetry<T>(fn: () => Promise<T>, opts?: RetryOptions): Promise<T> {
   });
 }
 
-function parseAge(value: string): number {
-  const result = ms(value as StringValue);
-  if (typeof result !== "number" || Number.isNaN(result)) {
-    log.error(`Invalid --age value: ${value} (expected e.g. 2d, 30m, 1h)`);
-    process.exit(1);
-  }
-  return result;
+function parseDuration(flag: string) {
+  return (value: string): number => {
+    const result = ms(value as StringValue);
+    if (typeof result !== "number" || Number.isNaN(result)) {
+      log.error(`Invalid ${flag} value: ${value} (expected e.g. 2d, 30m, 1h)`);
+      process.exit(1);
+    }
+    return result;
+  };
 }
 
 function olderThan(ts: string, age: number): boolean {
