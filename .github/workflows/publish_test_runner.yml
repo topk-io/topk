@@ -7,6 +7,10 @@ on:
         description: "Publish image to ghcr.io"
         type: boolean
         default: false
+      version:
+        description: "Override version tag"
+        type: string
+        required: false
 
   workflow_call:
     inputs:
@@ -26,7 +30,11 @@ jobs:
       - name: Set version
         id: version
         run: |
-          tag=$(sed -nE 's/^version = "([^"]+)"/\1/p' topk-rs/Cargo.toml)
+          if [ -n "${{ inputs.version }}" ]; then
+            tag="${{ inputs.version }}"
+          else
+            tag=$(sed -nE 's/^version = "([^"]+)"/\1/p' topk-rs/Cargo.toml)
+          fi
           echo "version=$tag" >> $GITHUB_OUTPUT
 
   build:
