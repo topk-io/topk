@@ -184,7 +184,7 @@ test-runner-builder:
     SAVE ARTIFACT /usr/local/cargo/bin/cargo-nextest
 
 test-runner:
-    FROM ghcr.io/topk-io/rust-release:latest
+    FROM rust:slim
 
     COPY +test-runner-builder/cargo-nextest /usr/local/bin/cargo-nextest
     COPY +test-sandbox/topk-test-sandbox /usr/local/bin/topk-test-sandbox
