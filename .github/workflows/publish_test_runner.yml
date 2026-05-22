@@ -7,6 +7,10 @@ on:
         description: "Publish image to ghcr.io"
         type: boolean
         default: false
+      version:
+        description: "Override version tag"
+        type: string
+        required: false
 
   workflow_call:
     inputs:
@@ -26,7 +30,11 @@ jobs:
       - name: Set version
         id: version
         run: |
-          tag=$(sed -nE 's/^version = "([^"]+)"/\1/p' topk-rs/Cargo.toml)
+          if [ -n "${{ inputs.version }}" ]; then
+            tag="${{ inputs.version }}"
+          else
+            tag=$(sed -nE 's/^version = "([^"]+)"/\1/p' topk-rs/Cargo.toml)
+          fi
           echo "version=$tag" >> $GITHUB_OUTPUT
 
   build:
@@ -43,6 +51,8 @@ jobs:
       packages: write
     env:
       FORCE_COLOR: 1
+      EARTHLY_DISABLE_ANALYTICS: 1
+      EARTHLY_DISABLE_LOG_SHARING: 1
     steps:
       - uses: actions/checkout@v4
 
@@ -52,6 +62,9 @@ jobs:
           version: "0.8.5"
           use-cache: false
 
+      - name: Disable earthly auto-login
+        run: earthly account logout
+
       - name: Login to ghcr.io
         uses: docker/login-action@v2
         with:
@@ -60,7 +73,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Earthly build
-        run: earthly --ci ${{ inputs.publish && '--push' || '' }} +test-runner --registry ghcr.io/topk-io --tag ${{ needs.version.outputs.version }}-${{ matrix.arch }}
+        run: earthly --ci ${{ inputs.publish && '--push' || '' }} +test-runner --registry ghcr.io/topk-io/topk-test-runner --tag ${{ needs.version.outputs.version }}-${{ matrix.arch }}
 
   publish:
     name: "test-runner (publish)"
