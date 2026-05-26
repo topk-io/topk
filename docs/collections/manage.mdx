@@ -1,10 +1,12 @@
 ---
-title: "Create a collection"
+title: "Collections"
+description: "Manage collections in a project."
+icon: "library"
 ---
 
 Collections organize your documents, define their schema, and enable fast vector search, filtering, keyword search, semantic search, and multi-vector search.
 
-## Creating a collection
+## Create
 
 In order to create a collection, call the [`create()`](/sdk/topk-py#create) method on the [`client.collections()`](/sdk/topk-py#collectionsclient) object:
 
@@ -37,15 +39,15 @@ await client.collections().create("books", {
   Field names starting with `_` are reserved for internal use.
 </Warning>
 
-## Schema
+### Schema
 
-### Opt-in schema
+#### Opt-in schema
 
 TopK is schemaless-by-default. Fields without types can store any value. When types are specified, data is validated during upsert.
 
 <Info>Indexed fields require **explicit types**.</Info>
 
-### Field types
+#### Field types
 
 | Type | Use case |
 |------|----------|
@@ -66,7 +68,7 @@ TopK is schemaless-by-default. Fields without types can store any value. When ty
 | [`u8_sparse_vector()`](/sdk/topk-py/schema#u8_sparse_vector) | Quantized sparse embeddings |
 | [`matrix(dim, value_type)`](/sdk/topk-py/schema#matrix) | Multi-vector embeddings |
 
-### Required fields
+#### Required fields
 
 Fields are optional by default.
 
@@ -94,11 +96,11 @@ const schema = {
 
 </CodeGroup>
 
-## Indexes
+### Indexes
 
 Only indexed fields can be searched. Non-indexed fields support exact-match filters only.
 
-### Vector Index
+#### Vector Index
 
 Used for vector search. Supports dimensions up to 2^14. Enabled by [`vector_index()`](/sdk/topk-py/schema#vector_index).
 
@@ -135,7 +137,7 @@ const schema = {
 | `f32_sparse_vector`   |    —    |      —      |      ✅      |     —     |
 | `u8_sparse_vector`    |    —    |      —      |      ✅      |     —     |
 
-### Multi Vector Index
+#### Multi-Vector Index
 
 Enables multi-vector search on [`matrix()`](/sdk/topk-py/schema#matrix) fields using the maxsim metric for late-interaction scoring. Enabled by [`multi_vector_index()`](/sdk/topk-py/schema#multi_vector_index). See [multi-vector search](/concepts/multi-vector-search) for more information.
 
@@ -169,7 +171,7 @@ const schema = {
 
 </CodeGroup>
 
-### Keyword Index
+#### Keyword Index
 
 Traditional text search with BM25 relevance scoring. Fast keyword matching with no embedding overhead. Enabled by [`keyword_index()`](/sdk/topk-py/schema#keyword_index).
 
@@ -193,7 +195,7 @@ const schema = {
 
 </CodeGroup>
 
-### Semantic Index
+#### Semantic Index
 
 Convenience method for automatic embeddings. Enabled by [`semantic_index()`](/sdk/topk-py/schema#semantic_index).
 
@@ -218,3 +220,114 @@ const schema = {
 </CodeGroup>
 
 See [semantic_index()](../sdk/topk-py/schema#semantic-index) for details.
+
+
+## List
+
+You can list all collections in a project by calling [`client.collections().list()`](/sdk/topk-py#list):
+
+<CodeGroup>
+
+```python Python
+collections = client.collections().list()
+```
+
+
+```typescript Javascript
+const collections = await client.collections().list();
+```
+
+</CodeGroup>
+
+The `list()` function returns a list of `Collection` objects:
+
+<CodeGroup>
+
+```python Python
+for collection in collections:
+    print(f"Collection name: {collection.name}")
+    print(f"Organization ID: {collection.org_id}")
+    print(f"Project ID: {collection.project_id}")
+    print(f"Region: {collection.region}")
+    print(f"Schema: {collection.schema}")
+```
+
+
+```js Javascript
+for (const collection of collections) {
+  console.log(`Collection name: ${collection.name}`);
+  console.log(`Organization ID: ${collection.orgId}`);
+  console.log(`Project ID: ${collection.projectId}`);
+  console.log(`Region: ${collection.region}`);
+  console.log(`Schema: ${collection.schema}`);
+}
+```
+
+</CodeGroup>
+
+
+## Get
+
+You can get a specific collection in a project by calling [`client.collections().get(name)`](/sdk/topk-py#get-3):
+
+<CodeGroup>
+
+```python Python
+collection = client.collections().get("books")
+```
+
+
+```typescript Javascript
+const collection = await client.collections().get("books")
+```
+
+</CodeGroup>
+
+The `get()` function takes the name of a collection and returns a single `Collection` object.
+
+<CodeGroup>
+
+```python Python
+print(f"Collection name: {collection.name}")
+print(f"Organization ID: {collection.org_id}")
+print(f"Project ID: {collection.project_id}")
+print(f"Region: {collection.region}")
+print(f"Schema: {collection.schema}")
+```
+
+
+```js Javascript
+console.log(`Collection name: ${collection.name}`);
+console.log(`Organization ID: ${collection.orgId}`);
+console.log(`Project ID: ${collection.projectId}`);
+console.log(`Region: ${collection.region}`);
+console.log(`Schema: ${collection.schema}`);
+```
+
+</CodeGroup>
+
+## Delete
+
+Once you decide that you no longer need a collection or that you want to start over, you can delete it.
+Deleting a collection will remove all the documents and indexes associated with it.
+
+To delete a collection, call the [`client.collections().delete(name)`](/sdk/topk-py#delete-3) method:
+
+<CodeGroup>
+
+```python Python
+client.collections().delete("my-collection")
+```
+
+
+```typescript JavaScript
+await client.collections().delete("my-collection")
+```
+
+</CodeGroup>
+
+If your collection is too large it can take a moment to delete it. You can check the status of the deletion by listing the collections again.
+
+<Warning>
+  This operation is irreversible and will permanently delete all data in the collection.
+</Warning>

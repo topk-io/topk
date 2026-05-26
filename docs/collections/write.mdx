@@ -1,17 +1,18 @@
 ---
-title: "Upsert documents"
+title: "Write"
+description: "Upsert, update, or delete documents in a collection."
+icon: "circle-plus"
 ---
-
 Documents in TopK are JSON-like objects composed of key-value pairs.
 
 Each document within a collection:
 
 - Must include a unique `_id` field
-- Must conform to the collection schema for indexed fields
+- Must conform to the schema defined for the collection
 
 Fields defined in the schema can be indexed for vector, keyword, or other retrieval strategies.
 
-## Upsert documents in a collection
+## Upsert documents
 
 To upsert documents, pass a list of documents to the [`upsert()`](/sdk/topk-py#upsert) function:
 
@@ -80,7 +81,7 @@ await client.collection("books").upsert([
   Each document you send is serialized as a Protocol Buffers (protobuf) message. The encoded size of that message must be **128KB or smaller**.
 </Warning>
 
-## Additional (non-schema) fields
+### Additional (non-schema) fields
 
 You may include fields that are not defined in the collection schema.
 
@@ -165,7 +166,7 @@ const docs = await client.collection("books").query(
 
 </CodeGroup>
 
-## Supported types
+### Supported types
 
 TopK documents are a flat structure of key-value pairs.
 
@@ -195,3 +196,53 @@ The following value types are supported:
 | **Bytes**             | _use helper_     | _use helper_    | [`bytes()`](../sdk/topk-py/data#bytes)                          |
 | **Struct**            | `dict[str, Any]` | `Record<string, any>` | [`struct()`](../sdk/topk-py/data#struct)                 |
 
+## Delete documents
+
+You can delete documents by their `_id` or using a [filter expression](/documents/query#filtering). Both methods provide
+the same consistency guarantees and will be reflected in query/get results according to your [consistency level](/concepts/consistency).
+
+### Delete documents by `_id`
+
+To delete documents by their `_id`, pass a list of `_id`s to the [`delete()`](/sdk/topk-py#delete) method:
+
+<CodeGroup>
+
+```python Python
+client.collection("books").delete(
+    ["book-1", "book-2", "book-3"]
+)
+```
+
+```typescript Javascript
+await client.collection("books").delete(["book-1", "book-2", "book-3"]);
+```
+
+</CodeGroup>
+
+<Info>
+  The `delete()` method returns an **LSN** (Log Sequence Number) that you can pass to subsequent queries for [read-after-write consistency](/documents/query#lsn-based-consistency).
+</Info>
+
+### Delete documents by filter expression
+
+To delete documents that match a predicate, you can pass a [filter expression](https://docs.topk.io/documents/query#filtering) to the `delete()` function.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import field
+
+client.collection("books").delete(field("published_year").lt(1997))
+```
+
+```typescript Javascript
+import { field } from "topk-js/query";
+
+await client.collection("books").delete(field("published_year").lt(1997));
+```
+
+</CodeGroup>
+
+<Tip>
+    Passing a filter expression to `delete()` is useful for deleting documents that match a specific condition, such as all documents for a **specific tenant** e.g. `field("_id").starts_with("tenant-123/")`.
+</Tip>

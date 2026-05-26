@@ -1,0 +1,40 @@
+---
+title: "Limits"
+description: "Production limits for collections and datasets."
+icon: "infinity"
+---
+
+<Warning>
+  These limits are subject to change as we continuosuly improve our system. If you expect to be blocked by any of these, please
+  <a href="https://topk.io/contact"> let us know.</a>
+</Warning>
+
+## Collection Limits
+
+| Scope                             | Production limit                |
+|-----------------------------------|---------------------------------|
+| Max collections                   | Unlimited                       |
+| Max documents (global)            | Unlimited                       |
+| Max documents (per collection)    | 1B+                             |
+| Write throughput (global)         | Unlimited                       |
+| Write throughput (per collection) | ~70MB/s                         |
+| Query throughput (global)         | Unlimited                       |
+| Query throughput (per collection) | 1k+ queries/s                   |
+| Max document size                 | 200KB                           |
+| Max indexed fields                | Unlimited (up to document size) |
+| Max dense vector dimension        | 16,384                          |
+| Max sparse vector dimension       | 2^32-1                          |
+| Max multi-vector dimension        | 1024                            |
+| Max upsert request size           | 8MB                             |
+| Recall                            | 95%+                            |
+
+## Dataset Limits
+
+| Scope                   | Production limit |
+|-------------------------|------------------|
+| Max datasets            | Unlimited        |
+| Max files (per dataset) | 100m             |
+| Max PDF file size       | 512MB            |
+| Max Markdown file size  | 512MB            |
+| Max HTML file size      | 8MB              |
+| Max image file size     | 8MB              |

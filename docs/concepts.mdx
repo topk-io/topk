@@ -1,25 +1,24 @@
 ---
-title: "Consistency"
+title: "Concepts"
+description: "How Topk works under the hood."
+icon: "info"
 ---
 
-TopK supports three different consistency levels, allowing you to choose the right trade-off between consistency, performance, and cost. By default, we provide a **Balanced Consistency Mode**, which offers a great mix of freshness and efficiency for most applications. Below, we explain how TopK handles data writes and reads and how each consistency mode impacts behavior.
+## Indexing
 
-## Data flow in TopK
+## Filtering
 
-TopK follows a write-ahead log (WAL) and compaction-based architecture:
+## Custom Scoring
 
-1. **Writer** appends incoming data to the **WAL**.
-2. **Compactor** processes the WAL and produces optimized, indexed files, also known as *compacted files*.
-3. **Router** receives read requests and determines where to fetch the data from.
-4. **Executor** fetches the data, typically from compacted files or from WAL.
+## Cache Hierarchy
 
-<img src="/topk-data-flow.svg" alt="TopK Data Flow" className="dark:invert" />
+## Compute-Storage Separation
 
-Because compaction takes time, there can be a delay before newly written data appears in query results. Different consistency modes determine how recent writes are handled in reads.
+## Read-Write Separation
 
----
+## Consistency
 
-## Consistency Modes
+TopK supports three different consistency levels, allowing you to choose the right trade-off between consistency, performance, and cost. By default, we provide a **Balanced Consistency Mode**, which balances data freshness (~750ms p99 write-to-queryable) and query efficiency for most applications. Below, we explain how TopK handles data writes and reads and how each consistency mode impacts behavior.
 
 ### **Balanced Consistency (Default)**
 
@@ -54,7 +53,8 @@ await client.collection("my_collection").query(
 
 ### **Indexed Consistency**
 
-Reads in this mode only consider fully compacted files and ignore recent WAL writes. This results in the highest query performance but may skip the latest writes. It is best suited for analytical workloads and batch processing where absolute real-time consistency isn't required.
+Reads in this mode only consider fully compacted files and ignore recent WAL writes to deliver constatnly low query latency. This is best suited for workloads
+with asynchronous write path that are not sensitive to recent writes being visible in queries with low delay.
 
 <CodeGroup>
 
@@ -84,7 +84,7 @@ await client
 
 ### **Strong Consistency**
 
-Reads in this mode always return the latest writes before responding. While this ensures that all queries see the most recent updates, it comes with higher latency and cost due to additional WAL reads. This mode is required when strict guarantees are necessary.
+Reads in this mode always return the latest writes before responding. While this ensures that all queries see the most recent updates, it comes with higher latency and cost due to additional WAL reads. This mode recommended for cases where clients always need to see the most recent writes.
 
 <CodeGroup>
 
@@ -112,7 +112,7 @@ await client
 
 ---
 
-## Choosing the Right Mode
+### Choosing the Right Mode
 
 | Consistency Mode       | Freshness                     | Cost   | Query performance |
 | ---------------------- | ----------------------------- | ------ | ----------------- |
@@ -124,10 +124,72 @@ For most use cases, **Balanced Consistency** offers the best trade-off between p
 
 ---
 
-## LSN-based Consistency
+### LSN-based Consistency
 
 For even more precise control over consistency, TopK also supports **LSN (Log Sequence Number)** based consistency. This approach allows you to ensure read-after-write consistency by specifying the exact sequence number of a write operation in your queries.
 
 <Info>
   For detailed information about using LSNs in queries, see our [LSN-based Consistency](/documents/query#lsn-based-consistency) guide in the Query documentation.
+</Info>
+
+
+## Multi-tenancy
+
+In TopK, multi-tenancy is achieved through prefixing the tenant IDs in documents **`_id`** value.
+
+This design enables TopK to scale a single collection efficiently without performance degradation by leveraging smart sharding on document ID.
+
+### Storing documents for a specific tenant
+
+To store documents for a specific tenant, prepend the **tenant ID** to the document **`_id`** value:
+
+<CodeGroup>
+
+```python Python
+client.collection("books").upsert([
+    {"_id": "tenant-1234_1", "title": "The Great Gatsby", "author": "F. Scott Fitzgerald"},
+    {"_id": "tenant-1234_2", "title": "To Kill a Mockingbird", "author": "Harper Lee"},
+])
+```
+
+
+```typescript Javascript
+await client.collection("books").upsert([
+  { _id: "tenant-1234_1", title: "The Great Gatsby", author: "F. Scott Fitzgerald" },
+  { _id: "tenant-1234_2", title: "To Kill a Mockingbird", author: "Harper Lee" },
+]);
+```
+
+</CodeGroup>
+
+
+### Querying documents for a specific tenant
+
+To query documents for a specific tenant, use the **tenant ID** along with the `startsWith()` filter:
+
+<CodeGroup>
+
+```python Python
+client.collection("books").query(
+    select(
+        "title",
+    )
+    .filter(field("_id").startsWith("tenant-1234"))
+)
+```
+
+
+```typescript Javascript
+await client.collection("books").query(
+  select({
+    title: field("title"),
+  })
+  .filter(field("_id").startsWith("tenant-1234"))
+);
+```
+
+</CodeGroup>
+
+<Info>
+  The approach preserves the ability to query across all tenants when required.
 </Info>
