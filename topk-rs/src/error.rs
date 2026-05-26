@@ -312,6 +312,13 @@ pub enum DocumentValidationError {
     DocumentNotFound {
         doc_id: String,
     },
+
+    TextTooLong {
+        doc_id: String,
+        field: String,
+        max_length: usize,
+        got_length: usize,
+    },
 }
 
 #[derive(PartialEq, Debug, serde::Serialize, serde::Deserialize, Clone)]
