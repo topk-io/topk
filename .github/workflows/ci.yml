@@ -18,7 +18,7 @@ jobs:
       EARTHLY_DISABLE_ANALYTICS: 1
       EARTHLY_DISABLE_LOG_SHARING: 1
     steps:
-      - uses: actions/checkout@v4
+      - uses: topk-io/platform/.github/actions/checkout@main
 
       - name: Install earthly
         run: |
@@ -38,7 +38,7 @@ jobs:
       EARTHLY_DISABLE_ANALYTICS: 1
       EARTHLY_DISABLE_LOG_SHARING: 1
     steps:
-      - uses: actions/checkout@v4
+      - uses: topk-io/platform/.github/actions/checkout@main
 
       - name: Install earthly
         run: |
@@ -58,7 +58,7 @@ jobs:
       EARTHLY_DISABLE_ANALYTICS: 1
       EARTHLY_DISABLE_LOG_SHARING: 1
     steps:
-      - uses: actions/checkout@v4
+      - uses: topk-io/platform/.github/actions/checkout@main
 
       - name: Install earthly
         run: |
@@ -78,7 +78,7 @@ jobs:
       EARTHLY_DISABLE_ANALYTICS: 1
       EARTHLY_DISABLE_LOG_SHARING: 1
     steps:
-      - uses: actions/checkout@v4
+      - uses: topk-io/platform/.github/actions/checkout@main
 
       - name: Install earthly
         run: |
@@ -93,9 +93,9 @@ jobs:
     name: Verify all SDKs on the same version
     runs-on: public-amd64
     steps:
-      - uses: actions/checkout@v4
+      - uses: topk-io/platform/.github/actions/checkout@main
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: topk-io/platform/.github/actions/setup-bun@main
 
       - name: Install bun dependencies
         run: bun add commander
@@ -109,17 +109,17 @@ jobs:
     if: true
     runs-on: public-amd64
     steps:
-      - uses: actions/checkout@v4
+      - uses: topk-io/platform/.github/actions/checkout@main
 
-      - uses: actions/setup-python@v6
+      - uses: topk-io/platform/.github/actions/setup-python@main
 
-      - uses: actions/setup-node@v4
+      - uses: topk-io/platform/.github/actions/setup-node@main
         with:
           cache: "yarn"
           cache-dependency-path: |
             **/yarn.lock
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: topk-io/platform/.github/actions/setup-bun@main
 
       - name: Install dependencies
         run: yarn install
@@ -136,10 +136,10 @@ jobs:
     name: Verify pre-commit hooks pass
     runs-on: public-amd64
     steps:
-      - uses: actions/checkout@v4
+      - uses: topk-io/platform/.github/actions/checkout@main
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v6
+        uses: topk-io/platform/.github/actions/setup-uv@main
 
       - name: Run pre-commit
         run: uvx pre-commit run --all-files --show-diff-on-failure --color always

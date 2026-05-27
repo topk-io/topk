@@ -144,22 +144,22 @@ jobs:
     name: stable - ${{ matrix.settings.target }} - node@20
     runs-on: ${{ matrix.settings.host }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: topk-io/platform/.github/actions/checkout@main
       - name: Setup node
-        uses: actions/setup-node@v4
+        uses: topk-io/platform/.github/actions/setup-node@main
         if: ${{ !matrix.settings.docker }}
         with:
           node-version: 20
           cache: yarn
           cache-dependency-path: ./topk-js
       - name: Install
-        uses: dtolnay/rust-toolchain@stable
+        uses: topk-io/platform/.github/actions/setup-dtolnay-rust-toolchain@main
         if: ${{ !matrix.settings.docker }}
         with:
           toolchain: stable
           targets: ${{ matrix.settings.target }}
       - name: Cache cargo
-        uses: actions/cache@v4
+        uses: topk-io/platform/.github/actions/cache@main
         with:
           path: |
             ~/.cargo/registry/index/
@@ -168,7 +168,7 @@ jobs:
             .cargo-cache
             target/
           key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.host }}
-      - uses: goto-bus-stop/setup-zig@v2
+      - uses: topk-io/platform/.github/actions/setup-zig@main
         if: ${{ matrix.settings.target == 'armv7-unknown-linux-gnueabihf' }}
         with:
           version: 0.14.0
@@ -179,7 +179,7 @@ jobs:
       - name: Install dependencies
         run: yarn install
       - name: Build in docker
-        uses: addnab/docker-run-action@v3
+        uses: topk-io/platform/.github/actions/docker-run@main
         if: ${{ matrix.settings.docker }}
         with:
           image: ${{ matrix.settings.docker }}
@@ -218,7 +218,7 @@ jobs:
         if: ${{ !matrix.settings.docker }}
         shell: bash
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: topk-io/platform/.github/actions/upload-artifact@main
         with:
           name: bindings-${{ matrix.settings.target }}
           path: ./topk-js/${{ env.APP_NAME }}.*.node
@@ -227,7 +227,7 @@ jobs:
   #   runs-on: macos-13
   #   name: Build FreeBSD
   #   steps:
-  #     - uses: actions/checkout@v4
+  #     - uses: topk-io/platform/.github/actions/checkout@main
   #     - name: Build
   #       id: build
   #       uses: cross-platform-actions/action@v0.24.0
@@ -266,7 +266,7 @@ jobs:
   #           rm -rf target
   #           rm -rf .yarn/cache
   #     - name: Upload artifact
-  #       uses: actions/upload-artifact@v4
+  #       uses: topk-io/platform/.github/actions/upload-artifact@main
   #       with:
   #         name: bindings-freebsd
   #         path: ./topk-js/${{ env.APP_NAME }}.*.node
@@ -288,9 +288,9 @@ jobs:
   #         - "22"
   #   runs-on: ${{ matrix.settings.host }}
   #   steps:
-  #     - uses: actions/checkout@v4
+  #     - uses: topk-io/platform/.github/actions/checkout@main
   #     - name: Setup node
-  #       uses: actions/setup-node@v4
+  #       uses: topk-io/platform/.github/actions/setup-node@main
   #       with:
   #         node-version: ${{ matrix.node }}
   #         cache: yarn
@@ -299,7 +299,7 @@ jobs:
   #     - name: Install dependencies
   #       run: yarn install
   #     - name: Download artifacts
-  #       uses: actions/download-artifact@v4
+  #       uses: topk-io/platform/.github/actions/download-artifact@main
   #       with:
   #         name: bindings-${{ matrix.settings.target }}
   #         path: ./topk-js
@@ -322,9 +322,9 @@ jobs:
   #         - "22"
   #   runs-on: ubuntu-latest
   #   steps:
-  #     - uses: actions/checkout@v4
+  #     - uses: topk-io/platform/.github/actions/checkout@main
   #     - name: Setup node
-  #       uses: actions/setup-node@v4
+  #       uses: topk-io/platform/.github/actions/setup-node@main
   #       with:
   #         node-version: ${{ matrix.node }}
   #         cache: yarn
@@ -332,7 +332,7 @@ jobs:
   #     - name: Install dependencies
   #       run: yarn install
   #     - name: Download artifacts
-  #       uses: actions/download-artifact@v4
+  #       uses: topk-io/platform/.github/actions/download-artifact@main
   #       with:
   #         name: bindings-x86_64-unknown-linux-gnu
   #         path: ./topk-js
@@ -355,9 +355,9 @@ jobs:
   #         - "22"
   #   runs-on: ubuntu-latest
   #   steps:
-  #     - uses: actions/checkout@v4
+  #     - uses: topk-io/platform/.github/actions/checkout@main
   #     - name: Setup node
-  #       uses: actions/setup-node@v4
+  #       uses: topk-io/platform/.github/actions/setup-node@main
   #       with:
   #         node-version: ${{ matrix.node }}
   #         cache: yarn
@@ -367,7 +367,7 @@ jobs:
   #         yarn config set supportedArchitectures.libc "musl"
   #         yarn install
   #     - name: Download artifacts
-  #       uses: actions/download-artifact@v4
+  #       uses: topk-io/platform/.github/actions/download-artifact@main
   #       with:
   #         name: bindings-x86_64-unknown-linux-musl
   #         path: ./topk-js
@@ -390,9 +390,9 @@ jobs:
   #         - "22"
   #   runs-on: ubuntu-latest
   #   steps:
-  #     - uses: actions/checkout@v4
+  #     - uses: topk-io/platform/.github/actions/checkout@main
   #     - name: Download artifacts
-  #       uses: actions/download-artifact@v4
+  #       uses: topk-io/platform/.github/actions/download-artifact@main
   #       with:
   #         name: bindings-aarch64-unknown-linux-gnu
   #         path: ./topk-js
@@ -412,7 +412,7 @@ jobs:
   #     - name: Setup and run tests
   #       env:
   #         TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
-  #       uses: addnab/docker-run-action@v3
+  #       uses: topk-io/platform/.github/actions/docker-run@main
   #       with:
   #         image: node:${{ matrix.node }}-slim
   #         options: "--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build/topk-js -e TOPK_API_KEY"
@@ -427,9 +427,9 @@ jobs:
   #     - build
   #   runs-on: ubuntu-latest
   #   steps:
-  #     - uses: actions/checkout@v4
+  #     - uses: topk-io/platform/.github/actions/checkout@main
   #     - name: Download artifacts
-  #       uses: actions/download-artifact@v4
+  #       uses: topk-io/platform/.github/actions/download-artifact@main
   #       with:
   #         name: bindings-aarch64-unknown-linux-musl
   #         path: ./topk-js
@@ -449,7 +449,7 @@ jobs:
   #     - name: Setup and run tests
   #       env:
   #         TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
-  #       uses: addnab/docker-run-action@v3
+  #       uses: topk-io/platform/.github/actions/docker-run@main
   #       with:
   #         image: node:lts-alpine
   #         options: "--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build/topk-js -e TOPK_API_KEY"
@@ -469,9 +469,9 @@ jobs:
   #         - "22"
   #   runs-on: ubuntu-latest
   #   steps:
-  #     - uses: actions/checkout@v4
+  #     - uses: topk-io/platform/.github/actions/checkout@main
   #     - name: Download artifacts
-  #       uses: actions/download-artifact@v4
+  #       uses: topk-io/platform/.github/actions/download-artifact@main
   #       with:
   #         name: bindings-armv7-unknown-linux-gnueabihf
   #         path: ./topk-js
@@ -492,7 +492,7 @@ jobs:
   #     - name: Setup and run tests
   #       env:
   #         TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
-  #       uses: addnab/docker-run-action@v3
+  #       uses: topk-io/platform/.github/actions/docker-run@main
   #       with:
   #         image: node:${{ matrix.node }}-bookworm-slim
   #         options: "--platform linux/arm/v7 -v ${{ github.workspace }}:/build -w /build/topk-js -e TOPK_API_KEY"
@@ -508,9 +508,9 @@ jobs:
       - build
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: topk-io/platform/.github/actions/checkout@main
       - name: Setup node
-        uses: actions/setup-node@v4
+        uses: topk-io/platform/.github/actions/setup-node@main
         with:
           node-version: 20
           cache: yarn
@@ -518,19 +518,19 @@ jobs:
       - name: Install dependencies
         run: yarn install
       - name: Download macOS x64 artifact
-        uses: actions/download-artifact@v4
+        uses: topk-io/platform/.github/actions/download-artifact@main
         with:
           name: bindings-x86_64-apple-darwin
           path: ./topk-js
       - name: Download macOS arm64 artifact
-        uses: actions/download-artifact@v4
+        uses: topk-io/platform/.github/actions/download-artifact@main
         with:
           name: bindings-aarch64-apple-darwin
           path: ./topk-js/
       - name: Combine binaries
         run: yarn universal
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: topk-io/platform/.github/actions/upload-artifact@main
         with:
           name: bindings-universal-apple-darwin
           path: ./topk-js/${{ env.APP_NAME }}.*.node
@@ -548,9 +548,9 @@ jobs:
       # - test-linux-arm-gnueabihf-binding
       - universal-macOS
     steps:
-      - uses: actions/checkout@v4
+      - uses: topk-io/platform/.github/actions/checkout@main
       - name: Setup node
-        uses: actions/setup-node@v4
+        uses: topk-io/platform/.github/actions/setup-node@main
         with:
           node-version: 20
           cache: yarn
@@ -558,7 +558,7 @@ jobs:
       - name: Install dependencies
         run: yarn install
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: topk-io/platform/.github/actions/download-artifact@main
         with:
           path: ./topk-js/artifacts
       - name: Move artifacts

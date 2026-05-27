@@ -39,10 +39,10 @@ jobs:
             archive: topk-x86_64-pc-windows-msvc.zip
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: topk-io/platform/.github/actions/checkout@main
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: topk-io/platform/.github/actions/setup-dtolnay-rust-toolchain@main
         with:
           targets: ${{ matrix.target }}
 
@@ -61,7 +61,7 @@ jobs:
         run: choco install protoc
 
       - name: Cache cargo
-        uses: actions/cache@v4
+        uses: topk-io/platform/.github/actions/cache@main
         with:
           path: |
             ~/.cargo/registry/index/
@@ -94,7 +94,7 @@ jobs:
         shell: bash
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: topk-io/platform/.github/actions/upload-artifact@main
         with:
           name: ${{ matrix.archive }}
           path: ./topk-cli/${{ matrix.archive }}
@@ -108,10 +108,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: topk-io/platform/.github/actions/checkout@main
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: topk-io/platform/.github/actions/download-artifact@main
         with:
           path: ./dist
           merge-multiple: true
@@ -139,7 +139,7 @@ jobs:
           fi
 
       - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: topk-io/platform/.github/actions/action-gh-release@main
         with:
           tag_name: cli-v${{ steps.version.outputs.version }}
           name: topk CLI v${{ steps.version.outputs.version }}
@@ -157,10 +157,10 @@ jobs:
     if: ${{ inputs.publish }}
     needs: [publish]
     steps:
-      - uses: actions/checkout@v4
+      - uses: topk-io/platform/.github/actions/checkout@main
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: topk-io/platform/.github/actions/download-artifact@main
         with:
           path: ./dist
           merge-multiple: true
@@ -190,14 +190,14 @@ jobs:
             topk-cli/homebrew/topk.rb > topk.rb
 
       - name: Upload formula artifact
-        uses: actions/upload-artifact@v4
+        uses: topk-io/platform/.github/actions/upload-artifact@main
         with:
           name: homebrew-formula
           path: ./topk.rb
           if-no-files-found: error
 
       - name: Download formula artifact
-        uses: actions/download-artifact@v4
+        uses: topk-io/platform/.github/actions/download-artifact@main
         with:
           name: homebrew-formula
           path: .
