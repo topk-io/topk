@@ -31,10 +31,10 @@ Scoring expressions are always computed before sorting and aggregation to guaran
 </Note>
 
 ## Compute-Storage Separation
-todo:
+All data in TopK is durably stored in object storage. Read/write compute nodes are statless which means that any node can immediately take over serving requests in case of a node failure. This decoupled architecture enables cost-effective scaling and high availability without having to run consensus-based replication (Raft or Paxos) inside the cluster.
 
 ## Read-Write Separation
-todo:
+Different applications have different read/write patterns and latency requirements. We designed our system with decoupled read and write paths to minimize the impact of write/indexing/compaction operations on query performance. This enables sustained high-throughput writes without query latency spikes caused by background compaction or indexing contenting for resources on the same node.
 
 ## Read Consistency
 TopK supports three different consistency levels, allowing you to choose the right trade-off between consistency, performance, and cost. By default, we provide a **Balanced Consistency Mode**, which balances data freshness (~750ms p99 write-to-queryable) and query efficiency for most applications. Below, we explain how TopK handles data writes and reads and how each consistency mode impacts behavior.
