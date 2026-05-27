@@ -92,7 +92,7 @@ These fields:
 - Can be used for **filtering** in queries
 
 Fields that are not defined in the schema are not indexed.
-If you want to use a field for [vector search](/concepts/vector-search), [semantic search](/concepts/semantic-search), [keyword search](/concepts/keyword-search) or [multi-vector search](/concepts/multi-vector-search), it must be declared in the schema
+If you want to use a field for [vector search](/guides/vector-search), [semantic search](/guides/semantic-search), [keyword search](/guides/keyword-search) or [multi-vector search](/guides/multi-vector-search), it must be declared in the schema
 and have a corresponding index defined.
 
 <CodeGroup>
@@ -199,7 +199,7 @@ The following value types are supported:
 ## Delete documents
 
 You can delete documents by their `_id` or using a [filter expression](/collections/query#filtering). Both methods provide
-the same consistency guarantees and will be reflected in query/get results according to your [consistency level](/concepts/consistency).
+the same consistency guarantees and will be reflected in query/get results according to your [consistency level](/concepts#read-consistency).
 
 ### Delete documents by `_id`
 
