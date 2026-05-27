@@ -1,22 +1,22 @@
 ---
 title: "Concepts"
-description: "How Topk works under the hood."
 icon: "info"
 ---
 
-## Indexing
+## Dataset
+Dataset is a high-level abstraction for [storing](/datasets/ingest), [searching](/datasets/search), and getting [grounded answers](/datasets/ask) from unstructured files (pdf, markdown, html, ...). Document files uploaded into a dataset are parsed into context-aware chunks with relevant metadata and stored inside a collection. This gives our query sub-agent the ability to retrieve the most relevant context and generate a highly accurate, grounded answer.
+
+## Collection
+Collection is a low-level abstraction for storing JSON-like documents with indexed fields. Every document must have an `_id` field as a unique primary key. Collections have an opt-in [schema](/collections/manage#schema) that defines required and optional fields, field data types and field indexes.
+
+## Field Indexes
+Documents inside a collection can have multiple indexed fields defined in the collection schema. Field indexes enable efficient retrieval of documents based on [dense and sparse](/collections/manage#vector-index) vector embeddings, [multi-vector](/collections/manage#multi-vector-index) embeddings (late interaction), [keywords](/collections/manage#keyword-index) (BM25), [semantic similarity](/collections/manage#semantic-index), and their combinations. The ability to store and search multiple indexed fields per document minimizes storage overhead, makes filtering more efficient, and gives users a lot of flexibility at query time without having to re-ingest their data.
 
 ## Filtering
 
 ## Custom Scoring
 
-## Cache Hierarchy
-
-## Compute-Storage Separation
-
-## Read-Write Separation
-
-## Consistency
+## Read Consistency
 
 TopK supports three different consistency levels, allowing you to choose the right trade-off between consistency, performance, and cost. By default, we provide a **Balanced Consistency Mode**, which balances data freshness (~750ms p99 write-to-queryable) and query efficiency for most applications. Below, we explain how TopK handles data writes and reads and how each consistency mode impacts behavior.
 

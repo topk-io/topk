@@ -64,10 +64,11 @@
         "tab": "Guides",
         "icon": "signpost",
         "pages": [
+          "guides/document-question-answering",
           "guides/semantic-search",
+          "guides/multi-vector-search",
           "guides/vector-search",
           "guides/sparse-vector-search",
-          "guides/multi-vector-search",
           "guides/keyword-search",
           "guides/true-hybrid-search"
         ]
