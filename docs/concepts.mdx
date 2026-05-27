@@ -7,21 +7,33 @@ icon: "info"
 Dataset is a high-level abstraction for [storing](/datasets/ingest), [searching](/datasets/search), and getting [grounded answers](/datasets/ask) from unstructured files (pdf, markdown, html, ...). Document files uploaded into a dataset are parsed into context-aware chunks with relevant metadata and stored inside a collection. This gives our query sub-agent the ability to retrieve the most relevant context and generate a highly accurate, grounded answer.
 
 ## Collection
-Collection is a low-level abstraction for storing JSON-like documents with indexed fields. Every document must have an `_id` field as a unique primary key. Collections have an opt-in [schema](/collections/manage#schema) that defines required and optional fields, field data types and field indexes.
+Collection is a low-level abstraction for storing JSON-like documents with indexed fields. Collections have an opt-in [schema](/collections/manage#schema) that defines required and optional fields, field data types, and field indexes. Every document stored in a collection must have an `_id` field as a unique primary key.
 
 ## Field Indexes
-Documents inside a collection can have multiple indexed fields defined in the collection schema. Field indexes enable efficient retrieval of documents based on [dense and sparse](/collections/manage#vector-index) vector embeddings, [multi-vector](/collections/manage#multi-vector-index) embeddings (late interaction), [keywords](/collections/manage#keyword-index) (BM25), [semantic similarity](/collections/manage#semantic-index), and their combinations. The ability to store and search multiple indexed fields per document minimizes storage overhead, makes filtering more efficient, and gives users a lot of flexibility at query time without having to re-ingest their data.
+Documents inside a collection can have multiple indexed fields defined in the collection schema. Field indexes enable efficient retrieval of documents based on [dense and sparse](/collections/manage#vector-index) vector embeddings, [multi-vector](/collections/manage#multi-vector-index) embeddings (late interaction), [keywords](/collections/manage#keyword-index) (BM25), [semantic similarity](/collections/manage#semantic-index), and their combinations.
+
+<Note>
+  The ability to store and search multiple indexed fields per document minimizes storage overhead, makes filtering more efficient, and gives users flexibility at query time without having to re-ingest their data or maintain multiple indexes.
+</Note>
 
 ## Filtering
+Filtering allows queries to select only documents that match a specific condition. Filter expressions can be simple ([comparison](/collections/query#comparison-operators)) or complex ([AND](/collections/query#and)/[OR](/collections/query#or) operators, [ANY](/documents/query#any)/[ALL](/documents/query#all) operators, [regex](/documents/query#regexp_match) patterns, and [more](/collections/query#filtering)). Additionally, you can use computed fields (for example, similarity score) to filter documents in the result set.
+
+<Note>
+Filters are always applied before sorting and aggregation (top-k) to guarantee that the final results contain every document matching the filter, even if there is just one. We also guarantee that recall stays the same (or improves) when using higly selective filters.
+</Note>
 
 ## Custom Scoring
+Similarity is not the same as relevance. Custom scoring expressions enable relevance tuning (for example, [boosting](/collections/query#boost) more recent documents) inside the query without having to over-fetch results and re-score them in the application layer. You can combine computed fields (similarity score, recency score, etc.) with any metadata fields (for example, source quality) inside your scoring expression to define your ranking.
+
+<Note>
+Scoring expressions are always computed before sorting and aggregation to guarantee that the final results contain the most relevant documents according to your ranking logic.
+</Note>
 
 ## Read Consistency
-
 TopK supports three different consistency levels, allowing you to choose the right trade-off between consistency, performance, and cost. By default, we provide a **Balanced Consistency Mode**, which balances data freshness (~750ms p99 write-to-queryable) and query efficiency for most applications. Below, we explain how TopK handles data writes and reads and how each consistency mode impacts behavior.
 
 ### **Balanced Consistency (Default)**
-
 Reads in this mode consider both indexed files and the most recent writes. While there may be a small delay of less than a second for some recent writes to appear, this mode offers lower cost compared to strong consistency. It is ideal for most real-world applications where near-real-time updates are sufficient.
 
 <CodeGroup>
@@ -52,7 +64,6 @@ await client.collection("my_collection").query(
 ---
 
 ### **Indexed Consistency**
-
 Reads in this mode only consider fully compacted files and ignore recent WAL writes to deliver constatnly low query latency. This is best suited for workloads
 with asynchronous write path that are not sensitive to recent writes being visible in queries with low delay.
 
@@ -83,7 +94,6 @@ await client
 ---
 
 ### **Strong Consistency**
-
 Reads in this mode always return the latest writes before responding. While this ensures that all queries see the most recent updates, it comes with higher latency and cost due to additional WAL reads. This mode recommended for cases where clients always need to see the most recent writes.
 
 <CodeGroup>
@@ -113,7 +123,6 @@ await client
 ---
 
 ### Choosing the Right Mode
-
 | Consistency Mode       | Freshness                     | Cost   | Query performance |
 | ---------------------- | ----------------------------- | ------ | ----------------- |
 | **Balanced (Default)** | Near real-time (less than 1s) | Low    | Good              |
