@@ -62,42 +62,88 @@
       <Step title="Upsert documents">
         <CodeGroup>
           ```python Sync
-          from pathlib import Path
-
-          handle = client.dataset("quickstart").upsert_file(
-              "bank-of-america-annual-report-2024",  # document ID
-              Path("./report.pdf"),                  # path to file
-              {
-                  "ticker": "BAC",
-                  "doc_type": "annual_report",
-                  "fiscal_year": 2024,
-              },
-          )
+          client.collection("quickstart").upsert([
+            {
+                "_id": "1",
+                "title": "Catcher in the Rye",
+                "content": "IF YOU REALLY WANT TO HEAR about it, the first thing you'll probably want to know is ...",
+                "author": "J.D. Salinger",
+                "year": 1951,
+            },
+            {
+                "_id": "2",
+                "title": "1984",
+                "content": "It was a bright cold day in April, and the clocks were striking thirteen. Winston Smith, ...",
+                "author": "George Orwell",
+                "year": 1949,
+            },
+            ...
+          ])
           ```
           ```python Async
-          from pathlib import Path
-
-          handle = await client.dataset("quickstart").upsert_file(
-              "bank-of-america-annual-report-2024",  # document ID
-              Path("./report.pdf"),                  # path to file
-              {
-                  "ticker": "BAC",
-                  "doc_type": "annual_report",
-                  "fiscal_year": 2024,
-              },
-          )
+          await client.collection("quickstart").upsert([
+            {
+                "_id": "1",
+                "title": "Catcher in the Rye",
+                "content": "IF YOU REALLY WANT TO HEAR about it, the first thing you'll probably want to know is ...",
+                "author": "J.D. Salinger",
+                "rating": 3.8
+            },
+            {
+                "_id": "2",
+                "title": "1984",
+                "content": "It was a bright cold day in April, and the clocks were striking thirteen. Winston Smith, ...",
+                "author": "George Orwell",
+                "rating": 4.7
+            },
+            ...
+          ])
           ```
         </CodeGroup>
       </Step>
       <Step title="Query indexed data">
         <CodeGroup>
           ```python Sync
-          for message in client.ask("What was the total net income of Bank of America in 2024?", ["quickstart"]):
-              print(message)
+          from topk_sdk.query import select, field, fn
+
+          client.collection("quickstart").query(
+            select(
+              # Select document fields to return
+              "_id", "title", "author",
+              # Compute semantic similarity of content field with the query
+              similarity_score = fn.semantic_similarity(
+                "content",
+                "What is the meaning of life?",
+              )
+            )
+            # Filter documents by metadata
+            .filter(field("rating") >= 3.0)
+            # Rank using the computed similarity score and rating
+            .sort(field("rating") * field("similarity_score"))
+            # Get top 10 highest ranked documents
+            .limit(10)
+          )
           ```
           ```python Async
-          async for message in client.ask("What was the total net income of Bank of America in 2024?", ["quickstart"]):
-              print(message)
+          from topk_sdk.query import select, field, fn
+
+          await client.collection("quickstart").query(
+            select(
+              # Select document fields to return
+              "_id", "title", "author",
+              # Compute semantic similarity of content field with the query
+              similarity_score = fn.semantic_similarity(
+                "content",
+                "What is the meaning of life?",
+              )
+            )
+            # Filter documents by metadata
+            .filter(field("rating") >= 3.0)
+            # Rank using the computed similarity score and rating
+            .sort(field("rating") * field("similarity_score"))
+            # Get top 10 highest ranked documents
+            .limit(10)
+          )
           ```
         </CodeGroup>
 

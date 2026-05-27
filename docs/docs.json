@@ -96,7 +96,6 @@
         "tab": "Guides",
         "icon": "signpost",
         "pages": [
-          "guides/document-question-answering",
           "guides/semantic-search",
           "guides/multi-vector-search",
           "guides/vector-search",
