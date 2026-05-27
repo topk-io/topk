@@ -9,7 +9,7 @@ Dataset is a high-level abstraction for [storing](/datasets/ingest), [searching]
 ## Collection
 Collection is a low-level abstraction for storing JSON-like documents with indexed fields. Collections have an opt-in [schema](/collections/manage#schema) that defines required and optional fields, field data types, and field indexes. Every document stored in a collection must have an `_id` field as a unique primary key.
 
-## Field Indexes
+## Indexes
 Documents inside a collection can have multiple indexed fields defined in the collection schema. Field indexes enable efficient retrieval of documents based on [dense and sparse](/collections/manage#vector-index) vector embeddings, [multi-vector](/collections/manage#multi-vector-index) embeddings (late interaction), [keywords](/collections/manage#keyword-index) (BM25), [semantic similarity](/collections/manage#semantic-index), and their combinations.
 
 <Note>
@@ -29,6 +29,12 @@ Similarity is not the same as relevance. Custom scoring expressions enable relev
 <Note>
 Scoring expressions are always computed before sorting and aggregation to guarantee that the final results contain the most relevant documents according to your ranking logic.
 </Note>
+
+## Compute-Storage Separation
+todo:
+
+## Read-Write Separation
+todo:
 
 ## Read Consistency
 TopK supports three different consistency levels, allowing you to choose the right trade-off between consistency, performance, and cost. By default, we provide a **Balanced Consistency Mode**, which balances data freshness (~750ms p99 write-to-queryable) and query efficiency for most applications. Below, we explain how TopK handles data writes and reads and how each consistency mode impacts behavior.
