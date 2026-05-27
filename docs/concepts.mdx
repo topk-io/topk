@@ -13,11 +13,11 @@ Collection is a low-level abstraction for storing JSON-like documents with index
 Documents inside a collection can have multiple indexed fields defined in the collection schema. Field indexes enable efficient retrieval of documents based on [dense and sparse](/collections/manage#vector-index) vector embeddings, [multi-vector](/collections/manage#multi-vector-index) embeddings (late interaction), [keywords](/collections/manage#keyword-index) (BM25), [semantic similarity](/collections/manage#semantic-index), and their combinations.
 
 <Note>
-  The ability to store and search multiple indexed fields per document minimizes storage overhead, makes filtering more efficient, and gives users flexibility at query time without having to re-ingest their data or maintain multiple indexes.
+The ability to store and search multiple indexed fields per document minimizes storage overhead, makes filtering more efficient, and gives users flexibility at query time without having to re-ingest their data or maintain multiple indexes.
 </Note>
 
 ## Filtering
-Filtering allows queries to select only documents that match a specific condition. Filter expressions can be simple ([comparison](/collections/query#comparison-operators)) or complex ([AND](/collections/query#and)/[OR](/collections/query#or) operators, [ANY](/documents/query#any)/[ALL](/documents/query#all) operators, [regex](/documents/query#regexp_match) patterns, and [more](/collections/query#filtering)). Additionally, you can use computed fields (for example, similarity score) to filter documents in the result set.
+Filtering allows queries to select only documents that match a specific condition. Filter expressions can be simple ([comparison](/collections/query#comparison-operators)) or complex ([AND](/collections/query#and)/[OR](/collections/query#or) operators, [ANY](/collections/query#any)/[ALL](/collections/query#all) operators, [regex](/collections/query#regexp_match) patterns, and [more](/collections/query#filtering)). Additionally, you can use computed fields (for example, similarity score) to filter documents in the result set.
 
 <Note>
 Filters are always applied before sorting and aggregation (top-k) to guarantee that the final results contain every document matching the filter, even if there is just one. We also guarantee that recall stays the same (or improves) when using higly selective filters.
@@ -138,7 +138,7 @@ For most use cases, **Balanced Consistency** offers the best trade-off between p
 For even more precise control over consistency, TopK also supports **LSN (Log Sequence Number)** based consistency. This approach allows you to ensure read-after-write consistency by specifying the exact sequence number of a write operation in your queries.
 
 <Info>
-  For detailed information about using LSNs in queries, see our [LSN-based Consistency](/documents/query#lsn-based-consistency) guide in the Query documentation.
+  For detailed information about using LSNs in queries, see our [LSN-based Consistency](/collections/query#lsn-based-consistency) guide in the Query documentation.
 </Info>
 
 

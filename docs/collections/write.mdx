@@ -198,7 +198,7 @@ The following value types are supported:
 
 ## Delete documents
 
-You can delete documents by their `_id` or using a [filter expression](/documents/query#filtering). Both methods provide
+You can delete documents by their `_id` or using a [filter expression](/collections/query#filtering). Both methods provide
 the same consistency guarantees and will be reflected in query/get results according to your [consistency level](/concepts/consistency).
 
 ### Delete documents by `_id`
@@ -220,12 +220,12 @@ await client.collection("books").delete(["book-1", "book-2", "book-3"]);
 </CodeGroup>
 
 <Info>
-  The `delete()` method returns an **LSN** (Log Sequence Number) that you can pass to subsequent queries for [read-after-write consistency](/documents/query#lsn-based-consistency).
+  The `delete()` method returns an **LSN** (Log Sequence Number) that you can pass to subsequent queries for [read-after-write consistency](/collections/query#lsn-based-consistency).
 </Info>
 
 ### Delete documents by filter expression
 
-To delete documents that match a predicate, you can pass a [filter expression](https://docs.topk.io/documents/query#filtering) to the `delete()` function.
+To delete documents that match a predicate, you can pass a [filter expression](/collections/query#filtering) to the `delete()` function.
 
 <CodeGroup>
 

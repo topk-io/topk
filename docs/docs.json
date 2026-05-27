@@ -15,6 +15,38 @@
     {
       "source": "/installation",
       "destination": "/quickstart"
+    },
+    {
+      "source": "/documents/upsert",
+      "destination": "/collections/write"
+    },
+    {
+      "source": "/documents/delete",
+      "destination": "/collections/write"
+    },
+    {
+      "source": "/documents/query",
+      "destination": "/collections/query"
+    },
+    {
+      "source": "/documents/get",
+      "destination": "/collections/get"
+    },
+    {
+      "source": "/collections/create",
+      "destination": "/collections/manage"
+    },
+    {
+      "source": "/collections/get",
+      "destination": "/collections/manage"
+    },
+    {
+      "source": "/collections/list",
+      "destination": "/collections/manage"
+    },
+    {
+      "source": "/collections/delete",
+      "destination": "/collections/manage"
     }
   ],
   "navigation": {
