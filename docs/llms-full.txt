@@ -1,57 +1,43 @@
 # TopK Documentation
 
-> The context layer for vertical AI agents.
+> Hybrid search, multi-vector search, document parsing, question answering, and more in one API.
 
 ## Overview
 
-### What is TopK?
+### Introduction
 
 URL: https://docs.topk.io/introduction
 
-TopK is an end-to-end solution that turns unstructured documents(PDFs, Images, Markdown, HTML) into reliable context for agents and humans.
+TopK is a **hybrid retrieval engine** built on object storage for **10x lower cost** and **massive scale**. It supports dense/sparse vector search, multi-vector retrieval, powerful filtering, custom ranking, and managed inference in one API.
 
-You can search, explore, and extract relevant information from your documents, all grounded in the source material.
+For unstructured document search use cases, we provide a datasets abstraction that allows you to [ingest](/datasets/ingest) files, [search](/datasets/search), and [get answers](/datasets/ask) from your private documents. Connect your data to agents using our [CLI](/cli) or [MCP](/mcp-server) server.
 
-We believe that **context is a search problem.** Agents need relevant data to make the right decision. Without the right context, even the best AI models fall short — garbage in, garbage out.
+#### Get Started
+<Info>
+  **Prerequisites**
 
-#### How it works
+  - TopK account ([Sign up here](https://console.topk.io/login))
+  - TopK API key ([Get an API key here](https://console.topk.io/api-key))
+</Info>
 
-<Steps>
-  <Step title="Ingest" icon="upload">
-    Upload your documents via the CLI, Python SDK, or JavaScript SDK. TopK supports PDFs, images, markdown, HTML, [and more](/core/ingest#supported-formats).
-  </Step>
-  <Step title="Process" icon="zap">
-    TopK parses, chunks, and indexes your documents—preserving structure from tables, charts, and complex layouts.
-  </Step>
-  <Step title="Query" icon="search">
-    Ask questions, search for relevant passages, or run complex research queries across your documents.
-  </Step>
-</Steps>
+##### Hybrid Search
+Simple example to get you started with TopK. Check out our [guides](/guides) for more complex examples.
+<HybridSearchQuickstart />
 
-#### Core concepts
+##### Document Search
+<DocSearchQuickstart />
 
-<CoreConcepts />
-
-#### Use cases
-
-- **AI agents & copilots** — ground your agents' context in private knowledge to reduce hallucinations and improve decision quality.
-- **Document-heavy workflows** — automate extraction and Q&A over contracts, filings, research papers, and more.
-- **Enterprise knowledge bases** — give employees instant, cited answers from internal documentation, policies, and reports.
-- **Customer support** — surface the right answers from your knowledge base instantly, at scale.
-
-#### How to use TopK
-
-The quickest way to get started is to follow the [Quickstart](/quickstart) guide.
+#### Integrations
 
 <CardGroup cols={2}>
-  <Card title="CLI" icon="terminal" href="/cli">
-    Upload files, search, and ask questions directly from the terminal.
-  </Card>
   <Card title="Python SDK" icon="/icons/python.svg" href="/sdk/topk-py/overview">
     Full Python SDK reference.
   </Card>
   <Card title="JavaScript SDK" icon="/icons/js.svg" href="/sdk/topk-js/overview">
     Full TypeScript/JavaScript SDK reference.
+  </Card>
+  <Card title="CLI" icon="terminal" href="/cli">
+    Upload files, search, and ask questions directly from the terminal.
   </Card>
   <Card title="MCP Server" icon="network" href="/mcp-server">
     Connect TopK to any MCP-compatible AI agent via the Model Context Protocol.
@@ -69,619 +55,336 @@ TopK is **SOC 2 Type I** certified. Visit the [trust center](https://trust.topk.
   <Card title="Access control" icon="shield-check" horizontal>
     Role-based access control with full auditability.
   </Card>
-  <Card title="VPC deployment" icon="server" horizontal>
-    Deploy inside your own VPC for complete network isolation (enterprise).
+  <Card title="Private Deployment" icon="server" horizontal>
+    Deploy inside your own VPC for complete isolation and data residency. [Contact us](https://topk.io/contact) for more details.
   </Card>
 </CardGroup>
 
-#### Get started
+#### Learn More
 
 <CardGroup cols={2}>
-  <Card title="Quickstart" icon="rocket" href="/quickstart">
-    Ingest your first documents and ask a question in minutes.
+  <Card title="Architecture" icon="server" href="/architecture">
+    Learn about TopK's architecture and how it works.
   </Card>
-  <Card title="Talk to us" icon="message-circle" href="https://topk.io/contact" target="_blank">
-    Reach out to discuss your use case or enterprise deployment.
+  <Card title="Concepts" icon="info" href="/concepts">
+    Discover core concepts and how they work together.
   </Card>
 </CardGroup>
 
-### Quickstart
+### Architecture
 
-URL: https://docs.topk.io/quickstart
+URL: https://docs.topk.io/architecture
+
+Our public API routes to different data plane regions hosted in different geographies and cloud providers (see the full list of available [regions](/regions) here). Depending on the request type, we route requests to different write/read/inference services internally to ensure predictable performance and high availability. All data is persisted on object storage (our only durable storage) with read-through caching in memory and on NVMe SSDs.
+
+Inference layer handles document processing and embedding generation. We run a mix of off-the-shelf inference engines and models with our proprietary models and a custom inference runtime optimized for multi-modal and multi-vector retrieval.
+
+{/* High Level Architecture Diagram */}
+<img src="/images/topk-high-level-arch-light.png" alt="TopK High Level Architecture" className="block dark:hidden" />
+<img src="/images/topk-high-level-arch-dark.png" alt="TopK High Level Architecture" className="hidden dark:block" />
+
+#### Data Flow
+TopK is a multi-tenant service, which means that each tenant shares the same physical infrastructure with other tenants in the same region. This allows us to offer lower costs and better burst capacity. For enterprise customers that require full isolation and data residency, we offer dedicated single-tenant regions or cloud-prem deployments in customer-managed VPC.
+
+{/* Data Flow Diagram */}
+<img src="/images/topk-data-flow-light.png" alt="TopK Data Flow" className="block dark:hidden" />
+<img src="/images/topk-data-flow-dark.png" alt="TopK Data Flow" className="hidden dark:block" />
+
+We decouple services that handle read path operations (query planning and execution) from services that handle write path operations (ingestion, indexing, and compaction) to separate node pools. This helps us scale resources cost-effectively and improves performance by reducing contention on the same physical infrastructure. Each collection has its own prefix on object storage, which isolates its data and helps us scale I/O request concurrency.
+
+#### Write Path
+##### Write-Ahead Log (WAL)
+Write requests are durably persisted in a write-ahead log (WAL) which is backed by object storage. Entries in the WAL use logical log sequence numbers (LSN) to guarantee strict ordering and serializability. Once a write request returns successfully, data is guaranteed to be durably persisted to object storage. We employ dynamic batching to improve write throughput (~70MB/s or ~30,000+ vectors/sec) at the cost of higher write latency (~300ms p99 \<1MB).
+
+##### Compactor (LSM-tree)
+The write-ahead log is an append-only data structure with an unbounded number of entries. To optimize query performance and reduce storage costs, we periodically flush new WAL entries into more read-optimized format. The read-optimized files are stored as sorted runs inside a log-structured merge tree (LSM-tree). This tree is then periodically compacted to minimize read amplification, remove updated or deleted data, and minimize storage space.
+
+Since all data is persisted on object storage with massive I/O throughput, we developed a scalable compaction planner and executor that allows us to flush new WAL entries and merge existing segments in parallel on a distributed set of nodes.
+
+#### Read Path
+{/* Data Flow Diagram */}
+<img src="/images/read-path-light.png" alt="TopK Read Path" className="block dark:hidden" />
+<img src="/images/read-path-dark.png" alt="TopK Read Path" className="hidden dark:block" />
+
+##### Router
+The router service is the front door for all read requests. It handles validation, query planning and optimization, consistent routing to optimize cache hit rates, and acts as a coordinator for distributed query execution. This decoupling allows us to horizontally scale compute resources and serve billion-scale collections with low latency and high throughput.
+
+##### Executor
+The executor service has two primary responsibilities: (1) executing (partial) query plans computed by the router and (2) caching data in memory and on NVMe SSDs. Every executor node is semi-ephemeral and fungible. In practice, this means that the persistent on-disk cache state survives restarts and deployments to minimize disruptions during rollouts. At the same time, we can lose an executor node without losing data or availability since the router will automatically redistribute requests to other executor nodes that will pull the required data from object storage.
+
+##### Cache Hierarchy
+Our query engine and storage format are designed from the ground up for multi-tier cache hierarchy. All data is persisted on object storage which is our primary/only durable storage. Executor nodes then cache a subset of this data required for query execution in memory and on locally attached NVMe SSDs to minimize latency and maximize throughput.
+
+Cache placement and I/O requests are handled by our I/O runtime (based on `io_uring`) optimized to efficiently utilize the massive read throughput of object storage and NVMe SSDs.
+
+#### Query Engine (`reactor`)
+{/* Plan diagram */}
+<img src="/images/topk-reactor-light.png" alt="Reactor Query Engine" className="block dark:hidden" />
+<img src="/images/topk-reactor-dark.png" alt="Reactor Query Engine" className="hidden dark:block" />
+
+`reactor` is our proprietary query engine that enables us to combine different retrieval types, filter predicates, and scoring expressions in a single query. Conceptually, it's similar to other pull-based query engines (e.g. DataFusion) with heavy optimizations for zero-copy execution, search-specific SIMD kernels, quantization, vectorized filtering, pruning, and more. Aditionally, it supports distributed query executions which allows us to reuse the same logical/physical operators in router and executor services.
+
+#### File Format (`.bob`)
+`.bob` is our proprietary columnar file format designed from the ground up for search on object storage. It supports zero-copy and zero-decode I/O with type-specific containers for compressed dense and sparse vectors, tensors, inverted indices, and more.
+
+#### CMU DB: TopK Talk
+Check out our talk at the Carnegie Mellon University Database Group where we dive deeper into the TopK architecture, `reactor`, `.bob`, and more.
+<iframe
+  className="w-full aspect-video rounded-xl"
+  src="https://www.youtube.com/embed/gAhzB5ah6jg"
+  title="CMU DB: TopK - Billion-Scale Hybrid Retrieval from the Ground Up"
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+  allowFullScreen
+></iframe>
+
+### Concepts
+
+URL: https://docs.topk.io/concepts
+
+#### Dataset
+Dataset is a high-level abstraction for [storing](/datasets/ingest), [searching](/datasets/search), and getting [grounded answers](/datasets/ask) from unstructured files (pdf, markdown, html, ...). Document files uploaded into a dataset are parsed into context-aware chunks with relevant metadata and stored inside a collection. This gives our query sub-agent the ability to retrieve the most relevant context and generate a highly accurate, grounded answer.
+
+#### Collection
+Collection is a low-level abstraction for storing JSON-like documents with indexed fields. Collections have an opt-in [schema](/collections/manage#schema) that defines required and optional fields, field data types, and field indexes. Every document stored in a collection must have an `_id` field as a unique primary key.
+
+#### Indexes
+Documents inside a collection can have multiple indexed fields defined in the collection schema. Field indexes enable efficient retrieval of documents based on [dense and sparse](/collections/manage#vector-index) vector embeddings, [multi-vector](/collections/manage#multi-vector-index) embeddings (late interaction), [keywords](/collections/manage#keyword-index) (BM25), [semantic similarity](/collections/manage#semantic-index), and their combinations.
+
+<Note>
+The ability to store and search multiple indexed fields per document minimizes storage overhead, makes filtering more efficient, and gives users flexibility at query time without having to re-ingest their data or maintain multiple indexes.
+</Note>
+
+#### Filtering
+Filtering allows queries to select only documents that match a specific condition. Filter expressions can be simple ([comparison](/collections/query#comparison-operators)) or complex ([AND](/collections/query#and)/[OR](/collections/query#or) operators, [ANY](/collections/query#any)/[ALL](/collections/query#all) operators, [regex](/collections/query#regexp_match) patterns, and [more](/collections/query#filtering)). Additionally, you can use computed fields (for example, similarity score) to filter documents in the result set.
+
+<Note>
+Filters are always applied before sorting and aggregation (top-k) to guarantee that the final results contain every document matching the filter, even if there is just one. We also guarantee that recall stays the same (or improves) when using higly selective filters.
+</Note>
+
+#### Custom Scoring
+Similarity is not the same as relevance. Custom scoring expressions enable relevance tuning (for example, [boosting](/collections/query#boost) more recent documents) inside the query without having to over-fetch results and re-score them in the application layer. You can combine computed fields (similarity score, recency score, etc.) with any metadata fields (for example, source quality) inside your scoring expression to define your ranking.
+
+<Note>
+Scoring expressions are always computed before sorting and aggregation to guarantee that the final results contain the most relevant documents according to your ranking logic.
+</Note>
+
+#### Compute-Storage Separation
+All data in TopK is durably stored in object storage. Read/write compute nodes are statless which means that any node can immediately take over serving requests in case of a node failure. This decoupled architecture enables cost-effective scaling and high availability without having to run consensus-based replication (Raft or Paxos) inside the cluster.
+
+#### Read-Write Separation
+Different applications have different read/write patterns and latency requirements. We designed our system with decoupled read and write paths to minimize the impact of write/indexing/compaction operations on query performance. This enables sustained high-throughput writes without query latency spikes caused by background compaction or indexing contenting for resources on the same node.
+
+#### Read Consistency
+TopK supports three different consistency levels, allowing you to choose the right trade-off between consistency, performance, and cost. By default, we provide a **Balanced Consistency Mode**, which balances data freshness (~750ms p99 write-to-queryable) and query efficiency for most applications. Below, we explain how TopK handles data writes and reads and how each consistency mode impacts behavior.
+
+##### **Balanced Consistency (Default)**
+Reads in this mode consider both indexed files and the most recent writes. While there may be a small delay of less than a second for some recent writes to appear, this mode offers lower cost compared to strong consistency. It is ideal for most real-world applications where near-real-time updates are sufficient.
+
+<CodeGroup>
+
+```python Python
+client.collection("my_collection").query(
+    query,
+    # no need to specify consistency mode
+)
+```
+
+
+```typescript Javascript
+await client.collection("my_collection").query(
+  query
+  // no need to specify the consistency mode
+);
+```
+
+</CodeGroup>
+
+**How It Works:**
+
+- The **Router** checks both compacted files and a cached view of the **WAL** (refresh rate is less than 1s)
+- This introduces a chance of delay: if a write has just been added to WAL but hasn't been cached yet, it may not show up in a read
+- However, this delay is minimal (less than 1s in most cases), making it a practical and efficient default
+
+---
+
+##### **Indexed Consistency**
+Reads in this mode only consider fully compacted files and ignore recent WAL writes to deliver constatnly low query latency. This is best suited for workloads
+with asynchronous write path that are not sensitive to recent writes being visible in queries with low delay.
+
+<CodeGroup>
+
+```python Python
+client.collection("my_collection").query(
+    ..., # query
+    consistency="indexed",
+)
+```
+
+
+```typescript Javascript
+await client
+  .collection("my_collection")
+  .query(query, { consistency: "indexed" });
+```
+
+</CodeGroup>
+
+**How It Works:**
+
+- The **Router** forwards queries only to the **Executor**, which reads from compacted files
+- WAL is ignored, meaning queries are always served from stable, processed data
+- This reduces query latency and load, making it the most cost-efficient option for high-throughput reads
+
+---
+
+##### **Strong Consistency**
+Reads in this mode always return the latest writes before responding. While this ensures that all queries see the most recent updates, it comes with higher latency and cost due to additional WAL reads. This mode recommended for cases where clients always need to see the most recent writes.
+
+<CodeGroup>
+
+```python Python
+client.collection("my_collection").query(
+    ..., # query
+    consistency="strong",
+)
+```
+
+
+```typescript Javascript
+await client
+  .collection("my_collection")
+  .query(query, { consistency: "strong" });
+```
+
+</CodeGroup>
+
+**How It Works:**
+
+- Before serving a read, the **Router explicitly checks the WAL** to ensure the latest writes are reflected
+- This guarantees that all queries see the most recent updates but adds overhead because it requires an additional lookup
+- Strong consistency ensures that all queries see the most recent updates but is **more expensive** than other modes due to the extra computation
+
+---
+
+##### Choosing the Right Mode
+| Consistency Mode       | Freshness                     | Cost   | Query performance |
+| ---------------------- | ----------------------------- | ------ | ----------------- |
+| **Balanced (Default)** | Near real-time (less than 1s) | Low    | Good              |
+| **Indexed**            | Only compacted data           | Low    | Fastest           |
+| **Strong**             | All writes are visible        | Higher | Slower            |
+
+For most use cases, **Balanced Consistency** offers the best trade-off between performance and correctness. However, if you prioritize low query latency over recency, **Indexed Consistency** is the right choice. When no staleness is allowed, **Strong Consistency** ensures every read reflects the latest write.
+
+---
+
+##### LSN-based Consistency
+
+For even more precise control over consistency, TopK also supports **LSN (Log Sequence Number)** based consistency. This approach allows you to ensure read-after-write consistency by specifying the exact sequence number of a write operation in your queries.
 
 <Info>
-  **Prerequisites**
-
-  - TopK account ([Sign up here](https://console.topk.io/login))
-  - TopK API key ([Get API key here](https://console.topk.io/api-key))
+  For detailed information about using LSNs in queries, see our [LSN-based Consistency](/collections/query#lsn-based-consistency) guide in the Query documentation.
 </Info>
 
-<Tabs>
-  <Tab title="CLI" icon="terminal">
-    <Steps>
-      <Step title="Install CLI">
-        ```bash
-        brew tap topk-io/topk
-        brew install topk
-        ```
 
-        <Tip>If you don't have Homebrew installed, you can install it [here](https://brew.sh).</Tip>
-      </Step>
-      <Step title="Authenticate">
-        ```bash
-        topk login
-        ```
+#### Multi-tenancy
 
-        <Info>
-          This command prompts you to either create a new API key or set an existing one.
+In TopK, multi-tenancy is achieved through prefixing the tenant IDs in documents **`_id`** value.
 
-          You can also skip the `topk login` command and authenticate by providing your API key via the `TOPK_API_KEY` environment variable:
+This design enables TopK to scale a single collection efficiently without performance degradation by leveraging smart sharding on document ID.
 
-          ```bash
-          export TOPK_API_KEY="your-api-key"
-          ```
-        </Info>
-      </Step>
-      <Step title="Create a dataset">
-          A dataset is a named container for your documents.
-          To create a dataset, run the following command:
+##### Storing documents for a specific tenant
 
-        ```bash
-        topk dataset create quickstart --region aws-us-east-1-elastica
-        ```
+To store documents for a specific tenant, prepend the **tenant ID** to the document **`_id`** value:
 
-        <Info>The `--region` flag determines where your data is stored. See [available regions](/regions).</Info>
-      </Step>
-      <Step title="Upload a file">
-        Upload a file to your dataset:
+<CodeGroup>
 
-        <Tip>
-          Download a sample PDF financial report:
-          ```bash
-          curl -L https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf -o report.pdf
-          ```
-        </Tip>
+```python Python
+client.collection("books").upsert([
+    {"_id": "tenant-1234_1", "title": "The Great Gatsby", "author": "F. Scott Fitzgerald"},
+    {"_id": "tenant-1234_2", "title": "To Kill a Mockingbird", "author": "Harper Lee"},
+])
+```
 
-        ```bash
-        topk upload ./report.pdf --dataset quickstart
-        ```
 
-      </Step>
-      <Step title="Ask a question">
-        ```bash
-        topk ask "What was the total net income of Bank of America in 2024?" -d quickstart
-        ```
+```typescript Javascript
+await client.collection("books").upsert([
+  { _id: "tenant-1234_1", title: "The Great Gatsby", author: "F. Scott Fitzgerald" },
+  { _id: "tenant-1234_2", title: "To Kill a Mockingbird", author: "Harper Lee" },
+]);
+```
 
-        <Info>
-        **Answer:**
+</CodeGroup>
 
-        - Bank of America's total net income for 2024 was \$27,132 million (approximately \$27.1 billion). <Badge color="purple">1</Badge> <Badge color="purple">2</Badge> <Badge color="purple">3</Badge> <Badge color="purple">4</Badge> <Badge color="purple">5</Badge> <Badge color="purple">6</Badge>
-        - The 2024 net income represented an increase from the \$26.5 billion reported in 2023. <Badge color="purple">3</Badge> <Badge color="purple">4</Badge> <Badge color="purple">6</Badge>
-        - The increase was driven by higher noninterest income, partially offset by a higher provision for credit losses and lower net interest income. <Badge color="purple">3</Badge> <Badge color="purple">6</Badge>
 
-        **Citations:**
+##### Querying documents for a specific tenant
 
-        <ul className="list-none pl-2 space-y-2">
-          <li><Badge color="purple">1</Badge> Condensed Statement of Cash Flows showing net income of \$27,132m (2024) vs \$26,515m (2023)<br /><a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=170" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">p. 170</Badge></li>
-          <li><Badge color="purple">2</Badge> Consolidated Statement of Comprehensive Income: net income line item for 2024–2022<br /><a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=92" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">p. 92</Badge></li>
-          <li><Badge color="purple">3</Badge> Supporting figure from the filing (tabular financial excerpt)<br /><a href="https://topk-docs.s3.us-east-2.amazonaws.com/boa-ask-ref-3-figure.jpg" target="_blank" rel="noopener noreferrer">boa-ask-ref-3-figure.jpg</a></li>
-          <li><Badge color="purple">4</Badge> Key performance indicators—selected annual financial data (including net income)<br /><a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=33" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">pp. 33–36</Badge></li>
-          <li><Badge color="purple">5</Badge> Segment results tying to total-corporation net income<br /><a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=166" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">pp. 166–168</Badge></li>
-          <li><Badge color="purple">6</Badge> Executive summary—summary income statement and balance sheet excerpts<br /><a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=29" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">pp. 29–30</Badge></li>
-        </ul>
-        </Info>
+To query documents for a specific tenant, use the **tenant ID** along with the `startsWith()` filter:
 
-        <Accordion title="Full JSON output">
-        ```json
-        {
-          "facts": [
-            {
-              "fact": "Bank of America's total net income for the fiscal year 2024 was $27,132 million.",
-              "ref_ids": ["1", "2", "3", "4", "5", "6"]
-            },
-            {
-              "fact": "The 2024 net income of $27.1 billion represented an increase from the $26.5 billion reported in 2023.",
-              "ref_ids": ["3", "4", "6"]
-            },
-            {
-              "fact": "The increase was driven by higher noninterest income, partially offset by a higher provision for credit losses and lower net interest income.",
-              "ref_ids": ["3", "6"]
-            }
-          ],
-          "refs": {
-            "1": {
-              "doc_id": "bank-of-america-annual-report-2024",
-              "doc_type": "application/pdf",
-              "dataset": "quickstart",
-              "content_id": "doc#bank-of-america-annual-report-2024#chunk#130",
-              "doc_name": "report.pdf",
-              "content": {
-                "text": "## Condensed Statement of Cash Flows\n[row_1]; []=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
-                "doc_pages": [170]
-              }
-            },
-            "2": {
-              "doc_id": "bank-of-america-annual-report-2024",
-              "doc_type": "application/pdf",
-              "dataset": "quickstart",
-              "content_id": "doc#bank-of-america-annual-report-2024#chunk#428",
-              "doc_name": "report.pdf",
-              "content": {
-                "text": "## Consolidated Statement of Comprehensive Income\n[row_0]; [Dollars in millions]=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
-                "doc_pages": [92]
-              }
-            },
-            "3": {
-              "doc_id": "bank-of-america-annual-report-2024",
-              "doc_type": "application/pdf",
-              "dataset": "quickstart",
-              "content_id": "doc#bank-of-america-annual-report-2024#image#92",
-              "doc_name": "report.pdf",
-              "content": {
-                "mime_type": "image/jpeg",
-                "data": "<base64 encoded image>"
-              }
-            },
-            "4": {
-              "doc_id": "bank-of-america-annual-report-2024",
-              "doc_type": "application/pdf",
-              "dataset": "quickstart",
-              "content_id": "doc#bank-of-america-annual-report-2024#chunk#129",
-              "doc_name": "report.pdf",
-              "content": {
-                "text": "## Key Performance Indicators\n[row_7]=Income statement; []=Net income; [2024]=27,132; [2023]=26,515\n...",
-                "doc_pages": [33, 34, 35, 36]
-              }
-            },
-            "5": {
-              "doc_id": "bank-of-america-annual-report-2024",
-              "doc_type": "application/pdf",
-              "dataset": "quickstart",
-              "content_id": "doc#bank-of-america-annual-report-2024#chunk#854",
-              "doc_name": "report.pdf",
-              "content": {
-                "text": "## Results of Business Segments\n[row_9]; [Item]=Net income; [Total Corporation (2) 2024]=27,132; [Total Corporation (2) 2023]=26,515\n...",
-                "doc_pages": [166, 167, 168]
-              }
-            },
-            "6": {
-              "doc_id": "bank-of-america-annual-report-2024",
-              "doc_type": "application/pdf",
-              "dataset": "quickstart",
-              "content_id": "doc#bank-of-america-annual-report-2024#chunk#131",
-              "doc_name": "report.pdf",
-              "content": {
-                "text": "## Executive Summary > Financial Highlights\n[row_7]=Net income; [2024]=27,132; [2023]=26,515\n...",
-                "doc_pages": [29, 30]
-              }
-            }
-          },
-          "confidence": 100.0
-        }
-        ```
-        </Accordion>
+<CodeGroup>
 
-        <Note>
-          To learn more about how to use TopK CLI, see the [CLI documentation](/cli).
-        </Note>
-      </Step>
-    </Steps>
-  </Tab>
-  <Tab title="Python SDK" icon="/icons/python.svg">
-    <Steps>
-      <Step title="Install Python SDK">
-        <CodeGroup>
-          ```bash pip
-          pip install topk-sdk
-          ```
-          ```bash uv
-          uv add topk-sdk
-          ```
-        </CodeGroup>
-      </Step>
-      <Step title="Initialize the client">
+```python Python
+client.collection("books").query(
+    select(
+        "title",
+    )
+    .filter(field("_id").startsWith("tenant-1234"))
+)
+```
 
-        Setup the TopK client with your API key and region.
 
-        <CodeGroup>
-          ```python Sync
-          import os
-          from topk_sdk import Client
+```typescript Javascript
+await client.collection("books").query(
+  select({
+    title: field("title"),
+  })
+  .filter(field("_id").startsWith("tenant-1234"))
+);
+```
 
-          client = Client(
-              api_key=os.environ["TOPK_API_KEY"],
-              region=os.environ.get("TOPK_REGION", "aws-us-east-1-elastica"),
-          )
-          ```
-          ```python Async
-          import os
-          from topk_sdk import AsyncClient
+</CodeGroup>
 
-          client = AsyncClient(
-              api_key=os.environ["TOPK_API_KEY"],
-              region=os.environ.get("TOPK_REGION", "aws-us-east-1-elastica"),
-          )
-          ```
-        </CodeGroup>
-        <Info>See [available regions](/regions) for a full list of supported regions.</Info>
-      </Step>
-      <Step title="Create a dataset">
-        <CodeGroup>
-          ```python Sync
-          client.datasets().create("quickstart")
-          ```
-          ```python Async
-          await client.datasets().create("quickstart")
-          ```
-        </CodeGroup>
-      </Step>
-      <Step title="Upload a file">
-        Upload a file to your dataset by providing the document ID, the path to the file, and optional metadata:
+<Info>
+  The approach preserves the ability to query across all tenants when required.
+</Info>
 
-        <Tip>
-          Download a sample PDF financial report:
-          ```bash
-          curl -L https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf -o report.pdf
-          ```
-        </Tip>
+### Limits
 
-        <CodeGroup>
-          ```python Sync
-          from pathlib import Path
+URL: https://docs.topk.io/limits
 
-          handle = client.dataset("quickstart").upsert_file(
-              "bank-of-america-annual-report-2024",  # document ID
-              Path("./report.pdf"),                  # path to file
-              {
-                  "ticker": "BAC",
-                  "doc_type": "annual_report",
-                  "fiscal_year": 2024,
-              },
-          )
-          ```
-          ```python Async
-          from pathlib import Path
+<Warning>
+  These limits are subject to change as we continuosuly improve our system. If you expect to be blocked by any of these, please
+  <a href="https://topk.io/contact"> let us know.</a>
+</Warning>
 
-          handle = await client.dataset("quickstart").upsert_file(
-              "bank-of-america-annual-report-2024",  # document ID
-              Path("./report.pdf"),                  # path to file
-              {
-                  "ticker": "BAC",
-                  "doc_type": "annual_report",
-                  "fiscal_year": 2024,
-              },
-          )
-          ```
-        </CodeGroup>
+#### Collection Limits
 
-        After the file has been uploaded, wait for it to be processed:
+| Scope                             | Production limit                |
+|-----------------------------------|---------------------------------|
+| Max collections                   | Unlimited                       |
+| Max documents (global)            | Unlimited                       |
+| Max documents (per collection)    | 1B+                             |
+| Write throughput (global)         | Unlimited                       |
+| Write throughput (per collection) | ~70MB/s                         |
+| Query throughput (global)         | Unlimited                       |
+| Query throughput (per collection) | 1k+ queries/s                   |
+| Max document size                 | 200KB                           |
+| Max indexed fields                | Unlimited (up to document size) |
+| Max dense vector dimension        | 16,384                          |
+| Max sparse vector dimension       | 2^32-1                          |
+| Max multi-vector dimension        | 1024                            |
+| Max upsert request size           | 8MB                             |
+| Recall                            | 95%+                            |
 
-        <CodeGroup>
-          ```python Sync
-          client.dataset("quickstart").wait_for_handle(handle)
-          ```
-          ```python Async
-          await client.dataset("quickstart").wait_for_handle(handle)
-          ```
-        </CodeGroup>
-      </Step>
-      <Step title="Ask a question">
-        <CodeGroup>
-          ```python Sync
-          for message in client.ask("What was the total net income of Bank of America in 2024?", ["quickstart"]):
-              print(message)
-          ```
-          ```python Async
-          async for message in client.ask("What was the total net income of Bank of America in 2024?", ["quickstart"]):
-              print(message)
-          ```
-        </CodeGroup>
+#### Dataset Limits
 
-        <Accordion title="Full JSON output">
-        ```json
-        {
-          "facts": [
-            {
-              "fact": "Bank of America's total net income for the fiscal year 2024 was $27,132 million.",
-              "ref_ids": ["1", "2", "3", "4", "5", "6"]
-            },
-            {
-              "fact": "The 2024 net income of $27.1 billion represented an increase from the $26.5 billion reported in 2023.",
-              "ref_ids": ["3", "4", "6"]
-            },
-            {
-              "fact": "The increase in 2024 net income was driven by higher noninterest income, although this was partially offset by a higher provision for credit losses and lower net interest income.",
-              "ref_ids": ["3", "6"]
-            }
-          ],
-          "refs": {
-            "1": {
-              "doc_id": "bank-of-america-annual-report-2024",
-              "doc_type": "application/pdf",
-              "dataset": "quickstart",
-              "content_id": "doc#bank-of-america-annual-report-2024#chunk#130",
-              "doc_name": "report.pdf",
-              "content": {
-                "data": {
-                  "Chunk": {
-                    "text": "## Condensed Statement of Cash Flows\n[row_1]; []=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
-                    "doc_pages": [170]
-                  }
-                }
-              }
-            },
-            "2": {
-              "doc_id": "bank-of-america-annual-report-2024",
-              "doc_type": "application/pdf",
-              "dataset": "quickstart",
-              "content_id": "doc#bank-of-america-annual-report-2024#chunk#428",
-              "doc_name": "report.pdf",
-              "content": {
-                "data": {
-                  "Chunk": {
-                    "text": "## Consolidated Statement of Comprehensive Income\n[row_0]; [Dollars in millions]=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
-                    "doc_pages": [92]
-                  }
-                }
-              }
-            },
-            "3": {
-              "doc_id": "bank-of-america-annual-report-2024",
-              "doc_type": "application/pdf",
-              "dataset": "quickstart",
-              "content_id": "doc#bank-of-america-annual-report-2024#image#92",
-              "doc_name": "report.pdf",
-              "content": {
-                "data": {
-                  "Image": {
-                    "mime_type": "image/jpeg",
-                    "data": "<base64 encoded image>"
-                  }
-                }
-              }
-            },
-            "4": {
-              "doc_id": "bank-of-america-annual-report-2024",
-              "doc_type": "application/pdf",
-              "dataset": "quickstart",
-              "content_id": "doc#bank-of-america-annual-report-2024#chunk#129",
-              "doc_name": "report.pdf",
-              "content": {
-                "data": {
-                  "Chunk": {
-                    "text": "## Key Performance Indicators\n[row_7]=Income statement; []=Net income; [2024]=27,132; [2023]=26,515\n...",
-                    "doc_pages": [33, 34, 35, 36]
-                  }
-                }
-              }
-            },
-            "5": {
-              "doc_id": "bank-of-america-annual-report-2024",
-              "doc_type": "application/pdf",
-              "dataset": "quickstart",
-              "content_id": "doc#bank-of-america-annual-report-2024#chunk#854",
-              "doc_name": "report.pdf",
-              "content": {
-                "data": {
-                  "Chunk": {
-                    "text": "## Results of Business Segments\n[row_9]; [Item]=Net income; [Total Corporation (2) 2024]=27,132; [Total Corporation (2) 2023]=26,515\n...",
-                    "doc_pages": [166, 167, 168]
-                  }
-                }
-              }
-            },
-            "6": {
-              "doc_id": "bank-of-america-annual-report-2024",
-              "doc_type": "application/pdf",
-              "dataset": "quickstart",
-              "content_id": "doc#bank-of-america-annual-report-2024#chunk#131",
-              "doc_name": "report.pdf",
-              "content": {
-                "data": {
-                  "Chunk": {
-                    "text": "## Executive Summary > Financial Highlights\n[row_7]=Net income; [2024]=27,132; [2023]=26,515\n...",
-                    "doc_pages": [29, 30]
-                  }
-                }
-              }
-            }
-          },
-          "confidence": 100.0
-        }
-        ```
-        </Accordion>
-
-        <Note>
-          To learn more about how to use the Python SDK, see the [Python SDK documentation](/sdk/topk-py).
-        </Note>
-      </Step>
-    </Steps>
-  </Tab>
-  <Tab title="JavaScript SDK" icon="/icons/js.svg">
-    <Steps>
-      <Step title="Install JavaScript SDK">
-        <CodeGroup>
-          ```bash npm
-          npm install topk-js
-          ```
-          ```bash yarn
-          yarn add topk-js
-          ```
-          ```bash pnpm
-          pnpm add topk-js
-          ```
-        </CodeGroup>
-      </Step>
-      <Step title="Initialize the client">
-        ```typescript
-        import { Client } from "topk-js";
-
-        const client = new Client({
-          apiKey: "your-api-key",
-          region: "aws-us-east-1-elastica",
-        });
-        ```
-        <Info>See [available regions](/regions) for a full list of supported regions.</Info>
-      </Step>
-      <Step title="Create a dataset">
-        ```typescript
-        await client.datasets().create("quickstart");
-        ```
-      </Step>
-      <Step title="Upload a file">
-        <Tip>
-          Download a sample PDF financial report:
-          ```bash
-          curl -L https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf -o report.pdf
-          ```
-        </Tip>
-
-        ```typescript
-        const handle = await client.dataset("quickstart").upsertFile(
-          "bank-of-america-annual-report-2024", // document ID
-          { path: "./report.pdf" },             // path to file
-          {
-            ticker: "BAC",
-            doc_type: "annual_report",
-            fiscal_year: 2024,
-          },
-        );
-        ```
-
-        Wait for the file to be processed:
-
-        ```typescript
-        await client.dataset("quickstart").waitForHandle(handle);
-        ```
-      </Step>
-      <Step title="Ask a question">
-        ```typescript
-        for await (const message of client.ask("What was the total net income of Bank of America in 2024?", ["quickstart"])) {
-          console.log(message);
-        }
-        ```
-
-        <Accordion title="Full JSON output">
-        ```json
-        {
-          "facts": [
-            {
-              "fact": "Bank of America's total net income for the fiscal year 2024 was $27,132 million.",
-              "refIds": ["1", "2", "3", "4", "5", "6"]
-            },
-            {
-              "fact": "The 2024 net income of $27.1 billion represented an increase from the $26.5 billion reported in 2023.",
-              "refIds": ["3", "4", "6"]
-            },
-            {
-              "fact": "The increase in 2024 net income was driven by higher noninterest income, although this was partially offset by a higher provision for credit losses and lower net interest income.",
-              "refIds": ["3", "6"]
-            }
-          ],
-          "refs": {
-            "1": {
-              "docId": "bank-of-america-annual-report-2024",
-              "docType": "application/pdf",
-              "dataset": "quickstart",
-              "contentId": "doc#bank-of-america-annual-report-2024#chunk#130",
-              "docName": "report.pdf",
-              "content": {
-                "type": "chunk",
-                "data": {
-                  "text": "## Condensed Statement of Cash Flows\n[row_1]; []=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
-                  "docPages": [170]
-                }
-              }
-            },
-            "2": {
-              "docId": "bank-of-america-annual-report-2024",
-              "docType": "application/pdf",
-              "dataset": "quickstart",
-              "contentId": "doc#bank-of-america-annual-report-2024#chunk#428",
-              "docName": "report.pdf",
-              "content": {
-                "type": "chunk",
-                "data": {
-                  "text": "## Consolidated Statement of Comprehensive Income\n[row_0]; [Dollars in millions]=Net income; [2024]=27,132; [2023]=26,515; [2022]=27,528\n...",
-                  "docPages": [92]
-                }
-              }
-            },
-            "3": {
-              "docId": "bank-of-america-annual-report-2024",
-              "docType": "application/pdf",
-              "dataset": "quickstart",
-              "contentId": "doc#bank-of-america-annual-report-2024#image#92",
-              "docName": "report.pdf",
-              "content": {
-                "type": "image",
-                "data": {
-                  "mimeType": "image/jpeg",
-                  "data": "<base64 encoded image>"
-                }
-              }
-            },
-            "4": {
-              "docId": "bank-of-america-annual-report-2024",
-              "docType": "application/pdf",
-              "dataset": "quickstart",
-              "contentId": "doc#bank-of-america-annual-report-2024#chunk#129",
-              "docName": "report.pdf",
-              "content": {
-                "type": "chunk",
-                "data": {
-                  "text": "## Key Performance Indicators\n[row_7]=Income statement; []=Net income; [2024]=27,132; [2023]=26,515\n...",
-                  "docPages": [33, 34, 35, 36]
-                }
-              }
-            },
-            "5": {
-              "docId": "bank-of-america-annual-report-2024",
-              "docType": "application/pdf",
-              "dataset": "quickstart",
-              "contentId": "doc#bank-of-america-annual-report-2024#chunk#854",
-              "docName": "report.pdf",
-              "content": {
-                "type": "chunk",
-                "data": {
-                  "text": "## Results of Business Segments\n[row_9]; [Item]=Net income; [Total Corporation (2) 2024]=27,132; [Total Corporation (2) 2023]=26,515\n...",
-                  "docPages": [166, 167, 168]
-                }
-              }
-            },
-            "6": {
-              "docId": "bank-of-america-annual-report-2024",
-              "docType": "application/pdf",
-              "dataset": "quickstart",
-              "contentId": "doc#bank-of-america-annual-report-2024#chunk#131",
-              "docName": "report.pdf",
-              "content": {
-                "type": "chunk",
-                "data": {
-                  "text": "## Executive Summary > Financial Highlights\n[row_7]=Net income; [2024]=27,132; [2023]=26,515\n...",
-                  "docPages": [29, 30]
-                }
-              }
-            }
-          },
-          "confidence": 100.0
-        }
-        ```
-        </Accordion>
-
-        <Note>
-          To learn more about how to use the JavaScript SDK, see the [JavaScript SDK documentation](/sdk/topk-js).
-        </Note>
-      </Step>
-    </Steps>
-  </Tab>
-</Tabs>
-
-Congratulations! You've just ingested your first document and asked a question.
-
-##### Next steps
-
-<CoreConcepts />
+| Scope                   | Production limit |
+|-------------------------|------------------|
+| Max datasets            | Unlimited        |
+| Max files (per dataset) | 100m             |
+| Max PDF file size       | 512MB            |
+| Max Markdown file size  | 512MB            |
+| Max HTML file size      | 8MB              |
+| Max image file size     | 8MB              |
 
 ### Regions
 
@@ -689,56 +392,61 @@ URL: https://docs.topk.io/regions
 
 TopK region is where your data is stored. It maps to a specific cloud region.
 
-These are the available regions:
+<Tip>
+  Choose the region that is geographically closest to your application, your agents, or your end users for the best latency.
+</Tip>
+
+Currently available public regions:
 
 | Cloud | Region | Location | Name |
 |-------|---------|-----------|-----|
 | AWS | us-east-1 | 🇺🇸 N. Virginia | `aws-us-east-1-elastica` |
 | AWS | eu-central-1 | 🇪🇺 Frankfurt | `aws-eu-central-1-monstera` |
 
-<Tip>
-  Choose the region that is geographically closest to your application, your agents, or your end users for the best latency.
-</Tip>
-
 <Info>
-  To deploy TopK in your own VPC, please [contact us](/support).
+  To deploy TopK in your own VPC, please [contact us](https://topk.io/contact).
 </Info>
 
 ### Changelog
 
 URL: https://docs.topk.io/changelog
 
-##### March 2026
-- **Features**: Added support for tuning [`BM25`](https://docs.topk.io/sdk/topk-py/query#bm25_score). Configure your own b and k1 parameters to adjust ranking behavior and refine result relevance.
+{/* ## May 2026
+- structs */}
+
+#### April 2026
+- **Datasets API**: Shipped datasets API for unstructured document [ingestion](/datasets/ingest), [search](/datasets/search), and grounded [question answering](/datasets/ask). Give your agents context from complex PDFs, Markdown, HTML, and more.
+- **[CLI](/cli)**: Manage datasets, ingest documents, and query them from your terminal.
+- **[MCP](/mcp-server)**: Connect private data inside datasets to your agents.
+
+#### March 2026
+- **Features**: Added support for tuning [`BM25`](https://docs.topk.io/sdk/topk-py/query#bm25_score). Configure your own `b` and `k1` parameters to adjust ranking behavior and refine result relevance.
 - **Blog**: Published a post about [`SMVE`](https://www.topk.io/blog/20260311-smve-multi-vector-retrieval) — an algorithm for scaling multi-vector retrieval, focusing on improved efficiency and performance for large-scale workloads.
 
-##### February 2026
+#### February 2026
 - **Features**: Enabled native support for state-of-the-art retrieval models via multi-vector retrieval. ~5.5x faster than PLAID, ~7.5 faster than MUVERA with 1-bit, 2-bit and scalar quantization to optimize storage efficiency.
 - **Features**: Added native support for [`f8`](https://docs.topk.io/sdk/topk-py/schema#f8_vector) and [`f16`](https://docs.topk.io/sdk/topk-py/schema#f16_vector) vector types to optimize embedding storage size and improve efficiency when storing large document collections.
 
-##### January 2026
-- **Features**: Added support for multivec [`indexing`](https://docs.topk.io/sdk/topk-py/schema#multi_vector_index) and [`querying`](https://docs.topk.io/sdk/topk-py/query#multi_vector_distance), enabling more advanced multi-embedding retrieval use cases.
+#### January 2026
+- **Features**: Added support for multi-vector [`indexing`](https://docs.topk.io/sdk/topk-py/schema#multi_vector_index) and [`querying`](https://docs.topk.io/sdk/topk-py/query#multi_vector_distance), enabling more advanced multi-embedding retrieval use cases.
 - **Features**: Introduced the [`list<str>.starts_with`](https://docs.topk.io/sdk/topk-py/query#starts_with) operator in our query language, enabling efficient prefix filtering on array string fields.
 
 
-##### November 2025
-
-- **Features**: Added support for [`regular-expression`](https://docs.topk.io/documents/query#regexp-match) filtering in our query language, enabling more flexible querying logic.
+#### November 2025
+- **Features**: Added support for [`regular-expression`](/collections/query#regexp_match) filtering in our query language, enabling more flexible querying logic.
 - **Benchmarks**: Published the new [`TopK Benchmarks`](https://www.topk.io/blog/20251201-topk-bench) results, showcasing performance and scalability across production-like workloads for multiple providers.
 - **Billing**: Shipped billing, unlocking end-to-end usage tracking and payment workflows.
 - **Performance**: Shipped distributed compaction to optimize cost and improve indexing throughput per collection.
 
-##### October 2025
-
+#### October 2025
 - **Features**: Added [`update()`](https://docs.topk.io/sdk/topk-py/index#update)API to simplify partial record updates.
-- **Features**: Shipped support for [`delete-by-filter`](https://docs.topk.io/documents/delete#delete-documents) operations for more flexible bulk deletions.
+- **Features**: Shipped support for [`delete-by-filter`](/collections/write#delete-documents-by-filter-expression) operations for more flexible bulk deletions.
 - **Docs & SDKs**: Added support for Cohere’s embed-v4 model in [`semantic_index()`](https://docs.topk.io/sdk/topk-py/schema#semantic-index) and exposed organization limits in ddb-management-plane for improved visibility and management.
 
-##### September 2025
-
+#### September 2025
 - **Docs & SDKs**: Published SDK reference for [**Python**](https://docs.topk.io/sdk/topk-py) and [**JavaScript**](https://docs.topk.io/sdk/topk-js) clients, and added detailed docstrings for a smoother developer experience in both SDKs
 - **Python SDK**: Released [`AsyncClient`](https://docs.topk.io/sdk/topk-py/index#asyncclient) for easier async workflows.
-- **String Operators**: Added [`lt`](https://docs.topk.io/documents/query#lt), [`lte`](https://docs.topk.io/documents/query#lte), [`gt`](https://docs.topk.io/sdk/topk-py/query#gt), [`gte`](https://docs.topk.io/sdk/topk-py/query#gte), [`min`](https://docs.topk.io/documents/query#min), and [`max`](https://docs.topk.io/sdk/topk-py/query#max).
+- **String Operators**: Added [`lt`](/collections/query#lt), [`lte`](/collections/query#lte), [`gt`](https://docs.topk.io/sdk/topk-py/query#gt), [`gte`](https://docs.topk.io/sdk/topk-py/query#gte), [`min`](/collections/query#min), and [`max`](https://docs.topk.io/sdk/topk-py/query#max).
 - **Query Helpers**: Introduced [`any`](https://docs.topk.io/sdk/topk-py/query#any) and [`all`](https://docs.topk.io/sdk/topk-py/query#all) helpers.
 - **List Support**: Added [`contains`](https://docs.topk.io/sdk/topk-py/query#contains) and [`in`](https://docs.topk.io/sdk/topk-py/query#ln) operators for list fields.
 - **Observability**: Added Query Latency and Write Latency charts to the Usage Metrics in [console](https://console.topk.io/).
@@ -747,32 +455,30 @@ URL: https://docs.topk.io/changelog
 - **Faster GETs**: Added option to cache raw document data and improved performance with zero-copy design.
 - **Performance**: Improved performance for queries with default & strong [consistency level](https://docs.topk.io/sdk/topk-py/index#consistencylevel).
 
-##### August 2025
-
+#### August 2025
 - **Lists Data Type**: Native support for [list](https://docs.topk.io/sdk/topk-py/data#list) fields.
 - **Performance**: Added [`skip_refine`](https://docs.topk.io/sdk/topk-py/query#vector-distance) query option to improve speed when reranking isn’t needed.
 - **Monitoring**: Usage Metrics now available directly in the [console](https://console.topk.io/).
 
-##### July 2025
-
+#### July 2025
 - **Math Operators**: Added [`ln`](https://docs.topk.io/sdk/topk-py/query#ln), [`exp`](https://docs.topk.io/sdk/topk-py/query#exp), [`sqrt`](https://docs.topk.io/sdk/topk-py/query#sqrt), [`square`](https://docs.topk.io/sdk/topk-py/query#square), [`min`](https://docs.topk.io/sdk/topk-py/query#min-2), [`max`](https://docs.topk.io/sdk/topk-py/query#max-2), and [`abs`](https://docs.topk.io/sdk/topk-py/query#abs).
 - **Advanced Querying**: Introduced [`choose`](https://docs.topk.io/sdk/topk-py/query#choose), [`match_all`](https://docs.topk.io/sdk/topk-py/query#match-all), [`match_any`](https://docs.topk.io/sdk/topk-py/query#match-any), [`coalesce`](https://docs.topk.io/sdk/topk-py/query#coalesce), and [`boost`](https://docs.topk.io/sdk/topk-py/query#boost) (with null coalescing).
 - **Binary Data**: Added [`bytes()`](https://docs.topk.io/sdk/topk-py/data#bytes) constructor to the Python SDK.
 - **Performance**: Optimized workload distribution for large-sacle deployments.
 
-##### June 2025
-
+#### June 2025
 - **Sparse Vectors**: Added support for [f32](https://docs.topk.io/sdk/topk-py/schema#f32-sparse-vector) and [u8](https://docs.topk.io/sdk/topk-py/schema#u8-sparse-vector) sparse vector fields.
 - **Benchmarks**: Published [billion-scale benchmarks](https://www.topk.io/benchmarks) for dense & sparse vector search with filtering.
 
-## Core Concepts
+## Dataset API
 
-### Ingest
+### Ingest Files
 
-URL: https://docs.topk.io/core/ingest
+URL: https://docs.topk.io/datasets/ingest
 
-To run queries in TopK, your documents need to be uploaded. Once a document is uploaded,
-TopK parses, chunks, and indexes its content to power [Ask](/core/ask), [Search](/core/search), and [Research](/core/research).
+To run queries in TopK, your documents need to be uploaded and processed. Once a document is uploaded,
+TopK will process it to create searchable chhunks with relevant context and metadata. This indexed representation
+then powers [Ask](/datasets/ask) and [Search](/datasets/search).
 
 #### Uploading documents
 
@@ -780,7 +486,7 @@ Documents are uploaded to a **dataset**. A dataset is a named container for your
 Each document in a dataset is identified by a **document ID**.
 
 <Tip>
-  Learn how to create your dataset [here](/datasets#create-a-dataset).
+  Learn how to create your dataset [here](/datasets/manage#create-a-dataset).
 </Tip>
 
 <Tabs>
@@ -945,7 +651,7 @@ information about the document, such as title, author, date, or category.
 <Note>
   Metadata values can also include **lists** of strings or numbers, for example `tags` or `categories`.
 
-  See all supported metadata types [here](/documents/upsert#supported-types).
+  See all supported metadata types [here](/collections/write#supported-metadata-types).
 </Note>
 
 
@@ -1108,9 +814,21 @@ Alternatively, you can wait for the document to be processed using the **process
   </Tab>
 </Tabs>
 
+#### Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Ask Questions" icon="message-circle-question-mark" href="/datasets/ask">
+    Get grounded, evidence-backed answers from your documents
+  </Card>
+  <Card title="Search Chunks" icon="file-search-2" href="/datasets/search">
+    Retrieve the most relevant passages from your documents.
+  </Card>
+
+</CardGroup>
+
 ### Ask
 
-URL: https://docs.topk.io/core/ask
+URL: https://docs.topk.io/datasets/ask
 
 TopK answers natural-language queries over your documents.
 It retrieves the most relevant parts of your documents and synthesizes a grounded answer with source citations.
@@ -1326,7 +1044,7 @@ What was the total net income of Bank of America in 2024?
 The answer consists of three fields:
 
 - **`facts`** — individual statements answering the query, each backed by one or more citations
-- **`refs`** — a map from citation number to a [Search Result](/core/search#search-result)
+- **`refs`** — a map from citation number to a [Search Result](/datasets/search#search-result)
 - **`confidence`** — a score between 0 and 100 indicating confidence in the answer
 
 ```json
@@ -1359,7 +1077,7 @@ The answer consists of three fields:
 
 ##### Citations
 
-Citations are **numbered**. Each fact's `ref_ids` list points to entries in `refs`, where each key is a citation number and each value is a [Search Result](/core/search#search-result) — the matched passage or image along with its document ID, file name, dataset, and any requested metadata.
+Citations are **numbered**. Each fact's `ref_ids` list points to entries in `refs`, where each key is a citation number and each value is a [Search Result](/datasets/search#search-result) — the matched passage or image along with its document ID, file name, dataset, and any requested metadata.
 
 #### Scoping the search
 
@@ -1436,7 +1154,7 @@ When running ask, you must specify at least one dataset to query against.
 
 ##### Document filtering
 
-Sometimes a dataset might contain documents that should not be considered for the query. You can filter out documents that don't match your criteria by providing a [filter expression](/documents/query#filtering).
+Sometimes a dataset might contain documents that should not be considered for the query. You can filter out documents that don't match your criteria by providing a [filter expression](/collections/query#filtering).
 
 These filter expressions operate on the **metadata fields** of documents.
 
@@ -1657,7 +1375,7 @@ By default, metadata fields are not included in citations. Pass the field names 
 
 ### Search
 
-URL: https://docs.topk.io/core/search
+URL: https://docs.topk.io/datasets/search
 
 Search your documents and return the most relevant passages based on your natural-language query.
 
@@ -1770,7 +1488,7 @@ What was the total net income of Bank of America in 2024?
 #### Understanding search results
 
 Search returns a list of the most relevant Search Results based on the provided query.
-[Search Results](/core/search#search-result) are objects referencing specific passages extracted from the original documents.
+[Search Results](/datasets/search#search-result) are objects referencing specific passages extracted from the original documents.
 
 ##### Search Result
 
@@ -1857,7 +1575,7 @@ This is useful when you want:
 
 ##### Filter documents
 
-Sometimes a dataset might contain documents that should not be considered for the query. You can filter out documents that don't match your criteria by providing a [filter expression](/documents/query#filtering).
+Sometimes a dataset might contain documents that should not be considered for the query. You can filter out documents that don't match your criteria by providing a [filter expression](/collections/query#filtering).
 
 These filter expressions operate on the **metadata fields** of documents.
 
@@ -2059,180 +1777,2021 @@ By default, metadata fields are not included in search results. Pass the field n
   </Tab>
 </Tabs>
 
-If present on the original document, the requested metadata appears on the returned [Search Result](/core/search#search-result).
+If present on the original document, the requested metadata appears on the returned [Search Result](/datasets/search#search-result).
 
-### Research
+## Collection API
 
-URL: https://docs.topk.io/core/research
+### Write
 
-Research turns complex queries into a series of targeted searches, gathers evidence across documents, and produces a grounded answer with source citations.
+URL: https://docs.topk.io/collections/write
 
-#### How it works
+Documents in TopK are JSON-like objects composed of key-value pairs.
 
-When you run a **Research**, TopK:
+Each document within a collection:
 
-<Steps>
-  <Step title="Understands the query">
-    Research interprets the query in context, including the evidence gathered so far.
-  </Step>
-  <Step title="Breaks it into smaller tasks">
-    It decomposes the problem into focused sub-queries.
-  </Step>
-  <Step title="Searches for relevant evidence">
-    It runs targeted searches across your data to find the most relevant information.
-  </Step>
-  <Step title="Extracts grounded facts">
-    It pulls out concrete, source-backed facts from each result, preserving citations.
-  </Step>
-  <Step title="Produces the final answer">
-    It combines the gathered evidence, performing comparisons or aggregations when needed, to produce a single, grounded answer with citations.
-  </Step>
-</Steps>
+- Must include a unique `_id` field
+- Must conform to the schema defined for the collection
 
-```mermaid
-flowchart LR
-    Q[Research query]
-    S1["Search (Step 1)"]
-    S2["Search (Step 2)"]
-    S3["Search (Step 3)"]
-    E[Evidence]
-    A[Grounded answer]
+Fields defined in the schema can be indexed for vector, keyword, or other retrieval strategies.
 
-    Q --> S1
-    Q --> S2
-    Q --> S3
-    S1 --> E
-    S2 --> E
-    S3 --> E
-    E --> A
+#### Upsert documents
+
+To upsert documents, pass a list of documents to the [`upsert()`](/sdk/topk-py#upsert) function:
+
+<CodeGroup>
+
+```python Python
+client.collection("books").upsert(
+    [
+        {
+            "_id": "book-1",
+            "title": "The Great Gatsby",
+            "published_year": 1925,
+            "title_embedding": [0.12, 0.67, 0.82, 0.53, ...]
+        },
+        {
+            "_id": "book-2",
+            "title": "To Kill a Mockingbird",
+            "published_year": 1960,
+            "title_embedding": [0.42, 0.53, 0.65, 0.33, ...]
+        },
+        {
+            "_id": "book-3",
+            "title": "1984",
+            "published_year": 1949,
+            "title_embedding": [0.59, 0.33, 0.71, 0.61, ...]
+        }
+    ]
+)
 ```
 
-#### Usage
 
-Research is invoked through `ask` by setting `mode` to `research`.
+```typescript Javascript
+await client.collection("books").upsert([
+  {
+    _id: "book-1",
+    title: "The Great Gatsby",
+    published_year: 1925,
+    title_embedding: [0.12, 0.67, 0.82, 0.53],
+  },
+  {
+    _id: "book-2",
+    title: "To Kill a Mockingbird",
+    published_year: 1960,
+    title_embedding: [0.42, 0.53, 0.65, 0.33],
+  },
+  {
+    _id: "book-3",
+    title: "1984",
+    published_year: 1949,
+    title_embedding: [0.59, 0.33, 0.71, 0.61],
+  },
+]);
+```
 
-<Tabs>
-  <Tab title="CLI" icon="terminal">
-    ```bash
-    topk ask "What was the 2022 and 2023 total value of commercial loans modified as TDRs, and the total 90+ days past due for consumer loans at December 31, 2024?" -d finance --mode research
-    ```
-  </Tab>
-  <Tab title="Python SDK" icon="/icons/python.svg">
-    <CodeGroup>
-      ```python Sync
-      import os
-      from topk_sdk import Client
+</CodeGroup>
 
-      client = Client(
-          api_key=os.environ.get("TOPK_API_KEY"),
-          region="aws-us-east-1-elastica",
-      )
+- Every document must have a **string** `_id` field.
+- If a document with the specified `_id` doesn't exist, a new document will be **inserted**.
+- If a document with the same `_id` already exists, the existing document will be **replaced** with the new one.
 
-      for message in client.ask(
-          "What was the 2022 and 2023 total value of commercial loans modified as TDRs, and the total 90+ days past due for consumer loans at December 31, 2024?",
-          ["finance"],
-          mode="research",
-      ):
-          print(message)
-      ```
-
-      ```python Async
-      import os
-      from topk_sdk import AsyncClient
-
-      client = AsyncClient(
-          api_key=os.environ.get("TOPK_API_KEY"),
-          region="aws-us-east-1-elastica",
-      )
-
-      async for message in client.ask(
-          "What was the 2022 and 2023 total value of commercial loans modified as TDRs, and the total 90+ days past due for consumer loans at December 31, 2024?",
-          ["finance"],
-          mode="research",
-      ):
-          print(message)
-      ```
-    </CodeGroup>
-  </Tab>
-  <Tab title="JavaScript SDK" icon="/icons/js.svg">
-    ```typescript
-    import { Client } from "topk-js";
-
-    const client = new Client({
-      apiKey: process.env.TOPK_API_KEY,
-      region: "aws-us-east-1-elastica",
-    });
-
-    for await (const message of client.ask(
-      "What was the 2022 and 2023 total value of commercial loans modified as TDRs, and the total 90+ days past due for consumer loans at December 31, 2024?",
-      ["finance"],
-      undefined,
-      "research",
-    )) {
-      console.log(message);
-    }
-    ```
-  </Tab>
-</Tabs>
-
-Here's an example of a **Research** query over a financial dataset:
-
-<Info>
-**Query:**
-
-What was the 2022 and 2023 total value of commercial loans modified as TDRs, and the total 90+ days past due for consumer loans at December 31, 2024?
-
-**Answer:**
-
-- Based on exact phrasing matches to corporate filings, the question refers to Bank of America. During 2022, the carrying value of Bank of America's commercial loans modified as Troubled Debt Restructurings (TDRs) was \$1.9 billion. <Badge color="purple">1</Badge>
-- There is no 2023 value reported, as the TDR reporting designation and accounting guidance were eliminated effective January 1, 2023, upon the adoption of ASU 2022-02. <Badge color="purple">2</Badge>
-- As of December 31, 2024, Bank of America's total consumer loans and leases that were 90 days or more past due totaled \$2,422 million. <Badge color="purple">3</Badge>
-
-**References:**
-
-<ul className="list-none pl-2 space-y-2">
-  <li><Badge color="purple">1</Badge> Commercial loans modified as TDRs—2022 carrying value (\$1.9 billion) and related commitments and payment-default balances (Bank of America 10-K excerpt)<br /><a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=127" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">p. 127</Badge></li>
-  <li><Badge color="purple">2</Badge> ASU 2022-02 eliminated U.S. GAAP troubled debt restructuring reporting; cites year-end 2022 TDR table context (Wells Fargo 10-K excerpt)<br /><a href="https://topk-docs.s3.us-east-2.amazonaws.com/wells_fargo_2024.pdf#page=254" target="_blank" rel="noopener noreferrer">wells_fargo_2024.pdf</a> <Badge color="gray" shape="pill">pp. 254–255</Badge></li>
-  <li><Badge color="purple">3</Badge> Outstanding consumer loans and leases—90+ days past due (\$2,422 million in "Total consumer" rows, December 31, 2024)<br /><a href="https://topk-docs.s3.us-east-2.amazonaws.com/bank_of_america_2024.pdf#page=116" target="_blank" rel="noopener noreferrer">bank_of_america_2024.pdf</a> <Badge color="gray" shape="pill">pp. 116–117</Badge></li>
-</ul>
-</Info>
-
-#### Scoping the search
-
-For guidance on:
-
-- querying across specific datasets
-- applying document filters
-- limiting which documents can be considered during retrieval
-
-see [Scoping the search](/core/ask#scoping-the-search) in the Ask guide.
-
-#### When to use Research
-
-Use Research for analytical questions that require more than a single retrieval pass to answer reliably.
-It is intended for multi-hop questions when searching, connecting, comparing, and synthesizing facts is needed to answer the question.
-
-Use **Research** when:
-
-- the answer depends on multiple facts from different parts of a document or different documents
-- the query requires comparison across years, entities, filings, or sections
-- the answer requires complex computation, aggregation, synthesis or resolving intermediate facts
-- you care more about depth and correctness than getting the fastest possible answer
-
-Prefer [Ask](/core/ask) with `summarize` mode when:
-
-- the question is direct and likely answered by one or a few passages
-- you want the fastest grounded answer
-- the extra decomposition and multi-step reasoning are not necessary to reliably answer the question
-
+<Note>
+  The `upsert()` function does not perform a _partial update_ or _merge_ - the entire document is being replaced.
+</Note>
 
 <Warning>
-  Because **Research** performs more work than an `ask` query in `summarize` mode, it will usually take longer to produce an answer.
+  Each document you send is serialized as a Protocol Buffers (protobuf) message. The encoded size of that message must be **128KB or smaller**.
 </Warning>
 
-### Managing Datasets
+##### Additional (non-schema) fields
 
-URL: https://docs.topk.io/datasets
+You may include fields that are not defined in the collection schema.
+
+These fields:
+
+- Are stored with the document
+- Can be returned to the client in query results
+- Can be used for **filtering** in queries
+
+Fields that are not defined in the schema are not indexed.
+If you want to use a field for [vector search](/guides/vector-search), [semantic search](/guides/semantic-search), [keyword search](/guides/keyword-search) or [multi-vector search](/guides/multi-vector-search), it must be declared in the schema
+and have a corresponding index defined.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.schema import text, int, f32_vector, vector_index, keyword_index
+from topk_sdk.query import select, field, fn
+
+client.collections().create(
+    "books",
+    schema={
+        "title": text().index(keyword_index()).required(),
+        "published_year": int().required(),
+        "title_embedding": f32_vector(dimension=1024).index(vector_index(metric="cosine")).required(),
+    },
+)
+
+client.collection("books").upsert([
+    {
+        "_id": "book-1",
+        "title": "The Great Gatsby",
+        "published_year": 1925,
+        "title_embedding": [0.12, 0.67, 0.82, 0.53, ...],
+        "tags": ["fiction", "classic"], # non-schema field
+        "source_url": "https://example.com/gatsby", # non-schema field
+    }
+])
+
+client.collection("books").query(
+    select(
+        "title",
+        "source_url",
+        "title_similarity": fn.semantic_similarity("title", "classic American novel"),
+    )
+    .filter(field("tags").contains("fiction")) # non-schema fields can still be used for filtering
+)
+```
+
+```typescript Javascript
+import { text, int, f32Vector, vectorIndex, keywordIndex } from "topk-js/schema";
+import { select, field, fn } from "topk-js/query";
+
+await client.collections().create("books", {
+  title: text().index(keywordIndex()).required(),
+  published_year: int().required(),
+  title_embedding: f32Vector({ dimension: 1024 })
+    .index(vectorIndex({ metric: "cosine" }))
+    .required()
+});
+
+await client.collection("books").upsert([
+  {
+    _id: "book-1",
+    title: "The Great Gatsby",
+    published_year: 1925,
+    title_embedding: [0.12, 0.67, 0.82, 0.53],
+    tags: ["fiction", "classic"], // non-schema field
+    source_url: "https://example.com/gatsby", // non-schema field
+  },
+]);
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    source_url: field("source_url"),
+    title_similarity: fn.semanticSimilarity("title", "classic American novel"),
+  })
+  .filter(field("tags").contains("fiction")) // non-schema fields can still be used for filtering
+);
+```
+
+</CodeGroup>
+
+##### Supported types
+
+TopK documents are a flat structure of key-value pairs.
+
+The following value types are supported:
+
+| Type                  | Python Type      | JavaScript Type | Helper Function                                                 |
+|-----------------------|------------------|-----------------|-----------------------------------------------------------------|
+| **String**            | `str`            | `string`        | -                                                               |
+| **Integer**           | `int`            | `number`        | -                                                               |
+| **Float**             | `float`          | `number`        | -                                                               |
+| **Boolean**           | `bool`           | `boolean`       | -                                                               |
+| **String list**       | `list[str]`      | `string[]`      | [`string_list()`](../sdk/topk-py/data#string-list)              |
+| **F32 list**          | `list[float]`    | `number[]`      | [`f32_list()`](../sdk/topk-py/data#f32-list)                    |
+| **F64 list**          | _use helper_     | _use helper_    | [`f64_list()`](../sdk/topk-py/data#f64-list)                    |
+| **I32 list**          | _use helper_     | _use helper_    | [`i32_list()`](../sdk/topk-py/data#i32-list)                    |
+| **I64 list**          | _use helper_     | _use helper_    | [`i64_list()`](../sdk/topk-py/data#i64-list)                    |
+| **U32 list**          | _use helper_     | _use helper_    | [`u32_list()`](../sdk/topk-py/data#u32-list)                    |
+| **F8 vector**         | _use helper_     | _use helper_    | [`f8_vector()`](../sdk/topk-py/data#f8-vector)                  |
+| **F16 vector**        | _use helper_     | _use helper_    | [`f16_vector()`](../sdk/topk-py/data#f16-vector)                |
+| **F32 vector**        | `list[float]`    | `number[]`      | [`f32_vector()`](../sdk/topk-py/data#f32-vector)                |
+| **U8 vector**         | _use helper_     | _use helper_    | [`u8_vector()`](../sdk/topk-py/data#u8-vector)                  |
+| **I8 vector**         | _use helper_     | _use helper_    | [`i8_vector()`](../sdk/topk-py/data#i8-vector)                  |
+| **Binary vector**     | _use helper_     | _use helper_    | [`binary_vector()`](../sdk/topk-py/data#binary-vector)          |
+| **F32 sparse vector** | _use helper_     | _use helper_    | [`f32_sparse_vector()`](../sdk/topk-py/data#f32-sparse-vector)  |
+| **U8 sparse vector**  | _use helper_     | _use helper_    | [`u8_sparse_vector()`](../sdk/topk-py/data#u8-sparse-vector)    |
+| **Matrix**            | _use helper_     | _use helper_    | [`matrix()`](../sdk/topk-py/data#matrix-2)                      |
+| **Bytes**             | _use helper_     | _use helper_    | [`bytes()`](../sdk/topk-py/data#bytes)                          |
+| **Struct**            | `dict[str, Any]` | `Record<string, any>` | [`struct()`](../sdk/topk-py/data#struct)                 |
+
+#### Delete documents
+
+You can delete documents by their `_id` or using a [filter expression](/collections/query#filtering). Both methods provide
+the same consistency guarantees and will be reflected in query/get results according to your [consistency level](/concepts#read-consistency).
+
+##### Delete documents by `_id`
+
+To delete documents by their `_id`, pass a list of `_id`s to the [`delete()`](/sdk/topk-py#delete) method:
+
+<CodeGroup>
+
+```python Python
+client.collection("books").delete(
+    ["book-1", "book-2", "book-3"]
+)
+```
+
+```typescript Javascript
+await client.collection("books").delete(["book-1", "book-2", "book-3"]);
+```
+
+</CodeGroup>
+
+<Info>
+  The `delete()` method returns an **LSN** (Log Sequence Number) that you can pass to subsequent queries for [read-after-write consistency](/collections/query#lsn-based-consistency).
+</Info>
+
+##### Delete documents by filter expression
+
+To delete documents that match a predicate, you can pass a [filter expression](/collections/query#filtering) to the `delete()` function.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import field
+
+client.collection("books").delete(field("published_year").lt(1997))
+```
+
+```typescript Javascript
+import { field } from "topk-js/query";
+
+await client.collection("books").delete(field("published_year").lt(1997));
+```
+
+</CodeGroup>
+
+<Tip>
+    Passing a filter expression to `delete()` is useful for deleting documents that match a specific condition, such as all documents for a **specific tenant** e.g. `field("_id").starts_with("tenant-123/")`.
+</Tip>
+
+### Query
+
+URL: https://docs.topk.io/collections/query
+
+TopK provides a data frame-like syntax for querying documents. It features built-in **semantic search**, **text search**, **vector search**, and metadata **filtering** capabilities.
+
+With TopK's declarative query builder, you can easily select fields, chain filters, and apply vector/text search in a composable manner.
+
+#### Query structure
+
+In TopK, a query consists of multiple stages:
+
+- **Select stage** - Select static or computed fields that will be returned in the query results
+  - these fields can be used in stages such as Filter or TopK
+- **Filter stage** - Filter the documents that will be returned in the query results
+  - filters can be applied to static fields, computed fields such as `vector_distance()` or `semantic_similarity()` or custom properties computed inside `select()`
+- **Sort stage** - Order results by an expression (ascending or descending)
+- **Limit stage** - Return at most `k` results
+- **TopK stage** - Return the top `k` results based on the provided logical expression (equivalent to `sort(expr, asc)` followed by `limit(k)`)
+- **Count stage** - Return the total number of documents matching the query
+
+All queries **must** have either TopK or Count collection stage.
+
+<Tip>
+  You can stack multiple select and filter stages in a single query.
+</Tip>
+
+A typical query in TopK looks as follows:
+
+```mermaid
+flowchart TD
+    A[Select]
+    A --> B[Filter]
+    B --> C[Sort]
+    B --> D[Limit]
+    B --> E[TopK]
+    B --> F[Count]
+    C --> D
+    D --> E
+    E --> H@{ shape: stadium, label: "Results collection" }
+    F --> I@{ shape: stadium, label: "Results count" }
+```
+
+Sort and Limit are optional stages that can be used between Filter and TopK.
+
+<style>
+  {`
+  .mermaid {
+  text-align: center;
+  }
+  `}
+</style>
+
+#### Select
+
+The `select()` function is used to initialize the select stage of a query. It accepts a key-value pair of field names and field expressions:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, field
+
+client.collection("books").query(
+  select(
+    "published_year", # elect the static fields directly
+    title=field("title"),
+  )
+  ...
+)
+```
+
+
+```js Javascript
+import { select, field } from "topk-js/query";
+
+await client.collection("books").query(
+  select({
+    title: field("title"),
+  })
+  ...
+)
+```
+
+</CodeGroup>
+
+##### Select expressions
+
+Use a `field()` function to select fields from a document. In the select stage, you can also rename existing fields
+or define computed fields using [function expressions](#function-expressions).
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, field
+
+docs = client.collection("books").query(
+    select(
+        "title", # the actual "title" field from the document
+        year=field("published_year"), # renamed field
+        year_plus_ten=field("published_year") + 10, # computed field
+    )
+)
+```
+
+
+```js Javascript
+import { select, field } from "topk-js/query";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"), // the actual "title" field from the document
+    year: field("published_year"), // renamed field
+    year_plus_ten: field("published_year").add(10), // computed field
+  })
+);
+```
+
+</CodeGroup>
+
+##### Function expressions
+
+Function expressions are used to define computed fields that will be included in your query results. TopK currently supports four main function expressions:
+
+- `vector_distance(field, vector)`: Computes distance between vectors for vector search. This function is available for all dense and sparse vector types.
+- `bm25_score()`: Calculates relevance scores using the BM25 algorithm for keyword search
+- `semantic_similarity(field, query)`: Measures semantic similarity between the provided text query and the field's embedding
+- `multi_vector_distance(field, matrix)`: Computes MaxSim distance for multi-vector (matrix) fields. Requires a [`multi_vector_index()`](/sdk/topk-py/schema#multi_vector_index) on the field. See [multi-vector search](/guides/multi-vector-search).
+
+
+###### Vector distance
+
+The [`vector_distance()`](/sdk/topk-py/query#vector_distance) function is used to compute the vector score between a query vector and a vector field in a collection.
+
+There are **multiple ways** to represent a query vector:
+
+- Dense vectors:
+  - `[0.1, 0.2, 0.3, ...]` - Array of numbers resolved as a **dense float32 vector**
+  - `f32_vector([...])` - Helper function returning a **dense float32 vector**
+  - `f16_vector([...])` - Helper function returning a **dense float16 vector**
+  - `f8_vector([...])` - Helper function returning a **dense float8 vector**
+  - `u8_vector([...])` - Helper function returning a **dense u8 vector**
+  - `i8_vector([...])` - Helper function returning a **dense i8 vector**
+  - `binary_vector([...])` - Helper function returning a **binary vector**
+
+- Sparse vectors:
+  - `{ 0: 0.1, 1: 0.2, 2: 0.3, ... }` - Mapping from index → value resolved as a **sparse float32 vector**
+  - `f32_sparse_vector({ ... })` - Helper function returning a **sparse float32 vector**
+  - `u8_sparse_vector({ ... })` - Helper function returning a **sparse u8 vector**
+
+Optionally, uses can provide `skip_refine=True` to bypass the internal distance refinement step. This will improve performance for queries with large `top_k` at the cost of lower accuracy.
+
+<Warning>
+  We don't recommend using `skip_refine=True` unless you're using a large `top_k`.
+</Warning>
+
+<Warning>
+  To use the `vector_distance()` function, you **must** have a [**vector index**](http://docs.topk.io/collections/create#vector-index) defined on the field you're computing the vector distance against:
+</Warning>
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, field, fn
+
+docs = client.collection("books").query(
+    select(
+        "title",
+        title_similarity=fn.vector_distance(
+          "title_embedding",
+          [0.1, 0.2, 0.3, ...] # embedding for "animal"
+        )
+    )
+    .topk(field("title_similarity"), 10)
+)
+
+### Example result:
+[
+  {
+    "_id": "2",
+    "title": "To Kill a Mockingbird",
+    "title_similarity": 0.7484796643257141
+  },
+  {
+    "_id": "1",
+    "title": "The Catcher in the Rye",
+    "title_similarity": 0.5471329569816589
+  }
+]
+```
+
+
+```js Javascript
+import { select, field, fn } from "topk-js/query";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    title_similarity: fn.vectorDistance(
+      "title_embedding",
+      [0.1, 0.2, 0.3 /* embedding for "animal" */]
+    ),
+  })
+);
+
+// Example result:
+[
+  {
+    _id: '2',
+    title: 'To Kill a Mockingbird',
+    title_similarity: 0.7484796643257141
+  },
+  {
+    _id: '1'
+    title: 'The Catcher in the Rye',
+    title_similarity: 0.5471329569816589,
+  }
+]
+```
+
+</CodeGroup>
+
+###### BM25 Score
+
+The BM25 score is a relevance score that can be used to score documents based on their text content.
+
+To use the `fn.bm25_score()` in your query, you **must** include a `match` predicate in your filter stage.
+
+<Warning>
+  To use the `fn.bm25_score()` function, you **must** have a [**keyword index**](http://docs.topk.io/collections/create#keyword-index) defined in your collection schema.
+</Warning>
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, field, fn, match
+
+docs = client.collection("books").query(
+    select(
+        "title",
+        text_score=fn.bm25_score(),
+    )
+    .filter(match("Good")) # must include a match predicate
+    .topk(field("text_score"), 10)
+)
+
+### Example result:
+[
+  {
+    "_id": "1",
+    "title": "Good Night, Bat! Good Morning, Squirrel!",
+    "text_score": 0.2447269707918167
+  },
+  {
+    "_id": "2",
+    "title": "Good Girl, Bad Blood",
+    "text_score": 0.20035339891910553
+  }
+]
+```
+
+
+```js Javascript
+import { select, field, fn, match } from "topk-js/query";
+
+const results = await client.collection("books").query(
+  select({
+    title: field("title"),
+    text_score: fn.bm25Score(),
+  })
+    .filter(match("Good"))
+    .topk(field("text_score"), 10)
+);
+
+// Example result:
+[
+  {
+    _id: '1',
+    title: 'Good Night, Bat! Good Morning, Squirrel!'
+    text_score: 0.2447269707918167,
+  },
+  {
+    _id: '2',
+    title: 'Good Girl, Bad Blood',
+    text_score: 0.20035339891910553
+  }
+]
+```
+
+</CodeGroup>
+
+###### Semantic similarity
+
+The `semantic_similarity()` function is used to compute the similarity between a **text query** and a **text field** in a collection.
+
+To use the `semantic_similarity()` function, you **must** have a [**semantic index**](http://docs.topk.io/collections/create#semantic-index) defined on the field you're computing the similarity on.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, field, fn
+
+docs = client.collection("books").query(
+    select(
+        "title",
+        title_similarity=fn.semantic_similarity("title", "animal"),
+    )
+    .topk(field("title_similarity"), 10)
+)
+
+### Example result:
+[
+  {
+    "_id": "2",
+    "title": "To Kill a Mockingbird",
+    "title_similarity": 0.7484796643257141
+  },
+  {
+    "_id": "1",
+    "title": "The Catcher in the Rye",
+    "title_similarity": 0.5471329569816589
+  }
+]
+```
+
+
+```js Javascript
+import { select, field, fn } from "topk-js/query";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    title_similarity: fn.semanticSimilarity("title", "animal"),
+  })
+    .topk(field("title_similarity"), 10)
+);
+
+// Example result:
+[
+  {
+    _id: '2',
+    title: 'To Kill a Mockingbird',
+    title_similarity: 0.7484796643257141
+  },
+  {
+    _id: '1',
+    title: 'The Catcher in the Rye',
+    title_similarity: 0.5471329569816589
+  }
+]
+```
+
+</CodeGroup>
+
+###### Multi-vector distance
+
+The `multi_vector_distance()` function computes the MaxSim score between a query matrix and a matrix field in a collection. Use it for multi-vector (late-interaction) retrieval when documents are stored as `N x D` embedding matrices.
+
+To use `multi_vector_distance()`, you **must** have a [`multi_vector_index()`](/sdk/topk-py/schema#multi_vector_index) defined on the field. The query matrix can be a list of lists (defaults to f32), a numpy array (type inferred from dtype), or a [`matrix()`](/sdk/topk-py/data#matrix-2) instance. The optional `candidates` parameter limits the number of candidate vectors considered during search.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, field, fn
+
+docs = client.collection("passages").query(
+    select(
+        "content",
+        dist=fn.multi_vector_distance(
+            "token_embeddings",
+            [[0.1, 0.2, ...], [0.4, 0.5, ...]],  # query matrix
+            candidates=100,
+        ),
+    )
+    .topk(field("dist"), 10, asc=False)
+)
+```
+
+```js Javascript
+import { select, field, fn } from "topk-js/query";
+
+const docs = await client.collection("passages").query(
+  select({
+    content: field("content"),
+    dist: fn.multiVectorDistance(
+      "token_embeddings",
+      [[0.1, 0.2, ...], [0.4, 0.5, ...]],  // query matrix
+      100  // optional: candidates
+    ),
+  })
+    .topk(field("dist"), 10, false)
+);
+```
+
+</CodeGroup>
+
+See [multi-vector search](/guides/multi-vector-search) for schema setup and ingestion details.
+
+##### Advanced select expressions
+
+TopK doesn't only let you select static fields from your documents or computed fields using function expressions.
+You can also use TopK powerful expression language to select fields by chaining arbitrary logical expressions:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, field
+
+select(
+  weight_in_grams=field("weight").mul(1000),
+  is_adult=field("age").gt(18),
+  published_in_nineteenth_century=field("published_year") >= 1800 & field("published_year") < 1900,
+)
+```
+
+
+```js Javascript
+import { select, field } from "topk-js/query";
+
+select({
+  weight_in_grams: field("weight").mul(1000),
+  is_adult: field("age").gt(18),
+  published_in_nineteenth_century: field("published_year")
+    .gte(1800)
+    .and(field("published_year").lt(1900)),
+});
+```
+
+</CodeGroup>
+
+#### Filtering
+
+You can filter documents by **metadata**, **keywords**, **custom properties** computed inside `select()` (e.g. vector similarity or BM25 score) and more.
+
+Filter expressions support all
+- [logical operators](#logical-operators),
+- [comparison operators](#comparison-operators),
+- [mathematical operators](#mathematical-operators).
+
+##### Metadata filtering
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") > 1980
+)
+```
+
+
+```js Javascript
+.filter(field("published_year").gt(1980))
+```
+
+</CodeGroup>
+
+##### Keyword search
+
+The `match()` function is the backbone of keyword search in TopK.
+It allows you to search for documents that contain specific keywords or phrases.
+
+You can configure the `match()` function to:
+
+- Match on multiple terms
+- Match only on specific fields
+- Use weights to prioritize certain terms
+
+The `match()` function accepts the following parameters:
+
+<ParamField path="token" type="string" required>
+  String token to match. Can also contain multiple terms separated by a delimiter which is any **non-alphanumeric** character.
+</ParamField>
+
+<ParamField path="options.field" type="string">
+  Field to match on.
+  If not provided, the function will match on all fields.
+</ParamField>
+
+<ParamField path="options.weight" type="number">
+  Weight to use for matching.
+  If not provided, the function will use the default weight(**1.0**).
+</ParamField>
+
+<ParamField path="options.all" type="boolean">
+  Use `all` parameter when a text **must** contain all terms(separated by a delimeter)
+
+  - when `all` is `false` (default) it's an equivalent of `OR` operator
+  - when `all` is `true` it's an equivalent of `AND` operator
+</ParamField>
+
+Searching for a term like `"catcher"` in your documents is as simple as using the `match()` function in the filter stage of your query:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import match
+
+.filter(
+    match("catcher")
+)
+```
+
+
+```js Javascript
+import { match } from "topk-js/query";
+
+.filter(match("catcher"))
+```
+
+</CodeGroup>
+
+###### Match multiple terms
+
+The `match()` function can be configured to match all terms when using a **delimiter**.
+
+A term delimiter is any **non-alphanumeric** character.
+
+To ensure that all terms are matched, use the `all` parameter:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import match
+
+.filter(match("catcher|rye", field="title", all=True))
+```
+
+
+```js Javascript
+import { match } from "topk-js/query";
+
+.filter(match("catcher|rye", { field: "title", weight: 1, all: true }))
+```
+
+</CodeGroup>
+
+###### Give weight to specific terms
+
+You can give weight to specific terms by using the `weight` parameter:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import match
+
+.filter(match("catcher", weight=2.0) | match("rye", weight=1.0))
+```
+
+
+```js Javascript
+import { match } from "topk-js/query";
+
+.filter(match("catcher", { weight: 2.0 }).or(match("rye", { weight: 1.0 })))
+```
+
+</CodeGroup>
+
+##### Combine keyword search and metadata filtering
+
+You can combine metadata filtering and keyword search in a single query by stacking multiple filter stages.
+
+In the example below, we're searching for documents that contain the keyword `"catcher"` and were published in `1997`, or between `1920` and `1980`.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    match("catcher")
+)
+.filter(
+    field("published_year") == 1997 | (field("published_year") >= 1920 & field("published_year") <= 1980)
+)
+```
+
+
+```js Javascript
+.filter(
+  match("catcher")
+)
+.filter(
+  field("published_year").eq(1997).or(field("published_year").gte(1920).and(field("published_year").lte(1980)))
+)
+```
+
+</CodeGroup>
+
+#### Operators
+
+When writing queries, you can use the following operators for:
+- field selection
+- filtering
+- topk collection
+
+##### Logical operators
+
+Logical operators combine multiple expressions by applying boolean logic and conditions.
+
+###### and
+
+The `and` operator can be used to combine multiple logical expressions.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") == 1997 & field("title") == "The Catcher in the Rye"
+)
+
+### or
+
+.filter(
+    field("published_year").eq(1997).and_(field("title").eq("The Catcher in the Rye"))
+)
+```
+
+
+```js Javascript
+.filter(
+  field("published_year").eq(1997).and(field("title").eq("The Catcher in the Rye"))
+)
+```
+
+</CodeGroup>
+
+###### or
+
+The `or` operator can be used to combine multiple logical expressions.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") == 1997 | field("title") == "The Catcher in the Rye"
+)
+
+### or
+
+.filter(
+    field("published_year").eq(1997).or_(field("title").eq("The Catcher in the Rye"))
+)
+```
+
+
+```js Javascript
+.filter(
+  field("published_year").eq(1997).or(field("title").eq("The Catcher in the Rye"))
+)
+```
+
+</CodeGroup>
+
+###### not
+
+The `not` helper can be used to **negate** a logical expression. It takes an expression as an argument and inverts its logic.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import field, not_
+
+.filter(
+    not_(field("title").contains("Catcher"))
+)
+```
+
+
+```typescript Javascript
+import { field, not } from "topk-js/query";
+
+.filter(
+    not(field("title").contains("Catcher"))
+)
+```
+
+</CodeGroup>
+
+###### all
+
+The `all()` helper evaluates to `true` if each expression in the array is true. It's equivalent to applying the logical AND operator across all expressions.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import all, field
+
+.filter(
+    all([
+        field("published_year") >= 1900,
+        field("published_year") <= 2000,
+        field("title").is_not_null()
+    ])
+)
+```
+
+```typescript Javascript
+import { all, field } from "topk-js/query";
+
+.filter(
+  all([
+    field("published_year").gte(1900),
+    field("published_year").lte(2000),
+    field("title").isNotNull()
+  ])
+)
+```
+
+</CodeGroup>
+
+This is equivalent to:
+
+<CodeGroup>
+
+```python Python
+field("published_year") >= 1900 & field("published_year") <= 2000 & field("title").is_not_null()
+```
+
+```typescript Javascript
+field("published_year").gte(1900).and(field("published_year").lte(2000)).and(field("title").isNotNull())
+```
+
+</CodeGroup>
+
+###### any
+
+The `any()` helper evaluates to `true` if at least one expression in the array is true. It's equivalent to applying the logical OR operator across all expressions.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import any, field
+
+.filter(
+    any([
+        field("genre") == "fiction",
+        field("genre") == "mystery",
+        field("genre") == "thriller"
+    ])
+)
+```
+
+```typescript Javascript
+import { any, field } from "topk-js/query";
+
+.filter(
+  any([
+    field("genre").eq("fiction"),
+    field("genre").eq("mystery"),
+    field("genre").eq("thriller")
+  ])
+)
+```
+
+</CodeGroup>
+
+This is equivalent to:
+
+<CodeGroup>
+
+```python Python
+field("genre") == "fiction" | field("genre") == "mystery" | field("genre") == "thriller"
+```
+
+```typescript Javascript
+field("genre").eq("fiction").or(field("genre").eq("mystery")).or(field("genre").eq("thriller"))
+```
+
+</CodeGroup>
+
+
+###### choose
+
+The `choose` operator evaluates a condition and returns the first argument if the condition is true, else the second argument.
+
+<CodeGroup>
+
+```python Python
+select(
+  summary=(field("book_type") == "fiction").choose(
+      field("plot_summary"),
+      field("technical_summary")
+  )
+)
+```
+
+
+```js Javascript
+select({
+  summary: field("book_type").eq("fiction").choose(
+    field("plot_summary"),
+    field("technical_summary")
+  ),
+})
+```
+
+</CodeGroup>
+
+###### boost
+
+The `boost` operator multiplies the scoring expression by the provided `boost` value if the `condition` is true.
+Otherwise, the scoring expression is unchanged (multiplied by 1).
+
+<CodeGroup>
+
+```python Python
+select(
+  summary_distance=fn.vector_distance("summary_embedding", [2.3] * 16)
+).topk(
+  field("summary_distance").boost(field("summary").match_all("deep learning"), 1.5),
+  10,
+  false
+)
+### this boost expression is equivalent to
+### field("summary_distance") * (field("summary").match_all("deep learning").choose(1.5, 1.0)),
+```
+
+
+```js Javascript
+select({
+  summary_distance: fn.vectorDistance("summary_embedding", Array(16).fill(2.3)),
+}).topk(
+  field("summary_distance").boost(field("summary").matchAll("deep learning"), 1.5),
+  10,
+  false
+)
+// this boost expression is equivalent to
+// field("summary_distance").mul(field("summary").matchAll("deep learning").choose(1.5, 1.0)),
+```
+
+</CodeGroup>
+
+###### coalesce
+
+The `coalesce` operator replaces `null` values with a provided value.
+
+<CodeGroup>
+
+```python Python
+select(importance=field("nullable_importance").coalesce(1.0))
+```
+
+
+```js Javascript
+select({
+  importance: field("nullable_importance").coalesce(1.0)
+})
+```
+
+</CodeGroup>
+
+##### Comparison operators
+
+Comparison operators provide various logical, numerical and string functions that evaluate to true or false.
+
+###### eq
+
+The `eq` operator can be used to match documents that have a field with a specific value.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") == 1997
+)
+
+### or
+
+.filter(
+    field("published_year").eq(1997)
+)
+```
+
+
+```js Javascript
+.filter(field("published_year").eq(1997))
+```
+
+</CodeGroup>
+
+###### ne
+
+The `ne` operator can be used to match documents that have a field with a value that is not equal to a specific value.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") != 1997
+)
+
+### or
+
+.filter(
+    field("published_year").ne(1997)
+)
+```
+
+
+```js Javascript
+.filter(field("published_year").ne(1997))
+```
+
+</CodeGroup>
+
+###### is_null
+
+The `is_null` operator can be used to match documents that have a field with a value that is `null`.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("title").is_null()
+)
+```
+
+
+```js Javascript
+.filter(field("title").isNull())
+```
+
+</CodeGroup>
+
+###### is_not_null
+
+The `is_not_null` operator can be used to match documents that have a field with a value that is not `null`.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("title").is_not_null()
+)
+```
+
+```js Javascript
+.filter(field("title").isNotNull())
+```
+
+</CodeGroup>
+
+###### gt
+
+The `gt` operator can be used to match documents that have a field with a value greater than a specific value.
+
+For strings, it uses lexicographic order.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") > 1997
+)
+
+### or
+
+.filter(
+    field("published_year").gt(1997)
+)
+```
+
+
+```js Javascript
+.filter(field("published_year").gt(1997))
+```
+
+</CodeGroup>
+
+###### gte
+
+The `gte` operator can be used to match documents that have a field with a value greater than or equal to a specific value.
+
+For strings, it uses lexicographic order.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") >= 1997
+)
+
+### or
+
+.filter(
+    field("published_year").gte(1997)
+)
+```
+
+
+```js Javascript
+.filter(field("published_year").gte(1997))
+```
+
+</CodeGroup>
+
+###### lt
+
+The `lt` operator can be used to match documents that have a field with a value less than a specific value.
+
+For strings, it uses lexicographic order.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") < 1997
+)
+
+### or
+
+.filter(
+    field("published_year").lt(1997)
+)
+```
+
+
+```js Javascript
+.filter(field("published_year").lt(1997))
+```
+
+</CodeGroup>
+
+###### lte
+
+The `lte` operator can be used to match documents that have a field with a value less than or equal to a specific value.
+
+For strings, it uses lexicographic order.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") <= 1997
+)
+
+### or
+
+.filter(
+    field("published_year").lte(1997)
+)
+```
+
+
+```js Javascript
+.filter(field("published_year").lte(1997))
+```
+
+</CodeGroup>
+
+###### starts_with
+
+The `starts_with` operator can be used on string fields to match documents that start with a given prefix. This is especially
+useful in multi-tenant applications where document IDs can be structured as `{tenant_id}/{document_id}` and `starts_with` can
+then be used to scope the query to a specific tenant. Also supports list-of-string fields for prefix filtering on array elements (e.g. `field("tags").starts_with("fiction")`).
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("_id").starts_with("tenant_123/")
+)
+```
+
+
+```js Javascript
+.filter(field("_id").startsWith("tenant_123/"))
+```
+
+</CodeGroup>
+
+###### contains
+
+The `contains` operator can be used on both text fields and list fields to match documents that include a specific value. For text fields, it matches documents that include a specific substring (case-sensitive). For list fields, it matches documents where the field of type list contains the specified value.
+
+* [**Text fields**](/collections/create#text): Matches documents that include a specific substring. It is **case-sensitive** and avoids the text processing pipeline (tokenization and stemming) used by the [`match()`](#keyword-search) function. This makes it particularly useful when you need exact substring matching or want to provide your own pre-processed tokens. Unlike `match()`, the `contains` operator can be used without requiring a keyword index.
+* [**List fields**](/collections/create#list): Matches documents where the list field contains the specified value. The value can be a literal or a field reference. You can also use a list of strings with a keyword index if you want to provide your own tokens instead of using the text processing pipeline.
+
+<CodeGroup>
+
+```python Python
+### String contains
+.filter(
+    field("title").contains("Catcher")
+)
+
+### List contains
+.filter(
+    # Tags is a text list field: ["novel", "fiction", "science-fiction"]
+    field("tags").contains("novel")
+)
+
+### List contains combined with a field reference
+.filter(
+    field("codes").contains(field("slug"))
+)
+```
+
+
+```typescript Javascript
+// String contains
+.filter(field("title").contains("Catcher"))
+
+// List contains
+.filter(field("tags").contains("novel"))
+
+// List contains combined with a field reference
+.filter(field("codes").contains(field("slug")))
+```
+
+</CodeGroup>
+
+<Info>
+  The `contains` operator works exactly the same as the `in` operator, but with reversed operands: `x CONTAINS y` is equivalent to `y IN x`. Both operators are provided for convenience and to make queries more readable.
+</Info>
+
+###### in
+
+The `in` (or `in_` in Python) operator checks if a field value is present in a list of values, string literal or another field. It can be used in several ways:
+
+* **Field in list**: Checks if a field value is present in a list of literal values.
+* **Field in string**: Checks if a string field is a substring of another string. Unlike the [`match()`](#keyword-search), this avoids the text processing pipeline (tokenization and stemming) and performs exact substring matching.
+* **Field in field**: Checks if a field value is present in another field.
+
+<CodeGroup>
+
+```python Python
+### Field in list of literals
+.filter(
+    field("published_year").in_([1999, 1988, 1997])
+)
+
+### Field in string
+.filter(
+    field("slug").in_("harry-potter lord-of-the-rings")
+)
+
+### Field in another field (list)
+.filter(
+    field("_id").in_(field("tags"))
+)
+```
+
+
+```typescript Javascript
+// Field in list of literals
+.filter(field("published_year").in([1999, 1988, 1997]))
+
+// Field in string
+.filter(field("slug").in("harry-potter lord-of-the-rings"))
+
+// Field in another field (list)
+.filter(field("_id").in(field("tags")))
+```
+
+</CodeGroup>
+
+<Info>
+  The `in` operator works exactly the same as the `contains` operator, but with reversed operands: `y IN x` is equivalent to `x CONTAINS y`. Both operators are provided for convenience and to make queries more readable.
+</Info>
+
+###### match_all
+
+The `match_all` operator returns `true` if all terms in the query are present in the field with a keyword index.
+
+<CodeGroup>
+
+```python Python
+.filter(
+  field("summary").match_all("love marriage england")
+)
+### you can also pass a list of strings:
+.filter(
+  field("summary").match_all(["love", "marriage", "england"])
+)
+```
+
+```js Javascript
+.filter(field("summary").matchAll("love marriage england"))
+// you can also pass an array of strings:
+.filter(field("summary").matchAll(["love", "marriage", "england"]))
+```
+</CodeGroup>
+
+<Info>
+When using a `match_all` operator against a text field, it must be used in conjunction with a [**keyword index**](/collections/create#keyword-index) defined in your collection schema.
+</Info>
+
+###### match_any
+
+The `match_any` operator returns `true` if any term in the query is present in the field with a keyword index.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("summary").match_any("love ring")
+)
+### you can also pass a list of strings:
+.filter(
+  field("summary").match_any(["love", "ring"])
+)
+```
+
+```js Javascript
+.filter(field("summary").matchAny("love ring"))
+// you can also pass an array of strings:
+.filter(field("summary").matchAny(["love", "ring"]))
+```
+
+</CodeGroup>
+
+<Info>
+When using a `match_any` operator against a text field, it must be used in conjunction with a [**keyword index**](/collections/create#keyword-index) defined in your collection schema.
+</Info>
+
+###### regexp_match
+
+The `regexp_match` operator returns `true` if the field value matches the regular expression. Internally, this uses Rust's
+[`regex`](https://docs.rs/regex) crate to evaluate the regular expression.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("summary").regexp_match("^love")
+)
+### Optionally, you can pass flags to the regular expression
+.filter(
+    field("summary").regexp_match("^love", "i")
+)
+```
+
+```js Javascript
+.filter(field("summary").regexpMatch("^love"))
+// Optionally, you can pass flags to the regular expression
+.filter(field("summary").regexpMatch("^love", "i"))
+```
+</CodeGroup>
+
+##### Mathematical operators
+
+Mathematical operators perform computations on numbers.
+
+###### add
+
+The `add` operator can be used to add two numbers.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") + 1997
+)
+
+### or
+
+.filter(
+    field("published_year").add(1997)
+)
+```
+
+
+```js Javascript
+.filter(field("published_year").add(1997))
+```
+
+</CodeGroup>
+
+###### sub
+
+The `sub` operator can be used to subtract two numbers.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") - 1997
+)
+
+### or
+
+.filter(
+    field("published_year").sub(1997)
+)
+```
+
+
+```js Javascript
+.filter(field("published_year").sub(1997))
+```
+
+</CodeGroup>
+
+###### mul
+
+The `mul` operator can be used to multiply two numbers.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") * 1997
+)
+
+### or
+
+.filter(
+    field("published_year").mul(1997)
+)
+```
+
+
+```js Javascript
+.filter(field("published_year").mul(1997))
+```
+
+</CodeGroup>
+
+###### div
+
+The `div` operator can be used to divide two numbers.
+
+<CodeGroup>
+
+```python Python
+.filter(
+    field("published_year") / 1997
+)
+
+### or
+
+.filter(
+    field("published_year").div(1997)
+)
+```
+
+
+```js Javascript
+.filter(field("published_year").div(1997))
+```
+
+</CodeGroup>
+
+###### abs
+
+The `abs` operator returns the absolute value of a number, which is useful for calculating distances or differences.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import abs
+
+### Find books published closest to 1990
+select(
+    delta=abs(field("published_year").sub(1990))
+)
+```
+
+```js Javascript
+import { abs } from "topk-js/query";
+
+// Find books published closest to 1990
+select({
+  delta: abs(field("published_year").sub(1990))
+})
+```
+
+</CodeGroup>
+
+###### min
+
+The `min` operator returns the smaller of two values, commonly used for clamping or setting upper bounds. It can work with both scalar values and other fields or expressions.
+
+For strings, it uses lexicographic order.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import min
+
+### Clamp BM25 scores to a maximum of 2.0
+select(
+    clamped_score=min(field("bm25_score"), 2.0)
+)
+
+### Take the lower of critic score vs user rating
+select(
+    conservative_score=min(field("critic_score"), field("user_rating"))
+)
+```
+
+```js Javascript
+import { min } from "topk-js/query";
+
+// Clamp BM25 scores to a maximum of 2.0
+select({
+  clamped_score: min(field("bm25_score"), 2.0)
+})
+
+// Take the lower of critic score vs user rating
+select({
+  conservative_score: min(field("critic_score"), field("user_rating"))
+})
+```
+
+</CodeGroup>
+
+###### max
+
+The `max` operator returns the larger of two values, commonly used for clamping or setting lower bounds. It can work with both scalar values and other fields or expressions.
+
+For strings, it uses lexicographic order.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import max
+
+### Ensure minimum relevance score of 1.5
+select(
+    boosted_score=max(field("relevance_score"), 1.5)
+)
+
+### Take the higher of critic score vs user rating
+select(
+    best_score=max(field("critic_score"), field("user_rating"))
+)
+```
+
+```js Javascript
+import { max } from "topk-js/query";
+
+// Ensure minimum relevance score of 1.5
+select({
+  boosted_score: max(field("relevance_score"), 1.5)
+})
+
+// Take the higher of critic score vs user rating
+select({
+  best_score: max(field("critic_score"), field("user_rating"))
+})
+```
+
+</CodeGroup>
+
+###### ln
+
+The `ln` operator calculates the natural logarithm, useful for logarithmic scaling and dampening large values.
+
+<CodeGroup>
+
+```python Python
+### Apply logarithmic dampening to scores
+select(
+    log_score=(field("raw_score") + 1).ln()
+)
+```
+
+```js Javascript
+// Apply logarithmic dampening to scores
+select({
+  log_score: field("raw_score").add(1).ln()
+})
+```
+
+</CodeGroup>
+
+###### exp
+
+The `exp` operator calculates the exponential function (e^x), useful for exponential scaling and boosting.
+
+<CodeGroup>
+
+```python Python
+### Apply exponential boosting to BM25 scores
+select(
+    boosted_score=(field("bm25_score") * 1.5).exp()
+)
+```
+
+```js Javascript
+// Apply exponential boosting to BM25 scores
+select({
+  boosted_score: field("bm25_score").mul(1.5).exp()
+})
+```
+
+</CodeGroup>
+
+###### sqrt
+
+The `sqrt` operator calculates the square root, useful for dampening values and creating non-linear transformations.
+
+<CodeGroup>
+
+```python Python
+### Dampen large distance values
+select(
+    dampened_distance=field("vector_distance").sqrt()
+)
+```
+
+```js Javascript
+// Dampen large distance values
+select({
+  dampened_distance: field("vector_distance").sqrt()
+})
+```
+
+</CodeGroup>
+
+###### square
+
+The `square` operator multiplies a number by itself (x²), useful for amplifying differences and creating quadratic transformations.
+
+<CodeGroup>
+
+```python Python
+### Create quadratic penalty for age differences
+select(
+    age_penalty=(field("user_age") - 50).square()
+)
+```
+
+```js Javascript
+// Create quadratic penalty for age differences
+select({
+  age_penalty: field("user_age").sub(50).square()
+})
+```
+
+</CodeGroup>
+
+#### Collection
+
+All queries **must** have a collection stage. Currently, we only support `topk()` and `count()` collectors.
+
+##### topk
+
+Use the `topk()` function to return the top `k` results. The `topk()` function accepts the following parameters:
+
+<ParamField path="expr" type="LogicalExpression" required="true">
+  The logical expression to sort the results by.
+</ParamField>
+
+<ParamField path="k" type="number" required="true">
+  The number of results to return.
+</ParamField>
+
+<ParamField path="asc" type="boolean" required="false">
+  Whether to sort the results in ascending order.
+</ParamField>
+
+To get the top 10 results with the highest `title_similarity`, you can use the following query:
+
+<CodeGroup>
+
+```python Python
+.topk(field("title_similarity"), 10, asc=False)
+```
+
+
+```typescript Javascript
+.topk(field("title_similarity"), 10, false)
+```
+
+</CodeGroup>
+
+The `topk()` stage is equivalent to applying `sort(expr, asc)` followed by `limit(k)`. It is a convenience shorthand for the common pattern of ordering results by a scoring expression and returning the top `k`.
+
+##### limit
+
+Use the `.limit(k)` stage to return at most `k` results. Can be used with or without `topk()`.
+
+<CodeGroup>
+
+```python Python
+client.collection("books").query(
+    select("title", "author"),
+    filter=field("year") >= 2000,
+).limit(50)
+```
+
+```js Javascript
+await client.collection("books").query(
+  select({ title: field("title"), author: field("author") }),
+  { filter: field("year").gte(2000) }
+).limit(50);
+```
+
+</CodeGroup>
+
+##### sort
+
+Use the `.sort(expr, asc)` stage to sort results by an expression. Use `asc=True` for ascending order, `asc=False` for descending order.
+
+<CodeGroup>
+
+```python Python
+client.collection("books").query(
+    select("title", "author", "year"),
+    filter=field("author") == "George Orwell",
+).sort(field("year"), asc=True)
+```
+
+```js Javascript
+await client.collection("books").query(
+  select({ title: field("title"), author: field("author"), year: field("year") }),
+  { filter: field("author").eq("George Orwell") }
+).sort(field("year"), true);
+```
+
+</CodeGroup>
+
+##### count
+
+Use the `count()` function to get the total number of documents matching the query. If there are no filters then `count()` will return the total number of documents in the collection.
+
+<CodeGroup>
+
+```python Python
+### Count the total number of documents in the collection
+.count()
+```
+
+
+```js Javascript
+// Count the total number of documents in the collection
+.count()
+```
+
+</CodeGroup>
+
+<Info>
+  When writing queries, remember that they all require the `topk` or `count` function at the end.
+</Info>
+
+#### Query options
+
+The `query()` method accepts a `consistency` parameter to control read consistency: `indexed`, `balanced` (default), or `strong`. See the [consistency](/concepts#read-consistency) concept for details.
+
+#### LSN-based Consistency
+
+TopK supports **LSN (Log Sequence Number)** based consistency for ensuring read-after-write consistency. When you perform a write operation (like `upsert`), you receive an LSN as a **string** that represents the sequence number of that write in the system's log.
+
+You can use this LSN in subsequent queries to ensure that the query only returns results that are at least as recent as that write operation.
+
+##### How it works
+
+1. **Write operation**: When you call `lsn = client.collection().upsert()`, you receive an LSN
+2. **Query with LSN**: Pass that LSN to `client.collection().query(..., lsn=lsn)`
+3. **Consistency guarantee**: If the write is not yet available in the read path, the query will be rejected and the client will automatically retry
+
+This approach ensures that your queries always see the results of your recent writes, providing strong consistency guarantees when needed.
+
+<CodeGroup>
+
+```python Python
+### Upsert a document and get the LSN
+lsn = client.collection("books").upsert([
+    {"_id": "1984", "title": "1984", "author": "George Orwell", "year": 1949}
+])
+
+### Query with LSN to ensure consistency (optionally use consistency="strong")
+results = client.collection("books").query(
+    select("title", "author", "year")
+    .filter(field("author") == "George Orwell")
+    .topk(field("year"), 10),
+    lsn=lsn,
+    consistency="strong"
+)
+```
+
+```js Javascript
+// Upsert a document and get the LSN
+const lsn = await client.collection("books").upsert([
+  { _id: "1984", title: "1984", author: "George Orwell", "year": 1949 }
+]);
+
+// Query with LSN to ensure consistency (optionally use consistency: "strong")
+const results = await client.collection("books").query(
+  select({ title: field("title"), author: field("author"), year: field("year") })
+  .filter(field("author").eq("George Orwell"))
+  .topk(field("title"), 10),
+  { lsn: lsn, consistency: "strong" }
+)
+```
+
+</CodeGroup>
+
+<Warning>
+  Using LSN-based consistency may increase query latency as the system needs to verify that the specified LSN has been processed before returning results.
+</Warning>
+
+### Get
+
+URL: https://docs.topk.io/collections/get
+
+TopK collections store documents as key-value pairs. [`get()`](../sdk/topk-py#get) provides direct key-based lookup, similar to a key-value store.
+This operation is optimized for **high throughput** and **low latency**.
+
+<CodeGroup>
+
+```python Python
+docs = client.collection("books").get(["lotr", "moby"])
+```
+
+```typescript Javascript
+const docs = await client.collection("books").get(["lotr", "moby"]);
+```
+
+</CodeGroup>
+
+The result is a key-value mapping: each key is a document ID and each value is a full document as it was upserted into the collection.
+
+<CodeGroup>
+
+```python Python
+### Example response
+{
+	"lotr": {
+		"_id": "lotr",
+		"title": "The Lord of the Rings",
+		"author": "J.R.R. Tolkien",
+		"published_year": 1954
+	},
+	"moby": {
+		"_id": "moby",
+		"title": "Moby Dick",
+		"author": "Herman Melville",
+		"published_year": 1851
+	}
+}
+```
+
+```typescript Javascript
+// Example response
+{
+	lotr: {
+	_id: "lotr",
+		title: "The Lord of the Rings",
+		author: "J.R.R. Tolkien",
+		published_year: 1954
+	},
+	moby: {
+	_id: "moby",
+		title: "Moby Dick",
+		author: "Herman Melville",
+		published_year: 1851
+	}
+}
+```
+
+</CodeGroup>
+
+<Warning>
+	If a document with a given ID does not exist in the collection, it is simply
+	omitted from the results - no error is thrown.
+</Warning>
+
+## Management API
+
+### Datasets
+
+URL: https://docs.topk.io/datasets/manage
 
 A dataset is a named container for your documents. You must create a dataset before uploading files into it.
 
@@ -2420,734 +3979,337 @@ Update dataset **description**:
   </Tab>
 </Tabs>
 
-## APIs
+### Collections
 
-### CLI
+URL: https://docs.topk.io/collections/manage
 
-URL: https://docs.topk.io/cli
+Collections organize your documents, define their schema, and enable fast vector search, filtering, keyword search, semantic search, and multi-vector search.
 
-Command-line interface for [TopK](https://topk.io) — upload documents, ask questions and search relevant passages grounded in your data.
+#### Create
 
-#### Installation
+In order to create a collection, call the [`create()`](/sdk/topk-py#create) method on the [`client.collections()`](/sdk/topk-py#collectionsclient) object:
 
-```bash
-brew tap topk-io/topk
-brew install topk
-```
+<CodeGroup>
 
-#### Authentication
+```python Python
+from topk_sdk.schema import int, text, semantic_index
 
-To authenticate, run:
-
-```bash
-topk login
-```
-
-Alternatively, you can set `TOPK_API_KEY` environment variable and skip the `topk login` command.
-
-```bash
-export TOPK_API_KEY=<your-api-key>
-```
-
-#### Commands
-
-##### ask
-
-Get a grounded answer with citations
-
-```bash
-topk ask "my question" --dataset my-dataset
-```
-
-| Flag           | Required | Description                                                                  |
-| -------------- | -------- | ---------------------------------------------------------------------------- |
-| `--dataset`    | **Yes**  | Dataset to search (repeatable, e.g. `-d ds1 -d ds2`)                         |
-| `--mode`       | No       | Response mode: `auto` (default), `summarize`, `research`                     |
-| `--field`      | No       | Metadata field to include in results (repeatable, e.g. `-f title -f author`) |
-| `--show-refs`  | No       | Show citations inline in the answer                                          |
-| `--output-dir` | No       | Save result content (images, text chunks) to a directory                     |
-
-The query can also be piped via stdin:
-
-```bash
-echo "my question" | topk ask --dataset my-dataset
-```
-
----
-
-##### search
-
-Find relevant passages in documents
-
-```bash
-topk search "my query" --dataset my-dataset
-```
-
-| Flag           | Required | Description                                                                  |
-| -------------- | -------- | ---------------------------------------------------------------------------- |
-| `--dataset`    | **Yes**  | Dataset to search (repeatable, e.g. `-d ds1 -d ds2`)                         |
-| `--top-k`      | No       | Number of results to return (default: 10)                                    |
-| `--field`      | No       | Metadata field to include in results (repeatable, e.g. `-f title -f author`) |
-| `--output-dir` | No       | Save result content (images, text chunks) to a directory                     |
-
-The query can also be piped via stdin:
-
-```bash
-echo "my query" | topk search --dataset my-dataset
-```
-
-##### upload
-
-Upload files to a dataset
-
-```bash
-topk upload '*.pdf' --dataset my-dataset
-topk upload 'docs/**/*.md' --dataset my-dataset
-topk upload docs --dataset my-dataset -r
-topk upload report.pdf notes.md images/ --dataset my-dataset
-```
-
-| Argument    | Required | Description                                                              |
-| ----------- | -------- | ------------------------------------------------------------------------ |
-| `PATTERN`   | **Yes**  | One or more file paths, directories, or glob patterns                    |
-| `--dataset` | **Yes**  | Dataset to upload into                                                   |
-| `-r`        | No       | Recurse into subdirectories when `PATTERN` is a directory                |
-| `-y`        | No       | Skip the upload confirmation prompt                                      |
-| `-c`        | No       | Number of concurrent uploads, 1–64 (default: 32)                         |
-| `--wait`    | No       | Wait for processing; optionally up to a duration (e.g. `--wait 5m`)     |
-| `--dry-run` | No       | Preview which files would be uploaded without uploading                  |
-
-##### list
-
-List documents in a dataset:
-
-```bash
-topk list --dataset my-dataset
-```
-
-Streams results as they arrive. In agent mode (`-o json`) outputs one JSON object per line (NDJSON).
-
-| Flag        | Required | Description                                             |
-| ----------- | -------- | ------------------------------------------------------- |
-| `--dataset` | **Yes**  | Dataset to list documents from                          |
-| `--field`   | No       | Metadata field to include (repeatable, e.g. `-f title`) |
-
-##### delete
-
-Delete a document from a dataset:
-
-```bash
-topk delete --dataset my-dataset --id my-doc-id
-```
-
-| Flag        | Required | Description                     |
-| ----------- | -------- | ------------------------------- |
-| `--dataset` | **Yes**  | Dataset containing the document |
-| `--id`      | **Yes**  | Document ID to delete           |
-| `-y`        | No       | Skip confirmation prompt        |
-
-##### dataset
-
-Manage datasets
-
-###### list
-
-List all datasets:
-
-```bash
-topk dataset list
-```
-
-This command has no subcommand-specific flags.
-
-###### get
-
-Get a dataset:
-
-```bash
-topk dataset get my-dataset
-```
-
-| Argument  | Required | Description  |
-| --------- | -------- | ------------ |
-| `DATASET` | **Yes**  | Dataset name |
-
-###### create
-
-Create a dataset:
-
-```bash
-topk dataset create --region aws-us-east-1-elastica my-dataset
-topk dataset create --region aws-us-east-1-elastica --description "My dataset" my-dataset
-```
-
-| Argument        | Required | Description                                                                                                             |
-| --------------- | -------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `DATASET`       | **Yes**  | Dataset name                                                                                                            |
-| `--region`      | **Yes**  | Region to create the dataset in. List available regions at [https://docs.topk.io/regions](https://docs.topk.io/regions) |
-| `--description` | No       | Dataset description                                                                                 |
-
-###### update
-
-Update a dataset:
-
-```bash
-topk dataset update my-dataset --description "My dataset description"
-```
-
-| Flag            | Required | Description                                  |
-| --------------- | -------- | -------------------------------------------- |
-| `DATASET`       | **Yes**  | Dataset name                                 |
-| `--description` | No       | Dataset description                          |
-
-###### delete
-
-Delete a dataset:
-
-```bash
-topk dataset delete my-dataset
-```
-
-| Argument  | Required | Description              |
-| --------- | -------- | ------------------------ |
-| `DATASET` | **Yes**  | Dataset name             |
-| `-y`      | No       | Skip confirmation prompt |
-
-##### login
-
-To authenticate, run:
-
-```bash
-topk login
-```
-
-Alternatively, you can set `TOPK_API_KEY` environment variable and skip the `topk login` command.
-
-```bash
-export TOPK_API_KEY=<your-api-key>
-```
-
-##### logout
-
-Log out and clear cache:
-
-```bash
-topk logout
-```
-
-#### Global flags
-
-These flags are accepted by every command:
-
-##### `--output`
-
-Options:
-
-* `text` (default)
-* `json`
-
-Output results as NDJSON — one JSON object per line, compatible with `jq`:
-
-```bash
-topk -o json dataset list | jq '.name'
-```
-
-##### `--api-key`
-
-API key to use for this invocation. Overrides the `TOPK_API_KEY` environment variable and the key saved via `topk login`.
-
-#### Updating the CLI
-
-To update CLI to the latest version, run:
-
-```bash
-brew update
-brew upgrade topk
-```
-
-### MCP
-
-URL: https://docs.topk.io/mcp-server
-
-The TopK MCP server lets any MCP-compatible AI agent query your datasets using natural language. Once connected, your agent can:
-
-- **List datasets** — discover what data is available
-- **Ask questions** — query datasets with natural language and get grounded answers
-
-<Info>
-  **Prerequisites**
-
-  - TopK account ([Sign up here](https://console.topk.io/login))
-  - TopK API key ([Get API key here](https://console.topk.io/api-key))
-</Info>
-
-#### Authentication
-
-To authenticate with the MCP server, you need to provide your `TOPK_API_KEY`.
-
-<Tip>
-  Get your API key [here](https://console.topk.io/api-key).
-</Tip>
-
-#### Setup
-
-<Tabs>
-  <Tab title="Claude Code">
-    <Steps>
-      <Step title="aws-us-east-1-elastica" icon="flower-2">
-      ```bash
-  claude mcp add --transport http topk https://elastica.api.topk.io/mcp \
-    --header "Authorization: Bearer <your-topk-api-key>"
-      ```
-      </Step>
-
-
-      <Step title="aws-eu-central-1-monstera" icon="clover">
-      ```bash
-  claude mcp add --transport http topk https://monstera.api.topk.io/mcp \
-    --header "Authorization: Bearer <your-topk-api-key>"
-      ```
-      </Step>
-    </Steps>
-  </Tab>
-  <Tab title="Codex">
-    <Steps>
-      <Step title="aws-us-east-1-elastica" icon="flower-2">
-      ```bash
-  codex mcp add topk --url https://elastica.api.topk.io/mcp --bearer-token-env-var TOPK_API_KEY
-      ```
-      </Step>
-
-
-      <Step title="aws-eu-central-1-monstera" icon="clover">
-      ```bash
-  codex mcp add topk --url https://monstera.api.topk.io/mcp --bearer-token-env-var TOPK_API_KEY
-      ```
-      </Step>
-    </Steps>
-
-    <Warning>
-      You need to set the `TOPK_API_KEY` environment variable that **Codex** will use in the
-      Authorization header.
-    </Warning>
-
-  </Tab>
-  <Tab title="Claude Desktop">
-    <Steps>
-      <Step title="Open Developer Settings">
-        Go to Settings → Developer -> Edit Config.
-
-        <Info>
-          Make sure you have **Developer Mode** enabled in Claude Desktop.
-        </Info>
-
-        <Frame>
-          <img src="/images/claude-desktop-developer-settings.png" alt="Claude Desktop Developer Settings" />
-        </Frame>
-      </Step>
-      <Step title="Open Config File">
-        Open your Claude Desktop JSON config file:
-        <Frame>
-          <img src="/images/claude-desktop-config-json.png" alt="Claude Desktop Config File" />
-        </Frame>
-      </Step>
-      <Step title="Add TopK MCP">
-        Add the following under `mcpServers` and provide your API key:
-        <CodeGroup>
-        ```json aws-us-east-1-elastica
-        {
-          "mcpServers": {
-            "topk": {
-              "command": "npx",
-              "args": [
-                "-y",
-                "mcp-remote",
-                "https://elastica.api.topk.io/mcp",
-                "--header",
-                "Authorization: Bearer ${TOPK_API_KEY}"
-              ],
-              "env": {
-                "TOPK_API_KEY": "your-api-key-here"
-              }
-            }
-          }
-        }
-        ```
-        ```json aws-eu-central-1-monstera
-        {
-          "mcpServers": {
-            "topk": {
-              "command": "npx",
-              "args": [
-                "-y",
-                "mcp-remote",
-                "https://monstera.api.topk.io/mcp",
-                "--header",
-                "Authorization: Bearer ${TOPK_API_KEY}"
-              ],
-              "env": {
-                "TOPK_API_KEY": "your-api-key-here"
-              }
-            }
-          }
-        }
-        ```
-        </CodeGroup>
-
-        <Info>
-          Make sure you have **Node.js** installed with version **20** or **higher**.
-        </Info>
-      </Step>
-      <Step title="Restart Claude Desktop">
-        Restart Claude Desktop to apply the changes.
-      </Step>
-    </Steps>
-  </Tab>
-  <Tab title="Cursor">
-    Add the following to `~/.cursor/mcp.json`:
-
-    <CodeGroup>
-    ```json aws-us-east-1-elastica
-    {
-      "mcpServers": {
-        "topk-elastica": {
-          "command": "npx",
-          "args": [
-            "-y",
-            "mcp-remote",
-            "https://elastica.api.topk.io/mcp",
-            "--header",
-            "Authorization: Bearer ${TOPK_API_KEY}"
-          ],
-          "env": {
-            "TOPK_API_KEY": "your-api-key-here"
-          }
-        }
-      }
-    }
-    ```
-    ```json aws-eu-central-1-monstera
-    {
-      "mcpServers": {
-        "topk-monstera": {
-          "command": "npx",
-          "args": [
-            "-y",
-            "mcp-remote",
-            "https://monstera.api.topk.io/mcp",
-            "--header",
-            "Authorization: Bearer ${TOPK_API_KEY}"
-          ],
-          "env": {
-            "TOPK_API_KEY": "your-api-key-here"
-          }
-        }
-      }
-    }
-    ```
-    </CodeGroup>
-
-    Restart Cursor to apply the changes.
-  </Tab>
-</Tabs>
-
-<Info>
-  TopK MCP server is **region-specific**. See available regions [here](/regions).
-</Info>
-
-#### Available tools
-
-Once connected, your agent will have access to `list_datasets` and `ask` tools.
-
-Agents typically follow this flow:
-
-1. Call `list_datasets` to discover what datasets are available
-2. Select one or more relevant datasets
-3. Call `ask` with a natural language query and the selected datasets
-
-##### `list_datasets`
-
-Lists all available datasets in your TopK project. The agent should call this first to discover what data is available before answering any data-related questions.
-
-##### `ask`
-
-Queries one or more datasets using natural language and returns a grounded answer.
-
-These ask modes are supported:
-
-- **auto** *(default)* — chooses the best mode based on the provided query
-- **summarize** — gathers information from the datasets and returns a concise answer
-- **research** — multi-step search and reasoning, best for analytical or comparative questions
-
-### Python SDK
-
-URL: https://docs.topk.io/sdk/topk-py/overview
-
-[![PyPI version](https://img.shields.io/pypi/v/topk-sdk.svg)](https://pypi.org/project/topk-sdk/)
-
-The TopK Python library provides convenient access to the TopK API from any Python 3.9+ application. The library includes type definitions for all request params and response fields, and features both synchronous and asynchronous clients.
-#### Installation
-
-```sh
-pip install topk-sdk
-
-### or
-
-uv add topk-sdk
-```
-
-#### Prerequisites
-
-- **API key** — sign in to [console.topk.io](https://console.topk.io) and generate an API key.
-- **Region** — available regions are listed at [docs.topk.io/regions](https://docs.topk.io/regions).
-
-#### Usage
-
-```python
-import os
-from topk_sdk import Client
-
-client = Client(
-    api_key=os.environ.get("TOPK_API_KEY"),
-    region="aws-us-east-1-elastica",
-)
-
-### Create a dataset
-client.datasets().create("my-dataset")
-
-### Upload a file
-handle = client.dataset("my-dataset").upsert_file(
-    "doc-1",
-    input="/path/to/document.pdf",
-    metadata={"kind": "report", "department": "finance"},  # optional metadata
-)
-
-### Wait for the file to process (optional)
-client.dataset("my-dataset").wait_for_handle(handle)
-
-### Ask a question
-for message in client.ask(
-    "What was the total net income of Bank of America in 2024?",
-    datasets=["my-dataset"],
-):
-    print(message)
-```
-
-#### Async usage
-
-Simply import `AsyncClient` instead of `Client` and use `async for` / `await` with each API call:
-
-```python
-import os
-import asyncio
-from topk_sdk import AsyncClient
-
-client = AsyncClient(
-    api_key=os.environ.get("TOPK_API_KEY"),
-    region="aws-us-east-1-elastica",
-)
-
-async def main() -> None:
-    await client.datasets().create("my-dataset")
-
-    handle = await client.dataset("my-dataset").upsert_file(
-        "doc-1",
-        input="/path/to/document.pdf",
-        metadata={"kind": "report", "department": "finance"},
-    )
-    await client.dataset("my-dataset").wait_for_handle(handle)
-
-    async for message in client.ask(
-        "What was the total net income of Bank of America in 2024?",
-        datasets=["my-dataset"],
-    ):
-        print(message)
-
-asyncio.run(main())
-```
-
-#### Handling errors
-
-```python
-from topk_sdk.error import (
-    DatasetNotFoundError,
-    PermissionDeniedError,
-    QuotaExceededError,
-    SlowDownError,
-)
-
-try:
-    for message in client.ask(
-        "What was the total net income of Bank of America in 2024?",
-        datasets=["my-dataset"],
-    ):
-        print(message)
-except DatasetNotFoundError:
-    print("Dataset does not exist")
-except PermissionDeniedError:
-    print("Check your API key")
-except QuotaExceededError:
-    print("Usage quota exceeded")
-except SlowDownError:
-    print("Rate limited — the client will retry automatically")
-```
-
-| Error | Description |
-| --- | --- |
-| `CollectionNotFoundError` | Collection does not exist |
-| `CollectionAlreadyExistsError` | Collection with this name already exists |
-| `CollectionValidationError` | Invalid collection name or schema |
-| `DatasetNotFoundError` | Dataset does not exist |
-| `DatasetAlreadyExistsError` | Dataset with this name already exists |
-| `DocumentValidationError` | Invalid document |
-| `SchemaValidationError` | Invalid schema |
-| `PermissionDeniedError` | Invalid or missing API key |
-| `QuotaExceededError` | Usage quota exceeded |
-| `RequestTooLargeError` | Request payload too large |
-| `SlowDownError` | Rate limited by the server (retried automatically) |
-| `QueryLsnTimeoutError` | Timed out waiting for write consistency |
-
-##### Retries
-
-The client automatically retries on `SlowDownError` and on LSN consistency
-timeouts. Retry behaviour can be configured via `RetryConfig`:
-
-```python
-from topk_sdk import Client, RetryConfig, BackoffConfig
-
-client = Client(
-    api_key=os.environ.get("TOPK_API_KEY"),
-    region="aws-us-east-1-elastica",
-    retry_config=RetryConfig(
-        max_retries=5,        # default: 3
-        timeout=60_000,       # total retry chain timeout in ms, default: 30,000
-        backoff=BackoffConfig(
-            init_backoff=200, # default: 100 ms
-            max_backoff=5_000, # default: 10,000 ms
-        ),
-    ),
-)
-```
-
-#### Requirements
-
-Python 3.9 or higher.
-
-### JavaScript SDK
-
-URL: https://docs.topk.io/sdk/topk-js/overview
-
-[![npm version](https://img.shields.io/npm/v/topk-js.svg)](https://www.npmjs.com/package/topk-js)
-
-The TopK JavaScript library provides convenient access to the TopK API from Node.js environments with full TypeScript support.
-#### Installation
-
-```sh
-npm install topk-js
-### or
-yarn add topk-js
-### or
-pnpm install topk-js
-```
-
-#### Prerequisites
-
-- **API key** — sign in to [console.topk.io](https://console.topk.io) and generate an API key.
-- **Region** — available regions are listed at [docs.topk.io/regions](https://docs.topk.io/regions).
-
-#### Usage
-
-```typescript
-import { Client } from "topk-js";
-
-const client = new Client({
-  apiKey: process.env.TOPK_API_KEY,
-  region: "aws-us-east-1-elastica",
-});
-
-// Create a dataset
-await client.datasets().create("my-dataset");
-
-// Upload a file
-const handle = await client.dataset("my-dataset").upsertFile(
-  "doc-1",
-  { path: "/path/to/document.pdf" },
-  { kind: "report", department: "finance" }, // optional metadata
-);
-
-// Wait for the file to process (optional)
-await client.dataset("my-dataset").waitForHandle(handle);
-
-// Ask a question
-for await (const message of client.ask(
-  "What was the total net income of Bank of America in 2024?",
-  ["my-dataset"],
-)) {
-  console.log(message);
-}
-```
-
-#### Handling errors
-
-The SDK throws plain `Error` objects. Check `err.message` to identify the error:
-
-```typescript
-try {
-  for await (const message of client.ask(
-    "What was the total net income of Bank of America in 2024?",
-    ["my-dataset"],
-  )) {
-    console.log(message);
-  }
-} catch (err) {
-  if (err instanceof Error) {
-    if (err.message === "dataset not found") console.error("Dataset does not exist");
-    else if (err.message === "permission denied") console.error("Check your API key");
-    else console.error("Unexpected error:", err.message);
-  }
-}
-```
-
-| `err.message` | Description |
-| --- | --- |
-| `"collection not found"` | Collection does not exist |
-| `"collection already exists"` | Collection with this name already exists |
-| `"dataset not found"` | Dataset does not exist |
-| `"dataset already exists"` | Dataset with this name already exists |
-| `"permission denied"` | Invalid or missing API key |
-| starts with `"request too large:"` | Request payload too large |
-
-##### Retries
-
-The client automatically retries on slow-down and LSN consistency
-timeouts. Retry behaviour can be configured via `retryConfig`:
-
-```typescript
-import { Client } from "topk-js";
-
-const client = new Client({
-  apiKey: process.env.TOPK_API_KEY,
-  region: "aws-us-east-1-elastica",
-  retryConfig: {
-    maxRetries: 5,       // default: 3
-    timeout: 60_000,     // total retry chain timeout in ms, default: 30,000
-    backoff: {
-      initBackoff: 200,  // default: 100 ms
-      maxBackoff: 5_000, // default: 10,000 ms
+client.collections().create(
+    "books",
+    schema={
+        "title": text().required().index(semantic_index()),
+        "published_year": int().required(),
     },
-  },
+)
+```
+
+```typescript Javascript
+import { int, text, semanticIndex } from "topk-js/schema";
+
+await client.collections().create("books", {
+  title: text().required().index(semanticIndex()),
+  published_year: int().required(),
 });
 ```
 
-#### Requirements
+</CodeGroup>
 
-Node.js 18 or higher.
+<Warning>
+  Field names starting with `_` are reserved for internal use.
+</Warning>
 
-### Rust SDK
+##### Schema
 
-Get started with TopK Context Engine using Rust SDK.
+###### Opt-in schema
 
-URL: https://github.com/topk-io/topk/tree/main/topk-rs
+TopK is schemaless-by-default. Fields without types can store any value. When types are specified, data is validated during upsert.
+
+<Info>Indexed fields require **explicit types**.</Info>
+
+###### Field types
+
+| Type | Use case |
+|------|----------|
+| [`text()`](/sdk/topk-py/schema#text) | Strings, descriptions, content, IDs |
+| [`bytes()`](/sdk/topk-py/schema#bytes) | Binary data, images, files |
+| [`int()`](/sdk/topk-py/schema#int) | Integers, counts, IDs |
+| [`float()`](/sdk/topk-py/schema#float) | Decimal numbers, prices |
+| [`bool()`](/sdk/topk-py/schema#bool) | true/false values |
+| [`list(value_type)`](/sdk/topk-py/schema#list) | Arrays of text, integer, or float elements |
+| [`struct(fields)`](/sdk/topk-py/schema#struct) | Nested objects with named fields |
+| [`f8_vector(dim)`](/sdk/topk-py/schema#f8_vector) | 8-bit float embeddings |
+| [`f16_vector(dim)`](/sdk/topk-py/schema#f16_vector) | 16-bit float embeddings |
+| [`f32_vector(dim)`](/sdk/topk-py/schema#f32_vector) | Dense embeddings (most common) |
+| [`u8_vector(dim)`](/sdk/topk-py/schema#u8_vector) | Quantized embeddings |
+| [`i8_vector(dim)`](/sdk/topk-py/schema#i8_vector) | Signed quantized embeddings |
+| [`binary_vector(dim)`](/sdk/topk-py/schema#binary_vector) | Binary embeddings |
+| [`f32_sparse_vector()`](/sdk/topk-py/schema#f32_sparse_vector) | Sparse embeddings |
+| [`u8_sparse_vector()`](/sdk/topk-py/schema#u8_sparse_vector) | Quantized sparse embeddings |
+| [`matrix(dim, value_type)`](/sdk/topk-py/schema#matrix) | Multi-vector embeddings |
+
+###### Required fields
+
+Fields are optional by default.
+
+Add [`required()`](/sdk/topk-py/schema#required) to make them mandatory—required fields must be present in every document during upsert. Documents missing a required field are rejected with a validation error.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.schema import int, text
+
+schema = {
+    "name": text().required(),   # Must be present in all documents
+    "price": int(),              # Can be omitted (null)
+}
+```
+
+```typescript Javascript
+import { int, text } from "topk-js/schema";
+
+const schema = {
+  name: text().required(),   // Must be present in all documents
+  price: int(),              // Can be omitted (null)
+};
+```
+
+</CodeGroup>
+
+##### Indexes
+
+Only indexed fields can be searched. Non-indexed fields support exact-match filters only.
+
+###### Vector Index
+
+Used for vector search. Supports dimensions up to 2^14. Enabled by [`vector_index()`](/sdk/topk-py/schema#vector_index).
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.schema import f32_vector, vector_index
+
+schema = {
+    "embedding": f32_vector(dimension=1536).index(vector_index(metric="cosine")),
+}
+```
+
+```typescript Javascript
+import { f32Vector, vectorIndex } from "topk-js/schema";
+
+const schema = {
+  embedding: f32Vector({ dimension: 1536 }).index(vectorIndex({ metric: "cosine" })),
+};
+```
+
+</CodeGroup>
+
+**Similarity metrics compatibility:**
+
+| Vector Type           | `cosine` | `euclidean` | `dot_product` | `hamming` |
+|-----------------------|:--------:|:-----------:|:-------------:|:---------:|
+| `f8_vector`           |   ✅    |      ✅     |      ✅      |     —     |
+| `f16_vector`          |   ✅    |      ✅     |      ✅      |     —     |
+| `f32_vector`          |   ✅    |      ✅     |      ✅      |     —     |
+| `u8_vector`           |   ✅    |      ✅     |      ✅      |     —     |
+| `i8_vector`           |   ✅    |      ✅     |      ✅      |     —     |
+| `binary_vector`       |    —    |      —      |      —       |    ✅    |
+| `f32_sparse_vector`   |    —    |      —      |      ✅      |     —     |
+| `u8_sparse_vector`    |    —    |      —      |      ✅      |     —     |
+
+###### Multi-Vector Index
+
+Enables multi-vector search on [`matrix()`](/sdk/topk-py/schema#matrix) fields using the maxsim metric for late-interaction scoring. Enabled by [`multi_vector_index()`](/sdk/topk-py/schema#multi_vector_index). See [multi-vector search](/guides/multi-vector-search) for more information.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.schema import matrix, multi_vector_index
+
+schema = {
+    "token_embeddings": matrix(
+        dimension=1536,
+        value_type="f32"
+    ).index(
+        multi_vector_index(metric="maxsim")
+    ),
+}
+```
+
+```typescript Javascript
+import { matrix, multiVectorIndex } from "topk-js/schema";
+
+const schema = {
+  token_embeddings: matrix({
+    dimension: 1536,
+    valueType: "f32",
+  }).index(
+    multiVectorIndex({ metric: "maxsim" })
+  ),
+};
+```
+
+</CodeGroup>
+
+###### Keyword Index
+
+Traditional text search with BM25 relevance scoring. Fast keyword matching with no embedding overhead. Enabled by [`keyword_index()`](/sdk/topk-py/schema#keyword_index).
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.schema import keyword_index, text
+
+schema = {
+    "title": text().index(keyword_index()),
+}
+```
+
+```typescript Javascript
+import { keywordIndex, text } from "topk-js/schema";
+
+const schema = {
+  title: text().index(keywordIndex()),
+};
+```
+
+</CodeGroup>
+
+###### Semantic Index
+
+Convenience method for automatic embeddings. Enabled by [`semantic_index()`](/sdk/topk-py/schema#semantic_index).
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.schema import semantic_index, text
+
+schema = {
+    "title": text().index(semantic_index()),
+}
+```
+
+```typescript Javascript
+import { semanticIndex, text } from "topk-js/schema";
+
+const schema = {
+  title: text().index(semanticIndex()),
+};
+```
+
+</CodeGroup>
+
+See [semantic_index()](../sdk/topk-py/schema#semantic-index) for details.
+
+
+#### List
+
+You can list all collections in a project by calling [`client.collections().list()`](/sdk/topk-py#list):
+
+<CodeGroup>
+
+```python Python
+collections = client.collections().list()
+```
+
+
+```typescript Javascript
+const collections = await client.collections().list();
+```
+
+</CodeGroup>
+
+The `list()` function returns a list of `Collection` objects:
+
+<CodeGroup>
+
+```python Python
+for collection in collections:
+    print(f"Collection name: {collection.name}")
+    print(f"Organization ID: {collection.org_id}")
+    print(f"Project ID: {collection.project_id}")
+    print(f"Region: {collection.region}")
+    print(f"Schema: {collection.schema}")
+```
+
+
+```js Javascript
+for (const collection of collections) {
+  console.log(`Collection name: ${collection.name}`);
+  console.log(`Organization ID: ${collection.orgId}`);
+  console.log(`Project ID: ${collection.projectId}`);
+  console.log(`Region: ${collection.region}`);
+  console.log(`Schema: ${collection.schema}`);
+}
+```
+
+</CodeGroup>
+
+
+#### Get
+
+You can get a specific collection in a project by calling [`client.collections().get(name)`](/sdk/topk-py#get-3):
+
+<CodeGroup>
+
+```python Python
+collection = client.collections().get("books")
+```
+
+
+```typescript Javascript
+const collection = await client.collections().get("books")
+```
+
+</CodeGroup>
+
+The `get()` function takes the name of a collection and returns a single `Collection` object.
+
+<CodeGroup>
+
+```python Python
+print(f"Collection name: {collection.name}")
+print(f"Organization ID: {collection.org_id}")
+print(f"Project ID: {collection.project_id}")
+print(f"Region: {collection.region}")
+print(f"Schema: {collection.schema}")
+```
+
+
+```js Javascript
+console.log(`Collection name: ${collection.name}`);
+console.log(`Organization ID: ${collection.orgId}`);
+console.log(`Project ID: ${collection.projectId}`);
+console.log(`Region: ${collection.region}`);
+console.log(`Schema: ${collection.schema}`);
+```
+
+</CodeGroup>
+
+#### Delete
+
+Once you decide that you no longer need a collection or that you want to start over, you can delete it.
+Deleting a collection will remove all the documents and indexes associated with it.
+
+To delete a collection, call the [`client.collections().delete(name)`](/sdk/topk-py#delete-3) method:
+
+<CodeGroup>
+
+```python Python
+client.collections().delete("my-collection")
+```
+
+
+```typescript JavaScript
+await client.collections().delete("my-collection")
+```
+
+</CodeGroup>
+
+If your collection is too large it can take a moment to delete it. You can check the status of the deletion by listing the collections again.
+
+<Warning>
+  This operation is irreversible and will permanently delete all data in the collection.
+</Warning>
 
 ## Python SDK Reference
 
@@ -10987,1271 +12149,3 @@ type MultiVectorQuantization = "1bit" | "2bit" | "scalar";
 ```ts
 type VectorDistanceMetric = "cosine" | "euclidean" | "dot_product" | "hamming";
 ```
-
-## Database APIs
-
-### TopK Database
-
-URL: https://docs.topk.io/database
-
-TopK Database is a search engine for building fast semantic search, vector search, keyword (BM25) search, sparse vector search, multi-vector search or a combination of these — all within a single query.
-
-It is powering the [TopK Context Engine](https://docs.topk.io/introduction) and is also available as a standalone solution via [Python SDK](https://docs.topk.io/sdk/topk-py/index), [JavaScript SDK](https://docs.topk.io/sdk/topk-js/index) or [Rust SDK](https://github.com/topk-io/topk/tree/main/topk-rs).
-
-#### Guides
-
-<CardGroup cols={2}>
-  <Card title="Semantic Search" icon="brain" href="/concepts/semantic-search">
-    Get started with semantic search using natural language.
-  </Card>
-  <Card title="Vector Search" icon="activity" href="/concepts/vector-search">
-    Bring your own embeddings and run nearest-neighbor search.
-  </Card>
-  <Card title="Sparse Vector Search" icon="vector-square" href="/concepts/sparse-vector-search">
-    Efficient high-dimensional retrieval using sparse representations.
-  </Card>
-  <Card title="Multi-Vector Search" icon="layers" href="/concepts/multi-vector-search">
-    Index and query multiple vector fields per document.
-  </Card>
-  <Card title="Keyword Search" icon="search" href="/concepts/keyword-search">
-    BM25-based full-text search for term matching across documents.
-  </Card>
-  <Card title="True Hybrid Search" icon="git-merge" href="/concepts/true-hybrid-search">
-    Combine semantic and keyword signals in a single query.
-  </Card>
-</CardGroup>
-
-#### APIs
-
-<CardGroup cols={2}>
-  <Card title="Document API" icon="file-text" href="/documents/upsert">
-    Upsert, query, get, and delete documents.
-  </Card>
-  <Card title="Management API" icon="folder" href="/collections/create">
-    Create, list, get, and delete collections.
-  </Card>
-</CardGroup>
-
-#### SDKs
-
-<CardGroup cols={2}>
-  <Card title="Python SDK" icon="/icons/python.svg" href="/sdk/topk-py/index">
-    Full Python SDK reference.
-  </Card>
-  <Card title="JavaScript SDK" icon="/icons/js.svg" href="/sdk/topk-js/index">
-    Full TypeScript/JavaScript SDK reference.
-  </Card>
-</CardGroup>
-
-#### Digging Deeper
-
-<CardGroup cols={2}>
-  <Card title="Consistency" icon="circle-check" href="/concepts/consistency">
-    Understand TopK's consistency model and write freshness guarantees.
-  </Card>
-  <Card title="Multi-Tenancy" icon="users" href="/concepts/multi-tenancy">
-    Partition data by tenant within a single collection.
-  </Card>
-</CardGroup>
-
-### TopK Database - Semantic search
-
-URL: https://docs.topk.io/concepts/semantic-search
-
-TopK enables you to add semantic search to your documents with just a few lines of code.
-There is no need to build or maintain a separate embedding pipeline.
-
-#### How to perform a semantic search
-
-In the following example, we'll:
-
-<Steps>
-  <Step title="Define a collection schema">Create a collection configured for semantic search.</Step>
-  <Step title="Add documents">Insert documents into the collection.</Step>
-  <Step title="Run a semantic query">Retrieve documents using a free-form text query.</Step>
-</Steps>
-
-##### Define a collection schema
-
-Semantic search is enabled by adding a [`semantic_index()`](/sdk/topk-py/schema#semantic_index) to a [`text()`](/sdk/topk-py/schema#text) field in the collection schema:
-
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.schema import text, semantic_index
-
-client.collections().create(
-    "books",
-    schema={
-        "title": text().required().index(semantic_index()),
-    },
-)
-```
-
-
-```typescript Javascript
-import { text, semanticIndex } from "topk-js/schema";
-
-await client.collections().create("books", {
-  title: text().required().index(semanticIndex()),
-});
-```
-
-</CodeGroup>
-
-This configuration automatically generates embeddings as well as enables keyword search for the specified text fields.
-
-<Tip>
-  If you want to use your own embeddings instead of TopK's built-in `semantic_index()`, see [Vector Search](/concepts/vector-search) guide.
-</Tip>
-
-##### Add documents to the collection
-
-Let's add some documents to the collection:
-
-<CodeGroup>
-
-```python Python
-client.collection("books").upsert(
-    [
-        {"_id": "gatsby", "title": "The Great Gatsby"},
-        {"_id": "1984", "title": "1984"},
-        {"_id": "catcher", "title": "The Catcher in the Rye"},
-    ],
-)
-```
-
-
-```typescript Javascript
-await client.collection("books").upsert([
-  { _id: "gatsby", title: "The Great Gatsby" },
-  { _id: "1984", title: "1984" },
-  { _id: "catcher", title: "The Catcher in the Rye" },
-]);
-```
-
-</CodeGroup>
-
-##### Run a semantic query
-
-To search for documents based on semantic similarity, use the [`fn.semantic_similarity()`](/sdk/topk-py/query#semantic_similarity) function:
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.query import select, field, fn
-
-docs = client.collection("books").query(
-    select(
-        "title",
-        title_similarity=fn.semantic_similarity("title", "classic American novel"),
-    )
-    .topk(field("title_similarity"), 10)
-)
-
-### Example results:
-
-[
-  {
-    "_id": "2",
-    "title": "The Catcher in the Rye",
-    "title_similarity": 0.9497610926628113
-  },
-  {
-    "_id": "1",
-    "title": "The Great Gatsby",
-    "title_similarity": 0.9480283856391907
-  }
-]
-```
-
-
-```typescript Javascript
-import { select, field, fn } from "topk-js/query";
-
-const docs = await client.collection("books").query(
-  select({
-    title: field("title"),
-    title_similarity: fn.semanticSimilarity("title", "classic American novel"),
-  })
-    .topk(field("title_similarity"), 10)
-);
-
-// Example results:
-
-[
-  {
-    _id: '2',
-    title: 'The Catcher in the Rye',
-    title_similarity: 0.9497610926628113
-  },
-  {
-    _id: '1',
-    title: 'The Great Gatsby'
-    title_similarity: 0.9480283856391907
-  }
-]
-```
-
-</CodeGroup>
-
-Let's break down the example above:
-
-1. The `semantic_similarity()` function computes the similarity between the query `"classic American novel"` and the text value stored in the `title` field for each document.
-2. TopK performs automatic query embedding under the hood.
-3. The results are ranked based on similarity, and the top 10 most relevant documents are returned.
-
-This works **out of the box**—no need to manage embeddings or external APIs.
-
-#### Combining semantic and keyword search
-
-For certain use cases, you might want to use a combination of **keyword search** and **semantic search**:
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.query import select, field, fn, match
-
-docs = client.collection("books").query(
-    select(
-        "title",
-        title_similarity=fn.semantic_similarity("title", "catcher"),
-        text_score=fn.bm25_score(),  # Keyword-based relevance
-    )
-    .filter(match("classic"))  # Ensure the book contains the keyword "classic" in any of the text-indexed fields
-    .topk(field("title_similarity") * 0.7 + field("text_score") * 0.3, 10) # Add 70% weight to semantic similarity and 30% weight to keyword relevance
-)
-```
-
-
-```typescript Javascript
-import { select, field, fn, match } from "topk-js/query";
-
-const docs = await client.collection("books").query(
-  select({
-    title: field("title"),
-    title_similarity: fn.semanticSimilarity("title", "catcher"),
-    text_score: fn.bm25Score(), // Keyword-based relevance
-  })
-    .filter(match("classic")) // Ensure the book contains the keyword "classic" in any of the text-indexed fields
-    .topk(
-      // Add 70% weight to semantic similarity and 30% weight to keyword relevance
-      field("title_similarity").mul(0.7).add(field("text_score").mul(0.3)),
-      10
-    )
-);
-```
-
-</CodeGroup>
-
-This example above combines **keyword relevance (BM25)** with **semantic similarity**,\
-ensuring your search results capture both exact matches and contextual meaning with a **custom scoring function** that's best suited for your use case.
-
-### TopK Database - Vector search
-
-URL: https://docs.topk.io/concepts/vector-search
-
-TopK is built for high-performance dense vector search workloads. It is designed to:
-
-- Maintain **>98% recall**, reducing the likelihood of missing relevant results in applications such as recommendation systems, image search, and semantic search.
-- Deliver consistent **low latency** (p99 < 50 ms). See the [benchmarks](https://www.topk.io/benchmarks) for details.
-- Support **large-scale single-collection** deployments as well as **multi-tenant** architectures.
-
-#### Define a collection schema with a vector field
-
-Define a schema with a vector field and add a [`vector_index()`](/sdk/topk-py/schema#vector_index):
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.schema import text, f32_vector, vector_index
-
-client.collections().create(
-    "books",
-    schema={
-        "title": text().required(),
-        "title_embedding": f32_vector(dimension=1536).required().index(vector_index(metric = "cosine")),
-    },
-)
-```
-
-
-```typescript Javascript
-import { text, f32Vector, vectorIndex } from "topk-js/schema";
-
-await client.collections().create("books", {
-  title: text().required(),
-  title_embedding: f32Vector({ dimension: 1536 }).required().index(vectorIndex({ metric: "cosine" })),
-});
-```
-
-</CodeGroup>
-
-Supported vector field types:
-
-- **[`f32_vector()`](/sdk/topk-py/schema#f32_vector)** — Dense float32 embeddings (most common)
-- **[`u8_vector()`](/sdk/topk-py/schema#u8_vector)** — Quantized uint8 embeddings
-- **[`i8_vector()`](/sdk/topk-py/schema#i8_vector)** — Signed quantized int8 embeddings
-- **[`binary_vector()`](/sdk/topk-py/schema#binary_vector)** — Binary embeddings (use with `hamming` metric)
-- **[`f32_sparse_vector()`](/sdk/topk-py/schema#f32_sparse_vector)** — Sparse embeddings (see [sparse vector search guide](/concepts/sparse-vector-search))
-- **[`u8_sparse_vector()`](/sdk/topk-py/schema#u8_sparse_vector)** — Quantized sparse embeddings
-- **[`matrix()`](/sdk/topk-py/schema#matrix)** — Multi-vector embeddings (see [multi-vector search guide](/concepts/multi-vector-search))
-
-See the [schema reference](/sdk/topk-py/schema) for full API details.
-
-#### Perform a k-Nearest Neighbor (kNN) search
-
-To retrieve the top-k nearest neighbors of a query vector, use the [`fn.vector_distance()`](/sdk/topk-py/query#vector_distance) function.
-
-`fn.vector_distance()` computes the distance (or similarity) between a stored vector field and a query vector, based on the distance metric configured in the vector index (e.g., cosine or Euclidean).
-
-You can use the computed value to sort and return the closest matches.
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.query import select, field, fn
-
-docs = client.collection("books").query(
-    select(
-        "title",
-        published_year=field("published_year"),
-        # Compute vector similarity between the vector embedding of the string "epic fantasy adventure"
-        # and the embedding stored in the `title_embedding` field.
-        title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3, ...]),
-    )
-    # Return top 10 results
-    # sort: smaller euclidean distance = closer; larger cosine similarity = closer
-    # if using euclidean distance, sort in ascending order(asc=True)
-    .topk(field("title_similarity"), 10)
-)
-
-### Example results:
-[
-  {
-    "_id": "2",
-    "title": "Lord of the Rings",
-    "title_similarity": 0.8150404095649719
-  },
-  {
-    "_id": "1",
-    "title": "The Catcher in the Rye",
-    "title_similarity": 0.7825378179550171,
-  }
-]
-```
-
-
-```js Javascript
-import { select, field, fn } from "topk-js/query";
-
-const docs = await client.collection("books").query(
-  select({
-    title: field("title"),
-    published_year: field("published_year"),
-    title_similarity: fn.vectorDistance(
-      "title_embedding",
-      // Compute vector similarity between the vector embedding of the string "epic fantasy adventure"
-      // and the embedding stored in the `title_embedding` field.
-      [0.1, 0.2, 0.3 /* ... */]
-    ),
-  }).topk(field("title_similarity"), 10)
-  // sort: smaller euclidean distance = closer; larger cosine similarity = closer
-  // if using euclidean distance, sort in ascending order(.topk(field("title_similarity"), 10, true))
-);
-
-// Example results:
-[
-  {
-    _id: '2',
-    title: 'Lord of the Rings',
-    title_similarity: 0.8150404095649719
-  },
-  {
-    _id: '1'
-    title_similarity: 0.7825378179550171,
-    title: 'The Catcher in the Rye',
-  }
-]
-```
-
-</CodeGroup>
-
-Let's break down the example above:
-
-1. Compute the cosine similarity between the query embedding and the `title_embedding` field using the `vector_distance()` function.
-2. Store the computed cosine similarity in the `title_similarity` field.
-3. Return the top 10 results sorted by the `title_similarity` field in a descending order.
-
-#### Combine vector search with metadata filtering
-
-Vector search can be combined with metadata filtering by adding a [`filter()`](/sdk/topk-py/query#filter) stage to the query:
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.query import select, field, fn
-
-docs = client.collection("books").query(
-    select(
-        "title",
-        title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3, ...]),
-        published_year=field("published_year"),
-    )
-    .filter(field("published_year") > 2000)
-    .topk(field("title_similarity"), 10)
-)
-```
-
-
-```js Javascript
-import { select, field, fn } from "topk-js/query";
-
-const docs = await client.collection("books").query(
-  select({
-    title: field("title"),
-    title_similarity: fn.vectorDistance(
-      "title_embedding",
-      [0.1, 0.2, 0.3 /* ... */]
-    ),
-    published_year: field("published_year"),
-  })
-    .filter(field("published_year").gt(2000))
-    .topk(field("title_similarity"), 10)
-);
-```
-
-</CodeGroup>
-
-### TopK Database - Sparse vector search
-
-URL: https://docs.topk.io/concepts/sparse-vector-search
-
-TopK provides native support for sparse vector search, enabling exact retrieval over high-dimensional sparse representations.
-
-It is designed to:
-
-- Provide **100% recall** (exact search).
-- Support learned sparse representations such as [SPLADE](https://github.com/naver/splade).
-- Deliver consistent **low latency** (p99 < 20 ms). See the [benchmarks](https://www.topk.io/benchmarks) for details.
-- Support **large-scale single-collection** deployments as well as **multi-tenant** architectures.
-
-#### Define a collection schema with a sparse vector field
-
-Define a schema with a sparse vector field and add a [`vector_index()`](/sdk/topk-py/schema#vector_index):
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.schema import text, f32_sparse_vector, vector_index
-
-client.collections().create(
-    "books",
-    schema={
-        "title": text().required(),
-        "title_embedding": f32_sparse_vector()
-          .required()
-          .index(vector_index(metric = "dot_product")),
-    },
-)
-```
-
-
-```typescript Javascript
-import { text, f32SparseVector, vectorIndex } from "topk-js/schema";
-
-await client.collections().create("books", {
-  title: text().required(),
-  title_embedding: f32SparseVector()
-    .required()
-    .index(vectorIndex({ metric: "dot_product" })),
-});
-```
-
-Supported sparse vector field types:
-
-- **[`f32_sparse_vector()`](/sdk/topk-py/schema#f32_sparse_vector)** — Sparse float32 embeddings
-- **[`u8_sparse_vector()`](/sdk/topk-py/schema#u8_sparse_vector)** — Sparse uint8 embeddings
-
-See the [schema reference](/sdk/topk-py/schema) for full API details.
-
-</CodeGroup>
-
-<Note>
-  Sparse vectors do not have a fixed dimension, so you don't need to specify the vector dimension when defining the field.
-</Note>
-
-<Warning>
-  TopK only supports `dot_product` metric for sparse vectors which is compatible with both fixed and learned sparse
-  vector representations.
-</Warning>
-
-#### Perform a sparse vector search
-
-To retrieve the top-k nearest neighbors of a query vector, use the [`fn.vector_distance()`](/sdk/topk-py/query#vector_distance) function.
-
-`fn.vector_distance()` computes the distance (or similarity) between a stored sparse vector field and a query vector, based on the distance metric configured in the vector index (e.g., dot product).
-
-You can use the computed value to sort and return the closest matches.
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.query import select, field, fn
-from topk_sdk.data import f32_sparse_vector
-
-docs = client.collection("books").query(
-    select(
-        "title",
-        published_year=field("published_year"),
-        # Compute relevance score between the sparse vector embedding of the string "epic fantasy adventure"
-        # and the embedding stored in the `title_embedding` field.
-        title_score=fn.vector_distance(
-          "title_embedding",
-          f32_sparse_vector({0: 0.12, 6: 0.67, ...}),
-        )
-    )
-    # Return top 10 results
-    .topk(field("title_score"), 10)
-)
-
-### Example results:
-[
-  {
-    "_id": "2",
-    "title": "Lord of the Rings",
-    "title_score": 0.8150404095649719
-  },
-  {
-    "_id": "1",
-    "title": "The Catcher in the Rye",
-    "title_score": 0.7825378179550171,
-  }
-]
-```
-
-
-```js Javascript
-import { select, field, fn } from "topk-js/query";
-import { f32SparseVector } from "topk-js/data";
-
-const docs = await client.collection("books").query(
-  select({
-    title: field("title"),
-    published_year: field("published_year"),
-    title_score: fn.vectorDistance(
-      "title_embedding",
-      // Compute relevance score between the sparse vector embedding of the string "epic fantasy adventure"
-      // and the embedding stored in the `title_embedding` field.
-      f32SparseVector({0: 0.12, 6: 0.67, ...})
-    ),
-  }).topk(field("title_score"), 10)
-);
-
-// Example results:
-[
-  {
-    _id: '2',
-    title: 'Lord of the Rings',
-    title_score: 0.8150404095649719
-  },
-  {
-    _id: '1'
-    title_score: 0.7825378179550171,
-    title: 'The Catcher in the Rye',
-  }
-]
-```
-
-</CodeGroup>
-
-Let's break down the example above:
-
-1. Compute the sparse dot product between the query embedding and the `title_embedding` field using the `vector_distance()` function.
-2. Store the computed dot product score in the `title_score` field.
-3. Return the top 10 results sorted by the `title_score` field in a descending order.
-
-#### Combine sparse vector search with metadata filtering
-
-Sparse vector search can be combined with metadata filtering by adding a [`filter()`](/sdk/topk-py/query#filter) stage to the query:
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.query import select, field, fn
-from topk_sdk.data import f32_sparse_vector
-
-docs = client.collection("books").query(
-    select(
-        "title",
-        title_score=fn.vector_distance(
-          "title_embedding",
-          f32_sparse_vector({0: 0.12, 6: 0.67, ...}),
-        )
-        published_year=field("published_year"),
-    )
-    .filter(field("published_year") > 2000)
-    .topk(field("title_score"), 10)
-)
-```
-
-
-```js Javascript
-import { select, field, fn } from "topk-js/query";
-import { f32SparseVector } from "topk-js/data";
-
-const docs = await client.collection("books").query(
-  select({
-    title: field("title"),
-    title_score: fn.vectorDistance(
-      "title_embedding",
-      f32SparseVector({0: 0.12, 6: 0.67, ...})
-    ),
-    published_year: field("published_year"),
-  })
-    .filter(field("published_year").gt(2000))
-    .topk(field("title_score"), 10)
-);
-```
-
-</CodeGroup>
-
-### TopK Database - Multi-vector search
-
-URL: https://docs.topk.io/concepts/multi-vector-search
-
-Multi-vector (late-interaction) retrieval represents each document (and query) as a variable-length set of embedding vectors rather than a single embedding vector.
-Instead of reducing the input to a single vector via global pooling (e.g., mean pooling) or a dedicated summary token (e.g., CLS), multi-vector representations preserve token-, segment-, or patch-level vectors and score documents using a set-wise similarity function, most commonly [**MaxSim**](#maxsim-scoring).
-
-#### Why multi-vector retrieval is needed
-
-Single-vector retrieval is the most common approach, but it can lose signal when:
-
-- **The document is long**: pooling compresses many distinct concepts into one vector, potentially sacrificing important details in order to preserve overall meaning.
-- **The query has multiple aspects**: a single vector tends to overemphasize features repeated across the document and suppress distinctive facets that appear only in localized context but are crucial for precision.
-- **Fine-grained matching matters**: named entities, code identifiers, rare terms, or localized image regions are easily lost in single-vector retrieval but can be easily retrieved from token- or patch-level embeddings.
-
-Multi-vector retrieval helps because it evaluates (maximum) relevance of *any* query vector against *some* document vector, instead of computing a single global similarity score.
-
-#### Multi-vector (tensor) embeddings
-
-Embedding models generally represent data internally as an `N x D` matrix:
-
-- **Token-level embeddings**: each of `N` text tokens is represented by a `D`-dimensional vector.
-- **Patch / region embeddings** (vision / multimodal): each of `N` patches or regions is represented by a `D`-dimensional vector.
-- **Segmented / multi-field encoders**: multiple embeddings per input (e.g., each of `N` paragraphs or sections is represented by a `D`-dimensional vector).
-
-Distinct from traditional embedding models that pool these internal representations in the output layer to produce a single vector, late-interaction models such as
-[`ColBERTv2`](https://arxiv.org/abs/2112.01488) (text) and
-[`ColPali`](https://arxiv.org/abs/2407.01449) (visual/multimodal)
-produce a full `N x D` matrix of token- or patch-level embeddings at the output layer (potentially projected to a lower dimension, quantized, or otherwise compressed), which is then stored in the database for retrieval.
-
-##### MaxSim scoring
-
-For a query `Q` represented by `M` vectors `{q_1,...,q_M}` and a document `D` represented by `N` vectors `{d_1,...,d_N}` (of dimension `D`), the *MaxSim* function computes the similarity between `Q` and `D` as
-
-```
-MaxSim(Q, D) = sum_i max_j ⟨q_i, d_j⟩
-```
-
-In human words, instead of computing a single overall similarity score between the entire query and document embeddings, MaxSim compares each query token to all document tokens and keeps only the maximum similarity for each query token. The final score is the sum (or average) of these maximum similarities.
-
-With [`metric="maxsim"`](/sdk/topk-py/schema#multi_vector_index), **higher scores indicate better matches**.
-
-#### Define a schema for multi-vector retrieval
-
-In TopK, multi-vector embeddings are stored in a [`matrix()`](/sdk/topk-py/schema#matrix) field and indexed with a [`multi_vector_index()`](/sdk/topk-py/schema#multi_vector_index) using the [`maxsim`](#maxsim-scoring) metric.
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.schema import text, matrix, multi_vector_index
-
-client.collections().create(
-    "passages",
-    schema={
-        "content": text().required(),
-        # Each row is one embedding vector; columns == dimension.
-        "token_embeddings": matrix(dimension=128, value_type="f16").index(
-            multi_vector_index(metric="maxsim")
-        ),
-    },
-)
-```
-
-```typescript Javascript
-import { matrix, multiVectorIndex, text } from "topk-js/schema";
-
-await client.collections().create("passages", {
-  content: text().required(),
-  // Each row is one embedding vector; columns == dimension.
-  token_embeddings: matrix({ dimension: 128, valueType: "f16" }).index(
-    multiVectorIndex({ metric: "maxsim" })
-  ),
-});
-```
-
-</CodeGroup>
-
-- **`dimension`**: the number of columns `D` in your `N x D` embedding matrix (e.g. 128, 768, 1024).
-- **`value_type`**: storage type for matrix elements (`f32`, `f16`, `f8`, `u8`, `i8`). Choose based on your model output and memory/perf needs.
-- **`metric="maxsim"`**: a late-interaction style scoring where each query vector contributes based on its best match in the document.
-- **`multi_vector_index()`** also accepts optional `quantization` (`"1bit"`, `"2bit"`, `"scalar"`), `width`, and `top_k` for tuning; see [Optimization tips](#optimization-tips) below.
-
-
-#### Ingest documents with multi-vector embeddings
-
-When upserting documents, include both:
-* A multi-vector embedding for given content
-* Any relevant document metadata
-
-<Warning>
-  Each document must also include a required `_id` field.
-</Warning>
-
-<CodeGroup>
-
-```python Python
-import numpy as np
-from topk_sdk.data import matrix
-
-### Example: shape (num_vectors, dimension)
-token_embeddings = np.random.randn(12, 128).astype(np.float16)
-
-client.collection("passages").upsert(
-    [
-        {
-            "_id": "p1",
-            "content": "Late interaction retrieval",
-            # `numpy.ndarray` is supported out of the box
-            "token_embeddings": token_embeddings,
-        },
-        {
-            "_id": "p2",
-            "content": "MaxSim in practice",
-            # Or use matrix data constructor via `topk_sdk.data.matrix(...)`
-            "token_embeddings": matrix(token_embeddings, value_type="f16"),
-        },
-    ]
-)
-```
-
-```typescript Javascript
-import { matrix } from "topk-js/data";
-
-await client.collection("passages").upsert([
-  {
-    _id: "p1",
-    content: "Late interaction retrieval",
-    token_embeddings: matrix(
-      [
-        [0.1, 0.2 /* ... 128 dims ... */],
-        [0.0, -0.1 /* ... */],
-      ],
-      "f16"
-    ),
-  },
-]);
-```
-
-</CodeGroup>
-
-<Tip>
-TopK has built-in support for [`numpy.ndarray`](https://numpy.org/doc/2.2/reference/generated/numpy.ndarray.html) when ingesting and querying multi-vector (matrix) embeddings. If you pass an ndarray directly, the matrix value type is inferred from its `dtype` (e.g. `float32`, `float16`, `uint8`, `int8`).
-</Tip>
-
-#### Run multi-vector retrieval
-
-Use [`fn.multi_vector_distance()`](/sdk/topk-py/query#multi_vector_distance) to score documents against a query matrix.
-When the field is indexed with `metric="maxsim"`, this computes the *MaxSim* score defined above.
-
-<CodeGroup>
-
-```python Python
-import numpy as np
-from topk_sdk.query import field, fn, select
-
-query_matrix = np.random.randn(8, 128).astype(np.float16)
-
-docs = client.collection("passages").query(
-    select(
-        "content",
-        maxsim=fn.multi_vector_distance(
-            "token_embeddings",
-            query_matrix,      # `numpy.ndarray` is supported in query matrix as well
-            candidates=200,    # optional: tuning performance vs. recall
-        ),
-    ).topk(field("maxsim"), 10)
-)
-
-print(docs)
-
-### Results:
-[
-  {
-    "_id": "p2",
-    "content": "MaxSim in practice",
-    "maxsim": 0.83,
-  },
-  {
-    "_id": "p1",
-    "content": "Late interaction retrieval",
-    "maxsim": 0.79,
-  },
-]
-```
-
-```typescript Javascript
-import { field, fn, select } from "topk-js/query";
-import { matrix } from "topk-js/data";
-
-const queryMatrix = matrix(
-  [
-    [0.1, 0.2 /* ... 128 dims ... */],
-    [0.0, -0.1 /* ... */],
-  ],
-  "f16"
-);
-
-const docs = await client.collection("passages").query(
-  select({
-    content: field("content"),
-    maxsim: fn.multiVectorDistance("token_embeddings", queryMatrix, 200),
-  }).topk(field("maxsim"), 10)
-);
-
-console.log(docs);
-
-// Results:
-[
-  {
-    _id: "p2",
-    content: "MaxSim in practice",
-    maxsim: 0.83,
-  },
-  {
-    _id: "p1",
-    content: "Late interaction retrieval",
-    maxsim: 0.79,
-  },
-]
-```
-
-</CodeGroup>
-
-##### Optimization tips
-
-The multi-vector index has an approximate retrieval stage (for faster pruning) followed by a more accurate scoring stage. These parameters let you trade off **memory**, **latency**, and **recall**:
-
-- **`width`**: width of the sparse projection used for approximate MaxSim pruning.
-  - **Higher width**: more accurate pruning → fewer false negatives (better recall), but higher memory/compute.
-  - **Lower width**: more aggressive approximation → more false negatives (recall loss), but faster and smaller.
-- **`top_k`**: number of top projected values to keep during the approximate stage.
-- **`quantization`**: compresses stored multi-vector values.
-  - **`1bit` / `2bit`**: very compact and fast, but most approximate.
-  - **`scalar`**: higher-fidelity quantization (larger than 1–2 bit) with better quality.
-- **`candidates`**: (query parameter) controls how many top document candidates from the approximate stage are promoted to a more accurate multi-vector scoring pass. Lower values reduce work (faster/cheaper) but can hurt recall; higher values improve recall at the cost of latency.
-  If you’re starting out, keep defaults, then tune `candidates` and these index parameters (`width`, `top_k`, `quantization`) based on your latency or recall targets.
-
-### TopK Database - Keyword search
-
-URL: https://docs.topk.io/concepts/keyword-search
-
-TopK supports keyword search with the BM25 ranking function.
-
-To perform a keyword search on your documents, use the [`match()`](/sdk/topk-py/query#match) function.
-
-#### Define a collection schema for keyword search
-
-Define a schema with a [`text()`](/sdk/topk-py/schema#text) field and add a [`keyword_index()`](/sdk/topk-py/schema#keyword_index):
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.schema import text, keyword_index
-
-client.collections().create(
-    "books",
-    schema={
-        "title": text().index(keyword_index()),
-        "description": text().index(keyword_index()),
-    },
-)
-```
-
-
-```js Javascript
-import { text, keywordIndex } from "topk-js/schema";
-
-await client.collections().create("books", {
-  title: text().index(keywordIndex()),
-  description: text().index(keywordIndex()),
-});
-```
-
-</CodeGroup>
-
-#### Run a keyword search
-
-To run a keyword search on the `title` and `description` fields using the [`match()`](/sdk/topk-py/query#match) function.
-We'll query the collection to match the term `"great"` in the `title` field or the term `"novel"` in any of the keyword-indexed text fields:
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.query import select, fn, match, field
-
-docs = client.collection("books").query(
-    select(
-        "title",
-        "description",
-        # Score documents using BM25 algorithm
-        text_score=fn.bm25_score(),
-    )
-    # Filter documents that have the `great` keyword in the `title` field
-    # or the `novel` in any of the text-indexed fields.
-    .filter(
-        match("great", field="title") | match("novel")
-    )
-    # Return top 10 documents with the highest text score
-    .topk(field("text_score"), 10)
-)
-
-### Example result:
-
-[
-  {
-    _id: '1',
-    title: 'The Great Gatsby',
-    description: 'A novel about a great man who wants to be rich and famous',
-    text_score: 0.864456057548523
-  },
-  {
-    _id: '2',
-    title: 'The Catcher in the Rye',
-    description: 'A novel about a boy who wants to be a writer',
-    text_score: 0.1948474943637848,
-  }
-]
-```
-
-
-```js Javascript
-import { select, field, fn, match } from "topk-js/query";
-
-const docs = await client.collection(name).query(
-  select({
-    title: field("title"),
-    description: field("description"),
-    // Score documents using BM25 algorithm
-    text_score: fn.bm25Score(),
-  })
-  // Filter documents that have the `great` keyword in the `title` field
-  // or the `novel` in any of the text-indexed fields.
-  .filter(match("great", { field: "title" }).or(match("novel")))
-  // Return top 10 documents with the highest text score
-  .topk(field("text_score"), 10)
-);
-
-// Example result:
-
-[
-  {
-    _id: '1',
-    title: 'The Great Gatsby',
-    description: 'A novel about a great man who wants to be rich and famous',
-    text_score: 0.864456057548523
-  },
-  {
-    _id: '2',
-    title: 'The Catcher in the Rye',
-    description: 'A novel about a boy who wants to be a writer'
-    text_score: 0.1948474943637848,
-  }
-]
-```
-
-</CodeGroup>
-
-<Note>
-  The `match()` function will by default execute against all
-  fields with a [**keyword index**](/collections/create#keyword-index).
-</Note>
-
-TopK provides a powerful keyword search API allowing you to customize your search queries.
-Read more about keyword search [here](/documents/query#keyword-search).
-
-### TopK Database - True Hybrid search
-
-URL: https://docs.topk.io/concepts/true-hybrid-search
-
-With TopK's true hybrid search, you can combine multiple retrieval techniques such as:
-
-* vector search
-* multi-vector search
-* keyword search
-* metadata filtering
-
--- all in a single query.
-
-#### How TopK differs from other "hybrid" search systems
-
-Most databases that offer hybrid search maintain separate vector and keyword indexes. When a query is executed they:
-
-1. Run two separate queries for both indexes
-2. Collect the top results from each query (e.g. first 100 + 100 candidates)
-3. Use techniques like Reciprocal Rank Fusion (RRF) to merge and rerank these two sets of results
-
-<br />
-
-```mermaid
-flowchart TD
-    A[User Query] --> B[(Query Keyword Index)]
-    A --> C[(Query Vector Index)]
-
-  B --> D@{ shape: docs, label: "Top 100 Keyword search results" }
-  C --> E@{ shape: docs, label: "Top 100 Vector search results" }
-
-  D --> F{Merge and rerank top 200 results using RRF}
-  E --> F
-
-  F --> G@{ shape: stadium, label: "Merged 100 top results" }
-```
-
-<br />
-
-This approach is fundamentally **probabilistic** - the final top-k results are not guaranteed to be the actual best candidates because some potential candidates might be missed if they don't appear in either index's top results.
-
-**TopK is different.** It runs through a single index(vector \+ keyword), ensuring that our "top 100" results are the **actual** top 100 - not just a probabilistic approximation:
-
-```mermaid
-flowchart TD
-    A[User Query]
-    A --> B[(Keyword Index)]
-    A --> C[(Vector Index)]
-
-    B --> D{Scan a single index and retrieve top 100 results}
-    C --> D
-    D --> F@{ shape: stadium, label: "True top 100 results" }
-```
-
-With TopK, you can:
-
-- Retrieve documents based on multiple embeddings -- **Multi-vector retrieval**
-- Combine semantic similarity(e.g vector search) with keyword search -- **True Hybrid Retrieval**
-- **Filter documents** by their metadata
-- Apply custom scoring functions blending multiple ranking factors -- **Custom scoring**
-
-#### Implementing Hybrid Search (Vector \+ Keyword)
-
-Hybrid retrieval combines **semantic similarity (vector-based search)** with **exact keyword matching**. This approach ensures that documents with **direct keyword matches** are considered alongside those that are **semantically similar** to the query.
-
-Let's define a collection with one [`keyword_index()`](/collections/create#keyword-index) and one [`semantic_index()`](/collections/create#semantic-index):
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.schema import text, keyword_index, semantic_index
-
-client.collections().create(
-    "articles",
-    schema={
-        "title": text().required().index(keyword_index()),  # Keyword-based retrieval
-        "content": text().index(semantic_index()),  # Semantic search
-    },
-)
-```
-
-
-```typescript Javascript
-import { text, keywordIndex, semanticIndex } from "topk-js/schema";
-
-await client.collections().create("articles", {
-  title: text().required().index(keywordIndex()), // Keyword-based retrieval
-  content: text().index(semanticIndex()), // Semantic search
-});
-```
-
-</CodeGroup>
-
-In the following example we'll perform a hybrid search that combines keyword and vector(semantic) search in a single query:
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.query import select, field, fn, match
-
-docs = client.collection("articles").query(
-    select(
-        "title",
-        content_similarity=fn.semantic_similarity("content", "climate change policies"),
-        text_score=fn.bm25_score(),
-    )
-    .filter(match("carbon") | match("renewable energy"))  # Ensure keyword relevance
-    .topk(field("content_similarity") * 0.6 + field("text_score") * 0.4, 10)
-)
-```
-
-
-```typescript Javascript
-import { select, field, fn, match } from "topk-js/query";
-
-const docs = await client.collection("articles").query(
-  select({
-    title: field("title"),
-    content_similarity: fn.semanticSimilarity(
-      "content",
-      "climate change policies"
-    ),
-    text_score: fn.bm25Score(),
-  })
-    .filter(match("carbon").or(match("renewable energy"))) // Ensure keyword relevance
-    .topk(
-      field("content_similarity").mul(0.6).add(field("text_score").mul(0.4)),
-      10
-    )
-);
-```
-
-</CodeGroup>
-
-Let's break down the example above:
-
-- We retrieve documents based on semantic meaning (`content_similarity`) and keyword matching (`text_score`).
-- The `filter()` ensures that documents contain at least one relevant keyword.
-- The `topk()` function weights the scores, prioritizing semantic meaning (60%) while still considering keyword matches (40%).
-
-This **balances precision and recall**, capturing both **exact keyword matches** and **meaningful context**.
-
-#### Implementing Complex Search(Keyword \+ Vector \+ Filtering)
-
-In TopK, you can combine [keyword search](/concepts/keyword-search), [vector search](/concepts/vector-search), and [filtering](/documents/query#filtering) in a single query.
-This allows you to fetch the truly **most relevant results** while maintaining a steady performance - no overfetching.
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.query import select, field, fn, match
-
-docs = client.collection("books").query(
-    select(
-        "title",
-        # Score documents using BM25 algorithm
-        text_score=fn.bm25_score(),
-        # Compute semantic similarity between the provided query and the `title` field.
-        title_similarity=fn.semantic_similarity("title", "catcher"),
-    )
-    # Filter documents that contain the `great` keyword
-    .filter(match("great"))
-    # Filtering by metadata
-    .filter(field("published_year") > 1980)
-    # Return top 10 documents with the highest combined score
-    .topk(field("text_score") * 0.2 + field("title_similarity") * 0.8, 10)
-)
-```
-
-
-```typescript Javascript
-import { select, fn, field, match } from "topk-js/query";
-
-const docs = await client.collection("books").query(
-  select({
-    title: field("title"),
-    text_score: fn.bm25Score(),
-    title_similarity: fn.semanticSimilarity("title", "catcher"),
-  })
-    .filter(match("great"))
-    .filter(field("published_year").gt(1980))
-    .topk(
-      field("text_score").mul(0.2).add(field("title_similarity").mul(0.8)),
-      10
-    )
-);
-```
-
-</CodeGroup>
-
-As you might have noticed, we are also sorting the top-k results using a custom scoring function.
-You can read more about custom scoring functions in the following section.
-
-#### Custom Scoring Functions
-
-TopK allows you to **define custom scoring functions** by combining:
-
-- Semantic similarity score
-- Keyword score(BM25)
-- Vector distance
-- "Bring-your-own" precomputed importance score
-
-##### Defining a Collection with Custom Scoring Fields
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.schema import text, float, semantic_index
-
-client.collections().create(
-    "documents",
-    schema={
-        "content": text().index(semantic_index()),  # Semantic search
-        "importance": float().required(),  # Precomputed importance score
-    },
-)
-```
-
-
-```typescript Javascript
-import { text, float, semanticIndex } from "topk-js/schema";
-
-await client.collections().create("documents", {
-  content: text().index(semanticIndex()), // Semantic search
-  importance: float().required(), // Precomputed importance score
-});
-```
-
-</CodeGroup>
-
-##### Querying with a Custom Scoring Function
-
-<CodeGroup>
-
-```python Python
-from topk_sdk.query import select, field, fn
-
-docs = client.collection("documents").query(
-    select(
-        "content",
-        "importance",
-        content_score=fn.semantic_similarity("content", "machine learning applications"),
-    )
-    .topk(0.8 * field("importance") + 0.2 * field("content_score"), 10)
-)
-```
-
-
-```typescript Javascript
-import { select, field, fn } from "topk-js/query";
-
-const docs = await client.collection("documents").query(
-  select({
-    content: field("content"),
-    importance: field("importance"),
-    content_score: fn.semanticSimilarity(
-      "content",
-      "machine learning applications"
-    ),
-  }).topk(
-    field("importance").mul(0.8).add(field("content_score").mul(0.2)),
-    10
-  )
-);
-```
-
-</CodeGroup>
-
-Let's break down the example above:
-
-1. First, we retrieve documents based on both semantic similarity (`content_score`) and precomputed importance (`importance_score`).
-2. Then, the `topk()` function gives 80% weight to content score and 20% weight to document importance.
-3. Sorting by a custom scoring function allows us to boost more critical documents, ensuring that highly relevant but less "important" content doesn't dominate.
