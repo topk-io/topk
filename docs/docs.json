@@ -14,7 +14,11 @@
   "redirects": [
     {
       "source": "/installation",
-      "destination": "/quickstart"
+      "destination": "/introduction"
+    },
+    {
+      "source": "/quickstart",
+      "destination": "/introduction"
     },
     {
       "source": "/mcp",
@@ -23,6 +27,14 @@
     {
       "source": "/concepts/:slug*",
       "destination": "/guides/:slug*"
+    },
+    {
+      "source": "/concepts/consistency",
+      "destination": "/concepts#read-consistency"
+    },
+    {
+      "source": "/concepts/multi-tenancy",
+      "destination": "/concepts#multi-tenancy"
     },
     {
       "source": "/documents/upsert",

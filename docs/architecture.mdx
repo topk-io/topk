@@ -53,3 +53,13 @@ Cache placement and I/O requests are handled by our I/O runtime (based on `io_ur
 
 ## File Format (`.bob`)
 `.bob` is our proprietary columnar file format designed from the ground up for search on object storage. It supports zero-copy and zero-decode I/O with type-specific containers for compressed dense and sparse vectors, tensors, inverted indices, and more.
+
+## CMU DB: TopK Talk
+Check out our talk at the Carnegie Mellon University Database Group where we dive deeper into the TopK architecture, `reactor`, `.bob`, and more.
+<iframe
+  className="w-full aspect-video rounded-xl"
+  src="https://www.youtube.com/embed/gAhzB5ah6jg"
+  title="CMU DB: TopK - Billion-Scale Hybrid Retrieval from the Ground Up"
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+  allowFullScreen
+></iframe>
