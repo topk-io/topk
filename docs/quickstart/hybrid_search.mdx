@@ -119,7 +119,7 @@
             # Filter documents by metadata
             .filter(field("rating") >= 3.0)
             # Rank using the computed similarity score and rating
-            .sort(field("rating") * field("similarity_score"))
+            .sort(field("rating") * field("similarity_score"), asc=False)
             # Get top 10 highest ranked documents
             .limit(10)
           )
@@ -140,7 +140,7 @@
             # Filter documents by metadata
             .filter(field("rating") >= 3.0)
             # Rank using the computed similarity score and rating
-            .sort(field("rating") * field("similarity_score"))
+            .sort(field("rating") * field("similarity_score"), asc=False)
             # Get top 10 highest ranked documents
             .limit(10)
           )
@@ -230,7 +230,7 @@
           // Filter documents by metadata
           .filter(field("rating").gte(3.0))
           // Rank using the computed similarity score and rating
-          .sort(field("rating").mul(field("similarity_score")))
+          .sort(field("rating").mul(field("similarity_score")), false)
           // Get top 10 highest ranked documents
           .limit(10)
         );
