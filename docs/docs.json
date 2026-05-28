@@ -25,8 +25,28 @@
       "destination": "/mcp-server"
     },
     {
-      "source": "/concepts/:slug*",
-      "destination": "/guides/:slug*"
+      "source": "/concepts/semantic-search",
+      "destination": "/guides/semantic-search"
+    },
+    {
+      "source": "/concepts/multi-vector-search",
+      "destination": "/guides/multi-vector-search"
+    },
+    {
+      "source": "/concepts/vector-search",
+      "destination": "/guides/vector-search"
+    },
+    {
+      "source": "/concepts/sparse-vector-search",
+      "destination": "/guides/sparse-vector-search"
+    },
+    {
+      "source": "/concepts/keyword-search",
+      "destination": "/guides/keyword-search"
+    },
+    {
+      "source": "/concepts/true-hybrid-search",
+      "destination": "/guides/true-hybrid-search"
     },
     {
       "source": "/concepts/consistency",
