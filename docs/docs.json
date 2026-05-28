@@ -17,6 +17,10 @@
       "destination": "/quickstart"
     },
     {
+      "source": "/mcp",
+      "destination": "/mcp-server"
+    },
+    {
       "source": "/documents/upsert",
       "destination": "/collections/write"
     },
@@ -34,10 +38,6 @@
     },
     {
       "source": "/collections/create",
-      "destination": "/collections/manage"
-    },
-    {
-      "source": "/collections/get",
       "destination": "/collections/manage"
     },
     {
