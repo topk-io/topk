@@ -1,56 +1,41 @@
 ---
-title: "What is TopK?"
-sidebarTitle: "Overview"
-description: "Turn your documents into reliable context for agents and humans."
+title: "Introduction"
 icon: "/icons/topk-icon.svg"
 ---
 
-import CoreConcepts from "/snippets/core-concepts.mdx";
+import DocSearchQuickstart from "/quickstart/document_search.mdx";
+import HybridSearchQuickstart from "/quickstart/hybrid_search.mdx";
 
-TopK is an end-to-end solution that turns unstructured documents(PDFs, Images, Markdown, HTML) into reliable context for agents and humans.
+TopK is a **hybrid retrieval engine** built on object storage for **10x lower cost** and **massive scale**. It supports dense/sparse vector search, multi-vector retrieval, powerful filtering, custom ranking, and managed inference in one API.
 
-You can search, explore, and extract relevant information from your documents, all grounded in the source material.
+For unstructured document search use cases, we provide a datasets abstraction that allows you to [ingest](/datasets/ingest) files, [search](/datasets/search), and [get answers](/datasets/ask) from your private documents. Connect your data to agents using our [CLI](/cli) or [MCP](/mcp-server) server.
 
-We believe that **context is a search problem.** Agents need relevant data to make the right decision. Without the right context, even the best AI models fall short — garbage in, garbage out.
+## Get Started
+<Info>
+  **Prerequisites**
 
-## How it works
+  - TopK account ([Sign up here](https://console.topk.io/login))
+  - TopK API key ([Get an API key here](https://console.topk.io/api-key))
+</Info>
 
-<Steps>
-  <Step title="Ingest" icon="upload">
-    Upload your documents via the CLI, Python SDK, or JavaScript SDK. TopK supports PDFs, images, markdown, HTML, [and more](/core/ingest#supported-formats).
-  </Step>
-  <Step title="Process" icon="zap">
-    TopK parses, chunks, and indexes your documents—preserving structure from tables, charts, and complex layouts.
-  </Step>
-  <Step title="Query" icon="search">
-    Ask questions, search for relevant passages, or run complex research queries across your documents.
-  </Step>
-</Steps>
+### Hybrid Search
+Simple example to get you started with TopK. Check out our [guides](/guides) for more complex examples.
+<HybridSearchQuickstart />
 
-## Core concepts
+### Document Search
+<DocSearchQuickstart />
 
-<CoreConcepts />
-
-## Use cases
-
-- **AI agents & copilots** — ground your agents' context in private knowledge to reduce hallucinations and improve decision quality.
-- **Document-heavy workflows** — automate extraction and Q&A over contracts, filings, research papers, and more.
-- **Enterprise knowledge bases** — give employees instant, cited answers from internal documentation, policies, and reports.
-- **Customer support** — surface the right answers from your knowledge base instantly, at scale.
-
-## How to use TopK
-
-The quickest way to get started is to follow the [Quickstart](/quickstart) guide.
+## Integrations
 
 <CardGroup cols={2}>
-  <Card title="CLI" icon="terminal" href="/cli">
-    Upload files, search, and ask questions directly from the terminal.
-  </Card>
   <Card title="Python SDK" icon="/icons/python.svg" href="/sdk/topk-py/overview">
     Full Python SDK reference.
   </Card>
   <Card title="JavaScript SDK" icon="/icons/js.svg" href="/sdk/topk-js/overview">
     Full TypeScript/JavaScript SDK reference.
+  </Card>
+  <Card title="CLI" icon="terminal" href="/cli">
+    Upload files, search, and ask questions directly from the terminal.
   </Card>
   <Card title="MCP Server" icon="network" href="/mcp-server">
     Connect TopK to any MCP-compatible AI agent via the Model Context Protocol.
@@ -68,18 +53,18 @@ TopK is **SOC 2 Type I** certified. Visit the [trust center](https://trust.topk.
   <Card title="Access control" icon="shield-check" horizontal>
     Role-based access control with full auditability.
   </Card>
-  <Card title="VPC deployment" icon="server" horizontal>
-    Deploy inside your own VPC for complete network isolation (enterprise).
+  <Card title="Private Deployment" icon="server" horizontal>
+    Deploy inside your own VPC for complete isolation and data residency. [Contact us](https://topk.io/contact) for more details.
   </Card>
 </CardGroup>
 
-## Get started
+## Learn More
 
 <CardGroup cols={2}>
-  <Card title="Quickstart" icon="rocket" href="/quickstart">
-    Ingest your first documents and ask a question in minutes.
+  <Card title="Architecture" icon="server" href="/architecture">
+    Learn about TopK's architecture and how it works.
   </Card>
-  <Card title="Talk to us" icon="message-circle" href="https://topk.io/contact" target="_blank">
-    Reach out to discuss your use case or enterprise deployment.
+  <Card title="Concepts" icon="info" href="/concepts">
+    Discover core concepts and how they work together.
   </Card>
 </CardGroup>

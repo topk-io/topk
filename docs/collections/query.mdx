@@ -1,5 +1,7 @@
 ---
-title: "Query documents"
+title: "Query"
+description: "Query documents stored in a collection."
+icon: "search-code"
 ---
 
 TopK provides a data frame-like syntax for querying documents. It features built-in **semantic search**, **text search**, **vector search**, and metadata **filtering** capabilities.
@@ -124,7 +126,7 @@ Function expressions are used to define computed fields that will be included in
 - `vector_distance(field, vector)`: Computes distance between vectors for vector search. This function is available for all dense and sparse vector types.
 - `bm25_score()`: Calculates relevance scores using the BM25 algorithm for keyword search
 - `semantic_similarity(field, query)`: Measures semantic similarity between the provided text query and the field's embedding
-- `multi_vector_distance(field, matrix)`: Computes MaxSim distance for multi-vector (matrix) fields. Requires a [`multi_vector_index()`](/sdk/topk-py/schema#multi_vector_index) on the field. See [multi-vector search](/concepts/multi-vector-search).
+- `multi_vector_distance(field, matrix)`: Computes MaxSim distance for multi-vector (matrix) fields. Requires a [`multi_vector_index()`](/sdk/topk-py/schema#multi_vector_index) on the field. See [multi-vector search](/guides/multi-vector-search).
 
 
 #### Vector distance
@@ -393,7 +395,7 @@ const docs = await client.collection("passages").query(
 
 </CodeGroup>
 
-See [multi-vector search](/concepts/multi-vector-search) for schema setup and ingestion details.
+See [multi-vector search](/guides/multi-vector-search) for schema setup and ingestion details.
 
 ### Advanced select expressions
 
@@ -1635,7 +1637,7 @@ Use the `count()` function to get the total number of documents matching the que
 
 ## Query options
 
-The `query()` method accepts a `consistency` parameter to control read consistency: `indexed`, `balanced` (default), or `strong`. See the [consistency](/concepts/consistency) concept for details.
+The `query()` method accepts a `consistency` parameter to control read consistency: `indexed`, `balanced` (default), or `strong`. See the [consistency](/concepts#read-consistency) concept for details.
 
 ## LSN-based Consistency
 

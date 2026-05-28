@@ -1,6 +1,6 @@
 ---
 title: "Search"
-sidebarTitle: "Search"
+sidebarTitle: "Search Chunks"
 description: "Retrieve the most relevant passages from your documents."
 icon: "file-search-2"
 ---
@@ -116,7 +116,7 @@ What was the total net income of Bank of America in 2024?
 ## Understanding search results
 
 Search returns a list of the most relevant Search Results based on the provided query.
-[Search Results](/core/search#search-result) are objects referencing specific passages extracted from the original documents.
+[Search Results](/datasets/search#search-result) are objects referencing specific passages extracted from the original documents.
 
 ### Search Result
 
@@ -203,7 +203,7 @@ This is useful when you want:
 
 ### Filter documents
 
-Sometimes a dataset might contain documents that should not be considered for the query. You can filter out documents that don't match your criteria by providing a [filter expression](/documents/query#filtering).
+Sometimes a dataset might contain documents that should not be considered for the query. You can filter out documents that don't match your criteria by providing a [filter expression](/collections/query#filtering).
 
 These filter expressions operate on the **metadata fields** of documents.
 
@@ -405,4 +405,4 @@ By default, metadata fields are not included in search results. Pass the field n
   </Tab>
 </Tabs>
 
-If present on the original document, the requested metadata appears on the returned [Search Result](/core/search#search-result).
+If present on the original document, the requested metadata appears on the returned [Search Result](/datasets/search#search-result).

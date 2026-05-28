@@ -14,7 +14,55 @@
   "redirects": [
     {
       "source": "/installation",
-      "destination": "/quickstart"
+      "destination": "/introduction"
+    },
+    {
+      "source": "/quickstart",
+      "destination": "/introduction"
+    },
+    {
+      "source": "/mcp",
+      "destination": "/mcp-server"
+    },
+    {
+      "source": "/concepts/:slug*",
+      "destination": "/guides/:slug*"
+    },
+    {
+      "source": "/concepts/consistency",
+      "destination": "/concepts#read-consistency"
+    },
+    {
+      "source": "/concepts/multi-tenancy",
+      "destination": "/concepts#multi-tenancy"
+    },
+    {
+      "source": "/documents/upsert",
+      "destination": "/collections/write"
+    },
+    {
+      "source": "/documents/delete",
+      "destination": "/collections/write"
+    },
+    {
+      "source": "/documents/query",
+      "destination": "/collections/query"
+    },
+    {
+      "source": "/documents/get",
+      "destination": "/collections/get"
+    },
+    {
+      "source": "/collections/create",
+      "destination": "/collections/manage"
+    },
+    {
+      "source": "/collections/list",
+      "destination": "/collections/manage"
+    },
+    {
+      "source": "/collections/delete",
+      "destination": "/collections/manage"
     }
   ],
   "navigation": {
@@ -27,24 +75,49 @@
             "group": "Overview",
             "pages": [
               "introduction",
-              "quickstart",
+              "architecture",
+              "concepts",
+              "limits",
               "regions",
-              "cli",
-              "mcp-server",
               "changelog"
             ]
           },
           {
-            "group": "Core Concepts",
-            "pages": ["core/ingest", "core/ask", "core/search", "core/research"]
+            "group": "Dataset API",
+            "pages": [
+              "datasets/ingest",
+              "datasets/ask",
+              "datasets/search"
+            ]
           },
           {
-            "group": "Management",
+            "group": "Collection API",
             "pages": [
-              "datasets/index",
+              "collections/write",
+              "collections/query",
+              "collections/get"
+            ]
+          },
+          {
+            "group": "Management API",
+            "pages": [
+              "datasets/manage",
+              "collections/manage",
               "usage"
             ]
           }
+        ]
+      },
+      {
+        "tab": "Guides",
+        "icon": "signpost",
+        "pages": [
+          "guides/semantic-search",
+          "guides/multi-vector-search",
+          "guides/vector-search",
+          "guides/sparse-vector-search",
+          "guides/keyword-search",
+          "guides/true-hybrid-search"
         ]
       },
       {
@@ -52,6 +125,13 @@
         "icon": "terminal",
         "pages": [
           "cli"
+        ]
+      },
+      {
+        "tab": "MCP",
+        "icon": "network",
+        "pages": [
+          "mcp-server"
         ]
       },
       {
@@ -70,7 +150,9 @@
           },
           {
             "group": "Overview",
-            "pages": ["sdk/topk-py/overview"]
+            "pages": [
+              "sdk/topk-py/overview"
+            ]
           }
         ]
       },
@@ -90,44 +172,8 @@
           },
           {
             "group": "Overview",
-            "pages": ["sdk/topk-js/overview"]
-          }
-        ]
-      },
-      {
-        "tab": "Database",
-        "icon": "database",
-        "pages": [
-          "database",
-          {
-            "group": "Guides",
             "pages": [
-              "concepts/semantic-search",
-              "concepts/vector-search",
-              "concepts/sparse-vector-search",
-              "concepts/multi-vector-search",
-              "concepts/keyword-search",
-              "concepts/true-hybrid-search",
-              "concepts/consistency",
-              "concepts/multi-tenancy"
-            ]
-          },
-          {
-            "group": "Document API",
-            "pages": [
-              "documents/upsert",
-              "documents/query",
-              "documents/get",
-              "documents/delete"
-            ]
-          },
-          {
-            "group": "Management API",
-            "pages": [
-              "collections/create",
-              "collections/list",
-              "collections/get",
-              "collections/delete"
+              "sdk/topk-js/overview"
             ]
           }
         ]

@@ -1,11 +1,12 @@
 ---
-title: "Ingest"
-description: "Upload your documents to TopK Context Engine."
+title: "Ingest Files"
+description: "Upload your document files to a dataset."
 icon: "file-text"
 ---
 
-To run queries in TopK, your documents need to be uploaded. Once a document is uploaded,
-TopK parses, chunks, and indexes its content to power [Ask](/core/ask), [Search](/core/search), and [Research](/core/research).
+To run queries in TopK, your documents need to be uploaded and processed. Once a document is uploaded,
+TopK will process it to create searchable chhunks with relevant context and metadata. This indexed representation
+then powers [Ask](/datasets/ask) and [Search](/datasets/search).
 
 ## Uploading documents
 
@@ -13,7 +14,7 @@ Documents are uploaded to a **dataset**. A dataset is a named container for your
 Each document in a dataset is identified by a **document ID**.
 
 <Tip>
-  Learn how to create your dataset [here](/datasets#create-a-dataset).
+  Learn how to create your dataset [here](/datasets/manage#create-a-dataset).
 </Tip>
 
 <Tabs>
@@ -178,7 +179,7 @@ information about the document, such as title, author, date, or category.
 <Note>
   Metadata values can also include **lists** of strings or numbers, for example `tags` or `categories`.
 
-  See all supported metadata types [here](/documents/upsert#supported-types).
+  See all supported metadata types [here](/collections/write#supported-metadata-types).
 </Note>
 
 
@@ -340,3 +341,15 @@ Alternatively, you can wait for the document to be processed using the **process
     | `timeoutSecs`   | `300`   | Maximum time to wait before timing out       |
   </Tab>
 </Tabs>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Ask Questions" icon="message-circle-question-mark" href="/datasets/ask">
+    Get grounded, evidence-backed answers from your documents
+  </Card>
+  <Card title="Search Chunks" icon="file-search-2" href="/datasets/search">
+    Retrieve the most relevant passages from your documents.
+  </Card>
+  
+</CardGroup>

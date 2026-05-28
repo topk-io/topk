@@ -185,7 +185,7 @@ function buildSections(): Section[] {
 
 const HEADER =
   "# TopK Documentation\n\n" +
-  "> The context layer for vertical AI agents.\n\n";
+  "> Hybrid search, multi-vector search, document parsing, question answering, and more in one API.\n\n";
 
 async function renderLinks(sections: Section[]): Promise<string> {
   let out = HEADER;

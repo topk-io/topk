@@ -1,6 +1,6 @@
 ---
 title: "Ask"
-sidebarTitle: "Ask"
+sidebarTitle: "Ask Questions"
 description: "Get grounded, evidence-backed answers from your documents."
 icon: "message-circle-question-mark"
 ---
@@ -219,7 +219,7 @@ What was the total net income of Bank of America in 2024?
 The answer consists of three fields:
 
 - **`facts`** — individual statements answering the query, each backed by one or more citations
-- **`refs`** — a map from citation number to a [Search Result](/core/search#search-result)
+- **`refs`** — a map from citation number to a [Search Result](/datasets/search#search-result)
 - **`confidence`** — a score between 0 and 100 indicating confidence in the answer
 
 ```json
@@ -252,7 +252,7 @@ The answer consists of three fields:
 
 ### Citations
 
-Citations are **numbered**. Each fact's `ref_ids` list points to entries in `refs`, where each key is a citation number and each value is a [Search Result](/core/search#search-result) — the matched passage or image along with its document ID, file name, dataset, and any requested metadata.
+Citations are **numbered**. Each fact's `ref_ids` list points to entries in `refs`, where each key is a citation number and each value is a [Search Result](/datasets/search#search-result) — the matched passage or image along with its document ID, file name, dataset, and any requested metadata.
 
 ## Scoping the search
 
@@ -329,7 +329,7 @@ When running ask, you must specify at least one dataset to query against.
 
 ### Document filtering
 
-Sometimes a dataset might contain documents that should not be considered for the query. You can filter out documents that don't match your criteria by providing a [filter expression](/documents/query#filtering).
+Sometimes a dataset might contain documents that should not be considered for the query. You can filter out documents that don't match your criteria by providing a [filter expression](/collections/query#filtering).
 
 These filter expressions operate on the **metadata fields** of documents.
 

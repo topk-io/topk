@@ -1,0 +1,245 @@
+<Tabs>
+  <Tab title="Python SDK" icon="/icons/python.svg">
+    <Steps>
+      <Step title="Install Python SDK">
+        <CodeGroup>
+          ```bash pip
+          pip install topk-sdk
+          ```
+          ```bash uv
+          uv add topk-sdk
+          ```
+        </CodeGroup>
+      </Step>
+      <Step title="Initialize the client">
+
+        Setup the TopK client with your API key and region.
+
+        <CodeGroup>
+          ```python Sync
+          import os
+          from topk_sdk import Client
+
+          client = Client(
+              api_key=os.environ["TOPK_API_KEY"],
+              region=os.environ.get("TOPK_REGION", "aws-us-east-1-elastica"),
+          )
+          ```
+          ```python Async
+          import os
+          from topk_sdk import AsyncClient
+
+          client = AsyncClient(
+              api_key=os.environ["TOPK_API_KEY"],
+              region=os.environ.get("TOPK_REGION", "aws-us-east-1-elastica"),
+          )
+          ```
+        </CodeGroup>
+        <Info>See [available regions](/regions) for a full list of supported regions.</Info>
+      </Step>
+      <Step title="Create a collection">
+        <CodeGroup>
+          ```python Sync
+          client.collections().create(
+            "quickstart",
+            schema={
+              "title": text().required().index(keyword_index()),
+              "content": text().index(semantic_index()),
+            }
+          )
+          ```
+          ```python Async
+          await client.collections().create(
+            "quickstart",
+            schema={
+              "title": text().required().index(keyword_index()),
+              "content": text().index(semantic_index()),
+            }
+          )
+          ```
+        </CodeGroup>
+      </Step>
+      <Step title="Upsert documents">
+        <CodeGroup>
+          ```python Sync
+          client.collection("quickstart").upsert([
+            {
+                "_id": "1",
+                "title": "Catcher in the Rye",
+                "content": "IF YOU REALLY WANT TO HEAR about it, the first thing you'll probably want to know is ...",
+                "author": "J.D. Salinger",
+                "year": 1951,
+            },
+            {
+                "_id": "2",
+                "title": "1984",
+                "content": "It was a bright cold day in April, and the clocks were striking thirteen. Winston Smith, ...",
+                "author": "George Orwell",
+                "year": 1949,
+            },
+            ...
+          ])
+          ```
+          ```python Async
+          await client.collection("quickstart").upsert([
+            {
+                "_id": "1",
+                "title": "Catcher in the Rye",
+                "content": "IF YOU REALLY WANT TO HEAR about it, the first thing you'll probably want to know is ...",
+                "author": "J.D. Salinger",
+                "rating": 3.8
+            },
+            {
+                "_id": "2",
+                "title": "1984",
+                "content": "It was a bright cold day in April, and the clocks were striking thirteen. Winston Smith, ...",
+                "author": "George Orwell",
+                "rating": 4.7
+            },
+            ...
+          ])
+          ```
+        </CodeGroup>
+      </Step>
+      <Step title="Query indexed data">
+        <CodeGroup>
+          ```python Sync
+          from topk_sdk.query import select, field, fn
+
+          client.collection("quickstart").query(
+            select(
+              # Select document fields to return
+              "_id", "title", "author",
+              # Compute semantic similarity of content field with the query
+              similarity_score = fn.semantic_similarity(
+                "content",
+                "What is the meaning of life?",
+              )
+            )
+            # Filter documents by metadata
+            .filter(field("rating") >= 3.0)
+            # Rank using the computed similarity score and rating
+            .sort(field("rating") * field("similarity_score"))
+            # Get top 10 highest ranked documents
+            .limit(10)
+          )
+          ```
+          ```python Async
+          from topk_sdk.query import select, field, fn
+
+          await client.collection("quickstart").query(
+            select(
+              # Select document fields to return
+              "_id", "title", "author",
+              # Compute semantic similarity of content field with the query
+              similarity_score = fn.semantic_similarity(
+                "content",
+                "What is the meaning of life?",
+              )
+            )
+            # Filter documents by metadata
+            .filter(field("rating") >= 3.0)
+            # Rank using the computed similarity score and rating
+            .sort(field("rating") * field("similarity_score"))
+            # Get top 10 highest ranked documents
+            .limit(10)
+          )
+          ```
+        </CodeGroup>
+
+        <Note>
+          To learn more about how to use the Python SDK, see the [Python SDK documentation](/sdk/topk-py).
+        </Note>
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="JavaScript SDK" icon="/icons/js.svg">
+    <Steps>
+      <Step title="Install JavaScript SDK">
+        <CodeGroup>
+          ```bash npm
+          npm install topk-js
+          ```
+          ```bash yarn
+          yarn add topk-js
+          ```
+          ```bash pnpm
+          pnpm add topk-js
+          ```
+        </CodeGroup>
+      </Step>
+      <Step title="Initialize the client">
+
+        Setup the TopK client with your API key and region.
+
+        ```typescript
+        import { Client } from "topk-js";
+
+        const client = new Client({
+          apiKey: process.env.TOPK_API_KEY!,
+          region: process.env.TOPK_REGION ?? "aws-us-east-1-elastica",
+        });
+        ```
+        <Info>See [available regions](/regions) for a full list of supported regions.</Info>
+      </Step>
+      <Step title="Create a collection">
+        ```typescript
+        import { text, keywordIndex, semanticIndex } from "topk-js/schema";
+
+        await client.collections().create("quickstart", {
+          title: text().required().index(keywordIndex()),
+          content: text().index(semanticIndex()),
+        });
+        ```
+      </Step>
+      <Step title="Upsert documents">
+        ```typescript
+        await client.collection("quickstart").upsert([
+          {
+            _id: "1",
+            title: "Catcher in the Rye",
+            content: "IF YOU REALLY WANT TO HEAR about it, the first thing you'll probably want to know is ...",
+            author: "J.D. Salinger",
+            rating: 3.8,
+          },
+          {
+            _id: "2",
+            title: "1984",
+            content: "It was a bright cold day in April, and the clocks were striking thirteen. Winston Smith, ...",
+            author: "George Orwell",
+            rating: 4.7,
+          },
+          // ...
+        ]);
+        ```
+      </Step>
+      <Step title="Query indexed data">
+        ```typescript
+        import { select, field, fn } from "topk-js/query";
+
+        await client.collection("quickstart").query(
+          select({
+            title: field("title"),
+            author: field("author"),
+            // Compute semantic similarity of content field with the query
+            similarity_score: fn.semanticSimilarity(
+              "content",
+              "What is the meaning of life?",
+            ),
+          })
+          // Filter documents by metadata
+          .filter(field("rating").gte(3.0))
+          // Rank using the computed similarity score and rating
+          .sort(field("rating").mul(field("similarity_score")))
+          // Get top 10 highest ranked documents
+          .limit(10)
+        );
+        ```
+
+        <Note>
+          To learn more about how to use the JavaScript SDK, see the [JavaScript SDK documentation](/sdk/topk-js).
+        </Note>
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
