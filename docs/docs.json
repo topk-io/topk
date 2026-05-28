@@ -21,6 +21,10 @@
       "destination": "/mcp-server"
     },
     {
+      "source": "/concepts/:slug*",
+      "destination": "/guides/:slug*"
+    },
+    {
       "source": "/documents/upsert",
       "destination": "/collections/write"
     },
