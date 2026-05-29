@@ -49,6 +49,8 @@ class FieldSpec:
         """
         ...
 
+FieldSpecInput = typing.Union[FieldSpec, typing.Mapping[builtins.str, "FieldSpecInput"]]
+
 # data types
 def text() -> FieldSpec:
     """
@@ -268,7 +270,7 @@ def list(value_type: typing.Literal["text", "integer", "float"]) -> FieldSpec:
     """
     ...
 
-def struct(fields: builtins.dict[str, FieldSpec]) -> FieldSpec:
+def struct(fields: typing.Mapping[builtins.str, FieldSpecInput]) -> FieldSpec:
     """
     Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `struct` values.
 

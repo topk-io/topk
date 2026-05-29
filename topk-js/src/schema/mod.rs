@@ -91,7 +91,7 @@ pub fn bool() -> FieldSpec {
 /// ```
 #[napi(js_name = "struct", namespace = "schema")]
 pub fn struct_(
-    #[napi(ts_arg_type = "Record<string, schema.FieldSpec>")] fields: HashMap<String, FieldSpec>,
+    #[napi(ts_arg_type = "Record<string, FieldSpecInput>")] fields: HashMap<String, FieldSpec>,
 ) -> FieldSpec {
     FieldSpec::create(DataType::Struct { fields })
 }

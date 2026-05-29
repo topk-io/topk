@@ -3,11 +3,44 @@ use std::collections::HashMap;
 use pyo3::prelude::*;
 use topk_rs::proto::v1::control::FieldSpec as FieldSpecPb;
 
-use crate::schema::{field_index::FieldIndex, field_spec::FieldSpec};
+use crate::schema::{data_type::DataType, field_index::FieldIndex, field_spec::FieldSpec};
 
 pub mod data_type;
 pub mod field_index;
 pub mod field_spec;
+
+pub fn extract_schema_dict(ob: &Bound<'_, PyAny>) -> PyResult<HashMap<String, FieldSpec>> {
+    let mapping = ob
+        .cast::<pyo3::types::PyMapping>()
+        .map_err(|_| pyo3::exceptions::PyTypeError::new_err("schema must be a mapping"))?;
+    let mut result = HashMap::new();
+    for item in mapping.items()?.iter() {
+        let item = item.cast::<pyo3::types::PyTuple>()?;
+        let key = item.get_item(0)?;
+        let value = item.get_item(1)?;
+        result.insert(key.extract::<String>()?, extract_field_spec(&value)?);
+    }
+    Ok(result)
+}
+
+fn extract_field_spec(ob: &Bound<'_, PyAny>) -> PyResult<FieldSpec> {
+    if let Ok(fs) = ob.extract::<PyRef<FieldSpec>>() {
+        return Ok((*fs).clone());
+    }
+    if let Ok(mapping) = ob.cast::<pyo3::types::PyMapping>() {
+        let mut fields = HashMap::new();
+        for item in mapping.items()?.iter() {
+            let item = item.cast::<pyo3::types::PyTuple>()?;
+            let key = item.get_item(0)?;
+            let value = item.get_item(1)?;
+            fields.insert(key.extract::<String>()?, extract_field_spec(&value)?);
+        }
+        return Ok(FieldSpec::new(DataType::Struct { fields }));
+    }
+    Err(pyo3::exceptions::PyTypeError::new_err(
+        "Expected FieldSpec or mapping[str, FieldSpec]",
+    ))
+}
 
 ////////////////////////////////////////////////////////////
 /// Schema
@@ -135,7 +168,9 @@ pub fn list(value_type: String) -> PyResult<field_spec::FieldSpec> {
 
 #[pyfunction]
 #[pyo3(name = "struct")]
-pub fn struct_(fields: HashMap<String, field_spec::FieldSpec>) -> field_spec::FieldSpec {
+pub fn struct_(
+    #[pyo3(from_py_with = extract_schema_dict)] fields: HashMap<String, FieldSpec>,
+) -> field_spec::FieldSpec {
     field_spec::FieldSpec::new(data_type::DataType::Struct { fields })
 }
 

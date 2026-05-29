@@ -41,7 +41,7 @@ impl CollectionsClient {
         &self,
         py: Python<'_>,
         collection_name: String,
-        schema: HashMap<String, FieldSpec>,
+        #[pyo3(from_py_with = crate::schema::extract_schema_dict)] schema: HashMap<String, FieldSpec>,
     ) -> PyResult<Collection> {
         let schema = Schema(schema);
 

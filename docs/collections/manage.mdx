@@ -68,6 +68,44 @@ TopK is schemaless-by-default. Fields without types can store any value. When ty
 | [`u8_sparse_vector()`](/sdk/topk-py/schema#u8_sparse_vector) | Quantized sparse embeddings |
 | [`matrix(dim, value_type)`](/sdk/topk-py/schema#matrix) | Multi-vector embeddings |
 
+<Info>
+  In collection schemas, a Python dict or JavaScript plain object field is treated as a `struct()` field. This also works for nested objects.
+
+  <CodeGroup>
+
+```python Python
+from topk_sdk.schema import struct, text
+
+schema = {
+    # Implicit struct, equivalent to:
+    # "meta": struct({"name": text(), "source": struct({"url": text()})})
+    "meta": {
+        "name": text(),
+        "source": {
+            "url": text(),
+        },
+    },
+}
+```
+
+```typescript Javascript
+import { struct, text } from "topk-js/schema";
+
+const schema = {
+  // Implicit struct, equivalent to:
+  // meta: struct({ name: text(), source: struct({ url: text() }) })
+  meta: {
+    name: text(),
+    source: {
+      url: text(),
+    },
+  },
+};
+```
+
+  </CodeGroup>
+</Info>
+
 #### Required fields
 
 Fields are optional by default.

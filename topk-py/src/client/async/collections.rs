@@ -1,5 +1,5 @@
 use crate::error::RustError;
-use crate::schema::field_spec::FieldSpec;
+use crate::schema::{extract_schema_dict, field_spec::FieldSpec};
 use crate::{data::collection::Collection, schema::Schema};
 use pyo3::{prelude::*, types::PyAny};
 use pyo3_async_runtimes::tokio::future_into_py;
@@ -53,7 +53,7 @@ impl AsyncCollectionsClient {
         &self,
         py: Python<'_>,
         collection_name: String,
-        schema: HashMap<String, FieldSpec>,
+        #[pyo3(from_py_with = extract_schema_dict)] schema: HashMap<String, FieldSpec>,
     ) -> PyResult<Py<PyAny>> {
         let client = self.client.clone();
 

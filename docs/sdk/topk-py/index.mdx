@@ -846,7 +846,7 @@ list[[`Collection`](#collection)]
 #### create()
 
 ```python
-create(self, collection_name: str, schema: Mapping[str, schema.FieldSpec]) -> Collection
+create(self, collection_name: str, schema: Mapping[str, schema.FieldSpecInput]) -> Collection
 ```
 
 Create a new collection with the specified schema.
@@ -856,7 +856,7 @@ Create a new collection with the specified schema.
 | Parameter | Type |
 | --------- | ---- |
 | `collection_name` | str |
-| `schema` | Mapping[str, [`schema.FieldSpec`](/sdk/topk-py/schema#fieldspec)] |
+| `schema` | Mapping[str, [`schema.FieldSpecInput`](/sdk/topk-py/schema#fieldspecinput)] |
 
 **Returns**
 
@@ -927,7 +927,11 @@ Awaitable[list[[`Collection`](#collection)]]
 #### create()
 
 ```python
-create(self, collection_name: str, schema: Mapping[str, schema.FieldSpec]) -> Awaitable[Collection]
+create(
+   self,
+   collection_name: str,
+   schema: Mapping[str, schema.FieldSpecInput]
+)
 ```
 
 Create a new collection with the specified schema asynchronously.
@@ -937,7 +941,7 @@ Create a new collection with the specified schema asynchronously.
 | Parameter | Type |
 | --------- | ---- |
 | `collection_name` | str |
-| `schema` | Mapping[str, [`schema.FieldSpec`](/sdk/topk-py/schema#fieldspec)] |
+| `schema` | Mapping[str, [`schema.FieldSpecInput`](/sdk/topk-py/schema#fieldspecinput)] |
 
 **Returns**
 

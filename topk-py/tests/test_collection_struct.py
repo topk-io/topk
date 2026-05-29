@@ -49,6 +49,28 @@ def test_struct_round_trip(ctx: ProjectContext):
     assert docs["one"]["outer"]["inner"]["sibling"] == "s"
 
 
+def test_implicit_struct_schema(ctx: ProjectContext):
+    ctx.client.collections().create(
+        ctx.scope("test"),
+        schema={
+            "outer": {
+                "inner": {
+                    "leaf": text(),
+                    "sibling": text(),
+                }
+            }
+        },
+    )
+
+    collection = ctx.client.collections().get(ctx.scope("test"))
+
+    outer_str = str(collection.schema["outer"])
+    assert "Struct" in outer_str
+    assert "inner" in outer_str
+    assert "leaf" in outer_str
+    assert "sibling" in outer_str
+
+
 def test_struct_query_with_naked_dict(ctx: ProjectContext):
     collection = ctx.client.collections().create(
         ctx.scope("test"),

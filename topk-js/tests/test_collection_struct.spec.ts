@@ -55,6 +55,42 @@ describe("Struct", () => {
     expect(docs.one.outer.inner.sibling).toBe("s");
   });
 
+  test("implicit struct schema round trip", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("test", {
+      outer: {
+        inner: {
+          leaf: text(),
+          sibling: text(),
+        },
+      },
+    });
+
+    const fetched = await ctx.client.collections().get(collection.name);
+
+    expect(fetched.schema.outer.dataType.type).toBe("Struct");
+    expect(
+      fetched.schema.outer.dataType.type === "Struct" &&
+        Object.keys(fetched.schema.outer.dataType.fields)
+    ).toEqual(["inner"]);
+    expect(
+      fetched.schema.outer.dataType.type === "Struct" &&
+        Object.keys(fetched.schema.outer.dataType.fields.inner)
+    ).toEqual(expect.arrayContaining(["leaf", "sibling"]));
+  });
+
+  test("implicit struct schema rejects non-plain object fields", () => {
+    expect(() => schemaStruct({ value: new Date() as any })).toThrow(
+      /plain object/
+    );
+    expect(() => schemaStruct({ value: new Map() as any })).toThrow(
+      /plain object/
+    );
+    expect(() => schemaStruct({ value: semanticIndex() as any })).toThrow(
+      /plain object/
+    );
+  });
+
   test("struct query with naked object", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("test", {

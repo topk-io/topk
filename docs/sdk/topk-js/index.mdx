@@ -403,7 +403,7 @@ This client provides methods to create, list, get, and delete collections.
 ##### create()
 
 ```ts
-create(name: string, schema: Record<string, FieldSpec>): Promise<Collection>;
+create(name: string, schema: Record<string, FieldSpecInput>): Promise<Collection>;
 ```
 
 Creates a new collection with the specified schema.
@@ -413,7 +413,7 @@ Creates a new collection with the specified schema.
 | Parameter | Type |
 | ------ | ------ |
 | `name` | `string` |
-| `schema` | `Record`\<`string`, [`FieldSpec`](/sdk/topk-js/Namespace.schema#fieldspec)\> |
+| `schema` | `Record`\<`string`, [`FieldSpecInput`](/sdk/topk-js/index#fieldspecinput)\> |
 
 **Returns**
 
@@ -1172,6 +1172,18 @@ Consistency levels for query operations.
 
 - `Indexed`: Query returns results as soon as they are indexed (faster, eventual consistency)
 - `Strong`: Query waits for all replicas to be consistent (slower, strong consistency)
+
+***
+
+### FieldSpecInput
+
+```ts
+type FieldSpecInput = 
+  | FieldSpec
+  | {
+[field: string]: FieldSpecInput;
+};
+```
 
 ***
 

@@ -1,6 +1,9 @@
-use super::{data_type::DataType, field_index::FieldIndex};
+use std::collections::HashMap;
+
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
+
+use super::{data_type::DataType, field_index::FieldIndex};
 
 /// @internal
 /// @hideconstructor
@@ -152,6 +155,48 @@ impl FromNapiValue for FieldSpec {
             return Ok(field_spec.clone());
         }
 
-        Err(napi::Error::from_reason("Value must be a FieldSpec"))
+        let mut value_type: i32 = 0;
+        check_status!(napi::sys::napi_typeof(env, value, &mut value_type))?;
+
+        if value_type != napi::sys::ValueType::napi_object {
+            return Err(napi::Error::from_reason(
+                "Value must be a FieldSpec or plain object",
+            ));
+        }
+
+        let mut is_array = false;
+        check_status!(napi::sys::napi_is_array(env, value, &mut is_array))?;
+        if is_array {
+            return Err(napi::Error::from_reason("Array is not a valid field spec"));
+        }
+
+        let object = Object::from_napi_value(env, value)?;
+        if let Ok(ctor) = object.get_named_property::<Unknown>("constructor") {
+            let ctor_value = Unknown::to_napi_value(env, ctor)?;
+            let mut ctor_type: i32 = 0;
+            check_status!(napi::sys::napi_typeof(env, ctor_value, &mut ctor_type))?;
+            if ctor_type == napi::sys::ValueType::napi_function {
+                if let Ok(ctor_object) = Object::from_napi_value(env, ctor_value) {
+                    if let Ok(name) = ctor_object.get_named_property::<String>("name") {
+                        if name != "Object" {
+                            return Err(napi::Error::from_reason(format!(
+                                "Field spec must be a FieldSpec or plain object, got '{}' instance",
+                                name
+                            )));
+                        }
+                    }
+                }
+            }
+        }
+
+        let keys = Object::keys(&object)?;
+        let mut fields = HashMap::new();
+        for key in keys {
+            let raw = object.get_named_property_unchecked::<Unknown>(&key)?;
+            let raw_value = Unknown::to_napi_value(env, raw)?;
+            fields.insert(key, FieldSpec::from_napi_value(env, raw_value)?);
+        }
+
+        Ok(FieldSpec::create(DataType::Struct { fields }))
     }
 }
