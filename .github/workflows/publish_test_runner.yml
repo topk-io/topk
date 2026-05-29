@@ -62,9 +62,6 @@ jobs:
           version: "0.8.5"
           use-cache: false
 
-      - name: Disable earthly auto-login
-        run: earthly account logout
-
       - name: Login to ghcr.io
         uses: docker/login-action@v2
         with:
