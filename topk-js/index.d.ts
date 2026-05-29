@@ -1,5 +1,5 @@
 // Prepended to the NAPI-RS generated index.d.ts via package.json's napi.dtsHeaderFile.
-type FieldSpecInput = schema.FieldSpec | { [field: string]: FieldSpecInput }
+type SchemaFieldSpec = schema.FieldSpec | { [field: string]: SchemaFieldSpec }
 /**
  * Iterator for ask responses.
  *
@@ -100,7 +100,7 @@ export declare class CollectionsClient {
   /** Lists all collections in the current project. */
   list(): Promise<Array<Collection>>
   /** Creates a new collection with the specified schema. */
-  create(name: string, schema: Record<string, FieldSpecInput>): Promise<Collection>
+  create(name: string, schema: Record<string, SchemaFieldSpec>): Promise<Collection>
   /** Retrieves information about a specific collection. */
   get(name: string): Promise<Collection>
   /**
@@ -1298,7 +1298,7 @@ export declare namespace schema {
    * });
    * ```
    */
-  export function struct(fields: Record<string, FieldSpecInput>): FieldSpec
+  export function struct(fields: Record<string, SchemaFieldSpec>): FieldSpec
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `text` values.
    *

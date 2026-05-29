@@ -4047,8 +4047,8 @@ TopK is schemaless-by-default. Fields without types can store any value. When ty
 | [`u8_sparse_vector()`](/sdk/topk-py/schema#u8_sparse_vector) | Quantized sparse embeddings |
 | [`matrix(dim, value_type)`](/sdk/topk-py/schema#matrix) | Multi-vector embeddings |
 
-<Info>
-  In collection schemas, a Python dict or JavaScript plain object field is treated as a `struct()` field. This also works for nested objects.
+<Note>
+  Nested objects are automatically treated as structs — no need to use `struct()` explicitly.
 
   <CodeGroup>
 
@@ -4056,14 +4056,19 @@ TopK is schemaless-by-default. Fields without types can store any value. When ty
 from topk_sdk.schema import struct, text
 
 schema = {
-    # Implicit struct, equivalent to:
-    # "meta": struct({"name": text(), "source": struct({"url": text()})})
     "meta": {
         "name": text(),
         "source": {
             "url": text(),
         },
     },
+    # Implicit struct, equivalent to:
+    # "meta": struct({
+    #     "name": text(),
+    #     "source": struct({
+    #         "url": text(),
+    #     }),
+    # })
 }
 ```
 
@@ -4071,19 +4076,24 @@ schema = {
 import { struct, text } from "topk-js/schema";
 
 const schema = {
-  // Implicit struct, equivalent to:
-  // meta: struct({ name: text(), source: struct({ url: text() }) })
   meta: {
     name: text(),
     source: {
       url: text(),
     },
   },
+  // Implicit struct, equivalent to:
+  // meta: struct({
+  //   name: text(),
+  //   source: struct({
+  //     url: text(),
+  //   }),
+  // })
 };
 ```
 
   </CodeGroup>
-</Info>
+</Note>
 
 ###### Required fields
 
@@ -9082,7 +9092,7 @@ This client provides methods to create, list, get, and delete collections.
 ###### create()
 
 ```ts
-create(name: string, schema: Record<string, FieldSpecInput>): Promise<Collection>;
+create(name: string, schema: Record<string, Schema>): Promise<Collection>;
 ```
 
 Creates a new collection with the specified schema.
@@ -9092,7 +9102,7 @@ Creates a new collection with the specified schema.
 | Parameter | Type |
 | ------ | ------ |
 | `name` | `string` |
-| `schema` | `Record`\<`string`, [`FieldSpecInput`](/sdk/topk-js/index#fieldspecinput)\> |
+| `schema` | `Record`\<`string`, [`Schema`](/sdk/topk-js/index#schema)\> |
 
 **Returns**
 
@@ -9854,18 +9864,6 @@ Consistency levels for query operations.
 
 ***
 
-##### FieldSpecInput
-
-```ts
-type FieldSpecInput =
-  | FieldSpec
-  | {
-[field: string]: FieldSpecInput;
-};
-```
-
-***
-
 ##### Mode
 
 ```ts
@@ -9873,6 +9871,18 @@ type Mode = "auto" | "summarize" | "research";
 ```
 
 Mode for ask operations.
+
+***
+
+##### Schema
+
+```ts
+type Schema =
+  | FieldSpec
+  | {
+[field: string]: Schema;
+};
+```
 
 ### topk-js/data
 
@@ -12094,7 +12104,7 @@ await client.collections().create("books", {
 ##### struct()
 
 ```ts
-function struct(fields: Record<string, FieldSpecInput>): FieldSpec;
+function struct(fields: Record<string, Schema>): FieldSpec;
 ```
 
 Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `struct` values.
@@ -12113,7 +12123,7 @@ await client.collections().create("books", {
 
 | Parameter | Type |
 | ------ | ------ |
-| `fields` | `Record`\<`string`, [`FieldSpecInput`](/sdk/topk-js/index#fieldspecinput)\> |
+| `fields` | `Record`\<`string`, [`Schema`](/sdk/topk-js/index#schema)\> |
 
 **Returns**
 

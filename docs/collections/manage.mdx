@@ -1,7 +1,7 @@
 ---
 title: "Collections"
 description: "Create, list, get, and delete collections."
-icon: "library"
+icon: "database"
 ---
 
 Collections organize your documents, define their schema, and enable fast vector search, filtering, keyword search, semantic search, and multi-vector search.
@@ -68,8 +68,8 @@ TopK is schemaless-by-default. Fields without types can store any value. When ty
 | [`u8_sparse_vector()`](/sdk/topk-py/schema#u8_sparse_vector) | Quantized sparse embeddings |
 | [`matrix(dim, value_type)`](/sdk/topk-py/schema#matrix) | Multi-vector embeddings |
 
-<Info>
-  In collection schemas, a Python dict or JavaScript plain object field is treated as a `struct()` field. This also works for nested objects.
+<Note>
+  Nested objects are automatically treated as structs — no need to use `struct()` explicitly.
 
   <CodeGroup>
 
@@ -77,14 +77,19 @@ TopK is schemaless-by-default. Fields without types can store any value. When ty
 from topk_sdk.schema import struct, text
 
 schema = {
-    # Implicit struct, equivalent to:
-    # "meta": struct({"name": text(), "source": struct({"url": text()})})
     "meta": {
         "name": text(),
         "source": {
             "url": text(),
         },
     },
+    # Implicit struct, equivalent to:
+    # "meta": struct({
+    #     "name": text(),
+    #     "source": struct({
+    #         "url": text(),
+    #     }),
+    # })
 }
 ```
 
@@ -92,19 +97,24 @@ schema = {
 import { struct, text } from "topk-js/schema";
 
 const schema = {
-  // Implicit struct, equivalent to:
-  // meta: struct({ name: text(), source: struct({ url: text() }) })
   meta: {
     name: text(),
     source: {
       url: text(),
     },
   },
+  // Implicit struct, equivalent to:
+  // meta: struct({
+  //   name: text(),
+  //   source: struct({
+  //     url: text(),
+  //   }),
+  // })
 };
 ```
 
   </CodeGroup>
-</Info>
+</Note>
 
 #### Required fields
 

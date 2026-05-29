@@ -403,7 +403,7 @@ This client provides methods to create, list, get, and delete collections.
 ##### create()
 
 ```ts
-create(name: string, schema: Record<string, FieldSpecInput>): Promise<Collection>;
+create(name: string, schema: Record<string, SchemaFieldSpec>): Promise<Collection>;
 ```
 
 Creates a new collection with the specified schema.
@@ -413,7 +413,7 @@ Creates a new collection with the specified schema.
 | Parameter | Type |
 | ------ | ------ |
 | `name` | `string` |
-| `schema` | `Record`\<`string`, [`FieldSpecInput`](/sdk/topk-js/index#fieldspecinput)\> |
+| `schema` | `Record`\<`string`, [`SchemaFieldSpec`](/sdk/topk-js/index#schemafieldspec)\> |
 
 **Returns**
 
@@ -1175,18 +1175,6 @@ Consistency levels for query operations.
 
 ***
 
-### FieldSpecInput
-
-```ts
-type FieldSpecInput = 
-  | FieldSpec
-  | {
-[field: string]: FieldSpecInput;
-};
-```
-
-***
-
 ### Mode
 
 ```ts
@@ -1194,3 +1182,15 @@ type Mode = "auto" | "summarize" | "research";
 ```
 
 Mode for ask operations.
+
+***
+
+### SchemaFieldSpec
+
+```ts
+type SchemaFieldSpec = 
+  | FieldSpec
+  | {
+[field: string]: SchemaFieldSpec;
+};
+```

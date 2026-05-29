@@ -40,7 +40,7 @@ impl CollectionsClient {
     pub async fn create(
         &self,
         name: String,
-        #[napi(ts_arg_type = "Record<string, FieldSpecInput>")] schema: HashMap<
+        #[napi(ts_arg_type = "Record<string, SchemaFieldSpec>")] schema: HashMap<
             String,
             FieldSpec,
         >,
