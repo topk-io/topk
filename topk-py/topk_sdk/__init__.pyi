@@ -372,7 +372,7 @@ class CollectionsClient:
     def create(
         self,
         collection_name: builtins.str,
-        schema: typing.Mapping[builtins.str, schema.FieldSpecInput],
+        schema: typing.Mapping[builtins.str, schema.SchemaFieldSpec],
     ) -> Collection:
         """
         Create a new collection with the specified schema.
@@ -402,7 +402,7 @@ class AsyncCollectionsClient:
     def create(
         self,
         collection_name: builtins.str,
-        schema: typing.Mapping[builtins.str, schema.FieldSpecInput],
+        schema: typing.Mapping[builtins.str, schema.SchemaFieldSpec],
     ) -> typing.Awaitable[Collection]:
         """
         Create a new collection with the specified schema asynchronously.

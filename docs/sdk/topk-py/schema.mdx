@@ -461,7 +461,7 @@ Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `list` values.
 ### struct()
 
 ```python
-struct(fields: Mapping[str, FieldSpecInput]) -> FieldSpec
+struct(fields: Mapping[str, SchemaFieldSpec]) -> FieldSpec
 ```
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `struct` values.
@@ -480,7 +480,7 @@ Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `struct` values.
 
 | Parameter | Type |
 | --------- | ---- |
-| `fields` | Mapping[str, [`FieldSpecInput`](#fieldspecinput)] |
+| `fields` | Mapping[str, [`SchemaFieldSpec`](#schemafieldspec)] |
 
 **Returns**
 
@@ -653,15 +653,15 @@ Create a [FieldIndex](/sdk/topk-py/schema#FieldIndex) type for `multi_vector_ind
 
 ## Type Aliases
 
-### FieldSpecInput
+### SchemaFieldSpec
 
 ```python
-FieldSpecInput = FieldSpec | Mapping[str, 'FieldSpecInput']
+SchemaFieldSpec = FieldSpec | Mapping[str, 'SchemaFieldSpec']
 ```
 
 **Type**
 
-[`FieldSpec`](#fieldspec) | Mapping[str, 'FieldSpecInput']
+[`FieldSpec`](#fieldspec) | Mapping[str, 'SchemaFieldSpec']
 
 ***
 

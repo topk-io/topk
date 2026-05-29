@@ -5209,7 +5209,7 @@ list[[`Collection`](#collection)]
 ###### create()
 
 ```python
-create(self, collection_name: str, schema: Mapping[str, schema.FieldSpecInput]) -> Collection
+create(self, collection_name: str, schema: Mapping[str, schema.SchemaFieldSpec]) -> Collection
 ```
 
 Create a new collection with the specified schema.
@@ -5219,7 +5219,7 @@ Create a new collection with the specified schema.
 | Parameter | Type |
 | --------- | ---- |
 | `collection_name` | str |
-| `schema` | Mapping[str, [`schema.FieldSpecInput`](/sdk/topk-py/schema#fieldspecinput)] |
+| `schema` | Mapping[str, [`schema.SchemaFieldSpec`](/sdk/topk-py/schema#schemafieldspec)] |
 
 **Returns**
 
@@ -5293,7 +5293,7 @@ Awaitable[list[[`Collection`](#collection)]]
 create(
    self,
    collection_name: str,
-   schema: Mapping[str, schema.FieldSpecInput]
+   schema: Mapping[str, schema.SchemaFieldSpec]
 )
 ```
 
@@ -5304,7 +5304,7 @@ Create a new collection with the specified schema asynchronously.
 | Parameter | Type |
 | --------- | ---- |
 | `collection_name` | str |
-| `schema` | Mapping[str, [`schema.FieldSpecInput`](/sdk/topk-py/schema#fieldspecinput)] |
+| `schema` | Mapping[str, [`schema.SchemaFieldSpec`](/sdk/topk-py/schema#schemafieldspec)] |
 
 **Returns**
 
@@ -8481,7 +8481,7 @@ Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `list` values.
 ##### struct()
 
 ```python
-struct(fields: Mapping[str, FieldSpecInput]) -> FieldSpec
+struct(fields: Mapping[str, SchemaFieldSpec]) -> FieldSpec
 ```
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `struct` values.
@@ -8500,7 +8500,7 @@ Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `struct` values.
 
 | Parameter | Type |
 | --------- | ---- |
-| `fields` | Mapping[str, [`FieldSpecInput`](#fieldspecinput)] |
+| `fields` | Mapping[str, [`SchemaFieldSpec`](#schemafieldspec)] |
 
 **Returns**
 
@@ -8673,15 +8673,15 @@ Create a [FieldIndex](/sdk/topk-py/schema#FieldIndex) type for `multi_vector_ind
 
 #### Type Aliases
 
-##### FieldSpecInput
+##### SchemaFieldSpec
 
 ```python
-FieldSpecInput = FieldSpec | Mapping[str, 'FieldSpecInput']
+SchemaFieldSpec = FieldSpec | Mapping[str, 'SchemaFieldSpec']
 ```
 
 **Type**
 
-[`FieldSpec`](#fieldspec) | Mapping[str, 'FieldSpecInput']
+[`FieldSpec`](#fieldspec) | Mapping[str, 'SchemaFieldSpec']
 
 ***
 
@@ -9092,7 +9092,7 @@ This client provides methods to create, list, get, and delete collections.
 ###### create()
 
 ```ts
-create(name: string, schema: Record<string, Schema>): Promise<Collection>;
+create(name: string, schema: Record<string, SchemaFieldSpec>): Promise<Collection>;
 ```
 
 Creates a new collection with the specified schema.
@@ -9102,7 +9102,7 @@ Creates a new collection with the specified schema.
 | Parameter | Type |
 | ------ | ------ |
 | `name` | `string` |
-| `schema` | `Record`\<`string`, [`Schema`](/sdk/topk-js/index#schema)\> |
+| `schema` | `Record`\<`string`, [`SchemaFieldSpec`](/sdk/topk-js/index#schemafieldspec)\> |
 
 **Returns**
 
@@ -9874,13 +9874,13 @@ Mode for ask operations.
 
 ***
 
-##### Schema
+##### SchemaFieldSpec
 
 ```ts
-type Schema =
+type SchemaFieldSpec =
   | FieldSpec
   | {
-[field: string]: Schema;
+[field: string]: SchemaFieldSpec;
 };
 ```
 
@@ -12104,7 +12104,7 @@ await client.collections().create("books", {
 ##### struct()
 
 ```ts
-function struct(fields: Record<string, Schema>): FieldSpec;
+function struct(fields: Record<string, SchemaFieldSpec>): FieldSpec;
 ```
 
 Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `struct` values.
@@ -12123,7 +12123,7 @@ await client.collections().create("books", {
 
 | Parameter | Type |
 | ------ | ------ |
-| `fields` | `Record`\<`string`, [`Schema`](/sdk/topk-js/index#schema)\> |
+| `fields` | `Record`\<`string`, [`SchemaFieldSpec`](/sdk/topk-js/index#schemafieldspec)\> |
 
 **Returns**
 
