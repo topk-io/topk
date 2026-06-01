@@ -33,6 +33,7 @@ impl FieldIndex {
                 width,
                 top_k,
                 skip_smve: false,
+                encoding_version: 0,
             })),
         }
     }
