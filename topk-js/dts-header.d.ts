@@ -1,2 +1,2 @@
-// Prepended to the NAPI-RS generated index.d.ts via package.json's napi.dtsHeaderFile.
+// dts-header.d.ts
 type SchemaFieldSpec = schema.FieldSpec | { [field: string]: SchemaFieldSpec }

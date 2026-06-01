@@ -1,4 +1,4 @@
-// Prepended to the NAPI-RS generated index.d.ts via package.json's napi.dtsHeaderFile.
+// dts-header.d.ts
 type SchemaFieldSpec = schema.FieldSpec | { [field: string]: SchemaFieldSpec }
 /**
  * Iterator for ask responses.
@@ -990,6 +990,8 @@ export declare namespace schema {
      * ```
      */
     index(index: FieldIndex): FieldSpec
+    /** @ignore */
+    toString(): string
   }
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `binary_vector` values.

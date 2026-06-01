@@ -65,6 +65,12 @@ impl FieldSpec {
             ..self.clone()
         }
     }
+
+    /// @ignore
+    #[napi]
+    pub fn to_string(&self) -> String {
+        format!("{:?}", self)
+    }
 }
 
 impl From<FieldSpec> for topk_rs::proto::v1::control::FieldSpec {

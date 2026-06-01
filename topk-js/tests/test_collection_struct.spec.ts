@@ -73,10 +73,13 @@ describe("Struct", () => {
       fetched.schema.outer.dataType.type === "Struct" &&
         Object.keys(fetched.schema.outer.dataType.fields)
     ).toEqual(["inner"]);
-    expect(
+
+    const innerStr =
       fetched.schema.outer.dataType.type === "Struct" &&
-        Object.keys(fetched.schema.outer.dataType.fields.inner)
-    ).toEqual(expect.arrayContaining(["leaf", "sibling"]));
+      fetched.schema.outer.dataType.fields.inner.toString();
+    expect(innerStr).toContain("Struct");
+    expect(innerStr).toContain("leaf");
+    expect(innerStr).toContain("sibling");
   });
 
   test("implicit struct schema rejects non-plain object fields", () => {

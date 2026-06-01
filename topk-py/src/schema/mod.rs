@@ -9,37 +9,28 @@ pub mod data_type;
 pub mod field_index;
 pub mod field_spec;
 
-pub fn extract_schema_dict(ob: &Bound<'_, PyAny>) -> PyResult<HashMap<String, FieldSpec>> {
-    let mapping = ob
-        .cast::<pyo3::types::PyMapping>()
-        .map_err(|_| pyo3::exceptions::PyTypeError::new_err("schema must be a mapping"))?;
-    let mut result = HashMap::new();
-    for item in mapping.items()?.iter() {
-        let item = item.cast::<pyo3::types::PyTuple>()?;
-        let key = item.get_item(0)?;
-        let value = item.get_item(1)?;
-        result.insert(key.extract::<String>()?, extract_field_spec(&value)?);
-    }
-    Ok(result)
-}
+/// Accepts a `FieldSpec` instance or a plain dict (treated as an implicit struct).
+pub struct SchemaFieldSpec(pub(crate) FieldSpec);
 
-fn extract_field_spec(ob: &Bound<'_, PyAny>) -> PyResult<FieldSpec> {
-    if let Ok(fs) = ob.extract::<PyRef<FieldSpec>>() {
-        return Ok((*fs).clone());
-    }
-    if let Ok(mapping) = ob.cast::<pyo3::types::PyMapping>() {
-        let mut fields = HashMap::new();
-        for item in mapping.items()?.iter() {
-            let item = item.cast::<pyo3::types::PyTuple>()?;
-            let key = item.get_item(0)?;
-            let value = item.get_item(1)?;
-            fields.insert(key.extract::<String>()?, extract_field_spec(&value)?);
+impl<'a, 'py> FromPyObject<'a, 'py> for SchemaFieldSpec {
+    type Error = PyErr;
+
+    fn extract(ob: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
+        if let Ok(fs) = ob.extract::<PyRef<FieldSpec>>() {
+            return Ok(SchemaFieldSpec((*fs).clone()));
         }
-        return Ok(FieldSpec::new(DataType::Struct { fields }));
+        if let Ok(dict) = ob.cast::<pyo3::types::PyDict>() {
+            let mut fields = HashMap::new();
+            for (key, value) in dict.iter() {
+                let field: SchemaFieldSpec = value.extract()?;
+                fields.insert(key.extract::<String>()?, field.0);
+            }
+            return Ok(SchemaFieldSpec(FieldSpec::new(DataType::Struct { fields })));
+        }
+        Err(pyo3::exceptions::PyTypeError::new_err(
+            "Expected FieldSpec or dict[str, FieldSpec]",
+        ))
     }
-    Err(pyo3::exceptions::PyTypeError::new_err(
-        "Expected FieldSpec or mapping[str, FieldSpec]",
-    ))
 }
 
 ////////////////////////////////////////////////////////////
@@ -168,10 +159,10 @@ pub fn list(value_type: String) -> PyResult<field_spec::FieldSpec> {
 
 #[pyfunction]
 #[pyo3(name = "struct")]
-pub fn struct_(
-    #[pyo3(from_py_with = extract_schema_dict)] fields: HashMap<String, FieldSpec>,
-) -> field_spec::FieldSpec {
-    field_spec::FieldSpec::new(data_type::DataType::Struct { fields })
+pub fn struct_(fields: HashMap<String, SchemaFieldSpec>) -> field_spec::FieldSpec {
+    field_spec::FieldSpec::new(data_type::DataType::Struct {
+        fields: fields.into_iter().map(|(k, v)| (k, v.0)).collect(),
+    })
 }
 
 #[pyfunction]
