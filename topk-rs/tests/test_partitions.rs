@@ -9,6 +9,7 @@ use topk_rs::Error;
 
 mod utils;
 use utils::ProjectTestContext;
+use uuid::Uuid;
 
 macro_rules! assert_partition_metadata {
     ($docs:expr, $partition:expr) => {{
@@ -604,4 +605,55 @@ async fn test_upsert_creates_partition(ctx: &mut ProjectTestContext) {
         .expect("could not count newly created partition");
 
     assert_eq!(count, 1);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_partition_with_invalid_name(ctx: &mut ProjectTestContext) {
+    let collection = ctx
+        .client
+        .collections()
+        .create(ctx.wrap("test"), HashMap::default(), None)
+        .await
+        .expect("could not create collection");
+
+    let err = ctx
+        .client
+        .collection(&collection.name)
+        .partition("$foo&bar")
+        .upsert(vec![doc!("_id" => "one", "value" => "created")])
+        .await
+        .expect_err("expected invalid partition name error");
+
+    assert!(err.to_string().contains("invalid partition name"));
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_partition_valid_names(ctx: &mut ProjectTestContext) {
+    let collection = ctx
+        .client
+        .collections()
+        .create(ctx.wrap("test"), HashMap::default(), None)
+        .await
+        .expect("could not create collection");
+
+    for name in [
+        "valid_name",
+        "valid-name",
+        "valid_name_123",
+        "valid-name-123",
+        "1234",
+        Uuid::new_v4().to_string().as_str(),
+    ] {
+        let lsn = ctx
+            .client
+            .collection(&collection.name)
+            .partition(name)
+            .upsert(vec![doc!("_id" => "one", "value" => "created")])
+            .await
+            .expect("could not upsert to partition");
+
+        assert_eq!(lsn, "1");
+    }
 }
