@@ -1,11 +1,10 @@
 use std::collections::HashMap;
 use std::pin::Pin;
+use std::sync::Arc;
 
 use futures::{Stream, TryStreamExt};
 use futures_util::{StreamExt, TryFutureExt};
 use prost::Message;
-use std::sync::Arc;
-
 use tokio::sync::OnceCell;
 use tonic::transport::Channel;
 
@@ -47,6 +46,15 @@ impl CollectionClient {
             read,
             write,
         }
+    }
+
+    /// Sets a partition for this [`CollectionClient`].
+    pub fn partition(mut self, partition_name: impl Into<String>) -> CollectionClient {
+        self.config = self
+            .config
+            .with_headers([("x-topk-partition", partition_name)]);
+
+        self
     }
 
     pub async fn get(

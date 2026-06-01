@@ -39,7 +39,7 @@ impl super::Client {
             include_content: include_content.unwrap_or(false),
         };
 
-        let response = call_with_retry(&self.config().retry_config(), || {
+        let response = call_with_retry(self.config().retry_config(), || {
             let request = request.clone();
             let mut client = client.clone();
             async move { client.ask(request).map_err(Error::from).await }
