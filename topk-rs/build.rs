@@ -119,11 +119,14 @@ fn build_topk_v1_protos() {
     }
 
     // #[serde(default)]
-    builder = builder.field_attribute(
+    for path in [
         "topk.control.v1.MultiVectorIndex.skip_smve",
-        "#[serde(default)]",
-    );
+        "topk.control.v1.MultiVectorIndex.encoding_version",
+    ] {
+        builder = builder.field_attribute(path, "#[serde(default)]");
+    }
 
+    // #[derive(Eq)]
     for ty in [
         "topk.control.v1.FieldTypeStruct",
         "topk.control.v1.FieldType",

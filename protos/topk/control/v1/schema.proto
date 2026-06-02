@@ -137,6 +137,8 @@ message MultiVectorIndex {
   optional uint32 top_k = 5;
   /// Skip sparse multi-vector encoding
   bool skip_smve = 6;
+  /// Encoding version
+  uint32 encoding_version = 7;
 }
 
 // Multi-vector distance
