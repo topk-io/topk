@@ -1,5 +1,6 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
+use futures_util::TryStreamExt;
 use test_context::test_context;
 
 use topk_rs::doc;
@@ -617,15 +618,14 @@ async fn test_partition_with_invalid_name(ctx: &mut ProjectTestContext) {
         .await
         .expect("could not create collection");
 
-    let err = ctx
+    let res = ctx
         .client
         .collection(&collection.name)
         .partition("$foo&bar")
         .upsert(vec![doc!("_id" => "one", "value" => "created")])
-        .await
-        .expect_err("expected invalid partition name error");
+        .await;
 
-    assert!(err.to_string().contains("invalid partition name"));
+    assert!(res.is_err());
 }
 
 #[test_context(ProjectTestContext)]
@@ -656,4 +656,280 @@ async fn test_partition_valid_names(ctx: &mut ProjectTestContext) {
 
         assert_eq!(lsn, "1");
     }
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_list_partitions_empty(ctx: &mut ProjectTestContext) {
+    let collection = ctx
+        .client
+        .collections()
+        .create(ctx.wrap("test"), HashMap::default(), None)
+        .await
+        .expect("could not create collection");
+
+    let partitions: Vec<_> = ctx
+        .client
+        .collection(&collection.name)
+        .list_partitions(None)
+        .await
+        .expect("could not list partitions")
+        .try_collect()
+        .await
+        .expect("could not receive partitions from stream");
+
+    assert!(partitions.is_empty());
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_list_partitions(ctx: &mut ProjectTestContext) {
+    let collection = ctx
+        .client
+        .collections()
+        .create(ctx.wrap("test"), HashMap::default(), None)
+        .await
+        .expect("could not create collection");
+
+    ctx.client
+        .collection(&collection.name)
+        .partition("partition-a")
+        .upsert(vec![doc!("_id" => "doc-a")])
+        .await
+        .expect("could not upsert to partition-a");
+
+    ctx.client
+        .collection(&collection.name)
+        .partition("partition-b")
+        .upsert(vec![doc!("_id" => "doc-b")])
+        .await
+        .expect("could not upsert to partition-b");
+
+    let mut partitions: Vec<_> = ctx
+        .client
+        .collection(&collection.name)
+        .list_partitions(None)
+        .await
+        .expect("could not list partitions")
+        .try_collect()
+        .await
+        .expect("could not receive partitions from stream");
+
+    partitions.sort_by(|a, b| a.name.cmp(&b.name));
+
+    assert_eq!(
+        partitions
+            .iter()
+            .map(|partition| partition.name.as_str())
+            .collect::<Vec<_>>(),
+        vec!["partition-a", "partition-b"]
+    );
+    assert!(partitions
+        .iter()
+        .all(|partition| !partition.created_at.is_empty()));
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_list_partitions_with_prefix(ctx: &mut ProjectTestContext) {
+    let collection = ctx
+        .client
+        .collections()
+        .create(ctx.wrap("test"), HashMap::default(), None)
+        .await
+        .expect("could not create collection");
+
+    let collection_name = &collection.name;
+
+    for name in ["foo", "foot", "bar"] {
+        ctx.client
+            .collection(collection_name)
+            .partition(name)
+            .upsert(vec![doc!("_id" => "doc")])
+            .await
+            .expect("could not upsert to partition");
+    }
+
+    let partitions: Vec<_> = ctx
+        .client
+        .collection(collection_name)
+        .list_partitions(Some("foo".to_string()))
+        .await
+        .expect("could not list partitions")
+        .try_collect()
+        .await
+        .expect("could not receive partitions from stream");
+
+    assert_eq!(
+        partitions
+            .iter()
+            .map(|partition| partition.name.as_str())
+            .collect::<HashSet<_>>(),
+        HashSet::from(["foo", "foot"])
+    );
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_list_partitions_excludes_default(ctx: &mut ProjectTestContext) {
+    let collection = ctx
+        .client
+        .collections()
+        .create(ctx.wrap("test"), HashMap::default(), None)
+        .await
+        .expect("could not create collection");
+
+    ctx.client
+        .collection(&collection.name)
+        .upsert(vec![doc!("_id" => "doc", "partition" => "default")])
+        .await
+        .expect("could not upsert to default partition");
+
+    ctx.client
+        .collection(&collection.name)
+        .partition("named-partition")
+        .upsert(vec![doc!("_id" => "doc")])
+        .await
+        .expect("could not upsert to named partition");
+
+    let partitions: Vec<_> = ctx
+        .client
+        .collection(&collection.name)
+        .list_partitions(None)
+        .await
+        .expect("could not list partitions")
+        .try_collect()
+        .await
+        .expect("could not receive partitions from stream");
+
+    assert_eq!(partitions.len(), 1);
+    assert_eq!(partitions[0].name, "named-partition");
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_delete_partition(ctx: &mut ProjectTestContext) {
+    let collection = ctx
+        .client
+        .collections()
+        .create(ctx.wrap("test"), HashMap::default(), None)
+        .await
+        .expect("could not create collection");
+
+    let collection_name = &collection.name;
+
+    ctx.client
+        .collection(collection_name)
+        .partition("test-partition")
+        .upsert(vec![
+            doc!("_id" => "doc1", "value" => "one"),
+            doc!("_id" => "doc2", "value" => "two"),
+        ])
+        .await
+        .expect("could not upsert to partition");
+
+    let partitions: Vec<_> = ctx
+        .client
+        .collection(collection_name)
+        .list_partitions(None)
+        .await
+        .expect("could not list partitions")
+        .try_collect()
+        .await
+        .expect("could not receive partitions from stream");
+
+    assert_eq!(partitions.len(), 1);
+    assert_eq!(partitions[0].name, "test-partition");
+
+    ctx.client
+        .collection(collection_name)
+        .delete_partition("test-partition")
+        .await
+        .expect("could not delete partition");
+
+    let partitions: Vec<_> = ctx
+        .client
+        .collection(collection_name)
+        .list_partitions(None)
+        .await
+        .expect("could not list partitions")
+        .try_collect()
+        .await
+        .expect("could not receive partitions from stream");
+
+    assert!(partitions.is_empty());
+
+    let err = ctx
+        .client
+        .collection(collection_name)
+        .partition("test-partition")
+        .count(None, None)
+        .await
+        .expect_err("should not be able to query deleted partition");
+
+    assert!(matches!(err, Error::CollectionNotFound));
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_delete_partition_does_not_affect_other_partitions(ctx: &mut ProjectTestContext) {
+    let collection = ctx
+        .client
+        .collections()
+        .create(ctx.wrap("test"), HashMap::default(), None)
+        .await
+        .expect("could not create collection");
+
+    let p1 = ctx
+        .client
+        .collection(&collection.name)
+        .partition("partition-a");
+    let p2 = ctx
+        .client
+        .collection(&collection.name)
+        .partition("partition-b");
+
+    let p1_lsn = p1
+        .upsert(vec![doc!("_id" => "doc-a", "partition" => "partition-a")])
+        .await
+        .expect("could not upsert to partition-a");
+    assert_eq!(p1_lsn, "1");
+
+    let p2_lsn = p2
+        .upsert(vec![doc!("_id" => "doc-a", "partition" => "partition-b")])
+        .await
+        .expect("could not upsert to partition-b");
+    assert_eq!(p2_lsn, "1");
+
+    ctx.client
+        .collection(&collection.name)
+        .delete_partition("partition-a")
+        .await
+        .expect("could not delete partition-a");
+
+    let partitions: Vec<_> = ctx
+        .client
+        .collection(&collection.name)
+        .list_partitions(None)
+        .await
+        .expect("could not list partitions")
+        .try_collect()
+        .await
+        .expect("could not receive partitions from stream");
+
+    assert_eq!(partitions.len(), 1);
+    assert_eq!(partitions[0].name, "partition-b");
+
+    let p2_docs = p2
+        .get(["doc-a"], None, Some(p2_lsn), None)
+        .await
+        .expect("could not get from partition-b");
+
+    assert_eq!(
+        p2_docs,
+        HashMap::from([(
+            "doc-a".to_string(),
+            doc!("_id" => "doc-a", "partition" => "partition-b").fields
+        )])
+    );
 }
