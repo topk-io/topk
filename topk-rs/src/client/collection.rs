@@ -10,8 +10,12 @@ use tonic::transport::Channel;
 
 use crate::create_client;
 use crate::error::Error;
+use crate::proto::v1::data::partition_service_client::PartitionServiceClient;
 use crate::proto::v1::data::query_service_client::QueryServiceClient;
 use crate::proto::v1::data::write_service_client::WriteServiceClient;
+use crate::proto::v1::data::DeletePartitionRequest;
+use crate::proto::v1::data::ListPartitionsRequest;
+use crate::proto::v1::data::Partition;
 use crate::proto::v1::data::Query;
 use crate::proto::v1::data::Stage;
 use crate::proto::v1::data::UpdateDocumentsRequest;
@@ -82,12 +86,7 @@ impl CollectionClient {
                         required_lsn: lsn,
                         consistency_level: consistency.map(|c| c.into()),
                     })
-                    .map_err(|e| match e.code() {
-                        // Collection not found
-                        tonic::Code::NotFound => Error::CollectionNotFound,
-                        // Delegate other errors
-                        _ => e.into(),
-                    })
+                    .map_err(Self::map_status_to_error)
                     .await
             }
         })
@@ -183,12 +182,7 @@ impl CollectionClient {
                         // DEPRECATED: This field is no longer used, kept for backwards compatibility.
                         collection: String::new(),
                     })
-                    .map_err(|e| match e.code() {
-                        // Explicitly map `NotFound` to `CollectionNotFound` error
-                        tonic::Code::NotFound => Error::CollectionNotFound,
-                        // Delegate other errors
-                        _ => e.into(),
-                    })
+                    .map_err(Self::map_status_to_error)
                     .await
             }
         })
@@ -217,12 +211,7 @@ impl CollectionClient {
                 client
                     .upsert_documents(UpsertDocumentsRequest { docs })
                     .await
-                    .map_err(|e| match e.code() {
-                        // Explicitly map `NotFound` to `CollectionNotFound` error
-                        tonic::Code::NotFound => Error::CollectionNotFound,
-                        // Delegate other errors
-                        _ => e.into(),
-                    })
+                    .map_err(Self::map_status_to_error)
             }
         })
         .await?;
@@ -252,12 +241,7 @@ impl CollectionClient {
                         fail_on_missing,
                     })
                     .await
-                    .map_err(|e| match e.code() {
-                        // Explicitly map `NotFound` to `CollectionNotFound` error
-                        tonic::Code::NotFound => Error::CollectionNotFound,
-                        // Delegate other errors
-                        _ => e.into(),
-                    })
+                    .map_err(Self::map_status_to_error)
             }
         })
         .await?;
@@ -279,16 +263,79 @@ impl CollectionClient {
                 client
                     .delete_documents(req)
                     .await
-                    .map_err(|e| match e.code() {
-                        // Explicitly map `NotFound` to `CollectionNotFound` error
-                        tonic::Code::NotFound => Error::CollectionNotFound,
-                        // Delegate other errors
-                        _ => e.into(),
-                    })
+                    .map_err(Self::map_status_to_error)
             }
         })
         .await?;
 
         Ok(response.into_inner().lsn)
+    }
+
+    /// List partitions in the collection.
+    ///
+    /// If `prefix` is provided, only partitions with names starting with the prefix will be listed.
+    /// Returns a stream of partitions matching the prefix (if provided).
+    pub async fn list_partitions(
+        &self,
+        prefix: Option<String>,
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<Partition, Error>> + Send>>, Error> {
+        let client = create_client!(PartitionServiceClient, self.write, self.config).await?;
+
+        let stream = call_with_retry(&self.config.retry_config(), || {
+            let prefix = prefix.clone();
+            let mut client = client.clone();
+
+            async move {
+                client
+                    .list(ListPartitionsRequest { prefix })
+                    .map_err(Self::map_status_to_error)
+                    .await
+            }
+        })
+        .await?
+        .into_inner();
+
+        // Flat map batch responses into a stream of partitions
+        let stream = stream.flat_map(|res| match res {
+            Ok(batch) => {
+                futures_util::stream::iter(batch.partitions.into_iter().map(Ok)).left_stream()
+            }
+            Err(e) => futures_util::stream::iter([Err(e.into())]).right_stream(),
+        });
+
+        Ok(Box::pin(stream))
+    }
+
+    /// Delete partition from the collection.
+    ///
+    /// All documents in the partition will be deleted atomically.
+    pub async fn delete_partition(&self, partition_name: impl Into<String>) -> Result<(), Error> {
+        let partition_name = partition_name.into();
+        let client = create_client!(PartitionServiceClient, self.write, self.config).await?;
+
+        call_with_retry(&self.config.retry_config(), || {
+            let partition_name = partition_name.clone();
+            let mut client = client.clone();
+
+            async move {
+                client
+                    .delete(DeletePartitionRequest { partition_name })
+                    .await
+                    .map_err(Self::map_status_to_error)
+            }
+        })
+        .await?;
+
+        Ok(())
+    }
+
+    #[inline]
+    fn map_status_to_error(status: tonic::Status) -> Error {
+        match status.code() {
+            // Explicitly map `NotFound` to `CollectionNotFound` error
+            tonic::Code::NotFound => Error::CollectionNotFound,
+            // Delegate other errors
+            _ => status.into(),
+        }
     }
 }
