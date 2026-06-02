@@ -3,7 +3,7 @@ package topk.data.v1;
 
 service PartitionService {
     // List partitions
-    rpc List(ListPartitionsRequest) returns (stream Partitions);
+    rpc List(ListPartitionsRequest) returns (stream Partition);
 
     // Delete partition
     rpc Delete(DeletePartitionRequest) returns (DeletePartitionResponse);
@@ -15,21 +15,16 @@ message ListPartitionsRequest {
     optional string prefix = 1;
 }
 
-message Partitions {
-    // Batch of partitions matching the requested prefix
-    repeated Partition partitions = 1;
-}
-
 message Partition {
     // Partition name
     string name = 1;
-    // Partition created at
+    // RFC3339 created_at timestamp
     string created_at = 2;
 }
 
 message DeletePartitionRequest {
     // Name of the partition to delete
-    string partition_name = 1;
+    string name = 1;
 }
 
 message DeletePartitionResponse {}

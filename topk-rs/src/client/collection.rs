@@ -295,31 +295,23 @@ impl CollectionClient {
         .await?
         .into_inner();
 
-        // Flat map batch responses into a stream of partitions
-        let stream = stream.flat_map(|res| match res {
-            Ok(batch) => {
-                futures_util::stream::iter(batch.partitions.into_iter().map(Ok)).left_stream()
-            }
-            Err(e) => futures_util::stream::iter([Err(e.into())]).right_stream(),
-        });
-
-        Ok(Box::pin(stream))
+        Ok(Box::pin(stream.map_err(|e| Error::from(e))))
     }
 
     /// Delete partition from the collection.
     ///
     /// All documents in the partition will be deleted atomically.
-    pub async fn delete_partition(&self, partition_name: impl Into<String>) -> Result<(), Error> {
-        let partition_name = partition_name.into();
+    pub async fn delete_partition(&self, name: impl Into<String>) -> Result<(), Error> {
+        let name = name.into();
         let client = create_client!(PartitionServiceClient, self.write, self.config).await?;
 
         call_with_retry(&self.config.retry_config(), || {
-            let partition_name = partition_name.clone();
+            let name = name.clone();
             let mut client = client.clone();
 
             async move {
                 client
-                    .delete(DeletePartitionRequest { partition_name })
+                    .delete(DeletePartitionRequest { name })
                     .await
                     .map_err(Self::map_status_to_error)
             }
