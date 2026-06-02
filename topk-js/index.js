@@ -579,6 +579,7 @@ module.exports.CollectionsClient = nativeBinding.CollectionsClient
 module.exports.DatasetClient = nativeBinding.DatasetClient
 module.exports.DatasetListStream = nativeBinding.DatasetListStream
 module.exports.DatasetsClient = nativeBinding.DatasetsClient
+module.exports.PartitionListStream = nativeBinding.PartitionListStream
 module.exports.SearchStream = nativeBinding.SearchStream
 module.exports.ConsistencyLevel = nativeBinding.ConsistencyLevel
 module.exports.Mode = nativeBinding.Mode

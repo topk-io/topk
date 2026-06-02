@@ -1,25 +1,45 @@
 use crate::client::sync::runtime::Runtime;
 use crate::client::Document;
+use crate::client::CHANNEL_BUFFER_SIZE;
+use crate::data::partition::Partition;
 use crate::data::value::Value;
 use crate::error::RustError;
 use crate::expr::delete::DeleteExprUnion;
 use crate::query::{ConsistencyLevel, Query};
+use futures_util::StreamExt;
 use pyo3::prelude::*;
 use std::{collections::HashMap, sync::Arc};
+use tokio::sync::mpsc;
 
 #[pyclass]
 pub struct CollectionClient {
     runtime: Arc<Runtime>,
     client: Arc<topk_rs::Client>,
     collection: String,
+    partition: Option<String>,
 }
 
 impl CollectionClient {
-    pub fn new(runtime: Arc<Runtime>, client: Arc<topk_rs::Client>, collection: String) -> Self {
+    pub fn new(
+        runtime: Arc<Runtime>,
+        client: Arc<topk_rs::Client>,
+        collection: String,
+        partition: Option<String>,
+    ) -> Self {
         Self {
             runtime,
             client,
             collection,
+            partition,
+        }
+    }
+
+    /// Get partition-aware collection client
+    fn collection(&self) -> topk_rs::CollectionClient {
+        let c = self.client.collection(&self.collection);
+        match &self.partition {
+            Some(p) => c.partition(p.clone()),
+            None => c,
         }
     }
 }
@@ -39,7 +59,7 @@ impl CollectionClient {
             .runtime
             .block_on(
                 py,
-                self.client.collection(&self.collection).get(
+                self.collection().get(
                     ids,
                     fields,
                     lsn,
@@ -65,8 +85,7 @@ impl CollectionClient {
             .runtime
             .block_on(
                 py,
-                self.client
-                    .collection(&self.collection)
+                self.collection()
                     .count(lsn, consistency.map(|c| c.into())),
             )
             .map_err(RustError)?;
@@ -89,11 +108,8 @@ impl CollectionClient {
             .runtime
             .block_on(
                 py,
-                self.client.collection(&self.collection).query(
-                    query,
-                    lsn,
-                    consistency.map(|c| c.into()),
-                ),
+                self.collection()
+                    .query(query, lsn, consistency.map(|c| c.into())),
             )
             .map_err(RustError)?;
 
@@ -116,10 +132,7 @@ impl CollectionClient {
 
         Ok(self
             .runtime
-            .block_on(
-                py,
-                self.client.collection(&self.collection).upsert(documents),
-            )
+            .block_on(py, self.collection().upsert(documents))
             .map_err(RustError)?)
     }
 
@@ -140,8 +153,7 @@ impl CollectionClient {
             .runtime
             .block_on(
                 py,
-                self.client
-                    .collection(&self.collection)
+                self.collection()
                     .update(documents, fail_on_missing.unwrap_or(false)),
             )
             .map_err(RustError)?)
@@ -153,7 +165,78 @@ impl CollectionClient {
 
         Ok(self
             .runtime
-            .block_on(py, self.client.collection(&self.collection).delete(spec))
+            .block_on(py, self.collection().delete(spec))
             .map_err(RustError)?)
+    }
+
+    #[pyo3(signature = (prefix=None))]
+    pub fn list_partitions(&self, prefix: Option<String>) -> PyResult<PartitionListIterator> {
+        let (tx, rx) = mpsc::channel(CHANNEL_BUFFER_SIZE);
+
+        self.runtime.spawn({
+            let client = self.client.clone();
+            let collection = self.collection.clone();
+            async move {
+                let mut stream = match client.collection(&collection).list_partitions(prefix).await
+                {
+                    Ok(stream) => stream,
+                    Err(e) => {
+                        let _ = tx.send(Err(RustError(e).into())).await;
+                        return;
+                    }
+                };
+
+                while let Some(result) = stream.next().await {
+                    match result {
+                        Ok(partition) => {
+                            if let Err(mpsc::error::SendError(_)) =
+                                tx.send(Ok(partition.into())).await
+                            {
+                                break;
+                            }
+                        }
+                        Err(e) => {
+                            let _ = tx.send(Err(RustError(e.into()).into())).await;
+                            break;
+                        }
+                    }
+                }
+            }
+        });
+
+        Ok(PartitionListIterator {
+            runtime: self.runtime.clone(),
+            receiver: rx,
+        })
+    }
+
+    pub fn delete_partition(&self, py: Python<'_>, name: String) -> PyResult<()> {
+        self.runtime
+            .block_on(
+                py,
+                self.client
+                    .collection(&self.collection)
+                    .delete_partition(name),
+            )
+            .map_err(RustError)?;
+        Ok(())
+    }
+}
+
+#[pyclass]
+pub struct PartitionListIterator {
+    runtime: Arc<Runtime>,
+    receiver: mpsc::Receiver<PyResult<Partition>>,
+}
+
+#[pymethods]
+impl PartitionListIterator {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(&mut self, py: Python<'_>) -> PyResult<Option<Partition>> {
+        self.runtime
+            .block_on(py, async { self.receiver.recv().await.transpose() })
     }
 }

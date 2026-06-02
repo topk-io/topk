@@ -22,6 +22,7 @@ pub mod collection;
 pub mod collections;
 pub mod dataset;
 pub mod datasets;
+pub mod partition;
 
 pub(crate) const STREAM_BUFFER_SIZE: usize = 64;
 type AskStreamMessage = std::result::Result<Either<Answer, Progress>, String>;
@@ -184,9 +185,11 @@ impl Client {
     }
 
     /// Returns a client for interacting with a specific collection.
+    ///
+    /// Optionally, pass partition name to scope data operations to that partition.
     #[napi]
-    pub fn collection(&self, name: String) -> CollectionClient {
-        CollectionClient::new(self.client.clone(), name)
+    pub fn collection(&self, name: String, partition: Option<String>) -> CollectionClient {
+        CollectionClient::new(self.client.clone(), name, partition)
     }
 
     /// Get a client for managing datasets.

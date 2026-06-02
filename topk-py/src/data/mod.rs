@@ -17,6 +17,7 @@ pub mod file;
 pub mod list;
 pub mod list_entry;
 pub mod matrix;
+pub mod partition;
 pub mod r#struct;
 pub mod value;
 pub mod vector;
