@@ -549,7 +549,7 @@ async fn test_query_non_existent_partition(ctx: &mut ProjectTestContext) {
         .await
         .expect_err("should not be able to query a partition that was never created");
 
-    assert!(matches!(err, Error::CollectionNotFound));
+    assert!(matches!(err, Error::PartitionNotFound));
 
     let err = ctx
         .client
@@ -559,7 +559,7 @@ async fn test_query_non_existent_partition(ctx: &mut ProjectTestContext) {
         .await
         .expect_err("should not be able to get from a partition that was never created");
 
-    assert!(matches!(err, Error::CollectionNotFound));
+    assert!(matches!(err, Error::PartitionNotFound));
 }
 
 #[test_context(ProjectTestContext)]
@@ -867,7 +867,7 @@ async fn test_delete_partition(ctx: &mut ProjectTestContext) {
         .await
         .expect_err("should not be able to query deleted partition");
 
-    assert!(matches!(err, Error::CollectionNotFound));
+    assert!(matches!(err, Error::PartitionNotFound));
 }
 
 #[test_context(ProjectTestContext)]

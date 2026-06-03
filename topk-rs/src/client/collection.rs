@@ -323,11 +323,11 @@ impl CollectionClient {
 
     #[inline]
     fn map_status_to_error(status: tonic::Status) -> Error {
-        match status.code() {
+        match Error::from(status) {
             // Explicitly map `NotFound` to `CollectionNotFound` error
-            tonic::Code::NotFound => Error::CollectionNotFound,
-            // Delegate other errors
-            _ => status.into(),
+            Error::NotFound => Error::CollectionNotFound,
+            // Pass through other errors
+            err => err,
         }
     }
 }
