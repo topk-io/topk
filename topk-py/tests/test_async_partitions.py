@@ -1,6 +1,6 @@
 import pytest
 
-from topk_sdk.error import CollectionNotFoundError
+from topk_sdk.error import PartitionNotFoundError
 from topk_sdk.query import field, select
 
 from . import AsyncProjectContext
@@ -121,7 +121,7 @@ async def test_async_delete_partition(async_ctx: AsyncProjectContext):
     partitions = [p async for p in async_ctx.client.collection(collection.name).list_partitions()]
     assert partitions == []
 
-    with pytest.raises(CollectionNotFoundError):
+    with pytest.raises(PartitionNotFoundError):
         await async_ctx.client.collection(collection.name, "test-partition").count()
 
 
@@ -172,10 +172,10 @@ async def test_async_upsert_creates_partition(async_ctx: AsyncProjectContext):
 async def test_async_query_non_existent_partition(async_ctx: AsyncProjectContext):
     collection = await async_ctx.client.collections().create(async_ctx.scope("test"), schema={})
 
-    with pytest.raises(CollectionNotFoundError):
+    with pytest.raises(PartitionNotFoundError):
         await async_ctx.client.collection(collection.name, "missing-partition").count()
 
-    with pytest.raises(CollectionNotFoundError):
+    with pytest.raises(PartitionNotFoundError):
         await async_ctx.client.collection(collection.name, "missing-partition").get(["doc"])
 
 
