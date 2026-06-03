@@ -8,6 +8,11 @@ class CollectionNotFoundError(Exception):
     Raised when a collection is not found.
     """
 
+class PartitionNotFoundError(Exception):
+    """
+    Raised when a partition is not found.
+    """
+
 class CollectionValidationError(Exception):
     """
     Raised when a collection name or schema is invalid.
