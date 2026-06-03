@@ -159,6 +159,12 @@
         "icon": "/icons/python.svg",
         "pages": [
           {
+            "group": "Overview",
+            "pages": [
+              "sdk/topk-py/overview"
+            ]
+          },
+          {
             "group": "SDK Reference",
             "pages": [
               "sdk/topk-py/index",
@@ -166,12 +172,6 @@
               "sdk/topk-py/error",
               "sdk/topk-py/query",
               "sdk/topk-py/schema"
-            ]
-          },
-          {
-            "group": "Overview",
-            "pages": [
-              "sdk/topk-py/overview"
             ]
           }
         ]
@@ -181,6 +181,12 @@
         "icon": "/icons/js.svg",
         "pages": [
           {
+            "group": "Overview",
+            "pages": [
+              "sdk/topk-js/overview"
+            ]
+          },
+          {
             "group": "SDK Reference",
             "pages": [
               "sdk/topk-js/index",
@@ -188,12 +194,6 @@
               "sdk/topk-js/Namespace.query_fn",
               "sdk/topk-js/Namespace.query",
               "sdk/topk-js/Namespace.schema"
-            ]
-          },
-          {
-            "group": "Overview",
-            "pages": [
-              "sdk/topk-js/overview"
             ]
           }
         ]
