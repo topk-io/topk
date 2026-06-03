@@ -9036,7 +9036,7 @@ Creates a new collection with the specified schema.
 
 **Returns**
 
-`Promise`\<[`Collection`](/sdk/topk-js/index#collection-2)\>
+`Promise`\<[`Collection`](/sdk/topk-js/index#collection-1)\>
 
 ###### delete()
 
@@ -9076,7 +9076,7 @@ Retrieves information about a specific collection.
 
 **Returns**
 
-`Promise`\<[`Collection`](/sdk/topk-js/index#collection-2)\>
+`Promise`\<[`Collection`](/sdk/topk-js/index#collection-1)\>
 
 ###### list()
 
@@ -9088,7 +9088,7 @@ Lists all collections in the current project.
 
 **Returns**
 
-`Promise`\<[`Collection`](/sdk/topk-js/index#collection-2)[]\>
+`Promise`\<[`Collection`](/sdk/topk-js/index#collection-1)[]\>
 
 ***
 
@@ -9313,7 +9313,7 @@ Create a new dataset.
 
 **Returns**
 
-`Promise`\<[`Dataset`](/sdk/topk-js/index#dataset-2)\>
+`Promise`\<[`Dataset`](/sdk/topk-js/index#dataset-1)\>
 
 ###### delete()
 
@@ -9349,7 +9349,7 @@ Get information about a specific dataset.
 
 **Returns**
 
-`Promise`\<[`Dataset`](/sdk/topk-js/index#dataset-2)\>
+`Promise`\<[`Dataset`](/sdk/topk-js/index#dataset-1)\>
 
 ###### list()
 
@@ -9361,7 +9361,7 @@ List all datasets.
 
 **Returns**
 
-`Promise`\<[`Dataset`](/sdk/topk-js/index#dataset-2)[]\>
+`Promise`\<[`Dataset`](/sdk/topk-js/index#dataset-1)[]\>
 
 ###### update()
 
@@ -9380,7 +9380,7 @@ Update dataset properties
 
 **Returns**
 
-`Promise`\<[`Dataset`](/sdk/topk-js/index#dataset-2)\>
+`Promise`\<[`Dataset`](/sdk/topk-js/index#dataset-1)\>
 
 ***
 
@@ -9478,9 +9478,9 @@ Represents a final answer in an ask response.
 
 | Property | Type |
 | ------ | ------ |
-| <a id="confidence"></a> `confidence` | `number` |
-| <a id="facts"></a> `facts` | [`Fact`](/sdk/topk-js/index#fact)[] |
-| <a id="refs"></a> `refs` | `Record`\<`string`, [`SearchResult`](/sdk/topk-js/index#searchresult)\> |
+| <a id="property-confidence"></a> `confidence` | `number` |
+| <a id="property-facts"></a> `facts` | [`Fact`](/sdk/topk-js/index#fact)[] |
+| <a id="property-refs"></a> `refs` | `Record`\<`string`, [`SearchResult`](/sdk/topk-js/index#searchresult)\> |
 
 ***
 
@@ -9495,9 +9495,9 @@ All fields are optional and will use sensible defaults if not provided.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="base"></a> `base?` | `number` | Base multiplier for exponential backoff (default: 2.0) |
-| <a id="initbackoff"></a> `initBackoff?` | `number` | Initial delay before the first retry in milliseconds |
-| <a id="maxbackoff"></a> `maxBackoff?` | `number` | Maximum delay between retries in milliseconds |
+| <a id="property-base"></a> `base?` | `number` | Base multiplier for exponential backoff (default: 2.0) |
+| <a id="property-initbackoff"></a> `initBackoff?` | `number` | Initial delay before the first retry in milliseconds |
+| <a id="property-maxbackoff"></a> `maxBackoff?` | `number` | Maximum delay between retries in milliseconds |
 
 ***
 
@@ -9509,8 +9509,8 @@ Text chunk content.
 
 | Property | Type |
 | ------ | ------ |
-| <a id="docpages"></a> `docPages` | `number`[] |
-| <a id="text"></a> `text` | `string` |
+| <a id="property-docpages"></a> `docPages` | `number`[] |
+| <a id="property-text"></a> `text` | `string` |
 
 ***
 
@@ -9525,11 +9525,11 @@ The `api_key` and `region` are required, while other options have sensible defau
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="apikey"></a> `apiKey` | `string` | Your TopK API key for authentication |
-| <a id="host"></a> `host?` | `string` | Custom host URL (optional, defaults to the standard TopK endpoint) |
-| <a id="https"></a> `https?` | `boolean` | Whether to use HTTPS (optional, defaults to true) |
-| <a id="region"></a> `region` | `string` | The region where your data is stored. For available regions see: https://docs.topk.io/regions. |
-| <a id="retryconfig"></a> `retryConfig?` | [`RetryConfig`](/sdk/topk-js/index#retryconfig-1) | Retry configuration for failed requests (optional) |
+| <a id="property-apikey"></a> `apiKey` | `string` | Your TopK API key for authentication |
+| <a id="property-host"></a> `host?` | `string` | Custom host URL (optional, defaults to the standard TopK endpoint) |
+| <a id="property-https"></a> `https?` | `boolean` | Whether to use HTTPS (optional, defaults to true) |
+| <a id="property-region"></a> `region` | `string` | The region where your data is stored. For available regions see: https://docs.topk.io/regions. |
+| <a id="property-retryconfig"></a> `retryConfig?` | [`RetryConfig`](/sdk/topk-js/index#retryconfig) | Retry configuration for failed requests (optional) |
 
 ***
 
@@ -9545,12 +9545,12 @@ organization, project, schema, and region.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="createdat"></a> `createdAt` | `string` | Timestamp when the collection was created (ISO 8601) |
-| <a id="name"></a> `name` | `string` | Name of the collection |
-| <a id="orgid"></a> `orgId` | `string` | Organization ID that owns the collection |
-| <a id="projectid"></a> `projectId` | `string` | Project ID that contains the collection |
-| <a id="region-1"></a> `region` | `string` | Region where the collection is stored |
-| <a id="schema"></a> `schema` | `Record`\<`string`, [`CollectionFieldSpec`](/sdk/topk-js/index#collectionfieldspec)\> | Schema definition for the collection fields |
+| <a id="property-createdat"></a> `createdAt` | `string` | Timestamp when the collection was created (ISO 8601) |
+| <a id="property-name"></a> `name` | `string` | Name of the collection |
+| <a id="property-orgid"></a> `orgId` | `string` | Organization ID that owns the collection |
+| <a id="property-projectid"></a> `projectId` | `string` | Project ID that contains the collection |
+| <a id="property-region-1"></a> `region` | `string` | Region where the collection is stored |
+| <a id="property-schema"></a> `schema` | `Record`\<`string`, [`CollectionFieldSpec`](/sdk/topk-js/index#collectionfieldspec)\> | Schema definition for the collection fields |
 
 ***
 
@@ -9565,9 +9565,9 @@ including its data type, whether it's required, and any index configuration.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="datatype"></a> `dataType` | `DataType` | Data type of the field |
-| <a id="index"></a> `index?` | `FieldIndexUnion` | Index configuration for the field (optional) |
-| <a id="required"></a> `required` | `boolean` | Whether the field is required (must be present in all documents) |
+| <a id="property-datatype"></a> `dataType` | `DataType` | Data type of the field |
+| <a id="property-index"></a> `index?` | `FieldIndexUnion` | Index configuration for the field (optional) |
+| <a id="property-required"></a> `required` | `boolean` | Whether the field is required (must be present in all documents) |
 
 ***
 
@@ -9579,8 +9579,8 @@ Content in a search result. One of chunk, page, or image.
 
 | Property | Type |
 | ------ | ------ |
-| <a id="data"></a> `data` | \| [`Chunk`](/sdk/topk-js/index#chunk) \| [`Page`](/sdk/topk-js/index#page) \| [`Image`](/sdk/topk-js/index#image) |
-| <a id="type"></a> `type` | `"page"` \| `"image"` \| `"chunk"` |
+| <a id="property-data"></a> `data` | \| [`Chunk`](/sdk/topk-js/index#chunk) \| [`Page`](/sdk/topk-js/index#page) \| [`Image`](/sdk/topk-js/index#image) |
+| <a id="property-type"></a> `type` | `"page"` \| `"image"` \| `"chunk"` |
 
 ***
 
@@ -9592,12 +9592,12 @@ Represents a dataset in the TopK service.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="createdat-1"></a> `createdAt` | `string` | RFC 3339 timestamp when the dataset was created |
-| <a id="description"></a> `description?` | `string` | Dataset description |
-| <a id="name-1"></a> `name` | `string` | Name of the dataset |
-| <a id="orgid-1"></a> `orgId` | `string` | Organization ID that owns the dataset |
-| <a id="projectid-1"></a> `projectId` | `string` | Project ID that contains the dataset |
-| <a id="region-2"></a> `region` | `string` | Region where the dataset is stored |
+| <a id="property-createdat-1"></a> `createdAt` | `string` | RFC 3339 timestamp when the dataset was created |
+| <a id="property-description"></a> `description?` | `string` | Dataset description |
+| <a id="property-name-1"></a> `name` | `string` | Name of the dataset |
+| <a id="property-orgid-1"></a> `orgId` | `string` | Organization ID that owns the dataset |
+| <a id="property-projectid-1"></a> `projectId` | `string` | Project ID that contains the dataset |
+| <a id="property-region-2"></a> `region` | `string` | Region where the dataset is stored |
 
 ***
 
@@ -9609,8 +9609,8 @@ Represents a fact in an ask response.
 
 | Property | Type |
 | ------ | ------ |
-| <a id="fact-1"></a> `fact` | `string` |
-| <a id="refids"></a> `refIds` | `string`[] |
+| <a id="property-fact"></a> `fact` | `string` |
+| <a id="property-refids"></a> `refIds` | `string`[] |
 
 ***
 
@@ -9622,8 +9622,8 @@ Image content.
 
 | Property | Type |
 | ------ | ------ |
-| <a id="data-1"></a> `data` | `number`[] |
-| <a id="mimetype"></a> `mimeType` | `string` |
+| <a id="property-data-1"></a> `data` | `number`[] |
+| <a id="property-mimetype"></a> `mimeType` | `string` |
 
 ***
 
@@ -9637,10 +9637,10 @@ Provide either a `path` to a file on disk, or inline data via `data` + `fileName
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="data-2"></a> `data?` | `Buffer` | Inline file data as a Buffer. |
-| <a id="filename"></a> `fileName?` | `string` | File name (required when using inline `data`). |
-| <a id="mimetype-1"></a> `mimeType?` | `string` | MIME type (required when using inline `data`). |
-| <a id="path"></a> `path?` | `string` | Path to a file on disk. If provided, fileName and mimeType are inferred. |
+| <a id="property-data-2"></a> `data?` | `Buffer` | Inline file data as a Buffer. |
+| <a id="property-filename"></a> `fileName?` | `string` | File name (required when using inline `data`). |
+| <a id="property-mimetype-1"></a> `mimeType?` | `string` | MIME type (required when using inline `data`). |
+| <a id="property-path"></a> `path?` | `string` | Path to a file on disk. If provided, fileName and mimeType are inferred. |
 
 ***
 
@@ -9652,13 +9652,13 @@ Entry in a dataset.
 
 | Property | Type |
 | ------ | ------ |
-| <a id="id"></a> `id` | `string` |
-| <a id="metadata"></a> `metadata` | `Record`\<`string`, `any`\> |
-| <a id="mimetype-2"></a> `mimeType` | `string` |
-| <a id="name-2"></a> `name` | `string` |
-| <a id="size"></a> `size` | `number` |
-| <a id="status"></a> `status` | `string` |
-| <a id="statusreason"></a> `statusReason?` | `string` |
+| <a id="property-id"></a> `id` | `string` |
+| <a id="property-metadata"></a> `metadata` | `Record`\<`string`, `any`\> |
+| <a id="property-mimetype-2"></a> `mimeType` | `string` |
+| <a id="property-name-2"></a> `name` | `string` |
+| <a id="property-size"></a> `size` | `number` |
+| <a id="property-status"></a> `status` | `string` |
+| <a id="property-statusreason"></a> `statusReason?` | `string` |
 
 ***
 
@@ -9670,8 +9670,8 @@ Page content with optional image.
 
 | Property | Type |
 | ------ | ------ |
-| <a id="image-1"></a> `image?` | [`Image`](/sdk/topk-js/index#image) |
-| <a id="pagenumber"></a> `pageNumber` | `number` |
+| <a id="property-image"></a> `image?` | [`Image`](/sdk/topk-js/index#image) |
+| <a id="property-pagenumber"></a> `pageNumber` | `number` |
 
 ***
 
@@ -9683,8 +9683,8 @@ A partition within a collection.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="createdat-2"></a> `createdAt` | `string` | RFC3339 created_at timestamp |
-| <a id="name-3"></a> `name` | `string` | Partition name |
+| <a id="property-createdat-2"></a> `createdAt` | `string` | RFC3339 created_at timestamp |
+| <a id="property-name-3"></a> `name` | `string` | Partition name |
 
 ***
 
@@ -9696,7 +9696,7 @@ Represents a progress update in an ask response.
 
 | Property | Type |
 | ------ | ------ |
-| <a id="update-4"></a> `update` | `string` |
+| <a id="property-update"></a> `update` | `string` |
 
 ***
 
@@ -9711,8 +9711,8 @@ guarantees and sequence number constraints.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="consistency"></a> `consistency?` | [`ConsistencyLevel`](/sdk/topk-js/index#consistencylevel) | Consistency level for the query |
-| <a id="lsn"></a> `lsn?` | `string` | Last sequence number to query at (for consistency) |
+| <a id="property-consistency"></a> `consistency?` | [`ConsistencyLevel`](/sdk/topk-js/index#consistencylevel) | Consistency level for the query |
+| <a id="property-lsn"></a> `lsn?` | `string` | Last sequence number to query at (for consistency) |
 
 ***
 
@@ -9727,9 +9727,9 @@ All fields are optional and will use sensible defaults if not provided.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="backoff"></a> `backoff?` | [`BackoffConfig`](/sdk/topk-js/index#backoffconfig) | Backoff configuration for spacing out retry attempts |
-| <a id="maxretries"></a> `maxRetries?` | `number` | Maximum number of retries to attempt before giving up |
-| <a id="timeout"></a> `timeout?` | `number` | Total timeout for the entire retry chain in milliseconds |
+| <a id="property-backoff"></a> `backoff?` | [`BackoffConfig`](/sdk/topk-js/index#backoffconfig) | Backoff configuration for spacing out retry attempts |
+| <a id="property-maxretries"></a> `maxRetries?` | `number` | Maximum number of retries to attempt before giving up |
+| <a id="property-timeout"></a> `timeout?` | `number` | Total timeout for the entire retry chain in milliseconds |
 
 ***
 
@@ -9741,13 +9741,13 @@ Represents a search result in an ask response.
 
 | Property | Type |
 | ------ | ------ |
-| <a id="content-1"></a> `content?` | [`Content`](/sdk/topk-js/index#content) |
-| <a id="contentid"></a> `contentId` | `string` |
-| <a id="dataset-3"></a> `dataset` | `string` |
-| <a id="docid"></a> `docId` | `string` |
-| <a id="docname"></a> `docName` | `string` |
-| <a id="doctype"></a> `docType` | `string` |
-| <a id="metadata-1"></a> `metadata` | `Record`\<`string`, `any`\> |
+| <a id="property-content"></a> `content?` | [`Content`](/sdk/topk-js/index#content) |
+| <a id="property-contentid"></a> `contentId` | `string` |
+| <a id="property-dataset"></a> `dataset` | `string` |
+| <a id="property-docid"></a> `docId` | `string` |
+| <a id="property-docname"></a> `docName` | `string` |
+| <a id="property-doctype"></a> `docType` | `string` |
+| <a id="property-metadata-1"></a> `metadata` | `Record`\<`string`, `any`\> |
 
 ***
 
@@ -9757,7 +9757,7 @@ Represents a search result in an ask response.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="description-1"></a> `description?` | `string` | Dataset description |
+| <a id="property-description-1"></a> `description?` | `string` | Dataset description |
 
 ***
 
@@ -9769,8 +9769,8 @@ Configuration for polling when waiting for a handle to be processed.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="frequencysecs"></a> `frequencySecs?` | `number` | How often to poll for the handle status, in seconds. Default is 5. |
-| <a id="timeoutsecs"></a> `timeoutSecs?` | `number` | Maximum time to wait before timing out, in seconds. Default is 300. |
+| <a id="property-frequencysecs"></a> `frequencySecs?` | `number` | How often to poll for the handle status, in seconds. Default is 5. |
+| <a id="property-timeoutsecs"></a> `timeoutSecs?` | `number` | Maximum time to wait before timing out, in seconds. Default is 300. |
 
 #### Namespaces
 
@@ -10470,8 +10470,8 @@ Options for BM25 scoring.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="b"></a> `b?` | `number` | BM25 parameter b (0-1) |
-| <a id="k1"></a> `k1?` | `number` | BM25 parameter k1 (>= 0) |
+| <a id="property-b"></a> `b?` | `number` | BM25 parameter b (0-1) |
+| <a id="property-k1"></a> `k1?` | `number` | BM25 parameter k1 (>= 0) |
 
 ***
 
@@ -10481,7 +10481,7 @@ Options for BM25 scoring.
 
 | Property | Type |
 | ------ | ------ |
-| <a id="skiprefine"></a> `skipRefine?` | `boolean` |
+| <a id="property-skiprefine"></a> `skipRefine?` | `boolean` |
 
 ### topk-js/query
 
@@ -11555,9 +11555,9 @@ including field specification, weight, and matching behavior.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="all"></a> `all?` | `boolean` | Whether to match all terms |
-| <a id="field"></a> `field?` | `string` | Field to match against |
-| <a id="weight"></a> `weight?` | `number` | Weight for the match |
+| <a id="property-all"></a> `all?` | `boolean` | Whether to match all terms |
+| <a id="property-field"></a> `field?` | `string` | Field to match against |
+| <a id="property-weight"></a> `weight?` | `number` | Weight for the match |
 
 ***
 
@@ -11569,8 +11569,8 @@ A token for match_tokens
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="token"></a> `token` | `string` | The token to match |
-| <a id="weight-1"></a> `weight?` | `number` | Weight for the term (defaults to 1.0) |
+| <a id="property-token"></a> `token` | `string` | The token to match |
+| <a id="property-weight-1"></a> `weight?` | `number` | Weight for the term (defaults to 1.0) |
 
 ***
 
@@ -11582,8 +11582,8 @@ Options for match_tokens.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="all-1"></a> `all?` | `boolean` | Whether to match all terms |
-| <a id="field-1"></a> `field?` | `string` | Field to match against |
+| <a id="property-all-1"></a> `all?` | `boolean` | Whether to match all terms |
+| <a id="property-field-1"></a> `field?` | `string` | Field to match against |
 
 ***
 
@@ -11593,9 +11593,9 @@ Options for match_tokens.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="field-2"></a> `field?` | `string` | The field to match against. |
-| <a id="token-1"></a> `token` | `string` | The token to match. |
-| <a id="weight-2"></a> `weight` | `number` | The weight of the term. |
+| <a id="property-field-2"></a> `field?` | `string` | The field to match against. |
+| <a id="property-token-1"></a> `token` | `string` | The token to match. |
+| <a id="property-weight-2"></a> `weight` | `number` | The weight of the term. |
 
 ### topk-js/schema
 
@@ -12242,7 +12242,7 @@ including the type of values the list can contain.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="valuetype"></a> `valueType` | [`ListValueType`](/sdk/topk-js/Namespace.schema#listvaluetype) | The type of values the list can contain |
+| <a id="property-valuetype"></a> `valueType` | [`ListValueType`](/sdk/topk-js/Namespace.schema#listvaluetype) | The type of values the list can contain |
 
 ***
 
@@ -12257,8 +12257,8 @@ including the dimension and value type.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="dimension"></a> `dimension` | `number` | The dimension (number of columns) of the matrix |
-| <a id="valuetype-1"></a> `valueType` | [`MatrixValueType`](/sdk/topk-js/Namespace.schema#matrixvaluetype) | The value type of the matrix elements |
+| <a id="property-dimension"></a> `dimension` | `number` | The dimension (number of columns) of the matrix |
+| <a id="property-valuetype-1"></a> `valueType` | [`MatrixValueType`](/sdk/topk-js/Namespace.schema#matrixvaluetype) | The value type of the matrix elements |
 
 ***
 
@@ -12273,10 +12273,10 @@ including the distance metric to use.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="metric"></a> `metric` | `"maxsim"` | The distance metric to use for multi-vector similarity |
-| <a id="quantization"></a> `quantization?` | [`MultiVectorQuantization`](/sdk/topk-js/Namespace.schema#multivectorquantization) | The quantization to use for multi-vector values |
-| <a id="topk"></a> `topK?` | `number` | Top-k projected values to keep |
-| <a id="width"></a> `width?` | `number` | Width of the sparse projection |
+| <a id="property-metric"></a> `metric` | `"maxsim"` | The distance metric to use for multi-vector similarity |
+| <a id="property-quantization"></a> `quantization?` | [`MultiVectorQuantization`](/sdk/topk-js/Namespace.schema#multivectorquantization) | The quantization to use for multi-vector values |
+| <a id="property-topk"></a> `topK?` | `number` | Top-k projected values to keep |
+| <a id="property-width"></a> `width?` | `number` | Width of the sparse projection |
 
 ***
 
@@ -12291,7 +12291,7 @@ including the distance metric to use.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="metric-1"></a> `metric` | [`VectorDistanceMetric`](/sdk/topk-js/Namespace.schema#vectordistancemetric) | The distance metric to use for vector similarity |
+| <a id="property-metric-1"></a> `metric` | [`VectorDistanceMetric`](/sdk/topk-js/Namespace.schema#vectordistancemetric) | The distance metric to use for vector similarity |
 
 ***
 
@@ -12306,7 +12306,7 @@ including the required dimension parameter.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="dimension-1"></a> `dimension` | `number` | The dimension of the vector |
+| <a id="property-dimension-1"></a> `dimension` | `number` | The dimension of the vector |
 
 #### Type Aliases
 
