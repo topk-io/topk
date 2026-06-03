@@ -1,9 +1,11 @@
+use std::{collections::HashMap, sync::Arc};
+
+use pyo3::prelude::*;
+
 use crate::data::collection::Collection;
 use crate::error::RustError;
-use crate::schema::field_spec::FieldSpec;
+use crate::schema::SchemaFieldSpec;
 use crate::{client::sync::runtime::Runtime, schema::Schema};
-use pyo3::prelude::*;
-use std::{collections::HashMap, sync::Arc};
 
 #[pyclass]
 pub struct CollectionsClient {
@@ -41,9 +43,9 @@ impl CollectionsClient {
         &self,
         py: Python<'_>,
         collection_name: String,
-        schema: HashMap<String, FieldSpec>,
+        schema: HashMap<String, SchemaFieldSpec>,
     ) -> PyResult<Collection> {
-        let schema = Schema(schema);
+        let schema = Schema(schema.into_iter().map(|(k, v)| (k, v.0)).collect());
 
         let collection = self
             .runtime

@@ -3,11 +3,35 @@ use std::collections::HashMap;
 use pyo3::prelude::*;
 use topk_rs::proto::v1::control::FieldSpec as FieldSpecPb;
 
-use crate::schema::{field_index::FieldIndex, field_spec::FieldSpec};
+use crate::schema::{data_type::DataType, field_index::FieldIndex, field_spec::FieldSpec};
 
 pub mod data_type;
 pub mod field_index;
 pub mod field_spec;
+
+/// Accepts a `FieldSpec` instance or a plain dict (treated as an implicit struct).
+pub struct SchemaFieldSpec(pub(crate) FieldSpec);
+
+impl<'a, 'py> FromPyObject<'a, 'py> for SchemaFieldSpec {
+    type Error = PyErr;
+
+    fn extract(ob: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
+        if let Ok(fs) = ob.extract::<PyRef<FieldSpec>>() {
+            return Ok(SchemaFieldSpec((*fs).clone()));
+        }
+        if let Ok(dict) = ob.cast::<pyo3::types::PyDict>() {
+            let mut fields = HashMap::new();
+            for (key, value) in dict.iter() {
+                let field: SchemaFieldSpec = value.extract()?;
+                fields.insert(key.extract::<String>()?, field.0);
+            }
+            return Ok(SchemaFieldSpec(FieldSpec::new(DataType::Struct { fields })));
+        }
+        Err(pyo3::exceptions::PyTypeError::new_err(
+            "Expected FieldSpec or dict[str, FieldSpec]",
+        ))
+    }
+}
 
 ////////////////////////////////////////////////////////////
 /// Schema
@@ -135,8 +159,10 @@ pub fn list(value_type: String) -> PyResult<field_spec::FieldSpec> {
 
 #[pyfunction]
 #[pyo3(name = "struct")]
-pub fn struct_(fields: HashMap<String, field_spec::FieldSpec>) -> field_spec::FieldSpec {
-    field_spec::FieldSpec::new(data_type::DataType::Struct { fields })
+pub fn struct_(fields: HashMap<String, SchemaFieldSpec>) -> field_spec::FieldSpec {
+    field_spec::FieldSpec::new(data_type::DataType::Struct {
+        fields: fields.into_iter().map(|(k, v)| (k, v.0)).collect(),
+    })
 }
 
 #[pyfunction]

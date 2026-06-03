@@ -1,5 +1,6 @@
 import { schema } from "../index";
 
+type SchemaFieldSpec = schema.FieldSpec | { [field: string]: SchemaFieldSpec };
 export declare const binaryVector: typeof schema.binaryVector;
 export declare const bool: typeof schema.bool;
 export declare const bytes: typeof schema.bytes;
@@ -10,7 +11,7 @@ export declare const float: typeof schema.float;
 export declare const int: typeof schema.int;
 export declare const keywordIndex: typeof schema.keywordIndex;
 export declare const list: typeof schema.list;
-export declare const struct: typeof schema.struct;
+export declare const struct: (fields: Record<string, SchemaFieldSpec>) => schema.FieldSpec;
 export declare const semanticIndex: typeof schema.semanticIndex;
 export declare const multiVectorIndex: typeof schema.multiVectorIndex;
 export declare const text: typeof schema.text;

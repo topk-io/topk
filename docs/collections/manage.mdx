@@ -1,7 +1,7 @@
 ---
 title: "Collections"
 description: "Create, list, get, and delete collections."
-icon: "library"
+icon: "database"
 ---
 
 Collections organize your documents, define their schema, and enable fast vector search, filtering, keyword search, semantic search, and multi-vector search.
@@ -67,6 +67,54 @@ TopK is schemaless-by-default. Fields without types can store any value. When ty
 | [`f32_sparse_vector()`](/sdk/topk-py/schema#f32_sparse_vector) | Sparse embeddings |
 | [`u8_sparse_vector()`](/sdk/topk-py/schema#u8_sparse_vector) | Quantized sparse embeddings |
 | [`matrix(dim, value_type)`](/sdk/topk-py/schema#matrix) | Multi-vector embeddings |
+
+<Note>
+  Nested objects are automatically treated as structs — no need to use `struct()` explicitly.
+
+  <CodeGroup>
+
+```python Python
+from topk_sdk.schema import struct, text
+
+schema = {
+    "meta": {
+        "name": text(),
+        "source": {
+            "url": text(),
+        },
+    },
+    # Implicit struct, equivalent to:
+    # "meta": struct({
+    #     "name": text(),
+    #     "source": struct({
+    #         "url": text(),
+    #     }),
+    # })
+}
+```
+
+```typescript Javascript
+import { struct, text } from "topk-js/schema";
+
+const schema = {
+  meta: {
+    name: text(),
+    source: {
+      url: text(),
+    },
+  },
+  // Implicit struct, equivalent to:
+  // meta: struct({
+  //   name: text(),
+  //   source: struct({
+  //     url: text(),
+  //   }),
+  // })
+};
+```
+
+  </CodeGroup>
+</Note>
 
 #### Required fields
 

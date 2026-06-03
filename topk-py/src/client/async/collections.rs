@@ -1,9 +1,11 @@
-use crate::error::RustError;
-use crate::schema::field_spec::FieldSpec;
-use crate::{data::collection::Collection, schema::Schema};
+use std::{collections::HashMap, sync::Arc};
+
 use pyo3::{prelude::*, types::PyAny};
 use pyo3_async_runtimes::tokio::future_into_py;
-use std::{collections::HashMap, sync::Arc};
+
+use crate::error::RustError;
+use crate::schema::SchemaFieldSpec;
+use crate::{data::collection::Collection, schema::Schema};
 
 #[pyclass]
 pub struct AsyncCollectionsClient {
@@ -53,12 +55,12 @@ impl AsyncCollectionsClient {
         &self,
         py: Python<'_>,
         collection_name: String,
-        schema: HashMap<String, FieldSpec>,
+        schema: HashMap<String, SchemaFieldSpec>,
     ) -> PyResult<Py<PyAny>> {
         let client = self.client.clone();
 
         future_into_py(py, async move {
-            let schema = Schema(schema);
+            let schema = Schema(schema.into_iter().map(|(k, v)| (k, v.0)).collect());
 
             let collection = client
                 .collections()

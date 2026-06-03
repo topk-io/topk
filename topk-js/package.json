@@ -3,6 +3,7 @@
   "version": "0.11.0",
   "napi": {
     "binaryName": "topk-js",
+    "dtsHeaderFile": "dts-header.d.ts",
     "triples": {
       "additional": [
         "aarch64-apple-darwin",

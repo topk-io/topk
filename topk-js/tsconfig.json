@@ -2,5 +2,6 @@
 	"compilerOptions": {
 		"module": "commonjs",
 		"outDir": "build",
-	}
+	},
+	"exclude": ["dts-header.d.ts"]
 }
