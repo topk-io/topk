@@ -31,6 +31,9 @@ impl From<TopkError> for napi::Error {
             topk_rs::Error::DatasetNotFound => {
                 napi::Error::new(napi::Status::GenericFailure, "dataset not found")
             }
+            topk_rs::Error::PartitionNotFound => {
+                napi::Error::new(napi::Status::GenericFailure, "partition not found")
+            }
             // Validation errors
             topk_rs::Error::DocumentValidationError(_) => {
                 napi::Error::new(napi::Status::InvalidArg, format!("{:?}", error))
