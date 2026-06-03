@@ -108,16 +108,19 @@ Ask a question and get streaming responses as an async iterator.
 ##### collection()
 
 ```ts
-collection(name: string): CollectionClient;
+collection(name: string, partition?: string): CollectionClient;
 ```
 
 Returns a client for interacting with a specific collection.
+
+Optionally, pass partition name to scope data operations to that partition.
 
 **Parameters**
 
 | Parameter | Type |
 | ------ | ------ |
 | `name` | `string` |
+| `partition?` | `string` |
 
 **Returns**
 
@@ -264,6 +267,24 @@ await client.collection("books").delete(field("published_year").gt(1997))
 
 `Promise`\<`string`\>
 
+##### deletePartition()
+
+```ts
+deletePartition(name: string): Promise<void>;
+```
+
+Delete a partition and all documents within it.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `name` | `string` |
+
+**Returns**
+
+`Promise`\<`void`\>
+
 ##### get()
 
 ```ts
@@ -286,6 +307,24 @@ Retrieves documents by their IDs.
 **Returns**
 
 `Promise`\<`Record`\<`string`, `Record`\<`string`, `any`\>\>\>
+
+##### listPartitions()
+
+```ts
+listPartitions(prefix?: string): PartitionListStream;
+```
+
+List partitions in the collection as an async iterator.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `prefix?` | `string` |
+
+**Returns**
+
+[`PartitionListStream`](/sdk/topk-js/index#partitionliststream)
 
 ##### query()
 
@@ -726,6 +765,55 @@ Update dataset properties
 
 ***
 
+### PartitionListStream
+
+Iterator for partition list responses.
+
+This type implements JavaScript's async iterable protocol.
+It can be used with `for await...of` loops.
+
+**See**
+
+https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols#the_async_iterator_and_async_iterable_protocols
+
+**Constructors**
+
+**Constructor**
+
+```ts
+new PartitionListStream(): PartitionListStream;
+```
+
+**Returns**
+
+[`PartitionListStream`](/sdk/topk-js/index#partitionliststream)
+
+**Methods**
+
+##### \[asyncIterator\]()
+
+```ts
+asyncIterator: AsyncGenerator<Partition, void, undefined>;
+```
+
+**Returns**
+
+`AsyncGenerator`\<[`Partition`](/sdk/topk-js/index#partition), `void`, `undefined`\>
+
+##### next()
+
+```ts
+next(): Promise<Partition>;
+```
+
+Returns the next partition in the stream.
+
+**Returns**
+
+`Promise`\<[`Partition`](/sdk/topk-js/index#partition)\>
+
+***
+
 ### SearchStream
 
 Iterator for search responses.
@@ -965,6 +1053,19 @@ Page content with optional image.
 | ------ | ------ |
 | <a id="property-image"></a> `image?` | [`Image`](/sdk/topk-js/index#image) |
 | <a id="property-pagenumber"></a> `pageNumber` | `number` |
+
+***
+
+### Partition
+
+A partition within a collection.
+
+**Properties**
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="property-createdat-2"></a> `createdAt` | `string` | RFC3339 created_at timestamp |
+| <a id="property-name-3"></a> `name` | `string` | Partition name |
 
 ***
 

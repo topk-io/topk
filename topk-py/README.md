@@ -119,6 +119,7 @@ except SlowDownError:
 | Error | Description |
 | --- | --- |
 | `CollectionNotFoundError` | Collection does not exist |
+| `PartitionNotFoundError`  | Partition does not exist  |
 | `CollectionAlreadyExistsError` | Collection with this name already exists |
 | `CollectionValidationError` | Invalid collection name or schema |
 | `DatasetNotFoundError` | Dataset does not exist |

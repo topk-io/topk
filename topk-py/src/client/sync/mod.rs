@@ -9,7 +9,7 @@ mod search;
 use std::sync::Arc;
 
 pub use ask::{ask, AskIterator};
-pub use collection::CollectionClient;
+pub use collection::{CollectionClient, PartitionListIterator};
 pub use collections::CollectionsClient;
 pub use dataset::DatasetClient;
 pub use dataset::DatasetListIterator;
@@ -48,11 +48,17 @@ impl Client {
         Self { runtime, client }
     }
 
-    pub fn collection(&self, collection: String) -> PyResult<CollectionClient> {
+    #[pyo3(signature = (collection, partition=None))]
+    pub fn collection(
+        &self,
+        collection: String,
+        partition: Option<String>,
+    ) -> PyResult<CollectionClient> {
         Ok(CollectionClient::new(
             self.runtime.clone(),
             self.client.clone(),
             collection,
+            partition,
         ))
     }
 

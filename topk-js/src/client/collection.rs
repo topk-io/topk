@@ -1,12 +1,18 @@
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use futures_util::StreamExt;
+use napi::bindgen_prelude::*;
+use napi::tokio::{self, sync::mpsc};
+use napi_derive::napi;
+
+use super::partition::{PartitionListStream, PartitionListStreamMessage};
+use super::{RUNTIME, STREAM_BUFFER_SIZE};
 use crate::data::NativeValue;
 use crate::data::Value;
 use crate::error::TopkError;
 use crate::expr::delete::DeleteExpression;
 use crate::query::query::Query;
-use napi::bindgen_prelude::*;
-use napi_derive::napi;
-use std::collections::HashMap;
-use std::sync::Arc;
 
 /// Client for interacting with a specific collection.
 ///
@@ -18,6 +24,8 @@ use std::sync::Arc;
 pub struct CollectionClient {
     /// Name of the collection
     collection: String,
+    /// Optional partition name
+    partition: Option<String>,
     /// Reference to the topk-rs client
     client: Arc<topk_rs::Client>,
 }
@@ -57,12 +65,27 @@ impl From<ConsistencyLevel> for topk_rs::proto::v1::data::ConsistencyLevel {
     }
 }
 
-#[napi]
 impl CollectionClient {
-    pub fn new(client: Arc<topk_rs::Client>, collection: String) -> Self {
-        Self { client, collection }
+    pub fn new(client: Arc<topk_rs::Client>, collection: String, partition: Option<String>) -> Self {
+        Self {
+            client,
+            collection,
+            partition,
+        }
     }
 
+    /// Get partition-aware collection client
+    fn collection(&self) -> topk_rs::CollectionClient {
+        let c = self.client.collection(&self.collection);
+        match &self.partition {
+            Some(p) => c.partition(p.clone()),
+            None => c,
+        }
+    }
+}
+
+#[napi]
+impl CollectionClient {
     /// Retrieves documents by their IDs.
     #[napi(ts_return_type = "Promise<Record<string, Record<string, any>>>")]
     pub async fn get(
@@ -74,8 +97,7 @@ impl CollectionClient {
         let options = options.unwrap_or_default();
 
         let documents = self
-            .client
-            .collection(&self.collection)
+            .collection()
             .get(
                 ids,
                 fields,
@@ -97,8 +119,7 @@ impl CollectionClient {
         let options = options.unwrap_or_default();
 
         let count = self
-            .client
-            .collection(&self.collection)
+            .collection()
             .count(options.lsn, options.consistency.map(|c| c.into()))
             .await
             .map_err(TopkError::from)?;
@@ -116,8 +137,7 @@ impl CollectionClient {
         let options = options.unwrap_or_default();
 
         let docs = self
-            .client
-            .collection(&self.collection)
+            .collection()
             .query(
                 query.clone().into(),
                 options.lsn,
@@ -143,8 +163,7 @@ impl CollectionClient {
             .collect();
 
         let lsn = self
-            .client
-            .collection(&self.collection)
+            .collection()
             .upsert(documents)
             .await
             .map_err(TopkError::from)?;
@@ -173,8 +192,7 @@ impl CollectionClient {
             .collect();
 
         let lsn = self
-            .client
-            .collection(&self.collection)
+            .collection()
             .update(documents, fail_on_missing.unwrap_or(false))
             .await
             .map_err(TopkError::from)?;
@@ -202,12 +220,60 @@ impl CollectionClient {
         #[napi(ts_arg_type = "Array<string> | query.LogicalExpression")] expr: DeleteExpression,
     ) -> Result<String> {
         let lsn = self
-            .client
-            .collection(&self.collection)
+            .collection()
             .delete(expr)
             .await
             .map_err(TopkError::from)?;
 
         Ok(lsn)
+    }
+
+    /// List partitions in the collection as an async iterator.
+    #[napi]
+    pub fn list_partitions(&self, prefix: Option<String>) -> PartitionListStream {
+        let (tx, rx) = mpsc::channel::<PartitionListStreamMessage>(STREAM_BUFFER_SIZE);
+        let client = self.client.clone();
+        let collection = self.collection.clone();
+
+        RUNTIME.spawn(async move {
+            let mut stream = match client.collection(&collection).list_partitions(prefix).await {
+                Ok(stream) => stream,
+                Err(error) => {
+                    let _ = tx.send(Err(format!("{error}"))).await;
+                    return;
+                }
+            };
+
+            loop {
+                tokio::select! {
+                    _ = tx.closed() => break,
+                    result = stream.next() => {
+                        let Some(result) = result else { break };
+
+                        let message = match result {
+                            Ok(partition) => Ok(partition.into()),
+                            Err(error) => Err(format!("stream error: {error}")),
+                        };
+
+                        if tx.send(message).await.is_err() {
+                            break;
+                        }
+                    }
+                }
+            }
+        });
+
+        PartitionListStream::new(rx)
+    }
+
+    /// Delete a partition and all documents within it.
+    #[napi]
+    pub async fn delete_partition(&self, name: String) -> Result<()> {
+        self.client
+            .collection(&self.collection)
+            .delete_partition(name)
+            .await
+            .map_err(TopkError::from)?;
+        Ok(())
     }
 }

@@ -35,16 +35,19 @@ Client(
 #### collection()
 
 ```python
-collection(self, collection: str) -> CollectionClient
+collection(self, collection: str, partition: Optional[str] = None) -> CollectionClient
 ```
 
 Get a client for managing data operations on a specific collection such as querying, upserting, and deleting documents.
+
+        Optionally, pass partition name to scope data operations to that partition.
 
 **Parameters**
 
 | Parameter | Type |
 | --------- | ---- |
 | `collection` | str |
+| `partition` | Optional[str] |
 
 **Returns**
 
@@ -193,16 +196,19 @@ AsyncClient(
 #### collection()
 
 ```python
-collection(self, collection: str) -> AsyncCollectionClient
+collection(self, collection: str, partition: Optional[str] = None) -> AsyncCollectionClient
 ```
 
 Get an async client for a specific collection.
+
+        Optionally, pass partition name to scope data operations to that partition.
 
 **Parameters**
 
 | Parameter | Type |
 | --------- | ---- |
 | `collection` | str |
+| `partition` | Optional[str] |
 
 **Returns**
 
@@ -488,6 +494,46 @@ str
 
 ***
 
+#### list\_partitions()
+
+```python
+list_partitions(self, prefix: Optional[str] = None) -> PartitionListIterator
+```
+
+List partitions in the collection as an iterator.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `prefix` | Optional[str] |
+
+**Returns**
+
+[`PartitionListIterator`](#partitionlistiterator)
+
+***
+
+#### delete\_partition()
+
+```python
+delete_partition(self, name: str) -> None
+```
+
+Delete a partition and all documents within it.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `name` | str |
+
+**Returns**
+
+None
+
+***
+
 ### AsyncCollectionClient
 
 Asynchronous client for collection operations.
@@ -660,6 +706,46 @@ Awaitable[str]
 
 ***
 
+#### list\_partitions()
+
+```python
+list_partitions(self, prefix: Optional[str] = None) -> AsyncPartitionListIterator
+```
+
+List partitions in the collection as an async iterator.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `prefix` | Optional[str] |
+
+**Returns**
+
+[`AsyncPartitionListIterator`](#asyncpartitionlistiterator)
+
+***
+
+#### delete\_partition()
+
+```python
+delete_partition(self, name: str) -> Awaitable[None]
+```
+
+Delete a partition and all documents within it asynchronously.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `name` | str |
+
+**Returns**
+
+Awaitable[None]
+
+***
+
 ### Collection
 
 Represents a collection in the TopK system.
@@ -705,6 +791,17 @@ Entry in a dataset.
 | `status` | str |  |
 | `status_reason` | Optional[str] |  |
 | `metadata` | dict[str, Any] |  |
+
+### Partition
+
+Represents a partition in a collection.
+
+**Properties**
+
+| Property | Type |             |
+| -------- | ---- | ----------- |
+| `name` | str |  |
+| `created_at` | str |  |
 
 ### CollectionsClient
 
@@ -1537,6 +1634,14 @@ Iterator for synchronous dataset list responses.
 ### AsyncDatasetListIterator
 
 Iterator for asynchronous dataset list responses.
+
+### PartitionListIterator
+
+Iterator for synchronous partition list responses.
+
+### AsyncPartitionListIterator
+
+Iterator for asynchronous partition list responses.
 
 ### ConsistencyLevel
 

@@ -17,9 +17,15 @@ class Client:
         https: builtins.bool = True,
         retry_config: typing.Optional[RetryConfig | dict[builtins.str, typing.Any]] = None,
     ) -> None: ...
-    def collection(self, collection: builtins.str) -> CollectionClient:
+    def collection(
+        self,
+        collection: builtins.str,
+        partition: typing.Optional[builtins.str] = None,
+    ) -> CollectionClient:
         """
         Get a client for managing data operations on a specific collection such as querying, upserting, and deleting documents.
+
+        Optionally, pass partition name to scope data operations to that partition.
         """
         ...
     def collections(self) -> CollectionsClient:
@@ -77,8 +83,16 @@ class AsyncClient:
         https: builtins.bool = True,
         retry_config: typing.Optional[RetryConfig | dict[builtins.str, typing.Any]] = None,
     ) -> None: ...
-    def collection(self, collection: builtins.str) -> AsyncCollectionClient:
-        """Get an async client for a specific collection."""
+    def collection(
+        self,
+        collection: builtins.str,
+        partition: typing.Optional[builtins.str] = None,
+    ) -> AsyncCollectionClient:
+        """
+        Get an async client for a specific collection.
+
+        Optionally, pass partition name to scope data operations to that partition.
+        """
         ...
     def collections(self) -> AsyncCollectionsClient:
         """Get an async client for managing collections."""
@@ -191,6 +205,18 @@ class CollectionClient:
         ```
         """
         ...
+    def list_partitions(
+        self, prefix: typing.Optional[builtins.str] = None
+    ) -> PartitionListIterator:
+        """
+        List partitions in the collection as an iterator.
+        """
+        ...
+    def delete_partition(self, name: builtins.str) -> None:
+        """
+        Delete a partition and all documents within it.
+        """
+        ...
 
 class AsyncCollectionClient:
     """
@@ -270,6 +296,18 @@ class AsyncCollectionClient:
         ```
         """
         ...
+    def list_partitions(
+        self, prefix: typing.Optional[builtins.str] = None
+    ) -> AsyncPartitionListIterator:
+        """
+        List partitions in the collection as an async iterator.
+        """
+        ...
+    def delete_partition(self, name: builtins.str) -> typing.Awaitable[None]:
+        """
+        Delete a partition and all documents within it asynchronously.
+        """
+        ...
 
 class Collection:
     """
@@ -307,6 +345,14 @@ class ListEntry:
     status: builtins.str
     status_reason: typing.Optional[builtins.str]
     metadata: builtins.dict[builtins.str, typing.Any]
+
+class Partition:
+    """
+    Represents a partition in a collection.
+    """
+
+    name: builtins.str
+    created_at: builtins.str
 
 class CollectionsClient:
     """
@@ -690,6 +736,22 @@ class AsyncDatasetListIterator:
 
     def __aiter__(self) -> AsyncDatasetListIterator: ...
     def __anext__(self) -> typing.Awaitable[ListEntry]: ...
+
+class PartitionListIterator:
+    """
+    Iterator for synchronous partition list responses.
+    """
+
+    def __iter__(self) -> PartitionListIterator: ...
+    def __next__(self) -> Partition: ...
+
+class AsyncPartitionListIterator:
+    """
+    Iterator for asynchronous partition list responses.
+    """
+
+    def __aiter__(self) -> AsyncPartitionListIterator: ...
+    def __anext__(self) -> typing.Awaitable[Partition]: ...
 
 class ConsistencyLevel:
     """

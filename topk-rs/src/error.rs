@@ -20,6 +20,9 @@ pub enum Error {
     #[error("collection not found")]
     CollectionNotFound,
 
+    #[error("partition not found")]
+    PartitionNotFound,
+
     #[error("dataset already exists")]
     DatasetAlreadyExists,
 
@@ -96,6 +99,7 @@ impl Error {
             Error::RetryTimeout => false,
             Error::CollectionAlreadyExists => false,
             Error::CollectionNotFound => false,
+            Error::PartitionNotFound => false,
             Error::DatasetAlreadyExists => false,
             Error::DatasetNotFound => false,
             Error::NotFound => false,
@@ -150,7 +154,8 @@ impl From<Status> for Error {
             // Custom error
             Ok(error) => match error.code() {
                 CustomErrorCode::RequiredLsnGreaterThanManifestMaxLsn => Error::QueryLsnTimeout,
-                CustomErrorCode::SlowDown => Error::SlowDown(error.message().to_string()),
+                CustomErrorCode::SlowDown => Error::SlowDown(error.message),
+                CustomErrorCode::PartitionNotFound => Error::PartitionNotFound,
             },
             Err(e) => match e.code() {
                 tonic::Code::NotFound => Error::NotFound,
@@ -438,6 +443,7 @@ impl TryFrom<Status> for CustomError {
 pub enum CustomErrorCode {
     RequiredLsnGreaterThanManifestMaxLsn,
     SlowDown,
+    PartitionNotFound,
 }
 
 impl Into<u32> for CustomErrorCode {
@@ -445,6 +451,7 @@ impl Into<u32> for CustomErrorCode {
         match self {
             CustomErrorCode::RequiredLsnGreaterThanManifestMaxLsn => 1000,
             CustomErrorCode::SlowDown => 1429,
+            CustomErrorCode::PartitionNotFound => 1404,
         }
     }
 }
@@ -456,6 +463,7 @@ impl TryFrom<u32> for CustomErrorCode {
         match code {
             1000 => Ok(CustomErrorCode::RequiredLsnGreaterThanManifestMaxLsn),
             1429 => Ok(CustomErrorCode::SlowDown),
+            1404 => Ok(CustomErrorCode::PartitionNotFound),
             code => Err(anyhow::anyhow!("unknown internal error code: {code}")),
         }
     }
@@ -468,6 +476,7 @@ impl From<CustomError> for Status {
                 Status::failed_precondition(error.message)
             }
             CustomErrorCode::SlowDown => Status::resource_exhausted(error.message),
+            CustomErrorCode::PartitionNotFound => Status::not_found(error.message),
         };
 
         let error_code: u32 = error.code.into();

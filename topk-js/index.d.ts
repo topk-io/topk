@@ -23,8 +23,12 @@ export declare class Client {
    * listing, and deleting collections.
    */
   collections(): CollectionsClient
-  /** Returns a client for interacting with a specific collection. */
-  collection(name: string): CollectionClient
+  /**
+   * Returns a client for interacting with a specific collection.
+   *
+   * Optionally, pass partition name to scope data operations to that partition.
+   */
+  collection(name: string, partition?: string | undefined | null): CollectionClient
   /** Get a client for managing datasets. */
   datasets(): DatasetsClient
   /** Get a client for managing data operations on a specific dataset such as upserting files, managing metadata, and deleting files. */
@@ -79,6 +83,10 @@ export declare class CollectionClient {
    * ```
    */
   delete(expr: Array<string> | query.LogicalExpression): Promise<string>
+  /** List partitions in the collection as an async iterator. */
+  listPartitions(prefix?: string | undefined | null): PartitionListStream
+  /** Delete a partition and all documents within it. */
+  deletePartition(name: string): Promise<void>
 }
 
 /**
@@ -161,6 +169,20 @@ export declare class DatasetsClient {
   update(name: string, params: UpdateDatasetParams): Promise<Dataset>
   /** Delete a dataset. */
   delete(name: string): Promise<void>
+}
+
+/**
+ * Iterator for partition list responses.
+ *
+ * This type implements JavaScript's async iterable protocol.
+ * It can be used with `for await...of` loops.
+ *
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols#the_async_iterator_and_async_iterable_protocols
+ */
+export declare class PartitionListStream {
+  [Symbol.asyncIterator](): AsyncGenerator<Partition, void, undefined>
+  /** Returns the next partition in the stream. */
+  next(): Promise<Partition | null>
 }
 
 /**
@@ -340,6 +362,14 @@ export type Mode =  'auto'|
 export interface Page {
   pageNumber: number
   image?: Image
+}
+
+/** A partition within a collection. */
+export interface Partition {
+  /** Partition name */
+  name: string
+  /** RFC3339 created_at timestamp */
+  createdAt: string
 }
 
 /** Represents a progress update in an ask response. */

@@ -59,7 +59,9 @@ pub fn topk_sdk(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<client::sync::SearchIterator>()?;
     m.add_class::<client::r#async::AsyncSearchIterator>()?;
     m.add_class::<client::sync::DatasetListIterator>()?;
+    m.add_class::<client::sync::PartitionListIterator>()?;
     m.add_class::<client::r#async::AsyncDatasetListIterator>()?;
+    m.add_class::<client::r#async::AsyncPartitionListIterator>()?;
 
     // classes
     m.add_class::<data::collection::Collection>()?;
@@ -80,6 +82,7 @@ pub fn topk_sdk(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<data::ask::Fact>()?;
 
     m.add_class::<data::list_entry::ListEntry>()?;
+    m.add_class::<data::partition::Partition>()?;
 
     Ok(())
 }

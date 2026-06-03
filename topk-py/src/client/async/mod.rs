@@ -20,7 +20,7 @@ mod datasets;
 mod search;
 
 pub use ask::AsyncAskIterator;
-pub use collection::AsyncCollectionClient;
+pub use collection::{AsyncCollectionClient, AsyncPartitionListIterator};
 pub use collections::AsyncCollectionsClient;
 pub use dataset::AsyncDatasetClient;
 pub use dataset::AsyncDatasetListIterator;
@@ -48,10 +48,16 @@ impl AsyncClient {
         Self { client }
     }
 
-    pub fn collection(&self, collection: String) -> PyResult<AsyncCollectionClient> {
+    #[pyo3(signature = (collection, partition=None))]
+    pub fn collection(
+        &self,
+        collection: String,
+        partition: Option<String>,
+    ) -> PyResult<AsyncCollectionClient> {
         Ok(AsyncCollectionClient::new(
             self.client.clone(),
             Arc::new(collection),
+            partition,
         ))
     }
 
