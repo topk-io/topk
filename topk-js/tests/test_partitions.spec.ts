@@ -149,7 +149,7 @@ describe("Partitions", () => {
 
     await expect(
       ctx.client.collection(collection.name, "test-partition").count()
-    ).rejects.toThrow(/collection not found/i);
+    ).rejects.toThrow(/partition not found/i);
   });
 
   test("delete partition does not affect other partitions", async () => {
@@ -204,11 +204,11 @@ describe("Partitions", () => {
 
     await expect(
       ctx.client.collection(collection.name, "missing-partition").count()
-    ).rejects.toThrow(/collection not found/i);
+    ).rejects.toThrow(/partition not found/i);
 
     await expect(
       ctx.client.collection(collection.name, "missing-partition").get(["doc"])
-    ).rejects.toThrow(/collection not found/i);
+    ).rejects.toThrow(/partition not found/i);
   });
 
   test("partition with invalid name", async () => {

@@ -1,6 +1,6 @@
 import pytest
 
-from topk_sdk.error import CollectionNotFoundError
+from topk_sdk.error import PartitionNotFoundError
 from topk_sdk.query import field, select
 
 from . import ProjectContext
@@ -111,7 +111,7 @@ def test_delete_partition(ctx: ProjectContext):
     partitions = list(ctx.client.collection(collection.name).list_partitions())
     assert partitions == []
 
-    with pytest.raises(CollectionNotFoundError):
+    with pytest.raises(PartitionNotFoundError):
         ctx.client.collection(collection.name, "test-partition").count()
 
 
@@ -157,10 +157,10 @@ def test_upsert_creates_partition(ctx: ProjectContext):
 def test_query_non_existent_partition(ctx: ProjectContext):
     collection = ctx.client.collections().create(ctx.scope("test"), schema={})
 
-    with pytest.raises(CollectionNotFoundError):
+    with pytest.raises(PartitionNotFoundError):
         ctx.client.collection(collection.name, "missing-partition").count()
 
-    with pytest.raises(CollectionNotFoundError):
+    with pytest.raises(PartitionNotFoundError):
         ctx.client.collection(collection.name, "missing-partition").get(["doc"])
 
 

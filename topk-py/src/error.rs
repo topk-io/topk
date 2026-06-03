@@ -20,6 +20,9 @@ impl From<RustError> for PyErr {
             topk_rs::Error::CollectionNotFound => {
                 CollectionNotFoundError::new_err(value.0.to_string())
             }
+            topk_rs::Error::PartitionNotFound => {
+                PartitionNotFoundError::new_err(value.0.to_string())
+            }
             topk_rs::Error::CollectionAlreadyExists => {
                 CollectionAlreadyExistsError::new_err(value.0.to_string())
             }
@@ -51,6 +54,7 @@ impl From<RustError> for PyErr {
 
 create_exception!(error, CollectionAlreadyExistsError, PyException);
 create_exception!(error, CollectionNotFoundError, PyException);
+create_exception!(error, PartitionNotFoundError, PyException);
 create_exception!(error, DatasetAlreadyExistsError, PyException);
 create_exception!(error, DatasetNotFoundError, PyException);
 create_exception!(error, SchemaValidationError, PyException);
@@ -80,6 +84,11 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add(
         "CollectionNotFoundError",
         m.py().get_type::<CollectionNotFoundError>(),
+    )?;
+
+    m.add(
+        "PartitionNotFoundError",
+        m.py().get_type::<PartitionNotFoundError>(),
     )?;
 
     m.add(
