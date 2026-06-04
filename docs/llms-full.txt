@@ -174,6 +174,66 @@ All data in TopK is durably stored in object storage. Read/write compute nodes a
 #### Read-Write Separation
 Different applications have different read/write patterns and latency requirements. We designed our system with decoupled read and write paths to minimize the impact of write/indexing/compaction operations on query performance. This enables sustained high-throughput writes without query latency spikes caused by background compaction or indexing contenting for resources on the same node.
 
+#### Multi-tenancy
+TopK supports massively multi-tenant use cases with partitioned collections. Each partition within a collection is
+fully isolated which ensures that documents from different tenants are not visible to each other. This design also enables
+TopK to scale write throughput and read throughput horizontally with the number of partitions (tenants) in a collection.
+
+<Note>
+Partitioned collections behave like regular collections, supporting all [index types](/collections/manage#indexes) and full [query capabilities](/collections/query).
+</Note>
+
+##### Storing documents for a specific tenant
+To store documents for a specific tenant, provide the tenant ID as `partition_name` alongside the `collection_name`
+when creating the collection client. Partitions are created implicity on the first write.
+
+<CodeGroup>
+
+```python Python
+client.collection("books", "tenant-1234").upsert([
+    {"_id": "doc-1", "title": "The Great Gatsby", "author": "F. Scott Fitzgerald"},
+    {"_id": "doc-2", "title": "To Kill a Mockingbird", "author": "Harper Lee"},
+])
+```
+
+
+```typescript Javascript
+await client.collection("books", "tenant-1234").upsert([
+  { _id: "doc-1", title: "The Great Gatsby", author: "F. Scott Fitzgerald" },
+  { _id: "doc-2", title: "To Kill a Mockingbird", author: "Harper Lee" },
+]);
+```
+
+</CodeGroup>
+
+
+##### Querying documents for a specific tenant
+Similarly to writes, you can query documents for a specific tenant by providing the tenant ID as `partition_name` alongside the `collection_name`
+when creating the collection client. Queries for missing partitions will return `PartitionNotFound` error.
+
+<CodeGroup>
+
+```python Python
+client.collection("books", "tenant-1234").query(
+    select("title")
+    .filter(match("gatsby"))
+    .limit(10)
+)
+```
+
+
+```typescript Javascript
+await client.collection("books", "tenant-1234").query(
+  select({
+    title: field("title"),
+  })
+  .filter(match("gatsby"))
+  .limit(10)
+);
+```
+
+</CodeGroup>
+
 #### Read Consistency
 TopK supports three different consistency levels, allowing you to choose the right trade-off between consistency, performance, and cost. By default, we provide a **Balanced Consistency Mode**, which balances data freshness (~750ms p99 write-to-queryable) and query efficiency for most applications. Below, we explain how TopK handles data writes and reads and how each consistency mode impacts behavior.
 
@@ -283,68 +343,6 @@ For even more precise control over consistency, TopK also supports **LSN (Log Se
 
 <Info>
   For detailed information about using LSNs in queries, see our [LSN-based Consistency](/collections/query#lsn-based-consistency) guide in the Query documentation.
-</Info>
-
-
-#### Multi-tenancy
-
-In TopK, multi-tenancy is achieved through prefixing the tenant IDs in documents **`_id`** value.
-
-This design enables TopK to scale a single collection efficiently without performance degradation by leveraging smart sharding on document ID.
-
-##### Storing documents for a specific tenant
-
-To store documents for a specific tenant, prepend the **tenant ID** to the document **`_id`** value:
-
-<CodeGroup>
-
-```python Python
-client.collection("books").upsert([
-    {"_id": "tenant-1234_1", "title": "The Great Gatsby", "author": "F. Scott Fitzgerald"},
-    {"_id": "tenant-1234_2", "title": "To Kill a Mockingbird", "author": "Harper Lee"},
-])
-```
-
-
-```typescript Javascript
-await client.collection("books").upsert([
-  { _id: "tenant-1234_1", title: "The Great Gatsby", author: "F. Scott Fitzgerald" },
-  { _id: "tenant-1234_2", title: "To Kill a Mockingbird", author: "Harper Lee" },
-]);
-```
-
-</CodeGroup>
-
-
-##### Querying documents for a specific tenant
-
-To query documents for a specific tenant, use the **tenant ID** along with the `startsWith()` filter:
-
-<CodeGroup>
-
-```python Python
-client.collection("books").query(
-    select(
-        "title",
-    )
-    .filter(field("_id").startsWith("tenant-1234"))
-)
-```
-
-
-```typescript Javascript
-await client.collection("books").query(
-  select({
-    title: field("title"),
-  })
-  .filter(field("_id").startsWith("tenant-1234"))
-);
-```
-
-</CodeGroup>
-
-<Info>
-  The approach preserves the ability to query across all tenants when required.
 </Info>
 
 ### Limits
