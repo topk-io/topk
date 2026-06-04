@@ -9,13 +9,13 @@ jobs:
     if: github.actor == github.event.pull_request.user.login && contains(github.event.pull_request.labels.*.name, 'self-approve')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
         id: app-token
         with:
           app-id: ${{ secrets.GH_SELF_APPROVE_APP_ID }}
           private-key: ${{ secrets.GH_SELF_APPROVE_PRIVATE_KEY }}
 
       - name: Auto approve
-        uses: hmarr/auto-approve-action@v3
+        uses: hmarr/auto-approve-action@7d0ab8fdbb906da8a6297d373561d5ccb137d98f # v3
         with:
           github-token: ${{ steps.app-token.outputs.token }}
