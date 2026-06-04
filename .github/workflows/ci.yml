@@ -18,7 +18,7 @@ jobs:
       EARTHLY_DISABLE_ANALYTICS: 1
       EARTHLY_DISABLE_LOG_SHARING: 1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Install earthly
         run: |
@@ -38,7 +38,7 @@ jobs:
       EARTHLY_DISABLE_ANALYTICS: 1
       EARTHLY_DISABLE_LOG_SHARING: 1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Install earthly
         run: |
@@ -58,7 +58,7 @@ jobs:
       EARTHLY_DISABLE_ANALYTICS: 1
       EARTHLY_DISABLE_LOG_SHARING: 1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Install earthly
         run: |
@@ -78,7 +78,7 @@ jobs:
       EARTHLY_DISABLE_ANALYTICS: 1
       EARTHLY_DISABLE_LOG_SHARING: 1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Install earthly
         run: |
@@ -93,9 +93,9 @@ jobs:
     name: Verify all SDKs on the same version
     runs-on: public-amd64
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
 
       - name: Install bun dependencies
         run: bun add commander
@@ -109,17 +109,17 @@ jobs:
     if: true
     runs-on: public-amd64
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           cache: "yarn"
           cache-dependency-path: |
             **/yarn.lock
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
 
       - name: Install dependencies
         run: yarn install
@@ -136,10 +136,21 @@ jobs:
     name: Verify pre-commit hooks pass
     runs-on: public-amd64
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
 
       - name: Run pre-commit
         run: uvx pre-commit run --all-files --show-diff-on-failure --color always
+
+  pinact:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: suzuki-shunsuke/pinact-action@cf51507d80d4d6522a07348e3d58790290eaf0b6 # v2.0.0
+        with:
+          skip_push: true
