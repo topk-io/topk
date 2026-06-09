@@ -87,6 +87,45 @@ results = client.collection("books").query(
 )
 ```
 
+### Vector Search
+
+```python
+import os
+from topk_sdk import Client
+from topk_sdk.schema import text, f32_vector, vector_index
+from topk_sdk.query import select, field, fn
+
+client = Client(
+    api_key=os.environ["TOPK_API_KEY"],
+    region="aws-us-east-1-elastica",
+)
+
+# Create a collection with a vector field (dimension must match your embedding model's output size)
+client.collections().create(
+    "books",
+    schema={
+        "title": text().required(),
+        "embedding": f32_vector(dimension=1536).required().index(vector_index(metric="dot_product")),
+    },
+)
+
+# Upsert documents with embeddings
+client.collection("books").upsert([
+    {"_id": "1", "title": "Catcher in the Rye", "embedding": [0.1, 0.2, ...]},
+    {"_id": "2", "title": "1984",               "embedding": [0.9, 0.8, ...]},
+])
+
+# Query the nearest neighbors to a query vector
+results = client.collection("books").query(
+    select(
+        "_id", "title",
+        distance=fn.vector_distance("embedding", [0.8, 0.9, ...]),
+    )
+    # Return the 10 closest documents (ascending = closest first)
+    .topk(field("distance"), 10, asc=True)
+)
+```
+
 ### Document Search
 
 ```python

@@ -31,7 +31,7 @@ cargo add futures-util
 ```rust
 use topk_rs::{
     doc, schema,
-    proto::v1::control::{FieldSpec, KeywordIndexType},
+    proto::v1::control::{FieldIndex, FieldSpec, KeywordIndexType},
     query::{field, fns, select},
     Client, ClientConfig, Error,
 };
@@ -49,8 +49,8 @@ async fn main() -> Result<(), Error> {
         .create(
             "books",
             schema!(
-                "title" => FieldSpec::text(true, Some(KeywordIndexType::Text)),
-                "content" => FieldSpec::semantic(false),
+                "title" => FieldSpec::text(true).with_index(FieldIndex::keyword(KeywordIndexType::Text)),
+                "content" => FieldSpec::text(false).with_index(FieldIndex::semantic()),
             ),
             None,
         )
@@ -94,6 +94,68 @@ async fn main() -> Result<(), Error> {
             .sort(field("rating").mul(field("similarity_score")), false)
             // Get top 10 highest ranked documents
             .limit(10),
+            None,
+            None,
+        )
+        .await?;
+
+    for doc in results {
+        println!("{:?}", doc);
+    }
+
+    Ok(())
+}
+```
+
+### Vector Search
+
+```rust
+use topk_rs::{
+    doc, schema,
+    proto::v1::control::{FieldIndex, FieldSpec, VectorDistanceMetric},
+    query::{field, fns, select},
+    Client, ClientConfig, Error,
+};
+
+#[tokio::main]
+async fn main() -> Result<(), Error> {
+    let client = Client::new(ClientConfig::new(
+        std::env::var("TOPK_API_KEY").expect("TOPK_API_KEY is not set"),
+        "aws-us-east-1-elastica",
+    ));
+
+    // Create a collection with a vector field (dimension must match your embedding model's output size)
+    client
+        .collections()
+        .create(
+            "books",
+            schema!(
+                "title" => FieldSpec::text(true, None),
+                "embedding" => FieldSpec::f32_vector(1536, true).with_index(FieldIndex::vector(VectorDistanceMetric::DotProduct)),
+            ),
+            None,
+        )
+        .await?;
+
+    // Upsert documents with embeddings
+    client
+        .collection("books")
+        .upsert(vec![
+            doc!("_id" => "1", "title" => "Catcher in the Rye", "embedding" => vec![0.1f32, 0.2, /* ... */]),
+            doc!("_id" => "2", "title" => "1984",               "embedding" => vec![0.9f32, 0.8, /* ... */]),
+        ])
+        .await?;
+
+    // Query the nearest neighbors to a query vector
+    let results = client
+        .collection("books")
+        .query(
+            select([
+                ("title", field("title")),
+                ("distance", fns::vector_distance("embedding", vec![0.8f32, 0.9, /* ... */])),
+            ])
+            // Return the 10 closest documents (ascending = closest first)
+            .topk(field("distance"), 10, true),
             None,
             None,
         )

@@ -5,7 +5,17 @@
 
 # TopK
 
-TopK is an end-to-end solution that turns unstructured documents into reliable context for agents and humans.
+[TopK](https://topk.io) is a unified retrieval engine for hybrid search, vector search, multi-vector retrieval, keyword search (BM25) custom ranking, and managed inference in one API. Built on object storage for 10x lower cost and massive scale.
+
+## What TopK Does
+
+**Retrieval Engine** — Store and query dense vectors, sparse vectors, multi-vector embeddings, and metadata in a single collection. Filter by metadata, rank with custom expressions, and run managed inference — all in a single API.
+
+**Document Search** — Ingest files, search across your private documents, and get source-backed answers. Connect your data to agents with the SDKs, CLI or MCP server.
+
+## Docs
+
+Start with the [documentation](https://docs.topk.io) for quickstart guides, API reference, and product documentation.
 
 ## SDKs
 
@@ -20,13 +30,3 @@ TopK is an end-to-end solution that turns unstructured documents into reliable c
 ## MCP
 
 - [TopK MCP](https://docs.topk.io/mcp-server) - Connect TopK to MCP-compatible AI agents
-
-## What TopK Does
-
-- Ingest and process unstructured documents while preserving structure from complex files like PDFs and images
-- Retrieve relevant context for search, Q&A, and research workflows
-- Power agentic workflows with grounded, source-backed results
-
-## Getting Started
-
-Start with the [documentation](https://docs.topk.io) for quickstart guides, API reference, and product documentation.
