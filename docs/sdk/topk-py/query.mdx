@@ -984,13 +984,15 @@ Create a literal expression.
 match(token: str, field: str | None = None, weight: float = 1.0, all: bool = False) -> TextExpr
 ```
 
-Perform a keyword search for documents that contain specific keywords or phrases.
+Perform a BM25 keyword search using TopK's built-in tokenizer.
 
-    This function should be used in the filter stage of a query. You can configure
-    the match() function to:
-    - Match on multiple terms
-    - Match only on specific fields
-    - Use weights to prioritize certain terms
+    The ``token`` argument is a raw query string — TopK tokenizes it automatically,
+    removes stop words, and scores documents using BM25. Pass the full query string
+    directly; tokenization and stop-word removal happen server-side.
+
+    - ``field``: restrict matching to a specific keyword-indexed field (default: all).
+    - ``weight``: scale the BM25 contribution of this expression (default: 1.0).
+    - ``all``: if True, require all tokens to match (AND); default is any-token (OR).
 
 **Parameters**
 
