@@ -118,7 +118,8 @@ results = client.collection("books").query(
         distance=fn.vector_distance("embedding", [0.8, 0.9, ...]),
     )
     # Return the 10 closest documents (ascending = closest first)
-    .topk(field("distance"), 10, asc=True)
+    .sort(field("distance"), asc=True)
+    .limit(10)
 )
 ```
 
