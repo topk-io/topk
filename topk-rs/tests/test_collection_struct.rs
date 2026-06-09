@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use test_context::test_context;
 use topk_rs::doc;
 use topk_rs::error::{DocumentValidationError, SchemaValidationError, ValidationErrorBag};
-use topk_rs::proto::v1::control::FieldSpec;
+use topk_rs::proto::v1::control::{FieldIndex, FieldSpec};
 use topk_rs::proto::v1::data::Value;
 use topk_rs::query::{field, fns, select};
 use topk_rs::Error;
@@ -158,7 +158,7 @@ async fn test_struct_semantic_index_on_sub_field(ctx: &mut ProjectTestContext) {
             ctx.wrap("test"),
             HashMap::from_iter([(
                 "meta".to_string(),
-                FieldSpec::r#struct(false, [("description", FieldSpec::semantic(false))]),
+                FieldSpec::r#struct(false, [("description", FieldSpec::text(false).with_index(FieldIndex::semantic()))]),
             )]),
             None,
         )
