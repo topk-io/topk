@@ -3,7 +3,7 @@ mod utils;
 use topk_rs::{
     data::literal,
     doc,
-    proto::v1::control::{FieldSpec, KeywordIndexType},
+    proto::v1::control::{FieldIndex, FieldSpec, KeywordIndexType},
     query::{field, filter, fns, r#match, select},
     schema, Error,
 };
@@ -314,7 +314,7 @@ async fn test_query_text_with_updates(ctx: &mut ProjectTestContext) {
         .create(
             ctx.wrap("text_updates"),
             schema!(
-                "text" => FieldSpec::text(true, Some(KeywordIndexType::Text)),
+                "text" => FieldSpec::text(true).with_index(FieldIndex::keyword(KeywordIndexType::Text)),
             ),
             None,
         )

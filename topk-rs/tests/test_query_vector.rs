@@ -1,6 +1,6 @@
 use float8::F8E4M3;
 use test_context::test_context;
-use topk_rs::proto::v1::control::{FieldSpec, VectorDistanceMetric};
+use topk_rs::proto::v1::control::{FieldIndex, FieldSpec, VectorDistanceMetric};
 use topk_rs::query::{field, fns, select};
 
 mod utils;
@@ -188,7 +188,7 @@ async fn test_query_vector_distance_f16_vector(ctx: &mut ProjectTestContext) {
         .create(
             ctx.wrap("vec_f16"),
             schema!(
-                "embedding" => FieldSpec::f16_vector(16, true, VectorDistanceMetric::Euclidean),
+                "embedding" => FieldSpec::f16_vector(16, true).with_index(FieldIndex::vector(VectorDistanceMetric::Euclidean)),
             ),
             None,
         )
@@ -236,7 +236,7 @@ async fn test_query_vector_distance_f8_vector(ctx: &mut ProjectTestContext) {
         .create(
             ctx.wrap("vec_f8"),
             schema!(
-                "embedding" => FieldSpec::f8_vector(16, true, VectorDistanceMetric::Euclidean),
+                "embedding" => FieldSpec::f8_vector(16, true).with_index(FieldIndex::vector(VectorDistanceMetric::Euclidean)),
             ),
             None,
         )

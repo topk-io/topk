@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use test_context::test_context;
 use topk_rs::doc;
 use topk_rs::error::{DocumentValidationError, ValidationErrorBag};
-use topk_rs::proto::v1::control::VectorDistanceMetric;
+use topk_rs::proto::v1::control::{FieldIndex, VectorDistanceMetric};
 use topk_rs::proto::v1::data::Value;
 use topk_rs::proto::v1::{
     control::{field_type::DataType, FieldSpec, FieldType, FieldTypeText},
@@ -280,15 +280,18 @@ async fn test_upsert_vectors(ctx: &mut ProjectTestContext) {
             HashMap::from([
                 (
                     "f32_vector".to_string(),
-                    FieldSpec::f32_vector(4, false, VectorDistanceMetric::Cosine),
+                    FieldSpec::f32_vector(4, false)
+                        .with_index(FieldIndex::vector(VectorDistanceMetric::Cosine)),
                 ),
                 (
                     "u8_vector".to_string(),
-                    FieldSpec::u8_vector(3, false, VectorDistanceMetric::Cosine),
+                    FieldSpec::u8_vector(3, false)
+                        .with_index(FieldIndex::vector(VectorDistanceMetric::Cosine)),
                 ),
                 (
                     "binary_vector".to_string(),
-                    FieldSpec::binary_vector(2, false, VectorDistanceMetric::Hamming),
+                    FieldSpec::binary_vector(2, false)
+                        .with_index(FieldIndex::vector(VectorDistanceMetric::Hamming)),
                 ),
             ]),
             None,
@@ -334,11 +337,13 @@ async fn test_upsert_sparse_vectors(ctx: &mut ProjectTestContext) {
             HashMap::from_iter([
                 (
                     "f32_sparse_vector".to_string(),
-                    FieldSpec::f32_sparse_vector(true, VectorDistanceMetric::DotProduct),
+                    FieldSpec::f32_sparse_vector(true)
+                        .with_index(FieldIndex::vector(VectorDistanceMetric::DotProduct)),
                 ),
                 (
                     "u8_sparse_vector".to_string(),
-                    FieldSpec::u8_sparse_vector(true, VectorDistanceMetric::DotProduct),
+                    FieldSpec::u8_sparse_vector(true)
+                        .with_index(FieldIndex::vector(VectorDistanceMetric::DotProduct)),
                 ),
             ]),
             None,

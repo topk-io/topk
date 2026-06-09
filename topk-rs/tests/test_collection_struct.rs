@@ -28,8 +28,8 @@ async fn test_struct_round_trip(ctx: &mut ProjectTestContext) {
                         FieldSpec::r#struct(
                             false,
                             [
-                                ("leaf", FieldSpec::text(false, None)),
-                                ("sibling", FieldSpec::text(false, None)),
+                                ("leaf", FieldSpec::text(false)),
+                                ("sibling", FieldSpec::text(false)),
                             ],
                         ),
                     )],
@@ -85,9 +85,9 @@ async fn test_struct_query(ctx: &mut ProjectTestContext) {
                 FieldSpec::r#struct(
                     false,
                     [
-                        ("author", FieldSpec::text(false, None)),
+                        ("author", FieldSpec::text(false)),
                         ("year", FieldSpec::integer(false)),
-                        ("tag", FieldSpec::text(false, None)),
+                        ("tag", FieldSpec::text(false)),
                     ],
                 ),
             )]),
@@ -219,8 +219,8 @@ async fn test_struct_update(ctx: &mut ProjectTestContext) {
                 FieldSpec::r#struct(
                     false,
                     [
-                        ("author", FieldSpec::text(false, None)),
-                        ("title", FieldSpec::text(false, None)),
+                        ("author", FieldSpec::text(false)),
+                        ("title", FieldSpec::text(false)),
                     ],
                 ),
             )]),
@@ -363,7 +363,7 @@ async fn test_create_schema_struct_dotted_sub_field_rejected(ctx: &mut ProjectTe
             ctx.wrap("test"),
             HashMap::from_iter([(
                 "meta".to_string(),
-                FieldSpec::r#struct(false, [("a.b", FieldSpec::text(false, None))]),
+                FieldSpec::r#struct(false, [("a.b", FieldSpec::text(false))]),
             )]),
             None,
         )
@@ -429,7 +429,7 @@ async fn test_struct_get_all_fields(ctx: &mut ProjectTestContext) {
                 FieldSpec::r#struct(
                     false,
                     [
-                        ("author", FieldSpec::text(false, None)),
+                        ("author", FieldSpec::text(false)),
                         ("year", FieldSpec::integer(false)),
                     ],
                 ),
@@ -483,7 +483,7 @@ async fn test_struct_get_returns_whole_struct(ctx: &mut ProjectTestContext) {
                 FieldSpec::r#struct(
                     false,
                     [
-                        ("author", FieldSpec::text(false, None)),
+                        ("author", FieldSpec::text(false)),
                         ("year", FieldSpec::integer(false)),
                     ],
                 ),
@@ -535,7 +535,7 @@ async fn test_struct_get_returns_flat_leaf(ctx: &mut ProjectTestContext) {
                 FieldSpec::r#struct(
                     false,
                     [
-                        ("author", FieldSpec::text(false, None)),
+                        ("author", FieldSpec::text(false)),
                         ("year", FieldSpec::integer(false)),
                     ],
                 ),
@@ -589,7 +589,7 @@ async fn test_struct_underscore_sub_field(ctx: &mut ProjectTestContext) {
             ctx.wrap("test"),
             HashMap::from_iter([(
                 "meta".to_string(),
-                FieldSpec::r#struct(false, [("_bar", FieldSpec::text(false, None))]),
+                FieldSpec::r#struct(false, [("_bar", FieldSpec::text(false))]),
             )]),
             None,
         )

@@ -3,7 +3,7 @@ use test_context::test_context;
 use topk_rs::{
     error::{SchemaValidationError, ValidationErrorBag},
     proto::v1::control::{
-        field_type_matrix::MatrixValueType, FieldSpec, MultiVectorQuantization,
+        field_type_matrix::MatrixValueType, FieldIndex, FieldSpec, MultiVectorQuantization,
         VectorDistanceMetric,
     },
     Error,
@@ -170,7 +170,8 @@ async fn test_create_collection_with_invalid_vector_dimension(ctx: &mut ProjectT
             ctx.wrap("test"),
             HashMap::from([(
                 "high_dim_vector".to_string(),
-                FieldSpec::f32_vector(20_000, false, VectorDistanceMetric::Cosine),
+                FieldSpec::f32_vector(20_000, false)
+                    .with_index(FieldIndex::vector(VectorDistanceMetric::Cosine)),
             )]),
             None,
         )
