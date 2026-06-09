@@ -23,6 +23,108 @@ uv add topk-sdk
 
 ## Usage
 
+### Hybrid Search
+
+```python
+import os
+from topk_sdk import Client
+from topk_sdk.schema import text, keyword_index, semantic_index
+from topk_sdk.query import select, field, fn
+
+client = Client(
+    api_key=os.environ["TOPK_API_KEY"],
+    region="aws-us-east-1-elastica",
+)
+
+# Create a collection
+client.collections().create(
+    "books",
+    schema={
+        "title": text().required().index(keyword_index()),
+        "content": text().index(semantic_index()),
+    },
+)
+
+# Upsert documents
+client.collection("books").upsert([
+    {
+        "_id": "1",
+        "title": "Catcher in the Rye",
+        "content": "IF YOU REALLY WANT TO HEAR about it, the first thing you'll probably want to know is ...",
+        "author": "J.D. Salinger",
+        "rating": 3.8,
+    },
+    {
+        "_id": "2",
+        "title": "1984",
+        "content": "It was a bright cold day in April, and the clocks were striking thirteen. Winston Smith, ...",
+        "author": "George Orwell",
+        "rating": 4.7,
+    },
+])
+
+# Query with hybrid search
+results = client.collection("books").query(
+    select(
+        # Select document fields to return
+        "_id", "title", "author",
+        # Compute semantic similarity of content field with the query
+        similarity_score=fn.semantic_similarity(
+            "content",
+            "What is the meaning of life?",
+        ),
+    )
+    # Filter documents by metadata
+    .filter(field("rating") >= 3.0)
+    # Rank using the computed similarity score and rating
+    .sort(field("rating") * field("similarity_score"), asc=False)
+    # Get top 10 highest ranked documents
+    .limit(10)
+)
+```
+
+### Vector Search
+
+```python
+import os
+from topk_sdk import Client
+from topk_sdk.schema import text, f32_vector, vector_index
+from topk_sdk.query import select, field, fn
+
+client = Client(
+    api_key=os.environ["TOPK_API_KEY"],
+    region="aws-us-east-1-elastica",
+)
+
+# Create a collection with a vector field (dimension must match your embedding model's output size)
+client.collections().create(
+    "books",
+    schema={
+        "title": text().required(),
+        "embedding": f32_vector(dimension=1536).required().index(vector_index(metric="dot_product")),
+    },
+)
+
+# Upsert documents with embeddings
+client.collection("books").upsert([
+    {"_id": "1", "title": "Catcher in the Rye", "embedding": [0.1, 0.2, ...]},
+    {"_id": "2", "title": "1984",               "embedding": [0.9, 0.8, ...]},
+])
+
+# Query the nearest neighbors to a query vector
+results = client.collection("books").query(
+    select(
+        "_id", "title",
+        distance=fn.vector_distance("embedding", [0.8, 0.9, ...]),
+    )
+    # Return the 10 closest documents (ascending = closest first)
+    .sort(field("distance"), asc=True)
+    .limit(10)
+)
+```
+
+### Document Search
+
 ```python
 import os
 from topk_sdk import Client
@@ -37,8 +139,8 @@ client.datasets().create("my-dataset")
 
 # Upload a file
 handle = client.dataset("my-dataset").upsert_file(
-    "doc-1",
-    input="/path/to/document.pdf",
+    "doc-1",                                               # document ID
+    input="/path/to/document.pdf",                         # path to file
     metadata={"kind": "report", "department": "finance"},  # optional metadata
 )
 
@@ -61,13 +163,45 @@ Simply import `AsyncClient` instead of `Client` and use `async for` / `await` wi
 import os
 import asyncio
 from topk_sdk import AsyncClient
+from topk_sdk.schema import text, keyword_index, semantic_index
+from topk_sdk.query import select, field, fn
 
 client = AsyncClient(
-    api_key=os.environ.get("TOPK_API_KEY"),
+    api_key=os.environ["TOPK_API_KEY"],
     region="aws-us-east-1-elastica",
 )
 
 async def main() -> None:
+    # Hybrid search
+    await client.collections().create(
+        "books",
+        schema={
+            "title": text().required().index(keyword_index()),
+            "content": text().index(semantic_index()),
+        },
+    )
+
+    await client.collection("books").upsert([
+        {"_id": "1", "title": "Catcher in the Rye", "content": "...", "rating": 3.8},
+        {"_id": "2", "title": "1984", "content": "...", "rating": 4.7},
+    ])
+
+    results = await client.collection("books").query(
+        select(
+            # Select document fields to return
+            "_id", "title",
+            # Compute semantic similarity of content field with the query
+            similarity_score=fn.semantic_similarity("content", "What is the meaning of life?"),
+        )
+        # Filter documents by metadata
+        .filter(field("rating") >= 3.0)
+        # Rank using the computed similarity score and rating
+        .sort(field("rating") * field("similarity_score"), asc=False)
+        # Get top 10 highest ranked documents
+        .limit(10)
+    )
+
+    # Document search
     await client.datasets().create("my-dataset")
 
     handle = await client.dataset("my-dataset").upsert_file(

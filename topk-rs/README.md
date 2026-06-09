@@ -26,6 +26,151 @@ cargo add futures-util
 
 ## Usage
 
+### Hybrid Search
+
+```rust
+use topk_rs::{
+    doc, schema,
+    proto::v1::control::{FieldIndex, FieldSpec, KeywordIndexType},
+    query::{field, fns, select},
+    Client, ClientConfig, Error,
+};
+
+#[tokio::main]
+async fn main() -> Result<(), Error> {
+    let client = Client::new(ClientConfig::new(
+        std::env::var("TOPK_API_KEY").expect("TOPK_API_KEY is not set"),
+        "aws-us-east-1-elastica",
+    ));
+
+    // Create a collection
+    client
+        .collections()
+        .create(
+            "books",
+            schema!(
+                "title" => FieldSpec::text(true).with_index(FieldIndex::keyword(KeywordIndexType::Text)),
+                "content" => FieldSpec::text(false).with_index(FieldIndex::semantic()),
+            ),
+            None,
+        )
+        .await?;
+
+    // Upsert documents
+    client
+        .collection("books")
+        .upsert(vec![
+            doc!(
+                "_id" => "1",
+                "title" => "Catcher in the Rye",
+                "content" => "IF YOU REALLY WANT TO HEAR about it, the first thing you'll probably want to know is ...",
+                "author" => "J.D. Salinger",
+                "rating" => 3.8f64
+            ),
+            doc!(
+                "_id" => "2",
+                "title" => "1984",
+                "content" => "It was a bright cold day in April, and the clocks were striking thirteen. Winston Smith, ...",
+                "author" => "George Orwell",
+                "rating" => 4.7f64
+            ),
+        ])
+        .await?;
+
+    // Query with hybrid search
+    let results = client
+        .collection("books")
+        .query(
+            select([
+                // Select document fields to return
+                ("title", field("title")),
+                ("author", field("author")),
+                // Compute semantic similarity of content field with the query
+                ("similarity_score", fns::semantic_similarity("content", "What is the meaning of life?")),
+            ])
+            // Filter documents by metadata
+            .filter(field("rating").gte(3.0f64))
+            // Rank using the computed similarity score and rating
+            .sort(field("rating").mul(field("similarity_score")), false)
+            // Get top 10 highest ranked documents
+            .limit(10),
+            None,
+            None,
+        )
+        .await?;
+
+    for doc in results {
+        println!("{:?}", doc);
+    }
+
+    Ok(())
+}
+```
+
+### Vector Search
+
+```rust
+use topk_rs::{
+    doc, schema,
+    proto::v1::control::{FieldIndex, FieldSpec, VectorDistanceMetric},
+    query::{field, fns, select},
+    Client, ClientConfig, Error,
+};
+
+#[tokio::main]
+async fn main() -> Result<(), Error> {
+    let client = Client::new(ClientConfig::new(
+        std::env::var("TOPK_API_KEY").expect("TOPK_API_KEY is not set"),
+        "aws-us-east-1-elastica",
+    ));
+
+    // Create a collection with a vector field (dimension must match your embedding model's output size)
+    client
+        .collections()
+        .create(
+            "books",
+            schema!(
+                "title" => FieldSpec::text(true, None),
+                "embedding" => FieldSpec::f32_vector(1536, true).with_index(FieldIndex::vector(VectorDistanceMetric::DotProduct)),
+            ),
+            None,
+        )
+        .await?;
+
+    // Upsert documents with embeddings
+    client
+        .collection("books")
+        .upsert(vec![
+            doc!("_id" => "1", "title" => "Catcher in the Rye", "embedding" => vec![0.1f32, 0.2, /* ... */]),
+            doc!("_id" => "2", "title" => "1984",               "embedding" => vec![0.9f32, 0.8, /* ... */]),
+        ])
+        .await?;
+
+    // Query the nearest neighbors to a query vector
+    let results = client
+        .collection("books")
+        .query(
+            select([
+                ("title", field("title")),
+                ("distance", fns::vector_distance("embedding", vec![0.8f32, 0.9, /* ... */])),
+            ])
+            // Return the 10 closest documents (ascending = closest first)
+            .topk(field("distance"), 10, true),
+            None,
+            None,
+        )
+        .await?;
+
+    for doc in results {
+        println!("{:?}", doc);
+    }
+
+    Ok(())
+}
+```
+
+### Document Search
+
 ```rust
 use futures_util::StreamExt;
 use topk_rs::proto::v1::ctx::ask_result::Message;
@@ -44,8 +189,8 @@ async fn main() -> Result<(), Error> {
     let handle = client
         .dataset("my-docs")
         .upsert_file(
-            "doc-1",
-            "/path/to/document.pdf",
+            "doc-1",                              // document ID
+            "/path/to/document.pdf",              // path to file
             [
                 ("kind", Value::string("report")),
                 ("department", Value::string("finance")),

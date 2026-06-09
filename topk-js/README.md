@@ -27,6 +27,100 @@ pnpm install topk-js
 
 ## Usage
 
+### Hybrid Search
+
+```typescript
+import { Client } from "topk-js";
+import { text, keywordIndex, semanticIndex } from "topk-js/schema";
+import { select, field, fn } from "topk-js/query";
+
+const client = new Client({
+  apiKey: process.env.TOPK_API_KEY!,
+  region: "aws-us-east-1-elastica",
+});
+
+// Create a collection
+await client.collections().create("books", {
+  title: text().required().index(keywordIndex()),
+  content: text().index(semanticIndex()),
+});
+
+// Upsert documents
+await client.collection("books").upsert([
+  {
+    _id: "1",
+    title: "Catcher in the Rye",
+    content: "IF YOU REALLY WANT TO HEAR about it, the first thing you'll probably want to know is ...",
+    author: "J.D. Salinger",
+    rating: 3.8,
+  },
+  {
+    _id: "2",
+    title: "1984",
+    content: "It was a bright cold day in April, and the clocks were striking thirteen. Winston Smith, ...",
+    author: "George Orwell",
+    rating: 4.7,
+  },
+]);
+
+// Query with hybrid search
+const results = await client.collection("books").query(
+  select({
+    title: field("title"),
+    author: field("author"),
+    // Compute semantic similarity of content field with the query
+    similarity_score: fn.semanticSimilarity(
+      "content",
+      "What is the meaning of life?",
+    ),
+  })
+  // Filter documents by metadata
+  .filter(field("rating").gte(3.0))
+  // Rank using the computed similarity score and rating
+  .sort(field("rating").mul(field("similarity_score")), false)
+  // Get top 10 highest ranked documents
+  .limit(10)
+);
+```
+
+### Vector Search
+
+```typescript
+import { Client } from "topk-js";
+import { text, f32Vector, vectorIndex } from "topk-js/schema";
+import { select, field, fn } from "topk-js/query";
+
+const client = new Client({
+  apiKey: process.env.TOPK_API_KEY!,
+  region: "aws-us-east-1-elastica",
+});
+
+// Create a collection with a vector field (dimension must match your embedding model's output size)
+await client.collections().create("books", {
+  title: text().required(),
+  embedding: f32Vector({ dimension: 1536 }).required().index(vectorIndex({ metric: "dot_product" })),
+});
+
+// Upsert documents with embeddings
+await client.collection("books").upsert([
+  { _id: "1", title: "Catcher in the Rye", embedding: [0.1, 0.2, ...] },
+  { _id: "2", title: "1984",               embedding: [0.9, 0.8, ...] },
+]);
+
+// Query the nearest neighbors to a query vector
+const results = await client.collection("books").query(
+  select({
+    title: field("title"),
+    distance: fn.vectorDistance("embedding", [0.8, 0.9, ...]),
+  })
+  // Return the 10 closest documents (ascending = closest first)
+  .sort(field("distance"), true)
+  .limit(10)
+);
+```
+
+### Document Search
+
 ```typescript
 import { Client } from "topk-js";
 
@@ -40,8 +134,8 @@ await client.datasets().create("my-dataset");
 
 // Upload a file
 const handle = await client.dataset("my-dataset").upsertFile(
-  "doc-1",
-  { path: "/path/to/document.pdf" },
+  "doc-1",                                   // document ID
+  { path: "/path/to/document.pdf" },         // path to file
   { kind: "report", department: "finance" }, // optional metadata
 );
 
