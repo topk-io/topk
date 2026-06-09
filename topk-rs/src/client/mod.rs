@@ -42,31 +42,114 @@ pub const RETRY_BACKOFF_INIT: u64 = 100; // 100 milliseconds
 pub const RETRY_BACKOFF_MAX: u64 = 10_000; // 10 seconds
 pub const RETRY_BACKOFF_BASE: u32 = 2; // `Base` is the multiplier for the backoff
 
+#[derive(Clone, Default)]
+struct Connection {
+    control: Arc<OnceCell<Channel>>,
+    read: Arc<OnceCell<Channel>>,
+    write: Arc<OnceCell<Channel>>,
+    ctx_read: Arc<OnceCell<Channel>>,
+    ctx_write: Arc<OnceCell<Channel>>,
+}
+
+impl Connection {
+    fn new(
+        control: Option<Channel>,
+        read: Option<Channel>,
+        write: Option<Channel>,
+        ctx_read: Option<Channel>,
+        ctx_write: Option<Channel>,
+    ) -> Self {
+        Self {
+            control: Arc::new(OnceCell::new_with(control)),
+            read: Arc::new(OnceCell::new_with(read)),
+            write: Arc::new(OnceCell::new_with(write)),
+            ctx_read: Arc::new(OnceCell::new_with(ctx_read)),
+            ctx_write: Arc::new(OnceCell::new_with(ctx_write)),
+        }
+    }
+}
+
+pub struct ClientBuilder {
+    config: ClientConfig,
+    control: Option<Channel>,
+    read: Option<Channel>,
+    write: Option<Channel>,
+    ctx_read: Option<Channel>,
+    ctx_write: Option<Channel>,
+}
+
+impl ClientBuilder {
+    pub fn new(config: ClientConfig) -> Self {
+        Self {
+            config,
+            control: None,
+            read: None,
+            write: None,
+            ctx_read: None,
+            ctx_write: None,
+        }
+    }
+
+    pub fn with_channel(mut self, channel: Channel) -> Self {
+        self.control = Some(channel.clone());
+        self.read = Some(channel.clone());
+        self.write = Some(channel.clone());
+        self.ctx_read = Some(channel.clone());
+        self.ctx_write = Some(channel);
+        self
+    }
+
+    pub fn with_control_channel(mut self, channel: Channel) -> Self {
+        self.control = Some(channel);
+        self
+    }
+
+    pub fn with_read_channel(mut self, channel: Channel) -> Self {
+        self.read = Some(channel);
+        self
+    }
+
+    pub fn with_write_channel(mut self, channel: Channel) -> Self {
+        self.write = Some(channel);
+        self
+    }
+
+    pub fn with_ctx_read_channel(mut self, channel: Channel) -> Self {
+        self.ctx_read = Some(channel);
+        self
+    }
+
+    pub fn with_ctx_write_channel(mut self, channel: Channel) -> Self {
+        self.ctx_write = Some(channel);
+        self
+    }
+
+    pub fn build(self) -> Client {
+        Client {
+            config: self.config,
+            conn: Connection::new(
+                self.control,
+                self.read,
+                self.write,
+                self.ctx_read,
+                self.ctx_write,
+            ),
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct Client {
     // Client config
     config: ClientConfig,
 
-    // Channel (lazily connected on first request)
-    channel: Arc<OnceCell<Channel>>,
+    // Connection
+    conn: Connection,
 }
 
 impl Client {
-    /// Creates a new client with the provided configuration.
-    ///
-    /// The connection is established lazily, at the first request.
     pub fn new(config: ClientConfig) -> Self {
-        Self {
-            config,
-            channel: Arc::new(OnceCell::new()),
-        }
-    }
-
-    pub fn from_channel(config: ClientConfig, channel: Channel) -> Self {
-        Self {
-            config,
-            channel: Arc::new(OnceCell::new_with(Some(channel))),
-        }
+        ClientBuilder::new(config).build()
     }
 
     pub fn config(&self) -> &ClientConfig {
@@ -74,11 +157,11 @@ impl Client {
     }
 
     pub fn collections(&self) -> CollectionsClient {
-        CollectionsClient::new(self.config.clone(), self.channel.clone())
+        CollectionsClient::new(self.config.clone(), self.conn.control.clone())
     }
 
     pub fn datasets(&self) -> DatasetsClient {
-        DatasetsClient::new(self.config.clone(), self.channel.clone())
+        DatasetsClient::new(self.config.clone(), self.conn.control.clone())
     }
 
     pub fn collection(&self, name: impl Into<String>) -> CollectionClient {
@@ -88,14 +171,18 @@ impl Client {
             .clone()
             .with_headers([("x-topk-collection", name)]);
 
-        CollectionClient::new(config, self.channel.clone(), self.channel.clone())
+        CollectionClient::new(config, self.conn.read.clone(), self.conn.write.clone())
     }
 
     pub fn dataset(&self, name: impl Into<String>) -> DatasetClient {
         // Dataset services expect `x-topk-dataset` header to be set.
         let config = self.config.clone().with_headers([("x-topk-dataset", name)]);
 
-        DatasetClient::new(config, self.channel.clone(), self.channel.clone())
+        DatasetClient::new(
+            config,
+            self.conn.ctx_read.clone(),
+            self.conn.ctx_write.clone(),
+        )
     }
 }
 
@@ -117,9 +204,6 @@ macro_rules! create_client {
                     Ok::<_, Error>(
                         $config
                             .endpoint()?
-                            .tls_config(
-                                tonic::transport::ClientTlsConfig::new().with_native_roots(),
-                            )?
                             // Do not close idle connections so they can be reused
                             .keep_alive_while_idle(true)
                             // Set max header list size to 64KB

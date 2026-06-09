@@ -5,6 +5,7 @@ pub use error::Error;
 
 pub mod client;
 pub use client::Client;
+pub use client::ClientBuilder;
 pub use client::ClientConfig;
 pub use client::CollectionClient;
 pub use client::CollectionsClient;

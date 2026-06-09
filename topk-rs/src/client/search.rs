@@ -26,7 +26,8 @@ impl super::Client {
             ));
         }
 
-        let client = create_client!(ContextServiceClient, self.channel, self.config).await?;
+        let channel = self.conn.ctx_read.clone();
+        let client = create_client!(ContextServiceClient, channel, self.config).await?;
 
         let request = SearchRequest {
             query: query.into(),
