@@ -47,17 +47,17 @@ pub async fn setup(ctx: &mut ProjectTestContext) -> Collection {
 #[allow(dead_code)]
 pub fn schema() -> HashMap<String, FieldSpec> {
     schema!(
-        "title" => FieldSpec::text(true, Some(KeywordIndexType::Text)),
+        "title" => FieldSpec::text(true).with_index(FieldIndex::keyword(KeywordIndexType::Text)),
         "published_year" => FieldSpec::integer(true),
-        "summary" => FieldSpec::text(true, Some(KeywordIndexType::Text)),
-        "summary_embedding" => FieldSpec::f32_vector(16, true, VectorDistanceMetric::Euclidean),
-        "nullable_embedding" => FieldSpec::f32_vector(4, false, VectorDistanceMetric::Euclidean),
-        "scalar_embedding" => FieldSpec::u8_vector(16, false, VectorDistanceMetric::Euclidean),
-        "scalar_i8_embedding" => FieldSpec::i8_vector(4, false, VectorDistanceMetric::Euclidean),
-        "binary_embedding" => FieldSpec::binary_vector(2, false, VectorDistanceMetric::Hamming),
-        "sparse_f32_embedding" => FieldSpec::f32_sparse_vector(true, VectorDistanceMetric::DotProduct),
-        "sparse_f8_embedding" => FieldSpec::f8_sparse_vector(true, VectorDistanceMetric::DotProduct),
-        "sparse_u8_embedding" => FieldSpec::u8_sparse_vector(false, VectorDistanceMetric::DotProduct),
+        "summary" => FieldSpec::text(true).with_index(FieldIndex::keyword(KeywordIndexType::Text)),
+        "summary_embedding" => FieldSpec::f32_vector(16, true).with_index(FieldIndex::vector(VectorDistanceMetric::Euclidean)),
+        "nullable_embedding" => FieldSpec::f32_vector(4, false).with_index(FieldIndex::vector(VectorDistanceMetric::Euclidean)),
+        "scalar_embedding" => FieldSpec::u8_vector(16, false).with_index(FieldIndex::vector(VectorDistanceMetric::Euclidean)),
+        "scalar_i8_embedding" => FieldSpec::i8_vector(4, false).with_index(FieldIndex::vector(VectorDistanceMetric::Euclidean)),
+        "binary_embedding" => FieldSpec::binary_vector(2, false).with_index(FieldIndex::vector(VectorDistanceMetric::Hamming)),
+        "sparse_f32_embedding" => FieldSpec::f32_sparse_vector(true).with_index(FieldIndex::vector(VectorDistanceMetric::DotProduct)),
+        "sparse_f8_embedding" => FieldSpec::f8_sparse_vector(true).with_index(FieldIndex::vector(VectorDistanceMetric::DotProduct)),
+        "sparse_u8_embedding" => FieldSpec::u8_sparse_vector(false).with_index(FieldIndex::vector(VectorDistanceMetric::DotProduct)),
         "tags" => FieldSpec::list(true, ListValueType::String).with_index(FieldIndex::keyword(KeywordIndexType::Text)),
     )
 }

@@ -102,9 +102,9 @@ pub fn schema(
     top_k: Option<u32>,
 ) -> HashMap<String, FieldSpec> {
     schema!(
-        "title" => FieldSpec::text(true, Some(KeywordIndexType::Text)),
+        "title" => FieldSpec::text(true).with_index(FieldIndex::keyword(KeywordIndexType::Text)),
         "published_year" => FieldSpec::integer(true),
-        "smve" => FieldSpec::f32_sparse_vector(false, VectorDistanceMetric::DotProduct),
+        "smve" => FieldSpec::f32_sparse_vector(false).with_index(FieldIndex::vector(VectorDistanceMetric::DotProduct)),
         "token_embeddings" => FieldSpec::matrix(false, 7, dt)
             .with_index(FieldIndex::multi_vector(MultiVectorDistanceMetric::Maxsim, quant, width, top_k))
     )

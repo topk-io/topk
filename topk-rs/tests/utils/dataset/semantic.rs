@@ -1,7 +1,7 @@
 use crate::utils::ProjectTestContext;
 use std::collections::HashMap;
 use topk_rs::proto::v1::{
-    control::{Collection, FieldSpec},
+    control::{Collection, FieldIndex, FieldSpec},
     data::Document,
 };
 use topk_rs::{doc, schema};
@@ -35,8 +35,8 @@ pub async fn setup(ctx: &mut ProjectTestContext) -> Collection {
 #[allow(dead_code)]
 pub fn schema() -> HashMap<String, FieldSpec> {
     schema!(
-        "title" => FieldSpec::semantic(true),
-        "summary" => FieldSpec::semantic(false),
+        "title" => FieldSpec::text(true).with_index(FieldIndex::semantic()),
+        "summary" => FieldSpec::text(false).with_index(FieldIndex::semantic()),
     )
 }
 

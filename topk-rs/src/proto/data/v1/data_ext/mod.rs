@@ -91,6 +91,14 @@ impl IntoListValues for Vec<String> {
     }
 }
 
+impl IntoListValues for Vec<&str> {
+    fn into_list_values(self) -> list::Values {
+        list::Values::String(list::String {
+            values: self.into_iter().map(|s| s.to_string()).collect(),
+        })
+    }
+}
+
 // Matrix values
 
 pub trait IntoMatrixValues {

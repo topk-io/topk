@@ -11,25 +11,17 @@ impl FieldSpec {
         self
     }
 
-    pub fn text(required: bool, index_type: Option<KeywordIndexType>) -> FieldSpec {
+    pub fn text(required: bool) -> FieldSpec {
         FieldSpec {
-            data_type: Some(FieldType {
-                data_type: Some(field_type::DataType::Text(FieldTypeText {})),
-            }),
+            data_type: Some(FieldType::text()),
             required,
-            index: index_type.map(|index_type| FieldIndex {
-                index: Some(field_index::Index::KeywordIndex(KeywordIndex {
-                    index_type: index_type as i32,
-                })),
-            }),
+            index: None,
         }
     }
 
     pub fn integer(required: bool) -> FieldSpec {
         FieldSpec {
-            data_type: Some(FieldType {
-                data_type: Some(field_type::DataType::Integer(FieldTypeInteger {})),
-            }),
+            data_type: Some(FieldType::integer()),
             required,
             index: None,
         }
@@ -37,9 +29,7 @@ impl FieldSpec {
 
     pub fn float(required: bool) -> FieldSpec {
         FieldSpec {
-            data_type: Some(FieldType {
-                data_type: Some(field_type::DataType::Float(FieldTypeFloat {})),
-            }),
+            data_type: Some(FieldType::float()),
             required,
             index: None,
         }
@@ -47,9 +37,7 @@ impl FieldSpec {
 
     pub fn boolean(required: bool) -> FieldSpec {
         FieldSpec {
-            data_type: Some(FieldType {
-                data_type: Some(field_type::DataType::Boolean(FieldTypeBoolean {})),
-            }),
+            data_type: Some(FieldType::boolean()),
             required,
             index: None,
         }
@@ -57,9 +45,7 @@ impl FieldSpec {
 
     pub fn bytes(required: bool) -> FieldSpec {
         FieldSpec {
-            data_type: Some(FieldType {
-                data_type: Some(field_type::DataType::Bytes(FieldTypeBytes {})),
-            }),
+            data_type: Some(FieldType::bytes()),
             required,
             index: None,
         }
@@ -67,140 +53,67 @@ impl FieldSpec {
 
     pub fn list(required: bool, value_type: ListValueType) -> FieldSpec {
         FieldSpec {
-            data_type: Some(FieldType {
-                data_type: Some(field_type::DataType::List(FieldTypeList {
-                    value_type: value_type.into(),
-                })),
-            }),
+            data_type: Some(FieldType::list(value_type)),
             required,
             index: None,
         }
     }
 
-    pub fn f32_vector(dimension: u32, required: bool, metric: VectorDistanceMetric) -> FieldSpec {
-        Self::indexed_vector_field(
-            field_type::DataType::f32_vector(dimension),
-            required,
-            metric,
-        )
+    pub fn f32_vector(dimension: u32, required: bool) -> FieldSpec {
+        Self::vector_field(FieldType::f32_vector(dimension), required)
     }
 
-    pub fn f16_vector(dimension: u32, required: bool, metric: VectorDistanceMetric) -> FieldSpec {
-        Self::indexed_vector_field(
-            field_type::DataType::f16_vector(dimension),
-            required,
-            metric,
-        )
+    pub fn f16_vector(dimension: u32, required: bool) -> FieldSpec {
+        Self::vector_field(FieldType::f16_vector(dimension), required)
     }
 
-    pub fn f8_vector(dimension: u32, required: bool, metric: VectorDistanceMetric) -> FieldSpec {
-        Self::indexed_vector_field(field_type::DataType::f8_vector(dimension), required, metric)
+    pub fn f8_vector(dimension: u32, required: bool) -> FieldSpec {
+        Self::vector_field(FieldType::f8_vector(dimension), required)
     }
 
-    pub fn u8_vector(dimension: u32, required: bool, metric: VectorDistanceMetric) -> FieldSpec {
-        Self::indexed_vector_field(field_type::DataType::u8_vector(dimension), required, metric)
+    pub fn u8_vector(dimension: u32, required: bool) -> FieldSpec {
+        Self::vector_field(FieldType::u8_vector(dimension), required)
     }
 
-    pub fn i8_vector(dimension: u32, required: bool, metric: VectorDistanceMetric) -> FieldSpec {
-        Self::indexed_vector_field(field_type::DataType::i8_vector(dimension), required, metric)
+    pub fn i8_vector(dimension: u32, required: bool) -> FieldSpec {
+        Self::vector_field(FieldType::i8_vector(dimension), required)
     }
 
-    pub fn binary_vector(
-        dimension: u32,
-        required: bool,
-        metric: VectorDistanceMetric,
-    ) -> FieldSpec {
-        Self::indexed_vector_field(
-            field_type::DataType::binary_vector(dimension),
-            required,
-            metric,
-        )
+    pub fn binary_vector(dimension: u32, required: bool) -> FieldSpec {
+        Self::vector_field(FieldType::binary_vector(dimension), required)
     }
 
-    pub fn f32_sparse_vector(required: bool, metric: VectorDistanceMetric) -> FieldSpec {
-        Self::indexed_vector_field(
-            field_type::DataType::F32SparseVector(FieldTypeF32SparseVector {}),
-            required,
-            metric,
-        )
+    pub fn f32_sparse_vector(required: bool) -> FieldSpec {
+        Self::vector_field(FieldType::f32_sparse_vector(), required)
     }
 
-    pub fn f16_sparse_vector(required: bool, metric: VectorDistanceMetric) -> FieldSpec {
-        Self::indexed_vector_field(
-            field_type::DataType::F16SparseVector(FieldTypeF16SparseVector {}),
-            required,
-            metric,
-        )
+    pub fn f16_sparse_vector(required: bool) -> FieldSpec {
+        Self::vector_field(FieldType::f16_sparse_vector(), required)
     }
 
-    pub fn f8_sparse_vector(required: bool, metric: VectorDistanceMetric) -> FieldSpec {
-        Self::indexed_vector_field(
-            field_type::DataType::F8SparseVector(FieldTypeF8SparseVector {}),
-            required,
-            metric,
-        )
+    pub fn f8_sparse_vector(required: bool) -> FieldSpec {
+        Self::vector_field(FieldType::f8_sparse_vector(), required)
     }
 
-    pub fn u8_sparse_vector(required: bool, metric: VectorDistanceMetric) -> FieldSpec {
-        Self::indexed_vector_field(
-            field_type::DataType::U8SparseVector(FieldTypeU8SparseVector {}),
-            required,
-            metric,
-        )
+    pub fn u8_sparse_vector(required: bool) -> FieldSpec {
+        Self::vector_field(FieldType::u8_sparse_vector(), required)
     }
 
-    pub fn i8_sparse_vector(required: bool, metric: VectorDistanceMetric) -> FieldSpec {
-        Self::indexed_vector_field(
-            field_type::DataType::I8SparseVector(FieldTypeI8SparseVector {}),
-            required,
-            metric,
-        )
+    pub fn i8_sparse_vector(required: bool) -> FieldSpec {
+        Self::vector_field(FieldType::i8_sparse_vector(), required)
     }
 
-    fn indexed_vector_field(
-        data_type: field_type::DataType,
-        required: bool,
-        metric: VectorDistanceMetric,
-    ) -> FieldSpec {
+    fn vector_field(data_type: FieldType, required: bool) -> FieldSpec {
         FieldSpec {
-            data_type: Some(FieldType {
-                data_type: Some(data_type),
-            }),
+            data_type: Some(data_type),
             required,
-            index: Some(FieldIndex {
-                index: Some(field_index::Index::VectorIndex(VectorIndex {
-                    metric: metric as i32,
-                    exact: None,
-                })),
-            }),
-        }
-    }
-
-    pub fn semantic(required: bool) -> FieldSpec {
-        FieldSpec {
-            data_type: Some(FieldType {
-                data_type: Some(field_type::DataType::Text(FieldTypeText {})),
-            }),
-            required,
-            index: Some(FieldIndex {
-                index: Some(field_index::Index::SemanticIndex(SemanticIndex {
-                    #[allow(deprecated)]
-                    model: None,
-                    #[allow(deprecated)]
-                    embedding_type: None,
-                })),
-            }),
+            index: None,
         }
     }
 
     pub fn matrix(required: bool, num_cols: u32, value_type: MatrixValueType) -> FieldSpec {
         FieldSpec {
-            data_type: Some(FieldType {
-                data_type: Some(field_type::DataType::Matrix(FieldTypeMatrix {
-                    dimension: num_cols,
-                    value_type: value_type.into(),
-                })),
-            }),
+            data_type: Some(FieldType::matrix(num_cols, value_type)),
             required,
             index: None,
         }
@@ -211,9 +124,7 @@ impl FieldSpec {
         fields: impl IntoIterator<Item = (impl Into<String>, FieldSpec)>,
     ) -> FieldSpec {
         FieldSpec {
-            data_type: Some(FieldType {
-                data_type: Some(field_type::DataType::r#struct(fields)),
-            }),
+            data_type: Some(FieldType::r#struct(fields)),
             required,
             index: None,
         }
