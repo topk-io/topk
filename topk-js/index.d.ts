@@ -839,7 +839,17 @@ export declare namespace query {
   export function filter(expr: LogicalExpression | TextExpression): Query
   /** Creates a literal value expression. */
   export function literal(value: number | string | string[] | number[] | boolean | data.List): LogicalExpression
-  /** Creates a text match expression. */
+  /**
+   * Perform a BM25 keyword search using TopK's built-in tokenizer.
+   *
+   * The `token` argument is a raw query string — TopK tokenizes it automatically,
+   * removes stop words, and scores documents using BM25. Pass the full query string
+   * directly; tokenization and stop-word removal happen server-side.
+   *
+   * - `options.field`: restrict matching to a specific keyword-indexed field (default: all).
+   * - `options.weight`: scale the BM25 contribution of this expression (default: 1.0).
+   * - `options.all`: if true, require all tokens to match (AND); default is any-token (OR).
+   */
   export function match(token: string, options?: MatchOptions | undefined | null): TextExpression
   /**
    * Options for text matching.
