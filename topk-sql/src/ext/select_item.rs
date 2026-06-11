@@ -32,24 +32,7 @@ impl SelectItemExt for SelectItem {
     fn projection_name(&self) -> Result<String, Error> {
         match self {
             SelectItem::ExprWithAlias { alias, .. } => Ok(alias.value.clone()),
-            SelectItem::UnnamedExpr(expr) => {
-                if let Some(name) = expr.as_ident() {
-                    return Ok(name);
-                }
-
-                match expr {
-                    SqlExpr::Function(f) => f
-                        .name
-                        .0
-                        .last()
-                        .map(|i| i.value.clone())
-                        .ok_or_else(|| Error::Invalid("function with no name".into())),
-                    SqlExpr::Cast { expr, .. } => SelectItemExt::projection_name(expr),
-                    _ => Err(Error::Invalid(
-                        "expression in SELECT list requires an AS alias".into(),
-                    )),
-                }
-            }
+            SelectItem::UnnamedExpr(expr) => projection_name_from_expr(expr),
             _ => Err(Error::Unsupported("SELECT *".into())),
         }
     }
@@ -59,5 +42,24 @@ impl SelectItemExt for SelectItem {
             self,
             SelectItem::Wildcard(_) | SelectItem::QualifiedWildcard(..)
         )
+    }
+}
+
+fn projection_name_from_expr(expr: &SqlExpr) -> Result<String, Error> {
+    if let Some(name) = expr.as_ident() {
+        return Ok(name);
+    }
+
+    match expr {
+        SqlExpr::Function(f) => f
+            .name
+            .0
+            .last()
+            .map(|i| i.value.clone())
+            .ok_or_else(|| Error::Invalid("function with no name".into())),
+        SqlExpr::Cast { expr, .. } => projection_name_from_expr(expr),
+        _ => Err(Error::Invalid(
+            "expression in SELECT list requires an AS alias".into(),
+        )),
     }
 }
