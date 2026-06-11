@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 
-use tonic::transport::Endpoint;
+use tonic::transport::{ClientTlsConfig, Endpoint};
 
 use crate::Error;
 
@@ -96,6 +96,10 @@ impl ClientConfig {
             "global" => format!("{}://api.{}", protocol, self.host()),
             _ => format!("{}://{}.api.{}", protocol, self.region(), self.host()),
         };
-        Ok(Endpoint::from_str(&uri)?)
+        let mut endpoint = Endpoint::from_str(&uri)?;
+        if self.https() {
+            endpoint = endpoint.tls_config(ClientTlsConfig::new().with_native_roots())?;
+        }
+        Ok(endpoint)
     }
 }

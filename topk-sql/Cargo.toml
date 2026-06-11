@@ -1,0 +1,29 @@
+[package]
+name = "topk-sql"
+version = "0.9.3"
+edition = "2024"
+description = "TopK SQL"
+license = "MIT"
+repository = "https://github.com/topk-io/topk"
+homepage = "https://topk.io"
+documentation = "https://docs.topk.io"
+
+[dependencies]
+sqlparser = { version = "0.52", features = ["visitor"] }
+strum = { workspace = true }
+strum_macros = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+topk-rs = { workspace = true }
+half = { workspace = true }
+float8 = { workspace = true }
+
+[dev-dependencies]
+anyhow = { workspace = true }
+pretty_assertions = { workspace = true }
+rstest = { workspace = true }
+sqlparser = "0.52"
+test-context = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "json"] }
+uuid = { workspace = true, features = ["v4"] }

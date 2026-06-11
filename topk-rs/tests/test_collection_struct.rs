@@ -158,7 +158,13 @@ async fn test_struct_semantic_index_on_sub_field(ctx: &mut ProjectTestContext) {
             ctx.wrap("test"),
             HashMap::from_iter([(
                 "meta".to_string(),
-                FieldSpec::r#struct(false, [("description", FieldSpec::text(false).with_index(FieldIndex::semantic()))]),
+                FieldSpec::r#struct(
+                    false,
+                    [(
+                        "description",
+                        FieldSpec::text(false).with_index(FieldIndex::semantic()),
+                    )],
+                ),
             )]),
             None,
         )
