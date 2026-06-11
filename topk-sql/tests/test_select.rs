@@ -653,7 +653,10 @@ async fn semantic_similarity_search() {
         .collect();
     // Scores should be returned in descending order.
     for window in scores.windows(2) {
-        assert!(window[0] >= window[1], "scores not in descending order: {scores:?}");
+        assert!(
+            window[0] >= window[1],
+            "scores not in descending order: {scores:?}"
+        );
     }
 }
 

@@ -1,13 +1,13 @@
 use sqlparser::ast::{
-    Expr as SqlExpr, FunctionArg, FunctionArgExpr, FunctionArguments, GroupByExpr,
-    Query as SqlQuery, SelectItem, SetExpr, TableFactor, Value as SqlValue,
+    Expr as SqlExpr, FunctionArg, FunctionArgExpr, GroupByExpr, Query as SqlQuery, SetExpr,
+    TableFactor, Value as SqlValue,
 };
 use topk_rs::proto::v1::data::stage::{filter_stage::FilterExpr, select_stage::SelectExpr};
 use topk_rs::proto::v1::data::{LogicalExpr, Query, Stage};
 
 use crate::sql_invalid;
 use crate::stmt::info;
-use crate::{Error, FromSql, SqlExprExt, Table, sql_unsupported, stmt::Statement};
+use crate::{Error, FromSql, SelectItemExt, SqlExprExt, SqlFunctionExt, Table, sql_unsupported, stmt::Statement};
 
 impl TryFrom<SqlQuery> for Statement {
     type Error = Error;
@@ -64,139 +64,91 @@ impl TryFrom<SqlQuery> for Statement {
             stages.push(Stage::filter(FilterExpr::from_sql(where_clause)?));
         }
 
-        let count_stage = if select.projection.len() == 1 {
-            let expr_ref = match &select.projection[0] {
-                SelectItem::UnnamedExpr(e) => Some(e),
-                SelectItem::ExprWithAlias { expr: e, .. } => Some(e),
-                _ => None,
-            };
-            match expr_ref {
-                Some(SqlExpr::Function(func))
-                    if func.name.0.len() == 1
-                        && func.name.0[0].value.eq_ignore_ascii_case("count") =>
-                {
-                    let is_count_star = match &func.args {
-                        FunctionArguments::List(list) if list.duplicate_treatment.is_none() => {
-                            matches!(
-                                list.args.as_slice(),
-                                [FunctionArg::Unnamed(FunctionArgExpr::Wildcard)]
-                            )
-                        }
-                        _ => false,
-                    };
-
+        if select.projection.len() == 1 {
+            let item = &select.projection[0];
+            if let Some(SqlExpr::Function(func)) = item.expr() {
+                if func.is_count() {
                     sql_unsupported!(
-                        !is_count_star,
+                        !func.matches_args(|args| {
+                            matches!(args, [FunctionArg::Unnamed(FunctionArgExpr::Wildcard)])
+                        }),
                         "only COUNT(*) is supported; COUNT(expr) and DISTINCT are not"
                     );
+                    sql_unsupported!(query.order_by.is_some(), "SELECT COUNT(*) ... ORDER BY ...");
+                    sql_unsupported!(query.limit.is_some(), "SELECT COUNT(*) ... LIMIT ...");
 
-                    Some(Stage::count())
+                    stages.push(Stage::count());
+
+                    return Ok(Statement::Count {
+                        table,
+                        query: Query { stages },
+                        alias: item.column_name(),
+                    });
                 }
-                _ => None,
             }
         } else {
             for item in &select.projection {
-                let expr = match item {
-                    SelectItem::UnnamedExpr(e) | SelectItem::ExprWithAlias { expr: e, .. } => e,
-                    _ => continue,
-                };
-                if let SqlExpr::Function(func) = expr {
-                    if func.name.0.len() == 1 && func.name.0[0].value.eq_ignore_ascii_case("count")
-                    {
+                if let Some(SqlExpr::Function(func)) = item.expr() {
+                    if func.is_count() {
                         sql_unsupported!("COUNT(*) cannot be combined with other columns");
                     }
                 }
             }
-            None
-        };
+        }
 
-        if let Some(stage) = count_stage {
-            sql_unsupported!(query.order_by.is_some(), "SELECT COUNT(*) ... ORDER BY ...");
-            sql_unsupported!(query.limit.is_some(), "SELECT COUNT(*) ... LIMIT ...");
-
-            stages.push(stage);
-        } else {
-            let mut projection = Vec::with_capacity(select.projection.len());
-            for item in select.projection {
-                match item {
-                    SelectItem::UnnamedExpr(e) => {
-                        projection.push((projection_alias(&e)?, SelectExpr::from_sql(e)?));
-                    }
-                    SelectItem::ExprWithAlias { expr: e, alias } => {
-                        projection.push((alias.value, SelectExpr::from_sql(e)?));
-                    }
-                    SelectItem::Wildcard(_) | SelectItem::QualifiedWildcard(..) => {
-                        sql_unsupported!("SELECT *");
-                    }
-                }
+        let mut projection = Vec::with_capacity(select.projection.len());
+        for item in select.projection {
+            if item.is_wildcard() {
+                sql_unsupported!("SELECT *");
             }
-            stages.push(Stage::select(projection));
+            let expr = item.expr().expect("non-wildcard select item has an expression");
+            projection.push((item.projection_name()?, SelectExpr::from_sql(expr.clone())?));
+        }
+        stages.push(Stage::select(projection));
 
-            let sort = query
-                .order_by
-                .map(|mut order_by| match order_by.exprs.len() {
-                    0 => Result::<_, Error>::Ok(None),
-                    1 => {
-                        let entry = order_by.exprs.pop().unwrap();
+        let sort = query
+            .order_by
+            .map(|mut order_by| match order_by.exprs.len() {
+                0 => Result::<_, Error>::Ok(None),
+                1 => {
+                    let entry = order_by.exprs.pop().unwrap();
 
-                        sql_unsupported!(
-                            entry.nulls_first.is_some(),
-                            "ORDER BY … NULLS FIRST/LAST"
-                        );
+                    sql_unsupported!(entry.nulls_first.is_some(), "ORDER BY … NULLS FIRST/LAST");
+                    sql_unsupported!(
+                        matches!(&entry.expr, SqlExpr::Value(SqlValue::Number(_, _))),
+                        "ORDER BY with ordinal position is not supported"
+                    );
 
-                        sql_unsupported!(
-                            matches!(&entry.expr, SqlExpr::Value(SqlValue::Number(_, _))),
-                            "ORDER BY with ordinal position is not supported"
-                        );
-                        let converted = LogicalExpr::from_sql(entry.expr)?;
-                        let asc = entry.asc.unwrap_or(true);
-                        Ok(Some((converted, asc)))
-                    }
-                    _ => sql_unsupported!("ORDER BY with multiple keys is not supported"),
-                })
-                .transpose()?
-                .flatten();
+                    let converted = LogicalExpr::from_sql(entry.expr)?;
+                    let asc = entry.asc.unwrap_or(true);
+                    Ok(Some((converted, asc)))
+                }
+                _ => sql_unsupported!("ORDER BY with multiple keys is not supported"),
+            })
+            .transpose()?
+            .flatten();
 
-            let limit = match query.limit {
+        let limit =
+            match query.limit {
                 None => None,
                 Some(ref expr) => Some(expr.as_u64().ok_or_else(|| {
                     Error::Invalid("LIMIT must be a positive integer".to_string())
                 })?),
             };
 
-            match (sort, limit) {
-                (Some((expr, asc)), Some(k)) => {
-                    stages.push(Stage::sort(expr, asc));
-                    stages.push(Stage::limit(k));
-                }
-                (Some(_), None) => sql_invalid!("ORDER BY without LIMIT is not supported"),
-                (None, Some(k)) => stages.push(Stage::limit(k)),
-                (None, None) => {}
+        match (sort, limit) {
+            (Some((expr, asc)), Some(k)) => {
+                stages.push(Stage::sort(expr, asc));
+                stages.push(Stage::limit(k));
             }
+            (Some(_), None) => sql_invalid!("ORDER BY without LIMIT is not supported"),
+            (None, Some(k)) => stages.push(Stage::limit(k)),
+            (None, None) => {}
         }
 
         Ok(Statement::Select {
             table,
             query: Query { stages },
         })
-    }
-}
-
-fn projection_alias(expr: &SqlExpr) -> Result<String, Error> {
-    if let Some(name) = expr.as_ident() {
-        return Ok(name);
-    }
-
-    match expr {
-        SqlExpr::Function(f) => f
-            .name
-            .0
-            .last()
-            .map(|i| i.value.clone())
-            .ok_or_else(|| Error::Invalid("function with no name".to_string())),
-        SqlExpr::Cast { expr, .. } => projection_alias(expr),
-        _ => Err(Error::Invalid(
-            "expression in SELECT list requires an AS alias".to_string(),
-        )),
     }
 }

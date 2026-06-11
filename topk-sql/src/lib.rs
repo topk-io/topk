@@ -5,7 +5,7 @@ use sqlparser::dialect::PostgreSqlDialect;
 use sqlparser::parser::ParserError;
 
 mod ext;
-pub use ext::{SqlExprExt, SqlFunctionExt, SqlStatementExt};
+pub use ext::{SelectItemExt, SqlExprExt, SqlFunctionExt, SqlStatementExt};
 
 mod expr;
 pub use expr::{Expr, SqlFn};

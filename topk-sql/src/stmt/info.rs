@@ -1,6 +1,6 @@
-use sqlparser::ast::{BinaryOperator, Expr, Select, SelectItem, TableFactor};
+use sqlparser::ast::{BinaryOperator, Expr, Select, TableFactor};
 
-use crate::{Error, FromSql, SqlExprExt, sql_invalid, stmt::Statement};
+use crate::{Error, FromSql, SelectItemExt, SqlExprExt, sql_invalid, stmt::Statement};
 
 pub fn try_from_select(select: &Select) -> Option<Result<Statement, Error>> {
     let twj = select.from.first()?;
@@ -35,12 +35,7 @@ pub fn try_from_select(select: &Select) -> Option<Result<Statement, Error>> {
         _ => return None,
     };
 
-    let has_wildcard = select.projection.iter().any(|item| {
-        matches!(
-            item,
-            SelectItem::Wildcard(_) | SelectItem::QualifiedWildcard(..)
-        )
-    });
+    let has_wildcard = select.projection.iter().any(|item| item.is_wildcard());
     if has_wildcard {
         return Some(Err(Error::Invalid(
             "SELECT * is not supported for information_schema; specify column names explicitly"

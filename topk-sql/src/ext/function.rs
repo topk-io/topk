@@ -10,6 +10,12 @@ pub trait SqlFunctionExt {
 
     /// Get the arguments of the function.
     fn args(&self) -> Result<Vec<SqlExpr>, Error>;
+
+    fn is_count(&self) -> bool;
+
+    fn matches_args<F>(&self, check: F) -> bool
+    where
+        F: Fn(&[FunctionArg]) -> bool;
 }
 
 impl SqlFunctionExt for SqlFunction {
@@ -33,6 +39,22 @@ impl SqlFunctionExt for SqlFunction {
                     )),
                 })
                 .collect(),
+        }
+    }
+
+    fn is_count(&self) -> bool {
+        self.name.0.len() == 1 && self.name.0[0].value.eq_ignore_ascii_case("count")
+    }
+
+    fn matches_args<F>(&self, check: F) -> bool
+    where
+        F: Fn(&[FunctionArg]) -> bool,
+    {
+        match &self.args {
+            FunctionArguments::List(list) if list.duplicate_treatment.is_none() => {
+                check(list.args.as_slice())
+            }
+            _ => false,
         }
     }
 }

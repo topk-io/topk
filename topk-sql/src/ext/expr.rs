@@ -1,5 +1,7 @@
 use sqlparser::ast::{Expr as SqlExpr, Value as SqlValue};
 
+use super::SqlFunctionExt;
+
 pub trait SqlExprExt {
     fn as_id(&self) -> Option<String>;
     fn as_ident(&self) -> Option<String>;
@@ -34,14 +36,14 @@ impl SqlExprExt for SqlExpr {
     }
 
     fn as_column_name(&self) -> String {
+        // Parse as an `Ident` (eg. column name).
         if let Some(name) = self.as_ident() {
             return name;
         }
+
         match self {
-            // COUNT(*) output column is named "_count" by convention (matches the count stage rename).
-            SqlExpr::Function(f) if f.name.to_string().eq_ignore_ascii_case("count") => {
-                "_count".to_string()
-            }
+            // COUNT(*) output column is named "_count" by convention.
+            SqlExpr::Function(f) if f.is_count() => "_count".to_string(),
             SqlExpr::Function(f) => f.name.to_string(),
             SqlExpr::Cast { expr, .. } => expr.as_column_name(),
             _ => "?column?".to_string(),
