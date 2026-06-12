@@ -2,8 +2,16 @@
 title: "Semantic search"
 ---
 
-TopK enables you to add semantic search to your documents with just a few lines of code.
-There is no need to build and maintain a separate embedding pipeline.
+TopK enables you to add state-of-the-art semantic search to your documents with just a few lines of code.
+Under the hood, `semantic_index()` is powered by [Iso-ModernColBERT](https://huggingface.co/topk-io/Iso-ModernColBERT), TopK's own multi-vector embedding model, combined with [Sparse Multi-Vector Encoding (SMVE)](https://www.topk.io/blog/20260311-smve-multi-vector-retrieval) for scalable retrieval and quantized *MaxSim* reranking.
+
+With TopK&apos;s semantic search, there is no embedding pipeline to build, no vector store to operate, and no reranking service to maintain.
+
+<Note>
+  **Why multi-vector?** Single-vector (dense) embeddings compress an entire document into one point in high-dimensional space.
+  
+  Multi-vector models like [Iso-ModernColBERT](https://huggingface.co/topk-io/Iso-ModernColBERT) keep one embedding per token, enabling token-level matching via MaxSim scoring. This consistently outperforms dense models on out-of-domain content, long documents, specific clauses, tables, and structured data.
+</Note>
 
 ## How to perform a semantic search
 
@@ -44,7 +52,7 @@ await client.collections().create("books", {
 
 </CodeGroup>
 
-This configuration automatically generates embeddings as well as enables keyword search for the specified text fields.
+This configuration automatically generates multi-vector embeddings for the field and enables keyword search. Documents are indexed with sub-second lag — they are searchable as soon as they are written.
 
 <Tip>
   If you want to use your own embeddings instead of TopK's built-in `semantic_index()`, see [Vector Search](/guides/vector-search) guide.
@@ -144,11 +152,11 @@ const docs = await client.collection("books").query(
 
 Let's break down the example above:
 
-1. The `semantic_similarity()` function computes the similarity between the query `"classic American novel"` and the text value stored in the `title` field for each document.
-2. TopK performs automatic query embedding under the hood.
-3. The results are ranked based on similarity, and the top 10 most relevant documents are returned.
+1. The `semantic_similarity()` function encodes the query `"classic American novel"` into multi-vector token embeddings using Iso-ModernColBERT and scores each document via quantized *MaxSim* — comparing every query token against every document token to find the best alignment.
+2. Candidate retrieval is accelerated by [SMVE](https://www.topk.io/blog/20260311-smve-multi-vector-retrieval), which uses fast sparse approximations to identify a small set of candidates before the full MaxSim pass.
+3. The results are ranked by their MaxSim score and the top 10 most relevant documents are returned.
 
-This works **out of the box**—no need to manage embeddings or external APIs.
+This works **out of the box**—no embedding pipeline, no vector store, no reranking service to manage.
 
 ## Combining semantic and keyword search
 

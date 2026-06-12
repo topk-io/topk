@@ -130,7 +130,7 @@ await client.collection("my_collection").query(
 ---
 
 ### **Indexed Consistency**
-Reads in this mode only consider fully compacted files and ignore recent WAL writes to deliver constatnly low query latency. This is best suited for workloads
+Reads in this mode only consider fully compacted files and ignore recent WAL writes to deliver constantly low query latency. This is best suited for workloads
 with asynchronous write path that are not sensitive to recent writes being visible in queries with low delay.
 
 <CodeGroup>
