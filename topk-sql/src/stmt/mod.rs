@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use sqlparser::ast::{BinaryOperator, Expr as SqlExpr, Statement as SqlStatement};
+use strum_macros::IntoStaticStr;
 use topk_rs::proto::v1::control::FieldSpec;
 use topk_rs::proto::v1::data::{Document, LogicalExpr, Query, Value};
 
@@ -87,7 +88,8 @@ pub fn aggregate_stmts(
     Ok(out)
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, IntoStaticStr)]
+#[strum(serialize_all = "snake_case")]
 pub enum Statement {
     Select {
         /// Table name (`<collection>` OR `<collection>.<partition>`).
@@ -183,6 +185,10 @@ pub enum Statement {
 }
 
 impl Statement {
+    pub fn as_str(&self) -> &'static str {
+        self.into()
+    }
+
     pub fn table(&self) -> &Table {
         match self {
             Statement::Select { table, .. } | Statement::Count { table, .. } => table,
