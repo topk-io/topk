@@ -9,6 +9,7 @@ homepage = "https://topk.io"
 documentation = "https://docs.topk.io"
 
 [dependencies]
+regex = { workspace = true }
 sqlparser = { version = "0.52", features = ["visitor"] }
 strum = { workspace = true }
 strum_macros = { workspace = true }

@@ -30,8 +30,8 @@ impl TryFrom<Delete> for Statement {
             table
         };
 
-        // `DELETE FROM <collection>.<partition>` with no `WHERE` clause maps to `DeletePartition`.
-        if matches!(table, Table::Partition(_, Some(_))) && delete.selection.is_none() {
+        // `DELETE FROM <collection>$<partition>` with no `WHERE` clause maps to `DeletePartition`.
+        if matches!(table, Table::Partition(_, _)) && delete.selection.is_none() {
             return Ok(Statement::DeletePartition { table });
         }
 

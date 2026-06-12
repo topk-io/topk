@@ -41,10 +41,19 @@ SELECT title, published_year::int4, rating::float8 FROM books LIMIT 10;
 DML statements use `<table>` as either a collection name or a collection plus partition:
 
 ```text
-<table> ::= <collection> | <collection>.<partition>
+<table> ::= [schema.]collection[$partition]
 ```
 
-Examples: `books` (default partition), `books.p1` (partition `p1`).
+The `schema` prefix is accepted but ignored — all collections live in a single namespace
+per project. Partition can be specified with `$` or the `PARTITION` keyword:
+
+| Form | Example |
+|------|---------|
+| `collection` | `books` |
+| `schema.collection` | `public.books` |
+| `collection$partition` | `books$2024` |
+| `schema.collection$partition` | `public.books$2024` |
+| `collection PARTITION name` | `books PARTITION 2024` |
 
 Partition syntax applies to `SELECT`, `INSERT`, `UPDATE`, and `DELETE` only. DDL
 (`CREATE TABLE`, `DROP TABLE`, `CREATE INDEX`) names collections without partitions;
@@ -196,12 +205,14 @@ UPDATE <table> SET <col> = <val> [, ...] WHERE _id IN ('<id1>', '<id2>', ...);
 
 ### DELETE
 
-Deletes documents by ID or by filter expression. A `WHERE` clause is required.
+Deletes documents by ID or by filter expression. A `WHERE` clause is required unless
+the target is a partition, in which case the entire partition is dropped.
 
 ```sql
 DELETE FROM <table> WHERE _id = '<id>';
 DELETE FROM <table> WHERE _id IN ('<id1>', '<id2>', ...);
 DELETE FROM <table> WHERE <filter_expr>;
+DELETE FROM <collection>$<partition>;
 ```
 
 ---

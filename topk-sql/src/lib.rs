@@ -1,5 +1,7 @@
 use std::ops::ControlFlow;
+use std::sync::LazyLock;
 
+use regex::Regex;
 use sqlparser::ast::{self, visit_expressions};
 use sqlparser::dialect::PostgreSqlDialect;
 use sqlparser::parser::ParserError;
@@ -51,9 +53,14 @@ pub enum Error {
 
 /// Parse a SQL string into a list of statements.
 pub fn parse_sql(sql: &str) -> Result<Vec<ast::Statement>, Error> {
-    let dialect = PostgreSqlDialect {};
-    let stmts = sqlparser::parser::Parser::parse_sql(&dialect, sql)?;
+    // Rewrite non-standard syntax
+    let sql = rewrite_partition_syntax(sql);
 
+    // Parse
+    let dialect = PostgreSqlDialect {};
+    let stmts = sqlparser::parser::Parser::parse_sql(&dialect, &sql)?;
+
+    // Validate
     let mut diag = Vec::new();
     for stmt in stmts.iter() {
         let _: ControlFlow<()> = visit_expressions(stmt, |expr| {
@@ -89,6 +96,26 @@ pub fn parse_sql(sql: &str) -> Result<Vec<ast::Statement>, Error> {
     }
 
     Ok(stmts)
+}
+
+// Rewrite "SELECT * FROM books PARTITION p1" → "SELECT * FROM books$p1"
+//
+// NON-STANDARD SYNTAX: TopK extends PostgreSQL syntax with a PARTITION clause on table
+// references. This is not valid PostgreSQL — we rewrite it before handing off to sqlparser
+// so the rest of the pipeline sees only the canonical `collection$partition` form (a `$`-
+// qualified identifier, which PostgreSQL dialects accept).
+fn rewrite_partition_syntax(sql: &str) -> std::borrow::Cow<'_, str> {
+    static RE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?i)\b([\w.]+)\s+PARTITION\s+(\w+)\b").unwrap());
+
+    RE.replace_all(sql, |caps: &regex::Captures| {
+        let partition = &caps[2];
+        if partition.eq_ignore_ascii_case("BY") {
+            caps[0].to_string()
+        } else {
+            format!("{}${}", &caps[1], partition)
+        }
+    })
 }
 
 #[macro_export]

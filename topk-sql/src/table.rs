@@ -9,7 +9,7 @@ use crate::{Error, sql_invalid};
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Table {
     Collection(String),
-    Partition(String, Option<String>),
+    Partition(String, String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -23,10 +23,7 @@ impl Display for Table {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Table::Collection(collection) => write!(f, "{collection}"),
-            Table::Partition(collection, Some(partition)) => {
-                write!(f, "{collection}.{partition}")
-            }
-            Table::Partition(collection, None) => write!(f, "{collection}"),
+            Table::Partition(collection, partition) => write!(f, "{collection}${partition}"),
         }
     }
 }
@@ -34,12 +31,27 @@ impl Display for Table {
 impl Table {
     pub fn new(name: ObjectName) -> Result<Self, Error> {
         match name.0.as_slice() {
-            [collection] => Ok(Self::Collection(collection.value.clone())),
-            [collection, partition] => Ok(Self::Partition(
-                collection.value.clone(),
-                Some(partition.value.clone()),
-            )),
-            _ => sql_invalid!("table name must be <collection> or <collection>.<partition>"),
+            [ident] => {
+                if let Some((collection, partition)) = ident.value.split_once('$') {
+                    Ok(Self::Partition(collection.to_string(), partition.to_string()))
+                } else {
+                    Ok(Self::Collection(ident.value.clone()))
+                }
+            }
+            // Two-part name is treated as schema.collection — schema is ignored.
+            [_schema, collection] => {
+                if let Some((coll, part)) = collection.value.split_once('$') {
+                    Ok(Self::Partition(coll.to_string(), part.to_string()))
+                } else {
+                    Ok(Self::Collection(collection.value.clone()))
+                }
+            }
+            _ => sql_invalid!(
+                "invalid table reference; supported forms: \
+                collection, schema.collection, \
+                collection$partition, schema.collection$partition, \
+                collection PARTITION name"
+            ),
         }
     }
 
@@ -50,13 +62,10 @@ impl Table {
         }
     }
 
-    /// Configure `topk_rs::Client` for this table
     pub fn configure(self, client: Client) -> CollectionClient {
         match self {
-            Table::Collection(collection) | Table::Partition(collection, None) => {
-                client.collection(collection)
-            }
-            Table::Partition(collection, Some(partition)) => {
+            Table::Collection(collection) => client.collection(collection),
+            Table::Partition(collection, partition) => {
                 client.collection(collection).partition(partition)
             }
         }
