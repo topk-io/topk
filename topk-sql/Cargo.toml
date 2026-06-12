@@ -22,8 +22,12 @@ float8 = { workspace = true }
 anyhow = { workspace = true }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true }
-sqlparser = "0.52"
 test-context = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
-sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "json"] }
+sqlx = { version = "0.8", features = [
+    "runtime-tokio",
+    "postgres",
+    "json",
+    "tls-rustls",
+] }
 uuid = { workspace = true, features = ["v4"] }

@@ -1,10 +1,13 @@
 #![allow(dead_code)]
 
+use std::str::FromStr;
+
 use serde_json::Value as JsonValue;
 use sqlx::{
     Arguments, Column as SqlxColumn, Executor, Row as SqlxRow, TypeInfo,
     postgres::{PgArguments, PgConnectOptions, PgPool, PgPoolOptions, PgRow, PgSslMode},
 };
+
 use topk_rs::proto::v1::data::{Document, Value, value};
 
 pub(crate) struct SqlClient {
@@ -19,6 +22,7 @@ impl SqlClient {
             .parse::<u16>()?;
         let user = std::env::var("POSTGRES_USER").unwrap_or_else(|_| "default".to_string());
         let password = std::env::var("POSTGRES_PASSWORD")?;
+        let ssl = std::env::var("POSTGRES_SSL").unwrap_or_else(|_| "prefer".to_string());
 
         let opts = PgConnectOptions::new()
             .host(&host)
@@ -26,7 +30,7 @@ impl SqlClient {
             .username(&user)
             .password(&password)
             .database("default")
-            .ssl_mode(PgSslMode::Disable);
+            .ssl_mode(PgSslMode::from_str(&ssl)?);
 
         let pool = PgPoolOptions::new()
             .max_connections(32)

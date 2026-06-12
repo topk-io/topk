@@ -14,10 +14,15 @@ impl TracingInterceptor {
 }
 
 impl Interceptor for TracingInterceptor {
+    #[cfg(feature = "trace")]
     fn call(&mut self, mut request: tonic::Request<()>) -> Result<tonic::Request<()>, Status> {
-        #[cfg(feature = "trace")]
         inner::inject(request.metadata_mut());
 
+        self.headers.call(request)
+    }
+
+    #[cfg(not(feature = "trace"))]
+    fn call(&mut self, request: tonic::Request<()>) -> Result<tonic::Request<()>, Status> {
         self.headers.call(request)
     }
 }
