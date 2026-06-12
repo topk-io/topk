@@ -27,6 +27,9 @@ pub mod retry;
 mod interceptor;
 pub use interceptor::AppendHeadersInterceptor;
 
+mod trace;
+pub use trace::TracingInterceptor;
+
 // (client) max message size for all requests
 pub const MAX_DECODING_MESSAGE_SIZE: usize = 512 * 1024 * 1024; // 512MB
 pub const MAX_ENCODING_MESSAGE_SIZE: usize = 512 * 1024 * 1024; // 512MB
@@ -140,7 +143,9 @@ macro_rules! create_client {
                 .await?;
 
             // Build interceptor
-            let interceptor = AppendHeadersInterceptor::new($config.headers().clone())?;
+            let interceptor = crate::client::TracingInterceptor::new(
+                AppendHeadersInterceptor::new($config.headers().clone())?,
+            );
 
             // Build client
             let client = $client::with_interceptor(channel.clone(), interceptor)

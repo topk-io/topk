@@ -189,26 +189,19 @@ impl Statement {
         self.into()
     }
 
-    pub fn table(&self) -> &Table {
+    pub fn table(&self) -> Option<&Table> {
         match self {
-            Statement::Select { table, .. } | Statement::Count { table, .. } => table,
-            Statement::Insert { table, .. } => table,
-            Statement::Update { table, .. } => table,
-            Statement::Delete { table, .. } => table,
-            Statement::DeletePartition { table } => table,
+            Statement::Select { table, .. }
+            | Statement::Count { table, .. }
+            | Statement::Insert { table, .. }
+            | Statement::Update { table, .. }
+            | Statement::Delete { table, .. }
+            | Statement::DeletePartition { table }
+            | Statement::CreateTable { table, .. }
+            | Statement::DropTable { table, .. } => Some(table),
+            Statement::CreateIndex { index } => Some(&index.table),
             Statement::Explain { stmt, .. } => stmt.table(),
-            Statement::CreateTable { table, .. } => table,
-            Statement::DropTable { table, .. } => table,
-            Statement::CreateIndex { index } => &index.table,
-            Statement::Set { .. } | Statement::Show { .. } => {
-                unreachable!("session commands have no table")
-            }
-            Statement::Begin | Statement::Commit | Statement::Rollback | Statement::Discard => {
-                unreachable!("transaction commands have no table")
-            }
-            Statement::InfoSchemaTables | Statement::InfoSchemaColumns { .. } => {
-                unreachable!("information_schema queries have no table")
-            }
+            _ => None,
         }
     }
 }
