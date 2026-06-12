@@ -9,26 +9,26 @@ homepage = "https://topk.io"
 documentation = "https://docs.topk.io"
 
 [dependencies]
-regex = { workspace = true }
+regex = { version = "1.12" }
 sqlparser = { version = "0.52", features = ["visitor"] }
-strum = { workspace = true }
-strum_macros = { workspace = true }
-serde_json = { workspace = true }
-thiserror = { workspace = true }
-topk-rs = { workspace = true }
-half = { workspace = true }
-float8 = { workspace = true }
+strum = { version = "0.26.3" }
+strum_macros = { version = "0.26.4" }
+serde_json = { version = "1.0" }
+thiserror = { version = "1.0.65" }
+topk-rs = { path = "../topk-rs" }
+half = { version = "2.7.1" }
+float8 = { version = "0.5.0" }
 
 [dev-dependencies]
-anyhow = { workspace = true }
-pretty_assertions = { workspace = true }
-rstest = { workspace = true }
-test-context = { workspace = true }
-tokio = { workspace = true, features = ["full"] }
+anyhow = { version = "1.0.93" }
+pretty_assertions = { version = "1.4.1" }
+rstest = { version = "0.23.0" }
+test-context = { version = "0.3.0" }
+tokio = { version = "1.35", features = ["full"] }
 sqlx = { version = "0.8", features = [
     "runtime-tokio",
     "postgres",
     "json",
     "tls-rustls",
 ] }
-uuid = { workspace = true, features = ["v4"] }
+uuid = { version = "1.11.0", features = ["v4"] }
