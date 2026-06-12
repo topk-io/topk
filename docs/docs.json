@@ -132,12 +132,17 @@
         "tab": "Guides",
         "icon": "signpost",
         "pages": [
-          "guides/semantic-search",
-          "guides/multi-vector-search",
-          "guides/vector-search",
-          "guides/sparse-vector-search",
-          "guides/keyword-search",
-          "guides/true-hybrid-search"
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/semantic-search",
+              "guides/multi-vector-search",
+              "guides/vector-search",
+              "guides/sparse-vector-search",
+              "guides/keyword-search",
+              "guides/true-hybrid-search"
+            ]
+          }
         ]
       },
       {

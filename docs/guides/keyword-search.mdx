@@ -84,7 +84,7 @@ docs = client.collection("books").query(
 ```js Javascript
 import { select, field, fn, match } from "topk-js/query";
 
-const docs = await client.collection(name).query(
+const docs = await client.collection("books").query(
   select({
     title: field("title"),
     description: field("description"),
