@@ -5,9 +5,10 @@ use sqlparser::ast::{
 use topk_rs::proto::v1::data::stage::{filter_stage::FilterExpr, select_stage::SelectExpr};
 use topk_rs::proto::v1::data::{LogicalExpr, Query, Stage};
 
-use crate::sql_invalid;
-use crate::stmt::info;
-use crate::{Error, FromSql, SelectItemExt, SqlExprExt, SqlFunctionExt, Table, sql_unsupported, stmt::Statement};
+use crate::{
+    Error, FromSql, SelectItemExt, SqlExprExt, SqlFunctionExt, Table, sql_invalid, sql_unsupported,
+    stmt::Statement, stmt::info,
+};
 
 impl TryFrom<SqlQuery> for Statement {
     type Error = Error;
@@ -101,7 +102,9 @@ impl TryFrom<SqlQuery> for Statement {
             if item.is_wildcard() {
                 sql_unsupported!("SELECT *");
             }
-            let expr = item.expr().expect("non-wildcard select item has an expression");
+            let expr = item
+                .expr()
+                .expect("non-wildcard select item has an expression");
             projection.push((item.projection_name()?, SelectExpr::from_sql(expr.clone())?));
         }
         stages.push(Stage::select(projection));

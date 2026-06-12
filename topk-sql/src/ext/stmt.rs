@@ -1,11 +1,13 @@
 use std::ops::ControlFlow;
 
 use sqlparser::ast::{
-    Expr as SqlExpr, SetExpr, Statement as SqlStatement, TableFactor, Value as SqlValue,
-    visit_expressions,
+    Expr as SqlExpr, SelectItem, SetExpr, Statement as SqlStatement, TableFactor,
+    Value as SqlValue, visit_expressions,
 };
 
 pub trait SqlStatementExt {
+    fn projection(&self) -> Option<&[SelectItem]>;
+
     /// Count the number of placeholders in the statement.
     fn count_placeholders(&self) -> usize;
 
@@ -14,6 +16,16 @@ pub trait SqlStatementExt {
 }
 
 impl SqlStatementExt for SqlStatement {
+    fn projection(&self) -> Option<&[SelectItem]> {
+        match self {
+            SqlStatement::Query(q) => match q.body.as_ref() {
+                SetExpr::Select(s) => Some(&s.projection),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
     fn count_placeholders(&self) -> usize {
         let mut count = 0;
         let _: ControlFlow<()> = visit_expressions(self, |expr| {
