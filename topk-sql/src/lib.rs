@@ -7,7 +7,9 @@ use sqlparser::dialect::PostgreSqlDialect;
 use sqlparser::parser::ParserError;
 
 mod ext;
-pub use ext::{SelectItemExt, SqlExprExt, SqlFunctionExt, SqlStatementExt};
+pub use ext::{
+    ObjectNameExt, SelectItemExt, SqlExprExt, SqlFunctionExt, SqlStatementExt, TableFactorExt,
+};
 
 mod expr;
 pub use expr::{Expr, SqlFn};

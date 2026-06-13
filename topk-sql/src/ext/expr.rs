@@ -6,6 +6,8 @@ pub trait SqlExprExt {
     fn as_id(&self) -> Option<String>;
     fn as_ident(&self) -> Option<String>;
     fn as_column_name(&self) -> String;
+    /// If this expression is a `$N` placeholder, return its 0-based index.
+    fn as_placeholder(&self) -> Option<usize>;
 
     fn as_string(&self) -> Option<String>;
     fn as_bool(&self) -> Option<bool>;
@@ -47,6 +49,16 @@ impl SqlExprExt for SqlExpr {
             SqlExpr::Function(f) => f.name.to_string(),
             SqlExpr::Cast { expr, .. } => expr.as_column_name(),
             _ => "?column?".to_string(),
+        }
+    }
+
+    fn as_placeholder(&self) -> Option<usize> {
+        match self {
+            SqlExpr::Value(SqlValue::Placeholder(p)) => {
+                p.strip_prefix('$')?.parse::<usize>().ok().map(|n| n - 1)
+            }
+            SqlExpr::Nested(inner) => inner.as_placeholder(),
+            _ => None,
         }
     }
 
