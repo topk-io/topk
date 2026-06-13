@@ -1,7 +1,8 @@
 use std::collections::HashSet;
 
 use rstest::rstest;
-use topk_rs::proto::v1::data::Value;
+use topk_rs::doc;
+use topk_rs::proto::v1::data::{Document, Value};
 
 mod common;
 use common::{BooksContext, Scope, ids};
@@ -55,4 +56,33 @@ async fn prepared_delete(
     .await
     .unwrap();
     assert_eq!(ids(&rows), expected_remaining);
+}
+
+#[rstest]
+#[case::text_field(
+    "UPDATE {{table}} SET genre = $1 WHERE _id = $2",
+    vec![Value::string("reread"), Value::string("gatsby")],
+    "SELECT genre FROM {{table}} WHERE _id = 'gatsby'",
+    vec![doc!("genre" => "reread")],
+)]
+#[case::int_field(
+    "UPDATE {{table}} SET published_year = $1 WHERE _id = $2",
+    vec![Value::i32(1938), Value::string("hobbit")],
+    "SELECT published_year FROM {{table}} WHERE _id = 'hobbit'",
+    vec![doc!("published_year" => 1938_i64)],
+)]
+#[tokio::test]
+async fn prepared_update(
+    #[case] update_sql: &str,
+    #[case] params: Vec<Value>,
+    #[case] select_sql: &str,
+    #[case] expected: Vec<Document>,
+) {
+    let rows = BooksContext::with_scope(async |ctx| {
+        ctx.prepared(update_sql, params).await?;
+        ctx.sql(select_sql).await
+    })
+    .await
+    .unwrap();
+    assert_eq!(rows, expected);
 }
