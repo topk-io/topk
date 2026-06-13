@@ -33,7 +33,10 @@ impl Table {
         match name.0.as_slice() {
             [ident] => {
                 if let Some((collection, partition)) = ident.value.split_once('$') {
-                    Ok(Self::Partition(collection.to_string(), partition.to_string()))
+                    Ok(Self::Partition(
+                        collection.to_string(),
+                        partition.to_string(),
+                    ))
                 } else {
                     Ok(Self::Collection(ident.value.clone()))
                 }

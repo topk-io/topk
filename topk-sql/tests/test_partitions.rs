@@ -6,26 +6,11 @@ use common::{BooksContext, Scope};
 
 // Covers all [schema.]collection[$partition] syntax variants.
 #[rstest]
-#[case::collection(
-    "SELECT title FROM {{table}} WHERE _id = 'a'",
-    "default"
-)]
-#[case::schema_collection(
-    "SELECT title FROM public.{{table}} WHERE _id = 'a'",
-    "default"
-)]
-#[case::dollar(
-    "SELECT title FROM {{table}}$p1 WHERE _id = 'a'",
-    "p1"
-)]
-#[case::schema_dollar(
-    "SELECT title FROM public.{{table}}$p1 WHERE _id = 'a'",
-    "p1"
-)]
-#[case::partition_keyword(
-    "SELECT title FROM {{table}} PARTITION p1 WHERE _id = 'a'",
-    "p1"
-)]
+#[case::collection("SELECT title FROM {{table}} WHERE _id = 'a'", "default")]
+#[case::schema_collection("SELECT title FROM public.{{table}} WHERE _id = 'a'", "default")]
+#[case::dollar("SELECT title FROM {{table}}$p1 WHERE _id = 'a'", "p1")]
+#[case::schema_dollar("SELECT title FROM public.{{table}}$p1 WHERE _id = 'a'", "p1")]
+#[case::partition_keyword("SELECT title FROM {{table}} PARTITION p1 WHERE _id = 'a'", "p1")]
 #[case::schema_partition_keyword(
     "SELECT title FROM public.{{table}} PARTITION p1 WHERE _id = 'a'",
     "p1"

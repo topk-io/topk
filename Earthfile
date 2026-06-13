@@ -7,6 +7,7 @@ test:
     BUILD +test-rs --region=$region --host=$host
     BUILD +test-py --region=$region --host=$host
     BUILD +test-js --region=$region --host=$host
+    BUILD +test-sql --region=$region --host=$host
 
 test-rs:
     FROM rust:slim
@@ -162,6 +163,37 @@ test-cli:
     ENV CARGO_BIN_EXE_topk=/sdk/topk-cli/target/debug/topk
     RUN --no-cache --secret TOPK_API_KEY \
         TOPK_API_KEY=$TOPK_API_KEY topk-test-sandbox cargo test -p topk-cli --lib --no-fail-fast
+
+test-sql:
+    FROM rust:slim
+
+    # install dependencies
+    RUN apt-get update && apt-get install -y protobuf-compiler
+    RUN cargo install cargo-nextest --locked
+    COPY +test-sandbox/topk-test-sandbox /usr/local/bin/topk-test-sandbox
+
+    DO rust+INIT --keep_fingerprints=true
+    WORKDIR /sdk
+
+    # copy source code
+    COPY --keep-ts . .
+
+    WORKDIR /sdk/topk-sql
+
+    ARG EARTHLY_GIT_HASH
+    DO rust+CARGO --args="nextest archive -p topk-sql --archive-file sql.tar.zst" # compile tests
+
+    ARG --required region
+    ARG --required host
+    DO +SETUP_ENV --region=$region --host=$host
+
+    # test
+    ENV FORCE_COLOR=1
+    ENV POSTGRES_HOST=${region}.sql.${host}
+    ENV POSTGRES_PORT=5432
+    ENV POSTGRES_SSL=require
+    RUN --no-cache --secret TOPK_API_KEY \
+        POSTGRES_PASSWORD=$TOPK_API_KEY TOPK_API_KEY=$TOPK_API_KEY topk-test-sandbox cargo nextest run --archive-file sql.tar.zst --no-fail-fast -j 16
 
 #
 

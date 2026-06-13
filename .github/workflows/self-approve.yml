@@ -15,7 +15,17 @@ jobs:
           app-id: ${{ secrets.GH_SELF_APPROVE_APP_ID }}
           private-key: ${{ secrets.GH_SELF_APPROVE_PRIVATE_KEY }}
 
+      - name: Check if already approved
+        id: check-approval
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          APPROVED=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews \
+            --jq '[.[] | select(.state == "APPROVED")] | length')
+          echo "already_approved=$([ "$APPROVED" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
       - name: Auto approve
+        if: steps.check-approval.outputs.already_approved == 'false'
         uses: hmarr/auto-approve-action@7d0ab8fdbb906da8a6297d373561d5ccb137d98f # v3
         with:
           github-token: ${{ steps.app-token.outputs.token }}

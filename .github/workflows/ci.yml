@@ -89,6 +89,26 @@ jobs:
         env:
           TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
 
+  sql:
+    name: Test SQL
+    runs-on: public-amd64
+    if: ${{ inputs.tests }}
+    env:
+      FORCE_COLOR: 1
+      EARTHLY_DISABLE_ANALYTICS: 1
+      EARTHLY_DISABLE_LOG_SHARING: 1
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Install earthly
+        run: |
+          sudo bash -c "curl -L https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -o /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly"
+
+      - name: SQL tests
+        run: earthly --secret TOPK_API_KEY +test-sql --region sunflower --host=topk.dev
+        env:
+          TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
+
   all_sdks_same_version:
     name: Verify all SDKs on the same version
     runs-on: public-amd64
