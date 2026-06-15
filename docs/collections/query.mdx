@@ -117,6 +117,15 @@ const docs = await client.collection("books").query(
 );
 ```
 
+```sql SQL
+SELECT
+  title,                              -- static field
+  published_year AS year,             -- renamed field
+  published_year + 10 AS year_plus_ten  -- computed field
+FROM books
+LIMIT 10;
+```
+
 </CodeGroup>
 
 ### Function expressions
@@ -219,6 +228,15 @@ const docs = await client.collection("books").query(
 ]
 ```
 
+```sql SQL
+SELECT
+  title,
+  vector_distance(title_embedding, '[0.1, 0.2, ..., 0.3]'::f32_vector) AS title_similarity
+FROM books
+ORDER BY title_similarity DESC
+LIMIT 10;
+```
+
 </CodeGroup>
 
 #### BM25 Score
@@ -288,6 +306,16 @@ const results = await client.collection("books").query(
 ]
 ```
 
+```sql SQL
+SELECT
+  title,
+  bm25_score() AS text_score
+FROM books
+WHERE match_any(title, 'Good')
+ORDER BY text_score DESC
+LIMIT 10;
+```
+
 </CodeGroup>
 
 #### Semantic similarity
@@ -351,6 +379,15 @@ const docs = await client.collection("books").query(
 ]
 ```
 
+```sql SQL
+SELECT
+  title,
+  semantic_similarity(title, 'animal') AS title_similarity
+FROM books
+ORDER BY title_similarity DESC
+LIMIT 10;
+```
+
 </CodeGroup>
 
 #### Multi-vector distance
@@ -391,6 +428,19 @@ const docs = await client.collection("passages").query(
   })
     .topk(field("dist"), 10, false)
 );
+```
+
+```sql SQL
+SELECT
+  content,
+  multi_vector_distance(
+    token_embeddings,
+    '[[0.1, 0.2, ..., 0.0], [0.4, 0.5, ..., 0.1]]'::f32_matrix,
+    100
+  ) AS dist
+FROM passages
+ORDER BY dist DESC
+LIMIT 10;
 ```
 
 </CodeGroup>
@@ -453,6 +503,10 @@ Filter expressions support all
 .filter(field("published_year").gt(1980))
 ```
 
+```sql SQL
+WHERE published_year > 1980
+```
+
 </CodeGroup>
 
 ### Keyword search
@@ -508,6 +562,10 @@ import { match } from "topk-js/query";
 .filter(match("catcher"))
 ```
 
+```sql SQL
+WHERE match_any(title, 'catcher')
+```
+
 </CodeGroup>
 
 #### Match multiple terms
@@ -531,6 +589,10 @@ from topk_sdk.query import match
 import { match } from "topk-js/query";
 
 .filter(match("catcher|rye", { field: "title", weight: 1, all: true }))
+```
+
+```sql SQL
+WHERE match_all(title, 'catcher rye')
 ```
 
 </CodeGroup>
@@ -581,6 +643,12 @@ In the example below, we're searching for documents that contain the keyword `"c
 .filter(
   field("published_year").eq(1997).or(field("published_year").gte(1920).and(field("published_year").lte(1980)))
 )
+```
+
+```sql SQL
+WHERE match_any(title, 'catcher')
+  AND (published_year = 1997
+    OR (published_year >= 1920 AND published_year <= 1980))
 ```
 
 </CodeGroup>
@@ -1564,6 +1632,11 @@ To get the top 10 results with the highest `title_similarity`, you can use the f
 .topk(field("title_similarity"), 10, false)
 ```
 
+```sql SQL
+ORDER BY title_similarity DESC
+LIMIT 10
+```
+
 </CodeGroup>
 
 The `topk()` stage is equivalent to applying `sort(expr, asc)` followed by `limit(k)`. It is a convenience shorthand for the common pattern of ordering results by a scoring expression and returning the top `k`.
@@ -1588,6 +1661,13 @@ await client.collection("books").query(
 ).limit(50);
 ```
 
+```sql SQL
+SELECT title, author
+FROM books
+WHERE published_year >= 2000
+LIMIT 50;
+```
+
 </CodeGroup>
 
 ### sort
@@ -1610,6 +1690,14 @@ await client.collection("books").query(
 ).sort(field("year"), true);
 ```
 
+```sql SQL
+SELECT title, author, published_year AS year
+FROM books
+WHERE author = 'George Orwell'
+ORDER BY published_year ASC
+LIMIT 100;
+```
+
 </CodeGroup>
 
 ### count
@@ -1627,6 +1715,14 @@ Use the `count()` function to get the total number of documents matching the que
 ```js Javascript
 // Count the total number of documents in the collection
 .count()
+```
+
+```sql SQL
+-- Count all documents
+SELECT COUNT(*) FROM books;
+
+-- Count with a filter
+SELECT COUNT(*) FROM books WHERE published_year > 2000;
 ```
 
 </CodeGroup>

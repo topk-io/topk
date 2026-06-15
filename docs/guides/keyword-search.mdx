@@ -34,6 +34,13 @@ await client.collections().create("books", {
 });
 ```
 
+```sql SQL
+CREATE TABLE books (
+  title       TEXT INDEX keyword_index(),
+  description TEXT INDEX keyword_index()
+);
+```
+
 </CodeGroup>
 
 ## Run a keyword search
@@ -114,6 +121,17 @@ const docs = await client.collection("books").query(
     text_score: 0.1948474943637848,
   }
 ]
+```
+
+```sql SQL
+SELECT
+  title,
+  description,
+  bm25_score() AS text_score
+FROM books
+WHERE match_any(title, 'great') OR match_any(title, 'novel')
+ORDER BY text_score DESC
+LIMIT 10;
 ```
 
 </CodeGroup>

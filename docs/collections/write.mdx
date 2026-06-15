@@ -67,6 +67,15 @@ await client.collection("books").upsert([
 ]);
 ```
 
+```sql SQL
+-- INSERT has upsert semantics: an existing document with the same _id is replaced
+INSERT INTO books (_id, title, published_year, title_embedding)
+VALUES
+  ('book-1', 'The Great Gatsby',        1925, '[0.12, 0.67, 0.82, 0.53]'::f32_vector),
+  ('book-2', 'To Kill a Mockingbird',   1960, '[0.42, 0.53, 0.65, 0.33]'::f32_vector),
+  ('book-3', '1984',                    1949, '[0.59, 0.33, 0.71, 0.61]'::f32_vector);
+```
+
 </CodeGroup>
 
 - Every document must have a **string** `_id` field.
@@ -217,6 +226,10 @@ client.collection("books").delete(
 await client.collection("books").delete(["book-1", "book-2", "book-3"]);
 ```
 
+```sql SQL
+DELETE FROM books WHERE _id IN ('book-1', 'book-2', 'book-3');
+```
+
 </CodeGroup>
 
 <Info>
@@ -239,6 +252,10 @@ client.collection("books").delete(field("published_year").lt(1997))
 import { field } from "topk-js/query";
 
 await client.collection("books").delete(field("published_year").lt(1997));
+```
+
+```sql SQL
+DELETE FROM books WHERE published_year < 1997;
 ```
 
 </CodeGroup>

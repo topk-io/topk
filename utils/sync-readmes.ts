@@ -38,6 +38,15 @@ const SOURCES: Source[] = [
       icon: "terminal",
     },
   },
+  {
+    readme: path.join(ROOT, "topk-sql", "README.md"),
+    output: path.join(ROOT, "docs", "sdk", "topk-sql", "overview.mdx"),
+    frontmatter: {
+      title: "SQL",
+      description:
+        "Connect any PostgreSQL client and use SQL to create collections, insert data, and run search.",
+    },
+  },
 ];
 
 function buildFrontmatter(fields: Record<string, string>): string {

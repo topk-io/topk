@@ -89,6 +89,13 @@ await client.collections().create("articles", {
 });
 ```
 
+```sql SQL
+CREATE TABLE articles (
+  title   TEXT NOT NULL INDEX keyword_index(),
+  content TEXT         INDEX semantic_index()
+);
+```
+
 </CodeGroup>
 
 In the following example we'll perform a hybrid search that combines keyword and vector(semantic) search in a single query:
@@ -128,6 +135,17 @@ const docs = await client.collection("articles").query(
       10
     )
 );
+```
+
+```sql SQL
+SELECT
+  title,
+  semantic_similarity(content, 'climate change policies') AS content_similarity,
+  bm25_score() AS text_score
+FROM articles
+WHERE match_any(title, 'carbon') OR match_any(title, 'renewable energy')
+ORDER BY content_similarity * 0.6 + text_score * 0.4 DESC
+LIMIT 10;
 ```
 
 </CodeGroup>
@@ -186,6 +204,19 @@ const docs = await client.collection("books").query(
 );
 ```
 
+```sql SQL
+-- In SQL, keyword and semantic indexes must be on separate fields (unlike the SDK).
+-- This uses 'articles' from above: title (keyword_index) + content (semantic_index).
+SELECT
+  title,
+  semantic_similarity(content, 'climate policy') AS content_similarity
+FROM articles
+WHERE match_any(title, 'carbon')
+  AND published_year > 2020
+ORDER BY content_similarity DESC
+LIMIT 10;
+```
+
 </CodeGroup>
 
 As you might have noticed, we are also sorting the top-k results using a custom scoring function.
@@ -226,6 +257,13 @@ await client.collections().create("documents", {
 });
 ```
 
+```sql SQL
+CREATE TABLE documents (
+  content    TEXT  INDEX semantic_index(),
+  importance FLOAT NOT NULL
+);
+```
+
 </CodeGroup>
 
 ### Querying with a Custom Scoring Function
@@ -262,6 +300,16 @@ const docs = await client.collection("documents").query(
     10
   )
 );
+```
+
+```sql SQL
+SELECT
+  content,
+  importance,
+  semantic_similarity(content, 'machine learning applications') AS content_score
+FROM documents
+ORDER BY importance * 0.8 + content_score * 0.2 DESC
+LIMIT 10;
 ```
 
 </CodeGroup>

@@ -73,6 +73,13 @@ await client.collections().create("passages", {
 });
 ```
 
+```sql SQL
+CREATE TABLE passages (
+  content          TEXT NOT NULL,
+  token_embeddings f16_matrix(128) INDEX multi_vector_index(metric = 'maxsim')
+);
+```
+
 </CodeGroup>
 
 - **`dimension`**: the number of columns `D` in your `N x D` embedding matrix (e.g. 128, 768, 1024).
@@ -134,6 +141,13 @@ await client.collection("passages").upsert([
     ),
   },
 ]);
+```
+
+```sql SQL
+INSERT INTO passages (_id, content, token_embeddings)
+VALUES
+  ('p1', 'Late interaction retrieval', '[[0.1, 0.2, ..., 0.0], [0.0, -0.1, ..., 0.3]]'::f16_matrix),
+  ('p2', 'MaxSim in practice',         '[[0.9, 0.1, ..., 0.5], [0.5, 0.5, ..., 0.2]]'::f16_matrix);
 ```
 
 </CodeGroup>
@@ -217,6 +231,19 @@ console.log(docs);
     maxsim: 0.79,
   },
 ]
+```
+
+```sql SQL
+SELECT
+  content,
+  multi_vector_distance(
+    token_embeddings,
+    '[[0.1, 0.2, ..., 0.0], [0.0, -0.1, ..., 0.3]]'::f16_matrix,
+    200
+  ) AS maxsim
+FROM passages
+ORDER BY maxsim DESC
+LIMIT 10;
 ```
 
 </CodeGroup>

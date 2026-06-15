@@ -56,6 +56,12 @@ await client.collections().create("books", {
 });
 ```
 
+```sql SQL
+CREATE TABLE books (
+  title TEXT NOT NULL INDEX semantic_index()
+);
+```
+
 </CodeGroup>
 
 This configuration automatically generates multi-vector embeddings for the field and enables keyword search. Documents are indexed with sub-second lag — they are searchable as soon as they are written.
@@ -87,6 +93,14 @@ await client.collection("books").upsert([
   { _id: "1984", title: "1984" },
   { _id: "catcher", title: "The Catcher in the Rye" },
 ]);
+```
+
+```sql SQL
+INSERT INTO books (_id, title)
+VALUES
+  ('gatsby',  'The Great Gatsby'),
+  ('1984',    '1984'),
+  ('catcher', 'The Catcher in the Rye');
 ```
 
 </CodeGroup>
@@ -154,6 +168,15 @@ const docs = await client.collection("books").query(
 ]
 ```
 
+```sql SQL
+SELECT
+  title,
+  semantic_similarity(title, 'classic American novel') AS title_similarity
+FROM books
+ORDER BY title_similarity DESC
+LIMIT 10;
+```
+
 </CodeGroup>
 
 Let's break down the example above:
@@ -201,6 +224,7 @@ const docs = await client.collection("books").query(
     .limit(10)
 );
 ```
+
 
 </CodeGroup>
 
