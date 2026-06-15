@@ -8,7 +8,7 @@ SQL parser and query builder for TopK. Used by the PostgreSQL wire protocol adap
 
 ## Connecting
 
-Use the TopK API key as the password. 
+Use the TopK API key as the password.
 
 ```
 psql "host=<host> password=<api-key> port=5432 user=topk dbname=topk"
