@@ -14,7 +14,7 @@ pub use ext::{
 };
 
 mod expr;
-pub use expr::{Expr, SqlFn};
+pub use expr::Expr;
 
 mod stmt;
 pub use stmt::{RowFilter, Statement, Variable};

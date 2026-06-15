@@ -62,7 +62,11 @@ impl TryFrom<SqlQuery> for Statement {
 
         // parse WHERE
         if let Some(where_clause) = select.selection {
-            stages.push(Stage::filter(FilterExpr::from_sql(where_clause)?));
+            stages.extend(
+                Vec::<FilterExpr>::from_sql(where_clause)?
+                    .into_iter()
+                    .map(Stage::filter),
+            );
         }
 
         if select.projection.len() == 1 {

@@ -7,8 +7,7 @@ mod select;
 mod typed;
 mod value;
 
-pub use function::SqlFn;
-
+#[derive(Clone, Debug)]
 pub enum Expr {
     Literal(Value),
     Logical(LogicalExpr),

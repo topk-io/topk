@@ -159,7 +159,7 @@ impl AsyncTestContext for BooksContext {
                 embedding      f32_vector(4)             INDEX vector_index(metric = 'cosine'),
                 sparse_emb     f32_sparse_vector         INDEX vector_index(metric = 'dot_product'),
                 multi_emb      f32_matrix(4)             INDEX multi_vector_index(metric = 'maxsim'),
-                tags           TEXT[],
+                tags           TEXT[]                    INDEX keyword_index(),
                 checksum       BYTEA,
                 metadata       JSONB
             );

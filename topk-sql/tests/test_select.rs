@@ -285,10 +285,44 @@ async fn where_regex(#[case] query: &str, #[case] expected: HashSet<&str>) {
 #[case::natural_log("SELECT _id FROM {{table}} WHERE LN(rating) > 1.5", ids!["lotr", "harry"])]
 #[case::exponential("SELECT _id FROM {{table}} WHERE EXP(rating) > 89.0", ids!["lotr", "harry"])]
 #[case::coalesce("SELECT _id FROM {{table}} WHERE COALESCE(rating, 0) >= 4.5", ids!["lotr", "harry"])]
+#[case::match_text_unqualified("SELECT _id FROM {{table}} WHERE match('rings')", ids!["lotr"])]
+#[case::match_text("SELECT _id FROM {{table}} WHERE match('hobbit rings', title)", ids!["hobbit", "lotr"])]
+#[case::match_text_and(
+    "SELECT _id FROM {{table}} WHERE match('lord', title) AND match('rings', title)",
+    ids!["lotr"],
+)]
+#[case::match_text_nested_or_with_logical(
+    "SELECT _id FROM {{table}} WHERE (match('hobbit', title) OR match('rings', title)) AND published_year > 1940",
+    ids!["lotr"],
+)]
+#[case::match_text_nested_or_and(
+    "SELECT _id FROM {{table}} WHERE match('hobbit', title) OR (match('lord', title) AND match('rings', title))",
+    ids!["hobbit", "lotr"],
+)]
+#[case::match_text_all(
+    "SELECT _id FROM {{table}} WHERE match('kill mockingbird', title, 1.0, true)",
+    ids!["mockingbird"],
+)]
+#[case::match_tokens(
+    "SELECT _id FROM {{table}} WHERE match_tokens(ARRAY['hobbit', 'rings'], title)",
+    ids!["hobbit", "lotr"],
+)]
+#[case::match_tokens_all(
+    "SELECT _id FROM {{table}} WHERE match_tokens(ARRAY['lord', 'rings'], title, true)",
+    ids!["lotr"],
+)]
 #[case::match_all("SELECT _id FROM {{table}} WHERE match_all(title, 'kill')", ids!["mockingbird"])]
+#[case::match_all_tokens(
+    "SELECT _id FROM {{table}} WHERE match_all(tags, ARRAY['epic', 'tolkien'])",
+    ids!["lotr"],
+)]
 #[case::match_any(
     "SELECT _id FROM {{table}} WHERE match_any(title, 'hobbit rings')",
     ids!["hobbit", "lotr"],
+)]
+#[case::match_any_tokens(
+    "SELECT _id FROM {{table}} WHERE match_any(tags, ARRAY['adventure', 'epic'])",
+    ids!["hobbit", "lotr", "moby"],
 )]
 #[case::boost_score(
     "SELECT _id, BOOST(rating, in_print = true, 1.5) AS score FROM {{table}} ORDER BY score DESC LIMIT 2",
@@ -406,12 +440,20 @@ async fn limit_caps_results(#[case] query: &str, #[case] expected_len: usize) {
 
 #[rstest]
 #[case::default_args(
-    "SELECT _id, bm25_score() AS score FROM {{table}} WHERE match_any(title, 'rings') ORDER BY score DESC LIMIT 3",
+    "SELECT _id, bm25_score() AS score FROM {{table}} WHERE match('rings', title) ORDER BY score DESC LIMIT 3",
     ids!["lotr"],
 )]
 #[case::custom_args(
-    "SELECT _id, bm25_score(0.75, 1.2) AS score FROM {{table}} WHERE match_any(title, 'rings') ORDER BY score DESC LIMIT 3",
+    "SELECT _id, bm25_score(0.75, 1.2) AS score FROM {{table}} WHERE match('rings', title) ORDER BY score DESC LIMIT 3",
     ids!["lotr"],
+)]
+#[case::with_logical_filter(
+    "SELECT _id, bm25_score() AS score FROM {{table}} WHERE match('hobbit rings', title) AND published_year > 1950 ORDER BY score DESC LIMIT 3",
+    ids!["lotr"],
+)]
+#[case::match_tokens_filter(
+    "SELECT _id, bm25_score() AS score FROM {{table}} WHERE match_tokens(ARRAY['hobbit', 'rings'], title) ORDER BY score DESC LIMIT 3",
+    ids!["hobbit", "lotr"],
 )]
 #[tokio::test]
 async fn bm25_search(#[case] query: &str, #[case] expected: HashSet<&str>) {
@@ -419,6 +461,34 @@ async fn bm25_search(#[case] query: &str, #[case] expected: HashSet<&str>) {
         .await
         .unwrap();
     assert_eq!(ids(&rows), expected);
+}
+
+#[tokio::test]
+async fn bm25_match_weight_orders_results() {
+    let rows = BooksContext::with_scope(async |ctx| {
+        ctx.sql(
+            "SELECT _id, bm25_score() AS score FROM {{table}} \
+             WHERE match('rings', title, 10.0) OR match('hobbit', title, 1.0) \
+             ORDER BY score DESC LIMIT 2",
+        )
+        .await
+    })
+    .await
+    .unwrap();
+
+    let actual = rows.iter().map(|row| row.id().unwrap()).collect::<Vec<_>>();
+    assert_eq!(actual, vec!["lotr", "hobbit"]);
+}
+
+#[tokio::test]
+async fn text_filter_or_text_filter() {
+    let rows = BooksContext::with_scope(async |ctx| {
+        ctx.sql("SELECT _id FROM {{table}} WHERE match('hobbit', title) OR match('rings', title)")
+            .await
+    })
+    .await
+    .unwrap();
+    assert_eq!(ids(&rows), ids!["hobbit", "lotr"]);
 }
 
 #[tokio::test]
@@ -804,6 +874,30 @@ async fn semantic_similarity_search() {
 #[case::bm25_three_args(
     "SELECT bm25_score(0.75, 1.2, 0.5) AS s FROM {{table}} ORDER BY s LIMIT 5",
     "Invalid: bm25_score: expected 0 or 2 args, got 3"
+)]
+#[case::bm25_with_boolean_match(
+    "SELECT _id, bm25_score() AS score FROM {{table}} WHERE match_any(title, 'rings') ORDER BY score DESC LIMIT 3",
+    "Invalid argument: Invalid query: Query must have at least one text filter to compute bm25 scores"
+)]
+#[case::match_or_logical(
+    "SELECT _id FROM {{table}} WHERE match('rings', title) OR published_year = 1813",
+    "Unsupported: match/match_tokens can only be combined with logical filters using AND"
+)]
+#[case::match_tokens_or_logical(
+    "SELECT _id FROM {{table}} WHERE match_tokens(ARRAY['rings'], title) OR published_year = 1813",
+    "Unsupported: match/match_tokens can only be combined with logical filters using AND"
+)]
+#[case::match_non_string_query(
+    "SELECT _id FROM {{table}} WHERE match(123, title)",
+    "Invalid: match: query must be a string literal"
+)]
+#[case::match_non_bool_all(
+    "SELECT _id FROM {{table}} WHERE match('rings', title, 1.0, 'yes')",
+    "Invalid: match: all must be a bool literal"
+)]
+#[case::match_tokens_non_string_array(
+    "SELECT _id FROM {{table}} WHERE match_tokens(ARRAY[1, 2], title)",
+    "Invalid: match_tokens: tokens must be an array of strings"
 )]
 #[case::vector_distance_in_where(
     "SELECT _id FROM {{table}} WHERE vector_distance(embedding, f32_vector(ARRAY[1.0, 0.0, 0.0, 0.0])) > 0",
