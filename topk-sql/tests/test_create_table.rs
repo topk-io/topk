@@ -26,9 +26,10 @@ use common::{Scope, TableScope};
     vec![doc!("label" => "hello")],
 )]
 #[case::indexes(
-    "CREATE TABLE {{table}} (title TEXT NOT NULL, embedding f32_vector(4));
-     CREATE INDEX ON {{table}} USING keyword_index (title);
-     CREATE INDEX ON {{table}} USING vector_index (embedding) WITH (metric = 'cosine')",
+    "CREATE TABLE {{table}} (
+        title     TEXT NOT NULL  INDEX keyword_index(),
+        embedding f32_vector(4)  INDEX vector_index(metric = 'cosine')
+    )",
     "INSERT INTO {{table}} (_id, title, embedding) VALUES ('doc', 'Hello World', f32_vector(ARRAY[1.0, 0.0, 0.0, 0.0]))",
     "SELECT _id, vector_distance(embedding, f32_vector(ARRAY[1.0, 0.0, 0.0, 0.0])) AS d FROM {{table}} ORDER BY d LIMIT 1",
     vec![doc!("_id" => "doc", "d" => 1.0_f32)],
@@ -62,11 +63,6 @@ async fn create_table_round_trip(
     "CREATE TABLE {{table}} (name TEXT NOT NULL)",
     "collection already exists"
 )]
-#[case::vector_index_unknown_option(
-    "CREATE TABLE {{table}} (embedding f32_vector(4))",
-    "CREATE INDEX ON {{table}} USING vector_index (embedding) WITH (metric = 'cosine', typo = 'oops')",
-    "Invalid: unknown option `typo`"
-)]
 #[tokio::test]
 async fn create_table_rejected(
     #[case] setup_sql: &str,
@@ -80,6 +76,23 @@ async fn create_table_rejected(
     })
     .await
     .unwrap_err();
+
+    assert_eq!(err.to_string(), expected);
+}
+
+#[rstest]
+#[case::unknown_option(
+    "CREATE TABLE {{table}} (
+        name TEXT NOT NULL,
+        embedding f32_vector(4) INDEX vector_index(metric = 'cosine', typo = 'oops')
+    )",
+    "Invalid: unknown option `typo`"
+)]
+#[tokio::test]
+async fn create_table_with_index_rejected(#[case] sql: &str, #[case] expected: &str) {
+    let err = TableScope::with_scope(async |ctx| ctx.sql(sql).await)
+        .await
+        .unwrap_err();
 
     assert_eq!(err.to_string(), expected);
 }

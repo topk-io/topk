@@ -1,7 +1,6 @@
 use std::fmt::{self, Display};
 
 use sqlparser::ast::ObjectName;
-use topk_rs::proto::v1::control::FieldIndex;
 use topk_rs::{Client, CollectionClient};
 
 use crate::{Error, sql_invalid};
@@ -10,13 +9,6 @@ use crate::{Error, sql_invalid};
 pub enum Table {
     Collection(String),
     Partition(String, String),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Index {
-    pub table: Table,
-    pub field: String,
-    pub index: FieldIndex,
 }
 
 impl Display for Table {

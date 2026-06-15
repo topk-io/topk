@@ -5,7 +5,7 @@ use strum_macros::IntoStaticStr;
 use topk_rs::proto::v1::control::FieldSpec;
 use topk_rs::proto::v1::data::{Document, LogicalExpr, Query, Value};
 
-use crate::{Error, FromSql, Index, SqlExprExt, Table, sql_invalid, sql_unsupported};
+use crate::{Error, FromSql, SqlExprExt, Table, sql_invalid, sql_unsupported};
 
 mod create_table;
 mod delete;
@@ -19,74 +19,6 @@ mod show;
 mod update;
 mod variable;
 pub use variable::Variable;
-
-/// Convert a parsed SQL batch, folding consecutive `CREATE INDEX` into each
-/// preceding `CREATE TABLE` schema. Stray `CREATE INDEX` statements error.
-///
-/// Returns pairs of `(Statement, Option<SqlStatement>)` where the raw SQL is
-/// preserved only for `SELECT` queries (needed by callers for projection inference).
-pub fn aggregate_stmts(
-    batch: Vec<SqlStatement>,
-) -> Result<Vec<(Statement, Option<SqlStatement>)>, Error> {
-    let mut out = Vec::with_capacity(batch.len());
-
-    let mut iter = batch.into_iter().peekable();
-    while let Some(sql) = iter.next() {
-        let (stmt, raw) = match sql {
-            SqlStatement::CreateTable(ct) => {
-                let Statement::CreateTable {
-                    table,
-                    mut schema,
-                    if_not_exists,
-                } = Statement::try_from(ct)?
-                else {
-                    unreachable!()
-                };
-
-                while matches!(iter.peek(), Some(SqlStatement::CreateIndex(_))) {
-                    let index = match iter.next() {
-                        Some(SqlStatement::CreateIndex(idx)) => Index::from_sql(idx)?,
-                        _ => unreachable!(),
-                    };
-
-                    sql_invalid!(
-                        index.table != table,
-                        "CREATE INDEX references unknown table `{}`",
-                        index.table
-                    );
-                    let field = &index.field;
-                    let spec = match schema.get_mut(field) {
-                        Some(spec) => spec,
-                        None => sql_invalid!("CREATE INDEX references unknown field `{field}`"),
-                    };
-                    sql_invalid!(spec.index.is_some(), "field `{field}` already has an index");
-                    spec.index = Some(index.index);
-                }
-
-                (
-                    Statement::CreateTable {
-                        table,
-                        schema,
-                        if_not_exists,
-                    },
-                    None,
-                )
-            }
-            SqlStatement::CreateIndex(idx) => {
-                let index = Index::from_sql(idx)?;
-                let table = index.table;
-                sql_invalid!("CREATE INDEX references unknown table `{table}`");
-            }
-            other => {
-                let raw = matches!(other, SqlStatement::Query(_)).then(|| other.clone());
-                (Statement::try_from(other)?, raw)
-            }
-        };
-        out.push((stmt, raw));
-    }
-
-    Ok(out)
-}
 
 #[derive(Debug, Clone, PartialEq, IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
@@ -144,10 +76,6 @@ pub enum Statement {
         /// Silently ignore if the table does not exist.
         if_exists: bool,
     },
-    CreateIndex {
-        /// Index to create.
-        index: Index,
-    },
 
     Explain {
         /// Statement to explain.
@@ -199,7 +127,6 @@ impl Statement {
             | Statement::DeletePartition { table }
             | Statement::CreateTable { table, .. }
             | Statement::DropTable { table, .. } => Some(table),
-            Statement::CreateIndex { index } => Some(&index.table),
             Statement::Explain { stmt, .. } => stmt.table(),
             _ => None,
         }
@@ -225,7 +152,6 @@ impl TryFrom<SqlStatement> for Statement {
             SqlStatement::Explain { .. } => explain::try_from_sql(stmt),
             SqlStatement::CreateTable(ct) => Statement::try_from(ct),
             SqlStatement::Drop { .. } => drop::try_from_sql(stmt),
-            SqlStatement::CreateIndex(idx) => Statement::from_sql(idx),
             other => Err(Error::Unsupported(format!("statement: {other:?}"))),
         }
     }
@@ -274,45 +200,5 @@ impl FromSql<SqlExpr> for RowFilter {
             SqlExpr::Nested(inner) => Self::from_sql(*inner),
             other => Ok(RowFilter::Expr(LogicalExpr::from_sql(other)?)),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::parse_sql;
-    use sqlparser::ast::Statement as SqlStatement;
-
-    use super::*;
-
-    fn parse_query(sql: &str) -> Statement {
-        let SqlStatement::Query(q) = parse_sql(sql).unwrap().remove(0) else {
-            panic!("expected query");
-        };
-        Statement::try_from(*q).unwrap()
-    }
-
-    #[test]
-    fn count_parses_to_count_statement() {
-        match parse_query("SELECT COUNT(*) FROM books") {
-            Statement::Count { alias, .. } => assert_eq!(alias, "_count"),
-            other => panic!("expected Count, got {other:?}"),
-        }
-
-        match parse_query("SELECT COUNT(*) AS n FROM books") {
-            Statement::Count { alias, .. } => assert_eq!(alias, "n"),
-            other => panic!("expected Count, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn standalone_create_index_reports_option_error_first() {
-        let sql = "\
-            CREATE INDEX ON books USING vector_index (embedding) \
-            WITH (metric = 'cosine', typo = 'oops')\
-        ";
-
-        let err = aggregate_stmts(crate::parse_sql(sql).unwrap()).unwrap_err();
-
-        assert_eq!(err.to_string(), "Invalid: unknown option `typo`");
     }
 }
