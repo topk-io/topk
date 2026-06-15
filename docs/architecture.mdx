@@ -49,7 +49,7 @@ Cache placement and I/O requests are handled by our I/O runtime (based on `io_ur
 <img src="/images/topk-reactor-light.png" alt="Reactor Query Engine" className="block dark:hidden" />
 <img src="/images/topk-reactor-dark.png" alt="Reactor Query Engine" className="hidden dark:block" />
 
-`reactor` is our proprietary query engine that enables us to combine different retrieval types, filter predicates, and scoring expressions in a single query. Conceptually, it's similar to other pull-based query engines (e.g. DataFusion) with heavy optimizations for zero-copy execution, search-specific SIMD kernels, quantization, vectorized filtering, pruning, and more. Aditionally, it supports distributed query executions which allows us to reuse the same logical/physical operators in router and executor services.
+`reactor` is our proprietary query engine that enables us to combine different retrieval types, filter predicates, and scoring expressions in a single query. Conceptually, it's similar to other pull-based query engines (e.g. DataFusion) with heavy optimizations for zero-copy execution, search-specific SIMD kernels, quantization, vectorized filtering, pruning, and more. Additionally, it supports distributed query executions which allows us to reuse the same logical/physical operators in router and executor services.
 
 ## File Format (`.bob`)
 `.bob` is our proprietary columnar file format designed from the ground up for search on object storage. It supports zero-copy and zero-decode I/O with type-specific containers for compressed dense and sparse vectors, tensors, inverted indices, and more.
