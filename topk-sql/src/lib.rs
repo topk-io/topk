@@ -3,8 +3,10 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 use sqlparser::ast::{self, visit_expressions};
-use sqlparser::dialect::PostgreSqlDialect;
 use sqlparser::parser::ParserError;
+
+mod dialect;
+use dialect::TopKDialect;
 
 mod ext;
 pub use ext::{
@@ -15,10 +17,10 @@ mod expr;
 pub use expr::{Expr, SqlFn};
 
 mod stmt;
-pub use stmt::{RowFilter, Statement, Variable, aggregate_stmts};
+pub use stmt::{RowFilter, Statement, Variable};
 
 mod table;
-pub use table::{Index, Table};
+pub use table::Table;
 
 pub mod util;
 
@@ -59,7 +61,7 @@ pub fn parse_sql(sql: &str) -> Result<Vec<ast::Statement>, Error> {
     let sql = rewrite_partition_syntax(sql);
 
     // Parse
-    let dialect = PostgreSqlDialect {};
+    let dialect = TopKDialect::default();
     let stmts = sqlparser::parser::Parser::parse_sql(&dialect, &sql)?;
 
     // Validate
@@ -98,6 +100,22 @@ pub fn parse_sql(sql: &str) -> Result<Vec<ast::Statement>, Error> {
     }
 
     Ok(stmts)
+}
+
+/// Convert a parsed SQL batch into typed statements.
+///
+/// Returns pairs of `(Statement, Option<ast::Statement>)` where the raw SQL is
+/// preserved only for `Query` statements (needed by callers for projection inference).
+pub fn convert_sql(
+    batch: Vec<ast::Statement>,
+) -> Result<Vec<(Statement, Option<ast::Statement>)>, Error> {
+    batch
+        .into_iter()
+        .map(|sql| {
+            let raw = matches!(sql, ast::Statement::Query(_)).then(|| sql.clone());
+            Statement::try_from(sql).map(|stmt| (stmt, raw))
+        })
+        .collect()
 }
 
 // Rewrite "SELECT * FROM books PARTITION p1" → "SELECT * FROM books$p1"

@@ -149,25 +149,20 @@ impl AsyncTestContext for BooksContext {
             .query(&format!(
                 r#"
             CREATE TABLE {table} (
-                title          TEXT NOT NULL,
+                title          TEXT NOT NULL             INDEX keyword_index(),
                 author         TEXT,
                 published_year INTEGER,
                 rating         FLOAT,
                 genre          TEXT,
                 in_print       BOOLEAN,
-                bio            TEXT,
-                embedding      f32_vector(4),
-                sparse_emb     f32_sparse_vector,
-                multi_emb      f32_matrix(4),
+                bio            TEXT                      INDEX semantic_index(),
+                embedding      f32_vector(4)             INDEX vector_index(metric = 'cosine'),
+                sparse_emb     f32_sparse_vector         INDEX vector_index(metric = 'dot_product'),
+                multi_emb      f32_matrix(4)             INDEX multi_vector_index(metric = 'maxsim'),
                 tags           TEXT[],
                 checksum       BYTEA,
                 metadata       JSONB
             );
-            CREATE INDEX ON {table} USING keyword_index      (title);
-            CREATE INDEX ON {table} USING semantic_index     (bio);
-            CREATE INDEX ON {table} USING vector_index       (embedding)  WITH (metric = 'cosine');
-            CREATE INDEX ON {table} USING vector_index       (sparse_emb) WITH (metric = 'dot_product');
-            CREATE INDEX ON {table} USING multi_vector_index (multi_emb)  WITH (metric = 'maxsim');
             "#
             ))
             .await

@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use sqlparser::ast::{
-    ArrayElemTypeDef, BinaryOperator, ColumnDef, ColumnOption, CreateIndex as SqlCreateIndex,
-    CreateTable as SqlCreateTable, DataType, Expr as SqlExpr,
+    ArrayElemTypeDef, BinaryOperator, ColumnDef, ColumnOption, CreateTable as SqlCreateTable,
+    DataType, Expr as SqlExpr, Function, FunctionArg, FunctionArgExpr, FunctionArguments,
 };
 use topk_rs::proto::v1::control::{
     FieldIndex, FieldSpec, FieldType, KeywordIndexType, MultiVectorDistanceMetric,
@@ -11,7 +11,7 @@ use topk_rs::proto::v1::control::{
 };
 
 use crate::{
-    Error, FromSql, Index, SqlExprExt, Statement, Table, parse_args, parse_kwargs, sql_invalid,
+    Error, FromSql, SqlExprExt, Statement, Table, parse_args, parse_kwargs, sql_invalid,
     sql_unsupported,
 };
 
@@ -44,124 +44,20 @@ impl TryFrom<SqlCreateTable> for Statement {
     }
 }
 
-impl FromSql<SqlCreateIndex> for Index {
-    fn from_sql(idx: SqlCreateIndex) -> Result<Self, Error> {
-        sql_unsupported!(idx.unique, "CREATE UNIQUE INDEX");
-        sql_unsupported!(idx.concurrently, "CREATE INDEX CONCURRENTLY");
-        sql_unsupported!(idx.if_not_exists, "CREATE INDEX IF NOT EXISTS");
-        sql_unsupported!(!idx.include.is_empty(), "INDEX … INCLUDE");
-        sql_unsupported!(idx.predicate.is_some(), "partial index (WHERE clause)");
-        sql_invalid!(
-            idx.columns.len() != 1,
-            "CREATE INDEX must reference exactly one column"
-        );
-
-        // Parse table name.
-        let table = Table::new(idx.table_name)?;
-        sql_invalid!(
-            !matches!(table, Table::Collection(_)),
-            "CREATE INDEX requires a collection name"
-        );
-
-        // Parse index method.
-        let method = idx
-            .using
-            .as_ref()
-            .map(|using| using.value.to_ascii_lowercase());
-        let method = match method {
-            Some(method) => method,
-            None => sql_invalid!("CREATE INDEX requires USING <index method>"),
-        };
-
-        // Parse field name.
-        let field = match &idx.columns[0].expr {
-            SqlExpr::Identifier(ident) => ident.value.clone(),
-            e => sql_invalid!("expected column name in CREATE INDEX, got {e:?}"),
-        };
-
-        // Parse WITH options.
-        let opts = idx
-            .with
-            .into_iter()
-            .map(|expr| match expr {
-                SqlExpr::BinaryOp {
-                    left,
-                    op: BinaryOperator::Eq,
-                    right,
-                } => {
-                    let key = match left.as_ident() {
-                        Some(key) => key,
-                        None => sql_invalid!("expected identifier in WITH option"),
-                    };
-                    let value = match right.as_string() {
-                        Some(value) => value,
-                        None => sql_invalid!("expected string in WITH option"),
-                    };
-
-                    Ok((key, value))
-                }
-                e => sql_invalid!("expected key = value in WITH clause, got {e:?}"),
-            })
-            .collect::<Result<HashMap<String, String>, Error>>()?;
-
-        let index = match method.as_str() {
-            "keyword_index" => {
-                sql_unsupported!(!opts.is_empty(), "keyword_index does not take WITH options");
-                FieldIndex::keyword(KeywordIndexType::Text)
-            }
-            "semantic_index" => {
-                sql_unsupported!(
-                    !opts.is_empty(),
-                    "semantic_index does not take WITH options"
-                );
-                FieldIndex::semantic()
-            }
-            "vector_index" => {
-                let (metric,) = parse_kwargs!(&opts; metric: VectorDistanceMetric)?;
-                FieldIndex::vector(metric)
-            }
-            "multi_vector_index" => {
-                let (metric, quantization, width, top_k) = parse_kwargs!(
-                    &opts;
-                    metric: MultiVectorDistanceMetric;
-                    quantization: MultiVectorQuantization, width: u32, top_k: u32
-                )?;
-                sql_invalid!(
-                    metric != MultiVectorDistanceMetric::Maxsim,
-                    "multi_vector_index metric must be 'maxsim'"
-                );
-                FieldIndex::multi_vector(metric, quantization, width, top_k)
-            }
-            _ => sql_unsupported!(
-                "unknown index method `{method}`, expected: keyword_index | semantic_index | vector_index | multi_vector_index"
-            ),
-        };
-
-        Ok(Index {
-            table,
-            field,
-            index,
-        })
-    }
-}
-
-impl FromSql<SqlCreateIndex> for Statement {
-    fn from_sql(idx: SqlCreateIndex) -> Result<Self, Error> {
-        Ok(Statement::CreateIndex {
-            index: Index::from_sql(idx)?,
-        })
-    }
-}
-
 impl FromSql<ColumnDef> for FieldSpec {
     fn from_sql(column: ColumnDef) -> Result<Self, Error> {
         let data_type = FieldType::from_sql(column.data_type)?;
 
         let mut required = false;
+        let mut index = None;
         for option in column.options {
             match option.option {
                 ColumnOption::Null => {}
                 ColumnOption::NotNull => required = true,
+                ColumnOption::Check(SqlExpr::Function(func)) => {
+                    sql_invalid!(index.is_some(), "column has multiple INDEX definitions");
+                    index = Some(FieldIndex::from_sql(func)?);
+                }
                 ColumnOption::Default(_) => sql_unsupported!("DEFAULT constraint"),
                 ColumnOption::Unique { .. } => sql_unsupported!("UNIQUE constraint"),
                 ColumnOption::Check(_) => sql_unsupported!("CHECK constraint"),
@@ -173,7 +69,7 @@ impl FromSql<ColumnDef> for FieldSpec {
         Ok(FieldSpec {
             data_type: Some(data_type),
             required,
-            index: None,
+            index,
         })
     }
 }
@@ -271,5 +167,74 @@ impl FromSql<DataType> for FieldType {
 
             dt => sql_unsupported!("data type: {dt}"),
         }
+    }
+}
+
+impl FromSql<Function> for FieldIndex {
+    fn from_sql(func: Function) -> Result<Self, Error> {
+        let method = func.name.to_string().to_ascii_lowercase();
+
+        let opts: HashMap<String, String> = match func.args {
+            FunctionArguments::None => HashMap::new(),
+            FunctionArguments::List(list) => list
+                .args
+                .iter()
+                .map(|arg| match arg {
+                    FunctionArg::Unnamed(FunctionArgExpr::Expr(SqlExpr::BinaryOp {
+                        left,
+                        op: BinaryOperator::Eq,
+                        right,
+                    })) => {
+                        let key = match left.as_ident() {
+                            Some(key) => key,
+                            None => sql_invalid!("expected identifier in INDEX option"),
+                        };
+                        let value = match right.as_string() {
+                            Some(value) => value,
+                            None => sql_invalid!("expected string in INDEX option"),
+                        };
+                        Ok((key, value))
+                    }
+                    other => {
+                        sql_invalid!("expected key = 'value' in INDEX options, got {other:?}")
+                    }
+                })
+                .collect::<Result<_, Error>>()?,
+            other => {
+                sql_invalid!("expected function argument list for index options, got {other:?}")
+            }
+        };
+
+        let index = match method.as_str() {
+            "keyword_index" => {
+                sql_unsupported!(!opts.is_empty(), "keyword_index does not take options");
+                FieldIndex::keyword(KeywordIndexType::Text)
+            }
+            "semantic_index" => {
+                sql_unsupported!(!opts.is_empty(), "semantic_index does not take options");
+                FieldIndex::semantic()
+            }
+            "vector_index" => {
+                let (metric,) = parse_kwargs!(&opts; metric: VectorDistanceMetric)?;
+                FieldIndex::vector(metric)
+            }
+            "multi_vector_index" => {
+                let (metric, quantization, width, top_k) = parse_kwargs!(
+                    &opts;
+                    metric: MultiVectorDistanceMetric;
+                    quantization: MultiVectorQuantization, width: u32, top_k: u32
+                )?;
+                sql_invalid!(
+                    metric != MultiVectorDistanceMetric::Maxsim,
+                    "multi_vector_index metric must be 'maxsim'"
+                );
+                FieldIndex::multi_vector(metric, quantization, width, top_k)
+            }
+            _ => sql_unsupported!(
+                "unknown index method `{method}`, expected: keyword_index | semantic_index | vector_index | multi_vector_index"
+            ),
+        };
+
+        Ok(index)
     }
 }

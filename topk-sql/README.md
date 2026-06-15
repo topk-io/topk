@@ -8,10 +8,10 @@ SQL parser and query builder for TopK. Used by the PostgreSQL wire protocol adap
 
 ## Connecting
 
-Use the TopK API key as the password. The database name is the project ID.
+Use the TopK API key as the password. 
 
 ```
-psql "host=<host> port=5432 user=any password=<api-key> dbname=<project-id>"
+psql "host=<host> password=<api-key> port=5432 user=topk dbname=topk"
 ```
 
 ---
@@ -56,23 +56,20 @@ per project. Partition can be specified with `$` or the `PARTITION` keyword:
 | `collection PARTITION name` | `books PARTITION 2024` |
 
 Partition syntax applies to `SELECT`, `INSERT`, `UPDATE`, and `DELETE` only. DDL
-(`CREATE TABLE`, `DROP TABLE`, `CREATE INDEX`) names collections without partitions;
+(`CREATE TABLE`, `DROP TABLE`) names collections without partitions;
 partitions are created implicitly on first write.
 
 ---
 
 ### CREATE TABLE
 
-Schema is defined once at collection creation. `CREATE TABLE` and `CREATE INDEX`
-statements must be submitted together in a single SQL string; standalone `CREATE INDEX`
-is not supported.
+Schema is defined once at collection creation. Indexes are declared inline on each column.
 
 ```sql
 CREATE TABLE [IF NOT EXISTS] <table> (
-    <column> <type> [NOT NULL],
+    <column> <type> [NOT NULL] [INDEX <method>(<options>)],
     ...
 );
-CREATE INDEX ON <table> USING <method> (<column>) [WITH (<options>)];
 ```
 
 `IF NOT EXISTS` suppresses the error if the collection already exists.
@@ -129,25 +126,20 @@ CREATE INDEX ON <table> USING <method> (<column>) [WITH (<options>)];
 
 ```sql
 CREATE TABLE books (
-    title          TEXT NOT NULL,
+    title          TEXT NOT NULL               INDEX keyword_index(),
     author         TEXT NOT NULL,
     published_year INTEGER NOT NULL,
     rating         FLOAT,
     genre          TEXT,
     in_print       BOOLEAN,
-    bio            TEXT,
-    embedding      f32_vector(4),
-    sparse_emb     f32_sparse_vector,
-    multi_emb      f32_matrix(4),
+    bio            TEXT                        INDEX semantic_index(),
+    embedding      f32_vector(4)               INDEX vector_index(metric = 'cosine'),
+    sparse_emb     f32_sparse_vector           INDEX vector_index(metric = 'dot_product'),
+    multi_emb      f32_matrix(4)               INDEX multi_vector_index(metric = 'maxsim'),
     tags           TEXT[],
     checksum       BYTEA,
     metadata       JSONB
 );
-CREATE INDEX ON books USING keyword_index      (title);
-CREATE INDEX ON books USING semantic_index     (bio);
-CREATE INDEX ON books USING vector_index       (embedding)  WITH (metric = 'cosine');
-CREATE INDEX ON books USING vector_index       (sparse_emb) WITH (metric = 'dot_product');
-CREATE INDEX ON books USING multi_vector_index (multi_emb)  WITH (metric = 'maxsim');
 ```
 
 ---
