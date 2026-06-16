@@ -83,6 +83,29 @@ function stripReadmeHeader(content: string): string {
   return out.join("\n").replace(/^\n+/, "");
 }
 
+const CALLOUT_MAP: Record<string, string> = {
+  NOTE: "Note",
+  TIP: "Tip",
+  IMPORTANT: "Info",
+  WARNING: "Warning",
+  CAUTION: "Danger",
+};
+
+function transformCallouts(content: string): string {
+  return content.replace(
+    /^> \[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\n((?:> [^\n]*\n)*)/gm,
+    (_, type, body) => {
+      const component = CALLOUT_MAP[type];
+      const inner = body
+        .split("\n")
+        .map((line: string) => line.replace(/^> ?/, ""))
+        .filter((line: string) => line.trim() !== "")
+        .join("\n");
+      return `<${component}>\n\n${inner}\n\n</${component}>\n`;
+    }
+  );
+}
+
 function stripSection(content: string, heading: string): string {
   const lines = content.split("\n");
   const out: string[] = [];
@@ -116,7 +139,7 @@ async function syncReadme(source: Source): Promise<void> {
   }
 
   const content = await fs.readFile(source.readme, "utf-8");
-  const body = stripSection(stripReadmeHeader(content), "## Documentation");
+  const body = transformCallouts(stripSection(stripReadmeHeader(content), "## Documentation"));
   const frontmatter = buildFrontmatter(source.frontmatter);
   const output = `${frontmatter}\n\n${body}\n`;
 

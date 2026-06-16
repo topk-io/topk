@@ -324,6 +324,10 @@ collections = client.collections().list()
 const collections = await client.collections().list();
 ```
 
+```sql SQL
+SELECT table_name FROM information_schema.tables;
+```
+
 </CodeGroup>
 
 The `list()` function returns a list of `Collection` objects:

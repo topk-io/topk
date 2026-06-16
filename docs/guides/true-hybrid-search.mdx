@@ -143,7 +143,7 @@ SELECT
   semantic_similarity(content, 'climate change policies') AS content_similarity,
   bm25_score() AS text_score
 FROM articles
-WHERE match_any(title, 'carbon') OR match_any(title, 'renewable energy')
+WHERE match('carbon', title) OR match('renewable energy', title)
 ORDER BY content_similarity * 0.6 + text_score * 0.4 DESC
 LIMIT 10;
 ```

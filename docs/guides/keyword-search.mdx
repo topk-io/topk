@@ -129,7 +129,7 @@ SELECT
   description,
   bm25_score() AS text_score
 FROM books
-WHERE match_any(title, 'great') OR match_any(title, 'novel')
+WHERE match('great') OR match('novel')
 ORDER BY text_score DESC
 LIMIT 10;
 ```

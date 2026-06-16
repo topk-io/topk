@@ -1,30 +1,29 @@
 # topk-sql
 
-Connect any PostgreSQL client — `psql`, `psycopg2`, `node-postgres`, `tokio-postgres`,
-and others — directly to TopK and use SQL to create collections, insert data, and run
-search.
-
+TopK exposes a PostgreSQL wire protocol endpoint — any standard SQL client can connect and issue queries and writes against your collections.
 
 ## Prerequisites
 
 - **API key** — sign in to [console.topk.io](https://console.topk.io) and generate an API key.
 - **Region** — see [docs.topk.io/regions](https://docs.topk.io/regions) for available regions.
 
-
 ## Setup
 
-### Connect
+Connect using any PostgreSQL-compatible client — `psql`, `psycopg2`, `node-postgres`, `tokio-postgres`, and others.
 
 ```bash
 psql "host=<region>.sql.topk.io port=5432 user=topk password=<api-key> dbname=topk"
 ```
 
-Replace `<region>` with your selected region and `<api-key>` with your API key. Available regions are listed at [docs.topk.io/regions](https://docs.topk.io/regions).
+Replace `<region>` with your selected region and `<api-key>` with your API key.
+
+> [!TIP]
+> See [available regions](https://docs.topk.io/regions).
 
 
 ## Quick Start
 
-Create a collection, insert documents, and run a semantic search:
+Create a collection, insert documents, and run a semantic search with SQL:
 
 ```sql
 -- 1. Create a collection
@@ -55,18 +54,20 @@ ORDER BY score DESC
 LIMIT 10;
 ```
 
+> [!NOTE]
+> The `INDEX` clause is a TopK extension to SQL that lets you declare search indexes inline with your column definitions.
 
-## TopK Is Schemaless
+
+## Schemaless by default
 
 TopK collections are schemaless by default. Documents can have any fields with any
-types — no schema declaration is required to store or query them. The only exception:
-**fields you want to index must be declared**, because index configuration (metric,
-index type, etc.) is attached to the field definition.
+types — no schema declaration is required to store or query them.
 
-Because most columns arrive as JSON, clients are expected to deserialize and upcast
-values themselves. Most drivers do this automatically (`psycopg2` → `dict`/`list`,
-`node-postgres` → object, `tokio-postgres` → `serde_json::Value`). To get a
-typed pg column instead, use the `::` cast operator:
+The only exception: **fields you want to index must be declared**, because index
+configuration (metric, index type, etc.) is attached to the field definition.
+
+> [!TIP]
+> Most columns arrive as JSON. Drivers deserialize them automatically (`psycopg2` → `dict`/`list`, `node-postgres` → object). To get a typed column, use the `::` cast operator.
 
 ```sql
 SELECT title, published_year::int4, rating::float8 FROM books LIMIT 10;
@@ -101,7 +102,7 @@ partitions are created implicitly on first write.
 
 ### CREATE TABLE
 
-Schema is defined once at collection creation. Indexes are declared inline on each column.
+Schema is defined once at collection creation. Indexes are declared inline on each column using a TopK-specific `INDEX` clause — standalone `CREATE INDEX` statements are not supported.
 
 ```sql
 CREATE TABLE [IF NOT EXISTS] <table> (
@@ -206,8 +207,10 @@ VALUES
     );
 ```
 
-Standard PostgreSQL casts (`::float8`, `CAST(… AS text)`, …) are not supported in
-`VALUES`. `INSERT … SELECT`, `ON CONFLICT`, and `RETURNING` are not supported.
+> [!WARNING]
+> The following are not supported in `INSERT`:
+> - Standard PostgreSQL casts in `VALUES` (`::float8`, `CAST(… AS text)`, …) — use `::topk_type` casts instead
+> - `INSERT … SELECT`, `ON CONFLICT`, `RETURNING`
 
 
 ### UPDATE
@@ -258,11 +261,13 @@ Each item in the select list must be one of:
 - A search function: `SELECT vector_distance(embedding, '[1,0,0,0]'::f32_vector) AS score`
 - A wire-type cast: `SELECT rating::float8 AS rating_f64`
 
-`SELECT *` is not supported — list columns explicitly.
+> [!WARNING]
+> Limitations on the SELECT list:
+> - `SELECT *` is not supported — list columns explicitly.
+> - Indexed vector fields (`embedding`, `sparse_emb`, …) cannot be selected directly — use search functions (`vector_distance`, …) instead.
+> - `COUNT(*)` cannot be combined with other columns in the same `SELECT` list.
 
-Indexed vector fields (`embedding`, `sparse_emb`, `multi_emb`, …) cannot be selected
-directly — use search functions (`vector_distance`, …) instead. Struct subfields
-(`metadata.publisher`) can be selected; whole struct columns cannot.
+Struct subfields (`metadata.publisher`) can be selected; whole struct columns cannot.
 
 Wire-type casts (`::int4`, `::float8`, `::text`, …) are accepted in the SELECT list
 and affect `RowDescription` OIDs only — see [Output type mapping](#output-type-mapping).
@@ -270,7 +275,6 @@ Unaliased casts use the inner expression as the column name (`SELECT title::text
 column `title`).
 
 `COUNT(*)` is supported. Default column name is `_count`; `AS` renames it.
-`COUNT(*)` cannot be combined with other columns in the same `SELECT` list.
 
 #### WHERE filters
 
@@ -296,13 +300,12 @@ with `bm25_score()`. Combine text searches with `AND` / `OR`; add metadata filte
 with `AND`:
 
 ```sql
-WHERE (match('hobbit', title) OR match('rings', title))
-  AND published_year > 1940
+WHERE (match('hobbit', title) OR match('dune', title))
+  AND rating > 4.0
 ```
 
-`match(...) OR published_year = 1813` is not supported. Use `match_any(...)` and
-`match_all(...)` for boolean keyword predicates; they work in ordinary logical
-expressions but are not ranked by `bm25_score()`.
+> [!WARNING]
+> `match(...) OR published_year = 1813` is not supported — metadata values cannot be OR-ed with text search. Use `match_any(...)` or `match_all(...)` for boolean keyword predicates; they work in ordinary logical expressions but are not ranked by `bm25_score()`.
 
 Whole-value equality on complex types (e.g. `tags = ARRAY['a']`) is not supported.
 `contains` requires a scalar needle, not an array.
@@ -333,6 +336,7 @@ WHERE clauses are accepted but **silently ignored** — all collections are alwa
 #### information_schema.columns
 
 Returns one row per declared field. `WHERE table_name = '<name>'` is required. Additional `AND` clauses (e.g. `AND table_schema = 'public'`) are accepted but ignored.
+
 
 ```sql
 SELECT column_name, data_type
@@ -391,10 +395,8 @@ The following commands are accepted and silently succeed:
 | `ROLLBACK` |
 | `DISCARD <anything>` |
 
-**Transactions are not supported.** `BEGIN`/`COMMIT`/`ROLLBACK` are accepted without
-error so that clients which wrap every statement in a transaction by default (psycopg2,
-SQLAlchemy, JDBC) can connect and operate normally. `ROLLBACK` does **not** undo
-writes — do not rely on rollback semantics.
+> [!WARNING]
+> Transactions are not supported. `BEGIN`/`COMMIT`/`ROLLBACK` are accepted without error so that clients that wrap every statement in a transaction by default (psycopg2, SQLAlchemy, JDBC) can connect normally. `ROLLBACK` does **not** undo writes.
 
 
 ## Type System
@@ -480,8 +482,9 @@ Scoring functions go in `SELECT` only — alias them, then reference the alias i
 | `match_any(field, query)` | WHERE | Boolean keyword predicate requiring any term |
 
 All scoring functions return `f32` (`FLOAT4` OID when projected without cast).
-`bm25_score()` requires at least one `match(...)` or `match_tokens(...)` text filter
-in `WHERE`.
+
+> [!NOTE]
+> `bm25_score()` requires at least one `match(...)` or `match_tokens(...)` filter in `WHERE`.
 
 ### Example queries
 
@@ -538,14 +541,14 @@ SELECT
     title,
     vector_distance(embedding, '[1,0,0,0]'::f32_vector) AS vec_dist
 FROM books
-WHERE match_any(title, 'tolkien')
+WHERE match_any(title, 'hobbit')
 ORDER BY boost(vec_dist, in_print = true, 1.5)
 LIMIT 5;
 
 -- Boolean keyword predicates
 SELECT _id, title
 FROM books
-WHERE match_all(title, ARRAY['lord', 'rings'])
-   OR match_any(tags, ARRAY['classic', 'adventure'])
+WHERE match_all(title, 'the hobbit')
+   OR match_any(title, ARRAY['dune', '1984'])
 LIMIT 5;
 ```
