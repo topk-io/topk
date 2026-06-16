@@ -42,7 +42,7 @@ const SOURCES: Source[] = [
     readme: path.join(ROOT, "topk-sql", "README.md"),
     output: path.join(ROOT, "docs", "sdk", "topk-sql", "overview.mdx"),
     frontmatter: {
-      title: "SQL",
+      title: "Overview",
       description:
         "Connect any PostgreSQL client and use SQL to create collections, insert data, and run search.",
     },

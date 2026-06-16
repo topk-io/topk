@@ -208,7 +208,7 @@
         "icon": "database",
         "pages": [
           {
-            "group": "Overview",
+            "group": "SQL",
             "pages": [
               "sdk/topk-sql/overview"
             ]
