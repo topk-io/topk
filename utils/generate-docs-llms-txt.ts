@@ -161,7 +161,7 @@ function buildSections(): Section[] {
 
   // SQL
   const sqlTab = docs.navigation.tabs.find((t) => t.tab === "SQL");
-  const sqlOverview = sqlTab && normalizeTabPages(sqlTab.pages).find((g) => g.group === "Overview");
+  const sqlOverview = sqlTab && normalizeTabPages(sqlTab.pages).find((g) => g.group === "SQL");
   if (sqlOverview) {
     sections.push({
       heading: "SQL",
