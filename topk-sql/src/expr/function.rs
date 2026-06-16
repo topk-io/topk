@@ -9,32 +9,7 @@ use crate::expr::Expr;
 use crate::ext::{SqlExprExt, SqlFunctionExt};
 use crate::{Error, FromSql, sql_invalid, sql_unsupported};
 
-#[derive(Clone, Debug)]
-pub enum SqlFn {
-    Literal(Value),
-    Logical(LogicalExpr),
-    TextMatch {
-        logical: LogicalExpr,
-        text: Option<TextExpr>,
-    },
-    Function(FunctionExpr),
-}
-
-impl From<SqlFn> for Expr {
-    fn from(func: SqlFn) -> Expr {
-        match func {
-            SqlFn::Literal(value) => Expr::Literal(value),
-            SqlFn::Logical(expr) => Expr::Logical(expr),
-            SqlFn::TextMatch {
-                text: Some(expr), ..
-            } => Expr::Text(expr),
-            SqlFn::TextMatch { logical: expr, .. } => Expr::Logical(expr),
-            SqlFn::Function(expr) => Expr::Function(expr),
-        }
-    }
-}
-
-impl TryFrom<SqlFunction> for SqlFn {
+impl TryFrom<SqlFunction> for Expr {
     type Error = Error;
 
     fn try_from(func: SqlFunction) -> Result<Self, Self::Error> {
@@ -62,20 +37,14 @@ impl TryFrom<SqlFunction> for SqlFn {
             }
             "match_all" => {
                 let [left, right]: [SqlExpr; 2] = exact(args, &name)?;
-                let text = text_match(&left, &right, true);
-                Self::TextMatch {
-                    logical: LogicalExpr::from_sql(left)?.match_all(LogicalExpr::from_sql(right)?),
-                    text,
-                }
+                Self::Logical(LogicalExpr::from_sql(left)?.match_all(LogicalExpr::from_sql(right)?))
             }
             "match_any" => {
                 let [left, right]: [SqlExpr; 2] = exact(args, &name)?;
-                let text = text_match(&left, &right, false);
-                Self::TextMatch {
-                    logical: LogicalExpr::from_sql(left)?.match_any(LogicalExpr::from_sql(right)?),
-                    text,
-                }
+                Self::Logical(LogicalExpr::from_sql(left)?.match_any(LogicalExpr::from_sql(right)?))
             }
+            "match" => Self::Text(text_match(args, &name)?),
+            "match_tokens" => Self::Text(text_match_tokens(args, &name)?),
             "boost" => {
                 let [score, cond, factor]: [SqlExpr; 3] = exact(args, &name)?;
                 let score = LogicalExpr::from_sql(score)?;
@@ -226,14 +195,6 @@ impl TryFrom<SqlFunction> for SqlFn {
     }
 }
 
-impl TryFrom<SqlFunction> for Expr {
-    type Error = Error;
-
-    fn try_from(func: SqlFunction) -> Result<Self, Self::Error> {
-        Ok(SqlFn::try_from(func)?.into())
-    }
-}
-
 fn unary(args: Vec<SqlExpr>, sig: &str) -> Result<LogicalExpr, Error> {
     let [arg]: [SqlExpr; 1] = exact(args, sig)?;
     LogicalExpr::from_sql(arg)
@@ -244,30 +205,119 @@ fn binary(args: Vec<SqlExpr>, sig: &str) -> Result<(LogicalExpr, LogicalExpr), E
     Ok((LogicalExpr::from_sql(left)?, LogicalExpr::from_sql(right)?))
 }
 
-fn text_match(field: &SqlExpr, query: &SqlExpr, all: bool) -> Option<TextExpr> {
-    let field = Some(field.as_ident()?);
-    let value = Value::from_sql(query.clone()).ok()?;
-    let terms = match value.value? {
-        value::Value::String(token) => vec![Term {
+fn text_match(args: Vec<SqlExpr>, name: &str) -> Result<TextExpr, Error> {
+    let (query, field, weight, all) = match args.len() {
+        1 => {
+            let [query]: [SqlExpr; 1] = exact(args, name)?;
+            (query, None, 1.0, false)
+        }
+        2 => {
+            let [query, field]: [SqlExpr; 2] = exact(args, name)?;
+            (query, optional_field(field, name)?, 1.0, false)
+        }
+        3 => {
+            let [query, field, weight]: [SqlExpr; 3] = exact(args, name)?;
+            (
+                query,
+                optional_field(field, name)?,
+                f32_literal(weight)?,
+                false,
+            )
+        }
+        4 => {
+            let [query, field, weight, all]: [SqlExpr; 4] = exact(args, name)?;
+            let all = all
+                .as_bool()
+                .ok_or_else(|| Error::Invalid(format!("{name}: all must be a bool literal")))?;
+            (
+                query,
+                optional_field(field, name)?,
+                f32_literal(weight)?,
+                all,
+            )
+        }
+        n => sql_invalid!("{name}: expected 1..=4 args, got {n}"),
+    };
+
+    let token = query
+        .as_string()
+        .ok_or_else(|| Error::Invalid(format!("{name}: query must be a string literal")))?;
+
+    Ok(TextExpr::terms(
+        all,
+        vec![Term {
             token,
             field,
-            weight: 1.0,
+            weight,
         }],
-        value::Value::List(values) => match values.values? {
-            list::Values::String(tokens) => tokens
-                .values
-                .into_iter()
-                .map(|token| Term {
-                    token,
-                    field: field.clone(),
-                    weight: 1.0,
-                })
-                .collect(),
-            _ => return None,
-        },
-        _ => return None,
+    ))
+}
+
+fn text_match_tokens(args: Vec<SqlExpr>, name: &str) -> Result<TextExpr, Error> {
+    let (tokens, field, all) = match args.len() {
+        1 => {
+            let [tokens]: [SqlExpr; 1] = exact(args, name)?;
+            (tokens, None, false)
+        }
+        2 => {
+            let [tokens, field]: [SqlExpr; 2] = exact(args, name)?;
+            (tokens, optional_field(field, name)?, false)
+        }
+        3 => {
+            let [tokens, field, all]: [SqlExpr; 3] = exact(args, name)?;
+            let all = all
+                .as_bool()
+                .ok_or_else(|| Error::Invalid(format!("{name}: all must be a bool literal")))?;
+            (tokens, optional_field(field, name)?, all)
+        }
+        n => sql_invalid!("{name}: expected 1..=3 args, got {n}"),
     };
-    Some(TextExpr::terms(all, terms))
+
+    let value = Value::from_sql(tokens)?;
+    let tokens = match value.value {
+        Some(value::Value::List(values)) => match values.values {
+            Some(list::Values::String(tokens)) => tokens.values,
+            _ => {
+                return Err(Error::Invalid(format!(
+                    "{name}: tokens must be an array of strings"
+                )));
+            }
+        },
+        _ => {
+            return Err(Error::Invalid(format!(
+                "{name}: tokens must be an array of strings"
+            )));
+        }
+    };
+
+    Ok(TextExpr::terms(
+        all,
+        tokens
+            .into_iter()
+            .map(|token| Term {
+                token,
+                field: field.clone(),
+                weight: 1.0,
+            })
+            .collect(),
+    ))
+}
+
+fn optional_field(expr: SqlExpr, name: &str) -> Result<Option<String>, Error> {
+    if let Ok(value) = Value::from_sql(expr.clone()) {
+        if value.as_null().is_some() {
+            return Ok(None);
+        }
+        if let Some(field) = value.as_string() {
+            return Ok(Some(field.to_string()));
+        }
+    }
+
+    expr.as_ident().map(Some).ok_or_else(|| {
+        Error::Invalid(format!(
+            "{name}: field must be an identifier, string, or NULL"
+        ))
+    })
 }
 
 fn f32_literal(expr: SqlExpr) -> Result<f32, Error> {
@@ -281,9 +331,9 @@ fn f32_literal(expr: SqlExpr) -> Result<f32, Error> {
 impl FromSql<SqlFunction> for Value {
     fn from_sql(func: SqlFunction) -> Result<Value, Error> {
         let name = func.name();
-        match SqlFn::try_from(func)? {
-            SqlFn::Literal(v) => Ok(v),
-            SqlFn::Logical(_) | SqlFn::TextMatch { .. } | SqlFn::Function(_) => {
+        match Expr::try_from(func)? {
+            Expr::Literal(v) => Ok(v),
+            Expr::Logical(_) | Expr::Text(_) | Expr::Function(_) => {
                 sql_unsupported!("`{name}` does not produce a Value")
             }
         }
@@ -293,10 +343,14 @@ impl FromSql<SqlFunction> for Value {
 impl FromSql<SqlFunction> for LogicalExpr {
     fn from_sql(func: SqlFunction) -> Result<LogicalExpr, Error> {
         let name = func.name();
-        match SqlFn::try_from(func)? {
-            SqlFn::Logical(expr) | SqlFn::TextMatch { logical: expr, .. } => Ok(expr),
-            SqlFn::Literal(value) => Ok(LogicalExpr::literal(value)),
-            SqlFn::Function(_) => sql_unsupported!(
+        match Expr::try_from(func)? {
+            Expr::Logical(expr) => Ok(expr),
+            Expr::Literal(value) => Ok(LogicalExpr::literal(value)),
+            Expr::Text(_) => sql_unsupported!(
+                "`{name}` is a text filter function — only valid in WHERE (e.g. \
+                 `WHERE {name}('query', field)`)"
+            ),
+            Expr::Function(_) => sql_unsupported!(
                 "`{name}` is a search function — only valid at the top of a SELECT projection \
                  item (e.g. `SELECT {name}(…) AS s FROM c ORDER BY s LIMIT k`)"
             ),
