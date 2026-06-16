@@ -4,14 +4,12 @@ Connect any PostgreSQL client — `psql`, `psycopg2`, `node-postgres`, `tokio-po
 and others — directly to TopK and use SQL to create collections, insert data, and run
 search.
 
----
 
 ## Prerequisites
 
 - **API key** — sign in to [console.topk.io](https://console.topk.io) and generate an API key.
 - **Region** — see [docs.topk.io/regions](https://docs.topk.io/regions) for available regions.
 
----
 
 ## Setup
 
@@ -23,7 +21,6 @@ psql "host=<region>.sql.topk.io port=5432 user=topk password=<api-key> dbname=to
 
 Replace `<region>` with your selected region and `<api-key>` with your API key. Available regions are listed at [docs.topk.io/regions](https://docs.topk.io/regions).
 
----
 
 ## Quick Start
 
@@ -58,7 +55,6 @@ ORDER BY score DESC
 LIMIT 10;
 ```
 
----
 
 ## TopK Is Schemaless
 
@@ -76,7 +72,6 @@ typed pg column instead, use the `::` cast operator:
 SELECT title, published_year::int4, rating::float8 FROM books LIMIT 10;
 ```
 
----
 
 ## SQL Reference
 
@@ -103,7 +98,6 @@ Partition syntax applies to `SELECT`, `INSERT`, `UPDATE`, and `DELETE` only. DDL
 (`CREATE TABLE`, `DROP TABLE`) names collections without partitions;
 partitions are created implicitly on first write.
 
----
 
 ### CREATE TABLE
 
@@ -180,7 +174,6 @@ CREATE TABLE books (
 );
 ```
 
----
 
 ### DROP TABLE
 
@@ -190,7 +183,6 @@ DROP TABLE [IF EXISTS] <table>;
 
 `IF EXISTS` suppresses the error if the collection does not exist.
 
----
 
 ### INSERT
 
@@ -217,7 +209,6 @@ VALUES
 Standard PostgreSQL casts (`::float8`, `CAST(… AS text)`, …) are not supported in
 `VALUES`. `INSERT … SELECT`, `ON CONFLICT`, and `RETURNING` are not supported.
 
----
 
 ### UPDATE
 
@@ -231,7 +222,6 @@ UPDATE <table> SET <col> = <val> [, ...] WHERE _id = '<id>';
 UPDATE <table> SET <col> = <val> [, ...] WHERE _id IN ('<id1>', '<id2>', ...);
 ```
 
----
 
 ### DELETE
 
@@ -245,7 +235,6 @@ DELETE FROM <table> WHERE <filter_expr>;
 DELETE FROM <collection>$<partition>;
 ```
 
----
 
 ### SELECT
 
@@ -318,7 +307,6 @@ expressions but are not ranked by `bm25_score()`.
 Whole-value equality on complex types (e.g. `tags = ARRAY['a']`) is not supported.
 `contains` requires a scalar needle, not an array.
 
----
 
 ### information_schema
 
@@ -372,7 +360,6 @@ WHERE table_name = 'books';
 | `*_sparse_vector` (all variants) | `jsonb` |
 | `list`, `struct`, `*_matrix` | `jsonb` |
 
----
 
 ### EXPLAIN
 
@@ -383,7 +370,6 @@ EXPLAIN <statement>;
 EXPLAIN VERBOSE <statement>;
 ```
 
----
 
 ### Session commands
 
@@ -410,7 +396,6 @@ error so that clients which wrap every statement in a transaction by default (ps
 SQLAlchemy, JDBC) can connect and operate normally. `ROLLBACK` does **not** undo
 writes — do not rely on rollback semantics.
 
----
 
 ## Type System
 
@@ -476,7 +461,6 @@ only affect the wire type.
 | search function (no cast) | 700 `FLOAT4` |
 | `COUNT(*)` (no cast) | 20 `INT8` |
 
----
 
 ## Search Functions
 

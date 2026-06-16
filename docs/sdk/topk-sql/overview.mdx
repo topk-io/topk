@@ -7,14 +7,10 @@ Connect any PostgreSQL client — `psql`, `psycopg2`, `node-postgres`, `tokio-po
 and others — directly to TopK and use SQL to create collections, insert data, and run
 search.
 
----
-
 ## Prerequisites
 
 - **API key** — sign in to [console.topk.io](https://console.topk.io) and generate an API key.
 - **Region** — see [docs.topk.io/regions](https://docs.topk.io/regions) for available regions.
-
----
 
 ## Setup
 
@@ -25,8 +21,6 @@ psql "host=<region>.sql.topk.io port=5432 user=topk password=<api-key> dbname=to
 ```
 
 Replace `<region>` with your selected region and `<api-key>` with your API key. Available regions are listed at [docs.topk.io/regions](https://docs.topk.io/regions).
-
----
 
 ## Quick Start
 
@@ -61,8 +55,6 @@ ORDER BY score DESC
 LIMIT 10;
 ```
 
----
-
 ## TopK Is Schemaless
 
 TopK collections are schemaless by default. Documents can have any fields with any
@@ -78,8 +70,6 @@ typed pg column instead, use the `::` cast operator:
 ```sql
 SELECT title, published_year::int4, rating::float8 FROM books LIMIT 10;
 ```
-
----
 
 ## SQL Reference
 
@@ -105,8 +95,6 @@ per project. Partition can be specified with `$` or the `PARTITION` keyword:
 Partition syntax applies to `SELECT`, `INSERT`, `UPDATE`, and `DELETE` only. DDL
 (`CREATE TABLE`, `DROP TABLE`) names collections without partitions;
 partitions are created implicitly on first write.
-
----
 
 ### CREATE TABLE
 
@@ -183,8 +171,6 @@ CREATE TABLE books (
 );
 ```
 
----
-
 ### DROP TABLE
 
 ```sql
@@ -192,8 +178,6 @@ DROP TABLE [IF EXISTS] <table>;
 ```
 
 `IF EXISTS` suppresses the error if the collection does not exist.
-
----
 
 ### INSERT
 
@@ -220,8 +204,6 @@ VALUES
 Standard PostgreSQL casts (`::float8`, `CAST(… AS text)`, …) are not supported in
 `VALUES`. `INSERT … SELECT`, `ON CONFLICT`, and `RETURNING` are not supported.
 
----
-
 ### UPDATE
 
 Updates one or more fields on existing documents. `_id` cannot be updated. A `WHERE`
@@ -234,8 +216,6 @@ UPDATE <table> SET <col> = <val> [, ...] WHERE _id = '<id>';
 UPDATE <table> SET <col> = <val> [, ...] WHERE _id IN ('<id1>', '<id2>', ...);
 ```
 
----
-
 ### DELETE
 
 Deletes documents by ID or by filter expression. A `WHERE` clause is required unless
@@ -247,8 +227,6 @@ DELETE FROM <table> WHERE _id IN ('<id1>', '<id2>', ...);
 DELETE FROM <table> WHERE <filter_expr>;
 DELETE FROM <collection>$<partition>;
 ```
-
----
 
 ### SELECT
 
@@ -321,8 +299,6 @@ expressions but are not ranked by `bm25_score()`.
 Whole-value equality on complex types (e.g. `tags = ARRAY['a']`) is not supported.
 `contains` requires a scalar needle, not an array.
 
----
-
 ### information_schema
 
 Two virtual tables are supported. `SELECT *` is not allowed — specify column names explicitly.
@@ -374,8 +350,6 @@ WHERE table_name = 'books';
 | `*_sparse_vector` (all variants) | `jsonb` |
 | `list`, `struct`, `*_matrix` | `jsonb` |
 
----
-
 ### EXPLAIN
 
 Returns the parsed `Statement` AST as a single `plan TEXT` column.
@@ -384,8 +358,6 @@ Returns the parsed `Statement` AST as a single `plan TEXT` column.
 EXPLAIN <statement>;
 EXPLAIN VERBOSE <statement>;
 ```
-
----
 
 ### Session commands
 
@@ -411,8 +383,6 @@ The following commands are accepted and silently succeed:
 error so that clients which wrap every statement in a transaction by default (psycopg2,
 SQLAlchemy, JDBC) can connect and operate normally. `ROLLBACK` does **not** undo
 writes — do not rely on rollback semantics.
-
----
 
 ## Type System
 
@@ -477,8 +447,6 @@ only affect the wire type.
 | plain column (no cast) | 114 `JSON` |
 | search function (no cast) | 700 `FLOAT4` |
 | `COUNT(*)` (no cast) | 20 `INT8` |
-
----
 
 ## Search Functions
 
