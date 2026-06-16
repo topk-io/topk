@@ -12921,8 +12921,23 @@ column `title`).
 | Arithmetic | `rating * 10 > 40` |
 | `CASE WHEN … THEN … ELSE … END` | — |
 | `contains(field, scalar)` | `contains(tags, 'classic')` |
+| `match(query [, field [, weight [, all]]])` | `match('hobbit rings', title)` |
+| `match_tokens(tokens [, field [, all]])` | `match_tokens(ARRAY['love', 'classic'], tags)` |
 | `match_all(field, query)` | `match_all(title, 'hobbit rings')` |
 | `match_any(field, query)` | `match_any(tags, ARRAY['love', 'classic'])` |
+
+`match(...)` and `match_tokens(...)` search keyword-indexed text and can be ranked
+with `bm25_score()`. Combine text searches with `AND` / `OR`; add metadata filters
+with `AND`:
+
+```sql
+WHERE (match('hobbit', title) OR match('rings', title))
+  AND published_year > 1940
+```
+
+`match(...) OR published_year = 1813` is not supported. Use `match_any(...)` and
+`match_all(...)` for boolean keyword predicates; they work in ordinary logical
+expressions but are not ranked by `bm25_score()`.
 
 Whole-value equality on complex types (e.g. `tags = ARRAY['a']`) is not supported.
 `contains` requires a scalar needle, not an array.
@@ -13094,14 +13109,18 @@ Scoring functions go in `SELECT` only — alias them, then reference the alias i
 |----------|--------|-------------|
 | `vector_distance(field, query [, skip_refine])` | SELECT | Dense or sparse ANN distance |
 | `multi_vector_distance(field, query [, candidates])` | SELECT | Multi-vector MaxSim distance |
-| `bm25_score([b, k1])` | SELECT | BM25 full-text score |
+| `bm25_score([b, k1])` | SELECT | Keyword relevance score for `match(...)` / `match_tokens(...)` |
 | `semantic_similarity(field, query)` | SELECT | Semantic embedding similarity |
 | `boost(score, condition, factor)` | SELECT / ORDER BY | Multiply score when condition is true |
 | `contains(field, scalar)` | WHERE | List membership or string substring |
-| `match_all(field, query)` | WHERE | All terms in query must match |
-| `match_any(field, query)` | WHERE | Any term in query must match |
+| `match(query [, field [, weight [, all]]])` | WHERE | Keyword text search; can be ranked with `bm25_score()` |
+| `match_tokens(tokens [, field [, all]])` | WHERE | Keyword token search; can be ranked with `bm25_score()` |
+| `match_all(field, query)` | WHERE | Boolean keyword predicate requiring all terms |
+| `match_any(field, query)` | WHERE | Boolean keyword predicate requiring any term |
 
 All scoring functions return `f32` (`FLOAT4` OID when projected without cast).
+`bm25_score()` requires at least one `match(...)` or `match_tokens(...)` text filter
+in `WHERE`.
 
 ##### Example queries
 
@@ -13139,7 +13158,7 @@ SELECT
     title,
     bm25_score() AS bm25_score
 FROM books
-WHERE match_any(title, 'hobbit rings')
+WHERE match('hobbit rings', title)
 ORDER BY bm25_score DESC
 LIMIT 5;
 
@@ -13160,5 +13179,12 @@ SELECT
 FROM books
 WHERE match_any(title, 'tolkien')
 ORDER BY boost(vec_dist, in_print = true, 1.5)
+LIMIT 5;
+
+-- Boolean keyword predicates
+SELECT _id, title
+FROM books
+WHERE match_all(title, ARRAY['lord', 'rings'])
+   OR match_any(tags, ARRAY['classic', 'adventure'])
 LIMIT 5;
 ```
