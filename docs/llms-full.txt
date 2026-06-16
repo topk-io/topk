@@ -12798,57 +12798,11 @@ WHERE (match('hobbit', title) OR match('dune', title))
 
 Text searches can be combined with each other using `OR`, and with metadata filters using `AND`.
 
-##### INSERT
-
-Upsert semantics: inserting a document with an existing `_id` replaces it.
-`_id` is required and must appear in the column list.
-
-```sql
-INSERT INTO <table> (<col>, ...) VALUES (<val>, ...) [, (<val>, ...) ...];
-```
-
-Scalars use plain literals. TopK-native values use `::topk_type` casts or constructor
-calls — see [Type System](#type-system). Prefer casts in `VALUES`:
-
-```sql
-INSERT INTO books (_id, title, author, published_year, rating, embedding, sparse_emb)
-VALUES
-    (
-        'hobbit', 'The Hobbit', 'Tolkien', 1937, 4.3,
-        '[1.0, 0.0, 0.0, 0.0]'::f32_vector,
-        '{"0": 1.0, "1": 0.5}'::f32_sparse_vector
-    );
-```
-
-##### UPDATE
-
-Updates one or more fields on existing documents. `_id` cannot be updated. A `WHERE`
-clause is required and must resolve to a set of document IDs.
-
-Value expressions in `SET` follow the same rules as [INSERT](#insert) `VALUES`.
-
-```sql
-UPDATE <table> SET <col> = <val> [, ...] WHERE _id = '<id>';
-UPDATE <table> SET <col> = <val> [, ...] WHERE _id IN ('<id1>', '<id2>', ...);
-```
-
-##### DELETE
-
-Deletes documents by ID or by filter expression. A `WHERE` clause is required unless
-the target is a partition, in which case the entire partition is dropped.
-
-```sql
-DELETE FROM <table> WHERE _id = '<id>';
-DELETE FROM <table> WHERE _id IN ('<id1>', '<id2>', ...);
-DELETE FROM <table> WHERE <filter_expr>;
-DELETE FROM <collection>$<partition>;
-```
-
-##### Search Functions
+###### Search Functions
 
 TopK extends SQL with search-specific functions for scoring and filtering. Scoring functions compute relevance in `SELECT`; text search predicates filter documents in `WHERE`.
 
-###### Scoring functions
+###### **Scoring functions**
 
 Scoring functions compute a relevance score for each document. Call them in `SELECT`, give them an alias, then use that alias in `ORDER BY` to rank results. All scoring functions return the score as `f32`:
 
@@ -12868,7 +12822,7 @@ LIMIT 10;
 | `bm25_score([b, k1])` | Keyword relevance score; requires `match(...)` or `match_tokens(...)` in `WHERE` |
 | `boost(score, condition, factor)` | Multiply score when condition is true |
 
-###### Text search predicates
+###### **Text search predicates**
 
 Text search predicates filter documents in `WHERE` based on keyword matches. `match(...)` and `match_tokens(...)` enable BM25 scoring via `bm25_score()`.
 
@@ -12914,7 +12868,7 @@ LIMIT 10;
 
 </Note>
 
-###### Example queries
+###### **Example queries**
 
 ```sql
 -- Vector ANN
@@ -12979,6 +12933,52 @@ FROM books
 WHERE match_all(title, 'the hobbit')
    OR match_any(title, ARRAY['dune', '1984'])
 LIMIT 5;
+```
+
+##### INSERT
+
+Upsert semantics: inserting a document with an existing `_id` replaces it.
+`_id` is required and must appear in the column list.
+
+```sql
+INSERT INTO <table> (<col>, ...) VALUES (<val>, ...) [, (<val>, ...) ...];
+```
+
+Scalars use plain literals. TopK-native values use `::topk_type` casts or constructor
+calls — see [Type System](#type-system). Prefer casts in `VALUES`:
+
+```sql
+INSERT INTO books (_id, title, author, published_year, rating, embedding, sparse_emb)
+VALUES
+    (
+        'hobbit', 'The Hobbit', 'Tolkien', 1937, 4.3,
+        '[1.0, 0.0, 0.0, 0.0]'::f32_vector,
+        '{"0": 1.0, "1": 0.5}'::f32_sparse_vector
+    );
+```
+
+##### UPDATE
+
+Updates one or more fields on existing documents. `_id` cannot be updated. A `WHERE`
+clause is required and must resolve to a set of document IDs.
+
+Value expressions in `SET` follow the same rules as [INSERT](#insert) `VALUES`.
+
+```sql
+UPDATE <table> SET <col> = <val> [, ...] WHERE _id = '<id>';
+UPDATE <table> SET <col> = <val> [, ...] WHERE _id IN ('<id1>', '<id2>', ...);
+```
+
+##### DELETE
+
+Deletes documents by ID or by filter expression. A `WHERE` clause is required unless
+the target is a partition, in which case the entire partition is dropped.
+
+```sql
+DELETE FROM <table> WHERE _id = '<id>';
+DELETE FROM <table> WHERE _id IN ('<id1>', '<id2>', ...);
+DELETE FROM <table> WHERE <filter_expr>;
+DELETE FROM <collection>$<partition>;
 ```
 
 ##### CREATE TABLE
