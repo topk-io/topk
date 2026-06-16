@@ -625,4 +625,3 @@ only affect the wire type.
 | plain column (no cast) | 114 `JSON` |
 | search function (no cast) | 700 `FLOAT4` |
 | `COUNT(*)` (no cast) | 20 `INT8` |
-
