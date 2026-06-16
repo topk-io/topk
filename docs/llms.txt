@@ -46,4 +46,4 @@
 
 ## SQL
 
-- [Overview](https://docs.topk.io/sdk/topk-sql/overview): Connect any PostgreSQL client and use SQL to create collections, insert data, and run search.
+- [Overview](https://docs.topk.io/sdk/topk-sql/overview): Connect any PostgreSQL client to TopK and use SQL to create collections, insert data, and run search.

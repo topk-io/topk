@@ -44,7 +44,7 @@ const SOURCES: Source[] = [
     frontmatter: {
       title: "Overview",
       description:
-        "Connect any PostgreSQL client and use SQL to create collections, insert data, and run search.",
+        "Connect any PostgreSQL client to TopK and use SQL to create collections, insert data, and run search.",
     },
   },
 ];
