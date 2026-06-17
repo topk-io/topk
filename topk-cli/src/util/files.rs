@@ -61,6 +61,17 @@ pub(crate) fn resolve_files(
 }
 
 pub(crate) fn collect_file(path: &Path) -> Result<UploadFile, Error> {
+    if path
+        .symlink_metadata()
+        .map(|m| m.file_type().is_symlink())
+        .unwrap_or(false)
+    {
+        return Err(Error::InvalidArgument(format!(
+            "symlinks are not supported: {}",
+            path.display()
+        )));
+    }
+
     let doc_id = doc_id_from_path(path)?;
     let size = path.metadata().map(|m| m.len())?;
     let mime_type = MimeType::from(InputFile::guess_mime_type(path)?);
@@ -93,10 +104,14 @@ pub(crate) fn collect_files(pattern: &Path) -> Result<Vec<UploadFile>, Error> {
         Error::InvalidArgument(format!("invalid pattern '{}': {}", pattern_str, e))
     })?;
 
-    // Filter out non-file entries and unsupported MIME types
+    // Filter out non-file entries, symlinks, and unsupported MIME types
     entries
         .filter_map(Result::ok)
-        .filter(|path| path.is_file())
+        .filter(|path| match path.symlink_metadata() {
+            Ok(m) if m.file_type().is_symlink() => false,
+            Ok(m) => m.is_file(),
+            Err(_) => false,
+        })
         .filter(|path| {
             InputFile::guess_mime_type(path)
                 .ok()
@@ -112,6 +127,7 @@ mod tests {
     use super::{collect_directory_files, collect_file, collect_files, expand_path, resolve_files};
     use std::fs;
     use tempfile::tempdir;
+    use topk_rs::Error;
 
     #[test]
     fn collect_matching_files_filters_by_pattern() {
@@ -244,6 +260,37 @@ mod tests {
         let collected = collect_file(&file).unwrap();
         assert_eq!(collected.path, file);
         assert!(collected.size > 0);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn collect_files_skips_symlinks() {
+        let dir = tempdir().unwrap();
+        let real = dir.path().join("real.md");
+        fs::write(&real, "# real").unwrap();
+        let link = dir.path().join("link.md");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+
+        let files = collect_files(&dir.path().join("*.md")).unwrap();
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].path, real);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn collect_file_rejects_symlink() {
+        let dir = tempdir().unwrap();
+        let real = dir.path().join("real.md");
+        fs::write(&real, "# real").unwrap();
+        let link = dir.path().join("link.md");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+
+        let err = collect_file(&link).unwrap_err();
+        assert!(matches!(
+            err,
+            Error::InvalidArgument(msg)
+                if msg == format!("symlinks are not supported: {}", link.display())
+        ));
     }
 
     #[test]
