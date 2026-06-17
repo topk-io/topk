@@ -61,20 +61,11 @@ pub(crate) fn resolve_files(
 }
 
 pub(crate) fn collect_file(path: &Path) -> Result<UploadFile, Error> {
-    if path
-        .symlink_metadata()
-        .map(|m| m.file_type().is_symlink())
-        .unwrap_or(false)
-    {
-        return Err(Error::InvalidArgument(format!(
-            "symlinks are not supported: {}",
-            path.display()
-        )));
-    }
+    let resolved = path.canonicalize().map_err(Error::IoError)?;
 
     let doc_id = doc_id_from_path(path)?;
     let size = path.metadata().map(|m| m.len())?;
-    let mime_type = MimeType::from(InputFile::guess_mime_type(path)?);
+    let mime_type = MimeType::from(InputFile::guess_mime_type(&resolved)?);
     if !mime_type.is_supported() {
         return Err(Error::InvalidArgument(format!(
             "Invalid document kind: {}",
@@ -104,16 +95,13 @@ pub(crate) fn collect_files(pattern: &Path) -> Result<Vec<UploadFile>, Error> {
         Error::InvalidArgument(format!("invalid pattern '{}': {}", pattern_str, e))
     })?;
 
-    // Filter out non-file entries, symlinks, and unsupported MIME types
+    // Filter out non-file entries and unsupported MIME types; resolve symlinks for MIME inference
     entries
         .filter_map(Result::ok)
-        .filter(|path| match path.symlink_metadata() {
-            Ok(m) if m.file_type().is_symlink() => false,
-            Ok(m) => m.is_file(),
-            Err(_) => false,
-        })
+        .filter(|path| path.is_file())
         .filter(|path| {
-            InputFile::guess_mime_type(path)
+            let resolved = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+            InputFile::guess_mime_type(&resolved)
                 .ok()
                 .map(|mime| MimeType::from(mime).is_supported())
                 .unwrap_or(false)
@@ -264,33 +252,33 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn collect_files_skips_symlinks() {
+    fn collect_files_follows_symlinks_and_infers_mime_from_target() {
         let dir = tempdir().unwrap();
-        let real = dir.path().join("real.md");
-        fs::write(&real, "# real").unwrap();
+        let real = dir.path().join("real.pdf");
+        fs::write(&real, b"%PDF").unwrap();
+        // symlink is named .md but points to a .pdf — MIME should come from target
         let link = dir.path().join("link.md");
         std::os::unix::fs::symlink(&real, &link).unwrap();
 
-        let files = collect_files(&dir.path().join("*.md")).unwrap();
+        let files = collect_files(&dir.path().join("link.md")).unwrap();
         assert_eq!(files.len(), 1);
-        assert_eq!(files[0].path, real);
+        assert_eq!(files[0].path, link);
+        assert_eq!(files[0].mime_type.to_string(), "application/pdf");
     }
 
     #[cfg(unix)]
     #[test]
-    fn collect_file_rejects_symlink() {
+    fn collect_file_follows_symlink_and_infers_mime_from_target() {
         let dir = tempdir().unwrap();
-        let real = dir.path().join("real.md");
-        fs::write(&real, "# real").unwrap();
+        let real = dir.path().join("real.pdf");
+        fs::write(&real, b"%PDF").unwrap();
+        // symlink is named .md but points to a .pdf — MIME should come from target
         let link = dir.path().join("link.md");
         std::os::unix::fs::symlink(&real, &link).unwrap();
 
-        let err = collect_file(&link).unwrap_err();
-        assert!(matches!(
-            err,
-            Error::InvalidArgument(msg)
-                if msg == format!("symlinks are not supported: {}", link.display())
-        ));
+        let collected = collect_file(&link).unwrap();
+        assert_eq!(collected.path, link);
+        assert_eq!(collected.mime_type.to_string(), "application/pdf");
     }
 
     #[test]
