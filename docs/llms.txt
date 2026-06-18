@@ -43,3 +43,7 @@
 - [topk-js/query_fn](https://docs.topk.io/sdk/topk-js/Namespace.query_fn)
 - [topk-js/query](https://docs.topk.io/sdk/topk-js/Namespace.query)
 - [topk-js/schema](https://docs.topk.io/sdk/topk-js/Namespace.schema)
+
+## SQL
+
+- [Overview](https://docs.topk.io/sdk/topk-sql/overview): Connect any PostgreSQL client to TopK and use SQL to create collections, insert data, and run search.

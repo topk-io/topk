@@ -242,4 +242,48 @@
       </Step>
     </Steps>
   </Tab>
+  <Tab title="SQL" icon="database">
+    <Steps>
+      <Step title="Connect">
+        Connect using any PostgreSQL client. Use your API key as the password.
+
+        ```bash
+        psql "host=<region>.sql.topk.io port=5432 user=topk password=$TOPK_API_KEY dbname=topk"
+        ```
+      </Step>
+      <Step title="Create a collection">
+        ```sql
+        CREATE TABLE quickstart (
+          title   TEXT NOT NULL INDEX keyword_index(),
+          content TEXT          INDEX semantic_index(),
+          rating  FLOAT
+        );
+        ```
+      </Step>
+      <Step title="Upsert documents">
+        ```sql
+        INSERT INTO quickstart (_id, title, content, author, rating)
+        VALUES
+          ('1', 'Catcher in the Rye',
+           'IF YOU REALLY WANT TO HEAR about it, the first thing you''ll probably want to know is ...',
+           'J.D. Salinger', 3.8),
+          ('2', '1984',
+           'It was a bright cold day in April, and the clocks were striking thirteen. Winston Smith, ...',
+           'George Orwell', 4.7);
+        ```
+      </Step>
+      <Step title="Query indexed data">
+        ```sql
+        SELECT
+          _id,
+          title,
+          semantic_similarity(content, 'What is the meaning of life?') AS similarity_score
+        FROM quickstart
+        WHERE rating >= 3.0
+        ORDER BY similarity_score * rating DESC
+        LIMIT 10;
+        ```
+      </Step>
+    </Steps>
+  </Tab>
 </Tabs>

@@ -101,6 +101,7 @@ const API_ENTRIES: Entry[] = [
   { type: "slug", slug: "mcp-server" },
   { type: "slug", slug: "sdk/topk-py/overview" },
   { type: "slug", slug: "sdk/topk-js/overview" },
+  { type: "slug", slug: "sdk/topk-sql/overview" },
   {
     type: "external",
     title: "Rust SDK",
@@ -155,6 +156,16 @@ function buildSections(): Section[] {
     sections.push({
       heading: "JavaScript SDK Reference",
       entries: jsRef.pages.map((slug): Entry => ({ type: "slug", slug })),
+    });
+  }
+
+  // SQL
+  const sqlTab = docs.navigation.tabs.find((t) => t.tab === "SQL");
+  const sqlOverview = sqlTab && normalizeTabPages(sqlTab.pages).find((g) => g.group === "SQL");
+  if (sqlOverview) {
+    sections.push({
+      heading: "SQL",
+      entries: sqlOverview.pages.map((slug): Entry => ({ type: "slug", slug })),
     });
   }
 

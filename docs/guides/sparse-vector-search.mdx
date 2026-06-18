@@ -43,6 +43,13 @@ await client.collections().create("books", {
 });
 ```
 
+```sql SQL
+CREATE TABLE books (
+  title           TEXT NOT NULL,
+  title_embedding f32_sparse_vector NOT NULL INDEX vector_index(metric = 'dot_product')
+);
+```
+
 Supported sparse vector field types:
 
 - **[`f32_sparse_vector()`](/sdk/topk-py/schema#f32_sparse_vector)** — Sparse float32 embeddings
@@ -138,6 +145,16 @@ const docs = await client.collection("books").query(
 ]
 ```
 
+```sql SQL
+SELECT
+  title,
+  published_year,
+  vector_distance(title_embedding, '{"0": 0.12, "6": 0.67}'::f32_sparse_vector) AS title_score
+FROM books
+ORDER BY title_score DESC
+LIMIT 10;
+```
+
 </CodeGroup>
 
 Let's break down the example above:
@@ -187,6 +204,17 @@ const docs = await client.collection("books").query(
     .filter(field("published_year").gt(2000))
     .topk(field("title_score"), 10)
 );
+```
+
+```sql SQL
+SELECT
+  title,
+  published_year,
+  vector_distance(title_embedding, '{"0": 0.12, "6": 0.67}'::f32_sparse_vector) AS title_score
+FROM books
+WHERE published_year > 2000
+ORDER BY title_score DESC
+LIMIT 10;
 ```
 
 </CodeGroup>

@@ -122,7 +122,7 @@ Cache placement and I/O requests are handled by our I/O runtime (based on `io_ur
 <img src="/images/topk-reactor-light.png" alt="Reactor Query Engine" className="block dark:hidden" />
 <img src="/images/topk-reactor-dark.png" alt="Reactor Query Engine" className="hidden dark:block" />
 
-`reactor` is our proprietary query engine that enables us to combine different retrieval types, filter predicates, and scoring expressions in a single query. Conceptually, it's similar to other pull-based query engines (e.g. DataFusion) with heavy optimizations for zero-copy execution, search-specific SIMD kernels, quantization, vectorized filtering, pruning, and more. Aditionally, it supports distributed query executions which allows us to reuse the same logical/physical operators in router and executor services.
+`reactor` is our proprietary query engine that enables us to combine different retrieval types, filter predicates, and scoring expressions in a single query. Conceptually, it's similar to other pull-based query engines (e.g. DataFusion) with heavy optimizations for zero-copy execution, search-specific SIMD kernels, quantization, vectorized filtering, pruning, and more. Additionally, it supports distributed query executions which allows us to reuse the same logical/physical operators in router and executor services.
 
 #### File Format (`.bob`)
 `.bob` is our proprietary columnar file format designed from the ground up for search on object storage. It supports zero-copy and zero-decode I/O with type-specific containers for compressed dense and sparse vectors, tensors, inverted indices, and more.
@@ -268,7 +268,7 @@ await client.collection("my_collection").query(
 ---
 
 ##### **Indexed Consistency**
-Reads in this mode only consider fully compacted files and ignore recent WAL writes to deliver constatnly low query latency. This is best suited for workloads
+Reads in this mode only consider fully compacted files and ignore recent WAL writes to deliver constantly low query latency. This is best suited for workloads
 with asynchronous write path that are not sensitive to recent writes being visible in queries with low delay.
 
 <CodeGroup>
@@ -350,7 +350,7 @@ For even more precise control over consistency, TopK also supports **LSN (Log Se
 URL: https://docs.topk.io/limits
 
 <Warning>
-  These limits are subject to change as we continuosuly improve our system. If you expect to be blocked by any of these, please
+  These limits are subject to change as we continuously improve our system. If you expect to be blocked by any of these, please
   <a href="https://topk.io/contact"> let us know.</a>
 </Warning>
 
@@ -457,7 +457,7 @@ URL: https://docs.topk.io/changelog
 - **Python SDK**: Released [`AsyncClient`](https://docs.topk.io/sdk/topk-py/index#asyncclient) for easier async workflows.
 - **String Operators**: Added [`lt`](/collections/query#lt), [`lte`](/collections/query#lte), [`gt`](https://docs.topk.io/sdk/topk-py/query#gt), [`gte`](https://docs.topk.io/sdk/topk-py/query#gte), [`min`](/collections/query#min), and [`max`](https://docs.topk.io/sdk/topk-py/query#max).
 - **Query Helpers**: Introduced [`any`](https://docs.topk.io/sdk/topk-py/query#any) and [`all`](https://docs.topk.io/sdk/topk-py/query#all) helpers.
-- **List Support**: Added [`contains`](https://docs.topk.io/sdk/topk-py/query#contains) and [`in`](https://docs.topk.io/sdk/topk-py/query#ln) operators for list fields.
+- **List Support**: Added [`contains`](https://docs.topk.io/sdk/topk-py/query#contains) and [`in`](https://docs.topk.io/sdk/topk-py/query#in) operators for list fields.
 - **Observability**: Added Query Latency and Write Latency charts to the Usage Metrics in [console](https://console.topk.io/).
 - **New Data Type**: Added [`int8`](https://docs.topk.io/sdk/topk-py/schema#i8-vector) vector support.
 - **Eager Caching**: Added support for eager caching to mitigate tail latencies for concurrent read/write workloads.
@@ -475,7 +475,7 @@ URL: https://docs.topk.io/changelog
 - **Math Operators**: Added [`ln`](https://docs.topk.io/sdk/topk-py/query#ln), [`exp`](https://docs.topk.io/sdk/topk-py/query#exp), [`sqrt`](https://docs.topk.io/sdk/topk-py/query#sqrt), [`square`](https://docs.topk.io/sdk/topk-py/query#square), [`min`](https://docs.topk.io/sdk/topk-py/query#min-2), [`max`](https://docs.topk.io/sdk/topk-py/query#max-2), and [`abs`](https://docs.topk.io/sdk/topk-py/query#abs).
 - **Advanced Querying**: Introduced [`choose`](https://docs.topk.io/sdk/topk-py/query#choose), [`match_all`](https://docs.topk.io/sdk/topk-py/query#match-all), [`match_any`](https://docs.topk.io/sdk/topk-py/query#match-any), [`coalesce`](https://docs.topk.io/sdk/topk-py/query#coalesce), and [`boost`](https://docs.topk.io/sdk/topk-py/query#boost) (with null coalescing).
 - **Binary Data**: Added [`bytes()`](https://docs.topk.io/sdk/topk-py/data#bytes) constructor to the Python SDK.
-- **Performance**: Optimized workload distribution for large-sacle deployments.
+- **Performance**: Optimized workload distribution for large-scale deployments.
 
 #### June 2025
 
@@ -489,7 +489,7 @@ URL: https://docs.topk.io/changelog
 URL: https://docs.topk.io/datasets/ingest
 
 To run queries in TopK, your documents need to be uploaded and processed. Once a document is uploaded,
-TopK will process it to create searchable chhunks with relevant context and metadata. This indexed representation
+TopK will process it to create searchable chunks with relevant context and metadata. This indexed representation
 then powers [Ask](/datasets/ask) and [Search](/datasets/search).
 
 #### Uploading documents
@@ -1861,6 +1861,15 @@ await client.collection("books").upsert([
 ]);
 ```
 
+```sql SQL
+-- INSERT has upsert semantics: an existing document with the same _id is replaced
+INSERT INTO books (_id, title, published_year, title_embedding)
+VALUES
+  ('book-1', 'The Great Gatsby',        1925, '[0.12, 0.67, 0.82, 0.53]'::f32_vector),
+  ('book-2', 'To Kill a Mockingbird',   1960, '[0.42, 0.53, 0.65, 0.33]'::f32_vector),
+  ('book-3', '1984',                    1949, '[0.59, 0.33, 0.71, 0.61]'::f32_vector);
+```
+
 </CodeGroup>
 
 - Every document must have a **string** `_id` field.
@@ -2011,6 +2020,10 @@ client.collection("books").delete(
 await client.collection("books").delete(["book-1", "book-2", "book-3"]);
 ```
 
+```sql SQL
+DELETE FROM books WHERE _id IN ('book-1', 'book-2', 'book-3');
+```
+
 </CodeGroup>
 
 <Info>
@@ -2033,6 +2046,10 @@ client.collection("books").delete(field("published_year").lt(1997))
 import { field } from "topk-js/query";
 
 await client.collection("books").delete(field("published_year").lt(1997));
+```
+
+```sql SQL
+DELETE FROM books WHERE published_year < 1997;
 ```
 
 </CodeGroup>
@@ -2158,6 +2175,15 @@ const docs = await client.collection("books").query(
 );
 ```
 
+```sql SQL
+SELECT
+  title,                              -- static field
+  published_year AS year,             -- renamed field
+  published_year + 10 AS year_plus_ten  -- computed field
+FROM books
+LIMIT 10;
+```
+
 </CodeGroup>
 
 ##### Function expressions
@@ -2253,11 +2279,20 @@ const docs = await client.collection("books").query(
     title_similarity: 0.7484796643257141
   },
   {
-    _id: '1'
+    _id: '1',
     title: 'The Catcher in the Rye',
     title_similarity: 0.5471329569816589,
   }
 ]
+```
+
+```sql SQL
+SELECT
+  title,
+  vector_distance(title_embedding, '[0.1, 0.2, ..., 0.3]'::f32_vector) AS title_similarity
+FROM books
+ORDER BY title_similarity DESC
+LIMIT 10;
 ```
 
 </CodeGroup>
@@ -2318,7 +2353,7 @@ const results = await client.collection("books").query(
 [
   {
     _id: '1',
-    title: 'Good Night, Bat! Good Morning, Squirrel!'
+    title: 'Good Night, Bat! Good Morning, Squirrel!',
     text_score: 0.2447269707918167,
   },
   {
@@ -2327,6 +2362,16 @@ const results = await client.collection("books").query(
     text_score: 0.20035339891910553
   }
 ]
+```
+
+```sql SQL
+SELECT
+  title,
+  bm25_score() AS text_score
+FROM books
+WHERE match_any(title, 'Good')
+ORDER BY text_score DESC
+LIMIT 10;
 ```
 
 </CodeGroup>
@@ -2392,6 +2437,15 @@ const docs = await client.collection("books").query(
 ]
 ```
 
+```sql SQL
+SELECT
+  title,
+  semantic_similarity(title, 'animal') AS title_similarity
+FROM books
+ORDER BY title_similarity DESC
+LIMIT 10;
+```
+
 </CodeGroup>
 
 ###### Multi-vector distance
@@ -2432,6 +2486,19 @@ const docs = await client.collection("passages").query(
   })
     .topk(field("dist"), 10, false)
 );
+```
+
+```sql SQL
+SELECT
+  content,
+  multi_vector_distance(
+    token_embeddings,
+    '[[0.1, 0.2, ..., 0.0], [0.4, 0.5, ..., 0.1]]'::f32_matrix,
+    100
+  ) AS dist
+FROM passages
+ORDER BY dist DESC
+LIMIT 10;
 ```
 
 </CodeGroup>
@@ -2494,6 +2561,10 @@ Filter expressions support all
 .filter(field("published_year").gt(1980))
 ```
 
+```sql SQL
+WHERE published_year > 1980
+```
+
 </CodeGroup>
 
 ##### Keyword search
@@ -2549,6 +2620,10 @@ import { match } from "topk-js/query";
 .filter(match("catcher"))
 ```
 
+```sql SQL
+WHERE match_any(title, 'catcher')
+```
+
 </CodeGroup>
 
 ###### Match multiple terms
@@ -2572,6 +2647,10 @@ from topk_sdk.query import match
 import { match } from "topk-js/query";
 
 .filter(match("catcher|rye", { field: "title", weight: 1, all: true }))
+```
+
+```sql SQL
+WHERE match_all(title, 'catcher rye')
 ```
 
 </CodeGroup>
@@ -2622,6 +2701,12 @@ In the example below, we're searching for documents that contain the keyword `"c
 .filter(
   field("published_year").eq(1997).or(field("published_year").gte(1920).and(field("published_year").lte(1980)))
 )
+```
+
+```sql SQL
+WHERE match_any(title, 'catcher')
+  AND (published_year = 1997
+    OR (published_year >= 1920 AND published_year <= 1980))
 ```
 
 </CodeGroup>
@@ -3605,6 +3690,11 @@ To get the top 10 results with the highest `title_similarity`, you can use the f
 .topk(field("title_similarity"), 10, false)
 ```
 
+```sql SQL
+ORDER BY title_similarity DESC
+LIMIT 10
+```
+
 </CodeGroup>
 
 The `topk()` stage is equivalent to applying `sort(expr, asc)` followed by `limit(k)`. It is a convenience shorthand for the common pattern of ordering results by a scoring expression and returning the top `k`.
@@ -3629,6 +3719,13 @@ await client.collection("books").query(
 ).limit(50);
 ```
 
+```sql SQL
+SELECT title, author
+FROM books
+WHERE published_year >= 2000
+LIMIT 50;
+```
+
 </CodeGroup>
 
 ##### sort
@@ -3651,6 +3748,14 @@ await client.collection("books").query(
 ).sort(field("year"), true);
 ```
 
+```sql SQL
+SELECT title, author, published_year AS year
+FROM books
+WHERE author = 'George Orwell'
+ORDER BY published_year ASC
+LIMIT 100;
+```
+
 </CodeGroup>
 
 ##### count
@@ -3668,6 +3773,14 @@ Use the `count()` function to get the total number of documents matching the que
 ```js Javascript
 // Count the total number of documents in the collection
 .count()
+```
+
+```sql SQL
+-- Count all documents
+SELECT COUNT(*) FROM books;
+
+-- Count with a filter
+SELECT COUNT(*) FROM books WHERE published_year > 2000;
 ```
 
 </CodeGroup>
@@ -4024,6 +4137,13 @@ await client.collections().create("books", {
 });
 ```
 
+```sql SQL
+CREATE TABLE books (
+  title          TEXT NOT NULL   INDEX semantic_index(),
+  published_year INTEGER NOT NULL
+);
+```
+
 </CodeGroup>
 
 <Warning>
@@ -4133,6 +4253,14 @@ const schema = {
 };
 ```
 
+```sql SQL
+CREATE TABLE books (
+  name  TEXT NOT NULL,  -- NOT NULL marks the field as required
+  price INTEGER         -- nullable by default (can be omitted)
+);
+```
+
+
 </CodeGroup>
 
 ##### Indexes
@@ -4159,6 +4287,12 @@ import { f32Vector, vectorIndex } from "topk-js/schema";
 const schema = {
   embedding: f32Vector({ dimension: 1536 }).index(vectorIndex({ metric: "cosine" })),
 };
+```
+
+```sql SQL
+CREATE TABLE books (
+  embedding f32_vector(1536) INDEX vector_index(metric = 'cosine')
+);
 ```
 
 </CodeGroup>
@@ -4208,6 +4342,12 @@ const schema = {
 };
 ```
 
+```sql SQL
+CREATE TABLE passages (
+  token_embeddings f16_matrix(128) INDEX multi_vector_index(metric = 'maxsim')
+);
+```
+
 </CodeGroup>
 
 ###### Keyword Index
@@ -4230,6 +4370,12 @@ import { keywordIndex, text } from "topk-js/schema";
 const schema = {
   title: text().index(keywordIndex()),
 };
+```
+
+```sql SQL
+CREATE TABLE books (
+  title TEXT INDEX keyword_index()
+);
 ```
 
 </CodeGroup>
@@ -4256,6 +4402,12 @@ const schema = {
 };
 ```
 
+```sql SQL
+CREATE TABLE books (
+  title TEXT INDEX semantic_index()
+);
+```
+
 </CodeGroup>
 
 See [semantic_index()](../sdk/topk-py/schema#semantic-index) for details.
@@ -4274,6 +4426,10 @@ collections = client.collections().list()
 
 ```typescript Javascript
 const collections = await client.collections().list();
+```
+
+```sql SQL
+SELECT table_name FROM information_schema.tables;
 ```
 
 </CodeGroup>
@@ -4361,6 +4517,12 @@ client.collections().delete("my-collection")
 
 ```typescript JavaScript
 await client.collections().delete("my-collection")
+```
+
+```sql SQL
+DROP TABLE "my-collection";
+-- Use IF EXISTS to suppress the error if the collection does not exist:
+DROP TABLE IF EXISTS "my-collection";
 ```
 
 </CodeGroup>
@@ -12459,3 +12621,652 @@ type MultiVectorQuantization = "1bit" | "2bit" | "scalar";
 ```ts
 type VectorDistanceMetric = "cosine" | "euclidean" | "dot_product" | "hamming";
 ```
+
+## SQL
+
+### Overview
+
+URL: https://docs.topk.io/sdk/topk-sql/overview
+
+TopK exposes a PostgreSQL wire protocol endpoint — any standard SQL client can connect and issue queries and writes against your collections.
+
+#### Prerequisites
+
+- **API key** — sign in to [console.topk.io](https://console.topk.io) and generate an API key.
+- **Region** — see [docs.topk.io/regions](https://docs.topk.io/regions) for available regions.
+
+#### Setup
+
+Connect using any PostgreSQL-compatible client — `psql`, `psycopg2`, `node-postgres`, `tokio-postgres`, and others.
+
+```bash
+psql "host=<region>.sql.topk.io port=5432 user=topk password=<api-key> dbname=topk"
+```
+
+Replace `<region>` with your selected region and `<api-key>` with your API key.
+
+<Tip>
+
+See [available regions](https://docs.topk.io/regions) and get your [API key](https://console.topk.io/api-key).
+
+</Tip>
+
+#### Quick Start
+
+Create a collection, insert documents, and run a semantic search with SQL:
+
+```sql
+-- 1. Create a collection
+CREATE TABLE books (
+    title   TEXT NOT NULL,
+    content TEXT          INDEX semantic_index(),
+    author  TEXT NOT NULL,
+    rating  FLOAT
+);
+
+-- 2. Insert documents
+INSERT INTO books (_id, title, content, author, rating)
+VALUES
+    ('1', 'The Hobbit',
+     'A hobbit embarks on an unexpected journey through Middle-earth.',
+     'Tolkien', 4.3),
+    ('2', '1984',
+     'A dystopian novel about totalitarian surveillance and control.',
+     'George Orwell', 4.7),
+    ('3', 'Dune',
+     'An epic saga of politics, religion, and ecology on a desert planet.',
+     'Frank Herbert', 4.5);
+
+-- 3. Search
+SELECT _id, title, semantic_similarity(content, 'political control and oppression') AS score
+FROM books
+ORDER BY score DESC
+LIMIT 10;
+```
+
+<Note>
+
+The `INDEX` clause is a TopK extension to SQL that lets you declare search indexes inline with your column definitions.
+
+</Note>
+
+#### Schemaless by default
+
+TopK collections are schemaless by default. Documents can have any fields with any
+types — no schema declaration is required to store or query them.
+
+The only exception: **fields you want to index must be declared**, because index
+configuration (metric, index type, etc.) is attached to the field definition.
+
+<Tip>
+
+Column types are inferred from the schema, search function return values, and explicit casts. Columns that can't be typed statically (e.g. unindexed fields with mixed values) fall back to JSON. Use the `::` cast operator to force a specific wire type.
+
+</Tip>
+
+For example, to cast `published_year` to `int4` and `rating` to `float8`, use:
+
+```sql
+SELECT title, published_year::int4, rating::float8 FROM books LIMIT 10;
+```
+
+#### SQL Reference
+
+##### Table references
+
+Statements use `<table>` as either a collection name or a collection plus partition:
+
+```text
+<table> ::= [schema.]collection[$partition]
+```
+
+<Note>
+
+The `schema` prefix is accepted but ignored — all collections live in a single namespace per project.
+
+</Note>
+
+###### Partitions
+
+Partitions can be specified with `$` or the `PARTITION` keyword:
+
+| Form | Example |
+|------|---------|
+| `collection` | `books` |
+| `schema.collection` | `public.books` |
+| `collection$partition` | `books$2024` |
+| `schema.collection$partition` | `public.books$2024` |
+| `collection PARTITION name` | `books PARTITION 2024` |
+
+Partition syntax applies to `SELECT`, `INSERT`, `UPDATE`, and `DELETE` only. `CREATE TABLE` and `DROP TABLE` name collections without partitions; partitions are created implicitly on first write.
+
+##### SELECT
+
+The primary query interface. Compute search scores in the projection, filter by metadata or text predicates in `WHERE`, and rank results by any scoring expression in `ORDER BY`.
+
+```sql
+SELECT <projection> FROM <table>
+  [WHERE <filter>]
+  [ORDER BY <expr> [ASC | DESC] LIMIT <n>]
+```
+
+###### Projection
+
+Each item in the select list must be one of:
+
+- A **named column**: `SELECT title, rating`
+- A **struct subfield**: `SELECT metadata.publisher`
+- An **aliased expression**: `SELECT rating * 2 AS double_rating` — expressions **must** have an `AS` alias
+- A **search function**: `SELECT vector_distance(embedding, '[1,0,0,0]'::f32_vector) AS score`
+- A **wire-type cast**: `SELECT rating::float8 AS rating_f64`
+
+Wire-type casts (`::int4`, `::float8`, `::text`, …) control how the column is typed on the wire, which is useful when your driver infers the wrong type. Unaliased casts use the inner expression as the column name (`SELECT title::text` → column `title`). See [Output type mapping](#output-type-mapping) for the full table.
+
+<Tip>
+
+`COUNT(*)` returns the number of matching documents. The result column is named `_count` unless aliased with `AS`.
+
+</Tip>
+
+###### WHERE filters
+
+| Operator | Example |
+|----------|---------|
+| `=`, `<>`, `!=`, `<`, `<=`, `>`, `>=` | `rating > 4.0` |
+| `AND`, `OR`, `NOT` | `genre = 'fantasy' AND in_print = true` |
+| `IS NULL`, `IS NOT NULL` | `checksum IS NOT NULL` |
+| `IN`, `NOT IN` | `genre IN ('fantasy', 'fiction')` |
+| `BETWEEN`, `NOT BETWEEN` | `published_year BETWEEN 1900 AND 2000` |
+| `LIKE`, `NOT LIKE` | `title LIKE 'The%'` |
+| `~` (regex) | `author ~ 'Tol.*'` |
+| Arithmetic | `rating * 10 > 40` |
+| `CASE WHEN … THEN … ELSE … END` | `CASE WHEN rating > 4.0 THEN 'top' ELSE 'other' END AS tier` |
+| `contains(field, scalar)` | `contains(tags, 'classic')` |
+| `match(query [, field [, weight [, all]]])` | `match('hobbit rings', title)` |
+| `match_tokens(tokens [, field [, all]])` | `match_tokens(ARRAY['love', 'classic'], tags)` |
+| `match_all(field, query)` | `match_all(title, 'hobbit rings')` |
+| `match_any(field, query)` | `match_any(tags, ARRAY['love', 'classic'])` |
+
+`match(...)` and `match_tokens(...)` search keyword-indexed text and can be ranked
+with `bm25_score()`. Combine text searches with `AND` / `OR`; add metadata filters
+with `AND`:
+
+```sql
+WHERE (match('hobbit', title) OR match('dune', title))
+  AND rating > 4.0
+```
+
+Text searches can be combined with each other using `OR`, and with metadata filters using `AND`.
+
+###### Search Functions
+
+TopK extends SQL with search-specific functions for scoring and filtering. Scoring functions compute relevance in `SELECT`; text search predicates filter documents in `WHERE`.
+
+###### **Scoring functions**
+
+Scoring functions compute a relevance score for each document. Call them in `SELECT`, give them an alias, then use that alias in `ORDER BY` to rank results. All scoring functions return the score as `f32`:
+
+```sql
+SELECT _id, title, bm25_score() AS score
+FROM books
+WHERE match('dune', title)
+ORDER BY score DESC
+LIMIT 10;
+```
+
+| Function | Description |
+|----------|-------------|
+| `vector_distance(field, query [, skip_refine])` | Dense or sparse ANN distance |
+| `multi_vector_distance(field, query [, candidates])` | Multi-vector MaxSim distance |
+| `semantic_similarity(field, query)` | Semantic embedding similarity |
+| `bm25_score([b, k1])` | Keyword relevance score; requires `match(...)` or `match_tokens(...)` in `WHERE` |
+| `boost(score, condition, factor)` | Multiply score when condition is true |
+
+###### **Text search predicates**
+
+Text search predicates filter documents in `WHERE` based on keyword matches. `match(...)` and `match_tokens(...)` enable BM25 scoring via `bm25_score()`.
+
+```sql
+SELECT _id, title, bm25_score() AS score
+FROM books
+WHERE match('dune', title)
+ORDER BY score DESC
+LIMIT 10;
+```
+
+| Function | Description |
+|----------|-------------|
+| `match(query [, field [, weight [, all]]])` | Keyword text search |
+| `match_tokens(tokens [, field [, all]])` | Keyword token search |
+| `match_all(field, query)` | Boolean predicate — all terms must match |
+| `match_any(field, query)` | Boolean predicate — any term must match |
+| `contains(field, scalar)` | List membership or string substring |
+
+`match_all(...)` and `match_any(...)` are boolean-only predicates — they filter documents but do not affect relevance ranking:
+
+```sql
+SELECT _id, title
+FROM books
+WHERE match_any(title, ARRAY['dune', 'hobbit'])
+  AND rating > 4.0;
+```
+
+Text searches can be combined with each other using `OR`, and with metadata filters using `AND`:
+
+```sql
+SELECT _id, title, bm25_score() AS score
+FROM books
+WHERE (match('hobbit', title) OR match('dune', title))
+  AND rating > 4.0
+ORDER BY score DESC
+LIMIT 10;
+```
+
+<Note>
+
+`match(...)` and `match_tokens(...)` cannot be combined with metadata conditions using `OR`. Use `match_any(...)` or `match_all(...)` for keyword predicates that need to appear in an `OR` alongside other conditions — they work in any logical expression but do not affect `bm25_score()`.
+
+</Note>
+
+###### **Example queries**
+
+```sql
+-- Vector ANN
+SELECT
+    _id,
+    title,
+    vector_distance(embedding, '[1,0,0,0]'::f32_vector) AS vec_dist
+FROM books
+ORDER BY vec_dist DESC  -- DESC for cosine/dot_product; ASC for euclidean
+LIMIT 3;
+
+-- Sparse vector ANN
+SELECT
+    _id,
+    title,
+    vector_distance(sparse_emb, '{"0":1.0,"1":0.5}'::f32_sparse_vector) AS vec_dist
+FROM books
+ORDER BY vec_dist DESC
+LIMIT 3;
+
+-- Multi-vector MaxSim
+SELECT
+    _id,
+    title,
+    multi_vector_distance(multi_emb, '[[1.0,0.0,0.0,0.0]]'::f32_matrix) AS vec_dist
+FROM books
+ORDER BY vec_dist DESC
+LIMIT 3;
+
+-- Full-text BM25
+SELECT
+    _id,
+    title,
+    bm25_score() AS bm25_score
+FROM books
+WHERE match('hobbit rings', title)
+ORDER BY bm25_score DESC
+LIMIT 5;
+
+-- Semantic similarity
+SELECT
+    _id,
+    title,
+    semantic_similarity(bio, 'tales of magic and adventure') AS sem_similarity
+FROM books
+ORDER BY sem_similarity DESC
+LIMIT 3;
+
+-- Hybrid: vector + boost
+SELECT
+    _id,
+    title,
+    vector_distance(embedding, '[1,0,0,0]'::f32_vector) AS vec_dist
+FROM books
+WHERE match_any(title, 'hobbit')
+ORDER BY boost(vec_dist, in_print = true, 1.5)
+LIMIT 5;
+
+-- Boolean keyword predicates
+SELECT _id, title
+FROM books
+WHERE match_all(title, 'the hobbit')
+   OR match_any(title, ARRAY['dune', '1984'])
+LIMIT 5;
+```
+
+##### INSERT
+
+Upsert semantics: inserting a document with an existing `_id` replaces it.
+`_id` is required and must appear in the column list.
+
+```sql
+INSERT INTO <table> (<col>, ...) VALUES (<val>, ...) [, (<val>, ...) ...];
+```
+
+Scalars use plain literals. TopK-native values use `::topk_type` casts or constructor
+calls — see [Type System](#type-system). Prefer casts in `VALUES`:
+
+```sql
+INSERT INTO books (_id, title, author, published_year, rating, embedding, sparse_emb)
+VALUES
+    (
+        'hobbit', 'The Hobbit', 'Tolkien', 1937, 4.3,
+        '[1.0, 0.0, 0.0, 0.0]'::f32_vector,
+        '{"0": 1.0, "1": 0.5}'::f32_sparse_vector
+    );
+```
+
+##### UPDATE
+
+Updates one or more fields on existing documents. `_id` cannot be updated. A `WHERE`
+clause is required and must resolve to a set of document IDs.
+
+Value expressions in `SET` follow the same rules as [INSERT](#insert) `VALUES`.
+
+```sql
+UPDATE <table> SET <col> = <val> [, ...] WHERE _id = '<id>';
+UPDATE <table> SET <col> = <val> [, ...] WHERE _id IN ('<id1>', '<id2>', ...);
+```
+
+##### DELETE
+
+Deletes documents by ID or by filter expression. A `WHERE` clause is required unless
+the target is a partition, in which case the entire partition is dropped.
+
+```sql
+DELETE FROM <table> WHERE _id = '<id>';
+DELETE FROM <table> WHERE _id IN ('<id1>', '<id2>', ...);
+DELETE FROM <table> WHERE <filter_expr>;
+DELETE FROM <collection>$<partition>;
+```
+
+##### CREATE TABLE
+
+Schema is defined once at collection creation. Indexes are declared inline on each column using a TopK-specific `INDEX` clause — standalone `CREATE INDEX` statements are not supported.
+
+```sql
+CREATE TABLE [IF NOT EXISTS] <table> (
+    <column> <type> [NOT NULL] [INDEX <method>(<options>)],
+    ...
+);
+```
+
+<Note>
+
+`IF NOT EXISTS` suppresses the error if the collection already exists.
+
+</Note>
+
+###### Column types
+
+| SQL type | TopK field type |
+|----------|-----------------|
+| `BOOLEAN` | `boolean` |
+| `INTEGER` / `BIGINT` / `INT` | `integer` |
+| `SMALLINT` / `INT2` / `INT4` | `integer` |
+| `FLOAT` / `REAL` / `DOUBLE PRECISION` | `float` |
+| `TEXT` / `VARCHAR` | `text` |
+| `BYTEA` | `bytes` |
+| `TEXT[]` | `list<string>` |
+| `INTEGER[]` | `list<integer>` |
+| `FLOAT[]` | `list<float>` |
+| `JSONB` | `struct` |
+| `f32_vector(n)` | `f32_vector(n)` |
+| `f16_vector(n)` | `f16_vector(n)` |
+| `f8_vector(n)` | `f8_vector(n)` |
+| `u8_vector(n)` | `u8_vector(n)` |
+| `i8_vector(n)` | `i8_vector(n)` |
+| `binary_vector(n)` | `binary_vector(n)` |
+| `f32_sparse_vector` | `f32_sparse_vector` |
+| `f16_sparse_vector` | `f16_sparse_vector` |
+| `f8_sparse_vector` | `f8_sparse_vector` |
+| `u8_sparse_vector` | `u8_sparse_vector` |
+| `i8_sparse_vector` | `i8_sparse_vector` |
+| `f32_matrix(n)` | `f32_matrix(n)` |
+| `f16_matrix(n)` | `f16_matrix(n)` |
+| `f8_matrix(n)` | `f8_matrix(n)` |
+| `u8_matrix(n)` | `u8_matrix(n)` |
+| `i8_matrix(n)` | `i8_matrix(n)` |
+
+<Note>
+
+`NOT NULL` marks a field as required. All columns are optional by default.
+
+</Note>
+
+###### Index types
+
+| Method | Applies to | Options |
+|--------|------------|---------|
+| `keyword_index()` | `TEXT`, `VARCHAR` | — |
+| `semantic_index()` | `TEXT`, `VARCHAR` | — |
+| `vector_index()` | `*_vector(n)`, `*_sparse_vector` | metric: `cosine`, `dot_product`, `euclidean`, `hamming` |
+| `multi_vector_index()` | `*_matrix(n)` | metric: `maxsim`<br/>quantization: `1bit`, `2bit`, `scalar`<br/>width, top_k |
+
+###### Example
+
+```sql
+CREATE TABLE books (
+    title          TEXT NOT NULL               INDEX keyword_index(),
+    author         TEXT NOT NULL,
+    published_year INTEGER NOT NULL,
+    rating         FLOAT,
+    genre          TEXT,
+    in_print       BOOLEAN,
+    bio            TEXT                        INDEX semantic_index(),
+    embedding      f32_vector(4)               INDEX vector_index(metric = 'cosine'),
+    sparse_emb     f32_sparse_vector           INDEX vector_index(metric = 'dot_product'),
+    multi_emb      f32_matrix(4)               INDEX multi_vector_index(metric = 'maxsim'),
+    tags           TEXT[],
+    checksum       BYTEA,
+    metadata       JSONB
+);
+```
+
+##### DROP TABLE
+
+Permanently deletes a collection and all of its documents and indexes. This operation is irreversible.
+
+```sql
+DROP TABLE [IF EXISTS] <table>;
+```
+
+<Note>
+
+`IF EXISTS` suppresses the error if the collection does not exist.
+
+</Note>
+
+##### information_schema
+
+TopK exposes two `information_schema` virtual tables for inspecting collections and their schemas. Specify column names explicitly in the select list — `SELECT *` is not supported on virtual tables.
+
+###### information_schema.tables
+
+Returns one row per collection in the project. Use it to list collections or check whether a specific collection exists.
+
+```sql
+SELECT table_name, table_schema, table_type FROM information_schema.tables;
+```
+
+<Warning>
+
+`WHERE` clauses are accepted but **silently ignored** — all collections are always returned.
+
+</Warning>
+
+| Column | Type | Value |
+|--------|------|-------|
+| `table_name` | `text` | collection name |
+| `table_schema` | `text` | `"public"` |
+| `table_type` | `text` | `"BASE TABLE"` |
+| `table_owner` | `text` | `"topk"` |
+
+###### information_schema.columns
+
+Returns one row per declared field in a collection. Filter by collection name using `WHERE table_name = '<name>'`.
+
+```sql
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_name = 'books';
+```
+
+<Warning>
+
+Additional `AND` clauses (e.g. `AND table_schema = 'public'`) are accepted but **silently ignored**.
+
+</Warning>
+
+| Column | Type | Value |
+|--------|------|-------|
+| `column_name` | `text` | field name |
+| `data_type` | `text` | see mapping below |
+| `is_nullable` | `text` | `"YES"` or `"NO"` |
+| `table_name` | `text` | collection name |
+
+**Data type mapping:**
+
+| TopK field type | `data_type` |
+|-----------------|-------------|
+| `text` | `text` |
+| `integer` | `bigint` |
+| `float` | `double precision` |
+| `boolean` | `boolean` |
+| `bytes` | `bytea` |
+| `*_vector(n)` (all dense variants) | `real[]` |
+| `*_sparse_vector` (all variants) | `jsonb` |
+| `list`, `struct`, `*_matrix` | `jsonb` |
+
+##### EXPLAIN
+
+Returns the parsed `Statement` AST as a single `plan TEXT` column:
+
+```sql
+EXPLAIN <statement>;
+EXPLAIN VERBOSE <statement>;
+```
+
+##### Session commands
+
+| Command | Behavior |
+|---------|----------|
+| `SET consistency_level = 'indexed'` | Indexed consistency for subsequent reads |
+| `SET consistency_level = 'strong'` | Strong consistency for subsequent reads |
+| `SET consistency_level = 'default'` | Clears the session override (router default) |
+| `SHOW consistency_level` | Returns the current consistency level |
+
+`SET`/`SHOW` only recognize `consistency_level`; all other variable names return an error.
+
+The following commands are accepted and silently succeed:
+
+| Command |
+|---------|
+| `BEGIN` |
+| `COMMIT` |
+| `ROLLBACK` |
+| `DISCARD <anything>` |
+
+#### PostgreSQL Compatibility
+
+TopK speaks the PostgreSQL wire protocol but is purpose-built for search — not general-purpose relational queries. Some SQL features are intentionally absent because they don't map to search semantics or would work against search performance.
+
+##### Queries
+
+**No `OFFSET`** — Search indexes are optimized for top-k retrieval. Skipping N results requires scanning and discarding ranked candidates, which defeats the purpose. Express pagination through your ranking score instead.
+
+**Single `ORDER BY` key** — Ranking is a single scoring expression. Combine multiple signals into one composite score rather than sorting by multiple columns: `ORDER BY vec_dist * 0.7 + bm25_score() * 0.3 DESC`.
+
+**No `SELECT *`** — Selecting all columns is not supported. Indexed vector fields cannot be projected directly — use search functions (`vector_distance`, `semantic_similarity`, …) to get scores from them instead.
+
+**`COUNT(*)` is a standalone aggregate** — it returns a document count and cannot be combined with other columns in the same `SELECT` list.
+
+**No whole-value equality on complex types** — `tags = ARRAY['a']` is not supported. Use `contains(tags, 'a')` to check whether a single value exists in a list field — `contains` checks for one value at a time, not a list of values.
+
+##### Writes
+
+**Upsert-only `INSERT`** — `INSERT` always replaces a document when `_id` already exists, so `ON CONFLICT` is built-in and not needed. `INSERT … SELECT` and `RETURNING` are not supported.
+
+**`::topk_type` casts in `VALUES`** — Standard PostgreSQL casts (`::float8`, `CAST(… AS text)`) aren't supported inside `INSERT`/`UPDATE` values. Use TopK-native casts (`::f32_vector`, `::f32_sparse_vector`, …) instead — see [Type System](#type-system).
+
+##### Transactions
+
+`BEGIN`/`COMMIT`/`ROLLBACK` are accepted without error so that drivers that auto-wrap statements in transactions (psycopg2, SQLAlchemy, JDBC) connect without modification. Writes are not transactional; `ROLLBACK` does not undo changes.
+
+##### Structs
+
+Individual struct subfields can be selected using dot notation:
+
+```sql
+SELECT metadata.publisher, metadata.year FROM books LIMIT 10;
+```
+
+To retrieve multiple subfields, list each one explicitly — selecting a whole struct column is **not supported**:
+
+```sql
+-- not supported
+SELECT metadata FROM books;
+```
+
+#### Type System
+
+TopK-native literals use **`::topk_type` casts** (preferred in `INSERT`/`UPDATE`
+`VALUES` and search-function arguments) or equivalent **constructor calls**.
+PostgreSQL wire-type casts (`::float8`, …) apply only in `SELECT` projection.
+
+| Constructor | Example |
+|-------------|---------|
+| `f32_vector(ARRAY[…])` | `'[0.1, 0.2, 0.3]'::f32_vector` or `f32_vector(ARRAY[0.1, 0.2, 0.3])` |
+| `f16_vector(ARRAY[…])` | (same pattern) |
+| `f8_vector(ARRAY[…])` | (same pattern) |
+| `u8_vector(ARRAY[…])` | (same pattern) |
+| `i8_vector(ARRAY[…])` | (same pattern) |
+| `binary_vector(ARRAY[…])` | (same pattern) |
+| `f32_sparse_vector(ARRAY[idx], ARRAY[val])` | `f32_sparse_vector(ARRAY[0, 2], ARRAY[1.0, 0.5])` or `'{"0":1.0,"2":0.5}'::f32_sparse_vector` or `'{"indices":[0,2],"values":[1.0,0.5]}'::f32_sparse_vector` |
+| `f16_sparse_vector(…)` | (same pattern) |
+| `f8_sparse_vector(…)` | (same pattern) |
+| `u8_sparse_vector(…)` | (same pattern) |
+| `i8_sparse_vector(…)` | (same pattern) |
+| `f32_matrix(ARRAY[ARRAY[row1],…])` | `'[[1.0, 0.0], [0.5, 0.5]]'::f32_matrix` |
+| `f16_matrix(…)` | (same pattern) |
+| `f8_matrix(…)` | (same pattern) |
+| `u8_matrix(…)` | (same pattern) |
+| `i8_matrix(…)` | (same pattern) |
+| `bytes('hexstring')` | `bytes('deadbeef')` |
+| `struct(key1, val1, …)` | `struct('publisher', 'Penguin', 'pages', 320)` |
+| `ARRAY[elem, …]` | `ARRAY['classic', 'fiction']` (list) |
+
+##### Complex types → JSON
+
+Vector, matrix, sparse, and list types are returned as JSON when selected. Indexed vector fields cannot be projected directly — use scoring functions to compute scores from them. The table below documents the wire format for each type:
+
+| TopK type | JSON wire representation |
+|-----------|--------------------------|
+| Dense vector | `[0.1, 0.2, 0.3]` |
+| Sparse vector | `{"indices":[0,2],"values":[1.0,0.5]}` or `{"0":1.0,"2":0.5}` |
+| Matrix (multi-vector) | `[[1.0,0.0],[0.5,0.1]]` (row-major) |
+| List | `["a","b"]` / `[1,2,3]` |
+| Struct | `{"publisher":"Scribner","pages":180}` |
+| Binary | `\xdeadbeef` |
+
+##### Output type mapping
+
+pgwire maps SELECT-list expressions to PostgreSQL OIDs. Explicit `::cast` in the
+projection list overrides inference. Casts are stripped from the query plan — they
+only affect the wire type.
+
+| Expression | pg OID |
+|------------|--------|
+| `::bool` | 16 `BOOL` |
+| `::smallint` / `::int2` | 21 `INT2` |
+| `::int` / `::int4` | 23 `INT4` |
+| `::bigint` / `::int8` | 20 `INT8` |
+| `::real` / `::float4` | 700 `FLOAT4` |
+| `::float` / `::float8` | 701 `FLOAT8` |
+| `::text` | 25 `TEXT` |
+| `::bytea` | 17 `BYTEA` |
+| `::json` / `::jsonb` | 114 `JSON` |
+| plain column (no cast) | 114 `JSON` |
+| search function (no cast) | 700 `FLOAT4` |
+| `COUNT(*)` (no cast) | 20 `INT8` |

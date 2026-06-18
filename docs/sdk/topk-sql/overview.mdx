@@ -1,4 +1,7 @@
-# topk-sql
+---
+title: "Overview"
+description: "Connect any PostgreSQL client to TopK and use SQL to create collections, insert data, and run search."
+---
 
 TopK exposes a PostgreSQL wire protocol endpoint — any standard SQL client can connect and issue queries and writes against your collections.
 
@@ -17,9 +20,11 @@ psql "host=<region>.sql.topk.io port=5432 user=topk password=<api-key> dbname=to
 
 Replace `<region>` with your selected region and `<api-key>` with your API key.
 
-> [!TIP]
-> See [available regions](https://docs.topk.io/regions) and get your [API key](https://console.topk.io/api-key).
+<Tip>
 
+See [available regions](https://docs.topk.io/regions) and get your [API key](https://console.topk.io/api-key).
+
+</Tip>
 
 ## Quick Start
 
@@ -54,9 +59,11 @@ ORDER BY score DESC
 LIMIT 10;
 ```
 
-> [!NOTE]
-> The `INDEX` clause is a TopK extension to SQL that lets you declare search indexes inline with your column definitions.
+<Note>
 
+The `INDEX` clause is a TopK extension to SQL that lets you declare search indexes inline with your column definitions.
+
+</Note>
 
 ## Schemaless by default
 
@@ -66,15 +73,17 @@ types — no schema declaration is required to store or query them.
 The only exception: **fields you want to index must be declared**, because index
 configuration (metric, index type, etc.) is attached to the field definition.
 
-> [!TIP]
-> Column types are inferred from the schema, search function return values, and explicit casts. Columns that can't be typed statically (e.g. unindexed fields with mixed values) fall back to JSON. Use the `::` cast operator to force a specific wire type.
+<Tip>
+
+Column types are inferred from the schema, search function return values, and explicit casts. Columns that can't be typed statically (e.g. unindexed fields with mixed values) fall back to JSON. Use the `::` cast operator to force a specific wire type.
+
+</Tip>
 
 For example, to cast `published_year` to `int4` and `rating` to `float8`, use:
 
 ```sql
 SELECT title, published_year::int4, rating::float8 FROM books LIMIT 10;
 ```
-
 
 ## SQL Reference
 
@@ -86,8 +95,11 @@ Statements use `<table>` as either a collection name or a collection plus partit
 <table> ::= [schema.]collection[$partition]
 ```
 
-> [!NOTE]
-> The `schema` prefix is accepted but ignored — all collections live in a single namespace per project.
+<Note>
+
+The `schema` prefix is accepted but ignored — all collections live in a single namespace per project.
+
+</Note>
 
 #### Partitions
 
@@ -102,7 +114,6 @@ Partitions can be specified with `$` or the `PARTITION` keyword:
 | `collection PARTITION name` | `books PARTITION 2024` |
 
 Partition syntax applies to `SELECT`, `INSERT`, `UPDATE`, and `DELETE` only. `CREATE TABLE` and `DROP TABLE` name collections without partitions; partitions are created implicitly on first write.
-
 
 ### SELECT
 
@@ -126,8 +137,11 @@ Each item in the select list must be one of:
 
 Wire-type casts (`::int4`, `::float8`, `::text`, …) control how the column is typed on the wire, which is useful when your driver infers the wrong type. Unaliased casts use the inner expression as the column name (`SELECT title::text` → column `title`). See [Output type mapping](#output-type-mapping) for the full table.
 
-> [!TIP]
-> `COUNT(*)` returns the number of matching documents. The result column is named `_count` unless aliased with `AS`.
+<Tip>
+
+`COUNT(*)` returns the number of matching documents. The result column is named `_count` unless aliased with `AS`.
+
+</Tip>
 
 #### WHERE filters
 
@@ -223,8 +237,11 @@ ORDER BY score DESC
 LIMIT 10;
 ```
 
-> [!NOTE]
-> `match(...)` and `match_tokens(...)` cannot be combined with metadata conditions using `OR`. Use `match_any(...)` or `match_all(...)` for keyword predicates that need to appear in an `OR` alongside other conditions — they work in any logical expression but do not affect `bm25_score()`.
+<Note>
+
+`match(...)` and `match_tokens(...)` cannot be combined with metadata conditions using `OR`. Use `match_any(...)` or `match_all(...)` for keyword predicates that need to appear in an `OR` alongside other conditions — they work in any logical expression but do not affect `bm25_score()`.
+
+</Note>
 
 ##### **Example queries**
 
@@ -293,7 +310,6 @@ WHERE match_all(title, 'the hobbit')
 LIMIT 5;
 ```
 
-
 ### INSERT
 
 Upsert semantics: inserting a document with an existing `_id` replaces it.
@@ -316,8 +332,6 @@ VALUES
     );
 ```
 
-
-
 ### UPDATE
 
 Updates one or more fields on existing documents. `_id` cannot be updated. A `WHERE`
@@ -329,7 +343,6 @@ Value expressions in `SET` follow the same rules as [INSERT](#insert) `VALUES`.
 UPDATE <table> SET <col> = <val> [, ...] WHERE _id = '<id>';
 UPDATE <table> SET <col> = <val> [, ...] WHERE _id IN ('<id1>', '<id2>', ...);
 ```
-
 
 ### DELETE
 
@@ -343,7 +356,6 @@ DELETE FROM <table> WHERE <filter_expr>;
 DELETE FROM <collection>$<partition>;
 ```
 
-
 ### CREATE TABLE
 
 Schema is defined once at collection creation. Indexes are declared inline on each column using a TopK-specific `INDEX` clause — standalone `CREATE INDEX` statements are not supported.
@@ -355,8 +367,11 @@ CREATE TABLE [IF NOT EXISTS] <table> (
 );
 ```
 
-> [!NOTE]
-> `IF NOT EXISTS` suppresses the error if the collection already exists.
+<Note>
+
+`IF NOT EXISTS` suppresses the error if the collection already exists.
+
+</Note>
 
 #### Column types
 
@@ -389,8 +404,11 @@ CREATE TABLE [IF NOT EXISTS] <table> (
 | `u8_matrix(n)` | `u8_matrix(n)` |
 | `i8_matrix(n)` | `i8_matrix(n)` |
 
-> [!NOTE]
-> `NOT NULL` marks a field as required. All columns are optional by default.
+<Note>
+
+`NOT NULL` marks a field as required. All columns are optional by default.
+
+</Note>
 
 #### Index types
 
@@ -421,7 +439,6 @@ CREATE TABLE books (
 );
 ```
 
-
 ### DROP TABLE
 
 Permanently deletes a collection and all of its documents and indexes. This operation is irreversible.
@@ -430,9 +447,11 @@ Permanently deletes a collection and all of its documents and indexes. This oper
 DROP TABLE [IF EXISTS] <table>;
 ```
 
-> [!NOTE]
-> `IF EXISTS` suppresses the error if the collection does not exist.
+<Note>
 
+`IF EXISTS` suppresses the error if the collection does not exist.
+
+</Note>
 
 ### information_schema
 
@@ -446,8 +465,11 @@ Returns one row per collection in the project. Use it to list collections or che
 SELECT table_name, table_schema, table_type FROM information_schema.tables;
 ```
 
-> [!WARNING]
-> `WHERE` clauses are accepted but **silently ignored** — all collections are always returned.
+<Warning>
+
+`WHERE` clauses are accepted but **silently ignored** — all collections are always returned.
+
+</Warning>
 
 | Column | Type | Value |
 |--------|------|-------|
@@ -455,7 +477,6 @@ SELECT table_name, table_schema, table_type FROM information_schema.tables;
 | `table_schema` | `text` | `"public"` |
 | `table_type` | `text` | `"BASE TABLE"` |
 | `table_owner` | `text` | `"topk"` |
-
 
 #### information_schema.columns
 
@@ -467,8 +488,11 @@ FROM information_schema.columns
 WHERE table_name = 'books';
 ```
 
-> [!WARNING]
-> Additional `AND` clauses (e.g. `AND table_schema = 'public'`) are accepted but **silently ignored**.
+<Warning>
+
+Additional `AND` clauses (e.g. `AND table_schema = 'public'`) are accepted but **silently ignored**.
+
+</Warning>
 
 | Column | Type | Value |
 |--------|------|-------|
@@ -490,7 +514,6 @@ WHERE table_name = 'books';
 | `*_sparse_vector` (all variants) | `jsonb` |
 | `list`, `struct`, `*_matrix` | `jsonb` |
 
-
 ### EXPLAIN
 
 Returns the parsed `Statement` AST as a single `plan TEXT` column:
@@ -499,7 +522,6 @@ Returns the parsed `Statement` AST as a single `plan TEXT` column:
 EXPLAIN <statement>;
 EXPLAIN VERBOSE <statement>;
 ```
-
 
 ### Session commands
 
@@ -520,8 +542,6 @@ The following commands are accepted and silently succeed:
 | `COMMIT` |
 | `ROLLBACK` |
 | `DISCARD <anything>` |
-
-
 
 ## PostgreSQL Compatibility
 

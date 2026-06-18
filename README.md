@@ -22,6 +22,7 @@ Start with the [documentation](https://docs.topk.io) for quickstart guides, API 
 - [Python SDK](./topk-py/) - Python SDK for TopK API
 - [JavaScript SDK](./topk-js/) - Javascript SDK for TopK API with full Typescript support
 - [Rust SDK](./topk-rs/) - Rust SDK for TopK API
+- [SQL](./topk-sql/) - Connect any PostgreSQL client to TopK
 
 ## CLI
 
