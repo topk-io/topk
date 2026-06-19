@@ -25,7 +25,7 @@ client.collections().create("books", schema={
 })
 
 docs = client.collection("books").query(
-    select("title", title_similarity=fn.semantic_similarity("title", "coming of age story"))
+    select("title", title_similarity=fn.semantic_similarity("title", "classic novel"))
     .sort(field("title_similarity"), asc=False)
     .limit(10)
 )
@@ -40,7 +40,7 @@ await client.collections().create("books", {
 });
 
 const docs = await client.collection("books").query(
-  select({ title: field("title"), title_similarity: fn.semanticSimilarity("title", "coming of age story") })
+  select({ title: field("title"), title_similarity: fn.semanticSimilarity("title", "classic novel") })
     .sort(field("title_similarity"), false)
     .limit(10)
 );
