@@ -4817,6 +4817,16 @@ const docs = await client.collection("books").query(
 );
 ```
 
+```sql SQL
+SELECT
+  title,
+  semantic_similarity(title, 'catcher') AS title_similarity,
+  bm25_score() AS text_score
+FROM books
+WHERE match('classic')
+ORDER BY title_similarity * 0.7 + text_score * 0.3 DESC
+LIMIT 10;
+```
 
 </CodeGroup>
 
