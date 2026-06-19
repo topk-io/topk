@@ -139,6 +139,18 @@ function buildSections(): Section[] {
     }
   }
 
+  // Guides tab
+  const guidesTab = docs.navigation.tabs.find((t) => t.tab === "Guides");
+  if (guidesTab) {
+    for (const group of normalizeTabPages(guidesTab.pages)) {
+      if (!group.pages.length) continue;
+      sections.push({
+        heading: group.group ?? "Guides",
+        entries: group.pages.map((slug): Entry => ({ type: "slug", slug })),
+      });
+    }
+  }
+
   // Python SDK Reference
   const pyTab = docs.navigation.tabs.find((t) => t.tab === "Python SDK");
   const pyRef = pyTab && normalizeTabPages(pyTab.pages).find((g) => g.group === "SDK Reference");

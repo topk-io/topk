@@ -219,17 +219,18 @@
   },
   "logo": {
     "light": "/logo/topk-docs-logo-light.svg",
-    "dark": "/logo/topk-docs-logo-dark.svg"
+    "dark": "/logo/topk-docs-logo-dark.svg",
+    "href": "https://topk.io"
   },
   "navbar": {
     "links": [
       {
-        "label": "Homepage",
-        "href": "https://topk.io"
+        "label": "Benchmarks",
+        "href": "https://topk.io/benchmarks"
       },
       {
-        "label": "Support",
-        "href": "https://docs.topk.io/support"
+        "label": "Blog",
+        "href": "https://topk.io/blog"
       },
       {
         "label": "GitHub",

@@ -4533,6 +4533,1490 @@ If your collection is too large it can take a moment to delete it. You can check
   This operation is irreversible and will permanently delete all data in the collection.
 </Warning>
 
+## Guides
+
+### Semantic search
+
+URL: https://docs.topk.io/guides/semantic-search
+
+<Info>
+  **Prerequisites**
+
+  - TopK account ([Sign up here](https://console.topk.io/login))
+  - TopK API key ([Get an API key here](https://console.topk.io/api-key))
+</Info>
+
+TopK enables you to add state-of-the-art semantic search to your documents with just a few lines of code.
+
+With TopK&apos;s semantic search, there is no embedding pipeline to build, no vector store to operate, and no reranking service to maintain. It's as simple as adding [`semantic_index()`](/sdk/topk-py/schema#semantic_index) to your collection schema and querying with [`fn.semantic_similarity()`](/sdk/topk-py/query#semantic_similarity):
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.schema import text, semantic_index
+from topk_sdk.query import select, field, fn
+
+client.collections().create("books", schema={
+    "title": text().required().index(semantic_index()),
+})
+
+docs = client.collection("books").query(
+    select("title", title_similarity=fn.semantic_similarity("title", "coming of age story"))
+    .sort(field("title_similarity"), asc=False)
+    .limit(10)
+)
+```
+
+```typescript Javascript
+import { text, semanticIndex } from "topk-js/schema";
+import { select, field, fn } from "topk-js/query";
+
+await client.collections().create("books", {
+  title: text().required().index(semanticIndex()),
+});
+
+const docs = await client.collection("books").query(
+  select({ title: field("title"), title_similarity: fn.semanticSimilarity("title", "coming of age story") })
+    .sort(field("title_similarity"), false)
+    .limit(10)
+);
+```
+
+```sql SQL
+CREATE TABLE books (
+  title TEXT NOT NULL INDEX semantic_index()
+);
+
+INSERT INTO books (_id, title)
+VALUES
+  ('gatsby',  'The Great Gatsby'),
+  ('1984',    '1984'),
+  ('catcher', 'The Catcher in the Rye');
+
+SELECT title, semantic_similarity(title, 'classic novel') AS title_similarity
+FROM books
+ORDER BY title_similarity DESC
+LIMIT 10;
+```
+
+</CodeGroup>
+
+Under the hood, `semantic_index()` is powered by [Iso-ModernColBERT](https://huggingface.co/topk-io/Iso-ModernColBERT), TopK's own multi-vector embedding model, combined with [Sparse Multi-Vector Encoding (SMVE)](https://www.topk.io/blog/20260311-smve-multi-vector-retrieval) for scalable retrieval and quantized *MaxSim* reranking.
+
+<Note>
+  **Why multi-vector?** Single-vector (dense) embeddings compress an entire document into one point in high-dimensional space.
+
+  Multi-vector models like [Iso-ModernColBERT](https://huggingface.co/topk-io/Iso-ModernColBERT) keep one embedding per token, enabling token-level matching via MaxSim scoring. This consistently outperforms dense models on out-of-domain content, long documents, specific clauses, tables, and structured data.
+
+  Read [High-Quality Search, Out of the Box](https://www.topk.io/blog/20260611-semantic-index-multi-vector-retrieval) for benchmarks and a deep-dive into the architecture.
+</Note>
+
+#### How to perform a semantic search
+
+In the following example, we'll:
+
+<Steps>
+  <Step title="Define a collection schema">Create a collection configured for semantic search.</Step>
+  <Step title="Add documents">Insert documents into the collection.</Step>
+  <Step title="Run a semantic query">Retrieve documents using a free-form text query.</Step>
+</Steps>
+
+##### Define a collection schema
+
+Semantic search is enabled by adding a [`semantic_index()`](/sdk/topk-py/schema#semantic_index) to a [`text()`](/sdk/topk-py/schema#text) field in the collection schema:
+
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.schema import text, semantic_index
+
+client.collections().create(
+    "books",
+    schema={
+        "title": text().required().index(semantic_index()),
+    },
+)
+```
+
+
+```typescript Javascript
+import { text, semanticIndex } from "topk-js/schema";
+
+await client.collections().create("books", {
+  title: text().required().index(semanticIndex()),
+});
+```
+
+```sql SQL
+CREATE TABLE books (
+  title TEXT NOT NULL INDEX semantic_index()
+);
+```
+
+</CodeGroup>
+
+This configuration automatically generates multi-vector embeddings for the field and enables keyword search. Documents are indexed with sub-second lag — they are searchable as soon as they are written.
+
+<Tip>
+  If you want to use your own embeddings instead of TopK's built-in `semantic_index()`, see [Vector Search](/guides/vector-search) guide.
+</Tip>
+
+##### Add documents to the collection
+
+Let's add some documents to the collection:
+
+<CodeGroup>
+
+```python Python
+client.collection("books").upsert(
+    [
+        {"_id": "gatsby", "title": "The Great Gatsby"},
+        {"_id": "1984", "title": "1984"},
+        {"_id": "catcher", "title": "The Catcher in the Rye"},
+    ],
+)
+```
+
+
+```typescript Javascript
+await client.collection("books").upsert([
+  { _id: "gatsby", title: "The Great Gatsby" },
+  { _id: "1984", title: "1984" },
+  { _id: "catcher", title: "The Catcher in the Rye" },
+]);
+```
+
+```sql SQL
+INSERT INTO books (_id, title)
+VALUES
+  ('gatsby',  'The Great Gatsby'),
+  ('1984',    '1984'),
+  ('catcher', 'The Catcher in the Rye');
+```
+
+</CodeGroup>
+
+##### Run a semantic query
+
+To search for documents based on semantic similarity, use the [`fn.semantic_similarity()`](/sdk/topk-py/query#semantic_similarity) function:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, field, fn
+
+docs = client.collection("books").query(
+    select(
+        "title",
+        title_similarity=fn.semantic_similarity("title", "classic American novel"),
+    )
+    .sort(field("title_similarity"), asc=False)
+    .limit(10)
+)
+
+### Example results:
+
+[
+  {
+    "_id": "2",
+    "title": "The Catcher in the Rye",
+    "title_similarity": 0.9497610926628113
+  },
+  {
+    "_id": "1",
+    "title": "The Great Gatsby",
+    "title_similarity": 0.9480283856391907
+  }
+]
+```
+
+
+```typescript Javascript
+import { select, field, fn } from "topk-js/query";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    title_similarity: fn.semanticSimilarity("title", "classic American novel"),
+  })
+    .sort(field("title_similarity"), false)
+    .limit(10)
+);
+
+// Example results:
+
+[
+  {
+    _id: '2',
+    title: 'The Catcher in the Rye',
+    title_similarity: 0.9497610926628113
+  },
+  {
+    _id: '1',
+    title: 'The Great Gatsby'
+    title_similarity: 0.9480283856391907
+  }
+]
+```
+
+```sql SQL
+SELECT
+  title,
+  semantic_similarity(title, 'classic American novel') AS title_similarity
+FROM books
+ORDER BY title_similarity DESC
+LIMIT 10;
+```
+
+</CodeGroup>
+
+Let's break down the example above:
+
+1. The `semantic_similarity()` function encodes the query `"classic American novel"` into multi-vector token embeddings using Iso-ModernColBERT and scores each document via quantized *MaxSim* — comparing every query token against every document token to find the best alignment.
+2. Candidate retrieval is accelerated by [SMVE](https://www.topk.io/blog/20260311-smve-multi-vector-retrieval), which uses fast sparse approximations to identify a small set of candidates before the full MaxSim pass.
+3. The results are ranked by their MaxSim score and the top 10 most relevant documents are returned.
+
+This works **out of the box**—no embedding pipeline, no vector store, no reranking service to manage.
+
+#### Combining semantic and keyword search
+
+For certain use cases, you might want to use a combination of **keyword search** and **semantic search**:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, field, fn, match
+
+docs = client.collection("books").query(
+    select(
+        "title",
+        title_similarity=fn.semantic_similarity("title", "catcher"),
+        text_score=fn.bm25_score(),  # Keyword-based relevance
+    )
+    .filter(match("classic"))  # Ensure the book contains the keyword "classic" in any of the text-indexed fields
+    .sort(field("title_similarity") * 0.7 + field("text_score") * 0.3, asc=False) # Add 70% weight to semantic similarity and 30% weight to keyword relevance
+    .limit(10)
+)
+```
+
+
+```typescript Javascript
+import { select, field, fn, match } from "topk-js/query";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    title_similarity: fn.semanticSimilarity("title", "catcher"),
+    text_score: fn.bm25Score(), // Keyword-based relevance
+  })
+    .filter(match("classic")) // Ensure the book contains the keyword "classic" in any of the text-indexed fields
+    // Add 70% weight to semantic similarity and 30% weight to keyword relevance
+    .sort(field("title_similarity").mul(0.7).add(field("text_score").mul(0.3)), false)
+    .limit(10)
+);
+```
+
+
+</CodeGroup>
+
+This example above combines **keyword relevance (BM25)** with **semantic similarity**,\
+ensuring your search results capture both exact matches and contextual meaning with a **custom scoring function** that's best suited for your use case.
+
+### Multi-vector search
+
+URL: https://docs.topk.io/guides/multi-vector-search
+
+<Info>
+  **Prerequisites**
+
+  - TopK account ([Sign up here](https://console.topk.io/login))
+  - TopK API key ([Get an API key here](https://console.topk.io/api-key))
+</Info>
+
+Multi-vector (late-interaction) retrieval represents each document (and query) as a variable-length set of embedding vectors rather than a single embedding vector.
+Instead of reducing the input to a single vector via global pooling (e.g., mean pooling) or a dedicated summary token (e.g., CLS), multi-vector representations preserve token-, segment-, or patch-level vectors and score documents using a set-wise similarity function, most commonly [**MaxSim**](#maxsim-scoring).
+
+#### Why multi-vector retrieval is needed
+
+Single-vector retrieval is the most common approach, but it can lose signal when:
+
+- **The document is long**: pooling compresses many distinct concepts into one vector, potentially sacrificing important details in order to preserve overall meaning.
+- **The query has multiple aspects**: a single vector tends to overemphasize features repeated across the document and suppress distinctive facets that appear only in localized context but are crucial for precision.
+- **Fine-grained matching matters**: named entities, code identifiers, rare terms, or localized image regions are easily lost in single-vector retrieval but can be easily retrieved from token- or patch-level embeddings.
+
+Multi-vector retrieval helps because it evaluates (maximum) relevance of *any* query vector against *some* document vector, instead of computing a single global similarity score.
+
+#### Multi-vector (tensor) embeddings
+
+Embedding models generally represent data internally as an `N x D` matrix:
+
+- **Token-level embeddings**: each of `N` text tokens is represented by a `D`-dimensional vector.
+- **Patch / region embeddings** (vision / multimodal): each of `N` patches or regions is represented by a `D`-dimensional vector.
+- **Segmented / multi-field encoders**: multiple embeddings per input (e.g., each of `N` paragraphs or sections is represented by a `D`-dimensional vector).
+
+Distinct from traditional embedding models that pool these internal representations in the output layer to produce a single vector, late-interaction models such as
+[`ColBERTv2`](https://arxiv.org/abs/2112.01488) (text) and
+[`ColPali`](https://arxiv.org/abs/2407.01449) (visual/multimodal)
+produce a full `N x D` matrix of token- or patch-level embeddings at the output layer (potentially projected to a lower dimension, quantized, or otherwise compressed), which is then stored in the database for retrieval.
+
+##### MaxSim scoring
+
+For a query `Q` represented by `M` vectors `{q_1,...,q_M}` and a document `D` represented by `N` vectors `{d_1,...,d_N}` (of dimension `D`), the *MaxSim* function computes the similarity between `Q` and `D` as
+
+```
+MaxSim(Q, D) = sum_i max_j ⟨q_i, d_j⟩
+```
+
+In human words, instead of computing a single overall similarity score between the entire query and document embeddings, MaxSim compares each query token to all document tokens and keeps only the maximum similarity for each query token. The final score is the sum (or average) of these maximum similarities.
+
+With [`metric="maxsim"`](/sdk/topk-py/schema#multi_vector_index), **higher scores indicate better matches**.
+
+#### Define a schema for multi-vector retrieval
+
+In TopK, multi-vector embeddings are stored in a [`matrix()`](/sdk/topk-py/schema#matrix) field and indexed with a [`multi_vector_index()`](/sdk/topk-py/schema#multi_vector_index) using the [`maxsim`](#maxsim-scoring) metric.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.schema import text, matrix, multi_vector_index
+
+client.collections().create(
+    "passages",
+    schema={
+        "content": text().required(),
+        # Each row is one embedding vector; columns == dimension.
+        "token_embeddings": matrix(dimension=128, value_type="f16").index(
+            multi_vector_index(metric="maxsim")
+        ),
+    },
+)
+```
+
+```typescript Javascript
+import { matrix, multiVectorIndex, text } from "topk-js/schema";
+
+await client.collections().create("passages", {
+  content: text().required(),
+  // Each row is one embedding vector; columns == dimension.
+  token_embeddings: matrix({ dimension: 128, valueType: "f16" }).index(
+    multiVectorIndex({ metric: "maxsim" })
+  ),
+});
+```
+
+```sql SQL
+CREATE TABLE passages (
+  content          TEXT NOT NULL,
+  token_embeddings f16_matrix(128) INDEX multi_vector_index(metric = 'maxsim')
+);
+```
+
+</CodeGroup>
+
+- **`dimension`**: the number of columns `D` in your `N x D` embedding matrix (e.g. 128, 768, 1024).
+- **`value_type`**: storage type for matrix elements (`f32`, `f16`, `f8`, `u8`, `i8`). Choose based on your model output and memory/perf needs.
+- **`metric="maxsim"`**: a late-interaction style scoring where each query vector contributes based on its best match in the document.
+- **`multi_vector_index()`** also accepts optional `quantization` (`"1bit"`, `"2bit"`, `"scalar"`), `width`, and `top_k` for tuning; see [Optimization tips](#optimization-tips) below.
+
+
+#### Ingest documents with multi-vector embeddings
+
+When upserting documents, include both:
+* A multi-vector embedding for given content
+* Any relevant document metadata
+
+<Warning>
+  Each document must also include a required `_id` field.
+</Warning>
+
+<CodeGroup>
+
+```python Python
+import numpy as np
+from topk_sdk.data import matrix
+
+### Example: shape (num_vectors, dimension)
+token_embeddings = np.random.randn(12, 128).astype(np.float16)
+
+client.collection("passages").upsert(
+    [
+        {
+            "_id": "p1",
+            "content": "Late interaction retrieval",
+            # `numpy.ndarray` is supported out of the box
+            "token_embeddings": token_embeddings,
+        },
+        {
+            "_id": "p2",
+            "content": "MaxSim in practice",
+            # Or use matrix data constructor via `topk_sdk.data.matrix(...)`
+            "token_embeddings": matrix(token_embeddings, value_type="f16"),
+        },
+    ]
+)
+```
+
+```typescript Javascript
+import { matrix } from "topk-js/data";
+
+await client.collection("passages").upsert([
+  {
+    _id: "p1",
+    content: "Late interaction retrieval",
+    token_embeddings: matrix(
+      [
+        [0.1, 0.2 /* ... 128 dims ... */],
+        [0.0, -0.1 /* ... */],
+      ],
+      "f16"
+    ),
+  },
+]);
+```
+
+```sql SQL
+INSERT INTO passages (_id, content, token_embeddings)
+VALUES
+  ('p1', 'Late interaction retrieval', '[[0.1, 0.2, ..., 0.0], [0.0, -0.1, ..., 0.3]]'::f16_matrix),
+  ('p2', 'MaxSim in practice',         '[[0.9, 0.1, ..., 0.5], [0.5, 0.5, ..., 0.2]]'::f16_matrix);
+```
+
+</CodeGroup>
+
+<Tip>
+TopK has built-in support for [`numpy.ndarray`](https://numpy.org/doc/2.2/reference/generated/numpy.ndarray.html) when ingesting and querying multi-vector (matrix) embeddings. If you pass an ndarray directly, the matrix value type is inferred from its `dtype` (e.g. `float32`, `float16`, `uint8`, `int8`).
+</Tip>
+
+#### Run multi-vector retrieval
+
+Use [`fn.multi_vector_distance()`](/sdk/topk-py/query#multi_vector_distance) to score documents against a query matrix.
+When the field is indexed with `metric="maxsim"`, this computes the *MaxSim* score defined above.
+
+<CodeGroup>
+
+```python Python
+import numpy as np
+from topk_sdk.query import field, fn, select
+
+query_matrix = np.random.randn(8, 128).astype(np.float16)
+
+docs = client.collection("passages").query(
+    select(
+        "content",
+        maxsim=fn.multi_vector_distance(
+            "token_embeddings",
+            query_matrix,      # `numpy.ndarray` is supported in query matrix as well
+            candidates=200,    # optional: tuning performance vs. recall
+        ),
+    ).topk(field("maxsim"), 10)
+)
+
+print(docs)
+
+### Results:
+[
+  {
+    "_id": "p2",
+    "content": "MaxSim in practice",
+    "maxsim": 0.83,
+  },
+  {
+    "_id": "p1",
+    "content": "Late interaction retrieval",
+    "maxsim": 0.79,
+  },
+]
+```
+
+```typescript Javascript
+import { field, fn, select } from "topk-js/query";
+import { matrix } from "topk-js/data";
+
+const queryMatrix = matrix(
+  [
+    [0.1, 0.2 /* ... 128 dims ... */],
+    [0.0, -0.1 /* ... */],
+  ],
+  "f16"
+);
+
+const docs = await client.collection("passages").query(
+  select({
+    content: field("content"),
+    maxsim: fn.multiVectorDistance("token_embeddings", queryMatrix, 200),
+  }).topk(field("maxsim"), 10)
+);
+
+console.log(docs);
+
+// Results:
+[
+  {
+    _id: "p2",
+    content: "MaxSim in practice",
+    maxsim: 0.83,
+  },
+  {
+    _id: "p1",
+    content: "Late interaction retrieval",
+    maxsim: 0.79,
+  },
+]
+```
+
+```sql SQL
+SELECT
+  content,
+  multi_vector_distance(
+    token_embeddings,
+    '[[0.1, 0.2, ..., 0.0], [0.0, -0.1, ..., 0.3]]'::f16_matrix,
+    200
+  ) AS maxsim
+FROM passages
+ORDER BY maxsim DESC
+LIMIT 10;
+```
+
+</CodeGroup>
+
+##### Optimization tips
+
+The multi-vector index has an approximate retrieval stage (for faster pruning) followed by a more accurate scoring stage. These parameters let you trade off **memory**, **latency**, and **recall**:
+
+- **`width`**: width of the sparse projection used for approximate MaxSim pruning.
+  - **Higher width**: more accurate pruning → fewer false negatives (better recall), but higher memory/compute.
+  - **Lower width**: more aggressive approximation → more false negatives (recall loss), but faster and smaller.
+- **`top_k`**: number of top projected values to keep during the approximate stage.
+- **`quantization`**: compresses stored multi-vector values.
+  - **`1bit` / `2bit`**: very compact and fast, but most approximate.
+  - **`scalar`**: higher-fidelity quantization (larger than 1–2 bit) with better quality.
+- **`candidates`**: (query parameter) controls how many top document candidates from the approximate stage are promoted to a more accurate multi-vector scoring pass. Lower values reduce work (faster/cheaper) but can hurt recall; higher values improve recall at the cost of latency.
+  If you’re starting out, keep defaults, then tune `candidates` and these index parameters (`width`, `top_k`, `quantization`) based on your latency or recall targets.
+
+### Dense vector search
+
+URL: https://docs.topk.io/guides/vector-search
+
+<Info>
+  **Prerequisites**
+
+  - TopK account ([Sign up here](https://console.topk.io/login))
+  - TopK API key ([Get an API key here](https://console.topk.io/api-key))
+</Info>
+
+TopK is built for high-performance dense vector search workloads. It is designed to:
+
+- Maintain **>95% recall**, reducing the likelihood of missing relevant results in applications such as recommendation systems, image search, and semantic search.
+- Deliver consistent **low latency** (p99 < 50 ms). See the [benchmarks](https://www.topk.io/benchmarks) for details.
+- Support **large-scale single-collection** deployments as well as **multi-tenant** architectures.
+
+#### Define a collection schema with a vector field
+
+Define a schema with a vector field and add a [`vector_index()`](/sdk/topk-py/schema#vector_index):
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.schema import text, f32_vector, vector_index
+
+client.collections().create(
+    "books",
+    schema={
+        "title": text().required(),
+        "title_embedding": f32_vector(dimension=1536).required().index(vector_index(metric = "cosine")),
+    },
+)
+```
+
+
+```typescript Javascript
+import { text, f32Vector, vectorIndex } from "topk-js/schema";
+
+await client.collections().create("books", {
+  title: text().required(),
+  title_embedding: f32Vector({ dimension: 1536 }).required().index(vectorIndex({ metric: "cosine" })),
+});
+```
+
+```sql SQL
+CREATE TABLE books (
+  title           TEXT NOT NULL,
+  title_embedding f32_vector(1536) NOT NULL INDEX vector_index(metric = 'cosine')
+);
+```
+
+</CodeGroup>
+
+Supported vector field types:
+
+- **[`f32_vector()`](/sdk/topk-py/schema#f32_vector)** — Dense float32 embeddings (most common)
+- **[`u8_vector()`](/sdk/topk-py/schema#u8_vector)** — Quantized uint8 embeddings
+- **[`i8_vector()`](/sdk/topk-py/schema#i8_vector)** — Signed quantized int8 embeddings
+- **[`binary_vector()`](/sdk/topk-py/schema#binary_vector)** — Binary embeddings (use with `hamming` metric)
+- **[`f32_sparse_vector()`](/sdk/topk-py/schema#f32_sparse_vector)** — Sparse embeddings (see [sparse vector search guide](/guides/sparse-vector-search))
+- **[`u8_sparse_vector()`](/sdk/topk-py/schema#u8_sparse_vector)** — Quantized sparse embeddings
+- **[`matrix()`](/sdk/topk-py/schema#matrix)** — Multi-vector embeddings (see [multi-vector search guide](/guides/multi-vector-search))
+
+See the [schema reference](/sdk/topk-py/schema) for full API details.
+
+#### Perform a k-Nearest Neighbor (kNN) search
+
+To retrieve the top-k nearest neighbors of a query vector, use the [`fn.vector_distance()`](/sdk/topk-py/query#vector_distance) function.
+
+`fn.vector_distance()` computes the distance (or similarity) between a stored vector field and a query vector, based on the distance metric configured in the vector index (e.g., cosine or Euclidean).
+
+You can use the computed value to sort and return the closest matches.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, field, fn
+
+docs = client.collection("books").query(
+    select(
+        "title",
+        published_year=field("published_year"),
+        # Compute vector similarity between the vector embedding of the string "epic fantasy adventure"
+        # and the embedding stored in the `title_embedding` field.
+        title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3, ...]),
+    )
+    # Return top 10 results
+    # sort: smaller euclidean distance = closer; larger cosine similarity = closer
+    # if using euclidean distance, sort in ascending order(asc=True)
+    .topk(field("title_similarity"), 10)
+)
+
+### Example results:
+[
+  {
+    "_id": "2",
+    "title": "Lord of the Rings",
+    "title_similarity": 0.8150404095649719
+  },
+  {
+    "_id": "1",
+    "title": "The Catcher in the Rye",
+    "title_similarity": 0.7825378179550171,
+  }
+]
+```
+
+
+```js Javascript
+import { select, field, fn } from "topk-js/query";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    published_year: field("published_year"),
+    title_similarity: fn.vectorDistance(
+      "title_embedding",
+      // Compute vector similarity between the vector embedding of the string "epic fantasy adventure"
+      // and the embedding stored in the `title_embedding` field.
+      [0.1, 0.2, 0.3 /* ... */]
+    ),
+  }).topk(field("title_similarity"), 10)
+  // sort: smaller euclidean distance = closer; larger cosine similarity = closer
+  // if using euclidean distance, sort in ascending order(.topk(field("title_similarity"), 10, true))
+);
+
+// Example results:
+[
+  {
+    _id: '2',
+    title: 'Lord of the Rings',
+    title_similarity: 0.8150404095649719
+  },
+  {
+    _id: '1'
+    title_similarity: 0.7825378179550171,
+    title: 'The Catcher in the Rye',
+  }
+]
+```
+
+```sql SQL
+SELECT
+  title,
+  published_year,
+  vector_distance(title_embedding, '[0.1, 0.2, ..., 0.3]'::f32_vector) AS title_similarity
+FROM books
+-- For cosine/dot_product: higher is closer → DESC
+-- For euclidean: lower is closer → ASC
+ORDER BY title_similarity DESC
+LIMIT 10;
+```
+
+</CodeGroup>
+
+Let's break down the example above:
+
+1. Compute the cosine similarity between the query embedding and the `title_embedding` field using the `vector_distance()` function.
+2. Store the computed cosine similarity in the `title_similarity` field.
+3. Return the top 10 results sorted by the `title_similarity` field in a descending order.
+
+#### Combine vector search with metadata filtering
+
+Vector search can be combined with metadata filtering by adding a [`filter()`](/sdk/topk-py/query#filter) stage to the query:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, field, fn
+
+docs = client.collection("books").query(
+    select(
+        "title",
+        title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3, ...]),
+        published_year=field("published_year"),
+    )
+    .filter(field("published_year") > 2000)
+    .topk(field("title_similarity"), 10)
+)
+```
+
+
+```js Javascript
+import { select, field, fn } from "topk-js/query";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    title_similarity: fn.vectorDistance(
+      "title_embedding",
+      [0.1, 0.2, 0.3 /* ... */]
+    ),
+    published_year: field("published_year"),
+  })
+    .filter(field("published_year").gt(2000))
+    .topk(field("title_similarity"), 10)
+);
+```
+
+```sql SQL
+SELECT
+  title,
+  published_year,
+  vector_distance(title_embedding, '[0.1, 0.2, ..., 0.3]'::f32_vector) AS title_similarity
+FROM books
+WHERE published_year > 2000
+ORDER BY title_similarity DESC
+LIMIT 10;
+```
+
+</CodeGroup>
+
+### Sparse vector search
+
+URL: https://docs.topk.io/guides/sparse-vector-search
+
+<Info>
+  **Prerequisites**
+
+  - TopK account ([Sign up here](https://console.topk.io/login))
+  - TopK API key ([Get an API key here](https://console.topk.io/api-key))
+</Info>
+
+TopK provides native support for sparse vector search, enabling exact retrieval over high-dimensional sparse representations.
+
+It is designed to:
+
+- Provide **100% recall** (exact search).
+- Support learned sparse representations such as [SPLADE](https://github.com/naver/splade).
+- Deliver consistent **low latency** (p99 < 20 ms). See the [benchmarks](https://www.topk.io/benchmarks) for details.
+- Support **large-scale single-collection** deployments as well as **multi-tenant** architectures.
+
+#### Define a collection schema with a sparse vector field
+
+Define a schema with a sparse vector field and add a [`vector_index()`](/sdk/topk-py/schema#vector_index):
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.schema import text, f32_sparse_vector, vector_index
+
+client.collections().create(
+    "books",
+    schema={
+        "title": text().required(),
+        "title_embedding": f32_sparse_vector()
+          .required()
+          .index(vector_index(metric = "dot_product")),
+    },
+)
+```
+
+
+```typescript Javascript
+import { text, f32SparseVector, vectorIndex } from "topk-js/schema";
+
+await client.collections().create("books", {
+  title: text().required(),
+  title_embedding: f32SparseVector()
+    .required()
+    .index(vectorIndex({ metric: "dot_product" })),
+});
+```
+
+```sql SQL
+CREATE TABLE books (
+  title           TEXT NOT NULL,
+  title_embedding f32_sparse_vector NOT NULL INDEX vector_index(metric = 'dot_product')
+);
+```
+
+Supported sparse vector field types:
+
+- **[`f32_sparse_vector()`](/sdk/topk-py/schema#f32_sparse_vector)** — Sparse float32 embeddings
+- **[`u8_sparse_vector()`](/sdk/topk-py/schema#u8_sparse_vector)** — Sparse uint8 embeddings
+
+See the [schema reference](/sdk/topk-py/schema) for full API details.
+
+</CodeGroup>
+
+<Note>
+  Sparse vectors do not have a fixed dimension, so you don't need to specify the vector dimension when defining the field.
+</Note>
+
+<Warning>
+  TopK only supports `dot_product` metric for sparse vectors which is compatible with both fixed and learned sparse
+  vector representations.
+</Warning>
+
+#### Perform a sparse vector search
+
+To retrieve the top-k nearest neighbors of a query vector, use the [`fn.vector_distance()`](/sdk/topk-py/query#vector_distance) function.
+
+`fn.vector_distance()` computes the distance (or similarity) between a stored sparse vector field and a query vector, based on the distance metric configured in the vector index (e.g., dot product).
+
+You can use the computed value to sort and return the closest matches.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, field, fn
+from topk_sdk.data import f32_sparse_vector
+
+docs = client.collection("books").query(
+    select(
+        "title",
+        published_year=field("published_year"),
+        # Compute relevance score between the sparse vector embedding of the string "epic fantasy adventure"
+        # and the embedding stored in the `title_embedding` field.
+        title_score=fn.vector_distance(
+          "title_embedding",
+          f32_sparse_vector({0: 0.12, 6: 0.67, ...}),
+        )
+    )
+    # Return top 10 results
+    .topk(field("title_score"), 10)
+)
+
+### Example results:
+[
+  {
+    "_id": "2",
+    "title": "Lord of the Rings",
+    "title_score": 0.8150404095649719
+  },
+  {
+    "_id": "1",
+    "title": "The Catcher in the Rye",
+    "title_score": 0.7825378179550171,
+  }
+]
+```
+
+
+```js Javascript
+import { select, field, fn } from "topk-js/query";
+import { f32SparseVector } from "topk-js/data";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    published_year: field("published_year"),
+    title_score: fn.vectorDistance(
+      "title_embedding",
+      // Compute relevance score between the sparse vector embedding of the string "epic fantasy adventure"
+      // and the embedding stored in the `title_embedding` field.
+      f32SparseVector({0: 0.12, 6: 0.67, ...})
+    ),
+  }).topk(field("title_score"), 10)
+);
+
+// Example results:
+[
+  {
+    _id: '2',
+    title: 'Lord of the Rings',
+    title_score: 0.8150404095649719
+  },
+  {
+    _id: '1'
+    title_score: 0.7825378179550171,
+    title: 'The Catcher in the Rye',
+  }
+]
+```
+
+```sql SQL
+SELECT
+  title,
+  published_year,
+  vector_distance(title_embedding, '{"0": 0.12, "6": 0.67}'::f32_sparse_vector) AS title_score
+FROM books
+ORDER BY title_score DESC
+LIMIT 10;
+```
+
+</CodeGroup>
+
+Let's break down the example above:
+
+1. Compute the sparse dot product between the query embedding and the `title_embedding` field using the `vector_distance()` function.
+2. Store the computed dot product score in the `title_score` field.
+3. Return the top 10 results sorted by the `title_score` field in a descending order.
+
+#### Combine sparse vector search with metadata filtering
+
+Sparse vector search can be combined with metadata filtering by adding a [`filter()`](/sdk/topk-py/query#filter) stage to the query:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, field, fn
+from topk_sdk.data import f32_sparse_vector
+
+docs = client.collection("books").query(
+    select(
+        "title",
+        title_score=fn.vector_distance(
+          "title_embedding",
+          f32_sparse_vector({0: 0.12, 6: 0.67, ...}),
+        )
+        published_year=field("published_year"),
+    )
+    .filter(field("published_year") > 2000)
+    .topk(field("title_score"), 10)
+)
+```
+
+
+```js Javascript
+import { select, field, fn } from "topk-js/query";
+import { f32SparseVector } from "topk-js/data";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    title_score: fn.vectorDistance(
+      "title_embedding",
+      f32SparseVector({0: 0.12, 6: 0.67, ...})
+    ),
+    published_year: field("published_year"),
+  })
+    .filter(field("published_year").gt(2000))
+    .topk(field("title_score"), 10)
+);
+```
+
+```sql SQL
+SELECT
+  title,
+  published_year,
+  vector_distance(title_embedding, '{"0": 0.12, "6": 0.67}'::f32_sparse_vector) AS title_score
+FROM books
+WHERE published_year > 2000
+ORDER BY title_score DESC
+LIMIT 10;
+```
+
+</CodeGroup>
+
+### Keyword search (BM25)
+
+URL: https://docs.topk.io/guides/keyword-search
+
+<Info>
+  **Prerequisites**
+
+  - TopK account ([Sign up here](https://console.topk.io/login))
+  - TopK API key ([Get an API key here](https://console.topk.io/api-key))
+</Info>
+
+TopK supports keyword search with the BM25 ranking function.
+
+To perform a keyword search on your documents, use the [`match()`](/sdk/topk-py/query#match) function.
+
+#### Define a collection schema for keyword search
+
+Define a schema with a [`text()`](/sdk/topk-py/schema#text) field and add a [`keyword_index()`](/sdk/topk-py/schema#keyword_index):
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.schema import text, keyword_index
+
+client.collections().create(
+    "books",
+    schema={
+        "title": text().index(keyword_index()),
+        "description": text().index(keyword_index()),
+    },
+)
+```
+
+
+```js Javascript
+import { text, keywordIndex } from "topk-js/schema";
+
+await client.collections().create("books", {
+  title: text().index(keywordIndex()),
+  description: text().index(keywordIndex()),
+});
+```
+
+```sql SQL
+CREATE TABLE books (
+  title       TEXT INDEX keyword_index(),
+  description TEXT INDEX keyword_index()
+);
+```
+
+</CodeGroup>
+
+#### Run a keyword search
+
+To run a keyword search on the `title` and `description` fields using the [`match()`](/sdk/topk-py/query#match) function.
+We'll query the collection to match the term `"great"` in the `title` field or the term `"novel"` in any of the keyword-indexed text fields:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, fn, match, field
+
+docs = client.collection("books").query(
+    select(
+        "title",
+        "description",
+        # Score documents using BM25 algorithm
+        text_score=fn.bm25_score(),
+    )
+    # Filter documents that have the `great` keyword in the `title` field
+    # or the `novel` in any of the text-indexed fields.
+    .filter(
+        match("great", field="title") | match("novel")
+    )
+    # Return top 10 documents with the highest text score
+    .topk(field("text_score"), 10)
+)
+
+### Example result:
+
+[
+  {
+    _id: '1',
+    title: 'The Great Gatsby',
+    description: 'A novel about a great man who wants to be rich and famous',
+    text_score: 0.864456057548523
+  },
+  {
+    _id: '2',
+    title: 'The Catcher in the Rye',
+    description: 'A novel about a boy who wants to be a writer',
+    text_score: 0.1948474943637848,
+  }
+]
+```
+
+
+```js Javascript
+import { select, field, fn, match } from "topk-js/query";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    description: field("description"),
+    // Score documents using BM25 algorithm
+    text_score: fn.bm25Score(),
+  })
+  // Filter documents that have the `great` keyword in the `title` field
+  // or the `novel` in any of the text-indexed fields.
+  .filter(match("great", { field: "title" }).or(match("novel")))
+  // Return top 10 documents with the highest text score
+  .topk(field("text_score"), 10)
+);
+
+// Example result:
+
+[
+  {
+    _id: '1',
+    title: 'The Great Gatsby',
+    description: 'A novel about a great man who wants to be rich and famous',
+    text_score: 0.864456057548523
+  },
+  {
+    _id: '2',
+    title: 'The Catcher in the Rye',
+    description: 'A novel about a boy who wants to be a writer'
+    text_score: 0.1948474943637848,
+  }
+]
+```
+
+```sql SQL
+SELECT
+  title,
+  description,
+  bm25_score() AS text_score
+FROM books
+WHERE match('great') OR match('novel')
+ORDER BY text_score DESC
+LIMIT 10;
+```
+
+</CodeGroup>
+
+<Note>
+  The `match()` function will by default execute against all
+  fields with a [**keyword index**](/collections/create#keyword-index).
+</Note>
+
+TopK provides a powerful keyword search API allowing you to customize your search queries.
+Read more about keyword search [here](/collections/query#keyword-search).
+
+### True Hybrid search
+
+URL: https://docs.topk.io/guides/true-hybrid-search
+
+<Info>
+  **Prerequisites**
+
+  - TopK account ([Sign up here](https://console.topk.io/login))
+  - TopK API key ([Get an API key here](https://console.topk.io/api-key))
+</Info>
+
+With TopK's true hybrid search, you can combine multiple retrieval techniques such as:
+
+* vector search
+* multi-vector search
+* keyword search
+* metadata filtering
+
+-- all in a single query.
+
+#### How TopK differs from other "hybrid" search systems
+
+Most databases that offer hybrid search maintain separate vector and keyword indexes. When a query is executed they:
+
+1. Run two separate queries for both indexes
+2. Collect the top results from each query (e.g. first 100 + 100 candidates)
+3. Use techniques like Reciprocal Rank Fusion (RRF) to merge and rerank these two sets of results
+
+<br />
+
+```mermaid
+flowchart TD
+    A[User Query] --> B[(Query Keyword Index)]
+    A --> C[(Query Vector Index)]
+
+  B --> D@{ shape: docs, label: "Top 100 Keyword search results" }
+  C --> E@{ shape: docs, label: "Top 100 Vector search results" }
+
+  D --> F{Merge and rerank top 200 results using RRF}
+  E --> F
+
+  F --> G@{ shape: stadium, label: "Merged 100 top results" }
+```
+
+<br />
+
+This approach is fundamentally **probabilistic** - the final top-k results are not guaranteed to be the actual best candidates because some potential candidates might be missed if they don't appear in either index's top results.
+
+**TopK is different.** It runs through a single index(vector \+ keyword), ensuring that our "top 100" results are the **actual** top 100 - not just a probabilistic approximation:
+
+```mermaid
+flowchart TD
+    A[User Query]
+    A --> B[(Keyword Index)]
+    A --> C[(Vector Index)]
+
+    B --> D{Scan a single index and retrieve top 100 results}
+    C --> D
+    D --> F@{ shape: stadium, label: "True top 100 results" }
+```
+
+With TopK, you can:
+
+- Retrieve documents based on multiple embeddings -- **Multi-vector retrieval**
+- Combine semantic similarity(e.g vector search) with keyword search -- **True Hybrid Retrieval**
+- **Filter documents** by their metadata
+- Apply custom scoring functions blending multiple ranking factors -- **Custom scoring**
+
+#### Implementing Hybrid Search (Vector \+ Keyword)
+
+Hybrid retrieval combines **semantic similarity (vector-based search)** with **exact keyword matching**. This approach ensures that documents with **direct keyword matches** are considered alongside those that are **semantically similar** to the query.
+
+Let's define a collection with one [`keyword_index()`](/collections/create#keyword-index) and one [`semantic_index()`](/collections/create#semantic-index):
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.schema import text, keyword_index, semantic_index
+
+client.collections().create(
+    "articles",
+    schema={
+        "title": text().required().index(keyword_index()),  # Keyword-based retrieval
+        "content": text().index(semantic_index()),  # Semantic search
+    },
+)
+```
+
+
+```typescript Javascript
+import { text, keywordIndex, semanticIndex } from "topk-js/schema";
+
+await client.collections().create("articles", {
+  title: text().required().index(keywordIndex()), // Keyword-based retrieval
+  content: text().index(semanticIndex()), // Semantic search
+});
+```
+
+```sql SQL
+CREATE TABLE articles (
+  title   TEXT NOT NULL INDEX keyword_index(),
+  content TEXT         INDEX semantic_index()
+);
+```
+
+</CodeGroup>
+
+In the following example we'll perform a hybrid search that combines keyword and vector(semantic) search in a single query:
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, field, fn, match
+
+docs = client.collection("articles").query(
+    select(
+        "title",
+        content_similarity=fn.semantic_similarity("content", "climate change policies"),
+        text_score=fn.bm25_score(),
+    )
+    .filter(match("carbon") | match("renewable energy"))  # Ensure keyword relevance
+    .topk(field("content_similarity") * 0.6 + field("text_score") * 0.4, 10)
+)
+```
+
+
+```typescript Javascript
+import { select, field, fn, match } from "topk-js/query";
+
+const docs = await client.collection("articles").query(
+  select({
+    title: field("title"),
+    content_similarity: fn.semanticSimilarity(
+      "content",
+      "climate change policies"
+    ),
+    text_score: fn.bm25Score(),
+  })
+    .filter(match("carbon").or(match("renewable energy"))) // Ensure keyword relevance
+    .topk(
+      field("content_similarity").mul(0.6).add(field("text_score").mul(0.4)),
+      10
+    )
+);
+```
+
+```sql SQL
+SELECT
+  title,
+  semantic_similarity(content, 'climate change policies') AS content_similarity,
+  bm25_score() AS text_score
+FROM articles
+WHERE match('carbon', title) OR match('renewable energy', title)
+ORDER BY content_similarity * 0.6 + text_score * 0.4 DESC
+LIMIT 10;
+```
+
+</CodeGroup>
+
+Let's break down the example above:
+
+- We retrieve documents based on semantic meaning (`content_similarity`) and keyword matching (`text_score`).
+- The `filter()` ensures that documents contain at least one relevant keyword.
+- The `topk()` function weights the scores, prioritizing semantic meaning (60%) while still considering keyword matches (40%).
+
+This **balances precision and recall**, capturing both **exact keyword matches** and **meaningful context**.
+
+#### Implementing Complex Search(Keyword \+ Vector \+ Filtering)
+
+In TopK, you can combine [keyword search](/guides/keyword-search), [vector search](/guides/vector-search), and [filtering](/collections/query#filtering) in a single query.
+This allows you to fetch the truly **most relevant results** while maintaining a steady performance - no overfetching.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, field, fn, match
+
+docs = client.collection("books").query(
+    select(
+        "title",
+        # Score documents using BM25 algorithm
+        text_score=fn.bm25_score(),
+        # Compute semantic similarity between the provided query and the `title` field.
+        title_similarity=fn.semantic_similarity("title", "catcher"),
+    )
+    # Filter documents that contain the `great` keyword
+    .filter(match("great"))
+    # Filtering by metadata
+    .filter(field("published_year") > 1980)
+    # Return top 10 documents with the highest combined score
+    .topk(field("text_score") * 0.2 + field("title_similarity") * 0.8, 10)
+)
+```
+
+
+```typescript Javascript
+import { select, fn, field, match } from "topk-js/query";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    text_score: fn.bm25Score(),
+    title_similarity: fn.semanticSimilarity("title", "catcher"),
+  })
+    .filter(match("great"))
+    .filter(field("published_year").gt(1980))
+    .topk(
+      field("text_score").mul(0.2).add(field("title_similarity").mul(0.8)),
+      10
+    )
+);
+```
+
+```sql SQL
+-- In SQL, keyword and semantic indexes must be on separate fields (unlike the SDK).
+-- This uses 'articles' from above: title (keyword_index) + content (semantic_index).
+SELECT
+  title,
+  semantic_similarity(content, 'climate policy') AS content_similarity
+FROM articles
+WHERE match_any(title, 'carbon')
+  AND published_year > 2020
+ORDER BY content_similarity DESC
+LIMIT 10;
+```
+
+</CodeGroup>
+
+As you might have noticed, we are also sorting the top-k results using a custom scoring function.
+You can read more about custom scoring functions in the following section.
+
+#### Custom Scoring Functions
+
+TopK allows you to **define custom scoring functions** by combining:
+
+- Semantic similarity score
+- Keyword score(BM25)
+- Vector distance
+- "Bring-your-own" precomputed importance score
+
+##### Defining a Collection with Custom Scoring Fields
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.schema import text, float, semantic_index
+
+client.collections().create(
+    "documents",
+    schema={
+        "content": text().index(semantic_index()),  # Semantic search
+        "importance": float().required(),  # Precomputed importance score
+    },
+)
+```
+
+
+```typescript Javascript
+import { text, float, semanticIndex } from "topk-js/schema";
+
+await client.collections().create("documents", {
+  content: text().index(semanticIndex()), // Semantic search
+  importance: float().required(), // Precomputed importance score
+});
+```
+
+```sql SQL
+CREATE TABLE documents (
+  content    TEXT  INDEX semantic_index(),
+  importance FLOAT NOT NULL
+);
+```
+
+</CodeGroup>
+
+##### Querying with a Custom Scoring Function
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, field, fn
+
+docs = client.collection("documents").query(
+    select(
+        "content",
+        "importance",
+        content_score=fn.semantic_similarity("content", "machine learning applications"),
+    )
+    .topk(0.8 * field("importance") + 0.2 * field("content_score"), 10)
+)
+```
+
+
+```typescript Javascript
+import { select, field, fn } from "topk-js/query";
+
+const docs = await client.collection("documents").query(
+  select({
+    content: field("content"),
+    importance: field("importance"),
+    content_score: fn.semanticSimilarity(
+      "content",
+      "machine learning applications"
+    ),
+  }).topk(
+    field("importance").mul(0.8).add(field("content_score").mul(0.2)),
+    10
+  )
+);
+```
+
+```sql SQL
+SELECT
+  content,
+  importance,
+  semantic_similarity(content, 'machine learning applications') AS content_score
+FROM documents
+ORDER BY importance * 0.8 + content_score * 0.2 DESC
+LIMIT 10;
+```
+
+</CodeGroup>
+
+Let's break down the example above:
+
+1. First, we retrieve documents based on both semantic similarity (`content_score`) and precomputed importance (`importance_score`).
+2. Then, the `topk()` function gives 80% weight to content score and 20% weight to document importance.
+3. Sorting by a custom scoring function allows us to boost more critical documents, ensuring that highly relevant but less "important" content doesn't dominate.
+
 ## Python SDK Reference
 
 ### topk_sdk
