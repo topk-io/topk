@@ -28,6 +28,15 @@
 - [Datasets](https://docs.topk.io/datasets/manage): Create, list, get, update, and delete datasets.
 - [Collections](https://docs.topk.io/collections/manage): Create, list, get, and delete collections.
 
+## Guides
+
+- [Semantic search](https://docs.topk.io/guides/semantic-search): Add state-of-the-art semantic search to your app with no embedding pipeline, no vector store, and no reranking service to maintain.
+- [Multi-vector search](https://docs.topk.io/guides/multi-vector-search): Late-interaction retrieval using token-level embeddings and MaxSim scoring for long documents and multi-aspect queries.
+- [Dense vector search](https://docs.topk.io/guides/vector-search): High-performance ANN search with >95% recall and p99 < 50ms latency for semantic similarity at scale.
+- [Sparse vector search](https://docs.topk.io/guides/sparse-vector-search): Exact retrieval over high-dimensional sparse representations with 100% recall and support for learned sparse models like SPLADE.
+- [Keyword search (BM25)](https://docs.topk.io/guides/keyword-search): Full-text keyword search using the BM25 ranking function for term-frequency-based document retrieval.
+- [True Hybrid search](https://docs.topk.io/guides/true-hybrid-search): Combine vector, multi-vector, keyword search, and metadata filtering in a single query for best-of-all-worlds retrieval.
+
 ## Python SDK Reference
 
 - [topk_sdk](https://docs.topk.io/sdk/topk-py)

@@ -1,6 +1,14 @@
 ---
 title: "Multi-vector search"
+description: "Late-interaction retrieval using token-level embeddings and MaxSim scoring for long documents and multi-aspect queries."
 ---
+
+<Info>
+  **Prerequisites**
+
+  - TopK account ([Sign up here](https://console.topk.io/login))
+  - TopK API key ([Get an API key here](https://console.topk.io/api-key))
+</Info>
 
 Multi-vector (late-interaction) retrieval represents each document (and query) as a variable-length set of embedding vectors rather than a single embedding vector.
 Instead of reducing the input to a single vector via global pooling (e.g., mean pooling) or a dedicated summary token (e.g., CLS), multi-vector representations preserve token-, segment-, or patch-level vectors and score documents using a set-wise similarity function, most commonly [**MaxSim**](#maxsim-scoring).
