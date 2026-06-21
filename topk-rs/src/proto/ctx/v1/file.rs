@@ -27,7 +27,10 @@ impl InputFile {
             .to_string_lossy()
             .to_string();
 
-        let mime_type = Self::guess_mime_type(&path)?;
+        let resolved = path
+            .canonicalize()
+            .map_err(|e| Error::Input(anyhow::anyhow!(e)))?;
+        let mime_type = Self::guess_mime_type(&resolved)?;
 
         Ok(Self {
             source: InputSource::Path(path),
