@@ -149,11 +149,11 @@ impl TryFrom<SqlQuery> for Statement {
                 }) => Some(expr.as_u64().ok_or_else(|| {
                     Error::Invalid("LIMIT must be a positive integer".to_string())
                 })?),
-                Some(_) => {
-                    return Err(Error::Invalid(
-                        "LIMIT must be a positive integer".to_string(),
-                    ));
-                }
+                Some(LimitClause::LimitOffset {
+                    offset: Some(_), ..
+                })
+                | Some(LimitClause::OffsetCommaLimit { .. }) => sql_unsupported!("OFFSET"),
+                Some(_) => sql_invalid!("LIMIT must be a positive integer"),
                 None => None,
             };
 

@@ -73,6 +73,10 @@ impl Dialect for TopKDialect {
         false
     }
 
+    fn supports_array_typedef_with_brackets(&self) -> bool {
+        self.postgres.supports_array_typedef_with_brackets()
+    }
+
     fn supports_explain_with_utility_options(&self) -> bool {
         self.postgres.supports_explain_with_utility_options()
     }

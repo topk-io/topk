@@ -1,4 +1,4 @@
-use sqlparser::ast::{BinaryOperator, CaseWhen, Expr as SqlExpr, UnaryOperator};
+use sqlparser::ast::{BinaryOperator, Expr as SqlExpr, UnaryOperator};
 use topk_rs::proto::v1::data::{LogicalExpr, Value};
 
 use crate::{Error, FromSql, SqlExprExt, sql_invalid, sql_unsupported};
