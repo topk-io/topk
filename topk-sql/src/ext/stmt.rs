@@ -2,7 +2,7 @@ use std::ops::ControlFlow;
 
 use sqlparser::ast::{
     AssignmentTarget, Expr as SqlExpr, FromTable, SelectItem, SetExpr, Statement as SqlStatement,
-    Value as SqlValue, visit_expressions,
+    TableObject, Value as SqlValue, visit_expressions,
 };
 
 use super::{ObjectNameExt, SqlExprExt, TableFactorExt};
@@ -35,8 +35,10 @@ impl SqlStatementExt for SqlStatement {
     fn count_placeholders(&self) -> usize {
         let mut count = 0;
         let _: ControlFlow<()> = visit_expressions(self, |expr| {
-            if let SqlExpr::Value(SqlValue::Placeholder(_)) = expr {
-                count += 1;
+            if let SqlExpr::Value(v) = expr {
+                if matches!(v.value, SqlValue::Placeholder(_)) {
+                    count += 1;
+                }
             }
             ControlFlow::Continue(())
         });
@@ -52,8 +54,11 @@ impl SqlStatementExt for SqlStatement {
                     None
                 }
             }
-            SqlStatement::Update { table, .. } => table.relation.as_table_ref(),
-            SqlStatement::Insert(i) => i.table_name.as_table_ref(),
+            SqlStatement::Update(u) => u.table.relation.as_table_ref(),
+            SqlStatement::Insert(i) => match &i.table {
+                TableObject::TableName(name) => name.as_table_ref(),
+                TableObject::TableFunction(_) => None,
+            },
             SqlStatement::Delete(d) => {
                 let tables = match &d.from {
                     FromTable::WithFromKeyword(t) | FromTable::WithoutKeyword(t) => t,
@@ -66,11 +71,12 @@ impl SqlStatementExt for SqlStatement {
 
     fn assignment_placeholders(&self) -> Vec<(usize, &str)> {
         match self {
-            SqlStatement::Update { assignments, .. } => assignments
+            SqlStatement::Update(u) => u
+                .assignments
                 .iter()
                 .filter_map(|a| {
                     if let AssignmentTarget::ColumnName(name) = &a.target {
-                        let col = name.0.last()?.value.as_str();
+                        let col = name.0.last()?.as_ident()?.value.as_str();
                         if let Some(idx) = a.value.as_placeholder() {
                             return Some((idx, col));
                         }

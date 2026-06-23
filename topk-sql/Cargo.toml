@@ -10,7 +10,7 @@ documentation = "https://docs.topk.io"
 
 [dependencies]
 regex = { version = "1.12" }
-sqlparser = { version = "0.52", features = ["visitor"] }
+sqlparser = { version = "0.61", features = ["visitor"] }
 strum = { version = "0.26.3" }
 strum_macros = { version = "0.26.4" }
 serde_json = { version = "1.0" }

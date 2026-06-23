@@ -1,4 +1,4 @@
-use sqlparser::ast::{BinaryOperator, Expr as SqlExpr, UnaryOperator};
+use sqlparser::ast::{BinaryOperator, CaseWhen, Expr as SqlExpr, UnaryOperator};
 use topk_rs::proto::v1::data::{LogicalExpr, Value};
 
 use crate::{Error, FromSql, SqlExprExt, sql_invalid, sql_unsupported};
@@ -148,24 +148,32 @@ impl FromSql<SqlExpr> for LogicalExpr {
             SqlExpr::Case {
                 operand,
                 conditions,
-                results,
                 else_result,
+                ..
             } => {
                 sql_invalid!(
-                    conditions.is_empty() || conditions.len() != results.len(),
+                    conditions.is_empty(),
                     "CASE requires at least one WHEN/THEN pair"
                 );
 
-                let conditions: Vec<SqlExpr> = match operand {
+                let pairs: Vec<(SqlExpr, SqlExpr)> = match operand {
                     Some(op) => conditions
                         .into_iter()
-                        .map(|cond| SqlExpr::BinaryOp {
-                            left: op.clone(),
-                            op: BinaryOperator::Eq,
-                            right: Box::new(cond),
+                        .map(|cw| {
+                            (
+                                SqlExpr::BinaryOp {
+                                    left: op.clone(),
+                                    op: BinaryOperator::Eq,
+                                    right: Box::new(cw.condition),
+                                },
+                                cw.result,
+                            )
                         })
                         .collect(),
-                    None => conditions,
+                    None => conditions
+                        .into_iter()
+                        .map(|cw| (cw.condition, cw.result))
+                        .collect(),
                 };
 
                 let else_expr = match else_result {
@@ -173,7 +181,7 @@ impl FromSql<SqlExpr> for LogicalExpr {
                     None => LogicalExpr::literal(Value::null()),
                 };
                 let mut acc = else_expr;
-                for (cond, then) in conditions.into_iter().zip(results).rev() {
+                for (cond, then) in pairs.into_iter().rev() {
                     let cond_e = LogicalExpr::from_sql(cond)?;
                     let then_e = LogicalExpr::from_sql(then)?;
                     acc = cond_e.choose(then_e, acc);

@@ -24,21 +24,33 @@ impl Table {
     pub fn new(name: ObjectName) -> Result<Self, Error> {
         match name.0.as_slice() {
             [ident] => {
-                if let Some((collection, partition)) = ident.value.split_once('$') {
+                let value = ident
+                    .as_ident()
+                    .ok_or_else(|| Error::Invalid("table name must be an identifier".to_string()))?
+                    .value
+                    .as_str();
+
+                if let Some((collection, partition)) = value.split_once('$') {
                     Ok(Self::Partition(
                         collection.to_string(),
                         partition.to_string(),
                     ))
                 } else {
-                    Ok(Self::Collection(ident.value.clone()))
+                    Ok(Self::Collection(value.to_string()))
                 }
             }
             // Two-part name is treated as schema.collection — schema is ignored.
             [_schema, collection] => {
-                if let Some((coll, part)) = collection.value.split_once('$') {
+                let value = collection
+                    .as_ident()
+                    .ok_or_else(|| Error::Invalid("table name must be an identifier".to_string()))?
+                    .value
+                    .as_str();
+
+                if let Some((coll, part)) = value.split_once('$') {
                     Ok(Self::Partition(coll.to_string(), part.to_string()))
                 } else {
-                    Ok(Self::Collection(collection.value.clone()))
+                    Ok(Self::Collection(value.to_string()))
                 }
             }
             _ => sql_invalid!(

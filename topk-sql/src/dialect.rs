@@ -1,4 +1,8 @@
-use sqlparser::ast::{ColumnOption, Expr as SqlExpr, Statement as SqlStatement};
+use sqlparser::ast::helpers::attached_token::AttachedToken;
+use sqlparser::ast::{
+    CheckConstraint, ColumnOption, Expr as SqlExpr, Statement as SqlStatement, Update,
+    UpdateTableFromKind,
+};
 use sqlparser::dialect::{Dialect, PostgreSqlDialect, Precedence};
 use sqlparser::keywords::Keyword;
 use sqlparser::parser::{Parser, ParserError};
@@ -73,14 +77,6 @@ impl Dialect for TopKDialect {
         self.postgres.supports_explain_with_utility_options()
     }
 
-    fn supports_listen(&self) -> bool {
-        false
-    }
-
-    fn supports_notify(&self) -> bool {
-        false
-    }
-
     fn parse_statement(&self, parser: &mut Parser) -> Option<Result<SqlStatement, ParserError>> {
         if parser.parse_keyword(Keyword::UPDATE) {
             return Some(parse_update_statement(parser));
@@ -98,7 +94,11 @@ impl Dialect for TopKDialect {
         }
         let expr = parser.parse_expr()?;
         match expr {
-            SqlExpr::Function(_) => Ok(Some(Ok(Some(ColumnOption::Check(expr))))),
+            SqlExpr::Function(_) => Ok(Some(Ok(Some(ColumnOption::Check(CheckConstraint {
+                name: None,
+                expr: Box::new(expr),
+                enforced: None,
+            }))))),
             _ => Ok(Some(Err(ParserError::ParserError(
                 "INDEX must be followed by a function call, e.g. INDEX vector_index(metric = 'cosine')"
                     .to_string(),
@@ -118,7 +118,8 @@ fn parse_update_statement(parser: &mut Parser) -> Result<SqlStatement, ParserErr
     let from = parser
         .parse_keyword(Keyword::FROM)
         .then(|| parser.parse_table_and_joins())
-        .transpose()?;
+        .transpose()?
+        .map(|t| UpdateTableFromKind::AfterSet(vec![t]));
     let selection = parser
         .parse_keyword(Keyword::WHERE)
         .then(|| parser.parse_expr())
@@ -128,11 +129,15 @@ fn parse_update_statement(parser: &mut Parser) -> Result<SqlStatement, ParserErr
         .then(|| parser.parse_comma_separated(Parser::parse_select_item))
         .transpose()?;
 
-    Ok(SqlStatement::Update {
+    Ok(SqlStatement::Update(Update {
+        update_token: AttachedToken::empty(),
+        optimizer_hint: None,
         table,
         assignments,
         from,
         selection,
         returning,
-    })
+        or: None,
+        limit: None,
+    }))
 }

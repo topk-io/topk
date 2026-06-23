@@ -6,8 +6,14 @@ pub trait ObjectNameExt {
 
 impl ObjectNameExt for ObjectName {
     fn as_table_ref(&self) -> Option<(Option<&str>, &str)> {
-        let table = self.0.last()?.value.as_str();
-        let schema = (self.0.len() > 1).then(|| self.0[self.0.len() - 2].value.as_str());
+        let table = self.0.last()?.as_ident()?.value.as_str();
+        let schema = (self.0.len() > 1)
+            .then(|| {
+                self.0[self.0.len() - 2]
+                    .as_ident()
+                    .map(|i| i.value.as_str())
+            })
+            .flatten();
         Some((schema, table))
     }
 }

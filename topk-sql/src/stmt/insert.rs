@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use sqlparser::ast::{Insert, SetExpr};
+use sqlparser::ast::{Insert, SetExpr, TableObject};
 use topk_rs::proto::v1::data::{Document, Value};
 
 use crate::{Error, FromSql, Statement, Table, sql_invalid, sql_unsupported};
@@ -12,7 +12,10 @@ impl TryFrom<Insert> for Statement {
         sql_unsupported!(insert.on.is_some(), "INSERT … ON CONFLICT");
         sql_unsupported!(insert.returning.is_some(), "INSERT … RETURNING");
 
-        let table = Table::new(insert.table_name)?;
+        let table = match insert.table {
+            TableObject::TableName(name) => Table::new(name)?,
+            TableObject::TableFunction(_) => sql_unsupported!("table function in INSERT"),
+        };
 
         // Parse query source.
         let source = insert
@@ -21,8 +24,10 @@ impl TryFrom<Insert> for Statement {
 
         sql_unsupported!(source.with.is_some(), "WITH clause");
         sql_unsupported!(source.order_by.is_some(), "INSERT ... ORDER BY");
-        sql_unsupported!(source.limit.is_some(), "INSERT ... LIMIT");
-        sql_unsupported!(source.offset.is_some(), "INSERT ... OFFSET");
+        sql_unsupported!(
+            source.limit_clause.is_some(),
+            "INSERT ... LIMIT ... OFFSET ..."
+        );
         sql_unsupported!(source.fetch.is_some(), "INSERT ... FETCH");
         sql_unsupported!(
             !source.locks.is_empty(),
