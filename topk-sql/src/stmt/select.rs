@@ -144,15 +144,15 @@ impl TryFrom<SqlQuery> for Statement {
         let limit =
             match query.limit_clause {
                 Some(LimitClause::LimitOffset {
+                    offset: Some(_), ..
+                })
+                | Some(LimitClause::OffsetCommaLimit { .. }) => sql_unsupported!("OFFSET"),
+                Some(LimitClause::LimitOffset {
                     limit: Some(ref expr),
                     ..
                 }) => Some(expr.as_u64().ok_or_else(|| {
                     Error::Invalid("LIMIT must be a positive integer".to_string())
                 })?),
-                Some(LimitClause::LimitOffset {
-                    offset: Some(_), ..
-                })
-                | Some(LimitClause::OffsetCommaLimit { .. }) => sql_unsupported!("OFFSET"),
                 Some(_) => sql_invalid!("LIMIT must be a positive integer"),
                 None => None,
             };
