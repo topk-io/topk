@@ -2,12 +2,11 @@ use std::ops::ControlFlow;
 
 use sqlparser::ast::{
     AssignmentTarget, Expr as SqlExpr, FromTable, ObjectName, SelectItem, SetExpr,
-    Statement as SqlStatement, TableObject, Value as SqlValue, visit_expressions,
-    visit_relations,
+    Statement as SqlStatement, TableObject, Value as SqlValue, visit_expressions, visit_relations,
 };
 
 use super::{SqlExprExt, TableFactorExt};
-use crate::Table;
+use crate::{Error, Table};
 
 pub trait SqlStatementExt {
     fn projection(&self) -> Option<&[SelectItem]>;
@@ -16,7 +15,7 @@ pub trait SqlStatementExt {
     fn count_placeholders(&self) -> usize;
 
     /// Get the table name from the statement, if present.
-    fn table(&self) -> Option<Table>;
+    fn table(&self) -> Result<Option<Table>, Error>;
 
     /// For UPDATE statements, return `(placeholder_index, column_name)` pairs
     /// for each `SET col = $N` assignment whose value is a direct placeholder.
@@ -48,27 +47,40 @@ impl SqlStatementExt for SqlStatement {
         count
     }
 
-    fn table(&self) -> Option<Table> {
+    fn table(&self) -> Result<Option<Table>, Error> {
         let name = match self {
             SqlStatement::Query(q) => match q.body.as_ref() {
-                SetExpr::Select(s) => s.from.first()?.relation.table_name()?,
-                _ => return None,
+                SetExpr::Select(s) => {
+                    match s.from.first().and_then(|from| from.relation.table_name()) {
+                        Some(name) => name,
+                        None => return Ok(None),
+                    }
+                }
+                _ => return Ok(None),
             },
-            SqlStatement::Update(u) => u.table.relation.table_name()?,
+            SqlStatement::Update(u) => match u.table.relation.table_name() {
+                Some(name) => name,
+                None => return Ok(None),
+            },
             SqlStatement::Insert(i) => match &i.table {
                 TableObject::TableName(name) => name,
-                TableObject::TableFunction(_) => return None,
+                TableObject::TableFunction(_) => return Ok(None),
             },
             SqlStatement::Delete(d) => {
                 let tables = match &d.from {
                     FromTable::WithFromKeyword(t) | FromTable::WithoutKeyword(t) => t,
                 };
-                tables.first()?.relation.table_name()?
+                match tables.first().and_then(|from| from.relation.table_name()) {
+                    Some(name) => name,
+                    None => return Ok(None),
+                }
             }
-            _ => return None,
+            _ => return Ok(None),
         };
 
-        Table::new(name.clone()).ok()
+        let table = Table::new(name.clone())?;
+
+        Ok(Some(table))
     }
 
     fn assignment_placeholders(&self) -> Vec<(usize, &str)> {
@@ -107,7 +119,7 @@ mod tests {
     use rstest::rstest;
 
     use super::SqlStatementExt;
-    use crate::{ObjectNameExt, Table, parse_sql};
+    use crate::{Error, ObjectNameExt, Table, parse_sql};
     use sqlparser::ast::Statement as SqlStatement;
 
     fn parse_one(sql: &str) -> SqlStatement {
@@ -122,14 +134,30 @@ mod tests {
     #[case("INSERT INTO books (_id, title) VALUES ('1', 'a')", Table::Collection("books".into()))]
     #[case("DELETE FROM books WHERE _id = '1'", Table::Collection("books".into()))]
     fn table(#[case] sql: &str, #[case] expected: Table) {
-        assert_eq!(parse_one(sql).table().unwrap(), expected);
+        assert_eq!(parse_one(sql).table().unwrap().unwrap(), expected);
     }
 
     #[rstest]
     #[case("SELECT 1")]
     #[case("SELECT * FROM (SELECT 1) sub")]
     fn table_none(#[case] sql: &str) {
-        assert_eq!(parse_one(sql).table(), None);
+        assert_eq!(parse_one(sql).table().unwrap(), None);
+    }
+
+    #[rstest]
+    #[case(
+        "SELECT * FROM myschema.books",
+        "unknown schema 'myschema'; only 'public' is supported"
+    )]
+    #[case(
+        "UPDATE information_schema.books SET title = $1",
+        "unknown schema 'information_schema'; only 'public' is supported"
+    )]
+    fn table_invalid_name(#[case] sql: &str, #[case] message: &str) {
+        match parse_one(sql).table().unwrap_err() {
+            Error::Invalid(msg) => assert_eq!(msg, message),
+            other => panic!("expected Invalid, got {other:?}"),
+        }
     }
 
     #[rstest]
