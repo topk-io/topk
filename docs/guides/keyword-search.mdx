@@ -74,7 +74,7 @@ docs = client.collection("books").query(
         match("great", field="title") | match("novel")
     )
     # Return top 10 documents with the highest text score
-    .topk(field("text_score"), 10)
+    .sort(field("text_score"), asc=False).limit(10)
 )
 
 # Example result:
@@ -110,7 +110,7 @@ const docs = await client.collection("books").query(
   // or the `novel` in any of the text-indexed fields.
   .filter(match("great", { field: "title" }).or(match("novel")))
   // Return top 10 documents with the highest text score
-  .topk(field("text_score"), 10)
+  .sort(field("text_score"), false).limit(10)
 );
 
 // Example result:
@@ -125,7 +125,7 @@ const docs = await client.collection("books").query(
   {
     _id: '2',
     title: 'The Catcher in the Rye',
-    description: 'A novel about a boy who wants to be a writer'
+    description: 'A novel about a boy who wants to be a writer',
     text_score: 0.1948474943637848,
   }
 ]

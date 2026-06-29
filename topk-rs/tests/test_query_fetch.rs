@@ -18,7 +18,7 @@ async fn test_query_fetch(ctx: &mut ProjectTestContext) {
         .query(
             select([("title", field("title"))])
                 .filter(field("title").eq("1984"))
-                .topk(field("published_year"), 100, true)
+                .sort(field("published_year"), true).limit(100)
                 .fetch(["summary"]),
             None,
             None,
@@ -81,7 +81,7 @@ async fn test_query_fetch_rejects_select_overlap(ctx: &mut ProjectTestContext) {
         .collection(&collection.name)
         .query(
             select([("title", field("title"))])
-                .topk(field("published_year"), 10, true)
+                .sort(field("published_year"), true).limit(10)
                 .fetch(["title"]),
             None,
             None,

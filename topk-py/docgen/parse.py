@@ -39,6 +39,8 @@ class Method:
     return_type: Optional[TypeAnnotation]
     docstring: Optional[str] = None
     is_constructor: bool = False
+    deprecated: bool = False
+    deprecated_message: Optional[str] = None
 
 
 @dataclass
@@ -257,13 +259,40 @@ def parse_method(method_node: ast.FunctionDef) -> Method | None:
 
     docstring = extract_docstring(method_node)
 
+    deprecated = False
+    deprecated_message = None
+    if docstring:
+        deprecated, deprecated_message, docstring = _parse_deprecated(docstring)
+
     return Method(
         name=method_node.name,
         parameters=parameters,
         return_type=return_type,
         docstring=docstring,
         is_constructor=(method_node.name == "__init__"),
+        deprecated=deprecated,
+        deprecated_message=deprecated_message,
     )
+
+
+def _parse_deprecated(docstring: str):
+    """Extract ``.. deprecated::`` from a docstring.
+
+    Returns (deprecated, message, cleaned_docstring).
+    """
+    import re
+    pattern = re.compile(
+        r"^\.\.\s+deprecated::\s*\n((?:[ \t]+.*\n?)*)",
+        re.MULTILINE,
+    )
+    match = pattern.search(docstring)
+    if not match:
+        return False, None, docstring
+
+    raw = match.group(1)
+    message = re.sub(r"^[ \t]+", "", raw, flags=re.MULTILINE).strip()
+    cleaned = pattern.sub("", docstring).strip()
+    return True, message or None, cleaned or None
 
 
 def parse_class(class_node: ast.ClassDef) -> Class:

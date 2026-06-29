@@ -26,6 +26,8 @@ impl Query {
         self
     }
 
+    /// Use `.sort(expr, asc).limit(k)` instead.
+    #[deprecated(note = "Use `.sort(expr, asc).limit(k)` instead")]
     pub fn topk(mut self, expr: LogicalExpr, k: u64, asc: bool) -> Self {
         self.stages.push(Stage::sort(expr, asc));
         self.stages.push(Stage::limit(k));

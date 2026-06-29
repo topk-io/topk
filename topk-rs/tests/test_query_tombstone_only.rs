@@ -28,7 +28,7 @@ async fn test_query_tombstone_only(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("x", field("x"))]).topk(field("x"), 10, true),
+            select([("x", field("x"))]).sort(field("x"), true).limit(10),
             Some(lsn),
             None,
         )

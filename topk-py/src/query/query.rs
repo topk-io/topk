@@ -128,6 +128,7 @@ impl Query {
         })
     }
 
+    #[deprecated(note = "Use .sort(expr, asc).limit(k) instead")]
     #[pyo3(signature = (expr, k, asc=false))]
     pub fn topk(&self, expr: LogicalExpr, k: u64, asc: bool) -> PyResult<Self> {
         Ok(Self {

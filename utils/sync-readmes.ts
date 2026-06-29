@@ -17,7 +17,7 @@ const SOURCES: Source[] = [
     output: path.join(ROOT, "docs", "sdk", "topk-py", "overview.mdx"),
     frontmatter: {
       title: "Python SDK",
-      description: "Get started with TopK Context Engine using Python SDK.",
+      description: "Get started with TopK using Python SDK.",
     },
   },
   {
@@ -25,7 +25,7 @@ const SOURCES: Source[] = [
     output: path.join(ROOT, "docs", "sdk", "topk-js", "overview.mdx"),
     frontmatter: {
       title: "JavaScript SDK",
-      description: "Get started with TopK Context Engine using JavaScript SDK.",
+      description: "Get started with TopK using JavaScript SDK.",
     },
   },
   {

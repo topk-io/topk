@@ -88,8 +88,8 @@ docs = client.collection("books").query(
     )
     # Return top 10 results
     # sort: smaller euclidean distance = closer; larger cosine similarity = closer
-    # if using euclidean distance, sort in ascending order(asc=True)
-    .topk(field("title_similarity"), 10)
+    # if using euclidean distance, sort in ascending order: .sort(field("title_similarity")).limit(10)
+    .sort(field("title_similarity"), asc=False).limit(10)
 )
 
 # Example results:
@@ -121,9 +121,9 @@ const docs = await client.collection("books").query(
       // and the embedding stored in the `title_embedding` field.
       [0.1, 0.2, 0.3 /* ... */]
     ),
-  }).topk(field("title_similarity"), 10)
+  }).sort(field("title_similarity"), false).limit(10)
   // sort: smaller euclidean distance = closer; larger cosine similarity = closer
-  // if using euclidean distance, sort in ascending order(.topk(field("title_similarity"), 10, true))
+  // if using euclidean distance, sort in ascending order: .sort(field("title_similarity")).limit(10)
 );
 
 // Example results:
@@ -134,7 +134,7 @@ const docs = await client.collection("books").query(
     title_similarity: 0.8150404095649719
   },
   {
-    _id: '1'
+    _id: '1',
     title_similarity: 0.7825378179550171,
     title: 'The Catcher in the Rye',
   }
@@ -177,7 +177,7 @@ docs = client.collection("books").query(
         published_year=field("published_year"),
     )
     .filter(field("published_year") > 2000)
-    .topk(field("title_similarity"), 10)
+    .sort(field("title_similarity"), asc=False).limit(10)
 )
 ```
 
@@ -195,7 +195,7 @@ const docs = await client.collection("books").query(
     published_year: field("published_year"),
   })
     .filter(field("published_year").gt(2000))
-    .topk(field("title_similarity"), 10)
+    .sort(field("title_similarity"), false).limit(10)
 );
 ```
 

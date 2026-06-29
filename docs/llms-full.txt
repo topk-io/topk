@@ -2070,16 +2070,37 @@ With TopK's declarative query builder, you can easily select fields, chain filte
 
 In TopK, a query consists of multiple stages:
 
-- **Select stage** - Select static or computed fields that will be returned in the query results
-  - these fields can be used in stages such as Filter or TopK
-- **Filter stage** - Filter the documents that will be returned in the query results
-  - filters can be applied to static fields, computed fields such as `vector_distance()` or `semantic_similarity()` or custom properties computed inside `select()`
-- **Sort stage** - Order results by an expression (ascending or descending)
-- **Limit stage** - Return at most `k` results
-- **TopK stage** - Return the top `k` results based on the provided logical expression (equivalent to `sort(expr, asc)` followed by `limit(k)`)
-- **Count stage** - Return the total number of documents matching the query
+<Steps>
+  <Step title="Select stage">
+    Select static or computed fields that will be returned in the query results. These fields can be used in stages such as Filter or TopK.
+  </Step>
+  <Step title="Filter stage">
+    Filter the documents that will be returned in the query results. Filters can be applied to static fields, computed fields such as `vector_distance()` or `semantic_similarity()`, or custom properties computed inside `select()`.
+  </Step>
+  <Step title="Sort stage">
+    Order results by an expression (ascending or descending).
+  </Step>
+  <Step title="Limit stage">
+    Return at most `k` results.
+  </Step>
+  <Step
+    title="Count stage"
+    icon={
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 9h16" />
+        <path d="M4 15h16" />
+        <path d="M10 3v18" />
+        <path d="M14 3v18" />
+      </svg>
+    }
+  >
+    Return the total number of documents matching the query.
+  </Step>
+</Steps>
 
-All queries **must** have either TopK or Count collection stage.
+<Info>
+  All queries **must** have either Sort + Limit or Count collection stage.
+</Info>
 
 <Tip>
   You can stack multiple select and filter stages in a single query.
@@ -2092,16 +2113,11 @@ flowchart TD
     A[Select]
     A --> B[Filter]
     B --> C[Sort]
-    B --> D[Limit]
-    B --> E[TopK]
     B --> F[Count]
-    C --> D
-    D --> E
-    E --> H@{ shape: stadium, label: "Results collection" }
+    C --> D[Limit]
+    D --> H@{ shape: stadium, label: "Results collection" }
     F --> I@{ shape: stadium, label: "Results count" }
 ```
-
-Sort and Limit are optional stages that can be used between Filter and TopK.
 
 <style>
   {`
@@ -2239,7 +2255,7 @@ docs = client.collection("books").query(
           [0.1, 0.2, 0.3, ...] # embedding for "animal"
         )
     )
-    .topk(field("title_similarity"), 10)
+    .sort(field("title_similarity"), asc=False).limit(10)
 )
 
 ### Example result:
@@ -2318,7 +2334,7 @@ docs = client.collection("books").query(
         text_score=fn.bm25_score(),
     )
     .filter(match("Good")) # must include a match predicate
-    .topk(field("text_score"), 10)
+    .sort(field("text_score"), asc=False).limit(10)
 )
 
 ### Example result:
@@ -2346,7 +2362,7 @@ const results = await client.collection("books").query(
     text_score: fn.bm25Score(),
   })
     .filter(match("Good"))
-    .topk(field("text_score"), 10)
+    .sort(field("text_score"), false).limit(10)
 );
 
 // Example result:
@@ -2392,7 +2408,7 @@ docs = client.collection("books").query(
         "title",
         title_similarity=fn.semantic_similarity("title", "animal"),
     )
-    .topk(field("title_similarity"), 10)
+    .sort(field("title_similarity"), asc=False).limit(10)
 )
 
 ### Example result:
@@ -2419,7 +2435,7 @@ const docs = await client.collection("books").query(
     title: field("title"),
     title_similarity: fn.semanticSimilarity("title", "animal"),
   })
-    .topk(field("title_similarity"), 10)
+    .sort(field("title_similarity"), false).limit(10)
 );
 
 // Example result:
@@ -2468,7 +2484,7 @@ docs = client.collection("passages").query(
             candidates=100,
         ),
     )
-    .topk(field("dist"), 10, asc=False)
+    .sort(field("dist"), asc=False).limit(10)
 )
 ```
 
@@ -2484,7 +2500,7 @@ const docs = await client.collection("passages").query(
       100  // optional: candidates
     ),
   })
-    .topk(field("dist"), 10, false)
+    .sort(field("dist"), false).limit(10)
 );
 ```
 
@@ -2931,11 +2947,10 @@ Otherwise, the scoring expression is unchanged (multiplied by 1).
 ```python Python
 select(
   summary_distance=fn.vector_distance("summary_embedding", [2.3] * 16)
-).topk(
+).sort(
   field("summary_distance").boost(field("summary").match_all("deep learning"), 1.5),
-  10,
-  false
-)
+  asc=False
+).limit(10)
 ### this boost expression is equivalent to
 ### field("summary_distance") * (field("summary").match_all("deep learning").choose(1.5, 1.0)),
 ```
@@ -2944,11 +2959,10 @@ select(
 ```js Javascript
 select({
   summary_distance: fn.vectorDistance("summary_embedding", Array(16).fill(2.3)),
-}).topk(
+}).sort(
   field("summary_distance").boost(field("summary").matchAll("deep learning"), 1.5),
-  10,
   false
-)
+).limit(10)
 // this boost expression is equivalent to
 // field("summary_distance").mul(field("summary").matchAll("deep learning").choose(1.5, 1.0)),
 ```
@@ -3682,12 +3696,12 @@ To get the top 10 results with the highest `title_similarity`, you can use the f
 <CodeGroup>
 
 ```python Python
-.topk(field("title_similarity"), 10, asc=False)
+.sort(field("title_similarity"), asc=False).limit(10)
 ```
 
 
 ```typescript Javascript
-.topk(field("title_similarity"), 10, false)
+.sort(field("title_similarity"), false).limit(10)
 ```
 
 ```sql SQL
@@ -3819,7 +3833,7 @@ lsn = client.collection("books").upsert([
 results = client.collection("books").query(
     select("title", "author", "year")
     .filter(field("author") == "George Orwell")
-    .topk(field("year"), 10),
+    .sort(field("year"), asc=False).limit(10),
     lsn=lsn,
     consistency="strong"
 )
@@ -3835,7 +3849,7 @@ const lsn = await client.collection("books").upsert([
 const results = await client.collection("books").query(
   select({ title: field("title"), author: field("author"), year: field("year") })
   .filter(field("author").eq("George Orwell"))
-  .topk(field("title"), 10),
+  .sort(field("title"), false).limit(10),
   { lsn: lsn, consistency: "strong" }
 )
 ```
@@ -4754,7 +4768,7 @@ const docs = await client.collection("books").query(
   },
   {
     _id: '1',
-    title: 'The Great Gatsby'
+    title: 'The Great Gatsby',
     title_similarity: 0.9480283856391907
   }
 ]
@@ -5019,7 +5033,7 @@ docs = client.collection("passages").query(
             query_matrix,      # `numpy.ndarray` is supported in query matrix as well
             candidates=200,    # optional: tuning performance vs. recall
         ),
-    ).topk(field("maxsim"), 10)
+    ).sort(field("maxsim"), asc=False).limit(10)
 )
 
 print(docs)
@@ -5055,7 +5069,7 @@ const docs = await client.collection("passages").query(
   select({
     content: field("content"),
     maxsim: fn.multiVectorDistance("token_embeddings", queryMatrix, 200),
-  }).topk(field("maxsim"), 10)
+  }).sort(field("maxsim"), false).limit(10)
 );
 
 console.log(docs);
@@ -5193,8 +5207,8 @@ docs = client.collection("books").query(
     )
     # Return top 10 results
     # sort: smaller euclidean distance = closer; larger cosine similarity = closer
-    # if using euclidean distance, sort in ascending order(asc=True)
-    .topk(field("title_similarity"), 10)
+    # if using euclidean distance, sort in ascending order: .sort(field("title_similarity")).limit(10)
+    .sort(field("title_similarity"), asc=False).limit(10)
 )
 
 ### Example results:
@@ -5226,9 +5240,9 @@ const docs = await client.collection("books").query(
       // and the embedding stored in the `title_embedding` field.
       [0.1, 0.2, 0.3 /* ... */]
     ),
-  }).topk(field("title_similarity"), 10)
+  }).sort(field("title_similarity"), false).limit(10)
   // sort: smaller euclidean distance = closer; larger cosine similarity = closer
-  // if using euclidean distance, sort in ascending order(.topk(field("title_similarity"), 10, true))
+  // if using euclidean distance, sort in ascending order: .sort(field("title_similarity")).limit(10)
 );
 
 // Example results:
@@ -5239,7 +5253,7 @@ const docs = await client.collection("books").query(
     title_similarity: 0.8150404095649719
   },
   {
-    _id: '1'
+    _id: '1',
     title_similarity: 0.7825378179550171,
     title: 'The Catcher in the Rye',
   }
@@ -5282,7 +5296,7 @@ docs = client.collection("books").query(
         published_year=field("published_year"),
     )
     .filter(field("published_year") > 2000)
-    .topk(field("title_similarity"), 10)
+    .sort(field("title_similarity"), asc=False).limit(10)
 )
 ```
 
@@ -5300,7 +5314,7 @@ const docs = await client.collection("books").query(
     published_year: field("published_year"),
   })
     .filter(field("published_year").gt(2000))
-    .topk(field("title_similarity"), 10)
+    .sort(field("title_similarity"), false).limit(10)
 );
 ```
 
@@ -5420,7 +5434,7 @@ docs = client.collection("books").query(
         )
     )
     # Return top 10 results
-    .topk(field("title_score"), 10)
+    .sort(field("title_score"), asc=False).limit(10)
 )
 
 ### Example results:
@@ -5453,7 +5467,7 @@ const docs = await client.collection("books").query(
       // and the embedding stored in the `title_embedding` field.
       f32SparseVector({0: 0.12, 6: 0.67, ...})
     ),
-  }).topk(field("title_score"), 10)
+  }).sort(field("title_score"), false).limit(10)
 );
 
 // Example results:
@@ -5464,7 +5478,7 @@ const docs = await client.collection("books").query(
     title_score: 0.8150404095649719
   },
   {
-    _id: '1'
+    _id: '1',
     title_score: 0.7825378179550171,
     title: 'The Catcher in the Rye',
   }
@@ -5509,7 +5523,7 @@ docs = client.collection("books").query(
         published_year=field("published_year"),
     )
     .filter(field("published_year") > 2000)
-    .topk(field("title_score"), 10)
+    .sort(field("title_score"), asc=False).limit(10)
 )
 ```
 
@@ -5528,7 +5542,7 @@ const docs = await client.collection("books").query(
     published_year: field("published_year"),
   })
     .filter(field("published_year").gt(2000))
-    .topk(field("title_score"), 10)
+    .sort(field("title_score"), false).limit(10)
 );
 ```
 
@@ -5620,7 +5634,7 @@ docs = client.collection("books").query(
         match("great", field="title") | match("novel")
     )
     # Return top 10 documents with the highest text score
-    .topk(field("text_score"), 10)
+    .sort(field("text_score"), asc=False).limit(10)
 )
 
 ### Example result:
@@ -5656,7 +5670,7 @@ const docs = await client.collection("books").query(
   // or the `novel` in any of the text-indexed fields.
   .filter(match("great", { field: "title" }).or(match("novel")))
   // Return top 10 documents with the highest text score
-  .topk(field("text_score"), 10)
+  .sort(field("text_score"), false).limit(10)
 );
 
 // Example result:
@@ -5671,7 +5685,7 @@ const docs = await client.collection("books").query(
   {
     _id: '2',
     title: 'The Catcher in the Rye',
-    description: 'A novel about a boy who wants to be a writer'
+    description: 'A novel about a boy who wants to be a writer',
     text_score: 0.1948474943637848,
   }
 ]
@@ -5819,7 +5833,7 @@ docs = client.collection("articles").query(
         text_score=fn.bm25_score(),
     )
     .filter(match("carbon") | match("renewable energy"))  # Ensure keyword relevance
-    .topk(field("content_similarity") * 0.6 + field("text_score") * 0.4, 10)
+    .sort(field("content_similarity") * 0.6 + field("text_score") * 0.4, asc=False).limit(10)
 )
 ```
 
@@ -5837,10 +5851,10 @@ const docs = await client.collection("articles").query(
     text_score: fn.bm25Score(),
   })
     .filter(match("carbon").or(match("renewable energy"))) // Ensure keyword relevance
-    .topk(
+    .sort(
       field("content_similarity").mul(0.6).add(field("text_score").mul(0.4)),
-      10
-    )
+      false
+    ).limit(10)
 );
 ```
 
@@ -5888,7 +5902,7 @@ docs = client.collection("books").query(
     # Filtering by metadata
     .filter(field("published_year") > 1980)
     # Return top 10 documents with the highest combined score
-    .topk(field("text_score") * 0.2 + field("title_similarity") * 0.8, 10)
+    .sort(field("text_score") * 0.2 + field("title_similarity") * 0.8, asc=False).limit(10)
 )
 ```
 
@@ -5904,10 +5918,10 @@ const docs = await client.collection("books").query(
   })
     .filter(match("great"))
     .filter(field("published_year").gt(1980))
-    .topk(
+    .sort(
       field("text_score").mul(0.2).add(field("title_similarity").mul(0.8)),
-      10
-    )
+      false
+    ).limit(10)
 );
 ```
 
@@ -5986,7 +6000,7 @@ docs = client.collection("documents").query(
         "importance",
         content_score=fn.semantic_similarity("content", "machine learning applications"),
     )
-    .topk(0.8 * field("importance") + 0.2 * field("content_score"), 10)
+    .sort(0.8 * field("importance") + 0.2 * field("content_score"), asc=False).limit(10)
 )
 ```
 
@@ -6002,10 +6016,10 @@ const docs = await client.collection("documents").query(
       "content",
       "machine learning applications"
     ),
-  }).topk(
+  }).sort(
     field("importance").mul(0.8).add(field("content_score").mul(0.2)),
-    10
-  )
+    false
+  ).limit(10)
 );
 ```
 
@@ -9063,6 +9077,8 @@ Adds a count stage to the query.
 
 ###### topk()
 
+<Warning>**Deprecated** — Use ``.sort(expr, asc).limit(k)`` instead.</Warning>
+
 ```python
 topk(self, expr: LogicalExpr, k: int, asc: bool = False) -> Query
 ```
@@ -9114,7 +9130,7 @@ Calculate the vector distance between a field and a query vector.
               [0.1, 0.2, 0.3, ...] # embedding for "animal"
             )
           )
-          .topk(field("title_similarity"), 10)
+          .sort(field("title_similarity"), asc=False).limit(10)
         )
         ```
 
@@ -9150,7 +9166,7 @@ Calculate the semantic similarity between a field and a query string.
             "title",
             title_similarity=fn.semantic_similarity("title", "animal")
           )
-          .topk(field("title_similarity"), 10)
+          .sort(field("title_similarity"), asc=False).limit(10)
         )
         ```
 
@@ -9188,7 +9204,7 @@ Calculate the BM25 score for a keyword search.
             text_score=fn.bm25_score()
           )
           .filter(match("animal"))
-          .topk(field("text_score"), 10)
+          .sort(field("text_score"), asc=False).limit(10)
         )
         ```
 
@@ -9236,7 +9252,7 @@ Calculate the multi-vector distance between a field and a query matrix.
               candidates=100
             )
           )
-          .topk(field("title_distance"), 10)
+          .sort(field("title_distance"), asc=False).limit(10)
         )
         ```
 
@@ -12146,7 +12162,7 @@ client.collection("books").query(
       100
     )
   })
-  .topk(field("title_distance"), 10)
+  .sort(field("title_distance"), false).limit(10)
 )
 ```
 
@@ -13225,7 +13241,7 @@ Adds a sort stage to the query.
 
 [`Query`](/sdk/topk-js/Namespace.query#query)
 
-###### topk()
+###### ~~topk()~~
 
 ```ts
 topk(
@@ -13247,6 +13263,10 @@ Adds a top-k stage to the query.
 **Returns**
 
 [`Query`](/sdk/topk-js/Namespace.query#query)
+
+###### Deprecated
+
+Use `.sort(expr, false).limit(k)` instead.
 
 ***
 

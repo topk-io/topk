@@ -106,7 +106,7 @@ const API_ENTRIES: Entry[] = [
     type: "external",
     title: "Rust SDK",
     url: "https://github.com/topk-io/topk/tree/main/topk-rs",
-    description: "Get started with TopK Context Engine using Rust SDK.",
+    description: "Get started with TopK using Rust SDK.",
   },
 ];
 
