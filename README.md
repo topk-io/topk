@@ -11,7 +11,7 @@
 
 **Retrieval Engine** — Store and query dense vectors, sparse vectors, multi-vector embeddings, and metadata in a single collection. Filter by metadata, rank with custom expressions, and run managed inference — all in a single API.
 
-**Document Search** — Ingest files, search across your private documents, and get source-backed answers. Connect your data to agents with the SDKs, CLI or MCP server.
+**File Search** — Ingest files, search across your private documents, and get source-backed answers. Connect your data to agents with the SDKs, CLI or MCP server.
 
 ## Docs
 

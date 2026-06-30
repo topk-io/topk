@@ -24,7 +24,7 @@ For unstructured document search use cases, we provide a datasets abstraction th
 Simple example to get you started with TopK. Check out our [guides](/guides) for more complex examples.
 <HybridSearchQuickstart />
 
-##### Document Search
+##### File Search
 <DocSearchQuickstart />
 
 #### Integrations
@@ -5205,10 +5205,10 @@ docs = client.collection("books").query(
         # and the embedding stored in the `title_embedding` field.
         title_similarity=fn.vector_distance("title_embedding", [0.1, 0.2, 0.3, ...]),
     )
-    # Return top 10 results
-    # sort: smaller euclidean distance = closer; larger cosine similarity = closer
-    # if using euclidean distance, sort in ascending order: .sort(field("title_similarity")).limit(10)
+    # cosine/dot-product: higher score = closer → sort descending
     .sort(field("title_similarity"), asc=False).limit(10)
+    # for euclidean distance: lower score = closer → sort ascending
+    # .sort(field("title_similarity"), asc=True).limit(10)
 )
 
 ### Example results:
@@ -5240,9 +5240,10 @@ const docs = await client.collection("books").query(
       // and the embedding stored in the `title_embedding` field.
       [0.1, 0.2, 0.3 /* ... */]
     ),
+  // cosine/dot-product: higher score = closer → sort descending
   }).sort(field("title_similarity"), false).limit(10)
-  // sort: smaller euclidean distance = closer; larger cosine similarity = closer
-  // if using euclidean distance, sort in ascending order: .sort(field("title_similarity")).limit(10)
+  // for euclidean distance: lower score = closer → sort ascending
+  // }).sort(field("title_similarity"), true).limit(10)
 );
 
 // Example results:
