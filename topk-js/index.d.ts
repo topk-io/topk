@@ -791,7 +791,11 @@ export declare namespace query {
     filter(expr: LogicalExpression | TextExpression): Query
     /** Adds a select stage to the query. */
     select(exprs: Record<string, LogicalExpression | FunctionExpression>): Query
-    /** Adds a top-k stage to the query. */
+    /**
+     * Adds a top-k stage to the query.
+     *
+     * @deprecated Use `.sort(expr, false).limit(k)` instead.
+     */
     topk(expr: LogicalExpression, k: number, asc?: boolean | undefined | null): Query
     /** Adds a limit stage to the query. */
     limit(k: number): Query
@@ -945,7 +949,7 @@ export declare namespace query_fn {
    *       100
    *     )
    *   })
-   *   .topk(field("title_distance"), 10)
+   *   .sort(field("title_distance"), false).limit(10)
    * )
    * ```
    */

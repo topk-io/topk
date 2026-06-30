@@ -123,7 +123,7 @@ async fn test_query_limit_vector_distance(ctx: &mut ProjectTestContext) {
                     "summary_distance",
                     fns::vector_distance("summary_embedding", vec![2.0; 16]).skip_refine(true),
                 )])
-                .topk(field("summary_distance"), 100, true),
+                .sort(field("summary_distance"), true).limit(100),
             None,
             None,
         )
@@ -152,7 +152,7 @@ async fn test_query_limit_vector_distance(ctx: &mut ProjectTestContext) {
 #[rstest]
 #[case(
     select([("title", field("title"))])
-        .topk(field("published_year"), 100, true)
+        .sort(field("published_year"), true).limit(100)
         .limit(100)
 )]
 #[case(
@@ -168,7 +168,7 @@ async fn test_query_limit_vector_distance(ctx: &mut ProjectTestContext) {
 )]
 #[case(
     select([("title", field("title"))])
-        .topk(field("published_year"), 100, true)
+        .sort(field("published_year"), true).limit(100)
         .sort(field("published_year"), true)
 )]
 async fn test_query_invalid_collectors(#[case] query: Query) {

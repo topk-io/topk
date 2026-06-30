@@ -55,7 +55,7 @@ client.collection("books").query(
       100
     )
   })
-  .topk(field("title_distance"), 10)
+  .sort(field("title_distance"), false).limit(10)
 )
 ```
 

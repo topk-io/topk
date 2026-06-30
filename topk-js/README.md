@@ -119,7 +119,7 @@ const results = await client.collection("books").query(
 );
 ```
 
-### Document Search
+### File Search
 
 ```typescript
 import { Client } from "topk-js";

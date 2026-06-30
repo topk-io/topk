@@ -92,7 +92,7 @@ pub fn semantic_similarity(field: String, query: String) -> FunctionExpression {
 ///       100
 ///     )
 ///   })
-///   .topk(field("title_distance"), 10)
+///   .sort(field("title_distance"), false).limit(10)
 /// )
 /// ```
 #[napi(namespace = "query_fn", ts_return_type = "query.FunctionExpression")]

@@ -185,7 +185,7 @@ docs = client.collection("passages").query(
             query_matrix,      # `numpy.ndarray` is supported in query matrix as well
             candidates=200,    # optional: tuning performance vs. recall
         ),
-    ).topk(field("maxsim"), 10)
+    ).sort(field("maxsim"), asc=False).limit(10)
 )
 
 print(docs)
@@ -221,7 +221,7 @@ const docs = await client.collection("passages").query(
   select({
     content: field("content"),
     maxsim: fn.multiVectorDistance("token_embeddings", queryMatrix, 200),
-  }).topk(field("maxsim"), 10)
+  }).sort(field("maxsim"), false).limit(10)
 );
 
 console.log(docs);

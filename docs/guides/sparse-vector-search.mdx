@@ -102,7 +102,7 @@ docs = client.collection("books").query(
         )
     )
     # Return top 10 results
-    .topk(field("title_score"), 10)
+    .sort(field("title_score"), asc=False).limit(10)
 )
 
 # Example results:
@@ -135,7 +135,7 @@ const docs = await client.collection("books").query(
       // and the embedding stored in the `title_embedding` field.
       f32SparseVector({0: 0.12, 6: 0.67, ...})
     ),
-  }).topk(field("title_score"), 10)
+  }).sort(field("title_score"), false).limit(10)
 );
 
 // Example results:
@@ -146,7 +146,7 @@ const docs = await client.collection("books").query(
     title_score: 0.8150404095649719
   },
   {
-    _id: '1'
+    _id: '1',
     title_score: 0.7825378179550171,
     title: 'The Catcher in the Rye',
   }
@@ -191,7 +191,7 @@ docs = client.collection("books").query(
         published_year=field("published_year"),
     )
     .filter(field("published_year") > 2000)
-    .topk(field("title_score"), 10)
+    .sort(field("title_score"), asc=False).limit(10)
 )
 ```
 
@@ -210,7 +210,7 @@ const docs = await client.collection("books").query(
     published_year: field("published_year"),
   })
     .filter(field("published_year").gt(2000))
-    .topk(field("title_score"), 10)
+    .sort(field("title_score"), false).limit(10)
 );
 ```
 

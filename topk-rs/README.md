@@ -169,7 +169,7 @@ async fn main() -> Result<(), Error> {
 }
 ```
 
-### Document Search
+### File Search
 
 ```rust
 use futures_util::StreamExt;

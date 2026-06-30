@@ -223,6 +223,11 @@ def render_method(method: Method):
     print(f"#### {escaped_name}()")
     print()
 
+    if method.deprecated:
+        msg = method.deprecated_message or "This method is deprecated."
+        print(f"<Warning>**Deprecated** — {msg}</Warning>")
+        print()
+
     print("```python")
     signature = format_function_signature(method, with_links=False)
     print(signature)

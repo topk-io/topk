@@ -19,11 +19,7 @@ async fn test_query_text_filter_single_term_disjunctive(ctx: &mut ProjectTestCon
         .client
         .collection(&collection.name)
         .query(
-            filter(r#match("love", Some("summary"), None, false)).topk(
-                field("published_year"),
-                100,
-                true,
-            ),
+            filter(r#match("love", Some("summary"), None, false)).sort(field("published_year"), true).limit(100),
             None,
             None,
         )
@@ -42,11 +38,7 @@ async fn test_query_text_filter_single_term_conjunctive(ctx: &mut ProjectTestCon
         .client
         .collection(&collection.name)
         .query(
-            filter(r#match("love", Some("summary"), None, false)).topk(
-                field("published_year"),
-                100,
-                true,
-            ),
+            filter(r#match("love", Some("summary"), None, false)).sort(field("published_year"), true).limit(100),
             None,
             None,
         )
@@ -71,7 +63,7 @@ async fn test_query_text_filter_two_terms_disjunctive(ctx: &mut ProjectTestConte
                 None,
                 false,
             )))
-            .topk(field("published_year"), 100, true),
+            .sort(field("published_year"), true).limit(100),
             None,
             None,
         )
@@ -96,7 +88,7 @@ async fn test_query_text_filter_two_terms_conjunctive(ctx: &mut ProjectTestConte
                 None,
                 false,
             )))
-            .topk(field("published_year"), 100, true),
+            .sort(field("published_year"), true).limit(100),
             None,
             None,
         )
@@ -115,11 +107,7 @@ async fn test_query_text_filter_stop_word(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(r#match("the", Some("summary"), None, false)).topk(
-                field("published_year"),
-                100,
-                true,
-            ),
+            filter(r#match("the", Some("summary"), None, false)).sort(field("published_year"), true).limit(100),
             None,
             None,
         )
@@ -140,7 +128,7 @@ async fn test_query_select_bm25_without_text_queries(ctx: &mut ProjectTestContex
         .query(
             select([("bm25_score", fns::bm25_score(None, None))])
                 .filter(field("_id").eq("pride"))
-                .topk(field("bm25_score"), 100, true),
+                .sort(field("bm25_score"), true).limit(100),
             None,
             None,
         )
@@ -163,7 +151,7 @@ async fn test_query_text_matches_single_term(ctx: &mut ProjectTestContext) {
             .client
             .collection(&collection.name)
             .query(
-                match_expr.topk(field("published_year"), 100, true),
+                match_expr.sort(field("published_year"), true).limit(100),
                 None,
                 None,
             )
@@ -183,11 +171,7 @@ async fn test_query_text_match_all_two_terms(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(field("summary").match_all("love class")).topk(
-                field("published_year"),
-                100,
-                true,
-            ),
+            filter(field("summary").match_all("love class")).sort(field("published_year"), true).limit(100),
             None,
             None,
         )
@@ -206,11 +190,7 @@ async fn test_query_text_match_all_two_terms_tokenized(ctx: &mut ProjectTestCont
         .client
         .collection(&collection.name)
         .query(
-            filter(field("tags").match_all(vec!["love", "class"])).topk(
-                field("published_year"),
-                100,
-                true,
-            ),
+            filter(field("tags").match_all(vec!["love", "class"])).sort(field("published_year"), true).limit(100),
             None,
             None,
         )
@@ -229,11 +209,7 @@ async fn test_query_text_match_any_two_terms(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(field("summary").match_any("love ring")).topk(
-                field("published_year"),
-                100,
-                true,
-            ),
+            filter(field("summary").match_any("love ring")).sort(field("published_year"), true).limit(100),
             None,
             None,
         )
@@ -252,11 +228,7 @@ async fn test_query_text_match_any_two_terms_tokenized(ctx: &mut ProjectTestCont
         .client
         .collection(&collection.name)
         .query(
-            filter(field("tags").match_any(vec!["love", "elves"])).topk(
-                field("published_year"),
-                100,
-                true,
-            ),
+            filter(field("tags").match_any(vec!["love", "elves"])).sort(field("published_year"), true).limit(100),
             None,
             None,
         )
@@ -276,7 +248,7 @@ async fn test_query_text_matches_with_logical_expr(ctx: &mut ProjectTestContext)
         .collection(&collection.name)
         .query(
             filter(field("summary").match_all("love class") | field("published_year").eq(1925))
-                .topk(field("published_year"), 10, true),
+                .sort(field("published_year"), true).limit(10),
             None,
             None,
         )
@@ -337,7 +309,7 @@ async fn test_query_text_with_updates(ctx: &mut ProjectTestContext) {
         .query(
             select([("bm25", fns::bm25_score(None, None))])
                 .filter(r#match("surveillance", None, None, true))
-                .topk(literal(1u32).into(), 10, true),
+                .sort(literal(1u32).into(), true).limit(10),
             Some(lsn),
             None,
         )
@@ -361,7 +333,7 @@ async fn test_query_text_with_updates(ctx: &mut ProjectTestContext) {
         .query(
             select([("bm25", fns::bm25_score(None, None))])
                 .filter(r#match("love", None, None, true))
-                .topk(literal(1u32).into(), 10, true),
+                .sort(literal(1u32).into(), true).limit(10),
             Some(lsn),
             None,
         )
@@ -389,7 +361,7 @@ async fn test_query_text_deep_recursion_limit(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(deep_expr).topk(field("published_year"), 100, true),
+            filter(deep_expr).sort(field("published_year"), true).limit(100),
             None,
             None,
         )

@@ -127,7 +127,7 @@ results = client.collection("books").query(
 )
 ```
 
-### Document Search
+### File Search
 
 ```python
 import os

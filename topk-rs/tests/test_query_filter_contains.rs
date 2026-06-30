@@ -20,7 +20,7 @@ async fn test_string_contains_literal(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(field("_id").contains("ob")).topk(field("published_year"), 100, false),
+            filter(field("_id").contains("ob")).sort(field("published_year"), false).limit(100),
             None,
             None,
         )
@@ -40,7 +40,7 @@ async fn test_string_contains_literal_no_match(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(field("_id").contains("rubbish")).topk(field("published_year"), 100, false),
+            filter(field("_id").contains("rubbish")).sort(field("published_year"), false).limit(100),
             None,
             None,
         )
@@ -60,7 +60,7 @@ async fn test_string_contains_literal_empty(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(field("_id").contains("")).topk(field("published_year"), 100, false),
+            filter(field("_id").contains("")).sort(field("published_year"), false).limit(100),
             None,
             None,
         )
@@ -94,7 +94,7 @@ async fn test_string_contains_literal_with_keyword_index(ctx: &mut ProjectTestCo
         .client
         .collection(&collection.name)
         .query(
-            filter(field("summary").contains("to h")).topk(field("published_year"), 100, false),
+            filter(field("summary").contains("to h")).sort(field("published_year"), false).limit(100),
             None,
             None,
         )
@@ -115,7 +115,7 @@ async fn test_string_contains_field(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(field("title").contains(field("_id"))).topk(field("published_year"), 100, false),
+            filter(field("title").contains(field("_id"))).sort(field("published_year"), false).limit(100),
             None,
             None,
         )
@@ -135,7 +135,7 @@ async fn test_string_in_field(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(field("_id").in_(field("title"))).topk(field("published_year"), 100, false),
+            filter(field("_id").in_(field("title"))).sort(field("published_year"), false).limit(100),
             None,
             None,
         )
@@ -155,11 +155,7 @@ async fn test_string_contains_field_self(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(not(field("title").contains(field("title")))).topk(
-                field("published_year"),
-                100,
-                false,
-            ),
+            filter(not(field("title").contains(field("title")))).sort(field("published_year"), false).limit(100),
             None,
             None,
         )
@@ -185,7 +181,7 @@ async fn test_list_match_any_with_keyword_index(ctx: &mut ProjectTestContext) {
                 ("tags", field("tags")),
             ])
             .filter(field("tags").match_any("love"))
-            .topk(field("published_year"), 100, true),
+            .sort(field("published_year"), true).limit(100),
             None,
             None,
         )
@@ -221,7 +217,7 @@ async fn test_list_match_any_all_without_keyword_index(ctx: &mut ProjectTestCont
                     ("codes", field("codes")),
                 ])
                 .filter(filter_expr)
-                .topk(field("published_year"), 100, true),
+                .sort(field("published_year"), true).limit(100),
                 None,
                 None,
             )
@@ -248,7 +244,7 @@ async fn test_list_contains_with_keyword_index(ctx: &mut ProjectTestContext) {
                 ("tags", field("tags")),
             ])
             .filter(field("tags").contains("love"))
-            .topk(field("published_year"), 100, true),
+            .sort(field("published_year"), true).limit(100),
             None,
             None,
         )
@@ -280,7 +276,7 @@ async fn test_list_contains_literal(ctx: &mut ProjectTestContext) {
                 ("codes", field("codes")),
             ])
             .filter(field("codes").contains("ISBN 0-547-92821-2"))
-            .topk(field("published_year"), 100, true),
+            .sort(field("published_year"), true).limit(100),
             None,
             None,
         )
@@ -311,7 +307,7 @@ async fn test_list_contains_int_literal(ctx: &mut ProjectTestContext) {
                 ("reprint_years", field("reprint_years")),
             ])
             .filter(field("reprint_years").contains(1999u32))
-            .topk(field("published_year"), 100, true),
+            .sort(field("published_year"), true).limit(100),
             None,
             None,
         )
@@ -337,7 +333,7 @@ async fn test_list_contains_int_literal_different_type(ctx: &mut ProjectTestCont
                 ("reprint_years", field("reprint_years")),
             ])
             .filter(field("reprint_years").contains(1999i32))
-            .topk(field("published_year"), 100, true),
+            .sort(field("published_year"), true).limit(100),
             None,
             None,
         )
@@ -363,7 +359,7 @@ async fn test_list_contains_int_field(ctx: &mut ProjectTestContext) {
                 ("reprint_years", field("reprint_years")),
             ])
             .filter(field("reprint_years").contains(field("published_year").add(1)))
-            .topk(field("published_year"), 100, true),
+            .sort(field("published_year"), true).limit(100),
             None,
             None,
         )
@@ -389,7 +385,7 @@ async fn test_list_in_int_field(ctx: &mut ProjectTestContext) {
                 ("reprint_years", field("reprint_years")),
             ])
             .filter(field("published_year").add(1).in_(field("reprint_years")))
-            .topk(field("published_year"), 100, true),
+            .sort(field("published_year"), true).limit(100),
             None,
             None,
         )
@@ -415,7 +411,7 @@ async fn test_list_contains_string_field_with_keyword_index(ctx: &mut ProjectTes
                 ("reprint_years", field("reprint_years")),
             ])
             .filter(field("tags").contains(field("_id")))
-            .topk(field("published_year"), 100, true),
+            .sort(field("published_year"), true).limit(100),
             None,
             None,
         )
@@ -441,7 +437,7 @@ async fn test_list_in_string_field_with_keyword_index(ctx: &mut ProjectTestConte
                 ("reprint_years", field("reprint_years")),
             ])
             .filter(field("_id").in_(field("tags")))
-            .topk(field("published_year"), 100, true),
+            .sort(field("published_year"), true).limit(100),
             None,
             None,
         )
@@ -467,7 +463,7 @@ async fn test_list_contains_string_field_without_keyword_index(ctx: &mut Project
                 ("codes", field("codes")),
             ])
             .filter(field("codes").contains(field("_id")))
-            .topk(field("published_year"), 100, true),
+            .sort(field("published_year"), true).limit(100),
             None,
             None,
         )
@@ -505,7 +501,7 @@ async fn test_list_contains_invalid_types(#[case] expr: LogicalExpr) {
                 ("codes", field("codes")),
             ])
             .filter(expr)
-            .topk(field("published_year"), 100, true),
+            .sort(field("published_year"), true).limit(100),
             None,
             None,
         )
@@ -526,7 +522,7 @@ async fn test_string_in(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(field("_id").in_("harryhobbitlotr")).topk(field("published_year"), 100, false),
+            filter(field("_id").in_("harryhobbitlotr")).sort(field("published_year"), false).limit(100),
             None,
             None,
         )
@@ -547,7 +543,7 @@ async fn test_in_list_literal_int(ctx: &mut ProjectTestContext) {
         .query(
             select([("_id", field("_id")), ("title", field("title"))])
                 .filter(field("published_year").in_(Value::list(vec![1999u32, 1988, 1997])))
-                .topk(field("published_year"), 100, true),
+                .sort(field("published_year"), true).limit(100),
             None,
             None,
         )
@@ -574,7 +570,7 @@ async fn test_in_list_literal_string(ctx: &mut ProjectTestContext) {
                     "The".to_string(),
                     "something 123".to_string(),
                 ])))
-                .topk(field("published_year"), 100, true),
+                .sort(field("published_year"), true).limit(100),
             None,
             None,
         )

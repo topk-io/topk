@@ -58,6 +58,8 @@ impl Query {
     }
 
     /// Adds a top-k stage to the query.
+    ///
+    /// @deprecated Use `.sort(expr, false).limit(k)` instead.
     #[napi]
     pub fn topk(&self, expr: &LogicalExpression, k: i32, asc: Option<bool>) -> Query {
         let mut new_query = Query {

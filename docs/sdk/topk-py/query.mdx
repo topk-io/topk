@@ -692,6 +692,8 @@ Adds a count stage to the query.
 
 #### topk()
 
+<Warning>**Deprecated** — Use ``.sort(expr, asc).limit(k)`` instead.</Warning>
+
 ```python
 topk(self, expr: LogicalExpr, k: int, asc: bool = False) -> Query
 ```
@@ -743,7 +745,7 @@ Calculate the vector distance between a field and a query vector.
               [0.1, 0.2, 0.3, ...] # embedding for "animal"
             )
           )
-          .topk(field("title_similarity"), 10)
+          .sort(field("title_similarity"), asc=False).limit(10)
         )
         ```
 
@@ -779,7 +781,7 @@ Calculate the semantic similarity between a field and a query string.
             "title",
             title_similarity=fn.semantic_similarity("title", "animal")
           )
-          .topk(field("title_similarity"), 10)
+          .sort(field("title_similarity"), asc=False).limit(10)
         )
         ```
 
@@ -817,7 +819,7 @@ Calculate the BM25 score for a keyword search.
             text_score=fn.bm25_score()
           )
           .filter(match("animal"))
-          .topk(field("text_score"), 10)
+          .sort(field("text_score"), asc=False).limit(10)
         )
         ```
 
@@ -865,7 +867,7 @@ Calculate the multi-vector distance between a field and a query matrix.
               candidates=100
             )
           )
-          .topk(field("title_distance"), 10)
+          .sort(field("title_distance"), asc=False).limit(10)
         )
         ```
 

@@ -227,11 +227,7 @@ async fn test_update_semantic_index_field(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("sim", fns::semantic_similarity("title", "dummy"))]).topk(
-                field("sim"),
-                1,
-                true,
-            ),
+            select([("sim", fns::semantic_similarity("title", "dummy"))]).sort(field("sim"), true).limit(1),
             None,
             None,
         )

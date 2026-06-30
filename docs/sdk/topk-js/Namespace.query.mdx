@@ -988,7 +988,7 @@ Adds a sort stage to the query.
 
 [`Query`](/sdk/topk-js/Namespace.query#query)
 
-##### topk()
+##### ~~topk()~~
 
 ```ts
 topk(
@@ -1010,6 +1010,10 @@ Adds a top-k stage to the query.
 **Returns**
 
 [`Query`](/sdk/topk-js/Namespace.query#query)
+
+###### Deprecated
+
+Use `.sort(expr, false).limit(k)` instead.
 
 ***
 
