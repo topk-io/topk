@@ -1,4 +1,4 @@
-use numpy::PyUntypedArray;
+use numpy::{PyUntypedArray, PyUntypedArrayMethods};
 use pyo3::{
     exceptions::PyTypeError,
     prelude::*,
@@ -13,6 +13,7 @@ use crate::data::{
     r#struct::Struct,
     vector::F32SparseVector,
 };
+use crate::error::InvalidArgumentError;
 
 use super::vector::SparseVector;
 
@@ -42,9 +43,19 @@ impl FromPyObject<'_, '_> for Value {
         // Check if the object is an instance of Matrix
         } else if let Ok(v) = obj.cast::<Matrix>() {
             Ok(Value::Matrix(v.borrow().clone()))
-        // Check if the object is a numpy array and convert it to a matrix
+        // Check if the object is a numpy array.
+        // 1-D arrays are treated as dense vectors
+        // 2-D arrays are treated as matrices used for multi-vector search
         } else if let Ok(untyped) = obj.cast::<PyUntypedArray>() {
-            Ok(Value::Matrix(Matrix::from_numpy_array(&untyped)?))
+            match untyped.shape().len() {
+                1 => Ok(Value::List(List::from_numpy_array(&untyped)?)),
+                2 => Ok(Value::Matrix(Matrix::from_numpy_array(&untyped)?)),
+                ndim => Err(InvalidArgumentError::new_err(format!(
+                    "Expected numpy array with ndim=1 or ndim=2, got ndim={} array with shape {:?}",
+                    ndim,
+                    untyped.shape()
+                ))),
+            }
         // Check if the object is a list of lists and convert it to a matrix
         } else if let Ok(v) = Matrix::from_list_of_lists(&obj, None) {
             Ok(Value::Matrix(v))

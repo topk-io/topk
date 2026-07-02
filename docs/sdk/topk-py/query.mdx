@@ -725,7 +725,7 @@ The `query.fn` submodule exposes functions for creating function expressions suc
 ```python
 vector_distance(
    field: str,
-   vector: list[int] | list[float] | dict[int, float] | dict[int, int] | topk_sdk.data.SparseVector | topk_sdk.data.List,
+   vector: list[int] | list[float] | dict[int, float] | dict[int, int] | numpy.ndarray | topk_sdk.data.SparseVector | topk_sdk.data.List,
    skip_refine: bool = False
 )
 ```
@@ -754,7 +754,7 @@ Calculate the vector distance between a field and a query vector.
 | Parameter | Type |
 | --------- | ---- |
 | `field` | str |
-| `vector` | list[int] &#124; list[float] &#124; dict[int, float] &#124; dict[int, int] &#124; [`topk_sdk.data.SparseVector`](/sdk/topk-py/data#sparsevector) &#124; [`topk_sdk.data.List`](/sdk/topk-py/data#list) |
+| `vector` | list[int] &#124; list[float] &#124; dict[int, float] &#124; dict[int, int] &#124; numpy.ndarray &#124; [`topk_sdk.data.SparseVector`](/sdk/topk-py/data#sparsevector) &#124; [`topk_sdk.data.List`](/sdk/topk-py/data#list) |
 | `skip_refine` | bool |
 
 **Returns**
@@ -850,7 +850,7 @@ Calculate the multi-vector distance between a field and a query matrix.
 
         The query matrix can be a list of lists (defaults to f32), a [numpy array](https://numpy.org/doc/stable/reference/generated/numpy.array.html) (type inferred from dtype),
         or a [`Matrix`](/sdk/topk-py/data#Matrix) instance. To specify a different matrix type,
-        use [`matrix()`](/sdk/topk-py/data#matrix-2) with `value_type` or a numpy array with the
+        use [`matrix()`](/sdk/topk-py/data#matrix-2) with `value_type` or a 2-D numpy array with the
         corresponding dtype.
 
         The optional `candidates` parameter limits the number of candidate vectors considered during search.

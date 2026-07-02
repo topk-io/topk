@@ -1,4 +1,5 @@
 import pytest
+import numpy as np
 from topk_sdk import data, error, query, schema
 
 from . import ProjectContext
@@ -201,6 +202,62 @@ def test_upsert_vectors(ctx: ProjectContext):
     assert obj["x"]["f32_vector"] == [1, 2, 3]
     assert obj["x"]["u8_vector"] == [4, 5, 6]
     assert obj["x"]["binary_vector"] == [7, 8, 9]
+
+
+def test_upsert_numpy_vectors(ctx: ProjectContext):
+    collection = ctx.client.collections().create(
+        ctx.scope("test"),
+        schema={
+            "f32_vector": schema.f32_vector(3),
+            "f16_vector": schema.f16_vector(3),
+            "u8_vector": schema.u8_vector(3),
+            "i8_vector": schema.i8_vector(3),
+            "binary_vector": schema.binary_vector(3),
+        },
+    )
+
+    lsn = ctx.client.collection(collection.name).upsert(
+        [
+            {
+                "_id": "x",
+                "f32_vector": np.array([1, 2, 3], dtype=np.float32),
+                "f16_vector": np.array([1, 2, 3], dtype=np.float16),
+                "u8_vector": np.array([4, 5, 6], dtype=np.uint8),
+                "i8_vector": np.array([-4, 5, 6], dtype=np.int8),
+                "binary_vector": np.array([7, 8, 9], dtype=np.uint8),
+            }
+        ]
+    )
+
+    obj = ctx.client.collection(collection.name).get(["x"], lsn=lsn)
+
+    assert obj["x"]["f32_vector"] == [1, 2, 3]
+    assert obj["x"]["f16_vector"] == [1, 2, 3]
+    assert obj["x"]["u8_vector"] == [4, 5, 6]
+    assert obj["x"]["i8_vector"] == [-4, 5, 6]
+    assert obj["x"]["binary_vector"] == [7, 8, 9]
+
+
+def test_upsert_explicit_numpy_1d_matrix(ctx: ProjectContext):
+    collection = ctx.client.collections().create(
+        ctx.scope("test"),
+        schema={
+            "embedding": schema.matrix(3, "f32"),
+        },
+    )
+
+    lsn = ctx.client.collection(collection.name).upsert(
+        [
+            {
+                "_id": "x",
+                "embedding": data.matrix(np.array([1, 2, 3], dtype=np.float32)),
+            }
+        ]
+    )
+
+    obj = ctx.client.collection(collection.name).get(["x"], lsn=lsn)
+
+    assert obj["x"]["embedding"] == [[1, 2, 3]]
 
 
 def test_upsert_sparse_vectors(ctx: ProjectContext):
