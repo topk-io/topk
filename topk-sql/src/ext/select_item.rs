@@ -55,6 +55,7 @@ fn projection_name_from_expr(expr: &SqlExpr) -> Result<String, Error> {
             .name
             .0
             .last()
+            .and_then(|i| i.as_ident())
             .map(|i| i.value.clone())
             .ok_or_else(|| Error::Invalid("function with no name".into())),
         SqlExpr::Cast { expr, .. } => projection_name_from_expr(expr),

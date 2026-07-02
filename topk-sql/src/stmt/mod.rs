@@ -11,7 +11,6 @@ mod create_table;
 mod delete;
 mod drop;
 mod explain;
-mod info;
 mod insert;
 mod select;
 mod set_variable;
@@ -94,14 +93,6 @@ pub enum Statement {
         variable: Variable,
     },
 
-    /// `SELECT ... FROM information_schema.tables`
-    InfoSchemaTables,
-    /// `SELECT ... FROM information_schema.columns`
-    InfoSchemaColumns {
-        /// Table name (`<collection>`).
-        table: String,
-    },
-
     /// `BEGIN` statement is accepted but silently ignored
     Begin,
     /// `COMMIT` statement is accepted but silently ignored
@@ -141,13 +132,13 @@ impl TryFrom<SqlStatement> for Statement {
             SqlStatement::StartTransaction { .. } => Ok(Statement::Begin),
             SqlStatement::Commit { .. } => Ok(Statement::Commit),
             SqlStatement::Rollback { .. } => Ok(Statement::Rollback),
-            SqlStatement::SetVariable { .. } => set_variable::try_from_sql(stmt),
+            SqlStatement::Set(set) => Statement::try_from(set),
             SqlStatement::ShowVariable { .. } => show::try_from_sql(stmt),
             SqlStatement::Discard { .. } => Ok(Statement::Discard),
 
             SqlStatement::Query(q) => Statement::try_from(*q),
             SqlStatement::Insert(insert) => Statement::try_from(insert),
-            SqlStatement::Update { .. } => update::try_from_sql(stmt),
+            SqlStatement::Update(update) => Statement::try_from(update),
             SqlStatement::Delete(delete) => Statement::try_from(delete),
             SqlStatement::Explain { .. } => explain::try_from_sql(stmt),
             SqlStatement::CreateTable(ct) => Statement::try_from(ct),

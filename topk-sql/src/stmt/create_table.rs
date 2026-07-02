@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
 use sqlparser::ast::{
-    ArrayElemTypeDef, BinaryOperator, ColumnDef, ColumnOption, CreateTable as SqlCreateTable,
-    DataType, Expr as SqlExpr, Function, FunctionArg, FunctionArgExpr, FunctionArguments,
+    ArrayElemTypeDef, BinaryOperator, CheckConstraint, ColumnDef, ColumnOption,
+    CreateTable as SqlCreateTable, DataType, Expr as SqlExpr, Function, FunctionArg,
+    FunctionArgExpr, FunctionArguments,
 };
 use topk_rs::proto::v1::control::{
     FieldIndex, FieldSpec, FieldType, KeywordIndexType, MultiVectorDistanceMetric,
@@ -54,13 +55,15 @@ impl FromSql<ColumnDef> for FieldSpec {
             match option.option {
                 ColumnOption::Null => {}
                 ColumnOption::NotNull => required = true,
-                ColumnOption::Check(SqlExpr::Function(func)) => {
-                    sql_invalid!(index.is_some(), "column has multiple INDEX definitions");
-                    index = Some(FieldIndex::from_sql(func)?);
-                }
+                ColumnOption::Check(CheckConstraint { expr, .. }) => match *expr {
+                    SqlExpr::Function(func) => {
+                        sql_invalid!(index.is_some(), "column has multiple INDEX definitions");
+                        index = Some(FieldIndex::from_sql(func)?);
+                    }
+                    _ => sql_unsupported!("CHECK constraint"),
+                },
                 ColumnOption::Default(_) => sql_unsupported!("DEFAULT constraint"),
                 ColumnOption::Unique { .. } => sql_unsupported!("UNIQUE constraint"),
-                ColumnOption::Check(_) => sql_unsupported!("CHECK constraint"),
                 ColumnOption::ForeignKey { .. } => sql_unsupported!("FOREIGN KEY constraint"),
                 other => sql_unsupported!("column constraint: {other:?}"),
             }
