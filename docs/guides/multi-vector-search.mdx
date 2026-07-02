@@ -161,7 +161,7 @@ VALUES
 </CodeGroup>
 
 <Tip>
-TopK has built-in support for [`numpy.ndarray`](https://numpy.org/doc/2.2/reference/generated/numpy.ndarray.html) when ingesting and querying multi-vector (matrix) embeddings. If you pass an ndarray directly, the matrix value type is inferred from its `dtype` (e.g. `float32`, `float16`, `uint8`, `int8`).
+TopK has built-in support for [`numpy.ndarray`](https://numpy.org/doc/2.2/reference/generated/numpy.ndarray.html) when ingesting and querying multi-vector (matrix) embeddings. If you pass a 2-D ndarray directly, the matrix value type is inferred from its `dtype` (e.g. `float32`, `float16`, `uint8`, `int8`).
 </Tip>
 
 ## Run multi-vector retrieval
@@ -269,4 +269,3 @@ The multi-vector index has an approximate retrieval stage (for faster pruning) f
   - **`scalar`**: higher-fidelity quantization (larger than 1–2 bit) with better quality.
 - **`candidates`**: (query parameter) controls how many top document candidates from the approximate stage are promoted to a more accurate multi-vector scoring pass. Lower values reduce work (faster/cheaper) but can hurt recall; higher values improve recall at the cost of latency.
   If you’re starting out, keep defaults, then tune `candidates` and these index parameters (`width`, `top_k`, `quantization`) based on your latency or recall targets.
-

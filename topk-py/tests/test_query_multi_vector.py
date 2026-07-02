@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from typing import Literal, Optional, cast
+from typing import Literal
 
 from topk_sdk import data, error
 from topk_sdk.query import field, fn, literal, select
@@ -246,7 +246,9 @@ def test_query_multi_vector_list_of_lists_type_mismatch(
         (np.int8, "i8", ["doc_7", "doc_8", "doc_6"]),
     ],
 )
-def test_query_multi_vector_numpy_array(ctx: ProjectContext, dtype: np.dtype, value_type: str, expected_ids: list[str]):
+def test_query_multi_vector_numpy_array(
+    ctx: ProjectContext, dtype: np.dtype, value_type: str, expected_ids: list[str]
+):
     """Test that numpy arrays work as query matrices"""
     collection = dataset.multi_vec.setup(ctx, value_type)
     num_rows = len(Q1) // 7
@@ -281,3 +283,12 @@ def test_query_multi_vector_numpy_array(ctx: ProjectContext, dtype: np.dtype, va
 
     assert len(result) == 3
     assert doc_ids_ordered(result) == expected_ids
+
+
+def test_query_multi_vector_numpy_1d_requires_explicit_matrix():
+    arr = np.array([1.0, 2.0, 3.0], dtype=np.float32)
+
+    with pytest.raises(ValueError, match="Multi-vector query must be a matrix value"):
+        fn.multi_vector_distance("token_embeddings", arr)
+
+    assert fn.multi_vector_distance("token_embeddings", data.matrix(arr)) is not None

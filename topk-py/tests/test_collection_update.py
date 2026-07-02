@@ -1,5 +1,6 @@
 import pytest
-from topk_sdk import error, query
+import numpy as np
+from topk_sdk import error
 from topk_sdk.query import field, fn, select
 
 from . import ProjectContext
@@ -35,7 +36,9 @@ def test_update_batch(ctx: ProjectContext):
     )
     assert lsn == "2"
 
-    docs = ctx.client.collection(collection.name).get(["1", "2", "3", "4", "5"], lsn=lsn)
+    docs = ctx.client.collection(collection.name).get(
+        ["1", "2", "3", "4", "5"], lsn=lsn
+    )
 
     assert len(docs) == 4
     assert docs["1"] == {"_id": "1", "foo": "bar1"}
@@ -95,22 +98,28 @@ def test_update_vector_index_field(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
     res = ctx.client.collection(collection.name).query(
-        select(
-            dist=fn.vector_distance("summary_embedding", [2.0] * 16)
-        ).filter(field("_id") == "1984").limit(1)
+        select(dist=fn.vector_distance("summary_embedding", [2.0] * 16))
+        .filter(field("_id") == "1984")
+        .limit(1)
     )
 
     assert len(res) == 1
     assert res[0]["dist"] == 0.0
 
     lsn = ctx.client.collection(collection.name).update(
-        [{"_id": "1984", "summary_embedding": [8.0] * 16}], True
+        [
+            {
+                "_id": "1984",
+                "summary_embedding": np.array([8.0] * 16, dtype=np.float32),
+            }
+        ],
+        True,
     )
 
     res = ctx.client.collection(collection.name).query(
-        select(
-            dist=fn.vector_distance("summary_embedding", [2.0] * 16)
-        ).filter(field("_id") == "1984").limit(1),
+        select(dist=fn.vector_distance("summary_embedding", [2.0] * 16))
+        .filter(field("_id") == "1984")
+        .limit(1),
         lsn=lsn,
     )
 
@@ -122,9 +131,7 @@ def test_update_vector_index_field(ctx: ProjectContext):
 def test_update_semantic_index_field(ctx: ProjectContext):
     collection = dataset.semantic.setup(ctx)
     result = ctx.client.collection(collection.name).query(
-        select(sim=fn.semantic_similarity("title", "dummy")).topk(
-            field("sim"), 1, True
-        )
+        select(sim=fn.semantic_similarity("title", "dummy")).topk(field("sim"), 1, True)
     )
 
     assert len(result) == 1
@@ -166,4 +173,7 @@ def test_update_missing_required_field(ctx: ProjectContext):
         ctx.client.collection(collection.name).update(
             [{"_id": "1984", "title": None}], True
         )
-    assert "MissingField" in str(exc_info.value) or "required" in str(exc_info.value).lower()
+    assert (
+        "MissingField" in str(exc_info.value)
+        or "required" in str(exc_info.value).lower()
+    )
