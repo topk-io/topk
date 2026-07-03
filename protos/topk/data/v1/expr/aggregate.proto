@@ -2,7 +2,11 @@ syntax = "proto3";
 package topk.data.v1;
 
 message AggregateExpr {
-    message Count {}
+    message Count {
+        // Count the number of non-null values for the given field.
+        // If not provided, count the number of rows in the input.
+        optional string field = 1;
+    }
 
     message Sum {
         string field = 1;
