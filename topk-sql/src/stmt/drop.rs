@@ -12,6 +12,7 @@ pub(crate) fn try_from_sql(stmt: SqlStatement) -> Result<Statement, Error> {
             restrict,
             purge,
             temporary,
+            ..
         } => {
             sql_unsupported!(object_type != ObjectType::Table, "DROP {object_type}");
             sql_unsupported!(temporary, "DROP TEMPORARY TABLE");

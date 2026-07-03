@@ -43,7 +43,10 @@ impl SqlFunctionExt for SqlFunction {
     }
 
     fn is_count(&self) -> bool {
-        self.name.0.len() == 1 && self.name.0[0].value.eq_ignore_ascii_case("count")
+        self.name.0.len() == 1
+            && self.name.0[0]
+                .as_ident()
+                .map_or(false, |i| i.value.eq_ignore_ascii_case("count"))
     }
 
     fn matches_args<F>(&self, check: F) -> bool

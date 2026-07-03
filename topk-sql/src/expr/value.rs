@@ -10,7 +10,7 @@ impl FromSql<SqlExpr> for Value {
     fn from_sql(expr: SqlExpr) -> Result<Value, Error> {
         match expr {
             SqlExpr::Nested(inner) => Value::from_sql(*inner),
-            SqlExpr::Value(value) => match value {
+            SqlExpr::Value(v) => match v.value {
                 SqlValue::Number(repr, _long) => parse_number(&repr),
                 SqlValue::SingleQuotedString(s) | SqlValue::DoubleQuotedString(s) => {
                     Ok(Value::string(s))
@@ -23,7 +23,13 @@ impl FromSql<SqlExpr> for Value {
                 op: UnaryOperator::Minus,
                 expr,
             } => match *expr {
-                SqlExpr::Value(SqlValue::Number(repr, _)) => parse_number(&format!("-{repr}")),
+                SqlExpr::Value(v) if matches!(v.value, SqlValue::Number(_, _)) => {
+                    let repr = match v.value {
+                        SqlValue::Number(repr, _) => repr,
+                        _ => unreachable!(),
+                    };
+                    parse_number(&format!("-{repr}"))
+                }
                 SqlExpr::Nested(inner) => Value::from_sql(SqlExpr::UnaryOp {
                     op: UnaryOperator::Minus,
                     expr: inner,
@@ -36,9 +42,12 @@ impl FromSql<SqlExpr> for Value {
                 expr, data_type, ..
             } => {
                 let s = match *expr {
-                    SqlExpr::Value(
-                        SqlValue::SingleQuotedString(s) | SqlValue::DoubleQuotedString(s),
-                    ) => s,
+                    SqlExpr::Value(v) => match v.value {
+                        SqlValue::SingleQuotedString(s) | SqlValue::DoubleQuotedString(s) => s,
+                        other => {
+                            sql_unsupported!("cast source must be a string literal, got: {other:?}")
+                        }
+                    },
                     other => {
                         sql_unsupported!("cast source must be a string literal, got: {other:?}")
                     }
