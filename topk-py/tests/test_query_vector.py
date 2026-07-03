@@ -39,7 +39,7 @@ def test_query_vector_distance_numpy_f32(ctx: ProjectContext):
             summary_distance=fn.vector_distance(
                 "summary_embedding", np.array([2.0] * 16, dtype=np.float32)
             ),
-        ).topk(field("summary_distance"), 3, True)
+        ).sort(field("summary_distance"), True).limit(3)
     )
 
     assert is_sorted(result, "summary_distance")
@@ -82,7 +82,7 @@ def test_query_vector_distance_numpy_u8(ctx: ProjectContext):
             summary_distance=fn.vector_distance(
                 "scalar_embedding", np.array([8] * 16, dtype=np.uint8)
             )
-        ).topk(field("summary_distance"), 3, True)
+        ).sort(field("summary_distance"), True).limit(3)
     )
 
     assert is_sorted(result, "summary_distance")
@@ -112,7 +112,7 @@ def test_query_vector_distance_numpy_i8(ctx: ProjectContext):
             summary_distance=fn.vector_distance(
                 "scalar_i8_embedding", np.array([-10] * 16, dtype=np.int8)
             )
-        ).topk(field("summary_distance"), 3, True)
+        ).sort(field("summary_distance"), True).limit(3)
     )
 
     assert is_sorted(result, "summary_distance")
@@ -142,7 +142,7 @@ def test_query_vector_distance_numpy_binary(ctx: ProjectContext):
             summary_distance=fn.vector_distance(
                 "binary_embedding", np.array([0, 1], dtype=np.uint8)
             )
-        ).topk(field("summary_distance"), 2, True)
+        ).sort(field("summary_distance"), True).limit(2)
     )
 
     assert is_sorted(result, "summary_distance")
@@ -183,7 +183,7 @@ def test_query_vector_distance_numpy_f16(ctx: ProjectContext):
             summary_distance=fn.vector_distance(
                 "f16_embedding", np.array([1.0] * 16, dtype=np.float16)
             )
-        ).topk(field("summary_distance"), 3, True)
+        ).sort(field("summary_distance"), True).limit(3)
     )
 
     assert is_sorted(result, "summary_distance")
