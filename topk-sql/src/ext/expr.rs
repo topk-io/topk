@@ -54,9 +54,12 @@ impl SqlExprExt for SqlExpr {
 
     fn as_placeholder(&self) -> Option<usize> {
         match self {
-            SqlExpr::Value(SqlValue::Placeholder(p)) => {
-                p.strip_prefix('$')?.parse::<usize>().ok().map(|n| n - 1)
-            }
+            SqlExpr::Value(v) => match &v.value {
+                SqlValue::Placeholder(p) => {
+                    p.strip_prefix('$')?.parse::<usize>().ok().map(|n| n - 1)
+                }
+                _ => None,
+            },
             SqlExpr::Nested(inner) => inner.as_placeholder(),
             _ => None,
         }
@@ -64,9 +67,12 @@ impl SqlExprExt for SqlExpr {
 
     fn as_string(&self) -> Option<String> {
         match self {
-            SqlExpr::Value(SqlValue::SingleQuotedString(s) | SqlValue::DoubleQuotedString(s)) => {
-                Some(s.clone())
-            }
+            SqlExpr::Value(v) => match &v.value {
+                SqlValue::SingleQuotedString(s) | SqlValue::DoubleQuotedString(s) => {
+                    Some(s.clone())
+                }
+                _ => None,
+            },
             SqlExpr::Nested(inner) => inner.as_string(),
             _ => None,
         }
@@ -74,7 +80,10 @@ impl SqlExprExt for SqlExpr {
 
     fn as_bool(&self) -> Option<bool> {
         match self {
-            SqlExpr::Value(SqlValue::Boolean(b)) => Some(*b),
+            SqlExpr::Value(v) => match v.value {
+                SqlValue::Boolean(b) => Some(b),
+                _ => None,
+            },
             SqlExpr::Nested(inner) => inner.as_bool(),
             _ => None,
         }
@@ -82,7 +91,10 @@ impl SqlExprExt for SqlExpr {
 
     fn as_u64(&self) -> Option<u64> {
         match self {
-            SqlExpr::Value(SqlValue::Number(n, _)) => n.parse::<u64>().ok(),
+            SqlExpr::Value(v) => match &v.value {
+                SqlValue::Number(n, _) => n.parse::<u64>().ok(),
+                _ => None,
+            },
             SqlExpr::Nested(inner) => inner.as_u64(),
             _ => None,
         }
@@ -90,7 +102,10 @@ impl SqlExprExt for SqlExpr {
 
     fn as_i64(&self) -> Option<i64> {
         match self {
-            SqlExpr::Value(SqlValue::Number(n, _)) => n.parse::<i64>().ok(),
+            SqlExpr::Value(v) => match &v.value {
+                SqlValue::Number(n, _) => n.parse::<i64>().ok(),
+                _ => None,
+            },
             SqlExpr::Nested(inner) => inner.as_i64(),
             // Negative integer literals are parsed as `UnaryOp { Minus, Number }`.
             SqlExpr::UnaryOp {

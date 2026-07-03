@@ -224,7 +224,14 @@ impl Client {
 
         RUNTIME.spawn(async move {
             let mut stream = match client
-                .ask(query, datasets, filter, mode, select_fields, include_content)
+                .ask(
+                    query,
+                    datasets,
+                    filter,
+                    mode,
+                    select_fields,
+                    include_content,
+                )
                 .await
             {
                 Ok(stream) => stream,

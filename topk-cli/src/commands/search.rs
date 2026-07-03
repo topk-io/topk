@@ -47,7 +47,10 @@ pub struct Image {
 
 impl From<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
     fn from(result: topk_rs::proto::v1::ctx::SearchResult) -> Self {
-        let content = result.content.and_then(|proto| proto.data).map(Content::from);
+        let content = result
+            .content
+            .and_then(|proto| proto.data)
+            .map(Content::from);
 
         Self {
             doc_id: result.doc_id,
@@ -433,10 +436,12 @@ mod tests {
             dataset: "sec-10k".to_string(),
             content_id: "chunk-1".to_string(),
             content: Some(topk_rs::proto::v1::ctx::Content {
-                data: Some(topk_rs::proto::v1::ctx::content::Data::Chunk(topk_rs::proto::v1::ctx::Chunk {
-                    text: "hello".to_string(),
-                    doc_pages: vec![],
-                })),
+                data: Some(topk_rs::proto::v1::ctx::content::Data::Chunk(
+                    topk_rs::proto::v1::ctx::Chunk {
+                        text: "hello".to_string(),
+                        doc_pages: vec![],
+                    },
+                )),
             }),
             metadata: [
                 ("ticker".to_string(), Value::string("AAPL")),

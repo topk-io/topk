@@ -1,13 +1,13 @@
 use sqlparser::ast::{
-    Expr as SqlExpr, FunctionArg, FunctionArgExpr, GroupByExpr, Query as SqlQuery, SetExpr,
-    TableFactor, Value as SqlValue,
+    Expr as SqlExpr, FunctionArg, FunctionArgExpr, GroupByExpr, LimitClause, OrderByKind,
+    Query as SqlQuery, SetExpr, TableFactor, Value as SqlValue,
 };
 use topk_rs::proto::v1::data::stage::{filter_stage::FilterExpr, select_stage::SelectExpr};
 use topk_rs::proto::v1::data::{LogicalExpr, Query, Stage};
 
 use crate::{
     Error, FromSql, SelectItemExt, SqlExprExt, SqlFunctionExt, Table, sql_invalid, sql_unsupported,
-    stmt::Statement, stmt::info,
+    stmt::Statement,
 };
 
 impl TryFrom<SqlQuery> for Statement {
@@ -17,13 +17,9 @@ impl TryFrom<SqlQuery> for Statement {
         sql_unsupported!(query.with.is_some(), "WITH (common table expressions)");
         sql_unsupported!(!query.locks.is_empty(), "FOR UPDATE / FOR SHARE");
         sql_unsupported!(query.fetch.is_some(), "FETCH FIRST … ROWS ONLY");
-        sql_unsupported!(query.offset.is_some(), "OFFSET");
 
         let mut select = match *query.body {
-            SetExpr::Select(select) => match info::try_from_select(&select) {
-                Some(result) => return result,
-                None => select,
-            },
+            SetExpr::Select(select) => select,
             SetExpr::Query(_) => sql_unsupported!("subqueries"),
             SetExpr::SetOperation { .. } => {
                 sql_unsupported!("SELECT ... UNION/INTERSECT/EXCEPT ...")
@@ -32,6 +28,8 @@ impl TryFrom<SqlQuery> for Statement {
             SetExpr::Insert(_) => sql_unsupported!("SELECT ... INSERT ..."),
             SetExpr::Update(_) => sql_unsupported!("SELECT ... UPDATE ..."),
             SetExpr::Table(_) => sql_unsupported!("SELECT ... TABLE ..."),
+            SetExpr::Delete(_) => sql_unsupported!("SELECT ... DELETE ..."),
+            SetExpr::Merge(_) => sql_unsupported!("SELECT ... MERGE ..."),
         };
 
         sql_unsupported!(select.distinct.is_some(), "SELECT DISTINCT");
@@ -80,7 +78,10 @@ impl TryFrom<SqlQuery> for Statement {
                         "only COUNT(*) is supported; COUNT(expr) and DISTINCT are not"
                     );
                     sql_unsupported!(query.order_by.is_some(), "SELECT COUNT(*) ... ORDER BY ...");
-                    sql_unsupported!(query.limit.is_some(), "SELECT COUNT(*) ... LIMIT ...");
+                    sql_unsupported!(
+                        query.limit_clause.is_some(),
+                        "SELECT COUNT(*) ... LIMIT ..."
+                    );
 
                     stages.push(Stage::count());
 
@@ -115,19 +116,24 @@ impl TryFrom<SqlQuery> for Statement {
 
         let sort = query
             .order_by
-            .map(|mut order_by| match order_by.exprs.len() {
-                0 => Result::<_, Error>::Ok(None),
-                1 => {
-                    let entry = order_by.exprs.pop().unwrap();
+            .map(|order_by| match order_by.kind {
+                OrderByKind::Expressions(ref exprs) if exprs.is_empty() => {
+                    Result::<_, Error>::Ok(None)
+                }
+                OrderByKind::Expressions(mut exprs) if exprs.len() == 1 => {
+                    let entry = exprs.pop().unwrap();
 
-                    sql_unsupported!(entry.nulls_first.is_some(), "ORDER BY … NULLS FIRST/LAST");
                     sql_unsupported!(
-                        matches!(&entry.expr, SqlExpr::Value(SqlValue::Number(_, _))),
+                        entry.options.nulls_first.is_some(),
+                        "ORDER BY … NULLS FIRST/LAST"
+                    );
+                    sql_unsupported!(
+                        matches!(&entry.expr, SqlExpr::Value(v) if matches!(v.value, SqlValue::Number(_, _))),
                         "ORDER BY with ordinal position is not supported"
                     );
 
                     let converted = LogicalExpr::from_sql(entry.expr)?;
-                    let asc = entry.asc.unwrap_or(true);
+                    let asc = entry.options.asc.unwrap_or(true);
                     Ok(Some((converted, asc)))
                 }
                 _ => sql_unsupported!("ORDER BY with multiple keys is not supported"),
@@ -136,11 +142,19 @@ impl TryFrom<SqlQuery> for Statement {
             .flatten();
 
         let limit =
-            match query.limit {
-                None => None,
-                Some(ref expr) => Some(expr.as_u64().ok_or_else(|| {
+            match query.limit_clause {
+                Some(LimitClause::LimitOffset {
+                    offset: Some(_), ..
+                })
+                | Some(LimitClause::OffsetCommaLimit { .. }) => sql_unsupported!("OFFSET"),
+                Some(LimitClause::LimitOffset {
+                    limit: Some(ref expr),
+                    ..
+                }) => Some(expr.as_u64().ok_or_else(|| {
                     Error::Invalid("LIMIT must be a positive integer".to_string())
                 })?),
+                Some(_) => sql_invalid!("LIMIT must be a positive integer"),
+                None => None,
             };
 
         match (sort, limit) {

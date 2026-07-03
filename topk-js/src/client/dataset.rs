@@ -5,7 +5,10 @@ use std::time::Duration;
 
 use futures_util::StreamExt;
 use napi::bindgen_prelude::*;
-use napi::tokio::{self, sync::{mpsc, Mutex}};
+use napi::tokio::{
+    self,
+    sync::{mpsc, Mutex},
+};
 use napi_derive::napi;
 
 use super::RUNTIME;

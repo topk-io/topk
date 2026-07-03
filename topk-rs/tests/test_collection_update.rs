@@ -227,7 +227,9 @@ async fn test_update_semantic_index_field(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("sim", fns::semantic_similarity("title", "dummy"))]).sort(field("sim"), true).limit(1),
+            select([("sim", fns::semantic_similarity("title", "dummy"))])
+                .sort(field("sim"), true)
+                .limit(1),
             None,
             None,
         )

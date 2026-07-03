@@ -21,7 +21,8 @@ async fn test_any_codes_vec(ctx: &mut ProjectTestContext) {
                 field("codes").contains("Barcode 0618346252"),
                 field("codes").contains("UPC 025192354670"),
             ]))
-            .sort(field("published_year"), true).limit(100),
+            .sort(field("published_year"), true)
+            .limit(100),
             None,
             None,
         )
@@ -45,7 +46,8 @@ async fn test_all_codes_vec(ctx: &mut ProjectTestContext) {
                 field("tags").contains("school"),
                 field("tags").contains("magic"),
             ]))
-            .sort(field("published_year"), true).limit(100),
+            .sort(field("published_year"), true)
+            .limit(100),
             None,
             None,
         )
@@ -76,7 +78,8 @@ async fn test_select_any_flag(ctx: &mut ProjectTestContext) {
                 "pride".to_string(),
                 "lotr".to_string(),
             ])))
-            .sort(field("published_year"), true).limit(100),
+            .sort(field("published_year"), true)
+            .limit(100),
             None,
             None,
         )
@@ -112,7 +115,8 @@ async fn test_select_all_flag(ctx: &mut ProjectTestContext) {
                 ]),
             )])
             .filter(field("_id").in_(Value::list(vec!["gatsby".to_string(), "pride".to_string()])))
-            .sort(field("published_year"), true).limit(100),
+            .sort(field("published_year"), true)
+            .limit(100),
             None,
             None,
         )
@@ -179,7 +183,9 @@ async fn test_non_nested_any_and_all(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(codes_any.and(tags_all)).sort(field("published_year"), true).limit(100),
+            filter(codes_any.and(tags_all))
+                .sort(field("published_year"), true)
+                .limit(100),
             None,
             None,
         )
@@ -203,7 +209,8 @@ async fn test_any_mixed_exprs(ctx: &mut ProjectTestContext) {
                 field("tags").contains("romance"),
                 field("published_year").lt(1900u32),
             ]))
-            .sort(field("published_year"), true).limit(100),
+            .sort(field("published_year"), true)
+            .limit(100),
             None,
             None,
         )
@@ -227,7 +234,8 @@ async fn test_all_mixed_exprs(ctx: &mut ProjectTestContext) {
                 field("title").contains("The"),
                 not(field("tags").contains("romance")),
             ]))
-            .sort(field("published_year"), true).limit(100),
+            .sort(field("published_year"), true)
+            .limit(100),
             None,
             None,
         )

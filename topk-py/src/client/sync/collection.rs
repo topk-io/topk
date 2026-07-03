@@ -59,12 +59,8 @@ impl CollectionClient {
             .runtime
             .block_on(
                 py,
-                self.collection().get(
-                    ids,
-                    fields,
-                    lsn,
-                    consistency.map(|c| c.into()),
-                ),
+                self.collection()
+                    .get(ids, fields, lsn, consistency.map(|c| c.into())),
             )
             .map_err(RustError)?;
 
@@ -85,8 +81,7 @@ impl CollectionClient {
             .runtime
             .block_on(
                 py,
-                self.collection()
-                    .count(lsn, consistency.map(|c| c.into())),
+                self.collection().count(lsn, consistency.map(|c| c.into())),
             )
             .map_err(RustError)?;
 

@@ -186,7 +186,10 @@ impl AsyncCollectionClient {
         let collection = self.collection.clone();
 
         pyo3_async_runtimes::tokio::get_runtime().spawn(async move {
-            let mut stream = match client.collection(collection.as_str()).list_partitions(prefix).await
+            let mut stream = match client
+                .collection(collection.as_str())
+                .list_partitions(prefix)
+                .await
             {
                 Ok(stream) => stream,
                 Err(e) => {
@@ -198,8 +201,7 @@ impl AsyncCollectionClient {
             while let Some(result) = stream.next().await {
                 match result {
                     Ok(partition) => {
-                        if let Err(mpsc::error::SendError(_)) =
-                            tx.send(Ok(partition.into())).await
+                        if let Err(mpsc::error::SendError(_)) = tx.send(Ok(partition.into())).await
                         {
                             break;
                         }

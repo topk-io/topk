@@ -28,7 +28,8 @@ async fn test_query_exp_ln(ctx: &mut ProjectTestContext) {
                     Some(1.0),
                     false,
                 ))
-                .sort(field("bm25_score_scale"), false).limit(2),
+                .sort(field("bm25_score_scale"), false)
+                .limit(2),
             None,
             None,
         )
@@ -65,7 +66,9 @@ async fn test_query_float_inf(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("to_infinity", field("published_year").exp())]).sort(field("published_year"), true).limit(2),
+            select([("to_infinity", field("published_year").exp())])
+                .sort(field("published_year"), true)
+                .limit(2),
             None,
             None,
         )
@@ -93,7 +96,8 @@ async fn test_query_sqrt_square(ctx: &mut ProjectTestContext) {
                 ("published_year", field("published_year")),
                 ("published_year_2", field("published_year").sqrt().square()),
             ])
-            .sort(field("published_year_2"), true).limit(2),
+            .sort(field("published_year_2"), true)
+            .limit(2),
             None,
             None,
         )
@@ -125,7 +129,8 @@ async fn test_query_sqrt_filter(ctx: &mut ProjectTestContext) {
         .query(
             select([("title", field("title"))])
                 .filter(field("published_year").sqrt().gt(1990_f32.sqrt()))
-                .sort(field("published_year"), true).limit(2),
+                .sort(field("published_year"), true)
+                .limit(2),
             None,
             None,
         )
