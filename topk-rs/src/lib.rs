@@ -44,7 +44,7 @@ pub mod query {
     use crate::proto::v1::data::{
         stage::{filter_stage::FilterExpr, select_stage::SelectExpr},
         text_expr::Term,
-        LogicalExpr, Query, Stage, TextExpr,
+        AggregateExpr, LogicalExpr, Query, Stage, TextExpr,
     };
 
     pub mod fns {
@@ -86,6 +86,13 @@ pub mod query {
 
     pub fn filter(expr: impl Into<FilterExpr>) -> Query {
         Query::new(vec![Stage::filter(expr.into())])
+    }
+
+    pub fn group_by(
+        keys: impl IntoIterator<Item = (impl Into<String>, impl Into<LogicalExpr>)>,
+        aggs: impl IntoIterator<Item = (impl Into<String>, impl Into<AggregateExpr>)>,
+    ) -> Query {
+        Query::new(vec![Stage::group_by(keys, aggs)])
     }
 
     pub fn not(expr: impl Into<LogicalExpr>) -> LogicalExpr {

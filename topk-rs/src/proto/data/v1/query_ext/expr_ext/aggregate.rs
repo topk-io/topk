@@ -12,7 +12,7 @@ impl AggregateExpr {
     }
 
     /// Sum the values of the given field.
-    pub fn sum(field: String) -> Self {
+    pub fn sum(field: impl Into<String>) -> Self {
         Self {
             op: Some(aggregate_expr::Op::Sum(aggregate_expr::Sum {
                 field: field.into(),
@@ -21,7 +21,7 @@ impl AggregateExpr {
     }
 
     /// Find the minimum value of the given field.
-    pub fn min(field: String) -> Self {
+    pub fn min(field: impl Into<String>) -> Self {
         Self {
             op: Some(aggregate_expr::Op::Min(aggregate_expr::Min {
                 field: field.into(),
@@ -30,7 +30,7 @@ impl AggregateExpr {
     }
 
     /// Find the maximum value of the given field.
-    pub fn max(field: String) -> Self {
+    pub fn max(field: impl Into<String>) -> Self {
         Self {
             op: Some(aggregate_expr::Op::Max(aggregate_expr::Max {
                 field: field.into(),
@@ -39,7 +39,7 @@ impl AggregateExpr {
     }
 
     /// Calculate the average value of the given field.
-    pub fn avg(field: String) -> Self {
+    pub fn avg(field: impl Into<String>) -> Self {
         Self {
             op: Some(aggregate_expr::Op::Avg(aggregate_expr::Average {
                 field: field.into(),
