@@ -1,4 +1,10 @@
-use pyo3::{pyclass, pymethods};
+use half::f16;
+use numpy::{
+    dtype, PyArrayDescrMethods, PyArrayDyn, PyArrayMethods, PyUntypedArray, PyUntypedArrayMethods,
+};
+use pyo3::{pyclass, pymethods, Bound, PyErr, PyResult};
+
+use crate::error::InvalidArgumentError;
 
 #[pyclass]
 #[derive(Debug, Clone, PartialEq)]
@@ -19,6 +25,49 @@ pub enum Values {
     F32(Vec<f32>),
     F64(Vec<f64>),
     String(Vec<String>),
+}
+
+impl List {
+    pub(crate) fn from_numpy_array(untyped: &Bound<'_, PyUntypedArray>) -> PyResult<Self> {
+        let shape = untyped.shape();
+        let ndim = shape.len();
+        if ndim != 1 {
+            return Err(InvalidArgumentError::new_err(format!(
+                "Expected numpy array with ndim=1 for vector, got ndim={} array with shape {:?}",
+                ndim, shape
+            )));
+        }
+
+        let element_dtype = untyped.dtype();
+        let py = untyped.py();
+
+        if element_dtype.is_equiv_to(&dtype::<f32>(py)) {
+            let array = untyped.cast::<PyArrayDyn<f32>>()?.readonly();
+            return Ok(List {
+                values: Values::F32(array.to_vec()?),
+            });
+        } else if element_dtype.is_equiv_to(&dtype::<f16>(py)) {
+            let array = untyped.cast::<PyArrayDyn<f16>>()?.readonly();
+            return Ok(List {
+                values: Values::F16(array.to_vec()?),
+            });
+        } else if element_dtype.is_equiv_to(&dtype::<u8>(py)) {
+            let array = untyped.cast::<PyArrayDyn<u8>>()?.readonly();
+            return Ok(List {
+                values: Values::U8(array.to_vec()?),
+            });
+        } else if element_dtype.is_equiv_to(&dtype::<i8>(py)) {
+            let array = untyped.cast::<PyArrayDyn<i8>>()?.readonly();
+            return Ok(List {
+                values: Values::I8(array.to_vec()?),
+            });
+        }
+
+        Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
+            "Unsupported numpy dtype: {}. Supported dtypes: float32, float16, uint8, int8. For f8, use f8_vector(values)",
+            element_dtype
+        )))
+    }
 }
 
 #[pymethods]

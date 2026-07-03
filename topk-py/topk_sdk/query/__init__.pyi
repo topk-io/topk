@@ -598,6 +598,7 @@ class fn:
             list[float],
             dict[int, float],
             dict[int, int],
+            numpy.ndarray,
             topk_sdk.data.SparseVector,
             topk_sdk.data.List,
         ],
@@ -690,7 +691,7 @@ class fn:
 
         The query matrix can be a list of lists (defaults to f32), a [numpy array](https://numpy.org/doc/stable/reference/generated/numpy.array.html) (type inferred from dtype),
         or a [`Matrix`](https://docs.topk.io/sdk/topk-py/data#Matrix) instance. To specify a different matrix type,
-        use [`matrix()`](https://docs.topk.io/sdk/topk-py/data#matrix-2) with `value_type` or a numpy array with the
+        use [`matrix()`](https://docs.topk.io/sdk/topk-py/data#matrix-2) with `value_type` or a 2-D numpy array with the
         corresponding dtype.
 
         The optional `candidates` parameter limits the number of candidate vectors considered during search.
