@@ -3,6 +3,7 @@ package topk.data.v1;
 
 import "topk/data/v1/document.proto";
 import "topk/data/v1/expr/function.proto";
+import "topk/data/v1/expr/aggregate.proto";
 import "topk/data/v1/expr/logical.proto";
 import "topk/data/v1/expr/text.proto";
 import "topk/data/v1/value.proto";
@@ -64,6 +65,13 @@ message Stage {
     repeated string fields = 1;
   }
 
+  message GroupByStage {
+    // Grouping keys: output field name -> key expression.
+    map<string, LogicalExpr> keys = 1;
+    // Aggregations: output field name -> aggregation expression.
+    map<string, AggregateExpr> aggs = 2;
+  }
+
   oneof stage {
     SelectStage select = 1;
     FilterStage filter = 2;
@@ -74,5 +82,6 @@ message Stage {
     LimitStage limit = 6;
     SortStage sort = 7;
     FetchStage fetch = 8;
+    GroupByStage group_by = 9;
   }
 }

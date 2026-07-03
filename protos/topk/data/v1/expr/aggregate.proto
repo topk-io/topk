@@ -1,0 +1,30 @@
+syntax = "proto3";
+package topk.data.v1;
+
+message AggregateExpr {
+    message Count {}
+
+    message Sum {
+        string field = 1;
+    }
+
+    message Min {
+        string field = 1;
+    }
+
+    message Max {
+        string field = 1;
+    }
+
+    message Average {
+        string field = 1;
+    }
+
+    oneof op {
+        Count count = 1;
+        Sum sum = 2;
+        Min min = 3;
+        Max max = 4;
+        Average avg = 5;
+    }
+}
