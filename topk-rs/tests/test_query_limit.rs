@@ -123,7 +123,8 @@ async fn test_query_limit_vector_distance(ctx: &mut ProjectTestContext) {
                     "summary_distance",
                     fns::vector_distance("summary_embedding", vec![2.0; 16]).skip_refine(true),
                 )])
-                .sort(field("summary_distance"), true).limit(100),
+                .sort(field("summary_distance"), true)
+                .limit(100),
             None,
             None,
         )

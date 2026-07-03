@@ -46,7 +46,9 @@ impl FromNapiValue for StringyWithList {
             return Ok(StringyWithList::Stringy(stringy));
         }
 
-        Err(napi::Error::from_reason("Unsupported string or string list type"))
+        Err(napi::Error::from_reason(
+            "Unsupported string or string list type",
+        ))
     }
 }
 

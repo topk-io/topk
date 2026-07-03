@@ -66,7 +66,11 @@ impl From<ConsistencyLevel> for topk_rs::proto::v1::data::ConsistencyLevel {
 }
 
 impl CollectionClient {
-    pub fn new(client: Arc<topk_rs::Client>, collection: String, partition: Option<String>) -> Self {
+    pub fn new(
+        client: Arc<topk_rs::Client>,
+        collection: String,
+        partition: Option<String>,
+    ) -> Self {
         Self {
             client,
             collection,

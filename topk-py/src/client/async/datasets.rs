@@ -45,7 +45,12 @@ impl AsyncDatasetsClient {
     }
 
     #[pyo3(signature = (dataset_name, description=None))]
-    pub fn create(&self, py: Python<'_>, dataset_name: String, description: Option<String>) -> PyResult<Py<PyAny>> {
+    pub fn create(
+        &self,
+        py: Python<'_>,
+        dataset_name: String,
+        description: Option<String>,
+    ) -> PyResult<Py<PyAny>> {
         let client = self.client.clone();
 
         future_into_py(py, async move {

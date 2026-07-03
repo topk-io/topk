@@ -61,7 +61,9 @@ async fn test_delete_document(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("title", field("title"))]).sort(field("rank"), true).limit(100),
+            select([("title", field("title"))])
+                .sort(field("rank"), true)
+                .limit(100),
             Some(lsn),
             None,
         )
@@ -158,7 +160,9 @@ async fn test_delete_with_filter(ctx: &mut ProjectTestContext) {
     // Verify that only documents from batch_idx 1, 2 are deleted
     let doc_ids = collection
         .query(
-            select([("_id", field("_id"))]).sort(field("batch_idx"), true).limit(100),
+            select([("_id", field("_id"))])
+                .sort(field("batch_idx"), true)
+                .limit(100),
             Some(lsn),
             None,
         )
@@ -181,7 +185,9 @@ async fn test_delete_with_filter(ctx: &mut ProjectTestContext) {
     // Verify expected documents
     let doc_ids = collection
         .query(
-            select([("_id", field("_id"))]).sort(field("batch_idx"), true).limit(100),
+            select([("_id", field("_id"))])
+                .sort(field("batch_idx"), true)
+                .limit(100),
             Some(lsn),
             None,
         )

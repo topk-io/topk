@@ -245,7 +245,9 @@ async fn test_partition_delete(ctx: &mut ProjectTestContext) {
 
     let p1_docs = p1
         .query(
-            select([("_id", field("_id")), ("partition", field("partition"))]).sort(field("rank"), true).limit(100),
+            select([("_id", field("_id")), ("partition", field("partition"))])
+                .sort(field("rank"), true)
+                .limit(100),
             Some(p1_lsn),
             None,
         )

@@ -15,7 +15,9 @@ async fn test_query_lte(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(field("published_year").lte(1950 as u32)).sort(field("published_year"), true).limit(100),
+            filter(field("published_year").lte(1950 as u32))
+                .sort(field("published_year"), true)
+                .limit(100),
             None,
             None,
         )
@@ -39,7 +41,8 @@ async fn test_query_and(ctx: &mut ProjectTestContext) {
                     .lte(1950 as u32)
                     .and(field("published_year").gte(1948 as u32)),
             )
-            .sort(field("published_year"), true).limit(100),
+            .sort(field("published_year"), true)
+            .limit(100),
             None,
             None,
         )
@@ -58,7 +61,9 @@ async fn test_query_is_null(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(field("nullable_embedding").is_null()).sort(field("published_year"), true).limit(100),
+            filter(field("nullable_embedding").is_null())
+                .sort(field("published_year"), true)
+                .limit(100),
             None,
             None,
         )
@@ -80,7 +85,9 @@ async fn test_query_is_not_null(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(field("nullable_embedding").is_not_null()).sort(field("published_year"), true).limit(100),
+            filter(field("nullable_embedding").is_not_null())
+                .sort(field("published_year"), true)
+                .limit(100),
             None,
             None,
         )
@@ -99,7 +106,9 @@ async fn test_query_not(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(not(field("_id").contains("gatsby"))).sort(field("published_year"), false).limit(100),
+            filter(not(field("_id").contains("gatsby")))
+                .sort(field("published_year"), false)
+                .limit(100),
             None,
             None,
         )
@@ -136,7 +145,8 @@ async fn test_query_choose_literal(ctx: &mut ProjectTestContext) {
                 field("summary").match_all("love").choose(2.0, 0.1),
             )])
             .filter(field("love_score").gt(1.0))
-            .sort(field("love_score"), false).limit(10),
+            .sort(field("love_score"), false)
+            .limit(10),
             None,
             None,
         )
@@ -161,7 +171,8 @@ async fn test_query_choose_literal_and_field(ctx: &mut ProjectTestContext) {
                     .match_all("love")
                     .choose(field("published_year"), 10u32),
             )])
-            .sort(field("love_score"), false).limit(2),
+            .sort(field("love_score"), false)
+            .limit(2),
             None,
             None,
         )
@@ -192,7 +203,8 @@ async fn test_query_choose_field(ctx: &mut ProjectTestContext) {
                     .match_all("love")
                     .choose(field("published_year"), field("published_year").div(10)),
             )])
-            .sort(field("love_score"), false).limit(3),
+            .sort(field("love_score"), false)
+            .limit(3),
             None,
             None,
         )
@@ -220,7 +232,8 @@ async fn test_query_coalesce_nullable(ctx: &mut ProjectTestContext) {
         .query(
             select([("importance", field("nullable_importance").coalesce(1.0_f32))])
                 .filter(field("published_year").lt(1900))
-                .sort(field("published_year"), false).limit(3),
+                .sort(field("published_year"), false)
+                .limit(3),
             None,
             None,
         )
@@ -247,7 +260,8 @@ async fn test_query_coalesce_missing(ctx: &mut ProjectTestContext) {
         .query(
             select([("importance", field("missing_field").coalesce(1.0_f32))])
                 .filter(field("published_year").lt(1900))
-                .sort(field("published_year"), false).limit(3),
+                .sort(field("published_year"), false)
+                .limit(3),
             None,
             None,
         )
@@ -274,7 +288,8 @@ async fn test_query_coalesce_non_nullable(ctx: &mut ProjectTestContext) {
         .query(
             select([("coalesced_year", field("published_year").coalesce(0u32))])
                 .filter(field("published_year").lt(1900))
-                .sort(field("published_year"), false).limit(3),
+                .sort(field("published_year"), false)
+                .limit(3),
             None,
             None,
         )
@@ -299,7 +314,9 @@ async fn test_query_abs(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("abs_year", field("published_year").add(-1990).abs())]).sort(field("abs_year"), true).limit(3),
+            select([("abs_year", field("published_year").add(-1990).abs())])
+                .sort(field("abs_year"), true)
+                .limit(3),
             None,
             None,
         )
@@ -336,7 +353,8 @@ async fn test_query_topk_min_max(ctx: &mut ProjectTestContext) {
                 None,
                 false,
             ))
-            .sort(field("published_year"), true).limit(3),
+            .sort(field("published_year"), true)
+            .limit(3),
             None,
             None,
         )
@@ -373,7 +391,9 @@ async fn test_query_logical_deep_recursion_limit(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(deep_expr).sort(field("published_year"), true).limit(100),
+            filter(deep_expr)
+                .sort(field("published_year"), true)
+                .limit(100),
             None,
             None,
         )
@@ -392,7 +412,9 @@ async fn test_query_gt_and_lte_string(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(field("_id").gt("moby").and(field("_id").lte("pride"))).sort(field("published_year"), true).limit(100),
+            filter(field("_id").gt("moby").and(field("_id").lte("pride")))
+                .sort(field("published_year"), true)
+                .limit(100),
             None,
             None,
         )
@@ -415,7 +437,8 @@ async fn test_query_min_string(ctx: &mut ProjectTestContext) {
                 ("title", field("title")),
                 ("min_string", field("title").min("Oz")),
             ])
-            .sort(field("published_year"), true).limit(2),
+            .sort(field("published_year"), true)
+            .limit(2),
             None,
             None,
         )

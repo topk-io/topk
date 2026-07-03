@@ -19,7 +19,9 @@ async fn test_query_text_filter_single_term_disjunctive(ctx: &mut ProjectTestCon
         .client
         .collection(&collection.name)
         .query(
-            filter(r#match("love", Some("summary"), None, false)).sort(field("published_year"), true).limit(100),
+            filter(r#match("love", Some("summary"), None, false))
+                .sort(field("published_year"), true)
+                .limit(100),
             None,
             None,
         )
@@ -38,7 +40,9 @@ async fn test_query_text_filter_single_term_conjunctive(ctx: &mut ProjectTestCon
         .client
         .collection(&collection.name)
         .query(
-            filter(r#match("love", Some("summary"), None, false)).sort(field("published_year"), true).limit(100),
+            filter(r#match("love", Some("summary"), None, false))
+                .sort(field("published_year"), true)
+                .limit(100),
             None,
             None,
         )
@@ -63,7 +67,8 @@ async fn test_query_text_filter_two_terms_disjunctive(ctx: &mut ProjectTestConte
                 None,
                 false,
             )))
-            .sort(field("published_year"), true).limit(100),
+            .sort(field("published_year"), true)
+            .limit(100),
             None,
             None,
         )
@@ -88,7 +93,8 @@ async fn test_query_text_filter_two_terms_conjunctive(ctx: &mut ProjectTestConte
                 None,
                 false,
             )))
-            .sort(field("published_year"), true).limit(100),
+            .sort(field("published_year"), true)
+            .limit(100),
             None,
             None,
         )
@@ -107,7 +113,9 @@ async fn test_query_text_filter_stop_word(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(r#match("the", Some("summary"), None, false)).sort(field("published_year"), true).limit(100),
+            filter(r#match("the", Some("summary"), None, false))
+                .sort(field("published_year"), true)
+                .limit(100),
             None,
             None,
         )
@@ -128,7 +136,8 @@ async fn test_query_select_bm25_without_text_queries(ctx: &mut ProjectTestContex
         .query(
             select([("bm25_score", fns::bm25_score(None, None))])
                 .filter(field("_id").eq("pride"))
-                .sort(field("bm25_score"), true).limit(100),
+                .sort(field("bm25_score"), true)
+                .limit(100),
             None,
             None,
         )
@@ -171,7 +180,9 @@ async fn test_query_text_match_all_two_terms(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(field("summary").match_all("love class")).sort(field("published_year"), true).limit(100),
+            filter(field("summary").match_all("love class"))
+                .sort(field("published_year"), true)
+                .limit(100),
             None,
             None,
         )
@@ -190,7 +201,9 @@ async fn test_query_text_match_all_two_terms_tokenized(ctx: &mut ProjectTestCont
         .client
         .collection(&collection.name)
         .query(
-            filter(field("tags").match_all(vec!["love", "class"])).sort(field("published_year"), true).limit(100),
+            filter(field("tags").match_all(vec!["love", "class"]))
+                .sort(field("published_year"), true)
+                .limit(100),
             None,
             None,
         )
@@ -209,7 +222,9 @@ async fn test_query_text_match_any_two_terms(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(field("summary").match_any("love ring")).sort(field("published_year"), true).limit(100),
+            filter(field("summary").match_any("love ring"))
+                .sort(field("published_year"), true)
+                .limit(100),
             None,
             None,
         )
@@ -228,7 +243,9 @@ async fn test_query_text_match_any_two_terms_tokenized(ctx: &mut ProjectTestCont
         .client
         .collection(&collection.name)
         .query(
-            filter(field("tags").match_any(vec!["love", "elves"])).sort(field("published_year"), true).limit(100),
+            filter(field("tags").match_any(vec!["love", "elves"]))
+                .sort(field("published_year"), true)
+                .limit(100),
             None,
             None,
         )
@@ -248,7 +265,8 @@ async fn test_query_text_matches_with_logical_expr(ctx: &mut ProjectTestContext)
         .collection(&collection.name)
         .query(
             filter(field("summary").match_all("love class") | field("published_year").eq(1925))
-                .sort(field("published_year"), true).limit(10),
+                .sort(field("published_year"), true)
+                .limit(10),
             None,
             None,
         )
@@ -309,7 +327,8 @@ async fn test_query_text_with_updates(ctx: &mut ProjectTestContext) {
         .query(
             select([("bm25", fns::bm25_score(None, None))])
                 .filter(r#match("surveillance", None, None, true))
-                .sort(literal(1u32).into(), true).limit(10),
+                .sort(literal(1u32).into(), true)
+                .limit(10),
             Some(lsn),
             None,
         )
@@ -333,7 +352,8 @@ async fn test_query_text_with_updates(ctx: &mut ProjectTestContext) {
         .query(
             select([("bm25", fns::bm25_score(None, None))])
                 .filter(r#match("love", None, None, true))
-                .sort(literal(1u32).into(), true).limit(10),
+                .sort(literal(1u32).into(), true)
+                .limit(10),
             Some(lsn),
             None,
         )
@@ -361,7 +381,9 @@ async fn test_query_text_deep_recursion_limit(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            filter(deep_expr).sort(field("published_year"), true).limit(100),
+            filter(deep_expr)
+                .sort(field("published_year"), true)
+                .limit(100),
             None,
             None,
         )
