@@ -9,6 +9,7 @@ homepage = "https://topk.io"
 documentation = "https://docs.topk.io"
 
 [features]
+json = []
 trace = ["dep:opentelemetry", "dep:tracing-opentelemetry"]
 
 [dependencies]

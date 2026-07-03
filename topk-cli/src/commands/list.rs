@@ -11,8 +11,6 @@ use serde::{Deserialize, Serialize};
 use terminal_size::{terminal_size, Width as TermWidth};
 use topk_rs::{Client, Error};
 
-use crate::util::value::value_to_json;
-
 #[derive(Serialize, Deserialize)]
 pub struct ListEntry {
     pub id: String,
@@ -37,7 +35,12 @@ impl From<topk_rs::proto::v1::ctx::ListEntry> for ListEntry {
             metadata: entry
                 .metadata
                 .into_iter()
-                .map(|(k, v)| (k, value_to_json(v)))
+                .map(|(k, v)| {
+                    (
+                        k,
+                        serde_json::Value::try_from(v).unwrap_or(serde_json::Value::Null),
+                    )
+                })
                 .collect(),
         }
     }
@@ -209,7 +212,7 @@ pub async fn run(
 
 #[cfg(test)]
 mod tests {
-    use super::{value_to_json, ListEntry};
+    use super::ListEntry;
     use crate::commands::test_context::CliTestContext;
     use assert_cmd::Command;
     use bytesize::ByteSize;
@@ -299,7 +302,7 @@ mod tests {
         ]);
 
         assert_eq!(
-            value_to_json(value),
+            serde_json::Value::try_from(value).unwrap(),
             json!({
                 "ticker": "AAPL",
                 "cik": 320193,

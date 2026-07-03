@@ -5,7 +5,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use topk_rs::{Client, Error};
 
-use crate::util::{mime::MimeType, read_query_from_stdin, value::value_to_json, Base64};
+use crate::util::{mime::MimeType, read_query_from_stdin, Base64};
 
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(transparent)]
@@ -62,7 +62,12 @@ impl From<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
             metadata: result
                 .metadata
                 .into_iter()
-                .map(|(k, v)| (k, value_to_json(v)))
+                .map(|(k, v)| {
+                    (
+                        k,
+                        serde_json::Value::try_from(v).unwrap_or(serde_json::Value::Null),
+                    )
+                })
                 .collect(),
         }
     }
