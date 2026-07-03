@@ -21,7 +21,8 @@ async fn test_query_select_literal(ctx: &mut ProjectTestContext) {
         .query(
             select([("literal", literal(1.0))])
                 .filter(field("title").eq("1984"))
-                .sort(field("published_year"), true).limit(100),
+                .sort(field("published_year"), true)
+                .limit(100),
             None,
             None,
         )
@@ -42,7 +43,8 @@ async fn test_query_select_non_existing_field(ctx: &mut ProjectTestContext) {
         .query(
             select([("literal", field("non_existing_field"))])
                 .filter(field("title").eq("1984"))
-                .sort(field("published_year"), true).limit(100),
+                .sort(field("published_year"), true)
+                .limit(100),
             None,
             None,
         )
@@ -61,7 +63,9 @@ async fn test_query_topk_limit(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("title", field("title"))]).sort(field("published_year"), true).limit(3),
+            select([("title", field("title"))])
+                .sort(field("published_year"), true)
+                .limit(3),
             None,
             None,
         )
@@ -73,7 +77,9 @@ async fn test_query_topk_limit(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("title", field("title"))]).sort(field("published_year"), true).limit(2),
+            select([("title", field("title"))])
+                .sort(field("published_year"), true)
+                .limit(2),
             None,
             None,
         )
@@ -85,7 +91,9 @@ async fn test_query_topk_limit(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("title", field("title"))]).sort(field("published_year"), true).limit(1),
+            select([("title", field("title"))])
+                .sort(field("published_year"), true)
+                .limit(1),
             None,
             None,
         )
@@ -103,7 +111,9 @@ async fn test_query_topk_asc(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("published_year", field("published_year"))]).sort(field("published_year"), true).limit(3),
+            select([("published_year", field("published_year"))])
+                .sort(field("published_year"), true)
+                .limit(3),
             None,
             None,
         )
@@ -129,7 +139,9 @@ async fn test_query_topk_desc(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("published_year", field("published_year"))]).sort(field("published_year"), false).limit(3),
+            select([("published_year", field("published_year"))])
+                .sort(field("published_year"), false)
+                .limit(3),
             None,
             None,
         )
@@ -157,7 +169,8 @@ async fn test_query_select_bm25_score(ctx: &mut ProjectTestContext) {
         .query(
             select([("bm25_score", fns::bm25_score(None, None))])
                 .filter(r#match("pride", None, None, false))
-                .sort(field("bm25_score"), true).limit(100),
+                .sort(field("bm25_score"), true)
+                .limit(100),
             None,
             None,
         )
@@ -184,7 +197,8 @@ async fn test_query_select_vector_distance(ctx: &mut ProjectTestContext) {
                 "summary_distance",
                 fns::vector_distance("summary_embedding", vec![2.0f32; 16]),
             )])
-            .sort(field("summary_distance"), true).limit(3),
+            .sort(field("summary_distance"), true)
+            .limit(3),
             None,
             None,
         )
@@ -261,7 +275,9 @@ async fn test_query_select_null_field(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("a", field("a")), ("b", literal(1 as u32).into())]).sort(field("b"), true).limit(100),
+            select([("a", field("a")), ("b", literal(1 as u32).into())])
+                .sort(field("b"), true)
+                .limit(100),
             None,
             None,
         )
@@ -298,7 +314,8 @@ async fn test_query_select_text_match(ctx: &mut ProjectTestContext) {
                 ),
             ])
             .filter(field("title").eq("1984").or(field("_id").eq("pride")))
-            .sort(field("published_year"), true).limit(100),
+            .sort(field("published_year"), true)
+            .limit(100),
             None,
             None,
         )
@@ -362,7 +379,9 @@ async fn test_query_select_union(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("mixed", field("mixed"))]).sort(field("rank"), true).limit(100),
+            select([("mixed", field("mixed"))])
+                .sort(field("rank"), true)
+                .limit(100),
             None,
             None,
         )
@@ -427,7 +446,9 @@ async fn test_query_select_list(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("list", field("list"))]).sort(field("rank"), true).limit(100),
+            select([("list", field("list"))])
+                .sort(field("rank"), true)
+                .limit(100),
             None,
             None,
         )

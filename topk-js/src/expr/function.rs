@@ -45,7 +45,9 @@ impl From<FunctionExpression> for topk_rs::proto::v1::data::FunctionExpr {
                 field,
                 query,
                 candidates,
-            } => topk_rs::proto::v1::data::FunctionExpr::multi_vector_distance(field, query, candidates),
+            } => topk_rs::proto::v1::data::FunctionExpr::multi_vector_distance(
+                field, query, candidates,
+            ),
             FunctionExpressionUnion::SemanticSimilarity { field, query } => {
                 topk_rs::proto::v1::data::FunctionExpr::semantic_similarity(field, query)
             }

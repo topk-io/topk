@@ -40,10 +40,7 @@ impl CollectionsClient {
     pub async fn create(
         &self,
         name: String,
-        #[napi(ts_arg_type = "Record<string, SchemaFieldSpec>")] schema: HashMap<
-            String,
-            FieldSpec,
-        >,
+        #[napi(ts_arg_type = "Record<string, SchemaFieldSpec>")] schema: HashMap<String, FieldSpec>,
     ) -> Result<Collection> {
         let proto_schema: HashMap<String, control::FieldSpec> = schema
             .into_iter()

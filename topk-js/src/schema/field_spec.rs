@@ -121,9 +121,11 @@ impl From<FieldSpec> for topk_rs::proto::v1::control::FieldSpec {
                     DataType::List { value_type } => {
                         topk_rs::proto::v1::control::field_type::DataType::List(value_type.into())
                     }
-                    DataType::Struct { fields } => topk_rs::proto::v1::control::field_type::DataType::r#struct(
-                        fields.into_iter().map(|(k, v)| (k, v.into())),
-                    ),
+                    DataType::Struct { fields } => {
+                        topk_rs::proto::v1::control::field_type::DataType::r#struct(
+                            fields.into_iter().map(|(k, v)| (k, v.into())),
+                        )
+                    }
                     DataType::Matrix {
                         dimension,
                         value_type,

@@ -125,7 +125,8 @@ async fn test_struct_query(ctx: &mut ProjectTestContext) {
         .query(
             select([("meta.author", field("meta.author"))])
                 .filter(field("meta.year").gt(2020i64))
-                .sort(field("meta.year"), true).limit(10)
+                .sort(field("meta.year"), true)
+                .limit(10)
                 .fetch(["meta.tag"]),
             None,
             None,
@@ -195,7 +196,8 @@ async fn test_struct_semantic_index_on_sub_field(ctx: &mut ProjectTestContext) {
                 "sim",
                 fns::semantic_similarity("meta.description", "programming"),
             )])
-            .sort(field("sim"), true).limit(2),
+            .sort(field("sim"), true)
+            .limit(2),
             Some(lsn),
             None,
         )
@@ -311,7 +313,9 @@ async fn test_literal_dotted_field_roundtrip(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("meta.foo", field("meta.foo"))]).sort(field("meta.foo"), true).limit(10),
+            select([("meta.foo", field("meta.foo"))])
+                .sort(field("meta.foo"), true)
+                .limit(10),
             Some(lsn),
             None,
         )

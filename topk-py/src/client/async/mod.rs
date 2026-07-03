@@ -3,11 +3,7 @@ use std::sync::Arc;
 use pyo3::{prelude::*, PyResult};
 
 use crate::{
-    client::{
-        r#async::ask::ask,
-        r#async::search::search,
-        topk_client, NativeRetryConfig,
-    },
+    client::{r#async::ask::ask, r#async::search::search, topk_client, NativeRetryConfig},
     data::ask::{Mode, Source},
     expr::logical::LogicalExpr,
 };

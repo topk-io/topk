@@ -39,10 +39,20 @@ impl DatasetsClient {
     }
 
     #[pyo3(signature = (dataset_name, description=None))]
-    pub fn create(&self, py: Python<'_>, dataset_name: String, description: Option<String>) -> PyResult<Dataset> {
+    pub fn create(
+        &self,
+        py: Python<'_>,
+        dataset_name: String,
+        description: Option<String>,
+    ) -> PyResult<Dataset> {
         let dataset = self
             .runtime
-            .block_on(py, self.client.datasets().create(&dataset_name, None, description))
+            .block_on(
+                py,
+                self.client
+                    .datasets()
+                    .create(&dataset_name, None, description),
+            )
             .map_err(RustError)?;
         Ok(dataset.into())
     }
@@ -56,7 +66,10 @@ impl DatasetsClient {
     ) -> PyResult<Dataset> {
         let dataset = self
             .runtime
-            .block_on(py, self.client.datasets().update(&dataset_name, description))
+            .block_on(
+                py,
+                self.client.datasets().update(&dataset_name, description),
+            )
             .map_err(RustError)?;
         Ok(dataset.into())
     }

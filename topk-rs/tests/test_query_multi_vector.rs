@@ -45,7 +45,8 @@ macro_rules! test_query_multi_vector_float {
                                     None,
                                 ),
                             )])
-                            .sort(field("dist"), false).limit(3),
+                            .sort(field("dist"), false)
+                            .limit(3),
                         None,
                         None,
                     )
@@ -131,7 +132,8 @@ macro_rules! test_query_multi_vector_float_binary {
                                     None,
                                 ),
                             )])
-                            .sort(field("dist"), false).limit($k),
+                            .sort(field("dist"), false)
+                            .limit($k),
                         None,
                         None,
                     )
@@ -198,7 +200,8 @@ async fn test_query_multi_vector_int(ctx: &mut ProjectTestContext) {
                                 None,
                             ),
                         )])
-                        .sort(field("dist"), false).limit(3),
+                        .sort(field("dist"), false)
+                        .limit(3),
                     None,
                     None,
                 )
@@ -230,7 +233,8 @@ async fn test_query_multi_vector_with_filter(ctx: &mut ProjectTestContext) {
                         fns::multi_vector_distance("token_embeddings", Matrix::new(7, q), None),
                     )])
                     .filter(field("_id").neq(literal("doc_8")))
-                    .sort(field("dist"), false).limit(3),
+                    .sort(field("dist"), false)
+                    .limit(3),
                 None,
                 None,
             )
@@ -261,7 +265,8 @@ async fn test_query_multi_vector_with_smve(ctx: &mut ProjectTestContext) {
                     )
                     .with_smve("smve", SparseVector::f32(vec![0, 1, 2], vec![1f32; 3])),
                 )])
-                .sort(field("dist"), false).limit(3),
+                .sort(field("dist"), false)
+                .limit(3),
             None,
             None,
         )
@@ -295,7 +300,8 @@ async fn test_query_multi_vector_with_invalid_smve(ctx: &mut ProjectTestContext)
                         SparseVector::f32(vec![0, 1, 2], vec![1f32; 3]),
                     ),
                 )])
-                .sort(field("dist"), false).limit(3),
+                .sort(field("dist"), false)
+                .limit(3),
             None,
             None,
         )
@@ -318,7 +324,8 @@ async fn test_query_multi_vector_with_invalid_smve(ctx: &mut ProjectTestContext)
                     )
                     .with_smve("smve", SparseVector::u8(vec![0, 1, 2], vec![1u8; 3])),
                 )])
-                .sort(field("dist"), false).limit(3),
+                .sort(field("dist"), false)
+                .limit(3),
             None,
             None,
         )
@@ -345,7 +352,8 @@ async fn test_query_multi_vector_with_invalid_dim(ctx: &mut ProjectTestContext) 
                         None,
                     ),
                 )])
-                .sort(field("dist"), false).limit(3),
+                .sort(field("dist"), false)
+                .limit(3),
             None,
             None,
         )
@@ -373,7 +381,8 @@ async fn test_query_multi_vector_with_invalid_data_type(ctx: &mut ProjectTestCon
                         None,
                     ),
                 )])
-                .sort(field("dist"), false).limit(3),
+                .sort(field("dist"), false)
+                .limit(3),
             None,
             None,
         )
@@ -401,7 +410,8 @@ async fn test_query_multi_vector_with_empty_query(ctx: &mut ProjectTestContext) 
                         None,
                     ),
                 )])
-                .sort(field("dist"), false).limit(3),
+                .sort(field("dist"), false)
+                .limit(3),
             None,
             None,
         )
@@ -429,7 +439,8 @@ async fn test_query_multi_vector_with_missing_index(ctx: &mut ProjectTestContext
                         None,
                     ),
                 )])
-                .sort(field("dist"), false).limit(3),
+                .sort(field("dist"), false)
+                .limit(3),
             None,
             None,
         )

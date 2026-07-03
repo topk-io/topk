@@ -50,11 +50,7 @@ impl AskResult {
     fn from_answer(a: Answer, show_refs: bool) -> Self {
         Self {
             facts: a.facts,
-            refs: a
-                .refs
-                .into_iter()
-                .map(|(k, v)| (k, v.into()))
-                .collect(),
+            refs: a.refs.into_iter().map(|(k, v)| (k, v.into())).collect(),
             confidence: a.confidence,
             show_refs,
         }
