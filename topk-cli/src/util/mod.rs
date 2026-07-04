@@ -6,7 +6,6 @@ pub mod bytes;
 pub mod files;
 pub mod mime;
 pub mod progress;
-pub mod value;
 
 pub use bytes::Base64;
 pub use mime::MimeType;

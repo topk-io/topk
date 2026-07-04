@@ -1,9 +1,12 @@
+use bytemuck::allocation::cast_vec;
+
 use crate::proto::data::v1::{list, matrix};
 
 mod document;
 mod sparse_vector;
 mod value;
-use bytemuck::allocation::cast_vec;
+#[cfg(feature = "json")]
+mod value_json;
 
 // List values
 
