@@ -1,4 +1,4 @@
-use crate::proto::data::v1::{stage, LogicalExpr, Query, Stage};
+use crate::proto::data::v1::{stage, AggregateExpr, LogicalExpr, Query, Stage};
 
 pub mod expr_ext;
 pub mod stage_ext;
@@ -51,6 +51,15 @@ impl Query {
 
     pub fn fetch(mut self, fields: impl IntoIterator<Item = impl Into<String>>) -> Self {
         self.stages.push(Stage::fetch(fields));
+        self
+    }
+
+    pub fn group_by(
+        mut self,
+        keys: impl IntoIterator<Item = (impl Into<String>, impl Into<LogicalExpr>)>,
+        aggs: impl IntoIterator<Item = (impl Into<String>, impl Into<AggregateExpr>)>,
+    ) -> Self {
+        self.stages.push(Stage::group_by(keys, aggs));
         self
     }
 }

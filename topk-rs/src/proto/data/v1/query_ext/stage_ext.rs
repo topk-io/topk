@@ -1,4 +1,4 @@
-use crate::proto::data::v1::{stage, LogicalExpr, Stage};
+use crate::proto::data::v1::{stage, AggregateExpr, LogicalExpr, Stage};
 
 impl Stage {
     pub fn select(
@@ -28,7 +28,7 @@ impl Stage {
     }
 
     /// Use `Stage::sort` + `Stage::limit` instead.
-    #[deprecated(note = "Use `Stage::sort` + `Stage::limit` instead")]
+    // #[deprecated(note = "Use `Stage::sort` + `Stage::limit` instead")]
     pub fn topk(expr: LogicalExpr, k: u64, asc: bool) -> Self {
         Stage {
             stage: Some(stage::Stage::TopK(stage::TopKStage {
@@ -64,6 +64,25 @@ impl Stage {
         Stage {
             stage: Some(stage::Stage::Fetch(stage::FetchStage {
                 fields: fields.into_iter().map(|s| s.into()).collect(),
+            })),
+        }
+    }
+
+    /// Group documents by one or more key expressions and compute aggregations for each group.
+    pub fn group_by(
+        keys: impl IntoIterator<Item = (impl Into<String>, impl Into<LogicalExpr>)>,
+        aggs: impl IntoIterator<Item = (impl Into<String>, impl Into<AggregateExpr>)>,
+    ) -> Self {
+        Stage {
+            stage: Some(stage::Stage::GroupBy(stage::GroupByStage {
+                keys: keys
+                    .into_iter()
+                    .map(|(k, v)| (k.into(), v.into()))
+                    .collect(),
+                aggs: aggs
+                    .into_iter()
+                    .map(|(k, v)| (k.into(), v.into()))
+                    .collect(),
             })),
         }
     }
