@@ -16,7 +16,7 @@ name = "topk"
 path = "src/main.rs"
 
 [dependencies]
-topk-rs = { path = "../topk-rs" }
+topk-rs = { path = "../topk-rs", features = ["json"] }
 clap = { version = "4", features = ["derive", "env"] }
 clap_complete = { version = "4" }
 tokio = { version = "1", features = ["full"] }
