@@ -25,7 +25,7 @@ def test_query_topk_by_non_existing(ctx: ProjectContext):
         ctx.client.collection(collection.name).query(
             select("title").topk(field("non_existing_field"), 3, True)
         )
-    assert "Input to SortWithLimit must produce primitive type, not Null" in str(
+    assert "Input to SortWithLimit must produce primitive or string type, not Null" in str(
         exc_info.value
     )
 
@@ -56,4 +56,4 @@ def test_union_u32_and_binary(ctx: ProjectContext):
         ctx.client.collection(collection.name).query(
             select("title").topk(field("num"), 100, True)
         )
-    assert "Input to SortWithLimit must produce primitive type" in str(exc_info.value)
+    assert "Input to SortWithLimit must produce primitive or string type" in str(exc_info.value)
