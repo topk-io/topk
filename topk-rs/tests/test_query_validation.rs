@@ -13,7 +13,7 @@ use utils::ProjectTestContext;
 async fn test_query_topk_by_non_primitive(ctx: &mut ProjectTestContext) {
     let collection = dataset::books::setup(ctx).await;
 
-    let err = ctx
+    let docs = ctx
         .client
         .collection(&collection.name)
         .query(
@@ -24,11 +24,9 @@ async fn test_query_topk_by_non_primitive(ctx: &mut ProjectTestContext) {
             None,
         )
         .await
-        .expect_err("should have failed");
+        .expect("query failed");
 
-    assert!(
-        matches!(err, Error::InvalidArgument(s) if s == "Input to SortWithLimit must produce primitive type, not String")
-    );
+    assert_doc_ids_ordered!(docs, ["1984", "harry", "moby"]);
 }
 
 #[test_context(ProjectTestContext)]
@@ -51,7 +49,7 @@ async fn test_query_topk_by_non_existing(ctx: &mut ProjectTestContext) {
 
     assert!(matches!(
         err,
-        Error::InvalidArgument(s) if s == "Input to SortWithLimit must produce primitive type, not Null"
+        Error::InvalidArgument(s) if s == "Input to SortWithLimit must produce primitive or string type, not Null"
     ));
 }
 
@@ -124,6 +122,6 @@ async fn test_union_u32_and_binary(ctx: &mut ProjectTestContext) {
 
     assert!(matches!(
         err,
-        Error::InvalidArgument(s) if s == "Input to SortWithLimit must produce primitive type, not Union([Primitive(U32), Binary])"
+        Error::InvalidArgument(s) if s == "Input to SortWithLimit must produce primitive or string type, not Union([Primitive(U32), Binary])"
     ));
 }
