@@ -51,6 +51,12 @@ impl Stage {
         }
     }
 
+    pub fn offset(offset: u64) -> Self {
+        Stage {
+            stage: Some(stage::Stage::Offset(stage::OffsetStage { offset })),
+        }
+    }
+
     pub fn sort(expr: LogicalExpr, asc: bool) -> Self {
         Stage {
             stage: Some(stage::Stage::Sort(stage::SortStage {

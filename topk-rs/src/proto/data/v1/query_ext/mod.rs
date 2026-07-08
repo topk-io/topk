@@ -44,6 +44,11 @@ impl Query {
         self
     }
 
+    pub fn offset(mut self, offset: u64) -> Self {
+        self.stages.push(Stage::offset(offset));
+        self
+    }
+
     pub fn sort(mut self, expr: LogicalExpr, asc: bool) -> Self {
         self.stages.push(Stage::sort(expr, asc));
         self

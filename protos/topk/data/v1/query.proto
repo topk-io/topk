@@ -56,6 +56,10 @@ message Stage {
     uint64 k = 1;
   }
 
+  message OffsetStage {
+    uint64 offset = 1;
+  }
+
   message SortStage {
     LogicalExpr expr = 1;
     bool asc = 2;
@@ -83,5 +87,6 @@ message Stage {
     SortStage sort = 7;
     FetchStage fetch = 8;
     GroupByStage group_by = 9;
+    OffsetStage offset = 10;
   }
 }
