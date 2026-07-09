@@ -149,6 +149,59 @@ async fn test_query_limit_vector_distance(ctx: &mut ProjectTestContext) {
     assert_eq!(docs_limit, docs_topk);
 }
 
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_limit_offset(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    // limit(4) after skipping the first 3 docs of that same ordering. The
+    // collector is inflated to limit(7) and the skip is applied post-merge.
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([("_id", field("_id"))]).limit(4).offset(3),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    // We don't guarantee any ordering of the results, so we just check the length.
+    assert_eq!(result.len(), 4);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_sort_limit_offset(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    // Books sorted by ascending publication year, then windowed with
+    // offset(3).limit(4): skip the 3 oldest (pride, moby, gatsby), take the
+    // next 4. The partitions fetch a partial top-7 and the router merges and
+    // skips.
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([
+                ("_id", field("_id")),
+                ("published_year", field("published_year")),
+            ])
+            .sort(field("published_year"), true)
+            .limit(4)
+            .offset(3),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_eq!(result.len(), 4);
+    assert_fields!(&result, ["_id", "published_year"]);
+    assert_doc_ids_ordered!(&result, ["hobbit", "1984", "catcher", "lotr"]);
+}
+
 #[tokio::test]
 #[rstest]
 #[case(
