@@ -8,6 +8,17 @@ impl TextExpr {
         TextExpr {
             expr: Some(text_expr::Expr::Terms(text_expr::TextTermsExpr {
                 all,
+                should: false,
+                terms,
+            })),
+        }
+    }
+
+    pub fn should(terms: Vec<Term>) -> Self {
+        TextExpr {
+            expr: Some(text_expr::Expr::Terms(text_expr::TextTermsExpr {
+                all: false,
+                should: true,
                 terms,
             })),
         }

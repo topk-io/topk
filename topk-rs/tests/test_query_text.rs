@@ -4,7 +4,7 @@ use topk_rs::{
     data::literal,
     doc,
     proto::v1::control::{FieldIndex, FieldSpec, KeywordIndexType},
-    query::{field, filter, fns, r#match, select},
+    query::{field, filter, fns, r#match, select, should},
     schema, Error,
 };
 use utils::dataset;
@@ -123,6 +123,60 @@ async fn test_query_text_filter_stop_word(ctx: &mut ProjectTestContext) {
         .expect("could not query");
 
     assert_doc_ids!(result, Vec::<String>::new());
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_text_should_does_not_filter(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([("bm25", fns::bm25_score(None, None))])
+                .filter(should("love", Some("summary"), None))
+                .sort(field("bm25"), false)
+                .limit(100),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_eq!(result.len(), 10);
+    assert_doc_ids!(&result[..2], ["pride", "gatsby"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_text_should_boosts_bm25_score(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    // the should term only affects ranking - the result set is gated by "love" alone
+    for (boost, expected) in [
+        ("wealth", ["gatsby", "pride"]),
+        ("marriage", ["pride", "gatsby"]),
+    ] {
+        let result = ctx
+            .client
+            .collection(&collection.name)
+            .query(
+                select([("bm25", fns::bm25_score(None, None))])
+                    .filter(
+                        r#match("love", Some("summary"), None, false)
+                            .and(should(boost, Some("summary"), None)),
+                    )
+                    .sort(field("bm25"), false)
+                    .limit(100),
+                None,
+                None,
+            )
+            .await
+            .expect("could not query");
+
+        assert_doc_ids_ordered!(result, expected);
+    }
 }
 
 #[test_context(ProjectTestContext)]

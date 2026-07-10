@@ -13,6 +13,7 @@ message TextExpr {
   message TextTermsExpr {
     bool all = 1;
     repeated Term terms = 2;
+    bool should = 3;
   }
 
   message TextAndExpr {

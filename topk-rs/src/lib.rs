@@ -126,6 +126,14 @@ pub mod query {
         )
     }
 
+    pub fn should(text: impl Into<String>, field: Option<&str>, weight: Option<f32>) -> TextExpr {
+        TextExpr::should(vec![Term {
+            token: text.into(),
+            field: field.map(|s| s.to_string()),
+            weight: weight.unwrap_or(1.0),
+        }])
+    }
+
     pub trait AsTerm {
         fn as_term(self) -> (String, f32);
     }
