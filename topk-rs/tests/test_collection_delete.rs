@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use test_context::test_context;
 use topk_rs::data::literal;
 use topk_rs::doc;
+use topk_rs::proto::v1::data::stage::sort_stage::SortOrder;
 use topk_rs::query::{field, select};
 use topk_rs::Error;
 
@@ -62,7 +63,7 @@ async fn test_delete_document(ctx: &mut ProjectTestContext) {
         .collection(&collection.name)
         .query(
             select([("title", field("title"))])
-                .sort(field("rank"), true)
+                .sort([(field("rank"), SortOrder::Asc)])
                 .limit(100),
             Some(lsn),
             None,
@@ -161,7 +162,7 @@ async fn test_delete_with_filter(ctx: &mut ProjectTestContext) {
     let doc_ids = collection
         .query(
             select([("_id", field("_id"))])
-                .sort(field("batch_idx"), true)
+                .sort([(field("batch_idx"), SortOrder::Asc)])
                 .limit(100),
             Some(lsn),
             None,
@@ -186,7 +187,7 @@ async fn test_delete_with_filter(ctx: &mut ProjectTestContext) {
     let doc_ids = collection
         .query(
             select([("_id", field("_id"))])
-                .sort(field("batch_idx"), true)
+                .sort([(field("batch_idx"), SortOrder::Asc)])
                 .limit(100),
             Some(lsn),
             None,

@@ -1,6 +1,7 @@
 use test_context::test_context;
 
 use topk_rs::error::Error;
+use topk_rs::proto::v1::data::stage::sort_stage::SortOrder;
 use topk_rs::query::{field, select};
 
 mod utils;
@@ -18,7 +19,7 @@ async fn test_query_fetch(ctx: &mut ProjectTestContext) {
         .query(
             select([("title", field("title"))])
                 .filter(field("title").eq("1984"))
-                .sort(field("published_year"), true)
+                .sort((field("published_year"), SortOrder::Asc))
                 .limit(100)
                 .fetch(["summary"]),
             None,
@@ -82,7 +83,7 @@ async fn test_query_fetch_rejects_select_overlap(ctx: &mut ProjectTestContext) {
         .collection(&collection.name)
         .query(
             select([("title", field("title"))])
-                .sort(field("published_year"), true)
+                .sort((field("published_year"), SortOrder::Asc))
                 .limit(10)
                 .fetch(["title"]),
             None,

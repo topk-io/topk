@@ -2,6 +2,7 @@ use sqlparser::ast::{
     Expr as SqlExpr, FunctionArg, FunctionArgExpr, GroupByExpr, LimitClause, OrderByKind,
     Query as SqlQuery, SetExpr, TableFactor, Value as SqlValue,
 };
+use topk_rs::proto::v1::data::stage::sort_stage::SortOrder;
 use topk_rs::proto::v1::data::stage::{filter_stage::FilterExpr, select_stage::SelectExpr};
 use topk_rs::proto::v1::data::{LogicalExpr, Query, Stage};
 
@@ -159,7 +160,10 @@ impl TryFrom<SqlQuery> for Statement {
 
         match (sort, limit) {
             (Some((expr, asc)), Some(k)) => {
-                stages.push(Stage::sort(expr, asc));
+                stages.push(Stage::sort((
+                    expr,
+                    asc.then_some(SortOrder::Asc).unwrap_or(SortOrder::Desc),
+                )));
                 stages.push(Stage::limit(k));
             }
             (Some(_), None) => sql_invalid!("ORDER BY without LIMIT is not supported"),

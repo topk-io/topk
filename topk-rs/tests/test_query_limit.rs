@@ -1,6 +1,7 @@
 use rstest::rstest;
 use std::collections::{HashMap, HashSet};
 use test_context::AsyncTestContext;
+use topk_rs::proto::v1::data::stage::sort_stage::SortOrder;
 use topk_rs::proto::v1::data::Query;
 
 use test_context::test_context;
@@ -123,7 +124,7 @@ async fn test_query_limit_vector_distance(ctx: &mut ProjectTestContext) {
                     "summary_distance",
                     fns::vector_distance("summary_embedding", vec![2.0; 16]).skip_refine(true),
                 )])
-                .sort(field("summary_distance"), true)
+                .sort((field("summary_distance"), SortOrder::Asc))
                 .limit(100),
             None,
             None,
@@ -188,7 +189,7 @@ async fn test_query_sort_limit_offset(ctx: &mut ProjectTestContext) {
                 ("_id", field("_id")),
                 ("published_year", field("published_year")),
             ])
-            .sort(field("published_year"), true)
+            .sort((field("published_year"), SortOrder::Asc))
             .limit(4)
             .offset(3),
             None,
@@ -206,24 +207,24 @@ async fn test_query_sort_limit_offset(ctx: &mut ProjectTestContext) {
 #[rstest]
 #[case(
     select([("title", field("title"))])
-        .sort(field("published_year"), true).limit(100)
+        .sort((field("published_year"), SortOrder::Asc)).limit(100)
         .limit(100)
 )]
 #[case(
     select([("title", field("title"))]).limit(100).count()
 )]
 #[case(
-    select([("title", field("title"))]).sort(field("published_year"), true)
+    select([("title", field("title"))]).sort((field("published_year"), SortOrder::Asc))
 )]
 #[case(
     select([("title", field("title"))])
-        .sort(field("published_year"), true)
-        .sort(field("published_year"), false)
+        .sort((field("published_year"), SortOrder::Asc))
+        .sort((field("published_year"), SortOrder::Desc))
 )]
 #[case(
     select([("title", field("title"))])
-        .sort(field("published_year"), true).limit(100)
-        .sort(field("published_year"), true)
+        .sort((field("published_year"), SortOrder::Asc)).limit(100)
+        .sort((field("published_year"), SortOrder::Asc))
 )]
 async fn test_query_invalid_collectors(#[case] query: Query) {
     let mut ctx = ProjectTestContext::setup().await;

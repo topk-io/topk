@@ -1,4 +1,5 @@
 use test_context::test_context;
+use topk_rs::proto::v1::data::stage::sort_stage::SortOrder;
 use topk_rs::query::{field, filter, r#match};
 use topk_rs::{Client, ClientConfig, Error};
 
@@ -39,7 +40,9 @@ async fn test_protobuf_recursion_limit_returns_invalid_argument(ctx: &mut Projec
         .client
         .collection("test")
         .query(
-            filter(deep_expr).sort(field("id"), true).limit(10),
+            filter(deep_expr)
+                .sort([(field("id"), SortOrder::Asc)])
+                .limit(10),
             None,
             None,
         )

@@ -450,7 +450,7 @@ async fn test_group_by_then_sort_limit(ctx: &mut ProjectTestContext) {
                 [("is_old", field("published_year").lt(1940 as u32))],
                 [("count", AggregateExpr::count(None))],
             )
-            .sort(field("count"), false)
+            .sort("count")
             .limit(1),
             None,
             None,

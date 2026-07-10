@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 use test_context::test_context;
-use topk_rs::query::{field, select};
+use topk_rs::{
+    proto::v1::data::stage::sort_stage::SortOrder,
+    query::{field, select},
+};
 
 mod utils;
 use utils::ProjectTestContext;
@@ -28,7 +31,9 @@ async fn test_query_tombstone_only(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("x", field("x"))]).sort(field("x"), true).limit(10),
+            select([("x", field("x"))])
+                .sort((field("x"), SortOrder::Asc))
+                .limit(10),
             Some(lsn),
             None,
         )

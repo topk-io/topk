@@ -1,5 +1,65 @@
 use crate::proto::data::v1::{stage, AggregateExpr, LogicalExpr, Stage};
 
+pub trait IntoSortExprs {
+    fn into_sort_exprs(self) -> Vec<stage::sort_stage::SortExpr>;
+}
+
+// Sort by field, DESC
+
+impl<'a> IntoSortExprs for &'a str {
+    fn into_sort_exprs(self) -> Vec<stage::sort_stage::SortExpr> {
+        (LogicalExpr::field(self), stage::sort_stage::SortOrder::Desc).into_sort_exprs()
+    }
+}
+
+impl IntoSortExprs for String {
+    fn into_sort_exprs(self) -> Vec<stage::sort_stage::SortExpr> {
+        (LogicalExpr::field(self), stage::sort_stage::SortOrder::Desc).into_sort_exprs()
+    }
+}
+
+// Sort by expr, DESC
+
+impl IntoSortExprs for LogicalExpr {
+    fn into_sort_exprs(self) -> Vec<stage::sort_stage::SortExpr> {
+        (self, stage::sort_stage::SortOrder::Desc).into_sort_exprs()
+    }
+}
+
+// Explicit sort expr and order
+
+impl IntoSortExprs for (LogicalExpr, stage::sort_stage::SortOrder) {
+    fn into_sort_exprs(self) -> Vec<stage::sort_stage::SortExpr> {
+        let (expr, order) = self;
+        vec![stage::sort_stage::SortExpr {
+            expr: Some(expr),
+            order: order.into(),
+        }]
+    }
+}
+
+impl<const N: usize> IntoSortExprs for [(LogicalExpr, stage::sort_stage::SortOrder); N] {
+    fn into_sort_exprs(self) -> Vec<stage::sort_stage::SortExpr> {
+        self.into_iter()
+            .map(|(expr, order)| stage::sort_stage::SortExpr {
+                expr: Some(expr),
+                order: order.into(),
+            })
+            .collect()
+    }
+}
+
+impl IntoSortExprs for Vec<(LogicalExpr, stage::sort_stage::SortOrder)> {
+    fn into_sort_exprs(self) -> Vec<stage::sort_stage::SortExpr> {
+        self.into_iter()
+            .map(|(expr, order)| stage::sort_stage::SortExpr {
+                expr: Some(expr),
+                order: order.into(),
+            })
+            .collect()
+    }
+}
+
 impl Stage {
     pub fn select(
         exprs: impl IntoIterator<
@@ -57,11 +117,15 @@ impl Stage {
         }
     }
 
-    pub fn sort(expr: LogicalExpr, asc: bool) -> Self {
+    pub fn sort(exprs: impl IntoSortExprs) -> Self {
         Stage {
             stage: Some(stage::Stage::Sort(stage::SortStage {
-                expr: Some(expr),
-                asc,
+                exprs: exprs.into_sort_exprs(),
+                // Set deprecated fields to default value
+                #[allow(deprecated)]
+                expr: None,
+                #[allow(deprecated)]
+                asc: false,
             })),
         }
     }

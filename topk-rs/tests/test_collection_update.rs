@@ -3,6 +3,7 @@ use test_context::test_context;
 
 use topk_rs::doc;
 use topk_rs::error::{DocumentValidationError, ValidationErrorBag};
+use topk_rs::proto::v1::data::stage::sort_stage::SortOrder;
 use topk_rs::proto::v1::data::Value;
 use topk_rs::query::{field, fns, select};
 use topk_rs::Error;
@@ -228,7 +229,7 @@ async fn test_update_semantic_index_field(ctx: &mut ProjectTestContext) {
         .collection(&collection.name)
         .query(
             select([("sim", fns::semantic_similarity("title", "dummy"))])
-                .sort(field("sim"), true)
+                .sort((field("sim"), SortOrder::Asc))
                 .limit(1),
             None,
             None,
