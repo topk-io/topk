@@ -47,6 +47,8 @@ pub mod query {
         AggregateExpr, LogicalExpr, Query, Stage, TextExpr,
     };
 
+    pub use crate::proto::v1::data::stage::sort_stage::SortOrder;
+
     pub mod fns {
         use crate::proto::v1::data::{FunctionExpr, Value};
 
