@@ -1,0 +1,106 @@
+---
+title: topk-js/query_agg
+---
+
+[topk-js](/sdk/topk-js/index) / query\_agg
+
+## Functions
+
+### avg()
+
+```ts
+function avg(field: string): AggregateExpression;
+```
+
+Calculate the average value of the given field.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `field` | `string` |
+
+**Returns**
+
+[`AggregateExpression`](/sdk/topk-js/Namespace.query#aggregateexpression)
+
+***
+
+### count()
+
+```ts
+function count(field?: string): AggregateExpression;
+```
+
+Count the number of non-null values for the given field.
+If not provided, count the number of rows in the input.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `field?` | `string` |
+
+**Returns**
+
+[`AggregateExpression`](/sdk/topk-js/Namespace.query#aggregateexpression)
+
+***
+
+### max()
+
+```ts
+function max(field: string): AggregateExpression;
+```
+
+Find the maximum value of the given field.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `field` | `string` |
+
+**Returns**
+
+[`AggregateExpression`](/sdk/topk-js/Namespace.query#aggregateexpression)
+
+***
+
+### min()
+
+```ts
+function min(field: string): AggregateExpression;
+```
+
+Find the minimum value of the given field.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `field` | `string` |
+
+**Returns**
+
+[`AggregateExpression`](/sdk/topk-js/Namespace.query#aggregateexpression)
+
+***
+
+### sum()
+
+```ts
+function sum(field: string): AggregateExpression;
+```
+
+Sum the values of the given field.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `field` | `string` |
+
+**Returns**
+
+[`AggregateExpression`](/sdk/topk-js/Namespace.query#aggregateexpression)

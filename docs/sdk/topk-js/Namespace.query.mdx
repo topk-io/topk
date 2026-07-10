@@ -108,6 +108,29 @@ Creates a new query with a filter stage.
 
 ***
 
+### groupBy()
+
+```ts
+function groupBy(keys: Record<string, LogicalExpression>, aggs: Record<string, AggregateExpression>): Query;
+```
+
+Creates a new query with a group-by stage.
+
+Groups documents by one or more key expressions and computes aggregations for each group.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `keys` | `Record`\<`string`, [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)\> |
+| `aggs` | `Record`\<`string`, [`AggregateExpression`](/sdk/topk-js/Namespace.query#aggregateexpression)\> |
+
+**Returns**
+
+[`Query`](/sdk/topk-js/Namespace.query#query)
+
+***
+
 ### literal()
 
 ```ts
@@ -282,6 +305,12 @@ Creates a new query with a select stage.
 [`Query`](/sdk/topk-js/Namespace.query#query)
 
 ## Classes
+
+### AggregateExpression
+
+**`Internal`**
+
+***
 
 ### FunctionExpression
 
@@ -926,6 +955,27 @@ Adds a filter stage to the query.
 | Parameter | Type |
 | ------ | ------ |
 | `expr` | \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`TextExpression`](/sdk/topk-js/Namespace.query#textexpression) |
+
+**Returns**
+
+[`Query`](/sdk/topk-js/Namespace.query#query)
+
+##### groupBy()
+
+```ts
+groupBy(keys: Record<string, LogicalExpression>, aggs: Record<string, AggregateExpression>): Query;
+```
+
+Adds a group-by stage to the query.
+
+Groups documents by one or more key expressions and computes aggregations for each group.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `keys` | `Record`\<`string`, [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)\> |
+| `aggs` | `Record`\<`string`, [`AggregateExpression`](/sdk/topk-js/Namespace.query#aggregateexpression)\> |
 
 **Returns**
 

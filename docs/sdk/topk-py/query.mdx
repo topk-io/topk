@@ -591,6 +591,13 @@ Check if the expression matches the provided regexp pattern.
     Instances of the `FunctionExpr` class are used to represent function expressions in TopK.
     Usually created using function constructors such as [`fn.vector_distance()`](#vector-distance), [`fn.semantic_similarity()`](#semantic-similarity) or [`fn.bm25_score()`](#bm25-score).
 
+### AggregateExpr
+
+*Internal*
+
+    Instances of the `AggregateExpr` class are used to represent aggregate expressions in TopK.
+    Usually created using aggregate constructors such as [`agg.count()`](#count), [`agg.sum()`](#sum), [`agg.min()`](#min-2), [`agg.max()`](#max-2) or [`agg.avg()`](#avg).
+
 ### TextExpr
 
 *Internal*
@@ -703,6 +710,29 @@ count(self) -> Query
 ```
 
 Adds a count stage to the query.
+
+**Returns**
+
+[`Query`](#query)
+
+***
+
+#### group\_by()
+
+```python
+group_by(self, keys: dict[str, LogicalExpr], aggs: dict[str, AggregateExpr]) -> Query
+```
+
+Adds a group-by stage to the query.
+
+        Groups documents by one or more key expressions and computes aggregations for each group.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `keys` | dict[str, [`LogicalExpr`](#logicalexpr)] |
+| `aggs` | dict[str, [`AggregateExpr`](#aggregateexpr)] |
 
 **Returns**
 
@@ -905,6 +935,129 @@ Calculate the multi-vector distance between a field and a query matrix.
 
 ***
 
+### agg
+
+The `query.agg` submodule exposes functions for creating aggregate expressions used in
+    [`group_by()`](#group-by)'s `aggs` argument, such as [`agg.count()`](#count), [`agg.sum()`](#sum),
+    [`agg.min()`](#min-2), [`agg.max()`](#max-2) or [`agg.avg()`](#avg).
+
+**Methods**
+
+#### count()
+
+```python
+count(field: str | None = None) -> AggregateExpr
+```
+
+Count the number of documents in the group.
+
+        If `field` is provided, counts only the documents where that field is non-null.
+        If omitted, counts every document in the group.
+
+        ```python
+        # Example:
+        from topk_sdk.query import group_by, field, agg
+
+        client.collection("books").query(
+          group_by(
+            {"is_old": field("published_year") < 1940},
+            {"count": agg.count()},
+          )
+        )
+        ```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `field` | str &#124; None |
+
+**Returns**
+
+[`AggregateExpr`](#aggregateexpr)
+
+***
+
+#### sum()
+
+```python
+sum(field: str) -> AggregateExpr
+```
+
+Sum the values of `field` across the group.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `field` | str |
+
+**Returns**
+
+[`AggregateExpr`](#aggregateexpr)
+
+***
+
+#### min()
+
+```python
+min(field: str) -> AggregateExpr
+```
+
+Find the minimum value of `field` across the group.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `field` | str |
+
+**Returns**
+
+[`AggregateExpr`](#aggregateexpr)
+
+***
+
+#### max()
+
+```python
+max(field: str) -> AggregateExpr
+```
+
+Find the maximum value of `field` across the group.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `field` | str |
+
+**Returns**
+
+[`AggregateExpr`](#aggregateexpr)
+
+***
+
+#### avg()
+
+```python
+avg(field: str) -> AggregateExpr
+```
+
+Calculate the average value of `field` across the group.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `field` | str |
+
+**Returns**
+
+[`AggregateExpr`](#aggregateexpr)
+
+***
+
 ## Functions
 
 ### field()
@@ -973,6 +1126,41 @@ Creates a new query with a filter stage.
 | Parameter | Type |
 | --------- | ---- |
 | `expr` | [`LogicalExpr`](#logicalexpr) &#124; [`TextExpr`](#textexpr) |
+
+**Returns**
+
+[`Query`](#query)
+
+***
+
+### group_by()
+
+```python
+group_by(keys: dict[str, LogicalExpr], aggs: dict[str, AggregateExpr]) -> Query
+```
+
+Creates a new query with a group-by stage.
+
+    Groups documents by one or more key expressions and computes aggregations for each group.
+
+    ```python
+    # Example:
+    from topk_sdk.query import group_by, field, agg
+
+    client.collection("books").query(
+      group_by(
+        {"is_old": field("published_year") < 1940},
+        {"count": agg.count()},
+      )
+    )
+    ```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `keys` | dict[str, [`LogicalExpr`](#logicalexpr)] |
+| `aggs` | dict[str, [`AggregateExpr`](#aggregateexpr)] |
 
 **Returns**
 

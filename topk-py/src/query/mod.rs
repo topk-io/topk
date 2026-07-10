@@ -1,4 +1,5 @@
 use crate::data::value::Value;
+use crate::expr::aggregate::AggregateExpr;
 use crate::expr::filter::FilterExprUnion;
 use crate::expr::flexible::Ordered;
 use crate::expr::function::FunctionExpr;
@@ -25,10 +26,12 @@ mod stage;
 #[pyo3(name = "query")]
 pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     module!(m, "fn", fn_pymodule)?;
+    module!(m, "agg", agg_pymodule)?;
 
     m.add_class::<Query>()?;
     m.add_class::<LogicalExpr>()?;
     m.add_class::<FunctionExpr>()?;
+    m.add_class::<AggregateExpr>()?;
 
     m.add_wrapped(wrap_pyfunction!(select))?;
     m.add_wrapped(wrap_pyfunction!(filter))?;
@@ -42,6 +45,7 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(abs))?;
     m.add_wrapped(wrap_pyfunction!(all))?;
     m.add_wrapped(wrap_pyfunction!(any))?;
+    m.add_wrapped(wrap_pyfunction!(group_by))?;
 
     Ok(())
 }
@@ -59,6 +63,14 @@ pub fn select(
 #[pyo3(signature = (expr))]
 pub fn filter(expr: FilterExprUnion) -> PyResult<Query> {
     Ok(Query::new().filter(expr)?)
+}
+
+#[pyfunction]
+pub fn group_by(
+    keys: HashMap<String, LogicalExpr>,
+    aggs: HashMap<String, AggregateExpr>,
+) -> PyResult<Query> {
+    Ok(Query::new().group_by(keys, aggs)?)
 }
 
 #[pyfunction]
@@ -252,4 +264,44 @@ pub fn multi_vector_distance(
             "Multi-vector query must be a matrix value",
         )),
     }
+}
+
+#[pymodule]
+#[pyo3(name = "agg")]
+pub fn agg_pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_wrapped(wrap_pyfunction!(count))?;
+    m.add_wrapped(wrap_pyfunction!(sum))?;
+    m.add_wrapped(wrap_pyfunction!(min_agg))?;
+    m.add_wrapped(wrap_pyfunction!(max_agg))?;
+    m.add_wrapped(wrap_pyfunction!(avg))?;
+
+    Ok(())
+}
+
+#[pyfunction]
+#[pyo3(signature = (field=None))]
+pub fn count(field: Option<String>) -> AggregateExpr {
+    AggregateExpr::Count { field }
+}
+
+#[pyfunction]
+pub fn sum(field: String) -> AggregateExpr {
+    AggregateExpr::Sum { field }
+}
+
+#[pyfunction]
+#[pyo3(name = "min")]
+pub fn min_agg(field: String) -> AggregateExpr {
+    AggregateExpr::Min { field }
+}
+
+#[pyfunction]
+#[pyo3(name = "max")]
+pub fn max_agg(field: String) -> AggregateExpr {
+    AggregateExpr::Max { field }
+}
+
+#[pyfunction]
+pub fn avg(field: String) -> AggregateExpr {
+    AggregateExpr::Avg { field }
 }

@@ -1,3 +1,4 @@
+use crate::expr::aggregate::AggregateExpr;
 use crate::expr::filter::FilterExprUnion;
 use crate::expr::logical::LogicalExpr;
 use crate::expr::select::{SelectExpr, SelectExprUnion};
@@ -177,6 +178,16 @@ impl Query {
     pub fn count(&self) -> PyResult<Self> {
         Ok(Self {
             stages: [self.stages.clone(), vec![Stage::Count {}]].concat(),
+        })
+    }
+
+    pub fn group_by(
+        &self,
+        keys: HashMap<String, LogicalExpr>,
+        aggs: HashMap<String, AggregateExpr>,
+    ) -> PyResult<Self> {
+        Ok(Self {
+            stages: [self.stages.clone(), vec![Stage::GroupBy { keys, aggs }]].concat(),
         })
     }
 }
