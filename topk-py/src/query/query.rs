@@ -153,6 +153,13 @@ impl Query {
         })
     }
 
+    #[pyo3(signature = (offset))]
+    pub fn offset(&self, offset: u64) -> PyResult<Self> {
+        Ok(Self {
+            stages: [self.stages.clone(), vec![Stage::Offset { offset }]].concat(),
+        })
+    }
+
     #[pyo3(signature = (expr, asc=true))]
     pub fn sort(&self, expr: LogicalExpr, asc: bool) -> PyResult<Self> {
         Ok(Self {

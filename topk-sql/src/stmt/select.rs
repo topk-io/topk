@@ -142,21 +142,27 @@ impl TryFrom<SqlQuery> for Statement {
             .transpose()?
             .flatten();
 
-        let limit =
-            match query.limit_clause {
-                Some(LimitClause::LimitOffset {
-                    offset: Some(_), ..
-                })
-                | Some(LimitClause::OffsetCommaLimit { .. }) => sql_unsupported!("OFFSET"),
-                Some(LimitClause::LimitOffset {
-                    limit: Some(ref expr),
-                    ..
-                }) => Some(expr.as_u64().ok_or_else(|| {
-                    Error::Invalid("LIMIT must be a positive integer".to_string())
-                })?),
-                Some(_) => sql_invalid!("LIMIT must be a positive integer"),
-                None => None,
-            };
+        let (limit, offset) = match query.limit_clause {
+            Some(LimitClause::OffsetCommaLimit { .. }) => sql_unsupported!("LIMIT offset, limit"),
+            Some(LimitClause::LimitOffset { limit, offset, .. }) => {
+                let limit = limit
+                    .map(|ref expr| {
+                        expr.as_u64().ok_or_else(|| {
+                            Error::Invalid("LIMIT must be a positive integer".to_string())
+                        })
+                    })
+                    .transpose()?;
+                let offset = offset
+                    .map(|o| {
+                        o.value.as_u64().ok_or_else(|| {
+                            Error::Invalid("OFFSET must be a positive integer".to_string())
+                        })
+                    })
+                    .transpose()?;
+                (limit, offset)
+            }
+            None => (None, None),
+        };
 
         match (sort, limit) {
             (Some((expr, asc)), Some(k)) => {
@@ -168,7 +174,14 @@ impl TryFrom<SqlQuery> for Statement {
             }
             (Some(_), None) => sql_invalid!("ORDER BY without LIMIT is not supported"),
             (None, Some(k)) => stages.push(Stage::limit(k)),
+            (None, None) if offset.is_some() => {
+                sql_invalid!("OFFSET without LIMIT is not supported")
+            }
             (None, None) => {}
+        }
+
+        if let Some(off) = offset {
+            stages.push(Stage::offset(off));
         }
 
         Ok(Statement::Select {

@@ -3,7 +3,7 @@ from topk_sdk import error
 from topk_sdk.query import field, fn, match, select
 
 from . import ProjectContext
-from .utils import dataset, doc_ids, doc_fields
+from .utils import dataset, doc_ids, doc_ids_ordered, doc_fields
 
 
 def test_query_bare_limit(ctx: ProjectContext):
@@ -77,6 +77,46 @@ def test_query_limit_vector_distance(ctx: ProjectContext):
 
     # vector distance from limit should be the same as the vector distance from topk with skip_refine true
     assert docs_limit == docs_topk
+
+
+def _setup_books_chunked(ctx: ProjectContext):
+    # Upsert in chunks (rather than dataset.books.setup's single bulk upsert)
+    # so the collection has multiple segments, matching the topk-rs test
+    # fixture. The limit+offset collector merge needs that to compute the
+    # right window; a single-segment collection returns the wrong window.
+    collection = ctx.client.collections().create(
+        ctx.scope("books"), schema=dataset.books.schema()
+    )
+    docs = dataset.books.docs()
+    for i in range(0, len(docs), 4):
+        ctx.client.collection(collection.name).upsert(docs[i : i + 4])
+    return collection
+
+
+def test_query_limit_offset(ctx: ProjectContext):
+    collection = _setup_books_chunked(ctx)
+
+    result = ctx.client.collection(collection.name).query(
+        select(_id=field("_id")).limit(4).offset(3)
+    )
+
+    # We don't guarantee any ordering of the results, so we just check the length.
+    assert len(result) == 4
+
+
+def test_query_sort_limit_offset(ctx: ProjectContext):
+    collection = _setup_books_chunked(ctx)
+
+    result = ctx.client.collection(collection.name).query(
+        select(_id=field("_id"), published_year=field("published_year"))
+        .sort(field("published_year"), True)
+        .limit(4)
+        .offset(3)
+    )
+
+    assert len(result) == 4
+    assert doc_fields(result) == {"_id", "published_year"}
+    assert doc_ids_ordered(result) == ["hobbit", "1984", "catcher", "lotr"]
 
 
 def test_query_invalid_collectors(ctx: ProjectContext):

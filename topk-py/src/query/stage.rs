@@ -10,6 +10,7 @@ pub enum Stage {
     Select { exprs: HashMap<String, SelectExpr> },
     Filter { expr: FilterExpr },
     Limit { k: u64 },
+    Offset { offset: u64 },
     Sort { expr: LogicalExpr, asc: bool },
     Count {},
 }
@@ -28,6 +29,7 @@ impl From<Stage> for topk_rs::proto::v1::data::Stage {
                     topk_rs::proto::v1::data::stage::sort_stage::SortOrder::Desc
                 },
             )),
+            Stage::Offset { offset } => topk_rs::proto::v1::data::Stage::offset(offset),
             Stage::Count {} => topk_rs::proto::v1::data::Stage::count(),
         }
     }
