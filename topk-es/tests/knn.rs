@@ -1,0 +1,621 @@
+mod common;
+
+use common::{BooksContext, TestScope};
+use ddb_test_macros::rstest_ctx;
+use elasticsearch::http::StatusCode;
+use serde_json::{json, Value};
+use test_context::test_context;
+
+async fn setup_hybrid_docs(scope: &TestScope) {
+    scope
+        .create_with_properties(json!({
+            "body": { "type": "text" },
+            "embedding": { "type": "dense_vector", "dims": 4, "similarity": "cosine" }
+        }))
+        .await;
+
+    scope
+        .index_docs([
+            (
+                "both",
+                json!({ "body": "cats", "embedding": [1.0, 0.0, 0.0, 0.0] }),
+            ),
+            (
+                "vector",
+                json!({ "body": "dogs", "embedding": [0.9, 0.1, 0.0, 0.0] }),
+            ),
+            (
+                "text",
+                json!({ "body": "cats", "embedding": [0.0, 1.0, 0.0, 0.0] }),
+            ),
+        ])
+        .await;
+}
+
+#[rstest_ctx(TestScope)]
+#[case::cosine(
+    "cosine",
+    vec![
+        ("1", json!({ "embedding": [1.0, 0.0, 0.0, 0.0] })),
+        ("2", json!({ "embedding": [0.9, 0.1, 0.0, 0.0] })),
+        ("3", json!({ "embedding": [0.0, 1.0, 0.0, 0.0] })),
+        ("4", json!({ "embedding": [0.0, 0.0, 1.0, 0.0] })),
+    ],
+    vec!["1", "2"]
+)]
+#[case::dot_product(
+    "dot_product",
+    vec![
+        ("1", json!({ "embedding": [2.0, 0.0, 0.0, 0.0] })),
+        ("2", json!({ "embedding": [1.0, 0.0, 0.0, 0.0] })),
+        ("3", json!({ "embedding": [0.0, 1.0, 0.0, 0.0] })),
+    ],
+    vec!["1", "2"]
+)]
+async fn test_knn_ranks_by_similarity_metric(
+    scope: &TestScope,
+    #[case] similarity: &str,
+    #[case] docs: Vec<(&str, Value)>,
+    #[case] expected: Vec<&str>,
+) {
+    scope
+        .create_with_properties(json!({
+            "embedding": { "type": "dense_vector", "dims": 4, "similarity": similarity }
+        }))
+        .await;
+
+    scope.index_docs(docs).await;
+
+    let body = scope
+        .search(json!({
+            "knn": { "field": "embedding", "query_vector": [1.0, 0.0, 0.0, 0.0], "k": 2 }
+        }))
+        .await
+        .expect("search should succeed");
+    assert_eq!(body.hit_ids(), expected, "nearest by {similarity}: {body}");
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_knn_cosine_score_reflects_similarity(scope: &TestScope) {
+    scope
+        .create_with_properties(
+            json!({ "embedding": { "type": "dense_vector", "dims": 4, "similarity": "cosine" } }),
+        )
+        .await;
+
+    scope
+        .index_docs([
+            ("same", json!({ "embedding": [1.0, 0.0, 0.0, 0.0] })),
+            ("orthogonal", json!({ "embedding": [0.0, 1.0, 0.0, 0.0] })),
+        ])
+        .await;
+
+    let body = scope
+        .search(json!({
+            "knn": { "field": "embedding", "query_vector": [1.0, 0.0, 0.0, 0.0], "k": 2 }
+        }))
+        .await
+        .expect("search should succeed");
+    assert!((body.score("same") - 1.0).abs() < 1e-6);
+    assert!(body.score("orthogonal").abs() < 1e-6);
+    assert!((body.max_score() - body.score("same")).abs() < 1e-6);
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_knn_euclidean_score_reflects_distance(scope: &TestScope) {
+    scope
+        .create_with_properties(
+            json!({ "embedding": { "type": "dense_vector", "dims": 4, "similarity": "l2_norm" } }),
+        )
+        .await;
+
+    scope
+        .index_docs([
+            ("1", json!({ "embedding": [1.0, 0.0, 0.0, 0.0] })),
+            ("2", json!({ "embedding": [10.0, 0.0, 0.0, 0.0] })),
+            ("3", json!({ "embedding": [100.0, 0.0, 0.0, 0.0] })),
+        ])
+        .await;
+
+    let body = scope
+        .search(json!({
+            "knn": { "field": "embedding", "query_vector": [1.0, 0.0, 0.0, 0.0], "k": 2 }
+        }))
+        .await
+        .expect("search should succeed");
+
+    assert_eq!(
+        body.hit_ids(),
+        vec!["1", "2"],
+        "k:2 should return the two nearest by l2_norm: {body}"
+    );
+    let score_1 = body.score("1");
+    let score_2 = body.score("2");
+    assert!((score_1 - 1.0).abs() < 1e-6);
+    assert!(score_2 > 0.0 && score_2 < score_1);
+    assert!((body.max_score() - score_1).abs() < 1e-6);
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_knn_with_filter(scope: &TestScope) {
+    scope
+        .create_with_properties(json!({
+            "category": { "type": "keyword" },
+            "embedding": { "type": "dense_vector", "dims": 4, "similarity": "cosine" }
+        }))
+        .await;
+
+    scope
+        .index_docs([
+            (
+                "1",
+                json!({ "category": "a", "embedding": [1.0, 0.0, 0.0, 0.0] }),
+            ),
+            (
+                "2",
+                json!({ "category": "b", "embedding": [0.9, 0.1, 0.0, 0.0] }),
+            ),
+        ])
+        .await;
+
+    let body = scope
+        .search(json!({
+            "knn": {
+                "field": "embedding",
+                "query_vector": [1.0, 0.0, 0.0, 0.0],
+                "k": 5,
+                "filter": { "term": { "category": "b" } }
+            }
+        }))
+        .await
+        .expect("search should succeed");
+    assert_eq!(
+        body.hit_ids(),
+        vec!["2"],
+        "filter should restrict candidates before ranking: {body}"
+    );
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_knn_filter_array_combines_filters(scope: &TestScope) {
+    scope
+        .create_with_properties(json!({
+            "category": { "type": "keyword" },
+            "n": { "type": "integer" },
+            "embedding": { "type": "dense_vector", "dims": 4, "similarity": "cosine" }
+        }))
+        .await;
+
+    scope
+        .index_docs([
+            (
+                "1",
+                json!({ "category": "a", "n": 2, "embedding": [1.0, 0.0, 0.0, 0.0] }),
+            ),
+            (
+                "2",
+                json!({ "category": "b", "n": 3, "embedding": [0.9, 0.1, 0.0, 0.0] }),
+            ),
+            (
+                "3",
+                json!({ "category": "b", "n": 1, "embedding": [0.8, 0.2, 0.0, 0.0] }),
+            ),
+        ])
+        .await;
+
+    let body = scope
+        .search(json!({
+            "knn": {
+                "field": "embedding",
+                "query_vector": [1.0, 0.0, 0.0, 0.0],
+                "k": 5,
+                "filter": [
+                    { "term": { "category": "b" } },
+                    { "range": { "n": { "gte": 2 } } }
+                ]
+            }
+        }))
+        .await
+        .expect("search should succeed");
+    assert_eq!(
+        body.hit_ids(),
+        vec!["2"],
+        "knn.filter array should AND the filters before ranking: {body}"
+    );
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_knn_array_form_combines_vector_queries(scope: &TestScope) {
+    scope
+        .create_with_properties(json!({
+            "embedding": { "type": "dense_vector", "dims": 4, "similarity": "cosine" }
+        }))
+        .await;
+
+    scope
+        .index_docs([
+            ("x", json!({ "embedding": [1.0, 0.0, 0.0, 0.0] })),
+            ("y", json!({ "embedding": [0.0, 1.0, 0.0, 0.0] })),
+            ("mid", json!({ "embedding": [0.5, 0.5, 0.0, 0.0] })),
+        ])
+        .await;
+
+    let body = scope
+        .search(json!({
+            "knn": [
+                {
+                    "field": "embedding",
+                    "query_vector": [1.0, 0.0, 0.0, 0.0],
+                    "k": 1,
+                    "num_candidates": 3
+                },
+                {
+                    "field": "embedding",
+                    "query_vector": [0.0, 1.0, 0.0, 0.0],
+                    "k": 1,
+                    "num_candidates": 3
+                }
+            ],
+            "size": 10
+        }))
+        .await
+        .expect("search should succeed");
+
+    let ids = body.hit_ids();
+    assert_eq!(ids.len(), 2, "{body}");
+    assert!(ids.contains(&"x".to_string()));
+    assert!(ids.contains(&"y".to_string()));
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_knn_query_rrf_combines_lexical_and_vector_results(scope: &TestScope) {
+    setup_hybrid_docs(scope).await;
+
+    let body = scope
+        .search(json!({
+            "query": { "match": { "body": "cats" } },
+            "knn": {
+                "field": "embedding",
+                "query_vector": [1.0, 0.0, 0.0, 0.0],
+                "k": 2,
+                "num_candidates": 3
+            },
+            "rank": { "rrf": {} },
+            "size": 10
+        }))
+        .await
+        .expect("search should succeed");
+
+    let ids = body.hit_ids();
+    assert_eq!(ids.len(), 3, "{body}");
+    assert!(ids.contains(&"both".to_string()));
+    assert!(ids.contains(&"vector".to_string()));
+    assert!(ids.contains(&"text".to_string()));
+    assert_eq!(
+        ids[0], "both",
+        "top-ranked in both the text and vector retrievers should fuse to rank first: {body}"
+    );
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_knn_over_byte_vectors_ranks_by_similarity(scope: &TestScope) {
+    scope
+        .create_with_properties(json!({
+            "embedding": { "type": "dense_vector", "dims": 2, "element_type": "byte", "similarity": "cosine" }
+        }))
+        .await;
+
+    scope
+        .index_docs([
+            ("close", json!({ "embedding": [127, 1] })),
+            ("far", json!({ "embedding": [-128, 127] })),
+        ])
+        .await;
+
+    let body = scope
+        .search(json!({
+            "knn": {
+                "field": "embedding",
+                "query_vector": [127, 0],
+                "k": 2
+            }
+        }))
+        .await
+        .expect("search should succeed");
+
+    assert_eq!(body.hit_ids(), vec!["close", "far"], "{body}");
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_knn_over_bit_vectors_ranks_by_hamming(scope: &TestScope) {
+    scope
+        .create_with_properties(json!({
+            "embedding": { "type": "dense_vector", "dims": 16, "element_type": "bit" }
+        }))
+        .await;
+
+    // Bit vectors pack 8 bits per signed byte: [-1, 0] is 0xFF00, [0, -1] is 0x00FF.
+    scope
+        .index_docs([
+            ("close", json!({ "embedding": [-1, 0] })),
+            ("far", json!({ "embedding": [0, -1] })),
+        ])
+        .await;
+
+    // Query 0xFF01 differs from "close" by 1 bit and from "far" by 15 bits.
+    let body = scope
+        .search(json!({
+            "knn": {
+                "field": "embedding",
+                "query_vector": [-1, 1],
+                "k": 2
+            }
+        }))
+        .await
+        .expect("search should succeed");
+
+    assert_eq!(body.hit_ids(), vec!["close", "far"], "{body}");
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_knn_byte_vector_rejects_fractional_query(scope: &TestScope) {
+    scope
+        .create_with_properties(json!({
+            "embedding": { "type": "dense_vector", "dims": 2, "element_type": "byte", "similarity": "cosine" }
+        }))
+        .await;
+
+    let err = scope
+        .search(json!({
+            "knn": {
+                "field": "embedding",
+                "query_vector": [0.5, 1.0],
+                "k": 1
+            }
+        }))
+        .await
+        .unwrap_err();
+    assert_eq!(err.status_code(), StatusCode::BAD_REQUEST);
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_knn_similarity_cutoff_filters_low_similarity_hits(scope: &TestScope) {
+    scope
+        .create_with_properties(json!({
+            "embedding": { "type": "dense_vector", "dims": 2, "similarity": "cosine" }
+        }))
+        .await;
+
+    scope
+        .index_docs([
+            ("close", json!({ "embedding": [1.0, 0.0] })),
+            ("far", json!({ "embedding": [0.0, 1.0] })),
+        ])
+        .await;
+
+    let unfiltered = scope
+        .search(json!({
+            "knn": {
+                "field": "embedding",
+                "query_vector": [1.0, 0.0],
+                "k": 2
+            }
+        }))
+        .await
+        .expect("search should succeed");
+    assert_eq!(unfiltered.hit_ids().len(), 2, "{unfiltered}");
+
+    let body = scope
+        .search(json!({
+            "knn": {
+                "field": "embedding",
+                "query_vector": [1.0, 0.0],
+                "k": 2,
+                "similarity": 0.5
+            }
+        }))
+        .await
+        .expect("search should succeed");
+
+    assert_eq!(
+        body.hit_ids(),
+        vec!["close"],
+        "similarity cutoff should drop low-similarity hits: {body}"
+    );
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_knn_with_sort_orders_by_field(scope: &TestScope) {
+    scope
+        .create_with_properties(json!({
+            "n": { "type": "integer" },
+            "embedding": { "type": "dense_vector", "dims": 2, "similarity": "cosine" }
+        }))
+        .await;
+
+    scope
+        .index_docs([
+            ("a", json!({ "n": 1, "embedding": [1.0, 0.0] })),
+            ("b", json!({ "n": 2, "embedding": [0.9, 0.1] })),
+            ("c", json!({ "n": 3, "embedding": [0.0, 1.0] })),
+        ])
+        .await;
+
+    let body = scope
+        .search(json!({
+            "knn": {
+                "field": "embedding",
+                "query_vector": [1.0, 0.0],
+                "k": 2
+            },
+            "sort": { "n": "desc" },
+            "size": 10
+        }))
+        .await
+        .expect("search should succeed");
+
+    assert_eq!(body.hit_ids(), vec!["b", "a"], "{body}");
+    assert!(body.all_scores_null());
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_knn_with_sort_track_scores_keeps_scores(scope: &TestScope) {
+    scope
+        .create_with_properties(json!({
+            "n": { "type": "integer" },
+            "embedding": { "type": "dense_vector", "dims": 2, "similarity": "cosine" }
+        }))
+        .await;
+
+    scope
+        .index_docs([
+            ("a", json!({ "n": 1, "embedding": [1.0, 0.0] })),
+            ("b", json!({ "n": 2, "embedding": [0.9, 0.1] })),
+        ])
+        .await;
+
+    let body = scope
+        .search(json!({
+            "knn": {
+                "field": "embedding",
+                "query_vector": [1.0, 0.0],
+                "k": 2
+            },
+            "sort": { "n": "asc" },
+            "track_scores": true,
+            "size": 10
+        }))
+        .await
+        .expect("search should succeed");
+
+    assert_eq!(body.hit_ids(), vec!["a", "b"], "{body}");
+    assert!(body.score("a") > 0.0);
+    assert!(body.score("a") > body.score("b"));
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_knn_boost_multiplies_hybrid_vector_score(scope: &TestScope) {
+    setup_hybrid_docs(scope).await;
+
+    let unboosted = scope
+        .search(json!({
+            "query": { "match": { "body": "cats" } },
+            "knn": {
+                "field": "embedding",
+                "query_vector": [1.0, 0.0, 0.0, 0.0],
+                "k": 2,
+                "num_candidates": 3
+            },
+            "size": 10
+        }))
+        .await
+        .expect("search should succeed");
+
+    let boosted = scope
+        .search(json!({
+            "query": { "match": { "body": "cats" } },
+            "knn": {
+                "field": "embedding",
+                "query_vector": [1.0, 0.0, 0.0, 0.0],
+                "k": 2,
+                "num_candidates": 3,
+                "boost": 2.0
+            },
+            "size": 10
+        }))
+        .await
+        .expect("search should succeed");
+
+    assert!(boosted.score("vector") > unboosted.score("vector") * 1.5);
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_knn_query_combines_lexical_and_vector_scores(scope: &TestScope) {
+    setup_hybrid_docs(scope).await;
+
+    let body = scope
+        .search(json!({
+            "query": { "match": { "body": "cats" } },
+            "knn": {
+                "field": "embedding",
+                "query_vector": [1.0, 0.0, 0.0, 0.0],
+                "k": 2,
+                "num_candidates": 3
+            },
+            "size": 10
+        }))
+        .await
+        .expect("search should succeed");
+
+    let ids = body.hit_ids();
+    assert_eq!(ids.len(), 3, "{body}");
+    assert!(ids.contains(&"both".to_string()));
+    assert!(ids.contains(&"vector".to_string()));
+    assert!(ids.contains(&"text".to_string()));
+    assert!(body.score("both") > body.score("vector") && body.score("both") > body.score("text"));
+}
+
+#[test_context(BooksContext)]
+#[tokio::test]
+async fn test_knn_maxsim_over_books_ranks_by_token_overlap(books: &BooksContext) {
+    let body = books
+        .search(json!({
+            "knn": { "field": "token_embeddings", "query_vector": [[1.0, 0.0, 0.0, 0.0]], "k": 3 }
+        }))
+        .await
+        .expect("search should succeed");
+
+    assert_eq!(
+        body.hit_ids(),
+        vec!["lotr", "hobbit", "harry"],
+        "MaxSim should rank the fantasy books by their leading token component: {body}"
+    );
+    assert!(body.score("lotr") > body.score("hobbit"));
+    assert!(body.score("hobbit") > body.score("harry"));
+}
+
+#[rstest_ctx(TestScope)]
+#[case::num_candidates_less_than_k(
+    json!({ "embedding": { "type": "dense_vector", "dims": 4 } }),
+    json!({ "knn": { "field": "embedding", "query_vector": [1.0, 0.0, 0.0, 0.0], "k": 2, "num_candidates": 1 } })
+)]
+#[case::unindexed_field(
+    json!({ "title": { "type": "text" } }),
+    json!({ "knn": { "field": "title", "query_vector": [1.0, 0.0], "k": 2 } })
+)]
+#[case::unknown_field(
+    json!({ "embedding": { "type": "dense_vector", "dims": 4 } }),
+    json!({ "knn": { "field": "nope", "query_vector": [1.0, 0.0, 0.0, 0.0], "k": 2 } })
+)]
+#[case::flat_vector_for_rank_field(
+    json!({ "tokens": { "type": "rank_vectors", "dims": 4 } }),
+    json!({ "knn": { "field": "tokens", "query_vector": [1.0, 0.0, 0.0, 0.0], "k": 2 } })
+)]
+#[case::matrix_vector_for_dense_field(
+    json!({ "embedding": { "type": "dense_vector", "dims": 4 } }),
+    json!({ "knn": { "field": "embedding", "query_vector": [[1.0, 0.0, 0.0, 0.0]], "k": 2 } })
+)]
+async fn test_knn_search_rejected(
+    scope: &TestScope,
+    #[case] properties: Value,
+    #[case] query: Value,
+) {
+    scope.create_with_properties(properties).await;
+
+    let err = scope.search(query).await.unwrap_err();
+    assert_eq!(err.status_code(), StatusCode::BAD_REQUEST);
+}

@@ -1,0 +1,26 @@
+[package]
+name = "topk-es"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+async-trait = { workspace = true }
+axum = { workspace = true }
+http = { workspace = true }
+regex = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_with = { workspace = true }
+thiserror = { workspace = true }
+topk-rs = { workspace = true, features = ["json"] }
+
+[dev-dependencies]
+ddb-test-macros = { workspace = true }
+elasticsearch = { version = "8.15.0-alpha.1", default-features = false, features = ["native-tls"] }
+futures = { workspace = true }
+rstest = { workspace = true }
+serde_json = { workspace = true }
+test-context = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+uuid = { workspace = true, features = ["v4"] }
