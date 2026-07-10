@@ -653,7 +653,7 @@ async fn group_by_with_having_direct_aggregate_call() {
 }
 
 #[tokio::test]
-async fn group_by_with_having_aggregah isn't in the SELECT list
+async fn group_by_with_having_aggregate_not_in_select_list() {
     let rows = BooksContext::with_scope(async |ctx| {
         ctx.sql(
             "SELECT (published_year < 1940) AS is_old, COUNT(*) AS count \
