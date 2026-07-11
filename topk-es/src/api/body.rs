@@ -48,10 +48,12 @@ where
     T: DeserializeOwned,
     S: Send + Sync,
 {
-    let is_json = req
+    let media_type = req
         .headers()
         .get(CONTENT_TYPE)
-        .map(|value| value.to_str().unwrap_or_default().contains("json"));
+        .and_then(|value| value.to_str().ok())
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
 
     let bytes = Bytes::from_request(req, state)
         .await
@@ -61,10 +63,14 @@ where
         return Ok(None);
     }
 
-    if is_json == Some(false) {
-        return Err(Error::UnsupportedMediaType(
-            "Content-type must be application/json".into(),
-        ));
+    let Some(media_type) = media_type else {
+        return Err(Error::NotAcceptable("Missing Content-Type header".into()));
+    };
+
+    if !media_type.contains("json") {
+        return Err(Error::UnsupportedMediaType(format!(
+            "Content-Type header [{media_type}] is not supported"
+        )));
     }
 
     Ok(Some(serde_json::from_slice(&bytes)?))

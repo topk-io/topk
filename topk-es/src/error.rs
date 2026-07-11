@@ -37,7 +37,10 @@ pub enum Error {
     #[error("action_request_validation_exception: {0}")]
     BadRequest(String),
 
-    #[error("content_type_exception: {0}")]
+    #[error("media_type_header_exception: {0}")]
+    NotAcceptable(String),
+
+    #[error("media_type_header_exception: {0}")]
     UnsupportedMediaType(String),
 
     #[error("json_parse_exception: {0}")]
@@ -88,7 +91,8 @@ impl Error {
             Error::InvalidQuery(msg) => (400, "parsing_exception", msg.clone()),
             Error::Unsupported(msg) => (400, "illegal_argument_exception", msg.clone()),
             Error::BadRequest(msg) => (400, "action_request_validation_exception", msg.clone()),
-            Error::UnsupportedMediaType(msg) => (415, "content_type_exception", msg.clone()),
+            Error::NotAcceptable(msg) => (406, "media_type_header_exception", msg.clone()),
+            Error::UnsupportedMediaType(msg) => (406, "media_type_header_exception", msg.clone()),
         };
         (status, ErrorBody { error_type, reason })
     }

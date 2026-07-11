@@ -7,6 +7,7 @@ pub type Schema = HashMap<String, FieldSpec>;
 pub mod agg;
 pub mod compile;
 pub mod doc;
+pub mod field;
 pub mod rank;
 pub mod score;
 pub mod value;

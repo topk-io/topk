@@ -11,7 +11,8 @@ use crate::Error;
 pub fn decode(source: &SourceFilter, fields: HashMap<String, Value>) -> Source {
     let mut nested = HashMap::new();
     for (key, value) in fields {
-        if key != "_id" && !key.starts_with(RANK_PREFIX) && source.keep(&key) {
+        let internal = key.starts_with('_') || key.starts_with(RANK_PREFIX);
+        if !internal && source.keep(&key) {
             insert_path(&mut nested, &key, value);
         }
     }

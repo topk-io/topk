@@ -1,19 +1,32 @@
-use topk_rs::proto::v1::control::{
-    field_index, field_type, field_type_matrix::MatrixValueType, FieldSpec,
-    MultiVectorDistanceMetric, VectorDistanceMetric,
-};
-use topk_rs::proto::v1::data::{FunctionExpr, LogicalExpr, Query as TopkQuery, TextExpr, Value};
+use topk_rs::proto::v1::control::{KeywordIndexType, VectorDistanceMetric};
+use topk_rs::proto::v1::data::{LogicalExpr, Query as TopkQuery, TextExpr, Value};
 use topk_rs::query::{count as count_query, field, filter, fns, not, should};
 
+use super::field::{ensure_aggregatable, IndexKind};
 use super::rank::Ranking;
-use super::score::{AnnQuery, AnnTerm, CompiledQuery, Score};
+use super::score::{ann_score, AnnQuery, AnnTerm, CompiledQuery, Score};
 use super::value::ValueExt;
-use super::{agg, RANK_ANN, RANK_BM25, RANK_SCORE};
+use super::{agg, RANK_BM25, RANK_SCORE};
 use crate::api::{
-    GateQuery, KnnRequest, MatchAllQuery, MatchOperator, MatchValue, Query, QueryVector,
-    SearchRequest, TermValue,
+    GateQuery, KnnRequest, MatchAllQuery, MatchOperator, MatchValue, Query, SearchRequest,
+    TermValue,
 };
 use crate::{engine::Schema, Error};
+
+fn validate_agg_fields(schema: &Schema, clause: &crate::api::AggClause) -> Result<(), Error> {
+    use crate::api::AggType;
+    match &clause.ty {
+        AggType::Terms(terms) => ensure_aggregatable(schema, terms.field.as_str())?,
+        AggType::Sum(m) | AggType::Avg(m) | AggType::Min(m) | AggType::Max(m) => {
+            ensure_aggregatable(schema, m.field.as_str())?
+        }
+        AggType::ValueCount(_) => {}
+    }
+    for sub in clause.aggs.iter().flatten() {
+        validate_agg_fields(schema, sub.1)?;
+    }
+    Ok(())
+}
 
 pub fn search(
     schema: &Schema,
@@ -25,7 +38,18 @@ pub fn search(
     }
     for knn in req.knn.take().unwrap_or_default() {
         let k = knn.k;
-        let threshold = knn.similarity.map(|min| min * knn.boost.unwrap_or(1.0));
+        // Cosine/dot_product cutoffs re-scale like their score (`(1 + s) / 2`);
+        // other metrics keep their raw units.
+        let affine = matches!(
+            schema.get(knn.field.as_str()).map(IndexKind::from),
+            Some(IndexKind::Vector(
+                VectorDistanceMetric::Cosine | VectorDistanceMetric::DotProduct
+            ))
+        );
+        let threshold = knn.similarity.map(|min| {
+            let min = if affine { (1.0 + min) / 2.0 } else { min };
+            min * knn.boost.unwrap_or(1.0)
+        });
         compiled.push((compile_knn(schema, knn)?, Some(k), threshold));
     }
     if compiled.is_empty() {
@@ -39,13 +63,35 @@ pub fn search(
         ));
     }
 
+    if req.rank.is_some() && req.size == 0 {
+        return Err(Error::InvalidQuery(
+            "[rank] requires [size] greater than [0]".into(),
+        ));
+    }
+
+    if let Some(sort) = req.sort.as_ref() {
+        ensure_aggregatable(schema, sort.field.as_str())?;
+    }
+    for clause in req.aggs.values() {
+        validate_agg_fields(schema, clause)?;
+    }
+
     let gate = LogicalExpr::any(compiled.iter().map(|(c, _, _)| c.gate.clone()));
 
     let window = Ranking::of(&req).window_size();
     let queries = compiled
         .into_iter()
         .map(|(c, k, threshold)| {
-            let limit = k.unwrap_or(req.from + req.size).max(window).max(1);
+            // A knn retriever contributes exactly its `k` nearest neighbours. Only
+            // non-knn retrievers fetch up to the rank window: an ANN query returns
+            // its top `limit` unconditionally, so expanding a knn's limit to the
+            // window pulls the whole index in as candidates, giving unrelated docs
+            // phantom RRF scores.
+            let limit = match k {
+                Some(k) => k,
+                None => (req.from + req.size).max(window),
+            }
+            .max(1);
             Ok((lower(schema, &req, c, k.is_some(), limit)?, threshold))
         })
         .collect::<Result<Vec<_>, Error>>()?;
@@ -202,21 +248,28 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
             };
             let field_name = clause.field.as_str().to_string();
             let value = clause.value.value();
-            let gate = field(field_name.clone()).eq(value.clone());
+            let token = value.as_string().map(str::to_string);
 
-            let text_indexed = matches!(
-                schema
-                    .get(&field_name)
-                    .and_then(|spec| spec.index.as_ref())
-                    .and_then(|index| index.index.as_ref()),
-                Some(field_index::Index::KeywordIndex(_))
-            );
-
-            match value.as_string() {
-                Some(token) if text_indexed => {
-                    Ok(bm25(gate, should(token, Some(&field_name), boost)))
-                }
-                _ => Ok(constant(gate, boost)),
+            match (
+                token,
+                schema.get(&field_name).map(IndexKind::from).unwrap_or(IndexKind::None),
+            ) {
+                // Exact keyword: exact-match gate plus IDF score from a verbatim
+                // text probe (the router does not analyze exact fields).
+                (Some(token), IndexKind::Keyword(KeywordIndexType::Exact)) => Ok(bm25(
+                    field(field_name.clone()).eq(value),
+                    should(&token, Some(&field_name), boost),
+                )),
+                // Analyzed text: ES `term` matches an indexed token, so gate on a
+                // text match (router analyzes the token) rather than exact scalar
+                // equality, which would never match a tokenized value.
+                (Some(token), IndexKind::Keyword(KeywordIndexType::Text)) => Ok(bm25(
+                    field(field_name.clone()).match_any(token.clone()),
+                    should(&token, Some(&field_name), boost),
+                )),
+                // Non-string values or non-text fields: exact equality, constant
+                // query-context score.
+                _ => Ok(constant(field(field_name).eq(value), boost)),
             }
         }
         Query::Terms(q) => Ok(constant(field(q.field).in_(q.values), q.boost)),
@@ -333,130 +386,3 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
     }
 }
 
-fn ann_score(
-    mut query: TopkQuery,
-    schema: &Schema,
-    anns: &[AnnTerm],
-) -> Result<(TopkQuery, Option<LogicalExpr>), Error> {
-    // Every ANN term gets its own scorer select.
-    let mut total: Option<LogicalExpr> = None;
-    for (index, ann) in anns.iter().enumerate() {
-        let spec = schema.get(&ann.field).ok_or_else(|| {
-            Error::InvalidQuery(format!(
-                "\"{}\" is not in the collection's schema",
-                ann.field
-            ))
-        })?;
-
-        let (spec, scorer) = match &ann.query {
-            AnnQuery::Semantic(text) => {
-                let spec = match spec.index.as_ref().and_then(|i| i.index.as_ref()) {
-                    Some(field_index::Index::SemanticIndex(_)) => {
-                        let embedding_field = format!("_embedding.{}", ann.field);
-                        schema.get(&embedding_field).ok_or_else(|| {
-                            Error::InvalidQuery(format!(
-                                "\"{embedding_field}\" is not in the collection's schema"
-                            ))
-                        })?
-                    }
-                    _ => spec,
-                };
-                (spec, fns::semantic_similarity(&ann.field, text))
-            }
-            AnnQuery::Vector {
-                vector,
-                num_candidates,
-            } => (
-                spec,
-                knn_distance(&ann.field, vector, *num_candidates, spec)?,
-            ),
-        };
-
-        let higher_is_better = match spec.index.as_ref().and_then(|i| i.index.as_ref()) {
-            Some(field_index::Index::VectorIndex(v)) => match v.metric() {
-                VectorDistanceMetric::Cosine | VectorDistanceMetric::DotProduct => true,
-                VectorDistanceMetric::Euclidean | VectorDistanceMetric::Hamming => false,
-                VectorDistanceMetric::Unspecified => return Err(not_knn_searchable(&ann.field)),
-            },
-            Some(field_index::Index::MultiVectorIndex(mv)) => match mv.metric() {
-                MultiVectorDistanceMetric::Maxsim => true,
-                _ => return Err(not_knn_searchable(&ann.field)),
-            },
-            _ => return Err(not_knn_searchable(&ann.field)),
-        };
-
-        let rank_ann = format!("{RANK_ANN}_{index}");
-        query = query.select([(rank_ann.as_str(), scorer)]);
-        let folded = match higher_is_better {
-            true => field(rank_ann.as_str()),
-            false => LogicalExpr::literal(1.0f32)
-                .div(LogicalExpr::literal(1.0f32).add(field(rank_ann.as_str()))),
-        };
-
-        let part = folded * ann.weight;
-        total = Some(match total {
-            Some(total) => total.add(part),
-            None => part,
-        });
-    }
-
-    Ok((query, total))
-}
-
-fn not_knn_searchable(field: &str) -> Error {
-    Error::InvalidQuery(format!("\"{field}\" is not a knn-searchable vector field"))
-}
-
-fn knn_distance(
-    field_name: &str,
-    query_vector: &QueryVector,
-    num_candidates: Option<u64>,
-    spec: &FieldSpec,
-) -> Result<FunctionExpr, Error> {
-    let index = spec
-        .index
-        .as_ref()
-        .and_then(|i| i.index.as_ref())
-        .ok_or_else(|| not_knn_searchable(field_name))?;
-
-    match index {
-        field_index::Index::VectorIndex(_) => match query_vector {
-            QueryVector::Flat(v) => Ok(fns::vector_distance(
-                field_name,
-                query_value(field_name, spec, v)?,
-            )),
-            QueryVector::Matrix(_) => Err(Error::InvalidQuery(format!(
-                "\"{field_name}\" is a dense_vector field; query_vector must be a flat array"
-            ))),
-        },
-        field_index::Index::MultiVectorIndex(_) => match query_vector {
-            QueryVector::Matrix(v) => Ok(fns::multi_vector_distance(
-                field_name,
-                query_value(field_name, spec, v)?,
-                num_candidates.map(|c| c as u32),
-            )),
-            QueryVector::Flat(_) => Err(Error::InvalidQuery(format!(
-                "\"{field_name}\" is a rank_vectors field; query_vector must be an array of vectors"
-            ))),
-        },
-        _ => Err(not_knn_searchable(field_name)),
-    }
-}
-
-fn query_value(field_name: &str, spec: &FieldSpec, value: &Value) -> Result<Value, Error> {
-    match spec.data_type.as_ref().and_then(|t| t.data_type.as_ref()) {
-        Some(field_type::DataType::I8Vector(_)) => value.to_i8_list(),
-        Some(field_type::DataType::U8Vector(_) | field_type::DataType::BinaryVector(_)) => {
-            value.to_unsigned_bytes()
-        }
-        Some(field_type::DataType::Matrix(m)) if matches!(m.value_type(), MatrixValueType::U8) => {
-            value.to_u8_matrix()
-        }
-        _ => value.to_f32_list().or_else(|| Some(value.clone())),
-    }
-    .ok_or_else(|| {
-        Error::InvalidQuery(format!(
-            "\"query_vector\" is not compatible with the type of field \"{field_name}\""
-        ))
-    })
-}
