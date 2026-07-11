@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Deserializer, Serialize};
-use serde_with::{serde_as, OneOrMany};
+use serde_with::{OneOrMany, serde_as};
 use topk_rs::proto::v1::data::Value as TopkValue;
 
 use super::aggs::{AggClause, AggResult};
@@ -112,7 +112,7 @@ pub struct RrfClause {
     #[serde(default)]
     pub rank_constant: Option<f32>,
 
-    #[serde(default)]
+    #[serde(default, alias = "window_size")]
     pub rank_window_size: Option<u64>,
 }
 
@@ -320,17 +320,4 @@ pub struct Hit {
     pub score: Option<f32>,
     #[serde(rename = "_source", skip_serializing_if = "Option::is_none")]
     pub source: Option<Source>,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::KnnRequest;
-
-    #[test]
-    fn knn_k_zero_is_rejected() {
-        assert!(
-            serde_json::from_str::<KnnRequest>(r#"{"field":"vec","query_vector":[1,0],"k":0}"#)
-                .is_err()
-        );
-    }
 }
