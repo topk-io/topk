@@ -36,7 +36,9 @@ impl SourceFilter {
         if self.excludes.iter().any(|p| Self::matches(p, path)) {
             return false;
         }
-        self.includes.is_empty() || self.includes.iter().any(|p| Self::matches(p, path))
+        self.includes.is_empty()
+            || self.includes.iter().any(|p| p == "*")
+            || self.includes.iter().any(|p| Self::matches(p, path))
     }
 
     fn matches(pattern: &str, path: &str) -> bool {
@@ -124,5 +126,24 @@ impl<S: Send + Sync> FromRequestParts<S> for SourceFilter {
         };
 
         Ok(SourceFilter::new(enabled, includes, excludes))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SourceFilter;
+
+    #[test]
+    fn star_include_matches_all_fields() {
+        let filter = SourceFilter::new(true, vec!["*".into()], vec![]);
+        assert!(filter.keep("title"));
+        assert!(filter.keep("meta.author"));
+    }
+
+    #[test]
+    fn star_include_still_respects_excludes() {
+        let filter = SourceFilter::new(true, vec!["*".into()], vec!["title".into()]);
+        assert!(!filter.keep("title"));
+        assert!(filter.keep("genre"));
     }
 }

@@ -908,6 +908,20 @@ async fn test_match_nested_in_bool_filter_does_not_score(scope: &TestScope) {
     }))
 )]
 #[case::false_omits_key(json!(false), None)]
+#[case::star_include_all_fields(
+    json!(["*"]),
+    Some(json!({
+        "title": "The Hobbit",
+        "author": "Tolkien",
+        "published_year": 1937,
+        "rating": 4.3,
+        "genre": "fantasy",
+        "in_print": true,
+        "tags": ["fantasy", "adventure", "tolkien"],
+        "embedding": [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        "token_embeddings": [[0.5, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0]],
+    }))
+)]
 #[case::includes_filters_fields(
     json!(["title", "genre"]),
     Some(json!({ "title": "The Hobbit", "genre": "fantasy" }))

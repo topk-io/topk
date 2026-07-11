@@ -85,6 +85,9 @@ pub struct KnnRequest {
 impl<'de> Deserialize<'de> for KnnRequest {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let req = Self::deserialize(deserializer)?;
+        if req.k == 0 {
+            return Err(serde::de::Error::custom("[knn] k must be greater than 0"));
+        }
         if let Some(candidates) = req.num_candidates {
             if candidates < req.k {
                 return Err(serde::de::Error::custom(format!(
@@ -317,4 +320,17 @@ pub struct Hit {
     pub score: Option<f32>,
     #[serde(rename = "_source", skip_serializing_if = "Option::is_none")]
     pub source: Option<Source>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::KnnRequest;
+
+    #[test]
+    fn knn_k_zero_is_rejected() {
+        assert!(
+            serde_json::from_str::<KnnRequest>(r#"{"field":"vec","query_vector":[1,0],"k":0}"#)
+                .is_err()
+        );
+    }
 }

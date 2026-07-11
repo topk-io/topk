@@ -698,6 +698,10 @@ async fn test_knn_maxsim_over_books_ranks_by_token_overlap(books: &BooksContext)
 }
 
 #[rstest_ctx(TestScope)]
+#[case::k_zero(
+    json!({ "embedding": { "type": "dense_vector", "dims": 4 } }),
+    json!({ "knn": { "field": "embedding", "query_vector": [1.0, 0.0, 0.0, 0.0], "k": 0 } })
+)]
 #[case::num_candidates_less_than_k(
     json!({ "embedding": { "type": "dense_vector", "dims": 4 } }),
     json!({ "knn": { "field": "embedding", "query_vector": [1.0, 0.0, 0.0, 0.0], "k": 2, "num_candidates": 1 } })
