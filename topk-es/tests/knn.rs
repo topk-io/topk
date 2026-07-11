@@ -732,3 +732,29 @@ async fn test_knn_search_rejected(
     let err = scope.search(query).await.unwrap_err();
     assert_eq!(err.status_code(), StatusCode::BAD_REQUEST);
 }
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_rank_rrf_with_size_zero_rejected(scope: &TestScope) {
+    scope
+        .create_with_properties(json!({
+            "embedding": { "type": "dense_vector", "dims": 4 }
+        }))
+        .await;
+
+    let err = scope
+        .search(json!({
+            "query": { "match_all": {} },
+            "knn": {
+                "field": "embedding",
+                "query_vector": [1.0, 0.0, 0.0, 0.0],
+                "k": 2
+            },
+            "rank": { "rrf": {} },
+            "size": 0
+        }))
+        .await
+        .unwrap_err();
+
+    assert_eq!(err.status_code(), StatusCode::BAD_REQUEST);
+}

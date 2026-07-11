@@ -926,6 +926,10 @@ async fn test_match_nested_in_bool_filter_does_not_score(scope: &TestScope) {
     json!(["title", "genre"]),
     Some(json!({ "title": "The Hobbit", "genre": "fantasy" }))
 )]
+#[case::string_include_single_field(
+    json!("title"),
+    Some(json!({ "title": "The Hobbit" }))
+)]
 #[case::excludes_drops_fields(
     json!({ "excludes": ["embedding", "token_embeddings", "tags"] }),
     Some(json!({
