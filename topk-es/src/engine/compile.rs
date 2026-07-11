@@ -5,6 +5,7 @@ use topk_rs::query::{count as count_query, field, filter, fns, not, should};
 use super::field::{ensure_aggregatable, IndexKind};
 use super::rank::Ranking;
 use super::score::{ann_score, AnnQuery, AnnTerm, CompiledQuery, Score};
+use super::value::ValueExt;
 use super::{agg, RANK_BM25, RANK_SCORE};
 use crate::api::{
     GateQuery, KnnRequest, MatchAllQuery, MatchOperator, MatchValue, Query, SearchRequest,
@@ -247,6 +248,11 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
             };
             let field_name = clause.field.as_str().to_string();
             let value = clause.value.value();
+            if !value.is_scalar() {
+                return Err(Error::InvalidQuery(format!(
+                    "[term] query does not support a non-scalar value for field [{field_name}]"
+                )));
+            }
             let token = value.as_string().map(str::to_string);
 
             match (

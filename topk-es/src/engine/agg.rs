@@ -44,7 +44,12 @@ pub fn collect(clause: &AggClause, docs: Vec<Document>) -> Result<AggResult, Err
             let mut buckets = Vec::with_capacity(docs.len());
 
             for mut doc in docs {
-                let key = doc.fields.remove("key").unwrap_or_else(Value::null);
+                let raw = doc.fields.remove("key").unwrap_or_else(Value::null);
+                // ES reports boolean terms keys as 1/0 with a "true"/"false" companion.
+                let (key, key_as_string) = match raw.as_bool() {
+                    Some(b) => (JsonValue::from(Value::i64(b as i64)), Some(b.to_string())),
+                    None => (JsonValue::from(raw), None),
+                };
 
                 let doc_count = doc
                     .fields
@@ -59,7 +64,8 @@ pub fn collect(clause: &AggClause, docs: Vec<Document>) -> Result<AggResult, Err
                 }
 
                 buckets.push(TermsBucket {
-                    key: JsonValue::from(key),
+                    key,
+                    key_as_string,
                     doc_count,
                     sub_aggs,
                 });

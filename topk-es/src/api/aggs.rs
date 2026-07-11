@@ -57,6 +57,8 @@ pub enum AggResult {
 #[derive(Serialize)]
 pub struct TermsBucket {
     pub key: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key_as_string: Option<String>,
     pub doc_count: u64,
     #[serde(flatten)]
     pub sub_aggs: HashMap<String, AggResult>,

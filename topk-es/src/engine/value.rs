@@ -2,6 +2,7 @@ use topk_rs::proto::v1::data::{list, value, List, Value};
 
 pub trait ValueExt: Sized {
     fn number(&self) -> Option<f64>;
+    fn is_scalar(&self) -> bool;
     fn to_f32_list(&self) -> Option<Self>;
     fn to_i8_list(&self) -> Option<Self>;
     fn to_unsigned_bytes(&self) -> Option<Self>;
@@ -10,6 +11,22 @@ pub trait ValueExt: Sized {
 }
 
 impl ValueExt for Value {
+    fn is_scalar(&self) -> bool {
+        matches!(
+            self.value,
+            Some(
+                value::Value::Bool(_)
+                    | value::Value::String(_)
+                    | value::Value::U32(_)
+                    | value::Value::U64(_)
+                    | value::Value::I32(_)
+                    | value::Value::I64(_)
+                    | value::Value::F32(_)
+                    | value::Value::F64(_)
+            )
+        )
+    }
+
     fn number(&self) -> Option<f64> {
         self.as_f64()
             .or_else(|| self.as_f32().map(f64::from))

@@ -6,7 +6,8 @@ use async_trait::async_trait;
 use axum::extract::{FromRequestParts, Path};
 use http::request::Parts;
 use regex::Regex;
-use serde::{Deserialize, Serialize};
+use serde::de::Error as DeError;
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::Error;
 
@@ -73,9 +74,24 @@ impl<S: Send + Sync> FromRequestParts<S> for IndexName {
 }
 
 #[repr(transparent)]
-#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Deserialize, Serialize)]
-#[serde(try_from = "String")]
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 pub struct DocId(String);
+
+// ES coerces numeric ids to their string form, so accept a string or a number.
+impl<'de> Deserialize<'de> for DocId {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let id = match serde_json::Value::deserialize(deserializer)? {
+            serde_json::Value::String(s) => s,
+            serde_json::Value::Number(n) => n.to_string(),
+            other => {
+                return Err(DeError::custom(format!(
+                    "document id must be a string or number, got {other}"
+                )))
+            }
+        };
+        DocId::try_from(id).map_err(DeError::custom)
+    }
+}
 
 impl TryFrom<String> for DocId {
     type Error = Error;

@@ -26,16 +26,22 @@ pub struct Client {
 
 impl Client {
     pub fn new() -> Self {
-        let api_key = std::env::var("TOPK_API_KEY").expect("TOPK_API_KEY must be set");
-        let url =
-            std::env::var("ELASTIC_URL").unwrap_or_else(|_| "http://localhost:9200".to_string());
+        let url = std::env::var("ES_URL")
+            .or_else(|_| std::env::var("ELASTIC_URL"))
+            .unwrap_or_else(|_| "http://localhost:9200".to_string());
 
         let url = Url::parse(&url).unwrap();
         let conn_pool = SingleNodeConnectionPool::new(url);
-        let transport = TransportBuilder::new(conn_pool)
-            .auth(Credentials::Bearer(api_key))
-            .build()
-            .unwrap();
+        let mut builder = TransportBuilder::new(conn_pool);
+
+        if let Ok(token) = std::env::var("ES_TOKEN") {
+            builder = builder.auth(Credentials::EncodedApiKey(token));
+        } else {
+            let api_key = std::env::var("TOPK_API_KEY").expect("TOPK_API_KEY or ES_TOKEN must be set");
+            builder = builder.auth(Credentials::Bearer(api_key));
+        }
+
+        let transport = builder.build().unwrap();
 
         Self {
             es: Elasticsearch::new(transport),
