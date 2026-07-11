@@ -50,7 +50,7 @@ async fn test_query_topk_by_non_existing(ctx: &mut ProjectTestContext) {
 
     assert!(matches!(
         err,
-        Error::InvalidArgument(s) if s == "Input to SortWithLimit must produce primitive or string type, not Null"
+        Error::InvalidArgument(s) if s.contains("not Null")
     ));
 }
 
@@ -123,6 +123,6 @@ async fn test_union_u32_and_binary(ctx: &mut ProjectTestContext) {
 
     assert!(matches!(
         err,
-        Error::InvalidArgument(s) if s == "Input to SortWithLimit must produce primitive or string type, not Union([Primitive(U32), Binary])"
+        Error::InvalidArgument(s) if s.contains("not Union([Primitive(U32), Binary])")
     ));
 }

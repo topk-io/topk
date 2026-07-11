@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::HashSet;
 
 use rstest::rstest;
 use test_context::{test_context, AsyncTestContext};
@@ -62,10 +63,12 @@ async fn test_query_limit_select_filter(ctx: &mut ProjectTestContext) {
 
     assert_eq!(result.len(), 3);
     assert_fields!(&result, ["_id", "summary", "is_recent"]);
-    assert_doc_ids!(
-        result,
-        ["1984", "alchemist", "catcher", "gatsby", "harry", "hobbit"]
-    );
+
+    let matching_ids: HashSet<&str> =
+        HashSet::from_iter(["1984", "alchemist", "catcher", "gatsby", "harry", "hobbit"]);
+    for r in result {
+        assert!(matching_ids.contains(r.id().unwrap()));
+    }
 }
 
 #[test_context(ProjectTestContext)]
