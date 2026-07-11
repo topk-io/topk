@@ -72,9 +72,7 @@ impl From<SourceFilterWire> for SourceFilter {
                 SourceFilter::new(enabled, Vec::new(), Vec::new())
             }
             SourceFilterWire::Includes(includes) => SourceFilter::new(true, includes, Vec::new()),
-            SourceFilterWire::Include(field) => {
-                SourceFilter::new(true, vec![field], Vec::new())
-            }
+            SourceFilterWire::Include(field) => SourceFilter::new(true, vec![field], Vec::new()),
             SourceFilterWire::Filter(SourceFilterWireFields { includes, excludes }) => {
                 SourceFilter::new(true, includes, excludes)
             }

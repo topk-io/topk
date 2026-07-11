@@ -5,7 +5,6 @@ use topk_rs::query::{count as count_query, field, filter, fns, not, should};
 use super::field::{ensure_aggregatable, IndexKind};
 use super::rank::Ranking;
 use super::score::{ann_score, AnnQuery, AnnTerm, CompiledQuery, Score};
-use super::value::ValueExt;
 use super::{agg, RANK_BM25, RANK_SCORE};
 use crate::api::{
     GateQuery, KnnRequest, MatchAllQuery, MatchOperator, MatchValue, Query, SearchRequest,
@@ -252,7 +251,10 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
 
             match (
                 token,
-                schema.get(&field_name).map(IndexKind::from).unwrap_or(IndexKind::None),
+                schema
+                    .get(&field_name)
+                    .map(IndexKind::from)
+                    .unwrap_or(IndexKind::None),
             ) {
                 // Exact keyword: exact-match gate plus IDF score from a verbatim
                 // text probe (the router does not analyze exact fields).
@@ -385,4 +387,3 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
         }),
     }
 }
-

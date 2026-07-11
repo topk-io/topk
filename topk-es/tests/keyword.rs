@@ -33,7 +33,9 @@ async fn test_match_on_keyword_is_exact_and_verbatim(scope: &TestScope) {
 
     // Partial token does not match (ES: keyword is not tokenized).
     assert_eq!(
-        scope.search_ids(json!({ "match": { "tag": "York" } })).await,
+        scope
+            .search_ids(json!({ "match": { "tag": "York" } }))
+            .await,
         Vec::<String>::new(),
         "match on a partial token of a keyword value must not hit"
     );
@@ -127,7 +129,9 @@ async fn test_term_on_text_matches_token(scope: &TestScope) {
         .await;
 
     assert_eq!(
-        scope.search_ids(json!({ "term": { "title": "fox" } })).await,
+        scope
+            .search_ids(json!({ "term": { "title": "fox" } }))
+            .await,
         vec!["1"],
         "term on a text field should match an indexed token"
     );

@@ -124,7 +124,10 @@ pub fn ann_score(
             AnnQuery::Vector {
                 vector,
                 num_candidates,
-            } => (spec, knn_distance(&ann.field, vector, *num_candidates, spec)?),
+            } => (
+                spec,
+                knn_distance(&ann.field, vector, *num_candidates, spec)?,
+            ),
         };
 
         let rank_ann = format!("{RANK_ANN}_{index}");
@@ -212,13 +215,19 @@ mod tests {
         let inverse =
             |x: LogicalExpr| LogicalExpr::literal(1.0f32).div(LogicalExpr::literal(1.0f32).add(x));
 
-        for metric in [VectorDistanceMetric::Cosine, VectorDistanceMetric::DotProduct] {
+        for metric in [
+            VectorDistanceMetric::Cosine,
+            VectorDistanceMetric::DotProduct,
+        ] {
             assert_eq!(
                 normalize_score(IndexKind::Vector(metric), raw()),
                 Some(affine(raw()))
             );
         }
-        for metric in [VectorDistanceMetric::Euclidean, VectorDistanceMetric::Hamming] {
+        for metric in [
+            VectorDistanceMetric::Euclidean,
+            VectorDistanceMetric::Hamming,
+        ] {
             assert_eq!(
                 normalize_score(IndexKind::Vector(metric), raw()),
                 Some(inverse(raw()))
@@ -226,7 +235,10 @@ mod tests {
         }
         // Maxsim is passed through unchanged.
         assert_eq!(
-            normalize_score(IndexKind::MultiVector(MultiVectorDistanceMetric::Maxsim), raw()),
+            normalize_score(
+                IndexKind::MultiVector(MultiVectorDistanceMetric::Maxsim),
+                raw()
+            ),
             Some(raw())
         );
     }

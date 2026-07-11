@@ -32,7 +32,11 @@ impl From<&FieldSpec> for IndexKind {
 // rejects sort and aggregations over them (fielddata is disabled). Exact
 // keyword, numeric, and boolean fields are fine.
 pub fn ensure_aggregatable(schema: &Schema, field: &str) -> Result<(), Error> {
-    match schema.get(field).map(IndexKind::from).unwrap_or(IndexKind::None) {
+    match schema
+        .get(field)
+        .map(IndexKind::from)
+        .unwrap_or(IndexKind::None)
+    {
         IndexKind::Keyword(KeywordIndexType::Text) | IndexKind::Semantic => {
             Err(Error::Unsupported(format!(
                 "Fielddata is disabled on text field [{field}]. Use a keyword field instead."
@@ -50,7 +54,8 @@ mod tests {
 
     #[test]
     fn classifies_index_by_kind() {
-        let keyword = FieldSpec::text(false).with_index(FieldIndex::keyword(KeywordIndexType::Exact));
+        let keyword =
+            FieldSpec::text(false).with_index(FieldIndex::keyword(KeywordIndexType::Exact));
         assert_eq!(
             IndexKind::from(&keyword),
             IndexKind::Keyword(KeywordIndexType::Exact)
@@ -62,8 +67,8 @@ mod tests {
             IndexKind::Keyword(KeywordIndexType::Text)
         );
 
-        let vector =
-            FieldSpec::f32_vector(4, false).with_index(FieldIndex::vector(VectorDistanceMetric::Cosine));
+        let vector = FieldSpec::f32_vector(4, false)
+            .with_index(FieldIndex::vector(VectorDistanceMetric::Cosine));
         assert_eq!(
             IndexKind::from(&vector),
             IndexKind::Vector(VectorDistanceMetric::Cosine)
