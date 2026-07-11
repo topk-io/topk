@@ -185,8 +185,8 @@ async fn test_get_mapping_returns_reverse_translated_properties(scope: &TestScop
     );
     assert_eq!(
         properties["category"],
-        json!({ "type": "text", "index": true }),
-        "{body}"
+        json!({ "type": "keyword", "index": true }),
+        "keyword fields must round-trip as keyword, not text: {body}"
     );
     assert_eq!(
         properties["hidden"],
@@ -202,7 +202,7 @@ async fn test_get_mapping_returns_reverse_translated_properties(scope: &TestScop
         properties["meta"],
         json!({
             "type": "object",
-            "properties": { "author": { "type": "text", "index": true } }
+            "properties": { "author": { "type": "keyword", "index": true } }
         }),
         "{body}"
     );

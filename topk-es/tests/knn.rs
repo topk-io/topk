@@ -97,9 +97,40 @@ async fn test_knn_cosine_score_reflects_similarity(scope: &TestScope) {
         }))
         .await
         .expect("search should succeed");
+    // ES normalises cosine into [0, 1] as (1 + cos) / 2: identical vectors score
+    // 1.0 and orthogonal ones 0.5, not the raw cosine of 0.0.
     assert!((body.score("same") - 1.0).abs() < 1e-6);
-    assert!(body.score("orthogonal").abs() < 1e-6);
+    assert!((body.score("orthogonal") - 0.5).abs() < 1e-6);
     assert!((body.max_score() - body.score("same")).abs() < 1e-6);
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_knn_dot_product_score_is_es_normalized(scope: &TestScope) {
+    scope
+        .create_with_properties(json!({
+            "embedding": { "type": "dense_vector", "dims": 4, "similarity": "dot_product" }
+        }))
+        .await;
+
+    scope
+        .index_docs([
+            ("same", json!({ "embedding": [1.0, 0.0, 0.0, 0.0] })),
+            ("orthogonal", json!({ "embedding": [0.0, 1.0, 0.0, 0.0] })),
+        ])
+        .await;
+
+    let body = scope
+        .search(json!({
+            "knn": { "field": "embedding", "query_vector": [1.0, 0.0, 0.0, 0.0], "k": 2 }
+        }))
+        .await
+        .expect("search should succeed");
+
+    // ES normalises dot_product into [0, 1] as (1 + dot) / 2, so an orthogonal
+    // unit vector (dot = 0) reports 0.5 rather than the raw 0.0.
+    assert!((body.score("same") - 1.0).abs() < 1e-6, "{body}");
+    assert!((body.score("orthogonal") - 0.5).abs() < 1e-6, "{body}");
 }
 
 #[test_context(TestScope)]
@@ -270,6 +301,84 @@ async fn test_knn_array_form_combines_vector_queries(scope: &TestScope) {
     assert_eq!(ids.len(), 2, "{body}");
     assert!(ids.contains(&"x".to_string()));
     assert!(ids.contains(&"y".to_string()));
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_knn_query_rrf_unions_retrievers_without_phantom_hits(scope: &TestScope) {
+    scope
+        .create_with_properties(json!({
+            "body": { "type": "text" },
+            "embedding": { "type": "dense_vector", "dims": 4, "similarity": "cosine" }
+        }))
+        .await;
+
+    // The index is larger than what the retrievers should surface: only "text"
+    // matches the term, and knn k:2 returns the two nearest vectors. The four
+    // "noise" docs match neither and must not leak into the fused results.
+    scope
+        .index_docs([
+            (
+                "text",
+                json!({ "body": "cats", "embedding": [0.0, 0.0, 0.0, 1.0] }),
+            ),
+            (
+                "vec1",
+                json!({ "body": "dogs", "embedding": [1.0, 0.0, 0.0, 0.0] }),
+            ),
+            (
+                "vec2",
+                json!({ "body": "dogs", "embedding": [0.9, 0.1, 0.0, 0.0] }),
+            ),
+            (
+                "noise1",
+                json!({ "body": "dogs", "embedding": [0.0, 1.0, 0.0, 0.0] }),
+            ),
+            (
+                "noise2",
+                json!({ "body": "dogs", "embedding": [0.0, 0.0, 1.0, 0.0] }),
+            ),
+            (
+                "noise3",
+                json!({ "body": "dogs", "embedding": [0.0, 0.7, 0.7, 0.0] }),
+            ),
+            (
+                "noise4",
+                json!({ "body": "dogs", "embedding": [0.5, 0.0, 0.5, 0.0] }),
+            ),
+        ])
+        .await;
+
+    let body = scope
+        .search(json!({
+            "query": { "match": { "body": "cats" } },
+            "knn": {
+                "field": "embedding",
+                "query_vector": [1.0, 0.0, 0.0, 0.0],
+                "k": 2,
+                "num_candidates": 10
+            },
+            "rank": { "rrf": { "rank_window_size": 10 } },
+            "size": 10
+        }))
+        .await
+        .expect("search should succeed");
+
+    let ids = body.hit_ids();
+    assert_eq!(
+        body.total(),
+        3,
+        "fusion should union the retrievers (1 term + 2 knn), not the whole index: {body}"
+    );
+    assert!(ids.contains(&"text".to_string()), "{body}");
+    assert!(ids.contains(&"vec1".to_string()), "{body}");
+    assert!(ids.contains(&"vec2".to_string()), "{body}");
+    for noise in ["noise1", "noise2", "noise3", "noise4"] {
+        assert!(
+            !ids.contains(&noise.to_string()),
+            "unrelated doc {noise} received a phantom RRF score: {body}"
+        );
+    }
 }
 
 #[test_context(TestScope)]

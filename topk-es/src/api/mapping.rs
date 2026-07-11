@@ -52,8 +52,18 @@ impl TryFrom<HashMap<String, FieldSpec>> for MappingProperties {
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 #[serde(tag = "type", deny_unknown_fields)]
 pub enum FieldMapping {
-    #[serde(rename = "text", alias = "keyword")]
+    #[serde(rename = "text")]
     Text {
+        #[serde(default)]
+        index: Option<bool>,
+
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[allow(dead_code)]
+        fields: Option<MappingProperties>,
+    },
+
+    #[serde(rename = "keyword")]
+    Keyword {
         #[serde(default)]
         index: Option<bool>,
 
@@ -265,6 +275,13 @@ impl TryFrom<FieldMapping> for FieldSpec {
                 }
                 Ok(field)
             }
+            FieldMapping::Keyword { index, fields: _ } => {
+                let mut field = FieldSpec::text(false);
+                if index.unwrap_or(true) {
+                    field = field.with_index(FieldIndex::keyword(KeywordIndexType::Exact));
+                }
+                Ok(field)
+            }
             FieldMapping::Integer { index: _ } => Ok(FieldSpec::integer(false)),
             FieldMapping::Float { index: _ } => Ok(FieldSpec::float(false)),
             FieldMapping::Boolean { index: _ } => Ok(FieldSpec::boolean(false)),
@@ -358,9 +375,15 @@ impl TryFrom<&FieldSpec> for FieldMapping {
                     search_inference_id: None,
                     chunking_settings: None,
                 },
-                Some(field_index::Index::KeywordIndex(_)) => FieldMapping::Text {
-                    index: Some(true),
-                    fields: None,
+                Some(field_index::Index::KeywordIndex(kw)) => match kw.index_type() {
+                    KeywordIndexType::Exact => FieldMapping::Keyword {
+                        index: Some(true),
+                        fields: None,
+                    },
+                    _ => FieldMapping::Text {
+                        index: Some(true),
+                        fields: None,
+                    },
                 },
                 None => FieldMapping::Text {
                     index: Some(false),
