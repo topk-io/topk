@@ -1,16 +1,16 @@
-use rstest::rstest;
-use std::collections::{HashMap, HashSet};
-use test_context::AsyncTestContext;
-use topk_rs::proto::v1::data::stage::sort_stage::SortOrder;
-use topk_rs::proto::v1::data::Query;
+use std::collections::HashMap;
 
-use test_context::test_context;
+use rstest::rstest;
+use test_context::{test_context, AsyncTestContext};
+
 use topk_rs::data::literal;
+use topk_rs::proto::v1::data::stage::sort_stage::SortOrder;
 use topk_rs::proto::v1::data::Document;
+use topk_rs::proto::v1::data::Query;
 use topk_rs::query::{field, fns, r#match, select};
+use topk_rs::Error;
 
 mod utils;
-use topk_rs::Error;
 use utils::dataset;
 use utils::ProjectTestContext;
 
@@ -62,11 +62,10 @@ async fn test_query_limit_select_filter(ctx: &mut ProjectTestContext) {
 
     assert_eq!(result.len(), 3);
     assert_fields!(&result, ["_id", "summary", "is_recent"]);
-
-    let expected_ids = HashSet::from(["1984", "alchemist", "catcher", "gatsby", "harry", "hobbit"]);
-    for doc in result {
-        assert!(expected_ids.contains(&doc.id().unwrap()));
-    }
+    assert_doc_ids!(
+        result,
+        ["1984", "alchemist", "catcher", "gatsby", "harry", "hobbit"]
+    );
 }
 
 #[test_context(ProjectTestContext)]
