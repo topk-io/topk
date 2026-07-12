@@ -143,12 +143,31 @@ async fn test_query_dsl(books: &BooksContext, #[case] query: Value, #[case] expe
         }
     }
 }))]
-#[case::ids_non_string(json!({ "query": { "ids": { "values": [1, 2] } } }))]
 async fn test_query_dsl_rejected(scope: &TestScope, #[case] body: Value) {
     scope.create().await;
 
     let err = scope.search(body).await.unwrap_err();
     assert_eq!(err.status_code(), StatusCode::BAD_REQUEST);
+}
+
+// ES coerces numeric ids to their string form, so `ids` accepts them too.
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_ids_query_coerces_numeric_values(scope: &TestScope) {
+    scope.create().await;
+
+    scope
+        .index_docs([
+            ("1", json!({ "title": "one" })),
+            ("2", json!({ "title": "two" })),
+            ("3", json!({ "title": "three" })),
+        ])
+        .await;
+
+    let ids = scope
+        .search_ids(json!({ "ids": { "values": [1, 2] } }))
+        .await;
+    assert_eq!(ids, vec!["1", "2"]);
 }
 
 #[test_context(TestScope)]
