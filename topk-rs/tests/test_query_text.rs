@@ -419,6 +419,56 @@ async fn test_query_text_with_updates(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
+async fn test_query_text_exact_keyword(ctx: &mut ProjectTestContext) {
+    let collection = ctx
+        .client
+        .collections()
+        .create(
+            ctx.wrap("exact_keyword"),
+            schema!(
+                "tag" => FieldSpec::text(true).with_index(FieldIndex::keyword(KeywordIndexType::Exact)),
+            ),
+            None,
+        )
+        .await
+        .expect("could not create collection");
+
+    let lsn = ctx
+        .client
+        .collection(&collection.name)
+        .upsert(vec![
+            doc!("_id" => "nyc", "tag" => "New York City"),
+            doc!("_id" => "camel", "tag" => "CamelCase"),
+        ])
+        .await
+        .expect("upsert failed");
+
+    // The whole value is one verbatim term: only full-value matches hit;
+    // partial tokens and case-normalized values do not.
+    for (token, expected) in [
+        ("New York City", vec!["nyc"]),
+        ("York", vec![]),
+        ("new york city", vec![]),
+        ("CamelCase", vec!["camel"]),
+        ("camelcase", vec![]),
+    ] {
+        let res = ctx
+            .client
+            .collection(&collection.name)
+            .query(
+                filter(r#match(token, Some("tag"), None, false)).limit(10),
+                Some(lsn.clone()),
+                None,
+            )
+            .await
+            .expect("query returned error");
+
+        assert_doc_ids!(res, expected);
+    }
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
 async fn test_query_text_deep_recursion_limit(ctx: &mut ProjectTestContext) {
     let collection = dataset::books::setup(ctx).await;
 

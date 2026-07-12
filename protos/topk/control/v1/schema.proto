@@ -119,8 +119,10 @@ enum KeywordIndexType {
   KEYWORD_INDEX_TYPE_UNSPECIFIED = 0;
   // Keyword index
   KEYWORD_INDEX_TYPE_TEXT = 1;
-  // KEYWORD_INDEX_TYPE_CODE = 2;
-  // KEYWORD_INDEX_TYPE_LOG = 3;
+  // Exact keyword index
+  KEYWORD_INDEX_TYPE_EXACT = 2;
+  // KEYWORD_INDEX_TYPE_CODE = 3;
+  // KEYWORD_INDEX_TYPE_LOG = 4;
 }
 
 // Multi-vector index specification
