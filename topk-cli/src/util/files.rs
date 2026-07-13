@@ -61,9 +61,11 @@ pub(crate) fn resolve_files(
 }
 
 pub(crate) fn collect_file(path: &Path) -> Result<UploadFile, Error> {
+    let resolved = path.canonicalize().map_err(Error::IoError)?;
+
     let doc_id = doc_id_from_path(path)?;
     let size = path.metadata().map(|m| m.len())?;
-    let mime_type = MimeType::from(InputFile::guess_mime_type(path)?);
+    let mime_type = MimeType::from(InputFile::guess_mime_type(&resolved)?);
     if !mime_type.is_supported() {
         return Err(Error::InvalidArgument(format!(
             "Invalid document kind: {}",
@@ -93,12 +95,13 @@ pub(crate) fn collect_files(pattern: &Path) -> Result<Vec<UploadFile>, Error> {
         Error::InvalidArgument(format!("invalid pattern '{}': {}", pattern_str, e))
     })?;
 
-    // Filter out non-file entries and unsupported MIME types
+    // Filter out non-file entries and unsupported MIME types; resolve symlinks for MIME inference
     entries
         .filter_map(Result::ok)
         .filter(|path| path.is_file())
         .filter(|path| {
-            InputFile::guess_mime_type(path)
+            let resolved = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+            InputFile::guess_mime_type(&resolved)
                 .ok()
                 .map(|mime| MimeType::from(mime).is_supported())
                 .unwrap_or(false)
@@ -112,6 +115,7 @@ mod tests {
     use super::{collect_directory_files, collect_file, collect_files, expand_path, resolve_files};
     use std::fs;
     use tempfile::tempdir;
+    use topk_rs::Error;
 
     #[test]
     fn collect_matching_files_filters_by_pattern() {
@@ -244,6 +248,37 @@ mod tests {
         let collected = collect_file(&file).unwrap();
         assert_eq!(collected.path, file);
         assert!(collected.size > 0);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn collect_files_follows_symlinks_and_infers_mime_from_target() {
+        let dir = tempdir().unwrap();
+        let real = dir.path().join("real.pdf");
+        fs::write(&real, b"%PDF").unwrap();
+        // symlink is named .md but points to a .pdf — MIME should come from target
+        let link = dir.path().join("link.md");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+
+        let files = collect_files(&dir.path().join("link.md")).unwrap();
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].path, link);
+        assert_eq!(files[0].mime_type.to_string(), "application/pdf");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn collect_file_follows_symlink_and_infers_mime_from_target() {
+        let dir = tempdir().unwrap();
+        let real = dir.path().join("real.pdf");
+        fs::write(&real, b"%PDF").unwrap();
+        // symlink is named .md but points to a .pdf — MIME should come from target
+        let link = dir.path().join("link.md");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+
+        let collected = collect_file(&link).unwrap();
+        assert_eq!(collected.path, link);
+        assert_eq!(collected.mime_type.to_string(), "application/pdf");
     }
 
     #[test]
