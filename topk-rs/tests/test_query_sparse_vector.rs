@@ -27,7 +27,7 @@ async fn test_query_sparse_vector_distance_f32(ctx: &mut ProjectTestContext) {
                         ),
                     ),
                 )])
-                .sort(field("sparse_f32_distance"), false)
+                .sort("sparse_f32_distance")
                 .limit(3),
             None,
             None,
@@ -65,7 +65,7 @@ async fn test_query_sparse_vector_distance_f8(ctx: &mut ProjectTestContext) {
                         ),
                     ),
                 )])
-                .sort(field("sparse_distance"), false)
+                .sort("sparse_distance")
                 .limit(3),
             None,
             None,
@@ -93,7 +93,7 @@ async fn test_query_sparse_vector_distance_u8(ctx: &mut ProjectTestContext) {
                         SparseVector::u8(vec![0, 1, 2, 3, 4, 5], vec![1, 2, 3, 1, 3, 2]),
                     ),
                 )])
-                .sort(field("sparse_u8_distance"), false)
+                .sort("sparse_u8_distance")
                 .limit(3),
             None,
             None,
@@ -121,7 +121,7 @@ async fn test_query_sparse_vector_distance_nullable(ctx: &mut ProjectTestContext
                         SparseVector::u8(vec![0, 1, 2, 3, 4], vec![1, 2, 3, 1, 3]),
                     ),
                 )])
-                .sort(field("sparse_u8_distance"), false)
+                .sort("sparse_u8_distance")
                 .limit(3),
             None,
             None,
@@ -161,7 +161,7 @@ async fn test_query_sparse_vector_distance_nullable(ctx: &mut ProjectTestContext
                         SparseVector::u8(vec![0, 1, 2, 3, 4], vec![1, 2, 3, 1, 3]),
                     ),
                 )])
-                .sort(field("sparse_u8_distance"), false)
+                .sort("sparse_u8_distance")
                 .limit(3),
             Some(lsn),
             None,

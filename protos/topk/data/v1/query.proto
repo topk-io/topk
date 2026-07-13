@@ -61,8 +61,22 @@ message Stage {
   }
 
   message SortStage {
-    LogicalExpr expr = 1;
-    bool asc = 2;
+    enum SortOrder {
+      SORT_ORDER_UNSPECIFIED = 0;
+      SORT_ORDER_ASC = 1;
+      SORT_ORDER_DESC = 2;
+    }
+
+    message SortExpr {
+      // Expression to sort by.
+      LogicalExpr expr = 1;
+      // Sort order.
+      SortOrder order = 2;
+    }
+
+    LogicalExpr expr = 1 [deprecated = true];
+    bool asc = 2 [deprecated = true];
+    repeated SortExpr exprs = 3;
   }
 
   message FetchStage {

@@ -3,6 +3,7 @@ use test_context::test_context;
 use topk_rs::doc;
 use topk_rs::error::{DocumentValidationError, SchemaValidationError, ValidationErrorBag};
 use topk_rs::proto::v1::control::{FieldIndex, FieldSpec};
+use topk_rs::proto::v1::data::stage::sort_stage::SortOrder;
 use topk_rs::proto::v1::data::Value;
 use topk_rs::query::{field, fns, select};
 use topk_rs::Error;
@@ -125,7 +126,7 @@ async fn test_struct_query(ctx: &mut ProjectTestContext) {
         .query(
             select([("meta.author", field("meta.author"))])
                 .filter(field("meta.year").gt(2020i64))
-                .sort(field("meta.year"), true)
+                .sort((field("meta.year"), SortOrder::Asc))
                 .limit(10)
                 .fetch(["meta.tag"]),
             None,
@@ -196,7 +197,7 @@ async fn test_struct_semantic_index_on_sub_field(ctx: &mut ProjectTestContext) {
                 "sim",
                 fns::semantic_similarity("meta.description", "programming"),
             )])
-            .sort(field("sim"), true)
+            .sort((field("sim"), SortOrder::Asc))
             .limit(2),
             Some(lsn),
             None,
@@ -314,7 +315,7 @@ async fn test_literal_dotted_field_roundtrip(ctx: &mut ProjectTestContext) {
         .collection(&collection.name)
         .query(
             select([("meta.foo", field("meta.foo"))])
-                .sort(field("meta.foo"), true)
+                .sort((field("meta.foo"), SortOrder::Asc))
                 .limit(10),
             Some(lsn),
             None,

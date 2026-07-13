@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use test_context::test_context;
 
 use topk_rs::data::literal;
+use topk_rs::proto::v1::data::stage::sort_stage::SortOrder;
 use topk_rs::proto::v1::data::Value;
 use topk_rs::query::{field, fns, r#match, select};
 use topk_rs::{doc, Error};
@@ -21,7 +22,7 @@ async fn test_query_select_literal(ctx: &mut ProjectTestContext) {
         .query(
             select([("literal", literal(1.0))])
                 .filter(field("title").eq("1984"))
-                .sort(field("published_year"), true)
+                .sort((field("published_year"), SortOrder::Asc))
                 .limit(100),
             None,
             None,
@@ -43,7 +44,7 @@ async fn test_query_select_non_existing_field(ctx: &mut ProjectTestContext) {
         .query(
             select([("literal", field("non_existing_field"))])
                 .filter(field("title").eq("1984"))
-                .sort(field("published_year"), true)
+                .sort((field("published_year"), SortOrder::Asc))
                 .limit(100),
             None,
             None,
@@ -64,7 +65,7 @@ async fn test_query_topk_limit(ctx: &mut ProjectTestContext) {
         .collection(&collection.name)
         .query(
             select([("title", field("title"))])
-                .sort(field("published_year"), true)
+                .sort((field("published_year"), SortOrder::Asc))
                 .limit(3),
             None,
             None,
@@ -78,7 +79,7 @@ async fn test_query_topk_limit(ctx: &mut ProjectTestContext) {
         .collection(&collection.name)
         .query(
             select([("title", field("title"))])
-                .sort(field("published_year"), true)
+                .sort((field("published_year"), SortOrder::Asc))
                 .limit(2),
             None,
             None,
@@ -92,7 +93,7 @@ async fn test_query_topk_limit(ctx: &mut ProjectTestContext) {
         .collection(&collection.name)
         .query(
             select([("title", field("title"))])
-                .sort(field("published_year"), true)
+                .sort((field("published_year"), SortOrder::Asc))
                 .limit(1),
             None,
             None,
@@ -112,7 +113,7 @@ async fn test_query_topk_asc(ctx: &mut ProjectTestContext) {
         .collection(&collection.name)
         .query(
             select([("published_year", field("published_year"))])
-                .sort(field("published_year"), true)
+                .sort((field("published_year"), SortOrder::Asc))
                 .limit(3),
             None,
             None,
@@ -140,7 +141,7 @@ async fn test_query_topk_desc(ctx: &mut ProjectTestContext) {
         .collection(&collection.name)
         .query(
             select([("published_year", field("published_year"))])
-                .sort(field("published_year"), false)
+                .sort("published_year")
                 .limit(3),
             None,
             None,
@@ -169,7 +170,7 @@ async fn test_query_select_bm25_score(ctx: &mut ProjectTestContext) {
         .query(
             select([("bm25_score", fns::bm25_score(None, None))])
                 .filter(r#match("pride", None, None, false))
-                .sort(field("bm25_score"), true)
+                .sort((field("bm25_score"), SortOrder::Asc))
                 .limit(100),
             None,
             None,
@@ -197,7 +198,7 @@ async fn test_query_select_vector_distance(ctx: &mut ProjectTestContext) {
                 "summary_distance",
                 fns::vector_distance("summary_embedding", vec![2.0f32; 16]),
             )])
-            .sort(field("summary_distance"), true)
+            .sort((field("summary_distance"), SortOrder::Asc))
             .limit(3),
             None,
             None,
@@ -276,7 +277,7 @@ async fn test_query_select_null_field(ctx: &mut ProjectTestContext) {
         .collection(&collection.name)
         .query(
             select([("a", field("a")), ("b", literal(1 as u32).into())])
-                .sort(field("b"), true)
+                .sort((field("b"), SortOrder::Asc))
                 .limit(100),
             None,
             None,
@@ -314,7 +315,7 @@ async fn test_query_select_text_match(ctx: &mut ProjectTestContext) {
                 ),
             ])
             .filter(field("title").eq("1984").or(field("_id").eq("pride")))
-            .sort(field("published_year"), true)
+            .sort((field("published_year"), SortOrder::Asc))
             .limit(100),
             None,
             None,
@@ -380,7 +381,7 @@ async fn test_query_select_union(ctx: &mut ProjectTestContext) {
         .collection(&collection.name)
         .query(
             select([("mixed", field("mixed"))])
-                .sort(field("rank"), true)
+                .sort((field("rank"), SortOrder::Asc))
                 .limit(100),
             None,
             None,
@@ -447,7 +448,7 @@ async fn test_query_select_list(ctx: &mut ProjectTestContext) {
         .collection(&collection.name)
         .query(
             select([("list", field("list"))])
-                .sort(field("rank"), true)
+                .sort((field("rank"), SortOrder::Asc))
                 .limit(100),
             None,
             None,

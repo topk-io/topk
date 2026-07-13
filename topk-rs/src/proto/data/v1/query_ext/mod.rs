@@ -1,4 +1,8 @@
-use crate::proto::data::v1::{stage, AggregateExpr, LogicalExpr, Query, Stage};
+use crate::proto::data::v1::{
+    query_ext::stage_ext::IntoSortExprs,
+    stage::{self, sort_stage::SortOrder},
+    AggregateExpr, LogicalExpr, Query, Stage,
+};
 
 pub mod expr_ext;
 pub mod stage_ext;
@@ -29,7 +33,10 @@ impl Query {
     /// Use `.sort(expr, asc).limit(k)` instead.
     #[deprecated(note = "Use `.sort(expr, asc).limit(k)` instead")]
     pub fn topk(mut self, expr: LogicalExpr, k: u64, asc: bool) -> Self {
-        self.stages.push(Stage::sort(expr, asc));
+        self.stages.push(Stage::sort([(
+            expr,
+            asc.then_some(SortOrder::Asc).unwrap_or(SortOrder::Desc),
+        )]));
         self.stages.push(Stage::limit(k));
         self
     }
@@ -49,8 +56,8 @@ impl Query {
         self
     }
 
-    pub fn sort(mut self, expr: LogicalExpr, asc: bool) -> Self {
-        self.stages.push(Stage::sort(expr, asc));
+    pub fn sort(mut self, exprs: impl IntoSortExprs) -> Self {
+        self.stages.push(Stage::sort(exprs));
         self
     }
 

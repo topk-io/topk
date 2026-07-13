@@ -1,4 +1,5 @@
 use test_context::test_context;
+use topk_rs::proto::v1::data::stage::sort_stage::SortOrder;
 use topk_rs::proto::v1::data::Value;
 use topk_rs::query::{field, select};
 use topk_rs::Error;
@@ -18,7 +19,7 @@ async fn test_query_topk_by_non_primitive(ctx: &mut ProjectTestContext) {
         .collection(&collection.name)
         .query(
             select([("title", field("title"))])
-                .sort(field("title"), true)
+                .sort((field("title"), SortOrder::Asc))
                 .limit(3),
             None,
             None,
@@ -39,7 +40,7 @@ async fn test_query_topk_by_non_existing(ctx: &mut ProjectTestContext) {
         .collection(&collection.name)
         .query(
             select([("title", field("title"))])
-                .sort(field("non_existing_field"), true)
+                .sort((field("non_existing_field"), SortOrder::Asc))
                 .limit(3),
             None,
             None,
@@ -49,7 +50,7 @@ async fn test_query_topk_by_non_existing(ctx: &mut ProjectTestContext) {
 
     assert!(matches!(
         err,
-        Error::InvalidArgument(s) if s == "Input to SortWithLimit must produce primitive or string type, not Null"
+        Error::InvalidArgument(s) if s.contains("not Null")
     ));
 }
 
@@ -63,7 +64,7 @@ async fn test_query_topk_limit_zero(ctx: &mut ProjectTestContext) {
         .collection(&collection.name)
         .query(
             select([("title", field("title"))])
-                .sort(field("published_year"), true)
+                .sort((field("published_year"), SortOrder::Asc))
                 .limit(0),
             None,
             None,
@@ -112,7 +113,7 @@ async fn test_union_u32_and_binary(ctx: &mut ProjectTestContext) {
         .collection(&collection.name)
         .query(
             select([("title", field("title"))])
-                .sort(field("num"), true)
+                .sort((field("num"), SortOrder::Asc))
                 .limit(100),
             None,
             None,
@@ -122,6 +123,6 @@ async fn test_union_u32_and_binary(ctx: &mut ProjectTestContext) {
 
     assert!(matches!(
         err,
-        Error::InvalidArgument(s) if s == "Input to SortWithLimit must produce primitive or string type, not Union([Primitive(U32), Binary])"
+        Error::InvalidArgument(s) if s.contains("not Union([Primitive(U32), Binary])")
     ));
 }

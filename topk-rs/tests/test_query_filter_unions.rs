@@ -1,5 +1,8 @@
 use test_context::test_context;
-use topk_rs::query::{field, filter, select};
+use topk_rs::{
+    proto::v1::data::stage::sort_stage::SortOrder,
+    query::{field, filter, select},
+};
 
 mod utils;
 use utils::{dataset, ProjectTestContext};
@@ -14,7 +17,7 @@ async fn test_query_union_eq(ctx: &mut ProjectTestContext) {
         .collection(&collection.name)
         .query(
             filter(field("user_ratings").eq(10u64))
-                .sort(field("published_year"), true)
+                .sort((field("published_year"), SortOrder::Asc))
                 .limit(100),
             None,
             None,
@@ -39,7 +42,7 @@ async fn test_query_union_starts_with(ctx: &mut ProjectTestContext) {
                 ("user_ratings", field("user_ratings")),
             ])
             .filter(field("user_ratings").starts_with("good"))
-            .sort(field("published_year"), true)
+            .sort((field("published_year"), SortOrder::Asc))
             .limit(100),
             None,
             None,
@@ -66,7 +69,7 @@ async fn test_query_union_contains(ctx: &mut ProjectTestContext) {
             .query(
                 select([("user_ratings", field("user_ratings"))])
                     .filter(filter_expr)
-                    .sort(field("published_year"), true)
+                    .sort((field("published_year"), SortOrder::Asc))
                     .limit(100),
                 None,
                 None,
@@ -92,7 +95,7 @@ async fn test_query_union_contains_both_string_and_list(ctx: &mut ProjectTestCon
                 ("user_ratings", field("user_ratings")),
             ])
             .filter(field("user_ratings").contains("good"))
-            .sort(field("published_year"), true)
+            .sort((field("published_year"), SortOrder::Asc))
             .limit(100),
             None,
             None,

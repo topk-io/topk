@@ -4,6 +4,7 @@ use futures_util::TryStreamExt;
 use test_context::test_context;
 
 use topk_rs::doc;
+use topk_rs::proto::v1::data::stage::sort_stage::SortOrder;
 use topk_rs::proto::v1::data::Value;
 use topk_rs::query::{field, select};
 use topk_rs::Error;
@@ -246,7 +247,7 @@ async fn test_partition_delete(ctx: &mut ProjectTestContext) {
     let p1_docs = p1
         .query(
             select([("_id", field("_id")), ("partition", field("partition"))])
-                .sort(field("rank"), true)
+                .sort((field("rank"), SortOrder::Asc))
                 .limit(100),
             Some(p1_lsn),
             None,

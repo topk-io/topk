@@ -1,5 +1,6 @@
 use test_context::test_context;
 use topk_rs::data::literal;
+use topk_rs::proto::v1::data::stage::sort_stage::SortOrder;
 use topk_rs::query::{field, fns, r#match, select};
 
 mod utils;
@@ -30,10 +31,10 @@ async fn test_query_hybrid_vector_bm25(ctx: &mut ProjectTestContext) {
                 Some(10.0),
                 false,
             )))
-            .sort(
+            .sort((
                 field("bm25_score") + (field("summary_distance").mul(literal(100))),
-                true,
-            )
+                SortOrder::Asc,
+            ))
             .limit(2),
             None,
             None,
@@ -67,7 +68,7 @@ async fn test_query_hybrid_keyword_boost(ctx: &mut ProjectTestContext) {
                     "summary_distance",
                     fns::vector_distance("summary_embedding", vec![2.3f32; 16]),
                 )])
-                .sort(score_expr, true)
+                .sort((score_expr, SortOrder::Asc))
                 .limit(3),
                 None,
                 None,
@@ -103,10 +104,10 @@ async fn test_query_hybrid_coalesce_score(ctx: &mut ProjectTestContext) {
                     fns::vector_distance("nullable_embedding", vec![4.1; 4]),
                 ),
             ])
-            .sort(
+            .sort((
                 field("summary_score") + field("nullable_score").coalesce(0.0),
-                true,
-            )
+                SortOrder::Asc,
+            ))
             .limit(3),
             None,
             None,
