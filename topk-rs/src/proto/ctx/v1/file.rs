@@ -21,6 +21,9 @@ impl InputFile {
     pub fn from_path(path: impl Into<PathBuf>) -> Result<Self, Error> {
         let path = path.into();
 
+        // Check file can be read
+        std::fs::File::open(&path)?;
+
         let file_name = path
             .file_name()
             .ok_or_else(|| Error::Input(anyhow::anyhow!("Failed to get file name")))?
@@ -126,7 +129,35 @@ mod tests {
     fn from_path_fails_for_nonexistent_file() {
         assert!(matches!(
             InputFile::from_path(&std::env::temp_dir().join("nonexistent_file.pdf")),
-            Err(Error::Input(e)) if e.to_string().contains("No such file or directory")
+            Err(Error::IoError(ref e)) if e.kind() == std::io::ErrorKind::NotFound
+        ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn from_path_fails_for_unreadable_file() {
+        use std::os::unix::fs::PermissionsExt;
+
+        unsafe extern "C" {
+            fn geteuid() -> u32;
+        }
+
+        // Skip test if running as root
+        if unsafe { geteuid() } == 0 {
+            return;
+        }
+
+        let file = std::env::temp_dir().join("topk_test_unreadable.pdf");
+        std::fs::write(&file, b"fake pdf").unwrap();
+        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o000)).unwrap();
+
+        let err = InputFile::from_path(&file).unwrap_err();
+
+        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o600)).unwrap();
+        std::fs::remove_file(&file).unwrap();
+        assert!(matches!(
+            err,
+            Error::IoError(ref e) if e.kind() == std::io::ErrorKind::PermissionDenied
         ));
     }
 
