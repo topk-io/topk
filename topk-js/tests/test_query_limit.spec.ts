@@ -143,7 +143,6 @@ describe("test_query_limit", () => {
       published_year: int(),
     });
 
-    // Upsert in chunks
     const books = [
       { _id: "mockingbird", published_year: 1960 },
       { _id: "1984", published_year: 1949 },
@@ -156,9 +155,7 @@ describe("test_query_limit", () => {
       { _id: "lotr", published_year: 1954 },
       { _id: "alchemist", published_year: 1988 },
     ];
-    for (let i = 0; i < books.length; i += 4) {
-      await ctx.client.collection(collection.name).upsert(books.slice(i, i + 4));
-    }
+    await ctx.client.collection(collection.name).upsert(books);
 
     const result = await ctx.client
       .collection(collection.name)
@@ -173,7 +170,6 @@ describe("test_query_limit", () => {
       published_year: int(),
     });
 
-    // Upsert in chunks
     const books = [
       { _id: "mockingbird", published_year: 1960 },
       { _id: "1984", published_year: 1949 },
@@ -186,9 +182,7 @@ describe("test_query_limit", () => {
       { _id: "lotr", published_year: 1954 },
       { _id: "alchemist", published_year: 1988 },
     ];
-    for (let i = 0; i < books.length; i += 4) {
-      await ctx.client.collection(collection.name).upsert(books.slice(i, i + 4));
-    }
+    await ctx.client.collection(collection.name).upsert(books);
 
     const result = await ctx.client.collection(collection.name).query(
       select({ _id: field("_id"), published_year: field("published_year") })

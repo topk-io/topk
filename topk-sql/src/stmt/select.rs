@@ -143,7 +143,7 @@ impl TryFrom<SqlQuery> for Statement {
             .flatten();
 
         let (limit, offset) = match query.limit_clause {
-            Some(LimitClause::OffsetCommaLimit { .. }) => sql_unsupported!("LIMIT offset, limit"),
+            Some(LimitClause::OffsetCommaLimit { .. }) => unreachable!("postgres dialect does not support `LIMIT offset, limit` should be rejected upstream"),
             Some(LimitClause::LimitOffset { limit, offset, .. }) => {
                 let limit = limit
                     .map(|ref expr| {
@@ -174,10 +174,11 @@ impl TryFrom<SqlQuery> for Statement {
             }
             (Some(_), None) => sql_invalid!("ORDER BY without LIMIT is not supported"),
             (None, Some(k)) => stages.push(Stage::limit(k)),
-            (None, None) if offset.is_some() => {
-                sql_invalid!("OFFSET without LIMIT is not supported")
+            (None, None) => {
+                if offset.is_some() {
+                    sql_invalid!("OFFSET without LIMIT is not supported")
+                }
             }
-            (None, None) => {}
         }
 
         if let Some(off) = offset {
