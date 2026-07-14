@@ -1,6 +1,6 @@
 use topk_rs::proto::v1::control::{KeywordIndexType, VectorDistanceMetric};
 use topk_rs::proto::v1::data::{LogicalExpr, Query as TopkQuery, TextExpr, Value};
-use topk_rs::query::{count as count_query, field, filter, fns, not, should};
+use topk_rs::query::{count as count_query, field, filter, fns, not, should, SortOrder};
 
 use super::field::{ensure_aggregatable, IndexKind};
 use super::rank::Ranking;
@@ -70,7 +70,9 @@ pub fn search(
     }
 
     if let Some(sort) = req.sort.as_ref() {
-        ensure_aggregatable(schema, sort.field.as_str())?;
+        for sort_field in sort.iter() {
+            ensure_aggregatable(schema, sort_field.field.as_str())?;
+        }
     }
     for clause in req.aggs.values() {
         validate_agg_fields(schema, clause)?;
@@ -140,14 +142,31 @@ fn lower(
     let query = query.select([(RANK_SCORE, total)]);
 
     let query = match (knn, req.sort.as_ref()) {
-        (false, Some(sort)) => query.sort(field(sort.field.as_str()), sort.asc),
-        _ => query.sort(field(RANK_SCORE), false),
+        (false, Some(sort)) => {
+            let mut exprs = sort
+                .iter()
+                .map(|f| (field(f.field.as_str()), f.order()))
+                .collect::<Vec<_>>();
+
+            // The engine drops docs whose every sort key is null (and the
+            // single-key collector drops any null-keyed doc); ES retains
+            // them, sorted last. Pad with a constant key — never null, so
+            // the null-retaining multi collector runs and `non_null > 0`
+            // holds for every doc. No room at the 8-expr engine cap, where
+            // all-null docs are still dropped.
+            if exprs.len() < crate::api::MAX_SORT_FIELDS {
+                exprs.push((LogicalExpr::literal(0u32), SortOrder::Asc));
+            }
+
+            query.sort(exprs)
+        }
+        _ => query.sort(RANK_SCORE),
     }
     .limit(limit);
 
     let query = match (req.source.enabled(), req.sort.as_ref()) {
         (true, _) => query.fetch(["*"]),
-        (false, Some(sort)) => query.fetch([sort.field.as_str()]),
+        (false, Some(sort)) => query.fetch(sort.iter().map(|f| f.field.as_str())),
         (false, None) => query,
     };
 

@@ -20,7 +20,7 @@ pub fn compile(clause: &AggClause, gate: &LogicalExpr) -> Result<TopkQuery, Erro
             }
             let query = filter(gate.clone())
                 .group_by([("key".to_string(), field(terms.field.as_str()))], aggs)
-                .sort(field("doc_count"), false)
+                .sort("doc_count")
                 .limit(terms.size.unwrap_or(10) as u64);
 
             Ok(query)

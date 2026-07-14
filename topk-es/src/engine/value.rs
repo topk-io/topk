@@ -1,4 +1,37 @@
+use std::cmp::Ordering;
+
 use topk_rs::proto::v1::data::{list, value, List, Value};
+
+pub struct OrdValue(pub Value);
+
+impl Ord for OrdValue {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if let (Some(x), Some(y)) = (self.0.number(), other.0.number()) {
+            return x.total_cmp(&y);
+        }
+        if let (Some(x), Some(y)) = (self.0.as_string(), other.0.as_string()) {
+            return x.cmp(y);
+        }
+        if let (Some(x), Some(y)) = (self.0.as_bool(), other.0.as_bool()) {
+            return x.cmp(&y);
+        }
+        Ordering::Equal
+    }
+}
+
+impl PartialOrd for OrdValue {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for OrdValue {
+    fn eq(&self, other: &Self) -> bool {
+        self.cmp(other).is_eq()
+    }
+}
+
+impl Eq for OrdValue {}
 
 pub trait ValueExt: Sized {
     fn number(&self) -> Option<f64>;

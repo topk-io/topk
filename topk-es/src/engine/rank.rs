@@ -1,12 +1,13 @@
-use std::cmp::Ordering;
+use std::cmp::{Ordering, Reverse};
 use std::collections::HashMap;
 
+use topk_rs::json::Value as JsonValue;
 use topk_rs::proto::v1::data::{Document, Value};
 
 use super::doc::decode;
-use super::value::ValueExt;
+use super::value::OrdValue;
 use super::RANK_SCORE;
-use crate::api::{DocId, Hit, SearchRequest};
+use crate::api::{DocId, Hit, SearchRequest, SortClause};
 use crate::Error;
 
 pub fn fuse(
@@ -26,8 +27,6 @@ pub enum Ranking {
 }
 
 impl Ranking {
-    // The request's ranking strategy, defaulting to a plain weighted sum
-    // when no rank clause is given.
     pub fn of(req: &SearchRequest) -> Ranking {
         match &req.rank {
             Some(clause) => Ranking::Rrf {
@@ -81,14 +80,59 @@ impl Ranking {
 
 struct Candidate {
     id: DocId,
-    score: f32,
     fields: HashMap<String, Value>,
+}
+
+impl Candidate {
+    fn sort_key(&self, sort: &SortClause) -> SortKey {
+        SortKey(
+            sort.iter()
+                .map(|f| {
+                    let value = self
+                        .fields
+                        .get(f.field.as_str())
+                        .filter(|value| value.as_null().is_none())
+                        .cloned();
+                    match (value, f.asc) {
+                        (None, _) => SortKeyPart::Missing,
+                        (Some(value), true) => SortKeyPart::Asc(OrdValue(value)),
+                        (Some(value), false) => SortKeyPart::Desc(Reverse(OrdValue(value))),
+                    }
+                })
+                .collect(),
+        )
+    }
+}
+
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+struct SortKey(Vec<SortKeyPart>);
+
+impl SortKey {
+    fn into_json(self) -> Vec<JsonValue> {
+        self.0
+            .into_iter()
+            .map(|part| {
+                JsonValue::from(match part {
+                    SortKeyPart::Asc(value) => value.0,
+                    SortKeyPart::Desc(Reverse(value)) => value.0,
+                    SortKeyPart::Missing => Value::null(),
+                })
+            })
+            .collect()
+    }
+}
+
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+enum SortKeyPart {
+    Asc(OrdValue),
+    Desc(Reverse<OrdValue>),
+    Missing,
 }
 
 fn combine(
     req: &SearchRequest,
     results: Vec<(Option<f32>, Vec<Document>)>,
-) -> Result<Vec<Candidate>, Error> {
+) -> Result<Vec<(f32, Candidate)>, Error> {
     let mut by_id: HashMap<DocId, Candidate> = HashMap::new();
 
     let mut groups: Vec<Vec<(DocId, f32)>> = Vec::with_capacity(results.len());
@@ -111,7 +155,6 @@ fn combine(
             members.push((id.clone(), score));
             by_id.entry(id.clone()).or_insert(Candidate {
                 id,
-                score,
                 fields: doc.fields,
             });
         }
@@ -122,34 +165,24 @@ fn combine(
 
     Ok(totals
         .into_iter()
-        .filter_map(|(id, score)| {
-            by_id.remove(&id).map(|mut candidate| {
-                candidate.score = score;
-                candidate
-            })
-        })
+        .filter_map(|(id, score)| by_id.remove(&id).map(|candidate| (score, candidate)))
         .collect())
 }
 
-fn to_hits(req: &SearchRequest, mut candidates: Vec<Candidate>) -> Vec<Hit> {
+fn to_hits(req: &SearchRequest, candidates: Vec<(f32, Candidate)>) -> Vec<Hit> {
+    let mut candidates: Vec<(Option<SortKey>, f32, Candidate)> = candidates
+        .into_iter()
+        .map(|(score, candidate)| {
+            let key = req.sort.as_ref().map(|sort| candidate.sort_key(sort));
+            (key, score, candidate)
+        })
+        .collect();
+
     match &req.sort {
-        Some(sort) => candidates.sort_by(|a, b| {
-            let ordering = match (
-                sort_key(a, sort.field.as_str()),
-                sort_key(b, sort.field.as_str()),
-            ) {
-                (Some(x), Some(y)) => match sort.asc {
-                    true => compare_value(x, y),
-                    false => compare_value(x, y).reverse(),
-                },
-                (Some(_), None) => Ordering::Less,
-                (None, Some(_)) => Ordering::Greater,
-                (None, None) => Ordering::Equal,
-            };
-            ordering.then_with(|| a.id.cmp(&b.id))
-        }),
-        None => candidates
-            .sort_by(|a, b| score_desc((a.score, a.id.as_str()), (b.score, b.id.as_str()))),
+        Some(_) => candidates.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.2.id.cmp(&b.2.id))),
+        None => {
+            candidates.sort_by(|a, b| score_desc((a.1, a.2.id.as_str()), (b.1, b.2.id.as_str())))
+        }
     }
 
     let page = (req.from as usize).min(candidates.len());
@@ -159,8 +192,9 @@ fn to_hits(req: &SearchRequest, mut candidates: Vec<Candidate>) -> Vec<Hit> {
     let scores = req.sort.is_none() || req.track_scores;
     candidates
         .into_iter()
-        .map(|candidate| Hit {
-            score: scores.then_some(candidate.score),
+        .map(|(key, score, candidate)| Hit {
+            score: scores.then_some(score),
+            sort: key.map(SortKey::into_json),
             source: req
                 .source
                 .enabled()
@@ -170,28 +204,8 @@ fn to_hits(req: &SearchRequest, mut candidates: Vec<Candidate>) -> Vec<Hit> {
         .collect()
 }
 
-fn sort_key<'a>(candidate: &'a Candidate, field: &str) -> Option<&'a Value> {
-    candidate
-        .fields
-        .get(field)
-        .filter(|value| value.as_null().is_none())
-}
-
 fn score_desc(a: (f32, &str), b: (f32, &str)) -> Ordering {
     b.0.partial_cmp(&a.0)
         .unwrap_or(Ordering::Equal)
         .then_with(|| a.1.cmp(b.1))
-}
-
-fn compare_value(a: &Value, b: &Value) -> Ordering {
-    if let (Some(x), Some(y)) = (a.number(), b.number()) {
-        return x.partial_cmp(&y).unwrap_or(Ordering::Equal);
-    }
-    if let (Some(x), Some(y)) = (a.as_string(), b.as_string()) {
-        return x.cmp(y);
-    }
-    if let (Some(x), Some(y)) = (a.as_bool(), b.as_bool()) {
-        return x.cmp(&y);
-    }
-    Ordering::Equal
 }

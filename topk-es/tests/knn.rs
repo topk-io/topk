@@ -580,6 +580,42 @@ async fn test_knn_with_sort_orders_by_field(scope: &TestScope) {
 
 #[test_context(TestScope)]
 #[tokio::test]
+async fn test_knn_with_multi_field_sort(scope: &TestScope) {
+    scope
+        .create_with_properties(json!({
+            "x": { "type": "integer" },
+            "y": { "type": "integer" },
+            "embedding": { "type": "dense_vector", "dims": 2, "similarity": "cosine" }
+        }))
+        .await;
+
+    scope
+        .index_docs([
+            ("a", json!({ "x": 1, "y": 1, "embedding": [1.0, 0.0] })),
+            ("b", json!({ "x": 1, "y": 2, "embedding": [0.9, 0.1] })),
+            ("c", json!({ "x": 0, "y": 9, "embedding": [0.8, 0.2] })),
+        ])
+        .await;
+
+    let body = scope
+        .search(json!({
+            "knn": {
+                "field": "embedding",
+                "query_vector": [1.0, 0.0],
+                "k": 3
+            },
+            "sort": [{ "x": "asc" }, { "y": "desc" }],
+            "size": 10
+        }))
+        .await
+        .expect("search should succeed");
+
+    assert_eq!(body.hit_ids(), vec!["c", "b", "a"], "{body}");
+    assert!(body.all_scores_null());
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
 async fn test_knn_with_sort_track_scores_keeps_scores(scope: &TestScope) {
     scope
         .create_with_properties(json!({

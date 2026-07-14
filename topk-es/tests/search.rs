@@ -273,7 +273,6 @@ async fn test_query_dsl_variants(
 #[case::multi_match_empty_fields(
     json!({ "query": { "multi_match": { "query": "hello", "fields": [] } } })
 )]
-#[case::empty_sort(json!({ "query": { "match_all": {} }, "sort": [] }))]
 #[case::invalid_sort_order(json!({ "query": { "match_all": {} }, "sort": [{ "price": "sideways" }] }))]
 async fn test_search_request_rejected(scope: &TestScope, #[case] body: Value) {
     scope.create().await;
@@ -389,8 +388,12 @@ async fn test_from_plus_size_over_max_result_window_rejected(scope: &TestScope) 
 }
 
 #[rstest_ctx(TestScope)]
-#[case::multi_field(json!([{ "a": "asc" }, { "b": "desc" }]))]
 #[case::unsupported_option(json!([{ "n": { "order": "asc", "mode": "min" } }]))]
+#[case::too_many_fields(json!([
+    { "f1": "asc" }, { "f2": "asc" }, { "f3": "asc" }, { "f4": "asc" },
+    { "f5": "asc" }, { "f6": "asc" }, { "f7": "asc" }, { "f8": "asc" },
+    { "f9": "asc" }
+]))]
 async fn test_sort_rejected(scope: &TestScope, #[case] sort: Value) {
     scope.create().await;
 
@@ -398,6 +401,186 @@ async fn test_sort_rejected(scope: &TestScope, #[case] sort: Value) {
         .search(json!({ "query": { "match_all": {} }, "sort": sort }))
         .await;
     assert_eq!(err.unwrap_err().status_code(), StatusCode::BAD_REQUEST);
+}
+
+#[rstest_ctx(TestScope)]
+#[case::asc_then_desc(json!([{ "a": "asc" }, { "b": "desc" }]), vec!["3", "2", "1"])]
+#[case::desc_then_asc(json!([{ "a": "desc" }, { "b": "asc" }]), vec!["1", "2", "3"])]
+#[case::mixed_grammar(json!(["a", { "b": { "order": "desc" } }]), vec!["3", "2", "1"])]
+async fn test_sort_multi_field(
+    scope: &TestScope,
+    #[case] sort: Value,
+    #[case] expected: Vec<&str>,
+) {
+    scope.create().await;
+
+    scope
+        .index_docs([
+            ("1", json!({ "a": 1, "b": 1 })),
+            ("2", json!({ "a": 1, "b": 2 })),
+            ("3", json!({ "a": 0, "b": 9 })),
+        ])
+        .await;
+
+    let body = scope
+        .search(json!({ "query": { "match_all": {} }, "sort": sort }))
+        .await
+        .expect("search should succeed");
+    assert_eq!(body.hit_ids(), expected, "{body}");
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_sort_multi_field_doc_missing_all_fields_sorts_last(scope: &TestScope) {
+    scope.create().await;
+
+    scope
+        .index_docs([
+            ("1", json!({ "a": 1, "b": 1 })),
+            ("2", json!({ "title": "no a, no b" })),
+        ])
+        .await;
+
+    let body = scope
+        .search(json!({
+            "query": { "match_all": {} },
+            "sort": [{ "a": "asc" }, { "b": "asc" }]
+        }))
+        .await
+        .expect("search should succeed");
+    assert_eq!(body.hit_ids(), vec!["1", "2"], "{body}");
+}
+
+// ES retains docs missing the sort field and sorts them last in both
+// directions (`missing: _last` default) — verified against ES serverless.
+#[rstest_ctx(TestScope)]
+#[case::asc(json!([{ "n": "asc" }]), vec!["3", "1", "2"])]
+#[case::desc(json!([{ "n": "desc" }]), vec!["1", "3", "2"])]
+async fn test_sort_single_field_missing_field_sorts_last(
+    scope: &TestScope,
+    #[case] sort: Value,
+    #[case] expected: Vec<&str>,
+) {
+    scope.create().await;
+
+    scope
+        .index_docs([
+            ("1", json!({ "n": 2 })),
+            ("2", json!({ "title": "no n here" })),
+            ("3", json!({ "n": 1 })),
+        ])
+        .await;
+
+    let body = scope
+        .search(json!({ "query": { "match_all": {} }, "sort": sort }))
+        .await
+        .expect("search should succeed");
+    assert_eq!(body.hit_ids(), expected, "{body}");
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_sort_multi_field_missing_secondary_sorts_last_in_tie_group(scope: &TestScope) {
+    scope.create().await;
+
+    scope
+        .index_docs([
+            ("1", json!({ "a": 1, "b": 1 })),
+            ("2", json!({ "a": 1 })),
+            ("3", json!({ "a": 0, "b": 5 })),
+        ])
+        .await;
+
+    let body = scope
+        .search(json!({
+            "query": { "match_all": {} },
+            "sort": [{ "a": "asc" }, { "b": "asc" }]
+        }))
+        .await
+        .expect("search should succeed");
+    assert_eq!(body.hit_ids(), vec!["3", "1", "2"], "{body}");
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_sort_multi_field_pagination_ties_broken_across_pages(scope: &TestScope) {
+    scope.create().await;
+
+    scope
+        .index_docs([
+            ("1", json!({ "a": 1, "b": 4 })),
+            ("2", json!({ "a": 1, "b": 3 })),
+            ("3", json!({ "a": 0, "b": 9 })),
+            ("4", json!({ "a": 2, "b": 0 })),
+        ])
+        .await;
+
+    // Full order by [a asc, b asc]: 3, 2, 1, 4 — the page boundary splits
+    // the a=1 tie group.
+    let body = scope
+        .search(json!({
+            "query": { "match_all": {} },
+            "sort": [{ "a": "asc" }, { "b": "asc" }],
+            "from": 1,
+            "size": 2,
+        }))
+        .await
+        .expect("search should succeed");
+    assert_eq!(body.hit_ids(), vec!["2", "1"], "{body}");
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_empty_sort_is_noop(scope: &TestScope) {
+    scope.create().await;
+
+    scope
+        .index_docs([("1", json!({ "n": 1 })), ("2", json!({ "n": 2 }))])
+        .await;
+
+    let body = scope
+        .search(json!({ "query": { "match_all": {} }, "sort": [] }))
+        .await
+        .expect("search should succeed");
+    assert_eq!(body.hit_ids().len(), 2, "{body}");
+    // No sort means relevance scoring stays on and hits carry no sort key.
+    assert!(!body.all_scores_null(), "{body}");
+    assert!(body.max_score() > 0.0, "{body}");
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_sort_values_in_hits(scope: &TestScope) {
+    scope.create().await;
+
+    scope
+        .index_docs([
+            ("1", json!({ "a": 1, "b": 1 })),
+            ("2", json!({ "a": 1, "b": 2 })),
+        ])
+        .await;
+
+    let body = scope
+        .search(json!({
+            "query": { "match_all": {} },
+            "sort": [{ "a": "asc" }, { "b": "desc" }]
+        }))
+        .await
+        .expect("search should succeed");
+
+    let hits = body["hits"]["hits"].as_array().unwrap();
+    assert_eq!(hits[0]["_id"], "2", "{body}");
+    assert_eq!(hits[0]["sort"], json!([1, 2]), "{body}");
+    assert_eq!(hits[1]["_id"], "1", "{body}");
+    assert_eq!(hits[1]["sort"], json!([1, 1]), "{body}");
+
+    // Without a sort, hits must not carry a sort key.
+    let body = scope
+        .search(json!({ "query": { "match_all": {} } }))
+        .await
+        .expect("search should succeed");
+    let hits = body["hits"]["hits"].as_array().unwrap();
+    assert!(hits.iter().all(|h| h.get("sort").is_none()), "{body}");
 }
 
 #[test_context(TestScope)]

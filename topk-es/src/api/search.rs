@@ -1,14 +1,19 @@
 use std::collections::HashMap;
+use std::ops::Deref;
 
 use serde::{Deserialize, Deserializer, Serialize};
-use serde_with::{serde_as, OneOrMany};
+use serde_with::{OneOrMany, serde_as};
+use topk_rs::json::Value as JsonValue;
 use topk_rs::proto::v1::data::Value as TopkValue;
+use topk_rs::query::SortOrder as TopkSortOrder;
 
 use super::aggs::{AggClause, AggResult};
 use super::query::{FieldClause, FieldName, GateQuery, Query};
 use super::source::SourceFilter;
 use super::{DocId, IndexName, Shards, Source};
 use crate::Error;
+
+pub const MAX_SORT_FIELDS: usize = 8;
 
 #[serde_as]
 #[derive(Deserialize)]
@@ -49,13 +54,20 @@ fn default_size() -> u64 {
 
 impl<'de> Deserialize<'de> for SearchRequest {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let req = Self::deserialize(deserializer)?;
+        let mut req = Self::deserialize(deserializer)?;
+
         if req.from + req.size > 10_000 {
             return Err(serde::de::Error::custom(format!(
                 "Result window is too large, from + size must be less than or equal to 10,000 but was {}",
                 req.from + req.size
             )));
         }
+
+        // ES treats an empty sort array as no sort; keep `Some` ⇒ non-empty.
+        if req.sort.as_ref().is_some_and(|s| s.is_empty()) {
+            req.sort = None;
+        }
+
         Ok(req)
     }
 }
@@ -158,9 +170,28 @@ impl TryFrom<QueryVectorWire> for QueryVector {
 
 #[derive(Deserialize)]
 #[serde(try_from = "SortWire")]
-pub struct SortClause {
+pub struct SortClause(Vec<SortField>);
+
+impl Deref for SortClause {
+    type Target = [SortField];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+pub struct SortField {
     pub field: FieldName,
     pub asc: bool,
+}
+
+impl SortField {
+    pub fn order(&self) -> TopkSortOrder {
+        match self.asc {
+            true => TopkSortOrder::Asc,
+            false => TopkSortOrder::Desc,
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -178,19 +209,23 @@ impl TryFrom<SortWire> for SortClause {
             SortWire::One(sort) => vec![sort],
             SortWire::Many(sorts) => sorts,
         };
-        if sorts.len() > 1 {
-            return Err(Error::Unsupported(
-                "Multi-field sort is not supported".into(),
-            ));
+
+        if sorts.len() > MAX_SORT_FIELDS {
+            return Err(Error::Unsupported(format!(
+                "Sort supports at most {MAX_SORT_FIELDS} fields but [{}] were given",
+                sorts.len()
+            )));
         }
-        let sort = sorts
+
+        let fields = sorts
             .into_iter()
-            .next()
-            .ok_or_else(|| Error::InvalidQuery("\"sort\" must not be empty".into()))?;
-        Ok(SortClause {
-            field: sort.name().clone(),
-            asc: matches!(sort.order(), SortOrder::Asc),
-        })
+            .map(|sort| SortField {
+                field: sort.name().clone(),
+                asc: matches!(sort.order(), SortOrder::Asc),
+            })
+            .collect();
+
+        Ok(SortClause(fields))
     }
 }
 
@@ -318,6 +353,8 @@ pub struct Hit {
     pub id: DocId,
     #[serde(rename = "_score")]
     pub score: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sort: Option<Vec<JsonValue>>,
     #[serde(rename = "_source", skip_serializing_if = "Option::is_none")]
     pub source: Option<Source>,
 }
