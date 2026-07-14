@@ -149,6 +149,9 @@ impl From<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
                         topk_rs::proto::v1::control::KeywordIndexType::Text => {
                             KeywordIndexType::Text
                         }
+                        topk_rs::proto::v1::control::KeywordIndexType::Exact => {
+                            KeywordIndexType::Exact
+                        }
                         t => panic!("unsupported keyword index: {:?}", t),
                     },
                 }

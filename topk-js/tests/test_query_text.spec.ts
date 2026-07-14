@@ -210,6 +210,32 @@ describe("Text Queries", () => {
     expect(result.length).toBe(0);
   });
 
+  test("query text exact keyword", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("exact_keyword", {
+      tag: text().required().index(keywordIndex("exact")),
+    });
+
+    const lsn = await ctx.client.collection(collection.name).upsert([
+      { _id: "nyc", tag: "New York City" },
+      { _id: "camel", tag: "CamelCase" },
+    ]);
+
+    for (const [token, expected] of [
+      ["New York City", ["nyc"]],
+      ["York", []],
+      ["new york city", []],
+      ["CamelCase", ["camel"]],
+      ["camelcase", []],
+    ] as const) {
+      const result = await ctx.client
+        .collection(collection.name)
+        .query(filter(match(token, { field: "tag" })).limit(10), { lsn });
+
+      expect(new Set(result.map((doc) => doc._id))).toEqual(new Set(expected));
+    }
+  });
+
   test("query text filter with weight", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("books", {

@@ -1,6 +1,7 @@
 import pytest
 from topk_sdk import error
 from topk_sdk.query import field, filter, fn, match, match_tokens, select
+from topk_sdk.schema import keyword_index, text
 
 from . import ProjectContext
 from .utils import dataset, doc_ids
@@ -93,6 +94,34 @@ def test_query_text_filter_stop_word(ctx: ProjectContext):
     )
 
     assert len(result) == 0
+
+
+def test_query_text_exact_keyword(ctx: ProjectContext):
+    collection = ctx.client.collections().create(
+        ctx.scope("exact_keyword"),
+        schema={"tag": text().required().index(keyword_index(type="exact"))},
+    )
+
+    lsn = ctx.client.collection(collection.name).upsert(
+        [
+            {"_id": "nyc", "tag": "New York City"},
+            {"_id": "camel", "tag": "CamelCase"},
+        ]
+    )
+
+    for token, expected in [
+        ("New York City", {"nyc"}),
+        ("York", set()),
+        ("new york city", set()),
+        ("CamelCase", {"camel"}),
+        ("camelcase", set()),
+    ]:
+        result = ctx.client.collection(collection.name).query(
+            filter(match(token, field="tag")).limit(10),
+            lsn=lsn,
+        )
+
+        assert doc_ids(result) == expected
 
 
 def test_query_select_bm25_without_text_queries(ctx: ProjectContext):
