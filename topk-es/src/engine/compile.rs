@@ -1,4 +1,4 @@
-use topk_rs::proto::v1::control::{KeywordIndexType, VectorDistanceMetric};
+use topk_rs::proto::v1::control::KeywordIndexType;
 use topk_rs::proto::v1::data::{LogicalExpr, Query as TopkQuery, TextExpr, Value};
 use topk_rs::query::{count as count_query, field, filter, fns, not, should, SortOrder};
 
@@ -31,30 +31,18 @@ fn validate_agg_fields(schema: &Schema, clause: &crate::api::AggClause) -> Resul
 pub fn search(
     schema: &Schema,
     mut req: SearchRequest,
-) -> Result<(SearchRequest, Vec<(TopkQuery, Option<f32>)>, Vec<TopkQuery>), Error> {
+) -> Result<(SearchRequest, Vec<TopkQuery>, Vec<TopkQuery>), Error> {
     let mut compiled = Vec::new();
     if let Some(query) = req.query.take() {
-        compiled.push((compile_clause(schema, query)?, None, None));
+        compiled.push((compile_clause(schema, query)?, None));
     }
     for knn in req.knn.take().unwrap_or_default() {
         let k = knn.k;
-        // Cosine/dot_product cutoffs re-scale like their score (`(1 + s) / 2`);
-        // other metrics keep their raw units.
-        let affine = matches!(
-            schema.get(knn.field.as_str()).map(IndexKind::from),
-            Some(IndexKind::Vector(
-                VectorDistanceMetric::Cosine | VectorDistanceMetric::DotProduct
-            ))
-        );
-        let threshold = knn.similarity.map(|min| {
-            let min = if affine { (1.0 + min) / 2.0 } else { min };
-            min * knn.boost.unwrap_or(1.0)
-        });
-        compiled.push((compile_knn(schema, knn)?, Some(k), threshold));
+        compiled.push((compile_knn(schema, knn)?, Some(k)));
     }
     if compiled.is_empty() {
         let match_all = Query::MatchAll(MatchAllQuery::default());
-        compiled.push((compile_clause(schema, match_all)?, None, None));
+        compiled.push((compile_clause(schema, match_all)?, None));
     }
 
     if req.rank.is_some() && compiled.len() < 2 {
@@ -78,12 +66,12 @@ pub fn search(
         validate_agg_fields(schema, clause)?;
     }
 
-    let gate = LogicalExpr::any(compiled.iter().map(|(c, _, _)| c.gate.clone()));
+    let gate = LogicalExpr::any(compiled.iter().map(|(c, _)| c.gate.clone()));
 
     let window = Ranking::of(&req).window_size();
     let queries = compiled
         .into_iter()
-        .map(|(c, k, threshold)| {
+        .map(|(c, k)| {
             // A knn retriever contributes exactly its `k` nearest neighbours. Only
             // non-knn retrievers fetch up to the rank window: an ANN query returns
             // its top `limit` unconditionally, so expanding a knn's limit to the
@@ -94,7 +82,7 @@ pub fn search(
                 None => (req.from + req.size).max(window),
             }
             .max(1);
-            Ok((lower(schema, &req, c, k.is_some(), limit)?, threshold))
+            lower(schema, &req, c, k.is_some(), limit)
         })
         .collect::<Result<Vec<_>, Error>>()?;
 
@@ -189,6 +177,7 @@ fn compile_knn(schema: &Schema, knn: KnnRequest) -> Result<CompiledQuery, Error>
             anns: vec![AnnTerm {
                 field: knn.field.as_str().to_string(),
                 weight: knn.boost.unwrap_or(1.0),
+                cutoff: knn.similarity,
                 query: AnnQuery::Vector {
                     vector: knn.query_vector,
                     num_candidates: knn.num_candidates,
@@ -405,6 +394,7 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
                 anns: vec![AnnTerm {
                     field: s.field.as_str().to_string(),
                     weight: s.boost.unwrap_or(1.0),
+                    cutoff: None,
                     query: AnnQuery::Semantic(s.query),
                 }],
                 ..Score::default()

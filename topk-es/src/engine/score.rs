@@ -59,6 +59,9 @@ impl Score {
 pub struct AnnTerm {
     pub field: String,
     pub weight: f32,
+    // ES `knn.similarity` cutoff, in raw metric units (a distance for
+    // distance metrics) — folded into score space by `Fold::threshold`.
+    pub cutoff: Option<f32>,
     pub query: AnnQuery,
 }
 
@@ -72,21 +75,60 @@ pub enum AnnQuery {
     },
 }
 
-// Folds a raw vector score into ES's [0, 1] `_score` space: cosine/dot_product
-// through (1 + s) / 2 (so orthogonal unit vectors report 0.5, not 0), distance
-// metrics through 1 / (1 + d), maxsim unchanged. `None` => not knn-searchable.
-fn normalize_score(kind: IndexKind, raw: LogicalExpr) -> Option<LogicalExpr> {
-    match kind {
-        IndexKind::Vector(VectorDistanceMetric::Cosine | VectorDistanceMetric::DotProduct) => Some(
-            LogicalExpr::literal(1.0f32)
+// Folds a raw vector score into ES's [0, 1] `_score` space. `expr` and
+// `threshold` must stay in the same space: `expr` maps the engine's raw
+// per-doc value, `threshold` maps the user's ES-units cutoff.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Fold {
+    // Similarity s → (1 + s) / 2, so orthogonal unit vectors report 0.5, not 0.
+    Affine,
+    // Distance d → 1 / (1 + d). `squared` marks metrics whose raw engine value
+    // is already d² while the ES-facing cutoff is the unsquared distance
+    // (TopK's euclidean kernel skips the sqrt, which matches ES's l2_norm
+    // score of 1 / (1 + d²) exactly).
+    Inverse { squared: bool },
+    // Maxsim, unchanged (TopK extension — no ES score space to map into).
+    Passthrough,
+}
+
+impl Fold {
+    // `None` => not knn-searchable.
+    fn of(kind: IndexKind) -> Option<Fold> {
+        match kind {
+            IndexKind::Vector(VectorDistanceMetric::Cosine | VectorDistanceMetric::DotProduct) => {
+                Some(Fold::Affine)
+            }
+            IndexKind::Vector(VectorDistanceMetric::Euclidean) => {
+                Some(Fold::Inverse { squared: true })
+            }
+            IndexKind::Vector(VectorDistanceMetric::Hamming) => {
+                Some(Fold::Inverse { squared: false })
+            }
+            IndexKind::MultiVector(MultiVectorDistanceMetric::Maxsim) => Some(Fold::Passthrough),
+            _ => None,
+        }
+    }
+
+    fn expr(self, raw: LogicalExpr) -> LogicalExpr {
+        match self {
+            Fold::Affine => LogicalExpr::literal(1.0f32)
                 .add(raw)
                 .div(LogicalExpr::literal(2.0f32)),
-        ),
-        IndexKind::Vector(VectorDistanceMetric::Euclidean | VectorDistanceMetric::Hamming) => {
-            Some(LogicalExpr::literal(1.0f32).div(LogicalExpr::literal(1.0f32).add(raw)))
+            Fold::Inverse { .. } => {
+                LogicalExpr::literal(1.0f32).div(LogicalExpr::literal(1.0f32).add(raw))
+            }
+            Fold::Passthrough => raw,
         }
-        IndexKind::MultiVector(MultiVectorDistanceMetric::Maxsim) => Some(raw),
-        _ => None,
+    }
+
+    fn threshold(self, cutoff: f32) -> f32 {
+        match self {
+            Fold::Affine => (1.0 + cutoff) / 2.0,
+            Fold::Inverse { squared } => {
+                1.0 / (1.0 + if squared { cutoff * cutoff } else { cutoff })
+            }
+            Fold::Passthrough => cutoff,
+        }
     }
 }
 
@@ -130,10 +172,21 @@ pub fn ann_score(
             ),
         };
 
+        let fold = Fold::of(IndexKind::from(spec)).ok_or_else(|| not_knn_searchable(&ann.field))?;
+
         let rank_ann = format!("{RANK_ANN}_{index}");
         query = query.select([(rank_ann.as_str(), scorer)]);
-        let folded = normalize_score(IndexKind::from(spec), field(rank_ann.as_str()))
-            .ok_or_else(|| not_knn_searchable(&ann.field))?;
+        let folded = fold.expr(field(rank_ann.as_str()));
+
+        // ES applies the `similarity` cutoff before `boost`, so compare the
+        // unweighted fold.
+        if let Some(cutoff) = ann.cutoff {
+            query = query.filter(
+                folded
+                    .clone()
+                    .gte(LogicalExpr::literal(fold.threshold(cutoff))),
+            );
+        }
 
         let part = folded * ann.weight;
         total = Some(match total {
@@ -203,44 +256,43 @@ mod tests {
 
     // The exact numeric fold ((1 + s) / 2 etc.) is evaluated by the executor, so
     // its value is covered by integration tests. Here we lock the pure decision:
-    // metric → fold family, and the not-knn-searchable gate (`None`).
+    // metric → fold, and the not-knn-searchable gate (`None`).
     #[test]
-    fn fold_family_per_metric() {
-        let raw = || field("raw");
-        let affine = |x: LogicalExpr| {
-            LogicalExpr::literal(1.0f32)
-                .add(x)
-                .div(LogicalExpr::literal(2.0f32))
-        };
-        let inverse =
-            |x: LogicalExpr| LogicalExpr::literal(1.0f32).div(LogicalExpr::literal(1.0f32).add(x));
-
-        for metric in [
-            VectorDistanceMetric::Cosine,
-            VectorDistanceMetric::DotProduct,
-        ] {
-            assert_eq!(
-                normalize_score(IndexKind::Vector(metric), raw()),
-                Some(affine(raw()))
-            );
-        }
-        for metric in [
-            VectorDistanceMetric::Euclidean,
-            VectorDistanceMetric::Hamming,
-        ] {
-            assert_eq!(
-                normalize_score(IndexKind::Vector(metric), raw()),
-                Some(inverse(raw()))
-            );
-        }
-        // Maxsim is passed through unchanged.
-        assert_eq!(
-            normalize_score(
-                IndexKind::MultiVector(MultiVectorDistanceMetric::Maxsim),
-                raw()
+    fn fold_per_metric() {
+        for (metric, fold) in [
+            (VectorDistanceMetric::Cosine, Fold::Affine),
+            (VectorDistanceMetric::DotProduct, Fold::Affine),
+            (
+                VectorDistanceMetric::Euclidean,
+                Fold::Inverse { squared: true },
             ),
-            Some(raw())
+            (
+                VectorDistanceMetric::Hamming,
+                Fold::Inverse { squared: false },
+            ),
+        ] {
+            assert_eq!(Fold::of(IndexKind::Vector(metric)), Some(fold));
+        }
+        assert_eq!(
+            Fold::of(IndexKind::MultiVector(MultiVectorDistanceMetric::Maxsim)),
+            Some(Fold::Passthrough)
         );
+    }
+
+    // The ES `similarity` cutoff must land in the same space as the folded
+    // score: for l2_norm the user passes an unsquared distance while the
+    // engine's raw value (and so `expr`) works on d².
+    #[test]
+    fn threshold_matches_score_space() {
+        assert_eq!(Fold::Affine.threshold(0.5), 0.75);
+        assert_eq!(Fold::Inverse { squared: true }.threshold(5.0), 1.0 / 26.0);
+        assert_eq!(Fold::Inverse { squared: false }.threshold(5.0), 1.0 / 6.0);
+        assert_eq!(Fold::Passthrough.threshold(5.0), 5.0);
+    }
+
+    #[test]
+    fn passthrough_expr_is_identity() {
+        assert_eq!(Fold::Passthrough.expr(field("raw")), field("raw"));
     }
 
     #[test]
@@ -251,7 +303,7 @@ mod tests {
             IndexKind::Semantic,
             IndexKind::None,
         ] {
-            assert!(normalize_score(kind, field("raw")).is_none());
+            assert!(Fold::of(kind).is_none());
         }
     }
 }

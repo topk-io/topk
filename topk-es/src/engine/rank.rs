@@ -10,10 +10,7 @@ use super::RANK_SCORE;
 use crate::api::{DocId, Hit, SearchRequest, SortClause};
 use crate::Error;
 
-pub fn fuse(
-    req: &SearchRequest,
-    results: Vec<(Option<f32>, Vec<Document>)>,
-) -> Result<Vec<Hit>, Error> {
+pub fn fuse(req: &SearchRequest, results: Vec<Vec<Document>>) -> Result<Vec<Hit>, Error> {
     let candidates = combine(req, results)?;
     Ok(to_hits(req, candidates))
 }
@@ -131,12 +128,12 @@ enum SortKeyPart {
 
 fn combine(
     req: &SearchRequest,
-    results: Vec<(Option<f32>, Vec<Document>)>,
+    results: Vec<Vec<Document>>,
 ) -> Result<Vec<(f32, Candidate)>, Error> {
     let mut by_id: HashMap<DocId, Candidate> = HashMap::new();
 
     let mut groups: Vec<Vec<(DocId, f32)>> = Vec::with_capacity(results.len());
-    for (threshold, docs) in results {
+    for docs in results {
         let mut members = Vec::with_capacity(docs.len());
         for mut doc in docs {
             let id = DocId::try_from(
@@ -149,9 +146,6 @@ fn combine(
                 .remove(RANK_SCORE)
                 .and_then(|v| v.as_f32())
                 .unwrap_or(0.0);
-            if threshold.map(|min| score < min).unwrap_or(false) {
-                continue;
-            }
             members.push((id.clone(), score));
             by_id.entry(id.clone()).or_insert(Candidate {
                 id,

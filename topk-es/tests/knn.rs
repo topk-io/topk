@@ -543,6 +543,79 @@ async fn test_knn_similarity_cutoff_filters_low_similarity_hits(scope: &TestScop
     );
 }
 
+// ES `knn.similarity` on l2_norm is an (unsquared) distance: hits with
+// l2(query, vector) <= similarity survive, i.e. _score >= 1/(1 + similarity^2).
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_knn_euclidean_similarity_cutoff_keeps_hits_within_distance(scope: &TestScope) {
+    scope
+        .create_with_properties(
+            json!({ "embedding": { "type": "dense_vector", "dims": 2, "similarity": "l2_norm" } }),
+        )
+        .await;
+
+    scope
+        .index_docs([
+            ("exact", json!({ "embedding": [0.0, 0.0] })),
+            ("near", json!({ "embedding": [3.0, 0.0] })),
+            ("far", json!({ "embedding": [100.0, 0.0] })),
+        ])
+        .await;
+
+    let body = scope
+        .search(json!({
+            "knn": {
+                "field": "embedding",
+                "query_vector": [0.0, 0.0],
+                "k": 3,
+                "similarity": 5.0
+            }
+        }))
+        .await
+        .expect("search should succeed");
+
+    assert_eq!(
+        body.hit_ids(),
+        vec!["exact", "near"],
+        "distance-5 cutoff should keep hits within distance 5: {body}"
+    );
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_knn_euclidean_similarity_cutoff_drops_hits_beyond_distance(scope: &TestScope) {
+    scope
+        .create_with_properties(
+            json!({ "embedding": { "type": "dense_vector", "dims": 2, "similarity": "l2_norm" } }),
+        )
+        .await;
+
+    scope
+        .index_docs([
+            ("exact", json!({ "embedding": [0.0, 0.0] })),
+            ("far", json!({ "embedding": [1.0, 0.0] })),
+        ])
+        .await;
+
+    let body = scope
+        .search(json!({
+            "knn": {
+                "field": "embedding",
+                "query_vector": [0.0, 0.0],
+                "k": 2,
+                "similarity": 0.5
+            }
+        }))
+        .await
+        .expect("search should succeed");
+
+    assert_eq!(
+        body.hit_ids(),
+        vec!["exact"],
+        "distance-0.5 cutoff should drop the hit at distance 1: {body}"
+    );
+}
+
 #[test_context(TestScope)]
 #[tokio::test]
 async fn test_knn_with_sort_orders_by_field(scope: &TestScope) {

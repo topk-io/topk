@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::ops::Deref;
 
 use serde::{Deserialize, Deserializer, Serialize};
-use serde_with::{OneOrMany, serde_as};
+use serde_with::{serde_as, OneOrMany};
 use topk_rs::json::Value as JsonValue;
 use topk_rs::proto::v1::data::Value as TopkValue;
 use topk_rs::query::SortOrder as TopkSortOrder;
