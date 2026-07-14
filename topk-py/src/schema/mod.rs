@@ -210,9 +210,10 @@ pub fn vector_index(metric: String) -> PyResult<field_index::FieldIndex> {
 pub fn keyword_index(r#type: String) -> PyResult<field_index::FieldIndex> {
     let index_type = match r#type.to_lowercase().as_str() {
         "text" => field_index::KeywordIndexType::Text,
+        "exact" => field_index::KeywordIndexType::Exact,
         _ => {
             return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                "Invalid keyword index type: {}. Supported index types are: text.",
+                "Invalid keyword index type: {}. Supported index types are: text, exact.",
                 r#type
             )))
         }

@@ -15,7 +15,7 @@ describe("Query Validation", () => {
     await Promise.all(contexts.map((ctx) => ctx.deleteCollections()));
   });
 
-  test("query topk by non primitive", async () => {
+  test("query topk by text", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("books", {
       title: text().required().index(keywordIndex()),
@@ -23,16 +23,16 @@ describe("Query Validation", () => {
     });
 
     await ctx.client.collection(collection.name).upsert([
-      { _id: "1", title: "Book 1", published_year: 2020 },
-      { _id: "2", title: "Book 2", published_year: 2021 },
-      { _id: "3", title: "Book 3", published_year: 2022 },
+      { _id: "1", title: "Book C", published_year: 2020 },
+      { _id: "2", title: "Book A", published_year: 2021 },
+      { _id: "3", title: "Book B", published_year: 2022 },
     ]);
 
-    await expect(
-      ctx.client
-        .collection(collection.name)
-        .query(select({}).topk(field("title"), 3, true))
-    ).rejects.toThrow();
+    const results = await ctx.client
+      .collection(collection.name)
+      .query(select({}).topk(field("title"), 3, true));
+
+    expect(results.map((doc) => doc._id)).toEqual(["2", "3", "1"]);
   });
 
   test("query topk by non existing", async () => {

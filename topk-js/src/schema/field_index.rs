@@ -71,12 +71,14 @@ impl FromNapiValue for FieldIndex {
 #[derive(Clone, Debug)]
 pub enum KeywordIndexType {
     Text,
+    Exact,
 }
 
 impl From<KeywordIndexType> for topk_rs::proto::v1::control::KeywordIndexType {
     fn from(index_type: KeywordIndexType) -> Self {
         match index_type {
             KeywordIndexType::Text => topk_rs::proto::v1::control::KeywordIndexType::Text,
+            KeywordIndexType::Exact => topk_rs::proto::v1::control::KeywordIndexType::Exact,
         }
     }
 }
@@ -85,6 +87,7 @@ impl From<topk_rs::proto::v1::control::KeywordIndexType> for KeywordIndexType {
     fn from(index_type: topk_rs::proto::v1::control::KeywordIndexType) -> Self {
         match index_type {
             topk_rs::proto::v1::control::KeywordIndexType::Text => KeywordIndexType::Text,
+            topk_rs::proto::v1::control::KeywordIndexType::Exact => KeywordIndexType::Exact,
             topk_rs::proto::v1::control::KeywordIndexType::Unspecified => {
                 unreachable!("Invalid proto: Unspecified keyword index type")
             }

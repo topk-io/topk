@@ -403,6 +403,10 @@ async fn count(#[case] query: &str, #[case] expected: Vec<Document>) {
     "SELECT _id FROM {{table}} ORDER BY published_year DESC LIMIT 3",
     vec!["harry", "alchemist", "mockingbird"],
 )]
+#[case::string_sort(
+    "SELECT _id FROM {{table}} ORDER BY author ASC LIMIT 3",
+    vec!["pride", "alchemist", "gatsby"],
+)]
 #[tokio::test]
 async fn order_by(#[case] query: &str, #[case] expected: Vec<&str>) {
     let rows = BooksContext::with_scope(async |ctx| ctx.sql(query).await)
@@ -741,10 +745,6 @@ async fn semantic_similarity_search() {
 #[case::order_limit(
     "SELECT _id FROM {{table}} ORDER BY published_year",
     "Invalid: ORDER BY without LIMIT is not supported"
-)]
-#[case::string_sort(
-    "SELECT _id FROM {{table}} ORDER BY author ASC LIMIT 3",
-    "Invalid argument: Input to SortWithLimit must produce primitive type, not String"
 )]
 #[case::ordinal_sort(
     "SELECT _id FROM {{table}} ORDER BY 1 LIMIT 5",

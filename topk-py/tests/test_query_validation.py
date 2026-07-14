@@ -6,16 +6,18 @@ from . import ProjectContext
 from .utils import dataset
 
 
-def test_query_topk_by_non_primitive(ctx: ProjectContext):
+def test_query_topk_by_text(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 
-    with pytest.raises(error.InvalidArgumentError) as exc_info:
-        ctx.client.collection(collection.name).query(
-            select("title").topk(field("title"), 3, True)
-        )
-    assert "Input to SortWithLimit must produce primitive type, not String" in str(
-        exc_info.value
+    results = ctx.client.collection(collection.name).query(
+        select("title").topk(field("title"), 3, True)
     )
+
+    assert results == [
+        {"_id": "1984", "title": "1984"},
+        {"_id": "harry", "title": "Harry Potter and the Sorcerer's Stone"},
+        {"_id": "moby", "title": "Moby-Dick"},
+    ]
 
 
 def test_query_topk_by_non_existing(ctx: ProjectContext):
@@ -25,7 +27,7 @@ def test_query_topk_by_non_existing(ctx: ProjectContext):
         ctx.client.collection(collection.name).query(
             select("title").topk(field("non_existing_field"), 3, True)
         )
-    assert "Input to SortWithLimit must produce primitive or string type, not Null" in str(
+    assert "Sort expression must produce primitive or string type, not Null" in str(
         exc_info.value
     )
 
@@ -56,4 +58,4 @@ def test_union_u32_and_binary(ctx: ProjectContext):
         ctx.client.collection(collection.name).query(
             select("title").topk(field("num"), 100, True)
         )
-    assert "Input to SortWithLimit must produce primitive or string type" in str(exc_info.value)
+    assert "Sort expression must produce primitive or string type" in str(exc_info.value)

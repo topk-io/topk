@@ -25,7 +25,7 @@ impl From<Stage> for topk_rs::proto::v1::data::Stage {
             Stage::Select { exprs } => topk_rs::proto::v1::data::Stage::select(exprs),
             Stage::Filter { expr } => topk_rs::proto::v1::data::Stage::filter(expr),
             Stage::Limit { k } => topk_rs::proto::v1::data::Stage::limit(k.try_into().unwrap()),
-            Stage::Sort { expr, asc } => topk_rs::proto::v1::data::Stage::sort(expr.into(), asc),
+            Stage::Sort { expr, asc } => topk_rs::proto::v1::data::Stage::sort((expr.into(), asc)),
             Stage::Count {} => topk_rs::proto::v1::data::Stage::count(),
         }
     }
