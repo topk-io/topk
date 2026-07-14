@@ -9,7 +9,7 @@ use elasticsearch::{
         StatusCode, Url,
     },
     indices::{IndicesCreateParts, IndicesDeleteParts},
-    params::Refresh,
+    params::{Refresh, SearchType},
     BulkOperation, BulkOperations, BulkParts, CountParts, DeleteParts, Elasticsearch, GetParts,
     GetSourceParts, IndexParts, MgetParts, MsearchParts, SearchParts,
 };
@@ -242,7 +242,12 @@ impl TestScope {
             ops.push(BulkOperation::index(body).id(id))
                 .expect("encode bulk op");
         }
-        self.bulk(ops).await
+        let res = self.bulk(ops).await;
+        assert_eq!(
+            res["errors"], false,
+            "index_docs must index every doc: {res}"
+        );
+        res
     }
 
     pub async fn delete_doc(&self, id: &str) -> JsonResponse {
@@ -258,14 +263,20 @@ impl TestScope {
     }
 
     pub async fn search(&self, body: Value) -> TestResult<SearchResponse> {
-        let res = self
+        let dfs = std::env::var("ELASTIC_DFS").is_ok() && body.get("knn").is_none();
+
+        let index = [self.name.as_str()];
+        let mut req = self
             .client
             .es()
-            .search(SearchParts::Index(&[&self.name]))
-            .body(body)
-            .send()
-            .await
-            .expect("search");
+            .search(SearchParts::Index(&index))
+            .body(body);
+
+        if dfs {
+            req = req.search_type(SearchType::DfsQueryThenFetch);
+        }
+
+        let res = req.send().await.expect("search");
 
         into_test_result(res).await.map(SearchResponse)
     }
