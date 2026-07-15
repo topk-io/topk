@@ -21,7 +21,8 @@ impl SqlClient {
             .unwrap_or("5432".to_string())
             .parse::<u16>()?;
         let user = std::env::var("POSTGRES_USER").unwrap_or_else(|_| "default".to_string());
-        let password = std::env::var("POSTGRES_PASSWORD")?;
+        let password =
+            std::env::var("POSTGRES_PASSWORD").or_else(|_| std::env::var("TOPK_API_KEY"))?;
         let ssl = std::env::var("POSTGRES_SSL").unwrap_or_else(|_| "prefer".to_string());
 
         let opts = PgConnectOptions::new()
