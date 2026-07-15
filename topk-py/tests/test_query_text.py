@@ -111,10 +111,10 @@ def test_query_text_exact_keyword(ctx: ProjectContext):
 
     for token, expected in [
         ("New York City", {"nyc"}),
-        ("York", set()),
-        ("new york city", set()),
+        ("York", set[str]()),
+        ("new york city", set[str]()),
         ("CamelCase", {"camel"}),
-        ("camelcase", set()),
+        ("camelcase", set[str]()),
     ]:
         result = ctx.client.collection(collection.name).query(
             filter(match(token, field="tag")).limit(10),
