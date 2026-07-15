@@ -122,8 +122,10 @@ The primary query interface. Compute search scores in the projection, filter by 
 ```sql
 SELECT <projection> FROM <table>
   [WHERE <filter>]
-  [ORDER BY <expr> [ASC | DESC] LIMIT <n>]
+  [ORDER BY <expr> [ASC | DESC] LIMIT <n> [OFFSET <m>]]
 ```
+
+`OFFSET` requires a `LIMIT` — `OFFSET` alone is not supported.
 
 #### Projection
 
@@ -548,8 +550,6 @@ The following commands are accepted and silently succeed:
 TopK speaks the PostgreSQL wire protocol but is purpose-built for search — not general-purpose relational queries. Some SQL features are intentionally absent because they don't map to search semantics or would work against search performance.
 
 ### Queries
-
-**No `OFFSET`** — Search indexes are optimized for top-k retrieval. Skipping N results requires scanning and discarding ranked candidates, which defeats the purpose. Express pagination through your ranking score instead.
 
 **Single `ORDER BY` key** — Ranking is a single scoring expression. Combine multiple signals into one composite score rather than sorting by multiple columns: `ORDER BY vec_dist * 0.7 + bm25_score() * 0.3 DESC`.
 

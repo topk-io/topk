@@ -799,6 +799,8 @@ export declare namespace query {
     topk(expr: LogicalExpression, k: number, asc?: boolean | undefined | null): Query
     /** Adds a limit stage to the query. */
     limit(k: number): Query
+    /** Adds an offset stage to the query. */
+    offset(offset: number): Query
     /** Adds a sort stage to the query. */
     sort(expr: LogicalExpression, asc?: boolean | undefined | null): Query
     /** Adds a count stage to the query. */

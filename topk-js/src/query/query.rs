@@ -88,6 +88,18 @@ impl Query {
         new_query
     }
 
+    /// Adds an offset stage to the query.
+    #[napi]
+    pub fn offset(&self, offset: i32) -> Query {
+        let mut new_query = Query {
+            stages: self.stages.clone(),
+        };
+
+        new_query.stages.push(Stage::Offset { offset });
+
+        new_query
+    }
+
     /// Adds a sort stage to the query.
     #[napi]
     pub fn sort(&self, expr: &LogicalExpression, asc: Option<bool>) -> Query {

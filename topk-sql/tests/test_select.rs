@@ -443,6 +443,28 @@ async fn limit_caps_results(#[case] query: &str, #[case] expected_len: usize) {
 }
 
 #[rstest]
+#[case::offset_only("SELECT _id FROM {{table}} LIMIT 4 OFFSET 3", 4)]
+#[tokio::test]
+async fn limit_offset(#[case] query: &str, #[case] expected_len: usize) {
+    let rows = BooksContext::with_scope(async |ctx| ctx.sql(query).await)
+        .await
+        .unwrap();
+    assert_eq!(rows.len(), expected_len);
+}
+
+#[tokio::test]
+async fn sort_limit_offset() {
+    let rows = BooksContext::with_scope(async |ctx| {
+        ctx.sql("SELECT _id FROM {{table}} ORDER BY published_year ASC LIMIT 4 OFFSET 3")
+            .await
+    })
+    .await
+    .unwrap();
+    let actual = rows.iter().map(|row| row.id().unwrap()).collect::<Vec<_>>();
+    assert_eq!(actual, vec!["hobbit", "nineteen_eighty_four", "catcher", "lotr"]);
+}
+
+#[rstest]
 #[case::default_args(
     "SELECT _id, bm25_score() AS score FROM {{table}} WHERE match('rings', title) ORDER BY score DESC LIMIT 3",
     ids!["lotr"],
@@ -790,7 +812,10 @@ async fn semantic_similarity_search() {
     "SELECT _id FROM {{table}} a JOIN {{table}} b ON a._id = b._id LIMIT 5",
     "Unsupported: JOIN"
 )]
-#[case::offset("SELECT _id FROM {{table}} LIMIT 5 OFFSET 3", "Unsupported: OFFSET")]
+#[case::offset_without_limit(
+    "SELECT _id FROM {{table}} OFFSET 3",
+    "Invalid: OFFSET without LIMIT is not supported"
+)]
 #[case::unknown_fn(
     "SELECT _id FROM {{table}} WHERE FOOBAR(rating) > 0",
     "Unknown function: FOOBAR"

@@ -382,6 +382,11 @@ class Query:
         Adds a limit stage to the query.
         """
         ...
+    def offset(self, offset: builtins.int) -> Query:
+        """
+        Adds an offset stage to the query.
+        """
+        ...
     def count(self) -> Query:
         """
         Adds a count stage to the query.

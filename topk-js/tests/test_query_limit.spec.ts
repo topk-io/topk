@@ -137,6 +137,65 @@ describe("test_query_limit", () => {
     expect(docsLimit).toEqual(docsTopk);
   });
 
+  test("test_query_limit_offset", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("test_query_limit_offset", {
+      published_year: int(),
+    });
+
+    const books = [
+      { _id: "mockingbird", published_year: 1960 },
+      { _id: "1984", published_year: 1949 },
+      { _id: "pride", published_year: 1813 },
+      { _id: "gatsby", published_year: 1925 },
+      { _id: "catcher", published_year: 1951 },
+      { _id: "moby", published_year: 1851 },
+      { _id: "hobbit", published_year: 1937 },
+      { _id: "harry", published_year: 1997 },
+      { _id: "lotr", published_year: 1954 },
+      { _id: "alchemist", published_year: 1988 },
+    ];
+    await ctx.client.collection(collection.name).upsert(books);
+
+    const result = await ctx.client
+      .collection(collection.name)
+      .query(select({ _id: field("_id") }).limit(4).offset(3));
+
+    expect(result.length).toBe(4);
+  });
+
+  test("test_query_sort_limit_offset", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("test_query_sort_limit_offset", {
+      published_year: int(),
+    });
+
+    const books = [
+      { _id: "mockingbird", published_year: 1960 },
+      { _id: "1984", published_year: 1949 },
+      { _id: "pride", published_year: 1813 },
+      { _id: "gatsby", published_year: 1925 },
+      { _id: "catcher", published_year: 1951 },
+      { _id: "moby", published_year: 1851 },
+      { _id: "hobbit", published_year: 1937 },
+      { _id: "harry", published_year: 1997 },
+      { _id: "lotr", published_year: 1954 },
+      { _id: "alchemist", published_year: 1988 },
+    ];
+    await ctx.client.collection(collection.name).upsert(books);
+
+    const result = await ctx.client.collection(collection.name).query(
+      select({ _id: field("_id"), published_year: field("published_year") })
+        .sort(field("published_year"), true)
+        .limit(4)
+        .offset(3)
+    );
+
+    expect(result.length).toBe(4);
+    expect(docFields(result)).toEqual(new Set(["_id", "published_year"]));
+    expect(result.map((d) => d._id)).toEqual(["hobbit", "1984", "catcher", "lotr"]);
+  });
+
   test("test_query_invalid_collectors", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("test_query_invalid_collectors", {

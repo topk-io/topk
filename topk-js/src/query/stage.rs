@@ -12,6 +12,9 @@ pub enum Stage {
     Limit {
         k: i32,
     },
+    Offset {
+        offset: i32,
+    },
     Sort {
         expr: LogicalExpression,
         asc: bool,
@@ -33,6 +36,9 @@ impl From<Stage> for topk_rs::proto::v1::data::Stage {
                     topk_rs::proto::v1::data::stage::sort_stage::SortOrder::Desc
                 },
             )),
+            Stage::Offset { offset } => {
+                topk_rs::proto::v1::data::Stage::offset(offset.try_into().unwrap())
+            }
             Stage::Count {} => topk_rs::proto::v1::data::Stage::count(),
         }
     }

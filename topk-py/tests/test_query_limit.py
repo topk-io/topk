@@ -3,7 +3,7 @@ from topk_sdk import error
 from topk_sdk.query import field, fn, match, select
 
 from . import ProjectContext
-from .utils import dataset, doc_ids, doc_fields
+from .utils import dataset, doc_ids, doc_ids_ordered, doc_fields
 
 
 def test_query_bare_limit(ctx: ProjectContext):
@@ -77,6 +77,32 @@ def test_query_limit_vector_distance(ctx: ProjectContext):
 
     # vector distance from limit should be the same as the vector distance from topk with skip_refine true
     assert docs_limit == docs_topk
+
+
+def test_query_limit_offset(ctx: ProjectContext):
+    collection = dataset.books.setup(ctx)
+
+    result = ctx.client.collection(collection.name).query(
+        select(_id=field("_id")).limit(4).offset(3)
+    )
+
+    # We don't guarantee any ordering of the results, so we just check the length.
+    assert len(result) == 4
+
+
+def test_query_sort_limit_offset(ctx: ProjectContext):
+    collection = dataset.books.setup(ctx)
+
+    result = ctx.client.collection(collection.name).query(
+        select(_id=field("_id"), published_year=field("published_year"))
+        .sort(field("published_year"), True)
+        .limit(4)
+        .offset(3)
+    )
+
+    assert len(result) == 4
+    assert doc_fields(result) == {"_id", "published_year"}
+    assert doc_ids_ordered(result) == ["hobbit", "1984", "catcher", "lotr"]
 
 
 def test_query_invalid_collectors(ctx: ProjectContext):
