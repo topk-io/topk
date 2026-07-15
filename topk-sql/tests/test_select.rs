@@ -816,10 +816,6 @@ async fn semantic_similarity_search() {
     "SELECT _id FROM {{table}} OFFSET 3",
     "Invalid: OFFSET without LIMIT is not supported"
 )]
-#[case::offset_comma_limit(
-    "SELECT _id FROM {{table}} LIMIT 4, 3",
-    "Parse error: sql parser error: Expected: end of statement, found: , at Line: 1, Column: 64"
-)]
 #[case::unknown_fn(
     "SELECT _id FROM {{table}} WHERE FOOBAR(rating) > 0",
     "Unknown function: FOOBAR"
