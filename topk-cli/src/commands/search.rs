@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use colored::Colorize;
 use futures::TryStreamExt;
@@ -23,8 +23,8 @@ pub struct SearchResult {
     pub content_id: String,
     pub doc_name: String,
     pub content: Option<Content>,
-    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
-    pub metadata: HashMap<String, Value>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub metadata: BTreeMap<String, Value>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -274,7 +274,7 @@ pub fn format_content_text(content: &Content) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
 
     use super::{Content, Image, SearchResult};
     use assert_cmd::Command;
@@ -495,7 +495,7 @@ mod tests {
                 text: "hello".to_string(),
                 doc_pages: vec![170],
             }),
-            metadata: HashMap::new(),
+            metadata: BTreeMap::new(),
         };
 
         assert_eq!(
@@ -526,7 +526,7 @@ mod tests {
                 mime_type: "image/png".to_string(),
                 data: bytes::Bytes::from(vec![1, 2, 3]).into(),
             })),
-            metadata: HashMap::new(),
+            metadata: BTreeMap::new(),
         };
 
         assert_eq!(

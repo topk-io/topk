@@ -155,33 +155,17 @@ impl TryFrom<Vec<Vec<serde_json::Value>>> for TopkValue {
             }
         }
 
-        if rows.iter().map(Vec::len).sum::<usize>() >= u32::MAX as usize {
+        if rows.len() * num_cols >= u32::MAX as usize {
             return Err(crate::Error::InvalidArgument(
                 "JSON matrix has too many values".into(),
             ));
         }
 
-        let mut int_cells = Vec::new();
-        for row in &rows {
-            for value in row {
-                match json_whole_number_as_i64(value)? {
-                    Some(n) => int_cells.push(n),
-                    None => {
-                        return rows
-                            .into_iter()
-                            .flatten()
-                            .map(number_to_f32)
-                            .collect::<Result<Vec<_>, _>>()
-                            .map(|values| TopkValue::matrix(num_cols as u32, values));
-                    }
-                }
-            }
-        }
-
-        Ok(TopkValue::matrix(
-            num_cols as u32,
-            int_cells.into_iter().map(|n| n as f32).collect::<Vec<_>>(),
-        ))
+        rows.into_iter()
+            .flatten()
+            .map(number_to_f32)
+            .collect::<Result<Vec<_>, _>>()
+            .map(|values| TopkValue::matrix(num_cols as u32, values))
     }
 }
 
@@ -338,10 +322,6 @@ impl TryFrom<TopkValue> for serde_json::Value {
 }
 
 fn json_number_array(values: Vec<serde_json::Value>) -> Result<TopkValue, crate::Error> {
-    if values.is_empty() {
-        return Ok(TopkValue::list(Vec::<i64>::new()));
-    }
-
     let mut ints = Vec::with_capacity(values.len());
     for value in &values {
         match json_whole_number_as_i64(value)? {
@@ -411,7 +391,16 @@ mod tests {
 
     use super::*;
 
+    fn f16s(values: &[f32]) -> Vec<half::f16> {
+        values.iter().copied().map(half::f16::from_f32).collect()
+    }
+
+    fn f8s(values: &[f32]) -> Vec<float8::F8E4M3> {
+        values.iter().copied().map(float8::F8E4M3::from_f32).collect()
+    }
+
     #[rstest]
+    // scalars
     #[case::i64(json!(42), TopkValue::i64(42))]
     #[case::i64_negative(json!(-5), TopkValue::i64(-5))]
     #[case::u64(
@@ -419,15 +408,24 @@ mod tests {
         TopkValue::u64(i64::MAX as u64 + 1)
     )]
     #[case::f64(json!(0.1), TopkValue::f64(0.1))]
-    #[case::ints(json!([1, 2]), TopkValue::list(vec![1_i64, 2]))]
-    #[case::byte_values(json!([255, 128, 1, 0]), TopkValue::list(vec![255_i64, 128, 1, 0]))]
-    #[case::mixed(json!([1, 2.5]), TopkValue::list(vec![1.0_f32, 2.5]))]
-    #[case::empty_array(json!([]), TopkValue::list(Vec::<i64>::new()))]
-    #[case::strings(json!(["a", "b"]), TopkValue::list(vec!["a", "b"]))]
+    // arrays
+    #[case::int_list(json!([1, 2]), TopkValue::list(vec![1_i64, 2]))]
+    #[case::negative_int_list(json!([-1, 2]), TopkValue::list(vec![-1_i64, 2]))]
+    #[case::byte_value_list(json!([255, 128, 1, 0]), TopkValue::list(vec![255_i64, 128, 1, 0]))]
+    #[case::whole_float_list(json!([1.0, 2.0]), TopkValue::list(vec![1_i64, 2]))]
+    #[case::mixed_list(json!([1, 2.5]), TopkValue::list(vec![1.0_f32, 2.5]))]
+    #[case::u64_overflow_list(
+        json!([1, i64::MAX as u64 + 1]),
+        TopkValue::list(vec![1.0_f32, (i64::MAX as u64 + 1) as f32])
+    )]
+    #[case::empty_list(json!([]), TopkValue::list(Vec::<i64>::new()))]
+    #[case::string_list(json!(["a", "b"]), TopkValue::list(vec!["a", "b"]))]
+    // matrices
     #[case::matrix(
         json!([[1, 2], [3.5, 4]]),
         TopkValue::matrix(2, vec![1.0_f32, 2.0, 3.5, 4.0])
     )]
+    // objects
     #[case::sparse_vector(
         json!({"0": 1.5, "2": 3.0}),
         TopkValue::f32_sparse_vector(vec![0, 2], vec![1.5, 3.0])
@@ -439,6 +437,21 @@ mod tests {
     #[case::empty_object(
         json!({}),
         TopkValue::r#struct(Vec::<(String, TopkValue)>::new())
+    )]
+    #[case::mixed_keys_object(
+        json!({"0": 1.5, "name": 2}),
+        TopkValue::r#struct([("0", TopkValue::f64(1.5)), ("name", TopkValue::i64(2))])
+    )]
+    #[case::non_u32_index_object(
+        json!({"4294967296": 1}),
+        TopkValue::r#struct([("4294967296", TopkValue::i64(1))])
+    )]
+    #[case::nested_struct(
+        json!({"a": {"b": [1, 2]}}),
+        TopkValue::r#struct([(
+            "a",
+            TopkValue::r#struct([("b", TopkValue::list(vec![1_i64, 2]))])
+        )])
     )]
     fn from_json(#[case] input: serde_json::Value, #[case] expected: TopkValue) {
         assert_eq!(TopkValue::try_from(input).unwrap(), expected);
@@ -458,6 +471,7 @@ mod tests {
     }
 
     #[rstest]
+    // scalars
     #[case::null(TopkValue::null(), json!(null))]
     #[case::bool(TopkValue::bool(true), json!(true))]
     #[case::string(TopkValue::string("a"), json!("a"))]
@@ -466,21 +480,70 @@ mod tests {
     #[case::i32(TopkValue::i32(-7), json!(-7))]
     #[case::i64(TopkValue::i64(-8), json!(-8))]
     #[case::f64(TopkValue::f64(0.5), json!(0.5))]
-    #[case::i64_list(TopkValue::list(vec![1_i64, 2]), json!([1, 2]))]
+    // binary
+    #[case::binary(TopkValue::binary(vec![1_u8, 2, 3]), json!([1, 2, 3]))]
+    // lists
+    #[case::u8_list(TopkValue::list(vec![1_u8, 2]), json!([1, 2]))]
+    #[case::i8_list(TopkValue::list(vec![-1_i8, 2]), json!([-1, 2]))]
+    #[case::u32_list(TopkValue::list(vec![1_u32, 2]), json!([1, 2]))]
+    #[case::i32_list(TopkValue::list(vec![-1_i32, 2]), json!([-1, 2]))]
     #[case::u64_list(TopkValue::list(vec![1_u64, 2]), json!([1, 2]))]
+    #[case::i64_list(TopkValue::list(vec![1_i64, 2]), json!([1, 2]))]
+    #[case::f8_list(TopkValue::list(f8s(&[1.5, 2.5])), json!([1.5, 2.5]))]
+    #[case::f16_list(TopkValue::list(f16s(&[1.5, 2.5])), json!([1.5, 2.5]))]
     #[case::f32_list(TopkValue::list(vec![1.5_f32, 2.5]), json!([1.5, 2.5]))]
+    #[case::f64_list(TopkValue::list(vec![0.5_f64, 1.25]), json!([0.5, 1.25]))]
     #[case::string_list(TopkValue::list(vec!["a", "b"]), json!(["a", "b"]))]
-    #[case::sparse_vector(
+    // sparse vectors
+    #[case::f32_sparse_vector(
         TopkValue::f32_sparse_vector(vec![0, 2], vec![1.5, 3.0]),
         json!({"0": 1.5, "2": 3.0})
     )]
-    #[case::matrix(
+    #[case::f16_sparse_vector(
+        TopkValue::f16_sparse_vector(vec![0, 2], f16s(&[1.5, 3.0])),
+        json!({"0": 1.5, "2": 3.0})
+    )]
+    #[case::f8_sparse_vector(
+        TopkValue::f8_sparse_vector(vec![0, 2], f8s(&[1.5, 3.0])),
+        json!({"0": 1.5, "2": 3.0})
+    )]
+    #[case::u8_sparse_vector(
+        TopkValue::u8_sparse_vector(vec![0, 2], vec![1, 3]),
+        json!({"0": 1, "2": 3})
+    )]
+    #[case::i8_sparse_vector(
+        TopkValue::i8_sparse_vector(vec![0, 2], vec![-1, 3]),
+        json!({"0": -1, "2": 3})
+    )]
+    // matrices
+    #[case::f32_matrix(
         TopkValue::matrix(2, vec![1.5_f32, 2.5, 3.5, 4.5]),
         json!([[1.5, 2.5], [3.5, 4.5]])
     )]
+    #[case::f16_matrix(
+        TopkValue::matrix(2, f16s(&[1.5, 2.5, 3.5, 4.5])),
+        json!([[1.5, 2.5], [3.5, 4.5]])
+    )]
+    #[case::f8_matrix(
+        TopkValue::matrix(2, f8s(&[1.5, 2.5, 3.5, 4.5])),
+        json!([[1.5, 2.5], [3.5, 4.5]])
+    )]
+    #[case::u8_matrix(
+        TopkValue::matrix(2, vec![1_u8, 2, 3, 4]),
+        json!([[1, 2], [3, 4]])
+    )]
+    #[case::i8_matrix(
+        TopkValue::matrix(2, vec![-1_i8, 2, -3, 4]),
+        json!([[-1, 2], [-3, 4]])
+    )]
+    // structs
     #[case::struct_value(
         TopkValue::r#struct([("name", TopkValue::string("a")), ("count", TopkValue::i64(2))]),
         json!({"name": "a", "count": 2})
+    )]
+    #[case::empty_struct(
+        TopkValue::r#struct(Vec::<(String, TopkValue)>::new()),
+        json!({})
     )]
     fn to_json(#[case] input: TopkValue, #[case] expected: serde_json::Value) {
         assert_eq!(serde_json::Value::try_from(input).unwrap(), expected);
@@ -510,5 +573,13 @@ mod tests {
                 .into_inner(),
             input
         );
+    }
+
+    #[rstest]
+    #[case::bool_array(json!([true]))]
+    #[case::mixed_number_string(json!([1, "a"]))]
+    #[case::ragged_matrix(json!([[1], [2, 3]]))]
+    fn deserialize_invalid(#[case] input: serde_json::Value) {
+        assert!(serde_json::from_value::<Value>(input).is_err());
     }
 }

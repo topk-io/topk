@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fmt;
 
 use bytesize::ByteSize;
@@ -21,8 +21,8 @@ pub struct ListEntry {
     pub mime_type: String,
     pub status: String,
     pub status_reason: Option<String>,
-    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
-    pub metadata: HashMap<String, Value>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub metadata: BTreeMap<String, Value>,
 }
 
 impl From<topk_rs::proto::v1::ctx::ListEntry> for ListEntry {
