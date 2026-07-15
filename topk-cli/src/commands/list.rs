@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt;
 
 use bytesize::ByteSize;
@@ -9,6 +10,7 @@ use comfy_table::{
 use futures::{Stream, StreamExt};
 use serde::{Deserialize, Serialize};
 use terminal_size::{terminal_size, Width as TermWidth};
+use topk_rs::json::Value;
 use topk_rs::{Client, Error};
 
 #[derive(Serialize, Deserialize)]
@@ -19,8 +21,8 @@ pub struct ListEntry {
     pub mime_type: String,
     pub status: String,
     pub status_reason: Option<String>,
-    #[serde(default, skip_serializing_if = "serde_json::Map::is_empty")]
-    pub metadata: serde_json::Map<String, serde_json::Value>,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub metadata: HashMap<String, Value>,
 }
 
 impl From<topk_rs::proto::v1::ctx::ListEntry> for ListEntry {
@@ -35,12 +37,7 @@ impl From<topk_rs::proto::v1::ctx::ListEntry> for ListEntry {
             metadata: entry
                 .metadata
                 .into_iter()
-                .map(|(k, v)| {
-                    (
-                        k,
-                        serde_json::Value::try_from(v).unwrap_or(serde_json::Value::Null),
-                    )
-                })
+                .map(|(k, v)| (k, Value::from(v)))
                 .collect(),
         }
     }
@@ -218,7 +215,6 @@ mod tests {
     use bytesize::ByteSize;
     use serde_json::json;
     use test_context::test_context;
-    use topk_rs::proto::v1::data::Value;
 
     fn cmd() -> Command {
         Command::cargo_bin("topk").unwrap()
@@ -288,26 +284,5 @@ mod tests {
             .map(|line| serde_json::from_str(line).unwrap())
             .collect();
         assert!(entries.is_empty());
-    }
-
-    #[test]
-    fn metadata_values_are_unwrapped_for_json_output() {
-        let value = Value::r#struct([
-            ("ticker", Value::string("AAPL")),
-            ("cik", Value::i64(320193)),
-            (
-                "aliases",
-                Value::list(vec!["Apple".to_string(), "AAPL".to_string()]),
-            ),
-        ]);
-
-        assert_eq!(
-            serde_json::Value::try_from(value).unwrap(),
-            json!({
-                "ticker": "AAPL",
-                "cik": 320193,
-                "aliases": ["Apple", "AAPL"]
-            })
-        );
     }
 }

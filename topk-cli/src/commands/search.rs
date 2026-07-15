@@ -1,8 +1,10 @@
+use std::collections::HashMap;
+
 use colored::Colorize;
 use futures::TryStreamExt;
-use std::collections::HashMap;
 use std::fmt;
 use std::path::{Path, PathBuf};
+use topk_rs::json::Value;
 use topk_rs::{Client, Error};
 
 use crate::util::{mime::MimeType, read_query_from_stdin, Base64};
@@ -21,8 +23,8 @@ pub struct SearchResult {
     pub content_id: String,
     pub doc_name: String,
     pub content: Option<Content>,
-    #[serde(default, skip_serializing_if = "serde_json::Map::is_empty")]
-    pub metadata: serde_json::Map<String, serde_json::Value>,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub metadata: HashMap<String, Value>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -62,12 +64,7 @@ impl From<topk_rs::proto::v1::ctx::SearchResult> for SearchResult {
             metadata: result
                 .metadata
                 .into_iter()
-                .map(|(k, v)| {
-                    (
-                        k,
-                        serde_json::Value::try_from(v).unwrap_or(serde_json::Value::Null),
-                    )
-                })
+                .map(|(k, v)| (k, Value::from(v)))
                 .collect(),
         }
     }
@@ -277,6 +274,8 @@ pub fn format_content_text(content: &Content) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use super::{Content, Image, SearchResult};
     use assert_cmd::Command;
     use serde_json::json;
@@ -428,8 +427,14 @@ mod tests {
             .find(|r| r.doc_id == "meta-fields-doc")
             .expect("document not found in search results");
 
-        assert_eq!(doc.metadata.get("title"), Some(&json!("My Test Document")));
-        assert_eq!(doc.metadata.get("author"), Some(&json!("Test Author")));
+        assert_eq!(
+            doc.metadata.get("title").and_then(|v| v.as_string()),
+            Some("My Test Document")
+        );
+        assert_eq!(
+            doc.metadata.get("author").and_then(|v| v.as_string()),
+            Some("Test Author")
+        );
     }
 
     #[test]
@@ -490,7 +495,7 @@ mod tests {
                 text: "hello".to_string(),
                 doc_pages: vec![170],
             }),
-            metadata: serde_json::Map::new(),
+            metadata: HashMap::new(),
         };
 
         assert_eq!(
@@ -521,7 +526,7 @@ mod tests {
                 mime_type: "image/png".to_string(),
                 data: bytes::Bytes::from(vec![1, 2, 3]).into(),
             })),
-            metadata: serde_json::Map::new(),
+            metadata: HashMap::new(),
         };
 
         assert_eq!(

@@ -1,6 +1,11 @@
 use std::collections::HashMap;
+use std::ops::Deref;
 
-use crate::proto::data::v1::{list, matrix, sparse_vector, value, vector, Value};
+use serde::de::Error as DeError;
+use serde::ser::Error as SerError;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+use crate::proto::v1::data::{list, matrix, sparse_vector, value, vector, Value as TopkValue};
 
 macro_rules! array_of {
     ($values:expr, $mapper:expr) => {
@@ -20,29 +25,70 @@ macro_rules! array_of {
     };
 }
 
-impl TryFrom<serde_json::Value> for Value {
+/// JSON wire-format wrapper around a protobuf [`TopkValue`].
+#[derive(Clone, Debug, PartialEq)]
+pub struct Value(pub TopkValue);
+
+impl<T: Into<TopkValue>> From<T> for Value {
+    fn from(value: T) -> Self {
+        Self(value.into())
+    }
+}
+
+impl Value {
+    pub fn into_inner(self) -> TopkValue {
+        self.0
+    }
+}
+
+impl Deref for Value {
+    type Target = TopkValue;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Serialize for Value {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serde_json::Value::try_from(self.0.clone())
+            .map_err(SerError::custom)?
+            .serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Value {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Ok(Self(
+            TopkValue::try_from(serde_json::Value::deserialize(deserializer)?)
+                .map_err(DeError::custom)?,
+        ))
+    }
+}
+
+impl TryFrom<serde_json::Value> for TopkValue {
     type Error = crate::Error;
 
     fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
         match value {
-            serde_json::Value::Null => Ok(Value::null()),
-            serde_json::Value::Bool(value) => Ok(Value::bool(value)),
-            serde_json::Value::String(value) => Ok(Value::string(value)),
-            serde_json::Value::Number(value) => Ok(Value::try_from(value)?),
-            serde_json::Value::Object(value) => Ok(Value::try_from(value)?),
-            serde_json::Value::Array(value) => Ok(Value::try_from(value)?),
+            serde_json::Value::Null => Ok(TopkValue::null()),
+            serde_json::Value::Bool(value) => Ok(TopkValue::bool(value)),
+            serde_json::Value::String(value) => Ok(TopkValue::string(value)),
+            serde_json::Value::Number(value) => Ok(TopkValue::try_from(value)?),
+            serde_json::Value::Object(value) => Ok(TopkValue::try_from(value)?),
+            serde_json::Value::Array(value) => Ok(TopkValue::try_from(value)?),
         }
     }
 }
 
-impl TryFrom<serde_json::Number> for Value {
+impl TryFrom<serde_json::Number> for TopkValue {
     type Error = crate::Error;
 
     fn try_from(value: serde_json::Number) -> Result<Self, Self::Error> {
         if let Some(value) = value.as_i64() {
-            Ok(Value::i64(value))
+            Ok(TopkValue::i64(value))
         } else if let Some(value) = value.as_u64() {
-            Ok(Value::u64(value))
+            Ok(TopkValue::u64(value))
         } else {
             let value = value.as_f64().ok_or_else(|| {
                 crate::Error::InvalidArgument(
@@ -50,30 +96,25 @@ impl TryFrom<serde_json::Number> for Value {
                 )
             })?;
 
-            Ok(Value::f64(value))
+            Ok(TopkValue::f64(value))
         }
     }
 }
 
-impl TryFrom<Vec<serde_json::Value>> for Value {
+impl TryFrom<Vec<serde_json::Value>> for TopkValue {
     type Error = crate::Error;
 
     fn try_from(values: Vec<serde_json::Value>) -> Result<Self, Self::Error> {
-        let first = match values.first() {
-            Some(first) => first,
-            None => return Ok(Value::list(Vec::<f32>::new())),
+        let Some(first) = values.first() else {
+            return Ok(TopkValue::list(Vec::<i64>::new()));
         };
 
         if first.is_number() {
-            return values
-                .into_iter()
-                .map(number_to_f32)
-                .collect::<Result<Vec<_>, _>>()
-                .map(Value::list);
+            return json_number_array(values);
         }
 
         if first.is_string() {
-            return Ok(Value::list(array_of!(
+            return Ok(TopkValue::list(array_of!(
                 values,
                 serde_json::Value::String,
                 "JSON arrays must contain only numbers or strings"
@@ -81,7 +122,7 @@ impl TryFrom<Vec<serde_json::Value>> for Value {
         }
 
         if first.is_array() {
-            return Value::try_from(array_of!(
+            return TopkValue::try_from(array_of!(
                 values,
                 serde_json::Value::Array,
                 "JSON arrays must contain only numbers, strings, or numeric arrays"
@@ -94,7 +135,7 @@ impl TryFrom<Vec<serde_json::Value>> for Value {
     }
 }
 
-impl TryFrom<Vec<Vec<serde_json::Value>>> for Value {
+impl TryFrom<Vec<Vec<serde_json::Value>>> for TopkValue {
     type Error = crate::Error;
 
     fn try_from(rows: Vec<Vec<serde_json::Value>>) -> Result<Self, Self::Error> {
@@ -106,30 +147,45 @@ impl TryFrom<Vec<Vec<serde_json::Value>>> for Value {
                 crate::Error::InvalidArgument("JSON matrices must have at least one column".into())
             })?;
 
-        let mut values = Vec::with_capacity(rows.len() * num_cols);
-        for row in rows {
+        for row in &rows {
             if row.len() != num_cols {
                 return Err(crate::Error::InvalidArgument(
                     "JSON matrix rows must have the same length".into(),
                 ));
             }
-
-            for value in row {
-                values.push(number_to_f32(value)?);
-            }
         }
 
-        if values.len() >= u32::MAX as usize {
+        if rows.iter().map(Vec::len).sum::<usize>() >= u32::MAX as usize {
             return Err(crate::Error::InvalidArgument(
                 "JSON matrix has too many values".into(),
             ));
         }
 
-        Ok(Value::matrix(num_cols as u32, values))
+        let mut int_cells = Vec::new();
+        for row in &rows {
+            for value in row {
+                match json_whole_number_as_i64(value)? {
+                    Some(n) => int_cells.push(n),
+                    None => {
+                        return rows
+                            .into_iter()
+                            .flatten()
+                            .map(number_to_f32)
+                            .collect::<Result<Vec<_>, _>>()
+                            .map(|values| TopkValue::matrix(num_cols as u32, values));
+                    }
+                }
+            }
+        }
+
+        Ok(TopkValue::matrix(
+            num_cols as u32,
+            int_cells.into_iter().map(|n| n as f32).collect::<Vec<_>>(),
+        ))
     }
 }
 
-impl TryFrom<serde_json::Map<String, serde_json::Value>> for Value {
+impl TryFrom<serde_json::Map<String, serde_json::Value>> for TopkValue {
     type Error = crate::Error;
 
     fn try_from(object: serde_json::Map<String, serde_json::Value>) -> Result<Self, Self::Error> {
@@ -145,21 +201,21 @@ impl TryFrom<serde_json::Map<String, serde_json::Value>> for Value {
                 indices.push(key.parse::<u32>().expect("keys are valid u32 indices"));
                 values.push(number_to_f32(value)?);
             }
-            return Ok(Value::f32_sparse_vector(indices, values));
+            return Ok(TopkValue::f32_sparse_vector(indices, values));
         }
 
         object
             .into_iter()
-            .map(|(key, value)| Ok((key, Value::try_from(value)?)))
+            .map(|(key, value)| Ok((key, TopkValue::try_from(value)?)))
             .collect::<Result<HashMap<_, _>, _>>()
-            .map(Value::r#struct)
+            .map(TopkValue::r#struct)
     }
 }
 
-impl TryFrom<Value> for serde_json::Value {
+impl TryFrom<TopkValue> for serde_json::Value {
     type Error = crate::Error;
 
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
+    fn try_from(value: TopkValue) -> Result<Self, Self::Error> {
         match value.value {
             None | Some(value::Value::Null(_)) => Ok(Self::Null),
             Some(value::Value::Bool(v)) => Ok(Self::Bool(v)),
@@ -281,6 +337,60 @@ impl TryFrom<Value> for serde_json::Value {
     }
 }
 
+fn json_number_array(values: Vec<serde_json::Value>) -> Result<TopkValue, crate::Error> {
+    if values.is_empty() {
+        return Ok(TopkValue::list(Vec::<i64>::new()));
+    }
+
+    let mut ints = Vec::with_capacity(values.len());
+    for value in &values {
+        match json_whole_number_as_i64(value)? {
+            Some(n) => ints.push(n),
+            None => {
+                return values
+                    .into_iter()
+                    .map(number_to_f32)
+                    .collect::<Result<Vec<_>, _>>()
+                    .map(TopkValue::list);
+            }
+        }
+    }
+
+    Ok(TopkValue::list(ints))
+}
+
+fn json_whole_number_as_i64(value: &serde_json::Value) -> Result<Option<i64>, crate::Error> {
+    let serde_json::Value::Number(number) = value else {
+        return Err(crate::Error::InvalidArgument(
+            "JSON arrays must contain only numbers or strings".into(),
+        ));
+    };
+
+    if let Some(value) = number.as_i64() {
+        return Ok(Some(value));
+    }
+
+    if let Some(value) = number.as_u64() {
+        return Ok((value <= i64::MAX as u64).then_some(value as i64));
+    }
+
+    let value = number.as_f64().ok_or_else(|| {
+        crate::Error::InvalidArgument(
+            "JSON number is outside TopK's supported numeric range".into(),
+        )
+    })?;
+
+    if !(value.is_finite() && value.fract() == 0.0) {
+        return Ok(None);
+    }
+
+    if value >= i64::MIN as f64 && value <= i64::MAX as f64 {
+        Ok(Some(value as i64))
+    } else {
+        Ok(None)
+    }
+}
+
 fn number_to_f32(value: serde_json::Value) -> Result<f32, crate::Error> {
     // Values beyond f32's range become infinity when downcast, matching the JS/Python SDKs.
     Ok(value.as_f64().ok_or_else(|| {
@@ -302,35 +412,36 @@ mod tests {
     use super::*;
 
     #[rstest]
-    #[case::i64(json!(42), Value::i64(42))]
-    #[case::i64_negative(json!(-5), Value::i64(-5))]
+    #[case::i64(json!(42), TopkValue::i64(42))]
+    #[case::i64_negative(json!(-5), TopkValue::i64(-5))]
     #[case::u64(
         serde_json::Value::Number(serde_json::Number::from(i64::MAX as u64 + 1)),
-        Value::u64(i64::MAX as u64 + 1)
+        TopkValue::u64(i64::MAX as u64 + 1)
     )]
-    #[case::f64(json!(0.1), Value::f64(0.1))]
-    #[case::ints(json!([1, 2]), Value::list(vec![1.0_f32, 2.0]))]
-    #[case::mixed(json!([1, 2.5]), Value::list(vec![1.0_f32, 2.5]))]
-    #[case::empty_array(json!([]), Value::list(Vec::<f32>::new()))]
-    #[case::strings(json!(["a", "b"]), Value::list(vec!["a", "b"]))]
+    #[case::f64(json!(0.1), TopkValue::f64(0.1))]
+    #[case::ints(json!([1, 2]), TopkValue::list(vec![1_i64, 2]))]
+    #[case::byte_values(json!([255, 128, 1, 0]), TopkValue::list(vec![255_i64, 128, 1, 0]))]
+    #[case::mixed(json!([1, 2.5]), TopkValue::list(vec![1.0_f32, 2.5]))]
+    #[case::empty_array(json!([]), TopkValue::list(Vec::<i64>::new()))]
+    #[case::strings(json!(["a", "b"]), TopkValue::list(vec!["a", "b"]))]
     #[case::matrix(
         json!([[1, 2], [3.5, 4]]),
-        Value::matrix(2, vec![1.0_f32, 2.0, 3.5, 4.0])
+        TopkValue::matrix(2, vec![1.0_f32, 2.0, 3.5, 4.0])
     )]
     #[case::sparse_vector(
         json!({"0": 1.5, "2": 3.0}),
-        Value::f32_sparse_vector(vec![0, 2], vec![1.5, 3.0])
+        TopkValue::f32_sparse_vector(vec![0, 2], vec![1.5, 3.0])
     )]
     #[case::struct_value(
         json!({"name": "a", "count": 2}),
-        Value::r#struct([("name", Value::string("a")), ("count", Value::i64(2))])
+        TopkValue::r#struct([("name", TopkValue::string("a")), ("count", TopkValue::i64(2))])
     )]
     #[case::empty_object(
         json!({}),
-        Value::r#struct(Vec::<(String, Value)>::new())
+        TopkValue::r#struct(Vec::<(String, TopkValue)>::new())
     )]
-    fn from_json(#[case] input: serde_json::Value, #[case] expected: Value) {
-        assert_eq!(Value::try_from(input).unwrap(), expected);
+    fn from_json(#[case] input: serde_json::Value, #[case] expected: TopkValue) {
+        assert_eq!(TopkValue::try_from(input).unwrap(), expected);
     }
 
     #[rstest]
@@ -343,42 +454,61 @@ mod tests {
     #[case::non_numeric_matrix(json!([[1], ["a"]]))]
     #[case::mixed_matrix_scalar(json!([[1], 2]))]
     fn from_json_invalid(#[case] input: serde_json::Value) {
-        assert!(Value::try_from(input).is_err());
+        assert!(TopkValue::try_from(input).is_err());
     }
 
     #[rstest]
-    #[case::null(Value::null(), json!(null))]
-    #[case::bool(Value::bool(true), json!(true))]
-    #[case::string(Value::string("a"), json!("a"))]
-    #[case::u32(Value::u32(7), json!(7))]
-    #[case::u64(Value::u64(i64::MAX as u64 + 1), json!(i64::MAX as u64 + 1))]
-    #[case::i32(Value::i32(-7), json!(-7))]
-    #[case::i64(Value::i64(-8), json!(-8))]
-    #[case::f64(Value::f64(0.5), json!(0.5))]
-    #[case::i64_list(Value::list(vec![1_i64, 2]), json!([1, 2]))]
-    #[case::u64_list(Value::list(vec![1_u64, 2]), json!([1, 2]))]
-    #[case::f32_list(Value::list(vec![1.5_f32, 2.5]), json!([1.5, 2.5]))]
-    #[case::string_list(Value::list(vec!["a", "b"]), json!(["a", "b"]))]
+    #[case::null(TopkValue::null(), json!(null))]
+    #[case::bool(TopkValue::bool(true), json!(true))]
+    #[case::string(TopkValue::string("a"), json!("a"))]
+    #[case::u32(TopkValue::u32(7), json!(7))]
+    #[case::u64(TopkValue::u64(i64::MAX as u64 + 1), json!(i64::MAX as u64 + 1))]
+    #[case::i32(TopkValue::i32(-7), json!(-7))]
+    #[case::i64(TopkValue::i64(-8), json!(-8))]
+    #[case::f64(TopkValue::f64(0.5), json!(0.5))]
+    #[case::i64_list(TopkValue::list(vec![1_i64, 2]), json!([1, 2]))]
+    #[case::u64_list(TopkValue::list(vec![1_u64, 2]), json!([1, 2]))]
+    #[case::f32_list(TopkValue::list(vec![1.5_f32, 2.5]), json!([1.5, 2.5]))]
+    #[case::string_list(TopkValue::list(vec!["a", "b"]), json!(["a", "b"]))]
     #[case::sparse_vector(
-        Value::f32_sparse_vector(vec![0, 2], vec![1.5, 3.0]),
+        TopkValue::f32_sparse_vector(vec![0, 2], vec![1.5, 3.0]),
         json!({"0": 1.5, "2": 3.0})
     )]
     #[case::matrix(
-        Value::matrix(2, vec![1.5_f32, 2.5, 3.5, 4.5]),
+        TopkValue::matrix(2, vec![1.5_f32, 2.5, 3.5, 4.5]),
         json!([[1.5, 2.5], [3.5, 4.5]])
     )]
     #[case::struct_value(
-        Value::r#struct([("name", Value::string("a")), ("count", Value::i64(2))]),
+        TopkValue::r#struct([("name", TopkValue::string("a")), ("count", TopkValue::i64(2))]),
         json!({"name": "a", "count": 2})
     )]
-    fn to_json(#[case] input: Value, #[case] expected: serde_json::Value) {
+    fn to_json(#[case] input: TopkValue, #[case] expected: serde_json::Value) {
         assert_eq!(serde_json::Value::try_from(input).unwrap(), expected);
     }
 
     #[rstest]
-    #[case::nan_f32(Value::f32(f32::NAN))]
-    #[case::inf_f64(Value::f64(f64::INFINITY))]
-    fn to_json_invalid(#[case] input: Value) {
-        assert!(serde_json::Value::try_from(input).is_err());
+    #[case::nan_f32(TopkValue::f32(f32::NAN))]
+    #[case::inf_f64(TopkValue::f64(f64::INFINITY))]
+    fn non_finite(#[case] input: TopkValue) {
+        assert!(serde_json::Value::try_from(input.clone()).is_err());
+        assert!(serde_json::to_value(Value(input)).is_err());
+    }
+
+    #[rstest]
+    #[case::null(TopkValue::null(), json!(null))]
+    #[case::i64_list(TopkValue::list(vec![1_i64, 2]), json!([1, 2]))]
+    #[case::struct_value(
+        TopkValue::r#struct([("name", TopkValue::string("a")), ("count", TopkValue::i64(2))]),
+        json!({"name": "a", "count": 2})
+    )]
+    fn serde_roundtrip(#[case] input: TopkValue, #[case] expected: serde_json::Value) {
+        let serialized = serde_json::to_value(Value(input.clone())).unwrap();
+        assert_eq!(serialized, expected);
+        assert_eq!(
+            serde_json::from_value::<Value>(serialized)
+                .unwrap()
+                .into_inner(),
+            input
+        );
     }
 }
