@@ -415,7 +415,10 @@ async fn sort_limit_offset() {
     .await
     .unwrap();
     let actual = rows.iter().map(|row| row.id().unwrap()).collect::<Vec<_>>();
-    assert_eq!(actual, vec!["hobbit", "nineteen_eighty_four", "catcher", "lotr"]);
+    assert_eq!(
+        actual,
+        vec!["hobbit", "nineteen_eighty_four", "catcher", "lotr"]
+    );
 }
 
 #[rstest]
