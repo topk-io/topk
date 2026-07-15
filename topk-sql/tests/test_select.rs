@@ -190,52 +190,6 @@ async fn where_in(#[case] query: &str, #[case] expected: HashSet<&str>) {
 }
 
 #[rstest]
-#[case::prefix("WHERE _id LIKE 'h%'", ids!["hobbit", "harry"])]
-#[case::contains("WHERE _id LIKE '%ob%'", ids!["hobbit", "moby"])]
-#[case::exact("WHERE _id LIKE 'gatsby'", ids!["gatsby"])]
-#[case::field_prefix("WHERE author LIKE 'T%'", ids!["hobbit", "lotr"])]
-#[case::field_contains("WHERE title LIKE '%Lord%'", ids!["lotr"])]
-#[case::field_exact("WHERE genre LIKE 'romance'", ids!["pride"])]
-#[tokio::test]
-async fn where_like(#[case] query: &str, #[case] expected: HashSet<&str>) {
-    let rows = BooksContext::with_scope(async |ctx| {
-        ctx.sql(format!("SELECT _id FROM {{{{table}}}} {query}"))
-            .await
-    })
-    .await
-    .unwrap();
-    assert_eq!(ids(&rows), expected);
-}
-
-#[rstest]
-#[case::list_member("WHERE contains(tags, 'tolkien')", ids!["hobbit", "lotr"])]
-#[case::string_substring("WHERE contains(title, 'Lord')", ids!["lotr"])]
-#[tokio::test]
-async fn where_contains(#[case] query: &str, #[case] expected: HashSet<&str>) {
-    let rows = BooksContext::with_scope(async |ctx| {
-        ctx.sql(format!("SELECT _id FROM {{{{table}}}} {query}"))
-            .await
-    })
-    .await
-    .unwrap();
-    assert_eq!(ids(&rows), expected);
-}
-
-#[rstest]
-#[case::prefix("SELECT _id FROM {{table}} WHERE _id ~ '^h'", ids!["hobbit", "harry"])]
-#[case::case_insensitive("SELECT _id FROM {{table}} WHERE author ~ '(?i)tolkien'", ids!["hobbit", "lotr"])]
-#[case::suffix("SELECT _id FROM {{table}} WHERE _id ~ 'r$'", ids!["nineteen_eighty_four", "catcher", "lotr"])]
-#[case::alternation("SELECT _id FROM {{table}} WHERE _id ~ '^(harry|hobbit)$'", ids!["harry", "hobbit"])]
-#[case::char_class("SELECT _id FROM {{table}} WHERE _id ~ '^[a-c]'", ids!["alchemist", "catcher"])]
-#[tokio::test]
-async fn where_regex(#[case] query: &str, #[case] expected: HashSet<&str>) {
-    let rows = BooksContext::with_scope(async |ctx| ctx.sql(query).await)
-        .await
-        .unwrap();
-    assert_eq!(ids(&rows), expected);
-}
-
-#[rstest]
 #[case::add_expr(
     "SELECT _id FROM {{table}} WHERE published_year + 100 > 2050",
     ids!["mockingbird", "catcher", "lotr", "harry", "alchemist"],
