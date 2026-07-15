@@ -1,6 +1,6 @@
 import pytest
 from topk_sdk import error
-from topk_sdk.schema import matrix, multi_vector_index, text, vector_index
+from topk_sdk.schema import keyword_index, matrix, multi_vector_index, text, vector_index
 
 from . import ProjectContext
 
@@ -15,6 +15,19 @@ def test_create_collection(ctx: ProjectContext):
     c = ctx.client.collections().create(ctx.scope("test"), schema={})
     collections = ctx.client.collections().list()
     assert c in collections
+
+
+def test_collection_schema_with_exact_keyword_index_round_trip(ctx: ProjectContext):
+    schema = {"title": text().required().index(keyword_index(type="exact"))}
+
+    created = ctx.client.collections().create(ctx.scope("test"), schema=schema)
+    fetched = ctx.client.collections().get(created.name)
+    collections = ctx.client.collections().list()
+    listed = next(c for c in collections if c.name == created.name)
+
+    assert created.schema["title"] == schema["title"]
+    assert fetched.schema["title"] == schema["title"]
+    assert listed.schema["title"] == schema["title"]
 
 
 def test_create_duplicate_collection(ctx: ProjectContext):

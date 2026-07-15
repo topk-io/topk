@@ -281,10 +281,14 @@ await client.collections().create("books", {
 ### keywordIndex()
 
 ```ts
-function keywordIndex(): FieldIndex;
+function keywordIndex(indexType?: KeywordIndexType): FieldIndex;
 ```
 
 Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `keyword_index` values.
+
+Supported `index_type`s:
+- `text` (default) - text is tokenized before indexing
+- `exact` - text is indexed as a single term
 
 Example:
 
@@ -297,6 +301,12 @@ await client.collections().create("books", {
 ```
 
 Adding a keyword index allows you to perform keyword search on this field.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `indexType?` | [`KeywordIndexType`](/sdk/topk-js/Namespace.schema#keywordindextype) |
 
 **Returns**
 
@@ -714,7 +724,7 @@ including the required dimension parameter.
 ### KeywordIndexType
 
 ```ts
-type KeywordIndexType = "text";
+type KeywordIndexType = "text" | "exact";
 ```
 
 ***

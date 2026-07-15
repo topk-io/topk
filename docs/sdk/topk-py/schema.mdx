@@ -565,10 +565,14 @@ Create a [FieldIndex](/sdk/topk-py/schema#FieldSpec) type for `vector_index` val
 ### keyword_index()
 
 ```python
-keyword_index() -> FieldIndex
+keyword_index(type: Literal['text', 'exact'] = "text") -> FieldIndex
 ```
 
 Create a [FieldIndex](/sdk/topk-py/schema#FieldIndex) type for `keyword_index` values.
+
+    Supported index `type`s:
+        - `text` (default) - text is tokenized before indexing
+        - `exact` - text is indexed as a single term
 
     Example:
 
@@ -579,6 +583,12 @@ Create a [FieldIndex](/sdk/topk-py/schema#FieldIndex) type for `keyword_index` v
         "title": text().index(keyword_index())
     })
     ```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `type` | Literal['text', 'exact'] |
 
 **Returns**
 

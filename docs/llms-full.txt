@@ -412,6 +412,13 @@ URL: https://docs.topk.io/changelog
 {/* ## May 2026
   - structs */}
 
+#### June 2026
+
+- **Features**: Added [`Partitioned Collections`](https://docs.topk.io/sdk/topk-py/index#collection) (Namespaces) for effortless multi-tenancy with fully isolated, on-demand partitions.
+- **Features**: Made [`SQL`](https://docs.topk.io/sdk/topk-sql/overview) your Search Query Language for hybrid and multi-vector search—no proprietary query language required.
+- **Features**: Introduced [`semantic_index`](https://docs.topk.io/guides/semantic-search) enabling production-ready multi-vector retrieval with a single schema annotation.
+- **Performance**: Optimized SMVE kernel to match GPU performance with just 8 CPU threads.
+
 #### May 2026
 
 - **Features**: Added native support for [`structs`](https://docs.topk.io/sdk/topk-py/schema#struct) with full indexing and filtering capabilities. Search and filter nested structured data without flattening your schema.
@@ -10272,10 +10279,14 @@ Create a [FieldIndex](/sdk/topk-py/schema#FieldSpec) type for `vector_index` val
 ##### keyword_index()
 
 ```python
-keyword_index() -> FieldIndex
+keyword_index(type: Literal['text', 'exact'] = "text") -> FieldIndex
 ```
 
 Create a [FieldIndex](/sdk/topk-py/schema#FieldIndex) type for `keyword_index` values.
+
+    Supported index `type`s:
+        - `text` (default) - text is tokenized before indexing
+        - `exact` - text is indexed as a single term
 
     Example:
 
@@ -10286,6 +10297,12 @@ Create a [FieldIndex](/sdk/topk-py/schema#FieldIndex) type for `keyword_index` v
         "title": text().index(keyword_index())
     })
     ```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `type` | Literal['text', 'exact'] |
 
 **Returns**
 
@@ -13661,10 +13678,14 @@ await client.collections().create("books", {
 ##### keywordIndex()
 
 ```ts
-function keywordIndex(): FieldIndex;
+function keywordIndex(indexType?: KeywordIndexType): FieldIndex;
 ```
 
 Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `keyword_index` values.
+
+Supported `index_type`s:
+- `text` (default) - text is tokenized before indexing
+- `exact` - text is indexed as a single term
 
 Example:
 
@@ -13677,6 +13698,12 @@ await client.collections().create("books", {
 ```
 
 Adding a keyword index allows you to perform keyword search on this field.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `indexType?` | [`KeywordIndexType`](/sdk/topk-js/Namespace.schema#keywordindextype) |
 
 **Returns**
 
@@ -14094,7 +14121,7 @@ including the required dimension parameter.
 ##### KeywordIndexType
 
 ```ts
-type KeywordIndexType = "text";
+type KeywordIndexType = "text" | "exact";
 ```
 
 ***

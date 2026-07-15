@@ -50,12 +50,14 @@ impl From<VectorDistanceMetric> for topk_rs::proto::v1::control::VectorDistanceM
 #[derive(Debug, Clone, PartialEq)]
 pub enum KeywordIndexType {
     Text,
+    Exact,
 }
 
 impl From<KeywordIndexType> for topk_rs::proto::v1::control::KeywordIndexType {
     fn from(index_type: KeywordIndexType) -> Self {
         match index_type {
             KeywordIndexType::Text => topk_rs::proto::v1::control::KeywordIndexType::Text,
+            KeywordIndexType::Exact => topk_rs::proto::v1::control::KeywordIndexType::Exact,
         }
     }
 }
@@ -146,6 +148,9 @@ impl From<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
                     index_type: match keyword_index.index_type() {
                         topk_rs::proto::v1::control::KeywordIndexType::Text => {
                             KeywordIndexType::Text
+                        }
+                        topk_rs::proto::v1::control::KeywordIndexType::Exact => {
+                            KeywordIndexType::Exact
                         }
                         t => panic!("unsupported keyword index: {:?}", t),
                     },

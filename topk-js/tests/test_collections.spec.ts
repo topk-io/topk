@@ -6,6 +6,7 @@ import {
   f32Vector,
   float,
   int,
+  keywordIndex,
   matrix,
   multiVectorIndex,
   text,
@@ -70,6 +71,30 @@ describe("Collections", () => {
     const collection = await ctx.createCollection("test", {});
     const collections = await ctx.client.collections().list();
     expect(collections).toContainEqual(collection);
+  });
+
+  test("collection schema with exact keyword index round trip", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("test", {
+      title: text().required().index(keywordIndex("exact")),
+    });
+
+    const fetched = await ctx.client.collections().get(collection.name);
+    const collections = await ctx.client.collections().list();
+    const listed = collections.find(({ name }) => name === collection.name);
+
+    expect(collection.schema.title.index).toMatchObject({
+      type: "KeywordIndex",
+      indexType: "exact",
+    });
+    expect(fetched.schema.title.index).toMatchObject({
+      type: "KeywordIndex",
+      indexType: "exact",
+    });
+    expect(listed?.schema.title.index).toMatchObject({
+      type: "KeywordIndex",
+      indexType: "exact",
+    });
   });
 
   test("create collection with invalid schema", async () => {

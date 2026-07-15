@@ -1179,6 +1179,10 @@ export declare namespace schema {
   /**
    * Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `keyword_index` values.
    *
+   * Supported `index_type`s:
+   * - `text` (default) - text is tokenized before indexing
+   * - `exact` - text is indexed as a single term
+   *
    * Example:
    *
    * ```javascript
@@ -1191,8 +1195,9 @@ export declare namespace schema {
    *
    * Adding a keyword index allows you to perform keyword search on this field.
    */
-  export function keywordIndex(): FieldIndex
-  export type KeywordIndexType =  'text';
+  export function keywordIndex(indexType?: KeywordIndexType | undefined | null): FieldIndex
+  export type KeywordIndexType =  'text'|
+  'exact';
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `list` values.
    *
