@@ -396,7 +396,11 @@ mod tests {
     }
 
     fn f8s(values: &[f32]) -> Vec<float8::F8E4M3> {
-        values.iter().copied().map(float8::F8E4M3::from_f32).collect()
+        values
+            .iter()
+            .copied()
+            .map(float8::F8E4M3::from_f32)
+            .collect()
     }
 
     #[rstest]
