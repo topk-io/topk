@@ -21,8 +21,7 @@ impl SqlClient {
             .unwrap_or("5432".to_string())
             .parse::<u16>()?;
         let user = std::env::var("PGUSER").unwrap_or_else(|_| "default".to_string());
-        let password =
-            std::env::var("PGPASSWORD").or_else(|_| std::env::var("TOPK_API_KEY"))?;
+        let password = std::env::var("PGPASSWORD").or_else(|_| std::env::var("TOPK_API_KEY"))?;
         let database = std::env::var("PGDATABASE").unwrap_or_else(|_| "default".to_string());
         let ssl = std::env::var("PGSSLMODE").unwrap_or_else(|_| "prefer".to_string());
 
