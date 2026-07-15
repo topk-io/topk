@@ -303,7 +303,7 @@ pub fn vector_index(options: VectorIndexOptions) -> FieldIndex {
 /// Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `keyword_index` values.
 ///
 /// Supported `index_type`s:
-/// - `text` (default) - text is analyzed into tokens before indexing
+/// - `text` (default) - text is tokenized before indexing
 /// - `exact` - text is indexed as a single term
 ///
 /// Example:

@@ -341,7 +341,7 @@ def keyword_index(type: typing.Literal["text", "exact"] = "text") -> FieldIndex:
     Create a [FieldIndex](https://docs.topk.io/sdk/topk-py/schema#FieldIndex) type for `keyword_index` values.
 
     Supported index `type`s:
-        - `text` (default) - text is analyzed into tokens before indexing
+        - `text` (default) - text is tokenized before indexing
         - `exact` - text is indexed as a single term
 
     Example:

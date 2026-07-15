@@ -38,14 +38,6 @@ impl IntoSortExprs for (LogicalExpr, stage::sort_stage::SortOrder) {
     }
 }
 
-// Legacy sort expr and bool
-
-impl IntoSortExprs for (LogicalExpr, bool) {
-    fn into_sort_exprs(self) -> Vec<stage::sort_stage::SortExpr> {
-        (self.0, if self.1 { stage::sort_stage::SortOrder::Asc } else { stage::sort_stage::SortOrder::Desc }).into_sort_exprs()
-    }
-}
-
 impl<const N: usize> IntoSortExprs for [(LogicalExpr, stage::sort_stage::SortOrder); N] {
     fn into_sort_exprs(self) -> Vec<stage::sort_stage::SortExpr> {
         self.into_iter()
