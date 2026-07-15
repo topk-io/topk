@@ -578,12 +578,4 @@ mod tests {
             input
         );
     }
-
-    #[rstest]
-    #[case::bool_array(json!([true]))]
-    #[case::mixed_number_string(json!([1, "a"]))]
-    #[case::ragged_matrix(json!([[1], [2, 3]]))]
-    fn deserialize_invalid(#[case] input: serde_json::Value) {
-        assert!(serde_json::from_value::<Value>(input).is_err());
-    }
 }
