@@ -213,7 +213,6 @@ mod tests {
     use crate::commands::test_context::CliTestContext;
     use assert_cmd::Command;
     use bytesize::ByteSize;
-    use serde_json::json;
     use test_context::test_context;
 
     fn cmd() -> Command {
