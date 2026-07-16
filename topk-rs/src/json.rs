@@ -25,7 +25,6 @@ macro_rules! array_of {
     };
 }
 
-/// JSON wire-format wrapper around a protobuf [`TopkValue`].
 #[derive(Clone, Debug, PartialEq)]
 pub struct Value(pub TopkValue);
 
@@ -106,11 +105,12 @@ impl TryFrom<Vec<serde_json::Value>> for TopkValue {
 
     fn try_from(values: Vec<serde_json::Value>) -> Result<Self, Self::Error> {
         let Some(first) = values.first() else {
-            return Ok(TopkValue::list(Vec::<i64>::new()));
+            return Ok(TopkValue::list(Vec::<f32>::new()));
         };
 
+        // Number arrays always map to f32 lists, matching the JS/Python SDKs.
         if first.is_number() {
-            return json_number_array(values);
+            return array_of!(values, number_to_f32).map(TopkValue::list);
         }
 
         if first.is_string() {
@@ -190,7 +190,15 @@ impl TryFrom<serde_json::Map<String, serde_json::Value>> for TopkValue {
 
         object
             .into_iter()
-            .map(|(key, value)| Ok((key, TopkValue::try_from(value)?)))
+            .map(|(key, value)| {
+                if key.parse::<u32>().is_ok() {
+                    return Err(crate::Error::InvalidArgument(
+                        "Struct field names must not be numeric indices".into(),
+                    ));
+                }
+
+                Ok((key, TopkValue::try_from(value)?))
+            })
             .collect::<Result<HashMap<_, _>, _>>()
             .map(TopkValue::r#struct)
     }
@@ -321,56 +329,6 @@ impl TryFrom<TopkValue> for serde_json::Value {
     }
 }
 
-fn json_number_array(values: Vec<serde_json::Value>) -> Result<TopkValue, crate::Error> {
-    let mut ints = Vec::with_capacity(values.len());
-    for value in &values {
-        match json_whole_number_as_i64(value)? {
-            Some(n) => ints.push(n),
-            None => {
-                return values
-                    .into_iter()
-                    .map(number_to_f32)
-                    .collect::<Result<Vec<_>, _>>()
-                    .map(TopkValue::list);
-            }
-        }
-    }
-
-    Ok(TopkValue::list(ints))
-}
-
-fn json_whole_number_as_i64(value: &serde_json::Value) -> Result<Option<i64>, crate::Error> {
-    let serde_json::Value::Number(number) = value else {
-        return Err(crate::Error::InvalidArgument(
-            "JSON arrays must contain only numbers or strings".into(),
-        ));
-    };
-
-    if let Some(value) = number.as_i64() {
-        return Ok(Some(value));
-    }
-
-    if let Some(value) = number.as_u64() {
-        return Ok((value <= i64::MAX as u64).then_some(value as i64));
-    }
-
-    let value = number.as_f64().ok_or_else(|| {
-        crate::Error::InvalidArgument(
-            "JSON number is outside TopK's supported numeric range".into(),
-        )
-    })?;
-
-    if !(value.is_finite() && value.fract() == 0.0) {
-        return Ok(None);
-    }
-
-    if value >= i64::MIN as f64 && value <= i64::MAX as f64 {
-        Ok(Some(value as i64))
-    } else {
-        Ok(None)
-    }
-}
-
 fn number_to_f32(value: serde_json::Value) -> Result<f32, crate::Error> {
     // Values beyond f32's range become infinity when downcast, matching the JS/Python SDKs.
     Ok(value.as_f64().ok_or_else(|| {
@@ -413,16 +371,19 @@ mod tests {
     )]
     #[case::f64(json!(0.1), TopkValue::f64(0.1))]
     // arrays
-    #[case::int_list(json!([1, 2]), TopkValue::list(vec![1_i64, 2]))]
-    #[case::negative_int_list(json!([-1, 2]), TopkValue::list(vec![-1_i64, 2]))]
-    #[case::byte_value_list(json!([255, 128, 1, 0]), TopkValue::list(vec![255_i64, 128, 1, 0]))]
-    #[case::whole_float_list(json!([1.0, 2.0]), TopkValue::list(vec![1_i64, 2]))]
+    #[case::int_list(json!([1, 2]), TopkValue::list(vec![1.0_f32, 2.0]))]
+    #[case::negative_int_list(json!([-1, 2]), TopkValue::list(vec![-1.0_f32, 2.0]))]
+    #[case::byte_value_list(
+        json!([255, 128, 1, 0]),
+        TopkValue::list(vec![255.0_f32, 128.0, 1.0, 0.0])
+    )]
+    #[case::whole_float_list(json!([1.0, 2.0]), TopkValue::list(vec![1.0_f32, 2.0]))]
     #[case::mixed_list(json!([1, 2.5]), TopkValue::list(vec![1.0_f32, 2.5]))]
     #[case::u64_overflow_list(
         json!([1, i64::MAX as u64 + 1]),
         TopkValue::list(vec![1.0_f32, (i64::MAX as u64 + 1) as f32])
     )]
-    #[case::empty_list(json!([]), TopkValue::list(Vec::<i64>::new()))]
+    #[case::empty_list(json!([]), TopkValue::list(Vec::<f32>::new()))]
     #[case::string_list(json!(["a", "b"]), TopkValue::list(vec!["a", "b"]))]
     // matrices
     #[case::matrix(
@@ -442,10 +403,6 @@ mod tests {
         json!({}),
         TopkValue::r#struct(Vec::<(String, TopkValue)>::new())
     )]
-    #[case::mixed_keys_object(
-        json!({"0": 1.5, "name": 2}),
-        TopkValue::r#struct([("0", TopkValue::f64(1.5)), ("name", TopkValue::i64(2))])
-    )]
     #[case::non_u32_index_object(
         json!({"4294967296": 1}),
         TopkValue::r#struct([("4294967296", TopkValue::i64(1))])
@@ -454,7 +411,7 @@ mod tests {
         json!({"a": {"b": [1, 2]}}),
         TopkValue::r#struct([(
             "a",
-            TopkValue::r#struct([("b", TopkValue::list(vec![1_i64, 2]))])
+            TopkValue::r#struct([("b", TopkValue::list(vec![1.0_f32, 2.0]))])
         )])
     )]
     fn from_json(#[case] input: serde_json::Value, #[case] expected: TopkValue) {
@@ -470,6 +427,8 @@ mod tests {
     #[case::zero_column_matrix(json!([[]]))]
     #[case::non_numeric_matrix(json!([[1], ["a"]]))]
     #[case::mixed_matrix_scalar(json!([[1], 2]))]
+    #[case::mixed_keys_object(json!({"0": 1.5, "name": 2}))]
+    #[case::numeric_key_non_number_value(json!({"0": "a"}))]
     fn from_json_invalid(#[case] input: serde_json::Value) {
         assert!(TopkValue::try_from(input).is_err());
     }
@@ -563,7 +522,7 @@ mod tests {
 
     #[rstest]
     #[case::null(TopkValue::null(), json!(null))]
-    #[case::i64_list(TopkValue::list(vec![1_i64, 2]), json!([1, 2]))]
+    #[case::f32_list(TopkValue::list(vec![1.5_f32, 2.5]), json!([1.5, 2.5]))]
     #[case::struct_value(
         TopkValue::r#struct([("name", TopkValue::string("a")), ("count", TopkValue::i64(2))]),
         json!({"name": "a", "count": 2})
