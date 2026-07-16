@@ -81,10 +81,14 @@ impl FromPyObject<'_, '_> for Value {
         } else if let Ok(b) = obj.cast_exact::<PyBool>() {
             Ok(Value::Bool(b.extract()?))
         } else if let Ok(v) = F32SparseVector::extract(obj) {
-            Ok(Value::SparseVector(SparseVector::F32 {
-                indices: v.indices,
-                values: v.values,
-            }))
+            if v.indices.is_empty() {
+                Ok(Value::Struct(HashMap::new()))
+            } else {
+                Ok(Value::SparseVector(SparseVector::F32 {
+                    indices: v.indices,
+                    values: v.values,
+                }))
+            }
         } else if let Ok(dict) = obj.cast_exact::<PyDict>() {
             let mut fields = HashMap::with_capacity(dict.len());
 

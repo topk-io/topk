@@ -3,6 +3,9 @@ pub mod proto;
 pub mod error;
 pub use error::Error;
 
+#[cfg(feature = "json")]
+pub mod json;
+
 pub mod client;
 pub use client::Client;
 pub use client::ClientConfig;
@@ -88,6 +91,10 @@ pub mod query {
 
     pub fn filter(expr: impl Into<FilterExpr>) -> Query {
         Query::new(vec![Stage::filter(expr.into())])
+    }
+
+    pub fn count() -> Query {
+        Query::new(vec![Stage::count()])
     }
 
     pub fn group_by(

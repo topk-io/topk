@@ -5,8 +5,6 @@ use crate::proto::data::v1::{list, matrix};
 mod document;
 mod sparse_vector;
 mod value;
-#[cfg(feature = "json")]
-mod value_json;
 
 // List values
 
