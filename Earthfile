@@ -190,11 +190,11 @@ test-sql:
 
     # test
     ENV FORCE_COLOR=1
-    ENV POSTGRES_HOST=${region}.sql.${host}
-    ENV POSTGRES_PORT=5432
-    ENV POSTGRES_SSL=require
+    ENV PGHOST=${region}.sql.${host}
+    ENV PGPORT=5432
+    ENV PGSSLMODE=require
     RUN --no-cache --secret TOPK_API_KEY \
-        POSTGRES_PASSWORD=$TOPK_API_KEY TOPK_API_KEY=$TOPK_API_KEY topk-test-sandbox cargo nextest run --archive-file sql.tar.zst --no-fail-fast -j 16
+        PGPASSWORD=$TOPK_API_KEY TOPK_API_KEY=$TOPK_API_KEY topk-test-sandbox cargo nextest run --archive-file sql.tar.zst --no-fail-fast -j 16
 
 #
 
