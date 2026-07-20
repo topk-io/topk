@@ -3,9 +3,11 @@ use std::collections::HashMap;
 use topk_rs::proto::v1::control::{field_type, field_type_matrix::MatrixValueType, FieldSpec};
 use topk_rs::proto::v1::data::{value, Document, Value};
 
-use super::value::ValueExt;
+use super::field::IndexKind;
 use super::{Schema, RANK_PREFIX};
 use crate::api::{Source, SourceFilter, WriteDoc};
+use crate::value::ValueExt;
+use crate::vector;
 use crate::Error;
 
 pub fn decode(source: &SourceFilter, fields: HashMap<String, Value>) -> Source {
@@ -93,6 +95,10 @@ pub fn encode(schema: &Schema, doc: WriteDoc) -> Result<Document, Error> {
                 }
                 _ => value,
             };
+
+            if let Some(IndexKind::Vector(metric)) = spec.map(IndexKind::from) {
+                vector::ensure_magnitude(&name, metric, &value)?;
+            }
 
             Ok((name, value))
         })

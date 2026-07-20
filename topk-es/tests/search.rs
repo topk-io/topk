@@ -281,9 +281,43 @@ async fn test_search_request_rejected(scope: &TestScope, #[case] body: Value) {
     assert_eq!(err.status_code(), StatusCode::BAD_REQUEST);
 }
 
+// ES parses a range bound at the shard level, so this needs both a real mapping
+// and a document — an unmapped field short-circuits to match_none, and an empty
+// index has no shard to parse on.
 #[test_context(TestScope)]
 #[tokio::test]
-async fn test_size_limited_total_reports_returned_hits_for_now(scope: &TestScope) {
+async fn test_range_array_bound_rejected(scope: &TestScope) {
+    scope
+        .create_with_properties(json!({ "price": { "type": "integer" } }))
+        .await;
+    scope.index_doc("1", json!({ "price": 10 })).await;
+
+    let err = scope
+        .search(json!({ "query": { "range": { "price": { "lt": [1, 2] } } } }))
+        .await
+        .unwrap_err();
+    assert_eq!(err.status_code(), StatusCode::BAD_REQUEST);
+}
+
+// We reject a non-scalar bound while parsing the request, so it fails whatever
+// the index looks like. ES only parses bounds at the shard level, so on an index
+// with no mapping and no documents it short-circuits to match_none and returns
+// 200 instead.
+#[test_context(TestScope)]
+#[tokio::test]
+async fn dev_range_array_bound_rejected_on_bare_index(scope: &TestScope) {
+    scope.create().await;
+
+    let err = scope
+        .search(json!({ "query": { "range": { "price": { "lt": [1, 2] } } } }))
+        .await
+        .unwrap_err();
+    assert_eq!(err.status_code(), StatusCode::BAD_REQUEST);
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn bug_size_limited_total_reports_returned_hits(scope: &TestScope) {
     scope.create().await;
 
     let docs: Vec<(String, Value)> = (0..5).map(|i| (i.to_string(), json!({ "n": i }))).collect();
@@ -302,7 +336,7 @@ async fn test_size_limited_total_reports_returned_hits_for_now(scope: &TestScope
 
 #[test_context(TestScope)]
 #[tokio::test]
-async fn test_size_zero_returns_no_hits(scope: &TestScope) {
+async fn bug_size_zero_returns_no_hits(scope: &TestScope) {
     scope.create().await;
 
     scope.index_docs([("1", json!({ "n": 1 }))]).await;
@@ -313,6 +347,168 @@ async fn test_size_zero_returns_no_hits(scope: &TestScope) {
         .expect("size: 0 should succeed, not be rejected");
     assert_eq!(body.hit_ids().len(), 0, "{body}");
     assert_eq!(body.total(), 0, "{body}");
+}
+
+// ES serves `_search` over GET as well as POST, body in either.
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_search_over_get(scope: &TestScope) {
+    scope.create().await;
+    scope.index_docs([("1", json!({ "n": 1 }))]).await;
+
+    let res = scope
+        .client
+        .es()
+        .send(
+            elasticsearch::http::Method::Get,
+            &format!("/{}/_search", scope.name),
+            elasticsearch::http::headers::HeaderMap::new(),
+            None::<&Value>,
+            Some(elasticsearch::http::request::JsonBody::new(
+                json!({ "query": { "match_all": {} } }),
+            )),
+            None,
+        )
+        .await
+        .expect("GET _search");
+    assert_eq!(res.status_code(), StatusCode::OK);
+
+    let body: Value = res.json().await.unwrap();
+    assert_eq!(body["hits"]["hits"].as_array().unwrap().len(), 1, "{body}");
+}
+
+// `ignore_unavailable=true` turns a missing index into an empty result.
+#[tokio::test]
+async fn test_ignore_unavailable_missing_index() {
+    let client = common::Client::new();
+    let missing = format!("ddb-es-proxy-test-{}", uuid::Uuid::new_v4());
+
+    let res = client
+        .es()
+        .search(elasticsearch::SearchParts::Index(&[&missing]))
+        .ignore_unavailable(true)
+        .body(json!({ "query": { "match_all": {} } }))
+        .send()
+        .await
+        .expect("search");
+    assert_eq!(res.status_code(), StatusCode::OK);
+
+    let body: Value = res.json().await.unwrap();
+    assert_eq!(body["hits"]["hits"].as_array().unwrap().len(), 0, "{body}");
+}
+
+// ES disables fielddata on `_id`, so it cannot sort on it. TopK stores `_id` as
+// an ordinary column, so we can.
+#[test_context(TestScope)]
+#[tokio::test]
+async fn ext_sort_on_id(scope: &TestScope) {
+    scope.create().await;
+    scope
+        .index_docs([
+            ("b", json!({ "n": 1 })),
+            ("a", json!({ "n": 2 })),
+            ("c", json!({ "n": 3 })),
+        ])
+        .await;
+
+    let body = scope
+        .search(json!({ "sort": ["_id"] }))
+        .await
+        .expect("sort on _id should succeed");
+    assert_eq!(body.hit_ids(), vec!["a", "b", "c"], "{body}");
+}
+
+// A range with no bounds is ES's field-exists check.
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_range_no_bounds_matches_field_exists(scope: &TestScope) {
+    scope
+        .create_with_properties(json!({ "n": { "type": "integer" }, "g": { "type": "keyword" } }))
+        .await;
+    scope
+        .index_docs([
+            ("1", json!({ "n": 5, "g": "a" })),
+            ("2", json!({ "g": "b" })),
+        ])
+        .await;
+
+    let body = scope
+        .search(json!({ "query": { "range": { "n": {} } } }))
+        .await
+        .expect("bound-less range should succeed");
+    assert_eq!(body.hit_ids(), vec!["1"], "{body}");
+}
+
+// A TopK column holds several value types natively, so matching is type-exact
+// rather than coercing. ES casts the query value to the field type and matches.
+#[rstest_ctx(TestScope)]
+#[case::dev_bool_from_string(json!({ "b": { "type": "boolean" } }), json!({ "b": true }), json!({ "b": "true" }))]
+#[case::dev_int_from_string(json!({ "n": { "type": "integer" } }), json!({ "n": 5 }), json!({ "n": "5" }))]
+async fn test_term_is_type_exact(
+    scope: &TestScope,
+    #[case] properties: Value,
+    #[case] doc: Value,
+    #[case] query: Value,
+) {
+    scope.create_with_properties(properties).await;
+    scope.index_docs([("1", doc)]).await;
+
+    let body = scope
+        .search(json!({ "query": { "term": query } }))
+        .await
+        .expect("search should succeed");
+    assert_eq!(body.hit_ids().len(), 0, "{body}");
+}
+
+// `_score` sorts descending without an explicit order, unlike every other field,
+// and in both the bare and object forms.
+#[rstest_ctx(TestScope)]
+#[case::bare(json!(["_score"]), vec!["2", "1"])]
+#[case::object_without_order(json!([{ "_score": {} }]), vec!["2", "1"])]
+#[case::explicit_asc(json!([{ "_score": { "order": "asc" } }]), vec!["1", "2"])]
+#[case::explicit_desc(json!([{ "_score": { "order": "desc" } }]), vec!["2", "1"])]
+async fn test_sort_on_score(scope: &TestScope, #[case] sort: Value, #[case] expected: Vec<&str>) {
+    scope
+        .create_with_properties(json!({ "t": { "type": "text" } }))
+        .await;
+    scope
+        .index_docs([
+            ("1", json!({ "t": "cats" })),
+            ("2", json!({ "t": "cats cats cats" })),
+        ])
+        .await;
+
+    let body = scope
+        .search(json!({ "query": { "match": { "t": "cats" } }, "sort": sort }))
+        .await
+        .expect("sort on _score should succeed");
+    assert_eq!(body.hit_ids(), expected, "{body}");
+}
+
+// A lone descending `_score` is the default ordering, so ES attaches no sort
+// values to the hits. Any other sort, including `_score` ascending, does.
+#[rstest_ctx(TestScope)]
+#[case::bare(json!(["_score"]), true)]
+#[case::object_without_order(json!([{ "_score": {} }]), true)]
+#[case::explicit_desc(json!([{ "_score": { "order": "desc" } }]), true)]
+#[case::explicit_asc(json!([{ "_score": { "order": "asc" } }]), false)]
+#[case::score_then_field(json!(["_score", "n"]), false)]
+#[case::field(json!(["n"]), false)]
+async fn test_sort_values_omitted_for_default_order(
+    scope: &TestScope,
+    #[case] sort: Value,
+    #[case] omitted: bool,
+) {
+    scope
+        .create_with_properties(json!({ "t": { "type": "text" }, "n": { "type": "integer" } }))
+        .await;
+    scope.index_doc("1", json!({ "t": "cats", "n": 5 })).await;
+
+    let body = scope
+        .search(json!({ "query": { "match": { "t": "cats" } }, "sort": sort }))
+        .await
+        .expect("search should succeed");
+    assert_eq!(body.all_sort_omitted(), omitted, "{body}");
 }
 
 #[rstest_ctx(TestScope)]
@@ -377,7 +573,7 @@ async fn test_from_size_pagination(
 
 #[test_context(TestScope)]
 #[tokio::test]
-async fn test_from_plus_size_over_max_result_window_rejected(scope: &TestScope) {
+async fn dev_from_plus_size_over_max_result_window_rejected(scope: &TestScope) {
     scope.create().await;
 
     let err = scope
@@ -389,18 +585,42 @@ async fn test_from_plus_size_over_max_result_window_rejected(scope: &TestScope) 
 
 #[rstest_ctx(TestScope)]
 #[case::unsupported_option(json!([{ "n": { "order": "asc", "mode": "min" } }]))]
+#[case::missing_first(json!([{ "n": { "order": "asc", "missing": "_first" } }]))]
 #[case::too_many_fields(json!([
     { "f1": "asc" }, { "f2": "asc" }, { "f3": "asc" }, { "f4": "asc" },
     { "f5": "asc" }, { "f6": "asc" }, { "f7": "asc" }, { "f8": "asc" },
     { "f9": "asc" }
 ]))]
-async fn test_sort_rejected(scope: &TestScope, #[case] sort: Value) {
+async fn dev_sort_rejected(scope: &TestScope, #[case] sort: Value) {
     scope.create().await;
 
     let err = scope
         .search(json!({ "query": { "match_all": {} }, "sort": sort }))
         .await;
     assert_eq!(err.unwrap_err().status_code(), StatusCode::BAD_REQUEST);
+}
+
+// Docs missing a sort field already sort last, so `missing: _last` is a no-op;
+// `_first` would change the order and stays rejected.
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_sort_missing_last_accepted(scope: &TestScope) {
+    scope
+        .create_with_properties(json!({ "n": { "type": "integer" } }))
+        .await;
+    scope
+        .index_docs([
+            ("1", json!({ "n": 2 })),
+            ("2", json!({})),
+            ("3", json!({ "n": 1 })),
+        ])
+        .await;
+
+    let body = scope
+        .search(json!({ "sort": [{ "n": { "order": "asc", "missing": "_last" } }] }))
+        .await
+        .expect("missing: _last should be accepted");
+    assert_eq!(body.hit_ids(), vec!["3", "1", "2"], "{body}");
 }
 
 #[rstest_ctx(TestScope)]
@@ -620,7 +840,7 @@ async fn test_match_standalone_scores_by_relevance_descending(scope: &TestScope)
 
 #[test_context(TestScope)]
 #[tokio::test]
-async fn test_multi_match_standalone_aggregates_score_across_fields(scope: &TestScope) {
+async fn dev_multi_match_standalone_aggregates_score_across_fields(scope: &TestScope) {
     scope
         .create_with_properties(json!({ "title": { "type": "text" }, "body": { "type": "text" } }))
         .await;
@@ -747,7 +967,7 @@ async fn test_match_standalone_explicit_sort_without_track_scores_has_null_score
 
 #[test_context(TestScope)]
 #[tokio::test]
-async fn test_term_standalone_has_query_context_score(scope: &TestScope) {
+async fn dev_term_standalone_has_query_context_score(scope: &TestScope) {
     setup_bool_scoring_docs(scope).await;
 
     let body = scope
@@ -810,7 +1030,7 @@ async fn test_bool_filter_scalar_clause_has_zero_score(
 
 #[test_context(TestScope)]
 #[tokio::test]
-async fn test_bool_must_scalar_term_has_query_context_score(scope: &TestScope) {
+async fn dev_bool_must_scalar_term_has_query_context_score(scope: &TestScope) {
     setup_bool_scoring_docs(scope).await;
 
     let body = scope
@@ -1095,7 +1315,7 @@ async fn test_match_nested_in_bool_filter_does_not_score(scope: &TestScope) {
 }
 
 #[rstest_ctx(BooksContext)]
-#[case::full_document(
+#[case::dev_full_document(
     json!(null),
     Some(json!({
         "title": "The Hobbit",

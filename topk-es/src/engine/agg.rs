@@ -4,8 +4,8 @@ use topk_rs::json::Value as JsonValue;
 use topk_rs::proto::v1::data::{AggregateExpr, Document, LogicalExpr, Query as TopkQuery, Value};
 use topk_rs::query::{field, filter};
 
-use super::value::ValueExt;
 use crate::api::{AggClause, AggResult, AggType, TermsBucket};
+use crate::value::{compare, ValueExt};
 use crate::Error;
 
 pub fn compile(clause: &AggClause, gate: &LogicalExpr) -> Result<TopkQuery, Error> {
@@ -71,6 +71,13 @@ pub fn collect(clause: &AggClause, docs: Vec<Document>) -> Result<AggResult, Err
                 });
             }
 
+            // ES breaks `doc_count` ties by key, ascending.
+            buckets.sort_by(|a, b| {
+                b.doc_count
+                    .cmp(&a.doc_count)
+                    .then_with(|| compare(&a.key, &b.key))
+            });
+
             Ok(AggResult::Terms {
                 doc_count_error_upper_bound: 0,
                 sum_other_doc_count: 0,
@@ -83,6 +90,12 @@ pub fn collect(clause: &AggClause, docs: Vec<Document>) -> Result<AggResult, Err
                 .next()
                 .and_then(|mut doc| doc.fields.remove("value"))
                 .and_then(|v| v.number());
+
+            // Over an empty match set ES sums and counts to 0; avg/min/max stay null.
+            let value = match (value, &clause.ty) {
+                (None, AggType::Sum(_) | AggType::ValueCount(_)) => Some(0.0),
+                (value, _) => value,
+            };
 
             Ok(AggResult::Metric { value })
         }

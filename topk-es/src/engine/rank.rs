@@ -5,9 +5,9 @@ use topk_rs::json::Value as JsonValue;
 use topk_rs::proto::v1::data::{Document, Value};
 
 use super::doc::decode;
-use super::value::OrdValue;
 use super::RANK_SCORE;
-use crate::api::{DocId, Hit, SearchRequest, SortClause};
+use crate::api::{DocId, Hit, SearchRequest, SortClause, SortField, SortTarget};
+use crate::value::OrdValue;
 use crate::Error;
 
 pub fn fuse(req: &SearchRequest, results: Vec<Vec<Document>>) -> Result<Vec<Hit>, Error> {
@@ -81,15 +81,19 @@ struct Candidate {
 }
 
 impl Candidate {
-    fn sort_key(&self, sort: &SortClause) -> SortKey {
+    fn sort_key(&self, sort: &SortClause, score: f32) -> SortKey {
         SortKey(
             sort.iter()
                 .map(|f| {
-                    let value = self
-                        .fields
-                        .get(f.field.as_str())
-                        .filter(|value| value.as_null().is_none())
-                        .cloned();
+                    // `_score` is relevance, not a document field.
+                    let value = match &f.target {
+                        SortTarget::Score => Some(Value::f32(score)),
+                        SortTarget::Field(name) => self
+                            .fields
+                            .get(name.as_str())
+                            .filter(|value| value.as_null().is_none())
+                            .cloned(),
+                    };
                     match (value, f.asc) {
                         (None, _) => SortKeyPart::Missing,
                         (Some(value), true) => SortKeyPart::Asc(OrdValue(value)),
@@ -167,7 +171,10 @@ fn to_hits(req: &SearchRequest, candidates: Vec<(f32, Candidate)>) -> Vec<Hit> {
     let mut candidates: Vec<(Option<SortKey>, f32, Candidate)> = candidates
         .into_iter()
         .map(|(score, candidate)| {
-            let key = req.sort.as_ref().map(|sort| candidate.sort_key(sort));
+            let key = req
+                .sort
+                .as_ref()
+                .map(|sort| candidate.sort_key(sort, score));
             (key, score, candidate)
         })
         .collect();
@@ -183,12 +190,25 @@ fn to_hits(req: &SearchRequest, candidates: Vec<(f32, Candidate)>) -> Vec<Hit> {
     candidates.drain(..page);
     candidates.truncate(req.size as usize);
 
-    let scores = req.sort.is_none() || req.track_scores;
+    // ES nulls `_score` when sorting, unless the sort is itself on relevance.
+    let sorts_on_score = req
+        .sort
+        .as_ref()
+        .is_some_and(|s| s.iter().any(SortField::is_score));
+    let scores = req.sort.is_none() || req.track_scores || sorts_on_score;
+
+    // A lone descending `_score` is the default ordering, and ES omits sort
+    // values for it.
+    let default_order = req
+        .sort
+        .as_ref()
+        .is_some_and(|s| s.len() == 1 && s[0].is_score() && !s[0].asc);
+
     candidates
         .into_iter()
         .map(|(key, score, candidate)| Hit {
             score: scores.then_some(score),
-            sort: key.map(SortKey::into_json),
+            sort: key.filter(|_| !default_order).map(SortKey::into_json),
             source: req
                 .source
                 .enabled()

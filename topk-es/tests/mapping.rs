@@ -95,7 +95,7 @@ async fn test_create_rejected(scope: &TestScope, #[case] body: Value) {
         "type": "semantic_text",
         "inference_id": ".elser",
         "search_inference_id": ".elser_query",
-        "chunking_settings": { "strategy": "sentence" }
+        "chunking_settings": { "strategy": "sentence", "max_chunk_size": 250 }
     }
 }))]
 #[case::nested_object(json!({
@@ -269,25 +269,20 @@ async fn test_get_index_returns_mapping_and_settings(scope: &TestScope) {
     let body: Value = res.json().await.unwrap();
     let index = &body[&scope.name];
 
+    // ES omits parameters left at their default, so assert the type rather than
+    // the full property object, and treat the settings block as opaque —
+    // Serverless returns an effectively empty one.
     assert_eq!(
-        index["mappings"]["properties"]["title"],
-        json!({ "type": "text", "index": true }),
+        index["mappings"]["properties"]["title"]["type"], "text",
         "{body}"
     );
-    assert_eq!(
-        index["settings"]["index"]["provided_name"], scope.name,
-        "{body}"
-    );
-    assert_eq!(
-        index["settings"]["index"]["number_of_shards"], "1",
-        "{body}"
-    );
+    assert!(index["settings"].is_object(), "{body}");
     assert_eq!(index["aliases"], json!({}), "{body}");
 }
 
 #[test_context(TestScope)]
 #[tokio::test]
-async fn test_vector_roundtrip(scope: &TestScope) {
+async fn dev_vector_roundtrip(scope: &TestScope) {
     scope
         .create_with_properties(json!({
             "title": { "type": "text" },
@@ -488,4 +483,24 @@ async fn dev_create_index_invalid_name_rejected() {
             .expect("create index");
         assert_eq!(res.status_code(), StatusCode::BAD_REQUEST, "{name:?}");
     }
+}
+
+// ES infers `type: object` from a bare `properties` block.
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_implicit_object_mapping(scope: &TestScope) {
+    scope
+        .create_with_properties(json!({
+            "meta": { "properties": { "author": { "type": "keyword" } } }
+        }))
+        .await;
+
+    scope
+        .index_docs([("1", json!({ "meta": { "author": "tolkien" } }))])
+        .await;
+
+    let ids = scope
+        .search_ids(json!({ "term": { "meta.author": "tolkien" } }))
+        .await;
+    assert_eq!(ids, vec!["1"]);
 }

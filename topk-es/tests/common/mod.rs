@@ -383,6 +383,16 @@ impl SearchResponse {
             .all(|h| !h.as_object().unwrap().contains_key("_source"))
     }
 
+    pub fn all_sort_omitted(&self) -> bool {
+        self.hits()
+            .iter()
+            .all(|h| !h.as_object().unwrap().contains_key("sort"))
+    }
+
+    pub fn sort_values(&self, id: &str) -> &Value {
+        &self.hit(id)["sort"]
+    }
+
     pub fn agg(&self, name: &str) -> &Value {
         &self.0["aggregations"][name]
     }

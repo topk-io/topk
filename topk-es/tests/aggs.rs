@@ -76,39 +76,45 @@ async fn test_multiple_sibling_top_level_aggs(books: &BooksContext) {
 }
 
 #[rstest_ctx(TestScope)]
-#[case::knn(
+// ES scopes aggs to the `k` docs retrieved by a top-level `knn`; TopK scopes them
+// over the full match set.
+#[case::dev_knn(
     json!({
-        "embedding": { "type": "dense_vector", "dims": 2, "similarity": "cosine" }
+        "embedding": { "type": "dense_vector", "dims": 2, "similarity": "cosine" },
+        "n": { "type": "integer" }
     }),
     vec![
-        ("1", json!({ "embedding": [1.0, 0.0] })),
-        ("2", json!({ "embedding": [0.9, 0.1] })),
-        ("3", json!({ "embedding": [0.0, 1.0] })),
+        ("1", json!({ "embedding": [1.0, 0.0], "n": 1 })),
+        ("2", json!({ "embedding": [0.9, 0.1], "n": 2 })),
+        ("3", json!({ "embedding": [0.0, 1.0], "n": 3 })),
     ],
     json!({
         "knn": { "field": "embedding", "query_vector": [1.0, 0.0], "k": 2 },
         "size": 2,
-        "aggs": { "hit_count": { "value_count": { "field": "embedding" } } }
+        "aggs": { "hit_count": { "value_count": { "field": "n" } } }
     }),
     2,
     3
 )]
 #[case::semantic(
-    json!({ "content": { "type": "semantic_text" } }),
+    json!({
+        "content": { "type": "semantic_text" },
+        "n": { "type": "integer" }
+    }),
     vec![
         (
             "1",
-            json!({ "content": "The cat sat lazily on the warm windowsill in the sun." }),
+            json!({ "content": "The cat sat lazily on the warm windowsill in the sun.", "n": 1 }),
         ),
         (
             "2",
-            json!({ "content": "Rockets use liquid oxygen and kerosene for combustion during launch." }),
+            json!({ "content": "Rockets use liquid oxygen and kerosene for combustion during launch.", "n": 2 }),
         ),
     ],
     json!({
         "query": { "semantic": { "field": "content", "query": "kittens and cats" } },
         "size": 1,
-        "aggs": { "hit_count": { "value_count": { "field": "content" } } }
+        "aggs": { "hit_count": { "value_count": { "field": "n" } } }
     }),
     1,
     2
@@ -132,4 +138,90 @@ async fn test_aggs_scope_over_match_set_not_retrieved_hits(
         expected_agg as f64,
         "aggs scope over the query match set, not the retrieved hits: {resp}"
     );
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_metric_aggs_over_empty_match(scope: &TestScope) {
+    scope
+        .create_with_properties(json!({ "g": { "type": "keyword" }, "n": { "type": "integer" } }))
+        .await;
+    scope.index_docs([("1", json!({ "g": "a", "n": 1 }))]).await;
+
+    let body = scope
+        .search(json!({
+            "query": { "term": { "g": "zzz" } },
+            "aggs": {
+                "s": { "sum": { "field": "n" } },
+                "c": { "value_count": { "field": "n" } },
+                "a": { "avg": { "field": "n" } },
+                "mn": { "min": { "field": "n" } }
+            }
+        }))
+        .await
+        .expect("search should succeed");
+
+    assert_eq!(body.agg("s")["value"], 0.0, "{body}");
+    assert_eq!(body.agg("c")["value"], 0.0, "{body}");
+    assert!(body.agg("a")["value"].is_null(), "{body}");
+    assert!(body.agg("mn")["value"].is_null(), "{body}");
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_terms_agg_breaks_doc_count_ties_by_key(scope: &TestScope) {
+    scope
+        .create_with_properties(json!({ "g": { "type": "keyword" } }))
+        .await;
+    scope
+        .index_docs([
+            ("1", json!({ "g": "k3" })),
+            ("2", json!({ "g": "k1" })),
+            ("3", json!({ "g": "k2" })),
+        ])
+        .await;
+
+    let body = scope
+        .search(json!({ "size": 0, "aggs": { "t": { "terms": { "field": "g" } } } }))
+        .await
+        .expect("search should succeed");
+
+    let keys: Vec<&str> = body.agg("t")["buckets"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|b| b["key"].as_str().unwrap())
+        .collect();
+    assert_eq!(keys, vec!["k1", "k2", "k3"], "{body}");
+}
+
+// The engine applies `size` before we can break `doc_count` ties by key, so a tie
+// straddling the limit keeps whichever buckets the engine happened to return —
+// here `k1`/`k3`, where ES orders by key first and keeps `k1`/`k2`. Only the
+// selection diverges; what comes back is still key-ordered.
+#[test_context(TestScope)]
+#[tokio::test]
+async fn bug_terms_agg_tie_break_applied_after_size_limit(scope: &TestScope) {
+    scope
+        .create_with_properties(json!({ "g": { "type": "keyword" } }))
+        .await;
+    scope
+        .index_docs([
+            ("1", json!({ "g": "k3" })),
+            ("2", json!({ "g": "k1" })),
+            ("3", json!({ "g": "k2" })),
+        ])
+        .await;
+
+    let body = scope
+        .search(json!({ "size": 0, "aggs": { "t": { "terms": { "field": "g", "size": 2 } } } }))
+        .await
+        .expect("search should succeed");
+
+    let keys: Vec<&str> = body
+        .buckets("t")
+        .iter()
+        .map(|b| b["key"].as_str().unwrap())
+        .collect();
+    assert_eq!(keys, vec!["k1", "k3"], "{body}");
 }

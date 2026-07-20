@@ -43,11 +43,12 @@ async fn setup_hybrid_docs(scope: &TestScope) {
     ],
     vec!["1", "2"]
 )]
+// `dot_product` requires unit-length vectors, so rank by direction, not magnitude.
 #[case::dot_product(
     "dot_product",
     vec![
-        ("1", json!({ "embedding": [2.0, 0.0, 0.0, 0.0] })),
-        ("2", json!({ "embedding": [1.0, 0.0, 0.0, 0.0] })),
+        ("1", json!({ "embedding": [1.0, 0.0, 0.0, 0.0] })),
+        ("2", json!({ "embedding": [0.8, 0.6, 0.0, 0.0] })),
         ("3", json!({ "embedding": [0.0, 1.0, 0.0, 0.0] })),
     ],
     vec!["1", "2"]
@@ -73,6 +74,26 @@ async fn test_knn_ranks_by_similarity_metric(
         .await
         .expect("search should succeed");
     assert_eq!(body.hit_ids(), expected, "nearest by {similarity}: {body}");
+}
+
+#[rstest_ctx(TestScope)]
+#[case::dot_product_non_unit("dot_product", json!([2.0, 0.0, 0.0, 0.0]))]
+#[case::cosine_zero_magnitude("cosine", json!([0.0, 0.0, 0.0, 0.0]))]
+async fn test_indexing_rejects_invalid_vector(
+    scope: &TestScope,
+    #[case] similarity: &str,
+    #[case] embedding: Value,
+) {
+    scope
+        .create_with_properties(json!({
+            "embedding": { "type": "dense_vector", "dims": 4, "similarity": similarity }
+        }))
+        .await;
+
+    let res = scope
+        .index_doc("1", json!({ "embedding": embedding }))
+        .await;
+    assert_eq!(res.status, StatusCode::BAD_REQUEST, "{res}");
 }
 
 #[test_context(TestScope)]
@@ -305,7 +326,6 @@ async fn test_knn_array_form_combines_vector_queries(scope: &TestScope) {
 
 #[test_context(TestScope)]
 #[tokio::test]
-async fn test_knn_query_rrf_unions_retrievers_without_phantom_hits(scope: &TestScope) {
 async fn dev_knn_query_rrf_unions_retrievers_without_phantom_hits(scope: &TestScope) {
     scope
         .create_with_properties(json!({
@@ -384,7 +404,6 @@ async fn dev_knn_query_rrf_unions_retrievers_without_phantom_hits(scope: &TestSc
 
 #[test_context(TestScope)]
 #[tokio::test]
-async fn test_knn_query_rrf_combines_lexical_and_vector_results(scope: &TestScope) {
 async fn dev_knn_query_rrf_combines_lexical_and_vector_results(scope: &TestScope) {
     setup_hybrid_docs(scope).await;
 
@@ -478,7 +497,6 @@ async fn test_knn_over_bit_vectors_ranks_by_hamming(scope: &TestScope) {
 
 #[test_context(TestScope)]
 #[tokio::test]
-async fn test_knn_byte_vector_rejects_fractional_query(scope: &TestScope) {
 async fn dev_knn_byte_vector_rejects_fractional_query(scope: &TestScope) {
     scope
         .create_with_properties(json!({
@@ -792,7 +810,6 @@ async fn test_knn_query_combines_lexical_and_vector_scores(scope: &TestScope) {
 
 #[test_context(BooksContext)]
 #[tokio::test]
-async fn test_knn_maxsim_over_books_ranks_by_token_overlap(books: &BooksContext) {
 async fn ext_knn_maxsim_over_books_ranks_by_token_overlap(books: &BooksContext) {
     let body = books
         .search(json!({
@@ -819,17 +836,14 @@ async fn ext_knn_maxsim_over_books_ranks_by_token_overlap(books: &BooksContext) 
     json!({ "embedding": { "type": "dense_vector", "dims": 4 } }),
     json!({ "knn": { "field": "embedding", "query_vector": [1.0, 0.0, 0.0, 0.0], "k": 2, "num_candidates": 1 } })
 )]
-#[case::unindexed_field(
 #[case::dev_unindexed_field(
     json!({ "title": { "type": "text" } }),
     json!({ "knn": { "field": "title", "query_vector": [1.0, 0.0], "k": 2 } })
 )]
-#[case::unknown_field(
 #[case::dev_unknown_field(
     json!({ "embedding": { "type": "dense_vector", "dims": 4 } }),
     json!({ "knn": { "field": "nope", "query_vector": [1.0, 0.0, 0.0, 0.0], "k": 2 } })
 )]
-#[case::flat_vector_for_rank_field(
 #[case::dev_flat_vector_for_rank_field(
     json!({ "tokens": { "type": "rank_vectors", "dims": 4 } }),
     json!({ "knn": { "field": "tokens", "query_vector": [1.0, 0.0, 0.0, 0.0], "k": 2 } })
@@ -872,5 +886,28 @@ async fn test_rank_rrf_with_size_zero_rejected(scope: &TestScope) {
         .await
         .unwrap_err();
 
+    assert_eq!(err.status_code(), StatusCode::BAD_REQUEST);
+}
+
+// A JSON number that overflows f32 becomes infinity; ES rejects those.
+#[rstest_ctx(TestScope)]
+#[case::overflow(json!([1e308, 0.0]))]
+#[case::just_over_f32_max(json!([1e39, 0.0]))]
+async fn test_knn_rejects_non_finite_query_vector(scope: &TestScope, #[case] query_vector: Value) {
+    scope
+        .create_with_properties(json!({
+            "embedding": { "type": "dense_vector", "dims": 2, "similarity": "cosine" }
+        }))
+        .await;
+    scope
+        .index_docs([("1", json!({ "embedding": [1.0, 0.0] }))])
+        .await;
+
+    let err = scope
+        .search(json!({
+            "knn": { "field": "embedding", "query_vector": query_vector, "k": 1 }
+        }))
+        .await
+        .unwrap_err();
     assert_eq!(err.status_code(), StatusCode::BAD_REQUEST);
 }

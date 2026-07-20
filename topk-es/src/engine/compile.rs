@@ -58,8 +58,8 @@ pub fn search(
     }
 
     if let Some(sort) = req.sort.as_ref() {
-        for sort_field in sort.iter() {
-            ensure_aggregatable(schema, sort_field.field.as_str())?;
+        for name in sort.iter().filter_map(SortField::field_name) {
+            ensure_aggregatable(schema, name.as_str())?;
         }
     }
     for clause in req.aggs.values() {
@@ -133,7 +133,11 @@ fn lower(
         (false, Some(sort)) => {
             let mut exprs = sort
                 .iter()
-                .map(|f| (field(f.field.as_str()), f.order()))
+                .map(|f| match &f.target {
+                    // `_score` is the selected rank field, not a document field.
+                    SortTarget::Score => (field(RANK_SCORE), f.order()),
+                    SortTarget::Field(name) => (field(name.as_str()), f.order()),
+                })
                 .collect::<Vec<_>>();
 
             // The engine drops docs whose every sort key is null (and the
@@ -154,7 +158,11 @@ fn lower(
 
     let query = match (req.source.enabled(), req.sort.as_ref()) {
         (true, _) => query.fetch(["*"]),
-        (false, Some(sort)) => query.fetch(sort.iter().map(|f| f.field.as_str())),
+        (false, Some(sort)) => query.fetch(
+            sort.iter()
+                .filter_map(SortField::field_name)
+                .map(FieldName::as_str),
+        ),
         (false, None) => query,
     };
 
@@ -321,8 +329,9 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
             if let Some(v) = clause.value.lt {
                 exprs.push(field(clause.field.clone()).lt(v.into_inner()));
             }
+            // A bound-less range is ES's field-exists check.
             if exprs.is_empty() {
-                return Err(Error::InvalidQuery("Range query has no bounds".into()));
+                return Ok(constant(field(clause.field).is_not_null(), boost));
             }
             Ok(constant(LogicalExpr::all(exprs), boost))
         }
@@ -388,6 +397,10 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
                 score: Score::sum(scores, boost),
             })
         }
+        // An empty query has nothing to embed; ES fails it at the inference call.
+        Query::Semantic(s) if s.query.trim().is_empty() => Err(Error::InvalidQuery(
+            "[semantic] query must not be empty".into(),
+        )),
         Query::Semantic(s) => Ok(CompiledQuery {
             gate: LogicalExpr::literal(true),
             score: Score {
