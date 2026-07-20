@@ -24,7 +24,7 @@ async fn test_invalid_api_key() {
         .await
         .expect_err("should not be able to list collections");
 
-    assert!(matches!(response, Error::PermissionDenied));
+    assert!(matches!(response, Error::Unauthenticated(_)));
 }
 
 #[test_context(ProjectTestContext)]
