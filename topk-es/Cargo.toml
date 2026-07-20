@@ -16,7 +16,7 @@ thiserror = { version = "1.0.65" }
 topk-rs = { path = "../topk-rs", features = ["json"] }
 
 [dev-dependencies]
-ddb-test-macros = { workspace = true }
+topk-test-macros = { path = "../topk-test-macros" }
 elasticsearch = { version = "8.15.0-alpha.1", default-features = false, features = ["native-tls"] }
 futures = { version = "0.3.31" }
 rstest = { version = "0.23.0" }

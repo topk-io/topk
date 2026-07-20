@@ -1,7 +1,7 @@
 mod common;
 
 use common::TestScope;
-use ddb_test_macros::rstest_ctx;
+use topk_test_macros::rstest_ctx;
 use elasticsearch::http::StatusCode;
 use serde_json::{json, Value};
 use test_context::test_context;
