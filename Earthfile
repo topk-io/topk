@@ -8,6 +8,7 @@ test:
     BUILD +test-py --region=$region --host=$host
     BUILD +test-js --region=$region --host=$host
     BUILD +test-sql --region=$region --host=$host
+    BUILD +test-es --region=$region --host=$host
 
 test-rs:
     FROM rust:slim
@@ -189,11 +190,42 @@ test-sql:
 
     # test
     ENV FORCE_COLOR=1
-    ENV POSTGRES_HOST=${region}.sql.${host}
-    ENV POSTGRES_PORT=5432
-    ENV POSTGRES_SSL=require
+    ENV PGHOST=${region}.sql.${host}
+    ENV PGPORT=5432
+    ENV PGSSLMODE=require
     RUN --no-cache --secret TOPK_API_KEY \
-        POSTGRES_PASSWORD=$TOPK_API_KEY TOPK_API_KEY=$TOPK_API_KEY topk-test-sandbox cargo nextest run --archive-file sql.tar.zst --no-fail-fast -j 16
+        PGPASSWORD=$TOPK_API_KEY TOPK_API_KEY=$TOPK_API_KEY topk-test-sandbox cargo nextest run --archive-file sql.tar.zst --no-fail-fast -j 16
+
+#
+
+test-es:
+    FROM rust:slim
+
+    # install dependencies
+    RUN apt-get update && apt-get install -y protobuf-compiler
+    RUN cargo install cargo-nextest --locked
+    COPY +test-sandbox/topk-test-sandbox /usr/local/bin/topk-test-sandbox
+
+    DO rust+INIT --keep_fingerprints=true
+    WORKDIR /sdk
+
+    # copy source code
+    COPY --keep-ts . .
+
+    WORKDIR /sdk/topk-es
+
+    ARG EARTHLY_GIT_HASH
+    DO rust+CARGO --args="nextest archive -p topk-es --archive-file es.tar.zst" # compile tests
+
+    ARG --required region
+    ARG --required host
+    DO +SETUP_ENV --region=$region --host=$host
+
+    # test
+    ENV FORCE_COLOR=1
+    ENV ES_URL=https://${region}.es.${host}
+    RUN --no-cache --secret TOPK_API_KEY \
+        ES_TOKEN=$TOPK_API_KEY TOPK_API_KEY=$TOPK_API_KEY topk-test-sandbox cargo nextest run --archive-file es.tar.zst --no-fail-fast -j 16
 
 #
 

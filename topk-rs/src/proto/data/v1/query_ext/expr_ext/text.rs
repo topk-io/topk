@@ -41,4 +41,27 @@ impl TextExpr {
             }))),
         }
     }
+
+    /// Scales every term weight in the expression by `factor`.
+    pub fn boost(mut self, factor: f32) -> Self {
+        let (left, right) = match self.expr.as_mut() {
+            Some(text_expr::Expr::Terms(terms)) => {
+                for term in &mut terms.terms {
+                    term.weight *= factor;
+                }
+                return self;
+            }
+            Some(text_expr::Expr::And(expr)) => (&mut expr.left, &mut expr.right),
+            Some(text_expr::Expr::Or(expr)) => (&mut expr.left, &mut expr.right),
+            None => return self,
+        };
+
+        for side in [left, right] {
+            if let Some(boxed) = side.take() {
+                *side = Some(Box::new(boxed.boost(factor)));
+            }
+        }
+
+        self
+    }
 }

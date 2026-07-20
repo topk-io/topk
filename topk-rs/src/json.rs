@@ -108,8 +108,18 @@ impl TryFrom<Vec<serde_json::Value>> for TopkValue {
             return Ok(TopkValue::list(Vec::<f32>::new()));
         };
 
-        // Number arrays always map to f32 lists, matching the JS/Python SDKs.
+        // Integer arrays keep their integer width so callers that narrow against a
+        // collection schema (e.g. topk-es `engine::value`) can still see the original
+        // values. Anything else falls back to f32, matching the JS/Python SDKs.
         if first.is_number() {
+            if let Some(ints) = collect_ints(&values, serde_json::Value::as_i64) {
+                return Ok(TopkValue::list(ints));
+            }
+
+            if let Some(ints) = collect_ints(&values, serde_json::Value::as_u64) {
+                return Ok(TopkValue::list(ints));
+            }
+
             return array_of!(values, number_to_f32).map(TopkValue::list);
         }
 
@@ -329,6 +339,15 @@ impl TryFrom<TopkValue> for serde_json::Value {
     }
 }
 
+// `extract` never matches float-backed numbers, so whole-valued floats like
+// `[1.0, 2.0]` stay f32 rather than collapsing into the integer path.
+fn collect_ints<T>(
+    values: &[serde_json::Value],
+    extract: fn(&serde_json::Value) -> Option<T>,
+) -> Option<Vec<T>> {
+    values.iter().map(extract).collect()
+}
+
 fn number_to_f32(value: serde_json::Value) -> Result<f32, crate::Error> {
     // Values beyond f32's range become infinity when downcast, matching the JS/Python SDKs.
     Ok(value.as_f64().ok_or_else(|| {
@@ -371,17 +390,14 @@ mod tests {
     )]
     #[case::f64(json!(0.1), TopkValue::f64(0.1))]
     // arrays
-    #[case::int_list(json!([1, 2]), TopkValue::list(vec![1.0_f32, 2.0]))]
-    #[case::negative_int_list(json!([-1, 2]), TopkValue::list(vec![-1.0_f32, 2.0]))]
-    #[case::byte_value_list(
-        json!([255, 128, 1, 0]),
-        TopkValue::list(vec![255.0_f32, 128.0, 1.0, 0.0])
-    )]
+    #[case::int_list(json!([1, 2]), TopkValue::list(vec![1_i64, 2]))]
+    #[case::negative_int_list(json!([-1, 2]), TopkValue::list(vec![-1_i64, 2]))]
+    #[case::byte_value_list(json!([255, 128, 1, 0]), TopkValue::list(vec![255_i64, 128, 1, 0]))]
     #[case::whole_float_list(json!([1.0, 2.0]), TopkValue::list(vec![1.0_f32, 2.0]))]
     #[case::mixed_list(json!([1, 2.5]), TopkValue::list(vec![1.0_f32, 2.5]))]
     #[case::u64_overflow_list(
         json!([1, i64::MAX as u64 + 1]),
-        TopkValue::list(vec![1.0_f32, (i64::MAX as u64 + 1) as f32])
+        TopkValue::list(vec![1_u64, i64::MAX as u64 + 1])
     )]
     #[case::empty_list(json!([]), TopkValue::list(Vec::<f32>::new()))]
     #[case::string_list(json!(["a", "b"]), TopkValue::list(vec!["a", "b"]))]
@@ -411,7 +427,7 @@ mod tests {
         json!({"a": {"b": [1, 2]}}),
         TopkValue::r#struct([(
             "a",
-            TopkValue::r#struct([("b", TopkValue::list(vec![1.0_f32, 2.0]))])
+            TopkValue::r#struct([("b", TopkValue::list(vec![1_i64, 2]))])
         )])
     )]
     fn from_json(#[case] input: serde_json::Value, #[case] expected: TopkValue) {
