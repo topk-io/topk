@@ -1,7 +1,7 @@
 mod common;
 
 use common::{TestScope, TwoIndices};
-use topk_test_macros::rstest_ctx;
+use test_macros::rstest_ctx;
 use elasticsearch::{http::StatusCode, params::Refresh, BulkOperation, BulkOperations, BulkParts};
 use serde_json::{json, Value};
 use test_context::test_context;
