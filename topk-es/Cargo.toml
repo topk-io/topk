@@ -17,7 +17,7 @@ topk-rs = { path = "../topk-rs", features = ["json"] }
 
 [dev-dependencies]
 test-macros = { path = "../utils/test-macros" }
-elasticsearch = { version = "8.15.0-alpha.1", default-features = false, features = ["native-tls"] }
+elasticsearch = { version = "8.15.0-alpha.1", default-features = false, features = ["rustls-tls"] }
 futures = { version = "0.3.31" }
 rstest = { version = "0.23.0" }
 serde_json = { version = "1.0" }
