@@ -39,10 +39,29 @@ async fn test_count_with_and_without_query(
 
 #[rstest_ctx(TestScope)]
 #[case::unknown_query(json!({ "not_a_real_query": {} }))]
-#[case::semantic_query(json!({ "semantic": { "field": "content", "query": "cats" } }))]
+#[case::dev_semantic_query(json!({ "semantic": { "field": "content", "query": "cats" } }))]
 async fn test_count_query_rejected(scope: &TestScope, #[case] query: Value) {
     scope.create().await;
 
     let err = scope.count(Some(query)).await.unwrap_err();
     assert_eq!(err.status_code(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn test_ignore_unavailable_missing_index() {
+    let client = common::Client::new();
+    let missing = format!("ddb-es-proxy-test-{}", uuid::Uuid::new_v4());
+
+    let res = client
+        .es()
+        .count(elasticsearch::CountParts::Index(&[&missing]))
+        .ignore_unavailable(true)
+        .body(json!({ "query": { "match_all": {} } }))
+        .send()
+        .await
+        .expect("count");
+    assert_eq!(res.status_code(), StatusCode::OK);
+
+    let body: Value = res.json().await.unwrap();
+    assert_eq!(body["count"], 0, "{body}");
 }

@@ -26,14 +26,15 @@ pub struct Client {
 
 impl Client {
     pub fn new() -> Self {
-        let api_key = std::env::var("TOPK_API_KEY").expect("TOPK_API_KEY must be set");
-        let url =
-            std::env::var("ELASTIC_URL").unwrap_or_else(|_| "http://localhost:9200".to_string());
+        let token = std::env::var("ES_TOKEN")
+            .or_else(|_| std::env::var("TOPK_API_KEY"))
+            .expect("ES_TOKEN or TOPK_API_KEY must be set");
+        let url = std::env::var("ES_URL").unwrap_or_else(|_| "http://localhost:9200".to_string());
 
         let url = Url::parse(&url).unwrap();
         let conn_pool = SingleNodeConnectionPool::new(url);
         let transport = TransportBuilder::new(conn_pool)
-            .auth(Credentials::Bearer(api_key))
+            .auth(Credentials::EncodedApiKey(token))
             .build()
             .unwrap();
 
@@ -263,7 +264,7 @@ impl TestScope {
     }
 
     pub async fn search(&self, body: Value) -> TestResult<SearchResponse> {
-        let dfs = std::env::var("ELASTIC_DFS").is_ok() && body.get("knn").is_none();
+        let dfs = std::env::var("ES_DFS").is_ok() && body.get("knn").is_none();
 
         let index = [self.name.as_str()];
         let mut req = self

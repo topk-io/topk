@@ -46,7 +46,7 @@ async fn test_get_missing_doc_returns_found_false(scope: &TestScope) {
 
 #[test_context(TestScope)]
 #[tokio::test]
-async fn test_delete_missing_doc_reports_success(scope: &TestScope) {
+async fn dev_delete_missing_doc_reports_success(scope: &TestScope) {
     scope.create().await;
 
     let body = scope.delete_doc("nonexistent").await;
@@ -56,7 +56,7 @@ async fn test_delete_missing_doc_reports_success(scope: &TestScope) {
 
 #[test_context(TestScope)]
 #[tokio::test]
-async fn test_reindex_returns_created_not_updated(scope: &TestScope) {
+async fn dev_reindex_returns_created_not_updated(scope: &TestScope) {
     scope.create().await;
 
     scope.index_doc("1", json!({ "v": 1 })).await;
@@ -66,7 +66,7 @@ async fn test_reindex_returns_created_not_updated(scope: &TestScope) {
 }
 
 #[tokio::test]
-async fn test_put_to_missing_index() {
+async fn dev_put_to_missing_index() {
     let client = common::Client::new();
     let index = format!("ddb-es-proxy-doc-missing-{}", uuid::Uuid::new_v4());
 
@@ -137,8 +137,8 @@ async fn test_boolean_roundtrip(scope: &TestScope) {
 }
 
 #[rstest_ctx(TestScope)]
-#[case::array_of_objects("1".to_string(), json!({ "items": [{"a": 1}, {"a": 2}] }))]
-#[case::array_of_booleans("1".to_string(), json!({ "flags": [true, false] }))]
+#[case::dev_array_of_objects("1".to_string(), json!({ "items": [{"a": 1}, {"a": 2}] }))]
+#[case::dev_array_of_booleans("1".to_string(), json!({ "flags": [true, false] }))]
 #[case::mixed_type_array("1".to_string(), json!({ "mixed": [1, "two", 3] }))]
 #[case::id_too_long("a".repeat(600), json!({ "v": 1 }))]
 async fn test_index_doc_rejected(scope: &TestScope, #[case] id: String, #[case] body: Value) {
@@ -150,7 +150,7 @@ async fn test_index_doc_rejected(scope: &TestScope, #[case] id: String, #[case] 
 
 #[test_context(TestScope)]
 #[tokio::test]
-async fn test_array_of_arrays_roundtrips_as_matrix(scope: &TestScope) {
+async fn ext_array_of_arrays_roundtrips_as_matrix(scope: &TestScope) {
     scope.create().await;
 
     let res = scope

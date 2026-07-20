@@ -90,7 +90,7 @@ async fn test_knn_with_semantic_query_combines_retrievers(scope: &TestScope) {
     json!({ "content": { "type": "semantic_text" } }),
     json!({ "query": { "semantic": { "field": "nope", "query": "cats" } } })
 )]
-async fn test_semantic_search_rejected(
+async fn dev_semantic_search_rejected(
     scope: &TestScope,
     #[case] properties: Value,
     #[case] query: Value,
@@ -212,4 +212,21 @@ async fn test_semantic_query_nested_in_bool_filter(scope: &TestScope) {
         vec!["3", "2"],
         "bool.filter should exclude category \"a\", and the remaining docs should still rank by similarity: {body}"
     );
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_semantic_empty_query_rejected(scope: &TestScope) {
+    scope
+        .create_with_properties(json!({ "content": { "type": "semantic_text" } }))
+        .await;
+    scope
+        .index_docs([("1", json!({ "content": "cats sleep on warm windowsills" }))])
+        .await;
+
+    let err = scope
+        .search(json!({ "query": { "semantic": { "field": "content", "query": "" } } }))
+        .await
+        .unwrap_err();
+    assert_eq!(err.status_code(), StatusCode::BAD_REQUEST);
 }

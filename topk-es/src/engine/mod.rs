@@ -10,7 +10,6 @@ pub mod doc;
 pub mod field;
 pub mod rank;
 pub mod score;
-pub mod value;
 
 const RANK_PREFIX: &str = "topk_es_rank_";
 const RANK_SCORE: &str = "topk_es_rank_score";

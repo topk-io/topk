@@ -11,9 +11,13 @@ use super::aggs::{AggClause, AggResult};
 use super::query::{FieldClause, FieldName, GateQuery, Query};
 use super::source::SourceFilter;
 use super::{DocId, IndexName, Shards, Source};
+use crate::vector::ensure_finite;
 use crate::Error;
 
 pub const MAX_SORT_FIELDS: usize = 8;
+
+// ES's relevance pseudo-field. Sorts on the computed score, not a document field.
+pub const SORT_SCORE: &str = "_score";
 
 #[serde_as]
 #[derive(Deserialize)]
@@ -137,6 +141,14 @@ pub enum QueryVector {
     Matrix(TopkValue),
 }
 
+impl QueryVector {
+    fn value(&self) -> &TopkValue {
+        match self {
+            QueryVector::Flat(value) | QueryVector::Matrix(value) => value,
+        }
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(untagged)]
 enum QueryVectorWire {
@@ -155,16 +167,20 @@ impl TryFrom<QueryVectorWire> for QueryVector {
                 .collect::<Vec<_>>()
         };
 
-        match wire {
-            QueryVectorWire::Flat(numbers) => TopkValue::try_from(values(numbers))
-                .map(QueryVector::Flat)
-                .map_err(|e| Error::InvalidQuery(e.to_string())),
+        let vector = match wire {
+            QueryVectorWire::Flat(numbers) => {
+                TopkValue::try_from(values(numbers)).map(QueryVector::Flat)
+            }
             QueryVectorWire::Matrix(rows) => {
                 TopkValue::try_from(rows.into_iter().map(values).collect::<Vec<_>>())
                     .map(QueryVector::Matrix)
-                    .map_err(|e| Error::InvalidQuery(e.to_string()))
             }
         }
+        .map_err(|e| Error::InvalidQuery(e.to_string()))?;
+
+        ensure_finite(vector.value())?;
+
+        Ok(vector)
     }
 }
 
@@ -181,16 +197,38 @@ impl Deref for SortClause {
 }
 
 pub struct SortField {
-    pub field: FieldName,
+    pub target: SortTarget,
     pub asc: bool,
 }
 
 impl SortField {
+    pub fn is_score(&self) -> bool {
+        self.target.is_score()
+    }
+
+    pub fn field_name(&self) -> Option<&FieldName> {
+        match &self.target {
+            SortTarget::Score => None,
+            SortTarget::Field(name) => Some(name),
+        }
+    }
+
     pub fn order(&self) -> TopkSortOrder {
         match self.asc {
             true => TopkSortOrder::Asc,
             false => TopkSortOrder::Desc,
         }
+    }
+}
+
+pub enum SortTarget {
+    Score,
+    Field(FieldName),
+}
+
+impl SortTarget {
+    pub fn is_score(&self) -> bool {
+        matches!(self, SortTarget::Score)
     }
 }
 
@@ -219,9 +257,21 @@ impl TryFrom<SortWire> for SortClause {
 
         let fields = sorts
             .into_iter()
-            .map(|sort| SortField {
-                field: sort.name().clone(),
-                asc: matches!(sort.order(), SortOrder::Asc),
+            .map(|sort| {
+                let target = match sort.name().as_str() {
+                    SORT_SCORE => SortTarget::Score,
+                    _ => SortTarget::Field(sort.name().clone()),
+                };
+
+                SortField {
+                    // Without an explicit order, `_score` sorts descending in ES
+                    // and every other field ascending.
+                    asc: match sort.order() {
+                        Some(order) => matches!(order, SortOrder::Asc),
+                        None => !target.is_score(),
+                    },
+                    target,
+                }
             })
             .collect();
 
@@ -244,10 +294,10 @@ impl Sort {
         }
     }
 
-    fn order(&self) -> &SortOrder {
+    fn order(&self) -> Option<&SortOrder> {
         match self {
-            Sort::Bare(_) => &SortOrder::Asc,
-            Sort::Field(clause) => clause.value.order().unwrap_or(&SortOrder::Asc),
+            Sort::Bare(_) => None,
+            Sort::Field(clause) => clause.value.order(),
         }
     }
 }
@@ -273,6 +323,18 @@ impl SortValue {
 struct SortValueFull {
     #[serde(default)]
     order: Option<SortOrder>,
+
+    // Docs missing a sort field already sort last in both directions, so `_last`
+    // is a no-op. `_first` would change the result, so it stays rejected.
+    #[serde(default)]
+    #[allow(dead_code)]
+    missing: Option<Missing>,
+}
+
+#[derive(Deserialize)]
+enum Missing {
+    #[serde(rename = "_last")]
+    Last,
 }
 
 #[derive(Clone, Copy, Default, Deserialize)]

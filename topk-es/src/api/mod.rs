@@ -15,6 +15,7 @@ mod query;
 mod refresh;
 mod search;
 mod source;
+mod unavailable;
 mod write;
 
 pub use aggs::*;
@@ -31,6 +32,7 @@ pub use query::*;
 pub use refresh::*;
 pub use search::*;
 pub use source::*;
+pub use unavailable::*;
 pub use write::*;
 
 #[derive(Clone, Serialize)]

@@ -48,10 +48,10 @@ async fn test_mapped_fields_queryable(scope: &TestScope, #[case] query: Value) {
 }
 
 #[rstest_ctx(TestScope)]
-#[case::unsupported_type(json!({ "mappings": { "properties": { "created": { "type": "date" } } } }))]
-#[case::unknown_field_option(json!({ "mappings": { "properties": { "title": { "type": "text", "analyzer": "standard" } } } }))]
-#[case::missing_dims(json!({ "mappings": { "properties": { "v": { "type": "dense_vector" } } } }))]
-#[case::bad_mappings_option(json!({ "mappings": { "dynamic": false, "properties": {} } }))]
+#[case::dev_unsupported_type(json!({ "mappings": { "properties": { "created": { "type": "date" } } } }))]
+#[case::dev_unknown_field_option(json!({ "mappings": { "properties": { "title": { "type": "text", "analyzer": "standard" } } } }))]
+#[case::dev_missing_dims(json!({ "mappings": { "properties": { "v": { "type": "dense_vector" } } } }))]
+#[case::dev_bad_mappings_option(json!({ "mappings": { "dynamic": false, "properties": {} } }))]
 #[case::dims_too_large(json!({ "mappings": { "properties": { "v": { "type": "dense_vector", "dims": 4294967296i64 } } } }))]
 #[case::unindexed_bad_similarity(json!({ "mappings": { "properties": { "v": { "type": "dense_vector", "dims": 4, "index": false, "similarity": "nonsense" } } } }))]
 #[case::bit_dims_unaligned(json!({ "mappings": { "properties": { "embedding": { "type": "dense_vector", "dims": 12, "element_type": "bit" } } } }))]
@@ -134,7 +134,7 @@ async fn test_text_field_index_false_disables_keyword_index(scope: &TestScope) {
 
 #[test_context(TestScope)]
 #[tokio::test]
-async fn test_get_mapping_returns_reverse_translated_properties(scope: &TestScope) {
+async fn ext_get_mapping_returns_reverse_translated_properties(scope: &TestScope) {
     scope
         .create_with_properties(json!({
             "title": { "type": "text" },
@@ -333,7 +333,7 @@ async fn test_vector_wrong_dimension_rejected(scope: &TestScope) {
     json!({ "embedding": { "type": "dense_vector", "dims": 4, "element_type": "byte" } }),
     json!([0, -128, -56, 127])
 )]
-async fn test_vector_via_bulk_roundtrip(
+async fn dev_vector_via_bulk_roundtrip(
     scope: &TestScope,
     #[case] properties: Value,
     #[case] vector: Value,
@@ -353,7 +353,7 @@ async fn test_vector_via_bulk_roundtrip(
 
 #[test_context(TestScope)]
 #[tokio::test]
-async fn test_vector_update_merge_preserves_vector(scope: &TestScope) {
+async fn dev_vector_update_merge_preserves_vector(scope: &TestScope) {
     scope
         .create_with_properties(json!({
             "title": { "type": "text" },
@@ -390,7 +390,7 @@ async fn test_vector_update_merge_preserves_vector(scope: &TestScope) {
 #[rstest_ctx(TestScope)]
 #[case::byte(4, "byte", json!([-1, -128, 1, 0]))]
 #[case::bit(32, "bit", json!([-1, 0, 127, -128]))]
-async fn test_dense_vector_element_type_roundtrip(
+async fn dev_dense_vector_element_type_roundtrip(
     scope: &TestScope,
     #[case] dims: u32,
     #[case] element_type: &str,
@@ -429,7 +429,7 @@ async fn test_get_does_not_reinterpret_other_fields_as_signed(scope: &TestScope)
 
 #[rstest_ctx(TestScope)]
 #[case::rank_vectors("rank_vectors")]
-#[case::matrix("matrix")]
+#[case::ext_matrix("matrix")]
 async fn test_rank_vectors_mapping_creation(scope: &TestScope, #[case] type_name: &str) {
     scope
         .create_with_properties(json!({ "tokens": { "type": type_name, "dims": 4 } }))
@@ -445,7 +445,7 @@ async fn test_rank_vectors_mapping_creation(scope: &TestScope, #[case] type_name
     json!({ "type": "rank_vectors", "dims": 4, "element_type": "byte" }),
     json!([[0, 1, 2, 255], [128, 64, 32, 16]])
 )]
-async fn test_rank_vectors_roundtrip(
+async fn dev_rank_vectors_roundtrip(
     scope: &TestScope,
     #[case] field: Value,
     #[case] matrix: Value,
@@ -476,7 +476,7 @@ async fn test_rank_vectors_roundtrip(
 }
 
 #[tokio::test]
-async fn test_create_index_invalid_name_rejected() {
+async fn dev_create_index_invalid_name_rejected() {
     let client = common::Client::new();
     for name in ["BadIndex", "1bad", "_bad", "-bad", "bad name"] {
         let res = client

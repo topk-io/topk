@@ -28,7 +28,30 @@ struct Mappings {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default, PartialEq)]
+#[serde(try_from = "HashMap<String, serde_json::Value>")]
 pub struct MappingProperties(pub HashMap<String, FieldMapping>);
+
+impl TryFrom<HashMap<String, serde_json::Value>> for MappingProperties {
+    type Error = Error;
+
+    fn try_from(raw: HashMap<String, serde_json::Value>) -> Result<Self, Self::Error> {
+        raw.into_iter()
+            .map(|(name, mut value)| {
+                // ES infers `type: object` from a bare `properties` block.
+                if let Some(object) = value.as_object_mut() {
+                    if !object.contains_key("type") && object.contains_key("properties") {
+                        object.insert("type".to_string(), "object".into());
+                    }
+                }
+
+                serde_json::from_value(value)
+                    .map(|mapping| (name, mapping))
+                    .map_err(|e| Error::BadRequest(e.to_string()))
+            })
+            .collect::<Result<HashMap<_, _>, Error>>()
+            .map(Self)
+    }
+}
 
 impl MappingProperties {
     pub fn is_empty(&self) -> bool {

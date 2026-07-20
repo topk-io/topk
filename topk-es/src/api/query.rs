@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use serde_with::{serde_as, OneOrMany};
+use topk_rs::json::Value;
 
 use super::DocId;
+use crate::value::ValueExt;
 use crate::Error;
-use topk_rs::json::Value;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -269,7 +270,7 @@ pub struct IdsQuery {
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(remote = "Self", deny_unknown_fields)]
 pub struct RangeBounds {
     #[serde(default)]
     pub gte: Option<Value>,
@@ -288,6 +289,27 @@ pub struct RangeBounds {
 
     #[serde(default)]
     pub format: Option<String>,
+}
+
+impl<'de> Deserialize<'de> for RangeBounds {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let bounds = Self::deserialize(deserializer)?;
+
+        for (name, bound) in [
+            ("gte", &bounds.gte),
+            ("gt", &bounds.gt),
+            ("lte", &bounds.lte),
+            ("lt", &bounds.lt),
+        ] {
+            if bound.as_ref().is_some_and(|v| !v.is_scalar()) {
+                return Err(serde::de::Error::custom(format!(
+                    "[range] query does not support a non-scalar value for [{name}]"
+                )));
+            }
+        }
+
+        Ok(bounds)
+    }
 }
 
 #[derive(Deserialize)]

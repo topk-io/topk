@@ -37,7 +37,7 @@ async fn test_terms_agg_with_avg_sub_agg(books: &BooksContext) {
 
 #[test_context(BooksContext)]
 #[tokio::test]
-async fn test_bare_metric_agg_with_size_zero(books: &BooksContext) {
+async fn bug_bare_metric_agg_with_size_zero(books: &BooksContext) {
     let resp = books
         .search(json!({
             "size": 0,

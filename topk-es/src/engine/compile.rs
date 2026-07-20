@@ -5,16 +5,16 @@ use topk_rs::query::{count as count_query, field, filter, fns, not, should, Sort
 use super::field::{ensure_aggregatable, IndexKind};
 use super::rank::Ranking;
 use super::score::{ann_score, AnnQuery, AnnTerm, CompiledQuery, Score};
-use super::value::ValueExt;
 use super::{agg, RANK_BM25, RANK_SCORE};
 use crate::api::{
-    GateQuery, KnnRequest, MatchAllQuery, MatchOperator, MatchValue, Query, SearchRequest,
-    TermValue,
+    AggClause, AggType, FieldName, GateQuery, KnnRequest, MatchAllQuery, MatchOperator, MatchValue,
+    Query, SearchRequest, SortField, SortTarget, TermValue,
 };
+use crate::value::ValueExt;
+
 use crate::{engine::Schema, Error};
 
-fn validate_agg_fields(schema: &Schema, clause: &crate::api::AggClause) -> Result<(), Error> {
-    use crate::api::AggType;
+fn validate_agg_fields(schema: &Schema, clause: &AggClause) -> Result<(), Error> {
     match &clause.ty {
         AggType::Terms(terms) => ensure_aggregatable(schema, terms.field.as_str())?,
         AggType::Sum(m) | AggType::Avg(m) | AggType::Min(m) | AggType::Max(m) => {

@@ -306,6 +306,7 @@ async fn test_knn_array_form_combines_vector_queries(scope: &TestScope) {
 #[test_context(TestScope)]
 #[tokio::test]
 async fn test_knn_query_rrf_unions_retrievers_without_phantom_hits(scope: &TestScope) {
+async fn dev_knn_query_rrf_unions_retrievers_without_phantom_hits(scope: &TestScope) {
     scope
         .create_with_properties(json!({
             "body": { "type": "text" },
@@ -384,6 +385,7 @@ async fn test_knn_query_rrf_unions_retrievers_without_phantom_hits(scope: &TestS
 #[test_context(TestScope)]
 #[tokio::test]
 async fn test_knn_query_rrf_combines_lexical_and_vector_results(scope: &TestScope) {
+async fn dev_knn_query_rrf_combines_lexical_and_vector_results(scope: &TestScope) {
     setup_hybrid_docs(scope).await;
 
     let body = scope
@@ -477,6 +479,7 @@ async fn test_knn_over_bit_vectors_ranks_by_hamming(scope: &TestScope) {
 #[test_context(TestScope)]
 #[tokio::test]
 async fn test_knn_byte_vector_rejects_fractional_query(scope: &TestScope) {
+async fn dev_knn_byte_vector_rejects_fractional_query(scope: &TestScope) {
     scope
         .create_with_properties(json!({
             "embedding": { "type": "dense_vector", "dims": 2, "element_type": "byte", "similarity": "cosine" }
@@ -790,6 +793,7 @@ async fn test_knn_query_combines_lexical_and_vector_scores(scope: &TestScope) {
 #[test_context(BooksContext)]
 #[tokio::test]
 async fn test_knn_maxsim_over_books_ranks_by_token_overlap(books: &BooksContext) {
+async fn ext_knn_maxsim_over_books_ranks_by_token_overlap(books: &BooksContext) {
     let body = books
         .search(json!({
             "knn": { "field": "token_embeddings", "query_vector": [[1.0, 0.0, 0.0, 0.0]], "k": 3 }
@@ -816,14 +820,17 @@ async fn test_knn_maxsim_over_books_ranks_by_token_overlap(books: &BooksContext)
     json!({ "knn": { "field": "embedding", "query_vector": [1.0, 0.0, 0.0, 0.0], "k": 2, "num_candidates": 1 } })
 )]
 #[case::unindexed_field(
+#[case::dev_unindexed_field(
     json!({ "title": { "type": "text" } }),
     json!({ "knn": { "field": "title", "query_vector": [1.0, 0.0], "k": 2 } })
 )]
 #[case::unknown_field(
+#[case::dev_unknown_field(
     json!({ "embedding": { "type": "dense_vector", "dims": 4 } }),
     json!({ "knn": { "field": "nope", "query_vector": [1.0, 0.0, 0.0, 0.0], "k": 2 } })
 )]
 #[case::flat_vector_for_rank_field(
+#[case::dev_flat_vector_for_rank_field(
     json!({ "tokens": { "type": "rank_vectors", "dims": 4 } }),
     json!({ "knn": { "field": "tokens", "query_vector": [1.0, 0.0, 0.0, 0.0], "k": 2 } })
 )]

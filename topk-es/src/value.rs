@@ -4,18 +4,22 @@ use topk_rs::proto::v1::data::{list, value, List, Value};
 
 pub struct OrdValue(pub Value);
 
+pub fn compare(a: &Value, b: &Value) -> Ordering {
+    if let (Some(x), Some(y)) = (a.number(), b.number()) {
+        return x.total_cmp(&y);
+    }
+    if let (Some(x), Some(y)) = (a.as_string(), b.as_string()) {
+        return x.cmp(y);
+    }
+    if let (Some(x), Some(y)) = (a.as_bool(), b.as_bool()) {
+        return x.cmp(&y);
+    }
+    Ordering::Equal
+}
+
 impl Ord for OrdValue {
     fn cmp(&self, other: &Self) -> Ordering {
-        if let (Some(x), Some(y)) = (self.0.number(), other.0.number()) {
-            return x.total_cmp(&y);
-        }
-        if let (Some(x), Some(y)) = (self.0.as_string(), other.0.as_string()) {
-            return x.cmp(y);
-        }
-        if let (Some(x), Some(y)) = (self.0.as_bool(), other.0.as_bool()) {
-            return x.cmp(&y);
-        }
-        Ordering::Equal
+        compare(&self.0, &other.0)
     }
 }
 

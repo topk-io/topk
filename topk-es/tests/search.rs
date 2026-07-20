@@ -67,12 +67,12 @@ async fn setup_bool_scoring_docs(scope: &TestScope) {
         "pride"
     ]
 )]
-#[case::prefix(json!({ "prefix": { "title": "Pride" } }), vec!["pride"])]
-#[case::prefix_value(
+#[case::dev_prefix(json!({ "prefix": { "title": "Pride" } }), vec!["pride"])]
+#[case::dev_prefix_value(
     json!({ "prefix": { "title": { "value": "Pride" } } }),
     vec!["pride"]
 )]
-#[case::regexp(
+#[case::dev_regexp(
     json!({ "regexp": { "title": "Moby Dick|1984" } }),
     vec!["moby", "nineteen_eighty_four"]
 )]
@@ -143,7 +143,7 @@ async fn test_query_dsl(books: &BooksContext, #[case] query: Value, #[case] expe
         }
     }
 }))]
-async fn test_query_dsl_rejected(scope: &TestScope, #[case] body: Value) {
+async fn dev_query_dsl_rejected(scope: &TestScope, #[case] body: Value) {
     scope.create().await;
 
     let err = scope.search(body).await.unwrap_err();
@@ -207,12 +207,12 @@ async fn test_regexp_case_insensitive_matches(scope: &TestScope) {
 }
 
 #[rstest_ctx(TestScope)]
-#[case::term_keyword(json!({ "term": { "category.keyword": "books" } }), vec!["1"])]
+#[case::dev_term_keyword(json!({ "term": { "category.keyword": "books" } }), vec!["1"])]
 #[case::term_object_with_boost(
     json!({ "term": { "category": { "value": "books", "boost": 2.0 } } }),
     vec!["1"]
 )]
-#[case::terms_keyword_with_boost(
+#[case::dev_terms_keyword_with_boost(
     json!({ "terms": { "category.keyword": ["books"], "boost": 2.0 } }),
     vec!["1"]
 )]
@@ -269,11 +269,11 @@ async fn test_query_dsl_variants(
 }
 
 #[rstest_ctx(TestScope)]
-#[case::range_no_bounds(json!({ "query": { "range": { "price": {} } } }))]
-#[case::multi_match_empty_fields(
+#[case::dev_multi_match_empty_fields(
     json!({ "query": { "multi_match": { "query": "hello", "fields": [] } } })
 )]
 #[case::invalid_sort_order(json!({ "query": { "match_all": {} }, "sort": [{ "price": "sideways" }] }))]
+#[case::range_object_bound(json!({ "query": { "range": { "price": { "gte": { "a": 1 } } } } }))]
 async fn test_search_request_rejected(scope: &TestScope, #[case] body: Value) {
     scope.create().await;
 

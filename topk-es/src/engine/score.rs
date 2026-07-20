@@ -6,9 +6,9 @@ use topk_rs::proto::v1::data::{FunctionExpr, LogicalExpr, Query as TopkQuery, Te
 use topk_rs::query::{field, fns};
 
 use super::field::IndexKind;
-use super::value::ValueExt;
 use super::{Schema, RANK_ANN};
 use crate::api::QueryVector;
+use crate::value::ValueExt;
 use crate::Error;
 
 pub struct CompiledQuery {
@@ -172,7 +172,13 @@ pub fn ann_score(
             ),
         };
 
-        let fold = Fold::of(IndexKind::from(spec)).ok_or_else(|| not_knn_searchable(&ann.field))?;
+        let fold = Fold::of(IndexKind::from(spec)).ok_or_else(|| match &ann.query {
+            AnnQuery::Semantic(_) => Error::InvalidQuery(format!(
+                "Field [{}] does not support semantic queries",
+                ann.field
+            )),
+            AnnQuery::Vector { .. } => not_knn_searchable(&ann.field),
+        })?;
 
         let rank_ann = format!("{RANK_ANN}_{index}");
         query = query.select([(rank_ann.as_str(), scorer)]);

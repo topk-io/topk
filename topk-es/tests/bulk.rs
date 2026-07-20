@@ -8,7 +8,7 @@ use test_context::test_context;
 
 #[test_context(TestScope)]
 #[tokio::test]
-async fn test_bulk_mixed_operations(scope: &TestScope) {
+async fn dev_bulk_mixed_operations(scope: &TestScope) {
     scope.create().await;
 
     scope
@@ -167,7 +167,7 @@ async fn test_bulk_mixed_index_writes_each(scope: &TwoIndices) {
 }
 
 #[rstest_ctx(TestScope)]
-#[case::scripted(json!({ "script": { "source": "ctx._source.title = 'after'" } }))]
+#[case::dev_scripted(json!({ "script": { "source": "ctx._source.title = 'after'" } }))]
 #[case::own_id_in_doc(json!({ "doc": { "_id": "spoofed-id", "title": "after" } }))]
 async fn test_bulk_update_rejected_leaves_doc_unchanged(scope: &TestScope, #[case] update: Value) {
     scope.create().await;
@@ -190,7 +190,7 @@ async fn test_bulk_update_rejected_leaves_doc_unchanged(scope: &TestScope, #[cas
 
 #[test_context(TestScope)]
 #[tokio::test]
-async fn test_bulk_conversion_failure_fails_only_that_item(scope: &TestScope) {
+async fn dev_bulk_conversion_failure_fails_only_that_item(scope: &TestScope) {
     scope.create().await;
 
     let mut ops = BulkOperations::new();
