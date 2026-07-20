@@ -6,6 +6,7 @@ use topk_rs::proto::v1::data::{
 
 use super::typed::{ElemType, TypedValues, coerce_i64s};
 use crate::expr::Expr;
+use crate::expr::regexp;
 use crate::ext::{SqlExprExt, SqlFunctionExt};
 use crate::{Error, FromSql, sql_invalid, sql_unsupported};
 
@@ -42,6 +43,30 @@ impl TryFrom<SqlFunction> for Expr {
             "match_any" => {
                 let [left, right]: [SqlExpr; 2] = exact(args, &name)?;
                 Self::Logical(LogicalExpr::from_sql(left)?.match_any(LogicalExpr::from_sql(right)?))
+            }
+            "regexp_like" => {
+                let (string, pattern, pg_flags) = match args.len() {
+                    2 => {
+                        let [string, pattern]: [SqlExpr; 2] = exact(args, &name)?;
+                        (string, pattern, None)
+                    }
+                    3 => {
+                        let [string, pattern, flags]: [SqlExpr; 3] = exact(args, &name)?;
+                        (string, pattern, Some(flags))
+                    }
+                    n => sql_invalid!("{name}: expected 2..=3 args, got {n}"),
+                };
+                let pattern = pattern.as_string().ok_or_else(|| {
+                    Error::Invalid(format!("{name}: pattern must be a string literal"))
+                })?;
+                let pg_flags = match pg_flags {
+                    Some(flags) => flags.as_string().ok_or_else(|| {
+                        Error::Invalid(format!("{name}: flags must be a string literal"))
+                    })?,
+                    None => String::new(),
+                };
+                let (pattern, flags) = regexp::translate(&pattern, &pg_flags)?;
+                Self::Logical(LogicalExpr::from_sql(string)?.regexp_match(pattern, flags))
             }
             "match" => Self::Text(text_match(args, &name)?),
             "match_tokens" => Self::Text(text_match_tokens(args, &name)?),

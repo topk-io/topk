@@ -143,7 +143,9 @@ impl TryFrom<SqlQuery> for Statement {
             .flatten();
 
         let (limit, offset) = match query.limit_clause {
-            Some(LimitClause::OffsetCommaLimit { .. }) => unreachable!("postgres dialect does not support `LIMIT offset, limit` should be rejected upstream"),
+            Some(LimitClause::OffsetCommaLimit { .. }) => unreachable!(
+                "postgres dialect does not support `LIMIT offset, limit` should be rejected upstream"
+            ),
             Some(LimitClause::LimitOffset { limit, offset, .. }) => {
                 let limit = limit
                     .map(|ref expr| {

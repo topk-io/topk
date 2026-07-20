@@ -1,6 +1,7 @@
 use sqlparser::ast::{BinaryOperator, Expr as SqlExpr, UnaryOperator};
 use topk_rs::proto::v1::data::{LogicalExpr, Value};
 
+use crate::expr::regexp;
 use crate::{Error, FromSql, SqlExprExt, sql_invalid, sql_unsupported};
 
 impl FromSql<SqlExpr> for LogicalExpr {
@@ -27,11 +28,28 @@ impl FromSql<SqlExpr> for LogicalExpr {
             },
 
             SqlExpr::BinaryOp { left, op, right } => {
-                if matches!(op, BinaryOperator::PGRegexMatch) {
+                // (pg_flags, negated)
+                let regexp_op = match op {
+                    BinaryOperator::PGRegexMatch => Some(("", false)),
+                    BinaryOperator::PGRegexIMatch => Some(("i", false)),
+                    BinaryOperator::PGRegexNotMatch => Some(("", true)),
+                    BinaryOperator::PGRegexNotIMatch => Some(("i", true)),
+                    _ => None,
+                };
+                if let Some((pg_flags, negated)) = regexp_op {
                     let pat = right.as_string().ok_or(Error::Unsupported(
                         "regex pattern must be a string literal".to_string(),
                     ))?;
-                    return Ok(LogicalExpr::from_sql(*left)?.regexp_match::<String>(pat, None));
+                    let (pattern, flags) = regexp::translate(&pat, pg_flags)?;
+                    let expr = LogicalExpr::from_sql(*left)?;
+                    let matches = expr.clone().regexp_match(pattern, flags);
+                    // PG's negated operators return NULL for NULL input, which
+                    // filters the row out; a bare NOT would match it instead.
+                    return Ok(if negated {
+                        expr.is_not_null().and(LogicalExpr::not(matches))
+                    } else {
+                        matches
+                    });
                 }
 
                 let l = LogicalExpr::from_sql(*left)?;
