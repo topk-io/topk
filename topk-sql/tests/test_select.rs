@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::collections::HashSet;
 
 use rstest::rstest;
@@ -9,7 +8,7 @@ use topk_rs::{
 };
 
 mod common;
-use common::{BooksContext, Scope, ids};
+use common::{BooksContext, Scope, assert_rows_eq_unordered, ids};
 
 #[rstest]
 #[case::single_field(
@@ -352,341 +351,128 @@ async fn count(#[case] query: &str, #[case] expected: Vec<Document>) {
     assert_eq!(rows, expected);
 }
 
-#[tokio::test]
-async fn group_by_bool_key() {
-    let rows = BooksContext::with_scope(async |ctx| {
-        ctx.sql(
-            "SELECT (published_year < 1940) AS is_old, COUNT(*) AS count \
-             FROM {{table}} GROUP BY is_old",
-        )
-        .await
-    })
-    .await
-    .unwrap();
-
-    let counts: HashMap<bool, i64> = rows
-        .iter()
-        .map(|r| {
-            (
-                r.fields["is_old"].as_bool().unwrap(),
-                r.fields["count"].as_i64().unwrap(),
-            )
-        })
-        .collect();
-
-    assert_eq!(counts, HashMap::from([(true, 4), (false, 6)]));
-}
-
-#[tokio::test]
-async fn group_by_field_key() {
-    let rows = BooksContext::with_scope(async |ctx| {
-        ctx.sql("SELECT genre, COUNT(*) AS count FROM {{table}} GROUP BY genre")
-            .await
-    })
-    .await
-    .unwrap();
-
-    let counts: HashMap<String, i64> = rows
-        .iter()
-        .map(|r| {
-            (
-                r.fields["genre"].as_string().unwrap().to_string(),
-                r.fields["count"].as_i64().unwrap(),
-            )
-        })
-        .collect();
-
-    assert_eq!(
-        counts,
-        HashMap::from([
-            ("fiction".to_string(), 4),
-            ("dystopian".to_string(), 1),
-            ("romance".to_string(), 1),
-            ("fantasy".to_string(), 3),
-            ("adventure".to_string(), 1),
-        ])
-    );
-}
-
-#[tokio::test]
-async fn group_by_count_field_ignores_nulls() {
-    let rows = BooksContext::with_scope(async |ctx| {
-        ctx.sql(
-            "SELECT (published_year < 1940) AS is_old, COUNT(*) AS total, \
-             COUNT(nullable_importance) AS with_importance \
-             FROM {{table}} GROUP BY is_old",
-        )
-        .await
-    })
-    .await
-    .unwrap();
-
-    let by_group: HashMap<bool, (i64, i64)> = rows
-        .iter()
-        .map(|r| {
-            (
-                r.fields["is_old"].as_bool().unwrap(),
-                (
-                    r.fields["total"].as_i64().unwrap(),
-                    r.fields["with_importance"].as_i64().unwrap(),
-                ),
-            )
-        })
-        .collect();
-
-    assert_eq!(by_group, HashMap::from([(true, (4, 1)), (false, (6, 1))]));
-}
-
-#[tokio::test]
-async fn group_by_sum() {
-    let rows = BooksContext::with_scope(async |ctx| {
-        ctx.sql(
-            "SELECT (published_year < 1940) AS is_old, SUM(published_year) AS total_year \
-             FROM {{table}} GROUP BY is_old",
-        )
-        .await
-    })
-    .await
-    .unwrap();
-
-    let sums: HashMap<bool, i64> = rows
-        .iter()
-        .map(|r| {
-            (
-                r.fields["is_old"].as_bool().unwrap(),
-                r.fields["total_year"].as_i64().unwrap(),
-            )
-        })
-        .collect();
-
+#[rstest]
+#[case::bool_key(
+    "SELECT (published_year < 1940) AS is_old, COUNT(*) AS count \
+     FROM {{table}} GROUP BY is_old",
+    vec![
+        doc!("is_old" => true, "count" => 4_i64),
+        doc!("is_old" => false, "count" => 6_i64),
+    ],
+)]
+#[case::field_key(
+    "SELECT genre, COUNT(*) AS count FROM {{table}} GROUP BY genre",
+    vec![
+        doc!("genre" => "fiction", "count" => 4_i64),
+        doc!("genre" => "dystopian", "count" => 1_i64),
+        doc!("genre" => "romance", "count" => 1_i64),
+        doc!("genre" => "fantasy", "count" => 3_i64),
+        doc!("genre" => "adventure", "count" => 1_i64),
+    ],
+)]
+#[case::count_field_ignores_nulls(
+    "SELECT (published_year < 1940) AS is_old, COUNT(*) AS total, \
+     COUNT(nullable_importance) AS with_importance \
+     FROM {{table}} GROUP BY is_old",
+    vec![
+        doc!("is_old" => true, "total" => 4_i64, "with_importance" => 1_i64),
+        doc!("is_old" => false, "total" => 6_i64, "with_importance" => 1_i64),
+    ],
+)]
+#[case::sum(
+    "SELECT (published_year < 1940) AS is_old, SUM(published_year) AS total_year \
+     FROM {{table}} GROUP BY is_old",
     // old: 1813 + 1925 + 1851 + 1937 = 7526; new: 1960 + 1949 + 1951 + 1997 + 1954 + 1988 = 11799
-    assert_eq!(sums, HashMap::from([(true, 7526), (false, 11799)]));
-}
-
-#[tokio::test]
-async fn group_by_min_max() {
-    let rows = BooksContext::with_scope(async |ctx| {
-        ctx.sql(
-            "SELECT (published_year < 1940) AS is_old, MIN(published_year) AS oldest, \
-             MAX(published_year) AS newest \
-             FROM {{table}} GROUP BY is_old",
-        )
-        .await
-    })
-    .await
-    .unwrap();
-
-    let by_group: HashMap<bool, (i64, i64)> = rows
-        .iter()
-        .map(|r| {
-            (
-                r.fields["is_old"].as_bool().unwrap(),
-                (
-                    r.fields["oldest"].as_i64().unwrap(),
-                    r.fields["newest"].as_i64().unwrap(),
-                ),
-            )
-        })
-        .collect();
-
-    assert_eq!(
-        by_group,
-        HashMap::from([(true, (1813, 1937)), (false, (1949, 1997))])
-    );
-}
-
-#[tokio::test]
-async fn group_by_avg() {
-    let rows = BooksContext::with_scope(async |ctx| {
-        ctx.sql(
-            "SELECT (published_year < 1940) AS is_old, AVG(published_year) AS avg_year \
-             FROM {{table}} GROUP BY is_old",
-        )
-        .await
-    })
-    .await
-    .unwrap();
-
-    let avgs: HashMap<bool, f64> = rows
-        .iter()
-        .map(|r| {
-            (
-                r.fields["is_old"].as_bool().unwrap(),
-                r.fields["avg_year"].as_f64().unwrap(),
-            )
-        })
-        .collect();
-
-    // old: 7526 / 4 = 1881.5; new: 11799 / 6 = 1966.5
-    assert!((avgs[&true] - 1881.5).abs() < 1e-9);
-    assert!((avgs[&false] - 1966.5).abs() < 1e-9);
-}
-
-#[tokio::test]
-async fn group_by_all_aggregations_combined() {
-    let rows = BooksContext::with_scope(async |ctx| {
-        ctx.sql(
-            "SELECT (published_year < 1940) AS is_old, COUNT(*) AS count, \
-             SUM(published_year) AS total_year, MIN(published_year) AS oldest, \
-             MAX(published_year) AS newest, AVG(published_year) AS avg_year \
-             FROM {{table}} GROUP BY is_old",
-        )
-        .await
-    })
-    .await
-    .unwrap();
-
-    assert_eq!(rows.len(), 2);
-
-    for row in rows {
-        let is_old = row.fields["is_old"].as_bool().unwrap();
-        if is_old {
-            assert_eq!(row.fields["count"].as_i64().unwrap(), 4);
-            assert_eq!(row.fields["total_year"].as_i64().unwrap(), 7526);
-            assert_eq!(row.fields["oldest"].as_i64().unwrap(), 1813);
-            assert_eq!(row.fields["newest"].as_i64().unwrap(), 1937);
-            assert!((row.fields["avg_year"].as_f64().unwrap() - 1881.5).abs() < 1e-9);
-        } else {
-            assert_eq!(row.fields["count"].as_i64().unwrap(), 6);
-            assert_eq!(row.fields["total_year"].as_i64().unwrap(), 11799);
-            assert_eq!(row.fields["oldest"].as_i64().unwrap(), 1949);
-            assert_eq!(row.fields["newest"].as_i64().unwrap(), 1997);
-            assert!((row.fields["avg_year"].as_f64().unwrap() - 1966.5).abs() < 1e-9);
-        }
-    }
-}
-
-#[tokio::test]
-async fn group_by_multiple_keys() {
+    vec![
+        doc!("is_old" => true, "total_year" => 7526_i64),
+        doc!("is_old" => false, "total_year" => 11799_i64),
+    ],
+)]
+#[case::min_max(
+    "SELECT (published_year < 1940) AS is_old, MIN(published_year) AS oldest, \
+     MAX(published_year) AS newest \
+     FROM {{table}} GROUP BY is_old",
+    vec![
+        doc!("is_old" => true, "oldest" => 1813_i64, "newest" => 1937_i64),
+        doc!("is_old" => false, "oldest" => 1949_i64, "newest" => 1997_i64),
+    ],
+)]
+#[case::avg(
+    "SELECT (published_year < 1940) AS is_old, AVG(published_year) AS avg_year \
+     FROM {{table}} GROUP BY is_old",
+    vec![
+        doc!("is_old" => true, "avg_year" => 1881.5_f64),
+        doc!("is_old" => false, "avg_year" => 1966.5_f64),
+    ],
+)]
+#[case::all_aggregations_combined(
+    "SELECT (published_year < 1940) AS is_old, COUNT(*) AS count, \
+     SUM(published_year) AS total_year, MIN(published_year) AS oldest, \
+     MAX(published_year) AS newest, AVG(published_year) AS avg_year \
+     FROM {{table}} GROUP BY is_old",
+    vec![
+        doc!(
+            "is_old" => true, "count" => 4_i64, "total_year" => 7526_i64,
+            "oldest" => 1813_i64, "newest" => 1937_i64, "avg_year" => 1881.5_f64
+        ),
+        doc!(
+            "is_old" => false, "count" => 6_i64, "total_year" => 11799_i64,
+            "oldest" => 1949_i64, "newest" => 1997_i64, "avg_year" => 1966.5_f64
+        ),
+    ],
+)]
+#[case::multiple_keys(
     // is_old  = published_year < 1940
     // is_19th = published_year < 1900
     //   pride 1813:  (old, 19th)      moby  1851:  (old, 19th)
     //   gatsby 1925: (old, !19th)     hobbit 1937: (old, !19th)
     //   the other 6: (!old, !19th)
-    let rows = BooksContext::with_scope(async |ctx| {
-        ctx.sql(
-            "SELECT (published_year < 1940) AS is_old, (published_year < 1900) AS is_19th, \
-             COUNT(*) AS count \
-             FROM {{table}} GROUP BY is_old, is_19th",
-        )
+    "SELECT (published_year < 1940) AS is_old, (published_year < 1900) AS is_19th, \
+     COUNT(*) AS count \
+     FROM {{table}} GROUP BY is_old, is_19th",
+    vec![
+        doc!("is_old" => true, "is_19th" => true, "count" => 2_i64),
+        doc!("is_old" => true, "is_19th" => false, "count" => 2_i64),
+        doc!("is_old" => false, "is_19th" => false, "count" => 6_i64),
+    ],
+)]
+#[case::with_where(
+    "SELECT (published_year > 1980) AS recent, COUNT(*) AS count \
+     FROM {{table}} WHERE published_year >= 1940 GROUP BY recent",
+    vec![
+        doc!("recent" => true, "count" => 2_i64),
+        doc!("recent" => false, "count" => 4_i64),
+    ],
+)]
+#[case::with_having(
+    "SELECT (published_year < 1940) AS is_old, COUNT(*) AS count \
+     FROM {{table}} GROUP BY is_old HAVING count > 4",
+    vec![doc!("is_old" => false, "count" => 6_i64)],
+)]
+#[case::with_order_by_limit(
+    "SELECT (published_year < 1940) AS is_old, COUNT(*) AS count \
+     FROM {{table}} GROUP BY is_old ORDER BY count DESC LIMIT 1",
+    vec![doc!("is_old" => false, "count" => 6_i64)],
+)]
+#[tokio::test]
+async fn group_by(#[case] query: &str, #[case] expected: Vec<Document>) {
+    let rows = BooksContext::with_scope(async |ctx| ctx.sql(query).await)
         .await
-    })
-    .await
-    .unwrap();
+        .unwrap();
 
-    let counts: HashMap<(bool, bool), i64> = rows
-        .iter()
-        .map(|r| {
-            (
-                (
-                    r.fields["is_old"].as_bool().unwrap(),
-                    r.fields["is_19th"].as_bool().unwrap(),
-                ),
-                r.fields["count"].as_i64().unwrap(),
-            )
-        })
-        .collect();
+    assert_rows_eq_unordered(rows, expected);
+}
+
+#[test]
+fn group_by_with_having_direct_aggregate_call_rejected() {
+    let sql = "SELECT genre, SUM(rating) AS total FROM books GROUP BY genre \
+               HAVING SUM(rating) > 4";
+    let err = topk_sql::convert_sql(topk_sql::parse_sql(sql).unwrap()).unwrap_err();
 
     assert_eq!(
-        counts,
-        HashMap::from([((true, true), 2), ((true, false), 2), ((false, false), 6)])
+        err.to_string(),
+        "Unsupported: aggregate function calls in HAVING"
     );
-}
-
-#[tokio::test]
-async fn group_by_with_where() {
-    let rows = BooksContext::with_scope(async |ctx| {
-        ctx.sql(
-            "SELECT (published_year > 1980) AS recent, COUNT(*) AS count \
-             FROM {{table}} WHERE published_year >= 1940 GROUP BY recent",
-        )
-        .await
-    })
-    .await
-    .unwrap();
-
-    let counts: HashMap<bool, i64> = rows
-        .iter()
-        .map(|r| {
-            (
-                r.fields["recent"].as_bool().unwrap(),
-                r.fields["count"].as_i64().unwrap(),
-            )
-        })
-        .collect();
-
-    assert_eq!(counts, HashMap::from([(true, 2), (false, 4)]));
-}
-
-#[tokio::test]
-async fn group_by_with_having() {
-    let rows = BooksContext::with_scope(async |ctx| {
-        ctx.sql(
-            "SELECT (published_year < 1940) AS is_old, COUNT(*) AS count \
-             FROM {{table}} GROUP BY is_old HAVING count > 4",
-        )
-        .await
-    })
-    .await
-    .unwrap();
-
-    assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0].fields["is_old"].as_bool().unwrap(), false);
-    assert_eq!(rows[0].fields["count"].as_i64().unwrap(), 6);
-}
-
-#[tokio::test]
-async fn group_by_with_having_direct_aggregate_call() {
-    let rows = BooksContext::with_scope(async |ctx| {
-        ctx.sql(
-            "SELECT (published_year < 1940) AS is_old, COUNT(*) AS count \
-             FROM {{table}} GROUP BY is_old HAVING COUNT(*) > 4",
-        )
-        .await
-    })
-    .await
-    .unwrap();
-
-    assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0].fields["is_old"].as_bool().unwrap(), false);
-    assert_eq!(rows[0].fields["count"].as_i64().unwrap(), 6);
-}
-
-#[tokio::test]
-async fn group_by_with_having_aggregate_not_in_select_list() {
-    let rows = BooksContext::with_scope(async |ctx| {
-        ctx.sql(
-            "SELECT (published_year < 1940) AS is_old, COUNT(*) AS count \
-             FROM {{table}} GROUP BY is_old HAVING AVG(rating) > 4.0",
-        )
-        .await
-    })
-    .await
-    .unwrap();
-
-    for row in &rows {
-        assert_eq!(row.fields.len(), 2);
-        assert!(row.fields.contains_key("is_old"));
-        assert!(row.fields.contains_key("count"));
-    }
-}
-
-#[tokio::test]
-async fn group_by_with_order_by_limit() {
-    // Take the single largest group by count.
-    let rows = BooksContext::with_scope(async |ctx| {
-        ctx.sql(
-            "SELECT (published_year < 1940) AS is_old, COUNT(*) AS count \
-             FROM {{table}} GROUP BY is_old ORDER BY count DESC LIMIT 1",
-        )
-        .await
-    })
-    .await
-    .unwrap();
-
-    assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0].fields["is_old"].as_bool().unwrap(), false);
-    assert_eq!(rows[0].fields["count"].as_i64().unwrap(), 6);
 }
 
 #[test]
@@ -708,38 +494,7 @@ fn group_by_having_filter_clause_rejected_before_execution() {
 
     assert_eq!(
         err.to_string(),
-        "Unsupported: SUM: aggregate FILTER clause is not supported"
-    );
-}
-
-#[tokio::test]
-async fn group_by_having_synthetic_name_does_not_collide_with_user_alias() {
-    let rows = BooksContext::with_scope(async |ctx| {
-        ctx.sql(
-            "SELECT genre, COUNT(*) AS havingagg0 FROM {{table}} \
-             GROUP BY genre HAVING AVG(rating) > 4.0",
-        )
-        .await
-    })
-    .await
-    .unwrap();
-
-    let counts: HashMap<&str, i64> = rows
-        .iter()
-        .map(|r| {
-            (
-                r.fields["genre"].as_string().unwrap(),
-                r.fields["havingagg0"].as_i64().unwrap(),
-            )
-        })
-        .collect();
-
-    // fantasy avg (4.3+4.5+4.5)/3 ≈ 4.43, dystopian 4.2, romance 4.3 all pass; fiction
-    // ≈3.975 and adventure 3.5 don't. `havingagg0` must hold the COUNT(*) the user asked
-    // for, not get overwritten by the hidden AVG(rating) aggregate.
-    assert_eq!(
-        counts,
-        HashMap::from([("fantasy", 3), ("dystopian", 1), ("romance", 1)])
+        "Unsupported: aggregate function calls in HAVING"
     );
 }
 
@@ -1212,11 +967,11 @@ async fn semantic_similarity_search() {
 )]
 #[case::group_by_rollup(
     "SELECT genre, COUNT(*) AS c FROM {{table}} GROUP BY ROLLUP(genre)",
-    "Unsupported: GROUP BY key must be a column name or a SELECT-list alias — alias computed expressions with AS in the SELECT list and GROUP BY the alias"
+    "Unsupported: GROUP BY key must be a column name or a SELECT-list alias"
 )]
 #[case::group_by_key_needs_alias(
     "SELECT COUNT(*) AS c FROM {{table}} GROUP BY published_year < 1940",
-    "Unsupported: GROUP BY key must be a column name or a SELECT-list alias — alias computed expressions with AS in the SELECT list and GROUP BY the alias"
+    "Unsupported: GROUP BY key must be a column name or a SELECT-list alias"
 )]
 #[case::having_without_group_by(
     "SELECT COUNT(*) AS c FROM {{table}} HAVING c > 1",
@@ -1240,15 +995,19 @@ async fn semantic_similarity_search() {
 )]
 #[case::count_distinct(
     "SELECT COUNT(DISTINCT genre) FROM {{table}}",
-    "Unsupported: only COUNT(*) is supported; COUNT(expr) and DISTINCT are not"
+    "Unsupported: non-COUNT(*) aggregate functions without GROUP BY"
 )]
 #[case::count_expr(
     "SELECT COUNT(author) FROM {{table}}",
-    "Unsupported: only COUNT(*) is supported; COUNT(expr) and DISTINCT are not"
+    "Unsupported: non-COUNT(*) aggregate functions without GROUP BY"
 )]
 #[case::count_with_other_columns(
     "SELECT COUNT(*), title FROM {{table}}",
-    "Unsupported: COUNT(*) cannot be combined with other columns"
+    "Unsupported: non-COUNT(*) aggregate functions without GROUP BY"
+)]
+#[case::aggregate_without_group_by(
+    "SELECT SUM(rating) FROM {{table}}",
+    "Unsupported: non-COUNT(*) aggregate functions without GROUP BY"
 )]
 #[case::like_wildcard(
     "SELECT _id FROM {{table}} WHERE title LIKE 'The%Rings%'",

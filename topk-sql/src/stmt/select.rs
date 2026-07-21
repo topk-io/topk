@@ -2,9 +2,9 @@ use std::collections::HashMap;
 use std::ops::ControlFlow;
 
 use sqlparser::ast::{
-    Expr as SqlExpr, Function as SqlFunction, FunctionArg, FunctionArgExpr, GroupByExpr, Ident,
-    LimitClause, ObjectNamePart, OrderByKind, Query as SqlQuery, SetExpr, TableFactor,
-    Value as SqlValue, visit_expressions_mut,
+    Expr as SqlExpr, Function as SqlFunction, FunctionArg, FunctionArgExpr, GroupByExpr,
+    LimitClause, OrderByKind, Query as SqlQuery, SetExpr, TableFactor, Value as SqlValue,
+    visit_expressions,
 };
 use topk_rs::proto::v1::data::stage::sort_stage::SortOrder;
 use topk_rs::proto::v1::data::stage::{filter_stage::FilterExpr, select_stage::SelectExpr};
@@ -20,30 +20,6 @@ fn is_aggregate_fn(func: &SqlFunction) -> bool {
         func.name().to_ascii_lowercase().as_str(),
         "count" | "sum" | "min" | "max" | "avg"
     )
-}
-
-/// Dedup key for reusing a HAVING aggregate that's already in the SELECT list. Only the
-/// name is case-normalized — every other field must match exactly, so a call with an
-/// unsupported modifier (FILTER, OVER, ...) is never silently treated as identical.
-fn agg_signature(func: &SqlFunction) -> SqlFunction {
-    let mut normalized = func.clone();
-    for part in normalized.name.0.iter_mut() {
-        if let ObjectNamePart::Identifier(ident) = part {
-            ident.value = ident.value.to_ascii_lowercase();
-        }
-    }
-    normalized
-}
-
-/// Fresh field name for a HAVING-only aggregate, guaranteed not to collide with any
-/// user-chosen key or aggregate name.
-fn fresh_internal_name(keys: &[(String, LogicalExpr)], aggs: &[(String, AggregateExpr)]) -> String {
-    (0..)
-        .map(|i| format!("topk_having_{i}"))
-        .find(|name| {
-            !keys.iter().any(|(n, _)| n == name) && !aggs.iter().any(|(n, _)| n == name)
-        })
-        .expect("infinite iterator always yields an unused name")
 }
 
 impl TryFrom<SqlQuery> for Statement {
@@ -114,42 +90,37 @@ impl TryFrom<SqlQuery> for Statement {
         let mut post_group_projection = None;
 
         if group_by_exprs.is_empty() {
-            if select.projection.len() == 1 {
+            let has_aggregate = select.projection.iter().any(
+                |item| matches!(item.expr(), Some(SqlExpr::Function(f)) if is_aggregate_fn(f)),
+            );
+            if has_aggregate {
+                sql_unsupported!(
+                    select.projection.len() != 1,
+                    "non-COUNT(*) aggregate functions without GROUP BY"
+                );
                 let item = &select.projection[0];
-                if let Some(SqlExpr::Function(func)) = item.expr() {
-                    if func.is_count() {
-                        sql_unsupported!(
-                            !func.matches_args(|args| {
-                                matches!(args, [FunctionArg::Unnamed(FunctionArgExpr::Wildcard)])
-                            }),
-                            "only COUNT(*) is supported; COUNT(expr) and DISTINCT are not"
-                        );
-                        sql_unsupported!(
-                            query.order_by.is_some(),
-                            "SELECT COUNT(*) ... ORDER BY ..."
-                        );
-                        sql_unsupported!(
-                            query.limit_clause.is_some(),
-                            "SELECT COUNT(*) ... LIMIT ..."
-                        );
+                let Some(SqlExpr::Function(func)) = item.expr() else {
+                    unreachable!("has_aggregate implies the single item is a function")
+                };
+                sql_unsupported!(
+                    !func.is_count()
+                        || !func.matches_args(|args| {
+                            matches!(args, [FunctionArg::Unnamed(FunctionArgExpr::Wildcard)])
+                        }),
+                    "non-COUNT(*) aggregate functions without GROUP BY"
+                );
+                sql_unsupported!(query.order_by.is_some(), "SELECT COUNT(*) ... ORDER BY ...");
+                sql_unsupported!(
+                    query.limit_clause.is_some(),
+                    "SELECT COUNT(*) ... LIMIT ..."
+                );
 
-                        stages.push(Stage::count());
+                stages.push(Stage::count());
 
-                        return Ok(Statement::Count {
-                            table,
-                            query: Query { stages },
-                            alias: item.column_name(),
-                        });
-                    }
-                }
-            } else {
-                for item in &select.projection {
-                    if let Some(SqlExpr::Function(func)) = item.expr() {
-                        if func.is_count() {
-                            sql_unsupported!("COUNT(*) cannot be combined with other columns");
-                        }
-                    }
-                }
+                return Ok(Statement::Count {
+                    table,
+                    query: Query { stages },
+                });
             }
 
             let mut projection = Vec::with_capacity(select.projection.len());
@@ -181,9 +152,7 @@ impl TryFrom<SqlQuery> for Statement {
             for key_expr in group_by_exprs {
                 let name = key_expr.as_ident().ok_or_else(|| {
                     Error::Unsupported(
-                        "GROUP BY key must be a column name or a SELECT-list alias — alias \
-                         computed expressions with AS in the SELECT list and GROUP BY the alias"
-                            .to_string(),
+                        "GROUP BY key must be a column name or a SELECT-list alias".to_string(),
                     )
                 })?;
                 let source = alias_map.remove(&name).unwrap_or_else(|| key_expr.clone());
@@ -193,7 +162,6 @@ impl TryFrom<SqlQuery> for Statement {
 
             let mut keys = group_keys.clone();
             let mut aggs = Vec::new();
-            let mut agg_sigs: HashMap<SqlFunction, String> = HashMap::new();
             let mut projection = Vec::with_capacity(select.projection.len());
             for item in select.projection {
                 sql_unsupported!(item.is_wildcard(), "SELECT * with GROUP BY");
@@ -205,7 +173,6 @@ impl TryFrom<SqlQuery> for Statement {
 
                 match &expr {
                     SqlExpr::Function(func) if is_aggregate_fn(func) => {
-                        agg_sigs.insert(agg_signature(func), out_name.clone());
                         aggs.push((out_name.clone(), AggregateExpr::from_sql(func.clone())?));
                         projection.push((
                             out_name.clone(),
@@ -235,40 +202,25 @@ impl TryFrom<SqlQuery> for Statement {
                 "GROUP BY queries require at least one aggregate function"
             );
 
-            // HAVING can call an aggregate directly, not just its alias. Rewrite each call
-            // to a field reference, reusing the SELECT list's aggregate if identical, else
-            // adding a new one to `aggs`.
-            let having_filter = match select.having.take() {
-                Some(mut having) => {
-                    let result = visit_expressions_mut(&mut having, |expr| -> ControlFlow<Error> {
-                        if let SqlExpr::Function(func) = expr {
-                            if is_aggregate_fn(func) {
-                                let sig = agg_signature(func);
-                                let name = match agg_sigs.get(&sig) {
-                                    Some(existing) => existing.clone(),
-                                    None => {
-                                        let agg = match AggregateExpr::from_sql(func.clone()) {
-                                            Ok(agg) => agg,
-                                            Err(e) => return ControlFlow::Break(e),
-                                        };
-                                        let synth = fresh_internal_name(&keys, &aggs);
-                                        aggs.push((synth.clone(), agg));
-                                        agg_sigs.insert(sig, synth.clone());
-                                        synth
-                                    }
-                                };
-                                *expr = SqlExpr::Identifier(Ident::new(name));
+            let having_filter = select
+                .having
+                .take()
+                .map(|having| {
+                    let has_agg: ControlFlow<()> = visit_expressions(&having, |expr| {
+                        match expr {
+                            SqlExpr::Function(func) if is_aggregate_fn(func) => {
+                                ControlFlow::Break(())
                             }
+                            _ => ControlFlow::Continue(()),
                         }
-                        ControlFlow::Continue(())
                     });
-                    if let ControlFlow::Break(e) = result {
-                        return Err(e);
-                    }
-                    Some(LogicalExpr::from_sql(having)?)
-                }
-                None => None,
-            };
+                    sql_unsupported!(
+                        has_agg.is_break(),
+                        "aggregate function calls in HAVING"
+                    );
+                    LogicalExpr::from_sql(having)
+                })
+                .transpose()?;
 
             stages.push(Stage::group_by(keys, aggs));
 
