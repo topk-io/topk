@@ -329,6 +329,16 @@ class FunctionExpr:
 
     ...
 
+class AggregateExpr:
+    """
+    *Internal*
+
+    Instances of the `AggregateExpr` class are used to represent aggregate expressions in TopK.
+    Usually created using aggregate constructors such as [`agg.count()`](#count), [`agg.sum()`](#sum), [`agg.min()`](#min-2), [`agg.max()`](#max-2) or [`agg.avg()`](#avg).
+    """
+
+    ...
+
 class TextExpr(Enum):
     """
     *Internal*
@@ -392,6 +402,17 @@ class Query:
         Adds a count stage to the query.
         """
         ...
+    def group_by(
+        self,
+        keys: dict[builtins.str, LogicalExpr],
+        aggs: dict[builtins.str, AggregateExpr],
+    ) -> Query:
+        """
+        Adds a group-by stage to the query.
+
+        Groups documents by one or more key expressions and computes aggregations for each group.
+        """
+        ...
     def topk(
         self, expr: LogicalExpr, k: builtins.int, asc: builtins.bool = False
     ) -> Query:
@@ -439,6 +460,29 @@ def filter(expr: LogicalExpr | TextExpr) -> Query:
 
     client.collection("books").query(
       filter(field("published_year") > 1980)
+    )
+    ```
+    """
+    ...
+
+def group_by(
+    keys: dict[builtins.str, LogicalExpr],
+    aggs: dict[builtins.str, AggregateExpr],
+) -> Query:
+    """
+    Creates a new query with a group-by stage.
+
+    Groups documents by one or more key expressions and computes aggregations for each group.
+
+    ```python
+    # Example:
+    from topk_sdk.query import group_by, field, agg
+
+    client.collection("books").query(
+      group_by(
+        {"is_old": field("published_year") < 1940},
+        {"count": agg.count()},
+      )
     )
     ```
     """
@@ -716,5 +760,60 @@ class fn:
           .sort(field("title_distance"), asc=False).limit(10)
         )
         ```
+        """
+        ...
+
+class agg:
+    """
+    The `query.agg` submodule exposes functions for creating aggregate expressions used in
+    [`group_by()`](#group-by)'s `aggs` argument, such as [`agg.count()`](#count), [`agg.sum()`](#sum),
+    [`agg.min()`](#min-2), [`agg.max()`](#max-2) or [`agg.avg()`](#avg).
+    """
+
+    ...
+
+    @staticmethod
+    def count(field: builtins.str | None = None) -> AggregateExpr:
+        """
+        Count the number of documents in the group.
+
+        If `field` is provided, counts only the documents where that field is non-null.
+        If omitted, counts every document in the group.
+
+        ```python
+        # Example:
+        from topk_sdk.query import group_by, field, agg
+
+        client.collection("books").query(
+          group_by(
+            {"is_old": field("published_year") < 1940},
+            {"count": agg.count()},
+          )
+        )
+        ```
+        """
+        ...
+    @staticmethod
+    def sum(field: builtins.str) -> AggregateExpr:
+        """
+        Sum the values of `field` across the group.
+        """
+        ...
+    @staticmethod
+    def min(field: builtins.str) -> AggregateExpr:
+        """
+        Find the minimum value of `field` across the group.
+        """
+        ...
+    @staticmethod
+    def max(field: builtins.str) -> AggregateExpr:
+        """
+        Find the maximum value of `field` across the group.
+        """
+        ...
+    @staticmethod
+    def avg(field: builtins.str) -> AggregateExpr:
+        """
+        Calculate the average value of `field` across the group.
         """
         ...

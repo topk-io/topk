@@ -1,3 +1,4 @@
+pub mod agg;
 pub mod r#fn;
 pub mod query;
 pub mod stage;
@@ -5,6 +6,7 @@ pub mod stage;
 use crate::{
     data::Value,
     expr::{
+        aggregate::AggregateExpression,
         filter::FilterExpression,
         logical::{BinaryOperator, LogicalExpression, NaryOp, Ordered, UnaryOperator},
         select::SelectExpression,
@@ -36,6 +38,25 @@ pub fn filter(
 ) -> Query {
     Query {
         stages: vec![Stage::Filter { expr }],
+    }
+}
+
+/// Creates a new query with a group-by stage.
+///
+/// Groups documents by one or more key expressions and computes aggregations for each group.
+#[napi(namespace = "query")]
+pub fn group_by(
+    #[napi(ts_arg_type = "Record<string, LogicalExpression>")] keys: HashMap<
+        String,
+        LogicalExpression,
+    >,
+    #[napi(ts_arg_type = "Record<string, AggregateExpression>")] aggs: HashMap<
+        String,
+        AggregateExpression,
+    >,
+) -> Query {
+    Query {
+        stages: vec![Stage::GroupBy { keys, aggs }],
     }
 }
 

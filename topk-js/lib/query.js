@@ -1,4 +1,4 @@
-const { query, query_fn } = require("../index");
+const { query, query_fn, query_agg } = require("../index");
 
 module.exports.field = query.field;
 module.exports.filter = query.filter;
@@ -8,8 +8,17 @@ module.exports.fn = {
   multiVectorDistance: query_fn.multiVectorDistance,
   vectorDistance: query_fn.vectorDistance,
 };
+module.exports.agg = {
+  count: query_agg.count,
+  sum: query_agg.sum,
+  min: query_agg.min,
+  max: query_agg.max,
+  avg: query_agg.avg,
+};
+module.exports.groupBy = query.groupBy;
 module.exports.literal = query.literal;
 module.exports.LogicalExpression = query.LogicalExpression;
+module.exports.AggregateExpression = query.AggregateExpression;
 module.exports.match = query.match;
 module.exports.matchTokens = query.matchTokens;
 module.exports.not = query.not;

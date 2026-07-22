@@ -1,3 +1,4 @@
+use crate::expr::aggregate::AggregateExpr;
 use crate::expr::filter::FilterExpr;
 use crate::expr::logical::LogicalExpr;
 use crate::expr::select::SelectExpr;
@@ -13,6 +14,10 @@ pub enum Stage {
     Offset { offset: u64 },
     Sort { expr: LogicalExpr, asc: bool },
     Count {},
+    GroupBy {
+        keys: HashMap<String, LogicalExpr>,
+        aggs: HashMap<String, AggregateExpr>,
+    },
 }
 
 impl From<Stage> for topk_rs::proto::v1::data::Stage {
@@ -31,6 +36,9 @@ impl From<Stage> for topk_rs::proto::v1::data::Stage {
             )),
             Stage::Offset { offset } => topk_rs::proto::v1::data::Stage::offset(offset),
             Stage::Count {} => topk_rs::proto::v1::data::Stage::count(),
+            Stage::GroupBy { keys, aggs } => {
+                topk_rs::proto::v1::data::Stage::group_by(keys, aggs)
+            }
         }
     }
 }

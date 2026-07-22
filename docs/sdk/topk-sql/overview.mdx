@@ -312,6 +312,54 @@ WHERE match_all(title, 'the hobbit')
 LIMIT 5;
 ```
 
+#### GROUP BY
+
+Group rows by one or more key expressions and compute aggregations per group.
+
+```sql
+SELECT <keys and/or aggregate calls> FROM <table>
+  [WHERE <filter>]
+  GROUP BY <key> [, <key> ...]
+  [HAVING <filter on aggregates>]
+  [ORDER BY <expr> [ASC | DESC] LIMIT <n>]
+```
+
+A GROUP BY key must be a bare identifier — either a real column (`GROUP BY genre`) or a SELECT-list alias for a computed expression:
+
+```sql
+SELECT published_year < 1940 AS is_classic, COUNT(*) AS count
+FROM books
+GROUP BY is_classic;
+```
+
+Every item in the SELECT list of a GROUP BY query must be either a group key or an aggregate function call — arbitrary columns are not allowed.
+
+| Function | Description |
+|----------|-------------|
+| `COUNT(*)` | Number of rows in the group |
+| `COUNT(field)` | Number of non-null values of `field` in the group |
+| `SUM(field)` | Sum of `field` in the group |
+| `MIN(field)` | Minimum value of `field` in the group |
+| `MAX(field)` | Maximum value of `field` in the group |
+| `AVG(field)` | Average value of `field` in the group |
+
+`HAVING` filters on the grouped/aggregated output and requires a `GROUP BY` clause:
+
+```sql
+SELECT genre, COUNT(*) AS count, AVG(rating) AS avg_rating
+FROM books
+GROUP BY genre
+HAVING COUNT(*) > 1
+ORDER BY avg_rating DESC
+LIMIT 5;
+```
+
+<Note>
+
+`GROUP BY ALL` and `ROLLUP` / `CUBE` / `GROUPING SETS` modifiers are not supported.
+
+</Note>
+
 ### INSERT
 
 Upsert semantics: inserting a document with an existing `_id` replaces it.
@@ -555,7 +603,9 @@ TopK speaks the PostgreSQL wire protocol but is purpose-built for search — not
 
 **No `SELECT *`** — Selecting all columns is not supported. Indexed vector fields cannot be projected directly — use search functions (`vector_distance`, `semantic_similarity`, …) to get scores from them instead.
 
-**`COUNT(*)` is a standalone aggregate** — it returns a document count and cannot be combined with other columns in the same `SELECT` list.
+**`COUNT(*)` without `GROUP BY` is a standalone aggregate** — it returns a document count and cannot be combined with other columns in the same `SELECT` list. Inside a `GROUP BY` query, `COUNT(*)` behaves as an ordinary per-group aggregate and can be combined with other keys/aggregates — see [GROUP BY](#group-by).
+
+**`GROUP BY` keys must be identifiers** — group by a real column or a SELECT-list alias for a computed expression; you can't group by an inline expression directly. `GROUP BY ALL` and `ROLLUP`/`CUBE`/`GROUPING SETS` are not supported.
 
 **No whole-value equality on complex types** — `tags = ARRAY['a']` is not supported. Use `contains(tags, 'a')` to check whether a single value exists in a list field — `contains` checks for one value at a time, not a list of values.
 

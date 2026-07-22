@@ -1,5 +1,5 @@
 import { field, select } from "../lib/query";
-import { int, keywordIndex, text } from "../lib/schema";
+import { int, keywordIndex, list, text } from "../lib/schema";
 import { newProjectContext, ProjectContext } from "./setup";
 
 describe("Query Validation", () => {
@@ -20,6 +20,7 @@ describe("Query Validation", () => {
     const collection = await ctx.createCollection("books", {
       title: text().required().index(keywordIndex()),
       published_year: int(),
+      tags: list({ valueType: "text" }),
     });
 
     await ctx.client.collection(collection.name).upsert([

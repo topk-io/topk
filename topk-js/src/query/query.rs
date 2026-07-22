@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use super::stage::Stage;
 use crate::expr::{
+    aggregate::AggregateExpression,
     filter::FilterExpression,
     logical::LogicalExpression,
     select::SelectExpression,
@@ -123,6 +124,30 @@ impl Query {
         };
 
         new_query.stages.push(Stage::Count {});
+
+        new_query
+    }
+
+    /// Adds a group-by stage to the query.
+    ///
+    /// Groups documents by one or more key expressions and computes aggregations for each group.
+    #[napi]
+    pub fn group_by(
+        &self,
+        #[napi(ts_arg_type = "Record<string, LogicalExpression>")] keys: HashMap<
+            String,
+            LogicalExpression,
+        >,
+        #[napi(ts_arg_type = "Record<string, AggregateExpression>")] aggs: HashMap<
+            String,
+            AggregateExpression,
+        >,
+    ) -> Query {
+        let mut new_query = Query {
+            stages: self.stages.clone(),
+        };
+
+        new_query.stages.push(Stage::GroupBy { keys, aggs });
 
         new_query
     }

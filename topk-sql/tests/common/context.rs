@@ -149,19 +149,20 @@ impl AsyncTestContext for BooksContext {
             .query(&format!(
                 r#"
             CREATE TABLE {table} (
-                title          TEXT NOT NULL             INDEX keyword_index(),
-                author         TEXT,
-                published_year INTEGER,
-                rating         FLOAT,
-                genre          TEXT,
-                in_print       BOOLEAN,
-                bio            TEXT                      INDEX semantic_index(),
-                embedding      f32_vector(4)             INDEX vector_index(metric = 'cosine'),
-                sparse_emb     f32_sparse_vector         INDEX vector_index(metric = 'dot_product'),
-                multi_emb      f32_matrix(4)             INDEX multi_vector_index(metric = 'maxsim'),
-                tags           TEXT[]                    INDEX keyword_index(),
-                checksum       BYTEA,
-                metadata       JSONB
+                title               TEXT NOT NULL             INDEX keyword_index(),
+                author              TEXT,
+                published_year      INTEGER,
+                rating              FLOAT,
+                genre               TEXT,
+                in_print            BOOLEAN,
+                bio                 TEXT                      INDEX semantic_index(),
+                embedding           f32_vector(4)             INDEX vector_index(metric = 'cosine'),
+                sparse_emb          f32_sparse_vector         INDEX vector_index(metric = 'dot_product'),
+                multi_emb           f32_matrix(4)             INDEX multi_vector_index(metric = 'maxsim'),
+                tags                TEXT[]                    INDEX keyword_index(),
+                checksum            BYTEA,
+                metadata            JSONB,
+                nullable_importance FLOAT
             );
             "#
             ))
@@ -174,7 +175,7 @@ impl AsyncTestContext for BooksContext {
                 r#"
             INSERT INTO {table} (
                 _id, title, author, published_year, rating, genre, in_print, bio, embedding, tags,
-                checksum, metadata, sparse_emb, multi_emb
+                checksum, metadata, sparse_emb, multi_emb, nullable_importance
             )
             VALUES
                 (
@@ -184,7 +185,7 @@ impl AsyncTestContext for BooksContext {
                     ARRAY['classic', 'american', 'fiction'],
                     bytes('deadbeef'),
                     struct('publisher', 'HarperCollins', 'pages', 281),
-                    NULL, NULL
+                    NULL, NULL, 2.0
                 ),
                 (
                     'nineteen_eighty_four', '1984', 'Orwell', 1949, 4.2, 'dystopian', true,
@@ -193,7 +194,7 @@ impl AsyncTestContext for BooksContext {
                     ARRAY['dystopia', 'classic', 'political'],
                     bytes('cafebabe'),
                     struct('publisher', 'Secker & Warburg', 'pages', 328),
-                    NULL, NULL
+                    NULL, NULL, NULL
                 ),
                 (
                     'pride', 'Pride and Prejudice', 'Austen', 1813, 4.3, 'romance', true,
@@ -202,7 +203,7 @@ impl AsyncTestContext for BooksContext {
                     ARRAY['romance', 'classic', 'british'],
                     bytes('abcdef01'),
                     struct('publisher', 'T. Egerton', 'pages', 432),
-                    NULL, NULL
+                    NULL, NULL, NULL
                 ),
                 (
                     'gatsby', 'The Great Gatsby', 'Fitzgerald', 1925, 3.9, 'fiction', true,
@@ -211,14 +212,14 @@ impl AsyncTestContext for BooksContext {
                     ARRAY['classic', 'american', 'jazz'],
                     bytes('12345678'),
                     struct('publisher', 'Scribner', 'pages', 180),
-                    NULL, NULL
+                    NULL, NULL, NULL
                 ),
                 (
                     'catcher', 'The Catcher in the Rye', 'Salinger', 1951, 3.8, 'fiction', false,
                     'A teenager''s alienation and cynicism navigating New York City',
                     f32_vector(ARRAY[0.0, 1.0, 0.0, 0.0]),
                     ARRAY['coming_of_age', 'american', 'fiction'],
-                    NULL, NULL, NULL, NULL
+                    NULL, NULL, NULL, NULL, NULL
                 ),
                 (
                     'hobbit', 'The Hobbit', 'Tolkien', 1937, 4.3, 'fantasy', true,
@@ -228,7 +229,8 @@ impl AsyncTestContext for BooksContext {
                     bytes('9abcdef0'),
                     NULL,
                     f32_sparse_vector(ARRAY[0, 1], ARRAY[1.0, 0.5]),
-                    f32_matrix(ARRAY[ARRAY[1.0, 0.0, 0.0, 0.0], ARRAY[0.9, 0.1, 0.0, 0.0]])
+                    f32_matrix(ARRAY[ARRAY[1.0, 0.0, 0.0, 0.0], ARRAY[0.9, 0.1, 0.0, 0.0]]),
+                    NULL
                 ),
                 (
                     'lotr', 'The Lord of the Rings', 'Tolkien', 1954, 4.5, 'fantasy', true,
@@ -237,7 +239,8 @@ impl AsyncTestContext for BooksContext {
                     ARRAY['fantasy', 'epic', 'tolkien'],
                     NULL, NULL,
                     f32_sparse_vector(ARRAY[0, 2], ARRAY[0.8, 0.3]),
-                    f32_matrix(ARRAY[ARRAY[1.0, 0.0, 0.0, 0.0], ARRAY[0.8, 0.2, 0.0, 0.0]])
+                    f32_matrix(ARRAY[ARRAY[1.0, 0.0, 0.0, 0.0], ARRAY[0.8, 0.2, 0.0, 0.0]]),
+                    NULL
                 ),
                 (
                     'harry', 'Harry Potter and the Sorcerer''s Stone', 'Rowling', 1997, 4.5, 'fantasy', true,
@@ -246,21 +249,22 @@ impl AsyncTestContext for BooksContext {
                     ARRAY['fantasy', 'magic', 'children'],
                     NULL, NULL,
                     f32_sparse_vector(ARRAY[0, 3], ARRAY[0.9, 0.4]),
-                    f32_matrix(ARRAY[ARRAY[1.0, 0.0, 0.0, 0.0], ARRAY[0.9, 0.0, 0.1, 0.0]])
+                    f32_matrix(ARRAY[ARRAY[1.0, 0.0, 0.0, 0.0], ARRAY[0.9, 0.0, 0.1, 0.0]]),
+                    NULL
                 ),
                 (
                     'alchemist', 'The Alchemist', 'Coelho', 1988, 3.9, 'fiction', true,
                     'A shepherd''s philosophical journey across the desert to find his personal legend',
                     f32_vector(ARRAY[0.0, 1.0, 0.0, 0.0]),
                     ARRAY['philosophy', 'fiction', 'spiritual'],
-                    NULL, NULL, NULL, NULL
+                    NULL, NULL, NULL, NULL, NULL
                 ),
                 (
                     'moby', 'Moby Dick', 'Melville', 1851, 3.5, 'adventure', false,
                     'A captain''s obsessive quest to hunt and kill a legendary white whale',
                     f32_vector(ARRAY[0.0, 0.5, 0.5, 0.0]),
                     ARRAY['classic', 'adventure', 'sea'],
-                    NULL, NULL, NULL, NULL
+                    NULL, NULL, NULL, NULL, 5.0
                 )
             "#
             ))

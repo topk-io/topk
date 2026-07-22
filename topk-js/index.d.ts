@@ -693,6 +693,13 @@ export declare namespace query {
    * @internal
    * @hideconstructor
    */
+  export class AggregateExpression {
+
+  }
+  /**
+   * @internal
+   * @hideconstructor
+   */
   export class FunctionExpression {
 
   }
@@ -805,6 +812,12 @@ export declare namespace query {
     sort(expr: LogicalExpression, asc?: boolean | undefined | null): Query
     /** Adds a count stage to the query. */
     count(): Query
+    /**
+     * Adds a group-by stage to the query.
+     *
+     * Groups documents by one or more key expressions and computes aggregations for each group.
+     */
+    groupBy(keys: Record<string, LogicalExpression>, aggs: Record<string, AggregateExpression>): Query
   }
   export class TextExpression {
     /** Computes the logical AND of the expression and another text expression. */
@@ -843,6 +856,12 @@ export declare namespace query {
   export function field(name: string): LogicalExpression
   /** Creates a new query with a filter stage. */
   export function filter(expr: LogicalExpression | TextExpression): Query
+  /**
+   * Creates a new query with a group-by stage.
+   *
+   * Groups documents by one or more key expressions and computes aggregations for each group.
+   */
+  export function groupBy(keys: Record<string, LogicalExpression>, aggs: Record<string, AggregateExpression>): Query
   /** Creates a literal value expression. */
   export function literal(value: number | string | string[] | number[] | boolean | data.List): LogicalExpression
   /**
@@ -918,6 +937,22 @@ export declare namespace query {
   'exp'|
   'sqrt'|
   'square';
+}
+
+export declare namespace query_agg {
+  /** Calculate the average value of the given field. */
+  export function avg(field: string): query.AggregateExpression
+  /**
+   * Count the number of non-null values for the given field.
+   * If not provided, count the number of rows in the input.
+   */
+  export function count(field?: string | undefined | null): query.AggregateExpression
+  /** Find the maximum value of the given field. */
+  export function max(field: string): query.AggregateExpression
+  /** Find the minimum value of the given field. */
+  export function min(field: string): query.AggregateExpression
+  /** Sum the values of the given field. */
+  export function sum(field: string): query.AggregateExpression
 }
 
 export declare namespace query_fn {

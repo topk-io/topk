@@ -2,10 +2,13 @@ use std::collections::HashSet;
 
 use rstest::rstest;
 
-use topk_rs::{doc, proto::v1::data::Document, proto::v1::data::Value};
+use topk_rs::{
+    doc,
+    proto::v1::data::{Document, Value, stage},
+};
 
 mod common;
-use common::{BooksContext, Scope, ids};
+use common::{BooksContext, Scope, assert_rows_eq_unordered, ids};
 
 #[rstest]
 #[case::single_field(
@@ -346,6 +349,203 @@ async fn count(#[case] query: &str, #[case] expected: Vec<Document>) {
         .await
         .unwrap();
     assert_eq!(rows, expected);
+}
+
+#[rstest]
+#[case::bool_key(
+    "SELECT (published_year < 1940) AS is_old, COUNT(*) AS count \
+     FROM {{table}} GROUP BY is_old",
+    vec![
+        doc!("is_old" => true, "count" => 4_i64),
+        doc!("is_old" => false, "count" => 6_i64),
+    ],
+)]
+#[case::field_key(
+    "SELECT genre, COUNT(*) AS count FROM {{table}} GROUP BY genre",
+    vec![
+        doc!("genre" => "fiction", "count" => 4_i64),
+        doc!("genre" => "dystopian", "count" => 1_i64),
+        doc!("genre" => "romance", "count" => 1_i64),
+        doc!("genre" => "fantasy", "count" => 3_i64),
+        doc!("genre" => "adventure", "count" => 1_i64),
+    ],
+)]
+#[case::count_field_ignores_nulls(
+    "SELECT (published_year < 1940) AS is_old, COUNT(*) AS total, \
+     COUNT(nullable_importance) AS with_importance \
+     FROM {{table}} GROUP BY is_old",
+    vec![
+        doc!("is_old" => true, "total" => 4_i64, "with_importance" => 1_i64),
+        doc!("is_old" => false, "total" => 6_i64, "with_importance" => 1_i64),
+    ],
+)]
+#[case::sum(
+    "SELECT (published_year < 1940) AS is_old, SUM(published_year) AS total_year \
+     FROM {{table}} GROUP BY is_old",
+    // old: 1813 + 1925 + 1851 + 1937 = 7526; new: 1960 + 1949 + 1951 + 1997 + 1954 + 1988 = 11799
+    vec![
+        doc!("is_old" => true, "total_year" => 7526_i64),
+        doc!("is_old" => false, "total_year" => 11799_i64),
+    ],
+)]
+#[case::min_max(
+    "SELECT (published_year < 1940) AS is_old, MIN(published_year) AS oldest, \
+     MAX(published_year) AS newest \
+     FROM {{table}} GROUP BY is_old",
+    vec![
+        doc!("is_old" => true, "oldest" => 1813_i64, "newest" => 1937_i64),
+        doc!("is_old" => false, "oldest" => 1949_i64, "newest" => 1997_i64),
+    ],
+)]
+#[case::avg(
+    "SELECT (published_year < 1940) AS is_old, AVG(published_year) AS avg_year \
+     FROM {{table}} GROUP BY is_old",
+    vec![
+        doc!("is_old" => true, "avg_year" => 1881.5_f64),
+        doc!("is_old" => false, "avg_year" => 1966.5_f64),
+    ],
+)]
+#[case::all_aggregations_combined(
+    "SELECT (published_year < 1940) AS is_old, COUNT(*) AS count, \
+     SUM(published_year) AS total_year, MIN(published_year) AS oldest, \
+     MAX(published_year) AS newest, AVG(published_year) AS avg_year \
+     FROM {{table}} GROUP BY is_old",
+    vec![
+        doc!(
+            "is_old" => true, "count" => 4_i64, "total_year" => 7526_i64,
+            "oldest" => 1813_i64, "newest" => 1937_i64, "avg_year" => 1881.5_f64
+        ),
+        doc!(
+            "is_old" => false, "count" => 6_i64, "total_year" => 11799_i64,
+            "oldest" => 1949_i64, "newest" => 1997_i64, "avg_year" => 1966.5_f64
+        ),
+    ],
+)]
+#[case::multiple_keys(
+    // is_old  = published_year < 1940
+    // is_19th = published_year < 1900
+    //   pride 1813:  (old, 19th)      moby  1851:  (old, 19th)
+    //   gatsby 1925: (old, !19th)     hobbit 1937: (old, !19th)
+    //   the other 6: (!old, !19th)
+    "SELECT (published_year < 1940) AS is_old, (published_year < 1900) AS is_19th, \
+     COUNT(*) AS count \
+     FROM {{table}} GROUP BY is_old, is_19th",
+    vec![
+        doc!("is_old" => true, "is_19th" => true, "count" => 2_i64),
+        doc!("is_old" => true, "is_19th" => false, "count" => 2_i64),
+        doc!("is_old" => false, "is_19th" => false, "count" => 6_i64),
+    ],
+)]
+#[case::with_where(
+    "SELECT (published_year > 1980) AS recent, COUNT(*) AS count \
+     FROM {{table}} WHERE published_year >= 1940 GROUP BY recent",
+    vec![
+        doc!("recent" => true, "count" => 2_i64),
+        doc!("recent" => false, "count" => 4_i64),
+    ],
+)]
+#[case::with_having(
+    "SELECT (published_year < 1940) AS is_old, COUNT(*) AS count \
+     FROM {{table}} GROUP BY is_old HAVING count > 4",
+    vec![doc!("is_old" => false, "count" => 6_i64)],
+)]
+#[case::with_order_by_limit(
+    "SELECT (published_year < 1940) AS is_old, COUNT(*) AS count \
+     FROM {{table}} GROUP BY is_old ORDER BY count DESC LIMIT 1",
+    vec![doc!("is_old" => false, "count" => 6_i64)],
+)]
+#[tokio::test]
+async fn group_by(#[case] query: &str, #[case] expected: Vec<Document>) {
+    let rows = BooksContext::with_scope(async |ctx| ctx.sql(query).await)
+        .await
+        .unwrap();
+
+    assert_rows_eq_unordered(rows, expected);
+}
+
+#[test]
+fn group_by_with_having_direct_aggregate_call_rejected() {
+    let sql = "SELECT genre, SUM(rating) AS total FROM books GROUP BY genre \
+               HAVING SUM(rating) > 4";
+    let err = topk_sql::convert_sql(topk_sql::parse_sql(sql).unwrap()).unwrap_err();
+
+    assert_eq!(
+        err.to_string(),
+        "Unsupported: aggregate function calls in HAVING"
+    );
+}
+
+#[test]
+fn group_by_count_distinct_rejected_before_execution() {
+    let sql = "SELECT genre, COUNT(DISTINCT author) AS author_count FROM books GROUP BY genre";
+    let err = topk_sql::convert_sql(topk_sql::parse_sql(sql).unwrap()).unwrap_err();
+
+    assert_eq!(
+        err.to_string(),
+        "Unsupported: COUNT: DISTINCT aggregates are not supported"
+    );
+}
+
+#[test]
+fn group_by_having_filter_clause_rejected_before_execution() {
+    let sql = "SELECT genre, SUM(rating) AS s FROM books GROUP BY genre \
+               HAVING SUM(rating) FILTER (WHERE in_print) > 4";
+    let err = topk_sql::convert_sql(topk_sql::parse_sql(sql).unwrap()).unwrap_err();
+
+    assert_eq!(
+        err.to_string(),
+        "Unsupported: aggregate function calls in HAVING"
+    );
+}
+
+#[test]
+fn group_by_column_alias_projects_alias_without_changing_group_key() {
+    let sql = "SELECT genre AS g, COUNT(*) AS c FROM books GROUP BY genre";
+    let mut converted = topk_sql::convert_sql(topk_sql::parse_sql(sql).unwrap()).unwrap();
+    assert_eq!(converted.len(), 1);
+
+    let query = match converted.remove(0).0 {
+        topk_sql::Statement::Select { query, .. } => query,
+        other => panic!("expected SELECT statement, got {other:?}"),
+    };
+
+    assert_eq!(query.stages.len(), 2);
+
+    let Some(stage::Stage::GroupBy(group)) = query.stages[0].stage.as_ref() else {
+        panic!("expected GROUP BY stage");
+    };
+    assert!(group.keys.contains_key("genre"));
+    assert!(group.keys.contains_key("g"));
+    assert!(group.aggs.contains_key("c"));
+
+    let Some(stage::Stage::Select(select)) = query.stages[1].stage.as_ref() else {
+        panic!("expected final SELECT stage");
+    };
+    assert!(select.exprs.contains_key("g"));
+    assert!(select.exprs.contains_key("c"));
+    assert!(!select.exprs.contains_key("genre"));
+}
+
+#[test]
+fn group_by_alias_shadowing_rejected_before_execution() {
+    let sql = "SELECT author AS genre, COUNT(*) AS c FROM books GROUP BY genre";
+    let err = topk_sql::convert_sql(topk_sql::parse_sql(sql).unwrap()).unwrap_err();
+
+    assert_eq!(
+        err.to_string(),
+        "Unsupported: `genre` in a GROUP BY query must be a group key or an aggregate function call (COUNT/SUM/MIN/MAX/AVG)"
+    );
+}
+
+#[test]
+fn group_by_without_aggregate_rejected_before_execution() {
+    let sql = "SELECT genre FROM books GROUP BY genre";
+    let err = topk_sql::convert_sql(topk_sql::parse_sql(sql).unwrap()).unwrap_err();
+
+    assert_eq!(
+        err.to_string(),
+        "Unsupported: GROUP BY queries require at least one aggregate function"
+    );
 }
 
 #[rstest]
@@ -757,9 +957,25 @@ async fn semantic_similarity_search() {
     "SELECT _id FROM {{table}} WHERE published_year IN UNNEST(ARRAY[1937, 1949]) LIMIT 5",
     "Unsupported: IN UNNEST(…): not supported"
 )]
-#[case::group_by(
+#[case::group_by_non_key_column(
     "SELECT _id FROM {{table}} GROUP BY genre LIMIT 5",
-    "Unsupported: GROUP BY"
+    "Unsupported: `_id` in a GROUP BY query must be a group key or an aggregate function call (COUNT/SUM/MIN/MAX/AVG)"
+)]
+#[case::group_by_all(
+    "SELECT genre, COUNT(*) AS c FROM {{table}} GROUP BY ALL",
+    "Unsupported: GROUP BY ALL"
+)]
+#[case::group_by_rollup(
+    "SELECT genre, COUNT(*) AS c FROM {{table}} GROUP BY ROLLUP(genre)",
+    "Unsupported: GROUP BY key must be a column name or a SELECT-list alias"
+)]
+#[case::group_by_key_needs_alias(
+    "SELECT COUNT(*) AS c FROM {{table}} GROUP BY published_year < 1940",
+    "Unsupported: GROUP BY key must be a column name or a SELECT-list alias"
+)]
+#[case::having_without_group_by(
+    "SELECT COUNT(*) AS c FROM {{table}} HAVING c > 1",
+    "Invalid: HAVING requires a GROUP BY clause"
 )]
 #[case::distinct(
     "SELECT DISTINCT genre FROM {{table}} LIMIT 5",
@@ -779,15 +995,19 @@ async fn semantic_similarity_search() {
 )]
 #[case::count_distinct(
     "SELECT COUNT(DISTINCT genre) FROM {{table}}",
-    "Unsupported: only COUNT(*) is supported; COUNT(expr) and DISTINCT are not"
+    "Unsupported: non-COUNT(*) aggregate functions without GROUP BY"
 )]
 #[case::count_expr(
     "SELECT COUNT(author) FROM {{table}}",
-    "Unsupported: only COUNT(*) is supported; COUNT(expr) and DISTINCT are not"
+    "Unsupported: non-COUNT(*) aggregate functions without GROUP BY"
 )]
 #[case::count_with_other_columns(
     "SELECT COUNT(*), title FROM {{table}}",
-    "Unsupported: COUNT(*) cannot be combined with other columns"
+    "Unsupported: non-COUNT(*) aggregate functions without GROUP BY"
+)]
+#[case::aggregate_without_group_by(
+    "SELECT SUM(rating) FROM {{table}}",
+    "Unsupported: non-COUNT(*) aggregate functions without GROUP BY"
 )]
 #[case::like_wildcard(
     "SELECT _id FROM {{table}} WHERE title LIKE 'The%Rings%'",

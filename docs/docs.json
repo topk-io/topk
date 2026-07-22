@@ -197,6 +197,7 @@
               "sdk/topk-js/index",
               "sdk/topk-js/Namespace.data",
               "sdk/topk-js/Namespace.query_fn",
+              "sdk/topk-js/Namespace.query_agg",
               "sdk/topk-js/Namespace.query",
               "sdk/topk-js/Namespace.schema"
             ]

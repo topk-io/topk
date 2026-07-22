@@ -50,6 +50,7 @@
 - [topk-js](https://docs.topk.io/sdk/topk-js)
 - [topk-js/data](https://docs.topk.io/sdk/topk-js/Namespace.data)
 - [topk-js/query_fn](https://docs.topk.io/sdk/topk-js/Namespace.query_fn)
+- [topk-js/query_agg](https://docs.topk.io/sdk/topk-js/Namespace.query_agg)
 - [topk-js/query](https://docs.topk.io/sdk/topk-js/Namespace.query)
 - [topk-js/schema](https://docs.topk.io/sdk/topk-js/Namespace.schema)
 

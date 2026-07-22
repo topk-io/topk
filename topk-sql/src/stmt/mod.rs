@@ -33,8 +33,6 @@ pub enum Statement {
         table: Table,
         /// `topk_rs::Query` to execute.
         query: Query,
-        /// Result column name (`_count` when unaliased).
-        alias: String,
     },
     Insert {
         /// Table name (`<collection>` OR `<collection>.<partition>`).

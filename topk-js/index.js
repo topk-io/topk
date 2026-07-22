@@ -585,5 +585,6 @@ module.exports.ConsistencyLevel = nativeBinding.ConsistencyLevel
 module.exports.Mode = nativeBinding.Mode
 module.exports.data = nativeBinding.data
 module.exports.query = nativeBinding.query
+module.exports.query_agg = nativeBinding.query_agg
 module.exports.query_fn = nativeBinding.query_fn
 module.exports.schema = nativeBinding.schema

@@ -8984,6 +8984,13 @@ Check if the expression matches the provided regexp pattern.
     Instances of the `FunctionExpr` class are used to represent function expressions in TopK.
     Usually created using function constructors such as [`fn.vector_distance()`](#vector-distance), [`fn.semantic_similarity()`](#semantic-similarity) or [`fn.bm25_score()`](#bm25-score).
 
+##### AggregateExpr
+
+*Internal*
+
+    Instances of the `AggregateExpr` class are used to represent aggregate expressions in TopK.
+    Usually created using aggregate constructors such as [`agg.count()`](#count), [`agg.sum()`](#sum), [`agg.min()`](#min-2), [`agg.max()`](#max-2) or [`agg.avg()`](#avg).
+
 ##### TextExpr
 
 *Internal*
@@ -9096,6 +9103,29 @@ count(self) -> Query
 ```
 
 Adds a count stage to the query.
+
+**Returns**
+
+[`Query`](#query)
+
+***
+
+###### group\_by()
+
+```python
+group_by(self, keys: dict[str, LogicalExpr], aggs: dict[str, AggregateExpr]) -> Query
+```
+
+Adds a group-by stage to the query.
+
+        Groups documents by one or more key expressions and computes aggregations for each group.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `keys` | dict[str, [`LogicalExpr`](#logicalexpr)] |
+| `aggs` | dict[str, [`AggregateExpr`](#aggregateexpr)] |
 
 **Returns**
 
@@ -9298,6 +9328,129 @@ Calculate the multi-vector distance between a field and a query matrix.
 
 ***
 
+##### agg
+
+The `query.agg` submodule exposes functions for creating aggregate expressions used in
+    [`group_by()`](#group-by)'s `aggs` argument, such as [`agg.count()`](#count), [`agg.sum()`](#sum),
+    [`agg.min()`](#min-2), [`agg.max()`](#max-2) or [`agg.avg()`](#avg).
+
+**Methods**
+
+###### count()
+
+```python
+count(field: str | None = None) -> AggregateExpr
+```
+
+Count the number of documents in the group.
+
+        If `field` is provided, counts only the documents where that field is non-null.
+        If omitted, counts every document in the group.
+
+        ```python
+        # Example:
+        from topk_sdk.query import group_by, field, agg
+
+        client.collection("books").query(
+          group_by(
+            {"is_old": field("published_year") < 1940},
+            {"count": agg.count()},
+          )
+        )
+        ```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `field` | str &#124; None |
+
+**Returns**
+
+[`AggregateExpr`](#aggregateexpr)
+
+***
+
+###### sum()
+
+```python
+sum(field: str) -> AggregateExpr
+```
+
+Sum the values of `field` across the group.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `field` | str |
+
+**Returns**
+
+[`AggregateExpr`](#aggregateexpr)
+
+***
+
+###### min()
+
+```python
+min(field: str) -> AggregateExpr
+```
+
+Find the minimum value of `field` across the group.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `field` | str |
+
+**Returns**
+
+[`AggregateExpr`](#aggregateexpr)
+
+***
+
+###### max()
+
+```python
+max(field: str) -> AggregateExpr
+```
+
+Find the maximum value of `field` across the group.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `field` | str |
+
+**Returns**
+
+[`AggregateExpr`](#aggregateexpr)
+
+***
+
+###### avg()
+
+```python
+avg(field: str) -> AggregateExpr
+```
+
+Calculate the average value of `field` across the group.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `field` | str |
+
+**Returns**
+
+[`AggregateExpr`](#aggregateexpr)
+
+***
+
 #### Functions
 
 ##### field()
@@ -9366,6 +9519,41 @@ Creates a new query with a filter stage.
 | Parameter | Type |
 | --------- | ---- |
 | `expr` | [`LogicalExpr`](#logicalexpr) &#124; [`TextExpr`](#textexpr) |
+
+**Returns**
+
+[`Query`](#query)
+
+***
+
+##### group_by()
+
+```python
+group_by(keys: dict[str, LogicalExpr], aggs: dict[str, AggregateExpr]) -> Query
+```
+
+Creates a new query with a group-by stage.
+
+    Groups documents by one or more key expressions and computes aggregations for each group.
+
+    ```python
+    # Example:
+    from topk_sdk.query import group_by, field, agg
+
+    client.collection("books").query(
+      group_by(
+        {"is_old": field("published_year") < 1940},
+        {"count": agg.count()},
+      )
+    )
+    ```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `keys` | dict[str, [`LogicalExpr`](#logicalexpr)] |
+| `aggs` | dict[str, [`AggregateExpr`](#aggregateexpr)] |
 
 **Returns**
 
@@ -11570,6 +11758,7 @@ Configuration for polling when waiting for a handle to be processed.
 
 - [data](/sdk/topk-js/Namespace.data)
 - [query](/sdk/topk-js/Namespace.query)
+- [query\_agg](/sdk/topk-js/Namespace.query_agg)
 - [query\_fn](/sdk/topk-js/Namespace.query_fn)
 - [schema](/sdk/topk-js/Namespace.schema)
 
@@ -12289,6 +12478,113 @@ Options for BM25 scoring.
 | ------ | ------ |
 | <a id="property-skiprefine"></a> `skipRefine?` | `boolean` |
 
+### topk-js/query_agg
+
+URL: https://docs.topk.io/sdk/topk-js/Namespace.query_agg
+
+[topk-js](/sdk/topk-js/index) / query\_agg
+
+#### Functions
+
+##### avg()
+
+```ts
+function avg(field: string): AggregateExpression;
+```
+
+Calculate the average value of the given field.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `field` | `string` |
+
+**Returns**
+
+[`AggregateExpression`](/sdk/topk-js/Namespace.query#aggregateexpression)
+
+***
+
+##### count()
+
+```ts
+function count(field?: string): AggregateExpression;
+```
+
+Count the number of non-null values for the given field.
+If not provided, count the number of rows in the input.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `field?` | `string` |
+
+**Returns**
+
+[`AggregateExpression`](/sdk/topk-js/Namespace.query#aggregateexpression)
+
+***
+
+##### max()
+
+```ts
+function max(field: string): AggregateExpression;
+```
+
+Find the maximum value of the given field.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `field` | `string` |
+
+**Returns**
+
+[`AggregateExpression`](/sdk/topk-js/Namespace.query#aggregateexpression)
+
+***
+
+##### min()
+
+```ts
+function min(field: string): AggregateExpression;
+```
+
+Find the minimum value of the given field.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `field` | `string` |
+
+**Returns**
+
+[`AggregateExpression`](/sdk/topk-js/Namespace.query#aggregateexpression)
+
+***
+
+##### sum()
+
+```ts
+function sum(field: string): AggregateExpression;
+```
+
+Sum the values of the given field.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `field` | `string` |
+
+**Returns**
+
+[`AggregateExpression`](/sdk/topk-js/Namespace.query#aggregateexpression)
+
 ### topk-js/query
 
 URL: https://docs.topk.io/sdk/topk-js/Namespace.query
@@ -12392,6 +12688,29 @@ Creates a new query with a filter stage.
 | Parameter | Type |
 | ------ | ------ |
 | `expr` | \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`TextExpression`](/sdk/topk-js/Namespace.query#textexpression) |
+
+**Returns**
+
+[`Query`](/sdk/topk-js/Namespace.query#query)
+
+***
+
+##### groupBy()
+
+```ts
+function groupBy(keys: Record<string, LogicalExpression>, aggs: Record<string, AggregateExpression>): Query;
+```
+
+Creates a new query with a group-by stage.
+
+Groups documents by one or more key expressions and computes aggregations for each group.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `keys` | `Record`\<`string`, [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)\> |
+| `aggs` | `Record`\<`string`, [`AggregateExpression`](/sdk/topk-js/Namespace.query#aggregateexpression)\> |
 
 **Returns**
 
@@ -12573,6 +12892,12 @@ Creates a new query with a select stage.
 [`Query`](/sdk/topk-js/Namespace.query#query)
 
 #### Classes
+
+##### AggregateExpression
+
+**`Internal`**
+
+***
 
 ##### FunctionExpression
 
@@ -13217,6 +13542,27 @@ Adds a filter stage to the query.
 | Parameter | Type |
 | ------ | ------ |
 | `expr` | \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`TextExpression`](/sdk/topk-js/Namespace.query#textexpression) |
+
+**Returns**
+
+[`Query`](/sdk/topk-js/Namespace.query#query)
+
+###### groupBy()
+
+```ts
+groupBy(keys: Record<string, LogicalExpression>, aggs: Record<string, AggregateExpression>): Query;
+```
+
+Adds a group-by stage to the query.
+
+Groups documents by one or more key expressions and computes aggregations for each group.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `keys` | `Record`\<`string`, [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)\> |
+| `aggs` | `Record`\<`string`, [`AggregateExpression`](/sdk/topk-js/Namespace.query#aggregateexpression)\> |
 
 **Returns**
 
@@ -14517,6 +14863,54 @@ WHERE match_all(title, 'the hobbit')
 LIMIT 5;
 ```
 
+###### GROUP BY
+
+Group rows by one or more key expressions and compute aggregations per group.
+
+```sql
+SELECT <keys and/or aggregate calls> FROM <table>
+  [WHERE <filter>]
+  GROUP BY <key> [, <key> ...]
+  [HAVING <filter on aggregates>]
+  [ORDER BY <expr> [ASC | DESC] LIMIT <n>]
+```
+
+A GROUP BY key must be a bare identifier — either a real column (`GROUP BY genre`) or a SELECT-list alias for a computed expression:
+
+```sql
+SELECT published_year < 1940 AS is_classic, COUNT(*) AS count
+FROM books
+GROUP BY is_classic;
+```
+
+Every item in the SELECT list of a GROUP BY query must be either a group key or an aggregate function call — arbitrary columns are not allowed.
+
+| Function | Description |
+|----------|-------------|
+| `COUNT(*)` | Number of rows in the group |
+| `COUNT(field)` | Number of non-null values of `field` in the group |
+| `SUM(field)` | Sum of `field` in the group |
+| `MIN(field)` | Minimum value of `field` in the group |
+| `MAX(field)` | Maximum value of `field` in the group |
+| `AVG(field)` | Average value of `field` in the group |
+
+`HAVING` filters on the grouped/aggregated output and requires a `GROUP BY` clause:
+
+```sql
+SELECT genre, COUNT(*) AS count, AVG(rating) AS avg_rating
+FROM books
+GROUP BY genre
+HAVING COUNT(*) > 1
+ORDER BY avg_rating DESC
+LIMIT 5;
+```
+
+<Note>
+
+`GROUP BY ALL` and `ROLLUP` / `CUBE` / `GROUPING SETS` modifiers are not supported.
+
+</Note>
+
 ##### INSERT
 
 Upsert semantics: inserting a document with an existing `_id` replaces it.
@@ -14760,7 +15154,9 @@ TopK speaks the PostgreSQL wire protocol but is purpose-built for search — not
 
 **No `SELECT *`** — Selecting all columns is not supported. Indexed vector fields cannot be projected directly — use search functions (`vector_distance`, `semantic_similarity`, …) to get scores from them instead.
 
-**`COUNT(*)` is a standalone aggregate** — it returns a document count and cannot be combined with other columns in the same `SELECT` list.
+**`COUNT(*)` without `GROUP BY` is a standalone aggregate** — it returns a document count and cannot be combined with other columns in the same `SELECT` list. Inside a `GROUP BY` query, `COUNT(*)` behaves as an ordinary per-group aggregate and can be combined with other keys/aggregates — see [GROUP BY](#group-by).
+
+**`GROUP BY` keys must be identifiers** — group by a real column or a SELECT-list alias for a computed expression; you can't group by an inline expression directly. `GROUP BY ALL` and `ROLLUP`/`CUBE`/`GROUPING SETS` are not supported.
 
 **No whole-value equality on complex types** — `tags = ARRAY['a']` is not supported. Use `contains(tags, 'a')` to check whether a single value exists in a list field — `contains` checks for one value at a time, not a list of values.
 

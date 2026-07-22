@@ -26,6 +26,7 @@ use crate::{
 };
 use boolish::Boolish;
 use comparable::Comparable;
+use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use stringy::Stringy;
 
@@ -36,6 +37,17 @@ use stringy::Stringy;
 pub struct LogicalExpression {
     expr: LogicalExpressionUnion,
 }
+
+impl FromNapiValue for LogicalExpression {
+    unsafe fn from_napi_value(
+        env: napi::sys::napi_env,
+        value: napi::sys::napi_value,
+    ) -> napi::Result<Self> {
+        let expr = crate::try_cast_ref!(env, value, LogicalExpression)?;
+        Ok(expr.clone())
+    }
+}
+
 
 impl LogicalExpression {
     pub(crate) fn null() -> Self {

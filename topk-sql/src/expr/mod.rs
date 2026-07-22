@@ -1,5 +1,6 @@
 use topk_rs::proto::v1::data::{FunctionExpr, LogicalExpr, TextExpr, Value};
 
+mod aggregate;
 mod filter;
 mod function;
 mod logical;

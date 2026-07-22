@@ -1,4 +1,7 @@
-use crate::expr::{filter::FilterExpression, logical::LogicalExpression, select::SelectExpression};
+use crate::expr::{
+    aggregate::AggregateExpression, filter::FilterExpression, logical::LogicalExpression,
+    select::SelectExpression,
+};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -20,6 +23,10 @@ pub enum Stage {
         asc: bool,
     },
     Count,
+    GroupBy {
+        keys: HashMap<String, LogicalExpression>,
+        aggs: HashMap<String, AggregateExpression>,
+    },
 }
 
 impl From<Stage> for topk_rs::proto::v1::data::Stage {
@@ -40,6 +47,7 @@ impl From<Stage> for topk_rs::proto::v1::data::Stage {
                 topk_rs::proto::v1::data::Stage::offset(offset.try_into().unwrap())
             }
             Stage::Count {} => topk_rs::proto::v1::data::Stage::count(),
+            Stage::GroupBy { keys, aggs } => topk_rs::proto::v1::data::Stage::group_by(keys, aggs),
         }
     }
 }
