@@ -1,19 +1,20 @@
 use std::collections::HashMap;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::task::{Context, Poll};
 
 use futures::{Stream, TryStreamExt};
 use futures_util::{StreamExt, TryFutureExt};
 use prost::Message;
 use tokio::sync::OnceCell;
 use tonic::transport::Channel;
+use tonic::{Response, Streaming};
 
 use crate::create_client;
 use crate::error::Error;
 use crate::proto::v1::data::partition_service_client::PartitionServiceClient;
 use crate::proto::v1::data::query_service_client::QueryServiceClient;
 use crate::proto::v1::data::write_service_client::WriteServiceClient;
-use crate::proto::v1::data::DeletePartitionRequest;
 use crate::proto::v1::data::ListPartitionsRequest;
 use crate::proto::v1::data::Partition;
 use crate::proto::v1::data::Query;
@@ -23,9 +24,50 @@ use crate::proto::v1::data::{ConsistencyLevel, GetRequest};
 use crate::proto::v1::data::{
     DeleteDocumentsRequest, Document, QueryRequest, UpsertDocumentsRequest, Value,
 };
+use crate::proto::v1::data::{DeletePartitionRequest, DocumentData};
 
 use super::config::ClientConfig;
 use super::retry::call_with_retry;
+
+pub struct DocumentStream {
+    // Underying stream
+    stream: Pin<Box<dyn Stream<Item = Result<Document, Error>> + Send>>,
+    // Number of scanned documents
+    matched_count: Option<u64>,
+}
+
+impl DocumentStream {
+    pub fn new(response: Response<Streaming<DocumentData>>) -> Self {
+        let matched_count = response
+            .metadata()
+            .get("x-topk-matched-count")
+            .and_then(|v| v.to_str().ok()?.parse().ok());
+
+        let stream = response
+            .into_inner()
+            .map(|result| match Document::decode(result?.data) {
+                Ok(doc) => Ok(doc),
+                Err(e) => Err(Error::MalformedResponse(e.to_string())),
+            });
+
+        Self {
+            stream: Box::pin(stream),
+            matched_count,
+        }
+    }
+
+    pub fn matched_count(&self) -> Option<u64> {
+        self.matched_count
+    }
+}
+
+impl Stream for DocumentStream {
+    type Item = Result<Document, Error>;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        self.stream.as_mut().poll_next(cx)
+    }
+}
 
 #[derive(Clone)]
 pub struct CollectionClient {
@@ -165,10 +207,10 @@ impl CollectionClient {
         query: Query,
         lsn: Option<String>,
         consistency: Option<ConsistencyLevel>,
-    ) -> Result<Pin<Box<dyn Stream<Item = Result<Document, Error>> + Send>>, Error> {
+    ) -> Result<DocumentStream, Error> {
         let client = create_client!(QueryServiceClient, self.read, self.config).await?;
 
-        let stream = call_with_retry(&self.config.retry_config(), || {
+        let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
             let query = query.clone();
             let lsn = lsn.clone();
@@ -186,15 +228,9 @@ impl CollectionClient {
                     .await
             }
         })
-        .await?
-        .into_inner();
+        .await?;
 
-        let stream = stream.map(|result| match Document::decode(result?.data) {
-            Ok(doc) => Ok(doc),
-            Err(e) => Err(Error::MalformedResponse(e.to_string())),
-        });
-
-        Ok(Box::pin(stream))
+        Ok(DocumentStream::new(response))
     }
 
     /// Upsert documents into the collection.

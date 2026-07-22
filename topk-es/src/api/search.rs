@@ -363,6 +363,7 @@ impl SearchResponse {
         index: &IndexName,
         hits: Vec<Hit>,
         aggregations: Option<HashMap<String, AggResult>>,
+        matched: &[u64],
     ) -> Self {
         let max_score = hits.iter().filter_map(|h| h.score).reduce(f32::max);
         Self {
@@ -370,9 +371,22 @@ impl SearchResponse {
             timed_out: false,
             shards: Shards::default(),
             hits: HitsWrapper {
-                total: Total {
-                    value: hits.len() as u64,
-                    relation: "eq",
+                total: match matched {
+                    // No matched documents
+                    [] => Total {
+                        value: hits.len() as u64,
+                        relation: "eq",
+                    },
+                    // Single retriever
+                    [matched] => Total {
+                        value: *matched,
+                        relation: "eq",
+                    },
+                    // Multiple retrievers
+                    m => Total {
+                        value: m.iter().copied().max().unwrap().max(hits.len() as u64),
+                        relation: "gte",
+                    },
                 },
                 max_score,
                 hits: hits

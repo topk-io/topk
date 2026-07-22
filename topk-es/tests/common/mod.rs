@@ -334,6 +334,15 @@ impl TestErrorResponse {
 #[derive(Debug)]
 pub struct SearchResponse(pub Value);
 
+pub fn hit_ids(response: &Value) -> Vec<String> {
+    response["hits"]["hits"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|h| h["_id"].as_str().unwrap().to_string())
+        .collect()
+}
+
 impl std::ops::Deref for SearchResponse {
     type Target = Value;
 
@@ -349,10 +358,6 @@ impl std::fmt::Display for SearchResponse {
 }
 
 impl SearchResponse {
-    pub fn hit_ids(&self) -> Vec<String> {
-        hit_ids(&self.0)
-    }
-
     pub fn score(&self, id: &str) -> f64 {
         self.hit(id)["_score"].as_f64().unwrap()
     }
@@ -371,6 +376,10 @@ impl SearchResponse {
 
     pub fn total(&self) -> u64 {
         self.0["hits"]["total"]["value"].as_u64().unwrap()
+    }
+
+    pub fn total_relation(&self) -> &str {
+        self.0["hits"]["total"]["relation"].as_str().unwrap()
     }
 
     pub fn all_scores_null(&self) -> bool {
@@ -407,6 +416,10 @@ impl SearchResponse {
             .expect("aggregation buckets")
     }
 
+    pub fn hit_ids(&self) -> Vec<String> {
+        hit_ids(&self.0)
+    }
+
     fn hits(&self) -> &Vec<Value> {
         self.0["hits"]["hits"].as_array().unwrap()
     }
@@ -417,15 +430,6 @@ impl SearchResponse {
             .find(|h| h["_id"] == id)
             .unwrap_or_else(|| panic!("hit {id} not found: {}", self.0))
     }
-}
-
-pub fn hit_ids(response: &Value) -> Vec<String> {
-    response["hits"]["hits"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|h| h["_id"].as_str().unwrap().to_string())
-        .collect()
 }
 
 #[derive(Debug)]

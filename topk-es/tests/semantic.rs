@@ -1,10 +1,10 @@
 mod common;
 
 use common::TestScope;
-use test_macros::rstest_ctx;
 use elasticsearch::http::StatusCode;
 use serde_json::{json, Value};
 use test_context::test_context;
+use test_macros::rstest_ctx;
 
 #[test_context(TestScope)]
 #[tokio::test]
@@ -33,6 +33,7 @@ async fn test_semantic_with_sort_orders_by_field(scope: &TestScope) {
         .expect("search should succeed");
 
     assert_eq!(body.hit_ids(), vec!["b", "a"], "{body}");
+    assert_eq!(body.total(), 2, "{body}");
     assert!(body.all_scores_null());
 }
 
@@ -75,6 +76,7 @@ async fn test_knn_with_semantic_query_combines_retrievers(scope: &TestScope) {
     let ids = body.hit_ids();
     assert!(ids.contains(&"vec".to_string()));
     assert!(ids.contains(&"sem".to_string()));
+    assert_eq!(body.total(), 2, "{body}");
 }
 
 #[rstest_ctx(TestScope)]
