@@ -1,10 +1,10 @@
 mod common;
 
 use common::{BooksContext, TestScope};
-use test_macros::rstest_ctx;
 use elasticsearch::http::StatusCode;
 use serde_json::{json, Value};
 use test_context::test_context;
+use test_macros::rstest_ctx;
 
 async fn setup_bool_scoring_docs(scope: &TestScope) {
     scope
@@ -317,7 +317,7 @@ async fn dev_range_array_bound_rejected_on_bare_index(scope: &TestScope) {
 
 #[test_context(TestScope)]
 #[tokio::test]
-async fn bug_size_limited_total_reports_returned_hits(scope: &TestScope) {
+async fn test_size_limited_total_reports_all_matches(scope: &TestScope) {
     scope.create().await;
 
     let docs: Vec<(String, Value)> = (0..5).map(|i| (i.to_string(), json!({ "n": i }))).collect();
@@ -331,12 +331,26 @@ async fn bug_size_limited_total_reports_returned_hits(scope: &TestScope) {
         .await
         .expect("search should succeed");
     assert_eq!(body.hit_ids().len(), 2, "{body}");
-    assert_eq!(body.total(), 2, "{body}");
+    assert_eq!(body.total(), 5, "{body}");
+    assert_eq!(body.total_relation(), "eq", "{body}");
+}
+
+#[test_context(BooksContext)]
+#[tokio::test]
+async fn test_term_query_total_reports_match_count(books: &BooksContext) {
+    let body = books
+        .search(json!({ "query": { "term": { "genre": "fiction" } }, "size": 2 }))
+        .await
+        .expect("search should succeed");
+    assert_eq!(body.hit_ids().len(), 2, "{body}");
+    // 4 fiction books: total is the match count, not hits (2) or corpus (10).
+    assert_eq!(body.total(), 4, "{body}");
+    assert_eq!(body.total_relation(), "eq", "{body}");
 }
 
 #[test_context(TestScope)]
 #[tokio::test]
-async fn bug_size_zero_returns_no_hits(scope: &TestScope) {
+async fn test_size_zero_returns_no_hits_but_full_total(scope: &TestScope) {
     scope.create().await;
 
     scope.index_docs([("1", json!({ "n": 1 }))]).await;
@@ -346,7 +360,7 @@ async fn bug_size_zero_returns_no_hits(scope: &TestScope) {
         .await
         .expect("size: 0 should succeed, not be rejected");
     assert_eq!(body.hit_ids().len(), 0, "{body}");
-    assert_eq!(body.total(), 0, "{body}");
+    assert_eq!(body.total(), 1, "{body}");
 }
 
 // ES serves `_search` over GET as well as POST, body in either.
@@ -569,6 +583,11 @@ async fn test_from_size_pagination(
         .await
         .expect("search should succeed");
     assert_eq!(body.hit_ids(), expected, "{body}");
+    assert_eq!(
+        body.total(),
+        4,
+        "total spans all matches across pages: {body}"
+    );
 }
 
 #[test_context(TestScope)]

@@ -1,7 +1,6 @@
 mod common;
 
 use common::TestScope;
-use test_macros::rstest_ctx;
 use elasticsearch::{
     http::StatusCode,
     indices::{IndicesCreateParts, IndicesDeleteParts, IndicesExistsParts},
@@ -9,6 +8,7 @@ use elasticsearch::{
 };
 use serde_json::{json, Value};
 use test_context::test_context;
+use test_macros::rstest_ctx;
 
 #[test_context(TestScope)]
 #[tokio::test]
