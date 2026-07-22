@@ -1,10 +1,10 @@
 mod common;
 
 use common::{BooksContext, TestScope};
-use test_macros::rstest_ctx;
 use elasticsearch::http::StatusCode;
 use serde_json::{json, Value};
 use test_context::test_context;
+use test_macros::rstest_ctx;
 
 async fn setup_hybrid_docs(scope: &TestScope) {
     scope
@@ -65,6 +65,7 @@ async fn test_knn_ranks_by_similarity_metric(
         }))
         .await;
 
+    let corpus = docs.len() as u64;
     scope.index_docs(docs).await;
 
     let body = scope
@@ -74,6 +75,11 @@ async fn test_knn_ranks_by_similarity_metric(
         .await
         .expect("search should succeed");
     assert_eq!(body.hit_ids(), expected, "nearest by {similarity}: {body}");
+    assert_eq!(
+        body.total(),
+        corpus,
+        "unfiltered knn matches the whole corpus: {body}"
+    );
 }
 
 #[rstest_ctx(TestScope)]
@@ -229,6 +235,56 @@ async fn test_knn_with_filter(scope: &TestScope) {
         vec!["2"],
         "filter should restrict candidates before ranking: {body}"
     );
+    assert_eq!(body.total(), 1, "{body}");
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_knn_total_counts_filter_matches_not_k(scope: &TestScope) {
+    scope
+        .create_with_properties(json!({
+            "category": { "type": "keyword" },
+            "embedding": { "type": "dense_vector", "dims": 4, "similarity": "cosine" }
+        }))
+        .await;
+
+    scope
+        .index_docs([
+            (
+                "1",
+                json!({ "category": "a", "embedding": [1.0, 0.0, 0.0, 0.0] }),
+            ),
+            (
+                "2",
+                json!({ "category": "a", "embedding": [0.9, 0.1, 0.0, 0.0] }),
+            ),
+            (
+                "3",
+                json!({ "category": "a", "embedding": [0.0, 1.0, 0.0, 0.0] }),
+            ),
+            (
+                "4",
+                json!({ "category": "b", "embedding": [0.8, 0.2, 0.0, 0.0] }),
+            ),
+        ])
+        .await;
+
+    let body = scope
+        .search(json!({
+            "knn": {
+                "field": "embedding",
+                "query_vector": [1.0, 0.0, 0.0, 0.0],
+                "k": 1,
+                "filter": { "term": { "category": "a" } }
+            }
+        }))
+        .await
+        .expect("search should succeed");
+
+    assert_eq!(body.hit_ids(), vec!["1"], "{body}");
+    // ES reports `k` here; we deliberately report the filter match count.
+    assert_eq!(body.total(), 3, "{body}");
+    assert_eq!(body.total_relation(), "eq", "{body}");
 }
 
 #[test_context(TestScope)]
@@ -388,9 +444,10 @@ async fn dev_knn_query_rrf_unions_retrievers_without_phantom_hits(scope: &TestSc
     let ids = body.hit_ids();
     assert_eq!(
         body.total(),
-        3,
-        "fusion should union the retrievers (1 term + 2 knn), not the whole index: {body}"
+        7,
+        "unfiltered knn matches every doc, so its count dominates the gte bound: {body}"
     );
+    assert_eq!(body.total_relation(), "gte", "{body}");
     assert!(ids.contains(&"text".to_string()), "{body}");
     assert!(ids.contains(&"vec1".to_string()), "{body}");
     assert!(ids.contains(&"vec2".to_string()), "{body}");
