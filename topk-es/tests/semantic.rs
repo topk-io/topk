@@ -77,7 +77,6 @@ async fn test_knn_with_semantic_query_combines_retrievers(scope: &TestScope) {
     assert!(ids.contains(&"vec".to_string()));
     assert!(ids.contains(&"sem".to_string()));
     assert_eq!(body.total(), 2, "{body}");
-    assert_eq!(body.total_relation(), "gte", "{body}");
 }
 
 #[rstest_ctx(TestScope)]

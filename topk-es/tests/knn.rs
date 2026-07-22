@@ -65,7 +65,6 @@ async fn test_knn_ranks_by_similarity_metric(
         }))
         .await;
 
-    let corpus = docs.len() as u64;
     scope.index_docs(docs).await;
 
     let body = scope
@@ -75,11 +74,6 @@ async fn test_knn_ranks_by_similarity_metric(
         .await
         .expect("search should succeed");
     assert_eq!(body.hit_ids(), expected, "nearest by {similarity}: {body}");
-    assert_eq!(
-        body.total(),
-        corpus,
-        "unfiltered knn matches the whole corpus: {body}"
-    );
 }
 
 #[rstest_ctx(TestScope)]
@@ -240,7 +234,7 @@ async fn test_knn_with_filter(scope: &TestScope) {
 
 #[test_context(TestScope)]
 #[tokio::test]
-async fn test_knn_total_counts_filter_matches_not_k(scope: &TestScope) {
+async fn dev_knn_total_reports_matched_count(scope: &TestScope) {
     scope
         .create_with_properties(json!({
             "category": { "type": "keyword" },
@@ -285,6 +279,15 @@ async fn test_knn_total_counts_filter_matches_not_k(scope: &TestScope) {
     // ES reports `k` here; we deliberately report the filter match count.
     assert_eq!(body.total(), 3, "{body}");
     assert_eq!(body.total_relation(), "eq", "{body}");
+
+    // Unfiltered: every doc matches, so total is the corpus, not `k`.
+    let body = scope
+        .search(json!({
+            "knn": { "field": "embedding", "query_vector": [1.0, 0.0, 0.0, 0.0], "k": 1 }
+        }))
+        .await
+        .expect("search should succeed");
+    assert_eq!(body.total(), 4, "{body}");
 }
 
 #[test_context(TestScope)]
