@@ -675,7 +675,7 @@ async fn should_does_not_filter() {
     .await
     .unwrap();
 
-    // should does not filter - the whole collection is returned
+    // should does not filter
     assert_eq!(rows.len(), 10);
     assert_eq!(rows[0].id().unwrap(), "lotr");
 }
@@ -685,7 +685,7 @@ async fn should_does_not_filter() {
 #[case::boost_epic("epic", "lotr")]
 #[tokio::test]
 async fn should_boosts_bm25_score(#[case] boost: &str, #[case] first: &str) {
-    // the should term only affects ranking - the result set is gated by match alone
+    // the should term only affects ranking
     let rows = BooksContext::with_scope(async |ctx| {
         ctx.sql(&format!(
             "SELECT _id, bm25_score() AS score FROM {{{{table}}}} \
