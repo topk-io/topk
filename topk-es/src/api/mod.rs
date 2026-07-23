@@ -1,6 +1,8 @@
 use serde::Serialize;
 
 mod aggs;
+pub mod alias;
+mod alias_api;
 mod body;
 mod bulk;
 mod count;
@@ -10,8 +12,6 @@ mod mapping;
 mod mget;
 mod msearch;
 mod ndjson;
-pub mod alias;
-mod alias_api;
 pub use alias_api::*;
 mod pit;
 pub use pit::*;
@@ -125,7 +125,6 @@ impl Default for TaskStatus {
         }
     }
 }
-
 
 impl Default for Shards {
     fn default() -> Self {

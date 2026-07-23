@@ -113,9 +113,10 @@ impl<S: Send + Sync> FromRequestParts<S> for IndexNames {
     type Rejection = Error;
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let Path(IndexPath { index }) = Path::<IndexPath>::from_request_parts(parts, state)
-            .await
-            .map_err(|e| Error::BadRequest(format!("Invalid path: {e}")))?;
+        let Path(IndexPath { index }) =
+            Path::<IndexPath>::from_request_parts(parts, state)
+                .await
+                .map_err(|e| Error::BadRequest(format!("Invalid path: {e}")))?;
 
         index
             .split(',')

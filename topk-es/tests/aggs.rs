@@ -1,9 +1,9 @@
 mod common;
 
 use common::{BooksContext, TestScope};
-use test_macros::rstest_ctx;
 use serde_json::{json, Value};
 use test_context::test_context;
+use test_macros::rstest_ctx;
 
 #[test_context(BooksContext)]
 #[tokio::test]

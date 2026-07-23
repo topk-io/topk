@@ -41,7 +41,7 @@ fn flatten_value(schema: &Schema, out: &mut HashMap<String, Value>, path: String
             let value = match schema.get(path.as_str()) {
                 Some(spec) if is_byte_vector(spec) => Value { value }.into_signed_bytes(),
                 Some(spec) if is_timestamp(spec) => Value { value }
-                    .as_i64()
+                    .as_timestamp()
                     .and_then(crate::date::format_millis)
                     .map(Value::string)
                     .unwrap_or(Value { value: None }),

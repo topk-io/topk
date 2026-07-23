@@ -1,6 +1,9 @@
+use topk_rs::proto::v1::control::field_type;
 use topk_rs::proto::v1::control::KeywordIndexType;
 use topk_rs::proto::v1::data::logical_expr::{self, nary_op};
-use topk_rs::proto::v1::data::{LogicalExpr, Query as TopkQuery, TextExpr, Value};
+use topk_rs::proto::v1::data::{
+    LogicalExpr, Query as TopkQuery, TextExpr, Value, Value as TopkValue,
+};
 use topk_rs::query::{count as count_query, field, filter, fns, not, should, SortOrder};
 
 use super::field::{ensure_aggregatable, IndexKind};
@@ -33,7 +36,9 @@ fn splice(exprs: impl IntoIterator<Item = LogicalExpr>, op: nary_op::Op) -> Vec<
     exprs
         .into_iter()
         .flat_map(|expr| match expr.expr {
-            Some(logical_expr::Expr::NaryOp(ref nary)) if nary.op == op as i32 => nary.exprs.clone(),
+            Some(logical_expr::Expr::NaryOp(ref nary)) if nary.op == op as i32 => {
+                nary.exprs.clone()
+            }
             _ => vec![expr],
         })
         .collect()
@@ -260,6 +265,27 @@ fn bm25(gate: LogicalExpr, text: TextExpr) -> CompiledQuery {
     }
 }
 
+fn is_timestamp(schema: &Schema, name: &str) -> bool {
+    matches!(
+        schema
+            .get(name)
+            .and_then(|s| s.data_type.as_ref()?.data_type.as_ref()),
+        Some(field_type::DataType::Timestamp(_))
+    )
+}
+
+// ISO-8601 (or already-millis) bound to the epoch-millis the timestamp column stores. Anything
+// else — notably date-math like `now-30s`, resolved in the proxy — is returned unchanged.
+fn resolve_ts_bound(value: TopkValue) -> TopkValue {
+    match value.as_string() {
+        Some(s) => match crate::date::parse_millis(s) {
+            Ok(millis) => TopkValue::timestamp(millis),
+            Err(_) => value,
+        },
+        None => value,
+    }
+}
+
 fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error> {
     match query {
         Query::MatchAll(q) => Ok(constant(LogicalExpr::literal(true), q.boost)),
@@ -363,18 +389,26 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
         }
         Query::Range(clause) => {
             let boost = clause.value.boost;
+            // On a timestamp field the bound arrives as an ISO-8601 string; parse it to the epoch
+            // millis the column stores. Date-math (`now-30s`) needs the wall clock and is resolved
+            // in the proxy — see ELASTIC.md; a bound we can't parse falls through unchanged.
+            let ts = is_timestamp(schema, clause.field.as_str());
+            let bound = |v: TopkValue| match ts {
+                true => resolve_ts_bound(v),
+                false => v,
+            };
             let mut exprs = Vec::new();
             if let Some(v) = clause.value.gte {
-                exprs.push(field(clause.field.clone()).gte(v.into_inner()));
+                exprs.push(field(clause.field.clone()).gte(bound(v.into_inner())));
             }
             if let Some(v) = clause.value.gt {
-                exprs.push(field(clause.field.clone()).gt(v.into_inner()));
+                exprs.push(field(clause.field.clone()).gt(bound(v.into_inner())));
             }
             if let Some(v) = clause.value.lte {
-                exprs.push(field(clause.field.clone()).lte(v.into_inner()));
+                exprs.push(field(clause.field.clone()).lte(bound(v.into_inner())));
             }
             if let Some(v) = clause.value.lt {
-                exprs.push(field(clause.field.clone()).lt(v.into_inner()));
+                exprs.push(field(clause.field.clone()).lt(bound(v.into_inner())));
             }
             // A bound-less range is ES's field-exists check.
             if exprs.is_empty() {

@@ -28,9 +28,10 @@ pub fn compile(clause: &AggClause, gate: &LogicalExpr) -> Result<TopkQuery, Erro
         // filter/missing/range/date_histogram: sub-bucket aggregations need per-bucket queries the
         // one-query-per-agg model can't express, so we return the outer gate's count and shape the
         // buckets in collect(). Real per-bucket counts are a follow-up (see ELASTIC.md).
-        AggType::Filter(_) | AggType::Missing(_) | AggType::Range(_) | AggType::DateHistogram(_) => {
-            Ok(filter(gate.clone()).count())
-        }
+        AggType::Filter(_)
+        | AggType::Missing(_)
+        | AggType::Range(_)
+        | AggType::DateHistogram(_) => Ok(filter(gate.clone()).count()),
         AggType::TopHits => Ok(filter(gate.clone()).count()),
         metric => {
             let query = filter(gate.clone()).group_by(
@@ -98,7 +99,11 @@ pub fn collect(clause: &AggClause, docs: Vec<Document>) -> Result<AggResult, Err
             let doc_count = docs
                 .into_iter()
                 .next()
-                .and_then(|mut doc| doc.fields.remove("_count").or_else(|| doc.fields.remove("count")))
+                .and_then(|mut doc| {
+                    doc.fields
+                        .remove("_count")
+                        .or_else(|| doc.fields.remove("count"))
+                })
                 .and_then(|v| v.as_u64())
                 .unwrap_or(0);
             Ok(AggResult::Single {
@@ -120,7 +125,9 @@ pub fn collect(clause: &AggClause, docs: Vec<Document>) -> Result<AggResult, Err
                 })
                 .collect(),
         }),
-        AggType::DateHistogram(_) => Ok(AggResult::Buckets { buckets: Vec::new() }),
+        AggType::DateHistogram(_) => Ok(AggResult::Buckets {
+            buckets: Vec::new(),
+        }),
         _ => {
             let value = docs
                 .into_iter()
