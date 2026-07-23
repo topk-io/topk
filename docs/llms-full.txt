@@ -3796,6 +3796,37 @@ LIMIT 50;
 
 </CodeGroup>
 
+##### offset
+
+Use the `.offset(n)` stage to skip the first `n` results.
+
+<CodeGroup>
+
+```python Python
+client.collection("books").query(
+    select("title", "author"),
+    filter=field("year") >= 2000,
+).limit(50).offset(100)
+```
+
+```js Javascript
+await client.collection("books").query(
+  select({ title: field("title"), author: field("author") }),
+  { filter: field("year").gte(2000) }
+).limit(50).offset(100);
+```
+
+```sql SQL
+SELECT title, author
+FROM books
+WHERE published_year >= 2000
+LIMIT 50 OFFSET 100;
+
+-- OFFSET requires a LIMIT clause
+```
+
+</CodeGroup>
+
 ##### sort
 
 Use the `.sort(expr, asc)` stage to sort results by an expression. Use `asc=True` for ascending order, `asc=False` for descending order.
