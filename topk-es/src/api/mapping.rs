@@ -102,7 +102,21 @@ pub enum FieldMapping {
         fields: Option<MappingProperties>,
     },
 
-    #[serde(rename = "keyword")]
+    #[serde(
+        rename = "keyword",
+        alias = "ip",
+        alias = "version",
+        alias = "binary",
+        alias = "wildcard",
+        alias = "flattened",
+        alias = "constant_keyword",
+        alias = "date_range",
+        alias = "integer_range",
+        alias = "long_range",
+        alias = "float_range",
+        alias = "double_range",
+        alias = "ip_range"
+    )]
     Keyword {
         #[serde(default)]
         index: Option<bool>,
@@ -112,7 +126,13 @@ pub enum FieldMapping {
         fields: Option<MappingProperties>,
     },
 
-    #[serde(rename = "integer", alias = "long", alias = "short", alias = "byte")]
+    #[serde(
+        rename = "integer",
+        alias = "long",
+        alias = "short",
+        alias = "byte",
+        alias = "unsigned_long"
+    )]
     Integer {
         #[serde(default)]
         #[allow(dead_code)]
@@ -132,7 +152,7 @@ pub enum FieldMapping {
         format: Option<String>,
     },
 
-    #[serde(rename = "float", alias = "double", alias = "half_float")]
+    #[serde(rename = "float", alias = "double", alias = "half_float", alias = "scaled_float")]
     Float {
         #[serde(default)]
         #[allow(dead_code)]
@@ -150,6 +170,10 @@ pub enum FieldMapping {
     Object {
         #[serde(default, skip_serializing_if = "MappingProperties::is_empty")]
         properties: MappingProperties,
+
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[allow(dead_code)]
+        dynamic: Option<serde_json::Value>,
     },
 
     #[serde(rename = "dense_vector")]
@@ -339,7 +363,7 @@ impl TryFrom<FieldMapping> for FieldSpec {
             FieldMapping::Date { .. } => Ok(FieldSpec::timestamp(false)),
             FieldMapping::Float { index: _ } => Ok(FieldSpec::float(false)),
             FieldMapping::Boolean { index: _ } => Ok(FieldSpec::boolean(false)),
-            FieldMapping::Object { properties } => Ok(FieldSpec::r#struct(
+            FieldMapping::Object { properties, .. } => Ok(FieldSpec::r#struct(
                 false,
                 properties
                     .0
@@ -453,6 +477,7 @@ impl TryFrom<&FieldSpec> for FieldMapping {
             Some(field_type::DataType::Float(_)) => FieldMapping::Float { index: Some(false) },
             Some(field_type::DataType::Boolean(_)) => FieldMapping::Boolean { index: Some(false) },
             Some(field_type::DataType::Struct(s)) => FieldMapping::Object {
+                dynamic: None,
                 properties: MappingProperties::try_from(s.fields.clone())?,
             },
             Some(
@@ -485,6 +510,7 @@ impl TryFrom<&FieldSpec> for FieldMapping {
                         element_type,
                     },
                     _ => FieldMapping::Object {
+                        dynamic: None,
                         properties: MappingProperties::default(),
                     },
                 }
@@ -492,6 +518,7 @@ impl TryFrom<&FieldSpec> for FieldMapping {
             Some(field_type::DataType::Matrix(m)) => {
                 let Ok(element_type) = m.value_type().try_into() else {
                     return Ok(FieldMapping::Object {
+                        dynamic: None,
                         properties: MappingProperties::default(),
                     });
                 };
@@ -516,11 +543,13 @@ impl TryFrom<&FieldSpec> for FieldMapping {
                         width: None,
                     },
                     _ => FieldMapping::Object {
+                        dynamic: None,
                         properties: MappingProperties::default(),
                     },
                 }
             }
             _ => FieldMapping::Object {
+                dynamic: None,
                 properties: MappingProperties::default(),
             },
         })

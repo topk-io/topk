@@ -1,4 +1,21 @@
 services:
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.18.0
+    environment:
+      # Defaults to the shim; set to http://elasticsearch:9200 for real ES. The emulator gateway
+      # routes by Host header and only accepts the hostnames on its HTTPRoute, so this must be
+      # `emulator.es.ddb` — `host.docker.internal` gets a 404 from the gateway, not the shim.
+      ELASTICSEARCH_HOSTS: ${KIBANA_ES_URL:-http://emulator.es.ddb:9200}
+      # Sent as `Authorization: Bearer <token>`, which is what ddb-auth expects.
+      ELASTICSEARCH_SERVICEACCOUNTTOKEN: ${TOPK_API_KEY:-}
+      # zdt is the algorithm Serverless Kibana uses — our target surface. It migrates in place,
+      # avoiding v2's default clone/write-block/reindex-temp path (endpoints Serverless lacks too).
+      MIGRATIONS_ALGORITHM: zdt
+    extra_hosts:
+      - "emulator.es.ddb:host-gateway"
+    ports:
+      - "5601:5601"
+
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.18.0
     environment:

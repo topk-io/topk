@@ -70,6 +70,17 @@ pub struct SearchRequest {
     #[serde(default)]
     #[allow(dead_code)]
     pub version: Option<bool>,
+
+    // Painless runtime-field scripts (task manager's task-cost calc). Accepted so the query
+    // parses; the field it defines does not exist, so aggregations over it return empty. TopK has
+    // no Painless — task manager cannot be fully healthy through the shim. See ELASTIC.md.
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub runtime_mappings: Option<serde_json::Value>,
+
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub script_fields: Option<serde_json::Value>,
 }
 
 fn default_size() -> u64 {
