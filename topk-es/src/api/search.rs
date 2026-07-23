@@ -471,6 +471,12 @@ struct SortValueFull {
     #[serde(default)]
     #[allow(dead_code)]
     missing: Option<Missing>,
+
+    // The type to assume when the field is unmapped. We resolve fields against the real schema,
+    // so this is advisory only — accepted and ignored.
+    #[serde(default)]
+    #[allow(dead_code)]
+    unmapped_type: Option<String>,
 }
 
 #[derive(Deserialize)]
