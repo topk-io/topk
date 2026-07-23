@@ -6,7 +6,8 @@ services:
       # routes by Host header and only accepts the hostnames on its HTTPRoute, so this must be
       # `emulator.es.ddb` — `host.docker.internal` gets a 404 from the gateway, not the shim.
       ELASTICSEARCH_HOSTS: ${KIBANA_ES_URL:-http://emulator.es.ddb:9200}
-      # Sent as `Authorization: Bearer <token>`, which is what ddb-auth expects.
+      # Sent as `Authorization: Bearer <token>`, which is what ddb-auth expects. This covers
+      # Kibana's own system calls (migration, task manager).
       ELASTICSEARCH_SERVICEACCOUNTTOKEN: ${TOPK_API_KEY:-}
       # zdt is the algorithm Serverless Kibana uses — our target surface. It migrates in place,
       # avoiding v2's default clone/write-block/reindex-temp path (endpoints Serverless lacks too).
@@ -15,6 +16,19 @@ services:
       - "emulator.es.ddb:host-gateway"
     ports:
       - "5601:5601"
+    # `serviceAccountToken` alone doesn't cover requests Kibana makes on behalf of an incoming
+    # browser call (data views, Discover, etc.) — those forward whatever Authorization header the
+    # browser sent, which is nothing (we have no Kibana login configured). `elasticsearch.
+    # customHeaders` fixes that by attaching a header to every outgoing ES request unconditionally,
+    # but it's a record type the docker image's env-var whitelist can't encode (JSON-string env var
+    # is rejected: "could not parse record value from json input") — so append it to kibana.yml as
+    # real YAML at container start, where $TOPK_API_KEY is the container's own env, not compose's.
+    entrypoint:
+      - bash
+      - -c
+      - |
+        printf '\nelasticsearch.customHeaders:\n  Authorization: "Bearer %s"\n' "$TOPK_API_KEY" >> /usr/share/kibana/config/kibana.yml
+        exec /usr/local/bin/kibana-docker
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.18.0
