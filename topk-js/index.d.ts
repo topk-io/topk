@@ -917,6 +917,34 @@ export declare namespace query {
   export function not(expr: LogicalExpression): LogicalExpression
   /** Creates a new query with a select stage. */
   export function select(exprs: Record<string, LogicalExpression | FunctionExpression>): Query
+  /**
+   * Adds an optional BM25 scoring term without filtering documents from the result set.
+   *
+   * Documents containing the term receive a higher BM25 score, while documents that
+   * do not contain it remain eligible for the results. Use `should()` together with
+   * `match()` when some terms are required and others should only influence ranking.
+   *
+   * When used on its own, `should()` matches the entire collection and ranks
+   * documents according to how well they match the term.
+   *
+   * ```js
+   * match("fantasy", { field: "tags" }).and(should("epic", { field: "tags" }))
+   * ```
+   *
+   * This returns only documents matching `fantasy`, while boosting documents that
+   * also match `epic`.
+   *
+   * - `options.field`: Keyword-indexed field used for scoring. Searches all eligible fields when omitted.
+   * - `options.weight`: Multiplier applied to the term's BM25 contribution. Defaults to `1.0`.
+   */
+  export function should(token: string, options?: ShouldOptions | undefined | null): TextExpression
+  /** Options for `should` scoring. */
+  export interface ShouldOptions {
+    /** Field to score against */
+    field?: string
+    /** Weight for the term */
+    weight?: number
+  }
   export interface Term {
     /** The token to match. */
     token: string

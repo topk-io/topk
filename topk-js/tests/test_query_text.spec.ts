@@ -1,4 +1,12 @@
-import { field, fn, match, matchTokens, select, filter } from "../lib/query";
+import {
+  field,
+  fn,
+  match,
+  matchTokens,
+  select,
+  filter,
+  should,
+} from "../lib/query";
 import { int, keywordIndex, list, text } from "../lib/schema";
 import { newProjectContext, ProjectContext } from "./setup";
 
@@ -277,6 +285,60 @@ describe("Text Queries", () => {
     expect(new Set(result.map((doc) => doc._id))).toEqual(
       new Set(["gatsby", "pride"])
     );
+  });
+
+  test("query text should does not filter", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("books", {
+      summary: text().required().index(keywordIndex()),
+    });
+
+    await ctx.client.collection(collection.name).upsert([
+      { _id: "pride", summary: "A story about love, class and marriage" },
+      { _id: "gatsby", summary: "A tale of love and wealth" },
+      { _id: "lotr", summary: "A fantasy epic" },
+    ]);
+
+    const result = await ctx.client.collection(collection.name).query(
+      select({ score: fn.bm25Score() })
+        .filter(should("love", { field: "summary" }))
+        .topk(field("score"), 100)
+    );
+
+    // should does not filter - even "lotr" (no match) is returned, scored last
+    expect(result.length).toEqual(3);
+    expect(result[2]._id).toEqual("lotr");
+  });
+
+  test("query text should boosts bm25 score", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("books", {
+      summary: text().required().index(keywordIndex()),
+    });
+
+    await ctx.client.collection(collection.name).upsert([
+      { _id: "pride", summary: "A story about love, class and marriage" },
+      { _id: "gatsby", summary: "A tale of love and wealth" },
+      { _id: "lotr", summary: "A fantasy epic" },
+    ]);
+
+    // the should term only affects ranking - the result set is gated by "love" alone
+    for (const [boost, expected] of [
+      ["wealth", ["gatsby", "pride"]],
+      ["marriage", ["pride", "gatsby"]],
+    ] as const) {
+      const result = await ctx.client.collection(collection.name).query(
+        select({ score: fn.bm25Score() })
+          .filter(
+            match("love", { field: "summary" }).and(
+              should(boost, { field: "summary" })
+            )
+          )
+          .topk(field("score"), 100)
+      );
+
+      expect(result.map((doc) => doc._id)).toEqual(expected);
+    }
   });
 
   test("query text filter match_tokens strings only", async () => {

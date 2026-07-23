@@ -1,10 +1,10 @@
 import pytest
 from topk_sdk import error
-from topk_sdk.query import field, filter, fn, match, match_tokens, select
+from topk_sdk.query import field, filter, fn, match, match_tokens, select, should
 from topk_sdk.schema import keyword_index, text
 
 from . import ProjectContext
-from .utils import dataset, doc_ids
+from .utils import dataset, doc_ids, doc_ids_ordered
 
 
 def test_query_text_filter_single_term_disjunctive(ctx: ProjectContext):
@@ -94,6 +94,38 @@ def test_query_text_filter_stop_word(ctx: ProjectContext):
     )
 
     assert len(result) == 0
+
+
+def test_query_text_should_does_not_filter(ctx: ProjectContext):
+    collection = dataset.books.setup(ctx)
+
+    result = ctx.client.collection(collection.name).query(
+        select(bm25=fn.bm25_score())
+        .filter(should("love", field="summary"))
+        .sort(field("bm25"), False)
+        .limit(100)
+    )
+
+    assert len(result) == 10
+    assert doc_ids(result[:2]) == {"pride", "gatsby"}
+
+
+def test_query_text_should_boosts_bm25_score(ctx: ProjectContext):
+    collection = dataset.books.setup(ctx)
+
+    # the should term only affects ranking - the result set is gated by "love" alone
+    for boost, expected in [
+        ("wealth", ["gatsby", "pride"]),
+        ("marriage", ["pride", "gatsby"]),
+    ]:
+        result = ctx.client.collection(collection.name).query(
+            select(bm25=fn.bm25_score())
+            .filter(match("love", field="summary") & should(boost, field="summary"))
+            .sort(field("bm25"), False)
+            .limit(100)
+        )
+
+        assert doc_ids_ordered(result) == expected
 
 
 def test_query_text_exact_keyword(ctx: ProjectContext):

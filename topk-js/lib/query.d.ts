@@ -19,6 +19,7 @@ export declare const groupBy: typeof query.groupBy;
 export declare const literal: typeof query.literal;
 export declare const match: typeof query.match;
 export declare const matchTokens: typeof query.matchTokens;
+export declare const should: typeof query.should;
 export declare const not: typeof query.not;
 export declare const min: typeof query.min;
 export declare const max: typeof query.max;

@@ -664,6 +664,44 @@ async fn bm25_match_weight_orders_results() {
 }
 
 #[tokio::test]
+async fn should_does_not_filter() {
+    let rows = BooksContext::with_scope(async |ctx| {
+        ctx.sql(
+            "SELECT _id, bm25_score() AS score FROM {{table}} \
+             WHERE should('rings', title) ORDER BY score DESC LIMIT 100",
+        )
+        .await
+    })
+    .await
+    .unwrap();
+
+    // should does not filter
+    assert_eq!(rows.len(), 10);
+    assert_eq!(rows[0].id().unwrap(), "lotr");
+}
+
+#[rstest]
+#[case::boost_magic("magic", "harry")]
+#[case::boost_epic("epic", "lotr")]
+#[tokio::test]
+async fn should_boosts_bm25_score(#[case] boost: &str, #[case] first: &str) {
+    // the should term only affects ranking
+    let rows = BooksContext::with_scope(async |ctx| {
+        ctx.sql(&format!(
+            "SELECT _id, bm25_score() AS score FROM {{{{table}}}} \
+             WHERE match('fantasy', tags) AND should('{boost}', tags) \
+             ORDER BY score DESC LIMIT 3"
+        ))
+        .await
+    })
+    .await
+    .unwrap();
+
+    assert_eq!(ids(&rows), ids!["hobbit", "lotr", "harry"]);
+    assert_eq!(rows[0].id().unwrap(), first);
+}
+
+#[tokio::test]
 async fn text_filter_or_text_filter() {
     let rows = BooksContext::with_scope(async |ctx| {
         ctx.sql("SELECT _id FROM {{table}} WHERE match('hobbit', title) OR match('rings', title)")
@@ -1096,6 +1134,10 @@ async fn semantic_similarity_search() {
 #[case::match_non_bool_all(
     "SELECT _id FROM {{table}} WHERE match('rings', title, 1.0, 'yes')",
     "Invalid: match: all must be a bool literal"
+)]
+#[case::should_too_many_args(
+    "SELECT _id FROM {{table}} WHERE should('rings', title, 1.0, true)",
+    "Invalid: should: expected 1..=3 args, got 4"
 )]
 #[case::match_tokens_non_string_array(
     "SELECT _id FROM {{table}} WHERE match_tokens(ARRAY[1, 2], title)",

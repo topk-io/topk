@@ -514,6 +514,34 @@ def match(
 
 ...
 
+def should(
+    token: builtins.str,
+    field: builtins.str | None = None,
+    weight: builtins.float = 1.0,
+) -> TextExpr:
+    """
+    Adds an optional BM25 scoring term without filtering documents from the result set.
+
+    Documents containing the term receive a higher BM25 score, while documents that
+    do not contain it remain eligible for the results. Use ``should()`` together with
+    ``match()`` when some terms are required and others should only influence ranking.
+
+    When used on its own, ``should()`` matches the entire collection and ranks
+    documents according to how well they match the term.
+
+    ```python
+    match("fantasy", field="tags") & should("epic", field="tags")
+    ```
+
+    This returns only documents matching ``fantasy``, while boosting documents that
+    also match ``epic``.
+
+    - ``field``: Keyword-indexed field used for scoring. Searches all eligible fields when omitted.
+    - ``weight``: Multiplier applied to the term's BM25 contribution. Defaults to ``1.0``.
+    """
+
+...
+
 def match_tokens(
     tokens: typing.Sequence[builtins.str | tuple[builtins.str, builtins.float]],
     field: builtins.str | None = None,

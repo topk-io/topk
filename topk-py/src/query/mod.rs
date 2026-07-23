@@ -39,6 +39,7 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(literal))?;
     m.add_wrapped(wrap_pyfunction!(r#match))?;
     m.add_wrapped(wrap_pyfunction!(match_tokens))?;
+    m.add_wrapped(wrap_pyfunction!(should))?;
     m.add_wrapped(wrap_pyfunction!(not_))?;
     m.add_wrapped(wrap_pyfunction!(min))?;
     m.add_wrapped(wrap_pyfunction!(max))?;
@@ -88,6 +89,21 @@ pub fn literal(value: Value) -> LogicalExpr {
 pub fn r#match(token: String, field: Option<String>, weight: f32, all: bool) -> TextExpr {
     TextExpr::Terms {
         all,
+        should: false,
+        terms: vec![Term {
+            token,
+            field,
+            weight,
+        }],
+    }
+}
+
+#[pyfunction]
+#[pyo3(signature = (token, field=None, weight=1.0))]
+pub fn should(token: String, field: Option<String>, weight: f32) -> TextExpr {
+    TextExpr::Terms {
+        all: false,
+        should: true,
         terms: vec![Term {
             token,
             field,
@@ -132,7 +148,11 @@ pub fn match_tokens(
             ));
         }
     }
-    Ok(TextExpr::Terms { all, terms })
+    Ok(TextExpr::Terms {
+        all,
+        should: false,
+        terms,
+    })
 }
 
 #[pyfunction]
