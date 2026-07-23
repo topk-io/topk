@@ -223,7 +223,7 @@ pub struct ShouldOptions {
 pub fn should(token: String, options: Option<ShouldOptions>) -> TextExpression {
     let options = options.unwrap_or_default();
 
-    TextExpression::should_terms(vec![Term {
+    TextExpression::should(vec![Term {
         token,
         field: options.field,
         weight: options.weight.unwrap_or(1.0),

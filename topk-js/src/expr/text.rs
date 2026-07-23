@@ -36,7 +36,7 @@ impl TextExpression {
         }
     }
 
-    pub(crate) fn should_terms(terms: Vec<Term>) -> Self {
+    pub(crate) fn should(terms: Vec<Term>) -> Self {
         Self {
             expr: TextExpressionUnion::Terms {
                 all: false,
