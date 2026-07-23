@@ -191,6 +191,45 @@ pub fn match_(token: String, options: Option<MatchOptions>) -> TextExpression {
     )
 }
 
+/// Options for `should` scoring.
+#[napi(object, namespace = "query")]
+#[derive(Default)]
+pub struct ShouldOptions {
+    /// Field to score against
+    pub field: Option<String>,
+    /// Weight for the term
+    pub weight: Option<f64>,
+}
+
+/// Adds an optional BM25 scoring term without filtering documents from the result set.
+///
+/// Documents containing the term receive a higher BM25 score, while documents that
+/// do not contain it remain eligible for the results. Use `should()` together with
+/// `match()` when some terms are required and others should only influence ranking.
+///
+/// When used on its own, `should()` matches the entire collection and ranks
+/// documents according to how well they match the term.
+///
+/// ```js
+/// match("fantasy", { field: "tags" }).and(should("epic", { field: "tags" }))
+/// ```
+///
+/// This returns only documents matching `fantasy`, while boosting documents that
+/// also match `epic`.
+///
+/// - `options.field`: Keyword-indexed field used for scoring. Searches all eligible fields when omitted.
+/// - `options.weight`: Multiplier applied to the term's BM25 contribution. Defaults to `1.0`.
+#[napi(namespace = "query")]
+pub fn should(token: String, options: Option<ShouldOptions>) -> TextExpression {
+    let options = options.unwrap_or_default();
+
+    TextExpression::should_terms(vec![Term {
+        token,
+        field: options.field,
+        weight: options.weight.unwrap_or(1.0),
+    }])
+}
+
 /// A token for match_tokens
 #[napi(object, namespace = "query")]
 #[derive(Clone)]

@@ -2699,6 +2699,53 @@ import { match } from "topk-js/query";
 
 </CodeGroup>
 
+###### Boost ranking with optional terms
+
+The `should()` function adds an optional BM25 scoring term without filtering documents from the result set.
+
+Documents containing the term receive a higher BM25 score, while documents that do not contain it remain eligible for the results. Use `should()` together with `match()` when some terms are required and others should only influence ranking.
+
+When used on its own, `should()` matches the entire collection and ranks documents according to how well they match the term.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import match, should
+
+.filter(match("fantasy", field="tags") & should("epic", field="tags"))
+```
+
+
+```js Javascript
+import { match, should } from "topk-js/query";
+
+.filter(match("fantasy", { field: "tags" }).and(should("epic", { field: "tags" })))
+```
+
+```sql SQL
+WHERE match('fantasy', tags) AND should('epic', tags)
+```
+
+</CodeGroup>
+
+This returns only documents matching `fantasy`, while boosting documents that also match `epic`.
+
+The `should()` function accepts the following parameters:
+
+<ParamField path="token" type="string" required>
+  String token to score against.
+</ParamField>
+
+<ParamField path="options.field" type="string">
+  Keyword-indexed field used for scoring.
+  Searches all eligible fields when omitted.
+</ParamField>
+
+<ParamField path="options.weight" type="number">
+  Multiplier applied to the term's BM25 contribution.
+  Defaults to **1.0**.
+</ParamField>
+
 ##### Combine keyword search and metadata filtering
 
 You can combine metadata filtering and keyword search in a single query by stacking multiple filter stages.
@@ -9612,6 +9659,45 @@ Perform a BM25 keyword search using TopK's built-in tokenizer.
 
 ***
 
+##### should()
+
+```python
+should(token: str, field: str | None = None, weight: float = 1.0) -> TextExpr
+```
+
+Adds an optional BM25 scoring term without filtering documents from the result set.
+
+    Documents containing the term receive a higher BM25 score, while documents that
+    do not contain it remain eligible for the results. Use ``should()`` together with
+    ``match()`` when some terms are required and others should only influence ranking.
+
+    When used on its own, ``should()`` matches the entire collection and ranks
+    documents according to how well they match the term.
+
+    ```python
+    match("fantasy", field="tags") & should("epic", field="tags")
+    ```
+
+    This returns only documents matching ``fantasy``, while boosting documents that
+    also match ``epic``.
+
+    - ``field``: Keyword-indexed field used for scoring. Searches all eligible fields when omitted.
+    - ``weight``: Multiplier applied to the term's BM25 contribution. Defaults to ``1.0``.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `token` | str |
+| `field` | str &#124; None |
+| `weight` | float |
+
+**Returns**
+
+[`TextExpr`](#textexpr)
+
+***
+
 ##### match_tokens()
 
 ```python
@@ -12891,6 +12977,44 @@ Creates a new query with a select stage.
 
 [`Query`](/sdk/topk-js/Namespace.query#query)
 
+***
+
+##### should()
+
+```ts
+function should(token: string, options?: ShouldOptions): TextExpression;
+```
+
+Adds an optional BM25 scoring term without filtering documents from the result set.
+
+Documents containing the term receive a higher BM25 score, while documents that
+do not contain it remain eligible for the results. Use `should()` together with
+`match()` when some terms are required and others should only influence ranking.
+
+When used on its own, `should()` matches the entire collection and ranks
+documents according to how well they match the term.
+
+```js
+match("fantasy", { field: "tags" }).and(should("epic", { field: "tags" }))
+```
+
+This returns only documents matching `fantasy`, while boosting documents that
+also match `epic`.
+
+- `options.field`: Keyword-indexed field used for scoring. Searches all eligible fields when omitted.
+- `options.weight`: Multiplier applied to the term's BM25 contribution. Defaults to `1.0`.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `token` | `string` |
+| `options?` | [`ShouldOptions`](/sdk/topk-js/Namespace.query#shouldoptions) |
+
+**Returns**
+
+[`TextExpression`](/sdk/topk-js/Namespace.query#textexpression)
+
 #### Classes
 
 ##### AggregateExpression
@@ -13769,15 +13893,28 @@ Options for match_tokens.
 
 ***
 
+##### ShouldOptions
+
+Options for `should` scoring.
+
+**Properties**
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="property-field-2"></a> `field?` | `string` | Field to score against |
+| <a id="property-weight-2"></a> `weight?` | `number` | Weight for the term |
+
+***
+
 ##### Term
 
 **Properties**
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="property-field-2"></a> `field?` | `string` | The field to match against. |
+| <a id="property-field-3"></a> `field?` | `string` | The field to match against. |
 | <a id="property-token-1"></a> `token` | `string` | The token to match. |
-| <a id="property-weight-2"></a> `weight` | `number` | The weight of the term. |
+| <a id="property-weight-3"></a> `weight` | `number` | The weight of the term. |
 
 ### topk-js/schema
 
@@ -14712,6 +14849,7 @@ Wire-type casts (`::int4`, `::float8`, `::text`, …) control how the column is 
 | `contains(field, scalar)` | `contains(tags, 'classic')` |
 | `match(query [, field [, weight [, all]]])` | `match('hobbit rings', title)` |
 | `match_tokens(tokens [, field [, all]])` | `match_tokens(ARRAY['love', 'classic'], tags)` |
+| `should(query [, field [, weight]])` | `should('rings', title)` |
 | `match_all(field, query)` | `match_all(title, 'hobbit rings')` |
 | `match_any(field, query)` | `match_any(tags, ARRAY['love', 'classic'])` |
 
@@ -14766,9 +14904,20 @@ LIMIT 10;
 |----------|-------------|
 | `match(query [, field [, weight [, all]]])` | Keyword text search |
 | `match_tokens(tokens [, field [, all]])` | Keyword token search |
+| `should(query [, field [, weight]])` | Optional BM25 scoring term without filtering |
 | `match_all(field, query)` | Boolean predicate — all terms must match |
 | `match_any(field, query)` | Boolean predicate — any term must match |
 | `contains(field, scalar)` | List membership or string substring |
+
+`should(...)` adds an optional BM25 scoring term without filtering documents from the result set — documents containing the term score higher, while documents that do not contain it remain eligible. On its own it matches the entire collection; combine it with `match(...)` using `AND` when some terms are required and others should only influence ranking:
+
+```sql
+SELECT _id, title, bm25_score() AS score
+FROM books
+WHERE match('hobbit rings', title) AND should('lord', title)
+ORDER BY score DESC
+LIMIT 10;
+```
 
 `match_all(...)` and `match_any(...)` are boolean-only predicates — they filter documents but do not affect relevance ranking:
 

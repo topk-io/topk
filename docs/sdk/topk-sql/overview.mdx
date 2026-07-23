@@ -161,6 +161,7 @@ Wire-type casts (`::int4`, `::float8`, `::text`, …) control how the column is 
 | `contains(field, scalar)` | `contains(tags, 'classic')` |
 | `match(query [, field [, weight [, all]]])` | `match('hobbit rings', title)` |
 | `match_tokens(tokens [, field [, all]])` | `match_tokens(ARRAY['love', 'classic'], tags)` |
+| `should(query [, field [, weight]])` | `should('rings', title)` |
 | `match_all(field, query)` | `match_all(title, 'hobbit rings')` |
 | `match_any(field, query)` | `match_any(tags, ARRAY['love', 'classic'])` |
 
@@ -215,9 +216,20 @@ LIMIT 10;
 |----------|-------------|
 | `match(query [, field [, weight [, all]]])` | Keyword text search |
 | `match_tokens(tokens [, field [, all]])` | Keyword token search |
+| `should(query [, field [, weight]])` | Optional BM25 scoring term without filtering |
 | `match_all(field, query)` | Boolean predicate — all terms must match |
 | `match_any(field, query)` | Boolean predicate — any term must match |
 | `contains(field, scalar)` | List membership or string substring |
+
+`should(...)` adds an optional BM25 scoring term without filtering documents from the result set — documents containing the term score higher, while documents that do not contain it remain eligible. On its own it matches the entire collection; combine it with `match(...)` using `AND` when some terms are required and others should only influence ranking:
+
+```sql
+SELECT _id, title, bm25_score() AS score
+FROM books
+WHERE match('hobbit rings', title) AND should('lord', title)
+ORDER BY score DESC
+LIMIT 10;
+```
 
 `match_all(...)` and `match_any(...)` are boolean-only predicates — they filter documents but do not affect relevance ranking:
 

@@ -12,6 +12,7 @@ pub struct TextExpression {
 pub enum TextExpressionUnion {
     Terms {
         all: bool,
+        should: bool,
         terms: Vec<Term>,
     },
     And {
@@ -27,7 +28,21 @@ pub enum TextExpressionUnion {
 impl TextExpression {
     pub(crate) fn terms(all: bool, terms: Vec<Term>) -> Self {
         Self {
-            expr: TextExpressionUnion::Terms { all, terms },
+            expr: TextExpressionUnion::Terms {
+                all,
+                should: false,
+                terms,
+            },
+        }
+    }
+
+    pub(crate) fn should_terms(terms: Vec<Term>) -> Self {
+        Self {
+            expr: TextExpressionUnion::Terms {
+                all: false,
+                should: true,
+                terms,
+            },
         }
     }
 }
@@ -60,10 +75,14 @@ impl TextExpression {
 impl Into<topk_rs::proto::v1::data::TextExpr> for TextExpression {
     fn into(self) -> topk_rs::proto::v1::data::TextExpr {
         match self.expr {
-            TextExpressionUnion::Terms { all, terms } => topk_rs::proto::v1::data::TextExpr::terms(
-                all,
-                terms.into_iter().map(|term| term.into()).collect(),
-            ),
+            TextExpressionUnion::Terms { all, should, terms } => {
+                let terms = terms.into_iter().map(|term| term.into()).collect();
+                if should {
+                    topk_rs::proto::v1::data::TextExpr::should(terms)
+                } else {
+                    topk_rs::proto::v1::data::TextExpr::terms(all, terms)
+                }
+            }
             TextExpressionUnion::And { left, right } => {
                 let left: topk_rs::proto::v1::data::TextExpr = left.as_ref().clone().into();
                 let right: topk_rs::proto::v1::data::TextExpr = right.as_ref().clone().into();

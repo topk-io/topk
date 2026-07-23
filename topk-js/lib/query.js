@@ -21,6 +21,7 @@ module.exports.LogicalExpression = query.LogicalExpression;
 module.exports.AggregateExpression = query.AggregateExpression;
 module.exports.match = query.match;
 module.exports.matchTokens = query.matchTokens;
+module.exports.should = query.should;
 module.exports.not = query.not;
 module.exports.min = query.min;
 module.exports.max = query.max;

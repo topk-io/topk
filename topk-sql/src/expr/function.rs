@@ -70,6 +70,7 @@ impl TryFrom<SqlFunction> for Expr {
             }
             "match" => Self::Text(text_match(args, &name)?),
             "match_tokens" => Self::Text(text_match_tokens(args, &name)?),
+            "should" => Self::Text(text_should(args, &name)?),
             "boost" => {
                 let [score, cond, factor]: [SqlExpr; 3] = exact(args, &name)?;
                 let score = LogicalExpr::from_sql(score)?;
@@ -276,6 +277,34 @@ fn text_match(args: Vec<SqlExpr>, name: &str) -> Result<TextExpr, Error> {
             weight,
         }],
     ))
+}
+
+fn text_should(args: Vec<SqlExpr>, name: &str) -> Result<TextExpr, Error> {
+    let (query, field, weight) = match args.len() {
+        1 => {
+            let [query]: [SqlExpr; 1] = exact(args, name)?;
+            (query, None, 1.0)
+        }
+        2 => {
+            let [query, field]: [SqlExpr; 2] = exact(args, name)?;
+            (query, optional_field(field, name)?, 1.0)
+        }
+        3 => {
+            let [query, field, weight]: [SqlExpr; 3] = exact(args, name)?;
+            (query, optional_field(field, name)?, f32_literal(weight)?)
+        }
+        n => sql_invalid!("{name}: expected 1..=3 args, got {n}"),
+    };
+
+    let token = query
+        .as_string()
+        .ok_or_else(|| Error::Invalid(format!("{name}: query must be a string literal")))?;
+
+    Ok(TextExpr::should(vec![Term {
+        token,
+        field,
+        weight,
+    }]))
 }
 
 fn text_match_tokens(args: Vec<SqlExpr>, name: &str) -> Result<TextExpr, Error> {

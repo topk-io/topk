@@ -6,6 +6,7 @@ use pyo3::prelude::*;
 pub enum TextExpr {
     Terms {
         all: bool,
+        should: bool,
         terms: Vec<Term>,
     },
     And {
@@ -65,10 +66,14 @@ impl TextExpr {
 impl From<TextExpr> for topk_rs::proto::v1::data::TextExpr {
     fn from(expr: TextExpr) -> Self {
         match expr {
-            TextExpr::Terms { all, terms } => topk_rs::proto::v1::data::TextExpr::terms(
-                all,
-                terms.into_iter().map(|term| term.into()).collect(),
-            ),
+            TextExpr::Terms { all, should, terms } => {
+                let terms = terms.into_iter().map(|term| term.into()).collect();
+                if should {
+                    topk_rs::proto::v1::data::TextExpr::should(terms)
+                } else {
+                    topk_rs::proto::v1::data::TextExpr::terms(all, terms)
+                }
+            }
             TextExpr::And { left, right } => {
                 let left: topk_rs::proto::v1::data::TextExpr = left.get().clone().into();
                 let right: topk_rs::proto::v1::data::TextExpr = right.get().clone().into();
