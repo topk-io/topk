@@ -1662,7 +1662,7 @@ select({
 
 ## Collection
 
-All queries **must** have a collection stage. Currently, we only support `topk()` and `count()` collectors.
+All queries **must** have a collection stage. Currently, we support `topk()`, `count()` and `group_by()` collectors.
 
 ### topk
 
@@ -1788,8 +1788,143 @@ SELECT COUNT(*) FROM books WHERE published_year > 2000;
 
 </CodeGroup>
 
+### group_by
+
+Use the `group_by(keys, aggs)` stage to group documents by one or more key expressions and compute aggregations for each group. The query returns one row per group, containing the group keys and the aggregated values.
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import group_by, field, agg
+
+client.collection("books").query(
+    group_by(
+        {"is_classic": field("published_year") < 1940},
+        {"count": agg.count()},
+    )
+)
+```
+
+```js Javascript
+import { groupBy, field, agg } from "topk-js/query";
+
+await client.collection("books").query(
+  groupBy(
+    { is_classic: field("published_year").lt(1940) },
+    { count: agg.count() }
+  )
+);
+```
+
+```sql SQL
+SELECT published_year < 1940 AS is_classic, COUNT(*) AS count
+FROM books
+GROUP BY is_classic;
+```
+
+</CodeGroup>
+
+The following aggregate functions are supported, exposed via the `agg` module in the SDKs (`topk_sdk.query.agg` in Python, `agg` from `topk-js/query` in JavaScript) and as standard `COUNT`/`SUM`/`MIN`/`MAX`/`AVG` functions in SQL:
+
+| Aggregate | Description |
+| --------- | ----------- |
+| `count()` | Number of documents in the group |
+| `count(field)` | Number of non-null values of `field` in the group |
+| `sum(field)` | Sum of `field` in the group |
+| `min(field)` | Minimum value of `field` in the group |
+| `max(field)` | Maximum value of `field` in the group |
+| `avg(field)` | Average value of `field` in the group |
+
+Multiple aggregations can be computed in a single `group_by()`:
+
+<CodeGroup>
+
+```python Python
+client.collection("books").query(
+    group_by(
+        {"is_classic": field("published_year") < 1940},
+        {
+            "count": agg.count(),
+            "rated": agg.count("rating"),
+            "total_pages": agg.sum("pages"),
+            "oldest": agg.min("published_year"),
+            "newest": agg.max("published_year"),
+            "avg_year": agg.avg("published_year"),
+        },
+    )
+)
+```
+
+```js Javascript
+await client.collection("books").query(
+  groupBy(
+    { is_classic: field("published_year").lt(1940) },
+    {
+      count: agg.count(),
+      rated: agg.count("rating"),
+      total_pages: agg.sum("pages"),
+      oldest: agg.min("published_year"),
+      newest: agg.max("published_year"),
+      avg_year: agg.avg("published_year"),
+    }
+  )
+);
+```
+
+```sql SQL
+SELECT published_year < 1940 AS is_classic,
+       COUNT(*) AS count,
+       COUNT(rating) AS rated,
+       SUM(pages) AS total_pages,
+       MIN(published_year) AS oldest,
+       MAX(published_year) AS newest,
+       AVG(published_year) AS avg_year
+FROM books
+GROUP BY is_classic;
+```
+
+</CodeGroup>
+
+The `group_by()` stage can be combined with preceding `filter()` and `select()` stages — group keys and aggregations can reference computed columns projected by an earlier `select()`:
+
+<CodeGroup>
+
+```python Python
+client.collection("books").query(
+    filter(field("published_year") >= 1940).group_by(
+        {"recent": field("published_year") > 1980},
+        {"count": agg.count()},
+    )
+)
+```
+
+```js Javascript
+await client.collection("books").query(
+  filter(field("published_year").gte(1940)).groupBy(
+    { recent: field("published_year").gt(1980) },
+    { count: agg.count() }
+  )
+);
+```
+
+```sql SQL
+SELECT published_year > 1980 AS recent, COUNT(*) AS count
+FROM books
+WHERE published_year >= 1940
+GROUP BY recent;
+
+-- Use HAVING to filter on the grouped output
+SELECT published_year > 1980 AS recent, COUNT(*) AS count
+FROM books
+WHERE published_year >= 1940
+GROUP BY recent
+HAVING count > 2;
+```
+
+</CodeGroup>
+
 <Info>
-  When writing queries, remember that they all require the `topk` or `count` function at the end.
+  When writing queries, remember that they all require the `topk`, `count` or `group_by` function at the end.
 </Info>
 
 ## Query options
