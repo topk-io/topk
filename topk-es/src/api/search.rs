@@ -399,6 +399,9 @@ impl TryFrom<SortWire> for SortClause {
 
         let fields = sorts
             .into_iter()
+            // A `_script` sort (Painless) can't be evaluated; drop it rather than sort on a
+            // literal field named "_script". Any remaining real sort keys still apply.
+            .filter(|sort| sort.name().as_str() != "_script")
             .map(|sort| {
                 let target = match sort.name().as_str() {
                     SORT_SCORE => SortTarget::Score,
@@ -460,8 +463,11 @@ impl SortValue {
     }
 }
 
+// No `deny_unknown_fields`: a `_script` sort (Painless-computed order, e.g. task manager's task
+// priority) carries `type`/`script` alongside `order`. We can't evaluate the script, so it's
+// accepted here and then dropped entirely in TryFrom<SortWire> — no ordering from it, rather
+// than a hard parse failure.
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
 struct SortValueFull {
     #[serde(default)]
     order: Option<SortOrder>,

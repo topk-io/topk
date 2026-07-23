@@ -96,7 +96,9 @@ fn dekeyword(value: Value) -> Value {
     let Some(s) = value.as_string() else {
         return value;
     };
-    if !(s.starts_with(KEYWORD_DELIM) && s.ends_with(KEYWORD_DELIM) && s.len() > 1) {
+    // A single delimiter char is the empty-array encoding (`enkeyword` always emits at least
+    // one bracket); `starts_with`/`ends_with` both trivially hold for it, so no length guard.
+    if !(s.starts_with(KEYWORD_DELIM) && s.ends_with(KEYWORD_DELIM)) {
         return value;
     }
     let items: Vec<serde_json::Value> = s
@@ -117,20 +119,38 @@ fn is_keyword_exact(spec: &FieldSpec) -> bool {
 pub fn decode_fields(schema: &Schema, fields: HashMap<String, Value>) -> HashMap<String, Value> {
     let mut flat = HashMap::new();
     for (name, value) in fields {
-        flatten_value(schema, &mut flat, name, value);
+        let spec = schema.get(name.as_str());
+        flatten_value(spec, &mut flat, name, value);
     }
     flat
 }
 
-fn flatten_value(schema: &Schema, out: &mut HashMap<String, Value>, path: String, value: Value) {
+// Mirrors `coerce`'s recursion: the schema is a flat top-level map (nested field specs live
+// inside their parent struct's own FieldSpec), so a nested value's spec has to be threaded down
+// through the struct's sub-fields, not re-looked-up by dotted path against the top-level map —
+// that lookup always misses, silently skipping is_timestamp/is_keyword_exact/etc. below the
+// first level.
+fn flatten_value(
+    spec: Option<&FieldSpec>,
+    out: &mut HashMap<String, Value>,
+    path: String,
+    value: Value,
+) {
     match value.value {
         Some(value::Value::Struct(s)) => {
+            let sub = spec
+                .and_then(|sp| sp.data_type.as_ref()?.data_type.as_ref())
+                .and_then(|dt| match dt {
+                    field_type::DataType::Struct(st) => Some(&st.fields),
+                    _ => None,
+                });
             for (key, value) in s.fields {
-                flatten_value(schema, out, format!("{path}.{key}"), value);
+                let child_spec = sub.and_then(|m| m.get(&key));
+                flatten_value(child_spec, out, format!("{path}.{key}"), value);
             }
         }
         value => {
-            let value = match schema.get(path.as_str()) {
+            let value = match spec {
                 Some(spec) if is_byte_vector(spec) => Value { value }.into_signed_bytes(),
                 Some(spec) if is_timestamp(spec) => Value { value }
                     .as_timestamp()

@@ -22,12 +22,14 @@ services:
     # customHeaders` fixes that by attaching a header to every outgoing ES request unconditionally,
     # but it's a record type the docker image's env-var whitelist can't encode (JSON-string env var
     # is rejected: "could not parse record value from json input") — so append it to kibana.yml as
-    # real YAML at container start, where $TOPK_API_KEY is the container's own env, not compose's.
+    # real YAML at container start. `${TOPK_API_KEY}` is inlined by *compose* here (this whole
+    # entrypoint value goes through compose's own variable substitution), not read at container
+    # runtime — the container has no bare `TOPK_API_KEY` var, only the renamed one above.
     entrypoint:
       - bash
       - -c
       - |
-        printf '\nelasticsearch.customHeaders:\n  Authorization: "Bearer %s"\n' "$TOPK_API_KEY" >> /usr/share/kibana/config/kibana.yml
+        printf '\nelasticsearch.customHeaders:\n  Authorization: "Bearer ${TOPK_API_KEY:-}"\n' >> /usr/share/kibana/config/kibana.yml
         exec /usr/local/bin/kibana-docker
 
   elasticsearch:
