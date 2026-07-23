@@ -289,6 +289,9 @@ fn resolve_ts_bound(value: TopkValue) -> TopkValue {
 fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error> {
     match query {
         Query::MatchAll(q) => Ok(constant(LogicalExpr::literal(true), q.boost)),
+        Query::SimpleQueryString(q) | Query::QueryString(q) => {
+            Ok(constant(LogicalExpr::literal(true), q.boost))
+        }
         Query::Match(clause) => {
             let (query, operator, boost) = match clause.value {
                 MatchValue::Bare(query) => (query, MatchOperator::Or, None),

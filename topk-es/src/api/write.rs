@@ -37,6 +37,13 @@ pub struct WriteBody {
     pub result: WriteResult,
     #[serde(rename = "_shards")]
     pub shards: super::Shards,
+    // Optimistic-concurrency fields Kibana requires on every write response. We don't track real
+    // sequence numbers, so these are constant — fine for create, but conditional updates that
+    // send `if_seq_no`/`if_primary_term` won't get true conflict detection.
+    #[serde(rename = "_seq_no")]
+    pub seq_no: u64,
+    #[serde(rename = "_primary_term")]
+    pub primary_term: u64,
 }
 
 impl WriteBody {
@@ -47,6 +54,8 @@ impl WriteBody {
             version: 1,
             result,
             shards: super::Shards::default(),
+            seq_no: 1,
+            primary_term: 1,
         }
     }
 }

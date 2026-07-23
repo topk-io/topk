@@ -111,6 +111,9 @@ impl MgetBody {
 
                 Ok(DocItem {
                     found: source.is_some(),
+                    version: source.as_ref().map(|_| 1),
+                    seq_no: source.as_ref().map(|_| 1),
+                    primary_term: source.as_ref().map(|_| 1),
                     source: source.filter(|_| target.source.enabled()),
                     index: target.index,
                     id: target.id,

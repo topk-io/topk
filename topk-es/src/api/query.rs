@@ -23,6 +23,19 @@ pub enum Query {
     Exists(ExistsQuery),
     Bool(BoolQuery),
     Semantic(SemanticQuery),
+    // Kibana searches saved objects with this; we don't do full Lucene query strings, so it
+    // matches everything and lets the surrounding bool filters (type, etc.) do the real work.
+    SimpleQueryString(SimpleQueryString),
+    QueryString(SimpleQueryString),
+}
+
+#[derive(Deserialize)]
+pub struct SimpleQueryString {
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub query: Option<String>,
+    #[serde(default)]
+    pub boost: Option<f32>,
 }
 
 #[derive(Deserialize, Default)]

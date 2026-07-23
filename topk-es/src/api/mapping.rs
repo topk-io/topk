@@ -86,6 +86,7 @@ impl FieldMapping {
             FieldMapping::Float { .. } => ("float", true),
             FieldMapping::Boolean { .. } => ("boolean", true),
             FieldMapping::Object { .. } => ("object", false),
+            FieldMapping::Nested { .. } => ("nested", false),
             FieldMapping::DenseVector { .. } => ("dense_vector", false),
             FieldMapping::RankVectors { .. } => ("dense_vector", false),
             FieldMapping::SemanticText { .. } => ("text", false),
@@ -122,7 +123,6 @@ impl MappingProperties {
         }
     }
 }
-
 
 impl TryFrom<HashMap<String, FieldSpec>> for MappingProperties {
     type Error = Error;
@@ -202,7 +202,12 @@ pub enum FieldMapping {
         format: Option<String>,
     },
 
-    #[serde(rename = "float", alias = "double", alias = "half_float", alias = "scaled_float")]
+    #[serde(
+        rename = "float",
+        alias = "double",
+        alias = "half_float",
+        alias = "scaled_float"
+    )]
     Float {
         #[serde(default)]
         #[allow(dead_code)]
@@ -216,10 +221,24 @@ pub enum FieldMapping {
         index: Option<bool>,
     },
 
-    #[serde(rename = "object", alias = "nested")]
+    #[serde(rename = "object")]
     Object {
         #[serde(default, skip_serializing_if = "MappingProperties::is_empty")]
         properties: MappingProperties,
+
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[allow(dead_code)]
+        dynamic: Option<serde_json::Value>,
+    },
+
+    // `nested` is an array of objects, which TopK has no column for. Store it as a JSON string
+    // (see engine::doc encode/decode) — good enough for Kibana's saved objects, which is the only
+    // thing that uses nested.
+    #[serde(rename = "nested")]
+    Nested {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[allow(dead_code)]
+        properties: Option<MappingProperties>,
 
         #[serde(default, skip_serializing_if = "Option::is_none")]
         #[allow(dead_code)]
@@ -411,6 +430,7 @@ impl TryFrom<FieldMapping> for FieldSpec {
             }
             FieldMapping::Integer { index: _ } => Ok(FieldSpec::integer(false)),
             FieldMapping::Date { .. } => Ok(FieldSpec::timestamp(false)),
+            FieldMapping::Nested { .. } => Ok(FieldSpec::text(false)),
             FieldMapping::Float { index: _ } => Ok(FieldSpec::float(false)),
             FieldMapping::Boolean { index: _ } => Ok(FieldSpec::boolean(false)),
             FieldMapping::Object { properties, .. } => Ok(FieldSpec::r#struct(
