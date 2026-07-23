@@ -4,7 +4,9 @@ use topk_rs::json::Value as JsonValue;
 use topk_rs::proto::v1::data::{AggregateExpr, Document, LogicalExpr, Query as TopkQuery, Value};
 use topk_rs::query::{field, filter};
 
-use crate::api::{AggClause, AggResult, AggType, Bucket, TermsBucket, TopHitsBody};
+use crate::api::{
+    interval_millis, AggClause, AggResult, AggType, Bucket, TermsBucket, TopHitsBody,
+};
 use crate::value::{compare, ValueExt};
 use crate::Error;
 
@@ -25,13 +27,38 @@ pub fn compile(clause: &AggClause, gate: &LogicalExpr) -> Result<TopkQuery, Erro
 
             Ok(query)
         }
-        // filter/missing/range/date_histogram: sub-bucket aggregations need per-bucket queries the
-        // one-query-per-agg model can't express, so we return the outer gate's count and shape the
-        // buckets in collect(). Real per-bucket counts are a follow-up (see ELASTIC.md).
-        AggType::Filter(_)
-        | AggType::Missing(_)
-        | AggType::Range(_)
-        | AggType::DateHistogram(_) => Ok(filter(gate.clone()).count()),
+        // date_histogram buckets on a computed key instead of a stored field: `ts / interval` is
+        // the bucket index (ES aligns fixed_interval buckets to the epoch, not the data's own min,
+        // so no separate "now"/origin lookup is needed), which is a single group_by like `terms`.
+        // Sub-buckets still get filled with zero docs by ES (`min_doc_count: 0`); we only emit
+        // buckets that actually have data, so a sparse series has fewer x-axis points than real ES.
+        AggType::DateHistogram(h) => {
+            let interval = interval_millis(h.fixed_interval.as_deref().ok_or_else(|| {
+                Error::Unsupported(
+                    "date_histogram requires \"fixed_interval\" (\"calendar_interval\" is not supported)".into(),
+                )
+            })?)?;
+            let mut aggs = vec![("doc_count".to_string(), AggregateExpr::count(None))];
+            for (name, sub_clause) in clause.aggs.iter().flatten() {
+                aggs.push((
+                    name.clone(),
+                    AggregateExpr::try_from(sub_clause.ty.clone())?,
+                ));
+            }
+            let key = field(h.field.as_str()).div(LogicalExpr::literal(interval));
+            Ok(filter(gate.clone())
+                .group_by([("key".to_string(), key)], aggs)
+                .sort("key")
+                // ES date_histogram has no inherent bucket cap; this is generous headroom, not
+                // an ES-shaped limit.
+                .limit(10_000))
+        }
+        // filter/missing/range: sub-bucket aggregations need per-bucket queries the one-query-per-
+        // agg model can't express, so we return the outer gate's count and shape buckets in
+        // collect(). Real per-bucket counts for range are a follow-up (see ELASTIC.md).
+        AggType::Filter(_) | AggType::Missing(_) | AggType::Range(_) => {
+            Ok(filter(gate.clone()).count())
+        }
         AggType::TopHits => Ok(filter(gate.clone()).count()),
         metric => {
             let query = filter(gate.clone()).group_by(
@@ -125,9 +152,43 @@ pub fn collect(clause: &AggClause, docs: Vec<Document>) -> Result<AggResult, Err
                 })
                 .collect(),
         }),
-        AggType::DateHistogram(_) => Ok(AggResult::Buckets {
-            buckets: Vec::new(),
-        }),
+        AggType::DateHistogram(h) => {
+            let interval = interval_millis(h.fixed_interval.as_deref().unwrap_or("1s"))?;
+            let mut buckets = Vec::with_capacity(docs.len());
+
+            for mut doc in docs {
+                let index = doc
+                    .fields
+                    .remove("key")
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(0);
+                let millis = index * interval;
+
+                let doc_count = doc
+                    .fields
+                    .remove("doc_count")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0);
+
+                let mut sub_aggs = HashMap::new();
+                for (name, _) in clause.aggs.iter().flatten() {
+                    let value = doc.fields.remove(name).and_then(|v| v.number());
+                    sub_aggs.insert(name.clone(), AggResult::Metric { value });
+                }
+
+                buckets.push(Bucket {
+                    key: Some(serde_json::json!(millis)),
+                    key_as_string: crate::date::format_millis(millis),
+                    from: None,
+                    to: None,
+                    doc_count,
+                    sub_aggs,
+                });
+            }
+
+            buckets.sort_by_key(|b| b.key.as_ref().and_then(|k| k.as_i64()).unwrap_or(0));
+            Ok(AggResult::Buckets { buckets })
+        }
         _ => {
             let value = docs
                 .into_iter()

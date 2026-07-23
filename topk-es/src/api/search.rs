@@ -463,11 +463,8 @@ impl SortValue {
     }
 }
 
-// No `deny_unknown_fields`: a `_script` sort (Painless-computed order, e.g. task manager's task
-// priority) carries `type`/`script` alongside `order`. We can't evaluate the script, so it's
-// accepted here and then dropped entirely in TryFrom<SortWire> — no ordering from it, rather
-// than a hard parse failure.
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct SortValueFull {
     #[serde(default)]
     order: Option<SortOrder>,
@@ -483,6 +480,18 @@ struct SortValueFull {
     #[serde(default)]
     #[allow(dead_code)]
     unmapped_type: Option<String>,
+
+    // `_script` sort (Painless-computed order, e.g. task manager's task priority) carries these
+    // alongside `order`. We can't evaluate the script, so they're accepted here and the whole
+    // sort key is dropped in TryFrom<SortWire> — no ordering from it, rather than a hard parse
+    // failure. Any other unknown field (e.g. `mode`) still fails loudly.
+    #[serde(default, rename = "type")]
+    #[allow(dead_code)]
+    script_type: Option<String>,
+
+    #[serde(default)]
+    #[allow(dead_code)]
+    script: Option<serde_json::Value>,
 }
 
 #[derive(Deserialize)]
