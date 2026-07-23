@@ -155,6 +155,18 @@ impl LogicalExpr {
         Self::binary(binary_op::Op::Sub, self, right)
     }
 
+    pub fn min(self, right: impl Into<LogicalExpr>) -> Self {
+        Self::binary(binary_op::Op::Min, self, right)
+    }
+
+    pub fn max(self, right: impl Into<LogicalExpr>) -> Self {
+        Self::binary(binary_op::Op::Max, self, right)
+    }
+
+    pub fn date_part(self, part: impl Into<String>) -> Self {
+        Self::binary(binary_op::Op::DatePart, self, part.into())
+    }
+
     // Ternary operators
 
     #[inline(always)]
@@ -203,12 +215,31 @@ impl LogicalExpr {
         self.mul(condition.into().choose(boost.into(), 1))
     }
 
-    pub fn min(self, right: impl Into<LogicalExpr>) -> Self {
-        Self::binary(binary_op::Op::Min, self, right)
+    pub fn elapsed(self, end: impl Into<LogicalExpr>, interval: impl Into<String>) -> Self {
+        Self::ternary(
+            ternary_op::Op::Elapsed,
+            self,
+            end.into(),
+            LogicalExpr::literal(interval.into()),
+        )
     }
 
-    pub fn max(self, right: impl Into<LogicalExpr>) -> Self {
-        Self::binary(binary_op::Op::Max, self, right)
+    pub fn saturate(self, mid: f32, exp: f32) -> Self {
+        Self::ternary(
+            ternary_op::Op::Saturate,
+            self,
+            LogicalExpr::literal(mid),
+            LogicalExpr::literal(exp),
+        )
+    }
+
+    pub fn decay(self, mid: f32, exp: f32) -> Self {
+        Self::ternary(
+            ternary_op::Op::Decay,
+            self,
+            LogicalExpr::literal(mid),
+            LogicalExpr::literal(exp),
+        )
     }
 
     pub fn nary(

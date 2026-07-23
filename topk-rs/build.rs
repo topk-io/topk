@@ -95,6 +95,7 @@ fn build_topk_v1_protos() {
         "topk.control.v1.FieldTypeBytes",
         "topk.control.v1.FieldTypeList",
         "topk.control.v1.FieldTypeStruct",
+        "topk.control.v1.FieldTypeTimestamp",
         // indexes
         "topk.control.v1.FieldIndex",
         "topk.control.v1.FieldIndex.index",

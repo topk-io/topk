@@ -29,6 +29,12 @@ impl FieldType {
         }
     }
 
+    pub fn timestamp() -> Self {
+        FieldType {
+            data_type: Some(field_type::DataType::Timestamp(FieldTypeTimestamp {})),
+        }
+    }
+
     pub fn bytes() -> Self {
         FieldType {
             data_type: Some(field_type::DataType::Bytes(FieldTypeBytes {})),
