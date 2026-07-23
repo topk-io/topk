@@ -6,6 +6,7 @@ use topk_rs::proto::v1::data::{
 };
 use topk_rs::query::{count as count_query, field, filter, fns, not, should, SortOrder};
 
+use super::doc::KEYWORD_DELIM;
 use super::field::{ensure_aggregatable, IndexKind};
 use super::rank::Ranking;
 use super::score::{ann_score, AnnQuery, AnnTerm, CompiledQuery, Score};
@@ -354,12 +355,19 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
                     .map(IndexKind::from)
                     .unwrap_or(IndexKind::None),
             ) {
-                // Exact keyword: exact-match gate plus IDF score from a verbatim
-                // text probe (the router does not analyze exact fields).
-                (Some(token), IndexKind::Keyword(KeywordIndexType::Exact)) => Ok(bm25(
-                    field(field_name.clone()).eq(value),
-                    should(&token, Some(&field_name), boost),
-                )),
+                // Exact keyword: exact-match gate plus IDF score from a verbatim text probe (the
+                // router does not analyze exact fields). ORed with a bracket-substring check
+                // since a keyword field storing an array is bracket-joined into one string (see
+                // engine::doc::enkeyword) rather than a real list column, so a plain `.eq()`
+                // alone would miss any document whose value was written as an array.
+                (Some(token), IndexKind::Keyword(KeywordIndexType::Exact)) => {
+                    let bracketed = format!("{KEYWORD_DELIM}{token}{KEYWORD_DELIM}");
+                    let gate = LogicalExpr::any([
+                        field(field_name.clone()).eq(value),
+                        field(field_name.clone()).contains(Value::string(bracketed)),
+                    ]);
+                    Ok(bm25(gate, should(&token, Some(&field_name), boost)))
+                }
                 // Analyzed text: ES `term` matches an indexed token, so gate on a
                 // text match (router analyzes the token) rather than exact scalar
                 // equality, which would never match a tokenized value.
@@ -372,7 +380,31 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
                 _ => Ok(constant(field(field_name).eq(value), boost)),
             }
         }
-        Query::Terms(q) => Ok(constant(field(q.field).in_(q.values), q.boost)),
+        Query::Terms(q) => {
+            let is_keyword_exact = matches!(
+                schema.get(q.field.as_str()).map(IndexKind::from),
+                Some(IndexKind::Keyword(KeywordIndexType::Exact))
+            );
+            let gate = match is_keyword_exact {
+                // Same reasoning as Query::Term: OR the scalar-equal check with a
+                // bracket-substring check per candidate value, to also match array-encoded docs.
+                true => {
+                    let scalar_match = field(q.field.clone()).in_(q.values.clone());
+                    match q.values.as_string_list() {
+                        Some(values) if !values.is_empty() => {
+                            let array_match = LogicalExpr::any(values.iter().map(|v| {
+                                field(q.field.as_str())
+                                    .contains(Value::string(format!("{KEYWORD_DELIM}{v}{KEYWORD_DELIM}")))
+                            }));
+                            LogicalExpr::any([scalar_match, array_match])
+                        }
+                        _ => scalar_match,
+                    }
+                }
+                false => field(q.field.clone()).in_(q.values),
+            };
+            Ok(constant(gate, q.boost))
+        }
         Query::Ids(q) => Ok(constant(
             field("_id").in_(Value::list(
                 q.values.iter().map(|id| id.as_str()).collect::<Vec<_>>(),

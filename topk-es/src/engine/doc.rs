@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use topk_rs::proto::v1::control::{field_type, field_type_matrix::MatrixValueType, FieldSpec};
+use topk_rs::proto::v1::control::{
+    field_type, field_type_matrix::MatrixValueType, FieldSpec, KeywordIndexType,
+};
 use topk_rs::proto::v1::data::{value, Document, Value};
 
 use super::field::IndexKind;
@@ -56,6 +58,62 @@ fn enjson(value: Value) -> Value {
     }
 }
 
+// ASCII Unit Separator: reserved for exactly this ("delimit values that must not collide with
+// real text"), and effectively never appears in real strings — no escaping needed.
+pub(super) const KEYWORD_DELIM: char = '\u{1F}';
+
+// ES `keyword` fields are scalar-or-array; the column stays a plain scalar `text` (so ordinary
+// keyword aggregations/sorting are untouched) and an array is bracket-joined into one string —
+// `["a","b"]` -> "\x1Fa\x1Fb\x1F" — so `engine::compile`'s query lowering can test membership with
+// a substring check for "\x1Fvalue\x1F" (bracketed on both sides, so no partial-element false
+// match) without the column ever becoming a real list. A scalar is left unbracketed, unchanged.
+fn enkeyword(value: Value) -> Value {
+    let json = match serde_json::Value::try_from(value.clone()) {
+        Ok(json) => json,
+        Err(_) => return value,
+    };
+    let serde_json::Value::Array(items) = json else {
+        return enjson(value);
+    };
+    fn as_str(v: &serde_json::Value) -> String {
+        match v {
+            serde_json::Value::String(s) => s.clone(),
+            other => other.to_string(),
+        }
+    }
+    let mut joined = String::new();
+    for item in &items {
+        joined.push(KEYWORD_DELIM);
+        joined.push_str(&as_str(item));
+    }
+    joined.push(KEYWORD_DELIM);
+    Value::string(joined)
+}
+
+// Reverse of `enkeyword`: split a bracket-joined string back into a JSON array. A value with no
+// leading/trailing delimiter was never array-encoded — a plain scalar, returned unchanged.
+fn dekeyword(value: Value) -> Value {
+    let Some(s) = value.as_string() else {
+        return value;
+    };
+    if !(s.starts_with(KEYWORD_DELIM) && s.ends_with(KEYWORD_DELIM) && s.len() > 1) {
+        return value;
+    }
+    let items: Vec<serde_json::Value> = s
+        .split(KEYWORD_DELIM)
+        .filter(|s| !s.is_empty())
+        .map(|s| serde_json::Value::String(s.to_string()))
+        .collect();
+    Value::try_from(serde_json::Value::Array(items)).unwrap_or(value)
+}
+
+fn is_keyword_exact(spec: &FieldSpec) -> bool {
+    matches!(
+        IndexKind::from(spec),
+        IndexKind::Keyword(KeywordIndexType::Exact)
+    )
+}
+
 pub fn decode_fields(schema: &Schema, fields: HashMap<String, Value>) -> HashMap<String, Value> {
     let mut flat = HashMap::new();
     for (name, value) in fields {
@@ -79,6 +137,7 @@ fn flatten_value(schema: &Schema, out: &mut HashMap<String, Value>, path: String
                     .and_then(crate::date::format_millis)
                     .map(Value::string)
                     .unwrap_or(Value { value: None }),
+                Some(spec) if is_keyword_exact(spec) => dekeyword(Value { value }),
                 _ => Value { value },
             };
             out.insert(path, value);
@@ -172,9 +231,12 @@ fn coerce(spec: Option<&FieldSpec>, path: &str, value: Value) -> Result<Value, E
             Some(s) => Value::timestamp(crate::date::parse_millis(s)?),
             None => value,
         },
-        // A `nested` field maps to a text column; serialize objects/arrays-of-objects to a JSON
-        // string and coerce scalar numbers/bools to strings, matching ES text coercion.
-        Some(field_type::DataType::Text(_)) => enjson(value),
+        // `keyword` (exact-indexed text) bracket-joins an array; `nested`/plain `text` JSON-blob
+        // objects and object-arrays, and coerce scalar numbers/bools to strings (ES text coercion).
+        Some(field_type::DataType::Text(_)) => match spec.map(is_keyword_exact).unwrap_or(false) {
+            true => enkeyword(value),
+            false => enjson(value),
+        },
         _ => value,
     };
 
