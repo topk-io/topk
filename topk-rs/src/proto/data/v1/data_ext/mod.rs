@@ -1,10 +1,42 @@
 use bytemuck::allocation::cast_vec;
+use chrono::{DateTime, TimeZone};
 
 use crate::proto::data::v1::{list, matrix};
 
 mod document;
 mod sparse_vector;
 mod value;
+
+// Timestamp
+
+pub trait IntoTimestamp {
+    /// Convert the value to milliseconds since UNIX epoch.
+    fn timestamp_ms(self) -> i64;
+}
+
+impl IntoTimestamp for u32 {
+    fn timestamp_ms(self) -> i64 {
+        self as i64
+    }
+}
+
+impl IntoTimestamp for i32 {
+    fn timestamp_ms(self) -> i64 {
+        self as i64
+    }
+}
+
+impl IntoTimestamp for i64 {
+    fn timestamp_ms(self) -> i64 {
+        self
+    }
+}
+
+impl<TZ: TimeZone> IntoTimestamp for DateTime<TZ> {
+    fn timestamp_ms(self) -> i64 {
+        self.to_utc().timestamp_millis()
+    }
+}
 
 // List values
 

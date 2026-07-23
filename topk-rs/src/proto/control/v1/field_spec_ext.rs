@@ -43,6 +43,14 @@ impl FieldSpec {
         }
     }
 
+    pub fn timestamp(required: bool) -> FieldSpec {
+        FieldSpec {
+            data_type: Some(FieldType::timestamp()),
+            required,
+            index: None,
+        }
+    }
+
     pub fn bytes(required: bool) -> FieldSpec {
         FieldSpec {
             data_type: Some(FieldType::bytes()),

@@ -228,6 +228,7 @@ impl TryFrom<TopkValue> for serde_json::Value {
             Some(value::Value::I64(v)) => Ok(Self::from(v)),
             Some(value::Value::F32(v)) => number(v),
             Some(value::Value::F64(v)) => number(v),
+            Some(value::Value::Timestamp(v)) => Ok(Self::from(v)),
             Some(value::Value::Binary(v)) => {
                 Ok(Self::Array(v.into_iter().map(Self::from).collect()))
             }

@@ -1,4 +1,6 @@
 use crate::utils::ProjectTestContext;
+use chrono::TimeZone;
+use chrono::Utc;
 use float8::F8E4M3;
 use std::collections::HashMap;
 use topk_rs::proto::v1::control::field_type_list::ListValueType;
@@ -49,6 +51,7 @@ pub fn schema() -> HashMap<String, FieldSpec> {
     schema!(
         "title" => FieldSpec::text(true).with_index(FieldIndex::keyword(KeywordIndexType::Text)),
         "published_year" => FieldSpec::integer(true),
+        "published_ts" => FieldSpec::timestamp(true),
         "summary" => FieldSpec::text(true).with_index(FieldIndex::keyword(KeywordIndexType::Text)),
         "summary_embedding" => FieldSpec::f32_vector(16, true).with_index(FieldIndex::vector(VectorDistanceMetric::Euclidean)),
         "nullable_embedding" => FieldSpec::f32_vector(4, false).with_index(FieldIndex::vector(VectorDistanceMetric::Euclidean)),
@@ -72,6 +75,7 @@ pub fn docs() -> Vec<Document> {
             "_id" => "mockingbird",
             "title" => "To Kill a Mockingbird",
             "published_year" => 1960 as u32,
+            "published_ts" => Utc.with_ymd_and_hms(1960, 7, 11, 0, 0, 0).unwrap(),
             "summary" => "A young girl confronts racial injustice in the Deep South through the eyes of her lawyer father.",
             "summary_embedding" => vec![1.0; 16],
             "nullable_embedding" => vec![1.0; 4],
@@ -91,6 +95,7 @@ pub fn docs() -> Vec<Document> {
             "_id" => "1984",
             "title" => "1984",
             "published_year" => 1949 as u32,
+            "published_ts" => Utc.with_ymd_and_hms(1949, 6, 8, 0, 0, 0).unwrap(),
             "summary" => "A totalitarian regime uses surveillance and mind control to oppress its citizens.",
             "summary_embedding" => vec![2.0; 16],
             "nullable_embedding" => vec![2.0; 4],
@@ -109,6 +114,7 @@ pub fn docs() -> Vec<Document> {
             "_id" => "pride",
             "title" => "Pride and Prejudice",
             "published_year" => 1813 as u32,
+            "published_ts" => Utc.with_ymd_and_hms(1813, 1, 28, 0, 0, 0).unwrap(),
             "rating" => 4,
             "summary" => "A witty exploration of love, social class, and marriage in 19th-century England.",
             "summary_embedding" => vec![3.0; 16],
@@ -125,6 +131,7 @@ pub fn docs() -> Vec<Document> {
             "_id" => "gatsby",
             "title" => "The Great Gatsby",
             "published_year" => 1925 as u32,
+            "published_ts" => Utc.with_ymd_and_hms(1925, 4, 10, 0, 0, 0).unwrap(),
             "rating" => 3,
             "summary" => "A mysterious millionaire navigates love and wealth in the Roaring Twenties.",
             "summary_embedding" => vec![4.0; 16],
@@ -141,6 +148,7 @@ pub fn docs() -> Vec<Document> {
             "_id" => "catcher",
             "title" => "The Catcher in the Rye",
             "published_year" => 1951 as u32,
+            "published_ts" => Utc.with_ymd_and_hms(1951, 7, 16, 0, 0, 0).unwrap(),
             "summary" => "A rebellious teenager struggles with alienation and identity in mid-20th-century America.",
             "summary_embedding" => vec![5.0; 16],
             "nullable_embedding" => vec![5.0; 4],
@@ -159,6 +167,7 @@ pub fn docs() -> Vec<Document> {
             "_id" => "moby",
             "title" => "Moby-Dick",
             "published_year" => 1851 as u32,
+            "published_ts" => Utc.with_ymd_and_hms(1851, 10, 18, 0, 0, 0).unwrap(),
             "rating" => 5,
             "summary" => "A sailor's obsessive quest to hunt a great white whale leads to tragic consequences.",
             "summary_embedding" => vec![6.0; 16],
@@ -175,6 +184,7 @@ pub fn docs() -> Vec<Document> {
             "_id" => "hobbit",
             "title" => "The Hobbit",
             "published_year" => 1937 as u32,
+            "published_ts" => Utc.with_ymd_and_hms(1937, 9, 21, 0, 0, 0).unwrap(),
             "rating" => 3,
             "summary" => "A reluctant hobbit embarks on a quest to help a group of dwarves reclaim their mountain home.",
             "summary_embedding" => vec![7.0; 16],
@@ -188,6 +198,7 @@ pub fn docs() -> Vec<Document> {
             "_id" => "harry",
             "title" => "Harry Potter and the Sorcerer's Stone",
             "published_year" => 1997 as u32,
+            "published_ts" => Utc.with_ymd_and_hms(1997, 6, 26, 0, 0, 0).unwrap(),
             "summary" => "A young wizard discovers his magical heritage and attends a school for witchcraft and wizardry.",
             "summary_embedding" => vec![8.0; 16],
             "nullable_embedding" => vec![8.0; 4],
@@ -205,6 +216,7 @@ pub fn docs() -> Vec<Document> {
             "_id" => "lotr",
             "title" => "The Lord of the Rings: The Fellowship of the Ring",
             "published_year" => 1954 as u32,
+            "published_ts" => Utc.with_ymd_and_hms(1954, 7, 29, 0, 0, 0).unwrap(),
             "summary" => "A group of unlikely heroes sets out to destroy a powerful, evil ring.",
             "summary_embedding" => vec![9.0; 16],
             "scalar_i8_embedding" => Value::list(vec![-100i8; 4]),
@@ -219,6 +231,7 @@ pub fn docs() -> Vec<Document> {
             "_id" => "alchemist",
             "title" => "The Alchemist",
             "published_year" => 1988 as u32,
+            "published_ts" => Utc.with_ymd_and_hms(1988, 1, 1, 0, 0, 0).unwrap(),
             "summary" => "A shepherd boy journeys to fulfill his destiny and discover the meaning of life.",
             "summary_embedding" => vec![10.0; 16],
             "sparse_f32_embedding" => Value::f32_sparse_vector(vec![10,11,12], vec![1.0, 2.0, 3.0]),
