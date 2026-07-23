@@ -47,9 +47,8 @@ fn enjson(value: Value) -> Value {
         Err(_) => return value,
     };
     match &json {
-        // A scalar string stays a string; everything else — numbers, bools, and any array or
-        // object (keyword arrays included, since TopK text columns are scalar) — becomes a JSON
-        // string that `dejson` parses back on read.
+        // A scalar string stays a string; a `nested` object/array becomes a JSON string that
+        // `dejson` parses back on read. Numbers/bools coerce to their string form (ES text).
         serde_json::Value::String(_) => value,
         serde_json::Value::Number(n) => Value::string(n.to_string()),
         serde_json::Value::Bool(b) => Value::string(b.to_string()),

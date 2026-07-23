@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use topk_rs::json::Value as JsonValue;
 use topk_rs::proto::v1::data::{AggregateExpr, Document, LogicalExpr, Query as TopkQuery, Value};
-use topk_rs::query::{field, filter, not};
+use topk_rs::query::{field, filter};
 
 use crate::api::{AggClause, AggResult, AggType, Bucket, TermsBucket, TopHitsBody};
 use crate::value::{compare, ValueExt};
