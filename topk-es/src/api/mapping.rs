@@ -74,6 +74,56 @@ impl MappingProperties {
     }
 }
 
+impl FieldMapping {
+    // (es_type, aggregatable) for `_field_caps`. Text is searchable but not aggregatable; keyword
+    // and the scalar/date/vector types aggregate.
+    pub fn field_caps(&self) -> (&'static str, bool) {
+        match self {
+            FieldMapping::Text { .. } => ("text", false),
+            FieldMapping::Keyword { .. } => ("keyword", true),
+            FieldMapping::Integer { .. } => ("long", true),
+            FieldMapping::Date { .. } => ("date", true),
+            FieldMapping::Float { .. } => ("float", true),
+            FieldMapping::Boolean { .. } => ("boolean", true),
+            FieldMapping::Object { .. } => ("object", false),
+            FieldMapping::DenseVector { .. } => ("dense_vector", false),
+            FieldMapping::RankVectors { .. } => ("dense_vector", false),
+            FieldMapping::SemanticText { .. } => ("text", false),
+        }
+    }
+}
+
+impl MappingProperties {
+    // The `fields` object of an ES `_field_caps` response, flattening nested objects with dotted
+    // paths. Each field reports one type entry with searchable/aggregatable flags.
+    pub fn field_caps(&self, prefix: &str, out: &mut HashMap<String, serde_json::Value>) {
+        for (name, mapping) in &self.0 {
+            let path = if prefix.is_empty() {
+                name.clone()
+            } else {
+                format!("{prefix}.{name}")
+            };
+            if let FieldMapping::Object { properties, .. } = mapping {
+                properties.field_caps(&path, out);
+                continue;
+            }
+            let (ty, aggregatable) = mapping.field_caps();
+            out.insert(
+                path,
+                serde_json::json!({
+                    ty: {
+                        "type": ty,
+                        "metadata_field": false,
+                        "searchable": true,
+                        "aggregatable": aggregatable
+                    }
+                }),
+            );
+        }
+    }
+}
+
+
 impl TryFrom<HashMap<String, FieldSpec>> for MappingProperties {
     type Error = Error;
 
