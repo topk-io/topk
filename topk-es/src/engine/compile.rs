@@ -64,7 +64,10 @@ fn validate_agg_fields(schema: &Schema, clause: &AggClause) -> Result<(), Error>
         AggType::Sum(m) | AggType::Avg(m) | AggType::Min(m) | AggType::Max(m) => {
             ensure_aggregatable(schema, m.field.as_str())?
         }
-        AggType::ValueCount(_) => {}
+        AggType::ValueCount(_) | AggType::Filter(_) | AggType::TopHits => {}
+        AggType::Missing(m) => ensure_aggregatable(schema, m.field.as_str())?,
+        AggType::Range(r) => ensure_aggregatable(schema, r.field.as_str())?,
+        AggType::DateHistogram(h) => ensure_aggregatable(schema, h.field.as_str())?,
     }
     for sub in clause.aggs.iter().flatten() {
         validate_agg_fields(schema, sub.1)?;

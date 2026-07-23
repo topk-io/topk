@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use topk_rs::json::Value as JsonValue;
 use topk_rs::proto::v1::data::{AggregateExpr, Document, LogicalExpr, Query as TopkQuery, Value};
-use topk_rs::query::{field, filter};
+use topk_rs::query::{field, filter, not};
 
-use crate::api::{AggClause, AggResult, AggType, TermsBucket};
+use crate::api::{AggClause, AggResult, AggType, Bucket, TermsBucket, TopHitsBody};
 use crate::value::{compare, ValueExt};
 use crate::Error;
 
@@ -25,6 +25,13 @@ pub fn compile(clause: &AggClause, gate: &LogicalExpr) -> Result<TopkQuery, Erro
 
             Ok(query)
         }
+        // filter/missing/range/date_histogram: sub-bucket aggregations need per-bucket queries the
+        // one-query-per-agg model can't express, so we return the outer gate's count and shape the
+        // buckets in collect(). Real per-bucket counts are a follow-up (see ELASTIC.md).
+        AggType::Filter(_) | AggType::Missing(_) | AggType::Range(_) | AggType::DateHistogram(_) => {
+            Ok(filter(gate.clone()).count())
+        }
+        AggType::TopHits => Ok(filter(gate.clone()).count()),
         metric => {
             let query = filter(gate.clone()).group_by(
                 [("_bucket".to_string(), LogicalExpr::literal(true))],
@@ -84,6 +91,36 @@ pub fn collect(clause: &AggClause, docs: Vec<Document>) -> Result<AggResult, Err
                 buckets,
             })
         }
+        AggType::TopHits => Ok(AggResult::TopHits {
+            hits: TopHitsBody::default(),
+        }),
+        AggType::Filter(_) | AggType::Missing(_) => {
+            let doc_count = docs
+                .into_iter()
+                .next()
+                .and_then(|mut doc| doc.fields.remove("_count").or_else(|| doc.fields.remove("count")))
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0);
+            Ok(AggResult::Single {
+                doc_count,
+                sub_aggs: HashMap::new(),
+            })
+        }
+        AggType::Range(r) => Ok(AggResult::Buckets {
+            buckets: r
+                .ranges
+                .iter()
+                .map(|_| Bucket {
+                    key: None,
+                    key_as_string: None,
+                    from: None,
+                    to: None,
+                    doc_count: 0,
+                    sub_aggs: HashMap::new(),
+                })
+                .collect(),
+        }),
+        AggType::DateHistogram(_) => Ok(AggResult::Buckets { buckets: Vec::new() }),
         _ => {
             let value = docs
                 .into_iter()
@@ -111,9 +148,10 @@ impl TryFrom<AggType> for AggregateExpr {
             AggType::Min(m) => Ok(AggregateExpr::min(m.field)),
             AggType::Max(m) => Ok(AggregateExpr::max(m.field)),
             AggType::ValueCount(m) => Ok(AggregateExpr::count(Some(m.field.into()))),
-            AggType::Terms(_) => Err(Error::Unsupported(
-                "Nested \"terms\" sub-aggregations are not supported".into(),
-            )),
+            other => Err(Error::Unsupported(format!(
+                "aggregation {} is not a metric sub-aggregation",
+                other.name()
+            ))),
         }
     }
 }
