@@ -8,7 +8,7 @@ use topk_rs::proto::v1::data::Value as TopkValue;
 use topk_rs::query::SortOrder as TopkSortOrder;
 
 use super::aggs::{AggClause, AggResult};
-use super::query::{FieldClause, FieldName, GateQuery, Query};
+use super::query::{BoolQuery, FieldClause, FieldName, GateQuery, Query, RangeBounds, TermValue};
 use super::source::SourceFilter;
 use super::{DocId, IndexName, Shards, Source};
 use crate::vector::ensure_finite;
@@ -50,6 +50,26 @@ pub struct SearchRequest {
 
     #[serde(default, rename = "_source")]
     pub source: SourceFilter,
+
+    #[serde(default)]
+    pub pit: Option<super::PitRef>,
+
+    #[serde(default)]
+    pub search_after: Option<Vec<JsonValue>>,
+
+    // Accepted, not honoured: `hits.total` is already the exact count of returned hits.
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub track_total_hits: Option<JsonValue>,
+
+    // Optimistic-concurrency request flags. Accepted; we don't emit `_seq_no`/`_primary_term`.
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub seq_no_primary_term: Option<bool>,
+
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub version: Option<bool>,
 }
 
 fn default_size() -> u64 {
@@ -72,7 +92,114 @@ impl<'de> Deserialize<'de> for SearchRequest {
             req.sort = None;
         }
 
+        req.lower_pit().map_err(serde::de::Error::custom)?;
+
         Ok(req)
+    }
+}
+
+pub const SORT_SHARD_DOC: &str = "_shard_doc";
+pub const FIELD_ID: &str = "_id";
+
+impl SearchRequest {
+    // `_pit` is cursor pagination, not a snapshot (see ELASTIC.md). Kibana asks for ES's internal
+    // `_shard_doc` order, which we serve as `_id` ascending — any stable total order works — and
+    // `search_after` becomes the lexicographic "resume after this key" predicate: for sort
+    // [a, b, c] and cursor [x, y, z] that is
+    //   a>x OR (a=x AND b>y) OR (a=x AND b=y AND c>z)
+    // with each comparison flipped for a descending key.
+    fn lower_pit(&mut self) -> Result<(), Error> {
+        if let Some(sort) = self.sort.as_mut() {
+            sort.rewrite_shard_doc();
+        }
+
+        let cursor = match self.search_after.take() {
+            Some(cursor) => cursor,
+            None => return Ok(()),
+        };
+
+        let sort = self
+            .sort
+            .as_ref()
+            .ok_or_else(|| Error::BadRequest("\"search_after\" requires a \"sort\"".into()))?;
+
+        if sort.len() != cursor.len() {
+            return Err(Error::BadRequest(format!(
+                "\"search_after\" has {} value(s) but \"sort\" has {} key(s)",
+                cursor.len(),
+                sort.len()
+            )));
+        }
+
+        let mut alternatives = Vec::with_capacity(sort.len());
+        for (i, key) in sort.iter().enumerate() {
+            let field = match &key.target {
+                SortTarget::Field(field) => field.clone(),
+                SortTarget::Score => {
+                    return Err(Error::Unsupported(
+                        "\"search_after\" over a \"_score\" sort is not supported".into(),
+                    ))
+                }
+            };
+
+            let mut clauses = Vec::with_capacity(i + 1);
+            for (prior, value) in sort.iter().zip(&cursor).take(i) {
+                if let SortTarget::Field(prior) = &prior.target {
+                    clauses.push(Query::Term(FieldClause {
+                        field: prior.clone(),
+                        value: TermValue::Bare(value.clone()),
+                    }));
+                }
+            }
+
+            let bound = cursor[i].clone();
+            clauses.push(Query::Range(FieldClause {
+                field,
+                value: match key.asc {
+                    true => RangeBounds {
+                        gt: Some(bound),
+                        ..Default::default()
+                    },
+                    false => RangeBounds {
+                        lt: Some(bound),
+                        ..Default::default()
+                    },
+                },
+            }));
+
+            alternatives.push(match clauses.len() {
+                1 => clauses.remove(0),
+                _ => Query::Bool(BoolQuery {
+                    must: clauses,
+                    ..Default::default()
+                }),
+            });
+        }
+
+        let resume = Query::Bool(BoolQuery {
+            should: alternatives,
+            ..Default::default()
+        });
+
+        self.query = Some(match self.query.take() {
+            Some(query) => Query::Bool(BoolQuery {
+                must: vec![query, resume],
+                ..Default::default()
+            }),
+            None => resume,
+        });
+
+        Ok(())
+    }
+}
+
+impl SortClause {
+    fn rewrite_shard_doc(&mut self) {
+        for sort in self.0.iter_mut() {
+            if sort.target.is_field(SORT_SHARD_DOC) {
+                sort.target = SortTarget::Field(FieldName::new(FIELD_ID));
+            }
+        }
     }
 }
 
@@ -230,6 +357,10 @@ impl SortTarget {
     pub fn is_score(&self) -> bool {
         matches!(self, SortTarget::Score)
     }
+
+    pub fn is_field(&self, name: &str) -> bool {
+        matches!(self, SortTarget::Field(f) if f.as_str() == name)
+    }
 }
 
 #[derive(Deserialize)]
@@ -356,6 +487,8 @@ pub struct SearchResponse {
     pub hits: HitsWrapper,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub aggregations: Option<HashMap<String, AggResult>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pit_id: Option<String>,
 }
 
 impl SearchResponse {
@@ -368,6 +501,7 @@ impl SearchResponse {
         Self {
             took: 1,
             timed_out: false,
+            pit_id: None,
             shards: Shards::default(),
             hits: HitsWrapper {
                 total: Total {

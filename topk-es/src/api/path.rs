@@ -12,7 +12,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use crate::Error;
 
 static VALID_INDEX_NAME: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^[a-z][a-z0-9_-]{0,127}$").unwrap());
+    LazyLock::new(|| Regex::new(r"^\.?[a-z][a-z0-9_.-]{0,126}$").unwrap());
 
 #[repr(transparent)]
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
@@ -37,6 +37,36 @@ impl TryFrom<String> for IndexName {
 impl IndexName {
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+
+    // TopK collection names admit no dots, so `.kibana` and friends are escaped. Index names are
+    // lowercase (VALID_INDEX_NAME), which leaves `X` free to mark an escape.
+    pub fn collection(&self) -> String {
+        let mut out = String::with_capacity(self.0.len());
+        for c in self.0.chars() {
+            match c {
+                '.' => out.push_str("XD"),
+                'X' => out.push_str("XX"),
+                c => out.push(c),
+            }
+        }
+        out
+    }
+
+    pub fn from_collection(name: &str) -> Self {
+        let mut out = String::with_capacity(name.len());
+        let mut chars = name.chars();
+        while let Some(c) = chars.next() {
+            match c {
+                'X' => match chars.next() {
+                    Some('D') => out.push('.'),
+                    Some(c) => out.push(c),
+                    None => out.push('X'),
+                },
+                c => out.push(c),
+            }
+        }
+        IndexName(out)
     }
 }
 
@@ -70,6 +100,28 @@ impl<S: Send + Sync> FromRequestParts<S> for IndexName {
                 .map_err(|e| Error::BadRequest(format!("Invalid path: {e}")))?;
 
         IndexName::try_from(index)
+    }
+}
+
+// ES index-scoped APIs take a comma-separated target list, not a single name.
+#[repr(transparent)]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct IndexNames(pub Vec<IndexName>);
+
+#[async_trait]
+impl<S: Send + Sync> FromRequestParts<S> for IndexNames {
+    type Rejection = Error;
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let Path(IndexPath { index }) = Path::<IndexPath>::from_request_parts(parts, state)
+            .await
+            .map_err(|e| Error::BadRequest(format!("Invalid path: {e}")))?;
+
+        index
+            .split(',')
+            .map(|i| IndexName::try_from(i.to_string()))
+            .collect::<Result<Vec<_>, _>>()
+            .map(IndexNames)
     }
 }
 

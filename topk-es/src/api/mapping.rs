@@ -16,6 +16,11 @@ pub struct IndexMapping {
     #[allow(dead_code)]
     settings: Option<serde_json::Value>,
 
+    // Alias membership is derived from the index name (api::alias); accepted, not stored.
+    #[serde(default)]
+    #[allow(dead_code)]
+    aliases: Option<serde_json::Value>,
+
     #[serde(default)]
     mappings: Option<Mappings>,
 }
@@ -25,6 +30,15 @@ pub struct IndexMapping {
 struct Mappings {
     #[serde(default)]
     properties: Option<MappingProperties>,
+
+    // Kibana stashes migration state in `_meta` and reads it back; accepted, not persisted.
+    #[serde(default, rename = "_meta")]
+    #[allow(dead_code)]
+    meta: Option<serde_json::Value>,
+
+    #[serde(default)]
+    #[allow(dead_code)]
+    dynamic: Option<serde_json::Value>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default, PartialEq)]
@@ -37,9 +51,10 @@ impl TryFrom<HashMap<String, serde_json::Value>> for MappingProperties {
     fn try_from(raw: HashMap<String, serde_json::Value>) -> Result<Self, Self::Error> {
         raw.into_iter()
             .map(|(name, mut value)| {
-                // ES infers `type: object` from a bare `properties` block.
+                // ES treats any mapping node without an explicit `type` as an object — a bare
+                // `properties` block, or options like `{"enabled": false}` with neither.
                 if let Some(object) = value.as_object_mut() {
-                    if !object.contains_key("type") && object.contains_key("properties") {
+                    if !object.contains_key("type") {
                         object.insert("type".to_string(), "object".into());
                     }
                 }
@@ -72,8 +87,10 @@ impl TryFrom<HashMap<String, FieldSpec>> for MappingProperties {
     }
 }
 
+// Per-field options we don't model (`ignore_above`, `null_value`, analyzers, ...) are accepted and
+// ignored, not rejected — Kibana's mappings are full of them. Unknown *types* still fail loudly.
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
-#[serde(tag = "type", deny_unknown_fields)]
+#[serde(tag = "type")]
 pub enum FieldMapping {
     #[serde(rename = "text")]
     Text {
@@ -100,6 +117,19 @@ pub enum FieldMapping {
         #[serde(default)]
         #[allow(dead_code)]
         index: Option<bool>,
+    },
+
+    // ES `date`/`date_nanos` map to TopK's timestamp column (epoch millis, i64). ISO-8601 strings
+    // are parsed to millis on write and formatted back on read; see engine::doc and value.
+    #[serde(rename = "date", alias = "date_nanos")]
+    Date {
+        #[serde(default)]
+        #[allow(dead_code)]
+        index: Option<bool>,
+
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[allow(dead_code)]
+        format: Option<String>,
     },
 
     #[serde(rename = "float", alias = "double", alias = "half_float")]
@@ -306,6 +336,7 @@ impl TryFrom<FieldMapping> for FieldSpec {
                 Ok(field)
             }
             FieldMapping::Integer { index: _ } => Ok(FieldSpec::integer(false)),
+            FieldMapping::Date { .. } => Ok(FieldSpec::timestamp(false)),
             FieldMapping::Float { index: _ } => Ok(FieldSpec::float(false)),
             FieldMapping::Boolean { index: _ } => Ok(FieldSpec::boolean(false)),
             FieldMapping::Object { properties } => Ok(FieldSpec::r#struct(
@@ -415,6 +446,10 @@ impl TryFrom<&FieldSpec> for FieldMapping {
                 _ => return Err(Error::Unsupported("Invalid text index".into())),
             },
             Some(field_type::DataType::Integer(_)) => FieldMapping::Integer { index: Some(false) },
+            Some(field_type::DataType::Timestamp(_)) => FieldMapping::Date {
+                index: Some(false),
+                format: None,
+            },
             Some(field_type::DataType::Float(_)) => FieldMapping::Float { index: Some(false) },
             Some(field_type::DataType::Boolean(_)) => FieldMapping::Boolean { index: Some(false) },
             Some(field_type::DataType::Struct(s)) => FieldMapping::Object {

@@ -52,6 +52,12 @@ pub struct BoolQuery {
     #[serde(default)]
     pub should: Vec<Query>,
 
+    // We compile `should` as a required OR gate (>=1 must match), which is the ES default and the
+    // only value clients send here (1). Accepted, not otherwise honoured for N>1.
+    #[serde(default, rename = "minimum_should_match")]
+    #[allow(dead_code)]
+    pub minimum_should_match: Option<serde_json::Value>,
+
     #[serde(default)]
     pub boost: Option<f32>,
 }
@@ -269,7 +275,7 @@ pub struct IdsQuery {
     pub boost: Option<f32>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Default)]
 #[serde(remote = "Self", deny_unknown_fields)]
 pub struct RangeBounds {
     #[serde(default)]

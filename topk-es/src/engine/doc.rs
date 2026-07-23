@@ -40,6 +40,11 @@ fn flatten_value(schema: &Schema, out: &mut HashMap<String, Value>, path: String
         value => {
             let value = match schema.get(path.as_str()) {
                 Some(spec) if is_byte_vector(spec) => Value { value }.into_signed_bytes(),
+                Some(spec) if is_timestamp(spec) => Value { value }
+                    .as_i64()
+                    .and_then(crate::date::format_millis)
+                    .map(Value::string)
+                    .unwrap_or(Value { value: None }),
                 _ => Value { value },
             };
             out.insert(path, value);
@@ -51,6 +56,13 @@ fn is_byte_vector(spec: &FieldSpec) -> bool {
     matches!(
         spec.data_type.as_ref().and_then(|t| t.data_type.as_ref()),
         Some(field_type::DataType::U8Vector(_) | field_type::DataType::BinaryVector(_))
+    )
+}
+
+fn is_timestamp(spec: &FieldSpec) -> bool {
+    matches!(
+        spec.data_type.as_ref().and_then(|t| t.data_type.as_ref()),
+        Some(field_type::DataType::Timestamp(_))
     )
 }
 
@@ -93,6 +105,10 @@ pub fn encode(schema: &Schema, doc: WriteDoc) -> Result<Document, Error> {
                 {
                     value.to_u8_matrix().unwrap_or(value)
                 }
+                Some(field_type::DataType::Timestamp(_)) => match value.as_string() {
+                    Some(s) => Value::timestamp(crate::date::parse_millis(s)?),
+                    None => value,
+                },
                 _ => value,
             };
 

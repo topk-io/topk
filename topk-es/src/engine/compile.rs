@@ -1,4 +1,5 @@
 use topk_rs::proto::v1::control::KeywordIndexType;
+use topk_rs::proto::v1::data::logical_expr::{self, nary_op};
 use topk_rs::proto::v1::data::{LogicalExpr, Query as TopkQuery, TextExpr, Value};
 use topk_rs::query::{count as count_query, field, filter, fns, not, should, SortOrder};
 
@@ -13,6 +14,49 @@ use crate::api::{
 use crate::value::ValueExt;
 
 use crate::{engine::Schema, Error};
+
+// HACK: the engine caps a single n-ary expression at 32 operands (MAX_ARITY, ddb-public-proto)
+// and nesting depth at 16. Kibana sends `bool` clauses far wider and deeper, so fold wide operand
+// lists into <=32-way trees and splice same-operator children into their parent. Semantics-
+// preserving; belongs in the engine's lowering, remove once it moves or the caps are raised.
+const MAX_ARITY: usize = 32;
+
+fn any_nary(exprs: impl IntoIterator<Item = LogicalExpr>) -> LogicalExpr {
+    fold_nary(splice(exprs, nary_op::Op::Any), LogicalExpr::any)
+}
+
+fn all_nary(exprs: impl IntoIterator<Item = LogicalExpr>) -> LogicalExpr {
+    fold_nary(splice(exprs, nary_op::Op::All), LogicalExpr::all)
+}
+
+fn splice(exprs: impl IntoIterator<Item = LogicalExpr>, op: nary_op::Op) -> Vec<LogicalExpr> {
+    exprs
+        .into_iter()
+        .flat_map(|expr| match expr.expr {
+            Some(logical_expr::Expr::NaryOp(ref nary)) if nary.op == op as i32 => nary.exprs.clone(),
+            _ => vec![expr],
+        })
+        .collect()
+}
+
+fn fold_nary(
+    mut exprs: Vec<LogicalExpr>,
+    combine: fn(Vec<LogicalExpr>) -> LogicalExpr,
+) -> LogicalExpr {
+    while exprs.len() > MAX_ARITY {
+        exprs = exprs
+            .chunks(MAX_ARITY)
+            .map(|chunk| match chunk {
+                [single] => single.clone(),
+                chunk => combine(chunk.to_vec()),
+            })
+            .collect();
+    }
+    match exprs.len() {
+        1 => exprs.remove(0),
+        _ => combine(exprs),
+    }
+}
 
 fn validate_agg_fields(schema: &Schema, clause: &AggClause) -> Result<(), Error> {
     match &clause.ty {
@@ -66,7 +110,7 @@ pub fn search(
         validate_agg_fields(schema, clause)?;
     }
 
-    let gate = LogicalExpr::any(compiled.iter().map(|(c, _)| c.gate.clone()));
+    let gate = any_nary(compiled.iter().map(|(c, _)| c.gate.clone()));
 
     let window = Ranking::of(&req).window_size();
     let queries = compiled
@@ -251,7 +295,7 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
             }
 
             match text {
-                Some(text) => Ok(bm25(LogicalExpr::any(gates), text)),
+                Some(text) => Ok(bm25(any_nary(gates), text)),
                 None => Err(Error::InvalidQuery(
                     "multi_match \"fields\" must not be empty".into(),
                 )),
@@ -333,7 +377,7 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
             if exprs.is_empty() {
                 return Ok(constant(field(clause.field).is_not_null(), boost));
             }
-            Ok(constant(LogicalExpr::all(exprs), boost))
+            Ok(constant(all_nary(exprs), boost))
         }
         Query::Exists(q) => Ok(constant(field(q.field).is_not_null(), None)),
         Query::Bool(query) => {
@@ -367,7 +411,7 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
                 .map(|clause| Ok(compile_clause(schema, clause.0)?.gate))
                 .collect::<Result<Vec<_>, Error>>()?;
             if !must_not.is_empty() {
-                gates.push(not(LogicalExpr::any(must_not)));
+                gates.push(not(any_nary(must_not)));
             }
 
             if !query.should.is_empty() {
@@ -388,12 +432,12 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
                     should_gates.push(compiled.gate);
                 }
                 if required_empty {
-                    gates.push(LogicalExpr::any(should_gates));
+                    gates.push(any_nary(should_gates));
                 }
             }
 
             Ok(CompiledQuery {
-                gate: LogicalExpr::all(gates),
+                gate: all_nary(gates),
                 score: Score::sum(scores, boost),
             })
         }
