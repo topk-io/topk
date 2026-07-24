@@ -148,6 +148,7 @@ pub enum FieldMapping {
         index: Option<bool>,
 
         #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[allow(dead_code)]
         fields: Option<MappingProperties>,
     },
 
@@ -415,23 +416,10 @@ impl TryFrom<FieldMapping> for FieldSpec {
 
     fn try_from(mapping: FieldMapping) -> Result<Self, Self::Error> {
         match mapping {
-            FieldMapping::Text { index, fields } => {
+            FieldMapping::Text { index, fields: _ } => {
                 let mut field = FieldSpec::text(false);
                 if index.unwrap_or(true) {
-                    // Real ES keeps `foo` (analyzed text) and `foo.keyword` (exact) as genuinely
-                    // separate fields; we have one column per name and strip `.keyword` suffixes
-                    // onto the same field (`FieldName::as_str`). Kibana's own dashboards almost
-                    // always aggregate via the `.keyword` multi-field, not free-text-search the
-                    // bare field, so prioritize exact/aggregatable indexing whenever a `keyword`
-                    // multi-field is declared — otherwise every stock terms-agg visualization on a
-                    // text field (i.e. most of them) would break.
-                    let has_keyword_subfield =
-                        fields.as_ref().is_some_and(|f| f.0.contains_key("keyword"));
-                    let kind = match has_keyword_subfield {
-                        true => KeywordIndexType::Exact,
-                        false => KeywordIndexType::Text,
-                    };
-                    field = field.with_index(FieldIndex::keyword(kind));
+                    field = field.with_index(FieldIndex::keyword(KeywordIndexType::Text));
                 }
                 Ok(field)
             }
