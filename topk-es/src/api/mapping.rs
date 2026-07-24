@@ -165,7 +165,9 @@ pub enum FieldMapping {
         alias = "long_range",
         alias = "float_range",
         alias = "double_range",
-        alias = "ip_range"
+        alias = "ip_range",
+        alias = "geo_point",
+        alias = "geo_shape"
     )]
     Keyword {
         #[serde(default)]
@@ -433,14 +435,11 @@ impl TryFrom<FieldMapping> for FieldSpec {
             FieldMapping::Nested { .. } => Ok(FieldSpec::text(false)),
             FieldMapping::Float { index: _ } => Ok(FieldSpec::float(false)),
             FieldMapping::Boolean { index: _ } => Ok(FieldSpec::boolean(false)),
-            FieldMapping::Object { properties, .. } => Ok(FieldSpec::r#struct(
-                false,
-                properties
-                    .0
-                    .into_iter()
-                    .map(|(name, spec)| spec.try_into().map(|field| (name, field)))
-                    .collect::<Result<HashMap<String, FieldSpec>, Error>>()?,
-            )),
+            // HACK: same JSON-blob storage as `nested` — ES lets a plain `object` field (unlike
+            // `nested`) hold an implicit array too, which the real struct column can't. Loses
+            // struct-typed mapping-GET fidelity and any future sub-field querying; revisit once
+            // there's a real column type for "single struct or array of structs".
+            FieldMapping::Object { .. } => Ok(FieldSpec::text(false)),
             FieldMapping::DenseVector {
                 dims,
                 similarity,

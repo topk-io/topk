@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use serde::ser::{SerializeMap, Serializer};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use super::ndjson::{NdjsonBody, NdjsonHeader, NdjsonLines};
 use super::{
@@ -60,28 +61,33 @@ impl NdjsonHeader for ActionLine {
     }
 
     fn parse_payload(self, lines: &mut NdjsonLines<'_>) -> Result<BulkEntry, Error> {
-        let id = self.meta().id.clone().ok_or_else(|| {
-            Error::Unsupported("\"_id\" is required; auto-generated ids are not supported".into())
-        })?;
+        // `index`/`create` may omit `_id` and rely on an auto-generated one (real ES does the
+        // same); `update`/`delete` need a real target, so still require it there.
+        let auto_id = matches!(&self, ActionLine::Index(_) | ActionLine::Create(_));
+        let id = match self.meta().id.clone() {
+            Some(id) => id,
+            None if auto_id => DocId::try_from(Uuid::new_v4().to_string())?,
+            None => {
+                return Err(Error::Unsupported(
+                    "\"_id\" is required; auto-generated ids are not supported".into(),
+                ))
+            }
+        };
 
         match self {
-            ActionLine::Index(_) => {
+            // HACK: `create` (fail-if-exists) behaves like `index` (upsert) — same gap the
+            // single-doc `_create` endpoint already accepts (see `doc::put`); TopK has no atomic
+            // fail-if-exists primitive to enforce the real semantics.
+            ActionLine::Index(_) | ActionLine::Create(_) => {
+                let kind = if matches!(self, ActionLine::Create(_)) {
+                    WriteKind::Create
+                } else {
+                    WriteKind::Index
+                };
                 let doc: HashMap<String, serde_json::Value> = lines.parse()?;
                 let request = DocBody::try_from(doc)
                     .map(|body| WriteRequest::Upsert(vec![WriteDoc::new(id.clone(), body)]));
-                Ok(BulkEntry {
-                    id,
-                    kind: WriteKind::Index,
-                    request,
-                })
-            }
-            ActionLine::Create(_) => {
-                let _: serde_json::Value = lines.parse()?;
-                Ok(BulkEntry::unsupported(
-                    id,
-                    WriteKind::Create,
-                    "\"create\" is not supported — TopK has no fail-if-exists semantics",
-                ))
+                Ok(BulkEntry { id, kind, request })
             }
             ActionLine::Update(_) => {
                 let src: UpdateSource = lines.parse()?;

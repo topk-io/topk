@@ -215,30 +215,36 @@ pub fn encode(schema: &Schema, doc: WriteDoc) -> Result<Document, Error> {
 // Coerce each leaf value to its column type, descending into structs (whose sub-specs live inside
 // the struct FieldSpec) so nested scalars like `config.buildNum` are matched to their column.
 fn coerce(spec: Option<&FieldSpec>, path: &str, value: Value) -> Result<Value, Error> {
-    if let Some(value::Value::Struct(s)) = value.value {
-        let sub = spec
-            .and_then(|sp| sp.data_type.as_ref()?.data_type.as_ref())
-            .and_then(|dt| match dt {
-                field_type::DataType::Struct(st) => Some(&st.fields),
+    let data_type = spec.and_then(|sp| sp.data_type.as_ref()?.data_type.as_ref());
+
+    // Only descend structurally when the schema is silent (dynamic field, preserve shape) or
+    // explicitly a struct column. A schema-mapped scalar (e.g. `text`/`keyword`) whose value
+    // happens to be object-shaped — ES's `geo_point`/range types encode as `{lat, lon}` objects —
+    // must fall through to the type coercion below instead, so it gets `enjson`-stringified.
+    if matches!(data_type, None | Some(field_type::DataType::Struct(_))) {
+        if let Some(value::Value::Struct(s)) = value.value {
+            let sub = match data_type {
+                Some(field_type::DataType::Struct(st)) => Some(&st.fields),
                 _ => None,
+            };
+            let fields = s
+                .fields
+                .into_iter()
+                .map(|(key, v)| {
+                    let child_spec = sub.and_then(|m| m.get(&key));
+                    let child_path = format!("{path}.{key}");
+                    Ok((key, coerce(child_spec, &child_path, v)?))
+                })
+                .collect::<Result<_, Error>>()?;
+            return Ok(Value {
+                value: Some(value::Value::Struct(topk_rs::proto::v1::data::Struct {
+                    fields,
+                })),
             });
-        let fields = s
-            .fields
-            .into_iter()
-            .map(|(key, v)| {
-                let child_spec = sub.and_then(|m| m.get(&key));
-                let child_path = format!("{path}.{key}");
-                Ok((key, coerce(child_spec, &child_path, v)?))
-            })
-            .collect::<Result<_, Error>>()?;
-        return Ok(Value {
-            value: Some(value::Value::Struct(topk_rs::proto::v1::data::Struct {
-                fields,
-            })),
-        });
+        }
     }
 
-    let value = match spec.and_then(|spec| spec.data_type.as_ref()?.data_type.as_ref()) {
+    let value = match data_type {
         Some(field_type::DataType::F32Vector(_)) => value.to_f32_list().unwrap_or(value),
         Some(field_type::DataType::I8Vector(_)) => value.to_i8_list().unwrap_or(value),
         Some(field_type::DataType::U8Vector(_) | field_type::DataType::BinaryVector(_)) => {
@@ -257,6 +263,11 @@ fn coerce(spec: Option<&FieldSpec>, path: &str, value: Value) -> Result<Value, E
             true => enkeyword(value),
             false => enjson(value),
         },
+        // A `Struct` column only holds one struct per doc; reaching here means the value wasn't
+        // struct-shaped (the branch above already handled that case) — ES's implicit per-field
+        // arrays let an `object`-mapped field (unlike explicit `nested`) hold an array of objects,
+        // which has no column here either. Same fallback as `nested`: store the JSON blob.
+        Some(field_type::DataType::Struct(_)) => enjson(value),
         _ => value,
     };
 

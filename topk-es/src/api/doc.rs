@@ -40,18 +40,44 @@ impl TryFrom<HashMap<String, serde_json::Value>> for DocBody {
 
     fn try_from(doc: HashMap<String, serde_json::Value>) -> Result<Self, Self::Error> {
         let mut fields = HashMap::with_capacity(doc.len());
-        for (key, value) in doc {
+        for (key, mut value) in doc {
             if key == "_id" {
                 return Err(Error::BadRequest(
                     "\"_id\" is a metadata field and cannot be set inside the document body".into(),
                 ));
             }
+            stringify_object_arrays(&mut value);
             let value = TopkValue::try_from(value)
                 .map(Value::from)
                 .map_err(|e| Error::BadRequest(e.to_string()))?;
             fields.insert(key, value);
         }
         Ok(Self(fields))
+    }
+}
+
+// ES lets any field — including an `object`-mapped one, unlike explicit `nested` — hold an
+// implicit array of values. TopK's generic JSON→Value conversion only accepts arrays of numbers,
+// strings, or numeric arrays, with no column for an array of structs. Pre-stringify any such array
+// to a JSON blob here (same fallback `engine::doc::coerce` uses for a schema-mapped `nested`/
+// `object` field) so it converts as a plain string instead of failing before schema coercion ever
+// runs.
+fn stringify_object_arrays(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::Array(items) => {
+            if items
+                .iter()
+                .any(|v| matches!(v, serde_json::Value::Object(_)))
+            {
+                *value = serde_json::Value::String(value.to_string());
+            }
+        }
+        serde_json::Value::Object(fields) => {
+            for v in fields.values_mut() {
+                stringify_object_arrays(v);
+            }
+        }
+        _ => {}
     }
 }
 
