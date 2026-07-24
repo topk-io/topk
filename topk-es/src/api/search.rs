@@ -81,6 +81,10 @@ pub struct SearchRequest {
     #[serde(default)]
     #[allow(dead_code)]
     pub script_fields: Option<serde_json::Value>,
+
+    // Set from the `?rest_total_hits_as_int` query param by the handler, not the JSON body.
+    #[serde(skip)]
+    pub rest_total_hits_as_int: bool,
 }
 
 fn default_size() -> u64 {
@@ -532,27 +536,26 @@ impl SearchResponse {
         // retrievers can't report a single exact total, so a hybrid search reports the max as a
         // lower bound (`relation: "gte"`), matching ES's own convention for an approximate total.
         matched: &[u64],
+        total_hits_as_int: bool,
     ) -> Self {
         let max_score = hits.iter().filter_map(|h| h.score).reduce(f32::max);
+        let (value, relation) = match matched {
+            [] => (hits.len() as u64, "eq"),
+            [matched] => (*matched, "eq"),
+            m => (
+                m.iter().copied().max().unwrap().max(hits.len() as u64),
+                "gte",
+            ),
+        };
         Self {
             took: 1,
             timed_out: false,
             pit_id: None,
             shards: Shards::default(),
             hits: HitsWrapper {
-                total: match matched {
-                    [] => Total {
-                        value: hits.len() as u64,
-                        relation: "eq",
-                    },
-                    [matched] => Total {
-                        value: *matched,
-                        relation: "eq",
-                    },
-                    m => Total {
-                        value: m.iter().copied().max().unwrap().max(hits.len() as u64),
-                        relation: "gte",
-                    },
+                total: match total_hits_as_int {
+                    true => Total::Int(value),
+                    false => Total::Object { value, relation },
                 },
                 max_score,
                 hits: hits
@@ -583,10 +586,13 @@ pub struct IndexedHit {
     pub hit: Hit,
 }
 
+// `?rest_total_hits_as_int=true` flattens this to a bare integer instead of `{value, relation}` —
+// Kibana's saved-objects client requests it and type-checks the response accordingly.
 #[derive(Serialize)]
-pub struct Total {
-    pub value: u64,
-    pub relation: &'static str,
+#[serde(untagged)]
+pub enum Total {
+    Int(u64),
+    Object { value: u64, relation: &'static str },
 }
 
 #[derive(Serialize)]

@@ -63,6 +63,26 @@ impl DocBody {
     }
 }
 
+// Shared by the bulk `update` action and the single-doc `_update` endpoint. `script` and
+// `doc_as_upsert: true` are rejected by both callers — we only support merging a literal `doc`
+// into an existing document, not ES's scripted-update or upsert-on-missing semantics.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct UpdateSource {
+    #[serde(default)]
+    pub doc: Option<HashMap<String, serde_json::Value>>,
+    #[serde(default)]
+    pub script: Option<serde_json::Value>,
+    #[serde(default)]
+    pub doc_as_upsert: Option<bool>,
+
+    // Accepted, not honoured: controls whether/what `_source` comes back on the response; we
+    // don't return a `get` field from `_update` at all yet.
+    #[serde(default, rename = "_source")]
+    #[allow(dead_code)]
+    pub source: Option<serde_json::Value>,
+}
+
 pub struct WriteDoc {
     pub id: DocId,
     pub body: DocBody,

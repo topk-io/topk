@@ -12,6 +12,9 @@ services:
       # zdt is the algorithm Serverless Kibana uses — our target surface. It migrates in place,
       # avoiding v2's default clone/write-block/reindex-temp path (endpoints Serverless lacks too).
       MIGRATIONS_ALGORITHM: zdt
+      # Without this the Streams plugin's alerts client (`/internal/streams/_status`) 500s on every
+      # call. Dev-only fixed key (needs 32+ chars) — no real secrets stored behind it here.
+      XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: "topk-es-dev-only-encryption-key-not-a-secret"
     extra_hosts:
       - "emulator.es.ddb:host-gateway"
     ports:
@@ -29,7 +32,8 @@ services:
       - bash
       - -c
       - |
-        printf '\nelasticsearch.customHeaders:\n  Authorization: "Bearer ${TOPK_API_KEY:-}"\n' >> /usr/share/kibana/config/kibana.yml
+        grep -q '^elasticsearch.customHeaders:' /usr/share/kibana/config/kibana.yml || \
+          printf '\nelasticsearch.customHeaders:\n  Authorization: "Bearer ${TOPK_API_KEY:-}"\n' >> /usr/share/kibana/config/kibana.yml
         exec /usr/local/bin/kibana-docker
 
   elasticsearch:

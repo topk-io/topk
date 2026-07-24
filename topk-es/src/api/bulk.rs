@@ -4,7 +4,9 @@ use serde::ser::{SerializeMap, Serializer};
 use serde::{Deserialize, Serialize};
 
 use super::ndjson::{NdjsonBody, NdjsonHeader, NdjsonLines};
-use super::{DocBody, DocId, IndexName, WriteBody, WriteDoc, WriteRequest, WriteResult};
+use super::{
+    DocBody, DocId, IndexName, UpdateSource, WriteBody, WriteDoc, WriteRequest, WriteResult,
+};
 use crate::{Error, ErrorBody};
 
 #[derive(Clone, Copy)]
@@ -144,17 +146,6 @@ impl ActionLine {
             | ActionLine::Delete(meta) => meta,
         }
     }
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct UpdateSource {
-    #[serde(default)]
-    doc: Option<HashMap<String, serde_json::Value>>,
-    #[serde(default)]
-    script: Option<serde_json::Value>,
-    #[serde(default)]
-    doc_as_upsert: Option<bool>,
 }
 
 #[derive(Clone)]
