@@ -3,6 +3,7 @@ use serde::Serialize;
 
 use super::{DocId, IndexName, WriteDoc};
 
+#[derive(Clone)]
 pub enum WriteRequest {
     Upsert(Vec<WriteDoc>),
     Update(Vec<WriteDoc>),

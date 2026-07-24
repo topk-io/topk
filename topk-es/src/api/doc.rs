@@ -31,7 +31,7 @@ pub struct DocItem {
     pub source: Option<Source>,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 #[serde(try_from = "HashMap<String, serde_json::Value>")]
 pub struct DocBody(HashMap<String, Value>);
 
@@ -57,18 +57,25 @@ impl TryFrom<HashMap<String, serde_json::Value>> for DocBody {
 }
 
 // ES lets any field — including an `object`-mapped one, unlike explicit `nested` — hold an
-// implicit array of values. TopK's generic JSON→Value conversion only accepts arrays of numbers,
-// strings, or numeric arrays, with no column for an array of structs. Pre-stringify any such array
-// to a JSON blob here (same fallback `engine::doc::coerce` uses for a schema-mapped `nested`/
-// `object` field) so it converts as a plain string instead of failing before schema coercion ever
-// runs.
+// implicit array of values. TopK's generic JSON→Value conversion only accepts a uniform array of
+// numbers, a uniform array of strings, or a uniform array of numeric arrays (a matrix) — nothing
+// else, with no column for e.g. an array of structs or an array of string-tuples (Kibana's own
+// `sort: [["order_date","desc"]]` shape). Pre-stringify any array that isn't one of those three
+// accepted shapes to a JSON blob here (same fallback `engine::doc::coerce` uses for a schema-mapped
+// `nested`/`object` field) so it converts as a plain string instead of failing before schema
+// coercion ever runs.
 fn stringify_object_arrays(value: &mut serde_json::Value) {
     match value {
-        serde_json::Value::Array(items) => {
-            if items
-                .iter()
-                .any(|v| matches!(v, serde_json::Value::Object(_)))
-            {
+        serde_json::Value::Array(items) if !items.is_empty() => {
+            let uniform = match &items[0] {
+                serde_json::Value::Number(_) => items.iter().all(|v| v.is_number()),
+                serde_json::Value::String(_) => items.iter().all(|v| v.is_string()),
+                serde_json::Value::Array(_) => items.iter().all(|v| {
+                    matches!(v, serde_json::Value::Array(row) if row.iter().all(|c| c.is_number()))
+                }),
+                _ => false,
+            };
+            if !uniform {
                 *value = serde_json::Value::String(value.to_string());
             }
         }
@@ -109,6 +116,7 @@ pub struct UpdateSource {
     pub source: Option<serde_json::Value>,
 }
 
+#[derive(Clone)]
 pub struct WriteDoc {
     pub id: DocId,
     pub body: DocBody,
