@@ -84,7 +84,7 @@ fn validate_agg_fields(schema: &Schema, clause: &AggClause) -> Result<(), Error>
 pub fn search(
     schema: &Schema,
     mut req: SearchRequest,
-) -> Result<(SearchRequest, Vec<TopkQuery>, Vec<TopkQuery>), Error> {
+) -> Result<(SearchRequest, Vec<(TopkQuery, Option<u64>)>, Vec<TopkQuery>), Error> {
     let mut compiled = Vec::new();
     if let Some(query) = req.query.take() {
         compiled.push((compile_clause(schema, query)?, None));
@@ -135,7 +135,11 @@ pub fn search(
                 None => (req.from + req.size).max(window),
             }
             .max(1);
-            lower(schema, &req, c, k.is_some(), limit)
+            // `k` rides along so the caller can cap a knn retriever's reported matched-count at
+            // its k: the engine's matched-count is "candidates visited" (bounded by
+            // num_candidates, easily the whole index), but ES reports exactly k for a bare KNN
+            // query, since only the k nearest are ever meaningfully "in" the result.
+            Ok((lower(schema, &req, c, k.is_some(), limit)?, k))
         })
         .collect::<Result<Vec<_>, Error>>()?;
 
@@ -393,8 +397,9 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
                     match q.values.as_string_list() {
                         Some(values) if !values.is_empty() => {
                             let array_match = LogicalExpr::any(values.iter().map(|v| {
-                                field(q.field.as_str())
-                                    .contains(Value::string(format!("{KEYWORD_DELIM}{v}{KEYWORD_DELIM}")))
+                                field(q.field.as_str()).contains(Value::string(format!(
+                                    "{KEYWORD_DELIM}{v}{KEYWORD_DELIM}"
+                                )))
                             }));
                             LogicalExpr::any([scalar_match, array_match])
                         }

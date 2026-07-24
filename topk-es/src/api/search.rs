@@ -528,6 +528,10 @@ impl SearchResponse {
         index: &IndexName,
         hits: Vec<Hit>,
         aggregations: Option<HashMap<String, AggResult>>,
+        // One true (pre-limit) matched count per retriever (query/knn); a rank fusion of several
+        // retrievers can't report a single exact total, so a hybrid search reports the max as a
+        // lower bound (`relation: "gte"`), matching ES's own convention for an approximate total.
+        matched: &[u64],
     ) -> Self {
         let max_score = hits.iter().filter_map(|h| h.score).reduce(f32::max);
         Self {
@@ -536,9 +540,19 @@ impl SearchResponse {
             pit_id: None,
             shards: Shards::default(),
             hits: HitsWrapper {
-                total: Total {
-                    value: hits.len() as u64,
-                    relation: "eq",
+                total: match matched {
+                    [] => Total {
+                        value: hits.len() as u64,
+                        relation: "eq",
+                    },
+                    [matched] => Total {
+                        value: *matched,
+                        relation: "eq",
+                    },
+                    m => Total {
+                        value: m.iter().copied().max().unwrap().max(hits.len() as u64),
+                        relation: "gte",
+                    },
                 },
                 max_score,
                 hits: hits
