@@ -1,7 +1,12 @@
+use topk_rs::proto::v1::control::field_type;
 use topk_rs::proto::v1::control::KeywordIndexType;
-use topk_rs::proto::v1::data::{LogicalExpr, Query as TopkQuery, TextExpr, Value};
+use topk_rs::proto::v1::data::logical_expr::{self, nary_op};
+use topk_rs::proto::v1::data::{
+    LogicalExpr, Query as TopkQuery, TextExpr, Value, Value as TopkValue,
+};
 use topk_rs::query::{count as count_query, field, filter, fns, not, should, SortOrder};
 
+use super::doc::KEYWORD_DELIM;
 use super::field::{ensure_aggregatable, IndexKind};
 use super::rank::Ranking;
 use super::score::{ann_score, AnnQuery, AnnTerm, CompiledQuery, Score};
@@ -14,13 +19,61 @@ use crate::value::ValueExt;
 
 use crate::{engine::Schema, Error};
 
+// HACK: the engine caps a single n-ary expression at 32 operands (MAX_ARITY, ddb-public-proto)
+// and nesting depth at 16. Kibana sends `bool` clauses far wider and deeper, so fold wide operand
+// lists into <=32-way trees and splice same-operator children into their parent. Semantics-
+// preserving; belongs in the engine's lowering, remove once it moves or the caps are raised.
+const MAX_ARITY: usize = 32;
+
+fn any_nary(exprs: impl IntoIterator<Item = LogicalExpr>) -> LogicalExpr {
+    fold_nary(splice(exprs, nary_op::Op::Any), LogicalExpr::any)
+}
+
+fn all_nary(exprs: impl IntoIterator<Item = LogicalExpr>) -> LogicalExpr {
+    fold_nary(splice(exprs, nary_op::Op::All), LogicalExpr::all)
+}
+
+fn splice(exprs: impl IntoIterator<Item = LogicalExpr>, op: nary_op::Op) -> Vec<LogicalExpr> {
+    exprs
+        .into_iter()
+        .flat_map(|expr| match expr.expr {
+            Some(logical_expr::Expr::NaryOp(ref nary)) if nary.op == op as i32 => {
+                nary.exprs.clone()
+            }
+            _ => vec![expr],
+        })
+        .collect()
+}
+
+fn fold_nary(
+    mut exprs: Vec<LogicalExpr>,
+    combine: fn(Vec<LogicalExpr>) -> LogicalExpr,
+) -> LogicalExpr {
+    while exprs.len() > MAX_ARITY {
+        exprs = exprs
+            .chunks(MAX_ARITY)
+            .map(|chunk| match chunk {
+                [single] => single.clone(),
+                chunk => combine(chunk.to_vec()),
+            })
+            .collect();
+    }
+    match exprs.len() {
+        1 => exprs.remove(0),
+        _ => combine(exprs),
+    }
+}
+
 fn validate_agg_fields(schema: &Schema, clause: &AggClause) -> Result<(), Error> {
     match &clause.ty {
         AggType::Terms(terms) => ensure_aggregatable(schema, terms.field.as_str())?,
         AggType::Sum(m) | AggType::Avg(m) | AggType::Min(m) | AggType::Max(m) => {
             ensure_aggregatable(schema, m.field.as_str())?
         }
-        AggType::ValueCount(_) => {}
+        AggType::ValueCount(_) | AggType::Filter(_) | AggType::TopHits => {}
+        AggType::Missing(m) => ensure_aggregatable(schema, m.field.as_str())?,
+        AggType::Range(r) => ensure_aggregatable(schema, r.field.as_str())?,
+        AggType::DateHistogram(h) => ensure_aggregatable(schema, h.field.as_str())?,
     }
     for sub in clause.aggs.iter().flatten() {
         validate_agg_fields(schema, sub.1)?;
@@ -31,7 +84,7 @@ fn validate_agg_fields(schema: &Schema, clause: &AggClause) -> Result<(), Error>
 pub fn search(
     schema: &Schema,
     mut req: SearchRequest,
-) -> Result<(SearchRequest, Vec<TopkQuery>, Vec<TopkQuery>), Error> {
+) -> Result<(SearchRequest, Vec<(TopkQuery, Option<u64>)>, Vec<TopkQuery>), Error> {
     let mut compiled = Vec::new();
     if let Some(query) = req.query.take() {
         compiled.push((compile_clause(schema, query)?, None));
@@ -66,7 +119,7 @@ pub fn search(
         validate_agg_fields(schema, clause)?;
     }
 
-    let gate = LogicalExpr::any(compiled.iter().map(|(c, _)| c.gate.clone()));
+    let gate = any_nary(compiled.iter().map(|(c, _)| c.gate.clone()));
 
     let window = Ranking::of(&req).window_size();
     let queries = compiled
@@ -82,7 +135,11 @@ pub fn search(
                 None => (req.from + req.size).max(window),
             }
             .max(1);
-            lower(schema, &req, c, k.is_some(), limit)
+            // `k` rides along so the caller can cap a knn retriever's reported matched-count at
+            // its k: the engine's matched-count is "candidates visited" (bounded by
+            // num_candidates, easily the whole index), but ES reports exactly k for a bare KNN
+            // query, since only the k nearest are ever meaningfully "in" the result.
+            Ok((lower(schema, &req, c, k.is_some(), limit)?, k))
         })
         .collect::<Result<Vec<_>, Error>>()?;
 
@@ -213,9 +270,33 @@ fn bm25(gate: LogicalExpr, text: TextExpr) -> CompiledQuery {
     }
 }
 
+fn is_timestamp(schema: &Schema, name: &str) -> bool {
+    matches!(
+        schema
+            .get(name)
+            .and_then(|s| s.data_type.as_ref()?.data_type.as_ref()),
+        Some(field_type::DataType::Timestamp(_))
+    )
+}
+
+// ISO-8601 (or already-millis) bound to the epoch-millis the timestamp column stores. Anything
+// else — notably date-math like `now-30s`, resolved in the proxy — is returned unchanged.
+fn resolve_ts_bound(value: TopkValue) -> TopkValue {
+    match value.as_string() {
+        Some(s) => match crate::date::parse_millis(s) {
+            Ok(millis) => TopkValue::timestamp(millis),
+            Err(_) => value,
+        },
+        None => value,
+    }
+}
+
 fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error> {
     match query {
         Query::MatchAll(q) => Ok(constant(LogicalExpr::literal(true), q.boost)),
+        Query::SimpleQueryString(q) | Query::QueryString(q) => {
+            Ok(constant(LogicalExpr::literal(true), q.boost))
+        }
         Query::Match(clause) => {
             let (query, operator, boost) = match clause.value {
                 MatchValue::Bare(query) => (query, MatchOperator::Or, None),
@@ -251,7 +332,7 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
             }
 
             match text {
-                Some(text) => Ok(bm25(LogicalExpr::any(gates), text)),
+                Some(text) => Ok(bm25(any_nary(gates), text)),
                 None => Err(Error::InvalidQuery(
                     "multi_match \"fields\" must not be empty".into(),
                 )),
@@ -278,12 +359,19 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
                     .map(IndexKind::from)
                     .unwrap_or(IndexKind::None),
             ) {
-                // Exact keyword: exact-match gate plus IDF score from a verbatim
-                // text probe (the router does not analyze exact fields).
-                (Some(token), IndexKind::Keyword(KeywordIndexType::Exact)) => Ok(bm25(
-                    field(field_name.clone()).eq(value),
-                    should(&token, Some(&field_name), boost),
-                )),
+                // Exact keyword: exact-match gate plus IDF score from a verbatim text probe (the
+                // router does not analyze exact fields). ORed with a bracket-substring check
+                // since a keyword field storing an array is bracket-joined into one string (see
+                // engine::doc::enkeyword) rather than a real list column, so a plain `.eq()`
+                // alone would miss any document whose value was written as an array.
+                (Some(token), IndexKind::Keyword(KeywordIndexType::Exact)) => {
+                    let bracketed = format!("{KEYWORD_DELIM}{token}{KEYWORD_DELIM}");
+                    let gate = LogicalExpr::any([
+                        field(field_name.clone()).eq(value),
+                        field(field_name.clone()).contains(Value::string(bracketed)),
+                    ]);
+                    Ok(bm25(gate, should(&token, Some(&field_name), boost)))
+                }
                 // Analyzed text: ES `term` matches an indexed token, so gate on a
                 // text match (router analyzes the token) rather than exact scalar
                 // equality, which would never match a tokenized value.
@@ -296,7 +384,32 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
                 _ => Ok(constant(field(field_name).eq(value), boost)),
             }
         }
-        Query::Terms(q) => Ok(constant(field(q.field).in_(q.values), q.boost)),
+        Query::Terms(q) => {
+            let is_keyword_exact = matches!(
+                schema.get(q.field.as_str()).map(IndexKind::from),
+                Some(IndexKind::Keyword(KeywordIndexType::Exact))
+            );
+            let gate = match is_keyword_exact {
+                // Same reasoning as Query::Term: OR the scalar-equal check with a
+                // bracket-substring check per candidate value, to also match array-encoded docs.
+                true => {
+                    let scalar_match = field(q.field.clone()).in_(q.values.clone());
+                    match q.values.as_string_list() {
+                        Some(values) if !values.is_empty() => {
+                            let array_match = LogicalExpr::any(values.iter().map(|v| {
+                                field(q.field.as_str()).contains(Value::string(format!(
+                                    "{KEYWORD_DELIM}{v}{KEYWORD_DELIM}"
+                                )))
+                            }));
+                            LogicalExpr::any([scalar_match, array_match])
+                        }
+                        _ => scalar_match,
+                    }
+                }
+                false => field(q.field.clone()).in_(q.values),
+            };
+            Ok(constant(gate, q.boost))
+        }
         Query::Ids(q) => Ok(constant(
             field("_id").in_(Value::list(
                 q.values.iter().map(|id| id.as_str()).collect::<Vec<_>>(),
@@ -316,24 +429,32 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
         }
         Query::Range(clause) => {
             let boost = clause.value.boost;
+            // On a timestamp field the bound arrives as an ISO-8601 string; parse it to the epoch
+            // millis the column stores. Date-math (`now-30s`) needs the wall clock and is resolved
+            // in the proxy — see ELASTIC.md; a bound we can't parse falls through unchanged.
+            let ts = is_timestamp(schema, clause.field.as_str());
+            let bound = |v: TopkValue| match ts {
+                true => resolve_ts_bound(v),
+                false => v,
+            };
             let mut exprs = Vec::new();
             if let Some(v) = clause.value.gte {
-                exprs.push(field(clause.field.clone()).gte(v.into_inner()));
+                exprs.push(field(clause.field.clone()).gte(bound(v.into_inner())));
             }
             if let Some(v) = clause.value.gt {
-                exprs.push(field(clause.field.clone()).gt(v.into_inner()));
+                exprs.push(field(clause.field.clone()).gt(bound(v.into_inner())));
             }
             if let Some(v) = clause.value.lte {
-                exprs.push(field(clause.field.clone()).lte(v.into_inner()));
+                exprs.push(field(clause.field.clone()).lte(bound(v.into_inner())));
             }
             if let Some(v) = clause.value.lt {
-                exprs.push(field(clause.field.clone()).lt(v.into_inner()));
+                exprs.push(field(clause.field.clone()).lt(bound(v.into_inner())));
             }
             // A bound-less range is ES's field-exists check.
             if exprs.is_empty() {
                 return Ok(constant(field(clause.field).is_not_null(), boost));
             }
-            Ok(constant(LogicalExpr::all(exprs), boost))
+            Ok(constant(all_nary(exprs), boost))
         }
         Query::Exists(q) => Ok(constant(field(q.field).is_not_null(), None)),
         Query::Bool(query) => {
@@ -367,7 +488,7 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
                 .map(|clause| Ok(compile_clause(schema, clause.0)?.gate))
                 .collect::<Result<Vec<_>, Error>>()?;
             if !must_not.is_empty() {
-                gates.push(not(LogicalExpr::any(must_not)));
+                gates.push(not(any_nary(must_not)));
             }
 
             if !query.should.is_empty() {
@@ -388,12 +509,12 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
                     should_gates.push(compiled.gate);
                 }
                 if required_empty {
-                    gates.push(LogicalExpr::any(should_gates));
+                    gates.push(any_nary(should_gates));
                 }
             }
 
             Ok(CompiledQuery {
-                gate: LogicalExpr::all(gates),
+                gate: all_nary(gates),
                 score: Score::sum(scores, boost),
             })
         }

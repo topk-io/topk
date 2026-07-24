@@ -23,21 +23,41 @@ pub struct Score {
     pub expr: Option<LogicalExpr>,
 }
 
+// HACK: sibling of the n-ary fold in compile.rs. Folding N parts left-to-right nests them N deep
+// and the server's protobuf decoder gives up long before Kibana's term counts. `or`/`add` are
+// associative, so combining pairwise is identical in meaning at depth log2(N).
+fn balanced<T>(items: Vec<T>, combine: impl Fn(T, T) -> T) -> Option<T> {
+    let mut items = items;
+    while items.len() > 1 {
+        let mut folded = Vec::with_capacity(items.len().div_ceil(2));
+        let mut iter = items.into_iter();
+        while let Some(left) = iter.next() {
+            folded.push(match iter.next() {
+                Some(right) => combine(left, right),
+                None => left,
+            });
+        }
+        items = folded;
+    }
+    items.pop()
+}
+
 impl Score {
     // The weighted sum of the parts; BM25 scales through its text term weights.
     pub fn sum(parts: Vec<Score>, factor: f32) -> Score {
-        let mut sum = parts.into_iter().fold(Score::default(), |mut acc, part| {
-            acc.bm25 = match (acc.bm25, part.bm25) {
-                (Some(a), Some(b)) => Some(a.or(b)),
-                (a, b) => a.or(b),
-            };
-            acc.expr = match (acc.expr, part.expr) {
-                (Some(a), Some(b)) => Some(a.add(b)),
-                (a, b) => a.or(b),
-            };
-            acc.anns.extend(part.anns);
-            acc
-        });
+        let mut bm25 = Vec::with_capacity(parts.len());
+        let mut exprs = Vec::with_capacity(parts.len());
+        let mut anns = Vec::new();
+        for part in parts {
+            bm25.extend(part.bm25);
+            exprs.extend(part.expr);
+            anns.extend(part.anns);
+        }
+        let mut sum = Score {
+            bm25: balanced(bm25, TextExpr::or),
+            expr: balanced(exprs, |a, b| a.add(b)),
+            anns,
+        };
 
         sum.bm25 = sum.bm25.map(|text| text.boost(factor));
         sum.expr = sum.expr.map(|e| e * factor);

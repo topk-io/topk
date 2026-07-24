@@ -1,10 +1,10 @@
 mod common;
 
 use common::{BooksContext, TestScope};
-use test_macros::rstest_ctx;
 use elasticsearch::http::StatusCode;
 use serde_json::{json, Value};
 use test_context::test_context;
+use test_macros::rstest_ctx;
 
 async fn setup_bool_scoring_docs(scope: &TestScope) {
     scope
@@ -317,7 +317,7 @@ async fn dev_range_array_bound_rejected_on_bare_index(scope: &TestScope) {
 
 #[test_context(TestScope)]
 #[tokio::test]
-async fn bug_size_limited_total_reports_returned_hits(scope: &TestScope) {
+async fn dev_size_limited_total_reports_true_match_count(scope: &TestScope) {
     scope.create().await;
 
     let docs: Vec<(String, Value)> = (0..5).map(|i| (i.to_string(), json!({ "n": i }))).collect();
@@ -331,12 +331,12 @@ async fn bug_size_limited_total_reports_returned_hits(scope: &TestScope) {
         .await
         .expect("search should succeed");
     assert_eq!(body.hit_ids().len(), 2, "{body}");
-    assert_eq!(body.total(), 2, "{body}");
+    assert_eq!(body.total(), 5, "{body}");
 }
 
 #[test_context(TestScope)]
 #[tokio::test]
-async fn bug_size_zero_returns_no_hits(scope: &TestScope) {
+async fn dev_size_zero_returns_no_hits_but_true_total(scope: &TestScope) {
     scope.create().await;
 
     scope.index_docs([("1", json!({ "n": 1 }))]).await;
@@ -346,7 +346,7 @@ async fn bug_size_zero_returns_no_hits(scope: &TestScope) {
         .await
         .expect("size: 0 should succeed, not be rejected");
     assert_eq!(body.hit_ids().len(), 0, "{body}");
-    assert_eq!(body.total(), 0, "{body}");
+    assert_eq!(body.total(), 1, "{body}");
 }
 
 // ES serves `_search` over GET as well as POST, body in either.

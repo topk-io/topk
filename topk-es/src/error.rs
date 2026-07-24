@@ -10,6 +10,9 @@ pub enum Error {
     #[error("index_not_found_exception: {0}")]
     IndexNotFound(String),
 
+    #[error("no_handler_found_exception: {0}")]
+    NoHandler(String),
+
     #[error("invalid_index_name_exception: {0}")]
     InvalidIndexName(String),
 
@@ -79,6 +82,7 @@ impl Error {
     pub fn parts(&self) -> (u16, ErrorBody) {
         let (status, error_type, reason) = match self {
             Error::IndexNotFound(msg) => (404, "index_not_found_exception", msg.clone()),
+            Error::NoHandler(msg) => (404, "no_handler_found_exception", msg.clone()),
             Error::InvalidIndexName(msg) => (400, "invalid_index_name_exception", msg.clone()),
             Error::InvalidDocId(msg) => (400, "invalid_document_id_exception", msg.clone()),
             Error::DocumentNotFound(msg) => (404, "not_found", msg.clone()),
