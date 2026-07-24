@@ -141,6 +141,17 @@ pub struct ActionMeta {
     index: Option<IndexName>,
     #[serde(rename = "_id", default)]
     id: Option<DocId>,
+
+    // Accepted, not honoured: real optimistic-concurrency control (used e.g. by Kibana's task
+    // manager to atomically claim a task) needs a real per-document version to check against,
+    // which we don't track. TODO(jergus): real impl — a hidden `__seq_no` field bumped per write,
+    // checked via a strong-consistency get before the write (TOCTOU-tolerant, not true CAS).
+    #[serde(default)]
+    #[allow(dead_code)]
+    if_seq_no: Option<u64>,
+    #[serde(default)]
+    #[allow(dead_code)]
+    if_primary_term: Option<u64>,
 }
 
 impl ActionLine {
