@@ -2712,23 +2712,23 @@ When used on its own, `should()` matches the entire collection and ranks documen
 ```python Python
 from topk_sdk.query import match, should
 
-.filter(match("fantasy", field="tags") & should("epic", field="tags"))
+.filter(match("hobbit rings", field="title") & should("lord", field="title"))
 ```
 
 
 ```js Javascript
 import { match, should } from "topk-js/query";
 
-.filter(match("fantasy", { field: "tags" }).and(should("epic", { field: "tags" })))
+.filter(match("hobbit rings", { field: "title" }).and(should("lord", { field: "title" })))
 ```
 
 ```sql SQL
-WHERE match('fantasy', tags) AND should('epic', tags)
+WHERE match('hobbit rings', title) AND should('lord', title)
 ```
 
 </CodeGroup>
 
-This returns only documents matching `fantasy`, while boosting documents that also match `epic`.
+This returns only documents matching `hobbit` or `rings`, while boosting documents that also match `lord`.
 
 The `should()` function accepts the following parameters:
 
@@ -9841,11 +9841,11 @@ Adds an optional BM25 scoring term without filtering documents from the result s
     documents according to how well they match the term.
 
     ```python
-    match("fantasy", field="tags") & should("epic", field="tags")
+    match("hobbit rings", field="title") & should("lord", field="title")
     ```
 
-    This returns only documents matching ``fantasy``, while boosting documents that
-    also match ``epic``.
+    This returns only documents matching ``hobbit`` or ``rings``, while boosting
+    documents that also match ``lord``.
 
     - ``field``: Keyword-indexed field used for scoring. Searches all eligible fields when omitted.
     - ``weight``: Multiplier applied to the term's BM25 contribution. Defaults to ``1.0``.
@@ -13161,11 +13161,11 @@ When used on its own, `should()` matches the entire collection and ranks
 documents according to how well they match the term.
 
 ```js
-match("fantasy", { field: "tags" }).and(should("epic", { field: "tags" }))
+match("hobbit rings", { field: "title" }).and(should("lord", { field: "title" }))
 ```
 
-This returns only documents matching `fantasy`, while boosting documents that
-also match `epic`.
+This returns only documents matching `hobbit` or `rings`, while boosting
+documents that also match `lord`.
 
 - `options.field`: Keyword-indexed field used for scoring. Searches all eligible fields when omitted.
 - `options.weight`: Multiplier applied to the term's BM25 contribution. Defaults to `1.0`.

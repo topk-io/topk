@@ -685,7 +685,7 @@ async fn should_does_not_filter() {
 #[case::boost_whale("whale", "moby")]
 #[tokio::test]
 async fn should_boosts_bm25_score(#[case] boost: &str, #[case] first: &str) {
-    // the should term only affects ranking
+    // the should term only affects ranking - the result set is gated by match alone
     let rows = BooksContext::with_scope(async |ctx| {
         ctx.sql(&format!(
             "SELECT _id, bm25_score() AS score FROM {{{{table}}}} \

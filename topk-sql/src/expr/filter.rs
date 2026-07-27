@@ -55,10 +55,10 @@ impl FromSql<SqlExpr> for TextExpr {
             SqlExpr::Function(func) if is_text_fn(&func.name()) => {
                 match Expr::try_from(func.clone())? {
                     Expr::Text(expr) => Ok(expr),
-                    _ => sql_invalid!("Expected match or match_tokens function"),
+                    _ => sql_invalid!("Expected match, match_tokens or should function"),
                 }
             }
-            SqlExpr::Function(_) => sql_invalid!("Expected match or match_tokens function"),
+            SqlExpr::Function(_) => sql_invalid!("Expected match, match_tokens or should function"),
 
             SqlExpr::BinaryOp { left, op, right }
                 if matches!(op, BinaryOperator::And | BinaryOperator::Or) =>
@@ -80,7 +80,7 @@ impl FromSql<SqlExpr> for TextExpr {
                 Ok(expr)
             }
 
-            _ => sql_invalid!("Expected match or match_tokens function"),
+            _ => sql_invalid!("Expected match, match_tokens or should function"),
         }
     }
 }
@@ -112,6 +112,12 @@ fn contains_text_expr(expr: &SqlExpr) -> bool {
         }),
         ControlFlow::Break(())
     )
+}
+
+fn is_text_fn(name: &str) -> bool {
+    name.eq_ignore_ascii_case("match")
+        || name.eq_ignore_ascii_case("match_tokens")
+        || name.eq_ignore_ascii_case("should")
 }
 
 fn is_text_expr(expr: &SqlExpr) -> bool {
