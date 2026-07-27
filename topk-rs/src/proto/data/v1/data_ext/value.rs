@@ -197,7 +197,7 @@ impl Value {
     /// Create a timestamp from the provided value
     pub fn timestamp(value: impl IntoTimestamp) -> Self {
         Value {
-            value: Some(value::Value::Timestamp(value.timestamp_ms())),
+            value: Some(value::Value::I64(value.timestamp_ms())),
         }
     }
 
@@ -208,7 +208,6 @@ impl Value {
             Some(value::Value::U64(value)) if *value <= (i64::MAX as u64) => Some(*value as i64),
             Some(value::Value::I32(value)) => Some(*value as i64),
             Some(value::Value::I64(value)) => Some(*value),
-            Some(value::Value::Timestamp(value)) => Some(*value),
             _ => None,
         }
     }
@@ -386,7 +385,6 @@ impl value::Value {
             value::Value::F32(_) => "f32".to_string(),
             value::Value::F64(_) => "f64".to_string(),
             value::Value::String(_) => "string".to_string(),
-            value::Value::Timestamp(_) => "timestamp".to_string(),
             value::Value::Binary(v) => {
                 format!("binary({})", v.len())
             }
