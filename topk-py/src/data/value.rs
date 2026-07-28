@@ -2,9 +2,7 @@ use numpy::{PyUntypedArray, PyUntypedArrayMethods};
 use pyo3::{
     exceptions::PyTypeError,
     prelude::*,
-    types::{
-        IntoPyDict, PyBool, PyBytes, PyDateTime, PyDict, PyFloat, PyInt, PyList, PyNone, PyString,
-    },
+    types::{PyBool, PyBytes, PyDateTime, PyDict, PyFloat, PyInt, PyList, PyNone, PyString},
     IntoPyObjectExt,
 };
 use std::collections::HashMap;
@@ -81,18 +79,15 @@ impl FromPyObject<'_, '_> for Value {
         } else if let Ok(v) = obj.cast::<SparseVector>() {
             Ok(Value::SparseVector(v.get().clone()))
         } else if let Ok(dt) = obj.cast::<PyDateTime>() {
-            let py = obj.py();
-            // Convert naive datetimes to UTC
-            let dt = if dt.getattr("tzinfo")?.is_none() {
-                let utc = py.import("datetime")?.getattr("timezone")?.getattr("utc")?;
-                dt.call_method("replace", (), Some(&[("tzinfo", utc)].into_py_dict(py)?))?
-            } else {
-                dt.to_owned().into_any()
-            };
-            // `datetime.timestamp()` returns seconds as a Python float
-            // multiplying by 1000.0 and rounding to i64 gets the exact epoch millis
-            let seconds: f64 = dt.call_method0("timestamp")?.extract()?;
-            Ok(Value::Int((seconds * 1000.0).round() as i64))
+            // Timestamps are epoch millis on the wire; naive datetimes are interpreted as UTC
+            match dt.extract::<chrono::DateTime<chrono::FixedOffset>>() {
+                Ok(aware) => Ok(Value::Int(aware.timestamp_millis())),
+                Err(_) => Ok(Value::Int(
+                    dt.extract::<chrono::NaiveDateTime>()?
+                        .and_utc()
+                        .timestamp_millis(),
+                )),
+            }
         } else if let Ok(s) = obj.cast_exact::<PyString>() {
             Ok(Value::String(s.extract()?))
         } else if let Ok(i) = obj.cast_exact::<PyInt>() {

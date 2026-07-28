@@ -399,6 +399,9 @@ impl FromNapiValue for Value {
                 if is_date {
                     let mut ms: f64 = 0.0;
                     check_status!(napi::sys::napi_get_date_value(env, value, &mut ms))?;
+                    if !ms.is_finite() {
+                        return Err(napi::Error::from_reason("Invalid Date".to_string()));
+                    }
                     return Ok(Value::I64(ms as i64));
                 }
 

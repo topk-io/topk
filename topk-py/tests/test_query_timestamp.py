@@ -23,6 +23,12 @@ def test_query_filter_timestamp(ctx: ProjectContext):
     assert doc_ids(result) == {"pride", "moby", "gatsby"}
 
 
+def test_datetime_truncates_to_epoch_millis():
+    assert literal(
+        datetime(1970, 1, 1, 0, 0, 0, 999500, tzinfo=timezone.utc)
+    )._expr_eq(literal(999))
+
+
 def test_query_date_part_eq_field(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 

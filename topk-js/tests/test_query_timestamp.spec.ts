@@ -110,6 +110,10 @@ describe("Timestamp Queries", () => {
     );
   });
 
+  test("rejects invalid Date literals", () => {
+    expect(() => literal(new Date("bad"))).toThrow("Invalid Date");
+  });
+
   test("query date_part eq field", async () => {
     const ctx = getContext();
     const collection = await setupBooks(ctx);
