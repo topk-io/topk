@@ -372,10 +372,10 @@ impl SearchResponse {
             shards: Shards::default(),
             hits: HitsWrapper {
                 total: match matched {
-                    // No matched documents
+                    // No matched counts reported, so hits are only a lower bound
                     [] => Total {
                         value: hits.len() as u64,
-                        relation: "eq",
+                        relation: "gte",
                     },
                     // Single retriever
                     [matched] => Total {
