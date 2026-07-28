@@ -69,7 +69,7 @@ pub fn field(name: String) -> LogicalExpression {
 /// Creates a literal value expression.
 #[napi(namespace = "query")]
 pub fn literal(
-    #[napi(ts_arg_type = "number | string | string[] | number[] | boolean | data.List")]
+    #[napi(ts_arg_type = "number | string | string[] | number[] | boolean | Date | data.List")]
     value: Value,
 ) -> napi::Result<LogicalExpression> {
     match value {

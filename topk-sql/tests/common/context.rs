@@ -152,6 +152,7 @@ impl AsyncTestContext for BooksContext {
                 title               TEXT NOT NULL             INDEX keyword_index(),
                 author              TEXT,
                 published_year      INTEGER,
+                published_ts        TIMESTAMP,
                 rating              FLOAT,
                 genre               TEXT,
                 in_print            BOOLEAN,
@@ -174,12 +175,12 @@ impl AsyncTestContext for BooksContext {
             .query(&format!(
                 r#"
             INSERT INTO {table} (
-                _id, title, author, published_year, rating, genre, in_print, bio, embedding, tags,
+                _id, title, author, published_year, published_ts, rating, genre, in_print, bio, embedding, tags,
                 checksum, metadata, sparse_emb, multi_emb, nullable_importance
             )
             VALUES
                 (
-                    'mockingbird', 'To Kill a Mockingbird', 'Lee', 1960, 4.3, 'fiction', true,
+                    'mockingbird', 'To Kill a Mockingbird', 'Lee', 1960, TIMESTAMP '1960-07-11', 4.3, 'fiction', true,
                     'A story of racial injustice and moral courage in the American South',
                     f32_vector(ARRAY[0.0, 1.0, 0.0, 0.0]),
                     ARRAY['classic', 'american', 'fiction'],
@@ -188,7 +189,7 @@ impl AsyncTestContext for BooksContext {
                     NULL, NULL, 2.0
                 ),
                 (
-                    'nineteen_eighty_four', '1984', 'Orwell', 1949, 4.2, 'dystopian', true,
+                    'nineteen_eighty_four', '1984', 'Orwell', 1949, TIMESTAMP '1949-06-08', 4.2, 'dystopian', true,
                     'A dystopian tale of totalitarian surveillance and doublethink',
                     f32_vector(ARRAY[0.0, 0.0, 1.0, 0.0]),
                     ARRAY['dystopia', 'classic', 'political'],
@@ -197,7 +198,7 @@ impl AsyncTestContext for BooksContext {
                     NULL, NULL, NULL
                 ),
                 (
-                    'pride', 'Pride and Prejudice', 'Austen', 1813, 4.3, 'romance', true,
+                    'pride', 'Pride and Prejudice', 'Austen', 1813, TIMESTAMP '1813-01-28', 4.3, 'romance', true,
                     'A romantic comedy of manners among the English gentry',
                     f32_vector(ARRAY[0.0, 0.0, 0.0, 1.0]),
                     ARRAY['romance', 'classic', 'british'],
@@ -206,7 +207,7 @@ impl AsyncTestContext for BooksContext {
                     NULL, NULL, NULL
                 ),
                 (
-                    'gatsby', 'The Great Gatsby', 'Fitzgerald', 1925, 3.9, 'fiction', true,
+                    'gatsby', 'The Great Gatsby', 'Fitzgerald', 1925, TIMESTAMP '1925-04-10', 3.9, 'fiction', true,
                     'The decadence and empty ambition of the Jazz Age in America',
                     f32_vector(ARRAY[0.0, 1.0, 0.0, 0.0]),
                     ARRAY['classic', 'american', 'jazz'],
@@ -215,14 +216,14 @@ impl AsyncTestContext for BooksContext {
                     NULL, NULL, NULL
                 ),
                 (
-                    'catcher', 'The Catcher in the Rye', 'Salinger', 1951, 3.8, 'fiction', false,
+                    'catcher', 'The Catcher in the Rye', 'Salinger', 1951, TIMESTAMP '1951-07-16', 3.8, 'fiction', false,
                     'A teenager''s alienation and cynicism navigating New York City',
                     f32_vector(ARRAY[0.0, 1.0, 0.0, 0.0]),
                     ARRAY['coming_of_age', 'american', 'fiction'],
                     NULL, NULL, NULL, NULL, NULL
                 ),
                 (
-                    'hobbit', 'The Hobbit', 'Tolkien', 1937, 4.3, 'fantasy', true,
+                    'hobbit', 'The Hobbit', 'Tolkien', 1937, TIMESTAMP '1937-09-21', 4.3, 'fantasy', true,
                     'A hobbit joins a dwarf company on a dragon-slaying quest through Middle-earth',
                     f32_vector(ARRAY[1.0, 0.0, 0.0, 0.0]),
                     ARRAY['fantasy', 'adventure', 'tolkien'],
@@ -233,7 +234,7 @@ impl AsyncTestContext for BooksContext {
                     NULL
                 ),
                 (
-                    'lotr', 'The Lord of the Rings', 'Tolkien', 1954, 4.5, 'fantasy', true,
+                    'lotr', 'The Lord of the Rings', 'Tolkien', 1954, TIMESTAMP '1954-07-29', 4.5, 'fantasy', true,
                     'An epic fantasy fellowship races to destroy a ring of ultimate power',
                     f32_vector(ARRAY[1.0, 0.0, 0.0, 0.0]),
                     ARRAY['fantasy', 'epic', 'tolkien'],
@@ -243,7 +244,7 @@ impl AsyncTestContext for BooksContext {
                     NULL
                 ),
                 (
-                    'harry', 'Harry Potter and the Sorcerer''s Stone', 'Rowling', 1997, 4.5, 'fantasy', true,
+                    'harry', 'Harry Potter and the Sorcerer''s Stone', 'Rowling', 1997, TIMESTAMP '1997-06-26', 4.5, 'fantasy', true,
                     'A young wizard discovers his magical heritage at a school for witches and wizards',
                     f32_vector(ARRAY[1.0, 0.0, 0.0, 0.0]),
                     ARRAY['fantasy', 'magic', 'children'],
@@ -253,14 +254,14 @@ impl AsyncTestContext for BooksContext {
                     NULL
                 ),
                 (
-                    'alchemist', 'The Alchemist', 'Coelho', 1988, 3.9, 'fiction', true,
+                    'alchemist', 'The Alchemist', 'Coelho', 1988, TIMESTAMP '1988-01-01', 3.9, 'fiction', true,
                     'A shepherd''s philosophical journey across the desert to find his personal legend',
                     f32_vector(ARRAY[0.0, 1.0, 0.0, 0.0]),
                     ARRAY['philosophy', 'fiction', 'spiritual'],
                     NULL, NULL, NULL, NULL, NULL
                 ),
                 (
-                    'moby', 'Moby Dick', 'Melville', 1851, 3.5, 'adventure', false,
+                    'moby', 'Moby Dick', 'Melville', 1851, TIMESTAMP '1851-10-18', 3.5, 'adventure', false,
                     'A captain''s obsessive quest to hunt and kill a legendary white whale',
                     f32_vector(ARRAY[0.0, 0.5, 0.5, 0.0]),
                     ARRAY['classic', 'adventure', 'sea'],

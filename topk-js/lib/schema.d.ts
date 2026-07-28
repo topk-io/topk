@@ -4,6 +4,7 @@ type SchemaFieldSpec = schema.FieldSpec | { [field: string]: SchemaFieldSpec };
 export declare const binaryVector: typeof schema.binaryVector;
 export declare const bool: typeof schema.bool;
 export declare const bytes: typeof schema.bytes;
+export declare const timestamp: typeof schema.timestamp;
 export declare const f8Vector: typeof schema.f8Vector;
 export declare const f16Vector: typeof schema.f16Vector;
 export declare const f32Vector: typeof schema.f32Vector;

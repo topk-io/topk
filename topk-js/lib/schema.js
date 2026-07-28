@@ -3,6 +3,7 @@ const { schema } = require("../index");
 exports.binaryVector = schema.binaryVector;
 exports.bool = schema.bool;
 exports.bytes = schema.bytes;
+exports.timestamp = schema.timestamp;
 exports.f8Vector = schema.f8Vector;
 exports.f16Vector = schema.f16Vector;
 exports.f32Vector = schema.f32Vector;

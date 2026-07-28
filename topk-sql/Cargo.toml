@@ -9,6 +9,7 @@ homepage = "https://topk.io"
 documentation = "https://docs.topk.io"
 
 [dependencies]
+chrono = { version = "0.4.35" }
 regex = { version = "1.12" }
 sqlparser = { version = "0.61", features = ["visitor"] }
 strum = { version = "0.26.3" }

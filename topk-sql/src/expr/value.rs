@@ -38,6 +38,15 @@ impl FromSql<SqlExpr> for Value {
             },
             SqlExpr::Array(arr) => Value::from_sql(arr.elem),
             SqlExpr::Function(func) => Value::from_sql(func),
+            SqlExpr::TypedString(ts) => match ts.data_type {
+                DataType::Timestamp(_, _) => {
+                    let s = ts.value.into_string().ok_or_else(|| {
+                        Error::InvalidLiteral("TIMESTAMP literal must be a string".to_string())
+                    })?;
+                    parse_timestamp(&s)
+                }
+                other => sql_unsupported!("typed string literal: {other:?}"),
+            },
             SqlExpr::Cast {
                 expr, data_type, ..
             } => {
@@ -54,6 +63,7 @@ impl FromSql<SqlExpr> for Value {
                 };
                 let type_name = match data_type {
                     DataType::Custom(ref name, _) => name.to_string().to_ascii_lowercase(),
+                    DataType::Timestamp(_, _) => return parse_timestamp(&s),
                     other => return Err(Error::Unsupported(format!("cast to {other:?}"))),
                 };
                 parse_cast(&type_name, &s)
@@ -129,6 +139,19 @@ pub fn parse_number(repr: &str) -> Result<Value, Error> {
     repr.parse::<f64>()
         .map(Value::f64)
         .map_err(|e| Error::InvalidLiteral(format!("invalid integer literal `{repr}`: {e}")))
+}
+
+fn parse_timestamp(s: &str) -> Result<Value, Error> {
+    if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(s) {
+        return Ok(Value::timestamp(dt));
+    }
+    if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S%.f") {
+        return Ok(Value::timestamp(dt.and_utc()));
+    }
+    if let Ok(d) = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
+        return Ok(Value::timestamp(d.and_hms_opt(0, 0, 0).unwrap().and_utc()));
+    }
+    Err(Error::InvalidLiteral(format!("timestamp `{s}`")))
 }
 
 fn parse_cast(type_name: &str, s: &str) -> Result<Value, Error> {

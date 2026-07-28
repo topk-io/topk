@@ -59,6 +59,7 @@ pub enum BinaryOperator {
     Coalesce,
     Min,
     Max,
+    DatePart,
 }
 
 impl From<BinaryOperator> for topk_rs::proto::v1::data::logical_expr::binary_op::Op {
@@ -96,6 +97,9 @@ impl From<BinaryOperator> for topk_rs::proto::v1::data::logical_expr::binary_op:
             BinaryOperator::Xor => unimplemented!("`xor` operator is not supported"),
             BinaryOperator::Min => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Min,
             BinaryOperator::Max => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Max,
+            BinaryOperator::DatePart => {
+                topk_rs::proto::v1::data::logical_expr::binary_op::Op::DatePart
+            }
         }
     }
 }
@@ -636,6 +640,19 @@ impl LogicalExpr {
             left: Py::new(py, self.clone())?,
             op: BinaryOperator::Max,
             right: Py::new(py, Into::<LogicalExpr>::into(other))?,
+        })
+    }
+
+    fn date_part(&self, py: Python<'_>, part: String) -> PyResult<Self> {
+        Ok(Self::Binary {
+            left: Py::new(py, self.clone())?,
+            op: BinaryOperator::DatePart,
+            right: Py::new(
+                py,
+                LogicalExpr::Literal {
+                    value: Value::String(part),
+                },
+            )?,
         })
     }
 

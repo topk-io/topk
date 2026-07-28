@@ -162,6 +162,20 @@ WHERE (match('hobbit', title) OR match('dune', title))
 
 Text searches can be combined with each other using `OR`, and with metadata filters using `AND`.
 
+#### Timestamps
+
+Declare timestamp columns with `TIMESTAMP` and write timestamp values using the `TIMESTAMP '...'` literal form. Accepted formats are `'YYYY-MM-DD'`, `'YYYY-MM-DD HH:MM:SS[.fff]'` and RFC 3339; values without a timezone are interpreted as UTC. Use `date_part('year', ts)` or `EXTRACT(YEAR FROM ts)` to extract parts of a timestamp.
+
+```sql
+SELECT _id, title
+FROM books
+WHERE published_ts < TIMESTAMP '1929-01-01'
+ORDER BY published_ts ASC
+LIMIT 10;
+```
+
+`TIMESTAMP` and `TIMESTAMPTZ` are the same type in TopK: both store an absolute instant as milliseconds since UNIX epoch (UTC) and are returned as `int8` on the wire.
+
 #### Search Functions
 
 TopK extends SQL with search-specific functions for scoring and filtering. Scoring functions compute relevance in `SELECT`; text search predicates filter documents in `WHERE`.
@@ -427,6 +441,7 @@ CREATE TABLE [IF NOT EXISTS] <table> (
 | `FLOAT` / `REAL` / `DOUBLE PRECISION` | `float` |
 | `TEXT` / `VARCHAR` | `text` |
 | `BYTEA` | `bytes` |
+| `TIMESTAMP` / `TIMESTAMPTZ` | `timestamp` |
 | `TEXT[]` | `list<string>` |
 | `INTEGER[]` | `list<integer>` |
 | `FLOAT[]` | `list<float>` |
@@ -595,6 +610,8 @@ TopK speaks the PostgreSQL wire protocol but is purpose-built for search — not
 **`COUNT(*)` without `GROUP BY` is a standalone aggregate** — it returns a document count and cannot be combined with other columns in the same `SELECT` list. Inside a `GROUP BY` query, `COUNT(*)` behaves as an ordinary per-group aggregate and can be combined with other keys/aggregates — see [GROUP BY](#group-by).
 
 **`GROUP BY` keys must be identifiers** — group by a real column or a SELECT-list alias for a computed expression; you can't group by an inline expression directly. `GROUP BY ALL` and `ROLLUP`/`CUBE`/`GROUPING SETS` are not supported.
+
+**No implicit string-to-timestamp coercion** — `WHERE published_ts < '1929-01-01'` compares against a string and silently matches nothing. Use a typed literal instead: `WHERE published_ts < TIMESTAMP '1929-01-01'`.
 
 **No whole-value equality on complex types** — `tags = ARRAY['a']` is not supported. Use `contains(tags, 'a')` to check whether a single value exists in a list field — `contains` checks for one value at a time, not a list of values.
 

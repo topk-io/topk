@@ -393,6 +393,15 @@ impl FromNapiValue for Value {
                 Ok(Value::Bool(bool::from_napi_value(env, value)?))
             }
             napi::sys::ValueType::napi_object => {
+                // Datetimes
+                let mut is_date = false;
+                check_status!(napi::sys::napi_is_date(env, value, &mut is_date))?;
+                if is_date {
+                    let mut ms: f64 = 0.0;
+                    check_status!(napi::sys::napi_get_date_value(env, value, &mut ms))?;
+                    return Ok(Value::I64(ms as i64));
+                }
+
                 // Number lists (all "naked" number lists are interpreted as f32 lists (casting from f64))
                 if let Ok(list) = Vec::<f64>::from_napi_value(env, value) {
                     return Ok(Value::List(List {

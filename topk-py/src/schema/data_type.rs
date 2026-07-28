@@ -39,6 +39,7 @@ pub enum DataType {
     I8SparseVector(),
     U8SparseVector(),
     Bytes(),
+    Timestamp(),
     List {
         value_type: ListValueType,
     },
@@ -152,6 +153,9 @@ impl Into<topk_rs::proto::v1::control::field_type::DataType> for DataType {
                 topk_rs::proto::v1::control::field_type::DataType::u8_sparse_vector()
             }
             DataType::Bytes() => topk_rs::proto::v1::control::field_type::DataType::bytes(),
+            DataType::Timestamp() => {
+                topk_rs::proto::v1::control::field_type::DataType::timestamp()
+            }
             DataType::List { value_type } => {
                 topk_rs::proto::v1::control::field_type::DataType::List(value_type.into())
             }
@@ -233,6 +237,9 @@ impl From<topk_rs::proto::v1::control::field_type::DataType> for DataType {
                 DataType::U8SparseVector()
             }
             topk_rs::proto::v1::control::field_type::DataType::Bytes(_) => DataType::Bytes(),
+            topk_rs::proto::v1::control::field_type::DataType::Timestamp(_) => {
+                DataType::Timestamp()
+            }
             topk_rs::proto::v1::control::field_type::DataType::List(list) => DataType::List {
                 value_type: match list.value_type() {
                     ListValueTypePb::Integer => ListValueType::Integer,

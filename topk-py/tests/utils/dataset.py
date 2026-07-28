@@ -1,5 +1,6 @@
 import typing
 import builtins
+from datetime import datetime, timezone
 from topk_sdk import data
 from topk_sdk.schema import (
     binary_vector,
@@ -14,6 +15,7 @@ from topk_sdk.schema import (
     multi_vector_index,
     semantic_index,
     text,
+    timestamp,
     u8_sparse_vector,
     u8_vector,
     vector_index,
@@ -52,6 +54,7 @@ class books:
         return {
             "title": text().required().index(keyword_index()),
             "published_year": int().required(),
+            "published_ts": timestamp().required(),
             "summary": text().required().index(keyword_index()),
             "summary_embedding": f32_vector(16)
             .required()
@@ -83,6 +86,7 @@ class books:
                 "_id": "mockingbird",
                 "title": "To Kill a Mockingbird",
                 "published_year": 1960,
+                "published_ts": datetime(1960, 7, 11, tzinfo=timezone.utc),
                 "summary": "A young girl confronts racial injustice in the Deep South through the eyes of her lawyer father.",
                 "summary_embedding": [1.0] * 16,
                 "nullable_embedding": [1.0] * 16,
@@ -109,6 +113,7 @@ class books:
                 "_id": "1984",
                 "title": "1984",
                 "published_year": 1949,
+                "published_ts": datetime(1949, 6, 8, tzinfo=timezone.utc),
                 "summary": "A totalitarian regime uses surveillance and mind control to oppress its citizens.",
                 "summary_embedding": [2.0] * 16,
                 "nullable_embedding": [2.0] * 16,
@@ -145,6 +150,7 @@ class books:
                 "_id": "pride",
                 "title": "Pride and Prejudice",
                 "published_year": 1813,
+                "published_ts": datetime(1813, 1, 28, tzinfo=timezone.utc),
                 "summary": "A witty exploration of love, social class, and marriage in 19th-century England.",
                 "summary_embedding": [3.0] * 16,
                 "scalar_i8_embedding": data.i8_vector([0] * 16),
@@ -163,6 +169,7 @@ class books:
                 "_id": "gatsby",
                 "title": "The Great Gatsby",
                 "published_year": 1925,
+                "published_ts": datetime(1925, 4, 10, tzinfo=timezone.utc),
                 "summary": "A mysterious millionaire navigates love and wealth in the Roaring Twenties.",
                 "summary_embedding": [4.0] * 16,
                 "scalar_i8_embedding": data.i8_vector([50] * 16),
@@ -188,6 +195,7 @@ class books:
                 "_id": "catcher",
                 "title": "The Catcher in the Rye",
                 "published_year": 1951,
+                "published_ts": datetime(1951, 7, 16, tzinfo=timezone.utc),
                 "summary": "A rebellious teenager struggles with alienation and identity in mid-20th-century America.",
                 "summary_embedding": [5.0] * 16,
                 "nullable_embedding": [5.0] * 16,
@@ -215,6 +223,7 @@ class books:
                 "_id": "moby",
                 "title": "Moby-Dick",
                 "published_year": 1851,
+                "published_ts": datetime(1851, 10, 18, tzinfo=timezone.utc),
                 "summary": "A sailor's obsessive quest to hunt a great white whale leads to tragic consequences.",
                 "summary_embedding": [6.0] * 16,
                 "sparse_f32_embedding": data.f32_sparse_vector(
@@ -233,6 +242,7 @@ class books:
                 "_id": "hobbit",
                 "title": "The Hobbit",
                 "published_year": 1937,
+                "published_ts": datetime(1937, 9, 21, tzinfo=timezone.utc),
                 "summary": "A reluctant hobbit embarks on a quest to help a group of dwarves reclaim their mountain home.",
                 "summary_embedding": [7.0] * 16,
                 "sparse_f32_embedding": data.f32_sparse_vector(
@@ -249,6 +259,7 @@ class books:
                 "_id": "harry",
                 "title": "Harry Potter and the Sorcerer's Stone",
                 "published_year": 1997,
+                "published_ts": datetime(1997, 6, 26, tzinfo=timezone.utc),
                 "summary": "A young wizard discovers his magical heritage and attends a school for witchcraft and wizardry.",
                 "summary_embedding": [8.0] * 16,
                 "nullable_embedding": [8.0] * 16,
@@ -269,6 +280,7 @@ class books:
                 "_id": "lotr",
                 "title": "The Lord of the Rings: The Fellowship of the Ring",
                 "published_year": 1954,
+                "published_ts": datetime(1954, 7, 29, tzinfo=timezone.utc),
                 "summary": "A group of unlikely heroes sets out to destroy a powerful, evil ring.",
                 "summary_embedding": [9.0] * 16,
                 "scalar_i8_embedding": data.i8_vector([-100] * 16),
@@ -292,6 +304,7 @@ class books:
                 "_id": "alchemist",
                 "title": "The Alchemist",
                 "published_year": 1988,
+                "published_ts": datetime(1988, 1, 1, tzinfo=timezone.utc),
                 "summary": "A shepherd boy journeys to fulfill his destiny and discover the meaning of life.",
                 "summary_embedding": [10.0] * 16,
                 "sparse_f32_embedding": data.f32_sparse_vector(

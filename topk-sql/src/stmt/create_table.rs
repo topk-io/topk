@@ -88,6 +88,7 @@ impl FromSql<DataType> for FieldType {
             Float(_) | Float4 | Float8 | Real | DoublePrecision => Ok(FieldType::float()),
             Text | Varchar(_) => Ok(FieldType::text()),
             Bytea => Ok(FieldType::bytes()),
+            Timestamp(_, _) => Ok(FieldType::timestamp()),
 
             // Native array types → list
             Array(ArrayElemTypeDef::SquareBracket(inner, _)) => match *inner {

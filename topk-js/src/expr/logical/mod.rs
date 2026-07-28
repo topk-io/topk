@@ -325,6 +325,29 @@ impl LogicalExpression {
         Self::binary(BinaryOperator::Max, self.clone(), other.into())
     }
 
+    /// Extracts a part of a timestamp expression as an integer.
+    ///
+    /// Supported parts:
+    ///
+    /// - `"year"` — calendar year
+    /// - `"month"` — 1-12
+    /// - `"week"` — ISO week number
+    /// - `"day"` — day of month, 1-31
+    /// - `"day_of_year"` — 1-366
+    /// - `"day_of_week"` — 0-6, Monday = 0
+    /// - `"hour"` — 0-23
+    /// - `"minute"` — 0-59
+    /// - `"second"` — 0-59
+    /// - `"millisecond"` — 0-999
+    #[napi]
+    pub fn date_part(&self, part: String) -> Self {
+        Self::binary(
+            BinaryOperator::DatePart,
+            self.clone(),
+            LogicalExpression::literal(part),
+        )
+    }
+
     /// Computes the logical AND of the expression and another expression.
     #[napi]
     pub fn and(&self, #[napi(ts_arg_type = "LogicalExpression | boolean")] other: Boolish) -> Self {

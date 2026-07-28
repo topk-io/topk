@@ -216,6 +216,24 @@ class LogicalExpr(Enum):
         Compute the maximum of the expression and another value.
         """
         ...
+    def date_part(self, part: builtins.str) -> LogicalExpr:
+        """
+        Extract a part of a timestamp expression as an integer.
+
+        Supported parts:
+
+        - ``"year"`` — calendar year
+        - ``"month"`` — 1-12
+        - ``"week"`` — ISO week number
+        - ``"day"`` — day of month, 1-31
+        - ``"day_of_year"`` — 1-366
+        - ``"day_of_week"`` — 0-6, Monday = 0
+        - ``"hour"`` — 0-23
+        - ``"minute"`` — 0-59
+        - ``"second"`` — 0-59
+        - ``"millisecond"`` — 0-999
+        """
+        ...
     def and_(self, other: Boolish) -> LogicalExpr:
         """
         Compute the logical AND of the expression and another expression.
