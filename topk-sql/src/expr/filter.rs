@@ -52,10 +52,7 @@ impl FromSql<SqlExpr> for TextExpr {
     fn from_sql(expr: SqlExpr) -> Result<TextExpr, Error> {
         match expr {
             SqlExpr::Nested(inner) => FromSql::from_sql(*inner),
-            SqlExpr::Function(func)
-                if func.name().eq_ignore_ascii_case("match")
-                    || func.name().eq_ignore_ascii_case("match_tokens") =>
-            {
+            SqlExpr::Function(func) if is_text_fn(&func.name()) => {
                 match Expr::try_from(func.clone())? {
                     Expr::Text(expr) => Ok(expr),
                     _ => sql_invalid!("Expected match or match_tokens function"),
@@ -120,10 +117,13 @@ fn contains_text_expr(expr: &SqlExpr) -> bool {
 fn is_text_expr(expr: &SqlExpr) -> bool {
     match expr {
         SqlExpr::Nested(inner) => is_text_expr(inner),
-        SqlExpr::Function(func) => {
-            let name = func.name();
-            name.eq_ignore_ascii_case("match") || name.eq_ignore_ascii_case("match_tokens")
-        }
+        SqlExpr::Function(func) => is_text_fn(&func.name()),
         _ => false,
     }
+}
+
+fn is_text_fn(name: &str) -> bool {
+    ["match", "match_tokens", "should"]
+        .iter()
+        .any(|f| name.eq_ignore_ascii_case(f))
 }

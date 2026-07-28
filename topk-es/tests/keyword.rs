@@ -1,10 +1,10 @@
 mod common;
 
 use common::TestScope;
-use test_macros::rstest_ctx;
 use elasticsearch::http::StatusCode;
 use serde_json::json;
 use test_context::test_context;
+use test_macros::rstest_ctx;
 
 // A keyword field indexes the whole value as one verbatim term, so `match`
 // only matches the entire value — not a partial token, and case-sensitively.

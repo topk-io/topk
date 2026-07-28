@@ -281,6 +281,9 @@ impl From<topk_rs::proto::v1::control::field_type::DataType> for DataType {
                 dimension: matrix.dimension,
                 value_type: matrix.value_type().into(),
             },
+            topk_rs::proto::v1::control::field_type::DataType::Timestamp(_) => {
+                unimplemented!("timestamp: see #530")
+            }
         }
     }
 }

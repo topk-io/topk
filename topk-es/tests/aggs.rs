@@ -1,9 +1,9 @@
 mod common;
 
 use common::{BooksContext, TestScope};
-use test_macros::rstest_ctx;
 use serde_json::{json, Value};
 use test_context::test_context;
+use test_macros::rstest_ctx;
 
 #[test_context(BooksContext)]
 #[tokio::test]
@@ -37,7 +37,7 @@ async fn test_terms_agg_with_avg_sub_agg(books: &BooksContext) {
 
 #[test_context(BooksContext)]
 #[tokio::test]
-async fn bug_bare_metric_agg_with_size_zero(books: &BooksContext) {
+async fn test_bare_metric_agg_with_size_zero(books: &BooksContext) {
     let resp = books
         .search(json!({
             "size": 0,
@@ -47,7 +47,7 @@ async fn bug_bare_metric_agg_with_size_zero(books: &BooksContext) {
         .expect("search should succeed");
 
     assert_eq!(resp.hit_ids().len(), 0);
-    assert_eq!(resp.total(), 0);
+    assert_eq!(resp.total(), 10);
 
     let value = resp.agg_value("avg_rating");
     assert!((value - 4.12).abs() < 1e-6);

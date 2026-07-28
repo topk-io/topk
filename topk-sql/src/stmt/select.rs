@@ -24,9 +24,8 @@ fn is_aggregate_fn(func: &SqlFunction) -> bool {
 
 fn is_count_star(func: &SqlFunction) -> bool {
     func.is_count()
-        && func.matches_args(|args| {
-            matches!(args, [FunctionArg::Unnamed(FunctionArgExpr::Wildcard)])
-        })
+        && func
+            .matches_args(|args| matches!(args, [FunctionArg::Unnamed(FunctionArgExpr::Wildcard)]))
 }
 
 /// Lowers a `GROUP BY` query into a `group_by` stage (plus an optional `HAVING` filter stage)
