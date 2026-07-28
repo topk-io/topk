@@ -62,6 +62,20 @@ impl FieldIndex {
     }
 }
 
+impl FromStr for KeywordIndexType {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "text" => Ok(Self::Text),
+            "exact" => Ok(Self::Exact),
+            other => Err(Error::InvalidArgument(format!(
+                "invalid keyword index type `{other}`, expected: text | exact"
+            ))),
+        }
+    }
+}
+
 impl FromStr for VectorDistanceMetric {
     type Err = Error;
 
