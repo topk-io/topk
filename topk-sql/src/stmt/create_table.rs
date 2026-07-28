@@ -13,7 +13,7 @@ use topk_rs::proto::v1::control::{
 
 use crate::{
     Error, FromSql, SqlExprExt, Statement, Table, parse_args, parse_kwargs, sql_invalid,
-    sql_unsupported,
+    sql_unsupported, util::Kwargs
 };
 
 impl TryFrom<SqlCreateTable> for Statement {
@@ -210,8 +210,12 @@ impl FromSql<Function> for FieldIndex {
 
         let index = match method.as_str() {
             "keyword_index" => {
-                sql_unsupported!(!opts.is_empty(), "keyword_index does not take options");
-                FieldIndex::keyword(KeywordIndexType::Text)
+                let kwargs = Kwargs(&opts);
+                let index_type = kwargs
+                    .optional::<KeywordIndexType>("type")?
+                    .unwrap_or(KeywordIndexType::Text);
+                kwargs.done(&["type"])?;
+                FieldIndex::keyword(index_type)
             }
             "semantic_index" => {
                 sql_unsupported!(!opts.is_empty(), "semantic_index does not take options");

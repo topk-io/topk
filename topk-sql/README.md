@@ -455,7 +455,7 @@ CREATE TABLE [IF NOT EXISTS] <table> (
 
 | Method | Applies to | Options |
 |--------|------------|---------|
-| `keyword_index()` | `TEXT`, `VARCHAR` | — |
+| `keyword_index()` | `TEXT`, `VARCHAR` | type: `text` (default) — tokenized before indexing<br/>`exact` — indexed as a single term |
 | `semantic_index()` | `TEXT`, `VARCHAR` | — |
 | `vector_index()` | `*_vector(n)`, `*_sparse_vector` | metric: `cosine`, `dot_product`, `euclidean`, `hamming` |
 | `multi_vector_index()` | `*_matrix(n)` | metric: `maxsim`<br/>quantization: `1bit`, `2bit`, `scalar`<br/>width, top_k |
@@ -468,7 +468,7 @@ CREATE TABLE books (
     author         TEXT NOT NULL,
     published_year INTEGER NOT NULL,
     rating         FLOAT,
-    genre          TEXT,
+    genre          TEXT                        INDEX keyword_index(type = 'exact'),
     in_print       BOOLEAN,
     bio            TEXT                        INDEX semantic_index(),
     embedding      f32_vector(4)               INDEX vector_index(metric = 'cosine'),

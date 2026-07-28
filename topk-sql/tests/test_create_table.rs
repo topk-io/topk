@@ -1,8 +1,10 @@
+use std::collections::HashSet;
+
 use rstest::rstest;
 use topk_rs::{doc, proto::v1::data::Document};
 
 mod common;
-use common::{Scope, TableScope};
+use common::{Scope, TableScope, ids};
 
 #[rstest]
 #[case::minimal(
@@ -33,6 +35,12 @@ use common::{Scope, TableScope};
     "INSERT INTO {{table}} (_id, title, embedding) VALUES ('doc', 'Hello World', f32_vector(ARRAY[1.0, 0.0, 0.0, 0.0]))",
     "SELECT _id, vector_distance(embedding, f32_vector(ARRAY[1.0, 0.0, 0.0, 0.0])) AS d FROM {{table}} ORDER BY d LIMIT 1",
     vec![doc!("_id" => "doc", "d" => 1.0_f32)],
+)]
+#[case::keyword_index_text_type(
+    "CREATE TABLE {{table}} (title TEXT NOT NULL INDEX keyword_index(type = 'text'))",
+    "INSERT INTO {{table}} (_id, title) VALUES ('doc', 'Hello World')",
+    "SELECT _id FROM {{table}} WHERE match('hello', title) LIMIT 10",
+    vec![doc!("_id" => "doc")],
 )]
 #[tokio::test]
 async fn create_table_round_trip(
@@ -88,6 +96,14 @@ async fn create_table_rejected(
     )",
     "Invalid: unknown option `typo`"
 )]
+#[case::keyword_index_invalid_type(
+    "CREATE TABLE {{table}} (title TEXT NOT NULL INDEX keyword_index(type = 'oops'))",
+    "Invalid: option `type` is invalid: invalid argument: invalid keyword index type `oops`, expected: text | exact"
+)]
+#[case::keyword_index_unknown_option(
+    "CREATE TABLE {{table}} (title TEXT NOT NULL INDEX keyword_index(typo = 'text'))",
+    "Invalid: unknown option `typo`"
+)]
 #[tokio::test]
 async fn create_table_with_index_rejected(#[case] sql: &str, #[case] expected: &str) {
     let err = TableScope::with_scope(async |ctx| ctx.sql(sql).await)
@@ -95,6 +111,33 @@ async fn create_table_with_index_rejected(#[case] sql: &str, #[case] expected: &
         .unwrap_err();
 
     assert_eq!(err.to_string(), expected);
+}
+
+#[rstest]
+#[case::full_value("New York City", ids!["nyc"])]
+#[case::partial_token("York", ids![])]
+#[case::lowercased("new york city", ids![])]
+#[case::camel_case("CamelCase", ids!["camel"])]
+#[case::camel_case_lowercased("camelcase", ids![])]
+#[tokio::test]
+async fn exact_keyword_index(#[case] token: &str, #[case] expected: HashSet<&str>) {
+    let rows = TableScope::with_scope(async |ctx| {
+        ctx.sql("CREATE TABLE {{table}} (tag TEXT NOT NULL INDEX keyword_index(type = 'exact'))")
+            .await?;
+        ctx.sql(
+            "INSERT INTO {{table}} (_id, tag) \
+             VALUES ('nyc', 'New York City'), ('camel', 'CamelCase')",
+        )
+        .await?;
+        ctx.sql(&format!(
+            "SELECT _id FROM {{{{table}}}} WHERE match('{token}', tag) LIMIT 10"
+        ))
+        .await
+    })
+    .await
+    .unwrap();
+
+    assert_eq!(ids(&rows), expected);
 }
 
 #[rstest]
