@@ -7,6 +7,7 @@ test:
     BUILD +test-rs --region=$region --host=$host
     BUILD +test-py --region=$region --host=$host
     BUILD +test-js --region=$region --host=$host
+    BUILD +test-cli --region=$region --host=$host
     BUILD +test-sql --region=$region --host=$host
     BUILD +test-es --region=$region --host=$host
 
@@ -34,9 +35,10 @@ test-rs:
     DO +SETUP_ENV --region=$region --host=$host
 
     # test
+    ARG args=""
     ENV FORCE_COLOR=1
     RUN --no-cache --secret TOPK_API_KEY \
-        TOPK_API_KEY=$TOPK_API_KEY topk-test-sandbox cargo nextest run --archive-file e2e.tar.zst --no-fail-fast -j 16
+        TOPK_API_KEY=$TOPK_API_KEY topk-test-sandbox cargo nextest run --archive-file e2e.tar.zst --no-fail-fast -j 16 $args
 
 
 test-py:
@@ -162,8 +164,9 @@ test-cli:
     # #[cfg(test)] modules (not integration tests) and Cargo won't set it automatically
     ENV FORCE_COLOR=1
     ENV CARGO_BIN_EXE_topk=/sdk/topk-cli/target/debug/topk
+    ARG args=""
     RUN --no-cache --secret TOPK_API_KEY \
-        TOPK_API_KEY=$TOPK_API_KEY topk-test-sandbox cargo test -p topk-cli --lib --no-fail-fast
+        TOPK_API_KEY=$TOPK_API_KEY topk-test-sandbox cargo test -p topk-cli --lib --no-fail-fast $args
 
 test-sql:
     FROM rust:slim
@@ -189,12 +192,10 @@ test-sql:
     DO +SETUP_ENV --region=$region --host=$host
 
     # test
+    ARG args=""
     ENV FORCE_COLOR=1
-    ENV PGHOST=${region}.sql.${host}
-    ENV PGPORT=5432
-    ENV PGSSLMODE=require
     RUN --no-cache --secret TOPK_API_KEY \
-        PGPASSWORD=$TOPK_API_KEY TOPK_API_KEY=$TOPK_API_KEY topk-test-sandbox cargo nextest run --archive-file sql.tar.zst --no-fail-fast -j 16
+        TOPK_API_KEY=$TOPK_API_KEY topk-test-sandbox cargo nextest run --archive-file sql.tar.zst --no-fail-fast -j 16 $args
 
 #
 
@@ -222,10 +223,10 @@ test-es:
     DO +SETUP_ENV --region=$region --host=$host
 
     # test
+    ARG args=""
     ENV FORCE_COLOR=1
-    ENV ES_URL=https://${region}.es.${host}
     RUN --no-cache --secret TOPK_API_KEY \
-        ES_TOKEN=$TOPK_API_KEY TOPK_API_KEY=$TOPK_API_KEY topk-test-sandbox cargo nextest run --archive-file es.tar.zst --no-fail-fast -j 16
+        TOPK_API_KEY=$TOPK_API_KEY topk-test-sandbox cargo nextest run --archive-file es.tar.zst --no-fail-fast -j 16 $args
 
 #
 
@@ -292,6 +293,17 @@ SETUP_ENV:
 
         # forward traffic to dev cluster running on host
         HOST emulator.api.ddb $host
+        HOST emulator.es.ddb $host
+        HOST emulator.sql.ddb $host
         ENV TOPK_HOST=ddb
         ENV TOPK_HTTPS=false
+
+        # emulator gateway is plaintext: es on :9200, pgwire on :5432
+        ENV ES_URL=http://emulator.es.ddb:9200
+        ENV PGHOST=emulator.sql.ddb
+        ENV PGSSLMODE=disable
+    ELSE
+        ENV ES_URL=https://${region}.es.${host}
+        ENV PGHOST=${region}.sql.${host}
+        ENV PGSSLMODE=require
     END
