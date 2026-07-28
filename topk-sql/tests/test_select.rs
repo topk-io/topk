@@ -681,15 +681,15 @@ async fn should_does_not_filter() {
 }
 
 #[rstest]
-#[case::boost_magic("magic", "harry")]
-#[case::boost_epic("epic", "lotr")]
+#[case::boost_dragon("dragon", "hobbit")]
+#[case::boost_whale("whale", "moby")]
 #[tokio::test]
 async fn should_boosts_bm25_score(#[case] boost: &str, #[case] first: &str) {
     // the should term only affects ranking
     let rows = BooksContext::with_scope(async |ctx| {
         ctx.sql(&format!(
             "SELECT _id, bm25_score() AS score FROM {{{{table}}}} \
-             WHERE match('fantasy', tags) AND should('{boost}', tags) \
+             WHERE match('quest', bio) AND should('{boost}', bio) \
              ORDER BY score DESC LIMIT 3"
         ))
         .await
@@ -697,7 +697,7 @@ async fn should_boosts_bm25_score(#[case] boost: &str, #[case] first: &str) {
     .await
     .unwrap();
 
-    assert_eq!(ids(&rows), ids!["hobbit", "lotr", "harry"]);
+    assert_eq!(ids(&rows), ids!["hobbit", "moby"]);
     assert_eq!(rows[0].id().unwrap(), first);
 }
 
