@@ -74,4 +74,3 @@ impl From<topk_rs::proto::v1::control::FieldSpec> for FieldSpec {
         }
     }
 }
-

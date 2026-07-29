@@ -46,8 +46,7 @@ class UnknownValue:
     """
     *Internal*
 
-    Placeholder for a value whose type is not supported by this version of the SDK.
-    Reading one is safe; writing it back is rejected.
+    Placeholder for a value this version of the SDK cannot represent.
     """
 
     ...
