@@ -20,4 +20,5 @@ export declare const SparseVector: typeof data.SparseVector;
 export declare const matrix: typeof data.matrix;
 export declare const Matrix: typeof data.Matrix;
 export declare const Struct: typeof data.Struct;
+export declare const UnknownValue: typeof data.UnknownValue;
 export declare type MatrixValueType = data.MatrixValueType;

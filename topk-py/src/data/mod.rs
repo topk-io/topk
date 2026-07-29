@@ -7,6 +7,7 @@ use pyo3::types::{PyBytes, PyList};
 use crate::data::list::List;
 use crate::data::matrix::Matrix;
 use crate::data::r#struct::Struct;
+use crate::data::unknown::UnknownValue;
 use crate::data::value::Value;
 use crate::data::vector::{F32SparseVector, SparseVector, U8SparseVector};
 
@@ -19,6 +20,7 @@ pub mod list_entry;
 pub mod matrix;
 pub mod partition;
 pub mod r#struct;
+pub mod unknown;
 pub mod value;
 pub mod vector;
 
@@ -34,6 +36,7 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<SparseVector>()?;
     m.add_class::<Matrix>()?;
     m.add_class::<Struct>()?;
+    m.add_class::<UnknownValue>()?;
 
     // (Dense) Vectors
     m.add_wrapped(wrap_pyfunction!(f8_vector))?;

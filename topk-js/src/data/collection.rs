@@ -59,7 +59,10 @@ pub struct CollectionFieldSpec {
 impl From<topk_rs::proto::v1::control::FieldSpec> for CollectionFieldSpec {
     fn from(field_spec: topk_rs::proto::v1::control::FieldSpec) -> Self {
         Self {
-            data_type: field_spec.data_type.unwrap().into(),
+            data_type: field_spec
+                .data_type
+                .map(DataType::from)
+                .unwrap_or(DataType::Unknown),
             required: field_spec.required,
             index: field_spec.index.map(|index| index.into()),
         }

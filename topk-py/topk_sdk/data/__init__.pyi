@@ -42,6 +42,16 @@ class Struct:
 
     ...
 
+class UnknownValue:
+    """
+    *Internal*
+
+    Placeholder for a value whose type is not supported by this version of the SDK.
+    Reading one is safe; writing it back is rejected.
+    """
+
+    ...
+
 def f8_vector(data: builtins.list[float]) -> List:
     """
     Create a [List](https://docs.topk.io/sdk/topk-py/data#List) type containing a 8-bit float vector.

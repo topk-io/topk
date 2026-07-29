@@ -67,10 +67,11 @@ impl From<topk_rs::proto::v1::control::FieldSpec> for FieldSpec {
             data_type: proto
                 .data_type
                 .and_then(|d| d.data_type)
-                .map(|d| d.into())
-                .expect("data_type is required"),
+                .map(DataType::from)
+                .unwrap_or(DataType::Unknown()),
             required: proto.required,
             index: proto.index.map(|i| i.into()),
         }
     }
 }
+

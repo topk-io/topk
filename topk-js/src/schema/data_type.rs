@@ -1,5 +1,9 @@
-use napi_derive::napi;
 use std::collections::HashMap;
+
+use napi_derive::napi;
+
+use topk_rs::proto::v1::control::field_type_list::ListValueType as ListValueTypePb;
+use topk_rs::proto::v1::control::field_type_matrix::MatrixValueType as MatrixValueTypePb;
 
 use crate::schema::field_spec::FieldSpec;
 
@@ -45,6 +49,7 @@ pub enum DataType {
         dimension: u32,
         value_type: MatrixValueType,
     },
+    Unknown,
 }
 
 #[napi(string_enum = "lowercase", namespace = "schema")]
@@ -87,31 +92,6 @@ impl From<MatrixValueType> for topk_rs::proto::v1::control::field_type_matrix::M
     }
 }
 
-impl From<topk_rs::proto::v1::control::field_type_matrix::MatrixValueType> for MatrixValueType {
-    fn from(value: topk_rs::proto::v1::control::field_type_matrix::MatrixValueType) -> Self {
-        match value {
-            topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::F32 => {
-                MatrixValueType::F32
-            }
-            topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::F16 => {
-                MatrixValueType::F16
-            }
-            topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::F8 => {
-                MatrixValueType::F8
-            }
-            topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::U8 => {
-                MatrixValueType::U8
-            }
-            topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::I8 => {
-                MatrixValueType::I8
-            }
-            topk_rs::proto::v1::control::field_type_matrix::MatrixValueType::Unspecified => {
-                unreachable!("Invalid matrix value type")
-            }
-        }
-    }
-}
-
 impl From<ListValueType> for topk_rs::proto::v1::control::FieldTypeList {
     fn from(value: ListValueType) -> Self {
         match value {
@@ -131,24 +111,6 @@ impl From<ListValueType> for topk_rs::proto::v1::control::FieldTypeList {
     }
 }
 
-impl From<topk_rs::proto::v1::control::field_type_list::ListValueType> for ListValueType {
-    fn from(value: topk_rs::proto::v1::control::field_type_list::ListValueType) -> Self {
-        match value {
-            topk_rs::proto::v1::control::field_type_list::ListValueType::Integer => {
-                ListValueType::Integer
-            }
-            topk_rs::proto::v1::control::field_type_list::ListValueType::Float => {
-                ListValueType::Float
-            }
-            topk_rs::proto::v1::control::field_type_list::ListValueType::String => {
-                ListValueType::Text
-            }
-            topk_rs::proto::v1::control::field_type_list::ListValueType::Unspecified => {
-                unreachable!("Invalid list value type")
-            }
-        }
-    }
-}
 impl From<topk_rs::proto::v1::control::FieldType> for DataType {
     fn from(field_type: topk_rs::proto::v1::control::FieldType) -> Self {
         match field_type.data_type {
@@ -204,7 +166,12 @@ impl From<topk_rs::proto::v1::control::FieldType> for DataType {
                 }
                 topk_rs::proto::v1::control::field_type::DataType::Bytes(_) => DataType::Bytes,
                 topk_rs::proto::v1::control::field_type::DataType::List(list) => DataType::List {
-                    value_type: list.value_type().into(),
+                    value_type: match list.value_type() {
+                        ListValueTypePb::Integer => ListValueType::Integer,
+                        ListValueTypePb::Float => ListValueType::Float,
+                        ListValueTypePb::String => ListValueType::Text,
+                        ListValueTypePb::Unspecified => return DataType::Unknown,
+                    },
                 },
                 topk_rs::proto::v1::control::field_type::DataType::Struct(s) => DataType::Struct {
                     fields: s.fields.into_iter().map(|(k, v)| (k, v.into())).collect(),
@@ -212,14 +179,21 @@ impl From<topk_rs::proto::v1::control::FieldType> for DataType {
                 topk_rs::proto::v1::control::field_type::DataType::Matrix(matrix) => {
                     DataType::Matrix {
                         dimension: matrix.dimension,
-                        value_type: matrix.value_type().into(),
+                        value_type: match matrix.value_type() {
+                            MatrixValueTypePb::F32 => MatrixValueType::F32,
+                            MatrixValueTypePb::F16 => MatrixValueType::F16,
+                            MatrixValueTypePb::F8 => MatrixValueType::F8,
+                            MatrixValueTypePb::U8 => MatrixValueType::U8,
+                            MatrixValueTypePb::I8 => MatrixValueType::I8,
+                            MatrixValueTypePb::Unspecified => return DataType::Unknown,
+                        },
                     }
                 }
                 topk_rs::proto::v1::control::field_type::DataType::Timestamp(_) => {
                     unimplemented!("timestamp: see #530")
                 }
             },
-            None => unreachable!("Invalid data type proto"),
+            None => DataType::Unknown,
         }
     }
 }

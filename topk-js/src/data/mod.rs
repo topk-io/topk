@@ -15,6 +15,9 @@ pub use matrix::MatrixValueType;
 mod r#struct;
 pub use r#struct::Struct;
 
+mod unknown;
+pub use unknown::{UnknownValue, UNSUPPORTED};
+
 mod value;
 pub use value::NativeValue;
 pub use value::Value;
