@@ -262,9 +262,6 @@ impl From<topk_rs::proto::v1::control::field_type::DataType> for DataType {
                     MatrixValueTypePb::Unspecified => return DataType::Unknown(),
                 },
             },
-            topk_rs::proto::v1::control::field_type::DataType::Timestamp(_) => {
-                unimplemented!("timestamp: see #530")
-            }
         }
     }
 }
