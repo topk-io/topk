@@ -404,10 +404,7 @@ impl FromSql<SqlFunction> for LogicalExpr {
                 "`{name}` is a text filter function — only valid in WHERE (e.g. \
                  `WHERE {name}('query', field)`)"
             ),
-            Expr::Function(_) => sql_unsupported!(
-                "`{name}` is a search function — only valid at the top of a SELECT projection \
-                 item (e.g. `SELECT {name}(…) AS s FROM c ORDER BY s LIMIT k`)"
-            ),
+            Expr::Function(func) => Ok(LogicalExpr::function(func)),
         }
     }
 }
