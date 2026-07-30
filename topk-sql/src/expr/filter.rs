@@ -127,9 +127,3 @@ fn is_text_expr(expr: &SqlExpr) -> bool {
         _ => false,
     }
 }
-
-fn is_text_fn(name: &str) -> bool {
-    ["match", "match_tokens", "should"]
-        .iter()
-        .any(|f| name.eq_ignore_ascii_case(f))
-}
