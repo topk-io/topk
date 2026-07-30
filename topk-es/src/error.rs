@@ -47,8 +47,8 @@ pub enum Error {
     SerdeJson(String),
 }
 
-impl From<serde_json::Error> for Error {
-    fn from(e: serde_json::Error) -> Self {
+impl From<sonic_rs::Error> for Error {
+    fn from(e: sonic_rs::Error) -> Self {
         Error::SerdeJson(e.to_string())
     }
 }

@@ -19,7 +19,7 @@ where
     async fn from_request(req: Request, state: &S) -> Result<Self, Self::Rejection> {
         let body = match read_json(req, state).await? {
             Some(body) => body,
-            None => serde_json::from_str("{}")?,
+            None => sonic_rs::from_str("{}")?,
         };
         Ok(Body(body))
     }
@@ -76,11 +76,11 @@ where
     // ES request bodies are always JSON objects. Reject arrays/scalars up front:
     // serde deserializes a struct from a positional sequence, so a bare `[]` would
     // otherwise become an all-defaults request (e.g. `_search` match-all).
-    let json: serde_json::Value = serde_json::from_slice(&bytes)?;
-    if !json.is_object() {
+    if !(bytes.starts_with(b"{") && bytes.ends_with(b"}")) {
         return Err(Error::BadRequest(
             "Request body must be a JSON object".into(),
         ));
     }
-    Ok(Some(serde_json::from_value(json)?))
+
+    Ok(Some(sonic_rs::from_slice(&bytes)?))
 }

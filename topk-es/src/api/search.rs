@@ -152,8 +152,8 @@ impl QueryVector {
 #[derive(Deserialize)]
 #[serde(untagged)]
 enum QueryVectorWire {
-    Flat(Vec<serde_json::Number>),
-    Matrix(Vec<Vec<serde_json::Number>>),
+    Flat(Vec<sonic_rs::Number>),
+    Matrix(Vec<Vec<sonic_rs::Number>>),
 }
 
 impl TryFrom<QueryVectorWire> for QueryVector {

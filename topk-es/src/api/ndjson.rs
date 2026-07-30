@@ -57,7 +57,7 @@ impl<H: NdjsonHeader> NdjsonBody<H> {
 
         let mut entries = Vec::new();
         while let Some(first) = lines.next() {
-            let header: H = serde_json::from_str(first)?;
+            let header: H = sonic_rs::from_str(first)?;
             let line_index = header.index();
             let payload = header.parse_payload(&mut lines)?;
             let index = line_index
@@ -107,6 +107,6 @@ impl<'a> NdjsonLines<'a> {
             .next()
             .ok_or_else(|| Error::BadRequest("Unexpected end of NDJSON body".into()))?;
 
-        Ok(serde_json::from_str(line)?)
+        Ok(sonic_rs::from_str(line)?)
     }
 }

@@ -44,7 +44,7 @@ impl TryFrom<HashMap<String, serde_json::Value>> for MappingProperties {
                     }
                 }
 
-                serde_json::from_value(value)
+                sonic_rs::from_value(value)
                     .map(|mapping| (name, mapping))
                     .map_err(|e| Error::BadRequest(e.to_string()))
             })
