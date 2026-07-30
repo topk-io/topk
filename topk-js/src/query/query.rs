@@ -211,11 +211,11 @@ pub struct ShouldOptions {
 /// documents according to how well they match the term.
 ///
 /// ```js
-/// match("fantasy", { field: "tags" }).and(should("epic", { field: "tags" }))
+/// match("hobbit rings", { field: "title" }).and(should("lord", { field: "title" }))
 /// ```
 ///
-/// This returns only documents matching `fantasy`, while boosting documents that
-/// also match `epic`.
+/// This returns only documents matching `hobbit` or `rings`, while boosting
+/// documents that also match `lord`.
 ///
 /// - `options.field`: Keyword-indexed field used for scoring. Searches all eligible fields when omitted.
 /// - `options.weight`: Multiplier applied to the term's BM25 contribution. Defaults to `1.0`.
