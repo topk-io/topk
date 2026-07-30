@@ -114,16 +114,16 @@ fn contains_text_expr(expr: &SqlExpr) -> bool {
     )
 }
 
-fn is_text_fn(name: &str) -> bool {
-    name.eq_ignore_ascii_case("match")
-        || name.eq_ignore_ascii_case("match_tokens")
-        || name.eq_ignore_ascii_case("should")
-}
-
 fn is_text_expr(expr: &SqlExpr) -> bool {
     match expr {
         SqlExpr::Nested(inner) => is_text_expr(inner),
         SqlExpr::Function(func) => is_text_fn(&func.name()),
         _ => false,
     }
+}
+
+fn is_text_fn(name: &str) -> bool {
+    name.eq_ignore_ascii_case("match")
+        || name.eq_ignore_ascii_case("match_tokens")
+        || name.eq_ignore_ascii_case("should")
 }
