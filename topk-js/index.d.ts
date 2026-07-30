@@ -471,6 +471,16 @@ export declare namespace data {
     toString(): string
   }
   /**
+   * @internal
+   * Placeholder for a value this version of the SDK cannot represent.
+   */
+  export class UnknownValue {
+    /** @ignore */
+    constructor()
+    /** @ignore */
+    toString(): string
+  }
+  /**
    * Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a binary vector. This function is an alias for [binaryList()](https://docs.topk.io/sdk/topk-js/data#binarylist).
    *
    * Example:
@@ -1135,6 +1145,7 @@ export declare namespace schema {
     | { type: 'List', valueType: ListValueType }
     | { type: 'Struct', fields: Record<string, FieldSpec> }
     | { type: 'Matrix', dimension: number, valueType: MatrixValueType }
+    | { type: 'Unknown' }
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `f16_vector` values.
    *
@@ -1199,6 +1210,7 @@ export declare namespace schema {
     | { type: 'VectorIndex', metric: VectorDistanceMetric }
     | { type: 'SemanticIndex' }
     | { type: 'MultiVectorIndex', metric: MultiVectorDistanceMetric, quantization?: MultiVectorQuantization, width?: number, topK?: number }
+    | { type: 'Unknown' }
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `float` values.
    *

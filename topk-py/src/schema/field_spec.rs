@@ -51,6 +51,17 @@ impl FieldSpec {
     }
 }
 
+impl FieldSpec {
+    pub fn has_unknown(&self) -> bool {
+        matches!(self.index, Some(FieldIndex::Unknown()))
+            || match &self.data_type {
+                DataType::Unknown() => true,
+                DataType::Struct { fields } => fields.values().any(FieldSpec::has_unknown),
+                _ => false,
+            }
+    }
+}
+
 impl Into<topk_rs::proto::v1::control::FieldSpec> for FieldSpec {
     fn into(self) -> topk_rs::proto::v1::control::FieldSpec {
         topk_rs::proto::v1::control::FieldSpec {
@@ -67,10 +78,40 @@ impl From<topk_rs::proto::v1::control::FieldSpec> for FieldSpec {
             data_type: proto
                 .data_type
                 .and_then(|d| d.data_type)
-                .map(|d| d.into())
-                .expect("data_type is required"),
+                .map(DataType::from)
+                .unwrap_or(DataType::Unknown()),
             required: proto.required,
             index: proto.index.map(|i| i.into()),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+    use topk_rs::proto::v1::control as pb;
+
+    fn spec(data_type: pb::FieldType, index: Option<pb::FieldIndex>) -> pb::FieldSpec {
+        pb::FieldSpec {
+            data_type: Some(data_type),
+            required: false,
+            index,
+        }
+    }
+
+    #[rstest]
+    #[case::known(spec(pb::FieldType::text(), None), false)]
+    #[case::unknown_type(spec(pb::FieldType { data_type: None }, None), true)]
+    #[case::unknown_index(
+        spec(pb::FieldType::text(), Some(pb::FieldIndex { index: None })),
+        true
+    )]
+    #[case::unknown_nested_in_struct(
+        spec(pb::FieldType::r#struct([("created_at", spec(pb::FieldType { data_type: None }, None))]), None),
+        true
+    )]
+    fn detects_unknown(#[case] proto: pb::FieldSpec, #[case] expected: bool) {
+        assert_eq!(FieldSpec::from(proto).has_unknown(), expected);
     }
 }

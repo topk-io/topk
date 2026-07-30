@@ -1,6 +1,14 @@
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
+use crate::data::UNSUPPORTED;
+use topk_rs::proto::v1::control::{
+    KeywordIndexType as KeywordIndexTypePb,
+    MultiVectorDistanceMetric as MultiVectorDistanceMetricPb,
+    MultiVectorQuantization as MultiVectorQuantizationPb,
+    VectorDistanceMetric as VectorDistanceMetricPb,
+};
+
 /// @internal
 /// @hideconstructor
 #[napi(namespace = "schema")]
@@ -24,6 +32,7 @@ pub enum FieldIndexUnion {
         width: Option<u32>,
         top_k: Option<u32>,
     },
+    Unknown {},
 }
 
 impl FieldIndex {
@@ -33,6 +42,10 @@ impl FieldIndex {
 
     pub(crate) fn keyword_index(index_type: KeywordIndexType) -> Self {
         Self(FieldIndexUnion::KeywordIndex { index_type })
+    }
+
+    pub(crate) fn unknown() -> Self {
+        Self(FieldIndexUnion::Unknown {})
     }
 
     pub(crate) fn semantic_index() -> Self {
@@ -83,18 +96,6 @@ impl From<KeywordIndexType> for topk_rs::proto::v1::control::KeywordIndexType {
     }
 }
 
-impl From<topk_rs::proto::v1::control::KeywordIndexType> for KeywordIndexType {
-    fn from(index_type: topk_rs::proto::v1::control::KeywordIndexType) -> Self {
-        match index_type {
-            topk_rs::proto::v1::control::KeywordIndexType::Text => KeywordIndexType::Text,
-            topk_rs::proto::v1::control::KeywordIndexType::Exact => KeywordIndexType::Exact,
-            topk_rs::proto::v1::control::KeywordIndexType::Unspecified => {
-                unreachable!("Invalid proto: Unspecified keyword index type")
-            }
-        }
-    }
-}
-
 #[napi(string_enum = "snake_case", namespace = "schema")]
 #[derive(Clone, Debug)]
 pub enum VectorDistanceMetric {
@@ -102,28 +103,6 @@ pub enum VectorDistanceMetric {
     Euclidean,
     DotProduct,
     Hamming,
-}
-
-impl From<topk_rs::proto::v1::control::VectorDistanceMetric> for VectorDistanceMetric {
-    fn from(metric: topk_rs::proto::v1::control::VectorDistanceMetric) -> Self {
-        match metric {
-            topk_rs::proto::v1::control::VectorDistanceMetric::Cosine => {
-                VectorDistanceMetric::Cosine
-            }
-            topk_rs::proto::v1::control::VectorDistanceMetric::Euclidean => {
-                VectorDistanceMetric::Euclidean
-            }
-            topk_rs::proto::v1::control::VectorDistanceMetric::DotProduct => {
-                VectorDistanceMetric::DotProduct
-            }
-            topk_rs::proto::v1::control::VectorDistanceMetric::Hamming => {
-                VectorDistanceMetric::Hamming
-            }
-            topk_rs::proto::v1::control::VectorDistanceMetric::Unspecified => {
-                unreachable!("Invalid proto: Unspecified vector distance metric")
-            }
-        }
-    }
 }
 
 impl From<VectorDistanceMetric> for topk_rs::proto::v1::control::VectorDistanceMetric {
@@ -161,19 +140,6 @@ impl From<MultiVectorDistanceMetric> for topk_rs::proto::v1::control::MultiVecto
     }
 }
 
-impl From<topk_rs::proto::v1::control::MultiVectorDistanceMetric> for MultiVectorDistanceMetric {
-    fn from(metric: topk_rs::proto::v1::control::MultiVectorDistanceMetric) -> Self {
-        match metric {
-            topk_rs::proto::v1::control::MultiVectorDistanceMetric::Maxsim => {
-                MultiVectorDistanceMetric::Maxsim
-            }
-            topk_rs::proto::v1::control::MultiVectorDistanceMetric::Unspecified => {
-                unreachable!("Invalid proto: Unspecified multi-vector distance metric")
-            }
-        }
-    }
-}
-
 #[napi(string_enum, namespace = "schema")]
 #[derive(Clone, Debug)]
 pub enum MultiVectorQuantization {
@@ -201,25 +167,6 @@ impl From<MultiVectorQuantization> for topk_rs::proto::v1::control::MultiVectorQ
     }
 }
 
-impl From<topk_rs::proto::v1::control::MultiVectorQuantization> for MultiVectorQuantization {
-    fn from(quantization: topk_rs::proto::v1::control::MultiVectorQuantization) -> Self {
-        match quantization {
-            topk_rs::proto::v1::control::MultiVectorQuantization::Binary1bit => {
-                MultiVectorQuantization::Binary1bit
-            }
-            topk_rs::proto::v1::control::MultiVectorQuantization::Binary2bit => {
-                MultiVectorQuantization::Binary2bit
-            }
-            topk_rs::proto::v1::control::MultiVectorQuantization::Scalar => {
-                MultiVectorQuantization::Scalar
-            }
-            topk_rs::proto::v1::control::MultiVectorQuantization::Unspecified => {
-                panic!("Invalid proto: Unspecified multi-vector quantization")
-            }
-        }
-    }
-}
-
 impl From<topk_rs::proto::v1::control::FieldIndex> for FieldIndexUnion {
     fn from(field_index: topk_rs::proto::v1::control::FieldIndex) -> Self {
         FieldIndex::from(field_index).0
@@ -231,40 +178,60 @@ impl From<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
         match field_index.index {
             Some(i) => match i {
                 topk_rs::proto::v1::control::field_index::Index::KeywordIndex(k) => {
-                    FieldIndex::keyword_index(
-                        topk_rs::proto::v1::control::KeywordIndexType::try_from(k.index_type)
-                            .expect("Unsupported keyword index type")
-                            .into(),
-                    )
+                    match k.index_type() {
+                        KeywordIndexTypePb::Text => {
+                            FieldIndex::keyword_index(KeywordIndexType::Text)
+                        }
+                        KeywordIndexTypePb::Exact => {
+                            FieldIndex::keyword_index(KeywordIndexType::Exact)
+                        }
+                        KeywordIndexTypePb::Unspecified => return FieldIndex::unknown(),
+                    }
                 }
                 topk_rs::proto::v1::control::field_index::Index::VectorIndex(v) => {
-                    FieldIndex::vector_index(
-                        topk_rs::proto::v1::control::VectorDistanceMetric::try_from(v.metric)
-                            .expect("Unsupported vector distance metric")
-                            .into(),
-                    )
+                    match v.metric() {
+                        VectorDistanceMetricPb::Cosine => {
+                            FieldIndex::vector_index(VectorDistanceMetric::Cosine)
+                        }
+                        VectorDistanceMetricPb::Euclidean => {
+                            FieldIndex::vector_index(VectorDistanceMetric::Euclidean)
+                        }
+                        VectorDistanceMetricPb::DotProduct => {
+                            FieldIndex::vector_index(VectorDistanceMetric::DotProduct)
+                        }
+                        VectorDistanceMetricPb::Hamming => {
+                            FieldIndex::vector_index(VectorDistanceMetric::Hamming)
+                        }
+                        VectorDistanceMetricPb::Unspecified => return FieldIndex::unknown(),
+                    }
                 }
                 topk_rs::proto::v1::control::field_index::Index::SemanticIndex(_) => {
                     FieldIndex::semantic_index()
                 }
                 topk_rs::proto::v1::control::field_index::Index::MultiVectorIndex(mvi) => {
-                    FieldIndex::multi_vector_index(
-                        topk_rs::proto::v1::control::MultiVectorDistanceMetric::try_from(
-                            mvi.metric,
-                        )
-                        .expect("Unsupported multi-vector distance metric")
-                        .into(),
-                        mvi.quantization.map(|q| {
-                            topk_rs::proto::v1::control::MultiVectorQuantization::try_from(q)
-                                .expect("Unsupported multi-vector quantization")
-                                .into()
-                        }),
-                        mvi.width,
-                        mvi.top_k,
-                    )
+                    let metric = match mvi.metric() {
+                        MultiVectorDistanceMetricPb::Maxsim => MultiVectorDistanceMetric::Maxsim,
+                        MultiVectorDistanceMetricPb::Unspecified => return FieldIndex::unknown(),
+                    };
+                    let quantization = match mvi.quantization {
+                        None => None,
+                        Some(q) => match MultiVectorQuantizationPb::try_from(q) {
+                            Ok(MultiVectorQuantizationPb::Binary1bit) => {
+                                Some(MultiVectorQuantization::Binary1bit)
+                            }
+                            Ok(MultiVectorQuantizationPb::Binary2bit) => {
+                                Some(MultiVectorQuantization::Binary2bit)
+                            }
+                            Ok(MultiVectorQuantizationPb::Scalar) => {
+                                Some(MultiVectorQuantization::Scalar)
+                            }
+                            _ => return FieldIndex::unknown(),
+                        },
+                    };
+                    FieldIndex::multi_vector_index(metric, quantization, mvi.width, mvi.top_k)
                 }
             },
-            None => unreachable!("Invalid field index proto"),
+            None => FieldIndex::unknown(),
         }
     }
 }
@@ -292,6 +259,9 @@ impl From<FieldIndex> for topk_rs::proto::v1::control::FieldIndex {
                 width,
                 top_k,
             ),
+            FieldIndexUnion::Unknown {} => {
+                panic!("cannot write an unknown field index: {UNSUPPORTED}")
+            }
         }
     }
 }

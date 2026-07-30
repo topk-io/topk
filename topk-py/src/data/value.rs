@@ -11,6 +11,7 @@ use crate::data::{
     list::{List, Values},
     matrix::{Matrix, MatrixValues},
     r#struct::Struct,
+    unknown::{UnknownValue, UNSUPPORTED},
     vector::F32SparseVector,
 };
 use crate::error::InvalidArgumentError;
@@ -29,6 +30,7 @@ pub enum Value {
     List(List),
     Matrix(Matrix),
     Struct(HashMap<String, Value>),
+    Unknown,
 }
 
 impl FromPyObject<'_, '_> for Value {
@@ -36,7 +38,11 @@ impl FromPyObject<'_, '_> for Value {
 
     fn extract(obj: Borrowed<'_, '_, PyAny>) -> PyResult<Self> {
         // NOTE: it's safe to use `downcast` for custom types
-        if let Ok(v) = obj.cast::<List>() {
+        if let Ok(_) = obj.cast::<UnknownValue>() {
+            Err(PyTypeError::new_err(format!(
+                "cannot write `UnknownValue`: {UNSUPPORTED}"
+            )))
+        } else if let Ok(v) = obj.cast::<List>() {
             Ok(Value::List(v.borrow().clone()))
         } else if let Ok(v) = obj.cast::<Struct>() {
             Ok(Value::Struct(v.borrow().fields.clone()))
@@ -259,6 +265,7 @@ impl<'py> IntoPyObject<'py> for Value {
                 }
                 Ok(dict.into_py_any(py)?.into_bound(py))
             }
+            Value::Unknown => Ok(UnknownValue {}.into_py_any(py)?.into_bound(py)),
         }
     }
 }
@@ -291,7 +298,7 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                         values: Values::U8(v.values),
                     })
                 }
-                t => unreachable!("Unknown vector type: {:?}", t),
+                _ => return Value::Unknown,
             },
             Some(topk_rs::proto::v1::data::value::Value::SparseVector(sv)) => {
                 Value::SparseVector(match sv.values {
@@ -328,7 +335,7 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                             values: values.iter().map(|&x| x as f32).collect(),
                         }
                     }
-                    None => unreachable!("Invalid sparse vector proto"),
+                    None => return Value::Unknown,
                 })
             }
             Some(topk_rs::proto::v1::data::value::Value::List(l)) => Value::List(List {
@@ -367,12 +374,14 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                     Some(topk_rs::proto::v1::data::list::Values::String(values)) => {
                         Values::String(values.values)
                     }
-                    None => {
-                        unreachable!("Invalid list proto: {:?}", l)
-                    }
+                    None => return Value::Unknown,
                 },
             }),
             Some(topk_rs::proto::v1::data::value::Value::Matrix(matrix)) => {
+                assert!(
+                    matrix.num_cols > 0,
+                    "invalid matrix: num_cols must be non-zero"
+                );
                 let matrix_values = match &matrix.values {
                     Some(topk_rs::proto::v1::data::matrix::Values::F32(v)) => {
                         MatrixValues::F32(v.to_owned().into())
@@ -389,9 +398,7 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                     Some(topk_rs::proto::v1::data::matrix::Values::I8(v)) => {
                         MatrixValues::I8(v.to_owned().into())
                     }
-                    None => {
-                        unreachable!("Invalid matrix proto: {:?}", matrix)
-                    }
+                    None => return Value::Unknown,
                 };
                 Value::Matrix(Matrix {
                     num_cols: matrix.num_cols,
@@ -404,7 +411,7 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                     .map(|(k, v)| (k, Value::from(v)))
                     .collect(),
             ),
-            None => Value::Null(),
+            None => Value::Unknown,
         }
     }
 }
@@ -462,6 +469,55 @@ impl From<Value> for topk_rs::proto::v1::data::Value {
             Value::Struct(fields) => topk_rs::proto::v1::data::Value::r#struct(
                 fields.into_iter().map(|(k, v)| (k, v.into())),
             ),
+            // unreachable: `FromPyObject` rejects the sentinel on the way in
+            Value::Unknown => unreachable!(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+    use topk_rs::proto::v1::data as pb;
+
+    #[rstest]
+    #[case::top_level_oneof(pb::Value { value: None })]
+    #[case::nested_list(pb::Value {
+        value: Some(pb::value::Value::List(pb::List { values: None })),
+    })]
+    fn unknown_value_decodes_to_unknown(#[case] proto: pb::Value) {
+        assert_eq!(Value::from(proto), Value::Unknown);
+    }
+
+    #[test]
+    #[should_panic(expected = "num_cols must be non-zero")]
+    fn zero_column_matrix_is_rejected() {
+        let proto = pb::Value {
+            value: Some(pb::value::Value::Matrix(pb::Matrix {
+                num_cols: 0,
+                values: Some(pb::matrix::Values::F32(pb::matrix::F32 {
+                    values: vec![1.0],
+                })),
+                ..Default::default()
+            })),
+        };
+
+        let _ = Value::from(proto);
+    }
+
+    #[test]
+    fn unknown_struct_field_degrades_only_that_field() {
+        let proto = pb::Value::r#struct([
+            ("known".to_string(), pb::Value::i64(1)),
+            ("unknown".to_string(), pb::Value { value: None }),
+        ]);
+
+        let fields = match Value::from(proto) {
+            Value::Struct(fields) => fields,
+            other => panic!("expected struct, got {other:?}"),
+        };
+        assert_eq!(fields["known"], Value::Int(1));
+        assert_eq!(fields["unknown"], Value::Unknown);
     }
 }

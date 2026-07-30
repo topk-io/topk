@@ -86,14 +86,8 @@ pub fn ask(
                             break;
                         }
                     },
-                    None => {
-                        let _ = tx
-                            .send(Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                                "Invalid proto: AskResult has no message",
-                            )))
-                            .await;
-                        break;
-                    }
+                    // A message type this SDK version does not know: skip it.
+                    None => continue,
                 },
                 Err(e) => {
                     let _ = tx.send(Err(RustError(e.into()).into())).await;

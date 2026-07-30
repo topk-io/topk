@@ -358,6 +358,16 @@ describe("Upsert", () => {
 
     expect(obj["x"].string_list).toEqual([]);
   });
+
+  it("should reject an UnknownValue", async () => {
+    const ctx = getContext();
+
+    await expect(async () => {
+      await ctx.client
+        .collection(ctx.scope("test"))
+        .upsert([{ _id: "x", field: new data.UnknownValue() }]);
+    }).rejects.toThrow("not supported by this version of topk-js");
+  });
 });
 
 function normalizeF32SparseValues(obj: Record<string, number>, precision = 5) {

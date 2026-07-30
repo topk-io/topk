@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use pyo3::prelude::*;
 use topk_rs::proto::v1::control::FieldSpec as FieldSpecPb;
 
+use crate::data::unknown::UNSUPPORTED;
 use crate::schema::{data_type::DataType, field_index::FieldIndex, field_spec::FieldSpec};
 
 pub mod data_type;
@@ -17,6 +18,11 @@ impl<'a, 'py> FromPyObject<'a, 'py> for SchemaFieldSpec {
 
     fn extract(ob: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
         if let Ok(fs) = ob.extract::<PyRef<FieldSpec>>() {
+            if fs.has_unknown() {
+                return Err(pyo3::exceptions::PyTypeError::new_err(format!(
+                    "cannot write an unknown field type or index: {UNSUPPORTED}"
+                )));
+            }
             return Ok(SchemaFieldSpec((*fs).clone()));
         }
         if let Ok(dict) = ob.cast::<pyo3::types::PyDict>() {

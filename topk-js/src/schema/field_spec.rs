@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
-use super::{data_type::DataType, field_index::FieldIndex};
+use super::{data_type::DataType, field_index::FieldIndex, field_index::FieldIndexUnion};
+use crate::data::UNSUPPORTED;
 
 /// @internal
 /// @hideconstructor
@@ -22,6 +23,17 @@ impl FieldSpec {
             data_type,
             required: false,
             index: None,
+        }
+    }
+
+    pub fn has_unknown(&self) -> bool {
+        matches!(
+            self.index,
+            Some(FieldIndex(FieldIndexUnion::Unknown { .. }))
+        ) || match &self.data_type {
+            DataType::Unknown => true,
+            DataType::Struct { fields } => fields.values().any(FieldSpec::has_unknown),
+            _ => false,
         }
     }
 }
@@ -133,6 +145,9 @@ impl From<FieldSpec> for topk_rs::proto::v1::control::FieldSpec {
                         dimension,
                         value_type.into(),
                     ),
+                    DataType::Unknown => {
+                        panic!("cannot write an unknown field type: {UNSUPPORTED}")
+                    }
                 }),
             }),
             required: field_spec.required,
@@ -147,7 +162,7 @@ impl From<topk_rs::proto::v1::control::FieldSpec> for FieldSpec {
             data_type: proto
                 .data_type
                 .map(DataType::from)
-                .expect("data_type is required"),
+                .unwrap_or(DataType::Unknown),
             required: proto.required,
             index: proto.index.map(|idx| idx.into()),
         }
@@ -160,6 +175,11 @@ impl FromNapiValue for FieldSpec {
         value: napi::sys::napi_value,
     ) -> Result<Self> {
         if let Ok(field_spec) = crate::try_cast_ref!(env, value, FieldSpec) {
+            if field_spec.has_unknown() {
+                return Err(napi::Error::from_reason(format!(
+                    "cannot write an unknown field type or index: {UNSUPPORTED}"
+                )));
+            }
             return Ok(field_spec.clone());
         }
 

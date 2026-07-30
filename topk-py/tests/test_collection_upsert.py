@@ -376,3 +376,10 @@ def test_upsert_empty_string_list_with_helper(ctx: ProjectContext):
     obj = ctx.client.collection(collection.name).get(["x"], lsn=lsn)
 
     assert obj["x"]["string_list"] == []
+
+
+def test_upsert_rejects_unknown_value(ctx: ProjectContext):
+    with pytest.raises(TypeError, match="not supported by this version of topk-sdk"):
+        ctx.client.collection("missing").upsert(
+            [{"_id": "one", "field": data.UnknownValue()}]
+        )

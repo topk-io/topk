@@ -4,6 +4,7 @@ use crate::data::{
     matrix::{Matrix, MatrixValueType, MatrixValues},
     r#struct::Struct,
     vector::{SparseVectorData, SparseVectorUnion},
+    UnknownValue, UNSUPPORTED,
 };
 use napi::{bindgen_prelude::*, sys::napi_is_buffer};
 use std::{collections::HashMap, ffi::CString, ptr};
@@ -79,6 +80,7 @@ pub enum Value {
     List(List),
     Matrix(Matrix),
     Struct(HashMap<String, Value>),
+    Unknown,
 }
 
 impl From<i64> for Value {
@@ -207,6 +209,8 @@ impl From<Value> for topk_rs::proto::v1::data::Value {
             Value::Struct(fields) => topk_rs::proto::v1::data::Value::r#struct(
                 fields.into_iter().map(|(k, v)| (k, v.into())),
             ),
+            // unreachable: `FromNapiValue` rejects the sentinel on the way in
+            Value::Unknown => unreachable!(),
         }
     }
 }
@@ -251,7 +255,7 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                         ),
                     })
                 }
-                None => unreachable!("Invalid vector proto"),
+                None => return Value::Unknown,
             },
             // Sparse vectors
             Some(topk_rs::proto::v1::data::value::Value::SparseVector(sparse_vector)) => {
@@ -289,7 +293,7 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                             values: values.iter().map(|&x| x as f32).collect(),
                         })
                     }
-                    None => unreachable!("Invalid sparse vector proto"),
+                    None => return Value::Unknown,
                 })
             }
             Some(topk_rs::proto::v1::data::value::Value::List(list)) => Value::List(List {
@@ -308,10 +312,14 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                     Some(topk_rs::proto::v1::data::list::Values::String(v)) => {
                         Values::String(v.values)
                     }
-                    None => unreachable!("Invalid list proto"),
+                    None => return Value::Unknown,
                 },
             }),
             Some(topk_rs::proto::v1::data::value::Value::Matrix(matrix)) => {
+                assert!(
+                    matrix.num_cols > 0,
+                    "invalid matrix: num_cols must be non-zero"
+                );
                 let num_cols = matrix.num_cols;
                 let values = match matrix.values {
                     Some(topk_rs::proto::v1::data::matrix::Values::F32(v)) => {
@@ -329,7 +337,7 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                     Some(topk_rs::proto::v1::data::matrix::Values::I8(v)) => {
                         MatrixValues::I8(v.into())
                     }
-                    None => unreachable!("Invalid matrix proto"),
+                    None => return Value::Unknown,
                 };
 
                 Value::Matrix(Matrix { num_cols, values })
@@ -337,7 +345,7 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
             Some(topk_rs::proto::v1::data::value::Value::Struct(s)) => {
                 Value::Struct(s.fields.into_iter().map(|(k, v)| (k, v.into())).collect())
             }
-            None => unreachable!("Invalid value proto"),
+            None => Value::Unknown,
         }
     }
 }
@@ -361,6 +369,12 @@ impl FromNapiValue for Value {
 
         if let Ok(struct_value) = crate::try_cast_ref!(env, value, Struct) {
             return Ok(Value::Struct(struct_value.fields.clone()));
+        }
+
+        if crate::try_cast_ref!(env, value, UnknownValue).is_ok() {
+            return Err(napi::Error::from_reason(format!(
+                "cannot write `UnknownValue`: {UNSUPPORTED}"
+            )));
         }
 
         let mut result: i32 = 0;
@@ -568,6 +582,7 @@ impl ToNapiValue for Value {
 
                 Ok(object)
             }
+            Value::Unknown => UnknownValue::to_napi_value(env, UnknownValue {}),
         }
     }
 }

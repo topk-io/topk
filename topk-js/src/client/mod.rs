@@ -263,7 +263,8 @@ impl Client {
                                 Some(Message::Progress(p)) => {
                                     Ok(Either::B(Progress { update: p.update }))
                                 }
-                                None => Err("Invalid proto: AskResult has no message".to_string()),
+                                // A message type this SDK version does not know: skip it.
+                                None => continue,
                             },
                             Err(error) => Err(format!("stream error: {error}")),
                         };

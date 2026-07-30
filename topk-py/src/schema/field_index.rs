@@ -1,5 +1,9 @@
 use pyo3::prelude::*;
 
+use crate::data::unknown::UNSUPPORTED;
+
+use topk_rs::proto::v1::control::MultiVectorQuantization as MultiVectorQuantizationPb;
+
 #[pyclass(eq)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum FieldIndex {
@@ -16,6 +20,7 @@ pub enum FieldIndex {
         width: Option<u32>,
         top_k: Option<u32>,
     },
+    Unknown(),
 }
 
 #[pyclass(eq, eq_int)]
@@ -78,19 +83,6 @@ impl From<MultiVectorDistanceMetric> for topk_rs::proto::v1::control::MultiVecto
     }
 }
 
-impl From<topk_rs::proto::v1::control::MultiVectorDistanceMetric> for MultiVectorDistanceMetric {
-    fn from(metric: topk_rs::proto::v1::control::MultiVectorDistanceMetric) -> Self {
-        match metric {
-            topk_rs::proto::v1::control::MultiVectorDistanceMetric::Maxsim => {
-                MultiVectorDistanceMetric::Maxsim
-            }
-            topk_rs::proto::v1::control::MultiVectorDistanceMetric::Unspecified => {
-                unreachable!("Invalid multi-vector distance metric")
-            }
-        }
-    }
-}
-
 #[pyclass(eq, eq_int)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum MultiVectorQuantization {
@@ -136,13 +128,18 @@ impl Into<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
                 width,
                 top_k,
             ),
+            FieldIndex::Unknown() => panic!("cannot write an unknown field index: {UNSUPPORTED}"),
         }
     }
 }
 
 impl From<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
     fn from(proto: topk_rs::proto::v1::control::FieldIndex) -> Self {
-        match proto.index.expect("index is required") {
+        let index = match proto.index {
+            Some(index) => index,
+            None => return FieldIndex::Unknown(),
+        };
+        match index {
             topk_rs::proto::v1::control::field_index::Index::KeywordIndex(keyword_index) => {
                 FieldIndex::KeywordIndex {
                     index_type: match keyword_index.index_type() {
@@ -152,7 +149,7 @@ impl From<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
                         topk_rs::proto::v1::control::KeywordIndexType::Exact => {
                             KeywordIndexType::Exact
                         }
-                        t => panic!("unsupported keyword index: {:?}", t),
+                        _ => return FieldIndex::Unknown(),
                     },
                 }
             }
@@ -171,7 +168,7 @@ impl From<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
                         topk_rs::proto::v1::control::VectorDistanceMetric::Hamming => {
                             VectorDistanceMetric::Hamming
                         }
-                        m => panic!("unsupported vector metric {:?}", m),
+                        _ => return FieldIndex::Unknown(),
                     },
                 }
             }
@@ -184,24 +181,54 @@ impl From<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
                         topk_rs::proto::v1::control::MultiVectorDistanceMetric::Maxsim => {
                             MultiVectorDistanceMetric::Maxsim
                         }
-                        m => panic!("unsupported multi-vector metric {:?}", m),
+                        _ => return FieldIndex::Unknown(),
                     },
-                    quantization: match mvi.quantization() {
-                        topk_rs::proto::v1::control::MultiVectorQuantization::Binary1bit => {
-                            Some(MultiVectorQuantization::Binary1bit)
-                        }
-                        topk_rs::proto::v1::control::MultiVectorQuantization::Binary2bit => {
-                            Some(MultiVectorQuantization::Binary2bit)
-                        }
-                        topk_rs::proto::v1::control::MultiVectorQuantization::Scalar => {
-                            Some(MultiVectorQuantization::Scalar)
-                        }
-                        _ => None,
+                    quantization: match mvi.quantization {
+                        Some(q) => match MultiVectorQuantizationPb::try_from(q) {
+                            Ok(MultiVectorQuantizationPb::Binary1bit) => {
+                                Some(MultiVectorQuantization::Binary1bit)
+                            }
+                            Ok(MultiVectorQuantizationPb::Binary2bit) => {
+                                Some(MultiVectorQuantization::Binary2bit)
+                            }
+                            Ok(MultiVectorQuantizationPb::Scalar) => {
+                                Some(MultiVectorQuantization::Scalar)
+                            }
+                            _ => return FieldIndex::Unknown(),
+                        },
+                        // `None` means unset, not an unrecognised value
+                        None => None,
                     },
                     width: mvi.width,
                     top_k: mvi.top_k,
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+    use topk_rs::proto::v1::control as pb;
+
+    #[rstest]
+    #[case::outer_oneof(pb::FieldIndex { index: None })]
+    #[case::vector_metric(pb::FieldIndex {
+        index: Some(pb::field_index::Index::VectorIndex(pb::VectorIndex {
+            metric: 9999,
+            ..Default::default()
+        })),
+    })]
+    #[case::quantization(pb::FieldIndex {
+        index: Some(pb::field_index::Index::MultiVectorIndex(pb::MultiVectorIndex {
+            metric: pb::MultiVectorDistanceMetric::Maxsim as i32,
+            quantization: Some(9999),
+            ..Default::default()
+        })),
+    })]
+    fn unknown_field_index_decodes_to_unknown(#[case] proto: pb::FieldIndex) {
+        assert_eq!(FieldIndex::from(proto), FieldIndex::Unknown());
     }
 }
