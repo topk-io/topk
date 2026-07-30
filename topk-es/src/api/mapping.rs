@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
+use serde::de::IgnoredAny;
 use serde::{Deserialize, Serialize};
+use sonic_rs::{JsonValueMutTrait, Value as JsonValue};
 
 use topk_rs::proto::v1::control::{
     field_index, field_type, field_type_matrix::MatrixValueType, FieldIndex, FieldSpec,
@@ -12,9 +14,10 @@ use crate::Error;
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct IndexMapping {
+    // Accepted for compatibility, never read.
     #[serde(default)]
     #[allow(dead_code)]
-    settings: Option<serde_json::Value>,
+    settings: Option<IgnoredAny>,
 
     #[serde(default)]
     mappings: Option<Mappings>,
@@ -27,24 +30,27 @@ struct Mappings {
     properties: Option<MappingProperties>,
 }
 
+// Mappings are read once per index create/get, so the intermediate document
+// here costs nothing measurable — and `FieldMapping` is an internally tagged
+// enum, whose tag has to be patched in before serde can pick a variant.
 #[derive(Deserialize, Serialize, Debug, Clone, Default, PartialEq)]
-#[serde(try_from = "HashMap<String, serde_json::Value>")]
+#[serde(try_from = "HashMap<String, JsonValue>")]
 pub struct MappingProperties(pub HashMap<String, FieldMapping>);
 
-impl TryFrom<HashMap<String, serde_json::Value>> for MappingProperties {
+impl TryFrom<HashMap<String, JsonValue>> for MappingProperties {
     type Error = Error;
 
-    fn try_from(raw: HashMap<String, serde_json::Value>) -> Result<Self, Self::Error> {
+    fn try_from(raw: HashMap<String, JsonValue>) -> Result<Self, Self::Error> {
         raw.into_iter()
             .map(|(name, mut value)| {
                 // ES infers `type: object` from a bare `properties` block.
                 if let Some(object) = value.as_object_mut() {
-                    if !object.contains_key("type") && object.contains_key("properties") {
-                        object.insert("type".to_string(), "object".into());
+                    if !object.contains_key(&"type") && object.contains_key(&"properties") {
+                        object.insert(&"type", "object");
                     }
                 }
 
-                sonic_rs::from_value(value)
+                sonic_rs::from_value(&value)
                     .map(|mapping| (name, mapping))
                     .map_err(|e| Error::BadRequest(e.to_string()))
             })
@@ -168,7 +174,7 @@ pub enum FieldMapping {
 
         #[allow(dead_code)]
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        chunking_settings: Option<serde_json::Value>,
+        chunking_settings: Option<JsonValue>,
     },
 }
 

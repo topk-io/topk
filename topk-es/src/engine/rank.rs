@@ -134,7 +134,9 @@ fn combine(
     req: &SearchRequest,
     results: Vec<Vec<Document>>,
 ) -> Result<Vec<(f32, Candidate)>, Error> {
-    let mut by_id: HashMap<DocId, Candidate> = HashMap::new();
+    // Fields are keyed by id and rejoined at the end, so an id is only ever
+    // copied for the ranking pass — not stored a third time per retriever hit.
+    let mut by_id: HashMap<DocId, HashMap<String, Value>> = HashMap::new();
 
     let mut groups: Vec<Vec<(DocId, f32)>> = Vec::with_capacity(results.len());
     for docs in results {
@@ -151,10 +153,7 @@ fn combine(
                 .and_then(|v| v.as_f32())
                 .unwrap_or(0.0);
             members.push((id.clone(), score));
-            by_id.entry(id.clone()).or_insert(Candidate {
-                id,
-                fields: doc.fields,
-            });
+            by_id.entry(id).or_insert(doc.fields);
         }
         groups.push(members);
     }
@@ -163,7 +162,10 @@ fn combine(
 
     Ok(totals
         .into_iter()
-        .filter_map(|(id, score)| by_id.remove(&id).map(|candidate| (score, candidate)))
+        .filter_map(|(id, score)| {
+            let fields = by_id.remove(&id)?;
+            Some((score, Candidate { id, fields }))
+        })
         .collect())
 }
 

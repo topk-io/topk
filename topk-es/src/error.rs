@@ -1,9 +1,10 @@
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::Json;
 use serde::Serialize;
 use thiserror::Error as ThisError;
 use topk_rs::Error as TopkError;
+
+use crate::json::Json;
 
 #[derive(Debug, Clone, ThisError)]
 pub enum Error {

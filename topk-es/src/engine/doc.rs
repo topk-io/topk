@@ -82,19 +82,22 @@ pub fn encode(schema: &Schema, doc: WriteDoc) -> Result<Document, Error> {
             let value = value.into_inner();
             let spec = schema.get(name.as_str());
 
+            // A value the field's type cannot take passes through untouched; the
+            // server rejects it with a message about the schema.
             let value = match spec.and_then(|spec| spec.data_type.as_ref()?.data_type.as_ref()) {
-                Some(field_type::DataType::F32Vector(_)) => value.to_f32_list().unwrap_or(value),
-                Some(field_type::DataType::I8Vector(_)) => value.to_i8_list().unwrap_or(value),
+                Some(field_type::DataType::F32Vector(_)) => value.into_f32_list(),
+                Some(field_type::DataType::I8Vector(_)) => value.into_i8_list(),
                 Some(field_type::DataType::U8Vector(_) | field_type::DataType::BinaryVector(_)) => {
-                    value.to_unsigned_bytes().unwrap_or(value)
+                    value.into_unsigned_bytes()
                 }
                 Some(field_type::DataType::Matrix(m))
                     if matches!(m.value_type(), MatrixValueType::U8) =>
                 {
-                    value.to_u8_matrix().unwrap_or(value)
+                    value.into_u8_matrix()
                 }
-                _ => value,
-            };
+                _ => Ok(value),
+            }
+            .unwrap_or_else(|value| value);
 
             if let Some(IndexKind::Vector(metric)) = spec.map(IndexKind::from) {
                 vector::ensure_magnitude(&name, metric, &value)?;

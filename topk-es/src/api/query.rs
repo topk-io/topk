@@ -1,8 +1,11 @@
-use std::collections::HashMap;
+use std::fmt;
+use std::marker::PhantomData;
 
+use serde::de::{Error as DeError, IgnoredAny, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use serde_with::{serde_as, OneOrMany};
 use topk_rs::json::Value;
+use topk_rs::proto::v1::data::{value, Value as TopkValue};
 
 use super::DocId;
 use crate::value::ValueExt;
@@ -100,26 +103,37 @@ pub struct SemanticQuery {
     pub boost: Option<f32>,
 }
 
-#[derive(Deserialize)]
-#[serde(try_from = "HashMap<String, V>")]
+/// A `{"field": value}` clause. Read straight off the map — a single-entry
+/// `HashMap` never gets built.
 pub struct FieldClause<V> {
     pub field: FieldName,
     pub value: V,
 }
 
-impl<V> TryFrom<HashMap<String, V>> for FieldClause<V> {
-    type Error = Error;
+impl<'de, V: Deserialize<'de>> Deserialize<'de> for FieldClause<V> {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer.deserialize_map(FieldClauseVisitor(PhantomData))
+    }
+}
 
-    fn try_from(map: HashMap<String, V>) -> Result<Self, Self::Error> {
-        let mut iter = map.into_iter();
-        let (field, value) = iter.next().ok_or_else(|| {
-            Error::InvalidQuery("Expected a single \"field\": value clause".into())
-        })?;
-        if iter.next().is_some() {
-            return Err(Error::InvalidQuery(
-                "Expected exactly one field in clause".into(),
-            ));
+struct FieldClauseVisitor<V>(PhantomData<V>);
+
+impl<'de, V: Deserialize<'de>> Visitor<'de> for FieldClauseVisitor<V> {
+    type Value = FieldClause<V>;
+
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("a single \"field\": value clause")
+    }
+
+    fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<FieldClause<V>, A::Error> {
+        let Some((field, value)) = map.next_entry::<String, V>()? else {
+            return Err(DeError::custom("Expected a single \"field\": value clause"));
+        };
+
+        if map.next_key::<IgnoredAny>()?.is_some() {
+            return Err(DeError::custom("Expected exactly one field in clause"));
         }
+
         Ok(FieldClause {
             field: FieldName::new(field),
             value,
@@ -213,49 +227,64 @@ pub enum TermValue {
 }
 
 impl TermValue {
-    pub fn value(&self) -> topk_rs::proto::v1::data::Value {
+    pub fn into_parts(self) -> (TopkValue, Option<f32>) {
         match self {
-            TermValue::Full { value, .. } => value.0.clone(),
-            TermValue::Bare(value) => value.0.clone(),
+            TermValue::Full { value, boost } => (value.into_inner(), boost),
+            TermValue::Bare(value) => (value.into_inner(), None),
         }
     }
 }
 
-#[derive(Deserialize)]
-#[serde(try_from = "TermsQueryWire")]
 pub struct TermsQuery {
     pub field: FieldName,
-    pub values: topk_rs::proto::v1::data::Value,
+    pub values: TopkValue,
     pub boost: Option<f32>,
 }
 
-#[derive(Deserialize)]
-struct TermsQueryWire {
-    #[serde(default)]
-    boost: Option<f32>,
-
-    #[serde(flatten)]
-    fields: HashMap<String, Vec<serde_json::Value>>,
+impl<'de> Deserialize<'de> for TermsQuery {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer.deserialize_map(TermsQueryVisitor)
+    }
 }
 
-impl TryFrom<TermsQueryWire> for TermsQuery {
-    type Error = Error;
+struct TermsQueryVisitor;
 
-    fn try_from(wire: TermsQueryWire) -> Result<Self, Self::Error> {
-        let mut fields = wire.fields.into_iter();
-        let (field, values) = fields
-            .next()
-            .ok_or_else(|| Error::InvalidQuery("Terms query missing a field".into()))?;
-        if fields.next().is_some() {
-            return Err(Error::InvalidQuery(
-                "Terms query must have exactly one field".into(),
-            ));
+impl<'de> Visitor<'de> for TermsQueryVisitor {
+    type Value = TermsQuery;
+
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("a \"field\": [values] clause with an optional \"boost\"")
+    }
+
+    fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<TermsQuery, A::Error> {
+        let mut terms: Option<(FieldName, TopkValue)> = None;
+        let mut boost = None;
+
+        while let Some(key) = map.next_key::<String>()? {
+            if key == "boost" {
+                boost = Some(map.next_value()?);
+                continue;
+            }
+
+            if terms.is_some() {
+                return Err(DeError::custom("Terms query must have exactly one field"));
+            }
+
+            let values = map.next_value::<Value>()?.into_inner();
+            if !matches!(values.value, Some(value::Value::List(_))) {
+                return Err(DeError::custom("Terms query values must be an array"));
+            }
+
+            terms = Some((FieldName::new(key), values));
         }
+
+        let (field, values) =
+            terms.ok_or_else(|| DeError::custom("Terms query missing a field"))?;
+
         Ok(TermsQuery {
-            field: FieldName::new(field),
-            values: topk_rs::proto::v1::data::Value::try_from(values)
-                .map_err(|e| Error::InvalidQuery(e.to_string()))?,
-            boost: wire.boost,
+            field,
+            values,
+            boost,
         })
     }
 }
@@ -331,11 +360,11 @@ pub struct StringValueFull {
     value: String,
 }
 
-impl From<&StringValue> for String {
-    fn from(value: &StringValue) -> Self {
-        match value {
-            StringValue::Bare(s) => s.clone(),
-            StringValue::Full(full) => full.value.clone(),
+impl StringValue {
+    pub fn into_string(self) -> String {
+        match self {
+            StringValue::Bare(s) => s,
+            StringValue::Full(full) => full.value,
         }
     }
 }
@@ -363,13 +392,11 @@ impl RegexpValue {
             RegexpValue::Full(full) => full.case_insensitive.unwrap_or(false),
         }
     }
-}
 
-impl From<&RegexpValue> for String {
-    fn from(value: &RegexpValue) -> Self {
-        match value {
-            RegexpValue::Bare(s) => s.clone(),
-            RegexpValue::Full(full) => full.value.clone(),
+    pub fn into_string(self) -> String {
+        match self {
+            RegexpValue::Bare(s) => s,
+            RegexpValue::Full(full) => full.value,
         }
     }
 }
@@ -391,5 +418,84 @@ impl FieldName {
 impl From<FieldName> for String {
     fn from(name: FieldName) -> Self {
         name.as_str().to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+
+    use super::*;
+
+    #[test]
+    fn field_clause_reads_the_single_entry() {
+        let clause: FieldClause<StringValue> = sonic_rs::from_str(r#"{"title": "a"}"#).unwrap();
+
+        assert_eq!(clause.field.as_str(), "title");
+        assert_eq!(clause.value.into_string(), "a");
+    }
+
+    #[rstest]
+    #[case::empty("{}")]
+    #[case::two_fields(r#"{"title": "a", "genre": "b"}"#)]
+    fn field_clause_requires_exactly_one_entry(#[case] body: &str) {
+        assert!(sonic_rs::from_str::<FieldClause<StringValue>>(body).is_err());
+    }
+
+    #[test]
+    fn terms_query_reads_field_values_and_boost() {
+        let query: TermsQuery =
+            sonic_rs::from_str(r#"{"genre": ["a", "b"], "boost": 2.0}"#).unwrap();
+
+        assert_eq!(query.field.as_str(), "genre");
+        assert_eq!(query.values, TopkValue::list(vec!["a", "b"]));
+        assert_eq!(query.boost, Some(2.0));
+    }
+
+    #[rstest]
+    #[case::no_field(r#"{"boost": 2.0}"#)]
+    #[case::two_fields(r#"{"a": [1], "b": [2]}"#)]
+    #[case::scalar_value(r#"{"a": "b"}"#)]
+    fn terms_query_rejected(#[case] body: &str) {
+        assert!(sonic_rs::from_str::<TermsQuery>(body).is_err());
+    }
+
+    #[test]
+    fn term_value_carries_its_boost() {
+        let bare: TermValue = sonic_rs::from_str("1").unwrap();
+        assert_eq!(bare.into_parts(), (TopkValue::i64(1), None));
+
+        let full: TermValue = sonic_rs::from_str(r#"{"value": "a", "boost": 3.0}"#).unwrap();
+        assert_eq!(full.into_parts(), (TopkValue::string("a"), Some(3.0)));
+    }
+
+    // A sparse vector is an object, and `term` must still read it as a value
+    // rather than as the `{value, boost}` form.
+    #[test]
+    fn term_value_accepts_an_object_value() {
+        let bare: TermValue = sonic_rs::from_str(r#"{"0": 1.5}"#).unwrap();
+
+        assert_eq!(
+            bare.into_parts(),
+            (TopkValue::f32_sparse_vector(vec![0], vec![1.5]), None)
+        );
+    }
+
+    #[rstest]
+    #[case::list(r#"{"gte": [1, 2]}"#)]
+    #[case::object(r#"{"lt": {"a": 1}}"#)]
+    fn range_bounds_reject_non_scalars(#[case] body: &str) {
+        assert!(sonic_rs::from_str::<RangeBounds>(body).is_err());
+    }
+
+    #[test]
+    fn range_bounds_read_scalars() {
+        let bounds: RangeBounds = sonic_rs::from_str(r#"{"gte": 1, "lt": "b"}"#).unwrap();
+
+        assert_eq!(bounds.gte.map(|v| v.into_inner()), Some(TopkValue::i64(1)));
+        assert_eq!(
+            bounds.lt.map(|v| v.into_inner()),
+            Some(TopkValue::string("b"))
+        );
     }
 }

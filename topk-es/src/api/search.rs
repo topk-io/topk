@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 use std::ops::Deref;
 
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::ser::SerializeMap;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_with::{serde_as, OneOrMany};
 use topk_rs::json::Value as JsonValue;
-use topk_rs::proto::v1::data::Value as TopkValue;
+use topk_rs::proto::v1::data::{list, value, Value as TopkValue};
 use topk_rs::query::SortOrder as TopkSortOrder;
 
 use super::aggs::{AggClause, AggResult};
@@ -134,8 +135,7 @@ pub struct RrfClause {
 
 // Query vectors are parsed like document values (whole numbers stay integers)
 // so the engine can coerce them to the target field's element type.
-#[derive(Clone, Deserialize)]
-#[serde(try_from = "QueryVectorWire")]
+#[derive(Clone)]
 pub enum QueryVector {
     Flat(TopkValue),
     Matrix(TopkValue),
@@ -149,36 +149,25 @@ impl QueryVector {
     }
 }
 
-#[derive(Deserialize)]
-#[serde(untagged)]
-enum QueryVectorWire {
-    Flat(Vec<sonic_rs::Number>),
-    Matrix(Vec<Vec<sonic_rs::Number>>),
-}
+impl<'de> Deserialize<'de> for QueryVector {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = JsonValue::deserialize(deserializer)?.into_inner();
 
-impl TryFrom<QueryVectorWire> for QueryVector {
-    type Error = Error;
+        let vector =
+            match &value.value {
+                // A matrix is always numeric; a list has to be checked.
+                Some(value::Value::List(list))
+                    if !matches!(list.values, Some(list::Values::String(_))) =>
+                {
+                    QueryVector::Flat(value)
+                }
+                Some(value::Value::Matrix(_)) => QueryVector::Matrix(value),
+                _ => return Err(serde::de::Error::custom(
+                    "[knn] query_vector must be an array of numbers, or an array of such arrays",
+                )),
+            };
 
-    fn try_from(wire: QueryVectorWire) -> Result<Self, Self::Error> {
-        let values = |numbers: Vec<serde_json::Number>| {
-            numbers
-                .into_iter()
-                .map(serde_json::Value::Number)
-                .collect::<Vec<_>>()
-        };
-
-        let vector = match wire {
-            QueryVectorWire::Flat(numbers) => {
-                TopkValue::try_from(values(numbers)).map(QueryVector::Flat)
-            }
-            QueryVectorWire::Matrix(rows) => {
-                TopkValue::try_from(rows.into_iter().map(values).collect::<Vec<_>>())
-                    .map(QueryVector::Matrix)
-            }
-        }
-        .map_err(|e| Error::InvalidQuery(e.to_string()))?;
-
-        ensure_finite(vector.value())?;
+        ensure_finite(vector.value()).map_err(serde::de::Error::custom)?;
 
         Ok(vector)
     }
@@ -389,32 +378,59 @@ impl SearchResponse {
                     },
                 },
                 max_score,
-                hits: hits
-                    .into_iter()
-                    .map(|hit| IndexedHit {
-                        index: index.clone(),
-                        hit,
-                    })
-                    .collect(),
+                index: index.clone(),
+                hits,
             },
             aggregations,
         }
     }
 }
 
-#[derive(Serialize)]
+// Every hit reports the same `_index`, so it is held once and written into each
+// hit on the way out rather than cloned per hit.
 pub struct HitsWrapper {
     pub total: Total,
     pub max_score: Option<f32>,
-    pub hits: Vec<IndexedHit>,
+    pub index: IndexName,
+    pub hits: Vec<Hit>,
+}
+
+impl Serialize for HitsWrapper {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut map = serializer.serialize_map(Some(3))?;
+        map.serialize_entry("total", &self.total)?;
+        map.serialize_entry("max_score", &self.max_score)?;
+        map.serialize_entry(
+            "hits",
+            &IndexedHits {
+                index: &self.index,
+                hits: &self.hits,
+            },
+        )?;
+        map.end()
+    }
+}
+
+struct IndexedHits<'a> {
+    index: &'a IndexName,
+    hits: &'a [Hit],
+}
+
+impl Serialize for IndexedHits<'_> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_seq(self.hits.iter().map(|hit| IndexedHit {
+            index: self.index,
+            hit,
+        }))
+    }
 }
 
 #[derive(Serialize)]
-pub struct IndexedHit {
+struct IndexedHit<'a> {
     #[serde(rename = "_index")]
-    pub index: IndexName,
+    index: &'a IndexName,
     #[serde(flatten)]
-    pub hit: Hit,
+    hit: &'a Hit,
 }
 
 #[derive(Serialize)]
@@ -433,4 +449,113 @@ pub struct Hit {
     pub sort: Option<Vec<JsonValue>>,
     #[serde(rename = "_source", skip_serializing_if = "Option::is_none")]
     pub source: Option<Source>,
+}
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+
+    use super::*;
+
+    // Whole numbers stay integers so the engine can narrow them to the target
+    // field's element type.
+    #[rstest]
+    #[case::floats("[1.0, 0.0]", TopkValue::list(vec![1.0_f32, 0.0]))]
+    #[case::ints("[127, 0]", TopkValue::list(vec![127_i64, 0]))]
+    #[case::signed_ints("[-1, 1]", TopkValue::list(vec![-1_i64, 1]))]
+    fn flat_query_vector(#[case] body: &str, #[case] expected: TopkValue) {
+        let vector: QueryVector = sonic_rs::from_str(body).unwrap();
+
+        assert!(matches!(vector, QueryVector::Flat(_)));
+        assert_eq!(vector.value(), &expected);
+    }
+
+    #[test]
+    fn matrix_query_vector() {
+        let vector: QueryVector = sonic_rs::from_str("[[1.0, 0.0], [0.5, 0.5]]").unwrap();
+
+        assert!(matches!(vector, QueryVector::Matrix(_)));
+        assert_eq!(
+            vector.value(),
+            &TopkValue::matrix(2, vec![1.0_f32, 0.0, 0.5, 0.5])
+        );
+    }
+
+    #[rstest]
+    #[case::scalar("1.0")]
+    #[case::strings(r#"["a"]"#)]
+    #[case::object(r#"{"0": 1.0}"#)]
+    #[case::ragged("[[1.0], [1.0, 2.0]]")]
+    // A number past f32's range lands as infinity, which ES rejects.
+    #[case::overflow("[1e39, 0.0]")]
+    fn query_vector_rejected(#[case] body: &str) {
+        assert!(sonic_rs::from_str::<QueryVector>(body).is_err());
+    }
+
+    // A whole request, to keep the derive-heavy corners — externally tagged
+    // query clauses, `OneOrMany`, flattened agg types — honest.
+    #[rstest]
+    #[case::single(
+        r#"{
+            "query": {"bool": {"must": {"match": {"title": "a"}}, "filter": {"term": {"genre": "b"}}}},
+            "knn": {"field": "embedding", "query_vector": [1.0, 0.0], "k": 2},
+            "sort": {"year": "desc"}
+        }"#
+    )]
+    #[case::many(
+        r#"{
+            "query": {"bool": {"must": [{"match": {"title": "a"}}], "filter": [{"term": {"genre": "b"}}]}},
+            "knn": [{"field": "embedding", "query_vector": [1.0, 0.0], "k": 2}],
+            "sort": [{"year": "desc"}]
+        }"#
+    )]
+    fn accepts_one_or_many(#[case] body: &str) {
+        let req: SearchRequest = sonic_rs::from_str(body).unwrap();
+
+        assert_eq!(req.knn.as_ref().map(Vec::len), Some(1));
+        assert_eq!(req.sort.as_deref().map(<[SortField]>::len), Some(1));
+        assert!(matches!(req.query, Some(Query::Bool(_))));
+        assert_eq!(req.size, 10, "size defaults to 10");
+    }
+
+    #[test]
+    fn reads_aggs_and_source_filters() {
+        let req: SearchRequest = sonic_rs::from_str(
+            r#"{
+                "size": 5,
+                "from": 1,
+                "track_scores": true,
+                "aggs": {
+                    "by_genre": {"terms": {"field": "genre", "size": 3}},
+                    "total": {"sum": {"field": "year"}}
+                },
+                "_source": {"includes": ["title"]}
+            }"#,
+        )
+        .unwrap();
+
+        assert_eq!((req.size, req.from), (5, 1));
+        assert!(req.track_scores);
+        assert_eq!(req.aggs.len(), 2);
+        assert!(req.source.enabled());
+        assert!(req.source.keep("title") && !req.source.keep("genre"));
+    }
+
+    #[test]
+    fn empty_sort_is_no_sort() {
+        let req: SearchRequest = sonic_rs::from_str(r#"{"sort": []}"#).unwrap();
+        assert!(req.sort.is_none());
+    }
+
+    #[rstest]
+    #[case::window_too_large(r#"{"from": 9999, "size": 10}"#)]
+    #[case::unknown_field(r#"{"nope": 1}"#)]
+    #[case::knn_without_k(r#"{"knn": {"field": "e", "query_vector": [1.0]}}"#)]
+    #[case::zero_k(r#"{"knn": {"field": "e", "query_vector": [1.0], "k": 0}}"#)]
+    #[case::too_few_candidates(
+        r#"{"knn": {"field": "e", "query_vector": [1.0], "k": 2, "num_candidates": 1}}"#
+    )]
+    fn search_request_rejected(#[case] body: &str) {
+        assert!(sonic_rs::from_str::<SearchRequest>(body).is_err());
+    }
 }

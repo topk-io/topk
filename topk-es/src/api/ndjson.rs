@@ -1,7 +1,8 @@
 use std::marker::PhantomData;
-use std::str::Lines;
+use std::slice::Split;
 
 use async_trait::async_trait;
+use axum::body::Bytes;
 use axum::extract::{FromRequest, FromRequestParts, Request};
 use serde::de::DeserializeOwned;
 
@@ -44,20 +45,20 @@ impl<H: NdjsonHeader> NdjsonBody<H> {
         self.entries
     }
 
-    fn parse(body: String, path: Option<IndexName>) -> Result<Self, Error> {
-        if !body.ends_with('\n') {
+    fn parse(body: &[u8], path: Option<IndexName>) -> Result<Self, Error> {
+        if !body.ends_with(b"\n") {
             return Err(Error::BadRequest(
                 "NDJSON request must be terminated by a newline [\\n]".into(),
             ));
         }
 
         let mut lines = NdjsonLines {
-            lines: body.lines(),
+            lines: body.split(is_newline),
         };
 
         let mut entries = Vec::new();
         while let Some(first) = lines.next() {
-            let header: H = sonic_rs::from_str(first)?;
+            let header: H = sonic_rs::from_slice(first)?;
             let line_index = header.index();
             let payload = header.parse_payload(&mut lines)?;
             let index = line_index
@@ -86,20 +87,27 @@ where
         let path = Option::<IndexName>::from_request_parts(&mut parts, state)
             .await
             .expect("Option<IndexName> extraction is infallible");
-        let body = String::from_request(Request::from_parts(parts, body), state)
+        let body = Bytes::from_request(Request::from_parts(parts, body), state)
             .await
             .map_err(|e| Error::BadRequest(format!("Failed to read NDJSON body: {e}")))?;
-        Self::parse(body, path)
+        Self::parse(&body, path)
     }
 }
 
+fn is_newline(byte: &u8) -> bool {
+    *byte == b'\n'
+}
+
 pub struct NdjsonLines<'a> {
-    lines: Lines<'a>,
+    lines: Split<'a, u8, fn(&u8) -> bool>,
 }
 
 impl<'a> NdjsonLines<'a> {
-    fn next(&mut self) -> Option<&'a str> {
-        self.lines.by_ref().find(|line| !line.trim().is_empty())
+    fn next(&mut self) -> Option<&'a [u8]> {
+        self.lines
+            .by_ref()
+            .map(|line| line.trim_ascii())
+            .find(|line| !line.is_empty())
     }
 
     pub(crate) fn parse<T: DeserializeOwned>(&mut self) -> Result<T, Error> {
@@ -107,6 +115,68 @@ impl<'a> NdjsonLines<'a> {
             .next()
             .ok_or_else(|| Error::BadRequest("Unexpected end of NDJSON body".into()))?;
 
-        Ok(sonic_rs::from_str(line)?)
+        Ok(sonic_rs::from_slice(line)?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde::Deserialize;
+
+    use super::*;
+
+    #[derive(Deserialize)]
+    struct Header {
+        #[serde(default)]
+        index: Option<IndexName>,
+    }
+
+    impl NdjsonJsonHeader for Header {
+        type Payload = Vec<i64>;
+
+        fn index(&self) -> Option<IndexName> {
+            self.index.clone()
+        }
+    }
+
+    fn parse(body: &str, path: Option<&str>) -> Result<Vec<(IndexName, Vec<i64>)>, Error> {
+        let path = path.map(|index| IndexName::try_from(index.to_string()).unwrap());
+        NdjsonBody::<Header>::parse(body.as_bytes(), path).map(NdjsonBody::into_entries)
+    }
+
+    #[test]
+    fn pairs_each_header_with_its_payload() {
+        let entries = parse("{\"index\":\"a\"}\n[1,2]\n{\"index\":\"b\"}\n[3]\n", None).unwrap();
+
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].0.as_str(), "a");
+        assert_eq!(entries[0].1, vec![1, 2]);
+        assert_eq!(entries[1].0.as_str(), "b");
+        assert_eq!(entries[1].1, vec![3]);
+    }
+
+    #[test]
+    fn skips_blank_lines_and_carriage_returns() {
+        let entries = parse("{}\r\n[1]\r\n\r\n{}\n\n[2]\n", Some("idx")).unwrap();
+
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].0.as_str(), "idx");
+        assert_eq!(entries[0].1, vec![1]);
+        assert_eq!(entries[1].1, vec![2]);
+    }
+
+    #[test]
+    fn requires_a_trailing_newline() {
+        assert!(parse("{}\n[1]", Some("idx")).is_err());
+    }
+
+    #[test]
+    fn requires_an_index() {
+        assert!(parse("{}\n[1]\n", None).is_err());
+    }
+
+    #[test]
+    fn requires_a_payload_for_every_header() {
+        assert!(parse("{}\n", Some("idx")).is_err());
     }
 }
