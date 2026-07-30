@@ -362,11 +362,11 @@ describe("Upsert", () => {
   it("should reject an UnknownValue", async () => {
     const ctx = getContext();
 
-    await expect(
-      ctx.client
+    await expect(async () => {
+      await ctx.client
         .collection(ctx.scope("test"))
-        .upsert([{ _id: "x", field: new data.UnknownValue() }])
-    ).rejects.toThrow("not supported by this version of topk-js");
+        .upsert([{ _id: "x", field: new data.UnknownValue() }]);
+    }).rejects.toThrow("not supported by this version of topk-js");
   });
 });
 
