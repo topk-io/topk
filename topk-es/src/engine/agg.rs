@@ -1,14 +1,25 @@
 use std::collections::HashMap;
 
 use topk_rs::json::Value as JsonValue;
-use topk_rs::proto::v1::data::{AggregateExpr, Document, LogicalExpr, Query as TopkQuery, Value};
-use topk_rs::query::{field, filter};
+use topk_rs::proto::v1::data::{
+    AggregateExpr, Document, FunctionExpr, LogicalExpr, Query as TopkQuery, Value,
+};
+use topk_rs::query::{empty, field};
 
 use crate::api::{AggClause, AggResult, AggType, TermsBucket};
 use crate::value::{compare, ValueExt};
 use crate::Error;
 
-pub fn compile(clause: &AggClause, gate: &LogicalExpr) -> Result<TopkQuery, Error> {
+pub fn compile(
+    clause: &AggClause,
+    gate: &LogicalExpr,
+    selects: &[(String, FunctionExpr)],
+) -> Result<TopkQuery, Error> {
+    let mut base = empty();
+    if !selects.is_empty() {
+        base = base.select(selects.iter().cloned());
+    }
+    let base = base.filter(gate.clone());
     match &clause.ty {
         AggType::Terms(terms) => {
             let mut aggs = vec![("doc_count".to_string(), AggregateExpr::count(None))];
@@ -18,7 +29,7 @@ pub fn compile(clause: &AggClause, gate: &LogicalExpr) -> Result<TopkQuery, Erro
                     AggregateExpr::try_from(sub_clause.ty.clone())?,
                 ));
             }
-            let query = filter(gate.clone())
+            let query = base
                 .group_by([("key".to_string(), field(terms.field.as_str()))], aggs)
                 .sort("doc_count")
                 .limit(terms.size.unwrap_or(10) as u64);
@@ -26,7 +37,7 @@ pub fn compile(clause: &AggClause, gate: &LogicalExpr) -> Result<TopkQuery, Erro
             Ok(query)
         }
         metric => {
-            let query = filter(gate.clone()).group_by(
+            let query = base.group_by(
                 [("_bucket".to_string(), LogicalExpr::literal(true))],
                 [(
                     "value".to_string(),

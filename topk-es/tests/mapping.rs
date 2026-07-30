@@ -58,6 +58,7 @@ async fn test_mapped_fields_queryable(scope: &TestScope, #[case] query: Value) {
 #[case::bit_bad_similarity(json!({ "mappings": { "properties": { "embedding": { "type": "dense_vector", "dims": 32, "element_type": "bit", "similarity": "cosine" } } } }))]
 #[case::unknown_element_type(json!({ "mappings": { "properties": { "embedding": { "type": "dense_vector", "dims": 4, "element_type": "nonsense" } } } }))]
 #[case::field_mapping_not_object(json!({ "mappings": { "properties": { "title": "text" } } }))]
+#[case::sparse_vector_index_options(json!({ "mappings": { "properties": { "v": { "type": "sparse_vector", "index_options": { "prune": true } } } } }))]
 async fn test_create_rejected(scope: &TestScope, #[case] body: Value) {
     let err = scope.create_with_body(Some(body)).await.unwrap_err();
     assert_eq!(err.status_code(), StatusCode::BAD_REQUEST);
@@ -108,6 +109,7 @@ async fn test_create_rejected(scope: &TestScope, #[case] body: Value) {
     json!({ "v": { "type": "dense_vector", "dims": 4, "index": false } })
 )]
 #[case::object_without_properties(json!({ "meta": { "type": "object" } }))]
+#[case::sparse_vector(json!({ "v": { "type": "sparse_vector" } }))]
 async fn test_create_accepts_supported_mapping_variants(
     scope: &TestScope,
     #[case] properties: Value,
@@ -162,7 +164,8 @@ async fn ext_get_mapping_returns_reverse_translated_properties(scope: &TestScope
                 "top_k": 8,
                 "width": 4096
             },
-            "content": { "type": "semantic_text" }
+            "content": { "type": "semantic_text" },
+            "sparse": { "type": "sparse_vector" }
         }))
         .await;
 
@@ -244,6 +247,11 @@ async fn ext_get_mapping_returns_reverse_translated_properties(scope: &TestScope
     assert_eq!(
         properties["content"],
         json!({ "type": "semantic_text" }),
+        "{body}"
+    );
+    assert_eq!(
+        properties["sparse"],
+        json!({ "type": "sparse_vector" }),
         "{body}"
     );
     assert!(properties.get("_id").is_none());

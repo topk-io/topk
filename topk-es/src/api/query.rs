@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Deserializer};
 use serde_with::{serde_as, OneOrMany};
 use topk_rs::json::Value;
+use topk_rs::proto::v1::data::value;
 
 use super::DocId;
 use crate::value::ValueExt;
@@ -23,6 +24,7 @@ pub enum Query {
     Exists(ExistsQuery),
     Bool(BoolQuery),
     Semantic(SemanticQuery),
+    SparseVector(SparseVectorQuery),
 }
 
 #[derive(Deserialize, Default)]
@@ -98,6 +100,34 @@ pub struct SemanticQuery {
 
     #[serde(default)]
     pub boost: Option<f32>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SparseVectorQuery {
+    pub field: FieldName,
+    pub query_vector: SparseQueryVector,
+
+    #[serde(default)]
+    pub boost: Option<f32>,
+}
+
+#[derive(Deserialize)]
+#[serde(try_from = "Value")]
+pub struct SparseQueryVector(pub topk_rs::proto::v1::data::Value);
+
+impl TryFrom<Value> for SparseQueryVector {
+    type Error = Error;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        let value = value.into_inner();
+        match value.value {
+            Some(value::Value::SparseVector(_)) => Ok(Self(value)),
+            _ => Err(Error::InvalidQuery(
+                "\"query_vector\" must be an object mapping integer dimension indices to weights, e.g. {\"0\": 1.0}".into(),
+            )),
+        }
+    }
 }
 
 #[derive(Deserialize)]

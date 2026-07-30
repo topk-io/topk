@@ -1,10 +1,12 @@
 use topk_rs::proto::v1::control::KeywordIndexType;
 use topk_rs::proto::v1::data::{LogicalExpr, Query as TopkQuery, TextExpr, Value};
-use topk_rs::query::{count as count_query, field, filter, fns, not, should, SortOrder};
+use topk_rs::query::{count as count_query, empty, field, fns, not, should, SortOrder};
 
 use super::field::{ensure_aggregatable, IndexKind};
 use super::rank::Ranking;
-use super::score::{ann_score, AnnQuery, AnnTerm, CompiledQuery, Score};
+use super::score::{
+    ann_score, sparse_select_name, sparse_selects, AnnQuery, AnnTerm, CompiledQuery, Score,
+};
 use super::{agg, RANK_BM25, RANK_SCORE};
 use crate::api::{
     AggClause, AggType, FieldName, GateQuery, KnnRequest, MatchAllQuery, MatchOperator, MatchValue,
@@ -67,6 +69,7 @@ pub fn search(
     }
 
     let gate = LogicalExpr::any(compiled.iter().map(|(c, _)| c.gate.clone()));
+    let gate_selects = sparse_selects(compiled.iter().flat_map(|(c, _)| &c.score.anns));
 
     let window = Ranking::of(&req).window_size();
     let queries = compiled
@@ -89,17 +92,25 @@ pub fn search(
     let agg_queries = req
         .aggs
         .iter()
-        .map(|(_, clause)| agg::compile(clause, &gate))
+        .map(|(_, clause)| agg::compile(clause, &gate, &gate_selects))
         .collect::<Result<Vec<_>, _>>()?;
 
     Ok((req, queries, agg_queries))
 }
 
 pub fn count(schema: &Schema, query: Option<GateQuery>) -> Result<TopkQuery, Error> {
-    Ok(match query {
-        Some(q) => filter(compile_clause(schema, q.0)?.gate).count(),
-        None => count_query(),
-    })
+    match query {
+        Some(q) => {
+            let compiled = compile_clause(schema, q.0)?;
+            let selects = sparse_selects(compiled.score.anns.iter());
+            let mut query = empty();
+            if !selects.is_empty() {
+                query = query.select(selects);
+            }
+            Ok(query.filter(compiled.gate).count())
+        }
+        None => Ok(count_query()),
+    }
 }
 
 fn lower(
@@ -111,10 +122,15 @@ fn lower(
 ) -> Result<TopkQuery, Error> {
     let score = compiled.score;
     let has_bm25 = score.bm25.is_some();
-    let mut query = match score.bm25 {
-        Some(text) => filter(text).filter(compiled.gate),
-        None => filter(compiled.gate),
-    };
+    let mut query = empty();
+    if let Some(text) = score.bm25 {
+        query = query.filter(text);
+    }
+    let selects = sparse_selects(score.anns.iter());
+    if !selects.is_empty() {
+        query = query.select(selects);
+    }
+    let mut query = query.filter(compiled.gate);
 
     if has_bm25 {
         query = query.select([(RANK_BM25, fns::bm25_score(None, None))]);
@@ -170,29 +186,31 @@ fn lower(
 }
 
 fn compile_knn(schema: &Schema, knn: KnnRequest) -> Result<CompiledQuery, Error> {
-    let gate = knn
-        .filter
-        .into_iter()
-        .map(|clause| Ok(compile_clause(schema, clause.0)?.gate))
-        .collect::<Result<Vec<_>, Error>>()?
-        .into_iter()
-        .reduce(LogicalExpr::and)
-        .unwrap_or_else(|| LogicalExpr::literal(true));
+    let mut gates = Vec::new();
+    let mut scores = Vec::new();
+    for clause in knn.filter {
+        let compiled = compile_clause(schema, clause.0)?;
+        gates.push(compiled.gate);
+        scores.push(compiled.score.unscored());
+    }
+
+    let mut score = Score::sum(scores, 1.0);
+    score.anns.push(AnnTerm {
+        field: knn.field.as_str().to_string(),
+        weight: knn.boost.unwrap_or(1.0),
+        cutoff: knn.similarity,
+        query: AnnQuery::Vector {
+            vector: knn.query_vector,
+            num_candidates: knn.num_candidates,
+        },
+    });
 
     Ok(CompiledQuery {
-        gate,
-        score: Score {
-            anns: vec![AnnTerm {
-                field: knn.field.as_str().to_string(),
-                weight: knn.boost.unwrap_or(1.0),
-                cutoff: knn.similarity,
-                query: AnnQuery::Vector {
-                    vector: knn.query_vector,
-                    num_candidates: knn.num_candidates,
-                },
-            }],
-            ..Score::default()
-        },
+        gate: gates
+            .into_iter()
+            .reduce(LogicalExpr::and)
+            .unwrap_or_else(|| LogicalExpr::literal(true)),
+        score,
     })
 }
 
@@ -353,19 +371,18 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
                 scores.push(compiled.score);
             }
 
-            gates.extend(
-                query
-                    .filter
-                    .into_iter()
-                    .map(|clause| Ok(compile_clause(schema, clause.0)?.gate))
-                    .collect::<Result<Vec<_>, Error>>()?,
-            );
+            for clause in query.filter {
+                let compiled = compile_clause(schema, clause.0)?;
+                gates.push(compiled.gate);
+                scores.push(compiled.score.unscored());
+            }
 
-            let must_not = query
-                .must_not
-                .into_iter()
-                .map(|clause| Ok(compile_clause(schema, clause.0)?.gate))
-                .collect::<Result<Vec<_>, Error>>()?;
+            let mut must_not = Vec::new();
+            for clause in query.must_not {
+                let compiled = compile_clause(schema, clause.0)?;
+                must_not.push(compiled.gate);
+                scores.push(compiled.score.unscored());
+            }
             if !must_not.is_empty() {
                 gates.push(not(LogicalExpr::any(must_not)));
             }
@@ -413,5 +430,30 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
                 ..Score::default()
             },
         }),
+        Query::SparseVector(q) => {
+            let field_name = q.field.as_str().to_string();
+            if schema.get(&field_name).is_none() {
+                return Err(Error::InvalidQuery(format!(
+                    "\"{field_name}\" is not in the collection's schema"
+                )));
+            }
+
+            let name = sparse_select_name(&field_name, &q.query_vector.0);
+            Ok(CompiledQuery {
+                gate: field(name.clone()).is_not_null().choose(
+                    field(name).gt(LogicalExpr::literal(0.0f32)),
+                    LogicalExpr::literal(false),
+                ),
+                score: Score {
+                    anns: vec![AnnTerm {
+                        field: field_name,
+                        weight: q.boost.unwrap_or(1.0),
+                        cutoff: None,
+                        query: AnnQuery::Sparse(q.query_vector.0),
+                    }],
+                    ..Score::default()
+                },
+            })
+        }
     }
 }
