@@ -1,6 +1,7 @@
 use crate::data::value::Value;
 use crate::expr::flexible::FlexibleExpr;
 use crate::expr::flexible::{Boolish, Iterable, Numeric, Ordered, Stringy, StringyWithList};
+use crate::expr::function::FunctionExpr;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 
@@ -172,6 +173,9 @@ pub enum LogicalExpr {
         op: NaryOperator,
         exprs: Vec<Py<LogicalExpr>>,
     },
+    Function {
+        expr: FunctionExpr,
+    },
 }
 
 impl std::fmt::Debug for LogicalExpr {
@@ -204,6 +208,7 @@ impl std::fmt::Debug for LogicalExpr {
             Self::Nary { op, exprs } => {
                 write!(f, "Nary(op={:?}, exprs={:?})", op, exprs)
             }
+            Self::Function { expr } => write!(f, "Function({:?})", expr),
         }
     }
 }
@@ -271,6 +276,7 @@ impl PartialEq for LogicalExpr {
                         .zip(r_exprs.iter())
                         .all(|(l, r)| l.get() == r.get())
             }
+            (LogicalExpr::Function { expr: l }, LogicalExpr::Function { expr: r }) => l == r,
             _ => false,
         }
     }
@@ -730,6 +736,7 @@ impl From<LogicalExpr> for topk_rs::proto::v1::data::LogicalExpr {
     fn from(expr: LogicalExpr) -> Self {
         match expr {
             LogicalExpr::Field { name } => topk_rs::proto::v1::data::LogicalExpr::field(name),
+            LogicalExpr::Function { expr } => topk_rs::proto::v1::data::LogicalExpr::function(expr),
             LogicalExpr::Literal { value } => topk_rs::proto::v1::data::LogicalExpr::literal(value),
             LogicalExpr::Unary { op, expr } => {
                 topk_rs::proto::v1::data::LogicalExpr::unary(op, expr.get().clone())
@@ -754,3 +761,48 @@ impl From<LogicalExpr> for topk_rs::proto::v1::data::LogicalExpr {
         }
     }
 }
+
+// Lift into `LogicalExpr` so score functions compose directly with
+// comparisons and arithmetic, e.g. `fn.bm25_score() > 0.5`.
+macro_rules! lift {
+    ($($fn:ident($($arg:ident: $ty:ty),*)),* $(,)?) => {
+        #[pymethods]
+        impl FunctionExpr {
+            $(fn $fn(&self, py: Python<'_>, $($arg: $ty),*) -> PyResult<LogicalExpr> {
+                LogicalExpr::Function { expr: self.clone() }.$fn(py, $($arg),*)
+            })*
+        }
+    };
+}
+
+lift!(
+    // Comparison operators
+    eq(other: FlexibleExpr),
+    ne(other: FlexibleExpr),
+    coalesce(other: Numeric),
+    min(other: Ordered),
+    max(other: Ordered),
+    // Unary operators
+    is_null(),
+    is_not_null(),
+    abs(),
+    // Ternary operators
+    choose(x: FlexibleExpr, y: FlexibleExpr),
+    boost(condition: FlexibleExpr, boost: Numeric),
+    // Dunder operators
+    __abs__(),
+    __eq__(other: FlexibleExpr),
+    __ne__(other: FlexibleExpr),
+    __lt__(other: Ordered),
+    __le__(other: Ordered),
+    __gt__(other: Ordered),
+    __ge__(other: Ordered),
+    __add__(other: Numeric),
+    __radd__(other: Numeric),
+    __sub__(other: Numeric),
+    __rsub__(other: Numeric),
+    __mul__(other: Numeric),
+    __rmul__(other: Numeric),
+    __truediv__(other: Numeric),
+    __rtruediv__(other: Numeric),
+);
