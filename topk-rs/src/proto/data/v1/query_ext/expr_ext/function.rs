@@ -103,4 +103,29 @@ macro_rules! lift {
     };
 }
 
+macro_rules! lift_unary {
+    ($($fn:ident),*) => {
+        impl FunctionExpr {
+            $(pub fn $fn(self) -> LogicalExpr {
+                LogicalExpr::function(self).$fn()
+            })*
+        }
+    };
+}
+
 lift!(gt, gte, lt, lte, eq, neq, add, sub, mul, div, min, max, coalesce);
+lift_unary!(is_null, is_not_null, abs, ln, exp, sqrt, square);
+
+impl FunctionExpr {
+    pub fn choose(self, x: impl Into<LogicalExpr>, y: impl Into<LogicalExpr>) -> LogicalExpr {
+        LogicalExpr::function(self).choose(x, y)
+    }
+
+    pub fn boost(
+        self,
+        condition: impl Into<LogicalExpr>,
+        boost: impl Into<crate::proto::v1::data::Value>,
+    ) -> LogicalExpr {
+        LogicalExpr::function(self).boost(condition, boost)
+    }
+}

@@ -354,6 +354,368 @@ documents that also match `lord`.
 
 **`Internal`**
 
+**Methods**
+
+##### abs()
+
+```ts
+abs(): LogicalExpression;
+```
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### add()
+
+```ts
+add(other: 
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### boost()
+
+```ts
+boost(condition: 
+  | boolean
+  | LogicalExpression, boost: 
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `condition` | \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `boost` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### choose()
+
+```ts
+choose(x: 
+  | string
+  | number
+  | boolean
+  | LogicalExpression, y: 
+  | string
+  | number
+  | boolean
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `x` | \| `string` \| `number` \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `y` | \| `string` \| `number` \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### coalesce()
+
+```ts
+coalesce(other: 
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### div()
+
+```ts
+div(other: 
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### eq()
+
+```ts
+eq(other: 
+  | string
+  | number
+  | boolean
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### exp()
+
+```ts
+exp(): LogicalExpression;
+```
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### gt()
+
+```ts
+gt(other: 
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### gte()
+
+```ts
+gte(other: 
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### isNotNull()
+
+```ts
+isNotNull(): LogicalExpression;
+```
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### isNull()
+
+```ts
+isNull(): LogicalExpression;
+```
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### ln()
+
+```ts
+ln(): LogicalExpression;
+```
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### lt()
+
+```ts
+lt(other: 
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### lte()
+
+```ts
+lte(other: 
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### max()
+
+```ts
+max(other: 
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### min()
+
+```ts
+min(other: 
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### mul()
+
+```ts
+mul(other: 
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### ne()
+
+```ts
+ne(other: 
+  | string
+  | number
+  | boolean
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### sqrt()
+
+```ts
+sqrt(): LogicalExpression;
+```
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### square()
+
+```ts
+square(): LogicalExpression;
+```
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### sub()
+
+```ts
+sub(other: 
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
 ***
 
 ### LogicalExpression
