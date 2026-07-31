@@ -1,4 +1,4 @@
-use topk_rs::proto::v1::data::{FunctionExpr, LogicalExpr, TextExpr, Value};
+use topk_rs::proto::v1::data::{LogicalExpr, TextExpr, Value};
 
 mod aggregate;
 mod filter;
@@ -14,5 +14,4 @@ pub enum Expr {
     Literal(Value),
     Logical(LogicalExpr),
     Text(TextExpr),
-    Function(FunctionExpr),
 }
