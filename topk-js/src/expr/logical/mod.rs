@@ -1,15 +1,17 @@
 mod binary_op;
-pub(crate) mod boolish;
-pub(crate) mod comparable;
+mod boolish;
+mod comparable;
 mod flexible;
 mod nary_op;
-pub(crate) mod numeric;
-pub(crate) mod ordered;
+mod numeric;
+mod ordered;
 mod stringy;
 mod ternary_op;
 mod unary_op;
 
 pub use binary_op::BinaryOperator;
+pub use boolish::Boolish;
+pub use comparable::Comparable;
 pub use nary_op::NaryOp;
 pub use numeric::Numeric;
 pub use ordered::Ordered;
@@ -25,8 +27,6 @@ use crate::{
     },
     utils::NapiBox,
 };
-use boolish::Boolish;
-use comparable::Comparable;
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use stringy::Stringy;

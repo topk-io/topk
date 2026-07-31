@@ -121,11 +121,7 @@ impl FunctionExpr {
         LogicalExpr::function(self).choose(x, y)
     }
 
-    pub fn boost(
-        self,
-        condition: impl Into<LogicalExpr>,
-        boost: impl Into<crate::proto::v1::data::Value>,
-    ) -> LogicalExpr {
+    pub fn boost(self, condition: impl Into<LogicalExpr>, boost: impl Into<Value>) -> LogicalExpr {
         LogicalExpr::function(self).boost(condition, boost)
     }
 }

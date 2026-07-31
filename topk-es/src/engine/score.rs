@@ -183,15 +183,8 @@ pub fn ann_score(
         let folded = fold.expr(LogicalExpr::function(scorer));
 
         // ES applies the `similarity` cutoff before `boost`, so compare the
-        // unweighted fold. The filter scores exactly, matching ES semantics.
+        // unweighted fold.
         if let Some(cutoff) = ann.cutoff {
-            if fold == Fold::Passthrough {
-                // Maxsim has no exact scorer to filter on.
-                return Err(Error::InvalidQuery(format!(
-                    "knn.similarity is not supported for rank_vectors field [{}]",
-                    ann.field
-                )));
-            }
             query = query.filter(
                 folded
                     .clone()

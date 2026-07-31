@@ -111,6 +111,7 @@ fn lower(
 ) -> Result<TopkQuery, Error> {
     let score = compiled.score;
     let has_bm25 = score.bm25.is_some();
+    let bm25 = has_bm25.then(|| fns::bm25_score(None, None).into());
     let query = match score.bm25 {
         Some(text) => filter(text).filter(compiled.gate),
         None => filter(compiled.gate),
@@ -118,15 +119,11 @@ fn lower(
 
     let (query, ann_term) = ann_score(query, schema, &score.anns)?;
 
-    let total = [
-        has_bm25.then(|| LogicalExpr::function(fns::bm25_score(None, None))),
-        ann_term,
-        score.expr,
-    ]
-    .into_iter()
-    .flatten()
-    .reduce(|acc, part| acc.add(part))
-    .unwrap_or_else(|| LogicalExpr::literal(0.0f32));
+    let total = [bm25, ann_term, score.expr]
+        .into_iter()
+        .flatten()
+        .reduce(|acc, part| acc.add(part))
+        .unwrap_or_else(|| LogicalExpr::literal(0.0f32));
 
     let query = query.select([(RANK_SCORE, total)]);
 
