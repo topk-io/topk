@@ -779,6 +779,15 @@ lift!(
     // Comparison operators
     eq(other: FlexibleExpr),
     ne(other: FlexibleExpr),
+    lt(other: Ordered),
+    lte(other: Ordered),
+    gt(other: Ordered),
+    gte(other: Ordered),
+    // Arithmetic operators
+    add(other: Numeric),
+    sub(other: Numeric),
+    mul(other: Numeric),
+    div(other: Numeric),
     coalesce(other: Numeric),
     min(other: Ordered),
     max(other: Ordered),
@@ -786,6 +795,10 @@ lift!(
     is_null(),
     is_not_null(),
     abs(),
+    ln(),
+    exp(),
+    sqrt(),
+    square(),
     // Ternary operators
     choose(x: FlexibleExpr, y: FlexibleExpr),
     boost(condition: FlexibleExpr, boost: Numeric),

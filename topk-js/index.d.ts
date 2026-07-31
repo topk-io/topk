@@ -507,7 +507,28 @@ export declare namespace query {
    * @hideconstructor
    */
   export class FunctionExpression {
-
+    eq(other: LogicalExpression | string | number | boolean | null | undefined): LogicalExpression
+    ne(other: LogicalExpression | string | number | boolean | null | undefined): LogicalExpression
+    lt(other: LogicalExpression | number | string): LogicalExpression
+    lte(other: LogicalExpression | number | string): LogicalExpression
+    gt(other: LogicalExpression | number | string): LogicalExpression
+    gte(other: LogicalExpression | number | string): LogicalExpression
+    add(other: LogicalExpression | number): LogicalExpression
+    sub(other: LogicalExpression | number): LogicalExpression
+    mul(other: LogicalExpression | number): LogicalExpression
+    div(other: LogicalExpression | number): LogicalExpression
+    min(other: LogicalExpression | number | string): LogicalExpression
+    max(other: LogicalExpression | number | string): LogicalExpression
+    coalesce(other: LogicalExpression | number): LogicalExpression
+    isNull(): LogicalExpression
+    isNotNull(): LogicalExpression
+    abs(): LogicalExpression
+    ln(): LogicalExpression
+    exp(): LogicalExpression
+    sqrt(): LogicalExpression
+    square(): LogicalExpression
+    choose(x: LogicalExpression | string | number | boolean | null | undefined, y: LogicalExpression | string | number | boolean | null | undefined): LogicalExpression
+    boost(condition: LogicalExpression | boolean, boost: LogicalExpression | number): LogicalExpression
   }
   /**
    * @internal
