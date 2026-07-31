@@ -4,7 +4,7 @@ use topk_rs::proto::v1::control::{field_type, field_type_matrix::MatrixValueType
 use topk_rs::proto::v1::data::{value, Document, Value};
 
 use super::field::IndexKind;
-use super::{Schema, RANK_PREFIX};
+use super::Schema;
 use crate::api::{Source, SourceFilter, WriteDoc};
 use crate::value::ValueExt;
 use crate::vector;
@@ -13,8 +13,7 @@ use crate::Error;
 pub fn decode(source: &SourceFilter, fields: HashMap<String, Value>) -> Source {
     let mut nested = HashMap::new();
     for (key, value) in fields {
-        let internal = key.starts_with('_') || key.starts_with(RANK_PREFIX);
-        if !internal && source.keep(&key) {
+        if !key.starts_with('_') && source.keep(&key) {
             insert_path(&mut nested, &key, value);
         }
     }
