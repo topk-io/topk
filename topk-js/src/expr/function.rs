@@ -2,8 +2,7 @@ use napi_derive::napi;
 
 use crate::data::Value;
 use crate::expr::logical::{
-    boolish::Boolish, comparable::Comparable, numeric::Numeric, ordered::Ordered,
-    LogicalExpression, LogicalExpressionUnion,
+    Boolish, Comparable, LogicalExpression, LogicalExpressionUnion, Numeric, Ordered,
 };
 
 /// @internal
