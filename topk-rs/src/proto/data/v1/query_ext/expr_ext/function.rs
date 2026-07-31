@@ -1,6 +1,6 @@
 use crate::proto::{
     data::v1::{SparseVector, Value},
-    v1::data::{function_expr, FunctionExpr},
+    v1::data::{function_expr, FunctionExpr, LogicalExpr},
 };
 
 impl FunctionExpr {
@@ -90,3 +90,17 @@ impl FunctionExpr {
         self
     }
 }
+
+// Lift into `LogicalExpr` so score functions compose directly with
+// comparisons and arithmetic, e.g. `fns::vector_distance(..).gt(0.5)`.
+macro_rules! lift {
+    ($($fn:ident),*) => {
+        impl FunctionExpr {
+            $(pub fn $fn(self, rhs: impl Into<LogicalExpr>) -> LogicalExpr {
+                LogicalExpr::function(self).$fn(rhs)
+            })*
+        }
+    };
+}
+
+lift!(gt, gte, lt, lte, eq, neq, add, sub, mul, div, min, max, coalesce);

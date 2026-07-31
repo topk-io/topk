@@ -21,7 +21,6 @@ impl LogicalExpr {
             expr: Some(logical_expr::Expr::Function(func.into())),
         }
     }
-
     #[inline(always)]
     pub fn unary(op: impl Into<unary_op::Op>, expr: impl Into<LogicalExpr>) -> Self {
         LogicalExpr {
@@ -543,5 +542,11 @@ impl BinaryOp {
             left: Some(Box::new(left)),
             right: Some(Box::new(right)),
         }
+    }
+}
+
+impl From<FunctionExpr> for LogicalExpr {
+    fn from(func: FunctionExpr) -> Self {
+        LogicalExpr::function(func)
     }
 }
