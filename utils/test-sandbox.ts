@@ -1,4 +1,4 @@
-import { Command } from "commander";
+import { Command, Option } from "commander";
 import { Client, Collection, Dataset } from "topk-js";
 import Bun from "bun";
 import { z } from "zod";
@@ -16,6 +16,7 @@ type Opts = {
   age?: number;
   timeout: number;
   dryRun: boolean;
+  continueOnError: boolean;
 };
 
 const log = pino({ level: process.env.LOG_LEVEL ?? "info" }, pretty());
@@ -48,6 +49,14 @@ program
     5 * 60 * 1000 // 5 minutes
   )
   .option("--dry-run", "do not perform the reset operation", false)
+  .addOption(
+    new Option(
+      "--continue-on-error",
+      "run the command even if sandbox discovery/reset fails"
+    )
+      .env("TOPK_SANDBOX_CONTINUE_ON_ERROR")
+      .default(false)
+  )
   .passThroughOptions()
   .allowUnknownOption()
   .action(async (cmd: string[], opts: Opts) => {
@@ -61,27 +70,37 @@ program
     const client = createClient(env);
 
     // "Before" hook
-    const beforeState = await discoverState(client, opts);
-    if (!opts.dryRun) {
-      await resetState(client, beforeState, limit);
-    } else {
-      log.warn(`Skipping reset.`);
-    }
+    await reset(client, opts, limit);
 
     // Run the command
     const exitCode = await exec(cmd, opts.dryRun, opts.timeout);
 
     // "After" hook
-    const afterState = await discoverState(client, opts);
-    if (!opts.dryRun) {
-      await resetState(client, afterState, limit);
-    } else {
-      log.warn(`Skipping reset.`);
-    }
+    await reset(client, opts, limit);
 
     process.exit(exitCode);
   })
   .parseAsync();
+
+async function reset(client: Client, opts: Opts, limit: LimitFunction) {
+  try {
+    const state = await discoverState(client, opts);
+    if (opts.dryRun) {
+      log.warn(`Skipping reset.`);
+      return;
+    }
+    await resetState(client, state, limit);
+  } catch (error) {
+    if (!opts.continueOnError) {
+      throw error;
+    }
+    log.error(
+      `Sandbox reset failed: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+  }
+}
 
 async function discoverState(client: Client, opts: Opts): Promise<State> {
   log.info(`Discovering state for ${formatOpts(opts)}`);
