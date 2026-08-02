@@ -491,7 +491,7 @@ export declare namespace data {
    * binaryVector([0, 1, 1, 0])
    * ```
    */
-  export function binaryVector(values: Array<number>): List
+  export function binaryVector(values: Array<number>): data.List
   /**
    * Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing bytes data.
    *
@@ -515,7 +515,7 @@ export declare namespace data {
    * f16Vector([0.12, 0.67, 0.82, 0.53])
    * ```
    */
-  export function f16Vector(values: Array<number>): List
+  export function f16Vector(values: Array<number>): data.List
   /**
    * Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a list of 32-bit floating point numbers.
    *
@@ -527,7 +527,7 @@ export declare namespace data {
    * f32List([0.12, 0.67, 0.82, 0.53])
    * ```
    */
-  export function f32List(values: Array<number>): List
+  export function f32List(values: Array<number>): data.List
   /**
    * Creates a [SparseVector](https://docs.topk.io/sdk/topk-js/data#SparseVector) type containing a sparse vector of 32-bit floats. This function is an alias for [f32SparseList()](https://docs.topk.io/sdk/topk-js/data#f32sparselist).
    *
@@ -539,7 +539,7 @@ export declare namespace data {
    * f32SparseVector({0: 0.12, 6: 0.67, 17: 0.82, 97: 0.53})
    * ```
    */
-  export function f32SparseVector(vector: Record<number, number>): SparseVector
+  export function f32SparseVector(vector: Record<number, number>): data.SparseVector
   /**
    * Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a 32-bit float vector. This function is an alias for [f32List()](https://docs.topk.io/sdk/topk-js/data#f32list).
    *
@@ -551,7 +551,7 @@ export declare namespace data {
    * f32Vector([0.12, 0.67, 0.82, 0.53])
    * ```
    */
-  export function f32Vector(values: Array<number>): List
+  export function f32Vector(values: Array<number>): data.List
   /**
    * Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a list of 64-bit floating point numbers.
    *
@@ -563,7 +563,7 @@ export declare namespace data {
    * f64List([0.12, 0.67, 0.82, 0.53])
    * ```
    */
-  export function f64List(values: Array<number>): List
+  export function f64List(values: Array<number>): data.List
   /**
    * Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing an 8-bit float vector.
    *
@@ -575,7 +575,7 @@ export declare namespace data {
    * f8Vector([0.12, 0.67, 0.82, 0.53])
    * ```
    */
-  export function f8Vector(values: Array<number>): List
+  export function f8Vector(values: Array<number>): data.List
   /**
    * Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a list of 32-bit signed integers.
    *
@@ -587,7 +587,7 @@ export declare namespace data {
    * i32List([0, 1, 2, 3])
    * ```
    */
-  export function i32List(values: Array<number>): List
+  export function i32List(values: Array<number>): data.List
   /**
    * Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a list of 64-bit signed integers.
    *
@@ -599,7 +599,7 @@ export declare namespace data {
    * i64List([0, 1, 2, 3])
    * ```
    */
-  export function i64List(values: Array<number>): List
+  export function i64List(values: Array<number>): data.List
   /**
    * Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing an 8-bit signed integer vector. This function is an alias for [i8List()](https://docs.topk.io/sdk/topk-js/data#i8list).
    *
@@ -611,7 +611,7 @@ export declare namespace data {
    * i8Vector([-128, 127, -1, 0, 1])
    * ```
    */
-  export function i8Vector(values: Array<number>): List
+  export function i8Vector(values: Array<number>): data.List
   /**
    * Create a [Matrix](https://docs.topk.io/sdk/topk-js/data#Matrix) type containing matrix values.
    *
@@ -629,7 +629,7 @@ export declare namespace data {
    * matrix([[1.0, 2.0], [3.0, 4.0]])
    * ```
    */
-  export function matrix(values: Array<Array<number>>, valueType?: MatrixValueType | undefined | null): Matrix
+  export function matrix(values: Array<Array<number>>, valueType?: data.MatrixValueType | undefined | null): data.Matrix
   /** Matrix element value type. */
   export type MatrixValueType =  'f32'|
   'f16'|
@@ -647,7 +647,7 @@ export declare namespace data {
    * stringList(["foo", "bar", "baz"])
    * ```
    */
-  export function stringList(values: Array<string>): List
+  export function stringList(values: Array<string>): data.List
   /**
    * Creates a [Struct](https://docs.topk.io/sdk/topk-js/data#Struct) type containing nested object values.
    *
@@ -659,7 +659,7 @@ export declare namespace data {
    * struct({ author: "alice", year: 2024 })
    * ```
    */
-  export function struct(fields: Record<string, any>): Struct
+  export function struct(fields: Record<string, any>): data.Struct
   /**
    * Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing a list of 32-bit unsigned integers.
    *
@@ -671,7 +671,7 @@ export declare namespace data {
    * u32List([0, 1, 2, 3])
    * ```
    */
-  export function u32List(values: Array<number>): List
+  export function u32List(values: Array<number>): data.List
   /**
    * Creates a [SparseVector](https://docs.topk.io/sdk/topk-js/data#SparseVector) type containing a sparse vector of 8-bit unsigned integers. This function is an alias for [u8SparseList()](https://docs.topk.io/sdk/topk-js/data#u8sparselist).
    *
@@ -683,7 +683,7 @@ export declare namespace data {
    * u8SparseVector({0: 12, 6: 67, 17: 82, 97: 53})
    * ```
    */
-  export function u8SparseVector(vector: Record<number, number>): SparseVector
+  export function u8SparseVector(vector: Record<number, number>): data.SparseVector
   /**
    * Creates a [List](https://docs.topk.io/sdk/topk-js/data#List) type containing an 8-bit unsigned integer vector. This function is an alias for [u8List()](https://docs.topk.io/sdk/topk-js/data#u8list).
    *
@@ -695,7 +695,7 @@ export declare namespace data {
    * u8Vector([0, 255, 1, 2, 3])
    * ```
    */
-  export function u8Vector(values: Array<number>): List
+  export function u8Vector(values: Array<number>): data.List
 }
 
 export declare namespace query {
@@ -721,47 +721,47 @@ export declare namespace query {
     /** Returns a string representation of the logical expression. */
     toString(): string
     /** Checks if the expression evaluates to null. */
-    isNull(): LogicalExpression
+    isNull(): query.LogicalExpression
     /** Checks if the expression evaluates to a non-null value. */
-    isNotNull(): LogicalExpression
+    isNotNull(): query.LogicalExpression
     /** Computes the absolute value of the expression. */
-    abs(): LogicalExpression
+    abs(): query.LogicalExpression
     /** Computes the natural logarithm of the expression. */
-    ln(): LogicalExpression
+    ln(): query.LogicalExpression
     /** Computes the exponential of the expression. */
-    exp(): LogicalExpression
+    exp(): query.LogicalExpression
     /** Computes the square root of the expression. */
-    sqrt(): LogicalExpression
+    sqrt(): query.LogicalExpression
     /** Computes the square of the expression. */
-    square(): LogicalExpression
+    square(): query.LogicalExpression
     /** Checks if the expression equals another value. */
-    eq(other: LogicalExpression | string | number | boolean | null | undefined): LogicalExpression
+    eq(other: LogicalExpression | string | number | boolean | null | undefined): query.LogicalExpression
     /** Checks if the expression does not equal another value. */
-    ne(other: LogicalExpression | string | number | boolean | null | undefined): LogicalExpression
+    ne(other: LogicalExpression | string | number | boolean | null | undefined): query.LogicalExpression
     /** Checks if the expression is less than another value. */
-    lt(other: LogicalExpression | number | string): LogicalExpression
+    lt(other: LogicalExpression | number | string): query.LogicalExpression
     /** Checks if the expression is less than or equal to another value. */
-    lte(other: LogicalExpression | number | string): LogicalExpression
+    lte(other: LogicalExpression | number | string): query.LogicalExpression
     /** Checks if the expression is greater than another value. */
-    gt(other: LogicalExpression | number | string): LogicalExpression
+    gt(other: LogicalExpression | number | string): query.LogicalExpression
     /** Checks if the expression is greater than or equal to another value. */
-    gte(other: LogicalExpression | number | string): LogicalExpression
+    gte(other: LogicalExpression | number | string): query.LogicalExpression
     /** Adds another value to the expression. */
-    add(other: LogicalExpression | number): LogicalExpression
+    add(other: LogicalExpression | number): query.LogicalExpression
     /** Subtracts another value from the expression. */
-    sub(other: LogicalExpression | number): LogicalExpression
+    sub(other: LogicalExpression | number): query.LogicalExpression
     /** Multiplies the expression by another value. */
-    mul(other: LogicalExpression | number): LogicalExpression
+    mul(other: LogicalExpression | number): query.LogicalExpression
     /** Divides the expression by another value. */
-    div(other: LogicalExpression | number): LogicalExpression
+    div(other: LogicalExpression | number): query.LogicalExpression
     /** Computes the minimum of the expression and another value. */
-    min(other: LogicalExpression | number | string): LogicalExpression
+    min(other: LogicalExpression | number | string): query.LogicalExpression
     /** Computes the maximum of the expression and another value. */
-    max(other: LogicalExpression | number | string): LogicalExpression
+    max(other: LogicalExpression | number | string): query.LogicalExpression
     /** Computes the logical AND of the expression and another expression. */
-    and(other: LogicalExpression | boolean): LogicalExpression
+    and(other: LogicalExpression | boolean): query.LogicalExpression
     /** Computes the logical OR of the expression and another expression. */
-    or(other: LogicalExpression | boolean): LogicalExpression
+    or(other: LogicalExpression | boolean): query.LogicalExpression
     /**
      * Checks if the expression starts with another value.
      * Can be applied on a string field or a list of strings field.
@@ -774,26 +774,26 @@ export declare namespace query {
      * )
      * ```
      */
-    startsWith(other: LogicalExpression | string): LogicalExpression
+    startsWith(other: LogicalExpression | string): query.LogicalExpression
     /** Checks if the expression contains another value. */
-    contains(other: LogicalExpression | string | number): LogicalExpression
+    contains(other: LogicalExpression | string | number): query.LogicalExpression
     /** Checks if the expression is in another value. */
-    in(other: LogicalExpression | string | Array<string> | Array<number> | data.List): LogicalExpression
+    in(other: LogicalExpression | string | Array<string> | Array<number> | data.List): query.LogicalExpression
     /** Checks if the expression matches all terms against the field with keyword index. */
-    matchAll(other: LogicalExpression | string | string[]): LogicalExpression
+    matchAll(other: LogicalExpression | string | string[]): query.LogicalExpression
     /** Checks if the expression matches any term against the field with keyword index. */
-    matchAny(other: LogicalExpression | string | string[]): LogicalExpression
+    matchAny(other: LogicalExpression | string | string[]): query.LogicalExpression
     /** Coalesces nulls in the expression with another value. */
-    coalesce(other: LogicalExpression | number): LogicalExpression
+    coalesce(other: LogicalExpression | number): query.LogicalExpression
     /** Chooses between two values based on the expression. */
-    choose(x: LogicalExpression | string | number | boolean | null | undefined, y: LogicalExpression | string | number | boolean | null | undefined): LogicalExpression
+    choose(x: LogicalExpression | string | number | boolean | null | undefined, y: LogicalExpression | string | number | boolean | null | undefined): query.LogicalExpression
     /**
      * Multiplies the scoring expression by the provided `boost` value if the `condition` is true.
      * Otherwise, the scoring expression is unchanged (multiplied by 1).
      */
-    boost(condition: LogicalExpression | boolean, boost: LogicalExpression | number): LogicalExpression
+    boost(condition: LogicalExpression | boolean, boost: LogicalExpression | number): query.LogicalExpression
     /** Check if the expression matches the provided regexp pattern. */
-    regexpMatch(other: string, flags?: string | null): LogicalExpression
+    regexpMatch(other: string, flags?: string | null): query.LogicalExpression
   }
   /**
    * @internal
@@ -805,42 +805,42 @@ export declare namespace query {
    */
   export class Query {
     /** Adds a filter stage to the query. */
-    filter(expr: LogicalExpression | TextExpression): Query
+    filter(expr: LogicalExpression | TextExpression): query.Query
     /** Adds a select stage to the query. */
-    select(exprs: Record<string, LogicalExpression | FunctionExpression>): Query
+    select(exprs: Record<string, LogicalExpression | FunctionExpression>): query.Query
     /**
      * Adds a top-k stage to the query.
      *
      * @deprecated Use `.sort(expr, false).limit(k)` instead.
      */
-    topk(expr: LogicalExpression, k: number, asc?: boolean | undefined | null): Query
+    topk(expr: query.LogicalExpression, k: number, asc?: boolean | undefined | null): query.Query
     /** Adds a limit stage to the query. */
-    limit(k: number): Query
+    limit(k: number): query.Query
     /** Adds an offset stage to the query. */
-    offset(offset: number): Query
+    offset(offset: number): query.Query
     /** Adds a sort stage to the query. */
-    sort(expr: LogicalExpression, asc?: boolean | undefined | null): Query
+    sort(expr: query.LogicalExpression, asc?: boolean | undefined | null): query.Query
     /** Adds a count stage to the query. */
-    count(): Query
+    count(): query.Query
     /**
      * Adds a group-by stage to the query.
      *
      * Groups documents by one or more key expressions and computes aggregations for each group.
      */
-    groupBy(keys: Record<string, LogicalExpression>, aggs: Record<string, AggregateExpression>): Query
+    groupBy(keys: Record<string, LogicalExpression>, aggs: Record<string, AggregateExpression>): query.Query
   }
   export class TextExpression {
     /** Computes the logical AND of the expression and another text expression. */
-    and(other: TextExpression): TextExpression
+    and(other: query.TextExpression): query.TextExpression
     /** Computes the logical OR of the expression and another text expression. */
-    or(other: TextExpression): TextExpression
+    or(other: query.TextExpression): query.TextExpression
   }
   /** Creates an absolute value expression. */
-  export function abs(expr: LogicalExpression): LogicalExpression
+  export function abs(expr: query.LogicalExpression): query.LogicalExpression
   /** Evaluates to true if each `expr` is true. */
-  export function all(exprs: Array<LogicalExpression>): LogicalExpression
+  export function all(exprs: Array<query.LogicalExpression>): query.LogicalExpression
   /** Evaluates to true if at least one `expr` is true. */
-  export function any(exprs: Array<LogicalExpression>): LogicalExpression
+  export function any(exprs: Array<query.LogicalExpression>): query.LogicalExpression
   /** @ignore */
   export type BinaryOperator =  'and'|
   'or'|
@@ -863,17 +863,17 @@ export declare namespace query {
   'min'|
   'max';
   /** Creates a field reference expression. */
-  export function field(name: string): LogicalExpression
+  export function field(name: string): query.LogicalExpression
   /** Creates a new query with a filter stage. */
-  export function filter(expr: LogicalExpression | TextExpression): Query
+  export function filter(expr: LogicalExpression | TextExpression): query.Query
   /**
    * Creates a new query with a group-by stage.
    *
    * Groups documents by one or more key expressions and computes aggregations for each group.
    */
-  export function groupBy(keys: Record<string, LogicalExpression>, aggs: Record<string, AggregateExpression>): Query
+  export function groupBy(keys: Record<string, LogicalExpression>, aggs: Record<string, AggregateExpression>): query.Query
   /** Creates a literal value expression. */
-  export function literal(value: number | string | string[] | number[] | boolean | data.List): LogicalExpression
+  export function literal(value: number | string | string[] | number[] | boolean | data.List): query.LogicalExpression
   /**
    * Perform a BM25 keyword search using TopK's built-in tokenizer.
    *
@@ -885,7 +885,7 @@ export declare namespace query {
    * - `options.weight`: scale the BM25 contribution of this expression (default: 1.0).
    * - `options.all`: if true, require all tokens to match (AND); default is any-token (OR).
    */
-  export function match(token: string, options?: MatchOptions | undefined | null): TextExpression
+  export function match(token: string, options?: query.MatchOptions | undefined | null): query.TextExpression
   /**
    * Options for text matching.
    *
@@ -911,7 +911,7 @@ export declare namespace query {
    * Creates a text match expression from multiple tokens with optional per-token weights.
    * Each token can be a string (with the default weight of 1.0) or a `MatchTokenInput` object.
    */
-  export function matchTokens(tokens: Array<string | MatchTokenInput>, options?: MatchTokensOptions | undefined | null): TextExpression
+  export function matchTokens(tokens: Array<string | MatchTokenInput>, options?: query.MatchTokensOptions | undefined | null): query.TextExpression
   /** Options for match_tokens. */
   export interface MatchTokensOptions {
     /** Field to match against */
@@ -920,13 +920,13 @@ export declare namespace query {
     all?: boolean
   }
   /** Creates a MAX expression that returns the larger of two values. */
-  export function max(left: LogicalExpression | number | string, right: LogicalExpression | number | string): LogicalExpression
+  export function max(left: LogicalExpression | number | string, right: LogicalExpression | number | string): query.LogicalExpression
   /** Creates a MIN expression that returns the smaller of two values. */
-  export function min(left: LogicalExpression | number | string, right: LogicalExpression | number | string): LogicalExpression
+  export function min(left: LogicalExpression | number | string, right: LogicalExpression | number | string): query.LogicalExpression
   /** Creates a logical NOT expression. */
-  export function not(expr: LogicalExpression): LogicalExpression
+  export function not(expr: query.LogicalExpression): query.LogicalExpression
   /** Creates a new query with a select stage. */
-  export function select(exprs: Record<string, LogicalExpression | FunctionExpression>): Query
+  export function select(exprs: Record<string, LogicalExpression | FunctionExpression>): query.Query
   /**
    * Adds an optional BM25 scoring term without filtering documents from the result set.
    *
@@ -947,7 +947,7 @@ export declare namespace query {
    * - `options.field`: Keyword-indexed field used for scoring. Searches all eligible fields when omitted.
    * - `options.weight`: Multiplier applied to the term's BM25 contribution. Defaults to `1.0`.
    */
-  export function should(token: string, options?: ShouldOptions | undefined | null): TextExpression
+  export function should(token: string, options?: query.ShouldOptions | undefined | null): query.TextExpression
   /** Options for `should` scoring. */
   export interface ShouldOptions {
     /** Field to score against */
@@ -995,7 +995,7 @@ export declare namespace query_agg {
 
 export declare namespace query_fn {
   /** Computes the BM25 score for a keyword search. */
-  export function bm25Score(options?: Bm25ScoreOptions | undefined | null): query.FunctionExpression
+  export function bm25Score(options?: query_fn.Bm25ScoreOptions | undefined | null): query.FunctionExpression
   /** Options for BM25 scoring. */
   export interface Bm25ScoreOptions {
     /** BM25 parameter b (0-1) */
@@ -1032,7 +1032,7 @@ export declare namespace query_fn {
   /** Computes the semantic similarity between a field and a query string. */
   export function semanticSimilarity(field: string, query: string): query.FunctionExpression
   /** Computes the vector distance between a field and a query vector. */
-  export function vectorDistance(field: string, query: Array<number> | Record<number, number> | data.List | data.SparseVector, options?: VectorDistanceOptions | undefined | null): query.FunctionExpression
+  export function vectorDistance(field: string, query: Array<number> | Record<number, number> | data.List | data.SparseVector, options?: query_fn.VectorDistanceOptions | undefined | null): query.FunctionExpression
   export interface VectorDistanceOptions {
     skipRefine?: boolean
   }
@@ -1064,7 +1064,7 @@ export declare namespace schema {
      * });
      * ```
      */
-    required(): FieldSpec
+    required(): schema.FieldSpec
     /**
      * Creates an index on a field.
      *
@@ -1078,7 +1078,7 @@ export declare namespace schema {
      * });
      * ```
      */
-    index(index: FieldIndex): FieldSpec
+    index(index: schema.FieldIndex): schema.FieldSpec
     /** @ignore */
     toString(): string
   }
@@ -1095,7 +1095,7 @@ export declare namespace schema {
    * });
    * ```
    */
-  export function binaryVector(options: VectorOptions): FieldSpec
+  export function binaryVector(options: schema.VectorOptions): schema.FieldSpec
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `bool` values.
    *
@@ -1109,7 +1109,7 @@ export declare namespace schema {
    * });
    * ```
    */
-  export function bool(): FieldSpec
+  export function bool(): schema.FieldSpec
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `bytes` values.
    *
@@ -1123,7 +1123,7 @@ export declare namespace schema {
    * });
    * ```
    */
-  export function bytes(): FieldSpec
+  export function bytes(): schema.FieldSpec
   /** @ignore */
   export type DataType =
     | { type: 'Text' }
@@ -1144,7 +1144,7 @@ export declare namespace schema {
     | { type: 'Bytes' }
     | { type: 'List', valueType: ListValueType }
     | { type: 'Struct', fields: Record<string, FieldSpec> }
-    | { type: 'Matrix', dimension: number, valueType: MatrixValueType }
+    | { type: 'Matrix', dimension: number, valueType: data.MatrixValueType }
     | { type: 'Unknown' }
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `f16_vector` values.
@@ -1159,7 +1159,7 @@ export declare namespace schema {
    * });
    * ```
    */
-  export function f16Vector(options: VectorOptions): FieldSpec
+  export function f16Vector(options: schema.VectorOptions): schema.FieldSpec
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `f32_sparse_vector` values.
    *
@@ -1175,7 +1175,7 @@ export declare namespace schema {
    * });
    * ```
    */
-  export function f32SparseVector(): FieldSpec
+  export function f32SparseVector(): schema.FieldSpec
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `f32_vector` values.
    *
@@ -1189,7 +1189,7 @@ export declare namespace schema {
    * });
    * ```
    */
-  export function f32Vector(options: VectorOptions): FieldSpec
+  export function f32Vector(options: schema.VectorOptions): schema.FieldSpec
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `f8_vector` values.
    *
@@ -1203,7 +1203,7 @@ export declare namespace schema {
    * });
    * ```
    */
-  export function f8Vector(options: VectorOptions): FieldSpec
+  export function f8Vector(options: schema.VectorOptions): schema.FieldSpec
   /** @ignore */
   export type FieldIndexUnion =
     | { type: 'KeywordIndex', indexType: KeywordIndexType }
@@ -1224,7 +1224,7 @@ export declare namespace schema {
    * });
    * ```
    */
-  export function float(): FieldSpec
+  export function float(): schema.FieldSpec
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `i8_vector` values.
    *
@@ -1238,7 +1238,7 @@ export declare namespace schema {
    * });
    * ```
    */
-  export function i8Vector(options: VectorOptions): FieldSpec
+  export function i8Vector(options: schema.VectorOptions): schema.FieldSpec
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `int` values.
    *
@@ -1252,7 +1252,7 @@ export declare namespace schema {
    * });
    * ```
    */
-  export function int(): FieldSpec
+  export function int(): schema.FieldSpec
   /**
    * Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `keyword_index` values.
    *
@@ -1272,7 +1272,7 @@ export declare namespace schema {
    *
    * Adding a keyword index allows you to perform keyword search on this field.
    */
-  export function keywordIndex(indexType?: KeywordIndexType | undefined | null): FieldIndex
+  export function keywordIndex(indexType?: schema.KeywordIndexType | undefined | null): schema.FieldIndex
   export type KeywordIndexType =  'text'|
   'exact';
   /**
@@ -1288,7 +1288,7 @@ export declare namespace schema {
    * });
    * ```
    */
-  export function list(options: ListOptions): FieldSpec
+  export function list(options: schema.ListOptions): schema.FieldSpec
   /**
    * Options for list field specifications.
    *
@@ -1297,7 +1297,7 @@ export declare namespace schema {
    */
   export interface ListOptions {
     /** The type of values the list can contain */
-    valueType: ListValueType
+    valueType: schema.ListValueType
   }
   export type ListValueType =  'text'|
   'integer'|
@@ -1315,7 +1315,7 @@ export declare namespace schema {
    * });
    * ```
    */
-  export function matrix(options: MatrixOptions): FieldSpec
+  export function matrix(options: schema.MatrixOptions): schema.FieldSpec
   /**
    * Options for matrix field specifications.
    *
@@ -1326,7 +1326,7 @@ export declare namespace schema {
     /** The dimension (number of columns) of the matrix */
     dimension: number
     /** The value type of the matrix elements */
-    valueType: MatrixValueType
+    valueType: schema.MatrixValueType
   }
   export type MatrixValueType =  'f32'|
   'f16'|
@@ -1349,7 +1349,7 @@ export declare namespace schema {
    * });
    * ```
    */
-  export function multiVectorIndex(options: MultiVectorIndexOptions): FieldIndex
+  export function multiVectorIndex(options: schema.MultiVectorIndexOptions): schema.FieldIndex
   /**
    * Options for multi-vector index specifications.
    *
@@ -1358,9 +1358,9 @@ export declare namespace schema {
    */
   export interface MultiVectorIndexOptions {
     /** The distance metric to use for multi-vector similarity */
-    metric: MultiVectorDistanceMetric
+    metric: schema.MultiVectorDistanceMetric
     /** The quantization to use for multi-vector values */
-    quantization?: MultiVectorQuantization
+    quantization?: schema.MultiVectorQuantization
     /** Width of the sparse projection */
     width?: number
     /** Top-k projected values to keep */
@@ -1382,7 +1382,7 @@ export declare namespace schema {
    * });
    * ```
    */
-  export function semanticIndex(): FieldIndex
+  export function semanticIndex(): schema.FieldIndex
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `struct` values.
    *
@@ -1396,7 +1396,7 @@ export declare namespace schema {
    * });
    * ```
    */
-  export function struct(fields: Record<string, SchemaFieldSpec>): FieldSpec
+  export function struct(fields: Record<string, SchemaFieldSpec>): schema.FieldSpec
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `text` values.
    *
@@ -1410,7 +1410,7 @@ export declare namespace schema {
    * });
    * ```
    */
-  export function text(): FieldSpec
+  export function text(): schema.FieldSpec
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `u8_sparse_vector` values.
    *
@@ -1426,7 +1426,7 @@ export declare namespace schema {
    * });
    * ```
    */
-  export function u8SparseVector(): FieldSpec
+  export function u8SparseVector(): schema.FieldSpec
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `u8_vector` values.
    *
@@ -1440,7 +1440,7 @@ export declare namespace schema {
    * });
    * ```
    */
-  export function u8Vector(options: VectorOptions): FieldSpec
+  export function u8Vector(options: schema.VectorOptions): schema.FieldSpec
   export type VectorDistanceMetric =  'cosine'|
   'euclidean'|
   'dot_product'|
@@ -1466,7 +1466,7 @@ export declare namespace schema {
    * });
    * ```
    */
-  export function vectorIndex(options: VectorIndexOptions): FieldIndex
+  export function vectorIndex(options: schema.VectorIndexOptions): schema.FieldIndex
   /**
    * Options for vector index specifications.
    *
@@ -1475,7 +1475,7 @@ export declare namespace schema {
    */
   export interface VectorIndexOptions {
     /** The distance metric to use for vector similarity */
-    metric: VectorDistanceMetric
+    metric: schema.VectorDistanceMetric
   }
   /**
    * Options for vector field specifications.
