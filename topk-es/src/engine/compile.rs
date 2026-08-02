@@ -7,8 +7,8 @@ use super::rank::Ranking;
 use super::score::{ann_score, AnnQuery, AnnTerm, CompiledQuery, Score};
 use super::{agg, RANK_BM25, RANK_SCORE};
 use crate::api::{
-    AggClause, AggType, FieldName, GateQuery, KnnRequest, MatchAllQuery, MatchOperator, MatchValue,
-    Query, SearchRequest, SortField, SortTarget, TermValue,
+    AggClause, AggType, DocId, FieldName, GateQuery, KnnRequest, MatchAllQuery, MatchOperator,
+    MatchValue, Query, SearchRequest, SortField, SortTarget,
 };
 use crate::value::ValueExt;
 
@@ -119,7 +119,7 @@ fn lower(
     if has_bm25 {
         query = query.select([(RANK_BM25, fns::bm25_score(None, None))]);
     }
-    let (query, ann_term) = ann_score(query, schema, &score.anns)?;
+    let (query, ann_term) = ann_score(query, schema, score.anns)?;
 
     let total = [has_bm25.then(|| field(RANK_BM25)), ann_term, score.expr]
         .into_iter()
@@ -258,12 +258,8 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
             }
         }
         Query::Term(clause) => {
-            let boost = match &clause.value {
-                TermValue::Full { boost, .. } => *boost,
-                TermValue::Bare(_) => None,
-            };
             let field_name = clause.field.as_str().to_string();
-            let value = clause.value.value();
+            let (value, boost) = clause.value.into_parts();
             if !value.is_scalar() {
                 return Err(Error::InvalidQuery(format!(
                     "[term] query does not support a non-scalar value for field [{field_name}]"
@@ -299,18 +295,21 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
         Query::Terms(q) => Ok(constant(field(q.field).in_(q.values), q.boost)),
         Query::Ids(q) => Ok(constant(
             field("_id").in_(Value::list(
-                q.values.iter().map(|id| id.as_str()).collect::<Vec<_>>(),
+                q.values
+                    .into_iter()
+                    .map(DocId::into_string)
+                    .collect::<Vec<String>>(),
             )),
             q.boost,
         )),
         Query::Prefix(c) => Ok(constant(
-            field(c.field).starts_with(String::from(&c.value)),
+            field(c.field).starts_with(c.value.into_string()),
             None,
         )),
         Query::Regexp(c) => {
             let flags = c.value.case_insensitive().then(|| "i");
             Ok(constant(
-                field(c.field).regexp_match(String::from(&c.value), flags),
+                field(c.field).regexp_match(c.value.into_string(), flags),
                 None,
             ))
         }

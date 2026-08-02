@@ -1,9 +1,10 @@
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::Json;
 use serde::Serialize;
 use thiserror::Error as ThisError;
 use topk_rs::Error as TopkError;
+
+use crate::json::Json;
 
 #[derive(Debug, Clone, ThisError)]
 pub enum Error {
@@ -47,8 +48,8 @@ pub enum Error {
     SerdeJson(String),
 }
 
-impl From<serde_json::Error> for Error {
-    fn from(e: serde_json::Error) -> Self {
+impl From<sonic_rs::Error> for Error {
+    fn from(e: sonic_rs::Error) -> Self {
         Error::SerdeJson(e.to_string())
     }
 }

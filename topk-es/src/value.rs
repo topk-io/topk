@@ -37,13 +37,17 @@ impl PartialEq for OrdValue {
 
 impl Eq for OrdValue {}
 
+// Coercions a value undergoes on its way to (or from) a typed collection field.
+// Each one consumes the value and hands it back untouched — `Err(value)` — when
+// it does not apply, so a caller that can live without the coercion pays no
+// clone, and one that cannot has its rejection.
 pub trait ValueExt: Sized {
     fn number(&self) -> Option<f64>;
     fn is_scalar(&self) -> bool;
-    fn to_f32_list(&self) -> Option<Self>;
-    fn to_i8_list(&self) -> Option<Self>;
-    fn to_unsigned_bytes(&self) -> Option<Self>;
-    fn to_u8_matrix(&self) -> Option<Self>;
+    fn into_f32_list(self) -> Result<Self, Self>;
+    fn into_i8_list(self) -> Result<Self, Self>;
+    fn into_unsigned_bytes(self) -> Result<Self, Self>;
+    fn into_u8_matrix(self) -> Result<Self, Self>;
     fn into_signed_bytes(self) -> Self;
 }
 
@@ -65,53 +69,49 @@ impl ValueExt for Value {
     }
 
     fn number(&self) -> Option<f64> {
-        self.as_f64()
-            .or_else(|| self.as_f32().map(f64::from))
-            .or_else(|| self.as_i64().map(|v| v as f64))
-            .or_else(|| self.as_i32().map(f64::from))
-            .or_else(|| self.as_u64().map(|v| v as f64))
-            .or_else(|| self.as_u32().map(f64::from))
-    }
-
-    fn to_f32_list(&self) -> Option<Self> {
-        if self.as_f32_list().is_some() {
-            return Some(self.clone());
+        match &self.value {
+            Some(value::Value::F64(v)) => Some(*v),
+            Some(value::Value::F32(v)) => Some(f64::from(*v)),
+            Some(value::Value::I64(v)) => Some(*v as f64),
+            Some(value::Value::I32(v)) => Some(f64::from(*v)),
+            Some(value::Value::U64(v)) => Some(*v as f64),
+            Some(value::Value::U32(v)) => Some(f64::from(*v)),
+            _ => None,
         }
-        let ints = self.as_i64_list()?;
-        Some(Value::list(
-            ints.iter().map(|&n| n as f32).collect::<Vec<_>>(),
-        ))
     }
 
-    fn to_i8_list(&self) -> Option<Self> {
-        let ints = self.as_i64_list()?;
-        ints.iter()
-            .all(|n| (-128..=127).contains(n))
-            .then(|| Value::list(ints.iter().map(|&n| n as i8).collect::<Vec<i8>>()))
+    fn into_f32_list(self) -> Result<Self, Self> {
+        if self.as_f32_list().is_some() {
+            return Ok(self);
+        }
+
+        match int_list(&self, |n| n as f32) {
+            Some(values) => Ok(Value::list(values)),
+            None => Err(self),
+        }
+    }
+
+    fn into_i8_list(self) -> Result<Self, Self> {
+        match byte_list(&self, |n| n as i8) {
+            Some(values) => Ok(Value::list(values)),
+            None => Err(self),
+        }
     }
 
     // Signed bytes wrapped into their unsigned storage form; inverse of
     // `into_signed_bytes`.
-    fn to_unsigned_bytes(&self) -> Option<Self> {
-        let ints = self.as_i64_list()?;
-        ints.iter()
-            .all(|n| (-128..=127).contains(n))
-            .then(|| Value::list(ints.iter().map(|&n| n as u8).collect::<Vec<u8>>()))
+    fn into_unsigned_bytes(self) -> Result<Self, Self> {
+        match byte_list(&self, |n| n as u8) {
+            Some(values) => Ok(Value::list(values)),
+            None => Err(self),
+        }
     }
 
-    fn to_u8_matrix(&self) -> Option<Self> {
-        let (_, num_cols, values) = self.as_f32_matrix()?;
-        if !values
-            .iter()
-            .all(|v| v.is_finite() && v.fract() == 0.0 && (0.0..=255.0).contains(v))
-        {
-            return None;
+    fn into_u8_matrix(self) -> Result<Self, Self> {
+        match u8_matrix(&self) {
+            Some((num_cols, values)) => Ok(Value::matrix(num_cols, values)),
+            None => Err(self),
         }
-
-        Some(Value::matrix(
-            num_cols,
-            values.iter().map(|&v| v as u8).collect::<Vec<u8>>(),
-        ))
     }
 
     // Reinterpret a u8 list as the signed bytes it was encoded from.
@@ -129,4 +129,26 @@ impl ValueExt for Value {
             _ => self,
         }
     }
+}
+
+// The helpers below hand back owned values so the borrow of `value` ends with
+// the call, leaving the caller free to move it into the `None` arm.
+fn int_list<T>(value: &Value, cast: impl Fn(i64) -> T) -> Option<Vec<T>> {
+    Some(value.as_i64_list()?.iter().map(|&n| cast(n)).collect())
+}
+
+fn byte_list<T>(value: &Value, cast: impl Fn(i64) -> T) -> Option<Vec<T>> {
+    let ints = value.as_i64_list()?;
+    ints.iter()
+        .all(|n| (-128..=127).contains(n))
+        .then(|| ints.iter().map(|&n| cast(n)).collect())
+}
+
+fn u8_matrix(value: &Value) -> Option<(u32, Vec<u8>)> {
+    let (_, num_cols, values) = value.as_f32_matrix()?;
+
+    values
+        .iter()
+        .all(|v| v.is_finite() && v.fract() == 0.0 && (0.0..=255.0).contains(v))
+        .then(|| (num_cols, values.iter().map(|&v| v as u8).collect()))
 }

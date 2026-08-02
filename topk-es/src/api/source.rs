@@ -134,13 +134,27 @@ impl<S: Send + Sync> FromRequestParts<S> for SourceFilter {
 #[cfg(test)]
 mod tests {
     use super::SourceFilter;
-    use serde_json::json;
 
     #[test]
     fn string_include_filters_to_one_field() {
-        let filter: SourceFilter = serde_json::from_value(json!("title")).unwrap();
+        let filter: SourceFilter = sonic_rs::from_str(r#""title""#).unwrap();
         assert!(filter.keep("title"));
         assert!(!filter.keep("genre"));
+    }
+
+    #[test]
+    fn object_form_reads_includes_and_excludes() {
+        let filter: SourceFilter =
+            sonic_rs::from_str(r#"{"includes": ["meta"], "excludes": ["meta.author"]}"#).unwrap();
+        assert!(filter.keep("meta.year"));
+        assert!(!filter.keep("meta.author"));
+        assert!(!filter.keep("title"));
+    }
+
+    #[test]
+    fn bool_form_disables_source() {
+        let filter: SourceFilter = sonic_rs::from_str("false").unwrap();
+        assert!(!filter.enabled());
     }
 
     #[test]

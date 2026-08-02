@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use serde::Serialize;
 
 use super::mapping::MappingProperties;
@@ -56,9 +54,13 @@ pub struct IndexSettingsBody {
     pub index: IndexSettingsInnerBody,
 }
 
+// Aliases are not supported, so the response always carries an empty object.
+#[derive(Serialize)]
+pub struct Aliases {}
+
 #[derive(Serialize)]
 pub struct GetIndexBody {
-    pub aliases: HashMap<String, serde_json::Value>,
+    pub aliases: Aliases,
     pub mappings: MappingBody,
     pub settings: IndexSettingsBody,
 }
@@ -66,7 +68,7 @@ pub struct GetIndexBody {
 impl GetIndexBody {
     pub fn new(index: String, properties: MappingProperties) -> Self {
         Self {
-            aliases: HashMap::new(),
+            aliases: Aliases {},
             mappings: MappingBody { properties },
             settings: IndexSettingsBody {
                 index: IndexSettingsInnerBody {

@@ -1,10 +1,9 @@
-use std::collections::HashMap;
-
+use serde::de::IgnoredAny;
 use serde::ser::{SerializeMap, Serializer};
 use serde::{Deserialize, Serialize};
 
 use super::ndjson::{NdjsonBody, NdjsonHeader, NdjsonLines};
-use super::{DocBody, DocId, IndexName, WriteBody, WriteDoc, WriteRequest, WriteResult};
+use super::{DocId, IndexName, RawDocBody, WriteBody, WriteDoc, WriteRequest, WriteResult};
 use crate::{Error, ErrorBody};
 
 #[derive(Clone, Copy)]
@@ -64,8 +63,9 @@ impl NdjsonHeader for ActionLine {
 
         match self {
             ActionLine::Index(_) => {
-                let doc: HashMap<String, serde_json::Value> = lines.parse()?;
-                let request = DocBody::try_from(doc)
+                let doc: RawDocBody = lines.parse()?;
+                let request = doc
+                    .into_body()
                     .map(|body| WriteRequest::Upsert(vec![WriteDoc::new(id.clone(), body)]));
                 Ok(BulkEntry {
                     id,
@@ -74,7 +74,7 @@ impl NdjsonHeader for ActionLine {
                 })
             }
             ActionLine::Create(_) => {
-                let _: serde_json::Value = lines.parse()?;
+                let _: IgnoredAny = lines.parse()?;
                 Ok(BulkEntry::unsupported(
                     id,
                     WriteKind::Create,
@@ -100,7 +100,8 @@ impl NdjsonHeader for ActionLine {
                 let doc = src
                     .doc
                     .ok_or_else(|| Error::BadRequest("Update action missing \"doc\"".into()))?;
-                let request = DocBody::try_from(doc)
+                let request = doc
+                    .into_body()
                     .map(|body| WriteRequest::Update(vec![WriteDoc::new(id.clone(), body)]));
                 Ok(BulkEntry {
                     id,
@@ -150,9 +151,10 @@ impl ActionLine {
 #[serde(deny_unknown_fields)]
 struct UpdateSource {
     #[serde(default)]
-    doc: Option<HashMap<String, serde_json::Value>>,
+    doc: Option<RawDocBody>,
+    // Scripted updates are rejected, so the script itself is never read.
     #[serde(default)]
-    script: Option<serde_json::Value>,
+    script: Option<IgnoredAny>,
     #[serde(default)]
     doc_as_upsert: Option<bool>,
 }

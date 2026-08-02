@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use axum::extract::{FromRequestParts, Path};
 use http::request::Parts;
 use regex::Regex;
-use serde::de::Error as DeError;
+use serde::de::{Error as DeError, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::Error;
@@ -80,16 +80,43 @@ pub struct DocId(String);
 // ES coerces numeric ids to their string form, so accept a string or a number.
 impl<'de> Deserialize<'de> for DocId {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let id = match serde_json::Value::deserialize(deserializer)? {
-            serde_json::Value::String(s) => s,
-            serde_json::Value::Number(n) => n.to_string(),
-            other => {
-                return Err(DeError::custom(format!(
-                    "document id must be a string or number, got {other}"
-                )))
-            }
-        };
+        deserializer.deserialize_any(DocIdVisitor)
+    }
+}
+
+struct DocIdVisitor;
+
+impl DocIdVisitor {
+    fn build<E: DeError>(id: String) -> Result<DocId, E> {
         DocId::try_from(id).map_err(DeError::custom)
+    }
+}
+
+impl Visitor<'_> for DocIdVisitor {
+    type Value = DocId;
+
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("a document id as a string or number")
+    }
+
+    fn visit_str<E: DeError>(self, id: &str) -> Result<DocId, E> {
+        Self::build(id.to_string())
+    }
+
+    fn visit_string<E: DeError>(self, id: String) -> Result<DocId, E> {
+        Self::build(id)
+    }
+
+    fn visit_i64<E: DeError>(self, id: i64) -> Result<DocId, E> {
+        Self::build(id.to_string())
+    }
+
+    fn visit_u64<E: DeError>(self, id: u64) -> Result<DocId, E> {
+        Self::build(id.to_string())
+    }
+
+    fn visit_f64<E: DeError>(self, id: f64) -> Result<DocId, E> {
+        Self::build(id.to_string())
     }
 }
 
@@ -114,6 +141,10 @@ impl DocId {
     pub fn as_str(&self) -> &str {
         &self.0
     }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
 }
 
 impl fmt::Display for DocId {
@@ -127,6 +158,38 @@ impl Deref for DocId {
 
     fn deref(&self) -> &str {
         &self.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+
+    use super::*;
+
+    #[rstest]
+    #[case::string(r#""abc""#, "abc")]
+    #[case::integer("42", "42")]
+    #[case::negative_integer("-42", "-42")]
+    #[case::float("1.5", "1.5")]
+    fn doc_id_accepts_strings_and_numbers(#[case] body: &str, #[case] expected: &str) {
+        let id: DocId = sonic_rs::from_str(body).unwrap();
+        assert_eq!(id.as_str(), expected);
+    }
+
+    #[rstest]
+    #[case::empty(r#""""#)]
+    #[case::bool("true")]
+    #[case::null("null")]
+    #[case::array("[1]")]
+    fn doc_id_rejected(#[case] body: &str) {
+        assert!(sonic_rs::from_str::<DocId>(body).is_err());
+    }
+
+    #[test]
+    fn doc_id_rejects_ids_over_512_bytes() {
+        let id = "a".repeat(513);
+        assert!(sonic_rs::from_str::<DocId>(&format!("\"{id}\"")).is_err());
     }
 }
 

@@ -137,10 +137,10 @@ impl Fold {
 pub fn ann_score(
     mut query: TopkQuery,
     schema: &Schema,
-    anns: &[AnnTerm],
+    anns: Vec<AnnTerm>,
 ) -> Result<(TopkQuery, Option<LogicalExpr>), Error> {
     let mut total: Option<LogicalExpr> = None;
-    for (index, ann) in anns.iter().enumerate() {
+    for (index, ann) in anns.into_iter().enumerate() {
         let spec = schema.get(&ann.field).ok_or_else(|| {
             Error::InvalidQuery(format!(
                 "\"{}\" is not in the collection's schema",
@@ -148,7 +148,8 @@ pub fn ann_score(
             ))
         })?;
 
-        let (spec, scorer) = match &ann.query {
+        let semantic = matches!(ann.query, AnnQuery::Semantic(_));
+        let (spec, scorer) = match ann.query {
             AnnQuery::Semantic(text) => {
                 let spec = match IndexKind::from(spec) {
                     IndexKind::Semantic => {
@@ -168,16 +169,16 @@ pub fn ann_score(
                 num_candidates,
             } => (
                 spec,
-                knn_distance(&ann.field, vector, *num_candidates, spec)?,
+                knn_distance(&ann.field, vector, num_candidates, spec)?,
             ),
         };
 
-        let fold = Fold::of(IndexKind::from(spec)).ok_or_else(|| match &ann.query {
-            AnnQuery::Semantic(_) => Error::InvalidQuery(format!(
+        let fold = Fold::of(IndexKind::from(spec)).ok_or_else(|| match semantic {
+            true => Error::InvalidQuery(format!(
                 "Field [{}] does not support semantic queries",
                 ann.field
             )),
-            AnnQuery::Vector { .. } => not_knn_searchable(&ann.field),
+            false => not_knn_searchable(&ann.field),
         })?;
 
         let rank_ann = format!("{RANK_ANN}_{index}");
@@ -210,7 +211,7 @@ fn not_knn_searchable(field: &str) -> Error {
 
 fn knn_distance(
     field_name: &str,
-    query_vector: &QueryVector,
+    query_vector: QueryVector,
     num_candidates: Option<u64>,
     spec: &FieldSpec,
 ) -> Result<FunctionExpr, Error> {
@@ -238,18 +239,19 @@ fn knn_distance(
     }
 }
 
-fn query_value(field_name: &str, spec: &FieldSpec, value: &Value) -> Result<Value, Error> {
+fn query_value(field_name: &str, spec: &FieldSpec, value: Value) -> Result<Value, Error> {
     match spec.data_type.as_ref().and_then(|t| t.data_type.as_ref()) {
-        Some(field_type::DataType::I8Vector(_)) => value.to_i8_list(),
+        Some(field_type::DataType::I8Vector(_)) => value.into_i8_list(),
         Some(field_type::DataType::U8Vector(_) | field_type::DataType::BinaryVector(_)) => {
-            value.to_unsigned_bytes()
+            value.into_unsigned_bytes()
         }
         Some(field_type::DataType::Matrix(m)) if matches!(m.value_type(), MatrixValueType::U8) => {
-            value.to_u8_matrix()
+            value.into_u8_matrix()
         }
-        _ => value.to_f32_list().or_else(|| Some(value.clone())),
+        // A float field takes the query vector as it stands.
+        _ => Ok(value.into_f32_list().unwrap_or_else(|value| value)),
     }
-    .ok_or_else(|| {
+    .map_err(|_| {
         Error::InvalidQuery(format!(
             "\"query_vector\" is not compatible with the type of field \"{field_name}\""
         ))
