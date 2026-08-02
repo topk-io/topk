@@ -187,7 +187,7 @@ The following value types are supported:
 | **Integer**           | `int`            | `number`        | -                                                               |
 | **Float**             | `float`          | `number`        | -                                                               |
 | **Boolean**           | `bool`           | `boolean`       | -                                                               |
-| **Timestamp**         | `datetime.datetime` | `Date`       | -                                                               |
+| **Timestamp**         | `datetime.datetime` / `datetime.date` / `int` (epoch ms) | `Date` / `number` (epoch ms) | -                    |
 | **String list**       | `list[str]`      | `string[]`      | [`string_list()`](../sdk/topk-py/data#string-list)              |
 | **F32 list**          | `list[float]`    | `number[]`      | [`f32_list()`](../sdk/topk-py/data#f32-list)                    |
 | **F64 list**          | _use helper_     | _use helper_    | [`f64_list()`](../sdk/topk-py/data#f64-list)                    |
@@ -206,9 +206,6 @@ The following value types are supported:
 | **Bytes**             | _use helper_     | _use helper_    | [`bytes()`](../sdk/topk-py/data#bytes)                          |
 | **Struct**            | `dict[str, Any]` | `Record<string, any>` | [`struct()`](../sdk/topk-py/data#struct)                 |
 
-<Note>
-  Timestamps are stored as milliseconds since UNIX epoch and returned as integers. Integer epoch milliseconds are accepted on write as well, and timezone-naive Python datetimes are interpreted as UTC.
-</Note>
 
 ## Delete documents
 

@@ -216,7 +216,7 @@ class LogicalExpr(Enum):
         Compute the maximum of the expression and another value.
         """
         ...
-    def date_part(self, part: builtins.str) -> LogicalExpr:
+    def date_part(self, part: DatePart) -> LogicalExpr:
         """
         Extract a part of a timestamp expression as an integer.
 
@@ -314,6 +314,11 @@ class LogicalExpr(Enum):
         Multiply the scoring expression by the provided `boost` value if the `condition` is true.
         """
         ...
+    def elapsed(self, end: FlexibleExpr, interval: Interval) -> LogicalExpr:
+        """
+        Compute the number of `interval` units elapsed between the expression and `end`.
+        """
+        ...
     def regexp_match(
         self, pattern: builtins.str, flags: typing.Optional[builtins.str] = None
     ) -> LogicalExpr:
@@ -322,6 +327,19 @@ class LogicalExpr(Enum):
         """
         ...
 
+DatePart = typing.Literal[
+    "year",
+    "month",
+    "week",
+    "day",
+    "day_of_year",
+    "day_of_week",
+    "hour",
+    "minute",
+    "second",
+    "millisecond",
+]
+Interval = typing.Literal["millisecond", "second", "minute", "hour", "day", "week"]
 FlexibleExpr = typing.Union[str, int, float, bool, None, LogicalExpr]
 Numeric = typing.Union[int, float, LogicalExpr]
 Ordered = typing.Union[int, float, str, LogicalExpr]

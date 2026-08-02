@@ -178,7 +178,32 @@ Text searches can be combined with each other using `OR`, and with metadata filt
 
 #### Timestamps
 
-Declare timestamp columns with `TIMESTAMP` and write timestamp values using the `TIMESTAMP '...'` literal form. Accepted formats are `'YYYY-MM-DD'`, `'YYYY-MM-DD HH:MM:SS[.fff]'` and RFC 3339; values without a timezone are interpreted as UTC. Use `date_part('year', ts)` or `EXTRACT(YEAR FROM ts)` to extract parts of a timestamp.
+Declare a timestamp column with `TIMESTAMP`/`TIMESTAMPTZ`:
+
+```sql
+CREATE TABLE books (
+    title        TEXT,
+    published_ts TIMESTAMP
+);
+```
+
+Timestamps are stored as milliseconds since UNIX epoch and returned as `int8`.
+
+To write timestamp values, use the `TIMESTAMP '...'` literal:
+
+```sql
+INSERT INTO books (_id, title, published_ts)
+VALUES ('gatsby', 'The Great Gatsby', TIMESTAMP '1925-04-10');
+```
+
+Accepted formats:
+- `'YYYY-MM-DD'` — midnight UTC
+- `'YYYY-MM-DD HH:MM:SS[.fff]'` — UTC
+- `'YYYY-MM-DDTHH:MM:SS[.fff]'` — UTC, `T` date/time separator
+- `'YYYY-MM-DDTHH:MM:SS[.fff]Z'` — UTC, `Z` = UTC
+- `'YYYY-MM-DDTHH:MM:SS[.fff]±HH:MM'` — UTC offset, e.g. `+02:00`
+
+To filter by a timestamp column, compare it against a `TIMESTAMP '...'` literal:
 
 ```sql
 SELECT _id, title
@@ -188,7 +213,49 @@ ORDER BY published_ts ASC
 LIMIT 10;
 ```
 
-`TIMESTAMP` and `TIMESTAMPTZ` are the same type in TopK: both store an absolute instant as milliseconds since UNIX epoch (UTC) and are returned as `int8` on the wire.
+Use `EXTRACT(YEAR FROM ts)` (or `date_part('year', ts)`) to extract parts of a timestamp:
+
+```sql
+-- Books published in July
+SELECT _id, published_ts
+FROM books
+WHERE EXTRACT(MONTH FROM published_ts) = 7
+LIMIT 10;
+```
+
+Supported parts:
+
+| `EXTRACT` | `date_part` | Value |
+|-----------|-------------|-------|
+| `YEAR` | `'year'` | calendar year |
+| `MONTH` | `'month'` | 1-12 |
+| `WEEK` | `'week'` | ISO week number |
+| `DAY` | `'day'` | day of month, 1-31 |
+| `DOY` | `'day_of_year'` | 1-366 |
+| `DOW` | `'day_of_week'` | 0-6, Monday = 0 |
+| `HOUR` | `'hour'` | 0-23 |
+| `MINUTE` | `'minute'` | 0-59 |
+| `SECOND` | `'second'` | 0-59 |
+| `MILLISECOND` | `'millisecond'` | 0-999 |
+
+Use `elapsed(start, end, interval)` to compute the number of interval units between two timestamps:
+
+```sql
+-- Days elapsed between two timestamps
+SELECT _id, elapsed(published_ts, TIMESTAMP '2000-01-01', 'day') AS age_days
+FROM books
+ORDER BY age_days ASC
+LIMIT 10;
+```
+
+Supported intervals:
+
+- `'millisecond'`
+- `'second'`
+- `'minute'`
+- `'hour'`
+- `'day'`
+- `'week'`
 
 #### Search Functions
 

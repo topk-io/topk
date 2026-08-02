@@ -78,6 +78,15 @@ impl TryFrom<SqlFunction> for Expr {
                 })?;
                 Self::Logical(LogicalExpr::from_sql(expr)?.date_part(part))
             }
+            "elapsed" => {
+                let [start, end, interval]: [SqlExpr; 3] = exact(args, &name)?;
+                let interval = interval.as_string().ok_or_else(|| {
+                    Error::Invalid(format!("{name}: interval must be a string literal"))
+                })?;
+                Self::Logical(
+                    LogicalExpr::from_sql(start)?.elapsed(LogicalExpr::from_sql(end)?, interval),
+                )
+            }
             "boost" => {
                 let [score, cond, factor]: [SqlExpr; 3] = exact(args, &name)?;
                 let score = LogicalExpr::from_sql(score)?;

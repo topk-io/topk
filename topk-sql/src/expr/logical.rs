@@ -215,7 +215,7 @@ impl FromSql<SqlExpr> for LogicalExpr {
                     DateTimeField::Week(None) => "week",
                     DateTimeField::Day => "day",
                     DateTimeField::DayOfYear | DateTimeField::Doy => "day_of_year",
-                    DateTimeField::DayOfWeek => "day_of_week",
+                    DateTimeField::DayOfWeek | DateTimeField::Dow => "day_of_week",
                     DateTimeField::Hour => "hour",
                     DateTimeField::Minute => "minute",
                     DateTimeField::Second => "second",

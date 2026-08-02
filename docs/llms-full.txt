@@ -1988,7 +1988,7 @@ The following value types are supported:
 | **Integer**           | `int`            | `number`        | -                                                               |
 | **Float**             | `float`          | `number`        | -                                                               |
 | **Boolean**           | `bool`           | `boolean`       | -                                                               |
-| **Timestamp**         | `datetime.datetime` | `Date`       | -                                                               |
+| **Timestamp**         | `datetime.datetime` / `datetime.date` / `int` (epoch ms) | `Date` / `number` (epoch ms) | -                    |
 | **String list**       | `list[str]`      | `string[]`      | [`string_list()`](../sdk/topk-py/data#string-list)              |
 | **F32 list**          | `list[float]`    | `number[]`      | [`f32_list()`](../sdk/topk-py/data#f32-list)                    |
 | **F64 list**          | _use helper_     | _use helper_    | [`f64_list()`](../sdk/topk-py/data#f64-list)                    |
@@ -2007,9 +2007,6 @@ The following value types are supported:
 | **Bytes**             | _use helper_     | _use helper_    | [`bytes()`](../sdk/topk-py/data#bytes)                          |
 | **Struct**            | `dict[str, Any]` | `Record<string, any>` | [`struct()`](../sdk/topk-py/data#struct)                 |
 
-<Note>
-  Timestamps are stored as milliseconds since UNIX epoch and returned as integers. Integer epoch milliseconds are accepted on write as well, and timezone-naive Python datetimes are interpreted as UTC.
-</Note>
 
 #### Delete documents
 
@@ -8058,6 +8055,12 @@ URL: https://docs.topk.io/sdk/topk-py/data
     Instances of the `Struct` class are used to represent nested object values in TopK.
     Usually created using the [`struct()`](#struct) helper.
 
+##### UnknownValue
+
+*Internal*
+
+    Placeholder for a value this version of the SDK cannot represent.
+
 #### Functions
 
 ##### f8_vector()
@@ -8966,7 +8969,7 @@ Compute the maximum of the expression and another value.
 ###### date\_part()
 
 ```python
-date_part(self, part: str) -> LogicalExpr
+date_part(self, part: DatePart) -> LogicalExpr
 ```
 
 Extract a part of a timestamp expression as an integer.
@@ -8988,7 +8991,7 @@ Extract a part of a timestamp expression as an integer.
 
 | Parameter | Type |
 | --------- | ---- |
-| `part` | str |
+| `part` | [`DatePart`](#datepart) |
 
 **Returns**
 
@@ -9201,6 +9204,27 @@ Multiply the scoring expression by the provided `boost` value if the `condition`
 | --------- | ---- |
 | `condition` | [`FlexibleExpr`](#flexibleexpr) |
 | `boost` | [`Numeric`](#numeric) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### elapsed()
+
+```python
+elapsed(self, end: FlexibleExpr, interval: Interval) -> LogicalExpr
+```
+
+Compute the number of `interval` units elapsed between the expression and `end`.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `end` | [`FlexibleExpr`](#flexibleexpr) |
+| `interval` | [`Interval`](#interval) |
 
 **Returns**
 
@@ -10127,6 +10151,30 @@ Create a logical MAX expression.
 
 #### Type Aliases
 
+##### DatePart
+
+```python
+DatePart = Literal['year', 'month', 'week', 'day', 'day_of_year', 'day_of_week', 'hour', 'minute', 'second', 'millisecond']
+```
+
+**Type**
+
+Literal['year', 'month', 'week', 'day', 'day_of_year', 'day_of_week', 'hour', 'minute', 'second', 'millisecond']
+
+***
+
+##### Interval
+
+```python
+Interval = Literal['millisecond', 'second', 'minute', 'hour', 'day', 'week']
+```
+
+**Type**
+
+Literal['millisecond', 'second', 'minute', 'hour', 'day', 'week']
+
+***
+
 ##### FlexibleExpr
 
 ```python
@@ -10649,9 +10697,12 @@ timestamp() -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `timestamp` values.
 
-    Timestamps are stored as milliseconds since UNIX epoch. Upsert them as
-    ``datetime.datetime`` objects or integer milliseconds. Timezone-naive
-    datetimes are interpreted as UTC.
+    Timestamps are stored as milliseconds since UNIX epoch.
+
+    When upserting timestamps, use:
+    - ``datetime.datetime`` — datetime with timezone (timezone-naive datetime is interpreted as UTC)
+    - ``datetime.date`` — date (padded to midnight UTC)
+    - ``int`` — epoch milliseconds
 
     Example:
 
@@ -12641,6 +12692,14 @@ Usually created using data constructors such as [`f32_sparse_vector()`](#f32spar
 Instances of the `Struct` class are used to represent nested object values in TopK.
 Usually created using the [`struct()`](https://docs.topk.io/sdk/topk-js/data#struct-2) helper.
 
+***
+
+##### UnknownValue
+
+**`Internal`**
+
+Placeholder for a value this version of the SDK cannot represent.
+
 #### Type Aliases
 
 ##### MatrixValueType
@@ -13416,7 +13475,7 @@ Checks if the expression contains another value.
 ###### datePart()
 
 ```ts
-datePart(part: string): LogicalExpression;
+datePart(part: DatePart): LogicalExpression;
 ```
 
 Extracts a part of a timestamp expression as an integer.
@@ -13438,7 +13497,7 @@ Supported parts:
 
 | Parameter | Type |
 | ------ | ------ |
-| `part` | `string` |
+| `part` | [`DatePart`](/sdk/topk-js/Namespace.query#datepart-1) |
 
 **Returns**
 
@@ -13459,6 +13518,27 @@ Divides the expression by another value.
 | Parameter | Type |
 | ------ | ------ |
 | `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### elapsed()
+
+```ts
+elapsed(end:
+  | number
+  | LogicalExpression, interval: Interval): LogicalExpression;
+```
+
+Computes the number of `interval` units elapsed between the expression and `end`.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `end` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `interval` | [`Interval`](/sdk/topk-js/Namespace.query#interval) |
 
 **Returns**
 
@@ -14181,6 +14261,32 @@ Options for `should` scoring.
 | <a id="property-token-1"></a> `token` | `string` | The token to match. |
 | <a id="property-weight-3"></a> `weight` | `number` | The weight of the term. |
 
+#### Type Aliases
+
+##### DatePart
+
+```ts
+type DatePart =
+  | "year"
+  | "month"
+  | "week"
+  | "day"
+  | "day_of_year"
+  | "day_of_week"
+  | "hour"
+  | "minute"
+  | "second"
+  | "millisecond";
+```
+
+***
+
+##### Interval
+
+```ts
+type Interval = "millisecond" | "second" | "minute" | "hour" | "day" | "week";
+```
+
 ### topk-js/schema
 
 URL: https://docs.topk.io/sdk/topk-js/Namespace.schema
@@ -14675,8 +14781,11 @@ function timestamp(): FieldSpec;
 
 Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `timestamp` values.
 
-Timestamps are stored as milliseconds since UNIX epoch. Upsert them as `Date`
-objects or integer milliseconds.
+Timestamps are stored as milliseconds since UNIX epoch.
+
+When upserting timestamps, use:
+- `Date` objects
+- `number` — epoch milliseconds
 
 Example:
 
@@ -15158,7 +15267,32 @@ Text searches can be combined with each other using `OR`, and with metadata filt
 
 ###### Timestamps
 
-Declare timestamp columns with `TIMESTAMP` and write timestamp values using the `TIMESTAMP '...'` literal form. Accepted formats are `'YYYY-MM-DD'`, `'YYYY-MM-DD HH:MM:SS[.fff]'` and RFC 3339; values without a timezone are interpreted as UTC. Use `date_part('year', ts)` or `EXTRACT(YEAR FROM ts)` to extract parts of a timestamp.
+Declare a timestamp column with `TIMESTAMP`/`TIMESTAMPTZ`:
+
+```sql
+CREATE TABLE books (
+    title        TEXT,
+    published_ts TIMESTAMP
+);
+```
+
+Timestamps are stored as milliseconds since UNIX epoch and returned as `int8`.
+
+To write timestamp values, use the `TIMESTAMP '...'` literal:
+
+```sql
+INSERT INTO books (_id, title, published_ts)
+VALUES ('gatsby', 'The Great Gatsby', TIMESTAMP '1925-04-10');
+```
+
+Accepted formats:
+- `'YYYY-MM-DD'` — midnight UTC
+- `'YYYY-MM-DD HH:MM:SS[.fff]'` — UTC
+- `'YYYY-MM-DDTHH:MM:SS[.fff]'` — UTC, `T` date/time separator
+- `'YYYY-MM-DDTHH:MM:SS[.fff]Z'` — UTC, `Z` = UTC
+- `'YYYY-MM-DDTHH:MM:SS[.fff]±HH:MM'` — UTC offset, e.g. `+02:00`
+
+To filter by a timestamp column, compare it against a `TIMESTAMP '...'` literal:
 
 ```sql
 SELECT _id, title
@@ -15168,7 +15302,49 @@ ORDER BY published_ts ASC
 LIMIT 10;
 ```
 
-`TIMESTAMP` and `TIMESTAMPTZ` are the same type in TopK: both store an absolute instant as milliseconds since UNIX epoch (UTC) and are returned as `int8` on the wire.
+Use `EXTRACT(YEAR FROM ts)` (or `date_part('year', ts)`) to extract parts of a timestamp:
+
+```sql
+-- Books published in July
+SELECT _id, published_ts
+FROM books
+WHERE EXTRACT(MONTH FROM published_ts) = 7
+LIMIT 10;
+```
+
+Supported parts:
+
+| `EXTRACT` | `date_part` | Value |
+|-----------|-------------|-------|
+| `YEAR` | `'year'` | calendar year |
+| `MONTH` | `'month'` | 1-12 |
+| `WEEK` | `'week'` | ISO week number |
+| `DAY` | `'day'` | day of month, 1-31 |
+| `DOY` | `'day_of_year'` | 1-366 |
+| `DOW` | `'day_of_week'` | 0-6, Monday = 0 |
+| `HOUR` | `'hour'` | 0-23 |
+| `MINUTE` | `'minute'` | 0-59 |
+| `SECOND` | `'second'` | 0-59 |
+| `MILLISECOND` | `'millisecond'` | 0-999 |
+
+Use `elapsed(start, end, interval)` to compute the number of interval units between two timestamps:
+
+```sql
+-- Days elapsed between two timestamps
+SELECT _id, elapsed(published_ts, TIMESTAMP '2000-01-01', 'day') AS age_days
+FROM books
+ORDER BY age_days ASC
+LIMIT 10;
+```
+
+Supported intervals:
+
+- `'millisecond'`
+- `'second'`
+- `'minute'`
+- `'hour'`
+- `'day'`
+- `'week'`
 
 ###### Search Functions
 

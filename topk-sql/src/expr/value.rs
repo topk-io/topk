@@ -6,6 +6,9 @@ use topk_rs::proto::v1::data::value::Value::{self as V};
 use super::typed::ElemType;
 use crate::{Error, FromSql, sql_unsupported};
 
+const DATETIME_FORMATS: &[&str] = &["%Y-%m-%d %H:%M:%S%.f", "%Y-%m-%dT%H:%M:%S%.f"];
+const DATE_FORMAT: &str = "%Y-%m-%d";
+
 impl FromSql<SqlExpr> for Value {
     fn from_sql(expr: SqlExpr) -> Result<Value, Error> {
         match expr {
@@ -145,11 +148,13 @@ fn parse_timestamp(s: &str) -> Result<Value, Error> {
     if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(s) {
         return Ok(Value::timestamp(dt));
     }
-    if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S%.f") {
-        return Ok(Value::timestamp(dt.and_utc()));
+    for fmt in DATETIME_FORMATS {
+        if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(s, fmt) {
+            return Ok(Value::timestamp(dt.and_utc()));
+        }
     }
-    if let Ok(d) = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
-        return Ok(Value::timestamp(d.and_hms_opt(0, 0, 0).unwrap().and_utc()));
+    if let Ok(d) = chrono::NaiveDate::parse_from_str(s, DATE_FORMAT) {
+        return Ok(Value::timestamp(d.and_time(chrono::NaiveTime::MIN).and_utc()));
     }
     Err(Error::InvalidLiteral(format!("timestamp `{s}`")))
 }
@@ -241,4 +246,23 @@ fn parse_cast(type_name: &str, s: &str) -> Result<Value, Error> {
     }
 
     Err(Error::Unsupported(format!("cast to {type_name}")))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use rstest::rstest;
+
+    #[rstest]
+    #[case::date_only("2023-01-01")]
+    #[case::space_separator("2023-01-01 00:00:00")]
+    #[case::t_separator("2023-01-01T00:00:00")]
+    #[case::rfc3339_utc("2023-01-01T00:00:00.000Z")]
+    #[case::rfc3339_positive_offset("2023-01-01T02:00:00+02:00")]
+    #[case::rfc3339_negative_offset("2022-12-31T19:00:00-05:00")]
+    fn parse_timestamp_formats(#[case] s: &str) {
+        let expected = parse_timestamp("2023-01-01T00:00:00Z").unwrap();
+        assert_eq!(parse_timestamp(s).unwrap(), expected);
+    }
 }

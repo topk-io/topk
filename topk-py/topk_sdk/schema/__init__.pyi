@@ -258,9 +258,12 @@ def timestamp() -> FieldSpec:
     """
     Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `timestamp` values.
 
-    Timestamps are stored as milliseconds since UNIX epoch. Upsert them as
-    ``datetime.datetime`` objects or integer milliseconds. Timezone-naive
-    datetimes are interpreted as UTC.
+    Timestamps are stored as milliseconds since UNIX epoch.
+
+    When upserting timestamps, use:
+    - ``datetime.datetime`` — datetime with timezone (timezone-naive datetime is interpreted as UTC)
+    - ``datetime.date`` — date (padded to midnight UTC)
+    - ``int`` — epoch milliseconds
 
     Example:
 

@@ -21,6 +21,18 @@ use common::{BooksContext, Scope, assert_rows_eq_unordered, ids};
     "SELECT _id FROM {{table}} WHERE published_ts < TIMESTAMP '1929-01-01 00:00:00'",
     ids!["pride", "moby", "gatsby"],
 )]
+#[case::timestamp_literal_isoformat(
+    "SELECT _id FROM {{table}} WHERE published_ts < TIMESTAMP '1929-01-01T00:00:00'",
+    ids!["pride", "moby", "gatsby"],
+)]
+#[case::extract_dow(
+    "SELECT _id FROM {{table}} WHERE EXTRACT(DOW FROM published_ts) = 0",
+    ids!["mockingbird", "catcher"],
+)]
+#[case::elapsed(
+    "SELECT _id FROM {{table}} WHERE elapsed(published_ts, TIMESTAMP '1988-01-08', 'week') = 1",
+    ids!["alchemist"],
+)]
 #[case::date_part_lt(
     "SELECT _id FROM {{table}} WHERE date_part('month', published_ts) < 6",
     ids!["gatsby", "pride", "alchemist"],

@@ -1,4 +1,4 @@
-import { agg, field, filter, groupBy, literal } from "../lib/query";
+import { agg, field, filter, groupBy, literal, select } from "../lib/query";
 import { int, keywordIndex, text, timestamp } from "../lib/schema";
 import { newProjectContext, ProjectContext } from "./setup";
 
@@ -114,6 +114,23 @@ describe("Timestamp Queries", () => {
     expect(() => literal(new Date("bad"))).toThrow("Invalid Date");
   });
 
+  test("upsert timestamp as epoch milliseconds", async () => {
+    const ctx = getContext();
+    const collection = await setupBooks(ctx);
+
+    await ctx.client.collection(collection.name).upsert([
+      {
+        _id: "millis",
+        title: "Millis",
+        published_year: 2023,
+        published_ts: 1672531200000, // 2023-01-01T00:00:00Z
+      },
+    ]);
+
+    const docs = await ctx.client.collection(collection.name).get(["millis"]);
+    expect(docs["millis"].published_ts).toBe(1672531200000);
+  });
+
   test("query date_part eq field", async () => {
     const ctx = getContext();
     const collection = await setupBooks(ctx);
@@ -140,6 +157,67 @@ describe("Timestamp Queries", () => {
     expect(new Set(result.map((doc) => doc._id))).toEqual(
       new Set(["gatsby", "pride", "alchemist"])
     );
+  });
+
+  test.each([
+    ["millisecond", 604_800_000],
+    ["second", 604_800],
+    ["minute", 10_080],
+    ["hour", 168],
+    ["day", 7],
+    ["week", 1],
+  ] as const)("query elapsed in %s", async (interval, expected) => {
+    const ctx = getContext();
+    const collection = await setupBooks(ctx);
+
+    const result = await ctx.client
+      .collection(collection.name)
+      .query(
+        filter(
+          field("published_ts")
+            .elapsed(literal(new Date(Date.UTC(1988, 0, 8))), interval)
+            .eq(expected)
+        ).limit(10)
+      );
+
+    expect(new Set(result.map((doc) => doc._id))).toEqual(
+      new Set(["alchemist"])
+    );
+  });
+
+  test.each([
+    ["year", 1997],
+    ["month", 6],
+    ["week", 26],
+    ["day", 26],
+    ["day_of_year", 177],
+    ["day_of_week", 3],
+    ["hour", 12],
+    ["minute", 34],
+    ["second", 56],
+    ["millisecond", 789],
+  ] as const)("query date_part %s", async (part, expected) => {
+    const ctx = getContext();
+    const collection = await setupBooks(ctx);
+
+    await ctx.client.collection(collection.name).upsert([
+      {
+        _id: "precise",
+        title: "Precise",
+        published_year: 1997,
+        published_ts: new Date(Date.UTC(1997, 5, 26, 12, 34, 56, 789)),
+      },
+    ]);
+
+    const result = await ctx.client
+      .collection(collection.name)
+      .query(
+        select({ value: field("published_ts").datePart(part) })
+          .filter(field("_id").eq("precise"))
+          .limit(1)
+      );
+
+    expect(result).toEqual([{ _id: "precise", value: expected }]);
   });
 
   test("query date_part group by", async () => {

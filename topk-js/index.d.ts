@@ -774,7 +774,7 @@ export declare namespace query {
      * - `"second"` — 0-59
      * - `"millisecond"` — 0-999
      */
-    datePart(part: string): query.LogicalExpression
+    datePart(part: query.DatePart): query.LogicalExpression
     /** Computes the logical AND of the expression and another expression. */
     and(other: LogicalExpression | boolean): query.LogicalExpression
     /** Computes the logical OR of the expression and another expression. */
@@ -809,6 +809,8 @@ export declare namespace query {
      * Otherwise, the scoring expression is unchanged (multiplied by 1).
      */
     boost(condition: LogicalExpression | boolean, boost: LogicalExpression | number): query.LogicalExpression
+    /** Computes the number of `interval` units elapsed between the expression and `end`. */
+    elapsed(end: LogicalExpression | number, interval: query.Interval): query.LogicalExpression
     /** Check if the expression matches the provided regexp pattern. */
     regexpMatch(other: string, flags?: string | null): query.LogicalExpression
   }
@@ -880,6 +882,16 @@ export declare namespace query {
   'min'|
   'max'|
   'datePart';
+  export type DatePart =  'year'|
+  'month'|
+  'week'|
+  'day'|
+  'day_of_year'|
+  'day_of_week'|
+  'hour'|
+  'minute'|
+  'second'|
+  'millisecond';
   /** Creates a field reference expression. */
   export function field(name: string): query.LogicalExpression
   /** Creates a new query with a filter stage. */
@@ -890,6 +902,12 @@ export declare namespace query {
    * Groups documents by one or more key expressions and computes aggregations for each group.
    */
   export function groupBy(keys: Record<string, LogicalExpression>, aggs: Record<string, AggregateExpression>): query.Query
+  export type Interval =  'millisecond'|
+  'second'|
+  'minute'|
+  'hour'|
+  'day'|
+  'week';
   /** Creates a literal value expression. */
   export function literal(value: number | string | string[] | number[] | boolean | Date | data.List): query.LogicalExpression
   /**
@@ -983,7 +1001,8 @@ export declare namespace query {
   }
   /** @ignore */
   export type TernaryOperator =  'choose'|
-  'regexpMatch';
+  'regexpMatch'|
+  'elapsed';
   /** @ignore */
   export type UnaryOperator =  'not'|
   'isNull'|
@@ -1433,8 +1452,11 @@ export declare namespace schema {
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `timestamp` values.
    *
-   * Timestamps are stored as milliseconds since UNIX epoch. Upsert them as `Date`
-   * objects or integer milliseconds.
+   * Timestamps are stored as milliseconds since UNIX epoch.
+   *
+   * When upserting timestamps, use:
+   * - `Date` objects
+   * - `number` — epoch milliseconds
    *
    * Example:
    *

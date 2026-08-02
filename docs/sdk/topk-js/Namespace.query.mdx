@@ -510,7 +510,7 @@ Checks if the expression contains another value.
 ##### datePart()
 
 ```ts
-datePart(part: string): LogicalExpression;
+datePart(part: DatePart): LogicalExpression;
 ```
 
 Extracts a part of a timestamp expression as an integer.
@@ -532,7 +532,7 @@ Supported parts:
 
 | Parameter | Type |
 | ------ | ------ |
-| `part` | `string` |
+| `part` | [`DatePart`](/sdk/topk-js/Namespace.query#datepart-1) |
 
 **Returns**
 
@@ -553,6 +553,27 @@ Divides the expression by another value.
 | Parameter | Type |
 | ------ | ------ |
 | `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### elapsed()
+
+```ts
+elapsed(end: 
+  | number
+  | LogicalExpression, interval: Interval): LogicalExpression;
+```
+
+Computes the number of `interval` units elapsed between the expression and `end`.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `end` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `interval` | [`Interval`](/sdk/topk-js/Namespace.query#interval) |
 
 **Returns**
 
@@ -1274,3 +1295,29 @@ Options for `should` scoring.
 | <a id="property-field-3"></a> `field?` | `string` | The field to match against. |
 | <a id="property-token-1"></a> `token` | `string` | The token to match. |
 | <a id="property-weight-3"></a> `weight` | `number` | The weight of the term. |
+
+## Type Aliases
+
+### DatePart
+
+```ts
+type DatePart = 
+  | "year"
+  | "month"
+  | "week"
+  | "day"
+  | "day_of_year"
+  | "day_of_week"
+  | "hour"
+  | "minute"
+  | "second"
+  | "millisecond";
+```
+
+***
+
+### Interval
+
+```ts
+type Interval = "millisecond" | "second" | "minute" | "hour" | "day" | "week";
+```

@@ -354,7 +354,7 @@ Compute the maximum of the expression and another value.
 #### date\_part()
 
 ```python
-date_part(self, part: str) -> LogicalExpr
+date_part(self, part: DatePart) -> LogicalExpr
 ```
 
 Extract a part of a timestamp expression as an integer.
@@ -376,7 +376,7 @@ Extract a part of a timestamp expression as an integer.
 
 | Parameter | Type |
 | --------- | ---- |
-| `part` | str |
+| `part` | [`DatePart`](#datepart) |
 
 **Returns**
 
@@ -589,6 +589,27 @@ Multiply the scoring expression by the provided `boost` value if the `condition`
 | --------- | ---- |
 | `condition` | [`FlexibleExpr`](#flexibleexpr) |
 | `boost` | [`Numeric`](#numeric) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### elapsed()
+
+```python
+elapsed(self, end: FlexibleExpr, interval: Interval) -> LogicalExpr
+```
+
+Compute the number of `interval` units elapsed between the expression and `end`.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `end` | [`FlexibleExpr`](#flexibleexpr) |
+| `interval` | [`Interval`](#interval) |
 
 **Returns**
 
@@ -1514,6 +1535,30 @@ Create a logical MAX expression.
 ***
 
 ## Type Aliases
+
+### DatePart
+
+```python
+DatePart = Literal['year', 'month', 'week', 'day', 'day_of_year', 'day_of_week', 'hour', 'minute', 'second', 'millisecond']
+```
+
+**Type**
+
+Literal['year', 'month', 'week', 'day', 'day_of_year', 'day_of_week', 'hour', 'minute', 'second', 'millisecond']
+
+***
+
+### Interval
+
+```python
+Interval = Literal['millisecond', 'second', 'minute', 'hour', 'day', 'week']
+```
+
+**Type**
+
+Literal['millisecond', 'second', 'minute', 'hour', 'day', 'week']
+
+***
 
 ### FlexibleExpr
 

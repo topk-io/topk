@@ -232,8 +232,11 @@ pub fn bytes() -> FieldSpec {
 
 /// Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `timestamp` values.
 ///
-/// Timestamps are stored as milliseconds since UNIX epoch. Upsert them as `Date`
-/// objects or integer milliseconds.
+/// Timestamps are stored as milliseconds since UNIX epoch.
+///
+/// When upserting timestamps, use:
+/// - `Date` objects
+/// - `number` — epoch milliseconds
 ///
 /// Example:
 ///
