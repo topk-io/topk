@@ -10,6 +10,8 @@ mod ternary_op;
 mod unary_op;
 
 pub use binary_op::BinaryOperator;
+pub use boolish::Boolish;
+pub use comparable::Comparable;
 pub use nary_op::NaryOp;
 pub use numeric::Numeric;
 pub use ordered::Ordered;
@@ -18,14 +20,13 @@ pub use unary_op::UnaryOperator;
 
 use crate::{
     data::Value,
+    expr::function::FunctionExpression,
     expr::logical::{
         flexible::{FlexibleExpression, Iterable},
         stringy::StringyWithList,
     },
     utils::NapiBox,
 };
-use boolish::Boolish;
-use comparable::Comparable;
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use stringy::Stringy;
@@ -35,7 +36,7 @@ use stringy::Stringy;
 #[napi(namespace = "query")]
 #[derive(Debug, Clone)]
 pub struct LogicalExpression {
-    expr: LogicalExpressionUnion,
+    pub(crate) expr: LogicalExpressionUnion,
 }
 
 impl FromNapiValue for LogicalExpression {
@@ -47,7 +48,6 @@ impl FromNapiValue for LogicalExpression {
         Ok(expr.clone())
     }
 }
-
 
 impl LogicalExpression {
     pub(crate) fn null() -> Self {
@@ -146,6 +146,9 @@ pub enum LogicalExpressionUnion {
     Nary {
         op: NaryOp,
         exprs: Vec<NapiBox<LogicalExpression>>,
+    },
+    Function {
+        expr: FunctionExpression,
     },
 }
 
@@ -484,6 +487,9 @@ impl Into<topk_rs::proto::v1::data::LogicalExpr> for LogicalExpression {
                     op,
                     exprs.into_iter().map(|e| e.as_ref().clone()),
                 )
+            }
+            LogicalExpressionUnion::Function { expr } => {
+                topk_rs::proto::v1::data::LogicalExpr::function(expr)
             }
         }
     }

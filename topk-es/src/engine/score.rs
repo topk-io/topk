@@ -3,10 +3,10 @@ use topk_rs::proto::v1::control::{
     VectorDistanceMetric,
 };
 use topk_rs::proto::v1::data::{FunctionExpr, LogicalExpr, Query as TopkQuery, TextExpr, Value};
-use topk_rs::query::{field, fns};
+use topk_rs::query::fns;
 
 use super::field::IndexKind;
-use super::{Schema, RANK_ANN};
+use super::Schema;
 use crate::api::QueryVector;
 use crate::value::ValueExt;
 use crate::Error;
@@ -140,7 +140,7 @@ pub fn ann_score(
     anns: &[AnnTerm],
 ) -> Result<(TopkQuery, Option<LogicalExpr>), Error> {
     let mut total: Option<LogicalExpr> = None;
-    for (index, ann) in anns.iter().enumerate() {
+    for ann in anns.iter() {
         let spec = schema.get(&ann.field).ok_or_else(|| {
             Error::InvalidQuery(format!(
                 "\"{}\" is not in the collection's schema",
@@ -180,9 +180,7 @@ pub fn ann_score(
             AnnQuery::Vector { .. } => not_knn_searchable(&ann.field),
         })?;
 
-        let rank_ann = format!("{RANK_ANN}_{index}");
-        query = query.select([(rank_ann.as_str(), scorer)]);
-        let folded = fold.expr(field(rank_ann.as_str()));
+        let folded = fold.expr(LogicalExpr::function(scorer));
 
         // ES applies the `similarity` cutoff before `boost`, so compare the
         // unweighted fold.
@@ -259,6 +257,7 @@ fn query_value(field_name: &str, spec: &FieldSpec, value: &Value) -> Result<Valu
 #[cfg(test)]
 mod tests {
     use super::*;
+    use topk_rs::query::field;
 
     // The exact numeric fold ((1 + s) / 2 etc.) is evaluated by the executor, so
     // its value is covered by integration tests. Here we lock the pure decision:

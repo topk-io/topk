@@ -590,6 +590,365 @@ Check if the expression matches the provided regexp pattern.
 
     Instances of the `FunctionExpr` class are used to represent function expressions in TopK.
     Usually created using function constructors such as [`fn.vector_distance()`](#vector-distance), [`fn.semantic_similarity()`](#semantic-similarity) or [`fn.bm25_score()`](#bm25-score).
+    Comparison and arithmetic operators lift into a [`LogicalExpr`](#logicalexpr), e.g. `fn.bm25_score() > 0.5`.
+
+**Methods**
+
+#### eq()
+
+```python
+eq(self, other: FlexibleExpr) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`FlexibleExpr`](#flexibleexpr) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### ne()
+
+```python
+ne(self, other: FlexibleExpr) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`FlexibleExpr`](#flexibleexpr) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### lt()
+
+```python
+lt(self, other: Ordered) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Ordered`](#ordered) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### lte()
+
+```python
+lte(self, other: Ordered) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Ordered`](#ordered) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### gt()
+
+```python
+gt(self, other: Ordered) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Ordered`](#ordered) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### gte()
+
+```python
+gte(self, other: Ordered) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Ordered`](#ordered) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### add()
+
+```python
+add(self, other: Numeric) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Numeric`](#numeric) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### sub()
+
+```python
+sub(self, other: Numeric) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Numeric`](#numeric) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### mul()
+
+```python
+mul(self, other: Numeric) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Numeric`](#numeric) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### div()
+
+```python
+div(self, other: Numeric) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Numeric`](#numeric) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### coalesce()
+
+```python
+coalesce(self, other: LogicalExpr | int | float) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`LogicalExpr`](#logicalexpr) &#124; int &#124; float |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### min()
+
+```python
+min(self, other: LogicalExpr | int | float | str) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`LogicalExpr`](#logicalexpr) &#124; int &#124; float &#124; str |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### max()
+
+```python
+max(self, other: LogicalExpr | int | float | str) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`LogicalExpr`](#logicalexpr) &#124; int &#124; float &#124; str |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### is\_null()
+
+```python
+is_null(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### is\_not\_null()
+
+```python
+is_not_null(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### abs()
+
+```python
+abs(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### ln()
+
+```python
+ln(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### exp()
+
+```python
+exp(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### sqrt()
+
+```python
+sqrt(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### square()
+
+```python
+square(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### choose()
+
+```python
+choose(self, x: FlexibleExpr, y: FlexibleExpr) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `x` | [`FlexibleExpr`](#flexibleexpr) |
+| `y` | [`FlexibleExpr`](#flexibleexpr) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### boost()
+
+```python
+boost(self, condition: FlexibleExpr, boost: LogicalExpr | int | float) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `condition` | [`FlexibleExpr`](#flexibleexpr) |
+| `boost` | [`LogicalExpr`](#logicalexpr) &#124; int &#124; float |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
 
 ### AggregateExpr
 
