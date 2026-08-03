@@ -758,6 +758,23 @@ export declare namespace query {
     min(other: LogicalExpression | number | string): query.LogicalExpression
     /** Computes the maximum of the expression and another value. */
     max(other: LogicalExpression | number | string): query.LogicalExpression
+    /**
+     * Extracts a part of a timestamp expression as an integer.
+     *
+     * Supported parts:
+     *
+     * - `"year"` — calendar year
+     * - `"month"` — 1-12
+     * - `"week"` — ISO week number
+     * - `"day"` — day of month, 1-31
+     * - `"day_of_year"` — 1-366
+     * - `"day_of_week"` — 0-6, Monday = 0
+     * - `"hour"` — 0-23
+     * - `"minute"` — 0-59
+     * - `"second"` — 0-59
+     * - `"millisecond"` — 0-999
+     */
+    datePart(part: query.DatePart): query.LogicalExpression
     /** Computes the logical AND of the expression and another expression. */
     and(other: LogicalExpression | boolean): query.LogicalExpression
     /** Computes the logical OR of the expression and another expression. */
@@ -792,6 +809,8 @@ export declare namespace query {
      * Otherwise, the scoring expression is unchanged (multiplied by 1).
      */
     boost(condition: LogicalExpression | boolean, boost: LogicalExpression | number): query.LogicalExpression
+    /** Computes the number of `interval` units elapsed between the expression and `end`. */
+    elapsed(end: LogicalExpression | number, interval: query.Interval): query.LogicalExpression
     /** Check if the expression matches the provided regexp pattern. */
     regexpMatch(other: string, flags?: string | null): query.LogicalExpression
   }
@@ -861,7 +880,18 @@ export declare namespace query {
   'matchAny'|
   'coalesce'|
   'min'|
-  'max';
+  'max'|
+  'datePart';
+  export type DatePart =  'year'|
+  'month'|
+  'week'|
+  'day'|
+  'day_of_year'|
+  'day_of_week'|
+  'hour'|
+  'minute'|
+  'second'|
+  'millisecond';
   /** Creates a field reference expression. */
   export function field(name: string): query.LogicalExpression
   /** Creates a new query with a filter stage. */
@@ -872,8 +902,14 @@ export declare namespace query {
    * Groups documents by one or more key expressions and computes aggregations for each group.
    */
   export function groupBy(keys: Record<string, LogicalExpression>, aggs: Record<string, AggregateExpression>): query.Query
+  export type Interval =  'millisecond'|
+  'second'|
+  'minute'|
+  'hour'|
+  'day'|
+  'week';
   /** Creates a literal value expression. */
-  export function literal(value: number | string | string[] | number[] | boolean | data.List): query.LogicalExpression
+  export function literal(value: number | string | string[] | number[] | boolean | Date | data.List): query.LogicalExpression
   /**
    * Perform a BM25 keyword search using TopK's built-in tokenizer.
    *
@@ -965,7 +1001,8 @@ export declare namespace query {
   }
   /** @ignore */
   export type TernaryOperator =  'choose'|
-  'regexpMatch';
+  'regexpMatch'|
+  'elapsed';
   /** @ignore */
   export type UnaryOperator =  'not'|
   'isNull'|
@@ -1142,6 +1179,7 @@ export declare namespace schema {
     | { type: 'I8SparseVector' }
     | { type: 'U8SparseVector' }
     | { type: 'Bytes' }
+    | { type: 'Timestamp' }
     | { type: 'List', valueType: ListValueType }
     | { type: 'Struct', fields: Record<string, FieldSpec> }
     | { type: 'Matrix', dimension: number, valueType: data.MatrixValueType }
@@ -1411,6 +1449,26 @@ export declare namespace schema {
    * ```
    */
   export function text(): schema.FieldSpec
+  /**
+   * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `timestamp` values.
+   *
+   * Timestamps are stored as milliseconds since UNIX epoch.
+   *
+   * When upserting timestamps, use:
+   * - `Date` objects
+   * - `number` — epoch milliseconds
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { timestamp } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   published_ts: timestamp()
+   * });
+   * ```
+   */
+  export function timestamp(): schema.FieldSpec
   /**
    * Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `u8_sparse_vector` values.
    *

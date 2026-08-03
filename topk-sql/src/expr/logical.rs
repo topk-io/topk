@@ -1,4 +1,4 @@
-use sqlparser::ast::{BinaryOperator, Expr as SqlExpr, UnaryOperator};
+use sqlparser::ast::{BinaryOperator, DateTimeField, Expr as SqlExpr, UnaryOperator};
 use topk_rs::proto::v1::data::{LogicalExpr, Value};
 
 use crate::expr::regexp;
@@ -16,6 +16,7 @@ impl FromSql<SqlExpr> for LogicalExpr {
                     .join("."),
             )),
             SqlExpr::Value(_) => Ok(LogicalExpr::literal(Value::from_sql(expr)?)),
+            SqlExpr::TypedString(_) => Ok(LogicalExpr::literal(Value::from_sql(expr)?)),
             SqlExpr::Array(arr) => Ok(LogicalExpr::literal(Value::from_sql(arr.elem)?)),
             SqlExpr::Nested(inner) => LogicalExpr::from_sql(*inner),
             SqlExpr::UnaryOp { op, expr } => match op {
@@ -205,6 +206,24 @@ impl FromSql<SqlExpr> for LogicalExpr {
                     acc = cond_e.choose(then_e, acc);
                 }
                 Ok(acc)
+            }
+
+            SqlExpr::Extract { field, expr, .. } => {
+                let part = match field {
+                    DateTimeField::Year => "year",
+                    DateTimeField::Month => "month",
+                    DateTimeField::Week(None) => "week",
+                    DateTimeField::Day => "day",
+                    DateTimeField::DayOfYear | DateTimeField::Doy => "day_of_year",
+                    DateTimeField::DayOfWeek | DateTimeField::Dow => "day_of_week",
+                    DateTimeField::Hour => "hour",
+                    DateTimeField::Minute => "minute",
+                    DateTimeField::Second => "second",
+                    DateTimeField::Millisecond | DateTimeField::Milliseconds => "millisecond",
+                    other => sql_unsupported!("EXTRACT field {other}"),
+                };
+
+                Ok(LogicalExpr::from_sql(*expr)?.date_part(part))
             }
 
             SqlExpr::Function(func) => LogicalExpr::from_sql(func),

@@ -59,6 +59,7 @@ pub enum BinaryOperator {
     Coalesce,
     Min,
     Max,
+    DatePart,
 }
 
 impl From<BinaryOperator> for topk_rs::proto::v1::data::logical_expr::binary_op::Op {
@@ -96,6 +97,9 @@ impl From<BinaryOperator> for topk_rs::proto::v1::data::logical_expr::binary_op:
             BinaryOperator::Xor => unimplemented!("`xor` operator is not supported"),
             BinaryOperator::Min => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Min,
             BinaryOperator::Max => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Max,
+            BinaryOperator::DatePart => {
+                topk_rs::proto::v1::data::logical_expr::binary_op::Op::DatePart
+            }
         }
     }
 }
@@ -105,6 +109,7 @@ impl From<BinaryOperator> for topk_rs::proto::v1::data::logical_expr::binary_op:
 pub enum TernaryOperator {
     Choose,
     RegexpMatch,
+    Elapsed,
 }
 
 impl From<TernaryOperator> for topk_rs::proto::v1::data::logical_expr::ternary_op::Op {
@@ -115,6 +120,9 @@ impl From<TernaryOperator> for topk_rs::proto::v1::data::logical_expr::ternary_o
             }
             TernaryOperator::RegexpMatch => {
                 topk_rs::proto::v1::data::logical_expr::ternary_op::Op::RegexpMatch
+            }
+            TernaryOperator::Elapsed => {
+                topk_rs::proto::v1::data::logical_expr::ternary_op::Op::Elapsed
             }
         }
     }
@@ -639,6 +647,19 @@ impl LogicalExpr {
         })
     }
 
+    fn date_part(&self, py: Python<'_>, part: String) -> PyResult<Self> {
+        Ok(Self::Binary {
+            left: Py::new(py, self.clone())?,
+            op: BinaryOperator::DatePart,
+            right: Py::new(
+                py,
+                LogicalExpr::Literal {
+                    value: Value::String(part),
+                },
+            )?,
+        })
+    }
+
     // Ternary operators
 
     fn choose(&self, py: Python<'_>, x: FlexibleExpr, y: FlexibleExpr) -> PyResult<Self> {
@@ -661,6 +682,21 @@ impl LogicalExpr {
         )?;
         let choose_numeric = Numeric::Expr(choose_expr);
         self.mul(py, choose_numeric)
+    }
+
+    /// Computes the number of `interval` units elapsed between `self` and `end`.
+    fn elapsed(&self, py: Python<'_>, end: FlexibleExpr, interval: String) -> PyResult<Self> {
+        Ok(Self::Ternary {
+            op: TernaryOperator::Elapsed,
+            x: Py::new(py, self.clone())?,
+            y: Py::new(py, Into::<LogicalExpr>::into(end))?,
+            z: Py::new(
+                py,
+                LogicalExpr::Literal {
+                    value: Value::String(interval),
+                },
+            )?,
+        })
     }
 
     /// Filter documents that match the provided regexp pattern.

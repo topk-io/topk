@@ -39,6 +39,7 @@ pub enum DataType {
     I8SparseVector,
     U8SparseVector,
     Bytes,
+    Timestamp,
     List {
         value_type: ListValueType,
     },
@@ -165,6 +166,9 @@ impl From<topk_rs::proto::v1::control::FieldType> for DataType {
                     DataType::U8SparseVector
                 }
                 topk_rs::proto::v1::control::field_type::DataType::Bytes(_) => DataType::Bytes,
+                topk_rs::proto::v1::control::field_type::DataType::Timestamp(_) => {
+                    DataType::Timestamp
+                }
                 topk_rs::proto::v1::control::field_type::DataType::List(list) => DataType::List {
                     value_type: match list.value_type() {
                         ListValueTypePb::Integer => ListValueType::Integer,
@@ -188,9 +192,6 @@ impl From<topk_rs::proto::v1::control::FieldType> for DataType {
                             MatrixValueTypePb::Unspecified => return DataType::Unknown,
                         },
                     }
-                }
-                topk_rs::proto::v1::control::field_type::DataType::Timestamp(_) => {
-                    unimplemented!("timestamp: see #530")
                 }
             },
             None => DataType::Unknown,

@@ -176,6 +176,85 @@ WHERE (match('hobbit', title) OR match('dune', title))
 
 Text searches can be combined with each other using `OR`, and with metadata filters using `AND`.
 
+#### Timestamps
+
+Declare a timestamp column with `TIMESTAMP`:
+
+```sql
+CREATE TABLE books (
+    title        TEXT,
+    published_ts TIMESTAMP
+);
+```
+
+Timestamps are stored as milliseconds since UNIX epoch and returned as `int8`.
+
+To write timestamp values, use the `TIMESTAMP '...'` literal:
+
+```sql
+INSERT INTO books (_id, title, published_ts)
+VALUES ('gatsby', 'The Great Gatsby', TIMESTAMP '1925-04-10');
+```
+
+Accepted formats:
+- `'YYYY-MM-DD'` — midnight UTC
+- `'YYYY-MM-DDTHH:MM:SS[.fff]Z'` — UTC, `Z` = UTC
+- `'YYYY-MM-DDTHH:MM:SS[.fff]±HH:MM'` — UTC offset, e.g. `+02:00`
+
+To filter by a timestamp column, compare it against a `TIMESTAMP '...'` literal:
+
+```sql
+SELECT _id, title
+FROM books
+WHERE published_ts < TIMESTAMP '1929-01-01'
+ORDER BY published_ts ASC
+LIMIT 10;
+```
+
+Use `EXTRACT(YEAR FROM ts)` (or `date_part('year', ts)`) to extract parts of a timestamp:
+
+```sql
+-- Books published in July
+SELECT _id, published_ts
+FROM books
+WHERE EXTRACT(MONTH FROM published_ts) = 7
+LIMIT 10;
+```
+
+Supported parts:
+
+| `EXTRACT` | `date_part` | Value |
+|-----------|-------------|-------|
+| `YEAR` | `'year'` | calendar year |
+| `MONTH` | `'month'` | 1-12 |
+| `WEEK` | `'week'` | ISO week number |
+| `DAY` | `'day'` | day of month, 1-31 |
+| `DOY` | `'day_of_year'` | 1-366 |
+| `DOW` | `'day_of_week'` | 0-6, Monday = 0 |
+| `HOUR` | `'hour'` | 0-23 |
+| `MINUTE` | `'minute'` | 0-59 |
+| `SECOND` | `'second'` | 0-59 |
+| `MILLISECOND` | `'millisecond'` | 0-999 |
+
+Use `elapsed(start, end, interval)` to compute the number of interval units between two timestamps:
+
+```sql
+-- Days elapsed between two timestamps
+SELECT _id, elapsed(published_ts, TIMESTAMP '2000-01-01', 'day') AS age_days
+FROM books
+ORDER BY age_days ASC
+LIMIT 10;
+```
+
+Supported intervals:
+
+- `'millisecond'`
+- `'second'`
+- `'minute'`
+- `'hour'`
+- `'day'`
+- `'week'`
+
 #### Search Functions
 
 TopK extends SQL with search-specific functions for scoring and filtering. Scoring functions compute relevance in `SELECT`; text search predicates filter documents in `WHERE`.
@@ -445,6 +524,7 @@ CREATE TABLE [IF NOT EXISTS] <table> (
 | `FLOAT` / `REAL` / `DOUBLE PRECISION` | `float` |
 | `TEXT` / `VARCHAR` | `text` |
 | `BYTEA` | `bytes` |
+| `TIMESTAMP` | `timestamp` |
 | `TEXT[]` | `list<string>` |
 | `INTEGER[]` | `list<integer>` |
 | `FLOAT[]` | `list<float>` |
@@ -618,6 +698,10 @@ TopK speaks the PostgreSQL wire protocol but is purpose-built for search — not
 **`COUNT(*)` without `GROUP BY` is a standalone aggregate** — it returns a document count and cannot be combined with other columns in the same `SELECT` list. Inside a `GROUP BY` query, `COUNT(*)` behaves as an ordinary per-group aggregate and can be combined with other keys/aggregates — see [GROUP BY](#group-by).
 
 **`GROUP BY` keys must be identifiers** — group by a real column or a SELECT-list alias for a computed expression; you can't group by an inline expression directly. `GROUP BY ALL` and `ROLLUP`/`CUBE`/`GROUPING SETS` are not supported.
+
+**No implicit string-to-timestamp coercion** — `WHERE published_ts < '1929-01-01'` compares against a string and silently matches nothing. Use a typed literal instead: `WHERE published_ts < TIMESTAMP '1929-01-01'`.
+
+**Timestamps require a timezone** — datetime literals without a timezone (e.g. `TIMESTAMP '1925-04-10 00:00:00'`) are rejected. Use an RFC 3339 offset (`TIMESTAMP '1925-04-10T00:00:00Z'`) or a date-only literal (`TIMESTAMP '1925-04-10'`, midnight UTC). `TIMESTAMPTZ` is not supported.
 
 **No whole-value equality on complex types** — `tags = ARRAY['a']` is not supported. Use `contains(tags, 'a')` to check whether a single value exists in a list field — `contains` checks for one value at a time, not a list of values.
 

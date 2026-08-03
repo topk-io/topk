@@ -140,6 +140,7 @@ function literal(value:
   | boolean
   | string[]
   | number[]
+  | Date
   | List): LogicalExpression;
 ```
 
@@ -149,7 +150,7 @@ Creates a literal value expression.
 
 | Parameter | Type |
 | ------ | ------ |
-| `value` | \| `string` \| `number` \| `boolean` \| `string`[] \| `number`[] \| [`List`](/sdk/topk-js/Namespace.data#list) |
+| `value` | \| `string` \| `number` \| `boolean` \| `string`[] \| `number`[] \| `Date` \| [`List`](/sdk/topk-js/Namespace.data#list) |
 
 **Returns**
 
@@ -506,6 +507,37 @@ Checks if the expression contains another value.
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
+##### datePart()
+
+```ts
+datePart(part: DatePart): LogicalExpression;
+```
+
+Extracts a part of a timestamp expression as an integer.
+
+Supported parts:
+
+- `"year"` — calendar year
+- `"month"` — 1-12
+- `"week"` — ISO week number
+- `"day"` — day of month, 1-31
+- `"day_of_year"` — 1-366
+- `"day_of_week"` — 0-6, Monday = 0
+- `"hour"` — 0-23
+- `"minute"` — 0-59
+- `"second"` — 0-59
+- `"millisecond"` — 0-999
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `part` | [`DatePart`](/sdk/topk-js/Namespace.query#datepart-1) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
 ##### div()
 
 ```ts
@@ -521,6 +553,27 @@ Divides the expression by another value.
 | Parameter | Type |
 | ------ | ------ |
 | `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+##### elapsed()
+
+```ts
+elapsed(end: 
+  | number
+  | LogicalExpression, interval: Interval): LogicalExpression;
+```
+
+Computes the number of `interval` units elapsed between the expression and `end`.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `end` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `interval` | [`Interval`](/sdk/topk-js/Namespace.query#interval) |
 
 **Returns**
 
@@ -1242,3 +1295,29 @@ Options for `should` scoring.
 | <a id="property-field-3"></a> `field?` | `string` | The field to match against. |
 | <a id="property-token-1"></a> `token` | `string` | The token to match. |
 | <a id="property-weight-3"></a> `weight` | `number` | The weight of the term. |
+
+## Type Aliases
+
+### DatePart
+
+```ts
+type DatePart = 
+  | "year"
+  | "month"
+  | "week"
+  | "day"
+  | "day_of_year"
+  | "day_of_week"
+  | "hour"
+  | "minute"
+  | "second"
+  | "millisecond";
+```
+
+***
+
+### Interval
+
+```ts
+type Interval = "millisecond" | "second" | "minute" | "hour" | "day" | "week";
+```

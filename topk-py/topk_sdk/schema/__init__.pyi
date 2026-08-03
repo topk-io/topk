@@ -254,6 +254,29 @@ def bytes() -> FieldSpec:
     """
     ...
 
+def timestamp() -> FieldSpec:
+    """
+    Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `timestamp` values.
+
+    Timestamps are stored as milliseconds since UNIX epoch.
+
+    When upserting timestamps, use:
+    - ``datetime.datetime`` — timezone-aware datetime (timezone-naive datetimes are not supported)
+    - ``datetime.date`` — date (padded to midnight UTC)
+    - ``int`` — epoch milliseconds
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import timestamp
+
+    client.collections().create("books", schema={
+        "published_ts": timestamp()
+    })
+    ```
+    """
+    ...
+
 def list(value_type: typing.Literal["text", "integer", "float"]) -> FieldSpec:
     """
     Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `list` values.

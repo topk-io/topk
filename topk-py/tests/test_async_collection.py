@@ -1,4 +1,6 @@
 import asyncio
+from datetime import datetime, timezone
+
 import pytest
 from topk_sdk import error
 from topk_sdk.query import select, field, literal
@@ -30,6 +32,7 @@ async def test_async_get(async_ctx: AsyncProjectContext):
             "_id": "lotr",
             "title": "The Lord of the Rings: The Fellowship of the Ring",
             "published_year": 1954,
+            "published_ts": int(datetime(1954, 7, 29, tzinfo=timezone.utc).timestamp() * 1000),
             "summary": "A group of unlikely heroes sets out to destroy a powerful, evil ring.",
             "summary_embedding": [9.0] * 16,
             "scalar_i8_embedding": [-100] * 16,
@@ -167,6 +170,7 @@ test_documents = [
         "_id": "test_doc",
         "title": "Test Document",
         "published_year": 2023,
+        "published_ts": datetime(2023, 1, 1, tzinfo=timezone.utc),
         "summary": "A test document for async collection operations.",
         "summary_embedding": [0.5] * 16,
     }

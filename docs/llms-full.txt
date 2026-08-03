@@ -1988,6 +1988,7 @@ The following value types are supported:
 | **Integer**           | `int`            | `number`        | -                                                               |
 | **Float**             | `float`          | `number`        | -                                                               |
 | **Boolean**           | `bool`           | `boolean`       | -                                                               |
+| **Timestamp**         | `datetime.datetime` / `datetime.date` / `int` (epoch ms) | `Date` / `number` (epoch ms) | -                    |
 | **String list**       | `list[str]`      | `string[]`      | [`string_list()`](../sdk/topk-py/data#string-list)              |
 | **F32 list**          | `list[float]`    | `number[]`      | [`f32_list()`](../sdk/topk-py/data#f32-list)                    |
 | **F64 list**          | _use helper_     | _use helper_    | [`f64_list()`](../sdk/topk-py/data#f64-list)                    |
@@ -2005,6 +2006,7 @@ The following value types are supported:
 | **Matrix**            | _use helper_     | _use helper_    | [`matrix()`](../sdk/topk-py/data#matrix-2)                      |
 | **Bytes**             | _use helper_     | _use helper_    | [`bytes()`](../sdk/topk-py/data#bytes)                          |
 | **Struct**            | `dict[str, Any]` | `Record<string, any>` | [`struct()`](../sdk/topk-py/data#struct)                 |
+
 
 #### Delete documents
 
@@ -4401,6 +4403,7 @@ TopK is schemaless-by-default. Fields without types can store any value. When ty
 | [`int()`](/sdk/topk-py/schema#int) | Integers, counts, IDs |
 | [`float()`](/sdk/topk-py/schema#float) | Decimal numbers, prices |
 | [`bool()`](/sdk/topk-py/schema#bool) | true/false values |
+| [`timestamp()`](/sdk/topk-py/schema#timestamp) | Timestamps, stored as milliseconds since UNIX epoch |
 | [`list(value_type)`](/sdk/topk-py/schema#list) | Arrays of text, integer, or float elements |
 | [`struct(fields)`](/sdk/topk-py/schema#struct) | Nested objects with named fields |
 | [`f8_vector(dim)`](/sdk/topk-py/schema#f8_vector) | 8-bit float embeddings |
@@ -8052,6 +8055,12 @@ URL: https://docs.topk.io/sdk/topk-py/data
     Instances of the `Struct` class are used to represent nested object values in TopK.
     Usually created using the [`struct()`](#struct) helper.
 
+##### UnknownValue
+
+*Internal*
+
+    Placeholder for a value this version of the SDK cannot represent.
+
 #### Functions
 
 ##### f8_vector()
@@ -8957,6 +8966,39 @@ Compute the maximum of the expression and another value.
 
 ***
 
+###### date\_part()
+
+```python
+date_part(self, part: DatePart) -> LogicalExpr
+```
+
+Extract a part of a timestamp expression as an integer.
+
+        Supported parts:
+
+        - ``"year"`` — calendar year
+        - ``"month"`` — 1-12
+        - ``"week"`` — ISO week number
+        - ``"day"`` — day of month, 1-31
+        - ``"day_of_year"`` — 1-366
+        - ``"day_of_week"`` — 0-6, Monday = 0
+        - ``"hour"`` — 0-23
+        - ``"minute"`` — 0-59
+        - ``"second"`` — 0-59
+        - ``"millisecond"`` — 0-999
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `part` | [`DatePart`](#datepart) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
 ###### and\_()
 
 ```python
@@ -9162,6 +9204,27 @@ Multiply the scoring expression by the provided `boost` value if the `condition`
 | --------- | ---- |
 | `condition` | [`FlexibleExpr`](#flexibleexpr) |
 | `boost` | [`Numeric`](#numeric) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### elapsed()
+
+```python
+elapsed(self, end: FlexibleExpr, interval: Interval) -> LogicalExpr
+```
+
+Compute the number of `interval` units elapsed between the expression and `end`.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `end` | [`FlexibleExpr`](#flexibleexpr) |
+| `interval` | [`Interval`](#interval) |
 
 **Returns**
 
@@ -10088,6 +10151,30 @@ Create a logical MAX expression.
 
 #### Type Aliases
 
+##### DatePart
+
+```python
+DatePart = Literal['year', 'month', 'week', 'day', 'day_of_year', 'day_of_week', 'hour', 'minute', 'second', 'millisecond']
+```
+
+**Type**
+
+Literal['year', 'month', 'week', 'day', 'day_of_year', 'day_of_week', 'hour', 'minute', 'second', 'millisecond']
+
+***
+
+##### Interval
+
+```python
+Interval = Literal['millisecond', 'second', 'minute', 'hour', 'day', 'week']
+```
+
+**Type**
+
+Literal['millisecond', 'second', 'minute', 'hour', 'day', 'week']
+
+***
+
 ##### FlexibleExpr
 
 ```python
@@ -10593,6 +10680,37 @@ Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `bytes` values.
 
     client.collections().create("books", schema={
         "image": bytes()
+    })
+    ```
+
+**Returns**
+
+[`FieldSpec`](#fieldspec)
+
+***
+
+##### timestamp()
+
+```python
+timestamp() -> FieldSpec
+```
+
+Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `timestamp` values.
+
+    Timestamps are stored as milliseconds since UNIX epoch.
+
+    When upserting timestamps, use:
+    - ``datetime.datetime`` — timezone-aware datetime (timezone-naive datetimes are not supported)
+    - ``datetime.date`` — date (padded to midnight UTC)
+    - ``int`` — epoch milliseconds
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import timestamp
+
+    client.collections().create("books", schema={
+        "published_ts": timestamp()
     })
     ```
 
@@ -12574,6 +12692,14 @@ Usually created using data constructors such as [`f32_sparse_vector()`](#f32spar
 Instances of the `Struct` class are used to represent nested object values in TopK.
 Usually created using the [`struct()`](https://docs.topk.io/sdk/topk-js/data#struct-2) helper.
 
+***
+
+##### UnknownValue
+
+**`Internal`**
+
+Placeholder for a value this version of the SDK cannot represent.
+
 #### Type Aliases
 
 ##### MatrixValueType
@@ -12979,6 +13105,7 @@ function literal(value:
   | boolean
   | string[]
   | number[]
+  | Date
   | List): LogicalExpression;
 ```
 
@@ -12988,7 +13115,7 @@ Creates a literal value expression.
 
 | Parameter | Type |
 | ------ | ------ |
-| `value` | \| `string` \| `number` \| `boolean` \| `string`[] \| `number`[] \| [`List`](/sdk/topk-js/Namespace.data#list) |
+| `value` | \| `string` \| `number` \| `boolean` \| `string`[] \| `number`[] \| `Date` \| [`List`](/sdk/topk-js/Namespace.data#list) |
 
 **Returns**
 
@@ -13345,6 +13472,37 @@ Checks if the expression contains another value.
 
 [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
+###### datePart()
+
+```ts
+datePart(part: DatePart): LogicalExpression;
+```
+
+Extracts a part of a timestamp expression as an integer.
+
+Supported parts:
+
+- `"year"` — calendar year
+- `"month"` — 1-12
+- `"week"` — ISO week number
+- `"day"` — day of month, 1-31
+- `"day_of_year"` — 1-366
+- `"day_of_week"` — 0-6, Monday = 0
+- `"hour"` — 0-23
+- `"minute"` — 0-59
+- `"second"` — 0-59
+- `"millisecond"` — 0-999
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `part` | [`DatePart`](/sdk/topk-js/Namespace.query#datepart-1) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
 ###### div()
 
 ```ts
@@ -13360,6 +13518,27 @@ Divides the expression by another value.
 | Parameter | Type |
 | ------ | ------ |
 | `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### elapsed()
+
+```ts
+elapsed(end:
+  | number
+  | LogicalExpression, interval: Interval): LogicalExpression;
+```
+
+Computes the number of `interval` units elapsed between the expression and `end`.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `end` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `interval` | [`Interval`](/sdk/topk-js/Namespace.query#interval) |
 
 **Returns**
 
@@ -14082,6 +14261,32 @@ Options for `should` scoring.
 | <a id="property-token-1"></a> `token` | `string` | The token to match. |
 | <a id="property-weight-3"></a> `weight` | `number` | The weight of the term. |
 
+#### Type Aliases
+
+##### DatePart
+
+```ts
+type DatePart =
+  | "year"
+  | "month"
+  | "week"
+  | "day"
+  | "day_of_year"
+  | "day_of_week"
+  | "hour"
+  | "minute"
+  | "second"
+  | "millisecond";
+```
+
+***
+
+##### Interval
+
+```ts
+type Interval = "millisecond" | "second" | "minute" | "hour" | "day" | "week";
+```
+
 ### topk-js/schema
 
 URL: https://docs.topk.io/sdk/topk-js/Namespace.schema
@@ -14568,6 +14773,36 @@ await client.collections().create("books", {
 
 ***
 
+##### timestamp()
+
+```ts
+function timestamp(): FieldSpec;
+```
+
+Creates a [FieldSpec](https://docs.topk.io/sdk/topk-js/schema#FieldSpec) type for `timestamp` values.
+
+Timestamps are stored as milliseconds since UNIX epoch.
+
+When upserting timestamps, use:
+- `Date` objects
+- `number` — epoch milliseconds
+
+Example:
+
+```javascript
+import { timestamp } from "topk-js/schema";
+
+await client.collections().create("books", {
+  published_ts: timestamp()
+});
+```
+
+**Returns**
+
+[`FieldSpec`](/sdk/topk-js/Namespace.schema#fieldspec)
+
+***
+
 ##### u8SparseVector()
 
 ```ts
@@ -15030,6 +15265,85 @@ WHERE (match('hobbit', title) OR match('dune', title))
 
 Text searches can be combined with each other using `OR`, and with metadata filters using `AND`.
 
+###### Timestamps
+
+Declare a timestamp column with `TIMESTAMP`:
+
+```sql
+CREATE TABLE books (
+    title        TEXT,
+    published_ts TIMESTAMP
+);
+```
+
+Timestamps are stored as milliseconds since UNIX epoch and returned as `int8`.
+
+To write timestamp values, use the `TIMESTAMP '...'` literal:
+
+```sql
+INSERT INTO books (_id, title, published_ts)
+VALUES ('gatsby', 'The Great Gatsby', TIMESTAMP '1925-04-10');
+```
+
+Accepted formats:
+- `'YYYY-MM-DD'` — midnight UTC
+- `'YYYY-MM-DDTHH:MM:SS[.fff]Z'` — UTC, `Z` = UTC
+- `'YYYY-MM-DDTHH:MM:SS[.fff]±HH:MM'` — UTC offset, e.g. `+02:00`
+
+To filter by a timestamp column, compare it against a `TIMESTAMP '...'` literal:
+
+```sql
+SELECT _id, title
+FROM books
+WHERE published_ts < TIMESTAMP '1929-01-01'
+ORDER BY published_ts ASC
+LIMIT 10;
+```
+
+Use `EXTRACT(YEAR FROM ts)` (or `date_part('year', ts)`) to extract parts of a timestamp:
+
+```sql
+-- Books published in July
+SELECT _id, published_ts
+FROM books
+WHERE EXTRACT(MONTH FROM published_ts) = 7
+LIMIT 10;
+```
+
+Supported parts:
+
+| `EXTRACT` | `date_part` | Value |
+|-----------|-------------|-------|
+| `YEAR` | `'year'` | calendar year |
+| `MONTH` | `'month'` | 1-12 |
+| `WEEK` | `'week'` | ISO week number |
+| `DAY` | `'day'` | day of month, 1-31 |
+| `DOY` | `'day_of_year'` | 1-366 |
+| `DOW` | `'day_of_week'` | 0-6, Monday = 0 |
+| `HOUR` | `'hour'` | 0-23 |
+| `MINUTE` | `'minute'` | 0-59 |
+| `SECOND` | `'second'` | 0-59 |
+| `MILLISECOND` | `'millisecond'` | 0-999 |
+
+Use `elapsed(start, end, interval)` to compute the number of interval units between two timestamps:
+
+```sql
+-- Days elapsed between two timestamps
+SELECT _id, elapsed(published_ts, TIMESTAMP '2000-01-01', 'day') AS age_days
+FROM books
+ORDER BY age_days ASC
+LIMIT 10;
+```
+
+Supported intervals:
+
+- `'millisecond'`
+- `'second'`
+- `'minute'`
+- `'hour'`
+- `'day'`
+- `'week'`
+
 ###### Search Functions
 
 TopK extends SQL with search-specific functions for scoring and filtering. Scoring functions compute relevance in `SELECT`; text search predicates filter documents in `WHERE`.
@@ -15299,6 +15613,7 @@ CREATE TABLE [IF NOT EXISTS] <table> (
 | `FLOAT` / `REAL` / `DOUBLE PRECISION` | `float` |
 | `TEXT` / `VARCHAR` | `text` |
 | `BYTEA` | `bytes` |
+| `TIMESTAMP` | `timestamp` |
 | `TEXT[]` | `list<string>` |
 | `INTEGER[]` | `list<integer>` |
 | `FLOAT[]` | `list<float>` |
@@ -15472,6 +15787,10 @@ TopK speaks the PostgreSQL wire protocol but is purpose-built for search — not
 **`COUNT(*)` without `GROUP BY` is a standalone aggregate** — it returns a document count and cannot be combined with other columns in the same `SELECT` list. Inside a `GROUP BY` query, `COUNT(*)` behaves as an ordinary per-group aggregate and can be combined with other keys/aggregates — see [GROUP BY](#group-by).
 
 **`GROUP BY` keys must be identifiers** — group by a real column or a SELECT-list alias for a computed expression; you can't group by an inline expression directly. `GROUP BY ALL` and `ROLLUP`/`CUBE`/`GROUPING SETS` are not supported.
+
+**No implicit string-to-timestamp coercion** — `WHERE published_ts < '1929-01-01'` compares against a string and silently matches nothing. Use a typed literal instead: `WHERE published_ts < TIMESTAMP '1929-01-01'`.
+
+**Timestamps require a timezone** — datetime literals without a timezone (e.g. `TIMESTAMP '1925-04-10 00:00:00'`) are rejected. Use an RFC 3339 offset (`TIMESTAMP '1925-04-10T00:00:00Z'`) or a date-only literal (`TIMESTAMP '1925-04-10'`, midnight UTC). `TIMESTAMPTZ` is not supported.
 
 **No whole-value equality on complex types** — `tags = ARRAY['a']` is not supported. Use `contains(tags, 'a')` to check whether a single value exists in a list field — `contains` checks for one value at a time, not a list of values.
 

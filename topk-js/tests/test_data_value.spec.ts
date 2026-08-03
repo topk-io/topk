@@ -206,8 +206,8 @@ describe("struct (data)", () => {
   });
 
   test("rejects nested non-plain object", () => {
-    expect(() => struct({ meta: new Date() as any })).toThrow(
-      "Unsupported object type 'Date'"
+    expect(() => struct({ meta: new Map() as any })).toThrow(
+      "Unsupported object type 'Map'"
     );
   });
 });

@@ -12,9 +12,8 @@ documentation = "https://docs.topk.io"
 crate-type = ["cdylib"]
 
 [dependencies]
-# Default enable napi4 feature, see https://nodejs.org/api/n-api.html#node-api-version-matrix
 napi = { version = "3.8.4", default-features = false, features = [
-    "napi4",
+    "napi5",
     "tokio_rt",
     "serde-json",
 ] }

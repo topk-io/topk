@@ -24,6 +24,7 @@ pub enum BinaryOperator {
     Coalesce,
     Min,
     Max,
+    DatePart,
 }
 
 impl Into<topk_rs::proto::v1::data::logical_expr::binary_op::Op> for BinaryOperator {
@@ -59,6 +60,9 @@ impl Into<topk_rs::proto::v1::data::logical_expr::binary_op::Op> for BinaryOpera
             }
             BinaryOperator::Min => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Min,
             BinaryOperator::Max => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Max,
+            BinaryOperator::DatePart => {
+                topk_rs::proto::v1::data::logical_expr::binary_op::Op::DatePart
+            }
         }
     }
 }

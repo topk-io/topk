@@ -13,7 +13,7 @@ pub use binary_op::BinaryOperator;
 pub use nary_op::NaryOp;
 pub use numeric::Numeric;
 pub use ordered::Ordered;
-pub use ternary_op::TernaryOperator;
+pub use ternary_op::{DatePart, Interval, TernaryOperator};
 pub use unary_op::UnaryOperator;
 
 use crate::{
@@ -47,7 +47,6 @@ impl FromNapiValue for LogicalExpression {
         Ok(expr.clone())
     }
 }
-
 
 impl LogicalExpression {
     pub(crate) fn null() -> Self {
@@ -325,6 +324,29 @@ impl LogicalExpression {
         Self::binary(BinaryOperator::Max, self.clone(), other.into())
     }
 
+    /// Extracts a part of a timestamp expression as an integer.
+    ///
+    /// Supported parts:
+    ///
+    /// - `"year"` — calendar year
+    /// - `"month"` — 1-12
+    /// - `"week"` — ISO week number
+    /// - `"day"` — day of month, 1-31
+    /// - `"day_of_year"` — 1-366
+    /// - `"day_of_week"` — 0-6, Monday = 0
+    /// - `"hour"` — 0-23
+    /// - `"minute"` — 0-59
+    /// - `"second"` — 0-59
+    /// - `"millisecond"` — 0-999
+    #[napi]
+    pub fn date_part(&self, part: DatePart) -> Self {
+        Self::binary(
+            BinaryOperator::DatePart,
+            self.clone(),
+            LogicalExpression::literal(part.to_string()),
+        )
+    }
+
     /// Computes the logical AND of the expression and another expression.
     #[napi]
     pub fn and(&self, #[napi(ts_arg_type = "LogicalExpression | boolean")] other: Boolish) -> Self {
@@ -431,6 +453,21 @@ impl LogicalExpression {
             comparable::Comparable::Expr(one_expr),
         );
         Self::binary(BinaryOperator::Mul, self.clone(), choose_expr)
+    }
+
+    /// Computes the number of `interval` units elapsed between the expression and `end`.
+    #[napi]
+    pub fn elapsed(
+        &self,
+        #[napi(ts_arg_type = "LogicalExpression | number")] end: Numeric,
+        interval: Interval,
+    ) -> Self {
+        Self::ternary(
+            TernaryOperator::Elapsed,
+            self.clone(),
+            end.into(),
+            LogicalExpression::literal(interval.to_string()),
+        )
     }
 
     /// Check if the expression matches the provided regexp pattern.
