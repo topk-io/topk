@@ -261,7 +261,7 @@ def timestamp() -> FieldSpec:
     Timestamps are stored as milliseconds since UNIX epoch.
 
     When upserting timestamps, use:
-    - ``datetime.datetime`` — datetime with timezone (timezone-naive datetime is interpreted as UTC)
+    - ``datetime.datetime`` — timezone-aware datetime (timezone-naive datetimes are not supported)
     - ``datetime.date`` — date (padded to midnight UTC)
     - ``int`` — epoch milliseconds
 

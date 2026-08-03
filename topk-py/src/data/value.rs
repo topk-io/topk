@@ -4,6 +4,7 @@ use pyo3::{
     prelude::*,
     types::{
         PyBool, PyBytes, PyDate, PyDateTime, PyDict, PyFloat, PyInt, PyList, PyNone, PyString,
+        PyTzInfoAccess,
     },
     IntoPyObjectExt,
 };
@@ -81,20 +82,22 @@ impl FromPyObject<'_, '_> for Value {
         } else if let Ok(v) = obj.cast::<SparseVector>() {
             Ok(Value::SparseVector(v.get().clone()))
         } else if let Ok(dt) = obj.cast::<PyDateTime>() {
-            // Timestamps are epoch millis on the wire; naive datetimes are interpreted as UTC
+            // Timestamps are epoch millis on the wire
+            if dt.get_tzinfo().is_none() {
+                return Err(InvalidArgumentError::new_err(
+                    "timezone-naive datetime is not supported, pass a timezone-aware datetime",
+                ));
+            }
             match dt.extract::<chrono::DateTime<chrono::FixedOffset>>() {
                 Ok(aware) => Ok(Value::Int(aware.timestamp_millis())),
-                Err(_) => match dt.extract::<chrono::NaiveDateTime>() {
-                    Ok(naive) => Ok(Value::Int(naive.and_utc().timestamp_millis())),
-                    // aware datetime with a non-fixed tzinfo (e.g. zoneinfo.ZoneInfo):
-                    // normalize to UTC in Python, then extract as fixed-offset
-                    Err(_) => {
-                        let utc = pyo3::types::PyTzInfo::utc(dt.py())?;
-                        let aware: chrono::DateTime<chrono::FixedOffset> =
-                            dt.call_method1("astimezone", (utc,))?.extract()?;
-                        Ok(Value::Int(aware.timestamp_millis()))
-                    }
-                },
+                // aware datetime with a non-fixed tzinfo (e.g. zoneinfo.ZoneInfo):
+                // normalize to UTC in Python, then extract as fixed-offset
+                Err(_) => {
+                    let utc = pyo3::types::PyTzInfo::utc(dt.py())?;
+                    let aware: chrono::DateTime<chrono::FixedOffset> =
+                        dt.call_method1("astimezone", (utc,))?.extract()?;
+                    Ok(Value::Int(aware.timestamp_millis()))
+                }
             }
         } else if let Ok(d) = obj.cast::<PyDate>() {
             // Dates are padded to midnight UTC

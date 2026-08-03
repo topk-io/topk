@@ -3,6 +3,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from topk_sdk import error
 from topk_sdk.query import agg, field, filter, group_by, literal, select
 
 from . import ProjectContext
@@ -54,26 +55,23 @@ def test_query_date_part_lt_literal(ctx: ProjectContext):
     assert doc_ids(result) == {"gatsby", "pride", "alchemist"}
 
 
-def test_naive_datetime_is_interpreted_as_utc(ctx: ProjectContext):
+def test_naive_datetime_is_rejected(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
     c = ctx.client.collection(collection.name)
 
-    c.upsert(
-        [
-            {
-                "_id": "naive",
-                "title": "Naive",
-                "published_year": 2023,
-                # naive datetime - must be interpreted as UTC, not host local time
-                "published_ts": datetime(2023, 1, 1),
-                "summary": "A test document.",
-                "summary_embedding": [1.0] * 16,
-            }
-        ]
-    )
-
-    docs = c.get(["naive"])
-    assert docs["naive"]["published_ts"] == 1672531200000  # 2023-01-01T00:00:00Z
+    with pytest.raises(error.InvalidArgumentError, match="timezone-naive"):
+        c.upsert(
+            [
+                {
+                    "_id": "naive",
+                    "title": "Naive",
+                    "published_year": 2023,
+                    "published_ts": datetime(2023, 1, 1), # naive datetime
+                    "summary": "A test document.",
+                    "summary_embedding": [1.0] * 16,
+                }
+            ]
+        )
 
 
 def test_fixed_offset_datetime_uses_utc_offset():
