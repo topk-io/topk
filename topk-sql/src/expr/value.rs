@@ -1,4 +1,4 @@
-use sqlparser::ast::{DataType, Expr as SqlExpr, UnaryOperator, Value as SqlValue};
+use sqlparser::ast::{DataType, Expr as SqlExpr, TimezoneInfo, UnaryOperator, Value as SqlValue};
 
 use topk_rs::proto::v1::data::Value;
 use topk_rs::proto::v1::data::value::Value::{self as V};
@@ -6,7 +6,6 @@ use topk_rs::proto::v1::data::value::Value::{self as V};
 use super::typed::ElemType;
 use crate::{Error, FromSql, sql_unsupported};
 
-const DATETIME_FORMATS: &[&str] = &["%Y-%m-%d %H:%M:%S%.f", "%Y-%m-%dT%H:%M:%S%.f"];
 const DATE_FORMAT: &str = "%Y-%m-%d";
 
 impl FromSql<SqlExpr> for Value {
@@ -42,12 +41,13 @@ impl FromSql<SqlExpr> for Value {
             SqlExpr::Array(arr) => Value::from_sql(arr.elem),
             SqlExpr::Function(func) => Value::from_sql(func),
             SqlExpr::TypedString(ts) => match ts.data_type {
-                DataType::Timestamp(_, _) => {
+                DataType::Timestamp(_, TimezoneInfo::None) => {
                     let s = ts.value.into_string().ok_or_else(|| {
                         Error::InvalidLiteral("TIMESTAMP literal must be a string".to_string())
                     })?;
                     parse_timestamp(&s)
                 }
+                DataType::Timestamp(_, _) => sql_unsupported!("TIMESTAMPTZ"),
                 other => sql_unsupported!("typed string literal: {other:?}"),
             },
             SqlExpr::Cast {
@@ -66,7 +66,8 @@ impl FromSql<SqlExpr> for Value {
                 };
                 let type_name = match data_type {
                     DataType::Custom(ref name, _) => name.to_string().to_ascii_lowercase(),
-                    DataType::Timestamp(_, _) => return parse_timestamp(&s),
+                    DataType::Timestamp(_, TimezoneInfo::None) => return parse_timestamp(&s),
+                    DataType::Timestamp(_, _) => sql_unsupported!("TIMESTAMPTZ"),
                     other => return Err(Error::Unsupported(format!("cast to {other:?}"))),
                 };
                 parse_cast(&type_name, &s)
@@ -148,15 +149,12 @@ fn parse_timestamp(s: &str) -> Result<Value, Error> {
     if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(s) {
         return Ok(Value::timestamp(dt));
     }
-    for fmt in DATETIME_FORMATS {
-        if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(s, fmt) {
-            return Ok(Value::timestamp(dt.and_utc()));
-        }
-    }
     if let Ok(d) = chrono::NaiveDate::parse_from_str(s, DATE_FORMAT) {
         return Ok(Value::timestamp(d.and_time(chrono::NaiveTime::MIN).and_utc()));
     }
-    Err(Error::InvalidLiteral(format!("timestamp `{s}`")))
+    Err(Error::InvalidLiteral(format!(
+        "timestamp `{s}` (expected RFC 3339 with timezone offset)"
+    )))
 }
 
 fn parse_cast(type_name: &str, s: &str) -> Result<Value, Error> {
@@ -256,13 +254,18 @@ mod tests {
 
     #[rstest]
     #[case::date_only("2023-01-01")]
-    #[case::space_separator("2023-01-01 00:00:00")]
-    #[case::t_separator("2023-01-01T00:00:00")]
     #[case::rfc3339_utc("2023-01-01T00:00:00.000Z")]
     #[case::rfc3339_positive_offset("2023-01-01T02:00:00+02:00")]
     #[case::rfc3339_negative_offset("2022-12-31T19:00:00-05:00")]
     fn parse_timestamp_formats(#[case] s: &str) {
         let expected = parse_timestamp("2023-01-01T00:00:00Z").unwrap();
         assert_eq!(parse_timestamp(s).unwrap(), expected);
+    }
+
+    #[rstest]
+    #[case::space_separator("2023-01-01 00:00:00")]
+    #[case::t_separator("2023-01-01T00:00:00")]
+    fn parse_timestamp_rejects_tz_less(#[case] s: &str) {
+        assert!(parse_timestamp(s).is_err());
     }
 }

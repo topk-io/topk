@@ -17,12 +17,12 @@ use common::{BooksContext, Scope, assert_rows_eq_unordered, ids};
     "SELECT _id FROM {{table}} WHERE published_ts < TIMESTAMP '1929-01-01'",
     ids!["pride", "moby", "gatsby"],
 )]
-#[case::timestamp_literal_with_time(
-    "SELECT _id FROM {{table}} WHERE published_ts < TIMESTAMP '1929-01-01 00:00:00'",
+#[case::timestamp_literal_utc(
+    "SELECT _id FROM {{table}} WHERE published_ts < TIMESTAMP '1929-01-01T00:00:00Z'",
     ids!["pride", "moby", "gatsby"],
 )]
-#[case::timestamp_literal_isoformat(
-    "SELECT _id FROM {{table}} WHERE published_ts < TIMESTAMP '1929-01-01T00:00:00'",
+#[case::timestamp_literal_with_offset(
+    "SELECT _id FROM {{table}} WHERE published_ts < TIMESTAMP '1929-01-01T02:00:00+02:00'",
     ids!["pride", "moby", "gatsby"],
 )]
 #[case::extract_dow(
@@ -47,6 +47,31 @@ async fn timestamp_filter(#[case] query: &str, #[case] expected: HashSet<&str>) 
         .await
         .unwrap();
     assert_eq!(ids(&rows), expected);
+}
+
+#[rstest]
+#[case::tz_less_datetime(
+    "SELECT _id FROM books WHERE published_ts < TIMESTAMP '1929-01-01 00:00:00'",
+    "expected RFC 3339 with timezone offset",
+)]
+#[case::tz_less_datetime_isoformat(
+    "SELECT _id FROM books WHERE published_ts < TIMESTAMP '1929-01-01T00:00:00'",
+    "expected RFC 3339 with timezone offset",
+)]
+#[case::timestamptz_literal(
+    "SELECT _id FROM books WHERE published_ts < TIMESTAMPTZ '1929-01-01T00:00:00Z'",
+    "TIMESTAMPTZ",
+)]
+#[case::timestamptz_column(
+    "CREATE TABLE books (published_ts TIMESTAMPTZ)",
+    "TIMESTAMPTZ",
+)]
+fn rejected_before_execution(#[case] sql: &str, #[case] expected_error: &str) {
+    let err = topk_sql::convert_sql(topk_sql::parse_sql(sql).unwrap()).unwrap_err();
+    assert!(
+        err.to_string().contains(expected_error),
+        "expected error containing `{expected_error}`, got: {err}"
+    );
 }
 
 #[rstest]

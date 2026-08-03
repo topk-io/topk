@@ -15267,7 +15267,7 @@ Text searches can be combined with each other using `OR`, and with metadata filt
 
 ###### Timestamps
 
-Declare a timestamp column with `TIMESTAMP`/`TIMESTAMPTZ`:
+Declare a timestamp column with `TIMESTAMP`:
 
 ```sql
 CREATE TABLE books (
@@ -15287,8 +15287,6 @@ VALUES ('gatsby', 'The Great Gatsby', TIMESTAMP '1925-04-10');
 
 Accepted formats:
 - `'YYYY-MM-DD'` — midnight UTC
-- `'YYYY-MM-DD HH:MM:SS[.fff]'` — UTC
-- `'YYYY-MM-DDTHH:MM:SS[.fff]'` — UTC, `T` date/time separator
 - `'YYYY-MM-DDTHH:MM:SS[.fff]Z'` — UTC, `Z` = UTC
 - `'YYYY-MM-DDTHH:MM:SS[.fff]±HH:MM'` — UTC offset, e.g. `+02:00`
 
@@ -15615,7 +15613,7 @@ CREATE TABLE [IF NOT EXISTS] <table> (
 | `FLOAT` / `REAL` / `DOUBLE PRECISION` | `float` |
 | `TEXT` / `VARCHAR` | `text` |
 | `BYTEA` | `bytes` |
-| `TIMESTAMP` / `TIMESTAMPTZ` | `timestamp` |
+| `TIMESTAMP` | `timestamp` |
 | `TEXT[]` | `list<string>` |
 | `INTEGER[]` | `list<integer>` |
 | `FLOAT[]` | `list<float>` |
@@ -15791,6 +15789,8 @@ TopK speaks the PostgreSQL wire protocol but is purpose-built for search — not
 **`GROUP BY` keys must be identifiers** — group by a real column or a SELECT-list alias for a computed expression; you can't group by an inline expression directly. `GROUP BY ALL` and `ROLLUP`/`CUBE`/`GROUPING SETS` are not supported.
 
 **No implicit string-to-timestamp coercion** — `WHERE published_ts < '1929-01-01'` compares against a string and silently matches nothing. Use a typed literal instead: `WHERE published_ts < TIMESTAMP '1929-01-01'`.
+
+**Timestamps require a timezone** — datetime literals without a timezone (e.g. `TIMESTAMP '1925-04-10 00:00:00'`) are rejected. Use an RFC 3339 offset (`TIMESTAMP '1925-04-10T00:00:00Z'`) or a date-only literal (`TIMESTAMP '1925-04-10'`, midnight UTC). `TIMESTAMPTZ` is not supported.
 
 **No whole-value equality on complex types** — `tags = ARRAY['a']` is not supported. Use `contains(tags, 'a')` to check whether a single value exists in a list field — `contains` checks for one value at a time, not a list of values.
 
