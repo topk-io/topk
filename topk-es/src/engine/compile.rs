@@ -156,7 +156,7 @@ fn lower(
     }
     .limit(limit);
 
-    let query = match (req.source.enabled(), req.sort.as_ref()) {
+    let query = match (req.source().enabled(), req.sort.as_ref()) {
         (true, _) => query.fetch(["*"]),
         (false, Some(sort)) => query.fetch(
             sort.iter()

@@ -263,6 +263,33 @@ impl TestScope {
         to_json(res).await
     }
 
+    /// `_search` with `_source*` on the query string.
+    pub async fn search_with_source(
+        &self,
+        body: Value,
+        source: Option<&str>,
+        includes: Option<&[&str]>,
+        excludes: Option<&[&str]>,
+    ) -> TestResult<SearchResponse> {
+        let index = [self.name.as_str()];
+        let mut req = self
+            .client
+            .es()
+            .search(SearchParts::Index(&index))
+            .body(body);
+        let source = source.map(|s| [s]);
+        if let Some(source) = source.as_ref() {
+            req = req._source(source);
+        }
+        if let Some(includes) = includes {
+            req = req._source_includes(includes);
+        }
+        if let Some(excludes) = excludes {
+            req = req._source_excludes(excludes);
+        }
+        into_test_result(req.send().await.expect("search")).await.map(SearchResponse)
+    }
+
     pub async fn search(&self, body: Value) -> TestResult<SearchResponse> {
         let dfs = std::env::var("ES_DFS").is_ok() && body.get("knn").is_none();
 

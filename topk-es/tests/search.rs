@@ -1433,3 +1433,70 @@ async fn test_search_source_nested_field_paths(
 
     assert_eq!(body.source("1"), &expected, "{body}");
 }
+
+#[rstest_ctx(BooksContext)]
+#[case::includes(
+    None,
+    Some(&["title", "genre"][..]),
+    None,
+    Some(json!({ "title": "The Hobbit", "genre": "fantasy" }))
+)]
+#[case::source_csv(Some("title"), None, None, Some(json!({ "title": "The Hobbit" })))]
+#[case::source_false(Some("false"), None, None, None)]
+#[case::excludes(
+    None,
+    None,
+    Some(&["embedding", "token_embeddings", "tags"][..]),
+    Some(json!({
+        "title": "The Hobbit",
+        "author": "Tolkien",
+        "published_year": 1937,
+        "rating": 4.3,
+        "genre": "fantasy",
+        "in_print": true,
+    }))
+)]
+async fn test_source_query_params(
+    books: &BooksContext,
+    #[case] source: Option<&str>,
+    #[case] includes: Option<&[&str]>,
+    #[case] excludes: Option<&[&str]>,
+    #[case] expected: Option<Value>,
+) {
+    let body = books
+        .search_with_source(
+            json!({ "query": { "term": { "genre": "fantasy" } }, "size": 10 }),
+            source,
+            includes,
+            excludes,
+        )
+        .await
+        .expect("search should succeed");
+
+    match expected {
+        Some(expected) => assert_eq!(body.source("hobbit"), &expected, "{body}"),
+        None => assert!(body.all_source_omitted(), "{body}"),
+    }
+}
+
+#[rstest_ctx(BooksContext)]
+#[case::query_wins(json!(["genre"]), Some(&["title"][..]), json!({ "title": "The Hobbit" }))]
+#[case::body_only(json!(["genre"]), None, json!({ "genre": "fantasy" }))]
+async fn test_source_precedence(
+    books: &BooksContext,
+    #[case] body_source: Value,
+    #[case] includes: Option<&[&str]>,
+    #[case] expected: Value,
+) {
+    let mut body = json!({ "query": { "term": { "genre": "fantasy" } }, "size": 10 });
+    if !body_source.is_null() {
+        body["_source"] = body_source;
+    }
+
+    let res = books
+        .search_with_source(body, None, includes, None)
+        .await
+        .expect("search should succeed");
+
+    assert_eq!(res.source("hobbit"), &expected, "{res}");
+}
