@@ -284,6 +284,9 @@ SETUP_ENV:
     ARG --required region
     ENV TOPK_REGION=$region
     ENV TOPK_HOST=$host
+    # ponytail: temp workaround for release-0-14-0 — sandbox reset panics on
+    # timestamp collections (old topk-js in utils, see #530). Remove after release.
+    ENV TOPK_SANDBOX_CONTINUE_ON_ERROR=true
 
     # setup dev environment
     IF [ "$region" = "emulator" ]
