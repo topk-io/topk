@@ -1,6 +1,6 @@
 {
   "name": "topk-js",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "napi": {
     "binaryName": "topk-js",
     "dtsHeaderFile": "dts-header.d.ts",
