@@ -103,3 +103,32 @@ async fn test_msearch_root_per_header_index(scope: &TwoIndices) {
     );
     assert_eq!(responses[1]["hits"]["hits"][0]["_source"]["v"], "a");
 }
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_rejects_source_params(scope: &TestScope) {
+    scope.create().await;
+
+    // The typed client has no builder for these on _msearch -- Elasticsearch answers 400
+    // for all three -- so they go on by hand.
+    for param in ["_source", "_source_includes", "_source_excludes"] {
+        let res = scope
+            .client
+            .es()
+            .transport()
+            .send::<&str, [(&str, &str); 1]>(
+                elasticsearch::http::Method::Post,
+                &format!("/{}/_msearch", scope.name),
+                elasticsearch::http::headers::HeaderMap::new(),
+                Some(&[(param, "title")]),
+                Some("{}\n{}\n"),
+                None,
+            )
+            .await
+            .expect("msearch");
+
+        assert_eq!(res.status_code(), 400, "{param} should be rejected");
+        let body: serde_json::Value = res.json().await.expect("error body");
+        assert_eq!(body["error"]["type"], "illegal_argument_exception", "{body}");
+    }
+}

@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 use std::ops::Deref;
 
+use async_trait::async_trait;
+use axum::extract::{FromRequest, FromRequestParts, Request};
+
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_with::{serde_as, OneOrMany};
 use topk_rs::json::Value as JsonValue;
@@ -9,7 +12,8 @@ use topk_rs::query::SortOrder as TopkSortOrder;
 
 use super::aggs::{AggClause, AggResult};
 use super::query::{FieldClause, FieldName, GateQuery, Query};
-use super::source::SourceFilter;
+use super::body::Body;
+use super::source::{SourceFilter, SourceQuery};
 use super::{DocId, IndexName, Shards, Source};
 use crate::vector::ensure_finite;
 use crate::Error;
@@ -49,11 +53,39 @@ pub struct SearchRequest {
     pub aggs: HashMap<String, AggClause>,
 
     #[serde(default, rename = "_source")]
-    pub source: SourceFilter,
+    source: Option<SourceFilter>,
 }
 
 fn default_size() -> u64 {
     10
+}
+
+impl SearchRequest {
+    /// The effective source filter; absent means everything.
+    pub fn source(&self) -> SourceFilter {
+        self.source.clone().unwrap_or_default()
+    }
+}
+
+/// A `_search` body with `_source*` query params already applied.
+///
+/// They outrank the body here, unlike `_mget` where the per-doc `_source` wins.
+pub struct SearchBody(pub SearchRequest);
+
+#[async_trait]
+impl<S: Send + Sync> FromRequest<S> for SearchBody {
+    type Rejection = Error;
+
+    async fn from_request(req: Request, state: &S) -> Result<Self, Self::Rejection> {
+        let (mut parts, body) = req.into_parts();
+        let SourceQuery(source) = SourceQuery::from_request_parts(&mut parts, state).await?;
+
+        let req = Request::from_parts(parts, body);
+        let Body(mut search) = Body::<SearchRequest>::from_request(req, state).await?;
+        search.source = source.or(search.source.take());
+
+        Ok(SearchBody(search))
+    }
 }
 
 impl<'de> Deserialize<'de> for SearchRequest {
