@@ -1,6 +1,7 @@
 """Parser module for extracting information from Python AST nodes."""
 
 import ast
+import inspect
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
@@ -195,7 +196,7 @@ def extract_docstring(node) -> Optional[str]:
         and isinstance(node.body[0].value, ast.Constant)
         and isinstance(node.body[0].value.value, str)
     ):
-        return node.body[0].value.value.strip()
+        return inspect.cleandoc(node.body[0].value.value)
     return None
 
 
