@@ -225,26 +225,29 @@ impl TryFrom<SqlQuery> for Statement {
         let sort = query
             .order_by
             .map(|order_by| match order_by.kind {
-                OrderByKind::Expressions(ref exprs) if exprs.is_empty() => {
-                    Result::<_, Error>::Ok(None)
-                }
-                OrderByKind::Expressions(mut exprs) if exprs.len() == 1 => {
-                    let entry = exprs.pop().unwrap();
+                OrderByKind::Expressions(exprs) => {
+                    let mut sort_exprs = Vec::with_capacity(exprs.len());
+                    for entry in exprs {
+                        sql_unsupported!(
+                            entry.options.nulls_first.is_some(),
+                            "ORDER BY … NULLS FIRST/LAST"
+                        );
+                        sql_unsupported!(
+                            matches!(&entry.expr, SqlExpr::Value(v) if matches!(v.value, SqlValue::Number(_, _))),
+                            "ORDER BY with ordinal position is not supported"
+                        );
 
-                    sql_unsupported!(
-                        entry.options.nulls_first.is_some(),
-                        "ORDER BY … NULLS FIRST/LAST"
-                    );
-                    sql_unsupported!(
-                        matches!(&entry.expr, SqlExpr::Value(v) if matches!(v.value, SqlValue::Number(_, _))),
-                        "ORDER BY with ordinal position is not supported"
-                    );
+                        let order = if entry.options.asc.unwrap_or(true) {
+                            SortOrder::Asc
+                        } else {
+                            SortOrder::Desc
+                        };
 
-                    let converted = LogicalExpr::from_sql(entry.expr)?;
-                    let asc = entry.options.asc.unwrap_or(true);
-                    Ok(Some((converted, asc)))
+                        sort_exprs.push((LogicalExpr::from_sql(entry.expr)?, order));
+                    }
+                    Result::<_, Error>::Ok((!sort_exprs.is_empty()).then_some(sort_exprs))
                 }
-                _ => sql_unsupported!("ORDER BY with multiple keys is not supported"),
+                OrderByKind::All(_) => sql_unsupported!("ORDER BY ALL"),
             })
             .transpose()?
             .flatten();
@@ -274,11 +277,8 @@ impl TryFrom<SqlQuery> for Statement {
         };
 
         match (sort, limit) {
-            (Some((expr, asc)), Some(k)) => {
-                stages.push(Stage::sort((
-                    expr,
-                    asc.then_some(SortOrder::Asc).unwrap_or(SortOrder::Desc),
-                )));
+            (Some(exprs), Some(k)) => {
+                stages.push(Stage::sort(exprs));
                 stages.push(Stage::limit(k));
             }
             (Some(_), None) => sql_invalid!("ORDER BY without LIMIT is not supported"),

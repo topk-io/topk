@@ -102,7 +102,7 @@ def test_query_text_should_does_not_filter(ctx: ProjectContext):
     result = ctx.client.collection(collection.name).query(
         select(bm25=fn.bm25_score())
         .filter(should("love", field="summary"))
-        .sort(field("bm25"), False)
+        .sort([(field("bm25"), "desc")])
         .limit(100)
     )
 
@@ -121,7 +121,7 @@ def test_query_text_should_boosts_bm25_score(ctx: ProjectContext):
         result = ctx.client.collection(collection.name).query(
             select(bm25=fn.bm25_score())
             .filter(match("love", field="summary") & should(boost, field="summary"))
-            .sort(field("bm25"), False)
+            .sort([(field("bm25"), "desc")])
             .limit(100)
         )
 

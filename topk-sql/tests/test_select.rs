@@ -561,6 +561,10 @@ fn group_by_without_aggregate_rejected_before_execution() {
     "SELECT _id FROM {{table}} ORDER BY author ASC LIMIT 3",
     vec!["pride", "alchemist", "gatsby"],
 )]
+#[case::multiple_keys(
+    "SELECT _id FROM {{table}} ORDER BY rating DESC, published_year ASC LIMIT 5",
+    vec!["lotr", "harry", "pride", "hobbit", "mockingbird"],
+)]
 #[tokio::test]
 async fn order_by(#[case] query: &str, #[case] expected: Vec<&str>) {
     let rows = BooksContext::with_scope(async |ctx| ctx.sql(query).await)
@@ -568,6 +572,33 @@ async fn order_by(#[case] query: &str, #[case] expected: Vec<&str>) {
         .unwrap();
     let actual = rows.iter().map(|row| row.id().unwrap()).collect::<Vec<_>>();
     assert_eq!(actual, expected);
+}
+
+#[test]
+fn order_by_multiple_keys_lowers_to_multi_expr_sort() {
+    let sql = "SELECT _id FROM books ORDER BY rating DESC, published_year ASC LIMIT 5";
+    let mut stmts = topk_sql::convert_sql(topk_sql::parse_sql(sql).unwrap()).unwrap();
+    let (stmt, _) = stmts.pop().expect("expected one statement");
+
+    let topk_sql::Statement::Select { query, .. } = stmt else {
+        panic!("expected a select statement");
+    };
+
+    let sort = query
+        .stages
+        .iter()
+        .find_map(|s| match &s.stage {
+            Some(stage::Stage::Sort(sort)) => Some(sort),
+            _ => None,
+        })
+        .expect("expected a sort stage");
+
+    assert_eq!(sort.exprs.len(), 2);
+    assert_eq!(
+        sort.exprs[0].order,
+        stage::sort_stage::SortOrder::Desc as i32
+    );
+    assert_eq!(sort.exprs[1].order, stage::sort_stage::SortOrder::Asc as i32);
 }
 
 #[rstest]
@@ -1054,10 +1085,6 @@ async fn semantic_similarity_search() {
 #[case::with_cte(
     "WITH cte AS (SELECT _id FROM {{table}}) SELECT _id FROM cte LIMIT 5",
     "Unsupported: WITH (common table expressions)"
-)]
-#[case::multi_order_by(
-    "SELECT _id FROM {{table}} ORDER BY published_year ASC, rating DESC LIMIT 5",
-    "Unsupported: ORDER BY with multiple keys is not supported"
 )]
 #[case::nulls_first(
     "SELECT _id FROM {{table}} ORDER BY published_year NULLS FIRST LIMIT 5",

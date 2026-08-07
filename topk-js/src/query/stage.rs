@@ -1,6 +1,6 @@
 use crate::expr::{
     aggregate::AggregateExpression, filter::FilterExpression, logical::LogicalExpression,
-    select::SelectExpression,
+    select::SelectExpression, sort::SortExpression,
 };
 use std::collections::HashMap;
 
@@ -19,8 +19,7 @@ pub enum Stage {
         offset: i32,
     },
     Sort {
-        expr: LogicalExpression,
-        asc: bool,
+        exprs: Vec<SortExpression>,
     },
     Count,
     GroupBy {
@@ -35,14 +34,12 @@ impl From<Stage> for topk_rs::proto::v1::data::Stage {
             Stage::Select { exprs } => topk_rs::proto::v1::data::Stage::select(exprs),
             Stage::Filter { expr } => topk_rs::proto::v1::data::Stage::filter(expr),
             Stage::Limit { k } => topk_rs::proto::v1::data::Stage::limit(k.try_into().unwrap()),
-            Stage::Sort { expr, asc } => topk_rs::proto::v1::data::Stage::sort((
-                expr.into(),
-                if asc {
-                    topk_rs::proto::v1::data::stage::sort_stage::SortOrder::Asc
-                } else {
-                    topk_rs::proto::v1::data::stage::sort_stage::SortOrder::Desc
-                },
-            )),
+            Stage::Sort { exprs } => topk_rs::proto::v1::data::Stage::sort(
+                exprs
+                    .into_iter()
+                    .map(|se| (se.expr.into(), se.order.into()))
+                    .collect::<Vec<_>>(),
+            ),
             Stage::Offset { offset } => {
                 topk_rs::proto::v1::data::Stage::offset(offset.try_into().unwrap())
             }

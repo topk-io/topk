@@ -1792,6 +1792,28 @@ LIMIT 100;
 
 </CodeGroup>
 
+To sort by more than one key, pass a list of sort expressions instead of a single expression. They are applied in order, each breaking ties left by the previous ones:
+
+<CodeGroup>
+
+```python Python
+.sort([(field("year"), "asc"), (field("rating"), "desc")]).limit(100)
+```
+
+```js Javascript
+.sort([
+  { expr: field("year"), order: "asc" },
+  { expr: field("rating"), order: "desc" },
+]).limit(100)
+```
+
+```sql SQL
+ORDER BY published_year ASC, rating DESC
+LIMIT 100
+```
+
+</CodeGroup>
+
 ### count
 
 Use the `count()` function to get the total number of documents matching the query. If there are no filters then `count()` will return the total number of documents in the collection.

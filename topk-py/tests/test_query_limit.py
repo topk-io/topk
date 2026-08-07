@@ -95,7 +95,7 @@ def test_query_sort_limit_offset(ctx: ProjectContext):
 
     result = ctx.client.collection(collection.name).query(
         select(_id=field("_id"), published_year=field("published_year"))
-        .sort(field("published_year"), True)
+        .sort(field("published_year"))
         .limit(4)
         .offset(3)
     )
@@ -116,15 +116,15 @@ def test_query_invalid_collectors(ctx: ProjectContext):
         # limit + count - multiple collectors
         select(title=field("title")).limit(100).count(),
         # no collector
-        select(title=field("title")).sort(field("published_year"), True),
+        select(title=field("title")).sort(field("published_year")),
         # multiple sorts
         select(title=field("title"))
-        .sort(field("published_year"), True)
-        .sort(field("published_year"), False),
+        .sort(field("published_year"))
+        .sort([(field("published_year"), "desc")]),
         # topk + sort - effectively multiple sorts
         select(title=field("title"))
         .topk(field("published_year"), 100, True)
-        .sort(field("published_year"), True),
+        .sort(field("published_year")),
     ]
 
     for q in invalid_queries:

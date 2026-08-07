@@ -1130,6 +1130,8 @@ Adds a select stage to the query.
 
 ##### sort()
 
+###### Call Signature
+
 ```ts
 sort(expr: LogicalExpression, asc?: boolean): Query;
 ```
@@ -1142,6 +1144,24 @@ Adds a sort stage to the query.
 | ------ | ------ |
 | `expr` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
 | `asc?` | `boolean` |
+
+**Returns**
+
+[`Query`](/sdk/topk-js/Namespace.query#query)
+
+###### Call Signature
+
+```ts
+sort(expr: SortExpr[]): Query;
+```
+
+Adds a sort stage to the query.
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `expr` | [`SortExpr`](/sdk/topk-js/Namespace.query#sortexpr)[] |
 
 **Returns**
 
@@ -1286,6 +1306,19 @@ Options for `should` scoring.
 
 ***
 
+### SortExpr
+
+An expression to sort by with its sort order.
+
+**Properties**
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="property-expr"></a> `expr` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) | The expression to sort by. |
+| <a id="property-order"></a> `order` | [`SortOrder`](/sdk/topk-js/Namespace.query#sortorder) | Sort order. |
+
+***
+
 ### Term
 
 **Properties**
@@ -1321,3 +1354,13 @@ type DatePart =
 ```ts
 type Interval = "millisecond" | "second" | "minute" | "hour" | "day" | "week";
 ```
+
+***
+
+### SortOrder
+
+```ts
+type SortOrder = "asc" | "desc";
+```
+
+Sort order.

@@ -2,7 +2,12 @@ use crate::expr::aggregate::AggregateExpr;
 use crate::expr::filter::FilterExprUnion;
 use crate::expr::logical::LogicalExpr;
 use crate::expr::select::{SelectExpr, SelectExprUnion};
-use pyo3::{exceptions::PyTypeError, prelude::*, types::PyString};
+use crate::expr::sort::{SortExpr, SortExprsUnion, SortOrder};
+use pyo3::{
+    exceptions::{PyTypeError, PyValueError},
+    prelude::*,
+    types::PyString,
+};
 use std::collections::HashMap;
 
 use super::stage::Stage;
@@ -137,8 +142,13 @@ impl Query {
                 self.stages.clone(),
                 vec![
                     Stage::Sort {
-                        expr: expr.into(),
-                        asc,
+                        exprs: vec![SortExpr {
+                            expr,
+                            order: match asc {
+                                true => SortOrder::Asc,
+                                false => SortOrder::Desc,
+                            },
+                        }],
                     },
                     Stage::Limit { k },
                 ],
@@ -161,17 +171,30 @@ impl Query {
         })
     }
 
-    #[pyo3(signature = (expr, asc=true))]
-    pub fn sort(&self, expr: LogicalExpr, asc: bool) -> PyResult<Self> {
+    // `asc` defaults to `True`; it is `Option` only so that passing it alongside a
+    // list of sort expressions can be rejected.
+    #[pyo3(signature = (expr, asc=None))]
+    pub fn sort(&self, expr: SortExprsUnion, asc: Option<bool>) -> PyResult<Self> {
+        let exprs = match expr {
+            SortExprsUnion::Single(expr) => vec![SortExpr {
+                expr,
+                order: SortOrder::from(asc.unwrap_or(true)),
+            }],
+            SortExprsUnion::Many(exprs) => {
+                if asc.is_some() {
+                    return Err(PyValueError::new_err(
+                        "`asc` cannot be passed when sorting by a list of (expr, order) pairs",
+                    ));
+                }
+                exprs
+                    .into_iter()
+                    .map(|(expr, order)| SortExpr { expr, order })
+                    .collect()
+            }
+        };
+
         Ok(Self {
-            stages: [
-                self.stages.clone(),
-                vec![Stage::Sort {
-                    expr: expr.into(),
-                    asc,
-                }],
-            ]
-            .concat(),
+            stages: [self.stages.clone(), vec![Stage::Sort { exprs }]].concat(),
         })
     }
 

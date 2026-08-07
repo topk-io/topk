@@ -247,7 +247,7 @@ def test_group_by_then_sort_limit(ctx: ProjectContext):
             {"is_old": field("published_year") < 1940},
             {"count": agg.count()},
         )
-        .sort(field("count"), False)
+        .sort([(field("count"), "desc")])
         .limit(1)
     )
 

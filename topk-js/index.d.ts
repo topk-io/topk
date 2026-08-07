@@ -838,7 +838,8 @@ export declare namespace query {
     /** Adds an offset stage to the query. */
     offset(offset: number): query.Query
     /** Adds a sort stage to the query. */
-    sort(expr: query.LogicalExpression, asc?: boolean | undefined | null): query.Query
+    sort(expr: LogicalExpression, asc?: boolean | undefined | null): Query
+    sort(expr: Array<SortExpr>): Query
     /** Adds a count stage to the query. */
     count(): query.Query
     /**
@@ -991,6 +992,16 @@ export declare namespace query {
     /** Weight for the term */
     weight?: number
   }
+  /** An expression to sort by with its sort order. */
+  export interface SortExpr {
+    /** The expression to sort by. */
+    expr: query.LogicalExpression
+    /** Sort order. */
+    order: query.SortOrder
+  }
+  /** Sort order. */
+  export type SortOrder =  'asc'|
+  'desc';
   export interface Term {
     /** The token to match. */
     token: string
