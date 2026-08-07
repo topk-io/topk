@@ -218,36 +218,47 @@ def render_constructor(method: Method, class_name: str):
 
 def render_method(method: Method):
     """Render a regular method."""
+    render_method_group([method])
 
+
+def render_method_group(methods: List[Method]):
+    """Render one method section, including any overload signatures."""
+    method = methods[0]
     escaped_name = method.name.replace("_", r"\_")
     print(f"#### {escaped_name}()")
     print()
 
-    if method.deprecated:
-        msg = method.deprecated_message or "This method is deprecated."
+    deprecated_messages: List[str] = []
+    if len(methods) == 1 or all(overload.deprecated for overload in methods):
+        deprecated_messages = get_deprecated_messages(methods)
+    for msg in deprecated_messages:
         print(f"<Warning>**Deprecated** — {msg}</Warning>")
         print()
 
     print("```python")
-    signature = format_function_signature(method, with_links=False)
-    print(signature)
+    for overload in methods:
+        signature = format_function_signature(overload, with_links=False)
+        print(signature)
     print("```")
     print()
 
-    if method.docstring:
-        print(transform_docstring(method.docstring))
+    docstring = get_method_docstring(methods)
+    if docstring:
+        print(transform_docstring(docstring))
         print()
 
     # Add Parameters section
-    if method.parameters and not (
-        len(method.parameters) == 1 and method.parameters[0].name == "self"
+    parameters = merge_method_parameters(methods)
+    if parameters and not (
+        len(parameters) == 1 and parameters[0].name == "self"
     ):
-        render_parameters(method.parameters)
+        render_parameters(parameters)
 
     # Add Returns section
-    if method.return_type:
+    return_type = merge_return_types(methods)
+    if return_type:
         return_type_str = format_type_annotation_str(
-            method.return_type, with_links=True
+            return_type, with_links=True
         )
         print("**Returns**")
         print()
@@ -256,6 +267,85 @@ def render_method(method: Method):
 
     print("***")
     print()
+
+
+def get_deprecated_messages(methods: List[Method]) -> List[str]:
+    """Return unique deprecation messages for a method or overload group."""
+    messages: List[str] = []
+    for method in methods:
+        if not method.deprecated:
+            continue
+
+        msg = method.deprecated_message or "This method is deprecated."
+        if msg not in messages:
+            messages.append(msg)
+
+    return messages
+
+
+def get_method_docstring(methods: List[Method]) -> str | None:
+    """Return the first non-empty docstring for a method or overload group."""
+    for method in methods:
+        if method.docstring:
+            return method.docstring
+
+    return None
+
+
+def merge_method_parameters(methods: List[Method]) -> List[Parameter]:
+    """Merge overload parameters for the shared parameter table."""
+    merged: List[Parameter] = []
+
+    for method in methods:
+        for param in method.parameters:
+            existing = next((p for p in merged if p.name == param.name), None)
+            if existing is None:
+                merged.append(
+                    Parameter(
+                        name=param.name,
+                        type_annotation=param.type_annotation,
+                        default_value=param.default_value,
+                        is_required=param.is_required,
+                    )
+                )
+                continue
+
+            existing.type_annotation = merge_type_annotations(
+                existing.type_annotation,
+                param.type_annotation,
+            )
+
+    return merged
+
+
+def merge_return_types(methods: List[Method]) -> TypeAnnotation | None:
+    """Merge overload return types for the shared Returns section."""
+    return_type: TypeAnnotation | None = None
+    for method in methods:
+        return_type = merge_type_annotations(return_type, method.return_type)
+
+    return return_type
+
+
+def merge_type_annotations(
+    left: TypeAnnotation | None,
+    right: TypeAnnotation | None,
+) -> TypeAnnotation | None:
+    """Merge two type annotations into a union when they differ."""
+    if left is None:
+        return right
+    if right is None or right == left:
+        return left
+
+    generic_args = list(left.generic_args) if left.name == "Union" else [left]
+    right_args = right.generic_args if right.name == "Union" else [right]
+
+    for arg in right_args:
+        if arg not in generic_args:
+            generic_args.append(arg)
+
+    return TypeAnnotation("Union", is_generic=True, generic_args=generic_args)
+
 
 def render_parameters(parameters: List[Parameter]):
     """Render parameters as a table."""
@@ -280,11 +370,29 @@ def render_class_methods(methods: List[Method], class_name: str):
     print("**Methods**")
     print()
 
-    for method in methods:
+    i = 0
+    while i < len(methods):
+        method = methods[i]
         if method.is_constructor:
             render_constructor(method, class_name)
+            i += 1
         else:
-            render_method(method)
+            group = [method]
+            if method.is_overload:
+                j = i + 1
+                while (
+                    j < len(methods)
+                    and methods[j].is_overload
+                    and methods[j].name == method.name
+                ):
+                    group.append(methods[j])
+                    j += 1
+
+                i = j
+            else:
+                i += 1
+
+            render_method_group(group)
 
 
 def render_class(cls: Class, file_path):

@@ -6,6 +6,7 @@ use crate::expr::{
     filter::FilterExpression,
     logical::LogicalExpression,
     select::SelectExpression,
+    sort::{SortExpr, SortExpression, SortOrder},
     text::{Term, TextExpression},
 };
 use napi::bindgen_prelude::*;
@@ -68,8 +69,13 @@ impl Query {
         };
 
         new_query.stages.push(Stage::Sort {
-            expr: expr.clone(),
-            asc: asc.unwrap_or(false),
+            exprs: vec![SortExpression {
+                expr: expr.clone(),
+                order: match asc.unwrap_or(false) {
+                    true => SortOrder::Asc,
+                    false => SortOrder::Desc,
+                },
+            }],
         });
 
         new_query.stages.push(Stage::Limit { k });
@@ -102,18 +108,36 @@ impl Query {
     }
 
     /// Adds a sort stage to the query.
-    #[napi]
-    pub fn sort(&self, expr: &LogicalExpression, asc: Option<bool>) -> Query {
+    #[napi(
+        ts_type = "(expr: LogicalExpression, asc?: boolean | undefined | null): Query\n    sort(expr: Array<SortExpr>): Query"
+    )]
+    pub fn sort<'env>(
+        &self,
+        expr: Either<ClassInstance<'env, LogicalExpression>, Vec<SortExpr<'env>>>,
+        asc: Option<bool>,
+    ) -> Result<Query> {
+        let exprs = match expr {
+            Either::A(expr) => vec![SortExpression {
+                expr: (*expr).clone(),
+                order: SortOrder::from(asc.unwrap_or(true)),
+            }],
+            Either::B(sort_exprs) => {
+                if asc.is_some() {
+                    return Err(napi::Error::from_reason(
+                        "cannot use `asc` when sorting by an array of sort expressions",
+                    ));
+                }
+                sort_exprs.into_iter().map(|se| se.into()).collect()
+            }
+        };
+
         let mut new_query = Query {
             stages: self.stages.clone(),
         };
 
-        new_query.stages.push(Stage::Sort {
-            expr: expr.clone(),
-            asc: asc.unwrap_or(true),
-        });
+        new_query.stages.push(Stage::Sort { exprs });
 
-        new_query
+        Ok(new_query)
     }
 
     /// Adds a count stage to the query.

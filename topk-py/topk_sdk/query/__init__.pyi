@@ -418,9 +418,21 @@ class Query:
         Adds a filter stage to the query.
         """
         ...
+    @typing.overload
     def sort(self, expr: LogicalExpr, asc: builtins.bool = True) -> Query:
         """
         Adds a sort stage to the query.
+        """
+        ...
+    @typing.overload
+    def sort(
+        self,
+        expr: typing.Sequence[tuple[LogicalExpr, typing.Literal["asc", "desc"]]],
+    ) -> Query:
+        """
+        Adds a sort stage to the query.
+
+        Pass a list of `(expr, "asc" | "desc")` pairs to sort by more than one key.
         """
         ...
     def limit(self, k: builtins.int) -> Query:

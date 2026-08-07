@@ -186,7 +186,7 @@ describe("test_query_limit", () => {
 
     const result = await ctx.client.collection(collection.name).query(
       select({ _id: field("_id"), published_year: field("published_year") })
-        .sort(field("published_year"), true)
+        .sort(field("published_year"))
         .limit(4)
         .offset(3)
     );
@@ -213,11 +213,11 @@ describe("test_query_limit", () => {
       // limit + count - multiple collectors
       select({ title: field("title") }).limit(100).count(),
       // no collector
-      select({ title: field("title") }).sort(field("published_year"), true),
+      select({ title: field("title") }).sort(field("published_year")),
       // multiple sorts
-      select({ title: field("title") }).sort(field("published_year"), true).sort(field("published_year"), false),
+      select({ title: field("title") }).sort(field("published_year")).sort([{ expr: field("published_year"), order: "desc" }]),
       // topk + sort - effectively multiple sorts
-      select({ title: field("title") }).topk(field("published_year"), 100, true).sort(field("published_year"), true),
+      select({ title: field("title") }).topk(field("published_year"), 100, true).sort(field("published_year")),
     ];
 
     for (const q of invalidQueries) {

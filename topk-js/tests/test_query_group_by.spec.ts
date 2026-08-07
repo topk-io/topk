@@ -331,7 +331,7 @@ describe("GroupBy Queries", () => {
         { is_old: field("published_year").lt(1940) },
         { count: agg.count() }
       )
-        .sort(field("count"), false)
+        .sort([{ expr: field("count"), order: "desc" }])
         .limit(1)
     );
 

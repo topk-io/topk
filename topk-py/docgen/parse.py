@@ -42,6 +42,7 @@ class Method:
     is_constructor: bool = False
     deprecated: bool = False
     deprecated_message: Optional[str] = None
+    is_overload: bool = False
 
 
 @dataclass
@@ -273,7 +274,24 @@ def parse_method(method_node: ast.FunctionDef) -> Method | None:
         is_constructor=(method_node.name == "__init__"),
         deprecated=deprecated,
         deprecated_message=deprecated_message,
+        is_overload=_has_overload_decorator(method_node),
     )
+
+
+def _has_overload_decorator(method_node: ast.FunctionDef) -> bool:
+    """Return True when a method is decorated with typing.overload."""
+    for decorator in method_node.decorator_list:
+        if isinstance(decorator, ast.Name) and decorator.id == "overload":
+            return True
+        if (
+            isinstance(decorator, ast.Attribute)
+            and decorator.attr == "overload"
+            and isinstance(decorator.value, ast.Name)
+            and decorator.value.id == "typing"
+        ):
+            return True
+
+    return False
 
 
 def _parse_deprecated(docstring: str):

@@ -700,6 +700,7 @@ Adds a filter stage to the query.
 
 ```python
 sort(self, expr: LogicalExpr, asc: bool = True) -> Query
+sort(self, expr: Sequence[tuple[LogicalExpr, Literal['asc', 'desc']]]) -> Query
 ```
 
 Adds a sort stage to the query.
@@ -708,7 +709,7 @@ Adds a sort stage to the query.
 
 | Parameter | Type |
 | --------- | ---- |
-| `expr` | [`LogicalExpr`](#logicalexpr) |
+| `expr` | [`LogicalExpr`](#logicalexpr) &#124; Sequence[tuple[[`LogicalExpr`](#logicalexpr), Literal['asc', 'desc']]] |
 | `asc` | bool |
 
 **Returns**
