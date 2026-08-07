@@ -8,13 +8,13 @@ title: topk_sdk.schema
 
 *Internal*
 
-    Instances of the `FieldIndex` class represents a field index created by [`vector_index`](#vector-index), [`keyword_index`](#keyword-index), [`semantic_index`](#semantic-index), or [`multi_vector_index`](#multi-vector-index) functions.
+Instances of the `FieldIndex` class represents a field index created by [`vector_index`](#vector-index), [`keyword_index`](#keyword-index), [`semantic_index`](#semantic-index), or [`multi_vector_index`](#multi-vector-index) functions.
 
 ### FieldSpec
 
 *Internal*
 
-    Instances of the `FieldSpec` class represents a field specification created by [`text`](#text), [`int`](#int), [`float`](#float), [`bool`](#bool), [`f32_vector`](#f32-vector), [`u8_vector`](#u8-vector), [`i8_vector`](#i8-vector), [`binary_vector`](#binary-vector), [`f32_sparse_vector`](#f32-sparse-vector), [`u8_sparse_vector`](#u8-sparse-vector), [`bytes`](#bytes), [`list`](#list), [`struct`](#struct), or [`matrix`](#matrix) functions.
+Instances of the `FieldSpec` class represents a field specification created by [`text`](#text), [`int`](#int), [`float`](#float), [`bool`](#bool), [`f32_vector`](#f32-vector), [`u8_vector`](#u8-vector), [`i8_vector`](#i8-vector), [`binary_vector`](#binary-vector), [`f32_sparse_vector`](#f32-sparse-vector), [`u8_sparse_vector`](#u8-sparse-vector), [`bytes`](#bytes), [`list`](#list), [`struct`](#struct), or [`matrix`](#matrix) functions.
 
 **Methods**
 
@@ -26,15 +26,15 @@ required(self) -> FieldSpec
 
 Mark a field as required. All fields are optional by default.
 
-        Example:
+Example:
 
-        ```python
-        from topk_sdk.schema import text
+```python
+from topk_sdk.schema import text
 
-        client.collections().create("books", schema={
-            "title": text().required()
-        })
-        ```
+client.collections().create("books", schema={
+    "title": text().required()
+})
+```
 
 **Returns**
 
@@ -62,15 +62,15 @@ index(self, index: FieldIndex) -> FieldSpec
 
 Create an index on a field.
 
-        Example:
+Example:
 
-        ```python
-        from topk_sdk.schema import text, keyword_index
+```python
+from topk_sdk.schema import text, keyword_index
 
-        client.collections().create("books", schema={
-            "title": text().index(keyword_index())
-        })
-        ```
+client.collections().create("books", schema={
+    "title": text().index(keyword_index())
+})
+```
 
 **Parameters**
 
@@ -94,15 +94,15 @@ text() -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `text` values.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import text
+```python
+from topk_sdk.schema import text
 
-    client.collections().create("books", schema={
-        "title": text()
-    })
-    ```
+client.collections().create("books", schema={
+    "title": text()
+})
+```
 
 **Returns**
 
@@ -132,15 +132,15 @@ float() -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `float` values.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import float
+```python
+from topk_sdk.schema import float
 
-    client.collections().create("books", schema={
-        "price": float()
-    })
-    ```
+client.collections().create("books", schema={
+    "price": float()
+})
+```
 
 **Returns**
 
@@ -156,15 +156,15 @@ bool() -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `bool` values.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import bool
+```python
+from topk_sdk.schema import bool
 
-    client.collections().create("books", schema={
-        "is_published": bool()
-    })
-    ```
+client.collections().create("books", schema={
+    "is_published": bool()
+})
+```
 
 **Returns**
 
@@ -180,15 +180,15 @@ f8_vector(dimension: int) -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `f8_vector` values.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import f8_vector
+```python
+from topk_sdk.schema import f8_vector
 
-    client.collections().create("books", schema={
-        "title_embedding": f8_vector(dimension=1536)
-    })
-    ```
+client.collections().create("books", schema={
+    "title_embedding": f8_vector(dimension=1536)
+})
+```
 
 **Parameters**
 
@@ -210,15 +210,15 @@ f16_vector(dimension: int) -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `f16_vector` values.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import f16_vector
+```python
+from topk_sdk.schema import f16_vector
 
-    client.collections().create("books", schema={
-        "title_embedding": f16_vector(dimension=1536)
-    })
-    ```
+client.collections().create("books", schema={
+    "title_embedding": f16_vector(dimension=1536)
+})
+```
 
 **Parameters**
 
@@ -240,15 +240,15 @@ f32_vector(dimension: int) -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `f32_vector` values.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import f32_vector
+```python
+from topk_sdk.schema import f32_vector
 
-    client.collections().create("books", schema={
-        "title_embedding": f32_vector(dimension=1536)
-    })
-    ```
+client.collections().create("books", schema={
+    "title_embedding": f32_vector(dimension=1536)
+})
+```
 
 **Parameters**
 
@@ -270,15 +270,15 @@ u8_vector(dimension: int) -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `u8_vector` values.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import u8_vector
+```python
+from topk_sdk.schema import u8_vector
 
-    client.collections().create("books", schema={
-        "title_embedding": u8_vector(dimension=1536)
-    })
-    ```
+client.collections().create("books", schema={
+    "title_embedding": u8_vector(dimension=1536)
+})
+```
 
 **Parameters**
 
@@ -300,15 +300,15 @@ i8_vector(dimension: int) -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `i8_vector` values.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import i8_vector
+```python
+from topk_sdk.schema import i8_vector
 
-    client.collections().create("books", schema={
-        "title_embedding": i8_vector(dimension=1536)
-    })
-    ```
+client.collections().create("books", schema={
+    "title_embedding": i8_vector(dimension=1536)
+})
+```
 
 **Parameters**
 
@@ -330,15 +330,15 @@ binary_vector(dimension: int) -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `binary_vector` values.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import binary_vector
+```python
+from topk_sdk.schema import binary_vector
 
-    client.collections().create("books", schema={
-        "title_embedding": binary_vector(dimension=128)
-    })
-    ```
+client.collections().create("books", schema={
+    "title_embedding": binary_vector(dimension=128)
+})
+```
 
 **Parameters**
 
@@ -360,17 +360,17 @@ f32_sparse_vector() -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `f32_sparse_vector` values.
 
-    Note: Sparse vectors use u32 dimension indices to support dictionaries of up to 2^32 - 1 terms.
+Note: Sparse vectors use u32 dimension indices to support dictionaries of up to 2^32 - 1 terms.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import f32_sparse_vector
+```python
+from topk_sdk.schema import f32_sparse_vector
 
-    client.collections().create("books", schema={
-        "sparse_field": f32_sparse_vector()
-    })
-    ```
+client.collections().create("books", schema={
+    "sparse_field": f32_sparse_vector()
+})
+```
 
 **Returns**
 
@@ -386,17 +386,17 @@ u8_sparse_vector() -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `u8_sparse_vector` values.
 
-    Note: Sparse vectors use u32 dimension indices to support dictionaries of up to 2^32 - 1 terms.
+Note: Sparse vectors use u32 dimension indices to support dictionaries of up to 2^32 - 1 terms.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import u8_sparse_vector
+```python
+from topk_sdk.schema import u8_sparse_vector
 
-    client.collections().create("books", schema={
-        "sparse_field": u8_sparse_vector()
-    })
-    ```
+client.collections().create("books", schema={
+    "sparse_field": u8_sparse_vector()
+})
+```
 
 **Returns**
 
@@ -412,15 +412,15 @@ bytes() -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `bytes` values.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import bytes
+```python
+from topk_sdk.schema import bytes
 
-    client.collections().create("books", schema={
-        "image": bytes()
-    })
-    ```
+client.collections().create("books", schema={
+    "image": bytes()
+})
+```
 
 **Returns**
 
@@ -436,22 +436,22 @@ timestamp() -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `timestamp` values.
 
-    Timestamps are stored as milliseconds since UNIX epoch.
+Timestamps are stored as milliseconds since UNIX epoch.
 
-    When upserting timestamps, use:
-    - ``datetime.datetime`` — timezone-aware datetime (timezone-naive datetimes are not supported)
-    - ``datetime.date`` — date (padded to midnight UTC)
-    - ``int`` — epoch milliseconds
+When upserting timestamps, use:
+- ``datetime.datetime`` — timezone-aware datetime (timezone-naive datetimes are not supported)
+- ``datetime.date`` — date (padded to midnight UTC)
+- ``int`` — epoch milliseconds
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import timestamp
+```python
+from topk_sdk.schema import timestamp
 
-    client.collections().create("books", schema={
-        "published_ts": timestamp()
-    })
-    ```
+client.collections().create("books", schema={
+    "published_ts": timestamp()
+})
+```
 
 **Returns**
 
@@ -467,15 +467,15 @@ list(value_type: Literal['text', 'integer', 'float']) -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `list` values.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import list
+```python
+from topk_sdk.schema import list
 
-    client.collections().create("books", schema={
-        "tags": list(value_type="text")
-    })
-    ```
+client.collections().create("books", schema={
+    "tags": list(value_type="text")
+})
+```
 
 **Parameters**
 
@@ -497,15 +497,15 @@ struct(fields: Mapping[str, SchemaFieldSpec]) -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `struct` values.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import int, struct, text
+```python
+from topk_sdk.schema import int, struct, text
 
-    client.collections().create("books", schema={
-        "meta": struct({"author": text(), "year": int()})
-    })
-    ```
+client.collections().create("books", schema={
+    "meta": struct({"author": text(), "year": int()})
+})
+```
 
 **Parameters**
 
@@ -527,22 +527,22 @@ matrix(dimension: int, value_type: Literal['f32', 'f16', 'f8', 'u8', 'i8']) -> F
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `matrix` values.
 
-    Supported `value_type`s:
-        - `f32`
-        - `f16`
-        - `f8`
-        - `u8`
-        - `i8`
+Supported `value_type`s:
+- `f32`
+- `f16`
+- `f8`
+- `u8`
+- `i8`
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import matrix
+```python
+from topk_sdk.schema import matrix
 
-    client.collections().create("books", schema={
-        "title_embedding": matrix(dimension=1536, value_type="f32")
-    })
-    ```
+client.collections().create("books", schema={
+    "title_embedding": matrix(dimension=1536, value_type="f32")
+})
+```
 
 **Parameters**
 
@@ -563,23 +563,23 @@ Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `matrix` values.
 vector_index(metric: Literal['cosine', 'euclidean', 'dot_product', 'hamming']) -> FieldIndex
 ```
 
-Create a [FieldIndex](/sdk/topk-py/schema#FieldSpec) type for `vector_index` values.
+Create a [FieldIndex](/sdk/topk-py/schema#FieldIndex) type for `vector_index` values.
 
-    Supported `metric`s:
-        - `euclidean` (only dense vectors)
-        - `cosine` (only dense vectors)
-        - `dot_product` (dense and sparse vectors)
-        - `hamming` (only binary vectors)
+Supported `metric`s:
+- `euclidean` (only dense vectors)
+- `cosine` (only dense vectors)
+- `dot_product` (dense and sparse vectors)
+- `hamming` (only binary vectors)
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import f32_vector, vector_index
+```python
+from topk_sdk.schema import f32_vector, vector_index
 
-    client.collections().create("books", schema={
-        "title_embedding": f32_vector(dimension=1536).index(vector_index(metric="cosine"))
-    })
-    ```
+client.collections().create("books", schema={
+    "title_embedding": f32_vector(dimension=1536).index(vector_index(metric="cosine"))
+})
+```
 
 **Parameters**
 
@@ -601,19 +601,19 @@ keyword_index(type: Literal['text', 'exact'] = "text") -> FieldIndex
 
 Create a [FieldIndex](/sdk/topk-py/schema#FieldIndex) type for `keyword_index` values.
 
-    Supported index `type`s:
-        - `text` (default) - text is tokenized before indexing
-        - `exact` - text is indexed as a single term
+Supported index `type`s:
+- `text` (default) - text is tokenized before indexing
+- `exact` - text is indexed as a single term
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import text, keyword_index
+```python
+from topk_sdk.schema import text, keyword_index
 
-    client.collections().create("books", schema={
-        "title": text().index(keyword_index())
-    })
-    ```
+client.collections().create("books", schema={
+    "title": text().index(keyword_index())
+})
+```
 
 **Parameters**
 
@@ -635,15 +635,15 @@ semantic_index() -> FieldIndex
 
 Create a [FieldIndex](/sdk/topk-py/schema#FieldIndex) type for `semantic_index` values.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import text, semantic_index
+```python
+from topk_sdk.schema import text, semantic_index
 
-    client.collections().create("books", schema={
-        "title": text().index(semantic_index())
-    })
-    ```
+client.collections().create("books", schema={
+    "title": text().index(semantic_index())
+})
+```
 
 **Returns**
 
@@ -664,18 +664,18 @@ multi_vector_index(
 
 Create a [FieldIndex](/sdk/topk-py/schema#FieldIndex) type for `multi_vector_index` values.
 
-    Supported `metric`s:
-        - `maxsim`
+Supported `metric`s:
+- `maxsim`
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import matrix, multi_vector_index
+```python
+from topk_sdk.schema import matrix, multi_vector_index
 
-    client.collections().create("books", schema={
-        "title_embedding": matrix(dimension=1536, value_type="f32").index(multi_vector_index(metric="maxsim"))
-    })
-    ```
+client.collections().create("books", schema={
+    "title_embedding": matrix(dimension=1536, value_type="f32").index(multi_vector_index(metric="maxsim"))
+})
+```
 
 **Parameters**
 

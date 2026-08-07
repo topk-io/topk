@@ -6309,7 +6309,7 @@ collection(self, collection: str, partition: Optional[str] = None) -> Collection
 
 Get a client for managing data operations on a specific collection such as querying, upserting, and deleting documents.
 
-        Optionally, pass partition name to scope data operations to that partition.
+Optionally, pass partition name to scope data operations to that partition.
 
 **Parameters**
 
@@ -6470,7 +6470,7 @@ collection(self, collection: str, partition: Optional[str] = None) -> AsyncColle
 
 Get an async client for a specific collection.
 
-        Optionally, pass partition name to scope data operations to that partition.
+Optionally, pass partition name to scope data operations to that partition.
 
 **Parameters**
 
@@ -6710,11 +6710,11 @@ update(self, documents: Sequence[Mapping[str, Any]], fail_on_missing: Optional[b
 
 Update documents in the collection.
 
-        Existing documents will be merged with the provided fields.
-        Missing documents will be ignored.
+Existing documents will be merged with the provided fields.
+Missing documents will be ignored.
 
-        Returns the `LSN` at which the update was applied.
-        If no updates were applied, this will be empty.
+Returns the `LSN` at which the update was applied.
+If no updates were applied, this will be empty.
 
 **Parameters**
 
@@ -6737,19 +6737,19 @@ delete(self, expr: Sequence[str] | query.LogicalExpr) -> str
 
 Delete documents by their IDs or using a filter expression.
 
-        **Example:**
+**Example:**
 
-        Delete documents by their IDs:
-        ```python
-        client.collection("books").delete(["id_1", "id_2"])
-        ```
+Delete documents by their IDs:
+```python
+client.collection("books").delete(["id_1", "id_2"])
+```
 
-        Delete documents by a filter expression:
-        ```python
-        from topk_sdk.query import field
+Delete documents by a filter expression:
+```python
+from topk_sdk.query import field
 
-        client.collection("books").delete(field("published_year").gt(1997))
-        ```
+client.collection("books").delete(field("published_year").gt(1997))
+```
 
 **Parameters**
 
@@ -6922,11 +6922,11 @@ update(
 
 Update documents in the collection asynchronously.
 
-        Existing documents will be merged with the provided fields.
-        Missing documents will be ignored.
+Existing documents will be merged with the provided fields.
+Missing documents will be ignored.
 
-        Returns the `LSN` at which the update was applied.
-        If no updates were applied, this will be empty.
+Returns the `LSN` at which the update was applied.
+If no updates were applied, this will be empty.
 
 **Parameters**
 
@@ -6949,19 +6949,19 @@ delete(self, expr: Sequence[str] | query.LogicalExpr) -> Awaitable[str]
 
 Delete documents by their IDs or using a filter expression asynchronously.
 
-        **Example:**
+**Example:**
 
-        Delete documents by their IDs:
-        ```python
-        await client.collection("books").delete(["id_1", "id_2"])
-        ```
+Delete documents by their IDs:
+```python
+await client.collection("books").delete(["id_1", "id_2"])
+```
 
-        Delete documents by a filter expression:
-        ```python
-        from topk_sdk.query import field
+Delete documents by a filter expression:
+```python
+from topk_sdk.query import field
 
-        await client.collection("books").delete(field("published_year").gt(1997))
-        ```
+await client.collection("books").delete(field("published_year").gt(1997))
+```
 
 **Parameters**
 
@@ -7467,7 +7467,7 @@ wait_for_handle(self, handle: str, config: Optional[WaitConfig | dict[str, Any]]
 
 Poll until a handle has been processed or the timeout is reached.
 
-        Raises an error if the handle is not processed within the configured timeout.
+Raises an error if the handle is not processed within the configured timeout.
 
 **Parameters**
 
@@ -7740,7 +7740,7 @@ wait_for_handle(
 
 Poll until a handle has been processed or the timeout is reached asynchronously.
 
-        Raises an error if the handle is not processed within the configured timeout.
+Raises an error if the handle is not processed within the configured timeout.
 
 **Parameters**
 
@@ -7957,9 +7957,9 @@ WaitConfig(frequency_secs: Optional[int] = None, timeout_secs: Optional[int] = N
 
 Configuration for retry behavior.
 
-    By default, retries occur in two situations:
-    1. When the server requests the client to reduce its request rate, resulting in a [SlowDownError](/sdk/topk-py/error#slowdownerror).
-    2. When using the `query(..., lsn=N)` to wait for writes to be available.
+By default, retries occur in two situations:
+1. When the server requests the client to reduce its request rate, resulting in a [SlowDownError](/sdk/topk-py/error#slowdownerror).
+2. When using the `query(..., lsn=N)` to wait for writes to be available.
 
 **Properties**
 
@@ -8031,35 +8031,35 @@ URL: https://docs.topk.io/sdk/topk-py/data
 
 *Internal*
 
-    Instances of the `List` class are used to represent lists of values in TopK.
-    Usually created using data constructors such as [`f32_list()`](#f32-list), [`i32_list()`](#i32-list), etc.
+Instances of the `List` class are used to represent lists of values in TopK.
+Usually created using data constructors such as [`f32_list()`](#f32-list), [`i32_list()`](#i32-list), etc.
 
 ##### SparseVector
 
 *Internal*
 
-    Instances of the `SparseVector` class are used to represent sparse vectors in TopK.
-    Usually created using data constructors such as [`f32_sparse_vector()`](#f32-sparse-vector) or [`u8_sparse_vector()`](#u8-sparse-vector).
+Instances of the `SparseVector` class are used to represent sparse vectors in TopK.
+Usually created using data constructors such as [`f32_sparse_vector()`](#f32-sparse-vector) or [`u8_sparse_vector()`](#u8-sparse-vector).
 
 ##### Matrix
 
 *Internal*
 
-    Instances of the `Matrix` class are used to represent matrices in TopK.
-    Usually created using data constructors such as [`matrix()`](#matrix-2).
+Instances of the `Matrix` class are used to represent matrices in TopK.
+Usually created using data constructors such as [`matrix()`](#matrix-2).
 
 ##### Struct
 
 *Internal*
 
-    Instances of the `Struct` class are used to represent nested object values in TopK.
-    Usually created using the [`struct()`](#struct) helper.
+Instances of the `Struct` class are used to represent nested object values in TopK.
+Usually created using the [`struct()`](#struct) helper.
 
 ##### UnknownValue
 
 *Internal*
 
-    Placeholder for a value this version of the SDK cannot represent.
+Placeholder for a value this version of the SDK cannot represent.
 
 #### Functions
 
@@ -8071,13 +8071,13 @@ f8_vector(data: list[float]) -> List
 
 Create a [List](/sdk/topk-py/data#List) type containing a 8-bit float vector.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.data import f8_vector
+```python
+from topk_sdk.data import f8_vector
 
-    f8_vector([0.12, 0.67, 0.82, 0.53])
-    ```
+f8_vector([0.12, 0.67, 0.82, 0.53])
+```
 
 **Parameters**
 
@@ -8099,13 +8099,13 @@ f16_vector(data: list[float]) -> List
 
 Create a [List](/sdk/topk-py/data#List) type containing a 16-bit float vector.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.data import f16_vector
+```python
+from topk_sdk.data import f16_vector
 
-    f16_vector([0.12, 0.67, 0.82, 0.53])
-    ```
+f16_vector([0.12, 0.67, 0.82, 0.53])
+```
 
 **Parameters**
 
@@ -8127,13 +8127,13 @@ f32_vector(data: list[float]) -> List
 
 Create a [List](/sdk/topk-py/data#List) type containing a 32-bit float vector. This function is an alias for [f32_list()](/sdk/topk-py/data#f32-list).
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.data import f32_vector
+```python
+from topk_sdk.data import f32_vector
 
-    f32_vector([0.12, 0.67, 0.82, 0.53])
-    ```
+f32_vector([0.12, 0.67, 0.82, 0.53])
+```
 
 **Parameters**
 
@@ -8155,13 +8155,13 @@ u8_vector(data: list[int]) -> List
 
 Create a [List](/sdk/topk-py/data#List) type containing an 8-bit unsigned integer vector. This function is an alias for [u8_list()](/sdk/topk-py/data#u8-list).
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.data import u8_vector
+```python
+from topk_sdk.data import u8_vector
 
-    u8_vector([0, 255, 1, 2, 3])
-    ```
+u8_vector([0, 255, 1, 2, 3])
+```
 
 **Parameters**
 
@@ -8183,13 +8183,13 @@ i8_vector(data: list[int]) -> List
 
 Create a [List](/sdk/topk-py/data#List) type containing an 8-bit signed integer vector.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.data import i8_vector
+```python
+from topk_sdk.data import i8_vector
 
-    i8_vector([-128, 127, -1, 0, 1])
-    ```
+i8_vector([-128, 127, -1, 0, 1])
+```
 
 **Parameters**
 
@@ -8211,13 +8211,13 @@ binary_vector(data: list[int]) -> List
 
 Create a [List](/sdk/topk-py/data#List) type containing a binary vector.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.data import binary_vector
+```python
+from topk_sdk.data import binary_vector
 
-    binary_vector([0, 1, 1, 0])
-    ```
+binary_vector([0, 1, 1, 0])
+```
 
 **Parameters**
 
@@ -8239,13 +8239,13 @@ f32_sparse_vector(data: dict[int, float]) -> SparseVector
 
 Create a [SparseVector](/sdk/topk-py/data#SparseVector) type containing a 32-bit float sparse vector.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.data import f32_sparse_vector
+```python
+from topk_sdk.data import f32_sparse_vector
 
-    f32_sparse_vector({0: 0.12, 6: 0.67, 17: 0.82, 97: 0.53})
-    ```
+f32_sparse_vector({0: 0.12, 6: 0.67, 17: 0.82, 97: 0.53})
+```
 
 **Parameters**
 
@@ -8267,13 +8267,13 @@ u8_sparse_vector(data: dict[int, int]) -> SparseVector
 
 Create a [SparseVector](/sdk/topk-py/data#SparseVector) type containing an 8-bit unsigned integer sparse vector.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.data import u8_sparse_vector
+```python
+from topk_sdk.data import u8_sparse_vector
 
-    u8_sparse_vector({0: 12, 6: 67, 17: 82, 97: 53})
-    ```
+u8_sparse_vector({0: 12, 6: 67, 17: 82, 97: 53})
+```
 
 **Parameters**
 
@@ -8295,13 +8295,13 @@ bytes(data: list[int] | bytes) -> List
 
 Create a [List](/sdk/topk-py/data#List) type containing bytes data.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.data import bytes
+```python
+from topk_sdk.data import bytes
 
-    bytes([0, 1, 1, 0])
-    ```
+bytes([0, 1, 1, 0])
+```
 
 **Parameters**
 
@@ -8323,13 +8323,13 @@ u32_list(data: list[int]) -> List
 
 Create a [List](/sdk/topk-py/data#List) type containing a list of 32-bit unsigned integers.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.data import u32_list
+```python
+from topk_sdk.data import u32_list
 
-    u32_list([0, 1, 2, 3])
-    ```
+u32_list([0, 1, 2, 3])
+```
 
 **Parameters**
 
@@ -8351,13 +8351,13 @@ i32_list(data: list[int]) -> List
 
 Create a [List](/sdk/topk-py/data#List) type containing a list of 32-bit signed integers.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.data import i32_list
+```python
+from topk_sdk.data import i32_list
 
-    i32_list([0, 1, 2, 3])
-    ```
+i32_list([0, 1, 2, 3])
+```
 
 **Parameters**
 
@@ -8379,13 +8379,13 @@ i64_list(data: list[int]) -> List
 
 Create a [List](/sdk/topk-py/data#List) type containing a list of 64-bit signed integers.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.data import i64_list
+```python
+from topk_sdk.data import i64_list
 
-    i64_list([0, 1, 2, 3])
-    ```
+i64_list([0, 1, 2, 3])
+```
 
 **Parameters**
 
@@ -8407,13 +8407,13 @@ f32_list(data: list[float]) -> List
 
 Create a [List](/sdk/topk-py/data#List) type containing a list of 32-bit floating point numbers.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.data import f32_list
+```python
+from topk_sdk.data import f32_list
 
-    f32_list([0.12, 0.67, 0.82, 0.53])
-    ```
+f32_list([0.12, 0.67, 0.82, 0.53])
+```
 
 **Parameters**
 
@@ -8435,13 +8435,13 @@ f64_list(data: list[float]) -> List
 
 Create a [List](/sdk/topk-py/data#List) type containing a list of 64-bit floating point numbers.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.data import f64_list
+```python
+from topk_sdk.data import f64_list
 
-    f64_list([0.12, 0.67, 0.82, 0.53])
-    ```
+f64_list([0.12, 0.67, 0.82, 0.53])
+```
 
 **Parameters**
 
@@ -8463,13 +8463,13 @@ string_list(data: list[str]) -> List
 
 Create a [List](/sdk/topk-py/data#List) type containing a list of strings.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.data import string_list
+```python
+from topk_sdk.data import string_list
 
-    string_list(["foo", "bar", "baz"])
-    ```
+string_list(["foo", "bar", "baz"])
+```
 
 **Parameters**
 
@@ -8491,13 +8491,13 @@ struct(fields: dict[str, Any]) -> Struct
 
 Create a [Struct](/sdk/topk-py/data#Struct) type containing nested object values.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.data import struct
+```python
+from topk_sdk.data import struct
 
-    struct({"author": "alice", "year": 2024})
-    ```
+struct({"author": "alice", "year": 2024})
+```
 
 **Parameters**
 
@@ -8519,24 +8519,24 @@ matrix(values: list[list[float]] | list[list[int]] | numpy.ndarray, value_type: 
 
 Create a [Matrix](/sdk/topk-py/data#Matrix) type containing matrix values.
 
-    The `values` parameter can be a list of lists or a [numpy array](https://numpy.org/doc/stable/reference/generated/numpy.array.html). When passing a numpy array,
-    the matrix type is inferred from the array's dtype (float32, float16, uint8, int8).
-    When passing a list of lists, the optional `value_type` parameter specifies the matrix type.
-    If `value_type` is not provided, the matrix defaults to f32.
+The `values` parameter can be a list of lists or a [numpy array](https://numpy.org/doc/stable/reference/generated/numpy.array.html). When passing a numpy array,
+the matrix type is inferred from the array's dtype (float32, float16, uint8, int8).
+When passing a list of lists, the optional `value_type` parameter specifies the matrix type.
+If `value_type` is not provided, the matrix defaults to f32.
 
-    ```python
-    from topk_sdk.data import matrix
-    import numpy as np
+```python
+from topk_sdk.data import matrix
+import numpy as np
 
-    # List of lists with explicit type
-    matrix([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], "f32")
+### List of lists with explicit type
+matrix([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], "f32")
 
-    # List of lists defaults to f32
-    matrix([[1.0, 2.0], [3.0, 4.0]])
+### List of lists defaults to f32
+matrix([[1.0, 2.0], [3.0, 4.0]])
 
-    # Numpy array infers type from dtype
-    matrix(np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float16))
-    ```
+### Numpy array infers type from dtype
+matrix(np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float16))
+```
 
 **Parameters**
 
@@ -8623,8 +8623,8 @@ URL: https://docs.topk.io/sdk/topk-py/query
 
 *Internal*
 
-    Instances of the `LogicalExpr` class are used to represent logical expressions in TopK.
-    Usually created using logical constructors such as [`field()`](#field), [`literal()`](#literal), etc.
+Instances of the `LogicalExpr` class are used to represent logical expressions in TopK.
+Usually created using logical constructors such as [`field()`](#field), [`literal()`](#literal), etc.
 
 **Methods**
 
@@ -8974,18 +8974,18 @@ date_part(self, part: DatePart) -> LogicalExpr
 
 Extract a part of a timestamp expression as an integer.
 
-        Supported parts:
+Supported parts:
 
-        - ``"year"`` — calendar year
-        - ``"month"`` — 1-12
-        - ``"week"`` — ISO week number
-        - ``"day"`` — day of month, 1-31
-        - ``"day_of_year"`` — 1-366
-        - ``"day_of_week"`` — 0-6, Monday = 0
-        - ``"hour"`` — 0-23
-        - ``"minute"`` — 0-59
-        - ``"second"`` — 0-59
-        - ``"millisecond"`` — 0-999
+- ``"year"`` — calendar year
+- ``"month"`` — 1-12
+- ``"week"`` — ISO week number
+- ``"day"`` — day of month, 1-31
+- ``"day_of_year"`` — 1-366
+- ``"day_of_week"`` — 0-6, Monday = 0
+- ``"hour"`` — 0-23
+- ``"minute"`` — 0-59
+- ``"second"`` — 0-59
+- ``"millisecond"`` — 0-999
 
 **Parameters**
 
@@ -9046,16 +9046,16 @@ starts_with(self, other: Stringy) -> LogicalExpr
 ```
 
 Check if the expression starts with the provided string expression.
-        Can be applied on a string field or a list of strings field.
+Can be applied on a string field or a list of strings field.
 
-        ```python
-        # Example:
-        from topk_sdk.query import field, starts_with
+```python
+### Example:
+from topk_sdk.query import field, starts_with
 
-        client.collection("books").query(
-          filter(field("title").starts_with("The") | field("tags").starts_with("fiction"))
-        )
-        ```
+client.collection("books").query(
+  filter(field("title").starts_with("The") | field("tags").starts_with("fiction"))
+)
+```
 
 **Parameters**
 
@@ -9257,21 +9257,21 @@ Check if the expression matches the provided regexp pattern.
 
 *Internal*
 
-    Instances of the `FunctionExpr` class are used to represent function expressions in TopK.
-    Usually created using function constructors such as [`fn.vector_distance()`](#vector-distance), [`fn.semantic_similarity()`](#semantic-similarity) or [`fn.bm25_score()`](#bm25-score).
+Instances of the `FunctionExpr` class are used to represent function expressions in TopK.
+Usually created using function constructors such as [`fn.vector_distance()`](#vector-distance), [`fn.semantic_similarity()`](#semantic-similarity) or [`fn.bm25_score()`](#bm25-score).
 
 ##### AggregateExpr
 
 *Internal*
 
-    Instances of the `AggregateExpr` class are used to represent aggregate expressions in TopK.
-    Usually created using aggregate constructors such as [`agg.count()`](#count), [`agg.sum()`](#sum), [`agg.min()`](#min-2), [`agg.max()`](#max-2) or [`agg.avg()`](#avg).
+Instances of the `AggregateExpr` class are used to represent aggregate expressions in TopK.
+Usually created using aggregate constructors such as [`agg.count()`](#count), [`agg.sum()`](#sum), [`agg.min()`](#min-2), [`agg.max()`](#max-2) or [`agg.avg()`](#avg).
 
 ##### TextExpr
 
 *Internal*
 
-    Instances of the `TextExpr` class are used to represent text expressions in TopK.
+Instances of the `TextExpr` class are used to represent text expressions in TopK.
 
 ##### Query
 
@@ -9394,7 +9394,7 @@ group_by(self, keys: dict[str, LogicalExpr], aggs: dict[str, AggregateExpr]) -> 
 
 Adds a group-by stage to the query.
 
-        Groups documents by one or more key expressions and computes aggregations for each group.
+Groups documents by one or more key expressions and computes aggregations for each group.
 
 **Parameters**
 
@@ -9451,22 +9451,22 @@ vector_distance(
 
 Calculate the vector distance between a field and a query vector.
 
-        ```python
-        # Example:
+```python
+### Example:
 
-        from topk_sdk.query import field, fn, select
+from topk_sdk.query import field, fn, select
 
-        client.collection("books").query(
-          select(
-            "title",
-            title_similarity=fn.vector_distance(
-              "title_embedding",
-              [0.1, 0.2, 0.3, ...] # embedding for "animal"
-            )
-          )
-          .sort(field("title_similarity"), asc=False).limit(10)
-        )
-        ```
+client.collection("books").query(
+  select(
+    "title",
+    title_similarity=fn.vector_distance(
+      "title_embedding",
+      [0.1, 0.2, 0.3, ...] # embedding for "animal"
+    )
+  )
+  .sort(field("title_similarity"), asc=False).limit(10)
+)
+```
 
 **Parameters**
 
@@ -9490,19 +9490,19 @@ semantic_similarity(field: str, query: str) -> FunctionExpr
 
 Calculate the semantic similarity between a field and a query string.
 
-        ```python
-        # Example:
+```python
+### Example:
 
-        from topk_sdk.query import field, fn, select
+from topk_sdk.query import field, fn, select
 
-        client.collection("books").query(
-          select(
-            "title",
-            title_similarity=fn.semantic_similarity("title", "animal")
-          )
-          .sort(field("title_similarity"), asc=False).limit(10)
-        )
-        ```
+client.collection("books").query(
+  select(
+    "title",
+    title_similarity=fn.semantic_similarity("title", "animal")
+  )
+  .sort(field("title_similarity"), asc=False).limit(10)
+)
+```
 
 **Parameters**
 
@@ -9525,22 +9525,22 @@ bm25_score(b: Optional[float] = None, k1: Optional[float] = None) -> FunctionExp
 
 Calculate the BM25 score for a keyword search.
 
-        Optional parameters: b (0-1), k1 (>=0) to override BM25 scoring behavior.
+Optional parameters: b (0-1), k1 (>=0) to override BM25 scoring behavior.
 
-        ```python
-        # Example:
+```python
+### Example:
 
-        from topk_sdk.query import field, fn, select
+from topk_sdk.query import field, fn, select
 
-        client.collection("books").query(
-          select(
-            "title",
-            text_score=fn.bm25_score()
-          )
-          .filter(match("animal"))
-          .sort(field("text_score"), asc=False).limit(10)
-        )
-        ```
+client.collection("books").query(
+  select(
+    "title",
+    text_score=fn.bm25_score()
+  )
+  .filter(match("animal"))
+  .sort(field("text_score"), asc=False).limit(10)
+)
+```
 
 **Parameters**
 
@@ -9567,28 +9567,28 @@ multi_vector_distance(
 
 Calculate the multi-vector distance between a field and a query matrix.
 
-        The query matrix can be a list of lists (defaults to f32), a [numpy array](https://numpy.org/doc/stable/reference/generated/numpy.array.html) (type inferred from dtype),
-        or a [`Matrix`](/sdk/topk-py/data#Matrix) instance. To specify a different matrix type,
-        use [`matrix()`](/sdk/topk-py/data#matrix-2) with `value_type` or a 2-D numpy array with the
-        corresponding dtype.
+The query matrix can be a list of lists (defaults to f32), a [numpy array](https://numpy.org/doc/stable/reference/generated/numpy.array.html) (type inferred from dtype),
+or a [`Matrix`](/sdk/topk-py/data#Matrix) instance. To specify a different matrix type,
+use [`matrix()`](/sdk/topk-py/data#matrix-2) with `value_type` or a 2-D numpy array with the
+corresponding dtype.
 
-        The optional `candidates` parameter limits the number of candidate vectors considered during search.
+The optional `candidates` parameter limits the number of candidate vectors considered during search.
 
-        ```python
-        from topk_sdk.query import field, fn, select
+```python
+from topk_sdk.query import field, fn, select
 
-        client.collection("books").query(
-          select(
-            "title",
-            title_distance=fn.multi_vector_distance(
-              "title_embedding",
-              [[0.1, 0.2, 0.3, ...], [0.4, 0.5, 0.6, ...]],
-              candidates=100
-            )
-          )
-          .sort(field("title_distance"), asc=False).limit(10)
-        )
-        ```
+client.collection("books").query(
+  select(
+    "title",
+    title_distance=fn.multi_vector_distance(
+      "title_embedding",
+      [[0.1, 0.2, 0.3, ...], [0.4, 0.5, 0.6, ...]],
+      candidates=100
+    )
+  )
+  .sort(field("title_distance"), asc=False).limit(10)
+)
+```
 
 **Parameters**
 
@@ -9607,8 +9607,8 @@ Calculate the multi-vector distance between a field and a query matrix.
 ##### agg
 
 The `query.agg` submodule exposes functions for creating aggregate expressions used in
-    [`group_by()`](#group-by)'s `aggs` argument, such as [`agg.count()`](#count), [`agg.sum()`](#sum),
-    [`agg.min()`](#min-2), [`agg.max()`](#max-2) or [`agg.avg()`](#avg).
+[`group_by()`](#group-by)'s `aggs` argument, such as [`agg.count()`](#count), [`agg.sum()`](#sum),
+[`agg.min()`](#min-2), [`agg.max()`](#max-2) or [`agg.avg()`](#avg).
 
 **Methods**
 
@@ -9620,20 +9620,20 @@ count(field: str | None = None) -> AggregateExpr
 
 Count the number of documents in the group.
 
-        If `field` is provided, counts only the documents where that field is non-null.
-        If omitted, counts every document in the group.
+If `field` is provided, counts only the documents where that field is non-null.
+If omitted, counts every document in the group.
 
-        ```python
-        # Example:
-        from topk_sdk.query import group_by, field, agg
+```python
+### Example:
+from topk_sdk.query import group_by, field, agg
 
-        client.collection("books").query(
-          group_by(
-            {"is_old": field("published_year") < 1940},
-            {"count": agg.count()},
-          )
-        )
-        ```
+client.collection("books").query(
+  group_by(
+    {"is_old": field("published_year") < 1940},
+    {"count": agg.count()},
+  )
+)
+```
 
 **Parameters**
 
@@ -9757,14 +9757,14 @@ select() -> Query
 
 Creates a new query with a select stage.
 
-    ```python
-    # Example:
-    from topk_sdk.query import select, field
+```python
+### Example:
+from topk_sdk.query import select, field
 
-    client.collection("books").query(
-      select("title", year=field("published_year"))
-    )
-    ```
+client.collection("books").query(
+  select("title", year=field("published_year"))
+)
+```
 
 **Returns**
 
@@ -9780,15 +9780,15 @@ filter(expr: LogicalExpr | TextExpr) -> Query
 
 Creates a new query with a filter stage.
 
-    ```python
-    # Example:
+```python
+### Example:
 
-    from topk_sdk.query import filter, field
+from topk_sdk.query import filter, field
 
-    client.collection("books").query(
-      filter(field("published_year") > 1980)
-    )
-    ```
+client.collection("books").query(
+  filter(field("published_year") > 1980)
+)
+```
 
 **Parameters**
 
@@ -9810,19 +9810,19 @@ group_by(keys: dict[str, LogicalExpr], aggs: dict[str, AggregateExpr]) -> Query
 
 Creates a new query with a group-by stage.
 
-    Groups documents by one or more key expressions and computes aggregations for each group.
+Groups documents by one or more key expressions and computes aggregations for each group.
 
-    ```python
-    # Example:
-    from topk_sdk.query import group_by, field, agg
+```python
+### Example:
+from topk_sdk.query import group_by, field, agg
 
-    client.collection("books").query(
-      group_by(
-        {"is_old": field("published_year") < 1940},
-        {"count": agg.count()},
-      )
-    )
-    ```
+client.collection("books").query(
+  group_by(
+    {"is_old": field("published_year") < 1940},
+    {"count": agg.count()},
+  )
+)
+```
 
 **Parameters**
 
@@ -9865,13 +9865,13 @@ match(token: str, field: str | None = None, weight: float = 1.0, all: bool = Fal
 
 Perform a BM25 keyword search using TopK's built-in tokenizer.
 
-    The ``token`` argument is a raw query string — TopK tokenizes it automatically,
-    removes stop words, and scores documents using BM25. Pass the full query string
-    directly; tokenization and stop-word removal happen server-side.
+The ``token`` argument is a raw query string — TopK tokenizes it automatically,
+removes stop words, and scores documents using BM25. Pass the full query string
+directly; tokenization and stop-word removal happen server-side.
 
-    - ``field``: restrict matching to a specific keyword-indexed field (default: all).
-    - ``weight``: scale the BM25 contribution of this expression (default: 1.0).
-    - ``all``: if True, require all tokens to match (AND); default is any-token (OR).
+- ``field``: restrict matching to a specific keyword-indexed field (default: all).
+- ``weight``: scale the BM25 contribution of this expression (default: 1.0).
+- ``all``: if True, require all tokens to match (AND); default is any-token (OR).
 
 **Parameters**
 
@@ -9896,22 +9896,22 @@ should(token: str, field: str | None = None, weight: float = 1.0) -> TextExpr
 
 Adds an optional BM25 scoring term without filtering documents from the result set.
 
-    Documents containing the term receive a higher BM25 score, while documents that
-    do not contain it remain eligible for the results. Use ``should()`` together with
-    ``match()`` when some terms are required and others should only influence ranking.
+Documents containing the term receive a higher BM25 score, while documents that
+do not contain it remain eligible for the results. Use ``should()`` together with
+``match()`` when some terms are required and others should only influence ranking.
 
-    When used on its own, ``should()`` matches the entire collection and ranks
-    documents according to how well they match the term.
+When used on its own, ``should()`` matches the entire collection and ranks
+documents according to how well they match the term.
 
-    ```python
-    match("hobbit rings", field="title") & should("lord", field="title")
-    ```
+```python
+match("hobbit rings", field="title") & should("lord", field="title")
+```
 
-    This returns only documents matching ``hobbit`` or ``rings``, while boosting
-    documents that also match ``lord``.
+This returns only documents matching ``hobbit`` or ``rings``, while boosting
+documents that also match ``lord``.
 
-    - ``field``: Keyword-indexed field used for scoring. Searches all eligible fields when omitted.
-    - ``weight``: Multiplier applied to the term's BM25 contribution. Defaults to ``1.0``.
+- ``field``: Keyword-indexed field used for scoring. Searches all eligible fields when omitted.
+- ``weight``: Multiplier applied to the term's BM25 contribution. Defaults to ``1.0``.
 
 **Parameters**
 
@@ -9939,13 +9939,13 @@ match_tokens(
 
 Filters documents that match the provided tokens with optional per-token weights.
 
-    Each token can be a string (with the default weight of 1.0) or a (token, weight) tuple.
+Each token can be a string (with the default weight of 1.0) or a (token, weight) tuple.
 
-    When ``field`` is provided, matches only against that field (must have a keyword index).
-    When ``field`` is None (default), matches against all keyword-indexed fields.
+When ``field`` is provided, matches only against that field (must have a keyword index).
+When ``field`` is None (default), matches against all keyword-indexed fields.
 
-    When ``all`` is False (default), matches documents containing any of the tokens (OR).
-    When ``all`` is True, matches only documents containing all tokens (AND).
+When ``all`` is False (default), matches documents containing any of the tokens (OR).
+When ``all`` is True, matches only documents containing all tokens (AND).
 
 **Parameters**
 
@@ -9969,15 +9969,15 @@ not_(expr: LogicalExpr) -> LogicalExpr
 
 Negate a logical expression.
 
-    ```python
-    # Example:
+```python
+### Example:
 
-    from topk_sdk.query import field, not_
+from topk_sdk.query import field, not_
 
-    .filter(
-        not_(field("title").contains("Catcher"))
-    )
-    ```
+.filter(
+    not_(field("title").contains("Catcher"))
+)
+```
 
 **Parameters**
 
@@ -9999,15 +9999,15 @@ abs(expr: LogicalExpr) -> LogicalExpr
 
 Compute the absolute value of a logical expression.
 
-    ```python
-    # Example:
+```python
+### Example:
 
-    from topk_sdk.query import field, abs
+from topk_sdk.query import field, abs
 
-    client.collection("books").query(
-      filter(abs(field("rating")) > 4.5)
-    )
-    ```
+client.collection("books").query(
+  filter(abs(field("rating")) > 4.5)
+)
+```
 
 **Parameters**
 
@@ -10029,19 +10029,19 @@ all(exprs: Sequence[LogicalExpr]) -> LogicalExpr
 
 Create a logical AND expression.
 
-    ```python
-    # Example:
+```python
+### Example:
 
-    from topk_sdk.query import field, all
+from topk_sdk.query import field, all
 
-    client.collection("books").query(
-      filter(all([
-        field("published_year") >= 1900,
-        field("published_year") <= 2000,
-        field("title").is_not_null()
-      ]))
-    )
-    ```
+client.collection("books").query(
+  filter(all([
+    field("published_year") >= 1900,
+    field("published_year") <= 2000,
+    field("title").is_not_null()
+  ]))
+)
+```
 
 **Parameters**
 
@@ -10063,19 +10063,19 @@ any(exprs: Sequence[LogicalExpr]) -> LogicalExpr
 
 Create a logical OR expression.
 
-    ```python
-    # Example:
+```python
+### Example:
 
-    from topk_sdk.query import field, any
+from topk_sdk.query import field, any
 
-    client.collection("books").query(
-      filter(any([
-        field("genre") == "fiction",
-        field("genre") == "mystery",
-        field("genre") == "thriller"
-      ]))
-    )
-    ```
+client.collection("books").query(
+  filter(any([
+    field("genre") == "fiction",
+    field("genre") == "mystery",
+    field("genre") == "thriller"
+  ]))
+)
+```
 
 **Parameters**
 
@@ -10097,15 +10097,15 @@ min(left: Ordered, right: Ordered) -> LogicalExpr
 
 Create a logical MIN expression.
 
-    ```python
-    # Example:
+```python
+### Example:
 
-    from topk_sdk.query import field, min
+from topk_sdk.query import field, min
 
-    client.collection("books").query(
-      filter(min(field("rating"), field("published_year")))
-    )
-    ```
+client.collection("books").query(
+  filter(min(field("rating"), field("published_year")))
+)
+```
 
 **Parameters**
 
@@ -10128,13 +10128,13 @@ max(left: Ordered, right: Ordered) -> LogicalExpr
 
 Create a logical MAX expression.
 
-    ```python
-    from topk_sdk.query import field, max
+```python
+from topk_sdk.query import field, max
 
-    client.collection("books").query(
-      filter(max(field("rating"), field("published_year")))
-    )
-    ```
+client.collection("books").query(
+  filter(max(field("rating"), field("published_year")))
+)
+```
 
 **Parameters**
 
@@ -10269,13 +10269,13 @@ URL: https://docs.topk.io/sdk/topk-py/schema
 
 *Internal*
 
-    Instances of the `FieldIndex` class represents a field index created by [`vector_index`](#vector-index), [`keyword_index`](#keyword-index), [`semantic_index`](#semantic-index), or [`multi_vector_index`](#multi-vector-index) functions.
+Instances of the `FieldIndex` class represents a field index created by [`vector_index`](#vector-index), [`keyword_index`](#keyword-index), [`semantic_index`](#semantic-index), or [`multi_vector_index`](#multi-vector-index) functions.
 
 ##### FieldSpec
 
 *Internal*
 
-    Instances of the `FieldSpec` class represents a field specification created by [`text`](#text), [`int`](#int), [`float`](#float), [`bool`](#bool), [`f32_vector`](#f32-vector), [`u8_vector`](#u8-vector), [`i8_vector`](#i8-vector), [`binary_vector`](#binary-vector), [`f32_sparse_vector`](#f32-sparse-vector), [`u8_sparse_vector`](#u8-sparse-vector), [`bytes`](#bytes), [`list`](#list), [`struct`](#struct), or [`matrix`](#matrix) functions.
+Instances of the `FieldSpec` class represents a field specification created by [`text`](#text), [`int`](#int), [`float`](#float), [`bool`](#bool), [`f32_vector`](#f32-vector), [`u8_vector`](#u8-vector), [`i8_vector`](#i8-vector), [`binary_vector`](#binary-vector), [`f32_sparse_vector`](#f32-sparse-vector), [`u8_sparse_vector`](#u8-sparse-vector), [`bytes`](#bytes), [`list`](#list), [`struct`](#struct), or [`matrix`](#matrix) functions.
 
 **Methods**
 
@@ -10287,15 +10287,15 @@ required(self) -> FieldSpec
 
 Mark a field as required. All fields are optional by default.
 
-        Example:
+Example:
 
-        ```python
-        from topk_sdk.schema import text
+```python
+from topk_sdk.schema import text
 
-        client.collections().create("books", schema={
-            "title": text().required()
-        })
-        ```
+client.collections().create("books", schema={
+    "title": text().required()
+})
+```
 
 **Returns**
 
@@ -10323,15 +10323,15 @@ index(self, index: FieldIndex) -> FieldSpec
 
 Create an index on a field.
 
-        Example:
+Example:
 
-        ```python
-        from topk_sdk.schema import text, keyword_index
+```python
+from topk_sdk.schema import text, keyword_index
 
-        client.collections().create("books", schema={
-            "title": text().index(keyword_index())
-        })
-        ```
+client.collections().create("books", schema={
+    "title": text().index(keyword_index())
+})
+```
 
 **Parameters**
 
@@ -10355,15 +10355,15 @@ text() -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `text` values.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import text
+```python
+from topk_sdk.schema import text
 
-    client.collections().create("books", schema={
-        "title": text()
-    })
-    ```
+client.collections().create("books", schema={
+    "title": text()
+})
+```
 
 **Returns**
 
@@ -10393,15 +10393,15 @@ float() -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `float` values.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import float
+```python
+from topk_sdk.schema import float
 
-    client.collections().create("books", schema={
-        "price": float()
-    })
-    ```
+client.collections().create("books", schema={
+    "price": float()
+})
+```
 
 **Returns**
 
@@ -10417,15 +10417,15 @@ bool() -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `bool` values.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import bool
+```python
+from topk_sdk.schema import bool
 
-    client.collections().create("books", schema={
-        "is_published": bool()
-    })
-    ```
+client.collections().create("books", schema={
+    "is_published": bool()
+})
+```
 
 **Returns**
 
@@ -10441,15 +10441,15 @@ f8_vector(dimension: int) -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `f8_vector` values.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import f8_vector
+```python
+from topk_sdk.schema import f8_vector
 
-    client.collections().create("books", schema={
-        "title_embedding": f8_vector(dimension=1536)
-    })
-    ```
+client.collections().create("books", schema={
+    "title_embedding": f8_vector(dimension=1536)
+})
+```
 
 **Parameters**
 
@@ -10471,15 +10471,15 @@ f16_vector(dimension: int) -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `f16_vector` values.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import f16_vector
+```python
+from topk_sdk.schema import f16_vector
 
-    client.collections().create("books", schema={
-        "title_embedding": f16_vector(dimension=1536)
-    })
-    ```
+client.collections().create("books", schema={
+    "title_embedding": f16_vector(dimension=1536)
+})
+```
 
 **Parameters**
 
@@ -10501,15 +10501,15 @@ f32_vector(dimension: int) -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `f32_vector` values.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import f32_vector
+```python
+from topk_sdk.schema import f32_vector
 
-    client.collections().create("books", schema={
-        "title_embedding": f32_vector(dimension=1536)
-    })
-    ```
+client.collections().create("books", schema={
+    "title_embedding": f32_vector(dimension=1536)
+})
+```
 
 **Parameters**
 
@@ -10531,15 +10531,15 @@ u8_vector(dimension: int) -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `u8_vector` values.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import u8_vector
+```python
+from topk_sdk.schema import u8_vector
 
-    client.collections().create("books", schema={
-        "title_embedding": u8_vector(dimension=1536)
-    })
-    ```
+client.collections().create("books", schema={
+    "title_embedding": u8_vector(dimension=1536)
+})
+```
 
 **Parameters**
 
@@ -10561,15 +10561,15 @@ i8_vector(dimension: int) -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `i8_vector` values.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import i8_vector
+```python
+from topk_sdk.schema import i8_vector
 
-    client.collections().create("books", schema={
-        "title_embedding": i8_vector(dimension=1536)
-    })
-    ```
+client.collections().create("books", schema={
+    "title_embedding": i8_vector(dimension=1536)
+})
+```
 
 **Parameters**
 
@@ -10591,15 +10591,15 @@ binary_vector(dimension: int) -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `binary_vector` values.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import binary_vector
+```python
+from topk_sdk.schema import binary_vector
 
-    client.collections().create("books", schema={
-        "title_embedding": binary_vector(dimension=128)
-    })
-    ```
+client.collections().create("books", schema={
+    "title_embedding": binary_vector(dimension=128)
+})
+```
 
 **Parameters**
 
@@ -10621,17 +10621,17 @@ f32_sparse_vector() -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `f32_sparse_vector` values.
 
-    Note: Sparse vectors use u32 dimension indices to support dictionaries of up to 2^32 - 1 terms.
+Note: Sparse vectors use u32 dimension indices to support dictionaries of up to 2^32 - 1 terms.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import f32_sparse_vector
+```python
+from topk_sdk.schema import f32_sparse_vector
 
-    client.collections().create("books", schema={
-        "sparse_field": f32_sparse_vector()
-    })
-    ```
+client.collections().create("books", schema={
+    "sparse_field": f32_sparse_vector()
+})
+```
 
 **Returns**
 
@@ -10647,17 +10647,17 @@ u8_sparse_vector() -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `u8_sparse_vector` values.
 
-    Note: Sparse vectors use u32 dimension indices to support dictionaries of up to 2^32 - 1 terms.
+Note: Sparse vectors use u32 dimension indices to support dictionaries of up to 2^32 - 1 terms.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import u8_sparse_vector
+```python
+from topk_sdk.schema import u8_sparse_vector
 
-    client.collections().create("books", schema={
-        "sparse_field": u8_sparse_vector()
-    })
-    ```
+client.collections().create("books", schema={
+    "sparse_field": u8_sparse_vector()
+})
+```
 
 **Returns**
 
@@ -10673,15 +10673,15 @@ bytes() -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `bytes` values.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import bytes
+```python
+from topk_sdk.schema import bytes
 
-    client.collections().create("books", schema={
-        "image": bytes()
-    })
-    ```
+client.collections().create("books", schema={
+    "image": bytes()
+})
+```
 
 **Returns**
 
@@ -10697,22 +10697,22 @@ timestamp() -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `timestamp` values.
 
-    Timestamps are stored as milliseconds since UNIX epoch.
+Timestamps are stored as milliseconds since UNIX epoch.
 
-    When upserting timestamps, use:
-    - ``datetime.datetime`` — timezone-aware datetime (timezone-naive datetimes are not supported)
-    - ``datetime.date`` — date (padded to midnight UTC)
-    - ``int`` — epoch milliseconds
+When upserting timestamps, use:
+- ``datetime.datetime`` — timezone-aware datetime (timezone-naive datetimes are not supported)
+- ``datetime.date`` — date (padded to midnight UTC)
+- ``int`` — epoch milliseconds
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import timestamp
+```python
+from topk_sdk.schema import timestamp
 
-    client.collections().create("books", schema={
-        "published_ts": timestamp()
-    })
-    ```
+client.collections().create("books", schema={
+    "published_ts": timestamp()
+})
+```
 
 **Returns**
 
@@ -10728,15 +10728,15 @@ list(value_type: Literal['text', 'integer', 'float']) -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `list` values.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import list
+```python
+from topk_sdk.schema import list
 
-    client.collections().create("books", schema={
-        "tags": list(value_type="text")
-    })
-    ```
+client.collections().create("books", schema={
+    "tags": list(value_type="text")
+})
+```
 
 **Parameters**
 
@@ -10758,15 +10758,15 @@ struct(fields: Mapping[str, SchemaFieldSpec]) -> FieldSpec
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `struct` values.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import int, struct, text
+```python
+from topk_sdk.schema import int, struct, text
 
-    client.collections().create("books", schema={
-        "meta": struct({"author": text(), "year": int()})
-    })
-    ```
+client.collections().create("books", schema={
+    "meta": struct({"author": text(), "year": int()})
+})
+```
 
 **Parameters**
 
@@ -10788,22 +10788,22 @@ matrix(dimension: int, value_type: Literal['f32', 'f16', 'f8', 'u8', 'i8']) -> F
 
 Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `matrix` values.
 
-    Supported `value_type`s:
-        - `f32`
-        - `f16`
-        - `f8`
-        - `u8`
-        - `i8`
+Supported `value_type`s:
+- `f32`
+- `f16`
+- `f8`
+- `u8`
+- `i8`
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import matrix
+```python
+from topk_sdk.schema import matrix
 
-    client.collections().create("books", schema={
-        "title_embedding": matrix(dimension=1536, value_type="f32")
-    })
-    ```
+client.collections().create("books", schema={
+    "title_embedding": matrix(dimension=1536, value_type="f32")
+})
+```
 
 **Parameters**
 
@@ -10824,23 +10824,23 @@ Create a [FieldSpec](/sdk/topk-py/schema#FieldSpec) type for `matrix` values.
 vector_index(metric: Literal['cosine', 'euclidean', 'dot_product', 'hamming']) -> FieldIndex
 ```
 
-Create a [FieldIndex](/sdk/topk-py/schema#FieldSpec) type for `vector_index` values.
+Create a [FieldIndex](/sdk/topk-py/schema#FieldIndex) type for `vector_index` values.
 
-    Supported `metric`s:
-        - `euclidean` (only dense vectors)
-        - `cosine` (only dense vectors)
-        - `dot_product` (dense and sparse vectors)
-        - `hamming` (only binary vectors)
+Supported `metric`s:
+- `euclidean` (only dense vectors)
+- `cosine` (only dense vectors)
+- `dot_product` (dense and sparse vectors)
+- `hamming` (only binary vectors)
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import f32_vector, vector_index
+```python
+from topk_sdk.schema import f32_vector, vector_index
 
-    client.collections().create("books", schema={
-        "title_embedding": f32_vector(dimension=1536).index(vector_index(metric="cosine"))
-    })
-    ```
+client.collections().create("books", schema={
+    "title_embedding": f32_vector(dimension=1536).index(vector_index(metric="cosine"))
+})
+```
 
 **Parameters**
 
@@ -10862,19 +10862,19 @@ keyword_index(type: Literal['text', 'exact'] = "text") -> FieldIndex
 
 Create a [FieldIndex](/sdk/topk-py/schema#FieldIndex) type for `keyword_index` values.
 
-    Supported index `type`s:
-        - `text` (default) - text is tokenized before indexing
-        - `exact` - text is indexed as a single term
+Supported index `type`s:
+- `text` (default) - text is tokenized before indexing
+- `exact` - text is indexed as a single term
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import text, keyword_index
+```python
+from topk_sdk.schema import text, keyword_index
 
-    client.collections().create("books", schema={
-        "title": text().index(keyword_index())
-    })
-    ```
+client.collections().create("books", schema={
+    "title": text().index(keyword_index())
+})
+```
 
 **Parameters**
 
@@ -10896,15 +10896,15 @@ semantic_index() -> FieldIndex
 
 Create a [FieldIndex](/sdk/topk-py/schema#FieldIndex) type for `semantic_index` values.
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import text, semantic_index
+```python
+from topk_sdk.schema import text, semantic_index
 
-    client.collections().create("books", schema={
-        "title": text().index(semantic_index())
-    })
-    ```
+client.collections().create("books", schema={
+    "title": text().index(semantic_index())
+})
+```
 
 **Returns**
 
@@ -10925,18 +10925,18 @@ multi_vector_index(
 
 Create a [FieldIndex](/sdk/topk-py/schema#FieldIndex) type for `multi_vector_index` values.
 
-    Supported `metric`s:
-        - `maxsim`
+Supported `metric`s:
+- `maxsim`
 
-    Example:
+Example:
 
-    ```python
-    from topk_sdk.schema import matrix, multi_vector_index
+```python
+from topk_sdk.schema import matrix, multi_vector_index
 
-    client.collections().create("books", schema={
-        "title_embedding": matrix(dimension=1536, value_type="f32").index(multi_vector_index(metric="maxsim"))
-    })
-    ```
+client.collections().create("books", schema={
+    "title_embedding": matrix(dimension=1536, value_type="f32").index(multi_vector_index(metric="maxsim"))
+})
+```
 
 **Parameters**
 

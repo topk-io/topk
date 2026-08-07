@@ -40,7 +40,7 @@ collection(self, collection: str, partition: Optional[str] = None) -> Collection
 
 Get a client for managing data operations on a specific collection such as querying, upserting, and deleting documents.
 
-        Optionally, pass partition name to scope data operations to that partition.
+Optionally, pass partition name to scope data operations to that partition.
 
 **Parameters**
 
@@ -201,7 +201,7 @@ collection(self, collection: str, partition: Optional[str] = None) -> AsyncColle
 
 Get an async client for a specific collection.
 
-        Optionally, pass partition name to scope data operations to that partition.
+Optionally, pass partition name to scope data operations to that partition.
 
 **Parameters**
 
@@ -441,11 +441,11 @@ update(self, documents: Sequence[Mapping[str, Any]], fail_on_missing: Optional[b
 
 Update documents in the collection.
 
-        Existing documents will be merged with the provided fields.
-        Missing documents will be ignored.
+Existing documents will be merged with the provided fields.
+Missing documents will be ignored.
 
-        Returns the `LSN` at which the update was applied.
-        If no updates were applied, this will be empty.
+Returns the `LSN` at which the update was applied.
+If no updates were applied, this will be empty.
 
 **Parameters**
 
@@ -468,19 +468,19 @@ delete(self, expr: Sequence[str] | query.LogicalExpr) -> str
 
 Delete documents by their IDs or using a filter expression.
 
-        **Example:**
+**Example:**
 
-        Delete documents by their IDs:
-        ```python
-        client.collection("books").delete(["id_1", "id_2"])
-        ```
+Delete documents by their IDs:
+```python
+client.collection("books").delete(["id_1", "id_2"])
+```
 
-        Delete documents by a filter expression:
-        ```python
-        from topk_sdk.query import field
+Delete documents by a filter expression:
+```python
+from topk_sdk.query import field
 
-        client.collection("books").delete(field("published_year").gt(1997))
-        ```
+client.collection("books").delete(field("published_year").gt(1997))
+```
 
 **Parameters**
 
@@ -653,11 +653,11 @@ update(
 
 Update documents in the collection asynchronously.
 
-        Existing documents will be merged with the provided fields.
-        Missing documents will be ignored.
+Existing documents will be merged with the provided fields.
+Missing documents will be ignored.
 
-        Returns the `LSN` at which the update was applied.
-        If no updates were applied, this will be empty.
+Returns the `LSN` at which the update was applied.
+If no updates were applied, this will be empty.
 
 **Parameters**
 
@@ -680,19 +680,19 @@ delete(self, expr: Sequence[str] | query.LogicalExpr) -> Awaitable[str]
 
 Delete documents by their IDs or using a filter expression asynchronously.
 
-        **Example:**
+**Example:**
 
-        Delete documents by their IDs:
-        ```python
-        await client.collection("books").delete(["id_1", "id_2"])
-        ```
+Delete documents by their IDs:
+```python
+await client.collection("books").delete(["id_1", "id_2"])
+```
 
-        Delete documents by a filter expression:
-        ```python
-        from topk_sdk.query import field
+Delete documents by a filter expression:
+```python
+from topk_sdk.query import field
 
-        await client.collection("books").delete(field("published_year").gt(1997))
-        ```
+await client.collection("books").delete(field("published_year").gt(1997))
+```
 
 **Parameters**
 
@@ -1198,7 +1198,7 @@ wait_for_handle(self, handle: str, config: Optional[WaitConfig | dict[str, Any]]
 
 Poll until a handle has been processed or the timeout is reached.
 
-        Raises an error if the handle is not processed within the configured timeout.
+Raises an error if the handle is not processed within the configured timeout.
 
 **Parameters**
 
@@ -1471,7 +1471,7 @@ wait_for_handle(
 
 Poll until a handle has been processed or the timeout is reached asynchronously.
 
-        Raises an error if the handle is not processed within the configured timeout.
+Raises an error if the handle is not processed within the configured timeout.
 
 **Parameters**
 
@@ -1688,9 +1688,9 @@ WaitConfig(frequency_secs: Optional[int] = None, timeout_secs: Optional[int] = N
 
 Configuration for retry behavior.
 
-    By default, retries occur in two situations:
-    1. When the server requests the client to reduce its request rate, resulting in a [SlowDownError](/sdk/topk-py/error#slowdownerror).
-    2. When using the `query(..., lsn=N)` to wait for writes to be available.
+By default, retries occur in two situations:
+1. When the server requests the client to reduce its request rate, resulting in a [SlowDownError](/sdk/topk-py/error#slowdownerror).
+2. When using the `query(..., lsn=N)` to wait for writes to be available.
 
 **Properties**
 
