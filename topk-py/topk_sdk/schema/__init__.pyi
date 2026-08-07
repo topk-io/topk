@@ -316,11 +316,11 @@ def matrix(
     Create a [FieldSpec](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `matrix` values.
 
     Supported `value_type`s:
-        - `f32`
-        - `f16`
-        - `f8`
-        - `u8`
-        - `i8`
+    - `f32`
+    - `f16`
+    - `f8`
+    - `u8`
+    - `i8`
 
     Example:
 
@@ -339,13 +339,13 @@ def vector_index(
     metric: typing.Literal["cosine", "euclidean", "dot_product", "hamming"],
 ) -> FieldIndex:
     """
-    Create a [FieldIndex](https://docs.topk.io/sdk/topk-py/schema#FieldSpec) type for `vector_index` values.
+    Create a [FieldIndex](https://docs.topk.io/sdk/topk-py/schema#FieldIndex) type for `vector_index` values.
 
     Supported `metric`s:
-        - `euclidean` (only dense vectors)
-        - `cosine` (only dense vectors)
-        - `dot_product` (dense and sparse vectors)
-        - `hamming` (only binary vectors)
+    - `euclidean` (only dense vectors)
+    - `cosine` (only dense vectors)
+    - `dot_product` (dense and sparse vectors)
+    - `hamming` (only binary vectors)
 
     Example:
 
@@ -364,8 +364,8 @@ def keyword_index(type: typing.Literal["text", "exact"] = "text") -> FieldIndex:
     Create a [FieldIndex](https://docs.topk.io/sdk/topk-py/schema#FieldIndex) type for `keyword_index` values.
 
     Supported index `type`s:
-        - `text` (default) - text is tokenized before indexing
-        - `exact` - text is indexed as a single term
+    - `text` (default) - text is tokenized before indexing
+    - `exact` - text is indexed as a single term
 
     Example:
 
@@ -405,7 +405,7 @@ def multi_vector_index(
     Create a [FieldIndex](https://docs.topk.io/sdk/topk-py/schema#FieldIndex) type for `multi_vector_index` values.
 
     Supported `metric`s:
-        - `maxsim`
+    - `maxsim`
 
     Example:
 
