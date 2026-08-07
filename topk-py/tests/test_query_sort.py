@@ -66,12 +66,12 @@ def test_query_sort_multiple_exprs(ctx: ProjectContext):
 
 def test_query_sort_multiple_exprs_with_asc_arg():
     with pytest.raises(ValueError):
-        select(_id=field("_id")).sort([(field("published_year"), "asc")], True)
+        select(_id=field("_id")).sort([(field("published_year"), "asc")], True)  # type: ignore
 
 
 def test_query_sort_multiple_exprs_with_asc_kwarg():
     with pytest.raises(ValueError):
-        select(_id=field("_id")).sort([(field("published_year"), "asc")], asc=True)
+        select(_id=field("_id")).sort([(field("published_year"), "asc")], asc=True)  # type: ignore
 
 
 def test_query_sort_invalid_order():
