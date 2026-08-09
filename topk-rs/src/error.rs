@@ -199,6 +199,9 @@ pub enum SchemaValidationError {
     #[error("field name `{field}` cannot start with an underscore")]
     ReservedFieldName { field: String },
 
+    #[error("field name cannot be empty")]
+    EmptyFieldName,
+
     #[error("Missing index spec for field `{field}`")]
     MissingIndexSpec { field: String },
 
