@@ -290,17 +290,19 @@ async fn test_delete_with_invalid_filter(ctx: &mut ProjectTestContext) {
         assert_eq!(lsn, format!("{}", batch_idx + 1));
     }
 
-    // None of these are boolean predicates: a non-boolean operand, a known
-    // bare field, and an unknown bare field.
-    for expr in [
-        field("batch_idx").gte(literal(1)).or(field("batch_idx")),
-        field("batch_idx"),
-        field("unknown_field"),
-    ] {
+    // A non-boolean operand to `or` is rejected while compiling the expr.
+    collection
+        .delete(field("batch_idx").gte(literal(1)).or(field("batch_idx")))
+        .await
+        .expect_err("delete should fail to compile filter");
+
+    // These compile but don't evaluate to boolean: a known bare field, and an
+    // unknown bare field (which compiles to null).
+    for expr in [field("batch_idx"), field("unknown_field")] {
         collection
             .delete(expr)
             .await
-            .expect_err("delete should fail with invalid filter");
+            .expect_err("delete should fail with non-boolean filter");
     }
 
     assert_eq!(
