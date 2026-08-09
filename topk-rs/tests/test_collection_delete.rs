@@ -355,4 +355,25 @@ async fn test_delete_with_filter_on_absent_optional_field(ctx: &mut ProjectTestC
             .expect("could not count documents"),
         1
     );
+
+    // Second segment: doc that has the optional field.
+    collection
+        .upsert(vec![doc!("_id" => "2", "active" => true)])
+        .await
+        .expect("could not upsert document");
+
+    // A boolean filter on the optional field validates against both segments
+    // (one lacking the column) and deletes only the matching doc.
+    let lsn = collection
+        .delete(field("active").eq(literal(true)))
+        .await
+        .expect("delete should succeed with boolean filter");
+
+    assert_eq!(
+        collection
+            .count(Some(lsn), None)
+            .await
+            .expect("could not count documents"),
+        1
+    );
 }
