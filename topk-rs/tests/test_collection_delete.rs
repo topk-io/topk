@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use test_context::test_context;
 use topk_rs::data::literal;
 use topk_rs::doc;
+use topk_rs::proto::v1::control::FieldSpec;
 use topk_rs::proto::v1::data::stage::sort_stage::SortOrder;
 use topk_rs::query::{field, select};
 use topk_rs::Error;
@@ -289,10 +290,20 @@ async fn test_delete_with_invalid_filter(ctx: &mut ProjectTestContext) {
         assert_eq!(lsn, format!("{}", batch_idx + 1));
     }
 
+    // A non-boolean operand to `or` is rejected while compiling the expr.
     collection
         .delete(field("batch_idx").gte(literal(1)).or(field("batch_idx")))
         .await
-        .expect_err("delete should fail with invalid filter");
+        .expect_err("delete should fail to compile filter");
+
+    // These compile but don't evaluate to boolean: a known bare field, and an
+    // unknown bare field (which compiles to null).
+    for expr in [field("batch_idx"), field("unknown_field")] {
+        collection
+            .delete(expr)
+            .await
+            .expect_err("delete should fail with non-boolean filter");
+    }
 
     assert_eq!(
         collection
@@ -300,5 +311,71 @@ async fn test_delete_with_invalid_filter(ctx: &mut ProjectTestContext) {
             .await
             .expect("could not count documents"),
         15
+    );
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_delete_with_filter_on_absent_optional_field(ctx: &mut ProjectTestContext) {
+    let collection = ctx
+        .client
+        .collections()
+        .create(
+            ctx.wrap("test"),
+            HashMap::from_iter([("active".to_string(), FieldSpec::boolean(false))]),
+            None,
+        )
+        .await
+        .expect("could not create collection");
+
+    let collection = ctx.client.collection(&collection.name);
+
+    // Document omits the optional `active` field.
+    let lsn = collection
+        .upsert(vec![doc!("_id" => "1")])
+        .await
+        .expect("could not upsert document");
+
+    assert_eq!(
+        collection
+            .count(Some(lsn.clone()), None)
+            .await
+            .expect("could not count documents"),
+        1
+    );
+
+    // A bare field is not a boolean predicate.
+    collection
+        .delete(field("active"))
+        .await
+        .expect_err("delete should fail with non-boolean filter");
+
+    assert_eq!(
+        collection
+            .count(Some(lsn), None)
+            .await
+            .expect("could not count documents"),
+        1
+    );
+
+    // Second segment: doc that has the optional field.
+    collection
+        .upsert(vec![doc!("_id" => "2", "active" => true)])
+        .await
+        .expect("could not upsert document");
+
+    // A boolean filter on the optional field validates against both segments
+    // (one lacking the column) and deletes only the matching doc.
+    let lsn = collection
+        .delete(field("active").eq(literal(true)))
+        .await
+        .expect("delete should succeed with boolean filter");
+
+    assert_eq!(
+        collection
+            .count(Some(lsn), None)
+            .await
+            .expect("could not count documents"),
+        1
     );
 }
