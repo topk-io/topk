@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use serde::Serialize;
 
 use super::mapping::MappingProperties;
+use super::Shards;
 
 #[derive(Serialize)]
 pub struct IndexCreatedBody {
@@ -24,6 +25,12 @@ impl IndexCreatedBody {
 #[derive(Serialize)]
 pub struct AcknowledgedBody {
     pub acknowledged: bool,
+}
+
+#[derive(Serialize)]
+pub struct RefreshBody {
+    #[serde(rename = "_shards")]
+    pub shards: Shards,
 }
 
 #[derive(Serialize)]

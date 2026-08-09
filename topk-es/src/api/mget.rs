@@ -108,9 +108,13 @@ impl MgetBody {
             .into_iter()
             .map(|(target, doc)| {
                 let source = doc?;
+                let found = source.is_some();
 
                 Ok(DocItem {
-                    found: source.is_some(),
+                    found,
+                    version: found.then_some(1),
+                    seq_no: found.then_some(1),
+                    primary_term: found.then_some(1),
                     source: source.filter(|_| target.source.enabled()),
                     index: target.index,
                     id: target.id,
