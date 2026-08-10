@@ -2,6 +2,7 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde::Serialize;
+use serde_json::json;
 use thiserror::Error as ThisError;
 use topk_rs::Error as TopkError;
 
@@ -9,6 +10,12 @@ use topk_rs::Error as TopkError;
 pub enum Error {
     #[error("index_not_found_exception: {0}")]
     IndexNotFound(String),
+
+    #[error("no_handler_found_exception: {0}")]
+    NoHandler(String),
+
+    #[error("api_not_available_exception: {0}")]
+    ApiNotAvailable(String),
 
     #[error("invalid_index_name_exception: {0}")]
     InvalidIndexName(String),
@@ -79,6 +86,8 @@ impl Error {
     pub fn parts(&self) -> (u16, ErrorBody) {
         let (status, error_type, reason) = match self {
             Error::IndexNotFound(msg) => (404, "index_not_found_exception", msg.clone()),
+            Error::NoHandler(msg) => (400, "no_handler_found_exception", msg.clone()),
+            Error::ApiNotAvailable(msg) => (410, "api_not_available_exception", msg.clone()),
             Error::InvalidIndexName(msg) => (400, "invalid_index_name_exception", msg.clone()),
             Error::InvalidDocId(msg) => (400, "invalid_document_id_exception", msg.clone()),
             Error::DocumentNotFound(msg) => (404, "not_found", msg.clone()),
@@ -115,6 +124,11 @@ impl IntoResponse for Error {
     fn into_response(self) -> Response {
         let (status, body) = self.parts();
         let code = StatusCode::from_u16(status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+
+        // ES emits this one as a bare string, before the structured envelope exists.
+        if let Error::NoHandler(msg) = &self {
+            return (code, Json(json!({ "error": msg }))).into_response();
+        }
 
         let body = ErrorResponseBody {
             error: ErrorDetails {

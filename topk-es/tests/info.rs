@@ -1,6 +1,5 @@
 mod common;
 
-use elasticsearch::cluster::ClusterHealthParts;
 use elasticsearch::http::Method;
 use http::HeaderValue;
 
@@ -43,25 +42,6 @@ async fn test_opaque_id_header_is_echoed() {
         Some("trace-abc"),
         "missing x-opaque-id echo"
     );
-}
-
-#[tokio::test]
-// `_cluster/health` is a classic-compat fake; Serverless does not expose it.
-async fn dev_cluster_health() {
-    let client = common::Client::new();
-    let res = client
-        .es()
-        .cluster()
-        .health(ClusterHealthParts::None)
-        .send()
-        .await
-        .expect("cluster health");
-    assert!(res.status_code().is_success());
-
-    let body: serde_json::Value = res.json().await.unwrap();
-    // A single-node ES is yellow: it cannot allocate replicas.
-    let status = body["status"].as_str().expect(&format!("{body}"));
-    assert!(matches!(status, "green" | "yellow" | "red"), "{body}");
 }
 
 #[tokio::test]
