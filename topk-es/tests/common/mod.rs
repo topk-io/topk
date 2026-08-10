@@ -29,7 +29,7 @@ impl Client {
         let token = std::env::var("ES_TOKEN")
             .or_else(|_| std::env::var("TOPK_API_KEY"))
             .expect("ES_TOKEN or TOPK_API_KEY must be set");
-        let url = std::env::var("ES_URL").unwrap_or_else(|_| "http://localhost:9200".to_string());
+        let url = std::env::var("ES_URL").expect("ES_URL must be set");
 
         let url = Url::parse(&url).unwrap();
         let conn_pool = SingleNodeConnectionPool::new(url);
