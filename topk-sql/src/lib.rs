@@ -125,17 +125,60 @@ pub fn convert_sql(
 // so the rest of the pipeline sees only the canonical `collection$partition` form (a `$`-
 // qualified identifier, which PostgreSQL dialects accept).
 fn rewrite_partition_syntax(sql: &str) -> std::borrow::Cow<'_, str> {
-    static RE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"(?i)\b([\w.]+)\s+PARTITION\s+(\w+)\b").unwrap());
+    static RE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r#"(?i)'[^']*'|("[^"]+"|[\w.-]+)\s+PARTITION\s+([\w-]+)\b"#).unwrap()
+    });
 
     RE.replace_all(sql, |caps: &regex::Captures| {
+        if caps.get(1).is_none() {
+            return caps[0].to_string();
+        }
+        let table = &caps[1];
         let partition = &caps[2];
         if partition.eq_ignore_ascii_case("BY") {
-            caps[0].to_string()
-        } else {
-            format!("{}${}", &caps[1], partition)
+            return caps[0].to_string();
+        }
+        if let Some(inner) = table.strip_prefix('"').and_then(|t| t.strip_suffix('"')) {
+            return format!("\"{inner}${partition}\"");
+        }
+        match table.rsplit_once('.') {
+            Some((schema, name)) => format!("{schema}.\"{name}${partition}\""),
+            None => format!("\"{table}${partition}\""),
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+
+    use super::*;
+
+    #[rstest]
+    #[case("SELECT * FROM books WHERE title = 'a PARTITION b'")]
+    #[case("SELECT rank() OVER (PARTITION BY x) FROM books")]
+    #[case("SELECT * FROM books")]
+    fn rewrite_leaves_sql_untouched(#[case] sql: &str) {
+        assert_eq!(rewrite_partition_syntax(sql), sql);
+    }
+
+    #[rstest]
+    #[case("SELECT * FROM books PARTITION p1", "SELECT * FROM \"books$p1\"")]
+    #[case(
+        "SELECT * FROM public.books-v2 PARTITION p1",
+        "SELECT * FROM public.\"books-v2$p1\""
+    )]
+    #[case(
+        "SELECT * FROM \"logs.2026\" PARTITION p1",
+        "SELECT * FROM \"logs.2026$p1\""
+    )]
+    #[case(
+        "SELECT * FROM logs.2026 PARTITION p1",
+        "SELECT * FROM logs.\"2026$p1\""
+    )]
+    fn rewrite_partition(#[case] sql: &str, #[case] expected: &str) {
+        assert_eq!(rewrite_partition_syntax(sql), expected);
+    }
 }
 
 #[macro_export]

@@ -98,6 +98,28 @@ mod tests {
     #[case("PUBLIC.books", Table::Collection("books".into()))]
     #[case("books$part", Table::Partition("books".into(), "part".into()))]
     #[case("public.books$part", Table::Partition("books".into(), "part".into()))]
+    #[case("\"logs-2026.07.29\"", Table::Collection("logs-2026.07.29".into()))]
+    #[case("\"2026-logs\"", Table::Collection("2026-logs".into()))]
+    #[case(
+        "\"logs-2026.07.29\" PARTITION part",
+        Table::Partition("logs-2026.07.29".into(), "part".into())
+    )]
+    #[case(
+        "\"logs-2026.07.29\" PARTITION part-2",
+        Table::Partition("logs-2026.07.29".into(), "part-2".into())
+    )]
+    #[case(
+        "books PARTITION part-2",
+        Table::Partition("books".into(), "part-2".into())
+    )]
+    #[case(
+        "books-v2 PARTITION part",
+        Table::Partition("books-v2".into(), "part".into())
+    )]
+    #[case(
+        "public.books-v2 PARTITION part",
+        Table::Partition("books-v2".into(), "part".into())
+    )]
     fn new_ok(#[case] table: &str, #[case] expected: Table) {
         assert_eq!(Table::new(name(table)).unwrap(), expected);
     }
