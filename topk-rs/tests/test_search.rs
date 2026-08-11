@@ -51,6 +51,58 @@ async fn test_search(ctx: &mut ProjectTestContext) {
     assert!(results.iter().all(|r| r.doc_id == "doc1"));
 }
 
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_search_query_too_long(ctx: &mut ProjectTestContext) {
+    let dataset = ctx
+        .client
+        .datasets()
+        .create(ctx.wrap("test"), None, None)
+        .await
+        .expect("could not create dataset");
+
+    let err = ctx
+        .client
+        .search(
+            "x".repeat(513),
+            [&dataset.name],
+            5,
+            None,
+            Vec::<String>::new(),
+        )
+        .await
+        .expect_err("should fail with too long query");
+
+    assert!(
+        matches!(err, Error::InvalidArgument(ref s) if s.contains("maximum length of 512")),
+        "unexpected error: {err}"
+    );
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_search_invalid_top_k(ctx: &mut ProjectTestContext) {
+    let dataset = ctx
+        .client
+        .datasets()
+        .create(ctx.wrap("test"), None, None)
+        .await
+        .expect("could not create dataset");
+
+    for top_k in [0, 1_001] {
+        let err = ctx
+            .client
+            .search("query", [&dataset.name], top_k, None, Vec::<String>::new())
+            .await
+            .expect_err("should fail with invalid top_k");
+
+        assert!(
+            matches!(err, Error::InvalidArgument(ref s) if s.contains("top_k must be between 1 and")),
+            "unexpected error: {err}"
+        );
+    }
+}
+
 #[tokio::test]
 async fn test_search_empty_datasets() {
     let err = Client::new(ClientConfig::new("dummy-key", "us-east-1"))
