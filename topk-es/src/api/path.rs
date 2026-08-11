@@ -12,7 +12,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use crate::Error;
 
 static VALID_INDEX_NAME: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^[a-z][a-z0-9_-]{0,127}$").unwrap());
+    LazyLock::new(|| Regex::new(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$").unwrap());
 
 #[repr(transparent)]
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
@@ -25,8 +25,8 @@ impl TryFrom<String> for IndexName {
     fn try_from(index: String) -> Result<Self, Self::Error> {
         if !VALID_INDEX_NAME.is_match(&index) {
             return Err(Error::InvalidIndexName(format!(
-                "\"{index}\": must start with a lowercase letter and contain only lowercase \
-                 letters, digits, underscores, and dashes (max 128 characters)"
+                "\"{index}\": must start with a letter or digit and contain only letters, \
+                 digits, underscores, dashes, and dots (max 255 characters)"
             )));
         }
 
@@ -133,6 +133,44 @@ impl Deref for DocId {
 #[derive(Deserialize)]
 struct DocPath {
     id: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+
+    use super::*;
+
+    #[rstest]
+    #[case::plain("books")]
+    #[case::dashed("books-v2")]
+    #[case::underscored("books_v2")]
+    #[case::dated_logs("logs-2026.07.29")]
+    #[case::leading_digit("2026-logs")]
+    #[case::all_digits("1234")]
+    #[case::uppercase("Books")]
+    #[case::trailing_dot("logs-2026.07.29.")]
+    #[case::max_length(&"a".repeat(255))]
+    fn index_name_ok(#[case] index: &str) {
+        assert_eq!(
+            IndexName::try_from(index.to_string()).unwrap().as_str(),
+            index
+        );
+    }
+
+    #[rstest]
+    #[case::empty("")]
+    #[case::leading_dash("-books")]
+    #[case::leading_underscore("_books")]
+    #[case::leading_dot(".books")]
+    #[case::plus("books+v2")]
+    #[case::space("books v2")]
+    #[case::comma("books,logs")]
+    #[case::wildcard("books*")]
+    #[case::too_long(&"a".repeat(256))]
+    fn index_name_rejected(#[case] index: &str) {
+        assert!(IndexName::try_from(index.to_string()).is_err());
+    }
 }
 
 #[async_trait]
