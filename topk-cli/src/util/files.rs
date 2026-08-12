@@ -257,4 +257,5 @@ mod tests {
             .to_string()
             .contains("Invalid document kind: text/plain"));
     }
+
 }
