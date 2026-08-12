@@ -100,6 +100,7 @@ fn build_topk_v1_protos() {
         "topk.control.v1.FieldIndex",
         "topk.control.v1.FieldIndex.index",
         "topk.control.v1.KeywordIndex",
+        "topk.control.v1.NGramIndex",
         "topk.control.v1.VectorIndex",
         "topk.control.v1.SemanticIndex",
         "topk.control.v1.MultiVectorIndex",
