@@ -13,6 +13,12 @@ impl FieldIndex {
         }
     }
 
+    pub fn ngram() -> FieldIndex {
+        FieldIndex {
+            index: Some(field_index::Index::NgramIndex(NGramIndex {})),
+        }
+    }
+
     pub fn vector(metric: VectorDistanceMetric) -> FieldIndex {
         FieldIndex {
             index: Some(field_index::Index::VectorIndex(VectorIndex {

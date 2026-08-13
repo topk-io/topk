@@ -13,6 +13,7 @@ message FieldIndex {
     VectorIndex vector_index = 2;
     SemanticIndex semantic_index = 3;
     MultiVectorIndex multi_vector_index = 4;
+    NGramIndex ngram_index = 5;
   }
 }
 
@@ -126,6 +127,10 @@ enum KeywordIndexType {
   // KEYWORD_INDEX_TYPE_CODE = 3;
   // KEYWORD_INDEX_TYPE_LOG = 4;
 }
+
+
+// NGram index specification
+message NGramIndex {}
 
 // Multi-vector index specification
 message MultiVectorIndex {
