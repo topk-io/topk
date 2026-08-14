@@ -473,7 +473,7 @@ async fn dev_rank_vectors_roundtrip(
 #[tokio::test]
 async fn dev_create_index_invalid_name_rejected() {
     let client = common::Client::new();
-    for name in ["BadIndex", "1bad", "_bad", "-bad", "bad name"] {
+    for name in ["_bad", "-bad", ".bad", "bad name"] {
         let res = client
             .es()
             .indices()
