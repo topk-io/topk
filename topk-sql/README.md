@@ -537,6 +537,7 @@ CREATE TABLE [IF NOT EXISTS] <table> (
 |--------|------------|---------|
 | `keyword_index()` | `TEXT`, `VARCHAR` | type: `text` (default) — tokenized before indexing<br/>`exact` — indexed as a single term |
 | `semantic_index()` | `TEXT`, `VARCHAR` | — |
+| `ngram_index()` | `TEXT`, `VARCHAR` | — |
 | `vector_index()` | `*_vector(n)`, `*_sparse_vector` | metric: `cosine`, `dot_product`, `euclidean`, `hamming` |
 | `multi_vector_index()` | `*_matrix(n)` | metric: `maxsim`<br/>quantization: `1bit`, `2bit`, `scalar`<br/>width, top_k |
 

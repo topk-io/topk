@@ -42,6 +42,12 @@ use common::{Scope, TableScope, ids};
     "SELECT _id FROM {{table}} WHERE match('hello', title) LIMIT 10",
     vec![doc!("_id" => "doc")],
 )]
+#[case::ngram_index(
+    "CREATE TABLE {{table}} (title TEXT NOT NULL INDEX ngram_index())",
+    "INSERT INTO {{table}} (_id, title) VALUES ('doc', 'Hello World')",
+    "SELECT _id FROM {{table}} WHERE title ~ 'llo Wor' LIMIT 10",
+    vec![doc!("_id" => "doc")],
+)]
 #[tokio::test]
 async fn create_table_round_trip(
     #[case] create_sql: &str,
@@ -103,6 +109,10 @@ async fn create_table_rejected(
 #[case::keyword_index_unknown_option(
     "CREATE TABLE {{table}} (title TEXT NOT NULL INDEX keyword_index(typo = 'text'))",
     "Invalid: unknown option `typo`"
+)]
+#[case::ngram_index_with_options(
+    "CREATE TABLE {{table}} (title TEXT NOT NULL INDEX ngram_index(type = 'text'))",
+    "Unsupported: ngram_index does not take options"
 )]
 #[tokio::test]
 async fn create_table_with_index_rejected(#[case] sql: &str, #[case] expected: &str) {

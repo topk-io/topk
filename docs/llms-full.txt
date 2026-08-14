@@ -4671,6 +4671,36 @@ CREATE TABLE books (
 
 See [semantic_index()](../sdk/topk-py/schema#semantic-index) for details.
 
+###### NGram Index
+
+Accelerates substring and regular expression filters such as [`contains`](/collections/query#contains) and [`regexp_match`](/collections/query#regexp_match) on text fields. Enabled by [`ngram_index()`](/sdk/topk-py/schema#ngram_index).
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.schema import ngram_index, text
+
+schema = {
+    "title": text().index(ngram_index()),
+}
+```
+
+```typescript Javascript
+import { ngramIndex, text } from "topk-js/schema";
+
+const schema = {
+  title: text().index(ngramIndex()),
+};
+```
+
+```sql SQL
+CREATE TABLE books (
+  title TEXT INDEX ngram_index()
+);
+```
+
+</CodeGroup>
+
 
 #### List
 
@@ -10292,7 +10322,7 @@ URL: https://docs.topk.io/sdk/topk-py/schema
 
 *Internal*
 
-Instances of the `FieldIndex` class represents a field index created by [`vector_index`](#vector-index), [`keyword_index`](#keyword-index), [`semantic_index`](#semantic-index), or [`multi_vector_index`](#multi-vector-index) functions.
+Instances of the `FieldIndex` class represents a field index created by [`vector_index`](#vector-index), [`keyword_index`](#keyword-index), [`semantic_index`](#semantic-index), [`ngram_index`](#ngram-index), or [`multi_vector_index`](#multi-vector-index) functions.
 
 ##### FieldSpec
 
@@ -10926,6 +10956,30 @@ from topk_sdk.schema import text, semantic_index
 
 client.collections().create("books", schema={
     "title": text().index(semantic_index())
+})
+```
+
+**Returns**
+
+[`FieldIndex`](#fieldindex)
+
+***
+
+##### ngram_index()
+
+```python
+ngram_index() -> FieldIndex
+```
+
+Create a [FieldIndex](/sdk/topk-py/schema#FieldIndex) type for `ngram_index` values.
+
+Example:
+
+```python
+from topk_sdk.schema import text, ngram_index
+
+client.collections().create("books", schema={
+    "title": text().index(ngram_index())
 })
 ```
 
@@ -14761,6 +14815,30 @@ await client.collections().create("books", {
 
 ***
 
+##### ngramIndex()
+
+```ts
+function ngramIndex(): FieldIndex;
+```
+
+Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `ngram_index` values.
+
+Example:
+
+```javascript
+import { text, ngramIndex } from "topk-js/schema";
+
+await client.collections().create("books", {
+  title: text().index(ngramIndex())
+});
+```
+
+**Returns**
+
+[`FieldIndex`](/sdk/topk-js/Namespace.schema#fieldindex)
+
+***
+
 ##### semanticIndex()
 
 ```ts
@@ -15713,6 +15791,7 @@ CREATE TABLE [IF NOT EXISTS] <table> (
 |--------|------------|---------|
 | `keyword_index()` | `TEXT`, `VARCHAR` | type: `text` (default) — tokenized before indexing<br/>`exact` — indexed as a single term |
 | `semantic_index()` | `TEXT`, `VARCHAR` | — |
+| `ngram_index()` | `TEXT`, `VARCHAR` | — |
 | `vector_index()` | `*_vector(n)`, `*_sparse_vector` | metric: `cosine`, `dot_product`, `euclidean`, `hamming` |
 | `multi_vector_index()` | `*_matrix(n)` | metric: `maxsim`<br/>quantization: `1bit`, `2bit`, `scalar`<br/>width, top_k |
 
