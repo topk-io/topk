@@ -406,6 +406,30 @@ await client.collections().create("books", {
 
 ***
 
+### ngramIndex()
+
+```ts
+function ngramIndex(): FieldIndex;
+```
+
+Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `ngram_index` values.
+
+Example:
+
+```javascript
+import { text, ngramIndex } from "topk-js/schema";
+
+await client.collections().create("books", {
+  title: text().index(ngramIndex())
+});
+```
+
+**Returns**
+
+[`FieldIndex`](/sdk/topk-js/Namespace.schema#fieldindex)
+
+***
+
 ### semanticIndex()
 
 ```ts

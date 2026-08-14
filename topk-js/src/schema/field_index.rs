@@ -26,6 +26,7 @@ pub enum FieldIndexUnion {
         metric: VectorDistanceMetric,
     },
     SemanticIndex {},
+    NGramIndex {},
     MultiVectorIndex {
         metric: MultiVectorDistanceMetric,
         quantization: Option<MultiVectorQuantization>,
@@ -50,6 +51,10 @@ impl FieldIndex {
 
     pub(crate) fn semantic_index() -> Self {
         Self(FieldIndexUnion::SemanticIndex {})
+    }
+
+    pub(crate) fn ngram_index() -> Self {
+        Self(FieldIndexUnion::NGramIndex {})
     }
 
     pub(crate) fn multi_vector_index(
@@ -208,6 +213,9 @@ impl From<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
                 topk_rs::proto::v1::control::field_index::Index::SemanticIndex(_) => {
                     FieldIndex::semantic_index()
                 }
+                topk_rs::proto::v1::control::field_index::Index::NgramIndex(_) => {
+                    FieldIndex::ngram_index()
+                }
                 topk_rs::proto::v1::control::field_index::Index::MultiVectorIndex(mvi) => {
                     let metric = match mvi.metric() {
                         MultiVectorDistanceMetricPb::Maxsim => MultiVectorDistanceMetric::Maxsim,
@@ -248,6 +256,7 @@ impl From<FieldIndex> for topk_rs::proto::v1::control::FieldIndex {
             FieldIndexUnion::SemanticIndex {} => {
                 topk_rs::proto::v1::control::FieldIndex::semantic()
             }
+            FieldIndexUnion::NGramIndex {} => topk_rs::proto::v1::control::FieldIndex::ngram(),
             FieldIndexUnion::MultiVectorIndex {
                 metric,
                 quantization,

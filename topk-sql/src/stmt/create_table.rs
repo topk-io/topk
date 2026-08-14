@@ -223,6 +223,10 @@ impl FromSql<Function> for FieldIndex {
                 sql_unsupported!(!opts.is_empty(), "semantic_index does not take options");
                 FieldIndex::semantic()
             }
+            "ngram_index" => {
+                sql_unsupported!(!opts.is_empty(), "ngram_index does not take options");
+                FieldIndex::ngram()
+            }
             "vector_index" => {
                 let (metric,) = parse_kwargs!(&opts; metric: VectorDistanceMetric)?;
                 FieldIndex::vector(metric)
@@ -240,7 +244,7 @@ impl FromSql<Function> for FieldIndex {
                 FieldIndex::multi_vector(metric, quantization, width, top_k)
             }
             _ => sql_unsupported!(
-                "unknown index method `{method}`, expected: keyword_index | semantic_index | vector_index | multi_vector_index"
+                "unknown index method `{method}`, expected: keyword_index | semantic_index | ngram_index | vector_index | multi_vector_index"
             ),
         };
 

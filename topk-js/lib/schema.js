@@ -13,6 +13,7 @@ exports.keywordIndex = schema.keywordIndex;
 exports.list = schema.list;
 exports.struct = schema.struct;
 exports.semanticIndex = schema.semanticIndex;
+exports.ngramIndex = schema.ngramIndex;
 exports.text = schema.text;
 exports.u8Vector = schema.u8Vector;
 exports.i8Vector = schema.i8Vector;

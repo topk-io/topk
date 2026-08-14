@@ -14,6 +14,7 @@ pub enum FieldIndex {
         metric: VectorDistanceMetric,
     },
     SemanticIndex {},
+    NGramIndex {},
     MultiVectorIndex {
         metric: MultiVectorDistanceMetric,
         quantization: Option<MultiVectorQuantization>,
@@ -117,6 +118,7 @@ impl Into<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
                 topk_rs::proto::v1::control::FieldIndex::vector(metric.into())
             }
             FieldIndex::SemanticIndex {} => topk_rs::proto::v1::control::FieldIndex::semantic(),
+            FieldIndex::NGramIndex {} => topk_rs::proto::v1::control::FieldIndex::ngram(),
             FieldIndex::MultiVectorIndex {
                 metric,
                 quantization,
@@ -174,6 +176,9 @@ impl From<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
             }
             topk_rs::proto::v1::control::field_index::Index::SemanticIndex(_) => {
                 FieldIndex::SemanticIndex {}
+            }
+            topk_rs::proto::v1::control::field_index::Index::NgramIndex(_) => {
+                FieldIndex::NGramIndex {}
             }
             topk_rs::proto::v1::control::field_index::Index::MultiVectorIndex(mvi) => {
                 FieldIndex::MultiVectorIndex {

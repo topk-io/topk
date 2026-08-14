@@ -5,7 +5,7 @@ class FieldIndex:
     """
     *Internal*
 
-    Instances of the `FieldIndex` class represents a field index created by [`vector_index`](#vector-index), [`keyword_index`](#keyword-index), [`semantic_index`](#semantic-index), or [`multi_vector_index`](#multi-vector-index) functions.
+    Instances of the `FieldIndex` class represents a field index created by [`vector_index`](#vector-index), [`keyword_index`](#keyword-index), [`semantic_index`](#semantic-index), [`ngram_index`](#ngram-index), or [`multi_vector_index`](#multi-vector-index) functions.
     """
 
     ...
@@ -390,6 +390,22 @@ def semantic_index() -> FieldIndex:
 
     client.collections().create("books", schema={
         "title": text().index(semantic_index())
+    })
+    ```
+    """
+    ...
+
+def ngram_index() -> FieldIndex:
+    """
+    Create a [FieldIndex](https://docs.topk.io/sdk/topk-py/schema#FieldIndex) type for `ngram_index` values.
+
+    Example:
+
+    ```python
+    from topk_sdk.schema import text, ngram_index
+
+    client.collections().create("books", schema={
+        "title": text().index(ngram_index())
     })
     ```
     """

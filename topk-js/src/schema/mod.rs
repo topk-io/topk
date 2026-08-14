@@ -360,6 +360,22 @@ pub fn semantic_index() -> FieldIndex {
     FieldIndex::semantic_index()
 }
 
+/// Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `ngram_index` values.
+///
+/// Example:
+///
+/// ```javascript
+/// import { text, ngramIndex } from "topk-js/schema";
+///
+/// await client.collections().create("books", {
+///   title: text().index(ngramIndex())
+/// });
+/// ```
+#[napi(namespace = "schema")]
+pub fn ngram_index() -> FieldIndex {
+    FieldIndex::ngram_index()
+}
+
 /// Options for multi-vector index specifications.
 ///
 /// This struct contains configuration options for multi-vector indexes,

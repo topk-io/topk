@@ -309,6 +309,36 @@ CREATE TABLE books (
 
 See [semantic_index()](../sdk/topk-py/schema#semantic-index) for details.
 
+#### NGram Index
+
+Accelerates substring and regular expression filters such as [`contains`](/collections/query#contains) and [`regexp_match`](/collections/query#regexp_match) on text fields. Enabled by [`ngram_index()`](/sdk/topk-py/schema#ngram_index).
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.schema import ngram_index, text
+
+schema = {
+    "title": text().index(ngram_index()),
+}
+```
+
+```typescript Javascript
+import { ngramIndex, text } from "topk-js/schema";
+
+const schema = {
+  title: text().index(ngramIndex()),
+};
+```
+
+```sql SQL
+CREATE TABLE books (
+  title TEXT INDEX ngram_index()
+);
+```
+
+</CodeGroup>
+
 
 ## List
 

@@ -75,6 +75,7 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(vector_index))?;
     m.add_wrapped(wrap_pyfunction!(keyword_index))?;
     m.add_wrapped(wrap_pyfunction!(semantic_index))?;
+    m.add_wrapped(wrap_pyfunction!(ngram_index))?;
     m.add_wrapped(wrap_pyfunction!(multi_vector_index))?;
 
     Ok(())
@@ -237,6 +238,11 @@ pub fn keyword_index(r#type: String) -> PyResult<field_index::FieldIndex> {
 #[pyfunction]
 pub fn semantic_index() -> PyResult<field_index::FieldIndex> {
     Ok(field_index::FieldIndex::SemanticIndex {})
+}
+
+#[pyfunction]
+pub fn ngram_index() -> PyResult<field_index::FieldIndex> {
+    Ok(field_index::FieldIndex::NGramIndex {})
 }
 
 #[pyfunction]

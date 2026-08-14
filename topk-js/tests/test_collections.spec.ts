@@ -9,6 +9,7 @@ import {
   keywordIndex,
   matrix,
   multiVectorIndex,
+  ngramIndex,
   text,
   u8Vector,
   vectorIndex,
@@ -94,6 +95,27 @@ describe("Collections", () => {
     expect(listed?.schema.title.index).toMatchObject({
       type: "KeywordIndex",
       indexType: "exact",
+    });
+  });
+
+  test("collection schema with ngram index round trip", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("test", {
+      title: text().required().index(ngramIndex()),
+    });
+
+    const fetched = await ctx.client.collections().get(collection.name);
+    const collections = await ctx.client.collections().list();
+    const listed = collections.find(({ name }) => name === collection.name);
+
+    expect(collection.schema.title.index).toMatchObject({
+      type: "NGramIndex",
+    });
+    expect(fetched.schema.title.index).toMatchObject({
+      type: "NGramIndex",
+    });
+    expect(listed?.schema.title.index).toMatchObject({
+      type: "NGramIndex",
     });
   });
 

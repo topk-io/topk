@@ -14,6 +14,7 @@ export declare const keywordIndex: typeof schema.keywordIndex;
 export declare const list: typeof schema.list;
 export declare const struct: (fields: Record<string, SchemaFieldSpec>) => schema.FieldSpec;
 export declare const semanticIndex: typeof schema.semanticIndex;
+export declare const ngramIndex: typeof schema.ngramIndex;
 export declare const multiVectorIndex: typeof schema.multiVectorIndex;
 export declare const text: typeof schema.text;
 export declare const matrix: typeof schema.matrix;

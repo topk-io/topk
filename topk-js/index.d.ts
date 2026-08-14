@@ -1258,6 +1258,7 @@ export declare namespace schema {
     | { type: 'KeywordIndex', indexType: KeywordIndexType }
     | { type: 'VectorIndex', metric: VectorDistanceMetric }
     | { type: 'SemanticIndex' }
+    | { type: 'NGramIndex' }
     | { type: 'MultiVectorIndex', metric: MultiVectorDistanceMetric, quantization?: MultiVectorQuantization, width?: number, topK?: number }
     | { type: 'Unknown' }
   /**
@@ -1418,6 +1419,20 @@ export declare namespace schema {
   export type MultiVectorQuantization =  '1bit'|
   '2bit'|
   'scalar';
+  /**
+   * Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `ngram_index` values.
+   *
+   * Example:
+   *
+   * ```javascript
+   * import { text, ngramIndex } from "topk-js/schema";
+   *
+   * await client.collections().create("books", {
+   *   title: text().index(ngramIndex())
+   * });
+   * ```
+   */
+  export function ngramIndex(): schema.FieldIndex
   /**
    * Creates a [FieldIndex](https://docs.topk.io/sdk/topk-js/schema#FieldIndex) type for `semantic_index` values.
    *
