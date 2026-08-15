@@ -154,3 +154,53 @@ async fn test_upsert_file(#[case] file: &str) {
 
     ctx.teardown().await;
 }
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_upsert_id_prefix_sibling(ctx: &mut ProjectTestContext) {
+    let dataset = ctx
+        .client
+        .datasets()
+        .create(ctx.wrap("test"), None, None)
+        .await
+        .expect("could not create dataset");
+
+    // `doc-010` first: processing `doc-01` afterwards must not clobber it
+    for (id, body) in [
+        ("doc-010", "# Apples\n\nA document about apples."),
+        ("doc-01", "# Oranges\n\nA document about oranges."),
+    ] {
+        let file = InputFile::from_bytes(id, body.as_bytes(), "text/markdown")
+            .expect("could not create InputFile from memory");
+        let handle = ctx
+            .client
+            .dataset(&dataset.name)
+            .upsert_file(id.to_string(), file, Vec::<(String, Value)>::new())
+            .await
+            .expect("could not upsert file");
+        ctx.client
+            .dataset(&dataset.name)
+            .wait_for_handle(&handle, None)
+            .await
+            .expect("could not wait handle");
+    }
+
+    let docs = ctx
+        .client
+        .dataset(&dataset.name)
+        .get_metadata(vec!["doc-010", "doc-01"], None)
+        .await
+        .expect("could not get metadata");
+    assert!(docs.contains_key("doc-010"));
+    assert!(docs.contains_key("doc-01"));
+
+    let results: Vec<_> = ctx
+        .client
+        .search("apples", [&dataset.name], 10, None, Vec::<String>::new())
+        .await
+        .expect("could not search")
+        .try_collect()
+        .await
+        .expect("could not collect search results");
+    assert!(results.iter().any(|r| r.doc_id == "doc-010"));
+}
