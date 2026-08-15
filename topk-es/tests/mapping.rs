@@ -3,9 +3,13 @@ mod common;
 use common::TestScope;
 use elasticsearch::{
     http::StatusCode,
-    indices::{IndicesCreateParts, IndicesExistsParts, IndicesGetMappingParts, IndicesGetParts},
+    indices::{
+        IndicesCreateParts, IndicesDeleteParts, IndicesExistsParts, IndicesGetMappingParts,
+        IndicesGetParts,
+    },
     BulkOperation, BulkOperations,
 };
+use rstest::rstest;
 use serde_json::{json, Value};
 use test_context::test_context;
 use test_macros::rstest_ctx;
@@ -471,9 +475,9 @@ async fn dev_rank_vectors_roundtrip(
 }
 
 #[tokio::test]
-async fn dev_create_index_invalid_name_rejected() {
+async fn test_create_index_invalid_name_rejected() {
     let client = common::Client::new();
-    for name in ["BadIndex", "1bad", "_bad", "-bad", "bad name"] {
+    for name in ["_bad", "-bad", "bad name", "bad*"] {
         let res = client
             .es()
             .indices()
@@ -481,6 +485,37 @@ async fn dev_create_index_invalid_name_rejected() {
             .send()
             .await
             .expect("create index");
+        assert_eq!(res.status_code(), StatusCode::BAD_REQUEST, "{name:?}");
+    }
+}
+
+#[tokio::test]
+#[rstest]
+#[case::dot_prefix(".Ddb-Es-Proxy-Test", false)]
+#[case::uppercase("Ddb-Es-Proxy-Test", true)]
+async fn dev_create_index_name_deviations(#[case] prefix: &str, #[case] created: bool) {
+    let client = common::Client::new();
+    let name = format!("{prefix}-{}", uuid::Uuid::new_v4());
+
+    let res = client
+        .es()
+        .indices()
+        .create(IndicesCreateParts::Index(&name))
+        .send()
+        .await
+        .expect("create index");
+
+    if created {
+        assert!(res.status_code().is_success(), "{name:?}");
+        let res = client
+            .es()
+            .indices()
+            .delete(IndicesDeleteParts::Index(&[&name]))
+            .send()
+            .await
+            .expect("delete index");
+        assert!(res.status_code().is_success());
+    } else {
         assert_eq!(res.status_code(), StatusCode::BAD_REQUEST, "{name:?}");
     }
 }
