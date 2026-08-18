@@ -22,37 +22,48 @@ struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
 
-    /// TopK API key (overrides TOPK_API_KEY environment variable)
+    /// TopK API key (or run `topk login`)
     #[arg(
         long,
         env = "TOPK_API_KEY",
         global = true,
         hide_env_values = true,
-        hide = true
+        help_heading = "Global options"
     )]
     api_key: Option<String>,
 
-    /// Host (overrides TOPK_HOST environment variable, default: topk.io)
+    /// API domain; the endpoint is <REGION>.api.<HOST>
     #[arg(
         long,
         env = "TOPK_HOST",
         default_value = "topk.io",
         global = true,
-        hide = true
+        help_heading = "Global options"
     )]
     host: String,
 
+    /// Connect over HTTPS (default: true; TOPK_HTTPS=false to disable)
     #[arg(
         long,
         env = "TOPK_HTTPS",
         default_value = "true",
         global = true,
-        hide = true
+        help_heading = "Global options"
     )]
     https: bool,
 
+    /// Region to write to; list available regions at https://docs.topk.io/regions
+    #[arg(long, env = "TOPK_REGION", global = true, help_heading = "Global options")]
+    region: Option<String>,
+
     /// Output format
-    #[arg(short = 'o', long, default_value = "text", global = true)]
+    #[arg(
+        short = 'o',
+        long,
+        default_value = "text",
+        global = true,
+        help_heading = "Global options"
+    )]
     output: OutputFormat,
 }
 
@@ -76,6 +87,9 @@ enum Commands {
     /// List documents in a dataset
     List(list::ListArgs),
 
+    /// Bulk import from a database, file or object store
+    Import(topk::commands::import::ImportArgs),
+
     /// Manage datasets (create, list, update, delete)
     Dataset {
         #[command(subcommand)]
@@ -92,7 +106,10 @@ enum Commands {
 
 #[tokio::main]
 async fn main() -> ExitCode {
-    let cli = Cli::parse();
+    let mut cli = Cli::parse();
+    // Set-but-empty env vars (`TOPK_REGION=`) read as unset.
+    cli.api_key = cli.api_key.filter(|v| !v.is_empty());
+    cli.region = cli.region.filter(|v| !v.is_empty());
 
     let output = Output::new(cli.output);
 
@@ -229,6 +246,23 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
                     output.print(&list::ListResult { entries })?;
                 }
             }
+            Ok(())
+        }
+
+        Some(Commands::Import(args)) => {
+            // Resolved lazily: --dry-run neither authenticates nor writes.
+            let connect = || {
+                let api_key = get_api_key(cli.api_key, &config)?;
+                let region = cli.region.ok_or_else(|| {
+                    topk::import::Error::InvalidArgument(
+                        "--region is required to import (or set TOPK_REGION). \
+                         List available regions at https://docs.topk.io/regions"
+                            .to_string(),
+                    )
+                })?;
+                Ok(make_client(&api_key, &region, &cli.host, cli.https))
+            };
+            topk::commands::import::run(connect, &args, output).await?;
             Ok(())
         }
 
