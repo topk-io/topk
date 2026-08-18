@@ -17,6 +17,19 @@ path = "src/main.rs"
 
 [dependencies]
 topk-rs = { path = "../topk-rs", features = ["json"] }
+duckdb = { version = "1", features = ["bundled", "parquet"] }
+elasticsearch = { version = "8.15.0-alpha.1" }
+mongodb = { version = "3" }
+async-stream = { version = "0.3" }
+float8 = { version = "0.5" }
+half = { version = "2" }
+indexmap = { version = "2", features = ["serde"] }
+prost = { version = "0.14" }
+strum = { version = "0.26", features = ["derive"] }
+thiserror = { version = "1" }
+topk-es = { path = "../topk-es" }
+url = { version = "2" }
+wildmatch = { version = "2" }
 clap = { version = "4", features = ["derive", "env"] }
 clap_complete = { version = "4" }
 tokio = { version = "1", features = ["full"] }
@@ -48,6 +61,14 @@ humantime = "2"
 
 [dev-dependencies]
 assert_cmd = "2"
+rstest = "0.23"
+sqlx = { version = "0.8", features = [
+    "runtime-tokio",
+    "postgres",
+    "mysql",
+    "sqlite",
+] }
+test-macros = { path = "../utils/test-macros" }
 test-context = { version = "0.3" }
 uuid = { version = "1", features = ["v4"] }
 tokio = { version = "1", features = ["full"] }

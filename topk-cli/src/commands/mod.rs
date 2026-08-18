@@ -1,6 +1,7 @@
 pub mod ask;
 pub mod dataset;
 pub mod delete;
+pub mod import;
 pub mod list;
 pub mod login;
 pub mod search;
@@ -98,7 +99,7 @@ pub mod test_context {
         async fn setup() -> Self {
             let scope = format!("topk-cli-{}", Uuid::new_v4().simple());
 
-            let host = std::env::var("TOPK_HOST").expect("TOPK_HOST not set");
+            let host = std::env::var("TOPK_HOST").unwrap_or_else(|_| "topk.io".to_string());
             let region = std::env::var("TOPK_REGION").expect("TOPK_REGION not set");
             let api_key = std::env::var("TOPK_API_KEY").expect("TOPK_API_KEY not set");
             let https =

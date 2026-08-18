@@ -21,6 +21,11 @@ pub struct Output {
     pub format: OutputFormat,
 }
 
+/// Warn from code that has no `Output` at hand; stderr never pollutes JSON stdout.
+pub fn warn(msg: impl AsRef<str>) {
+    eprintln!("{}", msg.as_ref());
+}
+
 pub fn is_broken_pipe(err: &Error) -> bool {
     matches!(err, Error::IoError(io_err) if io_err.kind() == std::io::ErrorKind::BrokenPipe)
 }
