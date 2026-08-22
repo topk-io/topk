@@ -1,3 +1,6 @@
+use std::collections::HashSet;
+use std::hash::{DefaultHasher, Hash, Hasher};
+
 use topk_rs::proto::v1::control::{
     field_type, field_type_matrix::MatrixValueType, FieldSpec, MultiVectorDistanceMetric,
     VectorDistanceMetric,
@@ -53,6 +56,17 @@ impl Score {
             ..Score::default()
         }
     }
+
+    // A filter/must_not position contributes its gate only: a sparse ann term
+    // may still back that gate (see `sparse_selects`), but nothing may score.
+    pub fn unscored(mut self) -> Score {
+        self.bm25 = None;
+        self.expr = None;
+        for ann in &mut self.anns {
+            ann.weight = 0.0;
+        }
+        self
+    }
 }
 
 #[derive(Clone)]
@@ -73,6 +87,35 @@ pub enum AnnQuery {
         vector: QueryVector,
         num_candidates: Option<u64>,
     },
+
+    Sparse(Value),
+}
+
+// A sparse gate (see `compile::Query::SparseVector`) needs its dot product
+// selected before it can filter on it, in every place a gate gets filtered
+// independently of `ann_score` (`lower`, `count`, `agg::compile`). Name it
+// by content so the same (field, query) reuses one selected column instead
+// of recomputing it.
+pub fn sparse_select_name(field: &str, value: &Value) -> String {
+    let mut h = DefaultHasher::new();
+    field.hash(&mut h);
+    format!("{value:?}").hash(&mut h);
+    format!("{RANK_ANN}_{:016x}", h.finish())
+}
+
+pub fn sparse_selects<'a>(anns: impl Iterator<Item = &'a AnnTerm>) -> Vec<(String, FunctionExpr)> {
+    let mut seen = HashSet::new();
+    anns.filter_map(|ann| match &ann.query {
+        AnnQuery::Sparse(value) => {
+            let name = sparse_select_name(&ann.field, value);
+            seen.insert(name.clone()).then(|| {
+                let expr = fns::vector_distance(&ann.field, value.clone());
+                (name, expr)
+            })
+        }
+        _ => None,
+    })
+    .collect()
 }
 
 // Folds a raw vector score into ES's [0, 1] `_score` space. `expr` and
@@ -148,7 +191,7 @@ pub fn ann_score(
             ))
         })?;
 
-        let (spec, scorer) = match &ann.query {
+        let (spec, scorer, rank_ann) = match &ann.query {
             AnnQuery::Semantic(text) => {
                 let spec = match IndexKind::from(spec) {
                     IndexKind::Semantic => {
@@ -161,15 +204,22 @@ pub fn ann_score(
                     }
                     _ => spec,
                 };
-                (spec, fns::semantic_similarity(&ann.field, text))
+                (
+                    spec,
+                    Some(fns::semantic_similarity(&ann.field, text)),
+                    format!("{RANK_ANN}_{index}"),
+                )
             }
             AnnQuery::Vector {
                 vector,
                 num_candidates,
             } => (
                 spec,
-                knn_distance(&ann.field, vector, *num_candidates, spec)?,
+                Some(knn_distance(&ann.field, vector, *num_candidates, spec)?),
+                format!("{RANK_ANN}_{index}"),
             ),
+            // Already selected by `sparse_selects`, ahead of the gate filter.
+            AnnQuery::Sparse(value) => (spec, None, sparse_select_name(&ann.field, value)),
         };
 
         let fold = Fold::of(IndexKind::from(spec)).ok_or_else(|| match &ann.query {
@@ -177,11 +227,12 @@ pub fn ann_score(
                 "Field [{}] does not support semantic queries",
                 ann.field
             )),
-            AnnQuery::Vector { .. } => not_knn_searchable(&ann.field),
+            AnnQuery::Vector { .. } | AnnQuery::Sparse(_) => not_knn_searchable(&ann.field),
         })?;
 
-        let rank_ann = format!("{RANK_ANN}_{index}");
-        query = query.select([(rank_ann.as_str(), scorer)]);
+        if let Some(scorer) = scorer {
+            query = query.select([(rank_ann.as_str(), scorer)]);
+        }
         let folded = fold.expr(field(rank_ann.as_str()));
 
         // ES applies the `similarity` cutoff before `boost`, so compare the
@@ -194,11 +245,13 @@ pub fn ann_score(
             );
         }
 
-        let part = folded * ann.weight;
-        total = Some(match total {
-            Some(total) => total.add(part),
-            None => part,
-        });
+        if ann.weight != 0.0 {
+            let part = folded * ann.weight;
+            total = Some(match total {
+                Some(total) => total.add(part),
+                None => part,
+            });
+        }
     }
 
     Ok((query, total))
