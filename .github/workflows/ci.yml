@@ -129,8 +129,8 @@ jobs:
         env:
           TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
 
-  all_sdks_same_version:
-    name: Verify all SDKs on the same version
+  versions:
+    name: SDK versions
     runs-on: public-amd64
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -144,8 +144,8 @@ jobs:
         run: |
           bun run utils/bump-release-version.ts check
 
-  all_sdks_sdk_reference_docs_sync:
-    name: Verify SDKs reference docs are in sync
+  docs_sync:
+    name: SDK docs sync
     if: true
     runs-on: public-amd64
     steps:
@@ -173,7 +173,7 @@ jobs:
           bun run utils/verify-sdk-docs-sync.ts check
 
   pre_commit:
-    name: Verify pre-commit hooks pass
+    name: pre-commit
     runs-on: public-amd64
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -196,3 +196,10 @@ jobs:
       - uses: suzuki-shunsuke/pinact-action@cf51507d80d4d6522a07348e3d58790290eaf0b6 # v2.0.0
         with:
           skip_push: true
+
+  verified:
+    name: Verified
+    needs: [versions, docs_sync, pre_commit, pinact]
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo verified
