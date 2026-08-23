@@ -87,7 +87,7 @@ async fn test_delete_non_existent_document(ctx: &mut ProjectTestContext) {
         .delete("nonexistent")
         .await;
 
-    assert!(matches!(result, Err(Error::DocumentNotFound)));
+    assert!(matches!(result, Err(Error::DocumentNotFound(_))));
 }
 
 #[test_context(ProjectTestContext)]
@@ -194,5 +194,5 @@ async fn test_delete_already_deleted(ctx: &mut ProjectTestContext) {
         .expect("could not wait for delete handle");
 
     let result = ctx.client.dataset(&dataset.name).delete("doc1").await;
-    assert!(matches!(result, Err(Error::DocumentNotFound)));
+    assert!(matches!(result, Err(Error::DocumentNotFound(_))));
 }

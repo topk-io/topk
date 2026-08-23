@@ -84,7 +84,7 @@ async fn test_update_metadata_non_existent_document(ctx: &mut ProjectTestContext
         .update_metadata("missing", vec![("title", Value::string("B"))])
         .await;
 
-    assert!(matches!(result, Err(Error::DocumentNotFound)));
+    assert!(matches!(result, Err(Error::DocumentNotFound(_))));
 }
 
 #[test_context(ProjectTestContext)]

@@ -32,8 +32,8 @@ pub enum Error {
     #[error("not found")]
     NotFound,
 
-    #[error("document not found")]
-    DocumentNotFound,
+    #[error("{0}")]
+    DocumentNotFound(String),
 
     #[error("invalid collection schema: {0:?}")]
     SchemaValidationError(ValidationErrorBag<SchemaValidationError>),
@@ -106,7 +106,7 @@ impl Error {
             Error::DatasetAlreadyExists => false,
             Error::DatasetNotFound => false,
             Error::NotFound => false,
-            Error::DocumentNotFound => false,
+            Error::DocumentNotFound(_) => false,
             Error::SchemaValidationError(_) => false,
             Error::DocumentValidationError(_) => false,
             Error::CollectionValidationError(_) => false,
@@ -160,7 +160,7 @@ impl From<Status> for Error {
                 CustomErrorCode::RequiredLsnGreaterThanManifestMaxLsn => Error::QueryLsnTimeout,
                 CustomErrorCode::SlowDown => Error::SlowDown(error.message),
                 CustomErrorCode::PartitionNotFound => Error::PartitionNotFound,
-                CustomErrorCode::DocumentNotFound => Error::DocumentNotFound,
+                CustomErrorCode::DocumentNotFound => Error::DocumentNotFound(error.message),
             },
             Err(e) => match e.code() {
                 tonic::Code::NotFound => Error::NotFound,
