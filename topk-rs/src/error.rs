@@ -32,6 +32,12 @@ pub enum Error {
     #[error("not found")]
     NotFound,
 
+    #[error("document not found")]
+    DocumentNotFound,
+
+    #[error("document is in invalid state: {0}")]
+    DocumentInvalidState(DocumentState),
+
     #[error("invalid collection schema: {0:?}")]
     SchemaValidationError(ValidationErrorBag<SchemaValidationError>),
 
@@ -103,6 +109,8 @@ impl Error {
             Error::DatasetAlreadyExists => false,
             Error::DatasetNotFound => false,
             Error::NotFound => false,
+            Error::DocumentNotFound => false,
+            Error::DocumentInvalidState(_) => false,
             Error::SchemaValidationError(_) => false,
             Error::DocumentValidationError(_) => false,
             Error::CollectionValidationError(_) => false,
@@ -156,6 +164,16 @@ impl From<Status> for Error {
                 CustomErrorCode::RequiredLsnGreaterThanManifestMaxLsn => Error::QueryLsnTimeout,
                 CustomErrorCode::SlowDown => Error::SlowDown(error.message),
                 CustomErrorCode::PartitionNotFound => Error::PartitionNotFound,
+                CustomErrorCode::DocumentNotFound => Error::DocumentNotFound,
+                CustomErrorCode::DocumentPending => {
+                    Error::DocumentInvalidState(DocumentState::Pending)
+                }
+                CustomErrorCode::DocumentDeleting => {
+                    Error::DocumentInvalidState(DocumentState::Deleting)
+                }
+                CustomErrorCode::DocumentInErrorState => {
+                    Error::DocumentInvalidState(DocumentState::Error(error.message))
+                }
             },
             Err(e) => match e.code() {
                 tonic::Code::NotFound => Error::NotFound,
@@ -400,6 +418,26 @@ impl<T: Serialize + DeserializeOwned + Clone> TryFrom<tonic::Status> for Validat
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DocumentState {
+    /// Document is still being processed.
+    Pending,
+    /// Document is being deleted.
+    Deleting,
+    /// Document processing failed; carries the reason.
+    Error(String),
+}
+
+impl std::fmt::Display for DocumentState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DocumentState::Pending => write!(f, "pending"),
+            DocumentState::Deleting => write!(f, "deleting"),
+            DocumentState::Error(reason) => write!(f, "error: {reason}"),
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Eq)]
 pub struct CustomError {
     /// Error message
@@ -447,6 +485,10 @@ pub enum CustomErrorCode {
     RequiredLsnGreaterThanManifestMaxLsn,
     SlowDown,
     PartitionNotFound,
+    DocumentNotFound,
+    DocumentPending,
+    DocumentDeleting,
+    DocumentInErrorState,
 }
 
 impl Into<u32> for CustomErrorCode {
@@ -455,6 +497,10 @@ impl Into<u32> for CustomErrorCode {
             CustomErrorCode::RequiredLsnGreaterThanManifestMaxLsn => 1000,
             CustomErrorCode::SlowDown => 1429,
             CustomErrorCode::PartitionNotFound => 1404,
+            CustomErrorCode::DocumentNotFound => 1405,
+            CustomErrorCode::DocumentPending => 1412,
+            CustomErrorCode::DocumentDeleting => 1413,
+            CustomErrorCode::DocumentInErrorState => 1414,
         }
     }
 }
@@ -467,6 +513,10 @@ impl TryFrom<u32> for CustomErrorCode {
             1000 => Ok(CustomErrorCode::RequiredLsnGreaterThanManifestMaxLsn),
             1429 => Ok(CustomErrorCode::SlowDown),
             1404 => Ok(CustomErrorCode::PartitionNotFound),
+            1405 => Ok(CustomErrorCode::DocumentNotFound),
+            1412 => Ok(CustomErrorCode::DocumentPending),
+            1413 => Ok(CustomErrorCode::DocumentDeleting),
+            1414 => Ok(CustomErrorCode::DocumentInErrorState),
             code => Err(anyhow::anyhow!("unknown internal error code: {code}")),
         }
     }
@@ -480,6 +530,10 @@ impl From<CustomError> for Status {
             }
             CustomErrorCode::SlowDown => Status::resource_exhausted(error.message),
             CustomErrorCode::PartitionNotFound => Status::not_found(error.message),
+            CustomErrorCode::DocumentNotFound => Status::not_found(error.message),
+            CustomErrorCode::DocumentPending
+            | CustomErrorCode::DocumentDeleting
+            | CustomErrorCode::DocumentInErrorState => Status::failed_precondition(error.message),
         };
 
         let error_code: u32 = error.code.into();

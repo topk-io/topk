@@ -5,6 +5,7 @@ use test_context::test_context;
 use topk_rs::doc;
 use topk_rs::proto::v1::ctx::file::InputFile;
 use topk_rs::proto::v1::data::Value;
+use topk_rs::error::DocumentState;
 use topk_rs::Error;
 
 mod utils;
@@ -85,7 +86,7 @@ async fn test_update_metadata_non_existent_document(ctx: &mut ProjectTestContext
         .update_metadata("missing", vec![("title", Value::string("B"))])
         .await;
 
-    assert!(matches!(result, Err(Error::DatasetNotFound)));
+    assert!(matches!(result, Err(Error::DocumentNotFound)));
 }
 
 #[test_context(ProjectTestContext)]
@@ -138,7 +139,7 @@ async fn test_update_metadata_rejected_when_pending(ctx: &mut ProjectTestContext
         .expect_err("expected rejection for Pending doc");
 
     assert!(
-        err.to_string().contains("still being processed"),
+        matches!(err, Error::DocumentInvalidState(DocumentState::Pending)),
         "got: {err:?}"
     );
 }
@@ -179,8 +180,7 @@ async fn test_update_metadata_rejected_when_in_error_state(ctx: &mut ProjectTest
         .expect_err("expected rejection for Error doc");
 
     assert!(
-        err.to_string().contains("Document is in error state")
-            && err.to_string().contains("Corrupted PDF"),
+        matches!(&err, Error::DocumentInvalidState(DocumentState::Error(reason)) if reason == "Corrupted PDF"),
         "got: {err:?}"
     );
 }
@@ -226,7 +226,10 @@ async fn test_update_metadata_rejected_when_deleting(ctx: &mut ProjectTestContex
     // the doc is gone and we get NotFound. Either outcome proves the update
     // cannot proceed against a doc that's being/has been deleted.
     assert!(
-        err.to_string().contains("being deleted") || matches!(err, Error::DatasetNotFound),
+        matches!(
+            err,
+            Error::DocumentInvalidState(DocumentState::Deleting) | Error::DocumentNotFound
+        ),
         "got: {err:?}"
     );
 }
