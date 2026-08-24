@@ -247,10 +247,18 @@ impl Bucketing {
     }
 
     // As `floor`, but rounding in unshifted bucket space before `offset` moves the boundary —
-    // which is how ES resolves `extended_bounds`/`hard_bounds`.
+    // which is how ES resolves `extended_bounds`.
     pub fn floor_unshifted(&self, t: i64) -> Option<i64> {
         let shift = self.shift();
         self.floor(t.checked_add(shift)?)
+    }
+
+    // The `hard_bounds` window edge for `t`. ES rounds these with `offset` applied in the
+    // opposite direction to bucketing, so the window is not itself bucket-aligned — verified
+    // against Elasticsearch 9 across positive and negative offsets.
+    pub fn hard_bound(&self, t: i64) -> Option<i64> {
+        let shift = self.shift().checked_mul(2)?;
+        self.floor(t.checked_add(shift)?)?.checked_sub(shift)
     }
 
     fn shift(&self) -> i64 {

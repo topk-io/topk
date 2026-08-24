@@ -222,10 +222,22 @@ pub fn collect(
                             .into(),
                     ));
                 }
-                // ES keeps the buckets from the one containing `min` up to, but excluding, the
-                // one containing `max`: hard_bounds trims whole buckets, it never splits one.
-                let min = bound_key(&hard.min)?;
-                let max = bound_key(&hard.max)?;
+                // hard_bounds trims whole buckets, from the window's lower edge up to but
+                // excluding its upper one.
+                let edge = |bound: &Option<JsonValue>| -> Result<Option<i64>, Error> {
+                    match bound {
+                        None => Ok(None),
+                        Some(bound) => Ok(date::to_timestamp(
+                            spec,
+                            bound.clone().into_inner(),
+                            h.time_zone.as_deref(),
+                        )?
+                        .as_timestamp()
+                        .and_then(|t| bucketing.hard_bound(t))),
+                    }
+                };
+                let min = edge(&hard.min)?;
+                let max = edge(&hard.max)?;
                 merged.retain(|key, _| {
                     min.is_none_or(|m| *key >= m) && max.is_none_or(|m| *key < m)
                 });
