@@ -1,4 +1,4 @@
-use chrono::{DateTime, Datelike, Days, Duration, LocalResult, NaiveDate, TimeZone, Utc, Weekday};
+use chrono::{DateTime, Datelike, Days, Duration, NaiveDate, Utc, Weekday};
 use topk_rs::proto::v1::data::LogicalExpr;
 use topk_rs::query::field;
 
@@ -229,8 +229,9 @@ impl Bucketing {
             Kind::Months { count, offset } => {
                 month_start(index.checked_mul(*count)?)?.checked_sub(*offset)?
             }
+            // A local row key is an instant on the unshifted timeline, so it rounds like one.
             Kind::LocalFixed { granularity, .. } | Kind::LocalCalendar { granularity, .. } => {
-                return self.floor(index.checked_mul(*granularity)?)
+                self.floor_kind(index.checked_mul(*granularity)?.checked_sub(self.shift)?)?
             }
         };
         start.checked_add(self.shift)
@@ -313,17 +314,17 @@ impl Bucketing {
         next.checked_add(self.shift)
     }
 
-    // As `floor`, but rounding in unshifted bucket space before `offset` moves the boundary —
-    // which is how ES resolves `extended_bounds`.
-    pub fn floor_unshifted(&self, t: i64) -> Option<i64> {
-        self.floor(t.checked_add(self.shift)?)
-    }
-
-    // The `hard_bounds` window edge for `t`. ES rounds these ignoring `offset`, so the window is
-    // not itself bucket-aligned once a boundary shift is in play — verified against
-    // Elasticsearch 9 across positive and negative offsets, with and without a named zone.
+    // The `hard_bounds` window edge for `t`: ES rounds these ignoring `offset`, so the window is
+    // not itself bucket-aligned once a boundary shift is in play. Verified against Elasticsearch 9
+    // across positive and negative offsets, with and without a named zone.
     pub fn hard_bound(&self, t: i64) -> Option<i64> {
         self.floor_kind(t)
+    }
+
+    // The `extended_bounds` edge for `t`, which is the same rounding with the boundary shift
+    // applied — so it lands on a real bucket start, unlike `hard_bound`.
+    pub fn extended_bound(&self, t: i64) -> Option<i64> {
+        self.hard_bound(t)?.checked_add(self.shift)
     }
 }
 
@@ -376,16 +377,11 @@ fn offset_at(tz: chrono_tz::Tz, t: i64) -> Option<i64> {
     Some(Zone::Named(tz).offset_millis(at))
 }
 
-// DST can skip or repeat a local time; ES anchors such a boundary at the earliest instant that
-// exists, so a skipped midnight becomes 01:00 and a repeated hour its first occurrence.
+// Local wall-clock millis back to an instant; see `Zone::from_local` for how a repeated or
+// skipped local time resolves.
 fn from_local(tz: chrono_tz::Tz, local: i64) -> Option<i64> {
     let naive = DateTime::<Utc>::from_timestamp_millis(local)?.naive_utc();
-    match tz.from_local_datetime(&naive) {
-        LocalResult::Single(dt) => Some(dt),
-        LocalResult::Ambiguous(earliest, _) => Some(earliest),
-        LocalResult::None => tz
-            .from_local_datetime(&(naive + Duration::hours(1)))
-            .earliest(),
-    }
-    .map(|dt| dt.timestamp_millis())
+    Zone::Named(tz)
+        .from_local(naive)
+        .map(|dt| dt.timestamp_millis())
 }

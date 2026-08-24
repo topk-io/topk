@@ -12,6 +12,11 @@ use crate::api::{
     RangeSpec, TermsAggBody, TermsBucket,
 };
 use crate::date;
+
+// The engine caps grouped rows, and a dense histogram caps reported buckets. Both are headroom
+// rather than ES-shaped limits: ES has no row cap and allows 65536 buckets.
+const MAX_ROWS: u64 = 10_000;
+const MAX_BUCKETS: usize = 10_000;
 use crate::value::{compare, ValueExt};
 use crate::Error;
 use topk_rs::proto::v1::control::FieldSpec;
@@ -59,8 +64,7 @@ pub fn compile(
             Ok(filter(gate.clone())
                 .group_by([("key".to_string(), key)], aggs)
                 .sort("key")
-                // ES has no inherent bucket cap here; this is headroom, not an ES-shaped limit.
-                .limit(10_000))
+                .limit(MAX_ROWS))
         }
         AggType::Range(r) | AggType::DateRange(r) => {
             // One indicator column per range, counted independently — so ranges may overlap and
@@ -161,7 +165,7 @@ fn terms(
             sum_other_doc_count: 0,
             buckets,
         })
-    
+
 }
 
 // One bucket per interval. Engine rows may be finer than the reported buckets (see
@@ -172,113 +176,136 @@ fn histogram(
     h: &DateHistogramBody,
     docs: Vec<Document>,
 ) -> Result<AggResult, Error> {
+    let bucketing = date::bucketing(h)?;
+    let zone = h.time_zone.as_deref().map(date::Zone::parse).transpose()?;
+    let min_doc_count = h.min_doc_count.unwrap_or(0);
+    let spec = schema.get(h.field.as_str());
 
-        let bucketing = date::bucketing(h)?;
-        let zone = h.time_zone.as_deref().map(date::Zone::parse).transpose()?;
-        let min_doc_count = h.min_doc_count.unwrap_or(0);
+    let mut merged = merge_rows(clause, &bucketing, docs);
 
-        let mut merged = merge_rows(clause, &bucketing, docs);
+    // `extended_bounds` and `hard_bounds` round the same value differently, so each call site
+    // picks its own; see `Bucketing`.
+    let bound_millis = |bound: &Option<JsonValue>| -> Result<Option<i64>, Error> {
+        let Some(bound) = bound else { return Ok(None) };
+        let value = date::to_timestamp(spec, bound.clone().into_inner(), h.time_zone.as_deref())?;
+        Ok(value.as_timestamp())
+    };
 
-        // `extended_bounds` and `hard_bounds` round the same value differently, so each call
-        // site picks the rounding; see `Bucketing`.
-        let spec = schema.get(h.field.as_str());
-        let bound_millis = |bound: &Option<JsonValue>| -> Result<Option<i64>, Error> {
-            let Some(bound) = bound else { return Ok(None) };
-            let value = date::to_timestamp(spec, bound.clone().into_inner(), h.time_zone.as_deref())?;
-            Ok(value.as_timestamp())
-        };
-
-        // `hard_bounds` drops buckets outside its window outright; it never extends.
-        if let Some(hard) = &h.hard_bounds {
-            if h.extended_bounds.is_some() {
-                return Err(Error::BadRequest(
-                    "date_histogram accepts either extended_bounds or hard_bounds, not both".into(),
-                ));
-            }
-            // Whole buckets are trimmed, from the window's lower edge up to but excluding its
-            // upper one.
-            let min = bound_millis(&hard.min)?.and_then(|t| bucketing.hard_bound(t));
-            let max = bound_millis(&hard.max)?.and_then(|t| bucketing.hard_bound(t));
-            merged.retain(|key, _| {
-                min.is_none_or(|m| *key >= m) && max.is_none_or(|m| *key < m)
-            });
+    // `hard_bounds` trims whole buckets, from the window's lower edge up to but excluding its
+    // upper one; it never extends.
+    if let Some(hard) = &h.hard_bounds {
+        if h.extended_bounds.is_some() {
+            return Err(Error::BadRequest(
+                "date_histogram accepts either extended_bounds or hard_bounds, not both".into(),
+            ));
         }
+        let min = bound_millis(&hard.min)?.and_then(|t| bucketing.hard_bound(t));
+        let max = bound_millis(&hard.max)?.and_then(|t| bucketing.hard_bound(t));
+        merged.retain(|key, _| min.is_none_or(|m| *key >= m) && max.is_none_or(|m| *key < m));
+    }
 
-        // With `min_doc_count: 0` (the ES default) the histogram is dense: every bucket
-        // between the first and last — stretched to `extended_bounds` — is reported, empty
-        // ones included.
-        let mut lo = merged.first_key_value().map(|(k, _)| *k);
-        let mut hi = merged.last_key_value().map(|(k, _)| *k);
-        if min_doc_count == 0 {
-            let bounds = h.extended_bounds.iter().flat_map(|b| [&b.min, &b.max]);
-            for value in bounds {
-                let Some(key) = bound_millis(value)?.and_then(|t| bucketing.floor_unshifted(t)) else {
+    // With `min_doc_count: 0` (the ES default) the histogram is dense: every bucket between the
+    // first and last, stretched to `extended_bounds`, is reported with the empty ones included.
+    let mut buckets = match min_doc_count {
+        0 => {
+            let mut lo = merged.first_key_value().map(|(k, _)| *k);
+            let mut hi = merged.last_key_value().map(|(k, _)| *k);
+            for value in h.extended_bounds.iter().flat_map(|b| [&b.min, &b.max]) {
+                let Some(key) = bound_millis(value)?.and_then(|t| bucketing.extended_bound(t))
+                else {
                     continue;
                 };
                 lo = Some(lo.map_or(key, |lo| lo.min(key)));
                 hi = Some(hi.map_or(key, |hi| hi.max(key)));
             }
+            fill(schema, clause, zone.as_ref(), &bucketing, merged, lo, hi)?
         }
+        min => merged
+            .into_iter()
+            .filter(|(_, (doc_count, _))| *doc_count >= min)
+            .filter_map(|(key, (doc_count, metrics))| {
+                bucket(schema, clause, zone.as_ref(), key, doc_count, metrics)
+            })
+            .collect(),
+    };
 
-        let mut buckets = Vec::new();
-        match (min_doc_count, lo, hi) {
-            (0, Some(mut key), Some(hi)) => loop {
-                if buckets.len() >= 10_000 {
-                    return Err(Error::BadRequest(
-                        "date_histogram would produce more than 10000 buckets".into(),
-                    ));
-                }
-                let (doc_count, metrics) = merged.remove(&key).unwrap_or_default();
-                buckets.extend(bucket(schema, clause, zone.as_ref(), key, doc_count, metrics));
-                match bucketing.next(key) {
-                    Some(next) if next <= hi => key = next,
-                    _ => break,
-                }
-            },
-            _ => {
-                for (key, (doc_count, metrics)) in merged {
-                    if doc_count >= min_doc_count {
-                        buckets.extend(bucket(schema, clause, zone.as_ref(), key, doc_count, metrics));
-                    }
-                }
-            }
-        }
+    // Buckets are built chronologically; `order` reorders at the end.
+    if let Some(order) = &h.order {
+        reorder(&mut buckets, order)?;
+    }
 
-        // Buckets are built chronologically; `order` reorders at the end.
-        if let Some(order) = &h.order {
-            let (target, dir) = order.iter().next().ok_or_else(|| {
-                Error::BadRequest("date_histogram order must name a target".into())
-            })?;
-            let desc = match dir.as_str() {
-                "asc" => false,
-                "desc" => true,
-                _ => {
-                    return Err(Error::BadRequest(format!(
-                        "invalid date_histogram order direction [{dir}]"
-                    )))
-                }
-            };
-            match (target.as_str(), desc) {
-                ("_key", false) => {}
-                ("_key", true) => buckets.reverse(),
-                // ES breaks doc_count ties by key, ascending.
-                ("_count", false) => buckets
-                    .sort_by(|a, b| a.doc_count.cmp(&b.doc_count).then(a.key.cmp(&b.key))),
-                ("_count", true) => buckets
-                    .sort_by(|a, b| b.doc_count.cmp(&a.doc_count).then(a.key.cmp(&b.key))),
-                _ => {
-                    return Err(Error::Unsupported(
-                        "date_histogram order supports _key and _count".into(),
-                    ))
-                }
-            }
-        }
-
-        Ok(AggResult::Histogram { buckets })
-    
+    Ok(AggResult::Histogram { buckets })
 }
 
-// One bucket per requested range, counted from the per-range indicator columns `compile` selected.
+// Every bucket from `lo` to `hi`, taking the merged rows where they exist and an empty bucket
+// where they do not.
+fn fill(
+    schema: &Schema,
+    clause: &AggClause,
+    zone: Option<&date::Zone>,
+    bucketing: &date::Bucketing,
+    mut merged: Merged,
+    lo: Option<i64>,
+    hi: Option<i64>,
+) -> Result<Vec<HistogramBucket>, Error> {
+    let (Some(mut key), Some(hi)) = (lo, hi) else {
+        return Ok(Vec::new());
+    };
+
+    let mut buckets = Vec::new();
+    loop {
+        if buckets.len() >= MAX_BUCKETS {
+            return Err(Error::BadRequest(format!(
+                "date_histogram would produce more than {MAX_BUCKETS} buckets"
+            )));
+        }
+        let (doc_count, metrics) = merged.remove(&key).unwrap_or_default();
+        buckets.extend(bucket(schema, clause, zone, key, doc_count, metrics));
+        match bucketing.next(key) {
+            Some(next) if next <= hi => key = next,
+            _ => break Ok(buckets),
+        }
+    }
+}
+
+// ES orders `date_histogram` buckets by `_key` or `_count`; it also accepts a sub-agg name, which
+// we do not.
+fn reorder(buckets: &mut [HistogramBucket], order: &HashMap<String, String>) -> Result<(), Error> {
+    let (target, direction) = order
+        .iter()
+        .next()
+        .ok_or_else(|| Error::BadRequest("date_histogram order must name a target".into()))?;
+
+    let descending = match direction.as_str() {
+        "asc" => false,
+        "desc" => true,
+        _ => {
+            return Err(Error::BadRequest(format!(
+                "invalid date_histogram order direction [{direction}]"
+            )))
+        }
+    };
+
+    match (target.as_str(), descending) {
+        ("_key", false) => {}
+        ("_key", true) => buckets.reverse(),
+        // ES breaks `doc_count` ties by key, ascending.
+        ("_count", false) => {
+            buckets.sort_by(|a, b| a.doc_count.cmp(&b.doc_count).then(a.key.cmp(&b.key)))
+        }
+        ("_count", true) => {
+            buckets.sort_by(|a, b| b.doc_count.cmp(&a.doc_count).then(a.key.cmp(&b.key)))
+        }
+        _ => {
+            return Err(Error::Unsupported(
+                "date_histogram order supports _key and _count".into(),
+            ))
+        }
+    }
+
+    Ok(())
+}
+
 // Sum the engine rows into one entry per reported bucket. A named zone buckets at a finer
 // granularity than it reports, so several rows can fold onto the same start.
 fn merge_rows(clause: &AggClause, bucketing: &date::Bucketing, docs: Vec<Document>) -> Merged {
@@ -334,6 +361,7 @@ fn merge_rows(clause: &AggClause, bucketing: &date::Bucketing, docs: Vec<Documen
 // Reported bucket start -> its doc count and folded sub-agg metrics.
 type Merged = BTreeMap<i64, (u64, HashMap<String, MetricAcc>)>;
 
+// One bucket per requested range, counted from the indicator columns `compile` selected.
 fn ranges(
     schema: &Schema,
     is_date: bool,
@@ -389,7 +417,7 @@ fn ranges(
         });
 
         Ok(AggResult::Range { buckets })
-    
+
 }
 
 // A single value over the whole match set.

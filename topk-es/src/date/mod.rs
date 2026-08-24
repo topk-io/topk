@@ -1,6 +1,6 @@
 use chrono::{
-    DateTime, Datelike, Duration, FixedOffset, NaiveDate, NaiveDateTime, Offset, SecondsFormat,
-    TimeZone, Timelike, Utc,
+    DateTime, Datelike, Duration, FixedOffset, LocalResult, NaiveDate, NaiveDateTime, Offset,
+    SecondsFormat, TimeZone, Timelike, Utc,
 };
 use topk_rs::proto::v1::control::{field_type, FieldSpec};
 use topk_rs::proto::v1::data::Value;
@@ -155,16 +155,25 @@ impl Zone {
             .map_err(|_| Error::BadRequest(format!("unknown time_zone [{tz}]")))
     }
 
-    fn from_local(&self, naive: NaiveDateTime) -> Option<DateTime<Utc>> {
-        match self {
-            Zone::Fixed(offset) => offset
-                .from_local_datetime(&naive)
-                .single()
-                .map(|dt| dt.with_timezone(&Utc)),
-            Zone::Named(tz) => tz
-                .from_local_datetime(&naive)
-                .single()
-                .map(|dt| dt.with_timezone(&Utc)),
+    // A local time DST repeated or skipped resolves to the earliest instant that exists, as ES
+    // does: the first pass of a repeated hour, or the hour after a gap.
+    pub fn from_local(&self, naive: NaiveDateTime) -> Option<DateTime<Utc>> {
+        fn resolve<Tz: TimeZone>(result: LocalResult<DateTime<Tz>>) -> Option<DateTime<Utc>> {
+            match result {
+                LocalResult::Single(dt) => Some(dt.with_timezone(&Utc)),
+                LocalResult::Ambiguous(earliest, _) => Some(earliest.with_timezone(&Utc)),
+                LocalResult::None => None,
+            }
+        }
+
+        let at = match self {
+            Zone::Fixed(offset) => resolve(offset.from_local_datetime(&naive)),
+            Zone::Named(tz) => resolve(tz.from_local_datetime(&naive)),
+        };
+        match at {
+            Some(at) => Some(at),
+            // Inside a gap; the next hour always exists.
+            None => self.from_local(naive + Duration::hours(1)),
         }
     }
 

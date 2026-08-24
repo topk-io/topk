@@ -1098,3 +1098,24 @@ async fn test_hard_bounds_ignore_offset(scope: &mut TestScope) {
         vec!["2026-03-31T21:00:00.000Z", "2026-09-30T21:00:00.000Z"]
     );
 }
+
+#[rstest_ctx(TestScope)]
+// Prague repeats 02:00-03:00 local on 2026-10-25 and skips it on 2026-03-29. ES resolves either
+// to the earliest instant that exists rather than rejecting the bound.
+#[case::repeated_hour("2026-10-25T02:30:00")]
+#[case::skipped_hour("2026-03-29T02:30:00")]
+async fn test_bound_in_dst_transition_resolves(scope: &TestScope, #[case] bound: &str) {
+    scope
+        .create_with_properties(json!({ "created": { "type": "date" } }))
+        .await;
+    scope
+        .index_docs(vec![("1", json!({ "created": "2026-12-01T00:00:00.000Z" }))])
+        .await;
+
+    let ids = scope
+        .search_ids(json!({
+            "range": { "created": { "gte": bound, "time_zone": "Europe/Prague" } }
+        }))
+        .await;
+    assert_eq!(ids, vec!["1"]);
+}
