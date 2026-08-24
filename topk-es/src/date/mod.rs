@@ -1,6 +1,6 @@
 use chrono::{
-    DateTime, Datelike, Duration, FixedOffset, NaiveDate, NaiveDateTime, SecondsFormat, TimeZone,
-    Timelike, Utc,
+    DateTime, Datelike, Duration, FixedOffset, NaiveDate, NaiveDateTime, Offset, SecondsFormat,
+    TimeZone, Timelike, Utc,
 };
 use topk_rs::proto::v1::control::{field_type, FieldSpec};
 use topk_rs::proto::v1::data::Value;
@@ -52,31 +52,56 @@ fn parse_instant(value: &str, tz: Option<&str>) -> Result<DateTime<Utc>, Error> 
 
     match tz {
         None => Ok(naive.and_utc()),
-        Some(tz) => {
-            let offset = parse_offset(tz)?;
-            offset
-                .from_local_datetime(&naive)
-                .single()
-                .map(|dt| dt.with_timezone(&Utc))
-                .ok_or_else(|| Error::BadRequest(format!("cannot apply time_zone [{tz}]")))
-        }
+        Some(tz) => Zone::parse(tz)?
+            .from_local(naive)
+            .ok_or_else(|| Error::BadRequest(format!("cannot apply time_zone [{tz}]"))),
     }
 }
 
-// Numeric UTC offsets only (`+02:00`, `-0500`, `Z`). Named zones need a tz database, which would
-// pull in a dependency for something no caller has asked for yet.
-fn parse_offset(tz: &str) -> Result<FixedOffset, Error> {
-    if tz == "Z" || tz == "UTC" {
-        return Ok(FixedOffset::east_opt(0).expect("zero offset is valid"));
+// A `time_zone`, either a numeric offset (`+02:00`) or an IANA name (`Europe/Prague`). Named
+// zones observe DST, so the offset depends on the instant being converted.
+pub enum Zone {
+    Fixed(FixedOffset),
+    Named(chrono_tz::Tz),
+}
+
+impl Zone {
+    pub fn parse(tz: &str) -> Result<Self, Error> {
+        if tz == "Z" {
+            return Ok(Zone::Fixed(FixedOffset::east_opt(0).expect("valid offset")));
+        }
+
+        if let Ok(dt) = DateTime::parse_from_rfc3339(&format!("1970-01-01T00:00:00{tz}")) {
+            return Ok(Zone::Fixed(*dt.offset()));
+        }
+
+        tz.parse::<chrono_tz::Tz>()
+            .map(Zone::Named)
+            .map_err(|_| Error::BadRequest(format!("unknown time_zone [{tz}]")))
     }
 
-    DateTime::parse_from_rfc3339(&format!("1970-01-01T00:00:00{tz}"))
-        .map(|dt| *dt.offset())
-        .map_err(|_| {
-            Error::BadRequest(format!(
-                "unsupported time_zone [{tz}]; use a numeric offset like +02:00"
-            ))
-        })
+    fn from_local(&self, naive: NaiveDateTime) -> Option<DateTime<Utc>> {
+        match self {
+            Zone::Fixed(offset) => offset
+                .from_local_datetime(&naive)
+                .single()
+                .map(|dt| dt.with_timezone(&Utc)),
+            Zone::Named(tz) => tz
+                .from_local_datetime(&naive)
+                .single()
+                .map(|dt| dt.with_timezone(&Utc)),
+        }
+    }
+
+    // The zone's UTC offset in milliseconds at `at`. A named zone's offset moves with DST, so this
+    // is only a constant for as long as the queried span stays on one side of a transition.
+    pub fn offset_millis(&self, at: DateTime<Utc>) -> i64 {
+        let seconds = match self {
+            Zone::Fixed(offset) => offset.local_minus_utc(),
+            Zone::Named(tz) => tz.offset_from_utc_datetime(&at.naive_utc()).fix().local_minus_utc(),
+        };
+        seconds as i64 * 1_000
+    }
 }
 
 // ES date math: a chain of `+Nunit` / `-Nunit` offsets and `/unit` roundings, e.g. `-1d/d`.
@@ -229,7 +254,7 @@ pub fn from_timestamp(value: Value) -> Value {
 }
 
 mod interval;
-pub use interval::{bucket_start, interval, Interval};
+pub use interval::{bucket_key, bucket_start, interval, offset_millis};
 
 #[cfg(test)]
 mod tests {
@@ -319,9 +344,21 @@ mod tests {
     }
 
     #[test]
-    fn rejects_unsupported_time_zone() {
-        let err = parse_millis_at("2026-01-15", Some("Europe/Prague"), Utc::now());
-        assert!(err.is_err(), "named zones need a tz database");
+    fn named_time_zones() {
+        let now = at("2026-06-15T10:30:45.123Z");
+        let tz = |v: &str, tz: &str| {
+            format_millis(parse_millis_at(v, Some(tz), now).expect(v)).unwrap()
+        };
+
+        // Prague is +01:00 in winter and +02:00 under DST.
+        assert_eq!(tz("2026-01-15T00:00:00", "Europe/Prague"), "2026-01-14T23:00:00.000Z");
+        assert_eq!(tz("2026-07-15T00:00:00", "Europe/Prague"), "2026-07-14T22:00:00.000Z");
+        assert_eq!(tz("2026-01-15T00:00:00", "UTC"), "2026-01-15T00:00:00.000Z");
+    }
+
+    #[test]
+    fn rejects_unknown_time_zone() {
+        assert!(parse_millis_at("2026-01-15", Some("Mars/Olympus"), Utc::now()).is_err());
     }
 
     #[test]

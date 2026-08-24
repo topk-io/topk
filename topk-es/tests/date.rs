@@ -401,3 +401,109 @@ async fn test_date_range_agg(scope: &mut TestScope) {
     // Date bounds echo an ISO companion.
     assert_eq!(buckets[0]["to_as_string"], "2026-07-01T00:00:00.000Z");
 }
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_date_histogram_calendar_quarter(scope: &mut TestScope) {
+    create_with_dates(scope).await;
+
+    let res = scope
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "by_q": { "date_histogram": { "field": "created", "calendar_interval": "quarter" } }
+            }
+        }))
+        .await
+        .expect("search");
+
+    let keys: Vec<&str> = res["aggregations"]["by_q"]["buckets"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|b| b["key_as_string"].as_str().unwrap())
+        .collect();
+
+    // Jan -> Q1, Jun -> Q2, Dec -> Q4.
+    assert_eq!(
+        keys,
+        vec![
+            "2026-01-01T00:00:00.000Z",
+            "2026-04-01T00:00:00.000Z",
+            "2026-10-01T00:00:00.000Z"
+        ]
+    );
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_date_histogram_time_zone_shifts_buckets(scope: &mut TestScope) {
+    scope
+        .create_with_properties(json!({ "created": { "type": "date" } }))
+        .await;
+    // 22:30 UTC on the 14th is 00:30 on the 15th in +02:00, so the day bucket differs by zone.
+    scope
+        .index_docs(vec![("1", json!({ "created": "2026-01-14T22:30:00.000Z" }))])
+        .await;
+
+    let day_bucket = |tz: Option<&str>| {
+        let mut body = json!({ "field": "created", "calendar_interval": "day" });
+        if let Some(tz) = tz {
+            body["time_zone"] = json!(tz);
+        }
+        json!({ "size": 0, "aggs": { "d": { "date_histogram": body } } })
+    };
+
+    let utc = scope.search(day_bucket(None)).await.expect("search");
+    assert_eq!(
+        utc["aggregations"]["d"]["buckets"][0]["key_as_string"],
+        "2026-01-14T00:00:00.000Z"
+    );
+
+    let shifted = scope
+        .search(day_bucket(Some("+02:00")))
+        .await
+        .expect("search");
+    assert_eq!(
+        shifted["aggregations"]["d"]["buckets"][0]["key_as_string"],
+        "2026-01-14T22:00:00.000Z",
+        "bucket starts at local midnight, reported as the UTC instant"
+    );
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_date_histogram_rejects_named_time_zone(scope: &mut TestScope) {
+    create_with_dates(scope).await;
+
+    let err = scope
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "d": {
+                    "date_histogram": {
+                        "field": "created",
+                        "calendar_interval": "day",
+                        "time_zone": "Europe/Prague"
+                    }
+                }
+            }
+        }))
+        .await
+        .expect_err("named zones are rejected on histograms");
+    assert_eq!(err.status_code(), StatusCode::BAD_REQUEST);
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_range_accepts_named_time_zone(scope: &mut TestScope) {
+    create_with_dates(scope).await;
+
+    // Range bounds do resolve named zones — only histogram bucketing cannot.
+    let ids = scope
+        .search_ids(json!({
+            "range": { "created": { "gte": "2026-01-15T10:30:00", "time_zone": "Europe/Prague" } }
+        }))
+        .await;
+    assert!(ids.contains(&"1".to_string()), "got {ids:?}");
+}

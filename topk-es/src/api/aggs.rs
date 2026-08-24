@@ -74,6 +74,12 @@ pub struct DateHistogramBody {
 
     #[serde(default)]
     pub min_doc_count: Option<u64>,
+
+    // Buckets are aligned to this zone rather than UTC. Only numeric offsets are accepted: the
+    // engine cannot convert per document, so bucketing shifts by one constant, which a named
+    // zone's DST transitions would silently break.
+    #[serde(default)]
+    pub time_zone: Option<String>,
 }
 
 #[derive(Clone, Deserialize)]

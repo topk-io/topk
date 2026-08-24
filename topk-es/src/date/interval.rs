@@ -1,15 +1,33 @@
 use chrono::{TimeZone, Utc};
+use topk_rs::proto::v1::data::LogicalExpr;
+use topk_rs::query::field;
 
-use super::Error;
+use super::{Error, Zone};
 use crate::api::DateHistogramBody;
 
-// A date_histogram bucket width. Fixed widths bucket by integer division; calendar years and
-// months are irregular, so they bucket by date part instead. Calendar day/hour/minute/second and
-// week are exact in UTC, so they collapse to Fixed.
+// A date_histogram bucket width. Fixed widths are an exact number of millis and bucket by integer
+// division. Months vary in length, so month/quarter/year bucket on a month count instead — they
+// differ only in how many months a bucket spans. Calendar day and below are exact in UTC, so they
+// are Fixed too.
 pub enum Interval {
     Fixed(i64),
-    Year,
-    Month,
+    Months(i64),
+}
+
+// Buckets are computed on `ts + offset` and shifted back when reported, so a whole histogram is
+// aligned to one constant offset.
+pub fn offset_millis(h: &DateHistogramBody) -> Result<i64, Error> {
+    let Some(tz) = h.time_zone.as_deref() else {
+        return Ok(0);
+    };
+
+    match Zone::parse(tz)? {
+        Zone::Fixed(offset) => Ok(offset.local_minus_utc() as i64 * 1_000),
+        Zone::Named(_) => Err(Error::BadRequest(format!(
+            "date_histogram time_zone [{tz}] must be a numeric offset like +02:00; \
+             named zones observe DST, which bucketing cannot follow"
+        ))),
+    }
 }
 
 pub fn interval(h: &DateHistogramBody) -> Result<Interval, Error> {
@@ -62,32 +80,52 @@ fn calendar_interval(value: &str) -> Result<Interval, Error> {
         "hour" | "1h" => Ok(Interval::Fixed(60 * 60 * 1_000)),
         "day" | "1d" => Ok(Interval::Fixed(DAY)),
         "week" | "1w" => Ok(Interval::Fixed(7 * DAY)),
-        "month" | "1M" => Ok(Interval::Month),
-        "year" | "1y" => Ok(Interval::Year),
+        "month" | "1M" => Ok(Interval::Months(1)),
+        "quarter" | "1q" => Ok(Interval::Months(3)),
+        "year" | "1y" => Ok(Interval::Months(12)),
         _ => Err(Error::BadRequest(format!(
             "invalid calendar_interval [{value}]"
         ))),
     }
 }
 
-// Bucket index -> the timestamp ES reports as the bucket key.
+// The grouping expression whose value identifies a document's bucket. `offset` shifts the field
+// so buckets align to a zone other than UTC; `bucket_start` shifts the reported key back.
+pub fn bucket_key(name: &str, interval: &Interval, offset: i64) -> LogicalExpr {
+    let at = || match offset {
+        0 => field(name),
+        offset => field(name).add(LogicalExpr::literal(offset)),
+    };
+
+    match interval {
+        Interval::Fixed(millis) => at().div(LogicalExpr::literal(*millis)),
+        // Months elapsed since year 0, divided by the bucket's width in months. Folding the year
+        // in is what keeps January 2025 and January 2026 in different buckets.
+        Interval::Months(n) => at()
+            .date_part("year")
+            .mul(LogicalExpr::literal(12))
+            .add(at().date_part("month"))
+            .sub(LogicalExpr::literal(1))
+            .div(LogicalExpr::literal(*n)),
+    }
+}
+
+// Inverse of `bucket_key`: the timestamp ES reports for bucket `index`.
 pub fn bucket_start(interval: &Interval, index: i64) -> Option<i64> {
     match interval {
         Interval::Fixed(millis) => index.checked_mul(*millis),
-        Interval::Year => Utc
-            .with_ymd_and_hms(index as i32, 1, 1, 0, 0, 0)
-            .single()
-            .map(|d| d.timestamp_millis()),
-        Interval::Month => Utc
-            .with_ymd_and_hms(
-                index.div_euclid(12) as i32,
-                (index.rem_euclid(12) + 1) as u32,
+        Interval::Months(n) => {
+            let months = index.checked_mul(*n)?;
+            Utc.with_ymd_and_hms(
+                months.div_euclid(12) as i32,
+                (months.rem_euclid(12) + 1) as u32,
                 1,
                 0,
                 0,
                 0,
             )
             .single()
-            .map(|d| d.timestamp_millis()),
+            .map(|d| d.timestamp_millis())
+        }
     }
 }

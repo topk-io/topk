@@ -44,21 +44,7 @@ pub fn compile(
                 ));
             }
 
-            // Bucket by integer division: `ts / interval` is the bucket index, multiplied back to
-            // a timestamp in `collect`. Calendar intervals are irregular, so those group by the
-            // relevant date part instead.
-            let key = match date::interval(h)? {
-                date::Interval::Fixed(millis) => {
-                    field(h.field.as_str()).div(LogicalExpr::literal(millis))
-                }
-                date::Interval::Year => field(h.field.as_str()).date_part("year"),
-                // Month numbers repeat every year, so fold the year in to keep buckets distinct.
-                date::Interval::Month => field(h.field.as_str())
-                    .date_part("year")
-                    .mul(LogicalExpr::literal(12))
-                    .add(field(h.field.as_str()).date_part("month"))
-                    .sub(LogicalExpr::literal(1)),
-            };
+            let key = date::bucket_key(h.field.as_str(), &date::interval(h)?, date::offset_millis(h)?);
 
             Ok(filter(gate.clone())
                 .group_by([("key".to_string(), key)], aggs)
@@ -159,6 +145,7 @@ pub fn collect(
         }
         AggType::DateHistogram(h) => {
             let interval = date::interval(h)?;
+            let offset = date::offset_millis(h)?;
             let min_doc_count = h.min_doc_count.unwrap_or(0);
             let mut buckets = Vec::with_capacity(docs.len());
 
@@ -176,7 +163,10 @@ pub fn collect(
                     continue;
                 }
 
-                let Some(key) = index.and_then(|i| date::bucket_start(&interval, i)) else {
+                let Some(key) = index
+                    .and_then(|i| date::bucket_start(&interval, i))
+                    .and_then(|k| k.checked_sub(offset))
+                else {
                     continue;
                 };
                 let Some(key_as_string) = date::format_millis(key) else {
