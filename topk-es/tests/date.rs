@@ -1009,3 +1009,92 @@ async fn test_hard_bounds_trims_whole_buckets(scope: &mut TestScope) {
         ]
     );
 }
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_repeated_local_hour_keeps_both_buckets(scope: &mut TestScope) {
+    scope
+        .create_with_properties(json!({ "created": { "type": "date" } }))
+        .await;
+    // Prague falls back on 2026-10-25: 03:00+02:00 becomes 02:00+01:00, so local 02:xx happens
+    // twice. The two halves are distinct instants and stay in distinct buckets, as in ES.
+    scope
+        .index_docs(vec![
+            ("first", json!({ "created": "2026-10-25T00:15:00.000Z" })),
+            ("second", json!({ "created": "2026-10-25T01:15:00.000Z" })),
+        ])
+        .await;
+
+    let res = scope
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "h": {
+                    "date_histogram": {
+                        "field": "created",
+                        "fixed_interval": "1h",
+                        "time_zone": "Europe/Prague",
+                        "min_doc_count": 1
+                    }
+                }
+            }
+        }))
+        .await
+        .expect("search");
+
+    let buckets = res["aggregations"]["h"]["buckets"].as_array().unwrap();
+    let keys: Vec<(&str, i64)> = buckets
+        .iter()
+        .map(|b| {
+            (
+                b["key_as_string"].as_str().unwrap(),
+                b["key"].as_i64().unwrap(),
+            )
+        })
+        .collect();
+    // Both render as 02:00, one hour apart, at the two different offsets.
+    assert_eq!(
+        keys,
+        vec![
+            ("2026-10-25T02:00:00.000+02:00", 1792886400000),
+            ("2026-10-25T02:00:00.000+01:00", 1792890000000)
+        ]
+    );
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_hard_bounds_ignore_offset(scope: &mut TestScope) {
+    create_with_dates(scope).await;
+
+    // The window edges round without the boundary `offset`, so the quarter starting before `min`
+    // is trimmed even though the shifted bucket that holds `min` begins earlier still.
+    let res = scope
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "q": {
+                    "date_histogram": {
+                        "field": "created",
+                        "calendar_interval": "quarter",
+                        "offset": "-3h",
+                        "min_doc_count": 1,
+                        "hard_bounds": { "min": "2026-02-01", "max": "2026-11-01" }
+                    }
+                }
+            }
+        }))
+        .await
+        .expect("search");
+
+    let keys: Vec<&str> = res["aggregations"]["q"]["buckets"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|b| b["key_as_string"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        keys,
+        vec!["2026-03-31T21:00:00.000Z", "2026-09-30T21:00:00.000Z"]
+    );
+}

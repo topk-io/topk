@@ -238,8 +238,13 @@ impl Bucketing {
 
     // Start of the bucket containing instant `t`.
     pub fn floor(&self, t: i64) -> Option<i64> {
-        let t = t.checked_sub(self.shift)?;
-        let start = match &self.kind {
+        self.floor_kind(t.checked_sub(self.shift)?)?
+            .checked_add(self.shift)
+    }
+
+    // As `floor`, ignoring the boundary `offset`.
+    fn floor_kind(&self, t: i64) -> Option<i64> {
+        Some(match &self.kind {
             Kind::Fixed { width, offset } => {
                 t.checked_add(*offset)?.div_euclid(*width) * *width - *offset
             }
@@ -249,12 +254,7 @@ impl Bucketing {
                     (at.year() as i64 * 12 + at.month0() as i64).div_euclid(*count) * *count;
                 month_start(months)?.checked_sub(*offset)?
             }
-            // Rounded in local wall-clock time, so a boundary keeps the same local time across a
-            // DST transition even though the gap in absolute time is then shorter or longer.
-            Kind::LocalFixed { width, tz, .. } => {
-                let local = to_local(*tz, t)?;
-                from_local(*tz, local.div_euclid(*width).checked_mul(*width)?)?
-            }
+            Kind::LocalFixed { width, tz, .. } => local_floor(*width, *tz, t)?,
             Kind::LocalCalendar { unit, tz, .. } => {
                 let date = DateTime::<Utc>::from_timestamp_millis(t)?
                     .with_timezone(tz)
@@ -266,8 +266,7 @@ impl Bucketing {
                 };
                 from_local(*tz, midnight(start)?)?
             }
-        };
-        start.checked_add(self.shift)
+        })
     }
 
     // Start of the bucket after the one starting at `start`; drives empty-bucket filling.
@@ -280,8 +279,24 @@ impl Bucketing {
                 let months = at.year() as i64 * 12 + at.month0() as i64 + count;
                 month_start(months)?.checked_sub(*offset)?
             }
-            Kind::LocalFixed { width, tz, .. } => {
-                from_local(*tz, to_local(*tz, start)?.checked_add(*width)?)?
+            // A width step lands on the next boundary in absolute time, which is right inside a
+            // repeated local hour. Across a transition the local grid moves instead, so the step
+            // can land back inside this bucket; creep forward by the row width until the
+            // rounding advances. A DST shift is at most a couple of hours, so this is a few
+            // iterations at worst.
+            Kind::LocalFixed {
+                width,
+                tz,
+                granularity,
+            } => {
+                let mut t = start.checked_add(*width)?;
+                loop {
+                    let floored = local_floor(*width, *tz, t)?;
+                    if floored > start {
+                        break floored;
+                    }
+                    t = t.checked_add(*granularity)?;
+                }
             }
             Kind::LocalCalendar { unit, tz, .. } => {
                 let date = DateTime::<Utc>::from_timestamp_millis(start)?
@@ -304,12 +319,11 @@ impl Bucketing {
         self.floor(t.checked_add(self.shift)?)
     }
 
-    // The `hard_bounds` window edge for `t`. ES rounds these with `offset` applied in the
-    // opposite direction to bucketing, so the window is not itself bucket-aligned — verified
-    // against Elasticsearch 9 across positive and negative offsets.
+    // The `hard_bounds` window edge for `t`. ES rounds these ignoring `offset`, so the window is
+    // not itself bucket-aligned once a boundary shift is in play — verified against
+    // Elasticsearch 9 across positive and negative offsets, with and without a named zone.
     pub fn hard_bound(&self, t: i64) -> Option<i64> {
-        let shift = self.shift.checked_mul(2)?;
-        self.floor(t.checked_add(shift)?)?.checked_sub(shift)
+        self.floor_kind(t)
     }
 }
 
@@ -337,10 +351,29 @@ fn midnight(date: NaiveDate) -> Option<i64> {
     Some(date.and_hms_opt(0, 0, 0)?.and_utc().timestamp_millis())
 }
 
-// A UTC instant as local wall-clock millis, and back.
-fn to_local(tz: chrono_tz::Tz, t: i64) -> Option<i64> {
+// Start of the `width`-wide bucket holding `t`, rounded in local wall-clock time so a boundary
+// keeps the same local time across a DST transition even though the gap in absolute time is then
+// shorter or longer.
+fn local_floor(width: i64, tz: chrono_tz::Tz, t: i64) -> Option<i64> {
+    let offset = offset_at(tz, t)?;
+    let floored = t
+        .checked_add(offset)?
+        .div_euclid(width)
+        .checked_mul(width)?;
+
+    // Converted back at the instant's own offset, so the two halves of a repeated local hour
+    // stay in separate buckets, as ES reports them.
+    match floored.checked_sub(offset)? {
+        back if offset_at(tz, back) == Some(offset) => Some(back),
+        // The rounded local time does not exist at that offset (a skipped hour).
+        _ => from_local(tz, floored),
+    }
+}
+
+// The zone's UTC offset in force at `t`.
+fn offset_at(tz: chrono_tz::Tz, t: i64) -> Option<i64> {
     let at = DateTime::<Utc>::from_timestamp_millis(t)?;
-    t.checked_add(Zone::Named(tz).offset_millis(at))
+    Some(Zone::Named(tz).offset_millis(at))
 }
 
 // DST can skip or repeat a local time; ES anchors such a boundary at the earliest instant that
