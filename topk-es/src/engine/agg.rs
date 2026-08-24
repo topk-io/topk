@@ -155,6 +155,7 @@ pub fn collect(
         }
         AggType::DateHistogram(h) => {
             let bucketing = date::bucketing(h)?;
+            let zone = h.time_zone.as_deref().map(date::Zone::parse).transpose()?;
             let min_doc_count = h.min_doc_count.unwrap_or(0);
 
             // Engine rows fold by bucket start: named-zone bucketing produces several sub-bucket
@@ -234,7 +235,7 @@ pub fn collect(
                         ));
                     }
                     let (doc_count, metrics) = merged.remove(&key).unwrap_or_default();
-                    buckets.extend(bucket(clause, key, doc_count, metrics));
+                    buckets.extend(bucket(clause, zone.as_ref(), key, doc_count, metrics));
                     match bucketing.next(key) {
                         Some(next) if next <= hi => key = next,
                         _ => break,
@@ -243,7 +244,7 @@ pub fn collect(
                 _ => {
                     for (key, (doc_count, metrics)) in merged {
                         if doc_count >= min_doc_count {
-                            buckets.extend(bucket(clause, key, doc_count, metrics));
+                            buckets.extend(bucket(clause, zone.as_ref(), key, doc_count, metrics));
                         }
                     }
                 }
@@ -255,7 +256,7 @@ pub fn collect(
             let is_date = matches!(clause.ty, AggType::DateRange(_));
             let spec = schema.get(r.field.as_str());
             let mut doc = docs.into_iter().next().unwrap_or_default();
-            let buckets = r
+            let mut buckets: Vec<RangeBucket> = r
                 .ranges
                 .iter()
                 .enumerate()
@@ -277,6 +278,13 @@ pub fn collect(
                     }
                 })
                 .collect();
+
+            // ES orders range buckets by bounds — an unbounded `from` first — not as defined.
+            buckets.sort_by(|a, b| {
+                let from = |x: &RangeBucket| x.from.unwrap_or(f64::NEG_INFINITY);
+                let to = |x: &RangeBucket| x.to.unwrap_or(f64::INFINITY);
+                from(a).total_cmp(&from(b)).then(to(a).total_cmp(&to(b)))
+            });
 
             Ok(AggResult::Range { buckets })
         }
@@ -408,11 +416,12 @@ impl MetricAcc {
 // `None` when the key does not format, which only happens far outside the representable range.
 fn bucket(
     clause: &AggClause,
+    zone: Option<&date::Zone>,
     key: i64,
     doc_count: u64,
     metrics: HashMap<String, MetricAcc>,
 ) -> Option<HistogramBucket> {
-    let key_as_string = date::format_millis(key)?;
+    let key_as_string = date::format_key(key, zone)?;
 
     let mut sub_aggs = HashMap::new();
     for (name, sub_clause) in clause.aggs.iter().flatten() {

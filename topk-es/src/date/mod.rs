@@ -238,6 +238,21 @@ pub fn format_millis(millis: i64) -> Option<String> {
         .map(|dt| dt.to_rfc3339_opts(SecondsFormat::Millis, true))
 }
 
+// ES renders a date_histogram `key_as_string` in the request's `time_zone`, offset notation and
+// all; a named zone's offset is whatever held at that instant.
+pub fn format_key(millis: i64, zone: Option<&Zone>) -> Option<String> {
+    let dt = DateTime::<Utc>::from_timestamp_millis(millis)?;
+    Some(match zone {
+        None => dt.to_rfc3339_opts(SecondsFormat::Millis, true),
+        Some(Zone::Fixed(offset)) => dt
+            .with_timezone(offset)
+            .to_rfc3339_opts(SecondsFormat::Millis, true),
+        Some(Zone::Named(tz)) => dt
+            .with_timezone(tz)
+            .to_rfc3339_opts(SecondsFormat::Millis, true),
+    })
+}
+
 pub fn is_timestamp(spec: &FieldSpec) -> bool {
     matches!(
         spec.data_type.as_ref().and_then(|t| t.data_type.as_ref()),

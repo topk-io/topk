@@ -397,7 +397,7 @@ async fn test_date_range_agg(scope: &mut TestScope) {
         })
         .collect();
 
-    assert_eq!(counts, vec![("h1", 2), ("h2", 1), ("all", 3)]);
+    assert_eq!(counts, vec![("h1", 2), ("all", 3), ("h2", 1)]);
     // Date bounds echo an ISO companion.
     assert_eq!(buckets[0]["to_as_string"], "2026-07-01T00:00:00.000Z");
 }
@@ -464,11 +464,12 @@ async fn test_date_histogram_time_zone_shifts_buckets(scope: &mut TestScope) {
         .search(day_bucket(Some("+02:00")))
         .await
         .expect("search");
+    let bucket = &shifted["aggregations"]["d"]["buckets"][0];
     assert_eq!(
-        shifted["aggregations"]["d"]["buckets"][0]["key_as_string"],
-        "2026-01-14T22:00:00.000Z",
-        "bucket starts at local midnight, reported as the UTC instant"
+        bucket["key_as_string"], "2026-01-15T00:00:00.000+02:00",
+        "key_as_string renders in the request zone, as ES does"
     );
+    assert_eq!(bucket["key"], 1768428000000i64, "key stays the UTC instant");
 }
 
 #[test_context(TestScope)]
@@ -508,12 +509,14 @@ async fn test_date_histogram_named_time_zone_follows_dst(scope: &mut TestScope) 
         .iter()
         .map(|b| b["key_as_string"].as_str().unwrap())
         .collect();
+    // Rendered in the zone, whose offset flips +01:00 -> +02:00 across the transition;
+    // verified against Elasticsearch 9 byte-for-byte.
     assert_eq!(
         keys,
         vec![
-            "2026-03-27T23:00:00.000Z", // local Mar 28
-            "2026-03-28T23:00:00.000Z", // local Mar 29, the 23-hour day
-            "2026-03-29T22:00:00.000Z", // local Mar 30, midnight now at 22:00Z
+            "2026-03-28T00:00:00.000+01:00",
+            "2026-03-29T00:00:00.000+01:00",
+            "2026-03-30T00:00:00.000+02:00", // the 23-hour day ended; midnight is 22:00Z now
         ]
     );
     assert!(buckets.iter().all(|b| b["doc_count"] == 1), "{buckets:?}");
