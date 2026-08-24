@@ -308,3 +308,54 @@ async fn test_date_math_range_bound(scope: &mut TestScope) {
         .await;
     assert!(ids.is_empty());
 }
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_date_sort_values_are_epoch_millis(scope: &mut TestScope) {
+    create_with_dates(scope).await;
+
+    let res = scope
+        .search(json!({
+            "query": { "match_all": {} },
+            "sort": [{ "created": { "order": "asc" } }]
+        }))
+        .await
+        .expect("search");
+
+    // ES echoes the raw sort value, which for a date field is epoch millis (not ISO).
+    let first = &res["hits"]["hits"][0];
+    assert_eq!(first["_id"], "1");
+    assert_eq!(first["sort"][0].as_i64(), Some(1768471200000), "hit was {first}");
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_date_range_with_time_zone(scope: &mut TestScope) {
+    create_with_dates(scope).await;
+
+    // Doc 1 is 2026-01-15T10:00Z. A zone-less bound of 2026-01-15T11:00 in +02:00 is 09:00Z,
+    // so the doc is after it; the same bound in UTC is 11:00Z, so the doc is before it.
+    let after = scope
+        .search_ids(json!({
+            "range": { "created": { "gte": "2026-01-15T11:00:00", "time_zone": "+02:00" } }
+        }))
+        .await;
+    assert!(after.contains(&"1".to_string()), "got {after:?}");
+
+    let before = scope
+        .search_ids(json!({ "range": { "created": { "gte": "2026-01-15T11:00:00" } } }))
+        .await;
+    assert!(!before.contains(&"1".to_string()), "got {before:?}");
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_date_range_accepts_bare_date(scope: &mut TestScope) {
+    create_with_dates(scope).await;
+
+    let mut ids = scope
+        .search_ids(json!({ "range": { "created": { "gte": "2026-06-01" } } }))
+        .await;
+    ids.sort();
+    assert_eq!(ids, vec!["2", "3"]);
+}

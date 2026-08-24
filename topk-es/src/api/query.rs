@@ -289,6 +289,10 @@ pub struct RangeBounds {
 
     #[serde(default)]
     pub format: Option<String>,
+
+    // A zone-less bound is interpreted in this zone; a bound carrying its own offset ignores it.
+    #[serde(default)]
+    pub time_zone: Option<String>,
 }
 
 impl<'de> Deserialize<'de> for RangeBounds {

@@ -265,7 +265,7 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
                 TermValue::Bare(_) => None,
             };
             let field_name = clause.field.as_str().to_string();
-            let value = to_timestamp(schema.get(field_name.as_str()), clause.value.value())?;
+            let value = to_timestamp(schema.get(field_name.as_str()), clause.value.value(), None)?;
             if !value.is_scalar() {
                 return Err(Error::InvalidQuery(format!(
                     "[term] query does not support a non-scalar value for field [{field_name}]"
@@ -299,7 +299,7 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
             }
         }
         Query::Terms(q) => {
-            let values = to_timestamp(schema.get(q.field.as_str()), q.values)?;
+            let values = to_timestamp(schema.get(q.field.as_str()), q.values, None)?;
             Ok(constant(field(q.field).in_(values), q.boost))
         }
         Query::Ids(q) => Ok(constant(
@@ -322,18 +322,19 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
         Query::Range(clause) => {
             let boost = clause.value.boost;
             let spec = schema.get(clause.field.as_str());
+            let tz = clause.value.time_zone.as_deref();
             let mut exprs = Vec::new();
             if let Some(v) = clause.value.gte {
-                exprs.push(field(clause.field.clone()).gte(to_timestamp(spec, v.into_inner())?));
+                exprs.push(field(clause.field.clone()).gte(to_timestamp(spec, v.into_inner(), tz)?));
             }
             if let Some(v) = clause.value.gt {
-                exprs.push(field(clause.field.clone()).gt(to_timestamp(spec, v.into_inner())?));
+                exprs.push(field(clause.field.clone()).gt(to_timestamp(spec, v.into_inner(), tz)?));
             }
             if let Some(v) = clause.value.lte {
-                exprs.push(field(clause.field.clone()).lte(to_timestamp(spec, v.into_inner())?));
+                exprs.push(field(clause.field.clone()).lte(to_timestamp(spec, v.into_inner(), tz)?));
             }
             if let Some(v) = clause.value.lt {
-                exprs.push(field(clause.field.clone()).lt(to_timestamp(spec, v.into_inner())?));
+                exprs.push(field(clause.field.clone()).lt(to_timestamp(spec, v.into_inner(), tz)?));
             }
             // A bound-less range is ES's field-exists check.
             if exprs.is_empty() {

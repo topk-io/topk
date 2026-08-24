@@ -1,4 +1,7 @@
-use chrono::{DateTime, Datelike, Duration, SecondsFormat, TimeZone, Timelike, Utc};
+use chrono::{
+    DateTime, Datelike, Duration, FixedOffset, NaiveDate, NaiveDateTime, SecondsFormat, TimeZone,
+    Timelike, Utc,
+};
 use topk_rs::proto::v1::control::{field_type, FieldSpec};
 use topk_rs::proto::v1::data::Value;
 
@@ -7,12 +10,12 @@ use crate::Error;
 
 // ES `date` values arrive as ISO-8601 strings (or already-epoch millis) and must land in TopK's
 // timestamp column as i64 millis; reads go the other way.
-fn parse_millis(value: &str) -> Result<i64, Error> {
-    parse_millis_at(value, Utc::now())
+fn parse_millis(value: &str, tz: Option<&str>) -> Result<i64, Error> {
+    parse_millis_at(value, tz, Utc::now())
 }
 
 // `now` is threaded in rather than read here so date math is testable without the wall clock.
-fn parse_millis_at(value: &str, now: DateTime<Utc>) -> Result<i64, Error> {
+fn parse_millis_at(value: &str, tz: Option<&str>, now: DateTime<Utc>) -> Result<i64, Error> {
     if let Ok(millis) = value.parse::<i64>() {
         return Ok(millis);
     }
@@ -23,15 +26,58 @@ fn parse_millis_at(value: &str, now: DateTime<Utc>) -> Result<i64, Error> {
 
     // ES anchors date math to an explicit date with `||`, e.g. `2026-01-15T00:00:00Z||+1d`.
     if let Some((anchor, rest)) = value.split_once("||") {
-        let anchor = DateTime::parse_from_rfc3339(anchor)
-            .map_err(|_| Error::BadRequest(format!("cannot parse date [{anchor}]")))?
-            .with_timezone(&Utc);
-        return date_math(rest, anchor);
+        return date_math(rest, parse_instant(anchor, tz)?);
     }
 
-    DateTime::parse_from_rfc3339(value)
-        .map(|dt| dt.timestamp_millis())
-        .map_err(|_| Error::BadRequest(format!("cannot parse date [{value}]")))
+    parse_instant(value, tz).map(|dt| dt.timestamp_millis())
+}
+
+// A superset of what ES's default `strict_date_optional_time` accepts: a full RFC3339 stamp, a
+// zone-less stamp, or a bare date. A value carrying its own offset wins; otherwise `time_zone`
+// applies, defaulting to UTC. Declared mapping `format` patterns are not interpreted — being
+// permissive here covers the common ones without threading formats through the schema.
+fn parse_instant(value: &str, tz: Option<&str>) -> Result<DateTime<Utc>, Error> {
+    if let Ok(dt) = DateTime::parse_from_rfc3339(value) {
+        return Ok(dt.with_timezone(&Utc));
+    }
+
+    let naive = ["%Y-%m-%dT%H:%M:%S%.f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M"]
+        .iter()
+        .find_map(|fmt| NaiveDateTime::parse_from_str(value, fmt).ok())
+        .or_else(|| {
+            NaiveDate::parse_from_str(value, "%Y-%m-%d")
+                .ok()
+                .and_then(|d| d.and_hms_opt(0, 0, 0))
+        })
+        .ok_or_else(|| Error::BadRequest(format!("cannot parse date [{value}]")))?;
+
+    match tz {
+        None => Ok(naive.and_utc()),
+        Some(tz) => {
+            let offset = parse_offset(tz)?;
+            offset
+                .from_local_datetime(&naive)
+                .single()
+                .map(|dt| dt.with_timezone(&Utc))
+                .ok_or_else(|| Error::BadRequest(format!("cannot apply time_zone [{tz}]")))
+        }
+    }
+}
+
+// Numeric UTC offsets only (`+02:00`, `-0500`, `Z`). Named zones need a tz database, which would
+// pull in a dependency for something no caller has asked for yet.
+fn parse_offset(tz: &str) -> Result<FixedOffset, Error> {
+    if tz == "Z" || tz == "UTC" {
+        return Ok(FixedOffset::east_opt(0).expect("zero offset is valid"));
+    }
+
+    DateTime::parse_from_rfc3339(&format!("1970-01-01T00:00:00{tz}"))
+        .map(|dt| *dt.offset())
+        .map_err(|_| {
+            Error::BadRequest(format!(
+                "unsupported time_zone [{tz}]; use a numeric offset like +02:00"
+            ))
+        })
 }
 
 // ES date math: a chain of `+Nunit` / `-Nunit` offsets and `/unit` roundings, e.g. `-1d/d`.
@@ -151,19 +197,23 @@ pub fn is_timestamp(spec: &FieldSpec) -> bool {
 // Coerce a value destined for `spec` onto the epoch millis a timestamp column stores. ES accepts
 // an ISO-8601 string, raw millis, or a list of either (`terms`). Non-timestamp fields pass through
 // untouched, so a numeric-looking string on a keyword field is never mistaken for a date.
-pub fn to_timestamp(spec: Option<&FieldSpec>, value: Value) -> Result<Value, Error> {
+pub fn to_timestamp(
+    spec: Option<&FieldSpec>,
+    value: Value,
+    tz: Option<&str>,
+) -> Result<Value, Error> {
     if !spec.is_some_and(is_timestamp) {
         return Ok(value);
     }
 
     if let Some(s) = value.as_string() {
-        return Ok(Value::timestamp(parse_millis(s)?));
+        return Ok(Value::timestamp(parse_millis(s, tz)?));
     }
 
     match value.as_string_list() {
         Some(values) => values
             .iter()
-            .map(|v| parse_millis(v))
+            .map(|v| parse_millis(v, tz))
             .collect::<Result<Vec<_>, _>>()
             .map(Value::list),
         None => Ok(value),
@@ -278,7 +328,7 @@ mod tests {
 
     fn eval(expr: &str) -> String {
         let now = at("2026-06-15T10:30:45.123Z");
-        format_millis(parse_millis_at(expr, now).expect(expr)).unwrap()
+        format_millis(parse_millis_at(expr, None, now).expect(expr)).unwrap()
     }
 
     #[test]
@@ -333,9 +383,38 @@ mod tests {
     }
 
     #[test]
+    fn accepts_common_shapes() {
+        assert_eq!(eval("2026-01-15"), "2026-01-15T00:00:00.000Z");
+        assert_eq!(eval("2026-01-15T10:00:00"), "2026-01-15T10:00:00.000Z");
+        assert_eq!(eval("2026-01-15T10:00"), "2026-01-15T10:00:00.000Z");
+        assert_eq!(eval("2026-01-15T10:00:00.500"), "2026-01-15T10:00:00.500Z");
+        assert_eq!(eval("2026-01-15T10:00:00+02:00"), "2026-01-15T08:00:00.000Z");
+    }
+
+    #[test]
+    fn time_zone_applies_to_zoneless_values_only() {
+        let now = at("2026-06-15T10:30:45.123Z");
+        let tz = |v: &str, tz: &str| {
+            format_millis(parse_millis_at(v, Some(tz), now).expect(v)).unwrap()
+        };
+
+        assert_eq!(tz("2026-01-15", "+02:00"), "2026-01-14T22:00:00.000Z");
+        assert_eq!(tz("2026-01-15T00:00:00", "-05:00"), "2026-01-15T05:00:00.000Z");
+        // An explicit offset on the value wins over `time_zone`.
+        assert_eq!(tz("2026-01-15T00:00:00Z", "+02:00"), "2026-01-15T00:00:00.000Z");
+        assert_eq!(tz("2026-01-15", "Z"), "2026-01-15T00:00:00.000Z");
+    }
+
+    #[test]
+    fn rejects_unsupported_time_zone() {
+        let err = parse_millis_at("2026-01-15", Some("Europe/Prague"), Utc::now());
+        assert!(err.is_err(), "named zones need a tz database");
+    }
+
+    #[test]
     fn rejects_garbage() {
-        assert!(parse_millis_at("not-a-date", Utc::now()).is_err());
-        assert!(parse_millis_at("now-1x", Utc::now()).is_err());
-        assert!(parse_millis_at("now~1d", Utc::now()).is_err());
+        assert!(parse_millis_at("not-a-date", None, Utc::now()).is_err());
+        assert!(parse_millis_at("now-1x", None, Utc::now()).is_err());
+        assert!(parse_millis_at("now~1d", None, Utc::now()).is_err());
     }
 }

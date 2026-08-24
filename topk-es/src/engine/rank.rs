@@ -5,14 +5,18 @@ use topk_rs::json::Value as JsonValue;
 use topk_rs::proto::v1::data::{Document, Value};
 
 use super::doc::decode;
-use super::RANK_SCORE;
+use super::{Schema, RANK_SCORE};
 use crate::api::{DocId, Hit, SearchRequest, SortClause, SortField, SortTarget};
 use crate::value::OrdValue;
 use crate::Error;
 
-pub fn fuse(req: &SearchRequest, results: Vec<Vec<Document>>) -> Result<Vec<Hit>, Error> {
+pub fn fuse(
+    schema: &Schema,
+    req: &SearchRequest,
+    results: Vec<Vec<Document>>,
+) -> Result<Vec<Hit>, Error> {
     let candidates = combine(req, results)?;
-    Ok(to_hits(req, candidates))
+    Ok(to_hits(schema, req, candidates))
 }
 
 pub enum Ranking {
@@ -81,7 +85,7 @@ struct Candidate {
 }
 
 impl Candidate {
-    fn sort_key(&self, sort: &SortClause, score: f32) -> SortKey {
+    fn sort_key(&self, schema: &Schema, sort: &SortClause, score: f32) -> SortKey {
         SortKey(
             sort.iter()
                 .map(|f| {
@@ -92,7 +96,17 @@ impl Candidate {
                             .fields
                             .get(name.as_str())
                             .filter(|value| value.as_null().is_none())
-                            .cloned(),
+                            .cloned()
+                            // Fields arrive decoded, so a date is an ISO string by now. ES echoes
+                            // the raw sort value, which for a date is epoch millis.
+                            .map(|value| {
+                                crate::date::to_timestamp(
+                                    schema.get(name.as_str()),
+                                    value.clone(),
+                                    None,
+                                )
+                                .unwrap_or(value)
+                            }),
                     };
                     match (value, f.asc) {
                         (None, _) => SortKeyPart::Missing,
@@ -167,14 +181,14 @@ fn combine(
         .collect())
 }
 
-fn to_hits(req: &SearchRequest, candidates: Vec<(f32, Candidate)>) -> Vec<Hit> {
+fn to_hits(schema: &Schema, req: &SearchRequest, candidates: Vec<(f32, Candidate)>) -> Vec<Hit> {
     let mut candidates: Vec<(Option<SortKey>, f32, Candidate)> = candidates
         .into_iter()
         .map(|(score, candidate)| {
             let key = req
                 .sort
                 .as_ref()
-                .map(|sort| candidate.sort_key(sort, score));
+                .map(|sort| candidate.sort_key(schema, sort, score));
             (key, score, candidate)
         })
         .collect();
