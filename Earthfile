@@ -137,6 +137,7 @@ test-cli:
 
     # install dependencies
     RUN apt-get update && apt-get install -y protobuf-compiler jq
+    RUN cargo install cargo-nextest --locked
     COPY +test-sandbox/topk-test-sandbox /usr/local/bin/topk-test-sandbox
 
     DO rust+INIT --keep_fingerprints=true
@@ -148,25 +149,19 @@ test-cli:
     WORKDIR /sdk/topk-cli
 
     ARG EARTHLY_GIT_HASH
-    DO rust+CARGO --args="test -p topk-cli --no-run" # compile tests (warms up registry cache)
-
-    # build the binary as a real layer file so CARGO_BIN_EXE_topk can point to it
-    # (DO rust+CARGO uses cache mounts that don't persist as regular files)
     RUN --mount=type=cache,target=/root/.cargo/registry \
         --mount=type=cache,target=/root/.cargo/git \
-        cargo build -p topk-cli
+        cargo nextest run -p topk-cli --no-run
 
     ARG --required region
     ARG --required host
     DO +SETUP_ENV --region=$region --host=$host
 
-    # test — CARGO_BIN_EXE_topk must be set explicitly since tests live in
-    # #[cfg(test)] modules (not integration tests) and Cargo won't set it automatically
+    # test
     ENV FORCE_COLOR=1
-    ENV CARGO_BIN_EXE_topk=/sdk/topk-cli/target/debug/topk
     ARG args=""
     RUN --no-cache --secret TOPK_API_KEY \
-        TOPK_API_KEY=$TOPK_API_KEY topk-test-sandbox cargo test -p topk-cli --lib --no-fail-fast $args
+        TOPK_API_KEY=$TOPK_API_KEY topk-test-sandbox cargo nextest run -p topk-cli --no-fail-fast $args
 
 test-sql:
     FROM rust:slim

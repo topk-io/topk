@@ -22,6 +22,9 @@ homepage = "https://topk.io"
 documentation = "https://docs.topk.io"
 repository = "https://github.com/topk-io/topk"
 
+[dependency-groups]
+dev = ["maturin>=1.8,<2.0", "pytest", "pytest-xdist", "pytest-asyncio"]
+
 [tool.maturin]
 module-name = "topk_sdk"
 features = ["pyo3/extension-module"]
