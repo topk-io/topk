@@ -326,13 +326,21 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
             let tz = clause.value.time_zone.as_deref();
             let mut exprs = Vec::new();
             if let Some(v) = clause.value.gte {
-                exprs.push(field(clause.field.clone()).gte(to_timestamp(spec, v.into_inner(), tz)?));
+                exprs.push(field(clause.field.clone()).gte(to_timestamp(
+                    spec,
+                    v.into_inner(),
+                    tz,
+                )?));
             }
             if let Some(v) = clause.value.gt {
                 exprs.push(field(clause.field.clone()).gt(to_timestamp(spec, v.into_inner(), tz)?));
             }
             if let Some(v) = clause.value.lte {
-                exprs.push(field(clause.field.clone()).lte(to_timestamp(spec, v.into_inner(), tz)?));
+                exprs.push(field(clause.field.clone()).lte(to_timestamp(
+                    spec,
+                    v.into_inner(),
+                    tz,
+                )?));
             }
             if let Some(v) = clause.value.lt {
                 exprs.push(field(clause.field.clone()).lt(to_timestamp(spec, v.into_inner(), tz)?));

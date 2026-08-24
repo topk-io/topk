@@ -95,7 +95,9 @@ pub fn encode(schema: &Schema, doc: WriteDoc) -> Result<Document, Error> {
                 {
                     value.to_u8_matrix().unwrap_or(value)
                 }
-                Some(field_type::DataType::Timestamp(_)) => crate::date::to_timestamp(spec, value, None)?,
+                Some(field_type::DataType::Timestamp(_)) => {
+                    crate::date::to_timestamp(spec, value, None)?
+                }
                 _ => value,
             };
 

@@ -15,10 +15,6 @@ fn parse_millis(value: &str, tz: Option<&str>) -> Result<i64, Error> {
 
 // `now` is threaded in rather than read here so date math is testable without the wall clock.
 fn parse_millis_at(value: &str, tz: Option<&str>, now: DateTime<Utc>) -> Result<i64, Error> {
-    if let Ok(millis) = value.parse::<i64>() {
-        return Ok(millis);
-    }
-
     if let Some(rest) = value.strip_prefix("now") {
         return date_math(rest, now);
     }
@@ -28,7 +24,12 @@ fn parse_millis_at(value: &str, tz: Option<&str>, now: DateTime<Utc>) -> Result<
         return date_math(rest, parse_instant(anchor, tz)?);
     }
 
-    parse_instant(value, tz).map(|dt| dt.timestamp_millis())
+    // Date formats win over epoch millis, as in ES's `strict_date_optional_time||epoch_millis`:
+    // "2026" is the year 2026, not 2026ms into 1970.
+    match parse_instant(value, tz) {
+        Ok(dt) => Ok(dt.timestamp_millis()),
+        Err(err) => value.parse::<i64>().map_err(|_| err),
+    }
 }
 
 // A superset of what ES's default `strict_date_optional_time` accepts: a full RFC3339 stamp, a
@@ -40,15 +41,25 @@ fn parse_instant(value: &str, tz: Option<&str>) -> Result<DateTime<Utc>, Error> 
         return Ok(dt.with_timezone(&Utc));
     }
 
-    let naive = ["%Y-%m-%dT%H:%M:%S%.f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M"]
-        .iter()
-        .find_map(|fmt| NaiveDateTime::parse_from_str(value, fmt).ok())
-        .or_else(|| {
-            NaiveDate::parse_from_str(value, "%Y-%m-%d")
-                .ok()
-                .and_then(|d| d.and_hms_opt(0, 0, 0))
-        })
-        .ok_or_else(|| Error::BadRequest(format!("cannot parse date [{value}]")))?;
+    let naive = [
+        "%Y-%m-%dT%H:%M:%S%.f",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%dT%H:%M",
+    ]
+    .iter()
+    .find_map(|fmt| NaiveDateTime::parse_from_str(value, fmt).ok())
+    .or_else(|| {
+        // `strict_date_optional_time` also accepts a bare date, year-month, or year.
+        let ymd = match value.len() {
+            4 => format!("{value}-01-01"),
+            7 => format!("{value}-01"),
+            _ => value.to_string(),
+        };
+        NaiveDate::parse_from_str(&ymd, "%Y-%m-%d")
+            .ok()
+            .and_then(|d| d.and_hms_opt(0, 0, 0))
+    })
+    .ok_or_else(|| Error::BadRequest(format!("cannot parse date [{value}]")))?;
 
     match tz {
         None => Ok(naive.and_utc()),
@@ -98,7 +109,10 @@ impl Zone {
     pub fn offset_millis(&self, at: DateTime<Utc>) -> i64 {
         let seconds = match self {
             Zone::Fixed(offset) => offset.local_minus_utc(),
-            Zone::Named(tz) => tz.offset_from_utc_datetime(&at.naive_utc()).fix().local_minus_utc(),
+            Zone::Named(tz) => tz
+                .offset_from_utc_datetime(&at.naive_utc())
+                .fix()
+                .local_minus_utc(),
         };
         seconds as i64 * 1_000
     }
@@ -120,7 +134,13 @@ fn date_math(expr: &str, anchor: DateTime<Utc>) -> Result<i64, Error> {
             "+" | "-" => {
                 let digits: String = tail.chars().take_while(char::is_ascii_digit).collect();
                 let (unit, tail) = tail[digits.len()..].split_at(1.min(tail.len() - digits.len()));
-                let n: i64 = digits.parse().unwrap_or(1);
+                let n: i64 = match digits.is_empty() {
+                    // An omitted count means 1 (`now+y`); an unparseable one is an error, not 1.
+                    true => 1,
+                    false => digits
+                        .parse()
+                        .map_err(|_| Error::BadRequest(format!("cannot parse date [now{expr}]")))?,
+                };
                 let n = if op == "-" { -n } else { n };
                 at = add(at, unit_of(unit, expr)?, n)?;
                 rest = tail;
@@ -159,21 +179,8 @@ fn unit_of(unit: &str, expr: &str) -> Result<Unit, Error> {
 fn add(at: DateTime<Utc>, unit: Unit, n: i64) -> Result<DateTime<Utc>, Error> {
     let shifted = match unit {
         // Calendar units vary in length, so they shift the date rather than add a fixed duration.
-        Unit::Year => at.with_year(at.year() + n as i32),
-        Unit::Month => {
-            let months = at.year() as i64 * 12 + at.month0() as i64 + n;
-            Utc.with_ymd_and_hms(
-                (months.div_euclid(12)) as i32,
-                (months.rem_euclid(12) + 1) as u32,
-                at.day(),
-                at.hour(),
-                at.minute(),
-                at.second(),
-            )
-            .single()
-            // `with_ymd_and_hms` stops at seconds; carry the sub-second part over.
-            .and_then(|d| d.with_nanosecond(at.nanosecond()))
-        }
+        Unit::Year => add_months(at, n * 12),
+        Unit::Month => add_months(at, n),
         Unit::Week => Some(at + Duration::weeks(n)),
         Unit::Day => Some(at + Duration::days(n)),
         Unit::Hour => Some(at + Duration::hours(n)),
@@ -184,11 +191,31 @@ fn add(at: DateTime<Utc>, unit: Unit, n: i64) -> Result<DateTime<Utc>, Error> {
     shifted.ok_or_else(|| Error::BadRequest("date math overflowed".to_string()))
 }
 
+// ES clamps to the last day of the target month: Jan 31 + 1M is Feb 28, Feb 29 + 1y is Feb 28.
+fn add_months(at: DateTime<Utc>, n: i64) -> Option<DateTime<Utc>> {
+    let months = at.year() as i64 * 12 + at.month0() as i64 + n;
+    let (year, month) = (
+        months.div_euclid(12) as i32,
+        (months.rem_euclid(12) + 1) as u32,
+    );
+    let day = (28..=at.day())
+        .rev()
+        .find(|day| NaiveDate::from_ymd_opt(year, month, *day).is_some())
+        .unwrap_or(at.day());
+
+    Utc.with_ymd_and_hms(year, month, day, at.hour(), at.minute(), at.second())
+        .single()
+        // `with_ymd_and_hms` stops at seconds; carry the sub-second part over.
+        .and_then(|d| d.with_nanosecond(at.nanosecond()))
+}
+
 // `/unit` rounds down to the start of that unit, as ES does.
 fn round_down(at: DateTime<Utc>, unit: Unit) -> Result<DateTime<Utc>, Error> {
     let rounded = match unit {
         Unit::Year => Utc.with_ymd_and_hms(at.year(), 1, 1, 0, 0, 0).single(),
-        Unit::Month => Utc.with_ymd_and_hms(at.year(), at.month(), 1, 0, 0, 0).single(),
+        Unit::Month => Utc
+            .with_ymd_and_hms(at.year(), at.month(), 1, 0, 0, 0)
+            .single(),
         Unit::Week => at
             .date_naive()
             .week(chrono::Weekday::Mon)
@@ -254,14 +281,16 @@ pub fn from_timestamp(value: Value) -> Value {
 }
 
 mod interval;
-pub use interval::{bucket_key, bucket_start, interval, offset_millis};
+pub use interval::{bucketing, Bucketing};
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     fn at(iso: &str) -> DateTime<Utc> {
-        DateTime::parse_from_rfc3339(iso).unwrap().with_timezone(&Utc)
+        DateTime::parse_from_rfc3339(iso)
+            .unwrap()
+            .with_timezone(&Utc)
     }
 
     fn eval(expr: &str) -> String {
@@ -321,38 +350,73 @@ mod tests {
     }
 
     #[test]
+    fn month_arithmetic_clamps_to_month_end() {
+        assert_eq!(
+            eval("2026-05-31T00:00:00Z||-1M"),
+            "2026-04-30T00:00:00.000Z"
+        );
+        assert_eq!(
+            eval("2026-01-31T00:00:00Z||+1M"),
+            "2026-02-28T00:00:00.000Z"
+        );
+        assert_eq!(
+            eval("2028-02-29T00:00:00Z||+1y"),
+            "2029-02-28T00:00:00.000Z"
+        );
+    }
+
+    #[test]
+    fn bare_year_and_year_month() {
+        assert_eq!(eval("2026"), "2026-01-01T00:00:00.000Z");
+        assert_eq!(eval("2026-03"), "2026-03-01T00:00:00.000Z");
+    }
+
+    #[test]
     fn accepts_common_shapes() {
         assert_eq!(eval("2026-01-15"), "2026-01-15T00:00:00.000Z");
         assert_eq!(eval("2026-01-15T10:00:00"), "2026-01-15T10:00:00.000Z");
         assert_eq!(eval("2026-01-15T10:00"), "2026-01-15T10:00:00.000Z");
         assert_eq!(eval("2026-01-15T10:00:00.500"), "2026-01-15T10:00:00.500Z");
-        assert_eq!(eval("2026-01-15T10:00:00+02:00"), "2026-01-15T08:00:00.000Z");
+        assert_eq!(
+            eval("2026-01-15T10:00:00+02:00"),
+            "2026-01-15T08:00:00.000Z"
+        );
     }
 
     #[test]
     fn time_zone_applies_to_zoneless_values_only() {
         let now = at("2026-06-15T10:30:45.123Z");
-        let tz = |v: &str, tz: &str| {
-            format_millis(parse_millis_at(v, Some(tz), now).expect(v)).unwrap()
-        };
+        let tz =
+            |v: &str, tz: &str| format_millis(parse_millis_at(v, Some(tz), now).expect(v)).unwrap();
 
         assert_eq!(tz("2026-01-15", "+02:00"), "2026-01-14T22:00:00.000Z");
-        assert_eq!(tz("2026-01-15T00:00:00", "-05:00"), "2026-01-15T05:00:00.000Z");
+        assert_eq!(
+            tz("2026-01-15T00:00:00", "-05:00"),
+            "2026-01-15T05:00:00.000Z"
+        );
         // An explicit offset on the value wins over `time_zone`.
-        assert_eq!(tz("2026-01-15T00:00:00Z", "+02:00"), "2026-01-15T00:00:00.000Z");
+        assert_eq!(
+            tz("2026-01-15T00:00:00Z", "+02:00"),
+            "2026-01-15T00:00:00.000Z"
+        );
         assert_eq!(tz("2026-01-15", "Z"), "2026-01-15T00:00:00.000Z");
     }
 
     #[test]
     fn named_time_zones() {
         let now = at("2026-06-15T10:30:45.123Z");
-        let tz = |v: &str, tz: &str| {
-            format_millis(parse_millis_at(v, Some(tz), now).expect(v)).unwrap()
-        };
+        let tz =
+            |v: &str, tz: &str| format_millis(parse_millis_at(v, Some(tz), now).expect(v)).unwrap();
 
         // Prague is +01:00 in winter and +02:00 under DST.
-        assert_eq!(tz("2026-01-15T00:00:00", "Europe/Prague"), "2026-01-14T23:00:00.000Z");
-        assert_eq!(tz("2026-07-15T00:00:00", "Europe/Prague"), "2026-07-14T22:00:00.000Z");
+        assert_eq!(
+            tz("2026-01-15T00:00:00", "Europe/Prague"),
+            "2026-01-14T23:00:00.000Z"
+        );
+        assert_eq!(
+            tz("2026-07-15T00:00:00", "Europe/Prague"),
+            "2026-07-14T22:00:00.000Z"
+        );
         assert_eq!(tz("2026-01-15T00:00:00", "UTC"), "2026-01-15T00:00:00.000Z");
     }
 
@@ -366,5 +430,6 @@ mod tests {
         assert!(parse_millis_at("not-a-date", None, Utc::now()).is_err());
         assert!(parse_millis_at("now-1x", None, Utc::now()).is_err());
         assert!(parse_millis_at("now~1d", None, Utc::now()).is_err());
+        assert!(parse_millis_at("now+99999999999999999999d", None, Utc::now()).is_err());
     }
 }

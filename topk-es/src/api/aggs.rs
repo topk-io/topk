@@ -75,11 +75,31 @@ pub struct DateHistogramBody {
     #[serde(default)]
     pub min_doc_count: Option<u64>,
 
-    // Buckets are aligned to this zone rather than UTC. Only numeric offsets are accepted: the
-    // engine cannot convert per document, so bucketing shifts by one constant, which a named
-    // zone's DST transitions would silently break.
+    // Buckets are aligned to this zone rather than UTC — a numeric offset or an IANA name; see
+    // `date::Bucketing` for how named zones follow DST.
     #[serde(default)]
     pub time_zone: Option<String>,
+
+    // With `min_doc_count: 0` the histogram is filled out to cover at least [min, max], even
+    // where no documents exist. Values are epoch millis or date-math strings.
+    #[serde(default)]
+    pub extended_bounds: Option<ExtendedBounds>,
+
+    // Keys are always epoch millis with an ISO companion; a key format pattern is accepted but
+    // not interpreted, like mapping `format`.
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub format: Option<String>,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExtendedBounds {
+    #[serde(default)]
+    pub min: Option<Value>,
+
+    #[serde(default)]
+    pub max: Option<Value>,
 }
 
 #[derive(Clone, Deserialize)]

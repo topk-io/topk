@@ -195,7 +195,7 @@ async fn test_date_histogram_fixed_interval(scope: &mut TestScope) {
             "size": 0,
             "aggs": {
                 "over_time": {
-                    "date_histogram": { "field": "created", "fixed_interval": "30d" }
+                    "date_histogram": { "field": "created", "fixed_interval": "30d", "min_doc_count": 1 }
                 }
             }
         }))
@@ -225,7 +225,7 @@ async fn test_date_histogram_calendar_month(scope: &mut TestScope) {
             "size": 0,
             "aggs": {
                 "by_month": {
-                    "date_histogram": { "field": "created", "calendar_interval": "month" }
+                    "date_histogram": { "field": "created", "calendar_interval": "month", "min_doc_count": 1 }
                 }
             }
         }))
@@ -411,7 +411,7 @@ async fn test_date_histogram_calendar_quarter(scope: &mut TestScope) {
         .search(json!({
             "size": 0,
             "aggs": {
-                "by_q": { "date_histogram": { "field": "created", "calendar_interval": "quarter" } }
+                "by_q": { "date_histogram": { "field": "created", "calendar_interval": "quarter", "min_doc_count": 1 } }
             }
         }))
         .await
@@ -473,10 +473,21 @@ async fn test_date_histogram_time_zone_shifts_buckets(scope: &mut TestScope) {
 
 #[test_context(TestScope)]
 #[tokio::test]
-async fn test_date_histogram_rejects_named_time_zone(scope: &mut TestScope) {
-    create_with_dates(scope).await;
+async fn test_date_histogram_named_time_zone_follows_dst(scope: &mut TestScope) {
+    scope
+        .create_with_properties(json!({ "created": { "type": "date" } }))
+        .await;
+    // Prague springs forward on 2026-03-29 (+01:00 -> +02:00), so local midnight moves from
+    // 23:00Z to 22:00Z across these three local days.
+    scope
+        .index_docs(vec![
+            ("1", json!({ "created": "2026-03-28T22:30:00.000Z" })), // Mar 28 23:30 local
+            ("2", json!({ "created": "2026-03-29T10:00:00.000Z" })), // Mar 29 12:00 local
+            ("3", json!({ "created": "2026-03-29T22:30:00.000Z" })), // Mar 30 00:30 local
+        ])
+        .await;
 
-    let err = scope
+    let res = scope
         .search(json!({
             "size": 0,
             "aggs": {
@@ -490,8 +501,22 @@ async fn test_date_histogram_rejects_named_time_zone(scope: &mut TestScope) {
             }
         }))
         .await
-        .expect_err("named zones are rejected on histograms");
-    assert_eq!(err.status_code(), StatusCode::BAD_REQUEST);
+        .expect("search");
+
+    let buckets = res["aggregations"]["d"]["buckets"].as_array().unwrap();
+    let keys: Vec<&str> = buckets
+        .iter()
+        .map(|b| b["key_as_string"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        keys,
+        vec![
+            "2026-03-27T23:00:00.000Z", // local Mar 28
+            "2026-03-28T23:00:00.000Z", // local Mar 29, the 23-hour day
+            "2026-03-29T22:00:00.000Z", // local Mar 30, midnight now at 22:00Z
+        ]
+    );
+    assert!(buckets.iter().all(|b| b["doc_count"] == 1), "{buckets:?}");
 }
 
 #[test_context(TestScope)]
@@ -499,11 +524,156 @@ async fn test_date_histogram_rejects_named_time_zone(scope: &mut TestScope) {
 async fn test_range_accepts_named_time_zone(scope: &mut TestScope) {
     create_with_dates(scope).await;
 
-    // Range bounds do resolve named zones — only histogram bucketing cannot.
+    // Range bounds resolve named zones too.
     let ids = scope
         .search_ids(json!({
             "range": { "created": { "gte": "2026-01-15T10:30:00", "time_zone": "Europe/Prague" } }
         }))
         .await;
     assert!(ids.contains(&"1".to_string()), "got {ids:?}");
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_date_histogram_dense_by_default(scope: &mut TestScope) {
+    create_with_dates(scope).await;
+
+    // With the default `min_doc_count: 0`, every month between the first and last document is
+    // reported, empty ones included: Jan..Dec 2026 is 12 buckets for 3 docs.
+    let res = scope
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "m": { "date_histogram": { "field": "created", "calendar_interval": "month" } }
+            }
+        }))
+        .await
+        .expect("search");
+
+    let buckets = res["aggregations"]["m"]["buckets"].as_array().unwrap();
+    assert_eq!(buckets.len(), 12, "{buckets:?}");
+    assert_eq!(buckets[0]["key_as_string"], "2026-01-01T00:00:00.000Z");
+    assert_eq!(buckets[11]["key_as_string"], "2026-12-01T00:00:00.000Z");
+    let total: u64 = buckets.iter().map(|b| b["doc_count"].as_u64().unwrap()).sum();
+    assert_eq!(total, 3);
+    assert_eq!(buckets[1]["doc_count"], 0);
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_date_histogram_extended_bounds(scope: &mut TestScope) {
+    create_with_dates(scope).await;
+
+    let res = scope
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "m": {
+                    "date_histogram": {
+                        "field": "created",
+                        "calendar_interval": "month",
+                        "extended_bounds": { "min": "2025-11-01", "max": "2027-02-15" }
+                    }
+                }
+            }
+        }))
+        .await
+        .expect("search");
+
+    let buckets = res["aggregations"]["m"]["buckets"].as_array().unwrap();
+    assert_eq!(buckets[0]["key_as_string"], "2025-11-01T00:00:00.000Z");
+    assert_eq!(
+        buckets.last().unwrap()["key_as_string"],
+        "2027-02-01T00:00:00.000Z"
+    );
+    assert_eq!(buckets.len(), 16, "{buckets:?}");
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_date_histogram_sub_agg_merge(scope: &mut TestScope) {
+    scope
+        .create_with_properties(json!({
+            "created": { "type": "date" },
+            "price": { "type": "integer" }
+        }))
+        .await;
+    // Two docs land in one local Prague day across the UTC midnight between them, so their
+    // engine rows merge — exercising the sum/count decomposition of `avg`.
+    scope
+        .index_docs(vec![
+            ("1", json!({ "created": "2026-01-14T23:30:00.000Z", "price": 10 })), // Jan 15 local
+            ("2", json!({ "created": "2026-01-15T10:00:00.000Z", "price": 30 })), // Jan 15 local
+            ("3", json!({ "created": "2026-01-17T10:00:00.000Z", "price": 5 })),  // Jan 17 local
+        ])
+        .await;
+
+    let res = scope
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "d": {
+                    "date_histogram": {
+                        "field": "created",
+                        "calendar_interval": "day",
+                        "time_zone": "Europe/Prague"
+                    },
+                    "aggs": {
+                        "avg_price": { "avg": { "field": "price" } },
+                        "sum_price": { "sum": { "field": "price" } }
+                    }
+                }
+            }
+        }))
+        .await
+        .expect("search");
+
+    let buckets = res["aggregations"]["d"]["buckets"].as_array().unwrap();
+    assert_eq!(buckets.len(), 3, "{buckets:?}"); // Jan 15, 16 (empty), 17 local
+    assert_eq!(buckets[0]["doc_count"], 2);
+    assert_eq!(buckets[0]["avg_price"]["value"], 20.0);
+    assert_eq!(buckets[0]["sum_price"]["value"], 40.0);
+    // The empty bucket sums to 0 while avg stays null, as in ES.
+    assert_eq!(buckets[1]["doc_count"], 0);
+    assert_eq!(buckets[1]["sum_price"]["value"], 0.0);
+    assert_eq!(buckets[1]["avg_price"]["value"], Value::Null);
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_date_histogram_weeks_start_monday(scope: &mut TestScope) {
+    scope
+        .create_with_properties(json!({ "created": { "type": "date" } }))
+        .await;
+    // 2026-01-14 is a Wednesday; its week bucket starts on Monday the 12th.
+    scope
+        .index_docs(vec![("1", json!({ "created": "2026-01-14T10:00:00.000Z" }))])
+        .await;
+
+    let res = scope
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "w": { "date_histogram": { "field": "created", "calendar_interval": "week" } }
+            }
+        }))
+        .await
+        .expect("search");
+
+    assert_eq!(
+        res["aggregations"]["w"]["buckets"][0]["key_as_string"],
+        "2026-01-12T00:00:00.000Z"
+    );
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_bare_year_range_bound(scope: &mut TestScope) {
+    create_with_dates(scope).await;
+
+    // "2026" is the year 2026, not 2026 millis into 1970.
+    let ids = scope
+        .search_ids(json!({ "range": { "created": { "gte": "2026", "lt": "2026-07" } } }))
+        .await;
+    assert_eq!(ids.len(), 2, "got {ids:?}");
 }
