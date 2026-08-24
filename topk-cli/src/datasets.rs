@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use topk_rs::{proto::v1::control::Dataset, Client, Error};
+use topk_rs::{proto::v1::control::Dataset, Client, ClientConfig, Error};
 
 use crate::dataset_region_cache::{dataset_region_cache_path, DatasetRegionCache};
 
@@ -157,9 +157,17 @@ where
     }
 }
 
-pub fn make_cached_datasets_client(client: Client) -> impl DatasetsClient + DatasetRegionResolver {
+pub fn make_cached_datasets_client(
+    api_key: &str,
+    host: &str,
+    https: bool,
+) -> impl DatasetsClient + DatasetRegionResolver {
     CachedDatasetsClient::new(
-        RealDatasetsClient::new(client),
+        RealDatasetsClient::new(Client::new(
+            ClientConfig::global(api_key)
+                .with_host(host)
+                .with_https(https),
+        )),
         DatasetRegionCache::new(dataset_region_cache_path()),
     )
 }

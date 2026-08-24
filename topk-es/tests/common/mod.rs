@@ -29,7 +29,14 @@ impl Client {
         let token = std::env::var("ES_TOKEN")
             .or_else(|_| std::env::var("TOPK_API_KEY"))
             .expect("ES_TOKEN or TOPK_API_KEY must be set");
-        let url = std::env::var("ES_URL").expect("ES_URL must be set");
+        let url = std::env::var("ES_URL").unwrap_or_else(|_| {
+            let region = std::env::var("TOPK_REGION").expect("TOPK_REGION or ES_URL must be set");
+            let host = std::env::var("TOPK_HOST").unwrap_or_else(|_| "topk.io".to_string());
+            let https =
+                std::env::var("TOPK_HTTPS").unwrap_or_else(|_| "true".to_string()) == "true";
+            let protocol = if https { "https" } else { "http" };
+            format!("{protocol}://{region}.es.{host}")
+        });
 
         let url = Url::parse(&url).unwrap();
         let conn_pool = SingleNodeConnectionPool::new(url);
@@ -287,7 +294,9 @@ impl TestScope {
         if let Some(excludes) = excludes {
             req = req._source_excludes(excludes);
         }
-        into_test_result(req.send().await.expect("search")).await.map(SearchResponse)
+        into_test_result(req.send().await.expect("search"))
+            .await
+            .map(SearchResponse)
     }
 
     pub async fn search(&self, body: Value) -> TestResult<SearchResponse> {
