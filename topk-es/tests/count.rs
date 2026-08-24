@@ -1,9 +1,9 @@
 mod common;
 
 use common::{BooksContext, TestScope};
-use test_macros::rstest_ctx;
 use elasticsearch::http::StatusCode;
 use serde_json::{json, Value};
+use test_macros::rstest_ctx;
 
 #[rstest_ctx(TestScope)]
 #[case::no_query(None, 0)]

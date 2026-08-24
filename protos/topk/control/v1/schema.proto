@@ -39,6 +39,7 @@ message FieldType {
     FieldTypeF8SparseVector f8_sparse_vector = 17;
     FieldTypeF16SparseVector f16_sparse_vector = 18;
     FieldTypeStruct struct = 19;
+    FieldTypeTimestamp timestamp = 20;
   }
 }
 
@@ -46,6 +47,7 @@ message FieldTypeText {}
 message FieldTypeInteger {}
 message FieldTypeFloat {}
 message FieldTypeBoolean {}
+message FieldTypeTimestamp {}
 
 message FieldTypeF32Vector {
   uint32 dimension = 1;

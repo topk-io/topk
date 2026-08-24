@@ -12,6 +12,7 @@ impl field_type::DataType {
             field_type::DataType::Integer(..) => "integer".to_string(),
             field_type::DataType::Float(..) => "float".to_string(),
             field_type::DataType::Boolean(..) => "boolean".to_string(),
+            field_type::DataType::Timestamp(..) => "timestamp".to_string(),
             // Dense vector
             field_type::DataType::F32Vector(..) => "vector<f32>".to_string(),
             field_type::DataType::F16Vector(..) => "vector<f16>".to_string(),

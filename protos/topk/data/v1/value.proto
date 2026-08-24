@@ -30,6 +30,8 @@ message Value {
     Struct struct = 18;
     // Matrix
     Matrix matrix = 19;
+    // Timestamp (milliseconds since UNIX epoch)
+    int64 timestamp = 20;
   }
 }
 

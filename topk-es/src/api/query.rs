@@ -23,6 +23,19 @@ pub enum Query {
     Exists(ExistsQuery),
     Bool(BoolQuery),
     Semantic(SemanticQuery),
+    // Kibana searches saved objects with this; we don't do full Lucene query strings, so it
+    // matches everything and lets the surrounding bool filters (type, etc.) do the real work.
+    SimpleQueryString(SimpleQueryString),
+    QueryString(SimpleQueryString),
+}
+
+#[derive(Deserialize)]
+pub struct SimpleQueryString {
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub query: Option<String>,
+    #[serde(default)]
+    pub boost: Option<f32>,
 }
 
 #[derive(Deserialize, Default)]
@@ -51,6 +64,12 @@ pub struct BoolQuery {
     #[serde_as(as = "OneOrMany<_>")]
     #[serde(default)]
     pub should: Vec<Query>,
+
+    // We compile `should` as a required OR gate (>=1 must match), which is the ES default and the
+    // only value clients send here (1). Accepted, not otherwise honoured for N>1.
+    #[serde(default, rename = "minimum_should_match")]
+    #[allow(dead_code)]
+    pub minimum_should_match: Option<serde_json::Value>,
 
     #[serde(default)]
     pub boost: Option<f32>,
@@ -269,7 +288,7 @@ pub struct IdsQuery {
     pub boost: Option<f32>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Default)]
 #[serde(remote = "Self", deny_unknown_fields)]
 pub struct RangeBounds {
     #[serde(default)]

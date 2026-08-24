@@ -1,3 +1,4 @@
+use chrono::{TimeZone, Utc};
 use test_context::test_context;
 use topk_rs::data::literal;
 use topk_rs::proto::v1::data::stage::sort_stage::SortOrder;
@@ -118,4 +119,39 @@ async fn test_query_hybrid_coalesce_score(ctx: &mut ProjectTestContext) {
     // Adding the nullable_score without coalescing would exclude "pride" and "gatsby" from
     // the result set, even though they are the closest candidates based on summary_score.
     assert_doc_ids_ordered!(&result, ["gatsby", "catcher", "pride"]);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_hybrid_recency_boost(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let now = Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).unwrap();
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            select([(
+                "recency_score",
+                field("published_ts")
+                    .elapsed(literal(now), "day")
+                    .saturate(65.0 * 365.0, 5.0),
+            )])
+            .select([(
+                "summary_distance",
+                fns::vector_distance("summary_embedding", vec![2.3f32; 16]),
+            )])
+            .sort((
+                field("summary_distance").mul(field("recency_score")),
+                SortOrder::Asc,
+            ))
+            .limit(3),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    assert_doc_ids_ordered!(&result, ["1984", "harry", "pride"]);
 }

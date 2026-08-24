@@ -16,6 +16,11 @@ pub struct IndexMapping {
     #[allow(dead_code)]
     settings: Option<serde_json::Value>,
 
+    // Alias membership is derived from the index name (api::alias); accepted, not stored.
+    #[serde(default)]
+    #[allow(dead_code)]
+    aliases: Option<serde_json::Value>,
+
     #[serde(default)]
     mappings: Option<Mappings>,
 }
@@ -25,6 +30,15 @@ pub struct IndexMapping {
 struct Mappings {
     #[serde(default)]
     properties: Option<MappingProperties>,
+
+    // Kibana stashes migration state in `_meta` and reads it back; accepted, not persisted.
+    #[serde(default, rename = "_meta")]
+    #[allow(dead_code)]
+    meta: Option<serde_json::Value>,
+
+    #[serde(default)]
+    #[allow(dead_code)]
+    dynamic: Option<serde_json::Value>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default, PartialEq)]
@@ -37,9 +51,10 @@ impl TryFrom<HashMap<String, serde_json::Value>> for MappingProperties {
     fn try_from(raw: HashMap<String, serde_json::Value>) -> Result<Self, Self::Error> {
         raw.into_iter()
             .map(|(name, mut value)| {
-                // ES infers `type: object` from a bare `properties` block.
+                // ES treats any mapping node without an explicit `type` as an object — a bare
+                // `properties` block, or options like `{"enabled": false}` with neither.
                 if let Some(object) = value.as_object_mut() {
-                    if !object.contains_key("type") && object.contains_key("properties") {
+                    if !object.contains_key("type") {
                         object.insert("type".to_string(), "object".into());
                     }
                 }
@@ -59,6 +74,56 @@ impl MappingProperties {
     }
 }
 
+impl FieldMapping {
+    // (es_type, aggregatable) for `_field_caps`. Text is searchable but not aggregatable; keyword
+    // and the scalar/date/vector types aggregate.
+    pub fn field_caps(&self) -> (&'static str, bool) {
+        match self {
+            FieldMapping::Text { .. } => ("text", false),
+            FieldMapping::Keyword { .. } => ("keyword", true),
+            FieldMapping::Integer { .. } => ("long", true),
+            FieldMapping::Date { .. } => ("date", true),
+            FieldMapping::Float { .. } => ("float", true),
+            FieldMapping::Boolean { .. } => ("boolean", true),
+            FieldMapping::Object { .. } => ("object", false),
+            FieldMapping::Nested { .. } => ("nested", false),
+            FieldMapping::DenseVector { .. } => ("dense_vector", false),
+            FieldMapping::RankVectors { .. } => ("dense_vector", false),
+            FieldMapping::SemanticText { .. } => ("text", false),
+        }
+    }
+}
+
+impl MappingProperties {
+    // The `fields` object of an ES `_field_caps` response, flattening nested objects with dotted
+    // paths. Each field reports one type entry with searchable/aggregatable flags.
+    pub fn field_caps(&self, prefix: &str, out: &mut HashMap<String, serde_json::Value>) {
+        for (name, mapping) in &self.0 {
+            let path = if prefix.is_empty() {
+                name.clone()
+            } else {
+                format!("{prefix}.{name}")
+            };
+            if let FieldMapping::Object { properties, .. } = mapping {
+                properties.field_caps(&path, out);
+                continue;
+            }
+            let (ty, aggregatable) = mapping.field_caps();
+            out.insert(
+                path,
+                serde_json::json!({
+                    ty: {
+                        "type": ty,
+                        "metadata_field": false,
+                        "searchable": true,
+                        "aggregatable": aggregatable
+                    }
+                }),
+            );
+        }
+    }
+}
+
 impl TryFrom<HashMap<String, FieldSpec>> for MappingProperties {
     type Error = Error;
 
@@ -72,8 +137,10 @@ impl TryFrom<HashMap<String, FieldSpec>> for MappingProperties {
     }
 }
 
+// Per-field options we don't model (`ignore_above`, `null_value`, analyzers, ...) are accepted and
+// ignored, not rejected — Kibana's mappings are full of them. Unknown *types* still fail loudly.
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
-#[serde(tag = "type", deny_unknown_fields)]
+#[serde(tag = "type")]
 pub enum FieldMapping {
     #[serde(rename = "text")]
     Text {
@@ -85,7 +152,23 @@ pub enum FieldMapping {
         fields: Option<MappingProperties>,
     },
 
-    #[serde(rename = "keyword")]
+    #[serde(
+        rename = "keyword",
+        alias = "ip",
+        alias = "version",
+        alias = "binary",
+        alias = "wildcard",
+        alias = "flattened",
+        alias = "constant_keyword",
+        alias = "date_range",
+        alias = "integer_range",
+        alias = "long_range",
+        alias = "float_range",
+        alias = "double_range",
+        alias = "ip_range",
+        alias = "geo_point",
+        alias = "geo_shape"
+    )]
     Keyword {
         #[serde(default)]
         index: Option<bool>,
@@ -95,14 +178,38 @@ pub enum FieldMapping {
         fields: Option<MappingProperties>,
     },
 
-    #[serde(rename = "integer", alias = "long", alias = "short", alias = "byte")]
+    #[serde(
+        rename = "integer",
+        alias = "long",
+        alias = "short",
+        alias = "byte",
+        alias = "unsigned_long"
+    )]
     Integer {
         #[serde(default)]
         #[allow(dead_code)]
         index: Option<bool>,
     },
 
-    #[serde(rename = "float", alias = "double", alias = "half_float")]
+    // ES `date`/`date_nanos` map to TopK's timestamp column (epoch millis, i64). ISO-8601 strings
+    // are parsed to millis on write and formatted back on read; see engine::doc and value.
+    #[serde(rename = "date", alias = "date_nanos")]
+    Date {
+        #[serde(default)]
+        #[allow(dead_code)]
+        index: Option<bool>,
+
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[allow(dead_code)]
+        format: Option<String>,
+    },
+
+    #[serde(
+        rename = "float",
+        alias = "double",
+        alias = "half_float",
+        alias = "scaled_float"
+    )]
     Float {
         #[serde(default)]
         #[allow(dead_code)]
@@ -116,10 +223,28 @@ pub enum FieldMapping {
         index: Option<bool>,
     },
 
-    #[serde(rename = "object", alias = "nested")]
+    #[serde(rename = "object")]
     Object {
         #[serde(default, skip_serializing_if = "MappingProperties::is_empty")]
         properties: MappingProperties,
+
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[allow(dead_code)]
+        dynamic: Option<serde_json::Value>,
+    },
+
+    // `nested` is an array of objects, which TopK has no column for. Store it as a JSON string
+    // (see engine::doc encode/decode) — good enough for Kibana's saved objects, which is the only
+    // thing that uses nested.
+    #[serde(rename = "nested")]
+    Nested {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[allow(dead_code)]
+        properties: Option<MappingProperties>,
+
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[allow(dead_code)]
+        dynamic: Option<serde_json::Value>,
     },
 
     #[serde(rename = "dense_vector")]
@@ -306,16 +431,15 @@ impl TryFrom<FieldMapping> for FieldSpec {
                 Ok(field)
             }
             FieldMapping::Integer { index: _ } => Ok(FieldSpec::integer(false)),
+            FieldMapping::Date { .. } => Ok(FieldSpec::timestamp(false)),
+            FieldMapping::Nested { .. } => Ok(FieldSpec::text(false)),
             FieldMapping::Float { index: _ } => Ok(FieldSpec::float(false)),
             FieldMapping::Boolean { index: _ } => Ok(FieldSpec::boolean(false)),
-            FieldMapping::Object { properties } => Ok(FieldSpec::r#struct(
-                false,
-                properties
-                    .0
-                    .into_iter()
-                    .map(|(name, spec)| spec.try_into().map(|field| (name, field)))
-                    .collect::<Result<HashMap<String, FieldSpec>, Error>>()?,
-            )),
+            // HACK: same JSON-blob storage as `nested` — ES lets a plain `object` field (unlike
+            // `nested`) hold an implicit array too, which the real struct column can't. Loses
+            // struct-typed mapping-GET fidelity and any future sub-field querying; revisit once
+            // there's a real column type for "single struct or array of structs".
+            FieldMapping::Object { .. } => Ok(FieldSpec::text(false)),
             FieldMapping::DenseVector {
                 dims,
                 similarity,
@@ -415,9 +539,14 @@ impl TryFrom<&FieldSpec> for FieldMapping {
                 _ => return Err(Error::Unsupported("Invalid text index".into())),
             },
             Some(field_type::DataType::Integer(_)) => FieldMapping::Integer { index: Some(false) },
+            Some(field_type::DataType::Timestamp(_)) => FieldMapping::Date {
+                index: Some(false),
+                format: None,
+            },
             Some(field_type::DataType::Float(_)) => FieldMapping::Float { index: Some(false) },
             Some(field_type::DataType::Boolean(_)) => FieldMapping::Boolean { index: Some(false) },
             Some(field_type::DataType::Struct(s)) => FieldMapping::Object {
+                dynamic: None,
                 properties: MappingProperties::try_from(s.fields.clone())?,
             },
             Some(
@@ -450,6 +579,7 @@ impl TryFrom<&FieldSpec> for FieldMapping {
                         element_type,
                     },
                     _ => FieldMapping::Object {
+                        dynamic: None,
                         properties: MappingProperties::default(),
                     },
                 }
@@ -457,6 +587,7 @@ impl TryFrom<&FieldSpec> for FieldMapping {
             Some(field_type::DataType::Matrix(m)) => {
                 let Ok(element_type) = m.value_type().try_into() else {
                     return Ok(FieldMapping::Object {
+                        dynamic: None,
                         properties: MappingProperties::default(),
                     });
                 };
@@ -481,11 +612,13 @@ impl TryFrom<&FieldSpec> for FieldMapping {
                         width: None,
                     },
                     _ => FieldMapping::Object {
+                        dynamic: None,
                         properties: MappingProperties::default(),
                     },
                 }
             }
             _ => FieldMapping::Object {
+                dynamic: None,
                 properties: MappingProperties::default(),
             },
         })

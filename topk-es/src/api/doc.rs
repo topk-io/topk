@@ -19,11 +19,19 @@ pub struct DocItem {
     #[serde(rename = "_id")]
     pub id: DocId,
     pub found: bool,
+    // Kibana reads these to drive conditional updates. Constant (we don't track sequence numbers);
+    // present only for a found doc.
+    #[serde(rename = "_version", skip_serializing_if = "Option::is_none")]
+    pub version: Option<u32>,
+    #[serde(rename = "_seq_no", skip_serializing_if = "Option::is_none")]
+    pub seq_no: Option<u64>,
+    #[serde(rename = "_primary_term", skip_serializing_if = "Option::is_none")]
+    pub primary_term: Option<u64>,
     #[serde(rename = "_source", skip_serializing_if = "Option::is_none")]
     pub source: Option<Source>,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 #[serde(try_from = "HashMap<String, serde_json::Value>")]
 pub struct DocBody(HashMap<String, Value>);
 
@@ -32,18 +40,51 @@ impl TryFrom<HashMap<String, serde_json::Value>> for DocBody {
 
     fn try_from(doc: HashMap<String, serde_json::Value>) -> Result<Self, Self::Error> {
         let mut fields = HashMap::with_capacity(doc.len());
-        for (key, value) in doc {
+        for (key, mut value) in doc {
             if key == "_id" {
                 return Err(Error::BadRequest(
                     "\"_id\" is a metadata field and cannot be set inside the document body".into(),
                 ));
             }
+            stringify_object_arrays(&mut value);
             let value = TopkValue::try_from(value)
                 .map(Value::from)
                 .map_err(|e| Error::BadRequest(e.to_string()))?;
             fields.insert(key, value);
         }
         Ok(Self(fields))
+    }
+}
+
+// ES lets any field — including an `object`-mapped one, unlike explicit `nested` — hold an
+// implicit array of values. TopK's generic JSON→Value conversion only accepts a uniform array of
+// numbers, a uniform array of strings, or a uniform array of numeric arrays (a matrix) — nothing
+// else, with no column for e.g. an array of structs or an array of string-tuples (Kibana's own
+// `sort: [["order_date","desc"]]` shape). Pre-stringify any array that isn't one of those three
+// accepted shapes to a JSON blob here (same fallback `engine::doc::coerce` uses for a schema-mapped
+// `nested`/`object` field) so it converts as a plain string instead of failing before schema
+// coercion ever runs.
+fn stringify_object_arrays(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::Array(items) if !items.is_empty() => {
+            let uniform = match &items[0] {
+                serde_json::Value::Number(_) => items.iter().all(|v| v.is_number()),
+                serde_json::Value::String(_) => items.iter().all(|v| v.is_string()),
+                serde_json::Value::Array(_) => items.iter().all(|v| {
+                    matches!(v, serde_json::Value::Array(row) if row.iter().all(|c| c.is_number()))
+                }),
+                _ => false,
+            };
+            if !uniform {
+                *value = serde_json::Value::String(value.to_string());
+            }
+        }
+        serde_json::Value::Object(fields) => {
+            for v in fields.values_mut() {
+                stringify_object_arrays(v);
+            }
+        }
+        _ => {}
     }
 }
 
@@ -55,6 +96,27 @@ impl DocBody {
     }
 }
 
+// Shared by the bulk `update` action and the single-doc `_update` endpoint. `script` and
+// `doc_as_upsert: true` are rejected by both callers — we only support merging a literal `doc`
+// into an existing document, not ES's scripted-update or upsert-on-missing semantics.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct UpdateSource {
+    #[serde(default)]
+    pub doc: Option<HashMap<String, serde_json::Value>>,
+    #[serde(default)]
+    pub script: Option<serde_json::Value>,
+    #[serde(default)]
+    pub doc_as_upsert: Option<bool>,
+
+    // Accepted, not honoured: controls whether/what `_source` comes back on the response; we
+    // don't return a `get` field from `_update` at all yet.
+    #[serde(default, rename = "_source")]
+    #[allow(dead_code)]
+    pub source: Option<serde_json::Value>,
+}
+
+#[derive(Clone)]
 pub struct WriteDoc {
     pub id: DocId,
     pub body: DocBody,

@@ -1,10 +1,10 @@
 mod common;
 
 use common::{BooksContext, TestScope};
-use test_macros::rstest_ctx;
 use elasticsearch::http::StatusCode;
 use serde_json::{json, Value};
 use test_context::test_context;
+use test_macros::rstest_ctx;
 
 async fn setup_hybrid_docs(scope: &TestScope) {
     scope

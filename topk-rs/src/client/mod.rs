@@ -10,7 +10,7 @@ mod datasets;
 pub use datasets::DatasetsClient;
 
 mod collection;
-pub use collection::CollectionClient;
+pub use collection::{CollectionClient, DocumentStream};
 
 mod dataset;
 pub use dataset::DatasetClient;

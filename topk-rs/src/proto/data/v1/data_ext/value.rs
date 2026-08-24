@@ -1,10 +1,11 @@
 use bytemuck::{cast_slice, cast_vec};
 use bytes::Bytes;
+use chrono::{DateTime, TimeZone, Utc};
 use float8::F8E4M3;
 use std::collections::HashMap;
 
 use crate::proto::data::v1::{
-    data_ext::{IntoListValues, IntoMatrixValues},
+    data_ext::{IntoListValues, IntoMatrixValues, IntoTimestamp},
     list, matrix, sparse_vector, value, vector, List, Matrix, Null, SparseVector, Struct, Value,
 };
 
@@ -193,6 +194,31 @@ impl Value {
         }
     }
 
+    /// Create a timestamp from the provided value
+    pub fn timestamp(value: impl IntoTimestamp) -> Self {
+        Value {
+            value: Some(value::Value::Timestamp(value.timestamp_ms())),
+        }
+    }
+
+    /// Get the timestamp as milliseconds since UNIX epoch.
+    pub fn as_timestamp(&self) -> Option<i64> {
+        match &self.value {
+            Some(value::Value::U32(value)) => Some(*value as i64),
+            Some(value::Value::U64(value)) if *value <= (i64::MAX as u64) => Some(*value as i64),
+            Some(value::Value::I32(value)) => Some(*value as i64),
+            Some(value::Value::I64(value)) => Some(*value),
+            Some(value::Value::Timestamp(value)) => Some(*value),
+            _ => None,
+        }
+    }
+
+    /// Get the timestamp field as [`DateTime<Utc>`].
+    pub fn as_datetime(&self) -> Option<DateTime<Utc>> {
+        self.as_timestamp()
+            .and_then(|timestamp| DateTime::from_timestamp_millis(timestamp))
+    }
+
     /// Create a struct value from a map of values.
     pub fn r#struct<K: Into<String>>(values: impl IntoIterator<Item = (K, Value)>) -> Self {
         Value {
@@ -360,6 +386,7 @@ impl value::Value {
             value::Value::F32(_) => "f32".to_string(),
             value::Value::F64(_) => "f64".to_string(),
             value::Value::String(_) => "string".to_string(),
+            value::Value::Timestamp(_) => "timestamp".to_string(),
             value::Value::Binary(v) => {
                 format!("binary({})", v.len())
             }
@@ -467,6 +494,12 @@ impl From<f32> for Value {
 impl From<f64> for Value {
     fn from(value: f64) -> Self {
         Value::f64(value)
+    }
+}
+
+impl<TZ: TimeZone> From<DateTime<TZ>> for Value {
+    fn from(value: DateTime<TZ>) -> Self {
+        Value::timestamp(value)
     }
 }
 

@@ -51,6 +51,7 @@ message LogicalExpr {
       OP_MAX = 19;
       //
       OP_IN = 20;
+      OP_DATE_PART = 21;
     }
     Op op = 1;
     LogicalExpr left = 2;
@@ -63,6 +64,9 @@ message LogicalExpr {
       OP_UNSPECIFIED = 0;
       OP_CHOOSE = 1;
       OP_REGEXP_MATCH = 2;
+      OP_ELAPSED = 3;
+      OP_SATURATE = 4;
+      OP_DECAY = 5;
     }
     Op op = 1;
     LogicalExpr x = 2;
