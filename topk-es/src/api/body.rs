@@ -73,13 +73,9 @@ where
         )));
     }
 
-    // ES request bodies are always JSON objects. Reject arrays/scalars up front:
-    // serde deserializes a struct from a positional sequence, so a bare `[]` would
-    // otherwise become an all-defaults request (e.g. `_search` match-all).
-    //
-    // Checked on the raw bytes rather than through a `serde_json::Value`, whose map is ordered
-    // by key: a range clause carrying both `lt` and `lte` resolves to whichever came last, so
-    // the request has to reach the deserializer in document order.
+    // A bare `[]` would deserialize a struct from a positional sequence, making it an
+    // all-defaults request. Checked on the bytes because a `serde_json::Value` would reorder the
+    // keys, and a range clause with both `lt` and `lte` keeps whichever came last.
     if bytes.iter().find(|b| !b.is_ascii_whitespace()) != Some(&b'{') {
         return Err(Error::BadRequest(
             "Request body must be a JSON object".into(),

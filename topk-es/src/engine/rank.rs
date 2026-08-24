@@ -7,6 +7,7 @@ use topk_rs::proto::v1::data::{Document, Value};
 use super::doc::decode;
 use super::{Schema, RANK_SCORE};
 use crate::api::{DocId, Hit, SearchRequest, SortClause, SortField, SortTarget};
+use crate::date;
 use crate::value::OrdValue;
 use crate::Error;
 
@@ -100,7 +101,7 @@ impl Candidate {
                             // Fields arrive decoded, so a date is an ISO string by now. ES echoes
                             // the raw sort value, which for a date is epoch millis.
                             .map(|value| {
-                                crate::date::to_timestamp(
+                                date::to_timestamp(
                                     schema.get(name.as_str()),
                                     value.clone(),
                                     None,

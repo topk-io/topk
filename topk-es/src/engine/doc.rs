@@ -6,7 +6,7 @@ use topk_rs::proto::v1::data::{value, Document, Value};
 use super::field::IndexKind;
 use super::{Schema, RANK_PREFIX};
 use crate::api::{Source, SourceFilter, WriteDoc};
-use crate::date::is_timestamp;
+use crate::date;
 use crate::value::ValueExt;
 use crate::vector;
 use crate::Error;
@@ -41,7 +41,7 @@ fn flatten_value(schema: &Schema, out: &mut HashMap<String, Value>, path: String
         value => {
             let value = match schema.get(path.as_str()) {
                 Some(spec) if is_byte_vector(spec) => Value { value }.into_signed_bytes(),
-                Some(spec) if is_timestamp(spec) => crate::date::from_timestamp(Value { value }),
+                Some(spec) if date::is_timestamp(spec) => date::from_timestamp(Value { value }),
                 _ => Value { value },
             };
             out.insert(path, value);
@@ -96,7 +96,7 @@ pub fn encode(schema: &Schema, doc: WriteDoc) -> Result<Document, Error> {
                     value.to_u8_matrix().unwrap_or(value)
                 }
                 Some(field_type::DataType::Timestamp(_)) => {
-                    crate::date::to_timestamp(spec, value, None)?
+                    date::to_timestamp(spec, value, None)?
                 }
                 _ => value,
             };

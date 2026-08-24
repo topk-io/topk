@@ -10,7 +10,7 @@ use crate::api::{
     AggClause, AggType, FieldName, GateQuery, KnnRequest, MatchAllQuery, MatchOperator, MatchValue,
     Query, SearchRequest, SortField, SortTarget, TermValue,
 };
-use crate::date::{to_timestamp, to_timestamp_rounded, Round};
+use crate::date::{self, Round};
 use crate::value::ValueExt;
 
 use crate::{engine::Schema, Error};
@@ -266,7 +266,7 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
                 TermValue::Bare(_) => None,
             };
             let field_name = clause.field.as_str().to_string();
-            let value = to_timestamp(schema.get(field_name.as_str()), clause.value.value(), None)?;
+            let value = date::to_timestamp(schema.get(field_name.as_str()), clause.value.value(), None)?;
             if !value.is_scalar() {
                 return Err(Error::InvalidQuery(format!(
                     "[term] query does not support a non-scalar value for field [{field_name}]"
@@ -300,7 +300,7 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
             }
         }
         Query::Terms(q) => {
-            let values = to_timestamp(schema.get(q.field.as_str()), q.values, None)?;
+            let values = date::to_timestamp(schema.get(q.field.as_str()), q.values, None)?;
             Ok(constant(field(q.field).in_(values), q.boost))
         }
         Query::Ids(q) => Ok(constant(
@@ -326,21 +326,21 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
             let tz = clause.value.time_zone.as_deref();
             // ES rounds an under-specified bound toward the side that widens the range: down
             // under gte/lt, up under gt/lte, so `lte: "2026-06-10"` includes all of that day.
+            let bound = |v: topk_rs::json::Value, round| {
+                date::to_timestamp_rounded(spec, v.into_inner(), tz, round)
+            };
             let mut exprs = Vec::new();
-            for (bound, lower) in [(clause.value.lower, true), (clause.value.upper, false)] {
-                let Some(bound) = bound else { continue };
-                let round = match bound.inclusive == lower {
-                    true => Round::Down,
-                    false => Round::Up,
-                };
-                let value = to_timestamp_rounded(spec, bound.value.into_inner(), tz, round)?;
-                let field = field(clause.field.clone());
-                exprs.push(match (lower, bound.inclusive) {
-                    (true, true) => field.gte(value),
-                    (true, false) => field.gt(value),
-                    (false, true) => field.lte(value),
-                    (false, false) => field.lt(value),
-                });
+            if let Some(v) = clause.value.gte {
+                exprs.push(field(clause.field.clone()).gte(bound(v, Round::Down)?));
+            }
+            if let Some(v) = clause.value.gt {
+                exprs.push(field(clause.field.clone()).gt(bound(v, Round::Up)?));
+            }
+            if let Some(v) = clause.value.lte {
+                exprs.push(field(clause.field.clone()).lte(bound(v, Round::Up)?));
+            }
+            if let Some(v) = clause.value.lt {
+                exprs.push(field(clause.field.clone()).lt(bound(v, Round::Down)?));
             }
             // A bound-less range is ES's field-exists check.
             if exprs.is_empty() {
