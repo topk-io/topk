@@ -360,11 +360,11 @@ URL: https://docs.topk.io/limits
 |-----------------------------------|---------------------------------|
 | Max collections                   | Unlimited                       |
 | Max documents (global)            | Unlimited                       |
-| Max documents (per collection)    | 1B+                             |
+| Max documents (per partition)     | 1B+                             |
 | Write throughput (global)         | Unlimited                       |
-| Write throughput (per collection) | ~70MB/s                         |
+| Write throughput (per partition)  | ~70MB/s                         |
 | Query throughput (global)         | Unlimited                       |
-| Query throughput (per collection) | 1k+ queries/s                   |
+| Query throughput (per partition)  | 1k+ queries/s                   |
 | Max document size                 | 200KB                           |
 | Max indexed fields                | Unlimited (up to document size) |
 | Max dense vector dimension        | 16,384                          |
@@ -372,6 +372,10 @@ URL: https://docs.topk.io/limits
 | Max multi-vector dimension        | 1024                            |
 | Max upsert request size           | 8MB                             |
 | Recall                            | 95%+                            |
+
+<Note>
+  Per-partition limits apply independently, so total collection throughput grows with the number of partitions. Learn more about [Partitions and Multi-tenancy](/concepts#multi-tenancy).
+</Note>
 
 #### Dataset Limits
 
