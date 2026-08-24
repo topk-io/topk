@@ -34,6 +34,9 @@ impl From<TopkError> for napi::Error {
             topk_rs::Error::PartitionNotFound => {
                 napi::Error::new(napi::Status::GenericFailure, "partition not found")
             }
+            topk_rs::Error::DocumentNotFound(_) => {
+                napi::Error::new(napi::Status::GenericFailure, format!("{}", error.0))
+            }
             // Validation errors
             topk_rs::Error::DocumentValidationError(_) => {
                 napi::Error::new(napi::Status::InvalidArg, format!("{:?}", error))

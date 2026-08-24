@@ -32,6 +32,9 @@ pub enum Error {
     #[error("not found")]
     NotFound,
 
+    #[error("{0}")]
+    DocumentNotFound(String),
+
     #[error("invalid collection schema: {0:?}")]
     SchemaValidationError(ValidationErrorBag<SchemaValidationError>),
 
@@ -103,6 +106,7 @@ impl Error {
             Error::DatasetAlreadyExists => false,
             Error::DatasetNotFound => false,
             Error::NotFound => false,
+            Error::DocumentNotFound(_) => false,
             Error::SchemaValidationError(_) => false,
             Error::DocumentValidationError(_) => false,
             Error::CollectionValidationError(_) => false,
@@ -156,6 +160,7 @@ impl From<Status> for Error {
                 CustomErrorCode::RequiredLsnGreaterThanManifestMaxLsn => Error::QueryLsnTimeout,
                 CustomErrorCode::SlowDown => Error::SlowDown(error.message),
                 CustomErrorCode::PartitionNotFound => Error::PartitionNotFound,
+                CustomErrorCode::DocumentNotFound => Error::DocumentNotFound(error.message),
             },
             Err(e) => match e.code() {
                 tonic::Code::NotFound => Error::NotFound,
@@ -447,6 +452,7 @@ pub enum CustomErrorCode {
     RequiredLsnGreaterThanManifestMaxLsn,
     SlowDown,
     PartitionNotFound,
+    DocumentNotFound,
 }
 
 impl Into<u32> for CustomErrorCode {
@@ -455,6 +461,7 @@ impl Into<u32> for CustomErrorCode {
             CustomErrorCode::RequiredLsnGreaterThanManifestMaxLsn => 1000,
             CustomErrorCode::SlowDown => 1429,
             CustomErrorCode::PartitionNotFound => 1404,
+            CustomErrorCode::DocumentNotFound => 1405,
         }
     }
 }
@@ -467,6 +474,7 @@ impl TryFrom<u32> for CustomErrorCode {
             1000 => Ok(CustomErrorCode::RequiredLsnGreaterThanManifestMaxLsn),
             1429 => Ok(CustomErrorCode::SlowDown),
             1404 => Ok(CustomErrorCode::PartitionNotFound),
+            1405 => Ok(CustomErrorCode::DocumentNotFound),
             code => Err(anyhow::anyhow!("unknown internal error code: {code}")),
         }
     }
@@ -480,6 +488,7 @@ impl From<CustomError> for Status {
             }
             CustomErrorCode::SlowDown => Status::resource_exhausted(error.message),
             CustomErrorCode::PartitionNotFound => Status::not_found(error.message),
+            CustomErrorCode::DocumentNotFound => Status::not_found(error.message),
         };
 
         let error_code: u32 = error.code.into();

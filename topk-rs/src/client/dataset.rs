@@ -184,9 +184,10 @@ impl DatasetClient {
                 client
                     .delete(DeleteRequest { id })
                     .await
-                    .map_err(|e| match e.code() {
-                        tonic::Code::NotFound => Error::DatasetNotFound,
-                        _ => Error::from(e),
+                    .map_err(|e| match Error::from(e) {
+                        // Explicitly map generic `NotFound` to `DatasetNotFound` error
+                        Error::NotFound => Error::DatasetNotFound,
+                        e => e,
                     })
             }
         })
@@ -321,9 +322,10 @@ impl DatasetClient {
                 client
                     .update_metadata(UpdateMetadataRequest { id, metadata })
                     .await
-                    .map_err(|e| match e.code() {
-                        tonic::Code::NotFound => Error::DatasetNotFound,
-                        _ => Error::from(e),
+                    .map_err(|e| match Error::from(e) {
+                        // Explicitly map generic `NotFound` to `DatasetNotFound` error
+                        Error::NotFound => Error::DatasetNotFound,
+                        e => e,
                     })
             }
         })

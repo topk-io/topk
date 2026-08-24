@@ -27,6 +27,9 @@ impl From<RustError> for PyErr {
                 CollectionAlreadyExistsError::new_err(value.0.to_string())
             }
             topk_rs::Error::DatasetNotFound => DatasetNotFoundError::new_err(value.0.to_string()),
+            topk_rs::Error::DocumentNotFound(_) => {
+                DocumentNotFoundError::new_err(value.0.to_string())
+            }
             topk_rs::Error::DatasetAlreadyExists => {
                 DatasetAlreadyExistsError::new_err(value.0.to_string())
             }
@@ -57,6 +60,7 @@ create_exception!(error, CollectionNotFoundError, PyException);
 create_exception!(error, PartitionNotFoundError, PyException);
 create_exception!(error, DatasetAlreadyExistsError, PyException);
 create_exception!(error, DatasetNotFoundError, PyException);
+create_exception!(error, DocumentNotFoundError, PyException);
 create_exception!(error, SchemaValidationError, PyException);
 create_exception!(error, DocumentValidationError, PyException);
 create_exception!(error, CollectionValidationError, PyException);
@@ -99,6 +103,11 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add(
         "DatasetNotFoundError",
         m.py().get_type::<DatasetNotFoundError>(),
+    )?;
+
+    m.add(
+        "DocumentNotFoundError",
+        m.py().get_type::<DocumentNotFoundError>(),
     )?;
 
     m.add(

@@ -28,6 +28,11 @@ class DatasetAlreadyExistsError(Exception):
     Raised when a dataset with the same name already exists.
     """
 
+class DocumentNotFoundError(Exception):
+    """
+    Raised when a document is not found.
+    """
+
 class DocumentValidationError(Exception):
     """
     Raised when a document is invalid.
