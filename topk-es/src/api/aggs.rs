@@ -25,6 +25,8 @@ pub enum AggType {
     Max(MetricAggBody),
     ValueCount(MetricAggBody),
     DateHistogram(DateHistogramBody),
+    Range(RangeAggBody),
+    DateRange(RangeAggBody),
 }
 
 #[derive(Clone, Deserialize)]
@@ -34,6 +36,27 @@ pub struct TermsAggBody {
 
     #[serde(default)]
     pub size: Option<u32>,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RangeAggBody {
+    pub field: FieldName,
+    pub ranges: Vec<RangeSpec>,
+}
+
+// `from` is inclusive and `to` exclusive, as in ES; omitting one leaves that side unbounded.
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RangeSpec {
+    #[serde(default)]
+    pub key: Option<String>,
+
+    #[serde(default)]
+    pub from: Option<Value>,
+
+    #[serde(default)]
+    pub to: Option<Value>,
 }
 
 #[derive(Clone, Deserialize)]
@@ -76,6 +99,9 @@ pub enum AggResult {
     Histogram {
         buckets: Vec<HistogramBucket>,
     },
+    Range {
+        buckets: Vec<RangeBucket>,
+    },
 }
 
 #[derive(Serialize)]
@@ -96,4 +122,24 @@ pub struct HistogramBucket {
 
     #[serde(flatten)]
     pub sub_aggs: HashMap<String, AggResult>,
+}
+
+#[derive(Serialize)]
+pub struct RangeBucket {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub from: Option<f64>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub from_as_string: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub to: Option<f64>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub to_as_string: Option<String>,
+
+    pub doc_count: u64,
 }

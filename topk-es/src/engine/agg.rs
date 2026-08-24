@@ -4,13 +4,21 @@ use topk_rs::json::Value as JsonValue;
 use topk_rs::proto::v1::data::{AggregateExpr, Document, LogicalExpr, Query as TopkQuery, Value};
 use topk_rs::query::{field, filter};
 
-use super::Schema;
-use crate::api::{AggClause, AggResult, AggType, HistogramBucket, TermsBucket};
+use super::{Schema, RANGE_PREFIX};
+use topk_rs::proto::v1::control::FieldSpec;
+use crate::api::{
+    AggClause, AggResult, AggType, HistogramBucket, RangeAggBody, RangeBucket, RangeSpec,
+    TermsBucket,
+};
 use crate::date;
 use crate::value::{compare, ValueExt};
 use crate::Error;
 
-pub fn compile(clause: &AggClause, gate: &LogicalExpr) -> Result<TopkQuery, Error> {
+pub fn compile(
+    schema: &Schema,
+    clause: &AggClause,
+    gate: &LogicalExpr,
+) -> Result<TopkQuery, Error> {
     match &clause.ty {
         AggType::Terms(terms) => {
             let mut aggs = vec![("doc_count".to_string(), AggregateExpr::count(None))];
@@ -57,6 +65,22 @@ pub fn compile(clause: &AggClause, gate: &LogicalExpr) -> Result<TopkQuery, Erro
                 .sort("key")
                 // ES has no inherent bucket cap here; this is headroom, not an ES-shaped limit.
                 .limit(10_000))
+        }
+        AggType::Range(r) | AggType::DateRange(r) => {
+            // One indicator column per range, counted independently — so ranges may overlap and
+            // a document lands in every bucket it matches, as ES does.
+            let spec = schema.get(r.field.as_str());
+            let mut selects = Vec::with_capacity(r.ranges.len());
+            let mut aggs = Vec::with_capacity(r.ranges.len());
+            for (i, range) in r.ranges.iter().enumerate() {
+                let alias = format!("{RANGE_PREFIX}{i}");
+                selects.push((alias.clone(), indicator(spec, r, range)?));
+                aggs.push((alias.clone(), AggregateExpr::count(Some(alias))));
+            }
+
+            Ok(filter(gate.clone())
+                .select(selects)
+                .group_by([("_bucket".to_string(), LogicalExpr::literal(true))], aggs))
         }
         metric => {
             let query = filter(gate.clone()).group_by(
@@ -184,6 +208,33 @@ pub fn collect(
 
             Ok(AggResult::Histogram { buckets })
         }
+        AggType::Range(r) | AggType::DateRange(r) => {
+            let is_date = matches!(clause.ty, AggType::DateRange(_));
+            let spec = schema.get(r.field.as_str());
+            let mut doc = docs.into_iter().next().unwrap_or_default();
+            let buckets = r
+                .ranges
+                .iter()
+                .enumerate()
+                .map(|(i, range)| {
+                    let doc_count = doc
+                        .fields
+                        .remove(&format!("{RANGE_PREFIX}{i}"))
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(0);
+                    RangeBucket {
+                        key: range.key.clone(),
+                        from: bound_value(spec, range.from.as_ref()),
+                        from_as_string: bound_as_string(is_date, spec, range.from.as_ref()),
+                        to: bound_value(spec, range.to.as_ref()),
+                        to_as_string: bound_as_string(is_date, spec, range.to.as_ref()),
+                        doc_count,
+                    }
+                })
+                .collect();
+
+            Ok(AggResult::Range { buckets })
+        }
         _ => {
             let value = docs
                 .into_iter()
@@ -225,9 +276,59 @@ impl TryFrom<AggType> for AggregateExpr {
             AggType::Min(m) => Ok(AggregateExpr::min(m.field)),
             AggType::Max(m) => Ok(AggregateExpr::max(m.field)),
             AggType::ValueCount(m) => Ok(AggregateExpr::count(Some(m.field.into()))),
-            AggType::Terms(_) | AggType::DateHistogram(_) => Err(Error::Unsupported(
+            AggType::Terms(_)
+            | AggType::DateHistogram(_)
+            | AggType::Range(_)
+            | AggType::DateRange(_) => Err(Error::Unsupported(
                 "Nested bucket sub-aggregations are not supported".into(),
             )),
         }
     }
+}
+
+// `1` when the document falls in the range, null otherwise, so `count` over the column is the
+// bucket's doc_count. Bounds go through the same coercion as a range query, so a `date_range`
+// accepts ISO strings and date math.
+fn indicator(
+    spec: Option<&FieldSpec>,
+    body: &RangeAggBody,
+    range: &RangeSpec,
+) -> Result<LogicalExpr, Error> {
+    let mut pred: Option<LogicalExpr> = None;
+    for (bound, inclusive) in [(&range.from, true), (&range.to, false)] {
+        let Some(bound) = bound else { continue };
+        let bound = date::to_timestamp(spec, bound.clone().into_inner(), None)?;
+        let clause = match inclusive {
+            true => field(body.field.as_str()).gte(bound),
+            false => field(body.field.as_str()).lt(bound),
+        };
+        pred = Some(match pred {
+            Some(prev) => prev.and(clause),
+            None => clause,
+        });
+    }
+
+    // A range with neither bound matches every document.
+    let pred = pred.unwrap_or_else(|| LogicalExpr::literal(true));
+    Ok(pred.choose(LogicalExpr::literal(1), LogicalExpr::literal(Value::null())))
+}
+
+// ES echoes a bucket's bounds as it stored them: epoch millis for a date, plus an ISO companion.
+// A date bound arrives as a string, so it goes through the same coercion the indicator used.
+fn bound_value(spec: Option<&FieldSpec>, bound: Option<&JsonValue>) -> Option<f64> {
+    coerce_bound(spec, bound)?.number()
+}
+
+fn bound_as_string(
+    is_date: bool,
+    spec: Option<&FieldSpec>,
+    bound: Option<&JsonValue>,
+) -> Option<String> {
+    is_date
+        .then(|| coerce_bound(spec, bound)?.as_timestamp().and_then(date::format_millis))
+        .flatten()
+}
+
+fn coerce_bound(spec: Option<&FieldSpec>, bound: Option<&JsonValue>) -> Option<Value> {
+    date::to_timestamp(spec, bound?.clone().into_inner(), None).ok()
 }

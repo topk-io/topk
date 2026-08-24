@@ -12,6 +12,8 @@ pub mod rank;
 pub mod score;
 
 const RANK_PREFIX: &str = "topk_es_rank_";
+// Per-range indicator columns for `range`/`date_range` aggregations.
+const RANGE_PREFIX: &str = "topk_es_range_";
 const RANK_SCORE: &str = "topk_es_rank_score";
 const RANK_BM25: &str = "topk_es_rank_bm25";
 const RANK_ANN: &str = "topk_es_rank_ann";

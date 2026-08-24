@@ -22,6 +22,7 @@ fn validate_agg_fields(schema: &Schema, clause: &AggClause) -> Result<(), Error>
             ensure_aggregatable(schema, m.field.as_str())?
         }
         AggType::DateHistogram(h) => ensure_aggregatable(schema, h.field.as_str())?,
+        AggType::Range(r) | AggType::DateRange(r) => ensure_aggregatable(schema, r.field.as_str())?,
         AggType::ValueCount(_) => {}
     }
     for sub in clause.aggs.iter().flatten() {
@@ -91,7 +92,7 @@ pub fn search(
     let agg_queries = req
         .aggs
         .iter()
-        .map(|(_, clause)| agg::compile(clause, &gate))
+        .map(|(_, clause)| agg::compile(schema, clause, &gate))
         .collect::<Result<Vec<_>, _>>()?;
 
     Ok((req, queries, agg_queries))

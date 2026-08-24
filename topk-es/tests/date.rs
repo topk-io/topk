@@ -359,3 +359,45 @@ async fn test_date_range_accepts_bare_date(scope: &mut TestScope) {
     ids.sort();
     assert_eq!(ids, vec!["2", "3"]);
 }
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_date_range_agg(scope: &mut TestScope) {
+    create_with_dates(scope).await;
+
+    let res = scope
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "spans": {
+                    "date_range": {
+                        "field": "created",
+                        "ranges": [
+                            { "key": "h1", "to": "2026-07-01" },
+                            { "key": "h2", "from": "2026-07-01" },
+                            // Deliberately overlaps h1/h2: ES counts a doc in every bucket it
+                            // matches, so this one covers all three docs.
+                            { "key": "all", "from": "2026-01-01" }
+                        ]
+                    }
+                }
+            }
+        }))
+        .await
+        .expect("search");
+
+    let buckets = res["aggregations"]["spans"]["buckets"].as_array().unwrap();
+    let counts: Vec<(&str, u64)> = buckets
+        .iter()
+        .map(|b| {
+            (
+                b["key"].as_str().unwrap(),
+                b["doc_count"].as_u64().unwrap(),
+            )
+        })
+        .collect();
+
+    assert_eq!(counts, vec![("h1", 2), ("h2", 1), ("all", 3)]);
+    // Date bounds echo an ISO companion.
+    assert_eq!(buckets[0]["to_as_string"], "2026-07-01T00:00:00.000Z");
+}
