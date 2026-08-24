@@ -10,7 +10,7 @@ use crate::api::{
     AggClause, AggType, FieldName, GateQuery, KnnRequest, MatchAllQuery, MatchOperator, MatchValue,
     Query, SearchRequest, SortField, SortTarget, TermValue,
 };
-use crate::date::to_timestamp;
+use crate::date::{to_timestamp, to_timestamp_rounded, Round};
 use crate::value::ValueExt;
 
 use crate::{engine::Schema, Error};
@@ -324,26 +324,23 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
             let boost = clause.value.boost;
             let spec = schema.get(clause.field.as_str());
             let tz = clause.value.time_zone.as_deref();
+            // ES rounds an under-specified bound toward the side that widens the range: down
+            // under gte/lt, up under gt/lte, so `lte: "2026-06-10"` includes all of that day.
             let mut exprs = Vec::new();
-            if let Some(v) = clause.value.gte {
-                exprs.push(field(clause.field.clone()).gte(to_timestamp(
-                    spec,
-                    v.into_inner(),
-                    tz,
-                )?));
-            }
-            if let Some(v) = clause.value.gt {
-                exprs.push(field(clause.field.clone()).gt(to_timestamp(spec, v.into_inner(), tz)?));
-            }
-            if let Some(v) = clause.value.lte {
-                exprs.push(field(clause.field.clone()).lte(to_timestamp(
-                    spec,
-                    v.into_inner(),
-                    tz,
-                )?));
-            }
-            if let Some(v) = clause.value.lt {
-                exprs.push(field(clause.field.clone()).lt(to_timestamp(spec, v.into_inner(), tz)?));
+            for (bound, lower) in [(clause.value.lower, true), (clause.value.upper, false)] {
+                let Some(bound) = bound else { continue };
+                let round = match bound.inclusive == lower {
+                    true => Round::Down,
+                    false => Round::Up,
+                };
+                let value = to_timestamp_rounded(spec, bound.value.into_inner(), tz, round)?;
+                let field = field(clause.field.clone());
+                exprs.push(match (lower, bound.inclusive) {
+                    (true, true) => field.gte(value),
+                    (true, false) => field.gt(value),
+                    (false, true) => field.lte(value),
+                    (false, false) => field.lt(value),
+                });
             }
             // A bound-less range is ES's field-exists check.
             if exprs.is_empty() {

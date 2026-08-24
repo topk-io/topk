@@ -202,13 +202,15 @@ pub fn collect(
             let bound_key = |bound: &Option<JsonValue>| -> Result<Option<i64>, Error> {
                 match bound {
                     None => Ok(None),
+                    // ES rounds a bound in unshifted bucket space and applies `offset`
+                    // afterwards, so a bound lands on the shifted boundary at or before it.
                     Some(bound) => Ok(date::to_timestamp(
                         spec,
                         bound.clone().into_inner(),
                         h.time_zone.as_deref(),
                     )?
                     .as_timestamp()
-                    .and_then(|t| bucketing.floor(t))),
+                    .and_then(|t| bucketing.floor_unshifted(t))),
                 }
             };
 
@@ -220,10 +222,12 @@ pub fn collect(
                             .into(),
                     ));
                 }
+                // ES keeps the buckets from the one containing `min` up to, but excluding, the
+                // one containing `max`: hard_bounds trims whole buckets, it never splits one.
                 let min = bound_key(&hard.min)?;
                 let max = bound_key(&hard.max)?;
                 merged.retain(|key, _| {
-                    min.is_none_or(|m| *key >= m) && max.is_none_or(|m| *key <= m)
+                    min.is_none_or(|m| *key >= m) && max.is_none_or(|m| *key < m)
                 });
             }
 
@@ -302,6 +306,7 @@ pub fn collect(
         AggType::Range(r) | AggType::DateRange(r) => {
             let is_date = matches!(clause.ty, AggType::DateRange(_));
             let spec = schema.get(r.field.as_str());
+            let zone = r.time_zone.as_deref().map(date::Zone::parse).transpose()?;
             let mut doc = docs.into_iter().next().unwrap_or_default();
             let mut buckets: Vec<RangeBucket> = r
                 .ranges
@@ -313,8 +318,8 @@ pub fn collect(
                         .remove(&format!("{RANGE_PREFIX}{i}"))
                         .and_then(|v| v.as_u64())
                         .unwrap_or(0);
-                    let (from, from_as_string) = bound(is_date, spec, r.time_zone.as_deref(), range.from.as_ref());
-                    let (to, to_as_string) = bound(is_date, spec, r.time_zone.as_deref(), range.to.as_ref());
+                    let (from, from_as_string) = bound(is_date, spec, zone.as_ref(), r.time_zone.as_deref(), range.from.as_ref());
+                    let (to, to_as_string) = bound(is_date, spec, zone.as_ref(), r.time_zone.as_deref(), range.to.as_ref());
                     // ES synthesizes "from-to" keys ("*" for an open side) when none is given:
                     // the formatted date for a date_range, `100.0`-style numbers otherwise.
                     let key = range.key.clone().unwrap_or_else(|| {
@@ -418,12 +423,16 @@ fn indicator(
 fn bound(
     is_date: bool,
     spec: Option<&FieldSpec>,
+    zone: Option<&date::Zone>,
     tz: Option<&str>,
     bound: Option<&JsonValue>,
 ) -> (Option<f64>, Option<String>) {
     let value = bound.and_then(|b| date::to_timestamp(spec, b.clone().into_inner(), tz).ok());
     let as_string = match (is_date, &value) {
-        (true, Some(value)) => value.as_timestamp().and_then(date::format_millis),
+        // Rendered in the request zone, as ES does.
+        (true, Some(value)) => value
+            .as_timestamp()
+            .and_then(|t| date::format_key(t, zone)),
         _ => None,
     };
     (value.and_then(|v| v.number()), as_string)

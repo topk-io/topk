@@ -870,3 +870,142 @@ async fn test_date_sub_agg_has_iso_companion(scope: &mut TestScope) {
     assert_eq!(bucket["newest"]["value"].as_f64(), Some(1797328800000.0));
     assert_eq!(bucket["newest"]["value_as_string"], "2026-12-15T10:00:00.000Z");
 }
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_range_bound_rounds_to_end_of_unit(scope: &mut TestScope) {
+    create_with_dates(scope).await;
+
+    // `lte` widens an under-specified bound to the end of its unit, so the doc at 10:00 on
+    // 2026-01-15 matches; `lt` floors it, so the same doc does not.
+    let lte = scope
+        .search_ids(json!({ "range": { "created": { "lte": "2026-01-15" } } }))
+        .await;
+    assert_eq!(lte, vec!["1"], "lte covers the whole day");
+
+    let lt = scope
+        .search_ids(json!({ "range": { "created": { "lt": "2026-01-15" } } }))
+        .await;
+    assert!(lt.is_empty(), "lt floors to midnight, got {lt:?}");
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_date_math_evaluated_in_time_zone(scope: &mut TestScope) {
+    scope
+        .create_with_properties(json!({ "created": { "type": "date" } }))
+        .await;
+    scope
+        .index_docs(vec![("1", json!({ "created": "2026-06-10T02:00:00.000Z" }))])
+        .await;
+
+    // `/d` rounds in the request zone: local midnight in -05:00 is 05:00Z, which excludes the
+    // doc, while in +05:00 it is the previous day at 19:00Z, which includes it.
+    let west = scope
+        .search_ids(json!({ "range": { "created": { "gte": "2026-06-10||/d", "time_zone": "-05:00" } } }))
+        .await;
+    assert!(west.is_empty(), "got {west:?}");
+
+    let east = scope
+        .search_ids(json!({ "range": { "created": { "gte": "2026-06-10||/d", "time_zone": "+05:00" } } }))
+        .await;
+    assert_eq!(east, vec!["1"]);
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_fixed_interval_named_zone_keeps_local_alignment(scope: &mut TestScope) {
+    scope
+        .create_with_properties(json!({ "created": { "type": "date" } }))
+        .await;
+    // A winter and a summer doc: Prague is +01:00 then +02:00, so a 12h bucket has to align to
+    // local midnight in each, not to one offset resolved once.
+    scope
+        .index_docs(vec![
+            ("winter", json!({ "created": "2026-02-15T10:00:00.000Z" })),
+            ("summer", json!({ "created": "2026-07-15T10:00:00.000Z" })),
+        ])
+        .await;
+
+    let res = scope
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "h": {
+                    "date_histogram": {
+                        "field": "created",
+                        "fixed_interval": "12h",
+                        "time_zone": "Europe/Prague",
+                        "min_doc_count": 1
+                    }
+                }
+            }
+        }))
+        .await
+        .expect("search");
+
+    let keys: Vec<&str> = res["aggregations"]["h"]["buckets"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|b| b["key_as_string"].as_str().unwrap())
+        .collect();
+    // Verified against Elasticsearch 9.
+    assert_eq!(
+        keys,
+        vec![
+            "2026-02-15T00:00:00.000+01:00",
+            // 10:00Z is 12:00 local in summer, so it lands in the second 12h bucket of the day.
+            "2026-07-15T12:00:00.000+02:00"
+        ]
+    );
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_hard_bounds_trims_whole_buckets(scope: &mut TestScope) {
+    scope
+        .create_with_properties(json!({ "created": { "type": "date" } }))
+        .await;
+    scope
+        .index_docs(vec![
+            ("q1", json!({ "created": "2026-01-15T12:00:00.000Z" })),
+            ("q2", json!({ "created": "2026-04-15T12:00:00.000Z" })),
+            ("q3", json!({ "created": "2026-07-15T12:00:00.000Z" })),
+            ("q4", json!({ "created": "2026-10-15T12:00:00.000Z" })),
+        ])
+        .await;
+
+    let res = scope
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "q": {
+                    "date_histogram": {
+                        "field": "created",
+                        "calendar_interval": "quarter",
+                        "min_doc_count": 1,
+                        "hard_bounds": { "min": "2026-02-01", "max": "2026-11-01" }
+                    }
+                }
+            }
+        }))
+        .await
+        .expect("search");
+
+    // The bucket holding `min` is kept, the one holding `max` is not — matching Elasticsearch 9.
+    let keys: Vec<&str> = res["aggregations"]["q"]["buckets"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|b| b["key_as_string"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        keys,
+        vec![
+            "2026-01-01T00:00:00.000Z",
+            "2026-04-01T00:00:00.000Z",
+            "2026-07-01T00:00:00.000Z"
+        ]
+    );
+}

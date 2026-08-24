@@ -269,50 +269,77 @@ pub struct IdsQuery {
     pub boost: Option<f32>,
 }
 
-#[derive(Deserialize)]
-#[serde(remote = "Self", deny_unknown_fields)]
+// ES models a range as one bound per side, so a later `lt` overwrites an earlier `lte` in the
+// same clause rather than intersecting with it.
 pub struct RangeBounds {
-    #[serde(default)]
-    pub gte: Option<Value>,
-
-    #[serde(default)]
-    pub gt: Option<Value>,
-
-    #[serde(default)]
-    pub lte: Option<Value>,
-
-    #[serde(default)]
-    pub lt: Option<Value>,
-
-    #[serde(default)]
+    pub lower: Option<Bound>,
+    pub upper: Option<Bound>,
     pub boost: Option<f32>,
-
-    #[serde(default)]
+    #[allow(dead_code)]
     pub format: Option<String>,
 
     // A zone-less bound is interpreted in this zone; a bound carrying its own offset ignores it.
-    #[serde(default)]
     pub time_zone: Option<String>,
+}
+
+pub struct Bound {
+    pub value: Value,
+    pub inclusive: bool,
 }
 
 impl<'de> Deserialize<'de> for RangeBounds {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let bounds = Self::deserialize(deserializer)?;
+        struct BoundsVisitor;
 
-        for (name, bound) in [
-            ("gte", &bounds.gte),
-            ("gt", &bounds.gt),
-            ("lte", &bounds.lte),
-            ("lt", &bounds.lt),
-        ] {
-            if bound.as_ref().is_some_and(|v| !v.is_scalar()) {
-                return Err(serde::de::Error::custom(format!(
-                    "[range] query does not support a non-scalar value for [{name}]"
-                )));
+        impl<'de> serde::de::Visitor<'de> for BoundsVisitor {
+            type Value = RangeBounds;
+
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                f.write_str("range bounds")
+            }
+
+            fn visit_map<A: serde::de::MapAccess<'de>>(
+                self,
+                mut map: A,
+            ) -> Result<RangeBounds, A::Error> {
+                let mut bounds = RangeBounds {
+                    lower: None,
+                    upper: None,
+                    boost: None,
+                    format: None,
+                    time_zone: None,
+                };
+
+                while let Some(key) = map.next_key::<String>()? {
+                    let bound = |value: Value, inclusive| {
+                        match value.is_scalar() {
+                            true => Ok(Bound { value, inclusive }),
+                            false => Err(serde::de::Error::custom(format!(
+                                "[range] query does not support a non-scalar value for [{key}]"
+                            ))),
+                        }
+                    };
+                    match key.as_str() {
+                        "gte" => bounds.lower = Some(bound(map.next_value()?, true)?),
+                        "gt" => bounds.lower = Some(bound(map.next_value()?, false)?),
+                        "lte" => bounds.upper = Some(bound(map.next_value()?, true)?),
+                        "lt" => bounds.upper = Some(bound(map.next_value()?, false)?),
+                        "boost" => bounds.boost = map.next_value()?,
+                        "format" => bounds.format = map.next_value()?,
+                        "time_zone" => bounds.time_zone = map.next_value()?,
+                        unknown => {
+                            return Err(serde::de::Error::custom(format!(
+                                "[range] query does not support [{unknown}]"
+                            )))
+                        }
+                    }
+                }
+
+                Ok(bounds)
             }
         }
 
-        Ok(bounds)
+        deserializer.deserialize_map(BoundsVisitor)
     }
 }
 

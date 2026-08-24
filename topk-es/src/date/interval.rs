@@ -17,10 +17,12 @@ pub enum Bucketing {
     Shifted {
         width: i64,
         offset: i64,
+        shift: i64,
     },
     Months {
         count: i64,
         offset: i64,
+        shift: i64,
     },
     Local {
         unit: LocalUnit,
@@ -35,6 +37,9 @@ pub enum Bucketing {
 
 #[derive(Clone, Copy)]
 pub enum LocalUnit {
+    // A fixed width, aligned to the zone-local epoch: the offset used is the one in force at the
+    // bucket's own instant, which is what makes February buckets align to EST and July to EDT.
+    Fixed(i64),
     Day,
     Week,
     Months(i64),
@@ -92,16 +97,32 @@ pub fn bucketing(h: &DateHistogramBody) -> Result<Bucketing, Error> {
     let offset = offset - shift;
 
     match (parsed, zone) {
-        (Parsed::Fixed(width), _) => Ok(Bucketing::Shifted { width, offset }),
+        (Parsed::Fixed(width), Some(Zone::Named(tz))) => {
+            Ok(local(LocalUnit::Fixed(width), tz, shift))
+        }
+        (Parsed::Fixed(width), _) => Ok(Bucketing::Shifted {
+            width,
+            offset,
+            shift,
+        }),
         (Parsed::Day, Some(Zone::Named(tz))) => Ok(local(LocalUnit::Day, tz, shift)),
         (Parsed::Week, Some(Zone::Named(tz))) => Ok(local(LocalUnit::Week, tz, shift)),
         (Parsed::Months(n), Some(Zone::Named(tz))) => Ok(local(LocalUnit::Months(n), tz, shift)),
-        (Parsed::Day, _) => Ok(Bucketing::Shifted { width: DAY, offset }),
+        (Parsed::Day, _) => Ok(Bucketing::Shifted {
+            width: DAY,
+            offset,
+            shift,
+        }),
         (Parsed::Week, _) => Ok(Bucketing::Shifted {
             width: 7 * DAY,
             offset: offset + WEEK_SHIFT,
+            shift,
         }),
-        (Parsed::Months(count), _) => Ok(Bucketing::Months { count, offset }),
+        (Parsed::Months(count), _) => Ok(Bucketing::Months {
+            count,
+            offset,
+            shift,
+        }),
     }
 }
 
@@ -115,10 +136,15 @@ fn local(unit: LocalUnit, tz: chrono_tz::Tz, shift: i64) -> Bucketing {
         true => HOUR,
         false => HOUR / 4,
     };
-    // A shift that is not a multiple of the granularity would break sub-bucket nesting.
+    // Sub-buckets must nest inside the reported bucket, so the row width has to divide both the
+    // boundary shift and (for a fixed interval) the bucket width itself.
     let granularity = match shift {
         0 => granularity,
         shift => gcd(granularity, shift.abs()),
+    };
+    let granularity = match unit {
+        LocalUnit::Fixed(width) => gcd(granularity, width),
+        _ => granularity,
     };
 
     Bucketing::Local {
@@ -195,10 +221,10 @@ impl Bucketing {
         };
 
         match self {
-            Self::Shifted { width, offset } => at(*offset).div(LogicalExpr::literal(*width)),
+            Self::Shifted { width, offset, .. } => at(*offset).div(LogicalExpr::literal(*width)),
             // Months elapsed since year 0, divided by the bucket's width in months. Folding the
             // year in is what keeps January 2025 and January 2026 in different buckets.
-            Self::Months { count, offset } => at(*offset)
+            Self::Months { count, offset, .. } => at(*offset)
                 .date_part("year")
                 .mul(LogicalExpr::literal(12))
                 .add(at(*offset).date_part("month"))
@@ -212,31 +238,55 @@ impl Bucketing {
     // is many-to-one: every row inside one local day/week/month folds onto the same start.
     pub fn start_of_index(&self, index: i64) -> Option<i64> {
         match self {
-            Self::Shifted { width, offset } => index.checked_mul(*width)?.checked_sub(*offset),
-            Self::Months { count, offset } => {
+            Self::Shifted { width, offset, .. } => index.checked_mul(*width)?.checked_sub(*offset),
+            Self::Months { count, offset, .. } => {
                 month_start(index.checked_mul(*count)?)?.checked_sub(*offset)
             }
             Self::Local { granularity, .. } => self.floor(index.checked_mul(*granularity)?),
         }
     }
 
+    // As `floor`, but rounding in unshifted bucket space before `offset` moves the boundary —
+    // which is how ES resolves `extended_bounds`/`hard_bounds`.
+    pub fn floor_unshifted(&self, t: i64) -> Option<i64> {
+        let shift = self.shift();
+        self.floor(t.checked_add(shift)?)
+    }
+
+    fn shift(&self) -> i64 {
+        match self {
+            Self::Shifted { shift, .. } | Self::Months { shift, .. } => *shift,
+            Self::Local { shift, .. } => *shift,
+        }
+    }
+
     // Start of the bucket containing instant `t`.
     pub fn floor(&self, t: i64) -> Option<i64> {
         match self {
-            Self::Shifted { width, offset } => {
+            Self::Shifted { width, offset, .. } => {
                 Some(t.checked_add(*offset)?.div_euclid(*width) * *width - *offset)
             }
-            Self::Months { count, offset } => {
+            Self::Months { count, offset, .. } => {
                 let at = DateTime::<Utc>::from_timestamp_millis(t.checked_add(*offset)?)?;
                 let months =
                     (at.year() as i64 * 12 + at.month0() as i64).div_euclid(*count) * *count;
                 month_start(months)?.checked_sub(*offset)
             }
-            Self::Local { unit, tz, shift, .. } => {
+            Self::Local {
+                unit, tz, shift, ..
+            } => {
                 let date = DateTime::<Utc>::from_timestamp_millis(t.checked_sub(*shift)?)?
                     .with_timezone(tz)
                     .date_naive();
                 let start = match unit {
+                    LocalUnit::Fixed(width) => {
+                        // Rounded in local wall-clock time, so a boundary keeps the same local
+                        // time across a DST transition even though the gap in absolute time is
+                        // then shorter or longer than `width`.
+                        let local = to_local(*tz, t.checked_sub(*shift)?)?;
+                        let floored = local.div_euclid(*width).checked_mul(*width)?;
+                        return from_local(*tz, floored)?.checked_add(*shift);
+                    }
                     LocalUnit::Day => date,
                     LocalUnit::Week => date.week(Weekday::Mon).first_day(),
                     LocalUnit::Months(n) => {
@@ -258,16 +308,22 @@ impl Bucketing {
     pub fn next(&self, start: i64) -> Option<i64> {
         match self {
             Self::Shifted { width, .. } => start.checked_add(*width),
-            Self::Months { count, offset } => {
+            Self::Months { count, offset, .. } => {
                 let at = DateTime::<Utc>::from_timestamp_millis(start.checked_add(*offset)?)?;
                 let months = at.year() as i64 * 12 + at.month0() as i64 + count;
                 month_start(months)?.checked_sub(*offset)
             }
-            Self::Local { unit, tz, shift, .. } => {
+            Self::Local {
+                unit, tz, shift, ..
+            } => {
                 let date = DateTime::<Utc>::from_timestamp_millis(start.checked_sub(*shift)?)?
                     .with_timezone(tz)
                     .date_naive();
                 let next = match unit {
+                    LocalUnit::Fixed(width) => {
+                        let local = to_local(*tz, start.checked_sub(*shift)?)?;
+                        return from_local(*tz, local.checked_add(*width)?)?.checked_add(*shift);
+                    }
                     LocalUnit::Day => date.checked_add_days(Days::new(1))?,
                     LocalUnit::Week => date.checked_add_days(Days::new(7))?,
                     LocalUnit::Months(n) => {
@@ -297,6 +353,25 @@ fn month_start(months: i64) -> Option<i64> {
     )
     .single()
     .map(|d| d.timestamp_millis())
+}
+
+// A UTC instant as local wall-clock millis, and back. `from_local` resolves a local time that
+// DST skipped or repeated to the earliest instant that exists, as ES does.
+fn to_local(tz: chrono_tz::Tz, t: i64) -> Option<i64> {
+    let at = DateTime::<Utc>::from_timestamp_millis(t)?;
+    t.checked_add(Zone::Named(tz).offset_millis(at))
+}
+
+fn from_local(tz: chrono_tz::Tz, local: i64) -> Option<i64> {
+    let naive = DateTime::<Utc>::from_timestamp_millis(local)?.naive_utc();
+    match tz.from_local_datetime(&naive) {
+        LocalResult::Single(dt) => Some(dt),
+        LocalResult::Ambiguous(earliest, _) => Some(earliest),
+        LocalResult::None => tz
+            .from_local_datetime(&(naive + Duration::hours(1)))
+            .earliest(),
+    }
+    .map(|dt| dt.timestamp_millis())
 }
 
 // DST can skip or double local midnight; ES anchors such buckets at the earliest instant that
