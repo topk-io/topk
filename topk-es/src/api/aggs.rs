@@ -24,6 +24,7 @@ pub enum AggType {
     Min(MetricAggBody),
     Max(MetricAggBody),
     ValueCount(MetricAggBody),
+    DateHistogram(DateHistogramBody),
 }
 
 #[derive(Clone, Deserialize)]
@@ -33,6 +34,23 @@ pub struct TermsAggBody {
 
     #[serde(default)]
     pub size: Option<u32>,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DateHistogramBody {
+    pub field: FieldName,
+
+    // ES accepts either; `fixed_interval` is an exact duration, `calendar_interval` follows the
+    // calendar (a month is not 30 days). Exactly one must be given.
+    #[serde(default)]
+    pub fixed_interval: Option<String>,
+
+    #[serde(default)]
+    pub calendar_interval: Option<String>,
+
+    #[serde(default)]
+    pub min_doc_count: Option<u64>,
 }
 
 #[derive(Clone, Deserialize)]
@@ -55,6 +73,9 @@ pub enum AggResult {
         sum_other_doc_count: u64,
         buckets: Vec<TermsBucket>,
     },
+    Histogram {
+        buckets: Vec<HistogramBucket>,
+    },
 }
 
 #[derive(Serialize)]
@@ -63,6 +84,16 @@ pub struct TermsBucket {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub key_as_string: Option<String>,
     pub doc_count: u64,
+    #[serde(flatten)]
+    pub sub_aggs: HashMap<String, AggResult>,
+}
+
+#[derive(Serialize)]
+pub struct HistogramBucket {
+    pub key: i64,
+    pub key_as_string: String,
+    pub doc_count: u64,
+
     #[serde(flatten)]
     pub sub_aggs: HashMap<String, AggResult>,
 }

@@ -5,7 +5,7 @@ use topk_rs::proto::v1::data::{AggregateExpr, Document, LogicalExpr, Query as To
 use topk_rs::query::{field, filter};
 
 use super::Schema;
-use crate::api::{AggClause, AggResult, AggType, TermsBucket};
+use crate::api::{AggClause, AggResult, AggType, HistogramBucket, TermsBucket};
 use crate::date;
 use crate::value::{compare, ValueExt};
 use crate::Error;
@@ -26,6 +26,37 @@ pub fn compile(clause: &AggClause, gate: &LogicalExpr) -> Result<TopkQuery, Erro
                 .limit(terms.size.unwrap_or(10) as u64);
 
             Ok(query)
+        }
+        AggType::DateHistogram(h) => {
+            let mut aggs = vec![("doc_count".to_string(), AggregateExpr::count(None))];
+            for (name, sub_clause) in clause.aggs.iter().flatten() {
+                aggs.push((
+                    name.clone(),
+                    AggregateExpr::try_from(sub_clause.ty.clone())?,
+                ));
+            }
+
+            // Bucket by integer division: `ts / interval` is the bucket index, multiplied back to
+            // a timestamp in `collect`. Calendar intervals are irregular, so those group by the
+            // relevant date part instead.
+            let key = match date::interval(h)? {
+                date::Interval::Fixed(millis) => {
+                    field(h.field.as_str()).div(LogicalExpr::literal(millis))
+                }
+                date::Interval::Year => field(h.field.as_str()).date_part("year"),
+                // Month numbers repeat every year, so fold the year in to keep buckets distinct.
+                date::Interval::Month => field(h.field.as_str())
+                    .date_part("year")
+                    .mul(LogicalExpr::literal(12))
+                    .add(field(h.field.as_str()).date_part("month"))
+                    .sub(LogicalExpr::literal(1)),
+            };
+
+            Ok(filter(gate.clone())
+                .group_by([("key".to_string(), key)], aggs)
+                .sort("key")
+                // ES has no inherent bucket cap here; this is headroom, not an ES-shaped limit.
+                .limit(10_000))
         }
         metric => {
             let query = filter(gate.clone()).group_by(
@@ -102,6 +133,57 @@ pub fn collect(
                 buckets,
             })
         }
+        AggType::DateHistogram(h) => {
+            let interval = date::interval(h)?;
+            let min_doc_count = h.min_doc_count.unwrap_or(0);
+            let mut buckets = Vec::with_capacity(docs.len());
+
+            for mut doc in docs {
+                // `date_part` yields i32 while fixed-interval division yields i64, so widen
+                // rather than matching one variant.
+                let index = doc.fields.remove("key").and_then(|v| v.as_timestamp());
+                let doc_count = doc
+                    .fields
+                    .remove("doc_count")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0);
+
+                if doc_count < min_doc_count {
+                    continue;
+                }
+
+                let Some(key) = index.and_then(|i| date::bucket_start(&interval, i)) else {
+                    continue;
+                };
+                let Some(key_as_string) = date::format_millis(key) else {
+                    continue;
+                };
+
+                let mut sub_aggs = HashMap::new();
+                for (name, _) in clause.aggs.iter().flatten() {
+                    let value = doc.fields.remove(name).and_then(|v| v.number());
+                    sub_aggs.insert(
+                        name.clone(),
+                        AggResult::Metric {
+                            value,
+                            value_as_string: None,
+                        },
+                    );
+                }
+
+                buckets.push(HistogramBucket {
+                    key,
+                    key_as_string,
+                    doc_count,
+                    sub_aggs,
+                });
+            }
+
+            // ES returns date_histogram buckets in chronological order.
+            buckets.sort_by_key(|b| b.key);
+
+            Ok(AggResult::Histogram { buckets })
+        }
         _ => {
             let value = docs
                 .into_iter()
@@ -143,8 +225,8 @@ impl TryFrom<AggType> for AggregateExpr {
             AggType::Min(m) => Ok(AggregateExpr::min(m.field)),
             AggType::Max(m) => Ok(AggregateExpr::max(m.field)),
             AggType::ValueCount(m) => Ok(AggregateExpr::count(Some(m.field.into()))),
-            AggType::Terms(_) => Err(Error::Unsupported(
-                "Nested \"terms\" sub-aggregations are not supported".into(),
+            AggType::Terms(_) | AggType::DateHistogram(_) => Err(Error::Unsupported(
+                "Nested bucket sub-aggregations are not supported".into(),
             )),
         }
     }

@@ -184,3 +184,127 @@ async fn test_date_terms_agg_has_iso_companion(scope: &mut TestScope) {
         );
     }
 }
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_date_histogram_fixed_interval(scope: &mut TestScope) {
+    create_with_dates(scope).await;
+
+    let res = scope
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "over_time": {
+                    "date_histogram": { "field": "created", "fixed_interval": "30d" }
+                }
+            }
+        }))
+        .await
+        .expect("search");
+
+    let buckets = res["aggregations"]["over_time"]["buckets"]
+        .as_array()
+        .unwrap();
+    assert_eq!(buckets.len(), 3, "one 30d bucket per doc: {buckets:?}");
+    assert_eq!(buckets.iter().map(|b| b["doc_count"].as_u64().unwrap()).sum::<u64>(), 3);
+    // Chronological, with an ISO companion on every bucket.
+    let keys: Vec<i64> = buckets.iter().map(|b| b["key"].as_i64().unwrap()).collect();
+    assert!(keys.windows(2).all(|w| w[0] < w[1]), "not sorted: {keys:?}");
+    assert!(buckets
+        .iter()
+        .all(|b| b["key_as_string"].as_str().unwrap().ends_with('Z')));
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_date_histogram_calendar_month(scope: &mut TestScope) {
+    create_with_dates(scope).await;
+
+    let res = scope
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "by_month": {
+                    "date_histogram": { "field": "created", "calendar_interval": "month" }
+                }
+            }
+        }))
+        .await
+        .expect("search");
+
+    let buckets = res["aggregations"]["by_month"]["buckets"]
+        .as_array()
+        .unwrap();
+    let keys: Vec<&str> = buckets
+        .iter()
+        .map(|b| b["key_as_string"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        keys,
+        vec![
+            "2026-01-01T00:00:00.000Z",
+            "2026-06-01T00:00:00.000Z",
+            "2026-12-01T00:00:00.000Z"
+        ]
+    );
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_date_histogram_calendar_year(scope: &mut TestScope) {
+    create_with_dates(scope).await;
+
+    let res = scope
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "by_year": { "date_histogram": { "field": "created", "calendar_interval": "year" } }
+            }
+        }))
+        .await
+        .expect("search");
+
+    let buckets = res["aggregations"]["by_year"]["buckets"]
+        .as_array()
+        .unwrap();
+    assert_eq!(buckets.len(), 1);
+    assert_eq!(buckets[0]["key_as_string"], "2026-01-01T00:00:00.000Z");
+    assert_eq!(buckets[0]["doc_count"], 3);
+}
+
+#[rstest_ctx(TestScope)]
+#[case::both_intervals(json!({ "field": "created", "fixed_interval": "1d", "calendar_interval": "day" }))]
+#[case::no_interval(json!({ "field": "created" }))]
+#[case::calendar_unit_in_fixed(json!({ "field": "created", "fixed_interval": "1M" }))]
+#[case::bad_calendar(json!({ "field": "created", "calendar_interval": "3M" }))]
+async fn test_date_histogram_rejected(scope: &TestScope, #[case] body: Value) {
+    create_with_dates(scope).await;
+
+    let err = scope
+        .search(json!({ "size": 0, "aggs": { "h": { "date_histogram": body } } }))
+        .await
+        .expect_err("expected 400");
+    assert_eq!(err.status_code(), StatusCode::BAD_REQUEST);
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_date_math_range_bound(scope: &mut TestScope) {
+    create_with_dates(scope).await;
+
+    // Two docs are in the past and one (December 2026) is dated ahead of it.
+    let past = scope
+        .search_ids(json!({ "range": { "created": { "lte": "now" } } }))
+        .await;
+    let future = scope
+        .search_ids(json!({ "range": { "created": { "gt": "now" } } }))
+        .await;
+    assert_eq!(past.len() + future.len(), 3);
+    assert!(!past.is_empty() && !future.is_empty());
+
+    // ...and nothing is more than a century old.
+    let ids = scope
+        .search_ids(json!({ "range": { "created": { "lt": "now-100y" } } }))
+        .await;
+    assert!(ids.is_empty());
+}
