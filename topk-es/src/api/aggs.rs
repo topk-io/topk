@@ -43,6 +43,10 @@ pub struct TermsAggBody {
 pub struct RangeAggBody {
     pub field: FieldName,
     pub ranges: Vec<RangeSpec>,
+
+    // Zone-less date bounds are interpreted in this zone, as in a range query.
+    #[serde(default)]
+    pub time_zone: Option<String>,
 }
 
 // `from` is inclusive and `to` exclusive, as in ES; omitting one leaves that side unbounded.
@@ -84,6 +88,20 @@ pub struct DateHistogramBody {
     // where no documents exist. Values are epoch millis or date-math strings.
     #[serde(default)]
     pub extended_bounds: Option<ExtendedBounds>,
+
+    // The opposite of `extended_bounds`: buckets outside [min, max] are dropped. ES rejects
+    // combining the two.
+    #[serde(default)]
+    pub hard_bounds: Option<ExtendedBounds>,
+
+    // Shifts every bucket boundary by a fixed duration after the zone applies, e.g. `+6h` day
+    // buckets running 06:00 to 06:00.
+    #[serde(default)]
+    pub offset: Option<String>,
+
+    // `{"_key": "desc"}` or `{"_count": "asc"}`; ES also accepts sub-agg names, which we reject.
+    #[serde(default)]
+    pub order: Option<HashMap<String, String>>,
 
     // Keys are always epoch millis with an ISO companion; a key format pattern is accepted but
     // not interpreted, like mapping `format`.
@@ -152,8 +170,7 @@ pub struct HistogramBucket {
 
 #[derive(Serialize)]
 pub struct RangeBucket {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub key: Option<String>,
+    pub key: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub from: Option<f64>,

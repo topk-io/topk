@@ -26,6 +26,10 @@ pub enum Bucketing {
         unit: LocalUnit,
         tz: chrono_tz::Tz,
         granularity: i64,
+        // `offset` request param: every boundary moves by this after the zone applies. The three
+        // start/floor/next operations conjugate by it, which is exact even for variable-length
+        // calendar units.
+        shift: i64,
     },
 }
 
@@ -58,6 +62,20 @@ pub fn bucketing(h: &DateHistogramBody) -> Result<Bucketing, Error> {
     }?;
     let zone = h.time_zone.as_deref().map(Zone::parse).transpose()?;
 
+    // The `offset` request param, e.g. `+6h` / `-1d`: a signed fixed duration added to every
+    // bucket boundary.
+    let shift = match h.offset.as_deref() {
+        None => 0,
+        Some(o) => {
+            let (sign, duration) = match o.strip_prefix('-') {
+                Some(d) => (-1, d),
+                None => (1, o.strip_prefix('+').unwrap_or(o)),
+            };
+            sign * fixed_interval(duration)
+                .map_err(|_| Error::BadRequest(format!("invalid offset [{o}]")))?
+        }
+    };
+
     // The epoch is a Thursday; pre-shifting by 3 days lands week buckets on Mondays, as ES does.
     const WEEK_SHIFT: i64 = 3 * DAY;
 
@@ -69,11 +87,15 @@ pub fn bucketing(h: &DateHistogramBody) -> Result<Bucketing, Error> {
         Some(zone) => zone.offset_millis(Utc::now()),
     };
 
+    // Bucketing runs on `ts + offset` and reports `key*width - offset`, so moving every boundary
+    // forward by `shift` composes as `offset - shift`.
+    let offset = offset - shift;
+
     match (parsed, zone) {
         (Parsed::Fixed(width), _) => Ok(Bucketing::Shifted { width, offset }),
-        (Parsed::Day, Some(Zone::Named(tz))) => Ok(local(LocalUnit::Day, tz)),
-        (Parsed::Week, Some(Zone::Named(tz))) => Ok(local(LocalUnit::Week, tz)),
-        (Parsed::Months(n), Some(Zone::Named(tz))) => Ok(local(LocalUnit::Months(n), tz)),
+        (Parsed::Day, Some(Zone::Named(tz))) => Ok(local(LocalUnit::Day, tz, shift)),
+        (Parsed::Week, Some(Zone::Named(tz))) => Ok(local(LocalUnit::Week, tz, shift)),
+        (Parsed::Months(n), Some(Zone::Named(tz))) => Ok(local(LocalUnit::Months(n), tz, shift)),
         (Parsed::Day, _) => Ok(Bucketing::Shifted { width: DAY, offset }),
         (Parsed::Week, _) => Ok(Bucketing::Shifted {
             width: 7 * DAY,
@@ -83,7 +105,7 @@ pub fn bucketing(h: &DateHistogramBody) -> Result<Bucketing, Error> {
     }
 }
 
-fn local(unit: LocalUnit, tz: chrono_tz::Tz) -> Bucketing {
+fn local(unit: LocalUnit, tz: chrono_tz::Tz, shift: i64) -> Bucketing {
     // Calendar boundaries sit on whole hours in every zone with a whole-hour offset (DST shifts
     // are whole hours too); the handful of :30/:45 zones need quarter-hour rows.
     let zone = Zone::Named(tz);
@@ -93,11 +115,24 @@ fn local(unit: LocalUnit, tz: chrono_tz::Tz) -> Bucketing {
         true => HOUR,
         false => HOUR / 4,
     };
+    // A shift that is not a multiple of the granularity would break sub-bucket nesting.
+    let granularity = match shift {
+        0 => granularity,
+        shift => gcd(granularity, shift.abs()),
+    };
 
     Bucketing::Local {
         unit,
         tz,
         granularity,
+        shift,
+    }
+}
+
+fn gcd(a: i64, b: i64) -> i64 {
+    match b {
+        0 => a,
+        b => gcd(b, a % b),
     }
 }
 
@@ -197,8 +232,8 @@ impl Bucketing {
                     (at.year() as i64 * 12 + at.month0() as i64).div_euclid(*count) * *count;
                 month_start(months)?.checked_sub(*offset)
             }
-            Self::Local { unit, tz, .. } => {
-                let date = DateTime::<Utc>::from_timestamp_millis(t)?
+            Self::Local { unit, tz, shift, .. } => {
+                let date = DateTime::<Utc>::from_timestamp_millis(t.checked_sub(*shift)?)?
                     .with_timezone(tz)
                     .date_naive();
                 let start = match unit {
@@ -214,7 +249,7 @@ impl Bucketing {
                         )?
                     }
                 };
-                local_midnight(*tz, start)
+                local_midnight(*tz, start)?.checked_add(*shift)
             }
         }
     }
@@ -228,8 +263,8 @@ impl Bucketing {
                 let months = at.year() as i64 * 12 + at.month0() as i64 + count;
                 month_start(months)?.checked_sub(*offset)
             }
-            Self::Local { unit, tz, .. } => {
-                let date = DateTime::<Utc>::from_timestamp_millis(start)?
+            Self::Local { unit, tz, shift, .. } => {
+                let date = DateTime::<Utc>::from_timestamp_millis(start.checked_sub(*shift)?)?
                     .with_timezone(tz)
                     .date_naive();
                 let next = match unit {
@@ -244,7 +279,7 @@ impl Bucketing {
                         )?
                     }
                 };
-                local_midnight(*tz, next)
+                local_midnight(*tz, next)?.checked_add(*shift)
             }
         }
     }

@@ -680,3 +680,193 @@ async fn test_bare_year_range_bound(scope: &mut TestScope) {
         .await;
     assert_eq!(ids.len(), 2, "got {ids:?}");
 }
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_date_histogram_offset(scope: &mut TestScope) {
+    scope
+        .create_with_properties(json!({ "created": { "type": "date" } }))
+        .await;
+    // With `offset: +6h` the day boundary moves to 06:00, splitting these two docs.
+    scope
+        .index_docs(vec![
+            ("1", json!({ "created": "2026-01-15T03:00:00.000Z" })),
+            ("2", json!({ "created": "2026-01-15T09:00:00.000Z" })),
+        ])
+        .await;
+
+    let res = scope
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "d": {
+                    "date_histogram": {
+                        "field": "created",
+                        "calendar_interval": "day",
+                        "offset": "+6h",
+                        "min_doc_count": 1
+                    }
+                }
+            }
+        }))
+        .await
+        .expect("search");
+
+    let keys: Vec<&str> = res["aggregations"]["d"]["buckets"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|b| b["key_as_string"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        keys,
+        vec!["2026-01-14T06:00:00.000Z", "2026-01-15T06:00:00.000Z"]
+    );
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_date_histogram_order(scope: &mut TestScope) {
+    create_with_dates(scope).await;
+
+    let res = scope
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "m": {
+                    "date_histogram": {
+                        "field": "created",
+                        "calendar_interval": "month",
+                        "min_doc_count": 1,
+                        "order": { "_key": "desc" }
+                    }
+                }
+            }
+        }))
+        .await
+        .expect("search");
+
+    let keys: Vec<&str> = res["aggregations"]["m"]["buckets"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|b| b["key_as_string"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        keys,
+        vec![
+            "2026-12-01T00:00:00.000Z",
+            "2026-06-01T00:00:00.000Z",
+            "2026-01-01T00:00:00.000Z"
+        ]
+    );
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_date_histogram_hard_bounds(scope: &mut TestScope) {
+    create_with_dates(scope).await;
+
+    let res = scope
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "m": {
+                    "date_histogram": {
+                        "field": "created",
+                        "calendar_interval": "month",
+                        "hard_bounds": { "min": "2026-05-01", "max": "2026-11-30" }
+                    }
+                }
+            }
+        }))
+        .await
+        .expect("search");
+
+    let buckets = res["aggregations"]["m"]["buckets"].as_array().unwrap();
+    assert_eq!(buckets.len(), 1, "{buckets:?}");
+    assert_eq!(buckets[0]["key_as_string"], "2026-06-01T00:00:00.000Z");
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_date_range_synthesized_keys(scope: &mut TestScope) {
+    create_with_dates(scope).await;
+
+    let res = scope
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "spans": {
+                    "date_range": {
+                        "field": "created",
+                        "ranges": [{ "to": "2026-07-01" }, { "from": "2026-07-01" }]
+                    }
+                }
+            }
+        }))
+        .await
+        .expect("search");
+
+    let keys: Vec<&str> = res["aggregations"]["spans"]["buckets"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|b| b["key"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        keys,
+        vec![
+            "*-2026-07-01T00:00:00.000Z",
+            "2026-07-01T00:00:00.000Z-*"
+        ]
+    );
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_date_range_agg_time_zone(scope: &mut TestScope) {
+    create_with_dates(scope).await;
+
+    // `from: 2026-06-15` in -12:00 is 2026-06-15T12:00Z, which excludes the June doc (10:00Z).
+    let res = scope
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "spans": {
+                    "date_range": {
+                        "field": "created",
+                        "time_zone": "-12:00",
+                        "ranges": [{ "key": "late", "from": "2026-06-15" }]
+                    }
+                }
+            }
+        }))
+        .await
+        .expect("search");
+
+    assert_eq!(res["aggregations"]["spans"]["buckets"][0]["doc_count"], 1);
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_date_sub_agg_has_iso_companion(scope: &mut TestScope) {
+    create_with_dates(scope).await;
+
+    let res = scope
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "y": {
+                    "date_histogram": { "field": "created", "calendar_interval": "year" },
+                    "aggs": { "newest": { "max": { "field": "created" } } }
+                }
+            }
+        }))
+        .await
+        .expect("search");
+
+    let bucket = &res["aggregations"]["y"]["buckets"][0];
+    assert_eq!(bucket["newest"]["value"].as_f64(), Some(1797328800000.0));
+    assert_eq!(bucket["newest"]["value_as_string"], "2026-12-15T10:00:00.000Z");
+}

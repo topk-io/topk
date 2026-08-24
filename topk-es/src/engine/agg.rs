@@ -121,15 +121,9 @@ pub fn collect(
                     .unwrap_or(0);
 
                 let mut sub_aggs = HashMap::new();
-                for (name, _) in clause.aggs.iter().flatten() {
+                for (name, sub_clause) in clause.aggs.iter().flatten() {
                     let value = doc.fields.remove(name).and_then(|v| v.number());
-                    sub_aggs.insert(
-                        name.clone(),
-                        AggResult::Metric {
-                            value,
-                            value_as_string: None,
-                        },
-                    );
+                    sub_aggs.insert(name.clone(), metric_result(schema, &sub_clause.ty, value));
                 }
 
                 buckets.push(TermsBucket {
@@ -204,21 +198,44 @@ pub fn collect(
                 }
             }
 
+            let spec = schema.get(h.field.as_str());
+            let bound_key = |bound: &Option<JsonValue>| -> Result<Option<i64>, Error> {
+                match bound {
+                    None => Ok(None),
+                    Some(bound) => Ok(date::to_timestamp(
+                        spec,
+                        bound.clone().into_inner(),
+                        h.time_zone.as_deref(),
+                    )?
+                    .as_timestamp()
+                    .and_then(|t| bucketing.floor(t))),
+                }
+            };
+
+            // `hard_bounds` drops buckets outside [min, max] outright; it never extends.
+            if let Some(hard) = &h.hard_bounds {
+                if h.extended_bounds.is_some() {
+                    return Err(Error::BadRequest(
+                        "date_histogram accepts either extended_bounds or hard_bounds, not both"
+                            .into(),
+                    ));
+                }
+                let min = bound_key(&hard.min)?;
+                let max = bound_key(&hard.max)?;
+                merged.retain(|key, _| {
+                    min.is_none_or(|m| *key >= m) && max.is_none_or(|m| *key <= m)
+                });
+            }
+
             // With `min_doc_count: 0` (the ES default) the histogram is dense: every bucket
             // between the first and last — stretched to `extended_bounds` — is reported, empty
             // ones included.
             let mut lo = merged.first_key_value().map(|(k, _)| *k);
             let mut hi = merged.last_key_value().map(|(k, _)| *k);
             if min_doc_count == 0 {
-                let spec = schema.get(h.field.as_str());
                 let bounds = h.extended_bounds.iter().flat_map(|b| [&b.min, &b.max]);
-                for bound in bounds.flatten() {
-                    let bound = date::to_timestamp(
-                        spec,
-                        bound.clone().into_inner(),
-                        h.time_zone.as_deref(),
-                    )?;
-                    let Some(key) = bound.as_timestamp().and_then(|t| bucketing.floor(t)) else {
+                for bound in bounds {
+                    let Some(key) = bound_key(bound)? else {
                         continue;
                     };
                     lo = Some(lo.map_or(key, |lo| lo.min(key)));
@@ -235,7 +252,7 @@ pub fn collect(
                         ));
                     }
                     let (doc_count, metrics) = merged.remove(&key).unwrap_or_default();
-                    buckets.extend(bucket(clause, zone.as_ref(), key, doc_count, metrics));
+                    buckets.extend(bucket(schema, clause, zone.as_ref(), key, doc_count, metrics));
                     match bucketing.next(key) {
                         Some(next) if next <= hi => key = next,
                         _ => break,
@@ -244,8 +261,38 @@ pub fn collect(
                 _ => {
                     for (key, (doc_count, metrics)) in merged {
                         if doc_count >= min_doc_count {
-                            buckets.extend(bucket(clause, zone.as_ref(), key, doc_count, metrics));
+                            buckets.extend(bucket(schema, clause, zone.as_ref(), key, doc_count, metrics));
                         }
+                    }
+                }
+            }
+
+            // Buckets are built chronologically; `order` reorders at the end.
+            if let Some(order) = &h.order {
+                let (target, dir) = order.iter().next().ok_or_else(|| {
+                    Error::BadRequest("date_histogram order must name a target".into())
+                })?;
+                let desc = match dir.as_str() {
+                    "asc" => false,
+                    "desc" => true,
+                    _ => {
+                        return Err(Error::BadRequest(format!(
+                            "invalid date_histogram order direction [{dir}]"
+                        )))
+                    }
+                };
+                match (target.as_str(), desc) {
+                    ("_key", false) => {}
+                    ("_key", true) => buckets.reverse(),
+                    // ES breaks doc_count ties by key, ascending.
+                    ("_count", false) => buckets
+                        .sort_by(|a, b| a.doc_count.cmp(&b.doc_count).then(a.key.cmp(&b.key))),
+                    ("_count", true) => buckets
+                        .sort_by(|a, b| b.doc_count.cmp(&a.doc_count).then(a.key.cmp(&b.key))),
+                    _ => {
+                        return Err(Error::Unsupported(
+                            "date_histogram order supports _key and _count".into(),
+                        ))
                     }
                 }
             }
@@ -266,10 +313,24 @@ pub fn collect(
                         .remove(&format!("{RANGE_PREFIX}{i}"))
                         .and_then(|v| v.as_u64())
                         .unwrap_or(0);
-                    let (from, from_as_string) = bound(is_date, spec, range.from.as_ref());
-                    let (to, to_as_string) = bound(is_date, spec, range.to.as_ref());
+                    let (from, from_as_string) = bound(is_date, spec, r.time_zone.as_deref(), range.from.as_ref());
+                    let (to, to_as_string) = bound(is_date, spec, r.time_zone.as_deref(), range.to.as_ref());
+                    // ES synthesizes "from-to" keys ("*" for an open side) when none is given:
+                    // the formatted date for a date_range, `100.0`-style numbers otherwise.
+                    let key = range.key.clone().unwrap_or_else(|| {
+                        let side = |value: Option<f64>, s: &Option<String>| match (s, value) {
+                            (Some(s), _) => s.clone(),
+                            (None, Some(v)) => format!("{v:?}"),
+                            (None, None) => "*".to_string(),
+                        };
+                        format!(
+                            "{}-{}",
+                            side(from, &from_as_string),
+                            side(to, &to_as_string)
+                        )
+                    });
                     RangeBucket {
-                        key: range.key.clone(),
+                        key,
                         from,
                         from_as_string,
                         to,
@@ -301,22 +362,7 @@ pub fn collect(
                 (value, _) => value,
             };
 
-            // On a date field ES pairs the raw millis with an ISO companion. `value_count` is a
-            // plain count and `terms` is not a metric, so neither renders as a date.
-            let value_as_string = match (&clause.ty, value) {
-                (
-                    AggType::Sum(m) | AggType::Avg(m) | AggType::Min(m) | AggType::Max(m),
-                    Some(v),
-                ) if schema.get(m.field.as_str()).is_some_and(date::is_timestamp) => {
-                    date::format_millis(v as i64)
-                }
-                _ => None,
-            };
-
-            Ok(AggResult::Metric {
-                value,
-                value_as_string,
-            })
+            Ok(metric_result(schema, &clause.ty, value))
         }
     }
 }
@@ -351,7 +397,7 @@ fn indicator(
     let mut pred: Option<LogicalExpr> = None;
     for (bound, inclusive) in [(&range.from, true), (&range.to, false)] {
         let Some(bound) = bound else { continue };
-        let bound = date::to_timestamp(spec, bound.clone().into_inner(), None)?;
+        let bound = date::to_timestamp(spec, bound.clone().into_inner(), body.time_zone.as_deref())?;
         let clause = match inclusive {
             true => field(body.field.as_str()).gte(bound),
             false => field(body.field.as_str()).lt(bound),
@@ -372,14 +418,32 @@ fn indicator(
 fn bound(
     is_date: bool,
     spec: Option<&FieldSpec>,
+    tz: Option<&str>,
     bound: Option<&JsonValue>,
 ) -> (Option<f64>, Option<String>) {
-    let value = bound.and_then(|b| date::to_timestamp(spec, b.clone().into_inner(), None).ok());
+    let value = bound.and_then(|b| date::to_timestamp(spec, b.clone().into_inner(), tz).ok());
     let as_string = match (is_date, &value) {
         (true, Some(value)) => value.as_timestamp().and_then(date::format_millis),
         _ => None,
     };
     (value.and_then(|v| v.number()), as_string)
+}
+
+// On a date field ES pairs the raw millis with an ISO companion. `value_count` is a plain count
+// and never renders as a date.
+fn metric_result(schema: &Schema, ty: &AggType, value: Option<f64>) -> AggResult {
+    let value_as_string = match (ty, value) {
+        (AggType::Sum(m) | AggType::Avg(m) | AggType::Min(m) | AggType::Max(m), Some(v))
+            if schema.get(m.field.as_str()).is_some_and(date::is_timestamp) =>
+        {
+            date::format_millis(v as i64)
+        }
+        _ => None,
+    };
+    AggResult::Metric {
+        value,
+        value_as_string,
+    }
 }
 
 // A sub-agg metric folded across the engine rows that merged into one bucket.
@@ -415,6 +479,7 @@ impl MetricAcc {
 
 // `None` when the key does not format, which only happens far outside the representable range.
 fn bucket(
+    schema: &Schema,
     clause: &AggClause,
     zone: Option<&date::Zone>,
     key: i64,
@@ -432,13 +497,7 @@ fn bucket(
                 matches!(sub_clause.ty, AggType::Sum(_) | AggType::ValueCount(_)).then_some(0.0)
             }
         };
-        sub_aggs.insert(
-            name.clone(),
-            AggResult::Metric {
-                value,
-                value_as_string: None,
-            },
-        );
+        sub_aggs.insert(name.clone(), metric_result(schema, &sub_clause.ty, value));
     }
 
     Some(HistogramBucket {
