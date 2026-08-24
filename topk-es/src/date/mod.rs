@@ -295,23 +295,15 @@ fn round_down(at: NaiveDateTime, unit: Unit) -> Result<NaiveDateTime, Error> {
         .ok_or_else(|| Error::BadRequest("date rounding overflowed".to_string()))
 }
 
-pub fn format_millis(millis: i64) -> Option<String> {
-    DateTime::<Utc>::from_timestamp_millis(millis)
-        .map(|dt| dt.to_rfc3339_opts(SecondsFormat::Millis, true))
-}
-
-// ES renders a date_histogram `key_as_string` in the request's `time_zone`, offset notation and
-// all; a named zone's offset is whatever held at that instant.
-pub fn format_key(millis: i64, zone: Option<&Zone>) -> Option<String> {
+// ES renders a date in the request's `time_zone`, offset notation and all; a named zone's offset
+// is whatever held at that instant. Without a zone the rendering is UTC.
+pub fn format(millis: i64, zone: Option<&Zone>) -> Option<String> {
+    const ISO: SecondsFormat = SecondsFormat::Millis;
     let dt = DateTime::<Utc>::from_timestamp_millis(millis)?;
     Some(match zone {
-        None => dt.to_rfc3339_opts(SecondsFormat::Millis, true),
-        Some(Zone::Fixed(offset)) => dt
-            .with_timezone(offset)
-            .to_rfc3339_opts(SecondsFormat::Millis, true),
-        Some(Zone::Named(tz)) => dt
-            .with_timezone(tz)
-            .to_rfc3339_opts(SecondsFormat::Millis, true),
+        None => dt.to_rfc3339_opts(ISO, true),
+        Some(Zone::Fixed(offset)) => dt.with_timezone(offset).to_rfc3339_opts(ISO, true),
+        Some(Zone::Named(tz)) => dt.with_timezone(tz).to_rfc3339_opts(ISO, true),
     })
 }
 
@@ -325,6 +317,7 @@ pub fn is_timestamp(spec: &FieldSpec) -> bool {
 // Coerce a value destined for `spec` onto the epoch millis a timestamp column stores. ES accepts
 // an ISO-8601 string, raw millis, or a list of either (`terms`). Non-timestamp fields pass through
 // untouched, so a numeric-looking string on a keyword field is never mistaken for a date.
+// Range bounds want `to_timestamp_rounded` instead: an under-specified bound widens the range.
 pub fn to_timestamp(
     spec: Option<&FieldSpec>,
     value: Value,
@@ -364,7 +357,7 @@ pub fn to_timestamp_rounded(
 // Inverse of `to_timestamp`: render a stored timestamp back as the ISO-8601 string ES returns.
 // A value that isn't a usable timestamp reads as null rather than leaking raw millis.
 pub fn from_timestamp(value: Value) -> Value {
-    match value.as_timestamp().and_then(format_millis) {
+    match value.as_timestamp().and_then(|t| format(t, None)) {
         Some(iso) => Value::string(iso),
         None => Value::null(),
     }
@@ -377,6 +370,10 @@ pub use interval::{bucketing, Bucketing};
 mod tests {
     use super::*;
 
+    fn fmt(millis: i64) -> Option<String> {
+        format(millis, None)
+    }
+
     fn at(iso: &str) -> DateTime<Utc> {
         DateTime::parse_from_rfc3339(iso)
             .unwrap()
@@ -385,13 +382,13 @@ mod tests {
 
     fn eval(expr: &str) -> String {
         let now = at("2026-06-15T10:30:45.123Z");
-        format_millis(parse_millis_at(expr, None, Round::Down, now).expect(expr)).unwrap()
+        fmt(parse_millis_at(expr, None, Round::Down, now).expect(expr)).unwrap()
     }
 
     // The upper end of the unit an under-specified bound names, as `lte`/`gt` resolve it.
     fn eval_up(expr: &str) -> String {
         let now = at("2026-06-15T10:30:45.123Z");
-        format_millis(parse_millis_at(expr, None, Round::Up, now).expect(expr)).unwrap()
+        fmt(parse_millis_at(expr, None, Round::Up, now).expect(expr)).unwrap()
     }
 
     #[test]
@@ -483,7 +480,7 @@ mod tests {
     fn time_zone_applies_to_zoneless_values_only() {
         let now = at("2026-06-15T10:30:45.123Z");
         let tz =
-            |v: &str, tz: &str| format_millis(parse_millis_at(v, Some(tz), Round::Down, now).expect(v)).unwrap();
+            |v: &str, tz: &str| fmt(parse_millis_at(v, Some(tz), Round::Down, now).expect(v)).unwrap();
 
         assert_eq!(tz("2026-01-15", "+02:00"), "2026-01-14T22:00:00.000Z");
         assert_eq!(
@@ -502,7 +499,7 @@ mod tests {
     fn named_time_zones() {
         let now = at("2026-06-15T10:30:45.123Z");
         let tz =
-            |v: &str, tz: &str| format_millis(parse_millis_at(v, Some(tz), Round::Down, now).expect(v)).unwrap();
+            |v: &str, tz: &str| fmt(parse_millis_at(v, Some(tz), Round::Down, now).expect(v)).unwrap();
 
         // Prague is +01:00 in winter and +02:00 under DST.
         assert_eq!(
