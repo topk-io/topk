@@ -102,6 +102,19 @@ pub enum FieldMapping {
         index: Option<bool>,
     },
 
+    // ES `date`/`date_nanos` map to TopK's timestamp column (epoch millis, i64). ISO-8601 strings
+    // are parsed to millis on write and formatted back on read; see `crate::date`.
+    #[serde(rename = "date", alias = "date_nanos")]
+    Date {
+        #[serde(default)]
+        #[allow(dead_code)]
+        index: Option<bool>,
+
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[allow(dead_code)]
+        format: Option<String>,
+    },
+
     #[serde(rename = "float", alias = "double", alias = "half_float")]
     Float {
         #[serde(default)]
@@ -306,6 +319,7 @@ impl TryFrom<FieldMapping> for FieldSpec {
                 Ok(field)
             }
             FieldMapping::Integer { index: _ } => Ok(FieldSpec::integer(false)),
+            FieldMapping::Date { .. } => Ok(FieldSpec::timestamp(false)),
             FieldMapping::Float { index: _ } => Ok(FieldSpec::float(false)),
             FieldMapping::Boolean { index: _ } => Ok(FieldSpec::boolean(false)),
             FieldMapping::Object { properties } => Ok(FieldSpec::r#struct(
@@ -415,6 +429,10 @@ impl TryFrom<&FieldSpec> for FieldMapping {
                 _ => return Err(Error::Unsupported("Invalid text index".into())),
             },
             Some(field_type::DataType::Integer(_)) => FieldMapping::Integer { index: Some(false) },
+            Some(field_type::DataType::Timestamp(_)) => FieldMapping::Date {
+                index: Some(false),
+                format: None,
+            },
             Some(field_type::DataType::Float(_)) => FieldMapping::Float { index: Some(false) },
             Some(field_type::DataType::Boolean(_)) => FieldMapping::Boolean { index: Some(false) },
             Some(field_type::DataType::Struct(s)) => FieldMapping::Object {
