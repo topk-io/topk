@@ -4,7 +4,9 @@ use topk_rs::json::Value as JsonValue;
 use topk_rs::proto::v1::data::{AggregateExpr, Document, LogicalExpr, Query as TopkQuery, Value};
 use topk_rs::query::{field, filter};
 
+use super::Schema;
 use crate::api::{AggClause, AggResult, AggType, TermsBucket};
+use crate::date;
 use crate::value::{compare, ValueExt};
 use crate::Error;
 
@@ -38,9 +40,14 @@ pub fn compile(clause: &AggClause, gate: &LogicalExpr) -> Result<TopkQuery, Erro
     }
 }
 
-pub fn collect(clause: &AggClause, docs: Vec<Document>) -> Result<AggResult, Error> {
+pub fn collect(
+    schema: &Schema,
+    clause: &AggClause,
+    docs: Vec<Document>,
+) -> Result<AggResult, Error> {
     match &clause.ty {
-        AggType::Terms(_) => {
+        AggType::Terms(terms) => {
+            let terms_field = terms.field.as_str();
             let mut buckets = Vec::with_capacity(docs.len());
 
             for mut doc in docs {
@@ -48,6 +55,11 @@ pub fn collect(clause: &AggClause, docs: Vec<Document>) -> Result<AggResult, Err
                 // ES reports boolean terms keys as 1/0 with a "true"/"false" companion.
                 let (key, key_as_string) = match raw.as_bool() {
                     Some(b) => (JsonValue::from(Value::i64(b as i64)), Some(b.to_string())),
+                    // ES renders a date bucket key as epoch millis plus an ISO companion.
+                    None if schema.get(terms_field).is_some_and(date::is_timestamp) => {
+                        let iso = raw.as_timestamp().and_then(date::format_millis);
+                        (JsonValue::from(raw), iso)
+                    }
                     None => (JsonValue::from(raw), None),
                 };
 
@@ -60,7 +72,13 @@ pub fn collect(clause: &AggClause, docs: Vec<Document>) -> Result<AggResult, Err
                 let mut sub_aggs = HashMap::new();
                 for (name, _) in clause.aggs.iter().flatten() {
                     let value = doc.fields.remove(name).and_then(|v| v.number());
-                    sub_aggs.insert(name.clone(), AggResult::Metric { value });
+                    sub_aggs.insert(
+                        name.clone(),
+                        AggResult::Metric {
+                            value,
+                            value_as_string: None,
+                        },
+                    );
                 }
 
                 buckets.push(TermsBucket {
@@ -97,7 +115,21 @@ pub fn collect(clause: &AggClause, docs: Vec<Document>) -> Result<AggResult, Err
                 (value, _) => value,
             };
 
-            Ok(AggResult::Metric { value })
+            // On a date field ES pairs the raw millis with an ISO companion. `value_count` is a
+            // plain count and `terms` is not a metric, so neither renders as a date.
+            let value_as_string = match (&clause.ty, value) {
+                (AggType::Sum(m) | AggType::Avg(m) | AggType::Min(m) | AggType::Max(m), Some(v))
+                    if schema.get(m.field.as_str()).is_some_and(date::is_timestamp) =>
+                {
+                    date::format_millis(v as i64)
+                }
+                _ => None,
+            };
+
+            Ok(AggResult::Metric {
+                value,
+                value_as_string,
+            })
         }
     }
 }

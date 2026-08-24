@@ -46,6 +46,9 @@ pub struct MetricAggBody {
 pub enum AggResult {
     Metric {
         value: Option<f64>,
+
+        #[serde(skip_serializing_if = "Option::is_none")]
+        value_as_string: Option<String>,
     },
     Terms {
         doc_count_error_upper_bound: u32,

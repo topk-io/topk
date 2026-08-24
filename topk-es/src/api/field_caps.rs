@@ -28,6 +28,7 @@ impl From<&FieldMapping> for FieldCap {
             FieldMapping::Text { index, .. } => ("text", indexed(index), false),
             FieldMapping::Keyword { index, .. } => ("keyword", indexed(index), true),
             FieldMapping::Integer { .. } => ("integer", true, true),
+            FieldMapping::Date { .. } => ("date", true, true),
             FieldMapping::Float { .. } => ("float", true, true),
             FieldMapping::Boolean { .. } => ("boolean", true, true),
             FieldMapping::Object { .. } => ("object", false, false),
