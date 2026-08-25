@@ -1,6 +1,8 @@
 pub mod ask;
 pub mod dataset;
 pub mod delete;
+#[cfg(feature = "import")]
+pub mod import;
 pub mod list;
 pub mod login;
 pub mod search;

@@ -1,6 +1,16 @@
 VERSION 0.8
 IMPORT github.com/earthly/lib/rust:3.0.1 AS rust
 
+# shared base: nextest as a prebuilt binary. `cargo install cargo-nextest`
+# compiles it from source in every test target, ~2 min each, six times a run.
+rust-base:
+    FROM rust:slim
+    ARG nextest_version=0.9.143
+    RUN apt-get update && apt-get install -y curl && \
+        arch=$(uname -m) && \
+        curl -fsSL https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-${nextest_version}/cargo-nextest-${nextest_version}-${arch}-unknown-linux-gnu.tar.gz \
+        | tar -xz -C /usr/local/cargo/bin cargo-nextest
+
 test:
     ARG --required region
     ARG --required host
@@ -12,11 +22,10 @@ test:
     BUILD +test-es --region=$region --host=$host
 
 test-rs:
-    FROM rust:slim
+    FROM +rust-base
 
     # install dependencies
     RUN apt-get update && apt-get install -y protobuf-compiler
-    RUN cargo install cargo-nextest --locked
     COPY +test-sandbox/topk-test-sandbox /usr/local/bin/topk-test-sandbox
 
     DO rust+INIT --keep_fingerprints=true
@@ -133,14 +142,36 @@ test-js:
         TOPK_API_KEY=$TOPK_API_KEY topk-test-sandbox yarn test --colors $args
 
 test-cli:
-    FROM rust:slim
+    FROM +rust-base
 
-    # install dependencies
-    RUN apt-get update && apt-get install -y protobuf-compiler jq
-    RUN cargo install cargo-nextest --locked
+    # docker for WITH DOCKER; g++/cmake for bundled duckdb
+    RUN apt-get update && apt-get install -y protobuf-compiler jq curl docker.io pkg-config libssl-dev g++ cmake
+    ARG compose_version=v5.5.0
+    RUN mkdir -p /usr/local/lib/docker/cli-plugins && \
+        curl -fsSL https://github.com/docker/compose/releases/download/${compose_version}/docker-compose-linux-$(uname -m) \
+        -o /usr/local/lib/docker/cli-plugins/docker-compose && \
+        chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+    # sccache for rustc and the bundled duckdb C++ (cc-rs honors CC/CXX wrappers);
+    # the ARGs come from CI, locally they are empty and sccache stays off.
+    ARG sccache_version=0.17.0
+    RUN arch=$(uname -m) && \
+        curl -fsSL https://github.com/mozilla/sccache/releases/download/v${sccache_version}/sccache-v${sccache_version}-${arch}-unknown-linux-musl.tar.gz \
+        | tar -xz -C /usr/local/bin --strip-components=1 --wildcards '*/sccache'
+    # v2 cache service only: v1 is gone and sccache prefers it when both are set.
+    ARG ACTIONS_RESULTS_URL=""
+    ARG ACTIONS_RUNTIME_TOKEN=""
+    IF [ -n "$ACTIONS_RESULTS_URL" ]
+        ENV ACTIONS_RESULTS_URL=$ACTIONS_RESULTS_URL
+        ENV ACTIONS_RUNTIME_TOKEN=$ACTIONS_RUNTIME_TOKEN
+        ENV ACTIONS_CACHE_SERVICE_V2=on
+        ENV SCCACHE_GHA_ENABLED=true
+        ENV RUSTC_WRAPPER=sccache
+        ENV CC="sccache cc"
+        ENV CXX="sccache c++"
+    END
     COPY +test-sandbox/topk-test-sandbox /usr/local/bin/topk-test-sandbox
 
-    DO rust+INIT --keep_fingerprints=true
     WORKDIR /sdk
 
     # copy source code
@@ -149,26 +180,35 @@ test-cli:
     WORKDIR /sdk/topk-cli
 
     ARG EARTHLY_GIT_HASH
+    # a real layer, not rust+CARGO's cache mount: WITH DOCKER below cannot read that.
     RUN --mount=type=cache,target=/root/.cargo/registry \
         --mount=type=cache,target=/root/.cargo/git \
-        cargo nextest run -p topk-cli --no-run
+        cargo nextest run -p topk-cli --no-run && sccache --show-stats
 
     ARG --required region
     ARG --required host
     DO +SETUP_ENV --region=$region --host=$host
 
-    # test
+    # test — CARGO_BIN_EXE_topk must be set explicitly since tests live in
+    # #[cfg(test)] modules (not integration tests) and Cargo won't set it automatically
     ENV FORCE_COLOR=1
+    ENV CARGO_BIN_EXE_topk=/sdk/topk-cli/target/debug/topk
     ARG args=""
-    RUN --no-cache --secret TOPK_API_KEY \
-        TOPK_API_KEY=$TOPK_API_KEY topk-test-sandbox cargo nextest run -p topk-cli --no-fail-fast $args
+    # `--compose` does not wait on healthchecks; `up --wait` does.
+    WITH DOCKER --compose docker-compose.import.yaml
+        RUN --no-cache --secret TOPK_API_KEY \
+            (docker compose -f docker-compose.import.yaml up -d --wait || \
+             (docker compose -f docker-compose.import.yaml ps; \
+              docker inspect --format '{{json .State.Health}}' default-mysql-1; \
+              docker compose -f docker-compose.import.yaml logs --tail 50; exit 1)) && \
+            TOPK_API_KEY=$TOPK_API_KEY topk-test-sandbox cargo nextest run -p topk-cli --no-fail-fast $args
+    END
 
 test-sql:
-    FROM rust:slim
+    FROM +rust-base
 
     # install dependencies
     RUN apt-get update && apt-get install -y protobuf-compiler
-    RUN cargo install cargo-nextest --locked
     COPY +test-sandbox/topk-test-sandbox /usr/local/bin/topk-test-sandbox
 
     DO rust+INIT --keep_fingerprints=true
@@ -185,6 +225,9 @@ test-sql:
     ARG --required region
     ARG --required host
     DO +SETUP_ENV --region=$region --host=$host
+    # SETUP_ENV is shared by every test target; only these tests speak pgwire
+    # to a remote cluster, and only they should refuse a plaintext fallback.
+    ENV PGSSLMODE=require
 
     # test
     ARG args=""
@@ -195,11 +238,10 @@ test-sql:
 #
 
 test-es:
-    FROM rust:slim
+    FROM +rust-base
 
     # install dependencies
     RUN apt-get update && apt-get install -y protobuf-compiler
-    RUN cargo install cargo-nextest --locked
     COPY +test-sandbox/topk-test-sandbox /usr/local/bin/topk-test-sandbox
 
     DO rust+INIT --keep_fingerprints=true
@@ -226,10 +268,9 @@ test-es:
 #
 
 test-runner-builder:
-    FROM rust:slim
+    FROM +rust-base
 
     RUN apt-get update && apt-get install -y protobuf-compiler
-    RUN cargo install cargo-nextest --locked
 
     WORKDIR /sdk
     DO rust+INIT --keep_fingerprints=true
@@ -287,10 +328,17 @@ SETUP_ENV:
         END
 
         # forward traffic to dev cluster running on host
-        LET domain=ddb
-        HOST ${region}.api.${domain} $host
-        HOST ${region}.es.${domain} $host
-        HOST ${region}.sql.${domain} $host
-        ENV TOPK_HOST=$domain
+        HOST emulator.api.ddb $host
+        HOST emulator.es.ddb $host
+        HOST emulator.sql.ddb $host
+        ENV TOPK_HOST=ddb
         ENV TOPK_HTTPS=false
+
+        # emulator gateway is plaintext: es on :9200, pgwire on :5432
+        ENV ES_URL=http://emulator.es.ddb:9200
+        ENV PGHOST=emulator.sql.ddb
+        ENV PGSSLMODE=disable
+    ELSE
+        ENV ES_URL=https://${region}.es.${host}
+        ENV PGHOST=${region}.sql.${host}
     END

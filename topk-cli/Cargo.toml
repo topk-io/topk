@@ -15,8 +15,41 @@ path = "src/lib.rs"
 name = "topk"
 path = "src/main.rs"
 
+[features]
+default = ["import"]
+import = [
+    "dep:duckdb",
+    "dep:elasticsearch",
+    "dep:mongodb",
+    "dep:async-stream",
+    "dep:float8",
+    "dep:half",
+    "dep:indexmap",
+    "dep:prost",
+    "dep:strum",
+    "dep:thiserror",
+    "dep:topk-es",
+    "dep:url",
+    "dep:wildmatch",
+    "dep:regex",
+]
+
 [dependencies]
 topk-rs = { path = "../topk-rs", features = ["json"] }
+# ≥ 1.10505.0: `Statement::step` reports a mid-stream read error; older versions end the stream like EOF.
+duckdb = { version = "1.10505.0", features = ["bundled", "parquet"], optional = true }
+elasticsearch = { version = "8.15.0-alpha.1", optional = true }
+mongodb = { version = "3", optional = true }
+async-stream = { version = "0.3", optional = true }
+float8 = { version = "0.5", optional = true }
+half = { version = "2", optional = true }
+indexmap = { version = "2", features = ["serde"], optional = true }
+prost = { version = "0.14", optional = true }
+strum = { version = "0.26", features = ["derive"], optional = true }
+thiserror = { version = "1", optional = true }
+topk-es = { path = "../topk-es", optional = true }
+url = { version = "2", optional = true }
+wildmatch = { version = "2", optional = true }
 clap = { version = "4", features = ["derive", "env"] }
 clap_complete = { version = "4" }
 tokio = { version = "1", features = ["full"] }
@@ -26,7 +59,8 @@ async-trait = "0.1"
 serde_json = { version = "1" }
 indicatif = { version = "0.17" }
 tracing = { version = "0.1" }
-regex = { version = "1" }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+regex = { version = "1", optional = true }
 futures = { version = "0.3" }
 serde = { version = "1", features = ["derive"] }
 base64 = "0.22"
@@ -48,6 +82,19 @@ humantime = "2"
 
 [dev-dependencies]
 assert_cmd = "2"
+rstest = "0.23"
+sqlx = { version = "0.8", features = [
+    "runtime-tokio",
+    "postgres",
+    "mysql",
+    "sqlite",
+] }
+test-macros = { path = "../utils/test-macros" }
 test-context = { version = "0.3" }
 uuid = { version = "1", features = ["v4"] }
 tokio = { version = "1", features = ["full"] }
+
+[[test]]
+name = "import"
+path = "tests/import/main.rs"
+required-features = ["import"]

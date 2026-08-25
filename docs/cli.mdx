@@ -95,6 +95,88 @@ topk upload report.pdf notes.md images/ --dataset my-dataset
 | `--wait`    | No       | Wait for processing; optionally up to a duration (e.g. `--wait 5m`)     |
 | `--dry-run` | No       | Preview which files would be uploaded without uploading                  |
 
+### import
+
+Import tables, collections and files into TopK collections — from Postgres, MySQL, SQLite, MongoDB, Elasticsearch, and csv/tsv/json(l)/parquet/arrow/avro/xlsx files on local disk, S3, GCS, Azure, Hugging Face, or http(s).
+
+```bash
+topk import postgres://user:pw@host/db 'public.*'   # discover, confirm, import
+topk import ./books.parquet                          # files name themselves
+topk import 's3://bucket/books/*.parquet' --to books # a glob cannot
+topk import postgres://host/db --dry-run > spec.toml # capture the spec, edit it
+topk import postgres://host/db -f spec.toml --yes    # run it
+```
+
+| Argument / flag       | Required | Description                                                              |
+| --------------------- | -------- | ------------------------------------------------------------------------ |
+| `SOURCE`              | **Yes*** | Source URL, file path, or glob (*also required with `--spec`, except for files) |
+| `OBJECTS`             | No       | Objects to import: exact names, globs, or `<object>=<collection>` renames |
+| `-f, --spec`          | No       | Run a TOML import spec                                                   |
+| `--dry-run`           | No       | Print the spec (stdout) and sample rows (stderr), import nothing         |
+| `--to`                | No       | Name the target collection (single object only)                          |
+| `--id`                | No       | Column to use as the document id when it can't be detected               |
+| `--partition`         | No       | Import into this partition                                               |
+| `--filter`            | No       | Only read rows matching a filter (single object only)                    |
+| `--limit`             | No       | Read at most this many rows per object                                   |
+| `-c, --concurrency`   | No       | Concurrent upserts in flight across the run, 1–256 (default: 16)         |
+| `-y, --yes`           | No       | Skip confirmation                                                        |
+| `--continue-on-error` | No       | Skip documents that fail; exit non-zero if any did                       |
+| `--resume`            | No       | Continue a run that stopped, by the id in its header                     |
+
+#### The spec is the plan
+
+A run discovers the source, prints a TOML spec, and asks for confirmation. `--dry-run > spec.toml` captures that spec; edit it and re-run with `-f spec.toml --yes`. The spec is a whitelist — only declared fields import, and a field can rename its source column with `from`.
+
+```toml
+[books]
+from = "s3://bucket/books/*.parquet"
+id = "sku"
+
+[books.fields]
+title = { type = "text", index = "keyword" }
+embedding = { type = "f32_vector", dim = 768, index = { vector = { metric = "cosine" } } }
+```
+
+Credentials never enter a spec: the command line says where to connect, source-native env vars still work (`PGPASSWORD`, `MYSQL_PWD`, `MONGODB_URI`, `ELASTIC_API_KEY`), and object stores use their native credential chains (GCS needs HMAC interop keys, not OAuth). The scheduled shape is `topk import "$DB_URL" -f spec.toml --yes` — secret in the environment, spec in git.
+
+#### Resuming
+
+Every run prints an id in its header (`# run 7f3a9c1e`) and checkpoints as it goes. If it stops — an error, a lost connection, a killed process — `topk import <source> --resume 7f3a9c1e` continues from the last checkpoint: finished collections are skipped, the one in flight resumes from where its upserts had landed. Files resume at a row offset within the file, databases after the last id, Elasticsearch from its page cursor while the point-in-time lives (24h; past that the collection restarts). Only the source and its credentials go on the command line; the plan is stored. `--resume <id> -f spec.toml` swaps in an edited spec — a collection whose block changed starts over, the rest keep their cursors.
+
+Upserts are idempotent by id, so a plain re-run without `--resume` is always correct too — it just re-imports everything. Resume assumes the source did not change underneath it: rows added to a finished collection are not picked up.
+
+#### Indexes
+
+Discovery never picks an index — a wrong index cannot be migrated, only deleted and re-imported — so declare one:
+
+| Field type | Index |
+| --- | --- |
+| `text` | `index = "keyword"` \| `"exact"` \| `"semantic"` \| `"ngram"` |
+| vectors | `index = { vector = { metric = "cosine" } }` (`euclidean`, `dot_product`, `hamming`) |
+| matrices | `index = { multi_vector = {} }` |
+
+#### Vectors
+
+A vector needs a type and `dim`. All of these import as vectors:
+
+- a numeric list column (`float_list` discovers with a hint)
+- pgvector's text form (`"[1,2,3]"`)
+- **a packed binary column**: declare the vector type and `dim`, and the bytes decode as a little-endian array — element width comes from `len / dim`, so f16, f32 and f64 blobs all work
+
+```toml
+embedding = { type = "f16_vector", dim = 2560, index = { vector = { metric = "cosine" } } }
+```
+
+Multi-vectors stored as one flat list per row (colbert's shape) become matrices by declaring `cols`:
+
+```toml
+embedding = { type = "f32_matrix", cols = 128, index = { multi_vector = {} } }
+```
+
+#### Failures
+
+Documents that fail client-side (bad coercion, missing id, over the 200 KB size limit) abort the run by default; `--continue-on-error` skips them, reports the ids, and exits non-zero. Connection, auth, and schema-mismatch errors always stop the run. Documents over the size limit name their largest fields and the fix.
+
 ### list
 
 List documents in a dataset:

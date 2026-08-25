@@ -13,6 +13,7 @@ use topk::config;
 use topk::dataset_region_cache;
 use topk::datasets::{ensure_unique_region, get_region, make_cached_datasets_client};
 use topk::output::{is_broken_pipe, Output, OutputFormat};
+use topk_rs::client::retry::{BackoffConfig, RetryConfig};
 use topk_rs::{Client, ClientConfig, Error};
 
 #[derive(Parser)]
@@ -21,37 +22,62 @@ struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
 
-    /// TopK API key (overrides TOPK_API_KEY environment variable)
+    /// Log what the run is doing to stderr (RUST_LOG overrides)
+    #[arg(short, long, global = true, help_heading = "Global options")]
+    verbose: bool,
+
+    /// Agent-oriented output: --help includes the full manual
+    /// (auto-detected for AI assistants)
+    #[arg(long, global = true, help_heading = "Global options")]
+    agent: bool,
+
+    /// TopK API key (or run `topk login`)
     #[arg(
         long,
         env = "TOPK_API_KEY",
         global = true,
         hide_env_values = true,
-        hide = true
+        help_heading = "Global options"
     )]
     api_key: Option<String>,
 
-    /// Host (overrides TOPK_HOST environment variable, default: topk.io)
+    /// API domain; the endpoint is <REGION>.api.<HOST>
     #[arg(
         long,
         env = "TOPK_HOST",
         default_value = "topk.io",
         global = true,
-        hide = true
+        help_heading = "Global options"
     )]
     host: String,
 
+    /// Connect over HTTPS (default: true; TOPK_HTTPS=false to disable)
     #[arg(
         long,
         env = "TOPK_HTTPS",
         default_value = "true",
         global = true,
-        hide = true
+        help_heading = "Global options"
     )]
     https: bool,
 
+    /// Region to write to; list available regions at https://docs.topk.io/regions
+    #[arg(
+        long,
+        env = "TOPK_REGION",
+        global = true,
+        help_heading = "Global options"
+    )]
+    region: Option<String>,
+
     /// Output format
-    #[arg(short = 'o', long, default_value = "text", global = true)]
+    #[arg(
+        short = 'o',
+        long,
+        default_value = "text",
+        global = true,
+        help_heading = "Global options"
+    )]
     output: OutputFormat,
 }
 
@@ -75,6 +101,10 @@ enum Commands {
     /// List documents in a dataset
     List(list::ListArgs),
 
+    /// Bulk import from a database, file or object store
+    #[cfg(feature = "import")]
+    Import(topk::commands::import::ImportArgs),
+
     /// Manage datasets (create, list, update, delete)
     Dataset {
         #[command(subcommand)]
@@ -89,19 +119,89 @@ enum Commands {
     Completions { shell: Shell },
 }
 
+/// Off unless `-v` or `RUST_LOG` (which wins); stdout carries results.
+fn init_logging(verbose: bool) {
+    let filter = match tracing_subscriber::EnvFilter::try_from_default_env() {
+        Ok(filter) => filter,
+        Err(_) if verbose => tracing_subscriber::EnvFilter::new("info"),
+        Err(_) => return,
+    };
+    tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_writer(std::io::stderr)
+        .init();
+}
+
+/// The README from `## Commands` down, compiled in.
+const MANUAL_START: &str = "<!-- manual:start -->";
+const MANUAL_END: &str = "<!-- manual:end -->";
+
+fn manual() -> &'static str {
+    let readme = include_str!("../README.md");
+    let (_, rest) = readme.split_once(MANUAL_START).unwrap_or(("", readme));
+    rest.split_once(MANUAL_END)
+        .map_or(rest, |(manual, _)| manual)
+}
+
+/// For an agent `--help` is all it will ever know about the tool.
+fn agent_mode() -> bool {
+    ["CLAUDECODE", "AGENT", "TOPK_AGENT"]
+        .iter()
+        .any(|v| std::env::var_os(v).is_some_and(|s| !s.is_empty()))
+        || std::env::args().any(|a| a == "--agent")
+}
+
 #[tokio::main]
 async fn main() -> ExitCode {
-    let cli = Cli::parse();
+    let mut cmd = <Cli as clap::CommandFactory>::command();
+    if agent_mode() {
+        cmd = cmd.after_help(manual());
+    }
+    let mut cli = <Cli as clap::FromArgMatches>::from_arg_matches(&cmd.get_matches())
+        .expect("clap derive produces matching matches");
+    init_logging(cli.verbose);
+    // Set-but-empty env vars (`TOPK_REGION=`) read as unset.
+    cli.api_key = cli.api_key.filter(|v| !v.is_empty());
+    cli.region = cli.region.filter(|v| !v.is_empty());
 
     let output = Output::new(cli.output);
+    let (host, https) = (cli.host.clone(), cli.https);
 
     match run(cli, &output).await {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             output.error(&e);
+            if let Some(hint) = endpoint_hint(&e, &host, https) {
+                output.meta(&hint);
+            }
             ExitCode::FAILURE
         }
     }
+}
+
+/// A transport failure says nothing about the mistake behind it. The common one
+/// is a stale `TOPK_HTTPS=false` from the emulator: cleartext HTTP/2 reaches a
+/// TLS endpoint, which answers with a GOAWAY the h2 library reports as
+/// `FRAME_SIZE_ERROR`.
+fn endpoint_hint(e: &Error, host: &str, https: bool) -> Option<String> {
+    let cleartext_at_tls =
+        matches!(e, Error::Unexpected(message) if message.contains("h2 protocol error"));
+    if cleartext_at_tls && !https {
+        return Some(format!(
+            "{host} answered as a TLS endpoint but the request went out in cleartext \
+             — unset TOPK_HTTPS (or pass --https true)"
+        ));
+    }
+    if matches!(e, Error::TransportError(_)) {
+        return Some(match https {
+            true => format!(
+                "could not reach {host} over https — check --host and --region, \
+                 and pass --https false for a plaintext endpoint such as the emulator"
+            ),
+            false => format!("could not reach {host} over http — check --host and --region"),
+        });
+    }
+    None
 }
 
 async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
@@ -215,6 +315,36 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
                     output.print(&list::ListResult { entries })?;
                 }
             }
+            Ok(())
+        }
+
+        #[cfg(feature = "import")]
+        Some(Commands::Import(args)) => {
+            // Lazy: --dry-run neither authenticates nor writes.
+            let connect = || {
+                let api_key = get_api_key(cli.api_key, &config)?;
+                let region = cli.region.ok_or_else(|| {
+                    topk::import::Error::InvalidArgument(
+                        "--region is required to import (or set TOPK_REGION). \
+                         List available regions at https://docs.topk.io/regions"
+                            .to_string(),
+                    )
+                })?;
+                Ok(Client::new(
+                    ClientConfig::new(&api_key, &region)
+                        .with_host(&cli.host)
+                        .with_https(cli.https)
+                        .with_retry_config(RetryConfig {
+                            max_retries: 3,
+                            backoff: BackoffConfig {
+                                init_backoff: std::time::Duration::from_millis(250),
+                                ..BackoffConfig::default()
+                            },
+                            ..RetryConfig::default()
+                        }),
+                ))
+            };
+            topk::commands::import::run(connect, &args, output).await?;
             Ok(())
         }
 
