@@ -112,6 +112,8 @@ impl CollectionClient {
     ) -> Result<HashMap<String, HashMap<String, Value>>, Error> {
         let client = create_client!(QueryServiceClient, self.read, self.config).await?;
         let ids: Vec<String> = ids.into_iter().map(|id| id.into()).collect();
+        // A no-op write returns an empty LSN, which means there is nothing to wait for.
+        let lsn = lsn.filter(|lsn| !lsn.is_empty());
 
         let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
@@ -209,6 +211,8 @@ impl CollectionClient {
         consistency: Option<ConsistencyLevel>,
     ) -> Result<DocumentStream, Error> {
         let client = create_client!(QueryServiceClient, self.read, self.config).await?;
+        // A no-op write returns an empty LSN, which means there is nothing to wait for.
+        let lsn = lsn.filter(|lsn| !lsn.is_empty());
 
         let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();

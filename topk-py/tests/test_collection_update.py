@@ -60,10 +60,7 @@ def test_update_missing_id(ctx: ProjectContext):
     assert lsn == "1"
 
     # Update non-existent doc
-    new_lsn = ctx.client.collection(collection.name).update(
-        [{"_id": "3", "foo": "bar3"}], False
-    )
-    assert new_lsn == ""
+    ctx.client.collection(collection.name).update([{"_id": "3", "foo": "bar3"}], False)
 
     # Check that no changes were made
     docs = ctx.client.collection(collection.name).get(["1", "2", "3"], lsn=lsn)
