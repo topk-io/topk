@@ -9,8 +9,8 @@ use super::retry::RetryConfig;
 
 #[derive(Clone)]
 pub struct ClientConfig {
-    /// Topk region
-    region: String,
+    /// Topk region. `None` is the global control plane, which has no region label.
+    region: Option<String>,
 
     /// Topk host (e.g. "topk.io")
     host: String,
@@ -26,9 +26,10 @@ pub struct ClientConfig {
 }
 
 impl ClientConfig {
-    pub fn new(api_key: impl Into<String>, region: impl Into<String>) -> Self {
+    /// The global control plane, which has no region label.
+    pub fn global(api_key: impl Into<String>) -> Self {
         Self {
-            region: region.into(),
+            region: None,
             host: "topk.io".to_string(),
             https: true,
             headers: HashMap::from([
@@ -41,10 +42,17 @@ impl ClientConfig {
         }
     }
 
+    pub fn new(api_key: impl Into<String>, region: impl Into<String>) -> Self {
+        Self {
+            region: Some(region.into()),
+            ..Self::global(api_key)
+        }
+    }
+
     // Getters
 
-    pub fn region(&self) -> &str {
-        &self.region
+    pub fn region(&self) -> Option<&str> {
+        self.region.as_deref()
     }
 
     pub fn host(&self) -> &str {
@@ -93,8 +101,8 @@ impl ClientConfig {
     pub fn endpoint(&self) -> Result<Endpoint, Error> {
         let protocol = if self.https() { "https" } else { "http" };
         let uri = match self.region() {
-            "global" => format!("{}://api.{}", protocol, self.host()),
-            _ => format!("{}://{}.api.{}", protocol, self.region(), self.host()),
+            Some(region) => format!("{}://{}.api.{}", protocol, region, self.host()),
+            None => format!("{}://api.{}", protocol, self.host()),
         };
         let mut endpoint = Endpoint::from_str(&uri)?;
         if self.https() {

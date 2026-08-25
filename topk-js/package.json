@@ -1,6 +1,7 @@
 {
   "name": "topk-js",
   "version": "0.15.0",
+  "packageManager": "yarn@1.22.22",
   "napi": {
     "binaryName": "topk-js",
     "dtsHeaderFile": "dts-header.d.ts",
@@ -90,6 +91,7 @@
     "prepublishOnly": "napi prepublish -t npm --no-gh-release",
     "typecheck": "tsc --noEmit",
     "test": "jest --verbose",
+    "test:e2e": "yarn build:debug && jest --verbose --colors",
     "universal": "napi universalize",
     "version": "napi version",
     "docs": "typedoc"

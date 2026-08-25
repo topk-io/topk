@@ -16,14 +16,23 @@ pub(crate) struct SqlClient {
 
 impl SqlClient {
     pub(crate) async fn from_env() -> anyhow::Result<Self> {
-        let host = std::env::var("PGHOST").unwrap_or_else(|_| "localhost".to_string());
+        let host = std::env::var("PGHOST").unwrap_or_else(|_| {
+            let region = std::env::var("TOPK_REGION").expect("TOPK_REGION or PGHOST must be set");
+            let host = std::env::var("TOPK_HOST").unwrap_or_else(|_| "topk.io".to_string());
+            format!("{region}.sql.{host}")
+        });
         let port = std::env::var("PGPORT")
             .unwrap_or("5432".to_string())
             .parse::<u16>()?;
         let user = std::env::var("PGUSER").unwrap_or_else(|_| "default".to_string());
         let password = std::env::var("PGPASSWORD").or_else(|_| std::env::var("TOPK_API_KEY"))?;
         let database = std::env::var("PGDATABASE").unwrap_or_else(|_| "default".to_string());
-        let ssl = std::env::var("PGSSLMODE").unwrap_or_else(|_| "prefer".to_string());
+        let ssl = std::env::var("PGSSLMODE").unwrap_or_else(|_| {
+            match std::env::var("TOPK_HTTPS").unwrap_or_else(|_| "true".to_string()) == "true" {
+                true => "require".to_string(),
+                false => "disable".to_string(),
+            }
+        });
 
         let opts = PgConnectOptions::new()
             .host(&host)

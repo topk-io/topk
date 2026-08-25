@@ -8,13 +8,12 @@ use colored::Colorize;
 use futures::TryStreamExt;
 use tokio_stream::StreamExt;
 
-use topk::client::{make_client, make_global_client};
 use topk::commands::{ask, dataset, delete, list, login, search, upload};
 use topk::config;
 use topk::dataset_region_cache;
 use topk::datasets::{ensure_unique_region, get_region, make_cached_datasets_client};
 use topk::output::{is_broken_pipe, Output, OutputFormat};
-use topk_rs::Error;
+use topk_rs::{Client, ClientConfig, Error};
 
 #[derive(Parser)]
 #[command(name = "topk", version)]
@@ -131,8 +130,7 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
         Some(Commands::Dataset { action }) => {
             let api_key = get_api_key(cli.api_key, &config)?;
 
-            let client =
-                make_cached_datasets_client(make_global_client(&api_key, &cli.host, cli.https));
+            let client = make_cached_datasets_client(&api_key, &cli.host, cli.https);
 
             match action {
                 dataset::DatasetAction::List => {
@@ -173,11 +171,7 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
         Some(Commands::Upload(args)) => {
             let api_key = get_api_key(cli.api_key, &config)?;
 
-            let mut datasets_client =
-                make_cached_datasets_client(make_global_client(&api_key, &cli.host, cli.https));
-
-            let region = get_region(&mut datasets_client, &args.dataset).await?;
-            let client = make_client(&api_key, &region, &cli.host, cli.https);
+            let client = client_for_dataset(&api_key, &cli.host, cli.https, &args.dataset).await?;
 
             output.print(&upload::run(&client, &args, output).await?)?;
 
@@ -187,11 +181,7 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
         Some(Commands::Delete(args)) => {
             let api_key = get_api_key(cli.api_key, &config)?;
 
-            let mut datasets_client =
-                make_cached_datasets_client(make_global_client(&api_key, &cli.host, cli.https));
-
-            let region = get_region(&mut datasets_client, &args.dataset).await?;
-            let client = make_client(&api_key, &region, &cli.host, cli.https);
+            let client = client_for_dataset(&api_key, &cli.host, cli.https, &args.dataset).await?;
 
             output.print(&delete::run(&client, &args, output).await?)?;
 
@@ -201,11 +191,7 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
         Some(Commands::List(args)) => {
             let api_key = get_api_key(cli.api_key, &config)?;
 
-            let mut datasets_client =
-                make_cached_datasets_client(make_global_client(&api_key, &cli.host, cli.https));
-
-            let region = get_region(&mut datasets_client, &args.dataset).await?;
-            let client = make_client(&api_key, &region, &cli.host, cli.https);
+            let client = client_for_dataset(&api_key, &cli.host, cli.https, &args.dataset).await?;
 
             let stream = list::run(&client, &args).await?;
 
@@ -235,11 +221,8 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
         Some(Commands::Ask(args)) => {
             let api_key = get_api_key(cli.api_key, &config)?;
 
-            let mut datasets_client =
-                make_cached_datasets_client(make_global_client(&api_key, &cli.host, cli.https));
-
-            let region = ensure_unique_region(&mut datasets_client, args.datasets.clone()).await?;
-            let client = make_client(&api_key, &region, &cli.host, cli.https);
+            let client =
+                client_for_datasets(&api_key, &cli.host, cli.https, args.datasets.clone()).await?;
 
             let result = ask::run(&client, &args, output).await?;
             let paths = match args.output_dir.as_deref() {
@@ -280,11 +263,8 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
         Some(Commands::Search(args)) => {
             let api_key = get_api_key(cli.api_key, &config)?;
 
-            let mut datasets_client =
-                make_cached_datasets_client(make_global_client(&api_key, &cli.host, cli.https));
-
-            let region = ensure_unique_region(&mut datasets_client, args.datasets.clone()).await?;
-            let client = make_client(&api_key, &region, &cli.host, cli.https);
+            let client =
+                client_for_datasets(&api_key, &cli.host, cli.https, args.datasets.clone()).await?;
 
             let result = search::run(&client, &args).await?;
 
@@ -340,6 +320,38 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
 }
 
 /// Gets the API key from the CLI arguments or the config file.
+async fn client_for_dataset(
+    api_key: &str,
+    host: &str,
+    https: bool,
+    dataset: &str,
+) -> Result<Client, Error> {
+    let mut datasets = make_cached_datasets_client(api_key, host, https);
+    let region = get_region(&mut datasets, dataset).await?;
+
+    Ok(Client::new(
+        ClientConfig::new(api_key, region)
+            .with_host(host)
+            .with_https(https),
+    ))
+}
+
+async fn client_for_datasets(
+    api_key: &str,
+    host: &str,
+    https: bool,
+    datasets: Vec<String>,
+) -> Result<Client, Error> {
+    let mut client = make_cached_datasets_client(api_key, host, https);
+    let region = ensure_unique_region(&mut client, datasets).await?;
+
+    Ok(Client::new(
+        ClientConfig::new(api_key, region)
+            .with_host(host)
+            .with_https(https),
+    ))
+}
+
 fn get_api_key(api_key: Option<String>, config: &config::Config) -> Result<String, Error> {
     if let Some(key) = api_key {
         return Ok(key);
