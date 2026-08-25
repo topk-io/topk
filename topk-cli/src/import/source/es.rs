@@ -10,7 +10,7 @@ use serde_json::{json, Map, Value as JsonValue};
 use topk_rs::proto::v1::control::FieldSpec;
 
 use crate::import::error::Error;
-use crate::import::source::codec::es as es_codec;
+use crate::import::source::codec::spec as codec;
 use crate::import::spec::{Field, Target, Type};
 use crate::import::ID;
 
@@ -104,7 +104,7 @@ impl Es {
                 .chain(
                     fields
                         .iter()
-                        .map(|(name, spec)| (name.clone(), es_codec::field(spec))),
+                        .map(|(name, spec)| (name.clone(), codec::field(spec))),
                 )
                 .collect();
                 Some(Table {

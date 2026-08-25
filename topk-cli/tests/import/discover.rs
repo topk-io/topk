@@ -5,12 +5,19 @@ use topk::import::{Error, Uri};
 
 async fn discover_err(locator: &str, pattern: &str) -> String {
     let uri: Uri = locator.parse().expect("source uri parses");
-    match topk::import::discover(&uri, &[pattern.to_string()], None, None).await {
+    match topk::import::discover(
+        &topk::import::connect(&uri).await.expect("connect"),
+        &[pattern.to_string()],
+        None,
+        None,
+    )
+    .await
+    {
         Err(Error::InvalidArgument(message)) => message,
         Err(other) => panic!("expected InvalidArgument, got {other:?}"),
-        Ok(spec) => panic!(
+        Ok(discovered) => panic!(
             "expected discover to fail, got {} collection(s)",
-            spec.collections.len()
+            discovered.spec.collections.len()
         ),
     }
 }
@@ -67,7 +74,14 @@ async fn underscore_rename_yields_to_a_collision(ctx: &mut Scratch) {
     );
 
     let uri = path.parse().expect("source uri parses");
-    let message = match topk::import::discover(&uri, &[], None, None).await {
+    let message = match topk::import::discover(
+        &topk::import::connect(&uri).await.expect("connect"),
+        &[],
+        None,
+        None,
+    )
+    .await
+    {
         Err(e) => e.to_string(),
         Ok(_) => panic!("a colliding rename must be rejected"),
     };
@@ -89,9 +103,15 @@ async fn glob_needs_a_name(ctx: &mut Scratch) {
     assert!(message.contains("pass --to <name>"), "got: {message}");
 
     let uri: Uri = pattern.parse().expect("source uri parses");
-    let spec = topk::import::discover(&uri, &[], Some("parts"), None)
-        .await
-        .expect("--to names the collection");
+    let spec = topk::import::discover(
+        &topk::import::connect(&uri).await.expect("connect"),
+        &[],
+        Some("parts"),
+        None,
+    )
+    .await
+    .expect("--to names the collection")
+    .spec;
     assert_eq!(spec.collections.keys().collect::<Vec<_>>(), ["parts"]);
 }
 
@@ -99,9 +119,15 @@ async fn glob_needs_a_name(ctx: &mut Scratch) {
 async fn inline_rename() {
     let table = pg::Pg::seed_keyed_on("sku");
     let uri: Uri = pg::Pg::URL.parse().expect("source uri parses");
-    let spec = topk::import::discover(&uri, &[format!("{table}=renamed")], None, None)
-        .await
-        .expect("discover");
+    let spec = topk::import::discover(
+        &topk::import::connect(&uri).await.expect("connect"),
+        &[format!("{table}=renamed")],
+        None,
+        None,
+    )
+    .await
+    .expect("discover")
+    .spec;
     assert_eq!(spec.collections.keys().collect::<Vec<_>>(), ["renamed"]);
 }
 

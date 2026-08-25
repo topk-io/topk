@@ -143,6 +143,7 @@ embedding = { type = "f32_vector", dim = 768 }  # index = { vector = { metric = 
 - **Credentials never enter a spec.** The spec says *what* to import; the command line says *where to connect*. Source-native env still works (PGPASSWORD / MYSQL_PWD / MONGODB_URI / ELASTIC_API_KEY \| ELASTIC_PASSWORD). The scheduled shape is `topk import "$DB_URL" -f spec.toml --yes` — secret in the environment, spec in git.
 - **Multi-vectors are flat.** A source that writes one flat `FLOAT[]` per document (colbert's shape) becomes a matrix by declaring `cols`; rows follow from the length. `f32_matrix` + `cols` + `index = { multi_vector = {} }`.
 - **Vectors are declared by the source, or by you.** A vector index needs `f32_vector` + `dim`. Sources that declare dims discover them; the rest emit `float_list` with a `# declare f32_vector + dim to vector-index` hint — you know your dim. A binary column works the same way: declare the vector type and `dim`, and the packed bytes decode.
+- **Timestamps are epoch integers.** A `timestamp` field is declared in the schema but carried as milliseconds (or seconds) since the epoch. A source that renders a date as text — elasticsearch `_source`, a csv column — parses if it is RFC 3339 or `YYYY-MM-DD`; anything else is a `text` field, not a timestamp.
 - **Conversions are exact or they error.** Decimals wider than f64 discover as `text` and keep their exact value; u64 stays u64; strings with an all-zero fraction parse exactly (`"3.00"` declared `int` → 3). Declaring the wider or narrower type is how loss is accepted: `float` over a wide decimal, f16 over f64, `truncate = <chars>` on a text field.
 - **Rows, not docs.** Upsert collapses rows sharing an id (last write wins), so the summary's row count can exceed the collection's document count. `-o json` carries `rows`, `failed`, `bytes`, timings.
 - **Runs resume.** Every run prints `# run <id>` before it starts and checkpoints as upserts land; `topk import <source> --resume <id>` continues it — finished collections skipped, the in-flight one from its cursor. The plan is stored (`config_dir/topk/import/<id>.toml`, deleted on success), so only the source and credentials go on the command line. Cursors are the source's own: files `<file>:<row offset>` (rows read in stored order, one duckdb thread), databases the last id (rows ordered by the id column — postgres sorts on its side via `postgres_query`, mysql and sqlite sort in duckdb), Elasticsearch its PIT + `search_after` (24h; expired → that collection restarts). `--resume <id> -f spec.toml` runs an edited spec, keeping cursors only for collections whose block is unchanged. Resume assumes the source did not change: rows added to a finished collection are not picked up. Without `--resume`, a re-run re-imports everything — upserts are idempotent, so that is always correct, just not cheap.
@@ -155,12 +156,16 @@ embedding = { type = "f32_vector", dim = 768 }  # index = { vector = { metric = 
 | files: csv, json(l), parquet, avro, xlsx; local, S3, GCS, Azure, hugging face, http(s) | SQL `WHERE` | `float_list` + hint, or packed binary | object-store credential chain; S3 also resolves your AWS profile via the aws CLI (SSO + role chaining, refreshed while the run lives); `hf auth login` for hugging face; http is anonymous |
 | elasticsearch | query DSL | mapping declares `dims` (`/8` for bit) | in-URL, ELASTIC_API_KEY \| ELASTIC_PASSWORD |
 | mongodb | find document | `$sample: 100` lengths all agree → `f32_vector` | in-URL, MONGODB_URI |
+| topk | not supported | copied exactly, indexed vectors included | `TOPK_SOURCE_API_KEY`, else the run's key |
 
 ```bash
 topk import postgres://user:pw@host/db 'public.*'
 topk import mysql://root@host/shop orders
 topk import sqlite:~/books.db
 topk import mongodb://host/shop products
+topk import topk://sunflower/books --to books-v2            # reindex under a new schema
+topk import topk://elastica/books --region monstera         # copy us → eu
+topk import 'topk://sunflower/*' --region monstera          # every collection
 topk import es+https://user:pw@es.example.com 'products*'
 topk import ./books.parquet                                    # or .csv .tsv .json .jsonl .ndjson .arrow .avro .xlsx
 topk import 's3://bucket/books/*.parquet' --to books           # r2:// too
@@ -170,6 +175,8 @@ topk import 'hf://datasets/stanfordnlp/imdb/plain_text/train-*.parquet' --to imd
 topk import 'hf://datasets/org/name@~parquet/default/train/*.parquet' --to name
 topk import https://example.com/books.csv
 ```
+
+A `topk://` source copies a collection: the schema arrives with its indexes, and documents are read with `fetch`, so an indexed vector lands bit for bit rather than as the index's quantized copy. Written as `topk://<region>/<collection>`, or as the endpoint when it is not the one the run writes to — `topk://<region>.api.<host>/<collection>`, `topk+http://` for a plaintext endpoint such as the emulator. The source reads with `TOPK_SOURCE_API_KEY` when set, otherwise the run's own key. Pages ascend by `_id`, so `--resume` continues from the last id written; `--filter` is not supported. The copy is additive — documents the source no longer has stay in the destination. Field types, `required` and indexes copy; a vector index's `exact` and a multi-vector's `width`/`top_k`/`encoding_version` do not, because the server reports them but refuses them on create.
 
 Elasticsearch is addressed explicitly: `es://host` / `es+https://host` (long form `elasticsearch://`), and Elastic Cloud domains (`*.cloud.es.io`, `*.elastic.cloud`) are recognized from bare https urls. Any other http(s) url is a file, named by its extension (query strings are stripped, so presigned urls work).
 

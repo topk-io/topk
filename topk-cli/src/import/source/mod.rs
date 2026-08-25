@@ -2,6 +2,7 @@ pub mod codec;
 mod duck;
 mod es;
 mod mongo;
+mod topk;
 pub mod uri;
 
 use futures::stream::BoxStream;
@@ -15,6 +16,7 @@ pub use duck::{max_readers, Duckdb, READ_AHEAD};
 
 use es::Es;
 use mongo::Mongo;
+use topk::Topk;
 
 pub type Record = Vec<(String, Value)>;
 
@@ -31,14 +33,16 @@ pub enum Source {
     Duck(Duckdb),
     Es(Es),
     Mongo(Mongo),
+    Topk(Topk),
 }
 
 impl Source {
-    pub async fn catalog(&self, uri: &Uri) -> Result<Vec<Table>, Error> {
+    pub async fn catalog(&self) -> Result<Vec<Table>, Error> {
         match self {
-            Source::Duck(duck) => duck.catalog(uri).await,
+            Source::Duck(duck) => duck.catalog().await,
             Source::Es(es) => es.catalog().await,
             Source::Mongo(mongo) => mongo.catalog().await,
+            Source::Topk(topk) => topk.catalog().await,
         }
     }
 
@@ -49,6 +53,7 @@ impl Source {
             Source::Duck(duck) => duck.stream(target, after).await,
             Source::Es(es) => es.stream(target, after).await,
             Source::Mongo(mongo) => mongo.stream(target, after).await,
+            Source::Topk(topk) => topk.stream(target, after).await,
         }
     }
 }
@@ -68,6 +73,12 @@ pub async fn connect(uri: &Uri) -> Result<Source, Error> {
         Uri::Sqlite(path) => Source::Duck(Duckdb::Sqlite(path.clone())),
         Uri::Elasticsearch(url) => Source::Es(Es::new(url.clone())?),
         Uri::Mongo(url) => Source::Mongo(Mongo::connect(url.as_str()).await?),
-        Uri::File { .. } => Source::Duck(Duckdb::Files),
+        Uri::Topk {
+            region,
+            host,
+            https,
+            collection,
+        } => Source::Topk(Topk::new(region, host.as_deref(), *https, collection)?),
+        Uri::File { path, .. } => Source::Duck(Duckdb::Files(Some(path.clone()))),
     })
 }

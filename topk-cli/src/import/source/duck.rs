@@ -18,8 +18,9 @@ pub enum Duckdb {
     Postgres(String),
     Mysql(String),
     Sqlite(String),
-    /// Path-free: each `target.from` is its own locator.
-    Files,
+    /// `Some` when a uri named one file or glob; `None` when each `target.from`
+    /// is its own locator.
+    Files(Option<String>),
 }
 
 /// Per-reader duckdb budget. duckdb's default is 80% of RAM *per connection*,
@@ -106,7 +107,7 @@ impl Duckdb {
             Duckdb::Postgres(url) => ("postgres", url),
             Duckdb::Mysql(url) => ("mysql", url),
             Duckdb::Sqlite(path) => ("sqlite", path),
-            Duckdb::Files => {
+            Duckdb::Files(_) => {
                 let (path, store, format) = Self::file(from)?;
                 match format {
                     Format::Avro => install("avro")?,
@@ -145,7 +146,7 @@ impl Duckdb {
 
     fn table_ref(&self, from: &str) -> Result<String, Error> {
         Ok(match self {
-            Duckdb::Files => {
+            Duckdb::Files(_) => {
                 let (path, _, format) = Self::file(from)?;
                 reader(format, &path)
             }
@@ -157,7 +158,7 @@ impl Duckdb {
         let hidden = match self {
             Duckdb::Postgres(_) => "'information_schema', 'pg_catalog'",
             Duckdb::Mysql(_) => "'information_schema', 'mysql', 'sys', 'performance_schema'",
-            Duckdb::Sqlite(_) | Duckdb::Files => "''",
+            Duckdb::Sqlite(_) | Duckdb::Files(_) => "''",
         };
         let mut stmt = conn.prepare(&format!(
             "SELECT schema_name || '.' || table_name, table_name FROM duckdb_tables() \
@@ -178,7 +179,7 @@ impl Duckdb {
         // (seconds on a real database) and sees no mysql PKs at all; ask the
         // source's information_schema. sqlite has none but is small.
         let sql = match self {
-            Duckdb::Files => return Ok(None),
+            Duckdb::Files(_) => return Ok(None),
             Duckdb::Sqlite(_) => {
                 "SELECT constraint_column_names[1] FROM duckdb_constraints() \
                  WHERE constraint_type = 'PRIMARY KEY' AND database_name = 'src' \
@@ -205,31 +206,28 @@ impl Duckdb {
         })
     }
 
-    pub async fn catalog(&self, uri: &Uri) -> Result<Vec<Table>, Error> {
+    pub async fn catalog(&self) -> Result<Vec<Table>, Error> {
         let source = self.clone();
-        let uri = uri.clone();
         spawn_blocking(move || -> Result<Vec<Table>, Error> {
-            let conn = source.connect(match &uri {
-                Uri::File { path, .. } => path,
-                _ => "",
-            })?;
-            // An empty file reads as a synthetic `column0`.
-            if let Uri::File {
-                path, store: None, ..
-            } = &uri
-            {
-                if local_path(path)
-                    .and_then(|p| std::fs::metadata(p).ok())
-                    .is_some_and(|meta| meta.len() == 0)
-                {
-                    return Err(Error::InvalidArgument(format!(
-                        "{path} is empty — nothing to import"
-                    )));
+            let path = match &source {
+                Duckdb::Files(path) => path.clone().unwrap_or_default(),
+                _ => String::new(),
+            };
+            let conn = source.connect(&path)?;
+            let objects = match &source {
+                // A file source's one object is the uri it was given.
+                Duckdb::Files(_) => {
+                    // An empty file reads as a synthetic `column0`.
+                    if local_path(&path)
+                        .and_then(|path| std::fs::metadata(path).ok())
+                        .is_some_and(|meta| meta.len() == 0)
+                    {
+                        return Err(Error::InvalidArgument(format!(
+                            "{path} is empty — nothing to import"
+                        )));
+                    }
+                    vec![(path.clone(), stem(&path))]
                 }
-            }
-            let objects = match &uri {
-                // A file source's one object is the uri itself.
-                Uri::File { path, .. } => vec![(path.clone(), stem(path))],
                 _ => source.list(&conn)?,
             };
             let mut tables = Vec::with_capacity(objects.len());
@@ -284,7 +282,7 @@ impl Duckdb {
             let produce = || -> Result<(), Error> {
                 let conn = source.connect(&target.from)?;
                 match source {
-                    Duckdb::Files => files(&source, &conn, &target, after.as_deref(), &tx),
+                    Duckdb::Files(_) => files(&source, &conn, &target, after.as_deref(), &tx),
                     _ => source.table(&conn, &target, after.as_deref(), &tx),
                 }
             };

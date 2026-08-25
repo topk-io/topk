@@ -29,7 +29,10 @@ pub async fn discovered(target: Target, url: Option<String>) -> anyhow::Result<T
         Some(url) => url.parse()?,
         None => target.from.parse()?,
     };
-    let spec = topk::import::discover(&uri, std::slice::from_ref(&target.from), None, None).await?;
+    let source = topk::import::connect(&uri).await?;
+    let spec = topk::import::discover(&source, std::slice::from_ref(&target.from), None, None)
+        .await?
+        .spec;
     let found = spec
         .collections
         .into_iter()

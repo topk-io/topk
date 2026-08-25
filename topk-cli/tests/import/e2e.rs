@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::common::seed::{self, minio, sqlite, Seed};
 use crate::common::*;
 use indexmap::IndexMap;
@@ -7,6 +9,8 @@ use topk::import::{Field, Index, Spec, Target, Type};
 use topk_rs::doc;
 use topk_rs::proto::v1::control::field_index::Index as SchemaIndex;
 use topk_rs::proto::v1::control::KeywordIndexType;
+use topk_rs::proto::v1::control::{FieldIndex, FieldSpec, VectorDistanceMetric};
+use topk_rs::proto::v1::data::Value;
 
 fn outcome(stdout: &str, collection: &str) -> serde_json::Value {
     let summary: serde_json::Value = serde_json::from_str(stdout).expect("json summary");
@@ -714,4 +718,163 @@ async fn resume_continues_where_upserts_landed(ctx: &mut Ctx) {
         .await;
     assert_eq!(got.len(), 6, "every row but the poisoned one is there");
     assert!(ctx.get(&collection, &["750"]).await.is_empty());
+}
+
+/// A `topk://` copy is lossless where a query is not: an indexed vector reaches
+/// the destination bit for bit, and the schema arrives with its indexes.
+#[test_context(Ctx)]
+#[tokio::test]
+async fn topk_source_copies_schema_and_indexed_vectors(ctx: &mut Ctx) {
+    let source = ctx.collection("copy-src");
+    let target = ctx.collection("copy-dst");
+    let schema = HashMap::from([
+        (
+            "emb".to_string(),
+            FieldSpec::f32_vector(8, false)
+                .with_index(FieldIndex::vector(VectorDistanceMetric::Euclidean)),
+        ),
+        (
+            "title".to_string(),
+            FieldSpec::text(false).with_index(FieldIndex::keyword(KeywordIndexType::Text)),
+        ),
+        ("created".to_string(), FieldSpec::timestamp(false)),
+    ]);
+    ctx.client()
+        .collections()
+        .create(&source, schema.clone(), None)
+        .await
+        .expect("create source");
+    let vectors: Vec<Vec<f32>> = (0..50)
+        .map(|i| {
+            (0..8)
+                .map(|j| (i as f32 * 0.137 + j as f32).sin())
+                .collect()
+        })
+        .collect();
+    ctx.client()
+        .collection(&source)
+        .upsert(
+            vectors
+                .iter()
+                .enumerate()
+                .map(|(i, vector)| {
+                    doc!(
+                        "_id" => format!("d{i}"),
+                        "title" => format!("t{i}"),
+                        "created" => 1_704_164_645_000i64 + i as i64,
+                        "emb" => vector.clone()
+                    )
+                })
+                .collect(),
+        )
+        .await
+        .expect("seed source");
+
+    let region = std::env::var("TOPK_REGION").expect("TOPK_REGION not set");
+    ok(
+        &[
+            "import",
+            &format!("topk://{region}/{source}"),
+            "--to",
+            &target,
+            "--yes",
+        ],
+        &[],
+    );
+
+    let stored = ctx
+        .client()
+        .collections()
+        .get(&source)
+        .await
+        .expect("source collection");
+    let copied = ctx
+        .client()
+        .collections()
+        .get(&target)
+        .await
+        .expect("copied collection");
+    assert_eq!(
+        copied.schema, stored.schema,
+        "the schema copies with its indexes"
+    );
+
+    let ids: Vec<String> = (0..50).map(|i| format!("d{i}")).collect();
+    let got = ctx
+        .get(&target, &ids.iter().map(String::as_str).collect::<Vec<_>>())
+        .await;
+    assert_eq!(got.len(), 50);
+    for (i, vector) in vectors.iter().enumerate() {
+        let doc = &got[&format!("d{i}")];
+        assert_eq!(
+            doc.get("emb").and_then(Value::as_f32_list),
+            Some(vector.as_slice()),
+            "an indexed vector must not come back quantized"
+        );
+        assert_eq!(
+            doc.get("created").and_then(Value::as_i64),
+            Some(1_704_164_645_000i64 + i as i64)
+        );
+    }
+}
+
+/// Pages ascend by `_id`, and a stored cursor picks up after it — the two
+/// properties `--resume` rests on for this source.
+#[test_context(Ctx)]
+#[tokio::test]
+async fn topk_source_pages_by_id_and_resumes_from_a_cursor(ctx: &mut Ctx) {
+    let source = ctx.collection("resume-src");
+    let target = ctx.collection("resume-dst");
+    ctx.client()
+        .collections()
+        .create(
+            &source,
+            HashMap::from([("name".to_string(), FieldSpec::text(false))]),
+            None,
+        )
+        .await
+        .expect("create source");
+    // Padded: `_id` orders lexicographically, so "d9" would sort after "d10".
+    ctx.client()
+        .collection(&source)
+        .upsert(
+            (0..2000)
+                .map(|i| doc!("_id" => format!("d{i:04}"), "name" => format!("n{i}")))
+                .collect(),
+        )
+        .await
+        .expect("seed source");
+
+    let region = std::env::var("TOPK_REGION").expect("TOPK_REGION not set");
+    let uri = format!("topk://{region}/{source}");
+
+    // A limit takes the first ids in order, not an arbitrary thousand.
+    ok(
+        &["import", &uri, "--to", &target, "--yes", "--limit", "1000"],
+        &[],
+    );
+    let head = ctx.get(&target, &["d0000", "d0999"]).await;
+    assert_eq!(head.len(), 2, "the first thousand ids are the lowest ones");
+    assert!(ctx.get(&target, &["d1000"]).await.is_empty());
+
+    // Resuming from that boundary writes the tail and nothing before it.
+    let run = "aaaa0001";
+    let spec = ok(&["import", &uri, "--to", &target, "--dry-run"], &[]);
+    std::fs::write(
+        state_dir().join(format!("{run}.toml")),
+        format!(
+            "source = \"topk://{region}/{source}\"\n\
+             started = \"2026-01-01T00:00:00Z\"\n\
+             spec = \"\"\"\n{spec}\"\"\"\n\n\
+             [cursors.\"{target}\"]\n\
+             after = \"d0999\"\n"
+        ),
+    )
+    .expect("write resume state");
+    let summary = ok(
+        &["import", &uri, "--resume", run, "--yes", "-o", "json"],
+        &[],
+    );
+    assert_eq!(outcome(&summary, &target)["rows"], 1000, "only the tail");
+    assert_eq!(ctx.get(&target, &["d1999"]).await.len(), 1);
 }

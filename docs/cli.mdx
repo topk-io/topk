@@ -105,6 +105,7 @@ topk import ./books.parquet                          # files name themselves
 topk import 's3://bucket/books/*.parquet' --to books # a glob cannot
 topk import postgres://host/db --dry-run > spec.toml # capture the spec, edit it
 topk import postgres://host/db -f spec.toml --yes    # run it
+topk import topk://sunflower/books --to books-v2     # copy a collection
 ```
 
 | Argument / flag       | Required | Description                                                              |
@@ -138,6 +139,20 @@ embedding = { type = "f32_vector", dim = 768, index = { vector = { metric = "cos
 ```
 
 Credentials never enter a spec: the command line says where to connect, source-native env vars still work (`PGPASSWORD`, `MYSQL_PWD`, `MONGODB_URI`, `ELASTIC_API_KEY`), and object stores use their native credential chains (GCS needs HMAC interop keys, not OAuth). The scheduled shape is `topk import "$DB_URL" -f spec.toml --yes` — secret in the environment, spec in git.
+
+#### Copying a collection
+
+`topk://<region>/<collection>` reads another TopK collection: the schema copies with its indexes, and documents come back through `fetch`, so an indexed vector arrives bit for bit instead of as the index's quantized copy.
+
+```bash
+topk import topk://sunflower/books --to books-v2 --region sunflower   # reindex
+topk import topk://elastica/books --region monstera                   # us → eu
+topk import 'topk://sunflower/*' --region monstera                    # everything
+```
+
+Write the endpoint instead of the bare region when the source is not the cluster the run writes to: `topk://<region>.api.<host>/<collection>`, or `topk+http://` for a plaintext endpoint such as the emulator. The source authenticates with `TOPK_SOURCE_API_KEY` when it is set, otherwise the key the run already uses.
+
+Pages ascend by `_id`, so `--resume` continues from the last id written. `--filter` is not supported for this source, and the copy is additive: documents the source no longer has remain in the destination. Field types, `required` and indexes copy; a vector index's `exact` and a multi-vector's `width`/`top_k`/`encoding_version` do not, because the server reports them but refuses them on create.
 
 #### Resuming
 

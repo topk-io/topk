@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 use topk_rs::proto::v1::control::field_type_list::ListValueType;
 use topk_rs::proto::v1::control::field_type_matrix::MatrixValueType;
 use topk_rs::proto::v1::control::{
-    FieldIndex, FieldSpec, KeywordIndexType, MultiVectorDistanceMetric, MultiVectorQuantization,
-    VectorDistanceMetric,
+    field_index, FieldIndex, FieldSpec, KeywordIndexType, MultiVectorDistanceMetric,
+    MultiVectorIndex, MultiVectorQuantization, VectorDistanceMetric, VectorIndex,
 };
 
 use crate::import::error::Error;
@@ -45,6 +45,7 @@ pub enum Type {
     Float,
     Bool,
     Bytes,
+    Timestamp,
     Struct,
     TextList,
     IntList,
@@ -106,12 +107,19 @@ pub enum Index {
     Exact,
     Semantic,
     Ngram,
+    /// `exact` is not modelled: the server reports it but refuses it on create
+    /// ("setting exact on vector index is not allowed").
     Vector {
         metric: Metric,
     },
+    /// `width`, `top_k` and a non-zero `encoding_version` are not modelled: the
+    /// server reports them but refuses them on create.
     MultiVector {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         quantization: Option<Quant>,
+
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        skip_smve: bool,
     },
 }
 
@@ -132,6 +140,51 @@ pub enum Quant {
     Binary2bit,
     #[serde(rename = "scalar")]
     Scalar,
+}
+
+impl From<Metric> for VectorDistanceMetric {
+    fn from(metric: Metric) -> Self {
+        match metric {
+            Metric::Cosine => VectorDistanceMetric::Cosine,
+            Metric::Euclidean => VectorDistanceMetric::Euclidean,
+            Metric::DotProduct => VectorDistanceMetric::DotProduct,
+            Metric::Hamming => VectorDistanceMetric::Hamming,
+        }
+    }
+}
+
+impl From<VectorDistanceMetric> for Metric {
+    fn from(metric: VectorDistanceMetric) -> Self {
+        match metric {
+            VectorDistanceMetric::Euclidean => Metric::Euclidean,
+            VectorDistanceMetric::DotProduct => Metric::DotProduct,
+            VectorDistanceMetric::Hamming => Metric::Hamming,
+            _ => Metric::Cosine,
+        }
+    }
+}
+
+impl From<Quant> for MultiVectorQuantization {
+    fn from(quant: Quant) -> Self {
+        match quant {
+            Quant::Binary1bit => MultiVectorQuantization::Binary1bit,
+            Quant::Binary2bit => MultiVectorQuantization::Binary2bit,
+            Quant::Scalar => MultiVectorQuantization::Scalar,
+        }
+    }
+}
+
+impl TryFrom<MultiVectorQuantization> for Quant {
+    type Error = ();
+
+    fn try_from(quant: MultiVectorQuantization) -> Result<Self, ()> {
+        match quant {
+            MultiVectorQuantization::Binary1bit => Ok(Quant::Binary1bit),
+            MultiVectorQuantization::Binary2bit => Ok(Quant::Binary2bit),
+            MultiVectorQuantization::Scalar => Ok(Quant::Scalar),
+            MultiVectorQuantization::Unspecified => Err(()),
+        }
+    }
 }
 
 impl TryFrom<&Field> for FieldSpec {
@@ -203,6 +256,7 @@ impl TryFrom<&Field> for FieldSpec {
             Type::Float => FieldSpec::float(field.required),
             Type::Bool => FieldSpec::boolean(field.required),
             Type::Bytes => FieldSpec::bytes(field.required),
+            Type::Timestamp => FieldSpec::timestamp(field.required),
             Type::Struct => FieldSpec::r#struct(field.required, Vec::<(String, FieldSpec)>::new()),
             Type::TextList => FieldSpec::list(field.required, ListValueType::String),
             Type::IntList => FieldSpec::list(field.required, ListValueType::Integer),
@@ -248,22 +302,30 @@ impl From<Index> for FieldIndex {
             Index::Exact => FieldIndex::keyword(KeywordIndexType::Exact),
             Index::Semantic => FieldIndex::semantic(),
             Index::Ngram => FieldIndex::ngram(),
-            Index::Vector { metric } => FieldIndex::vector(match metric {
-                Metric::Cosine => VectorDistanceMetric::Cosine,
-                Metric::Euclidean => VectorDistanceMetric::Euclidean,
-                Metric::DotProduct => VectorDistanceMetric::DotProduct,
-                Metric::Hamming => VectorDistanceMetric::Hamming,
-            }),
-            Index::MultiVector { quantization } => FieldIndex::multi_vector(
-                MultiVectorDistanceMetric::Maxsim,
-                quantization.map(|quant| match quant {
-                    Quant::Binary1bit => MultiVectorQuantization::Binary1bit,
-                    Quant::Binary2bit => MultiVectorQuantization::Binary2bit,
-                    Quant::Scalar => MultiVectorQuantization::Scalar,
-                }),
-                None,
-                None,
-            ),
+            Index::Vector { metric } => FieldIndex {
+                index: Some(field_index::Index::VectorIndex(VectorIndex {
+                    metric: VectorDistanceMetric::from(metric).into(),
+                    exact: None,
+                })),
+            },
+            // Built here rather than with `FieldIndex::multi_vector`, which
+            // fixes `skip_smve` at its default.
+            Index::MultiVector {
+                quantization,
+                skip_smve,
+            } => FieldIndex {
+                index: Some(field_index::Index::MultiVectorIndex(MultiVectorIndex {
+                    metric: MultiVectorDistanceMetric::Maxsim.into(),
+                    #[allow(deprecated)]
+                    sketch_bits: None,
+                    quantization: quantization
+                        .map(|quant| MultiVectorQuantization::from(quant).into()),
+                    width: None,
+                    top_k: None,
+                    skip_smve,
+                    encoding_version: 0,
+                })),
+            },
         }
     }
 }

@@ -1,6 +1,6 @@
 pub mod arrow;
 pub mod bson;
-pub mod es;
+pub mod spec;
 
 use topk_rs::proto::v1::data::Value;
 

@@ -321,9 +321,9 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
         #[cfg(feature = "import")]
         Some(Commands::Import(args)) => {
             // Lazy: --dry-run neither authenticates nor writes.
-            let connect = || {
-                let api_key = get_api_key(cli.api_key, &config)?;
-                let region = cli.region.ok_or_else(|| {
+            let target = || {
+                let api_key = get_api_key(cli.api_key.clone(), &config)?;
+                let region = cli.region.clone().ok_or_else(|| {
                     topk::import::Error::InvalidArgument(
                         "--region is required to import (or set TOPK_REGION). \
                          List available regions at https://docs.topk.io/regions"
@@ -344,7 +344,7 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
                         }),
                 ))
             };
-            topk::commands::import::run(connect, &args, output).await?;
+            topk::commands::import::run(target, &args, output).await?;
             Ok(())
         }
 

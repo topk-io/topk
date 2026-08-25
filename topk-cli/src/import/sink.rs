@@ -349,20 +349,7 @@ pub fn coerce(value: Value, field: &Field) -> Result<Value, Error> {
             }
             Value::string(text)
         }
-        Type::Int => Value::i64(
-            match value.value.as_ref() {
-                Some(Inner::I32(n)) => Some(*n as i64),
-                Some(Inner::I64(n)) => Some(*n),
-                Some(Inner::U32(n)) => Some(*n as i64),
-                Some(Inner::U64(n)) => i64::try_from(*n).ok(),
-                Some(Inner::F32(f)) => int_from_f64(*f as f64),
-                Some(Inner::F64(f)) => int_from_f64(*f),
-                Some(Inner::Bool(b)) => Some(*b as i64),
-                Some(Inner::String(s)) => int_from_str(s),
-                _ => None,
-            }
-            .ok_or(Error::CannotCoerce(field.ty))?,
-        ),
+        Type::Int => Value::i64(int_from_value(&value).ok_or(Error::CannotCoerce(field.ty))?),
         Type::Float => Value::f64(
             match value.value.as_ref() {
                 Some(Inner::I32(n)) => Some(*n as f64),
@@ -492,7 +479,48 @@ pub fn coerce(value: Value, field: &Field) -> Result<Value, Error> {
         }
         Type::Bytes if value.as_binary().is_some() => value,
         Type::Bytes => return Err(Error::CannotCoerce(field.ty)),
+        // Declared in the schema, carried as an epoch integer. Sources that
+        // render a date as text (elasticsearch `_source`, a csv column) parse
+        // to the same instant; anything else is a `text` field, not a timestamp.
+        Type::Timestamp => Value::i64(
+            match value.value.as_ref() {
+                Some(Inner::String(s)) => epoch_millis(s),
+                _ => None,
+            }
+            .or_else(|| int_from_value(&value))
+            .ok_or(Error::CannotCoerce(field.ty))?,
+        ),
     })
+}
+
+/// An exact i64 from whatever numeric shape a source produced.
+fn int_from_value(value: &Value) -> Option<i64> {
+    match value.value.as_ref()? {
+        Inner::I32(n) => Some(*n as i64),
+        Inner::I64(n) => Some(*n),
+        Inner::U32(n) => Some(*n as i64),
+        Inner::U64(n) => i64::try_from(*n).ok(),
+        Inner::F32(f) => int_from_f64(*f as f64),
+        Inner::F64(f) => int_from_f64(*f),
+        Inner::Bool(b) => Some(*b as i64),
+        Inner::String(s) => int_from_str(s),
+        _ => None,
+    }
+}
+
+/// Milliseconds since the epoch from a rendered date: RFC 3339 first, then a
+/// bare date, which is midnight UTC.
+fn epoch_millis(text: &str) -> Option<i64> {
+    let text = text.trim();
+    if let Ok(stamp) = chrono::DateTime::parse_from_rfc3339(text) {
+        return Some(stamp.timestamp_millis());
+    }
+    let date = chrono::NaiveDate::parse_from_str(text, "%Y-%m-%d").ok()?;
+    Some(
+        date.and_time(chrono::NaiveTime::MIN)
+            .and_utc()
+            .timestamp_millis(),
+    )
 }
 
 /// Container types accept JSON in a string cell (CSV, TEXT columns).

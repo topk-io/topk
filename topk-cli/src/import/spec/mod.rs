@@ -6,7 +6,7 @@ use topk_rs::proto::v1::control::FieldSpec;
 use crate::import::error::Error;
 
 mod field;
-pub use field::{Field, Index, Type};
+pub use field::{Field, Index, Quant, Type};
 
 #[derive(Deserialize, Serialize)]
 #[serde(transparent)]

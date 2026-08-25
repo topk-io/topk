@@ -32,6 +32,13 @@ pub enum Uri {
     Sqlite(String),
     Elasticsearch(Url),
     Mongo(Url),
+    Topk {
+        region: String,
+        /// None reads `TOPK_HOST` / `TOPK_HTTPS`, as the target does.
+        host: Option<String>,
+        https: Option<bool>,
+        collection: String,
+    },
     File {
         path: String,
         store: Option<ObjectStore>,
@@ -47,6 +54,18 @@ impl std::fmt::Debug for Uri {
             Uri::Mysql(url) => f.debug_tuple("Mysql").field(&redact(url)).finish(),
             Uri::Elasticsearch(url) => f.debug_tuple("Elasticsearch").field(&redact(url)).finish(),
             Uri::Mongo(url) => f.debug_tuple("Mongo").field(&redact(url)).finish(),
+            Uri::Topk {
+                region,
+                host,
+                https,
+                collection,
+            } => f
+                .debug_struct("Topk")
+                .field("region", region)
+                .field("host", host)
+                .field("https", https)
+                .field("collection", collection)
+                .finish(),
             Uri::Sqlite(path) => f.debug_tuple("Sqlite").field(path).finish(),
             Uri::File {
                 path,
@@ -70,6 +89,15 @@ impl Uri {
                 redact(url)
             }
             Uri::Sqlite(path) => format!("sqlite:{path}"),
+            Uri::Topk {
+                region,
+                host,
+                collection,
+                ..
+            } => match host {
+                Some(host) => format!("topk://{region}.api.{host}/{collection}"),
+                None => format!("topk://{region}/{collection}"),
+            },
             Uri::File { path, .. } => path.clone(),
         }
     }
@@ -112,6 +140,39 @@ impl FromStr for Uri {
                     "bare mongodb:// needs MONGODB_URI set, or pass the full URL".into(),
                 )),
             };
+        }
+        for (prefix, https) in [
+            ("topk://", None),
+            ("topk+https://", Some(true)),
+            ("topk+http://", Some(false)),
+        ] {
+            let Some(rest) = s.strip_prefix(prefix) else {
+                continue;
+            };
+            let (authority, collection) = rest.split_once('/').unwrap_or((rest, ""));
+            // The endpoint is `<region>.api.<host>`, so writing it out names the
+            // host; a bare region takes the host the target uses.
+            let (region, host) = match authority.split_once(".api.") {
+                Some((region, host)) => (region, Some(host.to_string())),
+                None if authority.contains('.') => {
+                    return Err(Error::InvalidArgument(format!(
+                        "{authority:?} is not a topk endpoint: write the region alone \
+                         (topk://sunflower/books) or the endpoint (topk://sunflower.api.topk.io/books)"
+                    )))
+                }
+                None => (authority, None),
+            };
+            if region.is_empty() {
+                return Err(Error::InvalidArgument(
+                    "topk:// needs a region, e.g. topk://sunflower/books".into(),
+                ));
+            }
+            return Ok(Self::Topk {
+                region: region.to_string(),
+                host,
+                https,
+                collection: collection.to_string(),
+            });
         }
         if s.starts_with("mongodb://") || s.starts_with("mongodb+srv://") {
             let url = parse_url(s)?;

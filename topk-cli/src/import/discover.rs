@@ -2,20 +2,24 @@ use indexmap::IndexMap;
 use wildmatch::WildMatch;
 
 use crate::import::error::Error;
-use crate::import::source::uri::Uri;
-use crate::import::source::{self, Table};
+use crate::import::source::{Source, Table};
 use crate::import::spec::{invalid_collection_name, valid_collection_name, Field, Spec, Target};
 use crate::import::ID_PLACEHOLDER;
 
+/// The spec, and the objects left out of it — an id-only table, or one whose id
+/// could not be found. Printed by the caller; nothing here writes to a terminal.
+pub struct Discovered {
+    pub spec: Spec,
+    pub skipped: Vec<String>,
+}
+
 pub async fn discover(
-    uri: &Uri,
+    source: &Source,
     patterns: &[String],
     to: Option<&str>,
     id: Option<&str>,
-) -> Result<Spec, Error> {
-    let available = source::connect(uri).await?.catalog(uri).await?;
-    let total = available.len();
-    let sample: Vec<String> = available.iter().take(5).map(|t| t.from.clone()).collect();
+) -> Result<Discovered, Error> {
+    let available = source.catalog().await?;
 
     let mut renames: Vec<(&str, &str)> = Vec::new();
     let mut globs: Vec<WildMatch> = Vec::new();
@@ -29,22 +33,21 @@ pub async fn discover(
         globs.push(WildMatch::new("*"));
     }
     let mut collections: IndexMap<String, Target> = IndexMap::new();
-    let mut skipped = 0;
+    let mut skipped: Vec<String> = Vec::new();
 
-    let matched: Vec<Table> = available
-        .into_iter()
-        .filter(|object| {
-            renames.iter().any(|(from, _)| *from == object.from)
-                || globs.iter().any(|g| {
-                    g.matches(&object.from)
-                        || object
-                            .collection_hint
-                            .as_deref()
-                            .and_then(collection_key)
-                            .is_some_and(|key| g.matches(&key))
-                })
-        })
-        .collect();
+    // Partitioned, not filtered: what did not match is the sample an empty
+    // result reports, without cloning it on every run that succeeds.
+    let (matched, rest): (Vec<Table>, Vec<Table>) = available.into_iter().partition(|object| {
+        renames.iter().any(|(from, _)| *from == object.from)
+            || globs.iter().any(|g| {
+                g.matches(&object.from)
+                    || object
+                        .collection_hint
+                        .as_deref()
+                        .and_then(collection_key)
+                        .is_some_and(|key| g.matches(&key))
+            })
+    });
 
     if let Some(to) = to {
         if !valid_collection_name(to) {
@@ -56,6 +59,13 @@ pub async fn discover(
                 matched.len()
             )));
         }
+    }
+    if id.is_some() && matched.len() > 1 {
+        return Err(Error::InvalidArgument(format!(
+            "--id names the id column of a single object, but {} objects matched — \
+             set `id` per collection in a spec",
+            matched.len()
+        )));
     }
 
     let match_count = matched.len();
@@ -98,41 +108,48 @@ pub async fn discover(
         let target = Target::from(object);
         // An id-only object must not sink a whole-database glob.
         if target.fields.is_empty() {
-            eprintln!(
+            skipped.push(format!(
                 "# skipping {}: no columns to import besides the id",
                 target.from
-            );
-            skipped += 1;
+            ));
             continue;
         }
         // A lone un-id-able match falls through so run() can point at --id.
         if target.id.as_deref() == Some(ID_PLACEHOLDER) && match_count > 1 {
-            eprintln!(
+            skipped.push(format!(
                 "# skipping {}: no id column found — import it alone with `--id <column>`, \
                  or set `id` in a spec",
                 target.from
-            );
-            skipped += 1;
+            ));
             continue;
         }
         collections.insert(key, target);
     }
 
     if collections.is_empty() {
-        return Err(Error::InvalidArgument(if skipped > 0 {
-            format!("nothing to import: all {skipped} matched object(s) were skipped")
+        return Err(Error::InvalidArgument(if !skipped.is_empty() {
+            format!(
+                "nothing to import: all {} matched object(s) were skipped",
+                skipped.len()
+            )
         } else if patterns.is_empty() {
             "the source has no objects to import".to_string()
         } else {
+            let sample: Vec<&str> = rest
+                .iter()
+                .take(5)
+                .map(|table| table.from.as_str())
+                .collect();
             format!(
-                "nothing to import from {patterns:?}. The source has {total} object(s): {sample:?}"
+                "nothing to import from {patterns:?}. The source has {} object(s): {sample:?}",
+                rest.len()
             )
         }));
     }
 
     let spec = Spec { collections };
     spec.validate()?;
-    Ok(spec)
+    Ok(Discovered { spec, skipped })
 }
 
 // Source object hint → TopK collection name; None when no valid name derives.

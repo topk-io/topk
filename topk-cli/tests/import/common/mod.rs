@@ -119,9 +119,11 @@ pub fn fails(args: &[&str], env: &[(&str, &str)]) -> String {
 pub async fn discover_spec(locator: &str, pattern: Option<&str>) -> Spec {
     let uri = locator.parse().expect("source uri parses");
     let patterns: Vec<String> = pattern.into_iter().map(str::to_string).collect();
-    topk::import::discover(&uri, &patterns, None, None)
+    let source = topk::import::connect(&uri).await.expect("connect");
+    topk::import::discover(&source, &patterns, None, None)
         .await
         .expect("discover")
+        .spec
 }
 
 pub async fn stream_docs(

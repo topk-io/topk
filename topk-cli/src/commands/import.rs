@@ -110,6 +110,12 @@ pub async fn run(
 ) -> Result<(), Error> {
     tracing::info!(?args, "import");
     let resumed = args.resume.as_deref().map(State::load).transpose()?;
+    // Credentials never enter a spec: the CLI uri is the source, or every `from`
+    // is its own file locator.
+    let source = match args.source.as_ref() {
+        Some(uri) => import::connect(uri).await?,
+        None => Source::Duck(Duckdb::Files(None)),
+    };
     let mut spec = match (&args.spec, &resumed) {
         (Some(path), _) => {
             if !args.objects.is_empty() {
@@ -124,17 +130,17 @@ pub async fn run(
         }
         (None, Some(state)) => Spec::parse(&state.spec)?,
         (None, None) => {
-            let source = args
-                .source
-                .as_ref()
-                .expect("clap requires source unless --spec is set");
-            import::discover(
-                source,
+            let discovered = import::discover(
+                &source,
                 &args.objects,
                 args.to.as_deref(),
                 args.id.as_deref(),
             )
-            .await?
+            .await?;
+            for skipped in discovered.skipped {
+                eprintln!("{skipped}");
+            }
+            discovered.spec
         }
     };
     // A filter names one object's columns.
@@ -171,16 +177,12 @@ pub async fn run(
 
     // Credentials never enter a spec: the CLI uri is the source, or every `from` is a file.
     let source_name = args.source.as_ref().map(Uri::redacted).unwrap_or_default();
-    let source = match args.source.as_ref() {
-        Some(uri) => import::connect(uri).await?,
-        None => {
-            // Fail before any prompt: every `from` must be a file locator.
-            for target in spec.collections.values() {
-                Duckdb::file(&target.from)?;
-            }
-            Source::Duck(Duckdb::Files)
+    // Fail before any prompt, not on the first read.
+    if args.source.is_none() {
+        for target in spec.collections.values() {
+            Duckdb::file(&target.from)?;
         }
-    };
+    }
 
     // Stored for --resume, and compared per collection against an edited -f.
     let plan = toml::to_string_pretty(&spec)
@@ -290,7 +292,7 @@ pub async fn run(
     // Each duckdb scan holds a row group; too many OOM-kill the process
     // regardless of the per-connection `memory_limit`.
     let readers = match &source {
-        Source::Duck(Duckdb::Files) => {
+        Source::Duck(Duckdb::Files(_)) => {
             import::max_readers().unwrap_or(CONCURRENCY) / (1 + import::READ_AHEAD)
         }
         Source::Duck(_) => import::max_readers().unwrap_or(CONCURRENCY),

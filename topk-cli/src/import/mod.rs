@@ -10,7 +10,7 @@ pub const ID: &str = "_id";
 pub const ID_PLACEHOLDER: &str = "<column>";
 
 pub use ddl::absent;
-pub use discover::discover;
+pub use discover::{discover, Discovered};
 pub use error::Error;
 pub use sink::{document, documents, load, Outcome};
 pub use source::uri::Uri;
