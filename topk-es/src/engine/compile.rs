@@ -91,8 +91,8 @@ pub fn search(
 
     let agg_queries = req
         .aggs
-        .iter()
-        .map(|(_, clause)| agg::compile(schema, clause, &gate))
+        .values()
+        .map(|clause| agg::compile(schema, clause, &gate))
         .collect::<Result<Vec<_>, _>>()?;
 
     Ok((req, queries, agg_queries))
@@ -266,7 +266,8 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
                 TermValue::Bare(_) => None,
             };
             let field_name = clause.field.as_str().to_string();
-            let value = date::to_timestamp(schema.get(field_name.as_str()), clause.value.value(), None)?;
+            let value =
+                date::to_timestamp(schema.get(field_name.as_str()), clause.value.value(), None)?;
             if !value.is_scalar() {
                 return Err(Error::InvalidQuery(format!(
                     "[term] query does not support a non-scalar value for field [{field_name}]"
@@ -323,11 +324,16 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
         Query::Range(clause) => {
             let boost = clause.value.boost;
             let spec = schema.get(clause.field.as_str());
-            let tz = clause.value.time_zone.as_deref();
+            let zone = clause
+                .value
+                .time_zone
+                .as_deref()
+                .map(date::Zone::parse)
+                .transpose()?;
             // ES rounds an under-specified bound toward the side that widens the range: down
             // under gte/lt, up under gt/lte, so `lte: "2026-06-10"` includes all of that day.
             let bound = |v: topk_rs::json::Value, round| {
-                date::to_timestamp_rounded(spec, v.into_inner(), tz, round)
+                date::to_timestamp_rounded(spec, v.into_inner(), zone.as_ref(), round)
             };
             let mut exprs = Vec::new();
             if let Some(v) = clause.value.gte {

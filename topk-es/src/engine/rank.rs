@@ -101,12 +101,8 @@ impl Candidate {
                             // Fields arrive decoded, so a date is an ISO string by now. ES echoes
                             // the raw sort value, which for a date is epoch millis.
                             .map(|value| {
-                                date::to_timestamp(
-                                    schema.get(name.as_str()),
-                                    value.clone(),
-                                    None,
-                                )
-                                .unwrap_or(value)
+                                date::to_timestamp(schema.get(name.as_str()), value.clone(), None)
+                                    .unwrap_or(value)
                             }),
                     };
                     match (value, f.asc) {

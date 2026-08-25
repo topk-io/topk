@@ -7,6 +7,9 @@ use topk_rs::proto::v1::data::Value;
 
 use crate::Error;
 
+mod interval;
+pub use interval::{bucketing, Bucketing};
+
 // Which end of the unit an under-specified bound resolves to. ES rounds a bound down under
 // `gte`/`lt` and up under `gt`/`lte`, so `lte: "2026-06-10"` means the last millisecond of that
 // day and `lte: <expr>||/w` the last millisecond of that week.
@@ -18,25 +21,24 @@ pub enum Round {
 
 // `now` is threaded in rather than read here so date math is testable without the wall clock.
 //
-// All arithmetic and rounding happens in `tz`, as ES does: `2026-06-10||/d` under `-05:00` is
+// All arithmetic and rounding happens in `zone`, as ES does: `2026-06-10||/d` under `-05:00` is
 // local midnight (05:00Z), not UTC midnight.
 fn parse_millis_at(
     value: &str,
-    tz: Option<&str>,
+    zone: Option<&Zone>,
     round: Round,
     now: DateTime<Utc>,
 ) -> Result<i64, Error> {
-    let zone = tz.map(Zone::parse).transpose()?;
-    let local = |at: DateTime<Utc>| match &zone {
+    let local = |at: DateTime<Utc>| match zone {
         None => at.naive_utc(),
         Some(zone) => at.naive_utc() + Duration::milliseconds(zone.offset_millis(at)),
     };
-    let millis = |naive: NaiveDateTime| match &zone {
+    let millis = |naive: NaiveDateTime| match zone {
         None => Ok(naive.and_utc().timestamp_millis()),
         Some(zone) => zone
             .from_local(naive)
             .map(|dt| dt.timestamp_millis())
-            .ok_or_else(|| Error::BadRequest(format!("cannot apply time_zone [{}]", tz.unwrap()))),
+            .ok_or_else(|| Error::BadRequest(format!("cannot apply time_zone [{zone}]"))),
     };
 
     if let Some(rest) = value.strip_prefix("now") {
@@ -45,38 +47,34 @@ fn parse_millis_at(
 
     // ES anchors date math to an explicit date with `||`, e.g. `2026-01-15T00:00:00Z||+1d`.
     if let Some((anchor, rest)) = value.split_once("||") {
-        let (anchor, precision) = parse_instant_precision(anchor, tz)?;
+        let (anchor, precision) = parse_instant_precision(anchor, zone)?;
         let anchor = local(anchor);
-        return match rest.is_empty() {
+        return match (rest.is_empty(), round) {
             // No math after `||`, so the anchor's own precision decides the rounding unit.
-            true => millis(end_of(anchor, precision, round)),
-            false => millis(date_math(rest, round, anchor)?),
+            (true, Round::Down) => millis(anchor),
+            (true, Round::Up) => millis(end_of(anchor, precision)),
+            (false, _) => millis(date_math(rest, round, anchor)?),
         };
     }
 
     // Date formats win over epoch millis, as in ES's `strict_date_optional_time||epoch_millis`:
     // "2026" is the year 2026, not 2026ms into 1970.
-    match parse_instant_precision(value, tz) {
+    match parse_instant_precision(value, zone) {
         Ok((dt, precision)) => match round {
             // The instant is already correct; only an upward round needs local arithmetic.
             Round::Down => Ok(dt.timestamp_millis()),
-            Round::Up => millis(end_of(local(dt), precision, round)),
+            Round::Up => millis(end_of(local(dt), precision)),
         },
         // Epoch millis are exact, so rounding never applies.
         Err(err) => value.parse::<i64>().map_err(|_| err),
     }
 }
 
-// The last instant inside `unit` when rounding up, else the value unchanged.
-fn end_of(at: NaiveDateTime, unit: Unit, round: Round) -> NaiveDateTime {
-    match round {
-        Round::Down => at,
-        // `at` is already the start of its unit, so the unit's last millisecond is one unit on,
-        // less 1ms.
-        Round::Up => add(round_down(at, unit).unwrap_or(at), unit, 1)
-            .map(|next| next - Duration::milliseconds(1))
-            .unwrap_or(at),
-    }
+// `at` is the start of its unit, so the unit's last millisecond is one unit on, less 1ms.
+fn end_of(at: NaiveDateTime, unit: Unit) -> NaiveDateTime {
+    add(round_down(at, unit).unwrap_or(at), unit, 1)
+        .map(|next| next - Duration::milliseconds(1))
+        .unwrap_or(at)
 }
 
 // A superset of what ES's default `strict_date_optional_time` accepts: a full RFC3339 stamp, a
@@ -87,7 +85,7 @@ fn end_of(at: NaiveDateTime, unit: Unit, round: Round) -> NaiveDateTime {
 // ES uses that unit as the rounding granularity for an upward-rounded bound.
 fn parse_instant_precision(
     value: &str,
-    tz: Option<&str>,
+    zone: Option<&Zone>,
 ) -> Result<(DateTime<Utc>, Unit), Error> {
     if let Ok(dt) = DateTime::parse_from_rfc3339(value) {
         // ES fills the unspecified part of a bound to its maximum, so a stamp written without
@@ -124,11 +122,11 @@ fn parse_instant_precision(
     })
     .ok_or_else(|| Error::BadRequest(format!("cannot parse date [{value}]")))?;
 
-    let at = match tz {
+    let at = match zone {
         None => naive.and_utc(),
-        Some(tz) => Zone::parse(tz)?
+        Some(zone) => zone
             .from_local(naive)
-            .ok_or_else(|| Error::BadRequest(format!("cannot apply time_zone [{tz}]")))?,
+            .ok_or_else(|| Error::BadRequest(format!("cannot apply time_zone [{zone}]")))?,
     };
     Ok((at, precision))
 }
@@ -166,15 +164,12 @@ impl Zone {
             }
         }
 
-        let at = match self {
+        match self {
             Zone::Fixed(offset) => resolve(offset.from_local_datetime(&naive)),
             Zone::Named(tz) => resolve(tz.from_local_datetime(&naive)),
-        };
-        match at {
-            Some(at) => Some(at),
-            // Inside a gap; the next hour always exists.
-            None => self.from_local(naive + Duration::hours(1)),
         }
+        // Inside a gap; the next hour always exists.
+        .or_else(|| self.from_local(naive + Duration::hours(1)))
     }
 
     // The zone's UTC offset in milliseconds at `at`. A named zone's offset moves with DST, so this
@@ -191,6 +186,15 @@ impl Zone {
     }
 }
 
+impl std::fmt::Display for Zone {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Zone::Fixed(offset) => write!(f, "{offset}"),
+            Zone::Named(tz) => write!(f, "{}", tz.name()),
+        }
+    }
+}
+
 // ES date math: a chain of `+Nunit` / `-Nunit` offsets and `/unit` roundings, e.g. `-1d/d`.
 fn date_math(expr: &str, round: Round, anchor: NaiveDateTime) -> Result<NaiveDateTime, Error> {
     let mut at = anchor;
@@ -203,7 +207,11 @@ fn date_math(expr: &str, round: Round, anchor: NaiveDateTime) -> Result<NaiveDat
                 let (unit, tail) = tail.split_at(1.min(tail.len()));
                 let unit = unit_of(unit, expr)?;
                 // `/unit` snaps to the unit's start, or its last instant when rounding up.
-                at = end_of(round_down(at, unit)?, unit, round);
+                let start = round_down(at, unit)?;
+                at = match round {
+                    Round::Down => start,
+                    Round::Up => end_of(start, unit),
+                };
                 rest = tail;
             }
             "+" | "-" => {
@@ -281,11 +289,14 @@ fn add_months(at: NaiveDateTime, n: i64) -> Option<NaiveDateTime> {
         .find(|day| NaiveDate::from_ymd_opt(year, month, *day).is_some())
         .unwrap_or(at.day());
 
-    NaiveDate::from_ymd_opt(year, month, day)?
-        .and_hms_nano_opt(at.hour(), at.minute(), at.second(), at.nanosecond())
+    NaiveDate::from_ymd_opt(year, month, day)?.and_hms_nano_opt(
+        at.hour(),
+        at.minute(),
+        at.second(),
+        at.nanosecond(),
+    )
 }
 
-// `/unit` rounds down to the start of that unit, as ES does.
 fn round_down(at: NaiveDateTime, unit: Unit) -> Result<NaiveDateTime, Error> {
     let midnight = |d: NaiveDate| d.and_hms_opt(0, 0, 0);
     let rounded = match unit {
@@ -326,13 +337,12 @@ pub fn is_timestamp(spec: &FieldSpec) -> bool {
 // Coerce a value destined for `spec` onto the epoch millis a timestamp column stores. ES accepts
 // an ISO-8601 string, raw millis, or a list of either (`terms`). Non-timestamp fields pass through
 // untouched, so a numeric-looking string on a keyword field is never mistaken for a date.
-// Range bounds want `to_timestamp_rounded` instead: an under-specified bound widens the range.
 pub fn to_timestamp(
     spec: Option<&FieldSpec>,
     value: Value,
-    tz: Option<&str>,
+    zone: Option<&Zone>,
 ) -> Result<Value, Error> {
-    to_timestamp_rounded(spec, value, tz, Round::Down)
+    to_timestamp_rounded(spec, value, zone, Round::Down)
 }
 
 // As `to_timestamp`, but for a range bound, where an under-specified value resolves to the end
@@ -340,14 +350,14 @@ pub fn to_timestamp(
 pub fn to_timestamp_rounded(
     spec: Option<&FieldSpec>,
     value: Value,
-    tz: Option<&str>,
+    zone: Option<&Zone>,
     round: Round,
 ) -> Result<Value, Error> {
     if !spec.is_some_and(is_timestamp) {
         return Ok(value);
     }
 
-    let parse = |v: &str| parse_millis_at(v, tz, round, Utc::now());
+    let parse = |v: &str| parse_millis_at(v, zone, round, Utc::now());
 
     if let Some(s) = value.as_string() {
         return Ok(Value::timestamp(parse(s)?));
@@ -363,8 +373,8 @@ pub fn to_timestamp_rounded(
     }
 }
 
-// Inverse of `to_timestamp`: render a stored timestamp back as the ISO-8601 string ES returns.
-// A value that isn't a usable timestamp reads as null rather than leaking raw millis.
+// Inverse of `to_timestamp`. A value that isn't a usable timestamp reads as null rather than
+// leaking raw millis.
 pub fn from_timestamp(value: Value) -> Value {
     match value.as_timestamp().and_then(|t| format(t, None)) {
         Some(iso) => Value::string(iso),
@@ -372,12 +382,11 @@ pub fn from_timestamp(value: Value) -> Value {
     }
 }
 
-mod interval;
-pub use interval::{bucketing, Bucketing};
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const NOW: &str = "2026-06-15T10:30:45.123Z";
 
     fn fmt(millis: i64) -> Option<String> {
         format(millis, None)
@@ -389,15 +398,22 @@ mod tests {
             .with_timezone(&Utc)
     }
 
+    fn eval_round(expr: &str, round: Round) -> String {
+        fmt(parse_millis_at(expr, None, round, at(NOW)).expect(expr)).unwrap()
+    }
+
     fn eval(expr: &str) -> String {
-        let now = at("2026-06-15T10:30:45.123Z");
-        fmt(parse_millis_at(expr, None, Round::Down, now).expect(expr)).unwrap()
+        eval_round(expr, Round::Down)
     }
 
     // The upper end of the unit an under-specified bound names, as `lte`/`gt` resolve it.
     fn eval_up(expr: &str) -> String {
-        let now = at("2026-06-15T10:30:45.123Z");
-        fmt(parse_millis_at(expr, None, Round::Up, now).expect(expr)).unwrap()
+        eval_round(expr, Round::Up)
+    }
+
+    fn eval_tz(expr: &str, zone: &str) -> String {
+        let zone = Zone::parse(zone).expect(zone);
+        fmt(parse_millis_at(expr, Some(&zone), Round::Down, at(NOW)).expect(expr)).unwrap()
     }
 
     #[test]
@@ -487,44 +503,39 @@ mod tests {
 
     #[test]
     fn time_zone_applies_to_zoneless_values_only() {
-        let now = at("2026-06-15T10:30:45.123Z");
-        let tz =
-            |v: &str, tz: &str| fmt(parse_millis_at(v, Some(tz), Round::Down, now).expect(v)).unwrap();
-
-        assert_eq!(tz("2026-01-15", "+02:00"), "2026-01-14T22:00:00.000Z");
+        assert_eq!(eval_tz("2026-01-15", "+02:00"), "2026-01-14T22:00:00.000Z");
         assert_eq!(
-            tz("2026-01-15T00:00:00", "-05:00"),
+            eval_tz("2026-01-15T00:00:00", "-05:00"),
             "2026-01-15T05:00:00.000Z"
         );
         // An explicit offset on the value wins over `time_zone`.
         assert_eq!(
-            tz("2026-01-15T00:00:00Z", "+02:00"),
+            eval_tz("2026-01-15T00:00:00Z", "+02:00"),
             "2026-01-15T00:00:00.000Z"
         );
-        assert_eq!(tz("2026-01-15", "Z"), "2026-01-15T00:00:00.000Z");
+        assert_eq!(eval_tz("2026-01-15", "Z"), "2026-01-15T00:00:00.000Z");
     }
 
     #[test]
     fn named_time_zones() {
-        let now = at("2026-06-15T10:30:45.123Z");
-        let tz =
-            |v: &str, tz: &str| fmt(parse_millis_at(v, Some(tz), Round::Down, now).expect(v)).unwrap();
-
         // Prague is +01:00 in winter and +02:00 under DST.
         assert_eq!(
-            tz("2026-01-15T00:00:00", "Europe/Prague"),
+            eval_tz("2026-01-15T00:00:00", "Europe/Prague"),
             "2026-01-14T23:00:00.000Z"
         );
         assert_eq!(
-            tz("2026-07-15T00:00:00", "Europe/Prague"),
+            eval_tz("2026-07-15T00:00:00", "Europe/Prague"),
             "2026-07-14T22:00:00.000Z"
         );
-        assert_eq!(tz("2026-01-15T00:00:00", "UTC"), "2026-01-15T00:00:00.000Z");
+        assert_eq!(
+            eval_tz("2026-01-15T00:00:00", "UTC"),
+            "2026-01-15T00:00:00.000Z"
+        );
     }
 
     #[test]
     fn rejects_unknown_time_zone() {
-        assert!(parse_millis_at("2026-01-15", Some("Mars/Olympus"), Round::Down, Utc::now()).is_err());
+        assert!(Zone::parse("Mars/Olympus").is_err());
     }
 
     #[test]
@@ -533,12 +544,18 @@ mod tests {
         assert_eq!(eval_up("2026-06-10"), "2026-06-10T23:59:59.999Z");
         assert_eq!(eval_up("2026-06"), "2026-06-30T23:59:59.999Z");
         assert_eq!(eval_up("2026"), "2026-12-31T23:59:59.999Z");
-        assert_eq!(eval_up("2026-06-08T00:00:00Z||/w"), "2026-06-14T23:59:59.999Z");
+        assert_eq!(
+            eval_up("2026-06-08T00:00:00Z||/w"),
+            "2026-06-14T23:59:59.999Z"
+        );
         assert_eq!(eval_up("now/d"), "2026-06-15T23:59:59.999Z");
         // ES fills the unspecified millis of a seconds-precision bound to 999.
         assert_eq!(eval_up("2026-06-10T10:00:00Z"), "2026-06-10T10:00:00.999Z");
         // Spelled-out millis are exact.
-        assert_eq!(eval_up("2026-06-10T10:00:00.000Z"), "2026-06-10T10:00:00.000Z");
+        assert_eq!(
+            eval_up("2026-06-10T10:00:00.000Z"),
+            "2026-06-10T10:00:00.000Z"
+        );
         assert_eq!(eval_up("1768471200000"), "2026-01-15T10:00:00.000Z");
     }
 
@@ -547,6 +564,8 @@ mod tests {
         assert!(parse_millis_at("not-a-date", None, Round::Down, Utc::now()).is_err());
         assert!(parse_millis_at("now-1x", None, Round::Down, Utc::now()).is_err());
         assert!(parse_millis_at("now~1d", None, Round::Down, Utc::now()).is_err());
-        assert!(parse_millis_at("now+99999999999999999999d", None, Round::Down, Utc::now()).is_err());
+        assert!(
+            parse_millis_at("now+99999999999999999999d", None, Round::Down, Utc::now()).is_err()
+        );
     }
 }

@@ -16,9 +16,18 @@ async fn create_with_dates(scope: &TestScope) {
 
     scope
         .index_docs(vec![
-            ("1", json!({ "title": "first", "created": "2026-01-15T10:00:00.000Z" })),
-            ("2", json!({ "title": "second", "created": "2026-06-15T10:00:00.000Z" })),
-            ("3", json!({ "title": "third", "created": "2026-12-15T10:00:00.000Z" })),
+            (
+                "1",
+                json!({ "title": "first", "created": "2026-01-15T10:00:00.000Z" }),
+            ),
+            (
+                "2",
+                json!({ "title": "second", "created": "2026-06-15T10:00:00.000Z" }),
+            ),
+            (
+                "3",
+                json!({ "title": "third", "created": "2026-12-15T10:00:00.000Z" }),
+            ),
         ])
         .await;
 }
@@ -77,7 +86,11 @@ async fn test_date_written_as_epoch_millis(scope: &mut TestScope) {
 )]
 // 2026-07-02T00:00:00Z as raw epoch millis: only the December doc is after it.
 #[case::epoch_millis_bound(json!({ "range": { "created": { "gte": 1782950400000i64 } } }), vec!["3"])]
-async fn test_date_range_query(scope: &TestScope, #[case] query: Value, #[case] expected: Vec<&str>) {
+async fn test_date_range_query(
+    scope: &TestScope,
+    #[case] query: Value,
+    #[case] expected: Vec<&str>,
+) {
     create_with_dates(scope).await;
 
     let mut ids = scope.search_ids(query).await;
@@ -174,7 +187,9 @@ async fn test_date_terms_agg_has_iso_companion(scope: &mut TestScope) {
         .await
         .expect("search");
 
-    let buckets = res["aggregations"]["by_date"]["buckets"].as_array().unwrap();
+    let buckets = res["aggregations"]["by_date"]["buckets"]
+        .as_array()
+        .unwrap();
     assert_eq!(buckets.len(), 3);
     for bucket in buckets {
         assert!(bucket["key"].is_number(), "key should be epoch millis");
@@ -206,7 +221,13 @@ async fn test_date_histogram_fixed_interval(scope: &mut TestScope) {
         .as_array()
         .unwrap();
     assert_eq!(buckets.len(), 3, "one 30d bucket per doc: {buckets:?}");
-    assert_eq!(buckets.iter().map(|b| b["doc_count"].as_u64().unwrap()).sum::<u64>(), 3);
+    assert_eq!(
+        buckets
+            .iter()
+            .map(|b| b["doc_count"].as_u64().unwrap())
+            .sum::<u64>(),
+        3
+    );
     // Chronological, with an ISO companion on every bucket.
     let keys: Vec<i64> = buckets.iter().map(|b| b["key"].as_i64().unwrap()).collect();
     assert!(keys.windows(2).all(|w| w[0] < w[1]), "not sorted: {keys:?}");
@@ -215,61 +236,46 @@ async fn test_date_histogram_fixed_interval(scope: &mut TestScope) {
         .all(|b| b["key_as_string"].as_str().unwrap().ends_with('Z')));
 }
 
-#[test_context(TestScope)]
-#[tokio::test]
-async fn test_date_histogram_calendar_month(scope: &mut TestScope) {
+#[rstest_ctx(TestScope)]
+#[case::month("month", vec![("2026-01-01T00:00:00.000Z", 1), ("2026-06-01T00:00:00.000Z", 1), ("2026-12-01T00:00:00.000Z", 1)])]
+// Jan -> Q1, Jun -> Q2, Dec -> Q4.
+#[case::quarter("quarter", vec![("2026-01-01T00:00:00.000Z", 1), ("2026-04-01T00:00:00.000Z", 1), ("2026-10-01T00:00:00.000Z", 1)])]
+#[case::year("year", vec![("2026-01-01T00:00:00.000Z", 3)])]
+async fn test_date_histogram_calendar_interval(
+    scope: &TestScope,
+    #[case] interval: &str,
+    #[case] expected: Vec<(&str, u64)>,
+) {
     create_with_dates(scope).await;
 
     let res = scope
         .search(json!({
             "size": 0,
             "aggs": {
-                "by_month": {
-                    "date_histogram": { "field": "created", "calendar_interval": "month", "min_doc_count": 1 }
+                "h": {
+                    "date_histogram": {
+                        "field": "created",
+                        "calendar_interval": interval,
+                        "min_doc_count": 1
+                    }
                 }
             }
         }))
         .await
         .expect("search");
 
-    let buckets = res["aggregations"]["by_month"]["buckets"]
+    let buckets: Vec<(&str, u64)> = res["aggregations"]["h"]["buckets"]
         .as_array()
-        .unwrap();
-    let keys: Vec<&str> = buckets
+        .unwrap()
         .iter()
-        .map(|b| b["key_as_string"].as_str().unwrap())
+        .map(|b| {
+            (
+                b["key_as_string"].as_str().unwrap(),
+                b["doc_count"].as_u64().unwrap(),
+            )
+        })
         .collect();
-    assert_eq!(
-        keys,
-        vec![
-            "2026-01-01T00:00:00.000Z",
-            "2026-06-01T00:00:00.000Z",
-            "2026-12-01T00:00:00.000Z"
-        ]
-    );
-}
-
-#[test_context(TestScope)]
-#[tokio::test]
-async fn test_date_histogram_calendar_year(scope: &mut TestScope) {
-    create_with_dates(scope).await;
-
-    let res = scope
-        .search(json!({
-            "size": 0,
-            "aggs": {
-                "by_year": { "date_histogram": { "field": "created", "calendar_interval": "year" } }
-            }
-        }))
-        .await
-        .expect("search");
-
-    let buckets = res["aggregations"]["by_year"]["buckets"]
-        .as_array()
-        .unwrap();
-    assert_eq!(buckets.len(), 1);
-    assert_eq!(buckets[0]["key_as_string"], "2026-01-01T00:00:00.000Z");
-    assert_eq!(buckets[0]["doc_count"], 3);
+    assert_eq!(buckets, expected);
 }
 
 #[rstest_ctx(TestScope)]
@@ -325,7 +331,11 @@ async fn test_date_sort_values_are_epoch_millis(scope: &mut TestScope) {
     // ES echoes the raw sort value, which for a date field is epoch millis (not ISO).
     let first = &res["hits"]["hits"][0];
     assert_eq!(first["_id"], "1");
-    assert_eq!(first["sort"][0].as_i64(), Some(1768471200000), "hit was {first}");
+    assert_eq!(
+        first["sort"][0].as_i64(),
+        Some(1768471200000),
+        "hit was {first}"
+    );
 }
 
 #[test_context(TestScope)]
@@ -389,50 +399,12 @@ async fn test_date_range_agg(scope: &mut TestScope) {
     let buckets = res["aggregations"]["spans"]["buckets"].as_array().unwrap();
     let counts: Vec<(&str, u64)> = buckets
         .iter()
-        .map(|b| {
-            (
-                b["key"].as_str().unwrap(),
-                b["doc_count"].as_u64().unwrap(),
-            )
-        })
+        .map(|b| (b["key"].as_str().unwrap(), b["doc_count"].as_u64().unwrap()))
         .collect();
 
     assert_eq!(counts, vec![("h1", 2), ("all", 3), ("h2", 1)]);
     // Date bounds echo an ISO companion.
     assert_eq!(buckets[0]["to_as_string"], "2026-07-01T00:00:00.000Z");
-}
-
-#[test_context(TestScope)]
-#[tokio::test]
-async fn test_date_histogram_calendar_quarter(scope: &mut TestScope) {
-    create_with_dates(scope).await;
-
-    let res = scope
-        .search(json!({
-            "size": 0,
-            "aggs": {
-                "by_q": { "date_histogram": { "field": "created", "calendar_interval": "quarter", "min_doc_count": 1 } }
-            }
-        }))
-        .await
-        .expect("search");
-
-    let keys: Vec<&str> = res["aggregations"]["by_q"]["buckets"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|b| b["key_as_string"].as_str().unwrap())
-        .collect();
-
-    // Jan -> Q1, Jun -> Q2, Dec -> Q4.
-    assert_eq!(
-        keys,
-        vec![
-            "2026-01-01T00:00:00.000Z",
-            "2026-04-01T00:00:00.000Z",
-            "2026-10-01T00:00:00.000Z"
-        ]
-    );
 }
 
 #[test_context(TestScope)]
@@ -443,7 +415,10 @@ async fn test_date_histogram_time_zone_shifts_buckets(scope: &mut TestScope) {
         .await;
     // 22:30 UTC on the 14th is 00:30 on the 15th in +02:00, so the day bucket differs by zone.
     scope
-        .index_docs(vec![("1", json!({ "created": "2026-01-14T22:30:00.000Z" }))])
+        .index_docs(vec![(
+            "1",
+            json!({ "created": "2026-01-14T22:30:00.000Z" }),
+        )])
         .await;
 
     let day_bucket = |tz: Option<&str>| {
@@ -557,7 +532,10 @@ async fn test_date_histogram_dense_by_default(scope: &mut TestScope) {
     assert_eq!(buckets.len(), 12, "{buckets:?}");
     assert_eq!(buckets[0]["key_as_string"], "2026-01-01T00:00:00.000Z");
     assert_eq!(buckets[11]["key_as_string"], "2026-12-01T00:00:00.000Z");
-    let total: u64 = buckets.iter().map(|b| b["doc_count"].as_u64().unwrap()).sum();
+    let total: u64 = buckets
+        .iter()
+        .map(|b| b["doc_count"].as_u64().unwrap())
+        .sum();
     assert_eq!(total, 3);
     assert_eq!(buckets[1]["doc_count"], 0);
 }
@@ -605,9 +583,18 @@ async fn test_date_histogram_sub_agg_merge(scope: &mut TestScope) {
     // engine rows merge — exercising the sum/count decomposition of `avg`.
     scope
         .index_docs(vec![
-            ("1", json!({ "created": "2026-01-14T23:30:00.000Z", "price": 10 })), // Jan 15 local
-            ("2", json!({ "created": "2026-01-15T10:00:00.000Z", "price": 30 })), // Jan 15 local
-            ("3", json!({ "created": "2026-01-17T10:00:00.000Z", "price": 5 })),  // Jan 17 local
+            (
+                "1",
+                json!({ "created": "2026-01-14T23:30:00.000Z", "price": 10 }),
+            ), // Jan 15 local
+            (
+                "2",
+                json!({ "created": "2026-01-15T10:00:00.000Z", "price": 30 }),
+            ), // Jan 15 local
+            (
+                "3",
+                json!({ "created": "2026-01-17T10:00:00.000Z", "price": 5 }),
+            ), // Jan 17 local
         ])
         .await;
 
@@ -650,7 +637,10 @@ async fn test_date_histogram_weeks_start_monday(scope: &mut TestScope) {
         .await;
     // 2026-01-14 is a Wednesday; its week bucket starts on Monday the 12th.
     scope
-        .index_docs(vec![("1", json!({ "created": "2026-01-14T10:00:00.000Z" }))])
+        .index_docs(vec![(
+            "1",
+            json!({ "created": "2026-01-14T10:00:00.000Z" }),
+        )])
         .await;
 
     let res = scope
@@ -816,10 +806,7 @@ async fn test_date_range_synthesized_keys(scope: &mut TestScope) {
         .collect();
     assert_eq!(
         keys,
-        vec![
-            "*-2026-07-01T00:00:00.000Z",
-            "2026-07-01T00:00:00.000Z-*"
-        ]
+        vec!["*-2026-07-01T00:00:00.000Z", "2026-07-01T00:00:00.000Z-*"]
     );
 }
 
@@ -868,7 +855,10 @@ async fn test_date_sub_agg_has_iso_companion(scope: &mut TestScope) {
 
     let bucket = &res["aggregations"]["y"]["buckets"][0];
     assert_eq!(bucket["newest"]["value"].as_f64(), Some(1797328800000.0));
-    assert_eq!(bucket["newest"]["value_as_string"], "2026-12-15T10:00:00.000Z");
+    assert_eq!(
+        bucket["newest"]["value_as_string"],
+        "2026-12-15T10:00:00.000Z"
+    );
 }
 
 #[test_context(TestScope)]
@@ -896,18 +886,25 @@ async fn test_date_math_evaluated_in_time_zone(scope: &mut TestScope) {
         .create_with_properties(json!({ "created": { "type": "date" } }))
         .await;
     scope
-        .index_docs(vec![("1", json!({ "created": "2026-06-10T02:00:00.000Z" }))])
+        .index_docs(vec![(
+            "1",
+            json!({ "created": "2026-06-10T02:00:00.000Z" }),
+        )])
         .await;
 
     // `/d` rounds in the request zone: local midnight in -05:00 is 05:00Z, which excludes the
     // doc, while in +05:00 it is the previous day at 19:00Z, which includes it.
     let west = scope
-        .search_ids(json!({ "range": { "created": { "gte": "2026-06-10||/d", "time_zone": "-05:00" } } }))
+        .search_ids(
+            json!({ "range": { "created": { "gte": "2026-06-10||/d", "time_zone": "-05:00" } } }),
+        )
         .await;
     assert!(west.is_empty(), "got {west:?}");
 
     let east = scope
-        .search_ids(json!({ "range": { "created": { "gte": "2026-06-10||/d", "time_zone": "+05:00" } } }))
+        .search_ids(
+            json!({ "range": { "created": { "gte": "2026-06-10||/d", "time_zone": "+05:00" } } }),
+        )
         .await;
     assert_eq!(east, vec!["1"]);
 }
@@ -1109,7 +1106,10 @@ async fn test_bound_in_dst_transition_resolves(scope: &TestScope, #[case] bound:
         .create_with_properties(json!({ "created": { "type": "date" } }))
         .await;
     scope
-        .index_docs(vec![("1", json!({ "created": "2026-12-01T00:00:00.000Z" }))])
+        .index_docs(vec![(
+            "1",
+            json!({ "created": "2026-12-01T00:00:00.000Z" }),
+        )])
         .await;
 
     let ids = scope
@@ -1118,4 +1118,72 @@ async fn test_bound_in_dst_transition_resolves(scope: &TestScope, #[case] bound:
         }))
         .await;
     assert_eq!(ids, vec!["1"]);
+}
+
+#[rstest_ctx(TestScope)]
+#[case::range("range")]
+#[case::date_range("date_range")]
+async fn test_range_agg_companion_follows_mapping(scope: &TestScope, #[case] agg: &str) {
+    scope
+        .create_with_properties(json!({
+            "created": { "type": "date" },
+            "n": { "type": "integer" }
+        }))
+        .await;
+    scope
+        .index_docs(vec![
+            (
+                "1",
+                json!({ "created": "2026-01-15T10:00:00.000Z", "n": 50 }),
+            ),
+            (
+                "2",
+                json!({ "created": "2026-06-15T10:00:00.000Z", "n": 150 }),
+            ),
+        ])
+        .await;
+
+    // Verified on ES 8.15: `range` and `date_range` render a date field identically, companion
+    // and synthesized key alike.
+    let res = scope
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "r": {
+                    agg: {
+                        "field": "created",
+                        "ranges": [{ "to": "2026-06-01" }, { "from": "2026-06-01" }]
+                    }
+                }
+            }
+        }))
+        .await
+        .expect("search");
+
+    let buckets = res["aggregations"]["r"]["buckets"].as_array().unwrap();
+    assert_eq!(buckets.len(), 2);
+    assert_eq!(buckets[0]["key"], "*-2026-06-01T00:00:00.000Z");
+    assert_eq!(buckets[0]["to_as_string"], "2026-06-01T00:00:00.000Z");
+    assert_eq!(buckets[0]["doc_count"], 1);
+    assert_eq!(buckets[1]["key"], "2026-06-01T00:00:00.000Z-*");
+    assert_eq!(buckets[1]["from_as_string"], "2026-06-01T00:00:00.000Z");
+    assert_eq!(buckets[1]["doc_count"], 1);
+
+    // A numeric field gets no companion, and numeric keys.
+    let res = scope
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "r": { "range": { "field": "n", "ranges": [{ "to": 100 }, { "from": 100 }] } }
+            }
+        }))
+        .await
+        .expect("search");
+
+    let buckets = res["aggregations"]["r"]["buckets"].as_array().unwrap();
+    assert_eq!(buckets[0]["key"], "*-100.0");
+    assert_eq!(buckets[0]["doc_count"], 1);
+    assert!(buckets[0].get("to_as_string").is_none());
+    assert_eq!(buckets[1]["key"], "100.0-*");
+    assert_eq!(buckets[1]["doc_count"], 1);
 }

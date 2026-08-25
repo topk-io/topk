@@ -3,6 +3,7 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
 use topk_rs::json::Value as JsonValue;
+use topk_rs::proto::v1::control::FieldSpec;
 use topk_rs::proto::v1::data::{AggregateExpr, Document, LogicalExpr, Query as TopkQuery, Value};
 use topk_rs::query::{field, filter};
 
@@ -12,14 +13,13 @@ use crate::api::{
     RangeSpec, TermsAggBody, TermsBucket,
 };
 use crate::date;
+use crate::value::{compare, ValueExt};
+use crate::Error;
 
 // The engine caps grouped rows, and a dense histogram caps reported buckets. Both are headroom
 // rather than ES-shaped limits: ES has no row cap and allows 65536 buckets.
 const MAX_ROWS: u64 = 10_000;
 const MAX_BUCKETS: usize = 10_000;
-use crate::value::{compare, ValueExt};
-use crate::Error;
-use topk_rs::proto::v1::control::FieldSpec;
 
 pub fn compile(
     schema: &Schema,
@@ -70,11 +70,12 @@ pub fn compile(
             // One indicator column per range, counted independently — so ranges may overlap and
             // a document lands in every bucket it matches, as ES does.
             let spec = schema.get(r.field.as_str());
+            let zone = r.time_zone.as_deref().map(date::Zone::parse).transpose()?;
             let mut selects = Vec::with_capacity(r.ranges.len());
             let mut aggs = Vec::with_capacity(r.ranges.len());
             for (i, range) in r.ranges.iter().enumerate() {
                 let alias = format!("{RANGE_PREFIX}{i}");
-                selects.push((alias.clone(), indicator(spec, r, range)?));
+                selects.push((alias.clone(), indicator(spec, zone.as_ref(), r, range)?));
                 aggs.push((alias.clone(), AggregateExpr::count(Some(alias))));
             }
 
@@ -103,73 +104,69 @@ pub fn collect(
     match &clause.ty {
         AggType::Terms(t) => terms(schema, clause, t, docs),
         AggType::DateHistogram(h) => histogram(schema, clause, h, docs),
-        AggType::Range(r) => ranges(schema, false, r, docs),
-        AggType::DateRange(r) => ranges(schema, true, r, docs),
+        AggType::Range(r) | AggType::DateRange(r) => ranges(schema, r, docs),
         ty => metric(schema, ty, docs),
     }
 }
 
-// One bucket per distinct value, ordered by `doc_count`.
 fn terms(
     schema: &Schema,
     clause: &AggClause,
     terms: &TermsAggBody,
     docs: Vec<Document>,
 ) -> Result<AggResult, Error> {
+    let terms_field = terms.field.as_str();
+    let mut buckets = Vec::with_capacity(docs.len());
 
-        let terms_field = terms.field.as_str();
-        let mut buckets = Vec::with_capacity(docs.len());
-
-        for mut doc in docs {
-            let raw = doc.fields.remove("key").unwrap_or_else(Value::null);
-            // ES reports boolean terms keys as 1/0 with a "true"/"false" companion.
-            let (key, key_as_string) = match raw.as_bool() {
-                Some(b) => (JsonValue::from(Value::i64(b as i64)), Some(b.to_string())),
-                // ES renders a date bucket key as epoch millis plus an ISO companion.
-                None if schema.get(terms_field).is_some_and(date::is_timestamp) => {
-                    let iso = raw.as_timestamp().and_then(|t| date::format(t, None));
-                    (JsonValue::from(raw), iso)
-                }
-                None => (JsonValue::from(raw), None),
-            };
-
-            let doc_count = doc
-                .fields
-                .remove("doc_count")
-                .and_then(|value| value.as_u64())
-                .unwrap_or(0);
-
-            let mut sub_aggs = HashMap::new();
-            for (name, sub_clause) in clause.aggs.iter().flatten() {
-                let value = doc.fields.remove(name).and_then(|v| v.number());
-                sub_aggs.insert(name.clone(), metric_result(schema, &sub_clause.ty, value));
+    for mut doc in docs {
+        let raw = doc.fields.remove("key").unwrap_or_else(Value::null);
+        // ES reports boolean terms keys as 1/0 with a "true"/"false" companion.
+        let (key, key_as_string) = match raw.as_bool() {
+            Some(b) => (JsonValue::from(Value::i64(b as i64)), Some(b.to_string())),
+            // ES renders a date bucket key as epoch millis plus an ISO companion.
+            None if schema.get(terms_field).is_some_and(date::is_timestamp) => {
+                let iso = raw.as_timestamp().and_then(|t| date::format(t, None));
+                (JsonValue::from(raw), iso)
             }
+            None => (JsonValue::from(raw), None),
+        };
 
-            buckets.push(TermsBucket {
-                key,
-                key_as_string,
-                doc_count,
-                sub_aggs,
-            });
+        let doc_count = doc
+            .fields
+            .remove("doc_count")
+            .and_then(|value| value.as_u64())
+            .unwrap_or(0);
+
+        let mut sub_aggs = HashMap::new();
+        for (name, sub_clause) in clause.aggs.iter().flatten() {
+            let value = doc.fields.remove(name).and_then(|v| v.number());
+            sub_aggs.insert(name.clone(), metric_result(schema, &sub_clause.ty, value));
         }
 
-        // ES breaks `doc_count` ties by key, ascending.
-        buckets.sort_by(|a, b| {
-            b.doc_count
-                .cmp(&a.doc_count)
-                .then_with(|| compare(&a.key, &b.key))
+        buckets.push(TermsBucket {
+            key,
+            key_as_string,
+            doc_count,
+            sub_aggs,
         });
+    }
 
-        Ok(AggResult::Terms {
-            doc_count_error_upper_bound: 0,
-            sum_other_doc_count: 0,
-            buckets,
-        })
+    // ES breaks `doc_count` ties by key, ascending.
+    buckets.sort_by(|a, b| {
+        b.doc_count
+            .cmp(&a.doc_count)
+            .then_with(|| compare(&a.key, &b.key))
+    });
 
+    Ok(AggResult::Terms {
+        doc_count_error_upper_bound: 0,
+        sum_other_doc_count: 0,
+        buckets,
+    })
 }
 
-// One bucket per interval. Engine rows may be finer than the reported buckets (see
-// `date::Bucketing`), so they are merged here before the empty ones are filled in.
+// Engine rows may be finer than the reported buckets (see `date::Bucketing`), so they are merged
+// here before the empty ones are filled in.
 fn histogram(
     schema: &Schema,
     clause: &AggClause,
@@ -183,24 +180,18 @@ fn histogram(
 
     let mut merged = merge_rows(clause, &bucketing, docs);
 
-    // `extended_bounds` and `hard_bounds` round the same value differently, so each call site
-    // picks its own; see `Bucketing`.
     let bound_millis = |bound: &Option<JsonValue>| -> Result<Option<i64>, Error> {
         let Some(bound) = bound else { return Ok(None) };
-        let value = date::to_timestamp(spec, bound.clone().into_inner(), h.time_zone.as_deref())?;
+        let value = date::to_timestamp(spec, bound.clone().into_inner(), zone.as_ref())?;
         Ok(value.as_timestamp())
     };
 
     // `hard_bounds` trims whole buckets, from the window's lower edge up to but excluding its
-    // upper one; it never extends.
+    // upper one; it never extends. ES rounds those edges ignoring `offset`, unlike
+    // `extended_bounds`.
     if let Some(hard) = &h.hard_bounds {
-        if h.extended_bounds.is_some() {
-            return Err(Error::BadRequest(
-                "date_histogram accepts either extended_bounds or hard_bounds, not both".into(),
-            ));
-        }
-        let min = bound_millis(&hard.min)?.and_then(|t| bucketing.hard_bound(t));
-        let max = bound_millis(&hard.max)?.and_then(|t| bucketing.hard_bound(t));
+        let min = bound_millis(&hard.min)?.and_then(|t| bucketing.floor_unshifted(t));
+        let max = bound_millis(&hard.max)?.and_then(|t| bucketing.floor_unshifted(t));
         merged.retain(|key, _| min.is_none_or(|m| *key >= m) && max.is_none_or(|m| *key < m));
     }
 
@@ -237,8 +228,6 @@ fn histogram(
     Ok(AggResult::Histogram { buckets })
 }
 
-// Every bucket from `lo` to `hi`, taking the merged rows where they exist and an empty bucket
-// where they do not.
 fn fill(
     schema: &Schema,
     clause: &AggClause,
@@ -307,14 +296,11 @@ fn reorder(buckets: &mut [HistogramBucket], order: &HashMap<String, String>) -> 
 }
 
 // Sum the engine rows into one entry per reported bucket. A named zone buckets at a finer
-// granularity than it reports, so several rows can fold onto the same start.
+// granularity than it reports, so several rows can fold onto the same start. The BTreeMap keeps
+// buckets chronological, as ES returns them.
 fn merge_rows(clause: &AggClause, bucketing: &date::Bucketing, docs: Vec<Document>) -> Merged {
-    // Engine rows fold by bucket start: named-zone bucketing produces several sub-bucket
-    // rows per calendar bucket. The BTreeMap keeps buckets chronological, as ES returns.
     let mut merged: Merged = BTreeMap::new();
     for mut doc in docs {
-        // `date_part` yields i32 while fixed-interval division yields i64, so widen
-        // rather than matching one variant.
         let Some(start) = doc
             .fields
             .remove("key")
@@ -362,65 +348,57 @@ fn merge_rows(clause: &AggClause, bucketing: &date::Bucketing, docs: Vec<Documen
 type Merged = BTreeMap<i64, (u64, HashMap<String, MetricAcc>)>;
 
 // One bucket per requested range, counted from the indicator columns `compile` selected.
-fn ranges(
-    schema: &Schema,
-    is_date: bool,
-    r: &RangeAggBody,
-    docs: Vec<Document>,
-) -> Result<AggResult, Error> {
+fn ranges(schema: &Schema, r: &RangeAggBody, docs: Vec<Document>) -> Result<AggResult, Error> {
+    let spec = schema.get(r.field.as_str());
+    let zone = r.time_zone.as_deref().map(date::Zone::parse).transpose()?;
+    let mut doc = docs.into_iter().next().unwrap_or_default();
+    let mut buckets: Vec<RangeBucket> = r
+        .ranges
+        .iter()
+        .enumerate()
+        .map(|(i, range)| {
+            let doc_count = doc
+                .fields
+                .remove(&format!("{RANGE_PREFIX}{i}"))
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0);
+            let (from, from_as_string) = bound(spec, zone.as_ref(), range.from.as_ref());
+            let (to, to_as_string) = bound(spec, zone.as_ref(), range.to.as_ref());
+            // ES synthesizes "from-to" keys ("*" for an open side) when none is given:
+            // the formatted date for a date field, `100.0`-style numbers otherwise.
+            let key = range.key.clone().unwrap_or_else(|| {
+                let side = |value: Option<f64>, s: &Option<String>| match (s, value) {
+                    (Some(s), _) => s.clone(),
+                    (None, Some(v)) => format!("{v:?}"),
+                    (None, None) => "*".to_string(),
+                };
+                format!(
+                    "{}-{}",
+                    side(from, &from_as_string),
+                    side(to, &to_as_string)
+                )
+            });
+            RangeBucket {
+                key,
+                from,
+                from_as_string,
+                to,
+                to_as_string,
+                doc_count,
+            }
+        })
+        .collect();
 
-            let spec = schema.get(r.field.as_str());
-        let zone = r.time_zone.as_deref().map(date::Zone::parse).transpose()?;
-        let mut doc = docs.into_iter().next().unwrap_or_default();
-        let mut buckets: Vec<RangeBucket> = r
-            .ranges
-            .iter()
-            .enumerate()
-            .map(|(i, range)| {
-                let doc_count = doc
-                    .fields
-                    .remove(&format!("{RANGE_PREFIX}{i}"))
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(0);
-                let (from, from_as_string) = bound(is_date, spec, zone.as_ref(), r.time_zone.as_deref(), range.from.as_ref());
-                let (to, to_as_string) = bound(is_date, spec, zone.as_ref(), r.time_zone.as_deref(), range.to.as_ref());
-                // ES synthesizes "from-to" keys ("*" for an open side) when none is given:
-                // the formatted date for a date_range, `100.0`-style numbers otherwise.
-                let key = range.key.clone().unwrap_or_else(|| {
-                    let side = |value: Option<f64>, s: &Option<String>| match (s, value) {
-                        (Some(s), _) => s.clone(),
-                        (None, Some(v)) => format!("{v:?}"),
-                        (None, None) => "*".to_string(),
-                    };
-                    format!(
-                        "{}-{}",
-                        side(from, &from_as_string),
-                        side(to, &to_as_string)
-                    )
-                });
-                RangeBucket {
-                    key,
-                    from,
-                    from_as_string,
-                    to,
-                    to_as_string,
-                    doc_count,
-                }
-            })
-            .collect();
+    // ES orders range buckets by bounds — an unbounded `from` first — not as defined.
+    buckets.sort_by(|a, b| {
+        let from = |x: &RangeBucket| x.from.unwrap_or(f64::NEG_INFINITY);
+        let to = |x: &RangeBucket| x.to.unwrap_or(f64::INFINITY);
+        from(a).total_cmp(&from(b)).then(to(a).total_cmp(&to(b)))
+    });
 
-        // ES orders range buckets by bounds — an unbounded `from` first — not as defined.
-        buckets.sort_by(|a, b| {
-            let from = |x: &RangeBucket| x.from.unwrap_or(f64::NEG_INFINITY);
-            let to = |x: &RangeBucket| x.to.unwrap_or(f64::INFINITY);
-            from(a).total_cmp(&from(b)).then(to(a).total_cmp(&to(b)))
-        });
-
-        Ok(AggResult::Range { buckets })
-
+    Ok(AggResult::Range { buckets })
 }
 
-// A single value over the whole match set.
 fn metric(schema: &Schema, ty: &AggType, docs: Vec<Document>) -> Result<AggResult, Error> {
     let value = docs
         .into_iter()
@@ -457,17 +435,18 @@ impl TryFrom<AggType> for AggregateExpr {
 }
 
 // `1` when the document falls in the range, null otherwise, so `count` over the column is the
-// bucket's doc_count. Bounds go through the same coercion as a range query, so a `date_range`
+// bucket's doc_count. Bounds go through the same coercion as a range query, so a date field
 // accepts ISO strings and date math.
 fn indicator(
     spec: Option<&FieldSpec>,
+    zone: Option<&date::Zone>,
     body: &RangeAggBody,
     range: &RangeSpec,
 ) -> Result<LogicalExpr, Error> {
     let mut pred: Option<LogicalExpr> = None;
     for (bound, inclusive) in [(&range.from, true), (&range.to, false)] {
         let Some(bound) = bound else { continue };
-        let bound = date::to_timestamp(spec, bound.clone().into_inner(), body.time_zone.as_deref())?;
+        let bound = date::to_timestamp(spec, bound.clone().into_inner(), zone)?;
         let clause = match inclusive {
             true => field(body.field.as_str()).gte(bound),
             false => field(body.field.as_str()).lt(bound),
@@ -483,22 +462,21 @@ fn indicator(
     Ok(pred.choose(LogicalExpr::literal(1), LogicalExpr::literal(Value::null())))
 }
 
-// ES echoes a bucket's bounds as it stored them: epoch millis for a date, plus an ISO companion.
-// A date bound arrives as a string, so it goes through the same coercion the indicator used.
+// ES echoes a bucket's bounds as it stored them: epoch millis, plus an ISO companion rendered in
+// the request zone when the field is a date. Verified on ES 8.15 that `range` and `date_range`
+// agree here, so the companion follows the mapping and not the aggregation name.
 fn bound(
-    is_date: bool,
     spec: Option<&FieldSpec>,
     zone: Option<&date::Zone>,
-    tz: Option<&str>,
     bound: Option<&JsonValue>,
 ) -> (Option<f64>, Option<String>) {
-    let value = bound.and_then(|b| date::to_timestamp(spec, b.clone().into_inner(), tz).ok());
-    let as_string = match (is_date, &value) {
-        // Rendered in the request zone, as ES does.
-        (true, Some(value)) => value
-            .as_timestamp()
+    let value = bound.and_then(|b| date::to_timestamp(spec, b.clone().into_inner(), zone).ok());
+    let as_string = match spec.is_some_and(date::is_timestamp) {
+        true => value
+            .as_ref()
+            .and_then(|v| v.as_timestamp())
             .and_then(|t| date::format(t, zone)),
-        _ => None,
+        false => None,
     };
     (value.and_then(|v| v.number()), as_string)
 }
