@@ -166,15 +166,9 @@ fn histogram(
     let (hard_min, hard_max) = bounds_millis(spec, zone, h.hard_bounds.as_ref())?;
     let (ext_min, ext_max) = bounds_millis(spec, zone, h.extended_bounds.as_ref())?;
 
-    if ext_min.zip(hard_min).is_some_and(|(ext, hard)| ext < hard)
-        || ext_max.zip(hard_max).is_some_and(|(ext, hard)| ext > hard)
-    {
-        return Err(Error::BadRequest(
-            "extended_bounds have to be inside hard_bounds".into(),
-        ));
-    }
+    ensure_bounds_nest(hard_min, hard_max, ext_min, ext_max)?;
 
-    if h.hard_bounds.is_some() {
+    if hard_min.is_some() || hard_max.is_some() {
         let min = hard_min.and_then(|t| bucketing.floor_unshifted(t));
         let max = hard_max.and_then(|t| bucketing.floor_unshifted(t));
         merged.retain(|key, _| min.is_none_or(|m| *key >= m) && max.is_none_or(|m| *key < m));
@@ -192,15 +186,15 @@ fn histogram(
                 lo = Some(lo.map_or(key, |lo| lo.min(key)));
                 hi = Some(hi.map_or(key, |hi| hi.max(key)));
             }
-            fill(schema, clause, zone, bucketing, merged, lo, hi)?
+            fill(schema, clause, zone, bucketing, merged, lo.zip(hi))?
         }
         min => merged
             .into_iter()
             .filter(|(_, (doc_count, _))| *doc_count >= min)
-            .filter_map(|(key, (doc_count, metrics))| {
+            .map(|(key, (doc_count, metrics))| {
                 bucket(schema, clause, zone, key, doc_count, metrics)
             })
-            .collect(),
+            .collect::<Result<Vec<_>, _>>()?,
     };
 
     // Buckets are built chronologically; `order` reorders at the end.
@@ -217,10 +211,9 @@ fn fill(
     zone: Option<&date::Zone>,
     bucketing: &date::Bucketing,
     mut merged: Buckets,
-    lo: Option<i64>,
-    hi: Option<i64>,
+    range: Option<(i64, i64)>,
 ) -> Result<Vec<HistogramBucket>, Error> {
-    let (Some(mut key), Some(hi)) = (lo, hi) else {
+    let Some((mut key, hi)) = range else {
         return Ok(Vec::new());
     };
 
@@ -232,11 +225,27 @@ fn fill(
             )));
         }
         let (doc_count, metrics) = merged.remove(&key).unwrap_or_default();
-        buckets.extend(bucket(schema, clause, zone, key, doc_count, metrics));
+        buckets.push(bucket(schema, clause, zone, key, doc_count, metrics)?);
         match bucketing.next(key) {
             Some(next) if next <= hi => key = next,
             _ => break Ok(buckets),
         }
+    }
+}
+
+fn ensure_bounds_nest(
+    hard_min: Option<i64>,
+    hard_max: Option<i64>,
+    ext_min: Option<i64>,
+    ext_max: Option<i64>,
+) -> Result<(), Error> {
+    match ext_min.zip(hard_min).is_some_and(|(ext, hard)| ext < hard)
+        || ext_max.zip(hard_max).is_some_and(|(ext, hard)| ext > hard)
+    {
+        true => Err(Error::BadRequest(
+            "extended_bounds have to be inside hard_bounds".into(),
+        )),
+        false => Ok(()),
     }
 }
 
@@ -468,8 +477,10 @@ fn bucket(
     key: i64,
     doc_count: u64,
     metrics: HashMap<String, f64>,
-) -> Option<HistogramBucket> {
-    let key_as_string = date::format(key, zone)?;
+) -> Result<HistogramBucket, Error> {
+    let key_as_string = date::format(key, zone).ok_or_else(|| {
+        Error::BadRequest(format!("date_histogram bucket key [{key}] is out of range"))
+    })?;
 
     let mut sub_aggs = HashMap::new();
     for (name, sub_clause) in clause.aggs.iter().flatten() {
@@ -479,7 +490,7 @@ fn bucket(
         sub_aggs.insert(name.clone(), metric_result(schema, &sub_clause.ty, value));
     }
 
-    Some(HistogramBucket {
+    Ok(HistogramBucket {
         key,
         key_as_string,
         doc_count,

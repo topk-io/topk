@@ -20,12 +20,6 @@ pub struct IndexMapping {
     mappings: Option<Mappings>,
 }
 
-impl IndexMapping {
-    pub fn into_properties(self) -> MappingProperties {
-        self.mappings.and_then(|m| m.properties).unwrap_or_default()
-    }
-}
-
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Mappings {
@@ -100,9 +94,12 @@ pub enum FieldMapping {
         #[allow(dead_code)]
         fields: Option<MappingProperties>,
 
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        #[allow(dead_code)]
-        ignore_above: Option<u32>,
+        #[serde(
+            default,
+            rename = "ignore_above",
+            skip_serializing_if = "Option::is_none"
+        )]
+        _ignore_above: Option<u32>,
     },
 
     #[serde(rename = "integer", alias = "long", alias = "short", alias = "byte")]
@@ -154,9 +151,12 @@ pub enum FieldMapping {
         #[serde(default)]
         element_type: ElementType,
 
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        #[allow(dead_code)]
-        index_options: Option<serde_json::Value>,
+        #[serde(
+            default,
+            rename = "index_options",
+            skip_serializing_if = "Option::is_none"
+        )]
+        _index_options: Option<serde_json::Map<String, serde_json::Value>>,
     },
 
     #[serde(rename = "rank_vectors", alias = "matrix")]
@@ -345,7 +345,7 @@ impl TryFrom<FieldMapping> for FieldSpec {
                 similarity,
                 index,
                 element_type,
-                index_options: _,
+                _index_options: _,
             } => {
                 let metric = similarity
                     .map(VectorDistanceMetric::from)
@@ -427,7 +427,7 @@ impl TryFrom<&FieldSpec> for FieldMapping {
                     KeywordIndexType::Exact => FieldMapping::Keyword {
                         index: Some(true),
                         fields: None,
-                        ignore_above: None,
+                        _ignore_above: None,
                     },
                     _ => FieldMapping::Text {
                         index: Some(true),
@@ -472,14 +472,14 @@ impl TryFrom<&FieldSpec> for FieldMapping {
                         similarity: Some(vector.metric().into()),
                         index: Some(true),
                         element_type,
-                        index_options: None,
+                        _index_options: None,
                     },
                     None => FieldMapping::DenseVector {
                         dims,
                         similarity: None,
                         index: Some(false),
                         element_type,
-                        index_options: None,
+                        _index_options: None,
                     },
                     _ => FieldMapping::Object {
                         properties: MappingProperties::default(),
@@ -523,4 +523,3 @@ impl TryFrom<&FieldSpec> for FieldMapping {
         })
     }
 }
-
