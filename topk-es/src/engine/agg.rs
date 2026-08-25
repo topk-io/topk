@@ -9,7 +9,7 @@ use topk_rs::query::{field, filter};
 use super::{Schema, RANGE_PREFIX};
 use crate::api::{
     AggClause, AggResult, AggType, Bounds, DateHistogramBody, Direction, HistogramBucket, Order,
-    OrderTarget, RangeAggBody, RangeBucket, RangeSpec, TermsAggBody, TermsBucket,
+    RangeAggBody, RangeBucket, RangeSpec, TermsAggBody, TermsBucket,
 };
 use crate::date;
 use crate::value::{compare, ValueExt};
@@ -47,7 +47,7 @@ pub fn compile(
                 ));
             }
 
-            let key = date::bucketing(h.interval, h.offset, h.shift).key_expr(h.field.as_str());
+            let key = h.bucketing.key_expr(h.field.as_str());
 
             Ok(filter(gate.clone())
                 .group_by([("key".to_string(), key)], aggs)
@@ -157,11 +157,11 @@ fn histogram(
     h: &DateHistogramBody,
     docs: Vec<Document>,
 ) -> Result<AggResult, Error> {
-    let bucketing = date::bucketing(h.interval, h.offset, h.shift);
+    let bucketing = &h.bucketing;
     let zone = h.zone.as_ref();
     let spec = schema.get(h.field.as_str());
 
-    let mut merged = by_bucket(clause, &bucketing, docs);
+    let mut merged = by_bucket(clause, bucketing, docs);
 
     let (hard_min, hard_max) = bounds_millis(spec, zone, h.hard_bounds.as_ref())?;
     let (ext_min, ext_max) = bounds_millis(spec, zone, h.extended_bounds.as_ref())?;
@@ -192,7 +192,7 @@ fn histogram(
                 lo = Some(lo.map_or(key, |lo| lo.min(key)));
                 hi = Some(hi.map_or(key, |hi| hi.max(key)));
             }
-            fill(schema, clause, zone, &bucketing, merged, lo, hi)?
+            fill(schema, clause, zone, bucketing, merged, lo, hi)?
         }
         min => merged
             .into_iter()
@@ -241,14 +241,14 @@ fn fill(
 }
 
 fn reorder(buckets: &mut [HistogramBucket], order: Order) {
-    match (order.target, order.direction) {
-        (OrderTarget::Key, Direction::Asc) => {}
-        (OrderTarget::Key, Direction::Desc) => buckets.reverse(),
+    match order {
+        Order::Key(Direction::Asc) => {}
+        Order::Key(Direction::Desc) => buckets.reverse(),
         // ES breaks `doc_count` ties by key, ascending.
-        (OrderTarget::Count, Direction::Asc) => {
+        Order::Count(Direction::Asc) => {
             buckets.sort_by(|a, b| a.doc_count.cmp(&b.doc_count).then(a.key.cmp(&b.key)))
         }
-        (OrderTarget::Count, Direction::Desc) => {
+        Order::Count(Direction::Desc) => {
             buckets.sort_by(|a, b| b.doc_count.cmp(&a.doc_count).then(a.key.cmp(&b.key)))
         }
     }

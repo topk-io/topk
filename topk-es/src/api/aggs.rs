@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::fmt;
 
 use chrono::Utc;
 
@@ -7,7 +6,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use topk_rs::json::Value;
 
 use super::query::FieldName;
-use crate::date::{self, Interval, Zone};
+use crate::date::{self, Bucketing, Grid, Zone};
 use crate::Error;
 
 #[derive(Deserialize)]
@@ -104,12 +103,7 @@ struct DateHistogramRaw {
 #[derive(Clone)]
 pub struct DateHistogramBody {
     pub field: FieldName,
-    pub interval: Interval,
-
-    pub shift: i64,
-
-    pub offset: i64,
-
+    pub bucketing: Bucketing,
     pub zone: Option<Zone>,
 
     pub extended_bounds: Option<Bounds>,
@@ -134,13 +128,13 @@ impl TryFrom<DateHistogramRaw> for DateHistogramBody {
     type Error = Error;
 
     fn try_from(raw: DateHistogramRaw) -> Result<Self, Error> {
-        let interval =
+        let (grid, epoch) =
             match (raw.fixed_interval, raw.calendar_interval) {
                 (Some(_), Some(_)) => return Err(Error::BadRequest(
                     "date_histogram accepts either fixed_interval or calendar_interval, not both"
                         .into(),
                 )),
-                (Some(fixed), None) => Interval::Fixed(date::parse_fixed_interval(&fixed)?),
+                (Some(fixed), None) => (Grid::Fixed(date::parse_fixed_interval(&fixed)?), 0),
                 (None, Some(calendar)) => date::parse_calendar_interval(&calendar)?,
                 (None, None) => {
                     return Err(Error::BadRequest(
@@ -149,19 +143,20 @@ impl TryFrom<DateHistogramRaw> for DateHistogramBody {
                 }
             };
 
+        let offset = raw
+            .time_zone
+            .map(|zone| zone.offset_millis(Utc::now()))
+            .unwrap_or(0);
+        let shift = raw
+            .offset
+            .as_deref()
+            .map(date::parse_offset)
+            .transpose()?
+            .unwrap_or(0);
+
         Ok(Self {
             field: raw.field,
-            interval,
-            shift: raw
-                .offset
-                .as_deref()
-                .map(date::parse_offset)
-                .transpose()?
-                .unwrap_or(0),
-            offset: raw
-                .time_zone
-                .map(|zone| zone.offset_millis(Utc::now()))
-                .unwrap_or(0),
+            bucketing: Bucketing::new(grid, offset + epoch, shift),
             zone: raw.time_zone,
             extended_bounds: raw.extended_bounds,
             hard_bounds: raw.hard_bounds,
@@ -179,19 +174,13 @@ impl<'de> Deserialize<'de> for DateHistogramBody {
     }
 }
 
-#[derive(Clone, Copy)]
-pub struct Order {
-    pub target: OrderTarget,
-    pub direction: Direction,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
-pub enum OrderTarget {
+#[derive(Clone, Copy, Deserialize)]
+pub enum Order {
     #[serde(rename = "_key")]
-    Key,
+    Key(Direction),
 
     #[serde(rename = "_count")]
-    Count,
+    Count(Direction),
 }
 
 #[derive(Clone, Copy, Deserialize)]
@@ -201,32 +190,28 @@ pub enum Direction {
     Desc,
 }
 
-impl<'de> Deserialize<'de> for Order {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        struct First;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-        impl<'de> serde::de::Visitor<'de> for First {
-            type Value = Order;
+    fn order(json: &str) -> Result<Order, serde_json::Error> {
+        serde_json::from_str(json)
+    }
 
-            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str(r#"an object like {"_key": "desc"}"#)
-            }
-
-            fn visit_map<A: serde::de::MapAccess<'de>>(
-                self,
-                mut map: A,
-            ) -> Result<Order, A::Error> {
-                let (target, direction) = map.next_entry()?.ok_or_else(|| {
-                    serde::de::Error::custom("date_histogram order must name a target")
-                })?;
-
-                while map.next_entry::<OrderTarget, Direction>()?.is_some() {}
-
-                Ok(Order { target, direction })
-            }
-        }
-
-        deserializer.deserialize_map(First)
+    #[test]
+    fn order_shapes() {
+        assert!(matches!(
+            order(r#"{"_key": "desc"}"#).unwrap(),
+            Order::Key(Direction::Desc)
+        ));
+        assert!(matches!(
+            order(r#"{"_count": "asc"}"#).unwrap(),
+            Order::Count(Direction::Asc)
+        ));
+        assert!(order("{}").is_err());
+        assert!(order(r#"{"_key": "sideways"}"#).is_err());
+        assert!(order(r#"{"my_sub_agg": "asc"}"#).is_err());
+        assert!(order(r#"{"_key": "desc", "_count": "asc"}"#).is_err());
     }
 }
 

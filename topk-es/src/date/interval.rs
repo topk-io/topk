@@ -7,38 +7,19 @@ use super::Error;
 const HOUR: i64 = 60 * 60 * 1_000;
 const DAY: i64 = 24 * HOUR;
 
+#[derive(Clone, Copy)]
 pub struct Bucketing {
-    kind: Kind,
-
+    grid: Grid,
+    offset: i64,
     shift: i64,
 }
 
-enum Kind {
-    Fixed { width: i64, offset: i64 },
-    Months { count: i64, offset: i64 },
-}
-
 #[derive(Clone, Copy)]
-pub enum Interval {
+pub enum Grid {
     Fixed(i64),
-    Week,
     Months(i64),
 }
 
-pub fn bucketing(interval: Interval, offset: i64, shift: i64) -> Bucketing {
-    let kind = match interval {
-        Interval::Fixed(width) => Kind::Fixed { width, offset },
-        Interval::Week => Kind::Fixed {
-            width: 7 * DAY,
-            offset: offset + 3 * DAY,
-        },
-        Interval::Months(count) => Kind::Months { count, offset },
-    };
-
-    Bucketing { kind, shift }
-}
-
-// `+6h` / `-1d`: a signed fixed duration added to every bucket boundary.
 pub fn parse_offset(offset: &str) -> Result<i64, Error> {
     let (sign, duration) = match offset.strip_prefix('-') {
         Some(d) => (-1, d),
@@ -70,16 +51,16 @@ pub fn parse_fixed_interval(value: &str) -> Result<i64, Error> {
     n.checked_mul(millis).filter(|m| *m > 0).ok_or_else(invalid)
 }
 
-pub fn parse_calendar_interval(value: &str) -> Result<Interval, Error> {
+pub fn parse_calendar_interval(value: &str) -> Result<(Grid, i64), Error> {
     match value {
-        "second" | "1s" => Ok(Interval::Fixed(1_000)),
-        "minute" | "1m" => Ok(Interval::Fixed(60 * 1_000)),
-        "hour" | "1h" => Ok(Interval::Fixed(HOUR)),
-        "day" | "1d" => Ok(Interval::Fixed(DAY)),
-        "week" | "1w" => Ok(Interval::Week),
-        "month" | "1M" => Ok(Interval::Months(1)),
-        "quarter" | "1q" => Ok(Interval::Months(3)),
-        "year" | "1y" => Ok(Interval::Months(12)),
+        "second" | "1s" => Ok((Grid::Fixed(1_000), 0)),
+        "minute" | "1m" => Ok((Grid::Fixed(60 * 1_000), 0)),
+        "hour" | "1h" => Ok((Grid::Fixed(HOUR), 0)),
+        "day" | "1d" => Ok((Grid::Fixed(DAY), 0)),
+        "week" | "1w" => Ok((Grid::Fixed(7 * DAY), 3 * DAY)),
+        "month" | "1M" => Ok((Grid::Months(1), 0)),
+        "quarter" | "1q" => Ok((Grid::Months(3), 0)),
+        "year" | "1y" => Ok((Grid::Months(12), 0)),
         _ => Err(Error::BadRequest(format!(
             "invalid calendar_interval [{value}]"
         ))),
@@ -87,48 +68,52 @@ pub fn parse_calendar_interval(value: &str) -> Result<Interval, Error> {
 }
 
 impl Bucketing {
-    fn shifted(&self, name: &str, offset: i64) -> LogicalExpr {
-        match offset - self.shift {
+    pub fn new(grid: Grid, offset: i64, shift: i64) -> Self {
+        Self {
+            grid,
+            offset,
+            shift,
+        }
+    }
+
+    fn shifted(&self, name: &str) -> LogicalExpr {
+        match self.offset - self.shift {
             0 => field(name),
             offset => field(name).add(LogicalExpr::literal(offset)),
         }
     }
 
     pub fn key_expr(&self, name: &str) -> LogicalExpr {
-        match &self.kind {
-            Kind::Fixed { width, offset } => self
-                .shifted(name, *offset)
-                .div(LogicalExpr::literal(*width)),
-            Kind::Months { count, offset } => self
-                .shifted(name, *offset)
+        match self.grid {
+            Grid::Fixed(width) => self.shifted(name).div(LogicalExpr::literal(width)),
+            Grid::Months(count) => self
+                .shifted(name)
                 .date_part("year")
                 .mul(LogicalExpr::literal(12))
-                .add(self.shifted(name, *offset).date_part("month"))
+                .add(self.shifted(name).date_part("month"))
                 .sub(LogicalExpr::literal(1))
-                .div(LogicalExpr::literal(*count)),
+                .div(LogicalExpr::literal(count)),
         }
     }
 
     pub fn start_of_index(&self, index: i64) -> Option<i64> {
-        let start = match &self.kind {
-            Kind::Fixed { width, offset } => index.checked_mul(*width)?.checked_sub(*offset)?,
-            Kind::Months { count, offset } => {
-                month_start(index.checked_mul(*count)?)?.checked_sub(*offset)?
+        let start = match self.grid {
+            Grid::Fixed(width) => index.checked_mul(width)?.checked_sub(self.offset)?,
+            Grid::Months(count) => {
+                month_start(index.checked_mul(count)?)?.checked_sub(self.offset)?
             }
         };
         start.checked_add(self.shift)
     }
 
     pub fn floor_unshifted(&self, t: i64) -> Option<i64> {
-        Some(match &self.kind {
-            Kind::Fixed { width, offset } => {
-                t.checked_add(*offset)?.div_euclid(*width) * *width - *offset
-            }
-            Kind::Months { count, offset } => {
-                let at = DateTime::<Utc>::from_timestamp_millis(t.checked_add(*offset)?)?;
-                let months =
-                    (at.year() as i64 * 12 + at.month0() as i64).div_euclid(*count) * *count;
-                month_start(months)?.checked_sub(*offset)?
+        let t = t.checked_add(self.offset)?;
+        Some(match self.grid {
+            Grid::Fixed(width) => t.div_euclid(width) * width - self.offset,
+            Grid::Months(count) => {
+                let at = DateTime::<Utc>::from_timestamp_millis(t)?;
+                let months = (at.year() as i64 * 12 + at.month0() as i64).div_euclid(count) * count;
+                month_start(months)?.checked_sub(self.offset)?
             }
         })
     }
@@ -137,15 +122,14 @@ impl Bucketing {
         self.floor_unshifted(t)?.checked_add(self.shift)
     }
 
-    // Start of the bucket after the one starting at `start`; drives empty-bucket filling.
     pub fn next(&self, start: i64) -> Option<i64> {
         let start = start.checked_sub(self.shift)?;
-        let next = match &self.kind {
-            Kind::Fixed { width, .. } => start.checked_add(*width)?,
-            Kind::Months { count, offset } => {
-                let at = DateTime::<Utc>::from_timestamp_millis(start.checked_add(*offset)?)?;
+        let next = match self.grid {
+            Grid::Fixed(width) => start.checked_add(width)?,
+            Grid::Months(count) => {
+                let at = DateTime::<Utc>::from_timestamp_millis(start.checked_add(self.offset)?)?;
                 let months = at.year() as i64 * 12 + at.month0() as i64 + count;
-                month_start(months)?.checked_sub(*offset)?
+                month_start(months)?.checked_sub(self.offset)?
             }
         };
         next.checked_add(self.shift)

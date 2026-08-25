@@ -12,9 +12,7 @@ use topk_rs::proto::v1::data::Value;
 use crate::Error;
 
 mod interval;
-pub use interval::{
-    bucketing, parse_calendar_interval, parse_fixed_interval, parse_offset, Bucketing, Interval,
-};
+pub use interval::{parse_calendar_interval, parse_fixed_interval, parse_offset, Bucketing, Grid};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Round {
