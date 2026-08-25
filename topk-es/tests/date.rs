@@ -283,6 +283,13 @@ async fn test_date_histogram_calendar_interval(
 #[case::no_interval(json!({ "field": "created" }))]
 #[case::calendar_unit_in_fixed(json!({ "field": "created", "fixed_interval": "1M" }))]
 #[case::bad_calendar(json!({ "field": "created", "calendar_interval": "3M" }))]
+#[case::bad_time_zone(json!({ "field": "created", "calendar_interval": "month", "time_zone": "Mars/Olympus" }))]
+#[case::extended_outside_hard(json!({
+    "field": "created",
+    "calendar_interval": "month",
+    "hard_bounds": { "min": "2026-04-01" },
+    "extended_bounds": { "min": "2026-01-01" }
+}))]
 async fn test_date_histogram_rejected(scope: &TestScope, #[case] body: Value) {
     create_with_dates(scope).await;
 
@@ -449,56 +456,6 @@ async fn test_date_histogram_time_zone_shifts_buckets(scope: &mut TestScope) {
 
 #[test_context(TestScope)]
 #[tokio::test]
-async fn test_date_histogram_named_time_zone_follows_dst(scope: &mut TestScope) {
-    scope
-        .create_with_properties(json!({ "created": { "type": "date" } }))
-        .await;
-    // Prague springs forward on 2026-03-29 (+01:00 -> +02:00), so local midnight moves from
-    // 23:00Z to 22:00Z across these three local days.
-    scope
-        .index_docs(vec![
-            ("1", json!({ "created": "2026-03-28T22:30:00.000Z" })), // Mar 28 23:30 local
-            ("2", json!({ "created": "2026-03-29T10:00:00.000Z" })), // Mar 29 12:00 local
-            ("3", json!({ "created": "2026-03-29T22:30:00.000Z" })), // Mar 30 00:30 local
-        ])
-        .await;
-
-    let res = scope
-        .search(json!({
-            "size": 0,
-            "aggs": {
-                "d": {
-                    "date_histogram": {
-                        "field": "created",
-                        "calendar_interval": "day",
-                        "time_zone": "Europe/Prague"
-                    }
-                }
-            }
-        }))
-        .await
-        .expect("search");
-
-    let buckets = res["aggregations"]["d"]["buckets"].as_array().unwrap();
-    let keys: Vec<&str> = buckets
-        .iter()
-        .map(|b| b["key_as_string"].as_str().unwrap())
-        .collect();
-    // Rendered in the zone, whose offset flips +01:00 -> +02:00 across the transition;
-    // verified against Elasticsearch 9 byte-for-byte.
-    assert_eq!(
-        keys,
-        vec![
-            "2026-03-28T00:00:00.000+01:00",
-            "2026-03-29T00:00:00.000+01:00",
-            "2026-03-30T00:00:00.000+02:00", // the 23-hour day ended; midnight is 22:00Z now
-        ]
-    );
-    assert!(buckets.iter().all(|b| b["doc_count"] == 1), "{buckets:?}");
-}
-
-#[test_context(TestScope)]
-#[tokio::test]
 async fn test_range_accepts_named_time_zone(scope: &mut TestScope) {
     create_with_dates(scope).await;
 
@@ -572,15 +529,14 @@ async fn test_date_histogram_extended_bounds(scope: &mut TestScope) {
 
 #[test_context(TestScope)]
 #[tokio::test]
-async fn test_date_histogram_sub_agg_merge(scope: &mut TestScope) {
+async fn test_date_histogram_sub_aggs(scope: &mut TestScope) {
     scope
         .create_with_properties(json!({
             "created": { "type": "date" },
             "price": { "type": "integer" }
         }))
         .await;
-    // Two docs land in one local Prague day across the UTC midnight between them, so their
-    // engine rows merge — exercising the sum/count decomposition of `avg`.
+    // Two docs share a local day across the UTC midnight between them, so the bucket spans it.
     scope
         .index_docs(vec![
             (
@@ -606,7 +562,7 @@ async fn test_date_histogram_sub_agg_merge(scope: &mut TestScope) {
                     "date_histogram": {
                         "field": "created",
                         "calendar_interval": "day",
-                        "time_zone": "Europe/Prague"
+                        "time_zone": "+01:00"
                     },
                     "aggs": {
                         "avg_price": { "avg": { "field": "price" } },
@@ -911,55 +867,6 @@ async fn test_date_math_evaluated_in_time_zone(scope: &mut TestScope) {
 
 #[test_context(TestScope)]
 #[tokio::test]
-async fn test_fixed_interval_named_zone_keeps_local_alignment(scope: &mut TestScope) {
-    scope
-        .create_with_properties(json!({ "created": { "type": "date" } }))
-        .await;
-    // A winter and a summer doc: Prague is +01:00 then +02:00, so a 12h bucket has to align to
-    // local midnight in each, not to one offset resolved once.
-    scope
-        .index_docs(vec![
-            ("winter", json!({ "created": "2026-02-15T10:00:00.000Z" })),
-            ("summer", json!({ "created": "2026-07-15T10:00:00.000Z" })),
-        ])
-        .await;
-
-    let res = scope
-        .search(json!({
-            "size": 0,
-            "aggs": {
-                "h": {
-                    "date_histogram": {
-                        "field": "created",
-                        "fixed_interval": "12h",
-                        "time_zone": "Europe/Prague",
-                        "min_doc_count": 1
-                    }
-                }
-            }
-        }))
-        .await
-        .expect("search");
-
-    let keys: Vec<&str> = res["aggregations"]["h"]["buckets"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|b| b["key_as_string"].as_str().unwrap())
-        .collect();
-    // Verified against Elasticsearch 9.
-    assert_eq!(
-        keys,
-        vec![
-            "2026-02-15T00:00:00.000+01:00",
-            // 10:00Z is 12:00 local in summer, so it lands in the second 12h bucket of the day.
-            "2026-07-15T12:00:00.000+02:00"
-        ]
-    );
-}
-
-#[test_context(TestScope)]
-#[tokio::test]
 async fn test_hard_bounds_trims_whole_buckets(scope: &mut TestScope) {
     scope
         .create_with_properties(json!({ "created": { "type": "date" } }))
@@ -1003,58 +910,6 @@ async fn test_hard_bounds_trims_whole_buckets(scope: &mut TestScope) {
             "2026-01-01T00:00:00.000Z",
             "2026-04-01T00:00:00.000Z",
             "2026-07-01T00:00:00.000Z"
-        ]
-    );
-}
-
-#[test_context(TestScope)]
-#[tokio::test]
-async fn test_repeated_local_hour_keeps_both_buckets(scope: &mut TestScope) {
-    scope
-        .create_with_properties(json!({ "created": { "type": "date" } }))
-        .await;
-    // Prague falls back on 2026-10-25: 03:00+02:00 becomes 02:00+01:00, so local 02:xx happens
-    // twice. The two halves are distinct instants and stay in distinct buckets, as in ES.
-    scope
-        .index_docs(vec![
-            ("first", json!({ "created": "2026-10-25T00:15:00.000Z" })),
-            ("second", json!({ "created": "2026-10-25T01:15:00.000Z" })),
-        ])
-        .await;
-
-    let res = scope
-        .search(json!({
-            "size": 0,
-            "aggs": {
-                "h": {
-                    "date_histogram": {
-                        "field": "created",
-                        "fixed_interval": "1h",
-                        "time_zone": "Europe/Prague",
-                        "min_doc_count": 1
-                    }
-                }
-            }
-        }))
-        .await
-        .expect("search");
-
-    let buckets = res["aggregations"]["h"]["buckets"].as_array().unwrap();
-    let keys: Vec<(&str, i64)> = buckets
-        .iter()
-        .map(|b| {
-            (
-                b["key_as_string"].as_str().unwrap(),
-                b["key"].as_i64().unwrap(),
-            )
-        })
-        .collect();
-    // Both render as 02:00, one hour apart, at the two different offsets.
-    assert_eq!(
-        keys,
-        vec![
-            ("2026-10-25T02:00:00.000+02:00", 1792886400000),
-            ("2026-10-25T02:00:00.000+01:00", 1792890000000)
         ]
     );
 }
@@ -1186,4 +1041,108 @@ async fn test_range_agg_companion_follows_mapping(scope: &TestScope, #[case] agg
     assert!(buckets[0].get("to_as_string").is_none());
     assert_eq!(buckets[1]["key"], "100.0-*");
     assert_eq!(buckets[1]["doc_count"], 1);
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_extended_bounds_inside_hard_bounds(scope: &mut TestScope) {
+    create_with_dates(scope).await;
+
+    // Verified on ES 8.15: the two combine when the extended window sits inside the hard one, so
+    // the hard window bounds the range and the empty months inside it are still reported.
+    let res = scope
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "h": {
+                    "date_histogram": {
+                        "field": "created",
+                        "calendar_interval": "month",
+                        "hard_bounds": { "min": "2026-01-01", "max": "2026-07-01" },
+                        "extended_bounds": { "min": "2026-02-01", "max": "2026-03-01" }
+                    }
+                }
+            }
+        }))
+        .await
+        .expect("search");
+
+    let buckets: Vec<(&str, u64)> = res["aggregations"]["h"]["buckets"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|b| {
+            (
+                b["key_as_string"].as_str().unwrap(),
+                b["doc_count"].as_u64().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        buckets,
+        vec![
+            ("2026-01-01T00:00:00.000Z", 1),
+            ("2026-02-01T00:00:00.000Z", 0),
+            ("2026-03-01T00:00:00.000Z", 0),
+            ("2026-04-01T00:00:00.000Z", 0),
+            ("2026-05-01T00:00:00.000Z", 0),
+            ("2026-06-01T00:00:00.000Z", 1),
+        ]
+    );
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_named_time_zone_exact_for_sub_hour_intervals(scope: &mut TestScope) {
+    scope
+        .create_with_properties(json!({ "created": { "type": "date" } }))
+        .await;
+    scope
+        .index_docs(vec![
+            ("1", json!({ "created": "2026-01-15T10:15:00.000Z" })),
+            ("2", json!({ "created": "2026-01-15T10:45:00.000Z" })),
+            ("3", json!({ "created": "2026-01-15T12:05:00.000Z" })),
+        ])
+        .await;
+
+    // We bucket a named zone by its offset at request time rather than following DST. Every DST
+    // shift is a whole number of hours, so for intervals up to an hour the grid is identical
+    // whichever offset is picked, and keys still render at each instant's own offset. Verified
+    // against ES 8.15 on winter data under a summer-time request.
+    let res = scope
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "h": {
+                    "date_histogram": {
+                        "field": "created",
+                        "calendar_interval": "hour",
+                        "time_zone": "Europe/Prague"
+                    }
+                }
+            }
+        }))
+        .await
+        .expect("search");
+
+    let buckets: Vec<(i64, &str, u64)> = res["aggregations"]["h"]["buckets"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|b| {
+            (
+                b["key"].as_i64().unwrap(),
+                b["key_as_string"].as_str().unwrap(),
+                b["doc_count"].as_u64().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        buckets,
+        vec![
+            (1768471200000, "2026-01-15T11:00:00.000+01:00", 2),
+            (1768474800000, "2026-01-15T12:00:00.000+01:00", 0),
+            (1768478400000, "2026-01-15T13:00:00.000+01:00", 1),
+        ]
+    );
 }

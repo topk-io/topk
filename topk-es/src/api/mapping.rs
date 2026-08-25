@@ -102,16 +102,12 @@ pub enum FieldMapping {
         index: Option<bool>,
     },
 
-    // ES `date`/`date_nanos` map to TopK's timestamp column (epoch millis, i64). ISO-8601 strings
-    // are parsed to millis on write and formatted back on read; see `crate::date`.
     #[serde(rename = "date", alias = "date_nanos")]
     Date {
         #[serde(default)]
-        #[allow(dead_code)]
         index: Option<bool>,
 
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        #[allow(dead_code)]
         format: Option<String>,
     },
 

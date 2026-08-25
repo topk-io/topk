@@ -98,8 +98,6 @@ impl Candidate {
                             .get(name.as_str())
                             .filter(|value| value.as_null().is_none())
                             .cloned()
-                            // Fields arrive decoded, so a date is an ISO string by now. ES echoes
-                            // the raw sort value, which for a date is epoch millis.
                             .map(|value| {
                                 date::to_timestamp(schema.get(name.as_str()), value.clone(), None)
                                     .unwrap_or(value)

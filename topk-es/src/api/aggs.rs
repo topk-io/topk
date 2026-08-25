@@ -1,9 +1,14 @@
 use std::collections::HashMap;
+use std::fmt;
 
-use serde::{Deserialize, Serialize};
+use chrono::Utc;
+
+use serde::{Deserialize, Deserializer, Serialize};
 use topk_rs::json::Value;
 
 use super::query::FieldName;
+use crate::date::{self, Interval, Zone};
+use crate::Error;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -46,7 +51,7 @@ pub struct RangeAggBody {
 
     // Zone-less date bounds are interpreted in this zone, as in a range query.
     #[serde(default)]
-    pub time_zone: Option<String>,
+    pub time_zone: Option<Zone>,
 }
 
 // `from` is inclusive and `to` exclusive, as in ES; omitting one leaves that side unbounded.
@@ -63,61 +68,166 @@ pub struct RangeSpec {
     pub to: Option<Value>,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct DateHistogramRaw {
+    field: FieldName,
+
+    #[serde(default)]
+    fixed_interval: Option<String>,
+
+    #[serde(default)]
+    calendar_interval: Option<String>,
+
+    #[serde(default)]
+    min_doc_count: Option<u64>,
+
+    #[serde(default)]
+    time_zone: Option<Zone>,
+
+    #[serde(default)]
+    extended_bounds: Option<Bounds>,
+
+    #[serde(default)]
+    hard_bounds: Option<Bounds>,
+
+    #[serde(default)]
+    offset: Option<String>,
+
+    #[serde(default)]
+    order: Option<Order>,
+
+    #[serde(default, rename = "format")]
+    _format: Option<String>,
+}
+
+#[derive(Clone)]
 pub struct DateHistogramBody {
     pub field: FieldName,
+    pub interval: Interval,
 
-    // ES accepts either; `fixed_interval` is an exact duration, `calendar_interval` follows the
-    // calendar (a month is not 30 days). Exactly one must be given.
-    #[serde(default)]
-    pub fixed_interval: Option<String>,
+    pub shift: i64,
 
-    #[serde(default)]
-    pub calendar_interval: Option<String>,
+    pub offset: i64,
 
-    #[serde(default)]
-    pub min_doc_count: Option<u64>,
+    pub zone: Option<Zone>,
 
-    // Buckets are aligned to this zone rather than UTC — a numeric offset or an IANA name; see
-    // `date::Bucketing` for how named zones follow DST.
-    #[serde(default)]
-    pub time_zone: Option<String>,
+    pub extended_bounds: Option<Bounds>,
 
-    // With `min_doc_count: 0` the histogram is filled out to cover at least [min, max], even
-    // where no documents exist. Values are epoch millis or date-math strings.
-    #[serde(default)]
-    pub extended_bounds: Option<ExtendedBounds>,
+    pub hard_bounds: Option<Bounds>,
 
-    // The opposite of `extended_bounds`: buckets outside [min, max] are dropped. ES rejects
-    // combining the two.
-    #[serde(default)]
-    pub hard_bounds: Option<ExtendedBounds>,
-
-    // Shifts every bucket boundary by a fixed duration after the zone applies, e.g. `+6h` day
-    // buckets running 06:00 to 06:00.
-    #[serde(default)]
-    pub offset: Option<String>,
-
-    // `{"_key": "desc"}` or `{"_count": "asc"}`; ES also accepts sub-agg names, which we reject.
-    #[serde(default)]
-    pub order: Option<HashMap<String, String>>,
-
-    // Keys are always epoch millis with an ISO companion; a key format pattern is accepted but
-    // not interpreted, like mapping `format`.
-    #[serde(default)]
-    #[allow(dead_code)]
-    pub format: Option<String>,
+    pub min_doc_count: u64,
+    pub order: Option<Order>,
 }
 
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ExtendedBounds {
+pub struct Bounds {
     #[serde(default)]
     pub min: Option<Value>,
 
     #[serde(default)]
     pub max: Option<Value>,
+}
+
+impl TryFrom<DateHistogramRaw> for DateHistogramBody {
+    type Error = Error;
+
+    fn try_from(raw: DateHistogramRaw) -> Result<Self, Error> {
+        let interval =
+            match (raw.fixed_interval, raw.calendar_interval) {
+                (Some(_), Some(_)) => return Err(Error::BadRequest(
+                    "date_histogram accepts either fixed_interval or calendar_interval, not both"
+                        .into(),
+                )),
+                (Some(fixed), None) => Interval::Fixed(date::parse_fixed_interval(&fixed)?),
+                (None, Some(calendar)) => date::parse_calendar_interval(&calendar)?,
+                (None, None) => {
+                    return Err(Error::BadRequest(
+                        "date_histogram requires fixed_interval or calendar_interval".into(),
+                    ))
+                }
+            };
+
+        Ok(Self {
+            field: raw.field,
+            interval,
+            shift: raw
+                .offset
+                .as_deref()
+                .map(date::parse_offset)
+                .transpose()?
+                .unwrap_or(0),
+            offset: raw
+                .time_zone
+                .map(|zone| zone.offset_millis(Utc::now()))
+                .unwrap_or(0),
+            zone: raw.time_zone,
+            extended_bounds: raw.extended_bounds,
+            hard_bounds: raw.hard_bounds,
+            min_doc_count: raw.min_doc_count.unwrap_or(0),
+            order: raw.order,
+        })
+    }
+}
+
+impl<'de> Deserialize<'de> for DateHistogramBody {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        DateHistogramRaw::deserialize(deserializer)?
+            .try_into()
+            .map_err(serde::de::Error::custom)
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct Order {
+    pub target: OrderTarget,
+    pub direction: Direction,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
+pub enum OrderTarget {
+    #[serde(rename = "_key")]
+    Key,
+
+    #[serde(rename = "_count")]
+    Count,
+}
+
+#[derive(Clone, Copy, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Direction {
+    Asc,
+    Desc,
+}
+
+impl<'de> Deserialize<'de> for Order {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct First;
+
+        impl<'de> serde::de::Visitor<'de> for First {
+            type Value = Order;
+
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str(r#"an object like {"_key": "desc"}"#)
+            }
+
+            fn visit_map<A: serde::de::MapAccess<'de>>(
+                self,
+                mut map: A,
+            ) -> Result<Order, A::Error> {
+                let (target, direction) = map.next_entry()?.ok_or_else(|| {
+                    serde::de::Error::custom("date_histogram order must name a target")
+                })?;
+
+                while map.next_entry::<OrderTarget, Direction>()?.is_some() {}
+
+                Ok(Order { target, direction })
+            }
+        }
+
+        deserializer.deserialize_map(First)
+    }
 }
 
 #[derive(Clone, Deserialize)]

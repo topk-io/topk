@@ -1,5 +1,4 @@
 use std::collections::btree_map::BTreeMap;
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
 use topk_rs::json::Value as JsonValue;
@@ -7,19 +6,16 @@ use topk_rs::proto::v1::control::FieldSpec;
 use topk_rs::proto::v1::data::{AggregateExpr, Document, LogicalExpr, Query as TopkQuery, Value};
 use topk_rs::query::{field, filter};
 
-use super::{Schema, AVG_COUNT_PREFIX, RANGE_PREFIX};
+use super::{Schema, RANGE_PREFIX};
 use crate::api::{
-    AggClause, AggResult, AggType, DateHistogramBody, HistogramBucket, RangeAggBody, RangeBucket,
-    RangeSpec, TermsAggBody, TermsBucket,
+    AggClause, AggResult, AggType, Bounds, DateHistogramBody, Direction, HistogramBucket, Order,
+    OrderTarget, RangeAggBody, RangeBucket, RangeSpec, TermsAggBody, TermsBucket,
 };
 use crate::date;
 use crate::value::{compare, ValueExt};
 use crate::Error;
 
-// The engine caps grouped rows, and a dense histogram caps reported buckets. Both are headroom
-// rather than ES-shaped limits: ES has no row cap and allows 65536 buckets.
-const MAX_ROWS: u64 = 10_000;
-const MAX_BUCKETS: usize = 10_000;
+const MAX_BUCKETS: usize = 65_536;
 
 pub fn compile(
     schema: &Schema,
@@ -45,37 +41,27 @@ pub fn compile(
         AggType::DateHistogram(h) => {
             let mut aggs = vec![("doc_count".to_string(), AggregateExpr::count(None))];
             for (name, sub_clause) in clause.aggs.iter().flatten() {
-                match &sub_clause.ty {
-                    // avg is folded from sum and count so buckets merged from named-zone
-                    // sub-buckets stay exact — averages of averages would not be.
-                    AggType::Avg(m) => {
-                        aggs.push((name.clone(), AggregateExpr::sum(m.field.clone())));
-                        aggs.push((
-                            format!("{AVG_COUNT_PREFIX}{name}"),
-                            AggregateExpr::count(Some(m.field.clone().into())),
-                        ));
-                    }
-                    ty => aggs.push((name.clone(), AggregateExpr::try_from(ty.clone())?)),
-                }
+                aggs.push((
+                    name.clone(),
+                    AggregateExpr::try_from(sub_clause.ty.clone())?,
+                ));
             }
 
-            let key = date::bucketing(h)?.key_expr(h.field.as_str());
+            let key = date::bucketing(h.interval, h.offset, h.shift).key_expr(h.field.as_str());
 
             Ok(filter(gate.clone())
                 .group_by([("key".to_string(), key)], aggs)
                 .sort("key")
-                .limit(MAX_ROWS))
+                .limit(MAX_BUCKETS as u64))
         }
         AggType::Range(r) | AggType::DateRange(r) => {
-            // One indicator column per range, counted independently — so ranges may overlap and
-            // a document lands in every bucket it matches, as ES does.
             let spec = schema.get(r.field.as_str());
-            let zone = r.time_zone.as_deref().map(date::Zone::parse).transpose()?;
+            let zone = r.time_zone.as_ref();
             let mut selects = Vec::with_capacity(r.ranges.len());
             let mut aggs = Vec::with_capacity(r.ranges.len());
             for (i, range) in r.ranges.iter().enumerate() {
                 let alias = format!("{RANGE_PREFIX}{i}");
-                selects.push((alias.clone(), indicator(spec, zone.as_ref(), r, range)?));
+                selects.push((alias.clone(), indicator(spec, zone, r, range)?));
                 aggs.push((alias.clone(), AggregateExpr::count(Some(alias))));
             }
 
@@ -165,64 +151,61 @@ fn terms(
     })
 }
 
-// Engine rows may be finer than the reported buckets (see `date::Bucketing`), so they are merged
-// here before the empty ones are filled in.
 fn histogram(
     schema: &Schema,
     clause: &AggClause,
     h: &DateHistogramBody,
     docs: Vec<Document>,
 ) -> Result<AggResult, Error> {
-    let bucketing = date::bucketing(h)?;
-    let zone = h.time_zone.as_deref().map(date::Zone::parse).transpose()?;
-    let min_doc_count = h.min_doc_count.unwrap_or(0);
+    let bucketing = date::bucketing(h.interval, h.offset, h.shift);
+    let zone = h.zone.as_ref();
     let spec = schema.get(h.field.as_str());
 
-    let mut merged = merge_rows(clause, &bucketing, docs);
+    let mut merged = by_bucket(clause, &bucketing, docs);
 
-    let bound_millis = |bound: &Option<JsonValue>| -> Result<Option<i64>, Error> {
-        let Some(bound) = bound else { return Ok(None) };
-        let value = date::to_timestamp(spec, bound.clone().into_inner(), zone.as_ref())?;
-        Ok(value.as_timestamp())
-    };
+    let (hard_min, hard_max) = bounds_millis(spec, zone, h.hard_bounds.as_ref())?;
+    let (ext_min, ext_max) = bounds_millis(spec, zone, h.extended_bounds.as_ref())?;
 
-    // `hard_bounds` trims whole buckets, from the window's lower edge up to but excluding its
-    // upper one; it never extends. ES rounds those edges ignoring `offset`, unlike
-    // `extended_bounds`.
-    if let Some(hard) = &h.hard_bounds {
-        let min = bound_millis(&hard.min)?.and_then(|t| bucketing.floor_unshifted(t));
-        let max = bound_millis(&hard.max)?.and_then(|t| bucketing.floor_unshifted(t));
+    if ext_min.zip(hard_min).is_some_and(|(ext, hard)| ext < hard)
+        || ext_max.zip(hard_max).is_some_and(|(ext, hard)| ext > hard)
+    {
+        return Err(Error::BadRequest(
+            "extended_bounds have to be inside hard_bounds".into(),
+        ));
+    }
+
+    if h.hard_bounds.is_some() {
+        let min = hard_min.and_then(|t| bucketing.floor_unshifted(t));
+        let max = hard_max.and_then(|t| bucketing.floor_unshifted(t));
         merged.retain(|key, _| min.is_none_or(|m| *key >= m) && max.is_none_or(|m| *key < m));
     }
 
-    // With `min_doc_count: 0` (the ES default) the histogram is dense: every bucket between the
-    // first and last, stretched to `extended_bounds`, is reported with the empty ones included.
-    let mut buckets = match min_doc_count {
+    let mut buckets = match h.min_doc_count {
         0 => {
             let mut lo = merged.first_key_value().map(|(k, _)| *k);
             let mut hi = merged.last_key_value().map(|(k, _)| *k);
-            for value in h.extended_bounds.iter().flat_map(|b| [&b.min, &b.max]) {
-                let Some(key) = bound_millis(value)?.and_then(|t| bucketing.extended_bound(t))
-                else {
-                    continue;
-                };
+            for key in [ext_min, ext_max]
+                .into_iter()
+                .flatten()
+                .filter_map(|t| bucketing.extended_bound(t))
+            {
                 lo = Some(lo.map_or(key, |lo| lo.min(key)));
                 hi = Some(hi.map_or(key, |hi| hi.max(key)));
             }
-            fill(schema, clause, zone.as_ref(), &bucketing, merged, lo, hi)?
+            fill(schema, clause, zone, &bucketing, merged, lo, hi)?
         }
         min => merged
             .into_iter()
             .filter(|(_, (doc_count, _))| *doc_count >= min)
             .filter_map(|(key, (doc_count, metrics))| {
-                bucket(schema, clause, zone.as_ref(), key, doc_count, metrics)
+                bucket(schema, clause, zone, key, doc_count, metrics)
             })
             .collect(),
     };
 
     // Buckets are built chronologically; `order` reorders at the end.
-    if let Some(order) = &h.order {
-        reorder(&mut buckets, order)?;
+    if let Some(order) = h.order {
+        reorder(&mut buckets, order);
     }
 
     Ok(AggResult::Histogram { buckets })
@@ -233,7 +216,7 @@ fn fill(
     clause: &AggClause,
     zone: Option<&date::Zone>,
     bucketing: &date::Bucketing,
-    mut merged: Merged,
+    mut merged: Buckets,
     lo: Option<i64>,
     hi: Option<i64>,
 ) -> Result<Vec<HistogramBucket>, Error> {
@@ -257,49 +240,22 @@ fn fill(
     }
 }
 
-// ES orders `date_histogram` buckets by `_key` or `_count`; it also accepts a sub-agg name, which
-// we do not.
-fn reorder(buckets: &mut [HistogramBucket], order: &HashMap<String, String>) -> Result<(), Error> {
-    let (target, direction) = order
-        .iter()
-        .next()
-        .ok_or_else(|| Error::BadRequest("date_histogram order must name a target".into()))?;
-
-    let descending = match direction.as_str() {
-        "asc" => false,
-        "desc" => true,
-        _ => {
-            return Err(Error::BadRequest(format!(
-                "invalid date_histogram order direction [{direction}]"
-            )))
-        }
-    };
-
-    match (target.as_str(), descending) {
-        ("_key", false) => {}
-        ("_key", true) => buckets.reverse(),
+fn reorder(buckets: &mut [HistogramBucket], order: Order) {
+    match (order.target, order.direction) {
+        (OrderTarget::Key, Direction::Asc) => {}
+        (OrderTarget::Key, Direction::Desc) => buckets.reverse(),
         // ES breaks `doc_count` ties by key, ascending.
-        ("_count", false) => {
+        (OrderTarget::Count, Direction::Asc) => {
             buckets.sort_by(|a, b| a.doc_count.cmp(&b.doc_count).then(a.key.cmp(&b.key)))
         }
-        ("_count", true) => {
+        (OrderTarget::Count, Direction::Desc) => {
             buckets.sort_by(|a, b| b.doc_count.cmp(&a.doc_count).then(a.key.cmp(&b.key)))
         }
-        _ => {
-            return Err(Error::Unsupported(
-                "date_histogram order supports _key and _count".into(),
-            ))
-        }
     }
-
-    Ok(())
 }
 
-// Sum the engine rows into one entry per reported bucket. A named zone buckets at a finer
-// granularity than it reports, so several rows can fold onto the same start. The BTreeMap keeps
-// buckets chronological, as ES returns them.
-fn merge_rows(clause: &AggClause, bucketing: &date::Bucketing, docs: Vec<Document>) -> Merged {
-    let mut merged: Merged = BTreeMap::new();
+fn by_bucket(clause: &AggClause, bucketing: &date::Bucketing, docs: Vec<Document>) -> Buckets {
+    let mut buckets: Buckets = BTreeMap::new();
     for mut doc in docs {
         let Some(start) = doc
             .fields
@@ -310,47 +266,33 @@ fn merge_rows(clause: &AggClause, bucketing: &date::Bucketing, docs: Vec<Documen
             continue;
         };
 
-        let (doc_count, metrics) = merged.entry(start).or_default();
-        *doc_count += doc
+        let doc_count = doc
             .fields
             .remove("doc_count")
             .and_then(|v| v.as_u64())
             .unwrap_or(0);
+        let metrics = clause
+            .aggs
+            .iter()
+            .flatten()
+            .filter_map(|(name, _)| {
+                let value = doc.fields.remove(name).and_then(|v| v.number())?;
+                Some((name.clone(), value))
+            })
+            .collect();
 
-        for (name, sub_clause) in clause.aggs.iter().flatten() {
-            let value = doc.fields.remove(name).and_then(|v| v.number());
-            let acc = match (&sub_clause.ty, value) {
-                (AggType::Avg(_), value) => MetricAcc::Ratio(
-                    value.unwrap_or(0.0),
-                    doc.fields
-                        .remove(&format!("{AVG_COUNT_PREFIX}{name}"))
-                        .and_then(|v| v.number())
-                        .unwrap_or(0.0),
-                ),
-                (_, None) => continue,
-                (AggType::Min(_), Some(value)) => MetricAcc::Min(value),
-                (AggType::Max(_), Some(value)) => MetricAcc::Max(value),
-                (_, Some(value)) => MetricAcc::Add(value),
-            };
-            match metrics.entry(name.clone()) {
-                Entry::Vacant(slot) => {
-                    slot.insert(acc);
-                }
-                Entry::Occupied(mut slot) => slot.get_mut().fold(acc),
-            }
-        }
+        buckets.insert(start, (doc_count, metrics));
     }
 
-    merged
+    buckets
 }
 
-// Reported bucket start -> its doc count and folded sub-agg metrics.
-type Merged = BTreeMap<i64, (u64, HashMap<String, MetricAcc>)>;
+type Buckets = BTreeMap<i64, (u64, HashMap<String, f64>)>;
 
 // One bucket per requested range, counted from the indicator columns `compile` selected.
 fn ranges(schema: &Schema, r: &RangeAggBody, docs: Vec<Document>) -> Result<AggResult, Error> {
     let spec = schema.get(r.field.as_str());
-    let zone = r.time_zone.as_deref().map(date::Zone::parse).transpose()?;
+    let zone = r.time_zone.as_ref();
     let mut doc = docs.into_iter().next().unwrap_or_default();
     let mut buckets: Vec<RangeBucket> = r
         .ranges
@@ -362,20 +304,13 @@ fn ranges(schema: &Schema, r: &RangeAggBody, docs: Vec<Document>) -> Result<AggR
                 .remove(&format!("{RANGE_PREFIX}{i}"))
                 .and_then(|v| v.as_u64())
                 .unwrap_or(0);
-            let (from, from_as_string) = bound(spec, zone.as_ref(), range.from.as_ref());
-            let (to, to_as_string) = bound(spec, zone.as_ref(), range.to.as_ref());
-            // ES synthesizes "from-to" keys ("*" for an open side) when none is given:
-            // the formatted date for a date field, `100.0`-style numbers otherwise.
+            let (from, from_as_string) = bound(spec, zone, range.from.as_ref());
+            let (to, to_as_string) = bound(spec, zone, range.to.as_ref());
             let key = range.key.clone().unwrap_or_else(|| {
-                let side = |value: Option<f64>, s: &Option<String>| match (s, value) {
-                    (Some(s), _) => s.clone(),
-                    (None, Some(v)) => format!("{v:?}"),
-                    (None, None) => "*".to_string(),
-                };
                 format!(
                     "{}-{}",
-                    side(from, &from_as_string),
-                    side(to, &to_as_string)
+                    key_side(from, &from_as_string),
+                    key_side(to, &to_as_string)
                 )
             });
             RangeBucket {
@@ -391,12 +326,47 @@ fn ranges(schema: &Schema, r: &RangeAggBody, docs: Vec<Document>) -> Result<AggR
 
     // ES orders range buckets by bounds — an unbounded `from` first — not as defined.
     buckets.sort_by(|a, b| {
-        let from = |x: &RangeBucket| x.from.unwrap_or(f64::NEG_INFINITY);
-        let to = |x: &RangeBucket| x.to.unwrap_or(f64::INFINITY);
-        from(a).total_cmp(&from(b)).then(to(a).total_cmp(&to(b)))
+        a.from
+            .unwrap_or(f64::NEG_INFINITY)
+            .total_cmp(&b.from.unwrap_or(f64::NEG_INFINITY))
+            .then(
+                a.to.unwrap_or(f64::INFINITY)
+                    .total_cmp(&b.to.unwrap_or(f64::INFINITY)),
+            )
     });
 
     Ok(AggResult::Range { buckets })
+}
+
+fn bounds_millis(
+    spec: Option<&FieldSpec>,
+    zone: Option<&date::Zone>,
+    bounds: Option<&Bounds>,
+) -> Result<(Option<i64>, Option<i64>), Error> {
+    let Some(bounds) = bounds else {
+        return Ok((None, None));
+    };
+    Ok((
+        bound_millis(spec, zone, &bounds.min)?,
+        bound_millis(spec, zone, &bounds.max)?,
+    ))
+}
+
+fn bound_millis(
+    spec: Option<&FieldSpec>,
+    zone: Option<&date::Zone>,
+    bound: &Option<JsonValue>,
+) -> Result<Option<i64>, Error> {
+    let Some(bound) = bound else { return Ok(None) };
+    Ok(date::to_timestamp(spec, bound.clone().into_inner(), zone)?.as_timestamp())
+}
+
+fn key_side(value: Option<f64>, as_string: &Option<String>) -> String {
+    match (as_string, value) {
+        (Some(s), _) => s.clone(),
+        (None, Some(v)) => format!("{v:?}"),
+        (None, None) => "*".to_string(),
+    }
 }
 
 fn metric(schema: &Schema, ty: &AggType, docs: Vec<Document>) -> Result<AggResult, Error> {
@@ -434,9 +404,6 @@ impl TryFrom<AggType> for AggregateExpr {
     }
 }
 
-// `1` when the document falls in the range, null otherwise, so `count` over the column is the
-// bucket's doc_count. Bounds go through the same coercion as a range query, so a date field
-// accepts ISO strings and date math.
 fn indicator(
     spec: Option<&FieldSpec>,
     zone: Option<&date::Zone>,
@@ -462,9 +429,6 @@ fn indicator(
     Ok(pred.choose(LogicalExpr::literal(1), LogicalExpr::literal(Value::null())))
 }
 
-// ES echoes a bucket's bounds as it stored them: epoch millis, plus an ISO companion rendered in
-// the request zone when the field is a date. Verified on ES 8.15 that `range` and `date_range`
-// agree here, so the companion follows the mapping and not the aggregation name.
 fn bound(
     spec: Option<&FieldSpec>,
     zone: Option<&date::Zone>,
@@ -481,8 +445,6 @@ fn bound(
     (value.and_then(|v| v.number()), as_string)
 }
 
-// On a date field ES pairs the raw millis with an ISO companion. `value_count` is a plain count
-// and never renders as a date.
 fn metric_result(schema: &Schema, ty: &AggType, value: Option<f64>) -> AggResult {
     let value_as_string = match (ty, value) {
         (AggType::Sum(m) | AggType::Avg(m) | AggType::Min(m) | AggType::Max(m), Some(v))
@@ -498,37 +460,6 @@ fn metric_result(schema: &Schema, ty: &AggType, value: Option<f64>) -> AggResult
     }
 }
 
-// A sub-agg metric folded across the engine rows that merged into one bucket.
-enum MetricAcc {
-    Add(f64),
-    // avg as numerator/denominator; see `compile`.
-    Ratio(f64, f64),
-    Min(f64),
-    Max(f64),
-}
-
-impl MetricAcc {
-    fn fold(&mut self, next: MetricAcc) {
-        match (self, next) {
-            (Self::Add(a), Self::Add(b)) => *a += b,
-            (Self::Ratio(s, c), Self::Ratio(s2, c2)) => {
-                *s += s2;
-                *c += c2;
-            }
-            (Self::Min(a), Self::Min(b)) => *a = a.min(b),
-            (Self::Max(a), Self::Max(b)) => *a = a.max(b),
-            _ => {}
-        }
-    }
-
-    fn value(&self) -> Option<f64> {
-        match self {
-            Self::Add(v) | Self::Min(v) | Self::Max(v) => Some(*v),
-            Self::Ratio(sum, count) => (*count > 0.0).then(|| sum / count),
-        }
-    }
-}
-
 // `None` when the key does not format, which only happens far outside the representable range.
 fn bucket(
     schema: &Schema,
@@ -536,19 +467,15 @@ fn bucket(
     zone: Option<&date::Zone>,
     key: i64,
     doc_count: u64,
-    metrics: HashMap<String, MetricAcc>,
+    metrics: HashMap<String, f64>,
 ) -> Option<HistogramBucket> {
     let key_as_string = date::format(key, zone)?;
 
     let mut sub_aggs = HashMap::new();
     for (name, sub_clause) in clause.aggs.iter().flatten() {
-        let value = match metrics.get(name) {
-            Some(acc) => acc.value(),
-            // An empty bucket sums and counts to 0; avg/min/max stay null, as in ES.
-            None => {
-                matches!(sub_clause.ty, AggType::Sum(_) | AggType::ValueCount(_)).then_some(0.0)
-            }
-        };
+        let value = metrics.get(name).copied().or_else(|| {
+            matches!(sub_clause.ty, AggType::Sum(_) | AggType::ValueCount(_)).then_some(0.0)
+        });
         sub_aggs.insert(name.clone(), metric_result(schema, &sub_clause.ty, value));
     }
 

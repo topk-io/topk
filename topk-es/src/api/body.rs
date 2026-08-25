@@ -73,9 +73,6 @@ where
         )));
     }
 
-    // A bare `[]` would deserialize a struct from a positional sequence, making it an
-    // all-defaults request. Checked on the bytes because a `serde_json::Value` would reorder the
-    // keys, and a range clause with both `lt` and `lte` keeps whichever came last.
     if bytes.iter().find(|b| !b.is_ascii_whitespace()) != Some(&b'{') {
         return Err(Error::BadRequest(
             "Request body must be a JSON object".into(),

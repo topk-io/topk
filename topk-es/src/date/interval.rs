@@ -1,148 +1,55 @@
-use chrono::{DateTime, Datelike, Days, Duration, NaiveDate, Utc, Weekday};
+use chrono::{DateTime, Datelike, NaiveDate, Utc};
 use topk_rs::proto::v1::data::LogicalExpr;
 use topk_rs::query::field;
 
-use super::{Error, Zone};
-use crate::api::DateHistogramBody;
+use super::Error;
 
 const HOUR: i64 = 60 * 60 * 1_000;
 const DAY: i64 = 24 * HOUR;
 
-// How a date_histogram maps documents to buckets.
 pub struct Bucketing {
     kind: Kind,
 
-    // The `offset` request param. Bucket boundaries are computed on `t - shift` and shifted back,
-    // which is exact even for variable-length calendar units.
     shift: i64,
 }
 
-// `Fixed`/`Months` bucket entirely in the engine on `ts + offset`, one engine row per bucket. A
-// named `time_zone` observes DST, so no single offset is correct for a whole query: the `Local`
-// kinds have the engine bucket by a granularity finer than any zone transition, then merge those
-// rows into buckets here, where chrono-tz can follow the zone.
 enum Kind {
-    Fixed {
-        width: i64,
-        offset: i64,
-    },
-    Months {
-        count: i64,
-        offset: i64,
-    },
-    // Aligned to the zone-local epoch using the offset in force at the bucket's own instant,
-    // which is what makes February buckets align to EST and July to EDT.
-    LocalFixed {
-        width: i64,
-        tz: chrono_tz::Tz,
-        granularity: i64,
-    },
-    LocalCalendar {
-        unit: CalendarUnit,
-        tz: chrono_tz::Tz,
-        granularity: i64,
-    },
+    Fixed { width: i64, offset: i64 },
+    Months { count: i64, offset: i64 },
 }
 
-// A calendar unit whose length varies, so it cannot be expressed as a fixed width under a named
-// zone: `calendar_interval: week` follows local Mondays, while `fixed_interval: 7d` does not.
 #[derive(Clone, Copy)]
-enum CalendarUnit {
-    Day,
+pub enum Interval {
+    Fixed(i64),
     Week,
     Months(i64),
 }
 
-enum Parsed {
-    Fixed(i64),
-    Calendar(CalendarUnit),
-}
-
-pub fn bucketing(h: &DateHistogramBody) -> Result<Bucketing, Error> {
-    if h.extended_bounds.is_some() && h.hard_bounds.is_some() {
-        return Err(Error::BadRequest(
-            "date_histogram accepts either extended_bounds or hard_bounds, not both".into(),
-        ));
-    }
-
-    let parsed = match (&h.fixed_interval, &h.calendar_interval) {
-        (Some(_), Some(_)) => Err(Error::BadRequest(
-            "date_histogram accepts either fixed_interval or calendar_interval, not both".into(),
-        )),
-        (Some(fixed), None) => fixed_interval(fixed).map(Parsed::Fixed),
-        (None, Some(calendar)) => calendar_interval(calendar),
-        (None, None) => Err(Error::BadRequest(
-            "date_histogram requires fixed_interval or calendar_interval".into(),
-        )),
-    }?;
-    let zone = h.time_zone.as_deref().map(Zone::parse).transpose()?;
-    let shift = offset_param(h.offset.as_deref())?;
-
-    // A fixed offset is a constant, so every kind can bucket in the engine; a named zone never
-    // reaches the arms that read this.
-    let offset = match &zone {
-        Some(Zone::Fixed(offset)) => offset.local_minus_utc() as i64 * 1_000,
-        _ => 0,
-    };
-
-    let kind = match (parsed, zone) {
-        (Parsed::Fixed(width), Some(Zone::Named(tz))) => Kind::LocalFixed {
-            width,
-            tz,
-            // A row has to nest inside the bucket it merges into, so it must divide the width too.
-            granularity: gcd(granularity(tz, shift), width),
-        },
-        (Parsed::Calendar(unit), Some(Zone::Named(tz))) => Kind::LocalCalendar {
-            unit,
-            tz,
-            granularity: granularity(tz, shift),
-        },
-        (Parsed::Fixed(width), _) => Kind::Fixed { width, offset },
-        (Parsed::Calendar(CalendarUnit::Day), _) => Kind::Fixed { width: DAY, offset },
-        (Parsed::Calendar(CalendarUnit::Week), _) => Kind::Fixed {
+pub fn bucketing(interval: Interval, offset: i64, shift: i64) -> Bucketing {
+    let kind = match interval {
+        Interval::Fixed(width) => Kind::Fixed { width, offset },
+        Interval::Week => Kind::Fixed {
             width: 7 * DAY,
-            // The epoch is a Thursday; pre-shifting by 3 days lands week buckets on Mondays.
             offset: offset + 3 * DAY,
         },
-        (Parsed::Calendar(CalendarUnit::Months(count)), _) => Kind::Months { count, offset },
+        Interval::Months(count) => Kind::Months { count, offset },
     };
 
-    Ok(Bucketing { kind, shift })
+    Bucketing { kind, shift }
 }
 
 // `+6h` / `-1d`: a signed fixed duration added to every bucket boundary.
-fn offset_param(offset: Option<&str>) -> Result<i64, Error> {
-    let Some(offset) = offset else { return Ok(0) };
+pub fn parse_offset(offset: &str) -> Result<i64, Error> {
     let (sign, duration) = match offset.strip_prefix('-') {
         Some(d) => (-1, d),
         None => (1, offset.strip_prefix('+').unwrap_or(offset)),
     };
-    let millis = fixed_interval(duration)
+    let millis = parse_fixed_interval(duration)
         .map_err(|_| Error::BadRequest(format!("invalid offset [{offset}]")))?;
     Ok(sign * millis)
 }
 
-// The engine row width for a locally bucketed zone. Calendar boundaries sit on whole hours in
-// every zone with a whole-hour offset (DST shifts are whole hours too); the handful of :30/:45
-// zones need quarter-hour rows. A boundary `shift` has to divide the row width as well.
-fn granularity(tz: chrono_tz::Tz, shift: i64) -> i64 {
-    let zone = Zone::Named(tz);
-    let whole_hours = |at: DateTime<Utc>| zone.offset_millis(at) % HOUR == 0;
-    let hours = whole_hours(Utc::now()) && whole_hours(Utc::now() - Duration::days(182));
-
-    gcd(if hours { HOUR } else { HOUR / 4 }, shift.abs())
-}
-
-fn gcd(a: i64, b: i64) -> i64 {
-    match b {
-        0 => a,
-        b => gcd(b, a % b),
-    }
-}
-
-// `<n><unit>` where unit is ms/s/m/h/d — ES rejects calendar units (w/M/y) here because their
-// length varies.
-fn fixed_interval(value: &str) -> Result<i64, Error> {
+pub fn parse_fixed_interval(value: &str) -> Result<i64, Error> {
     let invalid = || Error::BadRequest(format!("invalid fixed_interval [{value}]"));
 
     let split = value
@@ -163,18 +70,16 @@ fn fixed_interval(value: &str) -> Result<i64, Error> {
     n.checked_mul(millis).filter(|m| *m > 0).ok_or_else(invalid)
 }
 
-// ES spells these either as a word (`month`) or as `1`-prefixed shorthand (`1M`); multiples other
-// than 1 are rejected, as in ES.
-fn calendar_interval(value: &str) -> Result<Parsed, Error> {
+pub fn parse_calendar_interval(value: &str) -> Result<Interval, Error> {
     match value {
-        "second" | "1s" => Ok(Parsed::Fixed(1_000)),
-        "minute" | "1m" => Ok(Parsed::Fixed(60 * 1_000)),
-        "hour" | "1h" => Ok(Parsed::Fixed(HOUR)),
-        "day" | "1d" => Ok(Parsed::Calendar(CalendarUnit::Day)),
-        "week" | "1w" => Ok(Parsed::Calendar(CalendarUnit::Week)),
-        "month" | "1M" => Ok(Parsed::Calendar(CalendarUnit::Months(1))),
-        "quarter" | "1q" => Ok(Parsed::Calendar(CalendarUnit::Months(3))),
-        "year" | "1y" => Ok(Parsed::Calendar(CalendarUnit::Months(12))),
+        "second" | "1s" => Ok(Interval::Fixed(1_000)),
+        "minute" | "1m" => Ok(Interval::Fixed(60 * 1_000)),
+        "hour" | "1h" => Ok(Interval::Fixed(HOUR)),
+        "day" | "1d" => Ok(Interval::Fixed(DAY)),
+        "week" | "1w" => Ok(Interval::Week),
+        "month" | "1M" => Ok(Interval::Months(1)),
+        "quarter" | "1q" => Ok(Interval::Months(3)),
+        "year" | "1y" => Ok(Interval::Months(12)),
         _ => Err(Error::BadRequest(format!(
             "invalid calendar_interval [{value}]"
         ))),
@@ -182,55 +87,38 @@ fn calendar_interval(value: &str) -> Result<Parsed, Error> {
 }
 
 impl Bucketing {
-    // The grouping expression whose value identifies a document's engine row.
-    pub fn key_expr(&self, name: &str) -> LogicalExpr {
-        // The engine buckets on the shifted field, so the boundary shift folds into the offset.
-        let at = |offset: i64| match offset - self.shift {
+    fn shifted(&self, name: &str, offset: i64) -> LogicalExpr {
+        match offset - self.shift {
             0 => field(name),
             offset => field(name).add(LogicalExpr::literal(offset)),
-        };
-
-        match &self.kind {
-            Kind::Fixed { width, offset } => at(*offset).div(LogicalExpr::literal(*width)),
-            // Months elapsed since year 0, divided by the bucket's width in months. Folding the
-            // year in is what keeps January 2025 and January 2026 in different buckets.
-            Kind::Months { count, offset } => at(*offset)
-                .date_part("year")
-                .mul(LogicalExpr::literal(12))
-                .add(at(*offset).date_part("month"))
-                .sub(LogicalExpr::literal(1))
-                .div(LogicalExpr::literal(*count)),
-            Kind::LocalFixed { granularity, .. } | Kind::LocalCalendar { granularity, .. } => {
-                field(name).div(LogicalExpr::literal(*granularity))
-            }
         }
     }
 
-    // Engine row key -> start of the bucket the row belongs to, in UTC millis. For the `Local`
-    // kinds this is many-to-one: every row inside one bucket folds onto the same start.
+    pub fn key_expr(&self, name: &str) -> LogicalExpr {
+        match &self.kind {
+            Kind::Fixed { width, offset } => self
+                .shifted(name, *offset)
+                .div(LogicalExpr::literal(*width)),
+            Kind::Months { count, offset } => self
+                .shifted(name, *offset)
+                .date_part("year")
+                .mul(LogicalExpr::literal(12))
+                .add(self.shifted(name, *offset).date_part("month"))
+                .sub(LogicalExpr::literal(1))
+                .div(LogicalExpr::literal(*count)),
+        }
+    }
+
     pub fn start_of_index(&self, index: i64) -> Option<i64> {
         let start = match &self.kind {
             Kind::Fixed { width, offset } => index.checked_mul(*width)?.checked_sub(*offset)?,
             Kind::Months { count, offset } => {
                 month_start(index.checked_mul(*count)?)?.checked_sub(*offset)?
             }
-            // A local row key is an instant on the unshifted timeline, so it rounds like one.
-            Kind::LocalFixed { granularity, .. } | Kind::LocalCalendar { granularity, .. } => {
-                self.floor_unshifted(index.checked_mul(*granularity)?.checked_sub(self.shift)?)?
-            }
         };
         start.checked_add(self.shift)
     }
 
-    // Start of the bucket containing instant `t`.
-    pub fn floor(&self, t: i64) -> Option<i64> {
-        self.floor_unshifted(t.checked_sub(self.shift)?)?
-            .checked_add(self.shift)
-    }
-
-    // As `floor`, but ignoring the boundary shift, so the result need not be a real bucket start.
-    // This is how ES rounds a `hard_bounds` edge — verified against Elasticsearch 9 across
-    // positive and negative offsets, with and without a named zone.
     pub fn floor_unshifted(&self, t: i64) -> Option<i64> {
         Some(match &self.kind {
             Kind::Fixed { width, offset } => {
@@ -242,23 +130,9 @@ impl Bucketing {
                     (at.year() as i64 * 12 + at.month0() as i64).div_euclid(*count) * *count;
                 month_start(months)?.checked_sub(*offset)?
             }
-            Kind::LocalFixed { width, tz, .. } => local_floor(*width, *tz, t)?,
-            Kind::LocalCalendar { unit, tz, .. } => {
-                let date = DateTime::<Utc>::from_timestamp_millis(t)?
-                    .with_timezone(tz)
-                    .date_naive();
-                let start = match unit {
-                    CalendarUnit::Day => date,
-                    CalendarUnit::Week => date.week(Weekday::Mon).first_day(),
-                    CalendarUnit::Months(n) => month_of(date, |m| m.div_euclid(*n) * *n)?,
-                };
-                from_local(*tz, midnight(start)?)?
-            }
         })
     }
 
-    // The `extended_bounds` edge for `t`: the same rounding with the boundary shift applied, so it
-    // lands on a real bucket start.
     pub fn extended_bound(&self, t: i64) -> Option<i64> {
         self.floor_unshifted(t)?.checked_add(self.shift)
     }
@@ -273,91 +147,20 @@ impl Bucketing {
                 let months = at.year() as i64 * 12 + at.month0() as i64 + count;
                 month_start(months)?.checked_sub(*offset)?
             }
-            // A width step lands on the next boundary in absolute time, which is right inside a
-            // repeated local hour. Across a transition the local grid moves instead, so the step
-            // can land back inside this bucket; creep forward by the row width until the
-            // rounding advances. A DST shift is at most a couple of hours, so this is a few
-            // iterations at worst.
-            Kind::LocalFixed {
-                width,
-                tz,
-                granularity,
-            } => {
-                let mut t = start.checked_add(*width)?;
-                loop {
-                    let floored = local_floor(*width, *tz, t)?;
-                    if floored > start {
-                        break floored;
-                    }
-                    t = t.checked_add(*granularity)?;
-                }
-            }
-            Kind::LocalCalendar { unit, tz, .. } => {
-                let date = DateTime::<Utc>::from_timestamp_millis(start)?
-                    .with_timezone(tz)
-                    .date_naive();
-                let next = match unit {
-                    CalendarUnit::Day => date.checked_add_days(Days::new(1))?,
-                    CalendarUnit::Week => date.checked_add_days(Days::new(7))?,
-                    CalendarUnit::Months(n) => month_of(date, |m| m + n)?,
-                };
-                from_local(*tz, midnight(next)?)?
-            }
         };
         next.checked_add(self.shift)
     }
 }
 
-fn first_of_month(months: i64) -> Option<NaiveDate> {
-    NaiveDate::from_ymd_opt(
-        months.div_euclid(12) as i32,
-        (months.rem_euclid(12) + 1) as u32,
-        1,
-    )
-}
-
 fn month_start(months: i64) -> Option<i64> {
-    midnight(first_of_month(months)?)
-}
-
-// The first of the month `f` maps `date`'s month to, counting months from year 0.
-fn month_of(date: NaiveDate, f: impl Fn(i64) -> i64) -> Option<NaiveDate> {
-    first_of_month(f(date.year() as i64 * 12 + date.month0() as i64))
-}
-
-fn midnight(date: NaiveDate) -> Option<i64> {
-    Some(date.and_hms_opt(0, 0, 0)?.and_utc().timestamp_millis())
-}
-
-// Start of the `width`-wide bucket holding `t`, rounded in local wall-clock time so a boundary
-// keeps the same local time across a DST transition even though the gap in absolute time is then
-// shorter or longer.
-fn local_floor(width: i64, tz: chrono_tz::Tz, t: i64) -> Option<i64> {
-    let offset = offset_at(tz, t)?;
-    let floored = t
-        .checked_add(offset)?
-        .div_euclid(width)
-        .checked_mul(width)?;
-
-    // Converted back at the instant's own offset, so the two halves of a repeated local hour
-    // stay in separate buckets, as ES reports them.
-    match floored.checked_sub(offset)? {
-        back if offset_at(tz, back) == Some(offset) => Some(back),
-        // The rounded local time does not exist at that offset (a skipped hour).
-        _ => from_local(tz, floored),
-    }
-}
-
-fn offset_at(tz: chrono_tz::Tz, t: i64) -> Option<i64> {
-    let at = DateTime::<Utc>::from_timestamp_millis(t)?;
-    Some(Zone::Named(tz).offset_millis(at))
-}
-
-// Local wall-clock millis back to an instant; see `Zone::from_local` for how a repeated or
-// skipped local time resolves.
-fn from_local(tz: chrono_tz::Tz, local: i64) -> Option<i64> {
-    let naive = DateTime::<Utc>::from_timestamp_millis(local)?.naive_utc();
-    Zone::Named(tz)
-        .from_local(naive)
-        .map(|dt| dt.timestamp_millis())
+    Some(
+        NaiveDate::from_ymd_opt(
+            months.div_euclid(12) as i32,
+            (months.rem_euclid(12) + 1) as u32,
+            1,
+        )?
+        .and_hms_opt(0, 0, 0)?
+        .and_utc()
+        .timestamp_millis(),
+    )
 }

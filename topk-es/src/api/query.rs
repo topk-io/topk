@@ -5,6 +5,7 @@ use serde_with::{serde_as, OneOrMany};
 use topk_rs::json::Value;
 
 use super::DocId;
+use crate::date::Zone;
 use crate::value::ValueExt;
 use crate::Error;
 
@@ -269,9 +270,6 @@ pub struct IdsQuery {
     pub boost: Option<f32>,
 }
 
-// ES keeps a single bound per side, so a clause carrying both `lt` and `lte` uses whichever came
-// last in the request. We intersect them instead: the input is pathological and emulating it
-// would mean deserializing in document order.
 #[derive(Deserialize)]
 #[serde(remote = "Self", deny_unknown_fields)]
 pub struct RangeBounds {
@@ -290,13 +288,12 @@ pub struct RangeBounds {
     #[serde(default)]
     pub boost: Option<f32>,
 
-    #[serde(default)]
-    #[allow(dead_code)]
-    pub format: Option<String>,
+    #[serde(default, rename = "format")]
+    pub _format: Option<String>,
 
     // A zone-less bound is interpreted in this zone; a bound carrying its own offset ignores it.
     #[serde(default)]
-    pub time_zone: Option<String>,
+    pub time_zone: Option<Zone>,
 }
 
 impl<'de> Deserialize<'de> for RangeBounds {
