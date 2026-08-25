@@ -71,7 +71,8 @@ async fn test_search_query_too_long(ctx: &mut ProjectTestContext) {
             Vec::<String>::new(),
         )
         .await
-        .expect_err("should fail with too long query");
+        .err()
+        .expect("should fail with too long query");
 
     assert!(
         matches!(err, Error::InvalidArgument(ref s) if s.contains("maximum length of 512")),
@@ -94,7 +95,8 @@ async fn test_search_invalid_top_k(ctx: &mut ProjectTestContext) {
             .client
             .search("query", [&dataset.name], top_k, None, Vec::<String>::new())
             .await
-            .expect_err("should fail with invalid top_k");
+            .err()
+            .expect("should fail with invalid top_k");
 
         assert!(
             matches!(err, Error::InvalidArgument(ref s) if s.contains("top_k must be between 1 and")),
@@ -108,7 +110,8 @@ async fn test_search_empty_datasets() {
     let err = Client::new(ClientConfig::new("dummy-key", "us-east-1"))
         .search("query", Vec::<&str>::new(), 10, None, Vec::<String>::new())
         .await
-        .expect_err("should fail with empty datasets");
+        .err()
+        .expect("should fail with empty datasets");
 
     assert!(
         matches!(err, Error::InvalidArgument(ref s) if s == "provide at least one dataset"),

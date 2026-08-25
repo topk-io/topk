@@ -1,5 +1,4 @@
-use futures_util::TryFutureExt;
-use tonic::Streaming;
+use futures_util::{Stream, TryFutureExt, TryStreamExt};
 
 use crate::create_client;
 use crate::proto::v1::ctx::context_service_client::ContextServiceClient;
@@ -20,7 +19,7 @@ impl super::Client {
         mode: Option<Mode>,
         select_fields: Option<Vec<String>>,
         include_content: Option<bool>,
-    ) -> Result<Streaming<AskResult>, Error> {
+    ) -> Result<impl Stream<Item = Result<AskResult, Error>>, Error> {
         let datasets: Vec<_> = datasets.into_iter().map(|s| s.into()).collect();
         if datasets.is_empty() {
             return Err(Error::InvalidArgument(
@@ -46,6 +45,6 @@ impl super::Client {
         })
         .await?;
 
-        Ok(response.into_inner())
+        Ok(response.into_inner().map_err(Error::from))
     }
 }
