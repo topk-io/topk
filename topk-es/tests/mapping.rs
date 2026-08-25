@@ -111,6 +111,13 @@ async fn test_create_rejected(scope: &TestScope, #[case] body: Value) {
     json!({ "v": { "type": "dense_vector", "dims": 4, "index": false } })
 )]
 #[case::object_without_properties(json!({ "meta": { "type": "object" } }))]
+#[case::keyword_ignore_above(json!({ "sku": { "type": "keyword", "ignore_above": 256 } }))]
+#[case::dense_vector_index_options(json!({
+    "v": {
+        "type": "dense_vector", "dims": 4, "index": true, "similarity": "cosine",
+        "index_options": { "type": "int8_hnsw", "m": 16, "ef_construction": 100 }
+    }
+}))]
 #[case::date(json!({ "created": { "type": "date" } }))]
 #[case::date_nanos_alias(json!({ "created": { "type": "date_nanos" } }))]
 #[case::date_with_format(json!({ "created": { "type": "date", "format": "strict_date_optional_time" } }))]

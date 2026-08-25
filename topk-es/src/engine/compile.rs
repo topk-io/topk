@@ -1,4 +1,3 @@
-use topk_rs::json::Value as JsonValue;
 use topk_rs::proto::v1::control::KeywordIndexType;
 use topk_rs::proto::v1::data::{LogicalExpr, Query as TopkQuery, TextExpr, Value};
 use topk_rs::query::{count as count_query, field, filter, fns, not, should, SortOrder};
@@ -11,7 +10,7 @@ use crate::api::{
     AggClause, AggType, FieldName, GateQuery, KnnRequest, MatchAllQuery, MatchOperator, MatchValue,
     Query, SearchRequest, SortField, SortTarget, TermValue,
 };
-use crate::date::{self, Round};
+use crate::date;
 use crate::value::ValueExt;
 
 use crate::{engine::Schema, Error};
@@ -324,22 +323,19 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
         }
         Query::Range(clause) => {
             let boost = clause.value.boost;
-            let spec = schema.get(clause.field.as_str());
-            let zone = clause.value.time_zone.as_ref();
-            let bound =
-                |v: JsonValue, round| date::to_timestamp_rounded(spec, v.into_inner(), zone, round);
+            let bounds = clause.value.resolve(schema.get(clause.field.as_str()))?;
             let mut exprs = Vec::new();
-            if let Some(v) = clause.value.gte {
-                exprs.push(field(clause.field.clone()).gte(bound(v, Round::Down)?));
+            if let Some(v) = bounds.gte {
+                exprs.push(field(clause.field.clone()).gte(v));
             }
-            if let Some(v) = clause.value.gt {
-                exprs.push(field(clause.field.clone()).gt(bound(v, Round::Up)?));
+            if let Some(v) = bounds.gt {
+                exprs.push(field(clause.field.clone()).gt(v));
             }
-            if let Some(v) = clause.value.lte {
-                exprs.push(field(clause.field.clone()).lte(bound(v, Round::Up)?));
+            if let Some(v) = bounds.lte {
+                exprs.push(field(clause.field.clone()).lte(v));
             }
-            if let Some(v) = clause.value.lt {
-                exprs.push(field(clause.field.clone()).lt(bound(v, Round::Down)?));
+            if let Some(v) = bounds.lt {
+                exprs.push(field(clause.field.clone()).lt(v));
             }
             // A bound-less range is ES's field-exists check.
             if exprs.is_empty() {

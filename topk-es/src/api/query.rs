@@ -5,9 +5,11 @@ use serde_with::{serde_as, OneOrMany};
 use topk_rs::json::Value;
 
 use super::DocId;
-use crate::date::Zone;
+use crate::date::{self, Round, Zone};
 use crate::value::ValueExt;
 use crate::Error;
+use topk_rs::proto::v1::control::FieldSpec;
+use topk_rs::proto::v1::data::Value as TopkValue;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -294,6 +296,32 @@ pub struct RangeBounds {
     // A zone-less bound is interpreted in this zone; a bound carrying its own offset ignores it.
     #[serde(default)]
     pub time_zone: Option<Zone>,
+}
+
+pub struct ResolvedBounds {
+    pub gte: Option<TopkValue>,
+    pub gt: Option<TopkValue>,
+    pub lte: Option<TopkValue>,
+    pub lt: Option<TopkValue>,
+}
+
+impl RangeBounds {
+    pub fn resolve(&self, spec: Option<&FieldSpec>) -> Result<ResolvedBounds, Error> {
+        let zone = self.time_zone.as_ref();
+        let bound = |value: &Option<Value>, round| match value {
+            None => Ok(None),
+            Some(value) => {
+                date::to_timestamp_rounded(spec, value.clone().into_inner(), zone, round).map(Some)
+            }
+        };
+
+        Ok(ResolvedBounds {
+            gte: bound(&self.gte, Round::Down)?,
+            gt: bound(&self.gt, Round::Up)?,
+            lte: bound(&self.lte, Round::Up)?,
+            lt: bound(&self.lt, Round::Down)?,
+        })
+    }
 }
 
 impl<'de> Deserialize<'de> for RangeBounds {
