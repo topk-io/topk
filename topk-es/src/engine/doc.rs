@@ -24,29 +24,46 @@ pub fn decode(source: &SourceFilter, fields: HashMap<String, Value>) -> Source {
 }
 
 pub fn decode_fields(schema: &Schema, fields: HashMap<String, Value>) -> HashMap<String, Value> {
+    render(schema, flatten(fields))
+}
+
+// Structural only: nested structs become dotted paths, so a value keeps whatever the engine
+// stored. Ranking sorts on these, and ES echoes a raw sort value.
+pub fn flatten(fields: HashMap<String, Value>) -> HashMap<String, Value> {
     let mut flat = HashMap::new();
     for (name, value) in fields {
-        flatten_value(schema, &mut flat, name, value);
+        flatten_value(&mut flat, name, value);
     }
     flat
 }
 
-fn flatten_value(schema: &Schema, out: &mut HashMap<String, Value>, path: String, value: Value) {
+fn flatten_value(out: &mut HashMap<String, Value>, path: String, value: Value) {
     match value.value {
         Some(value::Value::Struct(s)) => {
             for (key, value) in s.fields {
-                flatten_value(schema, out, format!("{path}.{key}"), value);
+                flatten_value(out, format!("{path}.{key}"), value);
             }
         }
         value => {
-            let value = match schema.get(path.as_str()) {
-                Some(spec) if is_byte_vector(spec) => Value { value }.into_signed_bytes(),
-                Some(spec) if date::is_timestamp(spec) => date::from_timestamp(Value { value }),
-                _ => Value { value },
-            };
-            out.insert(path, value);
+            out.insert(path, Value { value });
         }
     }
+}
+
+// Presentational: how a stored value reads on the way out. Applied once, at the output edge,
+// so nothing downstream has to undo it.
+pub fn render(schema: &Schema, fields: HashMap<String, Value>) -> HashMap<String, Value> {
+    fields
+        .into_iter()
+        .map(|(path, value)| {
+            let value = match schema.get(path.as_str()) {
+                Some(spec) if is_byte_vector(spec) => value.into_signed_bytes(),
+                Some(spec) if date::is_timestamp(spec) => date::from_timestamp(value),
+                _ => value,
+            };
+            (path, value)
+        })
+        .collect()
 }
 
 fn is_byte_vector(spec: &FieldSpec) -> bool {

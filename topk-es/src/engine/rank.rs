@@ -4,10 +4,9 @@ use std::collections::HashMap;
 use topk_rs::json::Value as JsonValue;
 use topk_rs::proto::v1::data::{Document, Value};
 
-use super::doc::decode;
+use super::doc::{decode, render};
 use super::{Schema, RANK_SCORE};
 use crate::api::{DocId, Hit, SearchRequest, SortClause, SortField, SortTarget};
-use crate::date;
 use crate::value::OrdValue;
 use crate::Error;
 
@@ -86,7 +85,7 @@ struct Candidate {
 }
 
 impl Candidate {
-    fn sort_key(&self, schema: &Schema, sort: &SortClause, score: f32) -> SortKey {
+    fn sort_key(&self, sort: &SortClause, score: f32) -> SortKey {
         SortKey(
             sort.iter()
                 .map(|f| {
@@ -97,11 +96,7 @@ impl Candidate {
                             .fields
                             .get(name.as_str())
                             .filter(|value| value.as_null().is_none())
-                            .cloned()
-                            .map(|value| {
-                                date::to_timestamp(schema.get(name.as_str()), value.clone(), None)
-                                    .unwrap_or(value)
-                            }),
+                            .cloned(),
                     };
                     match (value, f.asc) {
                         (None, _) => SortKeyPart::Missing,
@@ -183,7 +178,7 @@ fn to_hits(schema: &Schema, req: &SearchRequest, candidates: Vec<(f32, Candidate
             let key = req
                 .sort
                 .as_ref()
-                .map(|sort| candidate.sort_key(schema, sort, score));
+                .map(|sort| candidate.sort_key(sort, score));
             (key, score, candidate)
         })
         .collect();
@@ -220,7 +215,9 @@ fn to_hits(schema: &Schema, req: &SearchRequest, candidates: Vec<(f32, Candidate
         .map(|(key, score, candidate)| Hit {
             score: scores.then_some(score),
             sort: key.filter(|_| !default_order).map(SortKey::into_json),
-            source: source.enabled().then(|| decode(&source, candidate.fields)),
+            source: source
+                .enabled()
+                .then(|| decode(&source, render(schema, candidate.fields))),
             id: candidate.id,
         })
         .collect()
