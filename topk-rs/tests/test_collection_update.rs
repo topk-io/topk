@@ -115,7 +115,8 @@ async fn test_update_missing_id(ctx: &mut ProjectTestContext) {
         .await
         .expect("could not update document");
 
-    assert!(new_lsn.is_empty());
+    // Nothing was updated, so the collection is still at the LSN of the upsert.
+    assert_eq!(new_lsn, lsn);
 
     // Check that no changes were made
     let docs = ctx
