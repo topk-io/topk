@@ -598,7 +598,10 @@ fn order_by_multiple_keys_lowers_to_multi_expr_sort() {
         sort.exprs[0].order,
         stage::sort_stage::SortOrder::Desc as i32
     );
-    assert_eq!(sort.exprs[1].order, stage::sort_stage::SortOrder::Asc as i32);
+    assert_eq!(
+        sort.exprs[1].order,
+        stage::sort_stage::SortOrder::Asc as i32
+    );
 }
 
 #[rstest]

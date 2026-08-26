@@ -150,7 +150,9 @@ fn parse_timestamp(s: &str) -> Result<Value, Error> {
         return Ok(Value::timestamp(dt));
     }
     if let Ok(d) = chrono::NaiveDate::parse_from_str(s, DATE_FORMAT) {
-        return Ok(Value::timestamp(d.and_time(chrono::NaiveTime::MIN).and_utc()));
+        return Ok(Value::timestamp(
+            d.and_time(chrono::NaiveTime::MIN).and_utc(),
+        ));
     }
     Err(Error::InvalidLiteral(format!(
         "timestamp `{s}` (expected RFC 3339 with timezone offset)"

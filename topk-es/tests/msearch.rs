@@ -129,6 +129,9 @@ async fn test_rejects_source_params(scope: &TestScope) {
 
         assert_eq!(res.status_code(), 400, "{param} should be rejected");
         let body: serde_json::Value = res.json().await.expect("error body");
-        assert_eq!(body["error"]["type"], "illegal_argument_exception", "{body}");
+        assert_eq!(
+            body["error"]["type"], "illegal_argument_exception",
+            "{body}"
+        );
     }
 }

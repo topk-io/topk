@@ -164,7 +164,9 @@ impl<S: Send + Sync> FromRequestParts<S> for SourceQuery {
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         let params = SourceQueryParams::from_request_parts(parts, state).await?;
-        Ok(SourceQuery((!params.is_empty()).then(|| params.into_filter())))
+        Ok(SourceQuery(
+            (!params.is_empty()).then(|| params.into_filter()),
+        ))
     }
 }
 
@@ -178,7 +180,10 @@ impl<S: Send + Sync> FromRequestParts<S> for NoSourceQuery {
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         let path = parts.uri.path().to_string();
-        match SourceQueryParams::from_request_parts(parts, state).await?.is_empty() {
+        match SourceQueryParams::from_request_parts(parts, state)
+            .await?
+            .is_empty()
+        {
             true => Ok(Self),
             false => Err(Error::Unsupported(format!(
                 "request [{path}] contains unrecognized parameter: [_source*]"

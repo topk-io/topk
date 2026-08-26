@@ -13,7 +13,7 @@ use topk_rs::proto::v1::control::{
 
 use crate::{
     Error, FromSql, SqlExprExt, Statement, Table, parse_args, parse_kwargs, sql_invalid,
-    sql_unsupported, util::Kwargs
+    sql_unsupported, util::Kwargs,
 };
 
 impl TryFrom<SqlCreateTable> for Statement {

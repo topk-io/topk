@@ -23,7 +23,11 @@ impl FromPyObject<'_, '_> for SortOrder {
 
 impl From<bool> for SortOrder {
     fn from(asc: bool) -> Self {
-        if asc { SortOrder::Asc } else { SortOrder::Desc }
+        if asc {
+            SortOrder::Asc
+        } else {
+            SortOrder::Desc
+        }
     }
 }
 

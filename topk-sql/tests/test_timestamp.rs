@@ -52,20 +52,17 @@ async fn timestamp_filter(#[case] query: &str, #[case] expected: HashSet<&str>) 
 #[rstest]
 #[case::tz_less_datetime(
     "SELECT _id FROM books WHERE published_ts < TIMESTAMP '1929-01-01 00:00:00'",
-    "expected RFC 3339 with timezone offset",
+    "expected RFC 3339 with timezone offset"
 )]
 #[case::tz_less_datetime_isoformat(
     "SELECT _id FROM books WHERE published_ts < TIMESTAMP '1929-01-01T00:00:00'",
-    "expected RFC 3339 with timezone offset",
+    "expected RFC 3339 with timezone offset"
 )]
 #[case::timestamptz_literal(
     "SELECT _id FROM books WHERE published_ts < TIMESTAMPTZ '1929-01-01T00:00:00Z'",
-    "TIMESTAMPTZ",
+    "TIMESTAMPTZ"
 )]
-#[case::timestamptz_column(
-    "CREATE TABLE books (published_ts TIMESTAMPTZ)",
-    "TIMESTAMPTZ",
-)]
+#[case::timestamptz_column("CREATE TABLE books (published_ts TIMESTAMPTZ)", "TIMESTAMPTZ")]
 fn rejected_before_execution(#[case] sql: &str, #[case] expected_error: &str) {
     let err = topk_sql::convert_sql(topk_sql::parse_sql(sql).unwrap()).unwrap_err();
     assert!(
