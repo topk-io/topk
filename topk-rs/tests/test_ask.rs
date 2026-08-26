@@ -1,4 +1,4 @@
-use futures_util::StreamExt;
+use futures_util::{Stream, StreamExt};
 use test_context::test_context;
 
 use topk_rs::proto::v1::{
@@ -64,7 +64,8 @@ async fn test_ask_empty_datasets() {
     let err = Client::new(ClientConfig::new("dummy-key", "us-east-1"))
         .ask("query", Vec::<&str>::new(), None, None, None, Some(true))
         .await
-        .expect_err("should fail with empty datasets");
+        .err()
+        .expect("should fail with empty datasets");
 
     assert!(
         matches!(err, Error::InvalidArgument(ref s) if s == "provide at least one dataset"),
@@ -163,8 +164,9 @@ async fn test_ask_include_content_false_strips_chunks(ctx: &mut ProjectTestConte
 }
 
 async fn collect_answer(
-    mut stream: tonic::Streaming<AskResult>,
+    stream: impl Stream<Item = Result<AskResult, Error>>,
 ) -> topk_rs::proto::v1::ctx::ask_result::Answer {
+    let mut stream = std::pin::pin!(stream);
     while let Some(msg) = stream.next().await {
         if let Some(Message::Answer(answer)) = msg.unwrap().message {
             return answer;

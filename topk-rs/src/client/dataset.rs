@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use bytes::Bytes;
+use futures_util::{Stream, TryStreamExt};
 use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::sync::mpsc;
 use tokio::time::Instant;
@@ -12,7 +13,6 @@ use tokio_stream::wrappers::ReceiverStream;
 
 use tokio::sync::OnceCell;
 use tonic::transport::Channel;
-use tonic::Streaming;
 
 use crate::proto::v1::data::Document;
 
@@ -83,7 +83,7 @@ impl DatasetClient {
         &self,
         fields: Option<Vec<String>>,
         filter: Option<LogicalExpr>,
-    ) -> Result<Streaming<ListEntry>, Error> {
+    ) -> Result<impl Stream<Item = Result<ListEntry, Error>>, Error> {
         let client = create_client!(DatasetReadServiceClient, self.read, self.config).await?;
         let fields = fields.unwrap_or_default();
 
@@ -103,7 +103,7 @@ impl DatasetClient {
         })
         .await?;
 
-        Ok(response.into_inner())
+        Ok(response.into_inner().map_err(Error::from))
     }
 
     pub async fn upsert_file(
