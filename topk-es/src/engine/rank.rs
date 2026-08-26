@@ -211,9 +211,7 @@ fn to_hits(req: &SearchRequest, candidates: Vec<(f32, Candidate)>) -> Vec<Hit> {
         .map(|(key, score, candidate)| Hit {
             score: scores.then_some(score),
             sort: key.filter(|_| !default_order).map(SortKey::into_json),
-            source: source
-                .enabled()
-                .then(|| decode(&source, candidate.fields)),
+            source: source.enabled().then(|| decode(&source, candidate.fields)),
             id: candidate.id,
         })
         .collect()

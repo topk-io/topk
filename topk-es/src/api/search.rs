@@ -11,8 +11,8 @@ use topk_rs::proto::v1::data::Value as TopkValue;
 use topk_rs::query::SortOrder as TopkSortOrder;
 
 use super::aggs::{AggClause, AggResult};
-use super::query::{FieldClause, FieldName, GateQuery, Query};
 use super::body::Body;
+use super::query::{FieldClause, FieldName, GateQuery, Query};
 use super::source::{SourceFilter, SourceQuery};
 use super::{DocId, IndexName, Shards, Source};
 use crate::vector::ensure_finite;
