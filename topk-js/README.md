@@ -119,53 +119,16 @@ const results = await client.collection("books").query(
 );
 ```
 
-### File Search
-
-```typescript
-import { Client } from "topk-js";
-
-const client = new Client({
-  apiKey: process.env.TOPK_API_KEY,
-  region: "aws-us-east-1-elastica",
-});
-
-// Create a dataset
-await client.datasets().create("my-dataset");
-
-// Upload a file
-const handle = await client.dataset("my-dataset").upsertFile(
-  "doc-1",                                   // document ID
-  { path: "/path/to/document.pdf" },         // path to file
-  { kind: "report", department: "finance" }, // optional metadata
-);
-
-// Wait for the file to process (optional)
-await client.dataset("my-dataset").waitForHandle(handle);
-
-// Ask a question
-for await (const message of client.ask(
-  "What was the total net income of Bank of America in 2024?",
-  ["my-dataset"],
-)) {
-  console.log(message);
-}
-```
-
 ## Handling errors
 
 The SDK throws plain `Error` objects. Check `err.message` to identify the error:
 
 ```typescript
 try {
-  for await (const message of client.ask(
-    "What was the total net income of Bank of America in 2024?",
-    ["my-dataset"],
-  )) {
-    console.log(message);
-  }
+  await client.collections().get("books");
 } catch (err) {
   if (err instanceof Error) {
-    if (err.message === "dataset not found") console.error("Dataset does not exist");
+    if (err.message === "collection not found") console.error("Collection does not exist");
     else if (err.message === "permission denied") console.error("Check your API key");
     else console.error("Unexpected error:", err.message);
   }
@@ -176,8 +139,6 @@ try {
 | --- | --- |
 | `"collection not found"` | Collection does not exist |
 | `"collection already exists"` | Collection with this name already exists |
-| `"dataset not found"` | Dataset does not exist |
-| `"dataset already exists"` | Dataset with this name already exists |
 | `"permission denied"` | Invalid or missing API key |
 | starts with `"request too large:"` | Request payload too large |
 

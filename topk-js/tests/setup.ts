@@ -5,7 +5,6 @@ export class ProjectContext {
   client: Client;
   scopePrefix: string;
   collectionsCreated: string[] = [];
-  datasetsCreated: string[] = [];
 
   constructor(client: Client, scopePrefix: string) {
     this.client = client;
@@ -24,12 +23,6 @@ export class ProjectContext {
     return collection;
   }
 
-  async createDataset(name: string) {
-    const dataset = await this.client.datasets().create(this.scope(name));
-    this.datasetsCreated.push(dataset.name);
-    return dataset;
-  }
-
   async deleteCollections() {
     await Promise.all(
       this.collectionsCreated.map(async (collection) => {
@@ -42,20 +35,8 @@ export class ProjectContext {
     );
   }
 
-  async deleteDatasets() {
-    await Promise.all(
-      this.datasetsCreated.map(async (dataset) => {
-        try {
-          await this.client.datasets().delete(dataset);
-        } catch (e) {
-          console.error(`Error deleting dataset ${dataset}: ${e}`);
-        }
-      })
-    );
-  }
-
   async cleanup() {
-    await Promise.all([this.deleteDatasets(), this.deleteCollections()]);
+    await this.deleteCollections();
   }
 }
 

@@ -5,8 +5,6 @@ use napi::bindgen_prelude::*;
 use napi::tokio::sync::{mpsc, Mutex};
 use napi_derive::napi;
 
-use super::AsyncGenerator;
-
 pub(crate) type PartitionListStreamMessage = std::result::Result<Partition, String>;
 
 /// A partition within a collection.

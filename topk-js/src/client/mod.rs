@@ -1,32 +1,15 @@
-use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
 
 use collection::CollectionClient;
 use collections::CollectionsClient;
-use dataset::DatasetClient;
-use datasets::DatasetsClient;
-use futures_util::StreamExt;
-use napi::bindgen_prelude::*;
-use napi::tokio::{
-    self,
-    sync::{mpsc, Mutex},
-};
 use napi_derive::napi;
-use topk_rs::proto::v1::ctx::ask_result::Message;
-
-use crate::data::ask::{Answer, Fact, Mode, Progress, SearchResult, Source};
-use crate::expr::logical::LogicalExpression;
 
 pub mod collection;
 pub mod collections;
-pub mod dataset;
-pub mod datasets;
 pub mod partition;
 
 pub(crate) const STREAM_BUFFER_SIZE: usize = 64;
-type AskStreamMessage = std::result::Result<Either<Answer, Progress>, String>;
-type SearchStreamMessage = std::result::Result<SearchResult, String>;
 
 pub(crate) static RUNTIME: std::sync::LazyLock<napi::tokio::runtime::Runtime> =
     std::sync::LazyLock::new(|| {
@@ -55,100 +38,6 @@ pub struct ClientConfig {
 #[napi]
 pub struct Client {
     client: Arc<topk_rs::Client>,
-}
-
-/// Iterator for ask responses.
-#[napi(async_iterator)]
-pub struct AskStream {
-    receiver: Arc<Mutex<mpsc::Receiver<AskStreamMessage>>>,
-}
-
-impl AskStream {
-    fn new(receiver: mpsc::Receiver<AskStreamMessage>) -> Self {
-        Self {
-            receiver: Arc::new(Mutex::new(receiver)),
-        }
-    }
-}
-
-#[napi]
-impl AsyncGenerator for AskStream {
-    type Yield = Either<Answer, Progress>;
-    type Next = ();
-    type Return = ();
-
-    fn next(
-        &mut self,
-        _value: Option<Self::Next>,
-    ) -> impl Future<Output = Result<Option<Self::Yield>>> + Send + 'static {
-        let receiver = self.receiver.clone();
-        async move {
-            let mut guard = receiver.lock().await;
-            match guard.recv().await {
-                Some(Ok(v)) => Ok(Some(v)),
-                Some(Err(e)) => Err(napi::Error::from_reason(e)),
-                None => Ok(None),
-            }
-        }
-    }
-
-    fn complete(
-        &mut self,
-        _value: Option<Self::Return>,
-    ) -> impl Future<Output = Result<Option<Self::Yield>>> + Send + 'static {
-        let receiver = self.receiver.clone();
-        async move {
-            receiver.lock().await.close();
-            Ok(None)
-        }
-    }
-}
-
-/// Iterator for search responses.
-#[napi(async_iterator)]
-pub struct SearchStream {
-    receiver: Arc<Mutex<mpsc::Receiver<SearchStreamMessage>>>,
-}
-
-impl SearchStream {
-    fn new(receiver: mpsc::Receiver<SearchStreamMessage>) -> Self {
-        Self {
-            receiver: Arc::new(Mutex::new(receiver)),
-        }
-    }
-}
-
-#[napi]
-impl AsyncGenerator for SearchStream {
-    type Yield = SearchResult;
-    type Next = ();
-    type Return = ();
-
-    fn next(
-        &mut self,
-        _value: Option<Self::Next>,
-    ) -> impl Future<Output = Result<Option<Self::Yield>>> + Send + 'static {
-        let receiver = self.receiver.clone();
-        async move {
-            let mut guard = receiver.lock().await;
-            match guard.recv().await {
-                Some(Ok(v)) => Ok(Some(v)),
-                Some(Err(e)) => Err(napi::Error::from_reason(e)),
-                None => Ok(None),
-            }
-        }
-    }
-
-    fn complete(
-        &mut self,
-        _value: Option<Self::Return>,
-    ) -> impl Future<Output = Result<Option<Self::Yield>>> + Send + 'static {
-        let receiver = self.receiver.clone();
-        async move {
-            receiver.lock().await.close();
-            Ok(None)
-        }
-    }
 }
 
 #[napi]
@@ -192,144 +81,6 @@ impl Client {
         CollectionClient::new(self.client.clone(), name, partition)
     }
 
-    /// Get a client for managing datasets.
-    #[napi]
-    pub fn datasets(&self) -> DatasetsClient {
-        DatasetsClient::new(self.client.clone())
-    }
-
-    /// Get a client for managing data operations on a specific dataset such as upserting files, managing metadata, and deleting files.
-    #[napi]
-    pub fn dataset(&self, name: String) -> DatasetClient {
-        DatasetClient::new(self.client.clone(), name)
-    }
-
-    /// Ask a question and get streaming responses as an async iterator.
-    #[napi(
-        ts_args_type = "query: string, datasets: Array<string | { dataset: string; filter?: query.LogicalExpression }>, filter?: query.LogicalExpression, mode?: Mode, selectFields?: Array<string>, includeContent?: boolean"
-    )]
-    pub fn ask(
-        &self,
-        query: String,
-        datasets: Vec<Source>,
-        filter: Option<&LogicalExpression>,
-        mode: Option<Mode>,
-        select_fields: Option<Vec<String>>,
-        include_content: Option<bool>,
-    ) -> AskStream {
-        let (tx, rx) = mpsc::channel::<AskStreamMessage>(STREAM_BUFFER_SIZE);
-        let client = self.client.clone();
-        let filter = filter.map(|f| f.clone().into());
-        let mode = mode.map(|m| m.into());
-
-        RUNTIME.spawn(async move {
-            let mut stream = match client
-                .ask(
-                    query,
-                    datasets,
-                    filter,
-                    mode,
-                    select_fields,
-                    include_content,
-                )
-                .await
-            {
-                Ok(stream) => stream,
-                Err(error) => {
-                    let _ = tx.send(Err(format!("{error}"))).await;
-                    return;
-                }
-            };
-
-            loop {
-                tokio::select! {
-                    _ = tx.closed() => break,
-                    result = stream.next() => {
-                        let Some(result) = result else { break };
-
-                        let message = match result {
-                            Ok(m) => match m.message {
-                                Some(Message::Answer(fa)) => fa
-                                    .refs
-                                    .into_iter()
-                                    .map(|(k, v)| SearchResult::try_from(v).map(|sr| (k, sr)))
-                                    .collect::<napi::Result<_>>()
-                                    .map(|refs| Either::A(Answer {
-                                        facts: fa.facts.into_iter().map(Fact::from).collect(),
-                                        refs,
-                                        confidence: fa.confidence,
-                                    }))
-                                    .map_err(|e| e.to_string()),
-                                Some(Message::Progress(p)) => {
-                                    Ok(Either::B(Progress { update: p.update }))
-                                }
-                                // A message type this SDK version does not know: skip it.
-                                None => continue,
-                            },
-                            Err(error) => Err(format!("stream error: {error}")),
-                        };
-
-                        if tx.send(message).await.is_err() {
-                            break;
-                        }
-                    }
-                }
-            }
-        });
-
-        AskStream::new(rx)
-    }
-
-    /// Search for documents and get streaming responses as an async iterator.
-    #[napi(
-        ts_args_type = "query: string, datasets: Array<string | { dataset: string; filter?: query.LogicalExpression }>, topK: number, filter?: query.LogicalExpression, selectFields?: Array<string>"
-    )]
-    pub fn search(
-        &self,
-        query: String,
-        datasets: Vec<Source>,
-        top_k: u32,
-        filter: Option<&LogicalExpression>,
-        select_fields: Option<Vec<String>>,
-    ) -> SearchStream {
-        let (tx, rx) = mpsc::channel::<SearchStreamMessage>(STREAM_BUFFER_SIZE);
-        let client = self.client.clone();
-        let filter = filter.map(|f| f.clone().into());
-        let select_fields = select_fields.unwrap_or_default();
-
-        RUNTIME.spawn(async move {
-            let mut stream = match client
-                .search(query, datasets, top_k, filter, select_fields)
-                .await
-            {
-                Ok(stream) => stream,
-                Err(error) => {
-                    let _ = tx.send(Err(format!("{error}"))).await;
-                    return;
-                }
-            };
-
-            loop {
-                tokio::select! {
-                    _ = tx.closed() => break,
-                    result = stream.next() => {
-                        let Some(result) = result else { break };
-
-                        let message = match result {
-                            Ok(message) => SearchResult::try_from(message).map_err(|e| e.to_string()),
-                            Err(error) => Err(format!("stream error: {error}")),
-                        };
-
-                        if tx.send(message).await.is_err() {
-                            break;
-                        }
-                    }
-                }
-            }
-        });
-
-        SearchStream::new(rx)
-    }
 }
 
 /// Configuration for retry behavior when requests fail.
