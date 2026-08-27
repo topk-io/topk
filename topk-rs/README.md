@@ -13,12 +13,6 @@ cargo add topk-rs
 cargo add tokio --features macros,rt-multi-thread
 ```
 
-If you want to consume streamed ask responses as shown below:
-
-```sh
-cargo add futures-util
-```
-
 ## Prerequisites
 
 - **API key** — sign in to [console.topk.io](https://console.topk.io) and generate an API key.
@@ -169,56 +163,6 @@ async fn main() -> Result<(), Error> {
 }
 ```
 
-### File Search
-
-```rust
-use futures_util::StreamExt;
-use topk_rs::proto::v1::ctx::ask_result::Message;
-use topk_rs::proto::v1::data::Value;
-use topk_rs::{Client, ClientConfig, Error};
-
-#[tokio::main]
-async fn main() -> Result<(), Error> {
-    let client = Client::new(ClientConfig::new(
-        std::env::var("TOPK_API_KEY").expect("TOPK_API_KEY is not set"),
-        "aws-us-east-1-elastica",
-    ));
-
-    client.datasets().create("my-docs").await?;
-
-    let handle = client
-        .dataset("my-docs")
-        .upsert_file(
-            "doc-1",                              // document ID
-            "/path/to/document.pdf",              // path to file
-            [
-                ("kind", Value::string("report")),
-                ("department", Value::string("finance")),
-            ],
-        )
-        .await?;
-
-    client
-        .dataset("my-docs")
-        .wait_for_handle(&handle, None)
-        .await?;
-
-    let mut stream = client
-        .ask("What was the total net income of Bank of America in 2024?", ["my-docs"], None, None, None)
-        .await?;
-
-    while let Some(message) = stream.next().await {
-        let message = message?;
-
-        if let Some(Message::Answer(answer)) = message.message {
-            println!("{:#?}", answer.facts);
-        }
-    }
-
-    Ok(())
-}
-```
-
 ## Handling errors
 
 ```rust
@@ -231,9 +175,9 @@ async fn main() -> Result<(), Error> {
         "aws-us-east-1-elastica",
     ));
 
-    match client.ask("What was the total net income of Bank of America in 2024?", ["my-docs"], None, None, None).await {
+    match client.collections().get("books").await {
         Ok(_) => {}
-        Err(Error::DatasetNotFound) => eprintln!("Dataset does not exist"),
+        Err(Error::CollectionNotFound) => eprintln!("Collection does not exist"),
         Err(Error::PermissionDenied | Error::Unauthenticated(_)) => {
             eprintln!("Check your API key")
         }
@@ -251,8 +195,6 @@ async fn main() -> Result<(), Error> {
 | `CollectionNotFound` | Collection does not exist |
 | `CollectionAlreadyExists` | Collection with this name already exists |
 | `CollectionValidationError` | Invalid collection name or schema |
-| `DatasetNotFound` | Dataset does not exist |
-| `DatasetAlreadyExists` | Dataset with this name already exists |
 | `DocumentValidationError` | Invalid document |
 | `SchemaValidationError` | Invalid schema |
 | `PermissionDenied` | Invalid or missing API key |

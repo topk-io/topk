@@ -2,26 +2,13 @@ use std::sync::Arc;
 
 use pyo3::{prelude::*, PyResult};
 
-use crate::{
-    client::{r#async::ask::ask, r#async::search::search, topk_client, NativeRetryConfig},
-    data::ask::{Mode, Source},
-    expr::logical::LogicalExpr,
-};
+use crate::client::{topk_client, NativeRetryConfig};
 
-mod ask;
 mod collection;
 mod collections;
-mod dataset;
-mod datasets;
-mod search;
 
-pub use ask::AsyncAskIterator;
 pub use collection::{AsyncCollectionClient, AsyncPartitionListIterator};
 pub use collections::AsyncCollectionsClient;
-pub use dataset::AsyncDatasetClient;
-pub use dataset::AsyncDatasetListIterator;
-pub use datasets::AsyncDatasetsClient;
-pub use search::AsyncSearchIterator;
 
 #[pyclass]
 pub struct AsyncClient {
@@ -61,53 +48,4 @@ impl AsyncClient {
         Ok(AsyncCollectionsClient::new(self.client.clone()))
     }
 
-    pub fn dataset(&self, dataset: String) -> PyResult<AsyncDatasetClient> {
-        Ok(AsyncDatasetClient::new(self.client.clone(), dataset))
-    }
-
-    pub fn datasets(&self) -> PyResult<AsyncDatasetsClient> {
-        Ok(AsyncDatasetsClient::new(self.client.clone()))
-    }
-
-    #[pyo3(
-        signature = (query, datasets, filter=None, mode=None, select_fields=None, include_content=None)
-    )]
-    pub fn ask(
-        &self,
-        query: String,
-        datasets: Vec<Source>,
-        filter: Option<LogicalExpr>,
-        mode: Option<Mode>,
-        select_fields: Option<Vec<String>>,
-        include_content: Option<bool>,
-    ) -> PyResult<AsyncAskIterator> {
-        ask(
-            self.client.clone(),
-            query,
-            datasets,
-            filter,
-            mode,
-            select_fields,
-            include_content,
-        )
-    }
-
-    #[pyo3(signature = (query, datasets, top_k, filter=None, select_fields=None))]
-    pub fn search(
-        &self,
-        query: String,
-        datasets: Vec<Source>,
-        top_k: u32,
-        filter: Option<LogicalExpr>,
-        select_fields: Option<Vec<String>>,
-    ) -> PyResult<AsyncSearchIterator> {
-        search(
-            self.client.clone(),
-            query,
-            datasets,
-            filter,
-            top_k,
-            select_fields,
-        )
-    }
 }

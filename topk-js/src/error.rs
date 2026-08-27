@@ -25,12 +25,6 @@ impl From<TopkError> for napi::Error {
             topk_rs::Error::CollectionNotFound => {
                 napi::Error::new(napi::Status::GenericFailure, "collection not found")
             }
-            topk_rs::Error::DatasetAlreadyExists => {
-                napi::Error::new(napi::Status::GenericFailure, "dataset already exists")
-            }
-            topk_rs::Error::DatasetNotFound => {
-                napi::Error::new(napi::Status::GenericFailure, "dataset not found")
-            }
             topk_rs::Error::PartitionNotFound => {
                 napi::Error::new(napi::Status::GenericFailure, "partition not found")
             }

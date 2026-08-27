@@ -3,12 +3,9 @@ title: "Introduction"
 icon: "/icons/topk-icon.svg"
 ---
 
-import DocSearchQuickstart from "/quickstart/document_search.mdx";
 import HybridSearchQuickstart from "/quickstart/hybrid_search.mdx";
 
 TopK is a **hybrid retrieval engine** built on object storage for **10x lower cost** and **massive scale**. It supports dense/sparse vector search, multi-vector retrieval, powerful filtering, custom ranking, and managed inference in one API.
-
-For unstructured document search use cases, we provide a datasets abstraction that allows you to [ingest](/datasets/ingest) files, [search](/datasets/search), and [get answers](/datasets/ask) from your private documents. Connect your data to agents using our [CLI](/cli) or [MCP](/mcp-server) server.
 
 ## Get Started
 <Info>
@@ -22,9 +19,6 @@ For unstructured document search use cases, we provide a datasets abstraction th
 Simple example to get you started with TopK. Check out our [guides](/guides) for more complex examples.
 <HybridSearchQuickstart />
 
-### File Search
-<DocSearchQuickstart />
-
 ## Integrations
 
 <CardGroup cols={2}>
@@ -35,10 +29,7 @@ Simple example to get you started with TopK. Check out our [guides](/guides) for
     Full TypeScript/JavaScript SDK reference.
   </Card>
   <Card title="CLI" icon="terminal" href="/cli">
-    Upload files, search, and ask questions directly from the terminal.
-  </Card>
-  <Card title="MCP Server" icon="network" href="/mcp-server">
-    Connect TopK to any MCP-compatible AI agent via the Model Context Protocol.
+    The command-line interface for TopK.
   </Card>
 </CardGroup>
 

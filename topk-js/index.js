@@ -572,17 +572,11 @@ if (!nativeBinding) {
 }
 
 module.exports = nativeBinding
-module.exports.AskStream = nativeBinding.AskStream
 module.exports.Client = nativeBinding.Client
 module.exports.CollectionClient = nativeBinding.CollectionClient
 module.exports.CollectionsClient = nativeBinding.CollectionsClient
-module.exports.DatasetClient = nativeBinding.DatasetClient
-module.exports.DatasetListStream = nativeBinding.DatasetListStream
-module.exports.DatasetsClient = nativeBinding.DatasetsClient
 module.exports.PartitionListStream = nativeBinding.PartitionListStream
-module.exports.SearchStream = nativeBinding.SearchStream
 module.exports.ConsistencyLevel = nativeBinding.ConsistencyLevel
-module.exports.Mode = nativeBinding.Mode
 module.exports.data = nativeBinding.data
 module.exports.query = nativeBinding.query
 module.exports.query_agg = nativeBinding.query_agg

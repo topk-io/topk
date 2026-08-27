@@ -21,10 +21,6 @@
       "destination": "/introduction"
     },
     {
-      "source": "/mcp",
-      "destination": "/mcp-server"
-    },
-    {
       "source": "/concepts/semantic-search",
       "destination": "/guides/semantic-search"
     },
@@ -103,14 +99,6 @@
             ]
           },
           {
-            "group": "Dataset API",
-            "pages": [
-              "datasets/ingest",
-              "datasets/ask",
-              "datasets/search"
-            ]
-          },
-          {
             "group": "Collection API",
             "pages": [
               "collections/write",
@@ -121,7 +109,6 @@
           {
             "group": "Management API",
             "pages": [
-              "datasets/manage",
               "collections/manage",
               "usage"
             ]
@@ -150,13 +137,6 @@
         "icon": "terminal",
         "pages": [
           "cli"
-        ]
-      },
-      {
-        "tab": "MCP",
-        "icon": "network",
-        "pages": [
-          "mcp-server"
         ]
       },
       {

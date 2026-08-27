@@ -33,8 +33,7 @@ const SOURCES: Source[] = [
     output: path.join(ROOT, "docs", "cli.mdx"),
     frontmatter: {
       title: "CLI",
-      description:
-        "Upload documents, ask questions and search relevant passages with TopK CLI.",
+      description: "The command-line interface for TopK.",
       icon: "terminal",
     },
   },

@@ -92,13 +92,11 @@ async function readPageContent(slug: string): Promise<string> {
 
 // --- Navigation ---
 
-const OVERVIEW_EXCLUDE = new Set(["cli", "mcp-server"]);
+const OVERVIEW_EXCLUDE = new Set(["cli"]);
 const LLMS_EXCLUDE = new Set(["usage"]);
-const LLMS_MOVE_TO_CORE_CONCEPTS = ["datasets/index"];
 
 const API_ENTRIES: Entry[] = [
   { type: "slug", slug: "cli" },
-  { type: "slug", slug: "mcp-server" },
   { type: "slug", slug: "sdk/topk-py/overview" },
   { type: "slug", slug: "sdk/topk-js/overview" },
   { type: "slug", slug: "sdk/topk-sql/overview" },
@@ -118,13 +116,9 @@ function buildSections(): Section[] {
   if (docTab) {
     for (const group of normalizeTabPages(docTab.pages)) {
       const isOverview = group.group === "Overview" || !group.group;
-      let slugs = isOverview
+      const slugs = isOverview
         ? group.pages.filter((s) => !OVERVIEW_EXCLUDE.has(s))
-        : group.pages.filter((s) => !LLMS_EXCLUDE.has(s) && !LLMS_MOVE_TO_CORE_CONCEPTS.includes(s));
-
-      if (group.group === "Core Concepts") {
-        slugs = [...slugs, ...LLMS_MOVE_TO_CORE_CONCEPTS];
-      }
+        : group.pages.filter((s) => !LLMS_EXCLUDE.has(s));
 
       if (slugs.length === 0) continue;
 

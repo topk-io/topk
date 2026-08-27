@@ -6,7 +6,7 @@ from typing import Any, Coroutine
 from uuid import uuid4
 
 from topk_sdk import AsyncClient, Client
-from topk_sdk.error import CollectionNotFoundError, DatasetNotFoundError
+from topk_sdk.error import CollectionNotFoundError
 
 
 @dataclass
@@ -21,14 +21,6 @@ class ProjectContext:
         return wrapped
 
     def cleanup(self):
-        def delete_dataset(name: str):
-            try:
-                self.client.datasets().delete(name)
-            except DatasetNotFoundError:
-                pass
-            except Exception as e:
-                print(f"Teardown error deleting dataset {name}: {e}")
-
         def delete_collection(name: str):
             try:
                 self.client.collections().delete(name)
@@ -38,7 +30,6 @@ class ProjectContext:
                 print(f"Teardown error deleting collection {name}: {e}")
 
         with ThreadPoolExecutor() as executor:
-            executor.map(delete_dataset, self.used)
             executor.map(delete_collection, self.used)
 
 
@@ -56,14 +47,6 @@ class AsyncProjectContext:
     async def cleanup(self):
         futs: list[Coroutine[Any, Any, None]] = []
 
-        async def delete_dataset(name: str):
-            try:
-                await self.client.datasets().delete(name)
-            except DatasetNotFoundError:
-                pass
-            except Exception as e:
-                print(f"Teardown error deleting dataset {name}: {e}")
-
         async def delete_collection(name: str):
             try:
                 await self.client.collections().delete(name)
@@ -73,7 +56,6 @@ class AsyncProjectContext:
                 print(f"Teardown error deleting collection {name}: {e}")
 
         for name in self.used:
-            futs.append(delete_dataset(name))
             futs.append(delete_collection(name))
 
         await asyncio.gather(*futs)

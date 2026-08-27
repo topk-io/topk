@@ -27,7 +27,8 @@ Or use a `path` dependency if you have the SDK checked out locally.
 ## Usage
 
 ```rust
-use topk_rs::{Client, ClientConfig};
+use topk_rs::proto::v1::control::FieldSpec;
+use topk_rs::{schema, Client, ClientConfig};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -37,7 +38,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     let client = Client::new(config);
 
-    client.datasets().create("my-dataset").await?;
+    client
+        .collections()
+        .create("books", schema!("title" => FieldSpec::text(true)), None)
+        .await?;
 
     Ok(())
 }
