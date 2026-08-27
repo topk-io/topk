@@ -6,19 +6,9 @@ use tonic::transport::Channel;
 mod collections;
 pub use collections::CollectionsClient;
 
-mod datasets;
-pub use datasets::DatasetsClient;
-
 mod collection;
 pub use collection::CollectionClient;
 pub use collection::DocumentStream;
-
-mod dataset;
-pub use dataset::DatasetClient;
-pub use dataset::WaitConfig;
-
-pub mod ask;
-pub mod search;
 
 mod config;
 pub use config::ClientConfig;
@@ -81,10 +71,6 @@ impl Client {
         CollectionsClient::new(self.config.clone(), self.channel.clone())
     }
 
-    pub fn datasets(&self) -> DatasetsClient {
-        DatasetsClient::new(self.config.clone(), self.channel.clone())
-    }
-
     pub fn collection(&self, name: impl Into<String>) -> CollectionClient {
         // Collection services expect `x-topk-collection` header to be set.
         let config = self
@@ -95,12 +81,6 @@ impl Client {
         CollectionClient::new(config, self.channel.clone(), self.channel.clone())
     }
 
-    pub fn dataset(&self, name: impl Into<String>) -> DatasetClient {
-        // Dataset services expect `x-topk-dataset` header to be set.
-        let config = self.config.clone().with_headers([("x-topk-dataset", name)]);
-
-        DatasetClient::new(config, self.channel.clone(), self.channel.clone())
-    }
 }
 
 // Macro for instantiating and connecting a client

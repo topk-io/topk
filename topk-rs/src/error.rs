@@ -23,12 +23,6 @@ pub enum Error {
     #[error("partition not found")]
     PartitionNotFound,
 
-    #[error("dataset already exists")]
-    DatasetAlreadyExists,
-
-    #[error("dataset not found")]
-    DatasetNotFound,
-
     #[error("not found")]
     NotFound,
 
@@ -103,8 +97,6 @@ impl Error {
             Error::CollectionAlreadyExists => false,
             Error::CollectionNotFound => false,
             Error::PartitionNotFound => false,
-            Error::DatasetAlreadyExists => false,
-            Error::DatasetNotFound => false,
             Error::NotFound => false,
             Error::DocumentNotFound(_) => false,
             Error::SchemaValidationError(_) => false,

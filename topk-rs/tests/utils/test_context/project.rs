@@ -42,20 +42,18 @@ impl AsyncTestContext for ProjectTestContext {
     }
 
     async fn teardown(self) {
-        let datasets = self.client.datasets();
         let collections = self.client.collections();
         let names = self.used.borrow().clone();
 
         let mut futs = FuturesUnordered::new();
         for name in names {
-            futs.push(datasets.delete(name.clone()).boxed());
             futs.push(collections.delete(name).boxed());
         }
 
         while let Some(result) = futs.next().await {
             match result {
                 Ok(_) => {}
-                Err(Error::DatasetNotFound) | Err(Error::CollectionNotFound) => {}
+                Err(Error::CollectionNotFound) => {}
                 Err(e) => println!("Teardown error: {e:?}"),
             }
         }
