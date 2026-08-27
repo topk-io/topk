@@ -11,12 +11,8 @@ use crate::data::unknown::UnknownValue;
 use crate::data::value::Value;
 use crate::data::vector::{F32SparseVector, SparseVector, U8SparseVector};
 
-pub mod ask;
 pub mod collection;
-pub mod dataset;
-pub mod file;
 pub mod list;
-pub mod list_entry;
 pub mod matrix;
 pub mod partition;
 pub mod r#struct;

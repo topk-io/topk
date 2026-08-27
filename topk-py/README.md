@@ -127,38 +127,6 @@ results = client.collection("books").query(
 )
 ```
 
-### File Search
-
-```python
-import os
-from topk_sdk import Client
-
-client = Client(
-    api_key=os.environ.get("TOPK_API_KEY"),
-    region="aws-us-east-1-elastica",
-)
-
-# Create a dataset
-client.datasets().create("my-dataset")
-
-# Upload a file
-handle = client.dataset("my-dataset").upsert_file(
-    "doc-1",                                               # document ID
-    input="/path/to/document.pdf",                         # path to file
-    metadata={"kind": "report", "department": "finance"},  # optional metadata
-)
-
-# Wait for the file to process (optional)
-client.dataset("my-dataset").wait_for_handle(handle)
-
-# Ask a question
-for message in client.ask(
-    "What was the total net income of Bank of America in 2024?",
-    datasets=["my-dataset"],
-):
-    print(message)
-```
-
 ## Async usage
 
 Simply import `AsyncClient` instead of `Client` and use `async for` / `await` with each API call:
@@ -205,22 +173,6 @@ async def main() -> None:
         .limit(10)
     )
 
-    # Document search
-    await client.datasets().create("my-dataset")
-
-    handle = await client.dataset("my-dataset").upsert_file(
-        "doc-1",
-        input="/path/to/document.pdf",
-        metadata={"kind": "report", "department": "finance"},
-    )
-    await client.dataset("my-dataset").wait_for_handle(handle)
-
-    async for message in client.ask(
-        "What was the total net income of Bank of America in 2024?",
-        datasets=["my-dataset"],
-    ):
-        print(message)
-
 asyncio.run(main())
 ```
 
@@ -228,20 +180,16 @@ asyncio.run(main())
 
 ```python
 from topk_sdk.error import (
-    DatasetNotFoundError,
+    CollectionNotFoundError,
     PermissionDeniedError,
     QuotaExceededError,
     SlowDownError,
 )
 
 try:
-    for message in client.ask(
-        "What was the total net income of Bank of America in 2024?",
-        datasets=["my-dataset"],
-    ):
-        print(message)
-except DatasetNotFoundError:
-    print("Dataset does not exist")
+    client.collections().get("books")
+except CollectionNotFoundError:
+    print("Collection does not exist")
 except PermissionDeniedError:
     print("Check your API key")
 except QuotaExceededError:
@@ -256,8 +204,6 @@ except SlowDownError:
 | `PartitionNotFoundError`  | Partition does not exist  |
 | `CollectionAlreadyExistsError` | Collection with this name already exists |
 | `CollectionValidationError` | Invalid collection name or schema |
-| `DatasetNotFoundError` | Dataset does not exist |
-| `DatasetAlreadyExistsError` | Dataset with this name already exists |
 | `DocumentValidationError` | Invalid document |
 | `SchemaValidationError` | Invalid schema |
 | `PermissionDeniedError` | Invalid or missing API key |

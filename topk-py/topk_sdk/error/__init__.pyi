@@ -18,16 +18,6 @@ class CollectionValidationError(Exception):
     Raised when a collection name or schema is invalid.
     """
 
-class DatasetNotFoundError(Exception):
-    """
-    Raised when a dataset is not found.
-    """
-
-class DatasetAlreadyExistsError(Exception):
-    """
-    Raised when a dataset with the same name already exists.
-    """
-
 class DocumentNotFoundError(Exception):
     """
     Raised when a document is not found.
