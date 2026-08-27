@@ -1,5 +1,5 @@
 import { Command, Option } from "commander";
-import { Client, Collection, Dataset } from "topk-js";
+import { Client, Collection } from "topk-js";
 import Bun from "bun";
 import { z } from "zod";
 import pino from "pino";
@@ -9,7 +9,7 @@ import pRetry, { Options as RetryOptions } from "p-retry";
 import ms, { StringValue } from "ms";
 
 type Env = ReturnType<typeof loadEnv>;
-type State = { datasets: Dataset[]; collections: Collection[] };
+type State = { collections: Collection[] };
 type Opts = {
   concurrency: number;
   prefix?: string;
@@ -34,11 +34,11 @@ program
   )
   .option(
     "--prefix <s>",
-    "filters to datasets/collections whose name starts with this prefix"
+    "filters to collections whose name starts with this prefix"
   )
   .option(
     "--age <duration>",
-    "minimum age of datasets/collections to remove (e.g. 2d, 30m. default: 24h)",
+    "minimum age of collections to remove (e.g. 2d, 30m. default: 24h)",
     parseDuration("--age"),
     24 * 60 * 60 * 1000 // 24 hours
   )
@@ -105,52 +105,21 @@ async function reset(client: Client, opts: Opts, limit: LimitFunction) {
 async function discoverState(client: Client, opts: Opts): Promise<State> {
   log.info(`Discovering state for ${formatOpts(opts)}`);
 
-  const [allDatasets, allCollections] = await Promise.all([
-    withRetry(() => client.datasets().list()),
-    withRetry(() => client.collections().list()),
-  ]);
-  log.info(
-    `Found ${allDatasets.length} datasets and ${allCollections.length} collections`
-  );
+  const allCollections = await withRetry(() => client.collections().list());
+  log.info(`Found ${allCollections.length} collections`);
 
-  const datasets = allDatasets.filter((d) => {
-    if (opts.prefix && !d.name.startsWith(opts.prefix)) return false;
-    if (opts.age && !olderThan(d.createdAt, opts.age)) return false;
-    return true;
-  });
   const collections = allCollections.filter((c) => {
     if (opts.prefix && !c.name.startsWith(opts.prefix)) return false;
     if (opts.age && !olderThan(c.createdAt, opts.age)) return false;
     return true;
   });
-  log.info(
-    `Filtered to ${datasets.length} datasets, ${collections.length} collections`
-  );
+  log.info(`Filtered to ${collections.length} collections`);
 
-  return { datasets, collections };
+  return { collections };
 }
 
 async function resetState(client: Client, state: State, limit: LimitFunction) {
   const futs: Promise<void>[] = [];
-
-  for (const dataset of state.datasets) {
-    futs.push(
-      limit(async () => {
-        try {
-          await client.datasets().delete(dataset.name);
-        } catch (error) {
-          if (
-            error instanceof Error &&
-            error.message.includes("dataset not found")
-          ) {
-            return;
-          }
-
-          log.error(`Error deleting dataset ${dataset.name}:`, error);
-        }
-      })
-    );
-  }
 
   for (const collection of state.collections) {
     futs.push(

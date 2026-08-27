@@ -11,8 +11,6 @@
 
 **Retrieval Engine** — Store and query dense vectors, sparse vectors, multi-vector embeddings, and metadata in a single collection. Filter by metadata, rank with custom expressions, and run managed inference — all in a single API.
 
-**File Search** — Ingest files, search across your private documents, and get source-backed answers. Connect your data to agents with the SDKs, CLI or MCP server.
-
 ## Docs
 
 Start with the [documentation](https://docs.topk.io) for quickstart guides, API reference, and product documentation.
@@ -27,7 +25,3 @@ Start with the [documentation](https://docs.topk.io) for quickstart guides, API 
 ## CLI
 
 - [TopK CLI](./topk-cli/) - CLI for TopK API
-
-## MCP
-
-- [TopK MCP](https://docs.topk.io/mcp-server) - Connect TopK to MCP-compatible AI agents

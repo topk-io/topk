@@ -7,15 +7,9 @@
 - [Introduction](https://docs.topk.io/introduction)
 - [Architecture](https://docs.topk.io/architecture)
 - [Concepts](https://docs.topk.io/concepts)
-- [Limits](https://docs.topk.io/limits): Production limits for collections and datasets.
+- [Limits](https://docs.topk.io/limits): Production limits for collections.
 - [Regions](https://docs.topk.io/regions)
 - [Changelog](https://docs.topk.io/changelog)
-
-## Dataset API
-
-- [Ingest Files](https://docs.topk.io/datasets/ingest): Upload your document files to a dataset.
-- [Ask](https://docs.topk.io/datasets/ask): Get grounded, evidence-backed answers from your documents.
-- [Search](https://docs.topk.io/datasets/search): Retrieve the most relevant passages from your documents.
 
 ## Collection API
 
@@ -25,7 +19,6 @@
 
 ## Management API
 
-- [Datasets](https://docs.topk.io/datasets/manage): Create, list, get, update, and delete datasets.
 - [Collections](https://docs.topk.io/collections/manage): Create, list, get, and delete collections.
 
 ## Guides
