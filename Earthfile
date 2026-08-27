@@ -20,14 +20,14 @@ test-rs:
     COPY +test-sandbox/topk-test-sandbox /usr/local/bin/topk-test-sandbox
 
     DO rust+INIT --keep_fingerprints=true
-    WORKDIR /sdk
 
     # copy source code
+    WORKDIR /sdk
+    ARG EARTHLY_GIT_HASH
     COPY --keep-ts . .
 
     WORKDIR /sdk/topk-rs
 
-    ARG EARTHLY_GIT_HASH
     DO rust+CARGO --args="nextest archive -p topk-rs --archive-file e2e.tar.zst" # compile tests
 
     ARG --required region
@@ -63,6 +63,7 @@ test-py:
 
     # source code
     WORKDIR /sdk
+    ARG EARTHLY_GIT_HASH
     COPY . .
 
     WORKDIR /sdk/topk-py
@@ -102,6 +103,7 @@ test-js:
 
     # copy source code
     WORKDIR /sdk
+    ARG EARTHLY_GIT_HASH
     COPY . .
 
     # save contents of typescript index.d.ts file in an env variable before build
@@ -141,14 +143,14 @@ test-cli:
     COPY +test-sandbox/topk-test-sandbox /usr/local/bin/topk-test-sandbox
 
     DO rust+INIT --keep_fingerprints=true
-    WORKDIR /sdk
 
     # copy source code
+    WORKDIR /sdk
+    ARG EARTHLY_GIT_HASH
     COPY --keep-ts . .
 
     WORKDIR /sdk/topk-cli
 
-    ARG EARTHLY_GIT_HASH
     RUN --mount=type=cache,target=/root/.cargo/registry \
         --mount=type=cache,target=/root/.cargo/git \
         cargo nextest run -p topk-cli --no-run
@@ -172,14 +174,14 @@ test-sql:
     COPY +test-sandbox/topk-test-sandbox /usr/local/bin/topk-test-sandbox
 
     DO rust+INIT --keep_fingerprints=true
-    WORKDIR /sdk
 
     # copy source code
+    WORKDIR /sdk
+    ARG EARTHLY_GIT_HASH
     COPY --keep-ts . .
 
     WORKDIR /sdk/topk-sql
 
-    ARG EARTHLY_GIT_HASH
     DO rust+CARGO --args="nextest archive -p topk-sql --archive-file sql.tar.zst" # compile tests
 
     ARG --required region
@@ -203,14 +205,14 @@ test-es:
     COPY +test-sandbox/topk-test-sandbox /usr/local/bin/topk-test-sandbox
 
     DO rust+INIT --keep_fingerprints=true
-    WORKDIR /sdk
 
     # copy source code
+    WORKDIR /sdk
+    ARG EARTHLY_GIT_HASH
     COPY --keep-ts . .
 
     WORKDIR /sdk/topk-es
 
-    ARG EARTHLY_GIT_HASH
     DO rust+CARGO --args="nextest archive -p topk-es --archive-file es.tar.zst" # compile tests
 
     ARG --required region
@@ -231,8 +233,10 @@ test-runner-builder:
     RUN apt-get update && apt-get install -y protobuf-compiler
     RUN cargo install cargo-nextest --locked
 
-    WORKDIR /sdk
     DO rust+INIT --keep_fingerprints=true
+
+    WORKDIR /sdk
+    ARG EARTHLY_GIT_HASH
     COPY --keep-ts . .
 
     WORKDIR /sdk/topk-rs

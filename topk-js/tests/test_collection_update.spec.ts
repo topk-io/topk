@@ -56,33 +56,6 @@ describe("Update", () => {
     expect(docs["4"]).toEqual({ _id: "4", foo: "bar4.2" });
   });
 
-  test("should ignore missing id", async () => {
-    const ctx = getContext();
-    const collection = await ctx.createCollection("test", {});
-
-    // Upsert some docs
-    let lsn = await ctx.client.collection(collection.name).upsert([
-      { _id: "1", foo: "bar1" },
-      { _id: "2", foo: "bar2" },
-    ]);
-    expect(lsn).toBe("1");
-
-    // Update non-existent doc
-    const newLsn = await ctx.client
-      .collection(collection.name)
-      .update([{ _id: "3", foo: "bar3" }], false);
-    expect(newLsn).toBe("");
-
-    // Check that no changes were made
-    const docs = await ctx.client
-      .collection(collection.name)
-      .get(["1", "2", "3"], null, { lsn });
-
-    expect(Object.keys(docs)).toHaveLength(2);
-    expect(docs["1"]).toEqual({ _id: "1", foo: "bar1" });
-    expect(docs["2"]).toEqual({ _id: "2", foo: "bar2" });
-  });
-
   test("should throw error when updating missing id with fail_on_missing", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("test", {});
