@@ -24,9 +24,6 @@ fn build_topk_v1_protos() {
         "../protos/topk/data/v1/expr/aggregate.proto",
         "../protos/topk/data/v1/expr/logical.proto",
         "../protos/topk/data/v1/expr/text.proto",
-        "../protos/topk/ctx/v1/dataset_read_service.proto",
-        "../protos/topk/ctx/v1/dataset_write_service.proto",
-        "../protos/topk/ctx/v1/context_service.proto",
     ];
 
     // Rerun if any proto file changes
@@ -104,18 +101,6 @@ fn build_topk_v1_protos() {
         "topk.control.v1.VectorIndex",
         "topk.control.v1.SemanticIndex",
         "topk.control.v1.MultiVectorIndex",
-        // ctx
-        "topk.ctx.v1.AskResult",
-        "topk.ctx.v1.AskResult.message",
-        "topk.ctx.v1.AskResult.Progress",
-        "topk.ctx.v1.AskResult.Answer",
-        "topk.ctx.v1.Fact",
-        "topk.ctx.v1.SearchResult",
-        "topk.ctx.v1.Content",
-        "topk.ctx.v1.Content.data",
-        "topk.ctx.v1.Chunk",
-        "topk.ctx.v1.Page",
-        "topk.ctx.v1.Image",
     ] {
         builder =
             builder.type_attribute(message, "#[derive(serde::Serialize, serde::Deserialize)]");
@@ -143,8 +128,6 @@ fn build_topk_v1_protos() {
         .codec_path("crate::proto::codec::ProstCodec")
         .bytes(".topk.data.v1.Value")
         .bytes(".topk.data.v1.DocumentData")
-        .bytes(".topk.ctx.v1.UpsertMessage.BodyChunk.data")
-        .bytes(".topk.ctx.v1.Image.data")
         .compile_protos(&proto_paths, &["../protos/"])
         .expect("failed to build [topk.v1] protos");
 }
