@@ -235,6 +235,75 @@ async fn test_group_by_avg(ctx: &mut ProjectTestContext) {
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
+async fn test_group_by_quantiles_and_count_distinct(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            group_by(
+                [("is_old", field("published_year").lt(1940 as u32))],
+                [
+                    ("earliest", AggregateExpr::quantile("published_year", 0.0)),
+                    ("latest", AggregateExpr::quantile("published_year", 1.0)),
+                    ("distinct_ratings", AggregateExpr::count_distinct("rating")),
+                ],
+            ),
+            None,
+            None,
+        )
+        .await
+        .expect("could not query");
+
+    let by_group: HashMap<bool, (f64, f64, u64)> = result
+        .iter()
+        .map(|row| {
+            (
+                row.fields["is_old"].as_bool().unwrap(),
+                (
+                    row.fields["earliest"].as_f64().unwrap(),
+                    row.fields["latest"].as_f64().unwrap(),
+                    row.fields["distinct_ratings"].as_u64().unwrap(),
+                ),
+            )
+        })
+        .collect();
+
+    assert_eq!(by_group[&true], (1813.0, 1937.0, 3));
+    assert_eq!(by_group[&false], (1949.0, 1997.0, 0));
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_group_by_rejects_invalid_quantile(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let err = ctx
+        .client
+        .collection(&collection.name)
+        .query(
+            group_by(
+                [("is_old", field("published_year").lt(1940 as u32))],
+                [(
+                    "median",
+                    AggregateExpr::quantile("published_year", f64::NAN),
+                )],
+            ),
+            None,
+            None,
+        )
+        .await
+        .expect_err("invalid quantile should fail");
+
+    assert!(
+        matches!(err, Error::InvalidArgument(ref s) if s.contains("finite value in [0, 1]")),
+        "unexpected error: {err:?}"
+    );
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
 async fn test_group_by_multiple_aggregations(ctx: &mut ProjectTestContext) {
     let collection = dataset::books::setup(ctx).await;
 
