@@ -90,13 +90,14 @@ impl Stage {
     /// Use `Stage::sort` + `Stage::limit` instead.
     // #[deprecated(note = "Use `Stage::sort` + `Stage::limit` instead")]
     pub fn topk(expr: LogicalExpr, k: u64, asc: bool) -> Self {
-        Stage {
-            stage: Some(stage::Stage::TopK(stage::TopKStage {
-                expr: Some(expr),
-                k,
-                asc,
-            })),
-        }
+        #[allow(deprecated)]
+        let stage = stage::Stage::TopK(stage::TopKStage {
+            expr: Some(expr),
+            k,
+            asc,
+        });
+
+        Stage { stage: Some(stage) }
     }
 
     pub fn count() -> Self {
