@@ -24,11 +24,26 @@ message AggregateExpr {
         string field = 1;
     }
 
+    message Quantile {
+        // Numeric field whose approximate quantile should be calculated.
+        string field = 1;
+
+        // Quantile in the inclusive range [0, 1]. Must be finite.
+        double q = 2;
+    }
+
+    message CountDistinct {
+        // Field whose non-null distinct values should be counted approximately.
+        string field = 1;
+    }
+
     oneof op {
         Count count = 1;
         Sum sum = 2;
         Min min = 3;
         Max max = 4;
         Average avg = 5;
+        Quantile quantile = 6;
+        CountDistinct count_distinct = 7;
     }
 }
