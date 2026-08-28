@@ -80,7 +80,6 @@ impl Client {
 
         CollectionClient::new(config, self.channel.clone(), self.channel.clone())
     }
-
 }
 
 // Macro for instantiating and connecting a client
