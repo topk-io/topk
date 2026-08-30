@@ -8,15 +8,28 @@ pub struct Config {
     pub api_key: Option<String>,
 }
 
-pub fn config_path() -> Option<PathBuf> {
-    dirs::config_dir().map(|d| d.join("topk").join("config.toml"))
+pub fn dir() -> Option<PathBuf> {
+    dirs::config_dir().map(|d| d.join("topk"))
 }
 
-pub fn load() -> Config {
-    config_path()
-        .and_then(|p| std::fs::read_to_string(p).ok())
-        .and_then(|s| toml::from_str(&s).ok())
-        .unwrap_or_default()
+pub fn config_path() -> Option<PathBuf> {
+    dir().map(|d| d.join("config.toml"))
+}
+
+pub fn load() -> Result<Config, Error> {
+    let path = match config_path() {
+        Some(path) => path,
+        None => return Ok(Config::default()),
+    };
+    match std::fs::read_to_string(&path) {
+        Ok(text) => toml::from_str(&text)
+            .map_err(|e| Error::Input(anyhow::anyhow!("cannot parse {}: {e}", path.display()))),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Config::default()),
+        Err(e) => Err(Error::Input(anyhow::anyhow!(
+            "cannot read {}: {e}",
+            path.display()
+        ))),
+    }
 }
 
 pub fn set_api_key(api_key: String) -> Result<(), Error> {

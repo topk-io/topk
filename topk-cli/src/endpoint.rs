@@ -48,17 +48,17 @@ pub struct Endpoint {
 impl Endpoint {
     /// `--api-key`/`TOPK_API_KEY`, else the saved login. A set-but-empty env
     /// var (`TOPK_API_KEY=`) reads as unset.
-    pub fn api_key(&self) -> Option<String> {
-        self.api_key
-            .clone()
-            .filter(|v| !v.is_empty())
-            // TODO: remove stub — once `topk login` is SSO, the key comes back
-            // from Auth0, not out of config.toml.
-            .or_else(|| crate::config::load().api_key)
+    pub fn api_key(&self) -> Result<Option<String>, Error> {
+        if let Some(key) = self.api_key.clone().filter(|v| !v.is_empty()) {
+            return Ok(Some(key));
+        }
+        // TODO: remove stub — once `topk login` is SSO, the key comes back
+        // from Auth0, not out of config.toml.
+        Ok(crate::config::load()?.api_key)
     }
 
     pub fn client(&self) -> Result<Client, Error> {
-        let api_key = self.api_key().ok_or_else(|| {
+        let api_key = self.api_key()?.ok_or_else(|| {
             Error::Unauthenticated(
                 "API key not set. Run `topk login` or set TOPK_API_KEY.".to_string(),
             )

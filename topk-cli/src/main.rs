@@ -82,7 +82,7 @@ async fn main() -> ExitCode {
 async fn run(cli: &Cli) -> Result<(), Error> {
     match &cli.command {
         Some(Commands::Login) => {
-            let api_key = match cli.endpoint.api_key() {
+            let api_key = match cli.endpoint.api_key()? {
                 Some(key) => Some(key),
                 None => login::run(&cli.endpoint)?,
             };
