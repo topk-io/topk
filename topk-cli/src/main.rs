@@ -7,7 +7,6 @@ use colored::Colorize;
 use topk::commands::login;
 use topk::config;
 use topk::endpoint::Endpoint;
-use topk_rs::Error;
 
 #[derive(Parser)]
 #[command(name = "topk", version, after_help = agent_mode().then(|| include_str!("../README.md")))]
@@ -79,7 +78,7 @@ async fn main() -> ExitCode {
     }
 }
 
-async fn run(cli: &Cli) -> Result<(), Error> {
+async fn run(cli: &Cli) -> anyhow::Result<()> {
     match &cli.command {
         Some(Commands::Login) => {
             let api_key = match cli.endpoint.api_key()? {

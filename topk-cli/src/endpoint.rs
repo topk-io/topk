@@ -1,5 +1,8 @@
+use std::time::Duration;
+
+use anyhow::{Context, Result};
 use topk_rs::client::retry::{BackoffConfig, RetryConfig};
-use topk_rs::{Client, ClientConfig, Error};
+use topk_rs::{Client, ClientConfig};
 
 #[derive(clap::Args, Clone, Default)]
 pub struct Endpoint {
@@ -48,7 +51,7 @@ pub struct Endpoint {
 impl Endpoint {
     /// `--api-key`/`TOPK_API_KEY`, else the saved login. A set-but-empty env
     /// var (`TOPK_API_KEY=`) reads as unset.
-    pub fn api_key(&self) -> Result<Option<String>, Error> {
+    pub fn api_key(&self) -> Result<Option<String>> {
         if let Some(key) = self.api_key.clone().filter(|v| !v.is_empty()) {
             return Ok(Some(key));
         }
@@ -57,23 +60,14 @@ impl Endpoint {
         Ok(crate::config::load()?.api_key)
     }
 
-    pub fn client(&self) -> Result<Client, Error> {
-        let api_key = self.api_key()?.ok_or_else(|| {
-            Error::Unauthenticated(
-                "API key not set. Run `topk login` or set TOPK_API_KEY.".to_string(),
-            )
-        })?;
-        let region = self
-            .region
-            .as_deref()
-            .filter(|v| !v.is_empty())
-            .ok_or_else(|| {
-                Error::InvalidArgument(
-                    "--region is required (or set TOPK_REGION). \
-                     List available regions at https://docs.topk.io/regions"
-                        .to_string(),
-                )
-            })?;
+    pub fn client(&self) -> Result<Client> {
+        let api_key = self
+            .api_key()?
+            .context("API key not set. Run `topk login` or set TOPK_API_KEY.")?;
+        let region = self.region.as_deref().filter(|v| !v.is_empty()).context(
+            "--region is required (or set TOPK_REGION). \
+             List available regions at https://docs.topk.io/regions",
+        )?;
         // A batch tool rides out `SlowDown`: retries never run out, an hour of
         // continuous throttling fails the request, and `--resume` picks up.
         Ok(Client::new(
@@ -82,17 +76,12 @@ impl Endpoint {
                 .with_https(self.https)
                 .with_retry_config(RetryConfig {
                     max_retries: usize::MAX,
-                    timeout: std::time::Duration::from_secs(60 * 60),
+                    timeout: Duration::from_secs(60 * 60),
                     backoff: BackoffConfig {
-                        init_backoff: std::time::Duration::from_millis(250),
+                        init_backoff: Duration::from_millis(250),
                         ..BackoffConfig::default()
                     },
                 }),
         ))
-    }
-
-    pub fn console_url(&self) -> String {
-        let scheme = if self.https { "https" } else { "http" };
-        format!("{}://console.{}/api-key", scheme, self.host)
     }
 }

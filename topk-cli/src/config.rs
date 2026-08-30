@@ -1,7 +1,8 @@
-use std::path::PathBuf;
+use std::io::ErrorKind;
+use std::path::{Path, PathBuf};
 
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use topk_rs::Error;
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Config {
@@ -16,45 +17,41 @@ pub fn config_path() -> Option<PathBuf> {
     dir().map(|d| d.join("config.toml"))
 }
 
-pub fn load() -> Result<Config, Error> {
+pub fn load() -> Result<Config> {
     let path = match config_path() {
         Some(path) => path,
         None => return Ok(Config::default()),
     };
     match std::fs::read_to_string(&path) {
-        Ok(text) => toml::from_str(&text)
-            .map_err(|e| Error::Input(anyhow::anyhow!("cannot parse {}: {e}", path.display()))),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Config::default()),
-        Err(e) => Err(Error::Input(anyhow::anyhow!(
-            "cannot read {}: {e}",
-            path.display()
-        ))),
+        Ok(text) => {
+            toml::from_str(&text).with_context(|| format!("cannot parse {}", path.display()))
+        }
+        Err(e) if e.kind() == ErrorKind::NotFound => Ok(Config::default()),
+        Err(e) => Err(e).with_context(|| format!("cannot read {}", path.display())),
     }
 }
 
-pub fn set_api_key(api_key: String) -> Result<(), Error> {
+pub fn set_api_key(api_key: String) -> Result<()> {
     save(&Config {
         api_key: Some(api_key),
     })
 }
 
-pub fn clear() -> Result<(), Error> {
+pub fn clear() -> Result<()> {
     save(&Config::default())
 }
 
-fn save(config: &Config) -> Result<(), Error> {
-    let path = config_path()
-        .ok_or_else(|| Error::Input(anyhow::anyhow!("could not determine config directory")))?;
+fn save(config: &Config) -> Result<()> {
+    let path = config_path().context("could not determine config directory")?;
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    let content =
-        toml::to_string_pretty(config).map_err(|e| Error::MalformedResponse(e.to_string()))?;
+    let content = toml::to_string_pretty(config)?;
     write_config_file(&path, &content)
 }
 
 #[cfg(unix)]
-fn write_config_file(path: &std::path::Path, content: &str) -> Result<(), Error> {
+fn write_config_file(path: &Path, content: &str) -> Result<()> {
     use std::fs::{OpenOptions, Permissions};
     use std::io::Write;
     use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
@@ -71,7 +68,7 @@ fn write_config_file(path: &std::path::Path, content: &str) -> Result<(), Error>
 }
 
 #[cfg(not(unix))]
-fn write_config_file(path: &std::path::Path, content: &str) -> Result<(), Error> {
+fn write_config_file(path: &Path, content: &str) -> Result<()> {
     std::fs::write(path, content)?;
     Ok(())
 }
