@@ -195,7 +195,7 @@ impl TryFrom<serde_json::Map<String, serde_json::Value>> for TopkValue {
                 indices.push(key.parse::<u32>().expect("keys are valid u32 indices"));
                 values.push(number_to_f32(value)?);
             }
-            return Ok(TopkValue::f32_sparse_vector(indices, values));
+            return Ok(TopkValue::sparse_vector(indices, values));
         }
 
         object
@@ -409,7 +409,7 @@ mod tests {
     // objects
     #[case::sparse_vector(
         json!({"0": 1.5, "2": 3.0}),
-        TopkValue::f32_sparse_vector(vec![0, 2], vec![1.5, 3.0])
+        TopkValue::sparse_vector(vec![0, 2], vec![1.5, 3.0])
     )]
     #[case::struct_value(
         json!({"name": "a", "count": 2}),
@@ -475,23 +475,23 @@ mod tests {
     #[case::string_list(TopkValue::list(vec!["a", "b"]), json!(["a", "b"]))]
     // sparse vectors
     #[case::f32_sparse_vector(
-        TopkValue::f32_sparse_vector(vec![0, 2], vec![1.5, 3.0]),
+        TopkValue::sparse_vector(vec![0, 2], vec![1.5, 3.0]),
         json!({"0": 1.5, "2": 3.0})
     )]
     #[case::f16_sparse_vector(
-        TopkValue::f16_sparse_vector(vec![0, 2], f16s(&[1.5, 3.0])),
+        TopkValue::sparse_vector(vec![0, 2], f16s(&[1.5, 3.0])),
         json!({"0": 1.5, "2": 3.0})
     )]
     #[case::f8_sparse_vector(
-        TopkValue::f8_sparse_vector(vec![0, 2], f8s(&[1.5, 3.0])),
+        TopkValue::sparse_vector(vec![0, 2], f8s(&[1.5, 3.0])),
         json!({"0": 1.5, "2": 3.0})
     )]
     #[case::u8_sparse_vector(
-        TopkValue::u8_sparse_vector(vec![0, 2], vec![1, 3]),
+        TopkValue::sparse_vector(vec![0, 2], vec![1, 3]),
         json!({"0": 1, "2": 3})
     )]
     #[case::i8_sparse_vector(
-        TopkValue::i8_sparse_vector(vec![0, 2], vec![-1, 3]),
+        TopkValue::sparse_vector(vec![0, 2], vec![-1, 3]),
         json!({"0": -1, "2": 3})
     )]
     // matrices

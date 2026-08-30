@@ -21,7 +21,7 @@ async fn test_query_sparse_vector_distance_f32(ctx: &mut ProjectTestContext) {
                     "sparse_f32_distance",
                     fns::vector_distance(
                         "sparse_f32_embedding",
-                        SparseVector::f32(
+                        SparseVector::new(
                             vec![0, 1, 2, 3, 4, 5],
                             vec![1.0, 2.0, 3.0, 1.0, 3.0, 2.0],
                         ),
@@ -52,7 +52,7 @@ async fn test_query_sparse_vector_distance_f8(ctx: &mut ProjectTestContext) {
                     "sparse_distance",
                     fns::vector_distance(
                         "sparse_f8_embedding",
-                        SparseVector::f8(
+                        SparseVector::new(
                             vec![0, 1, 2, 3, 4, 5],
                             vec![
                                 F8E4M3::from(1.0),
@@ -90,7 +90,7 @@ async fn test_query_sparse_vector_distance_u8(ctx: &mut ProjectTestContext) {
                     "sparse_u8_distance",
                     fns::vector_distance(
                         "sparse_u8_embedding",
-                        SparseVector::u8(vec![0, 1, 2, 3, 4, 5], vec![1, 2, 3, 1, 3, 2]),
+                        SparseVector::new(vec![0, 1, 2, 3, 4, 5], vec![1u8, 2, 3, 1, 3, 2]),
                     ),
                 )])
                 .sort("sparse_u8_distance")
@@ -118,7 +118,7 @@ async fn test_query_sparse_vector_distance_nullable(ctx: &mut ProjectTestContext
                     "sparse_u8_distance",
                     fns::vector_distance(
                         "sparse_u8_embedding",
-                        SparseVector::u8(vec![0, 1, 2, 3, 4], vec![1, 2, 3, 1, 3]),
+                        SparseVector::new(vec![0, 1, 2, 3, 4], vec![1u8, 2, 3, 1, 3]),
                     ),
                 )])
                 .sort("sparse_u8_distance")
@@ -158,7 +158,7 @@ async fn test_query_sparse_vector_distance_nullable(ctx: &mut ProjectTestContext
                     "sparse_u8_distance",
                     fns::vector_distance(
                         "sparse_u8_embedding",
-                        SparseVector::u8(vec![0, 1, 2, 3, 4], vec![1, 2, 3, 1, 3]),
+                        SparseVector::new(vec![0, 1, 2, 3, 4], vec![1u8, 2, 3, 1, 3]),
                     ),
                 )])
                 .sort("sparse_u8_distance")

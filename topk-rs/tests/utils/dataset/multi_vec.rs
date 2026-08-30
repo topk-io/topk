@@ -129,7 +129,7 @@ pub fn docs(dt: MatrixValueType) -> Vec<Document> {
             "_id" => "doc_1",
             "title" => "1984",
             "published_year" => 1949 as u32,
-            "smve" => SparseVector::f32(vec![1,5,7], vec![17.0f32, 6.0f32, 97.0f32]),
+            "smve" => SparseVector::new(vec![1,5,7], vec![17.0f32, 6.0f32, 97.0f32]),
             "token_embeddings" => cast(dt, Matrix::new(7, vec![
                 0.4364, -0.4954, 0.3665, 1.5041, -1.4773, -0.701, -0.9732,
                 -1.2239, 1.7501, 0.4089, 2.0643, -1.3925, 0.4711, -0.6247
@@ -139,7 +139,7 @@ pub fn docs(dt: MatrixValueType) -> Vec<Document> {
             "_id" => "doc_2",
             "title" => "Pride and Prejudice",
             "published_year" => 1813 as u32,
-            "smve" => SparseVector::f32(vec![1,3,5], vec![17.0f32, 6.0f32, 97.0f32]),
+            "smve" => SparseVector::new(vec![1,3,5], vec![17.0f32, 6.0f32, 97.0f32]),
             "token_embeddings" => cast(dt, Matrix::new(7, vec![
                 -2.6447, 0.3202, -0.5956, 0.6756, 1.0693, -1.0891, 1.0181
             ])),
@@ -167,7 +167,7 @@ pub fn docs(dt: MatrixValueType) -> Vec<Document> {
             "_id" => "doc_5",
             "title" => "Moby-Dick",
             "published_year" => 1851 as u32,
-            "smve" => SparseVector::f32(vec![2,3,4], vec![17.0f32, 6.0f32, 97.0f32]),
+            "smve" => SparseVector::new(vec![2,3,4], vec![17.0f32, 6.0f32, 97.0f32]),
             "token_embeddings" => cast(dt, Matrix::new(7, vec![
                 -0.6367, -0.5482, -1.2782, 1.0357, 1.044, -1.7687, 0.1703,
                 -1.379, 0.0448, -0.7917, -1.693, -0.6001, 0.0598, 1.5035,
@@ -198,7 +198,7 @@ pub fn docs(dt: MatrixValueType) -> Vec<Document> {
             "_id" => "doc_8",
             "title" => "The Lord of the Rings: The Fellowship of the Ring",
             "published_year" => 1954 as u32,
-            "smve" => SparseVector::f32(vec![0, 1, 2], vec![17.0f32, 6.0f32, 97.0f32]),
+            "smve" => SparseVector::new(vec![0, 1, 2], vec![17.0f32, 6.0f32, 97.0f32]),
             "token_embeddings" => cast(dt, Matrix::new(7, vec![
                 -0.2822, -0.4862, 2.0163, -1.4105, 2.1853, 0.583, 0.7119,
                 -1.7254, 0.3599, 0.2296, 0.1091, -0.6483, 0.3901, -0.9539,

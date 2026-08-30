@@ -117,10 +117,10 @@ impl From<SparseVector> for topk_rs::proto::v1::data::SparseVector {
     fn from(sparse: SparseVector) -> Self {
         match sparse {
             SparseVector::F32 { indices, values } => {
-                topk_rs::proto::v1::data::SparseVector::f32(indices, values)
+                topk_rs::proto::v1::data::SparseVector::new(indices, values)
             }
             SparseVector::U8 { indices, values } => {
-                topk_rs::proto::v1::data::SparseVector::u8(indices, values)
+                topk_rs::proto::v1::data::SparseVector::new(indices, values)
             }
         }
     }

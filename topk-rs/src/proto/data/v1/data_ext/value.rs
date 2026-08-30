@@ -5,7 +5,7 @@ use float8::F8E4M3;
 use std::collections::HashMap;
 
 use crate::proto::data::v1::{
-    data_ext::{IntoListValues, IntoMatrixValues, IntoTimestamp},
+    data_ext::{IntoListValues, IntoMatrixValues, IntoSparseValues, IntoTimestamp},
     list, matrix, sparse_vector, value, vector, List, Matrix, Null, SparseVector, Struct, Value,
 };
 
@@ -127,53 +127,8 @@ impl Value {
         }
     }
 
-    pub fn f32_sparse_vector(indices: Vec<u32>, values: Vec<f32>) -> Self {
-        Value {
-            value: Some(value::Value::SparseVector(SparseVector {
-                indices,
-                values: Some(sparse_vector::Values::F32(sparse_vector::F32Values {
-                    values,
-                })),
-            })),
-        }
-    }
-
-    pub fn f16_sparse_vector(indices: Vec<u32>, values: Vec<half::f16>) -> Self {
-        Value {
-            value: Some(value::Value::SparseVector(SparseVector {
-                indices,
-                values: Some(sparse_vector::Values::F16(values.into())),
-            })),
-        }
-    }
-
-    pub fn f8_sparse_vector(indices: Vec<u32>, values: Vec<F8E4M3>) -> Self {
-        Value {
-            value: Some(value::Value::SparseVector(SparseVector {
-                indices,
-                values: Some(sparse_vector::Values::F8(values.into())),
-            })),
-        }
-    }
-
-    pub fn u8_sparse_vector(indices: Vec<u32>, values: Vec<u8>) -> Self {
-        Value {
-            value: Some(value::Value::SparseVector(SparseVector {
-                indices,
-                values: Some(sparse_vector::Values::U8(sparse_vector::U8Values {
-                    values,
-                })),
-            })),
-        }
-    }
-
-    pub fn i8_sparse_vector(indices: Vec<u32>, values: Vec<i8>) -> Self {
-        Value {
-            value: Some(value::Value::SparseVector(SparseVector {
-                indices,
-                values: Some(sparse_vector::Values::I8(values.into())),
-            })),
-        }
+    pub fn sparse_vector<T: IntoSparseValues>(indices: Vec<u32>, values: T) -> Self {
+        SparseVector::new(indices, values).into()
     }
 
     /// Alias for `binary`
@@ -604,14 +559,6 @@ impl From<Vec<String>> for Value {
     }
 }
 
-impl From<SparseVector> for Value {
-    fn from(value: SparseVector) -> Self {
-        Value {
-            value: Some(value::Value::SparseVector(value)),
-        }
-    }
-}
-
 impl From<HashMap<String, Value>> for Value {
     fn from(value: HashMap<String, Value>) -> Self {
         Value::r#struct(value)
@@ -845,7 +792,25 @@ impl From<matrix::U8> for Vec<u8> {
     }
 }
 
-// sparse vector
+// Sparse vector
+
+impl SparseVector {
+    pub fn new<T: IntoSparseValues>(indices: Vec<u32>, values: T) -> Self {
+        SparseVector {
+            indices,
+            values: Some(values.into_sparse_values()),
+        }
+    }
+}
+
+impl From<SparseVector> for Value {
+    fn from(value: SparseVector) -> Self {
+        Value {
+            value: Some(value::Value::SparseVector(value)),
+        }
+    }
+}
+
 impl sparse_vector::F32Values {
     pub fn len(&self) -> usize {
         self.values.len()

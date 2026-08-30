@@ -131,11 +131,11 @@ impl TypedValues {
 
     pub(crate) fn into_sparse_value(self, indices: Vec<u32>, sig: &str) -> Result<Value, Error> {
         match self {
-            Self::F16(v) => Ok(Value::f16_sparse_vector(indices, v)),
-            Self::F32(v) => Ok(Value::f32_sparse_vector(indices, v)),
-            Self::F8(v) => Ok(Value::f8_sparse_vector(indices, v)),
-            Self::U8(v) => Ok(Value::u8_sparse_vector(indices, v)),
-            Self::I8(v) => Ok(Value::i8_sparse_vector(indices, v)),
+            Self::F16(v) => Ok(Value::sparse_vector(indices, v)),
+            Self::F32(v) => Ok(Value::sparse_vector(indices, v)),
+            Self::F8(v) => Ok(Value::sparse_vector(indices, v)),
+            Self::U8(v) => Ok(Value::sparse_vector(indices, v)),
+            Self::I8(v) => Ok(Value::sparse_vector(indices, v)),
             _ => Err(Error::Invalid(format!(
                 "{sig}: unsupported sparse vector element type"
             ))),

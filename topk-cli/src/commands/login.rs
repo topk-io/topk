@@ -1,12 +1,9 @@
 use dialoguer::{Password, Select};
 use topk_rs::Error;
 
-fn console_url(https: bool, host: &str) -> String {
-    let scheme = if https { "https" } else { "http" };
-    format!("{}://console.{}/api-key", scheme, host)
-}
+use crate::endpoint::Endpoint;
 
-pub fn run(host: &str, https: bool) -> Result<Option<String>, Error> {
+pub fn run(endpoint: &Endpoint) -> Result<Option<String>, Error> {
     let choice = Select::new()
         .with_prompt("How would you like to authenticate with TopK?")
         .items(&["Create a new API key", "Use an existing API key", "Skip"])
@@ -16,7 +13,7 @@ pub fn run(host: &str, https: bool) -> Result<Option<String>, Error> {
     match choice {
         // Open the console URL in the browser and prompt for the API key
         Ok(0) => {
-            let _ = open::that(&console_url(https, host));
+            let _ = open::that(endpoint.console_url());
             Ok(Some(prompt_api_key()?))
         }
         // Prompt for the API key directly

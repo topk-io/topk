@@ -93,6 +93,10 @@ pub enum FieldMapping {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         #[allow(dead_code)]
         fields: Option<MappingProperties>,
+
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[allow(dead_code)]
+        ignore_above: Option<u32>,
     },
 
     #[serde(rename = "integer", alias = "long", alias = "short", alias = "byte")]
@@ -134,6 +138,10 @@ pub enum FieldMapping {
 
         #[serde(default)]
         element_type: ElementType,
+
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[allow(dead_code)]
+        index_options: Option<serde_json::Value>,
     },
 
     #[serde(rename = "rank_vectors", alias = "matrix")]
@@ -298,7 +306,7 @@ impl TryFrom<FieldMapping> for FieldSpec {
                 }
                 Ok(field)
             }
-            FieldMapping::Keyword { index, fields: _ } => {
+            FieldMapping::Keyword { index, .. } => {
                 let mut field = FieldSpec::text(false);
                 if index.unwrap_or(true) {
                     field = field.with_index(FieldIndex::keyword(KeywordIndexType::Exact));
@@ -321,6 +329,7 @@ impl TryFrom<FieldMapping> for FieldSpec {
                 similarity,
                 index,
                 element_type,
+                index_options: _,
             } => {
                 let metric = similarity
                     .map(VectorDistanceMetric::from)
@@ -402,6 +411,7 @@ impl TryFrom<&FieldSpec> for FieldMapping {
                     KeywordIndexType::Exact => FieldMapping::Keyword {
                         index: Some(true),
                         fields: None,
+                        ignore_above: None,
                     },
                     _ => FieldMapping::Text {
                         index: Some(true),
@@ -442,12 +452,14 @@ impl TryFrom<&FieldSpec> for FieldMapping {
                         similarity: Some(vector.metric().into()),
                         index: Some(true),
                         element_type,
+                        index_options: None,
                     },
                     None => FieldMapping::DenseVector {
                         dims,
                         similarity: None,
                         index: Some(false),
                         element_type,
+                        index_options: None,
                     },
                     _ => FieldMapping::Object {
                         properties: MappingProperties::default(),
