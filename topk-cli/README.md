@@ -2,73 +2,221 @@
 
 Command-line interface for [TopK](https://topk.io).
 
-## Installation
+## Install
 
 ```bash
 brew tap topk-io/topk
-brew install topk
+brew install topk      # brew upgrade topk to update
 ```
+
+## Quick start
+
+```bash
+topk login                                           # or: export TOPK_API_KEY=...
+topk import ./books.parquet --region sunflower       # import a file
+topk import postgres://user:pw@host/db 'public.*'    # import every table in a schema
+```
+
+`topk import` reads databases (Postgres, MySQL, SQLite, MongoDB, Elasticsearch), files (csv, json(l), parquet, arrow, avro, xlsx — local, S3, GCS, Azure, Hugging Face, http) and other TopK collections. It discovers a schema, shows the plan, and imports on confirmation.
 
 ## Authentication
 
-To authenticate, run:
-
 ```bash
 topk login
 ```
 
-Alternatively, you can set `TOPK_API_KEY` environment variable and skip the `topk login` command.
+Saves an API key for later runs. `TOPK_API_KEY` or `--api-key` take precedence over the saved key. `topk logout` removes it.
 
-```bash
-export TOPK_API_KEY=<your-api-key>
+## topk import
+
+Bulk import from a database, file, object store, Elasticsearch, MongoDB or another TopK collection.
+
+```
+topk import [OPTIONS] [SOURCE] [OBJECTS]...
 ```
 
-## Commands
+Every run discovers the source, prints the plan as a TOML spec, and asks for confirmation; collections are created right after. `-y` skips the confirmation, `--id <column>` sets the id column when detection fails, `-c` caps in-flight upserts (16), `--batch-bytes` sizes them (8MiB).
 
-### login
-
-To authenticate, run:
+### Import a database
 
 ```bash
-topk login
+topk import postgres://user:pw@host/db 'public.*'
+topk import mysql://root@host/shop orders
+topk import sqlite:~/books.db
+topk import mongodb://host/shop products
+topk import es+https://user:pw@es.example.com 'products*'
+topk import postgres://host/db public.users=people            # rename
 ```
 
-Alternatively, you can set `TOPK_API_KEY` environment variable and skip the `topk login` command.
+Objects are exact names, globs, or `<object>=<collection>` renames.
+
+### Import files
 
 ```bash
-export TOPK_API_KEY=<your-api-key>
+topk import ./books.parquet                                   # .csv .tsv .json .jsonl .ndjson .arrow .avro .xlsx
+topk import './data/*.parquet' --to parts                     # a glob needs --to
+topk import 's3://bucket/books/*.parquet' --to books          # r2:// too
+topk import gs://bucket/books.csv                             # or gcs://
+topk import az://container/books.jsonl                        # or azure://
+topk import 'hf://datasets/stanfordnlp/imdb/plain_text/train-*.parquet' --to imdb
+topk import 'hf://datasets/org/name@~parquet/default/train/*.parquet' --to name
+topk import https://example.com/books.csv
 ```
 
-### logout
+A single file names its collection. S3 also resolves your AWS profile via the aws CLI (SSO and role chaining included). `@~parquet` reads Hugging Face's converted parquet copy of a repo. `xlsx` reads the first sheet.
 
-Remove saved credentials:
+### Copy a TopK collection
 
 ```bash
-topk logout
+topk import topk://sunflower/books --to books-v2              # reindex under a new schema
+topk import topk://elastica/books --region monstera           # copy us → eu
+topk import 'topk://sunflower/*' --region monstera            # every collection
+topk import topk://<key>@sunflower/books                      # another org's key
 ```
 
-## Global flags
+Schema and indexes copy as-is (except a vector index's `exact` and a multi-vector's `width`/`top_k`/`encoding_version`, which the server refuses on create); documents are read with `fetch`, so indexed vectors arrive bit for bit. `--filter` is not supported; the copy is additive.
 
-These flags are accepted by every command:
-
-### `--output`
-
-Options:
-
-* `text` (default)
-* `json`
-
-Output results as NDJSON — one JSON object per line, compatible with `jq`.
-
-### `--api-key`
-
-API key to use for this invocation. Overrides the `TOPK_API_KEY` environment variable and the key saved via `topk login`.
-
-## Updating the CLI
-
-To update CLI to the latest version, run:
+### Preview
 
 ```bash
-brew update
-brew upgrade topk
+topk import postgres://host/db orders --dry-run
 ```
+
+Prints the spec on stdout and sample documents on stderr. No login or region needed, nothing written.
+
+### Save the plan and re-run it
+
+```bash
+topk import postgres://host/db orders --dry-run > spec.toml   # capture
+$EDITOR spec.toml                                              # drop columns, fix types, add indexes
+topk import "$DB_URL" -f spec.toml --yes                       # run
+```
+
+The spec holds what to import; the command line holds where to connect. Secrets stay in the environment, the spec goes in git.
+
+### Resume a stopped run
+
+```bash
+topk import postgres://host/db orders
+# run 01J9...
+# ^C
+topk import postgres://host/db --resume 01J9...
+topk import postgres://host/db --resume 01J9... -f spec.toml   # with an edited spec
+```
+
+Checkpoints land as batches are written; resume skips finished collections and continues the in-flight one from its cursor. A collection with a `limit` is never checkpointed, so it restarts. The plan is stored in `<config dir>/topk/import/<id>.toml`, deleted on success. With `-f`, cursors are kept only for collections whose block is unchanged; resume assumes the source did not change. Without `--resume`, a re-run re-imports everything — upserts are idempotent, so that is correct, just not cheap.
+
+### Filter, limit, partition
+
+```bash
+topk import postgres://host/db orders --filter "created_at > '2024-01-01'"
+topk import mongodb://host/shop products --filter '{"active": true}'
+topk import ./books.parquet --limit 1000
+topk import ./books.parquet --partition eu
+```
+
+`--filter` and `--to` apply to a single object; use `filter` per collection in a spec for several. `--limit` and `--partition` apply to every object, spec included.
+
+### Output
+
+```bash
+topk import ./books.parquet --yes -o json | jq '.books.rows'
+```
+
+`-o json` prints `{"<collection>": {"rows": N, "failed": N}}`. Rows sharing an id collapse into one document, so `rows` can exceed the document count.
+
+### Sources
+
+| source | url | filter | auth |
+| --- | --- | --- | --- |
+| postgres | `postgres://` | SQL `WHERE` | in-URL, `PGPASSWORD` |
+| mysql | `mysql://` | SQL `WHERE` | in-URL, `MYSQL_PWD` |
+| sqlite | `sqlite:<path>` | SQL `WHERE` | — |
+| files | path, glob, `s3://` `r2://` `gs://` `az://` `hf://` `http(s)://` | SQL `WHERE` | credential chain; `hf auth login`; http anonymous |
+| elasticsearch | `es://` `es+https://`, `*.cloud.es.io` | query DSL | in-URL, `ELASTIC_API_KEY` / `ELASTIC_PASSWORD` |
+| mongodb | `mongodb://` | find document | in-URL, `MONGODB_URI` |
+| topk | `topk://[<key>@]<region>/<collection>` | — | URL key, else the run's key |
+
+Any http(s) URL that is not Elasticsearch is a file named by its extension; query strings are stripped, so presigned URLs work.
+
+Vectors discover typed from Elasticsearch mappings (`dims`, `/8` for bit) and from MongoDB by sampling 1000 documents per collection (equal-length float lists → `f32_vector`); everything else follows [Declaring types](#declaring-types).
+
+Cursors for `--resume`: files `<file>:<row offset>`, databases the last id (ordered by the id column), Elasticsearch a PIT + `search_after` (24h; expired → that collection restarts), topk the last `_id`.
+
+### Spec
+
+```toml
+[books]
+from = "public.books"
+id = "sku"
+filter = "published"
+partition = "eu"
+limit = 10000
+
+[books.fields]
+title = { type = "text", index = "semantic" }
+isbn = { type = "text", index = "keyword", required = true }
+year = { type = "int", from = "published_year" }
+summary = { type = "text", truncate = 2000 }
+embedding = { type = "f32_vector", dim = 768, index = { vector = { metric = "cosine" } } }
+colbert = { type = "f32_matrix", cols = 128, index = { multi_vector = {} } }
+```
+
+| collection key | |
+| --- | --- |
+| `from` | source object (table, index, collection, file) |
+| `id` | column that becomes `_id`; several fields may read the same column |
+| `filter`, `partition`, `limit` | as the flags |
+| `fields` | whitelist — only declared fields import; a spec with no fields is rejected |
+
+| field key | |
+| --- | --- |
+| `type` | see below |
+| `from` | source column, when the name differs |
+| `required` | fail the document if missing |
+| `truncate` | max chars, text only |
+| `dim` | vector dimension; required to vector-index, decodes packed bytes |
+| `cols` | matrix row width; a flat list becomes a matrix |
+| `index` | `"keyword"` `"exact"` `"semantic"` `"ngram"` `{ vector = { metric = "cosine" \| "euclidean" \| "dot_product" \| "hamming" } }` `{ multi_vector = { quantization = "1bit" \| "2bit" \| "scalar" } }` |
+
+Types: `text` `int` `float` `bool` `bytes` `timestamp` `struct` `text_list` `int_list` `float_list` `{f32,f16,f8,u8,i8,binary}_vector` `{f32,f16,f8,u8,i8}_matrix` `{f32,f16,f8,u8,i8}_sparse_vector`.
+
+### Declaring types
+
+Discovery takes the source's types. Declare a different one to convert:
+
+| source column | discovers as | declare |
+| --- | --- | --- |
+| float array without a known dim (sql `FLOAT[]`, json list) | `float_list` + `# declare f32_vector + dim to vector-index` | `f32_vector`, `dim` |
+| pgvector `vector(n)` | `text` (`"[1,2,3]"`) | `f32_vector`, `dim` |
+| packed embedding blob (little-endian) | `bytes` | `f32_vector` etc., `dim` — element width is `len / dim`, so one declaration reads f16/f32/f64 blobs; `u8`/`i8`/`binary` read one byte per element |
+| flat list of `rows * cols` floats (colbert) | `float_list` | `f32_matrix`, `cols` |
+| epoch millis/seconds, RFC 3339 or `YYYY-MM-DD` text | `int` / `text` | `timestamp` |
+| decimal wider than f64 | `text` (exact) | `float` to accept loss |
+
+Conversions are exact or the document fails: `"3.00"` → `int` 3, `"3.50"` → error; a narrower declaration (`truncate` included) is how loss is accepted. A wrong `dim` that divides the blob evenly decodes silently wrong — check the byte length in `--dry-run`.
+
+A wrong index cannot be fixed in place: there is no schema migration, the fix is delete and reimport. The confirmation prompt states what will be indexed.
+
+### Failures and limits
+
+A document that fails — bad conversion, missing id, over 200 KB — stops the run, and `--resume` continues from where it stopped. `--continue-on-error` skips those documents instead, reports their ids, and exits non-zero. Connection, auth and name-collision errors always stop the run. An id-only table matched by a glob is skipped with a note; if nothing importable remains, that is an error.
+
+Throttling is retried automatically and only gives up after an hour of it. If you hit that, lower `-c`.
+
+- Collection names match `^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$`; two objects mapping to one name is an error, rename with `=`. Field names cannot start with `_`.
+- Ids that are null, empty or non-finite fail the document. A composite primary key produces a placeholder `id` that refuses to run until you edit it.
+- There is no schema migration. An existing collection whose schema differs is rejected before the prompt: use a new name, or delete it first.
+- An upsert replaces the document, so a spec that omits a field the collection has clears it on every row re-imported. The run names those fields before the prompt.
+
+## Global options
+
+| flag | env | |
+| --- | --- | --- |
+| `--api-key <KEY>` | `TOPK_API_KEY` | overrides the key saved by `topk login` |
+| `--region <REGION>` | `TOPK_REGION` | required by `import`; see https://docs.topk.io/regions |
+| `--host <HOST>` | `TOPK_HOST` | endpoint is `<REGION>.api.<HOST>`; default `topk.io` |
+| `--https [true\|false]` | `TOPK_HTTPS` | default `true` |
+| `-o, --output text\|json` | | `json` puts results on stdout for `jq` |
+| `-v, --verbose` | `RUST_LOG` | log to stderr |
+| `--agent` | `CLAUDECODE` `AGENT` | `--help` includes this manual |

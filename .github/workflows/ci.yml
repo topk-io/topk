@@ -89,7 +89,7 @@ jobs:
       - uses: crazy-max/ghaction-github-runtime@3cb05d89e1f492524af3d41a1c98c83bc3025124 # v3.1.0
       - name: CLI tests
         run: >-
-          earthly --verbose --secret TOPK_API_KEY +test-cli
+          earthly --verbose --allow-privileged --secret TOPK_API_KEY +test-cli
           --region sunflower --host=topk.dev
           --ACTIONS_RESULTS_URL="$ACTIONS_RESULTS_URL"
           --ACTIONS_RUNTIME_TOKEN="$ACTIONS_RUNTIME_TOKEN"

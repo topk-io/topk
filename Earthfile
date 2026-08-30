@@ -146,9 +146,13 @@ test-js:
 test-cli:
     FROM +rust-base
 
-    # install dependencies
-    # g++/cmake for bundled duckdb
-    RUN apt-get update && apt-get install -y protobuf-compiler jq curl pkg-config libssl-dev g++ cmake
+    # docker for WITH DOCKER; g++/cmake for bundled duckdb
+    RUN apt-get update && apt-get install -y protobuf-compiler jq curl docker.io pkg-config libssl-dev g++ cmake
+    ARG compose_version=v5.5.0
+    RUN mkdir -p /usr/local/lib/docker/cli-plugins && \
+        curl -fsSL https://github.com/docker/compose/releases/download/${compose_version}/docker-compose-linux-$(uname -m) \
+        -o /usr/local/lib/docker/cli-plugins/docker-compose && \
+        chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
     # sccache for rustc and the bundled duckdb C++ (cc-rs honors CC/CXX wrappers);
     # the ARGs come from CI, locally they are empty and sccache stays off.
@@ -170,8 +174,6 @@ test-cli:
     END
     COPY +test-sandbox/topk-test-sandbox /usr/local/bin/topk-test-sandbox
 
-    DO rust+INIT --keep_fingerprints=true
-
     # copy source code
     WORKDIR /sdk
     ARG EARTHLY_GIT_HASH
@@ -179,6 +181,7 @@ test-cli:
 
     WORKDIR /sdk/topk-cli
 
+    # a real layer, not rust+CARGO's cache mount: WITH DOCKER below cannot read that.
     RUN --mount=type=cache,target=/root/.cargo/registry \
         --mount=type=cache,target=/root/.cargo/git \
         cargo nextest run -p topk-cli --no-run && sccache --show-stats
@@ -190,8 +193,15 @@ test-cli:
     # test
     ENV FORCE_COLOR=1
     ARG args=""
-    RUN --no-cache --secret TOPK_API_KEY \
-        TOPK_API_KEY=$TOPK_API_KEY topk-test-sandbox cargo nextest run -p topk-cli --no-fail-fast $args
+    # `--compose` does not wait on healthchecks; `up --wait` does.
+    WITH DOCKER --compose docker-compose.import.yaml
+        RUN --no-cache --secret TOPK_API_KEY \
+            (docker compose -f docker-compose.import.yaml up -d --wait || \
+             (docker compose -f docker-compose.import.yaml ps; \
+              docker inspect --format '{{json .State.Health}}' default-mysql-1; \
+              docker compose -f docker-compose.import.yaml logs --tail 50; exit 1)) && \
+            TOPK_API_KEY=$TOPK_API_KEY topk-test-sandbox cargo nextest run -p topk-cli --no-fail-fast $args
+    END
 
 test-sql:
     FROM +rust-base

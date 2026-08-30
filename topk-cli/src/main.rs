@@ -49,6 +49,10 @@ enum Commands {
     /// Log in by entering your API key
     Login,
 
+    /// Bulk import from a database, file or object store
+    #[cfg(feature = "import")]
+    Import(topk::commands::import::ImportArgs),
+
     /// Remove auth credentials
     Logout,
 
@@ -65,14 +69,23 @@ fn agent_mode() -> bool {
         || std::env::args().any(|a| a == "--agent")
 }
 
-#[tokio::main]
-async fn main() -> ExitCode {
+fn main() -> ExitCode {
     // Rust ignores SIGPIPE, so `topk … | head` panics on the closed pipe.
     unsafe { libc::signal(libc::SIGPIPE, libc::SIG_DFL) };
+    // AWS SSO for duckdb: sets AWS_CONFIG_FILE, UB once runtime threads getenv.
+    #[cfg(feature = "import")]
+    if std::env::args().any(|a| a == "import") {
+        topk::import::source::aws_process_profile();
+    }
+    async_main()
+}
+
+#[tokio::main]
+async fn async_main() -> ExitCode {
     let cli = Cli::parse();
     init_logging(cli.verbose);
     match run(&cli).await {
-        Ok(()) => ExitCode::SUCCESS,
+        Ok(code) => code,
         Err(e) => {
             eprintln!("{} {e}", "error:".red().bold());
             ExitCode::FAILURE
@@ -80,7 +93,7 @@ async fn main() -> ExitCode {
     }
 }
 
-async fn run(cli: &Cli) -> anyhow::Result<()> {
+async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
     match &cli.command {
         Some(Commands::Login) => {
             let api_key = match cli.endpoint.api_key()? {
@@ -98,23 +111,28 @@ async fn run(cli: &Cli) -> anyhow::Result<()> {
                 }
             }
 
-            Ok(())
+            Ok(ExitCode::SUCCESS)
+        }
+
+        #[cfg(feature = "import")]
+        Some(Commands::Import(args)) => {
+            topk::commands::import::run(&cli.endpoint, args, cli.output == Output::Json).await
         }
 
         Some(Commands::Logout) => {
             config::clear()?;
             eprintln!("{} Logged out.", "✓".green());
-            Ok(())
+            Ok(ExitCode::SUCCESS)
         }
 
         Some(Commands::Completions { shell }) => {
             generate(*shell, &mut Cli::command(), "topk", &mut std::io::stdout());
-            Ok(())
+            Ok(ExitCode::SUCCESS)
         }
 
         None => {
             Cli::command().print_help()?;
-            Ok(())
+            Ok(ExitCode::SUCCESS)
         }
     }
 }
