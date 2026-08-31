@@ -8,8 +8,8 @@ title: topk_sdk.query
 
 *Internal*
 
-    Instances of the `LogicalExpr` class are used to represent logical expressions in TopK.
-    Usually created using logical constructors such as [`field()`](#field), [`literal()`](#literal), etc.
+Instances of the `LogicalExpr` class are used to represent logical expressions in TopK.
+Usually created using logical constructors such as [`field()`](#field), [`literal()`](#literal), etc.
 
 **Methods**
 
@@ -351,6 +351,39 @@ Compute the maximum of the expression and another value.
 
 ***
 
+#### date\_part()
+
+```python
+date_part(self, part: DatePart) -> LogicalExpr
+```
+
+Extract a part of a timestamp expression as an integer.
+
+Supported parts:
+
+- ``"year"`` — calendar year
+- ``"month"`` — 1-12
+- ``"week"`` — ISO week number
+- ``"day"`` — day of month, 1-31
+- ``"day_of_year"`` — 1-366
+- ``"day_of_week"`` — 0-6, Monday = 0
+- ``"hour"`` — 0-23
+- ``"minute"`` — 0-59
+- ``"second"`` — 0-59
+- ``"millisecond"`` — 0-999
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `part` | [`DatePart`](#datepart) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
 #### and\_()
 
 ```python
@@ -398,16 +431,16 @@ starts_with(self, other: Stringy) -> LogicalExpr
 ```
 
 Check if the expression starts with the provided string expression.
-        Can be applied on a string field or a list of strings field.
+Can be applied on a string field or a list of strings field.
 
-        ```python
-        # Example:
-        from topk_sdk.query import field, starts_with
+```python
+# Example:
+from topk_sdk.query import field, starts_with
 
-        client.collection("books").query(
-          filter(field("title").starts_with("The") | field("tags").starts_with("fiction"))
-        )
-        ```
+client.collection("books").query(
+  filter(field("title").starts_with("The") | field("tags").starts_with("fiction"))
+)
+```
 
 **Parameters**
 
@@ -563,6 +596,27 @@ Multiply the scoring expression by the provided `boost` value if the `condition`
 
 ***
 
+#### elapsed()
+
+```python
+elapsed(self, end: FlexibleExpr, interval: Interval) -> LogicalExpr
+```
+
+Compute the number of `interval` units elapsed between the expression and `end`.
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `end` | [`FlexibleExpr`](#flexibleexpr) |
+| `interval` | [`Interval`](#interval) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
 #### regexp\_match()
 
 ```python
@@ -588,9 +642,9 @@ Check if the expression matches the provided regexp pattern.
 
 *Internal*
 
-    Instances of the `FunctionExpr` class are used to represent function expressions in TopK.
-    Usually created using function constructors such as [`fn.vector_distance()`](#vector-distance), [`fn.semantic_similarity()`](#semantic-similarity) or [`fn.bm25_score()`](#bm25-score).
-    Comparison and arithmetic operators lift into a [`LogicalExpr`](#logicalexpr), e.g. `fn.bm25_score() > 0.5`.
+Instances of the `FunctionExpr` class are used to represent function expressions in TopK.
+Usually created using function constructors such as [`fn.vector_distance()`](#vector-distance), [`fn.semantic_similarity()`](#semantic-similarity) or [`fn.bm25_score()`](#bm25-score).
+Comparison and arithmetic operators lift into a [`LogicalExpr`](#logicalexpr), e.g. `fn.bm25_score() > 0.5`.
 
 **Methods**
 
@@ -954,14 +1008,14 @@ boost(self, condition: FlexibleExpr, boost: LogicalExpr | int | float) -> Logica
 
 *Internal*
 
-    Instances of the `AggregateExpr` class are used to represent aggregate expressions in TopK.
-    Usually created using aggregate constructors such as [`agg.count()`](#count), [`agg.sum()`](#sum), [`agg.min()`](#min-2), [`agg.max()`](#max-2) or [`agg.avg()`](#avg).
+Instances of the `AggregateExpr` class are used to represent aggregate expressions in TopK.
+Usually created using aggregate constructors such as [`agg.count()`](#count), [`agg.sum()`](#sum), [`agg.min()`](#min-2), [`agg.max()`](#max-2) or [`agg.avg()`](#avg).
 
 ### TextExpr
 
 *Internal*
 
-    Instances of the `TextExpr` class are used to represent text expressions in TopK.
+Instances of the `TextExpr` class are used to represent text expressions in TopK.
 
 ### Query
 
@@ -1005,6 +1059,7 @@ Adds a filter stage to the query.
 
 ```python
 sort(self, expr: LogicalExpr, asc: bool = True) -> Query
+sort(self, expr: Sequence[tuple[LogicalExpr, Literal['asc', 'desc']]]) -> Query
 ```
 
 Adds a sort stage to the query.
@@ -1013,7 +1068,7 @@ Adds a sort stage to the query.
 
 | Parameter | Type |
 | --------- | ---- |
-| `expr` | [`LogicalExpr`](#logicalexpr) |
+| `expr` | [`LogicalExpr`](#logicalexpr) &#124; Sequence[tuple[[`LogicalExpr`](#logicalexpr), Literal['asc', 'desc']]] |
 | `asc` | bool |
 
 **Returns**
@@ -1084,7 +1139,7 @@ group_by(self, keys: dict[str, LogicalExpr], aggs: dict[str, AggregateExpr]) -> 
 
 Adds a group-by stage to the query.
 
-        Groups documents by one or more key expressions and computes aggregations for each group.
+Groups documents by one or more key expressions and computes aggregations for each group.
 
 **Parameters**
 
@@ -1141,22 +1196,22 @@ vector_distance(
 
 Calculate the vector distance between a field and a query vector.
 
-        ```python
-        # Example:
+```python
+# Example:
 
-        from topk_sdk.query import field, fn, select
+from topk_sdk.query import field, fn, select
 
-        client.collection("books").query(
-          select(
-            "title",
-            title_similarity=fn.vector_distance(
-              "title_embedding",
-              [0.1, 0.2, 0.3, ...] # embedding for "animal"
-            )
-          )
-          .sort(field("title_similarity"), asc=False).limit(10)
-        )
-        ```
+client.collection("books").query(
+  select(
+    "title",
+    title_similarity=fn.vector_distance(
+      "title_embedding",
+      [0.1, 0.2, 0.3, ...] # embedding for "animal"
+    )
+  )
+  .sort(field("title_similarity"), asc=False).limit(10)
+)
+```
 
 **Parameters**
 
@@ -1180,19 +1235,19 @@ semantic_similarity(field: str, query: str) -> FunctionExpr
 
 Calculate the semantic similarity between a field and a query string.
 
-        ```python
-        # Example:
+```python
+# Example:
 
-        from topk_sdk.query import field, fn, select
+from topk_sdk.query import field, fn, select
 
-        client.collection("books").query(
-          select(
-            "title",
-            title_similarity=fn.semantic_similarity("title", "animal")
-          )
-          .sort(field("title_similarity"), asc=False).limit(10)
-        )
-        ```
+client.collection("books").query(
+  select(
+    "title",
+    title_similarity=fn.semantic_similarity("title", "animal")
+  )
+  .sort(field("title_similarity"), asc=False).limit(10)
+)
+```
 
 **Parameters**
 
@@ -1215,22 +1270,22 @@ bm25_score(b: Optional[float] = None, k1: Optional[float] = None) -> FunctionExp
 
 Calculate the BM25 score for a keyword search.
 
-        Optional parameters: b (0-1), k1 (>=0) to override BM25 scoring behavior.
+Optional parameters: b (0-1), k1 (>=0) to override BM25 scoring behavior.
 
-        ```python
-        # Example:
+```python
+# Example:
 
-        from topk_sdk.query import field, fn, select
+from topk_sdk.query import field, fn, select
 
-        client.collection("books").query(
-          select(
-            "title",
-            text_score=fn.bm25_score()
-          )
-          .filter(match("animal"))
-          .sort(field("text_score"), asc=False).limit(10)
-        )
-        ```
+client.collection("books").query(
+  select(
+    "title",
+    text_score=fn.bm25_score()
+  )
+  .filter(match("animal"))
+  .sort(field("text_score"), asc=False).limit(10)
+)
+```
 
 **Parameters**
 
@@ -1257,28 +1312,28 @@ multi_vector_distance(
 
 Calculate the multi-vector distance between a field and a query matrix.
 
-        The query matrix can be a list of lists (defaults to f32), a [numpy array](https://numpy.org/doc/stable/reference/generated/numpy.array.html) (type inferred from dtype),
-        or a [`Matrix`](/sdk/topk-py/data#Matrix) instance. To specify a different matrix type,
-        use [`matrix()`](/sdk/topk-py/data#matrix-2) with `value_type` or a 2-D numpy array with the
-        corresponding dtype.
+The query matrix can be a list of lists (defaults to f32), a [numpy array](https://numpy.org/doc/stable/reference/generated/numpy.array.html) (type inferred from dtype),
+or a [`Matrix`](/sdk/topk-py/data#Matrix) instance. To specify a different matrix type,
+use [`matrix()`](/sdk/topk-py/data#matrix-2) with `value_type` or a 2-D numpy array with the
+corresponding dtype.
 
-        The optional `candidates` parameter limits the number of candidate vectors considered during search.
+The optional `candidates` parameter limits the number of candidate vectors considered during search.
 
-        ```python
-        from topk_sdk.query import field, fn, select
+```python
+from topk_sdk.query import field, fn, select
 
-        client.collection("books").query(
-          select(
-            "title",
-            title_distance=fn.multi_vector_distance(
-              "title_embedding",
-              [[0.1, 0.2, 0.3, ...], [0.4, 0.5, 0.6, ...]],
-              candidates=100
-            )
-          )
-          .sort(field("title_distance"), asc=False).limit(10)
-        )
-        ```
+client.collection("books").query(
+  select(
+    "title",
+    title_distance=fn.multi_vector_distance(
+      "title_embedding",
+      [[0.1, 0.2, 0.3, ...], [0.4, 0.5, 0.6, ...]],
+      candidates=100
+    )
+  )
+  .sort(field("title_distance"), asc=False).limit(10)
+)
+```
 
 **Parameters**
 
@@ -1297,8 +1352,8 @@ Calculate the multi-vector distance between a field and a query matrix.
 ### agg
 
 The `query.agg` submodule exposes functions for creating aggregate expressions used in
-    [`group_by()`](#group-by)'s `aggs` argument, such as [`agg.count()`](#count), [`agg.sum()`](#sum),
-    [`agg.min()`](#min-2), [`agg.max()`](#max-2) or [`agg.avg()`](#avg).
+[`group_by()`](#group-by)'s `aggs` argument, such as [`agg.count()`](#count), [`agg.sum()`](#sum),
+[`agg.min()`](#min-2), [`agg.max()`](#max-2) or [`agg.avg()`](#avg).
 
 **Methods**
 
@@ -1310,20 +1365,20 @@ count(field: str | None = None) -> AggregateExpr
 
 Count the number of documents in the group.
 
-        If `field` is provided, counts only the documents where that field is non-null.
-        If omitted, counts every document in the group.
+If `field` is provided, counts only the documents where that field is non-null.
+If omitted, counts every document in the group.
 
-        ```python
-        # Example:
-        from topk_sdk.query import group_by, field, agg
+```python
+# Example:
+from topk_sdk.query import group_by, field, agg
 
-        client.collection("books").query(
-          group_by(
-            {"is_old": field("published_year") < 1940},
-            {"count": agg.count()},
-          )
-        )
-        ```
+client.collection("books").query(
+  group_by(
+    {"is_old": field("published_year") < 1940},
+    {"count": agg.count()},
+  )
+)
+```
 
 **Parameters**
 
@@ -1447,14 +1502,14 @@ select() -> Query
 
 Creates a new query with a select stage.
 
-    ```python
-    # Example:
-    from topk_sdk.query import select, field
+```python
+# Example:
+from topk_sdk.query import select, field
 
-    client.collection("books").query(
-      select("title", year=field("published_year"))
-    )
-    ```
+client.collection("books").query(
+  select("title", year=field("published_year"))
+)
+```
 
 **Returns**
 
@@ -1470,15 +1525,15 @@ filter(expr: LogicalExpr | TextExpr) -> Query
 
 Creates a new query with a filter stage.
 
-    ```python
-    # Example:
+```python
+# Example:
 
-    from topk_sdk.query import filter, field
+from topk_sdk.query import filter, field
 
-    client.collection("books").query(
-      filter(field("published_year") > 1980)
-    )
-    ```
+client.collection("books").query(
+  filter(field("published_year") > 1980)
+)
+```
 
 **Parameters**
 
@@ -1500,19 +1555,19 @@ group_by(keys: dict[str, LogicalExpr], aggs: dict[str, AggregateExpr]) -> Query
 
 Creates a new query with a group-by stage.
 
-    Groups documents by one or more key expressions and computes aggregations for each group.
+Groups documents by one or more key expressions and computes aggregations for each group.
 
-    ```python
-    # Example:
-    from topk_sdk.query import group_by, field, agg
+```python
+# Example:
+from topk_sdk.query import group_by, field, agg
 
-    client.collection("books").query(
-      group_by(
-        {"is_old": field("published_year") < 1940},
-        {"count": agg.count()},
-      )
-    )
-    ```
+client.collection("books").query(
+  group_by(
+    {"is_old": field("published_year") < 1940},
+    {"count": agg.count()},
+  )
+)
+```
 
 **Parameters**
 
@@ -1555,13 +1610,13 @@ match(token: str, field: str | None = None, weight: float = 1.0, all: bool = Fal
 
 Perform a BM25 keyword search using TopK's built-in tokenizer.
 
-    The ``token`` argument is a raw query string — TopK tokenizes it automatically,
-    removes stop words, and scores documents using BM25. Pass the full query string
-    directly; tokenization and stop-word removal happen server-side.
+The ``token`` argument is a raw query string — TopK tokenizes it automatically,
+removes stop words, and scores documents using BM25. Pass the full query string
+directly; tokenization and stop-word removal happen server-side.
 
-    - ``field``: restrict matching to a specific keyword-indexed field (default: all).
-    - ``weight``: scale the BM25 contribution of this expression (default: 1.0).
-    - ``all``: if True, require all tokens to match (AND); default is any-token (OR).
+- ``field``: restrict matching to a specific keyword-indexed field (default: all).
+- ``weight``: scale the BM25 contribution of this expression (default: 1.0).
+- ``all``: if True, require all tokens to match (AND); default is any-token (OR).
 
 **Parameters**
 
@@ -1586,22 +1641,22 @@ should(token: str, field: str | None = None, weight: float = 1.0) -> TextExpr
 
 Adds an optional BM25 scoring term without filtering documents from the result set.
 
-    Documents containing the term receive a higher BM25 score, while documents that
-    do not contain it remain eligible for the results. Use ``should()`` together with
-    ``match()`` when some terms are required and others should only influence ranking.
+Documents containing the term receive a higher BM25 score, while documents that
+do not contain it remain eligible for the results. Use ``should()`` together with
+``match()`` when some terms are required and others should only influence ranking.
 
-    When used on its own, ``should()`` matches the entire collection and ranks
-    documents according to how well they match the term.
+When used on its own, ``should()`` matches the entire collection and ranks
+documents according to how well they match the term.
 
-    ```python
-    match("hobbit rings", field="title") & should("lord", field="title")
-    ```
+```python
+match("hobbit rings", field="title") & should("lord", field="title")
+```
 
-    This returns only documents matching ``hobbit`` or ``rings``, while boosting
-    documents that also match ``lord``.
+This returns only documents matching ``hobbit`` or ``rings``, while boosting
+documents that also match ``lord``.
 
-    - ``field``: Keyword-indexed field used for scoring. Searches all eligible fields when omitted.
-    - ``weight``: Multiplier applied to the term's BM25 contribution. Defaults to ``1.0``.
+- ``field``: Keyword-indexed field used for scoring. Searches all eligible fields when omitted.
+- ``weight``: Multiplier applied to the term's BM25 contribution. Defaults to ``1.0``.
 
 **Parameters**
 
@@ -1629,13 +1684,13 @@ match_tokens(
 
 Filters documents that match the provided tokens with optional per-token weights.
 
-    Each token can be a string (with the default weight of 1.0) or a (token, weight) tuple.
+Each token can be a string (with the default weight of 1.0) or a (token, weight) tuple.
 
-    When ``field`` is provided, matches only against that field (must have a keyword index).
-    When ``field`` is None (default), matches against all keyword-indexed fields.
+When ``field`` is provided, matches only against that field (must have a keyword index).
+When ``field`` is None (default), matches against all keyword-indexed fields.
 
-    When ``all`` is False (default), matches documents containing any of the tokens (OR).
-    When ``all`` is True, matches only documents containing all tokens (AND).
+When ``all`` is False (default), matches documents containing any of the tokens (OR).
+When ``all`` is True, matches only documents containing all tokens (AND).
 
 **Parameters**
 
@@ -1659,15 +1714,15 @@ not_(expr: LogicalExpr) -> LogicalExpr
 
 Negate a logical expression.
 
-    ```python
-    # Example:
+```python
+# Example:
 
-    from topk_sdk.query import field, not_
+from topk_sdk.query import field, not_
 
-    .filter(
-        not_(field("title").contains("Catcher"))
-    )
-    ```
+.filter(
+    not_(field("title").contains("Catcher"))
+)
+```
 
 **Parameters**
 
@@ -1689,15 +1744,15 @@ abs(expr: LogicalExpr) -> LogicalExpr
 
 Compute the absolute value of a logical expression.
 
-    ```python
-    # Example:
+```python
+# Example:
 
-    from topk_sdk.query import field, abs
+from topk_sdk.query import field, abs
 
-    client.collection("books").query(
-      filter(abs(field("rating")) > 4.5)
-    )
-    ```
+client.collection("books").query(
+  filter(abs(field("rating")) > 4.5)
+)
+```
 
 **Parameters**
 
@@ -1719,19 +1774,19 @@ all(exprs: Sequence[LogicalExpr]) -> LogicalExpr
 
 Create a logical AND expression.
 
-    ```python
-    # Example:
+```python
+# Example:
 
-    from topk_sdk.query import field, all
+from topk_sdk.query import field, all
 
-    client.collection("books").query(
-      filter(all([
-        field("published_year") >= 1900,
-        field("published_year") <= 2000,
-        field("title").is_not_null()
-      ]))
-    )
-    ```
+client.collection("books").query(
+  filter(all([
+    field("published_year") >= 1900,
+    field("published_year") <= 2000,
+    field("title").is_not_null()
+  ]))
+)
+```
 
 **Parameters**
 
@@ -1753,19 +1808,19 @@ any(exprs: Sequence[LogicalExpr]) -> LogicalExpr
 
 Create a logical OR expression.
 
-    ```python
-    # Example:
+```python
+# Example:
 
-    from topk_sdk.query import field, any
+from topk_sdk.query import field, any
 
-    client.collection("books").query(
-      filter(any([
-        field("genre") == "fiction",
-        field("genre") == "mystery",
-        field("genre") == "thriller"
-      ]))
-    )
-    ```
+client.collection("books").query(
+  filter(any([
+    field("genre") == "fiction",
+    field("genre") == "mystery",
+    field("genre") == "thriller"
+  ]))
+)
+```
 
 **Parameters**
 
@@ -1787,15 +1842,15 @@ min(left: Ordered, right: Ordered) -> LogicalExpr
 
 Create a logical MIN expression.
 
-    ```python
-    # Example:
+```python
+# Example:
 
-    from topk_sdk.query import field, min
+from topk_sdk.query import field, min
 
-    client.collection("books").query(
-      filter(min(field("rating"), field("published_year")))
-    )
-    ```
+client.collection("books").query(
+  filter(min(field("rating"), field("published_year")))
+)
+```
 
 **Parameters**
 
@@ -1818,13 +1873,13 @@ max(left: Ordered, right: Ordered) -> LogicalExpr
 
 Create a logical MAX expression.
 
-    ```python
-    from topk_sdk.query import field, max
+```python
+from topk_sdk.query import field, max
 
-    client.collection("books").query(
-      filter(max(field("rating"), field("published_year")))
-    )
-    ```
+client.collection("books").query(
+  filter(max(field("rating"), field("published_year")))
+)
+```
 
 **Parameters**
 
@@ -1840,6 +1895,30 @@ Create a logical MAX expression.
 ***
 
 ## Type Aliases
+
+### DatePart
+
+```python
+DatePart = Literal['year', 'month', 'week', 'day', 'day_of_year', 'day_of_week', 'hour', 'minute', 'second', 'millisecond']
+```
+
+**Type**
+
+Literal['year', 'month', 'week', 'day', 'day_of_year', 'day_of_week', 'hour', 'minute', 'second', 'millisecond']
+
+***
+
+### Interval
+
+```python
+Interval = Literal['millisecond', 'second', 'minute', 'hour', 'day', 'week']
+```
+
+**Type**
+
+Literal['millisecond', 'second', 'minute', 'hour', 'day', 'week']
+
+***
 
 ### FlexibleExpr
 
