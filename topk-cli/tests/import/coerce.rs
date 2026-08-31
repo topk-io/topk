@@ -1,5 +1,5 @@
 use rstest::rstest;
-use topk::import::{document, Error, Spec, Target};
+use topk::import::{build_document, Error, Spec, Target};
 use topk_rs::proto::v1::data::Value;
 
 fn spec_toml(fields: &str) -> String {
@@ -26,7 +26,7 @@ fn coerce(field: &str, value: Value) -> Result<Value, Error> {
         ("_id".to_string(), Value::string("1")),
         ("v".to_string(), value),
     ];
-    Ok(document(&target, record)?
+    Ok(build_document(&target, record)?
         .fields
         .remove("v")
         .expect("field v"))
@@ -45,7 +45,7 @@ fn fields_share_columns_and_the_id() {
          a = { from = \"v\", type = \"int\" }\n\
          b = { from = \"v\", type = \"float\" }",
     );
-    let doc = document(
+    let doc = build_document(
         &target,
         vec![
             ("_id".to_string(), Value::string("1")),
@@ -232,7 +232,7 @@ fn imprecise_double_id_is_refused() {
         ),
         ("v".to_string(), Value::i64(1)),
     ];
-    let message = match document(&target, record) {
+    let message = match build_document(&target, record) {
         Err(error) => error.to_string(),
         Ok(doc) => panic!("expected a refusal, got {doc:?}"),
     };
@@ -436,7 +436,7 @@ fn id_column() {
         ("_id".to_string(), Value::i64(42)),
         ("title".to_string(), Value::string("Dune")),
     ];
-    let doc = document(&target, record).expect("document");
+    let doc = build_document(&target, record).expect("document");
     assert_eq!(doc.fields["_id"], Value::string("42"));
     assert_eq!(doc.fields["title"], Value::string("Dune"));
 }
@@ -448,7 +448,7 @@ fn custom_id_column() {
         ..Default::default()
     };
     let record = vec![("sku".to_string(), Value::string("A-1"))];
-    let doc = document(&target, record).expect("document");
+    let doc = build_document(&target, record).expect("document");
     assert_eq!(doc.fields["_id"], Value::string("A-1"));
     assert!(!doc.fields.contains_key("sku"));
 }
@@ -460,7 +460,7 @@ fn field_from() {
         ("_id".to_string(), Value::string("1")),
         ("embedding".to_string(), Value::list(vec![1.0_f32, 2.0])),
     ];
-    let doc = document(&target, record).expect("document");
+    let doc = build_document(&target, record).expect("document");
     assert_eq!(doc.fields["vec"], Value::list(vec![1.0_f32, 2.0]));
     assert!(!doc.fields.contains_key("embedding"));
 }
@@ -473,7 +473,7 @@ fn undeclared_columns_are_dropped() {
         ("title".to_string(), Value::string("Dune")),
         ("extra".to_string(), Value::i64(7)),
     ];
-    let doc = document(&target, record).expect("document");
+    let doc = build_document(&target, record).expect("document");
     assert_eq!(doc.fields["title"], Value::string("Dune"));
     assert!(!doc.fields.contains_key("extra"));
 }
@@ -482,7 +482,7 @@ fn undeclared_columns_are_dropped() {
 fn required_field_missing() {
     let target = target(r#"title = { type = "text", required = true }"#);
     let record = vec![("_id".to_string(), Value::string("1"))];
-    let message = match document(&target, record) {
+    let message = match build_document(&target, record) {
         Err(error) => error.to_string(),
         Ok(doc) => panic!("expected a refusal, got {doc:?}"),
     };
@@ -499,7 +499,7 @@ fn oversized_document() {
         ("_id".to_string(), Value::string("1")),
         ("body".to_string(), Value::string("x".repeat(200 * 1024))),
     ];
-    let message = match document(&oversized, record) {
+    let message = match build_document(&oversized, record) {
         Err(error) => error.to_string(),
         Ok(doc) => panic!("expected a refusal, got {doc:?}"),
     };
@@ -514,7 +514,7 @@ fn oversized_document() {
         ("_id".to_string(), Value::string("1")),
         ("body".to_string(), Value::string("x".repeat(200 * 1024))),
     ];
-    let doc = document(&truncated, record).expect("truncated document fits");
+    let doc = build_document(&truncated, record).expect("truncated document fits");
     assert_eq!(doc.fields["body"], Value::string("x".repeat(100)));
 }
 
@@ -524,7 +524,7 @@ fn oversized_document() {
 #[case::absent(vec![("title".to_string(), Value::string("Dune")), ("author".to_string(), Value::string("Herbert"))], "which has: title, author")]
 fn unusable_ids(#[case] record: Vec<(String, Value)>, #[case] fragment: &str) {
     let target = target(r#"title = { type = "text" }"#);
-    let message = match document(&target, record) {
+    let message = match build_document(&target, record) {
         Err(error) => error.to_string(),
         Ok(doc) => panic!("expected a refusal, got {doc:?}"),
     };

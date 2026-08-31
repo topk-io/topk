@@ -143,7 +143,8 @@ pub async fn stream_docs_from(
         None => target.from.parse()?,
     };
     let source = topk::import::Source::connect(&uri, &topk::endpoint::Endpoint::default()).await?;
-    let mut rows = Box::pin(topk::import::documents(source.scan("rows", target, None)?).await?);
+    let mut rows =
+        Box::pin(topk::import::document_stream(source.scan("rows", target, None)?).await?);
     let mut out = BTreeMap::new();
     while let Some(doc) = rows.next().await {
         let map = json(&doc?);

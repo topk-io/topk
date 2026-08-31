@@ -1,5 +1,7 @@
 use duckdb::arrow::array::{self, Array, ArrayRef};
-use duckdb::arrow::datatypes::{DataType, TimeUnit};
+use duckdb::arrow::datatypes::{
+    ArrowPrimitiveType, DataType, Float64Type, Int64Type, TimeUnit, UInt64Type,
+};
 use topk_rs::proto::v1::data::Value;
 
 use crate::import::error::Error;
@@ -159,75 +161,75 @@ fn list(elements: &ArrayRef) -> Result<Value, Error> {
     if elements.is_empty() {
         return Ok(Value::list(Vec::<f32>::new()));
     }
-    macro_rules! at {
-        ($ty:ty) => {{
-            let a = elements.as_any().downcast_ref::<$ty>().unwrap();
-            (0..a.len()).map(|i| a.value(i))
-        }};
-    }
-    macro_rules! decimals {
-        ($ty:ty) => {{
-            let a = elements.as_any().downcast_ref::<$ty>().unwrap();
-            Value::list(
-                (0..a.len())
-                    .map(|i| a.value_as_string(i))
-                    .collect::<Vec<String>>(),
-            )
-        }};
-    }
-    Ok(match elements.data_type() {
-        DataType::Int8 => Value::list(at!(array::Int8Array).map(i64::from).collect::<Vec<i64>>()),
-        DataType::Int16 => Value::list(at!(array::Int16Array).map(i64::from).collect::<Vec<i64>>()),
-        DataType::Int32 => Value::list(at!(array::Int32Array).map(i64::from).collect::<Vec<i64>>()),
-        DataType::Int64 => Value::list(at!(array::Int64Array).collect::<Vec<i64>>()),
-        DataType::UInt8 => Value::list(at!(array::UInt8Array).map(i64::from).collect::<Vec<i64>>()),
-        DataType::UInt16 => {
-            Value::list(at!(array::UInt16Array).map(i64::from).collect::<Vec<i64>>())
-        }
-        DataType::UInt32 => {
-            Value::list(at!(array::UInt32Array).map(i64::from).collect::<Vec<i64>>())
-        }
-        DataType::UInt64 => Value::list(at!(array::UInt64Array).collect::<Vec<u64>>()),
-        DataType::Float16 => {
-            return Ok(Value::list(
-                at!(array::Float16Array)
-                    .map(|n| f64::from(f32::from(n)))
-                    .collect::<Vec<_>>(),
-            ));
-        }
-        DataType::Float32 => {
-            return Ok(Value::list(
-                at!(array::Float32Array)
-                    .map(f64::from)
-                    .collect::<Vec<_>>(),
-            ));
-        }
-        DataType::Float64 => {
-            return Ok(Value::list(
-                at!(array::Float64Array).collect::<Vec<_>>(),
-            ));
-        }
-        DataType::Utf8 => Value::list(
-            at!(array::StringArray)
-                .map(str::to_string)
-                .collect::<Vec<String>>(),
-        ),
-        DataType::LargeUtf8 => Value::list(
-            at!(array::LargeStringArray)
-                .map(str::to_string)
-                .collect::<Vec<String>>(),
-        ),
-        DataType::Decimal128(_, _) => decimals!(array::Decimal128Array),
-        DataType::Decimal256(_, _) => decimals!(array::Decimal256Array),
+    let dtype = elements.data_type();
+    Ok(match dtype {
         DataType::List(_) | DataType::LargeList(_) | DataType::FixedSizeList(_, _) => {
             return matrix(elements)
         }
-        other => {
-            return Err(Error::InvalidArgument(format!(
-                "a list of {other} has no equivalent in TopK — lists hold numbers or strings. \
-                 Flatten it in the source (a view can project the fields you need), or drop the field"
-            )))
-        }
+        // A u64 past i64::MAX has no wider integer to read as.
+        DataType::UInt64 => Value::list(numbers::<UInt64Type>(elements, &DataType::UInt64)?),
+        // `ty` picks the family; the elements are then read as its widest member.
+        _ => match ty(dtype) {
+            Type::Int => Value::list(numbers::<Int64Type>(elements, &DataType::Int64)?),
+            Type::Float => Value::list(numbers::<Float64Type>(elements, &DataType::Float64)?),
+            Type::Text
+                if matches!(
+                    dtype,
+                    DataType::Utf8
+                        | DataType::LargeUtf8
+                        | DataType::Decimal128(_, _)
+                        | DataType::Decimal256(_, _)
+                ) =>
+            {
+                Value::list(strings(elements)?)
+            }
+            _ => {
+                return Err(Error::InvalidArgument(format!(
+                    "a list of {dtype} has no equivalent in TopK — lists hold numbers or strings. \
+                     Flatten it in the source (a view can project the fields you need), or drop the field"
+                )))
+            }
+        },
+    })
+}
+
+fn numbers<T: ArrowPrimitiveType>(
+    elements: &ArrayRef,
+    to: &DataType,
+) -> Result<Vec<T::Native>, Error> {
+    let cast = recast(elements, to)?;
+    let values = cast
+        .as_any()
+        .downcast_ref::<array::PrimitiveArray<T>>()
+        .expect("cast yields the requested type");
+    // Out of range is a null in a safe cast, and the elements held none.
+    if values.null_count() > 0 {
+        return Err(Error::InvalidArgument(format!(
+            "a list of {} holds values that do not fit {to}",
+            elements.data_type()
+        )));
+    }
+    Ok(values.values().to_vec())
+}
+
+fn strings(elements: &ArrayRef) -> Result<Vec<String>, Error> {
+    let cast = recast(elements, &DataType::Utf8)?;
+    let values = cast
+        .as_any()
+        .downcast_ref::<array::StringArray>()
+        .expect("cast yields the requested type");
+    Ok(values
+        .iter()
+        .map(|value| value.unwrap_or_default().to_string())
+        .collect())
+}
+
+fn recast(elements: &ArrayRef, to: &DataType) -> Result<ArrayRef, Error> {
+    duckdb::arrow::compute::cast(elements, to).map_err(|e| {
+        Error::InvalidArgument(format!(
+            "cannot read a list of {} as {to}: {e}",
+            elements.data_type()
+        ))
     })
 }
 

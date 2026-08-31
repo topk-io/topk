@@ -8,7 +8,7 @@ const PREVIEW_CHARS: usize = 120;
 
 pub async fn preview(name: &str, source: &import::Source, target: &Target) -> Result<(), Error> {
     let mut rows =
-        import::documents(source.scan(name, target, None)?.with_cap(PREVIEW_ROWS)).await?;
+        import::document_stream(source.scan(name, target, None)?.with_cap(PREVIEW_ROWS)).await?;
     let mut shown = 0;
     while let Some(row) = rows.next().await {
         let doc = row?;

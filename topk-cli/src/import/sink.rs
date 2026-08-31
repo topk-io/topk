@@ -10,10 +10,10 @@ use tokio::task::JoinHandle;
 use topk_rs::proto::v1::data::{Document, Value};
 use topk_rs::{Client, CollectionClient};
 
+use crate::import::decode::id_string;
 use crate::import::error::{Error, MAX_DOC_BYTES};
 use crate::import::source::{Record, Scan};
 use crate::import::spec::Target;
-use crate::import::decode::id_string;
 use crate::import::ID;
 
 #[derive(Default, serde::Serialize)]
@@ -25,7 +25,7 @@ pub struct Outcome {
 }
 
 /// The document a target asks for, built from one source row.
-pub fn document(target: &Target, record: Record) -> Result<Document, Error> {
+pub fn build_document(target: &Target, record: Record) -> Result<Document, Error> {
     let id_column = target.id.as_deref().unwrap_or(ID);
     let id = match record.iter().find(|(key, _)| key == id_column) {
         Some((_, value)) => id_string(id_column, value.clone())?,
@@ -83,12 +83,14 @@ pub fn document(target: &Target, record: Record) -> Result<Document, Error> {
     Ok(doc)
 }
 
-pub async fn documents(scan: Scan) -> Result<impl Stream<Item = Result<Document, Error>>, Error> {
+pub async fn document_stream(
+    scan: Scan,
+) -> Result<impl Stream<Item = Result<Document, Error>>, Error> {
     let chunks = scan.stream().await?;
     let target = scan.target;
     Ok(chunks
         .flat_map(|chunk| stream::iter(chunk.map_or_else(|e| vec![Err(e)], |chunk| chunk.rows)))
-        .map(move |row| document(&target, row?)))
+        .map(move |row| build_document(&target, row?)))
 }
 
 /// Batches in flush order, each with the source mark it completes.
@@ -127,7 +129,7 @@ impl Sink<'_> {
         while let Some(chunk) = chunks.next().await {
             let chunk = chunk?;
             for row in chunk.rows {
-                match row.and_then(|record| document(target, record)) {
+                match row.and_then(|record| build_document(target, record)) {
                     Ok(doc) => {
                         outcome.rows += 1;
                         self.progress.inc(1);

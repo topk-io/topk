@@ -14,7 +14,7 @@ pub const ID_PLACEHOLDER: &str = "<column>";
 pub use ddl::{absent, create};
 pub use error::Error;
 pub use preview::preview;
-pub use sink::{document, documents, Outcome, Sink};
+pub use sink::{build_document, document_stream, Outcome, Sink};
 pub use source::{File, Scan, Source, Uri};
 pub use spec::{discover, render, Field, Index, Spec, Target, Type};
 pub use state::{Cursor, State};

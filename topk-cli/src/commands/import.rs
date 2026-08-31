@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 use std::io::{IsTerminal, Write as _};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -16,12 +16,6 @@ use crate::import::{
 };
 
 const OBJECT_CONCURRENCY: usize = 8;
-
-fn read_spec(path: &Path) -> Result<Spec, Error> {
-    let text = std::fs::read_to_string(path)
-        .map_err(|e| Error::InvalidArgument(format!("cannot read spec {}: {e}", path.display())))?;
-    Ok(toml::from_str(&text)?)
-}
 
 #[derive(Args, Debug)]
 // Clap's generated usage renders `<SOURCE>` as required; it is not, with --spec.
@@ -109,16 +103,10 @@ pub struct ImportArgs {
     pub batch_bytes: bytesize::ByteSize,
 }
 
-async fn plan(
-    source: &Source,
-    args: &ImportArgs,
-    given: Option<Spec>,
-    resumed: Option<&State>,
-) -> Result<Spec, Error> {
-    let mut spec: Spec = match (given, resumed) {
-        (Some(spec), _) => spec,
-        (None, Some(state)) => toml::from_str(&state.spec)?,
-        (None, None) => {
+async fn plan(source: &Source, args: &ImportArgs, given: Option<Spec>) -> Result<Spec, Error> {
+    let mut spec: Spec = match given {
+        Some(spec) => spec,
+        None => {
             let discovered = import::discover(
                 source,
                 &args.objects,
@@ -149,18 +137,6 @@ async fn plan(
         }
         if let Some(partition) = &args.partition {
             target.partition = Some(partition.clone());
-        }
-    }
-
-    // A dry run may print the `<column>` placeholder for the user to fill in.
-    if !args.dry_run {
-        for (name, target) in spec.collections.iter() {
-            if target.id.as_deref() == Some(ID_PLACEHOLDER) {
-                return Err(Error::InvalidArgument(format!(
-                    "{name}: couldn't detect an id column — pass `--id <column>`, \
-                     or set `id` in a spec (it becomes each document's `{ID}`)"
-                )));
-            }
         }
     }
     Ok(spec)
@@ -259,19 +235,26 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
     // Credentials never enter a spec: the CLI uri is the source, or every `from`
     // is its own file locator.
     let uri = args.source.clone().unwrap_or_default();
-    let given = args.spec.as_deref().map(read_spec).transpose()?;
+    let given: Option<Spec> = match (&args.spec, &resumed) {
+        (Some(path), _) => {
+            let text = std::fs::read_to_string(path).map_err(|e| {
+                Error::InvalidArgument(format!("cannot read spec {}: {e}", path.display()))
+            })?;
+            Some(toml::from_str(&text)?)
+        }
+        (None, Some(state)) => Some(toml::from_str(&state.spec)?),
+        (None, None) => None,
+    };
     let source = Source::connect(&uri, endpoint).await?;
-    let mut spec = plan(&source, args, given, resumed.as_ref()).await?;
+    let mut spec = plan(&source, args, given).await?;
 
     let source_name = uri.to_string();
     // Stored for --resume, and compared per collection against an edited -f.
     let stored = toml::to_string_pretty(&spec)
         .map_err(|e| Error::InvalidArgument(format!("cannot serialize spec: {e}")))?;
     let run = args.resume.clone().unwrap_or_else(State::id);
-    let mut state = match resumed {
-        Some(state) => state,
-        None => State::new(run.clone(), source_name.clone(), stored.clone()),
-    };
+    let mut state =
+        resumed.unwrap_or_else(|| State::new(run.clone(), source_name.clone(), stored.clone()));
     let (done, after) = state.reconcile(&source_name, &mut spec, stored)?;
     if spec.collections.is_empty() {
         eprintln!("run {run}: all {done} collection(s) already imported");
@@ -290,6 +273,15 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
         return Ok(ExitCode::SUCCESS);
     }
 
+    for (name, target) in spec.collections.iter() {
+        if target.id.as_deref() == Some(ID_PLACEHOLDER) {
+            return Err(Error::InvalidArgument(format!(
+                "{name}: couldn't detect an id column — pass `--id <column>`, \
+                 or set `id` in a spec (it becomes each document's `{ID}`)"
+            ))
+            .into());
+        }
+    }
     let scans = spec
         .collections
         .iter()
