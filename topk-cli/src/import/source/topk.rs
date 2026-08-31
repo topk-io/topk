@@ -12,7 +12,7 @@ use crate::import::source::Record;
 use crate::import::spec::{Field, Target};
 use crate::import::ID;
 
-use super::{Chunk, Records, Table};
+use super::{Chunk, ChunkStream, Table};
 
 /// `topk://[<key>@]<region>/<collection>`; the key defaults to the run's own.
 #[derive(Clone)]
@@ -95,7 +95,7 @@ impl Topk {
     /// Keyset pages ordered by `_id`, so a page boundary is a resume point.
     /// `fetch` and not `select`: a select of an indexed vector is refused by the
     /// server, and returns the index's quantized copy where it is not.
-    pub async fn stream(&self, target: &Target, after: Option<&str>) -> Result<Records, Error> {
+    pub async fn stream(&self, target: &Target, after: Option<&str>) -> Result<ChunkStream, Error> {
         let collection = self.client.collection(&target.from);
         let mut cursor = after.unwrap_or_default().to_string();
         let mut remaining = target.limit;
@@ -139,7 +139,7 @@ impl Topk {
                         .into_iter()
                         .map(|document| Ok(document.fields.into_iter().collect::<Record>()))
                         .collect(),
-                    mark: Some(cursor.clone()),
+                    cursor: Some(cursor.clone()),
                 });
                 if !full {
                     break;

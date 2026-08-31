@@ -24,15 +24,15 @@ pub use uri::Uri;
 pub type Record = Vec<(String, Value)>;
 
 /// Rows as the source reads them, each `Err` a row the source could not decode.
-/// `mark` is a source-defined position (file offset, last id, page cursor) such
+/// `cursor` is a source-defined position (file offset, last id, page cursor) such
 /// that every row at or before it has been yielded by the end of this chunk;
-/// `stream(after)` continues from it.
+/// a resumed scan continues from it.
 pub struct Chunk {
     pub rows: Vec<Result<Record, Error>>,
-    pub mark: Option<String>,
+    pub cursor: Option<String>,
 }
 
-pub type Records = BoxStream<'static, Result<Chunk, Error>>;
+pub type ChunkStream = BoxStream<'static, Result<Chunk, Error>>;
 
 #[derive(Clone)]
 pub struct Table {
@@ -117,7 +117,7 @@ impl Source {
         Ok(Scan {
             name: name.to_string(),
             target: target.clone(),
-            after: after.map(str::to_string),
+            resume_after: after.map(str::to_string),
             read,
         })
     }
@@ -133,7 +133,7 @@ impl Source {
 pub struct Scan {
     pub name: String,
     pub target: Target,
-    pub after: Option<String>,
+    pub resume_after: Option<String>,
     read: Read,
 }
 
@@ -152,8 +152,8 @@ impl Scan {
     }
 
     /// Rows after the scan's cursor, ordered so a chunk's mark is a resume point.
-    pub async fn stream(&self) -> Result<Records, Error> {
-        let after = self.after.as_deref();
+    pub async fn chunk_stream(&self) -> Result<ChunkStream, Error> {
+        let after = self.resume_after.as_deref();
         match &self.read {
             Read::Duck(duck, file) => duck.stream(file.as_ref(), &self.target, after).await,
             Read::Es(es, query) => es.stream(query, &self.target, after).await,

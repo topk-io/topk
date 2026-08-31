@@ -12,7 +12,8 @@ use tokio::sync::Semaphore;
 
 use crate::endpoint::Endpoint;
 use crate::import::{
-    self, render, Cursor, Error, Outcome, Scan, Sink, Source, Spec, State, Uri, ID, ID_PLACEHOLDER,
+    self, render, Cursor, Error, LoadOutcome, Scan, Sink, Source, Spec, State, Uri, ID,
+    ID_PLACEHOLDER,
 };
 
 const OBJECT_CONCURRENCY: usize = 8;
@@ -172,7 +173,7 @@ fn spinner(spec: &Spec, json: bool) -> ProgressBar {
     progress
 }
 
-fn report(outcomes: &BTreeMap<String, Outcome>, json: bool) -> Result<ExitCode, Error> {
+fn report(outcomes: &BTreeMap<String, LoadOutcome>, json: bool) -> Result<ExitCode, Error> {
     if json {
         println!("{}", serde_json::to_string(outcomes)?);
     } else {
@@ -194,7 +195,7 @@ async fn execute(
     scans: &[Scan],
     state: State,
     readers: usize,
-) -> Result<BTreeMap<String, Outcome>, Error> {
+) -> Result<BTreeMap<String, LoadOutcome>, Error> {
     // An unwritable config dir costs the ability to resume, not the import.
     if let Err(e) = state.save() {
         eprintln!("cannot save run state ({e}) — this run cannot be resumed");
@@ -213,13 +214,13 @@ async fn execute(
             let checkpoint = &checkpoint;
             // A resumed limit would be applied again from the cursor, so a
             // limited collection is never checkpointed: it restarts whole.
-            let mark = move |mark: &str| {
+            let checkpoint_cursor = move |cursor: &str| {
                 if scan.target.limit.is_none() {
-                    checkpoint(&scan.name, Cursor::After(mark.to_string()));
+                    checkpoint(&scan.name, Cursor::After(cursor.to_string()));
                 }
             };
             async move {
-                let outcome = sink.load(scan, mark).await?;
+                let outcome = sink.load(scan, checkpoint_cursor).await?;
                 checkpoint(&scan.name, Cursor::Done);
                 Ok((scan.name.clone(), outcome))
             }

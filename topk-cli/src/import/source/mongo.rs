@@ -10,7 +10,7 @@ use crate::import::source::Record;
 use crate::import::spec::{Field, Target, Type};
 use crate::import::ID;
 
-use super::{Chunk, Records, Table};
+use super::{Chunk, ChunkStream, Table};
 
 #[derive(Clone)]
 pub struct Mongo {
@@ -95,7 +95,7 @@ impl Mongo {
         filter: &BsonDoc,
         target: &Target,
         after: Option<&str>,
-    ) -> Result<Records, Error> {
+    ) -> Result<ChunkStream, Error> {
         let id = target.id.clone().unwrap_or_else(|| ID.to_string());
         let mut filter = filter.clone();
         if let Some(after) = after {
@@ -135,13 +135,13 @@ impl Mongo {
                             .collect::<Result<Record, Error>>();
                         rows.push(row);
                         if rows.len() == 1000 {
-                            yield Ok(Chunk { rows: std::mem::take(&mut rows), mark: mark.take() });
+                            yield Ok(Chunk { rows: std::mem::take(&mut rows), cursor: mark.take() });
                         }
                     }
                     Ok(None) => break,
                     Err(e) => {
                         if !rows.is_empty() {
-                            yield Ok(Chunk { rows: std::mem::take(&mut rows), mark: mark.take() });
+                            yield Ok(Chunk { rows: std::mem::take(&mut rows), cursor: mark.take() });
                         }
                         yield Err(e.into());
                         return;
@@ -149,7 +149,7 @@ impl Mongo {
                 }
             }
             if !rows.is_empty() {
-                yield Ok(Chunk { rows, mark });
+                yield Ok(Chunk { rows, cursor: mark });
             }
         };
         Ok(Box::pin(stream))

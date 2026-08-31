@@ -14,7 +14,7 @@ use crate::import::error::Error;
 use crate::import::spec::{Field, Target, Type};
 use crate::import::ID;
 
-use super::{Chunk, Records, Table};
+use super::{Chunk, ChunkStream, Table};
 
 // Renewed per page; also how long a stopped run's cursor stays resumable (ES's ceiling).
 const KEEP_ALIVE: &str = "24h";
@@ -123,7 +123,7 @@ impl Es {
         query: &JsonValue,
         target: &Target,
         after: Option<&str>,
-    ) -> Result<Records, Error> {
+    ) -> Result<ChunkStream, Error> {
         let client = self.client.clone();
         let target = target.clone();
         let query = query.clone();
@@ -210,7 +210,7 @@ impl Es {
                 let mark = cursor.as_ref().and_then(|sort| {
                     serde_json::to_string(&Cursor { pit: pit.clone(), sort: sort.clone() }).ok()
                 });
-                yield Ok(Chunk { rows, mark });
+                yield Ok(Chunk { rows, cursor: mark });
                 if !full || target.limit.is_some_and(|l| yielded >= l) {
                     break;
                 }

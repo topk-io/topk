@@ -17,7 +17,7 @@ use crate::import::spec::Target;
 use crate::import::ID;
 
 #[derive(Default, serde::Serialize)]
-pub struct Outcome {
+pub struct LoadOutcome {
     /// Rows written; rows sharing an id collapse into one document (upsert).
     pub rows: usize,
     /// Rows skipped by --continue-on-error.
@@ -86,15 +86,15 @@ pub fn build_document(target: &Target, record: Record) -> Result<Document, Error
 pub async fn document_stream(
     scan: Scan,
 ) -> Result<impl Stream<Item = Result<Document, Error>>, Error> {
-    let chunks = scan.stream().await?;
+    let chunks = scan.chunk_stream().await?;
     let target = scan.target;
     Ok(chunks
         .flat_map(|chunk| stream::iter(chunk.map_or_else(|e| vec![Err(e)], |chunk| chunk.rows)))
         .map(move |row| build_document(&target, row?)))
 }
 
-/// Batches in flush order, each with the source mark it completes.
-type Inflight = VecDeque<(JoinHandle<Result<(), Error>>, Option<String>)>;
+/// Batches in flush order, each with the source cursor it completes.
+type InflightBatches = VecDeque<(JoinHandle<Result<(), Error>>, Option<String>)>;
 
 /// Collections load concurrently, as many as the source can serve at once;
 /// their upserts share one budget of `-c` in flight across the run.
@@ -107,25 +107,29 @@ pub struct Sink<'a> {
 }
 
 impl Sink<'_> {
-    /// Called with a source mark once every row up to it has been upserted.
-    pub async fn load(&self, scan: &Scan, checkpoint: impl FnMut(&str)) -> Result<Outcome, Error> {
+    /// Called with a source cursor once every row up to it has been upserted.
+    pub async fn load(
+        &self,
+        scan: &Scan,
+        checkpoint: impl FnMut(&str),
+    ) -> Result<LoadOutcome, Error> {
         let name = &scan.name;
         let target = &scan.target;
         let mut collection = self.client.collection(name);
         if let Some(partition) = &target.partition {
             collection = collection.partition(partition);
         }
-        let mut chunks = scan.stream().await?;
-        let mut writer = Writer {
+        let mut chunks = scan.chunk_stream().await?;
+        let mut writer = BatchWriter {
             sink: self,
             collection,
             checkpoint,
             batch: Vec::new(),
             bytes: 0,
-            pending: None,
+            cursor: None,
             inflight: VecDeque::new(),
         };
-        let mut outcome = Outcome::default();
+        let mut outcome = LoadOutcome::default();
         while let Some(chunk) = chunks.next().await {
             let chunk = chunk?;
             for row in chunk.rows {
@@ -142,7 +146,7 @@ impl Sink<'_> {
                     Err(e) => return Err(e),
                 }
             }
-            writer.mark(chunk.mark);
+            writer.set_cursor(chunk.cursor);
         }
         writer.finish().await?;
         Ok(outcome)
@@ -150,21 +154,20 @@ impl Sink<'_> {
 }
 
 /// One collection's write side: batches by size, spawns each batch's upsert
-/// under the run's budget, checkpoints marks in flush order.
-struct Writer<'a, F: FnMut(&str)> {
+/// under the run's budget, checkpoints cursors in flush order.
+struct BatchWriter<'a, F: FnMut(&str)> {
     sink: &'a Sink<'a>,
     collection: CollectionClient,
     checkpoint: F,
     batch: Vec<Document>,
     bytes: usize,
-    /// Rows arrive before the mark that covers them; it rides with the next flush.
-    pending: Option<String>,
-    /// A mark is checkpointed once every batch up to its own has landed,
-    /// whatever order they land in.
-    inflight: Inflight,
+    /// Rows arrive before the cursor that covers them; it rides with the next flush.
+    cursor: Option<String>,
+    /// A cursor is checkpointed once every preceding batch has completed.
+    inflight: InflightBatches,
 }
 
-impl<F: FnMut(&str)> Writer<'_, F> {
+impl<F: FnMut(&str)> BatchWriter<'_, F> {
     async fn push(&mut self, doc: Document) -> Result<(), Error> {
         self.bytes += doc.encoded_len();
         self.batch.push(doc);
@@ -174,9 +177,9 @@ impl<F: FnMut(&str)> Writer<'_, F> {
         Ok(())
     }
 
-    fn mark(&mut self, mark: Option<String>) {
-        if mark.is_some() {
-            self.pending = mark;
+    fn set_cursor(&mut self, cursor: Option<String>) {
+        if cursor.is_some() {
+            self.cursor = cursor;
         }
     }
 
@@ -194,7 +197,7 @@ impl<F: FnMut(&str)> Writer<'_, F> {
             .front()
             .is_some_and(|(handle, _)| handle.is_finished())
         {
-            self.land().await?;
+            self.complete_next().await?;
         }
         let collection = self.collection.clone();
         let docs = mem::take(&mut self.batch);
@@ -205,16 +208,16 @@ impl<F: FnMut(&str)> Writer<'_, F> {
                 collection.upsert(docs).await?;
                 Ok::<(), Error>(())
             }),
-            self.pending.take(),
+            self.cursor.take(),
         ));
         Ok(())
     }
 
-    async fn land(&mut self) -> Result<(), Error> {
-        if let Some((handle, mark)) = self.inflight.pop_front() {
+    async fn complete_next(&mut self) -> Result<(), Error> {
+        if let Some((handle, cursor)) = self.inflight.pop_front() {
             handle.await??;
-            if let Some(mark) = mark {
-                (self.checkpoint)(&mark);
+            if let Some(cursor) = cursor {
+                (self.checkpoint)(&cursor);
             }
         }
         Ok(())
@@ -225,7 +228,7 @@ impl<F: FnMut(&str)> Writer<'_, F> {
             self.flush().await?;
         }
         while !self.inflight.is_empty() {
-            self.land().await?;
+            self.complete_next().await?;
         }
         Ok(())
     }

@@ -18,7 +18,7 @@ use crate::import::spec::{Field, Target};
 use crate::import::decode::id_string;
 use crate::import::ID;
 
-use super::{redact, Chunk, Record, Records, Table};
+use super::{redact, Chunk, ChunkStream, Record, Table};
 
 #[derive(Clone)]
 pub enum Duckdb {
@@ -418,7 +418,7 @@ impl Duckdb {
         file: Option<&File>,
         target: &Target,
         after: Option<&str>,
-    ) -> Result<Records, Error> {
+    ) -> Result<ChunkStream, Error> {
         let source = self.clone();
         let file = file.cloned();
         let target = target.clone();
@@ -702,7 +702,7 @@ fn read(conn: &Connection, mut select: Select, tx: &Sender) -> Result<u64, Error
             .collect();
         read += rows.len() as u64;
         let mark = select.position.advance(&select.from, &rows);
-        if tx.blocking_send(Ok(Chunk { rows, mark })).is_err() {
+        if tx.blocking_send(Ok(Chunk { rows, cursor: mark })).is_err() {
             return Ok(read);
         }
     }
