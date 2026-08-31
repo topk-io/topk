@@ -64,13 +64,7 @@ topk logout
 
 ### import
 
-Bulk import into TopK collections. Every run discovers the source, prints the plan as a TOML spec, and asks for confirmation; collections are created right after.
-
-```
-topk import [OPTIONS] [SOURCE] [OBJECTS]...
-```
-
-`-y` skips the confirmation; `--id <column>` sets the id column when detection fails.
+Bulk import into TopK collections. Every run prints the plan as a TOML spec and asks before writing; collections are created right after.
 
 #### Import a database
 
@@ -79,7 +73,6 @@ topk import postgres://user:pw@host/db 'public.*'
 topk import mysql://root@host/shop orders
 topk import mongodb://host/shop products
 topk import es+https://user:pw@es.example.com 'products*'
-topk import postgres://host/db public.users=people            # rename
 ```
 
 Objects are exact names, globs, or `<object>=<collection>` renames.
@@ -147,7 +140,7 @@ Any http(s) URL that is not Elasticsearch is treated as a file, named by its ext
 
 #### Spec
 
-One TOML table per collection; `fields` is a whitelist — only declared fields import:
+One TOML table per collection — `from`, `id`, `filter`/`partition`/`limit` as the flags, and a `fields` whitelist (only declared fields import):
 
 ```toml
 [books]
@@ -168,8 +161,6 @@ embedding = { type = "f32_vector", dim = 768, index = { vector = { metric = "cos
 | `truncate` | max chars, text only |
 | `dim` / `cols` | vector dimension / matrix row width |
 | `index` | `"keyword"` `"exact"` `"semantic"` `"ngram"` `{ vector = { metric = "cosine" \| "euclidean" \| "dot_product" \| "hamming" } }` `{ multi_vector = {} }` |
-
-Collections also take `filter`, `partition` and `limit`, as the flags.
 
 #### Declaring types
 
