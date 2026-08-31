@@ -325,8 +325,9 @@ impl TryFrom<&Field> for FieldSpec {
 
 impl From<&FieldSpec> for Field {
     fn from(spec: &FieldSpec) -> Self {
-        let Some(data_type) = spec.data_type.as_ref().and_then(|t| t.data_type.as_ref()) else {
-            return Field::default();
+        let data_type = match spec.data_type.as_ref().and_then(|t| t.data_type.as_ref()) {
+            Some(data_type) => data_type,
+            None => return Field::default(),
         };
         let index = index(spec);
         let required = spec.required;
@@ -384,31 +385,6 @@ impl From<&FieldSpec> for Field {
     }
 }
 
-fn index(spec: &FieldSpec) -> Option<Index> {
-    Some(match spec.index.as_ref()?.index.as_ref()? {
-        field_index::Index::KeywordIndex(keyword) => {
-            match KeywordIndexType::try_from(keyword.index_type) {
-                Ok(KeywordIndexType::Exact) => Index::Exact,
-                _ => Index::Keyword,
-            }
-        }
-        field_index::Index::SemanticIndex(_) => Index::Semantic,
-        field_index::Index::NgramIndex(_) => Index::Ngram,
-        field_index::Index::VectorIndex(vector) => Index::Vector {
-            metric: VectorDistanceMetric::try_from(vector.metric)
-                .unwrap_or(VectorDistanceMetric::Cosine)
-                .into(),
-        },
-        field_index::Index::MultiVectorIndex(multi) => Index::MultiVector {
-            quantization: multi
-                .quantization
-                .and_then(|quant| MultiVectorQuantization::try_from(quant).ok())
-                .and_then(|quant| Quant::try_from(quant).ok()),
-            skip_smve: multi.skip_smve,
-        },
-    })
-}
-
 impl From<Index> for FieldIndex {
     fn from(index: Index) -> Self {
         match index {
@@ -434,4 +410,29 @@ impl From<Index> for FieldIndex {
             }
         }
     }
+}
+
+fn index(spec: &FieldSpec) -> Option<Index> {
+    Some(match spec.index.as_ref()?.index.as_ref()? {
+        field_index::Index::KeywordIndex(keyword) => {
+            match KeywordIndexType::try_from(keyword.index_type) {
+                Ok(KeywordIndexType::Exact) => Index::Exact,
+                _ => Index::Keyword,
+            }
+        }
+        field_index::Index::SemanticIndex(_) => Index::Semantic,
+        field_index::Index::NgramIndex(_) => Index::Ngram,
+        field_index::Index::VectorIndex(vector) => Index::Vector {
+            metric: VectorDistanceMetric::try_from(vector.metric)
+                .unwrap_or(VectorDistanceMetric::Cosine)
+                .into(),
+        },
+        field_index::Index::MultiVectorIndex(multi) => Index::MultiVector {
+            quantization: multi
+                .quantization
+                .and_then(|quant| MultiVectorQuantization::try_from(quant).ok())
+                .and_then(|quant| Quant::try_from(quant).ok()),
+            skip_smve: multi.skip_smve,
+        },
+    })
 }

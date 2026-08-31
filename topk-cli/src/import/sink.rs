@@ -7,12 +7,14 @@ use indicatif::ProgressBar;
 use prost::Message;
 use tokio::sync::Semaphore;
 use tokio::task::JoinHandle;
-use topk_rs::proto::v1::data::Document;
+use topk_rs::proto::v1::data::{Document, Value};
 use topk_rs::{Client, CollectionClient};
 
-use crate::import::error::Error;
-use crate::import::source::Scan;
-use crate::import::value::document;
+use crate::import::error::{Error, MAX_DOC_BYTES};
+use crate::import::source::{Record, Scan};
+use crate::import::spec::Target;
+use crate::import::value::id_string;
+use crate::import::ID;
 
 #[derive(Default, serde::Serialize)]
 pub struct Outcome {
@@ -20,6 +22,65 @@ pub struct Outcome {
     pub rows: usize,
     /// Rows skipped by --continue-on-error.
     pub failed: usize,
+}
+
+/// The document a target asks for, built from one source row.
+pub fn document(target: &Target, record: Record) -> Result<Document, Error> {
+    let id_column = target.id.as_deref().unwrap_or(ID);
+    let id = match record.iter().find(|(key, _)| key == id_column) {
+        Some((_, value)) => id_string(id_column, value.clone())?,
+        None => {
+            let seen: Vec<_> = record.iter().map(|(key, _)| key.as_str()).collect();
+            return Err(Error::Doc {
+                id: None,
+                field: Some(id_column.to_string()),
+                source: Box::new(Error::InvalidArgument(format!(
+                    "id column not present in this row, which has: {}",
+                    seen.join(", ")
+                ))),
+            });
+        }
+    };
+    let fail = |field: Option<&str>, source: Error| Error::Doc {
+        id: Some(id.clone()),
+        field: field.map(str::to_string),
+        source: Box::new(source),
+    };
+
+    // The spec is a whitelist; several fields may read one column, the id included.
+    let mut pairs: Vec<(String, Value)> = Vec::with_capacity(target.fields.len() + 1);
+    for (key, value) in record {
+        for (name, field) in target
+            .fields
+            .iter()
+            .filter(|(name, field)| field.from.as_deref().unwrap_or(name.as_str()) == key)
+        {
+            let value = field
+                .coerce(value.clone())
+                .map_err(|e| fail(Some(name), e))?;
+            pairs.push((name.clone(), value));
+        }
+    }
+    for (name, field) in &target.fields {
+        if field.required
+            && !pairs
+                .iter()
+                .any(|(key, value)| key == name && value.as_null().is_none())
+        {
+            return Err(fail(
+                Some(name),
+                Error::InvalidArgument("required field is missing".to_string()),
+            ));
+        }
+    }
+
+    pairs.push((ID.to_string(), Value::string(id.clone())));
+    let doc = Document::from(pairs);
+    let size = doc.encoded_len();
+    if size > MAX_DOC_BYTES {
+        return Err(fail(None, Error::Oversized(size)));
+    }
+    Ok(doc)
 }
 
 pub async fn documents(scan: Scan) -> Result<impl Stream<Item = Result<Document, Error>>, Error> {

@@ -2,18 +2,13 @@ use futures::StreamExt;
 
 use crate::import::{self, Error, Target, ID};
 
-const PREVIEW_ROWS: usize = 5;
+const PREVIEW_ROWS: u64 = 5;
 const PREVIEW_ELEMENTS: usize = 8;
 const PREVIEW_CHARS: usize = 120;
 
 pub async fn preview(name: &str, source: &import::Source, target: &Target) -> Result<(), Error> {
-    // Cap at the source: a dropped ES stream leaks its point-in-time.
-    let cap = PREVIEW_ROWS as u64;
-    let target = Target {
-        limit: Some(target.limit.map_or(cap, |limit| limit.min(cap))),
-        ..target.clone()
-    };
-    let mut rows = import::documents(source.scan(name, &target, None)?).await?;
+    let mut rows =
+        import::documents(source.scan(name, target, None)?.with_cap(PREVIEW_ROWS)).await?;
     let mut shown = 0;
     while let Some(row) = rows.next().await {
         let doc = row?;
@@ -32,7 +27,7 @@ pub async fn preview(name: &str, source: &import::Source, target: &Target) -> Re
         // stderr, so `--dry-run > spec.toml` captures the spec alone.
         eprintln!("{}", elide(&doc));
     }
-    if shown as u64 == cap {
+    if shown == PREVIEW_ROWS {
         eprintln!("# … showing the first {PREVIEW_ROWS} rows");
     }
     Ok(())

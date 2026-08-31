@@ -145,6 +145,12 @@ enum Read {
 }
 
 impl Scan {
+    /// Restricts the scan's configured limit without increasing it.
+    pub fn with_cap(mut self, cap: u64) -> Self {
+        self.target.limit = Some(self.target.limit.map_or(cap, |limit| limit.min(cap)));
+        self
+    }
+
     /// Rows after the scan's cursor, ordered so a chunk's mark is a resume point.
     pub async fn stream(&self) -> Result<Records, Error> {
         let after = self.after.as_deref();
