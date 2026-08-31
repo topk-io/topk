@@ -83,6 +83,10 @@ pub mod query {
         LogicalExpr::field(name)
     }
 
+    pub fn now() -> LogicalExpr {
+        LogicalExpr::now()
+    }
+
     pub fn select(
         exprs: impl IntoIterator<Item = (impl Into<String>, impl Into<SelectExpr>)>,
     ) -> Query {
