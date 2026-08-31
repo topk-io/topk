@@ -13,7 +13,7 @@ use topk_rs::{Client, CollectionClient};
 use crate::import::error::{Error, MAX_DOC_BYTES};
 use crate::import::source::{Record, Scan};
 use crate::import::spec::Target;
-use crate::import::value::id_string;
+use crate::import::decode::id_string;
 use crate::import::ID;
 
 #[derive(Default, serde::Serialize)]

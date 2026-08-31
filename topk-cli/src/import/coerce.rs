@@ -2,9 +2,9 @@ use topk_rs::proto::v1::data::{
     sparse_vector, value::Value as Inner, IntoListValues, IntoMatrixValues, IntoSparseValues, Value,
 };
 
+use crate::import::decode::{exact_int, finite, float, floats, int, ints, text};
 use crate::import::error::Error;
 use crate::import::spec::{Element, Field, Type};
-use crate::import::value::decode::{exact_int, finite, float, floats, int, ints, text};
 
 impl Field {
     pub fn coerce(&self, value: Value) -> Result<Value, Error> {

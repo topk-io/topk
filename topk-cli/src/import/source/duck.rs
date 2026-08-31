@@ -15,7 +15,7 @@ use url::Url;
 use crate::import::error::Error;
 use crate::import::source::codec::arrow;
 use crate::import::spec::{Field, Target};
-use crate::import::value::id_string;
+use crate::import::decode::id_string;
 use crate::import::ID;
 
 use super::{redact, Chunk, Record, Records, Table};

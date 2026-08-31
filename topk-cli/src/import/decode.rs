@@ -2,7 +2,7 @@ use topk_rs::proto::v1::data::{value::Value as Inner, Value};
 
 use crate::import::error::Error;
 
-pub(super) fn text(value: Value) -> Result<String, Error> {
+pub fn text(value: Value) -> Result<String, Error> {
     Ok(match value.value {
         Some(Inner::String(s)) => s,
         Some(Inner::Binary(bytes)) => String::from_utf8(bytes.into()).map_err(|_| {
@@ -24,7 +24,7 @@ pub(super) fn text(value: Value) -> Result<String, Error> {
 }
 
 /// An exact i64 from whatever numeric shape a source produced.
-pub(super) fn int(value: &Value) -> Option<i64> {
+pub fn int(value: &Value) -> Option<i64> {
     match value.value.as_ref()? {
         Inner::I32(n) => Some(*n as i64),
         Inner::I64(n) => Some(*n),
@@ -38,7 +38,7 @@ pub(super) fn int(value: &Value) -> Option<i64> {
     }
 }
 
-pub(super) fn float(value: &Value) -> Option<f64> {
+pub fn float(value: &Value) -> Option<f64> {
     match value.value.as_ref()? {
         Inner::I32(n) => Some(*n as f64),
         Inner::I64(n) => Some(*n as f64),
@@ -53,7 +53,7 @@ pub(super) fn float(value: &Value) -> Option<f64> {
 
 /// Exact i64 from a float, by round-trip: rejects fractions, NaN/inf, and
 /// out-of-range. The one lie it accepts: exactly 2^63 saturates to i64::MAX.
-pub(super) fn exact_int(f: f64) -> Option<i64> {
+pub fn exact_int(f: f64) -> Option<i64> {
     (f as i64 as f64 == f).then_some(f as i64)
 }
 
@@ -70,7 +70,7 @@ fn parse_int(s: &str) -> Option<i64> {
     }
 }
 
-pub(super) fn ints(value: &Value) -> Option<Vec<i64>> {
+pub fn ints(value: &Value) -> Option<Vec<i64>> {
     value
         .as_i64_list()
         .map(|v| v.to_vec())
@@ -128,9 +128,41 @@ pub fn floats(value: &Value) -> Option<Vec<f64>> {
         })
 }
 
-pub(super) fn finite(f: f64) -> Result<f64, Error> {
+pub fn finite(f: f64) -> Result<f64, Error> {
     match f.is_finite() {
         true => Ok(f),
         false => Err(Error::InvalidArgument(format!("non-finite float {f}"))),
     }
+}
+
+/// A document id from a source value: text as-is, numbers exactly.
+pub fn id_string(id: &str, value: Value) -> Result<String, Error> {
+    let fail = |source: Error| Error::Doc {
+        id: None,
+        field: Some(id.to_string()),
+        source: Box::new(source),
+    };
+    let invalid = |message: String| fail(Error::InvalidArgument(message));
+    if value.as_null().is_some() {
+        return Err(invalid("id is null".to_string()));
+    }
+    if let Some(f) = float(&value).filter(|_| int(&value).is_none()) {
+        if !f.is_finite() {
+            return Err(invalid(
+                "non-finite numeric value cannot be a document id".to_string(),
+            ));
+        }
+        // Beyond 2^53 a double has dropped digits; the id would be wrong.
+        if f.abs() >= (1u64 << 53) as f64 {
+            return Err(invalid(format!(
+                "{f} came through as a double and lost integer precision; \
+                 cast the column to text or integer in the source"
+            )));
+        }
+    }
+    let rendered = text(value).map_err(fail)?;
+    if rendered.is_empty() {
+        return Err(invalid("empty value cannot be a document id".to_string()));
+    }
+    Ok(rendered)
 }

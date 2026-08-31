@@ -4,7 +4,7 @@ use topk_rs::proto::v1::data::Value;
 
 use crate::import::error::Error;
 use crate::import::spec::Type;
-use crate::import::value::floats;
+use crate::import::decode::floats;
 
 pub fn ty(input: &DataType) -> Type {
     match input {

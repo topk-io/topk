@@ -1,11 +1,12 @@
+mod coerce;
 mod ddl;
+mod decode;
 mod error;
 mod preview;
 mod sink;
 pub mod source;
 mod spec;
 mod state;
-mod value;
 
 pub const ID: &str = "_id";
 pub const ID_PLACEHOLDER: &str = "<column>";
