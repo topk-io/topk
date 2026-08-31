@@ -10,36 +10,47 @@ Command-line interface for [TopK](https://topk.io).
 
 ```bash
 brew tap topk-io/topk
-brew install topk      # brew upgrade topk to update
+brew install topk
 ```
 
 ## Quick start
 
+Log in once, then point `topk import` at a file or database:
+
 ```bash
-topk login                                           # or: export TOPK_API_KEY=...
-topk import ./books.parquet --region sunflower       # import a file
-topk import postgres://user:pw@host/db 'public.*'    # import every table in a schema
+topk login
+topk import ./books.parquet --region aws-us-east-1-elastica
+topk import postgres://user:pw@host/db 'public.*' --region aws-us-east-1-elastica
 ```
 
-`topk import` reads databases (Postgres, MySQL, SQLite, MongoDB, Elasticsearch), files (csv, json(l), parquet, arrow, avro, xlsx — local, S3, GCS, Azure, Hugging Face, http) and other TopK collections. It discovers a schema, shows the plan, and imports on confirmation.
+> [!NOTE]
+> `topk import` discovers a schema, shows the plan, and imports on confirmation — see [topk import](#topk-import).
 
 ## Authentication
 
 ```bash
-topk login
+topk login     # saves an API key for later runs
+topk logout    # removes it
 ```
 
-Saves an API key for later runs. `TOPK_API_KEY` or `--api-key` take precedence over the saved key. `topk logout` removes it.
+`TOPK_API_KEY` or `--api-key` take precedence over the saved key.
 
 ## topk import
 
-Bulk import from a database, file, object store, Elasticsearch, MongoDB or another TopK collection.
+Bulk import into TopK collections. Every run discovers the source, prints the plan as a TOML spec, and asks for confirmation; collections are created right after.
 
 ```
 topk import [OPTIONS] [SOURCE] [OBJECTS]...
 ```
 
-Every run discovers the source, prints the plan as a TOML spec, and asks for confirmation; collections are created right after. `-y` skips the confirmation, `--id <column>` sets the id column when detection fails, `-c` caps in-flight upserts (16), `--batch-bytes` sizes them (8MiB).
+Sources ([details](#sources)):
+
+- databases — Postgres, MySQL, SQLite
+- MongoDB and Elasticsearch
+- files — csv, json(l), parquet, arrow, avro, xlsx — local, S3, GCS, Azure, Hugging Face, http(s)
+- other TopK collections
+
+`-y` skips the confirmation; `--id <column>` sets the id column when detection fails.
 
 ### Import a database
 
@@ -63,40 +74,43 @@ topk import 's3://bucket/books/*.parquet' --to books          # r2:// too
 topk import gs://bucket/books.csv                             # or gcs://
 topk import az://container/books.jsonl                        # or azure://
 topk import 'hf://datasets/stanfordnlp/imdb/plain_text/train-*.parquet' --to imdb
-topk import 'hf://datasets/org/name@~parquet/default/train/*.parquet' --to name
 topk import https://example.com/books.csv
 ```
 
-A single file names its collection. S3 also resolves your AWS profile via the aws CLI (SSO and role chaining included). `@~parquet` reads Hugging Face's converted parquet copy of a repo. `xlsx` reads the first sheet.
+A single file names its collection. S3 also resolves your AWS profile via the aws CLI (SSO and role chaining included). `xlsx` reads the first sheet.
 
 ### Copy a TopK collection
 
 ```bash
-topk import topk://sunflower/books --to books-v2              # reindex under a new schema
-topk import topk://elastica/books --region monstera           # copy us → eu
-topk import 'topk://sunflower/*' --region monstera            # every collection
-topk import topk://<key>@sunflower/books                      # another org's key
+topk import topk://aws-us-east-1-elastica/books --to books-v2                        # reindex under a new schema
+topk import topk://aws-us-east-1-elastica/books --region aws-eu-central-1-monstera   # copy us → eu
 ```
 
-Schema and indexes copy as-is (except a vector index's `exact` and a multi-vector's `width`/`top_k`/`encoding_version`, which the server refuses on create); documents are read with `fetch`, so indexed vectors arrive bit for bit. `--filter` is not supported; the copy is additive.
+Schema and indexes copy as-is; vectors arrive bit for bit. `--filter` is not supported; the copy is additive.
 
 ### Preview
+
+Prints the spec on stdout and sample documents on stderr; nothing is written:
 
 ```bash
 topk import postgres://host/db orders --dry-run
 ```
 
-Prints the spec on stdout and sample documents on stderr. No login or region needed, nothing written.
+> [!TIP]
+> No login or region is needed to preview an import.
 
 ### Save the plan and re-run it
 
 ```bash
 topk import postgres://host/db orders --dry-run > spec.toml   # capture
-$EDITOR spec.toml                                              # drop columns, fix types, add indexes
-topk import "$DB_URL" -f spec.toml --yes                       # run
+vim spec.toml                                                 # drop columns, fix types, add indexes
+topk import "$DB_URL" -f spec.toml --yes                      # run
 ```
 
-The spec holds what to import; the command line holds where to connect. Secrets stay in the environment, the spec goes in git.
+The spec holds what to import; the command line holds where to connect.
+
+> [!WARNING]
+> Keep credentials on the command line or in the environment, never in the spec — the spec is meant to go in git.
 
 ### Resume a stopped run
 
@@ -108,18 +122,32 @@ topk import postgres://host/db --resume 01J9...
 topk import postgres://host/db --resume 01J9... -f spec.toml   # with an edited spec
 ```
 
-Checkpoints land as batches are written; resume skips finished collections and continues the in-flight one from its cursor. A collection with a `limit` is never checkpointed, so it restarts. The plan is stored in `<config dir>/topk/import/<id>.toml`, deleted on success. With `-f`, cursors are kept only for collections whose block is unchanged; resume assumes the source did not change. Without `--resume`, a re-run re-imports everything — upserts are idempotent, so that is correct, just not cheap.
+Resume skips finished collections and continues the in-flight one from where it stopped:
+
+- files continue from the last row offset
+- databases from the last imported id (ordered by the id column)
+- Elasticsearch from a server-side cursor kept for 24 hours — once expired, that collection restarts
+- topk from the last `_id`
+
+A collection with a `limit` is never checkpointed, so it restarts. Without `--resume`, a re-run re-imports everything — upserts are idempotent.
+
+> [!NOTE]
+> With `-f`, cursors are kept only for collections whose spec block is unchanged; resume assumes the source did not change.
 
 ### Filter, limit, partition
+
+Narrow a run without touching the source:
 
 ```bash
 topk import postgres://host/db orders --filter "created_at > '2024-01-01'"
 topk import mongodb://host/shop products --filter '{"active": true}'
 topk import ./books.parquet --limit 1000
-topk import ./books.parquet --partition eu
+topk import ./books.parquet --partition acme
 ```
 
-`--filter` and `--to` apply to a single object; use `filter` per collection in a spec for several. `--limit` and `--partition` apply to every object, spec included.
+- `--filter` — which rows import, in the source's query language ([per source](#sources)). Applies to one object; use `filter` per collection in a spec for several.
+- `--limit` — caps rows per collection; applies to every object, spec included
+- `--partition` — imports into the given partition; applies to every object, spec included
 
 ### Output
 
@@ -127,9 +155,14 @@ topk import ./books.parquet --partition eu
 topk import ./books.parquet --yes -o json | jq '.books.rows'
 ```
 
-`-o json` prints `{"<collection>": {"rows": N, "failed": N}}`. Rows sharing an id collapse into one document, so `rows` can exceed the document count.
+`-o json` prints `{"<collection>": {"rows": N, "failed": N}}`.
+
+> [!NOTE]
+> Rows sharing an id collapse into one document, so `rows` can exceed the document count.
 
 ### Sources
+
+Each source's URL scheme, filter language and credentials:
 
 | source | url | filter | auth |
 | --- | --- | --- | --- |
@@ -141,20 +174,21 @@ topk import ./books.parquet --yes -o json | jq '.books.rows'
 | mongodb | `mongodb://` | find document | in-URL, `MONGODB_URI` |
 | topk | `topk://[<key>@]<region>/<collection>` | — | URL key, else the run's key |
 
-Any http(s) URL that is not Elasticsearch is a file named by its extension; query strings are stripped, so presigned URLs work.
+Any http(s) URL that is not Elasticsearch is treated as a file, named by its extension; query strings are stripped, so presigned URLs work.
 
-Vectors discover typed from Elasticsearch mappings (`dims`, `/8` for bit) and from MongoDB by sampling 1000 documents per collection (equal-length float lists → `f32_vector`); everything else follows [Declaring types](#declaring-types).
-
-Cursors for `--resume`: files `<file>:<row offset>`, databases the last id (ordered by the id column), Elasticsearch a PIT + `search_after` (24h; expired → that collection restarts), topk the last `_id`.
+> [!NOTE]
+> Elasticsearch and MongoDB discover vector types automatically (from mappings / by sampling documents); every other source follows [Declaring types](#declaring-types).
 
 ### Spec
+
+The plan every run prints — one TOML table per collection. Save it with `--dry-run`, edit, and run it with `-f`:
 
 ```toml
 [books]
 from = "public.books"
 id = "sku"
 filter = "published"
-partition = "eu"
+partition = "acme"
 limit = 10000
 
 [books.fields]
@@ -191,27 +225,35 @@ Discovery takes the source's types. Declare a different one to convert:
 
 | source column | discovers as | declare |
 | --- | --- | --- |
-| float array without a known dim (sql `FLOAT[]`, json list) | `float_list` + `# declare f32_vector + dim to vector-index` | `f32_vector`, `dim` |
+| float array without a known dim (sql `FLOAT[]`, json list) | `float_list` | `f32_vector`, `dim` |
 | pgvector `vector(n)` | `text` (`"[1,2,3]"`) | `f32_vector`, `dim` |
-| packed embedding blob (little-endian) | `bytes` | `f32_vector` etc., `dim` — element width is `len / dim`, so one declaration reads f16/f32/f64 blobs; `u8`/`i8`/`binary` read one byte per element |
+| packed embedding blob (little-endian) | `bytes` | `f32_vector` etc., `dim` |
 | flat list of `rows * cols` floats (colbert) | `float_list` | `f32_matrix`, `cols` |
 | epoch millis/seconds, RFC 3339 or `YYYY-MM-DD` text | `int` / `text` | `timestamp` |
 | decimal wider than f64 | `text` (exact) | `float` to accept loss |
 
-Conversions are exact or the document fails: `"3.00"` → `int` 3, `"3.50"` → error; a narrower declaration (`truncate` included) is how loss is accepted. A wrong `dim` that divides the blob evenly decodes silently wrong — check the byte length in `--dry-run`.
+For packed blobs the element width is `len / dim`, so one declaration reads f16/f32/f64 blobs; `u8`/`i8`/`binary` read one byte per element.
 
-A wrong index cannot be fixed in place: there is no schema migration, the fix is delete and reimport. The confirmation prompt states what will be indexed.
+Conversions are exact or the document fails: `"3.00"` → `int` 3, `"3.50"` → error; a narrower declaration (`truncate` included) is how loss is accepted. A wrong `dim` that divides the blob evenly decodes silently wrong — check the byte length in `--dry-run`.
 
 ### Failures and limits
 
-A document that fails — bad conversion, missing id, over 200 KB — stops the run, and `--resume` continues from where it stopped. `--continue-on-error` skips those documents instead, reports their ids, and exits non-zero. Connection, auth and name-collision errors always stop the run. An id-only table matched by a glob is skipped with a note; if nothing importable remains, that is an error.
+A document fails when:
 
-Throttling is retried automatically and only gives up after an hour of it. If you hit that, lower `-c`.
+- a value does not convert exactly to its declared type
+- its id is missing, null, empty or non-finite
+- it is over 200 KB
 
-- Collection names match `^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$`; two objects mapping to one name is an error, rename with `=`. Field names cannot start with `_`.
-- Ids that are null, empty or non-finite fail the document. A composite primary key produces a placeholder `id` that refuses to run until you edit it.
-- There is no schema migration. An existing collection whose schema differs is rejected before the prompt: use a new name, or delete it first.
-- An upsert replaces the document, so a spec that omits a field the collection has clears it on every row re-imported. The run names those fields before the prompt.
+A failure stops the run (`--resume` continues); `--continue-on-error` skips instead, reports the ids, and exits non-zero. Connection, auth and name-collision errors always stop. Throttling retries for up to an hour — lower the upsert concurrency (`-c`) if you hit that.
+
+Limits:
+
+- collection names match `^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$`; two objects mapping to one name is an error, rename with `=`
+- field names cannot start with `_`
+- a composite primary key produces a placeholder `id` that refuses to run until edited
+- an id-only table matched by a glob is skipped; nothing importable left is an error
+- no schema migration: an existing collection whose schema differs is rejected — use a new name, or delete it first
+- an upsert replaces the whole document, so a spec that omits an existing field clears it; the run names those fields before the prompt
 
 ## Global options
 
@@ -224,3 +266,9 @@ Throttling is retried automatically and only gives up after an hour of it. If yo
 | `-o, --output text\|json` | | `json` puts results on stdout for `jq` |
 | `-v, --verbose` | `RUST_LOG` | log to stderr |
 | `--agent` | `CLAUDECODE` `AGENT` | `--help` includes this manual |
+
+## Upgrade
+
+```bash
+brew upgrade topk
+```
