@@ -93,7 +93,7 @@ impl State {
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_nanos() as u64)
             .unwrap_or_default();
-        format!("{:08x}", (nanos ^ (std::process::id() as u64) << 32) as u32)
+        format!("{:08x}", nanos as u32 ^ std::process::id())
     }
 
     fn path(id: &str) -> Result<PathBuf, Error> {

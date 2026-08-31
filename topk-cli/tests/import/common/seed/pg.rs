@@ -43,12 +43,42 @@ impl Pg {
             .expect("seed postgres")
     }
 
+    /// Tables dropped when the guard goes out of scope, panic or not.
+    pub fn temp(tables: &[(String, &str)]) -> Temp {
+        let pg = Pg::new().expect("attach postgres");
+        for (name, columns) in tables {
+            pg.conn
+                .execute_batch(&format!("CREATE TABLE p.{name} {columns};"))
+                .expect("create table");
+        }
+        Temp {
+            pg,
+            names: tables.iter().map(|(name, _)| name.clone()).collect(),
+        }
+    }
+
     pub fn seed_composite() -> String {
         Pg::table(
             "comp",
             "(a TEXT, b INTEGER, title VARCHAR, PRIMARY KEY (a, b))",
         )
         .expect("seed postgres")
+    }
+}
+
+pub struct Temp {
+    pg: Pg,
+    names: Vec<String>,
+}
+
+impl Drop for Temp {
+    fn drop(&mut self) {
+        for name in &self.names {
+            let _ = self
+                .pg
+                .conn
+                .execute_batch(&format!("DROP TABLE IF EXISTS p.{name};"));
+        }
     }
 }
 

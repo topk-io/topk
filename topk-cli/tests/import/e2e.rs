@@ -5,7 +5,7 @@ use crate::common::*;
 use indexmap::IndexMap;
 use serde_json::json;
 use test_context::test_context;
-use topk::import::{Field, Index, Spec, Target, Type};
+use topk::import::{Field, Spec, Target};
 use topk_rs::doc;
 use topk_rs::proto::v1::control::field_index::Index as SchemaIndex;
 use topk_rs::proto::v1::control::KeywordIndexType;
@@ -18,14 +18,7 @@ fn outcome(stdout: &str, collection: &str) -> serde_json::Value {
 }
 
 fn keyword_title() -> IndexMap<String, Field> {
-    fields([(
-        "title",
-        Field {
-            ty: Type::Text,
-            index: Some(Index::Keyword),
-            ..Default::default()
-        },
-    )])
+    fields_toml(r#"title = { type = "text", index = "keyword" }"#)
 }
 
 #[test_context(Ctx)]
@@ -130,19 +123,11 @@ async fn binary_vector(ctx: &mut Ctx) {
     let collection = ctx.collection("binary");
     let spec = ctx.target_spec(
         &collection,
-        Target {
-            from: ctx.sql_parquet("bin", "SELECT 1 AS id, [1,2,3,4]::INTEGER[] AS bits"),
-            id: Some("id".to_string()),
-            fields: fields([(
-                "bits",
-                Field {
-                    ty: Type::BinaryVector,
-                    dim: Some(4),
-                    ..Default::default()
-                },
-            )]),
-            ..Default::default()
-        },
+        target(
+            &ctx.sql_parquet("bin", "SELECT 1 AS id, [1,2,3,4]::INTEGER[] AS bits"),
+            "id",
+            r#"bits = { type = "binary_vector", dim = 4 }"#,
+        ),
     );
     ok(&["import", "-f", &spec, "--yes"], &[]);
     let got = ctx.get(&collection, &["1"]).await;
@@ -157,15 +142,7 @@ async fn exact_index(ctx: &mut Ctx) {
     let spec = ctx.target_spec(
         &collection,
         Target {
-            fields: fields([(
-                "title",
-                Field {
-                    ty: Type::Text,
-                    required: true,
-                    index: Some(Index::Exact),
-                    ..Default::default()
-                },
-            )]),
+            fields: fields_toml(r#"title = { type = "text", required = true, index = "exact" }"#),
             ..object
         },
     );
@@ -383,18 +360,11 @@ async fn nan_rejected(ctx: &mut Ctx) {
     let collection = ctx.collection("nan");
     let spec = ctx.target_spec(
         &collection,
-        Target {
-            from: ctx.sql_parquet("nan", "SELECT 1 AS id, 'nan'::DOUBLE AS x"),
-            id: Some("id".to_string()),
-            fields: fields([(
-                "x",
-                Field {
-                    ty: Type::Float,
-                    ..Default::default()
-                },
-            )]),
-            ..Default::default()
-        },
+        target(
+            &ctx.sql_parquet("nan", "SELECT 1 AS id, 'nan'::DOUBLE AS x"),
+            "id",
+            r#"x = { type = "float" }"#,
+        ),
     );
     assert!(fails(&["import", "-f", &spec, "--dry-run"], &[]).contains("non-finite"));
     assert!(fails(&["import", "-f", &spec, "--yes"], &[]).contains("non-finite"));
@@ -410,14 +380,7 @@ async fn semantic_index(ctx: &mut Ctx) {
     let spec = ctx.target_spec(
         &collection,
         Target {
-            fields: fields([(
-                "title",
-                Field {
-                    ty: Type::Text,
-                    index: Some(Index::Semantic),
-                    ..Default::default()
-                },
-            )]),
+            fields: fields_toml(r#"title = { type = "text", index = "semantic" }"#),
             ..object
         },
     );
@@ -462,18 +425,7 @@ async fn continue_on_error(ctx: &mut Ctx) {
     let collection = ctx.collection("skips");
     let spec = ctx.target_spec(
         &collection,
-        Target {
-            from: file.display().to_string(),
-            id: Some("id".to_string()),
-            fields: fields([(
-                "n",
-                Field {
-                    ty: Type::Int,
-                    ..Default::default()
-                },
-            )]),
-            ..Default::default()
-        },
+        target(&file.display().to_string(), "id", r#"n = { type = "int" }"#),
     );
 
     let err = fails(&["import", "-f", &spec, "--yes"], &[]);
@@ -545,18 +497,11 @@ async fn blank_id(ctx: &mut Ctx) {
     let collection = ctx.collection("blankid");
     let spec = ctx.target_spec(
         &collection,
-        Target {
-            from: file.display().to_string(),
-            id: Some("id".to_string()),
-            fields: fields([(
-                "name",
-                Field {
-                    ty: Type::Text,
-                    ..Default::default()
-                },
-            )]),
-            ..Default::default()
-        },
+        target(
+            &file.display().to_string(),
+            "id",
+            r#"name = { type = "text" }"#,
+        ),
     );
     let err = fails(&["import", "-f", &spec, "--yes"], &[]);
     assert!(err.contains(r#"field "id""#), "got:\n{err}");
@@ -568,30 +513,15 @@ async fn json_as_struct(ctx: &mut Ctx) {
     let collection = ctx.collection("json");
     let spec = ctx.target_spec(
         &collection,
-        Target {
-            from: ctx.sql_parquet(
+        target(
+            &ctx.sql_parquet(
                 "payloads",
                 r#"SELECT 1 AS id, '{"k":{"deep":1}}' AS meta, '["a","b"]' AS tags"#,
             ),
-            id: Some("id".to_string()),
-            fields: fields([
-                (
-                    "meta",
-                    Field {
-                        ty: Type::Struct,
-                        ..Default::default()
-                    },
-                ),
-                (
-                    "tags",
-                    Field {
-                        ty: Type::TextList,
-                        ..Default::default()
-                    },
-                ),
-            ]),
-            ..Default::default()
-        },
+            "id",
+            r#"meta = { type = "struct" }
+               tags = { type = "text_list" }"#,
+        ),
     );
     ok(&["import", "-f", &spec, "--yes"], &[]);
 

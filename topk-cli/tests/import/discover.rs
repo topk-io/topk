@@ -76,19 +76,10 @@ async fn underscore_rename_yields_to_a_collision(ctx: &mut Scratch) {
     );
 
     let uri = path.parse().expect("source uri parses");
-    let message = match topk::import::discover(
-        &topk::import::Source::connect(&uri, &topk::endpoint::Endpoint::default())
-            .await
-            .expect("connect"),
-        &[],
-        None,
-        None,
-    )
-    .await
-    {
-        Err(e) => e.to_string(),
-        Ok(_) => panic!("a colliding rename must be rejected"),
-    };
+    let source = topk::import::Source::connect(&uri, &topk::endpoint::Endpoint::default())
+        .await
+        .expect("connect");
+    let message = refused(topk::import::discover(&source, &[], None, None).await);
     assert!(
         message.contains("\"_lang\": field names cannot be empty or start with `_`"),
         "got: {message}"
@@ -202,47 +193,32 @@ async fn nothing_matched() {
 
 #[tokio::test]
 async fn ambiguous_name() {
-    let pg = pg::Pg::new().unwrap();
     let table = unique_name("amb");
-    pg.conn
+    pg::Pg::new()
+        .unwrap()
+        .conn
         .execute_batch("CREATE SCHEMA IF NOT EXISTS p.other;")
         .expect("create schema");
-    for schema in ["public", "other"] {
-        pg.conn
-            .execute_batch(&format!(
-                "CREATE TABLE p.{schema}.{table} (id INTEGER PRIMARY KEY, title TEXT);"
-            ))
-            .expect("create table");
-    }
+    let columns = "(id INTEGER PRIMARY KEY, title TEXT)";
+    let _tables = pg::Pg::temp(&[
+        (format!("public.{table}"), columns),
+        (format!("other.{table}"), columns),
+    ]);
 
     let message = discover_err(pg::Pg::URL, &table).await;
-
-    for schema in ["public", "other"] {
-        let _ = pg
-            .conn
-            .execute_batch(&format!("DROP TABLE IF EXISTS p.{schema}.{table};"));
-    }
     assert!(message.contains("rename one inline"), "got: {message}");
 }
 
 #[tokio::test]
 async fn key_collision() {
-    let pg = pg::Pg::new().unwrap();
     let base = unique_name("col");
-    pg.conn
-        .execute_batch(&format!(
-            "CREATE TABLE p.public.\"{base} x\" (id INTEGER PRIMARY KEY, title TEXT); \
-             CREATE TABLE p.public.{base}_x (id INTEGER PRIMARY KEY, title TEXT);"
-        ))
-        .expect("create tables");
+    let columns = "(id INTEGER PRIMARY KEY, title TEXT)";
+    let _tables = pg::Pg::temp(&[
+        (format!("public.\"{base} x\""), columns),
+        (format!("public.{base}_x"), columns),
+    ]);
 
     let message = discover_err(pg::Pg::URL, &format!("{base}*")).await;
-
-    for table in [format!("\"{base} x\""), format!("{base}_x")] {
-        let _ = pg
-            .conn
-            .execute_batch(&format!("DROP TABLE IF EXISTS p.public.{table};"));
-    }
     assert!(message.contains("both map to collection"), "got: {message}");
 }
 

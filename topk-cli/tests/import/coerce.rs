@@ -2,22 +2,11 @@ use rstest::rstest;
 use topk::import::{build_document, Error, Spec, Target};
 use topk_rs::proto::v1::data::Value;
 
-fn spec_toml(fields: &str) -> String {
-    format!(
-        r#"
-[c]
-from = "f.parquet"
-id = "_id"
-
-[c.fields]
-{fields}
-"#
-    )
-}
+use crate::common::{json, refused, spec_toml};
+use serde_json::json;
 
 fn target(fields: &str) -> Target {
-    let mut spec = toml::from_str::<Spec>(&spec_toml(fields)).expect("spec parses");
-    spec.collections.shift_remove("c").expect("target c")
+    crate::common::target("f.parquet", "_id", fields)
 }
 
 fn coerce(field: &str, value: Value) -> Result<Value, Error> {
@@ -59,126 +48,79 @@ fn fields_share_columns_and_the_id() {
     assert_eq!(doc.fields.get("b"), Some(&Value::f64(7.0)));
 }
 
+/// Every accepted (declared field, source cell) pair. A binary cell is a packed
+/// little-endian array whose element width follows from `dim`, not the declared
+/// type; a JSON string cell reshapes into any container.
 #[rstest]
-#[case::from_string(Value::string("hello"), "hello")]
-#[case::from_bool(Value::bool(true), "true")]
-#[case::from_int(Value::i64(42), "42")]
-#[case::from_float(Value::f64(4.3), "4.3")]
-#[case::from_utf8_bytes(Value::bytes(b"hello".to_vec()), "hello")]
-#[case::from_struct(Value::r#struct([("a", Value::i64(1))]), r#"{"a":1}"#)]
-fn text(#[case] input: Value, #[case] expected: &str) {
-    assert_eq!(
-        coerced(r#"{ type = "text" }"#, input),
-        Value::string(expected)
-    );
-}
-
-#[rstest]
-#[case::cuts(Value::string("hello world"), "hello")]
-#[case::shorter_stays(Value::string("hi"), "hi")]
-#[case::char_boundary(Value::string("žluťoučký"), "žluťo")]
-fn truncate(#[case] input: Value, #[case] expected: &str) {
-    assert_eq!(
-        coerced(r#"{ type = "text", truncate = 5 }"#, input),
-        Value::string(expected)
-    );
-}
-
-#[rstest]
-#[case::from_int(Value::i64(42), 42)]
-#[case::from_integral_float(Value::f64(4.0), 4)]
-#[case::from_bool(Value::bool(true), 1)]
-#[case::from_string(Value::string("42"), 42)]
-#[case::from_padded_string(Value::string("  42  "), 42)]
-#[case::from_negative_string(Value::string("-7"), -7)]
-#[case::from_decimal_string(Value::string("3.00"), 3)]
-fn int(#[case] input: Value, #[case] expected: i64) {
-    assert_eq!(coerced(r#"{ type = "int" }"#, input), Value::i64(expected));
-}
-
-#[rstest]
-#[case::from_int(Value::i64(1), 1.0)]
-#[case::from_float(Value::f64(4.25), 4.25)]
-#[case::from_string(Value::string(" 4.25 "), 4.25)]
-fn float(#[case] input: Value, #[case] expected: f64) {
-    assert_eq!(
-        coerced(r#"{ type = "float" }"#, input),
-        Value::f64(expected)
-    );
-}
-
-#[rstest]
-#[case::from_bool(Value::bool(true), true)]
-#[case::from_nonzero_int(Value::i64(3), true)]
-#[case::from_zero_int(Value::i64(0), false)]
-#[case::from_true_word(Value::string("yes"), true)]
-#[case::from_false_word(Value::string("no"), false)]
-#[case::from_false_digit(Value::string("0"), false)]
-fn bool(#[case] input: Value, #[case] expected: bool) {
-    assert_eq!(
-        coerced(r#"{ type = "bool" }"#, input),
-        Value::bool(expected)
-    );
-}
-
-#[test]
-fn bytes() {
-    let bytes = vec![0xde, 0xad, 0xbe, 0xef];
-    assert_eq!(
-        coerced(r#"{ type = "bytes" }"#, Value::bytes(bytes.clone())),
-        Value::bytes(bytes)
-    );
-}
-
-#[rstest]
-#[case::int_list_from_ints("int_list", Value::list(vec![1_i64, 2]), Value::list(vec![1_i64, 2]))]
-#[case::int_list_from_i32("int_list", Value::list(vec![1_i32, 2]), Value::list(vec![1_i64, 2]))]
-#[case::int_list_from_integral_floats("int_list", Value::list(vec![1.0_f64, 2.0]), Value::list(vec![1_i64, 2]))]
-#[case::int_list_from_json("int_list", Value::string("[1, 2]"), Value::list(vec![1_i64, 2]))]
-#[case::int_list_from_decimal_strings("int_list", Value::list(vec!["1.00", "2"]), Value::list(vec![1_i64, 2]))]
-#[case::float_list_from_floats("float_list", Value::list(vec![0.5_f64, 1.5]), Value::list(vec![0.5_f32, 1.5]))]
-#[case::float_list_from_ints("float_list", Value::list(vec![1_i64, 2]), Value::list(vec![1.0_f32, 2.0]))]
-#[case::float_list_from_json("float_list", Value::string("[0.5, 1.5]"), Value::list(vec![0.5_f32, 1.5]))]
-#[case::float_list_from_decimal_strings("float_list", Value::list(vec!["1.50", "2.25"]), Value::list(vec![1.5_f32, 2.25]))]
-#[case::text_list_from_strings("text_list", Value::list(vec!["a", "b"]), Value::list(vec!["a", "b"]))]
-#[case::text_list_from_json("text_list", Value::string(r#"["a", "b"]"#), Value::list(vec!["a", "b"]))]
-fn lists(#[case] ty: &str, #[case] input: Value, #[case] expected: Value) {
-    assert_eq!(coerced(&format!("{{ type = {ty:?} }}"), input), expected);
-}
-
-#[rstest]
-#[case::f32("f32_vector", Value::list(vec![1_i64, 2, 3]), Value::list(vec![1.0_f32, 2.0, 3.0]))]
-#[case::f32_from_pgvector_text("f32_vector", Value::string("[1,2,3]"), Value::list(vec![1.0_f32, 2.0, 3.0]))]
-#[case::f32_from_json_floats("f32_vector", Value::string("[0.5, 1.5, 2.5]"), Value::list(vec![0.5_f32, 1.5, 2.5]))]
-#[case::f32_from_floats("f32_vector", Value::list(vec![0.5_f64, 1.5, 2.5]), Value::list(vec![0.5_f32, 1.5, 2.5]))]
-#[case::f16("f16_vector", Value::list(vec![1_i64, 2, 3]), Value::list(vec![half::f16::from_f32(1.0), half::f16::from_f32(2.0), half::f16::from_f32(3.0)]))]
-#[case::f8("f8_vector", Value::list(vec![1_i64, 2, 3]), Value::list(vec![float8::F8E4M3::from_f32(1.0), float8::F8E4M3::from_f32(2.0), float8::F8E4M3::from_f32(3.0)]))]
-#[case::u8("u8_vector", Value::list(vec![1_i64, 2, 3]), Value::list(vec![1_u8, 2, 3]))]
-#[case::u8_from_integral_floats("u8_vector", Value::list(vec![1.0_f64, 2.0, 3.0]), Value::list(vec![1_u8, 2, 3]))]
-#[case::i8("i8_vector", Value::list(vec![1_i64, 2, 3]), Value::list(vec![1_i8, 2, 3]))]
-#[case::binary("binary_vector", Value::list(vec![1_i64, 2, 3]), Value::list(vec![1_u8, 2, 3]))]
-fn vectors(#[case] ty: &str, #[case] input: Value, #[case] expected: Value) {
-    assert_eq!(
-        coerced(&format!("{{ type = {ty:?}, dim = 3 }}"), input),
-        expected
-    );
-}
-
-/// A binary cell is a packed little-endian array; `dim` fixes the element
-/// width, so the width is read off the data rather than the declared type.
-#[rstest]
-#[case::f32_from_f16_bytes("f32_vector", le_f16(&[1.0, 2.0, 3.0]), Value::list(vec![1.0_f32, 2.0, 3.0]))]
-#[case::f32_from_f32_bytes("f32_vector", le_f32(&[0.5, 1.5, 2.5]), Value::list(vec![0.5_f32, 1.5, 2.5]))]
-#[case::f32_from_f64_bytes("f32_vector", le_f64(&[0.5, 1.5, 2.5]), Value::list(vec![0.5_f32, 1.5, 2.5]))]
-#[case::f16_from_f32_bytes("f16_vector", le_f32(&[1.0, 2.0, 3.0]), Value::list(vec![half::f16::from_f32(1.0), half::f16::from_f32(2.0), half::f16::from_f32(3.0)]))]
-#[case::u8_from_bytes("u8_vector", Value::bytes(vec![1, 2, 3]), Value::list(vec![1_u8, 2, 3]))]
-#[case::i8_from_signed_bytes("i8_vector", Value::bytes(vec![0xff, 2, 3]), Value::list(vec![-1_i8, 2, 3]))]
-#[case::binary_from_bytes("binary_vector", Value::bytes(vec![1, 2, 3]), Value::list(vec![1_u8, 2, 3]))]
-fn packed_binary_vectors(#[case] ty: &str, #[case] input: Value, #[case] expected: Value) {
-    assert_eq!(
-        coerced(&format!("{{ type = {ty:?}, dim = 3 }}"), input),
-        expected
-    );
+#[case::text_from_string(r#"{ type = "text" }"#, Value::string("hello"), Value::string("hello"))]
+#[case::text_from_bool(r#"{ type = "text" }"#, Value::bool(true), Value::string("true"))]
+#[case::text_from_int(r#"{ type = "text" }"#, Value::i64(42), Value::string("42"))]
+#[case::text_from_float(r#"{ type = "text" }"#, Value::f64(4.3), Value::string("4.3"))]
+#[case::text_from_utf8_bytes(r#"{ type = "text" }"#, Value::bytes(b"hello".to_vec()), Value::string("hello"))]
+#[case::text_from_struct(r#"{ type = "text" }"#, Value::r#struct([("a", Value::i64(1))]), Value::string(r#"{"a":1}"#))]
+#[case::truncate_cuts(r#"{ type = "text", truncate = 5 }"#, Value::string("hello world"), Value::string("hello"))]
+#[case::truncate_leaves_shorter(r#"{ type = "text", truncate = 5 }"#, Value::string("hi"), Value::string("hi"))]
+#[case::truncate_on_a_char_boundary(r#"{ type = "text", truncate = 5 }"#, Value::string("žluťoučký"), Value::string("žluťo"))]
+#[case::int_from_int(r#"{ type = "int" }"#, Value::i64(42), Value::i64(42))]
+#[case::int_from_integral_float(r#"{ type = "int" }"#, Value::f64(4.0), Value::i64(4))]
+#[case::int_from_bool(r#"{ type = "int" }"#, Value::bool(true), Value::i64(1))]
+#[case::int_from_string(r#"{ type = "int" }"#, Value::string("42"), Value::i64(42))]
+#[case::int_from_padded_string(r#"{ type = "int" }"#, Value::string("  42  "), Value::i64(42))]
+#[case::int_from_negative_string(r#"{ type = "int" }"#, Value::string("-7"), Value::i64(-7))]
+#[case::int_from_decimal_string(r#"{ type = "int" }"#, Value::string("3.00"), Value::i64(3))]
+#[case::float_from_int(r#"{ type = "float" }"#, Value::i64(1), Value::f64(1.0))]
+#[case::float_from_float(r#"{ type = "float" }"#, Value::f64(4.25), Value::f64(4.25))]
+#[case::float_from_padded_string(r#"{ type = "float" }"#, Value::string(" 4.25 "), Value::f64(4.25))]
+#[case::bool_from_bool(r#"{ type = "bool" }"#, Value::bool(true), Value::bool(true))]
+#[case::bool_from_nonzero_int(r#"{ type = "bool" }"#, Value::i64(3), Value::bool(true))]
+#[case::bool_from_zero_int(r#"{ type = "bool" }"#, Value::i64(0), Value::bool(false))]
+#[case::bool_from_true_word(r#"{ type = "bool" }"#, Value::string("yes"), Value::bool(true))]
+#[case::bool_from_false_word(r#"{ type = "bool" }"#, Value::string("no"), Value::bool(false))]
+#[case::bool_from_false_digit(r#"{ type = "bool" }"#, Value::string("0"), Value::bool(false))]
+#[case::bytes_stay_bytes(r#"{ type = "bytes" }"#, Value::bytes(vec![0xde, 0xad]), Value::bytes(vec![0xde, 0xad]))]
+#[case::struct_from_json(r#"{ type = "struct" }"#, Value::string(r#"{"k": {"deep": 1}}"#), Value::r#struct([("k", Value::r#struct([("deep", Value::i64(1))]))]))]
+#[case::int_list_from_ints(r#"{ type = "int_list" }"#, Value::list(vec![1_i64, 2]), Value::list(vec![1_i64, 2]))]
+#[case::int_list_from_i32(r#"{ type = "int_list" }"#, Value::list(vec![1_i32, 2]), Value::list(vec![1_i64, 2]))]
+#[case::int_list_from_integral_floats(r#"{ type = "int_list" }"#, Value::list(vec![1.0_f64, 2.0]), Value::list(vec![1_i64, 2]))]
+#[case::int_list_from_json(r#"{ type = "int_list" }"#, Value::string("[1, 2]"), Value::list(vec![1_i64, 2]))]
+#[case::int_list_from_decimal_strings(r#"{ type = "int_list" }"#, Value::list(vec!["1.00", "2"]), Value::list(vec![1_i64, 2]))]
+#[case::float_list_from_floats(r#"{ type = "float_list" }"#, Value::list(vec![0.5_f64, 1.5]), Value::list(vec![0.5_f32, 1.5]))]
+#[case::float_list_from_ints(r#"{ type = "float_list" }"#, Value::list(vec![1_i64, 2]), Value::list(vec![1.0_f32, 2.0]))]
+#[case::float_list_from_json(r#"{ type = "float_list" }"#, Value::string("[0.5, 1.5]"), Value::list(vec![0.5_f32, 1.5]))]
+#[case::float_list_from_decimal_strings(r#"{ type = "float_list" }"#, Value::list(vec!["1.50", "2.25"]), Value::list(vec![1.5_f32, 2.25]))]
+#[case::text_list_from_strings(r#"{ type = "text_list" }"#, Value::list(vec!["a", "b"]), Value::list(vec!["a", "b"]))]
+#[case::text_list_from_json(r#"{ type = "text_list" }"#, Value::string(r#"["a", "b"]"#), Value::list(vec!["a", "b"]))]
+#[case::vector_f32(r#"{ type = "f32_vector", dim = 3 }"#, Value::list(vec![1_i64, 2, 3]), Value::list(vec![1.0_f32, 2.0, 3.0]))]
+#[case::vector_f32_from_pgvector_text(r#"{ type = "f32_vector", dim = 3 }"#, Value::string("[1,2,3]"), Value::list(vec![1.0_f32, 2.0, 3.0]))]
+#[case::vector_f32_from_json_floats(r#"{ type = "f32_vector", dim = 3 }"#, Value::string("[0.5, 1.5, 2.5]"), Value::list(vec![0.5_f32, 1.5, 2.5]))]
+#[case::vector_f32_from_floats(r#"{ type = "f32_vector", dim = 3 }"#, Value::list(vec![0.5_f64, 1.5, 2.5]), Value::list(vec![0.5_f32, 1.5, 2.5]))]
+#[case::vector_f16(r#"{ type = "f16_vector", dim = 3 }"#, Value::list(vec![1_i64, 2, 3]), Value::list(vec![half::f16::from_f32(1.0), half::f16::from_f32(2.0), half::f16::from_f32(3.0)]))]
+#[case::vector_f8(r#"{ type = "f8_vector", dim = 3 }"#, Value::list(vec![1_i64, 2, 3]), Value::list(vec![float8::F8E4M3::from_f32(1.0), float8::F8E4M3::from_f32(2.0), float8::F8E4M3::from_f32(3.0)]))]
+#[case::vector_u8(r#"{ type = "u8_vector", dim = 3 }"#, Value::list(vec![1_i64, 2, 3]), Value::list(vec![1_u8, 2, 3]))]
+#[case::vector_u8_from_integral_floats(r#"{ type = "u8_vector", dim = 3 }"#, Value::list(vec![1.0_f64, 2.0, 3.0]), Value::list(vec![1_u8, 2, 3]))]
+#[case::vector_i8(r#"{ type = "i8_vector", dim = 3 }"#, Value::list(vec![1_i64, 2, 3]), Value::list(vec![1_i8, 2, 3]))]
+#[case::vector_binary(r#"{ type = "binary_vector", dim = 3 }"#, Value::list(vec![1_i64, 2, 3]), Value::list(vec![1_u8, 2, 3]))]
+#[case::vector_f16_at_max(r#"{ type = "f16_vector", dim = 1 }"#, Value::list(vec![65504.0_f64]), Value::list(vec![half::f16::MAX]))]
+#[case::vector_f8_in_range(r#"{ type = "f8_vector", dim = 1 }"#, Value::list(vec![400.0_f64]), Value::list(vec![float8::F8E4M3::from_f64(400.0)]))]
+#[case::packed_f32_from_f16_bytes(r#"{ type = "f32_vector", dim = 3 }"#, le_f16(&[1.0, 2.0, 3.0]), Value::list(vec![1.0_f32, 2.0, 3.0]))]
+#[case::packed_f32_from_f32_bytes(r#"{ type = "f32_vector", dim = 3 }"#, le_f32(&[0.5, 1.5, 2.5]), Value::list(vec![0.5_f32, 1.5, 2.5]))]
+#[case::packed_f32_from_f64_bytes(r#"{ type = "f32_vector", dim = 3 }"#, le_f64(&[0.5, 1.5, 2.5]), Value::list(vec![0.5_f32, 1.5, 2.5]))]
+#[case::packed_f16_from_f32_bytes(r#"{ type = "f16_vector", dim = 3 }"#, le_f32(&[1.0, 2.0, 3.0]), Value::list(vec![half::f16::from_f32(1.0), half::f16::from_f32(2.0), half::f16::from_f32(3.0)]))]
+#[case::packed_u8_from_bytes(r#"{ type = "u8_vector", dim = 3 }"#, Value::bytes(vec![1, 2, 3]), Value::list(vec![1_u8, 2, 3]))]
+#[case::packed_i8_from_signed_bytes(r#"{ type = "i8_vector", dim = 3 }"#, Value::bytes(vec![0xff, 2, 3]), Value::list(vec![-1_i8, 2, 3]))]
+#[case::packed_binary_from_bytes(r#"{ type = "binary_vector", dim = 3 }"#, Value::bytes(vec![1, 2, 3]), Value::list(vec![1_u8, 2, 3]))]
+#[case::matrix_stays_a_matrix(r#"{ type = "f32_matrix", cols = 3 }"#, Value::matrix(3, vec![1.0_f32, 2.0, 3.0, 4.0, 5.0, 6.0]), Value::matrix(3, vec![1.0_f32, 2.0, 3.0, 4.0, 5.0, 6.0]))]
+#[case::matrix_f32_from_a_flat_list(r#"{ type = "f32_matrix", cols = 3 }"#, Value::list(vec![1.0_f32, 2.0, 3.0, 4.0, 5.0, 6.0]), Value::matrix(3, vec![1.0_f32, 2.0, 3.0, 4.0, 5.0, 6.0]))]
+#[case::matrix_f16_from_a_flat_list(r#"{ type = "f16_matrix", cols = 3 }"#, Value::list(vec![1.0_f32, 2.0, 3.0, 4.0, 5.0, 6.0]), Value::matrix(3, vec![half::f16::from_f32(1.0), half::f16::from_f32(2.0), half::f16::from_f32(3.0), half::f16::from_f32(4.0), half::f16::from_f32(5.0), half::f16::from_f32(6.0)]))]
+#[case::matrix_u8_from_a_flat_list(r#"{ type = "u8_matrix", cols = 3 }"#, Value::list(vec![1.0_f32, 2.0, 3.0, 4.0, 5.0, 6.0]), Value::matrix(3, vec![1_u8, 2, 3, 4, 5, 6]))]
+#[case::matrix_i8_from_a_flat_list(r#"{ type = "i8_matrix", cols = 3 }"#, Value::list(vec![1.0_f32, 2.0, 3.0, 4.0, 5.0, 6.0]), Value::matrix(3, vec![1_i8, 2, 3, 4, 5, 6]))]
+#[case::matrix_from_json_text(r#"{ type = "f32_matrix", cols = 2 }"#, Value::string("[1.0, 2.0, 3.0, 4.0]"), Value::matrix(2, vec![1.0_f32, 2.0, 3.0, 4.0]))]
+#[case::sparse_f32_from_json(r#"{ type = "f32_sparse_vector" }"#, Value::string(r#"{"3": 1.5, "1": 0.5}"#), Value::sparse_vector(vec![1, 3], vec![0.5, 1.5]))]
+#[case::sparse_f32_from_struct(r#"{ type = "f32_sparse_vector" }"#, Value::r#struct([("2", Value::f64(0.25))]), Value::sparse_vector(vec![2], vec![0.25]))]
+#[case::sparse_u8_from_ints(r#"{ type = "u8_sparse_vector" }"#, Value::r#struct([("7", Value::i64(3))]), Value::sparse_vector(vec![7], vec![3u8]))]
+#[case::sparse_skips_null_entries(r#"{ type = "f32_sparse_vector" }"#, Value::r#struct([("0", Value::f64(1.0)), ("3", Value::null()), ("7", Value::f64(0.5))]), Value::sparse_vector(vec![0, 7], vec![1.0, 0.5]))]
+fn coerces(#[case] field: &str, #[case] input: Value, #[case] expected: Value) {
+    assert_eq!(coerced(field, input), expected);
 }
 
 fn le_f16(ns: &[f32]) -> Value {
@@ -197,29 +139,6 @@ fn le_f64(ns: &[f64]) -> Value {
     Value::bytes(ns.iter().flat_map(|n| n.to_le_bytes()).collect::<Vec<u8>>())
 }
 
-#[test]
-fn matrices() {
-    let input = Value::matrix(3, vec![1.0_f32, 2.0, 3.0, 4.0, 5.0, 6.0]);
-    assert_eq!(
-        coerced(r#"{ type = "f32_matrix", cols = 3 }"#, input.clone()),
-        input
-    );
-}
-
-/// Multi-vector sources flatten their rows, so `cols` recovers the shape.
-#[rstest]
-#[case::f32("f32_matrix", Value::matrix(3, vec![1.0_f32, 2.0, 3.0, 4.0, 5.0, 6.0]))]
-#[case::f16("f16_matrix", Value::matrix(3, vec![half::f16::from_f32(1.0), half::f16::from_f32(2.0), half::f16::from_f32(3.0), half::f16::from_f32(4.0), half::f16::from_f32(5.0), half::f16::from_f32(6.0)]))]
-#[case::u8("u8_matrix", Value::matrix(3, vec![1_u8, 2, 3, 4, 5, 6]))]
-#[case::i8("i8_matrix", Value::matrix(3, vec![1_i8, 2, 3, 4, 5, 6]))]
-fn matrix_from_a_flat_list(#[case] ty: &str, #[case] expected: Value) {
-    let flat = Value::list(vec![1.0_f32, 2.0, 3.0, 4.0, 5.0, 6.0]);
-    assert_eq!(
-        coerced(&format!("{{ type = {ty:?}, cols = 3 }}"), flat),
-        expected
-    );
-}
-
 /// A double beyond 2^53 has already dropped digits, so it cannot be an id —
 /// a csv column mixing huge ids with decimals sniffs as double.
 #[test]
@@ -232,64 +151,13 @@ fn imprecise_double_id_is_refused() {
         ),
         ("v".to_string(), Value::i64(1)),
     ];
-    let message = match build_document(&target, record) {
-        Err(error) => error.to_string(),
-        Ok(doc) => panic!("expected a refusal, got {doc:?}"),
-    };
+    let message = refused(build_document(&target, record));
     assert!(message.contains("lost integer precision"), "got: {message}");
-}
-
-/// Sources that unify struct schemas across rows (duckdb reading jsonl) fill
-/// absent keys with nulls; those are absent indices, not errors.
-#[test]
-fn sparse_skips_null_entries() {
-    let input = Value::r#struct(vec![
-        ("0".to_string(), Value::f64(1.0)),
-        ("3".to_string(), Value::null()),
-        ("7".to_string(), Value::f64(0.5)),
-    ]);
-    assert_eq!(
-        coerced(r#"{ type = "f32_sparse_vector" }"#, input),
-        Value::sparse_vector(vec![0, 7], vec![1.0, 0.5]),
-    );
-}
-
-/// A JSON string cell holding a flat list reshapes too.
-#[test]
-fn matrix_from_json_text() {
-    let json = Value::string("[1.0, 2.0, 3.0, 4.0]");
-    let expected = Value::matrix(2, vec![1.0_f32, 2.0, 3.0, 4.0]);
-    assert_eq!(
-        coerced(r#"{ type = "f32_matrix", cols = 2 }"#, json),
-        expected
-    );
-}
-
-#[rstest]
-#[case::f32_from_json(r#"{ type = "f32_sparse_vector" }"#, Value::string(r#"{"3": 1.5, "1": 0.5}"#), Value::sparse_vector(vec![1, 3], vec![0.5, 1.5]))]
-#[case::f32_from_struct(r#"{ type = "f32_sparse_vector" }"#, Value::r#struct([("2", Value::f64(0.25))]), Value::sparse_vector(vec![2], vec![0.25]))]
-#[case::u8_from_ints(r#"{ type = "u8_sparse_vector" }"#, Value::r#struct([("7", Value::i64(3))]), Value::sparse_vector(vec![7], vec![3u8]))]
-fn sparse_vectors(#[case] field: &str, #[case] input: Value, #[case] expected: Value) {
-    assert_eq!(coerced(field, input), expected);
-}
-
-#[test]
-fn struct_from_json() {
-    assert_eq!(
-        coerced(
-            r#"{ type = "struct" }"#,
-            Value::string(r#"{"k": {"deep": 1}}"#)
-        ),
-        Value::r#struct([("k", Value::r#struct([("deep", Value::i64(1))]))])
-    );
 }
 
 #[test]
 fn struct_invalid_json() {
-    let message = match coerce(r#"{ type = "struct" }"#, Value::string("not json")) {
-        Err(error) => error.to_string(),
-        Ok(value) => panic!("expected a refusal, got {value:?}"),
-    };
+    let message = refused(coerce(r#"{ type = "struct" }"#, Value::string("not json")));
     assert!(message.contains(r#"doc "1""#), "got: {message}");
     assert!(message.contains(r#"field "v""#), "got: {message}");
 }
@@ -381,6 +249,9 @@ fn nulls(
     le_f32(&[f32::INFINITY]),
     "non-finite float"
 )]
+#[case::vector_f32_overflows(r#"{ type = "f32_vector", dim = 1 }"#, Value::list(vec![1.0e300_f64]), "cannot coerce to f32_vector")]
+#[case::vector_f16_overflows(r#"{ type = "f16_vector", dim = 1 }"#, Value::list(vec![1.0e6_f64]), "cannot coerce to f16_vector")]
+#[case::vector_f8_overflows(r#"{ type = "f8_vector", dim = 1 }"#, Value::list(vec![1000.0_f64]), "cannot coerce to f8_vector")]
 #[case::matrix_cols_mismatch(r#"{ type = "f32_matrix", cols = 3 }"#, Value::matrix(2, vec![1.0_f32, 2.0]), "matrix has 2 columns, declared cols=3")]
 #[case::matrix_uneven(r#"{ type = "f32_matrix", cols = 3 }"#, Value::list(vec![1.0_f32, 2.0, 3.0, 4.0]), "4 values do not divide into cols=3")]
 #[case::matrix_from_text(
@@ -389,10 +260,7 @@ fn nulls(
     "expected value"
 )]
 fn refusals(#[case] field: &str, #[case] input: Value, #[case] fragment: &str) {
-    let message = match coerce(field, input) {
-        Err(error) => error.to_string(),
-        Ok(value) => panic!("expected a refusal, got {value:?}"),
-    };
+    let message = refused(coerce(field, input));
     assert!(message.contains(fragment), "got: {message}");
 }
 
@@ -422,23 +290,26 @@ fn refusals(#[case] field: &str, #[case] input: Value, #[case] fragment: &str) {
     "a multi_vector index needs a matrix field"
 )]
 fn field_validation(#[case] field: &str, #[case] fragment: &str) {
-    let message = match toml::from_str::<Spec>(&spec_toml(&format!("v = {field}"))) {
-        Err(error) => error.to_string(),
-        Ok(_) => panic!("expected {field} to be rejected"),
-    };
+    let toml = spec_toml("f.parquet", "_id", &format!("v = {field}"));
+    let message = refused(toml::from_str::<Spec>(&toml));
     assert!(message.contains(fragment), "got: {message}");
 }
 
-#[test]
-fn id_column() {
-    let target = target(r#"title = { type = "text" }"#);
-    let record = vec![
-        ("_id".to_string(), Value::i64(42)),
-        ("title".to_string(), Value::string("Dune")),
-    ];
-    let doc = build_document(&target, record).expect("document");
-    assert_eq!(doc.fields["_id"], Value::string("42"));
-    assert_eq!(doc.fields["title"], Value::string("Dune"));
+#[rstest]
+#[case::id_is_stringified(r#"title = { type = "text" }"#, vec![("_id", Value::i64(42)), ("title", Value::string("Dune"))], json!({"_id": "42", "title": "Dune"}))]
+#[case::a_field_reads_another_column(r#"vec = { from = "embedding", type = "f32_vector", dim = 2 }"#, vec![("_id", Value::string("1")), ("embedding", Value::list(vec![1.0_f32, 2.0]))], json!({"_id": "1", "vec": [1.0, 2.0]}))]
+#[case::undeclared_columns_are_dropped(r#"title = { type = "text" }"#, vec![("_id", Value::string("1")), ("title", Value::string("Dune")), ("extra", Value::i64(7))], json!({"_id": "1", "title": "Dune"}))]
+fn documents(
+    #[case] fields: &str,
+    #[case] record: Vec<(&str, Value)>,
+    #[case] expected: serde_json::Value,
+) {
+    let record = record
+        .into_iter()
+        .map(|(key, value)| (key.to_string(), value))
+        .collect();
+    let doc = build_document(&target(fields), record).expect("document");
+    assert_eq!(serde_json::Value::Object(json(&doc)), expected);
 }
 
 #[test]
@@ -454,38 +325,10 @@ fn custom_id_column() {
 }
 
 #[test]
-fn field_from() {
-    let target = target(r#"vec = { from = "embedding", type = "f32_vector", dim = 2 }"#);
-    let record = vec![
-        ("_id".to_string(), Value::string("1")),
-        ("embedding".to_string(), Value::list(vec![1.0_f32, 2.0])),
-    ];
-    let doc = build_document(&target, record).expect("document");
-    assert_eq!(doc.fields["vec"], Value::list(vec![1.0_f32, 2.0]));
-    assert!(!doc.fields.contains_key("embedding"));
-}
-
-#[test]
-fn undeclared_columns_are_dropped() {
-    let target = target(r#"title = { type = "text" }"#);
-    let record = vec![
-        ("_id".to_string(), Value::string("1")),
-        ("title".to_string(), Value::string("Dune")),
-        ("extra".to_string(), Value::i64(7)),
-    ];
-    let doc = build_document(&target, record).expect("document");
-    assert_eq!(doc.fields["title"], Value::string("Dune"));
-    assert!(!doc.fields.contains_key("extra"));
-}
-
-#[test]
 fn required_field_missing() {
     let target = target(r#"title = { type = "text", required = true }"#);
     let record = vec![("_id".to_string(), Value::string("1"))];
-    let message = match build_document(&target, record) {
-        Err(error) => error.to_string(),
-        Ok(doc) => panic!("expected a refusal, got {doc:?}"),
-    };
+    let message = refused(build_document(&target, record));
     assert!(
         message.contains("required field is missing"),
         "got: {message}"
@@ -499,10 +342,7 @@ fn oversized_document() {
         ("_id".to_string(), Value::string("1")),
         ("body".to_string(), Value::string("x".repeat(200 * 1024))),
     ];
-    let message = match build_document(&oversized, record) {
-        Err(error) => error.to_string(),
-        Ok(doc) => panic!("expected a refusal, got {doc:?}"),
-    };
+    let message = refused(build_document(&oversized, record));
     assert!(
         message.contains("exceeds the 200.0 KB document limit"),
         "got: {message}"
@@ -524,9 +364,6 @@ fn oversized_document() {
 #[case::absent(vec![("title".to_string(), Value::string("Dune")), ("author".to_string(), Value::string("Herbert"))], "which has: title, author")]
 fn unusable_ids(#[case] record: Vec<(String, Value)>, #[case] fragment: &str) {
     let target = target(r#"title = { type = "text" }"#);
-    let message = match build_document(&target, record) {
-        Err(error) => error.to_string(),
-        Ok(doc) => panic!("expected a refusal, got {doc:?}"),
-    };
+    let message = refused(build_document(&target, record));
     assert!(message.contains(fragment), "got: {message}");
 }

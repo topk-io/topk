@@ -35,9 +35,8 @@ pub struct Field {
     pub index: Option<Index>,
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, strum::Display)]
-#[serde(rename_all = "snake_case")]
-#[strum(serialize_all = "snake_case")]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(try_from = "String", into = "String")]
 pub enum Type {
     #[default]
     Text,
@@ -50,46 +49,33 @@ pub enum Type {
     TextList,
     IntList,
     FloatList,
-    F32Vector,
-    F16Vector,
-    F8Vector,
-    U8Vector,
-    I8Vector,
-    BinaryVector,
-    F32Matrix,
-    F16Matrix,
-    F8Matrix,
-    U8Matrix,
-    I8Matrix,
-    F32SparseVector,
-    F16SparseVector,
-    F8SparseVector,
-    U8SparseVector,
-    I8SparseVector,
+    Vector(Element),
+    Matrix(Element),
+    Sparse(Element),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, strum::Display, strum::EnumString)]
+#[strum(serialize_all = "snake_case")]
+pub enum Element {
+    F32,
+    F16,
+    F8,
+    U8,
+    I8,
+    Binary,
 }
 
 impl Type {
     pub fn is_dense(self) -> bool {
-        matches!(
-            self,
-            Type::F32Vector
-                | Type::F16Vector
-                | Type::F8Vector
-                | Type::U8Vector
-                | Type::I8Vector
-                | Type::BinaryVector
-        )
+        matches!(self, Type::Vector(_))
     }
 
     pub fn is_sparse(self) -> bool {
-        matches!(
-            self,
-            Type::F32SparseVector
-                | Type::F16SparseVector
-                | Type::F8SparseVector
-                | Type::U8SparseVector
-                | Type::I8SparseVector
-        )
+        matches!(self, Type::Sparse(_))
+    }
+
+    pub fn is_matrix(self) -> bool {
+        matches!(self, Type::Matrix(_))
     }
 
     pub fn is_scalar(self) -> bool {
@@ -99,37 +85,80 @@ impl Type {
         )
     }
 
-    pub fn is_matrix(self) -> bool {
-        matches!(
-            self,
-            Type::F32Matrix | Type::F16Matrix | Type::F8Matrix | Type::U8Matrix | Type::I8Matrix
-        )
-    }
-
     /// Element type of a vector, matrix or sparse vector; `FloatList` is f32.
     pub fn element(self) -> Option<Element> {
-        Some(match self {
-            Type::F32Vector | Type::F32Matrix | Type::F32SparseVector | Type::FloatList => {
-                Element::F32
-            }
-            Type::F16Vector | Type::F16Matrix | Type::F16SparseVector => Element::F16,
-            Type::F8Vector | Type::F8Matrix | Type::F8SparseVector => Element::F8,
-            Type::U8Vector | Type::BinaryVector | Type::U8Matrix | Type::U8SparseVector => {
-                Element::U8
-            }
-            Type::I8Vector | Type::I8Matrix | Type::I8SparseVector => Element::I8,
-            _ => return None,
+        match self {
+            Type::Vector(element) | Type::Matrix(element) | Type::Sparse(element) => Some(element),
+            Type::FloatList => Some(Element::F32),
+            _ => None,
+        }
+    }
+}
+
+impl std::fmt::Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Type::Text => f.write_str("text"),
+            Type::Int => f.write_str("int"),
+            Type::Float => f.write_str("float"),
+            Type::Bool => f.write_str("bool"),
+            Type::Bytes => f.write_str("bytes"),
+            Type::Timestamp => f.write_str("timestamp"),
+            Type::Struct => f.write_str("struct"),
+            Type::TextList => f.write_str("text_list"),
+            Type::IntList => f.write_str("int_list"),
+            Type::FloatList => f.write_str("float_list"),
+            Type::Vector(element) => write!(f, "{element}_vector"),
+            Type::Matrix(element) => write!(f, "{element}_matrix"),
+            Type::Sparse(element) => write!(f, "{element}_sparse_vector"),
+        }
+    }
+}
+
+impl std::str::FromStr for Type {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Error> {
+        let unknown = || Error::InvalidArgument(format!("unknown field type `{s}`"));
+        let shaped = |suffix: &str| s.strip_suffix(suffix).map(str::parse::<Element>);
+        Ok(match s {
+            "text" => Type::Text,
+            "int" => Type::Int,
+            "float" => Type::Float,
+            "bool" => Type::Bool,
+            "bytes" => Type::Bytes,
+            "timestamp" => Type::Timestamp,
+            "struct" => Type::Struct,
+            "text_list" => Type::TextList,
+            "int_list" => Type::IntList,
+            "float_list" => Type::FloatList,
+            // `binary` is a dense-only quantization, not an element width.
+            _ => match (
+                shaped("_sparse_vector"),
+                shaped("_matrix"),
+                shaped("_vector"),
+            ) {
+                (Some(Ok(element)), _, _) if element != Element::Binary => Type::Sparse(element),
+                (_, Some(Ok(element)), _) if element != Element::Binary => Type::Matrix(element),
+                (_, _, Some(Ok(element))) => Type::Vector(element),
+                _ => return Err(unknown()),
+            },
         })
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Element {
-    F32,
-    F16,
-    F8,
-    U8,
-    I8,
+impl TryFrom<String> for Type {
+    type Error = Error;
+
+    fn try_from(s: String) -> Result<Self, Error> {
+        s.parse()
+    }
+}
+
+impl From<Type> for String {
+    fn from(ty: Type) -> Self {
+        ty.to_string()
+    }
 }
 
 #[derive(Clone, Copy, Deserialize, PartialEq, Serialize)]
@@ -168,6 +197,18 @@ pub enum Quant {
     Binary2bit,
     #[serde(rename = "scalar")]
     Scalar,
+}
+
+impl From<Element> for MatrixValueType {
+    fn from(element: Element) -> Self {
+        match element {
+            Element::F32 => MatrixValueType::F32,
+            Element::F16 => MatrixValueType::F16,
+            Element::F8 => MatrixValueType::F8,
+            Element::U8 | Element::Binary => MatrixValueType::U8,
+            Element::I8 => MatrixValueType::I8,
+        }
+    }
 }
 
 impl From<Metric> for VectorDistanceMetric {
@@ -289,32 +330,27 @@ impl TryFrom<&Field> for FieldSpec {
             Type::TextList => FieldSpec::list(field.required, ListValueType::String),
             Type::IntList => FieldSpec::list(field.required, ListValueType::Integer),
             Type::FloatList => FieldSpec::list(field.required, ListValueType::Float),
-            Type::F32Vector => FieldSpec::f32_vector(field.dim.unwrap(), field.required),
-            Type::F16Vector => FieldSpec::f16_vector(field.dim.unwrap(), field.required),
-            Type::F8Vector => FieldSpec::f8_vector(field.dim.unwrap(), field.required),
-            Type::U8Vector => FieldSpec::u8_vector(field.dim.unwrap(), field.required),
-            Type::I8Vector => FieldSpec::i8_vector(field.dim.unwrap(), field.required),
-            Type::BinaryVector => FieldSpec::binary_vector(field.dim.unwrap(), field.required),
-            Type::F32Matrix => {
-                FieldSpec::matrix(field.required, field.cols.unwrap(), MatrixValueType::F32)
+            Type::Vector(element) => {
+                let dim = field.dim.unwrap();
+                match element {
+                    Element::F32 => FieldSpec::f32_vector(dim, field.required),
+                    Element::F16 => FieldSpec::f16_vector(dim, field.required),
+                    Element::F8 => FieldSpec::f8_vector(dim, field.required),
+                    Element::U8 => FieldSpec::u8_vector(dim, field.required),
+                    Element::I8 => FieldSpec::i8_vector(dim, field.required),
+                    Element::Binary => FieldSpec::binary_vector(dim, field.required),
+                }
             }
-            Type::F16Matrix => {
-                FieldSpec::matrix(field.required, field.cols.unwrap(), MatrixValueType::F16)
+            Type::Matrix(element) => {
+                FieldSpec::matrix(field.required, field.cols.unwrap(), element.into())
             }
-            Type::F8Matrix => {
-                FieldSpec::matrix(field.required, field.cols.unwrap(), MatrixValueType::F8)
-            }
-            Type::U8Matrix => {
-                FieldSpec::matrix(field.required, field.cols.unwrap(), MatrixValueType::U8)
-            }
-            Type::I8Matrix => {
-                FieldSpec::matrix(field.required, field.cols.unwrap(), MatrixValueType::I8)
-            }
-            Type::F32SparseVector => FieldSpec::f32_sparse_vector(field.required),
-            Type::F16SparseVector => FieldSpec::f16_sparse_vector(field.required),
-            Type::F8SparseVector => FieldSpec::f8_sparse_vector(field.required),
-            Type::U8SparseVector => FieldSpec::u8_sparse_vector(field.required),
-            Type::I8SparseVector => FieldSpec::i8_sparse_vector(field.required),
+            Type::Sparse(element) => match element {
+                Element::F32 => FieldSpec::f32_sparse_vector(field.required),
+                Element::F16 => FieldSpec::f16_sparse_vector(field.required),
+                Element::F8 => FieldSpec::f8_sparse_vector(field.required),
+                Element::U8 => FieldSpec::u8_sparse_vector(field.required),
+                Element::I8 | Element::Binary => FieldSpec::i8_sparse_vector(field.required),
+            },
         };
         Ok(match field.index {
             Some(index) => spec.with_index(FieldIndex::from(index)),
@@ -357,27 +393,29 @@ impl From<&FieldSpec> for Field {
                 ListValueType::Float => Type::FloatList,
                 _ => Type::TextList,
             }),
-            field_type::DataType::F32Vector(v) => vector(Type::F32Vector, v.dimension),
-            field_type::DataType::F16Vector(v) => vector(Type::F16Vector, v.dimension),
-            field_type::DataType::F8Vector(v) => vector(Type::F8Vector, v.dimension),
-            field_type::DataType::U8Vector(v) => vector(Type::U8Vector, v.dimension),
-            field_type::DataType::I8Vector(v) => vector(Type::I8Vector, v.dimension),
-            field_type::DataType::BinaryVector(v) => vector(Type::BinaryVector, v.dimension),
-            field_type::DataType::F32SparseVector(_) => plain(Type::F32SparseVector),
-            field_type::DataType::F16SparseVector(_) => plain(Type::F16SparseVector),
-            field_type::DataType::F8SparseVector(_) => plain(Type::F8SparseVector),
-            field_type::DataType::U8SparseVector(_) => plain(Type::U8SparseVector),
-            field_type::DataType::I8SparseVector(_) => plain(Type::I8SparseVector),
+            field_type::DataType::F32Vector(v) => vector(Type::Vector(Element::F32), v.dimension),
+            field_type::DataType::F16Vector(v) => vector(Type::Vector(Element::F16), v.dimension),
+            field_type::DataType::F8Vector(v) => vector(Type::Vector(Element::F8), v.dimension),
+            field_type::DataType::U8Vector(v) => vector(Type::Vector(Element::U8), v.dimension),
+            field_type::DataType::I8Vector(v) => vector(Type::Vector(Element::I8), v.dimension),
+            field_type::DataType::BinaryVector(v) => {
+                vector(Type::Vector(Element::Binary), v.dimension)
+            }
+            field_type::DataType::F32SparseVector(_) => plain(Type::Sparse(Element::F32)),
+            field_type::DataType::F16SparseVector(_) => plain(Type::Sparse(Element::F16)),
+            field_type::DataType::F8SparseVector(_) => plain(Type::Sparse(Element::F8)),
+            field_type::DataType::U8SparseVector(_) => plain(Type::Sparse(Element::U8)),
+            field_type::DataType::I8SparseVector(_) => plain(Type::Sparse(Element::I8)),
             field_type::DataType::Matrix(m) => Field {
                 index,
                 required,
-                ty: match m.value_type() {
-                    MatrixValueType::F16 => Type::F16Matrix,
-                    MatrixValueType::F8 => Type::F8Matrix,
-                    MatrixValueType::U8 => Type::U8Matrix,
-                    MatrixValueType::I8 => Type::I8Matrix,
-                    _ => Type::F32Matrix,
-                },
+                ty: Type::Matrix(match m.value_type() {
+                    MatrixValueType::F16 => Element::F16,
+                    MatrixValueType::F8 => Element::F8,
+                    MatrixValueType::U8 => Element::U8,
+                    MatrixValueType::I8 => Element::I8,
+                    _ => Element::F32,
+                }),
                 cols: Some(m.dimension),
                 ..Default::default()
             },

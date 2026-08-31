@@ -7,7 +7,7 @@ use url::Url;
 use crate::import::error::Error;
 use crate::import::source::codec::bson;
 use crate::import::source::Record;
-use crate::import::spec::{Field, Target, Type};
+use crate::import::spec::{Element, Field, Target, Type};
 use crate::import::ID;
 
 use super::{Chunk, ChunkStream, Table};
@@ -66,7 +66,7 @@ impl Mongo {
                 .map(|(name, (ty, len))| {
                     let field = match len {
                         Some(dim) if dim > 0 && matches!(ty, Type::FloatList) => Field {
-                            ty: Type::F32Vector,
+                            ty: Type::Vector(Element::F32),
                             dim: Some(dim),
                             ..Default::default()
                         },

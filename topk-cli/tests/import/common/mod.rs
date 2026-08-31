@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 pub mod seed;
 
 use std::cell::RefCell;
@@ -159,6 +157,42 @@ pub fn fields<const N: usize>(entries: [(&str, Field); N]) -> IndexMap<String, F
         .into_iter()
         .map(|(name, field)| (name.to_string(), field))
         .collect()
+}
+
+/// A one-collection spec as TOML; `fields` is the body of `[c.fields]`.
+pub fn spec_toml(from: &str, id: &str, fields: &str) -> String {
+    format!("[c]\nfrom = {from:?}\nid = {id:?}\n\n[c.fields]\n{fields}\n")
+}
+
+/// A target through the real spec parser, so a test cannot build one the TOML
+/// layer would reject.
+#[track_caller]
+pub fn target(from: &str, id: &str, fields: &str) -> Target {
+    let mut spec = toml::from_str::<Spec>(&spec_toml(from, id, fields)).expect("spec parses");
+    spec.collections.shift_remove("c").expect("target c")
+}
+
+/// Declared fields alone, for a target whose `from`/`id` come from a seeded object.
+#[track_caller]
+pub fn fields_toml(fields: &str) -> IndexMap<String, Field> {
+    target("f.parquet", "_id", fields).fields
+}
+
+#[track_caller]
+pub fn refused<T, E: std::fmt::Display>(result: Result<T, E>) -> String {
+    match result {
+        Err(e) => e.to_string(),
+        Ok(_) => panic!("expected a refusal"),
+    }
+}
+
+/// Books in a fresh object on `backend`, with the url to reach it.
+pub async fn seeded_books(backend: &dyn seed::Seed) -> (Target, Option<String>) {
+    let object = backend
+        .seed(&unique_name("books"), books())
+        .await
+        .expect("seed books");
+    (object, backend.url())
 }
 
 pub fn discover(source: &str, stream: Option<&str>) -> String {

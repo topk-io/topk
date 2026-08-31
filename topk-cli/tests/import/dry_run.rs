@@ -1,7 +1,8 @@
+use crate::common::seed::pg;
 use crate::common::*;
 use serde_json::json;
 use test_context::test_context;
-use topk::import::{Field, Spec, Target, Type};
+use topk::import::{Spec, Target};
 
 #[test_context(Scratch)]
 #[tokio::test]
@@ -65,21 +66,14 @@ async fn preview_is_capped(ctx: &mut Scratch) {
 #[test_context(Scratch)]
 #[tokio::test]
 async fn decimal_list(ctx: &mut Scratch) {
-    let target = Target {
-        from: ctx.sql_parquet(
+    let target = target(
+        &ctx.sql_parquet(
             "decimals",
             "SELECT 1 AS id, [1.50, 2.25, 3.00]::DECIMAL(10,2)[] AS prices",
         ),
-        id: Some("id".to_string()),
-        fields: fields([(
-            "prices",
-            Field {
-                ty: Type::FloatList,
-                ..Default::default()
-            },
-        )]),
-        ..Default::default()
-    };
+        "id",
+        r#"prices = { type = "float_list" }"#,
+    );
     let docs = stream_docs(&target).await.unwrap();
     assert_eq!(docs["1"], json!({"_id": "1", "prices": [1.5, 2.25, 3.0]}));
 }
@@ -87,30 +81,15 @@ async fn decimal_list(ctx: &mut Scratch) {
 #[test_context(Scratch)]
 #[tokio::test]
 async fn bytes_as_text(ctx: &mut Scratch) {
-    let target = Target {
-        from: ctx.sql_parquet(
+    let target = target(
+        &ctx.sql_parquet(
             "bytes",
             "SELECT 1 AS id, 'hello'::BLOB AS a, '42'::BLOB AS b",
         ),
-        id: Some("id".to_string()),
-        fields: fields([
-            (
-                "a",
-                Field {
-                    ty: Type::Text,
-                    ..Default::default()
-                },
-            ),
-            (
-                "b",
-                Field {
-                    ty: Type::Text,
-                    ..Default::default()
-                },
-            ),
-        ]),
-        ..Default::default()
-    };
+        "id",
+        r#"a = { type = "text" }
+           b = { type = "text" }"#,
+    );
     let docs = stream_docs(&target).await.unwrap();
     assert_eq!(docs["1"], json!({"_id": "1", "a": "hello", "b": "42"}));
 }
@@ -138,18 +117,11 @@ async fn id_placeholder(ctx: &mut Scratch) {
     std::fs::write(&file, "a,b\nx,y\n").unwrap();
     let spec = ctx.target_spec(
         "c",
-        Target {
-            from: file.display().to_string(),
-            id: Some("<column>".to_string()),
-            fields: fields([(
-                "a",
-                Field {
-                    ty: Type::Text,
-                    ..Default::default()
-                },
-            )]),
-            ..Default::default()
-        },
+        target(
+            &file.display().to_string(),
+            "<column>",
+            r#"a = { type = "text" }"#,
+        ),
     );
     // A dry run renders the template, placeholder included, so it can be
     // captured and filled in; only a real import insists on a resolved id.
@@ -184,4 +156,65 @@ async fn bad_filter_names_the_filter(ctx: &mut Scratch) {
 async fn missing_spec_names_the_path(_ctx: &mut Scratch) {
     let err = fails(&["import", "-f", "/nope/spec.toml"], &[]);
     assert!(err.contains("/nope/spec.toml"), "got: {err}");
+}
+
+/// `--filter` is a CLI flag copied onto every discovered target, so the printed
+/// spec carries it and the preview reads through it.
+#[test_context(Scratch)]
+#[tokio::test]
+async fn a_cli_filter_reaches_the_target(ctx: &mut Scratch) {
+    let object = ctx.seed_parquet("books", books()).await;
+    let out = run(
+        &[
+            "import",
+            &object.from,
+            "--to",
+            "c",
+            "--filter",
+            "published_year > 1950",
+            "--dry-run",
+        ],
+        &[],
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(out.status.success(), "got:\n{stderr}");
+    assert!(
+        stdout.contains(r#"filter = "published_year > 1950""#),
+        "the printed spec must carry the flag:\n{stdout}"
+    );
+    let previewed: Vec<String> = stderr
+        .lines()
+        .filter(|l| l.trim_start().starts_with('{'))
+        .map(|l| {
+            serde_json::from_str::<serde_json::Value>(l).expect("dry-run json")["_id"]
+                .as_str()
+                .expect("string id")
+                .to_string()
+        })
+        .collect();
+    assert_eq!(previewed, ["mockingbird"]);
+}
+
+#[tokio::test]
+async fn a_cli_filter_needs_a_single_object() {
+    let base = unique_name("filt");
+    let columns = "(id INTEGER PRIMARY KEY, title TEXT)";
+    let _tables = pg::Pg::temp(&[
+        (format!("public.{base}_a"), columns),
+        (format!("public.{base}_b"), columns),
+    ]);
+
+    let err = fails(
+        &[
+            "import",
+            pg::Pg::URL,
+            &format!("{base}*"),
+            "--filter",
+            "id > 1",
+            "--dry-run",
+        ],
+        &[],
+    );
+    assert!(err.contains("applies to a single object"), "got: {err}");
 }

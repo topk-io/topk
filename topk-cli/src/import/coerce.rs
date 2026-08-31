@@ -94,7 +94,7 @@ impl Field {
                     Element::F32 => typed_value::<f32>(shape, &nums, ty)?,
                     Element::F16 => typed_value::<half::f16>(shape, &nums, ty)?,
                     Element::F8 => typed_value::<float8::F8E4M3>(shape, &nums, ty)?,
-                    Element::U8 => typed_value::<u8>(shape, &nums, ty)?,
+                    Element::U8 | Element::Binary => typed_value::<u8>(shape, &nums, ty)?,
                     Element::I8 => typed_value::<i8>(shape, &nums, ty)?,
                 }
             }
@@ -119,19 +119,19 @@ where
 
 impl Numeric for f32 {
     fn from_f64(n: f64) -> Option<f32> {
-        Some(n as f32)
+        Some(n as f32).filter(|v| v.is_finite())
     }
 }
 
 impl Numeric for half::f16 {
     fn from_f64(n: f64) -> Option<half::f16> {
-        Some(half::f16::from_f32(n as f32))
+        Some(half::f16::from_f64(n)).filter(|v| v.is_finite())
     }
 }
 
 impl Numeric for float8::F8E4M3 {
     fn from_f64(n: f64) -> Option<float8::F8E4M3> {
-        Some(float8::F8E4M3::from_f32(n as f32))
+        Some(float8::F8E4M3::from_f64(n)).filter(|v| v.is_finite())
     }
 }
 
@@ -219,7 +219,10 @@ fn packed_floats(bytes: &[u8], dim: usize, ty: Type) -> Result<Vec<f64>, Error> 
     }
     let width = bytes.len() / dim;
     // Byte vectors read one byte per element; a wider cell would be lossy.
-    if matches!(ty, Type::U8Vector | Type::I8Vector | Type::BinaryVector) {
+    if matches!(
+        ty,
+        Type::Vector(Element::U8 | Element::I8 | Element::Binary)
+    ) {
         if width != 1 {
             return Err(Error::InvalidArgument(format!(
                 "{} bytes over dim={dim} is {width} bytes per element, but {ty} reads 1",
@@ -227,7 +230,7 @@ fn packed_floats(bytes: &[u8], dim: usize, ty: Type) -> Result<Vec<f64>, Error> 
             )));
         }
         return Ok(match ty {
-            Type::I8Vector => bytes.iter().map(|&b| b as i8 as f64).collect(),
+            Type::Vector(Element::I8) => bytes.iter().map(|&b| b as i8 as f64).collect(),
             _ => bytes.iter().map(|&b| f64::from(b)).collect(),
         });
     }

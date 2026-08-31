@@ -1,12 +1,10 @@
-use duckdb::arrow::array::{self, Array, ArrayRef};
-use duckdb::arrow::datatypes::{
-    ArrowPrimitiveType, DataType, Float64Type, Int64Type, TimeUnit, UInt64Type,
-};
+use duckdb::arrow::array::{self, Array, ArrayRef, AsArray};
+use duckdb::arrow::datatypes::{DataType, Float64Type, Int64Type, TimeUnit, UInt64Type};
 use topk_rs::proto::v1::data::Value;
 
+use crate::import::decode::floats;
 use crate::import::error::Error;
 use crate::import::spec::Type;
-use crate::import::decode::floats;
 
 pub fn ty(input: &DataType) -> Type {
     match input {
@@ -167,11 +165,21 @@ fn list(elements: &ArrayRef) -> Result<Value, Error> {
             return matrix(elements)
         }
         // A u64 past i64::MAX has no wider integer to read as.
-        DataType::UInt64 => Value::list(numbers::<UInt64Type>(elements, &DataType::UInt64)?),
+        DataType::UInt64 => Value::list(cast(elements, &DataType::UInt64)?.as_primitive::<UInt64Type>().values().to_vec()),
         // `ty` picks the family; the elements are then read as its widest member.
         _ => match ty(dtype) {
-            Type::Int => Value::list(numbers::<Int64Type>(elements, &DataType::Int64)?),
-            Type::Float => Value::list(numbers::<Float64Type>(elements, &DataType::Float64)?),
+            Type::Int => Value::list(
+                cast(elements, &DataType::Int64)?
+                    .as_primitive::<Int64Type>()
+                    .values()
+                    .to_vec(),
+            ),
+            Type::Float => Value::list(
+                cast(elements, &DataType::Float64)?
+                    .as_primitive::<Float64Type>()
+                    .values()
+                    .to_vec(),
+            ),
             Type::Text
                 if matches!(
                     dtype,
@@ -181,7 +189,13 @@ fn list(elements: &ArrayRef) -> Result<Value, Error> {
                         | DataType::Decimal256(_, _)
                 ) =>
             {
-                Value::list(strings(elements)?)
+                Value::list(
+                    cast(elements, &DataType::Utf8)?
+                        .as_string::<i32>()
+                        .iter()
+                        .map(|value| value.unwrap_or_default().to_string())
+                        .collect::<Vec<String>>(),
+                )
             }
             _ => {
                 return Err(Error::InvalidArgument(format!(
@@ -193,44 +207,19 @@ fn list(elements: &ArrayRef) -> Result<Value, Error> {
     })
 }
 
-fn numbers<T: ArrowPrimitiveType>(
-    elements: &ArrayRef,
-    to: &DataType,
-) -> Result<Vec<T::Native>, Error> {
-    let cast = recast(elements, to)?;
-    let values = cast
-        .as_any()
-        .downcast_ref::<array::PrimitiveArray<T>>()
-        .expect("cast yields the requested type");
-    // Out of range is a null in a safe cast, and the elements held none.
-    if values.null_count() > 0 {
-        return Err(Error::InvalidArgument(format!(
-            "a list of {} holds values that do not fit {to}",
-            elements.data_type()
-        )));
+/// The elements as `to`, which they are read as directly. Out of range is a
+/// null in a safe cast, and a list holds no nulls by the time it gets here.
+fn cast(elements: &ArrayRef, to: &DataType) -> Result<ArrayRef, Error> {
+    let from = elements.data_type();
+    let cast = duckdb::arrow::compute::cast(elements, to).map_err(|e| {
+        Error::InvalidArgument(format!("cannot read a list of {from} as {to}: {e}"))
+    })?;
+    match cast.null_count() {
+        0 => Ok(cast),
+        _ => Err(Error::InvalidArgument(format!(
+            "a list of {from} holds values that do not fit {to}"
+        ))),
     }
-    Ok(values.values().to_vec())
-}
-
-fn strings(elements: &ArrayRef) -> Result<Vec<String>, Error> {
-    let cast = recast(elements, &DataType::Utf8)?;
-    let values = cast
-        .as_any()
-        .downcast_ref::<array::StringArray>()
-        .expect("cast yields the requested type");
-    Ok(values
-        .iter()
-        .map(|value| value.unwrap_or_default().to_string())
-        .collect())
-}
-
-fn recast(elements: &ArrayRef, to: &DataType) -> Result<ArrayRef, Error> {
-    duckdb::arrow::compute::cast(elements, to).map_err(|e| {
-        Error::InvalidArgument(format!(
-            "cannot read a list of {} as {to}: {e}",
-            elements.data_type()
-        ))
-    })
 }
 
 fn matrix(rows: &ArrayRef) -> Result<Value, Error> {
