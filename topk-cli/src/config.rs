@@ -1,42 +1,58 @@
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
-use anyhow::Result;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use tempfile::NamedTempFile;
-use topk_rs::Error;
+use anyhow::{anyhow, Context, Result};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Config {
     pub api_key: Option<String>,
 }
 
-/// Returns the path to the config file
+pub fn dir() -> Option<PathBuf> {
+    dirs::config_dir().map(|d| d.join("topk"))
+}
+
 pub fn config_path() -> Option<PathBuf> {
-    dirs::config_dir().map(|d| d.join("topk").join("config.toml"))
+    dir().map(|d| d.join("config.toml"))
 }
 
-/// Loads the config file. Returns an empty config on any read or parse error.
-pub fn load() -> Config {
-    load_toml_or_default(config_path(), |_, _| {})
+pub fn load() -> Result<Config> {
+    let path = match config_path() {
+        Some(path) => path,
+        None => return Ok(Config::default()),
+    };
+    match std::fs::read_to_string(&path) {
+        Ok(text) => {
+            toml::from_str(&text).map_err(|e| anyhow!("cannot parse {}: {e}", path.display()))
+        }
+        Err(e) if e.kind() == ErrorKind::NotFound => Ok(Config::default()),
+        Err(e) => Err(anyhow!("cannot read {}: {e}", path.display())),
+    }
 }
 
-/// Saves the config file, creating parent directories as needed.
-pub fn save(config: &Config) -> Result<(), Error> {
-    save_toml_with(config_path(), config, write_config_file)
+pub fn set_api_key(api_key: String) -> Result<()> {
+    save(&Config {
+        api_key: Some(api_key),
+    })
 }
 
-pub fn set_api_key(api_key: String) -> Result<(), Error> {
-    let mut config = load();
-    config.api_key = Some(api_key);
-    save(&config)
-}
-
-pub fn clear() -> Result<(), Error> {
+pub fn clear() -> Result<()> {
     save(&Config::default())
 }
 
+fn save(config: &Config) -> Result<()> {
+    let path = config_path().context("could not determine config directory")?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| anyhow!("cannot create {}: {e}", parent.display()))?;
+    }
+    let content = toml::to_string_pretty(config)?;
+    write_config_file(&path, &content).map_err(|e| anyhow!("cannot write {}: {e}", path.display()))
+}
+
 #[cfg(unix)]
-fn write_config_file(path: &std::path::Path, content: &str) -> Result<(), Error> {
+fn write_config_file(path: &Path, content: &str) -> Result<()> {
     use std::fs::{OpenOptions, Permissions};
     use std::io::Write;
     use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
@@ -53,65 +69,9 @@ fn write_config_file(path: &std::path::Path, content: &str) -> Result<(), Error>
 }
 
 #[cfg(not(unix))]
-fn write_config_file(path: &std::path::Path, content: &str) -> Result<(), Error> {
-    std::fs::write(path, content).map_err(Error::IoError)?;
+fn write_config_file(path: &Path, content: &str) -> Result<()> {
+    std::fs::write(path, content)?;
     Ok(())
-}
-
-pub fn load_toml_or_default<T>(
-    path: Option<PathBuf>,
-    on_parse_error: impl FnOnce(&Path, &toml::de::Error),
-) -> T
-where
-    T: DeserializeOwned + Default,
-{
-    let path = match path {
-        Some(p) => p,
-        None => return T::default(),
-    };
-    let content = match std::fs::read_to_string(&path) {
-        Ok(c) => c,
-        Err(_) => return T::default(),
-    };
-    match toml::from_str(&content) {
-        Ok(value) => value,
-        Err(err) => {
-            on_parse_error(&path, &err);
-            T::default()
-        }
-    }
-}
-
-pub fn save_toml<T: Serialize>(path: Option<PathBuf>, value: &T) -> Result<(), Error> {
-    save_toml_with(path, value, |path, content| {
-        use std::io::Write;
-
-        let parent = path
-            .parent()
-            .ok_or_else(|| Error::Input(anyhow::anyhow!("could not determine parent directory")))?;
-        let mut tmp = NamedTempFile::new_in(parent).map_err(Error::IoError)?;
-        tmp.write_all(content.as_bytes()).map_err(Error::IoError)?;
-        tmp.flush().map_err(Error::IoError)?;
-        tmp.as_file().sync_all().map_err(Error::IoError)?;
-        tmp.persist(path).map_err(|e| Error::IoError(e.error))?;
-        Ok(())
-    })
-}
-
-pub fn save_toml_with<T: Serialize>(
-    path: Option<PathBuf>,
-    value: &T,
-    writer: impl FnOnce(&Path, &str) -> Result<(), Error>,
-) -> Result<(), Error> {
-    let path =
-        path.ok_or_else(|| Error::Input(anyhow::anyhow!("could not determine config directory")))?;
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    writer(
-        &path,
-        &toml::to_string_pretty(value).map_err(|e| Error::MalformedResponse(e.to_string()))?,
-    )
 }
 
 #[cfg(test)]

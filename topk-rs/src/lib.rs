@@ -34,12 +34,11 @@ pub mod data {
         Value::list(values)
     }
 
-    pub fn f32_sparse_vector(indices: Vec<u32>, values: Vec<f32>) -> SparseVector {
-        SparseVector::f32(indices, values)
-    }
-
-    pub fn u8_sparse_vector(indices: Vec<u32>, values: Vec<u8>) -> SparseVector {
-        SparseVector::u8(indices, values)
+    pub fn sparse_vector<T: crate::proto::v1::data::IntoSparseValues>(
+        indices: Vec<u32>,
+        values: T,
+    ) -> SparseVector {
+        SparseVector::new(indices, values)
     }
 }
 

@@ -18,11 +18,14 @@ path = "src/main.rs"
 [dependencies]
 topk-rs = { path = "../topk-rs", features = ["json"] }
 clap = { version = "4", features = ["derive", "env"] }
+libc = { version = "0.2" }
 clap_complete = { version = "4" }
 tokio = { version = "1", features = ["full"] }
 anyhow = { version = "1" }
 serde_json = { version = "1" }
 indicatif = { version = "0.17" }
+tracing = { version = "0.1" }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 serde = { version = "1", features = ["derive"] }
 dirs = "5"
 open = "5"

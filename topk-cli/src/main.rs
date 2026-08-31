@@ -1,52 +1,47 @@
 use std::process::ExitCode;
 
-use anyhow::Result;
-use clap::{CommandFactory, Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::{generate, Shell};
+use colored::Colorize;
 
 use topk::commands::login;
 use topk::config;
-use topk::output::{Output, OutputFormat};
-use topk_rs::Error;
+use topk::endpoint::Endpoint;
 
 #[derive(Parser)]
-#[command(name = "topk", version)]
+#[command(name = "topk", version, after_help = agent_mode().then(|| include_str!("../README.md")))]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
 
-    /// TopK API key (overrides TOPK_API_KEY environment variable)
-    #[arg(
-        long,
-        env = "TOPK_API_KEY",
-        global = true,
-        hide_env_values = true,
-        hide = true
-    )]
-    api_key: Option<String>,
+    /// Log what the run is doing to stderr (RUST_LOG overrides)
+    #[arg(short, long, global = true, help_heading = "Global options")]
+    verbose: bool,
 
-    /// Host (overrides TOPK_HOST environment variable, default: topk.io)
-    #[arg(
-        long,
-        env = "TOPK_HOST",
-        default_value = "topk.io",
-        global = true,
-        hide = true
-    )]
-    host: String,
+    /// Agent-oriented output: --help includes the full manual
+    /// (auto-detected for AI assistants)
+    #[arg(long, global = true, help_heading = "Global options")]
+    agent: bool,
 
-    #[arg(
-        long,
-        env = "TOPK_HTTPS",
-        default_value = "true",
-        global = true,
-        hide = true
-    )]
-    https: bool,
+    #[command(flatten)]
+    endpoint: Endpoint,
 
     /// Output format
-    #[arg(short = 'o', long, default_value = "text", global = true)]
-    output: OutputFormat,
+    #[arg(
+        short = 'o',
+        long,
+        default_value = "text",
+        global = true,
+        help_heading = "Global options"
+    )]
+    output: Output,
+}
+
+/// `json` puts results on stdout as JSON; stderr chatter is the same either way.
+#[derive(Clone, Copy, PartialEq, ValueEnum)]
+enum Output {
+    Text,
+    Json,
 }
 
 #[derive(Subcommand)]
@@ -62,33 +57,41 @@ enum Commands {
     Completions { shell: Shell },
 }
 
+/// For an agent `--help` is all it will ever know about the tool.
+fn agent_mode() -> bool {
+    ["CLAUDECODE", "AGENT"]
+        .iter()
+        .any(|v| std::env::var_os(v).is_some_and(|s| !s.is_empty()))
+        || std::env::args().any(|a| a == "--agent")
+}
+
 #[tokio::main]
 async fn main() -> ExitCode {
+    // Rust ignores SIGPIPE, so `topk … | head` panics on the closed pipe.
+    unsafe { libc::signal(libc::SIGPIPE, libc::SIG_DFL) };
     let cli = Cli::parse();
-
-    let output = Output::new(cli.output);
-
-    match run(cli, &output).await {
+    init_logging(cli.verbose);
+    match run(&cli).await {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            output.error(&e);
+            eprintln!("{} {e}", "error:".red().bold());
             ExitCode::FAILURE
         }
     }
 }
 
-async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
-    match cli.command {
+async fn run(cli: &Cli) -> anyhow::Result<()> {
+    match &cli.command {
         Some(Commands::Login) => {
-            let api_key = match cli.api_key {
+            let api_key = match cli.endpoint.api_key()? {
                 Some(key) => Some(key),
-                None => login::run(&cli.host, cli.https)?,
+                None => login::run(&cli.endpoint)?,
             };
 
             match api_key {
                 Some(api_key) => {
                     config::set_api_key(api_key)?;
-                    output.success("API key saved.");
+                    eprintln!("{} API key saved.", "✓".green());
                 }
                 None => {
                     println!("Skipping authentication.");
@@ -100,12 +103,12 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
 
         Some(Commands::Logout) => {
             config::clear()?;
-            output.success("Logged out.");
+            eprintln!("{} Logged out.", "✓".green());
             Ok(())
         }
 
         Some(Commands::Completions { shell }) => {
-            generate(shell, &mut Cli::command(), "topk", &mut std::io::stdout());
+            generate(*shell, &mut Cli::command(), "topk", &mut std::io::stdout());
             Ok(())
         }
 
@@ -114,4 +117,17 @@ async fn run(cli: Cli, output: &Output) -> Result<(), Error> {
             Ok(())
         }
     }
+}
+
+/// Off unless `-v` or `RUST_LOG` (which wins); stdout carries results.
+fn init_logging(verbose: bool) {
+    let filter =
+        tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| match verbose {
+            true => tracing_subscriber::EnvFilter::new("info"),
+            false => tracing_subscriber::EnvFilter::new("off"),
+        });
+    tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_writer(std::io::stderr)
+        .init();
 }

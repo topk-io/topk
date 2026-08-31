@@ -84,8 +84,15 @@ jobs:
         run: |
           sudo bash -c "curl -L https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -o /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly"
 
+      # exports ACTIONS_CACHE_URL / ACTIONS_RESULTS_URL / ACTIONS_RUNTIME_TOKEN
+      # so sccache inside earthly can use the Actions cache
+      - uses: crazy-max/ghaction-github-runtime@3cb05d89e1f492524af3d41a1c98c83bc3025124 # v3.1.0
       - name: CLI tests
-        run: earthly --verbose --secret TOPK_API_KEY +test-cli --region sunflower --host=topk.dev
+        run: >-
+          earthly --verbose --secret TOPK_API_KEY +test-cli
+          --region sunflower --host=topk.dev
+          --ACTIONS_RESULTS_URL="$ACTIONS_RESULTS_URL"
+          --ACTIONS_RUNTIME_TOKEN="$ACTIONS_RUNTIME_TOKEN"
         env:
           TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
 

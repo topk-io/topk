@@ -74,7 +74,7 @@ pub enum Error {
     #[error("slow down: {0}")]
     SlowDown(String),
 
-    #[error("transport error: {0}")]
+    #[error("transport error: {}", sources(.0))]
     TransportError(#[from] tonic::transport::Error),
 
     #[error("malformed response: {0}")]
@@ -82,6 +82,23 @@ pub enum Error {
 
     #[error("invalid proto")]
     InvalidProto,
+}
+
+/// tonic's Display is the bare "transport error"; the cause (connection refused,
+/// bad certificate) is down the source chain.
+fn sources(e: &dyn std::error::Error) -> String {
+    let mut chain: Vec<String> = Vec::new();
+    for cause in std::iter::successors(e.source(), |e| e.source()) {
+        let cause = cause.to_string();
+        // hyper repeats a layer's text in its wrapper; say it once.
+        if !chain.last().is_some_and(|prev| prev.contains(&cause)) {
+            chain.push(cause);
+        }
+    }
+    match chain.is_empty() {
+        true => e.to_string(),
+        false => chain.join(": "),
+    }
 }
 
 impl Error {

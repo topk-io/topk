@@ -263,7 +263,7 @@ async fn test_query_multi_vector_with_smve(ctx: &mut ProjectTestContext) {
                         Matrix::new(7, Q1.to_vec()),
                         None,
                     )
-                    .with_smve("smve", SparseVector::f32(vec![0, 1, 2], vec![1f32; 3])),
+                    .with_smve("smve", SparseVector::new(vec![0, 1, 2], vec![1f32; 3])),
                 )])
                 .sort("dist")
                 .limit(3),
@@ -297,7 +297,7 @@ async fn test_query_multi_vector_with_invalid_smve(ctx: &mut ProjectTestContext)
                     )
                     .with_smve(
                         "sparse_vec",
-                        SparseVector::f32(vec![0, 1, 2], vec![1f32; 3]),
+                        SparseVector::new(vec![0, 1, 2], vec![1f32; 3]),
                     ),
                 )])
                 .sort("dist")
@@ -322,7 +322,7 @@ async fn test_query_multi_vector_with_invalid_smve(ctx: &mut ProjectTestContext)
                         Matrix::new(7, Q1.to_vec()),
                         None,
                     )
-                    .with_smve("smve", SparseVector::u8(vec![0, 1, 2], vec![1u8; 3])),
+                    .with_smve("smve", SparseVector::new(vec![0, 1, 2], vec![1u8; 3])),
                 )])
                 .sort("dist")
                 .limit(3),

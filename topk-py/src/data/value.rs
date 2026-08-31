@@ -475,10 +475,10 @@ impl From<Value> for topk_rs::proto::v1::data::Value {
             Value::Bytes(b) => topk_rs::proto::v1::data::Value::binary(b),
             Value::SparseVector(v) => match v {
                 SparseVector::F32 { indices, values } => {
-                    topk_rs::proto::v1::data::Value::f32_sparse_vector(indices, values)
+                    topk_rs::proto::v1::data::Value::sparse_vector(indices, values)
                 }
                 SparseVector::U8 { indices, values } => {
-                    topk_rs::proto::v1::data::Value::u8_sparse_vector(indices, values)
+                    topk_rs::proto::v1::data::Value::sparse_vector(indices, values)
                 }
             },
             Value::List(l) => match l.values {

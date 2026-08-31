@@ -1,10 +1,9 @@
 use bytemuck::allocation::cast_vec;
 use chrono::{DateTime, TimeZone};
 
-use crate::proto::data::v1::{list, matrix};
+use crate::proto::data::v1::{list, matrix, sparse_vector as sparse};
 
 mod document;
-mod sparse_vector;
 mod value;
 
 // Timestamp
@@ -179,6 +178,42 @@ impl IntoMatrixValues for Vec<i8> {
         matrix::Values::I8(matrix::I8 {
             values: cast_vec(self),
         })
+    }
+}
+
+// Sparse vector values
+
+pub trait IntoSparseValues {
+    fn into_sparse_values(self) -> sparse::Values;
+}
+
+impl IntoSparseValues for Vec<f32> {
+    fn into_sparse_values(self) -> sparse::Values {
+        sparse::Values::F32(sparse::F32Values { values: self })
+    }
+}
+
+impl IntoSparseValues for Vec<half::f16> {
+    fn into_sparse_values(self) -> sparse::Values {
+        sparse::Values::F16(self.into())
+    }
+}
+
+impl IntoSparseValues for Vec<float8::F8E4M3> {
+    fn into_sparse_values(self) -> sparse::Values {
+        sparse::Values::F8(self.into())
+    }
+}
+
+impl IntoSparseValues for Vec<u8> {
+    fn into_sparse_values(self) -> sparse::Values {
+        sparse::Values::U8(sparse::U8Values { values: self })
+    }
+}
+
+impl IntoSparseValues for Vec<i8> {
+    fn into_sparse_values(self) -> sparse::Values {
+        sparse::Values::I8(self.into())
     }
 }
 
