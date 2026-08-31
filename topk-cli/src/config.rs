@@ -1,7 +1,7 @@
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -24,10 +24,10 @@ pub fn load() -> Result<Config> {
     };
     match std::fs::read_to_string(&path) {
         Ok(text) => {
-            toml::from_str(&text).with_context(|| format!("cannot parse {}", path.display()))
+            toml::from_str(&text).map_err(|e| anyhow!("cannot parse {}: {e}", path.display()))
         }
         Err(e) if e.kind() == ErrorKind::NotFound => Ok(Config::default()),
-        Err(e) => Err(e).with_context(|| format!("cannot read {}", path.display())),
+        Err(e) => Err(anyhow!("cannot read {}: {e}", path.display())),
     }
 }
 
@@ -44,10 +44,11 @@ pub fn clear() -> Result<()> {
 fn save(config: &Config) -> Result<()> {
     let path = config_path().context("could not determine config directory")?;
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
+        std::fs::create_dir_all(parent)
+            .map_err(|e| anyhow!("cannot create {}: {e}", parent.display()))?;
     }
     let content = toml::to_string_pretty(config)?;
-    write_config_file(&path, &content)
+    write_config_file(&path, &content).map_err(|e| anyhow!("cannot write {}: {e}", path.display()))
 }
 
 #[cfg(unix)]

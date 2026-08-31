@@ -67,12 +67,14 @@ fn agent_mode() -> bool {
 
 #[tokio::main]
 async fn main() -> ExitCode {
+    // Rust ignores SIGPIPE, so `topk … | head` panics on the closed pipe.
+    unsafe { libc::signal(libc::SIGPIPE, libc::SIG_DFL) };
     let cli = Cli::parse();
     init_logging(cli.verbose);
     match run(&cli).await {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            eprintln!("{} {e:#}", "error:".red().bold());
+            eprintln!("{} {e}", "error:".red().bold());
             ExitCode::FAILURE
         }
     }

@@ -1734,6 +1734,7 @@ dependencies = [
  "dialoguer",
  "dirs",
  "indicatif",
+ "libc",
  "open",
  "serde",
  "serde_json",
