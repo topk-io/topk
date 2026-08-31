@@ -162,19 +162,7 @@ embedding = { type = "f32_vector", dim = 768, index = { vector = { metric = "cos
 | `dim` / `cols` | vector dimension / matrix row width |
 | `index` | `"keyword"` `"exact"` `"semantic"` `"ngram"` `{ vector = { metric = "cosine" \| "euclidean" \| "dot_product" \| "hamming" } }` `{ multi_vector = {} }` |
 
-#### Declaring types
-
-Discovery takes the source's types. Declare a different one to convert:
-
-| source column | discovers as | declare |
-| --- | --- | --- |
-| float array (sql `FLOAT[]`, json list) | `float_list` | `f32_vector`, `dim` |
-| pgvector `vector(n)` | `text` | `f32_vector`, `dim` |
-| packed embedding blob | `bytes` | `f32_vector` etc., `dim` |
-| flat list of `rows * cols` floats (colbert) | `float_list` | `f32_matrix`, `cols` |
-| epoch millis/seconds, RFC 3339 or `YYYY-MM-DD` text | `int` / `text` | `timestamp` |
-
-Conversions are exact or the document fails; a narrower declaration (`truncate` included) is how loss is accepted.
+Discovery takes the source's types; declaring a different `type` converts. Embeddings that arrive as float lists, text (`"[1,2,3]"`) or packed bytes become vectors by declaring `f32_vector` and `dim` (`f32_matrix` and `cols` for multi-vectors); epoch numbers or date text become `timestamp`. Conversions are exact or the document fails; a narrower declaration (`truncate` included) is how loss is accepted.
 
 #### Failures and limits
 
