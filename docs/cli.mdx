@@ -73,6 +73,7 @@ topk import postgres://user:pw@host/db 'public.*'
 topk import mysql://root@host/shop orders
 topk import mongodb://host/shop products
 topk import es+https://user:pw@es.example.com 'products*'
+topk import postgres://host/db orders --filter "created_at > '2024-01-01'"
 ```
 
 Objects are exact names, globs, or `<object>=<collection>` renames.
@@ -85,7 +86,7 @@ topk import 's3://bucket/books/*.parquet' --to books          # a glob needs --t
 topk import gs://bucket/books.csv                             # az:// hf:// http(s):// too
 ```
 
-A single file names its collection. S3 resolves your AWS profile via the aws CLI. `xlsx` reads the first sheet.
+A single file names its collection.
 
 #### Copy a TopK collection
 
@@ -94,7 +95,7 @@ topk import topk://aws-us-east-1-elastica/books --to books-v2                   
 topk import topk://aws-us-east-1-elastica/books --region aws-eu-central-1-monstera   # copy us → eu
 ```
 
-Schema and indexes copy as-is. `--filter` is not supported; the copy is additive.
+Schema and indexes copy as-is; the copy is additive.
 
 #### Preview and edit the plan
 
@@ -109,20 +110,13 @@ topk import "$DB_URL" -f spec.toml --yes                      # run
 
 #### Resume a stopped run
 
+Stop a run — `^C`, a lost connection — and pick it up where it left off:
+
 ```bash
 topk import postgres://host/db --resume 01J9...               # run id printed at start
 ```
 
 Resume skips finished collections and continues the in-flight one from a checkpoint. Without `--resume`, a re-run re-imports everything — upserts are idempotent.
-
-#### Filter, limit, partition
-
-```bash
-topk import postgres://host/db orders --filter "created_at > '2024-01-01'"
-topk import ./books.parquet --limit 1000 --partition acme
-```
-
-`--filter` applies to one object — use `filter` per collection in a spec for several; `--limit` and `--partition` apply to every object.
 
 #### Sources
 
@@ -135,8 +129,6 @@ topk import ./books.parquet --limit 1000 --partition acme
 | elasticsearch | `es://` `es+https://`, `*.cloud.es.io` | query DSL | in-URL, `ELASTIC_API_KEY` / `ELASTIC_PASSWORD` |
 | mongodb | `mongodb://` | find document | in-URL, `MONGODB_URI` |
 | topk | `topk://[<key>@]<region>/<collection>` | — | URL key, else the run's key |
-
-Any http(s) URL that is not Elasticsearch is treated as a file, named by its extension; query strings are stripped, so presigned URLs work.
 
 #### Spec
 
@@ -166,7 +158,7 @@ Discovery takes the source's types; declaring a different `type` converts. Embed
 
 #### Failures and limits
 
-A document fails when a value does not convert exactly, its id is missing or empty, or it is over 200 KB. A failure stops the run (`--resume` continues); `--continue-on-error` skips instead, reports the ids, and exits non-zero.
+A document fails when a value does not convert exactly, its id is missing or empty, or it is over 200 KB. A failure stops the run, ready to `--resume`; `--continue-on-error` skips them instead.
 
 - there is no schema migration: an existing collection whose schema differs is rejected
 - an upsert replaces the whole document, so a spec that omits an existing field clears it
