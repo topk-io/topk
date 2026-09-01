@@ -81,7 +81,7 @@ Objects are exact names, globs, or `<object>=<collection>` renames.
 #### Import files
 
 ```bash
-topk import ./books.parquet                                   # .csv .tsv .json(l) .arrow .avro .xlsx
+topk import ./books.parquet                                   # .csv .tsv .json(l) .arrow .avro
 topk import 's3://bucket/books/*.parquet' --to books          # a glob needs --to
 topk import gs://bucket/books.csv                             # az:// hf:// http(s):// too
 ```

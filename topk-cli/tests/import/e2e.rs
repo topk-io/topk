@@ -515,6 +515,30 @@ async fn missing_required_field_fails_before_creating(ctx: &mut Ctx) {
 
 #[test_context(Ctx)]
 #[tokio::test]
+async fn glob_unions_columns_across_files(ctx: &mut Ctx) {
+    let dir = ctx.scratch().join("shards");
+    std::fs::create_dir_all(&dir).unwrap();
+    // The column only in the second file must survive, not be dropped to the
+    // first file's schema.
+    std::fs::write(dir.join("a.csv"), "id,a\n1,x\n").unwrap();
+    std::fs::write(dir.join("b.csv"), "id,a,extra\n2,z,PAYLOAD\n").unwrap();
+    let collection = ctx.collection("glob-union");
+    let glob = format!("{}/*.csv", dir.display());
+
+    ok(
+        &["import", &glob, "--to", &collection, "--id", "id", "--yes"],
+        &[],
+    );
+    let got = ctx.get(&collection, &["2"]).await;
+    assert!(
+        got["2"].contains_key("extra"),
+        "second file's column was dropped: {:?}",
+        got["2"].keys().collect::<Vec<_>>()
+    );
+}
+
+#[test_context(Ctx)]
+#[tokio::test]
 async fn preflight(ctx: &mut Ctx) {
     let first = ctx.seed_parquet("first", books()).await;
     let second = ctx.seed_parquet("second", books()).await;

@@ -54,6 +54,21 @@ async fn float_lists_stay_lists(ctx: &mut Scratch) {
     );
 }
 
+#[test_context(Scratch)]
+#[tokio::test]
+async fn date_and_timestamp_columns_are_timestamps(ctx: &mut Scratch) {
+    let path = ctx.sql_parquet(
+        "when",
+        "SELECT i AS id, DATE '2024-01-15' AS d, TIMESTAMP '2024-06-30 12:00:00' AS ts \
+         FROM range(2) t(i)",
+    );
+
+    let spec = discover_spec(&path, None).await;
+    let fields = &spec.collections["when"].fields;
+    assert_eq!(fields["d"].ty.to_string(), "timestamp");
+    assert_eq!(fields["ts"].ty.to_string(), "timestamp");
+}
+
 /// Field names may not start with `_`, but sources use that for their own
 /// bookkeeping columns — so a discovered spec renames them and runs as written.
 #[test_context(Scratch)]

@@ -44,7 +44,6 @@ fn parse_error(toml: &str) -> String {
 #[case::relative_file("./books.parquet", "store: None")]
 #[case::absolute_glob("/data/part_*.csv", "store: None")]
 #[case::avro("books.avro", "Avro")]
-#[case::xlsx("sheet.xlsx", "Xlsx")]
 #[case::surrounding_space("  postgres://localhost/db  ", "Postgres")]
 fn uris(#[case] input: &str, #[case] expected: &str) {
     let uri: Uri = input.parse().expect("uri parses");

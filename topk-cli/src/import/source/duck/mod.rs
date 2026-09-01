@@ -118,7 +118,6 @@ impl Duckdb {
                 })?;
                 match file.format {
                     Format::Avro => install("avro")?,
-                    Format::Xlsx => install("excel")?,
                     // Community extension: a duckdb bump can 404 it.
                     Format::Arrow => conn
                         .execute_batch("INSTALL arrow FROM community; LOAD arrow;")

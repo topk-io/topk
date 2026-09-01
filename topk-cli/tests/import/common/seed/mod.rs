@@ -6,7 +6,6 @@ pub mod parquet;
 pub mod pg;
 pub mod sql;
 pub mod sqlite;
-pub mod xlsx;
 
 use async_trait::async_trait;
 use topk::import::Target;

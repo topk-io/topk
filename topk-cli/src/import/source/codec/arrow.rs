@@ -36,6 +36,9 @@ pub fn ty(input: &DataType) -> Type {
             }
         }
         DataType::Struct(_) => Type::Struct,
+        // value() renders these to RFC 3339 / a bare date, which the Timestamp
+        // coercion reads back to epoch millis.
+        DataType::Timestamp(_, _) | DataType::Date32 | DataType::Date64 => Type::Timestamp,
         _ => Type::Text,
     }
 }

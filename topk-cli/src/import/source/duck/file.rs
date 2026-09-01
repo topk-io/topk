@@ -22,7 +22,6 @@ pub enum Format {
     Parquet,
     Arrow,
     Avro,
-    Xlsx,
 }
 
 /// A file or glob, local or in a bucket, typed by its extension.
@@ -57,7 +56,6 @@ impl FromStr for File {
             Some("parquet") => Format::Parquet,
             Some("arrow") => Format::Arrow,
             Some("avro") => Format::Avro,
-            Some("xlsx") => Format::Xlsx,
             other => {
                 let hint = match store {
                     Some(ObjectStore::Http) => {
@@ -80,7 +78,7 @@ impl FromStr for File {
                 };
                 return Err(Error::InvalidArgument(format!(
                     "cannot tell the file type of {s:?}: expected a csv, tsv, json, jsonl, \
-                     ndjson, parquet, arrow, avro or xlsx extension{hint}"
+                     ndjson, parquet, arrow or avro extension{hint}"
                 )));
             }
         };
@@ -134,13 +132,14 @@ pub(super) fn stem(path: &str) -> Option<String> {
 }
 
 pub(super) fn reader(file: &File) -> String {
-    let reader = match file.format {
-        Format::Csv => "read_csv_auto",
-        Format::Json => "read_json_auto",
-        Format::Parquet => "read_parquet",
-        Format::Arrow => "read_arrow",
-        Format::Avro => "read_avro",
-        Format::Xlsx => "read_xlsx",
+    // Take the union of every file a glob matches, so a column present in only
+    // some files is kept, not dropped to the first file's schema.
+    let (reader, opts) = match file.format {
+        Format::Csv => ("read_csv_auto", ", union_by_name=true"),
+        Format::Json => ("read_json_auto", ", union_by_name=true"),
+        Format::Parquet => ("read_parquet", ", union_by_name=true"),
+        Format::Arrow => ("read_arrow", ""),
+        Format::Avro => ("read_avro", ""),
     };
-    format!("{reader}('{}')", lit(&file.path))
+    format!("{reader}('{}'{opts})", lit(&file.path))
 }

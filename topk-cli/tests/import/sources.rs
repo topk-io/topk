@@ -1,4 +1,4 @@
-use crate::common::seed::{self as seed, es, mongo, mysql, parquet, pg, sqlite, xlsx, Seed};
+use crate::common::seed::{self as seed, es, mongo, mysql, parquet, pg, sqlite, Seed};
 use crate::common::*;
 use indexmap::IndexMap;
 use rstest::rstest;
@@ -21,7 +21,6 @@ fn book_fields() -> IndexMap<String, Field> {
 #[case::mongo(Box::new(mongo::Mongo::client()))]
 #[case::elasticsearch(Box::new(es::Es::client()))]
 #[case::parquet(Box::new(parquet::File::new().unwrap()))]
-#[case::xlsx(Box::new(xlsx::File::new().unwrap()))]
 async fn roundtrip(ctx: &mut Ctx, #[case] backend: Box<dyn Seed>) {
     let name = unique_name("books");
     let object = backend.seed(&name, books()).await.unwrap();
