@@ -8,27 +8,39 @@ use crate::import::source::Table;
 use crate::import::spec::{collection_key, Field, Spec, Target};
 use crate::import::ID_PLACEHOLDER;
 
-/// Every target reads the columns `SELECT *` yields, so a declared id that the
-/// catalog does not list would sink the whole run one row in — after the
-/// collection is created. Caught here, before any cluster write, for a spec
-/// however it was assembled: discovered, `-f`, or resumed.
-pub fn validate_ids(catalog: &[Table], spec: &Spec) -> Result<(), Error> {
+/// Every column a target reads — its id, and each field's source — must be one
+/// the catalog lists, or the run sinks one row in (after the collection exists),
+/// and a non-required field imports silent nulls. Caught here before any cluster
+/// write, for a spec however it was assembled: discovered, `-f`, or resumed. The
+/// caller skips this for a non-exhaustive catalog (a sampled source), where an
+/// absent column is not proof the source lacks it.
+pub fn validate_columns(catalog: &[Table], spec: &Spec) -> Result<(), Error> {
     for (name, target) in spec.collections.iter() {
-        let id = match target.id.as_deref() {
-            // A placeholder is "not detected", tolerated so --dry-run can show it.
-            Some(id) if id != ID_PLACEHOLDER => id,
-            _ => continue,
-        };
         let Some(table) = catalog.iter().find(|table| table.from == target.from) else {
             continue;
         };
-        if !table.columns.iter().any(|(column, _)| column == id) {
+        let has = |column: &str| table.columns.iter().any(|(c, _)| c == column);
+        let absent = |what: String| {
             let available: Vec<&str> = table.columns.iter().map(|(c, _)| c.as_str()).collect();
-            return Err(Error::InvalidArgument(format!(
-                "{name}: id column {id:?} is not in {:?} — available: {}",
+            Error::InvalidArgument(format!(
+                "{name}: {what} is not in {:?} — available: {}",
                 target.from,
                 available.join(", ")
-            )));
+            ))
+        };
+        // A placeholder id is "not detected", tolerated so --dry-run can show it.
+        if let Some(id) = target.id.as_deref() {
+            if id != ID_PLACEHOLDER && !has(id) {
+                return Err(absent(format!("id column {id:?}")));
+            }
+        }
+        for (field, spec) in target.fields.iter() {
+            let column = spec.from.as_deref().unwrap_or(field);
+            if !has(column) {
+                return Err(absent(format!(
+                    "field {field:?} reads column {column:?}, which"
+                )));
+            }
         }
     }
     Ok(())

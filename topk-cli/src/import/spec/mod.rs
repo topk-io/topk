@@ -8,7 +8,7 @@ use crate::import::error::Error;
 mod discover;
 mod field;
 mod render;
-pub use discover::{discover, validate_ids};
+pub use discover::{discover, validate_columns};
 pub use field::{Element, Field, Index, Type};
 pub use render::{inline, render};
 

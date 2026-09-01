@@ -35,5 +35,5 @@ pub use error::Error;
 pub use preview::preview;
 pub use sink::{build_document, document_stream, LoadOutcome, Sink};
 pub use source::{File, Scan, Source, Table, Uri};
-pub use spec::{discover, render, validate_ids, Element, Field, Index, Spec, Target, Type};
+pub use spec::{discover, render, validate_columns, Element, Field, Index, Spec, Target, Type};
 pub use state::{Cursor, State};

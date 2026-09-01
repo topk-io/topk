@@ -461,6 +461,60 @@ async fn reimport_is_idempotent(ctx: &mut Ctx) {
 
 #[test_context(Ctx)]
 #[tokio::test]
+async fn unknown_field_column_fails_before_creating(ctx: &mut Ctx) {
+    let file = ctx.scratch().join("books.csv");
+    std::fs::write(&file, "id,title\n1,dune\n").unwrap();
+    let collection = ctx.collection("ghost-field");
+    let spec = ctx.target_spec(
+        &collection,
+        target(
+            &file.display().to_string(),
+            "id",
+            "title = { type = \"text\" }\n\
+             ghost = { type = \"text\", from = \"nonexistent_col\" }",
+        ),
+    );
+
+    // Without validation this "succeeds", writing a silent null for `ghost`.
+    let err = fails(&["import", "-f", &spec, "--yes"], &[]);
+    assert!(
+        err.contains(r#"reads column "nonexistent_col""#) && err.contains("available: id, title"),
+        "got:\n{err}"
+    );
+    assert!(
+        ctx.client().collections().get(&collection).await.is_err(),
+        "a bad field column must fail before creating {collection:?}"
+    );
+}
+
+#[test_context(Ctx)]
+#[tokio::test]
+async fn missing_required_field_fails_before_creating(ctx: &mut Ctx) {
+    let file = ctx.scratch().join("books.csv");
+    std::fs::write(&file, "id,title\n1,dune\n").unwrap();
+    let collection = ctx.collection("missing-required");
+    let spec = ctx.target_spec(
+        &collection,
+        target(
+            &file.display().to_string(),
+            "id",
+            "absent = { type = \"text\", required = true }",
+        ),
+    );
+
+    let err = fails(&["import", "-f", &spec, "--yes"], &[]);
+    assert!(
+        err.contains(r#"field "absent""#) && err.contains("available: id, title"),
+        "got:\n{err}"
+    );
+    assert!(
+        ctx.client().collections().get(&collection).await.is_err(),
+        "a missing required field must fail before creating {collection:?}"
+    );
+}
+
+#[test_context(Ctx)]
+#[tokio::test]
 async fn preflight(ctx: &mut Ctx) {
     let first = ctx.seed_parquet("first", books()).await;
     let second = ctx.seed_parquet("second", books()).await;

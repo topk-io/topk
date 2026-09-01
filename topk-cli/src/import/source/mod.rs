@@ -68,6 +68,14 @@ impl Source {
         }
     }
 
+    /// Whether the catalog lists every column a scan can yield. True for schema
+    /// sources (files/SQL via `SELECT *`, ES mappings, topk); false for mongodb,
+    /// whose catalog is a document sample — a rare field may not appear in it, so
+    /// a spec column absent from the catalog is not proof the source lacks it.
+    pub fn columns_are_exhaustive(&self) -> bool {
+        !matches!(self, Source::Mongo(_))
+    }
+
     pub fn scan(&self, name: &str, target: &Target, after: Option<&str>) -> Result<Scan, Error> {
         let filter = target.filter.as_deref();
         let read = match self {

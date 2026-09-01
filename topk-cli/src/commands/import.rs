@@ -104,11 +104,15 @@ pub struct ImportArgs {
     pub batch_bytes: bytesize::ByteSize,
 }
 
-async fn plan(source: &Source, args: &ImportArgs, given: Option<Spec>) -> Result<Spec, Error> {
-    // A `-f` spec whose collections are their own file locators has no shared
-    // source to catalog; every other path (discover, or `-f` re-run against a
-    // named source) does, and validates ids against it before any cluster write.
-    let (mut spec, catalog): (Spec, Option<Vec<import::Table>>) = match given {
+async fn plan(
+    source: &Source,
+    endpoint: &Endpoint,
+    args: &ImportArgs,
+    given: Option<Spec>,
+) -> Result<Spec, Error> {
+    // Discovery reads the CLI source's catalog; a spec brings its own collections
+    // but reuses that catalog when a source was named.
+    let (mut spec, shared) = match given {
         None => {
             let catalog = source.catalog().await?;
             let spec = import::discover(
@@ -119,14 +123,22 @@ async fn plan(source: &Source, args: &ImportArgs, given: Option<Spec>) -> Result
             )?;
             (spec, Some(catalog))
         }
-        Some(spec) => match args.source.is_some() {
-            true => (spec, Some(source.catalog().await?)),
-            false => (spec, None),
-        },
+        Some(spec) if args.source.is_some() => {
+            let catalog = source.catalog().await?;
+            (spec, Some(catalog))
+        }
+        Some(spec) => (spec, None),
     };
-    if let Some(catalog) = &catalog {
-        import::validate_ids(catalog, &spec)?;
-    }
+    // Validate every column a target reads against the source that will scan it,
+    // before any cluster write. A named source shares one catalog; a bare `-f`
+    // spec has each collection read its own `from`. A sampled source (mongodb)
+    // contributes nothing, since an absent column is not proof it lacks one.
+    let catalog = match shared {
+        Some(catalog) if source.columns_are_exhaustive() => catalog,
+        Some(_) => Vec::new(),
+        None => file_catalogs(&spec, endpoint).await?,
+    };
+    import::validate_columns(&catalog, &spec)?;
     // A filter names one object's columns.
     if args.filter.is_some() && spec.collections.len() > 1 {
         return Err(Error::InvalidArgument(format!(
@@ -147,6 +159,20 @@ async fn plan(source: &Source, args: &ImportArgs, given: Option<Spec>) -> Result
         }
     }
     Ok(spec)
+}
+
+/// Columns for a bare `-f` spec, where each collection's `from` is its own file
+/// locator. A `from` reached through a sampled source contributes nothing.
+async fn file_catalogs(spec: &Spec, endpoint: &Endpoint) -> Result<Vec<import::Table>, Error> {
+    let mut tables = Vec::new();
+    for target in spec.collections.values() {
+        let uri: Uri = target.from.parse()?;
+        let source = Source::connect(&uri, endpoint).await?;
+        if source.columns_are_exhaustive() {
+            tables.extend(source.catalog().await?);
+        }
+    }
+    Ok(tables)
 }
 
 fn confirm(collections: usize, region: &str) -> Result<bool, Error> {
@@ -254,7 +280,7 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
         (None, None) => None,
     };
     let source = Source::connect(&uri, endpoint).await?;
-    let mut spec = plan(&source, args, given).await?;
+    let mut spec = plan(&source, endpoint, args, given).await?;
 
     let source_name = uri.to_string();
     // Stored for --resume, and compared per collection against an edited -f.
