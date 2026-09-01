@@ -1,9 +1,10 @@
 use std::collections::VecDeque;
 use std::mem;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use futures::{stream, Stream, StreamExt};
-use indicatif::ProgressBar;
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use prost::Message;
 use tokio::sync::Semaphore;
 use tokio::task::JoinHandle;
@@ -22,6 +23,8 @@ pub struct LoadOutcome {
     pub rows: usize,
     /// Rows skipped by --continue-on-error.
     pub failed: usize,
+    #[serde(skip)]
+    pub elapsed: Duration,
 }
 
 /// The document a target asks for, built from one source row.
@@ -100,10 +103,34 @@ type InflightBatches = VecDeque<(JoinHandle<Result<(), Error>>, Option<String>)>
 /// their upserts share one budget of `-c` in flight across the run.
 pub struct Sink<'a> {
     pub client: &'a Client,
-    pub progress: &'a ProgressBar,
+    pub progress: &'a MultiProgress,
     pub budget: Arc<Semaphore>,
     pub batch_bytes: usize,
     pub continue_on_error: bool,
+}
+
+/// Clears itself on drop, so `?` exits and cancellation can't leave a stale bar.
+struct Spinner(ProgressBar);
+
+impl Spinner {
+    fn add(progress: &MultiProgress, name: &str) -> Spinner {
+        let bar = progress.add(
+            ProgressBar::new_spinner()
+                .with_style(
+                    ProgressStyle::with_template("{spinner:.cyan} {msg}: {pos} rows [{elapsed}]")
+                        .expect("valid spinner template"),
+                )
+                .with_message(name.to_string()),
+        );
+        bar.enable_steady_tick(Duration::from_millis(100));
+        Spinner(bar)
+    }
+}
+
+impl Drop for Spinner {
+    fn drop(&mut self) {
+        self.0.finish_and_clear();
+    }
 }
 
 impl Sink<'_> {
@@ -113,6 +140,8 @@ impl Sink<'_> {
         scan: &Scan,
         checkpoint: impl FnMut(&str),
     ) -> Result<LoadOutcome, Error> {
+        let started = Instant::now();
+        let bar = Spinner::add(self.progress, &scan.name);
         let name = &scan.name;
         let target = &scan.target;
         let mut collection = self.client.collection(name);
@@ -136,11 +165,11 @@ impl Sink<'_> {
                 match row.and_then(|record| build_document(target, record)) {
                     Ok(doc) => {
                         outcome.rows += 1;
-                        self.progress.inc(1);
+                        bar.0.inc(1);
                         writer.push(doc).await?;
                     }
                     Err(e) if self.continue_on_error && matches!(e, Error::Doc { .. }) => {
-                        eprintln!("{name}: skipped {e}");
+                        crate::import::note(format!("{name}: skipped {e}"));
                         outcome.failed += 1;
                     }
                     Err(e) => return Err(e),
@@ -149,6 +178,7 @@ impl Sink<'_> {
             writer.set_cursor(chunk.cursor);
         }
         writer.finish().await?;
+        outcome.elapsed = started.elapsed();
         Ok(outcome)
     }
 }

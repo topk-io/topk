@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use std::io::{IsTerminal, Write as _};
+use std::io::{ErrorKind, IsTerminal};
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::{Arc, Mutex};
@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use clap::Args;
 use futures::{StreamExt, TryStreamExt};
-use indicatif::{ProgressBar, ProgressStyle};
+use indicatif::{MultiProgress, ProgressDrawTarget};
 use tokio::sync::Semaphore;
 
 use crate::endpoint::Endpoint;
@@ -143,34 +143,31 @@ async fn plan(source: &Source, args: &ImportArgs, given: Option<Spec>) -> Result
     Ok(spec)
 }
 
-fn confirm(collections: usize) -> Result<bool, Error> {
+fn confirm(collections: usize, region: &str) -> Result<bool, Error> {
     if !std::io::stdin().is_terminal() {
         return Err(Error::InvalidArgument(
             "not a terminal: pass --yes to import without confirmation".to_string(),
         ));
     }
-    eprint!("Import {collections} collection(s)? [y/N] ");
-    std::io::stderr().flush()?;
-    let mut answer = String::new();
-    std::io::stdin().read_line(&mut answer)?;
-    Ok(matches!(answer.trim(), "y" | "Y" | "yes"))
+    let s = if collections == 1 { "" } else { "s" };
+    match dialoguer::Confirm::new()
+        .with_prompt(format!("Import {collections} collection{s} into {region}?"))
+        .default(false)
+        .interact()
+    {
+        Ok(yes) => Ok(yes),
+        Err(dialoguer::Error::IO(e)) if e.kind() == ErrorKind::Interrupted => Ok(false),
+        Err(dialoguer::Error::IO(e)) => Err(e.into()),
+    }
 }
 
-fn spinner(spec: &Spec, json: bool) -> ProgressBar {
-    let progress = match json {
-        false => ProgressBar::new_spinner()
-            .with_style(
-                ProgressStyle::with_template("{spinner:.cyan} {msg}: {pos} rows [{elapsed}]")
-                    .expect("valid spinner template"),
-            )
-            .with_message(match spec.collections.len() {
-                1 => spec.collections.keys().next().cloned().unwrap_or_default(),
-                n => format!("{n} collections"),
-            }),
-        true => ProgressBar::hidden(),
-    };
-    progress.enable_steady_tick(Duration::from_millis(100));
-    progress
+fn human(elapsed: Duration) -> String {
+    let secs = elapsed.as_secs();
+    match (secs / 3600, secs % 3600 / 60, secs % 60) {
+        (0, 0, s) => format!("{s}s"),
+        (0, m, s) => format!("{m}m{s:02}s"),
+        (h, m, s) => format!("{h}h{m:02}m{s:02}s"),
+    }
 }
 
 fn report(outcomes: &BTreeMap<String, LoadOutcome>, json: bool) -> Result<ExitCode, Error> {
@@ -178,9 +175,13 @@ fn report(outcomes: &BTreeMap<String, LoadOutcome>, json: bool) -> Result<ExitCo
         println!("{}", serde_json::to_string(outcomes)?);
     } else {
         for (name, outcome) in outcomes {
+            let took = human(outcome.elapsed);
             match outcome.failed {
-                0 => eprintln!("{name}: {} rows written", outcome.rows),
-                failed => eprintln!("{name}: {} rows written, {failed} failed", outcome.rows),
+                0 => eprintln!("{name}: {} rows written in {took}", outcome.rows),
+                failed => eprintln!(
+                    "{name}: {} rows written, {failed} failed in {took}",
+                    outcome.rows
+                ),
             }
         }
     }
@@ -303,12 +304,18 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
         }
     );
     eprint!("{}", render(&spec, Some(&fresh), &after));
-    if !args.yes && !confirm(spec.collections.len())? {
-        eprintln!("Aborted.");
+    let region = endpoint.region.as_deref().unwrap_or_default();
+    if !args.yes && !confirm(spec.collections.len(), region)? {
         return Ok(ExitCode::SUCCESS);
     }
 
-    let progress = spinner(&spec, json);
+    let progress = match json {
+        false => MultiProgress::new(),
+        true => MultiProgress::with_draw_target(ProgressDrawTarget::hidden()),
+    };
+    if !json {
+        import::set_progress(progress.clone());
+    }
     let sink = Sink {
         client: &client,
         progress: &progress,
@@ -324,9 +331,7 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
         .min(OBJECT_CONCURRENCY)
         .min(source.concurrency_limit())
         .max(1);
-    let outcomes = execute(&sink, &scans, state, readers).await;
-    progress.finish_and_clear();
-    let outcomes = outcomes.inspect_err(|_| {
+    let resume_hint = || {
         eprintln!(
             "nothing else was imported; to continue: topk import {}--resume {run}",
             match args.source.is_none() {
@@ -334,7 +339,16 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
                 false => format!("'{source_name}' "),
             }
         )
-    })?;
+    };
+    let outcomes = tokio::select! {
+        outcomes = execute(&sink, &scans, state, readers) => outcomes,
+        _ = tokio::signal::ctrl_c() => {
+            let _ = progress.clear();
+            resume_hint();
+            return Ok(ExitCode::from(130));
+        }
+    };
+    let outcomes = outcomes.inspect_err(|_| resume_hint())?;
     State::remove(&run);
     Ok(report(&outcomes, json)?)
 }

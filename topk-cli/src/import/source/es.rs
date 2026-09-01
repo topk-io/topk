@@ -162,7 +162,10 @@ impl Es {
                         && (status == 404 || (status == 400 && target.filter.is_none())) =>
                     {
                         close_pit(&client, &pit).await;
-                        eprintln!("# {}: resume cursor expired, restarting from the beginning", target.from);
+                        crate::import::note(format!(
+                            "# {}: resume cursor expired, restarting from the beginning",
+                            target.from
+                        ));
                         match open_pit(&client, &target.from).await {
                             Ok(fresh) => {
                                 pit = fresh;
