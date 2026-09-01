@@ -49,7 +49,7 @@ impl FromNapiValue for LogicalExpression {
         }
 
         // Accept a score function wherever a logical expression is expected,
-        // e.g. `.topk(fn.bm25Score(), 10)`.
+        // e.g. `.sort(fn.bm25Score())`.
         let expr = crate::try_cast_ref!(env, value, FunctionExpression)?;
         Ok(expr.lifted())
     }
