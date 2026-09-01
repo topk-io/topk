@@ -135,6 +135,9 @@ fn fields_share_columns_and_the_id() {
 #[case::sparse_f32_from_struct(r#"{ type = "f32_sparse_vector" }"#, Value::r#struct([("2", Value::f64(0.25))]), Value::sparse_vector(vec![2], vec![0.25]))]
 #[case::sparse_u8_from_ints(r#"{ type = "u8_sparse_vector" }"#, Value::r#struct([("7", Value::i64(3))]), Value::sparse_vector(vec![7], vec![3u8]))]
 #[case::sparse_skips_null_entries(r#"{ type = "f32_sparse_vector" }"#, Value::r#struct([("0", Value::f64(1.0)), ("3", Value::null()), ("7", Value::f64(0.5))]), Value::sparse_vector(vec![0, 7], vec![1.0, 0.5]))]
+#[case::sparse_f32_from_parallel_lists(r#"{ type = "f32_sparse_vector" }"#, Value::r#struct([("indices", Value::list(vec![3_i64, 1])), ("values", Value::list(vec![1.5_f64, 0.5]))]), Value::sparse_vector(vec![1, 3], vec![0.5, 1.5]))]
+#[case::sparse_u8_from_parallel_lists(r#"{ type = "u8_sparse_vector" }"#, Value::r#struct([("indices", Value::list(vec![7_i64])), ("values", Value::list(vec![3_i64]))]), Value::sparse_vector(vec![7], vec![3u8]))]
+#[case::sparse_from_empty_parallel_lists(r#"{ type = "f32_sparse_vector" }"#, Value::r#struct([("indices", Value::list(Vec::<i64>::new())), ("values", Value::list(Vec::<f64>::new()))]), Value::sparse_vector(Vec::<u32>::new(), Vec::<f32>::new()))]
 fn coerces(#[case] field: &str, #[case] input: Value, #[case] expected: Value) {
     assert_eq!(coerced(field, input), expected);
 }
@@ -233,6 +236,16 @@ fn nulls(
     "cannot coerce to f32_sparse_vector"
 )]
 #[case::sparse_from_a_list(r#"{ type = "f32_sparse_vector" }"#, Value::list(vec![1.0_f32]), "cannot coerce to f32_sparse_vector")]
+#[case::sparse_from_ragged_parallel_lists(
+    r#"{ type = "f32_sparse_vector" }"#,
+    Value::r#struct([("indices", Value::list(vec![1_i64, 2])), ("values", Value::list(vec![0.5_f64]))]),
+    "sparse vector has 2 indices and 1 values"
+)]
+#[case::sparse_from_a_negative_index(
+    r#"{ type = "f32_sparse_vector" }"#,
+    Value::r#struct([("indices", Value::list(vec![-1_i64])), ("values", Value::list(vec![0.5_f64]))]),
+    "sparse index -1 does not fit in a u32"
+)]
 #[case::vector_too_short(r#"{ type = "f32_vector", dim = 3 }"#, Value::list(vec![1.0_f32, 2.0]), "vector has 2 values, declared dim=3")]
 #[case::vector_too_long(r#"{ type = "f32_vector", dim = 3 }"#, Value::list(vec![1.0_f32, 2.0, 3.0, 4.0]), "vector has 4 values, declared dim=3")]
 #[case::vector_from_a_json_string(

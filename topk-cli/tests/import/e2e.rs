@@ -31,7 +31,8 @@ async fn all_types(ctx: &mut Ctx) {
          ['p','q']::VARCHAR[] AS ls, [0.1,0.2,0.3]::DOUBLE[] AS vf, \
          [0.1,0.2,0.3]::DOUBLE[] AS vf16src, [0.1,0.2,0.3]::DOUBLE[] AS vf8src, \
          [1,2,3]::INTEGER[] AS vint, [1,2,3]::INTEGER[] AS vint2, \
-         '{\"1\": 0.5, \"3\": 1.5}' AS sv",
+         '{\"1\": 0.5, \"3\": 1.5}' AS sv, \
+         {'indices': [3,1]::UINTEGER[], 'values': [1.5,0.5]::FLOAT[]} AS svlists",
     );
     let collection = ctx.collection("types");
     let toml = format!(
@@ -53,6 +54,7 @@ vf8 = {{ from = \"vf8src\", type = \"f8_vector\", dim = 3 }}
 vu8 = {{ from = \"vint\", type = \"u8_vector\", dim = 3 }}
 vi8 = {{ from = \"vint2\", type = \"i8_vector\", dim = 3 }}
 sv = {{ type = \"f32_sparse_vector\" }}
+svlists = {{ type = \"f32_sparse_vector\" }}
 "
     );
     ok(&["import", "-f", &ctx.spec_file(&toml), "--yes"], &[]);
@@ -70,7 +72,9 @@ sv = {{ type = \"f32_sparse_vector\" }}
     for v in ["vcos", "vf16", "vf8"] {
         assert_eq!(field(d, v).as_array().unwrap().len(), 3, "{v}");
     }
-    assert!(d.contains_key("sv"), "sparse vector must be stored");
+    // A json map and a struct of parallel lists are the same sparse vector.
+    assert_eq!(field(d, "sv"), json!({"1": 0.5, "3": 1.5}));
+    assert_eq!(field(d, "svlists"), json!({"1": 0.5, "3": 1.5}));
 
     let coll = ctx.client().collections().get(&collection).await.unwrap();
     assert!(matches!(
