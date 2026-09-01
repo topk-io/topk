@@ -491,6 +491,35 @@ async fn preflight(ctx: &mut Ctx) {
 
 #[test_context(Ctx)]
 #[tokio::test]
+async fn unknown_id_column_fails_before_creating(ctx: &mut Ctx) {
+    let file = ctx.scratch().join("books.csv");
+    std::fs::write(&file, "id,title\n1,dune\n").unwrap();
+    let collection = ctx.collection("bad-id");
+
+    let err = fails(
+        &[
+            "import",
+            &file.display().to_string(),
+            "--to",
+            &collection,
+            "--id",
+            "nope",
+            "--yes",
+        ],
+        &[],
+    );
+    assert!(
+        err.contains(r#"id column "nope""#) && err.contains("available: id, title"),
+        "got:\n{err}"
+    );
+    assert!(
+        ctx.client().collections().get(&collection).await.is_err(),
+        "a bad --id must fail before creating {collection:?}"
+    );
+}
+
+#[test_context(Ctx)]
+#[tokio::test]
 async fn blank_id(ctx: &mut Ctx) {
     let file = ctx.scratch().join("mixed.csv");
     std::fs::write(&file, "id,name\n1,ok\n,blank-id\n").unwrap();

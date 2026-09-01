@@ -4,18 +4,42 @@ use indexmap::IndexMap;
 use wildmatch::WildMatch;
 
 use crate::import::error::Error;
-use crate::import::source::{Source, Table};
+use crate::import::source::Table;
 use crate::import::spec::{collection_key, Field, Spec, Target};
 use crate::import::ID_PLACEHOLDER;
 
-pub async fn discover(
-    source: &Source,
+/// Every target reads the columns `SELECT *` yields, so a declared id that the
+/// catalog does not list would sink the whole run one row in — after the
+/// collection is created. Caught here, before any cluster write, for a spec
+/// however it was assembled: discovered, `-f`, or resumed.
+pub fn validate_ids(catalog: &[Table], spec: &Spec) -> Result<(), Error> {
+    for (name, target) in spec.collections.iter() {
+        let id = match target.id.as_deref() {
+            // A placeholder is "not detected", tolerated so --dry-run can show it.
+            Some(id) if id != ID_PLACEHOLDER => id,
+            _ => continue,
+        };
+        let Some(table) = catalog.iter().find(|table| table.from == target.from) else {
+            continue;
+        };
+        if !table.columns.iter().any(|(column, _)| column == id) {
+            let available: Vec<&str> = table.columns.iter().map(|(c, _)| c.as_str()).collect();
+            return Err(Error::InvalidArgument(format!(
+                "{name}: id column {id:?} is not in {:?} — available: {}",
+                target.from,
+                available.join(", ")
+            )));
+        }
+    }
+    Ok(())
+}
+
+pub fn discover(
+    available: &[Table],
     patterns: &[String],
     to: Option<&str>,
     id: Option<&str>,
 ) -> Result<Spec, Error> {
-    let available = source.catalog().await?;
-
     let mut renames: Vec<(&str, &str)> = Vec::new();
     let mut globs: Vec<WildMatch> = Vec::new();
     for pattern in patterns {
@@ -32,7 +56,7 @@ pub async fn discover(
 
     // Partitioned, not filtered: what did not match is the sample an empty
     // result reports, without cloning it on every run that succeeds.
-    let (matched, rest): (Vec<Table>, Vec<Table>) = available.into_iter().partition(|object| {
+    let (matched, rest): (Vec<&Table>, Vec<&Table>) = available.iter().partition(|object| {
         renames.iter().any(|(from, _)| *from == object.from)
             || globs.iter().any(|g| {
                 g.matches(&object.from)
@@ -59,7 +83,8 @@ pub async fn discover(
     }
 
     let match_count = matched.len();
-    for mut object in matched {
+    for object in matched {
+        let mut object = object.clone();
         // Via the primary key, so Target::from also drops the column from the fields.
         if let Some(id) = id {
             object.primary_key = Some(id.to_string());
@@ -133,7 +158,7 @@ pub async fn discover(
         }));
     }
 
-    Ok(Spec::try_from(collections)?)
+    Spec::try_from(collections)
 }
 
 impl From<Table> for Target {

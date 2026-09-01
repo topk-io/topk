@@ -105,18 +105,28 @@ pub struct ImportArgs {
 }
 
 async fn plan(source: &Source, args: &ImportArgs, given: Option<Spec>) -> Result<Spec, Error> {
-    let mut spec: Spec = match given {
-        Some(spec) => spec,
+    // A `-f` spec whose collections are their own file locators has no shared
+    // source to catalog; every other path (discover, or `-f` re-run against a
+    // named source) does, and validates ids against it before any cluster write.
+    let (mut spec, catalog): (Spec, Option<Vec<import::Table>>) = match given {
         None => {
-            import::discover(
-                source,
+            let catalog = source.catalog().await?;
+            let spec = import::discover(
+                &catalog,
                 &args.objects,
                 args.to.as_deref(),
                 args.id.as_deref(),
-            )
-            .await?
+            )?;
+            (spec, Some(catalog))
         }
+        Some(spec) => match args.source.is_some() {
+            true => (spec, Some(source.catalog().await?)),
+            false => (spec, None),
+        },
     };
+    if let Some(catalog) = &catalog {
+        import::validate_ids(catalog, &spec)?;
+    }
     // A filter names one object's columns.
     if args.filter.is_some() && spec.collections.len() > 1 {
         return Err(Error::InvalidArgument(format!(

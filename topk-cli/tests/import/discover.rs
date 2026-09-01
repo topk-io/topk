@@ -3,18 +3,27 @@ use crate::common::*;
 use test_context::test_context;
 use topk::import::{Error, Uri};
 
+async fn catalog_of(locator: &str) -> Vec<topk::import::Table> {
+    let uri: Uri = locator.parse().expect("source uri parses");
+    topk::import::Source::connect(&uri, &topk::endpoint::Endpoint::default())
+        .await
+        .expect("connect")
+        .catalog()
+        .await
+        .expect("catalog")
+}
+
 async fn discover_err(locator: &str, pattern: &str) -> String {
     let uri: Uri = locator.parse().expect("source uri parses");
-    match topk::import::discover(
-        &topk::import::Source::connect(&uri, &topk::endpoint::Endpoint::default())
-            .await
-            .expect("connect"),
-        &[pattern.to_string()],
-        None,
-        None,
-    )
-    .await
-    {
+    let result = async {
+        let catalog = topk::import::Source::connect(&uri, &topk::endpoint::Endpoint::default())
+            .await?
+            .catalog()
+            .await?;
+        topk::import::discover(&catalog, &[pattern.to_string()], None, None)
+    }
+    .await;
+    match result {
         Err(Error::InvalidArgument(message)) => message,
         Err(other) => panic!("expected InvalidArgument, got {other:?}"),
         Ok(discovered) => panic!(
@@ -75,11 +84,8 @@ async fn underscore_rename_yields_to_a_collision(ctx: &mut Scratch) {
         "SELECT i AS _id, 'a' AS _lang, 'b' AS lang FROM range(2) t(i)",
     );
 
-    let uri = path.parse().expect("source uri parses");
-    let source = topk::import::Source::connect(&uri, &topk::endpoint::Endpoint::default())
-        .await
-        .expect("connect");
-    let message = refused(topk::import::discover(&source, &[], None, None).await);
+    let catalog = catalog_of(&path).await;
+    let message = refused(topk::import::discover(&catalog, &[], None, None));
     assert!(
         message.contains("\"_lang\": field names cannot be empty or start with `_`"),
         "got: {message}"
@@ -97,34 +103,18 @@ async fn glob_needs_a_name(ctx: &mut Scratch) {
     let message = discover_err(&pattern, "*").await;
     assert!(message.contains("pass --to <name>"), "got: {message}");
 
-    let uri: Uri = pattern.parse().expect("source uri parses");
-    let spec = topk::import::discover(
-        &topk::import::Source::connect(&uri, &topk::endpoint::Endpoint::default())
-            .await
-            .expect("connect"),
-        &[],
-        Some("parts"),
-        None,
-    )
-    .await
-    .expect("--to names the collection");
+    let catalog = catalog_of(&pattern).await;
+    let spec = topk::import::discover(&catalog, &[], Some("parts"), None)
+        .expect("--to names the collection");
     assert_eq!(spec.collections.keys().collect::<Vec<_>>(), ["parts"]);
 }
 
 #[tokio::test]
 async fn inline_rename() {
     let table = pg::Pg::seed_keyed_on("sku");
-    let uri: Uri = pg::Pg::URL.parse().expect("source uri parses");
-    let spec = topk::import::discover(
-        &topk::import::Source::connect(&uri, &topk::endpoint::Endpoint::default())
-            .await
-            .expect("connect"),
-        &[format!("{table}=renamed")],
-        None,
-        None,
-    )
-    .await
-    .expect("discover");
+    let catalog = catalog_of(pg::Pg::URL).await;
+    let spec = topk::import::discover(&catalog, &[format!("{table}=renamed")], None, None)
+        .expect("discover");
     assert_eq!(spec.collections.keys().collect::<Vec<_>>(), ["renamed"]);
 }
 
