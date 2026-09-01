@@ -97,17 +97,21 @@ async fn bytes_as_text(ctx: &mut Scratch) {
 #[test_context(Scratch)]
 #[tokio::test]
 async fn missing_id(ctx: &mut Scratch) {
+    // A ragged csv sniffs to a single column named after the whole header, so
+    // the declared id is not there. The catalog catches it before any scan.
     let file = ctx.scratch().join("ragged.csv");
     std::fs::write(&file, "id,a,b\n1,x,y\n2,z\n").unwrap();
-    let target = Target {
-        from: file.display().to_string(),
-        id: Some("id".to_string()),
-        ..Default::default()
-    };
-    let err = stream_docs(&target)
-        .await
-        .expect_err("ragged row must fail");
-    assert!(err.to_string().contains("which has:"), "got: {err}");
+    let err = fails(
+        &[
+            "import",
+            &file.display().to_string(),
+            "--id",
+            "id",
+            "--dry-run",
+        ],
+        &[],
+    );
+    assert!(err.contains("available: id,a,b"), "got: {err}");
 }
 
 #[test_context(Scratch)]

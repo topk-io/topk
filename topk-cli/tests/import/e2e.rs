@@ -539,6 +539,41 @@ async fn glob_unions_columns_across_files(ctx: &mut Ctx) {
         "second file's column was dropped: {:?}",
         got["2"].keys().collect::<Vec<_>>()
     );
+    // The first file has no `extra`, and the projection must leave it that way.
+    let got = ctx.get(&collection, &["1"]).await;
+    assert!(
+        !got["1"].contains_key("extra"),
+        "first file gained a column it does not have: {:?}",
+        got["1"].keys().collect::<Vec<_>>()
+    );
+}
+
+#[test_context(Ctx)]
+#[tokio::test]
+async fn several_fields_read_one_column(ctx: &mut Ctx) {
+    let path = ctx.sql_parquet("alias", "SELECT 'k' AS id, 'hello' AS body");
+    let collection = ctx.collection("aliased");
+    let toml = format!(
+        "[{collection}]
+from = {path:?}
+
+id = \"id\"
+
+[{collection}.fields]
+body = {{ type = \"text\" }}
+copy = {{ from = \"body\", type = \"text\" }}
+short = {{ from = \"body\", type = \"text\", truncate = 2 }}
+key = {{ from = \"id\", type = \"text\" }}
+"
+    );
+    ok(&["import", "-f", &ctx.spec_file(&toml), "--yes"], &[]);
+
+    let got = ctx.get(&collection, &["k"]).await;
+    let d = &got["k"];
+    assert_eq!(field(d, "body"), json!("hello"));
+    assert_eq!(field(d, "copy"), json!("hello"));
+    assert_eq!(field(d, "short"), json!("he"));
+    assert_eq!(field(d, "key"), json!("k"));
 }
 
 #[test_context(Ctx)]
