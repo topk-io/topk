@@ -1,4 +1,4 @@
-use super::{logical::LogicalExpr, text::TextExpr};
+use super::{function::FunctionExpr, logical::LogicalExpr, text::TextExpr};
 use pyo3::prelude::*;
 
 #[pyclass]
@@ -27,6 +27,9 @@ pub enum FilterExprUnion {
     Logical(LogicalExpr),
 
     #[pyo3(transparent)]
+    Function(FunctionExpr),
+
+    #[pyo3(transparent)]
     Text(TextExpr),
 }
 
@@ -34,6 +37,7 @@ impl From<FilterExprUnion> for FilterExpr {
     fn from(expr: FilterExprUnion) -> Self {
         match expr {
             FilterExprUnion::Logical(expr) => FilterExpr::Logical(expr),
+            FilterExprUnion::Function(expr) => FilterExpr::Logical(LogicalExpr::Function { expr }),
             FilterExprUnion::Text(expr) => FilterExpr::Text(expr),
         }
     }

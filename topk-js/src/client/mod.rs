@@ -80,7 +80,6 @@ impl Client {
     pub fn collection(&self, name: String, partition: Option<String>) -> CollectionClient {
         CollectionClient::new(self.client.clone(), name, partition)
     }
-
 }
 
 /// Configuration for retry behavior when requests fail.

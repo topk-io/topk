@@ -6,7 +6,7 @@ use crate::expr::{
     filter::FilterExpression,
     logical::LogicalExpression,
     select::SelectExpression,
-    sort::{SortExpr, SortExpression, SortOrder},
+    sort::{SortArg, SortExpr, SortOrder},
     text::{Term, TextExpression},
 };
 use napi::bindgen_prelude::*;
@@ -30,7 +30,8 @@ impl Query {
     #[napi]
     pub fn filter(
         &self,
-        #[napi(ts_arg_type = "LogicalExpression | TextExpression")] expr: FilterExpression,
+        #[napi(ts_arg_type = "LogicalExpression | FunctionExpression | TextExpression")]
+        expr: FilterExpression,
     ) -> Query {
         let mut new_query = Query {
             stages: self.stages.clone(),
@@ -63,14 +64,19 @@ impl Query {
     ///
     /// @deprecated Use `.sort(expr, false).limit(k)` instead.
     #[napi]
-    pub fn topk(&self, expr: &LogicalExpression, k: i32, asc: Option<bool>) -> Query {
+    pub fn topk(
+        &self,
+        #[napi(ts_arg_type = "LogicalExpression | FunctionExpression")] expr: LogicalExpression,
+        k: i32,
+        asc: Option<bool>,
+    ) -> Query {
         let mut new_query = Query {
             stages: self.stages.clone(),
         };
 
         new_query.stages.push(Stage::Sort {
-            exprs: vec![SortExpression {
-                expr: expr.clone(),
+            exprs: vec![SortExpr {
+                expr,
                 order: match asc.unwrap_or(false) {
                     true => SortOrder::Asc,
                     false => SortOrder::Desc,
@@ -109,25 +115,21 @@ impl Query {
 
     /// Adds a sort stage to the query.
     #[napi(
-        ts_type = "(expr: LogicalExpression, asc?: boolean | undefined | null): Query\n    sort(expr: Array<SortExpr>): Query"
+        ts_type = "(expr: LogicalExpression | FunctionExpression, asc?: boolean | undefined | null): Query\n    sort(expr: Array<SortExpr>): Query"
     )]
-    pub fn sort<'env>(
-        &self,
-        expr: Either<ClassInstance<'env, LogicalExpression>, Vec<SortExpr<'env>>>,
-        asc: Option<bool>,
-    ) -> Result<Query> {
+    pub fn sort(&self, expr: SortArg, asc: Option<bool>) -> Result<Query> {
         let exprs = match expr {
-            Either::A(expr) => vec![SortExpression {
-                expr: (*expr).clone(),
+            SortArg::Single(expr) => vec![SortExpr {
+                expr,
                 order: SortOrder::from(asc.unwrap_or(true)),
             }],
-            Either::B(sort_exprs) => {
+            SortArg::Many(sort_exprs) => {
                 if asc.is_some() {
                     return Err(napi::Error::from_reason(
                         "cannot use `asc` when sorting by an array of sort expressions",
                     ));
                 }
-                sort_exprs.into_iter().map(|se| se.into()).collect()
+                sort_exprs
             }
         };
 
@@ -158,10 +160,8 @@ impl Query {
     #[napi]
     pub fn group_by(
         &self,
-        #[napi(ts_arg_type = "Record<string, LogicalExpression>")] keys: HashMap<
-            String,
-            LogicalExpression,
-        >,
+        #[napi(ts_arg_type = "Record<string, LogicalExpression | FunctionExpression>")]
+        keys: HashMap<String, LogicalExpression>,
         #[napi(ts_arg_type = "Record<string, AggregateExpression>")] aggs: HashMap<
             String,
             AggregateExpression,

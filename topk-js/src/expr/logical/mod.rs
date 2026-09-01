@@ -10,6 +10,8 @@ mod ternary_op;
 mod unary_op;
 
 pub use binary_op::BinaryOperator;
+pub use boolish::Boolish;
+pub use comparable::Comparable;
 pub use nary_op::NaryOp;
 pub use numeric::Numeric;
 pub use ordered::Ordered;
@@ -18,14 +20,13 @@ pub use unary_op::UnaryOperator;
 
 use crate::{
     data::Value,
+    expr::function::FunctionExpression,
     expr::logical::{
         flexible::{FlexibleExpression, Iterable},
         stringy::StringyWithList,
     },
     utils::NapiBox,
 };
-use boolish::Boolish;
-use comparable::Comparable;
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use stringy::Stringy;
@@ -35,7 +36,7 @@ use stringy::Stringy;
 #[napi(namespace = "query")]
 #[derive(Debug, Clone)]
 pub struct LogicalExpression {
-    expr: LogicalExpressionUnion,
+    pub(crate) expr: LogicalExpressionUnion,
 }
 
 impl FromNapiValue for LogicalExpression {
@@ -43,8 +44,14 @@ impl FromNapiValue for LogicalExpression {
         env: napi::sys::napi_env,
         value: napi::sys::napi_value,
     ) -> napi::Result<Self> {
-        let expr = crate::try_cast_ref!(env, value, LogicalExpression)?;
-        Ok(expr.clone())
+        if let Ok(expr) = crate::try_cast_ref!(env, value, LogicalExpression) {
+            return Ok(expr.clone());
+        }
+
+        // Accept a score function wherever a logical expression is expected,
+        // e.g. `.topk(fn.bm25Score(), 10)`.
+        let expr = crate::try_cast_ref!(env, value, FunctionExpression)?;
+        Ok(expr.lifted())
     }
 }
 
@@ -145,6 +152,9 @@ pub enum LogicalExpressionUnion {
     Nary {
         op: NaryOp,
         exprs: Vec<NapiBox<LogicalExpression>>,
+    },
+    Function {
+        expr: FunctionExpression,
     },
 }
 
@@ -521,6 +531,9 @@ impl Into<topk_rs::proto::v1::data::LogicalExpr> for LogicalExpression {
                     op,
                     exprs.into_iter().map(|e| e.as_ref().clone()),
                 )
+            }
+            LogicalExpressionUnion::Function { expr } => {
+                topk_rs::proto::v1::data::LogicalExpr::function(expr)
             }
         }
     }

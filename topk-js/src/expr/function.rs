@@ -1,6 +1,9 @@
 use napi_derive::napi;
 
 use crate::data::Value;
+use crate::expr::logical::{
+    Boolish, Comparable, LogicalExpression, LogicalExpressionUnion, Numeric, Ordered,
+};
 
 /// @internal
 /// @hideconstructor
@@ -54,3 +57,63 @@ impl From<FunctionExpression> for topk_rs::proto::v1::data::FunctionExpr {
         }
     }
 }
+
+// Lift into `LogicalExpression` so score functions compose directly with
+// comparisons and arithmetic, e.g. `fn.bm25Score().gt(0.5)`.
+macro_rules! lift {
+    ($($fn:ident($($arg:ident: $ty:ty as $ts:literal),*)),* $(,)?) => {
+        #[napi(namespace = "query")]
+        impl FunctionExpression {
+            $(#[napi]
+            pub fn $fn(
+                &self,
+                $(#[napi(ts_arg_type = $ts)] $arg: $ty),*
+            ) -> LogicalExpression {
+                self.lifted().$fn($($arg),*)
+            })*
+        }
+    };
+}
+
+impl FunctionExpression {
+    pub(crate) fn lifted(&self) -> LogicalExpression {
+        LogicalExpression {
+            expr: LogicalExpressionUnion::Function { expr: self.clone() },
+        }
+    }
+}
+
+lift!(
+    // Comparison operators
+    eq(other: Comparable as "LogicalExpression | string | number | boolean | null | undefined"),
+    ne(other: Comparable as "LogicalExpression | string | number | boolean | null | undefined"),
+    lt(other: Ordered as "LogicalExpression | number | string"),
+    lte(other: Ordered as "LogicalExpression | number | string"),
+    gt(other: Ordered as "LogicalExpression | number | string"),
+    gte(other: Ordered as "LogicalExpression | number | string"),
+    // Arithmetic operators
+    add(other: Numeric as "LogicalExpression | number"),
+    sub(other: Numeric as "LogicalExpression | number"),
+    mul(other: Numeric as "LogicalExpression | number"),
+    div(other: Numeric as "LogicalExpression | number"),
+    min(other: Ordered as "LogicalExpression | number | string"),
+    max(other: Ordered as "LogicalExpression | number | string"),
+    coalesce(other: Numeric as "LogicalExpression | number"),
+    // Unary operators
+    is_null(),
+    is_not_null(),
+    abs(),
+    ln(),
+    exp(),
+    sqrt(),
+    square(),
+    // Ternary operators
+    choose(
+        x: Comparable as "LogicalExpression | string | number | boolean | null | undefined",
+        y: Comparable as "LogicalExpression | string | number | boolean | null | undefined"
+    ),
+    boost(
+        condition: Boolish as "LogicalExpression | boolean",
+        boost: Numeric as "LogicalExpression | number"
+    ),
+);

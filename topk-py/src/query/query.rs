@@ -1,6 +1,6 @@
 use crate::expr::aggregate::AggregateExpr;
 use crate::expr::filter::FilterExprUnion;
-use crate::expr::logical::LogicalExpr;
+use crate::expr::logical::{LogicalExpr, LogicalExprUnion};
 use crate::expr::select::{SelectExpr, SelectExprUnion};
 use crate::expr::sort::{SortExpr, SortExprsUnion, SortOrder};
 use pyo3::{
@@ -136,14 +136,14 @@ impl Query {
 
     #[deprecated(note = "Use .sort(expr, asc).limit(k) instead")]
     #[pyo3(signature = (expr, k, asc=false))]
-    pub fn topk(&self, expr: LogicalExpr, k: u64, asc: bool) -> PyResult<Self> {
+    pub fn topk(&self, expr: LogicalExprUnion, k: u64, asc: bool) -> PyResult<Self> {
         Ok(Self {
             stages: [
                 self.stages.clone(),
                 vec![
                     Stage::Sort {
                         exprs: vec![SortExpr {
-                            expr,
+                            expr: expr.into(),
                             order: match asc {
                                 true => SortOrder::Asc,
                                 false => SortOrder::Desc,
@@ -177,7 +177,7 @@ impl Query {
     pub fn sort(&self, expr: SortExprsUnion, asc: Option<bool>) -> PyResult<Self> {
         let exprs = match expr {
             SortExprsUnion::Single(expr) => vec![SortExpr {
-                expr,
+                expr: expr.into(),
                 order: SortOrder::from(asc.unwrap_or(true)),
             }],
             SortExprsUnion::Many(exprs) => {
@@ -188,7 +188,10 @@ impl Query {
                 }
                 exprs
                     .into_iter()
-                    .map(|(expr, order)| SortExpr { expr, order })
+                    .map(|(expr, order)| SortExpr {
+                        expr: expr.into(),
+                        order,
+                    })
                     .collect()
             }
         };
@@ -206,9 +209,11 @@ impl Query {
 
     pub fn group_by(
         &self,
-        keys: HashMap<String, LogicalExpr>,
+        keys: HashMap<String, LogicalExprUnion>,
         aggs: HashMap<String, AggregateExpr>,
     ) -> PyResult<Self> {
+        let keys = keys.into_iter().map(|(k, v)| (k, v.into())).collect();
+
         Ok(Self {
             stages: [self.stages.clone(), vec![Stage::GroupBy { keys, aggs }]].concat(),
         })

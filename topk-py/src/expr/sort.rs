@@ -1,4 +1,4 @@
-use super::logical::LogicalExpr;
+use super::logical::{LogicalExpr, LogicalExprUnion};
 use pyo3::{exceptions::PyValueError, prelude::*};
 
 #[derive(Debug, Clone, Copy)]
@@ -51,8 +51,8 @@ pub struct SortExpr {
 #[derive(Debug, Clone, FromPyObject)]
 pub enum SortExprsUnion {
     #[pyo3(transparent)]
-    Single(LogicalExpr),
+    Single(LogicalExprUnion),
 
     #[pyo3(transparent)]
-    Many(Vec<(LogicalExpr, SortOrder)>),
+    Many(Vec<(LogicalExprUnion, SortOrder)>),
 }

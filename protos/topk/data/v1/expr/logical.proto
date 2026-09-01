@@ -1,6 +1,7 @@
 syntax = "proto3";
 package topk.data.v1;
 
+import "topk/data/v1/expr/function.proto";
 import "topk/data/v1/value.proto";
 
 message LogicalExpr {
@@ -105,6 +106,7 @@ message LogicalExpr {
     BinaryOp binary_op = 4;
     TernaryOp ternary_op = 5;
     NaryOp nary_op = 6;
+    FunctionExpr function = 7;
     Now now = 9;
     Interval interval = 10;
   }

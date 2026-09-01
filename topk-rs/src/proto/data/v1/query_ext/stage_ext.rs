@@ -1,4 +1,4 @@
-use crate::proto::data::v1::{stage, AggregateExpr, LogicalExpr, Stage};
+use crate::proto::data::v1::{stage, AggregateExpr, FunctionExpr, LogicalExpr, Stage};
 
 pub trait IntoSortExprs {
     fn into_sort_exprs(self) -> Vec<stage::sort_stage::SortExpr>;
@@ -23,6 +23,12 @@ impl IntoSortExprs for String {
 impl IntoSortExprs for LogicalExpr {
     fn into_sort_exprs(self) -> Vec<stage::sort_stage::SortExpr> {
         (self, stage::sort_stage::SortOrder::Desc).into_sort_exprs()
+    }
+}
+
+impl IntoSortExprs for FunctionExpr {
+    fn into_sort_exprs(self) -> Vec<stage::sort_stage::SortExpr> {
+        LogicalExpr::function(self).into_sort_exprs()
     }
 }
 

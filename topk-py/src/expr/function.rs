@@ -2,7 +2,7 @@ use crate::data::value::Value;
 use pyo3::prelude::*;
 
 #[pyclass]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum FunctionExpr {
     KeywordScore {
         b: Option<f32>,

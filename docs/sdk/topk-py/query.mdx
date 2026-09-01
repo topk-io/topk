@@ -644,6 +644,365 @@ Check if the expression matches the provided regexp pattern.
 
 Instances of the `FunctionExpr` class are used to represent function expressions in TopK.
 Usually created using function constructors such as [`fn.vector_distance()`](#vector-distance), [`fn.semantic_similarity()`](#semantic-similarity) or [`fn.bm25_score()`](#bm25-score).
+Comparison and arithmetic operators lift into a [`LogicalExpr`](#logicalexpr), e.g. `fn.bm25_score() > 0.5`.
+
+**Methods**
+
+#### eq()
+
+```python
+eq(self, other: FlexibleExpr) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`FlexibleExpr`](#flexibleexpr) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### ne()
+
+```python
+ne(self, other: FlexibleExpr) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`FlexibleExpr`](#flexibleexpr) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### lt()
+
+```python
+lt(self, other: Ordered) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Ordered`](#ordered) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### lte()
+
+```python
+lte(self, other: Ordered) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Ordered`](#ordered) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### gt()
+
+```python
+gt(self, other: Ordered) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Ordered`](#ordered) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### gte()
+
+```python
+gte(self, other: Ordered) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Ordered`](#ordered) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### add()
+
+```python
+add(self, other: Numeric) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Numeric`](#numeric) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### sub()
+
+```python
+sub(self, other: Numeric) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Numeric`](#numeric) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### mul()
+
+```python
+mul(self, other: Numeric) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Numeric`](#numeric) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### div()
+
+```python
+div(self, other: Numeric) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Numeric`](#numeric) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### coalesce()
+
+```python
+coalesce(self, other: LogicalExpr | int | float) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`LogicalExpr`](#logicalexpr) &#124; int &#124; float |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### min()
+
+```python
+min(self, other: LogicalExpr | int | float | str) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`LogicalExpr`](#logicalexpr) &#124; int &#124; float &#124; str |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### max()
+
+```python
+max(self, other: LogicalExpr | int | float | str) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`LogicalExpr`](#logicalexpr) &#124; int &#124; float &#124; str |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### is\_null()
+
+```python
+is_null(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### is\_not\_null()
+
+```python
+is_not_null(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### abs()
+
+```python
+abs(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### ln()
+
+```python
+ln(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### exp()
+
+```python
+exp(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### sqrt()
+
+```python
+sqrt(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### square()
+
+```python
+square(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### choose()
+
+```python
+choose(self, x: FlexibleExpr, y: FlexibleExpr) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `x` | [`FlexibleExpr`](#flexibleexpr) |
+| `y` | [`FlexibleExpr`](#flexibleexpr) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+#### boost()
+
+```python
+boost(self, condition: FlexibleExpr, boost: LogicalExpr | int | float) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `condition` | [`FlexibleExpr`](#flexibleexpr) |
+| `boost` | [`LogicalExpr`](#logicalexpr) &#124; int &#124; float |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
 
 ### AggregateExpr
 
@@ -679,7 +1038,7 @@ Adds a select stage to the query.
 #### filter()
 
 ```python
-filter(self, expr: LogicalExpr | TextExpr) -> Query
+filter(self, expr: LogicalExpr | FunctionExpr | TextExpr) -> Query
 ```
 
 Adds a filter stage to the query.
@@ -688,7 +1047,7 @@ Adds a filter stage to the query.
 
 | Parameter | Type |
 | --------- | ---- |
-| `expr` | [`LogicalExpr`](#logicalexpr) &#124; [`TextExpr`](#textexpr) |
+| `expr` | [`LogicalExpr`](#logicalexpr) &#124; [`FunctionExpr`](#functionexpr) &#124; [`TextExpr`](#textexpr) |
 
 **Returns**
 
@@ -699,8 +1058,8 @@ Adds a filter stage to the query.
 #### sort()
 
 ```python
-sort(self, expr: LogicalExpr, asc: bool = True) -> Query
-sort(self, expr: Sequence[tuple[LogicalExpr, Literal['asc', 'desc']]]) -> Query
+sort(self, expr: LogicalExpr | FunctionExpr, asc: bool = True) -> Query
+sort(self, expr: Sequence[tuple[LogicalExpr | FunctionExpr, Literal['asc', 'desc']]]) -> Query
 ```
 
 Adds a sort stage to the query.
@@ -709,7 +1068,7 @@ Adds a sort stage to the query.
 
 | Parameter | Type |
 | --------- | ---- |
-| `expr` | [`LogicalExpr`](#logicalexpr) &#124; Sequence[tuple[[`LogicalExpr`](#logicalexpr), Literal['asc', 'desc']]] |
+| `expr` | [`LogicalExpr`](#logicalexpr) &#124; [`FunctionExpr`](#functionexpr) &#124; Sequence[tuple[[`LogicalExpr`](#logicalexpr) &#124; [`FunctionExpr`](#functionexpr), Literal['asc', 'desc']]] |
 | `asc` | bool |
 
 **Returns**
@@ -775,7 +1134,7 @@ Adds a count stage to the query.
 #### group\_by()
 
 ```python
-group_by(self, keys: dict[str, LogicalExpr], aggs: dict[str, AggregateExpr]) -> Query
+group_by(self, keys: dict[str, LogicalExpr | FunctionExpr], aggs: dict[str, AggregateExpr]) -> Query
 ```
 
 Adds a group-by stage to the query.
@@ -786,7 +1145,7 @@ Groups documents by one or more key expressions and computes aggregations for ea
 
 | Parameter | Type |
 | --------- | ---- |
-| `keys` | dict[str, [`LogicalExpr`](#logicalexpr)] |
+| `keys` | dict[str, [`LogicalExpr`](#logicalexpr) &#124; [`FunctionExpr`](#functionexpr)] |
 | `aggs` | dict[str, [`AggregateExpr`](#aggregateexpr)] |
 
 **Returns**
@@ -800,7 +1159,7 @@ Groups documents by one or more key expressions and computes aggregations for ea
 <Warning>**Deprecated** — Use ``.sort(expr, asc).limit(k)`` instead.</Warning>
 
 ```python
-topk(self, expr: LogicalExpr, k: int, asc: bool = False) -> Query
+topk(self, expr: LogicalExpr | FunctionExpr, k: int, asc: bool = False) -> Query
 ```
 
 Adds a top-k stage to the query.
@@ -809,7 +1168,7 @@ Adds a top-k stage to the query.
 
 | Parameter | Type |
 | --------- | ---- |
-| `expr` | [`LogicalExpr`](#logicalexpr) |
+| `expr` | [`LogicalExpr`](#logicalexpr) &#124; [`FunctionExpr`](#functionexpr) |
 | `k` | int |
 | `asc` | bool |
 
@@ -1161,7 +1520,7 @@ client.collection("books").query(
 ### filter()
 
 ```python
-filter(expr: LogicalExpr | TextExpr) -> Query
+filter(expr: LogicalExpr | FunctionExpr | TextExpr) -> Query
 ```
 
 Creates a new query with a filter stage.
@@ -1180,7 +1539,7 @@ client.collection("books").query(
 
 | Parameter | Type |
 | --------- | ---- |
-| `expr` | [`LogicalExpr`](#logicalexpr) &#124; [`TextExpr`](#textexpr) |
+| `expr` | [`LogicalExpr`](#logicalexpr) &#124; [`FunctionExpr`](#functionexpr) &#124; [`TextExpr`](#textexpr) |
 
 **Returns**
 
@@ -1191,7 +1550,7 @@ client.collection("books").query(
 ### group_by()
 
 ```python
-group_by(keys: dict[str, LogicalExpr], aggs: dict[str, AggregateExpr]) -> Query
+group_by(keys: dict[str, LogicalExpr | FunctionExpr], aggs: dict[str, AggregateExpr]) -> Query
 ```
 
 Creates a new query with a group-by stage.
@@ -1214,7 +1573,7 @@ client.collection("books").query(
 
 | Parameter | Type |
 | --------- | ---- |
-| `keys` | dict[str, [`LogicalExpr`](#logicalexpr)] |
+| `keys` | dict[str, [`LogicalExpr`](#logicalexpr) &#124; [`FunctionExpr`](#functionexpr)] |
 | `aggs` | dict[str, [`AggregateExpr`](#aggregateexpr)] |
 
 **Returns**

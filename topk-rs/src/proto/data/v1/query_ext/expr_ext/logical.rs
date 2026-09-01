@@ -2,7 +2,7 @@ use crate::proto::{
     data::v1::logical_expr::{
         self, binary_op, nary_op, ternary_op, unary_op, BinaryOp, Interval, Now, UnaryOp,
     },
-    v1::data::{LogicalExpr, Value},
+    v1::data::{FunctionExpr, LogicalExpr, Value},
 };
 
 impl LogicalExpr {
@@ -27,6 +27,12 @@ impl LogicalExpr {
     pub fn literal(value: impl Into<Value>) -> Self {
         LogicalExpr {
             expr: Some(logical_expr::Expr::Literal(value.into())),
+        }
+    }
+
+    pub fn function(func: impl Into<FunctionExpr>) -> Self {
+        LogicalExpr {
+            expr: Some(logical_expr::Expr::Function(func.into())),
         }
     }
 
@@ -588,5 +594,11 @@ impl From<std::time::Duration> for Interval {
             millis: i64::try_from(duration.as_millis()).expect("duration out of range"),
             ..Default::default()
         }
+    }
+}
+
+impl From<FunctionExpr> for LogicalExpr {
+    fn from(func: FunctionExpr) -> Self {
+        LogicalExpr::function(func)
     }
 }

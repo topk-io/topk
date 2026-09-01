@@ -77,6 +77,40 @@ describe("Vector Queries", () => {
     );
   });
 
+  test("query vector distance in filter", async () => {
+    const ctx = getContext();
+    const collection = await ctx.createCollection("books", {
+      summary_embedding: f32Vector({ dimension: 16 })
+        .required()
+        .index(vectorIndex({ metric: "euclidean" })),
+    });
+
+    await ctx.client.collection(collection.name).upsert([
+      { _id: "1984", summary_embedding: [1.0, ...Array(15).fill(0)] },
+      { _id: "pride", summary_embedding: [1.5, ...Array(15).fill(0)] },
+      { _id: "mockingbird", summary_embedding: [2.0, ...Array(15).fill(0)] },
+    ]);
+
+    const result = await ctx.client.collection(collection.name).query(
+      select({
+        summary_distance: fn.vectorDistance("summary_embedding", [
+          2.0,
+          ...Array(15).fill(0),
+        ]),
+      })
+        .filter(
+          fn
+            .vectorDistance("summary_embedding", [2.0, ...Array(15).fill(0)])
+            .lt(0.5)
+        )
+        .topk(field("summary_distance"), 10, true)
+    );
+
+    expect(new Set(result.map((doc) => doc._id))).toEqual(
+      new Set(["pride", "mockingbird"])
+    );
+  });
+
   test("query vector distance nullable", async () => {
     const ctx = getContext();
     const collection = await ctx.createCollection("books", {

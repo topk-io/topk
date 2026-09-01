@@ -55,5 +55,4 @@ impl Client {
             self.client.clone(),
         ))
     }
-
 }

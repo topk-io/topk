@@ -1,6 +1,6 @@
 use crate::expr::{
     aggregate::AggregateExpression, filter::FilterExpression, logical::LogicalExpression,
-    select::SelectExpression, sort::SortExpression,
+    select::SelectExpression, sort::SortExpr,
 };
 use std::collections::HashMap;
 
@@ -19,7 +19,7 @@ pub enum Stage {
         offset: i32,
     },
     Sort {
-        exprs: Vec<SortExpression>,
+        exprs: Vec<SortExpr>,
     },
     Count,
     GroupBy {
