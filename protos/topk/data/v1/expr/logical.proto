@@ -67,6 +67,8 @@ message LogicalExpr {
       OP_ELAPSED = 3;
       OP_SATURATE = 4;
       OP_DECAY = 5;
+      OP_DATE_ADD = 6;
+      OP_DATE_TRUNC = 7;
     }
     Op op = 1;
     LogicalExpr x = 2;
@@ -86,6 +88,16 @@ message LogicalExpr {
     repeated LogicalExpr exprs = 2;
   }
 
+  message Now {}
+
+  // A span of time. Months, days and milliseconds stay separate because neither collapses
+  // into the next without a calendar and a zone.
+  message Interval {
+    sint32 months = 1;
+    sint32 days = 2;
+    sint64 millis = 3;
+  }
+
   oneof expr {
     string field = 1;
     Value literal = 2;
@@ -93,5 +105,7 @@ message LogicalExpr {
     BinaryOp binary_op = 4;
     TernaryOp ternary_op = 5;
     NaryOp nary_op = 6;
+    Now now = 9;
+    Interval interval = 10;
   }
 }

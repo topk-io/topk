@@ -1,9 +1,23 @@
 use crate::proto::{
-    data::v1::logical_expr::{self, binary_op, nary_op, ternary_op, unary_op, BinaryOp, UnaryOp},
+    data::v1::logical_expr::{
+        self, binary_op, nary_op, ternary_op, unary_op, BinaryOp, Interval, Now, UnaryOp,
+    },
     v1::data::{LogicalExpr, Value},
 };
 
 impl LogicalExpr {
+    pub fn now() -> Self {
+        LogicalExpr {
+            expr: Some(logical_expr::Expr::Now(Now {})),
+        }
+    }
+
+    pub fn interval(interval: impl Into<Interval>) -> Self {
+        LogicalExpr {
+            expr: Some(logical_expr::Expr::Interval(interval.into())),
+        }
+    }
+
     pub fn field(name: impl Into<String>) -> Self {
         LogicalExpr {
             expr: Some(logical_expr::Expr::Field(name.into())),
@@ -221,6 +235,24 @@ impl LogicalExpr {
             self,
             end.into(),
             LogicalExpr::literal(interval.into()),
+        )
+    }
+
+    pub fn date_trunc(self, unit: impl Into<String>, time_zone: impl Into<String>) -> Self {
+        Self::ternary(
+            ternary_op::Op::DateTrunc,
+            self,
+            LogicalExpr::literal(unit.into()),
+            LogicalExpr::literal(time_zone.into()),
+        )
+    }
+
+    pub fn date_add(self, interval: impl Into<Interval>, time_zone: impl Into<String>) -> Self {
+        Self::ternary(
+            ternary_op::Op::DateAdd,
+            self,
+            LogicalExpr::interval(interval),
+            LogicalExpr::literal(time_zone.into()),
         )
     }
 
@@ -536,6 +568,25 @@ impl BinaryOp {
             op: logical_expr::binary_op::Op::Max as i32,
             left: Some(Box::new(left)),
             right: Some(Box::new(right)),
+        }
+    }
+}
+
+/// A [`chrono::TimeDelta`] is a fixed width, so it never carries months or calendar days.
+impl From<chrono::TimeDelta> for Interval {
+    fn from(delta: chrono::TimeDelta) -> Self {
+        Interval {
+            millis: delta.num_milliseconds(),
+            ..Default::default()
+        }
+    }
+}
+
+impl From<std::time::Duration> for Interval {
+    fn from(duration: std::time::Duration) -> Self {
+        Interval {
+            millis: i64::try_from(duration.as_millis()).expect("duration out of range"),
+            ..Default::default()
         }
     }
 }
