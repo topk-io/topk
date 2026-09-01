@@ -107,6 +107,11 @@ impl Duckdb {
             conn.execute_batch(&format!("INSTALL {ext}; LOAD {ext};"))
                 .map_err(|e| extension_error(ext, e))
         };
+        // Community extensions live in a separate repo; a duckdb bump can 404 one.
+        let install_community = |ext: &str| {
+            conn.execute_batch(&format!("INSTALL {ext} FROM community; LOAD {ext};"))
+                .map_err(|e| extension_error(ext, e))
+        };
 
         let (ext, dsn) = match self {
             Duckdb::Postgres(url) => ("postgres", url.as_str()),
@@ -118,10 +123,7 @@ impl Duckdb {
                 })?;
                 match file.format {
                     Format::Avro => install("avro")?,
-                    // Community extension: a duckdb bump can 404 it.
-                    Format::Arrow => conn
-                        .execute_batch("INSTALL arrow FROM community; LOAD arrow;")
-                        .map_err(|e| extension_error("arrow", e))?,
+                    Format::Arrow => install_community("arrow")?,
                     Format::Csv | Format::Json | Format::Parquet => {}
                 }
                 if let Some(store) = &file.store {
