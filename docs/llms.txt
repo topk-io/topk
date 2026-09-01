@@ -57,6 +57,10 @@
 
 - [Overview](https://docs.topk.io/sdk/topk-sql/overview): Connect any PostgreSQL client to TopK and use SQL to create collections, insert data, and run search.
 
+## Elasticsearch
+
+- [Elasticsearch API](https://docs.topk.io/sdk/topk-es/overview): Point any Elasticsearch client at TopK and keep your existing queries, mappings, and tooling.
+
 ## Rust SDK
 
 - [Rust SDK](https://github.com/topk-io/topk/tree/main/topk-rs): Get started with TopK using Rust SDK.
