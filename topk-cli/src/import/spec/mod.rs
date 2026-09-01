@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use topk_rs::proto::v1::control::FieldSpec;
 
 use crate::import::error::Error;
+use crate::import::{ID, ID_PLACEHOLDER};
 
 mod discover;
 mod field;
@@ -37,6 +38,25 @@ pub struct Target {
 
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     pub fields: IndexMap<String, Field>,
+}
+
+impl Target {
+    /// Every source column this target reads: its id, then each field's source.
+    /// The spec is a whitelist, so this is the whole projection. Deduplicated —
+    /// several fields may read one column, the id included.
+    pub fn columns(&self) -> Vec<&str> {
+        let id = self.id.as_deref().unwrap_or(ID);
+        let mut columns: Vec<&str> = Vec::with_capacity(self.fields.len() + 1);
+        for column in std::iter::once(id)
+            .filter(|id| *id != ID_PLACEHOLDER)
+            .chain(self.fields.iter().map(|(name, field)| field.column(name)))
+        {
+            if !columns.contains(&column) {
+                columns.push(column);
+            }
+        }
+        columns
+    }
 }
 
 fn collection_name(name: &str) -> Result<(), Error> {

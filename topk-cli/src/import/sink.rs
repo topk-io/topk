@@ -56,7 +56,7 @@ pub fn build_document(target: &Target, record: Record) -> Result<Document, Error
         for (name, field) in target
             .fields
             .iter()
-            .filter(|(name, field)| field.from.as_deref().unwrap_or(name.as_str()) == key)
+            .filter(|(name, field)| field.column(name) == key)
         {
             let value = field
                 .coerce(value.clone())

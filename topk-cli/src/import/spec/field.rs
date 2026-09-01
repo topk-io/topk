@@ -35,6 +35,13 @@ pub struct Field {
     pub index: Option<Index>,
 }
 
+impl Field {
+    /// The source column this field reads.
+    pub fn column<'a>(&'a self, name: &'a str) -> &'a str {
+        self.from.as_deref().unwrap_or(name)
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(try_from = "String", into = "String")]
 pub enum Type {

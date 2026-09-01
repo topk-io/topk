@@ -56,7 +56,15 @@ impl Select {
         .into_iter()
         .flatten()
         .collect();
-        let mut sql = format!("SELECT * FROM {relation}");
+        // The spec is a whitelist, so a column no field reads is never fetched.
+        // A table has one validated schema, and for postgres the list has to be
+        // plain anyway: the query runs on the server.
+        let projection: Vec<String> = target
+            .columns()
+            .into_iter()
+            .map(|column| quoted(column, '"'))
+            .collect();
+        let mut sql = format!("SELECT {} FROM {relation}", projection.join(", "));
         if !predicates.is_empty() {
             sql.push_str(&format!(" WHERE {}", predicates.join(" AND ")));
         }
@@ -79,7 +87,19 @@ impl Select {
     }
 
     fn file(file: &File, target: &Target, offset: u64, limit: Option<u64>) -> Select {
-        let mut sql = format!("SELECT * FROM {}", reader(file));
+        // A glob is read one file at a time, so a column only some files carry
+        // must stay absent from the rest the way `union_by_name` leaves it,
+        // rather than raise a binder error: `COLUMNS` keeps the names that exist.
+        let names: Vec<String> = target
+            .columns()
+            .into_iter()
+            .map(|column| format!("'{}'", lit(column)))
+            .collect();
+        let mut sql = format!(
+            "SELECT COLUMNS(c -> c IN [{}]) FROM {}",
+            names.join(", "),
+            reader(file)
+        );
         if let Some(filter) = &target.filter {
             sql.push_str(&format!(" WHERE ({filter})"));
         }
