@@ -123,7 +123,6 @@ pub async fn discover_spec(locator: &str, pattern: Option<&str>) -> Spec {
     topk::import::discover(&source, &patterns, None, None)
         .await
         .expect("discover")
-        .spec
 }
 
 pub async fn stream_docs(

@@ -17,8 +17,12 @@ fn spec(a: &str, b: &str, c: &str) -> String {
 fn an_edited_target_starts_over_without_disturbing_the_others() {
     let stored = spec("", "", "");
     let mut state = State::new("run1".to_string(), "books.parquet".to_string(), stored);
-    state.cursors.insert("a".to_string(), Cursor::After("100".to_string()));
-    state.cursors.insert("b".to_string(), Cursor::After("200".to_string()));
+    state
+        .cursors
+        .insert("a".to_string(), Cursor::After("100".to_string()));
+    state
+        .cursors
+        .insert("b".to_string(), Cursor::After("200".to_string()));
     state.cursors.insert("c".to_string(), Cursor::Done);
 
     let edited = spec("limit = 5", "", "");
@@ -43,7 +47,11 @@ fn an_edited_target_starts_over_without_disturbing_the_others() {
 #[test]
 fn a_run_refuses_a_different_source() {
     let stored = spec("", "", "");
-    let mut state = State::new("run1".to_string(), "books.parquet".to_string(), stored.clone());
+    let mut state = State::new(
+        "run1".to_string(),
+        "books.parquet".to_string(),
+        stored.clone(),
+    );
     let mut plan: Spec = toml::from_str(&stored).expect("spec parses");
     let message = refused(state.reconcile("other.parquet", &mut plan, stored));
     assert!(message.contains("books.parquet"), "got: {message}");

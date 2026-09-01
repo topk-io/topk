@@ -19,7 +19,7 @@ async fn discover_err(locator: &str, pattern: &str) -> String {
         Err(other) => panic!("expected InvalidArgument, got {other:?}"),
         Ok(discovered) => panic!(
             "expected discover to fail, got {} collection(s)",
-            discovered.spec.collections.len()
+            discovered.collections.len()
         ),
     }
 }
@@ -107,8 +107,7 @@ async fn glob_needs_a_name(ctx: &mut Scratch) {
         None,
     )
     .await
-    .expect("--to names the collection")
-    .spec;
+    .expect("--to names the collection");
     assert_eq!(spec.collections.keys().collect::<Vec<_>>(), ["parts"]);
 }
 
@@ -125,8 +124,7 @@ async fn inline_rename() {
         None,
     )
     .await
-    .expect("discover")
-    .spec;
+    .expect("discover");
     assert_eq!(spec.collections.keys().collect::<Vec<_>>(), ["renamed"]);
 }
 

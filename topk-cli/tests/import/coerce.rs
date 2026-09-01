@@ -58,9 +58,21 @@ fn fields_share_columns_and_the_id() {
 #[case::text_from_float(r#"{ type = "text" }"#, Value::f64(4.3), Value::string("4.3"))]
 #[case::text_from_utf8_bytes(r#"{ type = "text" }"#, Value::bytes(b"hello".to_vec()), Value::string("hello"))]
 #[case::text_from_struct(r#"{ type = "text" }"#, Value::r#struct([("a", Value::i64(1))]), Value::string(r#"{"a":1}"#))]
-#[case::truncate_cuts(r#"{ type = "text", truncate = 5 }"#, Value::string("hello world"), Value::string("hello"))]
-#[case::truncate_leaves_shorter(r#"{ type = "text", truncate = 5 }"#, Value::string("hi"), Value::string("hi"))]
-#[case::truncate_on_a_char_boundary(r#"{ type = "text", truncate = 5 }"#, Value::string("žluťoučký"), Value::string("žluťo"))]
+#[case::truncate_cuts(
+    r#"{ type = "text", truncate = 5 }"#,
+    Value::string("hello world"),
+    Value::string("hello")
+)]
+#[case::truncate_leaves_shorter(
+    r#"{ type = "text", truncate = 5 }"#,
+    Value::string("hi"),
+    Value::string("hi")
+)]
+#[case::truncate_on_a_char_boundary(
+    r#"{ type = "text", truncate = 5 }"#,
+    Value::string("žluťoučký"),
+    Value::string("žluťo")
+)]
 #[case::int_from_int(r#"{ type = "int" }"#, Value::i64(42), Value::i64(42))]
 #[case::int_from_integral_float(r#"{ type = "int" }"#, Value::f64(4.0), Value::i64(4))]
 #[case::int_from_bool(r#"{ type = "int" }"#, Value::bool(true), Value::i64(1))]
@@ -70,7 +82,11 @@ fn fields_share_columns_and_the_id() {
 #[case::int_from_decimal_string(r#"{ type = "int" }"#, Value::string("3.00"), Value::i64(3))]
 #[case::float_from_int(r#"{ type = "float" }"#, Value::i64(1), Value::f64(1.0))]
 #[case::float_from_float(r#"{ type = "float" }"#, Value::f64(4.25), Value::f64(4.25))]
-#[case::float_from_padded_string(r#"{ type = "float" }"#, Value::string(" 4.25 "), Value::f64(4.25))]
+#[case::float_from_padded_string(
+    r#"{ type = "float" }"#,
+    Value::string(" 4.25 "),
+    Value::f64(4.25)
+)]
 #[case::bool_from_bool(r#"{ type = "bool" }"#, Value::bool(true), Value::bool(true))]
 #[case::bool_from_nonzero_int(r#"{ type = "bool" }"#, Value::i64(3), Value::bool(true))]
 #[case::bool_from_zero_int(r#"{ type = "bool" }"#, Value::i64(0), Value::bool(false))]

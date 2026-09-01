@@ -79,8 +79,14 @@ async fn a_bare_scheme_connects_from_the_environment(
 /// mongodb and elasticsearch.
 #[rstest]
 #[case::sql(Box::new(parquet::File::new().unwrap()), "published_year > 1950")]
-#[case::mongo(Box::new(mongo::Mongo::client()), r#"{"published_year": {"$gt": 1950}}"#)]
-#[case::elasticsearch(Box::new(es::Es::client()), r#"{"range": {"published_year": {"gt": 1950}}}"#)]
+#[case::mongo(
+    Box::new(mongo::Mongo::client()),
+    r#"{"published_year": {"$gt": 1950}}"#
+)]
+#[case::elasticsearch(
+    Box::new(es::Es::client()),
+    r#"{"range": {"published_year": {"gt": 1950}}}"#
+)]
 #[tokio::test]
 async fn a_filter_selects_matching_rows(#[case] backend: Box<dyn Seed>, #[case] filter: &str) {
     let (object, url) = seeded_books(&*backend).await;

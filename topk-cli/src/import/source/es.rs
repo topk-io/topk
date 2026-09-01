@@ -91,7 +91,9 @@ impl Es {
                         }) {
                         Ok(fields) => fields.into_iter().collect(),
                         Err(error) => {
-                            eprintln!("skipping index {from:?}: unreadable mapping: {error}");
+                            crate::import::note(format!(
+                                "skipping index {from:?}: unreadable mapping: {error}"
+                            ));
                             return None;
                         }
                     };

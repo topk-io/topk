@@ -53,10 +53,10 @@ pub async fn absent(client: &Client, spec: &Spec) -> Result<HashMap<String, Sche
             .collect();
         if !dropped.is_empty() {
             dropped.sort_unstable();
-            eprintln!(
+            crate::import::note(format!(
                 "# {name}: {} in the collection but not in this spec — re-imported rows lose them",
                 dropped.join(", ")
-            );
+            ));
         }
         for (field, want) in schema.iter() {
             let want = Field::from(want);

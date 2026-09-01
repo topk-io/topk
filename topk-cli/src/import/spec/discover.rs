@@ -8,19 +8,12 @@ use crate::import::source::{Source, Table};
 use crate::import::spec::{collection_key, Field, Spec, Target};
 use crate::import::ID_PLACEHOLDER;
 
-/// The spec, and the objects left out of it — an id-only table, or one whose id
-/// could not be found. Printed by the caller; nothing here writes to a terminal.
-pub struct Discovered {
-    pub spec: Spec,
-    pub skipped: Vec<String>,
-}
-
 pub async fn discover(
     source: &Source,
     patterns: &[String],
     to: Option<&str>,
     id: Option<&str>,
-) -> Result<Discovered, Error> {
+) -> Result<Spec, Error> {
     let available = source.catalog().await?;
 
     let mut renames: Vec<(&str, &str)> = Vec::new();
@@ -35,7 +28,7 @@ pub async fn discover(
         globs.push(WildMatch::new("*"));
     }
     let mut collections: IndexMap<String, Target> = IndexMap::new();
-    let mut skipped: Vec<String> = Vec::new();
+    let mut skipped = 0;
 
     // Partitioned, not filtered: what did not match is the sample an empty
     // result reports, without cloning it on every run that succeeds.
@@ -102,30 +95,29 @@ pub async fn discover(
         let target = Target::from(object);
         // An id-only object must not sink a whole-database glob.
         if target.fields.is_empty() {
-            skipped.push(format!(
+            crate::import::note(format!(
                 "# skipping {}: no columns to import besides the id",
                 target.from
             ));
+            skipped += 1;
             continue;
         }
         // A lone un-id-able match falls through so run() can point at --id.
         if target.id.as_deref() == Some(ID_PLACEHOLDER) && match_count > 1 {
-            skipped.push(format!(
+            crate::import::note(format!(
                 "# skipping {}: no id column found — import it alone with `--id <column>`, \
                  or set `id` in a spec",
                 target.from
             ));
+            skipped += 1;
             continue;
         }
         collections.insert(key, target);
     }
 
     if collections.is_empty() {
-        return Err(Error::InvalidArgument(if !skipped.is_empty() {
-            format!(
-                "nothing to import: all {} matched object(s) were skipped",
-                skipped.len()
-            )
+        return Err(Error::InvalidArgument(if skipped > 0 {
+            format!("nothing to import: all {skipped} matched object(s) were skipped")
         } else if patterns.is_empty() {
             "the source has no objects to import".to_string()
         } else {
@@ -141,10 +133,7 @@ pub async fn discover(
         }));
     }
 
-    Ok(Discovered {
-        spec: Spec::try_from(collections)?,
-        skipped,
-    })
+    Ok(Spec::try_from(collections)?)
 }
 
 impl From<Table> for Target {

@@ -108,17 +108,13 @@ async fn plan(source: &Source, args: &ImportArgs, given: Option<Spec>) -> Result
     let mut spec: Spec = match given {
         Some(spec) => spec,
         None => {
-            let discovered = import::discover(
+            import::discover(
                 source,
                 &args.objects,
                 args.to.as_deref(),
                 args.id.as_deref(),
             )
-            .await?;
-            for skipped in discovered.skipped {
-                eprintln!("{skipped}");
-            }
-            discovered.spec
+            .await?
         }
     };
     // A filter names one object's columns.
