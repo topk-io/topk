@@ -5,6 +5,7 @@ use serde_with::{serde_as, OneOrMany};
 use topk_rs::json::Value;
 
 use super::DocId;
+use crate::date::Zone;
 use crate::value::ValueExt;
 use crate::Error;
 
@@ -289,6 +290,9 @@ pub struct RangeBounds {
 
     #[serde(default)]
     pub format: Option<String>,
+
+    #[serde(default)]
+    pub time_zone: Option<Zone>,
 }
 
 impl<'de> Deserialize<'de> for RangeBounds {

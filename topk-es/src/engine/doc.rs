@@ -4,8 +4,9 @@ use topk_rs::proto::v1::control::{field_type, field_type_matrix::MatrixValueType
 use topk_rs::proto::v1::data::{value, Document, Value};
 
 use super::field::IndexKind;
-use super::Schema;
+use super::{Ctx, Schema};
 use crate::api::{Source, SourceFilter, WriteDoc};
+use crate::date;
 use crate::value::ValueExt;
 use crate::vector;
 use crate::Error;
@@ -22,28 +23,42 @@ pub fn decode(source: &SourceFilter, fields: HashMap<String, Value>) -> Source {
 }
 
 pub fn decode_fields(schema: &Schema, fields: HashMap<String, Value>) -> HashMap<String, Value> {
+    render(schema, flatten(fields))
+}
+
+pub fn flatten(fields: HashMap<String, Value>) -> HashMap<String, Value> {
     let mut flat = HashMap::new();
     for (name, value) in fields {
-        flatten_value(schema, &mut flat, name, value);
+        flatten_value(&mut flat, name, value);
     }
     flat
 }
 
-fn flatten_value(schema: &Schema, out: &mut HashMap<String, Value>, path: String, value: Value) {
+fn flatten_value(out: &mut HashMap<String, Value>, path: String, value: Value) {
     match value.value {
         Some(value::Value::Struct(s)) => {
             for (key, value) in s.fields {
-                flatten_value(schema, out, format!("{path}.{key}"), value);
+                flatten_value(out, format!("{path}.{key}"), value);
             }
         }
         value => {
-            let value = match schema.get(path.as_str()) {
-                Some(spec) if is_byte_vector(spec) => Value { value }.into_signed_bytes(),
-                _ => Value { value },
-            };
-            out.insert(path, value);
+            out.insert(path, Value { value });
         }
     }
+}
+
+pub fn render(schema: &Schema, fields: HashMap<String, Value>) -> HashMap<String, Value> {
+    fields
+        .into_iter()
+        .map(|(path, value)| {
+            let value = match schema.get(path.as_str()) {
+                Some(spec) if is_byte_vector(spec) => value.into_signed_bytes(),
+                Some(spec) if date::is_timestamp(spec) => date::from_timestamp(value),
+                _ => value,
+            };
+            (path, value)
+        })
+        .collect()
 }
 
 fn is_byte_vector(spec: &FieldSpec) -> bool {
@@ -70,10 +85,12 @@ fn insert_path(fields: &mut HashMap<String, Value>, path: &str, value: Value) {
 }
 
 pub fn encode_batch(schema: &Schema, docs: Vec<WriteDoc>) -> Result<Vec<Document>, Error> {
-    docs.into_iter().map(|doc| encode(schema, doc)).collect()
+    let ctx = Ctx::new(schema);
+    docs.into_iter().map(|doc| encode(&ctx, doc)).collect()
 }
 
-pub fn encode(schema: &Schema, doc: WriteDoc) -> Result<Document, Error> {
+pub fn encode(ctx: &Ctx, doc: WriteDoc) -> Result<Document, Error> {
+    let schema = ctx.schema;
     let fields = doc
         .into_fields()
         .into_iter()
@@ -91,6 +108,9 @@ pub fn encode(schema: &Schema, doc: WriteDoc) -> Result<Document, Error> {
                     if matches!(m.value_type(), MatrixValueType::U8) =>
                 {
                     value.to_u8_matrix().unwrap_or(value)
+                }
+                Some(field_type::DataType::Timestamp(_)) => {
+                    date::to_timestamp(spec, value, None, date::Round::Down, ctx.now)?
                 }
                 _ => value,
             };
