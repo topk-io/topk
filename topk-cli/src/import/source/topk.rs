@@ -114,6 +114,7 @@ impl Topk {
                 collection_hint: Some(collection.name.clone()),
                 from: collection.name,
                 primary_key: Some(ID.to_string()),
+                footprint: None,
             })
             .collect())
     }
