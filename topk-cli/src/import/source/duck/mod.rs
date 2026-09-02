@@ -2,7 +2,7 @@ mod creds;
 mod file;
 mod read;
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 
 use duckdb::Connection;
@@ -13,7 +13,7 @@ use url::Url;
 
 use crate::import::error::Error;
 use crate::import::source::codec::arrow;
-use crate::import::spec::{Field, Target};
+use crate::import::spec::{Element, Field, Target, Type};
 
 use super::{redact, Chunk, ChunkStream, Table};
 
@@ -79,6 +79,87 @@ fn max_readers() -> Option<usize> {
     // Two thirds of RAM: batches, arrow copies and proto encoding live outside
     // duckdb's accounting. 10/8 × 2/3 = 5/6.
     Some((reported * 5 / 6 / each).max(1) as usize)
+}
+
+/// One parquet footer, read once while building the catalog: how many files the
+/// locator matches, and for the first of them the row count and, per top-level
+/// column, its leaf values and compressed bytes. Enough to answer the three
+/// questions a plan should answer before reading anything — is this list a
+/// vector, is this column too big to be a document, and how much will we read.
+#[derive(Clone, Default)]
+pub struct Footprint {
+    pub files: u64,
+    pub rows: u64,
+    pub columns: BTreeMap<String, (u64, u64)>,
+}
+
+impl Footprint {
+    /// A list column whose values divide evenly into the rows is fixed width.
+    pub fn dim(&self, column: &str) -> Option<u32> {
+        let (values, _) = self.columns.get(column)?;
+        let dim = values.checked_div(self.rows)?;
+        (dim > 1 && values % self.rows == 0).then(|| u32::try_from(dim).ok())?
+    }
+
+    /// Compressed bytes per row, the floor on what a document will carry.
+    pub fn bytes_per_row(&self, column: &str) -> Option<u64> {
+        let (_, bytes) = self.columns.get(column)?;
+        bytes.checked_div(self.rows)
+    }
+
+    /// What the run reads: these columns of every matching file.
+    pub fn estimate(&self, columns: &[&str]) -> u64 {
+        let per_file: u64 = columns
+            .iter()
+            .filter_map(|c| self.columns.get(*c).map(|(_, bytes)| bytes))
+            .sum();
+        per_file * self.files
+    }
+}
+
+/// The footer of the first file a locator matches. Parquet only; every other
+/// format answers None and the plan simply says less.
+fn footprint(conn: &Connection, file: &File) -> Option<Footprint> {
+    if !matches!(file.format, Format::Parquet) {
+        return None;
+    }
+    let mut stmt = conn
+        .prepare(&format!(
+            "SELECT file FROM glob('{}') ORDER BY 1",
+            lit(&file.path)
+        ))
+        .ok()?;
+    let files: Vec<String> = stmt
+        .query_map([], |row| row.get(0))
+        .ok()?
+        .collect::<Result<_, _>>()
+        .ok()?;
+    let first = files.first()?;
+    let mut stmt = conn
+        .prepare(&format!(
+            "SELECT split_part(m.path_in_schema, ',', 1) AS name, \
+                    sum(m.num_values)::UBIGINT, \
+                    sum(m.total_compressed_size)::UBIGINT, \
+                    any_value(f.num_rows)::UBIGINT \
+             FROM parquet_metadata('{0}') m, parquet_file_metadata('{0}') f \
+             GROUP BY 1",
+            lit(first)
+        ))
+        .ok()?;
+    let rows: Vec<(String, u64, u64, u64)> = stmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
+        .ok()?
+        .collect::<Result<_, _>>()
+        .ok()?;
+    let count = rows.first()?.3;
+    Some(Footprint {
+        files: files.len() as u64,
+        rows: count,
+        columns: rows
+            .into_iter()
+            .map(|(name, values, bytes, _)| (name, (values, bytes)))
+            .collect(),
+    })
 }
 
 impl Duckdb {
@@ -254,17 +335,24 @@ impl Duckdb {
                     .query_arrow([])
                     .map_err(|e| read_error(&from, None, e))?
                     .get_schema();
+                let shape = file.as_ref().and_then(|file| footprint(&conn, file));
                 let columns: Vec<(String, Field)> = schema
                     .fields()
                     .iter()
                     .map(|field| {
-                        (
-                            field.name().clone(),
-                            Field {
-                                ty: arrow::ty(field.data_type()),
-                                ..Default::default()
-                            },
-                        )
+                        let mut spec = Field {
+                            ty: arrow::ty(field.data_type()),
+                            ..Default::default()
+                        };
+                        // A float list of constant width is an embedding, and the
+                        // footer knows the width without reading a row.
+                        if spec.ty == Type::FloatList {
+                            if let Some(dim) = shape.as_ref().and_then(|s| s.dim(field.name())) {
+                                spec.ty = Type::Vector(Element::F32);
+                                spec.dim = Some(dim);
+                            }
+                        }
+                        (field.name().clone(), spec)
                     })
                     .collect();
 
@@ -279,6 +367,7 @@ impl Duckdb {
                     collection_hint,
                     columns,
                     primary_key,
+                    footprint: shape,
                 });
             }
             Ok(tables)

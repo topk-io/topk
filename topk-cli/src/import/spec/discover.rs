@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use indexmap::IndexMap;
 use wildmatch::WildMatch;
 
-use crate::import::error::Error;
+use crate::import::error::{Error, MAX_DOC_BYTES};
 use crate::import::source::Table;
 use crate::import::spec::{collection_key, Field, Spec, Target};
 use crate::import::ID_PLACEHOLDER;
@@ -196,7 +196,24 @@ impl From<Table> for Target {
             .iter()
             .map(|(name, _)| name.as_str())
             .collect();
+        // A column that alone exceeds the document limit can never import; leaving
+        // it in the plan means a discovered spec that cannot run.
+        let oversized = |name: &str| {
+            table
+                .footprint
+                .as_ref()
+                .and_then(|shape| shape.bytes_per_row(name))
+                .is_some_and(|bytes| bytes as usize > MAX_DOC_BYTES)
+        };
         for (name, field) in table.columns.iter().filter(|(name, _)| *name != id) {
+            if oversized(name) {
+                crate::import::note(format!(
+                    "# skipping column {name:?}: it averages more than the {} \
+                     document limit on its own",
+                    bytesize::ByteSize(MAX_DOC_BYTES as u64)
+                ));
+                continue;
+            }
             let stripped = name.trim_start_matches('_');
             if name.starts_with('_')
                 && !stripped.is_empty()
