@@ -1,13 +1,8 @@
-use super::{logical::LogicalExpression, text::TextExpression};
+use super::{function::FunctionExpression, logical::LogicalExpression, text::TextExpression};
 use napi::bindgen_prelude::*;
 
 #[derive(Debug, Clone)]
-pub struct FilterExpression {
-    expr: FilterExpressionUnion,
-}
-
-#[derive(Debug, Clone)]
-pub enum FilterExpressionUnion {
+pub enum FilterExpression {
     Logical { expr: LogicalExpression },
     Text { expr: TextExpression },
 }
@@ -17,15 +12,17 @@ impl FromNapiValue for FilterExpression {
         env: napi::sys::napi_env,
         value: napi::sys::napi_value,
     ) -> napi::Result<Self> {
-        if let Ok(expr) = crate::try_cast_ref!(env, value, LogicalExpression) {
-            return Ok(FilterExpression {
-                expr: FilterExpressionUnion::Logical { expr: expr.clone() },
-            });
+        if let Ok(expr) = crate::try_cast_ref!(env, value, TextExpression) {
+            return Ok(FilterExpression::Text { expr: expr.clone() });
         }
 
-        if let Ok(expr) = crate::try_cast_ref!(env, value, TextExpression) {
-            return Ok(FilterExpression {
-                expr: FilterExpressionUnion::Text { expr: expr.clone() },
+        if let Ok(expr) = crate::try_cast_ref!(env, value, LogicalExpression) {
+            return Ok(FilterExpression::Logical { expr: expr.clone() });
+        }
+
+        if let Ok(expr) = crate::try_cast_ref!(env, value, FunctionExpression) {
+            return Ok(FilterExpression::Logical {
+                expr: expr.lifted(),
             });
         }
 
@@ -37,11 +34,11 @@ impl FromNapiValue for FilterExpression {
 
 impl From<FilterExpression> for topk_rs::proto::v1::data::stage::filter_stage::FilterExpr {
     fn from(expr: FilterExpression) -> Self {
-        match expr.expr {
-            FilterExpressionUnion::Logical { expr } => {
+        match expr {
+            FilterExpression::Logical { expr } => {
                 topk_rs::proto::v1::data::stage::filter_stage::FilterExpr::logical(expr)
             }
-            FilterExpressionUnion::Text { expr } => {
+            FilterExpression::Text { expr } => {
                 topk_rs::proto::v1::data::stage::filter_stage::FilterExpr::text(expr)
             }
         }

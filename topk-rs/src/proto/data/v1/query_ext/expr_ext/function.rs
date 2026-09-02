@@ -1,6 +1,6 @@
 use crate::proto::{
     data::v1::{SparseVector, Value},
-    v1::data::{function_expr, FunctionExpr},
+    v1::data::{function_expr, FunctionExpr, LogicalExpr},
 };
 
 impl FunctionExpr {
@@ -90,3 +90,42 @@ impl FunctionExpr {
         self
     }
 }
+
+macro_rules! lift {
+    ($($fn:ident($($arg:ident: $ty:ty),*)),* $(,)?) => {
+        impl FunctionExpr {
+            $(pub fn $fn(self, $($arg: $ty),*) -> LogicalExpr {
+                LogicalExpr::function(self).$fn($($arg),*)
+            })*
+        }
+    };
+}
+
+lift!(
+    // Comparison operators
+    eq(rhs: impl Into<LogicalExpr>),
+    neq(rhs: impl Into<LogicalExpr>),
+    lt(rhs: impl Into<LogicalExpr>),
+    lte(rhs: impl Into<LogicalExpr>),
+    gt(rhs: impl Into<LogicalExpr>),
+    gte(rhs: impl Into<LogicalExpr>),
+    // Arithmetic operators
+    add(rhs: impl Into<LogicalExpr>),
+    sub(rhs: impl Into<LogicalExpr>),
+    mul(rhs: impl Into<LogicalExpr>),
+    div(rhs: impl Into<LogicalExpr>),
+    min(rhs: impl Into<LogicalExpr>),
+    max(rhs: impl Into<LogicalExpr>),
+    coalesce(rhs: impl Into<LogicalExpr>),
+    // Unary operators
+    is_null(),
+    is_not_null(),
+    abs(),
+    ln(),
+    exp(),
+    sqrt(),
+    square(),
+    // Ternary operators
+    choose(x: impl Into<LogicalExpr>, y: impl Into<LogicalExpr>),
+    boost(condition: impl Into<LogicalExpr>, boost: impl Into<Value>),
+);

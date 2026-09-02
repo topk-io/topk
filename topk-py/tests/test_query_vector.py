@@ -30,6 +30,20 @@ def test_query_vector_distance(ctx: ProjectContext):
     assert doc_ids(result) == {"1984", "pride", "mockingbird"}
 
 
+def test_query_vector_distance_in_filter(ctx: ProjectContext):
+    collection = dataset.books.setup(ctx)
+
+    result = ctx.client.collection(collection.name).query(
+        select(
+            summary_distance=fn.vector_distance("summary_embedding", [2.0] * 16),
+        )
+        .filter(fn.vector_distance("summary_embedding", [2.0] * 16) < 50)
+        .topk(field("summary_distance"), 10, True)
+    )
+
+    assert doc_ids(result) == {"1984", "mockingbird", "pride"}
+
+
 def test_query_vector_distance_numpy_f32(ctx: ProjectContext):
     collection = dataset.books.setup(ctx)
 

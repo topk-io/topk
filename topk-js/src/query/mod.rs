@@ -34,7 +34,8 @@ pub fn select(
 /// Creates a new query with a filter stage.
 #[napi(namespace = "query")]
 pub fn filter(
-    #[napi(ts_arg_type = "LogicalExpression | TextExpression")] expr: FilterExpression,
+    #[napi(ts_arg_type = "LogicalExpression | FunctionExpression | TextExpression")]
+    expr: FilterExpression,
 ) -> Query {
     Query {
         stages: vec![Stage::Filter { expr }],

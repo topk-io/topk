@@ -3,7 +3,9 @@ use crate::expr::aggregate::AggregateExpr;
 use crate::expr::filter::FilterExprUnion;
 use crate::expr::flexible::Ordered;
 use crate::expr::function::FunctionExpr;
-use crate::expr::logical::{BinaryOperator, LogicalExpr, NaryOperator, UnaryOperator};
+use crate::expr::logical::{
+    BinaryOperator, LogicalExpr, LogicalExprUnion, NaryOperator, UnaryOperator,
+};
 use crate::expr::select::SelectExprUnion;
 use crate::expr::text::{Term, TextExpr};
 use crate::module;
@@ -68,7 +70,7 @@ pub fn filter(expr: FilterExprUnion) -> PyResult<Query> {
 
 #[pyfunction]
 pub fn group_by(
-    keys: HashMap<String, LogicalExpr>,
+    keys: HashMap<String, LogicalExprUnion>,
     aggs: HashMap<String, AggregateExpr>,
 ) -> PyResult<Query> {
     Ok(Query::new().group_by(keys, aggs)?)

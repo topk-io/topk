@@ -47,5 +47,4 @@ impl AsyncClient {
     pub fn collections(&self) -> PyResult<AsyncCollectionsClient> {
         Ok(AsyncCollectionsClient::new(self.client.clone()))
     }
-
 }

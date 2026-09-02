@@ -5,7 +5,7 @@ use topk_rs::query::{count as count_query, field, filter, fns, not, should, Sort
 use super::field::{ensure_aggregatable, IndexKind};
 use super::rank::Ranking;
 use super::score::{ann_score, AnnQuery, AnnTerm, CompiledQuery, Score};
-use super::{agg, RANK_BM25, RANK_SCORE};
+use super::{agg, RANK_SCORE};
 use crate::api::{
     AggClause, AggType, FieldName, GateQuery, KnnRequest, MatchAllQuery, MatchOperator, MatchValue,
     Query, SearchRequest, SortField, SortTarget, TermValue,
@@ -109,19 +109,17 @@ fn lower(
     knn: bool,
     limit: u64,
 ) -> Result<TopkQuery, Error> {
-    let score = compiled.score;
-    let has_bm25 = score.bm25.is_some();
-    let mut query = match score.bm25 {
-        Some(text) => filter(text).filter(compiled.gate),
-        None => filter(compiled.gate),
+    let (query, bm25) = match compiled.score.bm25 {
+        Some(text) => (
+            filter(text).filter(compiled.gate),
+            Some(fns::bm25_score(None, None).into()),
+        ),
+        None => (filter(compiled.gate), None),
     };
 
-    if has_bm25 {
-        query = query.select([(RANK_BM25, fns::bm25_score(None, None))]);
-    }
-    let (query, ann_term) = ann_score(query, schema, &score.anns)?;
+    let (query, ann_term) = ann_score(query, schema, &compiled.score.anns)?;
 
-    let total = [has_bm25.then(|| field(RANK_BM25)), ann_term, score.expr]
+    let total = [bm25, ann_term, compiled.score.expr]
         .into_iter()
         .flatten()
         .reduce(|acc, part| acc.add(part))

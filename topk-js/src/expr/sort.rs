@@ -1,4 +1,4 @@
-use super::logical::LogicalExpression;
+use super::{function::FunctionExpression, logical::LogicalExpression};
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
@@ -31,24 +31,35 @@ impl From<SortOrder> for topk_rs::proto::v1::data::stage::sort_stage::SortOrder 
 
 /// An expression to sort by with its sort order.
 #[napi(object, namespace = "query")]
-pub struct SortExpr<'env> {
+#[derive(Debug, Clone)]
+pub struct SortExpr {
     /// The expression to sort by.
-    pub expr: ClassInstance<'env, LogicalExpression>,
+    #[napi(ts_type = "LogicalExpression | FunctionExpression")]
+    pub expr: LogicalExpression,
     /// Sort order.
     pub order: SortOrder,
 }
 
-#[derive(Debug, Clone)]
-pub struct SortExpression {
-    pub expr: LogicalExpression,
-    pub order: SortOrder,
+/// Either a single expression to sort by, or an array of `(expr, order)` pairs.
+pub enum SortArg {
+    Single(LogicalExpression),
+    Many(Vec<SortExpr>),
 }
 
-impl From<SortExpr<'_>> for SortExpression {
-    fn from(se: SortExpr) -> Self {
-        SortExpression {
-            expr: (*se.expr).clone(),
-            order: se.order,
+impl FromNapiValue for SortArg {
+    unsafe fn from_napi_value(
+        env: napi::sys::napi_env,
+        value: napi::sys::napi_value,
+    ) -> napi::Result<Self> {
+        if let Ok(exprs) = Vec::<SortExpr>::from_napi_value(env, value) {
+            return Ok(SortArg::Many(exprs));
         }
+
+        if let Ok(expr) = crate::try_cast_ref!(env, value, LogicalExpression) {
+            return Ok(SortArg::Single(expr.clone()));
+        }
+
+        let expr = crate::try_cast_ref!(env, value, FunctionExpression)?;
+        Ok(SortArg::Single(expr.lifted()))
     }
 }

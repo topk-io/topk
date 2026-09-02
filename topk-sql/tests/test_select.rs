@@ -938,6 +938,12 @@ async fn cast_without_alias() {
      FROM {{table}} ORDER BY score DESC LIMIT 3",
     ids!["hobbit", "lotr", "harry"],
 )]
+#[case::where_threshold(
+    "SELECT _id, vector_distance(embedding, f32_vector(ARRAY[1, 0, 0, 0])) AS score \
+     FROM {{table}} WHERE vector_distance(embedding, f32_vector(ARRAY[1, 0, 0, 0])) > 0.5 \
+     ORDER BY score DESC LIMIT 10",
+    ids!["hobbit", "lotr", "harry"],
+)]
 #[tokio::test]
 async fn vector_distance_search(#[case] query: &str, #[case] expected: HashSet<&str>) {
     let rows = BooksContext::with_scope(async |ctx| ctx.sql(query).await)
@@ -952,6 +958,21 @@ async fn vector_distance_search(#[case] query: &str, #[case] expected: HashSet<&
         .get("score")
         .and_then(Value::as_f32)
         .expect("score should be present");
+}
+
+#[tokio::test]
+async fn vector_distance_order_by_inline() {
+    let rows = BooksContext::with_scope(async |ctx| {
+        ctx.sql(
+            "SELECT _id FROM {{table}} \
+             ORDER BY vector_distance(embedding, f32_vector(ARRAY[1, 0, 0, 0])) DESC LIMIT 3",
+        )
+        .await
+    })
+    .await
+    .unwrap();
+
+    assert_eq!(ids(&rows), ids!["hobbit", "lotr", "harry"]);
 }
 
 #[tokio::test]
@@ -1172,10 +1193,6 @@ async fn semantic_similarity_search() {
 #[case::match_tokens_non_string_array(
     "SELECT _id FROM {{table}} WHERE match_tokens(ARRAY[1, 2], title)",
     "Invalid: match_tokens: tokens must be an array of strings"
-)]
-#[case::vector_distance_in_where(
-    "SELECT _id FROM {{table}} WHERE vector_distance(embedding, f32_vector(ARRAY[1.0, 0.0, 0.0, 0.0])) > 0",
-    "Unsupported: `vector_distance` is a search function \u{2014} only valid at the top of a SELECT projection item (e.g. `SELECT vector_distance(\u{2026}) AS s FROM c ORDER BY s LIMIT k`)"
 )]
 #[case::in_list_non_literal(
     "SELECT _id FROM {{table}} WHERE published_year IN (published_year - 0) LIMIT 5",
