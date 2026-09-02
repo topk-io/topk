@@ -13,7 +13,7 @@ use crate::import::spec::Target;
 
 use super::file::{local_path, reader, File};
 use super::select::Select;
-use super::{lit, read_error, Duckdb};
+use super::{lit, read_error, Duckdb, READER_MEMORY};
 
 pub(super) type Sender = mpsc::Sender<Chunk>;
 type Receiver = mpsc::Receiver<Chunk>;
@@ -25,6 +25,8 @@ pub(super) struct Plan {
     from: String,
     filter: Option<String>,
     position: Position,
+    /// The columns asked of the relation, for the error that names the widest.
+    columns: Vec<String>,
 }
 
 /// How this part's cursor moves: by the last value of a column, or by rows read
@@ -51,16 +53,18 @@ impl Position {
 }
 
 /// Files decoded ahead of the one being upserted. A single-row-group parquet is
-/// read whole before its first row, so each file boundary stalls the sink (s3:
-/// 29 → 41 MiB/s with one ahead; two measured the same for another row group
-/// of memory). Each holds a `READER_MEMORY` connection, budgeted by `max_readers`.
-pub(super) const READ_AHEAD: usize = 1;
+/// read whole before its first row, so each file boundary stalls the sink. One
+/// ahead was enough on s3 (29 → 41 MiB/s, and two measured the same), but a
+/// higher-latency store is bound by round trips, not bandwidth: over hf:// the
+/// same import runs 1234 → 2067 rows/s going from one ahead to seven. They share
+/// the scan's connection, so the depth costs round trips, not another buffer pool.
+const READ_AHEAD: usize = 7;
 
 /// Files in glob order, one query each, read `READ_AHEAD` deep and forwarded in
 /// order. The cursor is `<file>:<rows read>`: resuming skips files before it and
 /// `OFFSET`s into the one it names.
 pub(super) fn files(
-    source: &Duckdb,
+    conn: &Connection,
     file: &File,
     target: &Target,
     filter: Option<&str>,
@@ -71,7 +75,6 @@ pub(super) fn files(
     let files: Vec<String> = match local_path(path).is_some() {
         true => vec![path.clone()],
         false => {
-            let conn = source.connect(Some(file))?;
             let mut stmt = conn
                 .prepare(&format!(
                     "SELECT file FROM glob('{}') ORDER BY 1",
@@ -106,7 +109,10 @@ pub(super) fn files(
                 break;
             };
             let (file_tx, file_rx) = mpsc::channel(2);
-            let source = source.clone();
+            // Another connection to the same database: extensions and secrets are
+            // already installed on it, and its buffer pool is shared, so reading
+            // deeper does not multiply memory.
+            let reader = conn.try_clone()?;
             let file = File {
                 path,
                 ..file.clone()
@@ -114,10 +120,7 @@ pub(super) fn files(
             let plan = Plan::file(&file, target, filter, offset, remaining);
             readers.push_back((
                 file_rx,
-                thread::spawn(move || {
-                    let conn = source.connect(Some(&file))?;
-                    plan.read(&conn, &file_tx)
-                }),
+                thread::spawn(move || plan.read(&reader, &file_tx)),
             ));
         }
         let Some((mut rx, reader)) = readers.pop_front() else {
@@ -164,6 +167,7 @@ impl Plan {
             from: target.from.clone(),
             filter: filter.map(str::to_string),
             position: Position::Key(id.to_string()),
+            columns: target.source_columns().into_iter().map(str::to_string).collect(),
         }
     }
 
@@ -187,12 +191,35 @@ impl Plan {
             from: file.path.clone(),
             filter: filter.map(str::to_string),
             position: Position::Offset(offset),
+            columns: target.source_columns().into_iter().map(str::to_string).collect(),
         }
     }
 
     pub(super) fn read(&self, conn: &Connection, tx: &Sender) -> Result<u64, Error> {
-        self.execute(conn, tx)
-            .map_err(|e| read_error(&self.from, self.filter.as_deref(), e))
+        self.execute(conn, tx).map_err(|e| self.error(conn, e))
+    }
+
+    /// duckdb's OOM leaks the engine at a public edge, and its advice does not
+    /// apply: a reader holds a whole column chunk, a single-row-group file has
+    /// no smaller unit, so `LIMIT` does not shrink it and a bigger machine does
+    /// not help — `READER_MEMORY` is a constant. Name the column instead, with a
+    /// footer read that only runs on the way to failing.
+    fn error(&self, conn: &Connection, e: duckdb::Error) -> Error {
+        let msg = e.to_string();
+        if !msg.contains("Out of Memory") && !msg.contains("could not allocate") {
+            return read_error(&self.from, self.filter.as_deref(), e);
+        }
+        let widest = match widest_column(conn, &self.from, &self.columns) {
+            Some((column, bytes)) => {
+                format!("{column:?} needs {} resident", bytesize::ByteSize(bytes))
+            }
+            None => "a column is too wide to hold".to_string(),
+        };
+        Error::InvalidArgument(format!(
+            "reading {}: {widest} and one reader is budgeted {READER_MEMORY}. \
+             Drop the field from the spec to skip the column.",
+            self.from
+        ))
     }
 
     /// Returns the rows read; stops without error if the receiver goes away.
@@ -228,4 +255,24 @@ impl Plan {
         }
         Ok(read)
     }
+}
+
+/// The heaviest of `columns` in a parquet file, by its footer. Nested columns
+/// are leaves under a dotted path, so they sum back to the name a spec uses;
+/// nothing else answers, which is the whole point of it being optional.
+fn widest_column(conn: &Connection, path: &str, columns: &[String]) -> Option<(String, u64)> {
+    let wanted: Vec<String> = columns.iter().map(|c| format!("'{}'", lit(c))).collect();
+    let mut stmt = conn
+        .prepare(&format!(
+            "SELECT name, bytes FROM ( \
+               SELECT split_part(path_in_schema, ',', 1) AS name, \
+                      sum(total_compressed_size)::UBIGINT AS bytes \
+               FROM parquet_metadata('{}') GROUP BY 1 \
+             ) WHERE name IN [{}] ORDER BY bytes DESC LIMIT 1",
+            lit(path),
+            wanted.join(", ")
+        ))
+        .ok()?;
+    stmt.query_row([], |row| Ok((row.get(0)?, row.get(1)?)))
+        .ok()
 }
