@@ -14,7 +14,7 @@ use crate::endpoint::Endpoint;
 use crate::import::error::Error;
 use crate::import::spec::{Field, Target};
 
-pub use duck::{aws_process_profile, Duckdb, File};
+pub use duck::{aws_process_profile, Duckdb, File, Footprint};
 use es::Es;
 use mongo::Mongo;
 use topk::Topk;
@@ -40,6 +40,8 @@ pub struct Table {
     pub collection_hint: Option<String>,
     pub columns: Vec<(String, Field)>,
     pub primary_key: Option<String>,
+    /// Only a parquet file answers; the plan says less without it.
+    pub footprint: Option<Footprint>,
 }
 
 pub enum Source {

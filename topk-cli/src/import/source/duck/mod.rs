@@ -2,7 +2,7 @@ mod creds;
 mod file;
 mod read;
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 
 use duckdb::Connection;
@@ -13,15 +13,15 @@ use url::Url;
 
 use crate::import::error::Error;
 use crate::import::source::codec::arrow;
-use crate::import::spec::{Field, Target};
+use crate::import::spec::{Element, Field, Target, Type};
 
 use super::{redact, Chunk, ChunkStream, Table};
 
 pub use creds::aws_process_profile;
 use creds::secret;
 pub use file::File;
-use file::{local_path, reader, stem, Format};
-use read::{files, table, READ_AHEAD};
+use file::{local_path, reader, reader_of, stem, Format};
+use read::{files, table};
 
 #[derive(Clone)]
 pub enum Duckdb {
@@ -60,34 +60,125 @@ pub(super) fn lit(value: &str) -> String {
     value.replace('\'', "''")
 }
 
-/// Per-reader duckdb budget. duckdb's default is 80% of RAM *per connection*,
-/// which concurrent readers multiply into an OOM-kill; a 1.3 GiB single-row-group
-/// parquet needs the whole column chunk resident.
-const READER_MEMORY: &str = "4GiB";
+/// Per-scan duckdb budget. duckdb's default is 80% of RAM *per database*, which
+/// concurrent scans multiply into an OOM-kill; a 1.3 GiB single-row-group parquet
+/// needs the whole column chunk resident. `memory_limit` is global to a database,
+/// so a scan's file readers share this pool instead of each claiming one.
+pub(super) const READER_MEMORY: &str = "4GiB";
 
-/// How many `READER_MEMORY` readers fit in RAM. duckdb's default `memory_limit`
-/// is 80% of RAM (cgroup-aware), which is how RAM is read without a dependency.
-fn max_readers() -> Option<usize> {
-    let conn = Connection::open_in_memory().ok()?;
+/// One parquet footer, read once while building the catalog: how many files the
+/// locator matches, and for the first of them the row count and, per top-level
+/// column, its leaf values and compressed bytes. Enough to answer the three
+/// questions a plan should answer before reading anything — is this list a
+/// vector, is this column too big to be a document, and how much will we read.
+#[derive(Clone, Default)]
+pub struct Footprint {
+    pub files: u64,
+    pub rows: u64,
+    pub columns: BTreeMap<String, (u64, u64)>,
+}
+
+impl Footprint {
+    /// A list column whose values divide evenly into the rows is fixed width.
+    pub fn dim(&self, column: &str) -> Option<u32> {
+        let (values, _) = self.columns.get(column)?;
+        let dim = values.checked_div(self.rows)?;
+        if dim <= 1 || values % self.rows != 0 {
+            return None;
+        }
+        u32::try_from(dim).ok()
+    }
+
+    /// Compressed bytes per row, the floor on what a document will carry.
+    pub fn bytes_per_row(&self, column: &str) -> Option<u64> {
+        let (_, bytes) = self.columns.get(column)?;
+        bytes.checked_div(self.rows)
+    }
+
+    /// What the run reads: these columns of every matching file.
+    pub fn estimate(&self, columns: &[&str]) -> u64 {
+        let per_file: u64 = columns
+            .iter()
+            .filter_map(|c| self.columns.get(*c).map(|(_, bytes)| bytes))
+            .sum();
+        per_file * self.files
+    }
+}
+
+/// How many of a glob's files the catalog reads to settle the schema. Binding a
+/// glob's union costs one footer read per file, so a large glob spends minutes
+/// planning before the first row; a column only later files carry still imports,
+/// because the read path keeps the whole glob and `union_by_name`.
+const CATALOG_FILES: usize = 32;
+
+/// The files a locator matches, in the order the resume cursor compares them.
+fn matching(conn: &Connection, file: &File) -> Option<Vec<String>> {
     let mut stmt = conn
-        .prepare("SELECT value FROM duckdb_settings() WHERE name = 'memory_limit'")
+        .prepare(&format!(
+            "SELECT file FROM glob('{}') ORDER BY 1",
+            lit(&file.path)
+        ))
         .ok()?;
-    let reported: String = stmt.query_row([], |row| row.get(0)).ok()?;
-    let reported = reported.parse::<bytesize::ByteSize>().ok()?.as_u64();
-    let each = READER_MEMORY.parse::<bytesize::ByteSize>().ok()?.as_u64();
-    // Two thirds of RAM: batches, arrow copies and proto encoding live outside
-    // duckdb's accounting. 10/8 × 2/3 = 5/6.
-    Some((reported * 5 / 6 / each).max(1) as usize)
+    stmt.query_map([], |row| row.get(0))
+        .ok()?
+        .collect::<Result<Vec<String>, _>>()
+        .ok()
+}
+
+/// The footer of the first file a locator matches. Parquet only; every other
+/// format answers None and the plan simply says less.
+fn footprint(conn: &Connection, file: &File, files: &[String]) -> Option<Footprint> {
+    if !matches!(file.format, Format::Parquet) {
+        return None;
+    }
+    let first = files.first()?;
+    let mut stmt = conn
+        .prepare(&format!(
+            "SELECT split_part(m.path_in_schema, ',', 1) AS name, \
+                    sum(m.num_values)::UBIGINT, \
+                    sum(m.total_compressed_size)::UBIGINT, \
+                    any_value(f.num_rows)::UBIGINT \
+             FROM parquet_metadata('{0}') m, parquet_file_metadata('{0}') f \
+             GROUP BY 1",
+            lit(first)
+        ))
+        .ok()?;
+    let rows: Vec<(String, u64, u64, u64)> = stmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
+        .ok()?
+        .collect::<Result<_, _>>()
+        .ok()?;
+    let count = rows.first()?.3;
+    Some(Footprint {
+        files: files.len() as u64,
+        rows: count,
+        columns: rows
+            .into_iter()
+            .map(|(name, values, bytes, _)| (name, (values, bytes)))
+            .collect(),
+    })
 }
 
 impl Duckdb {
-    /// Each duckdb scan holds a row group; too many OOM-kill the process
-    /// regardless of the per-connection `memory_limit`.
+    /// How many `READER_MEMORY` scans fit in RAM. Each duckdb database holds a
+    /// buffer pool; too many OOM-kill the process regardless of any one
+    /// `memory_limit`. A scan's files share its pool, so only scans are counted
+    /// and read depth is free. duckdb's default `memory_limit` is 80% of RAM
+    /// (cgroup-aware), which is how RAM is read without a dependency.
     pub fn concurrency_limit(&self) -> usize {
-        max_readers().map_or(usize::MAX, |readers| match self {
-            Duckdb::Files(_) => (readers / (1 + READ_AHEAD)).max(1),
-            _ => readers,
-        })
+        let scans = || -> Option<usize> {
+            let conn = Connection::open_in_memory().ok()?;
+            let mut stmt = conn
+                .prepare("SELECT value FROM duckdb_settings() WHERE name = 'memory_limit'")
+                .ok()?;
+            let reported: String = stmt.query_row([], |row| row.get(0)).ok()?;
+            let reported = reported.parse::<bytesize::ByteSize>().ok()?.as_u64();
+            let each = READER_MEMORY.parse::<bytesize::ByteSize>().ok()?.as_u64();
+            // Two thirds of RAM: batches, arrow copies and proto encoding live
+            // outside duckdb's accounting. 10/8 × 2/3 = 5/6.
+            Some((reported * 5 / 6 / each).max(1) as usize)
+        };
+        scans().unwrap_or(usize::MAX)
     }
 
     /// A connection able to read `file`; attached sources ignore it and use their DSN.
@@ -95,9 +186,12 @@ impl Duckdb {
         let conn = Connection::open_in_memory()?;
         // One thread, in order: rows arrive as stored, which makes a row offset
         // a resume point; more threads measured the same.
+        // Object stores rate-limit a long import; duckdb's defaults give up after
+        // about two seconds, which turns a 429 into a failed run.
         conn.execute_batch(&format!(
             "SET preserve_insertion_order = true; SET memory_limit = '{READER_MEMORY}'; \
-             SET threads = 1; SET temp_directory = '{}';",
+             SET threads = 1; SET http_retries = 8; SET http_retry_backoff = 2; \
+             SET http_retry_wait_ms = 500; SET temp_directory = '{}';",
             lit(&std::env::temp_dir()
                 .join("topk-import")
                 .display()
@@ -218,6 +312,7 @@ impl Duckdb {
             };
             let conn = source.connect(file.as_ref())?;
             // (object, collection hint, what to SELECT from)
+            let mut files_matched: Vec<String> = Vec::new();
             let objects: Vec<(String, Option<String>, String)> = match &file {
                 // A file source's one object is the uri it was given.
                 Some(file) => {
@@ -231,7 +326,14 @@ impl Duckdb {
                             file.path
                         )));
                     }
-                    vec![(file.path.clone(), stem(&file.path), reader(file))]
+                    // Bounded: the schema settles on a sample, not every file.
+                    let matched = matching(&conn, file).unwrap_or_default();
+                    let table_ref = match matched.len() {
+                        0 => reader(file),
+                        n => reader_of(file, &matched[..n.min(CATALOG_FILES)]),
+                    };
+                    files_matched = matched;
+                    vec![(file.path.clone(), stem(&file.path), table_ref)]
                 }
                 None => source
                     .list(&conn)?
@@ -252,17 +354,26 @@ impl Duckdb {
                     .query_arrow([])
                     .map_err(|e| read_error(&from, None, e))?
                     .get_schema();
+                let shape = file
+                    .as_ref()
+                    .and_then(|file| footprint(&conn, file, &files_matched));
                 let columns: Vec<(String, Field)> = schema
                     .fields()
                     .iter()
                     .map(|field| {
-                        (
-                            field.name().clone(),
-                            Field {
-                                ty: arrow::ty(field.data_type()),
-                                ..Default::default()
-                            },
-                        )
+                        let mut spec = Field {
+                            ty: arrow::ty(field.data_type()),
+                            ..Default::default()
+                        };
+                        // A float list of constant width is an embedding, and the
+                        // footer knows the width without reading a row.
+                        if spec.ty == Type::FloatList {
+                            if let Some(dim) = shape.as_ref().and_then(|s| s.dim(field.name())) {
+                                spec.ty = Type::Vector(Element::F32);
+                                spec.dim = Some(dim);
+                            }
+                        }
+                        (field.name().clone(), spec)
                     })
                     .collect();
 
@@ -277,6 +388,7 @@ impl Duckdb {
                     collection_hint,
                     columns,
                     primary_key,
+                    footprint: shape,
                 });
             }
             Ok(tables)
@@ -301,7 +413,7 @@ impl Duckdb {
                 match &file {
                     Some(file) => {
                         let conn = source.connect(Some(file))?;
-                        files(&source, &conn, file, &target, after.as_deref(), &tx)
+                        files(&conn, file, &target, after.as_deref(), &tx)
                     }
                     None => {
                         let conn = source.connect(None)?;

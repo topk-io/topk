@@ -35,10 +35,25 @@ async fn discover_err(locator: &str, pattern: &str) -> String {
 
 #[test_context(Scratch)]
 #[tokio::test]
-async fn float_lists_stay_lists(ctx: &mut Scratch) {
+async fn fixed_width_float_lists_become_vectors(ctx: &mut Scratch) {
     let path = ctx.sql_parquet(
         "emb",
         "SELECT i AS id, [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8]::FLOAT[] AS embedding \
+         FROM range(3) t(i)",
+    );
+
+    let spec = discover_spec(&path, None).await;
+    let field = &spec.collections["emb"].fields["embedding"];
+    assert_eq!(field.ty.to_string(), "f32_vector");
+    assert_eq!(field.dim, Some(8));
+}
+
+#[test_context(Scratch)]
+#[tokio::test]
+async fn ragged_float_lists_stay_lists(ctx: &mut Scratch) {
+    let path = ctx.sql_parquet(
+        "emb",
+        "SELECT i AS id, CASE WHEN i = 0 THEN [0.1,0.2] ELSE [0.3] END::FLOAT[] AS embedding \
          FROM range(3) t(i)",
     );
 

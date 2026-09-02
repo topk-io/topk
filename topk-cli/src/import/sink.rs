@@ -1,10 +1,13 @@
 use std::collections::VecDeque;
+use std::fmt;
+use std::io::IsTerminal;
 use std::mem;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use futures::{stream, Stream, StreamExt};
-use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use indicatif::{MultiProgress, ProgressBar, ProgressState, ProgressStyle};
 use prost::Message;
 use tokio::sync::Semaphore;
 use tokio::task::JoinHandle;
@@ -109,27 +112,74 @@ pub struct Sink<'a> {
     pub continue_on_error: bool,
 }
 
+/// How often a non-interactive run reports progress. indicatif draws nothing
+/// when stderr is not a terminal, which is how a long import is usually run.
+const LOG_EVERY: Duration = Duration::from_secs(30);
+
 /// Clears itself on drop, so `?` exits and cancellation can't leave a stale bar.
-struct Spinner(ProgressBar);
+struct Spinner {
+    bar: ProgressBar,
+    name: String,
+    /// `None` on a terminal, where the bar speaks for itself.
+    logged: Option<Mutex<Instant>>,
+}
 
 impl Spinner {
     fn add(progress: &MultiProgress, name: &str) -> Spinner {
+        // A run measured in hours needs a rate to be judged by, not just a count.
         let bar = progress.add(
             ProgressBar::new_spinner()
                 .with_style(
-                    ProgressStyle::with_template("{spinner:.cyan} {msg}: {pos} rows [{elapsed}]")
-                        .expect("valid spinner template"),
+                    ProgressStyle::with_template(
+                        "{spinner:.cyan} {msg}: {pos} rows ({rate}/s) [{elapsed}]",
+                    )
+                    .expect("valid spinner template")
+                    // indicatif's own `per_sec` renders every decimal it has.
+                    .with_key(
+                        "rate",
+                        |state: &ProgressState, w: &mut dyn fmt::Write| {
+                            let _ = write!(w, "{:.0}", state.per_sec());
+                        },
+                    ),
                 )
                 .with_message(name.to_string()),
         );
-        bar.enable_steady_tick(Duration::from_millis(100));
-        Spinner(bar)
+        // indicatif draws nothing when stderr is not a terminal, which is how a
+        // long import is usually run; a periodic line keeps it legible in a log.
+        let interactive = std::io::stderr().is_terminal();
+        if interactive {
+            bar.enable_steady_tick(Duration::from_millis(100));
+        }
+        Spinner {
+            bar,
+            name: name.to_string(),
+            logged: (!interactive).then(|| Mutex::new(Instant::now())),
+        }
+    }
+
+    /// One row in, and a line every `LOG_EVERY` when there is no bar to watch.
+    fn inc(&self) {
+        self.bar.inc(1);
+        let Some(logged) = &self.logged else { return };
+        let mut last = logged.lock().unwrap_or_else(|e| e.into_inner());
+        if last.elapsed() < LOG_EVERY {
+            return;
+        }
+        *last = Instant::now();
+        let rows = self.bar.position();
+        let secs = self.bar.elapsed().as_secs_f64().max(1.0);
+        crate::import::note(format!(
+            "# {}: {rows} rows ({:.0}/s) [{}s]",
+            self.name,
+            rows as f64 / secs,
+            secs as u64
+        ));
     }
 }
 
 impl Drop for Spinner {
     fn drop(&mut self) {
-        self.0.finish_and_clear();
+        self.bar.finish_and_clear();
     }
 }
 
@@ -165,7 +215,7 @@ impl Sink<'_> {
                 match row.and_then(|record| build_document(target, record)) {
                     Ok(doc) => {
                         outcome.rows += 1;
-                        bar.0.inc(1);
+                        bar.inc();
                         writer.push(doc).await?;
                     }
                     Err(e) if self.continue_on_error && matches!(e, Error::Doc { .. }) => {
