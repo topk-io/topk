@@ -41,7 +41,8 @@ pub enum Error {
     #[error("cannot coerce to {0}")]
     CannotCoerce(Type),
 
-    #[error("{} exceeds the {} document limit",
+    #[error("{} exceeds the {} document limit — skip such rows with \
+             --continue-on-error, or bound a text field with `truncate`",
         bytesize::ByteSize(*.0 as u64).to_string_as(false),
         bytesize::ByteSize(MAX_DOC_BYTES as u64).to_string_as(false))]
     Oversized(usize),

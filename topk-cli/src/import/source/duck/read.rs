@@ -118,10 +118,7 @@ pub(super) fn files(
                 ..file.clone()
             };
             let plan = Plan::file(&file, target, filter, offset, remaining);
-            readers.push_back((
-                file_rx,
-                thread::spawn(move || plan.read(&reader, &file_tx)),
-            ));
+            readers.push_back((file_rx, thread::spawn(move || plan.read(&reader, &file_tx))));
         }
         let Some((mut rx, reader)) = readers.pop_front() else {
             break;
@@ -167,7 +164,11 @@ impl Plan {
             from: target.from.clone(),
             filter: filter.map(str::to_string),
             position: Position::Key(id.to_string()),
-            columns: target.source_columns().into_iter().map(str::to_string).collect(),
+            columns: target
+                .source_columns()
+                .into_iter()
+                .map(str::to_string)
+                .collect(),
         }
     }
 
@@ -191,7 +192,11 @@ impl Plan {
             from: file.path.clone(),
             filter: filter.map(str::to_string),
             position: Position::Offset(offset),
-            columns: target.source_columns().into_iter().map(str::to_string).collect(),
+            columns: target
+                .source_columns()
+                .into_iter()
+                .map(str::to_string)
+                .collect(),
         }
     }
 
