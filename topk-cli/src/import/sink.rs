@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::fmt::{self, Write as _};
 use std::io::IsTerminal;
 use std::mem;
 use std::sync::Arc;
@@ -6,7 +7,7 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use futures::{stream, Stream, StreamExt};
-use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use indicatif::{MultiProgress, ProgressBar, ProgressState, ProgressStyle};
 use prost::Message;
 use tokio::sync::Semaphore;
 use tokio::task::JoinHandle;
@@ -130,9 +131,16 @@ impl Spinner {
             ProgressBar::new_spinner()
                 .with_style(
                     ProgressStyle::with_template(
-                        "{spinner:.cyan} {msg}: {pos} rows ({per_sec}) [{elapsed}]",
+                        "{spinner:.cyan} {msg}: {pos} rows ({rate}/s) [{elapsed}]",
                     )
-                    .expect("valid spinner template"),
+                    .expect("valid spinner template")
+                    // indicatif's own `per_sec` renders every decimal it has.
+                    .with_key(
+                        "rate",
+                        |state: &ProgressState, w: &mut dyn fmt::Write| {
+                            let _ = write!(w, "{:.0}", state.per_sec());
+                        },
+                    ),
                 )
                 .with_message(name.to_string()),
         );
