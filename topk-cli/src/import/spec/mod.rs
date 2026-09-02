@@ -1,10 +1,12 @@
-use indexmap::IndexMap;
+use std::str::FromStr;
+
+use indexmap::{IndexMap, IndexSet};
 use serde::{Deserialize, Serialize};
 
 use topk_rs::proto::v1::control::FieldSpec;
 
 use crate::import::error::Error;
-use crate::import::{ID, ID_PLACEHOLDER};
+use crate::import::ID;
 
 mod discover;
 mod field;
@@ -41,21 +43,21 @@ pub struct Target {
 }
 
 impl Target {
-    /// Every source column this target reads: its id, then each field's source.
-    /// The spec is a whitelist, so this is the whole projection. Deduplicated —
-    /// several fields may read one column, the id included.
-    pub fn columns(&self) -> Vec<&str> {
-        let id = self.id.as_deref().unwrap_or(ID);
-        let mut columns: Vec<&str> = Vec::with_capacity(self.fields.len() + 1);
-        for column in std::iter::once(id)
-            .filter(|id| *id != ID_PLACEHOLDER)
-            .chain(self.fields.iter().map(|(name, field)| field.column(name)))
-        {
-            if !columns.contains(&column) {
-                columns.push(column);
-            }
-        }
-        columns
+    /// The source column used as the document id.
+    pub fn id_column(&self) -> &str {
+        self.id.as_deref().unwrap_or(ID)
+    }
+
+    pub fn parsed_filter<F: FromStr<Err = Error>>(&self) -> Result<Option<F>, Error> {
+        self.filter.as_deref().map(str::parse).transpose()
+    }
+
+    /// Every source column this target reads: the spec is a whitelist, so this
+    /// is the whole projection.
+    pub fn source_columns(&self) -> IndexSet<&str> {
+        std::iter::once(self.id_column())
+            .chain(self.fields.iter().map(|(name, field)| field.source(name)))
+            .collect()
     }
 }
 

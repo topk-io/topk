@@ -1,11 +1,12 @@
 use std::collections::{BTreeMap, HashMap};
+use std::str::FromStr;
 
 use elasticsearch::auth::Credentials;
 use elasticsearch::http::response::Response;
 use elasticsearch::http::transport::{SingleNodeConnectionPool, TransportBuilder};
 use elasticsearch::indices::IndicesGetMappingParts;
 use elasticsearch::{Elasticsearch, OpenPointInTimeParts, SearchParts};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::{json, Map, Value as JsonValue};
 
 use topk_rs::proto::v1::control::FieldSpec;
@@ -19,16 +20,46 @@ use super::{Chunk, ChunkStream, Table};
 // Renewed per page; also how long a stopped run's cursor stays resumable (ES's ceiling).
 const KEEP_ALIVE: &str = "24h";
 
-/// The resume cursor: a page position is only meaningful inside its PIT.
-#[derive(Serialize, Deserialize)]
-struct Cursor {
-    pit: String,
-    sort: Vec<JsonValue>,
-}
-
 #[derive(Clone)]
 pub struct Es {
     client: Elasticsearch,
+}
+
+/// A query DSL object; the default matches everything.
+pub struct Filter(JsonValue);
+
+impl Default for Filter {
+    fn default() -> Filter {
+        Filter(json!({ "match_all": {} }))
+    }
+}
+
+impl FromStr for Filter {
+    type Err = Error;
+
+    fn from_str(filter: &str) -> Result<Filter, Error> {
+        serde_json::from_str(filter).map(Filter).map_err(|e| {
+            Error::InvalidArgument(format!(
+                "filter {filter:?} is not JSON — elasticsearch filters are query DSL \
+                 objects, e.g. '{{\"range\": {{\"year\": {{\"gt\": 2000}}}}}}' ({e})"
+            ))
+        })
+    }
+}
+
+/// A page position, meaningful only inside its PIT.
+pub struct Cursor {
+    pit: String,
+    sort: Vec<i64>,
+}
+
+impl TryFrom<super::Cursor> for Cursor {
+    type Error = Error;
+
+    fn try_from(cursor: super::Cursor) -> Result<Cursor, Error> {
+        let (pit, sort) = cursor.page()?;
+        Ok(Cursor { pit, sort })
+    }
 }
 
 impl Es {
@@ -120,22 +151,21 @@ impl Es {
             .collect())
     }
 
-    pub async fn stream(
+    pub fn chunks(
         &self,
-        query: &JsonValue,
         target: &Target,
-        after: Option<&str>,
-    ) -> Result<ChunkStream, Error> {
+        filter: Option<Filter>,
+        after: Option<Cursor>,
+    ) -> ChunkStream {
+        let Filter(query) = filter.unwrap_or_default();
         let client = self.client.clone();
         let target = target.clone();
-        let query = query.clone();
-        let resume: Option<Cursor> = after.map(serde_json::from_str).transpose()?;
 
         let stream = async_stream::stream! {
             let size = target.limit.map_or(1000, |l| (l as i64).min(1000));
-            let mut resumed = resume.is_some();
-            let (mut pit, mut cursor) = match resume {
-                Some(cursor) => (cursor.pit, Some(cursor.sort)),
+            let mut resumed = after.is_some();
+            let (mut pit, mut cursor) = match after {
+                Some(Cursor { pit, sort }) => (pit, Some(sort)),
                 None => match open_pit(&client, &target.from).await {
                     Ok(pit) => (pit, None),
                     Err(e) => {
@@ -154,7 +184,7 @@ impl Es {
                     "sort": [{ "_shard_doc": "asc" }],
                 });
                 if let Some(after) = cursor.take() {
-                    body["search_after"] = JsonValue::Array(after);
+                    body["search_after"] = json!(after);
                 }
                 let page: Page = match fetch_page(&client, body).await {
                     Ok(page) => page,
@@ -212,9 +242,7 @@ impl Es {
                     yielded += 1;
                     rows.push(row.map_err(Error::from));
                 }
-                let mark = cursor.as_ref().and_then(|sort| {
-                    serde_json::to_string(&Cursor { pit: pit.clone(), sort: sort.clone() }).ok()
-                });
+                let mark = cursor.clone().map(|sort| super::Cursor::Page { pit: pit.clone(), sort });
                 yield Ok(Chunk { rows, cursor: mark });
                 if !full || target.limit.is_some_and(|l| yielded >= l) {
                     break;
@@ -222,7 +250,7 @@ impl Es {
             }
             close_pit(&client, &pit).await;
         };
-        Ok(Box::pin(stream))
+        Box::pin(stream)
     }
 }
 
@@ -288,5 +316,5 @@ struct Hit {
     #[serde(rename = "_source", default)]
     source: Map<String, JsonValue>,
     #[serde(default)]
-    sort: Vec<JsonValue>,
+    sort: Vec<i64>,
 }

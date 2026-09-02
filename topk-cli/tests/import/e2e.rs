@@ -721,7 +721,8 @@ async fn resume_continues_where_upserts_landed(ctx: &mut Ctx) {
     let state = std::fs::read_to_string(state_dir().join(format!("{run}.toml"))).unwrap();
     // A file this small is one arrow chunk, and a chunk's mark comes after its
     // rows — so the last landed mark is the end of b; c is re-read whole.
-    assert!(state.contains("b.parquet:300\""), "{state}");
+    assert!(state.contains("b.parquet\""), "{state}");
+    assert!(state.contains("rows = 300"), "{state}");
 
     // Exits non-zero for the skipped row; the summary is still on stdout.
     let out = crate::common::run(
@@ -1046,7 +1047,7 @@ async fn topk_source_pages_by_id_and_resumes_from_a_cursor(ctx: &mut Ctx) {
              started = \"2026-01-01T00:00:00Z\"\n\
              spec = \"\"\"\n{spec}\"\"\"\n\n\
              [cursors.\"{target}\"]\n\
-             after = \"d0999\"\n"
+             after = {{ key = \"d0999\" }}\n"
         ),
     )
     .expect("write resume state");

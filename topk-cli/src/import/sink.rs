@@ -1,9 +1,10 @@
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 use std::mem;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use futures::{stream, Stream, StreamExt};
+use futures::{stream, Stream, StreamExt, TryStreamExt};
+use indexmap::IndexMap;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use prost::Message;
 use tokio::sync::Semaphore;
@@ -13,8 +14,9 @@ use topk_rs::{Client, CollectionClient};
 
 use crate::import::decode::id_string;
 use crate::import::error::{Error, MAX_DOC_BYTES};
-use crate::import::source::{Record, Scan};
+use crate::import::source::{Cursor, Record, Scan, Source};
 use crate::import::spec::Target;
+use crate::import::state::{Mark, State};
 use crate::import::ID;
 
 #[derive(Default, serde::Serialize)]
@@ -29,7 +31,7 @@ pub struct LoadOutcome {
 
 /// The document a target asks for, built from one source row.
 pub fn build_document(target: &Target, record: Record) -> Result<Document, Error> {
-    let id_column = target.id.as_deref().unwrap_or(ID);
+    let id_column = target.id_column();
     let id = match record.iter().find(|(key, _)| key == id_column) {
         Some((_, value)) => id_string(id_column, value.clone())?,
         None => {
@@ -52,29 +54,26 @@ pub fn build_document(target: &Target, record: Record) -> Result<Document, Error
 
     // The spec is a whitelist; several fields may read one column, the id included.
     let mut pairs: Vec<(String, Value)> = Vec::with_capacity(target.fields.len() + 1);
-    for (key, value) in record {
-        for (name, field) in target
-            .fields
-            .iter()
-            .filter(|(name, field)| field.column(name) == key)
-        {
-            let value = field
-                .coerce(value.clone())
-                .map_err(|e| fail(Some(name), e))?;
-            pairs.push((name.clone(), value));
-        }
-    }
     for (name, field) in &target.fields {
-        if field.required
-            && !pairs
-                .iter()
-                .any(|(key, value)| key == name && value.as_null().is_none())
-        {
-            return Err(fail(
+        let missing = || {
+            fail(
                 Some(name),
                 Error::InvalidArgument("required field is missing".to_string()),
-            ));
+            )
+        };
+        let Some((_, value)) = record.iter().find(|(key, _)| key == field.source(name)) else {
+            if field.required {
+                return Err(missing());
+            }
+            continue;
+        };
+        let value = field
+            .coerce(value.clone())
+            .map_err(|e| fail(Some(name), e))?;
+        if field.required && value.as_null().is_some() {
+            return Err(missing());
         }
+        pairs.push((name.clone(), value));
     }
 
     pairs.push((ID.to_string(), Value::string(id.clone())));
@@ -86,18 +85,23 @@ pub fn build_document(target: &Target, record: Record) -> Result<Document, Error
     Ok(doc)
 }
 
-pub async fn document_stream(
-    scan: Scan,
+pub fn documents(
+    source: &Source,
+    target: &Target,
 ) -> Result<impl Stream<Item = Result<Document, Error>>, Error> {
-    let chunks = scan.chunk_stream().await?;
-    let target = scan.target;
+    let Scan { target, chunks } = source.scan(target, None)?;
     Ok(chunks
-        .flat_map(|chunk| stream::iter(chunk.map_or_else(|e| vec![Err(e)], |chunk| chunk.rows)))
+        .flat_map(|chunk| {
+            stream::iter(match chunk {
+                Ok(chunk) => chunk.rows,
+                Err(e) => vec![Err(e)],
+            })
+        })
         .map(move |row| build_document(&target, row?)))
 }
 
 /// Batches in flush order, each with the source cursor it completes.
-type InflightBatches = VecDeque<(JoinHandle<Result<(), Error>>, Option<String>)>;
+type InflightBatches = VecDeque<(JoinHandle<Result<(), Error>>, Option<Cursor>)>;
 
 /// Collections load concurrently, as many as the source can serve at once;
 /// their upserts share one budget of `-c` in flight across the run.
@@ -107,6 +111,7 @@ pub struct Sink<'a> {
     pub budget: Arc<Semaphore>,
     pub batch_bytes: usize,
     pub continue_on_error: bool,
+    pub state: Mutex<State>,
 }
 
 /// Clears itself on drop, so `?` exits and cancellation can't leave a stale bar.
@@ -134,25 +139,36 @@ impl Drop for Spinner {
 }
 
 impl Sink<'_> {
-    /// Called with a source cursor once every row up to it has been upserted.
+    /// Loads `readers` collections at a time.
     pub async fn load(
         &self,
-        scan: &Scan,
-        checkpoint: impl FnMut(&str),
-    ) -> Result<LoadOutcome, Error> {
+        scans: IndexMap<String, Scan>,
+        readers: usize,
+    ) -> Result<BTreeMap<String, LoadOutcome>, Error> {
+        stream::iter(scans)
+            .map(
+                |(name, scan)| async move { Ok((name.clone(), self.load_one(&name, scan).await?)) },
+            )
+            .buffer_unordered(readers)
+            .try_collect()
+            .await
+    }
+
+    async fn load_one(&self, name: &str, scan: Scan) -> Result<LoadOutcome, Error> {
+        let Scan { target, mut chunks } = scan;
         let started = Instant::now();
-        let bar = Spinner::add(self.progress, &scan.name);
-        let name = &scan.name;
-        let target = &scan.target;
+        let bar = Spinner::add(self.progress, name);
         let mut collection = self.client.collection(name);
         if let Some(partition) = &target.partition {
             collection = collection.partition(partition);
         }
-        let mut chunks = scan.chunk_stream().await?;
         let mut writer = BatchWriter {
             sink: self,
+            name,
             collection,
-            checkpoint,
+            // A resumed limit would be applied again from the cursor, so a
+            // limited collection is never checkpointed: it restarts whole.
+            checkpoint: target.limit.is_none(),
             batch: Vec::new(),
             bytes: 0,
             cursor: None,
@@ -162,7 +178,7 @@ impl Sink<'_> {
         while let Some(chunk) = chunks.next().await {
             let chunk = chunk?;
             for row in chunk.rows {
-                match row.and_then(|record| build_document(target, record)) {
+                match row.and_then(|record| build_document(&target, record)) {
                     Ok(doc) => {
                         outcome.rows += 1;
                         bar.0.inc(1);
@@ -178,26 +194,37 @@ impl Sink<'_> {
             writer.set_cursor(chunk.cursor);
         }
         writer.finish().await?;
+        self.checkpoint(name, Mark::Done);
         outcome.elapsed = started.elapsed();
         Ok(outcome)
+    }
+
+    fn checkpoint(&self, name: &str, mark: Mark) {
+        let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
+        state.cursors.insert(name.to_string(), mark);
+        // A lost checkpoint costs a redo, never a skip.
+        if let Err(e) = state.save() {
+            tracing::warn!(%e, "cannot save run state");
+        }
     }
 }
 
 /// One collection's write side: batches by size, spawns each batch's upsert
 /// under the run's budget, checkpoints cursors in flush order.
-struct BatchWriter<'a, F: FnMut(&str)> {
+struct BatchWriter<'a> {
     sink: &'a Sink<'a>,
+    name: &'a str,
     collection: CollectionClient,
-    checkpoint: F,
+    checkpoint: bool,
     batch: Vec<Document>,
     bytes: usize,
     /// Rows arrive before the cursor that covers them; it rides with the next flush.
-    cursor: Option<String>,
+    cursor: Option<Cursor>,
     /// A cursor is checkpointed once every preceding batch has completed.
     inflight: InflightBatches,
 }
 
-impl<F: FnMut(&str)> BatchWriter<'_, F> {
+impl BatchWriter<'_> {
     async fn push(&mut self, doc: Document) -> Result<(), Error> {
         self.bytes += doc.encoded_len();
         self.batch.push(doc);
@@ -207,7 +234,7 @@ impl<F: FnMut(&str)> BatchWriter<'_, F> {
         Ok(())
     }
 
-    fn set_cursor(&mut self, cursor: Option<String>) {
+    fn set_cursor(&mut self, cursor: Option<Cursor>) {
         if cursor.is_some() {
             self.cursor = cursor;
         }
@@ -246,8 +273,8 @@ impl<F: FnMut(&str)> BatchWriter<'_, F> {
     async fn complete_next(&mut self) -> Result<(), Error> {
         if let Some((handle, cursor)) = self.inflight.pop_front() {
             handle.await??;
-            if let Some(cursor) = cursor {
-                (self.checkpoint)(&cursor);
+            if let Some(cursor) = cursor.filter(|_| self.checkpoint) {
+                self.sink.checkpoint(self.name, Mark::After(cursor));
             }
         }
         Ok(())

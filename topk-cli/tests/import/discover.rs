@@ -227,12 +227,15 @@ async fn key_collision() {
 
 #[test_context(Scratch)]
 #[tokio::test]
-async fn read_errors_omit_the_generated_sql(ctx: &mut Scratch) {
+async fn read_errors_name_the_source(ctx: &mut Scratch) {
     let missing = format!("{}/missing.parquet", ctx.scratch().display());
 
     let message = discover_err(&missing, "*").await;
+    assert!(
+        message.contains("reading") && message.contains("missing.parquet"),
+        "got: {message}"
+    );
     assert!(message.contains("No files found"), "got: {message}");
-    assert!(!message.contains("SELECT"), "got: {message}");
 }
 
 #[tokio::test]

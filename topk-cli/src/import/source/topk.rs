@@ -1,4 +1,5 @@
 use std::fmt;
+use std::str::FromStr;
 
 use wildmatch::WildMatch;
 
@@ -34,6 +35,31 @@ impl fmt::Debug for Uri {
             .field("region", &self.region)
             .field("collection", &self.collection)
             .finish()
+    }
+}
+
+/// A topk source has no filter language; the type has no values.
+pub enum Filter {}
+
+impl FromStr for Filter {
+    type Err = Error;
+
+    fn from_str(_: &str) -> Result<Filter, Error> {
+        Err(Error::InvalidArgument(
+            "--filter is not supported for topk:// sources".to_string(),
+        ))
+    }
+}
+
+/// The last `_id` read; the default is before every id.
+#[derive(Default)]
+pub struct Cursor(String);
+
+impl TryFrom<super::Cursor> for Cursor {
+    type Error = Error;
+
+    fn try_from(cursor: super::Cursor) -> Result<Cursor, Error> {
+        cursor.key().map(Cursor)
     }
 }
 
@@ -95,9 +121,9 @@ impl Topk {
     /// Keyset pages ordered by `_id`, so a page boundary is a resume point.
     /// `fetch` and not `select`: a select of an indexed vector is refused by the
     /// server, and returns the index's quantized copy where it is not.
-    pub async fn stream(&self, target: &Target, after: Option<&str>) -> Result<ChunkStream, Error> {
+    pub fn chunks(&self, target: &Target, _: Option<Filter>, after: Option<Cursor>) -> ChunkStream {
         let collection = self.client.collection(&target.from);
-        let mut cursor = after.unwrap_or_default().to_string();
+        let Cursor(mut cursor) = after.unwrap_or_default();
         let mut remaining = target.limit;
 
         let stream = async_stream::stream! {
@@ -139,13 +165,13 @@ impl Topk {
                         .into_iter()
                         .map(|document| Ok(document.fields.into_iter().collect::<Record>()))
                         .collect(),
-                    cursor: Some(cursor.clone()),
+                    cursor: Some(super::Cursor::Key(cursor.clone())),
                 });
                 if !full {
                     break;
                 }
             }
         };
-        Ok(Box::pin(stream))
+        Box::pin(stream)
     }
 }

@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use futures::TryStreamExt;
 use indexmap::IndexMap;
 use mongodb::bson::{doc, Bson as Wire, Document as BsonDoc};
@@ -8,13 +10,48 @@ use crate::import::error::Error;
 use crate::import::source::codec::bson;
 use crate::import::source::Record;
 use crate::import::spec::{Element, Field, Target, Type};
-use crate::import::ID;
 
 use super::{Chunk, ChunkStream, Table};
 
 #[derive(Clone)]
 pub struct Mongo {
     db: Database,
+}
+
+/// A query document; the default matches everything.
+#[derive(Default)]
+pub struct Filter(BsonDoc);
+
+impl FromStr for Filter {
+    type Err = Error;
+
+    fn from_str(filter: &str) -> Result<Filter, Error> {
+        serde_json::from_str::<serde_json::Value>(filter)
+            .map_err(|e| e.to_string())
+            .and_then(|json| mongodb::bson::to_document(&json).map_err(|e| e.to_string()))
+            .map(Filter)
+            .map_err(|e| {
+                Error::InvalidArgument(format!(
+                    "filter {filter:?} is not a mongodb query document, \
+                     e.g. '{{\"year\": {{\"$gt\": 2000}}}}' ({e})"
+                ))
+            })
+    }
+}
+
+/// The last id read, kept as BSON so `$gt` compares with its original type.
+pub struct Cursor(Wire);
+
+impl TryFrom<super::Cursor> for Cursor {
+    type Error = Error;
+
+    fn try_from(cursor: super::Cursor) -> Result<Cursor, Error> {
+        let key = cursor.key()?;
+        let json: serde_json::Value = serde_json::from_str(&key)?;
+        Wire::try_from(json)
+            .map(Cursor)
+            .map_err(|e| Error::InvalidArgument(format!("bad resume cursor {key:?}: {e}")))
+    }
 }
 
 impl Mongo {
@@ -90,22 +127,21 @@ impl Mongo {
 
     /// Ordered by the id (`_id` is always indexed); the cursor is the last id as
     /// canonical extended JSON, which keeps its BSON type.
-    pub async fn stream(
+    pub fn chunks(
         &self,
-        filter: &BsonDoc,
         target: &Target,
-        after: Option<&str>,
-    ) -> Result<ChunkStream, Error> {
-        let id = target.id.clone().unwrap_or_else(|| ID.to_string());
-        let mut filter = filter.clone();
-        if let Some(after) = after {
-            let json: serde_json::Value = serde_json::from_str(after)?;
-            let after = Wire::try_from(json)
-                .map_err(|e| Error::InvalidArgument(format!("bad resume cursor {after:?}: {e}")))?;
-            filter = doc! { "$and": [filter, { &id: { "$gt": after } }] };
+        filter: Option<Filter>,
+        after: Option<Cursor>,
+    ) -> ChunkStream {
+        let id = target.id_column().to_string();
+        let Filter(mut filter) = filter.unwrap_or_default();
+        if let Some(Cursor(value)) = after {
+            filter = doc! { "$and": [filter, { &id: { "$gt": value } }] };
         }
         let collection = self.db.collection::<BsonDoc>(&target.from);
-        let cursor = {
+        let limit = target.limit;
+
+        let stream = async_stream::stream! {
             // No 10m idle timeout under sink backpressure; disk for the sort,
             // which is unindexed when `id` names a custom column.
             let mut find = collection
@@ -113,14 +149,16 @@ impl Mongo {
                 .sort(doc! { &id: 1 })
                 .allow_disk_use(true)
                 .no_cursor_timeout(true);
-            if let Some(n) = target.limit {
+            if let Some(n) = limit {
                 find = find.limit(n as i64);
             }
-            find.await?
-        };
-
-        let stream = async_stream::stream! {
-            let mut cursor = cursor;
+            let mut cursor = match find.await {
+                Ok(cursor) => cursor,
+                Err(e) => {
+                    yield Err(e.into());
+                    return;
+                }
+            };
             let mut rows: Vec<Result<Record, Error>> = Vec::new();
             let mut mark = None;
             loop {
@@ -128,7 +166,7 @@ impl Mongo {
                     Ok(Some(document)) => {
                         mark = document
                             .get(&id)
-                            .map(|value| value.clone().into_canonical_extjson().to_string());
+                            .map(|value| super::Cursor::Key(value.clone().into_canonical_extjson().to_string()));
                         let row = document
                             .into_iter()
                             .map(|(key, value)| Ok((key, bson::value(value)?)))
@@ -152,6 +190,6 @@ impl Mongo {
                 yield Ok(Chunk { rows, cursor: mark });
             }
         };
-        Ok(Box::pin(stream))
+        Box::pin(stream)
     }
 }
