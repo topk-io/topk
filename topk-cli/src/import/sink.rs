@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use std::fmt::{self, Write as _};
+use std::fmt;
 use std::io::IsTerminal;
 use std::mem;
 use std::sync::Arc;

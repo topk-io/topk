@@ -116,14 +116,15 @@ fn estimate(catalog: &[import::Table], spec: &Spec) {
         else {
             continue;
         };
-        let bytes = shape.estimate(&target.columns());
+        let columns = target.columns();
+        let bytes = shape.estimate(&columns);
         if bytes == 0 {
             continue;
         }
         import::note(format!(
             "# {name}: {} file(s), reading {} of {} column(s), about {}",
             shape.files,
-            target.fields.len() + 1,
+            columns.len(),
             shape.columns.len(),
             bytesize::ByteSize(bytes),
         ));

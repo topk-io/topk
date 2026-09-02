@@ -66,21 +66,6 @@ pub(super) fn lit(value: &str) -> String {
 /// so a scan's file readers share this pool instead of each claiming one.
 pub(super) const READER_MEMORY: &str = "4GiB";
 
-/// How many `READER_MEMORY` scans fit in RAM. duckdb's default `memory_limit`
-/// is 80% of RAM (cgroup-aware), which is how RAM is read without a dependency.
-fn max_readers() -> Option<usize> {
-    let conn = Connection::open_in_memory().ok()?;
-    let mut stmt = conn
-        .prepare("SELECT value FROM duckdb_settings() WHERE name = 'memory_limit'")
-        .ok()?;
-    let reported: String = stmt.query_row([], |row| row.get(0)).ok()?;
-    let reported = reported.parse::<bytesize::ByteSize>().ok()?.as_u64();
-    let each = READER_MEMORY.parse::<bytesize::ByteSize>().ok()?.as_u64();
-    // Two thirds of RAM: batches, arrow copies and proto encoding live outside
-    // duckdb's accounting. 10/8 × 2/3 = 5/6.
-    Some((reported * 5 / 6 / each).max(1) as usize)
-}
-
 /// One parquet footer, read once while building the catalog: how many files the
 /// locator matches, and for the first of them the row count and, per top-level
 /// column, its leaf values and compressed bytes. Enough to answer the three
@@ -98,7 +83,10 @@ impl Footprint {
     pub fn dim(&self, column: &str) -> Option<u32> {
         let (values, _) = self.columns.get(column)?;
         let dim = values.checked_div(self.rows)?;
-        (dim > 1 && values % self.rows == 0).then(|| u32::try_from(dim).ok())?
+        if dim <= 1 || values % self.rows != 0 {
+            return None;
+        }
+        u32::try_from(dim).ok()
     }
 
     /// Compressed bytes per row, the floor on what a document will carry.
@@ -172,11 +160,25 @@ fn footprint(conn: &Connection, file: &File, files: &[String]) -> Option<Footpri
 }
 
 impl Duckdb {
-    /// Each duckdb database holds a buffer pool; too many OOM-kill the process
-    /// regardless of any one `memory_limit`. A scan's files share its pool, so
-    /// only scans are counted and read depth is free.
+    /// How many `READER_MEMORY` scans fit in RAM. Each duckdb database holds a
+    /// buffer pool; too many OOM-kill the process regardless of any one
+    /// `memory_limit`. A scan's files share its pool, so only scans are counted
+    /// and read depth is free. duckdb's default `memory_limit` is 80% of RAM
+    /// (cgroup-aware), which is how RAM is read without a dependency.
     pub fn concurrency_limit(&self) -> usize {
-        max_readers().unwrap_or(usize::MAX)
+        let scans = || -> Option<usize> {
+            let conn = Connection::open_in_memory().ok()?;
+            let mut stmt = conn
+                .prepare("SELECT value FROM duckdb_settings() WHERE name = 'memory_limit'")
+                .ok()?;
+            let reported: String = stmt.query_row([], |row| row.get(0)).ok()?;
+            let reported = reported.parse::<bytesize::ByteSize>().ok()?.as_u64();
+            let each = READER_MEMORY.parse::<bytesize::ByteSize>().ok()?.as_u64();
+            // Two thirds of RAM: batches, arrow copies and proto encoding live
+            // outside duckdb's accounting. 10/8 × 2/3 = 5/6.
+            Some((reported * 5 / 6 / each).max(1) as usize)
+        };
+        scans().unwrap_or(usize::MAX)
     }
 
     /// A connection able to read `file`; attached sources ignore it and use their DSN.
