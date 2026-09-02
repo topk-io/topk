@@ -252,6 +252,9 @@ fn report(outcomes: &BTreeMap<String, LoadOutcome>, json: bool) -> Result<ExitCo
                 ),
             }
         }
+        // Indexing trails the last write, so counting straight away reads low and
+        // looks like missing data.
+        eprintln!("# indexing continues after this; a count settles once it catches up");
     }
     Ok(match outcomes.values().all(|o| o.failed == 0) {
         true => ExitCode::SUCCESS,
@@ -373,7 +376,7 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
     );
     eprint!("{}", render(&spec, Some(&fresh), &after));
     let region = endpoint.region.as_deref().unwrap_or_default();
-    if !args.yes && !confirm(spec.collections.len(), region)? {
+    if !args.yes && args.resume.is_none() && !confirm(spec.collections.len(), region)? {
         return Ok(ExitCode::SUCCESS);
     }
 
