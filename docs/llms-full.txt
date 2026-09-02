@@ -14331,7 +14331,7 @@ PUT /books
       "published_year": { "type": "integer" },
       "rating":         { "type": "float" },
       "in_print":       { "type": "boolean" },
-      "embedding":      { "type": "dense_vector", "dims": 16, "similarity": "cosine" }
+      "embedding":      { "type": "dense_vector", "dims": 4, "similarity": "cosine" }
     }
   }
 }
@@ -14342,9 +14342,9 @@ Index documents:
 ```json
 POST /books/_bulk
 { "index": { "_id": "mockingbird" } }
-{ "title": "To Kill a Mockingbird", "author": "Lee", "published_year": 1960, "rating": 4.3, "in_print": true }
+{ "title": "To Kill a Mockingbird", "author": "Lee", "published_year": 1960, "rating": 4.3, "in_print": true, "embedding": [1.0, 0.0, 0.0, 0.0] }
 { "index": { "_id": "gatsby" } }
-{ "title": "The Great Gatsby", "author": "Fitzgerald", "published_year": 1925, "rating": 3.9, "in_print": true }
+{ "title": "The Great Gatsby", "author": "Fitzgerald", "published_year": 1925, "rating": 3.9, "in_print": true, "embedding": [0.9, 0.1, 0.0, 0.0] }
 ```
 
 Search:
@@ -14420,7 +14420,7 @@ The following query clauses are supported inside `query`:
 | `regexp` | Regular expression match. |
 | `range` | `gt`, `gte`, `lt`, `lte` bounds. |
 | `exists` | Field is present and non-null. |
-| `bool` | Combine clauses with `must`, `should`, `must_not`, `filter`, `minimum_should_match`. |
+| `bool` | Combine clauses with `must`, `should`, `must_not`, `filter`. Accepts `boost`. |
 | `semantic` | **TopK extension.** Managed semantic search — see below. |
 
 #### Search body
@@ -14447,7 +14447,7 @@ POST /books/_search
 {
   "knn": {
     "field": "embedding",
-    "query_vector": [0.12, 0.87, 0.05, 0.44],
+    "query_vector": [1.0, 0.0, 0.0, 0.0],
     "k": 10,
     "filter": [{ "term": { "in_print": true } }]
   }
@@ -14462,7 +14462,7 @@ reciprocal rank fusion. `rank_constant` defaults to `60`.
 ```json
 POST /books/_search
 {
-  "query": { "match": { "body": "cats" } },
+  "query": { "match": { "title": "mockingbird" } },
   "knn": {
     "field": "embedding",
     "query_vector": [1.0, 0.0, 0.0, 0.0],
