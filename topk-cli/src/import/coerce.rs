@@ -302,11 +302,7 @@ fn sparse_pairs(value: &Value, ty: Type) -> Result<(Vec<u32>, Vec<f64>), Error> 
                     }
                     let mut pairs = Vec::with_capacity(indices.len());
                     for (index, value) in indices.into_iter().zip(values) {
-                        let index = u32::try_from(index).map_err(|_| {
-                            Error::InvalidArgument(format!(
-                                "sparse index {index} does not fit in a u32"
-                            ))
-                        })?;
+                        let index = u32::try_from(index).map_err(|_| Error::CannotCoerce(ty))?;
                         pairs.push((index, value));
                     }
                     pairs

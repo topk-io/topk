@@ -244,7 +244,7 @@ fn nulls(
 #[case::sparse_from_a_negative_index(
     r#"{ type = "f32_sparse_vector" }"#,
     Value::r#struct([("indices", Value::list(vec![-1_i64])), ("values", Value::list(vec![0.5_f64]))]),
-    "sparse index -1 does not fit in a u32"
+    "cannot coerce to f32_sparse_vector"
 )]
 #[case::vector_too_short(r#"{ type = "f32_vector", dim = 3 }"#, Value::list(vec![1.0_f32, 2.0]), "vector has 2 values, declared dim=3")]
 #[case::vector_too_long(r#"{ type = "f32_vector", dim = 3 }"#, Value::list(vec![1.0_f32, 2.0, 3.0, 4.0]), "vector has 4 values, declared dim=3")]
