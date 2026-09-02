@@ -8,6 +8,7 @@ use std::fmt;
 use std::str::FromStr;
 
 use duckdb::Connection;
+use indexmap::IndexSet;
 use tokio::sync::mpsc;
 use tokio::task::spawn_blocking;
 use url::Url;
@@ -142,7 +143,7 @@ impl Footprint {
     }
 
     /// What the run reads: these columns of every matching file.
-    pub fn estimate(&self, columns: &[&str]) -> u64 {
+    pub fn estimate(&self, columns: &IndexSet<&str>) -> u64 {
         let per_file: u64 = columns
             .iter()
             .filter_map(|c| self.columns.get(*c).map(|(_, bytes)| bytes))
