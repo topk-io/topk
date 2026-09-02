@@ -1,4 +1,4 @@
-use super::{logical::LogicalExpression, text::TextExpression};
+use super::{function::FunctionExpression, logical::LogicalExpression, text::TextExpression};
 use napi::bindgen_prelude::*;
 
 #[derive(Debug, Clone)]
@@ -16,9 +16,19 @@ impl FromNapiValue for FilterExpression {
             return Ok(FilterExpression::Text { expr: expr.clone() });
         }
 
-        let expr = unsafe { LogicalExpression::from_napi_value(env, value) }
-            .map_err(|_| napi::Error::from_reason("Unsupported filter expression value"))?;
-        Ok(FilterExpression::Logical { expr })
+        if let Ok(expr) = crate::try_cast_ref!(env, value, LogicalExpression) {
+            return Ok(FilterExpression::Logical { expr: expr.clone() });
+        }
+
+        if let Ok(expr) = crate::try_cast_ref!(env, value, FunctionExpression) {
+            return Ok(FilterExpression::Logical {
+                expr: expr.lifted(),
+            });
+        }
+
+        Err(napi::Error::from_reason(
+            "Unsupported filter expression value",
+        ))
     }
 }
 

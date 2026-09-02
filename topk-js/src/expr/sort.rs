@@ -1,4 +1,4 @@
-use super::logical::LogicalExpression;
+use super::{function::FunctionExpression, logical::LogicalExpression};
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
@@ -55,8 +55,11 @@ impl FromNapiValue for SortArg {
             return Ok(SortArg::Many(exprs));
         }
 
-        Ok(SortArg::Single(unsafe {
-            LogicalExpression::from_napi_value(env, value)?
-        }))
+        if let Ok(expr) = crate::try_cast_ref!(env, value, LogicalExpression) {
+            return Ok(SortArg::Single(expr.clone()));
+        }
+
+        let expr = crate::try_cast_ref!(env, value, FunctionExpression)?;
+        Ok(SortArg::Single(expr.lifted()))
     }
 }
