@@ -13,6 +13,7 @@ use crate::import::spec::Target;
 use crate::import::ID;
 
 use super::file::{local_path, reader, File};
+use super::select::{Plan, Position, Select};
 use super::{lit, quoted, read_error, Duckdb};
 
 pub(super) type Sender = mpsc::Sender<Result<Chunk, Error>>;
@@ -29,98 +30,24 @@ pub(super) fn table(
     after: Option<&str>,
     tx: &Sender,
 ) -> Result<(), Error> {
-    read(conn, Select::table(source, target, after), tx).map(|_| ())
-}
-
-/// A planned DuckDB query. Construction owns SQL generation and resume
-/// semantics; execution only needs a connection and somewhere to send chunks.
-struct Select {
-    sql: String,
-    from: String,
-    filter: Option<String>,
-    position: Position,
-}
-
-impl Select {
-    fn table(source: &Duckdb, target: &Target, after: Option<&str>) -> Select {
-        let id = target.id.as_deref().unwrap_or(ID);
-        let order = quoted(id, '"');
-        let relation = match source {
-            Duckdb::Postgres(_) => quoted(&target.from, '"'),
-            _ => format!("src.{}", quoted(&target.from, '"')),
-        };
-        let predicates: Vec<String> = [
-            target.filter.as_ref().map(|filter| format!("({filter})")),
-            after.map(|after| format!("{order} > '{}'", lit(after))),
-        ]
-        .into_iter()
-        .flatten()
-        .collect();
-        // The spec is a whitelist, so a column no field reads is never fetched.
-        // A table has one validated schema, and for postgres the list has to be
-        // plain anyway: the query runs on the server.
-        let projection: Vec<String> = target
-            .columns()
-            .into_iter()
-            .map(|column| quoted(column, '"'))
-            .collect();
-        let mut sql = format!("SELECT {} FROM {relation}", projection.join(", "));
-        if !predicates.is_empty() {
-            sql.push_str(&format!(" WHERE {}", predicates.join(" AND ")));
-        }
-        sql.push_str(&format!(" ORDER BY {order}"));
-        if let Some(limit) = target.limit {
-            sql.push_str(&format!(" LIMIT {limit}"));
-        }
-        let sql = match source {
-            Duckdb::Postgres(_) => {
-                format!("SELECT * FROM postgres_query('src', '{}')", lit(&sql))
-            }
-            _ => sql,
-        };
-        Select {
-            sql,
-            from: target.from.clone(),
-            filter: target.filter.clone(),
-            position: Position::Id(id.to_string()),
-        }
+    let id = target.id.as_deref().unwrap_or(ID);
+    let relation = match source {
+        Duckdb::Postgres(_) => quoted(&target.from, '"'),
+        _ => format!("src.{}", quoted(&target.from, '"')),
+    };
+    // The spec is a whitelist, so a column no field reads is never fetched.
+    // A table has one validated schema, and for postgres the list has to be
+    // plain anyway: the query runs on the server.
+    let select = match source {
+        Duckdb::Postgres(_) => Select::postgres(relation),
+        _ => Select::from(relation),
     }
-
-    fn file(file: &File, target: &Target, offset: u64, limit: Option<u64>) -> Select {
-        // A glob is read one file at a time, so a column only some files carry
-        // must stay absent from the rest the way `union_by_name` leaves it,
-        // rather than raise a binder error: `COLUMNS` keeps the names that exist.
-        let names: Vec<String> = target
-            .columns()
-            .into_iter()
-            .map(|column| format!("'{}'", lit(column)))
-            .collect();
-        let mut sql = format!(
-            "SELECT COLUMNS(c -> c IN [{}]) FROM {}",
-            names.join(", "),
-            reader(file)
-        );
-        if let Some(filter) = &target.filter {
-            sql.push_str(&format!(" WHERE ({filter})"));
-        }
-        if let Some(limit) = limit {
-            sql.push_str(&format!(" LIMIT {limit}"));
-        }
-        if offset > 0 {
-            sql.push_str(&format!(" OFFSET {offset}"));
-        }
-        Select {
-            sql,
-            from: file.path.clone(),
-            filter: target.filter.clone(),
-            position: Position::Offset(offset),
-        }
-    }
-}
-
-enum Position {
-    Id(String),
-    Offset(u64),
+    .reading(target.from.clone())
+    .columns(target.columns())
+    .filter(target.filter.clone())
+    .limit(target.limit);
+    let plan = select.by_id(id, after);
+    read(conn, plan, tx).map(|_| ())
 }
 
 impl Position {
@@ -238,25 +165,35 @@ fn read_file(
     tx: &Sender,
 ) -> Result<u64, Error> {
     let conn = source.connect(Some(file))?;
-    read(&conn, Select::file(file, target, offset, limit), tx)
+    // A glob is read one file at a time, so a column only some files carry
+    // must stay absent from the rest the way `union_by_name` leaves it,
+    // rather than raise a binder error: `COLUMNS` keeps the names that exist.
+    let plan = Select::from(reader(file))
+        .reading(file.path.clone())
+        .existing_columns(target.columns())
+        .filter(target.filter.clone())
+        .limit(limit)
+        .by_offset(offset);
+    read(&conn, plan, tx)
 }
 
 /// Executes one planned query. Returns the rows read and stops without error
 /// if the receiver goes away.
-fn read(conn: &Connection, mut select: Select, tx: &Sender) -> Result<u64, Error> {
+fn read(conn: &Connection, mut plan: Plan, tx: &Sender) -> Result<u64, Error> {
+    let sql = plan.to_string();
     let mut stmt = conn
-        .prepare(&select.sql)
-        .map_err(|e| read_error(&select.from, select.filter.as_deref(), e))?;
+        .prepare(&sql)
+        .map_err(|e| read_error(&plan.from, plan.filter.as_deref(), e))?;
     // `query_arrow` materializes the whole result; `stream_arrow` streams.
     // Stepped by hand: the iterator panics on a mid-stream failure, `step`
     // returns it.
     let _ = stmt
         .stream_arrow([])
-        .map_err(|e| read_error(&select.from, select.filter.as_deref(), e))?;
+        .map_err(|e| read_error(&plan.from, plan.filter.as_deref(), e))?;
     let mut read = 0;
     while let Some(array) = stmt
         .step()
-        .map_err(|e| read_error(&select.from, select.filter.as_deref(), e))?
+        .map_err(|e| read_error(&plan.from, plan.filter.as_deref(), e))?
     {
         let batch = duckdb::arrow::record_batch::RecordBatch::from(&array);
         let schema = batch.schema();
@@ -275,7 +212,7 @@ fn read(conn: &Connection, mut select: Select, tx: &Sender) -> Result<u64, Error
             })
             .collect();
         read += rows.len() as u64;
-        let mark = select.position.advance(&select.from, &rows);
+        let mark = plan.position.advance(&plan.from, &rows);
         if tx.blocking_send(Ok(Chunk { rows, cursor: mark })).is_err() {
             return Ok(read);
         }

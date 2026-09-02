@@ -1,6 +1,7 @@
 mod creds;
 mod file;
 mod read;
+mod select;
 
 use std::collections::HashMap;
 use std::fmt;
