@@ -104,6 +104,32 @@ pub struct ImportArgs {
     pub batch_bytes: bytesize::ByteSize,
 }
 
+/// What the run is about to read, from the footer the catalog already holds:
+/// the number of files and the bytes of the columns actually declared. A plan
+/// that cannot say this leaves the size of the job for the user to discover.
+fn estimate(catalog: &[import::Table], spec: &Spec) {
+    for (name, target) in spec.collections.iter() {
+        let Some(shape) = catalog
+            .iter()
+            .find(|table| table.from == target.from)
+            .and_then(|table| table.footprint.as_ref())
+        else {
+            continue;
+        };
+        let bytes = shape.estimate(&target.columns());
+        if bytes == 0 {
+            continue;
+        }
+        import::note(format!(
+            "# {name}: {} file(s), reading {} of {} column(s), about {}",
+            shape.files,
+            target.fields.len() + 1,
+            shape.columns.len(),
+            bytesize::ByteSize(bytes),
+        ));
+    }
+}
+
 async fn plan(
     source: &Source,
     endpoint: &Endpoint,
@@ -139,6 +165,7 @@ async fn plan(
         None => file_catalogs(&spec, endpoint).await?,
     };
     import::validate_columns(&catalog, &spec)?;
+    estimate(&catalog, &spec);
     // A filter names one object's columns.
     if args.filter.is_some() && spec.collections.len() > 1 {
         return Err(Error::InvalidArgument(format!(
@@ -146,6 +173,14 @@ async fn plan(
              set `filter` per collection in a spec",
             spec.collections.len()
         )));
+    }
+    // A limited collection is never checkpointed, so `--resume` would restart it
+    // from the top; staging a long import means interrupting an unlimited run.
+    if args.limit.is_some() {
+        import::note(
+            "# --limit: this run will not be resumable — interrupt an unlimited run instead"
+                .to_string(),
+        );
     }
     for target in spec.collections.values_mut() {
         if let Some(filter) = &args.filter {
