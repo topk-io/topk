@@ -131,15 +131,28 @@ pub(super) fn stem(path: &str) -> Option<String> {
         .map(str::to_string)
 }
 
+/// Reads a fixed list of files instead of the locator: the catalog only needs a
+/// representative schema, and binding a glob's union means a footer read per
+/// file — minutes before the first row on a large object store.
+pub(super) fn reader_of(file: &File, paths: &[String]) -> String {
+    let list: Vec<String> = paths.iter().map(|p| format!("'{}'", lit(p))).collect();
+    let (reader, opts) = reader_parts(file);
+    format!("{reader}([{}]{opts})", list.join(", "))
+}
+
 pub(super) fn reader(file: &File) -> String {
-    // Take the union of every file a glob matches, so a column present in only
-    // some files is kept, not dropped to the first file's schema.
-    let (reader, opts) = match file.format {
+    let (reader, opts) = reader_parts(file);
+    format!("{reader}('{}'{opts})", lit(&file.path))
+}
+
+/// Take the union of every file a glob matches, so a column present in only
+/// some files is kept, not dropped to the first file's schema.
+fn reader_parts(file: &File) -> (&'static str, &'static str) {
+    match file.format {
         Format::Csv => ("read_csv_auto", ", union_by_name=true"),
         Format::Json => ("read_json_auto", ", union_by_name=true"),
         Format::Parquet => ("read_parquet", ", union_by_name=true"),
         Format::Arrow => ("read_arrow", ""),
         Format::Avro => ("read_avro", ""),
-    };
-    format!("{reader}('{}'{opts})", lit(&file.path))
+    }
 }

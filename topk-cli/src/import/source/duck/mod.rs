@@ -20,7 +20,7 @@ use super::{redact, Chunk, ChunkStream, Table};
 pub use creds::aws_process_profile;
 use creds::secret;
 pub use file::File;
-use file::{local_path, reader, stem, Format};
+use file::{local_path, reader, reader_of, stem, Format};
 use read::{files, table};
 
 #[derive(Clone)]
@@ -117,23 +117,32 @@ impl Footprint {
     }
 }
 
-/// The footer of the first file a locator matches. Parquet only; every other
-/// format answers None and the plan simply says less.
-fn footprint(conn: &Connection, file: &File) -> Option<Footprint> {
-    if !matches!(file.format, Format::Parquet) {
-        return None;
-    }
+/// How many of a glob's files the catalog reads to settle the schema. Binding a
+/// glob's union costs one footer read per file, so a large glob spends minutes
+/// planning before the first row; a column only later files carry still imports,
+/// because the read path keeps the whole glob and `union_by_name`.
+const CATALOG_FILES: usize = 32;
+
+/// The files a locator matches, in the order the resume cursor compares them.
+fn matching(conn: &Connection, file: &File) -> Option<Vec<String>> {
     let mut stmt = conn
         .prepare(&format!(
             "SELECT file FROM glob('{}') ORDER BY 1",
             lit(&file.path)
         ))
         .ok()?;
-    let files: Vec<String> = stmt
-        .query_map([], |row| row.get(0))
+    stmt.query_map([], |row| row.get(0))
         .ok()?
-        .collect::<Result<_, _>>()
-        .ok()?;
+        .collect::<Result<Vec<String>, _>>()
+        .ok()
+}
+
+/// The footer of the first file a locator matches. Parquet only; every other
+/// format answers None and the plan simply says less.
+fn footprint(conn: &Connection, file: &File, files: &[String]) -> Option<Footprint> {
+    if !matches!(file.format, Format::Parquet) {
+        return None;
+    }
     let first = files.first()?;
     let mut stmt = conn
         .prepare(&format!(
@@ -301,6 +310,7 @@ impl Duckdb {
             };
             let conn = source.connect(file.as_ref())?;
             // (object, collection hint, what to SELECT from)
+            let mut files_matched: Vec<String> = Vec::new();
             let objects: Vec<(String, Option<String>, String)> = match &file {
                 // A file source's one object is the uri it was given.
                 Some(file) => {
@@ -314,7 +324,14 @@ impl Duckdb {
                             file.path
                         )));
                     }
-                    vec![(file.path.clone(), stem(&file.path), reader(file))]
+                    // Bounded: the schema settles on a sample, not every file.
+                    let matched = matching(&conn, file).unwrap_or_default();
+                    let table_ref = match matched.len() {
+                        0 => reader(file),
+                        n => reader_of(file, &matched[..n.min(CATALOG_FILES)]),
+                    };
+                    files_matched = matched;
+                    vec![(file.path.clone(), stem(&file.path), table_ref)]
                 }
                 None => source
                     .list(&conn)?
@@ -335,7 +352,9 @@ impl Duckdb {
                     .query_arrow([])
                     .map_err(|e| read_error(&from, None, e))?
                     .get_schema();
-                let shape = file.as_ref().and_then(|file| footprint(&conn, file));
+                let shape = file
+                    .as_ref()
+                    .and_then(|file| footprint(&conn, file, &files_matched));
                 let columns: Vec<(String, Field)> = schema
                     .fields()
                     .iter()
