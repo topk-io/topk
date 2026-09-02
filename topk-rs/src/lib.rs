@@ -92,6 +92,10 @@ pub mod query {
         Query::new(vec![Stage::select(exprs)])
     }
 
+    pub fn empty() -> Query {
+        Query::new(vec![])
+    }
+
     pub fn filter(expr: impl Into<FilterExpr>) -> Query {
         Query::new(vec![Stage::filter(expr.into())])
     }
