@@ -7,6 +7,8 @@ publish = false
 [dependencies]
 async-trait = { version = "0.1.83" }
 axum = { version = "0.7.9" }
+chrono = { version = "0.4.38" }
+chrono-tz = { version = "0.10" }
 http = { version = "1.4.0" }
 regex = { version = "1.12" }
 serde = { version = "1.0", features = ["derive"] }

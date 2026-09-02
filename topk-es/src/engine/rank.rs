@@ -4,15 +4,19 @@ use std::collections::HashMap;
 use topk_rs::json::Value as JsonValue;
 use topk_rs::proto::v1::data::{Document, Value};
 
-use super::doc::decode;
-use super::RANK_SCORE;
+use super::doc::{decode, render};
+use super::{Schema, RANK_SCORE};
 use crate::api::{DocId, Hit, SearchRequest, SortClause, SortField, SortTarget};
 use crate::value::OrdValue;
 use crate::Error;
 
-pub fn fuse(req: &SearchRequest, results: Vec<Vec<Document>>) -> Result<Vec<Hit>, Error> {
+pub fn fuse(
+    schema: &Schema,
+    req: &SearchRequest,
+    results: Vec<Vec<Document>>,
+) -> Result<Vec<Hit>, Error> {
     let candidates = combine(req, results)?;
-    Ok(to_hits(req, candidates))
+    Ok(to_hits(schema, req, candidates))
 }
 
 pub enum Ranking {
@@ -167,7 +171,7 @@ fn combine(
         .collect())
 }
 
-fn to_hits(req: &SearchRequest, candidates: Vec<(f32, Candidate)>) -> Vec<Hit> {
+fn to_hits(schema: &Schema, req: &SearchRequest, candidates: Vec<(f32, Candidate)>) -> Vec<Hit> {
     let mut candidates: Vec<(Option<SortKey>, f32, Candidate)> = candidates
         .into_iter()
         .map(|(score, candidate)| {
@@ -211,7 +215,9 @@ fn to_hits(req: &SearchRequest, candidates: Vec<(f32, Candidate)>) -> Vec<Hit> {
         .map(|(key, score, candidate)| Hit {
             score: scores.then_some(score),
             sort: key.filter(|_| !default_order).map(SortKey::into_json),
-            source: source.enabled().then(|| decode(&source, candidate.fields)),
+            source: source
+                .enabled()
+                .then(|| decode(&source, render(schema, candidate.fields))),
             id: candidate.id,
         })
         .collect()

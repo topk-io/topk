@@ -68,6 +68,7 @@ impl ValueExt for Value {
         self.as_f64()
             .or_else(|| self.as_f32().map(f64::from))
             .or_else(|| self.as_i64().map(|v| v as f64))
+            .or_else(|| self.as_timestamp().map(|v| v as f64))
             .or_else(|| self.as_i32().map(f64::from))
             .or_else(|| self.as_u64().map(|v| v as f64))
             .or_else(|| self.as_u32().map(f64::from))

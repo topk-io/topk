@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use topk_rs::json::Value;
 
 use super::query::FieldName;
+use crate::date::Zone;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -24,6 +25,7 @@ pub enum AggType {
     Min(MetricAggBody),
     Max(MetricAggBody),
     ValueCount(MetricAggBody),
+    DateHistogram(DateHistogramBody),
 }
 
 #[derive(Clone, Deserialize)]
@@ -37,6 +39,41 @@ pub struct TermsAggBody {
 
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct DateHistogramBody {
+    pub field: FieldName,
+
+    #[serde(default)]
+    pub fixed_interval: Option<String>,
+
+    #[serde(default)]
+    pub calendar_interval: Option<String>,
+
+    #[serde(default)]
+    pub min_doc_count: Option<u64>,
+
+    #[serde(default)]
+    pub time_zone: Option<Zone>,
+
+    #[serde(default)]
+    pub extended_bounds: Option<Bounds>,
+
+    #[serde(default)]
+    #[allow(dead_code)]
+    format: Option<String>,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Bounds {
+    #[serde(default)]
+    pub min: Option<Value>,
+
+    #[serde(default)]
+    pub max: Option<Value>,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MetricAggBody {
     pub field: FieldName,
 }
@@ -46,11 +83,17 @@ pub struct MetricAggBody {
 pub enum AggResult {
     Metric {
         value: Option<f64>,
+
+        #[serde(skip_serializing_if = "Option::is_none")]
+        value_as_string: Option<String>,
     },
     Terms {
         doc_count_error_upper_bound: u32,
         sum_other_doc_count: u64,
         buckets: Vec<TermsBucket>,
+    },
+    Histogram {
+        buckets: Vec<HistogramBucket>,
     },
 }
 
@@ -60,6 +103,16 @@ pub struct TermsBucket {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub key_as_string: Option<String>,
     pub doc_count: u64,
+    #[serde(flatten)]
+    pub sub_aggs: HashMap<String, AggResult>,
+}
+
+#[derive(Serialize)]
+pub struct HistogramBucket {
+    pub key: i64,
+    pub key_as_string: String,
+    pub doc_count: u64,
+
     #[serde(flatten)]
     pub sub_aggs: HashMap<String, AggResult>,
 }
