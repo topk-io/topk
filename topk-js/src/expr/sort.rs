@@ -51,7 +51,7 @@ impl FromNapiValue for SortArg {
         env: napi::sys::napi_env,
         value: napi::sys::napi_value,
     ) -> napi::Result<Self> {
-        if let Ok(exprs) = unsafe { Vec::<SortExpr>::from_napi_value(env, value) } {
+        if let Ok(exprs) = Vec::<SortExpr>::from_napi_value(env, value) {
             return Ok(SortArg::Many(exprs));
         }
 

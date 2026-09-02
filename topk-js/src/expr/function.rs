@@ -58,8 +58,6 @@ impl From<FunctionExpression> for topk_rs::proto::v1::data::FunctionExpr {
     }
 }
 
-// Lift into `LogicalExpression` so score functions compose directly with
-// comparisons and arithmetic, e.g. `fn.bm25Score().gt(0.5)`.
 macro_rules! lift {
     ($($fn:ident($($arg:ident: $ty:ty as $ts:literal),*)),* $(,)?) => {
         #[napi(namespace = "query")]

@@ -178,8 +178,6 @@ pub enum LogicalExpr {
     },
 }
 
-// Accepts a score function wherever a logical expression is expected, e.g.
-// `.topk(fn.bm25_score(), 10)`.
 #[derive(Debug, Clone, FromPyObject)]
 pub enum LogicalExprUnion {
     #[pyo3(transparent)]
@@ -788,8 +786,6 @@ impl From<LogicalExpr> for topk_rs::proto::v1::data::LogicalExpr {
     }
 }
 
-// Lift into `LogicalExpr` so score functions compose directly with
-// comparisons and arithmetic, e.g. `fn.bm25_score() > 0.5`.
 macro_rules! lift {
     ($($fn:ident($($arg:ident: $ty:ty),*)),* $(,)?) => {
         #[pymethods]

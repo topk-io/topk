@@ -91,8 +91,6 @@ impl FunctionExpr {
     }
 }
 
-// Lift into `LogicalExpr` so score functions compose directly with
-// comparisons and arithmetic, e.g. `fns::vector_distance(..).gt(0.5)`.
 macro_rules! lift {
     ($($fn:ident($($arg:ident: $ty:ty),*)),* $(,)?) => {
         impl FunctionExpr {
