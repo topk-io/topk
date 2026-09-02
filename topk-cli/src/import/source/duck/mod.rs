@@ -21,7 +21,7 @@ pub use creds::aws_process_profile;
 use creds::secret;
 pub use file::File;
 use file::{local_path, reader, stem, Format};
-use read::{files, table, READ_AHEAD};
+use read::{files, table};
 
 #[derive(Clone)]
 pub enum Duckdb {
@@ -60,12 +60,13 @@ pub(super) fn lit(value: &str) -> String {
     value.replace('\'', "''")
 }
 
-/// Per-reader duckdb budget. duckdb's default is 80% of RAM *per connection*,
-/// which concurrent readers multiply into an OOM-kill; a 1.3 GiB single-row-group
-/// parquet needs the whole column chunk resident.
-const READER_MEMORY: &str = "4GiB";
+/// Per-scan duckdb budget. duckdb's default is 80% of RAM *per database*, which
+/// concurrent scans multiply into an OOM-kill; a 1.3 GiB single-row-group parquet
+/// needs the whole column chunk resident. `memory_limit` is global to a database,
+/// so a scan's file readers share this pool instead of each claiming one.
+pub(super) const READER_MEMORY: &str = "4GiB";
 
-/// How many `READER_MEMORY` readers fit in RAM. duckdb's default `memory_limit`
+/// How many `READER_MEMORY` scans fit in RAM. duckdb's default `memory_limit`
 /// is 80% of RAM (cgroup-aware), which is how RAM is read without a dependency.
 fn max_readers() -> Option<usize> {
     let conn = Connection::open_in_memory().ok()?;
@@ -81,13 +82,11 @@ fn max_readers() -> Option<usize> {
 }
 
 impl Duckdb {
-    /// Each duckdb scan holds a row group; too many OOM-kill the process
-    /// regardless of the per-connection `memory_limit`.
+    /// Each duckdb database holds a buffer pool; too many OOM-kill the process
+    /// regardless of any one `memory_limit`. A scan's files share its pool, so
+    /// only scans are counted and read depth is free.
     pub fn concurrency_limit(&self) -> usize {
-        max_readers().map_or(usize::MAX, |readers| match self {
-            Duckdb::Files(_) => (readers / (1 + READ_AHEAD)).max(1),
-            _ => readers,
-        })
+        max_readers().unwrap_or(usize::MAX)
     }
 
     /// A connection able to read `file`; attached sources ignore it and use their DSN.
@@ -95,9 +94,12 @@ impl Duckdb {
         let conn = Connection::open_in_memory()?;
         // One thread, in order: rows arrive as stored, which makes a row offset
         // a resume point; more threads measured the same.
+        // Object stores rate-limit a long import; duckdb's defaults give up after
+        // about two seconds, which turns a 429 into a failed run.
         conn.execute_batch(&format!(
             "SET preserve_insertion_order = true; SET memory_limit = '{READER_MEMORY}'; \
-             SET threads = 1; SET temp_directory = '{}';",
+             SET threads = 1; SET http_retries = 8; SET http_retry_backoff = 2; \
+             SET http_retry_wait_ms = 500; SET temp_directory = '{}';",
             lit(&std::env::temp_dir()
                 .join("topk-import")
                 .display()
@@ -301,7 +303,7 @@ impl Duckdb {
                 match &file {
                     Some(file) => {
                         let conn = source.connect(Some(file))?;
-                        files(&source, &conn, file, &target, after.as_deref(), &tx)
+                        files(&conn, file, &target, after.as_deref(), &tx)
                     }
                     None => {
                         let conn = source.connect(None)?;
