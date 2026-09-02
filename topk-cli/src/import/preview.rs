@@ -50,10 +50,19 @@ pub fn elide(value: &serde_json::Value) -> String {
             format!("{head:?}…")
         }
         serde_json::Value::Object(entries) => {
-            let pairs: Vec<String> = entries
-                .iter()
-                .map(|(key, value)| format!("{key:?}: {}", elide(value)))
-                .collect();
+            let pair =
+                |(key, value): (&String, &serde_json::Value)| format!("{key:?}: {}", elide(value));
+            if entries.len() > PREVIEW_ELEMENTS {
+                let head: Vec<String> = entries.iter().take(2).map(pair).collect();
+                let tail: Vec<String> = entries.iter().skip(entries.len() - 2).map(pair).collect();
+                return format!(
+                    "{{{}, … {} pairs, {}}}",
+                    head.join(", "),
+                    entries.len(),
+                    tail.join(", ")
+                );
+            }
+            let pairs: Vec<String> = entries.iter().map(pair).collect();
             format!("{{{}}}", pairs.join(", "))
         }
         other => other.to_string(),

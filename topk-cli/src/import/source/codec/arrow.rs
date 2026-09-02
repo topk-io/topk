@@ -1,10 +1,10 @@
 use duckdb::arrow::array::{self, Array, ArrayRef, AsArray};
-use duckdb::arrow::datatypes::{DataType, Float64Type, Int64Type, TimeUnit, UInt64Type};
+use duckdb::arrow::datatypes::{DataType, Fields, Float64Type, Int64Type, TimeUnit, UInt64Type};
 use topk_rs::proto::v1::data::Value;
 
 use crate::import::decode::floats;
 use crate::import::error::Error;
-use crate::import::spec::Type;
+use crate::import::spec::{Element, Type};
 
 pub fn ty(input: &DataType) -> Type {
     match input {
@@ -35,6 +35,7 @@ pub fn ty(input: &DataType) -> Type {
                 _ => Type::TextList,
             }
         }
+        DataType::Struct(fields) if is_sparse_struct(fields) => Type::Sparse(Element::F32),
         DataType::Struct(_) => Type::Struct,
         // value() renders these to RFC 3339 / a bare date, which the Timestamp
         // coercion reads back to epoch millis.
@@ -118,9 +119,7 @@ pub fn value(array: &ArrayRef, row: usize) -> Result<Value, Error> {
                 }
             }
         }
-        DataType::List(_) | DataType::LargeList(_) | DataType::FixedSizeList(_, _) => {
-            return list(&elements_at(array, row))
-        }
+        ty if is_list(ty) => return list(&elements_at(array, row)),
         DataType::Struct(fields) => {
             let columns = array.as_any().downcast_ref::<array::StructArray>().unwrap();
             let mut out = Vec::with_capacity(fields.len());
@@ -164,9 +163,7 @@ fn list(elements: &ArrayRef) -> Result<Value, Error> {
     }
     let dtype = elements.data_type();
     Ok(match dtype {
-        DataType::List(_) | DataType::LargeList(_) | DataType::FixedSizeList(_, _) => {
-            return matrix(elements)
-        }
+        ty if is_list(ty) => return matrix(elements),
         // A u64 past i64::MAX has no wider integer to read as.
         DataType::UInt64 => Value::list(cast(elements, &DataType::UInt64)?.as_primitive::<UInt64Type>().values().to_vec()),
         // `ty` picks the family; the elements are then read as its widest member.
@@ -252,4 +249,21 @@ fn matrix(rows: &ArrayRef) -> Result<Value, Error> {
         ));
     }
     Ok(Value::matrix(cols as u32, values))
+}
+
+fn is_list(ty: &DataType) -> bool {
+    matches!(
+        ty,
+        DataType::List(_) | DataType::LargeList(_) | DataType::FixedSizeList(_, _)
+    )
+}
+
+/// The shape a sparse vector arrives in: parallel `indices` and `values` lists.
+fn is_sparse_struct(fields: &Fields) -> bool {
+    let named = |name: &str| {
+        fields
+            .iter()
+            .any(|f| f.name() == name && is_list(f.data_type()))
+    };
+    fields.len() == 2 && named("indices") && named("values")
 }

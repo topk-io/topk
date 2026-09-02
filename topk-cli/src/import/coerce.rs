@@ -274,8 +274,8 @@ fn matrix_floats(value: &Value, cols: u32, ty: Type) -> Result<Vec<f64>, Error> 
     Ok(nums)
 }
 
-/// (indices, values) sorted by index, from topk's sparse form or a struct of
-/// numeric keys.
+/// (indices, values) sorted by index, from topk's sparse form, a struct of
+/// parallel `indices` and `values` lists, or a struct of numeric keys.
 fn sparse_pairs(value: &Value, ty: Type) -> Result<(Vec<u32>, Vec<f64>), Error> {
     let mut pairs: Vec<(u32, f64)> = match value.value.as_ref() {
         Some(Inner::SparseVector(sparse)) => match sparse.values.as_ref() {
@@ -289,16 +289,37 @@ fn sparse_pairs(value: &Value, ty: Type) -> Result<(Vec<u32>, Vec<f64>), Error> 
         },
         _ => {
             let entries = value.as_struct().ok_or(Error::CannotCoerce(ty))?;
-            let mut pairs = Vec::with_capacity(entries.len());
-            for (key, entry) in entries {
-                // duckdb unifies jsonl schemas by filling absent keys with null.
-                if entry.as_null().is_some() {
-                    continue;
+            match (entries.get("indices"), entries.get("values")) {
+                (Some(indices), Some(values)) => {
+                    let indices = ints(indices).ok_or(Error::CannotCoerce(ty))?;
+                    let values = floats(values).ok_or(Error::CannotCoerce(ty))?;
+                    if indices.len() != values.len() {
+                        return Err(Error::InvalidArgument(format!(
+                            "sparse vector has {} indices and {} values",
+                            indices.len(),
+                            values.len()
+                        )));
+                    }
+                    let mut pairs = Vec::with_capacity(indices.len());
+                    for (index, value) in indices.into_iter().zip(values) {
+                        let index = u32::try_from(index).map_err(|_| Error::CannotCoerce(ty))?;
+                        pairs.push((index, value));
+                    }
+                    pairs
                 }
-                let index: u32 = key.trim().parse().map_err(|_| Error::CannotCoerce(ty))?;
-                pairs.push((index, float(entry).ok_or(Error::CannotCoerce(ty))?));
+                _ => {
+                    let mut pairs = Vec::with_capacity(entries.len());
+                    for (key, entry) in entries {
+                        // duckdb unifies jsonl schemas by filling absent keys with null.
+                        if entry.as_null().is_some() {
+                            continue;
+                        }
+                        let index: u32 = key.trim().parse().map_err(|_| Error::CannotCoerce(ty))?;
+                        pairs.push((index, float(entry).ok_or(Error::CannotCoerce(ty))?));
+                    }
+                    pairs
+                }
             }
-            pairs
         }
     };
     pairs.sort_by_key(|(index, _)| *index);

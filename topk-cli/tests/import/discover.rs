@@ -253,3 +253,17 @@ async fn all_objects_skipped_says_so(ctx: &mut Scratch) {
         "got: {message}"
     );
 }
+
+#[test_context(Scratch)]
+#[tokio::test]
+async fn sparse_structs_become_sparse_vectors(ctx: &mut Scratch) {
+    let path = ctx.sql_parquet(
+        "sv",
+        "SELECT 1 AS id, \
+         {'indices': [3,1]::UINTEGER[], 'values': [1.5,0.5]::FLOAT[]} AS sv",
+    );
+
+    let spec = discover_spec(&path, None).await;
+    let field = &spec.collections["sv"].fields["sv"];
+    assert_eq!(field.ty.to_string(), "f32_sparse_vector");
+}
