@@ -65,6 +65,13 @@ pub enum Element {
     Binary,
 }
 
+impl Field {
+    /// The source column this field reads: `from`, or the field's own name.
+    pub fn source<'a>(&'a self, name: &'a str) -> &'a str {
+        self.from.as_deref().unwrap_or(name)
+    }
+}
+
 impl Type {
     pub fn is_dense(self) -> bool {
         matches!(self, Type::Vector(_))

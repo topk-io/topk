@@ -7,14 +7,15 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::import::error::Error;
+use crate::import::source::Cursor;
 use crate::import::spec::Spec;
 
-/// Where a collection's import stands; the mark is the source's own cursor.
+/// Where a collection's import stands.
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum Cursor {
+pub enum Mark {
     Done,
-    After(String),
+    After(Cursor),
 }
 
 /// Created at confirmation, rewritten at every checkpoint, deleted on success:
@@ -29,7 +30,7 @@ pub struct State {
     /// The whole plan as TOML, done collections included.
     pub spec: String,
     #[serde(default)]
-    pub cursors: BTreeMap<String, Cursor>,
+    pub cursors: BTreeMap<String, Mark>,
 }
 
 impl State {
@@ -48,7 +49,7 @@ impl State {
         source: &str,
         spec: &mut Spec,
         plan: String,
-    ) -> Result<(usize, BTreeMap<String, String>), Error> {
+    ) -> Result<(usize, BTreeMap<String, Cursor>), Error> {
         if self.source != source {
             return Err(Error::InvalidArgument(format!(
                 "run {} reads {}, not {source:?}",
@@ -59,7 +60,7 @@ impl State {
                 }
             )));
         }
-        let mut after: BTreeMap<String, String> = BTreeMap::new();
+        let mut after: BTreeMap<String, Cursor> = BTreeMap::new();
         // A cursor only holds for an unchanged target.
         let stored: Spec = toml::from_str(&self.spec)?;
         self.cursors.retain(|name, cursor| {
@@ -72,18 +73,18 @@ impl State {
                 crate::import::note(format!("# {name}: spec changed, starting over"));
                 return false;
             }
-            if let Cursor::After(mark) = cursor {
-                after.insert(name.clone(), mark.clone());
+            if let Mark::After(cursor) = cursor {
+                after.insert(name.clone(), cursor.clone());
             }
             true
         });
         let done = self
             .cursors
             .values()
-            .filter(|c| matches!(c, Cursor::Done))
+            .filter(|c| matches!(c, Mark::Done))
             .count();
         spec.collections
-            .retain(|name, _| !matches!(self.cursors.get(name), Some(Cursor::Done)));
+            .retain(|name, _| !matches!(self.cursors.get(name), Some(Mark::Done)));
         self.spec = plan;
         Ok((done, after))
     }

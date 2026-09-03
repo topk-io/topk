@@ -6,14 +6,13 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use clap::Args;
-use futures::{StreamExt, TryStreamExt};
+use indexmap::IndexMap;
 use indicatif::{MultiProgress, ProgressDrawTarget};
 use tokio::sync::Semaphore;
 
 use crate::endpoint::Endpoint;
 use crate::import::{
-    self, render, Cursor, Error, LoadOutcome, Scan, Sink, Source, Spec, State, Uri, ID,
-    ID_PLACEHOLDER,
+    self, render, Error, LoadOutcome, Sink, Source, Spec, State, Uri, ID, ID_PLACEHOLDER,
 };
 
 const OBJECT_CONCURRENCY: usize = 8;
@@ -223,46 +222,6 @@ fn report(outcomes: &BTreeMap<String, LoadOutcome>, json: bool) -> Result<ExitCo
     })
 }
 
-async fn execute(
-    sink: &Sink<'_>,
-    scans: &[Scan],
-    state: State,
-    readers: usize,
-) -> Result<BTreeMap<String, LoadOutcome>, Error> {
-    // An unwritable config dir costs the ability to resume, not the import.
-    if let Err(e) = state.save() {
-        eprintln!("cannot save run state ({e}) — this run cannot be resumed");
-    }
-    let state = Mutex::new(state);
-    let checkpoint = |name: &str, cursor: Cursor| {
-        let mut state = state.lock().unwrap_or_else(|e| e.into_inner());
-        state.cursors.insert(name.to_string(), cursor);
-        // A lost checkpoint costs a redo, never a skip.
-        if let Err(e) = state.save() {
-            tracing::warn!(%e, "cannot save run state");
-        }
-    };
-    futures::stream::iter(scans.iter())
-        .map(|scan| {
-            let checkpoint = &checkpoint;
-            // A resumed limit would be applied again from the cursor, so a
-            // limited collection is never checkpointed: it restarts whole.
-            let checkpoint_cursor = move |cursor: &str| {
-                if scan.target.limit.is_none() {
-                    checkpoint(&scan.name, Cursor::After(cursor.to_string()));
-                }
-            };
-            async move {
-                let outcome = sink.load(scan, checkpoint_cursor).await?;
-                checkpoint(&scan.name, Cursor::Done);
-                Ok((scan.name.clone(), outcome))
-            }
-        })
-        .buffer_unordered(readers)
-        .try_collect()
-        .await
-}
-
 pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::Result<ExitCode> {
     tracing::info!(?args, "import");
     let resumed = args.resume.as_deref().map(State::load).transpose()?;
@@ -319,8 +278,8 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
     let scans = spec
         .collections
         .iter()
-        .map(|(name, target)| source.scan(name, target, after.get(name).map(String::as_str)))
-        .collect::<Result<Vec<_>, Error>>()?;
+        .map(|(name, target)| Ok((name.clone(), source.scan(target, after.get(name).cloned())?)))
+        .collect::<Result<IndexMap<_, _>, Error>>()?;
     let client = endpoint.client()?;
     let mut pending = import::absent(&client, &spec).await?;
     // `--limit 0` reads nothing, so it must not leave an empty collection behind
@@ -348,12 +307,17 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
     if !json {
         import::set_progress(progress.clone());
     }
+    // An unwritable config dir costs the ability to resume, not the import.
+    if let Err(e) = state.save() {
+        eprintln!("cannot save run state ({e}) — this run cannot be resumed");
+    }
     let sink = Sink {
         client: &client,
         progress: &progress,
         budget: Arc::new(Semaphore::new(args.concurrency as usize)),
         batch_bytes: args.batch_bytes.as_u64() as usize,
         continue_on_error: args.continue_on_error,
+        state: Mutex::new(state),
     };
     for (name, schema) in pending {
         import::create(&client, &name, schema).await?;
@@ -373,7 +337,7 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
         )
     };
     let outcomes = tokio::select! {
-        outcomes = execute(&sink, &scans, state, readers) => outcomes,
+        outcomes = sink.load(scans, readers) => outcomes,
         _ = tokio::signal::ctrl_c() => {
             let _ = progress.clear();
             resume_hint();

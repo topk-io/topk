@@ -1,9 +1,12 @@
-use indexmap::IndexMap;
+use std::str::FromStr;
+
+use indexmap::{IndexMap, IndexSet};
 use serde::{Deserialize, Serialize};
 
 use topk_rs::proto::v1::control::FieldSpec;
 
 use crate::import::error::Error;
+use crate::import::ID;
 
 mod discover;
 mod field;
@@ -37,6 +40,25 @@ pub struct Target {
 
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     pub fields: IndexMap<String, Field>,
+}
+
+impl Target {
+    /// The source column used as the document id.
+    pub fn id_column(&self) -> &str {
+        self.id.as_deref().unwrap_or(ID)
+    }
+
+    pub fn parsed_filter<F: FromStr<Err = Error>>(&self) -> Result<Option<F>, Error> {
+        self.filter.as_deref().map(str::parse).transpose()
+    }
+
+    /// Every source column this target reads: the spec is a whitelist, so this
+    /// is the whole projection.
+    pub fn source_columns(&self) -> IndexSet<&str> {
+        std::iter::once(self.id_column())
+            .chain(self.fields.iter().map(|(name, field)| field.source(name)))
+            .collect()
+    }
 }
 
 fn collection_name(name: &str) -> Result<(), Error> {

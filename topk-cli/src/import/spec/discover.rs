@@ -35,7 +35,7 @@ pub fn validate_columns(catalog: &[Table], spec: &Spec) -> Result<(), Error> {
             }
         }
         for (field, spec) in target.fields.iter() {
-            let column = spec.from.as_deref().unwrap_or(field);
+            let column = spec.source(field);
             if !has(column) {
                 return Err(absent(format!(
                     "field {field:?} reads column {column:?}, which"

@@ -539,6 +539,41 @@ async fn glob_unions_columns_across_files(ctx: &mut Ctx) {
         "second file's column was dropped: {:?}",
         got["2"].keys().collect::<Vec<_>>()
     );
+    // The first file has no `extra`, and the projection must leave it that way.
+    let got = ctx.get(&collection, &["1"]).await;
+    assert!(
+        !got["1"].contains_key("extra"),
+        "first file gained a column it does not have: {:?}",
+        got["1"].keys().collect::<Vec<_>>()
+    );
+}
+
+#[test_context(Ctx)]
+#[tokio::test]
+async fn several_fields_read_one_column(ctx: &mut Ctx) {
+    let path = ctx.sql_parquet("alias", "SELECT 'k' AS id, 'hello' AS body");
+    let collection = ctx.collection("aliased");
+    let toml = format!(
+        "[{collection}]
+from = {path:?}
+
+id = \"id\"
+
+[{collection}.fields]
+body = {{ type = \"text\" }}
+copy = {{ from = \"body\", type = \"text\" }}
+short = {{ from = \"body\", type = \"text\", truncate = 2 }}
+key = {{ from = \"id\", type = \"text\" }}
+"
+    );
+    ok(&["import", "-f", &ctx.spec_file(&toml), "--yes"], &[]);
+
+    let got = ctx.get(&collection, &["k"]).await;
+    let d = &got["k"];
+    assert_eq!(field(d, "body"), json!("hello"));
+    assert_eq!(field(d, "copy"), json!("hello"));
+    assert_eq!(field(d, "short"), json!("he"));
+    assert_eq!(field(d, "key"), json!("k"));
 }
 
 #[test_context(Ctx)]
@@ -686,7 +721,8 @@ async fn resume_continues_where_upserts_landed(ctx: &mut Ctx) {
     let state = std::fs::read_to_string(state_dir().join(format!("{run}.toml"))).unwrap();
     // A file this small is one arrow chunk, and a chunk's mark comes after its
     // rows — so the last landed mark is the end of b; c is re-read whole.
-    assert!(state.contains("b.parquet:300\""), "{state}");
+    assert!(state.contains("b.parquet\""), "{state}");
+    assert!(state.contains("rows = 300"), "{state}");
 
     // Exits non-zero for the skipped row; the summary is still on stdout.
     let out = crate::common::run(
@@ -1011,7 +1047,7 @@ async fn topk_source_pages_by_id_and_resumes_from_a_cursor(ctx: &mut Ctx) {
              started = \"2026-01-01T00:00:00Z\"\n\
              spec = \"\"\"\n{spec}\"\"\"\n\n\
              [cursors.\"{target}\"]\n\
-             after = \"d0999\"\n"
+             after = {{ key = \"d0999\" }}\n"
         ),
     )
     .expect("write resume state");
