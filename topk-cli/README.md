@@ -84,6 +84,16 @@ topk import gs://bucket/books.csv                             # az:// hf:// http
 
 A single file names its collection.
 
+An object store reads through its credential chain, and needs credentials even
+for a public bucket — an unconfigured `s3://` fails with a duckdb
+`Secret Validation Failure`. Anonymous reads go over `https://` instead:
+
+```bash
+topk import https://bucket.s3.amazonaws.com/books.parquet     # no credentials needed
+```
+
+Globs work on object stores, not over `http(s)://`.
+
 #### Copy a TopK collection
 
 ```bash
@@ -114,6 +124,26 @@ topk import postgres://host/db --resume 01J9...               # run id printed a
 
 Resume skips finished collections and continues the in-flight one from a checkpoint. Without `--resume`, a re-run re-imports everything — upserts are idempotent.
 
+#### Flags
+
+| flag | |
+| --- | --- |
+| `--to <collection>` | Name the target collection; required when it cannot be derived |
+| `--id <column>` | Column to use as the document id (`_id`), when it cannot be auto-detected |
+| `-f`, `--spec <file>` | Read a TOML import spec instead of discovering one |
+| `--dry-run` | Print the spec and a sample of documents, without importing |
+| `--filter <filter>` | Only read rows matching a filter, in the source's language |
+| `--limit <n>` | Read at most this many rows per object |
+| `--partition <name>` | Import into this partition |
+| `--resume <run>` | Continue a run that stopped, by the id in its header |
+| `-y`, `--yes` | Skip confirmation |
+| `--continue-on-error` | Skip documents that fail instead of stopping; exits non-zero if any did |
+| `-c`, `--concurrency <n>` | Concurrent upserts in flight, budgeted across the run (default 16) |
+| `--batch-bytes <size>` | Bytes of documents per upsert (default 8MiB) |
+
+`--dry-run` cannot preview rows until an id is known: it writes `id = "<column>"`
+into the spec and waits for `--id`, or for you to fill that line in.
+
 #### Sources
 
 | source | url | filter | auth |
@@ -121,7 +151,7 @@ Resume skips finished collections and continues the in-flight one from a checkpo
 | postgres | `postgres://` | SQL `WHERE` | in-URL, `PGPASSWORD` |
 | mysql | `mysql://` | SQL `WHERE` | in-URL, `MYSQL_PWD` |
 | sqlite | `sqlite:<path>` | SQL `WHERE` | — |
-| files | path, glob, `s3://` `r2://` `gs://` `az://` `hf://` `http(s)://` | SQL `WHERE` | credential chain; `hf auth login`; http anonymous |
+| files | path, glob, `s3://` `r2://` `gs://` `az://` `hf://` `http(s)://` | SQL `WHERE` | credential chain, public buckets included; `hf auth login`; http anonymous |
 | elasticsearch | `es://` `es+https://`, `*.cloud.es.io` | query DSL | in-URL, `ELASTIC_API_KEY` / `ELASTIC_PASSWORD` |
 | mongodb | `mongodb://` | find document | in-URL, `MONGODB_URI` |
 | topk | `topk://[<key>@]<region>/<collection>` | — | URL key, else the run's key |
