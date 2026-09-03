@@ -53,7 +53,52 @@ pub struct BoolQuery {
     pub should: Vec<Query>,
 
     #[serde(default)]
+    pub minimum_should_match: Option<MinimumShouldMatch>,
+
+    #[serde(default)]
     pub boost: Option<f32>,
+}
+
+#[derive(Deserialize, Clone, Copy)]
+#[serde(try_from = "MinimumShouldMatchWire")]
+pub enum MinimumShouldMatch {
+    Count(i64),
+    Percent(i64),
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum MinimumShouldMatchWire {
+    Int(i64),
+    Str(String),
+}
+
+impl TryFrom<MinimumShouldMatchWire> for MinimumShouldMatch {
+    type Error = Error;
+
+    fn try_from(wire: MinimumShouldMatchWire) -> Result<Self, Self::Error> {
+        let s = match wire {
+            MinimumShouldMatchWire::Int(n) => return Ok(MinimumShouldMatch::Count(n)),
+            MinimumShouldMatchWire::Str(s) => s,
+        };
+        let parsed = match s.trim().strip_suffix('%') {
+            Some(p) => p.trim().parse().map(MinimumShouldMatch::Percent),
+            None => s.trim().parse().map(MinimumShouldMatch::Count),
+        };
+        parsed.map_err(|_| Error::Unsupported(format!("Invalid minimum_should_match \"{s}\"")))
+    }
+}
+
+impl MinimumShouldMatch {
+    pub fn resolve(self, clauses: usize) -> i64 {
+        let n = clauses as i64;
+        match self {
+            MinimumShouldMatch::Count(c) if c < 0 => n + c,
+            MinimumShouldMatch::Count(c) => c,
+            MinimumShouldMatch::Percent(p) if p < 0 => n + n * p / 100,
+            MinimumShouldMatch::Percent(p) => n * p / 100,
+        }
+    }
 }
 
 impl BoolQuery {

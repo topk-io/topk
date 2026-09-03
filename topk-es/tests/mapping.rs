@@ -77,6 +77,19 @@ async fn test_create_rejected(scope: &TestScope, #[case] body: Value) {
     assert_eq!(res.status_code(), StatusCode::NOT_FOUND);
 }
 
+#[test_context(TestScope)]
+#[tokio::test]
+async fn dev_unsupported_mapping_type_error_type(scope: &TestScope) {
+    let err = scope
+        .create_with_body(Some(
+            json!({ "mappings": { "properties": { "created": { "type": "date" } } } }),
+        ))
+        .await
+        .unwrap_err();
+    assert_eq!(err.status_code(), StatusCode::BAD_REQUEST);
+    assert_eq!(err.error_type(), "action_request_validation_exception");
+}
+
 #[rstest_ctx(TestScope)]
 #[case::keyword(json!({ "category": { "type": "keyword" } }))]
 #[case::integer_aliases(json!({

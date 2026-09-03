@@ -365,6 +365,10 @@ impl TestErrorResponse {
     pub fn status_code(&self) -> StatusCode {
         self.status
     }
+
+    pub fn error_type(&self) -> &str {
+        self.body["error"]["type"].as_str().unwrap_or("")
+    }
 }
 
 #[derive(Debug)]
