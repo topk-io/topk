@@ -385,8 +385,21 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
                     scores.push(compiled.score);
                     should_gates.push(compiled.gate);
                 }
-                if required_empty {
+
+                let msm = query
+                    .minimum_should_match
+                    .map_or(0, |m| m.resolve(should_gates.len()))
+                    .max(if required_empty { 1 } else { 0 });
+
+                if msm == 1 {
                     gates.push(LogicalExpr::any(should_gates));
+                } else if msm > 1 {
+                    let matched = should_gates
+                        .into_iter()
+                        .fold(LogicalExpr::literal(0i64), |acc, gate| {
+                            acc.add(gate.choose(1i64, 0i64))
+                        });
+                    gates.push(matched.gte(msm));
                 }
             }
 
