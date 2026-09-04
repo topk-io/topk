@@ -37,7 +37,7 @@ test-rs:
 
     WORKDIR /sdk/topk-rs
 
-    DO rust+CARGO --args="nextest archive -p topk-rs --archive-file e2e.tar.zst" # compile tests
+    DO rust+CARGO --args="nextest archive -p topk-rs --all-features --archive-file e2e.tar.zst" # compile tests
 
     ARG --required region
     ARG --required host
