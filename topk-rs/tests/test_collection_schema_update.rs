@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::time::{Duration, Instant};
 
 use test_context::test_context;
 use topk_rs::{
@@ -8,9 +9,9 @@ use topk_rs::{
             field_type_list::ListValueType, Collection, FieldIndex, FieldSpec, KeywordIndexType,
             VectorDistanceMetric,
         },
-        data::{Document, SparseVector, Value},
+        data::{stage::sort_stage::SortOrder, Document, SparseVector, Value},
     },
-    query::{field, filter},
+    query::{field, filter, fns, r#match, select},
     schema, Error,
 };
 
@@ -69,11 +70,96 @@ async fn upsert(ctx: &ProjectTestContext, name: &str, docs: Vec<Document>) -> St
         .expect("could not upsert")
 }
 
+async fn ids_matching(
+    ctx: &ProjectTestContext,
+    collection: &str,
+    term: &str,
+    fieldname: &str,
+    lsn: Option<String>,
+) -> Result<Vec<String>, Error> {
+    let docs = ctx
+        .client
+        .collection(collection)
+        .query(
+            filter(r#match(term, Some(fieldname), None, false))
+                .select([("title", field("title"))])
+                .limit(100),
+            lsn,
+            None,
+        )
+        .await?;
+    let mut ids: Vec<String> = docs.iter().map(|d| d.id().unwrap().to_string()).collect();
+    ids.sort();
+    Ok(ids)
+}
+
+/// Polls `probe` until it succeeds. A query on an index still being built fails with the
+/// index-missing code until the compactor has rewritten every file holding the field.
+async fn wait_for_index<T>(probe: impl AsyncFn() -> Result<T, Error>) -> T {
+    let deadline = Instant::now() + Duration::from_secs(120);
+    loop {
+        match probe().await {
+            Ok(value) => return value,
+            Err(Error::Unexpected(msg)) if msg.contains("Missing index") => {}
+            Err(Error::InvalidArgument(msg)) if msg.contains("Missing keyword index") => {}
+            Err(err) => panic!("query on a building index: {err:?}"),
+        }
+        assert!(Instant::now() < deadline, "index still building after 120s");
+        tokio::time::sleep(Duration::from_secs(1)).await;
+    }
+}
+
 fn reason(err: Error) -> String {
     match err {
         Error::Unexpected(msg) => msg,
         e => panic!("{e:?}"),
     }
+}
+
+/// A keyword index added to a field that already has data is BUILDING until the compactor has
+/// rewritten every file holding the field, then queries on it work.
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_add_index_on_written_field(ctx: &mut ProjectTestContext) {
+    let collection = create(ctx, schema!("title" => keyword(FieldSpec::text(true)))).await;
+    let name = collection.name.clone();
+    ctx.client.collection(&name).upsert(docs()).await.unwrap();
+
+    // `summary` is stored but undeclared: no keyword index to match on
+    ids_matching(ctx, &name, "love", "summary", None)
+        .await
+        .expect_err("undeclared field has no index");
+
+    let updated = ctx
+        .client
+        .collections()
+        .update(
+            &name,
+            schema!("summary" => keyword(FieldSpec::text(false))),
+            vec![],
+        )
+        .await
+        .expect("update failed");
+    assert!(updated.schema.contains_key("summary"));
+
+    // the index builds in the background; searches fail with a clear error until it is ready
+    let ids =
+        wait_for_index(async || ids_matching(ctx, &name, "love", "summary", None).await).await;
+    assert_eq!(ids, vec!["gatsby", "pride"]);
+
+    // filters on the field kept working throughout, and new writes are indexed directly
+    let lsn = ctx
+        .client
+        .collection(&name)
+        .upsert(vec![
+            doc!("_id" => "new", "title" => "New", "summary" => "love again"),
+        ])
+        .await
+        .unwrap();
+    let ids = ids_matching(ctx, &name, "love", "summary", Some(lsn))
+        .await
+        .unwrap();
+    assert_eq!(ids, vec!["gatsby", "new", "pride"]);
 }
 
 /// `required` is accepted when every stored document has the field and rejected, naming the
@@ -122,20 +208,46 @@ async fn test_required_is_proven_against_data(ctx: &mut ProjectTestContext) {
     assert!(reason(err).contains("summary"));
 }
 
-/// Dropping an unindexed field keeps its data filterable; index changes are rejected.
+/// Dropping an index is immediate; dropping a field keeps its data filterable.
 #[test_context(ProjectTestContext)]
 #[tokio::test]
-async fn test_drop_field_and_index_changes(ctx: &mut ProjectTestContext) {
+async fn test_drop_index_and_field(ctx: &mut ProjectTestContext) {
     let collection = create(
         ctx,
         schema!(
             "title" => keyword(FieldSpec::text(true)),
-            "summary" => FieldSpec::text(false),
+            "summary" => keyword(FieldSpec::text(false)),
         ),
     )
     .await;
     let name = collection.name.clone();
-    upsert(ctx, &name, docs()).await;
+    let lsn = ctx.client.collection(&name).upsert(docs()).await.unwrap();
+    assert_eq!(
+        ids_matching(ctx, &name, "love", "summary", Some(lsn))
+            .await
+            .unwrap(),
+        vec!["gatsby", "pride"]
+    );
+
+    let updated = ctx
+        .client
+        .collections()
+        .update(&name, schema!("summary" => FieldSpec::text(false)), vec![])
+        .await
+        .unwrap();
+    assert!(updated.schema["summary"].index.is_none());
+    // a router may keep serving the dropped index until its collection cache expires
+    let deadline = Instant::now() + Duration::from_secs(120);
+    while ids_matching(ctx, &name, "love", "summary", None)
+        .await
+        .is_ok()
+    {
+        assert!(
+            Instant::now() < deadline,
+            "dropped index still served after 120s"
+        );
+        tokio::time::sleep(Duration::from_secs(1)).await;
+    }
 
     let updated = update(ctx, &name, HashMap::new(), &["summary"])
         .await
@@ -154,20 +266,93 @@ async fn test_drop_field_and_index_changes(ctx: &mut ProjectTestContext) {
         .unwrap();
     assert_eq!(docs.len(), 1);
     assert_eq!(docs[0].id().unwrap(), "moby");
+}
 
-    for (schema, drop_fields) in [
-        (
+async fn nearest(ctx: &ProjectTestContext, collection: &str) -> Result<Vec<String>, Error> {
+    let docs = ctx
+        .client
+        .collection(collection)
+        .query(
+            select([("dist", fns::vector_distance("vector", vec![1.0f32, 0.0]))])
+                .sort([(field("dist"), SortOrder::Asc)])
+                .limit(2),
+            None,
+            None,
+        )
+        .await?;
+    Ok(docs.iter().map(|d| d.id().unwrap().to_string()).collect())
+}
+
+/// A vector index added to a field that already holds vectors is BUILDING until the compactor
+/// has rebuilt every file from its raw documents, then vector search works.
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_add_vector_index_on_stored_vectors(ctx: &mut ProjectTestContext) {
+    let collection = create(
+        ctx,
+        schema!("title" => FieldSpec::text(true), "vector" => FieldSpec::f32_vector(2, false)),
+    )
+    .await;
+    let name = collection.name.clone();
+    ctx.client
+        .collection(&name)
+        .upsert(vec![
+            doc!("_id" => "a", "title" => "A", "vector" => vec![1.0f32, 0.0]),
+            doc!("_id" => "b", "title" => "B", "vector" => vec![0.0f32, 1.0]),
+            doc!("_id" => "c", "title" => "C", "vector" => vec![0.7f32, 0.7]),
+        ])
+        .await
+        .unwrap();
+    nearest(ctx, &name).await.expect_err("no vector index yet");
+
+    let updated = ctx
+        .client
+        .collections()
+        .update(
+            &name,
+            schema!("vector" => FieldSpec::f32_vector(2, false)
+                .with_index(FieldIndex::vector(VectorDistanceMetric::Euclidean))),
+            vec![],
+        )
+        .await
+        .expect("update failed");
+    assert!(updated.schema["vector"].index.is_some());
+
+    assert_eq!(
+        wait_for_index(async || nearest(ctx, &name).await).await,
+        vec!["a", "c"]
+    );
+}
+
+/// Files written before the index existed and holding no value for the field must still serve
+/// the query once READY: they get the index columns in the rewrite.
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_add_index_on_partially_populated_field(ctx: &mut ProjectTestContext) {
+    let collection = create(ctx, schema!("title" => FieldSpec::text(true))).await;
+    let name = collection.name.clone();
+    ctx.client
+        .collection(&name)
+        .upsert(vec![
+            doc!("_id" => "with", "title" => "A", "summary" => "a love story"),
+            doc!("_id" => "without", "title" => "B"),
+        ])
+        .await
+        .unwrap();
+
+    ctx.client
+        .collections()
+        .update(
+            &name,
             schema!("summary" => keyword(FieldSpec::text(false))),
-            &[][..],
-        ),
-        (schema!("title" => FieldSpec::text(true)), &[][..]),
-        (HashMap::new(), &["title"][..]),
-    ] {
-        let err = update(ctx, &name, schema, drop_fields).await.unwrap_err();
-        assert!(reason(err).contains("index"));
-    }
-    let fetched = ctx.client.collections().get(&name).await.unwrap();
-    assert_eq!(fetched.schema, updated.schema);
+            vec![],
+        )
+        .await
+        .expect("update failed");
+    assert_eq!(
+        wait_for_index(async || ids_matching(ctx, &name, "love", "summary", None).await).await,
+        vec!["with"]
+    );
 }
 
 /// Widening never touches the data: dropping `required` lets a doc without the field in, and

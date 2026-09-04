@@ -116,6 +116,9 @@ impl CollectionsClient {
     }
 
     /// Adds, replaces or undeclares fields of a collection's schema.
+    ///
+    /// Returns once the change is decided. Index builds happen in the background:
+    /// a search on an index that is still building fails with `FailedPrecondition`.
     pub async fn update(
         &self,
         name: impl Into<String>,

@@ -168,6 +168,7 @@ impl From<Status> for Error {
             Ok(error) => match error.code() {
                 CustomErrorCode::RequiredLsnGreaterThanManifestMaxLsn => Error::QueryLsnTimeout,
                 CustomErrorCode::SlowDown => Error::SlowDown(error.message),
+                CustomErrorCode::IndexMissing => Error::Unexpected(error.message),
                 CustomErrorCode::PartitionNotFound => Error::PartitionNotFound,
                 CustomErrorCode::DocumentNotFound => Error::DocumentNotFound(error.message),
             },
@@ -462,6 +463,7 @@ pub enum CustomErrorCode {
     SlowDown,
     PartitionNotFound,
     DocumentNotFound,
+    IndexMissing,
 }
 
 impl Into<u32> for CustomErrorCode {
@@ -471,6 +473,7 @@ impl Into<u32> for CustomErrorCode {
             CustomErrorCode::SlowDown => 1429,
             CustomErrorCode::PartitionNotFound => 1404,
             CustomErrorCode::DocumentNotFound => 1405,
+            CustomErrorCode::IndexMissing => 1412,
         }
     }
 }
@@ -484,6 +487,7 @@ impl TryFrom<u32> for CustomErrorCode {
             1429 => Ok(CustomErrorCode::SlowDown),
             1404 => Ok(CustomErrorCode::PartitionNotFound),
             1405 => Ok(CustomErrorCode::DocumentNotFound),
+            1412 => Ok(CustomErrorCode::IndexMissing),
             code => Err(anyhow::anyhow!("unknown internal error code: {code}")),
         }
     }
@@ -498,6 +502,7 @@ impl From<CustomError> for Status {
             CustomErrorCode::SlowDown => Status::resource_exhausted(error.message),
             CustomErrorCode::PartitionNotFound => Status::not_found(error.message),
             CustomErrorCode::DocumentNotFound => Status::not_found(error.message),
+            CustomErrorCode::IndexMissing => Status::failed_precondition(error.message),
         };
 
         let error_code: u32 = error.code.into();
