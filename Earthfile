@@ -184,7 +184,7 @@ test-cli:
     # a real layer, not rust+CARGO's cache mount: WITH DOCKER below cannot read that.
     RUN --mount=type=cache,target=/root/.cargo/registry \
         --mount=type=cache,target=/root/.cargo/git \
-        cargo nextest run -p topk-cli --no-run && sccache --show-stats
+        cargo nextest run -p topk-cli --all-features --no-run && sccache --show-stats
 
     ARG --required region
     ARG --required host
@@ -200,7 +200,7 @@ test-cli:
              (docker compose -f docker-compose.import.yaml ps; \
               docker inspect --format '{{json .State.Health}}' default-mysql-1; \
               docker compose -f docker-compose.import.yaml logs --tail 50; exit 1)) && \
-            TOPK_API_KEY=$TOPK_API_KEY topk-test-sandbox cargo nextest run -p topk-cli --no-fail-fast $args
+            TOPK_API_KEY=$TOPK_API_KEY topk-test-sandbox cargo nextest run -p topk-cli --all-features --no-fail-fast $args
     END
 
 test-sql:
@@ -219,7 +219,7 @@ test-sql:
 
     WORKDIR /sdk/topk-sql
 
-    DO rust+CARGO --args="nextest archive -p topk-sql --archive-file sql.tar.zst" # compile tests
+    DO rust+CARGO --args="nextest archive -p topk-sql --all-features --archive-file sql.tar.zst" # compile tests
 
     ARG --required region
     ARG --required host
@@ -252,7 +252,7 @@ test-es:
 
     WORKDIR /sdk/topk-es
 
-    DO rust+CARGO --args="nextest archive -p topk-es --archive-file es.tar.zst" # compile tests
+    DO rust+CARGO --args="nextest archive -p topk-es --all-features --archive-file es.tar.zst" # compile tests
 
     ARG --required region
     ARG --required host
@@ -280,7 +280,7 @@ test-runner-builder:
     WORKDIR /sdk/topk-rs
     ENV RUSTFLAGS="-C target-cpu=generic"
     ENV FORCE_COLOR=1
-    DO rust+CARGO --args="nextest archive --release --archive-file test-runner.tar.zst"
+    DO rust+CARGO --args="nextest archive --release --all-features --archive-file test-runner.tar.zst"
 
     SAVE ARTIFACT test-runner.tar.zst
     SAVE ARTIFACT /usr/local/cargo/bin/cargo-nextest
