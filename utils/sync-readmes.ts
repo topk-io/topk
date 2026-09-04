@@ -38,6 +38,15 @@ const SOURCES: Source[] = [
     },
   },
   {
+    readme: path.join(ROOT, "topk-es", "README.md"),
+    output: path.join(ROOT, "docs", "sdk", "topk-es", "overview.mdx"),
+    frontmatter: {
+      title: "Elasticsearch API",
+      description:
+        "Point any Elasticsearch client at TopK and keep your existing queries, mappings, and tooling.",
+    },
+  },
+  {
     readme: path.join(ROOT, "topk-sql", "README.md"),
     output: path.join(ROOT, "docs", "sdk", "topk-sql", "overview.mdx"),
     frontmatter: {
