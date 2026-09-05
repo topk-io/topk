@@ -1,6 +1,8 @@
 syntax = "proto3";
 package topk.data.v1;
 
+import "topk/control/v1/collection.proto";
+import "topk/control/v1/schema.proto";
 import "topk/data/v1/document.proto";
 import "topk/data/v1/expr/logical.proto";
 
@@ -13,6 +15,9 @@ service WriteService {
 
   // Delete
   rpc DeleteDocuments(DeleteDocumentsRequest) returns (DeleteDocumentsResponse);
+
+  // Update the collection schema
+  rpc UpdateCollection(UpdateCollectionRequest) returns (UpdateCollectionResponse);
 }
 
 // Upsert
@@ -58,4 +63,17 @@ message DeleteDocumentsRequest {
 message DeleteDocumentsResponse {
   // Log sequence number at which the delete was applied.
   string lsn = 1;
+}
+
+// Update collection
+
+message UpdateCollectionRequest {
+  // Field specs to add or replace. A field's spec is replaced as a whole.
+  map<string, topk.control.v1.FieldSpec> schema = 1;
+  // Fields to undeclare. Their data is kept and stays filterable.
+  repeated string drop_fields = 2;
+}
+
+message UpdateCollectionResponse {
+  topk.control.v1.Collection collection = 1;
 }
