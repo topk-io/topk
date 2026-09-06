@@ -487,11 +487,11 @@ mod tests {
         json!({"0": 1.5, "2": 3.0})
     )]
     #[case::u8_sparse_vector(
-        TopkValue::sparse_vector(vec![0, 2], vec![1, 3]),
+        TopkValue::sparse_vector(vec![0, 2], vec![1u8, 3]),
         json!({"0": 1, "2": 3})
     )]
     #[case::i8_sparse_vector(
-        TopkValue::sparse_vector(vec![0, 2], vec![-1, 3]),
+        TopkValue::sparse_vector(vec![0, 2], vec![-1i8, 3]),
         json!({"0": -1, "2": 3})
     )]
     // matrices
