@@ -3,7 +3,7 @@ use topk_rs::proto::v1::data::{LogicalExpr, Query as TopkQuery, TextExpr, Value}
 use topk_rs::query::{count as count_query, field, filter, fns, not, should, SortOrder};
 
 use super::agg;
-use super::field::{ensure_aggregatable, IndexKind};
+use super::field::{ensure_aggregatable, ensure_sparse_vector, IndexKind};
 use super::rank::Ranking;
 use super::score::{ann_score, AnnQuery, AnnTerm, CompiledQuery, Score};
 use super::RANK_SCORE;
@@ -458,5 +458,39 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
                 ..Score::default()
             },
         }),
+        Query::SparseVector(q) => {
+            let field_name = q.field.as_str().to_string();
+            let Some(value) = q.query_vector.indexed() else {
+                return Ok(sparse_match_nothing());
+            };
+
+            let spec = match schema.get(&field_name) {
+                None => return Ok(sparse_match_nothing()),
+                Some(spec) => spec,
+            };
+            ensure_sparse_vector(&field_name, spec)?;
+
+            let gate = LogicalExpr::function(fns::vector_distance(&field_name, value.clone()))
+                .gt(LogicalExpr::literal(0.0f32));
+            Ok(CompiledQuery {
+                gate,
+                score: Score {
+                    anns: vec![AnnTerm {
+                        field: field_name,
+                        weight: q.boost.unwrap_or(1.0),
+                        cutoff: None,
+                        query: AnnQuery::Sparse(value.clone()),
+                    }],
+                    ..Score::default()
+                },
+            })
+        }
+    }
+}
+
+fn sparse_match_nothing() -> CompiledQuery {
+    CompiledQuery {
+        gate: LogicalExpr::literal(false),
+        score: Score::default(),
     }
 }

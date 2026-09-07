@@ -123,6 +123,7 @@ async fn dev_unsupported_mapping_type_error_type(scope: &TestScope) {
 #[case::dense_vector_index_false(
     json!({ "v": { "type": "dense_vector", "dims": 4, "index": false } })
 )]
+#[case::sparse_vector(json!({ "v": { "type": "sparse_vector" } }))]
 #[case::object_without_properties(json!({ "meta": { "type": "object" } }))]
 #[case::keyword_ignore_above(json!({ "sku": { "type": "keyword", "ignore_above": 256 } }))]
 #[case::dense_vector_index_options(json!({
@@ -134,6 +135,7 @@ async fn dev_unsupported_mapping_type_error_type(scope: &TestScope) {
 #[case::date(json!({ "created": { "type": "date" } }))]
 #[case::date_nanos_alias(json!({ "created": { "type": "date_nanos" } }))]
 #[case::date_with_format(json!({ "created": { "type": "date", "format": "strict_date_optional_time" } }))]
+#[case::sparse_vector_index_options(json!({ "v": { "type": "sparse_vector", "index_options": { "prune": true } } }))]
 async fn test_create_accepts_supported_mapping_variants(
     scope: &TestScope,
     #[case] properties: Value,
@@ -188,7 +190,8 @@ async fn ext_get_mapping_returns_reverse_translated_properties(scope: &TestScope
                 "top_k": 8,
                 "width": 4096
             },
-            "content": { "type": "semantic_text" }
+            "content": { "type": "semantic_text" },
+            "sparse": { "type": "sparse_vector" }
         }))
         .await;
 
@@ -270,6 +273,11 @@ async fn ext_get_mapping_returns_reverse_translated_properties(scope: &TestScope
     assert_eq!(
         properties["content"],
         json!({ "type": "semantic_text" }),
+        "{body}"
+    );
+    assert_eq!(
+        properties["sparse"],
+        json!({ "type": "sparse_vector" }),
         "{body}"
     );
     assert!(properties.get("_id").is_none());

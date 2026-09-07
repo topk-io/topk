@@ -187,6 +187,24 @@ pub enum FieldMapping {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         chunking_settings: Option<serde_json::Value>,
     },
+
+    #[serde(rename = "sparse_vector")]
+    SparseVector {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[allow(dead_code)]
+        index_options: Option<SparseVectorIndexOptions>,
+    },
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, Default, PartialEq)]
+pub struct SparseVectorIndexOptions {
+    #[serde(default)]
+    #[allow(dead_code)]
+    prune: Option<bool>,
+
+    #[serde(default)]
+    #[allow(dead_code)]
+    pruning_config: Option<serde_json::Value>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq)]
@@ -399,6 +417,8 @@ impl TryFrom<FieldMapping> for FieldSpec {
             FieldMapping::SemanticText { .. } => {
                 Ok(FieldSpec::text(false).with_index(FieldIndex::semantic()))
             }
+            FieldMapping::SparseVector { .. } => Ok(FieldSpec::f32_sparse_vector(false)
+                .with_index(FieldIndex::vector(VectorDistanceMetric::DotProduct))),
         }
     }
 }
@@ -480,6 +500,20 @@ impl TryFrom<&FieldSpec> for FieldMapping {
                     },
                 }
             }
+            Some(
+                field_type::DataType::F32SparseVector(_)
+                | field_type::DataType::F16SparseVector(_)
+                | field_type::DataType::F8SparseVector(_)
+                | field_type::DataType::U8SparseVector(_)
+                | field_type::DataType::I8SparseVector(_),
+            ) => match index {
+                Some(field_index::Index::VectorIndex(_)) => FieldMapping::SparseVector {
+                    index_options: None,
+                },
+                _ => FieldMapping::Object {
+                    properties: MappingProperties::default(),
+                },
+            },
             Some(field_type::DataType::Matrix(m)) => {
                 let Ok(element_type) = m.value_type().try_into() else {
                     return Ok(FieldMapping::Object {
