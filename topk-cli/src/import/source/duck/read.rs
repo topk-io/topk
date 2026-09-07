@@ -25,7 +25,8 @@ pub(super) struct Plan {
     from: String,
     filter: Option<String>,
     position: Position,
-    /// The columns asked of the relation, for the error that names the widest.
+    /// The columns asked of a file, for the error that names the widest; an
+    /// attached table has no footer to ask, so it leaves this empty.
     columns: Vec<String>,
 }
 
@@ -95,6 +96,11 @@ pub(super) fn files(
             _ => Some((file, 0)),
         })
         .collect();
+    let columns: Vec<String> = target
+        .source_columns()
+        .into_iter()
+        .map(String::from)
+        .collect();
     // A limit is a running budget: the next query depends on the previous count.
     let ahead = match target.limit {
         Some(_) => 0,
@@ -117,7 +123,7 @@ pub(super) fn files(
                 path,
                 ..file.clone()
             };
-            let plan = Plan::file(&file, target, filter, offset, remaining);
+            let plan = Plan::file(&file, &columns, filter, offset, remaining);
             readers.push_back((file_rx, thread::spawn(move || plan.read(&reader, &file_tx))));
         }
         let Some((mut rx, reader)) = readers.pop_front() else {
@@ -164,11 +170,7 @@ impl Plan {
             from: target.from.clone(),
             filter: filter.map(str::to_string),
             position: Position::Key(id.to_string()),
-            columns: target
-                .source_columns()
-                .into_iter()
-                .map(str::to_string)
-                .collect(),
+            columns: Vec::new(),
         }
     }
 
@@ -177,14 +179,14 @@ impl Plan {
     /// than raise a binder error: `COLUMNS` keeps the names that exist.
     fn file(
         file: &File,
-        target: &Target,
+        columns: &[String],
         filter: Option<&str>,
         offset: u64,
         limit: Option<u64>,
     ) -> Plan {
         Plan {
             sql: Select::new(reader(file))
-                .existing_columns(target.source_columns())
+                .existing_columns(columns.iter().map(String::as_str))
                 .filter(filter)
                 .limit(limit)
                 .offset(offset)
@@ -192,11 +194,7 @@ impl Plan {
             from: file.path.clone(),
             filter: filter.map(str::to_string),
             position: Position::Offset(offset),
-            columns: target
-                .source_columns()
-                .into_iter()
-                .map(str::to_string)
-                .collect(),
+            columns: columns.to_vec(),
         }
     }
 
