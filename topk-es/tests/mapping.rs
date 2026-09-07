@@ -81,7 +81,7 @@ async fn test_create_rejected(scope: &TestScope, #[case] body: Value) {
 async fn dev_unsupported_mapping_type_error_type(scope: &TestScope) {
     let err = scope
         .create_with_body(Some(
-            json!({ "mappings": { "properties": { "created": { "type": "date" } } } }),
+            json!({ "mappings": { "properties": { "location": { "type": "geo_point" } } } }),
         ))
         .await
         .unwrap_err();
