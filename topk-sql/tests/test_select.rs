@@ -4,11 +4,11 @@ use rstest::rstest;
 
 use topk_rs::{
     doc,
-    proto::v1::data::{Document, Value, stage},
+    proto::v1::data::{stage, Document, Value},
 };
 
 mod common;
-use common::{BooksContext, Scope, assert_rows_eq_unordered, ids};
+use common::{assert_rows_eq_unordered, ids, BooksContext, Scope};
 
 #[rstest]
 #[case::single_field(

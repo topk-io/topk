@@ -1,8 +1,8 @@
 use std::ops::ControlFlow;
 
 use sqlparser::ast::{
-    AssignmentTarget, Expr as SqlExpr, FromTable, ObjectName, SelectItem, SetExpr,
-    Statement as SqlStatement, TableObject, Value as SqlValue, visit_expressions, visit_relations,
+    visit_expressions, visit_relations, AssignmentTarget, Expr as SqlExpr, FromTable, ObjectName,
+    SelectItem, SetExpr, Statement as SqlStatement, TableObject, Value as SqlValue,
 };
 
 use super::{SqlExprExt, TableFactorExt};
@@ -119,7 +119,7 @@ mod tests {
     use rstest::rstest;
 
     use super::SqlStatementExt;
-    use crate::{Error, ObjectNameExt, Table, parse_sql};
+    use crate::{parse_sql, Error, ObjectNameExt, Table};
     use sqlparser::ast::Statement as SqlStatement;
 
     fn parse_one(sql: &str) -> SqlStatement {

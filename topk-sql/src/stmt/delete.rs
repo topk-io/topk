@@ -1,6 +1,6 @@
 use sqlparser::ast::{Delete, FromTable, TableFactor};
 
-use crate::{Error, FromSql, Statement, Table, sql_unsupported, stmt::RowFilter};
+use crate::{sql_unsupported, stmt::RowFilter, Error, FromSql, Statement, Table};
 
 impl TryFrom<Delete> for Statement {
     type Error = Error;

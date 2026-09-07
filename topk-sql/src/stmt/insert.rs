@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use sqlparser::ast::{Insert, SetExpr, TableObject};
 use topk_rs::proto::v1::data::{Document, Value};
 
-use crate::{Error, FromSql, Statement, Table, sql_invalid, sql_unsupported};
+use crate::{sql_invalid, sql_unsupported, Error, FromSql, Statement, Table};
 
 impl TryFrom<Insert> for Statement {
     type Error = Error;

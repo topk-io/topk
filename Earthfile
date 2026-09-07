@@ -11,6 +11,20 @@ rust-base:
         curl -fsSL https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-${nextest_version}/cargo-nextest-${nextest_version}-${arch}-unknown-linux-gnu.tar.gz \
         | tar -xz -C /usr/local/cargo/bin cargo-nextest
 
+fmt:
+    FROM rust:slim
+    RUN rustup component add rustfmt
+    WORKDIR /sdk
+    COPY --keep-ts . .
+    RUN set -e; \
+        cargo fmt --check --manifest-path topk-rs/Cargo.toml; \
+        cargo fmt --check --manifest-path topk-sql/Cargo.toml; \
+        cargo fmt --check --manifest-path topk-es/Cargo.toml; \
+        cargo fmt --check --manifest-path topk-py/Cargo.toml; \
+        cargo fmt --check --manifest-path topk-js/Cargo.toml; \
+        cargo fmt --check --manifest-path topk-cli/Cargo.toml; \
+        cargo fmt --check --manifest-path utils/test-macros/Cargo.toml
+
 test:
     ARG --required region
     ARG --required host

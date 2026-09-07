@@ -5,7 +5,7 @@ use strum_macros::IntoStaticStr;
 use topk_rs::proto::v1::control::FieldSpec;
 use topk_rs::proto::v1::data::{Document, LogicalExpr, Query, Value};
 
-use crate::{Error, FromSql, SqlExprExt, Table, sql_invalid, sql_unsupported};
+use crate::{sql_invalid, sql_unsupported, Error, FromSql, SqlExprExt, Table};
 
 mod create_table;
 mod delete;

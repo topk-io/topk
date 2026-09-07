@@ -2,7 +2,7 @@ use sqlparser::ast::{BinaryOperator, DateTimeField, Expr as SqlExpr, UnaryOperat
 use topk_rs::proto::v1::data::{LogicalExpr, Value};
 
 use crate::expr::regexp;
-use crate::{Error, FromSql, SqlExprExt, sql_invalid, sql_unsupported};
+use crate::{sql_invalid, sql_unsupported, Error, FromSql, SqlExprExt};
 
 impl FromSql<SqlExpr> for LogicalExpr {
     fn from_sql(expr: SqlExpr) -> Result<LogicalExpr, Error> {

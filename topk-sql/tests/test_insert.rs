@@ -5,7 +5,7 @@ use topk_rs::doc;
 use topk_rs::proto::v1::data::Document;
 
 mod common;
-use common::{BooksContext, Scope, TableScope, ids};
+use common::{ids, BooksContext, Scope, TableScope};
 
 #[rstest]
 #[case::new_doc(

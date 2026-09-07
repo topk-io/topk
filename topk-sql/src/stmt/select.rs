@@ -2,17 +2,17 @@ use std::collections::HashMap;
 use std::ops::ControlFlow;
 
 use sqlparser::ast::{
-    Expr as SqlExpr, Function as SqlFunction, FunctionArg, FunctionArgExpr, GroupByExpr,
-    LimitClause, OrderByKind, Query as SqlQuery, SelectItem, SetExpr, TableFactor,
-    Value as SqlValue, visit_expressions,
+    visit_expressions, Expr as SqlExpr, Function as SqlFunction, FunctionArg, FunctionArgExpr,
+    GroupByExpr, LimitClause, OrderByKind, Query as SqlQuery, SelectItem, SetExpr, TableFactor,
+    Value as SqlValue,
 };
 use topk_rs::proto::v1::data::stage::sort_stage::SortOrder;
 use topk_rs::proto::v1::data::stage::{filter_stage::FilterExpr, select_stage::SelectExpr};
 use topk_rs::proto::v1::data::{AggregateExpr, LogicalExpr, Query, Stage};
 
 use crate::{
-    Error, FromSql, SelectItemExt, SqlExprExt, SqlFunctionExt, Table, sql_invalid, sql_unsupported,
-    stmt::Statement,
+    sql_invalid, sql_unsupported, stmt::Statement, Error, FromSql, SelectItemExt, SqlExprExt,
+    SqlFunctionExt, Table,
 };
 
 fn is_aggregate_fn(func: &SqlFunction) -> bool {
