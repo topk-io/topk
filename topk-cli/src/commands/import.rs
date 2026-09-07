@@ -217,7 +217,9 @@ fn report(outcomes: &BTreeMap<String, LoadOutcome>, json: bool) -> Result<ExitCo
         }
         // Indexing trails the last write, so counting straight away reads low and
         // looks like missing data.
-        eprintln!("# indexing continues after this; a count settles once it catches up");
+        if outcomes.values().any(|o| o.rows > 0) {
+            eprintln!("# indexing continues after this; a count settles once it catches up");
+        }
     }
     Ok(match outcomes.values().all(|o| o.failed == 0) {
         true => ExitCode::SUCCESS,

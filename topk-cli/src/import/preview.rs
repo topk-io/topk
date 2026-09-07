@@ -1,8 +1,5 @@
 use futures::StreamExt;
 
-use prost::Message;
-
-use crate::import::error::MAX_DOC_BYTES;
 use crate::import::{self, Error, Target, ID};
 
 const PREVIEW_ROWS: u64 = 5;
@@ -16,14 +13,12 @@ pub async fn preview(name: &str, source: &import::Source, target: &Target) -> Re
     };
     let mut rows = import::documents(source, &target)?;
     let mut shown = 0;
-    let mut largest = 0;
     while let Some(row) = rows.next().await {
         let doc = row?;
         if shown == 0 {
             eprintln!("# → {name}");
         }
         shown += 1;
-        largest = largest.max(doc.encoded_len());
 
         let mut pairs = doc
             .fields
@@ -37,14 +32,6 @@ pub async fn preview(name: &str, source: &import::Source, target: &Target) -> Re
     }
     if shown == PREVIEW_ROWS {
         eprintln!("# … showing the first {PREVIEW_ROWS} rows");
-    }
-    // The limit that fails a document mid-run, measured on what it would send.
-    if shown > 0 {
-        eprintln!(
-            "# largest of {shown} sampled document(s): {} of the {} limit",
-            bytesize::ByteSize(largest as u64),
-            bytesize::ByteSize(MAX_DOC_BYTES as u64)
-        );
     }
     Ok(())
 }

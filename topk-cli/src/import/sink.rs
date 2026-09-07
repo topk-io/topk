@@ -1,5 +1,4 @@
 use std::collections::{BTreeMap, VecDeque};
-use std::fmt;
 use std::io::IsTerminal;
 use std::mem;
 use std::sync::{Arc, Mutex};
@@ -7,7 +6,7 @@ use std::time::{Duration, Instant};
 
 use futures::{stream, Stream, StreamExt, TryStreamExt};
 use indexmap::IndexMap;
-use indicatif::{MultiProgress, ProgressBar, ProgressState, ProgressStyle};
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use prost::Message;
 use tokio::sync::Semaphore;
 use tokio::task::JoinHandle;
@@ -116,8 +115,7 @@ pub struct Sink<'a> {
     pub state: Mutex<State>,
 }
 
-/// How often a non-interactive run reports progress. indicatif draws nothing
-/// when stderr is not a terminal, which is how a long import is usually run.
+/// How often a non-interactive run reports progress.
 const LOG_EVERY: Duration = Duration::from_secs(30);
 
 /// Clears itself on drop, so `?` exits and cancellation can't leave a stale bar.
@@ -125,26 +123,20 @@ struct Spinner {
     bar: ProgressBar,
     name: String,
     /// `None` on a terminal, where the bar speaks for itself.
-    logged: Option<Mutex<Instant>>,
+    logged: Option<Instant>,
 }
 
 impl Spinner {
     fn add(progress: &MultiProgress, name: &str) -> Spinner {
         // A run measured in hours needs a rate to be judged by, not just a count.
+        // `per_sec` keeps every decimal it has; the bar is watched, not parsed.
         let bar = progress.add(
             ProgressBar::new_spinner()
                 .with_style(
                     ProgressStyle::with_template(
-                        "{spinner:.cyan} {msg}: {pos} rows ({rate}/s) [{elapsed}]",
+                        "{spinner:.cyan} {msg}: {pos} rows ({per_sec}) [{elapsed}]",
                     )
-                    .expect("valid spinner template")
-                    // indicatif's own `per_sec` renders every decimal it has.
-                    .with_key(
-                        "rate",
-                        |state: &ProgressState, w: &mut dyn fmt::Write| {
-                            let _ = write!(w, "{:.0}", state.per_sec());
-                        },
-                    ),
+                    .expect("valid spinner template"),
                 )
                 .with_message(name.to_string()),
         );
@@ -157,19 +149,24 @@ impl Spinner {
         Spinner {
             bar,
             name: name.to_string(),
-            logged: (!interactive).then(|| Mutex::new(Instant::now())),
+            logged: (!interactive).then(Instant::now),
         }
     }
 
-    /// One row in, and a line every `LOG_EVERY` when there is no bar to watch.
     fn inc(&self) {
         self.bar.inc(1);
-        let Some(logged) = &self.logged else { return };
-        let mut last = logged.lock().unwrap_or_else(|e| e.into_inner());
-        if last.elapsed() < LOG_EVERY {
+    }
+
+    /// A line every `LOG_EVERY` when there is no bar to watch. Called once per
+    /// chunk: a row is too often to ask the clock.
+    fn log(&mut self) {
+        let Some(logged) = &mut self.logged else {
+            return;
+        };
+        if logged.elapsed() < LOG_EVERY {
             return;
         }
-        *last = Instant::now();
+        *logged = Instant::now();
         let rows = self.bar.position();
         let secs = self.bar.elapsed().as_secs_f64().max(1.0);
         crate::import::note(format!(
@@ -206,7 +203,7 @@ impl Sink<'_> {
     async fn load_one(&self, name: &str, scan: Scan) -> Result<LoadOutcome, Error> {
         let Scan { target, mut chunks } = scan;
         let started = Instant::now();
-        let bar = Spinner::add(self.progress, name);
+        let mut bar = Spinner::add(self.progress, name);
         let mut collection = self.client.collection(name);
         if let Some(partition) = &target.partition {
             collection = collection.partition(partition);
@@ -241,6 +238,7 @@ impl Sink<'_> {
                 }
             }
             writer.set_cursor(chunk.cursor);
+            bar.log();
         }
         writer.finish().await?;
         self.checkpoint(name, Mark::Done);
