@@ -51,16 +51,18 @@ impl Position {
 }
 
 /// Files decoded ahead of the one being upserted. A single-row-group parquet is
-/// read whole before its first row, so each file boundary stalls the sink (s3:
-/// 29 → 41 MiB/s with one ahead; two measured the same for another row group
-/// of memory). Each holds a `READER_MEMORY` connection, budgeted by `max_readers`.
-pub(super) const READ_AHEAD: usize = 1;
+/// read whole before its first row, so each file boundary stalls the sink. One
+/// ahead was enough on s3 (29 → 41 MiB/s, and two measured the same), but a
+/// higher-latency store is bound by round trips, not bandwidth: over hf:// the
+/// same import runs 1234 → 2067 rows/s going from one ahead to seven. They share
+/// the scan's connection, so the depth costs round trips, not another buffer pool.
+const READ_AHEAD: usize = 7;
 
 /// Files in glob order, one query each, read `READ_AHEAD` deep and forwarded in
 /// order. The cursor is `<file>:<rows read>`: resuming skips files before it and
 /// `OFFSET`s into the one it names.
 pub(super) fn files(
-    source: &Duckdb,
+    conn: &Connection,
     file: &File,
     target: &Target,
     filter: Option<&str>,
@@ -71,7 +73,6 @@ pub(super) fn files(
     let files: Vec<String> = match local_path(path).is_some() {
         true => vec![path.clone()],
         false => {
-            let conn = source.connect(Some(file))?;
             let mut stmt = conn
                 .prepare(&format!(
                     "SELECT file FROM glob('{}') ORDER BY 1",
@@ -106,19 +107,16 @@ pub(super) fn files(
                 break;
             };
             let (file_tx, file_rx) = mpsc::channel(2);
-            let source = source.clone();
+            // Another connection to the same database: extensions and secrets are
+            // already installed on it, and its buffer pool is shared, so reading
+            // deeper does not multiply memory.
+            let reader = conn.try_clone()?;
             let file = File {
                 path,
                 ..file.clone()
             };
             let plan = Plan::file(&file, target, filter, offset, remaining);
-            readers.push_back((
-                file_rx,
-                thread::spawn(move || {
-                    let conn = source.connect(Some(&file))?;
-                    plan.read(&conn, &file_tx)
-                }),
-            ));
+            readers.push_back((file_rx, thread::spawn(move || plan.read(&reader, &file_tx))));
         }
         let Some((mut rx, reader)) = readers.pop_front() else {
             break;

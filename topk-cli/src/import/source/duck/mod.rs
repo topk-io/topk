@@ -53,8 +53,8 @@ impl TryFrom<super::Cursor> for Cursor {
 pub use creds::aws_process_profile;
 use creds::secret;
 pub use file::File;
-use file::{local_path, reader, stem, Format};
-use read::{Plan, Sender, READ_AHEAD};
+use file::{local_path, reader, reader_of, stem, Format};
+use read::{Plan, Sender};
 use select::Select;
 
 #[derive(Clone)]
@@ -94,34 +94,52 @@ pub(super) fn lit(value: &str) -> String {
     value.replace('\'', "''")
 }
 
-/// Per-reader duckdb budget. duckdb's default is 80% of RAM *per connection*,
-/// which concurrent readers multiply into an OOM-kill; a 1.3 GiB single-row-group
-/// parquet needs the whole column chunk resident.
+/// Per-scan duckdb budget. duckdb's default is 80% of RAM *per database*, which
+/// concurrent scans multiply into an OOM-kill; a 1.3 GiB single-row-group parquet
+/// needs the whole column chunk resident. `memory_limit` is global to a database,
+/// so a scan's file readers share this pool instead of each claiming one.
 const READER_MEMORY: &str = "4GiB";
 
-/// How many `READER_MEMORY` readers fit in RAM. duckdb's default `memory_limit`
-/// is 80% of RAM (cgroup-aware), which is how RAM is read without a dependency.
-fn max_readers() -> Option<usize> {
-    let conn = Connection::open_in_memory().ok()?;
+/// How many of a glob's files the catalog reads to settle the schema. Binding a
+/// glob's union costs one footer read per file, so a large glob spends minutes
+/// planning before the first row; a column only later files carry still imports,
+/// because the read path keeps the whole glob and `union_by_name`.
+const CATALOG_FILES: usize = 32;
+
+/// The files a locator matches, in the order the resume cursor compares them.
+fn matching(conn: &Connection, file: &File) -> Option<Vec<String>> {
     let mut stmt = conn
-        .prepare("SELECT value FROM duckdb_settings() WHERE name = 'memory_limit'")
+        .prepare(&format!(
+            "SELECT file FROM glob('{}') ORDER BY 1",
+            lit(&file.path)
+        ))
         .ok()?;
-    let reported: String = stmt.query_row([], |row| row.get(0)).ok()?;
-    let reported = reported.parse::<bytesize::ByteSize>().ok()?.as_u64();
-    let each = READER_MEMORY.parse::<bytesize::ByteSize>().ok()?.as_u64();
-    // Two thirds of RAM: batches, arrow copies and proto encoding live outside
-    // duckdb's accounting. 10/8 × 2/3 = 5/6.
-    Some((reported * 5 / 6 / each).max(1) as usize)
+    stmt.query_map([], |row| row.get(0))
+        .ok()?
+        .collect::<Result<Vec<String>, _>>()
+        .ok()
 }
 
 impl Duckdb {
-    /// Each duckdb scan holds a row group; too many OOM-kill the process
-    /// regardless of the per-connection `memory_limit`.
+    /// How many `READER_MEMORY` scans fit in RAM. Each duckdb database holds a
+    /// buffer pool; too many OOM-kill the process regardless of any one
+    /// `memory_limit`. A scan's files share its pool, so only scans are counted
+    /// and read depth is free. duckdb's default `memory_limit` is 80% of RAM
+    /// (cgroup-aware), which is how RAM is read without a dependency.
     pub fn concurrency_limit(&self) -> usize {
-        max_readers().map_or(usize::MAX, |readers| match self {
-            Duckdb::Files(_) => (readers / (1 + READ_AHEAD)).max(1),
-            _ => readers,
-        })
+        let scans = || -> Option<usize> {
+            let conn = Connection::open_in_memory().ok()?;
+            let mut stmt = conn
+                .prepare("SELECT value FROM duckdb_settings() WHERE name = 'memory_limit'")
+                .ok()?;
+            let reported: String = stmt.query_row([], |row| row.get(0)).ok()?;
+            let reported = reported.parse::<bytesize::ByteSize>().ok()?.as_u64();
+            let each = READER_MEMORY.parse::<bytesize::ByteSize>().ok()?.as_u64();
+            // Two thirds of RAM: batches, arrow copies and proto encoding live
+            // outside duckdb's accounting. 10/8 × 2/3 = 5/6.
+            Some((reported * 5 / 6 / each).max(1) as usize)
+        };
+        scans().unwrap_or(usize::MAX)
     }
 
     /// A connection able to read `file`; attached sources ignore it and use their DSN.
@@ -129,9 +147,12 @@ impl Duckdb {
         let conn = Connection::open_in_memory()?;
         // One thread, in order: rows arrive as stored, which makes a row offset
         // a resume point; more threads measured the same.
+        // Object stores rate-limit a long import; duckdb's defaults give up after
+        // about two seconds, which turns a 429 into a failed run.
         conn.execute_batch(&format!(
             "SET preserve_insertion_order = true; SET memory_limit = '{READER_MEMORY}'; \
-             SET threads = 1; SET temp_directory = '{}';",
+             SET threads = 1; SET http_retries = 8; SET http_retry_backoff = 2; \
+             SET http_retry_wait_ms = 500; SET temp_directory = '{}';",
             lit(&std::env::temp_dir()
                 .join("topk-import")
                 .display()
@@ -275,11 +296,13 @@ impl Duckdb {
                             file.path
                         )));
                     }
-                    vec![(
-                        file.path.clone(),
-                        stem(&file.path),
-                        Select::new(reader(file)),
-                    )]
+                    // Bounded: the schema settles on a sample, not every file.
+                    let matched = matching(&conn, file).unwrap_or_default();
+                    let table_ref = match matched.len() {
+                        0 => reader(file),
+                        n => reader_of(file, &matched[..n.min(CATALOG_FILES)]),
+                    };
+                    vec![(file.path.clone(), stem(&file.path), Select::new(table_ref))]
                 }
                 None => source
                     .list(&conn)?
@@ -319,6 +342,7 @@ impl Duckdb {
                         "no columns discovered for {from}"
                     )));
                 }
+
                 let primary_key = keys.remove(&from);
                 tables.push(Table {
                     from,
@@ -374,7 +398,8 @@ impl Duckdb {
     ) -> Result<ChunkStream, Error> {
         let file: File = target.from.parse()?;
         Ok(self.stream(move |source, tx| {
-            read::files(source, &file, &target, filter.as_deref(), resume, tx)
+            let conn = source.connect(Some(&file))?;
+            read::files(&conn, &file, &target, filter.as_deref(), resume, tx)
         }))
     }
 
