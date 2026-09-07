@@ -37,6 +37,7 @@ impl From<&FieldMapping> for FieldCap {
             // carry a multi_vector index and are queryable.
             FieldMapping::RankVectors { index, .. } => ("rank_vectors", indexed(index), false),
             FieldMapping::SemanticText { .. } => ("semantic_text", true, false),
+            FieldMapping::SparseVector { .. } => ("sparse_vector", true, false),
         };
 
         Self {

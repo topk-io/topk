@@ -1,5 +1,6 @@
 use topk_rs::proto::v1::control::{
-    field_index, FieldSpec, KeywordIndexType, MultiVectorDistanceMetric, VectorDistanceMetric,
+    field_index, field_type, FieldSpec, KeywordIndexType, MultiVectorDistanceMetric,
+    VectorDistanceMetric,
 };
 
 use super::Schema;
@@ -25,6 +26,21 @@ impl From<&FieldSpec> for IndexKind {
             Some(field_index::Index::MultiVectorIndex(mv)) => IndexKind::MultiVector(mv.metric()),
             _ => IndexKind::None,
         }
+    }
+}
+
+pub fn ensure_sparse_vector(field: &str, spec: &FieldSpec) -> Result<(), Error> {
+    match spec.data_type.as_ref().and_then(|t| t.data_type.as_ref()) {
+        Some(
+            field_type::DataType::F32SparseVector(_)
+            | field_type::DataType::F16SparseVector(_)
+            | field_type::DataType::F8SparseVector(_)
+            | field_type::DataType::U8SparseVector(_)
+            | field_type::DataType::I8SparseVector(_),
+        ) => Ok(()),
+        _ => Err(Error::InvalidQuery(format!(
+            "\"{field}\" is not a sparse_vector field"
+        ))),
     }
 }
 
