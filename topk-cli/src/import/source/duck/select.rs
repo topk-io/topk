@@ -2,6 +2,7 @@ use super::lit;
 
 /// A SELECT under construction. Every method is one clause; nothing here knows
 /// what the rows are for.
+#[derive(Clone)]
 pub(super) struct Select {
     relation: String,
     projection: String,

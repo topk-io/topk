@@ -103,9 +103,9 @@ pub(super) const READER_MEMORY: &str = "4GiB";
 
 /// One parquet footer, read once while building the catalog: how many files the
 /// locator matches, and for the first of them the row count and, per top-level
-/// column, its leaf values and compressed bytes. Enough to answer the three
-/// questions a plan should answer before reading anything — is this list a
-/// vector, is this column too big to be a document, and how much will we read.
+/// column, its leaf values and compressed bytes. Enough to say what a plan
+/// should say before reading anything — is this column too big to be a
+/// document, and how much will we read.
 #[derive(Clone, Default)]
 pub struct Footprint {
     pub files: u64,
@@ -114,16 +114,6 @@ pub struct Footprint {
 }
 
 impl Footprint {
-    /// A list column whose values divide evenly into the rows is fixed width.
-    pub fn dim(&self, column: &str) -> Option<u32> {
-        let (values, _) = self.columns.get(column)?;
-        let dim = values.checked_div(self.rows)?;
-        if dim <= 1 || values % self.rows != 0 {
-            return None;
-        }
-        u32::try_from(dim).ok()
-    }
-
     /// Compressed bytes per row, the floor on what a document will carry.
     pub fn bytes_per_row(&self, column: &str) -> Option<u64> {
         let (_, bytes) = self.columns.get(column)?;
@@ -138,6 +128,37 @@ impl Footprint {
             .sum();
         per_file * self.files
     }
+}
+
+/// A vector is the same width in every row, so a handful of rows decides it.
+const SAMPLE_ROWS: u64 = 64;
+
+/// The width each named column agrees on. Only those columns are selected, so a
+/// wide blob beside them is never read, and a source that cannot be sampled just
+/// keeps the type its schema declared.
+fn sampled_dims(conn: &Connection, select: Select, columns: &[String]) -> HashMap<String, u32> {
+    if columns.is_empty() {
+        return HashMap::new();
+    }
+    let sql = select
+        .columns(columns.iter().map(String::as_str))
+        .limit(Some(SAMPLE_ROWS))
+        .into_sql();
+    let Ok(mut stmt) = conn.prepare(&sql) else {
+        return HashMap::new();
+    };
+    let Ok(rows) = stmt.query_arrow([]) else {
+        return HashMap::new();
+    };
+    let batches: Vec<_> = rows.collect();
+    columns
+        .iter()
+        .enumerate()
+        .filter_map(|(i, name)| {
+            let dim = arrow::sampled_dim(batches.iter().map(|batch| batch.column(i)))?;
+            Some((name.clone(), dim))
+        })
+        .collect()
 }
 
 /// How many of a glob's files the catalog reads to settle the schema. Binding a
@@ -393,7 +414,7 @@ impl Duckdb {
             let mut tables = Vec::with_capacity(objects.len());
             for (from, collection_hint, select) in objects {
                 let mut stmt = conn
-                    .prepare(&select.limit(Some(0)).into_sql())
+                    .prepare(&select.clone().limit(Some(0)).into_sql())
                     .map_err(|e| read_error(&from, None, e))?;
                 let schema = stmt
                     .query_arrow([])
@@ -402,23 +423,18 @@ impl Duckdb {
                 let shape = file
                     .as_ref()
                     .and_then(|file| footprint(&conn, file, &files_matched));
-                let columns: Vec<(String, Field)> = schema
+                let mut columns: Vec<(String, Field)> = schema
                     .fields()
                     .iter()
                     .map(|field| {
-                        let mut spec = Field {
-                            ty: arrow::ty(field.data_type()),
-                            ..Default::default()
-                        };
-                        // A float list of constant width is an embedding, and the
-                        // footer knows the width without reading a row.
-                        if spec.ty == Type::FloatList {
-                            if let Some(dim) = shape.as_ref().and_then(|s| s.dim(field.name())) {
-                                spec.ty = Type::Vector(Element::F32);
-                                spec.dim = Some(dim);
-                            }
-                        }
-                        (field.name().clone(), spec)
+                        (
+                            field.name().clone(),
+                            Field {
+                                ty: arrow::ty(field.data_type()),
+                                dim: arrow::dim(field.data_type()),
+                                ..Default::default()
+                            },
+                        )
                     })
                     .collect();
 
@@ -426,6 +442,21 @@ impl Duckdb {
                     return Err(Error::InvalidArgument(format!(
                         "no columns discovered for {from}"
                     )));
+                }
+
+                // A float list of constant width is an embedding, and for these
+                // formats only the values say so.
+                let ragged: Vec<String> = columns
+                    .iter()
+                    .filter(|(_, field)| field.ty == Type::FloatList)
+                    .map(|(name, _)| name.clone())
+                    .collect();
+                let widths = sampled_dims(&conn, select, &ragged);
+                for (name, field) in columns.iter_mut() {
+                    if let Some(dim) = widths.get(name) {
+                        field.ty = Type::Vector(Element::F32);
+                        field.dim = Some(*dim);
+                    }
                 }
                 let primary_key = keys.remove(&from);
                 tables.push(Table {

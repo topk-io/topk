@@ -28,6 +28,11 @@ pub fn ty(input: &DataType) -> Type {
             }
         }
         DataType::Binary | DataType::LargeBinary | DataType::FixedSizeBinary(_) => Type::Bytes,
+        DataType::FixedSizeList(f, _)
+            if dim(input).is_some() && matches!(ty(f.data_type()), Type::Float) =>
+        {
+            Type::Vector(Element::F32)
+        }
         DataType::List(f) | DataType::LargeList(f) | DataType::FixedSizeList(f, _) => {
             match ty(f.data_type()) {
                 Type::Int => Type::IntList,
@@ -42,6 +47,38 @@ pub fn ty(input: &DataType) -> Type {
         DataType::Timestamp(_, _) | DataType::Date32 | DataType::Date64 => Type::Timestamp,
         _ => Type::Text,
     }
+}
+
+/// The width a schema declares. Only a fixed-size list carries one, which is why
+/// `sampled_dim` exists for the formats that type a list without it.
+pub fn dim(input: &DataType) -> Option<u32> {
+    match input {
+        DataType::FixedSizeList(_, n) => u32::try_from(*n).ok().filter(|n| *n > 1),
+        _ => None,
+    }
+}
+
+/// The width every sampled value agrees on; a ragged column stays a list.
+pub fn sampled_dim<'a>(arrays: impl IntoIterator<Item = &'a ArrayRef>) -> Option<u32> {
+    let mut agreed: Option<i64> = None;
+    for array in arrays {
+        for row in 0..array.len() {
+            if array.is_null(row) {
+                continue;
+            }
+            let len = match (array.as_list_opt::<i32>(), array.as_list_opt::<i64>()) {
+                (Some(list), _) => list.value_length(row) as i64,
+                (_, Some(list)) => list.value_length(row),
+                _ => return None,
+            };
+            match agreed {
+                None => agreed = Some(len),
+                Some(seen) if seen == len => {}
+                Some(_) => return None,
+            }
+        }
+    }
+    u32::try_from(agreed?).ok().filter(|n| *n > 1)
 }
 
 pub fn value(array: &ArrayRef, row: usize) -> Result<Value, Error> {

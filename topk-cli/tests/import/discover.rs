@@ -50,6 +50,20 @@ async fn fixed_width_float_lists_become_vectors(ctx: &mut Scratch) {
 
 #[test_context(Scratch)]
 #[tokio::test]
+async fn fixed_width_float_lists_become_vectors_without_a_footer(ctx: &mut Scratch) {
+    let path = ctx.sql_json(
+        "emb",
+        "SELECT i AS id, [0.1,0.2,0.3,0.4]::FLOAT[] AS embedding FROM range(3) t(i)",
+    );
+
+    let spec = discover_spec(&path, None).await;
+    let field = &spec.collections["emb"].fields["embedding"];
+    assert_eq!(field.ty.to_string(), "f32_vector");
+    assert_eq!(field.dim, Some(4));
+}
+
+#[test_context(Scratch)]
+#[tokio::test]
 async fn ragged_float_lists_stay_lists(ctx: &mut Scratch) {
     let path = ctx.sql_parquet(
         "emb",
