@@ -14,7 +14,7 @@ use url::Url;
 
 use crate::import::error::Error;
 use crate::import::source::codec::arrow;
-use crate::import::spec::{Field, Target};
+use crate::import::spec::{Element, Field, Target, Type};
 
 use super::{redact, ChunkStream, Table};
 
@@ -105,6 +105,37 @@ const READER_MEMORY: &str = "4GiB";
 /// planning before the first row; a column only later files carry still imports,
 /// because the read path keeps the whole glob and `union_by_name`.
 const CATALOG_FILES: usize = 32;
+
+/// A vector is the same width in every row, so a handful of rows decides it.
+const SAMPLE_ROWS: u64 = 64;
+
+/// The width each named column agrees on. Only those columns are selected, so a
+/// wide blob beside them is never read, and a source that cannot be sampled just
+/// keeps the type its schema declared.
+fn sampled_dims(conn: &Connection, select: Select, columns: &[String]) -> HashMap<String, u32> {
+    if columns.is_empty() {
+        return HashMap::new();
+    }
+    let sql = select
+        .columns(columns.iter().map(String::as_str))
+        .limit(Some(SAMPLE_ROWS))
+        .into_sql();
+    let Ok(mut stmt) = conn.prepare(&sql) else {
+        return HashMap::new();
+    };
+    let Ok(rows) = stmt.query_arrow([]) else {
+        return HashMap::new();
+    };
+    let batches: Vec<_> = rows.collect();
+    columns
+        .iter()
+        .enumerate()
+        .filter_map(|(i, name)| {
+            let dim = arrow::sampled_dim(batches.iter().map(|batch| batch.column(i)))?;
+            Some((name.clone(), dim))
+        })
+        .collect()
+}
 
 /// The files a locator matches, in the order the resume cursor compares them.
 fn matching(conn: &Connection, file: &File) -> Option<Vec<String>> {
@@ -317,13 +348,13 @@ impl Duckdb {
             let mut tables = Vec::with_capacity(objects.len());
             for (from, collection_hint, select) in objects {
                 let mut stmt = conn
-                    .prepare(&select.limit(Some(0)).into_sql())
+                    .prepare(&select.clone().limit(Some(0)).into_sql())
                     .map_err(|e| read_error(&from, None, e))?;
                 let schema = stmt
                     .query_arrow([])
                     .map_err(|e| read_error(&from, None, e))?
                     .get_schema();
-                let columns: Vec<(String, Field)> = schema
+                let mut columns: Vec<(String, Field)> = schema
                     .fields()
                     .iter()
                     .map(|field| {
@@ -331,6 +362,7 @@ impl Duckdb {
                             field.name().clone(),
                             Field {
                                 ty: Some(arrow::ty(field.data_type())),
+                                dim: arrow::dim(field.data_type()),
                                 ..Default::default()
                             },
                         )
@@ -343,6 +375,20 @@ impl Duckdb {
                     )));
                 }
 
+                // A float list of constant width is an embedding, and for these
+                // formats only the values say so.
+                let ragged: Vec<String> = columns
+                    .iter()
+                    .filter(|(_, field)| field.ty == Some(Type::FloatList))
+                    .map(|(name, _)| name.clone())
+                    .collect();
+                let widths = sampled_dims(&conn, select, &ragged);
+                for (name, field) in columns.iter_mut() {
+                    if let Some(dim) = widths.get(name) {
+                        field.ty = Some(Type::Vector(Element::F32));
+                        field.dim = Some(*dim);
+                    }
+                }
                 let primary_key = keys.remove(&from);
                 tables.push(Table {
                     from,

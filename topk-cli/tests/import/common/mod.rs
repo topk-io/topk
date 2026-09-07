@@ -271,6 +271,17 @@ impl Scratch {
         path.display().to_string()
     }
 
+    pub fn sql_json(&self, stem: &str, select: &str) -> String {
+        let path = self.dir.path().join(format!("{stem}.json"));
+        let conn = duckdb::Connection::open_in_memory().unwrap();
+        conn.execute_batch(&format!(
+            "COPY ({select}) TO '{}' (FORMAT json);",
+            path.display()
+        ))
+        .unwrap();
+        path.display().to_string()
+    }
+
     pub async fn seed_parquet(&self, name: &str, docs: Vec<Document>) -> Target {
         seed::parquet::write(self.dir.path(), name, &docs)
             .await
