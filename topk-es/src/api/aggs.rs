@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, Map};
 use topk_rs::json::Value;
 
 use super::query::FieldName;
+use crate::date::Zone;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -12,7 +14,7 @@ pub struct AggClause {
     pub ty: AggType,
 
     #[serde(default, alias = "aggregations")]
-    pub aggs: Option<HashMap<String, AggClause>>,
+    pub aggs: HashMap<String, AggClause>,
 }
 
 #[derive(Clone, Deserialize)]
@@ -24,6 +26,7 @@ pub enum AggType {
     Min(MetricAggBody),
     Max(MetricAggBody),
     ValueCount(MetricAggBody),
+    DateHistogram(DateHistogramBody),
 }
 
 #[derive(Clone, Deserialize)]
@@ -37,6 +40,43 @@ pub struct TermsAggBody {
 
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct DateHistogramBody {
+    pub field: FieldName,
+
+    #[serde(default)]
+    pub fixed_interval: Option<String>,
+
+    #[serde(default)]
+    pub calendar_interval: Option<String>,
+
+    #[serde(default)]
+    pub min_doc_count: Option<u64>,
+
+    #[serde(default)]
+    pub time_zone: Zone,
+
+    #[serde(default)]
+    pub extended_bounds: Option<Bounds>,
+
+    #[serde(default)]
+    pub keyed: bool,
+
+    #[serde(default, rename = "format")]
+    _format: Option<String>,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Bounds {
+    #[serde(default)]
+    pub min: Option<Value>,
+
+    #[serde(default)]
+    pub max: Option<Value>,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MetricAggBody {
     pub field: FieldName,
 }
@@ -46,16 +86,30 @@ pub struct MetricAggBody {
 pub enum AggResult {
     Metric {
         value: Option<f64>,
+
+        #[serde(skip_serializing_if = "Option::is_none")]
+        value_as_string: Option<String>,
     },
     Terms {
         doc_count_error_upper_bound: u32,
         sum_other_doc_count: u64,
-        buckets: Vec<TermsBucket>,
+        buckets: Vec<Bucket>,
+    },
+    Histogram {
+        buckets: Buckets,
     },
 }
 
+#[serde_as]
 #[derive(Serialize)]
-pub struct TermsBucket {
+#[serde(untagged)]
+pub enum Buckets {
+    List(Vec<Bucket>),
+    Keyed(#[serde_as(as = "Map<_, _>")] Vec<(String, Bucket)>),
+}
+
+#[derive(Serialize)]
+pub struct Bucket {
     pub key: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub key_as_string: Option<String>,

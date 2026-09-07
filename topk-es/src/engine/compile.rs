@@ -2,14 +2,16 @@ use topk_rs::proto::v1::control::KeywordIndexType;
 use topk_rs::proto::v1::data::{LogicalExpr, Query as TopkQuery, TextExpr, Value};
 use topk_rs::query::{count as count_query, field, filter, fns, not, should, SortOrder};
 
+use super::agg;
 use super::field::{ensure_aggregatable, IndexKind};
 use super::rank::Ranking;
 use super::score::{ann_score, AnnQuery, AnnTerm, CompiledQuery, Score};
-use super::{agg, RANK_SCORE};
+use super::RANK_SCORE;
 use crate::api::{
     AggClause, AggType, FieldName, GateQuery, KnnRequest, MatchAllQuery, MatchOperator, MatchValue,
     Query, SearchRequest, SortField, SortTarget, TermValue,
 };
+use crate::date;
 use crate::value::ValueExt;
 
 use crate::{engine::Schema, Error};
@@ -20,10 +22,11 @@ fn validate_agg_fields(schema: &Schema, clause: &AggClause) -> Result<(), Error>
         AggType::Sum(m) | AggType::Avg(m) | AggType::Min(m) | AggType::Max(m) => {
             ensure_aggregatable(schema, m.field.as_str())?
         }
+        AggType::DateHistogram(h) => ensure_aggregatable(schema, h.field.as_str())?,
         AggType::ValueCount(_) => {}
     }
-    for sub in clause.aggs.iter().flatten() {
-        validate_agg_fields(schema, sub.1)?;
+    for sub in clause.aggs.values() {
+        validate_agg_fields(schema, sub)?;
     }
     Ok(())
 }
@@ -88,8 +91,8 @@ pub fn search(
 
     let agg_queries = req
         .aggs
-        .iter()
-        .map(|(_, clause)| agg::compile(clause, &gate))
+        .values()
+        .map(|clause| agg::compile(clause, &gate))
         .collect::<Result<Vec<_>, _>>()?;
 
     Ok((req, queries, agg_queries))
@@ -267,6 +270,11 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
                     "[term] query does not support a non-scalar value for field [{field_name}]"
                 )));
             }
+            let spec = schema.get(field_name.as_str());
+            if spec.is_some_and(date::is_timestamp) {
+                let at = date::to_expr(spec, value, &date::Zone::default(), date::Round::Down)?;
+                return Ok(constant(field(field_name).eq(at), boost));
+            }
             let token = value.as_string().map(str::to_string);
 
             match (
@@ -294,7 +302,24 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
                 _ => Ok(constant(field(field_name).eq(value), boost)),
             }
         }
-        Query::Terms(q) => Ok(constant(field(q.field).in_(q.values), q.boost)),
+        Query::Terms(q) => {
+            let dates = q.values.as_string_list().filter(|dates| {
+                !dates.is_empty() && schema.get(q.field.as_str()).is_some_and(date::is_timestamp)
+            });
+            let gate = match dates {
+                Some(dates) => LogicalExpr::any(
+                    dates
+                        .iter()
+                        .map(|d| {
+                            let at = date::date_expr(d, &date::Zone::default(), date::Round::Down)?;
+                            Ok(field(q.field.as_str()).eq(at))
+                        })
+                        .collect::<Result<Vec<_>, Error>>()?,
+                ),
+                None => field(q.field).in_(q.values),
+            };
+            Ok(constant(gate, q.boost))
+        }
         Query::Ids(q) => Ok(constant(
             field("_id").in_(Value::list(
                 q.values.iter().map(|id| id.as_str()).collect::<Vec<_>>(),
@@ -314,18 +339,27 @@ fn compile_clause(schema: &Schema, query: Query) -> Result<CompiledQuery, Error>
         }
         Query::Range(clause) => {
             let boost = clause.value.boost;
+            let spec = schema.get(clause.field.as_str());
+            let bound = |value: &Option<topk_rs::json::Value>, round| match value {
+                None => Ok(None),
+                Some(v) => {
+                    date::to_expr(spec, v.clone().into_inner(), &clause.value.time_zone, round)
+                        .map(Some)
+                }
+            };
+
             let mut exprs = Vec::new();
-            if let Some(v) = clause.value.gte {
-                exprs.push(field(clause.field.clone()).gte(v.into_inner()));
+            if let Some(v) = bound(&clause.value.gte, date::Round::Down)? {
+                exprs.push(field(clause.field.clone()).gte(v));
             }
-            if let Some(v) = clause.value.gt {
-                exprs.push(field(clause.field.clone()).gt(v.into_inner()));
+            if let Some(v) = bound(&clause.value.gt, date::Round::Up)? {
+                exprs.push(field(clause.field.clone()).gt(v));
             }
-            if let Some(v) = clause.value.lte {
-                exprs.push(field(clause.field.clone()).lte(v.into_inner()));
+            if let Some(v) = bound(&clause.value.lte, date::Round::Up)? {
+                exprs.push(field(clause.field.clone()).lte(v));
             }
-            if let Some(v) = clause.value.lt {
-                exprs.push(field(clause.field.clone()).lt(v.into_inner()));
+            if let Some(v) = bound(&clause.value.lt, date::Round::Down)? {
+                exprs.push(field(clause.field.clone()).lt(v));
             }
             // A bound-less range is ES's field-exists check.
             if exprs.is_empty() {

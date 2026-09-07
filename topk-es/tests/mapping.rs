@@ -52,7 +52,6 @@ async fn test_mapped_fields_queryable(scope: &TestScope, #[case] query: Value) {
 }
 
 #[rstest_ctx(TestScope)]
-#[case::dev_unsupported_type(json!({ "mappings": { "properties": { "created": { "type": "date" } } } }))]
 #[case::dev_unknown_field_option(json!({ "mappings": { "properties": { "title": { "type": "text", "analyzer": "standard" } } } }))]
 #[case::dev_missing_dims(json!({ "mappings": { "properties": { "v": { "type": "dense_vector" } } } }))]
 #[case::dev_bad_mappings_option(json!({ "mappings": { "dynamic": false, "properties": {} } }))]
@@ -112,6 +111,16 @@ async fn test_create_rejected(scope: &TestScope, #[case] body: Value) {
     json!({ "v": { "type": "dense_vector", "dims": 4, "index": false } })
 )]
 #[case::object_without_properties(json!({ "meta": { "type": "object" } }))]
+#[case::keyword_ignore_above(json!({ "sku": { "type": "keyword", "ignore_above": 256 } }))]
+#[case::dense_vector_index_options(json!({
+    "v": {
+        "type": "dense_vector", "dims": 4, "index": true, "similarity": "cosine",
+        "index_options": { "type": "int8_hnsw", "m": 16, "ef_construction": 100 }
+    }
+}))]
+#[case::date(json!({ "created": { "type": "date" } }))]
+#[case::date_nanos_alias(json!({ "created": { "type": "date_nanos" } }))]
+#[case::date_with_format(json!({ "created": { "type": "date", "format": "strict_date_optional_time" } }))]
 async fn test_create_accepts_supported_mapping_variants(
     scope: &TestScope,
     #[case] properties: Value,
