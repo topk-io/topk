@@ -146,14 +146,6 @@ async fn plan(
             spec.collections.len()
         )));
     }
-    // A limited collection is never checkpointed, so `--resume` would restart it
-    // from the top; staging a long import means interrupting an unlimited run.
-    if args.limit.is_some() {
-        import::note(
-            "# --limit: this run will not be resumable — interrupt an unlimited run instead"
-                .to_string(),
-        );
-    }
     for target in spec.collections.values_mut() {
         if let Some(filter) = &args.filter {
             target.filter = Some(filter.clone());
@@ -338,24 +330,40 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
         .min(OBJECT_CONCURRENCY)
         .min(source.concurrency_limit())
         .max(1);
-    let resume_hint = || {
+    let limited: Vec<&str> = spec
+        .collections
+        .iter()
+        .filter(|(_, target)| target.limit.is_some())
+        .map(|(name, _)| name.as_str())
+        .collect();
+    let resume_hint = |failure: Option<&Error>| {
         eprintln!(
             "nothing else was imported; to continue: topk import {}--resume {run}",
             match args.source.is_none() {
                 true => String::new(),
                 false => format!("'{source_name}' "),
             }
-        )
+        );
+        // The class of error `--continue-on-error` skips, so the flag is the fix.
+        if matches!(failure, Some(Error::Doc { .. })) {
+            eprintln!("# add --continue-on-error to skip the rows that fail");
+        }
+        if !limited.is_empty() {
+            eprintln!(
+                "# --limit: {} will restart from the top",
+                limited.join(", ")
+            );
+        }
     };
     let outcomes = tokio::select! {
         outcomes = sink.load(scans, readers) => outcomes,
         _ = tokio::signal::ctrl_c() => {
             let _ = progress.clear();
-            resume_hint();
+            resume_hint(None);
             return Ok(ExitCode::from(130));
         }
     };
-    let outcomes = outcomes.inspect_err(|_| resume_hint())?;
+    let outcomes = outcomes.inspect_err(|e| resume_hint(Some(e)))?;
     State::remove(&run);
     Ok(report(&outcomes, json)?)
 }
