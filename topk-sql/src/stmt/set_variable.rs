@@ -1,7 +1,7 @@
 use sqlparser::ast::Set;
 use topk_rs::proto::v1::data::Value;
 
-use crate::{Error, FromSql, Statement, sql_invalid, sql_unsupported, stmt::Variable};
+use crate::{sql_invalid, sql_unsupported, stmt::Variable, Error, FromSql, Statement};
 
 impl TryFrom<Set> for Statement {
     type Error = Error;

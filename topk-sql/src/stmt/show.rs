@@ -1,6 +1,6 @@
 use sqlparser::ast::{ObjectName, ObjectNamePart, Statement as SqlStatement};
 
-use crate::{Error, FromSql, Statement, sql_unsupported, stmt::Variable};
+use crate::{sql_unsupported, stmt::Variable, Error, FromSql, Statement};
 
 pub(crate) fn try_from_sql(stmt: SqlStatement) -> Result<Statement, Error> {
     match stmt {

@@ -6,14 +6,14 @@ use sqlparser::ast::{
     FunctionArgExpr, FunctionArguments,
 };
 use topk_rs::proto::v1::control::{
-    FieldIndex, FieldSpec, FieldType, KeywordIndexType, MultiVectorDistanceMetric,
-    MultiVectorQuantization, VectorDistanceMetric, field_type_list::ListValueType,
-    field_type_matrix::MatrixValueType,
+    field_type_list::ListValueType, field_type_matrix::MatrixValueType, FieldIndex, FieldSpec,
+    FieldType, KeywordIndexType, MultiVectorDistanceMetric, MultiVectorQuantization,
+    VectorDistanceMetric,
 };
 
 use crate::{
-    Error, FromSql, SqlExprExt, Statement, Table, parse_args, parse_kwargs, sql_invalid,
-    sql_unsupported, util::Kwargs,
+    parse_args, parse_kwargs, sql_invalid, sql_unsupported, util::Kwargs, Error, FromSql,
+    SqlExprExt, Statement, Table,
 };
 
 impl TryFrom<SqlCreateTable> for Statement {

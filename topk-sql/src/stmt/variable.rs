@@ -1,6 +1,6 @@
 use sqlparser::ast::ObjectName;
 
-use crate::{Error, FromSql, sql_invalid};
+use crate::{sql_invalid, Error, FromSql};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Variable {

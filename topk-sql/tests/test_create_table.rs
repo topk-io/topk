@@ -4,7 +4,7 @@ use rstest::rstest;
 use topk_rs::{doc, proto::v1::data::Document};
 
 mod common;
-use common::{Scope, TableScope, ids};
+use common::{ids, Scope, TableScope};
 
 #[rstest]
 #[case::minimal(

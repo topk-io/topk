@@ -4,7 +4,7 @@ use sqlparser::ast::{AssignmentTarget, TableFactor, Update};
 use topk_rs::doc;
 use topk_rs::proto::v1::data::Value;
 
-use crate::{Error, FromSql, Statement, Table, sql_invalid, sql_unsupported, stmt::RowFilter};
+use crate::{sql_invalid, sql_unsupported, stmt::RowFilter, Error, FromSql, Statement, Table};
 
 impl TryFrom<Update> for Statement {
     type Error = Error;

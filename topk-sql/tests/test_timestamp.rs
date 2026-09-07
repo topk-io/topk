@@ -5,7 +5,7 @@ use rstest::rstest;
 use topk_rs::doc;
 
 mod common;
-use common::{BooksContext, Scope, assert_rows_eq_unordered, ids};
+use common::{assert_rows_eq_unordered, ids, BooksContext, Scope};
 
 // published_ts per book in the `books` fixture:
 //   mockingbird 1960-07-11, nineteen_eighty_four 1949-06-08, pride 1813-01-28,

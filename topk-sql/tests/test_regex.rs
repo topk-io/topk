@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use rstest::rstest;
 
 mod common;
-use common::{BooksContext, Scope, TableScope, ids};
+use common::{ids, BooksContext, Scope, TableScope};
 
 #[rstest]
 #[case::prefix("SELECT _id FROM {{table}} WHERE _id ~ '^h'", ids!["hobbit", "harry"])]

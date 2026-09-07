@@ -5,7 +5,7 @@ use topk_rs::doc;
 use topk_rs::proto::v1::data::Document;
 
 mod common;
-use common::{BooksContext, Scope, ids};
+use common::{ids, BooksContext, Scope};
 
 #[rstest]
 #[case::single_field(

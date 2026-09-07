@@ -1,5 +1,5 @@
 use rstest::rstest;
-use topk_rs::proto::v1::data::{Document, value};
+use topk_rs::proto::v1::data::{value, Document};
 
 mod common;
 use common::{BooksContext, Scope};

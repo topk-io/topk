@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use rstest::rstest;
 
 mod common;
-use common::{BooksContext, Scope, ids};
+use common::{ids, BooksContext, Scope};
 
 #[rstest]
 #[case::id_eq(
