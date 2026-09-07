@@ -3,12 +3,11 @@ mod file;
 mod read;
 mod select;
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
 
 use duckdb::Connection;
-use indexmap::IndexSet;
 use tokio::sync::mpsc;
 use tokio::task::spawn_blocking;
 use url::Url;
@@ -101,35 +100,6 @@ pub(super) fn lit(value: &str) -> String {
 /// so a scan's file readers share this pool instead of each claiming one.
 pub(super) const READER_MEMORY: &str = "4GiB";
 
-/// One parquet footer, read once while building the catalog: how many files the
-/// locator matches, and for the first of them the row count and, per top-level
-/// column, its leaf values and compressed bytes. Enough to say what a plan
-/// should say before reading anything — is this column too big to be a
-/// document, and how much will we read.
-#[derive(Clone, Default)]
-pub struct Footprint {
-    pub files: u64,
-    pub rows: u64,
-    pub columns: BTreeMap<String, (u64, u64)>,
-}
-
-impl Footprint {
-    /// Compressed bytes per row, the floor on what a document will carry.
-    pub fn bytes_per_row(&self, column: &str) -> Option<u64> {
-        let (_, bytes) = self.columns.get(column)?;
-        bytes.checked_div(self.rows)
-    }
-
-    /// What the run reads: these columns of every matching file.
-    pub fn estimate(&self, columns: &IndexSet<&str>) -> u64 {
-        let per_file: u64 = columns
-            .iter()
-            .filter_map(|c| self.columns.get(*c).map(|(_, bytes)| bytes))
-            .sum();
-        per_file * self.files
-    }
-}
-
 /// A vector is the same width in every row, so a handful of rows decides it.
 const SAMPLE_ROWS: u64 = 64;
 
@@ -179,40 +149,6 @@ fn matching(conn: &Connection, file: &File) -> Option<Vec<String>> {
         .ok()?
         .collect::<Result<Vec<String>, _>>()
         .ok()
-}
-
-/// The footer of the first file a locator matches. Parquet only; every other
-/// format answers None and the plan simply says less.
-fn footprint(conn: &Connection, file: &File, files: &[String]) -> Option<Footprint> {
-    if !matches!(file.format, Format::Parquet) {
-        return None;
-    }
-    let first = files.first()?;
-    let mut stmt = conn
-        .prepare(&format!(
-            "SELECT split_part(m.path_in_schema, ',', 1) AS name, \
-                    sum(m.num_values)::UBIGINT, \
-                    sum(m.total_compressed_size)::UBIGINT, \
-                    any_value(f.num_rows)::UBIGINT \
-             FROM parquet_metadata('{0}') m, parquet_file_metadata('{0}') f \
-             GROUP BY 1",
-            lit(first)
-        ))
-        .ok()?;
-    let rows: Vec<(String, u64, u64, u64)> = stmt
-        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
-        .ok()?
-        .collect::<Result<_, _>>()
-        .ok()?;
-    let count = rows.first()?.3;
-    Some(Footprint {
-        files: files.len() as u64,
-        rows: count,
-        columns: rows
-            .into_iter()
-            .map(|(name, values, bytes, _)| (name, (values, bytes)))
-            .collect(),
-    })
 }
 
 impl Duckdb {
@@ -378,7 +314,6 @@ impl Duckdb {
             };
             let conn = source.connect(file.as_ref())?;
             // (object, collection hint, what to SELECT from)
-            let mut files_matched: Vec<String> = Vec::new();
             let objects: Vec<(String, Option<String>, Select)> = match &file {
                 // A file source's one object is the uri it was given.
                 Some(file) => {
@@ -398,7 +333,6 @@ impl Duckdb {
                         0 => reader(file),
                         n => reader_of(file, &matched[..n.min(CATALOG_FILES)]),
                     };
-                    files_matched = matched;
                     vec![(file.path.clone(), stem(&file.path), Select::new(table_ref))]
                 }
                 None => source
@@ -420,9 +354,6 @@ impl Duckdb {
                     .query_arrow([])
                     .map_err(|e| read_error(&from, None, e))?
                     .get_schema();
-                let shape = file
-                    .as_ref()
-                    .and_then(|file| footprint(&conn, file, &files_matched));
                 let mut columns: Vec<(String, Field)> = schema
                     .fields()
                     .iter()
@@ -464,7 +395,6 @@ impl Duckdb {
                     collection_hint,
                     columns,
                     primary_key,
-                    footprint: shape,
                 });
             }
             Ok(tables)
