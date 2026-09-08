@@ -96,9 +96,10 @@ Schema and indexes copy as-is; the copy is additive.
 #### Preview and edit the plan
 
 ```bash
-topk import postgres://host/db orders --dry-run > spec.toml   # spec on stdout, sample documents on stderr
-vim spec.toml                                                 # drop columns, fix types, add indexes
-topk import "$DB_URL" -f spec.toml --yes                      # run
+topk import postgres://host/db orders --dry-run > spec.toml    # plan it, write nothing
+vim spec.toml                                                  # drop columns, fix types, add indexes
+topk import "$DB_URL" -f spec.toml --dry-run --preview         # check the documents, still writing nothing
+topk import "$DB_URL" -f spec.toml --preview --yes             # print them, then import
 ```
 
 > [!WARNING]

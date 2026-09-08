@@ -12,10 +12,13 @@ use tokio::sync::Semaphore;
 
 use crate::endpoint::Endpoint;
 use crate::import::{
-    self, render, Error, LoadOutcome, Sink, Source, Spec, State, Uri, ID, ID_PLACEHOLDER,
+    self, clip, render, Error, LoadOutcome, Sink, Source, Spec, State, Uri, ID, ID_PLACEHOLDER,
 };
 
 const OBJECT_CONCURRENCY: usize = 8;
+
+/// A resume cursor can be an opaque page token; keep the line readable.
+const CURSOR_WIDTH: usize = 120;
 
 #[derive(Args, Debug)]
 // Clap's generated usage renders `<SOURCE>` as required; it is not, with --spec.
@@ -48,9 +51,15 @@ pub struct ImportArgs {
     pub resume: Option<String>,
     #[arg(
         long,
-        help = "Print the spec and a sample of documents, without importing"
+        help = "Stop after planning: print the spec this run would use, and write nothing"
     )]
     pub dry_run: bool,
+    #[arg(
+        long,
+        help = "Print a few documents as the spec would build them, before importing them; \
+                elided to a line each, or whole with -o json"
+    )]
+    pub preview: bool,
 
     #[arg(
         long,
@@ -254,26 +263,62 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
         State::remove(&run);
         return Ok(ExitCode::SUCCESS);
     }
-    if args.dry_run {
-        print!("{}", render(&spec, None, &after));
-        for (name, target) in spec.collections.iter() {
-            if target.id.as_deref() == Some(ID_PLACEHOLDER) {
-                eprintln!("# {name}: set `id` above (or pass --id) to preview rows");
-                continue;
-            }
-            import::preview(name, &source, target).await?;
-        }
-        return Ok(ExitCode::SUCCESS);
-    }
-
-    for (name, target) in spec.collections.iter() {
-        if target.id.as_deref() == Some(ID_PLACEHOLDER) {
+    if !args.dry_run {
+        if let Some((name, _)) = spec
+            .collections
+            .iter()
+            .find(|(_, target)| target.id.as_deref() == Some(ID_PLACEHOLDER))
+        {
             return Err(Error::InvalidArgument(format!(
                 "{name}: couldn't detect an id column — pass `--id <column>`, \
                  or set `id` in a spec (it becomes each document's `{ID}`)"
             ))
             .into());
         }
+    }
+    // The id is only ever useful inside this, so print the whole command.
+    let resume = format!(
+        "topk import {}--resume {run}",
+        match args.source.is_none() {
+            true => String::new(),
+            false => format!("'{source_name}' "),
+        }
+    );
+    // The plan, then the documents it would write, then the question.
+    let plan = render(&spec);
+    match args.dry_run {
+        true => print!("{plan}"),
+        // A killed run prints nothing after; `-o json` reads none of this.
+        false if !json => {
+            eprintln!("resume with: {resume}");
+            if done > 0 {
+                eprintln!("resuming: {done} collection(s) already imported");
+            }
+            for (name, cursor) in after.iter() {
+                eprintln!(
+                    "{name}: resuming after {}",
+                    clip(&cursor.to_string(), CURSOR_WIDTH)
+                );
+            }
+            eprint!("{plan}");
+        }
+        false => {}
+    }
+    if args.preview {
+        for (name, target) in spec.collections.iter() {
+            // Only reachable under --dry-run: a real run refused this above.
+            if target.id.as_deref() == Some(ID_PLACEHOLDER) {
+                import::note(format!("{name}: set `id` to preview rows"));
+                continue;
+            }
+            if !json {
+                eprintln!("→ {name}");
+            }
+            import::preview(&source, target, json).await?;
+        }
+    }
+    if args.dry_run {
+        return Ok(ExitCode::SUCCESS);
     }
     let scans = spec
         .collections
@@ -285,16 +330,6 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
     // `--limit 0` reads nothing, so it must not leave an empty collection behind
     // for the next run's schema to collide with.
     pending.retain(|name, _| spec.collections.get(name).and_then(|t| t.limit) != Some(0));
-    let fresh: Vec<&str> = pending.keys().map(String::as_str).collect();
-    // Before the run: a killed run prints nothing after.
-    eprintln!(
-        "# run {run}{}",
-        match done {
-            0 => String::new(),
-            n => format!(", resuming: {n} collection(s) done"),
-        }
-    );
-    eprint!("{}", render(&spec, Some(&fresh), &after));
     let region = endpoint.region.as_deref().unwrap_or_default();
     if !args.yes && !confirm(spec.collections.len(), region)? {
         return Ok(ExitCode::SUCCESS);
@@ -327,15 +362,7 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
         .min(OBJECT_CONCURRENCY)
         .min(source.concurrency_limit())
         .max(1);
-    let resume_hint = || {
-        eprintln!(
-            "nothing else was imported; to continue: topk import {}--resume {run}",
-            match args.source.is_none() {
-                true => String::new(),
-                false => format!("'{source_name}' "),
-            }
-        )
-    };
+    let resume_hint = || eprintln!("nothing else was imported; resume with: {resume}");
     let outcomes = tokio::select! {
         outcomes = sink.load(scans, readers) => outcomes,
         _ = tokio::signal::ctrl_c() => {

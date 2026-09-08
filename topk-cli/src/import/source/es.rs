@@ -195,7 +195,7 @@ impl Es {
                     {
                         close_pit(&client, &pit).await;
                         crate::import::note(format!(
-                            "# {}: resume cursor expired, restarting from the beginning",
+                            "{}: resume cursor expired, restarting from the beginning",
                             target.from
                         ));
                         match open_pit(&client, &target.from).await {

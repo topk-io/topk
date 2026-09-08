@@ -212,18 +212,15 @@ pub fn import_args<'a>(url: Option<&'a str>, spec: &'a str, extra: &[&'a str]) -
     args
 }
 
-pub fn dry_run(spec: &str, extra: &[&str]) -> BTreeMap<String, serde_json::Value> {
-    dry_run_from(None, spec, extra)
-}
-
-/// Dry-run documents land on stderr; the spec is the stdout artifact.
-pub fn dry_run_from(
+/// A previewed document per line, on stderr; `--dry-run` keeps the run from
+/// importing them.
+pub fn previewed(
     url: Option<&str>,
     spec: &str,
     extra: &[&str],
 ) -> BTreeMap<String, serde_json::Value> {
     let mut extra = extra.to_vec();
-    extra.push("--dry-run");
+    extra.extend(["--dry-run", "--preview", "-o", "json"]);
     let args = import_args(url, spec, &extra);
     let out = run(&args, &[]);
     assert!(out.status.success(), "`topk {}` failed", args.join(" "));

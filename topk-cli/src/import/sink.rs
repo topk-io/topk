@@ -3,7 +3,7 @@ use std::mem;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use futures::{stream, Stream, StreamExt, TryStreamExt};
+use futures::{stream, StreamExt, TryStreamExt};
 use indexmap::IndexMap;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use prost::Message;
@@ -14,7 +14,7 @@ use topk_rs::{Client, CollectionClient};
 
 use crate::import::decode::id_string;
 use crate::import::error::{Error, MAX_DOC_BYTES};
-use crate::import::source::{Cursor, Record, Scan, Source};
+use crate::import::source::{Cursor, Record, Scan};
 use crate::import::spec::Target;
 use crate::import::state::{Mark, State};
 use crate::import::ID;
@@ -83,21 +83,6 @@ pub fn build_document(target: &Target, record: Record) -> Result<Document, Error
         return Err(fail(None, Error::Oversized(size)));
     }
     Ok(doc)
-}
-
-pub fn documents(
-    source: &Source,
-    target: &Target,
-) -> Result<impl Stream<Item = Result<Document, Error>>, Error> {
-    let Scan { target, chunks } = source.scan(target, None)?;
-    Ok(chunks
-        .flat_map(|chunk| {
-            stream::iter(match chunk {
-                Ok(chunk) => chunk.rows,
-                Err(e) => vec![Err(e)],
-            })
-        })
-        .map(move |row| build_document(&target, row?)))
 }
 
 /// Batches in flush order, each with the source cursor it completes.

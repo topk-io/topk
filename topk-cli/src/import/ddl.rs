@@ -54,7 +54,7 @@ pub async fn absent(client: &Client, spec: &Spec) -> Result<HashMap<String, Sche
         if !dropped.is_empty() {
             dropped.sort_unstable();
             crate::import::note(format!(
-                "# {name}: {} in the collection but not in this spec — re-imported rows lose them",
+                "{name}: {} in the collection but not in this spec — re-imported rows lose them",
                 dropped.join(", ")
             ));
         }

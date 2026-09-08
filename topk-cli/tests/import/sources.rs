@@ -33,7 +33,7 @@ async fn roundtrip(ctx: &mut Ctx, #[case] backend: Box<dyn Seed>) {
             ..object.clone()
         },
     );
-    let docs = dry_run_from(url.as_deref(), &preview, &[]);
+    let docs = previewed(url.as_deref(), &preview, &[]);
     assert_eq!(docs["mockingbird"]["title"], json!("To Kill a Mockingbird"));
     assert_eq!(docs["mockingbird"]["rating"], json!(4.3));
     assert_eq!(docs["pride"]["in_print"], json!(false));

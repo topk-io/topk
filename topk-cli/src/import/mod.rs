@@ -32,8 +32,8 @@ pub fn note(message: String) {
 
 pub use ddl::{absent, create};
 pub use error::Error;
-pub use preview::preview;
-pub use sink::{build_document, documents, LoadOutcome, Sink};
+pub use preview::{clip, documents, preview};
+pub use sink::{build_document, LoadOutcome, Sink};
 pub use source::{Cursor, File, Scan, Source, Table, Uri};
 pub use spec::{discover, render, validate_columns, Element, Field, Index, Spec, Target, Type};
 pub use state::{Mark, State};

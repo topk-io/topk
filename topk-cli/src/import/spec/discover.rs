@@ -133,7 +133,7 @@ pub fn discover(
         // An id-only object must not sink a whole-database glob.
         if target.fields.is_empty() {
             crate::import::note(format!(
-                "# skipping {}: no columns to import besides the id",
+                "skipping {}: no columns to import besides the id",
                 target.from
             ));
             skipped += 1;
@@ -142,7 +142,7 @@ pub fn discover(
         // A lone un-id-able match falls through so run() can point at --id.
         if target.id.as_deref() == Some(ID_PLACEHOLDER) && match_count > 1 {
             crate::import::note(format!(
-                "# skipping {}: no id column found — import it alone with `--id <column>`, \
+                "skipping {}: no id column found — import it alone with `--id <column>`, \
                  or set `id` in a spec",
                 target.from
             ));

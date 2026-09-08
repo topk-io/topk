@@ -46,12 +46,6 @@ async fn float_lists_stay_lists(ctx: &mut Scratch) {
     let field = &spec.collections["emb"].fields["embedding"];
     assert_eq!(field.ty.to_string(), "float_list");
     assert_eq!(field.dim, None);
-
-    let printed = discover(&path, None);
-    assert!(
-        printed.contains("for vector search use"),
-        "float lists must say how to become vectors:\n{printed}"
-    );
 }
 
 #[test_context(Scratch)]

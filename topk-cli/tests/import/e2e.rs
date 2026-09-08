@@ -370,7 +370,8 @@ async fn nan_rejected(ctx: &mut Ctx) {
             r#"x = { type = "float" }"#,
         ),
     );
-    assert!(fails(&["import", "-f", &spec, "--dry-run"], &[]).contains("non-finite"));
+    // Only a preview reads rows, so only a preview can refuse a value.
+    assert!(fails(&["import", "-f", &spec, "--preview"], &[]).contains("non-finite"));
     assert!(fails(&["import", "-f", &spec, "--yes"], &[]).contains("non-finite"));
 }
 
@@ -711,7 +712,7 @@ async fn resume_continues_where_upserts_landed(ctx: &mut Ctx) {
     );
     let run = stderr
         .lines()
-        .find_map(|l| l.strip_prefix("# run "))
+        .find_map(|l| l.rsplit_once("--resume ").map(|(_, id)| id))
         .expect("run id in header")
         .split(',')
         .next()
@@ -864,7 +865,7 @@ async fn limited_run_restarts_rather_than_over_reading(ctx: &mut Ctx) {
     );
     let run = stderr
         .lines()
-        .find_map(|l| l.strip_prefix("# run "))
+        .find_map(|l| l.rsplit_once("--resume ").map(|(_, id)| id))
         .expect("run id in header")
         .split(',')
         .next()
@@ -1057,4 +1058,27 @@ async fn topk_source_pages_by_id_and_resumes_from_a_cursor(ctx: &mut Ctx) {
     );
     assert_eq!(outcome(&summary, &target)["rows"], 1000, "only the tail");
     assert_eq!(ctx.get(&target, &["d1999"]).await.len(), 1);
+}
+
+/// `--preview` is a phase, not a destination: the documents print and the run
+/// goes on to write them.
+#[test_context(Ctx)]
+#[tokio::test]
+async fn preview_then_import(ctx: &mut Ctx) {
+    let collection = ctx.collection("previewed");
+    let docs = vec![
+        doc!("_id" => "a", "title" => "one"),
+        doc!("_id" => "b", "title" => "two"),
+    ];
+    let object = ctx.seed_parquet("previewed", docs).await;
+    let spec = ctx.target_spec(&collection, object);
+
+    let out = run(&["import", "-f", &spec, "--preview", "--yes"], &[]);
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(out.status.success(), "got:\n{stderr}");
+    assert!(
+        stderr.lines().any(|l| l.starts_with('{')),
+        "the documents preview:\n{stderr}"
+    );
+    assert_eq!(ctx.get(&collection, &["a", "b"]).await.len(), 2);
 }

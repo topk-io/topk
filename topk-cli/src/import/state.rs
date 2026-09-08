@@ -70,7 +70,7 @@ impl State {
                 return false;
             };
             if target != was {
-                crate::import::note(format!("# {name}: spec changed, starting over"));
+                crate::import::note(format!("{name}: spec changed, starting over"));
                 return false;
             }
             if let Mark::After(cursor) = cursor {
