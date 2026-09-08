@@ -28,6 +28,7 @@ import = [
     "dep:prost",
     "dep:strum",
     "dep:thiserror",
+    "dep:toml_edit",
     "dep:topk-es",
     "dep:url",
     "dep:wildmatch",
@@ -56,6 +57,7 @@ tokio = { version = "1", features = ["full"] }
 tokio-stream = { version = "0.1" }
 anyhow = { version = "1" }
 serde_json = { version = "1" }
+toml_edit = { version = "0.22", optional = true }
 indicatif = { version = "0.17" }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

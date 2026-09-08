@@ -1,50 +1,34 @@
-use serde::Serialize;
+use toml_edit::{DocumentMut, Item, Value};
 
 use crate::import::spec::Spec;
 
-/// What prints here is what `--spec` would re-run.
+/// What prints here is what `--spec` would re-run. Serde writes every field as
+/// its own table; a spec is read and edited by hand, so they fold to one line.
 pub fn render(spec: &Spec) -> String {
-    let mut out = String::new();
-    for (name, target) in spec.collections.iter() {
-        out.push_str(&format!("[{}]\n", key(name)));
-        for (field, value) in [
-            ("from", Some(target.from.as_str())),
-            ("id", target.id.as_deref()),
-            ("filter", target.filter.as_deref()),
-            ("partition", target.partition.as_deref()),
-        ] {
-            if let Some(value) = value {
-                out.push_str(&format!("{field} = {}\n", string(value)));
+    let mut doc: DocumentMut = toml::to_string(spec)
+        .expect("a spec serializes")
+        .parse()
+        .expect("serde writes valid toml");
+    for (_, target) in doc.iter_mut() {
+        let Some(fields) = target
+            .as_table_mut()
+            .and_then(|target| target.get_mut("fields"))
+            .and_then(Item::as_table_mut)
+        else {
+            continue;
+        };
+        for (mut key, field) in fields.iter_mut() {
+            if let Some(table) = field.as_table() {
+                key.fmt();
+                *field = Item::Value(Value::InlineTable(table.clone().into_inline_table()));
             }
         }
-        if let Some(limit) = target.limit {
-            out.push_str(&format!("limit = {limit}\n"));
-        }
-        out.push_str(&format!("\n[{}.fields]\n", key(name)));
-        for (field, spec) in target.fields.iter() {
-            out.push_str(&format!("{} = {}\n", key(field), inline(spec)));
-        }
-        out.push('\n');
     }
-    out
+    doc.to_string()
 }
 
-pub fn inline<T: Serialize>(value: &T) -> String {
+pub fn inline<T: serde::Serialize>(value: &T) -> String {
     toml::Value::try_from(value)
         .map(|value| value.to_string())
         .unwrap_or_default()
-}
-
-fn key(name: &str) -> String {
-    match name
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-'))
-    {
-        true => name.to_string(),
-        false => string(name),
-    }
-}
-
-fn string(value: &str) -> String {
-    toml::Value::String(value.to_string()).to_string()
 }

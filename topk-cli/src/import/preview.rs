@@ -109,7 +109,7 @@ fn elide(value: &serde_json::Value, budget: usize) -> String {
 }
 
 /// A quoted string in at most `budget` characters.
-pub fn clip(text: &str, budget: usize) -> String {
+fn clip(text: &str, budget: usize) -> String {
     match text.chars().count() > budget {
         false => format!("{text:?}"),
         true => {
@@ -119,8 +119,7 @@ pub fn clip(text: &str, budget: usize) -> String {
     }
 }
 
-/// The leading items that fit in `budget`, always at least one, and how many
-/// were left out.
+/// The leading items that fit in `budget`, always at least one.
 fn group(
     open: char,
     close: char,

@@ -12,7 +12,7 @@ use tokio::sync::Semaphore;
 
 use crate::endpoint::Endpoint;
 use crate::import::{
-    self, clip, render, Error, LoadOutcome, Sink, Source, Spec, State, Uri, ID, ID_PLACEHOLDER,
+    self, render, Error, LoadOutcome, Sink, Source, Spec, State, Uri, ID, ID_PLACEHOLDER,
 };
 
 const OBJECT_CONCURRENCY: usize = 8;
@@ -286,23 +286,19 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
     );
     // The plan, then the documents it would write, then the question.
     let plan = render(&spec);
-    match args.dry_run {
-        true => print!("{plan}"),
+    if args.dry_run {
+        print!("{plan}");
+    } else if !json {
         // A killed run prints nothing after; `-o json` reads none of this.
-        false if !json => {
-            eprintln!("resume with: {resume}");
-            if done > 0 {
-                eprintln!("resuming: {done} collection(s) already imported");
-            }
-            for (name, cursor) in after.iter() {
-                eprintln!(
-                    "{name}: resuming after {}",
-                    clip(&cursor.to_string(), CURSOR_WIDTH)
-                );
-            }
-            eprint!("{plan}");
+        eprintln!("resume with: {resume}");
+        if done > 0 {
+            eprintln!("resuming: {done} collection(s) already imported");
         }
-        false => {}
+        for (name, cursor) in after.iter() {
+            let cursor: String = cursor.to_string().chars().take(CURSOR_WIDTH).collect();
+            eprintln!("{name}: resuming after {cursor}");
+        }
+        eprint!("{plan}");
     }
     if args.preview {
         for (name, target) in spec.collections.iter() {
