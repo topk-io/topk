@@ -14,6 +14,8 @@ use crate::proto::v1::control::{
     Collection, CreateCollectionRequest, DeleteCollectionRequest, ListCollectionsRequest,
 };
 use crate::proto::v1::control::{FieldSpec, GetCollectionRequest};
+use crate::proto::v1::data::write_service_client::WriteServiceClient;
+use crate::proto::v1::data::UpdateCollectionRequest;
 
 pub struct CollectionsClient {
     // Client config
@@ -107,6 +109,44 @@ impl CollectionsClient {
         })
         .await?;
 
+        Ok(response
+            .into_inner()
+            .collection
+            .expect("Invalid collection proto"))
+    }
+
+    /// Adds, replaces or undeclares fields of a collection's schema.
+    pub async fn update(
+        &self,
+        name: impl Into<String>,
+        schema: impl Into<HashMap<String, FieldSpec>>,
+        drop_fields: Vec<String>,
+    ) -> Result<Collection, Error> {
+        let name = name.into();
+        let config = self
+            .config
+            .clone()
+            .with_headers([("x-topk-collection", name.clone())]);
+        let client = create_client!(WriteServiceClient, self.channel, config).await?;
+        let schema = schema.into();
+        let response = call_with_retry(self.config.retry_config(), || {
+            let mut client = client.clone();
+            let schema = schema.clone();
+            let drop_fields = drop_fields.clone();
+            async move {
+                client
+                    .update_collection(UpdateCollectionRequest {
+                        schema,
+                        drop_fields,
+                    })
+                    .await
+                    .map_err(|e| match e.code() {
+                        tonic::Code::NotFound => Error::CollectionNotFound,
+                        _ => e.into(),
+                    })
+            }
+        })
+        .await?;
         Ok(response
             .into_inner()
             .collection
