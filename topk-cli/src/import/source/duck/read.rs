@@ -13,7 +13,7 @@ use crate::import::spec::Target;
 
 use super::file::{local_path, reader, File};
 use super::select::Select;
-use super::{lit, read_error, Duckdb};
+use super::{lit, read_error, Duckdb, READER_MEMORY};
 
 pub(super) type Sender = mpsc::Sender<Chunk>;
 type Receiver = mpsc::Receiver<Chunk>;
@@ -25,6 +25,9 @@ pub(super) struct Plan {
     from: String,
     filter: Option<String>,
     position: Position,
+    /// The columns asked of a file, for the error that names the widest; an
+    /// attached table has no footer to ask, so it leaves this empty.
+    columns: Vec<String>,
 }
 
 /// How this part's cursor moves: by the last value of a column, or by rows read
@@ -93,6 +96,11 @@ pub(super) fn files(
             _ => Some((file, 0)),
         })
         .collect();
+    let columns: Vec<String> = target
+        .source_columns()
+        .into_iter()
+        .map(String::from)
+        .collect();
     // A limit is a running budget: the next query depends on the previous count.
     let ahead = match target.limit {
         Some(_) => 0,
@@ -115,7 +123,7 @@ pub(super) fn files(
                 path,
                 ..file.clone()
             };
-            let plan = Plan::file(&file, target, filter, offset, remaining);
+            let plan = Plan::file(&file, &columns, filter, offset, remaining);
             readers.push_back((file_rx, thread::spawn(move || plan.read(&reader, &file_tx))));
         }
         let Some((mut rx, reader)) = readers.pop_front() else {
@@ -162,6 +170,7 @@ impl Plan {
             from: target.from.clone(),
             filter: filter.map(str::to_string),
             position: Position::Key(id.to_string()),
+            columns: Vec::new(),
         }
     }
 
@@ -170,14 +179,14 @@ impl Plan {
     /// than raise a binder error: `COLUMNS` keeps the names that exist.
     fn file(
         file: &File,
-        target: &Target,
+        columns: &[String],
         filter: Option<&str>,
         offset: u64,
         limit: Option<u64>,
     ) -> Plan {
         Plan {
             sql: Select::new(reader(file))
-                .existing_columns(target.source_columns())
+                .existing_columns(columns.iter().map(String::as_str))
                 .filter(filter)
                 .limit(limit)
                 .offset(offset)
@@ -185,12 +194,35 @@ impl Plan {
             from: file.path.clone(),
             filter: filter.map(str::to_string),
             position: Position::Offset(offset),
+            columns: columns.to_vec(),
         }
     }
 
     pub(super) fn read(&self, conn: &Connection, tx: &Sender) -> Result<u64, Error> {
-        self.execute(conn, tx)
-            .map_err(|e| read_error(&self.from, self.filter.as_deref(), e))
+        self.execute(conn, tx).map_err(|e| self.error(conn, e))
+    }
+
+    /// duckdb's OOM leaks the engine at a public edge, and its advice does not
+    /// apply: a reader holds a whole column chunk, a single-row-group file has
+    /// no smaller unit, so `LIMIT` does not shrink it and a bigger machine does
+    /// not help — `READER_MEMORY` is a constant. Name the column instead, with a
+    /// footer read that only runs on the way to failing.
+    fn error(&self, conn: &Connection, e: duckdb::Error) -> Error {
+        let msg = e.to_string();
+        if !msg.contains("Out of Memory") && !msg.contains("could not allocate") {
+            return read_error(&self.from, self.filter.as_deref(), e);
+        }
+        let widest = match widest_column(conn, &self.from, &self.columns) {
+            Some((column, bytes)) => {
+                format!("{column:?} needs {} resident", bytesize::ByteSize(bytes))
+            }
+            None => "a column is too wide to hold".to_string(),
+        };
+        Error::InvalidArgument(format!(
+            "reading {}: {widest} and one reader is budgeted {READER_MEMORY}. \
+             Drop the field from the spec to skip the column.",
+            self.from
+        ))
     }
 
     /// Returns the rows read; stops without error if the receiver goes away.
@@ -226,4 +258,24 @@ impl Plan {
         }
         Ok(read)
     }
+}
+
+/// The heaviest of `columns` in a parquet file, by its footer. Nested columns
+/// are leaves under a dotted path, so they sum back to the name a spec uses;
+/// nothing else answers, which is the whole point of it being optional.
+fn widest_column(conn: &Connection, path: &str, columns: &[String]) -> Option<(String, u64)> {
+    let wanted: Vec<String> = columns.iter().map(|c| format!("'{}'", lit(c))).collect();
+    let mut stmt = conn
+        .prepare(&format!(
+            "SELECT name, bytes FROM ( \
+               SELECT split_part(path_in_schema, ',', 1) AS name, \
+                      sum(total_compressed_size)::UBIGINT AS bytes \
+               FROM parquet_metadata('{}') GROUP BY 1 \
+             ) WHERE name IN [{}] ORDER BY bytes DESC LIMIT 1",
+            lit(path),
+            wanted.join(", ")
+        ))
+        .ok()?;
+    stmt.query_row([], |row| Ok((row.get(0)?, row.get(1)?)))
+        .ok()
 }

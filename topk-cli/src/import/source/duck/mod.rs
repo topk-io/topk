@@ -98,7 +98,7 @@ pub(super) fn lit(value: &str) -> String {
 /// concurrent scans multiply into an OOM-kill; a 1.3 GiB single-row-group parquet
 /// needs the whole column chunk resident. `memory_limit` is global to a database,
 /// so a scan's file readers share this pool instead of each claiming one.
-const READER_MEMORY: &str = "4GiB";
+pub(super) const READER_MEMORY: &str = "4GiB";
 
 /// How many of a glob's files the catalog reads to settle the schema. Binding a
 /// glob's union costs one footer read per file, so a large glob spends minutes
