@@ -50,6 +50,10 @@ pub fn bind_columns(catalog: &[Table], spec: Spec) -> Result<Spec, Error> {
             }
             if field.ty.is_none() {
                 field.ty = found.and_then(|(_, source)| source.ty);
+                // A width discovered with the type, or a vector arrives without one.
+                field.dim = field
+                    .dim
+                    .or_else(|| found.and_then(|(_, source)| source.dim));
             }
             if field.ty.is_none() {
                 return Err(Error::InvalidArgument(format!(

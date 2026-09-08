@@ -376,3 +376,21 @@ async fn an_absent_type_comes_from_the_source(ctx: &mut Scratch) {
     );
     assert!(err.contains("needs a `text` field"), "got:\n{err}");
 }
+
+/// A width is discovered with the type, or a vector arrives without one.
+#[test_context(Scratch)]
+#[tokio::test]
+async fn an_absent_type_carries_the_discovered_width(ctx: &mut Scratch) {
+    let path = ctx.sql_parquet(
+        "vec",
+        "SELECT 1 AS id, [0.1, 0.2, 0.3]::FLOAT[] AS embedding",
+    );
+    let spec = ctx.spec_file(&format!(
+        "[c]\nfrom = {path:?}\n\n[c.fields]\n_id = {{ from = \"id\" }}\nembedding = {{}}\n"
+    ));
+    let out = ok(&["import", "-f", &spec, "--dry-run"], &[]);
+    assert!(
+        out.contains(r#"embedding = { type = "f32_vector", dim = 3 }"#),
+        "got:\n{out}"
+    );
+}

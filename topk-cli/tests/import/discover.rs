@@ -44,7 +44,10 @@ async fn fixed_width_float_lists_become_vectors(ctx: &mut Scratch) {
 
     let spec = discover_spec(&path, None).await;
     let field = &spec.collections["emb"].fields["embedding"];
-    assert_eq!(field.ty.expect("a discovered type").to_string(), "f32_vector");
+    assert_eq!(
+        field.ty.expect("a discovered type").to_string(),
+        "f32_vector"
+    );
     assert_eq!(field.dim, Some(8));
 }
 
@@ -58,7 +61,10 @@ async fn fixed_width_float_lists_become_vectors_without_a_footer(ctx: &mut Scrat
 
     let spec = discover_spec(&path, None).await;
     let field = &spec.collections["emb"].fields["embedding"];
-    assert_eq!(field.ty.expect("a discovered type").to_string(), "f32_vector");
+    assert_eq!(
+        field.ty.expect("a discovered type").to_string(),
+        "f32_vector"
+    );
     assert_eq!(field.dim, Some(4));
 }
 
@@ -73,7 +79,10 @@ async fn ragged_float_lists_stay_lists(ctx: &mut Scratch) {
 
     let spec = discover_spec(&path, None).await;
     let field = &spec.collections["emb"].fields["embedding"];
-    assert_eq!(field.ty.expect("a discovered type").to_string(), "float_list");
+    assert_eq!(
+        field.ty.expect("a discovered type").to_string(),
+        "float_list"
+    );
     assert_eq!(field.dim, None);
 }
 
