@@ -24,8 +24,8 @@ pub fn documents(
 
 const PREVIEW_ROWS: u64 = 5;
 
-/// Characters a previewed document's elidable values share, so a spec with many
-/// fields still prints one line each.
+/// Characters a previewed document's elidable values share. `MIN_VALUE` outbids
+/// it past a handful of fields, so this is a target, not a bound.
 const PREVIEW_WIDTH: usize = 200;
 
 /// No field is elided below this, or a timestamp loses its own minutes.
@@ -129,10 +129,13 @@ fn group(
 ) -> String {
     let mut out = String::from(open);
     let mut shown = 0;
+    let mut width = 0;
     for item in items {
-        if shown > 0 && out.len() + item.len() > budget {
+        let item_width = item.chars().count();
+        if shown > 0 && width + item_width > budget {
             break;
         }
+        width += item_width;
         if shown > 0 {
             out.push_str(", ");
         }

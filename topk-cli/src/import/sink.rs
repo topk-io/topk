@@ -168,7 +168,7 @@ impl Spinner {
         let rows = self.bar.position();
         let secs = self.bar.elapsed().as_secs_f64().max(1.0);
         crate::import::note(format!(
-            "# {}: {rows} rows ({:.0}/s) [{}s]",
+            "{}: {rows} rows ({:.0}/s) [{}s]",
             self.name,
             rows as f64 / secs,
             secs as u64
