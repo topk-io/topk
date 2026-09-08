@@ -1,3 +1,4 @@
+use std::io::IsTerminal;
 use std::sync::OnceLock;
 
 use indicatif::MultiProgress;
@@ -22,7 +23,9 @@ pub fn set_progress(progress: MultiProgress) {
 }
 
 pub fn note(message: String) {
-    match PROGRESS.get() {
+    // `println` only exists to avoid tearing a drawn bar, and indicatif draws
+    // none when stderr is not a terminal — it drops the line instead.
+    match PROGRESS.get().filter(|_| std::io::stderr().is_terminal()) {
         Some(progress) => {
             let _ = progress.println(message);
         }

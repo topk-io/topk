@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, VecDeque};
+use std::io::IsTerminal;
 use std::mem;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -112,27 +113,72 @@ pub struct Sink<'a> {
     pub state: Mutex<State>,
 }
 
+/// How often a non-interactive run reports progress.
+const LOG_EVERY: Duration = Duration::from_secs(30);
+
 /// Clears itself on drop, so `?` exits and cancellation can't leave a stale bar.
-struct Spinner(ProgressBar);
+struct Spinner {
+    bar: ProgressBar,
+    name: String,
+    /// `None` on a terminal, where the bar speaks for itself.
+    logged: Option<Instant>,
+}
 
 impl Spinner {
     fn add(progress: &MultiProgress, name: &str) -> Spinner {
+        // A run measured in hours needs a rate to be judged by, not just a count.
+        // `per_sec` keeps every decimal it has; the bar is watched, not parsed.
         let bar = progress.add(
             ProgressBar::new_spinner()
                 .with_style(
-                    ProgressStyle::with_template("{spinner:.cyan} {msg}: {pos} rows [{elapsed}]")
-                        .expect("valid spinner template"),
+                    ProgressStyle::with_template(
+                        "{spinner:.cyan} {msg}: {pos} rows ({per_sec}) [{elapsed}]",
+                    )
+                    .expect("valid spinner template"),
                 )
                 .with_message(name.to_string()),
         );
-        bar.enable_steady_tick(Duration::from_millis(100));
-        Spinner(bar)
+        // indicatif draws nothing when stderr is not a terminal, which is how a
+        // long import is usually run; a periodic line keeps it legible in a log.
+        let interactive = std::io::stderr().is_terminal();
+        if interactive {
+            bar.enable_steady_tick(Duration::from_millis(100));
+        }
+        Spinner {
+            bar,
+            name: name.to_string(),
+            logged: (!interactive).then(Instant::now),
+        }
+    }
+
+    fn inc(&self) {
+        self.bar.inc(1);
+    }
+
+    /// A line every `LOG_EVERY` when there is no bar to watch. Called once per
+    /// chunk: a row is too often to ask the clock.
+    fn log(&mut self) {
+        let Some(logged) = &mut self.logged else {
+            return;
+        };
+        if logged.elapsed() < LOG_EVERY {
+            return;
+        }
+        *logged = Instant::now();
+        let rows = self.bar.position();
+        let secs = self.bar.elapsed().as_secs_f64().max(1.0);
+        crate::import::note(format!(
+            "# {}: {rows} rows ({:.0}/s) [{}s]",
+            self.name,
+            rows as f64 / secs,
+            secs as u64
+        ));
     }
 }
 
 impl Drop for Spinner {
     fn drop(&mut self) {
-        self.0.finish_and_clear();
+        self.bar.finish_and_clear();
     }
 }
 
@@ -155,7 +201,7 @@ impl Sink<'_> {
     async fn load_one(&self, name: &str, scan: Scan) -> Result<LoadOutcome, Error> {
         let Scan { target, mut chunks } = scan;
         let started = Instant::now();
-        let bar = Spinner::add(self.progress, name);
+        let mut bar = Spinner::add(self.progress, name);
         let mut collection = self.client.collection(name);
         if let Some(partition) = &target.partition {
             collection = collection.partition(partition);
@@ -179,7 +225,7 @@ impl Sink<'_> {
                 match row.and_then(|record| build_document(&target, record)) {
                     Ok(doc) => {
                         outcome.rows += 1;
-                        bar.0.inc(1);
+                        bar.inc();
                         writer.push(doc).await?;
                     }
                     Err(e) if self.continue_on_error && matches!(e, Error::Doc { .. }) => {
@@ -190,6 +236,7 @@ impl Sink<'_> {
                 }
             }
             writer.set_cursor(chunk.cursor);
+            bar.log();
         }
         writer.finish().await?;
         self.checkpoint(name, Mark::Done);

@@ -327,7 +327,7 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
     // for the next run's schema to collide with.
     pending.retain(|name, _| spec.collections.get(name).and_then(|t| t.limit) != Some(0));
     let region = endpoint.region.as_deref().unwrap_or_default();
-    if !args.yes && !confirm(spec.collections.len(), region)? {
+    if !args.yes && args.resume.is_none() && !confirm(spec.collections.len(), region)? {
         return Ok(ExitCode::SUCCESS);
     }
 
