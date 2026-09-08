@@ -80,7 +80,20 @@ pub fn build_document(target: &Target, record: Record) -> Result<Document, Error
     let doc = Document::from(pairs);
     let size = doc.encoded_len();
     if size > MAX_DOC_BYTES {
-        return Err(fail(None, Error::Oversized(size)));
+        let (field, bytes) = doc
+            .fields
+            .iter()
+            .map(|(name, value)| (name, value.encoded_len()))
+            .max_by_key(|(_, bytes)| *bytes)
+            .expect("a document has an id");
+        return Err(fail(
+            None,
+            Error::Oversized {
+                size,
+                field: field.clone(),
+                bytes,
+            },
+        ));
     }
     Ok(doc)
 }

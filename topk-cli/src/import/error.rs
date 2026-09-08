@@ -41,10 +41,15 @@ pub enum Error {
     #[error("cannot coerce to {0}")]
     CannotCoerce(Type),
 
-    #[error("{} exceeds the {} document limit",
-        bytesize::ByteSize(*.0 as u64).to_string_as(false),
-        bytesize::ByteSize(MAX_DOC_BYTES as u64).to_string_as(false))]
-    Oversized(usize),
+    #[error("{} exceeds the {} document limit, largest field {field:?} at {}",
+        bytesize::ByteSize(*.size as u64).to_string_as(false),
+        bytesize::ByteSize(MAX_DOC_BYTES as u64).to_string_as(false),
+        bytesize::ByteSize(*.bytes as u64).to_string_as(false))]
+    Oversized {
+        size: usize,
+        field: String,
+        bytes: usize,
+    },
 
     #[error("{}{}: {source}",
         id.as_deref().map(|i| format!("doc {i:?}")).unwrap_or_else(|| "row".to_string()),

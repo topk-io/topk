@@ -376,6 +376,11 @@ fn oversized_document() {
         message.contains("exceeds the 200.0 KB document limit"),
         "got: {message}"
     );
+    // Which field to truncate, and to what.
+    assert!(
+        message.contains(r#"largest field "body" at 204.8 KB"#),
+        "got: {message}"
+    );
 
     // The fix the message suggests.
     let truncated = target(r#"body = { type = "text", truncate = 100 }"#);
