@@ -41,7 +41,7 @@ pub fn bind_columns(catalog: &[Table], spec: Spec) -> Result<Spec, Error> {
             if field_name == ID {
                 continue;
             }
-            let source = field.from.clone().unwrap_or_else(|| field_name.clone());
+            let source = field.source(field_name).to_string();
             let found = column(&source);
             if table.is_some() && found.is_none() {
                 return Err(absent(format!(

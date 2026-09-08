@@ -91,8 +91,10 @@ impl Topk {
         // here rather than by `discover`.
         let collections = match collection.contains(['*', '?']) || collection.is_empty() {
             true => {
-                let pattern =
-                    WildMatch::new(collection.is_empty().then_some("*").unwrap_or(collection));
+                let pattern = WildMatch::new(match collection.is_empty() {
+                    true => "*",
+                    false => collection,
+                });
                 let all = self.client.collections().list().await?;
                 all.into_iter()
                     .filter(|c| pattern.matches(&c.name))

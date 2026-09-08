@@ -12,7 +12,7 @@ mod discover;
 mod field;
 mod render;
 pub use discover::{bind_columns, discover};
-pub use field::{Element, Field, Index, Type};
+pub use field::{Element, Field, Type};
 pub use render::{inline, render};
 
 #[derive(Serialize)]
@@ -62,11 +62,11 @@ impl Target {
         self.filter.as_deref().map(str::parse).transpose()
     }
 
-    /// Every source column this target reads: the spec is a whitelist, so this
-    /// is the whole projection.
+    /// Every source column this target reads — the key's, and each declared
+    /// field's. The spec is a whitelist, so this is the whole projection.
     pub fn source_columns(&self) -> IndexSet<&str> {
         std::iter::once(self.id_column())
-            .chain(self.fields.iter().map(|(name, field)| field.source(name)))
+            .chain(self.declared().map(|(name, field)| field.source(name)))
             .collect()
     }
 }
@@ -112,8 +112,8 @@ impl<'de> Deserialize<'de> for Spec {
 impl TryFrom<IndexMap<String, Target>> for Spec {
     type Error = Error;
 
-    fn try_from(mut collections: IndexMap<String, Target>) -> Result<Spec, Error> {
-        for (name, target) in collections.iter_mut() {
+    fn try_from(collections: IndexMap<String, Target>) -> Result<Spec, Error> {
+        for (name, target) in collections.iter() {
             collection_name(name)?;
             if target.from.trim().is_empty() {
                 return Err(Error::InvalidArgument(
@@ -121,7 +121,7 @@ impl TryFrom<IndexMap<String, Target>> for Spec {
                         .to_string(),
                 ));
             }
-            if let Some(id) = target.id.take() {
+            if let Some(id) = &target.id {
                 return Err(Error::InvalidArgument(format!(
                     "{name}: `id = {id:?}` is now a field — \
                      write `{ID} = {{ from = {id:?} }}` under [{name}.fields]"

@@ -34,6 +34,6 @@ pub use ddl::{absent, create};
 pub use error::Error;
 pub use preview::{documents, preview};
 pub use sink::{build_document, LoadOutcome, Sink};
-pub use source::{Cursor, File, Scan, Source, Table, Uri};
-pub use spec::{bind_columns, discover, render, Element, Field, Index, Spec, Target, Type};
+pub use source::{Cursor, Source, Table, Uri};
+pub use spec::{bind_columns, discover, render, Field, Spec, Target, Type};
 pub use state::{Mark, State};

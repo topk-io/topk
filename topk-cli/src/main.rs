@@ -51,7 +51,7 @@ enum Commands {
 
     /// Bulk import from a database, file or object store
     #[cfg(feature = "import")]
-    Import(topk::commands::import::ImportArgs),
+    Import(Box<topk::commands::import::ImportArgs>),
 
     /// Remove auth credentials
     Logout,

@@ -168,8 +168,9 @@ impl From<Type> for String {
     }
 }
 
-#[derive(Clone, Copy, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Deserialize, PartialEq, Serialize, strum::Display)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[strum(serialize_all = "snake_case")]
 pub enum Index {
     Keyword,
     Exact,
@@ -275,52 +276,39 @@ impl TryFrom<&Field> for FieldSpec {
         let vector = ty.is_dense();
         let matrix = ty.is_matrix();
 
-        if vector && field.dim.is_none() {
-            return Err(Error::InvalidArgument(format!("{} requires `dim`", ty)));
-        }
-        if !vector && field.dim.is_some() {
-            return Err(Error::InvalidArgument(format!(
-                "{} does not take `dim`",
-                ty
-            )));
-        }
-        if field.truncate.is_some() && !matches!(ty, Type::Text) {
-            return Err(Error::InvalidArgument(format!(
-                "{} does not take `truncate`",
-                ty
-            )));
+        for (wrong, message) in [
+            (vector && field.dim.is_none(), "requires `dim`"),
+            (!vector && field.dim.is_some(), "does not take `dim`"),
+            (matrix && field.cols.is_none(), "requires `cols`"),
+            (!matrix && field.cols.is_some(), "does not take `cols`"),
+            (
+                field.truncate.is_some() && !matches!(ty, Type::Text),
+                "does not take `truncate`",
+            ),
+        ] {
+            if wrong {
+                return Err(Error::InvalidArgument(format!("{ty} {message}")));
+            }
         }
         if field.truncate == Some(0) {
             return Err(Error::InvalidArgument(
                 "`truncate` must keep at least 1 character".to_string(),
             ));
         }
-        if matrix && field.cols.is_none() {
-            return Err(Error::InvalidArgument(format!("{} requires `cols`", ty)));
-        }
-        if !matrix && field.cols.is_some() {
-            return Err(Error::InvalidArgument(format!(
-                "{} does not take `cols`",
-                ty
-            )));
-        }
 
         if let Some(index) = field.index {
-            let (ok, kind, needs) = match index {
-                Index::Keyword => (matches!(ty, Type::Text), "keyword", "a `text` field"),
-                Index::Exact => (matches!(ty, Type::Text), "exact", "a `text` field"),
-                Index::Semantic => (matches!(ty, Type::Text), "semantic", "a `text` field"),
-                Index::Ngram => (matches!(ty, Type::Text), "ngram", "a `text` field"),
-                Index::Vector { .. } => (
-                    vector || ty.is_sparse(),
-                    "vector",
-                    "a vector or sparse vector field",
-                ),
-                Index::MultiVector { .. } => (matrix, "multi_vector", "a matrix field"),
+            let (ok, needs) = match index {
+                Index::Keyword | Index::Exact | Index::Semantic | Index::Ngram => {
+                    (matches!(ty, Type::Text), "a `text` field")
+                }
+                Index::Vector { .. } => {
+                    (vector || ty.is_sparse(), "a vector or sparse vector field")
+                }
+                Index::MultiVector { .. } => (matrix, "a matrix field"),
             };
             if !ok {
                 return Err(Error::InvalidArgument(format!(
-                    "a {kind} index needs {needs}"
+                    "a {index} index needs {needs}"
                 )));
             }
         }

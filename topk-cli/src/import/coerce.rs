@@ -202,11 +202,11 @@ fn dense_floats(value: Value, field: &Field, ty: Type) -> Result<Vec<f64>, Error
 /// width is `len / dim`, not the declared type's: blobs in the wild routinely
 /// disagree with the target (numpy writes f64, our own datasets f16).
 fn packed_floats(bytes: &[u8], dim: usize, ty: Type) -> Result<Vec<f64>, Error> {
-    if dim == 0 || bytes.len() % dim != 0 {
+    if dim == 0 || !bytes.len().is_multiple_of(dim) {
         // The dims this byte length could mean, for the error that says `dim` is wrong.
         let dims: Vec<String> = [(2, "f16"), (4, "f32"), (8, "f64")]
             .iter()
-            .filter(|(width, _)| bytes.len() % width == 0)
+            .filter(|(width, _)| bytes.len().is_multiple_of(*width))
             .map(|(width, name)| format!("{} as {name}", bytes.len() / width))
             .collect();
         return Err(Error::InvalidArgument(format!(
