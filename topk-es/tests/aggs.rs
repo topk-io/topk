@@ -7,6 +7,120 @@ use test_macros::rstest_ctx;
 
 #[test_context(BooksContext)]
 #[tokio::test]
+async fn test_cardinality_counts_distinct_values(books: &BooksContext) {
+    let resp = books
+        .search(json!({
+            "size": 0,
+            "aggs": { "genres": { "cardinality": { "field": "genre" } } }
+        }))
+        .await
+        .expect("search should succeed");
+
+    assert_eq!(resp.agg_value("genres"), 5.0, "{}", resp.agg("genres"));
+}
+
+#[test_context(BooksContext)]
+#[tokio::test]
+async fn test_cardinality_accepts_precision_threshold(books: &BooksContext) {
+    let resp = books
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "genres": { "cardinality": { "field": "genre", "precision_threshold": 100 } }
+            }
+        }))
+        .await
+        .expect("search should succeed");
+
+    assert_eq!(resp.agg_value("genres"), 5.0, "{}", resp.agg("genres"));
+}
+
+#[test_context(BooksContext)]
+#[tokio::test]
+async fn test_cardinality_as_terms_sub_agg(books: &BooksContext) {
+    let resp = books
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "by_genre": {
+                    "terms": { "field": "genre" },
+                    "aggs": { "authors": { "cardinality": { "field": "author" } } }
+                }
+            }
+        }))
+        .await
+        .expect("search should succeed");
+
+    let bucket = |genre: &str| {
+        resp.buckets("by_genre")
+            .iter()
+            .find(|b| b["key"] == genre)
+            .unwrap_or_else(|| panic!("{genre} bucket"))
+            .clone()
+    };
+
+    let fiction = bucket("fiction");
+    assert_eq!(fiction["doc_count"], 4, "{fiction}");
+    assert_eq!(fiction["authors"]["value"], 4.0, "{fiction}");
+
+    // Tolkien wrote two of the three: distinct authors, not doc count.
+    let fantasy = bucket("fantasy");
+    assert_eq!(fantasy["doc_count"], 3, "{fantasy}");
+    assert_eq!(fantasy["authors"]["value"], 2.0, "{fantasy}");
+}
+
+// Analyzed text is not aggregatable, and validation recurses into sub-aggs.
+#[test_context(BooksContext)]
+#[tokio::test]
+async fn test_cardinality_sub_agg_on_analyzed_text_rejected(books: &BooksContext) {
+    books
+        .search(json!({
+            "size": 0,
+            "aggs": {
+                "by_genre": {
+                    "terms": { "field": "genre" },
+                    "aggs": { "titles": { "cardinality": { "field": "title" } } }
+                }
+            }
+        }))
+        .await
+        .expect_err("analyzed text is not aggregatable");
+}
+
+// ES answers 0, not null, for a cardinality over nothing.
+#[test_context(BooksContext)]
+#[tokio::test]
+async fn test_cardinality_over_empty_match_set_is_zero(books: &BooksContext) {
+    let resp = books
+        .search(json!({
+            "size": 0,
+            "query": { "term": { "genre": "nonexistent" } },
+            "aggs": { "genres": { "cardinality": { "field": "genre" } } }
+        }))
+        .await
+        .expect("search should succeed");
+
+    assert_eq!(resp.agg_value("genres"), 0.0, "{}", resp.agg("genres"));
+}
+
+#[test_context(TestScope)]
+#[tokio::test]
+async fn test_cardinality_on_analyzed_text_rejected(scope: &TestScope) {
+    scope
+        .create_with_properties(json!({ "body": { "type": "text" } }))
+        .await;
+
+    scope
+        .search(json!({
+            "size": 0,
+            "aggs": { "n": { "cardinality": { "field": "body" } } }
+        }))
+        .await
+        .expect_err("analyzed text is not aggregatable");
+}
+
+#[test_context(BooksContext)]
+#[tokio::test]
 async fn test_terms_agg_with_avg_sub_agg(books: &BooksContext) {
     let resp = books
         .search(json!({

@@ -26,7 +26,19 @@ pub enum AggType {
     Min(MetricAggBody),
     Max(MetricAggBody),
     ValueCount(MetricAggBody),
+    Cardinality(CardinalityAggBody),
     DateHistogram(DateHistogramBody),
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CardinalityAggBody {
+    pub field: FieldName,
+
+    // Accepted, not honoured: `count_distinct` exposes no accuracy dial to feed it.
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub precision_threshold: Option<u32>,
 }
 
 #[derive(Clone, Deserialize)]

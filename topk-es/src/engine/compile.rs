@@ -22,6 +22,7 @@ fn validate_agg_fields(schema: &Schema, clause: &AggClause) -> Result<(), Error>
         AggType::Sum(m) | AggType::Avg(m) | AggType::Min(m) | AggType::Max(m) => {
             ensure_aggregatable(schema, m.field.as_str())?
         }
+        AggType::Cardinality(m) => ensure_aggregatable(schema, m.field.as_str())?,
         AggType::DateHistogram(h) => ensure_aggregatable(schema, h.field.as_str())?,
         AggType::ValueCount(_) => {}
     }

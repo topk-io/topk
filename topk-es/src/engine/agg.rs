@@ -91,7 +91,7 @@ pub fn collect(
 fn metric(schema: &Schema, ty: &AggType, value: Option<f64>) -> AggResult {
     // Over an empty match set ES sums and counts to 0; avg/min/max stay null.
     let value = match (value, ty) {
-        (None, AggType::Sum(_) | AggType::ValueCount(_)) => Some(0.0),
+        (None, AggType::Sum(_) | AggType::ValueCount(_) | AggType::Cardinality(_)) => Some(0.0),
         (value, _) => value,
     };
     let iso = match ty {
@@ -321,6 +321,7 @@ impl TryFrom<AggType> for AggregateExpr {
             AggType::Min(m) => Ok(AggregateExpr::min(m.field)),
             AggType::Max(m) => Ok(AggregateExpr::max(m.field)),
             AggType::ValueCount(m) => Ok(AggregateExpr::count(Some(m.field.into()))),
+            AggType::Cardinality(m) => Ok(AggregateExpr::count_distinct(m.field)),
             AggType::Terms(_) | AggType::DateHistogram(_) => Err(Error::Unsupported(
                 "Nested bucket sub-aggregations are not supported".into(),
             )),
