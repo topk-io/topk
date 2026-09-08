@@ -262,6 +262,47 @@ async fn yes_required_without_tty(ctx: &mut Scratch) {
     assert!(err.contains("pass --yes"), "got:\n{err}");
 }
 
+/// A resume asks the same question a fresh run does: the state pins the source
+/// and the spec, but not the region, so the cluster is still worth confirming.
+#[test_context(Ctx)]
+#[tokio::test]
+async fn yes_required_to_resume_without_tty(ctx: &mut Ctx) {
+    let path = ctx.scratch().join("poison.parquet");
+    duckdb::Connection::open_in_memory()
+        .unwrap()
+        .execute_batch(&format!(
+            "COPY (SELECT CASE WHEN i = 5 THEN NULL ELSE i END AS id, 'row ' || i AS name \
+             FROM range(10) t(i)) TO '{}' (FORMAT parquet);",
+            path.display()
+        ))
+        .unwrap();
+    let object = path.display().to_string();
+    let collection = ctx.collection("resume_confirm");
+    let stderr = fails(
+        &[
+            "import",
+            &object,
+            "--to",
+            &collection,
+            "--yes",
+            "--batch-bytes",
+            "1",
+        ],
+        &[],
+    );
+    let run = stderr
+        .lines()
+        .find_map(|l| l.rsplit_once("--resume ").map(|(_, id)| id))
+        .expect("run id in header")
+        .split(',')
+        .next()
+        .unwrap()
+        .to_string();
+
+    let err = fails(&["import", &object, "--resume", &run], &[]);
+    assert!(err.contains("pass --yes"), "got:\n{err}");
+}
+
 #[test_context(Scratch)]
 #[tokio::test]
 async fn spec_only_roundtrip(ctx: &mut Scratch) {
