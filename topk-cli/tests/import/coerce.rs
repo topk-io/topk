@@ -343,10 +343,7 @@ fn documents(
 
 #[test]
 fn custom_id_column() {
-    let target = Target {
-        id: Some("sku".to_string()),
-        ..Default::default()
-    };
+    let target = crate::common::target("f.parquet", "sku", r#"title = { type = "text" }"#);
     let record = vec![("sku".to_string(), Value::string("A-1"))];
     let doc = build_document(&target, record).expect("document");
     assert_eq!(doc.fields["_id"], Value::string("A-1"));

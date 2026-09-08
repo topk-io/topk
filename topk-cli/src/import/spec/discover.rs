@@ -29,12 +29,11 @@ pub fn validate_columns(catalog: &[Table], spec: &Spec) -> Result<(), Error> {
             ))
         };
         // A placeholder id is "not detected", tolerated so --dry-run can show it.
-        if let Some(id) = target.id.as_deref() {
-            if id != ID_PLACEHOLDER && !has(id) {
-                return Err(absent(format!("id column {id:?}")));
-            }
+        let id = target.id_column();
+        if id != ID_PLACEHOLDER && !has(id) {
+            return Err(absent(format!("id column {id:?}")));
         }
-        for (field, spec) in target.fields.iter() {
+        for (field, spec) in target.declared() {
             let column = spec.source(field);
             if !has(column) {
                 return Err(absent(format!(

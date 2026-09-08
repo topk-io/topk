@@ -267,7 +267,7 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
         if let Some((name, _)) = spec
             .collections
             .iter()
-            .find(|(_, target)| target.id.as_deref() == Some(ID_PLACEHOLDER))
+            .find(|(_, target)| target.id_column() == ID_PLACEHOLDER)
         {
             return Err(Error::InvalidArgument(format!(
                 "{name}: couldn't detect an id column — pass `--id <column>`, \
@@ -303,7 +303,7 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
     if args.preview {
         for (name, target) in spec.collections.iter() {
             // Only reachable under --dry-run: a real run refused this above.
-            if target.id.as_deref() == Some(ID_PLACEHOLDER) {
+            if target.id_column() == ID_PLACEHOLDER {
                 import::note(format!("{name}: set `id` to preview rows"));
                 continue;
             }

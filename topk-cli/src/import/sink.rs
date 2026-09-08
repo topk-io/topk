@@ -54,7 +54,7 @@ pub fn build_document(target: &Target, record: Record) -> Result<Document, Error
 
     // The spec is a whitelist; several fields may read one column, the id included.
     let mut pairs: Vec<(String, Value)> = Vec::with_capacity(target.fields.len() + 1);
-    for (name, field) in &target.fields {
+    for (name, field) in target.declared() {
         let missing = || {
             fail(
                 Some(name),

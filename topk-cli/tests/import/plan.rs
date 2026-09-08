@@ -131,7 +131,7 @@ async fn id_placeholder(ctx: &mut Scratch) {
     // captured and filled in; only a real import insists on a resolved id.
     let out = ok(&["import", "-f", &spec, "--dry-run"], &[]);
     assert!(
-        out.contains(r#"id = "<column>""#),
+        out.contains(r#"_id = { from = "<column>" }"#),
         "dry-run must render the placeholder spec:\n{out}"
     );
     let err = fails(&["import", "-f", &spec, "--yes"], &[]);

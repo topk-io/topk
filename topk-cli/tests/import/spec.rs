@@ -151,15 +151,38 @@ t = { type = "text", truncate = 0 }
 "#,
     "at least 1 character"
 )]
-#[case::a_field_named_underscore_id(
+#[case::an_indexed_id(
     r#"
 [c]
 from = "f.parquet"
 
 [c.fields]
-_id = { type = "text" }
+_id = { from = "sku", index = "keyword" }
+title = { type = "text" }
 "#,
-    "cannot be empty or start with `_`"
+    "`_id` takes `from` alone"
+)]
+#[case::an_id_declared_twice(
+    r#"
+[c]
+from = "f.parquet"
+id = "sku"
+
+[c.fields]
+_id = { from = "isbn" }
+title = { type = "text" }
+"#,
+    "set the id column once"
+)]
+#[case::an_id_and_nothing_else(
+    r#"
+[c]
+from = "f.parquet"
+
+[c.fields]
+_id = { from = "sku" }
+"#,
+    "declare at least one field"
 )]
 #[case::a_field_with_reserved_prefix(
     r#"
@@ -235,8 +258,12 @@ title = { type = "text" }
     .expect("spec parses");
     let target = &spec.collections["c"];
     assert_eq!(target.from, "books.parquet");
-    assert_eq!(target.id, None);
-    assert_eq!(target.fields.len(), 1);
+    assert_eq!(
+        target.id_column(),
+        "_id",
+        "no id declared reads the `_id` column"
+    );
+    assert_eq!(target.declared().count(), 1);
 }
 
 #[test]
@@ -318,7 +345,7 @@ page_counts = { type = "int_list" }
         .expect("prints");
     let reparsed = toml::from_str::<Spec>(&printed).expect("printed spec reads back");
     assert_eq!(reparsed.collections["books"].from, "public.books");
-    assert_eq!(reparsed.collections["books"].id.as_deref(), Some("sku"));
+    assert_eq!(reparsed.collections["books"].id_column(), "sku");
     assert!(reparsed.collections["books"].fields["title"].required);
     assert_eq!(reparsed.collections["books"].limit, Some(10));
     assert_eq!(
@@ -326,7 +353,8 @@ page_counts = { type = "int_list" }
             .fields
             .keys()
             .collect::<Vec<_>>(),
-        ["title", "embedding", "page_counts"]
+        ["_id", "title", "embedding", "page_counts"],
+        "the key comes first, and `id = ` round-trips as `_id`"
     );
     assert_eq!(
         toml::to_string_pretty(&reparsed).expect("prints"),

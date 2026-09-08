@@ -129,18 +129,20 @@ Resume skips finished collections and continues the in-flight one from a checkpo
 
 #### Spec
 
-One TOML table per collection — `from`, `id`, `filter`/`partition`/`limit` as the flags, and a `fields` whitelist (only declared fields import):
+One TOML table per collection — `from`, `filter`/`partition`/`limit` as the flags, and a `fields` whitelist (only declared fields import). `_id` is every document's key: give it the column it reads, and nothing else.
 
 ```toml
 [books]
 from = "public.books"
-id = "sku"
 
 [books.fields]
+_id = { from = "sku" }
 title = { type = "text", index = "semantic" }
 year = { type = "int", from = "published_year" }
 embedding = { type = "f32_vector", dim = 768, index = { vector = { metric = "cosine" } } }
 ```
+
+Without `_id` the source's own `_id` column is read. `id = "sku"` beside `from` is the old spelling and still works.
 
 | field key | |
 | --- | --- |

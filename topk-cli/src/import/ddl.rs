@@ -14,8 +14,7 @@ pub async fn absent(client: &Client, spec: &Spec) -> Result<HashMap<String, Sche
     let mut schemas: Vec<(&str, Schema)> = Vec::with_capacity(spec.collections.len());
     for (name, target) in spec.collections.iter() {
         let schema: Schema = target
-            .fields
-            .iter()
+            .declared()
             .map(|(name, field)| Ok((name.clone(), FieldSpec::try_from(field)?)))
             .collect::<Result<_, Error>>()?;
         schemas.push((name, schema));

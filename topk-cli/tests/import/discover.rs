@@ -75,7 +75,7 @@ async fn underscore_columns_are_renamed(ctx: &mut Scratch) {
 
     let spec = discover_spec(&path, None).await;
     let target = &spec.collections["tdf"];
-    assert_eq!(target.id.as_deref(), Some("_id"));
+    assert_eq!(target.id_column(), "_id");
     assert_eq!(target.fields["lang"].from.as_deref(), Some("_lang"));
     assert_eq!(target.fields["n_chars"].from.as_deref(), Some("_n_chars"));
     // A column that never needed renaming keeps its name and carries no `from`.
@@ -142,10 +142,7 @@ async fn primary_key_id() {
     let table = pg::Pg::seed_keyed_on("sku");
     let spec = discover_spec(pg::Pg::URL, Some(&table)).await;
     let collection = table.rsplit('.').next().unwrap();
-    assert_eq!(
-        spec.collections.get(collection).unwrap().id.as_deref(),
-        Some("sku")
-    );
+    assert_eq!(spec.collections.get(collection).unwrap().id_column(), "sku");
 }
 
 #[tokio::test]
@@ -154,8 +151,8 @@ async fn composite_key() {
     let spec = discover_spec(pg::Pg::URL, Some(&table)).await;
     let collection = table.rsplit('.').next().unwrap();
     assert_eq!(
-        spec.collections.get(collection).unwrap().id.as_deref(),
-        Some("<column>")
+        spec.collections.get(collection).unwrap().id_column(),
+        "<column>"
     );
 }
 

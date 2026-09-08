@@ -23,17 +23,16 @@ async fn discovered_types(#[case] backend: Box<dyn Seed>) {
         .get(name.as_str())
         .unwrap_or_else(|| panic!("no target {name}"));
 
-    assert_eq!(target.id.as_deref(), Some("_id"));
+    assert_eq!(target.id_column(), "_id");
     assert_eq!(
-        target.fields.len(),
+        target.declared().count(),
         5,
         "unexpected fields: {:?}",
-        target.fields.keys().collect::<Vec<_>>()
+        target.declared().map(|(name, _)| name).collect::<Vec<_>>()
     );
     // `in_print` is pinned separately: sqlite's affinity typing reports int.
     let types: BTreeMap<&str, String> = target
-        .fields
-        .iter()
+        .declared()
         .filter(|(name, _)| name.as_str() != "in_print")
         .map(|(name, field)| (name.as_str(), field.ty.to_string()))
         .collect();

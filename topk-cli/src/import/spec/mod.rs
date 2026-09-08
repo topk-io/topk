@@ -26,7 +26,8 @@ pub struct Spec {
 pub struct Target {
     pub from: String,
 
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The old spelling of `_id = { from = "…" }`; read, never written.
+    #[serde(default, skip_serializing)]
     pub id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -38,14 +39,47 @@ pub struct Target {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub limit: Option<u64>,
 
-    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+    #[serde(
+        default,
+        skip_serializing_if = "IndexMap::is_empty",
+        deserialize_with = "fields"
+    )]
     pub fields: IndexMap<String, Field>,
 }
 
+/// `_id` is the one field whose `type` is implied: a document's key is text.
+fn fields<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<IndexMap<String, Field>, D::Error> {
+    let mut raw = IndexMap::<String, toml::Value>::deserialize(deserializer)?;
+    if let Some(toml::Value::Table(id)) = raw.get_mut(ID) {
+        id.entry("type".to_string())
+            .or_insert_with(|| toml::Value::String("text".to_string()));
+    }
+    raw.into_iter()
+        .map(|(name, value)| {
+            // Reading a field through a `Value` loses the caret, so name it.
+            let field = value
+                .try_into()
+                .map_err(|e| serde::de::Error::custom(format!("{name}: {e}")))?;
+            Ok((name, field))
+        })
+        .collect()
+}
+
 impl Target {
-    /// The source column used as the document id.
+    /// The source column `_id` reads, itself by default.
     pub fn id_column(&self) -> &str {
-        self.id.as_deref().unwrap_or(ID)
+        self.fields
+            .get(ID)
+            .and_then(|field| field.from.as_deref())
+            .unwrap_or(ID)
+    }
+
+    /// The declared fields, which `_id` is not: it is every document's key,
+    /// never part of a collection's schema.
+    pub fn declared(&self) -> impl Iterator<Item = (&String, &Field)> {
+        self.fields.iter().filter(|(name, _)| *name != ID)
     }
 
     pub fn parsed_filter<F: FromStr<Err = Error>>(&self) -> Result<Option<F>, Error> {
@@ -102,8 +136,8 @@ impl<'de> Deserialize<'de> for Spec {
 impl TryFrom<IndexMap<String, Target>> for Spec {
     type Error = Error;
 
-    fn try_from(collections: IndexMap<String, Target>) -> Result<Spec, Error> {
-        for (name, target) in collections.iter() {
+    fn try_from(mut collections: IndexMap<String, Target>) -> Result<Spec, Error> {
+        for (name, target) in collections.iter_mut() {
             collection_name(name)?;
             if target.from.trim().is_empty() {
                 return Err(Error::InvalidArgument(
@@ -111,14 +145,46 @@ impl TryFrom<IndexMap<String, Target>> for Spec {
                         .to_string(),
                 ));
             }
+            match target.id.take() {
+                Some(_) if target.fields.contains_key(ID) => {
+                    return Err(Error::InvalidArgument(format!(
+                        "{name}: set the id column once, as `_id = {{ from = … }}`"
+                    )))
+                }
+                // `id = "col"` is how it used to be spelled.
+                Some(id) => {
+                    target.fields.shift_insert(
+                        0,
+                        ID.to_string(),
+                        Field {
+                            from: Some(id),
+                            ..Default::default()
+                        },
+                    );
+                }
+                None => {}
+            }
             // The spec is a whitelist, so no fields would import ids and nothing else.
-            if target.fields.is_empty() {
+            if target.declared().next().is_none() {
                 return Err(Error::InvalidArgument(format!(
                     "{name}: declare at least one field under [{name}.fields] — only \
                      declared fields are imported"
                 )));
             }
-            for (field_name, field) in &target.fields {
+            if let Some(id) = target.fields.get(ID) {
+                let bare = Field {
+                    from: id.from.clone(),
+                    ..Default::default()
+                };
+                if *id != bare {
+                    return Err(Error::InvalidArgument(
+                        "`_id` takes `from` alone — a document's key is the column's value \
+                         as text, never indexed"
+                            .to_string(),
+                    ));
+                }
+            }
+            for (field_name, field) in target.declared() {
                 if field_name.is_empty() || field_name.starts_with('_') {
                     return Err(Error::InvalidArgument(format!(
                         "{field_name:?}: field names cannot be empty or start with `_` — \
