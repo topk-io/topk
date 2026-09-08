@@ -5,9 +5,9 @@ use topk::import::{Cursor, Mark, Spec, State};
 
 fn spec(a: &str, b: &str, c: &str) -> String {
     format!(
-        "[a]\nfrom = \"a.parquet\"\nid = \"_id\"\n{a}\n[a.fields]\ntitle = {{ type = \"text\" }}\n\n\
-         [b]\nfrom = \"b.parquet\"\nid = \"_id\"\n{b}\n[b.fields]\ntitle = {{ type = \"text\" }}\n\n\
-         [c]\nfrom = \"c.parquet\"\nid = \"_id\"\n{c}\n[c.fields]\ntitle = {{ type = \"text\" }}\n"
+        "[a]\nfrom = \"a.parquet\"\n{a}\n[a.fields]\ntitle = {{ type = \"text\" }}\n\n\
+         [b]\nfrom = \"b.parquet\"\n{b}\n[b.fields]\ntitle = {{ type = \"text\" }}\n\n\
+         [c]\nfrom = \"c.parquet\"\n{c}\n[c.fields]\ntitle = {{ type = \"text\" }}\n"
     )
 }
 

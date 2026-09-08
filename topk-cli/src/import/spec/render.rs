@@ -20,12 +20,7 @@ pub fn render(spec: &Spec) -> String {
         for (mut key, field) in fields.iter_mut() {
             if let Some(table) = field.as_table() {
                 key.fmt();
-                let mut table = table.clone().into_inline_table();
-                // A document's key is always text; saying so reads as a choice.
-                if key.get() == crate::import::ID {
-                    table.remove("type");
-                }
-                *field = Item::Value(Value::InlineTable(table));
+                *field = Item::Value(Value::InlineTable(table.clone().into_inline_table()));
             }
         }
     }

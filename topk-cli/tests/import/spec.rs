@@ -162,17 +162,16 @@ title = { type = "text" }
 "#,
     "`_id` takes `from` alone"
 )]
-#[case::an_id_declared_twice(
+#[case::the_old_id_spelling(
     r#"
 [c]
 from = "f.parquet"
 id = "sku"
 
 [c.fields]
-_id = { from = "isbn" }
 title = { type = "text" }
 "#,
-    "set the id column once"
+    r#"`id = "sku"` is now a field"#
 )]
 #[case::an_id_and_nothing_else(
     r#"
@@ -203,7 +202,6 @@ fn invalid_targets(#[case] toml: &str, #[case] fragment: &str) {
 #[case::missing_from(
     r#"
 [c]
-id = "_id"
 "#
 )]
 #[case::unknown_target_key(
@@ -281,7 +279,6 @@ fn selection_options() {
         r#"
 [c]
 from = "public.books"
-id = "sku"
 filter = "published_year > 1950"
 limit = 25
 
@@ -333,10 +330,10 @@ fn serialize_round_trip() {
     let toml = r#"
 [books]
 from = "public.books"
-id = "sku"
 limit = 10
 
 [books.fields]
+_id = { from = "sku" }
 title = { type = "text", required = true, index = "keyword" }
 embedding = { from = "vec", type = "f32_vector", dim = 3, index = { vector = { metric = "cosine" } } }
 page_counts = { type = "int_list" }

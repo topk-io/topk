@@ -11,7 +11,7 @@ use crate::import::ID;
 mod discover;
 mod field;
 mod render;
-pub use discover::{discover, validate_columns};
+pub use discover::{bind_columns, discover};
 pub use field::{Element, Field, Index, Type};
 pub use render::{inline, render};
 
@@ -39,32 +39,8 @@ pub struct Target {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub limit: Option<u64>,
 
-    #[serde(
-        default,
-        skip_serializing_if = "IndexMap::is_empty",
-        deserialize_with = "fields"
-    )]
+    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     pub fields: IndexMap<String, Field>,
-}
-
-/// `_id` is the one field whose `type` is implied: a document's key is text.
-fn fields<'de, D: serde::Deserializer<'de>>(
-    deserializer: D,
-) -> Result<IndexMap<String, Field>, D::Error> {
-    let mut raw = IndexMap::<String, toml::Value>::deserialize(deserializer)?;
-    if let Some(toml::Value::Table(id)) = raw.get_mut(ID) {
-        id.entry("type".to_string())
-            .or_insert_with(|| toml::Value::String("text".to_string()));
-    }
-    raw.into_iter()
-        .map(|(name, value)| {
-            // Reading a field through a `Value` loses the caret, so name it.
-            let field = value
-                .try_into()
-                .map_err(|e| serde::de::Error::custom(format!("{name}: {e}")))?;
-            Ok((name, field))
-        })
-        .collect()
 }
 
 impl Target {
@@ -145,24 +121,11 @@ impl TryFrom<IndexMap<String, Target>> for Spec {
                         .to_string(),
                 ));
             }
-            match target.id.take() {
-                Some(_) if target.fields.contains_key(ID) => {
-                    return Err(Error::InvalidArgument(format!(
-                        "{name}: set the id column once, as `_id = {{ from = … }}`"
-                    )))
-                }
-                // `id = "col"` is how it used to be spelled.
-                Some(id) => {
-                    target.fields.shift_insert(
-                        0,
-                        ID.to_string(),
-                        Field {
-                            from: Some(id),
-                            ..Default::default()
-                        },
-                    );
-                }
-                None => {}
+            if let Some(id) = target.id.take() {
+                return Err(Error::InvalidArgument(format!(
+                    "{name}: `id = {id:?}` is now a field — \
+                     write `{ID} = {{ from = {id:?} }}` under [{name}.fields]"
+                )));
             }
             // The spec is a whitelist, so no fields would import ids and nothing else.
             if target.declared().next().is_none() {
@@ -191,7 +154,10 @@ impl TryFrom<IndexMap<String, Target>> for Spec {
                          read the column under another name with `from = {field_name:?}`"
                     )));
                 }
-                FieldSpec::try_from(field)?;
+                if field.ty.is_some() {
+                    FieldSpec::try_from(field)
+                        .map_err(|e| Error::InvalidArgument(format!("{field_name}: {e}")))?;
+                }
             }
         }
         Ok(Spec { collections })

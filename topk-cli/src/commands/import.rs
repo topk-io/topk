@@ -120,7 +120,7 @@ async fn plan(
 ) -> Result<Spec, Error> {
     // Discovery reads the CLI source's catalog; a spec brings its own collections
     // but reuses that catalog when a source was named.
-    let (mut spec, shared) = match given {
+    let (spec, shared) = match given {
         None => {
             let catalog = source.catalog().await?;
             let spec = import::discover(
@@ -146,7 +146,7 @@ async fn plan(
         Some(_) => Vec::new(),
         None => file_catalogs(&spec, endpoint).await?,
     };
-    import::validate_columns(&catalog, &spec)?;
+    let mut spec = import::bind_columns(&catalog, spec)?;
     // A filter names one object's columns.
     if args.filter.is_some() && spec.collections.len() > 1 {
         return Err(Error::InvalidArgument(format!(

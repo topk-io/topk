@@ -14,8 +14,9 @@ pub struct Field {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub from: Option<String>,
 
-    #[serde(rename = "type")]
-    pub ty: Type,
+    /// Absent until `plan` reads it off the source column.
+    #[serde(default, rename = "type", skip_serializing_if = "Option::is_none")]
+    pub ty: Option<Type>,
 
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub required: bool,
@@ -35,10 +36,9 @@ pub struct Field {
     pub index: Option<Index>,
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(try_from = "String", into = "String")]
 pub enum Type {
-    #[default]
     Text,
     Int,
     Float,
@@ -267,25 +267,27 @@ impl TryFrom<&Field> for FieldSpec {
     type Error = Error;
 
     fn try_from(field: &Field) -> Result<Self, Self::Error> {
-        let vector = field.ty.is_dense();
-        let matrix = field.ty.is_matrix();
+        let ty = field.ty.ok_or_else(|| {
+            Error::InvalidArgument(
+                "no `type`, and the source does not report one — declare it".to_string(),
+            )
+        })?;
+        let vector = ty.is_dense();
+        let matrix = ty.is_matrix();
 
         if vector && field.dim.is_none() {
-            return Err(Error::InvalidArgument(format!(
-                "{} requires `dim`",
-                field.ty
-            )));
+            return Err(Error::InvalidArgument(format!("{} requires `dim`", ty)));
         }
         if !vector && field.dim.is_some() {
             return Err(Error::InvalidArgument(format!(
                 "{} does not take `dim`",
-                field.ty
+                ty
             )));
         }
-        if field.truncate.is_some() && !matches!(field.ty, Type::Text) {
+        if field.truncate.is_some() && !matches!(ty, Type::Text) {
             return Err(Error::InvalidArgument(format!(
                 "{} does not take `truncate`",
-                field.ty
+                ty
             )));
         }
         if field.truncate == Some(0) {
@@ -294,26 +296,23 @@ impl TryFrom<&Field> for FieldSpec {
             ));
         }
         if matrix && field.cols.is_none() {
-            return Err(Error::InvalidArgument(format!(
-                "{} requires `cols`",
-                field.ty
-            )));
+            return Err(Error::InvalidArgument(format!("{} requires `cols`", ty)));
         }
         if !matrix && field.cols.is_some() {
             return Err(Error::InvalidArgument(format!(
                 "{} does not take `cols`",
-                field.ty
+                ty
             )));
         }
 
         if let Some(index) = field.index {
             let (ok, kind, needs) = match index {
-                Index::Keyword => (matches!(field.ty, Type::Text), "keyword", "a `text` field"),
-                Index::Exact => (matches!(field.ty, Type::Text), "exact", "a `text` field"),
-                Index::Semantic => (matches!(field.ty, Type::Text), "semantic", "a `text` field"),
-                Index::Ngram => (matches!(field.ty, Type::Text), "ngram", "a `text` field"),
+                Index::Keyword => (matches!(ty, Type::Text), "keyword", "a `text` field"),
+                Index::Exact => (matches!(ty, Type::Text), "exact", "a `text` field"),
+                Index::Semantic => (matches!(ty, Type::Text), "semantic", "a `text` field"),
+                Index::Ngram => (matches!(ty, Type::Text), "ngram", "a `text` field"),
                 Index::Vector { .. } => (
-                    vector || field.ty.is_sparse(),
+                    vector || ty.is_sparse(),
                     "vector",
                     "a vector or sparse vector field",
                 ),
@@ -326,7 +325,7 @@ impl TryFrom<&Field> for FieldSpec {
             }
         }
 
-        let spec = match field.ty {
+        let spec = match ty {
             Type::Text => FieldSpec::text(field.required),
             Type::Int => FieldSpec::integer(field.required),
             Type::Float => FieldSpec::float(field.required),
@@ -375,13 +374,13 @@ impl From<&FieldSpec> for Field {
         let index = index(spec);
         let required = spec.required;
         let plain = |ty| Field {
-            ty,
+            ty: Some(ty),
             index,
             required,
             ..Default::default()
         };
         let vector = |ty, dim| Field {
-            ty,
+            ty: Some(ty),
             dim: Some(dim),
             index,
             required,
@@ -416,13 +415,13 @@ impl From<&FieldSpec> for Field {
             field_type::DataType::Matrix(m) => Field {
                 index,
                 required,
-                ty: Type::Matrix(match m.value_type() {
+                ty: Some(Type::Matrix(match m.value_type() {
                     MatrixValueType::F16 => Element::F16,
                     MatrixValueType::F8 => Element::F8,
                     MatrixValueType::U8 => Element::U8,
                     MatrixValueType::I8 => Element::I8,
                     _ => Element::F32,
-                }),
+                })),
                 cols: Some(m.dimension),
                 ..Default::default()
             },

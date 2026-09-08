@@ -307,7 +307,7 @@ impl Duckdb {
                         (
                             field.name().clone(),
                             Field {
-                                ty: arrow::ty(field.data_type()),
+                                ty: Some(arrow::ty(field.data_type())),
                                 ..Default::default()
                             },
                         )

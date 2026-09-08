@@ -48,7 +48,7 @@ pub async fn preview(source: &Source, target: &Target, json: bool) -> Result<(),
             .map(|(key, value)| {
                 let value = serde_json::Value::try_from(value)?;
                 // The schema types the field; the value travels as epoch millis.
-                let value = match target.fields.get(&key).map(|field| field.ty) {
+                let value = match target.fields.get(&key).and_then(|field| field.ty) {
                     Some(Type::Timestamp) => instant(&value).unwrap_or(value),
                     _ => value,
                 };

@@ -34,7 +34,12 @@ async fn discovered_types(#[case] backend: Box<dyn Seed>) {
     let types: BTreeMap<&str, String> = target
         .declared()
         .filter(|(name, _)| name.as_str() != "in_print")
-        .map(|(name, field)| (name.as_str(), field.ty.to_string()))
+        .map(|(name, field)| {
+            (
+                name.as_str(),
+                field.ty.expect("a discovered type").to_string(),
+            )
+        })
         .collect();
     assert_eq!(
         types,
@@ -58,6 +63,7 @@ async fn sqlite_bool_is_int() {
     assert_eq!(
         spec.collections[name.as_str()].fields["in_print"]
             .ty
+            .expect("a discovered type")
             .to_string(),
         "int"
     );

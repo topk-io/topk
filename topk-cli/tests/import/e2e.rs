@@ -39,9 +39,8 @@ async fn all_types(ctx: &mut Ctx) {
         "[{collection}]
 from = {path:?}
 
-id = \"id\"
-
 [{collection}.fields]
+_id = {{ from = \"id\" }}
 n = {{ type = \"int\" }}
 blob = {{ type = \"bytes\" }}
 st = {{ type = \"struct\" }}
@@ -98,9 +97,8 @@ async fn matrix_maxsim(ctx: &mut Ctx) {
         "[{collection}]
 from = {path:?}
 
-id = \"id\"
-
 [{collection}.fields]
+_id = {{ from = \"id\" }}
 mat = {{ type = \"f32_matrix\", cols = 3, index = {{ multi_vector = {{}} }} }}
 "
     );
@@ -558,9 +556,8 @@ async fn several_fields_read_one_column(ctx: &mut Ctx) {
         "[{collection}]
 from = {path:?}
 
-id = \"id\"
-
 [{collection}.fields]
+_id = {{ from = \"id\" }}
 body = {{ type = \"text\" }}
 copy = {{ from = \"body\", type = \"text\" }}
 short = {{ from = \"body\", type = \"text\", truncate = 2 }}

@@ -11,7 +11,9 @@ impl Field {
         if value.as_null().is_some() {
             return Ok(value);
         }
-        let ty = self.ty;
+        let ty = self
+            .ty
+            .ok_or_else(|| Error::InvalidArgument("no `type` for this field".to_string()))?;
         // Container types accept JSON in a string cell (CSV, TEXT columns).
         let value = match value.as_string().filter(|_| !ty.is_scalar()) {
             Some(json) => serde_json::from_str::<topk_rs::json::Value>(json)?.into_inner(),
@@ -68,7 +70,7 @@ impl Field {
             _ => {
                 let (shape, nums) = match ty {
                     Type::FloatList => (Shape::Dense, floats(&value).ok_or_else(cannot)?),
-                    _ if ty.is_dense() => (Shape::Dense, dense_floats(value, self)?),
+                    _ if ty.is_dense() => (Shape::Dense, dense_floats(value, self, ty)?),
                     _ if ty.is_matrix() => {
                         let cols = self.cols.ok_or_else(|| {
                             Error::InvalidArgument(format!("{ty} requires `cols`"))
@@ -179,14 +181,14 @@ where
 
 /// Numeric elements of a declared vector, checked against `dim`. Accepts a JSON
 /// string cell (pgvector's text form) and a binary cell holding a packed array.
-fn dense_floats(value: Value, field: &Field) -> Result<Vec<f64>, Error> {
+fn dense_floats(value: Value, field: &Field, ty: Type) -> Result<Vec<f64>, Error> {
     let dim = field
         .dim
-        .ok_or_else(|| Error::InvalidArgument(format!("{} requires `dim`", field.ty)))?;
+        .ok_or_else(|| Error::InvalidArgument(format!("{ty} requires `dim`")))?;
     if let Some(bytes) = value.as_binary() {
-        return packed_floats(bytes, dim as usize, field.ty);
+        return packed_floats(bytes, dim as usize, ty);
     }
-    let nums = floats(&value).ok_or(Error::CannotCoerce(field.ty))?;
+    let nums = floats(&value).ok_or(Error::CannotCoerce(ty))?;
     if nums.len() != dim as usize {
         return Err(Error::InvalidArgument(format!(
             "vector has {} values, declared dim={dim}",

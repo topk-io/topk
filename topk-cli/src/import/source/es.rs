@@ -131,7 +131,7 @@ impl Es {
                 let columns = std::iter::once((
                     ID.to_string(),
                     Field {
-                        ty: Type::Text,
+                        ty: Some(Type::Text),
                         ..Default::default()
                     },
                 ))

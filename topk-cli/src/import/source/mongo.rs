@@ -103,12 +103,12 @@ impl Mongo {
                 .map(|(name, (ty, len))| {
                     let field = match len {
                         Some(dim) if dim > 0 && matches!(ty, Type::FloatList) => Field {
-                            ty: Type::Vector(Element::F32),
+                            ty: Some(Type::Vector(Element::F32)),
                             dim: Some(dim),
                             ..Default::default()
                         },
                         _ => Field {
-                            ty,
+                            ty: Some(ty),
                             ..Default::default()
                         },
                     };

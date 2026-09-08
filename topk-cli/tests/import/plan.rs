@@ -337,3 +337,42 @@ async fn a_bare_dry_run_reads_no_rows(ctx: &mut Scratch) {
         "no row should be read:\n{printed}"
     );
 }
+
+/// A field declares what to change; the source says what the column is.
+#[test_context(Scratch)]
+#[tokio::test]
+async fn an_absent_type_comes_from_the_source(ctx: &mut Scratch) {
+    let path = ctx.sql_parquet("kinds", "SELECT 1 AS id, 'x' AS body, 2.5 AS score");
+    let fields = |extra: &str| {
+        ctx.spec_file(&format!(
+            "[c]\nfrom = {path:?}\n\n[c.fields]\n_id = {{ from = \"id\" }}\n{extra}"
+        ))
+    };
+
+    let out = ok(
+        &[
+            "import",
+            "-f",
+            &fields("body = { index = \"keyword\" }\nscore = {}\n"),
+            "--dry-run",
+        ],
+        &[],
+    );
+    assert!(
+        out.contains(r#"body = { type = "text", index = "keyword" }"#),
+        "got:\n{out}"
+    );
+    assert!(out.contains(r#"score = { type = "float" }"#), "got:\n{out}");
+
+    // The resolved type is what an index is checked against.
+    let err = fails(
+        &[
+            "import",
+            "-f",
+            &fields("score = { index = \"exact\" }\n"),
+            "--dry-run",
+        ],
+        &[],
+    );
+    assert!(err.contains("needs a `text` field"), "got:\n{err}");
+}

@@ -44,7 +44,10 @@ async fn float_lists_stay_lists(ctx: &mut Scratch) {
 
     let spec = discover_spec(&path, None).await;
     let field = &spec.collections["emb"].fields["embedding"];
-    assert_eq!(field.ty.to_string(), "float_list");
+    assert_eq!(
+        field.ty.expect("a discovered type").to_string(),
+        "float_list"
+    );
     assert_eq!(field.dim, None);
 }
 
@@ -59,8 +62,14 @@ async fn date_and_timestamp_columns_are_timestamps(ctx: &mut Scratch) {
 
     let spec = discover_spec(&path, None).await;
     let fields = &spec.collections["when"].fields;
-    assert_eq!(fields["d"].ty.to_string(), "timestamp");
-    assert_eq!(fields["ts"].ty.to_string(), "timestamp");
+    assert_eq!(
+        fields["d"].ty.expect("a discovered type").to_string(),
+        "timestamp"
+    );
+    assert_eq!(
+        fields["ts"].ty.expect("a discovered type").to_string(),
+        "timestamp"
+    );
 }
 
 /// Field names may not start with `_`, but sources use that for their own
@@ -259,5 +268,8 @@ async fn sparse_structs_become_sparse_vectors(ctx: &mut Scratch) {
 
     let spec = discover_spec(&path, None).await;
     let field = &spec.collections["sv"].fields["sv"];
-    assert_eq!(field.ty.to_string(), "f32_sparse_vector");
+    assert_eq!(
+        field.ty.expect("a discovered type").to_string(),
+        "f32_sparse_vector"
+    );
 }

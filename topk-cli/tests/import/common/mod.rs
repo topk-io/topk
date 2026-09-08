@@ -160,7 +160,7 @@ pub fn fields<const N: usize>(entries: [(&str, Field); N]) -> IndexMap<String, F
 
 /// A one-collection spec as TOML; `fields` is the body of `[c.fields]`.
 pub fn spec_toml(from: &str, id: &str, fields: &str) -> String {
-    format!("[c]\nfrom = {from:?}\nid = {id:?}\n\n[c.fields]\n{fields}\n")
+    format!("[c]\nfrom = {from:?}\n\n[c.fields]\n_id = {{ from = {id:?} }}\n{fields}\n")
 }
 
 /// A target through the real spec parser, so a test cannot build one the TOML

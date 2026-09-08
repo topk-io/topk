@@ -142,11 +142,13 @@ year = { type = "int", from = "published_year" }
 embedding = { type = "f32_vector", dim = 768, index = { vector = { metric = "cosine" } } }
 ```
 
-Without `_id` the source's own `_id` column is read. `id = "sku"` beside `from` is the old spelling and still works.
+Without `_id` the source's own `_id` column is read.
+
+A field only has to declare what differs from the source: `body = {}` imports the column as it comes, and `title = { index = "semantic" }` types itself off the source and adds the index. Declaring `type` converts instead, and a source whose shape is sampled rather than listed — mongodb — has nothing to read a type from, so its fields must state one.
 
 | field key | |
 | --- | --- |
-| `type` | `text` `int` `float` `bool` `bytes` `timestamp` `struct` `*_list` `*_vector` `*_matrix` `*_sparse_vector` |
+| `type` | `text` `int` `float` `bool` `bytes` `timestamp` `struct` `*_list` `*_vector` `*_matrix` `*_sparse_vector`; omit it to take the source column's |
 | `from` | source column, when the name differs |
 | `required` | fail the document if missing |
 | `truncate` | max chars, text only |

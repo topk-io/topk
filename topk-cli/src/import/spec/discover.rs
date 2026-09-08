@@ -6,43 +6,61 @@ use wildmatch::WildMatch;
 use crate::import::error::Error;
 use crate::import::source::Table;
 use crate::import::spec::{collection_key, Field, Spec, Target};
-use crate::import::ID_PLACEHOLDER;
+use crate::import::{ID, ID_PLACEHOLDER};
 
-/// Every column a target reads — its id, and each field's source — must be one
-/// the catalog lists, or the run sinks one row in (after the collection exists),
-/// and a non-required field imports silent nulls. Caught here before any cluster
-/// write, for a spec however it was assembled: discovered, `-f`, or resumed. The
-/// caller skips this for a non-exhaustive catalog (a sampled source), where an
-/// absent column is not proof the source lacks it.
-pub fn validate_columns(catalog: &[Table], spec: &Spec) -> Result<(), Error> {
-    for (name, target) in spec.collections.iter() {
-        let Some(table) = catalog.iter().find(|table| table.from == target.from) else {
-            continue;
+/// Bind every field to the source column it reads: the column has to be one the
+/// catalog lists, and a field that declares no `type` takes the column's. Caught
+/// before any cluster write, for a spec however it was assembled: discovered,
+/// `-f`, or resumed. A sampled catalog (mongodb) lists nothing to bind against,
+/// where an absent column is no proof the source lacks it — there a field has to
+/// declare its own type.
+pub fn bind_columns(catalog: &[Table], spec: Spec) -> Result<Spec, Error> {
+    let mut collections = spec.collections;
+    for (name, target) in collections.iter_mut() {
+        let from = target.from.clone();
+        let table = catalog.iter().find(|table| table.from == from);
+        let column = |wanted: &str| {
+            table.and_then(|table| table.columns.iter().find(|(name, _)| name == wanted))
         };
-        let has = |column: &str| table.columns.iter().any(|(c, _)| c == column);
         let absent = |what: String| {
-            let available: Vec<&str> = table.columns.iter().map(|(c, _)| c.as_str()).collect();
+            let available: Vec<&str> = table
+                .map(|table| table.columns.iter().map(|(c, _)| c.as_str()).collect())
+                .unwrap_or_default();
             Error::InvalidArgument(format!(
-                "{name}: {what} is not in {:?} — available: {}",
-                target.from,
+                "{name}: {what} is not in {from:?} — available: {}",
                 available.join(", ")
             ))
         };
         // A placeholder id is "not detected", tolerated so --dry-run can show it.
         let id = target.id_column();
-        if id != ID_PLACEHOLDER && !has(id) {
+        if table.is_some() && id != ID_PLACEHOLDER && column(id).is_none() {
             return Err(absent(format!("id column {id:?}")));
         }
-        for (field, spec) in target.declared() {
-            let column = spec.source(field);
-            if !has(column) {
+        for (field_name, field) in target.fields.iter_mut() {
+            // The key's column is checked above, and its type is never read.
+            if field_name == ID {
+                continue;
+            }
+            let source = field.from.clone().unwrap_or_else(|| field_name.clone());
+            let found = column(&source);
+            if table.is_some() && found.is_none() {
                 return Err(absent(format!(
-                    "field {field:?} reads column {column:?}, which"
+                    "field {field_name:?} reads column {source:?}, which"
+                )));
+            }
+            if field.ty.is_none() {
+                field.ty = found.and_then(|(_, source)| source.ty);
+            }
+            if field.ty.is_none() {
+                return Err(Error::InvalidArgument(format!(
+                    "{name}.{field_name}: declare `type` — {from:?} reports none for \
+                     column {source:?}"
                 )));
             }
         }
     }
-    Ok(())
+    // Back through the one door, now that every field has a type.
+    Spec::try_from(collections)
 }
 
 pub fn discover(
@@ -130,7 +148,7 @@ pub fn discover(
 
         let target = Target::from(object);
         // An id-only object must not sink a whole-database glob.
-        if target.fields.is_empty() {
+        if target.declared().next().is_none() {
             crate::import::note(format!(
                 "skipping {}: no columns to import besides the id",
                 target.from
@@ -210,10 +228,18 @@ impl From<Table> for Target {
             }
         }
 
+        // The key comes first, as the field it is.
+        fields.shift_insert(
+            0,
+            ID.to_string(),
+            Field {
+                from: Some(id),
+                ..Default::default()
+            },
+        );
         Target {
             fields,
             from: table.from,
-            id: Some(id),
             ..Default::default()
         }
     }
