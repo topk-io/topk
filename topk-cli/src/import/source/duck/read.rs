@@ -11,7 +11,7 @@ use crate::import::source::codec::arrow;
 use crate::import::source::{Chunk, Cursor, Record};
 use crate::import::spec::Target;
 
-use super::file::{local_path, reader, File};
+use super::file::{local_path, reader, File, ObjectStore};
 use super::select::Select;
 use super::{lit, read_error, Duckdb, READER_MEMORY};
 
@@ -54,12 +54,23 @@ impl Position {
 }
 
 /// Files decoded ahead of the one being upserted. A single-row-group parquet is
-/// read whole before its first row, so each file boundary stalls the sink. One
-/// ahead was enough on s3 (29 → 41 MiB/s, and two measured the same), but a
-/// higher-latency store is bound by round trips, not bandwidth: over hf:// the
-/// same import runs 1234 → 2067 rows/s going from one ahead to seven. They share
-/// the scan's connection, so the depth costs round trips, not another buffer pool.
-const READ_AHEAD: usize = 7;
+/// read whole before its first row, so each file boundary stalls the sink, and
+/// one ahead covers it wherever bandwidth is the bound: s3 measured 29 → 41 MiB/s
+/// for the first and nothing for the second, local disk nothing at all. Readers
+/// share the scan's connection and so its buffer pool, but not their arrow
+/// batches — depth 7 measured +740 MiB against depth 1 for equal throughput.
+const READ_AHEAD: usize = 1;
+
+/// A round-trip-bound store is the exception: over hf:// the same import runs
+/// 1234 → 2067 rows/s going from one ahead to seven, which is worth the memory.
+const READ_AHEAD_ROUND_TRIP: usize = 7;
+
+fn read_ahead(file: &File) -> usize {
+    match file.store {
+        Some(ObjectStore::HuggingFace | ObjectStore::Http) => READ_AHEAD_ROUND_TRIP,
+        _ => READ_AHEAD,
+    }
+}
 
 /// Files in glob order, one query each, read `READ_AHEAD` deep and forwarded in
 /// order. The cursor is `<file>:<rows read>`: resuming skips files before it and
@@ -104,7 +115,7 @@ pub(super) fn files(
     // A limit is a running budget: the next query depends on the previous count.
     let ahead = match target.limit {
         Some(_) => 0,
-        None => READ_AHEAD,
+        None => read_ahead(file),
     };
     let mut remaining = target.limit;
     let mut planned = planned.into_iter();
