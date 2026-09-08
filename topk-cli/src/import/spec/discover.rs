@@ -11,14 +11,15 @@ use crate::import::{ID, ID_PLACEHOLDER};
 /// Bind every field to the source column it reads: the column has to be one the
 /// catalog lists, and a field that declares no `type` takes the column's. Caught
 /// before any cluster write, for a spec however it was assembled: discovered,
-/// `-f`, or resumed. A sampled catalog (mongodb) lists nothing to bind against,
-/// where an absent column is no proof the source lacks it — there a field has to
-/// declare its own type.
+/// `-f`, or resumed. Only an exhaustive catalog can prove a column absent; a
+/// sampled one (mongodb, or a glob whose files were sampled) still lends the
+/// types it does list, and a field it says nothing about has to declare its own.
 pub fn bind_columns(catalog: &[Table], spec: Spec) -> Result<Spec, Error> {
     let mut collections = spec.collections;
     for (name, target) in collections.iter_mut() {
         let from = target.from.clone();
         let table = catalog.iter().find(|table| table.from == from);
+        let proves_absence = table.is_some_and(|table| table.exhaustive);
         let column = |wanted: &str| {
             table.and_then(|table| table.columns.iter().find(|(name, _)| name == wanted))
         };
@@ -33,7 +34,7 @@ pub fn bind_columns(catalog: &[Table], spec: Spec) -> Result<Spec, Error> {
         };
         // A placeholder id is "not detected", tolerated so --dry-run can show it.
         let id = target.id_column();
-        if table.is_some() && id != ID_PLACEHOLDER && column(id).is_none() {
+        if proves_absence && id != ID_PLACEHOLDER && column(id).is_none() {
             return Err(absent(format!("id column {id:?}")));
         }
         for (field_name, field) in target.fields.iter_mut() {
@@ -43,7 +44,7 @@ pub fn bind_columns(catalog: &[Table], spec: Spec) -> Result<Spec, Error> {
             }
             let source = field.source(field_name).to_string();
             let found = column(&source);
-            if table.is_some() && found.is_none() {
+            if proves_absence && found.is_none() {
                 return Err(absent(format!(
                     "field {field_name:?} reads column {source:?}, which"
                 )));

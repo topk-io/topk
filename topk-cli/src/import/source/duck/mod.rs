@@ -110,31 +110,30 @@ const CATALOG_FILES: usize = 32;
 const SAMPLE_ROWS: u64 = 64;
 
 /// The width each named column agrees on. Only those columns are selected, so a
-/// wide blob beside them is never read, and a source that cannot be sampled just
-/// keeps the type its schema declared.
-fn sampled_dims(conn: &Connection, select: Select, columns: &[String]) -> HashMap<String, u32> {
+/// wide blob beside them is never read. A ragged column reports no width; a
+/// sample that cannot be read at all is an error, never a silent `float_list`.
+fn sampled_dims(
+    conn: &Connection,
+    select: Select,
+    columns: &[String],
+) -> Result<HashMap<String, u32>, duckdb::Error> {
     if columns.is_empty() {
-        return HashMap::new();
+        return Ok(HashMap::new());
     }
     let sql = select
         .columns(columns.iter().map(String::as_str))
         .limit(Some(SAMPLE_ROWS))
         .into_sql();
-    let Ok(mut stmt) = conn.prepare(&sql) else {
-        return HashMap::new();
-    };
-    let Ok(rows) = stmt.query_arrow([]) else {
-        return HashMap::new();
-    };
-    let batches: Vec<_> = rows.collect();
-    columns
+    let mut stmt = conn.prepare(&sql)?;
+    let batches: Vec<_> = stmt.query_arrow([])?.collect();
+    Ok(columns
         .iter()
         .enumerate()
         .filter_map(|(i, name)| {
             let dim = arrow::sampled_dim(batches.iter().map(|batch| batch.column(i)))?;
             Some((name.clone(), dim))
         })
-        .collect()
+        .collect())
 }
 
 /// The files a locator matches, in the order the resume cursor compares them.
@@ -313,6 +312,8 @@ impl Duckdb {
                 _ => None,
             };
             let conn = source.connect(file.as_ref())?;
+            // A glob whose files were sampled cannot prove a column absent.
+            let mut exhaustive = true;
             // (object, collection hint, what to SELECT from)
             let objects: Vec<(String, Option<String>, Select)> = match &file {
                 // A file source's one object is the uri it was given.
@@ -329,6 +330,7 @@ impl Duckdb {
                     }
                     // Bounded: the schema settles on a sample, not every file.
                     let matched = matching(&conn, file).unwrap_or_default();
+                    exhaustive = matched.len() <= CATALOG_FILES;
                     let table_ref = match matched.len() {
                         0 => reader(file),
                         n => reader_of(file, &matched[..n.min(CATALOG_FILES)]),
@@ -382,7 +384,8 @@ impl Duckdb {
                     .filter(|(_, field)| field.ty == Some(Type::FloatList))
                     .map(|(name, _)| name.clone())
                     .collect();
-                let widths = sampled_dims(&conn, select, &ragged);
+                let widths =
+                    sampled_dims(&conn, select, &ragged).map_err(|e| read_error(&from, None, e))?;
                 for (name, field) in columns.iter_mut() {
                     if let Some(dim) = widths.get(name) {
                         field.ty = Some(Type::Vector(Element::F32));
@@ -395,6 +398,7 @@ impl Duckdb {
                     collection_hint,
                     columns,
                     primary_key,
+                    exhaustive,
                 });
             }
             Ok(tables)

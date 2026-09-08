@@ -394,3 +394,93 @@ async fn an_absent_type_carries_the_discovered_width(ctx: &mut Scratch) {
         "got:\n{out}"
     );
 }
+
+/// The catalog binds a bounded sample of a glob's files, but the scan reads the
+/// whole glob with `union_by_name`. A column only a later file carries must not
+/// be refused: the sample cannot prove an absence.
+#[test_context(Scratch)]
+#[tokio::test]
+async fn a_sampled_glob_accepts_a_column_only_a_later_file_carries(ctx: &mut Scratch) {
+    for i in 0..40 {
+        let select = match i {
+            39 => "SELECT 'g39' AS sku, 'n' AS name, 'here' AS late".to_string(),
+            _ => format!("SELECT 'g{i}' AS sku, 'n' AS name"),
+        };
+        ctx.sql_parquet(&format!("p{i:03}"), &select);
+    }
+    let spec = ctx.spec_file(&format!(
+        r#"
+[g]
+from = "{}/p*.parquet"
+
+[g.fields]
+_id = {{ from = "sku" }}
+name = {{}}
+late = {{ type = "text" }}
+"#,
+        ctx.scratch().display()
+    ));
+
+    let printed = ok(&["import", "-f", &spec, "--dry-run"], &[]);
+    assert!(
+        printed.contains("late"),
+        "the spec must survive:\n{printed}"
+    );
+}
+
+/// The same sample still catches a typo it can speak to: without a `type` there
+/// is nothing to bind the column to, so the field is refused either way.
+#[test_context(Scratch)]
+#[tokio::test]
+async fn a_sampled_glob_still_refuses_an_untyped_unknown_column(ctx: &mut Scratch) {
+    for i in 0..40 {
+        ctx.sql_parquet(
+            &format!("p{i:03}"),
+            &format!("SELECT 'g{i}' AS sku, 'n' AS name"),
+        );
+    }
+    let spec = ctx.spec_file(&format!(
+        r#"
+[g]
+from = "{}/p*.parquet"
+
+[g.fields]
+_id = {{ from = "sku" }}
+nmae = {{}}
+"#,
+        ctx.scratch().display()
+    ));
+
+    let message = fails(&["import", "-f", &spec, "--dry-run"], &[]);
+    assert!(message.contains("declare `type`"), "got:\n{message}");
+}
+
+/// A glob small enough to bind whole is exhaustive, and still names what a
+/// mistyped column could have been.
+#[test_context(Scratch)]
+#[tokio::test]
+async fn a_whole_glob_still_proves_a_column_absent(ctx: &mut Scratch) {
+    for i in 0..3 {
+        ctx.sql_parquet(
+            &format!("p{i:03}"),
+            &format!("SELECT 'g{i}' AS sku, 'n' AS name"),
+        );
+    }
+    let spec = ctx.spec_file(&format!(
+        r#"
+[g]
+from = "{}/p*.parquet"
+
+[g.fields]
+_id = {{ from = "sku" }}
+nmae = {{ type = "text" }}
+"#,
+        ctx.scratch().display()
+    ));
+
+    let message = fails(&["import", "-f", &spec, "--dry-run"], &[]);
+    assert!(
+        message.contains("available: sku, name"),
+        "an exhaustive catalog names the columns:\n{message}"
+    );
+}

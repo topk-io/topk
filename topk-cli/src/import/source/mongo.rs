@@ -120,6 +120,7 @@ impl Mongo {
                 from,
                 columns,
                 primary_key: None,
+                exhaustive: false,
             });
         }
         Ok(tables)

@@ -93,6 +93,10 @@ pub struct Table {
     pub collection_hint: Option<String>,
     pub columns: Vec<(String, Field)>,
     pub primary_key: Option<String>,
+    /// False when `columns` came from a sample of a glob's files: the scan reads
+    /// the whole glob with `union_by_name`, so a column absent here may still
+    /// arrive, and an absence proves nothing.
+    pub exhaustive: bool,
 }
 
 pub enum Source {

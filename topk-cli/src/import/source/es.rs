@@ -146,6 +146,7 @@ impl Es {
                     from,
                     columns,
                     primary_key: None,
+                    exhaustive: true,
                 })
             })
             .collect())
