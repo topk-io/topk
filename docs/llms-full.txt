@@ -4801,7 +4801,437 @@ Let's break down the example above:
 2. Then, the `topk()` function gives 80% weight to content score and 20% weight to document importance.
 3. Sorting by a custom scoring function allows us to boost more critical documents, ensuring that highly relevant but less "important" content doesn't dominate.
 
-## Python SDK Reference
+## CLI
+
+### CLI
+
+URL: https://docs.topk.io/cli
+
+Command-line interface for [TopK](https://topk.io).
+
+#### Installation
+
+```bash
+brew tap topk-io/topk
+brew install topk
+```
+
+#### Quick start
+
+```bash
+topk login
+topk import ./books.parquet --region aws-us-east-1-elastica
+topk import postgres://user:pw@host/db 'public.*' --region aws-us-east-1-elastica
+```
+
+> [!NOTE]
+> `topk import` discovers a schema, shows the plan, and imports on confirmation — see [import](#import).
+
+#### Authentication
+
+To authenticate, run:
+
+```bash
+topk login
+```
+
+Alternatively, you can set `TOPK_API_KEY` environment variable and skip the `topk login` command.
+
+```bash
+export TOPK_API_KEY=<your-api-key>
+```
+
+#### Commands
+
+##### login
+
+To authenticate, run:
+
+```bash
+topk login
+```
+
+Alternatively, you can set `TOPK_API_KEY` environment variable and skip the `topk login` command.
+
+```bash
+export TOPK_API_KEY=<your-api-key>
+```
+
+##### logout
+
+Remove saved credentials:
+
+```bash
+topk logout
+```
+
+##### import
+
+Bulk import into TopK collections. Every run prints the plan as a TOML spec and asks before writing; collections are created right after.
+
+###### Import a database
+
+```bash
+topk import postgres://user:pw@host/db 'public.*'
+topk import mysql://root@host/shop orders
+topk import mongodb://host/shop products
+topk import es+https://user:pw@es.example.com 'products*'
+topk import postgres://host/db orders --filter "created_at > '2024-01-01'"
+```
+
+Objects are exact names, globs, or `<object>=<collection>` renames.
+
+###### Import files
+
+```bash
+topk import ./books.parquet                                   # .csv .tsv .json(l) .arrow .avro
+topk import 's3://bucket/books/*.parquet' --to books          # a glob needs --to
+topk import gs://bucket/books.csv                             # az:// hf:// http(s):// too
+```
+
+A single file names its collection.
+
+###### Copy a TopK collection
+
+```bash
+topk import topk://aws-us-east-1-elastica/books --to books-v2                        # reindex under a new schema
+topk import topk://aws-us-east-1-elastica/books --region aws-eu-central-1-monstera   # copy us → eu
+```
+
+Schema and indexes copy as-is; the copy is additive.
+
+###### Preview and edit the plan
+
+```bash
+topk import postgres://host/db orders --dry-run > spec.toml   # spec on stdout, sample documents on stderr
+vim spec.toml                                                 # drop columns, fix types, add indexes
+topk import "$DB_URL" -f spec.toml --yes                      # run
+```
+
+> [!WARNING]
+> Keep credentials on the command line or in the environment, never in the spec — the spec is meant to go in git.
+
+###### Resume a stopped run
+
+Stop a run — `^C`, a lost connection — and pick it up where it left off:
+
+```bash
+topk import postgres://host/db --resume 01J9...               # run id printed at start
+```
+
+Resume skips finished collections and continues the in-flight one from a checkpoint. Without `--resume`, a re-run re-imports everything — upserts are idempotent.
+
+###### Sources
+
+| source | url | filter | auth |
+| --- | --- | --- | --- |
+| postgres | `postgres://` | SQL `WHERE` | in-URL, `PGPASSWORD` |
+| mysql | `mysql://` | SQL `WHERE` | in-URL, `MYSQL_PWD` |
+| sqlite | `sqlite:<path>` | SQL `WHERE` | — |
+| files | path, glob, `s3://` `r2://` `gs://` `az://` `hf://` `http(s)://` | SQL `WHERE` | credential chain; `hf auth login`; http anonymous |
+| elasticsearch | `es://` `es+https://`, `*.cloud.es.io` | query DSL | in-URL, `ELASTIC_API_KEY` / `ELASTIC_PASSWORD` |
+| mongodb | `mongodb://` | find document | in-URL, `MONGODB_URI` |
+| topk | `topk://[<key>@]<region>/<collection>` | — | URL key, else the run's key |
+
+###### Spec
+
+One TOML table per collection — `from`, `id`, `filter`/`partition`/`limit` as the flags, and a `fields` whitelist (only declared fields import):
+
+```toml
+[books]
+from = "public.books"
+id = "sku"
+
+[books.fields]
+title = { type = "text", index = "semantic" }
+year = { type = "int", from = "published_year" }
+embedding = { type = "f32_vector", dim = 768, index = { vector = { metric = "cosine" } } }
+```
+
+| field key | |
+| --- | --- |
+| `type` | `text` `int` `float` `bool` `bytes` `timestamp` `struct` `*_list` `*_vector` `*_matrix` `*_sparse_vector` |
+| `from` | source column, when the name differs |
+| `required` | fail the document if missing |
+| `truncate` | max chars, text only |
+| `dim` / `cols` | vector dimension / matrix row width |
+| `index` | `"keyword"` `"exact"` `"semantic"` `"ngram"` `{ vector = { metric = "cosine" \| "euclidean" \| "dot_product" \| "hamming" } }` `{ multi_vector = {} }` |
+
+Discovery takes the source's types; declaring a different `type` converts. Embeddings that arrive as float lists, text (`"[1,2,3]"`) or packed bytes become vectors by declaring `f32_vector` and `dim` (`f32_matrix` and `cols` for multi-vectors); a sparse vector reads numeric keys or parallel `indices`/`values` lists; epoch numbers or date text become `timestamp`. Conversions are exact or the document fails; a narrower declaration (`truncate` included) is how loss is accepted.
+
+###### Failures and limits
+
+A document fails when a value does not convert exactly, its id is missing or empty, or it is over 200 KB. A failure stops the run, ready to `--resume`; `--continue-on-error` skips them instead.
+
+- there is no schema migration: an existing collection whose schema differs is rejected
+- an upsert replaces the whole document, so a spec that omits an existing field clears it
+
+#### Global flags
+
+These flags are accepted by every command:
+
+##### `--output`
+
+Options:
+
+* `text` (default)
+* `json`
+
+Output results as NDJSON — one JSON object per line, compatible with `jq`.
+
+##### `--api-key`
+
+API key to use for this invocation. Overrides the `TOPK_API_KEY` environment variable and the key saved via `topk login`.
+
+##### `--region`
+
+Region to connect to (env `TOPK_REGION`); required by `import`. See https://docs.topk.io/regions.
+
+#### Updating the CLI
+
+To update CLI to the latest version, run:
+
+```bash
+brew update
+brew upgrade topk
+```
+
+## Python SDK
+
+### Python SDK
+
+URL: https://docs.topk.io/sdk/topk-py/overview
+
+[![PyPI version](https://img.shields.io/pypi/v/topk-sdk.svg)](https://pypi.org/project/topk-sdk/)
+
+The TopK Python library provides convenient access to the TopK API from any Python 3.9+ application. The library includes type definitions for all request params and response fields, and features both synchronous and asynchronous clients.
+#### Installation
+
+```sh
+pip install topk-sdk
+
+### or
+
+uv add topk-sdk
+```
+
+#### Prerequisites
+
+- **API key** — sign in to [console.topk.io](https://console.topk.io) and generate an API key.
+- **Region** — available regions are listed at [docs.topk.io/regions](https://docs.topk.io/regions).
+
+#### Usage
+
+##### Hybrid Search
+
+```python
+import os
+from topk_sdk import Client
+from topk_sdk.schema import text, keyword_index, semantic_index
+from topk_sdk.query import select, field, fn
+
+client = Client(
+    api_key=os.environ["TOPK_API_KEY"],
+    region="aws-us-east-1-elastica",
+)
+
+### Create a collection
+client.collections().create(
+    "books",
+    schema={
+        "title": text().required().index(keyword_index()),
+        "content": text().index(semantic_index()),
+    },
+)
+
+### Upsert documents
+client.collection("books").upsert([
+    {
+        "_id": "1",
+        "title": "Catcher in the Rye",
+        "content": "IF YOU REALLY WANT TO HEAR about it, the first thing you'll probably want to know is ...",
+        "author": "J.D. Salinger",
+        "rating": 3.8,
+    },
+    {
+        "_id": "2",
+        "title": "1984",
+        "content": "It was a bright cold day in April, and the clocks were striking thirteen. Winston Smith, ...",
+        "author": "George Orwell",
+        "rating": 4.7,
+    },
+])
+
+### Query with hybrid search
+results = client.collection("books").query(
+    select(
+        # Select document fields to return
+        "_id", "title", "author",
+        # Compute semantic similarity of content field with the query
+        similarity_score=fn.semantic_similarity(
+            "content",
+            "What is the meaning of life?",
+        ),
+    )
+    # Filter documents by metadata
+    .filter(field("rating") >= 3.0)
+    # Rank using the computed similarity score and rating
+    .sort(field("rating") * field("similarity_score"), asc=False)
+    # Get top 10 highest ranked documents
+    .limit(10)
+)
+```
+
+##### Vector Search
+
+```python
+import os
+from topk_sdk import Client
+from topk_sdk.schema import text, f32_vector, vector_index
+from topk_sdk.query import select, field, fn
+
+client = Client(
+    api_key=os.environ["TOPK_API_KEY"],
+    region="aws-us-east-1-elastica",
+)
+
+### Create a collection with a vector field (dimension must match your embedding model's output size)
+client.collections().create(
+    "books",
+    schema={
+        "title": text().required(),
+        "embedding": f32_vector(dimension=1536).required().index(vector_index(metric="dot_product")),
+    },
+)
+
+### Upsert documents with embeddings
+client.collection("books").upsert([
+    {"_id": "1", "title": "Catcher in the Rye", "embedding": [0.1, 0.2, ...]},
+    {"_id": "2", "title": "1984",               "embedding": [0.9, 0.8, ...]},
+])
+
+### Query the nearest neighbors to a query vector
+results = client.collection("books").query(
+    select(
+        "_id", "title",
+        distance=fn.vector_distance("embedding", [0.8, 0.9, ...]),
+    )
+    # Return the 10 closest documents (ascending = closest first)
+    .sort(field("distance"), asc=True)
+    .limit(10)
+)
+```
+
+#### Async usage
+
+Simply import `AsyncClient` instead of `Client` and use `async for` / `await` with each API call:
+
+```python
+import os
+import asyncio
+from topk_sdk import AsyncClient
+from topk_sdk.schema import text, keyword_index, semantic_index
+from topk_sdk.query import select, field, fn
+
+client = AsyncClient(
+    api_key=os.environ["TOPK_API_KEY"],
+    region="aws-us-east-1-elastica",
+)
+
+async def main() -> None:
+    # Hybrid search
+    await client.collections().create(
+        "books",
+        schema={
+            "title": text().required().index(keyword_index()),
+            "content": text().index(semantic_index()),
+        },
+    )
+
+    await client.collection("books").upsert([
+        {"_id": "1", "title": "Catcher in the Rye", "content": "...", "rating": 3.8},
+        {"_id": "2", "title": "1984", "content": "...", "rating": 4.7},
+    ])
+
+    results = await client.collection("books").query(
+        select(
+            # Select document fields to return
+            "_id", "title",
+            # Compute semantic similarity of content field with the query
+            similarity_score=fn.semantic_similarity("content", "What is the meaning of life?"),
+        )
+        # Filter documents by metadata
+        .filter(field("rating") >= 3.0)
+        # Rank using the computed similarity score and rating
+        .sort(field("rating") * field("similarity_score"), asc=False)
+        # Get top 10 highest ranked documents
+        .limit(10)
+    )
+
+asyncio.run(main())
+```
+
+#### Handling errors
+
+```python
+from topk_sdk.error import (
+    CollectionNotFoundError,
+    PermissionDeniedError,
+    QuotaExceededError,
+    SlowDownError,
+)
+
+try:
+    client.collections().get("books")
+except CollectionNotFoundError:
+    print("Collection does not exist")
+except PermissionDeniedError:
+    print("Check your API key")
+except QuotaExceededError:
+    print("Usage quota exceeded")
+except SlowDownError:
+    print("Rate limited — the client will retry automatically")
+```
+
+| Error | Description |
+| --- | --- |
+| `CollectionNotFoundError` | Collection does not exist |
+| `PartitionNotFoundError`  | Partition does not exist  |
+| `CollectionAlreadyExistsError` | Collection with this name already exists |
+| `CollectionValidationError` | Invalid collection name or schema |
+| `DocumentValidationError` | Invalid document |
+| `SchemaValidationError` | Invalid schema |
+| `PermissionDeniedError` | Invalid or missing API key |
+| `QuotaExceededError` | Usage quota exceeded |
+| `RequestTooLargeError` | Request payload too large |
+| `SlowDownError` | Rate limited by the server (retried automatically) |
+| `QueryLsnTimeoutError` | Timed out waiting for write consistency |
+
+##### Retries
+
+The client automatically retries on `SlowDownError` and on LSN consistency
+timeouts. Retry behaviour can be configured via `RetryConfig`:
+
+```python
+from topk_sdk import Client, RetryConfig, BackoffConfig
+
+client = Client(
+    api_key=os.environ.get("TOPK_API_KEY"),
+    region="aws-us-east-1-elastica",
+    retry_config=RetryConfig(
+        max_retries=5,        # default: 3
+        timeout=60_000,       # total retry chain timeout in ms, default: 30,000
+        backoff=BackoffConfig(
+            init_backoff=200, # default: 100 ms
+            max_backoff=5_000, # default: 10,000 ms
+        ),
+    ),
+)
+```
+
+#### Requirements
+
+Python 3.9 or higher.
 
 ### topk_sdk
 
@@ -6872,6 +7302,365 @@ Check if the expression matches the provided regexp pattern.
 
 Instances of the `FunctionExpr` class are used to represent function expressions in TopK.
 Usually created using function constructors such as [`fn.vector_distance()`](#vector-distance), [`fn.semantic_similarity()`](#semantic-similarity) or [`fn.bm25_score()`](#bm25-score).
+Comparison and arithmetic operators lift into a [`LogicalExpr`](#logicalexpr), e.g. `fn.bm25_score() > 0.5`.
+
+**Methods**
+
+###### eq()
+
+```python
+eq(self, other: FlexibleExpr) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`FlexibleExpr`](#flexibleexpr) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### ne()
+
+```python
+ne(self, other: FlexibleExpr) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`FlexibleExpr`](#flexibleexpr) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### lt()
+
+```python
+lt(self, other: Ordered) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Ordered`](#ordered) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### lte()
+
+```python
+lte(self, other: Ordered) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Ordered`](#ordered) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### gt()
+
+```python
+gt(self, other: Ordered) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Ordered`](#ordered) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### gte()
+
+```python
+gte(self, other: Ordered) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Ordered`](#ordered) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### add()
+
+```python
+add(self, other: Numeric) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Numeric`](#numeric) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### sub()
+
+```python
+sub(self, other: Numeric) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Numeric`](#numeric) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### mul()
+
+```python
+mul(self, other: Numeric) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Numeric`](#numeric) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### div()
+
+```python
+div(self, other: Numeric) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Numeric`](#numeric) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### coalesce()
+
+```python
+coalesce(self, other: LogicalExpr | int | float) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`LogicalExpr`](#logicalexpr) &#124; int &#124; float |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### min()
+
+```python
+min(self, other: LogicalExpr | int | float | str) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`LogicalExpr`](#logicalexpr) &#124; int &#124; float &#124; str |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### max()
+
+```python
+max(self, other: LogicalExpr | int | float | str) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`LogicalExpr`](#logicalexpr) &#124; int &#124; float &#124; str |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### is\_null()
+
+```python
+is_null(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### is\_not\_null()
+
+```python
+is_not_null(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### abs()
+
+```python
+abs(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### ln()
+
+```python
+ln(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### exp()
+
+```python
+exp(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### sqrt()
+
+```python
+sqrt(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### square()
+
+```python
+square(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### choose()
+
+```python
+choose(self, x: FlexibleExpr, y: FlexibleExpr) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `x` | [`FlexibleExpr`](#flexibleexpr) |
+| `y` | [`FlexibleExpr`](#flexibleexpr) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### boost()
+
+```python
+boost(self, condition: FlexibleExpr, boost: LogicalExpr | int | float) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `condition` | [`FlexibleExpr`](#flexibleexpr) |
+| `boost` | [`LogicalExpr`](#logicalexpr) &#124; int &#124; float |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
 
 ##### AggregateExpr
 
@@ -6907,7 +7696,7 @@ Adds a select stage to the query.
 ###### filter()
 
 ```python
-filter(self, expr: LogicalExpr | TextExpr) -> Query
+filter(self, expr: LogicalExpr | FunctionExpr | TextExpr) -> Query
 ```
 
 Adds a filter stage to the query.
@@ -6916,7 +7705,7 @@ Adds a filter stage to the query.
 
 | Parameter | Type |
 | --------- | ---- |
-| `expr` | [`LogicalExpr`](#logicalexpr) &#124; [`TextExpr`](#textexpr) |
+| `expr` | [`LogicalExpr`](#logicalexpr) &#124; [`FunctionExpr`](#functionexpr) &#124; [`TextExpr`](#textexpr) |
 
 **Returns**
 
@@ -6927,8 +7716,8 @@ Adds a filter stage to the query.
 ###### sort()
 
 ```python
-sort(self, expr: LogicalExpr, asc: bool = True) -> Query
-sort(self, expr: Sequence[tuple[LogicalExpr, Literal['asc', 'desc']]]) -> Query
+sort(self, expr: LogicalExpr | FunctionExpr, asc: bool = True) -> Query
+sort(self, expr: Sequence[tuple[LogicalExpr | FunctionExpr, Literal['asc', 'desc']]]) -> Query
 ```
 
 Adds a sort stage to the query.
@@ -6937,7 +7726,7 @@ Adds a sort stage to the query.
 
 | Parameter | Type |
 | --------- | ---- |
-| `expr` | [`LogicalExpr`](#logicalexpr) &#124; Sequence[tuple[[`LogicalExpr`](#logicalexpr), Literal['asc', 'desc']]] |
+| `expr` | [`LogicalExpr`](#logicalexpr) &#124; [`FunctionExpr`](#functionexpr) &#124; Sequence[tuple[[`LogicalExpr`](#logicalexpr) &#124; [`FunctionExpr`](#functionexpr), Literal['asc', 'desc']]] |
 | `asc` | bool |
 
 **Returns**
@@ -7003,7 +7792,7 @@ Adds a count stage to the query.
 ###### group\_by()
 
 ```python
-group_by(self, keys: dict[str, LogicalExpr], aggs: dict[str, AggregateExpr]) -> Query
+group_by(self, keys: dict[str, LogicalExpr | FunctionExpr], aggs: dict[str, AggregateExpr]) -> Query
 ```
 
 Adds a group-by stage to the query.
@@ -7014,7 +7803,7 @@ Groups documents by one or more key expressions and computes aggregations for ea
 
 | Parameter | Type |
 | --------- | ---- |
-| `keys` | dict[str, [`LogicalExpr`](#logicalexpr)] |
+| `keys` | dict[str, [`LogicalExpr`](#logicalexpr) &#124; [`FunctionExpr`](#functionexpr)] |
 | `aggs` | dict[str, [`AggregateExpr`](#aggregateexpr)] |
 
 **Returns**
@@ -7028,7 +7817,7 @@ Groups documents by one or more key expressions and computes aggregations for ea
 <Warning>**Deprecated** — Use ``.sort(expr, asc).limit(k)`` instead.</Warning>
 
 ```python
-topk(self, expr: LogicalExpr, k: int, asc: bool = False) -> Query
+topk(self, expr: LogicalExpr | FunctionExpr, k: int, asc: bool = False) -> Query
 ```
 
 Adds a top-k stage to the query.
@@ -7037,7 +7826,7 @@ Adds a top-k stage to the query.
 
 | Parameter | Type |
 | --------- | ---- |
-| `expr` | [`LogicalExpr`](#logicalexpr) |
+| `expr` | [`LogicalExpr`](#logicalexpr) &#124; [`FunctionExpr`](#functionexpr) |
 | `k` | int |
 | `asc` | bool |
 
@@ -7389,7 +8178,7 @@ client.collection("books").query(
 ##### filter()
 
 ```python
-filter(expr: LogicalExpr | TextExpr) -> Query
+filter(expr: LogicalExpr | FunctionExpr | TextExpr) -> Query
 ```
 
 Creates a new query with a filter stage.
@@ -7408,7 +8197,7 @@ client.collection("books").query(
 
 | Parameter | Type |
 | --------- | ---- |
-| `expr` | [`LogicalExpr`](#logicalexpr) &#124; [`TextExpr`](#textexpr) |
+| `expr` | [`LogicalExpr`](#logicalexpr) &#124; [`FunctionExpr`](#functionexpr) &#124; [`TextExpr`](#textexpr) |
 
 **Returns**
 
@@ -7419,7 +8208,7 @@ client.collection("books").query(
 ##### group_by()
 
 ```python
-group_by(keys: dict[str, LogicalExpr], aggs: dict[str, AggregateExpr]) -> Query
+group_by(keys: dict[str, LogicalExpr | FunctionExpr], aggs: dict[str, AggregateExpr]) -> Query
 ```
 
 Creates a new query with a group-by stage.
@@ -7442,7 +8231,7 @@ client.collection("books").query(
 
 | Parameter | Type |
 | --------- | ---- |
-| `keys` | dict[str, [`LogicalExpr`](#logicalexpr)] |
+| `keys` | dict[str, [`LogicalExpr`](#logicalexpr) &#124; [`FunctionExpr`](#functionexpr)] |
 | `aggs` | dict[str, [`AggregateExpr`](#aggregateexpr)] |
 
 **Returns**
@@ -8605,7 +9394,172 @@ SchemaFieldSpec = FieldSpec | Mapping[str, 'SchemaFieldSpec']
 
 ***
 
-## JavaScript SDK Reference
+## JavaScript SDK
+
+### JavaScript SDK
+
+URL: https://docs.topk.io/sdk/topk-js/overview
+
+[![npm version](https://img.shields.io/npm/v/topk-js.svg)](https://www.npmjs.com/package/topk-js)
+
+The TopK JavaScript library provides convenient access to the TopK API from Node.js environments with full TypeScript support.
+#### Installation
+
+```sh
+npm install topk-js
+### or
+yarn add topk-js
+### or
+pnpm install topk-js
+```
+
+#### Prerequisites
+
+- **API key** — sign in to [console.topk.io](https://console.topk.io) and generate an API key.
+- **Region** — available regions are listed at [docs.topk.io/regions](https://docs.topk.io/regions).
+
+#### Usage
+
+##### Hybrid Search
+
+```typescript
+import { Client } from "topk-js";
+import { text, keywordIndex, semanticIndex } from "topk-js/schema";
+import { select, field, fn } from "topk-js/query";
+
+const client = new Client({
+  apiKey: process.env.TOPK_API_KEY!,
+  region: "aws-us-east-1-elastica",
+});
+
+// Create a collection
+await client.collections().create("books", {
+  title: text().required().index(keywordIndex()),
+  content: text().index(semanticIndex()),
+});
+
+// Upsert documents
+await client.collection("books").upsert([
+  {
+    _id: "1",
+    title: "Catcher in the Rye",
+    content: "IF YOU REALLY WANT TO HEAR about it, the first thing you'll probably want to know is ...",
+    author: "J.D. Salinger",
+    rating: 3.8,
+  },
+  {
+    _id: "2",
+    title: "1984",
+    content: "It was a bright cold day in April, and the clocks were striking thirteen. Winston Smith, ...",
+    author: "George Orwell",
+    rating: 4.7,
+  },
+]);
+
+// Query with hybrid search
+const results = await client.collection("books").query(
+  select({
+    title: field("title"),
+    author: field("author"),
+    // Compute semantic similarity of content field with the query
+    similarity_score: fn.semanticSimilarity(
+      "content",
+      "What is the meaning of life?",
+    ),
+  })
+  // Filter documents by metadata
+  .filter(field("rating").gte(3.0))
+  // Rank using the computed similarity score and rating
+  .sort(field("rating").mul(field("similarity_score")), false)
+  // Get top 10 highest ranked documents
+  .limit(10)
+);
+```
+
+##### Vector Search
+
+```typescript
+import { Client } from "topk-js";
+import { text, f32Vector, vectorIndex } from "topk-js/schema";
+import { select, field, fn } from "topk-js/query";
+
+const client = new Client({
+  apiKey: process.env.TOPK_API_KEY!,
+  region: "aws-us-east-1-elastica",
+});
+
+// Create a collection with a vector field (dimension must match your embedding model's output size)
+await client.collections().create("books", {
+  title: text().required(),
+  embedding: f32Vector({ dimension: 1536 }).required().index(vectorIndex({ metric: "dot_product" })),
+});
+
+// Upsert documents with embeddings
+await client.collection("books").upsert([
+  { _id: "1", title: "Catcher in the Rye", embedding: [0.1, 0.2, ...] },
+  { _id: "2", title: "1984",               embedding: [0.9, 0.8, ...] },
+]);
+
+// Query the nearest neighbors to a query vector
+const results = await client.collection("books").query(
+  select({
+    title: field("title"),
+    distance: fn.vectorDistance("embedding", [0.8, 0.9, ...]),
+  })
+  // Return the 10 closest documents (ascending = closest first)
+  .sort(field("distance"), true)
+  .limit(10)
+);
+```
+
+#### Handling errors
+
+The SDK throws plain `Error` objects. Check `err.message` to identify the error:
+
+```typescript
+try {
+  await client.collections().get("books");
+} catch (err) {
+  if (err instanceof Error) {
+    if (err.message === "collection not found") console.error("Collection does not exist");
+    else if (err.message === "permission denied") console.error("Check your API key");
+    else console.error("Unexpected error:", err.message);
+  }
+}
+```
+
+| `err.message` | Description |
+| --- | --- |
+| `"collection not found"` | Collection does not exist |
+| `"collection already exists"` | Collection with this name already exists |
+| `"permission denied"` | Invalid or missing API key |
+| starts with `"request too large:"` | Request payload too large |
+
+##### Retries
+
+The client automatically retries on slow-down and LSN consistency
+timeouts. Retry behaviour can be configured via `retryConfig`:
+
+```typescript
+import { Client } from "topk-js";
+
+const client = new Client({
+  apiKey: process.env.TOPK_API_KEY,
+  region: "aws-us-east-1-elastica",
+  retryConfig: {
+    maxRetries: 5,       // default: 3
+    timeout: 60_000,     // total retry chain timeout in ms, default: 30,000
+    backoff: {
+      initBackoff: 200,  // default: 100 ms
+      maxBackoff: 5_000, // default: 10,000 ms
+    },
+  },
+});
+```
+
+#### Requirements
+
+Node.js 18 or higher.
 
 ### topk-js
 
@@ -10034,6 +10988,7 @@ Creates a field reference expression.
 ```ts
 function filter(expr:
   | LogicalExpression
+  | FunctionExpression
   | TextExpression): Query;
 ```
 
@@ -10043,7 +10998,7 @@ Creates a new query with a filter stage.
 
 | Parameter | Type |
 | ------ | ------ |
-| `expr` | \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`TextExpression`](/sdk/topk-js/Namespace.query#textexpression) |
+| `expr` | \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`FunctionExpression`](/sdk/topk-js/Namespace.query#functionexpression) \| [`TextExpression`](/sdk/topk-js/Namespace.query#textexpression) |
 
 **Returns**
 
@@ -10297,6 +11252,368 @@ documents that also match `lord`.
 ##### FunctionExpression
 
 **`Internal`**
+
+**Methods**
+
+###### abs()
+
+```ts
+abs(): LogicalExpression;
+```
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### add()
+
+```ts
+add(other:
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### boost()
+
+```ts
+boost(condition:
+  | boolean
+  | LogicalExpression, boost:
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `condition` | \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `boost` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### choose()
+
+```ts
+choose(x:
+  | string
+  | number
+  | boolean
+  | LogicalExpression, y:
+  | string
+  | number
+  | boolean
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `x` | \| `string` \| `number` \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `y` | \| `string` \| `number` \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### coalesce()
+
+```ts
+coalesce(other:
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### div()
+
+```ts
+div(other:
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### eq()
+
+```ts
+eq(other:
+  | string
+  | number
+  | boolean
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### exp()
+
+```ts
+exp(): LogicalExpression;
+```
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### gt()
+
+```ts
+gt(other:
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### gte()
+
+```ts
+gte(other:
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### isNotNull()
+
+```ts
+isNotNull(): LogicalExpression;
+```
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### isNull()
+
+```ts
+isNull(): LogicalExpression;
+```
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### ln()
+
+```ts
+ln(): LogicalExpression;
+```
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### lt()
+
+```ts
+lt(other:
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### lte()
+
+```ts
+lte(other:
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### max()
+
+```ts
+max(other:
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### min()
+
+```ts
+min(other:
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### mul()
+
+```ts
+mul(other:
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### ne()
+
+```ts
+ne(other:
+  | string
+  | number
+  | boolean
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### sqrt()
+
+```ts
+sqrt(): LogicalExpression;
+```
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### square()
+
+```ts
+square(): LogicalExpression;
+```
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### sub()
+
+```ts
+sub(other:
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ***
 
@@ -10979,6 +12296,7 @@ Adds a count stage to the query.
 ```ts
 filter(expr:
   | LogicalExpression
+  | FunctionExpression
   | TextExpression): Query;
 ```
 
@@ -10988,7 +12306,7 @@ Adds a filter stage to the query.
 
 | Parameter | Type |
 | ------ | ------ |
-| `expr` | \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`TextExpression`](/sdk/topk-js/Namespace.query#textexpression) |
+| `expr` | \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`FunctionExpression`](/sdk/topk-js/Namespace.query#functionexpression) \| [`TextExpression`](/sdk/topk-js/Namespace.query#textexpression) |
 
 **Returns**
 
@@ -10997,7 +12315,9 @@ Adds a filter stage to the query.
 ###### groupBy()
 
 ```ts
-groupBy(keys: Record<string, LogicalExpression>, aggs: Record<string, AggregateExpression>): Query;
+groupBy(keys: Record<string,
+  | LogicalExpression
+  | FunctionExpression>, aggs: Record<string, AggregateExpression>): Query;
 ```
 
 Adds a group-by stage to the query.
@@ -11008,7 +12328,7 @@ Groups documents by one or more key expressions and computes aggregations for ea
 
 | Parameter | Type |
 | ------ | ------ |
-| `keys` | `Record`\<`string`, [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)\> |
+| `keys` | `Record`\<`string`, \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`FunctionExpression`](/sdk/topk-js/Namespace.query#functionexpression)\> |
 | `aggs` | `Record`\<`string`, [`AggregateExpression`](/sdk/topk-js/Namespace.query#aggregateexpression)\> |
 
 **Returns**
@@ -11076,7 +12396,9 @@ Adds a select stage to the query.
 ###### Call Signature
 
 ```ts
-sort(expr: LogicalExpression, asc?: boolean): Query;
+sort(expr:
+  | LogicalExpression
+  | FunctionExpression, asc?: boolean): Query;
 ```
 
 Adds a sort stage to the query.
@@ -11085,7 +12407,7 @@ Adds a sort stage to the query.
 
 | Parameter | Type |
 | ------ | ------ |
-| `expr` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `expr` | \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`FunctionExpression`](/sdk/topk-js/Namespace.query#functionexpression) |
 | `asc?` | `boolean` |
 
 **Returns**
@@ -11114,7 +12436,9 @@ Adds a sort stage to the query.
 
 ```ts
 topk(
-   expr: LogicalExpression,
+   expr:
+  | LogicalExpression
+  | FunctionExpression,
    k: number,
    asc?: boolean): Query;
 ```
@@ -11125,7 +12449,7 @@ Adds a top-k stage to the query.
 
 | Parameter | Type |
 | ------ | ------ |
-| `expr` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `expr` | \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`FunctionExpression`](/sdk/topk-js/Namespace.query#functionexpression) |
 | `k` | `number` |
 | `asc?` | `boolean` |
 
@@ -11257,7 +12581,7 @@ An expression to sort by with its sort order.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="property-expr"></a> `expr` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) | The expression to sort by. |
+| <a id="property-expr"></a> `expr` | \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`FunctionExpression`](/sdk/topk-js/Namespace.query#functionexpression) | The expression to sort by. |
 | <a id="property-order"></a> `order` | [`SortOrder`](/sdk/topk-js/Namespace.query#sortorder) | Sort order. |
 
 ***
@@ -12926,3 +14250,11 @@ only affect the wire type.
 | plain column (no cast) | 114 `JSON` |
 | search function (no cast) | 700 `FLOAT4` |
 | `COUNT(*)` (no cast) | 20 `INT8` |
+
+## Rust SDK
+
+### Rust SDK
+
+Get started with TopK using Rust SDK.
+
+URL: https://github.com/topk-io/topk/tree/main/topk-rs

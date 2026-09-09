@@ -92,108 +92,59 @@ async function readPageContent(slug: string): Promise<string> {
 
 // --- Navigation ---
 
-const OVERVIEW_EXCLUDE = new Set(["cli"]);
+// Pages deliberately kept out of llms.txt (console-only, nothing for an agent to call).
 const LLMS_EXCLUDE = new Set(["usage"]);
 
-const API_ENTRIES: Entry[] = [
-  { type: "slug", slug: "cli" },
-  { type: "slug", slug: "sdk/topk-py/overview" },
-  { type: "slug", slug: "sdk/topk-js/overview" },
-  { type: "slug", slug: "sdk/topk-sql/overview" },
+// The Documentation tab's groups are distinct API areas, so each becomes its own
+// section. Every other tab collapses into one section named after the tab.
+const PER_GROUP_TABS = new Set(["Documentation"]);
+
+// Surfaces that have no page in the nav and so can't be discovered by walking tabs.
+const EXTRA_SECTIONS: Section[] = [
   {
-    type: "external",
-    title: "Rust SDK",
-    url: "https://github.com/topk-io/topk/tree/main/topk-rs",
-    description: "Get started with TopK using Rust SDK.",
+    heading: "Rust SDK",
+    entries: [
+      {
+        type: "external",
+        title: "Rust SDK",
+        url: "https://github.com/topk-io/topk/tree/main/topk-rs",
+        description: "Get started with TopK using Rust SDK.",
+      },
+    ],
   },
 ];
 
+/**
+ * Walks every tab in docs.json rather than looking tabs up by name, so a tab added
+ * to the nav reaches llms.txt without a matching change here.
+ */
 function buildSections(): Section[] {
   const sections: Section[] = [];
 
-  // Documentation tab
-  const docTab = docs.navigation.tabs.find((t) => t.tab === "Documentation");
-  if (docTab) {
-    for (const group of normalizeTabPages(docTab.pages)) {
-      const isOverview = group.group === "Overview" || !group.group;
-      const slugs = isOverview
-        ? group.pages.filter((s) => !OVERVIEW_EXCLUDE.has(s))
-        : group.pages.filter((s) => !LLMS_EXCLUDE.has(s));
+  for (const tab of docs.navigation.tabs as Array<{ tab: string; pages: unknown }>) {
+    const groups = normalizeTabPages(tab.pages);
+    const perGroup = PER_GROUP_TABS.has(tab.tab);
+    const collapsed: Entry[] = [];
 
+    for (const group of groups) {
+      const slugs = group.pages.filter((s) => !LLMS_EXCLUDE.has(s));
       if (slugs.length === 0) continue;
 
-      sections.push({
-        heading: isOverview ? "Overview" : group.group!,
-        entries: slugs.map((slug): Entry => ({ type: "slug", slug })),
-      });
+      const entries = slugs.map((slug): Entry => ({ type: "slug", slug }));
 
-      if (group.group === "Core Concepts") {
-        sections.push({ heading: "APIs", entries: API_ENTRIES });
+      if (perGroup) {
+        sections.push({ heading: group.group ?? tab.tab, entries });
+      } else {
+        collapsed.push(...entries);
       }
     }
-  }
 
-  // Guides tab
-  const guidesTab = docs.navigation.tabs.find((t) => t.tab === "Guides");
-  if (guidesTab) {
-    for (const group of normalizeTabPages(guidesTab.pages)) {
-      if (!group.pages.length) continue;
-      sections.push({
-        heading: group.group ?? "Guides",
-        entries: group.pages.map((slug): Entry => ({ type: "slug", slug })),
-      });
+    if (!perGroup && collapsed.length > 0) {
+      sections.push({ heading: tab.tab, entries: collapsed });
     }
   }
 
-  // Python SDK Reference
-  const pyTab = docs.navigation.tabs.find((t) => t.tab === "Python SDK");
-  const pyRef = pyTab && normalizeTabPages(pyTab.pages).find((g) => g.group === "SDK Reference");
-  if (pyRef) {
-    sections.push({
-      heading: "Python SDK Reference",
-      entries: pyRef.pages.map((slug): Entry => ({ type: "slug", slug })),
-    });
-  }
-
-  // JavaScript SDK Reference
-  const jsTab = docs.navigation.tabs.find((t) => t.tab === "JavaScript SDK");
-  const jsRef = jsTab && normalizeTabPages(jsTab.pages).find((g) => g.group === "SDK Reference");
-  if (jsRef) {
-    sections.push({
-      heading: "JavaScript SDK Reference",
-      entries: jsRef.pages.map((slug): Entry => ({ type: "slug", slug })),
-    });
-  }
-
-  // SQL
-  const sqlTab = docs.navigation.tabs.find((t) => t.tab === "SQL");
-  const sqlOverview = sqlTab && normalizeTabPages(sqlTab.pages).find((g) => g.group === "SQL");
-  if (sqlOverview) {
-    sections.push({
-      heading: "SQL",
-      entries: sqlOverview.pages.map((slug): Entry => ({ type: "slug", slug })),
-    });
-  }
-
-  // Database tab
-  const dbTab = docs.navigation.tabs.find((t) => t.tab === "Database");
-  if (dbTab) {
-    const DB_CONCEPT_SLUGS = [
-      "concepts/semantic-search",
-      "concepts/vector-search",
-      "concepts/sparse-vector-search",
-      "concepts/multi-vector-search",
-      "concepts/keyword-search",
-      "concepts/true-hybrid-search",
-    ];
-    sections.push({
-      heading: "Database APIs",
-      entries: [
-        { type: "slug", slug: "database", firstParagraphs: 2 },
-        ...DB_CONCEPT_SLUGS.map((slug): Entry => ({ type: "slug", slug, titlePrefix: "TopK Database - " })),
-      ],
-    });
-  }
+  sections.push(...EXTRA_SECTIONS);
 
   return sections;
 }
