@@ -6872,6 +6872,365 @@ Check if the expression matches the provided regexp pattern.
 
 Instances of the `FunctionExpr` class are used to represent function expressions in TopK.
 Usually created using function constructors such as [`fn.vector_distance()`](#vector-distance), [`fn.semantic_similarity()`](#semantic-similarity) or [`fn.bm25_score()`](#bm25-score).
+Comparison and arithmetic operators lift into a [`LogicalExpr`](#logicalexpr), e.g. `fn.bm25_score() > 0.5`.
+
+**Methods**
+
+###### eq()
+
+```python
+eq(self, other: FlexibleExpr) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`FlexibleExpr`](#flexibleexpr) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### ne()
+
+```python
+ne(self, other: FlexibleExpr) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`FlexibleExpr`](#flexibleexpr) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### lt()
+
+```python
+lt(self, other: Ordered) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Ordered`](#ordered) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### lte()
+
+```python
+lte(self, other: Ordered) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Ordered`](#ordered) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### gt()
+
+```python
+gt(self, other: Ordered) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Ordered`](#ordered) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### gte()
+
+```python
+gte(self, other: Ordered) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Ordered`](#ordered) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### add()
+
+```python
+add(self, other: Numeric) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Numeric`](#numeric) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### sub()
+
+```python
+sub(self, other: Numeric) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Numeric`](#numeric) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### mul()
+
+```python
+mul(self, other: Numeric) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Numeric`](#numeric) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### div()
+
+```python
+div(self, other: Numeric) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Numeric`](#numeric) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### coalesce()
+
+```python
+coalesce(self, other: LogicalExpr | int | float) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`LogicalExpr`](#logicalexpr) &#124; int &#124; float |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### min()
+
+```python
+min(self, other: LogicalExpr | int | float | str) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`LogicalExpr`](#logicalexpr) &#124; int &#124; float &#124; str |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### max()
+
+```python
+max(self, other: LogicalExpr | int | float | str) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`LogicalExpr`](#logicalexpr) &#124; int &#124; float &#124; str |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### is\_null()
+
+```python
+is_null(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### is\_not\_null()
+
+```python
+is_not_null(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### abs()
+
+```python
+abs(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### ln()
+
+```python
+ln(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### exp()
+
+```python
+exp(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### sqrt()
+
+```python
+sqrt(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### square()
+
+```python
+square(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### choose()
+
+```python
+choose(self, x: FlexibleExpr, y: FlexibleExpr) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `x` | [`FlexibleExpr`](#flexibleexpr) |
+| `y` | [`FlexibleExpr`](#flexibleexpr) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### boost()
+
+```python
+boost(self, condition: FlexibleExpr, boost: LogicalExpr | int | float) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `condition` | [`FlexibleExpr`](#flexibleexpr) |
+| `boost` | [`LogicalExpr`](#logicalexpr) &#124; int &#124; float |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
 
 ##### AggregateExpr
 
@@ -6907,7 +7266,7 @@ Adds a select stage to the query.
 ###### filter()
 
 ```python
-filter(self, expr: LogicalExpr | TextExpr) -> Query
+filter(self, expr: LogicalExpr | FunctionExpr | TextExpr) -> Query
 ```
 
 Adds a filter stage to the query.
@@ -6916,7 +7275,7 @@ Adds a filter stage to the query.
 
 | Parameter | Type |
 | --------- | ---- |
-| `expr` | [`LogicalExpr`](#logicalexpr) &#124; [`TextExpr`](#textexpr) |
+| `expr` | [`LogicalExpr`](#logicalexpr) &#124; [`FunctionExpr`](#functionexpr) &#124; [`TextExpr`](#textexpr) |
 
 **Returns**
 
@@ -6927,8 +7286,8 @@ Adds a filter stage to the query.
 ###### sort()
 
 ```python
-sort(self, expr: LogicalExpr, asc: bool = True) -> Query
-sort(self, expr: Sequence[tuple[LogicalExpr, Literal['asc', 'desc']]]) -> Query
+sort(self, expr: LogicalExpr | FunctionExpr, asc: bool = True) -> Query
+sort(self, expr: Sequence[tuple[LogicalExpr | FunctionExpr, Literal['asc', 'desc']]]) -> Query
 ```
 
 Adds a sort stage to the query.
@@ -6937,7 +7296,7 @@ Adds a sort stage to the query.
 
 | Parameter | Type |
 | --------- | ---- |
-| `expr` | [`LogicalExpr`](#logicalexpr) &#124; Sequence[tuple[[`LogicalExpr`](#logicalexpr), Literal['asc', 'desc']]] |
+| `expr` | [`LogicalExpr`](#logicalexpr) &#124; [`FunctionExpr`](#functionexpr) &#124; Sequence[tuple[[`LogicalExpr`](#logicalexpr) &#124; [`FunctionExpr`](#functionexpr), Literal['asc', 'desc']]] |
 | `asc` | bool |
 
 **Returns**
@@ -7003,7 +7362,7 @@ Adds a count stage to the query.
 ###### group\_by()
 
 ```python
-group_by(self, keys: dict[str, LogicalExpr], aggs: dict[str, AggregateExpr]) -> Query
+group_by(self, keys: dict[str, LogicalExpr | FunctionExpr], aggs: dict[str, AggregateExpr]) -> Query
 ```
 
 Adds a group-by stage to the query.
@@ -7014,7 +7373,7 @@ Groups documents by one or more key expressions and computes aggregations for ea
 
 | Parameter | Type |
 | --------- | ---- |
-| `keys` | dict[str, [`LogicalExpr`](#logicalexpr)] |
+| `keys` | dict[str, [`LogicalExpr`](#logicalexpr) &#124; [`FunctionExpr`](#functionexpr)] |
 | `aggs` | dict[str, [`AggregateExpr`](#aggregateexpr)] |
 
 **Returns**
@@ -7028,7 +7387,7 @@ Groups documents by one or more key expressions and computes aggregations for ea
 <Warning>**Deprecated** — Use ``.sort(expr, asc).limit(k)`` instead.</Warning>
 
 ```python
-topk(self, expr: LogicalExpr, k: int, asc: bool = False) -> Query
+topk(self, expr: LogicalExpr | FunctionExpr, k: int, asc: bool = False) -> Query
 ```
 
 Adds a top-k stage to the query.
@@ -7037,7 +7396,7 @@ Adds a top-k stage to the query.
 
 | Parameter | Type |
 | --------- | ---- |
-| `expr` | [`LogicalExpr`](#logicalexpr) |
+| `expr` | [`LogicalExpr`](#logicalexpr) &#124; [`FunctionExpr`](#functionexpr) |
 | `k` | int |
 | `asc` | bool |
 
@@ -7389,7 +7748,7 @@ client.collection("books").query(
 ##### filter()
 
 ```python
-filter(expr: LogicalExpr | TextExpr) -> Query
+filter(expr: LogicalExpr | FunctionExpr | TextExpr) -> Query
 ```
 
 Creates a new query with a filter stage.
@@ -7408,7 +7767,7 @@ client.collection("books").query(
 
 | Parameter | Type |
 | --------- | ---- |
-| `expr` | [`LogicalExpr`](#logicalexpr) &#124; [`TextExpr`](#textexpr) |
+| `expr` | [`LogicalExpr`](#logicalexpr) &#124; [`FunctionExpr`](#functionexpr) &#124; [`TextExpr`](#textexpr) |
 
 **Returns**
 
@@ -7419,7 +7778,7 @@ client.collection("books").query(
 ##### group_by()
 
 ```python
-group_by(keys: dict[str, LogicalExpr], aggs: dict[str, AggregateExpr]) -> Query
+group_by(keys: dict[str, LogicalExpr | FunctionExpr], aggs: dict[str, AggregateExpr]) -> Query
 ```
 
 Creates a new query with a group-by stage.
@@ -7442,7 +7801,7 @@ client.collection("books").query(
 
 | Parameter | Type |
 | --------- | ---- |
-| `keys` | dict[str, [`LogicalExpr`](#logicalexpr)] |
+| `keys` | dict[str, [`LogicalExpr`](#logicalexpr) &#124; [`FunctionExpr`](#functionexpr)] |
 | `aggs` | dict[str, [`AggregateExpr`](#aggregateexpr)] |
 
 **Returns**
@@ -10034,6 +10393,7 @@ Creates a field reference expression.
 ```ts
 function filter(expr:
   | LogicalExpression
+  | FunctionExpression
   | TextExpression): Query;
 ```
 
@@ -10043,7 +10403,7 @@ Creates a new query with a filter stage.
 
 | Parameter | Type |
 | ------ | ------ |
-| `expr` | \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`TextExpression`](/sdk/topk-js/Namespace.query#textexpression) |
+| `expr` | \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`FunctionExpression`](/sdk/topk-js/Namespace.query#functionexpression) \| [`TextExpression`](/sdk/topk-js/Namespace.query#textexpression) |
 
 **Returns**
 
@@ -10297,6 +10657,368 @@ documents that also match `lord`.
 ##### FunctionExpression
 
 **`Internal`**
+
+**Methods**
+
+###### abs()
+
+```ts
+abs(): LogicalExpression;
+```
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### add()
+
+```ts
+add(other:
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### boost()
+
+```ts
+boost(condition:
+  | boolean
+  | LogicalExpression, boost:
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `condition` | \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `boost` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### choose()
+
+```ts
+choose(x:
+  | string
+  | number
+  | boolean
+  | LogicalExpression, y:
+  | string
+  | number
+  | boolean
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `x` | \| `string` \| `number` \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `y` | \| `string` \| `number` \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### coalesce()
+
+```ts
+coalesce(other:
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### div()
+
+```ts
+div(other:
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### eq()
+
+```ts
+eq(other:
+  | string
+  | number
+  | boolean
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### exp()
+
+```ts
+exp(): LogicalExpression;
+```
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### gt()
+
+```ts
+gt(other:
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### gte()
+
+```ts
+gte(other:
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### isNotNull()
+
+```ts
+isNotNull(): LogicalExpression;
+```
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### isNull()
+
+```ts
+isNull(): LogicalExpression;
+```
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### ln()
+
+```ts
+ln(): LogicalExpression;
+```
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### lt()
+
+```ts
+lt(other:
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### lte()
+
+```ts
+lte(other:
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### max()
+
+```ts
+max(other:
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### min()
+
+```ts
+min(other:
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### mul()
+
+```ts
+mul(other:
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### ne()
+
+```ts
+ne(other:
+  | string
+  | number
+  | boolean
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### sqrt()
+
+```ts
+sqrt(): LogicalExpression;
+```
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### square()
+
+```ts
+square(): LogicalExpression;
+```
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### sub()
+
+```ts
+sub(other:
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ***
 
@@ -10979,6 +11701,7 @@ Adds a count stage to the query.
 ```ts
 filter(expr:
   | LogicalExpression
+  | FunctionExpression
   | TextExpression): Query;
 ```
 
@@ -10988,7 +11711,7 @@ Adds a filter stage to the query.
 
 | Parameter | Type |
 | ------ | ------ |
-| `expr` | \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`TextExpression`](/sdk/topk-js/Namespace.query#textexpression) |
+| `expr` | \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`FunctionExpression`](/sdk/topk-js/Namespace.query#functionexpression) \| [`TextExpression`](/sdk/topk-js/Namespace.query#textexpression) |
 
 **Returns**
 
@@ -10997,7 +11720,9 @@ Adds a filter stage to the query.
 ###### groupBy()
 
 ```ts
-groupBy(keys: Record<string, LogicalExpression>, aggs: Record<string, AggregateExpression>): Query;
+groupBy(keys: Record<string,
+  | LogicalExpression
+  | FunctionExpression>, aggs: Record<string, AggregateExpression>): Query;
 ```
 
 Adds a group-by stage to the query.
@@ -11008,7 +11733,7 @@ Groups documents by one or more key expressions and computes aggregations for ea
 
 | Parameter | Type |
 | ------ | ------ |
-| `keys` | `Record`\<`string`, [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)\> |
+| `keys` | `Record`\<`string`, \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`FunctionExpression`](/sdk/topk-js/Namespace.query#functionexpression)\> |
 | `aggs` | `Record`\<`string`, [`AggregateExpression`](/sdk/topk-js/Namespace.query#aggregateexpression)\> |
 
 **Returns**
@@ -11076,7 +11801,9 @@ Adds a select stage to the query.
 ###### Call Signature
 
 ```ts
-sort(expr: LogicalExpression, asc?: boolean): Query;
+sort(expr:
+  | LogicalExpression
+  | FunctionExpression, asc?: boolean): Query;
 ```
 
 Adds a sort stage to the query.
@@ -11085,7 +11812,7 @@ Adds a sort stage to the query.
 
 | Parameter | Type |
 | ------ | ------ |
-| `expr` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `expr` | \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`FunctionExpression`](/sdk/topk-js/Namespace.query#functionexpression) |
 | `asc?` | `boolean` |
 
 **Returns**
@@ -11114,7 +11841,9 @@ Adds a sort stage to the query.
 
 ```ts
 topk(
-   expr: LogicalExpression,
+   expr:
+  | LogicalExpression
+  | FunctionExpression,
    k: number,
    asc?: boolean): Query;
 ```
@@ -11125,7 +11854,7 @@ Adds a top-k stage to the query.
 
 | Parameter | Type |
 | ------ | ------ |
-| `expr` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `expr` | \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`FunctionExpression`](/sdk/topk-js/Namespace.query#functionexpression) |
 | `k` | `number` |
 | `asc?` | `boolean` |
 
@@ -11257,7 +11986,7 @@ An expression to sort by with its sort order.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="property-expr"></a> `expr` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) | The expression to sort by. |
+| <a id="property-expr"></a> `expr` | \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`FunctionExpression`](/sdk/topk-js/Namespace.query#functionexpression) | The expression to sort by. |
 | <a id="property-order"></a> `order` | [`SortOrder`](/sdk/topk-js/Namespace.query#sortorder) | Sort order. |
 
 ***
