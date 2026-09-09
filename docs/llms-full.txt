@@ -8,58 +8,689 @@
 
 URL: https://docs.topk.io/introduction
 
-TopK is a **hybrid retrieval engine** built on object storage for **10x lower cost** and **massive scale**. It supports dense/sparse vector search, multi-vector retrieval, powerful filtering, custom ranking, and managed inference in one API.
+TopK stores your documents in a collection, indexes the fields you choose, and retrieves them with vector search, keyword search, metadata filters, and custom ranking in a single query. TopK generates the embeddings, so semantic search works on plain text with no embedding pipeline on your side.
 
-#### Get Started
+<Frame>
+  <img src="/images/topk-platform.png" alt="TopK platform overview. Data sources such as Postgres, MongoDB, Parquet, S3 and Hugging Face are ingested into a unified retrieval engine for vectors, keywords, metadata and embeddings. The engine runs on object storage, compute and GPUs across AWS, GCP, Azure and BYOC, and is queried through SQL, the Python, JavaScript and Rust SDKs, and the CLI." />
+</Frame>
+
+#### What problem does TopK solve?
+
+Retrieval for RAG, agents, and search products usually turns into a pipeline of separate systems that each hold a copy of your data. TopK replaces that pipeline with one collection and one query.
+
+<CardGroup cols={2}>
+  <Card title="The usual pipeline" icon="workflow">
+    An embedding service, a vector database, a keyword engine for exact matches, a filter step, a reranker, and application code that merges the candidate lists. Every hop adds latency and a place for results to drift.
+  </Card>
+  <Card title="With TopK" icon="sparkles">
+    One document carries a semantic index, a keyword index, dense or sparse vector indexes, and any metadata fields at once. One query scores against all of them, filters on any field, and ranks by an expression you write.
+  </Card>
+</CardGroup>
+
+#### What does a query look like?
+
+Every TopK query has the same four stages, and the last one is where the name comes from. Here is a hybrid query over a collection of books. It combines a semantic score, a keyword score, and a metadata filter. The `client` object and the `books` collection are the ones created in the [quickstart](/quickstart):
+
+<CodeGroup>
+
+```python Python
+from topk_sdk.query import select, field, fn, match
+
+docs = client.collection("books").query(
+    select(
+        "title", "author", "rating",
+        semantic_score=fn.semantic_similarity(
+            "content", "a state that controls what its citizens think"
+        ),
+        keyword_score=fn.bm25_score(),
+    )
+    .filter(match("dystopian", field="genre"))
+    .filter(field("rating") >= 4.0)
+    .sort(
+        field("semantic_score") * 0.7 + field("keyword_score") * 0.3,
+        asc=False,
+    )
+    .limit(10)
+)
+```
+
+```typescript JavaScript
+import { select, field, fn, match } from "topk-js/query";
+
+const docs = await client.collection("books").query(
+  select({
+    title: field("title"),
+    author: field("author"),
+    rating: field("rating"),
+    semantic_score: fn.semanticSimilarity(
+      "content", "a state that controls what its citizens think"
+    ),
+    keyword_score: fn.bm25Score(),
+  })
+    .filter(match("dystopian", { field: "genre" }))
+    .filter(field("rating").gte(4.0))
+    .sort(
+      field("semantic_score").mul(0.7).add(field("keyword_score").mul(0.3)),
+      false
+    )
+    .limit(10)
+);
+```
+
+```sql SQL
+SELECT
+  title,
+  author,
+  rating,
+  semantic_similarity(
+    content, 'a state that controls what its citizens think'
+  ) AS semantic_score,
+  bm25_score() AS keyword_score
+FROM books
+WHERE match('dystopian', genre)
+  AND rating >= 4.0
+ORDER BY semantic_score * 0.7 + keyword_score * 0.3 DESC
+LIMIT 10;
+```
+
+</CodeGroup>
+
+<Steps>
+  <Step title="Select" icon="list-checks">
+    Choose the fields and scores to return. [`semantic_similarity`](/collections/query#semantic-similarity) embeds the query text with TopK's managed model and scores it against the semantic index on `content`. [`bm25_score`](/collections/query#bm25-score) reports how well each document matched the keyword filter.
+  </Step>
+  <Step title="Filter" icon="funnel">
+    [`match`](/collections/query#keyword-search) requires the word "dystopian" in the keyword-indexed `genre` field, and the rating comparison reads a plain metadata field. Filters run before ranking, so every matching document is eligible for the result, no matter how selective the filter is.
+  </Step>
+  <Step title="Sort" icon="arrow-down-wide-narrow">
+    Rank by ordinary arithmetic over fields and scores. Any [custom scoring](/concepts#custom-scoring) logic goes here instead of in a reranking step.
+  </Step>
+  <Step title="Limit" icon="trophy">
+    Return the top *k* documents.
+  </Step>
+</Steps>
+
+#### What can you index?
+
+A collection is a set of JSON-like documents with an `_id` field. You declare an index only for the fields you want to search on.
+
+<CardGroup cols={2}>
+  <Card title="Semantic index" icon="brain" href="/collections/manage#semantic-index">
+    Managed embeddings over a text field. Query it with plain text.
+  </Card>
+  <Card title="Keyword index" icon="text-search" href="/collections/manage#keyword-index">
+    BM25 full-text search with required and optional terms.
+  </Card>
+  <Card title="Vector index" icon="waypoints" href="/collections/manage#vector-index">
+    Dense or sparse embeddings you bring, with cosine, euclidean, dot product, or hamming distance.
+  </Card>
+  <Card title="Multi-vector index" icon="layers" href="/collections/manage#multi-vector-index">
+    Late-interaction models such as ColBERT, scored with MaxSim.
+  </Card>
+  <Card title="N-gram index" icon="regex" href="/collections/manage#ngram-index">
+    Fast substring and regular expression filters on text.
+  </Card>
+  <Card title="Metadata fields" icon="tags" href="/collections/query#metadata-filtering">
+    No index needed. Every other field is stored as is and can be selected, filtered, and used in scoring.
+  </Card>
+</CardGroup>
+
+#### How is TopK built?
+
+<CardGroup cols={3}>
+  <Card title="Object storage" icon="hard-drive">
+    The only durable store. Billion-document collections at [10x lower cost](https://topk.io/benchmarks) than engines that keep everything in RAM.
+  </Card>
+  <Card title="Stateless compute" icon="server">
+    Nodes cache in memory and on NVMe. Any node can fail or restart with no data loss and no consensus replication.
+  </Card>
+  <Card title="Reads apart from writes" icon="split">
+    Separate node pools, so indexing and compaction never contend with your queries.
+  </Card>
+</CardGroup>
+
+The [architecture](/architecture) page walks through the write path, the read path, and the query engine.
+
+#### How do you use it?
+
+<CardGroup cols={2}>
+  <Card title="Python SDK" icon="/icons/python.svg" href="/sdk/topk-py/overview" horizontal>
+    Sync and async clients.
+  </Card>
+  <Card title="JavaScript SDK" icon="/icons/js.svg" href="/sdk/topk-js/overview" horizontal>
+    TypeScript types included.
+  </Card>
+  <Card title="Rust SDK" icon="/icons/rust.svg" href="https://github.com/topk-io/topk/tree/main/topk-rs" horizontal>
+    The crate the other SDKs are built on.
+  </Card>
+  <Card title="SQL" icon="database" href="/sdk/topk-sql/overview" horizontal>
+    PostgreSQL wire protocol. Any Postgres client works.
+  </Card>
+  <Card title="CLI" icon="terminal" href="/cli#import" horizontal>
+    One `topk import` command loads databases, files, and buckets.
+  </Card>
+  <Card title="Regions and private deployment" icon="globe" href="/regions" horizontal>
+    Managed on AWS, GCP, and Azure. Dedicated regions and bring-your-own-cloud on request.
+  </Card>
+</CardGroup>
+
+#### Where to go next
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Create a collection and run the hybrid query above in about five minutes.
+  </Card>
+  <Card title="Guides" icon="signpost" href="/guides/semantic-search">
+    Worked examples for semantic, keyword, vector, multi-vector, and hybrid search.
+  </Card>
+  <Card title="Concepts" icon="info" href="/concepts">
+    Collections, indexes, filtering, custom scoring, and multi-tenancy.
+  </Card>
+  <Card title="Architecture" icon="server" href="/architecture">
+    How the write path, read path, and query engine work under the hood.
+  </Card>
+</CardGroup>
+
+<Check>
+  **SOC 2 Type I certified.** All data is encrypted in transit and at rest, and access is controlled with role-based permissions and full auditability. Visit the [trust center](https://trust.topk.io) for details.
+</Check>
+
+### Quickstart
+
+URL: https://docs.topk.io/quickstart
+
+In this quickstart you create a collection of books, add five documents, search them by meaning, and then combine that with keyword matching and a metadata filter in a single query. It takes about five minutes with the Python SDK, the JavaScript SDK, or plain SQL.
+
 <Info>
   **Prerequisites**
 
-  - TopK account ([Sign up here](https://console.topk.io/login))
-  - TopK API key ([Get an API key here](https://console.topk.io/api-key))
+  - A TopK account ([sign up here](https://console.topk.io/login))
+  - A TopK API key ([create one here](https://console.topk.io/api-key))
 </Info>
 
-##### Hybrid Search
-Simple example to get you started with TopK. Check out our [guides](/guides) for more complex examples.
-<HybridSearchQuickstart />
+#### Set your credentials
 
-#### Integrations
+Every example below reads your API key and region from the environment:
+
+```bash
+export TOPK_API_KEY="<your-api-key>"
+export TOPK_REGION="aws-us-east-1-elastica"
+```
+
+Pick the region closest to you from the list of [available regions](/regions).
+
+#### Build your first search
+
+<Tabs>
+  <Tab title="Python SDK" icon="/icons/python.svg">
+    <Steps>
+      <Step title="Install the SDK">
+        <CodeGroup>
+          ```bash pip
+          pip install topk-sdk
+          ```
+          ```bash uv
+          uv add topk-sdk
+          ```
+        </CodeGroup>
+      </Step>
+
+      <Step title="Create a client">
+        ```python
+        import os
+        from topk_sdk import Client
+
+        client = Client(
+            api_key=os.environ["TOPK_API_KEY"],
+            region=os.environ["TOPK_REGION"],
+        )
+        ```
+
+        <Note>
+          `AsyncClient` has the same interface with `await` on every call. See the [Python SDK reference](/sdk/topk-py/overview).
+        </Note>
+      </Step>
+
+      <Step title="Create a collection">
+        A collection stores JSON-like documents. You declare an index only for the fields you want to search on. Here `content` gets a semantic index, so you can query it with plain text, and `title` and `genre` get keyword indexes for exact matches. Every other field is stored as is and can still be filtered.
+
+        ```python
+        from topk_sdk.schema import text, keyword_index, semantic_index
+
+        client.collections().create(
+            "books",
+            schema={
+                "title": text().required().index(keyword_index()),
+                "content": text().required().index(semantic_index()),
+                "genre": text().required().index(keyword_index()),
+            },
+        )
+        ```
+
+        If a collection named `books` already exists in your account, creating it fails with a "collection already exists" error. Delete it first or choose another name.
+      </Step>
+
+      <Step title="Add documents">
+        Every document needs an `_id`. TopK embeds the `content` field for you during the write, so there is no separate embedding step. The call returns a log sequence number (LSN). Pass it to later queries to guarantee they see this write.
+
+        ```python
+        lsn = client.collection("books").upsert([
+            {
+                "_id": "hobbit",
+                "title": "The Hobbit",
+                "author": "J.R.R. Tolkien",
+                "genre": "fantasy adventure",
+                "rating": 4.3,
+                "content": "A reluctant hobbit leaves the Shire with a company of dwarves to reclaim their mountain home from a dragon.",
+            },
+            {
+                "_id": "1984",
+                "title": "1984",
+                "author": "George Orwell",
+                "genre": "dystopian fiction",
+                "rating": 4.7,
+                "content": "In a surveillance state, a clerk who rewrites history for the Party begins to doubt everything it tells him.",
+            },
+            {
+                "_id": "dune",
+                "title": "Dune",
+                "author": "Frank Herbert",
+                "genre": "science fiction",
+                "rating": 4.5,
+                "content": "A noble family takes charge of a desert planet whose spice is the most valuable substance in the universe.",
+            },
+            {
+                "_id": "brave-new-world",
+                "title": "Brave New World",
+                "author": "Aldous Huxley",
+                "genre": "dystopian fiction",
+                "rating": 4.0,
+                "content": "An engineered society keeps its citizens content with conditioning, pleasure, and a drug called soma.",
+            },
+            {
+                "_id": "left-hand",
+                "title": "The Left Hand of Darkness",
+                "author": "Ursula K. Le Guin",
+                "genre": "science fiction",
+                "rating": 4.2,
+                "content": "An envoy to a frozen planet must earn the trust of a people who have no fixed sex.",
+            },
+        ])
+        ```
+      </Step>
+
+      <Step title="Search by meaning">
+        A query selects the fields and scores to return, then sorts and limits. `semantic_similarity` compares your query text with the `content` field and returns a similarity score, where higher means closer in meaning.
+
+        ```python
+        from topk_sdk.query import select, field, fn
+
+        docs = client.collection("books").query(
+            select(
+                "title",
+                semantic_score=fn.semantic_similarity("content", "a state that controls what its citizens think"),
+            )
+            .sort(field("semantic_score"), asc=False)
+            .limit(3),
+            lsn=lsn,
+        )
+
+        print(docs)
+        ```
+
+        The two dystopian novels come first, even though neither summary contains the words in the query:
+
+        ```python
+        [
+            {"_id": "1984", "title": "1984", "semantic_score": 7.49},
+            {"_id": "brave-new-world", "title": "Brave New World", "semantic_score": 7.45},
+            {"_id": "left-hand", "title": "The Left Hand of Darkness", "semantic_score": 7.13},
+        ]
+        ```
+      </Step>
+
+      <Step title="Add keywords and a filter">
+        Now make it a hybrid query. `match` requires the word "dystopian" in the keyword-indexed `genre` field, `bm25_score` reports how well each document matched, and a plain comparison filters on `rating`. The sort expression blends the two scores.
+
+        ```python
+        from topk_sdk.query import select, field, fn, match
+
+        docs = client.collection("books").query(
+            select(
+                "title", "author", "rating",
+                semantic_score=fn.semantic_similarity("content", "a state that controls what its citizens think"),
+                keyword_score=fn.bm25_score(),
+            )
+            .filter(match("dystopian", field="genre"))
+            .filter(field("rating") >= 4.0)
+            .sort(field("semantic_score") * 0.7 + field("keyword_score") * 0.3, asc=False)
+            .limit(10),
+            lsn=lsn,
+        )
+
+        print(docs)
+        ```
+
+        Filters run before ranking, so every document that matches both conditions is eligible for the result:
+
+        ```python
+        [
+            {"_id": "1984", "title": "1984", "author": "George Orwell", "rating": 4.7, "semantic_score": 7.49, "keyword_score": 0.88},
+            {"_id": "brave-new-world", "title": "Brave New World", "author": "Aldous Huxley", "rating": 4.0, "semantic_score": 7.45, "keyword_score": 0.88},
+        ]
+        ```
+
+        <Tip>
+          To keep the keyword optional, replace `match` with `should`. Documents without the term stay eligible and just score lower. See [keyword search](/collections/query#keyword-search).
+        </Tip>
+      </Step>
+
+      <Step title="Clean up">
+        ```python
+        client.collections().delete("books")
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="JavaScript SDK" icon="/icons/js.svg">
+    <Steps>
+      <Step title="Install the SDK">
+        <CodeGroup>
+          ```bash npm
+          npm install topk-js
+          ```
+          ```bash yarn
+          yarn add topk-js
+          ```
+          ```bash pnpm
+          pnpm add topk-js
+          ```
+        </CodeGroup>
+      </Step>
+
+      <Step title="Create a client">
+        ```typescript
+        import { Client } from "topk-js";
+
+        const client = new Client({
+          apiKey: process.env.TOPK_API_KEY!,
+          region: process.env.TOPK_REGION!,
+        });
+        ```
+      </Step>
+
+      <Step title="Create a collection">
+        A collection stores JSON-like documents. You declare an index only for the fields you want to search on. Here `content` gets a semantic index, so you can query it with plain text, and `title` and `genre` get keyword indexes for exact matches. Every other field is stored as is and can still be filtered.
+
+        ```typescript
+        import { text, keywordIndex, semanticIndex } from "topk-js/schema";
+
+        await client.collections().create("books", {
+          title: text().required().index(keywordIndex()),
+          content: text().required().index(semanticIndex()),
+          genre: text().required().index(keywordIndex()),
+        });
+        ```
+
+        If a collection named `books` already exists in your account, creating it fails with a "collection already exists" error. Delete it first or choose another name.
+      </Step>
+
+      <Step title="Add documents">
+        Every document needs an `_id`. TopK embeds the `content` field for you during the write, so there is no separate embedding step. The call returns a log sequence number (LSN). Pass it to later queries to guarantee they see this write.
+
+        ```typescript
+        const lsn = await client.collection("books").upsert([
+          {
+            _id: "hobbit",
+            title: "The Hobbit",
+            author: "J.R.R. Tolkien",
+            genre: "fantasy adventure",
+            rating: 4.3,
+            content: "A reluctant hobbit leaves the Shire with a company of dwarves to reclaim their mountain home from a dragon.",
+          },
+          {
+            _id: "1984",
+            title: "1984",
+            author: "George Orwell",
+            genre: "dystopian fiction",
+            rating: 4.7,
+            content: "In a surveillance state, a clerk who rewrites history for the Party begins to doubt everything it tells him.",
+          },
+          {
+            _id: "dune",
+            title: "Dune",
+            author: "Frank Herbert",
+            genre: "science fiction",
+            rating: 4.5,
+            content: "A noble family takes charge of a desert planet whose spice is the most valuable substance in the universe.",
+          },
+          {
+            _id: "brave-new-world",
+            title: "Brave New World",
+            author: "Aldous Huxley",
+            genre: "dystopian fiction",
+            rating: 4.0,
+            content: "An engineered society keeps its citizens content with conditioning, pleasure, and a drug called soma.",
+          },
+          {
+            _id: "left-hand",
+            title: "The Left Hand of Darkness",
+            author: "Ursula K. Le Guin",
+            genre: "science fiction",
+            rating: 4.2,
+            content: "An envoy to a frozen planet must earn the trust of a people who have no fixed sex.",
+          },
+        ]);
+        ```
+      </Step>
+
+      <Step title="Search by meaning">
+        A query selects the fields and scores to return, then sorts and limits. `semanticSimilarity` compares your query text with the `content` field and returns a similarity score, where higher means closer in meaning.
+
+        ```typescript
+        import { select, field, fn } from "topk-js/query";
+
+        const docs = await client.collection("books").query(
+          select({
+            title: field("title"),
+            semantic_score: fn.semanticSimilarity("content", "a state that controls what its citizens think"),
+          })
+            .sort(field("semantic_score"), false)
+            .limit(3),
+          { lsn }
+        );
+
+        console.log(docs);
+        ```
+
+        The two dystopian novels come first, even though neither summary contains the words in the query:
+
+        ```typescript
+        [
+          { _id: "1984", title: "1984", semantic_score: 7.49 },
+          { _id: "brave-new-world", title: "Brave New World", semantic_score: 7.45 },
+          { _id: "left-hand", title: "The Left Hand of Darkness", semantic_score: 7.13 },
+        ]
+        ```
+      </Step>
+
+      <Step title="Add keywords and a filter">
+        Now make it a hybrid query. `match` requires the word "dystopian" in the keyword-indexed `genre` field, `bm25Score` reports how well each document matched, and a plain comparison filters on `rating`. The sort expression blends the two scores.
+
+        ```typescript
+        import { select, field, fn, match } from "topk-js/query";
+
+        const docs = await client.collection("books").query(
+          select({
+            title: field("title"),
+            author: field("author"),
+            rating: field("rating"),
+            semantic_score: fn.semanticSimilarity("content", "a state that controls what its citizens think"),
+            keyword_score: fn.bm25Score(),
+          })
+            .filter(match("dystopian", { field: "genre" }))
+            .filter(field("rating").gte(4.0))
+            .sort(field("semantic_score").mul(0.7).add(field("keyword_score").mul(0.3)), false)
+            .limit(10),
+          { lsn }
+        );
+
+        console.log(docs);
+        ```
+
+        Filters run before ranking, so every document that matches both conditions is eligible for the result:
+
+        ```typescript
+        [
+          { _id: "1984", title: "1984", author: "George Orwell", rating: 4.7, semantic_score: 7.49, keyword_score: 0.88 },
+          { _id: "brave-new-world", title: "Brave New World", author: "Aldous Huxley", rating: 4, semantic_score: 7.45, keyword_score: 0.88 },
+        ]
+        ```
+
+        <Tip>
+          To keep the keyword optional, replace `match` with `should`. Documents without the term stay eligible and just score lower. See [keyword search](/collections/query#keyword-search).
+        </Tip>
+      </Step>
+
+      <Step title="Clean up">
+        ```typescript
+        await client.collections().delete("books");
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="SQL" icon="database">
+    <Steps>
+      <Step title="Connect">
+        TopK speaks the PostgreSQL wire protocol, so any Postgres client works. Use your API key as the password.
+
+        ```bash
+        psql "host=$TOPK_REGION.sql.topk.io port=5432 user=topk password=$TOPK_API_KEY dbname=topk"
+        ```
+      </Step>
+
+      <Step title="Create a collection">
+        A collection stores JSON-like documents. You declare an index only for the columns you want to search on. Here `content` gets a semantic index, so you can query it with plain text, and `title` and `genre` get keyword indexes for exact matches. Columns without an index are stored as is and can still be filtered.
+
+        ```sql
+        CREATE TABLE books (
+          title   TEXT NOT NULL INDEX keyword_index(),
+          content TEXT NOT NULL INDEX semantic_index(),
+          genre   TEXT NOT NULL INDEX keyword_index(),
+          author  TEXT NOT NULL,
+          rating  FLOAT
+        );
+        ```
+
+        If a collection named `books` already exists in your account, creating it fails with a "collection already exists" error. Delete it first or choose another name.
+      </Step>
+
+      <Step title="Add documents">
+        Every row needs an `_id`. TopK embeds the `content` column for you during the insert, so there is no separate embedding step.
+
+        ```sql
+        INSERT INTO books (_id, title, author, genre, rating, content)
+        VALUES
+          ('hobbit', 'The Hobbit', 'J.R.R. Tolkien', 'fantasy adventure', 4.3,
+           'A reluctant hobbit leaves the Shire with a company of dwarves to reclaim their mountain home from a dragon.'),
+          ('1984', '1984', 'George Orwell', 'dystopian fiction', 4.7,
+           'In a surveillance state, a clerk who rewrites history for the Party begins to doubt everything it tells him.'),
+          ('dune', 'Dune', 'Frank Herbert', 'science fiction', 4.5,
+           'A noble family takes charge of a desert planet whose spice is the most valuable substance in the universe.'),
+          ('brave-new-world', 'Brave New World', 'Aldous Huxley', 'dystopian fiction', 4.0,
+           'An engineered society keeps its citizens content with conditioning, pleasure, and a drug called soma.'),
+          ('left-hand', 'The Left Hand of Darkness', 'Ursula K. Le Guin', 'science fiction', 4.2,
+           'An envoy to a frozen planet must earn the trust of a people who have no fixed sex.');
+        ```
+      </Step>
+
+      <Step title="Search by meaning">
+        `semantic_similarity` compares your query text with the `content` column and returns a similarity score, where higher means closer in meaning.
+
+        ```sql
+        SELECT
+          _id,
+          title,
+          semantic_similarity(content, 'a state that controls what its citizens think') AS semantic_score
+        FROM books
+        ORDER BY semantic_score DESC
+        LIMIT 3;
+        ```
+
+        The two dystopian novels come first, even though neither summary contains the words in the query:
+
+        ```text
+               _id       |           title           | semantic_score
+        -----------------+---------------------------+----------------
+         1984            | 1984                      |           7.49
+         brave-new-world | Brave New World           |           7.45
+         left-hand       | The Left Hand of Darkness |           7.13
+        ```
+      </Step>
+
+      <Step title="Add keywords and a filter">
+        Now make it a hybrid query. `match` requires the word "dystopian" in the keyword-indexed `genre` column, `bm25_score` reports how well each row matched, and a plain comparison filters on `rating`. The `ORDER BY` expression blends the two scores.
+
+        ```sql
+        SELECT
+          _id,
+          title,
+          author,
+          rating,
+          semantic_similarity(content, 'a state that controls what its citizens think') AS semantic_score,
+          bm25_score() AS keyword_score
+        FROM books
+        WHERE match('dystopian', genre)
+          AND rating >= 4.0
+        ORDER BY semantic_score * 0.7 + keyword_score * 0.3 DESC
+        LIMIT 10;
+        ```
+
+        Filters run before ranking, so every row that matches both conditions is eligible for the result:
+
+        ```text
+               _id       |      title      |     author     | rating | semantic_score | keyword_score
+        -----------------+-----------------+----------------+--------+----------------+---------------
+         1984            | 1984            | George Orwell  |    4.7 |           7.49 |          0.88
+         brave-new-world | Brave New World | Aldous Huxley  |    4.0 |           7.45 |          0.88
+        ```
+
+        <Tip>
+          To keep the keyword optional, replace `match` with `should`. Rows without the term stay eligible and just score lower. See the [SQL reference](/sdk/topk-sql/overview).
+        </Tip>
+      </Step>
+
+      <Step title="Clean up">
+        ```sql
+        DROP TABLE books;
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+#### What you built
+
+- A collection with a semantic index, two keyword indexes, and unindexed metadata, all on the same documents.
+- A semantic query that found the right books from a description, with TopK generating the embeddings.
+- A hybrid query that scored, filtered, and ranked across all of those fields in one request, with no merging in application code.
+
+#### Next steps
 
 <CardGroup cols={2}>
-  <Card title="Python SDK" icon="/icons/python.svg" href="/sdk/topk-py/overview">
-    Full Python SDK reference.
+  <Card title="Hybrid search guide" icon="layers" href="/guides/true-hybrid-search">
+    Weighting, boosting, and custom scoring in depth.
   </Card>
-  <Card title="JavaScript SDK" icon="/icons/js.svg" href="/sdk/topk-js/overview">
-    Full TypeScript/JavaScript SDK reference.
+  <Card title="Bring your own vectors" icon="waypoints" href="/guides/vector-search">
+    Dense, sparse, and multi-vector indexes for embeddings you already have.
   </Card>
-  <Card title="CLI" icon="terminal" href="/cli">
-    The command-line interface for TopK.
+  <Card title="Import your data" icon="terminal" href="/cli#import">
+    Load a collection from Postgres, MongoDB, Parquet, S3, or Hugging Face with one command.
   </Card>
-</CardGroup>
-
-#### Security & Compliance
-
-TopK is **SOC 2 Type I** certified. Visit the [trust center](https://trust.topk.io) for full details.
-
-<CardGroup cols={1}>
-  <Card title="Data encryption" icon="lock" horizontal>
-    All data is encrypted in transit and at rest.
-  </Card>
-  <Card title="Access control" icon="shield-check" horizontal>
-    Role-based access control with full auditability.
-  </Card>
-  <Card title="Private Deployment" icon="server" horizontal>
-    Deploy inside your own VPC for complete isolation and data residency. [Contact us](https://topk.io/contact) for more details.
-  </Card>
-</CardGroup>
-
-#### Learn More
-
-<CardGroup cols={2}>
-  <Card title="Architecture" icon="server" href="/architecture">
-    Learn about TopK's architecture and how it works.
-  </Card>
-  <Card title="Concepts" icon="info" href="/concepts">
-    Discover core concepts and how they work together.
+  <Card title="Query reference" icon="search" href="/collections/query">
+    Every stage, function, and operator available in a query.
   </Card>
 </CardGroup>
 
@@ -6872,6 +7503,365 @@ Check if the expression matches the provided regexp pattern.
 
 Instances of the `FunctionExpr` class are used to represent function expressions in TopK.
 Usually created using function constructors such as [`fn.vector_distance()`](#vector-distance), [`fn.semantic_similarity()`](#semantic-similarity) or [`fn.bm25_score()`](#bm25-score).
+Comparison and arithmetic operators lift into a [`LogicalExpr`](#logicalexpr), e.g. `fn.bm25_score() > 0.5`.
+
+**Methods**
+
+###### eq()
+
+```python
+eq(self, other: FlexibleExpr) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`FlexibleExpr`](#flexibleexpr) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### ne()
+
+```python
+ne(self, other: FlexibleExpr) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`FlexibleExpr`](#flexibleexpr) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### lt()
+
+```python
+lt(self, other: Ordered) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Ordered`](#ordered) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### lte()
+
+```python
+lte(self, other: Ordered) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Ordered`](#ordered) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### gt()
+
+```python
+gt(self, other: Ordered) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Ordered`](#ordered) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### gte()
+
+```python
+gte(self, other: Ordered) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Ordered`](#ordered) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### add()
+
+```python
+add(self, other: Numeric) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Numeric`](#numeric) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### sub()
+
+```python
+sub(self, other: Numeric) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Numeric`](#numeric) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### mul()
+
+```python
+mul(self, other: Numeric) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Numeric`](#numeric) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### div()
+
+```python
+div(self, other: Numeric) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`Numeric`](#numeric) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### coalesce()
+
+```python
+coalesce(self, other: LogicalExpr | int | float) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`LogicalExpr`](#logicalexpr) &#124; int &#124; float |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### min()
+
+```python
+min(self, other: LogicalExpr | int | float | str) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`LogicalExpr`](#logicalexpr) &#124; int &#124; float &#124; str |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### max()
+
+```python
+max(self, other: LogicalExpr | int | float | str) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `other` | [`LogicalExpr`](#logicalexpr) &#124; int &#124; float &#124; str |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### is\_null()
+
+```python
+is_null(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### is\_not\_null()
+
+```python
+is_not_null(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### abs()
+
+```python
+abs(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### ln()
+
+```python
+ln(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### exp()
+
+```python
+exp(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### sqrt()
+
+```python
+sqrt(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### square()
+
+```python
+square(self) -> LogicalExpr
+```
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### choose()
+
+```python
+choose(self, x: FlexibleExpr, y: FlexibleExpr) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `x` | [`FlexibleExpr`](#flexibleexpr) |
+| `y` | [`FlexibleExpr`](#flexibleexpr) |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
+
+###### boost()
+
+```python
+boost(self, condition: FlexibleExpr, boost: LogicalExpr | int | float) -> LogicalExpr
+```
+
+**Parameters**
+
+| Parameter | Type |
+| --------- | ---- |
+| `condition` | [`FlexibleExpr`](#flexibleexpr) |
+| `boost` | [`LogicalExpr`](#logicalexpr) &#124; int &#124; float |
+
+**Returns**
+
+[`LogicalExpr`](#logicalexpr)
+
+***
 
 ##### AggregateExpr
 
@@ -6907,7 +7897,7 @@ Adds a select stage to the query.
 ###### filter()
 
 ```python
-filter(self, expr: LogicalExpr | TextExpr) -> Query
+filter(self, expr: LogicalExpr | FunctionExpr | TextExpr) -> Query
 ```
 
 Adds a filter stage to the query.
@@ -6916,7 +7906,7 @@ Adds a filter stage to the query.
 
 | Parameter | Type |
 | --------- | ---- |
-| `expr` | [`LogicalExpr`](#logicalexpr) &#124; [`TextExpr`](#textexpr) |
+| `expr` | [`LogicalExpr`](#logicalexpr) &#124; [`FunctionExpr`](#functionexpr) &#124; [`TextExpr`](#textexpr) |
 
 **Returns**
 
@@ -6927,8 +7917,8 @@ Adds a filter stage to the query.
 ###### sort()
 
 ```python
-sort(self, expr: LogicalExpr, asc: bool = True) -> Query
-sort(self, expr: Sequence[tuple[LogicalExpr, Literal['asc', 'desc']]]) -> Query
+sort(self, expr: LogicalExpr | FunctionExpr, asc: bool = True) -> Query
+sort(self, expr: Sequence[tuple[LogicalExpr | FunctionExpr, Literal['asc', 'desc']]]) -> Query
 ```
 
 Adds a sort stage to the query.
@@ -6937,7 +7927,7 @@ Adds a sort stage to the query.
 
 | Parameter | Type |
 | --------- | ---- |
-| `expr` | [`LogicalExpr`](#logicalexpr) &#124; Sequence[tuple[[`LogicalExpr`](#logicalexpr), Literal['asc', 'desc']]] |
+| `expr` | [`LogicalExpr`](#logicalexpr) &#124; [`FunctionExpr`](#functionexpr) &#124; Sequence[tuple[[`LogicalExpr`](#logicalexpr) &#124; [`FunctionExpr`](#functionexpr), Literal['asc', 'desc']]] |
 | `asc` | bool |
 
 **Returns**
@@ -7003,7 +7993,7 @@ Adds a count stage to the query.
 ###### group\_by()
 
 ```python
-group_by(self, keys: dict[str, LogicalExpr], aggs: dict[str, AggregateExpr]) -> Query
+group_by(self, keys: dict[str, LogicalExpr | FunctionExpr], aggs: dict[str, AggregateExpr]) -> Query
 ```
 
 Adds a group-by stage to the query.
@@ -7014,7 +8004,7 @@ Groups documents by one or more key expressions and computes aggregations for ea
 
 | Parameter | Type |
 | --------- | ---- |
-| `keys` | dict[str, [`LogicalExpr`](#logicalexpr)] |
+| `keys` | dict[str, [`LogicalExpr`](#logicalexpr) &#124; [`FunctionExpr`](#functionexpr)] |
 | `aggs` | dict[str, [`AggregateExpr`](#aggregateexpr)] |
 
 **Returns**
@@ -7028,7 +8018,7 @@ Groups documents by one or more key expressions and computes aggregations for ea
 <Warning>**Deprecated** — Use ``.sort(expr, asc).limit(k)`` instead.</Warning>
 
 ```python
-topk(self, expr: LogicalExpr, k: int, asc: bool = False) -> Query
+topk(self, expr: LogicalExpr | FunctionExpr, k: int, asc: bool = False) -> Query
 ```
 
 Adds a top-k stage to the query.
@@ -7037,7 +8027,7 @@ Adds a top-k stage to the query.
 
 | Parameter | Type |
 | --------- | ---- |
-| `expr` | [`LogicalExpr`](#logicalexpr) |
+| `expr` | [`LogicalExpr`](#logicalexpr) &#124; [`FunctionExpr`](#functionexpr) |
 | `k` | int |
 | `asc` | bool |
 
@@ -7389,7 +8379,7 @@ client.collection("books").query(
 ##### filter()
 
 ```python
-filter(expr: LogicalExpr | TextExpr) -> Query
+filter(expr: LogicalExpr | FunctionExpr | TextExpr) -> Query
 ```
 
 Creates a new query with a filter stage.
@@ -7408,7 +8398,7 @@ client.collection("books").query(
 
 | Parameter | Type |
 | --------- | ---- |
-| `expr` | [`LogicalExpr`](#logicalexpr) &#124; [`TextExpr`](#textexpr) |
+| `expr` | [`LogicalExpr`](#logicalexpr) &#124; [`FunctionExpr`](#functionexpr) &#124; [`TextExpr`](#textexpr) |
 
 **Returns**
 
@@ -7419,7 +8409,7 @@ client.collection("books").query(
 ##### group_by()
 
 ```python
-group_by(keys: dict[str, LogicalExpr], aggs: dict[str, AggregateExpr]) -> Query
+group_by(keys: dict[str, LogicalExpr | FunctionExpr], aggs: dict[str, AggregateExpr]) -> Query
 ```
 
 Creates a new query with a group-by stage.
@@ -7442,7 +8432,7 @@ client.collection("books").query(
 
 | Parameter | Type |
 | --------- | ---- |
-| `keys` | dict[str, [`LogicalExpr`](#logicalexpr)] |
+| `keys` | dict[str, [`LogicalExpr`](#logicalexpr) &#124; [`FunctionExpr`](#functionexpr)] |
 | `aggs` | dict[str, [`AggregateExpr`](#aggregateexpr)] |
 
 **Returns**
@@ -10034,6 +11024,7 @@ Creates a field reference expression.
 ```ts
 function filter(expr:
   | LogicalExpression
+  | FunctionExpression
   | TextExpression): Query;
 ```
 
@@ -10043,7 +11034,7 @@ Creates a new query with a filter stage.
 
 | Parameter | Type |
 | ------ | ------ |
-| `expr` | \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`TextExpression`](/sdk/topk-js/Namespace.query#textexpression) |
+| `expr` | \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`FunctionExpression`](/sdk/topk-js/Namespace.query#functionexpression) \| [`TextExpression`](/sdk/topk-js/Namespace.query#textexpression) |
 
 **Returns**
 
@@ -10297,6 +11288,368 @@ documents that also match `lord`.
 ##### FunctionExpression
 
 **`Internal`**
+
+**Methods**
+
+###### abs()
+
+```ts
+abs(): LogicalExpression;
+```
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### add()
+
+```ts
+add(other:
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### boost()
+
+```ts
+boost(condition:
+  | boolean
+  | LogicalExpression, boost:
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `condition` | \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `boost` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### choose()
+
+```ts
+choose(x:
+  | string
+  | number
+  | boolean
+  | LogicalExpression, y:
+  | string
+  | number
+  | boolean
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `x` | \| `string` \| `number` \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `y` | \| `string` \| `number` \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### coalesce()
+
+```ts
+coalesce(other:
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### div()
+
+```ts
+div(other:
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### eq()
+
+```ts
+eq(other:
+  | string
+  | number
+  | boolean
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### exp()
+
+```ts
+exp(): LogicalExpression;
+```
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### gt()
+
+```ts
+gt(other:
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### gte()
+
+```ts
+gte(other:
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### isNotNull()
+
+```ts
+isNotNull(): LogicalExpression;
+```
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### isNull()
+
+```ts
+isNull(): LogicalExpression;
+```
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### ln()
+
+```ts
+ln(): LogicalExpression;
+```
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### lt()
+
+```ts
+lt(other:
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### lte()
+
+```ts
+lte(other:
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### max()
+
+```ts
+max(other:
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### min()
+
+```ts
+min(other:
+  | string
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### mul()
+
+```ts
+mul(other:
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### ne()
+
+```ts
+ne(other:
+  | string
+  | number
+  | boolean
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `string` \| `number` \| `boolean` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### sqrt()
+
+```ts
+sqrt(): LogicalExpression;
+```
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### square()
+
+```ts
+square(): LogicalExpression;
+```
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
+
+###### sub()
+
+```ts
+sub(other:
+  | number
+  | LogicalExpression): LogicalExpression;
+```
+
+**Parameters**
+
+| Parameter | Type |
+| ------ | ------ |
+| `other` | \| `number` \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+
+**Returns**
+
+[`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)
 
 ***
 
@@ -10979,6 +12332,7 @@ Adds a count stage to the query.
 ```ts
 filter(expr:
   | LogicalExpression
+  | FunctionExpression
   | TextExpression): Query;
 ```
 
@@ -10988,7 +12342,7 @@ Adds a filter stage to the query.
 
 | Parameter | Type |
 | ------ | ------ |
-| `expr` | \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`TextExpression`](/sdk/topk-js/Namespace.query#textexpression) |
+| `expr` | \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`FunctionExpression`](/sdk/topk-js/Namespace.query#functionexpression) \| [`TextExpression`](/sdk/topk-js/Namespace.query#textexpression) |
 
 **Returns**
 
@@ -10997,7 +12351,9 @@ Adds a filter stage to the query.
 ###### groupBy()
 
 ```ts
-groupBy(keys: Record<string, LogicalExpression>, aggs: Record<string, AggregateExpression>): Query;
+groupBy(keys: Record<string,
+  | LogicalExpression
+  | FunctionExpression>, aggs: Record<string, AggregateExpression>): Query;
 ```
 
 Adds a group-by stage to the query.
@@ -11008,7 +12364,7 @@ Groups documents by one or more key expressions and computes aggregations for ea
 
 | Parameter | Type |
 | ------ | ------ |
-| `keys` | `Record`\<`string`, [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression)\> |
+| `keys` | `Record`\<`string`, \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`FunctionExpression`](/sdk/topk-js/Namespace.query#functionexpression)\> |
 | `aggs` | `Record`\<`string`, [`AggregateExpression`](/sdk/topk-js/Namespace.query#aggregateexpression)\> |
 
 **Returns**
@@ -11076,7 +12432,9 @@ Adds a select stage to the query.
 ###### Call Signature
 
 ```ts
-sort(expr: LogicalExpression, asc?: boolean): Query;
+sort(expr:
+  | LogicalExpression
+  | FunctionExpression, asc?: boolean): Query;
 ```
 
 Adds a sort stage to the query.
@@ -11085,7 +12443,7 @@ Adds a sort stage to the query.
 
 | Parameter | Type |
 | ------ | ------ |
-| `expr` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `expr` | \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`FunctionExpression`](/sdk/topk-js/Namespace.query#functionexpression) |
 | `asc?` | `boolean` |
 
 **Returns**
@@ -11114,7 +12472,9 @@ Adds a sort stage to the query.
 
 ```ts
 topk(
-   expr: LogicalExpression,
+   expr:
+  | LogicalExpression
+  | FunctionExpression,
    k: number,
    asc?: boolean): Query;
 ```
@@ -11125,7 +12485,7 @@ Adds a top-k stage to the query.
 
 | Parameter | Type |
 | ------ | ------ |
-| `expr` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) |
+| `expr` | \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`FunctionExpression`](/sdk/topk-js/Namespace.query#functionexpression) |
 | `k` | `number` |
 | `asc?` | `boolean` |
 
@@ -11257,7 +12617,7 @@ An expression to sort by with its sort order.
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="property-expr"></a> `expr` | [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) | The expression to sort by. |
+| <a id="property-expr"></a> `expr` | \| [`LogicalExpression`](/sdk/topk-js/Namespace.query#logicalexpression) \| [`FunctionExpression`](/sdk/topk-js/Namespace.query#functionexpression) | The expression to sort by. |
 | <a id="property-order"></a> `order` | [`SortOrder`](/sdk/topk-js/Namespace.query#sortorder) | Sort order. |
 
 ***
