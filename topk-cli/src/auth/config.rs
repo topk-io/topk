@@ -10,7 +10,6 @@ const AUTH_DOMAIN: &str = "topk-prod.us.auth0.com";
 const AUTH_CLIENT_ID: &str = "2LqddiN2N5fQplfMP2MIYPHM6ttFNeaG";
 const AUTH_AUDIENCE: &str = "https://api.topk.io";
 
-/// Browser-login configuration, resolved with the other CLI arguments.
 #[derive(clap::Args, Clone)]
 pub struct Config {
     #[arg(long = "auth-domain", env = "TOPK_AUTH_DOMAIN", default_value = AUTH_DOMAIN, value_parser = parse_domain, hide = true, global = true)]

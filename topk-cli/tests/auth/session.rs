@@ -14,10 +14,7 @@ use tokio::sync::{mpsc, oneshot, Mutex};
 use tokio::time::timeout;
 use url::Url;
 
-use super::client::Client;
-use super::config::OAuthConfig;
-use super::store::SessionStore;
-use super::{Auth, CredentialsStore};
+use super::{Auth, Config, CredentialsStore};
 
 pub(super) struct Server {
     pub url: Url,
@@ -67,20 +64,17 @@ impl Server {
         }
     }
 
-    pub fn auth(&self, dir: &Path) -> Auth {
-        let identity = OAuthConfig {
+    pub fn config(&self) -> Config {
+        Config {
             issuer: self.url.clone(),
             client_id: "test-client".into(),
             audience: "https://api.test".into(),
-        };
-        Auth {
-            store: SessionStore::new(
-                identity.key().unwrap(),
-                CredentialsStore::File,
-                dir.to_owned(),
-            ),
-            client: Client::new(identity).unwrap(),
+            store: CredentialsStore::File,
         }
+    }
+
+    pub fn auth(&self, config_dir: &Path) -> Auth {
+        Auth::new(&self.config(), config_dir.to_owned()).unwrap()
     }
 
     pub async fn reply(&self, status: u16, body: Value) {
@@ -247,20 +241,13 @@ async fn configuration_mismatches_require_login_and_preserve_existing_credential
     server.reply(200, response(3600, Some("refresh"))).await;
     seed(&auth).await;
     for changed in ["issuer", "client", "audience"] {
-        let mut identity = auth.client.identity.clone();
+        let mut config = server.config();
         match changed {
-            "issuer" => identity.issuer = Url::parse("https://other.test/").unwrap(),
-            "client" => identity.client_id = "other-client".into(),
-            _ => identity.audience = "https://other-api.test".into(),
+            "issuer" => config.issuer = Url::parse("https://other.test/").unwrap(),
+            "client" => config.client_id = "other-client".into(),
+            _ => config.audience = "https://other-api.test".into(),
         }
-        let other = Auth {
-            store: SessionStore::new(
-                identity.key().unwrap(),
-                CredentialsStore::File,
-                dir.path().to_owned(),
-            ),
-            client: Client::new(identity).unwrap(),
-        };
+        let other = Auth::new(&config, dir.path().to_owned()).unwrap();
         assert!(other
             .access_token()
             .await
@@ -280,14 +267,14 @@ async fn existing_file_session_keeps_backend_and_logout_uses_it() {
     server.reply(200, response(3600, Some("refresh"))).await;
     seed(&auth).await;
     // Even forcing keyring for new sessions must not hide this existing file session.
-    let reopened = Auth {
-        store: SessionStore::new(
-            auth.client.identity.key().unwrap(),
-            CredentialsStore::Keyring,
-            dir.path().to_owned(),
-        ),
-        client: Client::new(auth.client.identity.clone()).unwrap(),
-    };
+    let reopened = Auth::new(
+        &Config {
+            store: CredentialsStore::Keyring,
+            ..server.config()
+        },
+        dir.path().to_owned(),
+    )
+    .unwrap();
     reopened.store.lock().await.unwrap().prepare().unwrap();
     assert_eq!(reopened.access_token().await.unwrap(), "access");
     reopened.logout().await.unwrap();
@@ -302,13 +289,12 @@ async fn login_replaces_the_single_stored_session() {
     server.reply(200, response(3600, Some("refresh"))).await;
     seed(&auth).await;
 
-    let mut identity = auth.client.identity.clone();
-    identity.audience = "https://other-api.test".into();
-    let key = identity.key().unwrap();
-    let other = Auth {
-        store: SessionStore::new(key.clone(), CredentialsStore::File, dir.path().to_owned()),
-        client: Client::new(identity).unwrap(),
+    let config = Config {
+        audience: "https://other-api.test".into(),
+        ..server.config()
     };
+    let key = config.oauth().key().unwrap();
+    let other = Auth::new(&config, dir.path().to_owned()).unwrap();
     server
         .reply(
             200,
@@ -398,16 +384,18 @@ async fn logout_without_a_session_removes_legacy_api_key_and_is_idempotent() {
 async fn file_storage_handles_sessions_larger_than_windows_credential_limit() {
     let dir = TempDir::new().unwrap();
     let server = Server::new().await;
-    let mut auth = server.auth(dir.path());
-    auth.store = SessionStore::new(
-        auth.client.identity.key().unwrap(),
-        if cfg!(windows) {
-            CredentialsStore::Auto
-        } else {
-            CredentialsStore::File
+    let auth = Auth::new(
+        &Config {
+            store: if cfg!(windows) {
+                CredentialsStore::Auto
+            } else {
+                CredentialsStore::File
+            },
+            ..server.config()
         },
         dir.path().to_owned(),
-    );
+    )
+    .unwrap();
     // The token alone reaches the Windows limit at 1,280 UTF-16 code units;
     // metadata and the refresh token also count toward that limit.
     for size in [1_279, 1_280, 1_281, 16_384] {
@@ -440,12 +428,14 @@ async fn file_storage_handles_sessions_larger_than_windows_credential_limit() {
 async fn windows_rejects_keyring_before_browser_login() {
     let dir = TempDir::new().unwrap();
     let server = Server::new().await;
-    let mut auth = server.auth(dir.path());
-    auth.store = SessionStore::new(
-        auth.client.identity.key().unwrap(),
-        CredentialsStore::Keyring,
+    let auth = Auth::new(
+        &Config {
+            store: CredentialsStore::Keyring,
+            ..server.config()
+        },
         dir.path().to_owned(),
-    );
+    )
+    .unwrap();
     let error = match auth.login().await {
         Ok(_) => panic!("unsupported keyring storage should fail before browser login"),
         Err(error) => error,
@@ -489,12 +479,14 @@ async fn file_and_keyring_support_login_refresh_and_logout() {
     ] {
         let dir = TempDir::new().unwrap();
         let mut server = Server::new().await;
-        let mut auth = server.auth(dir.path());
-        auth.store = SessionStore::new(
-            auth.client.identity.key().unwrap(),
-            kind,
+        let auth = Auth::new(
+            &Config {
+                store: kind,
+                ..server.config()
+            },
             dir.path().to_owned(),
-        );
+        )
+        .unwrap();
         // Exercise payloads larger than a small API key in both backends.
         let refresh_token = "r".repeat(16_384);
         server

@@ -1,4 +1,4 @@
-//! Browser login and stored access tokens, refreshed under a cross-process lock.
+use std::path::PathBuf;
 
 use anyhow::{bail, Context, Result};
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
@@ -7,9 +7,9 @@ use serde_json::Value;
 use tracing::info;
 
 use self::client::Client;
+use self::config::OAuthConfig;
 use self::session::Session;
 use self::store::SessionStore;
-use crate::config as cli_config;
 
 mod callback;
 mod claims;
@@ -25,23 +25,22 @@ pub use config::Config;
 pub use login::Login;
 pub use store::CredentialsStore;
 
-const SESSION_EXPIRED: &str = "session expired. Run `topk login`.";
+const SESSION_EXPIRED_MSG: &str = "session expired. Run `topk login`.";
+
 pub struct Auth {
+    oauth_config: OAuthConfig,
     client: Client,
     store: SessionStore,
 }
 
 impl Auth {
-    pub fn new(config: &Config) -> Result<Self> {
+    pub fn new(config: &Config, config_dir: PathBuf) -> Result<Self> {
         let oauth_config = config.oauth();
 
         Ok(Self {
-            store: SessionStore::new(
-                oauth_config.key()?,
-                config.store,
-                cli_config::dir().context("no config directory")?,
-            ),
-            client: Client::new(oauth_config)?,
+            store: SessionStore::new(oauth_config.key()?, config.store, config_dir),
+            client: Client::new(oauth_config.issuer.join("oauth/token")?)?,
+            oauth_config,
         })
     }
 
@@ -55,7 +54,7 @@ impl Auth {
     }
 
     pub fn audience(&self) -> &str {
-        &self.client.identity.audience
+        &self.oauth_config.audience
     }
 
     pub async fn access_token(&self) -> Result<String> {
@@ -65,7 +64,7 @@ impl Auth {
             return Ok(session.access_token);
         }
 
-        let refresh_token = session.refresh_token.context(SESSION_EXPIRED)?;
+        let refresh_token = session.refresh_token.context(SESSION_EXPIRED_MSG)?;
 
         info!("refreshing access token");
 
@@ -73,7 +72,7 @@ impl Auth {
             .client
             .post_token(&[
                 ("grant_type", "refresh_token"),
-                ("client_id", &self.client.identity.client_id),
+                ("client_id", &self.oauth_config.client_id),
                 ("refresh_token", &refresh_token),
             ])
             .await
@@ -81,7 +80,7 @@ impl Auth {
             Ok(res) => res,
             Err(e) if e.is_invalid_grant() => {
                 store.delete()?;
-                bail!(SESSION_EXPIRED);
+                bail!(SESSION_EXPIRED_MSG);
             }
             Err(e) => return Err(e).context("refreshing the access token"),
         };

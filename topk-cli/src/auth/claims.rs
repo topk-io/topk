@@ -51,7 +51,7 @@ impl AccessTokenClaims {
         match (&self.email, &self.name) {
             (Some(email), _) => email.clone(),
             (None, Some(name)) => name.clone(),
-            (None, None) => "-".to_string(),
+            (None, None) => self.sub.clone(),
         }
     }
 

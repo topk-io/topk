@@ -6,6 +6,7 @@ use keyring::{Entry, Error as KeyringError};
 use serde::{Deserialize, Serialize};
 
 use super::session::Session;
+use crate::config::Config;
 
 mod file;
 
@@ -59,7 +60,7 @@ impl SessionStore {
         let lock = file::lock(self.config_dir.join("session.lock")).await?;
         let config = match file::read(&self.config_dir.join("config.toml"))? {
             Some(raw) => toml::from_str(&raw).context("invalid config.toml")?,
-            None => ConfigFile::default(),
+            None => Config::default(),
         };
         Ok(LockedSessionStore {
             store: self,
@@ -71,7 +72,7 @@ impl SessionStore {
 
 pub(super) struct LockedSessionStore<'a> {
     store: &'a SessionStore,
-    config: ConfigFile,
+    config: Config,
     _lock: File,
 }
 
@@ -110,11 +111,7 @@ impl LockedSessionStore<'_> {
             store_key: self.store.oauth_config_key.clone(),
             session,
         })?;
-        let storage = self.get_storage()?;
-        storage.write(&raw)?;
-        if matches!(storage, Storage::Keyring) {
-            self.file_storage().delete()?;
-        }
+        self.get_storage()?.write(&raw)?;
         if self.config.extra.remove("api_key").is_some() {
             self.write_config()?;
         }
@@ -142,14 +139,12 @@ impl LockedSessionStore<'_> {
 
     fn storage(&self, store: CredentialsStore) -> Result<Storage> {
         match store {
-            CredentialsStore::File => Ok(self.file_storage()),
+            CredentialsStore::File => Ok(Storage::File(
+                self.store.config_dir.join("credentials.toml"),
+            )),
             CredentialsStore::Keyring => Ok(Storage::Keyring),
             CredentialsStore::Auto => bail!("credentials store must be resolved before use"),
         }
-    }
-
-    fn file_storage(&self) -> Storage {
-        Storage::File(self.store.config_dir.join("credentials.toml"))
     }
 
     fn write_config(&self) -> Result<()> {
@@ -160,14 +155,6 @@ impl LockedSessionStore<'_> {
             file::write_secret_file(&path, &toml::to_string_pretty(&self.config)?)
         }
     }
-}
-
-#[derive(Default, Serialize, Deserialize)]
-struct ConfigFile {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    store: Option<CredentialsStore>,
-    #[serde(flatten)]
-    extra: toml::Table,
 }
 
 #[derive(Serialize, Deserialize)]

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use super::client::TokenResponse;
 
-const REFRESH_MARGIN_SECS: u64 = 60;
+const REFRESH_EARLY_SECS: u64 = 60;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub(super) struct Session {
@@ -22,6 +22,6 @@ impl Session {
     }
 
     pub fn needs_refresh(&self) -> bool {
-        self.expires_at <= (Utc::now().timestamp() as u64).saturating_add(REFRESH_MARGIN_SECS)
+        self.expires_at <= (Utc::now().timestamp() as u64).saturating_add(REFRESH_EARLY_SECS)
     }
 }

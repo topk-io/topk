@@ -6,6 +6,7 @@ use topk_rs::client::retry::{BackoffConfig, RetryConfig};
 use topk_rs::{Client, ClientConfig};
 
 use crate::auth::{Auth, Config};
+use crate::config;
 
 #[derive(clap::Args, Clone)]
 pub struct Endpoint {
@@ -61,7 +62,7 @@ impl Endpoint {
     }
 
     pub fn auth(&self) -> Result<Auth> {
-        Auth::new(&self.auth)
+        Auth::new(&self.auth, config::dir().context("no config directory")?)
     }
 
     pub fn client(&self) -> Result<Client> {

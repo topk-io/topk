@@ -38,13 +38,13 @@ impl<'a> Login<'a> {
             "http://127.0.0.1:{}/callback",
             listener.local_addr()?.port()
         );
-        let mut url = auth.client.identity.issuer.join("authorize")?;
+        let mut url = auth.oauth_config.issuer.join("authorize")?;
         url.query_pairs_mut().extend_pairs([
             ("response_type", "code"),
-            ("client_id", auth.client.identity.client_id.as_str()),
+            ("client_id", auth.oauth_config.client_id.as_str()),
             ("redirect_uri", &redirect_uri),
             ("scope", SCOPE),
-            ("audience", &auth.client.identity.audience),
+            ("audience", &auth.oauth_config.audience),
             ("code_challenge", &s256(&verifier)),
             ("code_challenge_method", "S256"),
             ("state", &state),
@@ -71,7 +71,7 @@ impl<'a> Login<'a> {
                 .client
                 .post_token(&[
                     ("grant_type", "authorization_code"),
-                    ("client_id", &self.auth.client.identity.client_id),
+                    ("client_id", &self.auth.oauth_config.client_id),
                     ("code", &code),
                     ("code_verifier", &self.verifier),
                     ("redirect_uri", &self.redirect_uri),

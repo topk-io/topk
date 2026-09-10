@@ -3,21 +3,20 @@ use std::time::Duration;
 use anyhow::Result;
 use reqwest::{redirect::Policy, Client as HttpClient, StatusCode};
 use serde::Deserialize;
-
-use super::config::OAuthConfig;
+use url::Url;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 pub(super) struct Client {
-    pub identity: OAuthConfig,
+    token_endpoint: Url,
     http: HttpClient,
 }
 
 impl Client {
-    pub fn new(identity: OAuthConfig) -> Result<Self> {
+    pub fn new(token_endpoint: Url) -> Result<Self> {
         Ok(Self {
-            identity,
+            token_endpoint,
             http: HttpClient::builder()
                 .connect_timeout(CONNECT_TIMEOUT)
                 .timeout(REQUEST_TIMEOUT)
@@ -29,12 +28,7 @@ impl Client {
     pub async fn post_token(&self, form: &[(&str, &str)]) -> Result<TokenResponse, Error> {
         let res = self
             .http
-            .post(
-                self.identity
-                    .issuer
-                    .join("oauth/token")
-                    .expect("issuer URL"),
-            )
+            .post(self.token_endpoint.clone())
             .form(form)
             .send()
             .await?;
