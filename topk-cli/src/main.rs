@@ -4,8 +4,6 @@ use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::{generate, Shell};
 use colored::Colorize;
 
-use topk::commands::login;
-use topk::config;
 use topk::endpoint::Endpoint;
 
 #[derive(Parser)]
@@ -46,14 +44,18 @@ enum Output {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Log in by entering your API key
-    Login,
+    /// Log in with your TopK account in the browser
+    Login {
+        /// Print the login URL instead of opening a browser.
+        #[arg(long)]
+        no_browser: bool,
+    },
 
     /// Bulk import from a database, file or object store
     #[cfg(feature = "import")]
     Import(topk::commands::import::ImportArgs),
 
-    /// Remove auth credentials
+    /// Remove saved credentials
     Logout,
 
     /// Generate shell completion script
@@ -71,7 +73,10 @@ fn agent_mode() -> bool {
 
 fn main() -> ExitCode {
     // Rust ignores SIGPIPE, so `topk … | head` panics on the closed pipe.
-    unsafe { libc::signal(libc::SIGPIPE, libc::SIG_DFL) };
+    #[cfg(unix)]
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL)
+    };
     // AWS SSO for duckdb: sets AWS_CONFIG_FILE, UB once runtime threads getenv.
     #[cfg(feature = "import")]
     if std::env::args().any(|a| a == "import") {
@@ -87,7 +92,7 @@ async fn async_main() -> ExitCode {
     match run(&cli).await {
         Ok(code) => code,
         Err(e) => {
-            eprintln!("{} {e}", "error:".red().bold());
+            eprintln!("{} {e:#}", "error:".red().bold());
             ExitCode::FAILURE
         }
     }
@@ -95,22 +100,26 @@ async fn async_main() -> ExitCode {
 
 async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
     match &cli.command {
-        Some(Commands::Login) => {
-            let api_key = match cli.endpoint.api_key()? {
-                Some(key) => Some(key),
-                None => login::run(&cli.endpoint)?,
-            };
-
-            match api_key {
-                Some(api_key) => {
-                    config::set_api_key(api_key)?;
-                    eprintln!("{} API key saved.", "✓".green());
-                }
-                None => {
-                    println!("Skipping authentication.");
-                }
+        Some(Commands::Login { no_browser }) => {
+            let auth = cli.endpoint.auth()?;
+            let login = auth.login().await?;
+            if *no_browser {
+                eprintln!(
+                    "Open this URL in your browser to log in:\n\n{}\n",
+                    login.url()
+                );
+            } else {
+                eprintln!(
+                    "Opening your browser to log in. If it doesn't open, visit:\n\n{}\n",
+                    login.url()
+                );
+                let _ = open::that_detached(login.url().as_str());
             }
-
+            eprintln!("Waiting for login...");
+            match login.finish().await? {
+                Some(claims) => eprintln!("{} Logged in as {}", "✓".green(), claims.account()),
+                None => eprintln!("{} Logged in.", "✓".green()),
+            }
             Ok(ExitCode::SUCCESS)
         }
 
@@ -120,7 +129,7 @@ async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
         }
 
         Some(Commands::Logout) => {
-            config::clear()?;
+            cli.endpoint.auth()?.logout().await?;
             eprintln!("{} Logged out.", "✓".green());
             Ok(ExitCode::SUCCESS)
         }

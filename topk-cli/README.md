@@ -28,8 +28,6 @@ To authenticate, run:
 topk login
 ```
 
-Alternatively, you can set `TOPK_API_KEY` environment variable and skip the `topk login` command.
-
 ```bash
 export TOPK_API_KEY=<your-api-key>
 ```
@@ -44,15 +42,12 @@ To authenticate, run:
 topk login
 ```
 
-Alternatively, you can set `TOPK_API_KEY` environment variable and skip the `topk login` command.
-
-```bash
-export TOPK_API_KEY=<your-api-key>
-```
+> [!NOTE]
+> If the CLI cannot open your browser automatically, or you prefer to open it manually, use `topk login --no-browser` to print the login URL.
 
 ### logout
 
-Remove saved credentials:
+Remove the saved session:
 
 ```bash
 topk logout
@@ -61,6 +56,20 @@ topk logout
 ### import
 
 Bulk import into TopK collections. Every run prints the plan as a TOML spec and asks before writing; collections are created right after.
+
+#### Authenticate
+
+Set the `TOPK_API_KEY` environment variable:
+
+```bash
+export TOPK_API_KEY=<your-api-key>
+```
+
+Or pass `--api-key` when running import:
+
+```bash
+topk import ./books.parquet --api-key <your-api-key>
+```
 
 #### Import a database
 
@@ -174,7 +183,7 @@ Output results as NDJSON — one JSON object per line, compatible with `jq`.
 
 ### `--api-key`
 
-API key to use for this invocation. Overrides the `TOPK_API_KEY` environment variable and the key saved via `topk login`.
+API key to use for this invocation. Overrides the `TOPK_API_KEY` environment variable.
 
 ### `--region`
 

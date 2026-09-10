@@ -6,15 +6,25 @@ use std::io::Write as _;
 use std::path::Path;
 use std::process::Output;
 
+use clap::{Args, Command, FromArgMatches};
 use futures::StreamExt;
 use indexmap::IndexMap;
 use tempfile::{NamedTempFile, TempDir};
 use test_context::AsyncTestContext;
+use uuid::Uuid;
+
+use topk::endpoint::Endpoint;
 use topk::import::{Field, Spec, Target};
 use topk_rs::doc;
 use topk_rs::proto::v1::data::{ConsistencyLevel, Document, Value};
 use topk_rs::{Client, ClientConfig};
-use uuid::Uuid;
+
+pub fn endpoint() -> Endpoint {
+    let matches = Endpoint::augment_args(Command::new("test"))
+        .mut_args(|arg| arg.env(None::<&str>))
+        .get_matches_from(["test"]);
+    Endpoint::from_arg_matches(&matches).expect("default endpoint arguments")
+}
 
 pub fn books() -> Vec<Document> {
     vec![
@@ -117,7 +127,7 @@ pub fn fails(args: &[&str], env: &[(&str, &str)]) -> String {
 pub async fn discover_spec(locator: &str, pattern: Option<&str>) -> Spec {
     let uri = locator.parse().expect("source uri parses");
     let patterns: Vec<String> = pattern.into_iter().map(str::to_string).collect();
-    let catalog = topk::import::Source::connect(&uri, &topk::endpoint::Endpoint::default())
+    let catalog = topk::import::Source::connect(&uri, &endpoint())
         .await
         .expect("connect")
         .catalog()
@@ -140,7 +150,7 @@ pub async fn stream_docs_from(
         Some(url) => url.parse()?,
         None => target.from.parse()?,
     };
-    let source = topk::import::Source::connect(&uri, &topk::endpoint::Endpoint::default()).await?;
+    let source = topk::import::Source::connect(&uri, &endpoint()).await?;
     let mut rows = Box::pin(topk::import::documents(&source, target)?);
     let mut out = BTreeMap::new();
     while let Some(doc) = rows.next().await {

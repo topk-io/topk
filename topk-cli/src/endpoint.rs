@@ -1,12 +1,15 @@
 use std::time::Duration;
 
 use anyhow::{Context, Result};
+
 use topk_rs::client::retry::{BackoffConfig, RetryConfig};
 use topk_rs::{Client, ClientConfig};
 
-#[derive(clap::Args, Clone, Default)]
+use crate::auth::{Auth, Config};
+
+#[derive(clap::Args, Clone)]
 pub struct Endpoint {
-    /// TopK API key (or run `topk login`)
+    /// TopK API key
     #[arg(
         long,
         env = "TOPK_API_KEY",
@@ -46,24 +49,25 @@ pub struct Endpoint {
         help_heading = "Global options"
     )]
     pub https: bool,
+
+    #[command(flatten)]
+    pub auth: Config,
 }
 
 impl Endpoint {
-    /// `--api-key`/`TOPK_API_KEY`, else the saved login. A set-but-empty env
-    /// var (`TOPK_API_KEY=`) reads as unset.
-    pub fn api_key(&self) -> Result<Option<String>> {
-        if let Some(key) = self.api_key.clone().filter(|v| !v.is_empty()) {
-            return Ok(Some(key));
-        }
-        // TODO: remove stub — once `topk login` is SSO, the key comes back
-        // from Auth0, not out of config.toml.
-        Ok(crate::config::load()?.api_key)
+    /// `--api-key`/`TOPK_API_KEY`.
+    pub fn api_key(&self) -> Option<String> {
+        self.api_key.clone().filter(|v| !v.is_empty())
+    }
+
+    pub fn auth(&self) -> Result<Auth> {
+        Auth::new(&self.auth)
     }
 
     pub fn client(&self) -> Result<Client> {
         let api_key = self
-            .api_key()?
-            .context("API key not set. Run `topk login` or set TOPK_API_KEY.")?;
+            .api_key()
+            .context("API key not set. Set TOPK_API_KEY environment variable or pass --api-key.")?;
         let region = self.region.as_deref().filter(|v| !v.is_empty()).context(
             "--region is required (or set TOPK_REGION). \
              List available regions at https://docs.topk.io/regions",
