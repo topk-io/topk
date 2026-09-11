@@ -65,13 +65,7 @@ impl SqlClient {
     }
 
     pub(crate) async fn query(&self, sql: &str) -> anyhow::Result<Vec<Document>> {
-        let pg_rows: Vec<PgRow> = sqlx::raw_sql(sql)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(|e| match e.as_database_error() {
-                Some(d) => anyhow::anyhow!("{}", d.message()),
-                None => anyhow::anyhow!("{e}"),
-            })?;
+        let pg_rows: Vec<PgRow> = sqlx::raw_sql(sql).fetch_all(&self.pool).await?;
 
         Ok(Self::map_rows(pg_rows))
     }
