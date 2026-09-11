@@ -7,8 +7,6 @@ use tempfile::TempDir;
 use tokio::io::{AsyncBufReadExt, BufReader};
 #[cfg(target_os = "linux")]
 use tokio::time::{timeout, Duration};
-#[cfg(target_os = "linux")]
-use toml::Table;
 
 fn command(dir: &TempDir) -> Command {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_topk"));
@@ -18,12 +16,10 @@ fn command(dir: &TempDir) -> Command {
         "TOPK_AUTH_DOMAIN",
         "TOPK_AUTH_CLIENT_ID",
         "TOPK_AUTH_AUDIENCE",
-        "TOPK_CREDENTIALS_STORE",
     ] {
         cmd.env_remove(key);
     }
-    cmd.env("XDG_CONFIG_HOME", dir.path())
-        .env("TOPK_CREDENTIALS_STORE", "file");
+    cmd.env("XDG_CONFIG_HOME", dir.path());
     cmd
 }
 
@@ -61,21 +57,17 @@ fn logout_of_missing_session_is_idempotent_across_configurations() {
             .success());
     }
     assert!(!dir.path().join("topk/credentials.toml").exists());
-    assert!(!dir.path().join("topk/sessions").exists());
+    assert!(!dir.path().join("topk/config.toml").exists());
+    assert!(dir.path().join("topk/session.lock").exists());
 }
 
 #[cfg(target_os = "linux")]
 #[tokio::test]
-async fn missing_secret_service_falls_back_before_browser_login() {
+async fn no_browser_prints_login_url_without_saving_credentials() {
     let dir = TempDir::new().unwrap();
     std::fs::create_dir(dir.path().join("topk")).unwrap();
     let mut child = tokio::process::Command::from(command(&dir))
         .kill_on_drop(true)
-        .env("TOPK_CREDENTIALS_STORE", "auto")
-        .env(
-            "DBUS_SESSION_BUS_ADDRESS",
-            "unix:path=/nonexistent/topk-test-bus",
-        )
         .args(["login", "--no-browser"])
         .stderr(Stdio::piped())
         .spawn()
@@ -89,9 +81,7 @@ async fn missing_secret_service_falls_back_before_browser_login() {
     child.kill().await.unwrap();
     child.wait().await.unwrap();
     assert!(line.contains("Open this URL"), "{line}");
-    let config = dir.path().join("topk/config.toml");
-    let record: Table = toml::from_str(&std::fs::read_to_string(config).unwrap()).unwrap();
-    assert_eq!(record["store"].as_str(), Some("file"));
+    assert!(!dir.path().join("topk/config.toml").exists());
     assert!(!dir.path().join("topk/credentials.toml").exists());
 }
 
@@ -132,7 +122,7 @@ fn invalid_authentication_configuration_is_rejected_during_parsing() {
 
 #[cfg(target_os = "linux")]
 #[test]
-fn logout_without_a_session_cleans_up_with_an_unavailable_keyring() {
+fn logout_without_a_session_cleans_up_legacy_api_key() {
     let dir = TempDir::new().unwrap();
     std::fs::create_dir(dir.path().join("topk")).unwrap();
     let path = dir.path().join("topk/config.toml");
@@ -142,24 +132,15 @@ fn logout_without_a_session_cleans_up_with_an_unavailable_keyring() {
     )
     .unwrap();
     for _ in 0..2 {
-        let output = command(&dir)
-            .env("TOPK_CREDENTIALS_STORE", "keyring")
-            .env(
-                "DBUS_SESSION_BUS_ADDRESS",
-                "unix:path=/nonexistent/topk-test-bus",
-            )
-            .arg("logout")
-            .output()
-            .unwrap();
+        let output = command(&dir).arg("logout").output().unwrap();
         assert!(
             output.status.success(),
             "{}",
             String::from_utf8_lossy(&output.stderr)
         );
     }
-    let config: toml::Table = toml::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
-    assert!(!config.contains_key("api_key"));
-    assert_eq!(config["preferences"]["color"].as_bool(), Some(false));
+    assert!(!path.exists());
+    assert!(dir.path().join("topk/session.lock").exists());
 }
 
 #[test]

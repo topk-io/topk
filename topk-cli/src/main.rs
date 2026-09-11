@@ -45,11 +45,7 @@ enum Output {
 #[derive(Subcommand)]
 enum Commands {
     /// Log in with your TopK account in the browser
-    Login {
-        /// Print the login URL instead of opening a browser.
-        #[arg(long)]
-        no_browser: bool,
-    },
+    Login(topk::commands::login::LoginArgs),
 
     /// Bulk import from a database, file or object store
     #[cfg(feature = "import")]
@@ -100,28 +96,7 @@ async fn async_main() -> ExitCode {
 
 async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
     match &cli.command {
-        Some(Commands::Login { no_browser }) => {
-            let auth = cli.endpoint.auth()?;
-            let login = auth.login().await?;
-            if *no_browser {
-                eprintln!(
-                    "Open this URL in your browser to log in:\n\n{}\n",
-                    login.url()
-                );
-            } else {
-                eprintln!(
-                    "Opening your browser to log in. If it doesn't open, visit:\n\n{}\n",
-                    login.url()
-                );
-                let _ = open::that_detached(login.url().as_str());
-            }
-            eprintln!("Waiting for login...");
-            match login.finish().await? {
-                Some(claims) => eprintln!("{} Logged in as {}", "✓".green(), claims.account()),
-                None => eprintln!("{} Logged in.", "✓".green()),
-            }
-            Ok(ExitCode::SUCCESS)
-        }
+        Some(Commands::Login(args)) => topk::commands::login::run(&cli.endpoint, args).await,
 
         #[cfg(feature = "import")]
         Some(Commands::Import(args)) => {

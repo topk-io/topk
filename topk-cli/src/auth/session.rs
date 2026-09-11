@@ -1,7 +1,8 @@
+use anyhow::{Context, Result};
 use chrono::Utc;
+use oauth2::basic::BasicTokenResponse;
+use oauth2::TokenResponse;
 use serde::{Deserialize, Serialize};
-
-use super::client::TokenResponse;
 
 const REFRESH_EARLY_SECS: u64 = 60;
 
@@ -13,12 +14,23 @@ pub(super) struct Session {
 }
 
 impl Session {
-    pub fn from_response(res: TokenResponse, previous_refresh_token: Option<String>) -> Self {
-        Self {
-            access_token: res.access_token,
-            refresh_token: res.refresh_token.or(previous_refresh_token),
-            expires_at: (Utc::now().timestamp() as u64).saturating_add(res.expires_in),
-        }
+    pub fn from_response(
+        res: BasicTokenResponse,
+        previous_refresh_token: Option<String>,
+    ) -> Result<Self> {
+        let expires_at = res
+            .expires_in()
+            .context("token response is missing expires_in")?
+            .as_secs()
+            .saturating_add(Utc::now().timestamp() as u64);
+        Ok(Self {
+            access_token: res.access_token().secret().clone(),
+            refresh_token: res
+                .refresh_token()
+                .map(|token| token.secret().clone())
+                .or(previous_refresh_token),
+            expires_at,
+        })
     }
 
     pub fn needs_refresh(&self) -> bool {

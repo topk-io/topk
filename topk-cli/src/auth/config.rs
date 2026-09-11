@@ -4,8 +4,6 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 use url::Url;
 
-use super::store::CredentialsStore;
-
 const AUTH_DOMAIN: &str = "topk-prod.us.auth0.com";
 const AUTH_CLIENT_ID: &str = "2LqddiN2N5fQplfMP2MIYPHM6ttFNeaG";
 const AUTH_AUDIENCE: &str = "https://api.topk.io";
@@ -24,15 +22,6 @@ pub struct Config {
         global = true
     )]
     pub audience: String,
-    /// Credentials store for a new session; existing sessions keep their store.
-    #[arg(
-        long = "credentials-store",
-        env = "TOPK_CREDENTIALS_STORE",
-        default_value = "auto",
-        hide = true,
-        global = true
-    )]
-    pub store: CredentialsStore,
 }
 
 /// Resolved issuer, OAuth client, and API audience used for authentication.
