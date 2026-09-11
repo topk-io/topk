@@ -27,9 +27,7 @@ import = [
     "dep:indexmap",
     "dep:prost",
     "dep:strum",
-    "dep:thiserror",
     "dep:topk-es",
-    "dep:url",
     "dep:wildmatch",
 ]
 
@@ -45,9 +43,10 @@ half = { version = "2", optional = true }
 indexmap = { version = "2", features = ["serde"], optional = true }
 prost = { version = "0.14", optional = true }
 strum = { version = "0.26", features = ["derive"], optional = true }
-thiserror = { version = "1", optional = true }
+thiserror = "1"
 topk-es = { path = "../topk-es", optional = true }
-url = { version = "2", optional = true }
+url = { version = "2", features = ["serde"] }
+axum = { version = "0.8", default-features = false, features = ["http1", "query", "tokio"] }
 wildmatch = { version = "2", optional = true }
 clap = { version = "4", features = ["derive", "env"] }
 libc = { version = "0.2" }
@@ -69,6 +68,11 @@ open = "5"
 toml = { version = "0.8", features = ["preserve_order"] }
 dialoguer = "0.11"
 colored = "2"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+sha2 = "0.10"
+base64 = "0.22"
+oauth2 = { version = "5", default-features = false, features = ["reqwest", "timing-resistant-secret-traits"] }
+tempfile = "3"
 
 [dev-dependencies]
 async-trait = "0.1"
@@ -79,7 +83,6 @@ sqlx = { version = "0.8", features = [
     "mysql",
     "sqlite",
 ] }
-tempfile = "3"
 test-macros = { path = "../utils/test-macros" }
 test-context = { version = "0.3" }
 uuid = { version = "1", features = ["v4"] }

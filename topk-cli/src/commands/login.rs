@@ -1,42 +1,43 @@
+use std::process::ExitCode;
+
 use anyhow::Result;
-use dialoguer::{Password, Select};
+use clap::Args;
+use colored::Colorize;
 
 use crate::endpoint::Endpoint;
 
-pub fn run(endpoint: &Endpoint) -> Result<Option<String>> {
-    let choice = Select::new()
-        .with_prompt("How would you like to authenticate with TopK?")
-        .items(&["Create a new API key", "Use an existing API key", "Skip"])
-        .default(0)
-        .interact();
+// Registered Auth0 loopback callback ports.
+const AUTH_CALLBACK_PORTS: [u16; 3] = [38123, 38124, 38125];
 
-    match choice {
-        // Open the console URL in the browser and prompt for the API key
-        Ok(0) => {
-            let scheme = if endpoint.https { "https" } else { "http" };
-            let _ = open::that(format!("{scheme}://console.{}/api-key", endpoint.host));
-            Ok(Some(prompt_api_key()?))
-        }
-        // Prompt for the API key directly
-        Ok(1) => Ok(Some(prompt_api_key()?)),
-        // Skip authentication
-        Ok(_) => Ok(None),
-        // Error
-        Err(e) => Err(e.into()),
-    }
+#[derive(Args, Debug)]
+pub struct LoginArgs {
+    /// Print the login URL instead of opening a browser.
+    #[arg(long)]
+    pub no_browser: bool,
+
+    #[arg(long = "auth-callback-ports", env = "TOPK_AUTH_CALLBACK_PORTS", value_delimiter = ',', default_values_t = AUTH_CALLBACK_PORTS, hide = true)]
+    pub callback_ports: Vec<u16>,
 }
 
-fn prompt_api_key() -> Result<String> {
-    let api_key = Password::new()
-        .with_prompt("API key")
-        .validate_with(|input: &String| {
-            if input.trim().is_empty() {
-                Err("API key cannot be empty")
-            } else {
-                Ok(())
-            }
-        })
-        .interact()?;
-
-    Ok(api_key)
+pub async fn run(endpoint: &Endpoint, args: &LoginArgs) -> Result<ExitCode> {
+    let auth = endpoint.auth()?;
+    let login = auth.login(&args.callback_ports).await?;
+    if args.no_browser {
+        eprintln!(
+            "Open this URL in your browser to log in:\n\n{}\n",
+            login.url()
+        );
+    } else {
+        eprintln!(
+            "Opening your browser to log in. If it doesn't open, visit:\n\n{}\n",
+            login.url()
+        );
+        let _ = open::that_detached(login.url().as_str());
+    }
+    eprintln!("Waiting for login...");
+    match login.finish().await? {
+        Some(claims) => eprintln!("{} Logged in as {}", "✓".green(), claims.account()),
+        None => eprintln!("{} Logged in.", "✓".green()),
+    }
+    Ok(ExitCode::SUCCESS)
 }
