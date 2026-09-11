@@ -18,6 +18,7 @@ async fn test_query_starts_with(ctx: &mut ProjectTestContext) {
             filter(field("_id").starts_with("cat")).limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -33,7 +34,12 @@ async fn test_query_starts_with_empty(ctx: &mut ProjectTestContext) {
     let result = ctx
         .client
         .collection(&collection.name)
-        .query(filter(field("_id").starts_with("")).limit(100), None, None)
+        .query(
+            filter(field("_id").starts_with("")).limit(100),
+            None,
+            None,
+            None,
+        )
         .await
         .expect("could not query");
 
@@ -66,6 +72,7 @@ async fn test_query_starts_with_non_existent_prefix(ctx: &mut ProjectTestContext
             filter(field("_id").starts_with("foobarbaz")).limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -85,6 +92,7 @@ async fn test_query_starts_with_list_string_scalar(ctx: &mut ProjectTestContext)
             filter(field("tags").starts_with("lov")).limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -102,6 +110,7 @@ async fn test_query_starts_with_list_string_field(ctx: &mut ProjectTestContext) 
         .collection(&collection.name)
         .query(
             filter(field("tags").starts_with(field("_id"))).limit(100),
+            None,
             None,
             None,
         )

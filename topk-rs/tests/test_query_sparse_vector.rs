@@ -31,6 +31,7 @@ async fn test_query_sparse_vector_distance_f32(ctx: &mut ProjectTestContext) {
                 .limit(3),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -69,6 +70,7 @@ async fn test_query_sparse_vector_distance_f8(ctx: &mut ProjectTestContext) {
                 .limit(3),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -95,6 +97,7 @@ async fn test_query_sparse_vector_distance_u8(ctx: &mut ProjectTestContext) {
                 )])
                 .sort("sparse_u8_distance")
                 .limit(3),
+            None,
             None,
             None,
         )
@@ -125,6 +128,7 @@ async fn test_query_sparse_vector_distance_nullable(ctx: &mut ProjectTestContext
                 .limit(3),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -133,7 +137,7 @@ async fn test_query_sparse_vector_distance_nullable(ctx: &mut ProjectTestContext
     let mut mockingbird = ctx
         .client
         .collection(&collection.name)
-        .get(["mockingbird"], None, None, None)
+        .get(["mockingbird"], None, None, None, None)
         .await
         .expect("could not get mockingbird")
         .get("mockingbird")
@@ -164,6 +168,7 @@ async fn test_query_sparse_vector_distance_nullable(ctx: &mut ProjectTestContext
                 .sort("sparse_u8_distance")
                 .limit(3),
             Some(lsn),
+            None,
             None,
         )
         .await

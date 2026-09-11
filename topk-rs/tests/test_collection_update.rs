@@ -70,7 +70,7 @@ async fn test_update_batch(ctx: &mut ProjectTestContext) {
     let docs = ctx
         .client
         .collection(&collection.name)
-        .get(["1", "2", "3", "4", "5"], None, Some(lsn), None)
+        .get(["1", "2", "3", "4", "5"], None, Some(lsn), None, None)
         .await
         .expect("could not get documents");
 
@@ -122,7 +122,7 @@ async fn test_update_missing_id(ctx: &mut ProjectTestContext) {
     let docs = ctx
         .client
         .collection(&collection.name)
-        .get(["1", "2", "3"], None, Some(lsn), None)
+        .get(["1", "2", "3"], None, Some(lsn), None, None)
         .await
         .expect("could not get documents");
 
@@ -184,6 +184,7 @@ async fn test_update_vector_index_field(ctx: &mut ProjectTestContext) {
             .limit(1),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -213,6 +214,7 @@ async fn test_update_vector_index_field(ctx: &mut ProjectTestContext) {
             .limit(1),
             Some(lsn),
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -232,6 +234,7 @@ async fn test_update_semantic_index_field(ctx: &mut ProjectTestContext) {
             select([("sim", fns::semantic_similarity("title", "dummy"))])
                 .sort((field("sim"), SortOrder::Asc))
                 .limit(1),
+            None,
             None,
             None,
         )
@@ -257,6 +260,7 @@ async fn test_update_semantic_index_field(ctx: &mut ProjectTestContext) {
                 .filter(field("_id").eq(id))
                 .limit(1),
             Some(lsn),
+            None,
             None,
         )
         .await

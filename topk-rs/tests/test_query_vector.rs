@@ -29,6 +29,7 @@ async fn test_query_vector_distance(ctx: &mut ProjectTestContext) {
                 .limit(3),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -56,6 +57,7 @@ async fn test_query_vector_distance_without_refine(ctx: &mut ProjectTestContext)
                 .limit(3),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -74,6 +76,7 @@ async fn test_query_vector_distance_without_refine(ctx: &mut ProjectTestContext)
                 )])
                 .sort((field("summary_distance"), SortOrder::Asc))
                 .limit(3),
+            None,
             None,
             None,
         )
@@ -104,6 +107,7 @@ async fn test_query_vector_distance_nullable(ctx: &mut ProjectTestContext) {
             .limit(3),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -127,6 +131,7 @@ async fn test_query_vector_distance_u8_vector(ctx: &mut ProjectTestContext) {
             )])
             .sort((field("summary_distance"), SortOrder::Asc))
             .limit(3),
+            None,
             None,
             None,
         )
@@ -154,6 +159,7 @@ async fn test_query_vector_distance_i8_vector(ctx: &mut ProjectTestContext) {
             .limit(3),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -177,6 +183,7 @@ async fn test_query_vector_distance_binary_vector(ctx: &mut ProjectTestContext) 
             )])
             .sort((field("summary_distance"), SortOrder::Asc))
             .limit(2),
+            None,
             None,
             None,
         )
@@ -228,6 +235,7 @@ async fn test_query_vector_distance_f16_vector(ctx: &mut ProjectTestContext) {
             .limit(3),
             Some(lsn),
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -276,6 +284,7 @@ async fn test_query_vector_distance_f8_vector(ctx: &mut ProjectTestContext) {
             .sort((field("dist"), SortOrder::Asc))
             .limit(3),
             Some(lsn),
+            None,
             None,
         )
         .await

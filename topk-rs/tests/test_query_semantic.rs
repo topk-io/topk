@@ -31,7 +31,7 @@ async fn test_semantic_index_write_docs(ctx: &mut ProjectTestContext) {
     let result = ctx
         .client
         .collection(&collection.name)
-        .count(None, None)
+        .count(None, None, None)
         .await
         .expect("could not query");
 
@@ -50,6 +50,7 @@ async fn test_semantic_index_query(ctx: &mut ProjectTestContext) {
             select([("sim", fns::semantic_similarity("title", "dummy"))])
                 .sort((field("sim"), SortOrder::Asc))
                 .limit(3),
+            None,
             None,
             None,
         )
@@ -74,6 +75,7 @@ async fn test_semantic_index_query_with_text_filter(ctx: &mut ProjectTestContext
                 .limit(3),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -93,6 +95,7 @@ async fn test_semantic_index_query_with_missing_index(ctx: &mut ProjectTestConte
             select([("sim", fns::semantic_similarity("published_year", "dummy"))])
                 .sort((field("sim"), SortOrder::Asc))
                 .limit(3),
+            None,
             None,
             None,
         )
@@ -117,6 +120,7 @@ async fn test_semantic_index_query_multiple_fields(ctx: &mut ProjectTestContext)
             ])
             .sort((field("title_sim").add(field("summary_sim")), SortOrder::Asc))
             .limit(5),
+            None,
             None,
             None,
         )

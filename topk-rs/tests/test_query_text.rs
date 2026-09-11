@@ -27,6 +27,7 @@ async fn test_query_text_filter_single_term_disjunctive(ctx: &mut ProjectTestCon
                 .limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -46,6 +47,7 @@ async fn test_query_text_filter_single_term_conjunctive(ctx: &mut ProjectTestCon
             filter(r#match("love", Some("summary"), None, false))
                 .sort((field("published_year"), SortOrder::Asc))
                 .limit(100),
+            None,
             None,
             None,
         )
@@ -74,6 +76,7 @@ async fn test_query_text_filter_two_terms_disjunctive(ctx: &mut ProjectTestConte
             .limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -100,6 +103,7 @@ async fn test_query_text_filter_two_terms_conjunctive(ctx: &mut ProjectTestConte
             .limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -119,6 +123,7 @@ async fn test_query_text_filter_stop_word(ctx: &mut ProjectTestContext) {
             filter(r#match("the", Some("summary"), None, false))
                 .sort((field("published_year"), SortOrder::Asc))
                 .limit(100),
+            None,
             None,
             None,
         )
@@ -141,6 +146,7 @@ async fn test_query_text_should_does_not_filter(ctx: &mut ProjectTestContext) {
                 .filter(should("love", Some("summary"), None))
                 .sort("bm25")
                 .limit(100),
+            None,
             None,
             None,
         )
@@ -175,6 +181,7 @@ async fn test_query_text_should_boosts_bm25_score(ctx: &mut ProjectTestContext) 
                     .limit(100),
                 None,
                 None,
+                None,
             )
             .await
             .expect("could not query");
@@ -196,6 +203,7 @@ async fn test_query_select_bm25_without_text_queries(ctx: &mut ProjectTestContex
                 .filter(field("_id").eq("pride"))
                 .sort((field("bm25_score"), SortOrder::Asc))
                 .limit(100),
+            None,
             None,
             None,
         )
@@ -223,6 +231,7 @@ async fn test_query_text_matches_single_term(ctx: &mut ProjectTestContext) {
                     .limit(100),
                 None,
                 None,
+                None,
             )
             .await
             .expect("could not query");
@@ -243,6 +252,7 @@ async fn test_query_text_match_all_two_terms(ctx: &mut ProjectTestContext) {
             filter(field("summary").match_all("love class"))
                 .sort((field("published_year"), SortOrder::Asc))
                 .limit(100),
+            None,
             None,
             None,
         )
@@ -266,6 +276,7 @@ async fn test_query_text_match_all_two_terms_tokenized(ctx: &mut ProjectTestCont
                 .limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -285,6 +296,7 @@ async fn test_query_text_match_any_two_terms(ctx: &mut ProjectTestContext) {
             filter(field("summary").match_any("love ring"))
                 .sort((field("published_year"), SortOrder::Asc))
                 .limit(100),
+            None,
             None,
             None,
         )
@@ -308,6 +320,7 @@ async fn test_query_text_match_any_two_terms_tokenized(ctx: &mut ProjectTestCont
                 .limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -329,6 +342,7 @@ async fn test_query_text_matches_with_logical_expr(ctx: &mut ProjectTestContext)
                 .limit(10),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -346,6 +360,7 @@ async fn test_query_text_matches_on_invalid_field(ctx: &mut ProjectTestContext) 
         .collection(&collection.name)
         .query(
             filter(field("published_year").match_all("love class")).count(),
+            None,
             None,
             None,
         )
@@ -391,6 +406,7 @@ async fn test_query_text_with_updates(ctx: &mut ProjectTestContext) {
                 .limit(10),
             Some(lsn),
             None,
+            None,
         )
         .await
         .expect("query returned error");
@@ -415,6 +431,7 @@ async fn test_query_text_with_updates(ctx: &mut ProjectTestContext) {
                 .sort((literal(1u32).into(), SortOrder::Asc))
                 .limit(10),
             Some(lsn),
+            None,
             None,
         )
         .await
@@ -465,6 +482,7 @@ async fn test_query_text_exact_keyword(ctx: &mut ProjectTestContext) {
                 filter(r#match(token, Some("tag"), None, false)).limit(10),
                 Some(lsn.clone()),
                 None,
+                None,
             )
             .await
             .expect("query returned error");
@@ -494,6 +512,7 @@ async fn test_query_text_deep_recursion_limit(ctx: &mut ProjectTestContext) {
             filter(deep_expr)
                 .sort((field("published_year"), SortOrder::Asc))
                 .limit(100),
+            None,
             None,
             None,
         )
