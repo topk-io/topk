@@ -14,7 +14,7 @@ async fn test_query_non_existent_collection(ctx: &mut ProjectTestContext) {
     let err = ctx
         .client
         .collection("missing")
-        .count(None, None)
+        .count(None, None, None)
         .await
         .expect_err("should not be able to query non-existent collection");
 
@@ -36,6 +36,7 @@ async fn test_query_count_empty_collection(ctx: &mut ProjectTestContext) {
         .collection(collection.name)
         .count(
             None,
+            None,
             Some(topk_rs::proto::v1::data::ConsistencyLevel::Strong),
         )
         .await
@@ -52,7 +53,7 @@ async fn test_query_count(ctx: &mut ProjectTestContext) {
     let result = ctx
         .client
         .collection(&collection.name)
-        .count(None, None)
+        .count(None, None, None)
         .await
         .expect("could not query");
 
@@ -71,6 +72,7 @@ async fn test_query_count_with_filter(ctx: &mut ProjectTestContext) {
             filter(field("published_year").lte(1950 as u32)).count(),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -86,7 +88,7 @@ async fn test_query_count_with_delete(ctx: &mut ProjectTestContext) {
     let result = ctx
         .client
         .collection(&collection.name)
-        .count(None, None)
+        .count(None, None, None)
         .await
         .expect("could not query");
 
@@ -102,7 +104,7 @@ async fn test_query_count_with_delete(ctx: &mut ProjectTestContext) {
     let result = ctx
         .client
         .collection(&collection.name)
-        .count(Some(lsn), None)
+        .count(Some(lsn), None, None)
         .await
         .expect("could not query");
 

@@ -25,7 +25,7 @@ async fn test_query_bare_limit(ctx: &mut ProjectTestContext) {
     let result = ctx
         .client
         .collection(&collection.name)
-        .query(select([("_id", field("_id"))]).limit(100), None, None)
+        .query(select([("_id", field("_id"))]).limit(100), None, None, None)
         .await
         .expect("could not query");
 
@@ -57,6 +57,7 @@ async fn test_query_limit_select_filter(ctx: &mut ProjectTestContext) {
             .limit(3),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -83,6 +84,7 @@ async fn test_query_limit_with_bm25(ctx: &mut ProjectTestContext) {
             select([("bm25", fns::bm25_score(None, None))])
                 .filter(r#match("quest", None, None, true))
                 .limit(10),
+            None,
             None,
             None,
         )
@@ -112,6 +114,7 @@ async fn test_query_limit_vector_distance(ctx: &mut ProjectTestContext) {
                 .limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -128,6 +131,7 @@ async fn test_query_limit_vector_distance(ctx: &mut ProjectTestContext) {
                 )])
                 .sort((field("summary_distance"), SortOrder::Asc))
                 .limit(100),
+            None,
             None,
             None,
         )
@@ -166,6 +170,7 @@ async fn test_query_limit_offset(ctx: &mut ProjectTestContext) {
             select([("_id", field("_id"))]).limit(4).offset(3),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -194,6 +199,7 @@ async fn test_query_sort_limit_offset(ctx: &mut ProjectTestContext) {
             .sort((field("published_year"), SortOrder::Asc))
             .limit(4)
             .offset(3),
+            None,
             None,
             None,
         )
@@ -235,7 +241,7 @@ async fn test_query_invalid_collectors(#[case] query: Query) {
     let err = ctx
         .client
         .collection(&collection.name)
-        .query(query, None, None)
+        .query(query, None, None, None)
         .await
         .expect_err("should have failed");
 
