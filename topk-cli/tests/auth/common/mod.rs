@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -7,6 +7,7 @@ use axum::http::{header, StatusCode};
 use axum::routing::post;
 use axum::Router;
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use tokio::net::TcpListener;
 use tokio::sync::{mpsc, oneshot, Mutex};
 use tokio::time::timeout;
@@ -86,12 +87,8 @@ impl Server {
     }
 }
 
-// Serialize logins sharing the three registered callback ports.
-pub static LOGIN: Mutex<()> = Mutex::const_new(());
-
 pub async fn seed(auth: &Auth) {
-    let _guard = LOGIN.lock().await;
-    let login = auth.login().await.unwrap();
+    let login = auth.login(&[0]).await.unwrap();
     let params: HashMap<_, _> = login.url().query_pairs().into_owned().collect();
     let mut callback = Url::parse(&params["redirect_uri"]).unwrap();
     callback
@@ -110,4 +107,10 @@ pub async fn seed(auth: &Auth) {
 
 pub fn response(expires_in: u64, refresh: Option<&str>) -> Value {
     json!({"token_type": "Bearer", "access_token": "access", "refresh_token": refresh, "expires_in": expires_in})
+}
+
+pub fn tenant_dir(config_dir: &Path, issuer: &Url) -> PathBuf {
+    config_dir
+        .join("tenants")
+        .join(format!("{:x}", Sha256::digest(issuer.as_str().as_bytes())))
 }

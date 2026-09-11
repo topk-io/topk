@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
 use oauth2::{PkceCodeChallenge, PkceCodeVerifier};
@@ -8,7 +8,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::time::{sleep, timeout};
 use url::Url;
 
-use super::common::{response, Server, LOGIN};
+use super::common::{response, tenant_dir, Server};
 
 async fn request(port: u16, method: &str, path: &str) -> String {
     let mut stream = TcpStream::connect(("127.0.0.1", port)).await.unwrap();
@@ -32,8 +32,7 @@ async fn unrelated_requests_do_not_finish_login_and_success_follows_persistence(
     let dir = TempDir::new().unwrap();
     let mut server = Server::new().await;
     let auth = server.auth(dir.path());
-    let _guard = LOGIN.lock().await;
-    let login = auth.login().await.unwrap();
+    let login = auth.login(&[0]).await.unwrap();
     let params: HashMap<_, _> = login.url().query_pairs().into_owned().collect();
     let callback = Url::parse(&params["redirect_uri"]).unwrap();
     assert_eq!(params["response_type"], "code");
@@ -81,7 +80,9 @@ async fn unrelated_requests_do_not_finish_login_and_success_follows_persistence(
                 .as_str(),
                 params["code_challenge"],
             );
-            assert!(!dir.path().join("credentials.toml").exists());
+            assert!(!tenant_dir(dir.path(), &server.url)
+                .join("credentials.toml")
+                .exists());
             assert!(request(port, "GET", &path)
                 .await
                 .starts_with("HTTP/1.1 409"));
@@ -108,15 +109,15 @@ async fn failed_exchange_and_failed_save_never_send_success() {
         let dir = TempDir::new().unwrap();
         let mut server = Server::new().await;
         let auth = server.auth(dir.path());
-        let _guard = LOGIN.lock().await;
-        let login = auth.login().await.unwrap();
+        let login = auth.login(&[0]).await.unwrap();
         let params: HashMap<_, _> = login.url().query_pairs().into_owned().collect();
         let callback = Url::parse(&params["redirect_uri"]).unwrap();
         let port = callback.port().unwrap();
         let path = format!("/callback?code=valid&state={}", params["state"]);
         if fail_save {
             // A real filesystem failure, without changing the storage implementation.
-            std::fs::create_dir(dir.path().join("credentials.toml")).unwrap();
+            std::fs::create_dir_all(tenant_dir(dir.path(), &server.url).join("credentials.toml"))
+                .unwrap();
         }
         let browser = async {
             let exchange = async {
@@ -143,8 +144,8 @@ async fn storage_failure_is_reported_before_browser_login() {
     let dir = TempDir::new().unwrap();
     let server = Server::new().await;
     let auth = server.auth(dir.path());
-    std::fs::create_dir(dir.path().join("credentials.toml")).unwrap();
-    assert!(auth.login().await.is_err());
+    std::fs::create_dir_all(tenant_dir(dir.path(), &server.url).join("credentials.toml")).unwrap();
+    assert!(auth.login(&[0]).await.is_err());
 }
 
 #[tokio::test]
@@ -152,8 +153,7 @@ async fn cancelling_login_drops_listener() {
     let dir = TempDir::new().unwrap();
     let server = Server::new().await;
     let auth = server.auth(dir.path());
-    let _guard = LOGIN.lock().await;
-    let login = auth.login().await.unwrap();
+    let login = auth.login(&[0]).await.unwrap();
     let params: HashMap<_, _> = login.url().query_pairs().into_owned().collect();
     let callback = Url::parse(&params["redirect_uri"]).unwrap();
     let addr = ("127.0.0.1", callback.port().unwrap());
@@ -169,8 +169,7 @@ async fn authenticated_denial_finishes_without_exchanging_a_token() {
     let dir = TempDir::new().unwrap();
     let mut server = Server::new().await;
     let auth = server.auth(dir.path());
-    let _guard = LOGIN.lock().await;
-    let login = auth.login().await.unwrap();
+    let login = auth.login(&[0]).await.unwrap();
     let params: HashMap<_, _> = login.url().query_pairs().into_owned().collect();
     let callback = Url::parse(&params["redirect_uri"]).unwrap();
     let port = callback.port().unwrap();
@@ -185,4 +184,28 @@ async fn authenticated_denial_finishes_without_exchanging_a_token() {
         .contains("access_denied: cancelled"));
     assert!(page.contains("Login failed"));
     assert!(server.requests.try_recv().is_err());
+}
+
+#[tokio::test]
+async fn concurrent_logins_use_distinct_callback_ports() {
+    let dir = TempDir::new().unwrap();
+    let server = Server::new().await;
+    let auth = server.auth(dir.path());
+    let logins = futures::future::join_all((0..8).map(|_| auth.login(&[0]))).await;
+    let ports: HashSet<_> = logins
+        .iter()
+        .map(|login| {
+            let params: HashMap<_, _> = login
+                .as_ref()
+                .unwrap()
+                .url()
+                .query_pairs()
+                .into_owned()
+                .collect();
+            let callback = Url::parse(&params["redirect_uri"]).unwrap();
+            assert_eq!(callback.host_str(), Some("127.0.0.1"));
+            callback.port().unwrap()
+        })
+        .collect();
+    assert_eq!(ports.len(), logins.len());
 }

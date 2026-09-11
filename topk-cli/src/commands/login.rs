@@ -6,16 +6,22 @@ use colored::Colorize;
 
 use crate::endpoint::Endpoint;
 
+// Registered Auth0 loopback callback ports.
+const AUTH_CALLBACK_PORTS: [u16; 3] = [38123, 38124, 38125];
+
 #[derive(Args, Debug)]
 pub struct LoginArgs {
     /// Print the login URL instead of opening a browser.
     #[arg(long)]
     pub no_browser: bool,
+
+    #[arg(long = "auth-callback-ports", env = "TOPK_AUTH_CALLBACK_PORTS", value_delimiter = ',', default_values_t = AUTH_CALLBACK_PORTS, hide = true)]
+    pub callback_ports: Vec<u16>,
 }
 
 pub async fn run(endpoint: &Endpoint, args: &LoginArgs) -> Result<ExitCode> {
     let auth = endpoint.auth()?;
-    let login = auth.login().await?;
+    let login = auth.login(&args.callback_ports).await?;
     if args.no_browser {
         eprintln!(
             "Open this URL in your browser to log in:\n\n{}\n",

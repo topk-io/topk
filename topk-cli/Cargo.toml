@@ -91,7 +91,3 @@ uuid = { version = "1", features = ["v4"] }
 name = "import"
 path = "tests/import/main.rs"
 required-features = ["import"]
-
-[[test]]
-name = "auth"
-path = "tests/auth/main.rs"

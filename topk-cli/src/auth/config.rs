@@ -1,6 +1,5 @@
 use anyhow::{ensure, Context, Result};
 use clap::builder::NonEmptyStringValueParser;
-use serde::Serialize;
 use sha2::{Digest, Sha256};
 use url::Url;
 
@@ -25,7 +24,7 @@ pub struct Config {
 }
 
 /// Resolved issuer, OAuth client, and API audience used for authentication.
-#[derive(Clone, Serialize)]
+#[derive(Clone)]
 pub(super) struct OAuthConfig {
     pub issuer: Url,
     pub client_id: String,
@@ -33,8 +32,8 @@ pub(super) struct OAuthConfig {
 }
 
 impl OAuthConfig {
-    pub fn key(&self) -> Result<String> {
-        Ok(format!("{:x}", Sha256::digest(serde_json::to_vec(self)?)))
+    pub fn issuer_key(&self) -> String {
+        format!("{:x}", Sha256::digest(self.issuer.as_str().as_bytes()))
     }
 }
 

@@ -5,11 +5,10 @@ use std::time::Duration;
 use serde_json::json;
 use tempfile::TempDir;
 use tokio::time::timeout;
-use url::Url;
 
 use topk::auth::{Auth, Config};
 
-use super::common::{response, seed, Server, LOGIN};
+use super::common::{response, seed, tenant_dir, Server};
 
 #[tokio::test]
 async fn concurrent_refresh_happens_once_and_preserves_refresh_token() {
@@ -35,8 +34,10 @@ async fn concurrent_refresh_happens_once_and_preserves_refresh_token() {
         request.contains("grant_type=refresh_token") && request.contains("refresh_token=refresh")
     );
     assert!(server.requests.try_recv().is_err());
-    let credentials: toml::Table =
-        toml::from_str(&read_to_string(dir.path().join("credentials.toml")).unwrap()).unwrap();
+    let credentials: toml::Table = toml::from_str(
+        &read_to_string(tenant_dir(dir.path(), &server.url).join("credentials.toml")).unwrap(),
+    )
+    .unwrap();
     assert_eq!(credentials["refresh_token"].as_str(), Some("refresh"));
 }
 
@@ -106,7 +107,12 @@ async fn invalid_grant_clears_session_and_other_errors_preserve_it() {
         let error = auth.access_token().await.unwrap_err();
         assert!(format!("{error:#}").contains(message));
         server.request().await;
-        assert_eq!(dir.path().join("credentials.toml").exists(), retained);
+        assert_eq!(
+            tenant_dir(dir.path(), &server.url)
+                .join("credentials.toml")
+                .exists(),
+            retained
+        );
     }
 }
 
@@ -127,7 +133,9 @@ async fn request_timeout_releases_refresh_lock_and_preserves_session() {
         .unwrap()
         .unwrap();
     assert!(result.is_err());
-    assert!(dir.path().join("credentials.toml").exists());
+    assert!(tenant_dir(dir.path(), &server.url)
+        .join("credentials.toml")
+        .exists());
     timeout(Duration::from_secs(1), auth.logout())
         .await
         .unwrap()
@@ -141,10 +149,9 @@ async fn configuration_mismatches_require_login_and_preserve_existing_credential
     let auth = server.auth(dir.path());
     server.reply(200, response(3600, Some("refresh"))).await;
     seed(&auth).await;
-    for changed in ["issuer", "client", "audience"] {
+    for changed in ["client", "audience"] {
         let mut config = server.config();
         match changed {
-            "issuer" => config.issuer = Url::parse("https://other.test/").unwrap(),
             "client" => config.client_id = "other-client".into(),
             _ => config.audience = "https://other-api.test".into(),
         }
@@ -155,8 +162,7 @@ async fn configuration_mismatches_require_login_and_preserve_existing_credential
             .unwrap_err()
             .to_string()
             .contains("authentication configuration mismatch"));
-        let _guard = LOGIN.lock().await;
-        drop(other.login().await.unwrap());
+        drop(other.login(&[0]).await.unwrap());
         assert_eq!(auth.access_token().await.unwrap(), "access");
     }
 }
@@ -171,11 +177,13 @@ async fn session_survives_reopening_and_logout_removes_it() {
     let reopened = server.auth(dir.path());
     assert_eq!(reopened.access_token().await.unwrap(), "access");
     reopened.logout().await.unwrap();
-    assert!(!dir.path().join("credentials.toml").exists());
+    assert!(!tenant_dir(dir.path(), &server.url)
+        .join("credentials.toml")
+        .exists());
 }
 
 #[tokio::test]
-async fn login_replaces_the_single_stored_session() {
+async fn login_replaces_the_session_for_the_same_issuer() {
     let dir = TempDir::new().unwrap();
     let server = Server::new().await;
     let auth = server.auth(dir.path());
@@ -201,12 +209,20 @@ async fn login_replaces_the_single_stored_session() {
         .unwrap_err()
         .to_string()
         .contains("authentication configuration mismatch"));
-    let record: toml::Table =
-        toml::from_str(&read_to_string(dir.path().join("credentials.toml")).unwrap()).unwrap();
+    let record: toml::Table = toml::from_str(
+        &read_to_string(tenant_dir(dir.path(), &server.url).join("credentials.toml")).unwrap(),
+    )
+    .unwrap();
     assert_eq!(record["access_token"].as_str(), Some("replacement"));
+    assert_eq!(
+        record["client_id"].as_str(),
+        Some(config.client_id.as_str())
+    );
+    assert_eq!(record["audience"].as_str(), Some(config.audience.as_str()));
+    assert!(!record.contains_key("store_key"));
     assert!(!dir.path().join("config.toml").exists());
 
-    let mut files: Vec<_> = read_dir(dir.path())
+    let mut files: Vec<_> = read_dir(tenant_dir(dir.path(), &server.url))
         .unwrap()
         .map(|entry| entry.unwrap().file_name())
         .collect();
@@ -215,7 +231,9 @@ async fn login_replaces_the_single_stored_session() {
 
     // Logout removes the current session even when invoked with the old configuration.
     auth.logout().await.unwrap();
-    assert!(!dir.path().join("credentials.toml").exists());
+    assert!(!tenant_dir(dir.path(), &server.url)
+        .join("credentials.toml")
+        .exists());
     assert!(!dir.path().join("config.toml").exists());
     assert!(other
         .access_token()
@@ -243,8 +261,12 @@ async fn login_preserves_preferences_and_logout_removes_both_files() {
     assert_eq!(config["preferences"]["color"].as_bool(), Some(false));
     auth.logout().await.unwrap();
     assert!(!path.exists());
-    assert!(dir.path().join("session.lock").exists());
-    assert!(!dir.path().join("credentials.toml").exists());
+    assert!(tenant_dir(dir.path(), &server.url)
+        .join("session.lock")
+        .exists());
+    assert!(!tenant_dir(dir.path(), &server.url)
+        .join("credentials.toml")
+        .exists());
 }
 
 #[tokio::test]
@@ -261,8 +283,12 @@ async fn logout_without_a_session_removes_legacy_api_key_and_is_idempotent() {
     auth.logout().await.unwrap();
     auth.logout().await.unwrap();
     assert!(!path.exists());
-    assert!(dir.path().join("session.lock").exists());
-    assert!(!dir.path().join("credentials.toml").exists());
+    assert!(tenant_dir(dir.path(), &server.url)
+        .join("session.lock")
+        .exists());
+    assert!(!tenant_dir(dir.path(), &server.url)
+        .join("credentials.toml")
+        .exists());
 }
 
 #[tokio::test]
@@ -286,15 +312,19 @@ async fn file_storage_handles_large_sessions() {
             .await;
         seed(&auth).await;
         assert_eq!(auth.access_token().await.unwrap(), access_token);
-        let session: toml::Table =
-            toml::from_str(&read_to_string(dir.path().join("credentials.toml")).unwrap()).unwrap();
+        let session: toml::Table = toml::from_str(
+            &read_to_string(tenant_dir(dir.path(), &server.url).join("credentials.toml")).unwrap(),
+        )
+        .unwrap();
         assert_eq!(
             session["refresh_token"].as_str(),
             Some(refresh_token.as_str())
         );
     }
     auth.logout().await.unwrap();
-    assert!(!dir.path().join("credentials.toml").exists());
+    assert!(!tenant_dir(dir.path(), &server.url)
+        .join("credentials.toml")
+        .exists());
 }
 
 #[tokio::test]
@@ -303,7 +333,8 @@ async fn logout_removes_malformed_config_and_credentials() {
     let server = Server::new().await;
     let auth = server.auth(dir.path());
     let config_path = dir.path().join("config.toml");
-    let credentials_path = dir.path().join("credentials.toml");
+    let credentials_path = tenant_dir(dir.path(), &server.url).join("credentials.toml");
+    std::fs::create_dir_all(credentials_path.parent().unwrap()).unwrap();
     for config in [b"invalid [".as_slice(), b"= true", b"[unclosed", b"\xff"] {
         write(&config_path, config).unwrap();
         write(&credentials_path, "existing credentials").unwrap();
@@ -311,7 +342,9 @@ async fn logout_removes_malformed_config_and_credentials() {
         auth.logout().await.unwrap();
         assert!(!config_path.exists());
         assert!(!credentials_path.exists());
-        assert!(dir.path().join("session.lock").exists());
+        assert!(tenant_dir(dir.path(), &server.url)
+            .join("session.lock")
+            .exists());
     }
 }
 
@@ -339,7 +372,9 @@ async fn file_storage_supports_login_refresh_and_logout() {
         .await
         .contains("grant_type=authorization_code"));
     assert!(!dir.path().join("config.toml").exists());
-    assert!(dir.path().join("credentials.toml").exists());
+    assert!(tenant_dir(dir.path(), &server.url)
+        .join("credentials.toml")
+        .exists());
 
     server
         .reply(
@@ -366,8 +401,10 @@ async fn file_storage_supports_login_refresh_and_logout() {
     let request = server.request().await;
     assert!(request.contains("grant_type=refresh_token"));
     assert!(request.contains(&format!("refresh_token={refresh_token}")));
-    let session: toml::Table =
-        toml::from_str(&read_to_string(dir.path().join("credentials.toml")).unwrap()).unwrap();
+    let session: toml::Table = toml::from_str(
+        &read_to_string(tenant_dir(dir.path(), &server.url).join("credentials.toml")).unwrap(),
+    )
+    .unwrap();
     assert_eq!(session["refresh_token"].as_str(), Some("rotated-refresh"));
     assert_eq!(auth.access_token().await.unwrap(), "renewed-access");
     assert!(server.requests.try_recv().is_err());
@@ -379,6 +416,121 @@ async fn file_storage_supports_login_refresh_and_logout() {
         .unwrap_err()
         .to_string()
         .contains("not logged in"));
-    assert!(!dir.path().join("credentials.toml").exists());
+    assert!(!tenant_dir(dir.path(), &server.url)
+        .join("credentials.toml")
+        .exists());
     assert!(!dir.path().join("config.toml").exists());
+}
+
+#[tokio::test]
+async fn switching_issuers_reuses_sessions() {
+    let dir = TempDir::new().unwrap();
+    let mut first = Server::new().await;
+    let mut second = Server::new().await;
+    let first_auth = first.auth(dir.path());
+    let second_auth = second.auth(dir.path());
+    for (server, auth, token) in [
+        (&first, &first_auth, "first-access"),
+        (&second, &second_auth, "second-access"),
+    ] {
+        let mut reply = response(3600, Some("refresh"));
+        reply["access_token"] = json!(token);
+        server.reply(200, reply).await;
+        seed(auth).await;
+    }
+    first.request().await;
+    second.request().await;
+    for _ in 0..2 {
+        assert_eq!(
+            first.auth(dir.path()).access_token().await.unwrap(),
+            "first-access"
+        );
+        assert_eq!(
+            second.auth(dir.path()).access_token().await.unwrap(),
+            "second-access"
+        );
+    }
+    assert!(first.requests.try_recv().is_err());
+    assert!(second.requests.try_recv().is_err());
+}
+
+#[tokio::test]
+async fn logout_only_removes_the_current_issuer_session() {
+    let dir = TempDir::new().unwrap();
+    let first = Server::new().await;
+    let second = Server::new().await;
+    let first_auth = first.auth(dir.path());
+    let second_auth = second.auth(dir.path());
+    for (server, auth, token) in [
+        (&first, &first_auth, "first-access"),
+        (&second, &second_auth, "second-access"),
+    ] {
+        let mut reply = response(3600, Some("refresh"));
+        reply["access_token"] = json!(token);
+        server.reply(200, reply).await;
+        seed(auth).await;
+    }
+    first_auth.logout().await.unwrap();
+    assert!(first_auth
+        .access_token()
+        .await
+        .unwrap_err()
+        .to_string()
+        .contains("not logged in"));
+    assert_eq!(second_auth.access_token().await.unwrap(), "second-access");
+    assert!(tenant_dir(dir.path(), &first.url)
+        .join("session.lock")
+        .exists());
+    assert!(tenant_dir(dir.path(), &second.url)
+        .join("credentials.toml")
+        .exists());
+}
+
+#[tokio::test]
+async fn refreshing_one_issuer_does_not_block_another() {
+    let dir = TempDir::new().unwrap();
+    let mut first = Server::new().await;
+    let mut second = Server::new().await;
+    let first_auth = Arc::new(first.auth(dir.path()));
+    let second_auth = second.auth(dir.path());
+    first.reply(200, response(0, Some("first-refresh"))).await;
+    seed(&first_auth).await;
+    first.request().await;
+    second.reply(200, response(0, Some("second-refresh"))).await;
+    seed(&second_auth).await;
+    second.request().await;
+
+    let refreshing_auth = first_auth.clone();
+    let refresh = tokio::spawn(async move { refreshing_auth.access_token().await });
+    assert!(first
+        .request()
+        .await
+        .contains("refresh_token=first-refresh"));
+    second
+        .reply(200, response(3600, Some("second-rotated")))
+        .await;
+    assert_eq!(
+        timeout(Duration::from_secs(2), second_auth.access_token())
+            .await
+            .unwrap()
+            .unwrap(),
+        "access"
+    );
+    assert!(second
+        .request()
+        .await
+        .contains("refresh_token=second-refresh"));
+    assert!(!refresh.is_finished());
+
+    first
+        .reply(200, response(3600, Some("first-rotated")))
+        .await;
+    assert_eq!(refresh.await.unwrap().unwrap(), "access");
+    for (server, token) in [(&first, "first-rotated"), (&second, "second-rotated")] {
+        let credentials: toml::Table = toml::from_str(
+            &read_to_string(tenant_dir(dir.path(), &server.url).join("credentials.toml")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(credentials["refresh_token"].as_str(), Some(token));
+    }
 }

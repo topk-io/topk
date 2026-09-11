@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::process::Command;
 #[cfg(target_os = "linux")]
 use std::process::Stdio;
@@ -7,6 +8,18 @@ use tempfile::TempDir;
 use tokio::io::{AsyncBufReadExt, BufReader};
 #[cfg(target_os = "linux")]
 use tokio::time::{timeout, Duration};
+use url::Url;
+
+use super::common::tenant_dir;
+
+const AUTH_DOMAIN: &str = "auth.example.test";
+
+fn tenant_path(dir: &TempDir) -> PathBuf {
+    tenant_dir(
+        &dir.path().join("topk"),
+        &Url::parse(&format!("https://{AUTH_DOMAIN}/")).unwrap(),
+    )
+}
 
 fn command(dir: &TempDir) -> Command {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_topk"));
@@ -16,10 +29,13 @@ fn command(dir: &TempDir) -> Command {
         "TOPK_AUTH_DOMAIN",
         "TOPK_AUTH_CLIENT_ID",
         "TOPK_AUTH_AUDIENCE",
+        "TOPK_AUTH_CALLBACK_PORTS",
     ] {
         cmd.env_remove(key);
     }
-    cmd.env("XDG_CONFIG_HOME", dir.path());
+    cmd.env("TOPK_AUTH_DOMAIN", AUTH_DOMAIN)
+        .env("XDG_CONFIG_HOME", dir.path())
+        .env("TOPK_AUTH_CALLBACK_PORTS", "0");
     cmd
 }
 
@@ -27,8 +43,8 @@ fn command(dir: &TempDir) -> Command {
 #[test]
 fn login_checks_storage_before_printing_authorization_url() {
     let dir = TempDir::new().unwrap();
-    std::fs::create_dir(dir.path().join("topk")).unwrap();
-    std::fs::create_dir(dir.path().join("topk/credentials.toml")).unwrap();
+    std::fs::create_dir_all(dir.path().join("topk")).unwrap();
+    std::fs::create_dir_all(tenant_path(&dir).join("credentials.toml")).unwrap();
     let output = command(&dir)
         .args(["login", "--no-browser"])
         .output()
@@ -43,7 +59,7 @@ fn login_checks_storage_before_printing_authorization_url() {
 #[test]
 fn logout_of_missing_session_is_idempotent_across_configurations() {
     let dir = TempDir::new().unwrap();
-    std::fs::create_dir(dir.path().join("topk")).unwrap();
+    std::fs::create_dir_all(dir.path().join("topk")).unwrap();
     for audience in [
         "https://api.one.test",
         "https://api.two.test",
@@ -56,16 +72,16 @@ fn logout_of_missing_session_is_idempotent_across_configurations() {
             .status
             .success());
     }
-    assert!(!dir.path().join("topk/credentials.toml").exists());
+    assert!(!tenant_path(&dir).join("credentials.toml").exists());
     assert!(!dir.path().join("topk/config.toml").exists());
-    assert!(dir.path().join("topk/session.lock").exists());
+    assert!(tenant_path(&dir).join("session.lock").exists());
 }
 
 #[cfg(target_os = "linux")]
 #[tokio::test]
 async fn no_browser_prints_login_url_without_saving_credentials() {
     let dir = TempDir::new().unwrap();
-    std::fs::create_dir(dir.path().join("topk")).unwrap();
+    std::fs::create_dir_all(dir.path().join("topk")).unwrap();
     let mut child = tokio::process::Command::from(command(&dir))
         .kill_on_drop(true)
         .args(["login", "--no-browser"])
@@ -82,13 +98,13 @@ async fn no_browser_prints_login_url_without_saving_credentials() {
     child.wait().await.unwrap();
     assert!(line.contains("Open this URL"), "{line}");
     assert!(!dir.path().join("topk/config.toml").exists());
-    assert!(!dir.path().join("topk/credentials.toml").exists());
+    assert!(!tenant_path(&dir).join("credentials.toml").exists());
 }
 
 #[test]
 fn invalid_authentication_configuration_is_rejected_during_parsing() {
     let dir = TempDir::new().unwrap();
-    std::fs::create_dir(dir.path().join("topk")).unwrap();
+    std::fs::create_dir_all(dir.path().join("topk")).unwrap();
     for domain in [
         "",
         "example.com/path",
@@ -117,14 +133,14 @@ fn invalid_authentication_configuration_is_rejected_during_parsing() {
         .output()
         .unwrap();
     assert_eq!(output.status.code(), Some(2));
-    assert!(!dir.path().join("topk/credentials.toml").exists());
+    assert!(!tenant_path(&dir).join("credentials.toml").exists());
 }
 
 #[cfg(target_os = "linux")]
 #[test]
 fn logout_without_a_session_cleans_up_legacy_api_key() {
     let dir = TempDir::new().unwrap();
-    std::fs::create_dir(dir.path().join("topk")).unwrap();
+    std::fs::create_dir_all(dir.path().join("topk")).unwrap();
     let path = dir.path().join("topk/config.toml");
     std::fs::write(
         &path,
@@ -140,7 +156,7 @@ fn logout_without_a_session_cleans_up_legacy_api_key() {
         );
     }
     assert!(!path.exists());
-    assert!(dir.path().join("topk/session.lock").exists());
+    assert!(tenant_path(&dir).join("session.lock").exists());
 }
 
 #[test]

@@ -84,6 +84,23 @@ struct CallbackParams {
     error_description: Option<String>,
 }
 
+impl CallbackParams {
+    fn validate(self, expected_state: &CsrfToken) -> Option<Result<String>> {
+        if CsrfToken::new(self.state) != *expected_state {
+            return None;
+        }
+
+        match (self.code, self.error) {
+            (Some(code), None) if !code.is_empty() => Some(Ok(code)),
+            (None, Some(error)) => Some(Err(anyhow!(
+                "{error}: {}",
+                self.error_description.unwrap_or_default()
+            ))),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Clone)]
 struct CallbackState {
     state: CsrfToken,
@@ -100,16 +117,8 @@ async fn callback(
     State(state): State<CallbackState>,
     Query(params): Query<CallbackParams>,
 ) -> Response {
-    if CsrfToken::new(params.state) != state.state {
+    let Some(code) = params.validate(&state.state) else {
         return StatusCode::BAD_REQUEST.into_response();
-    }
-    let code = match (params.code, params.error) {
-        (Some(code), None) if !code.is_empty() => Ok(code),
-        (None, Some(error)) => Err(anyhow!(
-            "{error}: {}",
-            params.error_description.unwrap_or_default()
-        )),
-        _ => return StatusCode::BAD_REQUEST.into_response(),
     };
     let (response, received) = oneshot::channel();
     if state
