@@ -7,13 +7,12 @@ use sqlparser::ast::{
 };
 use topk_rs::proto::v1::control::{
     field_type_list::ListValueType, field_type_matrix::MatrixValueType, FieldIndex, FieldSpec,
-    FieldType, KeywordIndexType, MultiVectorDistanceMetric, MultiVectorQuantization,
-    VectorDistanceMetric,
+    FieldType,
 };
 
+use crate::stmt::create_index::{field_index, option_value};
 use crate::{
-    parse_args, parse_kwargs, sql_invalid, sql_unsupported, util::Kwargs, Error, FromSql,
-    SqlExprExt, Statement, Table,
+    parse_args, sql_invalid, sql_unsupported, Error, FromSql, SqlExprExt, Statement, Table,
 };
 
 impl TryFrom<SqlCreateTable> for Statement {
@@ -194,9 +193,9 @@ impl FromSql<Function> for FieldIndex {
                             Some(key) => key,
                             None => sql_invalid!("expected identifier in INDEX option"),
                         };
-                        let value = match right.as_string() {
+                        let value = match option_value(right) {
                             Some(value) => value,
-                            None => sql_invalid!("expected string in INDEX option"),
+                            None => sql_invalid!("expected a literal in INDEX options"),
                         };
                         Ok((key, value))
                     }
@@ -210,44 +209,6 @@ impl FromSql<Function> for FieldIndex {
             }
         };
 
-        let index = match method.as_str() {
-            "keyword_index" => {
-                let kwargs = Kwargs(&opts);
-                let index_type = kwargs
-                    .optional::<KeywordIndexType>("type")?
-                    .unwrap_or(KeywordIndexType::Text);
-                kwargs.done(&["type"])?;
-                FieldIndex::keyword(index_type)
-            }
-            "semantic_index" => {
-                sql_unsupported!(!opts.is_empty(), "semantic_index does not take options");
-                FieldIndex::semantic()
-            }
-            "ngram_index" => {
-                sql_unsupported!(!opts.is_empty(), "ngram_index does not take options");
-                FieldIndex::ngram()
-            }
-            "vector_index" => {
-                let (metric,) = parse_kwargs!(&opts; metric: VectorDistanceMetric)?;
-                FieldIndex::vector(metric)
-            }
-            "multi_vector_index" => {
-                let (metric, quantization, width, top_k) = parse_kwargs!(
-                    &opts;
-                    metric: MultiVectorDistanceMetric;
-                    quantization: MultiVectorQuantization, width: u32, top_k: u32
-                )?;
-                sql_invalid!(
-                    metric != MultiVectorDistanceMetric::Maxsim,
-                    "multi_vector_index metric must be 'maxsim'"
-                );
-                FieldIndex::multi_vector(metric, quantization, width, top_k)
-            }
-            _ => sql_unsupported!(
-                "unknown index method `{method}`, expected: keyword_index | semantic_index | ngram_index | vector_index | multi_vector_index"
-            ),
-        };
-
-        Ok(index)
+        field_index(&method, &opts)
     }
 }
