@@ -68,6 +68,15 @@ pub enum Error {
     #[error("unauthenticated: {0}")]
     Unauthenticated(String),
 
+    #[error("failed precondition: {0}")]
+    FailedPrecondition(String),
+
+    #[error("index building: {0}")]
+    IndexBuilding(String),
+
+    #[error("schema version unavailable: {0}")]
+    SsnUnavailable(String),
+
     #[error("unexpected error: {0}")]
     Unexpected(String),
 
@@ -125,6 +134,9 @@ impl Error {
             Error::RequestTooLarge(_) => false,
             Error::DeadlineExceeded(_) => false,
             Error::Unauthenticated(_) => false,
+            Error::FailedPrecondition(_) => false,
+            Error::IndexBuilding(_) => false,
+            Error::SsnUnavailable(_) => false,
             Error::MalformedResponse(_) => false,
             Error::Unexpected(_) => false,
             Error::Internal(_) => false,
@@ -168,6 +180,9 @@ impl From<Status> for Error {
             Ok(error) => match error.code() {
                 CustomErrorCode::RequiredLsnGreaterThanManifestMaxLsn => Error::QueryLsnTimeout,
                 CustomErrorCode::SlowDown => Error::SlowDown(error.message),
+                CustomErrorCode::IndexMissing => Error::Unexpected(error.message),
+                CustomErrorCode::IndexBuilding => Error::IndexBuilding(error.message),
+                CustomErrorCode::SsnUnavailable => Error::SsnUnavailable(error.message),
                 CustomErrorCode::PartitionNotFound => Error::PartitionNotFound,
                 CustomErrorCode::DocumentNotFound => Error::DocumentNotFound(error.message),
             },
@@ -198,6 +213,9 @@ impl From<Status> for Error {
                 }
                 tonic::Code::Unauthenticated => {
                     Error::Unauthenticated(append_request_id(e.message()))
+                }
+                tonic::Code::FailedPrecondition => {
+                    Error::FailedPrecondition(append_request_id(e.message()))
                 }
                 _ => Error::Unexpected(append_request_id(&format!("{:?}", e))),
             },
@@ -256,6 +274,12 @@ pub enum SchemaValidationError {
 
     #[error("struct field `{field}` exceeds maximum nesting depth of {max_depth}")]
     StructTooDeep { field: String, max_depth: usize },
+
+    #[error("field `{field}` is nested under `{parent}`, which is not a struct")]
+    NestedFieldUnderScalar { field: String, parent: String },
+
+    #[error("field `{field}` conflicts with an inline struct path")]
+    ConflictingFieldPath { field: String },
 }
 
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize, Clone)]
@@ -462,6 +486,9 @@ pub enum CustomErrorCode {
     SlowDown,
     PartitionNotFound,
     DocumentNotFound,
+    IndexMissing,
+    IndexBuilding,
+    SsnUnavailable,
 }
 
 impl Into<u32> for CustomErrorCode {
@@ -471,6 +498,9 @@ impl Into<u32> for CustomErrorCode {
             CustomErrorCode::SlowDown => 1429,
             CustomErrorCode::PartitionNotFound => 1404,
             CustomErrorCode::DocumentNotFound => 1405,
+            CustomErrorCode::IndexMissing => 1412,
+            CustomErrorCode::IndexBuilding => 1413,
+            CustomErrorCode::SsnUnavailable => 1414,
         }
     }
 }
@@ -484,6 +514,9 @@ impl TryFrom<u32> for CustomErrorCode {
             1429 => Ok(CustomErrorCode::SlowDown),
             1404 => Ok(CustomErrorCode::PartitionNotFound),
             1405 => Ok(CustomErrorCode::DocumentNotFound),
+            1412 => Ok(CustomErrorCode::IndexMissing),
+            1413 => Ok(CustomErrorCode::IndexBuilding),
+            1414 => Ok(CustomErrorCode::SsnUnavailable),
             code => Err(anyhow::anyhow!("unknown internal error code: {code}")),
         }
     }
@@ -498,6 +531,9 @@ impl From<CustomError> for Status {
             CustomErrorCode::SlowDown => Status::resource_exhausted(error.message),
             CustomErrorCode::PartitionNotFound => Status::not_found(error.message),
             CustomErrorCode::DocumentNotFound => Status::not_found(error.message),
+            CustomErrorCode::IndexMissing => Status::failed_precondition(error.message),
+            CustomErrorCode::IndexBuilding => Status::failed_precondition(error.message),
+            CustomErrorCode::SsnUnavailable => Status::failed_precondition(error.message),
         };
 
         let error_code: u32 = error.code.into();

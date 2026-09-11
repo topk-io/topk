@@ -39,6 +39,8 @@ pub struct CollectionClient {
 pub struct QueryOptions {
     /// Last sequence number to query at (for consistency)
     pub lsn: Option<String>,
+    /// Committed schema sequence number to plan under, at the earliest
+    pub ssn: Option<u32>,
     /// Consistency level for the query
     pub consistency: Option<ConsistencyLevel>,
 }
@@ -106,6 +108,7 @@ impl CollectionClient {
                 ids,
                 fields,
                 options.lsn,
+                options.ssn,
                 options.consistency.map(|c| c.into()),
             )
             .await
@@ -124,7 +127,11 @@ impl CollectionClient {
 
         let count = self
             .collection()
-            .count(options.lsn, options.consistency.map(|c| c.into()))
+            .count(
+                options.lsn,
+                options.ssn,
+                options.consistency.map(|c| c.into()),
+            )
             .await
             .map_err(TopkError::from)?;
 
@@ -145,6 +152,7 @@ impl CollectionClient {
             .query(
                 query.clone().into(),
                 options.lsn,
+                options.ssn,
                 options.consistency.map(|c| c.into()),
             )
             .await

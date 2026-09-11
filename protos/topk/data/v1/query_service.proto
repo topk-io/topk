@@ -26,6 +26,7 @@ message QueryRequest {
   Query query = 2;
   optional string required_lsn = 3;
   optional ConsistencyLevel consistency_level = 4;
+  optional uint32 required_ssn = 5;
 }
 
 message QueryResponse {
@@ -38,6 +39,7 @@ message GetRequest {
   repeated string fields = 2;
   optional string required_lsn = 3;
   optional ConsistencyLevel consistency_level = 4;
+  optional uint32 required_ssn = 5;
 }
 
 message GetResponse {

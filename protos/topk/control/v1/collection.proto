@@ -10,4 +10,6 @@ message Collection {
   map<string, FieldSpec> schema = 4;
   string region = 5;
   string created_at = 6;
+  // Committed schema sequence number. Strictly increasing per committed change, not contiguous.
+  uint32 ssn = 7;
 }
