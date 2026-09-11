@@ -165,12 +165,15 @@ mod tests {
         assert_eq!(attempts, 1);
     }
 
+    #[rstest::rstest]
+    #[case::slow_down(|| Error::SlowDown("test".into()))]
+    #[case::index_building(|| Error::IndexBuilding("test".into()))]
     #[tokio::test]
-    async fn retryable_error() {
+    async fn retryable_error(#[case] error: fn() -> Error) {
         let retry_config = RetryConfig::default();
 
         let (attempts, result, _) = simulate(&retry_config, |count| match count {
-            0 => Err(crate::Error::SlowDown("test".to_string())),
+            0 => Err(error()),
             _ => Ok(()),
         })
         .await;
@@ -179,17 +182,19 @@ mod tests {
         assert_eq!(attempts, 2);
     }
 
+    #[rstest::rstest]
+    #[case::slow_down(|| Error::SlowDown("test".into()))]
+    #[case::index_building(|| Error::IndexBuilding("test".into()))]
     #[tokio::test]
-    async fn max_retries() {
+    async fn max_retries(#[case] error: fn() -> Error) {
         let retry_config = RetryConfig {
             max_retries: 5,
             ..Default::default()
         };
 
-        let (attempts, result, _) =
-            simulate(&retry_config, |_| Err(Error::SlowDown("test".to_string()))).await;
+        let (attempts, result, _) = simulate(&retry_config, |_| Err(error())).await;
 
-        assert!(matches!(result, Err(crate::Error::SlowDown(_))));
+        assert_eq!(result.unwrap_err().to_string(), error().to_string());
         assert_eq!(attempts, 5);
     }
 
@@ -218,18 +223,18 @@ mod tests {
         assert!(start_time.elapsed() >= Duration::from_millis(2_000));
     }
 
+    #[rstest::rstest]
+    #[case::slow_down(|| Error::SlowDown("test".into()))]
+    #[case::index_building(|| Error::IndexBuilding("test".into()))]
     #[tokio::test]
-    async fn timeout_exceeded() {
+    async fn timeout_exceeded(#[case] error: fn() -> Error) {
         let retry_config = RetryConfig {
             timeout: Duration::from_millis(100),
             ..Default::default()
         };
 
         let start_time = Instant::now();
-        let (attempts, result, _) = simulate(&retry_config, |_| {
-            Err(Error::SlowDown("please slow down".into()))
-        })
-        .await;
+        let (attempts, result, _) = simulate(&retry_config, |_| Err(error())).await;
 
         assert!(matches!(result, Err(crate::Error::RetryTimeout)));
         assert!(attempts > 0);
@@ -295,17 +300,19 @@ mod tests {
         );
     }
 
+    #[rstest::rstest]
+    #[case::slow_down(|| Error::SlowDown("test".into()))]
+    #[case::index_building(|| Error::IndexBuilding("test".into()))]
     #[tokio::test]
-    async fn zero_max_retries() {
+    async fn zero_max_retries(#[case] error: fn() -> Error) {
         let retry_config = RetryConfig {
             max_retries: 0,
             ..Default::default()
         };
 
-        let (attempts, result, _) =
-            simulate(&retry_config, |_| Err(Error::SlowDown("test".to_string()))).await;
+        let (attempts, result, _) = simulate(&retry_config, |_| Err(error())).await;
 
-        assert!(matches!(result, Err(crate::Error::SlowDown(_))));
+        assert_eq!(result.unwrap_err().to_string(), error().to_string());
         assert_eq!(attempts, 1); // Should fail immediately
     }
 }

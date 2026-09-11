@@ -85,7 +85,7 @@ pub async fn setup(
     let count = ctx
         .client
         .collection(&collection.name)
-        .count(Some(lsn), None)
+        .count(Some(lsn), None, None)
         .await
         .expect("could not query");
 

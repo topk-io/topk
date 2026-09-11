@@ -43,7 +43,7 @@ impl AsyncCollectionClient {
 
 #[pymethods]
 impl AsyncCollectionClient {
-    #[pyo3(signature = (ids, fields=None, lsn=None, consistency=None))]
+    #[pyo3(signature = (ids, fields=None, lsn=None, consistency=None, *, ssn=None))]
     pub fn get(
         &self,
         py: Python<'_>,
@@ -51,12 +51,13 @@ impl AsyncCollectionClient {
         fields: Option<Vec<String>>,
         lsn: Option<String>,
         consistency: Option<ConsistencyLevel>,
+        ssn: Option<u32>,
     ) -> PyResult<Py<PyAny>> {
         let collection = self.collection();
 
         future_into_py(py, async move {
             let docs = collection
-                .get(ids, fields, lsn, consistency.map(|c| c.into()))
+                .get(ids, fields, lsn, ssn, consistency.map(|c| c.into()))
                 .await
                 .map_err(RustError)?;
 
@@ -70,18 +71,19 @@ impl AsyncCollectionClient {
         .map(|result| result.into())
     }
 
-    #[pyo3(signature = (lsn=None, consistency=None))]
+    #[pyo3(signature = (lsn=None, consistency=None, *, ssn=None))]
     pub fn count(
         &self,
         py: Python<'_>,
         lsn: Option<String>,
         consistency: Option<ConsistencyLevel>,
+        ssn: Option<u32>,
     ) -> PyResult<Py<PyAny>> {
         let collection = self.collection();
 
         future_into_py(py, async move {
             let count = collection
-                .count(lsn, consistency.map(|c| c.into()))
+                .count(lsn, ssn, consistency.map(|c| c.into()))
                 .await
                 .map_err(RustError)?;
 
@@ -90,13 +92,14 @@ impl AsyncCollectionClient {
         .map(|result| result.into())
     }
 
-    #[pyo3(signature = (query, lsn=None, consistency=None))]
+    #[pyo3(signature = (query, lsn=None, consistency=None, *, ssn=None))]
     pub fn query(
         &self,
         py: Python<'_>,
         query: Query,
         lsn: Option<String>,
         consistency: Option<ConsistencyLevel>,
+        ssn: Option<u32>,
     ) -> PyResult<Py<PyAny>> {
         // Convert query to proto while GIL is held
         let query = query.into();
@@ -104,7 +107,7 @@ impl AsyncCollectionClient {
 
         future_into_py(py, async move {
             let docs = collection
-                .query(query, lsn, consistency.map(|c| c.into()))
+                .query(query, lsn, ssn, consistency.map(|c| c.into()))
                 .await
                 .map_err(RustError)?;
 

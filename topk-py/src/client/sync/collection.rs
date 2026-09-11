@@ -46,7 +46,7 @@ impl CollectionClient {
 
 #[pymethods]
 impl CollectionClient {
-    #[pyo3(signature = (ids, fields=None, lsn=None, consistency=None))]
+    #[pyo3(signature = (ids, fields=None, lsn=None, consistency=None, *, ssn=None))]
     pub fn get(
         &self,
         py: Python<'_>,
@@ -54,13 +54,14 @@ impl CollectionClient {
         fields: Option<Vec<String>>,
         lsn: Option<String>,
         consistency: Option<ConsistencyLevel>,
+        ssn: Option<u32>,
     ) -> PyResult<HashMap<String, Document>> {
         let docs = self
             .runtime
             .block_on(
                 py,
                 self.collection()
-                    .get(ids, fields, lsn, consistency.map(|c| c.into())),
+                    .get(ids, fields, lsn, ssn, consistency.map(|c| c.into())),
             )
             .map_err(RustError)?;
 
@@ -70,31 +71,34 @@ impl CollectionClient {
             .collect())
     }
 
-    #[pyo3(signature = (lsn=None, consistency=None))]
+    #[pyo3(signature = (lsn=None, consistency=None, *, ssn=None))]
     pub fn count(
         &self,
         py: Python<'_>,
         lsn: Option<String>,
         consistency: Option<ConsistencyLevel>,
+        ssn: Option<u32>,
     ) -> PyResult<u64> {
         let count = self
             .runtime
             .block_on(
                 py,
-                self.collection().count(lsn, consistency.map(|c| c.into())),
+                self.collection()
+                    .count(lsn, ssn, consistency.map(|c| c.into())),
             )
             .map_err(RustError)?;
 
         Ok(count)
     }
 
-    #[pyo3(signature = (query, lsn=None, consistency=None))]
+    #[pyo3(signature = (query, lsn=None, consistency=None, *, ssn=None))]
     pub fn query(
         &self,
         py: Python<'_>,
         query: Query,
         lsn: Option<String>,
         consistency: Option<ConsistencyLevel>,
+        ssn: Option<u32>,
     ) -> PyResult<Vec<Document>> {
         // Convert query to proto while GIL is held
         let query: topk_rs::proto::v1::data::Query = query.into();
@@ -104,7 +108,7 @@ impl CollectionClient {
             .block_on(
                 py,
                 self.collection()
-                    .query(query, lsn, consistency.map(|c| c.into())),
+                    .query(query, lsn, ssn, consistency.map(|c| c.into())),
             )
             .map_err(RustError)?;
 

@@ -108,6 +108,7 @@ impl CollectionClient {
         ids: impl IntoIterator<Item = impl Into<String>>,
         fields: Option<Vec<String>>,
         lsn: Option<String>,
+        ssn: Option<u32>,
         consistency: Option<ConsistencyLevel>,
     ) -> Result<HashMap<String, HashMap<String, Value>>, Error> {
         let client = create_client!(QueryServiceClient, self.read, self.config).await?;
@@ -129,6 +130,7 @@ impl CollectionClient {
                         fields: fields.unwrap_or_default(),
                         required_lsn: lsn,
                         consistency_level: consistency.map(|c| c.into()),
+                        required_ssn: ssn,
                     })
                     .map_err(Self::map_status_to_error)
                     .await
@@ -157,6 +159,7 @@ impl CollectionClient {
     pub async fn count(
         &self,
         lsn: Option<String>,
+        ssn: Option<u32>,
         consistency: Option<ConsistencyLevel>,
     ) -> Result<u64, Error> {
         let query = Query::new(vec![Stage::count()]);
@@ -166,7 +169,7 @@ impl CollectionClient {
             let lsn = lsn.clone();
             let consistency = consistency.clone();
 
-            async move { self.query(query, lsn, consistency).await }
+            async move { self.query(query, lsn, ssn, consistency).await }
         })
         .await?;
 
@@ -197,9 +200,10 @@ impl CollectionClient {
         &self,
         query: Query,
         lsn: Option<String>,
+        ssn: Option<u32>,
         consistency: Option<ConsistencyLevel>,
     ) -> Result<Vec<Document>, Error> {
-        let stream = self.query_stream(query, lsn, consistency).await?;
+        let stream = self.query_stream(query, lsn, ssn, consistency).await?;
         let results = stream.try_collect::<Vec<_>>().await?;
         Ok(results)
     }
@@ -208,6 +212,7 @@ impl CollectionClient {
         &self,
         query: Query,
         lsn: Option<String>,
+        ssn: Option<u32>,
         consistency: Option<ConsistencyLevel>,
     ) -> Result<DocumentStream, Error> {
         let client = create_client!(QueryServiceClient, self.read, self.config).await?;
@@ -225,6 +230,7 @@ impl CollectionClient {
                         query: Some(query.into()),
                         required_lsn: lsn.clone(),
                         consistency_level: consistency.map(|c| c.into()),
+                        required_ssn: ssn,
                         // DEPRECATED: This field is no longer used, kept for backwards compatibility.
                         collection: String::new(),
                     })

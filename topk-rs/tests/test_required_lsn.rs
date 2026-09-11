@@ -14,7 +14,7 @@ async fn test_invalid_required_lsn(ctx: &mut ProjectTestContext) {
     let collection = ctx.client.collection(&collection.name);
 
     let err = collection
-        .get(["1984"], None, Some("0".to_string()), None)
+        .get(["1984"], None, Some("0".to_string()), None, None)
         .await
         .expect_err("get with zero lsn must be rejected");
     assert!(
@@ -26,6 +26,7 @@ async fn test_invalid_required_lsn(ctx: &mut ProjectTestContext) {
         .query(
             select([("_id", field("_id"))]).limit(1),
             Some("0".to_string()),
+            None,
             None,
         )
         .await
@@ -54,7 +55,7 @@ async fn test_required_lsn_from_noop_update(ctx: &mut ProjectTestContext) {
         .expect("update must not fail");
 
     let docs = collection
-        .get(["1984"], None, Some(lsn), None)
+        .get(["1984"], None, Some(lsn), None, None)
         .await
         .expect("get with the lsn returned by update must not fail");
     assert!(docs.is_empty(), "expected no documents, got {docs:?}");

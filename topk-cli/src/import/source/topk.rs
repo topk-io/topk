@@ -145,6 +145,7 @@ impl Topk {
                             .fetch(["*"]),
                         None,
                         None,
+                        None,
                     )
                     .await
                 {

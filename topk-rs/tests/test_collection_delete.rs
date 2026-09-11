@@ -47,7 +47,7 @@ async fn test_delete_document(ctx: &mut ProjectTestContext) {
     // wait for write to be flushed
     ctx.client
         .collection(&collection.name)
-        .count(None, None)
+        .count(None, None, None)
         .await
         .expect("could not query documents");
 
@@ -67,6 +67,7 @@ async fn test_delete_document(ctx: &mut ProjectTestContext) {
                 .sort([(field("rank"), SortOrder::Asc)])
                 .limit(100),
             Some(lsn),
+            None,
             None,
         )
         .await
@@ -125,7 +126,7 @@ async fn test_delete_with_filter(ctx: &mut ProjectTestContext) {
     }
     assert_eq!(
         collection
-            .count(Some(lsn.clone()), None)
+            .count(Some(lsn.clone()), None, None)
             .await
             .expect("could not count documents"),
         15
@@ -140,7 +141,7 @@ async fn test_delete_with_filter(ctx: &mut ProjectTestContext) {
 
     assert_eq!(
         collection
-            .count(Some(lsn.clone()), None)
+            .count(Some(lsn.clone()), None, None)
             .await
             .expect("could not count documents"),
         5
@@ -167,6 +168,7 @@ async fn test_delete_with_filter(ctx: &mut ProjectTestContext) {
                 .limit(100),
             Some(lsn),
             None,
+            None,
         )
         .await
         .expect("could not query documents");
@@ -191,6 +193,7 @@ async fn test_delete_with_filter(ctx: &mut ProjectTestContext) {
                 .sort([(field("batch_idx"), SortOrder::Asc)])
                 .limit(100),
             Some(lsn),
+            None,
             None,
         )
         .await
@@ -226,7 +229,7 @@ async fn test_delete_by_id_prefix(ctx: &mut ProjectTestContext) {
     }
     assert_eq!(
         collection
-            .count(Some(lsn.clone()), None)
+            .count(Some(lsn.clone()), None, None)
             .await
             .expect("could not count documents"),
         15
@@ -241,7 +244,7 @@ async fn test_delete_by_id_prefix(ctx: &mut ProjectTestContext) {
 
     assert_eq!(
         collection
-            .count(Some(lsn.clone()), None)
+            .count(Some(lsn.clone()), None, None)
             .await
             .expect("could not count documents"),
         10
@@ -249,7 +252,12 @@ async fn test_delete_by_id_prefix(ctx: &mut ProjectTestContext) {
 
     // Verify expected documents
     let doc_ids = collection
-        .query(select([("_id", field("_id"))]).limit(100), Some(lsn), None)
+        .query(
+            select([("_id", field("_id"))]).limit(100),
+            Some(lsn),
+            None,
+            None,
+        )
         .await
         .expect("could not query documents");
 
@@ -307,7 +315,7 @@ async fn test_delete_with_invalid_filter(ctx: &mut ProjectTestContext) {
 
     assert_eq!(
         collection
-            .count(Some(lsn), None)
+            .count(Some(lsn), None, None)
             .await
             .expect("could not count documents"),
         15
@@ -338,7 +346,7 @@ async fn test_delete_with_filter_on_absent_optional_field(ctx: &mut ProjectTestC
 
     assert_eq!(
         collection
-            .count(Some(lsn.clone()), None)
+            .count(Some(lsn.clone()), None, None)
             .await
             .expect("could not count documents"),
         1
@@ -352,7 +360,7 @@ async fn test_delete_with_filter_on_absent_optional_field(ctx: &mut ProjectTestC
 
     assert_eq!(
         collection
-            .count(Some(lsn), None)
+            .count(Some(lsn), None, None)
             .await
             .expect("could not count documents"),
         1
@@ -373,7 +381,7 @@ async fn test_delete_with_filter_on_absent_optional_field(ctx: &mut ProjectTestC
 
     assert_eq!(
         collection
-            .count(Some(lsn), None)
+            .count(Some(lsn), None, None)
             .await
             .expect("could not count documents"),
         1

@@ -161,6 +161,8 @@ export interface Collection {
   region: string
   /** Timestamp when the collection was created (ISO 8601) */
   createdAt: string
+  /** Committed schema sequence number */
+  ssn: number
 }
 
 /**
@@ -206,6 +208,8 @@ export interface Partition {
 export interface QueryOptions {
   /** Last sequence number to query at (for consistency) */
   lsn?: string
+  /** Committed schema sequence number to plan under, at the earliest */
+  ssn?: number
   /** Consistency level for the query */
   consistency?: ConsistencyLevel
 }

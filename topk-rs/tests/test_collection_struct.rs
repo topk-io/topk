@@ -57,7 +57,7 @@ async fn test_struct_round_trip(ctx: &mut ProjectTestContext) {
     let docs = ctx
         .client
         .collection(&collection.name)
-        .get(["one"], None, Some(lsn), None)
+        .get(["one"], None, Some(lsn), None, None)
         .await
         .expect("could not get document");
 
@@ -131,6 +131,7 @@ async fn test_struct_query(ctx: &mut ProjectTestContext) {
                 .fetch(["meta.tag"]),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -201,6 +202,7 @@ async fn test_struct_semantic_index_on_sub_field(ctx: &mut ProjectTestContext) {
             .limit(2),
             Some(lsn),
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -263,7 +265,7 @@ async fn test_struct_update(ctx: &mut ProjectTestContext) {
     let docs = ctx
         .client
         .collection(&collection.name)
-        .get(["one"], None, Some(lsn), None)
+        .get(["one"], None, Some(lsn), None, None)
         .await
         .expect("could not get document");
 
@@ -303,7 +305,7 @@ async fn test_literal_dotted_field_roundtrip(ctx: &mut ProjectTestContext) {
     let docs = ctx
         .client
         .collection(&collection.name)
-        .get(["one"], None, Some(lsn.clone()), None)
+        .get(["one"], None, Some(lsn.clone()), None, None)
         .await
         .expect("could not get document");
     let one = docs.get("one").expect("missing doc");
@@ -318,6 +320,7 @@ async fn test_literal_dotted_field_roundtrip(ctx: &mut ProjectTestContext) {
                 .sort((field("meta.foo"), SortOrder::Asc))
                 .limit(10),
             Some(lsn),
+            None,
             None,
         )
         .await
@@ -466,7 +469,7 @@ async fn test_struct_get_all_fields(ctx: &mut ProjectTestContext) {
     let docs = ctx
         .client
         .collection(&collection.name)
-        .get(["one"], None, Some(lsn), None)
+        .get(["one"], None, Some(lsn), None, None)
         .await
         .expect("could not get document");
     let one = docs.get("one").expect("missing doc");
@@ -520,7 +523,13 @@ async fn test_struct_get_returns_whole_struct(ctx: &mut ProjectTestContext) {
     let docs = ctx
         .client
         .collection(&collection.name)
-        .get(["one"], Some(vec!["meta".to_string()]), Some(lsn), None)
+        .get(
+            ["one"],
+            Some(vec!["meta".to_string()]),
+            Some(lsn),
+            None,
+            None,
+        )
         .await
         .expect("could not get document");
     let one = docs.get("one").expect("missing doc");
@@ -577,6 +586,7 @@ async fn test_struct_get_returns_flat_leaf(ctx: &mut ProjectTestContext) {
             Some(vec!["meta.author".to_string()]),
             Some(lsn),
             None,
+            None,
         )
         .await
         .expect("could not get document");
@@ -627,6 +637,7 @@ async fn test_struct_underscore_sub_field(ctx: &mut ProjectTestContext) {
             Some(vec!["meta".to_string()]),
             Some(lsn.clone()),
             None,
+            None,
         )
         .await
         .expect("could not get document");
@@ -645,6 +656,7 @@ async fn test_struct_underscore_sub_field(ctx: &mut ProjectTestContext) {
             ["one"],
             Some(vec!["meta._bar".to_string()]),
             Some(lsn),
+            None,
             None,
         )
         .await

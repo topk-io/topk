@@ -71,6 +71,8 @@ class CollectionClient:
         fields: typing.Optional[typing.Sequence[builtins.str]] = None,
         lsn: typing.Optional[builtins.str] = None,
         consistency: typing.Optional[typing.Union[ConsistencyLevel, typing.Literal["indexed", "strong"]]] = None,
+        *,
+        ssn: typing.Optional[builtins.int] = None,
     ) -> builtins.dict[builtins.str, builtins.dict[builtins.str, typing.Any]]:
         """
         Get documents by their IDs.
@@ -80,6 +82,8 @@ class CollectionClient:
         self,
         lsn: typing.Optional[builtins.str] = None,
         consistency: typing.Optional[typing.Union[ConsistencyLevel, typing.Literal["indexed", "strong"]]] = None,
+        *,
+        ssn: typing.Optional[builtins.int] = None,
     ) -> builtins.int:
         """
         Get the count of documents in the collection.
@@ -90,6 +94,8 @@ class CollectionClient:
         query: query.Query,
         lsn: typing.Optional[builtins.str] = None,
         consistency: typing.Optional[typing.Union[ConsistencyLevel, typing.Literal["indexed", "strong"]]] = None,
+        *,
+        ssn: typing.Optional[builtins.int] = None,
     ) -> builtins.list[builtins.dict[builtins.str, typing.Any]]:
         """
         Execute a query against the collection.
@@ -159,6 +165,8 @@ class AsyncCollectionClient:
         fields: typing.Optional[typing.Sequence[builtins.str]] = None,
         lsn: typing.Optional[builtins.str] = None,
         consistency: typing.Optional[typing.Union[ConsistencyLevel, typing.Literal["indexed", "strong"]]] = None,
+        *,
+        ssn: typing.Optional[builtins.int] = None,
     ) -> typing.Awaitable[
         builtins.dict[builtins.str, builtins.dict[builtins.str, typing.Any]]
     ]:
@@ -170,6 +178,8 @@ class AsyncCollectionClient:
         self,
         lsn: typing.Optional[builtins.str] = None,
         consistency: typing.Optional[typing.Union[ConsistencyLevel, typing.Literal["indexed", "strong"]]] = None,
+        *,
+        ssn: typing.Optional[builtins.int] = None,
     ) -> typing.Awaitable[builtins.int]:
         """
         Get the count of documents in the collection asynchronously.
@@ -180,6 +190,8 @@ class AsyncCollectionClient:
         query: query.Query,
         lsn: typing.Optional[builtins.str] = None,
         consistency: typing.Optional[typing.Union[ConsistencyLevel, typing.Literal["indexed", "strong"]]] = None,
+        *,
+        ssn: typing.Optional[builtins.int] = None,
     ) -> typing.Awaitable[builtins.list[builtins.dict[builtins.str, typing.Any]]]:
         """
         Execute a query against the collection asynchronously.
@@ -250,6 +262,7 @@ class Collection:
     region: builtins.str
     schema: builtins.dict[builtins.str, schema.FieldSpec]
     created_at: builtins.str
+    ssn: builtins.int
 
 class Partition:
     """

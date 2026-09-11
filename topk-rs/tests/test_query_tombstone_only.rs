@@ -36,6 +36,7 @@ async fn test_query_tombstone_only(ctx: &mut ProjectTestContext) {
                 .limit(10),
             Some(lsn),
             None,
+            None,
         )
         .await
         .expect("query on tombstone-only WAL should not fail");

@@ -23,6 +23,7 @@ async fn test_query_topk_by_non_primitive(ctx: &mut ProjectTestContext) {
                 .limit(3),
             None,
             None,
+            None,
         )
         .await
         .expect("query failed");
@@ -42,6 +43,7 @@ async fn test_query_topk_by_non_existing(ctx: &mut ProjectTestContext) {
             select([("title", field("title"))])
                 .sort((field("non_existing_field"), SortOrder::Asc))
                 .limit(3),
+            None,
             None,
             None,
         )
@@ -66,6 +68,7 @@ async fn test_query_topk_limit_zero(ctx: &mut ProjectTestContext) {
             select([("title", field("title"))])
                 .sort((field("published_year"), SortOrder::Asc))
                 .limit(0),
+            None,
             None,
             None,
         )
@@ -104,7 +107,7 @@ async fn test_union_u32_and_binary(ctx: &mut ProjectTestContext) {
     let _ = ctx
         .client
         .collection(&collection.name)
-        .count(Some(lsn), None)
+        .count(Some(lsn), None, None)
         .await
         .expect("could not query");
 
@@ -115,6 +118,7 @@ async fn test_union_u32_and_binary(ctx: &mut ProjectTestContext) {
             select([("title", field("title"))])
                 .sort((field("num"), SortOrder::Asc))
                 .limit(100),
+            None,
             None,
             None,
         )
