@@ -14,17 +14,29 @@ use crate::proto::v1::control::{
     Collection, CreateCollectionRequest, DeleteCollectionRequest, ListCollectionsRequest,
 };
 use crate::proto::v1::control::{FieldSpec, GetCollectionRequest};
+use crate::proto::v1::data::write_service_client::WriteServiceClient;
+use crate::proto::v1::data::UpdateCollectionRequest;
 
 pub struct CollectionsClient {
     // Client config
     config: ClientConfig,
-    // Channel
+    // Channel serving `CollectionService`
     channel: Arc<OnceCell<Channel>>,
+    // Channel serving `WriteService`
+    write_channel: Arc<OnceCell<Channel>>,
 }
 
 impl CollectionsClient {
-    pub fn new(config: ClientConfig, channel: Arc<OnceCell<Channel>>) -> Self {
-        Self { config, channel }
+    pub fn new(
+        config: ClientConfig,
+        channel: Arc<OnceCell<Channel>>,
+        write_channel: Arc<OnceCell<Channel>>,
+    ) -> Self {
+        Self {
+            config,
+            channel,
+            write_channel,
+        }
     }
 
     pub async fn list(&self) -> Result<Vec<Collection>, Error> {
@@ -107,6 +119,47 @@ impl CollectionsClient {
         })
         .await?;
 
+        Ok(response
+            .into_inner()
+            .collection
+            .expect("Invalid collection proto"))
+    }
+
+    /// Adds, replaces or undeclares fields of a collection's schema.
+    ///
+    /// Returns once the change is decided. Index builds happen in the background:
+    /// a search on an index that is still building fails with `FailedPrecondition`.
+    pub async fn update(
+        &self,
+        name: impl Into<String>,
+        set_fields: impl Into<HashMap<String, FieldSpec>>,
+        drop_fields: Vec<String>,
+    ) -> Result<Collection, Error> {
+        let name = name.into();
+        let config = self
+            .config
+            .clone()
+            .with_headers([("x-topk-collection", name.clone())]);
+        let client = create_client!(WriteServiceClient, self.write_channel, config).await?;
+        let set_fields = set_fields.into();
+        let response = call_with_retry(self.config.retry_config(), || {
+            let mut client = client.clone();
+            let set_fields = set_fields.clone();
+            let drop_fields = drop_fields.clone();
+            async move {
+                client
+                    .update_collection(UpdateCollectionRequest {
+                        set_fields,
+                        drop_fields,
+                    })
+                    .await
+                    .map_err(|e| match e.code() {
+                        tonic::Code::NotFound => Error::CollectionNotFound,
+                        _ => e.into(),
+                    })
+            }
+        })
+        .await?;
         Ok(response
             .into_inner()
             .collection
