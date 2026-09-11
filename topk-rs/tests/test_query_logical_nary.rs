@@ -26,6 +26,7 @@ async fn test_any_codes_vec(ctx: &mut ProjectTestContext) {
             .limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -49,6 +50,7 @@ async fn test_all_codes_vec(ctx: &mut ProjectTestContext) {
             ]))
             .sort((field("published_year"), SortOrder::Asc))
             .limit(100),
+            None,
             None,
             None,
         )
@@ -81,6 +83,7 @@ async fn test_select_any_flag(ctx: &mut ProjectTestContext) {
             ])))
             .sort((field("published_year"), SortOrder::Asc))
             .limit(100),
+            None,
             None,
             None,
         )
@@ -118,6 +121,7 @@ async fn test_select_all_flag(ctx: &mut ProjectTestContext) {
             .filter(field("_id").in_(Value::list(vec!["gatsby".to_string(), "pride".to_string()])))
             .sort((field("published_year"), SortOrder::Asc))
             .limit(100),
+            None,
             None,
             None,
         )
@@ -160,6 +164,7 @@ async fn test_nested_any_all(ctx: &mut ProjectTestContext) {
                 .limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -191,6 +196,7 @@ async fn test_non_nested_any_and_all(ctx: &mut ProjectTestContext) {
                 .limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -214,6 +220,7 @@ async fn test_any_mixed_exprs(ctx: &mut ProjectTestContext) {
             ]))
             .sort((field("published_year"), SortOrder::Asc))
             .limit(100),
+            None,
             None,
             None,
         )
@@ -241,6 +248,7 @@ async fn test_all_mixed_exprs(ctx: &mut ProjectTestContext) {
             .limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -264,6 +272,7 @@ async fn test_all_large_arity(ctx: &mut ProjectTestContext) {
                 .limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -285,6 +294,7 @@ async fn test_all_max_arity(ctx: &mut ProjectTestContext) {
             filter(expr)
                 .sort((field("published_year"), SortOrder::Asc))
                 .limit(100),
+            None,
             None,
             None,
         )

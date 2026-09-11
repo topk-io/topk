@@ -26,6 +26,7 @@ async fn test_query_select_literal(ctx: &mut ProjectTestContext) {
                 .limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -46,6 +47,7 @@ async fn test_query_select_non_existing_field(ctx: &mut ProjectTestContext) {
                 .filter(field("title").eq("1984"))
                 .sort((field("published_year"), SortOrder::Asc))
                 .limit(100),
+            None,
             None,
             None,
         )
@@ -69,6 +71,7 @@ async fn test_query_topk_limit(ctx: &mut ProjectTestContext) {
                 .limit(3),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -83,6 +86,7 @@ async fn test_query_topk_limit(ctx: &mut ProjectTestContext) {
                 .limit(2),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -95,6 +99,7 @@ async fn test_query_topk_limit(ctx: &mut ProjectTestContext) {
             select([("title", field("title"))])
                 .sort((field("published_year"), SortOrder::Asc))
                 .limit(1),
+            None,
             None,
             None,
         )
@@ -115,6 +120,7 @@ async fn test_query_topk_asc(ctx: &mut ProjectTestContext) {
             select([("published_year", field("published_year"))])
                 .sort((field("published_year"), SortOrder::Asc))
                 .limit(3),
+            None,
             None,
             None,
         )
@@ -143,6 +149,7 @@ async fn test_query_topk_desc(ctx: &mut ProjectTestContext) {
             select([("published_year", field("published_year"))])
                 .sort("published_year")
                 .limit(3),
+            None,
             None,
             None,
         )
@@ -174,6 +181,7 @@ async fn test_query_select_bm25_score(ctx: &mut ProjectTestContext) {
                 .limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -202,6 +210,7 @@ async fn test_query_select_vector_distance(ctx: &mut ProjectTestContext) {
             .limit(3),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -219,6 +228,7 @@ async fn test_query_select_indexed_vector(ctx: &mut ProjectTestContext) {
         .collection(&collection.name)
         .query(
             select([("vec", field("summary_embedding"))]).limit(10),
+            None,
             None,
             None,
         )
@@ -242,6 +252,7 @@ async fn test_query_select_u8_vector(ctx: &mut ProjectTestContext) {
         .collection(&collection.name)
         .query(
             select([("scalar_embedding", field("scalar_embedding"))]).limit(10),
+            None,
             None,
             None,
         )
@@ -281,6 +292,7 @@ async fn test_query_select_null_field(ctx: &mut ProjectTestContext) {
                 .limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -317,6 +329,7 @@ async fn test_query_select_text_match(ctx: &mut ProjectTestContext) {
             .filter(field("title").eq("1984").or(field("_id").eq("pride")))
             .sort((field("published_year"), SortOrder::Asc))
             .limit(100),
+            None,
             None,
             None,
         )
@@ -372,7 +385,7 @@ async fn test_query_select_union(ctx: &mut ProjectTestContext) {
     let _ = ctx
         .client
         .collection(&collection.name)
-        .count(Some(lsn), None)
+        .count(Some(lsn), None, None)
         .await
         .expect("could not query");
 
@@ -383,6 +396,7 @@ async fn test_query_select_union(ctx: &mut ProjectTestContext) {
             select([("mixed", field("mixed"))])
                 .sort((field("rank"), SortOrder::Asc))
                 .limit(100),
+            None,
             None,
             None,
         )
@@ -439,7 +453,7 @@ async fn test_query_select_list(ctx: &mut ProjectTestContext) {
     let _ = ctx
         .client
         .collection(&collection.name)
-        .count(Some(lsn), None)
+        .count(Some(lsn), None, None)
         .await
         .expect("could not query");
 
@@ -450,6 +464,7 @@ async fn test_query_select_list(ctx: &mut ProjectTestContext) {
             select([("list", field("list"))])
                 .sort((field("rank"), SortOrder::Asc))
                 .limit(100),
+            None,
             None,
             None,
         )
@@ -475,7 +490,7 @@ async fn test_query_without_collector(ctx: &mut ProjectTestContext) {
     let result = ctx
         .client
         .collection(&collection.name)
-        .query(select([("_id", field("_id"))]), None, None)
+        .query(select([("_id", field("_id"))]), None, None, None)
         .await
         .expect("could not query");
 

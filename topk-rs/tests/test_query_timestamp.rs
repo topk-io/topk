@@ -29,6 +29,7 @@ async fn test_query_filter_timestamp(ctx: &mut ProjectTestContext) {
             .limit(20),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -53,6 +54,7 @@ async fn test_query_date_part_eq_field(ctx: &mut ProjectTestContext) {
             .count(),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -71,6 +73,7 @@ async fn test_query_date_part_lt_literal(ctx: &mut ProjectTestContext) {
         .collection(&collection.name)
         .query(
             filter(field("published_ts").date_part("month").lt(literal(6))).limit(10),
+            None,
             None,
             None,
         )
@@ -96,6 +99,7 @@ async fn test_query_date_part_group_by(ctx: &mut ProjectTestContext) {
                 )
                 .sort([(field("published_month"), SortOrder::Asc)])
                 .limit(20),
+            None,
             None,
             None,
         )
@@ -133,6 +137,7 @@ async fn test_query_date_trunc_group_by(ctx: &mut ProjectTestContext) {
                 .limit(20),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -165,6 +170,7 @@ async fn test_query_date_trunc_follows_time_zone(ctx: &mut ProjectTestContext) {
                     select([("day", field("published_ts").date_trunc("day", zone))])
                         .sort([(field("day"), SortOrder::Asc)])
                         .limit(1),
+                    None,
                     None,
                     None,
                 )
@@ -212,6 +218,7 @@ async fn test_query_date_add_is_calendar_aware(ctx: &mut ProjectTestContext) {
             .limit(20),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -238,6 +245,7 @@ async fn test_query_now_is_one_instant_per_query(ctx: &mut ProjectTestContext) {
                 ("day", now().date_trunc("day", "UTC")),
             ])
             .limit(1),
+            None,
             None,
             None,
         )
@@ -282,6 +290,7 @@ async fn test_now_is_substituted_in_every_stage(ctx: &mut ProjectTestContext) {
                 )
                 .sort([(now().date_trunc("day", "UTC"), SortOrder::Asc)])
                 .limit(10),
+            None,
             None,
             None,
         )
@@ -344,6 +353,7 @@ async fn test_interval_components_apply_independently(ctx: &mut ProjectTestConte
             ])
             .sort([(field("combined"), SortOrder::Asc)])
             .limit(20),
+            None,
             None,
             None,
         )

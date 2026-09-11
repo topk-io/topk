@@ -23,6 +23,7 @@ async fn test_query_sort_by_scalar(ctx: &mut ProjectTestContext) {
                 .limit(3),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -49,6 +50,7 @@ async fn test_query_sort_by_multiple_fields(ctx: &mut ProjectTestContext) {
                 .limit(4),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -71,6 +73,7 @@ async fn test_query_sort_by_multiple_with_literal(ctx: &mut ProjectTestContext) 
                     (field("published_year"), SortOrder::Asc),
                 ])
                 .limit(4),
+            None,
             None,
             None,
         )
@@ -96,6 +99,7 @@ async fn test_query_sort_by_too_many_fields(ctx: &mut ProjectTestContext) {
                         .collect::<Vec<_>>(),
                 )
                 .limit(4),
+            None,
             None,
             None,
         )

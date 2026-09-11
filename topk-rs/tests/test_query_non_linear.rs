@@ -33,6 +33,7 @@ async fn test_query_exp_ln(ctx: &mut ProjectTestContext) {
                 .limit(2),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -72,6 +73,7 @@ async fn test_query_float_inf(ctx: &mut ProjectTestContext) {
                 .limit(2),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -99,6 +101,7 @@ async fn test_query_sqrt_square(ctx: &mut ProjectTestContext) {
             ])
             .sort((field("published_year_2"), SortOrder::Asc))
             .limit(2),
+            None,
             None,
             None,
         )
@@ -132,6 +135,7 @@ async fn test_query_sqrt_filter(ctx: &mut ProjectTestContext) {
                 .filter(field("published_year").sqrt().gt(1990_f32.sqrt()))
                 .sort((field("published_year"), SortOrder::Asc))
                 .limit(2),
+            None,
             None,
             None,
         )

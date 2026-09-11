@@ -49,6 +49,7 @@ macro_rules! test_query_multi_vector_float {
                             .limit(3),
                         None,
                         None,
+                        None,
                     )
                     .await
                     .expect("could not query");
@@ -136,6 +137,7 @@ macro_rules! test_query_multi_vector_float_binary {
                             .limit($k),
                         None,
                         None,
+                        None,
                     )
                     .await
                     .expect("could not query");
@@ -204,6 +206,7 @@ async fn test_query_multi_vector_int(ctx: &mut ProjectTestContext) {
                         .limit(3),
                     None,
                     None,
+                    None,
                 )
                 .await
                 .expect("could not query");
@@ -237,6 +240,7 @@ async fn test_query_multi_vector_with_filter(ctx: &mut ProjectTestContext) {
                     .limit(3),
                 None,
                 None,
+                None,
             )
             .await
             .expect("could not query");
@@ -267,6 +271,7 @@ async fn test_query_multi_vector_with_smve(ctx: &mut ProjectTestContext) {
                 )])
                 .sort("dist")
                 .limit(3),
+            None,
             None,
             None,
         )
@@ -304,6 +309,7 @@ async fn test_query_multi_vector_with_invalid_smve(ctx: &mut ProjectTestContext)
                 .limit(3),
             None,
             None,
+            None,
         )
         .await
         .expect_err("Query should fail");
@@ -326,6 +332,7 @@ async fn test_query_multi_vector_with_invalid_smve(ctx: &mut ProjectTestContext)
                 )])
                 .sort("dist")
                 .limit(3),
+            None,
             None,
             None,
         )
@@ -354,6 +361,7 @@ async fn test_query_multi_vector_with_invalid_dim(ctx: &mut ProjectTestContext) 
                 )])
                 .sort("dist")
                 .limit(3),
+            None,
             None,
             None,
         )
@@ -385,6 +393,7 @@ async fn test_query_multi_vector_with_invalid_data_type(ctx: &mut ProjectTestCon
                 .limit(3),
             None,
             None,
+            None,
         )
         .await
         .expect_err("Query should fail");
@@ -414,6 +423,7 @@ async fn test_query_multi_vector_with_empty_query(ctx: &mut ProjectTestContext) 
                 .limit(3),
             None,
             None,
+            None,
         )
         .await
         .expect_err("Query should fail");
@@ -441,6 +451,7 @@ async fn test_query_multi_vector_with_missing_index(ctx: &mut ProjectTestContext
                 )])
                 .sort("dist")
                 .limit(3),
+            None,
             None,
             None,
         )

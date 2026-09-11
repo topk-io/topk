@@ -45,6 +45,10 @@ impl From<RustError> for PyErr {
             topk_rs::Error::QuotaExceeded(e) => QuotaExceededError::new_err(e),
             topk_rs::Error::SlowDown(e) => SlowDownError::new_err(e),
             topk_rs::Error::PermissionDenied => PermissionDeniedError::new_err(value.0.to_string()),
+            // Failed preconditions
+            topk_rs::Error::IndexBuilding(e) => IndexBuildingError::new_err(e),
+            topk_rs::Error::SsnUnavailable(e) => SsnUnavailableError::new_err(e),
+            topk_rs::Error::FailedPrecondition(e) => FailedPreconditionError::new_err(e),
             // Other errors
             _ => PyException::new_err(format!("topk returned error: {:?}", value.0)),
         }
@@ -64,6 +68,9 @@ create_exception!(error, RequestTooLargeError, PyException);
 create_exception!(error, QuotaExceededError, PyException);
 create_exception!(error, SlowDownError, PyException);
 create_exception!(error, PermissionDeniedError, PyException);
+create_exception!(error, FailedPreconditionError, PyException);
+create_exception!(error, IndexBuildingError, FailedPreconditionError);
+create_exception!(error, SsnUnavailableError, FailedPreconditionError);
 
 ////////////////////////////////////////////////////////////
 /// Error
@@ -134,6 +141,21 @@ pub fn pymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add(
         "PermissionDeniedError",
         m.py().get_type::<PermissionDeniedError>(),
+    )?;
+
+    m.add(
+        "FailedPreconditionError",
+        m.py().get_type::<FailedPreconditionError>(),
+    )?;
+
+    m.add(
+        "IndexBuildingError",
+        m.py().get_type::<IndexBuildingError>(),
+    )?;
+
+    m.add(
+        "SsnUnavailableError",
+        m.py().get_type::<SsnUnavailableError>(),
     )?;
 
     Ok(())

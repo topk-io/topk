@@ -23,6 +23,7 @@ async fn test_query_matched_count_reported_for_sorted(ctx: &mut ProjectTestConte
                 .limit(2),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -55,6 +56,7 @@ async fn test_query_matched_count_reported_for_vector(ctx: &mut ProjectTestConte
             .limit(2),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -79,6 +81,7 @@ async fn test_query_matched_count_absent_for_unsorted(ctx: &mut ProjectTestConte
         .collection(&collection.name)
         .query_stream(
             filter(field("published_year").gte(literal(1950_u32))).limit(2),
+            None,
             None,
             None,
         )

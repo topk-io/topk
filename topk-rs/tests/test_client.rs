@@ -45,6 +45,7 @@ async fn test_protobuf_recursion_limit_returns_invalid_argument(ctx: &mut Projec
                 .limit(10),
             None,
             None,
+            None,
         )
         .await
         .expect_err("Query should fail due to protobuf recursion limit");

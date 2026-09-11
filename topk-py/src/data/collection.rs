@@ -18,6 +18,8 @@ pub struct Collection {
     schema: HashMap<String, FieldSpec>,
     #[pyo3(get)]
     created_at: String,
+    #[pyo3(get)]
+    ssn: u32,
 }
 
 #[pymethods]
@@ -46,6 +48,7 @@ impl Into<topk_rs::proto::v1::control::Collection> for Collection {
             schema,
             region: self.region.to_string(),
             created_at: self.created_at.to_string(),
+            ssn: self.ssn,
         }
     }
 }
@@ -63,6 +66,7 @@ impl From<topk_rs::proto::v1::control::Collection> for Collection {
                 .map(|(name, field)| (name, field.into()))
                 .collect(),
             created_at: collection.created_at,
+            ssn: collection.ssn,
         }
     }
 }

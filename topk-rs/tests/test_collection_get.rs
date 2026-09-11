@@ -18,7 +18,7 @@ async fn test_get_from_non_existent_collection(ctx: &mut ProjectTestContext) {
     let err = ctx
         .client
         .collection("missing")
-        .get(["doc1"], None, None, None)
+        .get(["doc1"], None, None, None, None)
         .await
         .expect_err("should not be able to get document from non-existent collection");
 
@@ -33,7 +33,7 @@ async fn test_get_non_existent_document(ctx: &mut ProjectTestContext) {
     let docs = ctx
         .client
         .collection(&collection.name)
-        .get(["missing"], None, None, None)
+        .get(["missing"], None, None, None, None)
         .await
         .expect("get failed");
 
@@ -51,7 +51,7 @@ async fn test_get_document(ctx: &mut ProjectTestContext) {
     let docs = ctx
         .client
         .collection(&collection.name)
-        .get(["lotr"], None, None, None)
+        .get(["lotr"], None, None, None, None)
         .await
         .expect("could not get document");
 
@@ -66,7 +66,7 @@ async fn test_get_multiple_documents(ctx: &mut ProjectTestContext) {
     let docs = ctx
         .client
         .collection(&collection.name)
-        .get(["lotr", "moby"], None, None, None)
+        .get(["lotr", "moby"], None, None, None, None)
         .await
         .expect("could not get documents");
 
@@ -94,6 +94,7 @@ async fn test_get_document_fields(ctx: &mut ProjectTestContext) {
         .get(
             ["lotr"],
             Some(vec!["title".to_string(), "published_year".to_string()]),
+            None,
             None,
             None,
         )
@@ -134,7 +135,7 @@ async fn test_get_updated_document(ctx: &mut ProjectTestContext) {
     let docs = ctx
         .client
         .collection(&collection.name)
-        .get(["lotr"], None, None, Some(ConsistencyLevel::Strong))
+        .get(["lotr"], None, None, None, Some(ConsistencyLevel::Strong))
         .await
         .expect("could not get document");
 
@@ -155,7 +156,7 @@ async fn test_get_deleted_document(ctx: &mut ProjectTestContext) {
     let docs = ctx
         .client
         .collection(&collection.name)
-        .get(["lotr"], None, None, Some(ConsistencyLevel::Strong))
+        .get(["lotr"], None, None, None, Some(ConsistencyLevel::Strong))
         .await
         .expect("could not get document");
 
@@ -199,7 +200,7 @@ async fn test_get_with_delete_filter(ctx: &mut ProjectTestContext) {
 
     // Get documents
     let docs = collection
-        .get(["2", "8", "13"], None, Some(lsn.clone()), None)
+        .get(["2", "8", "13"], None, Some(lsn.clone()), None, None)
         .await
         .expect("could not get documents");
 
@@ -223,7 +224,7 @@ async fn test_get_with_delete_filter(ctx: &mut ProjectTestContext) {
 
     // Get documents
     let docs = collection
-        .get(["2", "8", "13"], None, Some(lsn.clone()), None)
+        .get(["2", "8", "13"], None, Some(lsn.clone()), None, None)
         .await
         .expect("could not get documents");
 

@@ -1,8 +1,6 @@
-use sqlparser::ast::helpers::attached_token::AttachedToken;
-use sqlparser::ast::{
-    CheckConstraint, ColumnOption, Expr as SqlExpr, Statement as SqlStatement, Update,
-    UpdateTableFromKind,
-};
+use std::any::TypeId;
+
+use sqlparser::ast::{CheckConstraint, ColumnOption, Expr as SqlExpr};
 use sqlparser::dialect::{Dialect, PostgreSqlDialect, Precedence};
 use sqlparser::keywords::Keyword;
 use sqlparser::parser::{Parser, ParserError};
@@ -21,6 +19,12 @@ impl Default for TopKDialect {
 }
 
 impl Dialect for TopKDialect {
+    // sqlparser gates syntax such as `UPDATE … FROM` and `ADD COLUMN IF NOT EXISTS` on the
+    // dialect's `TypeId`; reporting Postgres' opens every branch it would take.
+    fn dialect(&self) -> TypeId {
+        self.postgres.dialect()
+    }
+
     fn identifier_quote_style(&self, identifier: &str) -> Option<char> {
         self.postgres.identifier_quote_style(identifier)
     }
@@ -70,7 +74,7 @@ impl Dialect for TopKDialect {
     }
 
     fn supports_create_index_with_clause(&self) -> bool {
-        false
+        self.postgres.supports_create_index_with_clause()
     }
 
     fn supports_array_typedef_with_brackets(&self) -> bool {
@@ -79,14 +83,6 @@ impl Dialect for TopKDialect {
 
     fn supports_explain_with_utility_options(&self) -> bool {
         self.postgres.supports_explain_with_utility_options()
-    }
-
-    fn parse_statement(&self, parser: &mut Parser) -> Option<Result<SqlStatement, ParserError>> {
-        if parser.parse_keyword(Keyword::UPDATE) {
-            return Some(parse_update_statement(parser));
-        }
-
-        self.postgres.parse_statement(parser)
     }
 
     fn parse_column_option(
@@ -109,39 +105,4 @@ impl Dialect for TopKDialect {
             )))),
         }
     }
-}
-
-// sqlparser's parse_update gates UPDATE … FROM behind a dialect_of! TypeId check that
-// only matches built-in dialects. Pulled out here so parse_statement can intercept UPDATE
-// before the main dispatch and handle FROM correctly.
-fn parse_update_statement(parser: &mut Parser) -> Result<SqlStatement, ParserError> {
-    let table = parser.parse_table_and_joins()?;
-    let assignments = parser
-        .expect_keyword(Keyword::SET)
-        .and_then(|_| parser.parse_comma_separated(Parser::parse_assignment))?;
-    let from = parser
-        .parse_keyword(Keyword::FROM)
-        .then(|| parser.parse_table_and_joins())
-        .transpose()?
-        .map(|t| UpdateTableFromKind::AfterSet(vec![t]));
-    let selection = parser
-        .parse_keyword(Keyword::WHERE)
-        .then(|| parser.parse_expr())
-        .transpose()?;
-    let returning = parser
-        .parse_keyword(Keyword::RETURNING)
-        .then(|| parser.parse_comma_separated(Parser::parse_select_item))
-        .transpose()?;
-
-    Ok(SqlStatement::Update(Update {
-        update_token: AttachedToken::empty(),
-        optimizer_hint: None,
-        table,
-        assignments,
-        from,
-        selection,
-        returning,
-        or: None,
-        limit: None,
-    }))
 }
