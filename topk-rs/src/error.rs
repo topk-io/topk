@@ -68,6 +68,18 @@ pub enum Error {
     #[error("unauthenticated: {0}")]
     Unauthenticated(String),
 
+    #[error("failed precondition: {0}")]
+    FailedPrecondition(String),
+
+    #[error("index building: {0}")]
+    IndexBuilding(String),
+
+    #[error("schema version unavailable: {0}")]
+    SsnUnavailable(String),
+
+    #[error("collection schema changed: {0}")]
+    SchemaChanged(String),
+
     #[error("unexpected error: {0}")]
     Unexpected(String),
 
@@ -109,6 +121,9 @@ impl Error {
             Error::SlowDown(_) => true,
             Error::Unavailable(_) => true,
             Error::TransportError(_) => true,
+            Error::IndexBuilding(_) => true,
+            Error::SsnUnavailable(_) => true,
+            Error::SchemaChanged(_) => true,
             // Not retryable
             Error::RetryTimeout => false,
             Error::CollectionAlreadyExists => false,
@@ -125,6 +140,7 @@ impl Error {
             Error::RequestTooLarge(_) => false,
             Error::DeadlineExceeded(_) => false,
             Error::Unauthenticated(_) => false,
+            Error::FailedPrecondition(_) => false,
             Error::MalformedResponse(_) => false,
             Error::Unexpected(_) => false,
             Error::Internal(_) => false,
@@ -142,6 +158,8 @@ impl Error {
             // When quering using `lsn=N`, the client should retry for at least 2 seconds,
             // since the guarantee for "default" consistency mode is ~1 second.
             Error::QueryLsnTimeout => Some(Duration::from_millis(2_000)),
+            // `required_ssn` is a floor, not a wait: the client retries until the version lands.
+            Error::SsnUnavailable(_) => Some(Duration::from_millis(60_000)),
             _ => None,
         }
     }
@@ -168,6 +186,10 @@ impl From<Status> for Error {
             Ok(error) => match error.code() {
                 CustomErrorCode::RequiredLsnGreaterThanManifestMaxLsn => Error::QueryLsnTimeout,
                 CustomErrorCode::SlowDown => Error::SlowDown(error.message),
+                CustomErrorCode::IndexMissing => Error::Unexpected(error.message),
+                CustomErrorCode::IndexBuilding => Error::IndexBuilding(error.message),
+                CustomErrorCode::SsnUnavailable => Error::SsnUnavailable(error.message),
+                CustomErrorCode::SchemaChanged => Error::SchemaChanged(error.message),
                 CustomErrorCode::PartitionNotFound => Error::PartitionNotFound,
                 CustomErrorCode::DocumentNotFound => Error::DocumentNotFound(error.message),
             },
@@ -198,6 +220,9 @@ impl From<Status> for Error {
                 }
                 tonic::Code::Unauthenticated => {
                     Error::Unauthenticated(append_request_id(e.message()))
+                }
+                tonic::Code::FailedPrecondition => {
+                    Error::FailedPrecondition(append_request_id(e.message()))
                 }
                 _ => Error::Unexpected(append_request_id(&format!("{:?}", e))),
             },
@@ -232,9 +257,6 @@ pub enum SchemaValidationError {
         metric: String,
         data_type: String,
     },
-
-    #[error("invalid vector index spec for field `{field}`: {message}")]
-    InvalidVectorIndexSpec { field: String, message: String },
 
     #[error("vector field `{field}` cannot have zero dimension")]
     VectorDimensionCannotBeZero { field: String },
@@ -468,6 +490,10 @@ pub enum CustomErrorCode {
     SlowDown,
     PartitionNotFound,
     DocumentNotFound,
+    IndexMissing,
+    IndexBuilding,
+    SsnUnavailable,
+    SchemaChanged,
 }
 
 impl Into<u32> for CustomErrorCode {
@@ -477,6 +503,10 @@ impl Into<u32> for CustomErrorCode {
             CustomErrorCode::SlowDown => 1429,
             CustomErrorCode::PartitionNotFound => 1404,
             CustomErrorCode::DocumentNotFound => 1405,
+            CustomErrorCode::IndexMissing => 1412,
+            CustomErrorCode::IndexBuilding => 1413,
+            CustomErrorCode::SsnUnavailable => 1414,
+            CustomErrorCode::SchemaChanged => 1415,
         }
     }
 }
@@ -490,6 +520,10 @@ impl TryFrom<u32> for CustomErrorCode {
             1429 => Ok(CustomErrorCode::SlowDown),
             1404 => Ok(CustomErrorCode::PartitionNotFound),
             1405 => Ok(CustomErrorCode::DocumentNotFound),
+            1412 => Ok(CustomErrorCode::IndexMissing),
+            1413 => Ok(CustomErrorCode::IndexBuilding),
+            1414 => Ok(CustomErrorCode::SsnUnavailable),
+            1415 => Ok(CustomErrorCode::SchemaChanged),
             code => Err(anyhow::anyhow!("unknown internal error code: {code}")),
         }
     }
@@ -504,6 +538,10 @@ impl From<CustomError> for Status {
             CustomErrorCode::SlowDown => Status::resource_exhausted(error.message),
             CustomErrorCode::PartitionNotFound => Status::not_found(error.message),
             CustomErrorCode::DocumentNotFound => Status::not_found(error.message),
+            CustomErrorCode::IndexMissing => Status::failed_precondition(error.message),
+            CustomErrorCode::IndexBuilding => Status::failed_precondition(error.message),
+            CustomErrorCode::SsnUnavailable => Status::failed_precondition(error.message),
+            CustomErrorCode::SchemaChanged => Status::unavailable(error.message),
         };
 
         let error_code: u32 = error.code.into();

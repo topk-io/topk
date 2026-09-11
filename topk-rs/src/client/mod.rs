@@ -68,7 +68,11 @@ impl Client {
     }
 
     pub fn collections(&self) -> CollectionsClient {
-        CollectionsClient::new(self.config.clone(), self.channel.clone())
+        CollectionsClient::new(
+            self.config.clone(),
+            self.channel.clone(),
+            self.channel.clone(),
+        )
     }
 
     pub fn collection(&self, name: impl Into<String>) -> CollectionClient {

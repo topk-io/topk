@@ -336,6 +336,7 @@ impl Ctx {
                 ids.iter().copied(),
                 None,
                 None,
+                None,
                 Some(ConsistencyLevel::Strong),
             )
             .await

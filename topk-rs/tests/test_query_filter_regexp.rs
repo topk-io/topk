@@ -18,6 +18,7 @@ async fn test_query_regexp_match(ctx: &mut ProjectTestContext) {
             filter(field("_id").regexp_match("^cat", Option::<&str>::None)).limit(10),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -35,6 +36,7 @@ async fn test_query_regexp_match_with_flags(ctx: &mut ProjectTestContext) {
         .collection(&collection.name)
         .query(
             filter(field("title").regexp_match("\\salchem", Some("i"))).limit(10),
+            None,
             None,
             None,
         )

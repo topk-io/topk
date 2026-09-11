@@ -234,6 +234,7 @@ async fn partition(ctx: &mut Ctx) {
             ["mockingbird"],
             None,
             None,
+            None,
             Some(topk_rs::proto::v1::data::ConsistencyLevel::Strong),
         )
         .await

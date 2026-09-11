@@ -314,7 +314,7 @@ async fn test_upsert_vectors(ctx: &mut ProjectTestContext) {
     let obj = ctx
         .client
         .collection(&collection.name)
-        .get(vec!["x".to_string()], None, Some(lsn), None)
+        .get(vec!["x".to_string()], None, Some(lsn), None, None)
         .await
         .expect("could not get document");
 
@@ -365,7 +365,7 @@ async fn test_upsert_sparse_vectors(ctx: &mut ProjectTestContext) {
     let obj = ctx
         .client
         .collection(&collection.name)
-        .get(vec!["x".to_string()], None, Some(lsn), None)
+        .get(vec!["x".to_string()], None, Some(lsn), None, None)
         .await
         .expect("could not get document");
 

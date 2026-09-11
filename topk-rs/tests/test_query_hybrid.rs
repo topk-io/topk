@@ -39,6 +39,7 @@ async fn test_query_hybrid_vector_bm25(ctx: &mut ProjectTestContext) {
             .limit(2),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -71,6 +72,7 @@ async fn test_query_hybrid_keyword_boost(ctx: &mut ProjectTestContext) {
                 )])
                 .sort((score_expr, SortOrder::Asc))
                 .limit(3),
+                None,
                 None,
                 None,
             )
@@ -112,6 +114,7 @@ async fn test_query_hybrid_coalesce_score(ctx: &mut ProjectTestContext) {
             .limit(3),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -147,6 +150,7 @@ async fn test_query_hybrid_recency_boost(ctx: &mut ProjectTestContext) {
                 SortOrder::Asc,
             ))
             .limit(3),
+            None,
             None,
             None,
         )
