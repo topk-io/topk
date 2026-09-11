@@ -13,13 +13,13 @@ use tempfile::{NamedTempFile, TempPath};
 use tokio::time::{sleep, timeout};
 use toml::Table;
 
-use super::config::OAuthConfig;
-use super::session::Session;
+use crate::auth::oauth::OAuthConfig;
+use crate::auth::session::Session;
 
 const LOCK_TIMEOUT: Duration = Duration::from_secs(60);
 const LOCK_POLL_INTERVAL: Duration = Duration::from_millis(25);
 
-pub(super) struct SessionStore {
+pub(crate) struct SessionStore {
     client_id: String,
     audience: String,
     config_file: PathBuf,
@@ -48,18 +48,12 @@ impl SessionStore {
     }
 }
 
-pub(super) struct LockedSessionStore<'a> {
+pub(crate) struct LockedSessionStore<'a> {
     store: &'a SessionStore,
     _lock: File,
 }
 
 impl LockedSessionStore<'_> {
-    /// Check readability before starting browser login.
-    pub fn prepare(&self) -> Result<()> {
-        read(&self.store.credentials_file)?;
-        Ok(())
-    }
-
     pub fn load(&self) -> Result<Option<Session>> {
         let Some(raw) = read(&self.store.credentials_file)? else {
             return Ok(None);
@@ -169,7 +163,7 @@ mod tests {
     #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
 
-    use super::*;
+    use crate::auth::store::*;
 
     #[test]
     fn replacement_preserves_open_readers() {

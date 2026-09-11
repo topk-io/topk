@@ -19,7 +19,7 @@ const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Complete the first valid callback, then report its outcome to the browser.
 /// The server stays scoped to this future so cancellation releases the listener.
-pub(super) async fn run<F, Fut, T>(
+pub async fn run<F, Fut, T>(
     listener: TcpListener,
     state: CsrfToken,
     duration: Duration,
@@ -29,7 +29,8 @@ where
     F: FnOnce(String) -> Fut,
     Fut: Future<Output = Result<T>>,
 {
-    let (app, mut receiver) = router(state);
+    let (callbacks, mut receiver) = mpsc::channel(1);
+    let app = router(state, callbacks);
     let (shutdown, stopped) = oneshot::channel::<()>();
     let server = serve(listener, app)
         .with_graceful_shutdown(async {
@@ -65,15 +66,13 @@ where
     result
 }
 
-fn router(state: CsrfToken) -> (Router, mpsc::Receiver<Callback>) {
-    let (callbacks, receiver) = mpsc::channel(1);
-    let router = Router::new()
+fn router(state: CsrfToken, callbacks: mpsc::Sender<Callback>) -> Router {
+    Router::new()
         .route(
             "/callback",
             get(callback).head(|| async { StatusCode::METHOD_NOT_ALLOWED }),
         )
-        .with_state(CallbackState { state, callbacks });
-    (router, receiver)
+        .with_state(CallbackState { state, callbacks })
 }
 
 #[derive(Deserialize)]
@@ -170,7 +169,7 @@ mod tests {
     use oauth2::CsrfToken;
     use tokio::net::{TcpListener, TcpStream};
 
-    use super::run;
+    use crate::auth::callback::run;
 
     #[tokio::test]
     async fn timeout_releases_listener_even_with_a_silent_connection() {

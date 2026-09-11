@@ -1,17 +1,30 @@
-use anyhow::{ensure, Context, Result};
 use clap::builder::NonEmptyStringValueParser;
-use sha2::{Digest, Sha256};
 use url::Url;
 
-const AUTH_DOMAIN: &str = "topk-prod.us.auth0.com";
+use crate::auth::oauth::OAuthConfig;
+
+const AUTH_ISSUER: &str = "https://topk-prod.us.auth0.com/";
 const AUTH_CLIENT_ID: &str = "2LqddiN2N5fQplfMP2MIYPHM6ttFNeaG";
 const AUTH_AUDIENCE: &str = "https://api.topk.io";
 
 #[derive(clap::Args, Clone)]
 pub struct Config {
-    #[arg(long = "auth-domain", env = "TOPK_AUTH_DOMAIN", default_value = AUTH_DOMAIN, value_parser = parse_domain, hide = true, global = true)]
+    #[arg(
+        long = "auth-issuer",
+        env = "TOPK_AUTH_ISSUER",
+        default_value = AUTH_ISSUER,
+        hide = true,
+        global = true
+    )]
     pub issuer: Url,
-    #[arg(long = "auth-client-id", env = "TOPK_AUTH_CLIENT_ID", default_value = AUTH_CLIENT_ID, value_parser = NonEmptyStringValueParser::new(), hide = true, global = true)]
+    #[arg(
+        long = "auth-client-id",
+        env = "TOPK_AUTH_CLIENT_ID",
+        default_value = AUTH_CLIENT_ID,
+        value_parser = NonEmptyStringValueParser::new(),
+        hide = true,
+        global = true
+    )]
     pub client_id: String,
     #[arg(
         long = "auth-audience",
@@ -23,20 +36,6 @@ pub struct Config {
     pub audience: String,
 }
 
-/// Resolved issuer, OAuth client, and API audience used for authentication.
-#[derive(Clone)]
-pub(super) struct OAuthConfig {
-    pub issuer: Url,
-    pub client_id: String,
-    pub audience: String,
-}
-
-impl OAuthConfig {
-    pub fn issuer_key(&self) -> String {
-        format!("{:x}", Sha256::digest(self.issuer.as_str().as_bytes()))
-    }
-}
-
 impl Config {
     pub(super) fn oauth(&self) -> OAuthConfig {
         OAuthConfig {
@@ -45,19 +44,4 @@ impl Config {
             audience: self.audience.clone(),
         }
     }
-}
-
-fn parse_domain(domain: &str) -> Result<Url> {
-    let issuer =
-        Url::parse(&format!("https://{domain}/")).context("invalid authentication domain")?;
-    ensure!(
-        issuer.host_str().is_some()
-            && issuer.path() == "/"
-            && issuer.username().is_empty()
-            && issuer.password().is_none()
-            && issuer.query().is_none()
-            && issuer.fragment().is_none(),
-        "authentication domain must be a hostname"
-    );
-    Ok(issuer)
 }

@@ -2,13 +2,13 @@ use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
 use oauth2::{PkceCodeChallenge, PkceCodeVerifier};
-use tempfile::TempDir;
+use test_context::test_context;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::time::{sleep, timeout};
 use url::Url;
 
-use super::common::{response, tenant_dir, Server};
+use super::common::{response, seed, tenant_dir, AuthTestContext};
 
 async fn request(port: u16, method: &str, path: &str) -> String {
     let mut stream = TcpStream::connect(("127.0.0.1", port)).await.unwrap();
@@ -27,17 +27,18 @@ async fn request(port: u16, method: &str, path: &str) -> String {
     response
 }
 
+#[test_context(AuthTestContext)]
 #[tokio::test]
-async fn unrelated_requests_do_not_finish_login_and_success_follows_persistence() {
-    let dir = TempDir::new().unwrap();
-    let mut server = Server::new().await;
-    let auth = server.auth(dir.path());
+async fn unrelated_requests_do_not_finish_login_and_success_follows_persistence(
+    ctx: &mut AuthTestContext,
+) {
+    let auth = ctx.server.auth(ctx.dir.path());
     let login = auth.login(&[0]).await.unwrap();
     let params: HashMap<_, _> = login.url().query_pairs().into_owned().collect();
     let callback = Url::parse(&params["redirect_uri"]).unwrap();
     assert_eq!(params["response_type"], "code");
-    assert_eq!(params["client_id"], server.config().client_id);
-    assert_eq!(params["audience"], server.config().audience);
+    assert_eq!(params["client_id"], ctx.server.config().client_id);
+    assert_eq!(params["audience"], ctx.server.config().audience);
     assert_eq!(params["scope"], "openid profile email offline_access");
     assert_eq!(params["prompt"], "login");
     assert_eq!(params["code_challenge_method"], "S256");
@@ -65,7 +66,7 @@ async fn unrelated_requests_do_not_finish_login_and_success_follows_persistence(
         }
         let callback = request(port, "GET", &path);
         let exchange = async {
-            let req = server.request().await;
+            let req = ctx.server.request().await;
             let form: HashMap<_, _> = url::form_urlencoded::parse(req.as_bytes())
                 .into_owned()
                 .collect();
@@ -80,13 +81,13 @@ async fn unrelated_requests_do_not_finish_login_and_success_follows_persistence(
                 .as_str(),
                 params["code_challenge"],
             );
-            assert!(!tenant_dir(dir.path(), &server.url)
+            assert!(!tenant_dir(ctx.dir.path(), &ctx.server.url)
                 .join("credentials.toml")
                 .exists());
             assert!(request(port, "GET", &path)
                 .await
                 .starts_with("HTTP/1.1 409"));
-            server.reply(200, response(3600, Some("refresh"))).await;
+            ctx.server.reply(200, response(3600, Some("refresh"))).await;
         };
         let (page, ()) = tokio::join!(callback, exchange);
         assert!(page.contains("You're logged in"));
@@ -103,12 +104,11 @@ async fn unrelated_requests_do_not_finish_login_and_success_follows_persistence(
     );
 }
 
+#[test_context(AuthTestContext)]
 #[tokio::test]
-async fn failed_exchange_and_failed_save_never_send_success() {
+async fn failed_exchange_and_failed_save_never_send_success(ctx: &mut AuthTestContext) {
     for fail_save in [false, true] {
-        let dir = TempDir::new().unwrap();
-        let mut server = Server::new().await;
-        let auth = server.auth(dir.path());
+        let auth = ctx.server.auth(ctx.dir.path());
         let login = auth.login(&[0]).await.unwrap();
         let params: HashMap<_, _> = login.url().query_pairs().into_owned().collect();
         let callback = Url::parse(&params["redirect_uri"]).unwrap();
@@ -116,16 +116,18 @@ async fn failed_exchange_and_failed_save_never_send_success() {
         let path = format!("/callback?code=valid&state={}", params["state"]);
         if fail_save {
             // A real filesystem failure, without changing the storage implementation.
-            std::fs::create_dir_all(tenant_dir(dir.path(), &server.url).join("credentials.toml"))
-                .unwrap();
+            std::fs::create_dir_all(
+                tenant_dir(ctx.dir.path(), &ctx.server.url).join("credentials.toml"),
+            )
+            .unwrap();
         }
         let browser = async {
             let exchange = async {
-                server.request().await;
+                ctx.server.request().await;
                 if fail_save {
-                    server.reply(200, response(3600, Some("refresh"))).await;
+                    ctx.server.reply(200, response(3600, Some("refresh"))).await;
                 } else {
-                    server
+                    ctx.server
                         .reply(400, serde_json::json!({"error":"invalid_grant"}))
                         .await;
                 }
@@ -139,20 +141,22 @@ async fn failed_exchange_and_failed_save_never_send_success() {
     }
 }
 
+#[test_context(AuthTestContext)]
 #[tokio::test]
-async fn storage_failure_is_reported_before_browser_login() {
-    let dir = TempDir::new().unwrap();
-    let server = Server::new().await;
-    let auth = server.auth(dir.path());
-    std::fs::create_dir_all(tenant_dir(dir.path(), &server.url).join("credentials.toml")).unwrap();
-    assert!(auth.login(&[0]).await.is_err());
+async fn login_replaces_unreadable_credentials(ctx: &mut AuthTestContext) {
+    let path = tenant_dir(ctx.dir.path(), &ctx.server.url).join("credentials.toml");
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(&path, b"\xff").unwrap();
+    let auth = ctx.server.auth(ctx.dir.path());
+    ctx.server.reply(200, response(3600, Some("refresh"))).await;
+    seed(&auth).await;
+    assert_eq!(auth.access_token().await.unwrap(), "access");
 }
 
+#[test_context(AuthTestContext)]
 #[tokio::test]
-async fn cancelling_login_drops_listener() {
-    let dir = TempDir::new().unwrap();
-    let server = Server::new().await;
-    let auth = server.auth(dir.path());
+async fn cancelling_login_drops_listener(ctx: &mut AuthTestContext) {
+    let auth = ctx.server.auth(ctx.dir.path());
     let login = auth.login(&[0]).await.unwrap();
     let params: HashMap<_, _> = login.url().query_pairs().into_owned().collect();
     let callback = Url::parse(&params["redirect_uri"]).unwrap();
@@ -164,11 +168,10 @@ async fn cancelling_login_drops_listener() {
     assert!(TcpListener::bind(addr).await.is_ok());
 }
 
+#[test_context(AuthTestContext)]
 #[tokio::test]
-async fn authenticated_denial_finishes_without_exchanging_a_token() {
-    let dir = TempDir::new().unwrap();
-    let mut server = Server::new().await;
-    let auth = server.auth(dir.path());
+async fn authenticated_denial_finishes_without_exchanging_a_token(ctx: &mut AuthTestContext) {
+    let auth = ctx.server.auth(ctx.dir.path());
     let login = auth.login(&[0]).await.unwrap();
     let params: HashMap<_, _> = login.url().query_pairs().into_owned().collect();
     let callback = Url::parse(&params["redirect_uri"]).unwrap();
@@ -183,14 +186,13 @@ async fn authenticated_denial_finishes_without_exchanging_a_token() {
         .to_string()
         .contains("access_denied: cancelled"));
     assert!(page.contains("Login failed"));
-    assert!(server.requests.try_recv().is_err());
+    assert!(ctx.server.requests.try_recv().is_err());
 }
 
+#[test_context(AuthTestContext)]
 #[tokio::test]
-async fn concurrent_logins_use_distinct_callback_ports() {
-    let dir = TempDir::new().unwrap();
-    let server = Server::new().await;
-    let auth = server.auth(dir.path());
+async fn concurrent_logins_use_distinct_callback_ports(ctx: &mut AuthTestContext) {
+    let auth = ctx.server.auth(ctx.dir.path());
     let logins = futures::future::join_all((0..8).map(|_| auth.login(&[0]))).await;
     let ports: HashSet<_> = logins
         .iter()
@@ -208,4 +210,21 @@ async fn concurrent_logins_use_distinct_callback_ports() {
         })
         .collect();
     assert_eq!(ports.len(), logins.len());
+}
+
+#[test_context(AuthTestContext)]
+#[tokio::test]
+async fn login_uses_the_next_port_when_one_is_occupied(ctx: &mut AuthTestContext) {
+    let occupied = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let auth = ctx.server.auth(ctx.dir.path());
+    let login = auth
+        .login(&[occupied.local_addr().unwrap().port(), 0])
+        .await
+        .unwrap();
+    let params: HashMap<_, _> = login.url().query_pairs().into_owned().collect();
+    let callback = Url::parse(&params["redirect_uri"]).unwrap();
+    assert_ne!(
+        callback.port().unwrap(),
+        occupied.local_addr().unwrap().port()
+    );
 }

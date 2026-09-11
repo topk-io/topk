@@ -12,13 +12,10 @@ use url::Url;
 
 use super::common::tenant_dir;
 
-const AUTH_DOMAIN: &str = "auth.example.test";
+const AUTH_ISSUER: &str = "https://auth.example.test/";
 
 fn tenant_path(dir: &TempDir) -> PathBuf {
-    tenant_dir(
-        &dir.path().join("topk"),
-        &Url::parse(&format!("https://{AUTH_DOMAIN}/")).unwrap(),
-    )
+    tenant_dir(&dir.path().join("topk"), &Url::parse(AUTH_ISSUER).unwrap())
 }
 
 fn command(dir: &TempDir) -> Command {
@@ -26,33 +23,17 @@ fn command(dir: &TempDir) -> Command {
     for key in [
         "TOPK_API_KEY",
         "TOPK_HOST",
-        "TOPK_AUTH_DOMAIN",
+        "TOPK_AUTH_ISSUER",
         "TOPK_AUTH_CLIENT_ID",
         "TOPK_AUTH_AUDIENCE",
         "TOPK_AUTH_CALLBACK_PORTS",
     ] {
         cmd.env_remove(key);
     }
-    cmd.env("TOPK_AUTH_DOMAIN", AUTH_DOMAIN)
+    cmd.env("TOPK_AUTH_ISSUER", AUTH_ISSUER)
         .env("XDG_CONFIG_HOME", dir.path())
         .env("TOPK_AUTH_CALLBACK_PORTS", "0");
     cmd
-}
-
-#[cfg(target_os = "linux")]
-#[test]
-fn login_checks_storage_before_printing_authorization_url() {
-    let dir = TempDir::new().unwrap();
-    std::fs::create_dir_all(dir.path().join("topk")).unwrap();
-    std::fs::create_dir_all(tenant_path(&dir).join("credentials.toml")).unwrap();
-    let output = command(&dir)
-        .args(["login", "--no-browser"])
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8(output.stderr).unwrap();
-    assert!(stderr.contains("error:"));
-    assert!(!stderr.contains("/authorize"));
 }
 
 #[cfg(target_os = "linux")]
@@ -105,27 +86,20 @@ async fn no_browser_prints_login_url_without_saving_credentials() {
 fn invalid_authentication_configuration_is_rejected_during_parsing() {
     let dir = TempDir::new().unwrap();
     std::fs::create_dir_all(dir.path().join("topk")).unwrap();
-    for domain in [
-        "",
-        "example.com/path",
-        "user@example.com",
-        "user:password@example.com",
-        "example.com?query=value",
-        "example.com#fragment",
-    ] {
+    for issuer in ["", "example.com", "https://", "https://invalid host/"] {
         for from_env in [false, true] {
             let mut cmd = command(&dir);
             cmd.arg("logout");
             if from_env {
-                cmd.env("TOPK_AUTH_DOMAIN", domain);
+                cmd.env("TOPK_AUTH_ISSUER", issuer);
             } else {
-                cmd.args(["--auth-domain", domain]);
+                cmd.args(["--auth-issuer", issuer]);
             }
             let output = cmd.output().unwrap();
-            assert_eq!(output.status.code(), Some(2), "domain: {domain:?}");
+            assert_eq!(output.status.code(), Some(2), "issuer: {issuer:?}");
             assert!(String::from_utf8(output.stderr)
                 .unwrap()
-                .contains("--auth-domain"));
+                .contains("--auth-issuer"));
         }
     }
     let output = command(&dir)

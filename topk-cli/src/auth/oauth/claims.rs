@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::auth::oauth::jwt_payload;
+
 #[derive(Debug, Clone, Serialize)]
 pub struct AccessTokenClaims {
     pub sub: String,
@@ -25,7 +27,7 @@ struct Raw {
 
 impl AccessTokenClaims {
     pub fn parse(token: &str, audience: &str) -> Option<Self> {
-        let mut raw: Raw = serde_json::from_value(super::jwt_payload(token)?).ok()?;
+        let mut raw: Raw = serde_json::from_value(jwt_payload(token)?).ok()?;
         let mut custom = |name: &str| {
             raw.extra
                 .remove(&format!("{audience}/{name}"))

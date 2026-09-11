@@ -8,12 +8,28 @@ use axum::routing::post;
 use axum::Router;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+use tempfile::TempDir;
+use test_context::AsyncTestContext;
 use tokio::net::TcpListener;
 use tokio::sync::{mpsc, oneshot, Mutex};
 use tokio::time::timeout;
 use url::Url;
 
 use topk::auth::{Auth, Config};
+
+pub struct AuthTestContext {
+    pub dir: TempDir,
+    pub server: Server,
+}
+
+impl AsyncTestContext for AuthTestContext {
+    async fn setup() -> Self {
+        Self {
+            dir: TempDir::new().unwrap(),
+            server: Server::new().await,
+        }
+    }
+}
 
 pub struct Server {
     pub url: Url,
@@ -46,6 +62,7 @@ impl Server {
                 }
             }),
         );
+        let app = app.clone().nest("/tenant", app);
         let (shutdown, stopped) = oneshot::channel::<()>();
         tokio::spawn(async move {
             axum::serve(listener, app)

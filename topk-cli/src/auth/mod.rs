@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use anyhow::{bail, Context, Result};
 use tracing::info;
 
-use oauth::OAuthClient;
-use store::SessionStore;
+use crate::auth::oauth::OAuthClient;
+use crate::auth::store::SessionStore;
 
 mod callback;
 mod config;
@@ -13,9 +13,9 @@ mod oauth;
 mod session;
 mod store;
 
-pub use config::Config;
-pub use login::Login;
-pub use oauth::AccessTokenClaims;
+pub use crate::auth::config::Config;
+pub use crate::auth::login::Login;
+pub use crate::auth::oauth::AccessTokenClaims;
 
 const SESSION_EXPIRED_MSG: &str = "session expired. Run `topk login`.";
 
@@ -34,7 +34,6 @@ impl Auth {
     }
 
     pub async fn login(&self, ports: &[u16]) -> Result<Login<'_>> {
-        self.store.lock().await?.prepare()?;
         Login::new(self, ports).await
     }
 

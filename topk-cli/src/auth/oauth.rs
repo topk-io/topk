@@ -13,10 +13,10 @@ use oauth2::{
 };
 use reqwest::{redirect::Policy, Client as HttpClient};
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use url::Url;
 
-use super::config::OAuthConfig;
-use super::session::Session;
+use crate::auth::session::Session;
 
 mod claims;
 pub use claims::AccessTokenClaims;
@@ -25,13 +25,27 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 const SCOPES: [&str; 4] = ["openid", "profile", "email", "offline_access"];
 
-pub(super) struct OAuthClient {
+/// Resolved issuer, OAuth client, and API audience used for authentication.
+#[derive(Clone)]
+pub(crate) struct OAuthConfig {
+    pub issuer: Url,
+    pub client_id: String,
+    pub audience: String,
+}
+
+impl OAuthConfig {
+    pub fn issuer_key(&self) -> String {
+        format!("{:x}", Sha256::digest(self.issuer.as_str().as_bytes()))
+    }
+}
+
+pub(crate) struct OAuthClient {
     client: BasicClient<EndpointSet, EndpointNotSet, EndpointNotSet, EndpointNotSet, EndpointSet>,
     http: HttpClient,
     audience: String,
 }
 
-pub(super) struct Authorization {
+pub struct Authorization {
     pub url: Url,
     pub state: CsrfToken,
     redirect_uri: RedirectUrl,
@@ -86,7 +100,7 @@ impl OAuthClient {
             .request_async(&self.http)
             .await
             .context("exchanging the authorization code")?;
-        let session = session_from_response(res, None)?;
+        let session = session_from_response(res)?;
         let claims = AccessTokenClaims::parse(&session.access_token, &self.audience);
         Ok((session, claims))
     }
@@ -106,26 +120,21 @@ impl OAuthClient {
             }
             Err(e) => return Err(e).context("refreshing the access token"),
         };
-        session_from_response(res, Some(refresh_token)).map(Some)
+        let mut session = session_from_response(res)?;
+        session.refresh_token = session.refresh_token.or(Some(refresh_token));
+        Ok(Some(session))
     }
 }
 
-fn session_from_response(
-    res: BasicTokenResponse,
-    previous_refresh_token: Option<String>,
-) -> Result<Session> {
-    let expires_at = res
-        .expires_in()
-        .context("token response is missing expires_in")?
-        .as_secs()
-        .saturating_add(Utc::now().timestamp() as u64);
+fn session_from_response(res: BasicTokenResponse) -> Result<Session> {
     Ok(Session {
         access_token: res.access_token().secret().clone(),
-        refresh_token: res
-            .refresh_token()
-            .map(|token| token.secret().clone())
-            .or(previous_refresh_token),
-        expires_at,
+        refresh_token: res.refresh_token().map(|token| token.secret().clone()),
+        expires_at: res
+            .expires_in()
+            .context("token response is missing expires_in")?
+            .as_secs()
+            .saturating_add(Utc::now().timestamp() as u64),
     })
 }
 

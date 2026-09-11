@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 const REFRESH_EARLY_SECS: u64 = 60;
 
 #[derive(Clone, Serialize, Deserialize)]
-pub(super) struct Session {
+pub(crate) struct Session {
     pub access_token: String,
     pub refresh_token: Option<String>,
     pub expires_at: u64,
