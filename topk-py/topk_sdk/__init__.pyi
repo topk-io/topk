@@ -70,6 +70,7 @@ class CollectionClient:
         ids: typing.Sequence[builtins.str],
         fields: typing.Optional[typing.Sequence[builtins.str]] = None,
         lsn: typing.Optional[builtins.str] = None,
+        ssn: typing.Optional[builtins.int] = None,
         consistency: typing.Optional[typing.Union[ConsistencyLevel, typing.Literal["indexed", "strong"]]] = None,
     ) -> builtins.dict[builtins.str, builtins.dict[builtins.str, typing.Any]]:
         """
@@ -79,6 +80,7 @@ class CollectionClient:
     def count(
         self,
         lsn: typing.Optional[builtins.str] = None,
+        ssn: typing.Optional[builtins.int] = None,
         consistency: typing.Optional[typing.Union[ConsistencyLevel, typing.Literal["indexed", "strong"]]] = None,
     ) -> builtins.int:
         """
@@ -89,6 +91,7 @@ class CollectionClient:
         self,
         query: query.Query,
         lsn: typing.Optional[builtins.str] = None,
+        ssn: typing.Optional[builtins.int] = None,
         consistency: typing.Optional[typing.Union[ConsistencyLevel, typing.Literal["indexed", "strong"]]] = None,
     ) -> builtins.list[builtins.dict[builtins.str, typing.Any]]:
         """
@@ -158,6 +161,7 @@ class AsyncCollectionClient:
         ids: typing.Sequence[builtins.str],
         fields: typing.Optional[typing.Sequence[builtins.str]] = None,
         lsn: typing.Optional[builtins.str] = None,
+        ssn: typing.Optional[builtins.int] = None,
         consistency: typing.Optional[typing.Union[ConsistencyLevel, typing.Literal["indexed", "strong"]]] = None,
     ) -> typing.Awaitable[
         builtins.dict[builtins.str, builtins.dict[builtins.str, typing.Any]]
@@ -169,6 +173,7 @@ class AsyncCollectionClient:
     def count(
         self,
         lsn: typing.Optional[builtins.str] = None,
+        ssn: typing.Optional[builtins.int] = None,
         consistency: typing.Optional[typing.Union[ConsistencyLevel, typing.Literal["indexed", "strong"]]] = None,
     ) -> typing.Awaitable[builtins.int]:
         """
@@ -179,6 +184,7 @@ class AsyncCollectionClient:
         self,
         query: query.Query,
         lsn: typing.Optional[builtins.str] = None,
+        ssn: typing.Optional[builtins.int] = None,
         consistency: typing.Optional[typing.Union[ConsistencyLevel, typing.Literal["indexed", "strong"]]] = None,
     ) -> typing.Awaitable[builtins.list[builtins.dict[builtins.str, typing.Any]]]:
         """
@@ -250,6 +256,7 @@ class Collection:
     region: builtins.str
     schema: builtins.dict[builtins.str, schema.FieldSpec]
     created_at: builtins.str
+    ssn: builtins.int
 
 class Partition:
     """

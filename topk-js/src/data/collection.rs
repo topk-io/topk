@@ -21,6 +21,8 @@ pub struct Collection {
     pub region: String,
     /// Timestamp when the collection was created (ISO 8601)
     pub created_at: String,
+    /// Committed schema sequence number
+    pub ssn: u32,
 }
 
 impl From<topk_rs::proto::v1::control::Collection> for Collection {
@@ -36,6 +38,7 @@ impl From<topk_rs::proto::v1::control::Collection> for Collection {
                 .collect(),
             region: collection.region,
             created_at: collection.created_at,
+            ssn: collection.ssn,
         }
     }
 }

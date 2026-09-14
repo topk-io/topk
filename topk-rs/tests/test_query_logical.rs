@@ -21,6 +21,7 @@ async fn test_query_lte(ctx: &mut ProjectTestContext) {
                 .limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -46,6 +47,7 @@ async fn test_query_and(ctx: &mut ProjectTestContext) {
             .limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -65,6 +67,7 @@ async fn test_query_is_null(ctx: &mut ProjectTestContext) {
             filter(field("nullable_embedding").is_null())
                 .sort((field("published_year"), SortOrder::Asc))
                 .limit(100),
+            None,
             None,
             None,
         )
@@ -91,6 +94,7 @@ async fn test_query_is_not_null(ctx: &mut ProjectTestContext) {
                 .limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -110,6 +114,7 @@ async fn test_query_not(ctx: &mut ProjectTestContext) {
             filter(not(field("_id").contains("gatsby")))
                 .sort("published_year")
                 .limit(100),
+            None,
             None,
             None,
         )
@@ -150,6 +155,7 @@ async fn test_query_choose_literal(ctx: &mut ProjectTestContext) {
             .limit(10),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -174,6 +180,7 @@ async fn test_query_choose_literal_and_field(ctx: &mut ProjectTestContext) {
             )])
             .sort("love_score")
             .limit(2),
+            None,
             None,
             None,
         )
@@ -208,6 +215,7 @@ async fn test_query_choose_field(ctx: &mut ProjectTestContext) {
             .limit(3),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -235,6 +243,7 @@ async fn test_query_coalesce_nullable(ctx: &mut ProjectTestContext) {
                 .filter(field("published_year").lt(1900))
                 .sort("published_year")
                 .limit(3),
+            None,
             None,
             None,
         )
@@ -265,6 +274,7 @@ async fn test_query_coalesce_missing(ctx: &mut ProjectTestContext) {
                 .limit(3),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -293,6 +303,7 @@ async fn test_query_coalesce_non_nullable(ctx: &mut ProjectTestContext) {
                 .limit(3),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -318,6 +329,7 @@ async fn test_query_abs(ctx: &mut ProjectTestContext) {
             select([("abs_year", field("published_year").add(-1990).abs())])
                 .sort((field("abs_year"), SortOrder::Asc))
                 .limit(3),
+            None,
             None,
             None,
         )
@@ -356,6 +368,7 @@ async fn test_query_topk_min_max(ctx: &mut ProjectTestContext) {
             ))
             .sort((field("published_year"), SortOrder::Asc))
             .limit(3),
+            None,
             None,
             None,
         )
@@ -397,6 +410,7 @@ async fn test_query_logical_deep_recursion_limit(ctx: &mut ProjectTestContext) {
                 .limit(100),
             None,
             None,
+            None,
         )
         .await
         .expect_err("should have failed due to recursion limit");
@@ -416,6 +430,7 @@ async fn test_query_gt_and_lte_string(ctx: &mut ProjectTestContext) {
             filter(field("_id").gt("moby").and(field("_id").lte("pride")))
                 .sort((field("published_year"), SortOrder::Asc))
                 .limit(100),
+            None,
             None,
             None,
         )
@@ -440,6 +455,7 @@ async fn test_query_min_string(ctx: &mut ProjectTestContext) {
             ])
             .sort((field("published_year"), SortOrder::Asc))
             .limit(2),
+            None,
             None,
             None,
         )

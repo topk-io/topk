@@ -14,11 +14,29 @@ pub(crate) fn try_from_sql(stmt: SqlStatement) -> Result<Statement, Error> {
             temporary,
             ..
         } => {
-            sql_unsupported!(object_type != ObjectType::Table, "DROP {object_type}");
+            sql_unsupported!(
+                !matches!(object_type, ObjectType::Table | ObjectType::Index),
+                "DROP {object_type}"
+            );
             sql_unsupported!(temporary, "DROP TEMPORARY TABLE");
-            sql_unsupported!(cascade, "DROP TABLE … CASCADE");
-            sql_unsupported!(restrict, "DROP TABLE … RESTRICT");
-            sql_unsupported!(purge, "DROP TABLE … PURGE");
+            sql_unsupported!(cascade, "DROP {object_type} … CASCADE");
+            sql_unsupported!(restrict, "DROP {object_type} … RESTRICT");
+            sql_unsupported!(purge, "DROP {object_type} … PURGE");
+
+            if object_type == ObjectType::Index {
+                let names = names
+                    .into_iter()
+                    .map(
+                        |name| match name.0.last().and_then(|part| part.as_ident()) {
+                            Some(ident) => Ok(ident.value.clone()),
+                            None => sql_invalid!("index name must be an identifier"),
+                        },
+                    )
+                    .collect::<Result<Vec<String>, Error>>()?;
+
+                return Ok(Statement::DropIndex { names, if_exists });
+            }
+
             sql_invalid!(names.len() != 1, "DROP TABLE must name exactly one table");
 
             let table = Table::new(names.remove(0))?;
