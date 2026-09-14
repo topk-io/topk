@@ -29,23 +29,23 @@ where
     F: FnOnce(String) -> Fut,
     Fut: Future<Output = Result<T>>,
 {
-    let (callbacks, mut receiver) = mpsc::channel(1);
-    let app = router(state, callbacks);
-    let (shutdown, stopped) = oneshot::channel::<()>();
+    let (callbacks_tx, mut callbacks_rx) = mpsc::channel(1);
+    let app = router(state, callbacks_tx);
+    let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
     let server = serve(listener, app)
         .with_graceful_shutdown(async {
             // Sender drop also shuts down connections when this future is cancelled.
-            let _ = stopped.await;
+            let _ = shutdown_rx.await;
         })
         .into_future();
     tokio::pin!(server);
 
     let login = async {
-        let Callback { code, response } = timeout(duration, receiver.recv())
+        let Callback { code, response } = timeout(duration, callbacks_rx.recv())
             .await
             .context("timed out waiting for the browser login")?
             .context("login callback server stopped")?;
-        drop(receiver);
+        drop(callbacks_rx);
         let result = match code {
             Ok(code) => complete(code).await,
             Err(error) => Err(error),
@@ -60,7 +60,7 @@ where
             bail!("login callback server stopped");
         },
     };
-    drop(shutdown);
+    drop(shutdown_tx);
     // Flush the final response without allowing a slow browser to delay exit indefinitely.
     let _ = timeout(SHUTDOWN_TIMEOUT, &mut server).await;
     result
@@ -119,15 +119,15 @@ async fn callback(
     let Some(code) = params.validate(&state.state) else {
         return StatusCode::BAD_REQUEST.into_response();
     };
-    let (response, received) = oneshot::channel();
+    let (tx, rx) = oneshot::channel();
     if state
         .callbacks
-        .try_send(Callback { code, response })
+        .try_send(Callback { code, response: tx })
         .is_err()
     {
         return StatusCode::CONFLICT.into_response();
     }
-    page(received.await.unwrap_or(false))
+    page(rx.await.unwrap_or(false))
 }
 
 fn page(ok: bool) -> Response {
