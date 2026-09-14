@@ -1,11 +1,13 @@
+use test_context::test_context;
+
+use topk::import::{Error, Uri};
+
 use crate::common::seed::pg;
 use crate::common::*;
-use test_context::test_context;
-use topk::import::{Error, Uri};
 
 async fn catalog_of(locator: &str) -> Vec<topk::import::Table> {
     let uri: Uri = locator.parse().expect("source uri parses");
-    topk::import::Source::connect(&uri, &topk::endpoint::Endpoint::default())
+    topk::import::Source::connect(&uri, &endpoint())
         .await
         .expect("connect")
         .catalog()
@@ -16,7 +18,7 @@ async fn catalog_of(locator: &str) -> Vec<topk::import::Table> {
 async fn discover_err(locator: &str, pattern: &str) -> String {
     let uri: Uri = locator.parse().expect("source uri parses");
     let result = async {
-        let catalog = topk::import::Source::connect(&uri, &topk::endpoint::Endpoint::default())
+        let catalog = topk::import::Source::connect(&uri, &endpoint())
             .await?
             .catalog()
             .await?;

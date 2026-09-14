@@ -21,8 +21,11 @@ topk import ./books.parquet --region aws-us-east-1-elastica
 topk import postgres://user:pw@host/db 'public.*' --region aws-us-east-1-elastica
 ```
 
-> [!NOTE]
-> `topk import` discovers a schema, shows the plan, and imports on confirmation — see [import](#import).
+<Note>
+
+`topk import` discovers a schema, shows the plan, and imports on confirmation — see [import](#import).
+
+</Note>
 
 ## Authentication
 
@@ -31,8 +34,6 @@ To authenticate, run:
 ```bash
 topk login
 ```
-
-Alternatively, you can set `TOPK_API_KEY` environment variable and skip the `topk login` command.
 
 ```bash
 export TOPK_API_KEY=<your-api-key>
@@ -48,15 +49,15 @@ To authenticate, run:
 topk login
 ```
 
-Alternatively, you can set `TOPK_API_KEY` environment variable and skip the `topk login` command.
+<Note>
 
-```bash
-export TOPK_API_KEY=<your-api-key>
-```
+If the CLI cannot open your browser automatically, or you prefer to open it manually, use `topk login --no-browser` to print the login URL.
+
+</Note>
 
 ### logout
 
-Remove saved credentials:
+Remove the saved session:
 
 ```bash
 topk logout
@@ -65,6 +66,20 @@ topk logout
 ### import
 
 Bulk import into TopK collections. Every run prints the plan as a TOML spec and asks before writing; collections are created right after.
+
+#### Authenticate
+
+Set the `TOPK_API_KEY` environment variable:
+
+```bash
+export TOPK_API_KEY=<your-api-key>
+```
+
+Or pass `--api-key` when running import:
+
+```bash
+topk import ./books.parquet --api-key <your-api-key>
+```
 
 #### Import a database
 
@@ -105,8 +120,11 @@ vim spec.toml                                                 # drop columns, fi
 topk import "$DB_URL" -f spec.toml --yes                      # run
 ```
 
-> [!WARNING]
-> Keep credentials on the command line or in the environment, never in the spec — the spec is meant to go in git.
+<Warning>
+
+Keep credentials on the command line or in the environment, never in the spec — the spec is meant to go in git.
+
+</Warning>
 
 #### Resume a stopped run
 
@@ -178,7 +196,7 @@ Output results as NDJSON — one JSON object per line, compatible with `jq`.
 
 ### `--api-key`
 
-API key to use for this invocation. Overrides the `TOPK_API_KEY` environment variable and the key saved via `topk login`.
+API key to use for this invocation. Overrides the `TOPK_API_KEY` environment variable.
 
 ### `--region`
 
