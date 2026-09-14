@@ -195,6 +195,18 @@
             ]
           }
         ]
+      },
+      {
+        "tab": "Elasticsearch",
+        "icon": "search",
+        "pages": [
+          {
+            "group": "Elasticsearch",
+            "pages": [
+              "sdk/topk-es/overview"
+            ]
+          }
+        ]
       }
     ]
   },
