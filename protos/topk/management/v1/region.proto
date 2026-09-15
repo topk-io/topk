@@ -1,0 +1,11 @@
+syntax = "proto3";
+package topk.management.v1;
+
+service RegionService {
+  rpc ListRegions(ListRegionsRequest) returns (ListRegionsResponse);
+}
+
+message ListRegionsRequest {}
+message ListRegionsResponse {
+  repeated string regions = 1;
+}
