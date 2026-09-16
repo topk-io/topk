@@ -67,8 +67,7 @@ impl Endpoint {
         Auth::new(&self.auth, config::dir().context("no config directory")?)
     }
 
-    // Management client
-    pub fn mgmt(&self) -> Result<ManagementClient> {
+    pub fn management(&self) -> Result<ManagementClient> {
         let protocol = if self.https { "https" } else { "http" };
         let mut endpoint = GrpcEndpoint::from_shared(format!("{protocol}://api.{}", self.host))?;
         if self.https {
