@@ -256,6 +256,12 @@ pub enum SchemaValidationError {
 
     #[error("struct field `{field}` exceeds maximum nesting depth of {max_depth}")]
     StructTooDeep { field: String, max_depth: usize },
+
+    #[error("field `{field}` is nested under `{parent}`, which is not a struct")]
+    NestedFieldUnderScalar { field: String, parent: String },
+
+    #[error("field `{field}` conflicts with an inline struct path")]
+    ConflictingFieldPath { field: String },
 }
 
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize, Clone)]
