@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::common::seed::{self, minio, sqlite, Seed};
+use crate::common::seed::{self, rustfs, sqlite, Seed};
 use crate::common::*;
 use indexmap::IndexMap;
 use serde_json::json;
@@ -310,11 +310,11 @@ async fn avro_roundtrip(ctx: &mut Ctx) {
 #[test_context(Ctx)]
 #[tokio::test]
 async fn s3_roundtrip(ctx: &mut Ctx) {
-    let s3 = minio::S3::new().unwrap();
+    let s3 = rustfs::S3::new().unwrap();
     let object = s3.seed(&unique_name("s3"), books()).await.unwrap();
     let collection = ctx.collection("s3");
     let spec = ctx.target_spec(&collection, object);
-    ok(&["import", "-f", &spec, "--yes"], minio::S3::ENV);
+    ok(&["import", "-f", &spec, "--yes"], rustfs::S3::ENV);
     let got = ctx.get(&collection, &["mockingbird"]).await;
     assert_eq!(
         doc_json(&got["mockingbird"]),
@@ -328,16 +328,16 @@ async fn s3_roundtrip(ctx: &mut Ctx) {
 #[test_context(Ctx)]
 #[tokio::test]
 async fn http_roundtrip(ctx: &mut Ctx) {
-    let s3 = minio::S3::new().unwrap();
+    let s3 = rustfs::S3::new().unwrap();
     let name = unique_name("http");
     let object = s3.seed(&name, books()).await.unwrap();
     // Public-read policy so the same object is a plain anonymous http GET.
     std::process::Command::new("curl")
         .args([
             "-s", "-X", "PUT",
-            &format!("{}/topk-it/?policy", minio::S3::ENDPOINT),
+            &format!("{}/topk-it/?policy", rustfs::S3::ENDPOINT),
             "--aws-sigv4", "aws:amz:us-east-1:s3",
-            "--user", "minioadmin:minioadmin",
+            "--user", "rustfsadmin:rustfsadmin",
             "-d",
             r#"{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":["*"]},"Action":["s3:GetObject"],"Resource":["arn:aws:s3:::topk-it/*"]}]}"#,
         ])
@@ -345,7 +345,7 @@ async fn http_roundtrip(ctx: &mut Ctx) {
         .unwrap();
 
     let object = Target {
-        from: format!("{}/topk-it/{name}.parquet", minio::S3::ENDPOINT),
+        from: format!("{}/topk-it/{name}.parquet", rustfs::S3::ENDPOINT),
         ..object
     };
     let collection = ctx.collection("http");
