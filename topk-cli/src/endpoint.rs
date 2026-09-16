@@ -8,7 +8,7 @@ use topk_rs::{Client, ClientConfig};
 
 use crate::auth::{Auth, Config};
 use crate::config;
-use crate::management::ManagementClient;
+use crate::management::Client as ManagementClient;
 
 #[derive(clap::Args, Clone)]
 pub struct Endpoint {

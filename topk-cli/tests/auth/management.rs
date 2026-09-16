@@ -15,7 +15,7 @@ use topk::management::proto::collection_service_server::{
 use topk::management::proto::project_service_server::{ProjectService, ProjectServiceServer};
 use topk::management::proto::region_service_server::{RegionService, RegionServiceServer};
 use topk::management::proto::*;
-use topk::management::ManagementClient;
+use topk::management::Client;
 use topk_rs::proto::v1::control::FieldSpec;
 
 use super::common::{response, seed, Server as OAuthServer};
@@ -138,7 +138,7 @@ impl RegionService for Services {
 struct Fixture {
     oauth: OAuthServer,
     dir: TempDir,
-    client: ManagementClient,
+    client: Client,
     requests: mpsc::UnboundedReceiver<(String, String)>,
     _shutdown: oneshot::Sender<()>,
 }
@@ -166,7 +166,7 @@ impl Fixture {
                 .await
                 .unwrap();
         });
-        let client = ManagementClient::new(endpoint, oauth.auth(dir.path()));
+        let client = Client::new(endpoint, oauth.auth(dir.path()));
         Self {
             oauth,
             dir,
