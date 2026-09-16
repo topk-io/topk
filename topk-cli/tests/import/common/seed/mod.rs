@@ -1,9 +1,9 @@
 pub mod es;
-pub mod minio;
 pub mod mongo;
 pub mod mysql;
 pub mod parquet;
 pub mod pg;
+pub mod rustfs;
 pub mod sql;
 pub mod sqlite;
 
