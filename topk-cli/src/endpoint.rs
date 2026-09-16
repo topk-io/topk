@@ -1,12 +1,14 @@
 use std::time::Duration;
 
 use anyhow::{Context, Result};
+use tonic::transport::{ClientTlsConfig, Endpoint as GrpcEndpoint};
 
 use topk_rs::client::retry::{BackoffConfig, RetryConfig};
 use topk_rs::{Client, ClientConfig};
 
 use crate::auth::{Auth, Config};
 use crate::config;
+use crate::management::ManagementClient;
 
 #[derive(clap::Args, Clone)]
 pub struct Endpoint {
@@ -63,6 +65,16 @@ impl Endpoint {
 
     pub fn auth(&self) -> Result<Auth> {
         Auth::new(&self.auth, config::dir().context("no config directory")?)
+    }
+
+    // Management client
+    pub fn mgmt(&self) -> Result<ManagementClient> {
+        let protocol = if self.https { "https" } else { "http" };
+        let mut endpoint = GrpcEndpoint::from_shared(format!("{protocol}://api.{}", self.host))?;
+        if self.https {
+            endpoint = endpoint.tls_config(ClientTlsConfig::new().with_native_roots())?;
+        }
+        Ok(ManagementClient::new(endpoint, self.auth()?))
     }
 
     pub fn client(&self) -> Result<Client> {
