@@ -4,3 +4,4 @@ pub mod config;
 pub mod endpoint;
 #[cfg(feature = "import")]
 pub mod import;
+pub mod management;
