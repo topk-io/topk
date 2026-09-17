@@ -19,7 +19,7 @@ async fn test_query_division_by_zero(ctx: &mut ProjectTestContext) {
         field("published_year").div(field("published_year").sub(literal(1813u32))),
     ] {
         let err = collection
-            .query(select([("q", expr.clone())]).limit(100), None, None)
+            .query(select([("q", expr.clone())]).limit(100), None, None, None)
             .await
             .expect_err("division by zero must be rejected");
 
@@ -42,7 +42,7 @@ async fn test_query_arithmetic_overflow(ctx: &mut ProjectTestContext) {
         field("published_year").sub(literal(u32::MAX)),
     ] {
         let err = collection
-            .query(select([("q", expr.clone())]).limit(100), None, None)
+            .query(select([("q", expr.clone())]).limit(100), None, None, None)
             .await
             .expect_err("arithmetic overflow must be rejected");
 

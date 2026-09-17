@@ -32,6 +32,7 @@ async fn test_group_by_bool_key_expr(ctx: &mut ProjectTestContext) {
             ),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -60,6 +61,7 @@ async fn test_group_by_count(ctx: &mut ProjectTestContext) {
                 [("is_old", field("published_year").lt(1940 as u32))],
                 [("count", AggregateExpr::count(None))],
             ),
+            None,
             None,
             None,
         )
@@ -102,6 +104,7 @@ async fn test_group_by_count_field(ctx: &mut ProjectTestContext) {
             ),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -135,6 +138,7 @@ async fn test_group_by_sum(ctx: &mut ProjectTestContext) {
                 [("is_old", field("published_year").lt(1940 as u32))],
                 [("total_year", AggregateExpr::sum("published_year"))],
             ),
+            None,
             None,
             None,
         )
@@ -172,6 +176,7 @@ async fn test_group_by_min_max(ctx: &mut ProjectTestContext) {
                     ("newest", AggregateExpr::max("published_year")),
                 ],
             ),
+            None,
             None,
             None,
         )
@@ -214,6 +219,7 @@ async fn test_group_by_avg(ctx: &mut ProjectTestContext) {
             ),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -250,6 +256,7 @@ async fn test_group_by_quantiles_and_count_distinct(ctx: &mut ProjectTestContext
                     ("distinct_ratings", AggregateExpr::count_distinct("rating")),
                 ],
             ),
+            None,
             None,
             None,
         )
@@ -292,6 +299,7 @@ async fn test_group_by_rejects_invalid_quantile(ctx: &mut ProjectTestContext) {
             ),
             None,
             None,
+            None,
         )
         .await
         .expect_err("invalid quantile should fail");
@@ -321,6 +329,7 @@ async fn test_group_by_multiple_aggregations(ctx: &mut ProjectTestContext) {
                     ("avg_year", AggregateExpr::avg("published_year")),
                 ],
             ),
+            None,
             None,
             None,
         )
@@ -373,6 +382,7 @@ async fn test_group_by_multiple_keys(ctx: &mut ProjectTestContext) {
             ),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -413,6 +423,7 @@ async fn test_group_by_with_filter(ctx: &mut ProjectTestContext) {
                 [("recent", field("published_year").gt(1980 as u32))],
                 [("count", AggregateExpr::count(None))],
             ),
+            None,
             None,
             None,
         )
@@ -456,6 +467,7 @@ async fn test_group_by_with_projected_columns(ctx: &mut ProjectTestContext) {
             ),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -496,6 +508,7 @@ async fn test_group_by_then_filter(ctx: &mut ProjectTestContext) {
             .filter(field("count").gt(4 as u64)),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -523,6 +536,7 @@ async fn test_group_by_then_sort_limit(ctx: &mut ProjectTestContext) {
             .limit(1),
             None,
             None,
+            None,
         )
         .await
         .expect("could not query");
@@ -547,6 +561,7 @@ async fn test_group_by_then_select(ctx: &mut ProjectTestContext) {
                 [("count", AggregateExpr::count(None))],
             )
             .select([("n", field("count"))]),
+            None,
             None,
             None,
         )
@@ -581,6 +596,7 @@ async fn test_group_by_empty_keys(ctx: &mut ProjectTestContext) {
             ),
             None,
             None,
+            None,
         )
         .await
         .expect_err("should have failed");
@@ -604,6 +620,7 @@ async fn test_group_by_empty_aggregations(ctx: &mut ProjectTestContext) {
                 [("is_old", field("published_year").lt(1940 as u32))],
                 Vec::<(String, AggregateExpr)>::new(),
             ),
+            None,
             None,
             None,
         )

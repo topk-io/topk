@@ -76,6 +76,7 @@ async fn test_partition_upsert_isolation(ctx: &mut ProjectTestContext) {
             None,
             Some(default_lsn),
             None,
+            None,
         )
         .await
         .expect("could not get from default partition");
@@ -103,6 +104,7 @@ async fn test_partition_upsert_isolation(ctx: &mut ProjectTestContext) {
             None,
             Some(p1_lsn),
             None,
+            None,
         )
         .await
         .expect("could not get from partition p1");
@@ -125,7 +127,7 @@ async fn test_partition_upsert_isolation(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .partition("p2")
-        .get(["shared"], None, Some(p2_lsn), None)
+        .get(["shared"], None, Some(p2_lsn), None, None)
         .await
         .expect("could not get from partition p2");
 
@@ -179,7 +181,7 @@ async fn test_partition_update(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .partition("p1")
-        .get(["doc"], None, Some(p1_lsn), None)
+        .get(["doc"], None, Some(p1_lsn), None, None)
         .await
         .expect("could not get from partition p1");
 
@@ -192,7 +194,7 @@ async fn test_partition_update(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .partition("p2")
-        .get(["doc"], None, Some(p2_lsn), None)
+        .get(["doc"], None, Some(p2_lsn), None, None)
         .await
         .expect("could not get from partition p2");
 
@@ -233,7 +235,7 @@ async fn test_partition_delete(ctx: &mut ProjectTestContext) {
     assert_eq!(p2_lsn, "1");
 
     let count = p1
-        .count(Some(p1_lsn), None)
+        .count(Some(p1_lsn), None, None)
         .await
         .expect("could not count partition p1");
     assert_eq!(count, 2);
@@ -251,6 +253,7 @@ async fn test_partition_delete(ctx: &mut ProjectTestContext) {
                 .limit(100),
             Some(p1_lsn),
             None,
+            None,
         )
         .await
         .expect("could not query partition p1");
@@ -259,7 +262,7 @@ async fn test_partition_delete(ctx: &mut ProjectTestContext) {
     assert_doc_ids!(p1_docs, ["doc2"]);
 
     let p2_docs = p2
-        .get(["doc1"], None, Some(p2_lsn), None)
+        .get(["doc1"], None, Some(p2_lsn), None, None)
         .await
         .expect("could not get from partition p2");
 
@@ -318,7 +321,7 @@ async fn test_partition_query_count(ctx: &mut ProjectTestContext) {
     let default_count = ctx
         .client
         .collection(&collection.name)
-        .count(Some(default_lsn.clone()), None)
+        .count(Some(default_lsn.clone()), None, None)
         .await
         .expect("could not count default partition");
     assert_eq!(default_count, 2);
@@ -327,7 +330,7 @@ async fn test_partition_query_count(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .partition("p1")
-        .count(Some(p1_lsn.clone()), None)
+        .count(Some(p1_lsn.clone()), None, None)
         .await
         .expect("could not count partition p1");
     assert_eq!(p1_count, 3);
@@ -336,7 +339,7 @@ async fn test_partition_query_count(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .partition("p2")
-        .count(Some(p2_lsn.clone()), None)
+        .count(Some(p2_lsn.clone()), None, None)
         .await
         .expect("could not count partition p2");
     assert_eq!(p2_count, 1);
@@ -347,6 +350,7 @@ async fn test_partition_query_count(ctx: &mut ProjectTestContext) {
         .query(
             select([("_id", field("_id")), ("partition", field("partition"))]).limit(10),
             Some(default_lsn),
+            None,
             None,
         )
         .await
@@ -363,6 +367,7 @@ async fn test_partition_query_count(ctx: &mut ProjectTestContext) {
             select([("_id", field("_id")), ("partition", field("partition"))]).limit(10),
             Some(p1_lsn),
             None,
+            None,
         )
         .await
         .expect("could not query partition p1");
@@ -377,6 +382,7 @@ async fn test_partition_query_count(ctx: &mut ProjectTestContext) {
         .query(
             select([("_id", field("_id")), ("partition", field("partition"))]).limit(10),
             Some(p2_lsn),
+            None,
             None,
         )
         .await
@@ -433,6 +439,7 @@ async fn test_partition_query_filter(ctx: &mut ProjectTestContext) {
                 .limit(10),
             Some(p1_lsn),
             None,
+            None,
         )
         .await
         .expect("could not query partition p1");
@@ -450,6 +457,7 @@ async fn test_partition_query_filter(ctx: &mut ProjectTestContext) {
                 .limit(10),
             Some(p2_lsn),
             None,
+            None,
         )
         .await
         .expect("could not query partition p2");
@@ -465,6 +473,7 @@ async fn test_partition_query_filter(ctx: &mut ProjectTestContext) {
             select([("_id", field("_id")), ("partition", field("partition"))])
                 .filter(field("region").eq("us"))
                 .limit(10),
+            None,
             None,
             None,
         )
@@ -501,7 +510,13 @@ async fn test_partition_get(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .partition("p1")
-        .get(["one", "two", "missing"], None, Some(lsn.clone()), None)
+        .get(
+            ["one", "two", "missing"],
+            None,
+            Some(lsn.clone()),
+            None,
+            None,
+        )
         .await
         .expect("could not get from partition p1");
 
@@ -523,7 +538,7 @@ async fn test_partition_get(ctx: &mut ProjectTestContext) {
     let default_docs = ctx
         .client
         .collection(&collection.name)
-        .get(["one", "two"], None, None, None)
+        .get(["one", "two"], None, None, None, None)
         .await
         .expect("could not get from default partition");
 
@@ -544,7 +559,7 @@ async fn test_query_non_existent_partition(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .partition("missing-partition")
-        .count(None, None)
+        .count(None, None, None)
         .await
         .expect_err("should not be able to query a partition that was never created");
 
@@ -554,7 +569,7 @@ async fn test_query_non_existent_partition(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .partition("missing-partition")
-        .get(["doc"], None, None, None)
+        .get(["doc"], None, None, None, None)
         .await
         .expect_err("should not be able to get from a partition that was never created");
 
@@ -584,7 +599,7 @@ async fn test_upsert_creates_partition(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .partition("new-partition")
-        .get(["one"], None, Some(lsn.clone()), None)
+        .get(["one"], None, Some(lsn.clone()), None, None)
         .await
         .expect("could not get from newly created partition");
 
@@ -600,7 +615,7 @@ async fn test_upsert_creates_partition(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .partition("new-partition")
-        .count(Some(lsn), None)
+        .count(Some(lsn), None, None)
         .await
         .expect("could not count newly created partition");
 
@@ -862,7 +877,7 @@ async fn test_delete_partition(ctx: &mut ProjectTestContext) {
         .client
         .collection(collection_name)
         .partition("test-partition")
-        .count(None, None)
+        .count(None, None, None)
         .await
         .expect_err("should not be able to query deleted partition");
 
@@ -920,7 +935,7 @@ async fn test_delete_partition_does_not_affect_other_partitions(ctx: &mut Projec
     assert_eq!(partitions[0].name, "partition-b");
 
     let p2_docs = p2
-        .get(["doc-a"], None, Some(p2_lsn), None)
+        .get(["doc-a"], None, Some(p2_lsn), None, None)
         .await
         .expect("could not get from partition-b");
 

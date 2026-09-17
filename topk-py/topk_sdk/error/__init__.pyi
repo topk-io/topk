@@ -28,6 +28,16 @@ class DocumentValidationError(Exception):
     Raised when a document is invalid.
     """
 
+class FailedPreconditionError(Exception):
+    """
+    Raised when the collection is not in a state that allows the operation.
+    """
+
+class IndexBuildingError(FailedPreconditionError):
+    """
+    Raised when an index the query needs is not built yet.
+    """
+
 class InvalidArgumentError(Exception):
     """
     Raised when an invalid argument is provided.
@@ -61,4 +71,9 @@ class SchemaValidationError(Exception):
 class SlowDownError(Exception):
     """
     Raised when a slow down occurs.
+    """
+
+class SsnUnavailableError(FailedPreconditionError):
+    """
+    Raised when the requested schema version is not available yet.
     """
