@@ -55,8 +55,8 @@ async fn returns_rows(#[case] sql: &str) {
 }
 
 #[rstest]
-#[case::literal("SELECT 1", Value::i64(1))]
-#[case::arithmetic("SELECT 1 + 1", Value::i64(2))]
+#[case::literal("SELECT 1", Value::string("1"))]
+#[case::arithmetic("SELECT 1 + 1", Value::string("2"))]
 #[case::version("SELECT version()", Value::string("PostgreSQL 16.0 (TopK)"))]
 #[tokio::test]
 async fn answers_without_a_table(#[case] sql: &str, #[case] expected: Value) {
