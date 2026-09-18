@@ -17,10 +17,6 @@
       "destination": "/introduction"
     },
     {
-      "source": "/quickstart",
-      "destination": "/introduction"
-    },
-    {
       "source": "/concepts/semantic-search",
       "destination": "/guides/semantic-search"
     },
@@ -91,6 +87,7 @@
             "group": "Overview",
             "pages": [
               "introduction",
+              "quickstart",
               "architecture",
               "concepts",
               "limits",
