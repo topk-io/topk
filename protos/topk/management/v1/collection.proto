@@ -22,6 +22,8 @@ message Collection {
 
 message ListCollectionsRequest {
   string project_id = 1;
+  // Last collection name of the previous page, exclusive.
+  optional string start_after = 2;
 }
 message ListCollectionsResponse {
   repeated Collection collections = 1;
