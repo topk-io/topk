@@ -32,6 +32,9 @@ impl SqlStatementExt for SqlStatement {
                 SetExpr::Select(s) => Some(&s.projection),
                 _ => None,
             },
+            SqlStatement::Insert(i) => i.returning.as_deref(),
+            SqlStatement::Update(u) => u.returning.as_deref(),
+            SqlStatement::Delete(d) => d.returning.as_deref(),
             _ => None,
         }
     }

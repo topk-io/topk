@@ -37,16 +37,19 @@ pub struct WriteBody {
     pub result: WriteResult,
     #[serde(rename = "_shards")]
     pub shards: super::Shards,
+    #[serde(rename = "_seq_no", skip_serializing_if = "Option::is_none")]
+    pub seq_no: Option<u64>,
 }
 
 impl WriteBody {
-    pub fn new(index: IndexName, id: DocId, result: WriteResult) -> Self {
+    pub fn new(index: IndexName, id: DocId, result: WriteResult, lsn: &str) -> Self {
         Self {
             index,
             id,
             version: 1,
             result,
             shards: super::Shards::default(),
+            seq_no: lsn.parse().ok(),
         }
     }
 }
