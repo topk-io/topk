@@ -24,8 +24,11 @@ message ListCollectionsRequest {
   string project_id = 1;
   // Last collection name of the previous page, exclusive.
   optional string start_after = 2;
+  // Page size, capped at 100.
+  optional uint32 limit = 3;
 }
 message ListCollectionsResponse {
+  // Fewer than the requested limit means there are no more.
   repeated Collection collections = 1;
 }
 
