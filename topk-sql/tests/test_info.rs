@@ -1,5 +1,5 @@
 use rstest::rstest;
-use topk_rs::proto::v1::data::{value, Document};
+use topk_rs::proto::v1::data::{value, Document, Value};
 
 mod common;
 use common::{BooksContext, Scope};
@@ -50,6 +50,21 @@ async fn returns_rows(#[case] sql: &str) {
     BooksContext::with_scope(async |ctx| {
         let rows = ctx.sql(sql).await.unwrap();
         assert!(!rows.is_empty());
+    })
+    .await;
+}
+
+#[rstest]
+#[case::literal("SELECT 1", Value::string("1"))]
+#[case::arithmetic("SELECT 1 + 1", Value::string("2"))]
+#[case::version("SELECT version()", Value::string("PostgreSQL 16.0 (TopK)"))]
+#[tokio::test]
+async fn answers_without_a_table(#[case] sql: &str, #[case] expected: Value) {
+    BooksContext::with_scope(async |ctx| {
+        let rows = ctx.sql(sql).await.unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].fields.len(), 1);
+        assert_eq!(rows[0].fields.values().next(), Some(&expected));
     })
     .await;
 }

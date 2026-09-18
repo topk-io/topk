@@ -6,7 +6,7 @@ use sqlparser::ast::{
 };
 
 use super::{SqlExprExt, TableFactorExt};
-use crate::{Error, Table};
+use crate::{sql_unsupported, Error, Table};
 
 pub trait SqlStatementExt {
     fn projection(&self) -> Option<&[SelectItem]>;
@@ -49,15 +49,20 @@ impl SqlStatementExt for SqlStatement {
 
     fn table(&self) -> Result<Option<Table>, Error> {
         let name = match self {
-            SqlStatement::Query(q) => match q.body.as_ref() {
-                SetExpr::Select(s) => {
-                    match s.from.first().and_then(|from| from.relation.table_name()) {
-                        Some(name) => name,
-                        None => return Ok(None),
+            SqlStatement::Query(q) => {
+                // a CTE name is not a collection, and reporting it as one resolves it against cps
+                sql_unsupported!(q.with.is_some(), "WITH (common table expressions)");
+
+                match q.body.as_ref() {
+                    SetExpr::Select(s) => {
+                        match s.from.first().and_then(|from| from.relation.table_name()) {
+                            Some(name) => name,
+                            None => return Ok(None),
+                        }
                     }
+                    _ => return Ok(None),
                 }
-                _ => return Ok(None),
-            },
+            }
             SqlStatement::Update(u) => match u.table.relation.table_name() {
                 Some(name) => name,
                 None => return Ok(None),

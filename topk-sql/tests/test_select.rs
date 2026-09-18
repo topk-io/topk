@@ -1012,7 +1012,6 @@ async fn semantic_similarity_search() {
     "SELECT published_year + 1 FROM {{table}}",
     "Invalid: expression in SELECT list requires an AS alias"
 )]
-#[case::missing_from("SELECT _id LIMIT 1", "Invalid: SELECT requires a FROM clause")]
 #[case::missing_table("SELECT _id FROM never_made_this LIMIT 1", "Table does not exist")]
 #[case::order_limit(
     "SELECT _id FROM {{table}} ORDER BY published_year",
