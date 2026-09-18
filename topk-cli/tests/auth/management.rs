@@ -213,6 +213,7 @@ async fn services_send_bearer_tokens_and_preserve_responses_and_errors() {
         .collections
         .list_collections(ListCollectionsRequest {
             project_id: "project-1".into(),
+            start_after: None,
         })
         .await
         .unwrap()
