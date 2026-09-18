@@ -24,6 +24,14 @@ impl WriteKind {
             WriteKind::Delete => "delete",
         }
     }
+
+    fn result(self) -> WriteResult {
+        match self {
+            WriteKind::Index | WriteKind::Create => WriteResult::Created,
+            WriteKind::Update => WriteResult::Updated,
+            WriteKind::Delete => WriteResult::Deleted,
+        }
+    }
 }
 
 pub struct BulkEntry {
@@ -189,18 +197,18 @@ pub enum BulkItemResult {
     },
 }
 
-impl From<(IndexName, DocId, Result<WriteResult, Error>)> for BulkItemResult {
-    fn from((index, id, result): (IndexName, DocId, Result<WriteResult, Error>)) -> Self {
+impl From<(BulkRef, Result<String, Error>)> for BulkItemResult {
+    fn from((line, result): (BulkRef, Result<String, Error>)) -> Self {
         match result {
-            Ok(result) => BulkItemResult::Success {
-                status: result.status_code().as_u16(),
-                body: WriteBody::new(index, id, result),
+            Ok(lsn) => BulkItemResult::Success {
+                status: line.kind.result().status_code().as_u16(),
+                body: WriteBody::new(line.index, line.id, line.kind.result(), &lsn),
             },
             Err(error) => {
                 let (status, error) = error.parts();
                 BulkItemResult::Error {
-                    index,
-                    id,
+                    index: line.index,
+                    id: line.id,
                     status,
                     error,
                 }
@@ -220,16 +228,9 @@ impl BulkResponse {
     pub fn new(results: Vec<(BulkRef, Result<String, Error>)>) -> Self {
         let items: Vec<BulkItem> = results
             .into_iter()
-            .map(|(line, result)| {
-                let result = result.map(|_| match line.kind {
-                    WriteKind::Index | WriteKind::Create => WriteResult::Created,
-                    WriteKind::Update => WriteResult::Updated,
-                    WriteKind::Delete => WriteResult::Deleted,
-                });
-                BulkItem {
-                    kind: line.kind,
-                    result: (line.index, line.id, result).into(),
-                }
+            .map(|(line, result)| BulkItem {
+                kind: line.kind,
+                result: (line, result).into(),
             })
             .collect();
 

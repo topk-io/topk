@@ -3,10 +3,11 @@
 use elasticsearch::{
     auth::Credentials,
     http::{
+        headers::HeaderMap,
         request::JsonBody,
         response::Response,
         transport::{SingleNodeConnectionPool, TransportBuilder},
-        StatusCode, Url,
+        Method, StatusCode, Url,
     },
     indices::{IndicesCreateParts, IndicesDeleteParts},
     params::{Refresh, SearchType},
@@ -330,6 +331,54 @@ impl TestScope {
             .hit_ids();
         ids.sort();
         ids
+    }
+
+    pub async fn bulk_without_refresh(&self, ops: BulkOperations) -> JsonResponse {
+        let res = self
+            .client
+            .es()
+            .bulk(BulkParts::Index(&self.name))
+            .body(vec![ops])
+            .send()
+            .await
+            .expect("bulk");
+        to_json(res).await
+    }
+
+    pub async fn request(
+        &self,
+        method: Method,
+        path: &str,
+        query: &[(&str, String)],
+        body: Option<Value>,
+    ) -> TestResult<Value> {
+        let res = self
+            .client
+            .es()
+            .transport()
+            .send(
+                method,
+                path,
+                HeaderMap::new(),
+                Some(query),
+                body.map(JsonBody::new),
+                None,
+            )
+            .await
+            .expect("raw request");
+
+        into_test_result(res).await
+    }
+
+    pub async fn search_at_lsn(&self, body: Value, lsn: u64) -> TestResult<SearchResponse> {
+        self.request(
+            Method::Post,
+            &format!("/{}/_search", self.name),
+            &[("required_lsn", lsn.to_string())],
+            Some(body),
+        )
+        .await
+        .map(SearchResponse)
     }
 
     pub async fn count(&self, query: Option<Value>) -> TestResult<u64> {
