@@ -120,7 +120,7 @@ async fn update_optional_fields(
 )]
 #[case::update_returning(
     "UPDATE {{table}} SET rating = 5.0 WHERE _id = 'gatsby' RETURNING *",
-    "Unsupported: UPDATE \u{2026} RETURNING"
+    "Unsupported: RETURNING other than `RETURNING _lsn`"
 )]
 #[tokio::test]
 async fn update_rejected(#[case] query: &str, #[case] expected: &str) {

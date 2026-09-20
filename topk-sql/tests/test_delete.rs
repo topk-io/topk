@@ -50,7 +50,7 @@ async fn delete(#[case] delete_sql: &str, #[case] expected: HashSet<&str>) {
 )]
 #[case::delete_returning(
     "DELETE FROM {{table}} WHERE _id = 'moby' RETURNING *",
-    "Unsupported: DELETE \u{2026} RETURNING"
+    "Unsupported: RETURNING other than `RETURNING _lsn`"
 )]
 #[tokio::test]
 async fn delete_rejected(#[case] query: &str, #[case] expected: &str) {
