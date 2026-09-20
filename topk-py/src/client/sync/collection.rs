@@ -1,11 +1,13 @@
 use crate::client::sync::runtime::Runtime;
 use crate::client::Document;
 use crate::client::CHANNEL_BUFFER_SIZE;
+use crate::data::collection::Collection;
 use crate::data::partition::Partition;
 use crate::data::value::Value;
 use crate::error::RustError;
 use crate::expr::delete::DeleteExprUnion;
 use crate::query::{ConsistencyLevel, Query};
+use crate::schema::{Schema, SchemaFieldSpec};
 use futures_util::StreamExt;
 use pyo3::prelude::*;
 use std::{collections::HashMap, sync::Arc};
@@ -167,6 +169,28 @@ impl CollectionClient {
             .runtime
             .block_on(py, self.collection().delete(spec))
             .map_err(RustError)?)
+    }
+
+    #[pyo3(signature = (schema, drop_fields=vec![]))]
+    pub fn update_schema(
+        &self,
+        py: Python<'_>,
+        schema: HashMap<String, SchemaFieldSpec>,
+        drop_fields: Vec<String>,
+    ) -> PyResult<Collection> {
+        let schema = Schema(schema.into_iter().map(|(k, v)| (k, v.0)).collect());
+
+        let collection = self
+            .runtime
+            .block_on(
+                py,
+                self.client
+                    .collection(&self.collection)
+                    .update_schema(schema, drop_fields),
+            )
+            .map_err(RustError)?;
+
+        Ok(collection.into())
     }
 
     #[pyo3(signature = (prefix=None))]

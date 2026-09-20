@@ -12,6 +12,7 @@ use tonic::{Response, Streaming};
 
 use crate::create_client;
 use crate::error::Error;
+use crate::proto::v1::control::{Collection, FieldSpec};
 use crate::proto::v1::data::partition_service_client::PartitionServiceClient;
 use crate::proto::v1::data::query_service_client::QueryServiceClient;
 use crate::proto::v1::data::write_service_client::WriteServiceClient;
@@ -19,6 +20,7 @@ use crate::proto::v1::data::ListPartitionsRequest;
 use crate::proto::v1::data::Partition;
 use crate::proto::v1::data::Query;
 use crate::proto::v1::data::Stage;
+use crate::proto::v1::data::UpdateCollectionRequest;
 use crate::proto::v1::data::UpdateDocumentsRequest;
 use crate::proto::v1::data::{ConsistencyLevel, GetRequest};
 use crate::proto::v1::data::{
@@ -315,6 +317,41 @@ impl CollectionClient {
         .await?;
 
         Ok(response.into_inner().lsn)
+    }
+
+    /// Adds, replaces or undeclares fields of a collection's schema.
+    ///
+    /// Returns once the change is decided. Index builds happen in the background:
+    /// a search on an index that is still building fails with `FailedPrecondition`.
+    pub async fn update_schema(
+        &self,
+        set_fields: impl Into<HashMap<String, FieldSpec>>,
+        drop_fields: Vec<String>,
+    ) -> Result<Collection, Error> {
+        let client = create_client!(WriteServiceClient, self.write, self.config).await?;
+        let set_fields = set_fields.into();
+        let response = call_with_retry(&self.config.retry_config(), || {
+            let mut client = client.clone();
+            let set_fields = set_fields.clone();
+            let drop_fields = drop_fields.clone();
+            async move {
+                client
+                    .update_collection(UpdateCollectionRequest {
+                        set_fields,
+                        drop_fields,
+                    })
+                    .await
+                    .map_err(|e| match e.code() {
+                        tonic::Code::NotFound => Error::CollectionNotFound,
+                        _ => e.into(),
+                    })
+            }
+        })
+        .await?;
+        Ok(response
+            .into_inner()
+            .collection
+            .expect("Invalid collection proto"))
     }
 
     /// List partitions in the collection.

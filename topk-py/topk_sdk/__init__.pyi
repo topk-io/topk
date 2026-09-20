@@ -141,6 +141,15 @@ class CollectionClient:
         ```
         """
         ...
+    def update_schema(
+        self,
+        schema: typing.Mapping[builtins.str, schema.SchemaFieldSpec],
+        drop_fields: typing.Sequence[builtins.str] = [],
+    ) -> Collection:
+        """
+        Add, replace or undeclare fields of the collection schema.
+        """
+        ...
     def list_partitions(
         self, prefix: typing.Optional[builtins.str] = None
     ) -> PartitionListIterator:
@@ -236,6 +245,15 @@ class AsyncCollectionClient:
 
         await client.collection("books").delete(field("published_year").gt(1997))
         ```
+        """
+        ...
+    def update_schema(
+        self,
+        schema: typing.Mapping[builtins.str, schema.SchemaFieldSpec],
+        drop_fields: typing.Sequence[builtins.str] = [],
+    ) -> typing.Awaitable[Collection]:
+        """
+        Add, replace or undeclare fields of the collection schema asynchronously.
         """
         ...
     def list_partitions(

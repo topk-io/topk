@@ -8,11 +8,13 @@ use napi_derive::napi;
 
 use super::partition::{PartitionListStream, PartitionListStreamMessage};
 use super::{RUNTIME, STREAM_BUFFER_SIZE};
+use crate::data::Collection;
 use crate::data::NativeValue;
 use crate::data::Value;
 use crate::error::TopkError;
 use crate::expr::delete::DeleteExpression;
 use crate::query::query::Query;
+use crate::schema::field_spec::FieldSpec;
 
 /// Client for interacting with a specific collection.
 ///
@@ -238,6 +240,28 @@ impl CollectionClient {
             .map_err(TopkError::from)?;
 
         Ok(lsn)
+    }
+
+    /// Adds, replaces or undeclares fields of the collection schema.
+    #[napi]
+    pub async fn update_schema(
+        &self,
+        #[napi(ts_arg_type = "Record<string, SchemaFieldSpec>")] schema: HashMap<String, FieldSpec>,
+        drop_fields: Option<Vec<String>>,
+    ) -> Result<Collection> {
+        let proto_schema: HashMap<String, topk_rs::proto::v1::control::FieldSpec> = schema
+            .into_iter()
+            .map(|(k, v)| (k, v.clone().into()))
+            .collect();
+
+        let collection = self
+            .client
+            .collection(&self.collection)
+            .update_schema(proto_schema, drop_fields.unwrap_or_default())
+            .await
+            .map_err(TopkError::from)?;
+
+        Ok(collection.into())
     }
 
     /// List partitions in the collection as an async iterator.
