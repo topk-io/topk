@@ -1,5 +1,4 @@
 use std::collections::{BTreeMap, VecDeque};
-use std::mem;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -12,12 +11,15 @@ use tokio::task::JoinHandle;
 use topk_rs::proto::v1::data::{Document, Value};
 use topk_rs::{Client, CollectionClient};
 
-use crate::import::decode::id_string;
+use crate::import::decode::{self, id_string};
 use crate::import::error::{Error, MAX_DOC_BYTES};
 use crate::import::source::{Cursor, Record, Scan, Source};
 use crate::import::spec::Target;
 use crate::import::state::{Mark, State};
 use crate::import::ID;
+
+/// Per-partition buffers, so a wide fan-out gets smaller batches, not more memory.
+const BUFFERED_BATCHES: usize = 8;
 
 #[derive(Default, serde::Serialize)]
 pub struct LoadOutcome {
@@ -85,10 +87,48 @@ pub fn build_document(target: &Target, record: Record) -> Result<Document, Error
     Ok(doc)
 }
 
+/// This row's partition, from the value of the `partition` column, and its document.
+fn build_row(target: &Target, record: Record) -> Result<(Option<String>, Document), Error> {
+    Ok((
+        partition_for(target, &record)?,
+        build_document(target, record)?,
+    ))
+}
+
+fn partition_for(target: &Target, record: &Record) -> Result<Option<String>, Error> {
+    let column = match target.partition.as_deref() {
+        Some(column) => column,
+        None => return Ok(None),
+    };
+    let fail = |source| Error::Doc {
+        id: None,
+        field: Some(column.to_string()),
+        source: Box::new(source),
+    };
+    let value = record
+        .iter()
+        .find(|(key, _)| key == column)
+        .map(|(_, value)| value)
+        .filter(|value| value.as_null().is_none())
+        .ok_or_else(|| {
+            fail(Error::InvalidArgument(
+                "partition column is missing or null".to_string(),
+            ))
+        })?;
+    let partition = decode::text(value.clone()).map_err(fail)?;
+    // A partition travels as a gRPC header, so its value is printable ASCII.
+    if partition.is_empty() || !partition.chars().all(|c| matches!(c, ' '..='~')) {
+        return Err(fail(Error::InvalidArgument(format!(
+            "partition value {partition:?} is empty or not printable ASCII"
+        ))));
+    }
+    Ok(Some(partition))
+}
+
 pub fn documents(
     source: &Source,
     target: &Target,
-) -> Result<impl Stream<Item = Result<Document, Error>>, Error> {
+) -> Result<impl Stream<Item = Result<(Option<String>, Document), Error>>, Error> {
     let Scan { target, chunks } = source.scan(target, None)?;
     Ok(chunks
         .flat_map(|chunk| {
@@ -97,7 +137,7 @@ pub fn documents(
                 Err(e) => vec![Err(e)],
             })
         })
-        .map(move |row| build_document(&target, row?)))
+        .map(move |row| build_row(&target, row?)))
 }
 
 /// Batches in flush order, each with the source cursor it completes.
@@ -158,18 +198,14 @@ impl Sink<'_> {
         let Scan { target, mut chunks } = scan;
         let started = Instant::now();
         let bar = Spinner::add(self.progress, name);
-        let mut collection = self.client.collection(name);
-        if let Some(partition) = &target.partition {
-            collection = collection.partition(partition);
-        }
         let mut writer = BatchWriter {
             sink: self,
             name,
-            collection,
-            // A resumed limit would be applied again from the cursor, so a
-            // limited collection is never checkpointed: it restarts whole.
-            checkpoint: target.limit.is_none(),
-            batch: Vec::new(),
+            collection: self.client.collection(name),
+            // A resumed limit would be applied again from the cursor, and a partitioned run holds
+            // rows behind every flush, so neither is checkpointed: they restart whole.
+            checkpoint: target.limit.is_none() && target.partition.is_none(),
+            batches: IndexMap::new(),
             bytes: 0,
             cursor: None,
             inflight: VecDeque::new(),
@@ -178,11 +214,11 @@ impl Sink<'_> {
         while let Some(chunk) = chunks.next().await {
             let chunk = chunk?;
             for row in chunk.rows {
-                match row.and_then(|record| build_document(&target, record)) {
-                    Ok(doc) => {
+                match row.and_then(|record| build_row(&target, record)) {
+                    Ok((partition, doc)) => {
                         outcome.rows += 1;
                         bar.0.inc(1);
-                        writer.push(doc).await?;
+                        writer.push(partition, doc).await?;
                     }
                     Err(e) if self.continue_on_error && matches!(e, Error::Doc { .. }) => {
                         crate::import::note(format!("{name}: skipped {e}"));
@@ -209,14 +245,16 @@ impl Sink<'_> {
     }
 }
 
-/// One collection's write side: batches by size, spawns each batch's upsert
-/// under the run's budget, checkpoints cursors in flush order.
+/// One collection's write side: batches by size and partition, spawns each
+/// batch's upsert under the run's budget, checkpoints cursors in flush order.
 struct BatchWriter<'a> {
     sink: &'a Sink<'a>,
     name: &'a str,
     collection: CollectionClient,
     checkpoint: bool,
-    batch: Vec<Document>,
+    /// Documents and their bytes, per partition.
+    batches: IndexMap<Option<String>, (Vec<Document>, usize)>,
+    /// Buffered across every partition.
     bytes: usize,
     /// Rows arrive before the cursor that covers them; it rides with the next flush.
     cursor: Option<Cursor>,
@@ -225,11 +263,27 @@ struct BatchWriter<'a> {
 }
 
 impl BatchWriter<'_> {
-    async fn push(&mut self, doc: Document) -> Result<(), Error> {
-        self.bytes += doc.encoded_len();
-        self.batch.push(doc);
-        if self.bytes >= self.sink.batch_bytes {
-            self.flush().await?;
+    async fn push(&mut self, partition: Option<String>, doc: Document) -> Result<(), Error> {
+        let size = doc.encoded_len();
+        self.bytes += size;
+        let batch = self.batches.entry(partition.clone()).or_default();
+        batch.0.push(doc);
+        batch.1 += size;
+        if batch.1 >= self.sink.batch_bytes {
+            return self.flush(&partition).await;
+        }
+        // drain to the watermark: stopping after one batch pins the buffer full and lets a wide
+        // fan-out trickle out one small upsert at a time
+        while self.bytes >= self.sink.batch_bytes * BUFFERED_BATCHES {
+            match self
+                .batches
+                .iter()
+                .max_by_key(|(_, (_, bytes))| *bytes)
+                .map(|(partition, _)| partition.clone())
+            {
+                Some(largest) => self.flush(&largest).await?,
+                None => break,
+            }
         }
         Ok(())
     }
@@ -240,7 +294,12 @@ impl BatchWriter<'_> {
         }
     }
 
-    async fn flush(&mut self) -> Result<(), Error> {
+    async fn flush(&mut self, partition: &Option<String>) -> Result<(), Error> {
+        let (docs, bytes) = match self.batches.swap_remove(partition) {
+            Some(batch) => batch,
+            None => return Ok(()),
+        };
+        self.bytes -= bytes;
         // Waits while the run is at `-c`; spawned upserts keep landing meanwhile.
         let permit = self
             .sink
@@ -256,9 +315,10 @@ impl BatchWriter<'_> {
         {
             self.complete_next().await?;
         }
-        let collection = self.collection.clone();
-        let docs = mem::take(&mut self.batch);
-        self.bytes = 0;
+        let collection = match partition {
+            Some(partition) => self.collection.clone().partition(partition),
+            None => self.collection.clone(),
+        };
         self.inflight.push_back((
             tokio::spawn(async move {
                 let _permit = permit;
@@ -281,8 +341,8 @@ impl BatchWriter<'_> {
     }
 
     async fn finish(mut self) -> Result<(), Error> {
-        if !self.batch.is_empty() {
-            self.flush().await?;
+        while let Some(partition) = self.batches.keys().next().cloned() {
+            self.flush(&partition).await?;
         }
         while !self.inflight.is_empty() {
             self.complete_next().await?;

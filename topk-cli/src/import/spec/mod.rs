@@ -57,6 +57,7 @@ impl Target {
     pub fn source_columns(&self) -> IndexSet<&str> {
         std::iter::once(self.id_column())
             .chain(self.fields.iter().map(|(name, field)| field.source(name)))
+            .chain(self.partition.as_deref())
             .collect()
     }
 }

@@ -66,7 +66,11 @@ pub struct ImportArgs {
         help = "Column to use as the document id (_id); use when it can't be auto-detected"
     )]
     pub id: Option<String>,
-    #[arg(long, help = "Import into this partition")]
+    #[arg(
+        long,
+        value_name = "COLUMN",
+        help = "Column whose value is the partition; each row goes to its own"
+    )]
     pub partition: Option<String>,
     #[arg(
         conflicts_with = "spec",
@@ -89,19 +93,25 @@ pub struct ImportArgs {
     #[arg(
         short = 'c',
         long,
-        default_value = "16",
-        value_parser = clap::value_parser!(u32).range(1..=256),
-        help = "Concurrent upserts in flight, budgeted across the whole run"
+        value_parser = clap::value_parser!(u32).range(1..=4096),
+        help = "Concurrent upserts in flight, budgeted across the whole run [default: 16, 64 when partitioned]"
     )]
-    pub concurrency: u32,
+    pub concurrency: Option<u32>,
     #[arg(
         long,
-        default_value = "8MiB",
         value_name = "SIZE",
-        help = "Bytes of documents per upsert"
+        help = "Bytes of documents per upsert [default: 8MiB, 1MiB when partitioned]"
     )]
-    pub batch_bytes: bytesize::ByteSize,
+    pub batch_bytes: Option<bytesize::ByteSize>,
 }
+
+const INFLIGHT: u32 = 16;
+const BATCH_BYTES: u64 = 8 * 1024 * 1024;
+
+/// One partition takes 1/N of the stream, so batching for size alone starves a wide fan-out: the
+/// same memory buys many small upserts instead of a few large ones.
+const PARTITIONED_INFLIGHT: u32 = 64;
+const PARTITIONED_BATCH_BYTES: u64 = 1024 * 1024;
 
 async fn plan(
     source: &Source,
@@ -137,7 +147,6 @@ async fn plan(
         Some(_) => Vec::new(),
         None => file_catalogs(&spec, endpoint).await?,
     };
-    import::validate_columns(&catalog, &spec)?;
     // A filter names one object's columns.
     if args.filter.is_some() && spec.collections.len() > 1 {
         return Err(Error::InvalidArgument(format!(
@@ -157,6 +166,7 @@ async fn plan(
             target.partition = Some(partition.clone());
         }
     }
+    import::validate_columns(&catalog, &spec)?;
     Ok(spec)
 }
 
@@ -311,11 +321,18 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
     if let Err(e) = state.save() {
         eprintln!("cannot save run state ({e}) — this run cannot be resumed");
     }
+    let partitioned = spec.collections.values().any(|t| t.partition.is_some());
+    let (inflight, bytes) = match partitioned {
+        true => (PARTITIONED_INFLIGHT, PARTITIONED_BATCH_BYTES),
+        false => (INFLIGHT, BATCH_BYTES),
+    };
+    let concurrency = args.concurrency.unwrap_or(inflight);
+    let batch_bytes = args.batch_bytes.map_or(bytes, |size| size.as_u64());
     let sink = Sink {
         client: &client,
         progress: &progress,
-        budget: Arc::new(Semaphore::new(args.concurrency as usize)),
-        batch_bytes: args.batch_bytes.as_u64() as usize,
+        budget: Arc::new(Semaphore::new(concurrency as usize)),
+        batch_bytes: batch_bytes as usize,
         continue_on_error: args.continue_on_error,
         state: Mutex::new(state),
     };

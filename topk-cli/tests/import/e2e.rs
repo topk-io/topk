@@ -217,33 +217,85 @@ async fn multi_collection(ctx: &mut Ctx) {
 
 #[test_context(Ctx)]
 #[tokio::test]
-async fn partition(ctx: &mut Ctx) {
-    let collection = ctx.collection("partition");
-    let object = ctx.seed_parquet("partition", books()).await;
+async fn partition_by_column(ctx: &mut Ctx) {
+    let collection = ctx.collection("partition-by-column");
+    let object = ctx
+        .seed_parquet(
+            "partition_by_column",
+            (1..=50)
+                .map(|i| doc!("_id" => i.to_string(), "author" => format!("a{i}"), "pad" => "x".repeat(400)))
+                .collect(),
+        )
+        .await;
     let spec = ctx.target_spec(&collection, object);
+    // 50 partitions of 400 bytes on a 1KiB budget: no one buffer fills, the total
+    // does, so the largest is evicted.
     ok(
-        &["import", "-f", &spec, "--partition", "acme", "--yes"],
+        &[
+            "import",
+            "-f",
+            &spec,
+            "--partition",
+            "author",
+            "--batch-bytes",
+            "1KiB",
+            "--yes",
+        ],
         &[],
     );
 
-    let partitioned = ctx
-        .client()
-        .collection(&collection)
-        .partition("acme")
-        .get(
-            ["mockingbird"],
-            None,
-            None,
-            Some(topk_rs::proto::v1::data::ConsistencyLevel::Strong),
-        )
-        .await
-        .expect("get from partition");
-    assert_eq!(partitioned.len(), 1);
+    // Every row, not a sample: a batch lost to eviction shows up nowhere else.
+    for i in 1..=50 {
+        let id = i.to_string();
+        let docs = ctx.get_in(&format!("a{i}"), &collection, &[&id]).await;
+        assert_eq!(docs.len(), 1, "partition a{i} holds row {i}");
+    }
     assert_eq!(
-        ctx.get(&collection, &["mockingbird"]).await.len(),
+        ctx.get(&collection, &["1", "50"]).await.len(),
         0,
         "the default partition stays empty"
     );
+}
+
+#[test_context(Ctx)]
+#[tokio::test]
+async fn partition_value_must_be_present(ctx: &mut Ctx) {
+    let file = ctx.scratch().join("tenants.csv");
+    std::fs::write(&file, "id,tenant\n1,acme\n2,\n3,globex\n").unwrap();
+    let collection = ctx.collection("partition-null");
+    let spec = ctx.target_spec(
+        &collection,
+        target(
+            &file.display().to_string(),
+            "id",
+            r#"tenant = { type = "text" }"#,
+        ),
+    );
+    let err = fails(
+        &["import", "-f", &spec, "--partition", "tenant", "--yes"],
+        &[],
+    );
+    assert!(
+        err.contains(r#"row field "tenant": partition column is missing or null"#),
+        "got:\n{err}"
+    );
+
+    // A row without a partition is skippable like any other bad document.
+    let err = fails(
+        &[
+            "import",
+            "-f",
+            &spec,
+            "--partition",
+            "tenant",
+            "--yes",
+            "--continue-on-error",
+        ],
+        &[],
+    );
+    assert!(err.contains("2 rows written, 1 failed"), "got:\n{err}");
+    assert_eq!(ctx.get_in("acme", &collection, &["1"]).await.len(), 1);
+    assert_eq!(ctx.get_in("globex", &collection, &["3"]).await.len(), 1);
 }
 
 #[test_context(Scratch)]
