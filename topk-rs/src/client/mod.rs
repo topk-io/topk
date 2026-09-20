@@ -100,9 +100,6 @@ macro_rules! create_client {
                     Ok::<_, Error>(
                         $config
                             .endpoint()?
-                            .tls_config(
-                                tonic::transport::ClientTlsConfig::new().with_native_roots(),
-                            )?
                             // Do not close idle connections so they can be reused
                             .keep_alive_while_idle(true)
                             // Set max header list size to 64KB
