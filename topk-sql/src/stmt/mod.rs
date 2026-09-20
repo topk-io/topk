@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use sqlparser::ast::{BinaryOperator, Expr as SqlExpr, SelectItem, Statement as SqlStatement};
 use strum_macros::IntoStaticStr;
 use topk_rs::proto::v1::control::FieldSpec;
-use topk_rs::proto::v1::data::{Document, LogicalExpr, Query, Value};
+use topk_rs::proto::v1::data::{ConsistencyLevel, Document, LogicalExpr, Query};
 
 use crate::{sql_invalid, sql_unsupported, Error, FromSql, SelectItemExt, SqlExprExt, Table};
 
@@ -13,11 +13,7 @@ mod drop;
 mod explain;
 mod insert;
 mod select;
-mod set_variable;
-mod show;
 mod update;
-mod variable;
-pub use variable::Variable;
 
 #[derive(Debug, Clone, PartialEq, IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
@@ -29,6 +25,8 @@ pub enum Statement {
         query: Query,
         /// `WITH (required_lsn = …)` — pins the read to a write's LSN.
         required_lsn: Option<String>,
+        /// `WITH (consistency = …)` — read consistency level.
+        consistency: Option<ConsistencyLevel>,
     },
     Count {
         /// Table name (`<collection>` OR `<collection>.<partition>`).
@@ -37,6 +35,8 @@ pub enum Statement {
         query: Query,
         /// `WITH (required_lsn = …)` — pins the read to a write's LSN.
         required_lsn: Option<String>,
+        /// `WITH (consistency = …)` — read consistency level.
+        consistency: Option<ConsistencyLevel>,
     },
     Insert {
         /// Table name (`<collection>` OR `<collection>.<partition>`).
@@ -90,16 +90,6 @@ pub enum Statement {
         /// Whether to include verbose information.
         verbose: bool,
     },
-    Set {
-        /// Variable to set (eg. `consistency_level`)
-        variable: Variable,
-        /// Value to set the variable to (eg. `'strong'`).
-        value: Value,
-    },
-    Show {
-        /// Variable to show (eg. `consistency_level`).
-        variable: Variable,
-    },
 
     /// `BEGIN` statement is accepted but silently ignored
     Begin,
@@ -140,8 +130,6 @@ impl TryFrom<SqlStatement> for Statement {
             SqlStatement::StartTransaction { .. } => Ok(Statement::Begin),
             SqlStatement::Commit { .. } => Ok(Statement::Commit),
             SqlStatement::Rollback { .. } => Ok(Statement::Rollback),
-            SqlStatement::Set(set) => Statement::try_from(set),
-            SqlStatement::ShowVariable { .. } => show::try_from_sql(stmt),
             SqlStatement::Discard { .. } => Ok(Statement::Discard),
 
             SqlStatement::Query(q) => Statement::try_from(*q),

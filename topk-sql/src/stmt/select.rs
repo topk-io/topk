@@ -8,16 +8,22 @@ use sqlparser::ast::{
 };
 use topk_rs::proto::v1::data::stage::sort_stage::SortOrder;
 use topk_rs::proto::v1::data::stage::{filter_stage::FilterExpr, select_stage::SelectExpr};
-use topk_rs::proto::v1::data::{AggregateExpr, LogicalExpr, Query, Stage};
+use topk_rs::proto::v1::data::{AggregateExpr, ConsistencyLevel, LogicalExpr, Query, Stage};
 
 use crate::{
     sql_invalid, sql_unsupported, stmt::Statement, Error, FromSql, SelectItemExt, SqlExprExt,
     SqlFunctionExt, Table,
 };
 
+#[derive(Default)]
+pub struct ReadOptions {
+    pub required_lsn: Option<String>,
+    pub consistency: Option<ConsistencyLevel>,
+}
+
 // `FROM <table> WITH (option = value, …)` — the read options TopK accepts.
-fn read_options(hints: Vec<SqlExpr>) -> Result<Option<String>, Error> {
-    let mut required_lsn = None;
+fn read_options(hints: Vec<SqlExpr>) -> Result<ReadOptions, Error> {
+    let mut options = ReadOptions::default();
 
     for hint in hints {
         let (option, value) = match hint {
@@ -35,17 +41,32 @@ fn read_options(hints: Vec<SqlExpr>) -> Result<Option<String>, Error> {
                     SqlValue::Number(n, _) | SqlValue::SingleQuotedString(n)
                         if n.parse::<u64>().is_ok() =>
                     {
-                        required_lsn = Some(n)
+                        options.required_lsn = Some(n)
                     }
                     other => sql_invalid!("required_lsn must be an integer, got {other}"),
                 },
                 other => sql_invalid!("required_lsn must be a literal, got {other}"),
             },
+            "consistency" => match value {
+                SqlExpr::Value(v) => match v.value {
+                    SqlValue::SingleQuotedString(level) => {
+                        options.consistency = Some(match level.to_ascii_lowercase().as_str() {
+                            "indexed" => ConsistencyLevel::Indexed,
+                            "strong" => ConsistencyLevel::Strong,
+                            other => sql_invalid!(
+                                "consistency must be 'indexed' or 'strong', got '{other}'"
+                            ),
+                        })
+                    }
+                    other => sql_invalid!("consistency must be a string, got {other}"),
+                },
+                other => sql_invalid!("consistency must be a literal, got {other}"),
+            },
             other => sql_invalid!("unknown option: {other}"),
         }
     }
 
-    Ok(required_lsn)
+    Ok(options)
 }
 
 fn is_aggregate_fn(func: &SqlFunction) -> bool {
@@ -192,7 +213,7 @@ impl TryFrom<SqlQuery> for Statement {
         let first = select.from.swap_remove(0);
         sql_unsupported!(!first.joins.is_empty(), "JOIN");
 
-        let (table, required_lsn) = match first.relation {
+        let (table, options) = match first.relation {
             TableFactor::Table {
                 name,
                 args,
@@ -239,7 +260,8 @@ impl TryFrom<SqlQuery> for Statement {
                 return Ok(Statement::Count {
                     table,
                     query: Query { stages },
-                    required_lsn,
+                    required_lsn: options.required_lsn,
+                    consistency: options.consistency,
                 });
             }
 
@@ -344,7 +366,8 @@ impl TryFrom<SqlQuery> for Statement {
         Ok(Statement::Select {
             table,
             query: Query { stages },
-            required_lsn,
+            required_lsn: options.required_lsn,
+            consistency: options.consistency,
         })
     }
 }
