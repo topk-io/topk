@@ -1,8 +1,8 @@
 use std::ops::ControlFlow;
 
 use sqlparser::ast::{
-    visit_expressions, visit_relations, AssignmentTarget, Expr as SqlExpr, FromTable, ObjectName,
-    SelectItem, SetExpr, Statement as SqlStatement, TableObject, Value as SqlValue,
+    visit_expressions, AssignmentTarget, Expr as SqlExpr, FromTable, SelectItem, SetExpr,
+    Statement as SqlStatement, TableObject, Value as SqlValue,
 };
 
 use super::{SqlExprExt, TableFactorExt};
@@ -20,9 +20,6 @@ pub trait SqlStatementExt {
     /// For UPDATE statements, return `(placeholder_index, column_name)` pairs
     /// for each `SET col = $N` assignment whose value is a direct placeholder.
     fn assignment_placeholders(&self) -> Vec<(usize, &str)>;
-
-    /// True if any relation in the statement satisfies `pred`.
-    fn any_relation(&self, pred: impl FnMut(&ObjectName) -> bool) -> bool;
 }
 
 impl SqlStatementExt for SqlStatement {
@@ -106,17 +103,6 @@ impl SqlStatementExt for SqlStatement {
             _ => vec![],
         }
     }
-
-    fn any_relation(&self, mut pred: impl FnMut(&ObjectName) -> bool) -> bool {
-        visit_relations(self, |name| {
-            if pred(name) {
-                ControlFlow::Break(())
-            } else {
-                ControlFlow::Continue(())
-            }
-        })
-        .is_break()
-    }
 }
 
 #[cfg(test)]
@@ -124,7 +110,7 @@ mod tests {
     use rstest::rstest;
 
     use super::SqlStatementExt;
-    use crate::{parse_sql, Error, ObjectNameExt, Table};
+    use crate::{parse_sql, Error, Table};
     use sqlparser::ast::Statement as SqlStatement;
 
     fn parse_one(sql: &str) -> SqlStatement {
@@ -172,23 +158,5 @@ mod tests {
     #[case("SELECT * FROM books", vec![])]
     fn assignment_placeholders(#[case] sql: &str, #[case] expected: Vec<(usize, &str)>) {
         assert_eq!(parse_one(sql).assignment_placeholders(), expected);
-    }
-
-    #[rstest]
-    #[case("SELECT * FROM pg_catalog.pg_class", true)]
-    #[case("SELECT * FROM books", false)]
-    #[case("SELECT * FROM books JOIN information_schema.tables ON true", true)]
-    fn any_relation(#[case] sql: &str, #[case] expected: bool) {
-        assert_eq!(
-            parse_one(sql).any_relation(|name| {
-                name.schema().is_some_and(|s| {
-                    matches!(
-                        s.to_ascii_lowercase().as_str(),
-                        "pg_catalog" | "information_schema"
-                    )
-                })
-            }),
-            expected
-        );
     }
 }
