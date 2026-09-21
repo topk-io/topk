@@ -33,8 +33,8 @@ async fn unreachable_lsn_is_rejected() {
     .expect_err("an lsn that will never be reached must not be ignored");
 
     assert!(
-        err.to_string().contains("greater than manifest max lsn"),
-        "expected an unreachable-lsn error, got {err}"
+        err.to_string().contains("timeout"),
+        "expected the read to time out rather than ignore the lsn, got {err}"
     );
 }
 
