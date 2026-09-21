@@ -35,15 +35,11 @@ To authenticate, run:
 topk login
 ```
 
-```bash
-export TOPK_API_KEY=<your-api-key>
-```
-
 ## Commands
 
 ### login
 
-To authenticate, run:
+Log in with TopK CLI:
 
 ```bash
 topk login
@@ -61,6 +57,63 @@ Remove the saved session:
 
 ```bash
 topk logout
+```
+
+### project
+
+#### list
+
+List projects in the current organization.
+
+```bash
+topk project list
+```
+
+#### get
+
+Get a project by ID.
+
+```bash
+topk project get <PROJECT_ID>
+```
+
+| argument | description |
+| --- | --- |
+| `<PROJECT_ID>` | ID of the project |
+
+#### create
+
+Create a project.
+
+```bash
+topk project create <NAME>
+```
+
+| argument | description |
+| --- | --- |
+| `<NAME>` | Display name of the new project |
+
+#### delete
+
+Delete a project by ID.
+
+```bash
+topk project delete <PROJECT_ID> [-y]
+```
+
+| argument | description |
+| --- | --- |
+| `<PROJECT_ID>` | ID of the project |
+| `-y`, `--yes` | Skip the confirmation prompt; required when stdin is not a terminal |
+
+### region
+
+#### list
+
+List available regions.
+
+```bash
+topk region list
 ```
 
 ### import
@@ -191,8 +244,6 @@ Options:
 
 * `text` (default)
 * `json`
-
-Output results as NDJSON — one JSON object per line, compatible with `jq`.
 
 ### `--api-key`
 
