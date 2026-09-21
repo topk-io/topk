@@ -1007,7 +1007,7 @@ async fn semantic_similarity_search() {
 }
 
 #[rstest]
-#[case::select_star("SELECT * FROM {{table}}", "Unsupported: SELECT *")]
+#[case::qualified_star("SELECT b.* FROM {{table}} b", "Unsupported: SELECT *")]
 #[case::missing_alias(
     "SELECT published_year + 1 FROM {{table}}",
     "Invalid: expression in SELECT list requires an AS alias"
@@ -1212,4 +1212,64 @@ async fn rejected(#[case] query: &str, #[case] expected: &str) {
         .unwrap_err();
 
     assert_eq!(err.to_string(), expected);
+}
+
+#[tokio::test]
+async fn select_star_expands_to_projectable_columns() {
+    let columns = BooksContext::with_scope(async |ctx| {
+        ctx.column_types("SELECT * FROM {{table}} WHERE _id = 'hobbit'")
+            .await
+    })
+    .await
+    .unwrap();
+
+    // `_id` leads, the rest are sorted; `embedding` and `sparse_emb` are left out because the
+    // engine refuses to project a vector field it indexes
+    assert_eq!(
+        columns
+            .iter()
+            .map(|(name, _)| name.as_str())
+            .collect::<Vec<_>>(),
+        vec![
+            "_id",
+            "author",
+            "bio",
+            "checksum",
+            "genre",
+            "in_print",
+            "metadata",
+            "multi_emb",
+            "nullable_importance",
+            "published_ts",
+            "published_year",
+            "rating",
+            "tags",
+            "title",
+        ]
+    );
+}
+
+#[rstest]
+#[case::star_with_an_expression(
+    "SELECT *, rating * 2 AS double_rating FROM {{table}} WHERE _id = 'lotr'",
+    vec!["_id", "title", "double_rating"],
+)]
+#[case::star_with_a_filter_and_limit(
+    "SELECT * FROM {{table}} WHERE genre = 'fantasy' ORDER BY published_year ASC LIMIT 1",
+    vec!["_id", "title", "genre"],
+)]
+#[tokio::test]
+async fn select_star_answers(#[case] query: &str, #[case] expected: Vec<&str>) {
+    let rows = BooksContext::with_scope(async |ctx| ctx.sql(query).await)
+        .await
+        .unwrap();
+
+    assert_eq!(rows.len(), 1);
+    for field in expected {
+        assert!(
+            rows[0].fields.contains_key(field),
+            "`{field}` missing from {:?}",
+            rows[0].fields.keys().collect::<Vec<_>>()
+        );
+    }
 }
