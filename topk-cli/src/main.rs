@@ -44,6 +44,10 @@ enum Output {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Manage projects
+    Project(topk::commands::project::Args),
+    /// List available regions
+    Region(topk::commands::region::Args),
     /// Log in with your TopK account in the browser
     Login(topk::commands::login::LoginArgs),
 
@@ -96,6 +100,25 @@ async fn async_main() -> ExitCode {
 
 async fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
     match &cli.command {
+        Some(Commands::Project(args)) => {
+            topk::commands::project::run(
+                &mut cli.endpoint.management()?,
+                args,
+                cli.output == Output::Json,
+                &mut std::io::stdout(),
+            )
+            .await
+        }
+        Some(Commands::Region(args)) => {
+            topk::commands::region::run(
+                &mut cli.endpoint.management()?,
+                args,
+                cli.output == Output::Json,
+                &mut std::io::stdout(),
+            )
+            .await
+        }
+
         Some(Commands::Login(args)) => topk::commands::login::run(&cli.endpoint, args).await,
 
         #[cfg(feature = "import")]

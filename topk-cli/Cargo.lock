@@ -4698,6 +4698,7 @@ dependencies = [
  "clap",
  "clap_complete",
  "colored",
+ "comfy-table",
  "dialoguer",
  "dirs",
  "duckdb",

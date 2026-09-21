@@ -89,12 +89,15 @@ jobs:
       - uses: crazy-max/ghaction-github-runtime@3cb05d89e1f492524af3d41a1c98c83bc3025124 # v3.1.0
       - name: CLI tests
         run: >-
-          earthly --verbose --allow-privileged --secret TOPK_API_KEY +test-cli
+          earthly --verbose --allow-privileged --secret TOPK_API_KEY
+          --secret TOPK_TEST_USER --secret TOPK_TEST_PASSWORD +test-cli
           --region sunflower --host=topk.dev
           --ACTIONS_RESULTS_URL="$ACTIONS_RESULTS_URL"
           --ACTIONS_RUNTIME_TOKEN="$ACTIONS_RUNTIME_TOKEN"
         env:
           TOPK_API_KEY: ${{ secrets.TOPK_API_KEY }}
+          TOPK_TEST_USER: ${{ secrets.TOPK_TEST_USER }}
+          TOPK_TEST_PASSWORD: ${{ secrets.TOPK_TEST_PASSWORD }}
 
   sql:
     name: Test SQL

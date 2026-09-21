@@ -209,12 +209,13 @@ test-cli:
     ARG args=""
     # `--compose` does not wait on healthchecks; `up --wait` does.
     WITH DOCKER --compose docker-compose.import.yaml
-        RUN --no-cache --secret TOPK_API_KEY \
+        RUN --no-cache --secret TOPK_API_KEY --secret TOPK_TEST_USER --secret TOPK_TEST_PASSWORD \
             (docker compose -f docker-compose.import.yaml up -d --wait || \
              (docker compose -f docker-compose.import.yaml ps; \
               docker inspect --format '{{json .State.Health}}' default-mysql-1; \
               docker compose -f docker-compose.import.yaml logs --tail 50; exit 1)) && \
-            TOPK_API_KEY=$TOPK_API_KEY topk-test-sandbox cargo nextest run -p topk-cli --all-features --no-fail-fast $args
+            TOPK_API_KEY=$TOPK_API_KEY TOPK_TEST_USER=$TOPK_TEST_USER TOPK_TEST_PASSWORD=$TOPK_TEST_PASSWORD \
+            topk-test-sandbox cargo nextest run -p topk-cli --all-features --no-fail-fast $args
     END
 
 test-sql:
@@ -346,8 +347,14 @@ SETUP_ENV:
         HOST emulator.api.ddb $host
         HOST emulator.es.ddb $host
         HOST emulator.sql.ddb $host
+        HOST api.ddb $host
         ENV TOPK_HOST=ddb
         ENV TOPK_HTTPS=false
+
+        # `topk login` against the emulator issuer (`tk dev x oauth-server` on the host)
+        ENV TOPK_AUTH_ISSUER=http://${host}:9091/
+        ENV TOPK_AUTH_CLIENT_ID=emulator
+        ENV TOPK_AUTH_AUDIENCE=http://localhost:5173
 
         # emulator gateway is plaintext: es on :9200, pgwire on :5432
         ENV ES_URL=http://emulator.es.ddb:9200
@@ -356,4 +363,13 @@ SETUP_ENV:
     ELSE
         ENV ES_URL=https://${region}.es.${host}
         ENV PGHOST=${region}.sql.${host}
+
+        # `topk login` for the CLI management tests: topk.dev trusts the stage tenant,
+        # entered through the password grant of its "TopK CLI (e2e)" application
+        # (TOPK_TEST_USER / TOPK_TEST_PASSWORD secrets).
+        IF [ "$host" = "topk.dev" ]
+            ENV TOPK_AUTH_ISSUER=https://topk-stage.us.auth0.com/
+            ENV TOPK_AUTH_CLIENT_ID=QoqBIG4cI77vLO8LnIJUR93niodhT8j9
+            ENV TOPK_AUTH_AUDIENCE=https://api.topk.dev
+        END
     END
