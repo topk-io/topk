@@ -1,6 +1,8 @@
 use sqlparser::ast::{Delete, FromTable, TableFactor};
 
-use crate::{sql_unsupported, stmt::RowFilter, Error, FromSql, Statement, Table};
+use crate::{
+    sql_unsupported, stmt::returning_lsn, stmt::RowFilter, Error, FromSql, Statement, Table,
+};
 
 impl TryFrom<Delete> for Statement {
     type Error = Error;
@@ -8,7 +10,7 @@ impl TryFrom<Delete> for Statement {
     fn try_from(delete: Delete) -> Result<Statement, Error> {
         sql_unsupported!(!delete.tables.is_empty(), "multi-table DELETE");
         sql_unsupported!(delete.using.is_some(), "DELETE … USING");
-        sql_unsupported!(delete.returning.is_some(), "DELETE … RETURNING");
+        let returning_lsn = returning_lsn(delete.returning)?;
 
         // Parse table
         let table = {
@@ -32,6 +34,7 @@ impl TryFrom<Delete> for Statement {
 
         // `DELETE FROM <collection>$<partition>` with no `WHERE` clause maps to `DeletePartition`.
         if matches!(table, Table::Partition(_, _)) && delete.selection.is_none() {
+            sql_unsupported!(returning_lsn, "`RETURNING _lsn` on a partition delete");
             return Ok(Statement::DeletePartition { table });
         }
 
@@ -41,6 +44,10 @@ impl TryFrom<Delete> for Statement {
         })?;
         let filter = RowFilter::from_sql(r#where.clone())?;
 
-        Ok(Statement::Delete { table, filter })
+        Ok(Statement::Delete {
+            table,
+            filter,
+            returning_lsn,
+        })
     }
 }

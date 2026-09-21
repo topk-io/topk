@@ -3,14 +3,14 @@ use std::collections::HashMap;
 use sqlparser::ast::{Insert, SetExpr, TableObject};
 use topk_rs::proto::v1::data::{Document, Value};
 
-use crate::{sql_invalid, sql_unsupported, Error, FromSql, Statement, Table};
+use crate::{sql_invalid, sql_unsupported, stmt::returning_lsn, Error, FromSql, Statement, Table};
 
 impl TryFrom<Insert> for Statement {
     type Error = Error;
 
     fn try_from(insert: Insert) -> Result<Statement, Error> {
         sql_unsupported!(insert.on.is_some(), "INSERT … ON CONFLICT");
-        sql_unsupported!(insert.returning.is_some(), "INSERT … RETURNING");
+        let returning_lsn = returning_lsn(insert.returning)?;
 
         let table = match insert.table {
             TableObject::TableName(name) => Table::new(name)?,
@@ -78,6 +78,10 @@ impl TryFrom<Insert> for Statement {
             docs.push(Document { fields });
         }
 
-        Ok(Statement::Insert { table, docs })
+        Ok(Statement::Insert {
+            table,
+            docs,
+            returning_lsn,
+        })
     }
 }

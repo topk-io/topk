@@ -4,14 +4,17 @@ use sqlparser::ast::{AssignmentTarget, TableFactor, Update};
 use topk_rs::doc;
 use topk_rs::proto::v1::data::Value;
 
-use crate::{sql_invalid, sql_unsupported, stmt::RowFilter, Error, FromSql, Statement, Table};
+use crate::{
+    sql_invalid, sql_unsupported, stmt::returning_lsn, stmt::RowFilter, Error, FromSql, Statement,
+    Table,
+};
 
 impl TryFrom<Update> for Statement {
     type Error = Error;
 
     fn try_from(stmt: Update) -> Result<Statement, Error> {
         sql_unsupported!(stmt.from.is_some(), "UPDATE … FROM");
-        sql_unsupported!(stmt.returning.is_some(), "UPDATE … RETURNING");
+        let returning_lsn = returning_lsn(stmt.returning)?;
         sql_unsupported!(!stmt.table.joins.is_empty(), "UPDATE with JOIN");
         sql_invalid!(
             stmt.assignments.is_empty(),
@@ -63,6 +66,7 @@ impl TryFrom<Update> for Statement {
             .collect();
 
         Ok(Statement::Update {
+            returning_lsn,
             table,
             docs,
             fail_on_missing: false,

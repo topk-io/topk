@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use sqlparser::ast::{BinaryOperator, Expr as SqlExpr, Statement as SqlStatement};
+use sqlparser::ast::{BinaryOperator, Expr as SqlExpr, SelectItem, Statement as SqlStatement};
 use strum_macros::IntoStaticStr;
 use topk_rs::proto::v1::control::FieldSpec;
-use topk_rs::proto::v1::data::{Document, LogicalExpr, Query, Value};
+use topk_rs::proto::v1::data::{ConsistencyLevel, Document, LogicalExpr, Query};
 
 use crate::{sql_invalid, sql_unsupported, Error, FromSql, SqlExprExt, Table};
 
@@ -13,11 +13,7 @@ mod drop;
 mod explain;
 mod insert;
 mod select;
-mod set_variable;
-mod show;
 mod update;
-mod variable;
-pub use variable::Variable;
 
 #[derive(Debug, Clone, PartialEq, IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
@@ -27,18 +23,28 @@ pub enum Statement {
         table: Table,
         /// `topk_rs::Query` to execute.
         query: Query,
+        /// `WITH (required_lsn = …)` — pins the read to a write's LSN.
+        required_lsn: Option<String>,
+        /// `WITH (consistency = …)` — read consistency level.
+        consistency: Option<ConsistencyLevel>,
     },
     Count {
         /// Table name (`<collection>` OR `<collection>.<partition>`).
         table: Table,
         /// `topk_rs::Query` to execute.
         query: Query,
+        /// `WITH (required_lsn = …)` — pins the read to a write's LSN.
+        required_lsn: Option<String>,
+        /// `WITH (consistency = …)` — read consistency level.
+        consistency: Option<ConsistencyLevel>,
     },
     Insert {
         /// Table name (`<collection>` OR `<collection>.<partition>`).
         table: Table,
         /// Documents to insert.
         docs: Vec<Document>,
+        /// `RETURNING _lsn` — report the LSN the write landed at.
+        returning_lsn: bool,
     },
     Update {
         /// Table name (`<collection>` OR `<collection>.<partition>`).
@@ -47,12 +53,16 @@ pub enum Statement {
         docs: Vec<Document>,
         /// Whether to fail the update if a document is missing.
         fail_on_missing: bool,
+        /// `RETURNING _lsn` — report the LSN the write landed at.
+        returning_lsn: bool,
     },
     Delete {
         /// Table name (`<collection>` OR `<collection>.<partition>`).
         table: Table,
         /// Filter to apply to the documents to delete.
         filter: RowFilter,
+        /// `RETURNING _lsn` — report the LSN the write landed at.
+        returning_lsn: bool,
     },
     DeletePartition {
         /// Table name (`<collection>.<partition>`).
@@ -79,16 +89,6 @@ pub enum Statement {
         stmt: Box<Statement>,
         /// Whether to include verbose information.
         verbose: bool,
-    },
-    Set {
-        /// Variable to set (eg. `consistency_level`)
-        variable: Variable,
-        /// Value to set the variable to (eg. `'strong'`).
-        value: Value,
-    },
-    Show {
-        /// Variable to show (eg. `consistency_level`).
-        variable: Variable,
     },
 
     /// `BEGIN` statement is accepted but silently ignored
@@ -130,8 +130,6 @@ impl TryFrom<SqlStatement> for Statement {
             SqlStatement::StartTransaction { .. } => Ok(Statement::Begin),
             SqlStatement::Commit { .. } => Ok(Statement::Commit),
             SqlStatement::Rollback { .. } => Ok(Statement::Rollback),
-            SqlStatement::Set(set) => Statement::try_from(set),
-            SqlStatement::ShowVariable { .. } => show::try_from_sql(stmt),
             SqlStatement::Discard { .. } => Ok(Statement::Discard),
 
             SqlStatement::Query(q) => Statement::try_from(*q),
@@ -143,6 +141,17 @@ impl TryFrom<SqlStatement> for Statement {
             SqlStatement::Drop { .. } => drop::try_from_sql(stmt),
             other => Err(Error::Unsupported(format!("statement: {other:?}"))),
         }
+    }
+}
+
+// The only `RETURNING` TopK supports on a write: the LSN the write landed at.
+pub fn returning_lsn(returning: Option<Vec<SelectItem>>) -> Result<bool, Error> {
+    match returning.as_deref() {
+        None => Ok(false),
+        Some([SelectItem::UnnamedExpr(expr)]) if expr.as_ident().as_deref() == Some("_lsn") => {
+            Ok(true)
+        }
+        Some(_) => sql_unsupported!("RETURNING other than `RETURNING _lsn`"),
     }
 }
 
