@@ -1007,7 +1007,10 @@ async fn semantic_similarity_search() {
 }
 
 #[rstest]
-#[case::qualified_star("SELECT b.* FROM {{table}} b", "Unsupported: SELECT *")]
+#[case::qualified_star(
+    "SELECT b.* FROM {{table}} b",
+    "Unsupported: SELECT b.*: use `SELECT *`"
+)]
 #[case::missing_alias(
     "SELECT published_year + 1 FROM {{table}}",
     "Invalid: expression in SELECT list requires an AS alias"
