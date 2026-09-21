@@ -1,0 +1,15 @@
+syntax = "proto3";
+package topk.management.v1;
+
+service DataPlaneService {
+  rpc MintAccessToken(MintAccessTokenRequest) returns (MintAccessTokenResponse);
+}
+
+message MintAccessTokenRequest {
+  string project_id = 1;
+}
+
+message MintAccessTokenResponse {
+  string token = 1;
+  int64 expires_at = 2;
+}
