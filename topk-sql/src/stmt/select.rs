@@ -206,8 +206,12 @@ impl TryFrom<SqlQuery> for Statement {
 
             let mut projection = Vec::with_capacity(select.projection.len());
             for item in select.projection {
-                if item.is_wildcard() {
-                    sql_unsupported!("SELECT *");
+                match &item {
+                    SelectItem::QualifiedWildcard(kind, _) => {
+                        sql_unsupported!("SELECT {kind}: use `SELECT *`")
+                    }
+                    SelectItem::Wildcard(_) => sql_unsupported!("SELECT *"),
+                    _ => {}
                 }
                 let expr = item
                     .expr()
