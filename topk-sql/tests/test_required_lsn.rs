@@ -76,6 +76,14 @@ async fn set_consistency_level_is_gone() {
     "INSERT INTO {{table}} (_id, title) VALUES ('r', 'R') RETURNING title",
     "Unsupported: RETURNING other than `RETURNING _lsn`"
 )]
+#[case::returning_lsn_alias(
+    "INSERT INTO {{table}} (_id, title) VALUES ('r', 'R') RETURNING 123 AS _lsn",
+    "Unsupported: RETURNING other than `RETURNING _lsn`"
+)]
+#[case::returning_on_partition_delete(
+    "DELETE FROM {{table}}$p1 RETURNING _lsn",
+    "Unsupported: `RETURNING _lsn` on a partition delete"
+)]
 #[tokio::test]
 async fn rejected(#[case] query: &str, #[case] expected: &str) {
     let err = BooksContext::with_scope(async |ctx: &BooksContext| ctx.sql(query).await)

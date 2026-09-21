@@ -5,7 +5,7 @@ use strum_macros::IntoStaticStr;
 use topk_rs::proto::v1::control::FieldSpec;
 use topk_rs::proto::v1::data::{ConsistencyLevel, Document, LogicalExpr, Query};
 
-use crate::{sql_invalid, sql_unsupported, Error, FromSql, SelectItemExt, SqlExprExt, Table};
+use crate::{sql_invalid, sql_unsupported, Error, FromSql, SqlExprExt, Table};
 
 mod create_table;
 mod delete;
@@ -148,7 +148,9 @@ impl TryFrom<SqlStatement> for Statement {
 pub fn returning_lsn(returning: Option<Vec<SelectItem>>) -> Result<bool, Error> {
     match returning.as_deref() {
         None => Ok(false),
-        Some([item]) if item.column_name() == "_lsn" => Ok(true),
+        Some([SelectItem::UnnamedExpr(expr)]) if expr.as_ident().as_deref() == Some("_lsn") => {
+            Ok(true)
+        }
         Some(_) => sql_unsupported!("RETURNING other than `RETURNING _lsn`"),
     }
 }

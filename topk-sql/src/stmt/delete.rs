@@ -34,6 +34,7 @@ impl TryFrom<Delete> for Statement {
 
         // `DELETE FROM <collection>$<partition>` with no `WHERE` clause maps to `DeletePartition`.
         if matches!(table, Table::Partition(_, _)) && delete.selection.is_none() {
+            sql_unsupported!(returning_lsn, "`RETURNING _lsn` on a partition delete");
             return Ok(Statement::DeletePartition { table });
         }
 
