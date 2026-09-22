@@ -12,12 +12,11 @@ struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
 
-    /// Log what the run is doing to stderr (RUST_LOG overrides)
+    /// Log progress to stderr (RUST_LOG overrides)
     #[arg(short, long, global = true, help_heading = "Global options")]
     verbose: bool,
 
-    /// Agent-oriented output: --help includes the full manual
-    /// (auto-detected for AI assistants)
+    /// Print the full manual in --help (auto-detected for agents)
     #[arg(long, global = true, help_heading = "Global options")]
     agent: bool,
 

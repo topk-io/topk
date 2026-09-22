@@ -19,7 +19,10 @@ const OBJECT_CONCURRENCY: usize = 8;
 
 #[derive(Args, Debug)]
 // Clap's generated usage renders `<SOURCE>` as required; it is not, with --spec.
-#[command(override_usage = "topk import [OPTIONS] [SOURCE] [OBJECTS]...")]
+#[command(
+    override_usage = "topk import [OPTIONS] [SOURCE] [OBJECTS]...",
+    after_help = "Requires --api-key (env TOPK_API_KEY) and --region (env TOPK_REGION)."
+)]
 pub struct ImportArgs {
     #[arg(
         required_unless_present_any = ["spec", "resume"],

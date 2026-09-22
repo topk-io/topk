@@ -1,8 +1,8 @@
 use std::io::Write;
 
 use anyhow::Result;
-use comfy_table::presets::{NOTHING, UTF8_FULL};
-use comfy_table::{ContentArrangement, Table};
+use comfy_table::presets::NOTHING;
+use comfy_table::{Attribute, Cell, ContentArrangement, Table};
 use serde::Serialize;
 
 pub trait Tabular: Serialize {
@@ -33,25 +33,33 @@ pub fn print(
     }
     let mut rows: Vec<_> = items.into_iter().map(|item| item.columns()).collect();
     let mut table = Table::new();
+    table.load_preset(NOTHING);
     match rows.as_mut_slice() {
         [] => return Ok(()),
         [row] => {
-            table.load_preset(NOTHING);
             for (label, value) in row.drain(..) {
                 table.add_row([format!("{label}:"), value]);
             }
         }
         [first, ..] => {
             table
-                .load_preset(UTF8_FULL)
                 .set_content_arrangement(ContentArrangement::Dynamic)
-                .set_header(first.iter().map(|(label, _)| *label));
+                .set_header(
+                    first
+                        .iter()
+                        .map(|(label, _)| Cell::new(label).add_attribute(Attribute::Bold)),
+                );
             table.add_rows(
                 rows.into_iter()
                     .map(|row| row.into_iter().map(|(_, value)| value)),
             );
         }
     }
-    writeln!(out, "{table}")?;
+    for column in table.column_iter_mut() {
+        column.set_padding((0, 2));
+    }
+    for line in table.lines() {
+        writeln!(out, "{}", line.trim_end())?;
+    }
     Ok(())
 }

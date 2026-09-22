@@ -16,6 +16,7 @@ pub struct Endpoint {
     #[arg(
         long,
         env = "TOPK_API_KEY",
+        hide = true,
         global = true,
         hide_env_values = true,
         help_heading = "Global options"
@@ -26,6 +27,7 @@ pub struct Endpoint {
     #[arg(
         long,
         env = "TOPK_REGION",
+        hide = true,
         global = true,
         help_heading = "Global options"
     )]
@@ -35,6 +37,7 @@ pub struct Endpoint {
     #[arg(
         long,
         env = "TOPK_HOST",
+        hide = true,
         default_value = "topk.io",
         global = true,
         help_heading = "Global options"
@@ -45,6 +48,7 @@ pub struct Endpoint {
     #[arg(
         long,
         env = "TOPK_HTTPS",
+        hide = true,
         default_value = "true",
         num_args = 0..=1,
         default_missing_value = "true",
