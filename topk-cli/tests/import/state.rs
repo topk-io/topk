@@ -16,7 +16,10 @@ fn spec(a: &str, b: &str, c: &str) -> String {
 #[test]
 fn an_edited_target_starts_over_without_disturbing_the_others() {
     let stored = spec("", "", "");
-    let mut state = State::new("run1".to_string(), "books.parquet".to_string(), stored);
+    let mut state = State {
+        spec: stored,
+        ..State::new("books.parquet".to_string())
+    };
     state
         .cursors
         .insert("a".to_string(), Mark::After(Cursor::Key("100".to_string())));
@@ -28,10 +31,17 @@ fn an_edited_target_starts_over_without_disturbing_the_others() {
     let edited = spec("limit = 5", "", "");
     let mut plan: Spec = toml::from_str(&edited).expect("spec parses");
     let (done, after) = state
-        .reconcile("books.parquet", &mut plan, edited)
+        .reconcile("books.parquet", &mut plan)
         .expect("same source reconciles");
 
     assert_eq!(done, 1, "c was already imported");
+    assert_eq!(
+        toml::from_str::<Spec>(&state.spec)
+            .unwrap()
+            .collections
+            .len(),
+        3
+    );
     assert_eq!(
         after,
         BTreeMap::from([("b".to_string(), Cursor::Key("200".to_string()))]),
@@ -47,23 +57,21 @@ fn an_edited_target_starts_over_without_disturbing_the_others() {
 #[test]
 fn a_run_refuses_a_different_source() {
     let stored = spec("", "", "");
-    let mut state = State::new(
-        "run1".to_string(),
-        "books.parquet".to_string(),
-        stored.clone(),
-    );
+    let mut state = State {
+        spec: stored.clone(),
+        ..State::new("books.parquet".to_string())
+    };
     let mut plan: Spec = toml::from_str(&stored).expect("spec parses");
-    let message = refused(state.reconcile("other.parquet", &mut plan, stored));
+    let message = refused(state.reconcile("other.parquet", &mut plan));
     assert!(message.contains("books.parquet"), "got: {message}");
 }
 
 #[test]
 fn cursors_round_trip_in_run_state() {
-    let mut state = State::new(
-        "run1".to_string(),
-        "books.parquet".to_string(),
-        spec("", "", ""),
-    );
+    let mut state = State {
+        spec: spec("", "", ""),
+        ..State::new("books.parquet".to_string())
+    };
     let cursors = [
         ("a", Cursor::Key("42".to_string())),
         (

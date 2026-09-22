@@ -62,7 +62,7 @@ async fn partition_column_previews(ctx: &mut Scratch) {
     let spec = ctx.target_spec("c", object);
     let out = run(
         &["import", "-f", &spec, "--partition", "author", "--dry-run"],
-        &[],
+        &[("TOPK_REGION", "")],
     );
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(out.status.success(), "dry run failed:\n{stderr}");

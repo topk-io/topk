@@ -2,20 +2,15 @@ use std::collections::BTreeMap;
 use std::io::{ErrorKind, IsTerminal};
 use std::path::PathBuf;
 use std::process::ExitCode;
-use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use clap::Args;
-use indexmap::IndexMap;
 use indicatif::{MultiProgress, ProgressDrawTarget};
-use tokio::sync::Semaphore;
 
 use crate::endpoint::Endpoint;
 use crate::import::{
-    self, render, Error, LoadOutcome, Sink, Source, Spec, State, Uri, ID, ID_PLACEHOLDER,
+    self, render, Error, Import, LoadOutcome, Options, Source, Spec, State, Uri, ID_PLACEHOLDER,
 };
-
-const OBJECT_CONCURRENCY: usize = 8;
 
 #[derive(Args, Debug)]
 // Clap's generated usage renders `<SOURCE>` as required; it is not, with --spec.
@@ -104,14 +99,6 @@ pub struct ImportArgs {
     )]
     pub batch_bytes: Option<bytesize::ByteSize>,
 }
-
-const INFLIGHT: u32 = 16;
-const BATCH_BYTES: u64 = 8 * 1024 * 1024;
-
-/// One partition takes 1/N of the stream, so batching for size alone starves a wide fan-out: the
-/// same memory buys many small upserts instead of a few large ones.
-const PARTITIONED_INFLIGHT: u32 = 64;
-const PARTITIONED_BATCH_BYTES: u64 = 1024 * 1024;
 
 async fn plan(
     source: &Source,
@@ -251,17 +238,14 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
     let source = Source::connect(&uri, endpoint).await?;
     let mut spec = plan(&source, endpoint, args, given).await?;
 
-    let source_name = uri.to_string();
-    // Stored for --resume, and compared per collection against an edited -f.
-    let stored = toml::to_string_pretty(&spec)
-        .map_err(|e| Error::InvalidArgument(format!("cannot serialize spec: {e}")))?;
-    let run = args.resume.clone().unwrap_or_else(State::id);
-    let mut state =
-        resumed.unwrap_or_else(|| State::new(run.clone(), source_name.clone(), stored.clone()));
-    let (done, after) = state.reconcile(&source_name, &mut spec, stored)?;
+    let mut state = resumed.unwrap_or_else(|| State::new(uri.to_string()));
+    let (done, after) = state.reconcile(&uri.to_string(), &mut spec)?;
     if spec.collections.is_empty() {
-        eprintln!("run {run}: all {done} collection(s) already imported");
-        State::remove(&run);
+        eprintln!(
+            "run {}: all {done} collection(s) already imported",
+            state.id
+        );
+        State::remove(&state.id);
         return Ok(ExitCode::SUCCESS);
     }
     if args.dry_run {
@@ -276,29 +260,23 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
         return Ok(ExitCode::SUCCESS);
     }
 
-    for (name, target) in spec.collections.iter() {
-        if target.id.as_deref() == Some(ID_PLACEHOLDER) {
-            return Err(Error::InvalidArgument(format!(
-                "{name}: couldn't detect an id column — pass `--id <column>`, \
-                 or set `id` in a spec (it becomes each document's `{ID}`)"
-            ))
-            .into());
-        }
-    }
-    let scans = spec
-        .collections
-        .iter()
-        .map(|(name, target)| Ok((name.clone(), source.scan(target, after.get(name).cloned())?)))
-        .collect::<Result<IndexMap<_, _>, Error>>()?;
-    let client = endpoint.client()?;
-    let mut pending = import::absent(&client, &spec).await?;
-    // `--limit 0` reads nothing, so it must not leave an empty collection behind
-    // for the next run's schema to collide with.
-    pending.retain(|name, _| spec.collections.get(name).and_then(|t| t.limit) != Some(0));
-    let fresh: Vec<&str> = pending.keys().map(String::as_str).collect();
+    let import = Import::prepare(
+        endpoint,
+        &source,
+        &spec,
+        &after,
+        Options {
+            concurrency: args.concurrency,
+            batch_bytes: args.batch_bytes,
+            continue_on_error: args.continue_on_error,
+        },
+    )
+    .await?;
+    let fresh: Vec<&str> = import.pending.keys().map(String::as_str).collect();
     // Before the run: a killed run prints nothing after.
     eprintln!(
-        "# run {run}{}",
+        "# run {}{}",
+        state.id,
         match done {
             0 => String::new(),
             n => format!(", resuming: {n} collection(s) done"),
@@ -317,51 +295,22 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
     if !json {
         import::set_progress(progress.clone());
     }
-    // An unwritable config dir costs the ability to resume, not the import.
-    if let Err(e) = state.save() {
-        eprintln!("cannot save run state ({e}) — this run cannot be resumed");
-    }
-    let partitioned = spec.collections.values().any(|t| t.partition.is_some());
-    let (inflight, bytes) = match partitioned {
-        true => (PARTITIONED_INFLIGHT, PARTITIONED_BATCH_BYTES),
-        false => (INFLIGHT, BATCH_BYTES),
-    };
-    let concurrency = args.concurrency.unwrap_or(inflight);
-    let batch_bytes = args.batch_bytes.map_or(bytes, |size| size.as_u64());
-    let sink = Sink {
-        client: &client,
-        progress: &progress,
-        budget: Arc::new(Semaphore::new(concurrency as usize)),
-        batch_bytes: batch_bytes as usize,
-        continue_on_error: args.continue_on_error,
-        state: Mutex::new(state),
-    };
-    for (name, schema) in pending {
-        import::create(&client, &name, schema).await?;
-    }
-    let readers = scans
-        .len()
-        .min(OBJECT_CONCURRENCY)
-        .min(source.concurrency_limit())
-        .max(1);
-    let resume_hint = || {
-        eprintln!(
-            "nothing else was imported; to continue: topk import {}--resume {run}",
-            match args.source.is_none() {
-                true => String::new(),
-                false => format!("'{source_name}' "),
-            }
-        )
-    };
+    let resume_hint = format!(
+        "nothing else was imported; to continue: topk import {}--resume {}",
+        match args.source.is_none() {
+            true => String::new(),
+            false => format!("'{}' ", state.source),
+        },
+        state.id,
+    );
     let outcomes = tokio::select! {
-        outcomes = sink.load(scans, readers) => outcomes,
+        outcomes = import.execute(state, &progress) => outcomes,
         _ = tokio::signal::ctrl_c() => {
             let _ = progress.clear();
-            resume_hint();
+            eprintln!("{resume_hint}");
             return Ok(ExitCode::from(130));
         }
     };
-    let outcomes = outcomes.inspect_err(|_| resume_hint())?;
-    State::remove(&run);
+    let outcomes = outcomes.inspect_err(|_| eprintln!("{resume_hint}"))?;
     Ok(report(&outcomes, json)?)
 }

@@ -34,12 +34,12 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(id: String, source: String, spec: String) -> State {
+    pub fn new(source: String) -> State {
         State {
-            id,
+            id: Self::id(),
             source,
             started: Utc::now(),
-            spec,
+            spec: String::new(),
             cursors: BTreeMap::new(),
         }
     }
@@ -48,7 +48,6 @@ impl State {
         &mut self,
         source: &str,
         spec: &mut Spec,
-        plan: String,
     ) -> Result<(usize, BTreeMap<String, Cursor>), Error> {
         if self.source != source {
             return Err(Error::InvalidArgument(format!(
@@ -60,6 +59,8 @@ impl State {
                 }
             )));
         }
+        let plan = toml::to_string_pretty(&spec)
+            .map_err(|e| Error::InvalidArgument(format!("cannot serialize spec: {e}")))?;
         let mut after: BTreeMap<String, Cursor> = BTreeMap::new();
         // A cursor only holds for an unchanged target.
         let stored: Spec = toml::from_str(&self.spec)?;

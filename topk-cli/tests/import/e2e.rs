@@ -439,13 +439,25 @@ async fn empty_region_reads_as_missing(ctx: &mut Scratch) {
     assert!(err.contains("--region is required"), "got:\n{err}");
 }
 
-#[test_context(Scratch)]
+#[test_context(Ctx)]
 #[tokio::test]
-async fn yes_required_without_tty(ctx: &mut Scratch) {
+async fn yes_required_without_tty(ctx: &mut Ctx) {
     let object = ctx.seed_parquet("books", books()).await;
-    let spec = ctx.target_spec("confirm", object);
-    let err = fails(&["import", "-f", &spec], &[]);
+    let collection = ctx.collection("confirm");
+    let spec = ctx.target_spec(&collection, object);
+    let state = ctx.scratch().join("state");
+    let err = fails(
+        &["import", "-f", &spec],
+        &[("TOPK_IMPORT_STATE_DIR", state.to_str().unwrap())],
+    );
     assert!(err.contains("pass --yes"), "got:\n{err}");
+    assert!(!state.exists());
+    assert!(ctx
+        .client()
+        .collections()
+        .get(&collection)
+        .await
+        .is_err_and(|e| matches!(e, topk_rs::Error::CollectionNotFound)));
 }
 
 #[test_context(Scratch)]

@@ -1,22 +1,24 @@
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use futures::{stream, Stream, StreamExt, TryStreamExt};
-use indexmap::IndexMap;
+use indexmap::{map::Entry, IndexMap};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use prost::Message;
 use tokio::sync::Semaphore;
 use tokio::task::JoinHandle;
 use topk_rs::proto::v1::data::{Document, Value};
-use topk_rs::{Client, CollectionClient};
+use topk_rs::Client;
 
+use crate::endpoint::Endpoint;
+use crate::import::ddl::{self, Schema};
 use crate::import::decode::{self, id_string};
 use crate::import::error::{Error, MAX_DOC_BYTES};
 use crate::import::source::{Cursor, Record, Scan, Source};
-use crate::import::spec::Target;
+use crate::import::spec::{Spec, Target};
 use crate::import::state::{Mark, State};
-use crate::import::ID;
+use crate::import::{ID, ID_PLACEHOLDER};
 
 /// Per-partition buffers, so a wide fan-out gets smaller batches, not more memory.
 const BUFFERED_BATCHES: usize = 8;
@@ -31,95 +33,92 @@ pub struct LoadOutcome {
     pub elapsed: Duration,
 }
 
-/// The document a target asks for, built from one source row.
-pub fn build_document(target: &Target, record: Record) -> Result<Document, Error> {
+/// This row's partition, from the value of the `partition` column, and its document.
+pub fn build_row(target: &Target, record: Record) -> Result<(Option<String>, Document), Error> {
+    let fail = |id: Option<&str>, field: Option<&str>, source: Error| Error::Doc {
+        id: id.map(str::to_string),
+        field: field.map(str::to_string),
+        source: Box::new(source),
+    };
+    let partition = if let Some(column) = target.partition.as_deref() {
+        let value = record
+            .iter()
+            .find(|(key, _)| key == column)
+            .map(|(_, value)| value)
+            .filter(|value| value.as_null().is_none())
+            .ok_or_else(|| {
+                fail(
+                    None,
+                    Some(column),
+                    Error::InvalidArgument("partition column is missing or null".to_string()),
+                )
+            })?;
+        let partition = decode::text(value.clone()).map_err(|e| fail(None, Some(column), e))?;
+        let mut chars = partition.chars();
+        if partition.len() > 128
+            || !matches!(chars.next(), Some(c) if c.is_ascii_alphanumeric())
+            || !chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-'))
+        {
+            return Err(fail(
+                None,
+                Some(column),
+                Error::InvalidArgument(format!(
+                    "partition value {partition:?} must start with a letter or digit, \
+                     contain only letters, digits, `_` or `-`, and be at most 128 bytes"
+                )),
+            ));
+        }
+        Some(partition)
+    } else {
+        None
+    };
     let id_column = target.id_column();
     let id = match record.iter().find(|(key, _)| key == id_column) {
         Some((_, value)) => id_string(id_column, value.clone())?,
         None => {
             let seen: Vec<_> = record.iter().map(|(key, _)| key.as_str()).collect();
-            return Err(Error::Doc {
-                id: None,
-                field: Some(id_column.to_string()),
-                source: Box::new(Error::InvalidArgument(format!(
+            return Err(fail(
+                None,
+                Some(id_column),
+                Error::InvalidArgument(format!(
                     "id column not present in this row, which has: {}",
                     seen.join(", ")
-                ))),
-            });
+                )),
+            ));
         }
     };
-    let fail = |field: Option<&str>, source: Error| Error::Doc {
-        id: Some(id.clone()),
-        field: field.map(str::to_string),
-        source: Box::new(source),
-    };
-
     // The spec is a whitelist; several fields may read one column, the id included.
-    let mut pairs: Vec<(String, Value)> = Vec::with_capacity(target.fields.len() + 1);
+    let mut doc = Document {
+        fields: HashMap::with_capacity(target.fields.len() + 1),
+    };
     for (name, field) in &target.fields {
         let missing = || {
             fail(
+                Some(&id),
                 Some(name),
                 Error::InvalidArgument("required field is missing".to_string()),
             )
         };
-        let Some((_, value)) = record.iter().find(|(key, _)| key == field.source(name)) else {
-            if field.required {
-                return Err(missing());
-            }
-            continue;
+        let value = match record.iter().find(|(key, _)| key == field.source(name)) {
+            Some((_, value)) => value,
+            None if field.required => return Err(missing()),
+            None => continue,
         };
         let value = field
             .coerce(value.clone())
-            .map_err(|e| fail(Some(name), e))?;
+            .map_err(|e| fail(Some(&id), Some(name), e))?;
         if field.required && value.as_null().is_some() {
             return Err(missing());
         }
-        pairs.push((name.clone(), value));
+        doc.fields.insert(name.clone(), value);
     }
 
-    pairs.push((ID.to_string(), Value::string(id.clone())));
-    let doc = Document::from(pairs);
+    doc.fields.insert(ID.to_string(), Value::string(id.clone()));
     let size = doc.encoded_len();
     if size > MAX_DOC_BYTES {
-        return Err(fail(None, Error::Oversized(size)));
+        return Err(fail(Some(&id), None, Error::Oversized(size)));
     }
-    Ok(doc)
-}
-
-/// This row's partition, from the value of the `partition` column, and its document.
-fn build_row(target: &Target, record: Record) -> Result<(Option<String>, Document), Error> {
-    let column = match target.partition.as_deref() {
-        Some(column) => column,
-        None => return Ok((None, build_document(target, record)?)),
-    };
-    let fail = |source| Error::Doc {
-        id: None,
-        field: Some(column.to_string()),
-        source: Box::new(source),
-    };
-    let value = record
-        .iter()
-        .find(|(key, _)| key == column)
-        .map(|(_, value)| value)
-        .filter(|value| value.as_null().is_none())
-        .ok_or_else(|| {
-            fail(Error::InvalidArgument(
-                "partition column is missing or null".to_string(),
-            ))
-        })?;
-    let partition = decode::text(value.clone()).map_err(fail)?;
-    let mut chars = partition.chars();
-    if partition.len() > 128
-        || !matches!(chars.next(), Some(c) if c.is_ascii_alphanumeric())
-        || !chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-'))
-    {
-        return Err(fail(Error::InvalidArgument(format!(
-            "partition value {partition:?} must start with a letter or digit, \
-             contain only letters, digits, `_` or `-`, and be at most 128 bytes"
-        ))));
-    }
-    Ok((Some(partition), build_document(target, record)?))
+    Ok((partition, doc))
 }
 
 pub fn documents(
@@ -140,15 +139,20 @@ pub fn documents(
 /// Batches in flush order, each with the source cursor it completes.
 type InflightBatches = VecDeque<(JoinHandle<Result<(), Error>>, Option<Cursor>)>;
 
-/// Collections load concurrently, as many as the source can serve at once;
-/// their upserts share one budget of `-c` in flight across the run.
-pub struct Sink<'a> {
-    pub client: &'a Client,
-    pub progress: &'a MultiProgress,
-    pub budget: Arc<Semaphore>,
-    pub batch_bytes: usize,
+pub struct Options {
+    pub concurrency: Option<u32>,
+    pub batch_bytes: Option<bytesize::ByteSize>,
     pub continue_on_error: bool,
-    pub state: Mutex<State>,
+}
+
+pub struct Import {
+    client: Client,
+    scans: IndexMap<String, Scan>,
+    pub pending: HashMap<String, Schema>,
+    readers: usize,
+    budget: Arc<Semaphore>,
+    batch_bytes: usize,
+    continue_on_error: bool,
 }
 
 /// Clears itself on drop, so `?` exits and cancellation can't leave a stale bar.
@@ -175,30 +179,104 @@ impl Drop for Spinner {
     }
 }
 
-impl Sink<'_> {
-    /// Loads `readers` collections at a time.
-    pub async fn load(
-        &self,
-        scans: IndexMap<String, Scan>,
-        readers: usize,
-    ) -> Result<BTreeMap<String, LoadOutcome>, Error> {
-        stream::iter(scans)
-            .map(
-                |(name, scan)| async move { Ok((name.clone(), self.load_one(&name, scan).await?)) },
-            )
-            .buffer_unordered(readers)
-            .try_collect()
-            .await
+impl Import {
+    pub async fn prepare(
+        endpoint: &Endpoint,
+        source: &Source,
+        spec: &Spec,
+        after: &BTreeMap<String, Cursor>,
+        options: Options,
+    ) -> Result<Import, Error> {
+        for (name, target) in &spec.collections {
+            if target.id.as_deref() == Some(ID_PLACEHOLDER) {
+                return Err(Error::InvalidArgument(format!(
+                    "{name}: couldn't detect an id column — pass `--id <column>`, \
+                     or set `id` in a spec (it becomes each document's `{ID}`)"
+                )));
+            }
+        }
+        let scans = spec
+            .collections
+            .iter()
+            .map(|(name, target)| {
+                Ok((name.clone(), source.scan(target, after.get(name).cloned())?))
+            })
+            .collect::<Result<IndexMap<_, _>, Error>>()?;
+        let client = endpoint
+            .client()
+            .map_err(|e| Error::InvalidArgument(e.to_string()))?;
+        let mut pending = ddl::absent(&client, spec).await?;
+        // `--limit 0` reads nothing, so it must not leave an empty collection behind
+        // for the next run's schema to collide with.
+        pending.retain(|name, _| spec.collections.get(name).and_then(|t| t.limit) != Some(0));
+        let partitioned = spec.collections.values().any(|t| t.partition.is_some());
+        let (concurrency, batch_bytes) = if partitioned {
+            (64, 1024 * 1024)
+        } else {
+            (16, 8 * 1024 * 1024)
+        };
+        Ok(Import {
+            client,
+            readers: scans.len().min(8).min(source.concurrency_limit()).max(1),
+            scans,
+            pending,
+            budget: Arc::new(Semaphore::new(
+                options.concurrency.unwrap_or(concurrency) as usize
+            )),
+            batch_bytes: options
+                .batch_bytes
+                .map_or(batch_bytes, |size| size.as_u64() as usize),
+            continue_on_error: options.continue_on_error,
+        })
     }
 
-    async fn load_one(&self, name: &str, scan: Scan) -> Result<LoadOutcome, Error> {
+    pub async fn execute(
+        mut self,
+        state: State,
+        progress: &MultiProgress,
+    ) -> Result<BTreeMap<String, LoadOutcome>, Error> {
+        // An unwritable config dir costs the ability to resume, not the import.
+        if let Err(e) = state.save() {
+            crate::import::note(format!(
+                "cannot save run state ({e}) — this run cannot be resumed"
+            ));
+        }
+        let state = Mutex::new(state);
+        for (name, schema) in std::mem::take(&mut self.pending) {
+            ddl::create(&self.client, &name, schema).await?;
+        }
+        let outcomes = stream::iter(std::mem::take(&mut self.scans))
+            .map(|(name, scan)| {
+                let state = &state;
+                let import = &self;
+                async move {
+                    Ok::<_, Error>((
+                        name.clone(),
+                        import.load_one(&name, scan, state, progress).await?,
+                    ))
+                }
+            })
+            .buffer_unordered(self.readers)
+            .try_collect()
+            .await?;
+        State::remove(&state.into_inner().unwrap_or_else(|e| e.into_inner()).id);
+        Ok(outcomes)
+    }
+
+    async fn load_one(
+        &self,
+        name: &str,
+        scan: Scan,
+        state: &Mutex<State>,
+        progress: &MultiProgress,
+    ) -> Result<LoadOutcome, Error> {
         let Scan { target, mut chunks } = scan;
         let started = Instant::now();
-        let bar = Spinner::add(self.progress, name);
+        let bar = Spinner::add(progress, name);
         let mut writer = BatchWriter {
-            sink: self,
+            import: self,
+            state,
             name,
-            collection: self.client.collection(name),
             // A resumed limit would be applied again from the cursor, and a partitioned run holds
             // rows behind every flush, so neither is checkpointed: they restart whole.
             checkpoint: target.limit.is_none() && target.partition.is_none(),
@@ -224,16 +302,18 @@ impl Sink<'_> {
                     Err(e) => return Err(e),
                 }
             }
-            writer.set_cursor(chunk.cursor);
+            if chunk.cursor.is_some() {
+                writer.cursor = chunk.cursor;
+            }
         }
         writer.finish().await?;
-        self.checkpoint(name, Mark::Done);
+        Self::checkpoint(state, name, Mark::Done);
         outcome.elapsed = started.elapsed();
         Ok(outcome)
     }
 
-    fn checkpoint(&self, name: &str, mark: Mark) {
-        let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
+    fn checkpoint(state: &Mutex<State>, name: &str, mark: Mark) {
+        let mut state = state.lock().unwrap_or_else(|e| e.into_inner());
         state.cursors.insert(name.to_string(), mark);
         // A lost checkpoint costs a redo, never a skip.
         if let Err(e) = state.save() {
@@ -245,9 +325,9 @@ impl Sink<'_> {
 /// One collection's write side: batches by size and partition, spawns each
 /// batch's upsert under the run's budget, checkpoints cursors in flush order.
 struct BatchWriter<'a> {
-    sink: &'a Sink<'a>,
+    import: &'a Import,
+    state: &'a Mutex<State>,
     name: &'a str,
-    collection: CollectionClient,
     checkpoint: bool,
     /// Documents and their bytes, per partition.
     batches: IndexMap<Option<String>, (Vec<Document>, usize)>,
@@ -263,35 +343,33 @@ impl BatchWriter<'_> {
     async fn push(&mut self, partition: Option<String>, doc: Document) -> Result<(), Error> {
         let size = doc.encoded_len();
         self.bytes += size;
-        let batch = self.batches.entry(partition.clone()).or_default();
-        batch.0.push(doc);
-        batch.1 += size;
-        if batch.1 >= self.sink.batch_bytes {
-            return self.flush(&partition).await;
+        let mut entry = match self.batches.entry(partition) {
+            Entry::Occupied(entry) => entry,
+            Entry::Vacant(entry) => entry.insert_entry(Default::default()),
+        };
+        entry.get_mut().0.push(doc);
+        entry.get_mut().1 += size;
+        if entry.get().1 >= self.import.batch_bytes {
+            let (partition, batch) = entry.swap_remove_entry();
+            return self.flush(partition, batch).await;
         }
-        if self.bytes >= self.sink.batch_bytes * BUFFERED_BATCHES {
-            while let Some(partition) = self.batches.keys().next().cloned() {
-                self.flush(&partition).await?;
+        if self.bytes >= self.import.batch_bytes * BUFFERED_BATCHES {
+            while let Some((partition, batch)) = self.batches.pop() {
+                self.flush(partition, batch).await?;
             }
         }
         Ok(())
     }
 
-    fn set_cursor(&mut self, cursor: Option<Cursor>) {
-        if cursor.is_some() {
-            self.cursor = cursor;
-        }
-    }
-
-    async fn flush(&mut self, partition: &Option<String>) -> Result<(), Error> {
-        let (docs, bytes) = match self.batches.swap_remove(partition) {
-            Some(batch) => batch,
-            None => return Ok(()),
-        };
+    async fn flush(
+        &mut self,
+        partition: Option<String>,
+        (docs, bytes): (Vec<Document>, usize),
+    ) -> Result<(), Error> {
         self.bytes -= bytes;
         // Waits while the run is at `-c`; spawned upserts keep landing meanwhile.
         let permit = self
-            .sink
+            .import
             .budget
             .clone()
             .acquire_owned()
@@ -304,10 +382,10 @@ impl BatchWriter<'_> {
         {
             self.complete_next().await?;
         }
-        let collection = match partition {
-            Some(partition) => self.collection.clone().partition(partition),
-            None => self.collection.clone(),
-        };
+        let mut collection = self.import.client.collection(self.name);
+        if let Some(partition) = partition {
+            collection = collection.partition(partition);
+        }
         self.inflight.push_back((
             tokio::spawn(async move {
                 let _permit = permit;
@@ -323,15 +401,15 @@ impl BatchWriter<'_> {
         if let Some((handle, cursor)) = self.inflight.pop_front() {
             handle.await??;
             if let Some(cursor) = cursor.filter(|_| self.checkpoint) {
-                self.sink.checkpoint(self.name, Mark::After(cursor));
+                Import::checkpoint(self.state, self.name, Mark::After(cursor));
             }
         }
         Ok(())
     }
 
     async fn finish(mut self) -> Result<(), Error> {
-        while let Some(partition) = self.batches.keys().next().cloned() {
-            self.flush(&partition).await?;
+        while let Some((partition, batch)) = self.batches.pop() {
+            self.flush(partition, batch).await?;
         }
         while !self.inflight.is_empty() {
             self.complete_next().await?;
