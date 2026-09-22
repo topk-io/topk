@@ -75,7 +75,7 @@ pub struct ImportArgs {
     )]
     pub filter: Option<String>,
     // Broadcasts to every collection like --partition, so it is allowed with a spec.
-    #[arg(long, help = "Read at most this many rows per object")]
+    #[arg(long, value_parser = clap::value_parser!(u64).range(1..), help = "Read at most this many rows per object")]
     pub limit: Option<u64>,
 
     #[arg(short = 'y', long, help = "Skip confirmation")]
@@ -97,6 +97,13 @@ pub struct ImportArgs {
         long,
         value_name = "SIZE",
         default_value = "8MiB",
+        value_parser = |value: &str| -> Result<bytesize::ByteSize, String> {
+            let size: bytesize::ByteSize = value.parse()?;
+            if size.as_u64() == 0 {
+                return Err("batch size must be greater than zero".to_string());
+            }
+            Ok(size)
+        },
         help = "Buffered document bytes per collection before flushing all partitions"
     )]
     pub batch_bytes: bytesize::ByteSize,
@@ -134,17 +141,7 @@ async fn plan(
     let catalog = match shared {
         Some(catalog) if source.columns_are_exhaustive() => catalog,
         Some(_) => Vec::new(),
-        None => {
-            let mut tables = Vec::new();
-            for target in spec.collections.values() {
-                let uri: Uri = target.from.parse()?;
-                let source = Source::connect(&uri, endpoint).await?;
-                if source.columns_are_exhaustive() {
-                    tables.extend(source.catalog().await?);
-                }
-            }
-            tables
-        }
+        None => file_catalogs(&spec, endpoint).await?,
     };
     // A filter names one object's columns.
     if args.filter.is_some() && spec.collections.len() > 1 {
@@ -167,6 +164,20 @@ async fn plan(
     }
     import::validate_columns(&catalog, &spec)?;
     Ok(spec)
+}
+
+/// Columns for a bare `-f` spec, where each collection's `from` is its own file
+/// locator. A `from` reached through a sampled source contributes nothing.
+async fn file_catalogs(spec: &Spec, endpoint: &Endpoint) -> Result<Vec<import::Table>, Error> {
+    let mut tables = Vec::new();
+    for target in spec.collections.values() {
+        let uri: Uri = target.from.parse()?;
+        let source = Source::connect(&uri, endpoint).await?;
+        if source.columns_are_exhaustive() {
+            tables.extend(source.catalog().await?);
+        }
+    }
+    Ok(tables)
 }
 
 fn confirm(collections: usize, region: &str) -> Result<bool, Error> {
@@ -257,7 +268,7 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
         return Ok(ExitCode::SUCCESS);
     }
 
-    let import = Import::prepare(endpoint, &source, &spec, &after, args).await?;
+    let import = Import::prepare(endpoint, &source, &spec, &after).await?;
     let fresh: Vec<&str> = import.pending.keys().map(String::as_str).collect();
     // Before the run: a killed run prints nothing after.
     eprintln!(
@@ -290,7 +301,7 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
         state.id,
     );
     let outcomes = tokio::select! {
-        outcomes = import.execute(state, &progress) => outcomes,
+        outcomes = import.execute(state, &progress, args) => outcomes,
         _ = tokio::signal::ctrl_c() => {
             let _ = progress.clear();
             eprintln!("{resume_hint}");

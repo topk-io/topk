@@ -16,9 +16,9 @@ use crate::endpoint::Endpoint;
 use crate::import::ddl::{self, Schema};
 use crate::import::decode::{self, id_string};
 use crate::import::error::{Error, MAX_DOC_BYTES};
-use crate::import::source::{Cursor, Record, Scan, Source};
+use crate::import::source::{Record, Scan, Source};
 use crate::import::spec::{Spec, Target};
-use crate::import::state::{Mark, State};
+use crate::import::state::{Checkpoint, Mark, State};
 use crate::import::{ID, ID_PLACEHOLDER};
 
 #[derive(Default, serde::Serialize)]
@@ -135,16 +135,13 @@ pub fn documents(
 }
 
 /// Batches in flush order, each with the source cursor it completes.
-type InflightBatches = VecDeque<(JoinHandle<Result<(), Error>>, Option<Cursor>)>;
+type InflightBatches = VecDeque<(JoinHandle<Result<(), Error>>, Option<Checkpoint>)>;
 
 pub struct Import {
     client: Client,
     scans: IndexMap<String, Scan>,
     pub pending: HashMap<String, Schema>,
     readers: usize,
-    budget: Arc<Semaphore>,
-    batch_bytes: usize,
-    continue_on_error: bool,
 }
 
 /// Clears itself on drop, so `?` exits and cancellation can't leave a stale bar.
@@ -176,8 +173,7 @@ impl Import {
         endpoint: &Endpoint,
         source: &Source,
         spec: &Spec,
-        after: &BTreeMap<String, Cursor>,
-        args: &ImportArgs,
+        after: &BTreeMap<String, Checkpoint>,
     ) -> Result<Import, Error> {
         for (name, target) in &spec.collections {
             if target.id.as_deref() == Some(ID_PLACEHOLDER) {
@@ -191,31 +187,31 @@ impl Import {
             .collections
             .iter()
             .map(|(name, target)| {
-                Ok((name.clone(), source.scan(target, after.get(name).cloned())?))
+                let mut target = target.clone();
+                let cursor = after.get(name).map(|checkpoint| {
+                    target.limit = target.limit.map(|limit| limit - checkpoint.consumed);
+                    checkpoint.cursor.clone()
+                });
+                Ok((name.clone(), source.scan(&target, cursor)?))
             })
             .collect::<Result<IndexMap<_, _>, Error>>()?;
         let client = endpoint
             .client()
             .map_err(|e| Error::InvalidArgument(e.to_string()))?;
-        let mut pending = ddl::absent(&client, spec).await?;
-        // `--limit 0` reads nothing, so it must not leave an empty collection behind
-        // for the next run's schema to collide with.
-        pending.retain(|name, _| spec.collections.get(name).and_then(|t| t.limit) != Some(0));
+        let pending = ddl::absent(&client, spec).await?;
         Ok(Import {
             client,
             readers: scans.len().min(8).min(source.concurrency_limit()).max(1),
             scans,
             pending,
-            budget: Arc::new(Semaphore::new(args.concurrency as usize)),
-            batch_bytes: args.batch_bytes.as_u64() as usize,
-            continue_on_error: args.continue_on_error,
         })
     }
 
     pub async fn execute(
-        mut self,
+        self,
         state: State,
         progress: &MultiProgress,
+        args: &ImportArgs,
     ) -> Result<BTreeMap<String, LoadOutcome>, Error> {
         // An unwritable config dir costs the ability to resume, not the import.
         if let Err(e) = state.save() {
@@ -224,18 +220,73 @@ impl Import {
             ));
         }
         let state = Mutex::new(state);
-        for (name, schema) in std::mem::take(&mut self.pending) {
+        let budget = Arc::new(Semaphore::new(args.concurrency as usize));
+        let client = &self.client;
+        for (name, schema) in self.pending {
             ddl::create(&self.client, &name, schema).await?;
         }
-        let outcomes = stream::iter(std::mem::take(&mut self.scans))
-            .map(|(name, scan)| {
+        let outcomes = stream::iter(self.scans)
+            .map(|(name, mut scan)| {
                 let state = &state;
-                let import = &self;
+                let budget = &budget;
                 async move {
-                    Ok::<_, Error>((
-                        name.clone(),
-                        import.load_one(&name, scan, state, progress).await?,
-                    ))
+                    let started = Instant::now();
+                    let bar = Spinner::add(progress, &name);
+                    let mut writer = BatchWriter {
+                        client,
+                        budget,
+                        batch_bytes: args.batch_bytes.as_u64() as usize,
+                        state,
+                        name: &name,
+                        batches: IndexMap::new(),
+                        bytes: 0,
+                        cursor: None,
+                        inflight: VecDeque::new(),
+                    };
+                    let mut consumed = match state
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .cursors
+                        .get(&name)
+                    {
+                        Some(Mark::After(checkpoint)) => checkpoint.consumed,
+                        _ => 0,
+                    };
+                    let mut outcome = LoadOutcome::default();
+                    while let Some(chunk) = scan.chunks.next().await {
+                        let chunk = chunk?;
+                        consumed += chunk.rows.len() as u64;
+                        for row in chunk.rows {
+                            match row.and_then(|record| build_row(&scan.target, record)) {
+                                Ok((partition, doc)) => {
+                                    outcome.rows += 1;
+                                    bar.0.inc(1);
+                                    writer.push(partition, doc).await?;
+                                }
+                                Err(e)
+                                    if args.continue_on_error && matches!(e, Error::Doc { .. }) =>
+                                {
+                                    crate::import::note(format!("{name}: skipped {e}"));
+                                    outcome.failed += 1;
+                                }
+                                Err(e) => return Err(e),
+                            }
+                        }
+                        if let Some(cursor) = chunk.cursor {
+                            let checkpoint = Checkpoint { cursor, consumed };
+                            if !writer.batches.is_empty() {
+                                writer.cursor = Some(checkpoint);
+                            } else if let Some((_, after)) = writer.inflight.back_mut() {
+                                *after = Some(checkpoint);
+                            } else {
+                                Self::checkpoint(state, &name, Mark::After(checkpoint));
+                            }
+                        }
+                    }
+                    writer.finish().await?;
+                    Self::checkpoint(state, &name, Mark::Done);
+                    outcome.elapsed = started.elapsed();
+                    Ok::<_, Error>((name, outcome))
                 }
             })
             .buffer_unordered(self.readers)
@@ -243,55 +294,6 @@ impl Import {
             .await?;
         State::remove(&state.into_inner().unwrap_or_else(|e| e.into_inner()).id);
         Ok(outcomes)
-    }
-
-    async fn load_one(
-        &self,
-        name: &str,
-        scan: Scan,
-        state: &Mutex<State>,
-        progress: &MultiProgress,
-    ) -> Result<LoadOutcome, Error> {
-        let Scan { target, mut chunks } = scan;
-        let started = Instant::now();
-        let bar = Spinner::add(progress, name);
-        let mut writer = BatchWriter {
-            import: self,
-            state,
-            name,
-            // A resumed limit would be applied again from the cursor, and a partitioned run holds
-            // rows behind every flush, so neither is checkpointed: they restart whole.
-            checkpoint: target.limit.is_none() && target.partition.is_none(),
-            batches: IndexMap::new(),
-            bytes: 0,
-            cursor: None,
-            inflight: VecDeque::new(),
-        };
-        let mut outcome = LoadOutcome::default();
-        while let Some(chunk) = chunks.next().await {
-            let chunk = chunk?;
-            for row in chunk.rows {
-                match row.and_then(|record| build_row(&target, record)) {
-                    Ok((partition, doc)) => {
-                        outcome.rows += 1;
-                        bar.0.inc(1);
-                        writer.push(partition, doc).await?;
-                    }
-                    Err(e) if self.continue_on_error && matches!(e, Error::Doc { .. }) => {
-                        crate::import::note(format!("{name}: skipped {e}"));
-                        outcome.failed += 1;
-                    }
-                    Err(e) => return Err(e),
-                }
-            }
-            if chunk.cursor.is_some() {
-                writer.cursor = chunk.cursor;
-            }
-        }
-        writer.finish().await?;
-        Self::checkpoint(state, name, Mark::Done);
-        outcome.elapsed = started.elapsed();
-        Ok(outcome)
     }
 
     fn checkpoint(state: &Mutex<State>, name: &str, mark: Mark) {
@@ -307,15 +309,16 @@ impl Import {
 /// One collection's write side: batches by size and partition, spawns each
 /// batch's upsert under the run's budget, checkpoints cursors in flush order.
 struct BatchWriter<'a> {
-    import: &'a Import,
+    client: &'a Client,
+    budget: &'a Arc<Semaphore>,
+    batch_bytes: usize,
     state: &'a Mutex<State>,
     name: &'a str,
-    checkpoint: bool,
     batches: IndexMap<Option<String>, Vec<Document>>,
     /// Buffered across every partition.
     bytes: usize,
-    /// Rows arrive before the cursor that covers them; it rides with the next flush.
-    cursor: Option<Cursor>,
+    /// A source prefix is covered only by the last request of a full buffer drain.
+    cursor: Option<Checkpoint>,
     /// A cursor is checkpointed once every preceding batch has completed.
     inflight: InflightBatches,
 }
@@ -324,7 +327,7 @@ impl BatchWriter<'_> {
     async fn push(&mut self, partition: Option<String>, doc: Document) -> Result<(), Error> {
         self.bytes += doc.encoded_len();
         self.batches.entry(partition).or_default().push(doc);
-        if self.bytes >= self.import.batch_bytes {
+        if self.bytes >= self.batch_bytes {
             while let Some((partition, docs)) = self.batches.pop() {
                 self.flush(partition, docs).await?;
             }
@@ -336,7 +339,6 @@ impl BatchWriter<'_> {
     async fn flush(&mut self, partition: Option<String>, docs: Vec<Document>) -> Result<(), Error> {
         // Waits while the run is at `-c`; spawned upserts keep landing meanwhile.
         let permit = self
-            .import
             .budget
             .clone()
             .acquire_owned()
@@ -349,7 +351,7 @@ impl BatchWriter<'_> {
         {
             self.complete_next().await?;
         }
-        let mut collection = self.import.client.collection(self.name);
+        let mut collection = self.client.collection(self.name);
         if let Some(partition) = partition {
             collection = collection.partition(partition);
         }
@@ -359,7 +361,11 @@ impl BatchWriter<'_> {
                 collection.upsert(docs).await?;
                 Ok::<(), Error>(())
             }),
-            self.cursor.take(),
+            if self.batches.is_empty() {
+                self.cursor.take()
+            } else {
+                None
+            },
         ));
         Ok(())
     }
@@ -367,7 +373,7 @@ impl BatchWriter<'_> {
     async fn complete_next(&mut self) -> Result<(), Error> {
         if let Some((handle, cursor)) = self.inflight.pop_front() {
             handle.await??;
-            if let Some(cursor) = cursor.filter(|_| self.checkpoint) {
+            if let Some(cursor) = cursor {
                 Import::checkpoint(self.state, self.name, Mark::After(cursor));
             }
         }
@@ -382,5 +388,65 @@ impl BatchWriter<'_> {
             self.complete_next().await?;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::import::source::Cursor;
+    use futures::FutureExt;
+    use topk_rs::{doc, ClientConfig};
+
+    #[tokio::test]
+    async fn checkpoint_follows_last_partition() {
+        let mut spec: Spec = toml::from_str(
+            "[books]\nfrom = 'books.parquet'\n[books.fields]\ntitle = { type = 'text' }",
+        )
+        .unwrap();
+        let (state, _, _) = State::prepare(None, "", &mut spec).unwrap();
+        let state = Mutex::new(state);
+        let client = Client::new(ClientConfig::new("test", "emulator"));
+        let budget = Arc::new(Semaphore::new(2));
+        let checkpoint = Checkpoint {
+            cursor: Cursor::Offset {
+                part: "books.parquet".to_string(),
+                rows: 2,
+            },
+            consumed: 2,
+        };
+        let mut writer = BatchWriter {
+            client: &client,
+            budget: &budget,
+            batch_bytes: 1024,
+            state: &state,
+            name: "books",
+            batches: IndexMap::from([
+                (Some("a".to_string()), vec![doc!("_id" => "1")]),
+                (Some("b".to_string()), vec![doc!("_id" => "2")]),
+            ]),
+            bytes: 0,
+            cursor: Some(checkpoint.clone()),
+            inflight: VecDeque::new(),
+        };
+        let (partition, docs) = writer.batches.pop().unwrap();
+        writer
+            .flush(partition, docs)
+            .now_or_never()
+            .unwrap()
+            .unwrap();
+        assert!(writer.inflight.back().unwrap().1.is_none());
+        assert_eq!(writer.cursor, Some(checkpoint.clone()));
+        let (partition, docs) = writer.batches.pop().unwrap();
+        writer
+            .flush(partition, docs)
+            .now_or_never()
+            .unwrap()
+            .unwrap();
+        assert_eq!(writer.inflight.back().unwrap().1, Some(checkpoint));
+        assert!(writer.cursor.is_none());
+        for (handle, _) in writer.inflight {
+            handle.abort();
+        }
     }
 }

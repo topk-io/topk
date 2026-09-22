@@ -182,7 +182,7 @@ Stop a run — `^C`, a lost connection — and pick it up where it left off:
 topk import postgres://host/db --resume 01J9...               # run id printed at start
 ```
 
-Resume skips finished collections and continues the in-flight one from a checkpoint. A partitioned or limited collection has no checkpoint and restarts whole. Without `--resume`, a re-run re-imports everything — upserts are idempotent.
+Resume skips finished collections and continues unfinished ones from their source checkpoints, after all preceding partition writes succeeded. Limits include rows consumed before the checkpoint, including skipped rows. Without `--resume`, a re-run re-imports everything — upserts are idempotent.
 
 #### Sources
 

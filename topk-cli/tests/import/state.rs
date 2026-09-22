@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::common::*;
-use topk::import::{Cursor, Mark, Spec, State};
+use topk::import::{Checkpoint, Cursor, Mark, Spec, State};
 
 fn spec(a: &str, b: &str, c: &str) -> String {
     format!(
@@ -18,12 +18,20 @@ fn an_edited_target_starts_over_without_disturbing_the_others() {
     let stored = spec("", "", "");
     let mut plan: Spec = toml::from_str(&stored).unwrap();
     let (mut state, _, _) = State::prepare(None, "books.parquet", &mut plan).unwrap();
-    state
-        .cursors
-        .insert("a".to_string(), Mark::After(Cursor::Key("100".to_string())));
-    state
-        .cursors
-        .insert("b".to_string(), Mark::After(Cursor::Key("200".to_string())));
+    state.cursors.insert(
+        "a".to_string(),
+        Mark::After(Checkpoint {
+            cursor: Cursor::Key("100".to_string()),
+            consumed: 10,
+        }),
+    );
+    state.cursors.insert(
+        "b".to_string(),
+        Mark::After(Checkpoint {
+            cursor: Cursor::Key("200".to_string()),
+            consumed: 20,
+        }),
+    );
     state.cursors.insert("c".to_string(), Mark::Done);
 
     let edited = spec("limit = 5", "", "");
@@ -41,7 +49,13 @@ fn an_edited_target_starts_over_without_disturbing_the_others() {
     );
     assert_eq!(
         after,
-        BTreeMap::from([("b".to_string(), Cursor::Key("200".to_string()))]),
+        BTreeMap::from([(
+            "b".to_string(),
+            Checkpoint {
+                cursor: Cursor::Key("200".to_string()),
+                consumed: 20
+            }
+        )]),
         "a lost its cursor, b kept it"
     );
     assert_eq!(
@@ -85,9 +99,13 @@ fn cursors_round_trip_in_run_state() {
         ),
     ];
     for (name, cursor) in &cursors {
-        state
-            .cursors
-            .insert((*name).to_string(), Mark::After(cursor.clone()));
+        state.cursors.insert(
+            (*name).to_string(),
+            Mark::After(Checkpoint {
+                cursor: cursor.clone(),
+                consumed: 300,
+            }),
+        );
     }
 
     let encoded = toml::to_string_pretty(&state).expect("state serializes");
@@ -96,6 +114,25 @@ fn cursors_round_trip_in_run_state() {
         let Some(Mark::After(actual)) = decoded.cursors.get(name) else {
             panic!("missing cursor {name:?} in {encoded}");
         };
-        assert_eq!(actual, &expected, "{encoded}");
+        assert_eq!(actual.cursor, expected, "{encoded}");
+        assert_eq!(actual.consumed, 300);
     }
+}
+
+#[test]
+fn checkpoint_past_limit_is_rejected() {
+    let mut plan: Spec = toml::from_str(&spec("limit = 5", "", "")).unwrap();
+    let (mut state, _, _) = State::prepare(None, "books.parquet", &mut plan).unwrap();
+    state.cursors.insert(
+        "a".to_string(),
+        Mark::After(Checkpoint {
+            cursor: Cursor::Key("6".to_string()),
+            consumed: 6,
+        }),
+    );
+    let error = refused(State::prepare(Some(state), "books.parquet", &mut plan));
+    assert!(
+        error.contains("checkpoint consumed 6 rows, exceeding limit 5"),
+        "{error}"
+    );
 }

@@ -15,7 +15,15 @@ use crate::import::spec::Spec;
 #[serde(rename_all = "lowercase")]
 pub enum Mark {
     Done,
-    After(Cursor),
+    After(Checkpoint),
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Checkpoint {
+    #[serde(flatten)]
+    pub cursor: Cursor,
+    #[serde(default)]
+    pub consumed: u64,
 }
 
 /// Created at confirmation, rewritten at every checkpoint, deleted on success:
@@ -38,7 +46,7 @@ impl State {
         resumed: Option<State>,
         source: &str,
         spec: &mut Spec,
-    ) -> Result<(State, usize, BTreeMap<String, Cursor>), Error> {
+    ) -> Result<(State, usize, BTreeMap<String, Checkpoint>), Error> {
         let plan = toml::to_string_pretty(&spec)
             .map_err(|e| Error::InvalidArgument(format!("cannot serialize spec: {e}")))?;
         let mut state = match resumed {
@@ -71,7 +79,7 @@ impl State {
                 }
             )));
         }
-        let mut after: BTreeMap<String, Cursor> = BTreeMap::new();
+        let mut after: BTreeMap<String, Checkpoint> = BTreeMap::new();
         // A cursor only holds for an unchanged target.
         let stored: Spec = toml::from_str(&state.spec)?;
         state.cursors.retain(|name, cursor| {
@@ -88,6 +96,16 @@ impl State {
             }
             true
         });
+        for (name, checkpoint) in &after {
+            if let Some(limit) = spec.collections[name].limit {
+                if checkpoint.consumed > limit {
+                    return Err(Error::InvalidArgument(format!(
+                        "{name}: checkpoint consumed {} rows, exceeding limit {limit}",
+                        checkpoint.consumed
+                    )));
+                }
+            }
+        }
         let done = state
             .cursors
             .values()

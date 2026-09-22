@@ -35,4 +35,4 @@ pub use preview::preview;
 pub use sink::{build_row, documents, Import, LoadOutcome};
 pub use source::{Cursor, File, Scan, Source, Table, Uri};
 pub use spec::{discover, render, validate_columns, Element, Field, Index, Spec, Target, Type};
-pub use state::{Mark, State};
+pub use state::{Checkpoint, Mark, State};

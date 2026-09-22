@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::common::seed::{self, rustfs, sqlite, Seed};
 use crate::common::*;
 use indexmap::IndexMap;
+use rstest::rstest;
 use serde_json::json;
 use test_context::test_context;
 use test_macros::rstest_ctx;
@@ -360,8 +361,8 @@ async fn partition_value_must_be_present(ctx: &mut Ctx) {
 
 #[test_context(Ctx)]
 #[tokio::test]
-async fn partition_resume_restarts_collection(ctx: &mut Ctx) {
-    for (file, lo, hi) in [("a", 0, 12), ("b", 12, 24)] {
+async fn partition_resume_keeps_source_progress(ctx: &mut Ctx) {
+    for (file, lo, hi) in [("a", 0, 11), ("b", 11, 24)] {
         ctx.sql_parquet(
             file,
             &format!(
@@ -397,7 +398,10 @@ async fn partition_resume_restarts_collection(ctx: &mut Ctx) {
     let state: topk::import::State =
         toml::from_str(&std::fs::read_to_string(state_dir().join(format!("{run}.toml"))).unwrap())
             .unwrap();
-    assert!(state.cursors.is_empty());
+    match state.cursors.get(&collection) {
+        Some(topk::import::Mark::After(checkpoint)) => assert_eq!(checkpoint.consumed, 11),
+        _ => panic!("missing source checkpoint"),
+    }
     assert_eq!(ctx.get_in("tenant_0", &collection, &["0"]).await.len(), 1);
 
     let out = crate::common::run(
@@ -420,7 +424,7 @@ async fn partition_resume_restarts_collection(ctx: &mut Ctx) {
     assert!(!out.status.success());
     let stdout = String::from_utf8(out.stdout).unwrap();
     let summary = outcome(&stdout, &collection);
-    assert_eq!(summary["rows"], 23);
+    assert_eq!(summary["rows"], 12);
     assert_eq!(summary["failed"], 1);
     for p in 0..2 {
         let ids: Vec<String> = (0..23)
@@ -1005,38 +1009,65 @@ async fn narrowing_a_spec_warns_that_rows_lose_fields(ctx: &mut Ctx) {
     );
 }
 
-/// `--limit 0` reads nothing, so it leaves nothing behind — an empty collection
-/// would collide with the next run's schema.
-#[test_context(Ctx)]
-#[tokio::test]
-async fn limit_zero_creates_nothing(ctx: &mut Ctx) {
-    let object = ctx.seed_parquet("zero", books()).await;
-    let collection = ctx.collection("zero");
-    let spec = ctx.target_spec(&collection, object);
-    let stdout = ok(
-        &["import", "-f", &spec, "--yes", "--limit", "0", "-o", "json"],
-        &[],
-    );
-    assert_eq!(
-        outcome(stdout.lines().next().unwrap(), &collection)["rows"],
-        0
-    );
+#[rstest]
+#[case::bare_zero("0")]
+#[case::zero_with_unit("0KiB")]
+fn zero_batch_size_is_rejected(#[case] size: &str) {
+    let error = fails(&["import", "missing.parquet", "--batch-bytes", size], &[]);
     assert!(
-        ctx.client()
-            .collections()
-            .get(&collection)
-            .await
-            .is_err_and(|e| matches!(e, topk_rs::Error::CollectionNotFound)),
-        "no collection is created"
+        error.contains("batch size must be greater than zero"),
+        "{error}"
     );
 }
 
-/// A limit cannot be resumed from a cursor — the source would apply it again
-/// past the mark and write more rows than were asked for. A limited collection
-/// restarts instead.
+#[test]
+fn zero_limit_is_rejected() {
+    let error = fails(&["import", "--limit", "0"], &[]);
+    assert!(error.contains("invalid value '0'"), "{error}");
+}
+
 #[test_context(Ctx)]
 #[tokio::test]
-async fn limited_run_restarts_rather_than_over_reading(ctx: &mut Ctx) {
+async fn exhausted_limit_resumes_without_reading(ctx: &mut Ctx) {
+    let mut object = ctx.seed_parquet("exhausted", books()).await;
+    object.limit = Some(1);
+    let collection = ctx.collection("exhausted");
+    let spec = ctx.target_spec(&collection, object);
+    ok(&["import", "-f", &spec, "--yes"], &[]);
+    let mut plan: Spec = toml::from_str(&std::fs::read_to_string(spec).unwrap()).unwrap();
+    let (mut state, _, _) = topk::import::State::prepare(None, "", &mut plan).unwrap();
+    state.cursors.insert(
+        collection.clone(),
+        topk::import::Mark::After(topk::import::Checkpoint {
+            cursor: topk::import::Cursor::Offset {
+                part: plan.collections[&collection].from.clone(),
+                rows: 1,
+            },
+            consumed: 1,
+        }),
+    );
+    let path = state_dir().join(format!("{}.toml", state.id));
+    std::fs::write(&path, toml::to_string_pretty(&state).unwrap()).unwrap();
+    let out = ok(
+        &["import", "--resume", &state.id, "--yes", "-o", "json"],
+        &[],
+    );
+    assert_eq!(outcome(&out, &collection)["rows"], 0);
+    assert_eq!(
+        ctx.get(
+            &collection,
+            &["mockingbird", "nineteen_eighty_four", "pride"]
+        )
+        .await
+        .len(),
+        1
+    );
+    assert!(!path.exists());
+}
+
+#[test_context(Ctx)]
+#[tokio::test]
+async fn limited_resume_keeps_remaining_allowance(ctx: &mut Ctx) {
     let dir = ctx.scratch().join("limited");
     std::fs::create_dir(&dir).unwrap();
     let conn = duckdb::Connection::open_in_memory().unwrap();
@@ -1075,7 +1106,11 @@ async fn limited_run_restarts_rather_than_over_reading(ctx: &mut Ctx) {
         .unwrap()
         .to_string();
     let state = std::fs::read_to_string(state_dir().join(format!("{run}.toml"))).unwrap();
-    assert!(!state.contains("after"), "no mark is kept: {state}");
+    let saved: topk::import::State = toml::from_str(&state).unwrap();
+    match saved.cursors.get(&collection) {
+        Some(topk::import::Mark::After(checkpoint)) => assert_eq!(checkpoint.consumed, 300),
+        _ => panic!("missing source checkpoint: {state}"),
+    }
 
     let out = crate::common::run(
         &[
@@ -1094,7 +1129,7 @@ async fn limited_run_restarts_rather_than_over_reading(ctx: &mut Ctx) {
     );
     let stdout = String::from_utf8(out.stdout).unwrap();
     let summary = stdout.lines().next().expect("summary line");
-    assert_eq!(outcome(summary, &collection)["rows"], 499);
+    assert_eq!(outcome(summary, &collection)["rows"], 199);
     assert_eq!(outcome(summary, &collection)["failed"], 1);
 
     assert_eq!(ctx.get(&collection, &["0", "499"]).await.len(), 2);
@@ -1102,6 +1137,96 @@ async fn limited_run_restarts_rather_than_over_reading(ctx: &mut Ctx) {
         ctx.get(&collection, &["500", "600"]).await.is_empty(),
         "nothing past the limit"
     );
+}
+
+#[test_context(Ctx)]
+#[tokio::test]
+async fn limited_partition_resume_counts_skipped_rows(ctx: &mut Ctx) {
+    for (file, lo, hi) in [("a", 0, 12), ("b", 12, 24), ("c", 24, 36)] {
+        ctx.sql_parquet(
+            file,
+            &format!(
+                "SELECT CASE WHEN i = 5 THEN NULL ELSE i END AS id, \
+             'tenant_' || (i % 2) AS tenant, \
+             CASE WHEN i = 29 THEN 'broken' ELSE 'ok' END AS name \
+             FROM range({lo}, {hi}) t(i)"
+            ),
+        );
+    }
+    let glob = format!("{}/*.parquet", ctx.scratch().display());
+    let collection = ctx.collection("limited-partition");
+    let stderr = fails(
+        &[
+            "import",
+            &glob,
+            "--to",
+            &collection,
+            "--partition",
+            "tenant",
+            "--limit",
+            "30",
+            "--filter",
+            "CASE WHEN name = 'broken' THEN error('broken source') ELSE true END",
+            "--batch-bytes",
+            "1",
+            "-c",
+            "1",
+            "--yes",
+            "--continue-on-error",
+        ],
+        &[],
+    );
+    assert!(stderr.contains("broken source"), "{stderr}");
+    let run = stderr
+        .lines()
+        .find_map(|line| line.strip_prefix("# run "))
+        .unwrap();
+    let state: topk::import::State =
+        toml::from_str(&std::fs::read_to_string(state_dir().join(format!("{run}.toml"))).unwrap())
+            .unwrap();
+    match state.cursors.get(&collection) {
+        Some(topk::import::Mark::After(checkpoint)) => assert_eq!(checkpoint.consumed, 12),
+        _ => panic!("missing source checkpoint"),
+    }
+    ctx.sql_parquet(
+        "c",
+        "SELECT i AS id, 'tenant_' || (i % 2) AS tenant, 'ok' AS name FROM range(24, 36) t(i)",
+    );
+    let out = ok(
+        &[
+            "import",
+            &glob,
+            "--resume",
+            run,
+            "--yes",
+            "--continue-on-error",
+            "--batch-bytes",
+            "1",
+            "-c",
+            "1",
+            "-o",
+            "json",
+        ],
+        &[],
+    );
+    assert_eq!(outcome(&out, &collection)["rows"], 18);
+    for p in 0..2 {
+        let ids: Vec<String> = (0..30)
+            .filter(|id| id % 2 == p && *id != 5)
+            .map(|id| id.to_string())
+            .collect();
+        let ids: Vec<&str> = ids.iter().map(String::as_str).collect();
+        assert_eq!(
+            ctx.get_in(&format!("tenant_{p}"), &collection, &ids)
+                .await
+                .len(),
+            ids.len()
+        );
+        assert!(ctx
+            .get_in(&format!("tenant_{p}"), &collection, &["5", "30", "31"])
+            .await
+            .is_empty());
+    }
 }
 
 /// A `topk://` copy is lossless where a query is not: an indexed vector reaches
