@@ -89,15 +89,17 @@ pub struct ImportArgs {
         short = 'c',
         long,
         value_parser = clap::value_parser!(u32).range(1..=4096),
-        help = "Concurrent upserts in flight, budgeted across the whole run [default: 16, 64 when partitioned]"
+        default_value = "16",
+        help = "Concurrent upserts in flight, budgeted across the whole run"
     )]
-    pub concurrency: Option<u32>,
+    pub concurrency: u32,
     #[arg(
         long,
         value_name = "SIZE",
-        help = "Bytes of documents per upsert [default: 8MiB, 1MiB when partitioned]"
+        default_value = "8MiB",
+        help = "Buffered document bytes per collection before flushing all partitions"
     )]
-    pub batch_bytes: Option<bytesize::ByteSize>,
+    pub batch_bytes: bytesize::ByteSize,
 }
 
 async fn plan(

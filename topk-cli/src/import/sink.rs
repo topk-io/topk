@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use futures::{stream, Stream, StreamExt, TryStreamExt};
-use indexmap::{map::Entry, IndexMap};
+use indexmap::IndexMap;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use prost::Message;
 use tokio::sync::Semaphore;
@@ -20,9 +20,6 @@ use crate::import::source::{Cursor, Record, Scan, Source};
 use crate::import::spec::{Spec, Target};
 use crate::import::state::{Mark, State};
 use crate::import::{ID, ID_PLACEHOLDER};
-
-/// Per-partition buffers, so a wide fan-out gets smaller batches, not more memory.
-const BUFFERED_BATCHES: usize = 8;
 
 #[derive(Default, serde::Serialize)]
 pub struct LoadOutcome {
@@ -204,23 +201,13 @@ impl Import {
         // `--limit 0` reads nothing, so it must not leave an empty collection behind
         // for the next run's schema to collide with.
         pending.retain(|name, _| spec.collections.get(name).and_then(|t| t.limit) != Some(0));
-        let partitioned = spec.collections.values().any(|t| t.partition.is_some());
-        let (concurrency, batch_bytes) = if partitioned {
-            (64, 1024 * 1024)
-        } else {
-            (16, 8 * 1024 * 1024)
-        };
         Ok(Import {
             client,
             readers: scans.len().min(8).min(source.concurrency_limit()).max(1),
             scans,
             pending,
-            budget: Arc::new(Semaphore::new(
-                args.concurrency.unwrap_or(concurrency) as usize
-            )),
-            batch_bytes: args
-                .batch_bytes
-                .map_or(batch_bytes, |size| size.as_u64() as usize),
+            budget: Arc::new(Semaphore::new(args.concurrency as usize)),
+            batch_bytes: args.batch_bytes.as_u64() as usize,
             continue_on_error: args.continue_on_error,
         })
     }
@@ -324,8 +311,7 @@ struct BatchWriter<'a> {
     state: &'a Mutex<State>,
     name: &'a str,
     checkpoint: bool,
-    /// Documents and their bytes, per partition.
-    batches: IndexMap<Option<String>, (Vec<Document>, usize)>,
+    batches: IndexMap<Option<String>, Vec<Document>>,
     /// Buffered across every partition.
     bytes: usize,
     /// Rows arrive before the cursor that covers them; it rides with the next flush.
@@ -336,32 +322,18 @@ struct BatchWriter<'a> {
 
 impl BatchWriter<'_> {
     async fn push(&mut self, partition: Option<String>, doc: Document) -> Result<(), Error> {
-        let size = doc.encoded_len();
-        self.bytes += size;
-        let mut entry = match self.batches.entry(partition) {
-            Entry::Occupied(entry) => entry,
-            Entry::Vacant(entry) => entry.insert_entry(Default::default()),
-        };
-        entry.get_mut().0.push(doc);
-        entry.get_mut().1 += size;
-        if entry.get().1 >= self.import.batch_bytes {
-            let (partition, batch) = entry.swap_remove_entry();
-            return self.flush(partition, batch).await;
-        }
-        if self.bytes >= self.import.batch_bytes * BUFFERED_BATCHES {
-            while let Some((partition, batch)) = self.batches.pop() {
-                self.flush(partition, batch).await?;
+        self.bytes += doc.encoded_len();
+        self.batches.entry(partition).or_default().push(doc);
+        if self.bytes >= self.import.batch_bytes {
+            while let Some((partition, docs)) = self.batches.pop() {
+                self.flush(partition, docs).await?;
             }
+            self.bytes = 0;
         }
         Ok(())
     }
 
-    async fn flush(
-        &mut self,
-        partition: Option<String>,
-        (docs, bytes): (Vec<Document>, usize),
-    ) -> Result<(), Error> {
-        self.bytes -= bytes;
+    async fn flush(&mut self, partition: Option<String>, docs: Vec<Document>) -> Result<(), Error> {
         // Waits while the run is at `-c`; spawned upserts keep landing meanwhile.
         let permit = self
             .import

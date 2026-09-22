@@ -217,16 +217,18 @@ async fn multi_collection(ctx: &mut Ctx) {
 }
 
 #[rstest_ctx(Ctx)]
-#[case::batch_threshold(2)]
-#[case::buffer_eviction(32)]
-async fn partition_by_column(ctx: &mut Ctx, #[case] partitions: usize) {
+#[case::single_partition(1, 400)]
+#[case::few_partitions(2, 400)]
+#[case::many_partitions(32, 400)]
+#[case::skewed_sizes(32, 900)]
+async fn partition_by_column(ctx: &mut Ctx, #[case] partitions: usize, #[case] first_bytes: usize) {
     let collection = ctx.collection("partition-by-column");
     let mut object = ctx
         .seed_parquet(
             "partition_by_column",
             (0..5)
                 .flat_map(|id| (0..partitions).map(move |p| {
-                    doc!("_id" => id.to_string(), "tenant" => format!("a{p}"), "pad" => format!("{p}:{}", "x".repeat(400)))
+                    doc!("_id" => id.to_string(), "tenant" => format!("a{p}"), "pad" => format!("{p}:{}", "x".repeat(if p == 0 { first_bytes } else { 400 })))
                 }))
                 .collect(),
         )
@@ -253,7 +255,13 @@ async fn partition_by_column(ctx: &mut Ctx, #[case] partitions: usize) {
             .await;
         assert_eq!(docs.len(), 5, "partition a{p}");
         for doc in docs.values() {
-            assert_eq!(field(doc, "pad"), json!(format!("{p}:{}", "x".repeat(400))));
+            assert_eq!(
+                field(doc, "pad"),
+                json!(format!(
+                    "{p}:{}",
+                    "x".repeat(if p == 0 { first_bytes } else { 400 })
+                ))
+            );
             assert!(!doc.contains_key("tenant"));
         }
     }
