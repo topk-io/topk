@@ -11,6 +11,7 @@ use tokio::task::JoinHandle;
 use topk_rs::proto::v1::data::{Document, Value};
 use topk_rs::Client;
 
+use crate::commands::import::ImportArgs;
 use crate::endpoint::Endpoint;
 use crate::import::ddl::{self, Schema};
 use crate::import::decode::{self, id_string};
@@ -139,12 +140,6 @@ pub fn documents(
 /// Batches in flush order, each with the source cursor it completes.
 type InflightBatches = VecDeque<(JoinHandle<Result<(), Error>>, Option<Cursor>)>;
 
-pub struct Options {
-    pub concurrency: Option<u32>,
-    pub batch_bytes: Option<bytesize::ByteSize>,
-    pub continue_on_error: bool,
-}
-
 pub struct Import {
     client: Client,
     scans: IndexMap<String, Scan>,
@@ -185,7 +180,7 @@ impl Import {
         source: &Source,
         spec: &Spec,
         after: &BTreeMap<String, Cursor>,
-        options: Options,
+        args: &ImportArgs,
     ) -> Result<Import, Error> {
         for (name, target) in &spec.collections {
             if target.id.as_deref() == Some(ID_PLACEHOLDER) {
@@ -221,12 +216,12 @@ impl Import {
             scans,
             pending,
             budget: Arc::new(Semaphore::new(
-                options.concurrency.unwrap_or(concurrency) as usize
+                args.concurrency.unwrap_or(concurrency) as usize
             )),
-            batch_bytes: options
+            batch_bytes: args
                 .batch_bytes
                 .map_or(batch_bytes, |size| size.as_u64() as usize),
-            continue_on_error: options.continue_on_error,
+            continue_on_error: args.continue_on_error,
         })
     }
 

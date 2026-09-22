@@ -9,7 +9,7 @@ use indicatif::{MultiProgress, ProgressDrawTarget};
 
 use crate::endpoint::Endpoint;
 use crate::import::{
-    self, render, Error, Import, LoadOutcome, Options, Source, Spec, State, Uri, ID_PLACEHOLDER,
+    self, render, Error, Import, LoadOutcome, Source, Spec, State, Uri, ID_PLACEHOLDER,
 };
 
 #[derive(Args, Debug)]
@@ -132,7 +132,17 @@ async fn plan(
     let catalog = match shared {
         Some(catalog) if source.columns_are_exhaustive() => catalog,
         Some(_) => Vec::new(),
-        None => file_catalogs(&spec, endpoint).await?,
+        None => {
+            let mut tables = Vec::new();
+            for target in spec.collections.values() {
+                let uri: Uri = target.from.parse()?;
+                let source = Source::connect(&uri, endpoint).await?;
+                if source.columns_are_exhaustive() {
+                    tables.extend(source.catalog().await?);
+                }
+            }
+            tables
+        }
     };
     // A filter names one object's columns.
     if args.filter.is_some() && spec.collections.len() > 1 {
@@ -155,20 +165,6 @@ async fn plan(
     }
     import::validate_columns(&catalog, &spec)?;
     Ok(spec)
-}
-
-/// Columns for a bare `-f` spec, where each collection's `from` is its own file
-/// locator. A `from` reached through a sampled source contributes nothing.
-async fn file_catalogs(spec: &Spec, endpoint: &Endpoint) -> Result<Vec<import::Table>, Error> {
-    let mut tables = Vec::new();
-    for target in spec.collections.values() {
-        let uri: Uri = target.from.parse()?;
-        let source = Source::connect(&uri, endpoint).await?;
-        if source.columns_are_exhaustive() {
-            tables.extend(source.catalog().await?);
-        }
-    }
-    Ok(tables)
 }
 
 fn confirm(collections: usize, region: &str) -> Result<bool, Error> {
@@ -238,8 +234,7 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
     let source = Source::connect(&uri, endpoint).await?;
     let mut spec = plan(&source, endpoint, args, given).await?;
 
-    let mut state = resumed.unwrap_or_else(|| State::new(uri.to_string()));
-    let (done, after) = state.reconcile(&uri.to_string(), &mut spec)?;
+    let (state, done, after) = State::prepare(resumed, &uri.to_string(), &mut spec)?;
     if spec.collections.is_empty() {
         eprintln!(
             "run {}: all {done} collection(s) already imported",
@@ -260,18 +255,7 @@ pub async fn run(endpoint: &Endpoint, args: &ImportArgs, json: bool) -> anyhow::
         return Ok(ExitCode::SUCCESS);
     }
 
-    let import = Import::prepare(
-        endpoint,
-        &source,
-        &spec,
-        &after,
-        Options {
-            concurrency: args.concurrency,
-            batch_bytes: args.batch_bytes,
-            continue_on_error: args.continue_on_error,
-        },
-    )
-    .await?;
+    let import = Import::prepare(endpoint, &source, &spec, &after, args).await?;
     let fresh: Vec<&str> = import.pending.keys().map(String::as_str).collect();
     // Before the run: a killed run prints nothing after.
     eprintln!(

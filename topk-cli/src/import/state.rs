@@ -34,41 +34,50 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(source: String) -> State {
-        State {
-            id: Self::id(),
-            source,
-            started: Utc::now(),
-            spec: String::new(),
-            cursors: BTreeMap::new(),
-        }
-    }
-
-    pub fn reconcile(
-        &mut self,
+    pub fn prepare(
+        resumed: Option<State>,
         source: &str,
         spec: &mut Spec,
-    ) -> Result<(usize, BTreeMap<String, Cursor>), Error> {
-        if self.source != source {
+    ) -> Result<(State, usize, BTreeMap<String, Cursor>), Error> {
+        let plan = toml::to_string_pretty(&spec)
+            .map_err(|e| Error::InvalidArgument(format!("cannot serialize spec: {e}")))?;
+        let mut state = match resumed {
+            Some(state) => state,
+            None => {
+                let nanos = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .map(|d| d.as_nanos() as u64)
+                    .unwrap_or_default();
+                return Ok((
+                    State {
+                        id: format!("{:08x}", nanos as u32 ^ std::process::id()),
+                        source: source.to_string(),
+                        started: Utc::now(),
+                        spec: plan,
+                        cursors: BTreeMap::new(),
+                    },
+                    0,
+                    BTreeMap::new(),
+                ));
+            }
+        };
+        if state.source != source {
             return Err(Error::InvalidArgument(format!(
                 "run {} reads {}, not {source:?}",
-                self.id,
-                match self.source.is_empty() {
+                state.id,
+                match state.source.is_empty() {
                     true => "files".to_string(),
-                    false => format!("{:?}", self.source),
+                    false => format!("{:?}", state.source),
                 }
             )));
         }
-        let plan = toml::to_string_pretty(&spec)
-            .map_err(|e| Error::InvalidArgument(format!("cannot serialize spec: {e}")))?;
         let mut after: BTreeMap<String, Cursor> = BTreeMap::new();
         // A cursor only holds for an unchanged target.
-        let stored: Spec = toml::from_str(&self.spec)?;
-        self.cursors.retain(|name, cursor| {
-            let (Some(target), Some(was)) =
-                (spec.collections.get(name), stored.collections.get(name))
-            else {
-                return false;
+        let stored: Spec = toml::from_str(&state.spec)?;
+        state.cursors.retain(|name, cursor| {
+            let (target, was) = match (spec.collections.get(name), stored.collections.get(name)) {
+                (Some(target), Some(was)) => (target, was),
+                _ => return false,
             };
             if target != was {
                 crate::import::note(format!("# {name}: spec changed, starting over"));
@@ -79,23 +88,15 @@ impl State {
             }
             true
         });
-        let done = self
+        let done = state
             .cursors
             .values()
             .filter(|c| matches!(c, Mark::Done))
             .count();
         spec.collections
-            .retain(|name, _| !matches!(self.cursors.get(name), Some(Mark::Done)));
-        self.spec = plan;
-        Ok((done, after))
-    }
-
-    pub fn id() -> String {
-        let nanos = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_nanos() as u64)
-            .unwrap_or_default();
-        format!("{:08x}", nanos as u32 ^ std::process::id())
+            .retain(|name, _| !matches!(state.cursors.get(name), Some(Mark::Done)));
+        state.spec = plan;
+        Ok((state, done, after))
     }
 
     fn path(id: &str) -> Result<PathBuf, Error> {

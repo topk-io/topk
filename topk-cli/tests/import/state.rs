@@ -16,10 +16,8 @@ fn spec(a: &str, b: &str, c: &str) -> String {
 #[test]
 fn an_edited_target_starts_over_without_disturbing_the_others() {
     let stored = spec("", "", "");
-    let mut state = State {
-        spec: stored,
-        ..State::new("books.parquet".to_string())
-    };
+    let mut plan: Spec = toml::from_str(&stored).unwrap();
+    let (mut state, _, _) = State::prepare(None, "books.parquet", &mut plan).unwrap();
     state
         .cursors
         .insert("a".to_string(), Mark::After(Cursor::Key("100".to_string())));
@@ -30,9 +28,8 @@ fn an_edited_target_starts_over_without_disturbing_the_others() {
 
     let edited = spec("limit = 5", "", "");
     let mut plan: Spec = toml::from_str(&edited).expect("spec parses");
-    let (done, after) = state
-        .reconcile("books.parquet", &mut plan)
-        .expect("same source reconciles");
+    let (state, done, after) =
+        State::prepare(Some(state), "books.parquet", &mut plan).expect("same source reconciles");
 
     assert_eq!(done, 1, "c was already imported");
     assert_eq!(
@@ -57,21 +54,19 @@ fn an_edited_target_starts_over_without_disturbing_the_others() {
 #[test]
 fn a_run_refuses_a_different_source() {
     let stored = spec("", "", "");
-    let mut state = State {
-        spec: stored.clone(),
-        ..State::new("books.parquet".to_string())
-    };
     let mut plan: Spec = toml::from_str(&stored).expect("spec parses");
-    let message = refused(state.reconcile("other.parquet", &mut plan));
+    let (state, _, _) = State::prepare(None, "books.parquet", &mut plan).unwrap();
+    let message = refused(State::prepare(Some(state), "other.parquet", &mut plan));
     assert!(message.contains("books.parquet"), "got: {message}");
 }
 
 #[test]
 fn cursors_round_trip_in_run_state() {
-    let mut state = State {
-        spec: spec("", "", ""),
-        ..State::new("books.parquet".to_string())
-    };
+    let mut plan: Spec = toml::from_str(&spec("", "", "")).unwrap();
+    let (mut state, done, after) = State::prepare(None, "books.parquet", &mut plan).unwrap();
+    assert_eq!(done, 0);
+    assert!(after.is_empty());
+    assert!(toml::from_str::<Spec>(&state.spec).unwrap().collections == plan.collections);
     let cursors = [
         ("a", Cursor::Key("42".to_string())),
         (
