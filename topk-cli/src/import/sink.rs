@@ -89,16 +89,9 @@ pub fn build_document(target: &Target, record: Record) -> Result<Document, Error
 
 /// This row's partition, from the value of the `partition` column, and its document.
 fn build_row(target: &Target, record: Record) -> Result<(Option<String>, Document), Error> {
-    Ok((
-        partition_for(target, &record)?,
-        build_document(target, record)?,
-    ))
-}
-
-fn partition_for(target: &Target, record: &Record) -> Result<Option<String>, Error> {
     let column = match target.partition.as_deref() {
         Some(column) => column,
-        None => return Ok(None),
+        None => return Ok((None, build_document(target, record)?)),
     };
     let fail = |source| Error::Doc {
         id: None,
@@ -116,13 +109,17 @@ fn partition_for(target: &Target, record: &Record) -> Result<Option<String>, Err
             ))
         })?;
     let partition = decode::text(value.clone()).map_err(fail)?;
-    // A partition travels as a gRPC header, so its value is printable ASCII.
-    if partition.is_empty() || !partition.chars().all(|c| matches!(c, ' '..='~')) {
+    let mut chars = partition.chars();
+    if partition.len() > 128
+        || !matches!(chars.next(), Some(c) if c.is_ascii_alphanumeric())
+        || !chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-'))
+    {
         return Err(fail(Error::InvalidArgument(format!(
-            "partition value {partition:?} is empty or not printable ASCII"
+            "partition value {partition:?} must start with a letter or digit, \
+             contain only letters, digits, `_` or `-`, and be at most 128 bytes"
         ))));
     }
-    Ok(Some(partition))
+    Ok((Some(partition), build_document(target, record)?))
 }
 
 pub fn documents(
@@ -272,17 +269,9 @@ impl BatchWriter<'_> {
         if batch.1 >= self.sink.batch_bytes {
             return self.flush(&partition).await;
         }
-        // drain to the watermark: stopping after one batch pins the buffer full and lets a wide
-        // fan-out trickle out one small upsert at a time
-        while self.bytes >= self.sink.batch_bytes * BUFFERED_BATCHES {
-            match self
-                .batches
-                .iter()
-                .max_by_key(|(_, (_, bytes))| *bytes)
-                .map(|(partition, _)| partition.clone())
-            {
-                Some(largest) => self.flush(&largest).await?,
-                None => break,
+        if self.bytes >= self.sink.batch_bytes * BUFFERED_BATCHES {
+            while let Some(partition) = self.batches.keys().next().cloned() {
+                self.flush(&partition).await?;
             }
         }
         Ok(())

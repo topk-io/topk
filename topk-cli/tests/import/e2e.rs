@@ -5,6 +5,7 @@ use crate::common::*;
 use indexmap::IndexMap;
 use serde_json::json;
 use test_context::test_context;
+use test_macros::rstest_ctx;
 use topk::import::{Field, Spec, Target};
 use topk_rs::doc;
 use topk_rs::proto::v1::control::field_index::Index as SchemaIndex;
@@ -215,28 +216,30 @@ async fn multi_collection(ctx: &mut Ctx) {
     assert_eq!(ctx.get(&b, &["2"]).await.len(), 1);
 }
 
-#[test_context(Ctx)]
-#[tokio::test]
-async fn partition_by_column(ctx: &mut Ctx) {
+#[rstest_ctx(Ctx)]
+#[case::batch_threshold(2)]
+#[case::buffer_eviction(32)]
+async fn partition_by_column(ctx: &mut Ctx, #[case] partitions: usize) {
     let collection = ctx.collection("partition-by-column");
-    let object = ctx
+    let mut object = ctx
         .seed_parquet(
             "partition_by_column",
-            (1..=50)
-                .map(|i| doc!("_id" => i.to_string(), "author" => format!("a{i}"), "pad" => "x".repeat(400)))
+            (0..5)
+                .flat_map(|id| (0..partitions).map(move |p| {
+                    doc!("_id" => id.to_string(), "tenant" => format!("a{p}"), "pad" => format!("{p}:{}", "x".repeat(400)))
+                }))
                 .collect(),
         )
         .await;
+    object.fields.shift_remove("tenant");
     let spec = ctx.target_spec(&collection, object);
-    // 50 partitions of 400 bytes on a 1KiB budget: no one buffer fills, the total
-    // does, so the largest is evicted.
     ok(
         &[
             "import",
             "-f",
             &spec,
             "--partition",
-            "author",
+            "tenant",
             "--batch-bytes",
             "1KiB",
             "--yes",
@@ -244,17 +247,66 @@ async fn partition_by_column(ctx: &mut Ctx) {
         &[],
     );
 
-    // Every row, not a sample: a batch lost to eviction shows up nowhere else.
-    for i in 1..=50 {
-        let id = i.to_string();
-        let docs = ctx.get_in(&format!("a{i}"), &collection, &[&id]).await;
-        assert_eq!(docs.len(), 1, "partition a{i} holds row {i}");
+    for p in 0..partitions {
+        let docs = ctx
+            .get_in(&format!("a{p}"), &collection, &["0", "1", "2", "3", "4"])
+            .await;
+        assert_eq!(docs.len(), 5, "partition a{p}");
+        for doc in docs.values() {
+            assert_eq!(field(doc, "pad"), json!(format!("{p}:{}", "x".repeat(400))));
+            assert!(!doc.contains_key("tenant"));
+        }
     }
-    assert_eq!(
-        ctx.get(&collection, &["1", "50"]).await.len(),
-        0,
-        "the default partition stays empty"
+    assert!(ctx
+        .get(&collection, &["0", "1", "2", "3", "4"])
+        .await
+        .is_empty());
+}
+
+#[test_context(Ctx)]
+#[tokio::test]
+async fn partition_invalid_names_are_skipped(ctx: &mut Ctx) {
+    let collection = ctx.collection("partition-invalid");
+    let tenants = [
+        "acme.eu".to_string(),
+        "team west".to_string(),
+        "_tenant".to_string(),
+        "a".repeat(129),
+        "a".repeat(128),
+        "0_acme-west".to_string(),
+    ];
+    let object = ctx
+        .seed_parquet(
+            "invalid",
+            tenants
+                .iter()
+                .enumerate()
+                .map(|(id, tenant)| doc!("_id" => id.to_string(), "tenant" => tenant.clone()))
+                .collect(),
+        )
+        .await;
+    let spec = ctx.target_spec(&collection, object);
+    let err = fails(
+        &[
+            "import",
+            "-f",
+            &spec,
+            "--partition",
+            "tenant",
+            "--yes",
+            "--continue-on-error",
+        ],
+        &[],
     );
+    assert!(err.contains("2 rows written, 4 failed"), "{err}");
+    for (id, tenant) in tenants.iter().enumerate().skip(4) {
+        assert_eq!(
+            ctx.get_in(tenant, &collection, &[&id.to_string()])
+                .await
+                .len(),
+            1
+        );
+    }
 }
 
 #[test_context(Ctx)]
@@ -296,6 +348,86 @@ async fn partition_value_must_be_present(ctx: &mut Ctx) {
     assert!(err.contains("2 rows written, 1 failed"), "got:\n{err}");
     assert_eq!(ctx.get_in("acme", &collection, &["1"]).await.len(), 1);
     assert_eq!(ctx.get_in("globex", &collection, &["3"]).await.len(), 1);
+}
+
+#[test_context(Ctx)]
+#[tokio::test]
+async fn partition_resume_restarts_collection(ctx: &mut Ctx) {
+    for (file, lo, hi) in [("a", 0, 12), ("b", 12, 24)] {
+        ctx.sql_parquet(
+            file,
+            &format!(
+                "SELECT CASE WHEN i = 23 THEN NULL ELSE i END AS id, \
+             'tenant_' || (i % 2) AS tenant, repeat('x', 400) AS pad \
+             FROM range({lo}, {hi}) t(i)"
+            ),
+        );
+    }
+    let glob = format!("{}/*.parquet", ctx.scratch().display());
+    let collection = ctx.collection("partition-resume");
+    let stderr = fails(
+        &[
+            "import",
+            &glob,
+            "--to",
+            &collection,
+            "--partition",
+            "tenant",
+            "--batch-bytes",
+            "1KiB",
+            "-c",
+            "1",
+            "--yes",
+        ],
+        &[],
+    );
+    assert!(stderr.contains("id is null"), "{stderr}");
+    let run = stderr
+        .lines()
+        .find_map(|line| line.strip_prefix("# run "))
+        .unwrap();
+    let state: topk::import::State =
+        toml::from_str(&std::fs::read_to_string(state_dir().join(format!("{run}.toml"))).unwrap())
+            .unwrap();
+    assert!(state.cursors.is_empty());
+    assert_eq!(ctx.get_in("tenant_0", &collection, &["0"]).await.len(), 1);
+
+    let out = crate::common::run(
+        &[
+            "import",
+            &glob,
+            "--resume",
+            run,
+            "--batch-bytes",
+            "1KiB",
+            "-c",
+            "1",
+            "--yes",
+            "--continue-on-error",
+            "-o",
+            "json",
+        ],
+        &[],
+    );
+    assert!(!out.status.success());
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    let summary = outcome(&stdout, &collection);
+    assert_eq!(summary["rows"], 23);
+    assert_eq!(summary["failed"], 1);
+    for p in 0..2 {
+        let ids: Vec<String> = (0..23)
+            .filter(|id| id % 2 == p)
+            .map(|id| id.to_string())
+            .collect();
+        let ids: Vec<&str> = ids.iter().map(String::as_str).collect();
+        assert_eq!(
+            ctx.get_in(&format!("tenant_{p}"), &collection, &ids)
+                .await
+                .len(),
+            ids.len()
+        );
+    }
+    assert!(!state_dir().join(format!("{run}.toml")).exists());
 }
 
 #[test_context(Scratch)]
