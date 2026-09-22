@@ -16,7 +16,9 @@ pub use config::ClientConfig;
 pub mod retry;
 
 mod interceptor;
-pub use interceptor::AppendHeadersInterceptor;
+pub use interceptor::{AppendHeadersInterceptor, AsyncInterceptor};
+
+mod transport;
 
 mod trace;
 pub use trace::TracingInterceptor;
@@ -87,6 +89,7 @@ impl Client {
 macro_rules! create_client {
     ($client:ident, $channel:expr, $config:expr) => {
         async {
+            use crate::client::transport::Transport;
             use crate::client::AppendHeadersInterceptor;
             use crate::client::MAX_DECODING_MESSAGE_SIZE;
             use crate::client::MAX_ENCODING_MESSAGE_SIZE;
@@ -125,7 +128,9 @@ macro_rules! create_client {
             );
 
             // Build client
-            let client = $client::with_interceptor(channel.clone(), interceptor)
+            let transport =
+                Transport::new(channel.clone(), interceptor, $config.interceptor().cloned());
+            let client = $client::new(transport)
                 .max_decoding_message_size(MAX_DECODING_MESSAGE_SIZE)
                 .max_encoding_message_size(MAX_ENCODING_MESSAGE_SIZE);
 

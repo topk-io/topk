@@ -1,6 +1,7 @@
+use async_trait::async_trait;
 use tonic::{service::Interceptor, Status};
 
-use crate::client::interceptor::AppendHeadersInterceptor;
+use crate::client::interceptor::{AppendHeadersInterceptor, AsyncInterceptor};
 
 #[derive(Clone)]
 pub struct TracingInterceptor {
@@ -11,27 +12,37 @@ impl TracingInterceptor {
     pub fn new(headers: AppendHeadersInterceptor) -> Self {
         Self { headers }
     }
+
+    fn apply(&self, request: tonic::Request<()>) -> tonic::Request<()> {
+        #[cfg(feature = "trace")]
+        let request = {
+            let mut request = request;
+            inner::inject(request.metadata_mut());
+            request
+        };
+        self.headers.apply(request)
+    }
 }
 
 impl Interceptor for TracingInterceptor {
-    #[cfg(feature = "trace")]
-    fn call(&mut self, mut request: tonic::Request<()>) -> Result<tonic::Request<()>, Status> {
-        inner::inject(request.metadata_mut());
-
-        self.headers.call(request)
-    }
-
-    #[cfg(not(feature = "trace"))]
     fn call(&mut self, request: tonic::Request<()>) -> Result<tonic::Request<()>, Status> {
-        self.headers.call(request)
+        Ok(self.apply(request))
+    }
+}
+
+#[async_trait]
+impl AsyncInterceptor for TracingInterceptor {
+    async fn call(&self, request: tonic::Request<()>) -> anyhow::Result<tonic::Request<()>> {
+        Ok(self.apply(request))
     }
 }
 
 #[cfg(feature = "trace")]
 mod inner {
+    use std::str::FromStr;
+
     use opentelemetry::global;
     use opentelemetry::propagation::Injector;
-    use std::str::FromStr;
     use tonic::metadata::{MetadataKey, MetadataMap};
     use tracing_opentelemetry::OpenTelemetrySpanExt;
 

@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use tonic::transport::{ClientTlsConfig, Endpoint};
 
+use crate::client::AsyncInterceptor;
 use crate::Error;
 
 use super::retry::RetryConfig;
@@ -23,30 +25,28 @@ pub struct ClientConfig {
 
     /// Retry config
     retry_config: RetryConfig,
+
+    interceptor: Option<Arc<dyn AsyncInterceptor>>,
 }
 
-impl ClientConfig {
-    /// The global control plane, which has no region label.
-    pub fn global(api_key: impl Into<String>) -> Self {
+impl Default for ClientConfig {
+    fn default() -> Self {
         Self {
             region: None,
             host: "topk.io".to_string(),
             https: true,
-            headers: HashMap::from([
-                // Add API key
-                ("authorization", format!("Bearer {}", api_key.into())),
-                // Add SDK version
-                ("x-topk-sdk-version", env!("CARGO_PKG_VERSION").to_string()),
-            ]),
+            headers: HashMap::from([("x-topk-sdk-version", env!("CARGO_PKG_VERSION").to_string())]),
             retry_config: RetryConfig::default(),
+            interceptor: None,
         }
     }
+}
 
+impl ClientConfig {
     pub fn new(api_key: impl Into<String>, region: impl Into<String>) -> Self {
-        Self {
-            region: Some(region.into()),
-            ..Self::global(api_key)
-        }
+        Self::default()
+            .with_region(region)
+            .with_headers([("authorization", format!("Bearer {}", api_key.into()))])
     }
 
     // Getters
@@ -71,7 +71,16 @@ impl ClientConfig {
         &self.retry_config
     }
 
+    pub fn interceptor(&self) -> Option<&Arc<dyn AsyncInterceptor>> {
+        self.interceptor.as_ref()
+    }
+
     // Setters
+
+    pub fn with_region(mut self, region: impl Into<String>) -> Self {
+        self.region = Some(region.into());
+        self
+    }
 
     pub fn with_host(mut self, host: impl Into<String>) -> Self {
         self.host = host.into();
@@ -94,6 +103,11 @@ impl ClientConfig {
 
     pub fn with_retry_config(mut self, retry_config: RetryConfig) -> Self {
         self.retry_config = retry_config;
+        self
+    }
+
+    pub fn with_interceptor(mut self, interceptor: Arc<dyn AsyncInterceptor>) -> Self {
+        self.interceptor = Some(interceptor);
         self
     }
 

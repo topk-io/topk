@@ -1,5 +1,8 @@
-use serde::{de::DeserializeOwned, Serialize};
+use std::error::Error as StdError;
+use std::sync::Arc;
 use std::time::Duration;
+
+use serde::{de::DeserializeOwned, Serialize};
 use tonic::Status;
 use tracing::error;
 
@@ -53,6 +56,9 @@ pub enum Error {
     #[error("input error: {0}")]
     Input(anyhow::Error),
 
+    #[error("request interceptor failed: {0:#}")]
+    Interceptor(#[source] Arc<anyhow::Error>),
+
     #[error("io error: {0}")]
     IoError(#[from] std::io::Error),
 
@@ -88,7 +94,7 @@ pub enum Error {
 /// bad certificate) is down the source chain.
 fn sources(e: &dyn std::error::Error) -> String {
     let mut chain: Vec<String> = Vec::new();
-    for cause in std::iter::successors(e.source(), |e| e.source()) {
+    for cause in std::iter::successors(e.source(), |e| (*e).source()) {
         let cause = cause.to_string();
         // hyper repeats a layer's text in its wrapper; say it once.
         if !chain.last().is_some_and(|prev| prev.contains(&cause)) {
@@ -129,6 +135,7 @@ impl Error {
             Error::Unexpected(_) => false,
             Error::Internal(_) => false,
             Error::Input(_) => false,
+            Error::Interceptor(_) => false,
             Error::IoError(_) => false,
             Error::InvalidProto => false,
         }
@@ -149,6 +156,14 @@ impl Error {
 
 impl From<Status> for Error {
     fn from(status: Status) -> Self {
+        // Tonic searches nested error sources for a Status.
+        // Preserve interceptor failures so they aren't retried as RPC failures.
+        for cause in std::iter::successors(status.source(), |e| (*e).source()) {
+            if let Some(Error::Interceptor(source)) = cause.downcast_ref::<Error>() {
+                return Error::Interceptor(source.clone());
+            }
+        }
+
         let request_id = status
             .metadata()
             .get("x-request-id")

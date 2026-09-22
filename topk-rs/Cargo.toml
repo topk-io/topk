@@ -17,6 +17,8 @@ opentelemetry = { version = "0.30.0", optional = true }
 tracing-opentelemetry = { version = "0.31.0", optional = true }
 tonic = { version = "0.14.2", features = ["tls-ring", "tls-native-roots"] }
 h2 = { version = "0.4" }
+http = "1"
+tower = { version = "0.5", features = ["util"] }
 tokio = { version = "1.35", features = ["full"] }
 anyhow = { version = "1.0.77" }
 thiserror = { version = "1.0.65" }
