@@ -5,10 +5,7 @@ use tonic::{metadata::AsciiMetadataValue, service::Interceptor, Status};
 
 use crate::Error;
 
-/// Intercepts metadata and extensions before each request attempt, including retries.
-///
-/// Runs after configured headers and tracing. Implementations may resolve credentials
-/// asynchronously and own any caching or renewal. Errors stop the request without retrying.
+/// An async interceptor that appends headers to a request.
 #[async_trait]
 pub trait AsyncInterceptor: Send + Sync {
     async fn call(&self, request: tonic::Request<()>) -> anyhow::Result<tonic::Request<()>>;

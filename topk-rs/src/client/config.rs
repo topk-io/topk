@@ -26,6 +26,7 @@ pub struct ClientConfig {
     /// Retry config
     retry_config: RetryConfig,
 
+    /// Custom interceptor
     interceptor: Option<Arc<dyn AsyncInterceptor>>,
 }
 
