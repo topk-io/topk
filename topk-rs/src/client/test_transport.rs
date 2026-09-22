@@ -6,7 +6,8 @@ use http::{Method, Request, Version};
 use tonic::body::Body;
 use tonic::transport::Channel;
 
-use crate::client::{AppendHeadersInterceptor, AsyncInterceptor, TracingInterceptor};
+use crate::client::{AsyncInterceptor, ClientConfig};
+use crate::Error;
 
 use super::Transport;
 
@@ -36,17 +37,16 @@ async fn interception_preserves_routing_and_returns_metadata_and_extensions() {
         Some(Arc::new(InspectInterceptor) as Arc<dyn AsyncInterceptor>),
     ] {
         let custom = interceptor.is_some();
+        let mut config =
+            ClientConfig::new("api-key", "test").with_headers([("x-configured", "present")]);
+        if let Some(interceptor) = interceptor {
+            config = config.with_interceptor(interceptor);
+        }
         let transport = Transport::new(
             Channel::from_static("http://localhost:1").connect_lazy(),
-            TracingInterceptor::new(
-                AppendHeadersInterceptor::new([
-                    ("authorization", "Bearer api-key"),
-                    ("x-configured", "present"),
-                ])
-                .unwrap(),
-            ),
-            interceptor,
-        );
+            &config,
+        )
+        .unwrap();
         let request = transport
             .intercept(
                 Request::builder()
@@ -78,4 +78,17 @@ async fn interception_preserves_routing_and_returns_metadata_and_extensions() {
         );
         assert!(request.headers()[AUTHORIZATION].is_sensitive());
     }
+}
+
+#[tokio::test]
+async fn invalid_configured_header_is_rejected() {
+    let config =
+        ClientConfig::new("api-key", "test").with_headers([("x-invalid", "invalid\nheader")]);
+    assert!(matches!(
+        Transport::new(
+            Channel::from_static("http://localhost:1").connect_lazy(),
+            &config
+        ),
+        Err(Error::Input(_))
+    ));
 }

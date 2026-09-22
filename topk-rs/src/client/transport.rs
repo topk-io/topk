@@ -1,36 +1,52 @@
+use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
+use async_trait::async_trait;
 use http::header::AUTHORIZATION;
 use http::{Request, Response};
 use tonic::body::Body;
-use tonic::metadata::MetadataMap;
+use tonic::metadata::{AsciiMetadataValue, MetadataMap};
 use tonic::transport::Channel;
 use tower::{BoxError, Service, ServiceExt};
 
-use crate::client::{AsyncInterceptor, TracingInterceptor};
+#[cfg(feature = "trace")]
+use crate::client::trace;
+use crate::client::ClientConfig;
 use crate::Error;
+
+/// An async interceptor that appends headers to a request.
+#[async_trait]
+pub trait AsyncInterceptor: Send + Sync {
+    async fn call(&self, request: tonic::Request<()>) -> anyhow::Result<tonic::Request<()>>;
+}
 
 #[derive(Clone)]
 pub(super) struct Transport {
     channel: Channel,
-    default_interceptor: TracingInterceptor,
+    headers: HashMap<&'static str, AsciiMetadataValue>,
     custom_interceptor: Option<Arc<dyn AsyncInterceptor>>,
 }
 
 impl Transport {
-    pub(super) fn new(
-        channel: Channel,
-        default_interceptor: TracingInterceptor,
-        custom_interceptor: Option<Arc<dyn AsyncInterceptor>>,
-    ) -> Self {
-        Self {
+    pub(super) fn new(channel: Channel, config: &ClientConfig) -> Result<Self, Error> {
+        Ok(Self {
             channel,
-            default_interceptor,
-            custom_interceptor,
-        }
+            headers: config
+                .headers()
+                .iter()
+                .map(|(key, value)| {
+                    let value = AsciiMetadataValue::from_str(value).map_err(|e| {
+                        Error::Input(anyhow::anyhow!("invalid header value: {e:?}"))
+                    })?;
+                    Ok((*key, value))
+                })
+                .collect::<Result<_, Error>>()?,
+            custom_interceptor: config.interceptor().cloned(),
+        })
     }
 
     async fn intercept(&self, request: Request<Body>) -> Result<Request<Body>, Error> {
@@ -42,12 +58,12 @@ impl Transport {
             (),
         );
 
-        // Apply configured headers and tracing first, so the caller can inspect or override them.
-        metadata_request = self
-            .default_interceptor
-            .call(metadata_request)
-            .await
-            .map_err(|e| Error::Interceptor(Arc::new(e)))?;
+        // Apply tracing and configured headers first, so the caller can inspect or override them.
+        #[cfg(feature = "trace")]
+        trace::inject(metadata_request.metadata_mut());
+        for (key, value) in &self.headers {
+            metadata_request.metadata_mut().insert(*key, value.clone());
+        }
         if let Some(interceptor) = &self.custom_interceptor {
             metadata_request = interceptor
                 .call(metadata_request)
