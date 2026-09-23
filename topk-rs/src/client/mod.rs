@@ -18,9 +18,6 @@ pub mod retry;
 mod transport;
 pub use transport::AsyncInterceptor;
 
-#[cfg(feature = "trace")]
-mod trace;
-
 // (client) max message size for all requests
 pub const MAX_DECODING_MESSAGE_SIZE: usize = 512 * 1024 * 1024; // 512MB
 pub const MAX_ENCODING_MESSAGE_SIZE: usize = 512 * 1024 * 1024; // 512MB

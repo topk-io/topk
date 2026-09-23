@@ -1,84 +1,83 @@
-use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
-use std::str::FromStr;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use async_trait::async_trait;
-use http::header::AUTHORIZATION;
-use http::{Request, Response};
+use http::header::{HeaderName, HeaderValue, AUTHORIZATION};
+use http::{HeaderMap, Request, Response};
+#[cfg(feature = "trace")]
+use opentelemetry::{global, propagation::Injector};
 use tonic::body::Body;
-use tonic::metadata::{AsciiMetadataValue, MetadataMap};
 use tonic::transport::Channel;
 use tower::{BoxError, Service, ServiceExt};
-
 #[cfg(feature = "trace")]
-use crate::client::trace;
+use tracing_opentelemetry::OpenTelemetrySpanExt;
+
 use crate::client::ClientConfig;
 use crate::Error;
 
-/// An async interceptor that appends headers to a request.
 #[async_trait]
 pub trait AsyncInterceptor: Send + Sync {
-    async fn call(&self, request: tonic::Request<()>) -> anyhow::Result<tonic::Request<()>>;
+    async fn call(&self, request: &mut Request<Body>) -> anyhow::Result<()>;
 }
 
 #[derive(Clone)]
 pub(super) struct Transport {
     channel: Channel,
-    headers: HashMap<&'static str, AsciiMetadataValue>,
-    custom_interceptor: Option<Arc<dyn AsyncInterceptor>>,
+    headers: HeaderMap,
+    interceptor: Option<Arc<dyn AsyncInterceptor>>,
 }
 
 impl Transport {
     pub(super) fn new(channel: Channel, config: &ClientConfig) -> Result<Self, Error> {
         Ok(Self {
             channel,
-            headers: config
-                .headers()
-                .iter()
-                .map(|(key, value)| {
-                    let value = AsciiMetadataValue::from_str(value).map_err(|e| {
-                        Error::Input(anyhow::anyhow!("invalid header value: {e:?}"))
-                    })?;
-                    Ok((*key, value))
-                })
-                .collect::<Result<_, Error>>()?,
-            custom_interceptor: config.interceptor().cloned(),
+            headers: config.try_into()?,
+            interceptor: config.interceptor().cloned(),
         })
     }
 
-    async fn intercept(&self, request: Request<Body>) -> Result<Request<Body>, Error> {
-        // Interceptors receive only metadata and extensions. Keep the body and RPC URI intact.
-        let (mut parts, body) = request.into_parts();
-        let mut metadata_request = tonic::Request::from_parts(
-            MetadataMap::from_headers(parts.headers),
-            parts.extensions,
-            (),
-        );
-
-        // Apply tracing and configured headers first, so the caller can inspect or override them.
+    async fn intercept(&self, mut request: Request<Body>) -> Result<Request<Body>, Error> {
+        // Apply tracing headers.
         #[cfg(feature = "trace")]
-        trace::inject(metadata_request.metadata_mut());
-        for (key, value) in &self.headers {
-            metadata_request.metadata_mut().insert(*key, value.clone());
-        }
-        if let Some(interceptor) = &self.custom_interceptor {
-            metadata_request = interceptor
-                .call(metadata_request)
+        global::get_text_map_propagator(|propagator| {
+            propagator.inject_context(
+                &tracing::Span::current().context(),
+                &mut HeaderInjector(request.headers_mut()),
+            );
+        });
+
+        // Apply configured headers.
+        request.headers_mut().extend(self.headers.clone());
+
+        // Apply custom interceptor.
+        if let Some(interceptor) = &self.interceptor {
+            interceptor
+                .call(&mut request)
                 .await
                 .map_err(|e| Error::Interceptor(Arc::new(e)))?;
         }
 
-        // Restore the intercepted metadata and extensions onto the original HTTP request.
-        let (metadata, extensions, ()) = metadata_request.into_parts();
-        parts.headers = metadata.into_headers();
-        parts.extensions = extensions;
-        if let Some(header) = parts.headers.get_mut(AUTHORIZATION) {
+        if let Some(header) = request.headers_mut().get_mut(AUTHORIZATION) {
             header.set_sensitive(true);
         }
-        Ok(Request::from_parts(parts, body))
+
+        Ok(request)
+    }
+}
+
+#[cfg(feature = "trace")]
+struct HeaderInjector<'a>(&'a mut HeaderMap);
+
+#[cfg(feature = "trace")]
+impl Injector for HeaderInjector<'_> {
+    fn set(&mut self, key: &str, value: String) {
+        if let Ok(key) = HeaderName::from_bytes(key.as_bytes()) {
+            if let Ok(value) = HeaderValue::from_str(&value) {
+                self.0.insert(key, value);
+            }
+        }
     }
 }
 
@@ -101,6 +100,22 @@ impl Service<Request<Body>> for Transport {
     }
 }
 
-#[cfg(test)]
-#[path = "test_transport.rs"]
-mod tests;
+impl TryFrom<&ClientConfig> for HeaderMap {
+    type Error = Error;
+
+    fn try_from(config: &ClientConfig) -> Result<Self, Self::Error> {
+        config
+            .headers()
+            .iter()
+            .map(|(key, value)| {
+                let key = key
+                    .parse::<HeaderName>()
+                    .map_err(|e| Error::Input(anyhow::anyhow!("invalid header name: {e:?}")))?;
+                let value = value
+                    .parse::<HeaderValue>()
+                    .map_err(|e| Error::Input(anyhow::anyhow!("invalid header value: {e:?}")))?;
+                Ok((key, value))
+            })
+            .collect()
+    }
+}

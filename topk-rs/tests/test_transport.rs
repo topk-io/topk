@@ -4,10 +4,12 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use futures::StreamExt;
+use http::header::InvalidHeaderValue;
+use http::{Method, Request as HttpRequest, Version};
 use tokio::net::TcpListener;
 use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::TcpListenerStream;
-use tonic::metadata::errors::InvalidMetadataValue;
+use tonic::body::Body;
 use tonic::transport::{Channel, Endpoint, Server};
 use tonic::{Code, GrpcMethod, Request, Response, Status};
 
@@ -36,12 +38,12 @@ struct Interceptor(AtomicUsize);
 
 #[tonic::async_trait]
 impl AsyncInterceptor for Interceptor {
-    async fn call(&self, mut request: Request<()>) -> anyhow::Result<Request<()>> {
+    async fn call(&self, request: &mut HttpRequest<Body>) -> anyhow::Result<()> {
         let n = self.0.fetch_add(1, Ordering::SeqCst);
         anyhow::ensure!(n < 4, "login expired");
-        assert_eq!(request.metadata().get("x-custom").unwrap(), "preserved");
+        assert_eq!(request.headers().get("x-custom").unwrap(), "preserved");
         assert_eq!(
-            request.metadata().get("authorization").unwrap(),
+            request.headers().get("authorization").unwrap(),
             "Bearer must-not-win"
         );
         assert!(!request
@@ -51,13 +53,13 @@ impl AsyncInterceptor for Interceptor {
             .method()
             .is_empty());
         request
-            .metadata_mut()
+            .headers_mut()
             .insert("x-intercepted", "yes".parse()?);
-        assert!(request.metadata().contains_key("x-topk-sdk-version"));
+        assert!(request.headers().contains_key("x-topk-sdk-version"));
         request
-            .metadata_mut()
+            .headers_mut()
             .insert("authorization", format!("Bearer token-{n}").parse()?);
-        Ok(request)
+        Ok(())
     }
 }
 
@@ -79,6 +81,10 @@ impl CollectionService for Service {
         assert_eq!(request.metadata().get("x-custom").unwrap(), "preserved");
         if token.starts_with("Bearer token-") {
             assert_eq!(request.metadata().get("x-intercepted").unwrap(), "yes");
+        }
+        if token == "Bearer refreshed" {
+            assert!(!request.metadata().contains_key("x-remove"));
+            assert_eq!(request.metadata().get("x-configured").unwrap(), "present");
         }
         self.0.send(token.into()).unwrap();
         if token == "Bearer token-0" {
@@ -284,14 +290,14 @@ struct FailingInterceptor {
 
 #[tonic::async_trait]
 impl AsyncInterceptor for FailingInterceptor {
-    async fn call(&self, mut request: Request<()>) -> anyhow::Result<Request<()>> {
+    async fn call(&self, request: &mut HttpRequest<Body>) -> anyhow::Result<()> {
         self.calls.fetch_add(1, Ordering::SeqCst);
         match self.response {
             Ok(token) => {
                 request
-                    .metadata_mut()
+                    .headers_mut()
                     .insert("authorization", format!("Bearer {token}").parse()?);
-                Ok(request)
+                Ok(())
             }
             Err(code) => {
                 let error = anyhow::Error::new(Status::new(code, "interceptor failed"));
@@ -352,7 +358,7 @@ async fn malformed_interceptor_token_never_reaches_server() {
         .unwrap_err();
     assert!(matches!(error, Error::Interceptor(_)));
     assert!(!error.is_retryable());
-    assert!(error.source().unwrap().is::<InvalidMetadataValue>());
+    assert!(error.source().unwrap().is::<InvalidHeaderValue>());
     assert_eq!(interceptor.calls.load(Ordering::SeqCst), 1);
     assert!(ctx.requests.try_recv().is_err());
 }
@@ -368,7 +374,7 @@ impl Drop for Cancellation<'_> {
 
 #[tonic::async_trait]
 impl AsyncInterceptor for PendingInterceptor {
-    async fn call(&self, _request: Request<()>) -> anyhow::Result<Request<()>> {
+    async fn call(&self, _request: &mut HttpRequest<Body>) -> anyhow::Result<()> {
         let _guard = Cancellation(&self.0);
         std::future::pending().await
     }
@@ -437,4 +443,64 @@ async fn channel_failures_retain_retry_behavior() {
     let error = client.collections().list().await.unwrap_err();
     assert!(error.is_retryable(), "{error:?}");
     assert_eq!(interceptor.calls.load(Ordering::SeqCst), 2);
+}
+
+struct InspectInterceptor;
+
+#[tonic::async_trait]
+impl AsyncInterceptor for InspectInterceptor {
+    async fn call(&self, request: &mut HttpRequest<Body>) -> anyhow::Result<()> {
+        assert_eq!(request.method(), Method::POST);
+        assert_eq!(
+            request.uri().path(),
+            "/topk.control.v1.CollectionService/ListCollections"
+        );
+        assert_eq!(request.version(), Version::HTTP_2);
+        assert_eq!(
+            request.extensions().get::<GrpcMethod>().unwrap().method(),
+            "ListCollections"
+        );
+        assert_eq!(request.headers()["x-configured"], "present");
+        request.headers_mut().remove("x-remove");
+        request
+            .headers_mut()
+            .insert("authorization", "Bearer refreshed".parse()?);
+        Ok(())
+    }
+}
+
+#[tokio::test]
+async fn interception_preserves_request_and_applies_custom_changes() {
+    let mut ctx = Fixture::new().await;
+    let client = Client::from_channel(
+        ClientConfig::new("api-key", "test")
+            .with_headers([
+                ("x-custom", "preserved"),
+                ("x-configured", "present"),
+                ("x-remove", "original"),
+            ])
+            .with_interceptor(Arc::new(InspectInterceptor)),
+        ctx.channel.clone(),
+    );
+    client.collections().list().await.unwrap();
+    assert_eq!(ctx.requests.recv().await.unwrap(), "Bearer refreshed");
+}
+
+#[tokio::test]
+async fn invalid_configured_headers_are_rejected() {
+    let mut ctx = Fixture::new().await;
+    for (key, value) in [
+        ("x-invalid", "invalid\nheader"),
+        ("invalid header", "value"),
+    ] {
+        let client = Client::from_channel(
+            ClientConfig::new("api-key", "test").with_headers([(key, value)]),
+            ctx.channel.clone(),
+        );
+        assert!(matches!(
+            client.collections().list().await,
+            Err(Error::Input(_))
+        ));
+        assert!(ctx.requests.try_recv().is_err());
+    }
 }
