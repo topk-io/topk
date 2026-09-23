@@ -15,11 +15,8 @@ pub use config::ClientConfig;
 
 pub mod retry;
 
-mod interceptor;
-pub use interceptor::AppendHeadersInterceptor;
-
-mod trace;
-pub use trace::TracingInterceptor;
+mod transport;
+pub use transport::AsyncInterceptor;
 
 // (client) max message size for all requests
 pub const MAX_DECODING_MESSAGE_SIZE: usize = 512 * 1024 * 1024; // 512MB
@@ -87,7 +84,7 @@ impl Client {
 macro_rules! create_client {
     ($client:ident, $channel:expr, $config:expr) => {
         async {
-            use crate::client::AppendHeadersInterceptor;
+            use crate::client::transport::Transport;
             use crate::client::MAX_DECODING_MESSAGE_SIZE;
             use crate::client::MAX_ENCODING_MESSAGE_SIZE;
             use crate::client::MAX_HEADER_LIST_SIZE;
@@ -119,13 +116,11 @@ macro_rules! create_client {
                 })
                 .await?;
 
-            // Build interceptor
-            let interceptor = crate::client::TracingInterceptor::new(
-                AppendHeadersInterceptor::new($config.headers().clone())?,
-            );
+            // Create transport
+            let transport = Transport::new(channel.clone(), &$config)?;
 
             // Build client
-            let client = $client::with_interceptor(channel.clone(), interceptor)
+            let client = $client::new(transport)
                 .max_decoding_message_size(MAX_DECODING_MESSAGE_SIZE)
                 .max_encoding_message_size(MAX_ENCODING_MESSAGE_SIZE);
 
