@@ -38,11 +38,16 @@ async fn unreachable_lsn_is_rejected() {
     );
 }
 
+#[rstest]
+#[case::indexed("indexed")]
+#[case::strong("strong")]
 #[tokio::test]
-async fn read_at_consistency() {
+async fn read_at_consistency(#[case] consistency: &str) {
     let rows = BooksContext::with_scope(async |ctx: &BooksContext| {
-        ctx.sql("SELECT title FROM {{table}} WITH (consistency = 'strong') LIMIT 1")
-            .await
+        ctx.sql(format!(
+            "SELECT title FROM {{{{table}}}} WITH (consistency = '{consistency}') LIMIT 1"
+        ))
+        .await
     })
     .await
     .unwrap();
